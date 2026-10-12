@@ -16,7 +16,8 @@ not yet ported.
 > the `make sdk-upstream` route (see "Two ways to get ROOT"): it clones Valve's
 > public [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013)
 > and applies the patch series in `patches/source-sdk-2013/`. The tf2_descent
-> mod cannot be built without the host SDK.
+> server cannot be built without the host SDK: build with `HOST_SDK=0` (see
+> "Without the host SDK"), which is how CI builds.
 
 ## Prerequisites
 
@@ -60,6 +61,35 @@ gates. Maps: `make sandbox` regenerates `game/mod_test/maps/ss_sandbox.vmf`, and
 `managed` (xUnit), `native` (gtest), `oracle` (ports checked against the
 pristine upstream Valve SDK, see below), `entity` (the entity census and
 ratchet) and `ui` (the web UI's vitest suite).
+
+### Without the host SDK
+
+The TF2Descent server restores `SourceSharp.Host.Sdk` 2.6.0, packed from the
+[host repo](https://github.com/muflub/source-sdk-sharp-host) by `make setup`
+(`make host-pack`). The host's public `main` packs 1.0.0 and lacks that API, so
+a tree with only the public host builds with
+
+```bash
+make sdk-upstream HOST_SDK=0    # or make setup ROOT=... HOST_SDK=0
+make check HOST_SDK=0
+```
+
+which builds `SourceSharp.NoHost.slnf` (the solution minus `TF2.Descent.Server`
+and its facts; `tools/nohost-sln` keeps the filter in step with the solution),
+drops the `tf2_descent` test leg, and asks the host only for the Contracts
+package the rules module needs. Everything else is built and tested the same.
+
+### CI and releases
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull
+request: `make check HOST_SDK=0` on Linux, set up with `make sdk-upstream`;
+the managed solution and the web UI's suite on Windows and macOS; and the
+release build, `make ci-build` (the native libraries inside Valve's sniper
+container) packaged by `tools/package-release` into one game directory,
+`sourcesharp-<version>-linux-x64.tar.gz`, with the split debug info beside it
+in `-dbg.tar.gz`. Pushing a tag attaches both to the GitHub release. The game
+runs on Linux; the Windows and macOS jobs prove the managed code is portable,
+not that the game runs there.
 
 ## Layout
 

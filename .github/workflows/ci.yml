@@ -1,0 +1,214 @@
+name: CI
+
+# Linux is the platform the game runs on, so the Linux job is the gate: it is
+# `make check`, the same command a contributor runs before merging to main
+# (CLAUDE.md), on a tree set up the public way (`make sdk-upstream`: stock
+# Valve source-sdk-2013 plus patches/source-sdk-2013/). Windows and macOS
+# build the managed solution and run the web UI's suite, which is what of
+# this repo is portable today: the native build, the farm the managed facts
+# read and the launcher are Linux (bin/linux64, clang + lld, /proc), and a
+# managed fact that reads the farm or the built .so has nothing to read on
+# those runners. The package job makes the release archive on every run, so
+# a pull request proves the shipped build still builds; the release job
+# attaches it to the GitHub release when a tag is pushed.
+#
+# HOST_SDK=0 everywhere: the host repo's public main lacks the 2.x SDK the
+# Descent server speaks (the Makefile says more), so the server and its facts
+# are left out until the host publishes it. .github/actions/host-packages
+# packs the Contracts package the rest of the Descent mod restores.
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+  # The Makefile turns the MSBuild server on (?=, so this wins): right for a
+  # developer's shell that builds all day, wrong for a runner, where a server
+  # that outlives its step is a hung job.
+  DOTNET_CLI_USE_MSBUILD_SERVER: 'false'
+
+jobs:
+  linux:
+    name: linux (make check)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The build stamp and the Valve-text audit ask git about the tree.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/toolchain-linux
+      - uses: ./.github/actions/host-packages
+
+      # Clones Valve's source-sdk-2013 beside the checkout, applies the patch
+      # series (a deterministic `git am`; the sha it must land on is pinned in
+      # patches/source-sdk-2013/UPSTREAM), composes farm/<config> and
+      # bin/<config>, and clones the pristine upstream the oracle tests read.
+      - name: Set up (make sdk-upstream)
+        run: make sdk-upstream HOST_SDK=0
+
+      # debug build (web UI, managed, launcher, native with clang 22), then
+      # every test leg of both tiers, reported leg by leg (tools/run-test-legs).
+      - name: Build and test (make check)
+        run: make check HOST_SDK=0
+
+      # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
+      # it. A write means an output was linked where it should have been built.
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
+
+      - name: Upload test-leg logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-legs-linux
+          path: tools/.test-legs
+          if-no-files-found: ignore
+
+  managed:
+    name: managed (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      # The Node tools/get-node pins is a Linux tarball; here the runner's.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: ./.github/actions/host-packages
+
+      # Debug.Api.Server embeds src/debug_api/ui at compile time and refuses to
+      # build without it, so the UI comes first; its type check and vitest
+      # suite are the `ui` leg of `make test`.
+      - name: Web UI
+        working-directory: src/webui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npm run check
+          npm test
+
+      - name: Solution filter is in step with the solution
+        run: python3 tools/nohost-sln
+
+      - name: Build
+        run: dotnet build SourceSharp.NoHost.slnf -c Release
+
+  # The release build, made on every run: the managed assemblies and the
+  # launcher in Release, the native libraries inside Valve's sniper SDK
+  # container (make ci-build: gcc, and the glibc 2.31 ceiling the engine's
+  # runtime has), packaged by tools/package-release into one game directory
+  # that runs from wherever it is unpacked. Uploaded as a workflow artifact;
+  # the release job attaches it to the GitHub release on a tag.
+  package:
+    name: package (linux-x64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/toolchain-linux
+      - uses: ./.github/actions/host-packages
+
+      - name: Set up (make sdk-upstream)
+        run: make sdk-upstream HOST_SDK=0
+
+      - name: Label
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
+          echo "SS_LABEL=$v" >> "$GITHUB_ENV"
+
+      # What buildsourcesharp does for `make release`, minus its host-clang
+      # native build, which the container build below replaces.
+      - name: Web UI, managed assemblies and launcher (Release)
+        run: |
+          make ui CONFIG=release
+          ~/.dotnet/dotnet build SourceSharp.NoHost.slnf -v q --nologo -c Release
+          ~/.dotnet/dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
+
+      - name: Native libraries in the sniper container (make ci-build)
+        env:
+          # The runner carries podman too; docker is the one whose daemon is up.
+          SS_CI_RUNNER: docker
+        run: make ci-build HOST_SDK=0 CONFIG=release
+
+      - name: Package
+        run: |
+          tools/package-release --config release --label "$SS_LABEL" \
+            --native bin/ci-release/linux64 --out dist
+          ls -la dist
+
+      # The archive unpacks to a game directory whose launcher runs on its
+      # own: --help needs no engine and no Steam.
+      - name: Smoke
+        run: |
+          mkdir -p out/smoke
+          tar -C out/smoke -xzf "dist/sourcesharp-$SS_LABEL-linux-x64.tar.gz"
+          ./out/smoke/sourcesharp/source# --help | sed -n 1p
+          for so in server.so client.so libmanaged_host.so libsteam_api.so; do
+            test -f "out/smoke/sourcesharp/bin/linux64/$so" || { echo "::error::$so is not in the archive"; exit 1; }
+          done
+          test -L out/smoke/sourcesharp/mods/test/bin
+          test -f out/smoke/sourcesharp/bin/managed/SourceSharp.Server.dll
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sourcesharp-linux-x64
+          path: dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [linux, managed, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sourcesharp-*
+          path: dist
+          merge-multiple: true
+
+      - name: Attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la dist
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
