@@ -172,6 +172,9 @@ jobs:
 
       # cl, link and the Windows SDK on PATH, as a VS 2022 x64 developer
       # prompt would have them (the presets name `cl`).
+      # It also exports Platform=x64, which MSBuild takes as the solution
+      # platform (SourceSharp.slnx has only Any CPU), so every dotnet command
+      # below runs under `env -u Platform`.
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
@@ -218,7 +221,7 @@ jobs:
           npm run build --silent
 
       - name: Managed assemblies (Release)
-        run: dotnet build SourceSharp.slnx -v q --nologo -c Release
+        run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Release
 
       - name: Native libraries (cmake --preset windows-release)
         run: |
@@ -230,7 +233,7 @@ jobs:
       # Windows), into bin/release/source#.exe.
       - name: Launcher (dotnet publish src/launcher)
         run: |
-          dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
+          env -u Platform dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
           ls -la bin/release/source#*
           ./bin/release/source#.exe --help | sed -n 1p
 
@@ -260,23 +263,23 @@ jobs:
       # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
       # from the built assemblies as the Makefile's legs run them.
       - name: Build the tests (Debug)
-        run: dotnet build SourceSharp.slnx -v q --nologo -c Debug
+        run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
 
       # The gate: the managed legs of the public tier (TEST_PUBLIC_LEGS).
       # oracle-managed reads the pristine upstream clone, which only the
       # Linux job provisions.
       - name: Test (managed, tf2_descent)
         run: |
-          dotnet test bin/debug/tests/SourceSharp.Shared.Tests.dll --nologo
-          dotnet test bin/debug/tf2_descent-tests/TF2.Descent.Tests.dll --nologo
+          env -u Platform dotnet test bin/debug/tests/SourceSharp.Shared.Tests.dll --nologo
+          env -u Platform dotnet test bin/debug/tf2_descent-tests/TF2.Descent.Tests.dll --nologo
 
       # The server and client facts, for the record as on Linux.
       - name: Every other managed leg (informational, server and client)
         continue-on-error: true
         run: |
           rc=0
-          dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo || rc=1
-          dotnet test bin/debug/tests-client/SourceSharp.Client.Tests.dll --nologo || rc=1
+          env -u Platform dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo || rc=1
+          env -u Platform dotnet test bin/debug/tests-client/SourceSharp.Client.Tests.dll --nologo || rc=1
           exit $rc
 
       - name: ROOT is untouched
