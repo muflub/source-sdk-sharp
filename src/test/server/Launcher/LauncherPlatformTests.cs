@@ -4,10 +4,10 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// source# on the three platforms: what <see cref="LauncherPlatform"/> spells
+/// source# on its two platforms: what <see cref="LauncherPlatform"/> spells
 /// differently, and that the launcher reads it. The Linux facts in
 /// LauncherTests pin the Linux spellings through the default; these pin the
-/// Windows and macOS ones, and that Linux's are the defaults.
+/// Windows ones, and that Linux's are the defaults.
 /// </summary>
 public sealed class LauncherPlatformTests : IDisposable
 {
@@ -78,22 +78,19 @@ public sealed class LauncherPlatformTests : IDisposable
     {
         Assert.Equal(Path.Combine("inst", "bin", "linux64"), LauncherPlatform.Linux.LibraryDir("inst"));
         Assert.Equal(Path.Combine("inst", "bin", "x64"), LauncherPlatform.Windows.LibraryDir("inst"));
-        Assert.Equal(Path.Combine("inst", "bin", "osx64"), LauncherPlatform.MacOS.LibraryDir("inst"));
         Assert.Equal("libsteam_api.so", LauncherPlatform.Linux.SteamLibrary);
         Assert.Equal("steam_api64.dll", LauncherPlatform.Windows.SteamLibrary);
-        Assert.Null(LauncherPlatform.MacOS.SteamLibrary);
     }
 
     [Theory]
-    [InlineData("hl2_linux64", "hl2_linux64", "hl2_win64.exe", "hl2_osx")]
-    [InlineData("srcds_linux64", "srcds_linux64", "srcds_win64.exe", "srcds_osx")]
-    [InlineData("mymod_win64.exe", "mymod_win64.exe", "mymod_win64.exe", "mymod_win64.exe")]
-    [InlineData("hl2", "hl2", "hl2", "hl2")]
-    public void The_roles_executable_is_renamed_from_the_linux_spelling_per_platform(string exe, string linux, string windows, string osx)
+    [InlineData("hl2_linux64", "hl2_linux64", "hl2_win64.exe")]
+    [InlineData("srcds_linux64", "srcds_linux64", "srcds_win64.exe")]
+    [InlineData("mymod_win64.exe", "mymod_win64.exe", "mymod_win64.exe")]
+    [InlineData("hl2", "hl2", "hl2")]
+    public void The_roles_executable_is_renamed_from_the_linux_spelling_per_platform(string exe, string linux, string windows)
     {
         Assert.Equal(linux, LauncherPlatform.Linux.ExeName(exe));
         Assert.Equal(windows, LauncherPlatform.Windows.ExeName(exe));
-        Assert.Equal(osx, LauncherPlatform.MacOS.ExeName(exe));
     }
 
     [Fact]
@@ -101,14 +98,12 @@ public sealed class LauncherPlatformTests : IDisposable
     {
         Assert.Equal(("LD_LIBRARY_PATH", ':'), (LauncherPlatform.Linux.LibraryPathVariable, LauncherPlatform.Linux.PathListSeparator));
         Assert.Equal(("PATH", ';'), (LauncherPlatform.Windows.LibraryPathVariable, LauncherPlatform.Windows.PathListSeparator));
-        Assert.Equal(("DYLD_LIBRARY_PATH", ':'), (LauncherPlatform.MacOS.LibraryPathVariable, LauncherPlatform.MacOS.PathListSeparator));
     }
 
     [Fact]
-    public void The_default_instance_base_is_tmp_where_there_is_one_and_the_temp_dir_on_windows()
+    public void The_default_instance_base_is_tmp_on_linux_and_the_temp_dir_on_windows()
     {
         Assert.Equal("/tmp/ssi-me", LauncherPlatform.Linux.DefaultInstanceBase("me"));
-        Assert.Equal("/tmp/ssi-me", LauncherPlatform.MacOS.DefaultInstanceBase("me"));
         Assert.Equal(Path.Combine(Path.GetTempPath(), "ssi-me"), LauncherPlatform.Windows.DefaultInstanceBase("me"));
         Assert.Equal(LauncherPlatform.Windows.DefaultInstanceBase(Environment.UserName),
             Launcher.Launcher.InstanceBase(new Dictionary<string, string>(), LauncherPlatform.Windows));
@@ -117,8 +112,7 @@ public sealed class LauncherPlatformTests : IDisposable
     [Fact]
     public void Current_is_this_process_platform()
     {
-        LauncherPlatform expected = OperatingSystem.IsWindows() ? LauncherPlatform.Windows
-            : OperatingSystem.IsMacOS() ? LauncherPlatform.MacOS : LauncherPlatform.Linux;
+        LauncherPlatform expected = OperatingSystem.IsWindows() ? LauncherPlatform.Windows : LauncherPlatform.Linux;
         Assert.Same(expected, LauncherPlatform.Current);
     }
 
@@ -146,28 +140,6 @@ public sealed class LauncherPlatformTests : IDisposable
         Assert.Equal(Path.Combine(_install, "bin", "x64") + @";C:\old", env["PATH"]);
         Assert.False(env.ContainsKey("LD_LIBRARY_PATH"));
         Assert.False(env.ContainsKey("__GL_THREADED_OPTIMIZATIONS"));
-    }
-
-    [Fact]
-    public void On_macos_without_an_engine_directory_the_launcher_says_how_to_name_one()
-    {
-        var steam = new FakeSteam(SteamAnswer.Found(_install));
-        var runner = new FakeRunner();
-        Assert.Equal(1, Run(LauncherPlatform.MacOS, steam, runner));
-        Assert.Empty(steam.Calls);
-        Assert.Empty(runner.Runs);
-        Assert.Contains("-engine <dir>", _err.ToString());
-    }
-
-    [Fact]
-    public void On_macos_a_named_engine_directory_runs_the_osx_exe_with_DYLD_LIBRARY_PATH()
-    {
-        File.WriteAllText(Path.Combine(_install, "hl2_osx"), "");
-        var runner = new FakeRunner();
-        Assert.Equal(0, Run(LauncherPlatform.MacOS, new FakeSteam(SteamAnswer.Failed("never asked")), runner,
-            new Dictionary<string, string>(), "-engine", _install));
-        Assert.Equal(Path.Combine(_install, "hl2_osx"), runner.Runs[0].Exe);
-        Assert.Equal(Path.Combine(_install, "bin", "osx64") + ":", runner.Runs[0].Env["DYLD_LIBRARY_PATH"]);
     }
 
     [Fact]

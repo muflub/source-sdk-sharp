@@ -14,12 +14,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <!-- The platform this build runs on, x64 on each: the engine is x86-64
-         only, so an Apple Silicon machine publishes the osx-x64 launcher too.
-         Linux unless the host says otherwise (a build on Linux is the Linux
-         launcher, as before). -->
+    <!-- The platform this build runs on, x64 on each (the engine is x86-64
+         only): win-x64 on Windows, else Linux (a build on Linux is the Linux
+         launcher, as before). No macOS launcher: Valve no longer supports the
+         Source SDK 2013 games there. -->
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</RuntimeIdentifier>
-    <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">linux-x64</RuntimeIdentifier>
     <!-- Not beside the managed game assemblies: the launcher is not loaded by the game. -->
     <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/launcher/</OutputPath>

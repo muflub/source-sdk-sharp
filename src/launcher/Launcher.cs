@@ -218,15 +218,11 @@ internal sealed class Launcher(
         // one stem; mods.yaml spells the Linux one.
         role = role with { Exe = Platform.ExeName(role.Exe) };
 
-        string steamLibrary = Path.Combine(Platform.LibraryDir(launcherDir), Platform.SteamLibrary ?? "");
+        string steamLibrary = Path.Combine(Platform.LibraryDir(launcherDir), Platform.SteamLibrary);
         string install;
         if (engineDir is not null)
         {
             install = Path.GetFullPath(engineDir);
-        }
-        else if (Platform.SteamLibrary is null)
-        {
-            return Error($"No Steam API library ships for {Platform.Name}: name the engine directory with -engine <dir> or SOURCESHARP_ENGINE_DIR.");
         }
         else
         {
@@ -427,8 +423,8 @@ internal sealed class Launcher(
 
         // hl2.sh: export LD_LIBRARY_PATH="${GAMEROOT}/bin/$plat_dir":$LD_LIBRARY_PATH
         // -- including the trailing colon when it was empty, kept for parity.
-        // The platform names the variable (PATH on Windows, DYLD_LIBRARY_PATH
-        // on macOS) and the separator; the shape is the same.
+        // The platform names the variable (PATH on Windows) and the
+        // separator; the shape is the same.
         current.TryGetValue(platform.LibraryPathVariable, out string? ld);
         //
         // Then, when the executable comes from another install (exe_appid), that

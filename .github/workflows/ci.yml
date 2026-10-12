@@ -15,10 +15,9 @@ name: CI
 # assemblies. The release job attaches both platforms' archives to the
 # GitHub release when a tag is pushed.
 #
-# No macOS job: Valve no longer supports the Source SDK 2013 games on macOS
-# (the 2025 SDK update dropped it), so nothing would run what it built. The
-# osx column of the CMake project and the launcher's macOS platform stay as
-# code, for anyone who still has the old engine, but CI holds nothing to.
+# No macOS job: Valve no longer supports the Source SDK 2013 games on macOS,
+# so nothing would run what it built, and the launcher has no macOS build.
+# The osx column of the CMake project stays as code, but CI holds nothing to.
 
 on:
   push:

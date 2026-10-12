@@ -92,10 +92,10 @@ packaged by `tools/package-release` into one game directory,
 `sourcesharp-<version>-linux-x64.tar.gz`, with the split debug info beside
 it in `-dbg.tar.gz`. Pushing a tag attaches the archives to the GitHub
 release. There is no macOS job: Valve no longer supports the Source SDK 2013
-games on macOS. The `osx-*` presets and `tools/package-release --platform
-osx-x64` remain for a machine that still has the old engine; Valve ships no
-prebuilt libraries for macOS, so that build links with dynamic lookup and has
-no particles library (`cmake/sdk/CMakeLists.txt`).
+games on macOS, and the launcher has no macOS build. The `osx-*` CMake
+presets remain for the native libraries alone; Valve ships no prebuilt
+libraries for macOS, so that build links with dynamic lookup and has no
+particles library (`cmake/sdk/CMakeLists.txt`).
 
 `make check-public` is the whole build plus the *public tier* of test legs
 (`TEST_PUBLIC_LEGS` in the Makefile): the legs whose result depends on this

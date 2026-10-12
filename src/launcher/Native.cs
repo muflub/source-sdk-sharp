@@ -177,13 +177,11 @@ internal sealed unsafe partial class SdlMessageBox : IMessageBox
         if (OperatingSystem.IsWindows())
             return MessageBoxW(IntPtr.Zero, text, title, MB_OK | MB_ICONERROR) != 0;
 
-        // The engine's own SDL2, by the name its platform gives it; else the
-        // system's. macOS: libSDL2-2.0.0.dylib.
-        string sdl = OperatingSystem.IsMacOS() ? "libSDL2-2.0.0.dylib" : "libSDL2-2.0.so.0";
-        string binDir = OperatingSystem.IsMacOS() ? "osx64" : "linux64";
+        // The engine's own SDL2; else the system's.
+        const string sdl = "libSDL2-2.0.so.0";
         IntPtr lib = IntPtr.Zero;
         if (engineInstallDir is not null)
-            NativeLibrary.TryLoad(Path.Combine(engineInstallDir, "bin", binDir, sdl), out lib);
+            NativeLibrary.TryLoad(Path.Combine(engineInstallDir, "bin", "linux64", sdl), out lib);
         if (lib == IntPtr.Zero && !NativeLibrary.TryLoad(sdl, out lib))
             return false;
 
