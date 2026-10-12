@@ -230,17 +230,17 @@ HOST_ROOT ?= $(abspath ../source-sdk-sharp-host)
 
 # HOST_SDK=0: build and test without the host's SDK package.
 #
-# The TF2Descent server speaks the host's 2.x SDK (src/tf2_descent/
-# Directory.Build.props pins SourceSharp.Host.Sdk 2.6.0), and that SDK is
-# packed from a host checkout this tree's owner has; the host's public main
-# packs 1.0.0 and lacks the 2.x API, so a machine with only the public host
-# (CI, a fresh contributor) cannot compile TF2.Descent.Server or its facts.
-# HOST_SDK=0 builds SourceSharp.NoHost.slnf instead -- SourceSharp.slnx minus
-# exactly those two projects (tools/nohost-sln keeps the filter honest) --
-# drops the tf2_descent test leg with them, and asks the host only for the
-# Contracts package the rules module restores (which the public host packs).
-# Everything else builds and is tested the same; .github/workflows/ci.yml runs
-# this way until the host publishes the 2.x SDK.
+# The TF2Descent server speaks the host's SDK (src/tf2_descent/
+# Directory.Build.props pins SourceSharp.Host.Sdk 2.6.0), packed from a
+# checkout of source-sdk-sharp-host beside this one (`make host-pack`). A
+# tree with no such checkout, or one older than the pinned SDK, cannot
+# compile TF2.Descent.Server or its facts. HOST_SDK=0 builds
+# SourceSharp.NoHost.slnf instead -- SourceSharp.slnx minus exactly those two
+# projects (tools/nohost-sln keeps the filter honest) -- drops the
+# tf2_descent test leg with them, and asks the host only for the Contracts
+# package the rules module restores. Everything else builds and is tested the
+# same. CI packs both packages from the host's public main
+# (.github/actions/host-packages) and builds the whole solution.
 HOST_SDK ?= 1
 SLN := $(if $(filter 0,$(HOST_SDK)),SourceSharp.NoHost.slnf,SourceSharp.slnx)
 # buildsourcesharp builds the same solution (it reads SS_SLN), and a fact that

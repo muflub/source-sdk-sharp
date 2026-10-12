@@ -1,28 +1,21 @@
 name: CI
 
-# Linux is the platform the game runs on, so the Linux job is the gate: it is
-# `make check`, the same command a contributor runs before merging to main
-# (CLAUDE.md), on a tree set up the public way (`make sdk-upstream`: stock
-# Valve source-sdk-2013 plus patches/source-sdk-2013/). Windows and macOS
-# build the managed solution and run the web UI's suite, which is what of
-# this repo is portable today. What those platforms are meant to contribute
-# to a release is their own native libraries (server, client, particles) and
-# launcher over the managed assemblies the Linux job builds, which are the
-# same on every platform; that waits on a port of the native build, which is
-# Linux by construction (cmake/SourceSharp.cmake: _LINUX/POSIX defines,
-# .so, lld version scripts, Valve's linux64 prebuilts, bin/linux64), and of
-# the launcher (LD_LIBRARY_PATH, /proc, libc). Valve's SDK ships Windows x64
-# .lib files for such a port and nothing for macOS. Until then a managed
-# fact that reads the farm or the built .so has nothing to read on those
-# runners, so no managed test leg runs there. The package job makes the
-# release archive on every run, so a pull request proves the shipped build
-# still builds; the release job attaches it to the GitHub release when a tag
-# is pushed.
+# Linux is the platform the game is developed and tested on, so the Linux job
+# is the gate: `make check-public`, the whole build plus the public tier of
+# test legs (the Makefile's TEST_PUBLIC_LEGS says what that is and why), on a
+# tree set up the public way (`make sdk-upstream`: stock Valve source-sdk-2013
+# plus patches/source-sdk-2013/). The managed assemblies are the same bytes
+# on every platform, so they are built once, there, and the package job
+# (also Linux) builds the shipped Linux native libraries inside Valve's
+# sniper container and makes the Linux release archive on every run.
 #
-# HOST_SDK=0 everywhere: the host repo's public main lacks the 2.x SDK the
-# Descent server speaks (the Makefile says more), so the server and its facts
-# are left out until the host publishes it. .github/actions/host-packages
-# packs the Contracts package the rest of the Descent mod restores.
+# Windows and macOS build what is theirs: the native libraries (server,
+# client, particles, the managed host) with their own toolchains, from the
+# same farm, through the windows-* and osx-* presets. Valve's SDK ships
+# prebuilt libraries for Windows and none for macOS, so macOS links with
+# dynamic lookup and builds no particles library (cmake/sdk/CMakeLists.txt).
+# The release job attaches every platform's archive to the GitHub release
+# when a tag is pushed.
 
 on:
   push:
@@ -48,7 +41,7 @@ env:
 
 jobs:
   linux:
-    name: linux (make check)
+    name: linux (make check-public)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -65,14 +58,14 @@ jobs:
       # patches/source-sdk-2013/UPSTREAM), composes farm/<config> and
       # bin/<config>, and clones the pristine upstream the oracle tests read.
       - name: Set up (make sdk-upstream)
-        run: make sdk-upstream HOST_SDK=0
+        run: make sdk-upstream
 
       # debug build (web UI, managed, launcher, native tests included, with
       # clang 22), then the public tier of test legs: the ones a machine with
       # only the public inputs can be held to (TEST_PUBLIC_LEGS in the
       # Makefile names them and says why the rest are not).
       - name: Build and test (make check-public)
-        run: make check-public HOST_SDK=0
+        run: make check-public
 
       # The rest of `make check`, for the record and not for the verdict: at
       # 0805b2f these legs fail off the owner's machine for machine-recorded
@@ -83,7 +76,7 @@ jobs:
       # run and a leg that comes good can be moved into the public tier.
       - name: Every other leg (informational, make test-full)
         continue-on-error: true
-        run: make test-full HOST_SDK=0
+        run: make test-full
 
       # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
       # it. A write means an output was linked where it should have been built.
@@ -104,49 +97,84 @@ jobs:
           path: tools/.test-legs
           if-no-files-found: ignore
 
-  managed:
-    name: managed (${{ matrix.os }})
+  # The native libraries on the platforms whose toolchains differ from
+  # Linux's: the same farm (tools/sdk-upstream and tools/setup are Python and
+  # run anywhere git and symlinks do), the same CMake project, the platform's
+  # preset. --no-provision --no-valve-sdk: a native-only build needs no
+  # bundled .NET, no Node and no oracle clone.
+  native:
+    name: native (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - { name: win-x64, os: windows-latest, preset: windows-release, bindir: x64 }
+          - { name: osx-x64, os: macos-latest, preset: osx-release, bindir: osx64 }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v7
 
-      # The Node tools/get-node pins is a Linux tarball; here the runner's.
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-python@v6
         with:
-          node-version: 24
+          python-version: '3.12'
 
+      - name: Tools (PyYAML for tools/setup, Ninja for the build)
+        run: python -m pip install --quiet pyyaml ninja
+
+      # cl, link and the Windows SDK on PATH, as a VS 2022 x64 developer
+      # prompt would have them (the presets name `cl`).
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: x64
+
+      - name: Set up (tools/sdk-upstream, tools/setup)
+        run: |
+          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
+          python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --no-valve-sdk
+
+      - name: Configure (cmake --preset ${{ matrix.preset }})
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: What was built
+        run: ls -la bin/release/bin/${{ matrix.bindir }}
+
+      # source#, the launcher: NativeAOT for this platform (the csproj picks
+      # win-x64 / osx-x64 from the host), into bin/release/source#[.exe].
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
 
-      - uses: ./.github/actions/host-packages
-
-      # Debug.Api.Server embeds src/debug_api/ui at compile time and refuses to
-      # build without it, so the UI comes first; its type check and vitest
-      # suite are the `ui` leg of `make test`.
-      - name: Web UI
-        working-directory: src/webui
+      - name: Launcher (dotnet publish src/launcher)
         run: |
-          npm ci --no-audit --no-fund
-          npm run build
-          npm run check
-          npm test
+          dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
+          ls -la bin/release/source#*
+          ./bin/release/source#* --help | sed -n 1p
 
-      - name: Solution filter is in step with the solution
-        run: python3 tools/nohost-sln
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
 
-      - name: Build
-        run: dotnet build SourceSharp.NoHost.slnf -c Release
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.name }}
+          path: |
+            bin/release/bin/${{ matrix.bindir }}
+            bin/release/source#*
 
-  # The release build, made on every run: the managed assemblies and the
+  # The Linux release build, made on every run: the managed assemblies and the
   # launcher in Release, the native libraries inside Valve's sniper SDK
   # container (make ci-build: gcc, and the glibc 2.31 ceiling the engine's
   # runtime has), packaged by tools/package-release into one game directory
@@ -165,7 +193,7 @@ jobs:
       - uses: ./.github/actions/host-packages
 
       - name: Set up (make sdk-upstream)
-        run: make sdk-upstream HOST_SDK=0
+        run: make sdk-upstream
 
       - name: Label
         run: |
@@ -177,14 +205,14 @@ jobs:
       - name: Web UI, managed assemblies and launcher (Release)
         run: |
           make ui CONFIG=release
-          ~/.dotnet/dotnet build SourceSharp.NoHost.slnf -v q --nologo -c Release
+          ~/.dotnet/dotnet build SourceSharp.slnx -v q --nologo -c Release
           ~/.dotnet/dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
 
       - name: Native libraries in the sniper container (make ci-build)
         env:
           # The runner carries podman too; docker is the one whose daemon is up.
           SS_CI_RUNNER: docker
-        run: make ci-build HOST_SDK=0 CONFIG=release
+        run: make ci-build CONFIG=release
 
       - name: Package
         run: |
@@ -212,7 +240,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [linux, managed, package]
+    needs: [linux, native, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write

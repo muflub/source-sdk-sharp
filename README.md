@@ -11,13 +11,14 @@ of the Valve SDK fork, [`source-sdk-2013`](../source-sdk-2013), which keeps
 Valve's files, SourceSharp's edits to them, and Valve code that was relocated but
 not yet ported.
 
-> **Not yet public: the build needs a Valve SDK checkout.** The fork and
-> tf2_descent's host SDK (`source-sdk-sharp-host`) are not published yet. Use
+> **The build needs a Valve SDK checkout.** The fork is not published; use
 > the `make sdk-upstream` route (see "Two ways to get ROOT"): it clones Valve's
 > public [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013)
 > and applies the patch series in `patches/source-sdk-2013/`. The tf2_descent
-> server cannot be built without the host SDK: build with `HOST_SDK=0` (see
-> "Without the host SDK"), which is how CI builds.
+> server restores the host SDK from a checkout of
+> [`source-sdk-sharp-host`](https://github.com/muflub/source-sdk-sharp-host)
+> beside this one; without one, build with `HOST_SDK=0` (see "Without the
+> host SDK").
 
 ## Prerequisites
 
@@ -64,10 +65,10 @@ ratchet) and `ui` (the web UI's vitest suite).
 
 ### Without the host SDK
 
-The TF2Descent server restores `SourceSharp.Host.Sdk` 2.6.0, packed from the
-[host repo](https://github.com/muflub/source-sdk-sharp-host) by `make setup`
-(`make host-pack`). The host's public `main` packs 1.0.0 and lacks that API, so
-a tree with only the public host builds with
+The TF2Descent server restores `SourceSharp.Host.Sdk` 2.6.0, packed from a
+checkout of the [host repo](https://github.com/muflub/source-sdk-sharp-host)
+beside this one by `make setup` (`make host-pack`). A tree with no host
+checkout builds with
 
 ```bash
 make sdk-upstream HOST_SDK=0    # or make setup ROOT=... HOST_SDK=0
@@ -82,14 +83,16 @@ package the rules module needs. Everything else is built and tested the same.
 ### CI and releases
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull
-request: `make check-public HOST_SDK=0` on Linux, set up with `make
-sdk-upstream`; the managed solution and the web UI's suite on Windows and
-macOS; and the release build, `make ci-build` (the native libraries inside
-Valve's sniper container) packaged by `tools/package-release` into one game
+request: `make check-public` on Linux, set up with `make sdk-upstream`; the
+native libraries on Windows (MSVC, the `windows-release` preset) and macOS
+(Apple clang, x86_64, the `osx-release` preset) from the same farm; and the
+Linux release build, `make ci-build` (the native libraries inside Valve's
+sniper container) packaged by `tools/package-release` into one game
 directory, `sourcesharp-<version>-linux-x64.tar.gz`, with the split debug
-info beside it in `-dbg.tar.gz`. Pushing a tag attaches both to the GitHub
-release. The game runs on Linux; the Windows and macOS jobs prove the managed
-code is portable, not that the game runs there.
+info beside it in `-dbg.tar.gz`. Pushing a tag attaches the archives to the
+GitHub release. Valve ships prebuilt libraries for Linux and Windows and none
+for macOS, so the macOS build links with dynamic lookup and has no particles
+library (`cmake/sdk/CMakeLists.txt`).
 
 `make check-public` is the whole build plus the *public tier* of test legs
 (`TEST_PUBLIC_LEGS` in the Makefile): the legs whose result depends on this

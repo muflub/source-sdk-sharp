@@ -1,20 +1,17 @@
 name: Host packages
 description: >-
-  Clone source-sdk-sharp-host beside this checkout and pack the NuGet package
-  the TF2Descent rules module restores (SourceSharp.Host.Contracts), where
-  src/tf2_descent/Directory.Build.props looks for it.
+  Clone source-sdk-sharp-host beside this checkout and pack the NuGet packages
+  the TF2Descent projects restore (SourceSharp.Host.Contracts for the rules
+  module, SourceSharp.Host.Sdk for the server), where
+  src/tf2_descent/Directory.Build.props looks for them.
 
-# Why only Contracts: the Descent server also restores SourceSharp.Host.Sdk
-# 2.6.0, the host's 2.x SDK, and the host's public main packs 1.0.0 without
-# that API. So CI builds with HOST_SDK=0 (see the Makefile), which leaves the
-# server and its facts out and needs only Contracts, which the public host
-# does pack. When the host publishes the 2.x SDK, pack it here too and drop
-# HOST_SDK=0 from the workflow.
-#
 # The host's own `make setup` writes roots.props (where the map tools are)
 # and restores its whole solution; this does the first by hand and skips the
-# second, since packing Contracts restores only what Contracts needs. The map
-# tools clone keeps roots.props truthful; nothing here builds against it.
+# second, since packing the two packages restores only what they need. The
+# map tools clone keeps roots.props truthful; nothing here builds against it.
+# The versions are the projects' own (<Version> in each csproj, which the
+# host's facts hold equal to HostSdk.Version and HostContract.Version); the
+# check at the end is that they are the ones this tree pins.
 #
 # Everything is bash so the one action serves Linux, Windows and macOS. The
 # `dotnet` on PATH is used: the Linux jobs put ~/.dotnet there, the others
@@ -43,18 +40,20 @@ runs:
         printf '<Project>\n  <PropertyGroup>\n    <MapToolsRoot>%s/</MapToolsRoot>\n  </PropertyGroup>\n</Project>\n' \
           "$beside/source-sdk-map-tools" > "$beside/source-sdk-sharp-host/roots.props"
 
-    - name: Pack SourceSharp.Host.Contracts
+    - name: Pack SourceSharp.Host.Contracts and SourceSharp.Host.Sdk
       shell: bash
       run: |
         set -euo pipefail
         ws="$(cygpath -u "$GITHUB_WORKSPACE" 2> /dev/null || echo "$GITHUB_WORKSPACE")"
         host="$(cd "$ws/.." && pwd)/source-sdk-sharp-host"
-        # The version the rules module pins, so the package restores by that
-        # exact number whatever the host's project says.
-        contracts="$(sed -n 's:.*<HostContractsVersion>\(.*\)</HostContractsVersion>.*:\1:p' \
-          "$ws/src/tf2_descent/Directory.Build.props")"
-        [[ -n "$contracts" ]] || { echo "::error::no HostContractsVersion in src/tf2_descent/Directory.Build.props"; exit 1; }
-        dotnet pack "$host/src/Host.Contracts/Host.Contracts.csproj" -c Release \
-          -o "$host/bin/nupkg" --nologo -v q -p:Version="$contracts"
+        props="$ws/src/tf2_descent/Directory.Build.props"
+        contracts="$(sed -n 's:.*<HostContractsVersion>\(.*\)</HostContractsVersion>.*:\1:p' "$props")"
+        sdk="$(sed -n 's:.*<HostSdkVersion>\(.*\)</HostSdkVersion>.*:\1:p' "$props")"
+        [[ -n "$contracts" && -n "$sdk" ]] || { echo "::error::no HostContractsVersion / HostSdkVersion in $props"; exit 1; }
+        dotnet pack "$host/src/Host.Contracts/Host.Contracts.csproj" -c Release -o "$host/bin/nupkg" --nologo -v q
+        dotnet pack "$host/src/Host.Sdk/Host.Sdk.csproj" -c Release -o "$host/bin/nupkg" --nologo -v q
         ls -la "$host/bin/nupkg"
-        test -f "$host/bin/nupkg/SourceSharp.Host.Contracts.$contracts.nupkg"
+        for want in "SourceSharp.Host.Contracts.$contracts" "SourceSharp.Host.Sdk.$sdk"; do
+          test -f "$host/bin/nupkg/$want.nupkg" \
+            || { echo "::error::the host packs no $want.nupkg: this tree pins a version the host at ${{ inputs.host-ref }} does not build"; exit 1; }
+        done
