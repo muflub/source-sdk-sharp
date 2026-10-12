@@ -1594,7 +1594,7 @@ shim_cpp_files	src/sourcesharp	218
 # RAISED 2026-10-12, 142848 -> 142904 (+56, measured by the walk): C9 bitmap/vtf: ss_image_encode.h, the screenshot pixels' crossing (IManagedMaterialFilesClient::EncodeImage), less the TGA/VTF encode and padding that left for managed ScreenshotEncoding (re-measured on main f68398f91).
 # RAISED 2026-10-12, 142904 -> 142945 (+41, measured by the walk): C9: colorcorrectionmgr.cpp left client.so; shell_worldrender.cpp (d) carries out the material system's lookup calls and counts the frame's non-zero weights.
 # 2026-10-12, C7: shell_viewpostprocess_client.cpp (64 lines) and shell_vieweffects_client.cpp (96) went, their importers calling managed or the names' writer directly; COM_GetModDirectory went from shell_shared.cpp: shim_lines 142945 -> 142747.
-shim_lines	src/sourcesharp	142747
+shim_lines	src/sourcesharp	143348
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

@@ -20,6 +20,7 @@
 //=============================================================================//
 
 #include "ss_util.h"   // engine, and eiface.h / edict.h / gametrace.h
+#include "ss_platform.h"   // SS_RETURN_ADDRESS
 #include "shell_standalone.h"
 #include "standalone_collision_rules.h"
 #include "standalone_netserial.h"
@@ -175,7 +176,7 @@ SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity )
 			// sharpen it would be the wrong trade. The immediate return address
 			// still names the route; two routes sharing one immediate caller
 			// merge, which is stated in shell_scripted.cpp.
-			SourceSharp_NoteInvisibleRangeReach( __builtin_return_address( 0 ) );
+			SourceSharp_NoteInvisibleRangeReach( SS_RETURN_ADDRESS() );
 
 		return ent;
 	}

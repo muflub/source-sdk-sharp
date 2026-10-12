@@ -34,7 +34,9 @@
 	#include <dlfcn.h>
 	#include <dirent.h>
 	#include <unistd.h>
-	#include <sys/prctl.h>
+	#if defined( __linux__ )
+		#include <sys/prctl.h>
+	#endif
 	#define SS_PATHSEP "/"
 	typedef void *ss_module_t;
 	static ss_module_t ss_dlopen( const char *p ) { return ::dlopen( p, RTLD_LAZY | RTLD_LOCAL ); }

@@ -35,9 +35,7 @@
 #include "shell_managed_areas_client.h"
 #include "vtable_hook.h"
 #include "map_material_reload.h"
-
-#include <sys/mman.h>
-#include <unistd.h>
+#include "ss_platform.h"
 
 namespace
 {
@@ -99,14 +97,12 @@ void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )
 
 bool Patch( void **pVtbl, int nSlot, void *pNew, void **ppOld )
 {
-	const long nPage = sysconf( _SC_PAGESIZE );
-	uintptr_t page = (uintptr_t)&pVtbl[ nSlot ] & ~(uintptr_t)( nPage - 1 );
-	if ( mprotect( (void *)page, nPage, PROT_READ | PROT_WRITE ) != 0 )
+	if ( !SS_PageProtect( &pVtbl[ nSlot ], SS_PAGE_READ | SS_PAGE_WRITE ) )
 		return false;
 	if ( ppOld )
 		*ppOld = pVtbl[ nSlot ];
 	pVtbl[ nSlot ] = pNew;
-	mprotect( (void *)page, nPage, PROT_READ );
+	SS_PageProtect( &pVtbl[ nSlot ], SS_PAGE_READ );
 	return true;
 }
 

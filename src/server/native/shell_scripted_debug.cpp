@@ -20,8 +20,8 @@
 //=============================================================================//
 
 #include <stdint.h>
-#include <dlfcn.h>
 #include "tier0/dbg.h"
+#include "ss_platform.h"   // SS_ModuleOfAddress
 #include "sourcesharp_entrypoints.h"   // SourceSharp_InvisibleRangeReach
 #include "shell_scripted_internal.h"
 #include "native_command_body.h"
@@ -32,19 +32,19 @@
 //-----------------------------------------------------------------------------
 static void SourceSharp_PrintReachAddress( const char *pWhat, void *pAddress )
 {
-	Dl_info info;
+	SSModuleInfo info;
 
-	// dli_sname is the NEAREST EXPORTED symbol, which for a static entry point
-	// is somebody else's -- so it is a hint beside the offset and not the
-	// answer. The OFFSET is what survives the process: the raw pointer is
-	// ASLR'd and means nothing once the game has exited.
-	if ( pAddress && dladdr( pAddress, &info ) && info.dli_fbase )
+	// The nearest exported symbol is, for a static entry point, somebody
+	// else's -- so it is a hint beside the offset and not the answer (and
+	// Windows gives none). The OFFSET is what survives the process: the raw
+	// pointer is ASLR'd and means nothing once the game has exited.
+	if ( SS_ModuleOfAddress( pAddress, &info ) )
 	{
 		Msg( "    %-9s %p  %s+0x%lx  (near %s)\n",
 		     pWhat, pAddress,
-		     info.dli_fname ? info.dli_fname : "?",
-		     (unsigned long)( (const char *)pAddress - (const char *)info.dli_fbase ),
-		     info.dli_sname ? info.dli_sname : "?" );
+		     info.szPath[ 0 ] ? info.szPath : "?",
+		     (unsigned long)( (const char *)pAddress - (const char *)info.pBase ),
+		     info.pszSymbol ? info.pszSymbol : "?" );
 	}
 	else
 	{

@@ -33,7 +33,7 @@
 #pragma once
 #endif
 
-#include <strings.h>
+#include "ss_platform.h"   // ss_strcasecmp
 
 class CCommand;
 
@@ -56,7 +56,7 @@ public:
 	{
 		for ( const CNativeCommandBody *p = Head(); p && pName; p = p->m_pNext )
 		{
-			if ( !strcasecmp( p->m_pName, pName ) )
+			if ( !ss_strcasecmp( p->m_pName, pName ) )
 				return p;
 		}
 		return NULL;

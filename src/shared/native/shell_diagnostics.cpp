@@ -31,10 +31,8 @@
 #include "managed_convar_ref.h"
 #include <stdarg.h>
 #include <stdio.h>
-#include <execinfo.h>
-#include <unistd.h>
 #include <string.h>
-#include <dlfcn.h>
+#include "ss_platform.h"   // SS_Backtrace, SS_ModuleOfAddress
 #include "ss_string.h"
 #ifndef CLIENT_DLL
 #include "shell_factory.h"
@@ -838,7 +836,7 @@ static void SourceSharp_EmitFrames( void *const *pFrames, int nFrames,
 {
 	for ( int i = 0; i < nFrames; ++i )
 	{
-		Dl_info info;
+		SSModuleInfo info;
 
 		// FormatFrameLine, not FormatFrame plus a second snprintf into a
 		// buffer of the same size. That pair is what used to drop the newline
@@ -848,15 +846,15 @@ static void SourceSharp_EmitFrames( void *const *pFrames, int nFrames,
 		// for the cases that pin it.
 		char szFrame[ 1024 ];
 
-		if ( dladdr( pFrames[ i ], &info ) && info.dli_fname && info.dli_fname[ 0 ]
+		if ( SS_ModuleOfAddress( pFrames[ i ], &info ) && info.szPath[ 0 ]
 		     && (unsigned long long)(size_t)pFrames[ i ]
-		        >= (unsigned long long)(size_t)info.dli_fbase )
+		        >= (unsigned long long)(size_t)info.pBase )
 		{
 			SourceSharpAssertStack_FormatFrameLine( szFrame, sizeof( szFrame ), i,
-				info.dli_fname,
-				(unsigned long long)(size_t)info.dli_fbase,
+				info.szPath,
+				(unsigned long long)(size_t)info.pBase,
 				(unsigned long long)(size_t)pFrames[ i ],
-				info.dli_sname );
+				info.pszSymbol );
 
 			if ( pnResolved )
 				++(*pnResolved);
@@ -893,7 +891,7 @@ static void SourceSharp_EmitFrames( void *const *pFrames, int nFrames,
 static void SourceSharp_WriteFatalSpewStack( const char *pMsg )
 {
 	void *pFrames[ kAssertStackDepth ];
-	const int nFrames = backtrace( pFrames, kAssertStackDepth );
+	const int nFrames = SS_Backtrace( pFrames, kAssertStackDepth );
 
 	// The whole report is one write: the echo must not repeat any of it on
 	// stderr, where Emit has already put it line by line.
@@ -925,7 +923,7 @@ static void SourceSharp_AssertStackNotify( const char *pchFile, int nLine,
 		return;
 
 	void *pFrames[ kAssertStackDepth ];
-	const int nFrames = backtrace( pFrames, kAssertStackDepth );
+	const int nFrames = SS_Backtrace( pFrames, kAssertStackDepth );
 
 	// The identity of this report is the assert plus its immediate callers, so
 	// twelve callers of one leaf are twelve reports and 3600 frames of one

@@ -4,7 +4,7 @@
 5	UNRULED	void HookBeginMapAccess( IFileSystem *pThis )
 5	UNRULED	void HookEndMapAccess( IFileSystem *pThis )
 15	UNRULED	void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )
-12	UNRULED	bool Patch( void **pVtbl, int nSlot, void *pNew, void **ppOld )
+10	UNRULED	bool Patch( void **pVtbl, int nSlot, void *pNew, void **ppOld )
 5	UNRULED	int SlotOf( T pMember )
 31	UNRULED	bool SourceSharp_InstallMapMaterialReload( IFileSystem *pFileSystem, IMaterialSystem *pMaterials )
 16	UNRULED	void SourceSharp_UninstallMapMaterialReload()

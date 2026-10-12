@@ -11,24 +11,47 @@
 #include "exit_watch.h"
 
 #include "sourcesharp_entrypoints.h"
+#include "ss_platform.h"
 
 #include <atomic>
-#include <dlfcn.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
+
+#if defined( _WIN32 )
+	#include <io.h>
+	#include <sys/stat.h>
+#else
+	#include <signal.h>
+#endif
 
 namespace
 {
 
 // The signals a request to end arrives as. Not SIGSEGV and its family: those
 // are the runtime's (CoreCLR turns a fault into a NullReferenceException) and
-// a crash is the launcher's to report, by exit status.
+// a crash is the launcher's to report, by exit status. POSIX only: Windows
+// has no SIGHUP and no sigaction, and a console close or a taskkill reaches
+// a process another way (a console control handler, or no notice at all), so
+// there the signal half arms nothing and reports nothing -- the SDL half and
+// the fatal witness are the same.
+#if !defined( _WIN32 )
 const int kWatched[] = { SIGTERM, SIGINT, SIGHUP };
 enum { kWatchedCount = sizeof( kWatched ) / sizeof( kWatched[0] ) };
+#else
+enum { kWatchedCount = 3 };
+#endif
+
+// SDL2, as the platform names it: the copy the engine already has in the
+// process (launcher.so needs it); found, never loaded.
+#if defined( _WIN32 )
+	#define SS_SDL_LIBRARY "SDL2.dll"
+#elif defined( __APPLE__ )
+	#define SS_SDL_LIBRARY "libSDL2-2.0.0.dylib"
+#else
+	#define SS_SDL_LIBRARY "libSDL2-2.0.so.0"
+#endif
 
 // SDL2's event numbers (SDL_events.h, SDL_video.h): SDL_QUIT, SDL_WINDOWEVENT
 // and SDL_WINDOWEVENT_CLOSE, and where SDL_WindowEvent keeps its sub-event
@@ -57,7 +80,9 @@ struct ExitWatchState_t
 	std::atomic< int32_t > nWindowCloses, nWindowCloseAtMs;
 
 	int32_t nPrevKind[ kWatchedCount ];
+#if !defined( _WIN32 )
 	struct sigaction prev[ kWatchedCount ];
+#endif
 
 	// Where a fatal stop writes its record. Written by the arm, on the game
 	// thread, before anything could be fatal on its behalf.
@@ -68,9 +93,16 @@ ExitWatchState_t g_ExitWatch;
 
 int64_t MonotonicNs()
 {
+#if defined( _WIN32 )
+	LARGE_INTEGER freq, now;
+	::QueryPerformanceFrequency( &freq );
+	::QueryPerformanceCounter( &now );
+	return int64_t( ( (double)now.QuadPart / (double)freq.QuadPart ) * 1e9 );
+#else
 	struct timespec ts;
 	clock_gettime( CLOCK_MONOTONIC, &ts );
 	return int64_t( ts.tv_sec ) * 1000000000 + ts.tv_nsec;
+#endif
 }
 
 int32_t MsSinceArm()
@@ -79,6 +111,7 @@ int32_t MsSinceArm()
 	return nAt == 0 ? 0 : int32_t( ( MonotonicNs() - nAt ) / 1000000 );
 }
 
+#if !defined( _WIN32 )
 int IndexOf( int nSigno )
 {
 	for ( int i = 0; i < kWatchedCount; ++i )
@@ -88,6 +121,7 @@ int IndexOf( int nSigno )
 	}
 	return -1;
 }
+#endif
 
 void Record( int nSigno, int nPid, int nUid )
 {
@@ -106,6 +140,7 @@ void Record( int nSigno, int nPid, int nUid )
 	g_ExitWatch.nLastAtMs = nAt;
 }
 
+#if !defined( _WIN32 )
 // The handler that was there before, run as it would have been. The default
 // action is re-delivered: the signal is blocked while this handler runs, so the
 // raise is taken the moment it returns, with the default disposition back.
@@ -146,6 +181,7 @@ void OnSignal( int nSigno, siginfo_t *pInfo, void *pContext )
 	Record( nSigno, pInfo ? int( pInfo->si_pid ) : 0, pInfo ? int( pInfo->si_uid ) : 0 );
 	Chain( nSigno, pInfo, pContext );
 }
+#endif
 
 int OnSdlEvent( void *, void *pEvent )
 {
@@ -170,6 +206,7 @@ int OnSdlEvent( void *, void *pEvent )
 	return 1;
 }
 
+#if !defined( _WIN32 )
 int32_t KindOf( const struct sigaction &prev )
 {
 	if ( prev.sa_flags & SA_SIGINFO )
@@ -200,19 +237,50 @@ int32_t ArmSignals()
 	return kExitWatchSignals;
 }
 
+void RestoreSignals()
+{
+	for ( int i = 0; i < kWatchedCount; ++i )
+		sigaction( kWatched[ i ], &g_ExitWatch.prev[ i ], NULL );
+}
+#else
+int32_t ArmSignals()
+{
+	return 0;
+}
+
+void RestoreSignals()
+{
+}
+#endif
+
+// The SDL already in the process, or NULL: the copy the engine's launcher
+// loaded, never a load of our own (RTLD_NOLOAD; GetModuleHandle is a lookup).
+// A handle from here is given back with SdlRelease.
+#if defined( _WIN32 )
+typedef HMODULE SdlHandle_t;
+SdlHandle_t SdlFind() { return ::GetModuleHandleA( SS_SDL_LIBRARY ); }
+void *SdlSym( SdlHandle_t h, const char *pName ) { return (void *)::GetProcAddress( h, pName ); }
+void SdlRelease( SdlHandle_t ) {}
+#else
+typedef void *SdlHandle_t;
+SdlHandle_t SdlFind() { return dlopen( SS_SDL_LIBRARY, RTLD_NOW | RTLD_NOLOAD ); }
+void *SdlSym( SdlHandle_t h, const char *pName ) { return dlsym( h, pName ); }
+void SdlRelease( SdlHandle_t h ) { dlclose( h ); }
+#endif
+
 // SDL is already in the process when there is a window (launcher.so needs it);
-// RTLD_NOLOAD finds that copy and never loads one.
+// SdlFind finds that copy and never loads one.
 int32_t ArmSdl()
 {
-	void *pSdl = dlopen( "libSDL2-2.0.so.0", RTLD_NOW | RTLD_NOLOAD );
+	SdlHandle_t pSdl = SdlFind();
 	if ( !pSdl )
 		return 0;
 
-	SdlAddEventWatch_t pAdd = reinterpret_cast< SdlAddEventWatch_t >( dlsym( pSdl, "SDL_AddEventWatch" ) );
+	SdlAddEventWatch_t pAdd = reinterpret_cast< SdlAddEventWatch_t >( SdlSym( pSdl, "SDL_AddEventWatch" ) );
 	if ( pAdd )
 		pAdd( OnSdlEvent, NULL );
 
-	dlclose( pSdl );
+	SdlRelease( pSdl );
 	return pAdd ? kExitWatchSdl : 0;
 }
 
@@ -276,21 +344,18 @@ int32_t ExitWatch_Disarm()
 		return 0;
 
 	if ( nWasArmed & kExitWatchSignals )
-	{
-		for ( int i = 0; i < kWatchedCount; ++i )
-			sigaction( kWatched[ i ], &g_ExitWatch.prev[ i ], NULL );
-	}
+		RestoreSignals();
 
 	if ( nWasArmed & kExitWatchSdl )
 	{
 		// Same shape as ArmSdl: the copy already in the process, never a load.
-		void *pSdl = dlopen( "libSDL2-2.0.so.0", RTLD_NOW | RTLD_NOLOAD );
+		SdlHandle_t pSdl = SdlFind();
 		if ( pSdl )
 		{
-			SdlDelEventWatch_t pDel = reinterpret_cast< SdlDelEventWatch_t >( dlsym( pSdl, "SDL_DelEventWatch" ) );
+			SdlDelEventWatch_t pDel = reinterpret_cast< SdlDelEventWatch_t >( SdlSym( pSdl, "SDL_DelEventWatch" ) );
 			if ( pDel )
 				pDel( OnSdlEvent, NULL );
-			dlclose( pSdl );
+			SdlRelease( pSdl );
 		}
 	}
 
@@ -338,10 +403,7 @@ void ExitWatch_OnSdlEventForTest( const void *pEvent )
 void ExitWatch_ResetForTest()
 {
 	if ( g_ExitWatch.nArmed.load() & kExitWatchSignals )
-	{
-		for ( int i = 0; i < kWatchedCount; ++i )
-			sigaction( kWatched[ i ], &g_ExitWatch.prev[ i ], NULL );
-	}
+		RestoreSignals();
 
 	// The SDL watch is not removed: a test process has no SDL to have added it to.
 	g_ExitWatch.nArmed = 0;
@@ -370,7 +432,7 @@ extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg )
 	char szJson[ 4096 ];
 	size_t n = size_t( snprintf( szJson, sizeof( szJson ),
 		"{\"pid\":%d,\"reason\":\"fatal\",\"writtenBy\":\"native fatal report\",\"kind\":\"",
-		int( getpid() ) ) );
+		SS_GetPid() ) );
 	n = AppendEscaped( szJson, n, sizeof( szJson ), pKind );
 	n += size_t( snprintf( szJson + n, sizeof( szJson ) - n, "\",\"message\":\"" ) );
 	n = AppendEscaped( szJson, n, sizeof( szJson ), pMsg );
@@ -379,6 +441,14 @@ extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg )
 	if ( n > sizeof( szJson ) )
 		n = sizeof( szJson );
 
+#if defined( _WIN32 )
+	const int fd = _open( g_ExitWatch.szRecordPath, _O_WRONLY | _O_CREAT | _O_TRUNC, _S_IREAD | _S_IWRITE );
+	if ( fd < 0 )
+		return;
+	const int nWritten = _write( fd, szJson, (unsigned)n );
+	(void)nWritten;
+	_close( fd );
+#else
 	const int fd = open( g_ExitWatch.szRecordPath, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
 	if ( fd < 0 )
 		return;
@@ -386,6 +456,7 @@ extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg )
 	ssize_t nWritten = write( fd, szJson, n );
 	(void)nWritten;
 	close( fd );
+#endif
 }
 
 //-----------------------------------------------------------------------------

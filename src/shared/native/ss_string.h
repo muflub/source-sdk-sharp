@@ -63,7 +63,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <unistd.h>	// getcwd, for MakeAbsolutePath
+#include "ss_platform.h"	// SS_GetCwd, for MakeAbsolutePath
 
 #if defined( __GNUC__ ) || defined( __clang__ )
 #define SS_STRING_PRINTF( fmt, args ) __attribute__( ( format( printf, fmt, args ) ) )
@@ -868,7 +868,7 @@ inline bool MakeAbsolutePath( char *out, int outLen, const char *path, const cha
 		}
 		else
 		{
-			if ( !getcwd( out, (size_t)outLen ) )
+			if ( !SS_GetCwd( out, (size_t)outLen ) )
 				return false;
 			if ( startDir )
 			{

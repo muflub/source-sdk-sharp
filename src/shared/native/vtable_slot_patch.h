@@ -11,8 +11,9 @@
 // IMatRenderContext). Overwriting the one slot needs no length: every other
 // slot, and every object of the class, keeps working through the same table.
 // The page holding the slot is made writable for the one store and given back
-// the protection it had (read from /proc/self/maps), so a .data.rel.ro table
-// is read-only again before the next instruction.
+// the protection it had (read from /proc/self/maps on Linux; ss_platform.h
+// says how the other platforms answer), so a .data.rel.ro table is read-only
+// again before the next instruction.
 //
 // The engine's own calls through a patched slot reach the hook too. The
 // recorder filters by the caller; this file only moves pointers.
@@ -28,41 +29,19 @@
 #endif
 
 #include "vtable_hook.h"
+#include "ss_platform.h"
 
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/mman.h>
-#include <unistd.h>
 
 namespace VTableSlotPatch
 {
 
-// The protection (PROT_*) of the mapping that holds pAddress, or -1 when no
-// mapping does.
+// The protection (SS_PAGE_* bits, mprotect's values) of the mapping that
+// holds pAddress, or -1 when no mapping does.
 inline int PageProtection( const void *pAddress )
 {
-	FILE *pMaps = fopen( "/proc/self/maps", "r" );
-	if ( !pMaps )
-		return -1;
-	const uintptr_t address = (uintptr_t)pAddress;
-	int nProtection = -1;
-	char szLine[ 512 ];
-	while ( fgets( szLine, sizeof( szLine ), pMaps ) )
-	{
-		unsigned long lo = 0, hi = 0;
-		char szPerms[ 8 ] = { 0 };
-		if ( sscanf( szLine, "%lx-%lx %7s", &lo, &hi, szPerms ) != 3 )
-			continue;
-		if ( address < lo || address >= hi )
-			continue;
-		nProtection = 0;
-		if ( szPerms[0] == 'r' ) nProtection |= PROT_READ;
-		if ( szPerms[1] == 'w' ) nProtection |= PROT_WRITE;
-		if ( szPerms[2] == 'x' ) nProtection |= PROT_EXEC;
-		break;
-	}
-	fclose( pMaps );
-	return nProtection;
+	return SS_PageProtection( pAddress );
 }
 
 // Stores pValue in *pSlot, lifting the page's protection for the store and
@@ -70,12 +49,10 @@ inline int PageProtection( const void *pAddress )
 // writable (nothing is stored then).
 inline bool WriteSlot( void **pSlot, void *pValue, int nProtection )
 {
-	const long nPage = sysconf( _SC_PAGESIZE );
-	const uintptr_t page = (uintptr_t)pSlot & ~(uintptr_t)( nPage - 1 );
-	if ( mprotect( (void *)page, nPage, nProtection | PROT_READ | PROT_WRITE ) != 0 )
+	if ( !SS_PageProtect( pSlot, nProtection | SS_PAGE_READ | SS_PAGE_WRITE ) )
 		return false;
 	*pSlot = pValue;
-	mprotect( (void *)page, nPage, nProtection );
+	SS_PageProtect( pSlot, nProtection );
 	return true;
 }
 
