@@ -30,7 +30,9 @@ if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
         echo "error: no ROOT recorded; run: make setup ROOT=../source-sdk-2013"
         exit 1
     fi
-    runner="$(command -v podman || command -v docker || true)"
+    # podman first; SS_CI_RUNNER names one outright (GitHub's runners carry
+    # both, and the workflow picks docker, the one whose daemon is up).
+    runner="${SS_CI_RUNNER:-$(command -v podman || command -v docker || true)}"
     if [[ -z "$runner" ]]; then
         echo "error: ci-build needs podman (sudo apt install podman) or docker"
         exit 1
@@ -40,8 +42,17 @@ if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
     if [[ "${XDG_DATA_HOME:-}" == */snap/* ]]; then
         export XDG_DATA_HOME="$HOME/.local/share"
     fi
-    echo "==> ci-build $CONFIG in $IMAGE"
-    exec "$runner" run --rm -i --userns=keep-id \
+    # The build runs as this user either way, so what it writes under the
+    # mounted repo is ours. Rootless podman does that with keep-id; docker
+    # has no keep-id, so it is told the uid:gid, and a HOME that exists
+    # for a user the image's passwd does not know.
+    if [[ "$(basename -- "$runner")" == podman ]]; then
+        as_user=(--userns=keep-id)
+    else
+        as_user=(--user "$(id -u):$(id -g)" --env HOME=/tmp)
+    fi
+    echo "==> ci-build $CONFIG in $IMAGE ($(basename -- "$runner"))"
+    exec "$runner" run --rm -i "${as_user[@]}" \
         --env SS_IN_CI_CONTAINER=1 \
         --mount type=bind,source="$REPO",target="$REPO" \
         --mount type=bind,source="$ROOT",target="$ROOT",ro \
