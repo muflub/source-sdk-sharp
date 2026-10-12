@@ -1,0 +1,25 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+int32_t SourceSharp_RopeMaterial(	BOUNDARY	finds a rope material and its _back partner through IMaterialSystem and keeps them referenced; managed code holds the handle (plan_client_novalve §2 cluster 6)
+static void RopeMaterials_Release()	SLOT-HELP	releases the material references at level shutdown; its only caller is the HOOK below
+[RopeCache_t] void Clear()	SLOT-HELP	empties a view's strip cache; called from the IRopeManager slots
+CSourceSharpRopeExecutor() : m_iQueued	SLOT-HELP	the executor's constructor
+[CSourceSharpRopeExecutor] void Add(	SLOT-HELP	copies a managed strip into the view's cache; its only caller is the RopeDraw slot body
+virtual void ResetRenderCache( void ) OVERRIDE	SLOT	IRopeManager, called by viewrender before a view's opaque entities draw
+virtual void AddToRenderCache( C_RopeKeyframe * ) OVERRIDE	SLOT	IRopeManager's stock entry; nothing reaches it now (the strips come through RopeDraw)
+virtual void DrawRenderCache( bool bShadowDepth ) OVERRIDE	SLOT	IRopeManager, called by viewrender after a view's opaque entities; draws now or queues the copy on the material system's call queue
+virtual void OnRenderStart( void ) OVERRIDE	SLOT	IRopeManager, called once a frame from OnRenderStart; switches the queued-frame buffers
+virtual void SetHolidayLightMode( bool ) OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
+virtual bool IsHolidayLightMode( void ) OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
+virtual int  GetHolidayLightStyle( void ) OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
+[CSourceSharpRopeExecutor] void LevelShutdown()	SLOT-HELP	drops the caches at level shutdown; its only caller is the HOOK below
+void Draw( bool bShadowDepth, RopeCache_t *pCache )	SLOT-HELP	the mesh pass: one batch per material, a kind switch on the flags managed code chose and on viewrender's shadow-depth argument
+static void DrawPass(	SLOT-HELP	one dynamic mesh of camera-facing strips through tier2's CBeamSegDraw; counts the back-pass strips for cs_cl_effects_report
+IRopeManager *RopeManager()	SLOT	the IRopeManager viewrender.cpp and shell_clientdll.cpp reach by name
+void SourceSharp_RopeDraw(	BOUNDARY	IShimEffectsRenderClient::RopeDraw: a managed rope's built strip into the view's cache
+CSourceSharpRopeSystem() : CClientSystem	HOOK	the client system's constructor (kClientSystems[])
+virtual void LevelShutdownPostEntity() OVERRIDE	HOOK	the level's materials and caches go with it
+CClientSystem *ClientSystem_Rope()	HOOK	kClientSystems[]'s accessor
+void SourceSharp_ClientViewState(	BOUNDARY	IShimEffectsRenderClient::ClientViewState: CurrentViewForward/Origin (inside a view only), MainViewOrigin, ScreenWidth, the DX level and AA flag
+void SourceSharp_ClientComputeLighting(	BOUNDARY	IShimEffectsRenderClient::ClientComputeLighting: engine->ComputeLighting at a point
+float SourceSharp_ClientTraceHullWorld(	BOUNDARY	IShimEffectsRenderClient::ClientTraceHullWorld: UTIL_TraceHull against the world only

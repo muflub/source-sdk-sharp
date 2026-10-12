@@ -1,0 +1,72 @@
+diff --git a/src/client/native/shell_worldtext_sim.cpp b/src/client/native/shell_worldtext_sim.cpp
+index 59607527..27c06ae9 100644
+--- a/src/client/native/shell_worldtext_sim.cpp
++++ b/src/client/native/shell_worldtext_sim.cpp
+@@ -14,6 +14,11 @@
+ 
+ #include "managed_convar_ref.h"
+ 
++// c2-sims probe (tools/probes/c2sims-worldtext-probe.diff)
++bool C2SimsProbe_On();
++bool C2SimsProbe_BeginFrame();
++void C2SimsProbe_Row( const char *pFmt, ... );
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -787,6 +792,19 @@ int C_PointWorldText::DrawModel( int flags )
+ 	IMaterial* pDebugText = m_Font;
+ 	if ( !pDebugText )
+ 		return 0;
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		const Vector f = CurrentViewForward(), r = CurrentViewRight(), u = CurrentViewUp();
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++			gpGlobals->curtime, GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			f.x, f.y, f.z, r.x, r.y, r.z, u.x, u.y, u.z,
++			pointworldtext_rainbowspeed_time.GetFloat(), pointworldtext_rainbowspeed_char.GetFloat(), m_flTextWorldWidth, m_flTextWorldHeight );
++		C2SimsProbe_Row( "P\t%s\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++			m_szText, m_flTextSize, m_flTextSpacingX, m_flTextSpacingY, m_colTextColor.r, m_colTextColor.g, m_colTextColor.b, m_colTextColor.a,
++			m_nOrientation, m_nFont, m_bRainbow ? 1 : 0, g_mapfonts[m_nFont].pszMaterial,
++			m_localBBMin.x, m_localBBMin.y, m_localBBMin.z, m_localBBMax.x, m_localBBMax.y, m_localBBMax.z );
++	}
+ 
+ 	Vector ViewForward( 1.0f, 0.0f, 0.0f );
+ 	Vector ViewUp( 0.0f, 1.0f, 0.0f );
+@@ -870,6 +888,8 @@ int C_PointWorldText::DrawModel( int flags )
+ 			meshBuilder.Position3fv( v0.Base() );
+ 			meshBuilder.TexCoord2f( 0, s, t );
+ 			meshBuilder.Color4ubv( pColor );
++			if ( bProbe )
++				C2SimsProbe_Row( "V\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d", v0.x, v0.y, v0.z, s, t, pColor[0], pColor[1], pColor[2], pColor[3] );
+ 			meshBuilder.AdvanceVertex();
+ 
+ 			x = -character->originX;
+@@ -880,6 +900,8 @@ int C_PointWorldText::DrawModel( int flags )
+ 			meshBuilder.Position3fv( v2.Base() );
+ 			meshBuilder.TexCoord2f( 0, s, t );
+ 			meshBuilder.Color4ubv( pColor );
++			if ( bProbe )
++				C2SimsProbe_Row( "V\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d", v2.x, v2.y, v2.z, s, t, pColor[0], pColor[1], pColor[2], pColor[3] );
+ 			meshBuilder.AdvanceVertex();
+ 
+ 			x = -character->originX + character->width;
+@@ -890,6 +912,8 @@ int C_PointWorldText::DrawModel( int flags )
+ 			meshBuilder.Position3fv( v3.Base() );
+ 			meshBuilder.TexCoord2f( 0, s, t );
+ 			meshBuilder.Color4ubv( pColor );
++			if ( bProbe )
++				C2SimsProbe_Row( "V\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d", v3.x, v3.y, v3.z, s, t, pColor[0], pColor[1], pColor[2], pColor[3] );
+ 			meshBuilder.AdvanceVertex();
+ 
+ 			x = -character->originX + character->width;
+@@ -900,6 +924,8 @@ int C_PointWorldText::DrawModel( int flags )
+ 			meshBuilder.Position3fv( v1.Base() );
+ 			meshBuilder.TexCoord2f( 0, s, t );
+ 			meshBuilder.Color4ubv( pColor );
++			if ( bProbe )
++				C2SimsProbe_Row( "V\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d", v1.x, v1.y, v1.z, s, t, pColor[0], pColor[1], pColor[2], pColor[3] );
+ 			meshBuilder.AdvanceVertex();
+ 		}
+ 		vecStartPos += ViewRight * ((character->advance + screenSpacingX) * scale);

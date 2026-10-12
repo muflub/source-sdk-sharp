@@ -1,0 +1,118 @@
+#!/bin/bash
+#
+# tools/globals-census-crosscheck -- the two numbers docs/globals-ratchet.tsv
+# pins, read a SECOND time by a deliberately different route.
+#
+#     tools/globals-census-crosscheck
+#
+# WHY. `tools/globals-census` is one program. Every count it prints comes from
+# the same link-edge parser, the same readelf invocation and the same fold key,
+# so a bug in any one of them moves all three numbers together and nothing
+# inside the tool would notice. This script is shell and awk: it never imports
+# the census, never shares a line of its code, and re-derives
+#
+#     objects on the server link line
+#     objects carrying a static-initialiser function
+#     link-level mutable state
+#
+# from the CMake build's build.ninja and readelf directly. Two instruments agreeing is the
+# claim docs/globals-ratchet.tsv's header makes; this is the second one.
+#
+# It is NOT a gate and nothing runs it automatically -- run it when you change
+# the census's reader or when a number moves and you want it confirmed before
+# it goes in a document. It takes about a minute.
+#
+# The repo root comes from this script's own location, never a hardcoded
+# worktree path: a committed harness outlives its lane, and a later lane would
+# otherwise measure somebody else's tree and still report a confident number.
+
+set -u
+
+ROOT=$(cd "$(dirname "$(readlink -f -- "$0")")/.." && pwd)
+BUILD="$ROOT/farm/debug/build"
+NINJA="$BUILD/build.ninja"
+
+if [ ! -f "$NINJA" ]; then
+    echo "crosscheck: no debug CMake build at $BUILD -- run \`make debug\` first." >&2
+    echo "crosscheck: refusing rather than reporting zero." >&2
+    exit 2
+fi
+
+# The LINK EDGE, never the object directory: ninja keeps the objects of
+# translation units the build evicted. CMake names server.so's link rule
+# CXX_SHARED_LIBRARY_LINKER__server_sourcesharp_<Config>; its explicit inputs
+# end at `|`. A `$` continuation is joined first. Paths are build-dir relative.
+OBJS=$(awk '/^build [^:]*server\.so: CXX_SHARED_LIBRARY_LINKER__server_sourcesharp_/{p=1}
+            p{print}
+            p&&!/\$$/{exit}' "$NINJA" | sed 's/\$$//' | tr ' ' '\n' \
+       | sed '/^|/,$d' | grep '\.o$' | sort -u)
+
+if [ -z "$OBJS" ]; then
+    echo "crosscheck: the link edge names no objects -- the graph changed shape." >&2
+    exit 2
+fi
+
+nObjects=$(echo "$OBJS" | wc -l)
+
+missing=0
+for o in $OBJS; do
+    [ -f "$BUILD/$o" ] || missing=$((missing + 1))
+done
+if [ "$missing" -ne 0 ]; then
+    echo "crosscheck: $missing objects the graph names are not on disk." >&2
+    echo "crosscheck: an unbuilt tree must not read as zero state." >&2
+    exit 2
+fi
+
+nInit=0
+for o in $OBJS; do
+    if nm "$BUILD/$o" 2>/dev/null | grep -q '_GLOBAL__sub_I_'; then
+        nInit=$((nInit + 1))
+    fi
+done
+
+# Link-level mutable state, entirely in awk.
+#
+#   readelf -S names the sections; .data.rel.ro and .rodata are rejected FIRST,
+#     or every vtable and every constant counts as state (a substring match on
+#     "bss|data" returns 11,820 rows against a 1,017-row population).
+#   readelf -s takes OBJECT/TLS/GNU_UNIQUE rows landing in the kept sections.
+#   _ZGV* is a guard variable, not the state it guards.
+#   _ZL<n>vec[24]_origin/invalid are public/mathlib/vector{2,4}d.h's constants,
+#     one runtime-constructed copy per TU at -O0 and none at -O2.
+#   LOCAL folds per OBJECT; everything else per MANGLED name. Not the demangled
+#     one: studio.o holds two distinct statics that demangle identically.
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+: > "$TMP/keys"
+
+for o in $OBJS; do
+    b=$(basename "$o" | sed -E 's/\.(cpp|c)\.o$/.o/')
+    readelf -SW "$BUILD/$o" 2>/dev/null | awk '
+        match($0, /\[[ ]*[0-9]+\]/) {
+            idx = $0; sub(/^[^\[]*\[[ ]*/, "", idx); sub(/\].*/, "", idx)
+            nm  = $0; sub(/^[^]]*\][ ]*/, "", nm);    sub(/[ ].*/, "", nm)
+            if (nm ~ /^\.data\.rel\.ro/ || nm ~ /^\.rodata/) next
+            if (nm ~ /^\.bss/ || nm ~ /^\.data/ || nm ~ /^\.tbss/ || nm ~ /^\.tdata/)
+                print idx
+        }' | sort -u > "$TMP/sec"
+    readelf -sW "$BUILD/$o" 2>/dev/null | awk -v OBJ="$b" '
+        NR == FNR { keep[$1] = 1; next }
+        $1 ~ /^[0-9]+:$/ {
+            typ = $4; bind = $5; ndx = $7; nm = $8
+            if (typ != "OBJECT" && typ != "TLS" && typ != "GNU_UNIQUE") next
+            if (ndx !~ /^[0-9]+$/) next
+            if (!(ndx in keep)) next
+            if (nm ~ /^_ZGV/) next
+            if (nm ~ /^_ZL[0-9]+vec[24]_(origin|invalid)$/) next
+            print (bind == "LOCAL" ? OBJ "\t" nm : "\t" nm)
+        }' "$TMP/sec" - >> "$TMP/keys"
+done
+
+nLink=$(sort -u "$TMP/keys" | wc -l)
+
+echo "objects                             $nObjects"
+echo "objects_with_a_static_initialiser   $nInit"
+echo "link_level                          $nLink"
+echo
+echo "compare against:  python3 tools/globals-census summary"

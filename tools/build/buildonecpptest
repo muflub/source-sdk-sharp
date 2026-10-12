@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# Build and run ONE native test, by name:
+#
+#   farm/<config>/src/buildonecpptest cpp_alias_t6_test
+#
+# Since Phase 6b the test's sources, flags and link line live in
+# src/test/native/CMakeLists.txt, so the name is all there is to give: this is
+# `buildcpptests NAME`, which builds that one target and runs
+# `ctest -R '^NAME$'`. A name ctest does not know is a REFUSAL (exit 1), never
+# an exit 0 over nothing run.
+#
+# WHY, when `make cpp-test` exists: a mutation harness that mutates the TEST
+# rather than the code it reads has to rebuild between mutations, and
+# rebuilding every binary to re-prove one assertion is the difference between
+# a proof that gets re-run and one that does not.
+#
+# THE EXIT STATUS IS THE TEST'S (exec, so nothing after it can replace it).
+#
+name="${1:?a test name is required}"
+if [ $# -gt 1 ]; then
+    echo "buildonecpptest: takes only a test name since Phase 6b; the sources of" >&2
+    echo "$name are the ones src/test/native/CMakeLists.txt names." >&2
+    exit 2
+fi
+exec "$(dirname -- "$0")/buildcpptests" "$name"

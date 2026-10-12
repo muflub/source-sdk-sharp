@@ -1,0 +1,269 @@
+# docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
+# A row may only fall. Regenerate with --write and review the diff.
+# measured at b931fc909
+# 2026-10-12, lane particles-so (plan_particles_so.md), rebased onto client-novalve 8237b7ced and re-measured
+#   there: particles.a and dmxloader.a are libss_particles.so's (the census reads an archive on that library's
+#   link line as moved, bound_home): imports:tier0<-dmxloader 8 -> 0, tier0<-particles 8 -> 0, tier1<-dmxloader
+#   70 -> 0, tier1<-particles 20 -> 0; particles_tier2_stubs.cpp went with them (tier2/beamsegdraw.h left the
+#   client's closure): fork-hdr-not-allowed 385 -> 384, fork-hdr-total 552 -> 551. incdir-forbidden-tus unchanged
+#   (the forwards' TU in, the stubs' TU out). Hand-edited.
+# 2026-10-12, physics_bones_native_zero: studio_sequence_timing.cpp deleted (the model descriptor's durations are
+#   managed); R5 incdir-forbidden-tus 159 -> 156 (hand-edited, no other row rewritten). The differential, census with
+#   the file put back in the client list vs without, same tree: 157 -> 156, reversing the 2026-10-11 160 -> 161 raise;
+#   the other 2 are drift already at the base (24a988210 measures 157 with the file). Also below their rows at this
+#   tip and left for a --write: fork-hdr-not-allowed 424 (426), fork-hdr-total 592 (595), imports:tier1 141 (150);
+#   the differential leaves all three unchanged.
+# 2026-10-12, physics_bones_native_zero Phase 3: bone_setup.cpp deleted; sdk-links 458 -> 455 (posedebugger.h unused; ssequaternion.h and datamanager.h to libs.txt) (hand-edited).
+# 2026-10-12, physics_bones_native_zero Phase 3: ragdoll_library.cpp shrank to two forwarders; logic-lines 9010 -> 8567 (hand-edited).
+# 2026-10-12, physics_bones_native_zero Phase 3: the native body slots and shell_standalone_client.cpp's ragdoll
+#   code left; logic-lines 9132 -> 9010 (hand-edited from the census).
+# 2026-10-12, physics_bones_native_zero Phase 3: fork game/client/ragdoll.cpp left client.so (hand-edited from the
+#   census): fork-src 49 -> 48, fork-hdr-not-allowed 427 -> 426, fork-hdr-total 596 -> 595,
+#   incdir-forbidden-tus 160 -> 159, sdk-links 459 -> 458 (ragdoll.cpp's line; ragdoll.h stays for c_baseanimating.h).
+# 2026-10-12, physics_bones_native_zero Phase 3 (the ragdoll flip): logic-lines 9127 -> 9132 RAISED (hand-edited):
+#   ragdoll_library.cpp's StepPoses / DestroyAll forward to managed's IManagedRagdollsClient for fork
+#   game/client/physics.cpp; the library's own bodies leave in the next commits, which take it down.
+# 2026-10-11, physics_bones_native_zero 1.2 (client half): bone_library.cpp left client.so (deleted); --write:
+#   fork-hdr-not-allowed 428 -> 427, fork-hdr-total 597 -> 596 (jigglebones.h), imports:tier3 12 -> 11 (CJiggleBones),
+#   incdir-forbidden-tus 161 -> 160, sdk-links 455 -> 459 RAISED: no file was added -- bone_accessor.h, ssequaternion.h,
+#   datamanager.h and utlmultilist.h moved from shared.txt to client.txt (the server no longer uses them; make
+#   sdk-census) and jigglebones.h left; all lists 734 -> 733.
+# 2026-10-11, physics_bones_native_zero 1.2 (client half): the client skeleton, its probe and replay left shell_standalone_client.cpp; --write: < logic-lines	10761 < native-convar-decls	59 > logic-lines	9127 > native-convar-decls	57
+# 2026-10-11, lane c5-particles rebased onto client-novalve 7941b344: --write: < fork-hdr-not-allowed	430 < fork-hdr-total	599 < fork-src	51 > fork-hdr-not-allowed	428 > fork-hdr-total	597 > fork-src	49 < incdir-forbidden-tus	162 > incdir-forbidden-tus	160 < logic-lines	10775 > logic-lines	10759 < sdk-links	457 > sdk-links	455 
+# 2026-10-11, lane c5-particles rebased onto client-novalve b4eec29f: every row re-measured with --write: < imports:tier1	152 > imports:tier1	151 < incdir-forbidden-tus	182 > incdir-forbidden-tus	169 < logic-lines	12575 < native-convar-decls	60 > logic-lines	10824 > native-convar-decls	59 
+# 2026-10-11, lane c5-particles: shell_te_particle_render.cpp and the TE particle backends left for C# (TeParticles); --write: < incdir-forbidden-tus	167 > incdir-forbidden-tus	166 < logic-lines	11117 > logic-lines	10802 
+# 2026-10-11, lane c5-particles rebased onto main 375193a4 (client-novalve): every row re-measured with --write. The lane's
+#   evictions (particlesystemquery, particlesphererenderer, fx_*, c_tracer, particle_collision, particle_simple3d,
+#   particles_localspace), the dust volume and the dust puff: fork-hdr 460/629 -> 440/609, fork-src 71 -> 59,
+#   imports:tier1 151 -> 150, incdir-forbidden-tus 179 -> 167, logic-lines 12553 -> 11117, native-convar-decls 60 -> 59,
+#   sdk-links 488 -> 467.
+# 2026-10-11, plan physics_bones_native_zero: studio_sequence_timing.cpp joined client.so (Studio_Duration and
+#   its closure, split out of bone_setup.cpp unchanged so server.so could drop bone_setup.cpp's 6,021 lines).
+#   R5 incdir-forbidden-tus 160 -> 161 RAISED: the TU carries the client target's legacy include set like
+#   bone_setup.cpp beside it; both leave client.so with the client bones flip. Hand-edited, no other row rewritten.
+# 2026-10-09, console-capture lane: console_display_forward.cpp joined client.so (the installed
+#   IConsoleDisplayFunc, docs/todo.md's console capture). R5 incdir-forbidden-tus 219 -> 220: the TU
+#   carries the client target's legacy include set like every other client TU. logic-lines 12,957 ->
+#   12,949 (shim-scope recount at this tip; the lane's two functions add, unrelated drift removes).
+# 2026-10-05, lane c5-proxies (ported onto main 2eafcb77 2026-10-11), the material proxy trampoline:
+#   shell_material_proxy_client.cpp came in beside the 22 fork proxy TUs it replaces (they leave in the next
+#   commit): R5 incdir-forbidden-tus 220 -> 221 RAISED for one commit; hand-edited, no other row rewritten.
+# 2026-10-05, lane c5-proxies (ported onto main 2eafcb77 2026-10-11): the 22 fork proxy TUs and
+#   shell_materialproxies.cpp left client.so (--write at this commit): fork-src 120 -> 98, fork-hdr 543/712 ->
+#   515/684, imports:bitmap 4 -> 1 (TGAWriter stays for view.cpp/viewpostprocess.cpp), imports:vstdlib 9 -> 8,
+#   imports:vtf stays 2 (view.cpp), incdir-forbidden-tus 221 -> 198, native-convar-decls 60 -> 58, sdk-links
+#   571 -> 543, logic-lines 12949 -> 12647 (12883 already at the trampoline commit: shim-scope drift on main,
+#   not this lane; 12883 -> 12647 is the eviction).
+# 2026-10-05, lane c5-proxies (ported onto main 2eafcb77): cl_mat_stub.cpp left client.so (--write): fork-src
+#   98 -> 97, fork-hdr 515/684 -> 514/683, incdir-forbidden-tus 198 -> 197, sdk-links 543 -> 542; logic-lines
+#   unchanged (CMatStubHandler, now in shell_material_proxy_client.cpp, ruled BOUNDARY).
+# 2026-10-11, C7 step 1 (the render call recorder and the executor entry joined client.so): incdir-forbidden-tus 180 -> 182 (rebased onto client-novalve c348afb31). Hand-edited.
+# 2026-10-11, C7 step 1 (the render plan's executor beside stock's viewrender): imports:tier1 151 -> 152. Hand-edited.
+# C7 item 7 (2026-10-11): one crossing per view for its custom draws -- the leaf-list capture, the batch ask, stored sprite plans carried out at DrawModel (render 36.3 -> 21.4 crossings/frame, live-gate render row): logic-lines 12553 -> 12575 (DrawModel +19 for the batch arm, the effects report +3; the new functions ruled). Hand-edited.
+# C7 item 5 (2026-10-11): the observer's view -- ClientTraceHull, ClientEntityRenderPose and ViewOverrideSet (IShimViewClient), the chase filter, OverrideView carrying out managed's ObserverCamera (OverrideView +2 for the override call; s_ViewOverride the one new static): logic-lines 10475 -> 10477. Hand-edited.
+# C7 item 5 (2026-10-11), rebased onto client-novalve 9aecaaf14: the observer's view (OverrideView +2): logic-lines 10477 -> 10479. Hand-edited.
+# C7 step 2 (2026-10-12): view_scene.cpp leaves client.so; its four imported names are shell_view_scene_client.cpp's (r_updaterefracttexture and r_depthoverlay move from the evicted stock TU into ours: the client declares no more convars than before): native-convar-decls 59 -> 61. Hand-edited.
+# 2026-10-12, C7 step 3 eviction (viewrender.cpp, view.cpp and viewdebug.cpp left client.so), re-measured after the rebase onto client-novalve 628901edd (tools/client-novalve-census): fork-hdr-not-allowed 384 -> 344, fork-hdr-total 551 -> 511, fork-src 27 -> 24, imports:tier0 8 -> 7. Hand-edited.
+# 2026-10-12, C7 step 3 eviction (viewrender.cpp, view.cpp and viewdebug.cpp left client.so), re-measured after the rebase onto client-novalve 832cd5a5e (tools/client-novalve-census): fork-hdr-not-allowed 383 -> 343, fork-hdr-total 550 -> 510, fork-src 27 -> 24, incdir-forbidden-tus 158 -> 155. Hand-edited.
+# 2026-10-12, C7 particles phase 1 (particle_proxies.cpp left client.so; ParticleSphereProxy is C#'s): fork-hdr-not-allowed 343 -> 342, fork-hdr-total 510 -> 509, fork-src 24 -> 23, incdir-forbidden-tus 155 -> 154, sdk-links 407 -> 406. Hand-edited.
+# 2026-10-12, C7 particles phase 2.3 (the old-style binding decisions are C#'s; the executor ruled SLOT/BOUNDARY): logic-lines 8266 -> 8256. Hand-edited.
+# 2026-10-12, C7: shell_viewpostprocess_client.cpp, shell_vieweffects_client.cpp and COM_GetModDirectory went (their importers call managed or the names' writer): incdir-forbidden-tus 148 -> 146, logic-lines 8262 -> 8260. Hand-edited.
+# C0 baseline (plan_client_novalve.md 4.1), debug, the DLL's own 257 objects (156 fork + 61 client + 40 shared).
+#   R1 fork-hdr-not-allowed, fork-hdr-total   R2 fork-src   R3 link-forbidden (libs, devtools/, tier0 --wrap=)
+#   R4 needed-forbidden   R5 incdir-forbidden(-tus)   R6 native-convar-decls (our TUs; fork TUs are R2's)
+#   R7 logic-lines (tools/shim-scope over src/client/native)   R8 sdk-links (sdk-links/client.txt rows)
+# R7 added with tools/shim-scope: every client native function unruled at C0, so all count (1,773 functions).
+#   imports:<lib> symbols the objects import from each forbidden library, attributed in link order.
+# Against plan section 1 (db15948c): fork-hdr-total is 772, not 1,060, because the plan's ninja -t deps ran over
+#   all 421 compiles of `-t commands` (the vgui_controls/tier1/mathlib/matsys_controls archive members too,
+#   which leave with R3); the same command at c6c53802 still gives 1,060. fork-src 157 -> 156 and sdk-links
+#   632 -> 630 are c_user_message_register.cpp/.h leaving (lane HC); the plan's 643 was `wc -l`, comments included.
+# C1 (lane c1), measured at a9a85d14: 247 objects (145 fork + 61 client + 40 shared + src/server/native/
+#   alloc_check.cpp, the debug allocation checker). Eleven fork TUs left: vgui_video, vgui_video_player,
+#   vgui_fpspanel, vgui_netgraphpanel, client_virtualreality (user rulings) and glow_outline_effect,
+#   posedebugger, bonelist, interpolatortypes, studio_stats, bone_merge_cache (docs/client-novalve-rulings.tsv).
+#   R3/R4 unchanged: memoverride.cpp is still linked (see the C1 report: its drop waits on a ruling).
+# C1 (lane classmap, 2026-10-05), measured at b9e35009 + the deletion: classmap.cpp left (user ruling:
+#   client-predicted entity creation, docs/client-novalve-rulings.tsv). 246 objects, 144 fork.
+# C2 (lane c2-sims), rebased onto client-novalve f8967566 and re-measured there: game/shared/decals.cpp left
+#   (cluster 18; its tables are ClientDecals, shell_decals_client.cpp the binding): fork-src 144 -> 143,
+#   fork-hdr 750 -> 749 (581 -> 580 outside the allowlist), tier1 imports 175 -> 172 (CUtlSymbolTable,
+#   CUtlDict), sdk-links 608 -> 607. R5 incdir-forbidden-tus unchanged (one TU out, one in); R7 unchanged.
+#   (the deltas above were taken before the rebase onto client-novalve 4890795c; the rows are re-measured there)
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the steam jet: shell_steamjet_sim.cpp and shell_steamjet_render.cpp left for SteamJetSim and
+#   the generic executor shell_managed_particles.cpp: incdir-forbidden-tus 247 -> 246 (two TUs out, one in),
+#   logic-lines 20002 -> 19624 (C_SteamJet's sim; the executor ruled SLOT/HOOK/BOUNDARY).
+#   (the deltas above were taken before the rebase onto client-novalve f8967566; the rows are re-measured there)
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the smoke stack: shell_smokestack_sim.cpp and shell_smokestack_render.cpp left for
+#   SmokeStackSim: incdir-forbidden-tus 246 -> 244, logic-lines 19624 -> 19254, tier1 imports 172 -> 171.
+#   (the numbers in the note above were taken before the rebase onto client-novalve 4890795c; the rows are re-measured there)
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the smoke volume: shell_smokevolume_sim.cpp and shell_smoke_render.cpp left for
+#   SmokeVolumeSim: incdir-forbidden-tus 244 -> 242, logic-lines 19254 -> 18732.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the trails: shell_trail_sim.cpp/.h and shell_trail_render.cpp left for the six C# trail
+#   sims: fork-hdr-not-allowed 580 -> 579 and fork-hdr-total 749 -> 748 (c_smoke_trail.h's shell header),
+#   incdir-forbidden-tus 241 -> 239, logic-lines 18732 -> 17351.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), point_worldtext: shell_worldtext_sim.cpp left for WorldTextLayout (the renderer's rulings
+#   were written with it): incdir-forbidden-tus 239 -> 238, logic-lines 17351 -> 16998.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the wind: CEnvWindShared's simulation left shell_effects_sim.cpp for WindSim (its streams are
+#   UniformStream, so CUniformRandomStream is no longer imported): imports:vstdlib 13 -> 12, logic-lines 16998 -> 16724.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the embers: C_Embers left shell_effects_sim.cpp and shell_embers_render.cpp went for EmbersSim:
+#   incdir-forbidden-tus 231 -> 230, logic-lines 15966 -> 15770.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), sound envelopes: game/shared/soundenvelope.cpp left client.so for shell_soundenvelope_client.cpp and the shared
+#   SoundEnvelopeController: fork-src 136 -> 135, fork-hdr-not-allowed 569 -> 566, fork-hdr-total 738 -> 735, sdk-links 597 -> 596
+#   (re-measured on the rebase onto client-novalve 63ebb9e8: fork-src 123 -> 122, fork-hdr 554/723 -> 551/720, sdk-links 581 -> 580)
+# 2026-10-05 (lane ui, U4): logic-lines 15101 -> 15103 RAISED, the one rise here. The networked Ping run (4948a701)
+#   is read by the native IGameResources (shell_playerresource.cpp: one ResolveRun line, one Reset line), so
+#   GetPing stops answering 0 while ping is on the wire; playerresource_pairing_test requires every declared
+#   run be read. Temporary (integrator, 2026-10-05): leaves with ClientScoreBoardDialog.cpp, C3.
+# 2026-10-05 (lane ui, C3): logic-lines 14054 -> 14050, CShellClientDLL::VoiceStatus ruled SLOT (it now also
+#   forwards to the managed voice panel).
+# 2026-10-05 (lane ui, C3): logic-lines 14050 -> 14045, shell_client.cpp's CSourceSharpViewport (its tracing
+#   CreatePanelByName) went with baseviewport.cpp; shell_baseviewport_client.cpp is ruled whole.
+#   RAISED native-convar-decls 60 -> 61: hud_autoreloadscript moved with CBaseViewport from the fork's
+#   baseviewport.cpp (counted by R2 before) into shell_baseviewport_client.cpp; its one effect is the native
+#   animation controller (convar-ledger row). showpanel and hidepanel moved to managed [ConCommand]s.
+# 2026-10-05 (lane ui, C3 step 4): logic-lines 14045 -> 14029, shell_client.cpp's vgui_controls root panel class
+#   left for shell_rawpanel_client.cpp's raw IClientPanel, ruled whole.
+# 2026-10-05 (lane ui, C3 step 4): logic-lines 14029 -> 14025, clientmode_shared.cpp left for shell_client.cpp's
+#   IClientMode and shell_viewport_client.cpp's raw viewport (shell_baseviewport_client.cpp gone), both ruled.
+#   RAISED native-convar-decls 61 -> 62: clientmode_shared.cpp's cl_show_num_particle_systems (the particle
+#   manager's count) and cl_reload_localization_files (ILocalize) moved into shell_client.cpp (convar-ledger rows);
+#   hud_autoreloadscript went with the animation controller. cl_drawhud, hud_takesshots and hud_freezecamhide are
+#   managed (ClientModeConVars.cs); hud_reloadscheme went with HudLayout.res (no native element to place).
+# 2026-10-05 (lane ui, C3 step 4): logic-lines 14025 -> 14018, the HUD and menu roots are raw panels (their
+#   PerformLayout bodies went; the raw panel fills the screen).
+# 2026-10-05 (lane ui, C3 step 4): vgui_int.cpp left for shell_vgui_client.cpp, public vgui_controls.cpp left,
+#   matsys_controls' init and vgui_controls' animation/res-cache calls left shell_clientdll.cpp.
+#   RAISED logic-lines 14018 -> 14023: VGui_PreRender's paused-plaque rule (7 lines, ruled LOGIC) came from the fork
+#   into the shim with vgui_int.cpp; it is the next decision to go managed.
+#   RAISED native-convar-decls 62 -> 63: cl_showpausedimage came with it (convar-ledger row).
+# 2026-10-05 (lane ui, C3 step 4): the paused-plaque rule went managed (LoadingDisc over PlaqueState facts):
+#   logic-lines 14023 -> 14016, native-convar-decls 63 -> 62 (cl_showpausedimage is a managed [ConVar]).
+# 2026-10-05 (lane ui, C3 step 4, cluster 15): voice_status.cpp and voice_banmgr.cpp left for SourceSharp.Client's
+#   VoiceStatus and VoiceBanList; shell_voicestatus_client.cpp answers what native code still asks, ruled whole;
+#   the VoiceMask/RequestState shim bodies left shell_usermessages_client.cpp: logic-lines 14016 -> 14000.
+#   RAISED imports:tier3 11 -> 12: vgui's interface globals (g_pVGuiInput, g_pVGuiSystem, ...) were imported by the
+#   vgui_controls library on the client's behalf; the shim reads them itself now that the library is leaving.
+# 2026-10-05 (lane ui, C3 step 4): matsys_controls off client_sourcesharp's link line: imports:matsys_controls
+#   1 -> 0, link-forbidden 42 -> 41. The archive is still built (cmake/sdk) until vgui_controls goes with it.
+# 2026-10-05 (lane ui, C3 step 4): vgui_controls off client_sourcesharp's link line: imports:vgui_controls
+#   654 -> 0 (no client panel is a vgui_controls panel; vgui_int, the viewport, the client mode, the voice manager
+#   and the dead vgui TUs left), link-forbidden 41 -> 40. GC_SECTIONS=0 links too.
+# C2 (lane c2-sims), soundscapes: shell_soundscape_client.cpp left client.so for ClientSoundscapes (C#) and
+#   shell_soundscape_audio_client.cpp: imports:tier1 166 -> 165, native-convar-decls 65 -> 60.
+# C2 (lane c2-sims), SoundParametersInternal.cpp left client.so (its one importer, TextToSoundLevel, went to C# with the
+#   soundscape): fork-src 122 -> 121, fork-hdr-not-allowed 551 -> 549, fork-hdr-total 720 -> 718, incdir-forbidden-tus
+#   220 -> 219, sdk-links 580 -> 579. And logic-lines 15103 -> 14129 (-974): shell_soundscape_client.cpp's LOGIC lines,
+#   deleted in 1fe9d861, which did not re-take the row.
+# C2 (lane c2-sims), the weather: CClient_Precipitation, CSnowFallManager and AshDebrisEffect left shell_effects_sim.cpp for
+#   PrecipitationSystem (C#), and shell_precipitation_render.cpp for shell_precipitation_client.cpp: logic-lines 14129 -> 13062,
+#   fork-hdr-not-allowed 549 -> 548, fork-hdr-total 718 -> 717, imports:tier0 32 -> 31.
+#   (re-measured on the rebase onto client-novalve 491b5bf2: logic-lines 14054 -> 12987, fork-hdr 544/713 -> 543/712)
+# 2026-10-11 (lane ui rebased onto client-novalve 26adc6bf): --write over the proxies lane's rows. fork-src 97 -> 71,
+#   fork-hdr 514/683 -> 460/629, sdk-links 542 -> 488, link-forbidden 42 -> 40, incdir-forbidden-tus 197 -> 179,
+#   logic-lines 12647 -> 12553, imports vgui_controls 654 -> 0, matsys_controls 1 -> 0, vstdlib 8 -> 7;
+#   native-convar-decls 58 -> 60 RAISED, the lane's two rises noted above.
+# 2026-10-11 (main, the 7e sort origin): logic-lines 12553 -> 12555 RAISED (+2). shell_sprite_render.cpp sets
+#   the managed particle systems' sort origin on create and in the follow sweep, as stock UpdateControlPoint
+#   does (SetSortOrigin, two calls); the particles lane's managed port replaces the sweep.
+# RAISED 2026-10-11, lane camproto (the second camera, ahead of C7), rebased onto main 375193a4c:
+# C7 post-processing (2026-10-12): viewpostprocess.cpp left client.so (shell_viewpostprocess_client.cpp holds its imported names): fork-src 31 -> 29, fork-hdr 397/566 -> 395/564, sdk-links 435 -> 433 (one of each pair was already down at the base, measured 434 there). Hand-edited.
+#   incdir-forbidden-tus 179 -> 180. One new client TU, shell_view_targets.cpp (IClientRenderTargets and
+#   the view-target executor); like every client TU it compiles with the client's include set. It binds
+#   and decides nothing (shim-scope: SLOT/SLOT-HELP/HOOK).
+# 2026-10-11, lane c6-input, rebased onto client-novalve fef8d2443: in_main, in_camera, in_mouse, in_joystick, in_steamcontroller and cam_thirdperson left client.so for ClientInput (C#):
+#   fork-hdr-not-allowed 440 -> 432, fork-hdr-total 609 -> 601, fork-src 59 -> 53, imports:tier1 151 -> 150, incdir-forbidden-tus 169 -> 163, logic-lines 10824 -> 10779, sdk-links 467 -> 459.
+# 2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443): c_rumble.cpp left client.so for ClientRumble:
+#   fork-hdr-not-allowed 432 -> 431, fork-hdr-total 601 -> 600, fork-src 53 -> 52, incdir-forbidden-tus 163 -> 162, sdk-links 459 -> 458.
+# 2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443): the Rumble message reaches the managed mixer in managed code; the ClientRumble slot goes:
+#   logic-lines 10779 -> 10775.
+# 2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443), C6 cluster 9: shell_physics_client.cpp binds IShimPhysicsClient (environment, g_Collisions, surface audio, impact emit) and the declarations:
+#   incdir-forbidden-tus 162 -> 163.
+# 2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443): movehelper_client.cpp left client.so; shell_prediction.cpp holds IMoveHelper's singleton:
+#   fork-hdr-not-allowed 431 -> 430, fork-hdr-total 600 -> 599, fork-src 52 -> 51, incdir-forbidden-tus 163 -> 162, sdk-links 458 -> 457.
+# 2026-10-12, physics_bones_native_zero 2.6 (re-measured by tools/client-novalve-census on main 466d9e12c): physics_shared.cpp
+#   left client.so for shell_physics_shared_client.cpp, the remnant fork physics.cpp links, and the repository; the fork
+#   headers only it read went with it (sdk-links: movetype_push.h and vphysicsupdateai.h unused, entitydatainstantiator.h
+#   tests-only): fork-hdr-not-allowed 397 -> 388, fork-hdr-total 566 -> 555, fork-src 31 -> 29, imports:tier1 137 -> 128,
+#   sdk-links 435 -> 431.
+# 2026-10-11, lane c6-input, C9 tier3: incdir-forbidden-tus 146 -> 147: tier_connect.cpp joined client.so and carries the
+#   client target's legacy include set like every other client TU; imports:tier3 12 -> 1 (jiggle bones, 62's port).
+# C7 post-processing (2026-10-12), rebased onto client-novalve b771f62dd: viewpostprocess.cpp left client.so (shell_viewpostprocess_client.cpp holds its imported names): fork-src 30 -> 29, fork-hdr 396/565 -> 395/564, sdk-links 434 -> 433. Hand-edited.
+# 2026-10-12, integrator ruling (a) now, (c) later: tier1.a STAYS on client.so's link for particles.a and dmxloader.a's own
+#   imports (the tier1<-particles and tier1<-dmxloader rows), not stubbable. The members they pull, measured at 687a4e178:
+#   dmxloader.a: utlbufferutil (27), utlbuffer (20), strtools (8), uniqueid (7), utlsymbol (7), memstack (5),
+#     utlbinaryblock (3), utlstring (3); particles.a: utlsymbol (5), KeyValues (4), strtools (4), uniqueid (4),
+#     utlbuffer (4), utlstring (3). Exit: the particle work taking both archives off the client. Our own imports:tier1 still
+#     goes to 0; a member we fully own must leave the link cleanly (no copy of it still pulled for the archives).
+# C7 (2026-10-12): view_effects.cpp left client.so (shell_vieweffects_client.cpp forwards vieweffects to managed's ViewEffects): fork-src 29 -> 28, fork-hdr 395/564 -> 394/563, sdk-links 433 -> 432. Hand-edited.
+# C7 (2026-10-12): the ClientViewShake and ClientViewFade slots went (the Shake and Fade messages reach managed's ViewEffects directly): logic-lines 10432 -> 10406. Hand-edited.
+# RAISED 160 -> 161 (2026-10-12, C7 step 3): shell_viewrender_client.cpp, the client's IViewRender, includes viewrender.h for stock's CViewRender it forwards to; it leaves the forbidden include set at the eviction, which removes that forwarding.
+# 2026-10-11, lane c6-input, C9 tier3: incdir-forbidden-tus 146 -> 147: tier_connect.cpp joined client.so and carries the
+#   client target's legacy include set like every other client TU; imports:tier3 12 -> 1 (jiggle bones, 62's port).
+# RAISED 160 -> 161 (2026-10-12, C7 step 3): shell_viewrender_client.cpp, the client's IViewRender, includes viewrender.h for stock's CViewRender it forwards to; it leaves the forbidden include set at the eviction, which removes that forwarding.
+# 2026-10-12 (lane physics_bones_native_zero 2.6, on main 466d9e12c): make sdk-census then --write took main's own
+#   leftovers -- nine client headers and libsteam_api.so no client object reads since batch 3's Steam move to C#, and
+#   fmtstr.h to the server list: sdk-links 431 -> 420.
+# 2026-10-12, lane c6-input, C9 stringpool: imports:tier1 23 -> 19 (CStringPool and HashStringCaseless: the client's game
+#   string pool takes server_string_pool.h, so stringpool.o and generichash.o leave client.so).
+# 2026-10-12, lane c6-input, C9 utlstring: imports:tier1 19 -> 16 (CUtlString: particle_manifest.cpp's file list is a std::vector).
+# 2026-10-12, lane c6-input, C9 survey, measured on main d2a8769fa: proxyentity.cpp, bone_accessor.cpp, studio_shared.cpp and
+#   client_factorylist.cpp left client.so: fork-src 23 -> 19, sdk-links 406 -> 402, fork-hdr-not-allowed 342 -> 337,
+#   fork-hdr-total 509 -> 504, incdir-forbidden-tus 154 -> 151.
+# 2026-10-12, lane c6-input, C9: sequence_Transitioner.cpp left client.so (lane 62 ported its behaviour): fork-src 19 -> 18,
+#   sdk-links 402 -> 401, fork-hdr-not-allowed 337 -> 336, fork-hdr-total 504 -> 503, incdir-forbidden-tus 151 -> 150.
+# 2026-10-12, lane c6-input, C9: vgui_consolepanel.cpp left client.so (dead; no engine consumer): fork-src 18 -> 17, sdk-links 401 -> 400,
+#   fork-hdr-not-allowed 336 -> 334, fork-hdr-total 503 -> 501, incdir-forbidden-tus 150 -> 149.
+# 2026-10-12, lane c6-input, C9 bitmap/vtf (measured on main f68398f91): the screenshot files are encoded in C# and both
+#   archives left client.so's link: imports:bitmap 1 -> 0, imports:vtf 2 -> 0, imports:tier1 16 -> 15, link-forbidden 37 -> 35.
+# 2026-10-12, lane c6-input, C9: colorcorrectionmgr.cpp left client.so (shell_worldrender.cpp carries out the lookups): fork-src
+#   17 -> 16, sdk-links 400 -> 399, incdir-forbidden-tus 149 -> 148; logic-lines 8256 -> 8262 (RAISED: SourceSharp_ClientColorCorrection,
+#   unruled before this change, now makes the material-system calls itself).
+fork-hdr-not-allowed	332
+fork-hdr-total	499
+fork-src	16
+imports:bitmap	0
+imports:bitmap<-dmxloader	0
+imports:bitmap<-particles	0
+imports:matsys_controls	0
+imports:matsys_controls<-dmxloader	0
+imports:matsys_controls<-particles	0
+imports:steam_api	0
+imports:steam_api<-dmxloader	0
+imports:steam_api<-particles	0
+imports:tier0	7
+imports:tier0<-dmxloader	0
+imports:tier0<-particles	0
+imports:tier1	15
+imports:tier1<-dmxloader	0
+imports:tier1<-particles	0
+imports:tier2	0
+imports:tier2<-dmxloader	0
+imports:tier2<-particles	0
+imports:tier3	0
+imports:tier3<-dmxloader	0
+imports:tier3<-particles	0
+imports:vgui_controls	0
+imports:vgui_controls<-dmxloader	0
+imports:vgui_controls<-particles	0
+imports:vstdlib	2
+imports:vstdlib<-dmxloader	0
+imports:vstdlib<-particles	0
+imports:vtf	0
+imports:vtf<-dmxloader	0
+imports:vtf<-particles	0
+incdir-forbidden	6
+incdir-forbidden-tus	146
+link-forbidden	35
+logic-lines	8260
+native-convar-decls	69
+needed-forbidden	2
+sdk-links	399

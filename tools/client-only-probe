@@ -1,0 +1,285 @@
+#!/usr/bin/env python3
+"""
+tools/client-only-probe -- the case every live gate in this tree is blind to.
+
+    tools/client-only-probe            the check
+    tools/client-only-probe --keep     leave the logs behind
+
+=============================================================================
+WHAT IT IS FOR
+=============================================================================
+
+`make live-gate` loads a map, and a game that loads a map is a LISTEN SERVER:
+one process with BOTH server.so and client.so in it and ONE CoreCLR shared
+between them, because SourceSharp_Acquire/Release live in libsourcesharp.so and
+hold a single process-wide refcount. On every gate this project runs, the
+server's DLLInit brings the CLR up FIRST and the client's Init joins a runtime
+that is already there:
+
+    [SourceSharp] Acquire[server.so]: runtime ready, refcount 1
+    [SourceSharp] Acquire[client.so]: runtime already running, refcount now 2
+                  (listen server)
+
+That hides a whole failure class. If client.so's own path to the managed runtime
+were broken -- wrong order, a missing seed, a load nobody calls -- a listen
+server would not notice, because the server already did the work.
+
+=============================================================================
+AND THE PROCESS EVERYONE ASSUMES IS THE EXCEPTION DOES NOT EXIST
+=============================================================================
+
+The natural next thought is "then a player connecting to a REMOTE server is the
+case at risk -- that process has no server.so in it". IT HAS. The engine loads
+the game DLL at start-up unless `-nogamedll` is on the command line.
+
+MEASURED, not inferred: a launch with no `+map` at all still logs
+`Acquire[server.so]: runtime ready, refcount 1` and then the client at refcount
+2. Every hl2_linux64 in this build is a listen server in this one respect,
+whatever it is connected to.
+
+So `-nogamedll` is the ONLY client-only shape there is, and it is what this
+probe launches. It is synthetic -- no player reaches it -- but it is the only
+process in which client.so's own path to the CLR runs with nothing standing
+behind it, and it is therefore the only thing that can answer the question.
+
+=============================================================================
+THE CHECK
+=============================================================================
+
+THE CLIENT BRINGS THE MANAGED RUNTIME UP BY ITSELF.
+
+  * `Acquire[client.so]: runtime ready, refcount 1` -- FIRST, at refcount
+    one, so nothing brought it up for the client;
+  * no `Acquire[server.so]` and no [SourceSharp/Server] tag anywhere, which
+    is what makes this the shape under test rather than another listen
+    server;
+  * "managed client runtime online", with C# console commands registered --
+    the CLR is not merely up, C# ran.
+
+THERE WAS A SECOND CHECK, AND ITS MECHANISM IS GONE. It relaunched with
+SOURCESHARP_NULL_SLOT naming a row of SOURCESHARP_CLIENT_REQUIRED and asserted
+that SourceSharp_ValidateClientApi refused the boot loudly, naming the slot.
+plan_client_vtables CE-last removed the client's ManagedApi table, and with it
+the validator, the required list and the forced-null variable (the server lost
+the same at plan_engineapi_vtables E17b/E-last). The client's managed root and
+areas are accepted at their compilers' slot hashes inside
+SourceSharp_LoadManagedSide, and a refusal there is fatal through the same
+staged message (managed_runtime_client.cpp, SourceSharp_FatalClientInitFailure).
+
+=============================================================================
+A CRASH THIS PROBE DOES NOT OWN
+=============================================================================
+
+The `-nogamedll` process segfaults a little after start-up, inside the HUD at
+ApplySchemeSettings, well AFTER everything above has been asserted. It is
+PRE-EXISTING: an identical launch at 42a934b9 crashes at the same
+place with the same log line numbers (377 / 389 / 657 and
+"[SourceSharp/Hud] font: Trebuchet24" last on both). It is reported as a note
+rather than a failure, because nothing in this tree has ever run this shape and
+fixing it is not this probe's job -- but it is written down here so the next
+reader does not diagnose it twice.
+"""
+
+import argparse
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+
+# The flags every local game carries (+sv_lan 1 unless STEAM_AUTH=1, +fps_max
+# 60): tools/local_launch.py, the Makefile's LOCAL_GAME_ARGS.
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import local_launch  # noqa: E402
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# The game this configuration built, and the mod in it. bin/<config> holds the
+# launcher and the shared bin/; the mod is bin/<config>/mods/test, handed to the
+# launcher with -game, and -condebug writes console.log there.
+# SOURCESHARP_CONFIG picks the configuration; debug when unset.
+CONFIG = os.environ.get("SOURCESHARP_CONFIG") or "debug"
+GAME_DIR = os.path.join(ROOT, "bin", CONFIG)
+MOD_DIR = os.path.join(GAME_DIR, "mods", "test")
+
+def launch_command(mod_dir):
+    """source#, run from the game directory. No -game: it takes the mod from
+    mods.yaml beside it, so every launch proves the file supplies it. `#` is
+    quoted, so no shell reads it as a comment (tools/launcher-name-test)."""
+    return "./'source#'"
+
+# -nogamedll IS THE POINT: it is the one switch that keeps the engine from
+# loading server.so, and so the one way to get a process with client.so and
+# no server.so.
+BASE_ARGS = ["-nogamedll",
+             "-debugapi", "-debugapisocket", "-nomessagebox", "-nocrashdialog",
+             "-insecure", "-novid", "-windowed", "-w", "640", "-h", "480"
+             ] + local_launch.local_args()
+
+
+class Probe(object):
+    def __init__(self):
+        self.checks = 0
+        self.failures = []
+
+    def check(self, ok, what):
+        self.checks += 1
+        print("  %s  %s" % ("ok  " if ok else "FAIL", what))
+        if not ok:
+            self.failures.append(what)
+        return ok
+
+    def note(self, what):
+        print("  note  %s" % what)
+
+    def note_crash(self, text):
+        """The pre-existing -nogamedll segfault, reported and not counted.
+
+        See the block at the top of this file: an identical launch on
+        42a934b9 crashes in the same place. It happens AFTER
+        everything checked above and this probe does not own it.
+        """
+        if "Segmentation fault" in text:
+            self.note("the process later segfaulted (pre-existing in this "
+                      "shape; identical at 42a934b9, after every "
+                      "check above)")
+
+
+def launch(log_path, tmpdir, extra_env, until, wait=240):
+    """Run one game and return (popen, log text).
+
+    WAITED ON THE LOG, NOT ON A SOCKET, and that is forced rather than chosen.
+    The outcome this probe cares about is a LOG STATE: the process reaches
+    "managed client runtime online" and then segfaults in the HUD (see the
+    note at the top), so a wait for a dev API socket would time out.
+
+    The launcher chain is bash -> source# -> hl2_linux64, so
+    everything here works on the process GROUP: signalling the pid we happen to
+    hold leaves the game standing, which is how a box collects leaked games.
+    """
+    os.makedirs(tmpdir, exist_ok=True)
+
+    quoted = " ".join("'%s'" % a.replace("'", "'\\''") for a in BASE_ARGS)
+    line = (". '%s/tools/gpu-offload'; cd '%s' && exec %s %s"
+            % (ROOT, GAME_DIR, launch_command(MOD_DIR), quoted))
+
+    env = dict(os.environ, TMPDIR=tmpdir)
+    env.update(extra_env)
+
+    handle = open(log_path, "wb")
+    popen = subprocess.Popen(["bash", "-c", line], stdout=handle,
+                             stderr=subprocess.STDOUT, env=env,
+                             start_new_session=True)
+
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        text = read(log_path)
+        if any(m in text for m in until):
+            break
+        if popen.poll() is not None:
+            # Give the last writes a moment to land before reading it back.
+            time.sleep(2.0)
+            break
+        time.sleep(2.0)
+
+    handle.close()
+    return popen, read(log_path)
+
+
+def reap(popen):
+    try:
+        os.killpg(os.getpgid(popen.pid), signal.SIGKILL)
+    except OSError:
+        pass
+    try:
+        popen.kill()
+    except OSError:
+        pass
+    try:
+        popen.wait(timeout=15)
+    except Exception:
+        pass
+
+
+def read(path):
+    try:
+        with open(path, "rb") as f:
+            return f.read().decode("utf-8", "replace")
+    except IOError:
+        return ""
+
+
+def check_client_only_comes_up(p, scratch):
+    print("\n1. a client-only process brings the managed runtime up by itself")
+
+    log = os.path.join(scratch, "client-only.log")
+    popen, text = launch(log, os.path.join(scratch, "tmp1"), {},
+                         until=("managed client runtime online",))
+    try:
+        # THE SHAPE FIRST. Without these two, every assertion below could be the
+        # SERVER's work in yet another listen server.
+        p.check(re.search(r"Acquire\[server\.so\]", text) is None,
+                "server.so never acquired the runtime -- there is no server side "
+                "in this process")
+        p.check("[SourceSharp/Server]" not in text,
+                "and not one [SourceSharp/Server] line was written")
+
+        # FIRST, AT REFCOUNT ONE. "refcount now 2" would mean something else had
+        # the runtime already, which here there is nothing to be.
+        p.check(re.search(r"Acquire\[client\.so\]: runtime ready, refcount 1", text)
+                is not None,
+                "the CLIENT acquired the runtime, at refcount 1")
+        p.check("refcount now 2" not in text,
+                "and did not join a runtime somebody else started")
+
+        # AND C# ACTUALLY RAN. A CLR that came up and did nothing would satisfy
+        # everything above.
+        # NOT "client DLL init": that Msg() is written before the engine's spew
+        # handler is routed on this path and does not reach the log, which cost
+        # this probe one false failure. The host's own SS_Log line does.
+        p.check("Acquire[client.so]: mod bin dir =" in text,
+                "the client resolved its own mod bin dir")
+        p.check("LoadSideV2(client): ok" in text,
+                "the client loaded its managed side")
+        p.check("managed client runtime online" in text,
+                "and reports the managed client runtime online")
+
+        m = re.search(r"registered (\d+) console command\(s\) by attribute", text)
+        p.check(m is not None and int(m.group(1)) > 0,
+                "with %s C# console command(s) registered from managed code"
+                % (m.group(1) if m else "no"))
+
+        p.note_crash(text)
+    finally:
+        reap(popen)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--keep", action="store_true",
+                    help="leave the logs behind for reading")
+    args = ap.parse_args()
+
+    scratch = os.path.join(ROOT, "tools", ".client-only-probe")
+    os.makedirs(scratch, exist_ok=True)
+
+    print("client-only probe -- -nogamedll, so client.so and no server.so")
+
+    p = Probe()
+    check_client_only_comes_up(p, scratch)
+
+    print("\n%d check(s), %d failed" % (p.checks, len(p.failures)))
+    if p.failures:
+        for f in p.failures:
+            print("  FAILED: %s" % f)
+        print("logs kept in %s" % scratch)
+        return 1
+
+    if args.keep:
+        print("logs kept in %s" % scratch)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

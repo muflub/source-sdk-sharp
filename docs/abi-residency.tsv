@@ -1,0 +1,78 @@
+# plan_abi_hotreload §2: written by tools/abi-residency (AbiResidency.Measure) from docs/abi-plumbing.tsv.
+# DO NOT EDIT: a changed ruling is a changed tree; rerun the tool and read the diff.
+file	ruling	why	destination
+AssemblyInfo.cs	plumbing	d: InternalsVisibleTo list; shrinks as internals leave	-
+BreakGroup.cs	plumbing	a: named by TempEntSpawn.Prepared.cs	-
+BuildInfo.cs	plumbing	c: build stamp the Bootstrap writes and the client HUD reads (user: build/stamp info stays)	-
+BuildStamp.cs	plumbing	c: stamp hashing the Bootstrap/GameLoadContext use; folds into the Bootstrap once SE2 hands the stamp over as data	-
+ClientFrameStage.cs	plumbing	b: value contract: ClientFrameStage_t numbers passed through unchanged	-
+ClientPlayerViewBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
+ClientRenderGroup.cs	plumbing	b: value contract: RenderGroup_t, COMPILE_TIME_ASSERTed at the shell call site	-
+ClientShadowFlag.cs	plumbing	b: value contract: SHADOW_FLAGS_* bits asserted at the shell call site	-
+ColorCorrectionOp.cs	plumbing	b: value contract: SourceSharpColorCorrectionOp	-
+ConsoleEntry.cs	plumbing	a: named by ShimAreas.g.cs	-
+Crossings.cs	plumbing	c: crossing counters (user: plumbing); per side under P5	-
+DataUpdateType.cs	plumbing	b: value contract: DataUpdateType_t passed as int32	-
+Decisions.cs	plumbing	b: value contract: Decision.UseStockRule<0 is read by native; CommandResult/PlayerRelationship numbers cross	-
+Diagnostics.cs	plumbing	e: process-wide crash handlers the Bootstrap installs: loader infra (could fold into Bootstrap)	-
+DynamicLight.cs	plumbing	a: named by ShimAreas.g.cs	-
+EffectData.cs	plumbing	a: named by ShimAreas.g.cs	-
+EngineBlock.cs	plumbing	b: engine block layout; native EngineBlock_t is generated from it	-
+EngineBlockFingerprint.cs	plumbing	b: fingerprint of the engine block layout (boundary drift check)	-
+EngineLimits.cs	plumbing	b: value contract: MAX_PLAYERS and MAX_EDICTS the engine is built around (split out of Log.cs)	-
+Entity.cs	plumbing	a: named by VtableLayouts.g.cs	-
+EntityOp.cs	plumbing	b: entity-op numbers native passes to Crossings.CountEntityOp, which keys its counters by them (Enum.GetNames, Read(EntityOp))	-
+EntitySlot.cs	plumbing	a: named by ShimAreas.g.cs	-
+EventIdStamps.cs	plumbing	c: CEventAction::s_iNextIDStamp: restored connections keep their stamps across a managed reload, so the counter must too (P1 run 3 lifetime ruling b)	-
+FogParams.cs	plumbing	a: named by ShimAreas.g.cs	-
+GitProvenance.cs	plumbing	e: build provenance the Bootstrap reads (loader infra; folds into Bootstrap after SE2)	-
+Globals.cs	plumbing	b: CGlobalVarsRaw layout mirror + its pointer reader	-
+ILog.cs	plumbing	e: the log contract each composition registers over its own console (statics to zero; the static Log is gone)	-
+ISideModule.cs	plumbing	d: module contract the Bootstrap loads (until SE2 makes the entry raw pointers)	-
+InputButtons.cs	plumbing	a: named by UserCmd.cs	-
+Interpolated.cs	plumbing	b: InterpolationKind + [Interpolated] decorate EngineBlockHead fields	-
+ManagedVtable.cs	plumbing	d: managed-built vtable machinery + per-side registry that outlives reloads	-
+ManagedVtableAttributes.cs	plumbing	a: named by VtableLayouts.g.cs	-
+ManagedVtableHashFiles.cs	plumbing	d: reload check reads slot hashes from disk (Bootstrap Entry.cs:263)	-
+MapLoadRaw.cs	plumbing	b: blittable mirror of SourceSharpMapLoad (user example)	-
+MoveEffectKind.cs	plumbing	b: value contract: SourceSharpMoveEffect	-
+MoveStateBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
+MoveSurfaceBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
+MoveTraceBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
+MovementBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
+NativeDocAttribute.cs	plumbing	b: C++ comments for the generated native engine block	-
+NativeInterfaceFactory.cs	plumbing	a: named by Vtable.cs	-
+OpArgs.cs	plumbing	a: named by ShimAreas.g.cs	-
+ParticleFollow.cs	plumbing	a: named by ShimAreas.g.cs	-
+ParticleSystemInfo.cs	plumbing	a: named by ShimAreas.g.cs	-
+PlayerShadowBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
+ProcMaps.cs	plumbing	e: /proc/self/maps reader the Bootstrap stamps native with (loader infra)	-
+RagdollState.cs	plumbing	b: value contract: SourceSharpRagdollState bits	-
+ReloadSections.cs	plumbing	c: the reload carrier's per-side section interface (IReloadSections over ReloadStore): bytes a module hands its next build, injected by the side's composition	-
+ReloadStore.cs	plumbing	c: the reload carrier: BCL-typed bytes per side that must outlive the collectible context (D6)	-
+ShadowCast.cs	plumbing	b: value contract: ShadowType_t (+-1)	-
+ShadowCastChoice.cs	plumbing	b: value contract: StandaloneShadowChoice_t	-
+ShimAreas.g.cs	plumbing	a: the generated boundary	-
+ShimConsole.cs	plumbing	d: first area through the root; the Log fallback before a side composes	-
+ShimRoot.cs	plumbing	a: named by ShimAreas.g.cs	-
+Side.cs	plumbing	d: side enum of the module contract	-
+SideState.cs	plumbing	c: state that outlives the collectible context: the side's registry and counters, held by the Bootstrap as one opaque handle per game instance (statics to zero)	-
+SkyboxParams.cs	plumbing	a: named by ShimAreas.g.cs	-
+TeForward.cs	plumbing	b: value contract: one value per shell_te_forwards entry point (tempent_forwards.h)	-
+TempEntFlags.cs	plumbing	a: named by TempEntSpawn.Prepared.cs	-
+TempEntLife.cs	plumbing	a: named by ShimAreas.g.cs	-
+TempEntSpawn.Prepared.cs	plumbing	a: named by ShimAreas.g.cs	-
+TempEntSpawn.cs	plumbing	a: named by ShimAreas.g.cs	-
+TempEntStatics.cs	plumbing	a: named by ShimAreas.g.cs	-
+TempEntTransform.cs	plumbing	a: named by ShimAreas.g.cs	-
+TempEntityDescs.cs	plumbing	a: named by ShimAreas.g.cs	-
+TextMessage.cs	plumbing	a: named by ShimAreas.g.cs	-
+ThirdPersonCameraBlob.cs	plumbing	b: blittable SourceSharpThirdPerson* blob	-
+Transform.cs	plumbing	b: blittable 3x4 matrix: EngineBlockHead.WorldTransform's type, mapped to matrix3x4_t in the engine block's native layout	-
+UserCmd.cs	plumbing	a: named by ShimAreas.g.cs	-
+ViewTargetSetup.cs	plumbing	a: named by ShimAreas.g.cs	-
+Vtable.cs	plumbing	a: named by ShimRoot.cs	-
+VtableLayouts.g.cs	plumbing	a: the generated boundary	-
+WorldQuery.cs	plumbing	a: named by TempEntSpawn.Prepared.cs	-
+WorldQueryBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
+WorldRenderState.cs	plumbing	b: value contract: SourceSharpWorldRenderState	-

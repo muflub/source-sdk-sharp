@@ -1,0 +1,16 @@
+# lane c2-sims: record the smoke trail (tools/probes/c2sims-trail-probe.diff
+# applied) on dm_lockdown at the steam jet's fixed position looking 25 degrees
+# down: the recording starts, then an env_smoketrail is created at the aim
+# point (directed speed non-zero so every term runs), 120 frames from its Start.
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 25 0 0
+sleep 2
+cmd cs_cl_probe_sim smoketrail 120
+cmd ent_create env_smoketrail targetname c2trail spawnrate 20 lifetime 2 startcolor "200 150 100" opacity 0.6 minspeed 4 maxspeed 12 mindirectedspeed 10 maxdirectedspeed 30 startsize 24 endsize 48 spawnradius 6
+cmd setang_exact 0 0 0
+wait sim. recorded 60
+quit

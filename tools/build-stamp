@@ -1,0 +1,54 @@
+#!/bin/bash
+#
+# Records WHICH SOURCE this build was made from, beside the binaries it made.
+#
+# The hash and time in a build stamp come from the built files themselves and
+# cannot be wrong about what is loaded. What they cannot say is which branch the
+# code came from — and on this repo that is half the question, because several
+# games from several worktree branches are up at once and they all print the
+# same kind of stamp.
+#
+# Three things this gets right rather than assumes:
+#
+#  - IT ASKS THIS WORKTREE. `git -C` is pointed at the directory this script
+#    itself sits in, which is inside the worktree being built. Anything that
+#    resolves the shared checkout would stamp an agent's build with the branch
+#    the main checkout happens to be on, and that has already caused a merge to
+#    land on the wrong branch here.
+#
+#  - A DETACHED HEAD HAS NO BRANCH, and that is the normal state for an agent
+#    that reset to a sha. `branch --show-current` prints nothing there, so the
+#    field is written empty and the reader spells it "(detached)" rather than
+#    inventing the last branch that happened to be checked out.
+#
+#  - DIRTY IS PART OF THE ANSWER. The normal state of this tree is uncommitted
+#    work, and a build made from it is not the commit it names. Untracked files
+#    count: a new .cs file nobody has added yet is still compiled into the
+#    build. When git cannot be asked at all the field is left out entirely, and
+#    the reader renders that as "+?" rather than as clean.
+#
+# usage: build-stamp <output-file>
+#
+set -uo pipefail
+
+out="${1:?usage: build-stamp <output-file>}"
+here="$(dirname -- "$(readlink -f -- "$0")")"
+
+branch="$(git -C "$here" branch --show-current 2>/dev/null)"
+commit="$(git -C "$here" rev-parse --short=8 HEAD 2>/dev/null)"
+
+# Written only when git answered. An absent field means "not known", which is
+# not the same as "clean" and must not read as it.
+dirty=""
+if status="$(git -C "$here" status --porcelain 2>/dev/null)"; then
+    if [[ -n "$status" ]]; then dirty="1"; else dirty="0"; fi
+fi
+
+mkdir -p -- "$(dirname -- "$out")"
+
+{
+    echo "branch=$branch"
+    echo "commit=$commit"
+    [[ -n "$dirty" ]] && echo "dirty=$dirty"
+    echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$out"

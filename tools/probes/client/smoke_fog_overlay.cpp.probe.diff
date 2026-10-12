@@ -1,0 +1,42 @@
+--- a/src/game/client/smoke_fog_overlay.cpp	2026-10-05 06:14:06.469142242 -0700
++++ b/src/game/client/smoke_fog_overlay.cpp	2026-10-05 06:14:06.474824764 -0700
+@@ -12,6 +12,7 @@
+ #include "view.h"
+ #include "clienteffectprecachesystem.h"
+ #include "tier0/vprof.h"
++#include "fx_probe_log.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -51,10 +52,23 @@
+ }
+ 
+ 
++// c2-fx probe (debug): a sweep of the overlay alpha laid on before each draw
++// (-0.5 .. 1.5 in twentieths, 0 included), so the recording reaches every arm.
++static ConVar cs_cl_probe_smokefog( "cs_cl_probe_smokefog", "0", 0, "c2-fx probe (debug): sweep g_SmokeFogOverlayAlpha before each smoke fog overlay draw" );
+ void DrawSmokeFogOverlay()
+ {
++	if ( cs_cl_probe_smokefog.GetBool() )
++	{
++		static int s_n = 0;
++		g_SmokeFogOverlayAlpha = ( ( s_n++ % 41 ) - 10 ) / 20.0f;
++		g_SmokeFogOverlayColor.Init( ( s_n % 7 ) * 0.25f - 0.25f, 0.5f, 2.0f );
++	}
++	FxProbeLog( "sf-in alpha=%.9g col=%.9g %.9g %.9g mat=%d", g_SmokeFogOverlayAlpha, g_SmokeFogOverlayColor.x, g_SmokeFogOverlayColor.y, g_SmokeFogOverlayColor.z, g_pSmokeFogMaterial ? 1 : 0 );
+ 	if(g_SmokeFogOverlayAlpha == 0 || !g_pSmokeFogMaterial || !materials)
++	{
++		FxProbeLog( "sf-skip" );
+ 		return;
++	}
+ 
+ 	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
+ 
+@@ -84,6 +98,7 @@
+ 	vColor.z = MIN(MAX(vColor.z, 0), 1);
+ 	float alpha = MIN(MAX(g_SmokeFogOverlayAlpha, 0), 1);
+ 
++	FxProbeLog( "sf-draw col=%.9g %.9g %.9g alpha=%.9g dist=%.9g", vColor.x, vColor.y, vColor.z, alpha, dist );
+ 	meshBuilder.Begin( pMesh, MATERIAL_QUADS, 1 );
+ 
+ 	meshBuilder.Position3f( 0, 0, dist );

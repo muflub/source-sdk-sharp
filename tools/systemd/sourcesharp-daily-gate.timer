@@ -1,0 +1,11 @@
+# Fires tools/systemd/sourcesharp-daily-gate.service at 04:17 every day.
+# Persistent: a run missed while the machine was off happens at the next boot.
+[Unit]
+Description=SourceSharp daily live gate at 04:17
+
+[Timer]
+OnCalendar=*-*-* 04:17:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

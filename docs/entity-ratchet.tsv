@@ -1,0 +1,52 @@
+# docs/entity-ratchet.tsv -- the RATCHET FLOOR for plan_entity.md's three gates.
+#
+# Written by `tools/entity-ratchet --write`, checked by `tools/entity-ratchet`,
+# run as the `entity` leg of `make test`. Read that tool's header first.
+#
+# One row per gated (and per reconciliation) row of `tools/entity-gates --tsv`.
+# The leg FAILS when a number here goes UP, and passes when it goes down --
+# plan_entity.md §5's "each phase may only lower it", applied to the gates.
+#
+# HOW TO CHANGE IT
+#   you made a number smaller   tools/entity-ratchet --write     (no ceremony)
+#   you made a number BIGGER    that is the regression this file exists to
+#                               catch. `--write` refuses; `--write
+#                               --allow-regression` does it and the diff shows
+#                               exactly which row you widened and by how much.
+#
+# MERGING TWO LANES' VERSIONS OF THIS FILE: do not resolve it by hand and do
+# not keep both. It is a MEASUREMENT, not a list of claims -- the shape the
+# lane brief warns about, where two lanes each move one number and keep-both
+# leaves a row that was never true of any tree. Take the merge, build, and run
+# `tools/entity-ratchet --write`; the tool refuses to write a row that went up,
+# so a resolution that hid a regression cannot be committed by accident.
+#
+# These are the numbers the port drives to ZERO. Every one of them reaching 0
+# is the definition of done, and on that day `tools/entity-gates` exits 0 and
+# this file is a list of zeroes.
+#
+# columns:
+# gate	role	metric	server	client
+1	gate	": public <entity>" decls (TUs + shim headers)	0	0
+1	gate	... their members	0	0
+1	gate	CBaseEntity:: / C_BaseEntity:: members	0	0
+1	gate	classes derived from them (typeinfo closure)	0	0
+1	reconcile	same, no symbol-type filter (§1's reading: 1207/602)	0	0
+2	gate	entity-list members (incl. CBaseEntityList::)	0	0
+2	gate	gEntList / ClientEntityList() / IEntityListener	0	0
+2	reconcile	same, without CBaseEntityList:: (§1's reading: 33/91)	0	0
+3	gate	EHANDLE	0	0
+3	gate	EntityFromHandle	0	0
+3	gate	GetBaseEntity	0	0
+3	gate	GetContainingEntity	0	0
+3	gate	GetGameData	0	0
+3	gate	Instance	0	0
+3	gate	TOTAL, families summed (one line can hit two)	0	0
+3	gate	ToBaseX	0	0
+3	gate	assert_cast	0	0
+3	gate	cstyle	0	0
+3	gate	dynamic_cast	0	0
+3	gate	reinterpret_cast	0	0
+3	gate	stale allowlist entries (match no cast site)	0	0
+3	gate	static_cast	0	0
+3	reconcile	ToEngineIface (the other direction -- not gated)	21	22

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The UI analyzer's code fixes (SSUI002: the nearest Space token). Its own
+    assembly because a fix needs the workspaces and an analyzer assembly may
+    not reference them (RS1038). For editors; the build runs the analyzer only.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>false</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/analyzers/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" PrivateAssets="all" />
+    <ProjectReference Include="..\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,33 @@
+# C0 probe 1: which IParticleSystemQuery methods particles.a calls, in a
+# dm_lockdown session with new-style particle effects running. The positive arm
+# is cs_cl_particle_report's live particle count (console.log).
+wait iface-list 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 5
+cmd sv_cheats 1
+cmd cs_cl_probe_pq
+cmd cs_cl_particle_report
+sleep 1
+cmd ent_create ss_firesmoke targetname c0fire
+sleep 6
+cmd cs_cl_particle_report
+shot fire
+cmd cs_cl_probe_pq
+cmd ent_create env_explosion targetname c0boom iMagnitude 60
+sleep 1
+api fire env_explosion Explode
+sleep 3
+cmd ent_setname c0victim ss_player
+cmd ent_create env_entity_igniter targetname c0ign target c0victim lifetime 10
+sleep 1
+api fire env_entity_igniter Ignite
+sleep 4
+cmd cs_cl_particle_report
+api hurt ss_player 5
+sleep 2
+cmd cs_cl_probe_pq
+cmd disconnect
+sleep 4
+cmd cs_cl_probe_pq
+quit

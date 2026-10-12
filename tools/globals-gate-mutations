@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Mutation-verify globals_ledger_test.
+
+Each arm mutates a TREE ARTEFACT the gate reads -- the ledger, the ratchet, the
+instrument -- reruns the single gtest binary, and requires it to go RED. Restore
+is cp + a FRESH mtime, never `git checkout --`: that deletes uncommitted work,
+and an identical mtime in a LOOP leaves the built binary newer than its source
+so the next run re-executes the mutant.
+"""
+import os
+import shutil
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LEDGER = os.path.join(ROOT, "docs", "globals-ledger.tsv")
+RATCHET = os.path.join(ROOT, "docs", "globals-ratchet.tsv")
+TOOL = os.path.join(ROOT, "tools", "globals-census")
+
+
+def run_test():
+    # The farm's copy of tools/build/buildcpptests (the farm path names the
+    # configuration): builds the one target, runs `ctest -R '^name$'`.
+    cfg = os.environ.get("SOURCESHARP_CONFIG", "debug")
+    runner = os.path.join(ROOT, "farm", cfg, "src", "buildcpptests")
+    p = subprocess.run([runner, "globals_ledger_test"], cwd=ROOT,
+                       capture_output=True, text=True)
+    fails = [l for l in p.stdout.splitlines() if l.startswith("[  FAILED  ]")]
+    return p.returncode, (fails[0] if fails else "")
+
+
+def edit(path, fn):
+    """fn(text) -> text. Returns a restore() closure with a FRESH mtime."""
+    original = open(path).read()
+    new = fn(original)
+    assert new != original, "the mutation changed nothing in %s" % path
+    mode = os.stat(path).st_mode
+    open(path, "w").write(new)
+    os.utime(path, None)
+    os.chmod(path, mode)
+
+    def restore():
+        open(path, "w").write(original)
+        os.utime(path, None)
+        os.chmod(path, mode)
+    return restore
+
+
+def drop_last_ledger_row(text):
+    lines = text.split("\n")
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i] and not lines[i].startswith("#") and "\t" in lines[i]:
+            del lines[i]
+            break
+    return "\n".join(lines)
+
+
+def stale_ledger_row(text):
+    """Point one row's tu at a file that does not exist -- the rot direction."""
+    lines = text.split("\n")
+    for i, l in enumerate(lines):
+        if l and not l.startswith("#") and l.split("\t")[0] != "home" \
+                and len(l.split("\t")) >= 11:
+            f = l.split("\t")
+            f[3] = "sourcesharp/game/server/deleted_three_phases_ago.cpp"
+            lines[i] = "\t".join(f)
+            break
+    return "\n".join(lines)
+
+
+def eighth_disposition(text):
+    lines = text.split("\n")
+    for i, l in enumerate(lines):
+        f = l.split("\t")
+        if len(f) >= 11 and f[0] != "home" and not l.startswith("#"):
+            f[8] = "ITWASALREADYASINGLETON"
+            lines[i] = "\t".join(f)
+            break
+    return "\n".join(lines)
+
+
+def lower_a_ceiling(metric):
+    def fn(text):
+        out = []
+        for l in text.split("\n"):
+            f = l.split("\t")
+            if len(f) == 3 and f[0] == metric:
+                f[2] = str(int(f[2]) - 1)
+                l = "\t".join(f)
+            out.append(l)
+        return "\n".join(out)
+    return fn
+
+
+def remove_a_ratchet_row(metric):
+    def fn(text):
+        return "\n".join(l for l in text.split("\n")
+                         if l.split("\t")[0] != metric)
+    return fn
+
+
+def ratchet_subject_gone(text):
+    out = []
+    for l in text.split("\n"):
+        f = l.split("\t")
+        if len(f) == 3 and f[0] == "globals_link_level":
+            f[1] = "src/game/server/a_directory_that_went_away"
+            l = "\t".join(f)
+        out.append(l)
+    return "\n".join(out)
+
+
+def vec_exclusion_stops_matching(text):
+    """The regression that actually happened: the exclusion was keyed on the
+    DWARF file, the sniper container's nm emits none, and 406 rows came back.
+    That escaped every host-side check because on THIS host it was green. The
+    arm reproduces the effect rather than the cause, so the ceiling is proved
+    to catch a reader regression whichever way it arrives."""
+    return text.replace(
+        '    if row.name not in VEC_CONSTANTS:\n        return False',
+        '    if True:\n        return False')
+
+
+def reconcile_residue_absorbed(text):
+    """The first draft's shape: define the archive contribution as `whatever is
+    in the .so and not in an object`, and the identity becomes true by
+    construction. UNATTRIBUTED can then never be non-zero, which is a check
+    that cannot fail."""
+    return text.replace(
+        "        elif n in arch:\n            from_archives += 1",
+        "        elif True:\n            from_archives += 1")
+
+
+def gate_always_passes(text):
+    return text.replace(
+        '    ok = not no_row and not stale and not bad_disp',
+        '    ok = True')
+
+
+ARMS = [
+    ("a piece of state with no ledger row", LEDGER, drop_last_ledger_row),
+    ("a ledger row whose source file is gone", LEDGER, stale_ledger_row),
+    ("an eighth disposition typed into the ledger", LEDGER, eighth_disposition),
+    ("the link-level ceiling one below the truth", RATCHET,
+     lower_a_ceiling("globals_link_level")),
+    ("the UNRULED ceiling one below the truth", RATCHET,
+     lower_a_ceiling("globals_unruled")),
+    ("the static-init ceiling one below the truth", RATCHET,
+     lower_a_ceiling("globals_objects_with_static_init")),
+    ("the link-level ratchet row deleted", RATCHET,
+     remove_a_ratchet_row("globals_link_level")),
+    ("a ratchet row whose subject is gone", RATCHET, ratchet_subject_gone),
+    ("the vec exclusion stops matching", TOOL, vec_exclusion_stops_matching),
+    ("the reconciliation ceiling one below the truth", RATCHET,
+     lower_a_ceiling("globals_reconcile_unattributed")),
+    ("the reconciliation absorbs its own residue", TOOL,
+     reconcile_residue_absorbed),
+    ("the gate reports PASS unconditionally", TOOL, gate_always_passes),
+]
+
+
+def main():
+    rc, fails = run_test()
+    print("CONTROL                                                    rc=%d %s"
+          % (rc, fails))
+    if rc != 0:
+        print("!! the control is already red; nothing below means anything")
+        return 1
+    bad = 0
+    for name, path, fn in ARMS:
+        restore = edit(path, fn)
+        try:
+            rc, fails = run_test()
+            tag = "RED" if rc != 0 else "!! STILL GREEN"
+            if rc == 0:
+                bad += 1
+            print("%-14s %-42s rc=%d %s" % (tag, name, rc, fails))
+        finally:
+            restore()
+        rc2, _ = run_test()
+        if rc2 != 0:
+            print("!! restore left the test red after %r" % name)
+            return 1
+    print("\n%d of %d arms discriminate" % (len(ARMS) - bad, len(ARMS)))
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

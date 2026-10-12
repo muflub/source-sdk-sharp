@@ -1,0 +1,64 @@
+# Build output and the game directories: bin/<config>/ IS the game directory.
+/bin/
+# The compat farms (tools/setup).
+/farm/
+# Where ROOT is on this machine (make setup ROOT=...).
+/sdk-root.lock.local
+# Where the pristine Valve SDK clone is on this machine (make setup VALVE_SDK=...).
+/valve-sdk.lock.local
+
+# Downloads and caches.
+/tools/node/
+/tools/.npm-cache/
+/tools/.npm-tmp/
+node_modules/
+__pycache__/
+*.pyc
+
+# VPC writes its cache beside each script; through a directory link that is
+# this repo.
+*.vpc_cache
+*.vpc_crc
+
+# Managed intermediates (the artifacts layout puts them under bin/, these are
+# belt and braces for a project built outside it).
+obj/
+/src/debug_api/ui/
+/src/debug_api/ui.staging/
+
+# Editors.
+*.user
+*.suo
+.idea/
+
+# Generated sources (source generators write them at build time).
+/src/*/managed/Generated/
+/src/*/Generated/
+
+# Runtime and tool droppings that land in the repo through farm links.
+/tools/.cpptest/
+/tools/.test-legs/
+/tools/.client-only-probe/
+/tools/.run/
+steam_appid.txt
+/.claude/worktrees/
+
+# Logs the run and gate targets leave in tools/.
+/tools/.*.log
+/tools/.live-gate-*.json
+
+# A stray CMake configure (an editor, or cmake run without a preset);
+# preset build trees live in farm/<config>/build.
+/build/
+/tools/.local-hosted/
+/tools/.loadprof/
+/.daily-gate-setup
+
+# Local editor/agent settings, logs, crash dumps and merge droppings.
+/.claude/settings.local.json
+*.log
+/core
+core.[0-9]*
+.DS_Store
+*.orig
+*.rej

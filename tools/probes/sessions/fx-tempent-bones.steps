@@ -1,0 +1,21 @@
+# lane c2-fx: do studio tempents hand the engine a pose? cs_cl_te_live bones asks
+# every live studio tempent for its bones as the engine's draw does. Before the CShellRenderable
+# SetupBones fix it read 11 of 11 model bone matrices unwritten after a breakmodel; 0 after.
+# Run: tools/probes/c0-session OUT tools/probes/sessions/fx-tempent-bones.steps --config debug
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+cmd setpos_exact -3843 2894 0
+cmd setang_exact 15 90 0
+sleep 1
+cmd cs_cl_te_live bones
+cmd cs_te_fire CTEBreakModel -3843 3150 40
+cmd cs_sv_te_dispatch ShellEject -3843 3000 40
+sleep 0.5
+cmd cs_cl_te_live bones
+shot bones
+sleep 2
+cmd cs_cl_te_live bones
+quit

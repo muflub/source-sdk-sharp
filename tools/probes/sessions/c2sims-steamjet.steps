@@ -1,0 +1,15 @@
+# lane c2-sims: record the steam jet sim (tools/probes/c2sims-steamjet-probe.diff
+# applied) on dm_lockdown at a fixed pose (setpos_exact/setang_exact below): the recording starts, then an
+# env_steam is created at the aim point, pointing away from the player, so the
+# fixture holds the jet from its Start (lighting ramp included) on: 120 frames.
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 0 0 0
+sleep 2
+cmd cs_cl_probe_sim steamjet 120
+cmd ent_create env_steam targetname c2jet InitialState 1 Speed 120 SpreadSpeed 15 StartSize 10 EndSize 25 Rate 26 JetLength 80 RollSpeed 8 rendercolor "255 255 255"
+wait sim. recorded 60
+quit

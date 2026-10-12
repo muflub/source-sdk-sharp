@@ -1,0 +1,20 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+C_StandaloneEntity::TestHitboxes	SLOT	ICollideable, called by the engine clip through TestCollision: stock C_BaseAnimating::TestHitboxes (c_baseanimating.cpp:5322) on this side
+int FindInDrawBatch(	SLOT-HELP	the captured batch entry for an entity, or -1
+C_StandaloneEntity *StandaloneFromRenderable(	SLOT-HELP	a renderable from the leaf list as a standalone shell, or null
+void SourceSharp_StandaloneDrawBatchCapture(	BOUNDARY	notes the view's custom-draw standalones and the blend stock's translucent pass would draw each at; an invisible one is left out as stock skips it
+float SourceSharp_StandaloneDrawBatchBlend(	SLOT-HELP	the blend captured with the batch for the sprite gather, else the live one
+static void AskDrawBatch(	BOUNDARY	the one crossing per view: hands managed the captured handles and keeps its answers
+void C_StandaloneEntity::StoreSequence(	BOUNDARY	stores the clock managed chose into the block and the two members SequenceCycle reads; decides nothing
+void SourceSharp_StandaloneStoreSequence(	BOUNDARY	IShimStandaloneClient::StandaloneStoreSequence: resolve the handle and store
+void *SourceSharp_StandaloneEngineBlock(	BOUNDARY	IShimStandaloneClient::StandaloneEngineBlock: the entity block by handle, the client twin of EntityGetEngineBlock
+bool C_StandaloneEntity::SetupBones(	SLOT	IClientRenderable::SetupBones: an entry of the frame's batch when it was posed for this ask (managed's stamps, standalone_bone_batch.h), else a thunk into IManagedBonesClient with the block; the skeleton is ClientSkeletons'
+const SourceSharpBoneBatch_t *FrameBoneBatch(	SLOT-HELP	the frame's batch table, asked of managed (IManagedBonesClient::BoneBatch) at the frame's first SetupBones ask; decides nothing
+int C_StandaloneEntity::LookupAttachment(	SLOT	IClientRenderable::LookupAttachment: a thunk into IManagedBonesClient
+bool C_StandaloneEntity::GetAttachment( int number, matrix3x4_t &matrix )	SLOT	IClientRenderable::GetAttachment: a thunk into IManagedBonesClient
+bool C_StandaloneEntity::GetAttachment( int number, Vector &origin, QAngle &angles )	SLOT	IClientRenderable::GetAttachment: the matrix answer as origin and angles, the entity's place on failure
+int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches(	SLOT-HELP	the standalone half of the model-cache flush: no native cache left, answers 0 (ClientSkeletons.InvalidateMdlCache counts)
+float C_StandaloneEntity::SequenceCycle(	SLOT-HELP	the stored clock's cycle for PostInterpolate's Block().Client.Cycle write; arithmetic over what managed stored
+void SourceSharp_StandaloneSetRagdoll(	BOUNDARY	IShimStandaloneClient::StandaloneSetRagdoll: resolve the handle and store that managed's ragdolls own the pose
+void C_StandaloneEntity::SetRagdollPose(	BOUNDARY	the store StandaloneSetRagdoll carries out: the flag PublishRenderPose and GetRenderBounds read, and a re-leaf

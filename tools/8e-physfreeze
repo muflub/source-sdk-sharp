@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""tools/8e-physfreeze -- IS THIS PROCESS'S COLLISION FILTER ALIVE?
+
+WHAT THIS MEASURES, AND WHY IT IS NOT ANOTHER PROP-DROP PROBE.
+
+lane 8e-physics measured, on four sick games across two builds, that a game
+which drops props through the floor has stopped consulting the collision filter
+AT ALL. `ss_physworld_report`'s `asks=` counter -- every call vphysics makes to
+IPhysicsCollisionSolver::ShouldCollide -- reads a fixed number from the moment
+the map has loaded and never moves again:
+
+    before any step   asks=15946
+    after join        asks=15946
+    after move        asks=15946   ... and so on through six steps and two draws
+
+against a healthy game in the same minute climbing 16134 -> 25820 over the same
+sequence. Nothing the gate's steps do causes it; the state is already there when
+the map finishes loading, and it is permanent for the process.
+
+So the sick state can be detected in THIRTY SECONDS by two samples of one
+counter, instead of two and a half minutes by dropping a crate and watching
+where it lands -- and without the prefix, the crate, or the aim trace. That is
+what makes an A/B of a load-time convar affordable: the trial is a map load.
+
+    tools/8e-physfreeze --trials 40
+    tools/8e-physfreeze --trials 40 --convar sourcesharp_collision_rules_recheck=0
+
+`--convar NAME=VALUE` is passed on the COMMAND LINE, before `+map`, because the
+state is established during the load and a convar set afterwards is set too
+late.
+
+AND THE POSITIVE PATH IS PROVEN, because an instrument that has only ever
+answered LIVE is an instrument nobody should trust. On one process, in one run:
+
+    CONTROL  (running):    asks 15826 -> 19088  verdict=LIVE
+    MUTATED (timescale 0): asks 19608 -> 19608  verdict=FROZEN
+
+`host_timescale 0` stops the simulation on purpose, which is the state this
+looks for, and the SAME process read LIVE eight seconds earlier. That is the
+mutation; it is recorded here because a rate of "0 FROZEN" is worth nothing
+without it.
+
+A PROBE, NOT A GATE: it prints a table and a rate, it does not assert.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import os
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+spec = importlib.util.spec_from_file_location(
+    "livegate", os.path.join(HERE, "live-gate"),
+    loader=importlib.machinery.SourceFileLoader("livegate", os.path.join(HERE, "live-gate")))
+lg = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lg)
+
+
+
+def sample(api):
+    """One ss_physworld_report, and the ask count out of it.
+
+    The command is NOT behind sourcesharp_physworld_report -- lane 3f-shadow
+    made the explicit request ungated on purpose -- so this works on a stock
+    debug build with no convar set.
+    """
+    # The asks are managed's since plan_physics_bones_native_zero 2.1: vphysics
+    # asks managed's own IPhysicsCollisionSolver, which counts them
+    # (/counters?group=solver, cs_sv_physics_solver). The report's asks= field
+    # went with the native ask ledger.
+    counters = api.counters("solver")
+    return None if counters is None else counters.get("collideAsks")
+
+
+def trial(scen, convars, gap, verbose, loads):
+    """One process, `loads` level loads. A list of verdicts, one per load."""
+    port = lg.free_udp_port(*lg.GATE_PORT_RANGE)
+    scratch = os.path.join("/tmp", "ss-physfreeze-%d-%d" % (os.getpid(), port))
+    os.makedirs(scratch, exist_ok=True)
+    log = os.path.join(scratch, "server.log")
+
+    argv = lg.server_launch(port, scen["map"])
+    # BEFORE +map, which is the whole point: the state this looks for is
+    # established during the load, so a convar applied after it is applied to a
+    # process that has already decided.
+    at = argv.index("+map")
+    for c in convars:
+        name, _, value = c.partition("=")
+        argv[at:at] = ["+" + name, value]
+        at += 2
+
+    game = lg.Game.launch(argv, log, os.path.join(scratch, "server"))
+    if game is None:
+        return ["NO SOCKET"]
+
+    api = game.api
+    verdicts = []
+    try:
+        if not api.wait_for(lambda: api.player(scen["playerClass"]), 120.0):
+            return ["NO PLAYER"]
+        time.sleep(2.0)
+
+        verdicts = []
+
+        for n in range(loads):
+            if n:
+                # A NEW LOAD IS A NEW TRIAL. The state is established during the
+                # load, so one process can be asked many times -- which is the
+                # difference between a 20-second trial and a 50-second one. A
+                # FROZEN load ends the process on its way out (the same game
+                # dies at the next level shutdown with the ivp hash assert), so
+                # the loop stops there and says so.
+                api.cmd("disconnect")
+                api.wait_for(lambda: api.census() == (0, 0), 60.0, 1.0)
+                time.sleep(1.0)
+                api.cmd("map %s" % scen["map"])
+                time.sleep(8.0)
+                if not api.wait_for(lambda: api.player(scen["playerClass"]), 120.0):
+                    verdicts.append("NO PLAYER")
+                    break
+                time.sleep(2.0)
+
+            first = sample(api)
+            if first is None:
+                verdicts.append("NO REPORT")
+                break
+            time.sleep(gap)
+            second = sample(api)
+            if second is None:
+                verdicts.append("NO REPORT")
+                break
+
+            if verbose:
+                print("      load %d: asks %d -> %d" % (n + 1, first, second), flush=True)
+            if second == first:
+                verdicts.append("FROZEN")
+                break
+            verdicts.append("LIVE")
+
+        return verdicts
+    except lg.ApiError as exc:
+        verdicts.append("API ERROR (%s)" % exc)
+        return verdicts
+    finally:
+        game.kill()
+
+
+def main(argv):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--trials", type=int, default=20)
+    ap.add_argument("--gap", type=float, default=8.0,
+                    help="seconds between the two samples. A healthy dm_lockdown "
+                         "adds hundreds of asks a second; eight is a wide margin.")
+    ap.add_argument("--convar", action="append", default=[],
+                    help="NAME=VALUE, passed on the command line before +map")
+    ap.add_argument("--loads", type=int, default=1,
+                    help="level loads per process. Each load is a fresh trial; "
+                         "a FROZEN one ends the process and the loop.")
+    ap.add_argument("--verbose", action="store_true")
+    args = ap.parse_args(argv)
+
+    scen = lg.load_scenario("dm_lockdown")
+    counts = {}
+    for i in range(1, args.trials + 1):
+        for verdict in trial(scen, args.convar, args.gap, args.verbose, args.loads):
+            counts[verdict] = counts.get(verdict, 0) + 1
+            print("  process %3d: %s" % (i, verdict), flush=True)
+
+    frozen = counts.get("FROZEN", 0)
+    live = counts.get("LIVE", 0)
+    print("\n== %s" % (", ".join("%s=%d" % (k, v) for k, v in sorted(counts.items()))))
+    if frozen + live:
+        print("== FROZEN %d of %d usable trials (%.1f%%); convars %s"
+              % (frozen, frozen + live, 100.0 * frozen / (frozen + live),
+                 args.convar or "(none)"))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

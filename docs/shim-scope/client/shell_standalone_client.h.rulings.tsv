@@ -1,0 +1,4 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+[C_StandaloneEntity] virtual bool TestCollision(	SLOT	ICollideable, called by the engine clip (ClipRayToEntity / the box sweep): stock C_BaseAnimating::TestCollision gate (c_baseanimating.cpp:5280)
+[C_StandaloneEntity] bool IsSolidFlagSet(	SLOT-HELP	block-head flag read, its only caller is the TestCollision SLOT, deciding nothing

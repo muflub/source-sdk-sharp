@@ -1,0 +1,1147 @@
+#!/usr/bin/env python3
+"""tools/novalve-snapshot -- the retention snapshots of plan_server_novalve.md
+(section 2, K1/K3/K5), taken from a running game, so that a step which removes
+Valve code can be diffed against the build before it.
+
+    tools/novalve-snapshot OUTDIR        launch dm_lockdown headless, capture,
+                                         kill it; exit 1 if any capture is empty
+    tools/novalve-snapshot --particle-fixture OUTDIR
+                                         the same, with a mod-level particle
+                                         manifest (one "!" file) and a map
+                                         manifest in place for the run, so
+                                         the always-precache set is NOT empty
+    tools/novalve-snapshot --diff A B    compare two snapshot directories;
+                                         exit 1 on any difference
+    tools/novalve-snapshot --client OUTDIR
+                                         the client arm (plan_client_novalve.md
+                                         K1/K3/K6, C0 item 3): the same listen
+                                         game, read from client.so's side
+    tools/novalve-snapshot --diff A B    (as above; client-*.txt and k6-*.txt
+                                         are compared when A has them)
+    tools/novalve-snapshot --self-test   the live-at-unload check's own logic,
+                                         on synthetic reports (no game)
+
+What is captured, one file each:
+
+  exports.txt     server.so's defined dynamic symbols (nm -D): K1's half that
+                  needs no game. The engine requests every exposed interface
+                  by name while loading, so a missing one kills the load.
+  convars.txt     `tools/debug-api convars all`, sorted: every console variable
+                  the engine knows, native and managed, with flags/defaults.
+  commands.txt    `tools/debug-api commands all`, sorted.
+  nettables.txt   `tools/debug-api nettables`: K3, every networked type's table.
+  entities.txt    the entity census once the map settled (count / classes).
+  alloc_check.log the allocation checker's report(s), when server.so carries it
+                  (debug). Not diffed, but checked: the capture FAILS when the
+                  last report shows a mismatch or a foreign free (the P4
+                  prerequisite: memoverride goes only when nothing crosses),
+                  or when a server.so that carries the checker left no report.
+                  Every site still live at unload must also be named in
+                  docs/alloc-live-allow.tsv (resolved by addr2line to its
+                  function), and every row there must still match a live
+                  site: an unlisted site or a stale row fails the capture.
+  markers.txt     every console.log line carrying a [novalve-snapshot:...]
+                  marker, sorted. A step that replaces a native list with a
+                  managed one logs the list under the same marker from both
+                  sides (the particle precache names are the first).
+
+The client arm (--client), one file each, all diffed:
+
+  client-exports.txt     client.so's defined dynamic symbols (nm -D). Five at
+                         c6c53802 (CreateInterface, cvar and the linker's), so
+                         K1's substance is the next file.
+  client-interfaces.txt  the CreateInterface registry client.so built at static
+                         init: InterfaceReg::s_pInterfaceRegs walked in the LIVE
+                         game's memory (/proc/PID/mem; the game is our
+                         descendant, which yama ptrace_scope 1 allows), each
+                         node's m_pName read. Needs client.so's symbol table:
+                         a stripped client.so FAILS the capture.
+  client-convars-contract.txt, client-commands-contract.txt
+                         the *-contract rows whose flags carry ClientDll: what
+                         client.so (native or managed) registered.
+  client-nettables.txt   K3, the client's recv tables. TODO(lane routes): read
+                         from /client/{slot}/nettables, which does not exist at
+                         c6c53802; until it answers, the file says NOT MEASURED
+                         and --diff fails on it rather than comparing two
+                         placeholders.
+  client-effects.txt     the effect ledger (cs_cl_effects_report) over a fixed
+                         window at a fixed pose (the lowest-index live
+                         info_player_* spawn point, its angles): per row, whether
+                         it moved. client-effects-raw.txt keeps the numbers (not
+                         diffed: they scale with the frame rate).
+  alloc_check.log, client-alloc-live.txt
+                         client.so's allocation checker (debug, plan C1): the
+                         capture FAILS on a mismatch or a foreign free, or when a
+                         client.so that carries the checker left no report. The
+                         live-at-unload sites are written, not gated (see
+                         CLIENT_LIVE_NOTE). Neither file is diffed.
+  meta.txt               the tip, config and time it was taken (not diffed).
+  k6-legfloor.txt        tools/leg-floor --list: each leg's declared size and
+                         its gtest roster, by leg name. --diff compares it as K6 does: a
+                         size may rise, never fall, and a binary that leaves
+                         the roster is listed.
+
+Launches through tools/live-gate's own Game/launch code (imported, not copied),
+with its port handling and its process-tree socket adoption, and kills the game
+by PID. Uses SOURCESHARP_CONFIG like the gate.
+"""
+
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+
+# What --diff compares. convars.txt and commands.txt are captured too, but
+# their DECLARER is part of each row (native "server.dll" or the managed class),
+# and moving a declaration across the boundary is exactly what the plan does;
+# the *-contract.txt files are what must not move: per name, the default, the
+# help, the bounds and the flags (minus GameDll, which the registration adds
+# either way).
+FILES = ("exports.txt", "convars-contract.txt", "commands-contract.txt", "nettables.txt",
+         "entities.txt", "markers.txt")
+
+
+def contract(text, keys):
+    """One tab-separated line per name, sorted, from a debug-api convars/commands
+    listing; flags as a sorted set without GameDll."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return text
+    rows = next((v for v in data.values() if isinstance(v, list)), [])
+    out = set()
+    for e in rows:
+        flags = sorted(f.strip() for f in str(e.get("flags", "")).split(",")
+                       if f.strip() and f.strip() not in ("GameDll", "None"))
+        out.add("\t".join([str(e.get("name"))] + [str(e.get(k)) for k in keys]
+                          + [",".join(flags)]))
+    return "\n".join(sorted(out))
+MARKER = re.compile(r"\[novalve-snapshot:[^\]]+\].*")
+
+
+def live_gate():
+    loader = importlib.machinery.SourceFileLoader("live_gate", os.path.join(HERE, "live-gate"))
+    spec = importlib.util.spec_from_loader("live_gate", loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
+def normalise_json(text, drop=()):
+    """Sorted, stable text for a JSON answer; raw text if it is not JSON.
+
+    `drop` names keys removed at every depth: a convar's current VALUE is
+    run-time state (timers, the bound port, fps) and differs between any two
+    runs, while its name, flags, default, bounds and help are the contract."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return text
+
+    def strip(x):
+        if isinstance(x, dict):
+            return {k: strip(v) for k, v in x.items() if k not in drop}
+        if isinstance(x, list):
+            return [strip(v) for v in x]
+        return x
+
+    return json.dumps(strip(data), indent=1, sort_keys=True)
+
+
+# The fixture: stock semantics say a "!" entry in the game manifest and every
+# file in a map manifest are always-precache, and dm_lockdown with the stock
+# manifest has neither -- so on the real content both the native manager and
+# a reader that finds nothing precache the same zero systems. These two files,
+# in the DEPLOYED mod dir for the length of one run (mod paths are searched
+# before hl2's), make the set non-empty.
+FIXTURE = {
+    "particles/particles_manifest.txt":
+        'particles_manifest\n{\n'
+        '\t"file"\t"particles/error.pcf"\n'
+        '\t"file"\t"!particles/rocket_fx.pcf"\n'
+        '\t"file"\t"particles/fire_01.pcf"\n'
+        '\t"file"\t"particles/blood_impact.pcf"\n'
+        '}\n',
+    "maps/dm_lockdown_particles.txt":
+        'particles\n{\n'
+        '\t"file"\t"particles/combineball.pcf"\n'
+        '}\n',
+}
+
+
+UNLOAD = re.compile(r"unload: (\d+) allocations, (\d+) releases, (\d+) mismatches, "
+                    r"(\d+) foreign frees, (\d+) live")
+
+# Each DLL's checker starts its lines with its own tag (alloc_check.cpp's
+# SOURCESHARP_ALLOC_CHECK_TAG): one listen process writes both reports into one
+# log, and each DLL is judged on its own lines only.
+SERVER_TAG = "[SourceSharp/AllocCheck]"
+CLIENT_TAG = "[SourceSharp/AllocCheck/client]"
+
+
+def tagged(text, tag):
+    """The lines of `text` written by the checker whose tag is `tag`. PURE."""
+    return "".join(l for l in text.splitlines(True) if l.startswith(tag + " "))
+
+
+def carries_alloc_check(so):
+    syms = subprocess.run(["nm", "--defined-only", so], stdout=subprocess.PIPE,
+                          text=True, check=True).stdout
+    return any(l.split()[-1] == "__wrap_malloc" for l in syms.splitlines() if l.strip())
+
+
+def check_alloc(so, alloc_log, tag=SERVER_TAG, live_out=None):
+    """1 when the allocation checker says a block crossed, or said nothing.
+    The live-at-unload sites are gated against docs/alloc-live-allow.tsv, or,
+    with `live_out`, written there for review instead (the client: see
+    CLIENT_LIVE_NOTE)."""
+    if not carries_alloc_check(so):
+        return 0
+    dll = os.path.basename(so)
+    if not os.path.isfile(alloc_log):
+        print("novalve-snapshot: %s carries the allocation checker but "
+              "left no report at %s" % (dll, alloc_log))
+        return 1
+    with open(alloc_log, errors="replace") as f:
+        text = tagged(f.read(), tag)
+    reports = UNLOAD.findall(text)
+    if not reports:
+        print("novalve-snapshot: no %s unload report in %s" % (dll, alloc_log))
+        return 1
+    allocs, _, mismatches, foreign, _ = (int(x) for x in reports[-1])
+    if allocs == 0:
+        print("novalve-snapshot: the allocation checker saw no allocation")
+        return 1
+    if mismatches or foreign:
+        print("novalve-snapshot: %s: %d mismatches, %d foreign frees (want 0 and 0):"
+              % (dll, mismatches, foreign))
+        for line in text.splitlines():
+            if "foreign free" in line or "mismatch" in line:
+                print("  " + line.strip())
+        return 1
+    if live_out:
+        return write_live(so, text, live_out)
+    return check_live(so, text)
+
+
+ALLOW_FILE = os.path.join(REPO, "docs", "alloc-live-allow.tsv")
+
+# The client's live-at-unload sites are MEASURED, NOT GATED (plan_client_novalve
+# C1). The server's allow-file says of each site "nothing frees it", and the user
+# reviewed every row. On the client that claim cannot be read off this report:
+# vgui2.so frees KeyValues trees client.so builds and posts to it
+# (ivgui()->PostMessage), and a release made inside another DLL never passes
+# client.so's wraps, so such a block reads as live here. The list goes to
+# client-alloc-live.txt (not diffed) until the sites are ruled.
+CLIENT_LIVE_NOTE = ("# client.so's allocation sites live at unload, resolved by addr2line "
+                    "(key, blocks, bytes).\n# NOT GATED: see tools/novalve-snapshot's "
+                    "CLIENT_LIVE_NOTE.\n")
+
+
+def write_live(so, text, path):
+    """Write the last report's live sites to `path`; 1 if they cannot be read."""
+    try:
+        live = live_sites(so, last_report_lines(text))
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as e:
+        print("novalve-snapshot: cannot resolve the live sites:", e)
+        return 1
+    if live is None:
+        print("novalve-snapshot: the unload report did not itemise every live site")
+        return 1
+    with open(path, "w") as f:
+        f.write(CLIENT_LIVE_NOTE)
+        for key in sorted(live):
+            f.write("%s\t%d\t%d\n" % (key, live[key][0], live[key][1]))
+    print("novalve-snapshot: %s: 0 mismatches, 0 foreign frees; %d live-at-unload sites "
+          "written to %s (not gated)" % (os.path.basename(so), len(live), path))
+    return 0
+LIVE = re.compile(r"live x(\d+) \((\d+) bytes\) from (\S+)")
+
+
+def key_of(name):
+    """A demangled function name with its argument list dropped: everything before
+    the first '(' outside template brackets, "(anonymous namespace)" kept."""
+    name = name.strip()
+    out, depth, i = [], 0, 0
+    while i < len(name):
+        if name.startswith("(anonymous namespace)", i):
+            out.append("(anonymous namespace)")
+            i += len("(anonymous namespace)")
+            continue
+        c = name[i]
+        if c == "<":
+            depth += 1
+        elif c == ">":
+            depth -= 1
+        elif c == "(" and depth == 0:
+            break
+        out.append(c)
+        i += 1
+    return "".join(out).strip()
+
+
+def last_report_lines(text):
+    """The lines of the LAST unload report: its header and what follows it."""
+    lines = text.splitlines()
+    starts = [i for i, l in enumerate(lines) if UNLOAD.search(l)]
+    return lines[starts[-1]:] if starts else []
+
+
+def read_allow(path):
+    """key -> the row's fields, from the allow-file."""
+    rows = {}
+    with open(path) as f:
+        for line in f:
+            if not line.strip() or line.startswith("#"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            if len(fields) < 6 or not fields[5].strip():
+                raise ValueError("allow-file row without a reason: %r" % line[:80])
+            if fields[0] in rows:
+                raise ValueError("allow-file names %r twice" % fields[0])
+            rows[fields[0]] = fields
+    return rows
+
+
+def compare_live(live, allow):
+    """Problems (strings) with a {key: (blocks, bytes)} measurement against the
+    allow-file's rows. Empty means the gate holds."""
+    problems = []
+    for key in sorted(live):
+        if key not in allow:
+            n, b = live[key]
+            problems.append("live at unload and not in the allow-file: %s (%d blocks, %d bytes)"
+                            % (key, n, b))
+    for key in sorted(allow):
+        if key not in live:
+            problems.append("allow-file row matches no live site (fixed? take the row out): %s"
+                            % key)
+    return problems
+
+
+def symbolise(so, offsets):
+    """Function names for module offsets, one addr2line run for all of them."""
+    tool = next((t for t in ("llvm-addr2line-22", "llvm-addr2line", "addr2line")
+                 if subprocess.run(["which", t], stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL).returncode == 0), None)
+    if tool is None:
+        raise RuntimeError("no addr2line to resolve live sites with")
+    out = subprocess.run([tool, "-f", "-C", "-e", so], input="\n".join(offsets) + "\n",
+                         stdout=subprocess.PIPE, text=True, check=True).stdout.splitlines()
+    names = out[0::2]
+    if len(names) < len(offsets):
+        raise RuntimeError("addr2line answered %d names for %d sites" % (len(names), len(offsets)))
+    return names[:len(offsets)]
+
+
+def live_sites(so, report):
+    """{key: (blocks, bytes)} from a report's live lines; None if the report says
+    some sites were not itemised (they could not be checked)."""
+    if any("not itemised" in l for l in report):
+        return None
+    found = [m for m in (LIVE.search(l) for l in report) if m]
+    offsets = []
+    for m in found:
+        where = m.group(3)
+        if "+" not in where:
+            raise RuntimeError("a live site outside any module: " + where)
+        offsets.append(where.split("+", 1)[1])
+    names = symbolise(so, offsets) if offsets else []
+    live = {}
+    for m, name in zip(found, names):
+        k = key_of(name)
+        n, b = live.get(k, (0, 0))
+        live[k] = (n + int(m.group(1)), b + int(m.group(2)))
+    return live
+
+
+def check_live(so, text, allow_path=ALLOW_FILE):
+    """1 when a site live at unload is not in the allow-file, or a row is stale."""
+    try:
+        live = live_sites(so, last_report_lines(text))
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as e:
+        print("novalve-snapshot: cannot resolve the live sites:", e)
+        return 1
+    if live is None:
+        print("novalve-snapshot: the unload report did not itemise every live site")
+        return 1
+    try:
+        allow = read_allow(allow_path)
+    except (OSError, ValueError) as e:
+        print("novalve-snapshot: cannot read the allow-file:", e)
+        return 1
+    problems = compare_live(live, allow)
+    for p in problems:
+        print("novalve-snapshot: " + p)
+    if not problems:
+        print("novalve-snapshot: %d live-at-unload sites, each in %s"
+              % (len(live), os.path.relpath(allow_path, REPO)))
+    return 1 if problems else 0
+
+
+def self_test():
+    """The live-at-unload check's logic on synthetic input: each refusal is shown to
+    fire, and the accepting case is shown to accept."""
+    checks = []
+
+    def expect(what, cond):
+        print("  %s  %s" % ("ok  " if cond else "FAIL", what))
+        checks.append(bool(cond))
+
+    expect("key_of drops the argument list",
+           key_of("SourceSharp_TempEntRegister(SourceSharpTeClass_t const*)")
+           == "SourceSharp_TempEntRegister")
+    expect("key_of keeps template arguments and their parentheses",
+           key_of("std::__new_allocator<void (*)(int)>::allocate(unsigned long, void const*)")
+           == "std::__new_allocator<void (*)(int)>::allocate")
+    expect("key_of keeps (anonymous namespace)",
+           key_of("(anonymous namespace)::CGlibcHeap::Alloc(unsigned long)")
+           == "(anonymous namespace)::CGlibcHeap::Alloc")
+
+    old = ("[SourceSharp/AllocCheck] unload: 9 allocations, 0 releases, 0 mismatches, "
+           "0 foreign frees, 9 live\n"
+           "[SourceSharp/AllocCheck]   live x9 (90 bytes) from server.so+0x99\n")
+    new = ("[SourceSharp/AllocCheck] unload: 5 allocations, 1 releases, 0 mismatches, "
+           "0 foreign frees, 4 live\n"
+           "[SourceSharp/AllocCheck]   live x3 (30 bytes) from server.so+0x10\n")
+    lines = last_report_lines(old + new)
+    expect("only the LAST report's lines are read",
+           len([l for l in lines if LIVE.search(l)]) == 1 and "0x10" in lines[1])
+
+    both = (new + "[SourceSharp/AllocCheck/client] unload: 7 allocations, 0 releases, "
+            "0 mismatches, 2 foreign frees, 7 live\n"
+            "[SourceSharp/AllocCheck/client]   live x7 (70 bytes) from client.so+0x20\n")
+    srv, cli = tagged(both, SERVER_TAG), tagged(both, CLIENT_TAG)
+    expect("the server's lines leave the client's report out",
+           UNLOAD.findall(srv) == [("5", "1", "0", "0", "4")] and "client.so" not in srv)
+    expect("the client's lines leave the server's report out",
+           UNLOAD.findall(cli) == [("7", "0", "0", "2", "7")] and "server.so" not in cli)
+
+    allow = {"A": ["A", "f", "1", "1", "o", "why"], "B": ["B", "f", "1", "1", "o", "why"]}
+    expect("every live site listed and no stale row: accepted",
+           compare_live({"A": (1, 1), "B": (2, 2)}, allow) == [])
+    expect("a live site with no row: refused",
+           any("not in the allow-file: C" in p
+               for p in compare_live({"A": (1, 1), "B": (1, 1), "C": (1, 1)}, allow)))
+    expect("a row with no live site: refused",
+           any("matches no live site" in p and p.endswith("B")
+               for p in compare_live({"A": (1, 1)}, allow)))
+    expect("an un-itemised report cannot pass",
+           live_sites("/nonexistent", ["[SourceSharp/AllocCheck]   live blocks at sites past "
+                                       "the first 512: 3 (not itemised)"]) is None)
+
+    with tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False) as f:
+        f.write("# comment\nA\tf\t1\t1\towner\t\n")
+    try:
+        read_allow(f.name)
+        refused = False
+    except ValueError:
+        refused = True
+    finally:
+        os.unlink(f.name)
+    expect("a row without a reason: refused", refused)
+    expect("the real allow-file reads, every row with a reason",
+           len(read_allow(ALLOW_FILE)) > 0)
+
+    # --- the client arm -------------------------------------------------
+    # A fake address space: three InterfaceRegs at 0x100/0x200/0x300, their
+    # names at 0x1000.., the list head at 0x50.
+    def space(links):
+        mem = {}
+
+        def put(addr, data):
+            for i, b in enumerate(data):
+                mem[addr + i] = b
+        put(0x50, (0x100).to_bytes(8, "little"))
+        for node, (name_at, name, nxt) in links.items():
+            put(node, (0xdead).to_bytes(8, "little") + name_at.to_bytes(8, "little")
+                + nxt.to_bytes(8, "little"))
+            put(name_at, name.encode() + b"\0")
+        return lambda addr, n: bytes(mem.get(addr + i, 0) for i in range(n))
+    good = {0x100: (0x1000, "VClient017", 0x200), 0x200: (0x1100, "IEffects001", 0x300),
+            0x300: (0x1200, "GameClientExports001", 0)}
+    expect("the registry walk reads every node's name, in list order",
+           walk_registry(space(good), 0x50) == ["VClient017", "IEffects001", "GameClientExports001"])
+    loop = dict(good)
+    loop[0x300] = (0x1200, "GameClientExports001", 0x100)
+    try:
+        walk_registry(space(loop), 0x50)
+        refused = False
+    except ValueError:
+        refused = True
+    expect("a registry list that cycles is refused, not truncated", refused)
+    expect("an empty head reads as an empty registry (capture then fails on the empty file)",
+           walk_registry(lambda a, n: bytes(n), 0x50) == [])
+    maps = ("7f0000000000-7f0000100000 r--p 00000000 08:01 1 /g/bin/linux64/client.so\n"
+            "7f0000100000-7f0000200000 r-xp 00100000 08:01 1 /g/bin/linux64/client.so\n"
+            "7f1000000000-7f1000100000 r--p 00000000 08:01 2 /g/bin/linux64/server.so\n")
+    expect("the load bias is the first segment's mapping minus its vaddr",
+           load_bias(maps, "client.so", (0, 0)) == ("/g/bin/linux64/client.so", 0x7f0000000000))
+    expect("a first segment linked at a non-zero vaddr: the vaddr is subtracted",
+           load_bias(maps, "client.so", (0, 0x4000)) == ("/g/bin/linux64/client.so", 0x7f0000000000 - 0x4000))
+    expect("a library that is not mapped has no bias", load_bias(maps, "gameui.so", (0, 0)) is None)
+
+    contract_text = ("cl_a\t1\th\t\t\tClientDll\nsv_b\t0\th\t\t\tCheat\n"
+                     "cl_c\t0\th\t\t\tArchive,ClientDll\nx\t0\tClientDll\t\t\t\n")
+    expect("client rows: ClientDll in the flags field, and only there",
+           client_rows(contract_text) == ["cl_a\t1\th\t\t\tClientDll",
+                                          "cl_c\t0\th\t\t\tArchive,ClientDll"])
+
+    report = ("old\n[SourceSharp/Client] effect draws (7a):\n  sprite quads   1\n"
+              "[SourceSharp/Client] effect draws (7a):\n  sprite quads        %8d\n"
+              "  rope draws          %8d\n  world fog           shipped - see cs_cl_fog\n"
+              "[SourceSharp] next\n  stray row 99\n") % (12, 0)
+    expect("the LAST effect report is read, its numeric rows only",
+           parse_effects(report) == {"sprite quads": 12, "rope draws": 0})
+    expect("no report reads as empty", parse_effects("nothing here") == {})
+    d, raw = effects_files({"sprite quads": 12, "rope draws": 0},
+                           {"sprite quads": 40, "rope draws": 0})
+    expect("an effect row that moved and one that did not",
+           d == "rope draws\tstill\nsprite quads\tmoved\n" and "sprite quads\t12\t40\t28" in raw)
+    for name, (b, a) in (("an empty reading", ({}, {})),
+                         ("readings that name different rows", ({"x": 1}, {"y": 1}))):
+        try:
+            effects_files(b, a)
+            refused = False
+        except ValueError:
+            refused = True
+        expect("effects: %s is refused" % name, refused)
+
+    listing = ("managed    [leg-floor] dotnet-tests     >= 763     739 [Fact] in 60 .cs files\n"
+               "managed-client [leg-floor] dotnet-tests     >= 1008    986 [Fact]\n"
+               "native     [leg-floor] gtest-binaries   == 319     319 ss_cpptest*() calls\n"
+               "native     [leg-roster] gtest-binaries   a_test\n"
+               "native     [leg-roster] gtest-binaries   b_test\n")
+    base = "\n".join(legfloor_snapshot(listing)) + "\n"
+    expect("the K6 snapshot keeps leg, kind, op and size, and drops the derivation",
+           "floor\tmanaged-client\tdotnet-tests\t>=\t1008" in base and "986" not in base
+           and "roster\tnative\tgtest-binaries\tb_test" in base)
+    expect("K6: the same declaration compares clean", k6_compare(base, base) == [])
+    expect("K6: a size that rises is clean, and a binary that joins is clean",
+           k6_compare(base, base.replace("1008", "1010").replace("319", "320")
+                      + "roster\tnative\tgtest-binaries\tc_test\n") == [])
+    expect("K6: one leg falling is caught and named by its leg",
+           any(p.startswith("managed-client dotnet-tests") for p in k6_compare(base, base.replace("1008", "1007"))))
+    expect("K6: a binary that leaves the roster is named",
+           any("b_test" in p for p in k6_compare(base, base.replace("b_test", "c_test"))))
+    expect("K6: a baseline with no leg is a failure", k6_compare("", base) != [])
+
+    with tempfile.TemporaryDirectory(prefix="nv-snap-st-") as d1, \
+            tempfile.TemporaryDirectory(prefix="nv-snap-st-") as d2:
+        for d in (d1, d2):
+            for n in CLIENT_FILES:
+                with open(os.path.join(d, n), "w") as f:
+                    f.write("x\n")
+            with open(os.path.join(d, K6_FILE), "w") as f:
+                f.write(base)
+        import contextlib
+        import io
+        with contextlib.redirect_stdout(io.StringIO()):
+            same = diff(d1, d2)
+        expect("diff: two equal client snapshots compare clean", same == 0)
+        for d in (d1, d2):
+            with open(os.path.join(d, "client-nettables.txt"), "w") as f:
+                f.write(NOT_MEASURED + ": placeholder\n")
+        with contextlib.redirect_stdout(io.StringIO()):
+            placeholder = diff(d1, d2)
+        expect("diff: two NOT MEASURED placeholders FAIL rather than compare equal",
+               placeholder == 1)
+
+    ents = [{"classname": "worldspawn", "origin": [0, 0, 0]},
+            {"classname": "info_player_combine", "origin": [1, 2, 3], "angles": [0, 90, 0]},
+            {"classname": "info_player_rebel", "origin": [4, 5, 6], "angles": [0, 0, 0]}]
+    expect("the fixed pose is the first spawn point in the order given",
+           first_spawn(ents) == ([1.0, 2.0, 3.0], [0.0, 90.0, 0.0]))
+    expect("a map with no spawn point has no pose", first_spawn(ents[:1]) is None)
+
+    print("  ==> %d checks, %d failed" % (len(checks), checks.count(False)))
+    return 0 if all(checks) else 1
+
+
+def check_particle_defs(marks):
+    """The native manager's definitions and flags against the managed reader's.
+
+    Only when the build logs both (the P2.1 differential); a list with
+    neither is not a failure, a list with one side only is."""
+    native = sorted(m.split("] ", 1)[1] for m in marks
+                    if m.startswith("[novalve-snapshot:particle-def] "))
+    managed = sorted(m.split("] ", 1)[1] for m in marks
+                     if m.startswith("[novalve-snapshot:particle-def-managed] "))
+    if not native and not managed:
+        return 0
+    if native != managed:
+        only_n = sorted(set(native) - set(managed))
+        only_m = sorted(set(managed) - set(native))
+        print("novalve-snapshot: particle definitions DIFFER: %d native, %d managed"
+              % (len(native), len(managed)))
+        for x in only_n[:10]:
+            print("   native only:  " + x)
+        for x in only_m[:10]:
+            print("   managed only: " + x)
+        return 1
+    flagged = sum(1 for x in native if x.endswith(" 1"))
+    print("novalve-snapshot: particle definitions agree: %d, %d always-precache"
+          % (len(native), flagged))
+    return 0
+
+
+def capture(outdir, fixture=False):
+    lg = live_gate()
+    placed = []
+    if fixture:
+        for rel, text in FIXTURE.items():
+            path = os.path.join(lg.MOD_DIR, rel)
+            if os.path.lexists(path):
+                print("novalve-snapshot: refusing the fixture: %s already exists" % path)
+                return 1
+        for rel, text in FIXTURE.items():
+            path = os.path.join(lg.MOD_DIR, rel)
+            d = os.path.dirname(path)
+            if not os.path.isdir(d):
+                os.makedirs(d)
+                placed.append(d)
+            with open(path, "w") as f:
+                f.write(text)
+            placed.append(path)
+    try:
+        return capture_inner(lg, outdir)
+    finally:
+        for path in reversed(placed):
+            if os.path.isdir(path):
+                os.rmdir(path)
+            else:
+                os.unlink(path)
+
+
+def capture_inner(lg, outdir):
+    os.makedirs(outdir, exist_ok=True)
+    so = os.path.join(REPO, "bin", lg.CONFIG, "bin", "linux64", "server.so")
+    exports = subprocess.run(["nm", "-D", "--defined-only", so], stdout=subprocess.PIPE,
+                             text=True, check=True).stdout
+    names = sorted(l.split()[-1] for l in exports.splitlines() if l.strip())
+    with open(os.path.join(outdir, "exports.txt"), "w") as f:
+        f.write("\n".join(names) + "\n")
+
+    tmp = tempfile.mkdtemp(prefix="nv-snap-")
+    alloc_log = os.path.abspath(os.path.join(outdir, "alloc_check.log"))
+    if os.path.exists(alloc_log):
+        os.unlink(alloc_log)
+    log_path = os.path.join(tmp, "launch.log")
+    console = os.path.join(lg.MOD_DIR, "console.log")
+    before = os.path.getsize(console) if os.path.isfile(console) else 0
+    game, port = lg.launch_with_free_port(lambda p: lg.server_launch(p, "dm_lockdown"),
+                                          log_path, tmp,
+                                          extra_env={"SOURCESHARP_NOVALVE_SNAPSHOT": "1",
+                                                     "SOURCESHARP_ALLOC_CHECK_LOG": alloc_log})
+    if game is None:
+        print("novalve-snapshot: the game did not come up; see", log_path)
+        return 1
+    try:
+        api = game.api
+        if not api.wait_for(lambda: api.census()[0] > 0, 120.0, 1.0):
+            print("novalve-snapshot: the map never populated")
+            return 1
+        census = api.census()
+        with open(os.path.join(outdir, "entities.txt"), "w") as f:
+            f.write("%s\n" % (census,))
+        for name, args, drop in (("convars.txt", ("convars", "all"), ("value",)),
+                                 ("commands.txt", ("commands", "all"), ()),
+                                 ("nettables.txt", ("nettables",), ())):
+            text = api.raw(*args, timeout=60)
+            with open(os.path.join(outdir, name), "w") as f:
+                f.write(normalise_json(text, drop) + "\n")
+            if name == "convars.txt":
+                with open(os.path.join(outdir, "convars-contract.txt"), "w") as f:
+                    f.write(contract(text, ("default", "help", "min", "max")) + "\n")
+            elif name == "commands.txt":
+                with open(os.path.join(outdir, "commands-contract.txt"), "w") as f:
+                    f.write(contract(text, ("help",)) + "\n")
+        # Asked to quit, not killed: the allocation checker's report is written
+        # when server.so unloads, and SIGKILL would skip it.
+        api.cmd("quit")
+        try:
+            game.popen.wait(timeout=90)
+        except Exception:
+            print("novalve-snapshot: the game did not quit within 90s; killed")
+    finally:
+        game.kill()
+    with open(console, errors="replace") as f:
+        f.seek(before)
+        marks = sorted(m.group(0) for m in (MARKER.search(l) for l in f) if m)
+    with open(os.path.join(outdir, "markers.txt"), "w") as f:
+        f.write("\n".join(marks) + ("\n" if marks else ""))
+
+    if check_particle_defs(marks):
+        return 1
+    if check_alloc(so, alloc_log):
+        return 1
+
+    empty = [n for n in FILES if n != "markers.txt"
+             and os.path.getsize(os.path.join(outdir, n)) < 3]
+    if empty:
+        print("novalve-snapshot: EMPTY capture:", ", ".join(empty))
+        return 1
+    print("novalve-snapshot: wrote %s (%d exports, %d marker lines)"
+          % (outdir, len(names), len(marks)))
+    return 0
+
+
+#-----------------------------------------------------------------------------
+# The client arm (plan_client_novalve.md C0 item 3).
+#-----------------------------------------------------------------------------
+CLIENT_FILES = ("client-exports.txt", "client-interfaces.txt",
+                "client-convars-contract.txt", "client-commands-contract.txt",
+                "client-nettables.txt", "client-effects.txt")
+K6_FILE = "k6-legfloor.txt"
+NOT_MEASURED = "# NOT MEASURED"
+REGISTRY_SYMBOL = "_ZN12InterfaceReg16s_pInterfaceRegsE"
+EFFECTS_HEADER = "effect draws (7a):"
+EFFECT_ROW = re.compile(r"^\s{2}([a-z][a-z ]*[a-z])\s+(-?\d+)\s*$")
+EFFECT_WINDOW = 6.0
+
+
+def u64(b):
+    return int.from_bytes(b, "little")
+
+
+def read_cstr(read_mem, addr, limit=512):
+    """A NUL-terminated string at addr through read_mem(addr, n). PURE given
+    read_mem."""
+    out = b""
+    while len(out) < limit:
+        chunk = read_mem(addr + len(out), 64)
+        if not chunk:
+            break
+        i = chunk.find(b"\0")
+        if i >= 0:
+            return (out + chunk[:i]).decode("latin-1")
+        out += chunk
+    raise ValueError("no NUL within %d bytes at %#x" % (limit, addr))
+
+
+def walk_registry(read_mem, head_addr, limit=4096):
+    """The names on tier1's InterfaceReg list whose head pointer is at
+    head_addr. InterfaceReg is { m_CreateFn, m_pName, m_pNext } (three
+    pointers, public/tier1/interface.h). A cycle or an over-long list is an
+    error, never a truncated answer. PURE given read_mem."""
+    node = u64(read_mem(head_addr, 8))
+    names, seen = [], set()
+    while node:
+        if node in seen or len(names) >= limit:
+            raise ValueError("the InterfaceReg list does not end (node %#x)" % node)
+        seen.add(node)
+        raw = read_mem(node, 24)
+        if len(raw) != 24:
+            raise ValueError("short read of an InterfaceReg at %#x" % node)
+        names.append(read_cstr(read_mem, u64(raw[8:16])))
+        node = u64(raw[16:24])
+    return names
+
+
+def load_bias(maps_text, so_name, first_load):
+    """(path, bias) of so_name in a /proc/PID/maps text: the mapping of file
+    offset first_load[0] minus first_load's vaddr. None when not mapped. PURE."""
+    off, vaddr = first_load
+    for line in maps_text.splitlines():
+        parts = line.split()
+        if len(parts) < 6 or not parts[5].endswith("/" + so_name):
+            continue
+        start = int(parts[0].split("-")[0], 16)
+        if int(parts[2], 16) == off:
+            return parts[5], start - vaddr
+    return None
+
+
+def first_load_segment(path):
+    """(file offset, vaddr) of the first PT_LOAD in path, by readelf -lW."""
+    out = subprocess.run(["readelf", "-lW", path], stdout=subprocess.PIPE, text=True,
+                         check=True).stdout
+    for line in out.splitlines():
+        parts = line.split()
+        if parts[:1] == ["LOAD"]:
+            return int(parts[1], 16), int(parts[2], 16)
+    raise RuntimeError("no PT_LOAD in %s" % path)
+
+
+def symbol_value(path, name):
+    out = subprocess.run(["nm", path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                         text=True).stdout
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[2] == name:
+            return int(parts[0], 16)
+    return None
+
+
+def live_registry(pid, so_name="client.so"):
+    """The CreateInterface names so_name registered, read from the running
+    game's memory. Raises on anything that would make the answer a guess."""
+    with open("/proc/%s/maps" % pid) as f:
+        maps = f.read()
+    path = next((l.split()[5] for l in maps.splitlines()
+                 if len(l.split()) >= 6 and l.split()[5].endswith("/" + so_name)), None)
+    if path is None:
+        raise RuntimeError("%s is not mapped in process %s" % (so_name, pid))
+    where = load_bias(maps, so_name, first_load_segment(path))
+    if where is None:
+        raise RuntimeError("no mapping of %s's first segment in process %s" % (so_name, pid))
+    sym = symbol_value(path, REGISTRY_SYMBOL)
+    if sym is None:
+        raise RuntimeError("%s has no %s in its symbol table (stripped?)" % (path, REGISTRY_SYMBOL))
+    with open("/proc/%s/mem" % pid, "rb", buffering=0) as mem:
+        def read_mem(addr, n):
+            mem.seek(addr)
+            return mem.read(n)
+        return walk_registry(read_mem, where[1] + sym)
+
+
+def client_rows(contract_text):
+    """The rows of a *-contract.txt whose flags (the last field) carry
+    ClientDll. PURE."""
+    out = []
+    for line in contract_text.splitlines():
+        fields = line.split("\t")
+        if len(fields) >= 2 and "ClientDll" in fields[-1].split(","):
+            out.append(line)
+    return out
+
+
+def parse_effects(text):
+    """{row: count} from the LAST cs_cl_effects_report block in a console
+    text; {} when there is none. PURE."""
+    i = text.rfind(EFFECTS_HEADER)
+    if i < 0:
+        return {}
+    out = {}
+    for line in text[i:].splitlines()[1:]:
+        m = EFFECT_ROW.match(line)
+        if m:
+            out[m.group(1)] = int(m.group(2))
+        elif line.strip() and not line.startswith("  "):
+            break
+        elif "[SourceSharp" in line:
+            break
+    return out
+
+
+def effects_files(before, after):
+    """(diffed text, raw text) of an effect window: per row, moved or still;
+    the raw numbers separately. A row in one reading only is an error. PURE."""
+    if not before or set(before) != set(after):
+        raise ValueError("the two effect readings name different rows: %s / %s"
+                         % (sorted(before), sorted(after)))
+    diffed = ["%s\t%s" % (k, "moved" if after[k] > before[k] else "still")
+              for k in sorted(after)]
+    raw = ["%s\t%d\t%d\t%d" % (k, before[k], after[k], after[k] - before[k])
+           for k in sorted(after)]
+    return "\n".join(diffed) + "\n", "row\tbefore\tafter\tdelta\n" + "\n".join(raw) + "\n"
+
+
+def legfloor_snapshot(list_text):
+    """The K6 snapshot from tools/leg-floor --list: one line per declaration,
+    "floor<TAB>leg<TAB>kind<TAB>op<TAB>N", and per roster entry,
+    "roster<TAB>leg<TAB>kind<TAB>name", sorted. The derivation text is dropped:
+    it carries the counts behind the floor, which K6 does not compare. PURE."""
+    out = []
+    for line in list_text.splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[1] == "[leg-floor]":
+            out.append("floor\t%s\t%s\t%s\t%s" % (parts[0], parts[2], parts[3], parts[4]))
+        elif len(parts) == 4 and parts[1] == "[leg-roster]":
+            out.append("roster\t%s\t%s\t%s" % (parts[0], parts[2], parts[3]))
+    return sorted(out)
+
+
+def parse_legfloor(text):
+    """({(leg, kind): (op, value)}, {"leg kind name"}) from a K6 snapshot.
+    PURE."""
+    floors, roster = {}, set()
+    for line in text.splitlines():
+        f = line.split("\t")
+        if f[0] == "floor" and len(f) == 5:
+            floors[(f[1], f[2])] = (f[3], int(f[4]))
+        elif f[0] == "roster" and len(f) == 4:
+            roster.add(" ".join(f[1:]))
+    return floors, roster
+
+
+def k6_compare(a_text, b_text):
+    """K6: problems going from snapshot A to B. A declared size may rise,
+    never fall; a roster entry that leaves is named (a deletion needs its
+    commit to name it). PURE."""
+    fa, ra = parse_legfloor(a_text)
+    fb, rb = parse_legfloor(b_text)
+    if not fa:
+        return ["the baseline declares no leg: nothing to compare"]
+    problems = []
+    for key, (_, va) in sorted(fa.items()):
+        if key not in fb:
+            problems.append("%s %s: declared in A, missing in B" % key)
+        elif fb[key][1] < va:
+            problems.append("%s %s: %d -> %d (fell)" % (key[0], key[1], va, fb[key][1]))
+    for gone in sorted(ra - rb):
+        problems.append("left the roster: %s" % gone)
+    return problems
+
+
+def capture_client(outdir):
+    lg = live_gate()
+    os.makedirs(outdir, exist_ok=True)
+    so = os.path.join(REPO, "bin", lg.CONFIG, "bin", "linux64", "client.so")
+    exports = subprocess.run(["nm", "-D", "--defined-only", so], stdout=subprocess.PIPE,
+                             text=True, check=True).stdout
+    names = sorted(l.split()[-1] for l in exports.splitlines() if l.strip())
+    with open(os.path.join(outdir, "client-exports.txt"), "w") as f:
+        f.write("\n".join(names) + "\n")
+
+    k6 = subprocess.run([os.path.join(HERE, "leg-floor"), "--list"], stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE, text=True)
+    k6_lines = legfloor_snapshot(k6.stdout)
+    if k6.returncode != 0 or not parse_legfloor("\n".join(k6_lines))[0]:
+        print("novalve-snapshot: tools/leg-floor --list failed (rc %d): %s"
+              % (k6.returncode, k6.stderr.strip()[:200]))
+        return 1
+    with open(os.path.join(outdir, K6_FILE), "w") as f:
+        f.write("\n".join(k6_lines) + "\n")
+
+    tip = subprocess.run(["git", "-C", REPO, "rev-parse", "HEAD"], stdout=subprocess.PIPE,
+                         text=True).stdout.strip()
+    dirty = subprocess.run(["git", "-C", REPO, "status", "--porcelain", "--untracked-files=no"],
+                           stdout=subprocess.PIPE, text=True).stdout.strip()
+    with open(os.path.join(outdir, "meta.txt"), "w") as f:
+        # Not diffed: where and from what this snapshot was taken.
+        f.write("tip\t%s%s\nconfig\t%s\nmap\tdm_lockdown\ntaken\t%s\n"
+                % (tip, " (with uncommitted changes)" if dirty else "", lg.CONFIG,
+                   time.strftime("%Y-%m-%dT%H:%M:%S")))
+
+    tmp = tempfile.mkdtemp(prefix="nv-snap-cl-")
+    log_path = os.path.join(tmp, "launch.log")
+    # The allocation checker's reports (client.so carries it in debug, plan
+    # C1): written when the game quits, checked after it has.
+    alloc_log = os.path.abspath(os.path.join(outdir, "alloc_check.log"))
+    if os.path.exists(alloc_log):
+        os.unlink(alloc_log)
+    console = os.path.join(lg.MOD_DIR, "console.log")
+    before = os.path.getsize(console) if os.path.isfile(console) else 0
+
+    def console_since():
+        with open(console, errors="replace") as f:
+            f.seek(before)
+            return f.read()
+
+    game, _port = lg.launch_with_free_port(lambda p: lg.server_launch(p, "dm_lockdown"),
+                                           log_path, tmp,
+                                           extra_env={"SOURCESHARP_ALLOC_CHECK_LOG": alloc_log})
+    if game is None:
+        print("novalve-snapshot: the game did not come up; see", log_path)
+        return 1
+    problems = []
+    try:
+        api = game.api
+        player = api.wait_for(lambda: api.player("ss_player"), 120.0, 1.0)
+        if not player:
+            print("novalve-snapshot: no ss_player: the local client never joined")
+            return 1
+        if not api.wait_for(lambda: "[SourceSharp/Hud] first paint" in console_since(), 90.0, 1.0):
+            print("novalve-snapshot: the client never painted its HUD")
+            return 1
+        slot = player["index"]
+
+        # K1: the interface registry, from the live process.
+        try:
+            interfaces = sorted(live_registry(api.pid))
+        except (OSError, RuntimeError, ValueError) as e:
+            print("novalve-snapshot: the CreateInterface registry could not be read:", e)
+            return 1
+        with open(os.path.join(outdir, "client-interfaces.txt"), "w") as f:
+            f.write("\n".join(interfaces) + "\n")
+
+        # The client's convars and commands: the process-wide registry, the
+        # rows client.so registered.
+        for name, args, keys in (("client-convars-contract.txt", ("convars", "all"),
+                                  ("default", "help", "min", "max")),
+                                 ("client-commands-contract.txt", ("commands", "all"), ("help",))):
+            rows = client_rows(contract(api.raw(*args, timeout=60), keys))
+            with open(os.path.join(outdir, name), "w") as f:
+                f.write("\n".join(rows) + "\n")
+
+        # K3: the client's recv tables.
+        # TODO(lane routes): /client/{slot}/nettables is lane "routes"' route
+        # (plan_client_novalve.md §4.4, C0 item 4). Until it answers JSON with
+        # a table list this file says NOT MEASURED, and --diff refuses it.
+        text = api.raw("client", str(slot), "nettables", timeout=60)
+        nettables = None
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict) and "error" not in data and data:
+                nettables = normalise_json(text)
+        except ValueError:
+            pass
+        with open(os.path.join(outdir, "client-nettables.txt"), "w") as f:
+            if nettables is None:
+                f.write("%s: /client/%s/nettables answered %r (TODO: lane routes)\n"
+                        % (NOT_MEASURED, slot, text.strip()[:160]))
+                print("novalve-snapshot: client-nettables NOT MEASURED: "
+                      "/client/{slot}/nettables is not served (TODO: lane routes)")
+            else:
+                f.write(nettables + "\n")
+
+        # The effect counters at the fixed pose: the map's first spawn point.
+        pose = fixed_pose(api)
+        if pose is None:
+            print("novalve-snapshot: no %s* spawn point in the map's entities" % SPAWN_PREFIX)
+            return 1
+        api.cmd("sv_cheats 1")
+        time.sleep(0.5)
+        api.cmd("setpos_exact %s %s %s" % tuple(pose[0]))
+        api.cmd("setang %s %s %s" % tuple(pose[1]))
+        time.sleep(2.0)
+        at = api.player("ss_player")["origin"]
+        # A spawn point stands a little above the floor and the player drops
+        # onto it: horizontal within 2 units, height within 24.
+        if distance(at[:2], pose[0][:2]) > 2.0 or abs(float(at[2]) - pose[0][2]) > 24.0:
+            print("novalve-snapshot: setpos_exact did not take: at %s, wanted %s" % (at, pose[0]))
+            return 1
+        readings = []
+        for _ in range(2):
+            mark = len(console_since())
+            api.cmd("cs_cl_effects_report")
+            got = api.wait_for(lambda: parse_effects(console_since()[mark:]), 10.0, 0.3)
+            readings.append(parse_effects(console_since()[mark:]) if got else {})
+            if len(readings) == 1:
+                time.sleep(EFFECT_WINDOW)
+        try:
+            diffed, raw = effects_files(*readings)
+        except ValueError as e:
+            print("novalve-snapshot: the effect ledger could not be read:", e)
+            return 1
+        with open(os.path.join(outdir, "client-effects.txt"), "w") as f:
+            f.write("# pose %s %s, window %.0fs\n" % (pose[0], pose[1], EFFECT_WINDOW) + diffed)
+        with open(os.path.join(outdir, "client-effects-raw.txt"), "w") as f:
+            f.write(raw)
+        api.cmd("quit")
+        try:
+            game.popen.wait(timeout=90)
+        except Exception:
+            print("novalve-snapshot: the game did not quit within 90s; killed")
+    finally:
+        game.kill()
+
+    # Asked to quit above, not killed, so the checker has reported.
+    if check_alloc(so, alloc_log, CLIENT_TAG,
+                   live_out=os.path.join(outdir, "client-alloc-live.txt")):
+        return 1
+
+    empty = [n for n in CLIENT_FILES + (K6_FILE,)
+             if os.path.getsize(os.path.join(outdir, n)) < 3]
+    if empty:
+        print("novalve-snapshot: EMPTY capture:", ", ".join(empty))
+        return 1
+    print("novalve-snapshot: wrote %s (%d exports, %d interfaces)"
+          % (outdir, len(names), len(interfaces)))
+    return 0
+
+
+def distance(a, b):
+    return sum((float(x) - float(y)) ** 2 for x, y in zip(a, b)) ** 0.5
+
+
+def numbers(value):
+    if isinstance(value, str):
+        return [float(x) for x in value.split()]
+    return [float(x) for x in value]
+
+
+SPAWN_PREFIX = "info_player_"
+
+
+def first_spawn(ents):
+    """(origin, angles) of the first entity, in the order given, whose class
+    is an info_player_* spawn point, or None. PURE."""
+    for e in ents:
+        if str(e.get("classname", "")).startswith(SPAWN_PREFIX) and e.get("origin") is not None:
+            return numbers(e["origin"]), numbers(e.get("angles") or [0, 0, 0])
+    return None
+
+
+def fixed_pose(api):
+    """first_spawn over the live entity list in index order. Not /map/entities:
+    dm_lockdown is in the game's VPK, which that route does not read."""
+    try:
+        ents = sorted(api.ents("*"), key=lambda e: e.get("index", 0))
+    except Exception as e:  # ApiError lives in live-gate's module
+        print("novalve-snapshot: the entity list did not answer: %s" % e)
+        return None
+    pose = first_spawn(ents)
+    if pose is None:
+        print("novalve-snapshot: %d live entities, classes %s"
+              % (len(ents), sorted({e.get("classname") for e in ents})[:40]))
+    return pose
+
+
+def diff(a, b):
+    bad = 0
+    files = FILES if os.path.isfile(os.path.join(a, FILES[0])) else ()
+    if os.path.isfile(os.path.join(a, CLIENT_FILES[0])):
+        files += CLIENT_FILES
+    if not files:
+        print("MISSING: %s holds neither a server nor a client snapshot" % a)
+        return 1
+    if os.path.isfile(os.path.join(a, K6_FILE)):
+        pa, pb = os.path.join(a, K6_FILE), os.path.join(b, K6_FILE)
+        if not os.path.isfile(pb):
+            print("MISSING", K6_FILE)
+            bad += 1
+        else:
+            problems = k6_compare(open(pa).read(), open(pb).read())
+            print(("DIFFERS %s\n  " % K6_FILE + "\n  ".join(problems)) if problems
+                  else "same    %s (no size fell, no binary left)" % K6_FILE)
+            bad += 1 if problems else 0
+    for n in files:
+        pa, pb = os.path.join(a, n), os.path.join(b, n)
+        if not (os.path.isfile(pa) and os.path.isfile(pb)):
+            print("MISSING", n)
+            bad += 1
+            continue
+        unmeasured = [p for p in (pa, pb) if open(p).read().startswith(NOT_MEASURED)]
+        if unmeasured:
+            print("NOT MEASURED %s (%s): two placeholders are not a comparison"
+                  % (n, ", ".join(unmeasured)))
+            bad += 1
+            continue
+        p = subprocess.run(["diff", "-u", pa, pb], stdout=subprocess.PIPE, text=True)
+        if p.returncode != 0:
+            bad += 1
+            lines = p.stdout.splitlines()
+            print("DIFFERS %s (%d diff lines)" % (n, len(lines)))
+            print("\n".join(lines[:40]))
+        else:
+            print("same    %s" % n)
+    return 1 if bad else 0
+
+
+def main(argv):
+    if argv == ["--self-test"]:
+        return self_test()
+    if len(argv) == 3 and argv[0] == "--diff":
+        return diff(argv[1], argv[2])
+    if len(argv) == 1 and not argv[0].startswith("-"):
+        return capture(argv[0])
+    if len(argv) == 2 and argv[0] == "--client":
+        return capture_client(argv[1])
+    if len(argv) == 2 and argv[0] == "--particle-fixture":
+        return capture(argv[1], fixture=True)
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

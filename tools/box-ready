@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""tools/box-ready -- is there room on this machine for a check or a gate?
+
+    tools/box-ready check            exit 0 if a `make check` / `make test` fits now
+    tools/box-ready gate             exit 0 if a `make live-gate` fits now
+    tools/box-ready gate --wait      poll until it fits (two ready readings in a row)
+    tools/box-ready --self-test
+
+WHY. Several worktrees share one box. Two `make test`s at once once committed
+141 GB on 62 GB and froze it, and gates lost the debug-api while another lane's
+game was busy. The first answer was "wait for an idle box": no other make, no
+game at all. It serialised every lane behind every other, which the user had
+ruled against for games. earlyoom now runs, so too little memory kills a
+process instead of freezing the machine, and the rule is the two things that
+actually went wrong:
+
+  1. MEMORY. MemAvailable must cover what the run needs (NEED_GIB below,
+     overridable with BOX_READY_NEED_GIB). A run that cannot fit waits.
+  2. BUSY GAMES. A game (hl2_linux64, srcds_linux64) using more than
+     BUSY_CORE_PCT of one core over the sample is in the middle of someone's
+     gate or probe; starting load under several of them is what cost the
+     debug-api. The box has 16 real cores and a gate's game uses about one, so up
+     to MAX_BUSY_GAMES busy games are tolerated (user, 2026-09-30); more wait.
+     A game sitting idle at a menu or an empty map never counts.
+  3. CPU. Idle cores (all of /proc/stat's CPUs, over the sample) must cover
+     NEED_CORES (BOX_READY_NEED_CORES overrides). Memory alone let two
+     `make test`s start together: each then took about twice as long (the
+     10-01 21:22 cluster: managed 21-40 s and native 25-44 s against 10-18 s
+     and 16-21 s idle), so both lanes waited longer than if one had queued.
+
+What this does NOT cover: two runs that both start while memory is plentiful
+and then grow. The NEED figures are a run's measured peak use, so the second
+run sees the first's growth only once it has happened. A check's compile and
+test legs peak early; if that ever proves too loose, raise NEED, do not add a
+lock.
+
+Nothing serialises joined clients either: local games run -hushsteam
+(tools/local_launch.py), and 4 and 6 concurrent joined games measured no Steam
+ticket failure (2026-10-05).
+"""
+import os
+import sys
+import time
+
+GAMES = ("hl2_linux64", "srcds_linux64")
+# What one run needs free, in GiB: a run's sampled peak plus headroom.
+#   check: MEASURED 2026-09-30 at d76ec0a+wave 7b, an incremental `make check`
+#          (a few TUs rebuilt, every test leg): the process tree peaked at 6.0
+#          GiB RSS (16 samples, ~2 s apart); MemAvailable fell 25.4 -> 22.1.
+#          A full rebuild (32 compile jobs) is NOT measured; if one is killed
+#          by earlyoom, measure it and raise this.
+#   gate:  PROVISIONAL, not yet measured (its game is ~1.3 GiB RSS).
+NEED_GIB = {"check": 8.0, "gate": 6.0}
+# Idle cores one run needs, of nproc (32 here): a routine `make test` runs
+# eight legs at once, four of them xUnit processes of up to 16 threads, and
+# kept the 1-minute load near 10-20 alone (2026-10-04); a gate's game is
+# about one core.
+NEED_CORES = {"check": 12.0, "gate": 2.0}
+CPU_SAMPLE_S = 2.0
+BUSY_CORE_PCT = 50.0
+MAX_BUSY_GAMES = 1
+SAMPLE_S = 5.0
+POLL_S = 15.0
+
+
+def mem_available_gib(meminfo_text):
+    """MemAvailable from /proc/meminfo's text, in GiB; None if it is not there."""
+    for line in meminfo_text.splitlines():
+        if line.startswith("MemAvailable:"):
+            fields = line.split()
+            if len(fields) >= 2 and fields[1].isdigit():
+                return int(fields[1]) / (1024.0 * 1024.0)
+    return None
+
+
+def idle_cores(stat_before, stat_after):
+    """Idle cores between two /proc/stat texts (the aggregate `cpu` line:
+    idle + iowait over all time, times the CPU count); None if unreadable."""
+    def parse(text):
+        cpus, total = 0, None
+        for line in text.splitlines():
+            f = line.split()
+            if not f:
+                continue
+            if f[0] == "cpu" and len(f) >= 6 and all(x.isdigit() for x in f[1:]):
+                v = [int(x) for x in f[1:]]
+                total = (sum(v), v[3] + v[4])
+            elif f[0].startswith("cpu") and f[0][3:].isdigit():
+                cpus += 1
+        return (total, cpus) if total and cpus else None
+    a, b = parse(stat_before), parse(stat_after)
+    if a is None or b is None or b[0][0] <= a[0][0]:
+        return None
+    return (b[0][1] - a[0][1]) * b[1] / float(b[0][0] - a[0][0])
+
+
+def decide(avail_gib, need_gib, games, idle=None, need_cores=0.0):
+    """(ready, reasons). games is [(pid, name, core_pct)]; idle is the idle
+    cores over the sample (None: not measured). PURE."""
+    reasons = []
+    if need_cores > 0:
+        if idle is None:
+            reasons.append("cannot read idle CPU: not measured, so not ready")
+        elif idle < need_cores:
+            reasons.append("%.1f cores idle, the run needs %.0f" % (idle, need_cores))
+    if avail_gib is None:
+        reasons.append("cannot read MemAvailable: not measured, so not ready")
+    elif avail_gib < need_gib:
+        reasons.append("%.1f GiB available, the run needs %.1f" % (avail_gib, need_gib))
+    busy = []
+    for pid, name, pct in games:
+        if pct is None:
+            reasons.append("%s %d: its CPU use could not be sampled" % (name, pid))
+        elif pct > BUSY_CORE_PCT:
+            busy.append("%s %d at %.0f%% of a core" % (name, pid, pct))
+    if len(busy) > MAX_BUSY_GAMES:
+        reasons.append("%d busy games (at most %d tolerated): %s"
+                       % (len(busy), MAX_BUSY_GAMES, ", ".join(busy)))
+    return (not reasons, reasons)
+
+
+def _cpu_ticks(pid):
+    try:
+        with open("/proc/%d/stat" % pid) as f:
+            text = f.read()
+    except OSError:
+        return None
+    # The command name can hold spaces; the fields after its ')' are fixed.
+    rest = text[text.rindex(")") + 2:].split()
+    return int(rest[11]) + int(rest[12])  # utime + stime
+
+
+def _games():
+    pids = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open("/proc/%s/comm" % entry) as f:
+                comm = f.read().strip()
+        except OSError:
+            continue
+        if comm in GAMES:
+            pids.append((int(entry), comm))
+    return pids
+
+
+def _proc_stat():
+    try:
+        with open("/proc/stat") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def measure():
+    """(MemAvailable GiB, [(pid, name, core_pct)], idle cores) over one
+    window: SAMPLE_S when a game is sampled, CPU_SAMPLE_S otherwise."""
+    games = _games()
+    before = {pid: _cpu_ticks(pid) for pid, _ in games}
+    stat_before = _proc_stat()
+    time.sleep(SAMPLE_S if games else CPU_SAMPLE_S)
+    idle = idle_cores(stat_before, _proc_stat())
+    hz = os.sysconf("SC_CLK_TCK")
+    sampled = []
+    for pid, name in games:
+        after = _cpu_ticks(pid)
+        if after is None:
+            continue  # it exited during the sample: it no longer competes
+        if before[pid] is None:
+            sampled.append((pid, name, None))
+        else:
+            sampled.append((pid, name, (after - before[pid]) * 100.0 / hz / SAMPLE_S))
+    try:
+        with open("/proc/meminfo") as f:
+            avail = mem_available_gib(f.read())
+    except OSError:
+        avail = None
+    return avail, sampled, idle
+
+
+def need_for(kind):
+    override = os.environ.get("BOX_READY_NEED_GIB")
+    return float(override) if override else NEED_GIB[kind]
+
+
+def cores_for(kind):
+    override = os.environ.get("BOX_READY_NEED_CORES")
+    return float(override) if override else NEED_CORES[kind]
+
+
+def self_test():
+    checks = []
+
+    def ok(cond, name):
+        checks.append((bool(cond), name))
+
+    mi = "MemTotal:       65429716 kB\nMemAvailable:   27715376 kB\n"
+    ok(abs(mem_available_gib(mi) - 26.43) < 0.01, "MemAvailable is read in GiB")
+    ok(mem_available_gib("MemTotal: 1 kB\n") is None, "no MemAvailable line reads as None")
+    ok(decide(30.0, 24.0, [])[0], "enough memory and no game: ready")
+    ok(not decide(10.0, 24.0, [])[0], "too little memory: not ready")
+    ok(not decide(None, 6.0, [])[0], "unreadable memory is not ready, never a pass")
+    ok(decide(30.0, 6.0, [(1, "hl2_linux64", 12.0)])[0], "an idle game does not block")
+    ok(decide(30.0, 6.0, [(1, "hl2_linux64", 108.0)])[0],
+       "one game at a gate's 108% of a core is tolerated")
+    ok(not decide(30.0, 6.0, [(1, "hl2_linux64", 108.0), (2, "hl2_linux64", 95.0)])[0],
+       "two busy games block")
+    ok(not decide(30.0, 6.0, [(1, "hl2_linux64", 108.0), (2, "srcds_linux64", 80.0)])[0],
+       "a busy dedicated server counts as a busy game")
+    ok(decide(30.0, 6.0, [(1, "hl2_linux64", 108.0), (2, "hl2_linux64", 12.0)])[0],
+       "an idle game does not count towards the busy limit")
+    ok(not decide(30.0, 6.0, [(1, "hl2_linux64", None)])[0], "an unsampled game blocks")
+    reasons = decide(5.0, 24.0, [(7, "hl2_linux64", 90.0), (8, "srcds_linux64", 90.0)])[1]
+    ok(len(reasons) == 2, "both reasons are reported, not just the first")
+    ok(NEED_GIB["check"] > NEED_GIB["gate"] > 0, "a check needs more than a gate, and both need some")
+    ok(NEED_CORES["check"] > NEED_CORES["gate"] > 0, "a check needs more cores than a gate, and both need some")
+    ok(decide(30.0, 6.0, [], 20.0, 12.0)[0], "enough idle cores: ready")
+    ok(not decide(30.0, 6.0, [], 5.0, 12.0)[0], "too few idle cores: not ready")
+    ok(not decide(30.0, 6.0, [], None, 12.0)[0], "unmeasured CPU is not ready, never a pass")
+    st0 = "cpu  100 0 100 800 0 0 0 0 0 0\ncpu0 1\ncpu1 1\ncpu2 1\ncpu3 1\nintr 5\n"
+    st1 = "cpu  200 0 200 1400 0 0 0 0 0 0\ncpu0 1\ncpu1 1\ncpu2 1\ncpu3 1\nintr 9\n"
+    got = idle_cores(st0, st1)
+    ok(got is not None and abs(got - 3.0) < 1e-9, "600 of 800 ticks idle on 4 CPUs is 3 idle cores (got %s)" % got)
+    st2 = "cpu  200 0 200 800 600 0 0 0 0 0\ncpu0 1\ncpu1 1\ncpu2 1\ncpu3 1\n"
+    ok(abs((idle_cores(st0, st2) or 0) - 3.0) < 1e-9, "iowait counts as idle")
+    ok(idle_cores(st0, "garbage") is None and idle_cores(st0, st0) is None,
+       "an unreadable or empty interval is None, never a number")
+    real = idle_cores(_proc_stat(), (time.sleep(0.2), _proc_stat())[1])
+    ok(real is not None and 0 <= real <= os.cpu_count() + 0.5,
+       "this box's /proc/stat reads (%s idle of %d)" % (real, os.cpu_count()))
+
+    for good, name in checks:
+        print("  %s  %s" % ("ok  " if good else "FAIL", name))
+    bad = [n for g, n in checks if not g]
+    print("\n%d check(s), %d failed" % (len(checks), len(bad)))
+    return 1 if bad else 0
+
+
+def main(argv):
+    if argv[1:2] == ["--self-test"]:
+        return self_test()
+    if len(argv) < 2 or argv[1] not in NEED_GIB:
+        print(__doc__.split("\n\n")[0] + "\n\nusage: tools/box-ready {check|gate} [--wait] | --self-test",
+              file=sys.stderr)
+        return 2
+    kind, wait = argv[1], "--wait" in argv[2:]
+    need, cores = need_for(kind), cores_for(kind)
+    streak = 0
+    while True:
+        avail, games, idle = measure()
+        ready, reasons = decide(avail, need, games, idle, cores)
+        stamp = time.strftime("%H:%M:%S")
+        if ready:
+            streak += 1
+            if not wait or streak >= 2:
+                print("box-ready %s: %s ready (%.1f GiB available, %.1f cores idle, %d idle game(s))"
+                      % (stamp, kind, avail, idle, len(games)))
+                return 0
+        else:
+            streak = 0
+            print("box-ready %s: %s waits: %s" % (stamp, kind, "; ".join(reasons)), flush=True)
+            if not wait:
+                return 1
+        time.sleep(POLL_S)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

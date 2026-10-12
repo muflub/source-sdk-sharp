@@ -1,0 +1,176 @@
+// lane c2-sims: a soundscape script written to reach every branch of the
+// client soundscape system's parse that the shipped scripts leave unexercised.
+// The probe session copies it in as the map's own scripts/soundscapes_<map>.txt;
+// SoundscapeOracleTests loads it beside the mod's own scripts.
+// See README-soundscape-stock.md.
+
+"c2probe.full"
+{
+	"dsp"		"5"
+	"dsp_player"	"3"
+	"dsp_volume"	"0.6"
+	"Soundmixer"	"Default_Mix"
+
+	"playlooping"
+	{
+		"volume"	"0.5,0.9"
+		"pitch"		"90,110"
+		"wave"		"ambient/wind/wind1.wav"
+		"attenuation"	"0.8,1.2"
+		"position"	"1"
+	}
+
+	"playlooping"
+	{
+		"volume"	"0.7"
+		"wave"		"ambient/atmosphere/noise2.wav"
+		"soundlevel"	"70,80"
+	}
+
+	"playlooping"
+	{
+		"volume"	"0.3"
+		"wave"		"ambient/alarms/city_siren_loop2.wav"
+		"suppress_on_restore"	"1"
+		"bogus"		"1"
+	}
+
+	"playlooping"
+	{
+		"volume"	"0.4"
+		"wave"		"ambient/fire/fire_med_loop1.wav"
+		"soundlevel"	"SNDLVL_85dB"
+		"position"	"3"
+	}
+
+	"playlooping"
+	{
+		"volume"	"0"
+		"wave"		"ambient/wind/wind2.wav"
+	}
+
+	"playrandom"
+	{
+		"time"		"0.5,1.5"
+		"volume"	"0.2,0.4"
+		"pitch"		"95,105"
+		"attenuation"	"1,2"
+		"position"	"0"
+		"rndwave"
+		{
+			"wave"	"ambient/levels/streetwar/city_battle1.wav"
+			"wave"	"ambient/levels/streetwar/city_battle2.wav"
+			"wave"	"ambient/levels/streetwar/city_battle3.wav"
+		}
+	}
+
+	"playrandom"
+	{
+		"time"		"0.3,0.8"
+		"volume"	"0.5"
+		"pitch"		"100"
+		"soundlevel"	"SNDLVL_80dB"
+		"position"	"random"
+		"rndwave"
+		{
+			"wave"	"ambient/wind/wind_med1.wav"
+			"wave"	"ambient/wind/wind_med2.wav"
+		}
+	}
+
+	"playrandom"
+	{
+		"time"		"1,2"
+		"volume"	"0.3,0.6"
+		"pitch"		"90,100"
+		"soundlevel"	"60,90"
+		"suppress_on_restore"	"0"
+		"rndwave"
+		{
+			"wave"	"ambient/levels/streetwar/city_battle4.wav"
+		}
+	}
+
+	"playrandom"
+	{
+		"time"		"1,2"
+		"volume"	"0.5"
+		"rndwave"
+		{
+		}
+	}
+
+	"playsoundscape"
+	{
+		"name"		"c2probe.sub"
+		"volume"	"0.5,0.8"
+		"position"	"1"
+		"positionoverride"	"0"
+		"ambientpositionoverride"	"2"
+		"soundlevel"	"80"
+		"bogus"		"1"
+	}
+
+	"playsoundscape"
+	{
+		"name"		"c2probe.missing"
+	}
+
+	"bogus"		"1"
+}
+
+"c2probe.sub"
+{
+	"dsp"		"9"
+	"dsp_volume"	"0.2"
+
+	"playlooping"
+	{
+		"volume"	"1"
+		"wave"		"ambient/machines/wall_ambient1.wav"
+		"position"	"0"
+	}
+
+	"playlooping"
+	{
+		"volume"	"0.6,1"
+		"pitch"		"100"
+		"wave"		"ambient/wind/wind1.wav"
+	}
+
+	"playrandom"
+	{
+		"time"		"0.4,0.9"
+		"volume"	"0.3,0.5"
+		"pitch"		"95,105"
+		"position"	"random"
+		"rndwave"
+		{
+			"wave"	"ambient/levels/streetwar/city_battle5.wav"
+			"wave"	"ambient/levels/streetwar/city_battle6.wav"
+		}
+	}
+
+	"playsoundscape"
+	{
+		"name"		"c2probe.deep"
+		"volume"	"0.9"
+		"position"	"1"
+	}
+}
+
+"c2probe.deep"
+{
+	"playlooping"
+	{
+		"volume"	"0.5"
+		"wave"		"ambient/atmosphere/noise2.wav"
+		"position"	"0"
+	}
+
+	"playsoundscape"
+	{
+		"name"		"c2probe.deep"
+		"volume"	"0.9"
+	}
+}

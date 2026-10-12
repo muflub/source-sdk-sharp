@@ -1,0 +1,74 @@
+# How the farm's old-layout view is assembled from this repo.
+#
+#   farm path <TAB> kind <TAB> repo path
+#
+# kind:
+#   dir    one directory link (rule 2: our own directories only)
+#   files  a real farm directory holding one link per file under the repo
+#          path, recursively; files claimed by a more specific row are skipped
+#   file   one file link
+#
+# {cfg} is replaced by the configuration (debug, release). Rule 4 (no path
+# supplied by both repos) is checked against the farm paths this produces and
+# sdk-links/*.txt.
+
+# managed: one assembly per module
+src/sourcesharp/managed/SourceSharp.Abi	dir	src/abi
+src/sourcesharp/managed/SourceSharp.Client	dir	src/client/managed
+src/sourcesharp/managed/SourceSharp.Client.Interop	dir	src/client/interop
+src/sourcesharp/managed/SourceSharp.Server	dir	src/server/managed
+src/sourcesharp/managed/SourceSharp.Server.Interop	dir	src/server/interop
+src/sourcesharp/managed/SourceSharp.Shared	dir	src/shared/managed
+src/sourcesharp/managed/SourceSharp.Shared.Interop	dir	src/shared/interop
+src/sourcesharp/managed/SourceSharp.Bootstrap	dir	src/host/managed
+src/sourcesharp/managed/SourceSharp.Tests	dir	src/test/managed
+src/sourcesharp/managed/SourceSharp.Server.Tests	dir	src/test/server
+src/sourcesharp/managed/SourceSharp.Client.Tests	dir	src/test/client
+src/sourcesharp/managed/SourceSharp.Tests.Common	dir	src/test/common
+src/sourcesharp/managed/SourceSharp.DevApi	dir	src/debug_api
+src/sourcesharp/managed/SourceSharp.Generators	dir	src/generators
+src/sourcesharp/managed/SourceSharp.MapGen	dir	src/mapgen
+src/sourcesharp/managed/Directory.Build.props	file	Directory.Build.props
+
+# native: per file, because VALVE-DERIVED files from the fork sit beside ours
+src/sourcesharp/game/client	files	src/client/native
+src/sourcesharp/game/server	files	src/server/native
+src/sourcesharp/game/shared	files	src/shared/native
+src/sourcesharp/host	files	src/host/native
+src/sourcesharp/engineabi	files	src/engineabi/native
+# Relocated Valve code, kept local by user decision 2026-09-27: the fork's
+# src/sourcesharp/{public,common}, flat in src/shared/native. One `file` row
+# each, so nothing else of src/shared/native is linked into those farm
+# directories (and the game/shared `files` row above skips these five).
+src/sourcesharp/public/collisionutils.cpp	file	src/shared/native/collisionutils.cpp
+src/sourcesharp/public/dt_send.cpp	file	src/shared/native/dt_send.cpp
+src/sourcesharp/public/dt_utlvector_common.cpp	file	src/shared/native/dt_utlvector_common.cpp
+src/sourcesharp/public/studio.cpp	file	src/shared/native/studio.cpp
+src/sourcesharp/common/steamid.cpp	file	src/shared/native/steamid.cpp
+src/sourcesharp/test	files	src/test/native
+src/sourcesharp/webui	dir	src/webui
+
+# our files at Valve-tree paths (native/sdk mirrors the Valve tree)
+src	files	src/client/native/sdk
+src	files	src/server/native/sdk
+src	files	src/shared/native/sdk
+
+# build scripts and gates, at the paths the build and tests expect
+src/buildsourcesharp	file	tools/build/buildsourcesharp
+src/buildcpptests	file	tools/build/buildcpptests
+src/buildonecpptest	file	tools/build/buildonecpptest
+src/cpptest_one	file	tools/build/cpptest_one
+src/preprocess_target	file	tools/build/preprocess_target
+
+# the rest of the old top level
+tools	dir	tools
+docs	dir	docs
+debug-api	file	tools/debug-api
+debug-api-proxy	file	tools/debug-api-proxy
+maps/ss_sandbox.vmf	file	game/mod_test/maps/ss_sandbox.vmf
+Makefile	file	Makefile
+
+# compat view of the old game/ layout: outputs land in bin/{cfg}
+game/mod_sharp	dir	bin/{cfg}/mods/test
+game/bin	dir	bin/{cfg}/bin
+out	dir	bin/{cfg}

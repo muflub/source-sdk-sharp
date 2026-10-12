@@ -1,0 +1,70 @@
+--- a/src/client/native/shell_managed_particles.cpp	2026-10-05 08:51:55.288504770 -0700
++++ b/src/client/native/shell_managed_particles.cpp	2026-10-05 08:54:54.912501552 -0700
+@@ -43,6 +43,28 @@
+ #include "shell_clientsystem.h"
+ #include "imanaged_areas_client.h"
+ #include "sourcesharp.h"
++#include "fx_probe_log.h"
++
++// lane c5-particles probe: the sphere renderer's state and its lighting
++// helpers are private. An explicit instantiation may name a private member
++// (C++ [temp.explicit]), so these tags hand the recorder pointers to them; the
++// recorder then calls stock's own AddLightColor and ClampColor.
++namespace c5probe
++{
++template < typename Tag, typename Tag::type M > struct Rob { friend typename Tag::type Get( Tag ) { return M; } };
++struct BaseColor   { typedef Vector CParticleSphereRenderer::*type; friend type Get( BaseColor ); };
++struct Ambient     { typedef CParticleLightInfo CParticleSphereRenderer::*type; friend type Get( Ambient ); };
++struct Directional { typedef CParticleLightInfo CParticleSphereRenderer::*type; friend type Get( Directional ); };
++struct PixelShaders{ typedef bool CParticleSphereRenderer::*type; friend type Get( PixelShaders ); };
++struct AddLight    { typedef void ( CParticleSphereRenderer::*type )( Vector const *, Vector const *, Vector const *, float, Vector * ); friend type Get( AddLight ); };
++struct ClampFn     { typedef void ( CParticleSphereRenderer::*type )( Vector & ); friend type Get( ClampFn ); };
++template struct Rob< BaseColor, &CParticleSphereRenderer::m_vBaseColor >;
++template struct Rob< Ambient, &CParticleSphereRenderer::m_AmbientLight >;
++template struct Rob< Directional, &CParticleSphereRenderer::m_DirectionalLight >;
++template struct Rob< PixelShaders, &CParticleSphereRenderer::m_bUsingPixelShaders >;
++template struct Rob< AddLight, &CParticleSphereRenderer::AddLightColor >;
++template struct Rob< ClampFn, &CParticleSphereRenderer::ClampColor >;
++}
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -266,9 +288,38 @@
+ 				: pQuad->Alpha;
+ 
+ 			if ( pQuad->Kind == 2 && m_bLit )
++			{
++				// Up to 2500 rows per arm (with and without the pixel-shader skip
++				// of the directional light), so one stack cannot fill both.
++				static int s_nSphereRows[2] = { 0, 0 };
++				using namespace c5probe;
++				const int nArm = m_Renderer.*Get( PixelShaders() ) ? 1 : 0;
++				if ( s_nSphereRows[ nArm ] < 2500 )
++				{
++					s_nSphereRows[ nArm ]++;
++					CParticleSphereRenderer &r = m_Renderer;
++					const Vector vOrig( pQuad->PositionXYZ[0], pQuad->PositionXYZ[1], pQuad->PositionXYZ[2] );
++					const Vector &base = r.*Get( BaseColor() );
++					const CParticleLightInfo &a = r.*Get( Ambient() );
++					const CParticleLightInfo &d = r.*Get( Directional() );
++					const bool bPS = r.*Get( PixelShaders() );
++					Vector c = base;
++					( r.*Get( AddLight() ) )( &vOrig, &a.m_vPos, &a.m_vColor, a.m_flIntensity, &c );
++					if ( !bPS )
++						( r.*Get( AddLight() ) )( &vOrig, &d.m_vPos, &d.m_vColor, d.m_flIntensity, &c );
++					( r.*Get( ClampFn() ) )( c );
++					FxProbeLog( "sphere\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d",
++					            base.x, base.y, base.z,
++					            a.m_vPos.x, a.m_vPos.y, a.m_vPos.z, a.m_vColor.x, a.m_vColor.y, a.m_vColor.z, a.m_flIntensity,
++					            d.m_vPos.x, d.m_vPos.y, d.m_vPos.z, d.m_vColor.x, d.m_vColor.y, d.m_vColor.z, d.m_flIntensity,
++					            bPS ? 1 : 0, vOrig.x, vOrig.y, vOrig.z, flAlpha,
++					            c.x, c.y, c.z, (int)(unsigned char)RoundFloatToInt( c.x ), (int)(unsigned char)RoundFloatToInt( c.y ),
++					            (int)(unsigned char)RoundFloatToInt( c.z ), flAlpha < 0.5f ? -1 : (int)(unsigned char)RoundFloatToInt( flAlpha ) );
++				}
+ 				m_Renderer.RenderParticle( pIterator->GetParticleDraw(),
+ 				                           Vector( pQuad->PositionXYZ[0], pQuad->PositionXYZ[1], pQuad->PositionXYZ[2] ),
+ 				                           tPos, flAlpha, pQuad->Size, pQuad->Roll );
++			}
+ 			else if ( pQuad->Kind == 3 )
+ 				RenderParticle_ColorSize( pIterator->GetParticleDraw(), tPos, vColor, flAlpha, pQuad->Size );
+ 			else if ( pQuad->Kind == 1 )

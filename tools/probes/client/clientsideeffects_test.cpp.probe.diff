@@ -1,0 +1,92 @@
+--- a/src/game/client/clientsideeffects_test.cpp
++++ b/src/game/client/clientsideeffects_test.cpp
+@@ -29,6 +29,7 @@
+ #include "gamesound.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_log.h"
+ #include "tier0/memdbgon.h"
+ 
+ //FIXME: All these functions will be moved out to FX_Main.CPP or a individual folder
+@@ -155,6 +156,7 @@
+ 	float	length;
+ 
+ 	//Find the direction of the tracer
++	FxProbeLog( "fxt-playertracer s=%.9g %.9g %.9g e=%.9g %.9g %.9g", start.x, start.y, start.z, end.x, end.y, end.z );
+ 	VectorSubtract( end, start, shotDir );
+ 	length = VectorNormalize( shotDir );
+ 
+@@ -163,8 +165,8 @@
+ 		return;
+ 
+ 	//Randomly place the tracer along this line, with a random length
+-	VectorMA( start, TRACER_BASE_OFFSET + random->RandomFloat( -24.0f, 64.0f ), shotDir, dStart );
+-	VectorMA( dStart, ( length * random->RandomFloat( 0.1f, 0.6f ) ), shotDir, dEnd );
++	VectorMA( start, TRACER_BASE_OFFSET + FxProbeRandomFloat( -24.0f, 64.0f ), shotDir, dStart );
++	VectorMA( dStart, ( length * FxProbeRandomFloat( 0.1f, 0.6f ) ), shotDir, dEnd );
+ 
+ 	//Create the line
+ 	CFXStaticLine	*t;
+@@ -173,7 +175,7 @@
+ 	//materialName = ( random->RandomInt( 0, 1 ) ) ? "effects/tracer_middle" : "effects/tracer_middle2";
+ 	materialName = "effects/spark";
+ 
+-	t = new CFXStaticLine( "Tracer", dStart, dEnd, random->RandomFloat( 0.5f, 0.75f ), 0.01f, materialName, 0 );
++	t = new CFXStaticLine( "Tracer", dStart, dEnd, FxProbeRandomFloat( 0.5f, 0.75f ), 0.01f, materialName, 0 );
+ 	assert( t );
+ 
+ 	//Throw it into the list
+@@ -229,6 +231,7 @@
+ 	float flMinWhizTime = TRACER_SOUND_TIME_MIN;
+ 	float flMaxWhizTime = TRACER_SOUND_TIME_MAX;
+ 	Vector vecListenOrigin = MainViewOrigin();
++	FxProbeLog( "fxt-sound s=%.9g %.9g %.9g e=%.9g %.9g %.9g type=%d listen=%.9g %.9g %.9g cur=%.9g next=%.9g", start.x, start.y, start.z, end.x, end.y, end.z, iTracerType, vecListenOrigin.x, vecListenOrigin.y, vecListenOrigin.z, gpGlobals->curtime, g_BulletWhiz.m_nextWhizTime );
+ 	switch( iTracerType )
+ 	{
+ 	case TRACER_TYPE_DEFAULT:
+@@ -279,6 +282,7 @@
+ 
+ 	// Did the thing pass close enough to our head?
+ 	float vDist = CalcDistanceSqrToLineSegment( vecListenOrigin, start, end );
++	FxProbeLog( "fxt-sound-dist listen=%.9g %.9g %.9g d2=%.9g whiz=%.9g", vecListenOrigin.x, vecListenOrigin.y, vecListenOrigin.z, vDist, flWhizDist );
+ 	if ( vDist >= (flWhizDist * flWhizDist) )
+ 		return;
+ 
+@@ -291,6 +295,7 @@
+ 		VectorNormalize( shotDir );
+ 
+ 		CLocalPlayerFilter filter;
++		FxProbeLog( "fxt-sound-emit %s vol=%.9g lvl=%d pitch=%d dir=%.9g %.9g %.9g", params.soundname, params.volume, (int)params.soundlevel, params.pitch, shotDir.x, shotDir.y, shotDir.z );
+ 		enginesound->EmitSound(	filter, SOUND_FROM_WORLD, CHAN_STATIC, params.soundname, 
+ 			params.volume, SNDLVL_TO_ATTN(params.soundlevel), 0, params.pitch, 0, &start, &shotDir, NULL);
+ 	}
+@@ -299,7 +304,7 @@
+ 	// Could use different timers for the different types.
+ 
+ 	// Don't play another bullet whiz for this client until this time has run out
+-	g_BulletWhiz.m_nextWhizTime = gpGlobals->curtime + random->RandomFloat( flMinWhizTime, flMaxWhizTime );
++	g_BulletWhiz.m_nextWhizTime = gpGlobals->curtime + FxProbeRandomFloat( flMinWhizTime, flMaxWhizTime );
+ }
+ 
+ 
+@@ -310,17 +315,18 @@
+ 	float dist;
+ 	Vector dir;
+ 
++	FxProbeLog( "fxt-tracer s=%.9g %.9g %.9g e=%.9g %.9g %.9g vel=%d whiz=%d", start.x, start.y, start.z, end.x, end.y, end.z, velocity, makeWhiz ? 1 : 0 );
+ 	VectorSubtract( end, start, dir );
+ 	dist = VectorNormalize( dir );
+ 
+ 	// Don't make short tracers.
+ 	if ( dist >= 256 )
+ 	{
+-		float length = random->RandomFloat( 64.0f, 128.0f );
++		float length = FxProbeRandomFloat( 64.0f, 128.0f );
+ 		float life = ( dist + length ) / velocity;	//NOTENOTE: We want the tail to finish its run as well
+ 		
+ 		//Add it
+-		FX_AddDiscreetLine( start, dir, velocity, length, dist, random->RandomFloat( 0.75f, 0.9f ), life, "effects/spark" );
++		FX_AddDiscreetLine( start, dir, velocity, length, dist, FxProbeRandomFloat( 0.75f, 0.9f ), life, "effects/spark" );
+ 	}
+ 
+ 	if( makeWhiz )

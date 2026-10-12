@@ -1,0 +1,438 @@
+#!/usr/bin/env python3
+"""tools/slot-census [--config debug] [--map dm_lockdown] [--rest 20] [--out tools/slot-census.tsv] [--self-test]
+
+Measure the frame-crossing census A11's hot-slot audit reads, and write it.
+
+`HotTraceAuditTests` keeps hot slot functions from carrying a bare
+SOURCESHARP_TRACE (docs/todo.md: "HotTraceAuditTests.HotSlots can never
+fail"). Its helper counts slots above a per-frame threshold in a TSV that
+was never committed, so the rule could not run. This tool produces that
+TSV the way A11 itself measured:
+
+  launch the server on <map> (live-gate's own server_launch, so the flags
+  are the gate's), turn verbosity to 2 so every SOURCESHARP_TRACE emits —
+  bare and HOT-gated alike — and boot ONE client that joins, because the
+  hot paths are player paths: A11's three hot slots are PlayerShadow's
+  per-frame fit test, the recursive precache walk and the scraping-contact
+  loop. Assert the join by a NON-ZERO player count on the server, and the
+  player ALIVE (respawn through +jump, the way live-gate's second-client
+  step does) — an idling player still drives the movement and shadow
+  frames that make these slots hot.
+
+  Then two windows, as A11's census named them:
+    rest: the world ticking with a live player for --rest seconds.
+    load: `map <map>` again, from the command until the census is the
+          scenario's entity count — the map-load window that found the
+          precache walk.
+
+  Each window counts, per SourceSharp_* function, the SOURCESHARP_TRACE
+  lines it emitted in the server's own console (every call prints one line
+  at verbosity 2) divided by that window's server frames, read from
+  /status's crossings — the same denominator tools/live-gate-budget.tsv
+  records.
+
+The output row is `direction<TAB>slot<TAB>calls<TAB>rest<TAB>load` under a
+`direction` header — the format HotTraceAuditTests.HotSlots parses. Rows
+silent in both windows are omitted; a census that named NOTHING is
+refused, never written (an empty census would make the fact vacuous again).
+
+A missing, stale or unreadable census is the FACT's failure, not this
+tool's pass: regenerate with this tool and commit the file, like
+tools/live-gate-budget.tsv.
+
+--self-test parses synthetic console lines and a synthetic census instead
+of launching a game, and refuses the empty census, so the parse rules and
+the refusal are covered in `make test`; the measurement itself is a manual
+run, like live-gate's budget recording.
+"""
+
+import argparse
+import collections
+import importlib.machinery
+import importlib.util
+import os
+import re
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+OUT_DEFAULT = os.path.join(ROOT, "tools", "slot-census.tsv")
+
+# What one SOURCESHARP_TRACE line looks like by the time -condebug has
+# stamped it: shell_diagnostics.cpp's SourceSharp_Trace prints
+# "[SourceSharp] > <FUNCTION> (<side>)" or "... (<side>): <detail>", and
+# console.log prefixes a timestamp. Anchored on "> NAME (side)" so STUB
+# lines ("[SourceSharp] STUB X (side) - ...") and every other SourceSharp
+# report cannot be counted as a call trace by accident.
+TRACE_LINE = re.compile(r">\s*(SourceSharp_\w+)\s*\((server|client)\)")
+
+HEADER = ["direction", "slot", "calls", "rest", "load"]
+
+
+def live_gate():
+    loader = importlib.machinery.SourceFileLoader(
+        "livegate", os.path.join(ROOT, "tools", "live-gate"))
+    spec = importlib.util.spec_from_loader("livegate", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+# ---------------------------------------------------------------------------
+# Pure pieces, so --self-test can reach every parse without a game.
+# ---------------------------------------------------------------------------
+def count_traces(text):
+    """{function: calls} over one blob of console text.
+
+    One line is one call: at verbosity 2 SOURCESHARP_TRACE prints once per
+    call (the STUB and refusal lines do not match TRACE_LINE, and
+    verbosity-1 dedup cannot apply because the census sets verbosity 2).
+    """
+    counts = collections.Counter()
+    for line in text.splitlines():
+        m = TRACE_LINE.search(line)
+        if m:
+            counts[m.group(1)] += 1
+    return counts
+
+
+def rows_from(counts_by_window, frames_by_window):
+    """(direction, slot, calls, rest, load) rows, hot first.
+
+    The rate is calls / server frames OF THAT WINDOW — the denominator the
+    budget file uses, so 1.573/frame means the same thing in both files. A
+    window with no frames has rate 0, never a division fault (live-gate's
+    per_frame says why). Rows silent in both windows are dropped: the file
+    is a census of what runs, not of every name ever traced.
+    """
+    slots = set(counts_by_window.get("rest", {})) | set(counts_by_window.get("load", {}))
+    rows = []
+    for slot in sorted(slots):
+        rest_n = counts_by_window.get("rest", {}).get(slot, 0)
+        load_n = counts_by_window.get("load", {}).get(slot, 0)
+        rest_f = frames_by_window.get("rest", 0)
+        load_f = frames_by_window.get("load", 0)
+        rest_rate = 0.0 if rest_f <= 0 else rest_n / float(rest_f)
+        load_rate = 0.0 if load_f <= 0 else load_n / float(load_f)
+        if rest_n == 0 and load_n == 0:
+            continue
+        rows.append(("managed:engine", slot, rest_n + load_n, rest_rate, load_rate))
+    rows.sort(key=lambda r: (-max(r[3], r[4]), r[1]))
+    return rows
+
+
+def write_tsv(rows, header_comments):
+    """The file text: comments, the header row HotSlots skips by f[0], rows.
+
+    Rates are %.3f: a 0.25/frame threshold never needs more, and three
+    decimals keep the file diffable between runs.
+    """
+    out = list(header_comments)
+    out.append("\t".join(HEADER))
+    for direction, slot, calls, rest, load in rows:
+        out.append("%s\t%s\t%d\t%.3f\t%.3f" % (direction, slot, calls, rest, load))
+    return "\n".join(out) + "\n"
+
+
+def parse_tsv(text):
+    """[(slot, rest, load)] as HotTraceAuditTests.HotSlots reads it: no
+    comments, no header row, no short row, no unparseable rate."""
+    rows = []
+    for line in text.splitlines():
+        f = line.split("\t")
+        if len(f) < 5 or f[0] == "direction" or f[0].startswith("#"):
+            continue
+        try:
+            rows.append((f[1], float(f[3]), float(f[4])))
+        except ValueError:
+            continue
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# The live measurement.
+# ---------------------------------------------------------------------------
+def console_offset(path):
+    """Bytes of the console written so far; a window starts here so boot's
+    map-spawn burst never pollutes a rate."""
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return 0
+
+
+def read_window(path, start):
+    """The console text appended after byte `start`.
+
+    No waiting here on purpose: console.log is flushed on the engine's own
+    schedule, and `wait_quiet` is the one place that decides the writer has
+    gone quiet. A second wait in here would cap-and-race it.
+    """
+    if not path or not os.path.exists(path):
+        raise RuntimeError("the console file %s vanished mid-window" % path)
+    with open(path, "r", errors="replace") as fh:
+        fh.seek(start)
+        return fh.read()
+
+
+def wait_quiet(path, seconds=3.0):
+    """Until console.log stops growing, capped at `seconds`."""
+    deadline = time.time() + seconds
+    last = console_offset(path)
+    while time.time() < deadline:
+        time.sleep(0.4)
+        now = console_offset(path)
+        if now == last:
+            return
+        last = now
+
+
+def json_load(path):
+    import json
+    with open(path) as fh:
+        return json.load(fh)
+
+
+def measure(lg, scratch, mapname, rest_seconds):
+    """Run the census. Returns (rows, header_comments) — and raises with a
+    full message on any half of the setup that did not take effect.
+
+    `scratch` was prepared by main() BEFORE live-gate was imported: that
+    module fixes its dev-API socket directory from DEBUG_API_DIR at import
+    time, so setting it here would leave the game writing sockets where
+    nobody looks and every wait timing out for the wrong reason.
+    """
+    scen = json_load(os.path.join(ROOT, "tools", "live-gate-scenarios", "%s.json" % mapname))
+    os.makedirs(os.path.join(scratch, "srv"), exist_ok=True)
+    os.makedirs(os.path.join(scratch, "cli"), exist_ok=True)
+
+    server, _port = lg.launch_with_free_port(
+        lambda port: lg.server_launch(port, mapname),
+        os.path.join(scratch, "srv", "out.log"),
+        os.path.join(scratch, "srv", "tmp"))
+    if server is None:
+        raise RuntimeError("the server never opened a dev API socket; its log "
+                           "is at %s" % os.path.join(scratch, "srv", "out.log"))
+    client = None
+    try:
+        api = server.api
+        if not api.wait_map(scen["entities"], 240.0):
+            raise RuntimeError("the server never loaded %s (%d entities expected)"
+                               % (mapname, scen["entities"]))
+
+        # Verbosity 2 is what makes the census a COUNT and not a coverage
+        # illusion: at verb 1 the once-per-callsite stub dedup and the HOT
+        # gate's silence would read as "not hot" forever. Read it back — a
+        # convar the game did not apply is silent.
+        api.convar("sv_sourcesharp_verbose", 2)
+        got = str(api.convar("sv_sourcesharp_verbose").get("value"))
+        if got != "2":
+            raise RuntimeError("sv_sourcesharp_verbose did not take effect (reads %r)" % got)
+
+        console = lg.console_file(api)
+
+        # Boot: everything up to here is the map's spawn burst. Count it but
+        # keep it out of both windows — A11's census had exactly these two
+        # windows, and it is the load window below that covers precache.
+        boot = count_traces(read_window(console, 0))
+
+        # One connected client, so the player-driven paths run. The join is
+        # ASSERTED by a non-zero player count on the server — a client that
+        # never joined would leave the hot slots cold and the census would
+        # silently stop covering them (docs/todo.md: assert the join before
+        # trusting any client reading).
+        port = lg.bound_server_port(api)
+        if not port:
+            raise RuntimeError("the server bound no UDP port readable from /proc")
+        client, _cp = lg.launch_with_free_port(
+            lg.client_launch,
+            os.path.join(scratch, "cli", "out.log"),
+            os.path.join(scratch, "cli", "tmp"))
+        if client is None:
+            raise RuntimeError("the census client never opened a dev API socket")
+        client.api.cmd("connect 127.0.0.1:%d" % port)
+        players = api.wait_for(
+            lambda: len(api.ents(scen["playerClass"])) >= 1 or None, 90.0, 1.0)
+        if not players:
+            raise RuntimeError("the census client never joined (%s on the server); "
+                               "the census would measure an empty world"
+                               % scen["playerClass"])
+        player = api.player(scen["playerClass"])
+
+        def alive():
+            return (api.fields(player["index"]).get("Alive") == "true") or None
+
+        if not api.wait_for(alive, 30.0, 1.0):
+            client.api.cmd("+jump")
+            time.sleep(0.3)
+            client.api.cmd("-jump")
+            if not api.wait_for(alive, 20.0, 1.0):
+                raise RuntimeError("the census player never came up alive; an "
+                                   "idle-but-alive player is what drives the "
+                                   "per-frame hot paths")
+        wait_quiet(console)
+
+        counts = {"rest": collections.Counter(), "load": collections.Counter()}
+        frames = {}
+
+        # -- rest window ------------------------------------------------------
+        mark = lg.crossings_mark(api)
+        start = console_offset(console)
+        time.sleep(rest_seconds)
+        wait_quiet(console)
+        counts["rest"] = count_traces(read_window(console, start))
+        frames["rest"] = lg.crossings_since(api, mark).get("serverFrames", 0)
+        if frames["rest"] <= 0:
+            raise RuntimeError("the rest window recorded no server frames — "
+                               "/status crossings is not answering")
+
+        # -- load window: the same map again ------------------------------------
+        mark = lg.crossings_mark(api)
+        start = console_offset(console)
+        api.cmd("map %s" % mapname)
+        if not api.wait_for(lambda: api.census()[0] == scen["entities"], 180.0, 1.0):
+            if not api.alive():
+                raise RuntimeError("the server died during the map reload")
+            raise RuntimeError("the census never saw %s's %d-entity census again "
+                               "after `map %s`" % (mapname, scen["entities"], mapname))
+        wait_quiet(console, 6.0)
+        counts["load"] = count_traces(read_window(console, start))
+        frames["load"] = lg.crossings_since(api, mark).get("serverFrames", 0)
+        if frames["load"] <= 0:
+            raise RuntimeError("the load window recorded no server frames")
+
+        # The boot count is the tool's own proof that tracing works at all:
+        # a map load that printed ZERO SourceSharp trace lines means the
+        # verbosity convar was ignored by a build that no longer logs, and
+        # the census would be all zeros dressed as data.
+        total_lines = (sum(boot.values()) + sum(counts["rest"].values())
+                       + sum(counts["load"].values()))
+        if total_lines == 0:
+            raise RuntimeError("zero SOURCESHARP_TRACE lines in boot, rest and load: "
+                               "tracing is dead and the census would check nothing")
+
+        rows = rows_from(counts, frames)
+        if not rows:
+            raise RuntimeError("the census named nothing that ran even a single call; "
+                               "refuse to write an empty census")
+
+        tip = os.popen("git -C %s rev-parse HEAD" % ROOT).read().strip()
+        comments = [
+            "# tools/slot-census.tsv -- A11's frame-crossing census, per SourceSharp_*",
+            "# shell function: trace lines per SERVER frame, in two windows (rest: a",
+            "# live player idling; load: `map <map>` again). HotTraceAuditTests",
+            "# .TheCensusHotSlotsCarryNoBareTrace reads it; tools/slot-census writes it.",
+            "# Missing, stale or unreadable: that is the fact's failure, regenerate and",
+            "# commit. columns: direction, slot, calls, rest, load",
+            "# TIP=%s" % tip,
+            "# config=%s map=%s rest=%ds frames: rest=%d load=%d trace lines: boot=%d rest=%d load=%d"
+            % (lg.CONFIG, mapname, rest_seconds, frames["rest"], frames["load"],
+               sum(boot.values()), sum(counts["rest"].values()),
+               sum(counts["load"].values())),
+        ]
+        return rows, comments
+    finally:
+        if client is not None:
+            client.kill()
+        server.kill()
+
+
+# ---------------------------------------------------------------------------
+# --self-test: the parse rules, without a game.
+# ---------------------------------------------------------------------------
+def self_test():
+    ok = True
+
+    def check(cond, why):
+        nonlocal ok
+        print("%s %s" % ("ok  " if cond else "FAIL", why), flush=True)
+        if not cond:
+            ok = False
+
+    sample = "\n".join([
+        "[Ll 10/06/2026 - 09:00:00]   [SourceSharp] > SourceSharp_TraceLine (server)",
+        "[Ll 10/06/2026 - 09:00:00]   [SourceSharp] > SourceSharp_EntityTraceHull (server): h 42",
+        "[Ll 10/12/2026 - 07:13:01]   [SourceSharp] > SourceSharp_SurfaceScrapeSound (client)",
+        "[Ll 10/06/2026 - 09:00:01]   [SourceSharp] STUB SourceSharp_Fake (server) - engine called it",
+        "[Ll 10/06/2026 - 09:00:02]   [SourceSharp] entity factory: creating 'prop_static'",
+        "SourceSharp_TraceLine (server)",
+    ])
+    c = count_traces(sample)
+    check(c["SourceSharp_TraceLine"] == 1, "one > NAME (server) line is one call")
+    check(c["SourceSharp_EntityTraceHull"] == 1, "and one with a detail tail")
+    check(c["SourceSharp_SurfaceScrapeSound"] == 1, "and the client side is counted too")
+    check("SourceSharp_Fake" not in c,
+          "a STUB line is not counted as a call trace (it names the function the same way)")
+    check(len(c) == 3, "and the factory line and the unbracketed line name nothing else")
+
+    counts = {"rest": collections.Counter({"SourceSharp_TraceLine": 944}),
+              "load": collections.Counter({"SourceSharp_TraceLine": 100,
+                                           "SourceSharp_DecalGunshot": 1})}
+    frames = {"rest": 1320, "load": 80}
+    rows = rows_from(counts, frames)
+    check([r[1] for r in rows] == ["SourceSharp_TraceLine", "SourceSharp_DecalGunshot"],
+          "rows come out hottest first, silent slots dropped")
+    tl = rows[0]
+    check(abs(tl[3] - 944 / 1320.0) < 1e-9 and abs(tl[4] - 100 / 80.0) < 1e-9,
+          "each window's rate divides by THAT window's frames")
+    check(tl[2] == 1044, "calls is the two windows together")
+
+    zero = rows_from({"rest": collections.Counter({"SourceSharp_A": 5})}, {"rest": 0})
+    check(zero and zero[0][3] == 0.0, "a window with no frames gives rate 0, not a fault")
+
+    text = write_tsv(rows, ["# census"])
+    back = parse_tsv(text)
+    check([r[0] for r in back] == ["SourceSharp_TraceLine", "SourceSharp_DecalGunshot"],
+          "what the tool writes, the fact's reader reads back (same shape, no drift)")
+    check(abs(back[0][1] - 944 / 1320.0) <= 6e-4,
+          "and the rate survives the %.3f round-trip")
+    check(text.startswith("# census") and len(back) == 2,
+          "the file carries the comment block, and the reader still finds exactly the rows")
+
+    broken = "#c\nnot\tEnough\ndirection\tno\t1\t2\nbad\tSourceSharp_B\t9\tx\ty\n"
+    check(parse_tsv(broken) == [],
+          "a comment, a short row, the header row and an unparsable-rate row all yield no data")
+
+    check(rows_from({}, {}) == [], "no counts, no rows (the caller refuses an empty census)")
+
+    print("slot-census self-test: %s" % ("PASS" if ok else "FAIL"), flush=True)
+    return 0 if ok else 1
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--config", default=os.environ.get("SOURCESHARP_CONFIG", "debug"))
+    ap.add_argument("--map", default="dm_lockdown")
+    ap.add_argument("--rest", type=int, default=20, help="rest-window seconds")
+    ap.add_argument("--out", default=OUT_DEFAULT)
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    os.environ["SOURCESHARP_CONFIG"] = a.config
+    # BEFORE live-gate is imported: it fixes its socket directory from
+    # DEBUG_API_DIR at import time (Game.launch adopts sockets from
+    # SOCKET_DIR), and a census that adopted another lane's game would be
+    # measuring — and killing — somebody else's server.
+    scratch = os.path.join("/tmp", "slot-census-%d" % os.getpid())
+    os.makedirs(os.path.join(scratch, "dbgapi"), exist_ok=True)
+    os.environ["DEBUG_API_DIR"] = os.path.join(scratch, "dbgapi")
+    import subprocess
+    subprocess.run([os.path.join(ROOT, "tools", "box-ready"), "gate", "--wait"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        rows, comments = measure(live_gate(), scratch, a.map, a.rest)
+        text = write_tsv(rows, comments)
+        with open(a.out, "w") as fh:
+            fh.write(text)
+        print("wrote %s: %d rows (hottest %s at %.3f/frame)"
+              % (a.out, len(rows), rows[0][1], max(rows[0][3], rows[0][4])), flush=True)
+    finally:
+        import shutil
+        shutil.rmtree(scratch, ignore_errors=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

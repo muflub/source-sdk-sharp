@@ -1,0 +1,1 @@
+{"sequence":2,"savedAt":12.5,"restoredAt":13,"triggerPending":false,"carried":[{"section":"client.service:SourceSharp.Client.IHudMessages","bytes":61,"count":1}],"participants":{"saved":1,"restored":1,"orphans":[],"failed":[],"missing":[]},"entities":{"saved":120,"restored":120},"leak":{"cachesDropped":17,"oldContext":"collected","collections":0}}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- plan_client_vtables (the user, 2026-10-01): the server's managed-built
+         contracts, generated areas and bindings, which need function pointers.
+         SourceSharp.Server goes to no /unsafe at SI-last; these
+         bindings call a safe host interface it implements. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\shared\interop\SourceSharp.Shared.Interop.csproj" />
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- plan_abi_hotreload Phase 1: files that moved here from Abi keep the internal
+         seams the tests reached through Abi's InternalsVisibleTo (PlayerCommandQueue.Run). -->
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,15 @@
+# sdk-links/tests.txt: fork files that only test targets compile, or that only a traced run (make test, a configure, the live gate's driver) opened.
+# The farm links the union of sdk-links/*.txt, one link per file (tools/setup).
+# This is Valve code we still depend on: it shrinks as code is ported, and a
+# fully ported file's line is deleted. tools/sdk-census decides which list a
+# file belongs in; `make sdk-census` fails on a line nothing uses or a line in
+# the wrong list, and `tools/sdk-census --write` regenerates every list.
+# 6 links here; 697 in all lists (were 708)
+#       1 src/common
+#       5 src/game
+src/common/qlimits.h
+src/game/client/c_te_legacytempents.cpp
+src/game/shared/effect_dispatch_data.cpp
+src/game/shared/entitydatainstantiator.h
+src/game/shared/interval.h
+src/game/shared/mapentities_shared.h

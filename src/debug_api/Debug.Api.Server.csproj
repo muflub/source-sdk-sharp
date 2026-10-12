@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- The server's dev API links its side's Interface and the dev API's own
+         shared code, and nothing else of the game (plan_devapi_interfaces).
+         The server loads it by name and hands it its hooks. -->
+    <ProjectReference Include="..\server\interface\SourceSharp.Server.Interface.csproj" />
+    <ProjectReference Include="..\debug_api_shared\Debug.Api.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+  <!-- The web UI ships inside the assembly. Loose files beside it could be
+       half-deployed or stale, and the failure would look like a broken page
+       rather than a missing file. A debug build prefers the copy in the working
+       tree so the UI can be edited and reloaded without a rebuild; see
+       UiAssets. -->
+  <ItemGroup>
+    <!-- Source maps are read from disk by a debug build, which is the only thing
+         that has them; embedding one would triple the assembly for something no
+         release ever serves. -->
+    <EmbeddedResource Include="ui/**/*" Exclude="ui/**/*.map" />
+  </ItemGroup>
+
+  <!-- ui/ is BUILD OUTPUT and gitignored (src/debug_api/.gitignore), so a
+       fresh clone or a fresh git worktree has none of it. Without this check
+       the compile succeeds and produces an assembly with no embedded UI at
+       all: /ui then 404s at runtime and DebugApiTests.UiServing fails with a
+       content-type assertion that says nothing about the real cause. Every
+       agent working in a worktree hit that and read it as their own bug.
+
+       An error here instead, naming the one command that fixes it. `make ui`
+       provisions its own Node via tools/get-node, so this is a real
+       instruction and not a dead end. -->
+  <Target Name="RequireBuiltDebugUi" BeforeTargets="BeforeCompile">
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/ui/index.html')"
+           Text="The dev UI has not been built, so this assembly would embed nothing and /ui would 404. src/debug_api/ui is generated and gitignored, so a fresh clone or worktree never has it. Run `make ui` from the repo root (it provisions its own Node), or `src/buildsourcesharp`, then build again." />
+  </Target>
+</Project>

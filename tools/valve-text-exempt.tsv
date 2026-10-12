@@ -1,0 +1,15 @@
+# Named exemptions from tools/valve-text-audit. path or dir/ prefix<TAB>reason
+LICENSE	SourceSharp's MIT license: the standard MIT text, which Valve's thirdpartylegalnotices.txt also quotes for a third-party component, so the run match is the MIT text itself	text
+LICENSE-VALVE-SDK	Valve's Source 1 SDK License, copied byte for byte from the Valve SDK at valve-sdk.lock; the license requires distributions to include it
+thirdpartylegalnotices.txt	Valve's third-party legal notices, copied byte for byte from the Valve SDK at valve-sdk.lock; the Source 1 SDK License requires distributions to include it
+game/mod_test/	the test mod, copied whole from game/mod_sharp (39 of its files are verbatim mod_hl2mp copies) so it can be tested standalone; decided 2026-09-27
+src/shared/managed/WeaponScript.cs	the weapon script format's sound-key table (15 lines matching weapon_parse.cpp) is data the format requires; ruling in docs/move/overrides.tsv
+src/abi/EngineBlock.cs	generates engine_block_generated.h, which carries the attribution header, so the header lines are string literals here	header
+tools/valve-header.txt	the attribution header itself	header
+tools/valve-header	applies and checks the header, so it names the copyright line	header
+tools/valve-text-audit	detects stray Valve copyright lines, so it spells one in its self-test	header
+tools/move-classify	detects a Valve copyright header (rule 1), so it spells one	header
+docs/plans/plan_sharp_repo.md	quotes the attribution header byte for byte	header
+ledger:relocated Valve code, kept local by user decision 2026-09-27	the fork's src/sourcesharp relocated/split Valve code (VALVE-DERIVED), kept in this repo as local files by user decision 2026-09-27; each carries the attribution header (ledger valve_header=yes); the fork's copies go at Phase 9.5	text
+src/server/native/physics_debug.cpp	split out of physics.cpp (move-ledger override: relocated Valve code, kept local by user decision 2026-09-27) when the diagnostics went debug-only (2026-10-01): it carries stock physics.cpp's physics_* debug commands, the same relocated text	text
+patches/source-sdk-2013/	the fork's edits to Valve files as a git format-patch series on stock upstream (make sdk-upstream): its context and removed lines are Valve's text by construction; requested by the user 2026-10-12

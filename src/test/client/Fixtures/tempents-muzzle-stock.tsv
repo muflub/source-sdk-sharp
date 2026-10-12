@@ -1,0 +1,1586 @@
+tmf-call1 type=0 h=1 att=1 fp=0
+tmf-call2 type=0 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=0 h=1 att=1 fp=1
+tmf-call2 type=0 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=1 h=1 att=1 fp=0
+tmf-begin MuzzleFlash_Shotgun_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.75f, hEntity, attachmentIndex );
+tmf-renderable 1
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+fxr i 0 2 1
+tmf-create kind=CTrailParticles name=MuzzleFlash_Shotgun_NPC args=
+tmf-cfg sortorigin=-3839.2793 2904.71094 60.4246063
+tmf-cfg flag=4
+tmf-cfg gravity=0
+fxr i 4 8 4
+tmf-add n=0 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.135075286
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0339289531 0.00654163957 0.0236655809
+fxr f 256 1024 749.138672
+fxr f 0.25 0.5 0.378120691
+tmf-add n=1 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.129804105
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0486266688 -0.0025559254 -0.0293572806
+fxr f 256 1024 472.071838
+fxr f 0.25 0.5 0.413888693
+tmf-add n=2 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.168732941
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0380489528 -0.030507829 -0.00761284307
+fxr f 256 1024 831.874878
+fxr f 0.25 0.5 0.440748692
+tmf-add n=3 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.19589448
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0467741936 -0.00643787906 0.00687429309
+fxr f 256 1024 671.192993
+fxr f 0.25 0.5 0.457301587
+tmf-trail n=0 pos=-3839.2793 2904.71094 60.4246063 vel=-1.32931352 728.920044 -102.348473 col=255 242 191 255 die=0.135075286 life=0 len=0.0500000007 width=0.378120691
+tmf-trail n=1 pos=-3839.2793 2904.71094 60.4246063 vel=-7.52458191 448.312622 -87.6989594 col=255 242 191 255 die=0.129804105 life=0 len=0.0500000007 width=0.413888693
+tmf-trail n=2 pos=-3839.2793 2904.71094 60.4246063 vel=-4.99931049 805.578735 -143.866013 col=255 242 191 255 die=0.168732941 life=0 len=0.0500000007 width=0.440748692
+tmf-trail n=3 pos=-3839.2793 2904.71094 60.4246063 vel=-9.69330502 647.956909 -103.291687 col=255 242 191 255 die=0.19589448 life=0 len=0.0500000007 width=0.457301587
+tmf-end n=4
+tmf-call2 type=1 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Shotgun_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.75f, hEntity, attachmentIndex );
+tmf-renderable 1
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+fxr i 0 2 2
+tmf-create kind=CTrailParticles name=MuzzleFlash_Shotgun_NPC args=
+tmf-cfg sortorigin=-3839.2793 2904.71094 60.4246063
+tmf-cfg flag=4
+tmf-cfg gravity=0
+fxr i 4 8 8
+tmf-add n=0 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.123204984
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0320947915 -0.0207358003 0.00332499295
+fxr f 256 1024 672.925476
+fxr f 0.25 0.5 0.28401798
+tmf-add n=1 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.125904918
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0405209512 -0.018077638 0.0231925435
+fxr f 256 1024 337.043335
+fxr f 0.25 0.5 0.444875181
+tmf-add n=2 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.124847606
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0127918348 0.0475005321 0.011729788
+fxr f 256 1024 675.712158
+fxr f 0.25 0.5 0.26469782
+tmf-add n=3 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.185122281
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0419949964 0.0358760394 -0.0270653404
+fxr f 256 1024 424.272034
+fxr f 0.25 0.5 0.498544991
+tmf-add n=4 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.183875576
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.0280114152 -0.0305383466 0.0137867369
+fxr f 256 1024 898.004822
+fxr f 0.25 0.5 0.253106922
+tmf-add n=5 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.118294559
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.0121539943 -0.00992309302 -0.0252464376
+fxr f 256 1024 680.098145
+fxr f 0.25 0.5 0.450981975
+tmf-add n=6 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.170628577
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0170613751 -0.0472991131 0.0493011214
+fxr f 256 1024 642.137695
+fxr f 0.25 0.5 0.341966927
+tmf-add n=7 size=72 mat=effects/muzzleflash1 pos=-3839.2793 2904.71094 60.4246063 ok=1
+fxr f 0.100000001 0.200000003 0.12249615
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0236106459 -0.0328882709 0.024983976
+fxr f 256 1024 960.203247
+fxr f 0.25 0.5 0.299443424
+tmf-trail n=0 pos=-3839.2793 2904.71094 60.4246063 vel=0.016275866 657.061523 -108.710205 col=255 242 191 255 die=0.123204984 life=0 len=0.0500000007 width=0.28401798
+tmf-trail n=1 pos=-3839.2793 2904.71094 60.4246063 vel=-2.83530784 326.654358 -47.1920166 col=255 242 191 255 die=0.125904918 life=0 len=0.0500000007 width=0.444875181
+tmf-trail n=2 pos=-3839.2793 2904.71094 60.4246063 vel=12.4335966 664.945984 -97.3446274 col=255 242 191 255 die=0.124847606 life=0 len=0.0500000007 width=0.26469782
+tmf-trail n=3 pos=-3839.2793 2904.71094 60.4246063 vel=-3.94478202 408.195465 -75.9329224 col=255 242 191 255 die=0.185122281 life=0 len=0.0500000007 width=0.498544991
+tmf-trail n=4 pos=-3839.2793 2904.71094 60.4246063 vel=55.1794853 876.884766 -136.967651 col=255 242 191 255 die=0.183875576 life=0 len=0.0500000007 width=0.253106922
+tmf-trail n=5 pos=-3839.2793 2904.71094 60.4246063 vel=29.9950161 661.362976 -127.567177 col=255 242 191 255 die=0.118294559 life=0 len=0.0500000007 width=0.450981975
+tmf-trail n=6 pos=-3839.2793 2904.71094 60.4246063 vel=10.0049133 623.788086 -75.5762939 col=255 242 191 255 die=0.170628577 life=0 len=0.0500000007 width=0.341966927
+tmf-trail n=7 pos=-3839.2793 2904.71094 60.4246063 vel=8.40166473 941.287903 -136.33255 col=255 242 191 255 die=0.12249615 life=0 len=0.0500000007 width=0.299443424
+tmf-end n=8
+tmf-call1 type=1 h=1 att=1 fp=1
+tmf-begin MuzzleFlash_Shotgun_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Shotgun_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+tmf-cfg bbox origin=-3839.2793 2904.71094 60.4246063
+fxr f 1.25 1.5 1.29552674
+fxr i 0 3 2
+tmf-add n=0 size=72 mat=effects/muzzleflash3_noz pos=-3838.94653 2914.93115 58.7347946 ok=1
+fxr i 0 55 16
+fxr f 6 8 6.1085
+fxr i 0 360 92
+fxr i 0 3 0
+tmf-add n=1 size=72 mat=effects/muzzleflash1_noz pos=-3838.61353 2925.15112 57.0449829 ok=1
+fxr i 0 55 22
+fxr f 6 8 7.20078564
+fxr i 0 360 338
+fxr i 0 3 2
+tmf-add n=2 size=72 mat=effects/muzzleflash3_noz pos=-3838.28076 2935.37134 55.3551712 ok=1
+fxr i 0 55 45
+fxr f 6 8 6.83106565
+fxr i 0 360 315
+fxr i 0 3 2
+tmf-add n=3 size=72 mat=effects/muzzleflash3_noz pos=-3837.94775 2945.59131 53.6653595 ok=1
+fxr i 0 55 48
+fxr f 6 8 6.59165621
+fxr i 0 360 211
+fxr i 0 3 3
+tmf-add n=4 size=72 mat=effects/muzzleflash4_noz pos=-3837.61499 2955.81152 51.9755478 ok=1
+fxr i 0 55 42
+fxr f 6 8 7.12314415
+fxr i 0 360 199
+tmf-simple n=0 pos=-3838.94653 2914.93115 58.7347946 vel=0 0 0 roll=92 die=9.99999975e-05 life=0 col=255 255 216 sa=255 ea=255 ss=9 es=9 flags=61 rd=0
+tmf-simple n=1 pos=-3838.61353 2925.15112 57.0449829 vel=0 0 0 roll=338 die=9.99999975e-05 life=0 col=255 255 222 sa=255 ea=255 ss=9 es=9 flags=60 rd=0
+tmf-simple n=2 pos=-3838.28076 2935.37134 55.3551712 vel=0 0 0 roll=315 die=9.99999975e-05 life=0 col=255 255 245 sa=255 ea=255 ss=7 es=7 flags=60 rd=0
+tmf-simple n=3 pos=-3837.94775 2945.59131 53.6653595 vel=0 0 0 roll=211 die=9.99999975e-05 life=0 col=255 255 248 sa=255 ea=255 ss=5 es=5 flags=60 rd=0
+tmf-simple n=4 pos=-3837.61499 2955.81152 51.9755478 vel=0 0 0 roll=199 die=9.99999975e-05 life=0 col=255 255 242 sa=255 ea=255 ss=4 es=4 flags=61 rd=0
+tmf-end n=5
+tmf-call2 type=1 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Shotgun_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Shotgun_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+tmf-cfg bbox origin=-3839.2793 2904.71094 60.4246063
+fxr f 1.25 1.5 1.4295826
+fxr i 0 3 2
+tmf-add n=0 size=72 mat=effects/muzzleflash3_noz pos=-3838.91187 2915.98853 58.5599403 ok=1
+fxr i 0 55 3
+fxr f 6 8 6.76853275
+fxr i 0 360 39
+fxr i 0 3 0
+tmf-add n=1 size=72 mat=effects/muzzleflash1_noz pos=-3838.54468 2927.26611 56.6952744 ok=1
+fxr i 0 55 53
+fxr f 6 8 7.14989042
+fxr i 0 360 228
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=-3838.17725 2938.54395 54.8306046 ok=1
+fxr i 0 55 55
+fxr f 6 8 6.54058695
+fxr i 0 360 85
+fxr i 0 3 1
+tmf-add n=3 size=72 mat=effects/muzzleflash2_noz pos=-3837.81006 2949.82153 52.9659386 ok=1
+fxr i 0 55 48
+fxr f 6 8 7.69549751
+fxr i 0 360 358
+fxr i 0 3 2
+tmf-add n=4 size=72 mat=effects/muzzleflash3_noz pos=-3837.44263 2961.09912 51.1012726 ok=1
+fxr i 0 55 13
+fxr f 6 8 7.30443573
+fxr i 0 360 45
+tmf-simple n=0 pos=-3838.91187 2915.98853 58.5599403 vel=0 0 0 roll=39 die=9.99999975e-05 life=0 col=255 255 203 sa=255 ea=255 ss=11 es=11 flags=61 rd=0
+tmf-simple n=1 pos=-3838.54468 2927.26611 56.6952744 vel=0 0 0 roll=228 die=9.99999975e-05 life=0 col=255 255 253 sa=255 ea=255 ss=10 es=10 flags=61 rd=0
+tmf-simple n=2 pos=-3838.17725 2938.54395 54.8306046 vel=0 0 0 roll=85 die=9.99999975e-05 life=0 col=255 255 255 sa=255 ea=255 ss=7 es=7 flags=61 rd=0
+tmf-simple n=3 pos=-3837.81006 2949.82153 52.9659386 vel=0 0 0 roll=358 die=9.99999975e-05 life=0 col=255 255 248 sa=255 ea=255 ss=7 es=7 flags=61 rd=0
+tmf-simple n=4 pos=-3837.44263 2961.09912 51.1012726 vel=0 0 0 roll=45 die=9.99999975e-05 life=0 col=255 255 213 sa=255 ea=255 ss=5 es=5 flags=61 rd=0
+tmf-end n=5
+tmf-call1 type=2 h=1 att=1 fp=0
+tmf-begin MuzzleFlash_SMG1_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call2 type=2 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_SMG1_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call1 type=2 h=1 att=1 fp=1
+tmf-begin MuzzleFlash_SMG1_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_SMG1_Player args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 1.25 1.5 1.43532932
+tmf-cfg drawbeforeviewmodel
+fxr i 0 3 0
+tmf-add n=0 size=72 mat=effects/muzzleflash1_noz pos=11.4826345 0 0 ok=1
+fxr i 0 55 22
+fxr f 6 8 7.12463045
+fxr i 0 360 9
+fxr i 0 3 0
+tmf-add n=1 size=72 mat=effects/muzzleflash1_noz pos=22.9652691 0 0 ok=1
+fxr i 0 55 31
+fxr f 6 8 6.55989075
+fxr i 0 360 46
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=34.4479027 0 0 ok=1
+fxr i 0 55 38
+fxr f 6 8 6.00798655
+fxr i 0 360 120
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=45.9305382 0 0 ok=1
+fxr i 0 55 17
+fxr f 6 8 6.88836098
+fxr i 0 360 229
+fxr i 0 3 2
+tmf-add n=4 size=72 mat=effects/muzzleflash3_noz pos=57.4131737 0 0 ok=1
+fxr i 0 55 7
+fxr f 6 8 6.955369
+fxr i 0 360 295
+tmf-simple n=0 pos=11.4826345 0 0 vel=0 0 0 roll=9 die=0.0250000004 life=0 col=255 255 222 sa=255 ea=255 ss=11 es=11 flags=0 rd=0
+tmf-simple n=1 pos=22.9652691 0 0 vel=0 0 0 roll=46 die=0.0250000004 life=0 col=255 255 231 sa=255 ea=255 ss=9 es=9 flags=60 rd=0
+tmf-simple n=2 pos=34.4479027 0 0 vel=0 0 0 roll=120 die=0.0250000004 life=0 col=255 255 238 sa=255 ea=255 ss=7 es=7 flags=60 rd=0
+tmf-simple n=3 pos=45.9305382 0 0 vel=0 0 0 roll=229 die=0.0250000004 life=0 col=255 255 217 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=4 pos=57.4131737 0 0 vel=0 0 0 roll=295 die=0.0250000004 life=0 col=255 255 207 sa=255 ea=255 ss=4 es=4 flags=60 rd=0
+tmf-end n=5
+tmf-call2 type=2 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_SMG1_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_SMG1_Player args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 1.25 1.5 1.43943942
+tmf-cfg drawbeforeviewmodel
+fxr i 0 3 0
+tmf-add n=0 size=72 mat=effects/muzzleflash1_noz pos=11.5155153 0 0 ok=1
+fxr i 0 55 53
+fxr f 6 8 6.74103355
+fxr i 0 360 118
+fxr i 0 3 2
+tmf-add n=1 size=72 mat=effects/muzzleflash3_noz pos=23.0310307 0 0 ok=1
+fxr i 0 55 52
+fxr f 6 8 6.87232542
+fxr i 0 360 133
+fxr i 0 3 0
+tmf-add n=2 size=72 mat=effects/muzzleflash1_noz pos=34.5465469 0 0 ok=1
+fxr i 0 55 45
+fxr f 6 8 6.94407368
+fxr i 0 360 57
+fxr i 0 3 2
+tmf-add n=3 size=72 mat=effects/muzzleflash3_noz pos=46.0620613 0 0 ok=1
+fxr i 0 55 6
+fxr f 6 8 6.41396093
+fxr i 0 360 134
+fxr i 0 3 2
+tmf-add n=4 size=72 mat=effects/muzzleflash3_noz pos=57.5775757 0 0 ok=1
+fxr i 0 55 42
+fxr f 6 8 6.40348721
+fxr i 0 360 65
+tmf-simple n=0 pos=11.5155153 0 0 vel=0 0 0 roll=118 die=0.0250000004 life=0 col=255 255 253 sa=255 ea=255 ss=11 es=11 flags=60 rd=0
+tmf-simple n=1 pos=23.0310307 0 0 vel=0 0 0 roll=133 die=0.0250000004 life=0 col=255 255 252 sa=255 ea=255 ss=9 es=9 flags=59 rd=0
+tmf-simple n=2 pos=34.5465469 0 0 vel=0 0 0 roll=57 die=0.0250000004 life=0 col=255 255 245 sa=255 ea=255 ss=8 es=8 flags=60 rd=0
+tmf-simple n=3 pos=46.0620613 0 0 vel=0 0 0 roll=134 die=0.0250000004 life=0 col=255 255 206 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=4 pos=57.5775757 0 0 vel=0 0 0 roll=65 die=0.0250000004 life=0 col=255 255 242 sa=255 ea=255 ss=4 es=4 flags=60 rd=0
+tmf-end n=5
+tmf-call1 type=3 h=1 att=1 fp=0
+tmf-call2 type=3 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call1 type=3 h=1 att=1 fp=1
+tmf-call2 type=3 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Pistol_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+tmf-cfg bbox origin=-3839.2793 2904.71094 60.4246063
+fxr i 0 3 1
+tmf-add n=0 size=72 mat=particle/particle_smokegrenade pos=-3839.02246 2912.59961 59.1202621 ok=1
+fxr f 0.25 0.5 0.478562891
+fxr f 48 64 51.262085
+fxr f 4 16 13.9137392
+fxr i 200 255 242
+fxr i 64 128 86
+fxr i 2 4 4
+fxr i 0 360 313
+fxr f -0.100000001 0.100000001 0.0803611502
+fxr f 1 1.25 1.04019606
+fxr i 0 3 2
+tmf-add n=1 size=72 mat=effects/muzzleflash3_noz pos=-3839.14575 2908.81396 59.7462196 ok=1
+fxr i 0 55 19
+fxr f 6 8 6.22511435
+fxr i 0 360 63
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=-3839.01196 2912.91675 59.0678329 ok=1
+fxr i 0 55 11
+fxr f 6 8 7.6271553
+fxr i 0 360 231
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=-3838.87842 2917.01978 58.3894463 ok=1
+fxr i 0 55 38
+fxr f 6 8 6.7027688
+fxr i 0 360 107
+fxr i 0 3 1
+tmf-add n=4 size=72 mat=effects/muzzleflash2_noz pos=-3838.74463 2921.12256 57.7110596 ok=1
+fxr i 0 55 14
+fxr f 6 8 6.1378665
+fxr i 0 360 297
+fxr i 0 3 2
+tmf-add n=5 size=72 mat=effects/muzzleflash3_noz pos=-3838.61108 2925.22559 57.0326729 ok=1
+fxr i 0 55 48
+fxr f 6 8 7.2992177
+fxr i 0 360 266
+tmf-simple n=0 pos=-3839.02246 2912.59961 59.1202621 vel=1.64647174 50.5493431 5.5558176 roll=313 die=0.478562891 life=0 col=242 242 242 sa=86 ea=0 ss=4 es=16 flags=60 rd=0.0803611502
+tmf-simple n=1 pos=-3839.14575 2908.81396 59.7462196 vel=0 0 0 roll=63 die=0.00999999978 life=0 col=255 255 219 sa=255 ea=255 ss=7 es=7 flags=0 rd=0
+tmf-simple n=2 pos=-3839.01196 2912.91675 59.0678329 vel=0 0 0 roll=231 die=0.00999999978 life=0 col=255 255 211 sa=255 ea=255 ss=7 es=7 flags=0 rd=0
+tmf-simple n=3 pos=-3838.87842 2917.01978 58.3894463 vel=0 0 0 roll=107 die=0.00999999978 life=0 col=255 255 238 sa=255 ea=255 ss=5 es=5 flags=0 rd=0
+tmf-simple n=4 pos=-3838.74463 2921.12256 57.7110596 vel=0 0 0 roll=297 die=0.00999999978 life=0 col=255 255 214 sa=255 ea=255 ss=4 es=4 flags=0 rd=0
+tmf-simple n=5 pos=-3838.61108 2925.22559 57.0326729 vel=0 0 0 roll=266 die=0.00999999978 life=0 col=255 255 248 sa=255 ea=255 ss=3 es=3 flags=0 rd=0
+tmf-end n=6
+tmf-call1 type=4 h=1 att=1 fp=0
+tmf-begin MuzzleFlash_Pistol_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call2 type=4 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call1 type=4 h=1 att=1 fp=1
+tmf-begin MuzzleFlash_Pistol_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Pistol_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+tmf-cfg bbox origin=-3839.2793 2904.71094 60.4246063
+fxr i 0 3 0
+fxr f 1 1.25 1.17315626
+fxr i 0 3 3
+tmf-add n=0 size=72 mat=effects/muzzleflash4_noz pos=-3839.12866 2909.33838 59.6595078 ok=1
+fxr i 0 55 44
+fxr f 6 8 7.88658953
+fxr i 0 360 319
+fxr i 0 3 0
+tmf-add n=1 size=72 mat=effects/muzzleflash1_noz pos=-3838.97778 2913.96558 58.8944092 ok=1
+fxr i 0 55 39
+fxr f 6 8 7.4658885
+fxr i 0 360 102
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=-3838.82715 2918.59302 58.1293068 ok=1
+fxr i 0 55 34
+fxr f 6 8 7.91160583
+fxr i 0 360 58
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=-3838.67651 2923.22046 57.3642082 ok=1
+fxr i 0 55 32
+fxr f 6 8 6.04036903
+fxr i 0 360 262
+fxr i 0 3 2
+tmf-add n=4 size=72 mat=effects/muzzleflash3_noz pos=-3838.52563 2927.8479 56.5991096 ok=1
+fxr i 0 55 51
+fxr f 6 8 6.58307934
+fxr i 0 360 203
+tmf-simple n=0 pos=-3839.12866 2909.33838 59.6595078 vel=0 0 0 roll=319 die=0.00999999978 life=0 col=255 255 244 sa=255 ea=255 ss=10 es=10 flags=61 rd=0
+tmf-simple n=1 pos=-3838.97778 2913.96558 58.8944092 vel=0 0 0 roll=102 die=0.00999999978 life=0 col=255 255 239 sa=255 ea=255 ss=8 es=8 flags=60 rd=0
+tmf-simple n=2 pos=-3838.82715 2918.59302 58.1293068 vel=0 0 0 roll=58 die=0.00999999978 life=0 col=255 255 234 sa=255 ea=255 ss=7 es=7 flags=60 rd=0
+tmf-simple n=3 pos=-3838.67651 2923.22046 57.3642082 vel=0 0 0 roll=262 die=0.00999999978 life=0 col=255 255 232 sa=255 ea=255 ss=4 es=4 flags=60 rd=0
+tmf-simple n=4 pos=-3838.52563 2927.8479 56.5991096 vel=0 0 0 roll=203 die=0.00999999978 life=0 col=255 255 251 sa=255 ea=255 ss=3 es=3 flags=60 rd=0
+tmf-end n=5
+tmf-call2 type=4 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Pistol_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+tmf-cfg bbox origin=-3839.2793 2904.71094 60.4246063
+fxr i 0 3 2
+tmf-add n=0 size=72 mat=particle/particle_smokegrenade pos=-3839.02246 2912.59961 59.1202621 ok=1
+fxr f 0.25 0.5 0.372631729
+fxr f 48 64 52.396534
+fxr f 4 16 11.1456757
+fxr i 200 255 205
+fxr i 64 128 119
+fxr i 2 4 2
+fxr i 0 360 131
+fxr f -0.100000001 0.100000001 -0.0344926566
+fxr f 1 1.25 1.22162306
+fxr i 0 3 1
+tmf-add n=1 size=72 mat=effects/muzzleflash2_noz pos=-3839.12231 2909.52954 59.6278992 ok=1
+fxr i 0 55 12
+fxr f 6 8 6.56927299
+fxr i 0 360 254
+fxr i 0 3 0
+tmf-add n=2 size=72 mat=effects/muzzleflash1_noz pos=-3838.96533 2914.34814 58.831192 ok=1
+fxr i 0 55 32
+fxr f 6 8 7.80406618
+fxr i 0 360 99
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=-3838.80835 2919.1665 58.034481 ok=1
+fxr i 0 55 10
+fxr f 6 8 7.11153936
+fxr i 0 360 203
+fxr i 0 3 3
+tmf-add n=4 size=72 mat=effects/muzzleflash4_noz pos=-3838.65161 2923.98511 57.2377739 ok=1
+fxr i 0 55 14
+fxr f 6 8 7.46281862
+fxr i 0 360 241
+fxr i 0 3 1
+tmf-add n=5 size=72 mat=effects/muzzleflash2_noz pos=-3838.49463 2928.80371 56.4410667 ok=1
+fxr i 0 55 10
+fxr f 6 8 6.51974154
+fxr i 0 360 147
+tmf-simple n=0 pos=-3839.02246 2912.59961 59.1202621 vel=1.68290877 51.6680183 2.60278988 roll=131 die=0.372631729 life=0 col=205 205 205 sa=119 ea=0 ss=2 es=8 flags=60 rd=-0.0344926566
+tmf-simple n=1 pos=-3839.12231 2909.52954 59.6278992 vel=0 0 0 roll=254 die=0.00999999978 life=0 col=255 255 212 sa=255 ea=255 ss=9 es=9 flags=61 rd=0
+tmf-simple n=2 pos=-3838.96533 2914.34814 58.831192 vel=0 0 0 roll=99 die=0.00999999978 life=0 col=255 255 232 sa=255 ea=255 ss=9 es=9 flags=62 rd=0
+tmf-simple n=3 pos=-3838.80835 2919.1665 58.034481 vel=0 0 0 roll=203 die=0.00999999978 life=0 col=255 255 210 sa=255 ea=255 ss=7 es=7 flags=61 rd=0
+tmf-simple n=4 pos=-3838.65161 2923.98511 57.2377739 vel=0 0 0 roll=241 die=0.00999999978 life=0 col=255 255 214 sa=255 ea=255 ss=6 es=6 flags=61 rd=0
+tmf-simple n=5 pos=-3838.49463 2928.80371 56.4410667 vel=0 0 0 roll=147 die=0.00999999978 life=0 col=255 255 210 sa=255 ea=255 ss=3 es=3 flags=60 rd=0
+tmf-end n=6
+tmf-call1 type=5 h=1 att=1 fp=0
+tmf-begin MuzzleFlash_Combine_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_Combine_NPC args=hEntity, attachmentIndex
+fxr f 1 1.5 1.27986884
+fxr f 50 150 133.549393
+fxr i 0 1 0
+tmf-add n=0 size=72 mat=effects/combinemuzzle1 pos=2.55973768 0 0 ok=1
+fxr f 6 8 7.02540255
+fxr i 0 360 145
+fxr i 0 1 1
+tmf-add n=1 size=72 mat=effects/combinemuzzle2 pos=5.11947536 0 0 ok=1
+fxr f 6 8 7.81218386
+fxr i 0 360 65
+fxr i 0 1 1
+tmf-add n=2 size=72 mat=effects/combinemuzzle2 pos=7.67921305 0 0 ok=1
+fxr f 6 8 6.7571826
+fxr i 0 360 358
+fxr i 0 1 0
+tmf-add n=3 size=72 mat=effects/combinemuzzle1 pos=10.2389507 0 0 ok=1
+fxr f 6 8 6.26914167
+fxr i 0 360 301
+fxr i 0 1 1
+tmf-add n=4 size=72 mat=effects/combinemuzzle2 pos=12.7986889 0 0 ok=1
+fxr f 6 8 7.76181841
+fxr i 0 360 24
+fxr f 50 150 129.567459
+fxr i 0 1 0
+tmf-add n=5 size=72 mat=effects/combinemuzzle1 pos=0 1.27986884 -1.27986884 ok=1
+fxr f 2 4 2.2681725
+fxr i 0 360 148
+fxr i 0 1 0
+tmf-add n=6 size=72 mat=effects/combinemuzzle1 pos=0 2.55973768 -2.55973768 ok=1
+fxr f 2 4 3.37170315
+fxr i 0 360 125
+fxr i 0 1 0
+tmf-add n=7 size=72 mat=effects/combinemuzzle1 pos=0 3.83960652 -3.83960652 ok=1
+fxr f 2 4 3.38346648
+fxr i 0 360 204
+fxr i 0 1 1
+tmf-add n=8 size=72 mat=effects/combinemuzzle2 pos=0 5.11947536 -5.11947536 ok=1
+fxr f 2 4 2.2925272
+fxr i 0 360 62
+fxr i 0 1 1
+tmf-add n=9 size=72 mat=effects/combinemuzzle2 pos=0 6.39934444 -6.39934444 ok=1
+fxr f 2 4 2.42956758
+fxr i 0 360 232
+fxr f 50 150 80.5542908
+fxr i 0 1 1
+tmf-add n=10 size=72 mat=effects/combinemuzzle2 pos=-0 -1.27986884 -1.27986884 ok=1
+fxr f 2 4 3.25063992
+fxr i 0 360 309
+fxr i 0 1 1
+tmf-add n=11 size=72 mat=effects/combinemuzzle2 pos=-0 -2.55973768 -2.55973768 ok=1
+fxr f 2 4 3.53384018
+fxr i 0 360 278
+fxr i 0 1 1
+tmf-add n=12 size=72 mat=effects/combinemuzzle2 pos=-0 -3.83960652 -3.83960652 ok=1
+fxr f 2 4 2.0813539
+fxr i 0 360 334
+fxr i 0 1 1
+tmf-add n=13 size=72 mat=effects/combinemuzzle2 pos=-0 -5.11947536 -5.11947536 ok=1
+fxr f 2 4 2.16160417
+fxr i 0 360 154
+fxr i 0 1 0
+tmf-add n=14 size=72 mat=effects/combinemuzzle1 pos=-0 -6.39934444 -6.39934444 ok=1
+fxr f 2 4 2.8028276
+fxr i 0 360 33
+fxr f 50 150 56.8635674
+fxr i 0 1 1
+tmf-add n=15 size=72 mat=effects/combinemuzzle2 pos=0 0 1.27986884 ok=1
+fxr f 2 4 2.53457499
+fxr i 0 360 349
+fxr i 0 1 1
+tmf-add n=16 size=72 mat=effects/combinemuzzle2 pos=0 0 2.55973768 ok=1
+fxr f 2 4 2.21752524
+fxr i 0 360 61
+fxr i 0 1 0
+tmf-add n=17 size=72 mat=effects/combinemuzzle1 pos=0 0 3.83960652 ok=1
+fxr f 2 4 3.77145791
+fxr i 0 360 196
+fxr i 0 1 0
+tmf-add n=18 size=72 mat=effects/combinemuzzle1 pos=0 0 5.11947536 ok=1
+fxr f 2 4 3.3774581
+fxr i 0 360 119
+fxr i 0 1 0
+tmf-add n=19 size=72 mat=effects/combinemuzzle1 pos=0 0 6.39934444 ok=1
+fxr f 2 4 2.66861296
+fxr i 0 360 239
+tmf-add n=20 size=72 mat=effects/strider_muzzle pos=0 0 0 ok=1
+fxr f 0.300000012 0.400000006 0.391217411
+fxr f 12 16 12.8316889
+fxr i 0 360 23
+tmf-attm ok=1 origin=-3839.2793 2904.71094 60.4246063
+tmf-lightcvar 1
+tmf-light ent=1 entindex=1
+fxr i 32 128 127
+tmf-elight key=1073741825 origin=-3839.2793 2904.71094 60.4246063 col=64 128 255 5 radius=127 decay=2540 die=13.6544924 t=13.6044922
+tmf-simple n=0 pos=2.55973768 0 0 vel=133.549393 0 0 roll=145 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=9 es=9 flags=60 rd=0
+tmf-simple n=1 pos=5.11947536 0 0 vel=133.549393 0 0 roll=65 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=9 es=9 flags=60 rd=0
+tmf-simple n=2 pos=7.67921305 0 0 vel=133.549393 0 0 roll=358 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=60 rd=0
+tmf-simple n=3 pos=10.2389507 0 0 vel=133.549393 0 0 roll=301 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=0 rd=0
+tmf-simple n=4 pos=12.7986889 0 0 vel=133.549393 0 0 roll=24 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=5 pos=0 1.27986884 -1.27986884 vel=0 32.3918648 -32.3918648 roll=148 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=6 pos=0 2.55973768 -2.55973768 vel=0 32.3918648 -32.3918648 roll=125 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=5 es=5 flags=60 rd=0
+tmf-simple n=7 pos=0 3.83960652 -3.83960652 vel=0 32.3918648 -32.3918648 roll=204 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=8 pos=0 5.11947536 -5.11947536 vel=0 32.3918648 -32.3918648 roll=62 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=9 pos=0 6.39934444 -6.39934444 vel=0 32.3918648 -32.3918648 roll=232 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=59 rd=0
+tmf-simple n=10 pos=-0 -1.27986884 -1.27986884 vel=-0 -20.1385727 -20.1385727 roll=309 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=60 rd=0
+tmf-simple n=11 pos=-0 -2.55973768 -2.55973768 vel=-0 -20.1385727 -20.1385727 roll=278 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=60 rd=0
+tmf-simple n=12 pos=-0 -3.83960652 -3.83960652 vel=-0 -20.1385727 -20.1385727 roll=334 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=60 rd=0
+tmf-simple n=13 pos=-0 -5.11947536 -5.11947536 vel=-0 -20.1385727 -20.1385727 roll=154 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=14 pos=-0 -6.39934444 -6.39934444 vel=-0 -20.1385727 -20.1385727 roll=33 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=15 pos=0 0 1.27986884 vel=0 0 14.2158918 roll=349 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=5 es=5 flags=61 rd=0
+tmf-simple n=16 pos=0 0 2.55973768 vel=0 0 14.2158918 roll=61 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=60 rd=0
+tmf-simple n=17 pos=0 0 3.83960652 vel=0 0 14.2158918 roll=196 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=18 pos=0 0 5.11947536 vel=0 0 14.2158918 roll=119 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=59 rd=0
+tmf-simple n=19 pos=0 0 6.39934444 vel=0 0 14.2158918 roll=239 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=0 rd=0
+tmf-simple n=20 pos=0 0 0 vel=0 0 0 roll=23 die=0.391217411 life=0 col=255 255 255 sa=255 ea=0 ss=16 es=0 flags=59 rd=0
+tmf-end n=21
+tmf-call2 type=5 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Combine_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_Combine_NPC args=hEntity, attachmentIndex
+fxr f 1 1.5 1.2507093
+fxr f 50 150 83.2212906
+fxr i 0 1 1
+tmf-add n=0 size=72 mat=effects/combinemuzzle2 pos=2.50141859 0 0 ok=1
+fxr f 6 8 7.12342358
+fxr i 0 360 60
+fxr i 0 1 1
+tmf-add n=1 size=72 mat=effects/combinemuzzle2 pos=5.00283718 0 0 ok=1
+fxr f 6 8 6.94057083
+fxr i 0 360 215
+fxr i 0 1 0
+tmf-add n=2 size=72 mat=effects/combinemuzzle1 pos=7.50425577 0 0 ok=1
+fxr f 6 8 7.74166489
+fxr i 0 360 303
+fxr i 0 1 1
+tmf-add n=3 size=72 mat=effects/combinemuzzle2 pos=10.0056744 0 0 ok=1
+fxr f 6 8 7.65173244
+fxr i 0 360 238
+fxr i 0 1 1
+tmf-add n=4 size=72 mat=effects/combinemuzzle2 pos=12.5070934 0 0 ok=1
+fxr f 6 8 6.87074709
+fxr i 0 360 125
+fxr f 50 150 138.051102
+fxr i 0 1 1
+tmf-add n=5 size=72 mat=effects/combinemuzzle2 pos=0 1.2507093 -1.2507093 ok=1
+fxr f 2 4 3.49726272
+fxr i 0 360 0
+fxr i 0 1 1
+tmf-add n=6 size=72 mat=effects/combinemuzzle2 pos=0 2.50141859 -2.50141859 ok=1
+fxr f 2 4 3.67804885
+fxr i 0 360 107
+fxr i 0 1 0
+tmf-add n=7 size=72 mat=effects/combinemuzzle1 pos=0 3.75212789 -3.75212789 ok=1
+fxr f 2 4 2.49348259
+fxr i 0 360 236
+fxr i 0 1 1
+tmf-add n=8 size=72 mat=effects/combinemuzzle2 pos=0 5.00283718 -5.00283718 ok=1
+fxr f 2 4 3.10061336
+fxr i 0 360 310
+fxr i 0 1 1
+tmf-add n=9 size=72 mat=effects/combinemuzzle2 pos=0 6.25354671 -6.25354671 ok=1
+fxr f 2 4 3.52687454
+fxr i 0 360 42
+fxr f 50 150 82.3763885
+fxr i 0 1 1
+tmf-add n=10 size=72 mat=effects/combinemuzzle2 pos=-0 -1.2507093 -1.2507093 ok=1
+fxr f 2 4 3.01874828
+fxr i 0 360 11
+fxr i 0 1 1
+tmf-add n=11 size=72 mat=effects/combinemuzzle2 pos=-0 -2.50141859 -2.50141859 ok=1
+fxr f 2 4 2.89366412
+fxr i 0 360 41
+fxr i 0 1 1
+tmf-add n=12 size=72 mat=effects/combinemuzzle2 pos=-0 -3.75212789 -3.75212789 ok=1
+fxr f 2 4 2.82491016
+fxr i 0 360 312
+fxr i 0 1 0
+tmf-add n=13 size=72 mat=effects/combinemuzzle1 pos=-0 -5.00283718 -5.00283718 ok=1
+fxr f 2 4 3.6290462
+fxr i 0 360 5
+fxr i 0 1 0
+tmf-add n=14 size=72 mat=effects/combinemuzzle1 pos=-0 -6.25354671 -6.25354671 ok=1
+fxr f 2 4 2.75247645
+fxr i 0 360 180
+fxr f 50 150 88.070137
+fxr i 0 1 1
+tmf-add n=15 size=72 mat=effects/combinemuzzle2 pos=0 0 1.2507093 ok=1
+fxr f 2 4 3.20601463
+fxr i 0 360 269
+fxr i 0 1 1
+tmf-add n=16 size=72 mat=effects/combinemuzzle2 pos=0 0 2.50141859 ok=1
+fxr f 2 4 2.35377622
+fxr i 0 360 52
+fxr i 0 1 0
+tmf-add n=17 size=72 mat=effects/combinemuzzle1 pos=0 0 3.75212789 ok=1
+fxr f 2 4 3.48544478
+fxr i 0 360 127
+fxr i 0 1 1
+tmf-add n=18 size=72 mat=effects/combinemuzzle2 pos=0 0 5.00283718 ok=1
+fxr f 2 4 3.14043832
+fxr i 0 360 353
+fxr i 0 1 0
+tmf-add n=19 size=72 mat=effects/combinemuzzle1 pos=0 0 6.25354671 ok=1
+fxr f 2 4 2.013726
+fxr i 0 360 185
+tmf-add n=20 size=72 mat=effects/strider_muzzle pos=0 0 0 ok=1
+fxr f 0.300000012 0.400000006 0.366141915
+fxr f 12 16 15.1387234
+fxr i 0 360 228
+tmf-attm ok=1 origin=-3839.2793 2904.71094 60.4246063
+tmf-lightcvar 1
+tmf-light ent=1 entindex=1
+fxr i 32 128 53
+tmf-elight key=1073741825 origin=-3839.2793 2904.71094 60.4246063 col=64 128 255 5 radius=53 decay=1060 die=13.6544924 t=13.6044922
+tmf-simple n=0 pos=2.50141859 0 0 vel=83.2212906 0 0 roll=60 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=9 es=9 flags=60 rd=0
+tmf-simple n=1 pos=5.00283718 0 0 vel=83.2212906 0 0 roll=215 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=7 es=7 flags=0 rd=0
+tmf-simple n=2 pos=7.50425577 0 0 vel=83.2212906 0 0 roll=303 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=7 es=7 flags=0 rd=0
+tmf-simple n=3 pos=10.0056744 0 0 vel=83.2212906 0 0 roll=238 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=5 es=5 flags=60 rd=0
+tmf-simple n=4 pos=12.5070934 0 0 vel=83.2212906 0 0 roll=125 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=60 rd=0
+tmf-simple n=5 pos=0 1.2507093 -1.2507093 vel=0 34.5127754 -34.5127754 roll=0 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=7 es=7 flags=60 rd=0
+tmf-simple n=6 pos=0 2.50141859 -2.50141859 vel=0 34.5127754 -34.5127754 roll=107 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=60 rd=0
+tmf-simple n=7 pos=0 3.75212789 -3.75212789 vel=0 34.5127754 -34.5127754 roll=236 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=61 rd=0
+tmf-simple n=8 pos=0 5.00283718 -5.00283718 vel=0 34.5127754 -34.5127754 roll=310 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=60 rd=0
+tmf-simple n=9 pos=0 6.25354671 -6.25354671 vel=0 34.5127754 -34.5127754 roll=42 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=10 pos=-0 -1.2507093 -1.2507093 vel=-0 -20.5940971 -20.5940971 roll=11 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=60 rd=0
+tmf-simple n=11 pos=-0 -2.50141859 -2.50141859 vel=-0 -20.5940971 -20.5940971 roll=41 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=61 rd=0
+tmf-simple n=12 pos=-0 -3.75212789 -3.75212789 vel=-0 -20.5940971 -20.5940971 roll=312 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=61 rd=0
+tmf-simple n=13 pos=-0 -5.00283718 -5.00283718 vel=-0 -20.5940971 -20.5940971 roll=5 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=61 rd=0
+tmf-simple n=14 pos=-0 -6.25354671 -6.25354671 vel=-0 -20.5940971 -20.5940971 roll=180 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=61 rd=0
+tmf-simple n=15 pos=0 0 1.2507093 vel=0 0 22.0175343 roll=269 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=61 rd=0
+tmf-simple n=16 pos=0 0 2.50141859 vel=0 0 22.0175343 roll=52 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=61 rd=0
+tmf-simple n=17 pos=0 0 3.75212789 vel=0 0 22.0175343 roll=127 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=61 rd=0
+tmf-simple n=18 pos=0 0 5.00283718 vel=0 0 22.0175343 roll=353 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=61 rd=0
+tmf-simple n=19 pos=0 0 6.25354671 vel=0 0 22.0175343 roll=185 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=0 es=0 flags=61 rd=0
+tmf-simple n=20 pos=0 0 0 vel=0 0 0 roll=228 die=0.366141915 life=0 col=255 255 255 sa=255 ea=0 ss=18 es=0 flags=60 rd=0
+tmf-end n=21
+tmf-call1 type=5 h=1 att=1 fp=1
+tmf-begin MuzzleFlash_Combine_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 2 2.25 2.1407156
+tmf-cfg drawbeforeviewmodel
+fxr i 0 1 0
+tmf-add n=0 size=72 mat=effects/combinemuzzle1_noz pos=17.1257248 0 0 ok=1
+fxr i 0 55 28
+fxr f 6 8 6.26455736
+fxr i 0 360 265
+fxr i 0 1 0
+tmf-add n=1 size=72 mat=effects/combinemuzzle1_noz pos=34.2514496 0 0 ok=1
+fxr i 0 55 2
+fxr f 6 8 7.17381763
+fxr i 0 360 303
+fxr i 0 1 0
+tmf-add n=2 size=72 mat=effects/combinemuzzle1_noz pos=51.3771744 0 0 ok=1
+fxr i 0 55 19
+fxr f 6 8 6.04232073
+fxr i 0 360 112
+fxr i 0 1 0
+tmf-add n=3 size=72 mat=effects/combinemuzzle1_noz pos=68.5028992 0 0 ok=1
+fxr i 0 55 38
+fxr f 6 8 6.18966436
+fxr i 0 360 246
+fxr i 0 1 0
+tmf-add n=4 size=72 mat=effects/combinemuzzle1_noz pos=85.628624 0 0 ok=1
+fxr i 0 55 9
+fxr f 6 8 6.87328243
+fxr i 0 360 43
+fxr i 0 1 0
+tmf-add n=5 size=72 mat=effects/combinemuzzle1_noz pos=0 0 0 ok=1
+fxr i 64 128 66
+fxr f 10 16 11.1169624
+fxr i 0 360 292
+tmf-simple n=0 pos=17.1257248 0 0 vel=0 0 0 roll=265 die=0.0250000004 life=0 col=255 255 228 sa=255 ea=255 ss=12 es=12 flags=60 rd=0
+tmf-simple n=1 pos=34.2514496 0 0 vel=0 0 0 roll=303 die=0.0250000004 life=0 col=255 255 202 sa=255 ea=255 ss=12 es=12 flags=60 rd=0
+tmf-simple n=2 pos=51.3771744 0 0 vel=0 0 0 roll=112 die=0.0250000004 life=0 col=255 255 219 sa=255 ea=255 ss=9 es=9 flags=60 rd=0
+tmf-simple n=3 pos=68.5028992 0 0 vel=0 0 0 roll=246 die=0.0250000004 life=0 col=255 255 238 sa=255 ea=255 ss=8 es=8 flags=60 rd=0
+tmf-simple n=4 pos=85.628624 0 0 vel=0 0 0 roll=43 die=0.0250000004 life=0 col=255 255 209 sa=255 ea=255 ss=8 es=8 flags=61 rd=0
+tmf-simple n=5 pos=0 0 0 vel=0 0 0 roll=292 die=0.0250000004 life=0 col=255 255 255 sa=66 ea=32 ss=11 es=11 flags=62 rd=0
+tmf-end n=6
+tmf-call2 type=5 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Combine_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 2 2.25 2.17707229
+tmf-cfg drawbeforeviewmodel
+fxr i 0 1 1
+tmf-add n=0 size=72 mat=effects/combinemuzzle2_noz pos=17.4165783 0 0 ok=1
+fxr i 0 55 13
+fxr f 6 8 6.80332184
+fxr i 0 360 283
+fxr i 0 1 0
+tmf-add n=1 size=72 mat=effects/combinemuzzle1_noz pos=34.8331566 0 0 ok=1
+fxr i 0 55 52
+fxr f 6 8 7.20344162
+fxr i 0 360 67
+fxr i 0 1 0
+tmf-add n=2 size=72 mat=effects/combinemuzzle1_noz pos=52.249733 0 0 ok=1
+fxr i 0 55 25
+fxr f 6 8 6.94547701
+fxr i 0 360 355
+fxr i 0 1 1
+tmf-add n=3 size=72 mat=effects/combinemuzzle2_noz pos=69.6663132 0 0 ok=1
+fxr i 0 55 43
+fxr f 6 8 7.04689503
+fxr i 0 360 143
+fxr i 0 1 0
+tmf-add n=4 size=72 mat=effects/combinemuzzle1_noz pos=87.0828934 0 0 ok=1
+fxr i 0 55 32
+fxr f 6 8 7.01651812
+fxr i 0 360 42
+fxr i 0 1 1
+tmf-add n=5 size=72 mat=effects/combinemuzzle2_noz pos=0 0 0 ok=1
+fxr i 64 128 108
+fxr f 10 16 11.079524
+fxr i 0 360 339
+tmf-simple n=0 pos=17.4165783 0 0 vel=0 0 0 roll=283 die=0.0250000004 life=0 col=255 255 213 sa=255 ea=255 ss=13 es=13 flags=61 rd=0
+tmf-simple n=1 pos=34.8331566 0 0 vel=0 0 0 roll=67 die=0.0250000004 life=0 col=255 255 252 sa=255 ea=255 ss=13 es=13 flags=61 rd=0
+tmf-simple n=2 pos=52.249733 0 0 vel=0 0 0 roll=355 die=0.0250000004 life=0 col=255 255 225 sa=255 ea=255 ss=11 es=11 flags=60 rd=0
+tmf-simple n=3 pos=69.6663132 0 0 vel=0 0 0 roll=143 die=0.0250000004 life=0 col=255 255 243 sa=255 ea=255 ss=10 es=10 flags=60 rd=0
+tmf-simple n=4 pos=87.0828934 0 0 vel=0 0 0 roll=42 die=0.0250000004 life=0 col=255 255 232 sa=255 ea=255 ss=8 es=8 flags=60 rd=0
+tmf-simple n=5 pos=0 0 0 vel=0 0 0 roll=339 die=0.0250000004 life=0 col=255 255 255 sa=108 ea=32 ss=11 es=11 flags=60 rd=0
+tmf-end n=6
+tmf-call1 type=6 h=1 att=1 fp=0
+tmf-call2 type=6 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=6 h=1 att=1 fp=1
+tmf-begin MuzzleFlash_357_Player h=1 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_357_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=-3839.2793 2904.71094 60.4246063 angles=9.383564 88.1344452 0.629951119
+tmf-cfg bbox origin=-3839.2793 2904.71094 60.4246063
+tmf-add n=0 size=72 mat=particle/particle_smokegrenade pos=-3839.02246 2912.59961 59.1202621 ok=1
+fxr f 0.5 1 0.715764523
+fxr f 8 64 32.9243851
+fxr f 4 16 7.75392294
+fxr i 200 255 218
+fxr i 64 128 89
+fxr i 2 4 3
+fxr i 0 360 228
+fxr f -0.5 0.5 0.496240795
+fxr f 1.25 1.5 1.40760112
+fxr i 0 3 0
+tmf-add n=1 size=72 mat=effects/muzzleflash1_noz pos=-3838.91772 2915.81519 58.5886116 ok=1
+fxr i 0 55 26
+fxr f 6 8 6.31427383
+fxr i 0 360 71
+fxr i 0 3 1
+tmf-add n=2 size=72 mat=effects/muzzleflash2_noz pos=-3838.55591 2926.91943 56.7526169 ok=1
+fxr i 0 55 20
+fxr f 6 8 6.94402027
+fxr i 0 360 286
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=-3838.19434 2938.02368 54.9166183 ok=1
+fxr i 0 55 53
+fxr f 6 8 7.0647006
+fxr i 0 360 172
+fxr i 0 3 3
+tmf-add n=4 size=72 mat=effects/muzzleflash4_noz pos=-3837.83252 2949.12793 53.0806236 ok=1
+fxr i 0 55 19
+fxr f 6 8 7.43903875
+fxr i 0 360 44
+fxr i 0 3 1
+tmf-add n=5 size=72 mat=effects/muzzleflash2_noz pos=-3837.47095 2960.23218 51.2446289 ok=1
+fxr i 0 55 37
+fxr f 6 8 6.81177092
+fxr i 0 360 184
+tmf-simple n=0 pos=-3839.02246 2912.59961 59.1202621 vel=1.05748856 32.4666061 2.38583422 roll=228 die=0.715764523 life=0 col=218 218 218 sa=89 ea=0 ss=3 es=24 flags=0 rd=0.496240795
+tmf-simple n=1 pos=-3838.91772 2915.81519 58.5886116 vel=0 0 0 roll=71 die=0.00999999978 life=0 col=255 255 226 sa=255 ea=255 ss=10 es=10 flags=60 rd=0
+tmf-simple n=2 pos=-3838.55591 2926.91943 56.7526169 vel=0 0 0 roll=286 die=0.00999999978 life=0 col=255 255 220 sa=255 ea=255 ss=9 es=9 flags=60 rd=0
+tmf-simple n=3 pos=-3838.19434 2938.02368 54.9166183 vel=0 0 0 roll=172 die=0.00999999978 life=0 col=255 255 253 sa=255 ea=255 ss=8 es=8 flags=60 rd=0
+tmf-simple n=4 pos=-3837.83252 2949.12793 53.0806236 vel=0 0 0 roll=44 die=0.00999999978 life=0 col=255 255 219 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=5 pos=-3837.47095 2960.23218 51.2446289 vel=0 0 0 roll=184 die=0.00999999978 life=0 col=255 255 237 sa=255 ea=255 ss=4 es=4 flags=60 rd=0
+tmf-end n=6
+tmf-call2 type=6 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=7 h=1 att=1 fp=0
+tmf-begin MuzzleFlash_RPG_NPC h=1 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 1.5f, hEntity, attachmentIndex );
+tmf-end n=0
+tmf-call2 type=7 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=7 h=1 att=1 fp=1
+tmf-call2 type=7 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=8 h=1 att=1 fp=0
+tmf-call2 type=8 h=1 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=8 h=1 att=1 fp=1
+tmf-call2 type=8 h=1 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=0 h=65536 att=1 fp=0
+tmf-call2 type=0 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=0 h=65536 att=1 fp=1
+tmf-call2 type=0 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=1 h=65536 att=1 fp=0
+tmf-begin MuzzleFlash_Shotgun_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.75f, hEntity, attachmentIndex );
+tmf-renderable 1
+tmf-att origin=0 2.29716296e-21 -1.3272811e-06 angles=9.35744645e+21 0 -1.32701916e-06
+fxr i 0 2 0
+tmf-create kind=CEmberEffect name=muzzle_embers args=
+tmf-cfg sortorigin=0 2.29716296e-21 -1.3272811e-06
+fxr i 0 4 2
+tmf-add n=0 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.200000003 0.400000006 0.380042642
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.00851008669 0.0247947611 -0.0410184041
+fxr f 64 256 224.589264
+tmf-add n=1 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.200000003 0.400000006 0.227822691
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.0260246582 -0.0334650725 0.0277062319
+fxr f 64 256 108.733475
+tmf-create kind=CTrailParticles name=MuzzleFlash_Shotgun_NPC args=
+tmf-cfg sortorigin=0 2.29716296e-21 -1.3272811e-06
+tmf-cfg flag=4
+tmf-cfg gravity=0
+fxr i 4 8 8
+tmf-add n=2 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.181819379
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0474608615 0.0355037116 0.0218436234
+fxr f 256 1024 898.890625
+fxr f 0.25 0.5 0.379331738
+tmf-add n=3 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.195312306
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.0106097572 0.000877402723 0.0184011348
+fxr f 256 1024 603.49707
+fxr f 0.25 0.5 0.290866941
+tmf-add n=4 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.193980902
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.0451475568 -0.024916837 0.0438566245
+fxr f 256 1024 982.712158
+fxr f 0.25 0.5 0.335089654
+tmf-add n=5 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.140678972
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0231803339 -0.0226310026 -0.00478377566
+fxr f 256 1024 605.576965
+fxr f 0.25 0.5 0.314440131
+tmf-add n=6 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.123219229
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.01651204 -0.0399899296 -0.0330469683
+fxr f 256 1024 1007.22437
+fxr f 0.25 0.5 0.269944489
+tmf-add n=7 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.120599687
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.00204015896 -0.0418088324 0.00540635735
+fxr f 256 1024 742.390808
+fxr f 0.25 0.5 0.469778329
+tmf-add n=8 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.166840911
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0372951441 -0.0283257551 0.0127521567
+fxr f 256 1024 272.031281
+fxr f 0.25 0.5 0.487317115
+tmf-add n=9 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.176706225
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0464110225 0.0448576324 -0.0259422585
+fxr f 256 1024 958.600098
+fxr f 0.25 0.5 0.342747867
+tmf-simple n=0 pos=0 2.29716296e-21 -1.3272811e-06 vel=217.587769 5.56141949 -55.3622627 roll=0 die=0.380042642 life=0 col=255 128 64 sa=255 ea=0 ss=1 es=0 flags=61 rd=0
+tmf-simple n=1 pos=0 2.29716296e-21 -1.3272811e-06 vel=107.006508 -3.56452179 -18.9702415 roll=0 die=0.227822691 life=0 col=255 128 64 sa=255 ea=0 ss=1 es=0 flags=60 rd=0
+tmf-trail n=2 pos=0 2.29716296e-21 -1.3272811e-06 vel=867.592773 33.080986 -171.409042 col=255 242 191 255 die=0.181819379 life=0 len=0.0500000007 width=0.379331738
+tmf-trail n=3 pos=0 2.29716296e-21 -1.3272811e-06 vel=590.560608 0.523815334 -111.881981 col=255 242 191 255 die=0.195312306 life=0 len=0.0500000007 width=0.290866941
+tmf-trail n=4 pos=0 2.29716296e-21 -1.3272811e-06 vel=940.124939 -22.8817177 -148.721939 col=255 242 191 255 die=0.193980902 life=0 len=0.0500000007 width=0.335089654
+tmf-trail n=5 pos=0 2.29716296e-21 -1.3272811e-06 vel=587.509094 -13.9164181 -129.497375 col=255 242 191 255 die=0.140678972 life=0 len=0.0500000007 width=0.314440131
+tmf-trail n=6 pos=0 2.29716296e-21 -1.3272811e-06 vel=955.910583 -38.4148407 -229.445251 col=255 242 191 255 die=0.123219229 life=0 len=0.0500000007 width=0.269944489
+tmf-trail n=7 pos=0 2.29716296e-21 -1.3272811e-06 vel=713.824951 -30.4335957 -145.875458 col=255 242 191 255 die=0.120599687 life=0 len=0.0500000007 width=0.469778329
+tmf-trail n=8 pos=0 2.29716296e-21 -1.3272811e-06 vel=263.988739 -7.94401264 -54.1423264 col=255 242 191 255 die=0.166840911 life=0 len=0.0500000007 width=0.487317115
+tmf-trail n=9 pos=0 2.29716296e-21 -1.3272811e-06 vel=896.750916 43.1526604 -222.93988 col=255 242 191 255 die=0.176706225 life=0 len=0.0500000007 width=0.342747867
+tmf-end n=10
+tmf-call2 type=1 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Shotgun_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.75f, hEntity, attachmentIndex );
+tmf-renderable 1
+tmf-att origin=0 2.29716296e-21 -1.3272811e-06 angles=9.35744645e+21 0 -1.32701916e-06
+fxr i 0 2 1
+tmf-create kind=CTrailParticles name=MuzzleFlash_Shotgun_NPC args=
+tmf-cfg sortorigin=0 2.29716296e-21 -1.3272811e-06
+tmf-cfg flag=4
+tmf-cfg gravity=0
+fxr i 4 8 4
+tmf-add n=0 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.193784893
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.0146290474 0.0434965082 0.0292657278
+fxr f 256 1024 289.226746
+fxr f 0.25 0.5 0.358919978
+tmf-add n=1 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.146768361
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.0379512943 -0.0436765663 0.0444517396
+fxr f 256 1024 338.926849
+fxr f 0.25 0.5 0.339865714
+tmf-add n=2 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.160974219
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=0.0316309072 -0.0451139882 -0.0461088903
+fxr f 256 1024 898.695312
+fxr f 0.25 0.5 0.327779472
+tmf-add n=3 size=72 mat=effects/muzzleflash1 pos=0 2.29716296e-21 -1.3272811e-06 ok=1
+fxr f 0.100000001 0.200000003 0.101366758
+tmf-vrand lo=-0.0500000007 hi=0.0500000007 v=-0.00446638465 -0.0278038885 0.0435087122
+fxr f 256 1024 807.982727
+fxr f 0.25 0.5 0.393690765
+tmf-trail n=0 pos=0 2.29716296e-21 -1.3272811e-06 vel=276.682129 12.4846048 -50.6715546 col=255 242 191 255 die=0.193784893 life=0 len=0.0500000007 width=0.358919978
+tmf-trail n=1 pos=0 2.29716296e-21 -1.3272811e-06 vel=320.112427 -13.7538671 -50.8108902 col=255 242 191 255 die=0.146768361 life=0 len=0.0500000007 width=0.339865714
+tmf-trail n=2 pos=0 2.29716296e-21 -1.3272811e-06 vel=842.867126 -37.640274 -210.181946 col=255 242 191 255 die=0.160974219 life=0 len=0.0500000007 width=0.327779472
+tmf-trail n=3 pos=0 2.29716296e-21 -1.3272811e-06 vel=776.191895 -22.1543655 -129.319824 col=255 242 191 255 die=0.101366758 life=0 len=0.0500000007 width=0.393690765
+tmf-end n=4
+tmf-call1 type=1 h=65536 att=1 fp=1
+tmf-begin MuzzleFlash_Shotgun_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Shotgun_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=0 9.42473924e+21 0 angles=9.13871184e+17 0 -4.62943503e+27
+tmf-cfg bbox origin=0 9.42473924e+21 0
+fxr f 1.25 1.5 1.356089
+fxr i 0 3 0
+tmf-add n=0 size=72 mat=effects/muzzleflash1_noz pos=-5.40433073 9.42473924e+21 9.40679359 ok=1
+fxr i 0 55 31
+fxr f 6 8 7.66084862
+fxr i 0 360 197
+fxr i 0 3 1
+tmf-add n=1 size=72 mat=effects/muzzleflash2_noz pos=-10.8086615 9.42473924e+21 18.8135872 ok=1
+fxr i 0 55 23
+fxr f 6 8 6.47332525
+fxr i 0 360 54
+fxr i 0 3 2
+tmf-add n=2 size=72 mat=effects/muzzleflash3_noz pos=-16.2129917 9.42473924e+21 28.2203789 ok=1
+fxr i 0 55 48
+fxr f 6 8 6.06752396
+fxr i 0 360 156
+fxr i 0 3 2
+tmf-add n=3 size=72 mat=effects/muzzleflash3_noz pos=-21.6173229 9.42473924e+21 37.6271744 ok=1
+fxr i 0 55 26
+fxr f 6 8 6.26595449
+fxr i 0 360 294
+fxr i 0 3 0
+tmf-add n=4 size=72 mat=effects/muzzleflash1_noz pos=-27.0216541 9.42473924e+21 47.0339661 ok=1
+fxr i 0 55 51
+fxr f 6 8 7.20666218
+fxr i 0 360 140
+tmf-simple n=0 pos=-5.40433073 9.42473924e+21 9.40679359 vel=0 0 0 roll=197 die=9.99999975e-05 life=0 col=255 255 231 sa=255 ea=255 ss=12 es=12 flags=61 rd=0
+tmf-simple n=1 pos=-10.8086615 9.42473924e+21 18.8135872 vel=0 0 0 roll=54 die=9.99999975e-05 life=0 col=255 255 223 sa=255 ea=255 ss=8 es=8 flags=61 rd=0
+tmf-simple n=2 pos=-16.2129917 9.42473924e+21 28.2203789 vel=0 0 0 roll=156 die=9.99999975e-05 life=0 col=255 255 248 sa=255 ea=255 ss=6 es=6 flags=61 rd=0
+tmf-simple n=3 pos=-21.6173229 9.42473924e+21 37.6271744 vel=0 0 0 roll=294 die=9.99999975e-05 life=0 col=255 255 226 sa=255 ea=255 ss=5 es=5 flags=61 rd=0
+tmf-simple n=4 pos=-27.0216541 9.42473924e+21 47.0339661 vel=0 0 0 roll=140 die=9.99999975e-05 life=0 col=255 255 251 sa=255 ea=255 ss=4 es=4 flags=61 rd=0
+tmf-end n=5
+tmf-call2 type=1 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Shotgun_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Shotgun_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=0 9.42473924e+21 0 angles=9.14003125e+17 0 -4.62943503e+27
+tmf-cfg bbox origin=0 9.42473924e+21 0
+fxr f 1.25 1.5 1.44320202
+fxr i 0 3 3
+tmf-add n=0 size=72 mat=effects/muzzleflash4_noz pos=-11.3616982 9.42473924e+21 2.05257511 ok=1
+fxr i 0 55 48
+fxr f 6 8 7.0505681
+fxr i 0 360 59
+fxr i 0 3 3
+tmf-add n=1 size=72 mat=effects/muzzleflash4_noz pos=-22.7233963 9.42473924e+21 4.10515022 ok=1
+fxr i 0 55 9
+fxr f 6 8 7.84537125
+fxr i 0 360 256
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=-34.0850945 9.42473924e+21 6.15772486 ok=1
+fxr i 0 55 4
+fxr f 6 8 6.70999241
+fxr i 0 360 358
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=-45.4467926 9.42473924e+21 8.21030045 ok=1
+fxr i 0 55 35
+fxr f 6 8 7.16366243
+fxr i 0 360 46
+fxr i 0 3 2
+tmf-add n=4 size=72 mat=effects/muzzleflash3_noz pos=-56.8084908 9.42473924e+21 10.2628756 ok=1
+fxr i 0 55 29
+fxr f 6 8 6.51688051
+fxr i 0 360 56
+tmf-simple n=0 pos=-11.3616982 9.42473924e+21 2.05257511 vel=0 0 0 roll=59 die=9.99999975e-05 life=0 col=255 255 248 sa=255 ea=255 ss=11 es=11 flags=61 rd=0
+tmf-simple n=1 pos=-22.7233963 9.42473924e+21 4.10515022 vel=0 0 0 roll=256 die=9.99999975e-05 life=0 col=255 255 209 sa=255 ea=255 ss=11 es=11 flags=61 rd=0
+tmf-simple n=2 pos=-34.0850945 9.42473924e+21 6.15772486 vel=0 0 0 roll=358 die=9.99999975e-05 life=0 col=255 255 204 sa=255 ea=255 ss=8 es=8 flags=61 rd=0
+tmf-simple n=3 pos=-45.4467926 9.42473924e+21 8.21030045 vel=0 0 0 roll=46 die=9.99999975e-05 life=0 col=255 255 235 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=4 pos=-56.8084908 9.42473924e+21 10.2628756 vel=0 0 0 roll=56 die=9.99999975e-05 life=0 col=255 255 229 sa=255 ea=255 ss=4 es=4 flags=60 rd=0
+tmf-end n=5
+tmf-call1 type=2 h=65536 att=1 fp=0
+tmf-begin MuzzleFlash_SMG1_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call2 type=2 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_SMG1_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call1 type=2 h=65536 att=1 fp=1
+tmf-begin MuzzleFlash_SMG1_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_SMG1_Player args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 1.25 1.5 1.29637706
+tmf-cfg drawbeforeviewmodel
+fxr i 0 3 3
+tmf-add n=0 size=72 mat=effects/muzzleflash4_noz pos=10.3710165 0 0 ok=1
+fxr i 0 55 24
+fxr f 6 8 6.95201492
+fxr i 0 360 260
+fxr i 0 3 2
+tmf-add n=1 size=72 mat=effects/muzzleflash3_noz pos=20.742033 0 0 ok=1
+fxr i 0 55 9
+fxr f 6 8 7.45774984
+fxr i 0 360 102
+fxr i 0 3 1
+tmf-add n=2 size=72 mat=effects/muzzleflash2_noz pos=31.1130486 0 0 ok=1
+fxr i 0 55 36
+fxr f 6 8 6.24597359
+fxr i 0 360 274
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=41.484066 0 0 ok=1
+fxr i 0 55 52
+fxr f 6 8 7.21497536
+fxr i 0 360 180
+fxr i 0 3 2
+tmf-add n=4 size=72 mat=effects/muzzleflash3_noz pos=51.8550835 0 0 ok=1
+fxr i 0 55 10
+fxr f 6 8 7.7291975
+fxr i 0 360 14
+tmf-simple n=0 pos=10.3710165 0 0 vel=0 0 0 roll=260 die=0.0250000004 life=0 col=255 255 224 sa=255 ea=255 ss=10 es=10 flags=60 rd=0
+tmf-simple n=1 pos=20.742033 0 0 vel=0 0 0 roll=102 die=0.0250000004 life=0 col=255 255 209 sa=255 ea=255 ss=9 es=9 flags=59 rd=0
+tmf-simple n=2 pos=31.1130486 0 0 vel=0 0 0 roll=274 die=0.0250000004 life=0 col=255 255 236 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=3 pos=41.484066 0 0 vel=0 0 0 roll=180 die=0.0250000004 life=0 col=255 255 252 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=4 pos=51.8550835 0 0 vel=0 0 0 roll=14 die=0.0250000004 life=0 col=255 255 210 sa=255 ea=255 ss=5 es=5 flags=60 rd=0
+tmf-end n=5
+tmf-call2 type=2 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_SMG1_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_SMG1_Player args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 1.25 1.5 1.46335375
+tmf-cfg drawbeforeviewmodel
+fxr i 0 3 1
+tmf-add n=0 size=72 mat=effects/muzzleflash2_noz pos=11.70683 0 0 ok=1
+fxr i 0 55 24
+fxr f 6 8 7.79435492
+fxr i 0 360 321
+fxr i 0 3 0
+tmf-add n=1 size=72 mat=effects/muzzleflash1_noz pos=23.41366 0 0 ok=1
+fxr i 0 55 50
+fxr f 6 8 6.56748247
+fxr i 0 360 261
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=35.120491 0 0 ok=1
+fxr i 0 55 42
+fxr f 6 8 7.87782145
+fxr i 0 360 293
+fxr i 0 3 3
+tmf-add n=3 size=72 mat=effects/muzzleflash4_noz pos=46.8273201 0 0 ok=1
+fxr i 0 55 41
+fxr f 6 8 7.01099682
+fxr i 0 360 122
+fxr i 0 3 0
+tmf-add n=4 size=72 mat=effects/muzzleflash1_noz pos=58.5341492 0 0 ok=1
+fxr i 0 55 22
+fxr f 6 8 7.67417049
+fxr i 0 360 87
+tmf-simple n=0 pos=11.70683 0 0 vel=0 0 0 roll=321 die=0.0250000004 life=0 col=255 255 224 sa=255 ea=255 ss=13 es=13 flags=60 rd=0
+tmf-simple n=1 pos=23.41366 0 0 vel=0 0 0 roll=261 die=0.0250000004 life=0 col=255 255 250 sa=255 ea=255 ss=9 es=9 flags=60 rd=0
+tmf-simple n=2 pos=35.120491 0 0 vel=0 0 0 roll=293 die=0.0250000004 life=0 col=255 255 242 sa=255 ea=255 ss=9 es=9 flags=61 rd=0
+tmf-simple n=3 pos=46.8273201 0 0 vel=0 0 0 roll=122 die=0.0250000004 life=0 col=255 255 241 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=4 pos=58.5341492 0 0 vel=0 0 0 roll=87 die=0.0250000004 life=0 col=255 255 222 sa=255 ea=255 ss=5 es=5 flags=60 rd=0
+tmf-end n=5
+tmf-call1 type=3 h=65536 att=1 fp=0
+tmf-call2 type=3 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call1 type=3 h=65536 att=1 fp=1
+tmf-call2 type=3 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Pistol_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=0 9.42473924e+21 0 angles=9.1408229e+17 0 -4.62939725e+27
+tmf-cfg bbox origin=0 9.42473924e+21 0
+fxr i 0 3 0
+fxr f 1 1.25 1.19337773
+fxr i 0 3 0
+tmf-add n=0 size=72 mat=effects/muzzleflash1_noz pos=-2.83488107 9.42473924e+21 -3.840554 ok=1
+fxr i 0 55 8
+fxr f 6 8 6.61578178
+fxr i 0 360 70
+fxr i 0 3 3
+tmf-add n=1 size=72 mat=effects/muzzleflash4_noz pos=-5.66976213 9.42473924e+21 -7.681108 ok=1
+fxr i 0 55 55
+fxr f 6 8 7.60894108
+fxr i 0 360 350
+fxr i 0 3 1
+tmf-add n=2 size=72 mat=effects/muzzleflash2_noz pos=-8.50464344 9.42473924e+21 -11.5216618 ok=1
+fxr i 0 55 10
+fxr f 6 8 6.13978958
+fxr i 0 360 260
+fxr i 0 3 1
+tmf-add n=3 size=72 mat=effects/muzzleflash2_noz pos=-11.3395243 9.42473924e+21 -15.362216 ok=1
+fxr i 0 55 30
+fxr f 6 8 7.00931454
+fxr i 0 360 257
+fxr i 0 3 1
+tmf-add n=4 size=72 mat=effects/muzzleflash2_noz pos=-14.1744041 9.42473924e+21 -19.2027702 ok=1
+fxr i 0 55 6
+fxr f 6 8 7.14324856
+fxr i 0 360 290
+tmf-simple n=0 pos=-2.83488107 9.42473924e+21 -3.840554 vel=0 0 0 roll=70 die=0.00999999978 life=0 col=255 255 208 sa=255 ea=255 ss=9 es=9 flags=0 rd=0
+tmf-simple n=1 pos=-5.66976213 9.42473924e+21 -7.681108 vel=0 0 0 roll=350 die=0.00999999978 life=0 col=255 255 255 sa=255 ea=255 ss=9 es=9 flags=60 rd=0
+tmf-simple n=2 pos=-8.50464344 9.42473924e+21 -11.5216618 vel=0 0 0 roll=260 die=0.00999999978 life=0 col=255 255 210 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=3 pos=-11.3395243 9.42473924e+21 -15.362216 vel=0 0 0 roll=257 die=0.00999999978 life=0 col=255 255 230 sa=255 ea=255 ss=5 es=5 flags=60 rd=0
+tmf-simple n=4 pos=-14.1744041 9.42473924e+21 -19.2027702 vel=0 0 0 roll=290 die=0.00999999978 life=0 col=255 255 206 sa=255 ea=255 ss=4 es=4 flags=60 rd=0
+tmf-end n=5
+tmf-call1 type=4 h=65536 att=1 fp=0
+tmf-begin MuzzleFlash_Pistol_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call2 type=4 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );
+tmf-end n=0
+tmf-call1 type=4 h=65536 att=1 fp=1
+tmf-begin MuzzleFlash_Pistol_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Pistol_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=0 9.42473924e+21 0 angles=9.14135067e+17 0 -4.62939725e+27
+tmf-cfg bbox origin=0 9.42473924e+21 0
+fxr i 0 3 2
+tmf-add n=0 size=72 mat=particle/particle_smokegrenade pos=-7.99718523 9.42473924e+21 -0.212204501 ok=1
+fxr f 0.25 0.5 0.456173599
+fxr f 48 64 49.3593254
+fxr f 4 16 14.6492529
+fxr i 200 255 201
+fxr i 64 128 101
+fxr i 2 4 4
+fxr i 0 360 217
+fxr f -0.100000001 0.100000001 0.0540677682
+fxr f 1 1.25 1.01089501
+fxr i 0 3 3
+tmf-add n=1 size=72 mat=effects/muzzleflash4_noz pos=-4.04215717 9.42473924e+21 -0.107258238 ok=1
+fxr i 0 55 44
+fxr f 6 8 6.90102625
+fxr i 0 360 71
+fxr i 0 3 2
+tmf-add n=2 size=72 mat=effects/muzzleflash3_noz pos=-8.08431435 9.42473924e+21 -0.214516476 ok=1
+fxr i 0 55 46
+fxr f 6 8 7.95068932
+fxr i 0 360 238
+fxr i 0 3 2
+tmf-add n=3 size=72 mat=effects/muzzleflash3_noz pos=-12.1264725 9.42473924e+21 -0.321774721 ok=1
+fxr i 0 55 7
+fxr f 6 8 7.70075893
+fxr i 0 360 110
+fxr i 0 3 3
+tmf-add n=4 size=72 mat=effects/muzzleflash4_noz pos=-16.1686287 9.42473924e+21 -0.429032952 ok=1
+fxr i 0 55 23
+fxr f 6 8 7.76993656
+fxr i 0 360 338
+fxr i 0 3 0
+tmf-add n=5 size=72 mat=effects/muzzleflash1_noz pos=-20.2107849 9.42473924e+21 -0.536291182 ok=1
+fxr i 0 55 15
+fxr f 6 8 7.1392374
+fxr i 0 360 76
+tmf-simple n=0 pos=-7.99718523 9.42473924e+21 -0.212204501 vel=-49.3419571 -0 13.3399687 roll=217 die=0.456173599 life=0 col=201 201 201 sa=101 ea=0 ss=4 es=16 flags=60 rd=0.0540677682
+tmf-simple n=1 pos=-4.04215717 9.42473924e+21 -0.107258238 vel=0 0 0 roll=71 die=0.00999999978 life=0 col=255 255 244 sa=255 ea=255 ss=8 es=8 flags=60 rd=0
+tmf-simple n=2 pos=-8.08431435 9.42473924e+21 -0.214516476 vel=0 0 0 roll=238 die=0.00999999978 life=0 col=255 255 246 sa=255 ea=255 ss=8 es=8 flags=61 rd=0
+tmf-simple n=3 pos=-12.1264725 9.42473924e+21 -0.321774721 vel=0 0 0 roll=110 die=0.00999999978 life=0 col=255 255 207 sa=255 ea=255 ss=6 es=6 flags=62 rd=0
+tmf-simple n=4 pos=-16.1686287 9.42473924e+21 -0.429032952 vel=0 0 0 roll=338 die=0.00999999978 life=0 col=255 255 223 sa=255 ea=255 ss=5 es=5 flags=61 rd=0
+tmf-simple n=5 pos=-20.2107849 9.42473924e+21 -0.536291182 vel=0 0 0 roll=76 die=0.00999999978 life=0 col=255 255 215 sa=255 ea=255 ss=3 es=3 flags=61 rd=0
+tmf-end n=6
+tmf-call2 type=4 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Pistol_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_Pistol_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=0 9.42473924e+21 0 angles=5.23335237e+16 0 -4.62939725e+27
+tmf-cfg bbox origin=0 9.42473924e+21 0
+fxr i 0 3 0
+fxr f 1 1.25 1.02292693
+fxr i 0 3 3
+tmf-add n=0 size=72 mat=effects/muzzleflash4_noz pos=-2.51592875 9.42473924e+21 3.22679019 ok=1
+fxr i 0 55 6
+fxr f 6 8 7.60475683
+fxr i 0 360 54
+fxr i 0 3 2
+tmf-add n=1 size=72 mat=effects/muzzleflash3_noz pos=-5.03185749 9.42473924e+21 6.45358038 ok=1
+fxr i 0 55 52
+fxr f 6 8 6.47349501
+fxr i 0 360 49
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=-7.54778671 9.42473924e+21 9.68037033 ok=1
+fxr i 0 55 32
+fxr f 6 8 7.50283957
+fxr i 0 360 175
+fxr i 0 3 0
+tmf-add n=3 size=72 mat=effects/muzzleflash1_noz pos=-10.063715 9.42473924e+21 12.9071608 ok=1
+fxr i 0 55 28
+fxr f 6 8 6.57843018
+fxr i 0 360 245
+fxr i 0 3 0
+tmf-add n=4 size=72 mat=effects/muzzleflash1_noz pos=-12.5796442 9.42473924e+21 16.1339493 ok=1
+fxr i 0 55 30
+fxr f 6 8 7.15517521
+fxr i 0 360 274
+tmf-simple n=0 pos=-2.51592875 9.42473924e+21 3.22679019 vel=0 0 0 roll=54 die=0.00999999978 life=0 col=255 255 206 sa=255 ea=255 ss=9 es=9 flags=0 rd=0
+tmf-simple n=1 pos=-5.03185749 9.42473924e+21 6.45358038 vel=0 0 0 roll=49 die=0.00999999978 life=0 col=255 255 252 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=2 pos=-7.54778671 9.42473924e+21 9.68037033 vel=0 0 0 roll=175 die=0.00999999978 life=0 col=255 255 232 sa=255 ea=255 ss=6 es=6 flags=60 rd=0
+tmf-simple n=3 pos=-10.063715 9.42473924e+21 12.9071608 vel=0 0 0 roll=245 die=0.00999999978 life=0 col=255 255 228 sa=255 ea=255 ss=4 es=4 flags=60 rd=0
+tmf-simple n=4 pos=-12.5796442 9.42473924e+21 16.1339493 vel=0 0 0 roll=274 die=0.00999999978 life=0 col=255 255 230 sa=255 ea=255 ss=3 es=3 flags=60 rd=0
+tmf-end n=5
+tmf-call1 type=5 h=65536 att=1 fp=0
+tmf-begin MuzzleFlash_Combine_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_Combine_NPC args=hEntity, attachmentIndex
+fxr f 1 1.5 1.39988339
+fxr f 50 150 100.972092
+fxr i 0 1 1
+tmf-add n=0 size=72 mat=effects/combinemuzzle2 pos=2.79976678 0 0 ok=1
+fxr f 6 8 6.83752966
+fxr i 0 360 294
+fxr i 0 1 1
+tmf-add n=1 size=72 mat=effects/combinemuzzle2 pos=5.59953356 0 0 ok=1
+fxr f 6 8 7.00496578
+fxr i 0 360 66
+fxr i 0 1 1
+tmf-add n=2 size=72 mat=effects/combinemuzzle2 pos=8.39930058 0 0 ok=1
+fxr f 6 8 7.09041214
+fxr i 0 360 202
+fxr i 0 1 1
+tmf-add n=3 size=72 mat=effects/combinemuzzle2 pos=11.1990671 0 0 ok=1
+fxr f 6 8 7.0674839
+fxr i 0 360 61
+fxr i 0 1 1
+tmf-add n=4 size=72 mat=effects/combinemuzzle2 pos=13.9988337 0 0 ok=1
+fxr f 6 8 7.77289724
+fxr i 0 360 133
+fxr f 50 150 86.7298813
+fxr i 0 1 1
+tmf-add n=5 size=72 mat=effects/combinemuzzle2 pos=0 1.39988339 -1.39988339 ok=1
+fxr f 2 4 2.88298798
+fxr i 0 360 352
+fxr i 0 1 0
+tmf-add n=6 size=72 mat=effects/combinemuzzle1 pos=0 2.79976678 -2.79976678 ok=1
+fxr f 2 4 2.64973783
+fxr i 0 360 270
+fxr i 0 1 1
+tmf-add n=7 size=72 mat=effects/combinemuzzle2 pos=0 4.19965029 -4.19965029 ok=1
+fxr f 2 4 2.72780681
+fxr i 0 360 306
+fxr i 0 1 0
+tmf-add n=8 size=72 mat=effects/combinemuzzle1 pos=0 5.59953356 -5.59953356 ok=1
+fxr f 2 4 2.56146121
+fxr i 0 360 86
+fxr i 0 1 0
+tmf-add n=9 size=72 mat=effects/combinemuzzle1 pos=0 6.99941683 -6.99941683 ok=1
+fxr f 2 4 2.20297098
+fxr i 0 360 194
+fxr f 50 150 121.8769
+fxr i 0 1 0
+tmf-add n=10 size=72 mat=effects/combinemuzzle1 pos=-0 -1.39988339 -1.39988339 ok=1
+fxr f 2 4 2.92766762
+fxr i 0 360 54
+fxr i 0 1 0
+tmf-add n=11 size=72 mat=effects/combinemuzzle1 pos=-0 -2.79976678 -2.79976678 ok=1
+fxr f 2 4 2.57374477
+fxr i 0 360 147
+fxr i 0 1 0
+tmf-add n=12 size=72 mat=effects/combinemuzzle1 pos=-0 -4.19965029 -4.19965029 ok=1
+fxr f 2 4 2.00103688
+fxr i 0 360 310
+fxr i 0 1 1
+tmf-add n=13 size=72 mat=effects/combinemuzzle2 pos=-0 -5.59953356 -5.59953356 ok=1
+fxr f 2 4 3.2547121
+fxr i 0 360 327
+fxr i 0 1 1
+tmf-add n=14 size=72 mat=effects/combinemuzzle2 pos=-0 -6.99941683 -6.99941683 ok=1
+fxr f 2 4 2.54533815
+fxr i 0 360 108
+fxr f 50 150 91.049202
+fxr i 0 1 1
+tmf-add n=15 size=72 mat=effects/combinemuzzle2 pos=0 0 1.39988339 ok=1
+fxr f 2 4 2.34289122
+fxr i 0 360 63
+fxr i 0 1 0
+tmf-add n=16 size=72 mat=effects/combinemuzzle1 pos=0 0 2.79976678 ok=1
+fxr f 2 4 2.24875307
+fxr i 0 360 315
+fxr i 0 1 0
+tmf-add n=17 size=72 mat=effects/combinemuzzle1 pos=0 0 4.19965029 ok=1
+fxr f 2 4 3.21200657
+fxr i 0 360 352
+fxr i 0 1 1
+tmf-add n=18 size=72 mat=effects/combinemuzzle2 pos=0 0 5.59953356 ok=1
+fxr f 2 4 3.94464898
+fxr i 0 360 113
+fxr i 0 1 0
+tmf-add n=19 size=72 mat=effects/combinemuzzle1 pos=0 0 6.99941683 ok=1
+fxr f 2 4 3.60095263
+fxr i 0 360 37
+tmf-add n=20 size=72 mat=effects/strider_muzzle pos=0 0 0 ok=1
+fxr f 0.300000012 0.400000006 0.374999195
+fxr f 12 16 14.7111683
+fxr i 0 360 183
+tmf-attm ok=1 origin=0 -25.8546715 0
+tmf-lightcvar 1
+tmf-light ent=1 entindex=0
+fxr i 32 128 112
+tmf-elight key=1073741824 origin=0 -25.8546715 0 col=64 128 255 5 radius=112 decay=2240 die=13.6879091 t=13.6379089
+tmf-simple n=0 pos=2.79976678 0 0 vel=100.972092 0 0 roll=294 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=10 es=10 flags=61 rd=0
+tmf-simple n=1 pos=5.59953356 0 0 vel=100.972092 0 0 roll=66 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=8 es=8 flags=60 rd=0
+tmf-simple n=2 pos=8.39930058 0 0 vel=100.972092 0 0 roll=202 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=7 es=7 flags=60 rd=0
+tmf-simple n=3 pos=11.1990671 0 0 vel=100.972092 0 0 roll=61 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=5 es=5 flags=60 rd=0
+tmf-simple n=4 pos=13.9988337 0 0 vel=100.972092 0 0 roll=133 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=61 rd=0
+tmf-simple n=5 pos=0 1.39988339 -1.39988339 vel=0 21.6824703 -21.6824703 roll=352 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=61 rd=0
+tmf-simple n=6 pos=0 2.79976678 -2.79976678 vel=0 21.6824703 -21.6824703 roll=270 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=61 rd=0
+tmf-simple n=7 pos=0 4.19965029 -4.19965029 vel=0 21.6824703 -21.6824703 roll=306 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=61 rd=0
+tmf-simple n=8 pos=0 5.59953356 -5.59953356 vel=0 21.6824703 -21.6824703 roll=86 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=61 rd=0
+tmf-simple n=9 pos=0 6.99941683 -6.99941683 vel=0 21.6824703 -21.6824703 roll=194 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=61 rd=0
+tmf-simple n=10 pos=-0 -1.39988339 -1.39988339 vel=-0 -30.4692249 -30.4692249 roll=54 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=61 rd=0
+tmf-simple n=11 pos=-0 -2.79976678 -2.79976678 vel=-0 -30.4692249 -30.4692249 roll=147 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=61 rd=0
+tmf-simple n=12 pos=-0 -4.19965029 -4.19965029 vel=-0 -30.4692249 -30.4692249 roll=310 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=61 rd=0
+tmf-simple n=13 pos=-0 -5.59953356 -5.59953356 vel=-0 -30.4692249 -30.4692249 roll=327 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=60 rd=0
+tmf-simple n=14 pos=-0 -6.99941683 -6.99941683 vel=-0 -30.4692249 -30.4692249 roll=108 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=15 pos=0 0 1.39988339 vel=0 0 22.7623005 roll=63 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=5 es=5 flags=60 rd=0
+tmf-simple n=16 pos=0 0 2.79976678 vel=0 0 22.7623005 roll=315 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=17 pos=0 0 4.19965029 vel=0 0 22.7623005 roll=352 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=18 pos=0 0 5.59953356 vel=0 0 22.7623005 roll=113 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=61 rd=0
+tmf-simple n=19 pos=0 0 6.99941683 vel=0 0 22.7623005 roll=37 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=62 rd=0
+tmf-simple n=20 pos=0 0 0 vel=0 0 0 roll=183 die=0.374999195 life=0 col=255 255 255 sa=255 ea=0 ss=20 es=0 flags=61 rd=0
+tmf-end n=21
+tmf-call2 type=5 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Combine_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_Combine_NPC args=hEntity, attachmentIndex
+fxr f 1 1.5 1.29756117
+fxr f 50 150 119.139572
+fxr i 0 1 1
+tmf-add n=0 size=72 mat=effects/combinemuzzle2 pos=2.59512234 0 0 ok=1
+fxr f 6 8 6.18645668
+fxr i 0 360 135
+fxr i 0 1 0
+tmf-add n=1 size=72 mat=effects/combinemuzzle1 pos=5.19024467 0 0 ok=1
+fxr f 6 8 6.78316498
+fxr i 0 360 276
+fxr i 0 1 1
+tmf-add n=2 size=72 mat=effects/combinemuzzle2 pos=7.78536701 0 0 ok=1
+fxr f 6 8 7.08233118
+fxr i 0 360 61
+fxr i 0 1 1
+tmf-add n=3 size=72 mat=effects/combinemuzzle2 pos=10.3804893 0 0 ok=1
+fxr f 6 8 7.92027473
+fxr i 0 360 154
+fxr i 0 1 0
+tmf-add n=4 size=72 mat=effects/combinemuzzle1 pos=12.9756117 0 0 ok=1
+fxr f 6 8 7.20612717
+fxr i 0 360 162
+fxr f 50 150 92.3103027
+fxr i 0 1 0
+tmf-add n=5 size=72 mat=effects/combinemuzzle1 pos=0 1.29756117 -1.29756117 ok=1
+fxr f 2 4 3.69065881
+fxr i 0 360 66
+fxr i 0 1 0
+tmf-add n=6 size=72 mat=effects/combinemuzzle1 pos=0 2.59512234 -2.59512234 ok=1
+fxr f 2 4 2.86261654
+fxr i 0 360 46
+fxr i 0 1 0
+tmf-add n=7 size=72 mat=effects/combinemuzzle1 pos=0 3.89268351 -3.89268351 ok=1
+fxr f 2 4 3.20288897
+fxr i 0 360 159
+fxr i 0 1 0
+tmf-add n=8 size=72 mat=effects/combinemuzzle1 pos=0 5.19024467 -5.19024467 ok=1
+fxr f 2 4 2.24397826
+fxr i 0 360 59
+fxr i 0 1 0
+tmf-add n=9 size=72 mat=effects/combinemuzzle1 pos=0 6.48780584 -6.48780584 ok=1
+fxr f 2 4 2.91532159
+fxr i 0 360 236
+fxr f 50 150 148.188492
+fxr i 0 1 0
+tmf-add n=10 size=72 mat=effects/combinemuzzle1 pos=-0 -1.29756117 -1.29756117 ok=1
+fxr f 2 4 3.91890144
+fxr i 0 360 166
+fxr i 0 1 0
+tmf-add n=11 size=72 mat=effects/combinemuzzle1 pos=-0 -2.59512234 -2.59512234 ok=1
+fxr f 2 4 3.74006319
+fxr i 0 360 63
+fxr i 0 1 0
+tmf-add n=12 size=72 mat=effects/combinemuzzle1 pos=-0 -3.89268351 -3.89268351 ok=1
+fxr f 2 4 2.97937751
+fxr i 0 360 113
+fxr i 0 1 0
+tmf-add n=13 size=72 mat=effects/combinemuzzle1 pos=-0 -5.19024467 -5.19024467 ok=1
+fxr f 2 4 2.65518093
+fxr i 0 360 45
+fxr i 0 1 0
+tmf-add n=14 size=72 mat=effects/combinemuzzle1 pos=-0 -6.48780584 -6.48780584 ok=1
+fxr f 2 4 3.81143236
+fxr i 0 360 66
+fxr f 50 150 97.2615891
+fxr i 0 1 0
+tmf-add n=15 size=72 mat=effects/combinemuzzle1 pos=0 0 1.29756117 ok=1
+fxr f 2 4 3.41206694
+fxr i 0 360 348
+fxr i 0 1 1
+tmf-add n=16 size=72 mat=effects/combinemuzzle2 pos=0 0 2.59512234 ok=1
+fxr f 2 4 2.22826123
+fxr i 0 360 356
+fxr i 0 1 1
+tmf-add n=17 size=72 mat=effects/combinemuzzle2 pos=0 0 3.89268351 ok=1
+fxr f 2 4 3.62412953
+fxr i 0 360 105
+fxr i 0 1 1
+tmf-add n=18 size=72 mat=effects/combinemuzzle2 pos=0 0 5.19024467 ok=1
+fxr f 2 4 2.60661793
+fxr i 0 360 186
+fxr i 0 1 0
+tmf-add n=19 size=72 mat=effects/combinemuzzle1 pos=0 0 6.48780584 ok=1
+fxr f 2 4 3.54680681
+fxr i 0 360 13
+tmf-add n=20 size=72 mat=effects/strider_muzzle pos=0 0 0 ok=1
+fxr f 0.300000012 0.400000006 0.333134085
+fxr f 12 16 14.8513632
+fxr i 0 360 212
+tmf-attm ok=1 origin=0 -25.8546715 0
+tmf-lightcvar 1
+tmf-light ent=1 entindex=0
+fxr i 32 128 93
+tmf-elight key=1073741824 origin=0 -25.8546715 0 col=64 128 255 5 radius=93 decay=1860 die=13.6879091 t=13.6379089
+tmf-simple n=0 pos=2.59512234 0 0 vel=119.139572 0 0 roll=135 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=8 es=8 flags=61 rd=0
+tmf-simple n=1 pos=5.19024467 0 0 vel=119.139572 0 0 roll=276 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=8 es=8 flags=60 rd=0
+tmf-simple n=2 pos=7.78536701 0 0 vel=119.139572 0 0 roll=61 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=60 rd=0
+tmf-simple n=3 pos=10.3804893 0 0 vel=119.139572 0 0 roll=154 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=5 es=5 flags=60 rd=0
+tmf-simple n=4 pos=12.9756117 0 0 vel=119.139572 0 0 roll=162 die=0.100000001 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=60 rd=0
+tmf-simple n=5 pos=0 1.29756117 -1.29756117 vel=0 23.0775757 -23.0775757 roll=66 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=7 es=7 flags=0 rd=0
+tmf-simple n=6 pos=0 2.59512234 -2.59512234 vel=0 23.0775757 -23.0775757 roll=46 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=7 pos=0 3.89268351 -3.89268351 vel=0 23.0775757 -23.0775757 roll=159 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=60 rd=0
+tmf-simple n=8 pos=0 5.19024467 -5.19024467 vel=0 23.0775757 -23.0775757 roll=59 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=9 pos=0 6.48780584 -6.48780584 vel=0 23.0775757 -23.0775757 roll=236 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=10 pos=-0 -1.29756117 -1.29756117 vel=-0 -37.047123 -37.047123 roll=166 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=8 es=8 flags=60 rd=0
+tmf-simple n=11 pos=-0 -2.59512234 -2.59512234 vel=-0 -37.047123 -37.047123 roll=63 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=6 es=6 flags=59 rd=0
+tmf-simple n=12 pos=-0 -3.89268351 -3.89268351 vel=-0 -37.047123 -37.047123 roll=113 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=60 rd=0
+tmf-simple n=13 pos=-0 -5.19024467 -5.19024467 vel=-0 -37.047123 -37.047123 roll=45 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=60 rd=0
+tmf-simple n=14 pos=-0 -6.48780584 -6.48780584 vel=-0 -37.047123 -37.047123 roll=66 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=15 pos=0 0 1.29756117 vel=0 0 24.3153973 roll=348 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=7 es=7 flags=60 rd=0
+tmf-simple n=16 pos=0 0 2.59512234 vel=0 0 24.3153973 roll=356 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=3 es=3 flags=60 rd=0
+tmf-simple n=17 pos=0 0 3.89268351 vel=0 0 24.3153973 roll=105 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=4 es=4 flags=61 rd=0
+tmf-simple n=18 pos=0 0 5.19024467 vel=0 0 24.3153973 roll=186 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=2 es=2 flags=60 rd=0
+tmf-simple n=19 pos=0 0 6.48780584 vel=0 0 24.3153973 roll=13 die=0.200000003 life=0 col=255 255 255 sa=255 ea=0 ss=1 es=1 flags=60 rd=0
+tmf-simple n=20 pos=0 0 0 vel=0 0 0 roll=212 die=0.333134085 life=0 col=255 255 255 sa=255 ea=0 ss=19 es=0 flags=59 rd=0
+tmf-end n=21
+tmf-call1 type=5 h=65536 att=1 fp=1
+tmf-begin MuzzleFlash_Combine_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 2 2.25 2.04282594
+tmf-cfg drawbeforeviewmodel
+fxr i 0 1 0
+tmf-add n=0 size=72 mat=effects/combinemuzzle1_noz pos=16.3426075 0 0 ok=1
+fxr i 0 55 16
+fxr f 6 8 6.51113558
+fxr i 0 360 176
+fxr i 0 1 0
+tmf-add n=1 size=72 mat=effects/combinemuzzle1_noz pos=32.685215 0 0 ok=1
+fxr i 0 55 53
+fxr f 6 8 7.07642412
+fxr i 0 360 250
+fxr i 0 1 1
+tmf-add n=2 size=72 mat=effects/combinemuzzle2_noz pos=49.0278244 0 0 ok=1
+fxr i 0 55 31
+fxr f 6 8 7.62645674
+fxr i 0 360 120
+fxr i 0 1 0
+tmf-add n=3 size=72 mat=effects/combinemuzzle1_noz pos=65.37043 0 0 ok=1
+fxr i 0 55 42
+fxr f 6 8 7.33219337
+fxr i 0 360 87
+fxr i 0 1 0
+tmf-add n=4 size=72 mat=effects/combinemuzzle1_noz pos=81.7130356 0 0 ok=1
+fxr i 0 55 12
+fxr f 6 8 6.20423985
+fxr i 0 360 268
+fxr i 0 1 1
+tmf-add n=5 size=72 mat=effects/combinemuzzle2_noz pos=0 0 0 ok=1
+fxr i 64 128 87
+fxr f 10 16 12.2066422
+fxr i 0 360 259
+tmf-simple n=0 pos=16.3426075 0 0 vel=0 0 0 roll=176 die=0.0250000004 life=0 col=255 255 216 sa=255 ea=255 ss=12 es=12 flags=0 rd=0
+tmf-simple n=1 pos=32.685215 0 0 vel=0 0 0 roll=250 die=0.0250000004 life=0 col=255 255 253 sa=255 ea=255 ss=12 es=12 flags=59 rd=0
+tmf-simple n=2 pos=49.0278244 0 0 vel=0 0 0 roll=120 die=0.0250000004 life=0 col=255 255 231 sa=255 ea=255 ss=11 es=11 flags=60 rd=0
+tmf-simple n=3 pos=65.37043 0 0 vel=0 0 0 roll=87 die=0.0250000004 life=0 col=255 255 242 sa=255 ea=255 ss=9 es=9 flags=0 rd=0
+tmf-simple n=4 pos=81.7130356 0 0 vel=0 0 0 roll=268 die=0.0250000004 life=0 col=255 255 212 sa=255 ea=255 ss=7 es=7 flags=0 rd=0
+tmf-simple n=5 pos=0 0 0 vel=0 0 0 roll=259 die=0.0250000004 life=0 col=255 255 255 sa=87 ea=32 ss=12 es=12 flags=60 rd=0
+tmf-end n=6
+tmf-call2 type=5 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-begin MuzzleFlash_Combine_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash args=hEntity, attachmentIndex, FLE_VIEWMODEL
+fxr f 2 2.25 2.16514039
+tmf-cfg drawbeforeviewmodel
+fxr i 0 1 1
+tmf-add n=0 size=72 mat=effects/combinemuzzle2_noz pos=17.3211231 0 0 ok=1
+fxr i 0 55 42
+fxr f 6 8 7.5248208
+fxr i 0 360 53
+fxr i 0 1 0
+tmf-add n=1 size=72 mat=effects/combinemuzzle1_noz pos=34.6422462 0 0 ok=1
+fxr i 0 55 18
+fxr f 6 8 6.0886631
+fxr i 0 360 26
+fxr i 0 1 0
+tmf-add n=2 size=72 mat=effects/combinemuzzle1_noz pos=51.9633713 0 0 ok=1
+fxr i 0 55 53
+fxr f 6 8 6.92842484
+fxr i 0 360 339
+fxr i 0 1 0
+tmf-add n=3 size=72 mat=effects/combinemuzzle1_noz pos=69.2844925 0 0 ok=1
+fxr i 0 55 3
+fxr f 6 8 6.90540981
+fxr i 0 360 247
+fxr i 0 1 1
+tmf-add n=4 size=72 mat=effects/combinemuzzle2_noz pos=86.6056137 0 0 ok=1
+fxr i 0 55 7
+fxr f 6 8 7.38959646
+fxr i 0 360 53
+fxr i 0 1 0
+tmf-add n=5 size=72 mat=effects/combinemuzzle1_noz pos=0 0 0 ok=1
+fxr i 64 128 67
+fxr f 10 16 14.699543
+fxr i 0 360 211
+tmf-simple n=0 pos=17.3211231 0 0 vel=0 0 0 roll=53 die=0.0250000004 life=0 col=255 255 242 sa=255 ea=255 ss=14 es=14 flags=60 rd=0
+tmf-simple n=1 pos=34.6422462 0 0 vel=0 0 0 roll=26 die=0.0250000004 life=0 col=255 255 218 sa=255 ea=255 ss=10 es=10 flags=60 rd=0
+tmf-simple n=2 pos=51.9633713 0 0 vel=0 0 0 roll=339 die=0.0250000004 life=0 col=255 255 253 sa=255 ea=255 ss=11 es=11 flags=60 rd=0
+tmf-simple n=3 pos=69.2844925 0 0 vel=0 0 0 roll=247 die=0.0250000004 life=0 col=255 255 203 sa=255 ea=255 ss=9 es=9 flags=61 rd=0
+tmf-simple n=4 pos=86.6056137 0 0 vel=0 0 0 roll=53 die=0.0250000004 life=0 col=255 255 207 sa=255 ea=255 ss=9 es=9 flags=60 rd=0
+tmf-simple n=5 pos=0 0 0 vel=0 0 0 roll=211 die=0.0250000004 life=0 col=255 255 255 sa=67 ea=32 ss=14 es=14 flags=60 rd=0
+tmf-end n=6
+tmf-call1 type=6 h=65536 att=1 fp=0
+tmf-call2 type=6 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=6 h=65536 att=1 fp=1
+tmf-begin MuzzleFlash_357_Player h=65536 att=1 smg=1 combine=1 dust=1
+tmf-create kind=CSimpleEmitter name=MuzzleFlash_357_Player args=
+tmf-cfg drawbeforeviewmodel
+tmf-att origin=0 9.42473924e+21 0 angles=9.51551722e+16 0 -4.62939725e+27
+tmf-cfg bbox origin=0 9.42473924e+21 0
+tmf-add n=0 size=72 mat=particle/particle_smokegrenade pos=-5.9272151 9.42473924e+21 5.37290621 ok=1
+fxr f 0.5 1 0.604996264
+fxr f 8 64 27.2975502
+fxr f 4 16 10.7578125
+fxr i 200 255 246
+fxr i 64 128 123
+fxr i 2 4 4
+fxr i 0 360 75
+fxr f -0.5 0.5 0.134127557
+fxr f 1.25 1.5 1.26517916
+fxr i 0 3 3
+tmf-add n=1 size=72 mat=effects/muzzleflash4_noz pos=-7.49898911 9.42473924e+21 6.79768896 ok=1
+fxr i 0 55 30
+fxr f 6 8 7.40815496
+fxr i 0 360 323
+fxr i 0 3 3
+tmf-add n=2 size=72 mat=effects/muzzleflash4_noz pos=-14.9979782 9.42473924e+21 13.5953779 ok=1
+fxr i 0 55 51
+fxr f 6 8 7.78082561
+fxr i 0 360 109
+fxr i 0 3 1
+tmf-add n=3 size=72 mat=effects/muzzleflash2_noz pos=-22.4969673 9.42473924e+21 20.3930664 ok=1
+fxr i 0 55 18
+fxr f 6 8 7.3535409
+fxr i 0 360 75
+fxr i 0 3 2
+tmf-add n=4 size=72 mat=effects/muzzleflash3_noz pos=-29.9959564 9.42473924e+21 27.1907558 ok=1
+fxr i 0 55 8
+fxr f 6 8 7.58763695
+fxr i 0 360 158
+fxr i 0 3 3
+tmf-add n=5 size=72 mat=effects/muzzleflash4_noz pos=-37.4949455 9.42473924e+21 33.9884453 ok=1
+fxr i 0 55 55
+fxr f 6 8 6.66706753
+fxr i 0 360 227
+tmf-simple n=0 pos=-5.9272151 9.42473924e+21 5.37290621 vel=-20.2248058 -0 29.0912094 roll=75 die=0.604996264 life=0 col=246 246 246 sa=123 ea=0 ss=4 es=32 flags=60 rd=0.134127557
+tmf-simple n=1 pos=-7.49898911 9.42473924e+21 6.79768896 vel=0 0 0 roll=323 die=0.00999999978 life=0 col=255 255 230 sa=255 ea=255 ss=10 es=10 flags=61 rd=0
+tmf-simple n=2 pos=-14.9979782 9.42473924e+21 13.5953779 vel=0 0 0 roll=109 die=0.00999999978 life=0 col=255 255 251 sa=255 ea=255 ss=9 es=9 flags=61 rd=0
+tmf-simple n=3 pos=-22.4969673 9.42473924e+21 20.3930664 vel=0 0 0 roll=75 die=0.00999999978 life=0 col=255 255 218 sa=255 ea=255 ss=7 es=7 flags=61 rd=0
+tmf-simple n=4 pos=-29.9959564 9.42473924e+21 27.1907558 vel=0 0 0 roll=158 die=0.00999999978 life=0 col=255 255 208 sa=255 ea=255 ss=6 es=6 flags=61 rd=0
+tmf-simple n=5 pos=-37.4949455 9.42473924e+21 33.9884453 vel=0 0 0 roll=227 die=0.00999999978 life=0 col=255 255 255 sa=255 ea=255 ss=4 es=4 flags=61 rd=0
+tmf-end n=6
+tmf-call2 type=6 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=7 h=65536 att=1 fp=0
+tmf-begin MuzzleFlash_RPG_NPC h=65536 att=1 smg=1 combine=1 dust=1
+tmf-fx FX_MuzzleEffectAttached( 1.5f, hEntity, attachmentIndex );
+tmf-end n=0
+tmf-call2 type=7 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=7 h=65536 att=1 fp=1
+tmf-call2 type=7 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=8 h=65536 att=1 fp=0
+tmf-call2 type=8 h=65536 fp=0 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call1 type=8 h=65536 att=1 fp=1
+tmf-call2 type=8 h=65536 fp=1 pos=-3843 2955.82031 47.4395332 ang=14.9963379 90 0
+tmf-call2 type=0 h=65536 fp=0 pos=-3843 3000 40 ang=0 0 0

@@ -1,0 +1,16 @@
+# lane c5-particles: the temp entities' muzzle-flash emitters recorded (particles_simple.cpp.probe.diff's eg* rows):
+# the shotgun NPC flash's CEmberEffect embers, its steps and draws, fired on the local player's attachment 1.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -3843 2894 0
+cmd setang_exact 5 90 0
+sleep 1
+cmd c5p_te_muzzle 1 1 0 20
+sleep 1
+cmd c5p_te_muzzle 1 1 0 20
+sleep 1
+cmd c5p_te_muzzle 1 1 0 20
+sleep 1
+cmd c5p_te_muzzle 1 1 0 20
+sleep 2

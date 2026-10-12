@@ -1,0 +1,32 @@
+<Project>
+  <!-- The repo's own props first: output paths, warnings as errors, net10.0. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    The host's packages (SourceSharp.Host.Sdk, SourceSharp.Host.Contracts) come
+    from the host repo's `make pack` output, never from nuget.org: the package is
+    the contract between the two repos (plan_host_sdk §2.5). HOST_ROOT names a
+    checkout other than the sibling one; `make host-pack` builds the packages.
+  -->
+  <PropertyGroup>
+    <HostRoot Condition="'$(HostRoot)' == '' and '$(HOST_ROOT)' != ''">$([MSBuild]::EnsureTrailingSlash('$(HOST_ROOT)'))</HostRoot>
+    <HostRoot Condition="'$(HostRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RepoRoot)../source-sdk-sharp-host/'))</HostRoot>
+    <HostPackageDir>$(HostRoot)bin/nupkg</HostPackageDir>
+    <!-- The SDK's package version is its wire version (host 594b2b1): 2.x speaks
+         sourcesharp.*.v1, and the host's Booting refuses any other major. The
+         rules-module contract versions on its own. -->
+    <HostSdkVersion>2.6.0</HostSdkVersion>
+    <HostContractsVersion>1.0.0</HostContractsVersion>
+    <RestoreAdditionalProjectSources>$(HostPackageDir)</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <!--
+    A missing package directory is a failure that names its fix, before restore
+    gets to report "unable to find package" against nuget.org.
+  -->
+  <Target Name="CheckHostPackages" BeforeTargets="Restore;_GenerateRestoreGraph;CollectPackageReferences"
+          Condition="'@(PackageReference->WithMetadataValue('Identity','SourceSharp.Host.Sdk'))' != '' or '@(PackageReference->WithMetadataValue('Identity','SourceSharp.Host.Contracts'))' != ''">
+    <Error Condition="!Exists('$(HostPackageDir)/SourceSharp.Host.Sdk.$(HostSdkVersion).nupkg') or !Exists('$(HostPackageDir)/SourceSharp.Host.Contracts.$(HostContractsVersion).nupkg')"
+           Text="The host packages (Sdk $(HostSdkVersion), Contracts $(HostContractsVersion)) are not in $(HostPackageDir): run `make host-pack` (or set HOST_ROOT to a source-sdk-sharp-host checkout)." />
+  </Target>
+</Project>

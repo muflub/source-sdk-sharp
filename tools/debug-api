@@ -1,0 +1,604 @@
+#!/bin/bash
+#
+# Launch a game with its development API on, and talk to one that is already up.
+#
+# The game only listens when launched with -debugapi, so this is a no-op against a
+# normal server rather than something to be careful with. "run" is the whole
+# thing at once: it starts the game with the right switches, waits for the API,
+# and opens the web interface on it.
+#
+# With -debugapisocket the game listens on /tmp/sourcesharp-debug-api/<pid>.sock, one
+# per process, so several instances can be driven at once. This picks the only
+# live socket automatically; set DEBUG_API_PID to choose between several. Without
+# that switch the game listens on 127.0.0.1:27100 and DEBUG_API_PORT selects it.
+#
+# To run several games at once, give each its own temp directory — the engine
+# allows one instance per user and takes the lock on $TMPDIR/source_engine_<uid>:
+#
+#   cd bin/debug
+#   TMPDIR=/tmp/ss-inst-1 ./source# -debugapi -debugapisocket ... &
+#   TMPDIR=/tmp/ss-inst-2 ./source# -debugapi -debugapisocket ... &
+#
+# The sockets themselves are not under TMPDIR, so list finds them all regardless.
+#
+# Launched BY HAND like that, mind the GPU. "run" sources tools/gpu-offload and
+# a hand-written command line does not, and on this machine a game without PRIME
+# render offload dies in DXVK before server.so loads — no socket, and a log with
+# zero [SourceSharp] lines in it, which reads as a broken port and is not one.
+# `. tools/gpu-offload` first. See docs/debugging.md.
+#
+# WHICH GAME is never guessed at. Every command that talks to one needs
+# DEBUG_API_PID, even when only one instance is up:
+#
+#   tools/debug-api list                  which instances are up
+#   DEBUG_API_PID=12345 tools/debug-api status
+#
+# It used to fall through to the only live socket, which read as a convenience
+# and behaved as a trap. A socket file outlives a crash and a forgotten instance
+# answers happily with an old map and an old build, so every measurement looked
+# plausible and was about a game nobody meant. Naming one costs a variable; not
+# naming one cost a wrong conclusion.
+#
+# Documented in docs/cli.md (this script) and docs/api.md (the API it talks to).
+#
+#   tools/debug-api run [map]             launch the game with the API on, UI and all
+#   tools/debug-api list                  which instances are up
+#   tools/debug-api ui [port]             open the web interface in a browser
+#   tools/debug-api status
+#   tools/debug-api log [since] [max]
+#   tools/debug-api hurt <target> <amount> [type] [x,y,z] [from]   damage, optionally AT a point, FROM an attacker (name or #index)
+#   tools/debug-api cmd "sv_cheats 1"
+#   tools/debug-api capture "cs_sv_playershadow"   run it and answer what it printed
+#   tools/debug-api convar sv_gravity [value]   any convar the engine knows, not just ours
+#   tools/debug-api convars [managed|native|all]   default managed: what this mod declares
+#   tools/debug-api commands [managed|native|all]  native walks the engine's own table
+#   tools/debug-api flags <flag> [convars|commands] [source]   only what carries that flag
+#   tools/debug-api classes               declared entity classes, with inputs and outputs
+#   tools/debug-api services [type|name|all] what an entity may ask for: contracts, or console names
+#   tools/debug-api instances             live scripted entities and their values
+#   tools/debug-api ents item_healthkit   live entities of a class; "*" is all of them
+#   tools/debug-api ent index=40          one entity (or handle=H, name=N): velocity,
+#                                     speed, asleep, ground
+#
+# What each C# type networks, and what one entity's bytes actually say. This is
+# the replacement for reading prop names off cs_sv_dump_nettable, which stops
+# being enough once the props are named 000..NNN and the real names live in C#:
+#
+#   tools/debug-api nettables             every networked type, its table and its sizes
+#   tools/debug-api nettraffic            payload cost by class and by field
+#   tools/debug-api nettraffic 1          the same, and clear the totals first
+#   tools/debug-api prediction [since] [max] client prediction misses: per field, per
+#                                     component, against its declared tolerance
+#   tools/debug-api prediction-reset      the same, and clear the totals first
+#   tools/debug-api debugchannel          the client-to-server debug channel: whether
+#                                     this server opted in (-debuguiserve), where it
+#                                     listens, and what has come up it. A CLIENT
+#                                     connects back only with -debugui on its OWN
+#                                     command line, and the invitation it acts on
+#                                     carries a port and a nonce and never an
+#                                     address -- so a server cannot point a
+#                                     client's debug socket anywhere.
+#   tools/debug-api nettable prop_physics one type's fields; a type id works too
+#   tools/debug-api payload 42            one entity's blob, decoded through its layout
+#   tools/debug-api payload 42 --watch    the same, once a second, with what moved
+#
+# "--watch" is the one that matters during a migration: while both the typed
+# props and the payload carry the same state, watching the two disagree is how a
+# layout bug is caught before any client sees it -- on the server, with no join.
+#
+# The "payload" block in that reply is the verdict, and it is answered natively
+# rather than derived from the bytes printed beside it. It has to be: both prop
+# sets read the SAME blob on the server, so anything worked out from the blob
+# would be comparing a thing with itself and would agree forever. What native
+# checks is where the payload props POINT -- each word read back through its own
+# SendProp's offset, as the engine will use it.
+#
+# Four answers, and only one of them is a failure: "agrees", "disagrees",
+# "none" (this entity carries no payload, which is nearly every entity), and
+# "unsupported" (an older build that cannot answer).
+#
+# Three console commands go with it, through tools/debug-api cmd:
+#
+#   cs_sv_payload_agree [index]        the same check, word by word, with the
+#                                      offsets and the resolved proxies
+#   cs_cl_payload_agree                the client's tally: how often its typed
+#                                      props and the payload have agreed
+#   cs_sv_poke_payload <i> <w> <v>     write one dword into a live entity's blob
+#                                      (needs sv_cheats 1)
+#
+# The last one is what makes any of this a measurement rather than a formality.
+# A netentity's state is written once at Spawn, so nothing moves on its own and
+# the agreement can only ever be observed at the baseline -- which is the one
+# case the engine skips the encode for. Poke a word a typed prop covers and both
+# paths move together; poke a word in the blob's padding and only the payload
+# moves, and the client must report a disagreement. If it does not, the check
+# has no teeth and the green answer above means nothing.
+#
+# The entity debugger. The static half reads the compiled map rather than the
+# game, so it answers with no game running at all:
+#
+#   tools/debug-api map [name]            what the map file declares
+#   tools/debug-api mapents [name]        its entities, with their I/O connections
+#   tools/debug-api events [since] [max] [kind=K name=G classname=G handle=H index=I]
+#                                     spawns, removals, inputs and outputs, filtered
+#                                     by the game; name and classname are globs
+#   tools/debug-api heads                 the head sequence of events, log and console
+#   tools/debug-api counters [group]      counter groups as numbers: physics, playershadow
+#   tools/debug-api exit <pid>            the exit record a game left: who asked it to end
+#                                     (api-command, signal + sender pid, window-close,
+#                                     console, sdl-quit, fatal, shutdown); no socket needed
+#   tools/debug-api wait <condition> [timeout=TICKS] [wall=S]
+#                                     until it holds, checked once per server tick;
+#                                     exit 1 unless met. Conditions: ticks=N;
+#                                     field=F index|handle|name=X op=eq|ne|lt|le|gt|ge|changed value=V;
+#                                     exists=1 (or class=C); gone=1; event=KIND [name= since=];
+#                                     settled=1 [eps= for= asleep=1]; census=N [class= op=]; io=empty
+#   tools/debug-api fire <target> <input> [param] [delay]
+#   tools/debug-api hurt <target> [amount] [type]   by name; needs no cheats
+#   tools/debug-api hurtclass <class> [amount] [type] [x,y,z] [from]  every entity of a class
+#   tools/debug-api connect <src> <output> <target> <input> [param] [delay] [times]
+#                                     wire two live entities up. `times` is how many
+#                                     firings the connection gets before it is
+#                                     unlinked, stock's m_nTimesToFire; -1 is
+#                                     unlimited and is the default.
+#   tools/debug-api aim [player]          where a player is looking
+#   tools/debug-api teleport pos=x,y,z [ang=p,y,r] [player=N] [settle=1 eps= for= timeout=]
+#                                     setpos_exact + setang, no cheats; settle=1
+#                                     answers once the player has landed
+#   tools/debug-api remove name=GLOB | class=GLOB | index=I | handle=H [timeout=]
+#                                     remove and answer once it is gone
+#   tools/debug-api place <file.json> [look] create a saved group; "look" drops it at the aim point
+#
+# "hurt" is the exception and is why it exists: ent_fire is FCVAR_CHEAT, so
+# "fire" reports success and does nothing at sv_cheats 0, and from out here that
+# is indistinguishable from the entity ignoring the input. "hurt" calls the
+# damage path directly and reports health either side of it.
+#
+# ent_fire and friends are cheat commands, so "sv_cheats 1" first. The game's
+# own console is only captured when it was started with -condebug, which "run"
+# does; tools/debug-api console reads it.
+#
+set -uo pipefail
+
+# One directory per run when DEBUG_API_DIR is set, so concurrent
+# worktrees cannot adopt or kill each other's games. Default unchanged.
+SOCKET_DIR=${DEBUG_API_DIR:-/tmp/sourcesharp-debug-api}
+
+# A socket file outlives a crashed process, so liveness is decided by whether the
+# pid is still around — not by the file existing.
+live_sockets() {
+    [[ -d "$SOCKET_DIR" ]] || return 0
+
+    local socket pid
+    for socket in "$SOCKET_DIR"/*.sock; do
+        [[ -S "$socket" ]] || continue
+
+        pid="$(basename "$socket" .sock)"
+        kill -0 "$pid" 2>/dev/null && echo "$socket"
+    done
+}
+
+HERE="$(dirname -- "$(readlink -f -- "$0")")"   # tools/
+ROOT="$(dirname -- "$HERE")"
+PROXY="$HERE/debug-api-proxy"
+
+#-----------------------------------------------------------------------------
+# Launching a game with all of this already switched on.
+#
+# The switches are easy to get wrong and boring to remember, and getting one
+# wrong fails quietly: without -debugapi there is simply no socket, which looks
+# the same from the outside as a game that has not finished loading.
+#-----------------------------------------------------------------------------
+# The launcher `run` starts: source#, which reads mods.yaml beside it and is
+# told the mod by id (DEBUG_API_MOD, default test).
+pick_launcher() {
+    CONFIG="${SOURCESHARP_CONFIG:-debug}"
+    MOD="${DEBUG_API_MOD:-test}"
+    LAUNCHER="$ROOT/bin/$CONFIG/source#"
+    SELECT_MOD=(-mod "$MOD")
+}
+
+# `tools/debug-api launcher -help`: run the launcher `run` would start, with the
+# given arguments and nothing else -- so a name this script mangled (a `#` read
+# as a comment) fails here, in tools/launcher-name-test, and not mid-launch.
+if [[ "${1:-status}" == "launcher" ]]; then
+    pick_launcher
+    exec "$LAUNCHER" "${@:2}"
+fi
+
+if [[ "${1:-status}" == "run" ]]; then
+    # bin/<config> is the game directory: the launcher and the shared bin/.
+    # The mod is a directory under its mods/, named by its id, and is handed
+    # to the launcher with -game. SOURCESHARP_CONFIG picks the configuration
+    # (debug when unset), DEBUG_API_MOD the mod.
+    pick_launcher
+    MOD_DIR="$ROOT/bin/$CONFIG/mods/$MOD"
+    UI_PORT="${DEBUG_API_UI_PORT:-27110}"
+
+    if [[ ! -x "$LAUNCHER" ]]; then
+        echo "no launcher at $LAUNCHER — build first (make $CONFIG), or set SOURCESHARP_CONFIG" >&2
+        exit 1
+    fi
+    if [[ ! -f "$MOD_DIR/gameinfo.txt" ]]; then
+        echo "no mod at $MOD_DIR — run make setup, or set DEBUG_API_MOD" >&2
+        exit 1
+    fi
+
+    # The GPU to render on, from the one place it is written down —
+    # tools/gpu-offload, which the Makefile's launch targets source too. Two
+    # exported variables and a long comment explaining that getting them wrong
+    # kills the game in DXVK before server.so loads, so the log holds ZERO
+    # [SourceSharp] lines and the failure reads as a port bug. Overridable:
+    # SS_GPU_OFFLOAD=0 tools/debug-api run sets neither.
+    # shellcheck source=tools/gpu-offload
+    . "$ROOT/tools/gpu-offload"
+
+    # The engine allows one instance per user and takes its lock under TMPDIR, so
+    # a private one is what lets a second game start at all. Every run gets its
+    # own rather than a fixed path: two runs sharing a directory is the same
+    # collision by another name.
+    export TMPDIR="$(mktemp -d /tmp/sourcesharp-run-XXXXXX)"
+
+    # Kept only when something went wrong. A launcher that leaves a directory
+    # behind on every successful run is a slow mess in /tmp; one that deletes
+    # the log of a crash is worse, so the two cases are told apart.
+    KEEP_TMPDIR=0
+
+    # WINDOWED, and at the same size the Makefile uses.
+    #
+    # These had drifted: Makefile's RUN_ARGS has carried -windowed -w 1280 -h 720
+    # since it was written, and this list never did -- so `make run` gave a
+    # window and `tools/debug-api run` took the whole screen, which is the one a
+    # developer reaches for when driving a test. A fullscreen client is also
+    # actively hostile to the way this project debugs: it covers the terminal
+    # the log is being read in, and an assert dialog behind a fullscreen window
+    # is a hang with no visible cause.
+    #
+    # Overridable like anything else -- arguments after the map are passed
+    # straight through, so `tools/debug-api run ss_sandbox -fullscreen` still works.
+    # -nohltv AND +tv_enable 0 FOR THE SAME DRIFT REASON AS THE WINDOW SIZE.
+    # plan_shim.md step 5c drops HLTV and Replay, and the Makefile's RUN_ARGS
+    # enforces it -- so a developer driving the game through THIS script rather
+    # than through `make run` would otherwise be the one person who still gets
+    # a SourceTV client built for them. Pinned from the managed suite
+    # (HltvDroppedTests.EveryLaunchLineThisTreeOwnsRefusesHltv) so it cannot
+    # drift back.
+    # -nomessagebox -nocrashdialog FOR THE SAME DRIFT REASON AGAIN, and this one
+    # cost more than a window. The Makefile's RUN_ARGS and all three live-gate
+    # launch lines carry them; this list did not, so a fatal Error() here -- a
+    # managed side that refused to start, say -- parked the game on a modal
+    # dialog nobody could see, ignoring SIGTERM because the engine's handler
+    # only asks the blocked main loop to quit. With them, Error() logs and the
+    # process exits. Pinned from the managed suite
+    # (LaunchDialogTests.EveryLaunchLineThisTreeOwnsRefusesModalDialogs).
+    GAME_ARGS=("${SELECT_MOD[@]}" -debugapi -debugapisocket -condebug -console -novid -insecure
+               -nomessagebox -nocrashdialog
+               -windowed -w 1280 -h 720 -nohltv +tv_enable 0
+               $(python3 "$ROOT/tools/local_launch.py"))   # +sv_lan 1 +fps_max 60 (tools/local_launch.py)
+    [[ -n "${2:-}" ]] && GAME_ARGS+=(+map "$2")
+    # Anything after the map is passed straight through, for the switch this
+    # script did not think of.
+    (( $# > 2 )) && GAME_ARGS+=("${@:3}")
+
+    # Which sockets existed before, so the new one can be told from a game that
+    # was already up. Matching on "newest file" would pick the wrong instance
+    # whenever two are started close together.
+    BEFORE="$(live_sockets | sort)"
+
+    LOG="$TMPDIR/launch.log"
+    echo "launching $MOD${2:+ on $2}  (log: $LOG)"
+
+    # In its own session, so the whole tree can be taken down together. The
+    # launcher execs hl2.sh, which may or may not exec the engine in turn — and
+    # killing only the pid we know about would leave the game running behind a
+    # closed launcher on the days it does not.
+    setsid "$LAUNCHER" "${GAME_ARGS[@]}" > "$LOG" 2>&1 &
+    GAME_PID=$!
+
+    cleanup() {
+        # The game outliving the tool that launched it is the one outcome with
+        # no way back to it: no window in front of you, a lock held, and a
+        # socket that the next run will find and talk to by mistake.
+        #
+        # The group only gets signalled once it is confirmed to be the game's
+        # own — a negative pid that turned out to be some other group would take
+        # down whatever happened to be in it, this shell included.
+        local pgid
+        pgid="$(ps -o pgid= -p "$GAME_PID" 2>/dev/null | tr -d ' ')"
+
+        if [[ "$pgid" == "$GAME_PID" ]]; then
+            kill -TERM -- "-$GAME_PID" 2>/dev/null
+        else
+            kill -TERM "$GAME_PID" 2>/dev/null
+        fi
+
+        [[ -n "${PROXY_PID:-}" ]] && kill "$PROXY_PID" 2>/dev/null
+        wait 2>/dev/null
+
+        if (( KEEP_TMPDIR )); then
+            echo "left $TMPDIR in place; the launch log is $LOG" >&2
+        else
+            rm -rf -- "$TMPDIR"
+        fi
+    }
+    trap cleanup EXIT INT TERM
+
+    # Loading a map takes a while and a cold start takes longer, so this waits
+    # rather than assuming. The API comes up during module init, well before the
+    # map is playable — so the UI is reachable while the game is still loading,
+    # which is exactly when its log is worth watching.
+    SOCKET=""
+    for _ in $(seq 120); do
+        if ! kill -0 "$GAME_PID" 2>/dev/null; then
+            echo "the game exited before the API came up; last lines:" >&2
+            tail -20 "$LOG" >&2
+            KEEP_TMPDIR=1
+            exit 1
+        fi
+
+        SOCKET="$(comm -13 <(echo "$BEFORE") <(live_sockets | sort) | head -1)"
+        [[ -n "$SOCKET" ]] && break
+        sleep 0.5
+    done
+
+    if [[ -z "$SOCKET" ]]; then
+        echo "the API never came up after 60s; last lines of $LOG:" >&2
+        tail -20 "$LOG" >&2
+        KEEP_TMPDIR=1
+        exit 1
+    fi
+
+    echo "debug-api up on $SOCKET"
+
+    "$PROXY" "$UI_PORT" &
+    PROXY_PID=$!
+
+    # Whichever ends first ends both: quitting the game should not leave a UI
+    # pointed at nothing, and closing the UI is a deliberate enough act to mean
+    # the session is over.
+    wait -n "$GAME_PID" "$PROXY_PID"
+    STATUS=$?
+
+    # A game that crashed is the case where the log is the whole point.
+    (( STATUS > 1 )) && KEEP_TMPDIR=1
+
+    exit 0
+fi
+
+# Before the transport is resolved: the proxy talks to every instance rather
+# than one, so the "which single game do I mean" question below does not apply.
+if [[ "${1:-status}" == "ui" ]]; then
+    # Unquoted expansion of nothing rather than an empty argument: "debug-api ui"
+    # must reach the proxy with no port at all, not with a port of "".
+    exec "$PROXY" ${2:+"$2"}
+fi
+
+# A game's exit record, which outlives the game: no socket needed, only the pid.
+# `tools/debug-api exit 12345` prints <DEBUG_API_DIR>/12345.exit.json, or says
+# there is none (still running, or it ended before the dev API came up).
+if [[ "${1:-status}" == "exit" ]]; then
+    record="$SOCKET_DIR/${2:?a pid is required}.exit.json"
+    if [[ -f "$record" ]]; then
+        cat "$record"
+        exit 0
+    fi
+    echo "no exit record at $record" >&2
+    exit 1
+fi
+
+if [[ "${1:-status}" == "list" ]]; then
+    found=0
+    while read -r socket; do
+        [[ -n "$socket" ]] || continue
+        found=1
+        printf '%s  ' "$(basename "$socket" .sock)"
+        curl -s --unix-socket "$socket" http://localhost/status
+        echo
+    done < <(live_sockets)
+
+    (( found )) || echo "no unix-socket instances; try DEBUG_API_PORT=${DEBUG_API_PORT:-27100}"
+    exit 0
+fi
+
+# How to reach the game: an explicit pid, or the TCP port when there are no
+# sockets at all.
+#
+# There is deliberately no third case. Falling through to "the only live socket"
+# is the bug this exists to avoid: a socket file outlives the process that made
+# it, a leftover instance answers with a stale map and a stale build, and
+# nothing in the answer says which game gave it.
+if [[ -n "${DEBUG_API_PID:-}" ]]; then
+    SOCKET="$SOCKET_DIR/$DEBUG_API_PID.sock"
+
+    if [[ ! -S "$SOCKET" ]]; then
+        echo "no socket for pid $DEBUG_API_PID; these are up:" >&2
+        live_sockets | sed 's#.*/##;s#\.sock$##;s#^#  #' >&2
+        exit 1
+    fi
+
+    CURL=(curl -s --unix-socket "$SOCKET")
+    BASE="http://localhost"
+else
+    mapfile -t SOCKETS < <(live_sockets)
+
+    if (( ${#SOCKETS[@]} > 0 )); then
+        echo "set DEBUG_API_PID to choose a game; these are up:" >&2
+        printf '  %s\n' "${SOCKETS[@]//*\//}" >&2
+        echo "  (tools/debug-api list says which map each is on)" >&2
+        exit 1
+    else
+        # No unix socket, so fall back to the TCP port — but say so. That port is
+        # not ours by right, and something else answering on it returns JSON that
+        # looks close enough to be believed: this went unnoticed for several
+        # minutes while an unrelated local service answered every status call.
+        CURL=(curl -s)
+        BASE="http://127.0.0.1:${DEBUG_API_PORT:-27100}"
+        echo "debug-api: no unix socket; trying $BASE (start the game with -debugapisocket)" >&2
+    fi
+fi
+
+# key=value words as curl query arguments, each one url-encoded, into QA. An
+# array rather than printed words, so a value with a space in it stays whole.
+query_args() {
+    QA=()
+    local kv
+    for kv in "$@"; do
+        [[ "$kv" == *=* ]] || { echo "debug-api: '$kv' is not key=value" >&2; exit 2; }
+        QA+=(--data-urlencode "$kv")
+    done
+}
+
+case "${1:-status}" in
+    status) "${CURL[@]}" "$BASE/status" ;;
+    log)    "${CURL[@]}" "$BASE/log?since=${2:-0}&max=${3:-500}" ;;
+    cmd)    "${CURL[@]}" -X POST "$BASE/command" --data-binary "${2:?command required}" ;;
+    # The same, answering what the command printed to the console (the
+    # engine's lines and managed code's), scoped to that command.
+    capture) "${CURL[@]}" -X POST "$BASE/command?capture=1" --data-binary "${2:?command required}" ;;
+    convar) "${CURL[@]}" "$BASE/convar?name=${2:?name required}${3+&value=$3}" ;;
+    ents)   "${CURL[@]}" "$BASE/entities?class=${2:?class required}" ;;
+    # One entity: `ent index=40`, `ent handle=262177` or `ent name=crate_a`.
+    ent)    query_args "${@:2}"
+            "${CURL[@]}" --get "$BASE/entity" "${QA[@]}" ;;
+    touching) "${CURL[@]}" "$BASE/entity/touching?index=${2:?an entity index is required}" ;;
+    # source picks the registry: managed (this mod's, the default), native (the
+    # engine's own table, walked on the game thread), or all.
+    convars)   "${CURL[@]}" "$BASE/convars?source=${2:-managed}" ;;
+    commands)  "${CURL[@]}" "$BASE/commands?source=${2:-managed}" ;;
+
+    # Everything carrying one flag. The listing endpoints do not filter -- the
+    # engine's table is walked whole either way -- so this is done here, where
+    # asking "which of these will not run without sv_cheats" is one line.
+    flags)     "${CURL[@]}" "$BASE/${3:-convars}?source=${4:-all}" \
+                   | python3 -c 'import json,sys
+want = sys.argv[1]
+data = json.load(sys.stdin)
+rows = data.get("convars") or data.get("commands") or []
+print(json.dumps([r for r in rows if want in (r.get("flags") or "").split(", ")], indent=1))' \
+                   "${2:?a flag is required, e.g. Cheat or Archive}" ;;
+    classes)   "${CURL[@]}" "$BASE/entityclasses" ;;
+    services)  "${CURL[@]}" "$BASE/services?by=${2:-type}" ;;
+    instances) "${CURL[@]}" "$BASE/instances" ;;
+
+    # The schema, one type, and one entity's bytes. The id goes IN the path
+    # rather than in a query because that is how Part 13 spells these, and a
+    # classname is accepted wherever a type id is -- a person types the name.
+    nettables) "${CURL[@]}" "$BASE/nettables" ;;
+
+    # Payload cost by class and by field. Needs cs_sv_nettable_profile 1 -- the
+    # reply says so rather than answering an empty list, which would read like
+    # "nothing costs anything".
+    nettraffic) "${CURL[@]}" --get "$BASE/nettraffic"                     ${2:+--data-urlencode "reset=$2"} ;;
+    nettable)  "${CURL[@]}" "$BASE/nettable/${2:?a type id or classname is required}" ;;
+
+    # What the CLIENT's prediction compares saw. The console meter can say "10
+    # byte(s) differ"; only this says whether that is a hair or a metre, and
+    # whether it sat inside the field's declared tolerance.
+    #
+    # Client-side data down the SERVER's socket, which works because a listen
+    # server runs both halves in one process and the ring lives in
+    # SourceSharp.Abi, the assembly both load contexts share. A dedicated server
+    # answers "no client in this process" rather than an empty list.
+    prediction) "${CURL[@]}" --get "$BASE/prediction" ${2:+--data-urlencode "since=$2"} \
+                                                      ${3:+--data-urlencode "max=$3"} ;;
+    prediction-reset) "${CURL[@]}" --get "$BASE/prediction" --data-urlencode "reset=1" ;;
+
+    # The client-to-server debug channel. Off unless the server was started with
+    # -debuguiserve; a client dials back only with -debugui on its own command line.
+    # "listening":false says which of those two it is.
+    debugchannel) "${CURL[@]}" "$BASE/debugchannel" ;;
+    # A client's own state, proxied by this server over the debug channel
+    # (plan_side_isolation rulings 11-12): which slots have one attached, and
+    # one question to the client in a slot.
+    clients)   "${CURL[@]}" "$BASE/clients" ;;
+    client)    "${CURL[@]}" "$BASE/client/${2:?a player slot is required}/${3:-status}" ;;
+
+    # --watch is a loop of separate requests, and it works because the server
+    # keeps the last blob it was shown per entity: each answer says what moved
+    # since the previous one rather than since the process started.
+    payload)
+        if [[ "${3:-}" == "--watch" ]]; then
+            while :; do
+                "${CURL[@]}" "$BASE/entity/${2:?an entity index is required}/payload"
+                echo
+                sleep 1
+            done
+        else
+            "${CURL[@]}" "$BASE/entity/${2:?an entity index is required}/payload"
+        fi ;;
+    console)   "${CURL[@]}" "$BASE/console?since=${2:-0}&max=${3:-500}" ;;
+    map)       "${CURL[@]}" "$BASE/map${2+?map=$2}" ;;
+    mapents)   "${CURL[@]}" "$BASE/map/entities${2+?map=$2}" ;;
+    # Filters are key=value words after since and max, sent as query
+    # parameters: kind=output,input name=OnStartTouch classname=trigger_*
+    # handle=H index=I. Filtered by the game, not here.
+    events)    query_args "${@:4}"
+               "${CURL[@]}" --get "$BASE/events" --data-urlencode "since=${2:-0}" \
+                   --data-urlencode "max=${3:-500}" "${QA[@]}" ;;
+    # Where each ring is now: events, log and console. Read before acting to
+    # ask afterwards for only what the act caused.
+    heads)     "${CURL[@]}" "$BASE/events/head" ;;
+    # Counter groups as numbers: physics (what cs_sv_physics_events prints),
+    # playershadow (cs_sv_playershadow); every group when none is named.
+    counters)  "${CURL[@]}" --get "$BASE/counters" ${2:+--data-urlencode "group=$2"} ;;
+    # Until a condition holds, counted in server ticks; exits 1 unless it was
+    # met (timeout, wall-clock cap, a failed condition), with the reply printed
+    # either way. `wait ticks=30`, `wait settled=1 index=40`,
+    # `wait event=output name=OnStartTouch since=1234 timeout=600`.
+    wait)      query_args "${@:2}"
+               out="$("${CURL[@]}" --get "$BASE/wait" "${QA[@]}")"
+               echo "$out"
+               [[ "$out" == *'"ok":true'* ]]; exit $? ;;
+    aim)       "${CURL[@]}" "$BASE/player/aim?player=${2:-1}" ;;
+    # Teleport a player: `teleport pos=10,20,30 ang=0,90,0 settle=1` answers
+    # once it has landed and stopped (exit 1 if it never does).
+    teleport)  query_args "${@:2}"
+               out="$("${CURL[@]}" --get "$BASE/player/teleport" "${QA[@]}")"
+               echo "$out"
+               [[ "$out" == *'"ok":true'* ]]; exit $? ;;
+    # Remove what matches and answer once it is gone: `remove name=ss_livegate_*`,
+    # `remove class=prop_physics`, `remove handle=262177` (exit 1 if it never goes).
+    remove)    query_args "${@:2}"
+               out="$("${CURL[@]}" --get "$BASE/entities/remove" "${QA[@]}")"
+               echo "$out"
+               [[ "$out" == *'"ok":true'* ]]; exit $? ;;
+    # The group is a file rather than an argument: it is JSON, and a shell is the
+    # wrong place to be quoting a nested structure.
+    place)     "${CURL[@]}" -X POST "$BASE/entities/spawn" \
+                   --data-binary @"${2:?a group file is required}" ;;
+    hurt)      "${CURL[@]}" --get "$BASE/entity/damage" \
+                   --data-urlencode "target=${2:?target required}" \
+                   --data-urlencode "amount=${3:-25}" \
+                   --data-urlencode "type=${4:-}" \
+                   --data-urlencode "at=${5:-}" \
+                   --data-urlencode "from=${6:-}" ;;
+    hurtclass) "${CURL[@]}" --get "$BASE/entity/damage" \
+                   --data-urlencode "class=${2:?class required}" \
+                   --data-urlencode "amount=${3:-25}" \
+                   --data-urlencode "type=${4:-}" \
+                   --data-urlencode "at=${5:-}" \
+                   --data-urlencode "from=${6:-}" ;;
+    fire)      "${CURL[@]}" --get "$BASE/entity/input" \
+                   --data-urlencode "target=${2:?target required}" \
+                   --data-urlencode "input=${3:?input required}" \
+                   --data-urlencode "param=${4:-}" \
+                   --data-urlencode "delay=${5:-0}" ;;
+    # An input fired AS a player (the activator, by slot): what a button or
+    # trigger the player touched would pass, e.g. a level transition.
+    fire-as)   "${CURL[@]}" --get "$BASE/entity/input" \
+                   --data-urlencode "activator=${2:?a player slot is required}" \
+                   --data-urlencode "target=${3:?target required}" \
+                   --data-urlencode "input=${4:?input required}" \
+                   --data-urlencode "param=${5:-}" ;;
+    connect)   "${CURL[@]}" --get "$BASE/entity/connect" \
+                   --data-urlencode "source=${2:?source required}" \
+                   --data-urlencode "output=${3:?output required}" \
+                   --data-urlencode "target=${4:?target required}" \
+                   --data-urlencode "input=${5:?input required}" \
+                   --data-urlencode "param=${6:-}" \
+                   --data-urlencode "delay=${7:-0}" \
+                   --data-urlencode "times=${8:--1}" ;;
+    *)      "${CURL[@]}" "$BASE/" ;;
+esac
+
+echo

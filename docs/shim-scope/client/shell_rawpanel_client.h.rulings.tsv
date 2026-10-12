@@ -1,0 +1,35 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+[CSourceSharpRawPanel] virtual void Paint()	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnThink()	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnScreenSizeChanged(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnCursorMoved(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnMousePressed(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnMouseDoublePressed(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnMouseReleased(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnMouseWheeled(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnKeyCodePressed(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnKeyTyped(	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] virtual void OnKillFocus()	SLOT	a panel hook the IClientPanel slots call; empty unless the panel overrides it
+[CSourceSharpRawPanel] void SetPaintEnabled(	BOUNDARY	a flag PaintTraverse reads
+[CSourceSharpRawPanel] void SetCursor(	BOUNDARY	the cursor handed to the surface on CursorMoved
+[CSourceSharpRawPanel] virtual vgui::VPANEL GetVPanel()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void PerformApplySchemeSettings()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void OnChildAdded(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void OnSizeChanged(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void InternalFocusChanged(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual bool RequestInfo(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void RequestFocus(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual bool RequestFocusPrev(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual bool RequestFocusNext(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual vgui::VPANEL GetCurrentKeyFocus()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual int GetTabPosition()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual const char *GetName()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual const char *GetClassName()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual bool IsProportional()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual bool IsAutoDeleteSet()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void DeletePanel()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void *QueryInterface(	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual vgui::Panel *GetPanel()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual const char *GetModuleName()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer
+[CSourceSharpRawPanel] virtual void OnTick()	SLOT	vgui::IClientPanel slot vgui2 calls: a plain panel's answer

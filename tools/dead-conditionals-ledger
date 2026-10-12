@@ -1,0 +1,78 @@
+# tools/dead-conditionals-ledger -- what tools/dead-conditionals is allowed to
+# find. Read that script's header first; it says what each row means and what
+# makes one stale.
+#
+# TAB-SEPARATED. Two kinds of row:
+#
+#   allow	NAME	why this identifier is legitimately conditional here
+#   pending	FILE	NAME	who removes it, and when
+#
+# BOTH ARE CHECKED FOR STALENESS, because an allowlist nobody re-reads is the
+# same trap as no allowlist at all:
+#
+#   * an `allow` name that every shim project's command line defines is stale
+#     -- the guard is live and must not be waived;
+#   * an `allow` name no shim file conditions on any more is stale;
+#   * a `pending` site that has been cleaned up is stale.
+#
+# So the pending list can only shrink. A file ported in Phase 7 carrying a dead
+# mod guard has no row here and fails naming the file and the define, which is
+# what this whole mechanism is for.
+#
+#=============================================================================
+# ALLOW -- legitimately conditional in THIS build.
+#=============================================================================
+#
+# PORTABILITY, NOT MOD GUARDS, and the distinction is the whole point of having
+# an allowlist. WIN32 is dead here only in the sense that this build targets
+# linux64; the surrounding SDK still carries Windows, and deleting the guard
+# would discard that portability in silence. A mod guard like TF_CLIENT_DLL is
+# dead in a different way -- this is not that game and never will be -- and is
+# NOT allowed here, which is what dead_conditionals_test.cpp pins.
+allow	WIN32	portability: a Windows configuration of this same tree defines it; this build is linux64 only. Removing the guard would discard Windows support the surrounding SDK still carries.
+allow	_WIN32	portability: the compiler's own Windows spelling of the same thing, on the same reasoning as WIN32.
+#
+# SIDE MARKERS. A file in sourcesharp/game/shared is compiled into BOTH the
+# client and the server, and CLIENT_DLL / GAME_DLL is how it tells which one it
+# is in. Each is on exactly one of the two command lines, so from the other
+# side's compile it looks undefined -- correctly, and by construction.
+allow	CLIENT_DLL	side marker: on the client's command line and not the server's. A shared file conditioning on it is correct by construction.
+allow	GAME_DLL	side marker: on the server's command line and not the client's, the mirror of CLIENT_DLL.
+allow	NDEBUG	configuration marker: the release preset defines it (SS_DEFS_release, cmake/SourceSharp.cmake) and debug does not, so a scan of the debug build sees it as never defined. convar_port.cpp keeps stock tier1's `#ifndef NDEBUG` for development-only convars, which differs by configuration on purpose.
+#
+# OTHER CONFIGURATIONS OF THIS SAME TREE. These are set by a build that really
+# exists and is really run -- just not the shipping one -- so the conditional
+# has a live arm somewhere and is not dead code.
+# SS_CBASEENTITY_ALIAS HAD A ROW HERE AND THE FLIP MADE IT STALE. Its reason was
+# "another configuration of this tree: the armed alias survey defines it" -- true
+# while the alias was a survey. THE FLIP ARMED IT IN BOTH server_csharp.vpc AND
+# client_csharp.vpc, so it is on every shim project's command line and there is
+# no other configuration to waive for. tools/dead-conditionals said so itself:
+# "STALE allow row: no shim file conditions on SS_CBASEENTITY_ALIAS any more --
+# delete the row". A waiver is not a fact; removing it makes the check stricter,
+# which is the direction this file's own header says the list may move.
+allow	SS_COVERAGE	another configuration of this tree: the coverage build defines it.
+# PHASE 6B, FOR A RULING: the two link-mode rows below were waived as "other
+# VPC configurations" of this tree. VPC is retired, and neither VPC's own graph
+# (main at 8e35279) nor the CMake build defines _STATIC_LINKED or _SHARED_LIB on
+# any target, so no configuration that is built here gives these guards a live
+# arm. They stay waived, unchanged, until someone rules whether the sites go.
+allow	_STATIC_LINKED	link mode: set by the static-link VPC configurations in this tree, not by the shared-object one this builds.
+allow	_SHARED_LIB	link mode: the mirror of _STATIC_LINKED, set by other VPC configurations here.
+#
+#=============================================================================
+# PENDING -- dead here, already present when this check landed, with an owner.
+#
+# None of these is lane 5b-split's file. The lane brief is explicit that a lane
+# touches only what its step owns, so each is written down rather than edited:
+# the row makes the site visible, stops the count growing, and fails the moment
+# somebody cleans it up and forgets to delete the row.
+#=============================================================================
+pending	sourcesharp/common/steamid.cpp	HL1	relocated stock, verbatim (Steam's own steamclientpublic.h lineage). Owned by whoever next touches the relocation.
+pending	sourcesharp/common/steamid.cpp	STEAM	relocated stock, verbatim. Same owner as HL1 above.
+pending	sourcesharp/public/dt_send.cpp	SUPPORTS_INT64	relocated stock, verbatim. Owned by the datatable work, not by a client-shell lane.
+pending	sourcesharp/public/collisionutils.cpp	_X360	relocated stock, verbatim (plan_shim.md Phase 2d). Five sites, all VMX128 arms of a ray/box test. (bone_setup.cpp's row left with the file, plan_physics_bones_native_zero Phase 3.)
+pending	sourcesharp/public/collisionutils.cpp	PARANOID_SIMD_ASSERTING	relocated stock, verbatim (plan_shim.md Phase 2d). One site, and it is INSIDE the _X360 arm above -- it goes when that arm does, and not before.
+pending	sourcesharp/game/server/precache_model.cpp	WATCHACCESS	server shim. Owned by the server side, not by a client-shell lane.
+pending	sourcesharp/game/server/shell_engineboundary.cpp	TF_DLL	server shim, and a mod guard: this is not Team Fortress. Owned by the server side.
+pending	sourcesharp/game/server/shell_gameclients.cpp	PORTAL	server shim, and a mod guard. plan_entity.md 7g lists portal as not shipped.

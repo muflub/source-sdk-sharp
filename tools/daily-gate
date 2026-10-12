@@ -1,0 +1,1009 @@
+#!/usr/bin/env python3
+"""tools/daily-gate -- the once-a-day live gate, and the bisect when it fails.
+
+    tools/daily-gate [--ref main]    run it: main's tip, in its own worktree
+    tools/daily-gate --status        exit 0 only if the latest report is green
+    tools/daily-gate --bisect GOOD BAD --steps a,b [--worktree DIR] [--reset-to REF]
+                                     bisect GOOD..BAD on those steps alone
+    tools/daily-gate --self-test
+
+THE RULING (user, 2026-10-04): `make live-gate` runs once a day, on a
+schedule (tools/systemd/sourcesharp-daily-gate.timer), not per commit and not
+before each merge. An agent runs a gate by hand only when the user asks, or
+to diagnose a failure a daily report shows.
+
+ONE RUN:
+  1. main's sha. If it is the last GREEN run's, the run is a SKIP, and says so
+     in a report like any other.
+  2. A worktree of its own (default: ss-daily-gate beside the main checkout),
+     created detached at main if missing, else `git checkout --detach main`.
+     It never moves a branch.
+  3. tools/box-ready gate --wait; then, with a TMPDIR and DEBUG_API_DIR of its
+     own (the gate picks and measures its own port): `make setup` when the
+     pins changed since the last setup or `tools/setup --check` has work to
+     do (the fork is only read), `make debug`,
+     `make map MAP=ss_sandbox` (per-tree output the gate loads), `make
+     live-gate` writing its verdicts as JSON.
+  4. Green: the sha is recorded as the last green one.
+  5. Red in the gate's steps: CONFIRM by re-running only the failing steps,
+     and any step the night run never reached (a crash ends live-gate's
+     process: nothing after it runs). One `live-gate --steps ... --passes 3`,
+     then each step still short of 3 verdicts alone, one pass per process,
+     so one crashing step cannot starve the rest (10-10 and 10-11 judged
+     every step on 1 pass). A step that cannot reach 2 fails of 3 even if
+     its missing passes had failed is FLAKY (counts and known rate
+     reported), not bisected; "1 of 1" is not a flake. A per-step table
+     (night, confirm, verdict) goes in the report. With no green sha on
+     record the verdict is FAIL-NO-BASELINE: nothing to bisect from. A
+     confirmed step
+     is BISECTED from the last green sha to main (`git bisect run`, in the
+     worktree, detached): each commit gets `make setup`, `make debug` and the
+     steps over enough passes to beat their flake rate; setup or build
+     failures are skips (125). The first bad commit, the counts and the
+     bisect log go in the report and in <date>-bisect.txt.
+  Always: `git bisect reset`, the worktree left detached at main, and the
+  fork checked for writes (`git status --porcelain` must stay empty).
+
+THE REPORT: $XDG_STATE_HOME/sourcesharp/daily-gate (else ~/.local/state/...)
+<date>-<sha>.log, with TIP, every step's exit code and wall time, the verdict
+and the run's exit code, and a `latest` link to it. A run that never wrote a
+report, or a report whose exit is not 0, is a FAILURE to --status: never a
+pass.
+
+Finds its root from its own location; the worktree, the fork and the state
+directory are arguments with defaults derived from it.
+"""
+
+import argparse
+import datetime
+import hashlib
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+ROOT = os.path.dirname(HERE)
+
+# Steps known to fail now and then without a regression, and their measured
+# rates (fails, runs) where known; None is "known flaky, rate not measured".
+# docs/plans/gate_flakes_findings.md overrides these when it is present.
+KNOWN_FLAKY = {"push": (1, 6), "knock-loose": (3, 20), "contact-touch": None, "trigger": None}
+UNKNOWN_RATE = 0.25        # assumed for a step known flaky with no measured rate
+FALSE_BAD = 0.05           # the most a bisect may risk calling a flake a regression
+CONFIRM_PASSES = 3
+CONFIRM_MIN_FAILS = 2      # of CONFIRM_PASSES, for a failure to be real
+MAX_ROUNDS = 9
+SKIP_EXIT = 125            # git bisect run: this commit cannot be tested
+# The gate's map-change step loads ss_sandbox, which is per-tree build output
+# (never copied between trees): a fresh worktree has none, and the step fails
+# for that alone. Regenerated and compiled each run, about 7 s.
+SANDBOX_MAP = ["make", "map", "MAP=ss_sandbox"]
+
+
+# ===========================================================================
+# PURE DECISIONS (driven by --self-test with faked results)
+# ===========================================================================
+def decide_skip(main_sha, last_green):
+    """Skip the run when main has not moved since the last green run."""
+    return bool(main_sha) and main_sha == last_green
+
+
+def failing_steps(doc, known_steps=None):
+    """The steps a verdicts JSON says failed (a `fail` on any pass, or a
+    failure filed under that step), in the order the run ran them."""
+    if not doc:
+        return []
+    steps = doc.get("steps") or []
+    bad = {s for s, v in (doc.get("verdicts") or {}).items() if "fail" in v}
+    bad |= {f[0] for f in doc.get("failures") or [] if f and f[0] in steps}
+    if known_steps is not None:
+        bad &= set(known_steps)
+    return [s for s in steps if s in bad] + sorted(bad - set(steps))
+
+
+def fail_counts(doc, steps):
+    """{step: (fails, passes)} over the passes of a verdicts JSON."""
+    out = {}
+    for s in steps:
+        got = (doc.get("verdicts") or {}).get(s, []) if doc else []
+        out[s] = (sum(1 for v in got if v == "fail"), len(got))
+    return out
+
+
+def classify(confirm_doc, steps):
+    """(confirmed, flaky): flaky is {step: (fails, passes)}. A step is FLAKY
+    only when it cannot reach CONFIRM_MIN_FAILS of CONFIRM_PASSES even if every
+    pass it is missing had failed; everything else is confirmed. So "1 of 1"
+    (the other passes never ran: a crash ends the gate's process) is not a
+    flake -- no evidence is not evidence of a flake, and it goes to the bisect,
+    whose own verdict per commit is again a majority of the passes it got."""
+    counts = fail_counts(confirm_doc, steps)
+    confirmed, flaky = [], {}
+    for s in steps:
+        fails, passes = counts[s]
+        missing = max(0, CONFIRM_PASSES - passes)
+        if fails >= CONFIRM_MIN_FAILS or fails + missing >= CONFIRM_MIN_FAILS:
+            confirmed.append(s)
+        else:
+            flaky[s] = (fails, passes)
+    return confirmed, flaky
+
+
+def confirm(run_one, steps, passes=CONFIRM_PASSES):
+    """Give each of `steps` `passes` verdicts. `run_one(steps, passes)` runs
+    one live-gate process and returns its verdicts JSON (or None).
+
+    The gate stops its whole process at a crash (live-gate's pass loop: "Nothing
+    after it ran"), so one `--passes 3` run gave every step ONE verdict on
+    10-10 and 10-11. Hence: one run of all the steps, then each step still
+    short runs ALONE, one pass per process, so a crash costs one pass of one
+    step. A process that adds nothing is still an attempt: each step gets at
+    most its shortfall plus one."""
+    merged = {"steps": list(steps), "passes": passes, "verdicts": {s: [] for s in steps},
+              "failures": [], "runs": []}
+
+    def take(doc, wanted, asked):
+        added = 0
+        for s in wanted:
+            got = ((doc or {}).get("verdicts") or {}).get(s, [])
+            room = passes - len(merged["verdicts"][s])
+            merged["verdicts"][s] += got[:max(0, room)]
+            added += min(len(got), max(0, room))
+        merged["failures"] += [list(f) for f in (doc or {}).get("failures") or [] if f and f[0] in wanted]
+        merged["runs"].append({"steps": list(wanted), "passes": asked,
+                               "exit": (doc or {}).get("exit"), "verdicts_added": added})
+
+    take(run_one(steps, passes), steps, passes)
+    for s in steps:
+        short = passes - len(merged["verdicts"][s])
+        for _ in range(short + 1 if short > 0 else 0):
+            if len(merged["verdicts"][s]) >= passes:
+                break
+            take(run_one([s], 1), [s], 1)
+    return merged
+
+
+def unrun_steps(doc):
+    """The steps a verdicts JSON lists but never gave a verdict: the game
+    died before them (a crash ends the process), so they are neither red nor
+    green, and a run with any of them is not green."""
+    if not doc:
+        return []
+    v = doc.get("verdicts") or {}
+    return [s for s in doc.get("steps") or [] if not v.get(s)]
+
+
+def next_action(confirmed, flaky, last_green, is_ancestor, never_ran=()):
+    """What follows the confirm: FLAKY (nothing confirmed), NEVER-RAN
+    (nothing confirmed, but a step never gave a verdict at all: not green, and
+    nothing to bisect on), NO-BASELINE (no green run on record), NOT-ANCESTOR
+    (the green sha is off main's history), or BISECT."""
+    if not confirmed:
+        return "NEVER-RAN" if never_ran else "FLAKY"
+    if not last_green:
+        return "NO-BASELINE"
+    if not is_ancestor:
+        return "NOT-ANCESTOR"
+    return "BISECT"
+
+
+def verdict_word(action):
+    return {"FLAKY": "FLAKY", "NO-BASELINE": "FAIL-NO-BASELINE"}.get(action, "FAIL")
+
+
+def _red(counts):
+    fails, passes = counts
+    return "not run" if passes == 0 else "%d of %d red" % (fails, passes)
+
+
+def step_table(night_doc, confirm_doc, steps, confirmed, flaky, unrun=()):
+    """The per-step picture a person reads first: night and confirm counts,
+    and what each step was ruled."""
+    night = fail_counts(night_doc, steps)
+    conf = fail_counts(confirm_doc, steps)
+    rows = [("step", "night", "confirm", "verdict")]
+    for s in steps:
+        if s in unrun and conf[s][1] == 0:
+            word = "never ran"
+        elif s in confirmed:
+            word = "CONFIRMED"
+        elif s in unrun and conf[s][0] == 0 and conf[s][1] > 0:
+            word = "passed on confirm"
+        elif s in flaky:
+            word = "FLAKY"
+        else:
+            word = "?"
+        rows.append((s, _red(night[s]), _red(conf[s]), word))
+    return ["  %-18s %-14s %-14s %s" % r for r in rows]
+
+
+def dedupe_failures(failures):
+    """[(step, message, times)] in first-seen order: the gate files some
+    failures once per pass it reports, so the raw list repeats them."""
+    seen = {}
+    for f in failures or []:
+        if not f:
+            continue
+        key = (f[0], f[1] if len(f) > 1 else "")
+        seen[key] = seen.get(key, 0) + 1
+    return [(k[0], k[1], n) for k, n in seen.items()]
+
+
+def _tail(p, rounds):
+    need = rounds // 2 + 1
+    return sum(math.comb(rounds, k) * p ** k * (1 - p) ** (rounds - k) for k in range(need, rounds + 1))
+
+
+def rounds_for(steps, rates):
+    """The fewest odd passes for which a majority of flake failures is under
+    FALSE_BAD, at the worst rate among `steps` (3 at least)."""
+    p = 0.0
+    for s in steps:
+        if s in rates:
+            r = rates[s]
+            p = max(p, UNKNOWN_RATE if r is None else r[0] / float(r[1]))
+    for rounds in range(3, MAX_ROUNDS + 1, 2):
+        if _tail(p, rounds) < FALSE_BAD:
+            return rounds
+    return MAX_ROUNDS
+
+
+def bisect_verdict(doc, steps):
+    """git bisect run's answer for one commit: 1 (bad) when any of `steps`
+    failed in a majority of its passes, 0 (good) when all passed a majority,
+    SKIP_EXIT when there is no verdict for a step."""
+    if not doc:
+        return SKIP_EXIT
+    for s, (fails, passes) in fail_counts(doc, steps).items():
+        if passes == 0:
+            return SKIP_EXIT
+        if fails > passes // 2:
+            return 1
+    return 0
+
+
+RATES_FENCE = "```rates"
+
+
+def read_rates(path, steps=None):
+    """(rates, warning). The findings document's fenced ```rates block, one
+    `step<TAB>failures<TAB>passes<TAB>source` row per step, overrides
+    KNOWN_FLAKY. Only that block is read: the prose quotes other N-of-M counts
+    (a push row cites "34 of 46 samples"). A missing document, a missing block,
+    or any malformed row is a failure of the lookup: the rates are KNOWN_FLAKY
+    alone and the warning says why. `steps` is accepted for the callers; the
+    whole block is returned."""
+    rates = dict(KNOWN_FLAKY)
+    try:
+        text = open(path, encoding="utf-8").read()
+    except (OSError, UnicodeDecodeError) as e:
+        return rates, "rates: cannot read %s (%s); using the built-in rates" % (path, e)
+    lines = text.splitlines()
+    starts = [i for i, ln in enumerate(lines) if ln.strip() == RATES_FENCE]
+    if len(starts) != 1:
+        return rates, "rates: %s has %d ```rates blocks, not 1; using the built-in rates" % (path, len(starts))
+    found = {}
+    closed = False
+    for ln in lines[starts[0] + 1:]:
+        if ln.strip() == "```":
+            closed = True
+            break
+        if not ln.strip() or ln.startswith("#"):
+            continue
+        f = ln.split("\t")
+        if (len(f) != 4 or not f[0] or not re.fullmatch(r"\d+", f[1]) or not re.fullmatch(r"\d+", f[2])
+                or int(f[2]) == 0 or int(f[1]) > int(f[2]) or f[0] in found):
+            return rates, "rates: bad row %r in %s; using the built-in rates" % (ln, path)
+        found[f[0]] = (int(f[1]), int(f[2]))
+    if not closed or not found:
+        return rates, "rates: the ```rates block in %s is %s; using the built-in rates" % (
+            path, "unterminated" if not closed else "empty")
+    rates.update(found)
+    return rates, None
+
+
+def parse_first_bad(text):
+    """The sha git bisect names as the first bad commit, or None."""
+    m = re.search(r"^([0-9a-f]{7,40}) is the first bad commit", text, re.M)
+    return m.group(1) if m else None
+
+
+def bisect_counts(log):
+    """(good, bad, skipped) commits a `git bisect log` recorded as TESTED:
+    the marks after `git bisect start`, not the two endpoints logged before it."""
+    at = log.find("git bisect start")
+    log = log[log.find("\n", at) + 1:] if at >= 0 else log
+    good = len(re.findall(r"^# good: ", log, re.M))
+    bad = len(re.findall(r"^# bad: ", log, re.M))
+    skip = len(re.findall(r"^# skip: ", log, re.M))
+    return good, bad, skip
+
+
+def report_status(text):
+    """(ok, why) of a report's text: ok only with `exit 0` and a PASS or SKIP verdict."""
+    if text is None:
+        return False, "no report: the run never wrote one"
+    m = re.search(r"^exit (-?\d+)$", text, re.M)
+    v = re.search(r"^verdict (\S+)", text, re.M)
+    if not m or not v:
+        return False, "the report has no exit/verdict line: the run did not finish"
+    if int(m.group(1)) != 0 or v.group(1) not in ("PASS", "SKIP"):
+        return False, "verdict %s, exit %s" % (v.group(1), m.group(1))
+    return True, "verdict %s, exit 0" % v.group(1)
+
+
+# ===========================================================================
+# THE RUN
+# ===========================================================================
+def state_dir(override=None):
+    base = override or os.path.join(
+        os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+        "sourcesharp", "daily-gate")
+    os.makedirs(base, exist_ok=True)
+    return base
+
+
+def git(cwd, *args, check=True):
+    p = subprocess.run(["git", "-C", cwd] + list(args), capture_output=True, text=True)
+    if check and p.returncode != 0:
+        raise RuntimeError("git %s: %s" % (" ".join(args), p.stderr.strip()))
+    return p.stdout.strip()
+
+
+def main_checkout():
+    common = git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return os.path.dirname(common)
+
+
+class Report:
+    def __init__(self, path):
+        self.path = path
+        self.lines = []
+        self.start = time.time()
+
+    def say(self, line):
+        line = line.rstrip("\n")
+        self.lines.append(line)
+        print(line, flush=True)
+
+    def finish(self, verdict, rc, latest=None):
+        self.say("verdict %s" % verdict)
+        self.say("wall %.0f s" % (time.time() - self.start))
+        self.say("exit %d" % rc)
+        tmp = self.path + ".tmp"
+        with open(tmp, "w") as f:
+            f.write("\n".join(self.lines) + "\n")
+        os.replace(tmp, self.path)
+        if latest:
+            try:
+                os.unlink(latest)
+            except OSError:
+                pass
+            os.symlink(os.path.basename(self.path), latest)
+        return rc
+
+
+def run_step(report, name, cmd, cwd, env, log):
+    """Run one step, its output to `log`; record name, exit code, wall time."""
+    t = time.time()
+    with open(log, "ab") as f:
+        f.write(("\n==== %s: %s\n" % (name, " ".join(cmd))).encode())
+        f.flush()
+        rc = subprocess.run(cmd, cwd=cwd, env=env, stdout=f, stderr=subprocess.STDOUT,
+                            stdin=subprocess.DEVNULL).returncode
+    report.say("step %-12s exit %-4d %6.0f s" % (name, rc, time.time() - t))
+    return rc
+
+
+def setup_stamp(wt, fork):
+    h = hashlib.sha256(os.path.realpath(fork).encode())
+    for rel in ("sdk-root.lock", "tools/setup", "tools/module-map.tsv"):
+        try:
+            h.update(open(os.path.join(wt, rel), "rb").read())
+        except OSError:
+            h.update(b"-")
+    links = os.path.join(wt, "sdk-links")
+    for name in sorted(os.listdir(links)) if os.path.isdir(links) else []:
+        h.update(open(os.path.join(links, name), "rb").read())
+    return h.hexdigest()
+
+
+def setup_check(wt, env):
+    """`tools/setup --check --config debug`, the same check `make debug` runs
+    before it builds (the Makefile's require-setup): non-zero when the farm
+    or bin/ is short of anything -- a new file in our tree is a missing farm
+    link, and the pins never see it (2026-10-05). A report only: it changes
+    nothing and costs ~0.15 s."""
+    return subprocess.run([os.path.join(wt, "tools", "setup"), "--check", "--config", "debug"],
+                          cwd=wt, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                          stdin=subprocess.DEVNULL).returncode
+
+
+def ensure_setup(report, wt, fork, env, log, force=False, step=run_step, check=setup_check):
+    """`make setup` when the pins it reads changed since the last one here, or
+    when setup's own --check has anything to do."""
+    stamp_path = os.path.join(wt, ".daily-gate-setup")
+    want = setup_stamp(wt, fork)
+    have = open(stamp_path).read().strip() if os.path.exists(stamp_path) else ""
+    pins_same = have == want and os.path.isdir(os.path.join(wt, "farm", "debug"))
+    if not force and pins_same:
+        if check(wt, env) == 0:
+            report.say("step %-12s (pins unchanged, setup --check clean)" % "setup")
+            return 0
+        report.say("step %-12s (pins unchanged, but setup --check has work to do)" % "setup")
+    rel = os.path.relpath(fork, wt)
+    rc = step(report, "setup", ["make", "setup", "ROOT=" + rel], wt, env, log)
+    if rc == 0:
+        with open(stamp_path, "w") as f:
+            f.write(want + "\n")
+    return rc
+
+
+def gate_env(state, run_id):
+    env = dict(os.environ)
+    tmp = os.path.join(state, "tmp", run_id)
+    os.makedirs(tmp, exist_ok=True)
+    env["TMPDIR"] = tmp
+    # Short: a socket path is at most 108 bytes (live-gate lane pitfalls).
+    sock = "/tmp/ss-dg-%d" % os.getpid()
+    os.makedirs(sock, exist_ok=True)
+    env["DEBUG_API_DIR"] = sock
+    return env, tmp, sock
+
+
+def live_gate(report, name, wt, env, log, verdicts, steps=None, passes=None):
+    args = "--verdicts %s" % verdicts
+    if steps:
+        args += " --steps %s" % ",".join(steps)
+    if passes:
+        args += " --passes %d" % passes
+    try:
+        os.unlink(verdicts)
+    except OSError:
+        pass
+    rc = run_step(report, name, ["make", "live-gate", "LIVE_ARGS=" + args], wt, env, log)
+    try:
+        doc = json.load(open(verdicts))
+    except (OSError, ValueError):
+        doc = None
+    return rc, doc
+
+
+def fork_clean(report, fork):
+    out = git(fork, "status", "--porcelain", check=False)
+    n = len([l for l in out.splitlines() if l.strip()])
+    report.say("fork %s: %d change(s) (%s)" % (fork, n, "read-only" if n == 0 else "WRITTEN TO"))
+    return n == 0
+
+
+def ensure_worktree(wt, ref="main"):
+    if os.path.isdir(os.path.join(wt, ".git")) or os.path.isfile(os.path.join(wt, ".git")):
+        git(wt, "checkout", "--detach", ref)
+    else:
+        git(main_checkout(), "worktree", "add", "--detach", wt, ref)
+
+
+def bisect(report, wt, fork, good, bad, steps, rates, state, env, log, stamp):
+    """git bisect run over good..bad in `wt`, on `steps`. Returns the
+    bisect.txt path. Always resets the bisect."""
+    rounds = rounds_for(steps, rates)
+    report.say("bisect %s..%s on %s, %d pass(es) per commit" % (good[:12], bad[:12], ",".join(steps), rounds))
+    # A copy of this script runs each commit: the commit under test may not
+    # have tools/daily-gate, or have another one.
+    runner_dir = tempfile.mkdtemp(prefix="bisect-", dir=state)
+    runner = os.path.join(runner_dir, "daily-gate")
+    shutil.copy(os.path.realpath(__file__), runner)
+    out_text, blog = "", ""
+    try:
+        git(wt, "bisect", "reset", check=False)
+        git(wt, "bisect", "start", bad, good)
+        p = subprocess.run(["git", "-C", wt, "bisect", "run", sys.executable, runner, "--bisect-step",
+                            "--worktree", wt, "--fork", fork, "--steps", ",".join(steps),
+                            "--rounds", str(rounds), "--state", state, "--log", log],
+                           env=env, capture_output=True, text=True)
+        out_text = p.stdout + p.stderr
+        blog = git(wt, "bisect", "log", check=False)
+    finally:
+        git(wt, "bisect", "reset", check=False)
+        shutil.rmtree(runner_dir, ignore_errors=True)
+    first = parse_first_bad(out_text)
+    g, b, s = bisect_counts(blog)
+    lines = ["bisect %s..%s, steps %s, %d pass(es) per commit" % (good, bad, ",".join(steps), rounds),
+             "tested: %d good, %d bad, %d skipped" % (g, b, s)]
+    if first:
+        info = git(wt, "show", "-s", "--format=%H%n%s%n%an <%ae>%n%ad", first, check=False).splitlines()
+        lines += ["FIRST BAD COMMIT %s" % info[0], "  subject %s" % info[1],
+                  "  author  %s" % info[2], "  date    %s" % info[3]]
+    else:
+        lines.append("NO FIRST BAD COMMIT named (every commit skipped, or the bisect failed):")
+        lines += ["  " + l for l in out_text.strip().splitlines()[-15:]]
+    lines += ["", "-- git bisect log"] + blog.splitlines()
+    path = os.path.join(state, "%s-bisect.txt" % stamp)
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    for l in lines:
+        report.say(l)
+    return path, first
+
+
+def bisect_step(args):
+    """One commit, under `git bisect run`: 0 good, 1 bad, 125 skip."""
+    wt, fork = args.worktree, args.fork
+    steps = args.steps.split(",")
+    state = state_dir(args.state)
+    head = git(wt, "rev-parse", "HEAD")
+    report = Report(os.path.join(state, "bisect-step-%s.log" % head[:12]))
+    env = dict(os.environ)
+    log = args.log or os.path.join(state, "bisect-%s.out" % head[:12])
+    report.say("commit %s" % head)
+    if ensure_setup(report, wt, fork, env, log) != 0:
+        report.say("setup failed: skip")
+        return SKIP_EXIT
+    if run_step(report, "debug", ["make", "debug"], wt, env, log) != 0:
+        report.say("build failed: skip")
+        return SKIP_EXIT
+    if run_step(report, "map", SANDBOX_MAP, wt, env, log) != 0:
+        report.say("the sandbox map did not build: skip")
+        return SKIP_EXIT
+    helptext = subprocess.run([os.path.join(wt, "tools", "live-gate"), "--help"],
+                              cwd=wt, capture_output=True, text=True).stdout
+    if "--steps" not in helptext or "--verdicts" not in helptext:
+        report.say("this commit's live-gate has no --steps/--verdicts: skip")
+        return SKIP_EXIT
+    base = os.path.join(state, "verdicts-%s" % head[:12])
+    doc = confirm(confirm_runner(report, wt, env, log, base), steps, args.rounds)
+    v = bisect_verdict(doc, steps)
+    report.say("counts %s -> %s" % (fail_counts(doc, steps) if doc else "no verdicts",
+                                    {0: "good", 1: "bad"}.get(v, "skip")))
+    fork_ok = fork_clean(report, fork)
+    return v if fork_ok else SKIP_EXIT
+
+
+def run(args):
+    state = state_dir(args.state)
+    wt = os.path.abspath(args.worktree or os.path.join(os.path.dirname(main_checkout()), "ss-daily-gate"))
+    fork = os.path.abspath(args.fork or os.path.join(os.path.dirname(wt), "source-sdk-2013"))
+    sha = git(ROOT, "rev-parse", args.ref)
+    stamp = "%s-%s" % (datetime.date.today().isoformat(), sha[:12])
+    report = Report(os.path.join(state, stamp + ".log"))
+    latest = os.path.join(state, "latest")
+    green_path = os.path.join(state, "last-green")
+    last_green = open(green_path).read().strip() if os.path.exists(green_path) else ""
+
+    report.say("daily-gate %s" % datetime.datetime.now().isoformat(timespec="seconds"))
+    report.say("TIP %s" % sha)
+    report.say("last-green %s" % (last_green or "(none)"))
+    try:
+        report.say("last-green provenance: " + open(green_path + ".provenance").readline().strip())
+    except OSError:
+        pass
+    report.say("worktree %s" % wt)
+    if decide_skip(sha, last_green):
+        report.say("main has not moved since the last green run: nothing to gate")
+        return report.finish("SKIP", 0, latest)
+
+    log = os.path.join(state, stamp + ".out")
+    env, tmp, sock = gate_env(state, stamp)
+    rc, verdict = 1, "FAIL"
+    try:
+        ensure_worktree(wt, sha)
+        report.say("worktree at %s" % git(wt, "rev-parse", "HEAD"))
+        run_step(report, "box-ready", [os.path.join(wt, "tools", "box-ready"), "gate", "--wait"], wt, env, log)
+        if ensure_setup(report, wt, fork, env, log) != 0:
+            report.say("setup failed: see %s" % log)
+        elif run_step(report, "debug", ["make", "debug"], wt, env, log) != 0:
+            report.say("the build failed: see %s" % log)
+        elif run_step(report, "map", SANDBOX_MAP, wt, env, log) != 0:
+            report.say("the sandbox map did not build: see %s" % log)
+        else:
+            vpath = os.path.join(state, stamp + "-verdicts.json")
+            grc, doc = live_gate(report, "live-gate", wt, env, log, vpath)
+            if grc == 0 and doc and doc.get("exit") == 0:
+                rc, verdict = 0, "PASS"
+            elif not doc:
+                report.say("the gate wrote no verdicts (exit %d): see %s" % (grc, log))
+            else:
+                failing = failing_steps(doc)
+                unrun = unrun_steps(doc)
+                report.say("failing steps: %s" % (", ".join(failing) or "(none named)"))
+                if unrun:
+                    report.say("steps the night run never reached (the game died first): %s" % ", ".join(unrun))
+                for step, msg, times in dedupe_failures(doc.get("failures")):
+                    report.say("  failure %-14s %s%s" % (step, msg, "" if times == 1 else "  (x%d)" % times))
+                if failing:
+                    verdict = triage(report, wt, fork, failing, last_green, sha, state, env, log, stamp,
+                                     night=doc, unrun=unrun)
+        if not fork_clean(report, fork):
+            rc, verdict = 1, "FAIL-FORK-WRITTEN"
+        if rc == 0:
+            with open(green_path, "w") as f:
+                f.write(sha + "\n")
+            with open(green_path + ".provenance", "w") as f:
+                f.write("daily-gate PASS, report %s\n" % report.path)
+    except Exception as exc:  # noqa: BLE001 -- the report must still be written
+        report.say("daily-gate raised: %r" % exc)
+        rc, verdict = 1, "ERROR"
+    finally:
+        try:
+            git(wt, "bisect", "reset", check=False)
+            git(wt, "checkout", "--detach", sha, check=False)
+        except Exception:  # noqa: BLE001
+            pass
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(sock, ignore_errors=True)
+    report.say("log %s" % log)
+    return report.finish(verdict, rc, latest)
+
+
+def confirm_runner(report, wt, env, log, base):
+    """run_one for confirm(): one live-gate process per call, each with its
+    own verdicts file (<base>-<n>.json) so no run overwrites another's."""
+    n = [0]
+
+    def run_one(steps, passes):
+        n[0] += 1
+        path = "%s-%d.json" % (base, n[0])
+        _rc, doc = live_gate(report, "confirm-%d" % n[0], wt, env, log, path, steps, passes)
+        return doc
+    return run_one
+
+
+def triage(report, wt, fork, failing, last_green, sha, state, env, log, stamp, night=None, unrun=()):
+    """Confirm the failing steps (and those the night run never reached);
+    bisect the confirmed ones. Returns the verdict word."""
+    rates, warn = read_rates(os.path.join(wt, "docs", "plans", "gate_flakes_findings.md"), failing)
+    if warn:
+        report.say("WARNING " + warn)
+    steps = list(failing) + [s for s in unrun if s not in failing]
+    cpath = os.path.join(state, stamp + "-confirm.json")
+    cdoc = confirm(confirm_runner(report, wt, env, log, cpath[:-len(".json")]), steps)
+    with open(cpath, "w") as f:
+        json.dump(cdoc, f, indent=1)
+    confirmed, flaky = classify(cdoc, steps)
+    # A step the night never reached that passes every confirm pass is green;
+    # one that gave no verdict on confirm either is unknown: never bisected
+    # (every commit would be a skip), and the run is not green.
+    never_ran = []
+    for s in unrun:
+        if s in failing:
+            continue
+        if fail_counts(cdoc, [s])[s][1] == 0:
+            never_ran.append(s)
+            confirmed.remove(s)
+        elif flaky.get(s, (1, 0))[0] == 0:
+            del flaky[s]
+    report.say("confirm: each step's verdicts over %d pass(es), %d live-gate process(es)"
+               % (CONFIRM_PASSES, len(cdoc["runs"])))
+    for l in step_table(night, cdoc, steps, confirmed, flaky, unrun):
+        report.say(l)
+    for s, (f, n) in flaky.items():
+        r = rates.get(s, "not known flaky")
+        known = "unmeasured" if r is None else ("%d/%d" % r if isinstance(r, tuple) else r)
+        report.say("FLAKY %s: failed %d of %d confirm passes (known rate: %s); not bisected" % (s, f, n, known))
+    for s in confirmed:
+        f, n = fail_counts(cdoc, [s])[s]
+        if n < CONFIRM_PASSES:
+            report.say("CONFIRMED %s on %d of %d pass(es): the other %d never gave a verdict"
+                       % (s, f, n, CONFIRM_PASSES - n))
+    ancestor = bool(last_green) and subprocess.run(
+        ["git", "-C", wt, "merge-base", "--is-ancestor", last_green, sha]).returncode == 0
+    if never_ran:
+        report.say("NEVER RAN %s: no verdict at night or on confirm (see the log)" % ", ".join(never_ran))
+    action = next_action(confirmed, flaky, last_green, ancestor, never_ran)
+    if action in ("FLAKY", "NEVER-RAN"):
+        return verdict_word(action)
+    report.say("CONFIRMED %s" % ", ".join(confirmed))
+    if action == "NO-BASELINE":
+        report.say("no baseline: no green run is on record, so there is nothing to bisect from; "
+                   "the red steps are the CONFIRMED rows above")
+        return verdict_word(action)
+    if action == "NOT-ANCESTOR":
+        report.say("the last green %s is not an ancestor of %s: cannot bisect" % (last_green[:12], sha[:12]))
+        return verdict_word(action)
+    _path, first = bisect(report, wt, fork, last_green, sha, confirmed, rates, state, env, log, stamp)
+    return "FAIL-BISECTED" if first else "FAIL"
+
+
+def status(args):
+    state = state_dir(args.state)
+    latest = os.path.join(state, "latest")
+    try:
+        text = open(latest).read()
+    except OSError:
+        text = None
+    ok, why = report_status(text)
+    print("daily-gate: %s (%s)" % ("GREEN" if ok else "NOT GREEN", why))
+    return 0 if ok else 1
+
+
+def bisect_only(args):
+    """--bisect GOOD BAD: the bisect path alone (proof and diagnosis)."""
+    state = state_dir(args.state)
+    wt = os.path.abspath(args.worktree or ROOT)
+    fork = os.path.abspath(args.fork or os.path.join(os.path.dirname(wt), "source-sdk-2013"))
+    good, bad = (git(wt, "rev-parse", r) for r in args.bisect)
+    steps = args.steps.split(",")
+    stamp = "%s-%s" % (datetime.date.today().isoformat(), bad[:12])
+    report = Report(os.path.join(state, stamp + "-bisect-only.log"))
+    report.say("TIP %s" % bad)
+    env, tmp, sock = gate_env(state, stamp)
+    log = os.path.join(state, stamp + "-bisect-only.out")
+    reset_to = args.reset_to or git(wt, "rev-parse", "--abbrev-ref", "HEAD")
+    rates, warn = read_rates(os.path.join(wt, "docs", "plans", "gate_flakes_findings.md"), steps)
+    if warn:
+        report.say("WARNING " + warn)
+    first = None
+    try:
+        _p, first = bisect(report, wt, fork, good, bad, steps, rates, state, env, log, stamp)
+    finally:
+        git(wt, "bisect", "reset", check=False)
+        git(wt, "checkout", reset_to, check=False)
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(sock, ignore_errors=True)
+    return report.finish("BISECTED" if first else "FAIL", 0 if first else 1)
+
+
+# ===========================================================================
+# SELF-TEST
+# ===========================================================================
+def self_test():
+    checks = []
+
+    def ok(cond, name):
+        checks.append((bool(cond), name))
+
+    def doc(verdicts, exit_code=1, failures=()):
+        return {"steps": list(verdicts), "verdicts": verdicts, "exit": exit_code,
+                "failures": [list(f) for f in failures]}
+
+    # skip
+    ok(decide_skip("abc", "abc"), "main at the last green sha is a skip")
+    ok(not decide_skip("abd", "abc"), "main moved: run")
+    ok(not decide_skip("abc", ""), "no green run yet: run")
+    ok(not decide_skip("", ""), "an unreadable sha never skips")
+    # failing steps
+    d = doc({"join": ["pass", "pass"], "push": ["pass", "fail"], "door": ["fail", "fail"]})
+    ok(failing_steps(d) == ["push", "door"], "a fail on any pass names the step, in run order")
+    ok(failing_steps(doc({"join": ["pass"]}, failures=[("join", "x")])) == ["join"],
+       "a failure filed under a step names it")
+    ok(failing_steps(doc({"join": ["pass"]}, failures=[("between passes", "x")])) == [],
+       "a failure under no step names no step")
+    ok(failing_steps(None) == [], "no verdicts: no steps named (the caller reports the run failed)")
+    # confirm
+    c, f = classify(doc({"join": ["pass"] * 3, "push": ["fail", "pass", "pass"], "door": ["fail", "fail", "pass"]}),
+                    ["push", "door"])
+    ok(c == ["door"] and f == {"push": (1, 3)}, "1 of 3 is FLAKY, 2 of 3 is confirmed")
+    c, f = classify(doc({"join": ["pass"] * 3, "door": ["pass"] * 3}), ["door"])
+    ok(c == [] and f == {"door": (0, 3)}, "0 of 3 is FLAKY (it failed the night run only)")
+    c, f = classify(None, ["door"])
+    ok(c == ["door"] and not f, "a confirm run with no verdicts is no evidence of a flake")
+    # confirm (2026-10-11): a crash in one step ends the live-gate process,
+    # so one `--passes 3` run gave every step ONE verdict, and "1 of 1"
+    # failed came out FLAKY on 10-10 and 10-11.
+    c, f = classify(doc({"ui-scoreboard": ["fail"], "hot-reload": ["fail"]}), ["ui-scoreboard", "hot-reload"])
+    ok(c == ["ui-scoreboard", "hot-reload"] and not f, "1 of 1 failed is not FLAKY: no pass was seen")
+    c, f = classify(doc({"door": ["fail", "pass"]}), ["door"])
+    ok(c == ["door"] and not f, "1 of 2 with a pass missing can still reach 2 of 3: not FLAKY")
+    c, f = classify(doc({"door": ["pass", "pass"]}), ["door"])
+    ok(c == [] and f == {"door": (0, 2)}, "0 of 2 cannot reach 2 of 3: FLAKY")
+    c, f = classify(doc({"door": ["fail", "fail", "fail"]}), ["door"])
+    ok(c == ["door"] and not f, "3 of 3 is confirmed")
+
+    def fake_gate(script):
+        """A live-gate stand-in: `script(steps, passes)` gives the verdict
+        list per step for one process; the calls are recorded."""
+        calls = []
+
+        def run_one(steps, passes):
+            calls.append((list(steps), passes))
+            v = script(steps, passes)
+            return None if v is None else doc(v)
+        return run_one, calls
+
+    def crashing(steps, passes):
+        # hot-reload crashes the game on every pass it runs: the process ends
+        # there, and the steps it ran before it get the one verdict.
+        out = {}
+        for _ in range(passes):
+            for s in steps:
+                out.setdefault(s, []).append("fail" if s in ("hot-reload", "ui-scoreboard") else "pass")
+                if s == "hot-reload":
+                    return out
+        return out
+    run_one, calls = fake_gate(crashing)
+    m = confirm(run_one, ["ui-scoreboard", "frag-credit", "hot-reload"])
+    ok(all(len(m["verdicts"][s]) == CONFIRM_PASSES for s in ("ui-scoreboard", "frag-credit", "hot-reload")),
+       "confirm gives each red step 3 passes even when one pass crashes the game")
+    ok(calls[0] == (["ui-scoreboard", "frag-credit", "hot-reload"], CONFIRM_PASSES) and
+       all(len(st) == 1 and p == 1 for st, p in calls[1:]),
+       "one run of all the steps first, then each short step alone, a pass per process")
+    c, f = classify(m, ["ui-scoreboard", "frag-credit", "hot-reload"])
+    ok(c == ["ui-scoreboard", "hot-reload"] and f == {"frag-credit": (0, 3)},
+       "the crash-starved steps are judged on 3 passes each")
+    run_one, calls = fake_gate(lambda steps, passes: {s: ["pass"] * passes for s in steps})
+    confirm(run_one, ["door", "push"])
+    ok(len(calls) == 1, "steps that got all their passes in the first run are not run again")
+    run_one, calls = fake_gate(lambda steps, passes: None)
+    m = confirm(run_one, ["door"])
+    ok(m["verdicts"]["door"] == [] and 1 < len(calls) <= 1 + CONFIRM_PASSES + 1,
+       "a gate that never writes verdicts is retried a bounded number of times")
+    ok(classify(m, ["door"]) == (["door"], {}), "and no evidence is no flake")
+    run_one, calls = fake_gate(lambda steps, passes: {s: ["fail"] * (passes + 2) for s in steps})
+    m = confirm(run_one, ["door"])
+    ok(m["verdicts"]["door"] == ["fail"] * CONFIRM_PASSES, "no step is credited more passes than asked for")
+    # what the confirm leads to
+    ok(next_action(["door"], {}, "abc", True) == "BISECT", "3 of 3 is FAIL and is bisected when a green sha exists")
+    ok(next_action(["door"], {}, "", True) == "NO-BASELINE", "with no green sha: FAIL, no baseline")
+    ok(next_action(["door"], {}, "abc", False) == "NOT-ANCESTOR", "a green sha off main's history: FAIL, no bisect")
+    ok(next_action([], {"door": (1, 3)}, "abc", True) == "FLAKY", "under 2 of 3 with nothing confirmed is FLAKY")
+    ok(next_action([], {"door": (1, 3)}, "abc", True, ["shutdown"]) == "NEVER-RAN" and
+       verdict_word("NEVER-RAN") == "FAIL", "a step that never gave a verdict anywhere is FAIL, not FLAKY")
+    ok(verdict_word("NO-BASELINE") == "FAIL-NO-BASELINE" and verdict_word("FLAKY") == "FLAKY",
+       "the verdict names the missing baseline")
+    # the steps a crash kept the night run from reaching
+    night = doc({"join": ["pass"], "hot-reload": ["fail"], "map-change": []})
+    night["steps"].append("shutdown")
+    ok(unrun_steps(night) == ["map-change", "shutdown"], "a step with no verdict at night is named unrun")
+    ok(unrun_steps(None) == [], "no verdicts: no unrun steps (the caller reports the run failed)")
+    # the per-step table
+    t = "\n".join(step_table(doc({"ui-teammenu": ["fail"], "hot-reload": ["fail"]}),
+                             doc({"ui-teammenu": ["fail"] * 3, "hot-reload": ["fail", "pass", "pass"],
+                                  "shutdown": ["pass"] * 3}),
+                             ["ui-teammenu", "hot-reload", "shutdown"], ["ui-teammenu"],
+                             {"hot-reload": (1, 3), "shutdown": (0, 3)}, ["shutdown"]))
+    ok(re.search(r"^\s*ui-teammenu\s+1 of 1 red\s+3 of 3 red\s+CONFIRMED$", t, re.M) and
+       re.search(r"^\s*hot-reload\s+1 of 1 red\s+1 of 3 red\s+FLAKY$", t, re.M) and
+       re.search(r"^\s*shutdown\s+not run\s+0 of 3 red\s+passed on confirm$", t, re.M),
+       "the table shows each step's night and confirm counts and its verdict")
+    ok(dedupe_failures([["a", "x"], ["a", "x"], ["b", "y"], ["a", "x"]]) == [("a", "x", 3), ("b", "y", 1)],
+       "a failure the gate filed three times is reported once, with its count")
+    # rounds
+    ok(rounds_for(["door"], KNOWN_FLAKY) == 3, "a step not known flaky gets 3 passes")
+    ok(rounds_for(["push"], KNOWN_FLAKY) == 5, "push at 1/6 needs 5 (3 risks 7.4%)")
+    ok(rounds_for(["trigger"], KNOWN_FLAKY) == 9, "a known flake of unmeasured rate gets the most")
+    ok(_tail(1 / 6.0, 5) < FALSE_BAD <= _tail(1 / 6.0, 3), "the 5% line falls between 3 and 5 for 1/6")
+    # bisect verdict
+    ok(bisect_verdict(doc({"door": ["fail", "fail", "pass"]}), ["door"]) == 1, "a majority of fails is bad")
+    ok(bisect_verdict(doc({"door": ["fail", "pass", "pass"]}), ["door"]) == 0, "a minority is good")
+    ok(bisect_verdict(doc({"join": ["pass"]}), ["door"]) == SKIP_EXIT, "a step that never ran is a skip")
+    ok(bisect_verdict(None, ["door"]) == SKIP_EXIT, "no verdicts is a skip, never good")
+    # rates file
+    with tempfile.TemporaryDirectory() as d:
+        def rates_of(body):
+            p = os.path.join(d, "f.md")
+            with open(p, "w") as fh:
+                fh.write(body)
+            return read_rates(p)
+        r, w = rates_of("push fails 2 of 46 in prose\n```rates\npush\t2\t10\tsrc\nknock-loose\t4\t20\tsrc\n```\n")
+        ok(w is None and r["push"] == (2, 10) and r["knock-loose"] == (4, 20),
+           "the ```rates block overrides the built-in rates; the prose is not read")
+        r, w = rates_of("push fails 2/10 in the long run\nknock-loose: 4 of 20\n")
+        ok(w and r == KNOWN_FLAKY, "a document with no ```rates block: the built-in rates, and a warning")
+        r, w = rates_of("```rates\npush\t9\n```\n")
+        ok(w and "bad row" in w and r == KNOWN_FLAKY, "a malformed row: the built-in rates, and a warning")
+        r, w = rates_of("```rates\npush\t9\t105\ts\npush\t1\t2\ts\n```\n")
+        ok(w and r == KNOWN_FLAKY, "a step named twice: the built-in rates, and a warning")
+        r, w = rates_of("```rates\npush\t9\t105\ts\n")
+        ok(w and r == KNOWN_FLAKY, "an unterminated block: the built-in rates, and a warning")
+        r, w = read_rates(os.path.join(d, "missing.md"))
+        ok(w and r["push"] == (1, 6), "no document: the built-in rates, and a warning")
+    # today's findings document: its prose quotes other N-of-M counts near the step names
+    findings = os.path.join(ROOT, "docs", "plans", "gate_flakes_findings.md")
+    r, w = read_rates(findings)
+    ok(w is None, "the findings document's ```rates block reads without a warning")
+    ok(r.get("push") == (0, 45), "the findings document's push rate is the block's 0/45 (since pushFloor), not a count in the prose")
+    ok((r.get("trigger"), r.get("contact-touch"), r.get("knock-loose"), r.get("hot-reload")) ==
+       ((4, 105), (4, 104), (8, 104), (4, 105)), "the findings document's other historical rates")
+    # bisect output
+    ok(parse_first_bad("Bisecting...\n0123456789abcdef0123456789abcdef01234567 is the first bad commit\ncommit 0123") ==
+       "0123456789abcdef0123456789abcdef01234567", "the first bad commit is read off bisect run's output")
+    ok(parse_first_bad("bisect run cannot continue any more") is None, "no named commit reads as None")
+    ok(bisect_counts("# bad: [a] x\n# good: [b] y\ngit bisect start 'a' 'b'\n# skip: [c] z\n# good: [d] w\n"
+                     "git bisect good d\n# bad: [e] v\n") == (1, 1, 1),
+       "the tested good/bad/skip marks are counted, not the endpoints before the start")
+    # reports
+    ok(not report_status(None)[0], "a missing report is a failure")
+    ok(not report_status("TIP x\nstep debug exit 0\n")[0], "a report that never finished is a failure")
+    ok(not report_status("verdict FAIL\nexit 1\n")[0], "a failing report is a failure")
+    ok(not report_status("verdict PASS\nexit 2\n")[0], "PASS with a non-zero exit is a failure")
+    ok(not report_status("verdict FLAKY\nexit 0\n")[0], "only PASS or SKIP with exit 0 is green")
+    ok(report_status("verdict SKIP\nexit 0\n")[0] and report_status("verdict PASS\nexit 0\n")[0],
+       "PASS or SKIP with exit 0 is green")
+    with tempfile.TemporaryDirectory() as d:
+        r = Report(os.path.join(d, "2026-10-04-abc.log"))
+        r.lines.append("TIP abc")
+        r.finish("PASS", 0, os.path.join(d, "latest"))
+        text = open(os.path.join(d, "latest")).read()
+        ok(report_status(text)[0] and "TIP abc" in text, "a finished report is green through the latest link")
+        r2 = Report(os.path.join(d, "2026-10-05-abd.log"))
+        r2.finish("FAIL", 1, os.path.join(d, "latest"))
+        ok(not report_status(open(os.path.join(d, "latest")).read())[0], "the link follows the newest report")
+    # setup: follow setup's own --check, not only the pins (2026-10-05: new
+    # files in our tree left farm/debug 5 links short and `make debug` refused)
+    with tempfile.TemporaryDirectory() as d:
+        wt, fork = os.path.join(d, "wt"), os.path.join(d, "fork")
+        os.makedirs(os.path.join(wt, "farm", "debug"))
+        os.makedirs(fork)
+        rep = Report(os.path.join(d, "r.log"))
+        ran = []
+
+        def fake_step(report, name, cmd, cwd, env, log):
+            ran.append(cmd)
+            return 0
+
+        def go(check_rc):
+            del ran[:]
+            rc = ensure_setup(rep, wt, fork, {}, os.path.join(d, "o"),
+                              step=fake_step, check=lambda wt, env: check_rc)
+            return rc, len(ran)
+
+        ok(go(1) == (0, 1), "no stamp yet: setup runs")
+        ok(go(0) == (0, 0), "pins unchanged and --check clean: setup is skipped")
+        ok(go(1) == (0, 1), "pins unchanged but --check has work to do: setup runs")
+        ok(ran and ran[0][:2] == ["make", "setup"], "the setup it runs is `make setup`")
+        ok(go(0) == (0, 0), "after it, a clean --check skips again")
+        with open(os.path.join(wt, "sdk-root.lock"), "w") as fh:
+            fh.write("moved\n")
+        ok(go(0) == (0, 1), "pins changed: setup runs even when --check is clean")
+        ok(go(0) == (0, 0), "and the new pins are stamped")
+    e = {"GIT_DIR": "/x/.git", "GIT_WORK_TREE": "/x", "PATH": "/bin", "GITHUB": "keep"}
+    scrub_git_env(e)
+    ok(e == {"PATH": "/bin", "GITHUB": "keep"}, "git's GIT_* variables are dropped, nothing else")
+    ok(os.path.basename(ROOT) and os.path.isfile(os.path.join(ROOT, "tools", "daily-gate")),
+       "the root is found from this file's own location")
+
+    for good, name in checks:
+        print("  %s  %s" % ("ok  " if good else "FAIL", name))
+    bad = [n for g, n in checks if not g]
+    print("\n%d check(s), %d failed" % (len(checks), len(bad)))
+    return 1 if bad else 0
+
+
+def scrub_git_env(environ):
+    """Drop GIT_DIR and the rest of git's GIT_* variables. `git bisect run`
+    exports them to the command it runs, and every git call below it -- make
+    setup's look at the fork's HEAD, the fork's status -- then answers about
+    the bisected repo instead (setup saw the fork at the commit under test,
+    2026-10-04)."""
+    for k in [k for k in environ if k.startswith("GIT_")]:
+        del environ[k]
+
+
+def main(argv):
+    scrub_git_env(os.environ)
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--status", action="store_true")
+    ap.add_argument("--bisect", nargs=2, metavar=("GOOD", "BAD"))
+    ap.add_argument("--bisect-step", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("--steps")
+    ap.add_argument("--rounds", type=int, default=3)
+    ap.add_argument("--worktree")
+    ap.add_argument("--fork")
+    ap.add_argument("--state")
+    ap.add_argument("--log")
+    ap.add_argument("--reset-to")
+    ap.add_argument("--ref", default="main",
+                    help="what to gate (default main; another ref is for proving the tool)")
+    a = ap.parse_args(argv)
+    if a.self_test:
+        return self_test()
+    if a.status:
+        return status(a)
+    if a.bisect_step:
+        return bisect_step(a)
+    if a.bisect:
+        if not a.steps:
+            ap.error("--bisect needs --steps")
+        return bisect_only(a)
+    return run(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

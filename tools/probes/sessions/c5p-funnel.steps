@@ -1,0 +1,16 @@
+# lane c5-particles: C_TELargeFunnel's funnel recorded (shell_te_backends_client.cpp.probe.diff's lf* rows, with
+# particles_simple.cpp's probe): the largefunnel temp entity fired by cs_te_fire (reversed, as its demo sends), then c5p_funnel forward and reversed.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -3843 2894 0
+cmd setang_exact 10 90 0
+sleep 1
+cmd cs_te_fire largefunnel -3843 3100 40 broadcast
+sleep 1
+cmd cs_te_fire largefunnel -3800 3150 20 broadcast
+sleep 4
+cmd c5p_funnel -3843 3100 40 0
+sleep 1
+cmd c5p_funnel -3820 3120 60 1
+sleep 4

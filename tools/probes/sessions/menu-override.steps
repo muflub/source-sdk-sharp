@@ -1,0 +1,17 @@
+# C0 probe 3: is IGameUI::SetMainMenuOverride honoured? A hidden magenta panel
+# (top half of the screen) is handed to GameUI; honoured = GameUI shows it.
+wait iface-list 120
+sleep 6
+cmd cs_cl_probe_modules
+shot menu-before
+cmd cs_cl_probe_menu_override
+sleep 3
+shot menu-after
+cmd map dm_lockdown
+wait first paint 240
+sleep 3
+shot ingame
+cmd disconnect
+sleep 4
+shot menu-after-disconnect
+quit

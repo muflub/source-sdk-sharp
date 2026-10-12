@@ -1,0 +1,131 @@
+#!/bin/bash
+# tools/mod-image -- the mod image a hosted game pod's init container copies
+# into /game (plan_host_sdk §2.5; the contract is source-sdk-sharp-host's
+# docs/mod-image.md). Builds it locally and NEVER pushes: pushing to a
+# registry is plan_host_sdk P9's checkpoint, asked of the user first.
+#
+#   tools/mod-image [--config debug|release] [--mod tf2_descent] [--ref IMAGE] [--dry-run] [--game DIR]
+#
+# What goes in, from bin/<config>/, symlinks followed:
+#   mods.yaml, bin/linux64 (with server_srv.so), bin/managed, bin/dotnet,
+#   mods/<mod>/ (gameinfo, cfg seeds, maps incl. the compiled town),
+#   mods/test/ (the core game's files) and mods/tf2/ (TF2Descent builds on
+#   the TF2 mod): every mod's gameinfo mounts them as ../test and ../tf2,
+#   mods/<mod>/mod.dedicated.yaml: `source# -mod <mod> -dedicated -resolve`,
+#   the flat settings the pod's entrypoint reads (shape agreed with the host).
+# What never does: TF2 content (a pod mounts it), the engine view, logs,
+# downloads, anything the engine wrote at run time.
+#
+# --dry-run lays out the build context and lists it, without building.
+# --game DIR reads the game directory from DIR instead of bin/<config>: the
+# tests' way to plant run leftovers without touching the tree's own bin/.
+set -euo pipefail
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+config=release
+mod=tf2_descent
+ref=
+dry=0
+game=
+tool=${IMAGE_TOOL:-podman}
+while [ $# -gt 0 ]; do
+  case $1 in
+    --config) config=$2; shift 2 ;;
+    --mod) mod=$2; shift 2 ;;
+    --ref) ref=$2; shift 2 ;;
+    --dry-run) dry=1; shift ;;
+    --game) game=$2; shift 2 ;;
+    *) echo "mod-image: unknown argument $1" >&2; exit 2 ;;
+  esac
+done
+ref=${ref:-localhost/${mod//_/-}-mod:dev}  # the host names images with hyphens (tf2-descent-mod)
+game=${game:-$ROOT/bin/$config}
+
+for p in mods.yaml source# bin/linux64/server.so bin/linux64/server_srv.so bin/managed bin/dotnet "mods/$mod/gameinfo.txt" mods/test/gameinfo.txt mods/tf2/gameinfo.txt; do
+  [ -e "$game/$p" ] || { echo "mod-image: $game/$p is missing: build $config (make $config) and make setup first" >&2; exit 1; }
+done
+if [ "$mod" = tf2_descent ] && [ ! -e "$game/mods/tf2_descent/maps/tf2_descent_town.bsp" ]; then
+  echo "mod-image: no tf2_descent_town.bsp: make town CONFIG=$config first (the hub runs it)" >&2
+  exit 1
+fi
+
+ctx=$(mktemp -d)
+trap 'rm -rf "$ctx"' EXIT
+mkdir -p "$ctx/game"
+# Each mod directory is an ALLOWLIST, never "everything under mods/<id>": the
+# engine writes into it at run time (pool/ for the sound cache, cache/,
+# sound/, download/, cfg/config.cfg, videoconfig_linux.cfg, ...), with modes
+# a pod's non-root game cannot always enter. A pool/ at 0744 hid the overlay
+# mounted at pool/maps from the game, and no level could load. What goes in
+# is what setup links from the repo's game/mod_<id>/ (cfg-seed aside), plus
+# maps/, where the build writes the compiled town.
+mods=("$mod" test tf2)
+[ "$mod" = tf2 ] && mods=(tf2 test)
+paths=()
+for m in "${mods[@]}"; do
+  src="$ROOT/game/mod_$m"
+  [ -d "$src" ] || { echo "mod-image: no $src: the repo has no content for mod $m" >&2; exit 1; }
+  for e in "$src"/*; do
+    e=$(basename "$e")
+    [ "$e" = cfg-seed ] || paths+=("./mods/$m/$e")
+  done
+  [ -d "$game/mods/$m/maps" ] && [ ! -d "$src/maps" ] && paths+=("./mods/$m/maps")
+done
+
+(cd "$game" && tar -chf - \
+    --exclude='*.compile.log' --exclude='*/maps/*.vmf' \
+    ./mods.yaml ./bin/linux64 ./bin/managed ./bin/dotnet "${paths[@]}") \
+  | tar -xf - -C "$ctx/game"
+
+# cfg/ from the repo's seeds: bin's copy is the one the engine rewrites.
+for m in "${mods[@]}"; do
+  mkdir -p "$ctx/game/mods/$m/cfg"
+  if [ -d "$ROOT/game/mod_$m/cfg-seed" ]; then
+    cp -L "$ROOT/game/mod_$m/cfg-seed"/. "$ctx/game/mods/$m/cfg/" -r
+  fi
+done
+
+# |appid_N| is resolved through the Steam client, which a pod does not have:
+# the engine exits 1 right after "Using shader api" with no message (the
+# host's docs/mod-image.md, H0a). The image's copies mount the same content
+# by |all_source_engine_paths|; the repo's gameinfo keeps |appid_N| for
+# players' own installs.
+for m in "${mods[@]}"; do
+  sed -i 's/|appid_[0-9]*|/|all_source_engine_paths|/g' "$ctx/game/mods/$m/gameinfo.txt"
+  if grep -q '|appid_[0-9]' "$ctx/game/mods/$m/gameinfo.txt"; then
+    echo "mod-image: mods/$m/gameinfo.txt still names |appid_N|" >&2
+    exit 1
+  fi
+done
+
+# The pod's game runs as a non-root user: every directory must be one it can
+# enter and list, or whatever lies under it is invisible to the game.
+locked=$(cd "$ctx" && find game -type d ! -perm -o=rx | sort)
+if [ -n "$locked" ]; then
+  echo "mod-image: directories a non-root game cannot enter (need o+rx):" >&2
+  echo "$locked" | sed 's/^/  /' >&2
+  exit 1
+fi
+
+# Each mod's bin/ is setup's link to the shared ../../bin: kept a link, or the
+# copy would carry every binary three times.
+ln -s ../../bin "$ctx/game/mods/$mod/bin"
+ln -s ../../bin "$ctx/game/mods/test/bin"
+[ "$mod" = tf2 ] || ln -s ../../bin "$ctx/game/mods/tf2/bin"
+
+# The pod's resolved settings, from the launcher itself so there is one merge.
+(cd "$game" && ./source\# -mod "$mod" -dedicated -resolve) > "$ctx/game/mods/$mod/mod.dedicated.yaml"
+grep -q '^fd_limit: [0-9]' "$ctx/game/mods/$mod/mod.dedicated.yaml" \
+  || { echo "mod-image: source# -resolve wrote no fd_limit" >&2; exit 1; }
+
+printf 'FROM docker.io/library/busybox:1.37\nLABEL org.sourcesharp.mod=%s\nCOPY game /game\n' "$mod" > "$ctx/Containerfile"
+
+if [ $dry -eq 1 ]; then
+  (cd "$ctx" && find game -maxdepth 4 | sort)
+  echo "--- $(du -sh "$ctx/game" | cut -f1) in the context" 
+  echo "---"
+  cat "$ctx/game/mods/$mod/mod.dedicated.yaml"
+  exit 0
+fi
+
+"$tool" build -t "$ref" "$ctx"
+echo "mod-image: built $ref (not pushed; pushing is plan_host_sdk P9's checkpoint)"

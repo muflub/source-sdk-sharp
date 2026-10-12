@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+"""Make ROOT from stock upstream: clone Valve's source-sdk-2013 and apply our
+patch series to it, so the build needs no copy of the fork.
+
+    make sdk-upstream [SDK_DIR=../source-sdk-2013-upstream]
+    tools/sdk-upstream --sdk-dir DIR          clone (or reuse) and apply
+    tools/sdk-upstream --write-result DIR     re-pin `result` after the series
+                                              was regenerated on purpose
+    tools/sdk-upstream --self-test
+
+patches/source-sdk-2013/ holds the series (0001-*.patch ..., `git
+format-patch` output) and UPSTREAM, its pin:
+
+    url     the upstream repository
+    branch  the branch the clone follows
+    base    the upstream commit the series applies to
+    result  the commit `git am` makes from base and the series
+
+The result is DETERMINISTIC: the author and author date come from each patch,
+the committer is the fixed identity below with the author's date
+(--committer-date-is-author-date), and every git setting that could add to a
+commit object (signing, a Message-Id, sign-off, CR handling, 3-way merge) is
+fixed on the command line, so no user or global config reaches it. The same
+series on the same base gives the same sha on any machine, which is what lets
+tools/setup accept that sha as ROOT (check_root) without re-pinning
+sdk-root.lock. A run that ends anywhere else is a failure, never a pass: the
+series, the base or git changed, and --write-result is the deliberate re-pin.
+
+SDK_DIR must be absent (it is cloned) or a clone of `url` with a clean tree;
+anything else is refused, so the command never takes over another checkout
+(the fork, the pristine oracle clone).
+"""
+
+import argparse
+import glob
+import os
+import subprocess
+import sys
+import tempfile
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+PATCHES = os.path.join(REPO, "patches", "source-sdk-2013")
+
+COMMITTER_NAME = "SourceSharp patch series"
+COMMITTER_EMAIL = "sourcesharp-patches@invalid"
+
+# Set in the config of a clone this command made; nothing else is reused.
+MARK = "sourcesharp.sdkupstream"
+
+# Settings that would otherwise come from the user's or system config and
+# change the commit object, or how a patch applies.
+FIXED_CONFIG = [
+    "-c", "commit.gpgSign=false",
+    "-c", "am.messageId=false",
+    "-c", "am.keepcr=false",
+    "-c", "am.threeWay=false",
+    "-c", "core.autocrlf=false",
+    "-c", "core.eol=lf",
+    "-c", "apply.whitespace=nowarn",
+    "-c", "format.signOff=false",
+    "-c", "i18n.commitEncoding=UTF-8",
+]
+
+
+class Refused(Exception):
+    pass
+
+
+def git(cwd, *args, env=None, check=True):
+    r = subprocess.run(["git", "-C", cwd, *args], capture_output=True,
+                       text=True, env=env)
+    if check and r.returncode:
+        raise Refused(f"git {' '.join(args)} failed in {cwd}: "
+                      f"{r.stderr.strip()}")
+    return r.stdout.strip()
+
+
+def read_pin(patches):
+    path = os.path.join(patches, "UPSTREAM")
+    if not os.path.exists(path):
+        raise Refused(f"{path} is missing")
+    pin = {}
+    for line in open(path):
+        line = line.strip()
+        if line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            pin[k.strip()] = v.strip()
+    for k in ("url", "branch", "base"):
+        if not pin.get(k):
+            raise Refused(f"{path}: no `{k}=` line")
+    return pin
+
+
+def write_result(patches, sha):
+    path = os.path.join(patches, "UPSTREAM")
+    lines = [ln for ln in open(path).read().splitlines()
+             if not ln.strip().startswith("result")]
+    lines.append(f"result={sha}")
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def series(patches):
+    out = sorted(glob.glob(os.path.join(patches, "[0-9][0-9][0-9][0-9]-*.patch")))
+    if not out:
+        raise Refused(f"{patches}: no NNNN-*.patch files")
+    return out
+
+
+def am_env():
+    env = dict(os.environ)
+    env.update(GIT_COMMITTER_NAME=COMMITTER_NAME,
+               GIT_COMMITTER_EMAIL=COMMITTER_EMAIL,
+               # The author is the patch's From:, never the local user.
+               GIT_CONFIG_NOSYSTEM="1", LC_ALL="C", TZ="UTC")
+    for k in ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE",
+              "GIT_COMMITTER_DATE"):
+        env.pop(k, None)
+    return env
+
+
+def prepare(sdk_dir, pin, out):
+    """Clone into an absent SDK_DIR, or check that an existing one is a clean
+    clone of the pinned url. Returns nothing; raises Refused."""
+    url = pin["url"]
+    if not os.path.lexists(sdk_dir):
+        out(f"clone {url} ({pin['branch']}) into {sdk_dir}")
+        r = subprocess.run(["git", "clone", "-q", "--no-checkout",
+                            "--single-branch", "--branch", pin["branch"],
+                            url, sdk_dir], capture_output=True, text=True)
+        if r.returncode:
+            raise Refused(f"clone of {url} failed: {r.stderr.strip()}")
+        git(sdk_dir, "config", MARK, "true")
+        return
+    if not os.path.isdir(sdk_dir) or not os.path.exists(
+            os.path.join(sdk_dir, ".git")):
+        raise Refused(f"{sdk_dir} exists and is not a git clone; remove it "
+                      "or pick another SDK_DIR")
+    top = os.path.realpath(git(sdk_dir, "rev-parse", "--show-toplevel"))
+    if top != os.path.realpath(sdk_dir):
+        raise Refused(f"{sdk_dir} is inside another checkout ({top})")
+    origin = git(sdk_dir, "remote", "get-url", "origin", check=False)
+    if origin.rstrip("/").removesuffix(".git") != url.rstrip("/").removesuffix(
+            ".git"):
+        raise Refused(f"{sdk_dir} is a clone of {origin or '(no origin)'}, not "
+                      f"{url}; it is not this command's to change")
+    # The url is not enough: the fork and the pristine oracle clone are both
+    # clean clones of Valve's url. Only a clone this command made carries
+    # the mark, and only one at the base or the pinned result is reused.
+    if git(sdk_dir, "config", "--get", MARK, check=False) != "true":
+        raise Refused(f"{sdk_dir} is a clone of {url} that tools/sdk-upstream "
+                      f"did not make (no {MARK} in its config); it may be the "
+                      "fork or the pristine oracle clone, so it is never "
+                      "changed. Pick another SDK_DIR")
+    head = git(sdk_dir, "rev-parse", "HEAD", check=False)
+    if head not in (pin["base"], pin.get("result")):
+        raise Refused(f"{sdk_dir} is at {head[:12] or '(no commit)'}, neither "
+                      "the pinned base nor the pinned result; it holds "
+                      "someone's work, so it is never changed")
+    if git(sdk_dir, "status", "--porcelain"):
+        raise Refused(f"{sdk_dir} has local changes; it must be clean")
+    # A rebase or am left half done is local state too.
+    gitdir = git(sdk_dir, "rev-parse", "--absolute-git-dir")
+    for d in ("rebase-apply", "rebase-merge"):
+        if os.path.exists(os.path.join(gitdir, d)):
+            raise Refused(f"{sdk_dir} has a {d} in progress")
+    out(f"reuse the clone in {sdk_dir}")
+
+
+def apply(sdk_dir, pin, patches, out=print):
+    """Bring SDK_DIR to base + the series. Returns the resulting sha."""
+    prepare(sdk_dir, pin, out)
+    base = pin["base"]
+    if subprocess.run(["git", "-C", sdk_dir, "cat-file", "-e",
+                       base + "^{commit}"], capture_output=True).returncode:
+        out(f"fetch {base[:12]}")
+        git(sdk_dir, "fetch", "-q", "origin", base)
+    git(sdk_dir, "checkout", "-q", "--detach", "--force", base)
+    if git(sdk_dir, "rev-parse", "HEAD") != base:
+        raise Refused(f"{sdk_dir}: could not check out {base}")
+    files = series(patches)
+    out(f"apply {len(files)} patches with git am")
+    r = subprocess.run(["git", *FIXED_CONFIG, "-C", sdk_dir, "am", "-q",
+                        "--committer-date-is-author-date", "--no-3way",
+                        "--no-keep-cr", "--no-message-id", "--no-signoff",
+                        "--whitespace=nowarn", *files],
+                       capture_output=True, text=True, env=am_env())
+    if r.returncode:
+        subprocess.run(["git", "-C", sdk_dir, "am", "--abort"],
+                       capture_output=True)
+        raise Refused(f"git am failed on {base[:12]}: "
+                      f"{(r.stderr or r.stdout).strip()[-800:]}")
+    return git(sdk_dir, "rev-parse", "HEAD")
+
+
+def run(sdk_dir, patches=PATCHES, out=print, write=False):
+    pin = read_pin(patches)
+    sha = apply(sdk_dir, pin, patches, out)
+    if write:
+        write_result(patches, sha)
+        out(f"pinned result={sha} in {os.path.join(patches, 'UPSTREAM')}")
+        return sha
+    want = pin.get("result")
+    if not want:
+        raise Refused("UPSTREAM has no `result=` line: run tools/sdk-upstream "
+                      "--write-result DIR once the series is right")
+    if sha != want:
+        raise Refused(f"git am made {sha}, but UPSTREAM pins result={want}. "
+                      "The series, the base or git's commit format changed; if "
+                      "the series was regenerated on purpose, re-pin with "
+                      "tools/sdk-upstream --write-result DIR")
+    out(f"{sdk_dir} is at {sha} (upstream {pin['base'][:12]} + "
+        f"{len(series(patches))} patches), the pinned result")
+    return sha
+
+
+# --- self-test ----------------------------------------------------------------
+
+def self_test():
+    bad = 0
+
+    def check(name, ok, detail=""):
+        nonlocal bad
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} {name}" + (f" ({detail})" if detail
+                                                    else ""))
+
+    def refused(fn, want):
+        try:
+            fn()
+        except Refused as e:
+            return want in str(e), str(e)
+        return False, "not refused"
+
+    with tempfile.TemporaryDirectory() as t:
+        quiet = lambda m: None  # noqa: E731
+        up = os.path.join(t, "upstream")
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=os.path.join(t, "none"),
+                   GIT_CONFIG_NOSYSTEM="1")
+
+        def g(cwd, *a, e=None):
+            return subprocess.run(["git", "-C", cwd, *a], check=True,
+                                  capture_output=True, text=True,
+                                  env=e or env).stdout.strip()
+        os.makedirs(up)
+        g(up, "init", "-q", "-b", "master")
+        with open(os.path.join(up, "a.h"), "w") as f:
+            f.write("// Valve\nint a;\n")
+        g(up, "add", ".")
+        g(up, "-c", "user.name=v", "-c", "user.email=v@v", "commit", "-qm",
+          "base")
+        base = g(up, "rev-parse", "HEAD")
+        # The series: two commits on a side branch, exported.
+        work = os.path.join(t, "work")
+        g(t, "clone", "-q", up, work)
+        for i, text in enumerate(("int a;\nint b;\n", "int a;\nint c;\n")):
+            with open(os.path.join(work, "a.h"), "w") as f:
+                f.write("// Valve\n" + text)
+            g(work, "-c", "user.name=Author", "-c", "user.email=a@a",
+              "commit", "-qam", f"SourceSharp: step {i}",
+              e=dict(env, GIT_AUTHOR_DATE=f"2026-10-0{i + 1}T12:00:00Z",
+                     GIT_COMMITTER_DATE="2026-10-11T00:00:00Z"))
+        patches = os.path.join(t, "patches")
+        g(work, "format-patch", "-q", "--full-index", "-o", patches,
+          base + "..HEAD")
+        with open(os.path.join(patches, "UPSTREAM"), "w") as f:
+            f.write(f"url={up}\nbranch=master\nbase={base}\n")
+        url_pin = read_pin(patches)
+
+        # Two clones, made under different user configs (one signs commits,
+        # adds sign-offs and Message-Ids, and keeps CRs), give one sha.
+        hostile = os.path.join(t, "hostile.gitconfig")
+        with open(hostile, "w") as f:
+            f.write("[user]\n\tname = Someone Else\n\temail = x@y\n"
+                    "[commit]\n\tgpgSign = true\n[am]\n\tmessageId = true\n"
+                    "\tkeepcr = true\n\tthreeWay = true\n"
+                    "[format]\n\tsignOff = true\n")
+        old = os.environ.get("GIT_CONFIG_GLOBAL")
+        try:
+            os.environ["GIT_CONFIG_GLOBAL"] = os.path.join(t, "none")
+            one = run(os.path.join(t, "sdk1"), patches, quiet, write=True)
+            os.environ["GIT_CONFIG_GLOBAL"] = hostile
+            # A later wall-clock second, and a committer date in the
+            # environment: neither may reach the commit.
+            time.sleep(1.1)
+            os.environ["GIT_COMMITTER_DATE"] = "2030-01-01T00:00:00Z"
+            two = apply(os.path.join(t, "sdk2"), url_pin, patches, quiet)
+        finally:
+            os.environ.pop("GIT_COMMITTER_DATE", None)
+            if old is None:
+                os.environ.pop("GIT_CONFIG_GLOBAL", None)
+            else:
+                os.environ["GIT_CONFIG_GLOBAL"] = old
+        check("the series applies from a fresh clone", bool(one) and one !=
+              base, one[:12])
+        check("a second fresh clone under a hostile git config makes the "
+              "same sha", one == two, f"{one[:12]} vs {two[:12]}")
+        check("the commits carry the patch's author, not the local user",
+              g(os.path.join(t, "sdk2"), "log", "-1", "--format=%an %ae")
+              == "Author a@a")
+        check("--write-result pins the sha", read_pin(patches).get("result")
+              == one)
+        check("a rerun on the same clone lands on the pinned sha",
+              run(os.path.join(t, "sdk1"), patches, quiet) == one)
+
+        # The check can fail: a changed patch is a mismatch, not a pass.
+        p0 = sorted(glob.glob(os.path.join(patches, "0002-*.patch")))[0]
+        saved = open(p0).read()
+        with open(p0, "w") as f:
+            f.write(saved.replace("Subject: [PATCH 2/2] SourceSharp: step 1",
+                                  "Subject: [PATCH 2/2] SourceSharp: step 1!"))
+        ok, why = refused(lambda: run(os.path.join(t, "sdk3"), patches,
+                                      quiet), "but UPSTREAM pins result=")
+        check("an edited patch (message only) is refused as a new sha", ok,
+              why[:80])
+        with open(p0, "w") as f:
+            f.write(saved)
+
+        # The fork's case: a clean clone of the right url this command did
+        # not make. It must be refused, and left exactly as it was.
+        fork = os.path.join(t, "fork")
+        g(t, "clone", "-q", up, fork)
+        g(fork, "-c", "user.name=f", "-c", "user.email=f@f", "commit", "-q",
+          "--allow-empty", "-m", "the fork's own work")
+        before = g(fork, "rev-parse", "HEAD")
+        ok, why = refused(lambda: run(fork, patches, quiet), "did not make")
+        check("a clean clone of the url that this command did not make (the "
+              "fork, the oracle clone) is refused", ok, why[:70])
+        check("... and its HEAD is untouched", g(fork, "rev-parse", "HEAD")
+              == before)
+        g(fork, "config", MARK, "true")
+        ok, why = refused(lambda: run(fork, patches, quiet),
+                          "neither the pinned base nor the pinned result")
+        check("a marked clone at some other commit is refused", ok, why[:70])
+        check("... and its HEAD is untouched", g(fork, "rev-parse", "HEAD")
+              == before)
+
+        # Refusals: a directory that is not a clone of url; a dirty clone.
+        other = os.path.join(t, "other")
+        g(t, "init", "-q", other)
+        ok, why = refused(lambda: run(other, patches, quiet), "not " + up)
+        check("a clone of another repository is refused", ok, why[:80])
+        plain = os.path.join(t, "plain")
+        os.makedirs(plain)
+        ok, why = refused(lambda: run(plain, patches, quiet),
+                          "not a git clone")
+        check("a plain directory is refused", ok, why[:60])
+        with open(os.path.join(t, "sdk1", "a.h"), "a") as f:
+            f.write("edit\n")
+        ok, why = refused(lambda: run(os.path.join(t, "sdk1"), patches,
+                                      quiet), "local changes")
+        check("a clone with local changes is refused", ok, why[:60])
+        check("... and keeps the change", "edit" in open(
+            os.path.join(t, "sdk1", "a.h")).read())
+    print("self-test", "FAILED" if bad else "passed")
+    return 1 if bad else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--sdk-dir")
+    ap.add_argument("--write-result", metavar="DIR")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    try:
+        if a.write_result:
+            run(os.path.abspath(a.write_result), write=True)
+        elif a.sdk_dir:
+            run(os.path.abspath(a.sdk_dir))
+        else:
+            ap.error("--sdk-dir DIR, --write-result DIR or --self-test")
+    except Refused as e:
+        print(f"sdk-upstream: error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

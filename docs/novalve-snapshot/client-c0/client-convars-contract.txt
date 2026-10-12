@@ -1,0 +1,435 @@
+c_maxdistance	200		None	None	Archive,Cheat,ClientDll
+c_maxpitch	90		None	None	Archive,Cheat,ClientDll
+c_maxyaw	135		None	None	Archive,Cheat,ClientDll
+c_mindistance	30		None	None	Archive,Cheat,ClientDll
+c_minpitch	0		None	None	Archive,Cheat,ClientDll
+c_minyaw	-135		None	None	Archive,Cheat,ClientDll
+c_orthoheight	100		None	None	Archive,Cheat,ClientDll
+c_orthowidth	100		None	None	Archive,Cheat,ClientDll
+cam_collision	1	When in thirdperson and cam_collision is set to 1, an attempt is made to keep the camera from passing though walls.	None	None	Archive,Cheat,ClientDll
+cam_command	0		None	None	Cheat,ClientDll
+cam_idealdelta	4.0	Controls the speed when matching offset to ideal angles in thirdperson view	None	None	Archive,Cheat,ClientDll
+cam_idealdist	150		None	None	Archive,Cheat,ClientDll
+cam_idealdistright	0		None	None	Archive,Cheat,ClientDll
+cam_idealdistup	0		None	None	Archive,Cheat,ClientDll
+cam_ideallag	4.0	Amount of lag used when matching offset to ideal angles in thirdperson view	None	None	Archive,Cheat,ClientDll
+cam_idealpitch	0		None	None	Archive,Cheat,ClientDll
+cam_idealyaw	0		None	None	Archive,Cheat,ClientDll
+cam_showangles	0	When in thirdperson, print viewangles/idealangles/cameraoffsets to the console.	None	None	Cheat,ClientDll
+cam_snapto	0		None	None	Archive,Cheat,ClientDll
+cl_ShowSunVectors	0		None	None	ClientDll
+cl_anglespeedkey	0.67		None	None	ClientDll
+cl_backspeed	450		None	None	Cheat,ClientDll,Replicated
+cl_class	default	Default class when joining a game	None	None	Archive,ClientDll,UserInfo
+cl_debugrumble	0	Turn on rumble debugging spew	None	None	Archive,ClientDll
+cl_demoviewoverride	0	Override view during demo playback	None	None	ClientDll
+cl_detail_multiplier	1	extra details to create	None	None	Cheat,ClientDll
+cl_detaildist	1200	Distance at which detail props are no longer visible	None	None	ClientDll
+cl_detailfade	400	Distance across which detail props fade in	None	None	ClientDll
+cl_disablehtmlmotd	0	Disable HTML motds.	None	None	Archive,ClientDll
+cl_drawhud	1	Enable the rendering of the hud	None	None	Cheat,ClientDll
+cl_drawleaf	-1		None	None	Cheat,ClientDll
+cl_drawmaterial		Draw a particular material over the frame	None	None	Cheat,ClientDll
+cl_drawmonitors	1		None	None	ClientDll
+cl_drawshadowtexture	0		None	None	Cheat,ClientDll
+cl_ejectbrass	1		None	None	ClientDll
+cl_extrapolate_amount	0.25	Set how many seconds the client will extrapolate entities for.	None	None	Cheat,ClientDll
+cl_fastdetailsprites	1	whether to use new detail sprite system	None	None	Cheat,ClientDll
+cl_fasttempentcollision	5		None	None	ClientDll
+cl_forwardspeed	450		None	None	Cheat,ClientDll,Replicated
+cl_interp	0.1	Sets the interpolation amount (bounded on low side by server interp ratio settings).	0	0.5	Archive,ClientDll,NotConnected,UserInfo
+cl_interp_npcs	0.0	Interpolate NPC positions starting this many seconds in past (or cl_interp, if greater)	None	None	ClientDll,UserInfo
+cl_interp_ratio	2.0	Sets the interpolation amount (final amount is cl_interp_ratio / cl_updaterate).	None	None	Archive,ClientDll,NotConnected,UserInfo
+cl_jiggle_bone_framerate_cutoff	20	Skip jiggle bone simulation if framerate drops below this value (frames/second)	None	None	ClientDll
+cl_leveloverview	0		None	None	Cheat,ClientDll
+cl_leveloverviewmarker	0		None	None	Cheat,ClientDll
+cl_maxrenderable_dist	3000	Max distance from the camera at which things will be rendered	None	None	Cheat,ClientDll
+cl_mouseenable	1		None	None	ClientDll
+cl_mouselook	1	Set to 1 to use mouse for look, 0 for keyboard look.	None	None	Archive,ClientDll
+cl_movehelper_process	1		None	None	ClientDll
+cl_movehelper_process_imp	1		None	None	ClientDll
+cl_movehelper_process_vel	1		None	None	ClientDll
+cl_new_impact_effects	0		None	None	ClientDll
+cl_overdraw_test	0		None	None	Cheat,ClientDll,NeverAsString
+cl_particle_retire_cost	0		None	None	AllowedInCompetitive,Cheat,ClientDll
+cl_particle_show_bbox	0		None	None	Cheat,ClientDll
+cl_particle_show_bbox_cost	0	Show # of particles: green->blue->red. Use a negative number to show ALL particles even cheap ones	None	None	Cheat,ClientDll
+cl_particle_stats_trigger_count	0	Dump stats if the particle count exceeds this number.	None	None	ClientDll
+cl_particleeffect_aabb_buffer	2	Add this amount to a particle effect's bbox in the leaf system so if it's growing slowly, it won't have to be reinserted as often.	None	None	Cheat,ClientDll
+cl_phys_timescale	1.0	Sets the scale of time for client-side physics (ragdolls)	None	None	Cheat,ClientDll
+cl_pitchdown	89		None	None	Cheat,ClientDll
+cl_pitchspeed	225	Client pitch speed.	-100000	100000	ClientDll
+cl_pitchup	89		None	None	Cheat,ClientDll
+cl_predict	1.0	Perform client side prediction.	None	None	ClientDll,NotConnected,UserInfo
+cl_ragdoll_collide	0		None	None	ClientDll
+cl_rumblescale	1.0	Scale sensitivity of rumble effects (0 to 1.0)	None	None	Archive,ArchiveXbox,ClientDll
+cl_shadowtextureoverlaysize	256		None	None	Cheat,ClientDll
+cl_show_num_particle_systems	0	Display the number of active particle systems.	None	None	ClientDll
+cl_show_splashes	1		None	None	ClientDll
+cl_showbattery	0	Draw current battery level at top of screen when on battery power	None	None	ClientDll
+cl_showfps	0	Draw fps meter at top of screen (1 = fps, 2 = smooth fps)	None	None	AllowedInCompetitive,ClientDll
+cl_showpausedimage	1	Show the 'Paused' image when game is paused.	None	None	ClientDll
+cl_showpos	0	Draw current position at top of screen	None	None	ClientDll
+cl_sidespeed	450		None	None	Cheat,ClientDll,Replicated
+cl_software_cursor	0	Switches the game to use a larger software cursor instead of the normal OS cursor	None	None	Archive,ClientDll
+cl_sourcesharp_verbose	1	SourceSharp log verbosity: 0=errors, 1=startup, 2=verbose	None	None	ClientDll
+cl_spec_mode	1	spectator mode	None	None	Archive,ClientDll,ServerCanExecute,UserInfo
+cl_sporeclipdistance	512		None	None	Cheat,ClientDll
+cl_spraydisable	0	Disable player sprays.	None	None	Archive,ClientDll
+cl_sun_decay_rate	0.05		None	None	Cheat,ClientDll
+cl_team	default	Default team when joining a game	None	None	Archive,ClientDll,UserInfo
+cl_thirdperson	0	Enables/Disables third person	None	None	Archive,ClientDll,NotConnected,UserInfo
+cl_threaded_client_leaf_system	0		None	None	ClientDll
+cl_upspeed	320		None	None	Cheat,ClientDll,Replicated
+cl_winddir	0	Weather effects wind direction angle	None	None	Cheat,ClientDll
+cl_windspeed	0	Weather effects wind speed scalar	None	None	Cheat,ClientDll
+cl_yawspeed	210	Client yaw speed.	-100000	100000	ClientDll
+commentary_firstrun	0		None	None	Archive,ClientDll
+cs_cl_build_stamp	1	Show which build is running in the HUD corner (1/0)	None	None	Archive,ClientDll
+cs_cl_log_input	0	Log input commands C# sees (1/0)	None	None	ClientDll
+cs_cl_player_predict	1	Replay the local player's unacknowledged commands (1/0)	None	None	Archive,ClientDll
+english	1	If set to 1, running the english language set of assets.	None	None	ClientDll,UserInfo
+fog_color	-1 -1 -1		None	None	Cheat,ClientDll
+fog_colorskybox	-1 -1 -1		None	None	Cheat,ClientDll
+fog_enable	-1		None	None	Cheat,ClientDll
+fog_enableskybox	-1		None	None	Cheat,ClientDll
+fog_end	-1		None	None	Cheat,ClientDll
+fog_endskybox	-1		None	None	Cheat,ClientDll
+fog_maxdensity	-1		None	None	Cheat,ClientDll
+fog_maxdensityskybox	-1		None	None	Cheat,ClientDll
+fog_override	0		None	None	Cheat,ClientDll
+fog_radial	-1		None	None	Cheat,ClientDll
+fog_radialskybox	-1		None	None	Cheat,ClientDll
+fog_start	-1		None	None	Cheat,ClientDll
+fog_startskybox	-1		None	None	Cheat,ClientDll
+func_break_max_pieces	15		None	None	Archive,ClientDll,Replicated
+fx_drawimpactdebris	1	Draw impact debris effects.	None	None	ClientDll
+fx_drawimpactdust	1	Draw impact dust effects.	None	None	ClientDll
+fx_drawmetalspark	1	Draw metal spark effects.	None	None	ClientDll
+gl_clear	0		None	None	ClientDll
+gl_clear_randomcolor	0	Clear the back buffer to random colors every frame. Helps spot open seams in geometry.	None	None	Cheat,ClientDll
+hud_autoreloadscript	0	Automatically reloads the animation script each time one is ran	None	None	ClientDll
+hud_drawhistory_time	5	Seconds the pickup history stays up. Unused here — the history HUD is hidden.	None	None	ClientDll
+hud_fastswitch	1	Weapon switching is always immediate in this mod; kept for config compatibility.	None	None	Archive,ClientDll
+hud_freezecamhide	0	Hide the HUD during freeze-cam	None	None	Archive,ClientDll
+hud_takesshots	0	Auto-save a scoreboard screenshot at the end of a map.	None	None	Archive,ClientDll
+in_usekeyboardsampletime	1	Use keyboard sample time smoothing.	None	None	ClientDll
+joy_accel_filter	0.2		None	None	ClientDll
+joy_accelmax	1.0		None	None	Archive,ClientDll
+joy_accelscale	0.6		None	None	Archive,ClientDll
+joy_advanced	1		None	None	Archive,ClientDll
+joy_advaxisr	1		None	None	Archive,ClientDll
+joy_advaxisu	3		None	None	Archive,ClientDll
+joy_advaxisv	0		None	None	Archive,ClientDll
+joy_advaxisx	4		None	None	Archive,ClientDll
+joy_advaxisy	2		None	None	Archive,ClientDll
+joy_advaxisz	0		None	None	Archive,ClientDll
+joy_autoaimdampen	0	How much to scale user stick input when the gun is pointing at a valid target.	None	None	Archive,ClientDll
+joy_autoaimdampenrange	0	The stick range where autoaim dampening is applied. 0 = off	None	None	Archive,ClientDll
+joy_autosprint	0	Automatically sprint when moving with an analog joystick	None	None	ClientDll
+joy_diagonalpov	0	POV manipulator operates on diagonal axes, too.	None	None	Archive,ClientDll
+joy_display_input	0		None	None	Archive,ClientDll
+joy_forwardsensitivity	-1		None	None	Archive,ClientDll
+joy_forwardthreshold	0.15		None	None	Archive,ClientDll
+joy_inverty	0	Whether to invert the Y axis of the joystick for looking.	None	None	Archive,ArchiveXbox,ClientDll
+joy_inverty_default	0		None	None	ArchiveXbox,ClientDll
+joy_lowend	1		None	None	Archive,ClientDll
+joy_lowmap	1		None	None	Archive,ClientDll
+joy_movement_stick	0	Which stick controls movement (0 is left stick)	None	None	Archive,ArchiveXbox,ClientDll
+joy_movement_stick_default	0		None	None	ArchiveXbox,ClientDll
+joy_name	joystick		None	None	Archive,ClientDll
+joy_pegged	0.75		None	None	ClientDll
+joy_pitchsensitivity	1		None	None	Archive,ArchiveXbox,ClientDll
+joy_pitchsensitivity_default	-1.0		None	None	ClientDll
+joy_pitchthreshold	0.15		None	None	Archive,ClientDll
+joy_response_look	0	'Look' stick response mode: 0=Default, 1=Acceleration Promotion	None	None	Archive,ClientDll
+joy_response_move	1	'Movement' stick response mode: 0=Linear, 1=quadratic, 2=cubic, 3=quadratic extreme, 4=power function(i.e., pow(x,1/sensitivity)), 5=two-stage	None	None	Archive,ClientDll
+joy_response_move_vehicle	6		None	None	ClientDll
+joy_sidesensitivity	1		None	None	Archive,ClientDll
+joy_sidethreshold	0.15		None	None	Archive,ClientDll
+joy_vehicle_turn_lowend	0.7		None	None	ClientDll
+joy_vehicle_turn_lowmap	0.4		None	None	ClientDll
+joy_virtual_peg	0		None	None	ClientDll
+joy_wingmanwarrior_turnhack	0	Wingman warrior hack related to turn axes.	None	None	Archive,ClientDll
+joy_xcontroller_cfg_loaded	0	If 0, the 360controller.cfg file will be executed on startup & option changes.	None	None	Archive,ClientDll
+joy_yawsensitivity	-1		None	None	Archive,ArchiveXbox,ClientDll
+joy_yawsensitivity_default	-1.25		None	None	ClientDll
+joy_yawthreshold	0.15		None	None	Archive,ClientDll
+joystick	0		None	None	Archive,ClientDll
+localplayer_visionflags	0		None	None	ClientDll
+lookspring	0		None	None	Archive,ClientDll
+lookstrafe	0		None	None	Archive,ClientDll
+3: mouse_acceleration = pow(raw_mouse_delta, m_customaccel_exponent - 1) * sensitivity	None	None	Archive,ClientDll
+m_customaccel_exponent	1	Mouse move is raised to this power before being scaled by scale factor.	1	None	Archive,ClientDll
+m_customaccel_max	0	Max mouse move scale factor, 0 for no limit	None	None	Archive,ClientDll
+m_customaccel_scale	0.04	Custom mouse acceleration value.	0	None	Archive,ClientDll
+m_filter	0	Mouse filtering (set this to 1 to average the mouse over 2 frames).	None	None	Archive,ClientDll
+m_forward	1	Mouse forward factor.	None	None	Archive,ClientDll
+m_limitedcapture_workaround	0	Workaround limitations on mouse capture in some environments	None	None	ClientDll
+m_mouseaccel1	0	Windows mouse acceleration initial threshold (2x movement).	0	None	Archive,ClientDll
+m_mouseaccel2	0	Windows mouse acceleration secondary threshold (4x movement).	0	None	Archive,ClientDll
+m_mousespeed	1	Windows mouse acceleration (0 to disable, 1 to enable [Windows 2000: enable initial threshold], 2 to enable secondary threshold [Windows 2000 only]).	0	2	Archive,ClientDll
+m_pitch	0.022	Mouse pitch factor.	None	None	Archive,ClientDll
+m_rawinput	1	Use Raw Input for mouse input.	None	None	Archive,ClientDll
+m_rawinput_onetime_reset	0		None	None	Archive,ClientDll,Hidden
+m_side	0.8	Mouse side factor.	None	None	Archive,ClientDll
+m_yaw	0.022	Mouse yaw factor.	None	None	Archive,ClientDll
+mat_autoexposure_max	2		None	None	ClientDll
+mat_autoexposure_min	0.5		None	None	ClientDll
+mat_bloom_scalefactor_scalar	1.0		None	None	ClientDll
+mat_bloomamount_rate	0.05f		None	None	Cheat,ClientDll
+mat_bloomscale	1		None	None	ClientDll
+mat_camerarendertargetoverlaysize	256		None	None	Cheat,ClientDll
+mat_clipz	1		None	None	ClientDll
+mat_debug_autoexposure	0		None	None	Cheat,ClientDll
+mat_debug_bloom	0		None	None	Cheat,ClientDll
+mat_debug_postprocessing_effects	0	0 = off, 1 = show post-processing passes in quadrants of the screen, 2 = only apply post-processing to the centre of the screen	None	None	ClientDll
+mat_debug_process_halfscreen	0		None	None	Cheat,ClientDll
+mat_disable_bloom	0		None	None	ClientDll
+mat_drawTexture		Enable debug view texture	None	None	ClientDll
+mat_drawTextureScale	1.0	Debug view texture scale	None	None	ClientDll
+mat_drawwater	1		None	None	Cheat,ClientDll
+mat_dump_rts	0		None	None	ClientDll
+mat_exposure_center_region_x	0.9		None	None	Cheat,ClientDll
+mat_exposure_center_region_x_flashlight	0.9		None	None	Cheat,ClientDll
+mat_exposure_center_region_y	0.85		None	None	Cheat,ClientDll
+mat_exposure_center_region_y_flashlight	0.85		None	None	Cheat,ClientDll
+mat_force_bloom	0		None	None	Cheat,ClientDll
+mat_framebuffercopyoverlaysize	256		None	None	ClientDll
+mat_hdr_uncapexposure	0		None	None	Cheat,ClientDll
+mat_hsv	0		None	None	Cheat,ClientDll
+mat_motion_blur_falling_intensity	1.0		None	None	ClientDll
+mat_motion_blur_falling_max	20.0		None	None	ClientDll
+mat_motion_blur_falling_min	10.0		None	None	ClientDll
+mat_motion_blur_forward_enabled	0		None	None	ClientDll
+mat_motion_blur_rotation_intensity	1.0		None	None	ClientDll
+mat_motion_blur_strength	1.0		None	None	ClientDll
+mat_non_hdr_bloom_scalefactor	.3		None	None	ClientDll
+mat_postprocess_x	4		None	None	ClientDll
+mat_postprocess_y	1		None	None	ClientDll
+mat_postprocessing_combine	1	Combine bloom, software anti-aliasing and color correction into one post-processing pass	None	None	ClientDll
+mat_show_histogram	0		None	None	ClientDll
+mat_showcamerarendertarget	0		None	None	Cheat,ClientDll
+mat_showframebuffertexture	0		None	None	Cheat,ClientDll
+mat_showlightmappage	-1		None	None	ClientDll
+mat_showwatertextures	0		None	None	Cheat,ClientDll
+mat_software_aa_blur_one_pixel_lines	0.5	How much software AA should blur one-pixel thick lines: (0.0 - none), (1.0 - lots)	None	None	Archive,ClientDll
+mat_software_aa_debug	0	Software AA debug mode: (0 - off), (1 - show number of 'unlike' samples: 0->black, 1->red, 2->green, 3->blue), (2 - show anti-alias blend strength), (3 - show averaged 'unlike' colour)	None	None	ClientDll
+mat_software_aa_edge_threshold	1.0	Software AA - adjusts the sensitivity of the software AA shader's edge detection (default 1.0 - a lower value will soften more edges, a higher value will soften fewer)	None	None	Archive,ClientDll
+mat_software_aa_quality	0	Software AA quality mode: (0 - 5-tap filter), (1 - 9-tap filter)	None	None	Archive,ClientDll
+mat_software_aa_strength	-1.0	Software AA - perform a software anti-aliasing post-process (an alternative/supplement to MSAA). This value sets the strength of the effect: (0.0 - off), (1.0 - full)	None	None	Archive,ClientDll
+mat_software_aa_strength_vgui	-1.0	Same as mat_software_aa_strength, but forced to this value when called by the post vgui AA pass.	None	None	Archive,ClientDll
+mat_software_aa_tap_offset	1.0	Software AA - adjusts the displacement of the taps used by the software AA shader (default 1.0 - a lower value will make the image sharper, higher will make it blurrier)	None	None	Archive,ClientDll
+mat_stub	0		None	None	Cheat,ClientDll
+mat_tonemap_min_avglum	3.0		None	None	Cheat,ClientDll
+mat_tonemap_percent_bright_pixels	2.0		None	None	Cheat,ClientDll
+mat_tonemap_percent_target	60.0		None	None	Cheat,ClientDll
+mat_viewportscale	1.0	Scale down the main viewport (to reduce GPU impact on CPU profiling)	0.0015625	1	Archive,ClientDll
+mat_viewportupscale	1	Scale the viewport back up	None	None	Archive,ClientDll
+mat_wateroverlaysize	256		None	None	ClientDll
+mat_yuv	0		None	None	Cheat,ClientDll
+muzzleflash_light	1		None	None	Archive,ClientDll
+net_graph	0	Draw the network usage graph, = 2 draws data on payload, = 3 draws payload legend.	None	None	ClientDll
+net_graphheight	64	Height of netgraph panel	None	None	Archive,ClientDll
+net_graphmsecs	400	The latency graph represents this many milliseconds.	None	None	Archive,ClientDll
+net_graphpos	1		None	None	Archive,ClientDll
+net_graphproportionalfont	1	Determines whether netgraph font is proportional or not	None	None	Archive,ClientDll
+net_graphshowinterp	1	Draw the interpolation graph.	None	None	Archive,ClientDll
+net_graphshowlatency	1	Draw the ping/packet loss graph.	None	None	Archive,ClientDll
+net_graphsolid	1		None	None	Archive,ClientDll
+net_graphtext	1	Draw text fields	None	None	Archive,ClientDll
+net_scale	5		None	None	Archive,ClientDll
+option_duck_method_default	1.0		None	None	ClientDll
+particle_sim_alt_cores	2		None	None	ClientDll
+particle_simulateoverflow	0	Used for stress-testing particle systems. Randomly denies creation of particles.	None	None	Cheat,ClientDll
+pointworldtext_rainbowspeed_char	15.0f		None	None	ClientDll
+pointworldtext_rainbowspeed_time	100.0f		None	None	ClientDll
+pyro_max_intensity	0.35		None	None	Archive,ClientDll
+pyro_max_rate	0.2		None	None	Archive,ClientDll
+pyro_max_side_length	0.55		None	None	Archive,ClientDll
+pyro_max_side_width	0.95		None	None	Archive,ClientDll
+pyro_min_intensity	0.1		None	None	Archive,ClientDll
+pyro_min_rate	0.05		None	None	Archive,ClientDll
+pyro_min_side_length	0.3		None	None	Archive,ClientDll
+pyro_min_side_width	0.65		None	None	Archive,ClientDll
+pyro_vignette	2		None	None	Archive,ClientDll
+pyro_vignette_distortion	1		None	None	Archive,ClientDll
+r_3dsky	1	Enable the rendering of 3d sky boxes	None	None	ClientDll
+r_DrawDetailProps	1	0=Off, 1=Normal, 2=Wireframe	None	None	ClientDll
+r_DrawRain	1	Enable/disable rain rendering.	None	None	Cheat,ClientDll
+r_FadeProps	1		None	None	ClientDll
+r_ForceWaterLeaf	1	Enable for optimization to water - considers view in leaf under water for purposes of culling	None	None	ClientDll
+r_PortalTestEnts	1	Clip entities against portal frustums.	None	None	Cheat,ClientDll
+r_RainHack	0		None	None	Cheat,ClientDll
+r_RainProfile	0	Enable/disable rain profiling.	None	None	Cheat,ClientDll
+r_RainRadius	1500		None	None	Cheat,ClientDll
+r_RainSideVel	130	How much sideways velocity rain gets.	None	None	Cheat,ClientDll
+r_RainSimulate	1	Enable/disable rain simulation.	None	None	Cheat,ClientDll
+r_RainSplashPercentage	20		None	None	Cheat,ClientDll
+r_SnowColorBlue	200	Snow.	None	None	Cheat,ClientDll
+r_SnowColorGreen	175	Snow.	None	None	Cheat,ClientDll
+r_SnowColorRed	150	Snow.	None	None	Cheat,ClientDll
+r_SnowDebugBox	0	Snow Debug Boxes.	None	None	Cheat,ClientDll
+r_SnowEnable	1	Snow Enable	None	None	Cheat,ClientDll
+r_SnowEndAlpha	255	Snow.	None	None	Cheat,ClientDll
+r_SnowEndSize	0	Snow.	None	None	Cheat,ClientDll
+r_SnowFallSpeed	1.5	Snow fall speed scale.	None	None	Cheat,ClientDll
+r_SnowInsideRadius	256	Snow.	None	None	Cheat,ClientDll
+r_SnowOutsideRadius	1024	Snow.	None	None	Cheat,ClientDll
+r_SnowParticles	500	Snow.	None	None	Cheat,ClientDll
+r_SnowPosScale	1	Snow.	None	None	Cheat,ClientDll
+r_SnowRayEnable	1	Snow.	None	None	Cheat,ClientDll
+r_SnowRayLength	8192.0f	Snow.	None	None	Cheat,ClientDll
+r_SnowRayRadius	256	Snow.	None	None	Cheat,ClientDll
+r_SnowSpeedScale	1	Snow.	None	None	Cheat,ClientDll
+r_SnowStartAlpha	25	Snow.	None	None	Cheat,ClientDll
+r_SnowStartSize	1	Snow.	None	None	Cheat,ClientDll
+r_SnowWindScale	0.0035	Snow.	None	None	Cheat,ClientDll
+r_SnowZoomOffset	384.0f	Snow.	None	None	Cheat,ClientDll
+r_SnowZoomRadius	512.0f	Snow.	None	None	Cheat,ClientDll
+r_WaterDrawReflection	1	Enable water reflection	None	None	ClientDll
+r_WaterDrawRefraction	1	Enable water refraction	None	None	ClientDll
+r_debugcheapwater	0		None	None	Cheat,ClientDll
+r_depthoverlay	0	Replaces opaque objects with their grayscaled depth values. r_showz_power scales the output.	None	None	Cheat,ClientDll
+r_dopixelvisibility	1		None	None	AllowedInCompetitive,ClientDll
+r_drawflecks	1		None	None	AllowedInCompetitive,ClientDll
+r_drawopaquerenderables	1		None	None	Cheat,ClientDll
+r_drawopaquestaticpropslast	0	Whether opaque static props are rendered after non-npcs	None	None	ClientDll
+r_drawopaqueworld	1		None	None	Cheat,ClientDll
+r_drawparticles	1	Enable/disable particle rendering	None	None	Cheat,ClientDll
+r_drawpixelvisibility	0	Show the occlusion proxies	None	None	ClientDll
+r_drawropes	1		None	None	Cheat,ClientDll
+r_drawsprites	1		None	None	Cheat,ClientDll
+r_drawtracers	1		None	None	Cheat,ClientDll
+r_drawtracers_firstperson	1	Toggle visibility of first person weapon tracers	None	None	Archive,ClientDll
+r_drawtranslucentrenderables	1		None	None	Cheat,ClientDll
+r_drawviewmodel	1		None	None	Cheat,ClientDll
+r_entityclips	1		None	None	ClientDll
+r_eyewaterepsilon	10.0f		None	None	Cheat,ClientDll
+r_farz	-1	Override the far clipping plane. -1 means to use the value in env_fog_controller.	None	None	Cheat,ClientDll
+r_flashlightambient	0.0		None	None	Cheat,ClientDll
+r_flashlightconstant	0.0		None	None	Cheat,ClientDll
+r_flashlightdepthres	1024		None	None	ClientDll
+r_flashlightdrawfrustum	0		None	None	ClientDll
+r_flashlightfar	750.0		None	None	Cheat,ClientDll
+r_flashlightfov	45.0		None	None	Cheat,ClientDll
+r_flashlightladderdist	40.0		None	None	Cheat,ClientDll
+r_flashlightlinear	100.0		None	None	Cheat,ClientDll
+r_flashlightlockposition	0		None	None	Cheat,ClientDll
+r_flashlightmodels	1		None	None	ClientDll
+r_flashlightnear	4.0		None	None	Cheat,ClientDll
+r_flashlightoffsetx	10.0		None	None	Cheat,ClientDll
+r_flashlightoffsety	-20.0		None	None	Cheat,ClientDll
+r_flashlightoffsetz	24.0		None	None	Cheat,ClientDll
+r_flashlightquadratic	0.0		None	None	Cheat,ClientDll
+r_flashlightshadowatten	0.35		None	None	Cheat,ClientDll
+r_flashlightvisualizetrace	0		None	None	Cheat,ClientDll
+r_lightmap_bicubic_set	0	Hack to get this convar to be re-set on first launch.	None	None	Archive,ClientDll,Hidden
+r_mapextents	16384	Set the max dimension for the map.  This determines the far clipping plane	None	None	Cheat,ClientDll
+r_newflashlight	1		None	None	Cheat,ClientDll
+r_particle_sim_spike_threshold_ms	5		None	None	ClientDll
+r_particle_timescale	1.0		None	None	Cheat,ClientDll
+r_pixelvisibility_partial	1		None	None	ClientDll
+r_pixelvisibility_spew	0		None	None	ClientDll
+r_queued_post_processing	0		None	None	ClientDll
+r_queued_ropes	1		None	None	ClientDll
+r_rainalpha	0.4		None	None	Cheat,ClientDll
+r_rainalphapow	0.8		None	None	Cheat,ClientDll
+r_raindensity	0.001		None	None	Cheat,ClientDll
+r_rainlength	0.1f		None	None	Cheat,ClientDll
+r_rainspeed	600.0f		None	None	Cheat,ClientDll
+r_rainwidth	0.5		None	None	Cheat,ClientDll
+r_rope_holiday_light_scale	0.055		None	None	ClientDll
+r_ropes_holiday_lights_allowed	1		None	None	ClientDll
+r_ropetranslucent	1		None	None	ClientDll
+r_screenfademaxsize	0		None	None	ClientDll
+r_screenfademinsize	0		None	None	ClientDll
+r_shadowmaxrendered	32		None	None	ClientDll
+r_skybox	1	Enable the rendering of sky boxes	None	None	Cheat,ClientDll
+r_sse_s	1	sse ins for particle sphere create	None	None	ClientDll
+r_studio_stats_lock	0	Lock the current studio stats entity selection	None	None	Cheat,ClientDll
+	3 = The first entity attached to your viewmodel	None	None	Cheat,ClientDll
+r_swingflashlight	1		None	None	Cheat,ClientDll
+r_threaded_client_shadow_manager	0		None	None	ClientDll
+r_threaded_particles	1		None	None	ClientDll
+r_threaded_renderables	0		None	None	ClientDll
+r_updaterefracttexture	1		None	None	Cheat,ClientDll
+r_worldlistcache	1		None	None	ClientDll
+ragdoll_sleepaftertime	5.0f	After this many seconds of being basically stationary, the ragdoll will go to sleep.	None	None	ClientDll
+rope_averagelight	1	Makes ropes use average of cubemap lighting instead of max intensity.	None	None	ClientDll
+rope_collide	1	Collide rope with the world	None	None	ClientDll
+rope_rendersolid	1		None	None	ClientDll
+rope_shake	0		None	None	ClientDll
+rope_smooth	1	Do an antialiasing effect on ropes	None	None	ClientDll
+rope_smooth_enlarge	1.4	How much to enlarge ropes in screen space for antialiasing effect	None	None	ClientDll
+rope_smooth_maxalpha	0.5	Alpha for rope antialiasing effect	None	None	ClientDll
+rope_smooth_maxalphawidth	1.75		None	None	ClientDll
+rope_smooth_minalpha	0.2	Alpha for rope antialiasing effect	None	None	ClientDll
+rope_smooth_minwidth	0.3	When using smoothing, this is the min screenspace width it lets a rope shrink to	None	None	ClientDll
+rope_solid_maxalpha	1		None	None	ClientDll
+rope_solid_maxwidth	1		None	None	ClientDll
+rope_solid_minalpha	0.0		None	None	ClientDll
+rope_solid_minwidth	0.3		None	None	ClientDll
+rope_subdiv	2	Rope subdivision amount	0	8	ClientDll
+rope_wind_dist	1000	Don't use CPU applying small wind gusts to ropes when they're past this distance.	None	None	ClientDll
+sc_look_sensitivity_scale	0.125	Steam Controller look sensitivity global scale factor.	None	None	ClientDll
+sc_pitch_sensitivity	0.75	SteamController pitch factor.	None	None	Archive,ClientDll
+sc_pitch_sensitivity_default	0.75		None	None	ClientDll
+sc_yaw_sensitivity	1.0	SteamController yaw factor.	None	None	Archive,ClientDll
+sc_yaw_sensitivity_default	1.0		None	None	ClientDll
+scene_clientflex	1	Do client side flex animation.	None	None	ClientDll,Replicated
+scene_print	0	When playing back a scene, print timing and event info to console.	None	None	ClientDll,Replicated
+scr_centertime	2		None	None	ClientDll
+sensitivity	3	Mouse sensitivity.	0.0001	10000000	Archive,ClientDll
+shake_show	0	Displays a list of the active screen shakes.	None	None	ClientDll
+showparticlecounts	0	Display number of particles drawn per frame	None	None	ClientDll
+soundpatch_captionlength	2.0	How long looping soundpatch captions should display for.	None	None	ClientDll,Replicated
+soundscape_fadetime	3.0	Time to crossfade sound effects between soundscapes	None	None	Cheat,ClientDll
+spec_scoreboard	0		None	None	Archive,ClientDll
+sv_noclipduringpause	0	If cheats are enabled, then you can noclip with the game paused (for doing screenshots, etc.).	None	None	Cheat,ClientDll,Replicated
+sv_stickysprint_default	0		None	None	ClientDll
+thirdperson_platformer	0	Player will aim in the direction they are moving.	None	None	ClientDll
+thirdperson_screenspace	0	Movement will be relative to the camera, eg: left means screen-left	None	None	ClientDll
+tracer_extra	1		None	None	ClientDll
+ui_posedebug_fade_in_time	0.2	Time during which a new pose activity layer is shown in green in +posedebug UI	None	None	Cheat,ClientDll,DontRecord
+ui_posedebug_fade_out_time	0.8	Time to keep a no longer active pose activity layer in red until removing it from +posedebug UI	None	None	Cheat,ClientDll,DontRecord
+v_centermove	0.15		None	None	ClientDll
+v_centerspeed	500		None	None	ClientDll
+vcollide_wireframe	0	Render physics collision models in wireframe	None	None	Cheat,ClientDll
+vgui_message_dialog_modal	1		None	None	Archive,ClientDll
+viewmodel_fov	54	Sets the field-of-view for the viewmodel.	0.1	179.9	Cheat,ClientDll
+voice_clientdebug	0		None	None	ClientDll
+voice_modenable	1	Enable/disable voice in this mod.	None	None	Archive,ClientCmdCanExecute,ClientDll
+vr_activate_default	0	If this is true the game will switch to VR mode once startup is complete.	None	None	Archive,ClientDll
+vr_aim_yaw_offset	90	This value is added to Yaw when returning the vehicle aim angles to Source.	None	None	ClientDll
+vr_debug_remote_cam	0		None	None	ClientDll
+vr_debug_remote_cam_pos_x	150.0		None	None	ClientDll
+vr_debug_remote_cam_pos_y	0.0		None	None	ClientDll
+vr_debug_remote_cam_pos_z	0.0		None	None	ClientDll
+vr_debug_remote_cam_target_x	0.0		None	None	ClientDll
+vr_debug_remote_cam_target_y	0.0		None	None	ClientDll
+vr_debug_remote_cam_target_z	-50.0		None	None	ClientDll
+vr_first_person_uses_world_model	1	Causes the third person model to be drawn instead of the view model	None	None	ClientDll
+vr_force_windowed	0		None	None	Archive,ClientDll
+vr_hud_axis_lock_to_world	0	Bitfield - locks HUD axes to the world - 0=pitch, 1=yaw, 2=roll	None	None	Archive,ClientDll
+vr_hud_display_ratio	0.95		None	None	Archive,ClientDll
+vr_hud_forward	500	Apparent distance of the HUD in inches	None	None	Archive,ClientDll
+vr_hud_max_fov	60	Max FOV of the HUD	None	None	Archive,ClientDll
+vr_hud_never_overlay	0		None	None	ClientDll
+vr_moveaim_mode	3	0=move+shoot from face. 1=move with torso. 2,3,4=shoot with face+mouse cursor. 5+ are probably not that useful.	None	None	Archive,ClientDll
+vr_moveaim_mode_zoom	3	0=move+shoot from face. 1=move with torso. 2,3,4=shoot with face+mouse cursor. 5+ are probably not that useful.	None	None	Archive,ClientDll
+vr_moveaim_reticle_pitch_limit	30	Beyond this number of degrees, the mouse clamps	None	None	Archive,ClientDll
+vr_moveaim_reticle_pitch_limit_zoom	-1	Beyond this number of degrees, the mouse clamps	None	None	Archive,ClientDll
+vr_moveaim_reticle_yaw_limit	10	Beyond this number of degrees, the mouse drags the torso	None	None	Archive,ClientDll
+vr_moveaim_reticle_yaw_limit_zoom	0	Beyond this number of degrees, the mouse drags the torso	None	None	Archive,ClientDll
+vr_projection_znear_multiplier	0.3	Allows moving the ZNear plane to deal with body clipping	None	None	ClientDll
+vr_render_hud_in_world	1		None	None	ClientDll
+vr_stereo_mono_set_eye	0	0=off, Set all eyes to 1=left, 2=right, 3=middle eye	None	None	ClientDll
+vr_stereo_swap_eyes	0	1=swap eyes.	None	None	ClientDll
+vr_translation_limit	10.0	How far the in-game head will translate before being clamped.	None	None	ClientDll
+vr_viewmodel_offset_forward	-8		None	None	ClientDll
+vr_viewmodel_offset_forward_large	-15		None	None	ClientDll
+vr_viewmodel_translate_with_head	0	1=translate the viewmodel with the head motion.	None	None	ClientDll
+vr_zoom_multiplier	2.0	When zoomed, how big is the scope on your HUD?	None	None	Archive,ClientDll
+vr_zoom_scope_scale	6.0	Something to do with the default scope HUD overlay size.	None	None	ClientDll
+zoom_sensitivity_ratio	1.0	Additional mouse sensitivity scale factor applied when FOV is zoomed in.	None	None	Archive,ClientDll

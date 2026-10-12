@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+    <!-- Tests run from the repo, not the mod's bin directory. -->
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/tests/</OutputPath>
+
+    <!--
+      xUnit and the VSTest host generate the entry point, so this is no longer a
+      console program with a Main of its own. The hand-rolled runner it replaces
+      justified itself as dependency-free "so it runs in the offline build
+      container", which was never true of it: the managed half is built on the
+      HOST and only the native half goes near that container, so packages were
+      always available here.
+    -->
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\support\SourceSharp.TestSupport.csproj" />
+    <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
+    <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="client" />
+    <!-- Aliased (plan_side_isolation P7): the shared source compiles into both sides, so its types exist twice here; unqualified names are the server's copy. -->
+    <ProjectReference Include="..\..\debug_api\Debug.Api.Server.csproj" />
+    <ProjectReference Include="..\..\debug_api_client\Debug.Api.Client.csproj" />
+    <ProjectReference Include="..\..\server\interface\SourceSharp.Server.Interface.csproj" />
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+    <ProjectReference Include="..\..\client\ui\screens\SourceSharp.Client.Ui.csproj" />
+    <ProjectReference Include="..\..\debug_api_shared\Debug.Api.Shared.csproj" />
+    <ProjectReference Include="..\..\mapgen\SourceSharp.MapGen.csproj" />
+    <ProjectReference Include="..\..\mods\SourceSharp.Mods.csproj" />
+    <ProjectReference Include="..\..\launcher\SourceSharp.Launcher.csproj" />
+    <ProjectReference Include="..\..\host\managed\SourceSharp.Bootstrap.csproj" />
+
+    <!-- The generator, so the tests below can declare state types of their own
+         and check what it wrote. Analyzers do not flow through a project
+         reference, so referencing SourceSharp.Shared does not bring it.
+
+         ReferenceOutputAssembly is TRUE, where every other consumer sets it
+         false, and that is the one thing GeneratorDiagnosticTests needs: a
+         generator's DIAGNOSTICS cannot be observed by declaring bad code here,
+         because bad code does not compile and there would be no test binary to
+         run. They are observed by driving the generator over source text, which
+         means calling it, which means referencing it. -->
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="true" />
+
+    <!-- Roslyn, for the same one file: GeneratorDiagnosticTests drives the
+         generator as a library, which means referencing it. The comment this
+         replaces justified the dependency as an exception to a deliberately
+         dependency-free runner and pointed at Program.cs; there is no such
+         runner and no such file now, so the exception no longer needs arguing.
+         The package is already restored for SourceSharp.Generators, and nothing
+         the MOD loads references it. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+
+    <!-- The static-state analyzer as a library: StaticStateAnalyzerTests drive
+         it over source text, and the census reads the waiver list through its
+         parser, so both gates read one list one way. -->
+    <ProjectReference Include="..\..\analyzers\SourceSharp.Analyzers.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Every shared helper: this project sees both sides. -->
+    <Compile Include="..\common\**\*.cs" Link="common\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

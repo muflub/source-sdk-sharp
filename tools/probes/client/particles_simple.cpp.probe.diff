@@ -1,0 +1,72 @@
+--- a/src/game/client/particles_simple.cpp
++++ b/src/game/client/particles_simple.cpp
+@@ -12,6 +12,8 @@
+ #include "toolframework/itoolframework.h"
+ #include "vstdlib/IKeyValuesSystem.h"
+ 
++#include "fx_probe_log.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -365,10 +367,24 @@
+ void CSimpleEmitter::SimulateParticles( CParticleSimulateIterator *pIterator )
+ {
+ 	float timeDelta = pIterator->GetTimeDelta();
++	// lane c5-particles probe: CBloodSprayEmitter's steps, every one in order (bloodspray-stock.tsv):
++	// its UpdateVelocity keeps its decay in process-wide statics.
++	const bool bC5pBlood = m_pDebugName && !Q_strcmp( m_pDebugName, "bloodgore" );
++	// And the explosions' smoke and bubbles (explosion-stock.tsv), tagged xg*.
++	const bool bC5pExp = m_pDebugName && ( !Q_strcmp( m_pDebugName, "exp_smoke" ) || !Q_strcmp( m_pDebugName, "waterexp_bubbles" ) || !Q_strcmp( m_pDebugName, "dust" )
++	                                       || !Q_strcmp( m_pDebugName, "muzzle_embers" ) );
++	// And the shotgun NPC flash's embers (CEmberEffect, tempent-emitters-stock.tsv), tagged eg*.
++	const char *pC5pTag = bC5pBlood ? "bg" : !Q_strcmp( m_pDebugName, "exp_smoke" ) ? "xg"
++	                    : !Q_strcmp( m_pDebugName, "muzzle_embers" ) ? "eg" : !Q_strcmp( m_pDebugName, "dust" ) ? "dg" : "wg";
+ 
+ 	SimpleParticle *pParticle = (SimpleParticle*)pIterator->GetFirst();
+ 	while ( pParticle )
+ 	{
++		if ( bC5pBlood || bC5pExp )
++			FxProbeLog( "%ss\t%p\t%p\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", pC5pTag, (void *)this, (void *)pParticle,
++			            timeDelta, pParticle->m_iFlags, pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x,
++			            pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_flLifetime, pParticle->m_flDieTime,
++			            pParticle->m_flRoll, pParticle->m_flRollDelta );
+ 		//Update velocity
+ 		UpdateVelocity( pParticle, timeDelta );
+ 		pParticle->m_Pos += pParticle->m_vecVelocity * timeDelta;
+@@ -377,6 +393,11 @@
+ 		pParticle->m_flLifetime += timeDelta;
+ 		UpdateRoll( pParticle, timeDelta );
+ 
++		if ( bC5pBlood || bC5pExp )
++			FxProbeLog( "%sso\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", pC5pTag, (void *)pParticle,
++			            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y,
++			            pParticle->m_vecVelocity.z, pParticle->m_flLifetime, pParticle->m_flRoll, pParticle->m_flRollDelta,
++			            pParticle->m_flLifetime >= pParticle->m_flDieTime ? 1 : 0 );
+ 		if ( pParticle->m_flLifetime >= pParticle->m_flDieTime )
+ 			pIterator->RemoveParticle( pParticle );
+ 
+@@ -395,6 +416,15 @@
+ 		TransformParticle( ParticleMgr()->GetModelView(), pParticle->m_Pos, tPos );
+ 		float sortKey = (int) tPos.z;
+ 
++		if ( m_pDebugName && ( !Q_strcmp( m_pDebugName, "exp_smoke" ) || !Q_strcmp( m_pDebugName, "waterexp_bubbles" ) || !Q_strcmp( m_pDebugName, "dust" )
++		                       || !Q_strcmp( m_pDebugName, "muzzle_embers" ) ) )
++		{
++			const Vector c = UpdateColor( pParticle );
++			FxProbeLog( "xrd\t%s\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", m_pDebugName,
++			            pParticle->m_flLifetime, pParticle->m_flDieTime, pParticle->m_uchColor[0], pParticle->m_uchColor[1], pParticle->m_uchColor[2],
++			            pParticle->m_uchStartAlpha, pParticle->m_uchEndAlpha, pParticle->m_uchStartSize, pParticle->m_uchEndSize,
++			            m_flNearClipMin, m_flNearClipMax, c.x, c.y, c.z, UpdateAlpha( pParticle ), UpdateScale( pParticle ), tPos.z );
++		}
+ 		//Render it
+ 		RenderParticle_ColorSizeAngle(
+ 			pIterator->GetParticleDraw(),
+@@ -443,6 +473,7 @@
+ 	speed -= ( 12.0f * timeDelta );
+ 
+ 	offset.Random( -0.125f, 0.125f );
++	FxProbeLog( "egr\t%.9g\t%.9g\t%.9g", offset.x, offset.y, offset.z );
+ 
+ 	pParticle->m_vecVelocity += offset;
+ 	VectorNormalize( pParticle->m_vecVelocity );

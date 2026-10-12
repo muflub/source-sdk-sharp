@@ -1,0 +1,507 @@
+#!/usr/bin/env python3
+"""tools/entrypoint-decls -- the shim's entry-point prototypes, generated from
+the ABI header that already declares every one of their signatures.
+
+    tools/entrypoint-decls              regenerate and DIFF against the
+                                        committed sourcesharp_entrypoints.h
+    tools/entrypoint-decls --emit       print the generated file
+    tools/entrypoint-decls --write      write it
+    tools/entrypoint-decls --self-test  check this script's own reporting
+
+    exit 0   the committed file is what the inputs say
+    exit 1   it is not -- run --write and read the diff
+    exit 2   an input could not be read, or the scan lost its subject
+
+
+WHY THIS EXISTS
+===============
+
+`sourcesharp_gamesystem.cpp` opened with 483 lines of hand-written
+`extern`-style prototypes -- one per entry point implemented in some other
+shim file -- and every one of them was a COPY of a signature that
+`SourceSharpEngineApi` already declared.  A slot was written down four times in
+this tree (HISTORY: the engine struct went at plan_client_vtables CC-last and
+its managed mirror, the ManagedApi's LegacyStructs.cs, at CE-last; the
+signatures are the shim-area methods' now, see THE TWO INPUTS):
+
+    src/sourcesharp/host/sourcesharp.h           the function-pointer field
+    the managed mirror of the struct
+    sourcesharp_gamesystem.cpp (declarations)    the prototype
+    sourcesharp_gamesystem.cpp (the fill)        the assignment
+
+The first two were checked against each other by `AbiParityTests`.  The
+prototype was checked against nothing: it is a separate spelling of the same
+argument list, and a signature that drifts from its field is a compile error
+only if the two disagree in a way the compiler can see.  `int32_t` where the
+field says `int`, `float *` where it says `const float *` -- neither is caught,
+and neither is visible in review.
+
+So the prototypes are DERIVED now, exactly the way `SourceSharp.Abi`'s
+`VtableLayouts.g.cs` is derived from the interface headers by
+`tools/vtable-layout`.
+
+
+THE TWO INPUTS, AND WHAT EACH DECIDES
+=====================================
+
+the area headers decide the SIGNATURE (ishim_areas.h, ishim_areas_client.h).
+                 `virtual void EntityTeleport( uint32_t hEntity, const float
+                 *pOrigin, ... ) = 0;` becomes `void SourceSharp_EntityTeleport(
+                 uint32_t hEntity, ... );` -- the same text, unwrapped.
+                 Nothing is retyped.  (It was sourcesharp.h's function-pointer
+                 field until the engine struct went at plan_client_vtables
+                 CC-last.)
+
+the slot TABLE   decides WHICH prototypes exist and WHICH SIDE each is
+                 declared on (docs/engineapi-areas.tsv).  Neither side fills
+                 the struct any more (the server since C6c, the client since
+                 plan_client_vtables CC-last): every slot is a shim-area
+                 method forwarding to the body its row names -- `body` for
+                 the server, `client_body` (or `body`) for the client.  A
+                 row's `side` says which DLL serves it; a function both sides
+                 forward to is declared unguarded.
+
+
+WHAT IS **NOT** GENERATED, and why each is a deliberate exception
+=================================================================
+
+ *  A prototype for a function that is NOT a slot.  Seven entry points are
+    called directly rather than through the engine API -- the entity-slot
+    drain, the two constraint/motion level-shutdown hooks, the three Steam
+    game-server calls -- and they have no field to derive a signature from.
+    They stay hand-written in the .cpp, beside the call that needs them.
+
+ *  A slot assigned from a function DEFINED IN sourcesharp_gamesystem.cpp
+    itself.  Those need no prototype at all: the definition precedes the fill.
+    They are recognised by the generator, not listed by hand.
+
+ *  A slot assigned from a function whose name is not `SourceSharp_<Field>`.
+    `engineApi.RegisterConVar = SourceSharp_EngineRegisterConVar` is one.  The
+    fill names the function, so the generator follows the fill and derives the
+    signature from the field.
+"""
+
+import difflib
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+SRC = os.path.join(ROOT, "src")
+
+GAMESYSTEM = os.path.join(SRC, "sourcesharp/game/shared/sourcesharp_gamesystem.cpp")
+OUTPUT = os.path.join(SRC, "sourcesharp/game/shared/sourcesharp_entrypoints.h")
+# Since plan_engineapi_vtables C6c the server wires no struct: its slots are
+# methods of its shim areas, forwarding to the body the slot table names.
+AREAS_HEADER = os.path.join(SRC, "sourcesharp/game/shared/ishim_areas.h")
+# plan_client_vtables CC: the client-only areas, where the struct no longer has a field.
+CLIENT_AREAS_HEADER = os.path.join(SRC, "sourcesharp/game/shared/ishim_areas_client.h")
+SLOT_TABLE = os.path.join(ROOT, "docs/engineapi-areas.tsv")
+
+
+def die(msg):
+    sys.stderr.write("tools/entrypoint-decls: %s\n" % msg)
+    sys.exit(2)
+
+
+def read(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError as e:
+        die("cannot read %s: %s" % (path, e))
+
+
+# ---------------------------------------------------------------------------
+# 1. The engine API's fields, with their signatures.
+# ---------------------------------------------------------------------------
+
+# A function-pointer field. The return type may carry stars of its own --
+# `void **(*ClientInterpBlocks)( ... )` is one -- so the middle of the type is
+# allowed to contain them and the LAST star before the parenthesis is the one
+# that makes it a pointer-to-function.
+FIELD_RX = re.compile(
+    r"^\t(?P<ret>[A-Za-z_][\w \t\*]*?)[ \t]*\(\s*\*\s*(?P<name>\w+)\s*\)\s*"
+    r"\((?P<args>.*?)\)\s*;",
+    re.MULTILINE | re.DOTALL)
+
+# A plain data field: `uint32_t struct_size;`. These are ASSIGNED in the fill
+# block like every slot is, and they are not entry points -- struct_size is
+# the one. It is collected so that the fill's reference to it is SKIPPED
+# rather than reported as a slot with no field, which is how an actual
+# mistake reads.
+PLAIN_RX = re.compile(r"^\t(?P<type>[A-Za-z_][\w \t\*]*?[\w\*])[ \t]+(?P<name>\w+)\s*;",
+                      re.MULTILINE)
+
+
+# A shim-area method: `virtual <ret> <Name>( <args> ) = 0;`, read with the
+# comments stripped so a method named in a comment is not one.
+METHOD_RX = re.compile(
+    r"\bvirtual\s+(?P<ret>[A-Za-z_][\w \t\*]*?)[ \t]*\b(?P<name>\w+)\s*"
+    r"\((?P<args>[^()]*)\)\s*=\s*0\s*;")
+
+
+def area_methods(header):
+    """{name: (return type, argument text)} of the server's shim areas."""
+    code = re.sub(r"/\*.*?\*/", "", header, flags=re.DOTALL)
+    code = re.sub(r"//[^\n]*", "", code)
+    def stars(text):
+        # The header spells `const float * pX`; the ABI header `const float *pX`.
+        return re.sub(r"\s*(\*+)\s*", r" \1", " ".join(text.split())).strip()
+    return {m.group("name"): (stars(m.group("ret")), stars(m.group("args")))
+            for m in METHOD_RX.finditer(code)}
+
+
+def table_slots(table):
+    """[(slot, body, side)] each DLL forwards to, from the slot table's
+    EngineApi rows: a server row is the server's body, a client row the
+    client's (client_body, else body), and a shared row both, each with its
+    own side's body."""
+    lines = table.splitlines()
+    if not lines or lines[0].split("\t")[:8] != ["slot", "struct", "interface", "kind",
+                                                "base", "side", "suppress", "body"]:
+        die("the slot table's header is not the columns this reads")
+    out = []
+    for line in lines[1:]:
+        c = line.split("\t")
+        if len(c) < 8 or c[1] != "EngineApi":
+            continue
+        client_body = c[9] if len(c) > 9 and c[9] else c[7]
+        if c[5] in ("server", "both"):
+            out.append((c[0], c[7], "server"))
+        if c[5] in ("client", "both"):
+            out.append((c[0], client_body, "client"))
+    return out
+
+def defined_here(cpp):
+    """Function names DEFINED in sourcesharp_gamesystem.cpp itself -- those
+    need no prototype, because the definition precedes the fill."""
+    names = set()
+    for m in re.finditer(
+            r"^(?:static\s+)?[A-Za-z_][\w \t\*]*?[\s\*](SourceSharp_\w+)\s*\([^;]*?\)\s*$",
+            cpp, re.MULTILINE):
+        names.add(m.group(1))
+    # the common one-line form `static float SourceSharp_X( void )\n{`
+    for m in re.finditer(r"^(?:static\s+)[A-Za-z_][\w \t\*]*?[\s\*](SourceSharp_\w+)\s*\(",
+                         cpp, re.MULTILINE):
+        names.add(m.group(1))
+    return names
+
+
+# ---------------------------------------------------------------------------
+# 3. Emit.
+# ---------------------------------------------------------------------------
+
+BANNER = '''//========= SourceSharp — the shim's entry points, GENERATED =================//
+//
+// DO NOT EDIT. Written by tools/entrypoint-decls from
+//
+//     src/sourcesharp/host/sourcesharp.h                   the signatures
+//     src/sourcesharp/game/shared/sourcesharp_gamesystem.cpp   which, and which side
+//
+// One prototype per engine-API slot whose body is in some other shim file.
+// These were 483 hand-written lines at the top of sourcesharp_gamesystem.cpp,
+// each a second spelling of an argument list SourceSharpEngineApi already
+// declares -- so `int32_t` where the field said `int`, or a dropped `const`,
+// was a difference no compiler and no reviewer would see. They are derived now.
+//
+// WHERE THE PROSE WENT. Each block carried a paragraph naming the file the body
+// lives in and why it is there. That is in docs/engine-boundary.md, keyed by
+// slot name, and this file carries the one fact a generator can keep honest:
+// the signature, and the side.
+//
+// TO REGENERATE:  tools/entrypoint-decls --write
+// TO CHECK:       tools/entrypoint-decls        (exit 1 on drift)
+//
+//=============================================================================//
+
+#ifndef SOURCESHARP_ENTRYPOINTS_H
+#define SOURCESHARP_ENTRYPOINTS_H
+#ifdef _WIN32
+#pragma once
+#endif
+
+// sourcesharp.h is what these signatures are derived FROM, so it has to be
+// included before them: every argument type below is one of its typedefs or a
+// plain C type.
+#include "sourcesharp.h"
+
+'''
+
+FOOTER = "\n#endif // SOURCESHARP_ENTRYPOINTS_H\n"
+
+
+def declaration(ret, name, args):
+    """One prototype, wrapped the way the tree wraps them."""
+    head = "%s%s%s(" % (ret, " " if not ret.endswith("*") else "", name)
+    one = "%s %s );" % (head, args) if args else "%s void );" % head
+    one = re.sub(r"\(\s+", "( ", one)
+    if len(one) <= 96:
+        return [one]
+
+    # Wrap at argument boundaries, continuation lines aligned under the first.
+    indent = " " * (len(head) + 1)
+    parts = [p.strip() for p in split_args(args)]
+    out, cur = [], head
+    for i, p in enumerate(parts):
+        piece = p + ("," if i + 1 < len(parts) else " );")
+        candidate = (cur + " " + piece) if cur.endswith("(") else (cur + " " + piece)
+        if len(candidate) > 96 and not cur.endswith("("):
+            out.append(cur)
+            cur = indent + piece
+        else:
+            cur = candidate
+    out.append(cur)
+    return out
+
+
+def split_args(args):
+    """Split on commas that are not inside brackets."""
+    depth, cur, out = 0, "", []
+    for ch in args:
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        out.append(cur)
+    return out
+
+
+def generate():
+    cpp = read(GAMESYSTEM)
+
+    # plan_client_vtables CC-last: there is no struct, so every signature is
+    # its shim-area method's (the server's areas and shared bases in
+    # ishim_areas.h, the client-only areas in ishim_areas_client.h).
+    local = defined_here(cpp)
+    methods = area_methods(read(AREAS_HEADER))
+    client_methods = area_methods(read(CLIENT_AREAS_HEADER))
+    served = table_slots(read(SLOT_TABLE))
+    if len(methods) < 200 or len(client_methods) < 100 or len(served) < 400:
+        die("read %d area methods, %d client area methods and %d served slots; "
+            "the scan lost its subject" % (len(methods), len(client_methods), len(served)))
+
+    # FUNCTION -> (field it is wired to, set of sides), and the key is the
+    # FUNCTION rather than the field. That is not a detail.
+    #
+    # A FIELD WIRED ON BOTH SIDES HAS TWO FUNCTIONS BEHIND IT. `EntityGetIndex`
+    # is `SourceSharp_EntityGetIndex` inside `#ifndef CLIENT_DLL` and
+    # `SourceSharp_ClientEntityGetIndex` inside `#ifdef CLIENT_DLL` -- one
+    # slot, two bodies, one per DLL. Keyed by field, the second assignment
+    # overwrites the first: the generator emitted ONE declaration, for whichever
+    # function the fill happened to name last, unguarded, and the other
+    # function got no declaration at all.
+    #
+    # It compiled, which is the part worth writing down. Six functions were
+    # dropped that way and the build stayed green, because the hand-written
+    # declarations this generator replaced had not all been removed yet and
+    # happened to cover exactly those six. A generator that silently drops half
+    # of every two-armed slot, checked by a build that another file is holding
+    # up, is the shape this project keeps finding.
+    wired = {}
+    for field, fn, side in served:
+        if not fn.startswith("SourceSharp_"):
+            continue
+        entry = wired.setdefault(fn, [field, set()])
+        if entry[0] != field:
+            die("%s is wired to two different slots (%s and %s); one function "
+                "cannot have two signatures" % (fn, entry[0], field))
+        entry[1].add(side)
+
+    rows = []           # (side, ret, fn, args, field)
+    skipped_local = []
+    unknown = []
+    for fn, (field, sides) in wired.items():
+        if not fn.startswith("SourceSharp_"):
+            # A slot RETIRED before the ABI pass runs is assigned `= NULL`, its
+            # field kept in place so nothing after it renumbers. There is no
+            # body to declare, and declaring one called `NULL` is what happens
+            # if this line is missing -- which it was, and the generator's own
+            # diff is what said so.
+            #
+            # Every entry point in this tree is `SourceSharp_Something`, and
+            # `NULL` is the thing that is not. Case-sensitive, so a macro
+            # cannot pass for a function.
+            continue
+        if fn in local:
+            skipped_local.append(fn)
+            continue
+        if field == "AcquireInterface":
+            # The root's slot, not an area method: IShimRoot's spelling takes
+            # an int32_t, the body a SourceSharpFactoryType, and the body is
+            # declared by hand beside its definition (shell_vtable_interfaces.h).
+            continue
+        if field in methods:
+            ret, args = methods[field]
+        elif field in client_methods:
+            ret, args = client_methods[field]
+        else:
+            unknown.append((field, fn))
+            continue
+        if "" in sides or ("server" in sides and "client" in sides):
+            side = ""
+        else:
+            side = sorted(sides)[0]
+        rows.append((side, ret, fn, args, field))
+
+    if unknown:
+        die("%d slot(s) have no SourceSharpEngineApi field or server area method: %s"
+            % (len(unknown), ", ".join(f for f, _ in unknown[:6])))
+
+    if len(rows) < 150:
+        die("only %d prototypes derived; the scan lost its subject" % len(rows))
+
+    rows.sort(key=lambda r: (r[0], r[2]))
+
+    body = []
+    for side, label, comment in (
+            ("", "BOTH SIDES", "A body on the server and a body on the client, or one "
+                               "shared body compiled into each."),
+            ("server", "SERVER ONLY", "Served by the server's shim areas "
+                                      "(docs/engineapi-areas.tsv), so the client has no body to declare."),
+            ("client", "CLIENT ONLY", "The fill wires these inside `#ifdef CLIENT_DLL`, "
+                                      "so the server has no body to declare.")):
+        group = [r for r in rows if r[0] == side]
+        if not group:
+            continue
+        body.append("//---------------------------------------------------------------------------\n")
+        body.append("// %s -- %d slots.\n" % (label, len(group)))
+        body.append("//\n")
+        for line in wrap_comment(comment):
+            body.append("// %s\n" % line)
+        body.append("//---------------------------------------------------------------------------\n")
+        if side == "server":
+            body.append("#ifndef CLIENT_DLL\n")
+        elif side == "client":
+            body.append("#ifdef CLIENT_DLL\n")
+        for _, ret, fn, args, field in group:
+            for line in declaration(ret, fn, args):
+                body.append(line + "\n")
+        if side:
+            body.append("#endif\n")
+        body.append("\n")
+
+    return BANNER + "".join(body) + FOOTER, rows, skipped_local
+
+
+def wrap_comment(text, width=74):
+    words, out, cur = text.split(), [], ""
+    for w in words:
+        if cur and len(cur) + 1 + len(w) > width:
+            out.append(cur)
+            cur = w
+        else:
+            cur = (cur + " " + w).strip()
+    if cur:
+        out.append(cur)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 4. The self-test: this script's own reporting.
+# ---------------------------------------------------------------------------
+
+def self_test():
+    ok = True
+
+    def check(name, cond, detail=""):
+        nonlocal ok
+        print("%-58s %s%s" % (name, "ok" if cond else "FAIL",
+                              "" if cond else "  " + detail))
+        ok = ok and cond
+
+    # The argument splitter is the one piece of real parsing here.
+    check("split_args on a plain list",
+          [s.strip() for s in split_args("int a, float b")] == ["int a", "float b"])
+    check("split_args keeps an array bound together",
+          [s.strip() for s in split_args("float v[3], int n")] == ["float v[3]", "int n"])
+    check("split_args on one argument",
+          [s.strip() for s in split_args("void")] == ["void"])
+
+    # A declaration is the field's text with the pointer syntax unwrapped.
+    check("declaration unwraps a simple field",
+          declaration("void", "SourceSharp_X", "uint32_t h") == ["void SourceSharp_X( uint32_t h );"])
+    check("declaration handles an empty argument list",
+          declaration("int32_t", "SourceSharp_X", "void") == ["int32_t SourceSharp_X( void );"])
+    check("a pointer return type keeps its star tight",
+          declaration("void *", "SourceSharp_X", "void")[0].startswith("void *SourceSharp_X("))
+
+    # THE TABLE decides the side (plan_client_vtables CC-last: no fill).
+    table = "\n".join([
+        "slot\tstruct\tinterface\tkind\tbase\tside\tsuppress\tbody\tmanaged\tclient_body",
+        "A\tEngineApi\tIShimX\tshared\t\tboth\t-\tSourceSharp_A\tint\t",
+        "X\tEngineApi\tIShimX\tshared\t\tboth\t-\tSourceSharp_X\tint\tSourceSharp_ClientX",
+        "S\tEngineApi\tIShimS\tserver\t\tserver\t-\tSourceSharp_S\tint\t",
+        "C\tEngineApi\tIShimC\tclient\t\tclient\t-\tSourceSharp_C\tint\t",
+    ])
+    rows = table_slots(table)
+    check("a shared row with one body is that body on both sides",
+          sorted(s for f, fn, s in rows if fn == "SourceSharp_A") == ["client", "server"], repr(rows))
+    check("a shared row with a client_body yields BOTH functions, each on its side",
+          {fn: s for f, fn, s in rows if f == "X"}
+          == {"SourceSharp_X": "server", "SourceSharp_ClientX": "client"}, repr(rows))
+    check("a server row is the server's alone, a client row the client's",
+          [(fn, s) for f, fn, s in rows if f in ("S", "C")]
+          == [("SourceSharp_S", "server"), ("SourceSharp_C", "client")], repr(rows))
+    try:
+        table_slots("not\ta\ttable")
+        check("a table with the wrong header is refused", False)
+    except SystemExit:
+        check("a table with the wrong header is refused", True)
+
+    return 0 if ok else 1
+
+
+def main():
+    args = sys.argv[1:]
+    if args == ["--self-test"]:
+        return self_test()
+
+    text, rows, local = generate()
+
+    if args == ["--emit"]:
+        sys.stdout.write(text)
+        return 0
+
+    if args == ["--write"]:
+        with open(OUTPUT, "w", encoding="utf-8") as f:
+            f.write(text)
+        print("wrote %s: %d prototypes (%d slots are filled from a body defined "
+              "in sourcesharp_gamesystem.cpp itself and need none)"
+              % (os.path.relpath(OUTPUT, ROOT), len(rows), len(local)))
+        return 0
+
+    if args:
+        sys.stderr.write(__doc__)
+        return 2
+
+    try:
+        with open(OUTPUT, encoding="utf-8") as f:
+            have = f.read()
+    except OSError:
+        print("%s does not exist. Run tools/entrypoint-decls --write."
+              % os.path.relpath(OUTPUT, ROOT))
+        return 1
+
+    if have == text:
+        print("%s is what the inputs say (%d prototypes)."
+              % (os.path.relpath(OUTPUT, ROOT), len(rows)))
+        return 0
+
+    sys.stdout.writelines(difflib.unified_diff(
+        have.splitlines(keepends=True), text.splitlines(keepends=True),
+        fromfile="committed", tofile="generated"))
+    print("\n%s is STALE. Run tools/entrypoint-decls --write and read the diff."
+          % os.path.relpath(OUTPUT, ROOT))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

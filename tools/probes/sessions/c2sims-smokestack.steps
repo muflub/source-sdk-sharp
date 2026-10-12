@@ -1,0 +1,15 @@
+# lane c2-sims: record the smoke stack sim (tools/probes/c2sims-smokestack-probe.diff
+# applied) on dm_lockdown at the steam jet's fixed pose: the recording starts,
+# then an env_smokestack is created at the aim point (twist, roll and wind all
+# non-zero so every arm runs), 150 frames from its Start.
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 0 0 0
+sleep 2
+cmd cs_cl_probe_sim smokestack 150
+cmd ent_create env_smokestack targetname c2stack InitialState 1 SmokeMaterial particle/SmokeStack.vmt BaseSpread 20 SpreadSpeed 15 Speed 30 StartSize 10 EndSize 15 Rate 40 JetLength 180 Twist 20 Roll 10 WindAngle 30 WindSpeed 20 rendercolor "200 180 160" renderamt 200
+wait sim. recorded 60
+quit

@@ -1,0 +1,2162 @@
+# c2-sims decals oracle: stock decals.cpp (CDecalEmitterSystem) through `decalsystem`.
+# S <group> <entry> <weight>      the script, as stock's KeyValues read it
+# M <material key> <group>        its TranslationData section
+# P <entry> <precache index>      effects->Draw_DecalIndexFromName, as stock's LevelInitPreEntity
+# I <group> <answer> <draws>      GetDecalIndexForName; draws are min,max,value;... ('-' for none)
+# N <index> <name>                GetDecalNameForIndex ('-' for "")
+# T <name> <material> <answer>    TranslateDecalForGameMaterial ('=' when it answered its input, '-' for "")
+M	-	-
+M	C	Impact.Concrete
+M	M	Impact.Metal
+M	W	Impact.Wood
+M	y	Impact.Glass
+M	F	Impact.Flesh
+M	B	Impact.BloodyFlesh
+M	H	Impact.AlienFlesh
+M	A	Impact.Antlion
+M	E	Impact.Antlion
+M	N	Impact.Sand
+M	V	Impact.Metal
+M	G	Impact.Metal
+M	T	Impact.Concrete
+M	I	-
+M	O	Impact.Wood
+M	P	Impact.Concrete
+M	L	Impact.Concrete
+M	D	Impact.Concrete
+M	S	-
+M	x	-
+S	Impact.Concrete	decals/concrete/shot1_subrect	1
+S	Impact.Concrete	decals/concrete/shot2_subrect	1
+S	Impact.Concrete	decals/concrete/shot3_subrect	1
+S	Impact.Concrete	decals/concrete/shot4_subrect	1
+S	Impact.Concrete	decals/concrete/shot5_subrect	1
+S	Impact.Metal	decals/metal/shot1_subrect	1
+S	Impact.Metal	decals/metal/shot2_subrect	1
+S	Impact.Metal	decals/metal/shot3_subrect	1
+S	Impact.Metal	decals/metal/shot4_subrect	1
+S	Impact.Metal	decals/metal/shot5_subrect	1
+S	Impact.Wood	decals/wood/shot1_subrect	1
+S	Impact.Wood	decals/wood/shot2_subrect	1
+S	Impact.Wood	decals/wood/shot3_subrect	1
+S	Impact.Wood	decals/wood/shot4_subrect	1
+S	Impact.Wood	decals/wood/shot5_subrect	1
+S	Impact.Glass	decals/glass/shot1_subrect	1
+S	Impact.Glass	decals/glass/shot2_subrect	1
+S	Impact.Glass	decals/glass/shot3_subrect	1
+S	Impact.Glass	decals/glass/shot4_subrect	1
+S	Impact.Glass	decals/glass/shot5_subrect	1
+S	Impact.Flesh	decals/flesh/blood1_subrect	1
+S	Impact.Flesh	decals/flesh/blood2_subrect	1
+S	Impact.Flesh	decals/flesh/blood3_subrect	1
+S	Impact.Flesh	decals/flesh/blood4_subrect	1
+S	Impact.Flesh	decals/flesh/blood5_subrect	1
+S	Impact.BloodyFlesh	decals/bloodyflesh/blood1_subrect	1
+S	Impact.BloodyFlesh	decals/bloodyflesh/blood2_subrect	1
+S	Impact.BloodyFlesh	decals/bloodyflesh/blood3_subrect	1
+S	Impact.BloodyFlesh	decals/bloodyflesh/blood4_subrect	1
+S	Impact.BloodyFlesh	decals/bloodyflesh/blood5_subrect	1
+S	Impact.AlienFlesh	decals/alienflesh/shot1_subrect	1
+S	Impact.AlienFlesh	decals/alienflesh/shot2_subrect	1
+S	Impact.AlienFlesh	decals/alienflesh/shot3_subrect	1
+S	Impact.AlienFlesh	decals/alienflesh/shot4_subrect	1
+S	Impact.AlienFlesh	decals/alienflesh/shot5_subrect	1
+S	Impact.Antlion	decals/antlion/shot1_subrect	1
+S	Impact.Antlion	decals/antlion/shot2_subrect	1
+S	Impact.Antlion	decals/antlion/shot3_subrect	1
+S	Impact.Antlion	decals/antlion/shot4_subrect	1
+S	Impact.Antlion	decals/antlion/shot5_subrect	1
+S	Impact.Sand	decals/sand/shot1_subrect	1
+S	Impact.Sand	decals/sand/shot2_subrect	1
+S	Impact.Sand	decals/sand/shot3_subrect	1
+S	Impact.Sand	decals/sand/shot4_subrect	1
+S	Scorch	decals/scorch1_subrect	1
+S	Scorch	decals/scorch2_subrect	1
+S	Blood	decals/blood1_subrect	1
+S	Blood	decals/blood2_subrect	1
+S	Blood	decals/blood3_subrect	1
+S	Blood	decals/blood4_subrect	1
+S	Blood	decals/blood5_subrect	1
+S	Blood	decals/blood6_subrect	1
+S	YellowBlood	decals/yblood1_subrect	1
+S	YellowBlood	decals/yblood2_subrect	1
+S	YellowBlood	decals/yblood3_subrect	1
+S	YellowBlood	decals/yblood4_subrect	1
+S	YellowBlood	decals/yblood5_subrect	1
+S	YellowBlood	decals/yblood6_subrect	1
+S	GlassBreak	decals/break1_subrect	1
+S	GlassBreak	decals/break2_subrect	1
+S	GlassBreak	decals/break3_subrect	1
+S	BigShot	decals/bigshot1_subrect	1
+S	BigShot	decals/bigshot2_subrect	1
+S	BigShot	decals/bigshot3_subrect	1
+S	BigShot	decals/bigshot4_subrect	1
+S	BigShot	decals/bigshot5_subrect	1
+S	BulletProof	decals/bproof1_subrect	1
+S	SmallScorch	decals/smscorch1_subrect	1
+S	SmallScorch	decals/smscorch2_subrect	1
+S	SmallScorch	decals/smscorch3_subrect	1
+S	FadingScorch	decals/scorchfade_subrect	1
+S	BeerSplash	decals/beersplash_subrect	1
+S	ManhackCut	decals/manhackcut_subrect	1
+S	ManhackCut	decals/manhackcut2_subrect	1
+S	ManhackCut	decals/manhackcut3_subrect	1
+S	RedGlowFade	decals/redglowfade	1
+S	CombineBallFade	decals/combineballfade	1
+S	CombineBallFade2	decals/combineballfade2	1
+S	CombineBallFade3	decals/combineballfade3	1
+S	PlasmaGlowFade	decals/plasmaglowfade	1
+S	Splash	decals/decalsplash	1
+S	ExplosiveGunshot	decals/concrete/shot1_subrect	1
+S	Fire	sprites/fire_floor	1
+S	Antion.Unburrow	decals/unburrow_subrect	1
+S	Extinguish	decals/extinguish1_subrect	1
+S	Extinguish	decals/extinguish2_subrect	1
+S	Splash.Large	decals/splash1_subrect	1
+S	Splash.Large	decals/splash2_subrect	1
+S	Splash.Large	decals/splash3_subrect	1
+S	Splash.Small	decals/splash1_subrect	1
+S	Splash.Small	decals/splash1_subrect	1
+S	Splash.Small	decals/splash1_subrect	1
+S	Rollermine.Crater	decals/rollermine_crater_subrect	1
+S	BirdPoop	decals/decal_birdpoop001_subrect	1
+S	BirdPoop	decals/decal_birdpoop002_subrect	1
+S	BirdPoop	decals/decal_birdpoop003_subrect	1
+S	BirdPoop	decals/decal_birdpoop004_subrect	1
+S	PaintSplatBlue	decals/decal_paintsplatterblue001_subrect	1
+S	PaintSplatGreen	decals/decal_paintsplattergreen001_subrect	1
+S	PaintSplatPink	decals/decal_paintsplatterpink001_subrect	1
+S	EnergyBall.Impact	decals/smscorch1_subrect	1
+S	Antlion.Splat	decals/antlion/antlion_splat	1
+S	SecurityCamera.Detachment	decals/security_camera_detachment	1
+S	Models	decals/concrete/shot1	1
+S	Models	decals/concrete/shot2	1
+S	Models	decals/concrete/shot3	1
+S	Models	decals/concrete/shot4	1
+S	Models	decals/concrete/shot5	1
+S	Models	decals/metal/shot1	1
+S	Models	decals/metal/shot2	1
+S	Models	decals/metal/shot3	1
+S	Models	decals/metal/shot4	1
+S	Models	decals/metal/shot5	1
+S	Models	decals/wood/shot1	1
+S	Models	decals/wood/shot2	1
+S	Models	decals/wood/shot3	1
+S	Models	decals/wood/shot4	1
+S	Models	decals/wood/shot5	1
+S	Models	decals/glass/shot1	1
+S	Models	decals/glass/shot2	1
+S	Models	decals/glass/shot3	1
+S	Models	decals/glass/shot4	1
+S	Models	decals/glass/shot5	1
+S	Models	decals/flesh/blood1	1
+S	Models	decals/flesh/blood2	1
+S	Models	decals/flesh/blood3	1
+S	Models	decals/flesh/blood4	1
+S	Models	decals/flesh/blood5	1
+S	Models	decals/bloodyflesh/blood1	1
+S	Models	decals/bloodyflesh/blood2	1
+S	Models	decals/bloodyflesh/blood3	1
+S	Models	decals/bloodyflesh/blood4	1
+S	Models	decals/bloodyflesh/blood5	1
+S	Models	decals/alienflesh/shot1	1
+S	Models	decals/alienflesh/shot2	1
+S	Models	decals/alienflesh/shot3	1
+S	Models	decals/alienflesh/shot4	1
+S	Models	decals/alienflesh/shot5	1
+S	Models	decals/antlion/shot1	1
+S	Models	decals/antlion/shot2	1
+S	Models	decals/antlion/shot3	1
+S	Models	decals/antlion/shot4	1
+S	Models	decals/antlion/shot5	1
+S	Models	decals/scorch1	1
+S	Models	decals/scorch2	1
+S	Models	decals/blood1	1
+S	Models	decals/blood2	1
+S	Models	decals/blood3	1
+S	Models	decals/blood4	1
+S	Models	decals/blood5	1
+S	Models	decals/blood6	1
+S	Models	decals/blood7	1
+S	Models	decals/blood8	1
+S	Models	decals/yblood1	1
+S	Models	decals/yblood2	1
+S	Models	decals/yblood3	1
+S	Models	decals/yblood4	1
+S	Models	decals/yblood5	1
+S	Models	decals/yblood6	1
+S	Models	decals/break1	1
+S	Models	decals/break2	1
+S	Models	decals/break3	1
+S	Models	decals/bigshot1	1
+S	Models	decals/bigshot2	1
+S	Models	decals/bigshot3	1
+S	Models	decals/bigshot4	1
+S	Models	decals/bigshot5	1
+S	Models	decals/bproof1	1
+S	Models	decals/smscorch1	1
+S	Models	decals/smscorch2	1
+S	Models	decals/smscorch3	1
+S	Models	decals/scorchfade	1
+S	Models	decals/beersplash	1
+S	Models	decals/manhackcut	1
+S	Models	decals/manhackcut2	1
+S	Models	decals/manhackcut3	1
+S	Models	decals/unburrow	1
+S	Models	decals/extinguish1	1
+S	Models	decals/extinguish2	1
+S	Models	decals/splash1	1
+S	Models	decals/splash2	1
+S	Models	decals/splash3	1
+S	Models	decals/rollermine_crater	1
+S	Models	decals/decal_birdpoop001	1
+S	Models	decals/decal_birdpoop002	1
+S	Models	decals/decal_birdpoop003	1
+S	Models	decals/decal_birdpoop004	1
+S	Models	decals/decal_paintsplatterblue001	1
+S	Models	decals/decal_paintsplattergreen001	1
+S	Models	decals/decal_paintsplatterpink001	1
+S	Models	decals/decal_paintsplatterblue_model	1
+S	Models	decals/decal_paintsplattergreen_model	1
+S	Models	decals/decal_paintsplatterpink_model	1
+S	Models	decals/smscorch1_subrect	1
+S	Models	decals/antlion/antlion_splat	1
+S	Models	decals/security_camera_detachment	1
+S	Models	decals/beersplashmodel	1
+S	Models	decals/bigshot1model	1
+S	Models	decals/bigshot2model	1
+S	Models	decals/bigshot3model	1
+S	Models	decals/bigshot4model	1
+S	Models	decals/bigshot5model	1
+S	Models	decals/bproof1model	1
+S	Models	decals/break1model	1
+S	Models	decals/break2model	1
+S	Models	decals/break3model	1
+S	Models	decals/decal_paintsplatterblue_model	1
+S	Models	decals/decal_paintsplattergreen_model	1
+S	Models	decals/decal_paintsplatterpink_model	1
+S	Models	decals/extinguish1model	1
+S	Models	decals/extinguish2model	1
+S	Models	decals/scorch1model	1
+S	Models	decals/scorch2model	1
+S	Models	decals/scorchfademodel	1
+S	Models	decals/smscorch1model	1
+S	Models	decals/smscorch2model	1
+S	Models	decals/smscorch3model	1
+P	decals/concrete/shot1_subrect	0
+P	decals/concrete/shot2_subrect	1
+P	decals/concrete/shot3_subrect	2
+P	decals/concrete/shot4_subrect	3
+P	decals/concrete/shot5_subrect	4
+P	decals/metal/shot1_subrect	5
+P	decals/metal/shot2_subrect	6
+P	decals/metal/shot3_subrect	7
+P	decals/metal/shot4_subrect	8
+P	decals/metal/shot5_subrect	9
+P	decals/wood/shot1_subrect	10
+P	decals/wood/shot2_subrect	11
+P	decals/wood/shot3_subrect	12
+P	decals/wood/shot4_subrect	13
+P	decals/wood/shot5_subrect	14
+P	decals/glass/shot1_subrect	15
+P	decals/glass/shot2_subrect	16
+P	decals/glass/shot3_subrect	17
+P	decals/glass/shot4_subrect	18
+P	decals/glass/shot5_subrect	19
+P	decals/flesh/blood1_subrect	20
+P	decals/flesh/blood2_subrect	21
+P	decals/flesh/blood3_subrect	22
+P	decals/flesh/blood4_subrect	23
+P	decals/flesh/blood5_subrect	24
+P	decals/bloodyflesh/blood1_subrect	25
+P	decals/bloodyflesh/blood2_subrect	26
+P	decals/bloodyflesh/blood3_subrect	27
+P	decals/bloodyflesh/blood4_subrect	28
+P	decals/bloodyflesh/blood5_subrect	29
+P	decals/alienflesh/shot1_subrect	30
+P	decals/alienflesh/shot2_subrect	31
+P	decals/alienflesh/shot3_subrect	32
+P	decals/alienflesh/shot4_subrect	33
+P	decals/alienflesh/shot5_subrect	34
+P	decals/antlion/shot1_subrect	35
+P	decals/antlion/shot2_subrect	36
+P	decals/antlion/shot3_subrect	37
+P	decals/antlion/shot4_subrect	38
+P	decals/antlion/shot5_subrect	39
+P	decals/sand/shot1_subrect	40
+P	decals/sand/shot2_subrect	41
+P	decals/sand/shot3_subrect	42
+P	decals/sand/shot4_subrect	43
+P	decals/scorch1_subrect	44
+P	decals/scorch2_subrect	45
+P	decals/blood1_subrect	46
+P	decals/blood2_subrect	47
+P	decals/blood3_subrect	48
+P	decals/blood4_subrect	49
+P	decals/blood5_subrect	50
+P	decals/blood6_subrect	51
+P	decals/yblood1_subrect	52
+P	decals/yblood2_subrect	53
+P	decals/yblood3_subrect	54
+P	decals/yblood4_subrect	55
+P	decals/yblood5_subrect	56
+P	decals/yblood6_subrect	57
+P	decals/break1_subrect	58
+P	decals/break2_subrect	59
+P	decals/break3_subrect	60
+P	decals/bigshot1_subrect	61
+P	decals/bigshot2_subrect	62
+P	decals/bigshot3_subrect	63
+P	decals/bigshot4_subrect	64
+P	decals/bigshot5_subrect	65
+P	decals/bproof1_subrect	66
+P	decals/smscorch1_subrect	67
+P	decals/smscorch2_subrect	68
+P	decals/smscorch3_subrect	69
+P	decals/scorchfade_subrect	70
+P	decals/beersplash_subrect	71
+P	decals/manhackcut_subrect	72
+P	decals/manhackcut2_subrect	73
+P	decals/manhackcut3_subrect	74
+P	decals/redglowfade	75
+P	decals/combineballfade	76
+P	decals/combineballfade2	77
+P	decals/combineballfade3	78
+P	decals/plasmaglowfade	79
+P	decals/decalsplash	80
+P	decals/concrete/shot1_subrect	0
+P	sprites/fire_floor	81
+P	decals/unburrow_subrect	82
+P	decals/extinguish1_subrect	83
+P	decals/extinguish2_subrect	84
+P	decals/splash1_subrect	85
+P	decals/splash2_subrect	86
+P	decals/splash3_subrect	87
+P	decals/splash1_subrect	85
+P	decals/splash1_subrect	85
+P	decals/splash1_subrect	85
+P	decals/rollermine_crater_subrect	88
+P	decals/decal_birdpoop001_subrect	89
+P	decals/decal_birdpoop002_subrect	90
+P	decals/decal_birdpoop003_subrect	91
+P	decals/decal_birdpoop004_subrect	92
+P	decals/decal_paintsplatterblue001_subrect	93
+P	decals/decal_paintsplattergreen001_subrect	94
+P	decals/decal_paintsplatterpink001_subrect	95
+P	decals/smscorch1_subrect	67
+P	decals/antlion/antlion_splat	96
+P	decals/security_camera_detachment	97
+P	decals/concrete/shot1	98
+P	decals/concrete/shot2	99
+P	decals/concrete/shot3	100
+P	decals/concrete/shot4	101
+P	decals/concrete/shot5	102
+P	decals/metal/shot1	103
+P	decals/metal/shot2	104
+P	decals/metal/shot3	105
+P	decals/metal/shot4	106
+P	decals/metal/shot5	107
+P	decals/wood/shot1	108
+P	decals/wood/shot2	109
+P	decals/wood/shot3	110
+P	decals/wood/shot4	111
+P	decals/wood/shot5	112
+P	decals/glass/shot1	113
+P	decals/glass/shot2	114
+P	decals/glass/shot3	115
+P	decals/glass/shot4	116
+P	decals/glass/shot5	117
+P	decals/flesh/blood1	118
+P	decals/flesh/blood2	119
+P	decals/flesh/blood3	120
+P	decals/flesh/blood4	121
+P	decals/flesh/blood5	122
+P	decals/bloodyflesh/blood1	123
+P	decals/bloodyflesh/blood2	124
+P	decals/bloodyflesh/blood3	125
+P	decals/bloodyflesh/blood4	126
+P	decals/bloodyflesh/blood5	127
+P	decals/alienflesh/shot1	128
+P	decals/alienflesh/shot2	129
+P	decals/alienflesh/shot3	130
+P	decals/alienflesh/shot4	131
+P	decals/alienflesh/shot5	132
+P	decals/antlion/shot1	133
+P	decals/antlion/shot2	134
+P	decals/antlion/shot3	135
+P	decals/antlion/shot4	136
+P	decals/antlion/shot5	137
+P	decals/scorch1	138
+P	decals/scorch2	139
+P	decals/blood1	140
+P	decals/blood2	141
+P	decals/blood3	142
+P	decals/blood4	143
+P	decals/blood5	144
+P	decals/blood6	145
+P	decals/blood7	146
+P	decals/blood8	147
+P	decals/yblood1	148
+P	decals/yblood2	149
+P	decals/yblood3	150
+P	decals/yblood4	151
+P	decals/yblood5	152
+P	decals/yblood6	153
+P	decals/break1	154
+P	decals/break2	155
+P	decals/break3	156
+P	decals/bigshot1	157
+P	decals/bigshot2	158
+P	decals/bigshot3	159
+P	decals/bigshot4	160
+P	decals/bigshot5	161
+P	decals/bproof1	162
+P	decals/smscorch1	163
+P	decals/smscorch2	164
+P	decals/smscorch3	165
+P	decals/scorchfade	166
+P	decals/beersplash	167
+P	decals/manhackcut	168
+P	decals/manhackcut2	169
+P	decals/manhackcut3	170
+P	decals/unburrow	171
+P	decals/extinguish1	172
+P	decals/extinguish2	173
+P	decals/splash1	174
+P	decals/splash2	175
+P	decals/splash3	176
+P	decals/rollermine_crater	177
+P	decals/decal_birdpoop001	178
+P	decals/decal_birdpoop002	179
+P	decals/decal_birdpoop003	180
+P	decals/decal_birdpoop004	181
+P	decals/decal_paintsplatterblue001	182
+P	decals/decal_paintsplattergreen001	183
+P	decals/decal_paintsplatterpink001	184
+P	decals/decal_paintsplatterblue_model	185
+P	decals/decal_paintsplattergreen_model	186
+P	decals/decal_paintsplatterpink_model	187
+P	decals/smscorch1_subrect	67
+P	decals/antlion/antlion_splat	96
+P	decals/security_camera_detachment	97
+P	decals/beersplashmodel	188
+P	decals/bigshot1model	189
+P	decals/bigshot2model	190
+P	decals/bigshot3model	191
+P	decals/bigshot4model	192
+P	decals/bigshot5model	193
+P	decals/bproof1model	194
+P	decals/break1model	195
+P	decals/break2model	196
+P	decals/break3model	197
+P	decals/decal_paintsplatterblue_model	185
+P	decals/decal_paintsplattergreen_model	186
+P	decals/decal_paintsplatterpink_model	187
+P	decals/extinguish1model	198
+P	decals/extinguish2model	199
+P	decals/scorch1model	200
+P	decals/scorch2model	201
+P	decals/scorchfademodel	202
+P	decals/smscorch1model	203
+P	decals/smscorch2model	204
+P	decals/smscorch3model	205
+I	Impact.Concrete	1	0,1,0.551942825;0,2,0.319188029;0,3,1.68110061;0,4,2.76562119;0,5,3.19523787
+I	Impact.Concrete	3	0,1,0.185756505;0,2,0.896655381;0,3,2.42805243;0,4,0.864069462;0,5,3.57688904
+I	Impact.Concrete	3	0,1,0.474751353;0,2,0.710137308;0,3,1.50801086;0,4,0.703726947;0,5,2.89766455
+I	Impact.Concrete	0	0,1,0.67425698;0,2,1.20791364;0,3,1.41756856;0,4,2.9913218;0,5,1.48303604
+I	Impact.Concrete	3	0,1,0.247341111;0,2,1.07618439;0,3,0.130744591;0,4,0.0383553505;0,5,2.61650038
+I	Impact.Metal	6	0,1,0.640697539;0,2,0.291495144;0,3,1.13839614;0,4,2.90506601;0,5,2.54178858
+I	Impact.Metal	8	0,1,0.948900461;0,2,0.722301424;0,3,2.35806036;0,4,0.260368466;0,5,2.48796725
+I	Impact.Metal	8	0,1,0.570030868;0,2,0.599981129;0,3,2.9052217;0,4,0.445225745;0,5,3.79292488
+I	Impact.Metal	7	0,1,0.0243140105;0,2,0.381620616;0,3,0.00942449737;0,4,1.41877913;0,5,3.63642311
+I	Impact.Metal	8	0,1,0.990131736;0,2,1.11733484;0,3,1.41556227;0,4,0.387790293;0,5,3.64366174
+I	Impact.Wood	11	0,1,0.467957288;0,2,0.419594824;0,3,1.06593144;0,4,1.86980855;0,5,3.40895748
+I	Impact.Wood	13	0,1,0.941170871;0,2,1.89822435;0,3,2.00445509;0,4,0.321929723;0,5,4.62221003
+I	Impact.Wood	12	0,1,0.154496744;0,2,0.82440722;0,3,0.168987855;0,4,1.80619764;0,5,2.44097114
+I	Impact.Wood	11	0,1,0.352701277;0,2,0.0599141084;0,3,2.10956168;0,4,3.1967032;0,5,2.36119604
+I	Impact.Wood	11	0,1,0.523292601;0,2,0.288464487;0,3,1.21626854;0,4,3.6246779;0,5,4.29894352
+I	Impact.Glass	18	0,1,0.189389765;0,2,1.73927891;0,3,2.40444088;0,4,0.852368772;0,5,2.39839411
+I	Impact.Glass	17	0,1,0.440583467;0,2,1.59332693;0,3,0.0577819236;0,4,3.05515122;0,5,4.02253675
+I	Impact.Glass	19	0,1,0.936755955;0,2,1.03378415;0,3,2.65867209;0,4,1.75945771;0,5,0.438786447
+I	Impact.Glass	19	0,1,0.121349253;0,2,1.70082474;0,3,2.88576531;0,4,2.50494623;0,5,0.85244602
+I	Impact.Glass	15	0,1,0.203563988;0,2,1.42717755;0,3,2.94559646;0,4,3.83213592;0,5,1.95313072
+I	Impact.Flesh	22	0,1,0.673555076;0,2,0.315121233;0,3,0.27572313;0,4,3.01367044;0,5,1.88767445
+I	Impact.Flesh	23	0,1,0.805883408;0,2,0.457785457;0,3,0.0611302182;0,4,0.23023206;0,5,4.82530975
+I	Impact.Flesh	20	0,1,0.719272077;0,2,1.76125205;0,3,1.12271023;0,4,3.91331315;0,5,3.39641786
+I	Impact.Flesh	22	0,1,0.482922941;0,2,0.572628975;0,3,0.797694206;0,4,2.45167637;0,5,1.29486823
+I	Impact.Flesh	21	0,1,0.583411634;0,2,0.795771539;0,3,1.87991667;0,4,1.0136472;0,5,2.45706558
+I	Impact.BloodyFlesh	27	0,1,0.199389428;0,2,1.38585377;0,3,0.0675931349;0,4,3.84581947;0,5,2.40922403
+I	Impact.BloodyFlesh	29	0,1,0.994616151;0,2,1.69669068;0,3,1.67615712;0,4,2.70705128;0,5,0.700660288
+I	Impact.BloodyFlesh	26	0,1,0.76757741;0,2,0.403715909;0,3,1.53960395;0,4,1.92333531;0,5,3.72998261
+I	Impact.BloodyFlesh	26	0,1,0.365620971;0,2,0.797863781;0,3,2.99380684;0,4,3.85559869;0,5,3.92239714
+I	Impact.BloodyFlesh	28	0,1,0.919817567;0,2,0.000295214355;0,3,2.15977573;0,4,0.279466927;0,5,3.08181167
+I	Impact.AlienFlesh	31	0,1,0.399743646;0,2,0.236833006;0,3,2.06995153;0,4,1.49645269;0,5,1.25100207
+I	Impact.AlienFlesh	32	0,1,0.0214788262;0,2,1.11164224;0,3,0.298447877;0,4,2.82205033;0,5,2.75238776
+I	Impact.AlienFlesh	30	0,1,0.137735143;0,2,1.39220953;0,3,1.49214756;0,4,2.76434112;0,5,4.4768815
+I	Impact.AlienFlesh	31	0,1,0.991634369;0,2,0.452273488;0,3,1.12238264;0,4,3.50380278;0,5,4.18442249
+I	Impact.AlienFlesh	33	0,1,0.339095384;0,2,0.154317766;0,3,0.875409901;0,4,0.552527726;0,5,2.23921442
+I	Impact.Antlion	39	0,1,0.797450662;0,2,0.841782928;0,3,2.82560205;0,4,2.72134733;0,5,0.0222217254
+I	Impact.Antlion	39	0,1,0.276857138;0,2,0.206018552;0,3,2.74394536;0,4,3.69121337;0,5,0.0548606366
+I	Impact.Antlion	39	0,1,0.551231503;0,2,1.01605856;0,3,0.9773947;0,4,1.79524982;0,5,0.781571567
+I	Impact.Antlion	38	0,1,0.486084163;0,2,1.17936826;0,3,0.540310204;0,4,0.115612119;0,5,1.33112597
+I	Impact.Antlion	36	0,1,0.547844291;0,2,0.893647075;0,3,2.17909718;0,4,2.74107027;0,5,1.08691359
+I	Impact.Sand	43	0,1,0.580670297;0,2,0.857116342;0,3,0.136036053;0,4,0.688637316
+I	Impact.Sand	43	0,1,0.776968598;0,2,0.866017818;0,3,0.253599405;0,4,0.763108552
+I	Impact.Sand	40	0,1,0.529792786;0,2,1.52678275;0,3,1.8732115;0,4,1.35128534
+I	Impact.Sand	42	0,1,0.319136441;0,2,0.907650113;0,3,0.225405663;0,4,1.92349601
+I	Impact.Sand	41	0,1,0.773215234;0,2,0.671548069;0,3,1.3126471;0,4,3.54616737
+I	Scorch	45	0,1,0.807420433;0,2,0.349145621
+I	Scorch	45	0,1,0.826180995;0,2,0.630385995
+I	Scorch	44	0,1,0.170512795;0,2,1.45652544
+I	Scorch	45	0,1,0.797656119;0,2,0.176084757
+I	Scorch	44	0,1,0.108761378;0,2,1.23769987
+I	Blood	46	0,1,0.354165167;0,2,1.63643813;0,3,2.73432517;0,4,1.63414443;0,5,1.77589118;0,6,5.89736462
+I	Blood	50	0,1,0.518048406;0,2,1.65101874;0,3,1.50483692;0,4,1.01238346;0,5,0.242227077;0,6,4.49021006
+I	Blood	47	0,1,0.954839528;0,2,0.238616928;0,3,1.2828002;0,4,3.37360311;0,5,3.91049838;0,6,5.92585611
+I	Blood	47	0,1,0.295903683;0,2,0.782887697;0,3,2.28970766;0,4,3.39219856;0,5,1.30960298;0,6,5.01649523
+I	Blood	49	0,1,0.290526092;0,2,0.725543439;0,3,0.110542491;0,4,0.154519975;0,5,3.32729316;0,6,1.23931563
+I	YellowBlood	53	0,1,0.0494333021;0,2,0.726550341;0,3,2.0017848;0,4,2.26366305;0,5,1.13883638;0,6,5.03462315
+I	YellowBlood	54	0,1,0.394844383;0,2,0.20818451;0,3,0.0480228588;0,4,2.04511189;0,5,3.74511695;0,6,1.52569532
+I	YellowBlood	55	0,1,0.855976343;0,2,0.144803479;0,3,0.934329867;0,4,0.598004937;0,5,4.9845767;0,6,1.55198288
+I	YellowBlood	52	0,1,0.293800622;0,2,1.62263274;0,3,2.61574221;0,4,3.6281774;0,5,2.99215913;0,6,4.04866409
+I	YellowBlood	52	0,1,0.13533099;0,2,1.58845937;0,3,2.72731113;0,4,1.05010056;0,5,4.5856514;0,6,5.55456829
+I	GlassBreak	60	0,1,0.329104155;0,2,1.20304215;0,3,0.779682994
+I	GlassBreak	59	0,1,0.272346586;0,2,0.722384512;0,3,1.88013363
+I	GlassBreak	59	0,1,0.303803265;0,2,0.417553306;0,3,1.03742719
+I	GlassBreak	60	0,1,0.900244236;0,2,1.69644654;0,3,0.918592691
+I	GlassBreak	58	0,1,0.947361708;0,2,1.45391989;0,3,1.11940753
+I	BigShot	63	0,1,0.214395121;0,2,0.615721345;0,3,0.509525537;0,4,3.05823874;0,5,2.39247704
+I	BigShot	64	0,1,0.952451229;0,2,1.0642519;0,3,0.666164398;0,4,0.0961799622;0,5,2.45489335
+I	BigShot	65	0,1,0.414616585;0,2,0.0801202506;0,3,0.0393812172;0,4,2.63263202;0,5,0.220349357
+I	BigShot	62	0,1,0.951965332;0,2,0.921777666;0,3,2.4255693;0,4,3.50590253;0,5,1.69354928
+I	BigShot	64	0,1,0.864556849;0,2,1.39336824;0,3,2.46447992;0,4,0.496593446;0,5,4.58424807
+I	BulletProof	66	0,1,0.25351727
+I	BulletProof	66	0,1,0.55821383
+I	BulletProof	66	0,1,0.15842095
+I	BulletProof	66	0,1,0.60771662
+I	BulletProof	66	0,1,0.607327998
+I	SmallScorch	67	0,1,0.162354603;0,2,1.98692954;0,3,1.85385561
+I	SmallScorch	69	0,1,0.693711221;0,2,1.40322101;0,3,0.64643681
+I	SmallScorch	67	0,1,0.986534655;0,2,1.23789239;0,3,1.88675237
+I	SmallScorch	69	0,1,0.40470919;0,2,1.12297463;0,3,0.375556648
+I	SmallScorch	69	0,1,0.68232739;0,2,1.82026386;0,3,0.352043062
+I	FadingScorch	70	0,1,0.0941939279
+I	FadingScorch	70	0,1,0.514447212
+I	FadingScorch	70	0,1,0.87810874
+I	FadingScorch	70	0,1,0.289886534
+I	FadingScorch	70	0,1,0.687666297
+I	BeerSplash	71	0,1,0.554482579
+I	BeerSplash	71	0,1,0.719193816
+I	BeerSplash	71	0,1,0.44077301
+I	BeerSplash	71	0,1,0.0825959295
+I	BeerSplash	71	0,1,0.694877803
+I	ManhackCut	72	0,1,0.97582823;0,2,1.46876323;0,3,1.14088607
+I	ManhackCut	72	0,1,0.731821239;0,2,1.12429774;0,3,2.23574352
+I	ManhackCut	72	0,1,0.727375686;0,2,1.80241394;0,3,2.15587282
+I	ManhackCut	74	0,1,0.765781641;0,2,1.78716183;0,3,0.188508466
+I	ManhackCut	74	0,1,0.349007308;0,2,0.144224018;0,3,0.168149948
+I	RedGlowFade	75	0,1,0.587548733
+I	RedGlowFade	75	0,1,0.508004069
+I	RedGlowFade	75	0,1,0.198947981
+I	RedGlowFade	75	0,1,0.188596085
+I	RedGlowFade	75	0,1,0.260261923
+I	CombineBallFade	76	0,1,0.26257661
+I	CombineBallFade	76	0,1,0.349212021
+I	CombineBallFade	76	0,1,0.0320806615
+I	CombineBallFade	76	0,1,0.587983966
+I	CombineBallFade	76	0,1,0.246753827
+I	CombineBallFade2	77	0,1,0.580809057
+I	CombineBallFade2	77	0,1,0.272873163
+I	CombineBallFade2	77	0,1,0.206605732
+I	CombineBallFade2	77	0,1,0.222190112
+I	CombineBallFade2	77	0,1,0.179467738
+I	CombineBallFade3	78	0,1,0.204296961
+I	CombineBallFade3	78	0,1,0.0638621524
+I	CombineBallFade3	78	0,1,0.179662526
+I	CombineBallFade3	78	0,1,0.145521924
+I	CombineBallFade3	78	0,1,0.490936011
+I	PlasmaGlowFade	79	0,1,0.661943138
+I	PlasmaGlowFade	79	0,1,0.161448076
+I	PlasmaGlowFade	79	0,1,0.815641582
+I	PlasmaGlowFade	79	0,1,0.967757165
+I	PlasmaGlowFade	79	0,1,0.931759536
+I	Splash	80	0,1,0.45787555
+I	Splash	80	0,1,0.623867989
+I	Splash	80	0,1,0.751726031
+I	Splash	80	0,1,0.0161415711
+I	Splash	80	0,1,0.68113941
+I	ExplosiveGunshot	0	0,1,0.629482806
+I	ExplosiveGunshot	0	0,1,0.259875745
+I	ExplosiveGunshot	0	0,1,0.831502557
+I	ExplosiveGunshot	0	0,1,0.660738647
+I	ExplosiveGunshot	0	0,1,0.315450817
+I	Fire	81	0,1,0.123092376
+I	Fire	81	0,1,0.314464152
+I	Fire	81	0,1,0.270074785
+I	Fire	81	0,1,0.218720391
+I	Fire	81	0,1,0.786999583
+I	Antion.Unburrow	82	0,1,0.189819112
+I	Antion.Unburrow	82	0,1,0.35177055
+I	Antion.Unburrow	82	0,1,0.422601551
+I	Antion.Unburrow	82	0,1,0.278750032
+I	Antion.Unburrow	82	0,1,0.24866733
+I	Extinguish	84	0,1,0.331180185;0,2,0.688314259
+I	Extinguish	84	0,1,0.0126617374;0,2,0.833499789
+I	Extinguish	84	0,1,0.805812597;0,2,0.415524065
+I	Extinguish	83	0,1,0.856548607;0,2,1.62702465
+I	Extinguish	83	0,1,0.0336824618;0,2,1.32805061
+I	Splash.Large	86	0,1,0.1011049;0,2,0.294085115;0,3,1.46284056
+I	Splash.Large	86	0,1,0.320201665;0,2,0.977127492;0,3,2.05515552
+I	Splash.Large	86	0,1,0.193542376;0,2,0.600919545;0,3,2.75616884
+I	Splash.Large	86	0,1,0.0777039602;0,2,0.204535693;0,3,2.6000824
+I	Splash.Large	87	0,1,0.827529252;0,2,0.568525851;0,3,0.332290411
+I	Splash.Small	85	0,1,0.562709391;0,2,0.628646553;0,3,1.99941754
+I	Splash.Small	85	0,1,0.265888691;0,2,0.584203482;0,3,1.99514294
+I	Splash.Small	85	0,1,0.0910988227;0,2,0.191772804;0,3,1.36847985
+I	Splash.Small	85	0,1,0.970452547;0,2,0.983466685;0,3,1.21079302
+I	Splash.Small	85	0,1,0.035623692;0,2,1.21404099;0,3,1.18719447
+I	Rollermine.Crater	88	0,1,0.397689313
+I	Rollermine.Crater	88	0,1,0.179617599
+I	Rollermine.Crater	88	0,1,0.717716455
+I	Rollermine.Crater	88	0,1,0.0872860178
+I	Rollermine.Crater	88	0,1,0.0413611569
+I	BirdPoop	91	0,1,0.964422464;0,2,0.0680761263;0,3,0.525865197;0,4,3.29305935
+I	BirdPoop	92	0,1,0.471390784;0,2,1.3766166;0,3,1.8364495;0,4,0.194247544
+I	BirdPoop	92	0,1,0.106810279;0,2,0.313911378;0,3,0.481183469;0,4,0.341291696
+I	BirdPoop	92	0,1,0.402283281;0,2,1.66571343;0,3,2.25092459;0,4,0.235001311
+I	BirdPoop	91	0,1,0.140082926;0,2,1.05773604;0,3,0.574985445;0,4,3.16561222
+I	PaintSplatBlue	93	0,1,0.300547421
+I	PaintSplatBlue	93	0,1,0.019192256
+I	PaintSplatBlue	93	0,1,0.427630454
+I	PaintSplatBlue	93	0,1,0.184821829
+I	PaintSplatBlue	93	0,1,0.0223679822
+I	PaintSplatGreen	94	0,1,0.737967789
+I	PaintSplatGreen	94	0,1,0.585414588
+I	PaintSplatGreen	94	0,1,0.68021673
+I	PaintSplatGreen	94	0,1,0.564231634
+I	PaintSplatGreen	94	0,1,0.104030557
+I	PaintSplatPink	95	0,1,0.373777896
+I	PaintSplatPink	95	0,1,0.291035146
+I	PaintSplatPink	95	0,1,0.354598552
+I	PaintSplatPink	95	0,1,0.590766609
+I	PaintSplatPink	95	0,1,0.420077384
+I	EnergyBall.Impact	67	0,1,0.0246540606
+I	EnergyBall.Impact	67	0,1,0.0422449037
+I	EnergyBall.Impact	67	0,1,0.185956106
+I	EnergyBall.Impact	67	0,1,0.360804558
+I	EnergyBall.Impact	67	0,1,0.0784200951
+I	Antlion.Splat	96	0,1,0.938676894
+I	Antlion.Splat	96	0,1,0.0721191689
+I	Antlion.Splat	96	0,1,0.522416651
+I	Antlion.Splat	96	0,1,0.306330442
+I	Antlion.Splat	96	0,1,0.0148199219
+I	SecurityCamera.Detachment	97	0,1,0.660884857
+I	SecurityCamera.Detachment	97	0,1,0.441626698
+I	SecurityCamera.Detachment	97	0,1,0.954332113
+I	SecurityCamera.Detachment	97	0,1,0.25651294
+I	SecurityCamera.Detachment	97	0,1,0.0979365259
+I	Models	202	0,1,0.240470678;0,2,0.707858443;0,3,0.804222465;0,4,3.59110498;0,5,1.45685017;0,6,0.0389231928;0,7,0.212433115;0,8,7.59986877;0,9,1.45166183;0,10,1.23892903;0,11,10.1804132;0,12,7.2199173;0,13,5.53363609;0,14,9.10175896;0,15,11.728344;0,16,9.94571781;0,17,10.3688097;0,18,13.1781435;0,19,0.192299441;0,20,7.48778629;0,21,4.97687912;0,22,16.4188271;0,23,3.79125071;0,24,5.21845055;0,25,12.3886204;0,26,11.1490164;0,27,2.51804709;0,28,5.95805693;0,29,13.1476936;0,30,10.5333986;0,31,13.0403328;0,32,16.2290668;0,33,10.6832399;0,34,13.6794853;0,35,11.996994;0,36,16.0774136;0,37,13.1234179;0,38,8.5140686;0,39,37.587101;0,40,14.4516382;0,41,25.0200768;0,42,30.4527245;0,43,4.87562275;0,44,19.249197;0,45,30.7324028;0,46,2.38758564;0,47,23.1326122;0,48,36.8946457;0,49,10.5019999;0,50,20.1265984;0,51,46.8534622;0,52,39.2826614;0,53,13.4097042;0,54,8.75123596;0,55,37.8505936;0,56,54.9651833;0,57,26.1842823;0,58,21.3116798;0,59,9.22157288;0,60,54.8044548;0,61,6.09408188;0,62,16.8402386;0,63,10.8888884;0,64,14.0009356;0,65,26.0392437;0,66,18.7829227;0,67,7.86104918;0,68,57.8157387;0,69,31.5070229;0,70,23.6722832;0,71,36.3696747;0,72,15.1627388;0,73,28.7807922;0,74,10.7829351;0,75,27.3248024;0,76,54.3680954;0,77,49.3769341;0,78,34.1432076;0,79,78.4399338;0,80,51.0946083;0,81,30.3099842;0,82,38.2030563;0,83,11.1688967;0,84,32.0989532;0,85,59.3456573;0,86,19.6406364;0,87,56.5841408;0,88,59.3823357;0,89,2.16217637;0,90,37.368824;0,91,5.73940659;0,92,74.5240097;0,93,91.6539001;0,94,59.6241722;0,95,11.9405785;0,96,60.4117432;0,97,91.6608276;0,98,92.8289032;0,99,48.5871506;0,100,1.50683057;0,101,76.6171494;0,102,7.07738638;0,103,27.0781441;0,104,87.4335938;0,105,100.440742;0,106,55.9265289;0,107,75.6177444;0,108,57.269474;0,109,44.5380554;0,110,60.3979836;0,111,0.316358298;0,112,70.8901367;0,113,51.06744;0,114,61.3758392
+I	Models	121	0,1,0.673993051;0,2,0.953621566;0,3,1.55964184;0,4,0.542887986;0,5,4.45571852;0,6,4.44818878;0,7,2.5786221;0,8,2.80956197;0,9,6.9844799;0,10,9.50967407;0,11,10.0892191;0,12,9.32315063;0,13,7.57697868;0,14,0.0913370475;0,15,12.0163364;0,16,7.50937128;0,17,8.47612858;0,18,17.8819599;0,19,2.37847042;0,20,16.7581596;0,21,16.9228458;0,22,14.6762562;0,23,6.93338871;0,24,0.908126414;0,25,7.78100634;0,26,24.6295033;0,27,23.4121418;0,28,16.753006;0,29,26.0414524;0,30,21.5791359;0,31,10.8690462;0,32,4.08702612;0,33,22.6699715;0,34,18.3198795;0,35,4.91941166;0,36,16.3270016;0,37,33.6981125;0,38,23.7091751;0,39,37.0590363;0,40,14.0082932;0,41,11.9471407;0,42,31.6326942;0,43,13.725399;0,44,37.2946472;0,45,42.0493088;0,46,21.7054615;0,47,36.8456306;0,48,15.9834509;0,49,12.9023619;0,50,25.3906288;0,51,45.8925285;0,52,28.3248844;0,53,5.67952442;0,54,51.4797592;0,55,39.8511124;0,56,52.0459518;0,57,56.6149712;0,58,48.8159599;0,59,52.2189941;0,60,30.2229881;0,61,41.2467842;0,62,27.3870811;0,63,56.4757385;0,64,39.4480858;0,65,33.4870644;0,66,28.8446636;0,67,5.33653593;0,68,61.8441429;0,69,62.6072235;0,70,59.4040833;0,71,36.2033386;0,72,64.4910126;0,73,59.1732025;0,74,52.9263878;0,75,33.0939598;0,76,65.3409653;0,77,6.60459089;0,78,19.5283051;0,79,23.6181011;0,80,36.3769493;0,81,72.134819;0,82,58.059288;0,83,8.76021385;0,84,79.0762711;0,85,71.7718124;0,86,45.6147995;0,87,52.3838043;0,88,54.2906418;0,89,20.3557911;0,90,26.6627769;0,91,83.0867004;0,92,84.6818542;0,93,69.4893494;0,94,37.4551849;0,95,43.6961021;0,96,45.6010818;0,97,45.6270828;0,98,84.1655121;0,99,98.4303436;0,100,84.9543762;0,101,79.9770355;0,102,3.06543493;0,103,36.0390739;0,104,80.6806259;0,105,35.9741554;0,106,77.1289139;0,107,95.1558685;0,108,55.5792389;0,109,31.7150536;0,110,15.9940605;0,111,5.79797125;0,112,8.90797615;0,113,57.6976967;0,114,72.9615784
+I	Models	142	0,1,0.904260755;0,2,0.424899161;0,3,1.91986048;0,4,3.30910659;0,5,1.40822768;0,6,4.2793045;0,7,1.82923388;0,8,5.10592651;0,9,0.173284322;0,10,8.6784668;0,11,2.18734026;0,12,4.2646656;0,13,11.6826115;0,14,0.542570114;0,15,14.1382151;0,16,0.559761286;0,17,8.61030388;0,18,1.58915281;0,19,7.57319403;0,20,11.7286005;0,21,15.0391712;0,22,14.2321949;0,23,2.10578442;0,24,11.584115;0,25,9.63258171;0,26,6.7463994;0,27,20.2465324;0,28,26.9108086;0,29,15.9834661;0,30,28.873579;0,31,8.40865135;0,32,10.1890802;0,33,16.5853348;0,34,21.3473186;0,35,34.9595413;0,36,23.5149136;0,37,5.09940863;0,38,1.67298257;0,39,9.55943871;0,40,35.0738258;0,41,39.8644447;0,42,15.6235332;0,43,41.1783066;0,44,6.399611;0,45,0.876144588;0,46,35.8333435;0,47,38.466629;0,48,28.7438736;0,49,2.08710456;0,50,11.5129108;0,51,48.4442673;0,52,32.3691063;0,53,4.60790777;0,54,30.8639622;0,55,1.56689429;0,56,19.9677143;0,57,31.746027;0,58,49.0211487;0,59,24.4074249;0,60,10.3537226;0,61,47.2213783;0,62,50.2601051;0,63,3.59050822;0,64,14.6161375;0,65,21.7584;0,66,37.9868279;0,67,44.9939499;0,68,22.9277363;0,69,17.2956161;0,70,35.4251404;0,71,28.6675663;0,72,47.3473511;0,73,10.1032181;0,74,5.07374239;0,75,46.461319;0,76,47.7181587;0,77,1.33786511;0,78,59.6798515;0,79,7.81145477;0,80,79.2623825;0,81,77.1471481;0,82,4.3111496;0,83,22.4982643;0,84,42.0172119;0,85,80.238472;0,86,77.0047379;0,87,66.190567;0,88,76.0710526;0,89,17.5411034;0,90,72.6123734;0,91,78.4671097;0,92,44.3431892;0,93,11.3858604;0,94,66.4410248;0,95,77.3701401;0,96,51.9674149;0,97,29.3833599;0,98,53.6772385;0,99,50.7108192;0,100,21.2308884;0,101,83.4620285;0,102,73.2547302;0,103,48.5045509;0,104,81.9753113;0,105,60.5672798;0,106,91.2805786;0,107,85.804924;0,108,78.7524109;0,109,54.0380554;0,110,20.6866302;0,111,90.5733032;0,112,11.6554508;0,113,77.2750778;0,114,55.7031288
+I	Models	146	0,1,0.234044805;0,2,1.5255847;0,3,0.225884795;0,4,1.69468951;0,5,2.54682326;0,6,2.21579695;0,7,3.34165049;0,8,2.17233944;0,9,3.64841509;0,10,5.06365728;0,11,7.52883625;0,12,1.26181102;0,13,1.62981892;0,14,4.2360878;0,15,0.877217531;0,16,0.865739644;0,17,12.6053448;0,18,0.269067228;0,19,7.60685539;0,20,6.85430527;0,21,1.94981289;0,22,11.9871159;0,23,20.5386143;0,24,18.7137394;0,25,22.7562103;0,26,3.7821815;0,27,8.16516018;0,28,18.5168533;0,29,7.06967878;0,30,24.4128819;0,31,24.1683159;0,32,7.56955051;0,33,16.3223972;0,34,21.9841518;0,35,31.9479408;0,36,24.1172504;0,37,34.4319801;0,38,32.5087128;0,39,5.9608016;0,40,16.2400799;0,41,39.6555672;0,42,11.5721273;0,43,12.163785;0,44,29.7450447;0,45,11.7562952;0,46,45.6865158;0,47,24.1554756;0,48,0.731820166;0,49,0.203986034;0,50,11.6687183;0,51,16.1778107;0,52,45.8343773;0,53,46.337513;0,54,3.13976455;0,55,12.9966602;0,56,36.1379967;0,57,40.4017792;0,58,2.67858076;0,59,39.0388451;0,60,26.4278088;0,61,7.90440845;0,62,13.8016043;0,63,48.9819984;0,64,44.0704651;0,65,54.3485909;0,66,3.03429818;0,67,58.508255;0,68,67.6344986;0,69,3.89590049;0,70,39.8565521;0,71,33.9988594;0,72,27.4972954;0,73,25.4009628;0,74,27.9174061;0,75,34.3985443;0,76,56.6454468;0,77,41.8146782;0,78,77.312561;0,79,22.9530678;0,80,36.9438477;0,81,25.9967308;0,82,75.1574326;0,83,70.1752167;0,84,46.9219017;0,85,51.2163086;0,86,56.8894234;0,87,72.9602432;0,88,37.7225037;0,89,54.4510536;0,90,71.7071381;0,91,72.775177;0,92,62.7115898;0,93,84.6663971;0,94,75.1764526;0,95,43.0362473;0,96,35.6596947;0,97,47.0430031;0,98,26.3058815;0,99,86.1062469;0,100,38.9776459;0,101,4.97170305;0,102,19.6419544;0,103,60.8781662;0,104,51.3117104;0,105,75.7014236;0,106,17.0828743;0,107,95.4137878;0,108,56.6956253;0,109,104.889771;0,110,15.0401163;0,111,93.4649277;0,112,106.027275;0,113,40.2215996;0,114,46.5897675
+I	Models	149	0,1,0.717461705;0,2,1.70184195;0,3,1.11809361;0,4,0.928332388;0,5,4.68279743;0,6,4.06084108;0,7,5.54213953;0,8,0.741976857;0,9,1.79335523;0,10,5.77694845;0,11,3.48800015;0,12,0.565335691;0,13,2.21494079;0,14,13.1332569;0,15,14.9314861;0,16,15.5184193;0,17,3.90171123;0,18,11.0953827;0,19,7.20758915;0,20,18.660284;0,21,0.103027076;0,22,7.10074329;0,23,14.6239824;0,24,7.40382385;0,25,3.22688675;0,26,8.84319973;0,27,2.04104233;0,28,15.3121891;0,29,28.2266388;0,30,12.4571152;0,31,19.2397861;0,32,16.4239655;0,33,5.51607943;0,34,8.06631184;0,35,31.2068157;0,36,17.1018047;0,37,12.8391447;0,38,3.81111574;0,39,9.54012012;0,40,34.5598946;0,41,36.6531258;0,42,8.57720757;0,43,6.11250448;0,44,18.5832233;0,45,40.1620522;0,46,39.0098648;0,47,6.98232031;0,48,23.1586266;0,49,15.3154802;0,50,18.4542999;0,51,10.6989222;0,52,0.901831925;0,53,41.7329674;0,54,3.81873798;0,55,12.571435;0,56,12.0854597;0,57,6.43964767;0,58,47.5305824;0,59,26.4546757;0,60,48.0350151;0,61,56.7167206;0,62,54.3852425;0,63,53.3175621;0,64,60.202198;0,65,23.8939095;0,66,29.3621368;0,67,25.1682262;0,68,11.890501;0,69,8.55105686;0,70,58.5163651;0,71,55.2951546;0,72,54.3624229;0,73,63.5676804;0,74,68.099968;0,75,6.27490377;0,76,64.7511292;0,77,29.6401501;0,78,15.9005976;0,79,16.112278;0,80,2.03458023;0,81,64.1750641;0,82,38.3926239;0,83,76.5316772;0,84,53.4704704;0,85,43.4374046;0,86,24.1473579;0,87,23.8444939;0,88,66.5882568;0,89,32.9024353;0,90,41.9392509;0,91,51.4373016;0,92,12.5442076;0,93,61.4921684;0,94,42.8644409;0,95,87.1519394;0,96,7.12936735;0,97,53.3982735;0,98,58.9924889;0,99,7.87123203;0,100,11.8890619;0,101,19.3969479;0,102,44.8678284;0,103,40.6507187;0,104,102.329422;0,105,22.2837925;0,106,33.230732;0,107,75.2408829;0,108,7.26057863;0,109,85.0344162;0,110,86.3429642;0,111,69.0790634;0,112,7.07558584;0,113,37.2808495;0,114,78.6315994
+I	NoSuchDecalGroup	-1	-
+I	NoSuchDecalGroup	-1	-
+I	NoSuchDecalGroup	-1	-
+I	NoSuchDecalGroup	-1	-
+I	NoSuchDecalGroup	-1	-
+I		-1	-
+I		-1	-
+I		-1	-
+I		-1	-
+I		-1	-
+N	-2	-
+N	-1	-
+N	0	decals/concrete/shot1_subrect
+N	1	decals/concrete/shot2_subrect
+N	2	decals/concrete/shot3_subrect
+N	3	decals/concrete/shot4_subrect
+N	4	decals/concrete/shot5_subrect
+N	5	decals/metal/shot1_subrect
+N	6	decals/metal/shot2_subrect
+N	7	decals/metal/shot3_subrect
+N	8	decals/metal/shot4_subrect
+N	9	decals/metal/shot5_subrect
+N	10	decals/wood/shot1_subrect
+N	11	decals/wood/shot2_subrect
+N	12	decals/wood/shot3_subrect
+N	13	decals/wood/shot4_subrect
+N	14	decals/wood/shot5_subrect
+N	15	decals/glass/shot1_subrect
+N	16	decals/glass/shot2_subrect
+N	17	decals/glass/shot3_subrect
+N	18	decals/glass/shot4_subrect
+N	19	decals/glass/shot5_subrect
+N	20	decals/flesh/blood1_subrect
+N	21	decals/flesh/blood2_subrect
+N	22	decals/flesh/blood3_subrect
+N	23	decals/flesh/blood4_subrect
+N	24	decals/flesh/blood5_subrect
+N	25	decals/bloodyflesh/blood1_subrect
+N	26	decals/bloodyflesh/blood2_subrect
+N	27	decals/bloodyflesh/blood3_subrect
+N	28	decals/bloodyflesh/blood4_subrect
+N	29	decals/bloodyflesh/blood5_subrect
+N	30	decals/alienflesh/shot1_subrect
+N	31	decals/alienflesh/shot2_subrect
+N	32	decals/alienflesh/shot3_subrect
+N	33	decals/alienflesh/shot4_subrect
+N	34	decals/alienflesh/shot5_subrect
+N	35	decals/antlion/shot1_subrect
+N	36	decals/antlion/shot2_subrect
+N	37	decals/antlion/shot3_subrect
+N	38	decals/antlion/shot4_subrect
+N	39	decals/antlion/shot5_subrect
+N	40	decals/sand/shot1_subrect
+N	41	decals/sand/shot2_subrect
+N	42	decals/sand/shot3_subrect
+N	43	decals/sand/shot4_subrect
+N	44	decals/scorch1_subrect
+N	45	decals/scorch2_subrect
+N	46	decals/blood1_subrect
+N	47	decals/blood2_subrect
+N	48	decals/blood3_subrect
+N	49	decals/blood4_subrect
+N	50	decals/blood5_subrect
+N	51	decals/blood6_subrect
+N	52	decals/yblood1_subrect
+N	53	decals/yblood2_subrect
+N	54	decals/yblood3_subrect
+N	55	decals/yblood4_subrect
+N	56	decals/yblood5_subrect
+N	57	decals/yblood6_subrect
+N	58	decals/break1_subrect
+N	59	decals/break2_subrect
+N	60	decals/break3_subrect
+N	61	decals/bigshot1_subrect
+N	62	decals/bigshot2_subrect
+N	63	decals/bigshot3_subrect
+N	64	decals/bigshot4_subrect
+N	65	decals/bigshot5_subrect
+N	66	decals/bproof1_subrect
+N	67	decals/smscorch1_subrect
+N	68	decals/smscorch2_subrect
+N	69	decals/smscorch3_subrect
+N	70	decals/scorchfade_subrect
+N	71	decals/beersplash_subrect
+N	72	decals/manhackcut_subrect
+N	73	decals/manhackcut2_subrect
+N	74	decals/manhackcut3_subrect
+N	75	decals/redglowfade
+N	76	decals/combineballfade
+N	77	decals/combineballfade2
+N	78	decals/combineballfade3
+N	79	decals/plasmaglowfade
+N	80	decals/decalsplash
+N	81	sprites/fire_floor
+N	82	decals/unburrow_subrect
+N	83	decals/extinguish1_subrect
+N	84	decals/extinguish2_subrect
+N	85	decals/splash1_subrect
+N	86	decals/splash2_subrect
+N	87	decals/splash3_subrect
+N	88	decals/rollermine_crater_subrect
+N	89	decals/decal_birdpoop001_subrect
+N	90	decals/decal_birdpoop002_subrect
+N	91	decals/decal_birdpoop003_subrect
+N	92	decals/decal_birdpoop004_subrect
+N	93	decals/decal_paintsplatterblue001_subrect
+N	94	decals/decal_paintsplattergreen001_subrect
+N	95	decals/decal_paintsplatterpink001_subrect
+N	96	decals/antlion/antlion_splat
+N	97	decals/security_camera_detachment
+N	98	decals/concrete/shot1
+N	99	decals/concrete/shot2
+N	100	decals/concrete/shot3
+N	101	decals/concrete/shot4
+N	102	decals/concrete/shot5
+N	103	decals/metal/shot1
+N	104	decals/metal/shot2
+N	105	decals/metal/shot3
+N	106	decals/metal/shot4
+N	107	decals/metal/shot5
+N	108	decals/wood/shot1
+N	109	decals/wood/shot2
+N	110	decals/wood/shot3
+N	111	decals/wood/shot4
+N	112	decals/wood/shot5
+N	113	decals/glass/shot1
+N	114	decals/glass/shot2
+N	115	decals/glass/shot3
+N	116	decals/glass/shot4
+N	117	decals/glass/shot5
+N	118	decals/flesh/blood1
+N	119	decals/flesh/blood2
+N	120	decals/flesh/blood3
+N	121	decals/flesh/blood4
+N	122	decals/flesh/blood5
+N	123	decals/bloodyflesh/blood1
+N	124	decals/bloodyflesh/blood2
+N	125	decals/bloodyflesh/blood3
+N	126	decals/bloodyflesh/blood4
+N	127	decals/bloodyflesh/blood5
+N	128	decals/alienflesh/shot1
+N	129	decals/alienflesh/shot2
+N	130	decals/alienflesh/shot3
+N	131	decals/alienflesh/shot4
+N	132	decals/alienflesh/shot5
+N	133	decals/antlion/shot1
+N	134	decals/antlion/shot2
+N	135	decals/antlion/shot3
+N	136	decals/antlion/shot4
+N	137	decals/antlion/shot5
+N	138	decals/scorch1
+N	139	decals/scorch2
+N	140	decals/blood1
+N	141	decals/blood2
+N	142	decals/blood3
+N	143	decals/blood4
+N	144	decals/blood5
+N	145	decals/blood6
+N	146	decals/blood7
+N	147	decals/blood8
+N	148	decals/yblood1
+N	149	decals/yblood2
+N	150	decals/yblood3
+N	151	decals/yblood4
+N	152	decals/yblood5
+N	153	decals/yblood6
+N	154	decals/break1
+N	155	decals/break2
+N	156	decals/break3
+N	157	decals/bigshot1
+N	158	decals/bigshot2
+N	159	decals/bigshot3
+N	160	decals/bigshot4
+N	161	decals/bigshot5
+N	162	decals/bproof1
+N	163	decals/smscorch1
+N	164	decals/smscorch2
+N	165	decals/smscorch3
+N	166	decals/scorchfade
+N	167	decals/beersplash
+N	168	decals/manhackcut
+N	169	decals/manhackcut2
+N	170	decals/manhackcut3
+N	171	decals/unburrow
+N	172	decals/extinguish1
+N	173	decals/extinguish2
+N	174	decals/splash1
+N	175	decals/splash2
+N	176	decals/splash3
+N	177	decals/rollermine_crater
+N	178	decals/decal_birdpoop001
+N	179	decals/decal_birdpoop002
+N	180	decals/decal_birdpoop003
+N	181	decals/decal_birdpoop004
+N	182	decals/decal_paintsplatterblue001
+N	183	decals/decal_paintsplattergreen001
+N	184	decals/decal_paintsplatterpink001
+N	185	decals/decal_paintsplatterblue_model
+N	186	decals/decal_paintsplattergreen_model
+N	187	decals/decal_paintsplatterpink_model
+N	188	decals/beersplashmodel
+N	189	decals/bigshot1model
+N	190	decals/bigshot2model
+N	191	decals/bigshot3model
+N	192	decals/bigshot4model
+N	193	decals/bigshot5model
+N	194	decals/bproof1model
+N	195	decals/break1model
+N	196	decals/break2model
+N	197	decals/break3model
+N	198	decals/extinguish1model
+N	199	decals/extinguish2model
+N	200	decals/scorch1model
+N	201	decals/scorch2model
+N	202	decals/scorchfademodel
+N	203	decals/smscorch1model
+N	204	decals/smscorch2model
+N	205	decals/smscorch3model
+N	206	-
+N	207	-
+T	Impact.Concrete	0	=
+T	Impact.Concrete	1	=
+T	Impact.Concrete	2	=
+T	Impact.Concrete	3	=
+T	Impact.Concrete	4	=
+T	Impact.Concrete	5	=
+T	Impact.Concrete	6	=
+T	Impact.Concrete	7	=
+T	Impact.Concrete	8	=
+T	Impact.Concrete	9	=
+T	Impact.Concrete	10	=
+T	Impact.Concrete	11	=
+T	Impact.Concrete	12	=
+T	Impact.Concrete	13	=
+T	Impact.Concrete	14	=
+T	Impact.Concrete	15	=
+T	Impact.Concrete	16	=
+T	Impact.Concrete	17	=
+T	Impact.Concrete	18	=
+T	Impact.Concrete	19	=
+T	Impact.Concrete	20	=
+T	Impact.Concrete	21	=
+T	Impact.Concrete	22	=
+T	Impact.Concrete	23	=
+T	Impact.Concrete	24	=
+T	Impact.Concrete	25	=
+T	Impact.Concrete	26	=
+T	Impact.Concrete	27	=
+T	Impact.Concrete	28	=
+T	Impact.Concrete	29	=
+T	Impact.Concrete	30	=
+T	Impact.Concrete	31	=
+T	Impact.Concrete	32	=
+T	Impact.Concrete	33	=
+T	Impact.Concrete	34	=
+T	Impact.Concrete	35	=
+T	Impact.Concrete	36	=
+T	Impact.Concrete	37	=
+T	Impact.Concrete	38	=
+T	Impact.Concrete	39	=
+T	Impact.Concrete	40	=
+T	Impact.Concrete	41	=
+T	Impact.Concrete	42	=
+T	Impact.Concrete	43	=
+T	Impact.Concrete	44	=
+T	Impact.Concrete	45	-
+T	Impact.Concrete	46	=
+T	Impact.Concrete	47	=
+T	Impact.Concrete	48	=
+T	Impact.Concrete	49	=
+T	Impact.Concrete	50	=
+T	Impact.Concrete	51	=
+T	Impact.Concrete	52	=
+T	Impact.Concrete	53	=
+T	Impact.Concrete	54	=
+T	Impact.Concrete	55	=
+T	Impact.Concrete	56	=
+T	Impact.Concrete	57	=
+T	Impact.Concrete	58	=
+T	Impact.Concrete	59	=
+T	Impact.Concrete	60	=
+T	Impact.Concrete	61	=
+T	Impact.Concrete	62	=
+T	Impact.Concrete	63	=
+T	Impact.Concrete	64	=
+T	Impact.Concrete	65	Impact.Antlion
+T	Impact.Concrete	66	Impact.BloodyFlesh
+T	Impact.Concrete	67	=
+T	Impact.Concrete	68	Impact.Concrete
+T	Impact.Concrete	69	Impact.Antlion
+T	Impact.Concrete	70	Impact.Flesh
+T	Impact.Concrete	71	Impact.Metal
+T	Impact.Concrete	72	Impact.AlienFlesh
+T	Impact.Concrete	73	=
+T	Impact.Concrete	74	=
+T	Impact.Concrete	75	=
+T	Impact.Concrete	76	Impact.Concrete
+T	Impact.Concrete	77	Impact.Metal
+T	Impact.Concrete	78	Impact.Sand
+T	Impact.Concrete	79	Impact.Wood
+T	Impact.Concrete	80	Impact.Concrete
+T	Impact.Concrete	81	=
+T	Impact.Concrete	82	=
+T	Impact.Concrete	83	=
+T	Impact.Concrete	84	Impact.Concrete
+T	Impact.Concrete	85	=
+T	Impact.Concrete	86	Impact.Metal
+T	Impact.Concrete	87	Impact.Wood
+T	Impact.Concrete	88	=
+T	Impact.Concrete	89	Impact.Glass
+T	Impact.Concrete	90	=
+T	Impact.Concrete	91	=
+T	Impact.Concrete	92	=
+T	Impact.Concrete	93	=
+T	Impact.Concrete	94	=
+T	Impact.Concrete	95	=
+T	Impact.Concrete	96	=
+T	Impact.Concrete	97	Impact.Antlion
+T	Impact.Concrete	98	Impact.BloodyFlesh
+T	Impact.Concrete	99	Impact.Concrete
+T	Impact.Concrete	100	Impact.Concrete
+T	Impact.Concrete	101	Impact.Antlion
+T	Impact.Concrete	102	Impact.Flesh
+T	Impact.Concrete	103	Impact.Metal
+T	Impact.Concrete	104	Impact.AlienFlesh
+T	Impact.Concrete	105	=
+T	Impact.Concrete	106	=
+T	Impact.Concrete	107	=
+T	Impact.Concrete	108	Impact.Concrete
+T	Impact.Concrete	109	Impact.Metal
+T	Impact.Concrete	110	Impact.Sand
+T	Impact.Concrete	111	Impact.Wood
+T	Impact.Concrete	112	Impact.Concrete
+T	Impact.Concrete	113	=
+T	Impact.Concrete	114	=
+T	Impact.Concrete	115	=
+T	Impact.Concrete	116	Impact.Concrete
+T	Impact.Concrete	117	=
+T	Impact.Concrete	118	Impact.Metal
+T	Impact.Concrete	119	Impact.Wood
+T	Impact.Concrete	120	=
+T	Impact.Concrete	121	Impact.Glass
+T	Impact.Concrete	122	=
+T	Impact.Concrete	123	=
+T	Impact.Concrete	124	=
+T	Impact.Concrete	125	=
+T	Impact.Concrete	126	=
+T	Impact.Concrete	127	=
+T	Impact.Concrete	128	=
+T	Impact.Concrete	129	=
+T	Impact.Concrete	130	=
+T	Impact.Concrete	131	=
+T	Impact.Concrete	132	=
+T	Impact.Concrete	133	=
+T	Impact.Concrete	134	=
+T	Impact.Concrete	135	=
+T	Impact.Concrete	136	=
+T	Impact.Concrete	137	=
+T	Impact.Concrete	138	=
+T	Impact.Concrete	139	=
+T	Impact.Concrete	140	=
+T	Impact.Concrete	141	=
+T	Impact.Concrete	142	=
+T	Impact.Concrete	143	=
+T	Impact.Concrete	144	=
+T	Impact.Concrete	145	=
+T	Impact.Concrete	146	=
+T	Impact.Concrete	147	=
+T	Impact.Concrete	148	=
+T	Impact.Concrete	149	=
+T	Impact.Concrete	150	=
+T	Impact.Concrete	151	=
+T	Impact.Concrete	152	=
+T	Impact.Concrete	153	=
+T	Impact.Concrete	154	=
+T	Impact.Concrete	155	=
+T	Impact.Concrete	156	=
+T	Impact.Concrete	157	=
+T	Impact.Concrete	158	=
+T	Impact.Concrete	159	=
+T	Impact.Concrete	160	=
+T	Impact.Concrete	161	=
+T	Impact.Concrete	162	=
+T	Impact.Concrete	163	=
+T	Impact.Concrete	164	=
+T	Impact.Concrete	165	=
+T	Impact.Concrete	166	=
+T	Impact.Concrete	167	=
+T	Impact.Concrete	168	=
+T	Impact.Concrete	169	=
+T	Impact.Concrete	170	=
+T	Impact.Concrete	171	=
+T	Impact.Concrete	172	=
+T	Impact.Concrete	173	=
+T	Impact.Concrete	174	=
+T	Impact.Concrete	175	=
+T	Impact.Concrete	176	=
+T	Impact.Concrete	177	=
+T	Impact.Concrete	178	=
+T	Impact.Concrete	179	=
+T	Impact.Concrete	180	=
+T	Impact.Concrete	181	=
+T	Impact.Concrete	182	=
+T	Impact.Concrete	183	=
+T	Impact.Concrete	184	=
+T	Impact.Concrete	185	=
+T	Impact.Concrete	186	=
+T	Impact.Concrete	187	=
+T	Impact.Concrete	188	=
+T	Impact.Concrete	189	=
+T	Impact.Concrete	190	=
+T	Impact.Concrete	191	=
+T	Impact.Concrete	192	=
+T	Impact.Concrete	193	=
+T	Impact.Concrete	194	=
+T	Impact.Concrete	195	=
+T	Impact.Concrete	196	=
+T	Impact.Concrete	197	=
+T	Impact.Concrete	198	=
+T	Impact.Concrete	199	=
+T	Impact.Concrete	200	=
+T	Impact.Concrete	201	=
+T	Impact.Concrete	202	=
+T	Impact.Concrete	203	=
+T	Impact.Concrete	204	=
+T	Impact.Concrete	205	=
+T	Impact.Concrete	206	=
+T	Impact.Concrete	207	=
+T	Impact.Concrete	208	=
+T	Impact.Concrete	209	=
+T	Impact.Concrete	210	=
+T	Impact.Concrete	211	=
+T	Impact.Concrete	212	=
+T	Impact.Concrete	213	=
+T	Impact.Concrete	214	=
+T	Impact.Concrete	215	=
+T	Impact.Concrete	216	=
+T	Impact.Concrete	217	=
+T	Impact.Concrete	218	=
+T	Impact.Concrete	219	=
+T	Impact.Concrete	220	=
+T	Impact.Concrete	221	=
+T	Impact.Concrete	222	=
+T	Impact.Concrete	223	=
+T	Impact.Concrete	224	=
+T	Impact.Concrete	225	=
+T	Impact.Concrete	226	=
+T	Impact.Concrete	227	=
+T	Impact.Concrete	228	=
+T	Impact.Concrete	229	=
+T	Impact.Concrete	230	=
+T	Impact.Concrete	231	=
+T	Impact.Concrete	232	=
+T	Impact.Concrete	233	=
+T	Impact.Concrete	234	=
+T	Impact.Concrete	235	=
+T	Impact.Concrete	236	=
+T	Impact.Concrete	237	=
+T	Impact.Concrete	238	=
+T	Impact.Concrete	239	=
+T	Impact.Concrete	240	=
+T	Impact.Concrete	241	=
+T	Impact.Concrete	242	=
+T	Impact.Concrete	243	=
+T	Impact.Concrete	244	=
+T	Impact.Concrete	245	=
+T	Impact.Concrete	246	=
+T	Impact.Concrete	247	=
+T	Impact.Concrete	248	=
+T	Impact.Concrete	249	=
+T	Impact.Concrete	250	=
+T	Impact.Concrete	251	=
+T	Impact.Concrete	252	=
+T	Impact.Concrete	253	=
+T	Impact.Concrete	254	=
+T	Impact.Concrete	255	=
+T	impact.concrete	0	=
+T	impact.concrete	1	=
+T	impact.concrete	2	=
+T	impact.concrete	3	=
+T	impact.concrete	4	=
+T	impact.concrete	5	=
+T	impact.concrete	6	=
+T	impact.concrete	7	=
+T	impact.concrete	8	=
+T	impact.concrete	9	=
+T	impact.concrete	10	=
+T	impact.concrete	11	=
+T	impact.concrete	12	=
+T	impact.concrete	13	=
+T	impact.concrete	14	=
+T	impact.concrete	15	=
+T	impact.concrete	16	=
+T	impact.concrete	17	=
+T	impact.concrete	18	=
+T	impact.concrete	19	=
+T	impact.concrete	20	=
+T	impact.concrete	21	=
+T	impact.concrete	22	=
+T	impact.concrete	23	=
+T	impact.concrete	24	=
+T	impact.concrete	25	=
+T	impact.concrete	26	=
+T	impact.concrete	27	=
+T	impact.concrete	28	=
+T	impact.concrete	29	=
+T	impact.concrete	30	=
+T	impact.concrete	31	=
+T	impact.concrete	32	=
+T	impact.concrete	33	=
+T	impact.concrete	34	=
+T	impact.concrete	35	=
+T	impact.concrete	36	=
+T	impact.concrete	37	=
+T	impact.concrete	38	=
+T	impact.concrete	39	=
+T	impact.concrete	40	=
+T	impact.concrete	41	=
+T	impact.concrete	42	=
+T	impact.concrete	43	=
+T	impact.concrete	44	=
+T	impact.concrete	45	-
+T	impact.concrete	46	=
+T	impact.concrete	47	=
+T	impact.concrete	48	=
+T	impact.concrete	49	=
+T	impact.concrete	50	=
+T	impact.concrete	51	=
+T	impact.concrete	52	=
+T	impact.concrete	53	=
+T	impact.concrete	54	=
+T	impact.concrete	55	=
+T	impact.concrete	56	=
+T	impact.concrete	57	=
+T	impact.concrete	58	=
+T	impact.concrete	59	=
+T	impact.concrete	60	=
+T	impact.concrete	61	=
+T	impact.concrete	62	=
+T	impact.concrete	63	=
+T	impact.concrete	64	=
+T	impact.concrete	65	Impact.Antlion
+T	impact.concrete	66	Impact.BloodyFlesh
+T	impact.concrete	67	=
+T	impact.concrete	68	Impact.Concrete
+T	impact.concrete	69	Impact.Antlion
+T	impact.concrete	70	Impact.Flesh
+T	impact.concrete	71	Impact.Metal
+T	impact.concrete	72	Impact.AlienFlesh
+T	impact.concrete	73	=
+T	impact.concrete	74	=
+T	impact.concrete	75	=
+T	impact.concrete	76	Impact.Concrete
+T	impact.concrete	77	Impact.Metal
+T	impact.concrete	78	Impact.Sand
+T	impact.concrete	79	Impact.Wood
+T	impact.concrete	80	Impact.Concrete
+T	impact.concrete	81	=
+T	impact.concrete	82	=
+T	impact.concrete	83	=
+T	impact.concrete	84	Impact.Concrete
+T	impact.concrete	85	=
+T	impact.concrete	86	Impact.Metal
+T	impact.concrete	87	Impact.Wood
+T	impact.concrete	88	=
+T	impact.concrete	89	Impact.Glass
+T	impact.concrete	90	=
+T	impact.concrete	91	=
+T	impact.concrete	92	=
+T	impact.concrete	93	=
+T	impact.concrete	94	=
+T	impact.concrete	95	=
+T	impact.concrete	96	=
+T	impact.concrete	97	Impact.Antlion
+T	impact.concrete	98	Impact.BloodyFlesh
+T	impact.concrete	99	Impact.Concrete
+T	impact.concrete	100	Impact.Concrete
+T	impact.concrete	101	Impact.Antlion
+T	impact.concrete	102	Impact.Flesh
+T	impact.concrete	103	Impact.Metal
+T	impact.concrete	104	Impact.AlienFlesh
+T	impact.concrete	105	=
+T	impact.concrete	106	=
+T	impact.concrete	107	=
+T	impact.concrete	108	Impact.Concrete
+T	impact.concrete	109	Impact.Metal
+T	impact.concrete	110	Impact.Sand
+T	impact.concrete	111	Impact.Wood
+T	impact.concrete	112	Impact.Concrete
+T	impact.concrete	113	=
+T	impact.concrete	114	=
+T	impact.concrete	115	=
+T	impact.concrete	116	Impact.Concrete
+T	impact.concrete	117	=
+T	impact.concrete	118	Impact.Metal
+T	impact.concrete	119	Impact.Wood
+T	impact.concrete	120	=
+T	impact.concrete	121	Impact.Glass
+T	impact.concrete	122	=
+T	impact.concrete	123	=
+T	impact.concrete	124	=
+T	impact.concrete	125	=
+T	impact.concrete	126	=
+T	impact.concrete	127	=
+T	impact.concrete	128	=
+T	impact.concrete	129	=
+T	impact.concrete	130	=
+T	impact.concrete	131	=
+T	impact.concrete	132	=
+T	impact.concrete	133	=
+T	impact.concrete	134	=
+T	impact.concrete	135	=
+T	impact.concrete	136	=
+T	impact.concrete	137	=
+T	impact.concrete	138	=
+T	impact.concrete	139	=
+T	impact.concrete	140	=
+T	impact.concrete	141	=
+T	impact.concrete	142	=
+T	impact.concrete	143	=
+T	impact.concrete	144	=
+T	impact.concrete	145	=
+T	impact.concrete	146	=
+T	impact.concrete	147	=
+T	impact.concrete	148	=
+T	impact.concrete	149	=
+T	impact.concrete	150	=
+T	impact.concrete	151	=
+T	impact.concrete	152	=
+T	impact.concrete	153	=
+T	impact.concrete	154	=
+T	impact.concrete	155	=
+T	impact.concrete	156	=
+T	impact.concrete	157	=
+T	impact.concrete	158	=
+T	impact.concrete	159	=
+T	impact.concrete	160	=
+T	impact.concrete	161	=
+T	impact.concrete	162	=
+T	impact.concrete	163	=
+T	impact.concrete	164	=
+T	impact.concrete	165	=
+T	impact.concrete	166	=
+T	impact.concrete	167	=
+T	impact.concrete	168	=
+T	impact.concrete	169	=
+T	impact.concrete	170	=
+T	impact.concrete	171	=
+T	impact.concrete	172	=
+T	impact.concrete	173	=
+T	impact.concrete	174	=
+T	impact.concrete	175	=
+T	impact.concrete	176	=
+T	impact.concrete	177	=
+T	impact.concrete	178	=
+T	impact.concrete	179	=
+T	impact.concrete	180	=
+T	impact.concrete	181	=
+T	impact.concrete	182	=
+T	impact.concrete	183	=
+T	impact.concrete	184	=
+T	impact.concrete	185	=
+T	impact.concrete	186	=
+T	impact.concrete	187	=
+T	impact.concrete	188	=
+T	impact.concrete	189	=
+T	impact.concrete	190	=
+T	impact.concrete	191	=
+T	impact.concrete	192	=
+T	impact.concrete	193	=
+T	impact.concrete	194	=
+T	impact.concrete	195	=
+T	impact.concrete	196	=
+T	impact.concrete	197	=
+T	impact.concrete	198	=
+T	impact.concrete	199	=
+T	impact.concrete	200	=
+T	impact.concrete	201	=
+T	impact.concrete	202	=
+T	impact.concrete	203	=
+T	impact.concrete	204	=
+T	impact.concrete	205	=
+T	impact.concrete	206	=
+T	impact.concrete	207	=
+T	impact.concrete	208	=
+T	impact.concrete	209	=
+T	impact.concrete	210	=
+T	impact.concrete	211	=
+T	impact.concrete	212	=
+T	impact.concrete	213	=
+T	impact.concrete	214	=
+T	impact.concrete	215	=
+T	impact.concrete	216	=
+T	impact.concrete	217	=
+T	impact.concrete	218	=
+T	impact.concrete	219	=
+T	impact.concrete	220	=
+T	impact.concrete	221	=
+T	impact.concrete	222	=
+T	impact.concrete	223	=
+T	impact.concrete	224	=
+T	impact.concrete	225	=
+T	impact.concrete	226	=
+T	impact.concrete	227	=
+T	impact.concrete	228	=
+T	impact.concrete	229	=
+T	impact.concrete	230	=
+T	impact.concrete	231	=
+T	impact.concrete	232	=
+T	impact.concrete	233	=
+T	impact.concrete	234	=
+T	impact.concrete	235	=
+T	impact.concrete	236	=
+T	impact.concrete	237	=
+T	impact.concrete	238	=
+T	impact.concrete	239	=
+T	impact.concrete	240	=
+T	impact.concrete	241	=
+T	impact.concrete	242	=
+T	impact.concrete	243	=
+T	impact.concrete	244	=
+T	impact.concrete	245	=
+T	impact.concrete	246	=
+T	impact.concrete	247	=
+T	impact.concrete	248	=
+T	impact.concrete	249	=
+T	impact.concrete	250	=
+T	impact.concrete	251	=
+T	impact.concrete	252	=
+T	impact.concrete	253	=
+T	impact.concrete	254	=
+T	impact.concrete	255	=
+T	Impact.Metal	0	=
+T	Impact.Metal	1	=
+T	Impact.Metal	2	=
+T	Impact.Metal	3	=
+T	Impact.Metal	4	=
+T	Impact.Metal	5	=
+T	Impact.Metal	6	=
+T	Impact.Metal	7	=
+T	Impact.Metal	8	=
+T	Impact.Metal	9	=
+T	Impact.Metal	10	=
+T	Impact.Metal	11	=
+T	Impact.Metal	12	=
+T	Impact.Metal	13	=
+T	Impact.Metal	14	=
+T	Impact.Metal	15	=
+T	Impact.Metal	16	=
+T	Impact.Metal	17	=
+T	Impact.Metal	18	=
+T	Impact.Metal	19	=
+T	Impact.Metal	20	=
+T	Impact.Metal	21	=
+T	Impact.Metal	22	=
+T	Impact.Metal	23	=
+T	Impact.Metal	24	=
+T	Impact.Metal	25	=
+T	Impact.Metal	26	=
+T	Impact.Metal	27	=
+T	Impact.Metal	28	=
+T	Impact.Metal	29	=
+T	Impact.Metal	30	=
+T	Impact.Metal	31	=
+T	Impact.Metal	32	=
+T	Impact.Metal	33	=
+T	Impact.Metal	34	=
+T	Impact.Metal	35	=
+T	Impact.Metal	36	=
+T	Impact.Metal	37	=
+T	Impact.Metal	38	=
+T	Impact.Metal	39	=
+T	Impact.Metal	40	=
+T	Impact.Metal	41	=
+T	Impact.Metal	42	=
+T	Impact.Metal	43	=
+T	Impact.Metal	44	=
+T	Impact.Metal	45	=
+T	Impact.Metal	46	=
+T	Impact.Metal	47	=
+T	Impact.Metal	48	=
+T	Impact.Metal	49	=
+T	Impact.Metal	50	=
+T	Impact.Metal	51	=
+T	Impact.Metal	52	=
+T	Impact.Metal	53	=
+T	Impact.Metal	54	=
+T	Impact.Metal	55	=
+T	Impact.Metal	56	=
+T	Impact.Metal	57	=
+T	Impact.Metal	58	=
+T	Impact.Metal	59	=
+T	Impact.Metal	60	=
+T	Impact.Metal	61	=
+T	Impact.Metal	62	=
+T	Impact.Metal	63	=
+T	Impact.Metal	64	=
+T	Impact.Metal	65	=
+T	Impact.Metal	66	=
+T	Impact.Metal	67	=
+T	Impact.Metal	68	=
+T	Impact.Metal	69	=
+T	Impact.Metal	70	=
+T	Impact.Metal	71	=
+T	Impact.Metal	72	=
+T	Impact.Metal	73	=
+T	Impact.Metal	74	=
+T	Impact.Metal	75	=
+T	Impact.Metal	76	=
+T	Impact.Metal	77	=
+T	Impact.Metal	78	=
+T	Impact.Metal	79	=
+T	Impact.Metal	80	=
+T	Impact.Metal	81	=
+T	Impact.Metal	82	=
+T	Impact.Metal	83	=
+T	Impact.Metal	84	=
+T	Impact.Metal	85	=
+T	Impact.Metal	86	=
+T	Impact.Metal	87	=
+T	Impact.Metal	88	=
+T	Impact.Metal	89	=
+T	Impact.Metal	90	=
+T	Impact.Metal	91	=
+T	Impact.Metal	92	=
+T	Impact.Metal	93	=
+T	Impact.Metal	94	=
+T	Impact.Metal	95	=
+T	Impact.Metal	96	=
+T	Impact.Metal	97	=
+T	Impact.Metal	98	=
+T	Impact.Metal	99	=
+T	Impact.Metal	100	=
+T	Impact.Metal	101	=
+T	Impact.Metal	102	=
+T	Impact.Metal	103	=
+T	Impact.Metal	104	=
+T	Impact.Metal	105	=
+T	Impact.Metal	106	=
+T	Impact.Metal	107	=
+T	Impact.Metal	108	=
+T	Impact.Metal	109	=
+T	Impact.Metal	110	=
+T	Impact.Metal	111	=
+T	Impact.Metal	112	=
+T	Impact.Metal	113	=
+T	Impact.Metal	114	=
+T	Impact.Metal	115	=
+T	Impact.Metal	116	=
+T	Impact.Metal	117	=
+T	Impact.Metal	118	=
+T	Impact.Metal	119	=
+T	Impact.Metal	120	=
+T	Impact.Metal	121	=
+T	Impact.Metal	122	=
+T	Impact.Metal	123	=
+T	Impact.Metal	124	=
+T	Impact.Metal	125	=
+T	Impact.Metal	126	=
+T	Impact.Metal	127	=
+T	Impact.Metal	128	=
+T	Impact.Metal	129	=
+T	Impact.Metal	130	=
+T	Impact.Metal	131	=
+T	Impact.Metal	132	=
+T	Impact.Metal	133	=
+T	Impact.Metal	134	=
+T	Impact.Metal	135	=
+T	Impact.Metal	136	=
+T	Impact.Metal	137	=
+T	Impact.Metal	138	=
+T	Impact.Metal	139	=
+T	Impact.Metal	140	=
+T	Impact.Metal	141	=
+T	Impact.Metal	142	=
+T	Impact.Metal	143	=
+T	Impact.Metal	144	=
+T	Impact.Metal	145	=
+T	Impact.Metal	146	=
+T	Impact.Metal	147	=
+T	Impact.Metal	148	=
+T	Impact.Metal	149	=
+T	Impact.Metal	150	=
+T	Impact.Metal	151	=
+T	Impact.Metal	152	=
+T	Impact.Metal	153	=
+T	Impact.Metal	154	=
+T	Impact.Metal	155	=
+T	Impact.Metal	156	=
+T	Impact.Metal	157	=
+T	Impact.Metal	158	=
+T	Impact.Metal	159	=
+T	Impact.Metal	160	=
+T	Impact.Metal	161	=
+T	Impact.Metal	162	=
+T	Impact.Metal	163	=
+T	Impact.Metal	164	=
+T	Impact.Metal	165	=
+T	Impact.Metal	166	=
+T	Impact.Metal	167	=
+T	Impact.Metal	168	=
+T	Impact.Metal	169	=
+T	Impact.Metal	170	=
+T	Impact.Metal	171	=
+T	Impact.Metal	172	=
+T	Impact.Metal	173	=
+T	Impact.Metal	174	=
+T	Impact.Metal	175	=
+T	Impact.Metal	176	=
+T	Impact.Metal	177	=
+T	Impact.Metal	178	=
+T	Impact.Metal	179	=
+T	Impact.Metal	180	=
+T	Impact.Metal	181	=
+T	Impact.Metal	182	=
+T	Impact.Metal	183	=
+T	Impact.Metal	184	=
+T	Impact.Metal	185	=
+T	Impact.Metal	186	=
+T	Impact.Metal	187	=
+T	Impact.Metal	188	=
+T	Impact.Metal	189	=
+T	Impact.Metal	190	=
+T	Impact.Metal	191	=
+T	Impact.Metal	192	=
+T	Impact.Metal	193	=
+T	Impact.Metal	194	=
+T	Impact.Metal	195	=
+T	Impact.Metal	196	=
+T	Impact.Metal	197	=
+T	Impact.Metal	198	=
+T	Impact.Metal	199	=
+T	Impact.Metal	200	=
+T	Impact.Metal	201	=
+T	Impact.Metal	202	=
+T	Impact.Metal	203	=
+T	Impact.Metal	204	=
+T	Impact.Metal	205	=
+T	Impact.Metal	206	=
+T	Impact.Metal	207	=
+T	Impact.Metal	208	=
+T	Impact.Metal	209	=
+T	Impact.Metal	210	=
+T	Impact.Metal	211	=
+T	Impact.Metal	212	=
+T	Impact.Metal	213	=
+T	Impact.Metal	214	=
+T	Impact.Metal	215	=
+T	Impact.Metal	216	=
+T	Impact.Metal	217	=
+T	Impact.Metal	218	=
+T	Impact.Metal	219	=
+T	Impact.Metal	220	=
+T	Impact.Metal	221	=
+T	Impact.Metal	222	=
+T	Impact.Metal	223	=
+T	Impact.Metal	224	=
+T	Impact.Metal	225	=
+T	Impact.Metal	226	=
+T	Impact.Metal	227	=
+T	Impact.Metal	228	=
+T	Impact.Metal	229	=
+T	Impact.Metal	230	=
+T	Impact.Metal	231	=
+T	Impact.Metal	232	=
+T	Impact.Metal	233	=
+T	Impact.Metal	234	=
+T	Impact.Metal	235	=
+T	Impact.Metal	236	=
+T	Impact.Metal	237	=
+T	Impact.Metal	238	=
+T	Impact.Metal	239	=
+T	Impact.Metal	240	=
+T	Impact.Metal	241	=
+T	Impact.Metal	242	=
+T	Impact.Metal	243	=
+T	Impact.Metal	244	=
+T	Impact.Metal	245	=
+T	Impact.Metal	246	=
+T	Impact.Metal	247	=
+T	Impact.Metal	248	=
+T	Impact.Metal	249	=
+T	Impact.Metal	250	=
+T	Impact.Metal	251	=
+T	Impact.Metal	252	=
+T	Impact.Metal	253	=
+T	Impact.Metal	254	=
+T	Impact.Metal	255	=
+T	Scorch	0	=
+T	Scorch	1	=
+T	Scorch	2	=
+T	Scorch	3	=
+T	Scorch	4	=
+T	Scorch	5	=
+T	Scorch	6	=
+T	Scorch	7	=
+T	Scorch	8	=
+T	Scorch	9	=
+T	Scorch	10	=
+T	Scorch	11	=
+T	Scorch	12	=
+T	Scorch	13	=
+T	Scorch	14	=
+T	Scorch	15	=
+T	Scorch	16	=
+T	Scorch	17	=
+T	Scorch	18	=
+T	Scorch	19	=
+T	Scorch	20	=
+T	Scorch	21	=
+T	Scorch	22	=
+T	Scorch	23	=
+T	Scorch	24	=
+T	Scorch	25	=
+T	Scorch	26	=
+T	Scorch	27	=
+T	Scorch	28	=
+T	Scorch	29	=
+T	Scorch	30	=
+T	Scorch	31	=
+T	Scorch	32	=
+T	Scorch	33	=
+T	Scorch	34	=
+T	Scorch	35	=
+T	Scorch	36	=
+T	Scorch	37	=
+T	Scorch	38	=
+T	Scorch	39	=
+T	Scorch	40	=
+T	Scorch	41	=
+T	Scorch	42	=
+T	Scorch	43	=
+T	Scorch	44	=
+T	Scorch	45	=
+T	Scorch	46	=
+T	Scorch	47	=
+T	Scorch	48	=
+T	Scorch	49	=
+T	Scorch	50	=
+T	Scorch	51	=
+T	Scorch	52	=
+T	Scorch	53	=
+T	Scorch	54	=
+T	Scorch	55	=
+T	Scorch	56	=
+T	Scorch	57	=
+T	Scorch	58	=
+T	Scorch	59	=
+T	Scorch	60	=
+T	Scorch	61	=
+T	Scorch	62	=
+T	Scorch	63	=
+T	Scorch	64	=
+T	Scorch	65	=
+T	Scorch	66	=
+T	Scorch	67	=
+T	Scorch	68	=
+T	Scorch	69	=
+T	Scorch	70	=
+T	Scorch	71	=
+T	Scorch	72	=
+T	Scorch	73	=
+T	Scorch	74	=
+T	Scorch	75	=
+T	Scorch	76	=
+T	Scorch	77	=
+T	Scorch	78	=
+T	Scorch	79	=
+T	Scorch	80	=
+T	Scorch	81	=
+T	Scorch	82	=
+T	Scorch	83	=
+T	Scorch	84	=
+T	Scorch	85	=
+T	Scorch	86	=
+T	Scorch	87	=
+T	Scorch	88	=
+T	Scorch	89	=
+T	Scorch	90	=
+T	Scorch	91	=
+T	Scorch	92	=
+T	Scorch	93	=
+T	Scorch	94	=
+T	Scorch	95	=
+T	Scorch	96	=
+T	Scorch	97	=
+T	Scorch	98	=
+T	Scorch	99	=
+T	Scorch	100	=
+T	Scorch	101	=
+T	Scorch	102	=
+T	Scorch	103	=
+T	Scorch	104	=
+T	Scorch	105	=
+T	Scorch	106	=
+T	Scorch	107	=
+T	Scorch	108	=
+T	Scorch	109	=
+T	Scorch	110	=
+T	Scorch	111	=
+T	Scorch	112	=
+T	Scorch	113	=
+T	Scorch	114	=
+T	Scorch	115	=
+T	Scorch	116	=
+T	Scorch	117	=
+T	Scorch	118	=
+T	Scorch	119	=
+T	Scorch	120	=
+T	Scorch	121	=
+T	Scorch	122	=
+T	Scorch	123	=
+T	Scorch	124	=
+T	Scorch	125	=
+T	Scorch	126	=
+T	Scorch	127	=
+T	Scorch	128	=
+T	Scorch	129	=
+T	Scorch	130	=
+T	Scorch	131	=
+T	Scorch	132	=
+T	Scorch	133	=
+T	Scorch	134	=
+T	Scorch	135	=
+T	Scorch	136	=
+T	Scorch	137	=
+T	Scorch	138	=
+T	Scorch	139	=
+T	Scorch	140	=
+T	Scorch	141	=
+T	Scorch	142	=
+T	Scorch	143	=
+T	Scorch	144	=
+T	Scorch	145	=
+T	Scorch	146	=
+T	Scorch	147	=
+T	Scorch	148	=
+T	Scorch	149	=
+T	Scorch	150	=
+T	Scorch	151	=
+T	Scorch	152	=
+T	Scorch	153	=
+T	Scorch	154	=
+T	Scorch	155	=
+T	Scorch	156	=
+T	Scorch	157	=
+T	Scorch	158	=
+T	Scorch	159	=
+T	Scorch	160	=
+T	Scorch	161	=
+T	Scorch	162	=
+T	Scorch	163	=
+T	Scorch	164	=
+T	Scorch	165	=
+T	Scorch	166	=
+T	Scorch	167	=
+T	Scorch	168	=
+T	Scorch	169	=
+T	Scorch	170	=
+T	Scorch	171	=
+T	Scorch	172	=
+T	Scorch	173	=
+T	Scorch	174	=
+T	Scorch	175	=
+T	Scorch	176	=
+T	Scorch	177	=
+T	Scorch	178	=
+T	Scorch	179	=
+T	Scorch	180	=
+T	Scorch	181	=
+T	Scorch	182	=
+T	Scorch	183	=
+T	Scorch	184	=
+T	Scorch	185	=
+T	Scorch	186	=
+T	Scorch	187	=
+T	Scorch	188	=
+T	Scorch	189	=
+T	Scorch	190	=
+T	Scorch	191	=
+T	Scorch	192	=
+T	Scorch	193	=
+T	Scorch	194	=
+T	Scorch	195	=
+T	Scorch	196	=
+T	Scorch	197	=
+T	Scorch	198	=
+T	Scorch	199	=
+T	Scorch	200	=
+T	Scorch	201	=
+T	Scorch	202	=
+T	Scorch	203	=
+T	Scorch	204	=
+T	Scorch	205	=
+T	Scorch	206	=
+T	Scorch	207	=
+T	Scorch	208	=
+T	Scorch	209	=
+T	Scorch	210	=
+T	Scorch	211	=
+T	Scorch	212	=
+T	Scorch	213	=
+T	Scorch	214	=
+T	Scorch	215	=
+T	Scorch	216	=
+T	Scorch	217	=
+T	Scorch	218	=
+T	Scorch	219	=
+T	Scorch	220	=
+T	Scorch	221	=
+T	Scorch	222	=
+T	Scorch	223	=
+T	Scorch	224	=
+T	Scorch	225	=
+T	Scorch	226	=
+T	Scorch	227	=
+T	Scorch	228	=
+T	Scorch	229	=
+T	Scorch	230	=
+T	Scorch	231	=
+T	Scorch	232	=
+T	Scorch	233	=
+T	Scorch	234	=
+T	Scorch	235	=
+T	Scorch	236	=
+T	Scorch	237	=
+T	Scorch	238	=
+T	Scorch	239	=
+T	Scorch	240	=
+T	Scorch	241	=
+T	Scorch	242	=
+T	Scorch	243	=
+T	Scorch	244	=
+T	Scorch	245	=
+T	Scorch	246	=
+T	Scorch	247	=
+T	Scorch	248	=
+T	Scorch	249	=
+T	Scorch	250	=
+T	Scorch	251	=
+T	Scorch	252	=
+T	Scorch	253	=
+T	Scorch	254	=
+T	Scorch	255	=
+T	NoSuchDecalGroup	0	=
+T	NoSuchDecalGroup	1	=
+T	NoSuchDecalGroup	2	=
+T	NoSuchDecalGroup	3	=
+T	NoSuchDecalGroup	4	=
+T	NoSuchDecalGroup	5	=
+T	NoSuchDecalGroup	6	=
+T	NoSuchDecalGroup	7	=
+T	NoSuchDecalGroup	8	=
+T	NoSuchDecalGroup	9	=
+T	NoSuchDecalGroup	10	=
+T	NoSuchDecalGroup	11	=
+T	NoSuchDecalGroup	12	=
+T	NoSuchDecalGroup	13	=
+T	NoSuchDecalGroup	14	=
+T	NoSuchDecalGroup	15	=
+T	NoSuchDecalGroup	16	=
+T	NoSuchDecalGroup	17	=
+T	NoSuchDecalGroup	18	=
+T	NoSuchDecalGroup	19	=
+T	NoSuchDecalGroup	20	=
+T	NoSuchDecalGroup	21	=
+T	NoSuchDecalGroup	22	=
+T	NoSuchDecalGroup	23	=
+T	NoSuchDecalGroup	24	=
+T	NoSuchDecalGroup	25	=
+T	NoSuchDecalGroup	26	=
+T	NoSuchDecalGroup	27	=
+T	NoSuchDecalGroup	28	=
+T	NoSuchDecalGroup	29	=
+T	NoSuchDecalGroup	30	=
+T	NoSuchDecalGroup	31	=
+T	NoSuchDecalGroup	32	=
+T	NoSuchDecalGroup	33	=
+T	NoSuchDecalGroup	34	=
+T	NoSuchDecalGroup	35	=
+T	NoSuchDecalGroup	36	=
+T	NoSuchDecalGroup	37	=
+T	NoSuchDecalGroup	38	=
+T	NoSuchDecalGroup	39	=
+T	NoSuchDecalGroup	40	=
+T	NoSuchDecalGroup	41	=
+T	NoSuchDecalGroup	42	=
+T	NoSuchDecalGroup	43	=
+T	NoSuchDecalGroup	44	=
+T	NoSuchDecalGroup	45	=
+T	NoSuchDecalGroup	46	=
+T	NoSuchDecalGroup	47	=
+T	NoSuchDecalGroup	48	=
+T	NoSuchDecalGroup	49	=
+T	NoSuchDecalGroup	50	=
+T	NoSuchDecalGroup	51	=
+T	NoSuchDecalGroup	52	=
+T	NoSuchDecalGroup	53	=
+T	NoSuchDecalGroup	54	=
+T	NoSuchDecalGroup	55	=
+T	NoSuchDecalGroup	56	=
+T	NoSuchDecalGroup	57	=
+T	NoSuchDecalGroup	58	=
+T	NoSuchDecalGroup	59	=
+T	NoSuchDecalGroup	60	=
+T	NoSuchDecalGroup	61	=
+T	NoSuchDecalGroup	62	=
+T	NoSuchDecalGroup	63	=
+T	NoSuchDecalGroup	64	=
+T	NoSuchDecalGroup	65	=
+T	NoSuchDecalGroup	66	=
+T	NoSuchDecalGroup	67	=
+T	NoSuchDecalGroup	68	=
+T	NoSuchDecalGroup	69	=
+T	NoSuchDecalGroup	70	=
+T	NoSuchDecalGroup	71	=
+T	NoSuchDecalGroup	72	=
+T	NoSuchDecalGroup	73	=
+T	NoSuchDecalGroup	74	=
+T	NoSuchDecalGroup	75	=
+T	NoSuchDecalGroup	76	=
+T	NoSuchDecalGroup	77	=
+T	NoSuchDecalGroup	78	=
+T	NoSuchDecalGroup	79	=
+T	NoSuchDecalGroup	80	=
+T	NoSuchDecalGroup	81	=
+T	NoSuchDecalGroup	82	=
+T	NoSuchDecalGroup	83	=
+T	NoSuchDecalGroup	84	=
+T	NoSuchDecalGroup	85	=
+T	NoSuchDecalGroup	86	=
+T	NoSuchDecalGroup	87	=
+T	NoSuchDecalGroup	88	=
+T	NoSuchDecalGroup	89	=
+T	NoSuchDecalGroup	90	=
+T	NoSuchDecalGroup	91	=
+T	NoSuchDecalGroup	92	=
+T	NoSuchDecalGroup	93	=
+T	NoSuchDecalGroup	94	=
+T	NoSuchDecalGroup	95	=
+T	NoSuchDecalGroup	96	=
+T	NoSuchDecalGroup	97	=
+T	NoSuchDecalGroup	98	=
+T	NoSuchDecalGroup	99	=
+T	NoSuchDecalGroup	100	=
+T	NoSuchDecalGroup	101	=
+T	NoSuchDecalGroup	102	=
+T	NoSuchDecalGroup	103	=
+T	NoSuchDecalGroup	104	=
+T	NoSuchDecalGroup	105	=
+T	NoSuchDecalGroup	106	=
+T	NoSuchDecalGroup	107	=
+T	NoSuchDecalGroup	108	=
+T	NoSuchDecalGroup	109	=
+T	NoSuchDecalGroup	110	=
+T	NoSuchDecalGroup	111	=
+T	NoSuchDecalGroup	112	=
+T	NoSuchDecalGroup	113	=
+T	NoSuchDecalGroup	114	=
+T	NoSuchDecalGroup	115	=
+T	NoSuchDecalGroup	116	=
+T	NoSuchDecalGroup	117	=
+T	NoSuchDecalGroup	118	=
+T	NoSuchDecalGroup	119	=
+T	NoSuchDecalGroup	120	=
+T	NoSuchDecalGroup	121	=
+T	NoSuchDecalGroup	122	=
+T	NoSuchDecalGroup	123	=
+T	NoSuchDecalGroup	124	=
+T	NoSuchDecalGroup	125	=
+T	NoSuchDecalGroup	126	=
+T	NoSuchDecalGroup	127	=
+T	NoSuchDecalGroup	128	=
+T	NoSuchDecalGroup	129	=
+T	NoSuchDecalGroup	130	=
+T	NoSuchDecalGroup	131	=
+T	NoSuchDecalGroup	132	=
+T	NoSuchDecalGroup	133	=
+T	NoSuchDecalGroup	134	=
+T	NoSuchDecalGroup	135	=
+T	NoSuchDecalGroup	136	=
+T	NoSuchDecalGroup	137	=
+T	NoSuchDecalGroup	138	=
+T	NoSuchDecalGroup	139	=
+T	NoSuchDecalGroup	140	=
+T	NoSuchDecalGroup	141	=
+T	NoSuchDecalGroup	142	=
+T	NoSuchDecalGroup	143	=
+T	NoSuchDecalGroup	144	=
+T	NoSuchDecalGroup	145	=
+T	NoSuchDecalGroup	146	=
+T	NoSuchDecalGroup	147	=
+T	NoSuchDecalGroup	148	=
+T	NoSuchDecalGroup	149	=
+T	NoSuchDecalGroup	150	=
+T	NoSuchDecalGroup	151	=
+T	NoSuchDecalGroup	152	=
+T	NoSuchDecalGroup	153	=
+T	NoSuchDecalGroup	154	=
+T	NoSuchDecalGroup	155	=
+T	NoSuchDecalGroup	156	=
+T	NoSuchDecalGroup	157	=
+T	NoSuchDecalGroup	158	=
+T	NoSuchDecalGroup	159	=
+T	NoSuchDecalGroup	160	=
+T	NoSuchDecalGroup	161	=
+T	NoSuchDecalGroup	162	=
+T	NoSuchDecalGroup	163	=
+T	NoSuchDecalGroup	164	=
+T	NoSuchDecalGroup	165	=
+T	NoSuchDecalGroup	166	=
+T	NoSuchDecalGroup	167	=
+T	NoSuchDecalGroup	168	=
+T	NoSuchDecalGroup	169	=
+T	NoSuchDecalGroup	170	=
+T	NoSuchDecalGroup	171	=
+T	NoSuchDecalGroup	172	=
+T	NoSuchDecalGroup	173	=
+T	NoSuchDecalGroup	174	=
+T	NoSuchDecalGroup	175	=
+T	NoSuchDecalGroup	176	=
+T	NoSuchDecalGroup	177	=
+T	NoSuchDecalGroup	178	=
+T	NoSuchDecalGroup	179	=
+T	NoSuchDecalGroup	180	=
+T	NoSuchDecalGroup	181	=
+T	NoSuchDecalGroup	182	=
+T	NoSuchDecalGroup	183	=
+T	NoSuchDecalGroup	184	=
+T	NoSuchDecalGroup	185	=
+T	NoSuchDecalGroup	186	=
+T	NoSuchDecalGroup	187	=
+T	NoSuchDecalGroup	188	=
+T	NoSuchDecalGroup	189	=
+T	NoSuchDecalGroup	190	=
+T	NoSuchDecalGroup	191	=
+T	NoSuchDecalGroup	192	=
+T	NoSuchDecalGroup	193	=
+T	NoSuchDecalGroup	194	=
+T	NoSuchDecalGroup	195	=
+T	NoSuchDecalGroup	196	=
+T	NoSuchDecalGroup	197	=
+T	NoSuchDecalGroup	198	=
+T	NoSuchDecalGroup	199	=
+T	NoSuchDecalGroup	200	=
+T	NoSuchDecalGroup	201	=
+T	NoSuchDecalGroup	202	=
+T	NoSuchDecalGroup	203	=
+T	NoSuchDecalGroup	204	=
+T	NoSuchDecalGroup	205	=
+T	NoSuchDecalGroup	206	=
+T	NoSuchDecalGroup	207	=
+T	NoSuchDecalGroup	208	=
+T	NoSuchDecalGroup	209	=
+T	NoSuchDecalGroup	210	=
+T	NoSuchDecalGroup	211	=
+T	NoSuchDecalGroup	212	=
+T	NoSuchDecalGroup	213	=
+T	NoSuchDecalGroup	214	=
+T	NoSuchDecalGroup	215	=
+T	NoSuchDecalGroup	216	=
+T	NoSuchDecalGroup	217	=
+T	NoSuchDecalGroup	218	=
+T	NoSuchDecalGroup	219	=
+T	NoSuchDecalGroup	220	=
+T	NoSuchDecalGroup	221	=
+T	NoSuchDecalGroup	222	=
+T	NoSuchDecalGroup	223	=
+T	NoSuchDecalGroup	224	=
+T	NoSuchDecalGroup	225	=
+T	NoSuchDecalGroup	226	=
+T	NoSuchDecalGroup	227	=
+T	NoSuchDecalGroup	228	=
+T	NoSuchDecalGroup	229	=
+T	NoSuchDecalGroup	230	=
+T	NoSuchDecalGroup	231	=
+T	NoSuchDecalGroup	232	=
+T	NoSuchDecalGroup	233	=
+T	NoSuchDecalGroup	234	=
+T	NoSuchDecalGroup	235	=
+T	NoSuchDecalGroup	236	=
+T	NoSuchDecalGroup	237	=
+T	NoSuchDecalGroup	238	=
+T	NoSuchDecalGroup	239	=
+T	NoSuchDecalGroup	240	=
+T	NoSuchDecalGroup	241	=
+T	NoSuchDecalGroup	242	=
+T	NoSuchDecalGroup	243	=
+T	NoSuchDecalGroup	244	=
+T	NoSuchDecalGroup	245	=
+T	NoSuchDecalGroup	246	=
+T	NoSuchDecalGroup	247	=
+T	NoSuchDecalGroup	248	=
+T	NoSuchDecalGroup	249	=
+T	NoSuchDecalGroup	250	=
+T	NoSuchDecalGroup	251	=
+T	NoSuchDecalGroup	252	=
+T	NoSuchDecalGroup	253	=
+T	NoSuchDecalGroup	254	=
+T	NoSuchDecalGroup	255	=

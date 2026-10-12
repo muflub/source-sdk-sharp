@@ -1,0 +1,36 @@
+Descent_Crate_Title	The Crate Stall
+Descent_Crate_Base	The rung stays secret until the roll.
+Descent_Crate_Odds	Published odds
+Descent_Crate_Weight	Weight
+Descent_Crate_Chance	Chance
+Descent_Crate_ItemLevel	Level
+Descent_Crate_Affixes	Affixes
+Descent_Crate_Price	Price
+Descent_Crate_Short	Not enough Australium
+Descent_Crate_Open	Open
+Descent_Crate_Opened	Opened
+Descent_Crate_Rarity_Stock	Stock
+Descent_Crate_Rarity_Vintage	Vintage
+Descent_Crate_Rarity_Strange	Strange
+Descent_Crate_Rarity_Unusual	Unusual
+Descent_Crate_Rarity_Australium	Australium
+Descent_Craft_Title	The Crafting Bench
+Descent_Craft_NoItem_Title	Nothing under work
+Descent_Craft_NoItem_Body	Put an item on the bench, or pick a stance that needs none.
+Descent_Craft_ItemLevel	Ilvl
+Descent_Craft_Durability	Wear
+Descent_Craft_NoDurability	No wear
+Descent_Craft_NoUnusual	An Unusual can never be crafted
+Descent_Craft_RerollCost	Next reroll
+Descent_Craft_Locked	kept
+Descent_Craft_LockedRow	Locked
+Descent_Craft_Metal	Metals
+Descent_Craft_NeedMetal	Not enough metal
+Descent_Craft_Craft	Craft
+Descent_Craft_Tab_Base	Craft by base
+Descent_Craft_Tab_Reroll	Reroll affixes
+Descent_Craft_Tab_Upgrade	Upgrade rarity
+Descent_Craft_Tab_Potions	Combine potions
+Descent_Craft_Tab_Repair	Repair kit
+Descent_Craft_Inputs_Reroll	Eats: 1 weapon, 1 Reclaimed Metal
+Descent_Craft_Preview_Scattergun	A random Scattergun at your level

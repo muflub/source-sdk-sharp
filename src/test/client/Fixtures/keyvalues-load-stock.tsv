@@ -1,0 +1,427 @@
+# pristine KeyValues::LoadFromBuffer: case | depth | name | type (0 none, 1 string, 2 int, 3 float, 7 uint64) | value
+# (float as its bits; names and strings escaped as the corpus is)
+sprite_basic	0	Sprite	0	
+sprite_basic	1	$spriteorientation	1	vp_parallel
+sprite_basic	1	$spriteorigin	1	[ 0.50 0.50 ]
+sprite_basic	1	$basetexture	1	sprites/glow01
+sprite_basic	1	$ignorez	2	1
+unquoted_tokens	0	Sprite	0	
+unquoted_tokens	1	$basetexture	1	sprites/foo
+unquoted_tokens	1	$ignorez	2	1
+unquoted_tokens	1	$alpha	3	3f000000
+proxies_nested	0	UnlitGeneric	0	
+proxies_nested	1	$basetexture	1	sprites/a
+proxies_nested	1	$frame	2	0
+proxies_nested	1	Proxies	0	
+proxies_nested	2	AnimatedTexture	0	
+proxies_nested	3	animatedtexturevar	1	$basetexture
+proxies_nested	3	animatedtextureframenumvar	1	$frame
+proxies_nested	3	animatedtextureframerate	2	10
+value_00	0	m	0	
+value_00	1	k	2	1
+value_01	0	m	0	
+value_01	1	k	2	-5
+value_02	0	m	0	
+value_02	1	k	2	7
+value_03	0	m	0	
+value_03	1	k	2	12
+value_04	0	m	0	
+value_04	1	k	1	12 
+value_05	0	m	0	
+value_05	1	k	3	3fc00000
+value_06	0	m	0	
+value_06	1	k	3	3f000000
+value_07	0	m	0	
+value_07	1	k	3	40a00000
+value_08	0	m	0	
+value_08	1	k	3	447a0000
+value_09	0	m	0	
+value_09	1	k	1	1e
+value_10	0	m	0	
+value_10	1	k	3	3c23d70a
+value_11	0	m	0	
+value_11	1	k	3	7f800000
+value_12	0	m	0	
+value_12	1	k	3	ff800000
+value_13	0	m	0	
+value_13	1	k	3	7f800000
+value_14	0	m	0	
+value_14	1	k	3	7f800000
+value_15	0	m	0	
+value_15	1	k	3	7fc00000
+value_16	0	m	0	
+value_16	1	k	3	7fc00000
+value_17	0	m	0	
+value_17	1	k	1	0x10
+value_18	0	m	0	
+value_18	1	k	1	0X1F
+value_19	0	m	0	
+value_19	1	k	1	1x
+value_20	0	m	0	
+value_20	1	k	1	0x1p3
+value_21	0	m	0	
+value_21	1	k	7	0000000000000010
+value_22	0	m	0	
+value_22	1	k	7	ffffffffffffffff
+value_23	0	m	0	
+value_23	1	k	7	abcdefabcdef0123
+value_24	0	m	0	
+value_24	1	k	7	0000000000000253
+value_25	0	m	0	
+value_25	1	k	7	d000000000000001
+value_26	0	m	0	
+value_26	1	k	2	1215752191
+value_27	0	m	0	
+value_27	1	k	2	0
+value_28	0	m	0	
+value_28	1	k	2	-2147483648
+value_29	0	m	0	
+value_29	1	k	2	2147483647
+value_30	0	m	0	
+value_30	1	k	2	0
+value_31	0	m	0	
+value_31	1	k	2	-1
+value_32	0	m	0	
+value_32	1	k	3	7f800000
+value_33	0	m	0	
+value_33	1	k	3	00000000
+value_34	0	m	0	
+value_34	1	k	3	00000000
+value_35	0	m	0	
+value_35	1	k	1	
+value_36	0	m	0	
+value_36	1	k	2	0
+value_37	0	m	0	
+value_37	1	k	2	0
+value_38	0	m	0	
+value_38	1	k	2	12
+value_39	0	m	0	
+value_39	1	k	1	1,5
+value_40	0	m	0	
+value_40	1	k	1	abc
+value_41	0	m	0	
+value_41	1	k	1	1.5.2
+value_42	0	m	0	
+value_42	1	k	1	--1
+value_43	0	m	0	
+value_43	1	k	1	+
+value_44	0	m	0	
+value_44	1	k	1	-
+value_45	0	m	0	
+value_45	1	k	1	.
+value_46	0	m	0	
+value_46	1	k	1	e5
+value_47	0	m	0	
+value_47	1	k	2	3
+value_48	0	m	0	
+value_48	1	k	1	3\t
+value_49	0	m	0	
+value_49	1	k	1	1.0f
+value_50	0	m	0	
+value_50	1	k	3	3dcccccd
+value_51	0	m	0	
+value_51	1	k	2	16777217
+value_52	0	m	0	
+value_52	1	k	3	c0a00000
+unquoted_values	0	m	0	
+unquoted_values	1	a	2	1
+unquoted_values	1	b	3	40200000
+unquoted_values	1	c	1	x
+unquoted_values	1	d	2	-3
+unquoted_values	1	e	3	42c80000
+unquoted_values	1	f	3	7f800000
+cond_value_00	0	m	0	
+cond_value_00	1	a	2	1
+cond_value_00	1	b	2	2
+cond_value_01	0	m	0	
+cond_value_01	1	b	2	2
+cond_value_02	0	m	0	
+cond_value_02	1	a	2	1
+cond_value_02	1	b	2	2
+cond_value_03	0	m	0	
+cond_value_03	1	a	2	1
+cond_value_03	1	b	2	2
+cond_value_04	0	m	0	
+cond_value_04	1	b	2	2
+cond_value_05	0	m	0	
+cond_value_05	1	b	2	2
+cond_value_06	0	m	0	
+cond_value_06	1	a	2	1
+cond_value_06	1	b	2	2
+cond_value_07	0	m	0	
+cond_value_07	1	b	2	2
+cond_value_08	0	m	0	
+cond_value_08	1	a	2	1
+cond_value_08	1	b	2	2
+cond_value_09	0	m	0	
+cond_value_09	1	b	2	2
+cond_value_10	0	m	0	
+cond_value_10	1	b	2	2
+cond_value_11	0	m	0	
+cond_value_11	1	a	2	1
+cond_value_11	1	b	2	2
+cond_value_12	0	m	0	
+cond_value_12	1	a	2	1
+cond_value_12	1	b	2	2
+cond_value_13	0	m	0	
+cond_value_13	1	b	2	2
+cond_value_14	0	m	0	
+cond_value_14	1	a	2	1
+cond_value_14	1	[$X360	1	b
+cond_value_14	1	2	0	
+cond_value_15	0	m	0	
+cond_value_15	1	a	2	1
+cond_value_15	1	$X360]	1	b
+cond_value_15	1	2	0	
+cond_before_value	0	m	0	
+cond_before_value	1	a	2	1
+cond_before_value	1	c	2	3
+cond_twice	0	m	0	
+cond_twice	1	a	0	
+cond_twice	0	b	0	
+cond_twice	0	}	0	
+cond_block	0	m	0	
+cond_block	1	q	0	
+cond_block	2	y	2	2
+cond_block	1	z	2	3
+cond_root	0	n	0	
+cond_root	1	b	2	2
+cond_root_first_rejected_only	0	m	0	
+cond_quoted	0	m	0	
+cond_quoted	1	a	1	[$X360]
+cond_quoted	1	b	2	1
+cond_quoted	1	[$X360]	0	
+cond_last_value_eof	0	m	0	
+comments	0	m	0	
+comments	1	a	2	1
+comments	1	b	2	2
+comment_eof_no_newline	0	m	0	
+comment_eof_no_newline	1	a	2	1
+slashes_in_tokens	0	m	0	
+slashes_in_tokens	1	a/b	1	c//d
+slashes_in_tokens	1	e	1	/
+slashes_in_tokens	1	f	1	x
+slashes_in_tokens	1	g//h	0	
+single_slash_token	0	m	0	
+single_slash_token	1	a	1	/
+empty_block	0	m	0	
+empty_block	1	e	0	
+empty_block	1	f	2	1
+duplicate_keys	0	m	0	
+duplicate_keys	1	a	2	1
+duplicate_keys	1	a	2	2
+duplicate_keys	1	a	2	3
+duplicate_keys	1	a	0	
+duplicate_keys	2	x	1	y
+empty_key_name	0	m	0	
+empty_key_name	1	a	2	1
+empty_key_name	0	2	0	
+empty_key_name	0	3	0	
+brace_as_value	0	m	0	
+brace_as_value	1	a	0	
+brace_as_value	0	b	0	
+brace_as_value	0	}	0	
+quoted_braces	0	m	0	
+quoted_braces	1	{	1	}
+quoted_braces	1	a	1	{
+missing_close	0	m	0	
+missing_close	1	a	2	1
+missing_close	1	b	2	2
+missing_close_no_ws	0	m	0	
+missing_close_no_ws	1	a	2	1
+key_at_eof	0	m	0	
+key_at_eof	1	a	0	
+extra_close	0	m	0	
+extra_close	1	a	2	1
+extra_close	0	}	0	
+extra_close	0	{	0	
+extra_close	0	2	0	
+root_without_brace	0	a	0	
+root_without_brace	0	c	0	
+root_without_brace	1	d	1	e
+multiple_roots	0	m	0	
+multiple_roots	1	a	2	1
+multiple_roots	0	n	0	
+multiple_roots	1	b	2	2
+multiple_roots	0	o	0	
+empty_input	0	vmt	0	
+whitespace_only	0	vmt	0	
+comment_only	0	vmt	0	
+unterminated_quote_value	0	m	0	
+unterminated_quote_value	1	a	1	unterminated
+unterminated_quote_key	0	m	0	
+unterminated_quote_key	1	unterminated	0	
+backslash_quote	0	m	0	
+backslash_quote	1	a	1	x\\
+backslash_quote	1	y	1	\n\t
+backslash_quote	1	b	1	 
+backslash_quote	1	c:\\\\path\\\\	1	\n}\n
+del_char	0	m	0	
+del_char	1	a	1	x
+del_char	1	b	2	2
+long_quoted	0	m	0	
+long_quoted	1	a	1	qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+long_quoted	1	b	2	2
+long_unquoted	0	m	0	
+long_unquoted	1	a	1	uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
+long_unquoted	1	b	2	2
+crlf	0	m	0	
+crlf	1	a	2	1
+crlf	1	b	1	x y
+vtab_ff_ws	0	m	0	
+vtab_ff_ws	1	a	2	1
+high_bytes	0	m	0	
+high_bytes	1	a	1	caf\xc3\xa9
+high_bytes	1	\xc3\xa9t\xc3\xa9	2	1
+high_bytes	1	z\xc3\xa9	2	2
+include_base_nullfs	0	m	0	
+include_base_nullfs	1	a	2	1
+include_case	0	m	0	
+include_case	1	a	2	1
+include_eof	0	m	0	
+include_eof	1	a	2	1
+include_in_block	0	m	0	
+include_in_block	1	#include	1	x
+include_in_block	1	#base	1	y
+root_brace_token	0	{	0	
+root_brace_token	0	1	0	
+root_quoted_empty	0	vmt	0	
+adjacent_tokens	0	m	0	
+adjacent_tokens	1	a	2	1
+adjacent_tokens	1	b	0	
+adjacent_tokens	2	c	2	2
+unquoted_adjacent_quote	0	m	0	
+unquoted_adjacent_quote	1	a	2	1
+unquoted_adjacent_quote	1	b	2	2
+deep_nesting	0	m	0	
+deep_nesting	1	k	0	
+deep_nesting	2	k	0	
+deep_nesting	3	k	0	
+deep_nesting	4	k	0	
+deep_nesting	5	k	0	
+deep_nesting	6	k	0	
+deep_nesting	7	k	0	
+deep_nesting	8	k	0	
+deep_nesting	9	k	0	
+deep_nesting	10	k	0	
+deep_nesting	11	k	0	
+deep_nesting	12	k	0	
+deep_nesting	13	k	0	
+deep_nesting	14	k	0	
+deep_nesting	15	k	0	
+deep_nesting	16	k	0	
+deep_nesting	17	k	0	
+deep_nesting	18	k	0	
+deep_nesting	19	k	0	
+deep_nesting	20	k	0	
+deep_nesting	21	k	0	
+deep_nesting	22	k	0	
+deep_nesting	23	k	0	
+deep_nesting	24	k	0	
+deep_nesting	25	k	0	
+deep_nesting	26	k	0	
+deep_nesting	27	k	0	
+deep_nesting	28	k	0	
+deep_nesting	29	k	0	
+deep_nesting	30	k	1	v
+deep_nesting	0	}	0	
+value_then_peek_quoted	0	m	0	
+value_then_peek_quoted	1	a	2	1
+value_then_peek_quoted	1	[$X360]	2	2
+real_shape_spritecard	0	SpriteCard	0	
+real_shape_spritecard	1	$basetexture	1	particle/fire
+real_shape_spritecard	1	$additive	2	1
+real_shape_spritecard	1	$vertexcolor	2	1
+real_shape_spritecard	1	$vertexalpha	2	1
+real_shape_spritecard	1	$maxsize	3	3f000000
+real_shape_spritecard	1	$overbrightfactor	3	40000000
+real_shape_spritecard	1	$color	1	{255 128 0}
+real_shape_spritecard	1	$orientation	2	3
+value_hexfloat_lead_space	0	m	0	
+value_hexfloat_lead_space	1	k	3	41800000
+value_hexfloat_neg	0	m	0	
+value_hexfloat_neg	1	k	3	c1000000
+value_hexfloat_plus_frac	0	m	0	
+value_hexfloat_plus_frac	1	k	3	40400000
+value_neg_nan	0	m	0	
+value_neg_nan	1	k	3	ffc00000
+value_nan_payload	0	m	0	
+value_nan_payload	1	k	3	7fc00000
+value_nan_bad_payload	0	m	0	
+value_nan_bad_payload	1	k	1	nan(12
+value_infinit	0	m	0	
+value_infinit	1	k	1	infinit
+value_exp_no_digits	0	m	0	
+value_exp_no_digits	1	k	1	2e+
+value_big_digits	0	m	0	
+value_big_digits	1	k	3	6fc77488
+value_float_round	0	m	0	
+value_float_round	1	k	3	3dcccccd
+value_space_minus	0	m	0	
+value_space_minus	1	k	2	-7
+deep_nesting_60	0	m	0	
+deep_nesting_60	1	k	0	
+deep_nesting_60	2	k	0	
+deep_nesting_60	3	k	0	
+deep_nesting_60	4	k	0	
+deep_nesting_60	5	k	0	
+deep_nesting_60	6	k	0	
+deep_nesting_60	7	k	0	
+deep_nesting_60	8	k	0	
+deep_nesting_60	9	k	0	
+deep_nesting_60	10	k	0	
+deep_nesting_60	11	k	0	
+deep_nesting_60	12	k	0	
+deep_nesting_60	13	k	0	
+deep_nesting_60	14	k	0	
+deep_nesting_60	15	k	0	
+deep_nesting_60	16	k	0	
+deep_nesting_60	17	k	0	
+deep_nesting_60	18	k	0	
+deep_nesting_60	19	k	0	
+deep_nesting_60	20	k	0	
+deep_nesting_60	21	k	0	
+deep_nesting_60	22	k	0	
+deep_nesting_60	23	k	0	
+deep_nesting_60	24	k	0	
+deep_nesting_60	25	k	0	
+deep_nesting_60	26	k	0	
+deep_nesting_60	27	k	0	
+deep_nesting_60	28	k	0	
+deep_nesting_60	29	k	0	
+deep_nesting_60	30	k	0	
+deep_nesting_60	31	k	0	
+deep_nesting_60	32	k	0	
+deep_nesting_60	33	k	0	
+deep_nesting_60	34	k	0	
+deep_nesting_60	35	k	0	
+deep_nesting_60	36	k	0	
+deep_nesting_60	37	k	0	
+deep_nesting_60	38	k	0	
+deep_nesting_60	39	k	0	
+deep_nesting_60	40	k	0	
+deep_nesting_60	41	k	0	
+deep_nesting_60	42	k	0	
+deep_nesting_60	43	k	0	
+deep_nesting_60	44	k	0	
+deep_nesting_60	45	k	0	
+deep_nesting_60	46	k	0	
+deep_nesting_60	47	k	0	
+deep_nesting_60	48	k	0	
+deep_nesting_60	49	k	0	
+deep_nesting_60	50	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	0	
+deep_nesting_60	51	k	1	v
+deep_nesting_60	0	}	0	
+deep_nesting_60	0	}	0	
+deep_nesting_60	0	}	0	
+deep_nesting_60	0	}	0	
+deep_nesting_60	0	}	0	

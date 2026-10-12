@@ -1,0 +1,10 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+[CSourceSharpSpriteRenderer] int Draw(	SLOT	a managed sprite's draw through the planner, with its own query handle, world-space flag and proxy size
+[CSourceSharpSpriteTrail] virtual int DrawModel(	SLOT	IClientRenderable::DrawModel: the managed ribbon's draw (IManagedFxClient::SpriteTrailDraw, SpriteTrail.cs)
+[CSourceSharpSpriteTrail] void Tick()	SLOT	the PreRender tick: the managed ring at the followed origin (SpriteTrailTick), its box kept for GetRenderBounds
+[CSourceSharpSpriteTrail] void SourceSharpUpdate(	SLOT	the owner and whether it is switched on (ShouldDraw)
+[CSourceSharpSpriteTrail] void PutOrigin(	SLOT-HELP	packs the followed origin for the two calls
+[CSourceSharpSpriteRenderer] int Begin(	SLOT	a managed sprite's direct draw request, with its own query handle, world-space flag and proxy size
+int32_t SourceSharp_FxSpriteDrawBegin(	BOUNDARY	IShimFxClient: the request for a managed sprite at its owner's interpolated place plus the offset
+static int32_t SourceSharpDrawSpriteCore(	BOUNDARY	resolves a managed sprite's owner, place and model and refuses an out-of-range render mode, then draws or begins the draw

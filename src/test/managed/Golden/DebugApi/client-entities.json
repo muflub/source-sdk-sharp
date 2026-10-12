@@ -1,0 +1,1 @@
+{"class":"ss_crate","count":1,"entities":[{"index":7,"handle":"0x00020007","class":"ss_crate","model":"models/props/crate.mdl","modelIndex":12,"origin":[1,2,3],"renderOrigin":[1.5,2,3],"dormant":false,"interpolationDepth":2,"shadow":{"type":1,"choice":0,"held":true},"policy":{"renderGroup":2,"drawn":true,"viewModel":false,"inputs":5,"outputs":4}}]}

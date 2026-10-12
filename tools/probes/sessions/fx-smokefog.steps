@@ -1,0 +1,13 @@
+# lane c2-fx: the smoke fog overlay's oracle (probe copy of
+# smoke_fog_overlay.cpp): each frame's overlay alpha and colour in, and the
+# quad's colour and alpha out, over a probe sweep of the alpha (and the
+# untouched frames either side). Needs the probe build.
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 1
+cmd cs_cl_probe_smokefog 1
+sleep 5
+cmd cs_cl_probe_smokefog 0
+sleep 0.5
+quit

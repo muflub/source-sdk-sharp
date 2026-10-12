@@ -1,0 +1,1147 @@
+#!/usr/bin/env python3
+"""Build the compat farms and the game directories.
+
+    make setup ROOT=../source-sdk-2013          (tools/setup --root DIR)
+    tools/setup                                 ROOT from sdk-root.lock.local
+    tools/setup --accept-root                   ROOT moved on: re-pin the lock
+    tools/setup --repin-root                    ROOT is an unrelated tree: pin it
+    tools/setup --check                         report only, change nothing
+    tools/setup --config debug                  one configuration only
+    tools/setup --self-test
+
+ROOT is the source-sdk-2013 tree this repo builds against, one of two:
+  - the Valve fork. Its HEAD must equal sdk-root.lock, or descend from it
+    with --accept-root, which rewrites the lock.
+  - stock upstream with patches/source-sdk-2013/ applied (make sdk-upstream,
+    tools/sdk-upstream). Its HEAD must equal UPSTREAM's `result=`, the sha
+    the deterministic `git am` makes; it needs no flag and leaves the lock
+    alone.
+--repin-root pins any other tree that holds the Valve base (valve-sdk.lock)
+and reports that it switched to an unrelated tree. --accept-root never pins
+a ROOT that does not descend from the lock, so an accidental move backwards
+or sideways is refused.
+
+For each configuration it composes:
+
+  farm/<config>/   a tree of real directories and absolute symlinks that looks
+                   exactly like the old single-repo checkout, so VPC, ninja,
+                   the build scripts and the tests run in it unchanged:
+                     - every path in sdk-links/*.txt, linked per file to ROOT
+                     - every row of tools/module-map.tsv, linked to this repo
+  bin/<config>/    the game directory: bin/{linux64,managed,dotnet} shared by
+                   every mod, mods.yaml, and mods/<id>/ per mod with its
+                   content linked per file and bin -> ../../bin. The content's
+                   cfg-seed/ is not linked: its files are COPIED into
+                   mods/<id>/cfg/ when absent, because the engine rewrites
+                   cfg/ (settings.scr, config.cfg) and a link would carry
+                   that write into this repo.
+
+It also provisions the PRISTINE Valve SDK, the oracle tests' reference
+(src/test/oracle): a clone of upstream ValveSoftware/source-sdk-2013 at the
+commit in valve-sdk.lock -- not the fork, not the farm -- at VALVE_SDK
+(`make setup VALVE_SDK=DIR`, tools/setup --valve-sdk DIR; default
+../source-sdk-2013-valve beside this checkout, remembered in
+valve-sdk.lock.local). Its HEAD must equal the lock and its tree must be
+clean: a stale or edited reference is a failure, never a skip.
+
+The farm follows six rules (plan_sharp_repo.md); setup enforces 1 to 5 and
+refuses to build a farm that breaks one:
+  1. Valve and fork files are linked per file, never per directory.
+  2. Only our own directories may be directory links.
+  3. Build outputs are never linked: the build writes them as real files.
+  4. A path is never supplied by both repos.
+  5. The manifest never names a path the ledger classes OURS, OURS-OVERLAY
+     or MOD-COPY, nor anything under src/sourcesharp/ (our tree), so the
+     build can never pick up the fork's stale copy.
+  6. (checked after a build) `git -C ROOT status --porcelain` is empty.
+"""
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+CONFIGS = ("debug", "release")
+
+# Rule 3. The build writes these; through a link it would write into the fork.
+BUILD_OUTPUTS = re.compile(
+    r"^(src/lib/public/linux64/(tier1|mathlib|raytrace|vgui_controls|"
+    r"matsys_controls)\.a"
+    r"|game/.*\.so(\.dbg)?"
+    r"|game/mod_[A-Za-z0-9_]+_linux64"
+    r"|game/bin/.*)$")
+
+OURS_CLASSES = ("OURS", "OURS-OVERLAY", "MOD-COPY")
+
+# A mod content directory's seed for the engine-written cfg/: copied, never
+# linked (provision_cfg).
+CFG_SEED = "cfg-seed"
+
+# Rule 5, whatever the ledger says: src/sourcesharp/ is SourceSharp's own tree
+# (tools/module-map.tsv links it from src/<module>), including the relocated
+# Valve code kept local by user decision 2026-09-27, so the fork's copies can
+# never come back through the manifest.
+LOCAL_PREFIX = "src/sourcesharp/"
+
+
+class SetupError(Exception):
+    pass
+
+
+def git(root, *args):
+    return subprocess.run(["git", "-C", root, *args], check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+# --- inputs -----------------------------------------------------------------
+
+def read_lines(path):
+    out = []
+    with open(path) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if line.strip() and not line.lstrip().startswith("#"):
+                out.append(line)
+    return out
+
+
+# sdk-links/<list>.txt, one list per consumer (tools/sdk-census decides
+# which list a file belongs in, and --write regenerates them). The farm links
+# the union; a path in two lists is refused like a path listed twice.
+LINK_LISTS = ("client", "server", "shared", "libs", "tests")
+
+
+def load_manifest(repo):
+    out = []
+    for name in LINK_LISTS:
+        path = os.path.join(repo, "sdk-links", name + ".txt")
+        if not os.path.exists(path):
+            raise SetupError(f"sdk-links/{name}.txt is missing (the farm "
+                             "links the union of "
+                             + ", ".join(f"{n}.txt" for n in LINK_LISTS)
+                             + ")")
+        out += [ln.strip() for ln in read_lines(path)]
+    return out
+
+
+def load_module_map(repo):
+    rows = []
+    for ln in read_lines(os.path.join(repo, "tools", "module-map.tsv")):
+        parts = ln.split("\t")
+        if len(parts) != 3 or parts[1] not in ("dir", "files", "file"):
+            raise SetupError(f"module-map.tsv: bad row {ln!r}")
+        rows.append(tuple(parts))
+    return rows
+
+
+def load_ours(repo):
+    """Fork paths the ledger moved here (rule 5)."""
+    path = os.path.join(repo, "docs", "move", "ledger.tsv")
+    ours = set()
+    if not os.path.exists(path):
+        return ours
+    with open(path) as f:
+        cols = None
+        for line in f:
+            if line.startswith("#"):
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if cols is None:
+                cols = parts
+                continue
+            if parts[1] in OURS_CLASSES:
+                ours.add(parts[0])
+    return ours
+
+
+def merge_mod(defaults, mod):
+    """One mod's entry over mods.yaml's `defaults` -- THE SAME RULE as
+    SourceSharp.Mods' ModsConfig.Merge, held to it by a parity fact
+    (ModsConfigTests): maps merge key by key, recursively; a scalar or a list
+    the mod gives replaces the default's; a null is not given."""
+    if mod is None:
+        return defaults
+    if defaults is None:
+        return mod
+    if isinstance(defaults, dict) and isinstance(mod, dict):
+        out = dict(defaults)
+        for k, v in mod.items():
+            out[k] = merge_mod(defaults.get(k), v)
+        return out
+    return mod
+
+
+def resolve_mods(doc):
+    """{id: merged entry} with `{id}` substituted in title and the paths."""
+    defaults = (doc or {}).get("defaults")
+    out = {}
+    for mod_id, m in ((doc or {}).get("mods") or {}).items():
+        merged = merge_mod(defaults, m or {}) or {}
+        for key in ("title", "game_dir", "content", "managed_dir"):
+            if isinstance(merged.get(key), str):
+                merged[key] = merged[key].replace("{id}", mod_id)
+        out[mod_id] = merged
+    return out
+
+
+def load_mods(repo, path=None):
+    import yaml
+    with open(path or os.path.join(repo, "game", "mods.yaml")) as f:
+        doc = yaml.safe_load(f)
+    out = []
+    for mod_id, m in resolve_mods(doc).items():
+        if not m.get("game_dir") or not m.get("content"):
+            raise SetupError(f"mods.yaml: mod {mod_id} needs game_dir and "
+                             "content (from the mod or from defaults)")
+        out.append((mod_id, m["game_dir"], m["content"]))
+    return out
+
+
+# --- the plan: what the farm should hold --------------------------------------
+
+def repo_files(repo, rel):
+    base = os.path.join(repo, rel)
+    out = []
+    for d, dirs, files in os.walk(base):
+        dirs[:] = sorted(x for x in dirs if x not in ("node_modules", "obj",
+                                                       "bin", "__pycache__"))
+        for f in sorted(files):
+            full = os.path.join(d, f)
+            out.append(os.path.relpath(full, base))
+    return out
+
+
+def plan_farm(repo, root, cfg, manifest, module_map, ours):
+    """farm-relative path -> absolute link target. Raises on rules 1-5."""
+    links = {}
+    source = {}
+
+    # Rules 1, 3, 5 on the manifest.
+    for p in manifest:
+        if p.startswith("/") or ".." in p.split("/"):
+            raise SetupError(f"sdk-links: not a relative path: {p}")
+        full = os.path.join(root, p)
+        if os.path.isdir(full) and not os.path.islink(full):
+            raise SetupError(f"rule 1: sdk-links names a directory: {p}")
+        if not os.path.lexists(full):
+            raise SetupError(f"sdk-links: {p} is not in ROOT")
+        if BUILD_OUTPUTS.match(p):
+            raise SetupError(f"rule 3: sdk-links names a build output: "
+                             f"{p}")
+        if p in ours:
+            raise SetupError(f"rule 5: sdk-links names {p}, which the "
+                             "ledger moved to this repo")
+        if p.startswith(LOCAL_PREFIX):
+            raise SetupError(f"rule 5: sdk-links names {p}: everything under "
+                             f"{LOCAL_PREFIX} is this repo's (module-map), "
+                             "never linked from the fork")
+        if p in links:
+            raise SetupError(f"sdk-links: {p} listed twice")
+        links[p] = full
+        source[p] = "ROOT"
+
+    # Files claimed by a more specific module-map row are skipped by a
+    # broader `files` row over the same repo directory.
+    claimed = [r[2].replace("{cfg}", cfg) for r in module_map]
+
+    dir_links = []
+    for farm, kind, rel in module_map:
+        rel = rel.replace("{cfg}", cfg)
+        target = os.path.join(repo, rel)
+        if kind in ("dir", "file"):
+            items = [(farm, target)]
+            if kind == "dir":
+                dir_links.append(farm)
+        else:
+            items = []
+            for f in repo_files(repo, rel):
+                # A module's CMakeLists.txt is this repo's build, not part of
+                # the old tree the farm reproduces.
+                if os.path.basename(f) == "CMakeLists.txt":
+                    continue
+                rp = rel + "/" + f
+                if any(c != rel and c.startswith(rel + "/") and
+                       (rp == c or rp.startswith(c + "/")) for c in claimed):
+                    continue
+                items.append((farm + "/" + f, os.path.join(repo, rp)))
+        for fp, t in items:
+            if fp in links:
+                who = source[fp]
+                raise SetupError(f"rule 4: {fp} is supplied by {who} and by "
+                                 f"this repo ({os.path.relpath(t, repo)})")
+            links[fp] = t
+            source[fp] = "this repo"
+
+    # Rule 4 across a directory link: nothing may land beneath it.
+    for d in dir_links:
+        for fp in links:
+            if fp.startswith(d + "/"):
+                raise SetupError(f"rule 4: {fp} lies under the directory "
+                                 f"link {d}, which this repo supplies")
+    # A link may not sit where another link's directory must be real.
+    for fp in links:
+        parent = os.path.dirname(fp)
+        while parent:
+            if parent in links:
+                raise SetupError(f"{fp} needs {parent} to be a real "
+                                 "directory, but it is a link")
+            parent = os.path.dirname(parent)
+    return links
+
+
+def find_tf2():
+    """The local Team Fortress 2 install (the directory holding tf/), or None:
+    $TF2_DIR, else each Steam library in libraryfolders.vdf. The tf2_descent mod's
+    gameinfo mounts TF2 through bin/<cfg>/content (plan_host_sdk §2.7(1)), as a
+    pod mounts it at /game/content."""
+    env = os.environ.get("TF2_DIR")
+    if env:
+        return env if os.path.isdir(os.path.join(env, "tf")) else None
+    home = os.path.expanduser("~")
+    for vdf in (".steam/steam/steamapps/libraryfolders.vdf",
+                ".local/share/Steam/steamapps/libraryfolders.vdf"):
+        path = os.path.join(home, vdf)
+        if not os.path.exists(path):
+            continue
+        for line in open(path, errors="replace"):
+            bits = line.strip().split('"')
+            if len(bits) >= 4 and bits[1] == "path":
+                tf2 = os.path.join(bits[3], "steamapps", "common", "Team Fortress 2")
+                if os.path.isdir(os.path.join(tf2, "tf")):
+                    return tf2
+    return None
+
+
+def plan_bin(repo, root, cfg, mods, tf2=None):
+    """bin/<cfg>-relative path -> link target (None means a real directory)."""
+    out = {
+        "bin": None,
+        "bin/linux64": None,
+        "bin/managed": None,
+        "bin/linux64/libsteam_api.so": os.path.join(
+            root, "game/bin/linux64/libsteam_api.so"),
+        # The dedicated engine loads the game DLL as server_srv.so, the
+        # client and listen server as server.so: one library, two names
+        # (plan_host_sdk §2.5; H0a found a dedicated run calling address 0
+        # without it).
+        "bin/linux64/server_srv.so": ("rel", "server.so"),
+        "mods.yaml": os.path.join(repo, "game", "mods.yaml"),
+        "mods": None,
+    }
+    if tf2:
+        out["content"] = tf2
+    for mod_id, game_dir, content in mods:
+        gd = os.path.normpath(game_dir)
+        if gd.startswith("..") or os.path.isabs(gd):
+            raise SetupError(f"mods.yaml: {mod_id}: game_dir escapes the "
+                             f"game directory: {game_dir}")
+        out[gd] = None
+        for f in repo_files(repo, content):
+            if f.startswith(CFG_SEED + "/"):
+                continue  # copied by provision_cfg, never linked
+            parts = f.split("/")
+            for i in range(1, len(parts)):
+                out[gd + "/" + "/".join(parts[:i])] = None
+            out[gd + "/" + f] = os.path.join(repo, content, f)
+        out[gd + "/bin"] = ("rel", os.path.relpath("bin", gd))
+    return out
+
+
+# --- applying a plan ------------------------------------------------------------
+
+def link_ok(path, target):
+    return os.path.islink(path) and os.readlink(path) == target
+
+
+def clear_linked_parents(base, rel, links, check, report):
+    """A parent that is a symlink the plan does not hold (a row changed from
+    `dir` to `files`) is removed, so the path beneath it is made real rather
+    than written through the old link into this repo."""
+    changes = 0
+    parts = rel.split("/")
+    for i in range(1, len(parts)):
+        prefix = "/".join(parts[:i])
+        full = os.path.join(base, prefix)
+        if os.path.islink(full) and links.get(prefix) is None:
+            changes += 1
+            report(f"remove stale directory link {full}")
+            if not check:
+                os.unlink(full)
+            break
+    return changes
+
+
+def only_links(path):
+    for d, dirs, files in os.walk(path):
+        for f in files:
+            if not os.path.islink(os.path.join(d, f)):
+                return False
+    return True
+
+
+def apply_links(base, links, check, report, managed_prefixes=None):
+    """Make every link in `links` under `base`; remove stale links.
+
+    Stale means a symlink under `base` that the plan does not hold. With
+    `managed_prefixes`, only links inside those subtrees are candidates, so
+    runtime files and links the game made are never touched.
+    """
+    changes = 0
+    for rel in sorted(links):
+        target = links[rel]
+        path = os.path.join(base, rel)
+        changes += clear_linked_parents(base, rel, links, check, report)
+        if target is None:
+            if os.path.islink(path) or (os.path.lexists(path) and
+                                        not os.path.isdir(path)):
+                raise SetupError(f"{path} must be a real directory")
+            if not os.path.isdir(path):
+                changes += 1
+                report(f"mkdir {path}")
+                if not check:
+                    os.makedirs(path)
+            continue
+        if isinstance(target, tuple):
+            target = target[1]
+        if link_ok(path, target):
+            continue
+        changes += 1
+        if os.path.isdir(path) and not os.path.islink(path) and \
+                only_links(path):
+            # A `files` row turned `dir`: the old per-file tree goes. One
+            # holding a real file (build output) is refused below instead.
+            report(f"remove per-file tree {path}")
+            if not check:
+                shutil.rmtree(path)
+        elif os.path.lexists(path) and not os.path.islink(path):
+            raise SetupError(f"{path} is a real file where a link belongs")
+        report(f"link {path} -> {target}")
+        if check:
+            continue
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if os.path.islink(path):
+            os.unlink(path)
+        os.symlink(target, path)
+
+    # Stale links.
+    want = set(links)
+    for d, dirs, files in os.walk(base):
+        for name in list(dirs) + files:
+            full = os.path.join(d, name)
+            if not os.path.islink(full):
+                continue
+            if name in dirs:
+                dirs.remove(name)  # never descend through a link
+            rel = os.path.relpath(full, base)
+            if rel in want:
+                continue
+            if managed_prefixes is not None and not any(
+                    rel == p or rel.startswith(p + "/")
+                    for p in managed_prefixes):
+                continue
+            changes += 1
+            report(f"remove stale {full}")
+            if not check:
+                os.unlink(full)
+    return changes
+
+
+# --- provisioning ---------------------------------------------------------------
+
+def newest_runtime(dotnet_root, major="10."):
+    shared = os.path.join(dotnet_root, "shared", "Microsoft.NETCore.App")
+    if not os.path.isdir(shared):
+        return None
+    vs = [v for v in os.listdir(shared) if v.startswith(major)]
+    if not vs:
+        return None
+    return max(vs, key=lambda v: [int(x) if x.isdigit() else 0
+                                  for x in re.split(r"[.-]", v)])
+
+
+def provision_dotnet(dest, check, report):
+    """The bundled runtime: host/fxr and one Microsoft.NETCore.App."""
+    src = os.path.expanduser("~/.dotnet")
+    ver = newest_runtime(src)
+    if ver is None:
+        raise SetupError("no .NET 10 runtime under ~/.dotnet (never use "
+                         "/usr/bin/dotnet: the Ubuntu package miscompiles)")
+    have = os.path.join(dest, "shared", "Microsoft.NETCore.App", ver)
+    fxr = os.path.join(dest, "host", "fxr", ver, "libhostfxr.so")
+    if os.path.isdir(have) and os.path.isfile(fxr):
+        return 0
+    report(f"provision .NET runtime {ver} into {dest}")
+    if check:
+        return 1
+    if os.path.isdir(dest):
+        shutil.rmtree(dest)
+    os.makedirs(os.path.join(dest, "host", "fxr"))
+    os.makedirs(os.path.join(dest, "shared", "Microsoft.NETCore.App"))
+    shutil.copytree(os.path.join(src, "host", "fxr", ver),
+                    os.path.join(dest, "host", "fxr", ver))
+    shutil.copytree(os.path.join(src, "shared", "Microsoft.NETCore.App", ver),
+                    have)
+    for f in ("LICENSE.txt", "ThirdPartyNotices.txt"):
+        if os.path.exists(os.path.join(src, f)):
+            shutil.copy(os.path.join(src, f), dest)
+    return 1
+
+
+def provision_cfg(repo, content, mod_dir, check, report):
+    """Seed the engine-written cfg/ from this repo's <content>/cfg-seed/:
+    each seed file is COPIED into mods/<id>/cfg/ when that file is absent.
+    Never linked -- the engine rewrites cfg/settings.scr, and through a link
+    that write would land in this repo -- and never overwritten, so what the
+    game has written stays. gamedll_convars_test reads cfg/settings.scr, so a
+    fresh checkout needs the seed before the first game run; --check reports
+    a missing one."""
+    src = os.path.join(repo, content, CFG_SEED)
+    dst = os.path.join(mod_dir, "cfg")
+    if not os.path.isdir(src):
+        return 0
+    todo = [f for f in sorted(os.listdir(src))
+            if os.path.isfile(os.path.join(src, f))
+            and not os.path.lexists(os.path.join(dst, f))]
+    if not todo:
+        return 0
+    report(f"copy {len(todo)} cfg seed files into {dst}")
+    if not check:
+        os.makedirs(dst, exist_ok=True)
+        for f in todo:
+            shutil.copyfile(os.path.join(src, f), os.path.join(dst, f))
+    return len(todo)
+
+
+# The native build is CMake + Ninja with host clang 22 and lld 22 (Phase 6b);
+# podman is needed only by `make ci-build`, so it is not checked here.
+BUILD_TOOLS = (
+    ("cmake", "sudo apt install cmake    (3.25 or newer)"),
+    ("ninja", "sudo apt install ninja-build"),
+    ("clang++-22", "sudo apt install clang-22   (apt.llvm.org)"),
+    ("ld.lld-22", "sudo apt install lld-22     (apt.llvm.org)"),
+    ("git", "sudo apt install git"),
+)
+
+
+def check_tools(report, which=shutil.which):
+    missing = 0
+    for tool, hint in BUILD_TOOLS:
+        if which(tool) is None:
+            report(f"missing tool: {tool} ({hint})")
+            missing += 1
+    return missing
+
+
+# --- the lock -------------------------------------------------------------------
+
+def patched_upstream(repo):
+    """The commit `make sdk-upstream` makes (patches/source-sdk-2013/UPSTREAM
+    `result=`): stock upstream plus our patch series, applied by `git am` so
+    the sha is the same on every machine. None when there is no series."""
+    path = os.path.join(repo, "patches", "source-sdk-2013", "UPSTREAM")
+    if not os.path.exists(path):
+        return None
+    for line in open(path):
+        k, _, v = line.strip().partition("=")
+        if k.strip() == "result" and v.strip():
+            return v.strip()
+    return None
+
+
+def check_root(repo, root, accept, check, report, repin=False):
+    """ROOT is either of two trees: the fork at sdk-root.lock (or, with
+    --accept-root, a descendant of it), or the patched upstream at its pinned
+    result sha (make sdk-upstream), which needs no flag and leaves the lock
+    alone. --repin-root pins an UNRELATED tree, so long as it holds the Valve
+    base (valve-sdk.lock); --accept-root never does, so a ROOT that moved
+    backwards or sideways by accident is still refused."""
+    if not os.path.isdir(os.path.join(root, ".git")) and not os.path.isfile(
+            os.path.join(root, ".git")):
+        raise SetupError(f"ROOT {root} is not a git checkout")
+    head = git(root, "rev-parse", "HEAD")
+    lock_path = os.path.join(repo, "sdk-root.lock")
+    lock = open(lock_path).read().split()[0] if os.path.exists(
+        lock_path) else None
+    if lock == head:
+        return
+    if head == patched_upstream(repo):
+        return
+    if lock is None:
+        if not (accept or repin):
+            raise SetupError("no sdk-root.lock; run with --accept-root to "
+                             f"pin ROOT at {head}")
+        report(f"pin sdk-root.lock to {head}")
+    else:
+        is_desc = subprocess.run(
+            ["git", "-C", root, "merge-base", "--is-ancestor", lock, head],
+            capture_output=True).returncode == 0
+        if is_desc and (accept or repin):
+            report(f"pin sdk-root.lock to {head}")
+        elif repin:
+            base = valve_lock(repo)
+            has_base = subprocess.run(
+                ["git", "-C", root, "merge-base", "--is-ancestor", base,
+                 head], capture_output=True).returncode == 0
+            if not has_base:
+                raise SetupError(
+                    f"--repin-root: ROOT HEAD {head} does not contain the "
+                    f"Valve base {base[:12]} (valve-sdk.lock), so it is not "
+                    "a source-sdk-2013 checkout; refusing to pin it")
+            report(f"re-pin sdk-root.lock to {head}: SWITCHED to an "
+                   f"unrelated tree (it does not descend from the pinned "
+                   f"{lock[:12]}; it holds the Valve base {base[:12]})")
+        else:
+            why = "descends from" if is_desc else "does not descend from"
+            hint = (" Re-run with --accept-root to re-pin." if is_desc else
+                    " If this is a different SDK tree on purpose, "
+                    "--repin-root pins it; the patched upstream (make "
+                    "sdk-upstream) needs no flag.")
+            raise SetupError(
+                f"ROOT HEAD {head} is not the pinned {lock} (it {why} it)."
+                + hint)
+    if not check:
+        with open(lock_path, "w") as f:
+            f.write(head + "\n")
+
+
+# --- the pristine Valve SDK (the oracles' reference) -----------------------------
+
+VALVE_URL = "https://github.com/ValveSoftware/source-sdk-2013"
+
+
+def valve_lock(repo):
+    path = os.path.join(repo, "valve-sdk.lock")
+    if not os.path.exists(path):
+        raise SetupError("valve-sdk.lock is missing")
+    return open(path).read().split()[0]
+
+
+def valve_default(repo):
+    local = os.path.join(repo, "valve-sdk.lock.local")
+    if os.path.exists(local):
+        return open(local).read().strip()
+    return os.path.join(os.path.dirname(repo), "source-sdk-2013-valve")
+
+
+def provision_valve(repo, root, valve, check, report, url=VALVE_URL):
+    """Clone upstream at the lock (borrowing ROOT's objects, then dissociating
+    so the clone never depends on the fork's object store), or verify the
+    clone that is there: HEAD equal to the lock, nothing edited."""
+    lock = valve_lock(repo)
+    if not os.path.lexists(valve):
+        report(f"clone {url} at {lock[:12]} into {valve} (the pristine "
+               "Valve SDK the oracle tests read)")
+        if check:
+            return 1
+        ref = ["--reference-if-able", root, "--dissociate"] if root else []
+        subprocess.run(["git", "clone", "-q", "--no-checkout", *ref, url,
+                        valve], check=True)
+        subprocess.run(["git", "-C", valve, "checkout", "-q", "--detach",
+                        lock], check=True)
+    if not os.path.isdir(os.path.join(valve, ".git")):
+        raise SetupError(f"VALVE_SDK {valve} is not a git clone")
+    head = git(valve, "rev-parse", "HEAD")
+    if head != lock:
+        report(f"check out {lock[:12]} in {valve} (HEAD is {head[:12]}; "
+               "valve-sdk.lock pins the oracles' reference)")
+        if check:
+            return 1
+        if git(valve, "status", "--porcelain"):
+            raise SetupError(f"VALVE_SDK {valve} has local changes; it must "
+                             "be pristine")
+        subprocess.run(["git", "-C", valve, "checkout", "-q", "--detach",
+                        lock], check=True)
+    if git(valve, "status", "--porcelain", "--untracked-files=no"):
+        raise SetupError(f"VALVE_SDK {valve} has local changes; the oracle "
+                         "reference must be pristine upstream")
+    return 0
+
+
+# --- main -----------------------------------------------------------------------
+
+def run(repo, root, configs, check=False, accept=False, provision=True,
+        out=print, verbose=False, valve=None, valve_url=VALVE_URL,
+        repin=False):
+    changes = 0
+    shown = [0]
+
+    def report(msg):
+        # Every change in verbose mode; otherwise the first few, then a count.
+        shown[0] += 1
+        if verbose or shown[0] <= 5:
+            out("  " + msg)
+        elif shown[0] == 6:
+            out("  ... (--verbose lists every change)")
+
+    check_root(repo, root, accept, check, report, repin=repin)
+    manifest = load_manifest(repo)
+    module_map = load_module_map(repo)
+    ours = load_ours(repo)
+    mods = load_mods(repo)
+    tf2 = find_tf2()
+    if tf2 is None:
+        print("warning: no Team Fortress 2 install (set TF2_DIR, or install it "
+              "through Steam): bin/<config>/content is not linked, so the tf2_descent "
+              "mod runs without TF2's content", file=sys.stderr)
+    for cfg in configs:
+        farm = os.path.join(repo, "farm", cfg)
+        links = plan_farm(repo, root, cfg, manifest, module_map, ours)
+        if not check:
+            os.makedirs(farm, exist_ok=True)
+        changes += apply_links(farm, links, check, report) if (
+            os.path.isdir(farm) or check) else 0
+        game = os.path.join(repo, "bin", cfg)
+        bplan = plan_bin(repo, root, cfg, mods, tf2)
+        managed = ["bin/linux64/libsteam_api.so", "mods.yaml"] + [
+            os.path.normpath(m[1]) for m in mods] + (["content"] if tf2 else [])
+        if not check:
+            os.makedirs(game, exist_ok=True)
+        if os.path.isdir(game) or check:
+            changes += apply_links(game, bplan, check, report,
+                                   managed_prefixes=managed)
+        if provision:
+            changes += provision_dotnet(os.path.join(game, "bin", "dotnet"),
+                                        check, report)
+            for m in mods:
+                changes += provision_cfg(repo, m[2], os.path.join(
+                    game, os.path.normpath(m[1])), check, report)
+        out(f"{cfg}: {shown[0]} changes; {len(links)} farm links "
+            f"({sum(1 for p in links if links[p].startswith(root + '/'))} "
+            f"from ROOT)")
+    if valve is not None:
+        changes += provision_valve(repo, root, valve, check, report,
+                                   url=valve_url)
+    if provision:
+        node = os.path.join(repo, "tools", "node", "bin", "node")
+        if not os.path.exists(node):
+            report("fetch node (tools/get-node)")
+            changes += 1
+            if not check and os.path.exists(os.path.join(repo, "tools",
+                                                         "get-node")):
+                subprocess.run([os.path.join(repo, "tools", "get-node")],
+                               check=True)
+        changes += check_tools(report)
+    return changes
+
+
+def listing(base):
+    out = []
+    for d, dirs, files in os.walk(base):
+        dirs.sort()
+        for name in sorted(dirs + files):
+            full = os.path.join(d, name)
+            link = os.readlink(full) if os.path.islink(full) else ""
+            out.append(f"{full} {link}")
+        dirs[:] = [x for x in dirs if not os.path.islink(os.path.join(d, x))]
+    return out
+
+
+def self_test():
+    bad = 0
+
+    def expect(name, fn, want_error):
+        nonlocal bad
+        try:
+            fn()
+            got = None
+        except SetupError as e:
+            got = str(e)
+        ok = (got is not None and want_error in got) if want_error else (
+            got is None)
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} {name}" + (f": {got}" if got else ""))
+
+    with tempfile.TemporaryDirectory() as t:
+        root = os.path.join(t, "fork")
+        repo = os.path.join(t, "repo")
+
+        def w(p, s="x\n"):
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w") as f:
+                f.write(s)
+        w(f"{root}/src/game/server/baseentity.cpp")
+        w(f"{root}/src/game/server/entity_funcs.h")
+        w(f"{root}/src/public/const.h")
+        w(f"{root}/src/lib/public/linux64/tier1.a")
+        w(f"{root}/src/sourcesharp/game/server/stray.cpp")
+        w(f"{root}/game/bin/linux64/libsteam_api.so")
+        subprocess.run(["git", "init", "-q", root], check=True)
+        subprocess.run(["git", "-C", root, "add", "."], check=True)
+        subprocess.run(["git", "-C", root, "-c", "user.name=t", "-c",
+                        "user.email=t@t", "commit", "-qm", "b"], check=True)
+        w(f"{repo}/src/server/native/entity_host.cpp")
+        w(f"{repo}/src/server/native/sdk/game/server/entity_funcs.h")
+        w(f"{repo}/src/abi/Abi.cs")
+        w(f"{repo}/game/mod_test/gameinfo.txt")
+        w(f"{repo}/game/mod_test/maps/x.bsp")
+        w(f"{repo}/game/mods.yaml", "default_mod: test\nmods:\n  test:\n"
+          "    game_dir: mods/test\n    content: game/mod_test\n")
+        w(f"{repo}/tools/module-map.tsv",
+          "src/sourcesharp/managed/SourceSharp.Abi\tdir\tsrc/abi\n"
+          "src/sourcesharp/game/server\tfiles\tsrc/server/native\n"
+          "src\tfiles\tsrc/server/native/sdk\n"
+          "game/mod_sharp\tdir\tbin/{cfg}/mods/test\n")
+        os.makedirs(f"{repo}/docs/move", exist_ok=True)
+        w(f"{repo}/docs/move/ledger.tsv",
+          "path\tclass\n"
+          "src/game/server/entity_funcs.h\tOURS-OVERLAY\n")
+        def links(extra="", **lists):
+            # The good manifest split over two lists; `extra` lands in
+            # tests.txt, `lists` overrides a list's whole text.
+            text = {"server": "src/game/server/baseentity.cpp\n",
+                    "shared": "src/public/const.h\n",
+                    "client": "", "libs": "", "tests": extra}
+            text.update(lists)
+            for name, body in text.items():
+                w(f"{repo}/sdk-links/{name}.txt", "# a list\n" + body)
+        links()
+
+        def go(**kw):
+            run(repo, root, ["debug"], provision=False, accept=True,
+                out=lambda m: None, **kw)
+
+        expect("a good farm builds", go, None)
+        farm = f"{repo}/farm/debug"
+        ok = (os.readlink(f"{farm}/src/public/const.h")
+              == f"{root}/src/public/const.h"
+              and os.readlink(
+                  f"{farm}/src/sourcesharp/game/server/entity_host.cpp")
+              == f"{repo}/src/server/native/entity_host.cpp"
+              and os.readlink(f"{farm}/src/game/server/entity_funcs.h")
+              == f"{repo}/src/server/native/sdk/game/server/entity_funcs.h"
+              and os.path.islink(f"{repo}/bin/debug/mods/test/bin")
+              and os.readlink(f"{repo}/bin/debug/mods/test/bin") == "../../bin"
+              and not os.path.islink(f"{farm}/src/sourcesharp/game/server"))
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} links land where the plan says")
+        before = listing(repo)
+        go()
+        ok = listing(repo) == before
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a second run changes nothing")
+
+        ok = (os.readlink(f"{farm}/src/game/server/baseentity.cpp")
+              == f"{root}/src/game/server/baseentity.cpp")
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} the farm links the union of the "
+              "sdk-links lists")
+        for name, text, err in (
+            ("rule 5: an OURS path in the manifest",
+             "src/game/server/entity_funcs.h\n", "rule 5"),
+            ("rule 1: a directory in the manifest",
+             "src/game/server\n", "rule 1"),
+            ("rule 3: a built library in the manifest",
+             "src/lib/public/linux64/tier1.a\n", "rule 3"),
+            ("a path in two lists",
+             "src/game/server/baseentity.cpp\n", "listed twice"),
+            ("rule 5: a fork file under src/sourcesharp/ the ledger never "
+             "heard of", "src/sourcesharp/game/server/stray.cpp\n",
+             "src/sourcesharp/ is this repo's"),
+        ):
+            links(text)
+            expect(name, go, err)
+        links()
+        os.unlink(f"{repo}/sdk-links/libs.txt")
+        expect("a missing list is refused, not read as empty", go,
+               "sdk-links/libs.txt is missing")
+        # Rule 4: the fork supplies a file this repo also supplies.
+        links()
+        w(f"{repo}/src/server/native/sdk/public/const.h")
+        expect("rule 4: a path supplied by both repos", go, "rule 4")
+        os.unlink(f"{repo}/src/server/native/sdk/public/const.h")
+        w(f"{root}/game/mod_sharp/old.txt")
+        links("game/mod_sharp/old.txt\n")
+        expect("rule 4: a fork file under our directory link", go, "rule 4")
+        links()
+        mm = open(f"{repo}/tools/module-map.tsv").read()
+        w(f"{repo}/tools/module-map.tsv", mm.replace(
+            "SourceSharp.Abi\tdir\t", "SourceSharp.Abi\tfiles\t"))
+        go()
+        abi = f"{farm}/src/sourcesharp/managed/SourceSharp.Abi"
+        ok = (not os.path.islink(abi) and os.path.islink(f"{abi}/Abi.cs")
+              and os.path.exists(f"{repo}/src/abi/Abi.cs"))
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a dir row turned files is rebuilt")
+        w(f"{repo}/tools/module-map.tsv", mm)
+        go()
+        os.unlink(f"{repo}/src/server/native/entity_host.cpp")
+        go()
+        ok = not os.path.lexists(
+            f"{farm}/src/sourcesharp/game/server/entity_host.cpp")
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a link whose source went is removed")
+        # cfg-seed/: copied into mods/<id>/cfg/ when absent, never linked
+        # (the engine rewrites cfg/), never over a file the game wrote.
+        seed = f"{repo}/game/mod_test/{CFG_SEED}"
+        mod = f"{repo}/bin/debug/mods/test"
+        w(f"{seed}/settings.scr", "seeded settings\n")
+        w(f"{seed}/config.cfg", "seeded config\n")
+        w(f"{mod}/cfg/config.cfg", "the game wrote this\n")
+        go()
+        ok = not os.path.lexists(f"{mod}/{CFG_SEED}") and not os.path.lexists(
+            f"{mod}/cfg/settings.scr")
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} cfg-seed/ is not linked into the mod")
+        said = []
+        n = provision_cfg(repo, "game/mod_test", mod, True, said.append)
+        ok = n == 1 and not os.path.lexists(f"{mod}/cfg/settings.scr")
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} --check reports a missing cfg seed "
+              f"and copies nothing ({n} reported)")
+        n = provision_cfg(repo, "game/mod_test", mod, False, lambda m: None)
+        got = f"{mod}/cfg/settings.scr"
+        ok = (n == 1 and os.path.isfile(got) and not os.path.islink(got)
+              and open(got).read() == "seeded settings\n")
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a cfg seed file is copied, "
+              "not linked")
+        ok = open(f"{mod}/cfg/config.cfg").read() == "the game wrote this\n"
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a cfg file the game wrote is not "
+              "overwritten by its seed")
+        ok = provision_cfg(repo, "game/mod_test", mod, True,
+                           lambda m: None) == 0
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a seeded cfg/ checks clean")
+    # The pristine Valve clone: provisioned at the lock, verified after.
+    with tempfile.TemporaryDirectory() as t:
+        up = os.path.join(t, "upstream")
+        repo = os.path.join(t, "repo")
+        valve = os.path.join(t, "valve")
+        os.makedirs(repo)
+
+        def commit(msg):
+            with open(os.path.join(up, "f.cpp"), "w") as f:
+                f.write(msg + "\n")
+            subprocess.run(["git", "-C", up, "add", "."], check=True)
+            subprocess.run(["git", "-C", up, "-c", "user.name=t", "-c",
+                            "user.email=t@t", "commit", "-qm", msg],
+                           check=True)
+            return git(up, "rev-parse", "HEAD")
+        subprocess.run(["git", "init", "-q", up], check=True)
+        pinned = commit("pinned")
+        commit("later")
+        with open(os.path.join(repo, "valve-sdk.lock"), "w") as f:
+            f.write(pinned + "\n")
+        said = []
+        n = provision_valve(repo, None, valve, True, said.append, url=up)
+        ok = n == 1 and not os.path.exists(valve) and any(
+            "clone" in m for m in said)
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} --check reports a missing Valve "
+              "clone and makes nothing")
+        n = provision_valve(repo, None, valve, False, lambda m: None, url=up)
+        ok = git(valve, "rev-parse", "HEAD") == pinned and provision_valve(
+            repo, None, valve, True, lambda m: None, url=up) == 0
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} the clone is made at the lock, "
+              "and a second check is clean")
+        subprocess.run(["git", "-C", valve, "checkout", "-q", "master"],
+                       capture_output=True)
+        subprocess.run(["git", "-C", valve, "checkout", "-q", "main"],
+                       capture_output=True)
+        moved = git(valve, "rev-parse", "HEAD") != pinned
+        said = []
+        n = provision_valve(repo, None, valve, True, said.append, url=up)
+        ok = moved and n == 1 and any("HEAD is" in m for m in said)
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a clone off the lock is reported "
+              f"(moved={moved})")
+        provision_valve(repo, None, valve, False, lambda m: None, url=up)
+        with open(os.path.join(valve, "f.cpp"), "a") as f:
+            f.write("edited\n")
+        expect("an edited Valve clone is refused",
+               lambda: provision_valve(repo, None, valve, True,
+                                       lambda m: None, url=up),
+               "must be pristine")
+    # check_root: the fork at the lock, a descendant (--accept-root), an
+    # unrelated Valve tree (--repin-root only), a tree without the Valve base
+    # (never), and the patched upstream at its pinned result (no flag).
+    with tempfile.TemporaryDirectory() as t:
+        r = os.path.join(t, "sdk")
+        repo = os.path.join(t, "repo")
+        os.makedirs(os.path.join(repo, "patches", "source-sdk-2013"))
+
+        def g(cwd, *a):
+            return subprocess.run(["git", "-C", cwd, "-c", "user.name=t", "-c",
+                                   "user.email=t@t", *a], check=True,
+                                  capture_output=True, text=True
+                                  ).stdout.strip()
+
+        def commit_on(start, msg):
+            g(r, "checkout", "-q", "--detach", start)
+            with open(os.path.join(r, "f.cpp"), "w") as f:
+                f.write(msg + "\n")
+            g(r, "add", ".")
+            g(r, "commit", "-qm", msg)
+            return g(r, "rev-parse", "HEAD")
+        os.makedirs(r)
+        g(r, "init", "-q")
+        with open(os.path.join(r, "f.cpp"), "w") as f:
+            f.write("valve\n")
+        g(r, "add", ".")
+        g(r, "commit", "-qm", "valve base")
+        valve_base = g(r, "rev-parse", "HEAD")
+        fork = commit_on(valve_base, "fork")
+        fork_next = commit_on(fork, "fork moved on")
+        unrelated = commit_on(valve_base, "another tree on the Valve base")
+        patched = commit_on(valve_base, "upstream + the series")
+        patched_more = commit_on(patched, "an edit on top of the series")
+        stranger = os.path.join(t, "stranger")
+        os.makedirs(stranger)
+        g(stranger, "init", "-q")
+        g(stranger, "commit", "-q", "--allow-empty", "-m", "not Valve")
+        lock_path = os.path.join(repo, "sdk-root.lock")
+        with open(os.path.join(repo, "valve-sdk.lock"), "w") as f:
+            f.write(valve_base + "\n")
+        with open(os.path.join(repo, "patches", "source-sdk-2013",
+                               "UPSTREAM"), "w") as f:
+            f.write(f"url=x\nbranch=master\nbase={valve_base}\n"
+                    f"result={patched}\n")
+
+        def at(sha, root=r, **kw):
+            with open(lock_path, "w") as f:
+                f.write(fork + "\n")
+            if root == r:
+                g(r, "checkout", "-q", "--detach", sha)
+            said = []
+            check_root(repo, root, kw.get("accept", False), False,
+                       said.append, repin=kw.get("repin", False))
+            return open(lock_path).read().split()[0], said
+
+        def refused(fn, want):
+            try:
+                fn()
+            except SetupError as e:
+                return want in str(e)
+            return False
+
+        def accepted(sha, **kw):
+            # A refusal in a positive arm is a BAD line, not a crash.
+            try:
+                return at(sha, **kw)
+            except SetupError as e:
+                return None, [f"refused: {e}"]
+        lock, said = accepted(fork)
+        ok = lock == fork and not said
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} the fork at the lock is accepted "
+              "as it is")
+        lock, said = accepted(fork_next, accept=True)
+        ok = lock == fork_next
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} --accept-root pins a descendant")
+        ok = (refused(lambda: at(unrelated), "does not descend")
+              and refused(lambda: at(unrelated, accept=True),
+                          "--repin-root pins it")
+              and open(lock_path).read().split()[0] == fork)
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} an unrelated ROOT is refused "
+              "without --repin-root, --accept-root included, and the lock "
+              "is kept")
+        lock, said = accepted(unrelated, repin=True)
+        ok = lock == unrelated and any("SWITCHED to an unrelated tree" in m
+                                       for m in said)
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} --repin-root pins an unrelated ROOT "
+              "and says it switched")
+        ok = (refused(lambda: at(None, root=stranger, repin=True),
+                      "does not contain the Valve base")
+              and open(lock_path).read().split()[0] == fork)
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} --repin-root refuses a ROOT without "
+              "the Valve base")
+        lock, said = accepted(patched)
+        ok = lock == fork and not said
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} the patched upstream at its pinned "
+              "result is accepted with no flag, and the lock is kept")
+        ok = refused(lambda: at(patched_more), "does not descend")
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a commit on top of the patched "
+              "upstream is not the pinned result, so it is refused")
+    # --check names each missing build tool with its install command.
+    said = []
+    n = check_tools(said.append,
+                    which=lambda t: None if t in ("ninja", "clang++-22")
+                    else "/usr/bin/" + t)
+    ok = (n == 2 and any("ninja" in m and "apt install ninja-build" in m
+                         for m in said)
+          and any("clang++-22" in m and "clang-22" in m for m in said))
+    bad += not ok
+    print(f"{'ok ' if ok else 'BAD'} a missing build tool is named with its "
+          f"install command ({n} reported)")
+    print("self-test", "FAILED" if bad else "passed")
+    return 1 if bad else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root")
+    ap.add_argument("--accept-root", action="store_true",
+                    help="re-pin sdk-root.lock to a ROOT that descends from it")
+    ap.add_argument("--repin-root", action="store_true",
+                    help="re-pin sdk-root.lock to an unrelated ROOT that holds "
+                    "the Valve base (valve-sdk.lock)")
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--config", choices=CONFIGS)
+    ap.add_argument("--no-provision", action="store_true")
+    ap.add_argument("--valve-sdk", help="the pristine Valve SDK clone "
+                    "(default: remembered, else ../source-sdk-2013-valve)")
+    ap.add_argument("--verbose", "-v", action="store_true")
+    ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--mods-resolved", metavar="FILE",
+                    help="print FILE's mods merged over its defaults, as JSON, "
+                    "and exit: what the parity fact compares with C#")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    if a.mods_resolved:
+        import json
+        import yaml
+        with open(a.mods_resolved) as f:
+            doc = yaml.safe_load(f)
+        resolved = resolve_mods(doc)
+        print(json.dumps(resolved, sort_keys=True))
+        return 0
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    local = os.path.join(repo, "sdk-root.lock.local")
+    root = a.root
+    if root is None and os.path.exists(local):
+        root = open(local).read().strip()
+    if root is None:
+        print("error: no ROOT. Run: make setup ROOT=../source-sdk-2013",
+              file=sys.stderr)
+        return 2
+    root = os.path.realpath(root)
+    valve = os.path.abspath(a.valve_sdk or valve_default(repo))
+    try:
+        changes = run(repo, root, [a.config] if a.config else CONFIGS,
+                      check=a.check, accept=a.accept_root,
+                      provision=not a.no_provision, verbose=a.verbose,
+                      valve=valve, repin=a.repin_root)
+    except SetupError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    if a.check:
+        if changes:
+            print(f"setup --check: {changes} things to do; run: make setup")
+            return 1
+        print("setup --check: up to date")
+        return 0
+    if a.root:
+        with open(local, "w") as f:
+            f.write(root + "\n")
+    if not a.check:
+        # Where the pristine clone is, for the tests (RepoLayout.ValveSdk /
+        # the oracle CMake) and for the next setup.
+        with open(os.path.join(repo, "valve-sdk.lock.local"), "w") as f:
+            f.write(valve + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

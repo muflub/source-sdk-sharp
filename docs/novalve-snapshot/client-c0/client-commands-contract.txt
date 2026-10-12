@@ -1,0 +1,223 @@
++alt1		ClientDll
++alt2		ClientDll
++attack		ClientDll
++attack2		ClientDll
++attack3		ClientDll
++back		ClientDll
++break		ClientDll
++camdistance		ClientDll
++camin		ClientDll
++cammousemove		ClientDll
++camout		ClientDll
++campitchdown		ClientDll
++campitchup		ClientDll
++camyawleft		ClientDll
++camyawright		ClientDll
++commandermousemove		ClientDll
++duck		ClientDll
++forward		ClientDll
++graph		ClientDll
++grenade1		ClientDll
++grenade2		ClientDll
++jlook		ClientDll
++jump		ClientDll
++klook		ClientDll
++left		ClientDll
++lookdown		ClientDll
++lookup		ClientDll
++movedown		ClientDll
++moveleft		ClientDll
++moveright		ClientDll
++moveup		ClientDll
++posedebug	Turn on pose debugger or add ents to pose debugger UI	Cheat,ClientDll
++reload		ClientDll
++right		ClientDll
++score		ClientDll
++showscores		ClientDll
++speed		ClientDll
++strafe		ClientDll
++use		ClientDll
++walk		ClientDll
++zoom		ClientDll
+-alt1		ClientDll
+-alt2		ClientDll
+-attack		ClientDll
+-attack2		ClientDll
+-attack3		ClientDll
+-back		ClientDll
+-break		ClientDll
+-camdistance		ClientDll
+-camin		ClientDll
+-cammousemove		ClientDll
+-camout		ClientDll
+-campitchdown		ClientDll
+-campitchup		ClientDll
+-camyawleft		ClientDll
+-camyawright		ClientDll
+-commandermousemove		ClientDll
+-duck		ClientDll
+-forward		ClientDll
+-graph		ClientDll
+-grenade1		ClientDll
+-grenade2		ClientDll
+-jlook		ClientDll
+-jump		ClientDll
+-klook		ClientDll
+-left		ClientDll
+-lookdown		ClientDll
+-lookup		ClientDll
+-movedown		ClientDll
+-moveleft		ClientDll
+-moveright		ClientDll
+-moveup		ClientDll
+-posedebug	Turn off pose debugger or hide ents from pose debugger UI	Cheat,ClientDll
+-reload		ClientDll
+-right		ClientDll
+-score		ClientDll
+-showscores		ClientDll
+-speed		ClientDll
+-strafe		ClientDll
+-use		ClientDll
+-walk		ClientDll
+-zoom		ClientDll
+bench_showstatsdialog	Shows a dialog displaying the most recent benchmark results.	Cheat,ClientDll
+camortho	Switch to orthographic camera.	Cheat,ClientDll
+centerview		ClientDll
+cl_dump_particle_stats	dump particle profiling info to particle_profile.csv	ClientDll
+cl_panelanimation	Shows panel animation variables: <panelname | blank for all panels>.	ClientDll
+cl_particle_stats_start	Start or restart particle stats - also dumps to particle_stats.csv	ClientDll
+cl_particle_stats_stop	Stop particle stats, or snapshot this frame - also dumps to particle_stats.csv	ClientDll
+cl_reload_localization_files	Reloads all localization files	ClientDll
+cl_soundscape_flush	Flushes the client side soundscapes	Cheat,ClientDll,ServerCanExecute
+cl_soundscape_printdebuginfo	print soundscapes	ClientDll
+commentary_testfirstrun		ClientDll
+condump	dump the text currently in the console to condumpXX.log	ClientDll
+ 2: DmCrashDump() (xbox360 only)	Cheat,ClientDll
+cs_animcheck	Check the view model in hand against what managed code declared it fires. Says MISSING SEQUENCE or MISSING EVENT out loud.	ClientDll
+cs_animevents	cs_animevents [classname-filter]. How many animation events have fired on this client and what the last one did; with a filter, the count PER ENTITY.	ClientDll
+cs_animlayers	What every live client entity is carrying in its animation layer slots, read back out of the shell.	ClientDll
+cs_attachments	List every client entity's attachment points, in world space. Optional filter matches part of a classname.	ClientDll
+cs_bonemerge	Merge a standalone entity's bones onto a client entity. cs_bonemerge <classname filter> <source entindex, -1 to stop>	ClientDll
+cs_cl_alphaproxy	SourceSharp: which arm answered the Alpha material proxy.	ClientDll
+cs_cl_beam_endpoint	Behaviour ledger row C8: what a beam would attach to at an entity index, and which hierarchy answered.	Cheat,ClientDll
+cs_cl_boneprobe	SourceSharp: the client skeleton fixture — `dump [label]`, `merge <ownEnt> <srcEnt>`, `layer`, `layerall`	ClientDll
+cs_cl_bonerecord	SourceSharp: record the skinned skeleton's six facts — model, bones, written, posed, attachments, movedattachments — as SS6CGATE rows.	ClientDll
+cs_cl_bonereplay	SourceSharp: replay the recorded client skeleton fixture through bone_library	ClientDll
+cs_cl_crossings	Print the managed<->native ABI crossing counts. Pass 'reset' to print the interval and start a new one.	ClientDll
+cs_cl_dump_payload	Build the client's generic-table payload prop set standalone and dump its offsets and proxies	ClientDll
+cs_cl_dust_report	SourceSharp: the managed dust volumes this client holds, and their live particles.	ClientDll
+cs_cl_effect_kinds	plan_entity.md c8-effect-kinds: every live trail, steam jet, smoke stack and smoke volume -- where it is drawn this frame and how many particles its binding is simulating	ClientDll
+cs_cl_effects_report	SourceSharp: how many primitives each of step 7a's leaf effect renderers has emitted.	ClientDll
+cs_cl_fog	Whether the viewer's world fog is reaching this client: passes, pushes, clears, and whether a viewer was found.	ClientDll
+cs_cl_index_mirror	Check this side's push mirrors against the engine: every live client entity's cached index against EntityGetIndex, and the dynamic-light key ledger's tallies. Says VERDICT ok or names what diverged.	ClientDll
+cs_cl_interp	What the client interpolation pass did: passes, samples filed, poses written, rings live, and which arms ran.	ClientDll
+cs_cl_mirror_check	cs_cl_mirror_check [any argument for the per-entity clock]. Compares every live client entity's managed mirror (dormancy, animation clock) against the ABI slots it replaced. The gate for plan_crossings X2/X3.	ClientDll
+cs_cl_mirror_reroute	cs_cl_mirror_reroute [0|1]. Whether IsDormant/SequenceState answer from the managed mirror (1, shipped) or fall through to the ABI slots (0).	ClientDll
+cs_cl_modeldesc	cs_cl_modeldesc [classname substring]. For each client entity, what its model answers for a handful of sequence names, and what the per-model descriptor crossing has cost this level. Run cs_sv_modeldesc too and diff: before Phase 2d the two sides disagreed on an ACT_ name.	ClientDll
+cs_cl_move_managed_report	cs_cl_move_managed_report -- how many times each ported movement method ran in C# on the CLIENT	ClientDll
+cs_cl_notshipped	SourceSharp: what reached a path this client build does not ship.	ClientDll
+cs_cl_particle_report	plan_entity.md 7e: every live particle system, its active particle count (with children), its control points 0 and 1, and its sort origin	ClientDll
+cs_cl_player_anim	cs_cl_player_anim [0|1] — whether the player's body is animated by the movement policy. Off leaves a hand-set pose alone (cs_playseq, cs_setpose), which on is silently overwritten every update.	ClientDll
+cs_cl_player_predict_poke	cs_cl_player_predict_poke [offset] — corrupt the player's replayed slots at one offset until a compare witnesses it	ClientDll
+cs_cl_player_predict_report	What the standalone player's prediction ring has seen	ClientDll
+cs_cl_playerlogo	SourceSharp: how the PlayerLogo material proxy answered.	ClientDll
+cs_cl_policy	What the client render-policy pass did: passes, blocks seen, policies decided, and the last pass's split.	ClientDll
+cs_cl_refusals	SourceSharp: how many times each refused IBaseClientDLL method was called (plan_entity.md 5b)	ClientDll
+cs_cl_reload	Reload the CLIENT's managed assemblies in place, without restarting the game	ClientDll
+cs_cl_renderable_report	cs_cl_renderable_report — how the render path's handle->renderable resolves are answering	ClientDll
+cs_cl_rope_spans	the managed rope spans, the ropes behind them, and the owners in front of them	ClientDll
+cs_cl_schema_status	Which types this client has refused updates for, and what the two builds disagree about	ClientDll
+cs_cl_shadow_report	cs_cl_shadow_report [reset] — every client shadow: who it is for, where it was last projected from, and whether its renderable still resolves	ClientDll
+cs_cl_skybox	Whether the viewer's 3D skybox is reaching this client: passes, pushes, clears, and whether a viewer was found.	ClientDll
+cs_cl_slot_table	SourceSharp: the client entity slot table (plan_entity.md 3.3)	ClientDll
+cs_cl_soundscape_report	plan_entity.md 7e: how many soundscapes are parsed, which one is current, how many of its sounds are running, and whether anything has ever pushed one	ClientDll
+cs_cl_te_backend	TEMPORARY (C-Phase 2): fire one temp entity backend in front of the camera.	ClientDll
+cs_cl_te_dump	Every registered temp entity: its props as the ENGINE holds them, beside the plan they were built from	ClientDll
+cs_cl_te_live	Every live tempent's POSITION, its attachment client, its owner index and whether that owner still resolves -- the geometry a pool counter cannot show. cs_cl_te_live [entity], where the entity prints what an owner index resolves to through each of the two lookups.	Cheat,ClientDll
+cs_cl_te_pool	The legacy temp entity pool: how many gibs, shells and sprites are live, how many have been allocated, how many refused, and how many low-priority ones were evicted	ClientDll
+cs_cl_te_pool_attach	Attach high-priority, FTENT_PLYRATTACHMENT tempents to a player through CTempEnts::AttachTentToPlayer -- what CTEKillPlayerAttachments kills. cs_cl_te_pool_attach [count] [player]	Cheat,ClientDll
+cs_cl_te_pool_shell	Eject brass through CTempEnts::EjectBrass -- the legacy temp entity pool's own entry point, for verifying the pool end to end. cs_cl_te_pool_shell [count] [type 0|1|2]	Cheat,ClientDll
+cs_cl_te_report	Temp entities received on this client: how many played, how many were dropped, and which classes have a managed player	ClientDll
+cs_cl_te_trace	Trace from the view and print every out of ClientTraceLine, including surfaceProps and surfaceFlags. cs_cl_te_trace [distance]	ClientDll
+cs_cl_teleport_report	The watched entity's drawn pose against the delivered one: frames, lagging frames, max lag, distance delivered.	ClientDll
+cs_cl_teleport_watch	Follow one entity index's drawn pose against the pose the packet delivered, from zero. -1 stops.	ClientDll
+cs_cl_weapon_predict_poke	cs_cl_weapon_predict_poke [offset] — corrupt the weapon's replayed slots until a compare sees it	ClientDll
+cs_cl_weapon_predict_report	What the weapon and viewmodel prediction rings have seen	ClientDll
+cs_cl_wind_report	the wind vector GetWindspeedAtTime hands the four section-6 readers, and the controllers behind it	ClientDll
+cs_hello_client	Say hello from C# (client)	ClientDll
+cs_playseq	cs_playseq <classname-filter> <sequence-name> [rate]. Plays one named sequence on every matching client entity, for this viewer only.	ClientDll
+cs_poseparams	List every client entity's pose parameters, with their values and declared ranges. Optional filter matches part of a classname.	ClientDll
+cs_procbones	Which live models have procedural or jiggle bones — the ones where a screenshot can tell the feature working from broken.	ClientDll
+cs_ragdoll	cs_ragdoll <classname-filter> [fx fy fz]. Turns every matching client entity into a ragdoll, for this viewer only.	ClientDll
+cs_setlayer	cs_setlayer <classname-filter> <slot> <sequence-name|off> [weight] [order]. Blends one sequence on top of whatever a matching entity is playing.	ClientDll
+cs_setpose	cs_setpose <classname-filter> <parameter> <value>. Turns one named pose parameter on every matching client entity, in the model's own units.	ClientDll
+cs_setscale	cs_setscale <classname-filter> <scale>. Resizes every matching client entity, for this viewer only. Zero and below are refused.	ClientDll
+cs_setskin	cs_setskin <classname-filter> <n>. Draws every matching client entity with skin n, for this viewer only.	ClientDll
+cs_status_client	Print SourceSharp client status	ClientDll
+cs_vtable_client	Acquire IVEngineClient through its vtable and exercise the four C++ proxies	ClientDll
+firstperson	Switch to firstperson camera.	ClientDll
+force_centerview		ClientDll
+gamemenucommand	Issue game menu command.	ClientDll
+gameui_hide_dialog	asdf	ClientDll
+gameui_show_dialog	Show an arbitrary Dialog.	ClientDll
+getpos	dump position and angles to the console	ClientDll
+hidepanel	Hides a viewport panel <name>	ClientDll
+hud_reloadscheme	Reloads hud layout and animation scripts.	ClientDll
+impulse		ClientDll
+invnext	Select the next weapon	ClientDll
+invprev	Select the previous weapon	ClientDll
+joyadvancedupdate		ClientCmdCanExecute,ClientDll
+lastinv	Select the previously held weapon	ClientDll
+loadcommentary		ClientDll
+mm_add_item	Add a stats item	ClientDll
+mm_add_player	Add a player	ClientDll
+pixelvis_debug	Dump debug info	ClientDll
+playsoundscape	Forces a soundscape to play	Cheat,ClientDll
+playvideo	Plays a video: <filename> [width height]	ClientDll
+playvideo_exitcommand	Plays a video and fires and exit command when it is stopped or finishes: <filename> <exit command>	ClientDll
+r_cheapwaterend		ClientDll
+r_cheapwaterstart		ClientDll
+r_screenoverlay	Draw specified material as an overlay	Cheat,ClientDll,ServerCanExecute
+r_shadowangles	Set shadow angles	Cheat,ClientDll
+r_shadowblobbycutoff	some shadow stuff	Cheat,ClientDll
+r_shadowbreak		ClientDll
+r_shadowcolor	Set shadow color	Cheat,ClientDll
+r_shadowdir	Set shadow direction	Cheat,ClientDll
+r_shadowdist	Set shadow distance	Cheat,ClientDll
+refresh_gameui_dialogs_modeset	Refresh ALL GameUI Dialogs	ClientDll
+refresh_options_dialog	Refresh the options dialog.	ClientDll
+report_soundpatch	reports sound patch count	ClientDll
+sc_show_binding_panel	Launches the Steam Controller binding panel UI	ClientDll
+sc_status	Show Steam Controller status information	ClientDll
+	Cheat,ClientDll
+showinfo	Shows a info panel: <type> <title> <message> [<command number>]	ClientDll
+showpanel	Shows a viewport panel <name>	ClientDll
+slot1	Select slot 1	ClientDll
+slot2	Select slot 2	ClientDll
+slot3	Select slot 3	ClientDll
+slot4	Select slot 4	ClientDll
+slot5	Select slot 5	ClientDll
+slot6	Select slot 6	ClientDll
+snapto		ClientDll
+spec_mode	Set spectator mode	ClientCmdCanExecute,ClientDll
+spec_next	Spectate next player	ClientCmdCanExecute,ClientDll
+spec_player	Spectate player by partial name, steamid, or userid	ClientCmdCanExecute,ClientDll
+spec_pos	dump position and angles to the console	ClientDll
+spec_prev	Spectate previous player	ClientCmdCanExecute,ClientDll
+ss_cl_boundary_probe_report	ss_cl_boundary_probe_report -- engine-boundary call counts inside client.so	ClientDll
+ss_cl_boundary_probe_reset	ss_cl_boundary_probe_reset -- zero client.so's engine-boundary counters	ClientDll
+ss_cl_stage_crossings	ss_cl_stage_crossings -- FrameStageNotify calls vs ClientStage crossings	ClientDll
+stopsoundscape	Stops all soundscape processing and fades current looping sounds	Cheat,ClientDll
+sv_bonus_map_challenge_update	Updates a bonus map challenge score.	Cheat,ClientDll
+sv_bonus_map_complete	Completes a bonus map.	Cheat,ClientDll
+sv_bonus_map_unlock	Locks a bonus map.	Cheat,ClientDll
+test_freezeframe	Test the freeze frame code.	Cheat,ClientDll
+thirdperson	Switch to thirdperson camera.	Cheat,ClientDll
+thirdperson_mayamode	Switch to thirdperson Maya-like camera controls.	Cheat,ClientDll
+vmodule_resetparents		ClientDll
+vr_activate	Switch to VR mode	ClientDll
+vr_cycle_aim_move_mode	Cycle through the aim & move modes.	ClientDll
+vr_deactivate	Switch from VR mode to normal mode	ClientDll
+vr_toggle	Toggles VR mode	ClientDll
+xlook		ClientDll
+xmove		ClientDll

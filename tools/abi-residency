@@ -1,0 +1,26 @@
+#!/bin/bash
+# tools/abi-residency -- write docs/abi-residency.tsv, plan_abi_hotreload §2's
+# census of SourceSharp.Abi (src/test/server/AbiResidencyTests.cs), seeded from
+# docs/abi-plumbing.tsv.
+# The census runs in the test project (it needs Roslyn); this runs that one
+# fact in its write mode. `make check` holds the table current.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+# A filter that matches nothing exits 0 and writes nothing (the fact moved
+# from src/test/managed to src/test/server and this tool kept "writing" for a
+# while): the table must be newer than this marker afterwards, or it failed.
+MARK="$(mktemp)"
+trap 'rm -f "$MARK"' EXIT
+sleep 0.01
+ABI_RESIDENCY_WRITE=1 MSBUILDDISABLENODEREUSE=1 "${DOTNET:-$HOME/.dotnet/dotnet}" test src/test/server \
+    --nologo -m:1 --filter "FullyQualifiedName~AbiResidencyTests.TheTableIsCurrent" > /dev/null
+if [[ ! docs/abi-residency.tsv -nt "$MARK" ]]; then
+    echo "tools/abi-residency: the census fact did not run; docs/abi-residency.tsv was not written" >&2
+    exit 1
+fi
+echo "wrote docs/abi-residency.tsv:" \
+     "$(awk -F'\t' 'NR>3 && $2=="plumbing"' docs/abi-residency.tsv | wc -l) plumbing," \
+     "$(awk -F'\t' 'NR>3 && $2=="moves"' docs/abi-residency.tsv | wc -l) move," \
+     "$(awk -F'\t' 'NR>3 && $2=="stays"' docs/abi-residency.tsv | wc -l) stay," \
+     "$(awk -F'\t' 'NR>3 && $2=="stuck"' docs/abi-residency.tsv | wc -l) stuck"

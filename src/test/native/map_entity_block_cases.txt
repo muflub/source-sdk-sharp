@@ -1,0 +1,146 @@
+# What the map-entity-block parser answers -- the golden table, and the ONE
+# record of it.
+#
+# The BSP's entity lump is text: a run of `"key" "value"` pairs per entity,
+# terminated by a `}`. game/shared/mapentities_shared.cpp is what reads it, and
+# TemplateEntities.cpp's whole contribution on top of that was string
+# substitution. The tokeniser and the cursor are C# now
+# (SourceSharp.Shared/MapEntityBlock.cs); this file is what stops the port from
+# quietly meaning something else. TWO tests read it:
+#
+#   sourcesharp/test/map_entity_block_test.cpp   -- recomputes every row with the
+#       REAL mapentities_shared.cpp, compiled into the test binary against a
+#       one-TU cbase.h shim. That is what keeps the table a record of native
+#       rather than a record of a guess.
+#
+#   SourceSharp.Tests/MapEntityBlockTests.cs     -- recomputes every row with the
+#       managed MapEntityBlock and asserts it agrees. That is the one that can
+#       actually go red, and it is the point of the file.
+#
+# A fixture standing in for native drifts silently unless something asserts the
+# agreement (docs/writing-tests.md). This is that assertion, in both directions.
+#
+# The expected values were emitted by the native side above. Re-emit with
+# SOURCESHARP_EMIT_CASES=1 in the environment of the test binary.
+#
+# FORMAT -- tab separated, first field is the row kind.
+#
+#   tokens   name  block                       every token, `~` separated
+#   keys     name  block                       MapEntity_GetNumKeysInEntity
+#   extract  name  block  key                  found(0/1)  value
+#   walk     name  block                       every `key=value`, `~` separated
+#   walkset  name  block  capacity  key  new   keys after the rewrite   text after
+#
+# ESCAPES, in every field:  \n newline   \t tab   \q "   \e 0x1b   \s ~   \\ \
+#
+# 0x1b is VMF_IOPARAM_STRING_DELIMITER (public/fgdlib/entitydefs.h) -- ESC,
+# chosen so an entity-I/O parameter can itself contain a comma.
+
+# ---- the tokeniser ---------------------------------------------------------
+#
+# A quoted token runs to its closing quote, so it is the only kind that can hold
+# a space; `{ } ( ) '` are each a token by themselves even mid-word; a `//`
+# comment and the whitespace after it are skipped. `unterminated-quote` is the
+# pathological one and it is here on purpose: stock does not stop at the end of
+# the data, it falls through and re-reads its way out.
+tokens	plain-pair	\qclassname\q \qlogic_relay\q\n}\n	classname\slogic_relay\s}
+tokens	spaces-in-value	\qtargetname\q \qa name with spaces\q\n}\n	targetname\sa name with spaces\s}
+tokens	bare-words	classname logic_relay\n}\n	classname\slogic_relay\s}
+tokens	comment-skipped	// a comment\n\qa\q \qb\q\n}\n	a\sb\s}
+tokens	brace-mid-word	abc}def\n	abc\s}\sdef
+tokens	paren-and-quote	a(b)c'd\n	a\s(\sb\s)\sc\s'\sd
+tokens	unterminated-quote	\qno closing quote	no closing quote
+tokens	empty-value	\qk\q \q\q\n}\n	k\s\s}
+tokens	only-whitespace	   \n\t	
+tokens	io-delimiter-value	\qOnTrigger\q \qbeta\eKill\e\e0\e-1\q\n}\n	OnTrigger\sbeta\eKill\e\e0\e-1\s}
+
+
+# ---- the key count ---------------------------------------------------------
+#
+# What the template store sizes its spare room from: every key may grow by the
+# five-character fixup marker, so the stored copy is allocated with room for all
+# of them to.
+#
+# `no-closing-brace` is the row that says the count is NOT simply "pairs": stock
+# increments before it notices it has run out of data. Reproduced rather than
+# fixed -- the number only sizes an allocation, and a port that quietly
+# allocated less would be a divergence nobody asked for.
+keys	three-pairs	\qclassname\q \qlogic_relay\q\n\qtargetname\q \qalpha\q\n\qOnTrigger\q \qbeta,Kill,,0,-1\q\n}\n	3
+keys	empty-block	}\n	0
+keys	no-closing-brace	\qa\q \qb\q\n	2
+keys	one-pair	\qclassname\q \qlogic_relay\q\n}\n	1
+
+
+# ---- extraction ------------------------------------------------------------
+#
+# By EXACT name: stock is strcmp here, and deliberately not the case-insensitive
+# rule the template store matches targetnames with. `stops-at-brace` says the
+# search does not run on into whatever follows the entity.
+extract	first-key	\qclassname\q \qlogic_relay\q\n\qtargetname\q \qalpha\q\n}\n	classname	1	logic_relay
+extract	second-key	\qclassname\q \qlogic_relay\q\n\qtargetname\q \qalpha\q\n}\n	targetname	1	alpha
+extract	missing-key	\qclassname\q \qlogic_relay\q\n}\n	origin	0	
+extract	case-differs	\qclassname\q \qlogic_relay\q\n}\n	Classname	0	
+extract	first-of-duplicates	\qOnTrigger\q \qa\q\n\qOnTrigger\q \qb\q\n}\n	OnTrigger	1	a
+extract	stops-at-brace	\qa\q \q1\q\n}\n\qb\q \q2\q\n}\n	b	0	
+
+
+# ---- the cursor ------------------------------------------------------------
+#
+# GetFirstKey/GetNextKey. `trailing-space-in-key` is the one worth reading:
+# stock trims trailing spaces off a KEY and not off a value, which is the sort
+# of asymmetry a port removes by accident.
+walk	three-pairs	\qclassname\q \qlogic_relay\q\n\qtargetname\q \qalpha\q\n\qOnTrigger\q \qbeta,Kill,,0,-1\q\n}\n	classname=logic_relay\stargetname=alpha\sOnTrigger=beta,Kill,,0,-1
+walk	trailing-space-in-key	\qorigin\q \q0 0 0 \q\n\qspawnflags \q \q2\q\n}\n	origin=0 0 0 \sspawnflags=2
+walk	empty-block	}\n	
+walk	duplicate-keys	\qOnTrigger\q \qa\q\n\qOnTrigger\q \qb\q\n}\n	OnTrigger=a\sOnTrigger=b
+walk	io-delimiter-value	\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qbeta\eKill\e\e0\e-1\q\n}\n	classname=logic_relay\sOnTrigger=beta\eKill\e\e0\e-1
+
+
+# ---- a rewrite from inside the walk ----------------------------------------
+#
+# The rows that matter most. Templates_ReconnectIOForGroup walks a template's
+# keys and calls SetValue on the one it is standing on, and it only works
+# because SetValue moves the cursor by the length difference. A port that
+# rebuilt the buffer and left the cursor alone would produce a walk that repeats
+# or skips a key, and every assertion about the RESULTING TEXT would still pass.
+# So the row records the text AND the keys the walk still produces afterwards.
+#
+# `grow` and `shrink` are the two signs of that difference; `io-connection` is
+# the shape the reconnect pass actually writes.
+walkset	grow	\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qbeta\q\n\qtargetname\q \qalpha\q\n}\n	256	OnTrigger	beta&0000	classname=logic_relay\stargetname=alpha	\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qbeta&0000\q\n\qtargetname\q \qalpha\q\n}\n
+walkset	shrink	\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qa_very_long_target_name\q\n\qtargetname\q \qalpha\q\n}\n	256	OnTrigger	b	classname=logic_relay\stargetname=alpha	\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qb\q\n\qtargetname\q \qalpha\q\n}\n
+walkset	first-key	\qtargetname\q \qalpha\q\n\qclassname\q \qlogic_relay\q\n}\n	256	targetname	alpha&0000	classname=logic_relay	\qtargetname\q \qalpha&0000\q\n\qclassname\q \qlogic_relay\q\n}\n
+walkset	last-key	\qclassname\q \qlogic_relay\q\n\qtargetname\q \qalpha\q\n}\n	256	targetname	alpha&0000	classname=logic_relay	\qclassname\q \qlogic_relay\q\n\qtargetname\q \qalpha&0000\q\n}\n
+walkset	both-duplicates	\qOnTrigger\q \qa\q\n\qOnTrigger\q \qb\q\n\qtargetname\q \qz\q\n}\n	256	OnTrigger	q&0000	targetname=z	\qOnTrigger\q \qq&0000\q\n\qOnTrigger\q \qq&0000\q\n\qtargetname\q \qz\q\n}\n
+walkset	io-connection	\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qbeta\eKill\e\e0\e-1\q\n\qtargetname\q \qalpha\q\n}\n	256	OnTrigger	beta&0000\eKill\e\e0\e-1	classname=logic_relay\stargetname=alpha	\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qbeta&0000\eKill\e\e0\e-1\q\n\qtargetname\q \qalpha\q\n}\n
+
+
+# ---- the block walk, which is the spawn order ------------------------------
+#
+# plan_entity.md step 2d. MapEntity_ParseAllEntities' own loop: parse the
+# opening brace, read the classname, skip to the matching close, go round again.
+# That loop decided the order every entity in every map was made in, and it is
+# MapEntityBlock.SplitBlocks now.
+#
+# `nested-brace` is the row that says the walk COUNTS braces rather than looking
+# for the next `}`: an unquoted `{` in a value is a token all by itself (see
+# brace-mid-word above) and the skip counts it, so a naive split would end the
+# first block early and read the rest of the map as garbage. A QUOTED one is not
+# a token and must NOT be counted, which is `quoted-brace`.
+#
+# `no-classname` carries `?`. Stock calls Error() on a block with no classname,
+# which is not a value a table can hold; what the row records is that the block
+# is still ONE block and the ones either side of it keep their places.
+spawnorder	two-entities	{\n\qclassname\q \qworldspawn\q\n}\n{\n\qclassname\q \qlogic_relay\q\n}\n	worldspawn\slogic_relay
+spawnorder	order-is-map-order	{\n\qclassname\q \qa\q\n}\n{\n\qclassname\q \qb\q\n}\n{\n\qclassname\q \qc\q\n}\n	a\sb\sc
+spawnorder	classname-not-first	{\n\qtargetname\q \qalpha\q\n\qclassname\q \qlogic_relay\q\n}\n	logic_relay
+spawnorder	nested-brace	{\n\qclassname\q \qa\q\nmsg x{y\n}\n}\n{\n\qclassname\q \qb\q\n}\n	a\sb
+spawnorder	quoted-brace	{\n\qclassname\q \qa\q\n\qmsg\q \qa { b\q\n}\n{\n\qclassname\q \qb\q\n}\n	a\sb
+spawnorder	blank-lines-between	{\n\qclassname\q \qa\q\n}\n\n\n{\n\qclassname\q \qb\q\n}\n	a\sb
+spawnorder	comment-between	{\n\qclassname\q \qa\q\n}\n// a comment\n{\n\qclassname\q \qb\q\n}\n	a\sb
+spawnorder	no-classname	{\n\qclassname\q \qa\q\n}\n{\n\qtargetname\q \qorphan\q\n}\n{\n\qclassname\q \qc\q\n}\n	a\s?\sc
+spawnorder	empty-block	{\n}\n{\n\qclassname\q \qb\q\n}\n	?\sb
+spawnorder	trailing-garbage	{\n\qclassname\q \qa\q\n}\nnot-a-brace\n	a
+spawnorder	unterminated-final	{\n\qclassname\q \qa\q\n}\n{\n\qclassname\q \qb\q\n	a\sb
+spawnorder	empty-lump		
+spawnorder	io-delimiter-value	{\n\qclassname\q \qlogic_relay\q\n\qOnTrigger\q \qbeta\eKill\e\e0\e-1\q\n}\n{\n\qclassname\q \qb\q\n}\n	logic_relay\sb

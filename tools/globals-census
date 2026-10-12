@@ -1,0 +1,2028 @@
+#!/usr/bin/env python3
+"""
+tools/globals-census -- plan_globals.md step G0: every symbol with STATIC
+STORAGE DURATION on the server (or client) link line, and whether it is state.
+
+    tools/globals-census census                      # the TSV, one row per symbol
+    tools/globals-census summary                     # the counts the plan quotes
+    tools/globals-census reconcile                   # objects vs the linked .so
+    tools/globals-census gate                        # ledger membership, both ways
+    tools/globals-census --self-test
+
+=============================================================================
+WHAT IT MEASURES
+=============================================================================
+
+`plan.md` and `plan_shim.md` say the port's C++ holds no static state, and
+until this tool nothing measured that.  `tools/statics-audit` once did, from
+the SOURCE TEXT, and that is exactly why a global moved inside an inline
+accessor passed it: `PhysicsShell()::s_Shell` is 266,392 bytes of state that
+no source grep for `^static` will ever find.
+
+So STATE HERE IS A SECTION, NOT A KEYWORD.  A symbol is state when it is an
+`OBJECT`, `TLS` or `GNU_UNIQUE` symbol landing in `.bss*`, `.data*`, `.tbss*`
+or `.tdata*` of an object the build links.  A function-local static is state.
+A class static is state.  A static inside an inline accessor in a header is
+state.  `.rodata*` and `.data.rel.ro*` are counted apart and are NOT state --
+the first is constants, the second vtables and typeinfo the loader relocates
+once.
+
+=============================================================================
+THE FOUR METHOD RULES
+=============================================================================
+
+ 1. OBJECTS COME FROM THE LINK EDGE, never from the objs directory.  That
+    directory keeps the objects of translation units the build has evicted --
+    on 2026-09-19 it held 190 server objects for a graph that links 144, and
+    counts taken over it were wrong by up to 13x (memory:
+    objs-directory-is-not-the-link-line).  This tool reads the .so's link
+    edge in the CMake build's build.ninja (tools/cmakegraph.py) and nothing
+    else, and refuses a compile_commands.json that disagrees with the
+    CMakeLists source lists.
+
+ 2. SOURCE TEXT IS NEVER THE INSTRUMENT.  `BEGIN_DATADESC`,
+    `IMPLEMENT_SERVERCLASS`, `CON_COMMAND` and the Steam SDK accessors all
+    expand to a `static` the text does not contain.  `readelf -sW` decides;
+    `nm -l`'s DWARF line and the source line it points at are DISPLAY, carried
+    so a human can rule on a row.
+
+ 3. MATCH THE SECTION EXACTLY.  `kind ~ /bss|data/` is a substring match and
+    also matches `.rodata` and `.data.rel.ro`.  Re-running this census on
+    2026-09-21 with that filter returned 11,820 rows from a 1,017-row mutable
+    population -- a number four times the whole symbol table's plausible
+    answer, which is the tell.  `kind` is one of a CLOSED set of tokens here
+    and MUTABLE_KINDS is a set, never a regex.  --self-test pins it.
+
+ 4. A CENSUS THAT CANNOT MEASURE MUST REFUSE.  Exit 2, never a quiet answer:
+    a graph naming an object that is not on disk, an object older than the
+    source the graph compiles it from, or an empty link edge.  An unbuilt tree
+    reading as "0 statics, all clear" is the failure this whole file guards
+    (memory: a-check-log-has-no-provenance, buildcpptests-exits-zero-without-libs).
+
+=============================================================================
+WHAT IT REFUSES TO DO
+=============================================================================
+
+  - It does not rule.  A disposition comes from docs/globals-ledger.tsv, which
+    a human wrote; this tool joins symbols to rows and says which side is
+    missing one.  It never invents a disposition, and `category` and `scope`
+    below are HINTS for whoever rules, not verdicts.
+  - It does not read the objs directory, `ls`, or `ld`'s output.  `ld` does not
+    reliably name the objects it consumed (memory: ld-stops-naming-objects), so
+    linker output is a floor and not a census.
+  - It does not count a link-level symbol twice.  LOCAL symbols are counted
+    once PER OBJECT (two translation units' `static int s_n;` are two distinct
+    pieces of state); UNIQUE, WEAK and GLOBAL once per NAME (one piece of state
+    the linker folds).
+  - It does not answer about a tree it cannot identify.  Every report is
+    stamped with the git tip and the dirty paths.
+
+=============================================================================
+THE COUNTING RULE, WRITTEN OUT, BECAUSE THE THREE NUMBERS DIFFER
+=============================================================================
+
+    population     every OBJECT/TLS/GNU_UNIQUE symbol in any of the six
+                   section kinds, one row per (object, symbol).   ~12,300
+    object level   population, restricted to MUTABLE_KINDS, minus guard
+                   variables and minus the four vec2_/vec4_ header constants
+                   (one runtime-constructed copy per TU under -O0).
+    link level     object level, with LOCAL folded per object and everything
+                   else folded per name.  THIS is the number the plan tracks
+                   and the ratchet caps.
+
+The vec exclusion is not cosmetic: at -O0 the four of them account for 406 of
+the 958 rows that would otherwise be object level on this tree and all four vanish under -O2, so a
+census that kept them would report the debug build's optimisation level rather
+than the port's state.
+"""
+
+import argparse
+import collections
+import csv
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import cmakegraph  # noqa: E402
+
+# Repo root from this script's own location. NEVER a hardcoded worktree path:
+# a committed harness outlives its lane, and a later lane would otherwise
+# measure somebody else's tree and still report a confident number.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(ROOT, "src")
+
+# The VPC build ran in a container, so its DWARF paths were rooted there. The
+# CMake build runs on the host and compiles farm/<config>/src/... by absolute
+# path, so its DWARF paths are rooted at the farm; both are stripped to the
+# farm-relative spelling the ledgers carry (see farm_relative_loc).
+CONTAINER_PREFIX = "/my_mod/src/"
+
+LEDGER = os.path.join(ROOT, "docs", "globals-ledger.tsv")
+RATCHET = os.path.join(ROOT, "docs", "globals-ratchet.tsv")
+
+# ---------------------------------------------------------------------------
+# ONE LEDGER PER SIDE, and the two must not share a file.
+#
+# The census has taken `--side client` since it was written, but every ledger
+# path in it was the server's, so `gate --side client` joined 1,966 client
+# symbols against the SERVER's 469 rows and reported both directions at once.
+# That is not a gate failing; it is a gate answering about the wrong tree.
+#
+# The two files are separate, not one file with a `side` column, for a reason
+# that is about people and not about schemas: the server ledger is owned by the
+# lanes ruling the server rows, and a client pass that rewrote rows in it would
+# collide with them on every reseed. Separate files merge cleanly.
+# ---------------------------------------------------------------------------
+
+LEDGER_BY_SIDE = {
+    "server": LEDGER,
+    "client": os.path.join(ROOT, "docs", "globals-client-ledger.tsv"),
+}
+
+RATCHET_BY_SIDE = {
+    "server": RATCHET,
+    "client": os.path.join(ROOT, "docs", "globals-client-ratchet.tsv"),
+}
+
+
+def ledger_for(side):
+    return LEDGER_BY_SIDE[side]
+
+
+def ratchet_for(side):
+    return RATCHET_BY_SIDE[side]
+
+# Method rule 3: a CLOSED set of tokens, matched with `in`, never a regex.
+MUTABLE_KINDS = frozenset(("bss", "data", "tls"))
+CONSTANT_KINDS = frozenset(("rodata", "relro"))
+ALL_KINDS = MUTABLE_KINDS | CONSTANT_KINDS
+
+# ---------------------------------------------------------------------------
+# The four header-defined constants with one runtime-constructed copy per TU at
+# -O0. 406 rows on this tree, all of which vanish at -O2, so a census that kept
+# them would report the debug build's optimisation level rather than the port's
+# state.
+#
+# THE EXCLUSION READS ONLY THE SYMBOL TABLE, AND THAT IS NOT A STYLE CHOICE.
+# It was first keyed on the demangled name AND the DWARF file `nm -l` reports,
+# which is exact and correct -- on this host. Inside the steamrt sniper
+# container, where the native tests actually run, `nm` is binutils 2.35.2 and
+# prints NO file:line for these symbols at all. `defined_at` is empty there,
+# the header test matched nothing, and `globals_ledger_test` reported 875
+# pieces of state against a ceiling of 469 -- the 406 excluded rows, back.
+#
+# A number that depends on which binutils is installed is not a measurement. So
+# the test below is the symbol table only: the demangled name is one of the
+# four, the mangled name is the file-local form the header definition must
+# produce, and the size is the type's. `_ZL11vec2_origin` at 8 bytes is a
+# Vector2D; anything else named vec2_origin is somebody's global and is state.
+#
+# The SUBJECT is pinned separately, by check_vec_subject(): the four
+# definitions must still be in public/mathlib/vector{2,4}d.h. Source text is
+# never the instrument here -- it is a GUARD ON THE EXCLUSION, so that when
+# mathlib changes the tool refuses rather than going on excusing 406 rows it
+# can no longer justify.
+# ---------------------------------------------------------------------------
+
+VEC_CONSTANTS = frozenset((
+    "vec2_origin", "vec2_invalid", "vec4_origin", "vec4_invalid",
+))
+VEC_MANGLED = re.compile(r"^_ZL\d+vec([24])_(origin|invalid)$")
+VEC_SIZES = {"2": 8, "4": 16}          # sizeof(Vector2D), sizeof(Vector4D)
+
+# Where the four are defined, and what a definition looks like. Both halves
+# matter: the file must exist and it must still define the name.
+VEC_SUBJECT = (
+    ("public/mathlib/vector2d.h", ("const Vector2D vec2_origin",
+                                   "const Vector2D vec2_invalid")),
+    ("public/mathlib/vector4d.h", ("const Vector4D vec4_origin",
+                                   "const Vector4D vec4_invalid")),
+)
+
+
+def is_vec_constant(row):
+    if row.name not in VEC_CONSTANTS:
+        return False
+    m = VEC_MANGLED.match(row.mangled)
+    if m is None:
+        return False
+    return row.size == VEC_SIZES[m.group(1)]
+
+
+def check_vec_subject(subject=None):
+    """[] when the four definitions are where the exclusion says, else the
+    complaints. An exclusion whose subject has moved must stop the run.
+
+    `subject` is a seam for --self-test only: a guard that has never been shown
+    to fire is a guard nobody has checked, and `check_vec_subject() == []` on a
+    healthy tree passes whether or not the function can ever return anything
+    else. A mutation that made it `return []` stayed GREEN against exactly that
+    assertion.
+    """
+    bad = []
+    for rel, needles in (subject if subject is not None else VEC_SUBJECT):
+        path = os.path.join(SRC, rel)
+        try:
+            text = open(path, errors="replace").read()
+        except OSError:
+            bad.append("%s is gone, so the four vec constants the census "
+                       "excludes have no known definition site" % rel)
+            continue
+        for n in needles:
+            if n not in text:
+                bad.append("%s no longer contains `%s`" % (rel, n))
+    return bad
+
+# The dispositions docs/globals-ledger.tsv may use.
+#
+# Six are plan_globals.md 1's. GONE is kept in the vocabulary and is expected to
+# stay at ZERO: it meant "this leaves under a plan_shim ruling already made",
+# and plan_shim's six phases have all run, so there is no longer a phase for a
+# row to leave under. Anything still on the link line is here until this plan
+# removes it. 332 of the old table's 619 rows were GONE; none of that shape
+# survives the shim close.
+#
+# UNRULED is the seventh and it is an ADMISSION, not a disposition: the symbol
+# has a row, so the gate's membership check passes, but no human has ruled it.
+# It is capped in docs/globals-ratchet.tsv and driven to zero, the same shape as
+# `shim_reason_none`. A tool must never invent MEMBER, MANAGED or CONST: each
+# needs someone to read the code and name a consumer or a managed home.
+DISPOSITIONS = ("GONE", "DEAD", "CONST", "MANAGED", "MEMBER", "FLOOR", "UNRULED")
+
+SIDES = ("server", "client")
+CONFIGS = ("debug", "release")
+
+
+def die(msg, code=2):
+    sys.stderr.write("globals-census: %s\n" % msg)
+    sys.exit(code)
+
+
+# ---------------------------------------------------------------------------
+# provenance -- shared with tools/shim-census in shape; a reading that cannot
+# name the tree it came from has produced a wrong "done" verdict here before.
+# ---------------------------------------------------------------------------
+
+def git(*args, **kw):
+    """`strip=False` matters: --porcelain's status letters live in columns 0-1
+    and an unstaged edit is " M path", so .strip() eats the leading space and
+    every path afterwards loses its first character."""
+    strip = kw.pop("strip", True)
+    try:
+        out = subprocess.run(["git", "-C", ROOT] + list(args),
+                             capture_output=True, text=True, check=False)
+    except OSError:
+        return ""
+    if out.returncode != 0:
+        return ""
+    return out.stdout.strip() if strip else out.stdout
+
+
+def tip():
+    """(sha, dirty_paths). The PATHS, not a flag: a census written INTO the
+    tree makes the tree dirty by existing, and a bare DIRTY would read as an
+    unmeasured edit."""
+    sha = git("rev-parse", "HEAD") or "UNKNOWN"
+    status = git("status", "--porcelain", strip=False)
+    return sha, [ln[3:].strip() for ln in status.splitlines() if ln.strip()]
+
+
+def provenance(extra=()):
+    sha, dirty = tip()
+    out = ["# globals-census\ttip %s\t%s"
+           % (sha, ("DIRTY (%d path%s)" % (len(dirty), "" if len(dirty) == 1 else "s"))
+              if dirty else "clean")]
+    for k, v in extra:
+        out.append("# %s\t%s" % (k, v))
+    for d in dirty[:12]:
+        out.append("# dirty\t%s" % d)
+    if len(dirty) > 12:
+        out.append("# dirty\t... and %d more" % (len(dirty) - 12))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# the link edge
+# ---------------------------------------------------------------------------
+
+def link_edge(bdir, side):
+    """(objects, archives) named on the .so's link edge in the CMake build.
+
+    The objects are the edge's explicit inputs; the archives are the .a files
+    of its LINK_LIBRARIES (the Valve libraries CMake builds, lib/lib*.a, and
+    the prebuilt ones it names by absolute path). Both absolute, both sorted.
+    """
+    try:
+        edge = cmakegraph.link_edge(cmakegraph.SIDES[side], bdir)
+        libs = cmakegraph.link_libraries(cmakegraph.SIDES[side], bdir)
+    except cmakegraph.GraphError as e:
+        die(str(e))
+    absolute = lambda t: t if os.path.isabs(t) else os.path.join(bdir, t)
+    return (sorted({absolute(t) for t in edge["objects"] if t.endswith(".o")}),
+            sorted({absolute(t) for t in libs if t.endswith(".a")}))
+
+
+def compile_edges(bdir, side):
+    """object -> farm-relative source, from compile_commands.json."""
+    m = {}
+    try:
+        for e in cmakegraph.target_entries(cmakegraph.SIDES[side], bdir):
+            o = e["output"] if os.path.isabs(e["output"]) else os.path.join(bdir, e["output"])
+            m[os.path.normpath(o)] = cmakegraph.farm_relative(e["file"], bdir)
+    except cmakegraph.GraphError as e:
+        die(str(e))
+    return m
+
+
+def object_name(o):
+    """The ledger's `object` column: the object's FILE NAME in VPC's spelling
+    (baseviewport.cpp.o -> baseviewport.o). The ledgers were keyed on VPC's
+    flat objs/<project>/x.o names; CMake's layout is CMakeFiles/<target>.dir/
+    <source path>.o, and a key that moved with the build system would orphan
+    every ruling in both ledgers."""
+    return re.sub(r"\.(cpp|c)\.o$", ".o", os.path.basename(o))
+
+
+# ---------------------------------------------------------------------------
+# the refusals (method rule 4)
+# ---------------------------------------------------------------------------
+
+def audit(ninja_path, objs, srcmap, mtime_policy, side="server"):
+    """List of fatal problems. Empty means the reading can be trusted.
+
+    `side` is only in the message, and it was hardcoded to "server": a client
+    run with a broken link-edge regex would have told whoever read it to go
+    and look at the server edge, which is intact.
+    """
+    fatal = []
+    if not objs:
+        fatal.append("the link edge names no objects -- either the build has "
+                     "no %s link edge or the reader stopped matching it"
+                     % side)
+        return fatal
+    missing, stale = [], []
+    for o in objs:
+        p = os.path.join(SRC, o)
+        if not os.path.exists(p):
+            missing.append(o)
+            continue
+        if mtime_policy == "on":
+            s = srcmap.get(o)
+            if s:
+                sp = os.path.join(SRC, s)
+                try:
+                    if os.path.getmtime(sp) > os.path.getmtime(p):
+                        stale.append(o)
+                except OSError:
+                    pass
+    if missing:
+        fatal.append("MISSING: %d object%s the graph names is not on disk "
+                     "(first: %s). An unbuilt tree must not read as zero state."
+                     % (len(missing), "" if len(missing) == 1 else "s", missing[0]))
+    if stale:
+        fatal.append("STALE: %d object%s older than the source the graph "
+                     "compiles it from (first: %s). Use --mtime-policy off only "
+                     "when ninja itself says there is no work to do."
+                     % (len(stale), "" if len(stale) == 1 else "s", stale[0]))
+    return fatal
+
+
+# ---------------------------------------------------------------------------
+# the symbol reader
+# ---------------------------------------------------------------------------
+
+def sh(*a):
+    return subprocess.run(a, capture_output=True, text=True, errors="replace").stdout
+
+
+_SEC_RE = re.compile(r"\s*\[\s*(\d+)\]\s+(\S+)\s+(\S+)")
+
+
+def sections(path):
+    secs = {}
+    for line in sh("readelf", "-SW", path).splitlines():
+        g = _SEC_RE.match(line)
+        if g:
+            secs[int(g.group(1))] = g.group(2)
+    return secs
+
+
+# Order matters: `.tbss`/`.tdata` before `.bss`/`.data` would be harmless, but
+# `.data.rel.ro` MUST be tested before `.data` or every vtable counts as state.
+_KIND_PREFIXES = (
+    (".tbss", "tls"), (".tdata", "tls"),
+    (".data.rel.ro", "relro"),
+    (".bss", "bss"), (".data", "data"),
+    (".rodata", "rodata"),
+)
+
+
+def kind_of(section):
+    for prefix, kind in _KIND_PREFIXES:
+        if section.startswith(prefix):
+            return kind
+    return None
+
+
+def _size(tok):
+    return int(tok, 16) if tok.lower().startswith("0x") else int(tok)
+
+
+def symbols(path):
+    """[(name, size, bind, kind, dwarf_loc)] for one object or .so."""
+    secs = sections(path)
+    lines = {}
+    for line in sh("nm", "-l", "--defined-only", path).splitlines():
+        if "\t" in line:
+            head, loc = line.split("\t", 1)
+            lines[head.split()[-1]] = loc.strip()
+    rows = []
+    for line in sh("readelf", "-sW", path).splitlines():
+        p = line.split()
+        if len(p) < 8 or not p[0].rstrip(":").isdigit():
+            continue
+        _, _, size, typ, bind, _, ndx, name = p[:8]
+        if typ not in ("OBJECT", "TLS", "GNU_UNIQUE") or not ndx.isdigit():
+            continue
+        k = kind_of(secs.get(int(ndx), ""))
+        if k is None:
+            continue
+        rows.append((name, _size(size), bind, k, lines.get(name, "")))
+    return rows
+
+
+def demangle(names):
+    names = list(names)
+    if not names:
+        return {}
+    p = subprocess.run(["c++filt"], input="\n".join(names),
+                       capture_output=True, text=True)
+    return dict(zip(names, p.stdout.split("\n")))
+
+
+# ---------------------------------------------------------------------------
+# hints for whoever rules (never verdicts)
+# ---------------------------------------------------------------------------
+
+RTTI = re.compile(r"^(vtable|typeinfo|typeinfo name|VTT|construction vtable) for ")
+
+CATS = [
+    ("convar", r"\bConVar(Ref)?\b|\bConCommand\b|\bCON_COMMAND|_command$|_command ##|ConVar_"),
+    ("iface-registration", r"EXPOSE_(SINGLE_)?INTERFACE|InterfaceReg|__g_Create"),
+    ("datatable",
+     r"DATADESC|DATAMAP|SERVERCLASS|SEND_TABLE|RECV_TABLE|NETWORK_TABLE|PREDICTION_DATA|"
+     r"m_DataMap|m_PredMap|g_SendTable|sendtable|SendProp|typedescription|g_.*_ClassReg|"
+     r"_DataDescInit|SAVERESTORE|::m_pClassSendTable"),
+    ("entity-factory", r"LINK_ENTITY_TO_CLASS|EntityFactory|PRECACHE_REGISTER|PrecacheRegister"),
+    ("usermessage/te", r"UserMessage|TempEnt|\bTE_|g_TE|IMPLEMENT_.*TE"),
+    ("gamesystem", r"GameSystem|IGameSystem|CAutoGameSystem"),
+    ("engine-iface-ptr",
+     r"##.*\b(IV?[A-Z]\w+|CGlobalVars|CSteamAPIContext|ICvar|IFileSystem)\s*\*\s*\w+\s*(=|;)"),
+    ("abi-block", r"SourceSharp|engineApi|EngineApi|s_Api|g_Api|g_pManaged|ss_"),
+    ("string/symbol-pool", r"StringPool|SymbolTable|CUtlSymbol|g_.*Strings?\b"),
+    ("container", r"CUtl(Vector|Map|Dict|RBTree|LinkedList|Memory|Hash|String|Buffer|Queue)"),
+    ("math-const",
+     r"\bvec[234]?_(origin|invalid|zero)|vec3_angle|quat_identity|g_vecZero|"
+     r"\b(Vector|QAngle|Quaternion|matrix3x4_t|VMatrix)\b.*##.*const|"
+     r"##.*\bconst (Vector|QAngle|Quaternion|Vector2D|Vector4D|matrix3x4_t)\b"),
+]
+CATS = [(n, re.compile(r)) for n, r in CATS]
+
+
+def categorise(demangled, text):
+    if RTTI.match(demangled):
+        return "rtti"
+    if demangled.startswith("guard variable for "):
+        return "guard"
+    blob = demangled + " ## " + text
+    for name, rx in CATS:
+        if rx.search(blob):
+            return name
+    return "other"
+
+
+def scope_of(demangled):
+    """function-local / class-or-namespace / file-or-global.
+
+    A function-local static demangles with `)::` in it -- the enclosing
+    FUNCTION's signature, which no class or namespace qualifier can produce.
+    That is the shape `tools/statics-audit` could not see and the reason 156
+    pieces of state on this tree look like accessors.
+    """
+    core = re.sub(r"^guard variable for ", "", demangled)
+    if re.search(r"\)( const)?::", core):
+        return "function-local"
+    depth, last = 0, -1
+    for i, c in enumerate(core):
+        depth += c in "<("
+        depth -= c in ">)"
+        if depth == 0 and core[i:i + 2] == "::":
+            last = i
+    return "class-or-namespace" if last >= 0 else "file-or-global"
+
+
+_src_cache = {}
+
+
+def _farm_src_prefix(f):
+    """The prefix of a DWARF path that stands for the farm's src/: the
+    container's, or any farm/<config>/src/ on the host."""
+    if f.startswith(CONTAINER_PREFIX):
+        return CONTAINER_PREFIX
+    m = re.match(r"^/.*?/farm/[^/]+/src/", f)
+    return m.group(0) if m else ""
+
+
+def farm_relative_loc(loc):
+    """A DWARF file:line with the build's src/ root stripped."""
+    return loc[len(_farm_src_prefix(loc)):]
+
+
+def src_line(loc):
+    if not loc or ":" not in loc:
+        return ""
+    f, _, n = loc.rpartition(":")
+    pre = _farm_src_prefix(f)
+    if pre:
+        f = os.path.join(SRC, f[len(pre):])
+    f = os.path.normpath(f)
+    if f not in _src_cache:
+        try:
+            _src_cache[f] = open(f, errors="replace").read().split("\n")
+        except OSError:
+            _src_cache[f] = []
+    lines = _src_cache[f]
+    n = int(n) if n.isdigit() else 0
+    return re.sub(r"\s+", " ", lines[n - 1]).strip()[:160] if 0 < n <= len(lines) else ""
+
+
+# ---------------------------------------------------------------------------
+# the census
+# ---------------------------------------------------------------------------
+
+COLUMNS = ("object", "tu", "kind", "bind", "scope", "category", "size",
+           "mangled", "name", "defined_at", "text")
+
+Row = collections.namedtuple("Row", COLUMNS)
+
+
+def build_for(config):
+    """The CMake build dir of a configuration: farm/<config>/build. ROOT is the
+    farm this runs in (farm/<x>), so the other configuration's build is its
+    sibling farm's."""
+    farms = os.path.dirname(ROOT)
+    if os.path.basename(farms) == "farm":
+        return os.path.join(farms, config, "build")
+    return os.path.join(ROOT, "farm", config, "build")
+
+
+def take_census(side, config, mtime_policy):
+    bdir = build_for(config)
+    # The source lists and the compile database must agree, or the link edge
+    # below describes a build of some other tree.
+    try:
+        cmakegraph.compiled_sources(cmakegraph.SIDES[side], bdir)
+    except cmakegraph.GraphError as e:
+        die(str(e))
+    objs, archives = link_edge(bdir, side)
+    srcmap = compile_edges(bdir, side)
+    fatal = audit(bdir, objs, srcmap, mtime_policy, side)
+    if fatal:
+        for f in fatal:
+            sys.stderr.write("globals-census: %s\n" % f)
+        sys.exit(2)
+
+    bad = check_vec_subject()
+    if bad:
+        for b in bad:
+            sys.stderr.write("globals-census: %s\n" % b)
+        die("the vec-constant exclusion no longer names its subject. It drops "
+            "406 rows from this tree; going on without checking would be a "
+            "waiver nobody wrote.")
+
+    # The same discipline for the client's named floor. FLOOR means "stays
+    # forever" AND hides the row from the UNRULED count the ratchet drives to
+    # zero, so it is the most expensive kind of wrong ruling. Checked here and
+    # not in derive() so that `gate` -- the thing CI runs, and the thing that
+    # reads a ledger somebody wrote FLOOR into months ago -- refuses too.
+    if side == "client":
+        bad = check_floor_subject()
+        if bad:
+            for b in bad:
+                sys.stderr.write("globals-census: %s\n" % b)
+            die("a client FLOOR no longer has the mechanism that justifies it. "
+                "Re-rule the row rather than leaving a claim nothing checks.")
+
+    raw = []
+    for o in objs:
+        for name, size, bind, kind, loc in symbols(os.path.join(SRC, o)):
+            raw.append((o, srcmap.get(os.path.normpath(o), "?"), name, size, bind, kind, loc))
+
+    dm = demangle(sorted({r[2] for r in raw}))
+    rows = []
+    for o, tu, name, size, bind, kind, loc in raw:
+        d = dm.get(name, name)
+        text = src_line(loc)
+        rows.append(Row(object=object_name(o), tu=tu, kind=kind, bind=bind,
+                        scope=scope_of(d), category=categorise(d, text),
+                        size=size, mangled=name, name=d,
+                        defined_at=farm_relative_loc(loc), text=text))
+    return rows, objs, archives
+
+
+def is_state(row):
+    """Method rule 3. `in` against a closed set, never a substring."""
+    return (row.kind in MUTABLE_KINDS
+            and row.category != "guard"
+            and not is_vec_constant(row))
+
+
+def link_key(row):
+    """LOCAL is one piece of state per OBJECT; everything else one per NAME."""
+    return (row.object, row.mangled) if row.bind == "LOCAL" else ("", row.mangled)
+
+
+def link_level(rows):
+    """{link_key: representative row} over the state rows."""
+    out = {}
+    for r in rows:
+        if is_state(r):
+            out.setdefault(link_key(r), r)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# reconciliation -- the second, independent instrument
+#
+# The claim it makes has to be FALSIFIABLE, and the first version of this was
+# not. It defined "came from an archive" as "in the .so and not in any link-line
+# object", and then checked objects - dropped + that == so. That identity is
+# true by construction: it cannot fail, so it measured nothing. (This repo has
+# recorded 51 such checks; this was the 52nd.)
+#
+# So the claim here is a PARTITION with a residue that must be EMPTY. Every
+# mutable symbol instance in the linked .so is attributed to exactly one
+# independently-derived source:
+#
+#     a link-line object   the census's own reading
+#     an archive           `nm --defined-only` over the .a files, read from
+#                          disk, nothing to do with the .so
+#     the C runtime        a NAMED list below -- libgcc's unwinder and
+#                          crtstuff's __dso_handle and friends
+#
+# and `unattributed` is what is left. AGREE means unattributed == 0. A symbol
+# the tool cannot source reddens instead of being absorbed into a residue
+# bucket that always balances.
+# ---------------------------------------------------------------------------
+
+# libgcc + crtstuff, by name. These have no archive on the link line and no
+# object: the linker brings them in from the toolchain. Listed rather than
+# pattern-matched so a new one shows up as unattributed and has to be read.
+CRT_SYMBOLS = frozenset((
+    "__dso_handle", "__TMC_END__",
+    # libgcc's unwind-dw2-fde-dip.c / unwind-dw2.c statics
+    "dwarf_reg_size_table", "frame_hdr_cache", "frame_hdr_cache_head",
+    "object_mutex", "seen_objects", "unseen_objects", "any_objects_registered",
+    # -fdata-sections local statics libgcc emits with a numeric suffix
+    "adds.1", "subs.2", "completed.0", "marker.4", "once_regsizes.0",
+    # the host's newer libgcc (gcc 15; the CMake build links on the host since
+    # Phase 6b) registers unwind frames in a b-tree, unwind-dw2-fde.c's
+    # version-lock statics -- the container's gcc 10 libgcc had none of these
+    "version_lock_mutex", "version_lock_cond", "registered_objects",
+    "registered_frames", "in_shutdown",
+))
+
+
+def so_path(side, config):
+    """The .so the build links (farm/<config>/build/out/<side>.so): the link
+    edge's own output, before the deploy step splits or copies it."""
+    try:
+        return cmakegraph.link_edge(cmakegraph.SIDES[side], build_for(config))["output"]
+    except cmakegraph.GraphError as e:
+        die(str(e))
+
+
+def so_state(path):
+    """[(mangled, demangled, bind, addr)] of mutable symbols in the linked .so.
+
+    Deduped on (address, name, bind): .symtab and .dynsym both describe the
+    same symbol and `readelf -sW` prints both tables. Without the dedup every
+    exported global counts twice and the reconciliation is off by the size of
+    .dynsym rather than by anything real.
+
+    The four vec constants are excluded here by DEMANGLED name. On the object
+    side the exclusion is pinned to public/mathlib/vector{2,4}d.h; here there is
+    no per-symbol DWARF file to pin it to, so `reconcile` checks that every
+    instance excluded here is a FILE-LOCAL `_ZL<n>vec...`, which is the only
+    shape those four header definitions can take, and that the four names have
+    exactly one definition site in the tree.
+    """
+    rows, seen = [], set()
+    secs = sections(path)
+    for line in sh("readelf", "-sW", path).splitlines():
+        p = line.split()
+        if len(p) < 8 or not p[0].rstrip(":").isdigit():
+            continue
+        _, value, size, typ, bind, _, ndx, name = p[:8]
+        if typ not in ("OBJECT", "TLS", "GNU_UNIQUE") or not ndx.isdigit():
+            continue
+        if kind_of(secs.get(int(ndx), "")) not in MUTABLE_KINDS:
+            continue
+        key = (value, name, bind)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((name, bind, value))
+    dm = demangle(sorted({n for n, _, _ in rows}))
+    kept, excluded_vec = [], []
+    for n, b, v in rows:
+        d = dm.get(n, n)
+        if d.startswith("guard variable for "):
+            continue
+        if d in VEC_CONSTANTS:
+            excluded_vec.append(n)
+            continue
+        kept.append((n, d, b, v))
+    return kept, excluded_vec
+
+
+# nm type letters that are a DEFINITION OF DATA. `u` is in it because a
+# function-local static in an inline template is GNU_UNIQUE, and leaving it out
+# left 12 CDmxElement/CDmxAttribute `defaultValue` instantiations looking as
+# though nothing on the link line defined them. V/v are weak data. A plain nm
+# with no type filter counts undefined rows as definitions
+# (memory: nm-without-symbol-type-inflates).
+ARCHIVE_DATA_TYPES = frozenset("BbDdGgSsuVv")
+
+
+def archive_state(archives):
+    """{mangled: True} for every mutable symbol any link-line archive defines."""
+    out = set()
+    env = dict(os.environ, LC_ALL="C")
+    for a in archives:
+        p = os.path.join(SRC, a)
+        if not os.path.exists(p):
+            continue
+        r = subprocess.run(["nm", "--defined-only", p], capture_output=True,
+                           text=True, errors="replace", env=env)
+        for line in r.stdout.splitlines():
+            f = line.split()
+            if len(f) >= 3 and len(f[1]) == 1 and f[1] in ARCHIVE_DATA_TYPES:
+                out.add(f[2])
+    return out
+
+
+def built_archives(bdir):
+    """The archives the BUILD produces, as opposed to the prebuilt ones.
+
+    Of the six on the server link edge only mathlib and tier1 are
+    `build lib/libX.a: CXX_STATIC_LIBRARY_LINKER__...` outputs; dmxloader.a,
+    particles.a, tier2.a and tier3.a are Valve's prebuilts in the farm. The
+    distinction is the whole point of archives_are_current(): a prebuilt
+    archive's mtime says when it was last written, which after any checkout is
+    newer than everything and means nothing. Absolute paths.
+    """
+    out = set()
+    try:
+        with open(os.path.join(bdir, "build.ninja"), errors="replace") as fh:
+            for line in fh:
+                m = re.match(r"^build (\S+\.a)\s*:\s*\S*STATIC_LIBRARY_LINKER", line)
+                if m:
+                    a = m.group(1)
+                    out.add(a if os.path.isabs(a) else os.path.join(bdir, a))
+    except OSError as e:
+        die("cannot read %s/build.ninja: %s" % (bdir, e))
+    return out
+
+
+def archives_are_current(archives, sop, built):
+    """The BUILT archives whose mtime is NEWER than the .so they link into.
+
+    Under VPC `lib/public/linux64/*.a` WAS NOT CONFIG-QUALIFIED: the debug and
+    the release graph both wrote that one path, so `make debug && make release`
+    left the RELEASE archives on disk beside a DEBUG .so. Measured on
+    2026-09-21: mathlib.a and tier1.a at 05:39:40, debug server.so at 05:39:17,
+    and the reconciliation that resulted left 476 instances unattributed. The
+    CMake build writes each config's archives into its own build dir, so that
+    route is closed -- but an archive newer than the .so still means the .so
+    was linked against something that is gone (an interrupted build), so the
+    check stays.
+
+    This is the `gitignored-build-output-decides-a-verdict` shape, so it is a
+    REFUSAL and not a warning. Only the BUILT archives can go stale this way;
+    the prebuilt ones are the same bytes in both configs.
+    """
+    try:
+        so_mtime = os.path.getmtime(sop)
+    except OSError:
+        return []
+    newer = []
+    for a in archives:
+        if a not in built:
+            continue
+        try:
+            if os.path.getmtime(a if os.path.isabs(a) else os.path.join(SRC, a)) > so_mtime:
+                newer.append(a)
+        except OSError:
+            pass
+    return newer
+
+
+def reconcilable_config(side, prefer=None):
+    """The config whose BUILT archives are not newer than its .so, or None.
+
+    `make debug && make release` writes both configs' archives to the one
+    uncoinfig-qualified path lib/public/linux64/*.a, so at most one config is
+    ever reconcilable at a time and WHICH ONE depends on which was built last.
+    Choosing it here is what keeps a gate from reddening because somebody ran
+    `make release`; when NEITHER is reconcilable the refusal still stands,
+    because then the measurement really is impossible.
+    """
+    order = ([prefer] if prefer else []) + [c for c in CONFIGS if c != prefer]
+    for cfg in order:
+        bdir = build_for(cfg)
+        if not os.path.exists(os.path.join(bdir, "build.ninja")):
+            continue
+        sop = so_path(side, cfg)
+        if not os.path.exists(sop):
+            continue
+        _, archives = link_edge(bdir, side)
+        if not archives:
+            continue
+        if not archives_are_current(archives, sop, built_archives(bdir)):
+            return cfg
+    return None
+
+
+def partition_so(so, obj_global, obj_local, arch):
+    """(from_objects, from_archives, from_crt, unattributed).
+
+    THE RESIDUE IS THE MEASUREMENT. Each .so symbol is attributed to exactly one
+    INDEPENDENTLY derived source, and whatever is left over is reported by name.
+
+    The first draft of the reconciliation defined "from an archive" as "in the
+    .so and not in an object", which made `objects - dropped + archives == so`
+    true by construction: it could not fail, so it measured nothing. Mutating
+    the `elif n in arch` below to `elif True` reproduces that draft, and on a
+    healthy tree it leaves UNATTRIBUTED at 0 either way -- which is why
+    --self-test drives this function over a fixture rather than trusting the
+    live number.
+    """
+    from_objects = from_archives = from_crt = 0
+    unattributed = []
+    # The objects own as many copies of a name as they EMIT, not every copy
+    # the .so holds: a file-local name that an archive also emits is two
+    # pieces of state, one from each (see the self-test's _so3).
+    owned = collections.Counter(obj_local)
+    for n in obj_global:
+        owned[n] += 1
+    for n, d, b, v in so:
+        if owned[n] > 0:
+            owned[n] -= 1
+            from_objects += 1
+        elif n in arch:
+            from_archives += 1
+        elif n in CRT_SYMBOLS or d in CRT_SYMBOLS:
+            from_crt += 1
+        else:
+            unattributed.append((n, d))
+    return from_objects, from_archives, from_crt, unattributed
+
+
+def reconcile(side, config, mtime_policy):
+    """(report_lines, agreed)."""
+    rows, objs, archives = take_census(side, config, mtime_policy)
+    link = link_level(rows)
+
+    sop = so_path(side, config)
+    if not os.path.exists(sop):
+        die("the linked %s is not on disk: %s -- build before reconciling"
+            % (os.path.basename(sop), sop))
+
+    newer = archives_are_current(archives, sop, built_archives(build_for(config)))
+    if newer:
+        die("%d link-line archive%s NEWER than %s (first: %s).\n"
+            "    This .so was linked against archives that have since been\n"
+            "    rewritten (an interrupted or partial build). Rebuild this\n"
+            "    config, then reconcile.\n"
+            "    (Only the archives the build produces can go stale this way;\n"
+            "    the prebuilt ones are the same bytes in both configs.)"
+            % (len(newer), "" if len(newer) == 1 else "s",
+               os.path.relpath(sop, SRC), newer[0]))
+
+    so, so_vec = so_state(sop)
+    so_names = collections.Counter(n for n, _, _, _ in so)
+
+    obj_local = collections.Counter(r.mangled for r in rows
+                                    if is_state(r) and r.bind == "LOCAL")
+    obj_global = {r.mangled for r in rows if is_state(r) and r.bind != "LOCAL"}
+
+    dropped = [n for n in sorted(obj_global) if n not in so_names]
+    for n, c in sorted(obj_local.items()):
+        have = so_names.get(n, 0)
+        if have < c:
+            dropped.extend([n] * (c - have))
+
+    arch = archive_state(archives)
+
+    from_objects, from_archives, from_crt, unattributed = partition_so(
+        so, obj_global, obj_local, arch)
+
+    # The vec exclusion's subject check: on this side it is keyed on the
+    # demangled name, so prove every instance it dropped is the file-local
+    # shape the mathlib header definitions produce.
+    bad_vec = [n for n in so_vec if not re.match(r"^_ZL\d+vec[24]_", n)]
+
+    agreed = not unattributed and not bad_vec
+    accounted = from_objects + from_archives + from_crt
+
+    out = provenance((("side", side), ("config", config),
+                      ("objects", len(objs)), ("archives", len(archives))))
+    out.append("# ---- instrument 1: the link-line objects ----")
+    out.append("link_level\t%d" % len(link))
+    out.append("linker_dropped\t%d" % len(dropped))
+    out.append("# ---- instrument 2: the linked .so, partitioned ----")
+    out.append("so_mutable\t%d" % len(so))
+    out.append("  from_link_line_objects\t%d" % from_objects)
+    out.append("  from_an_archive\t%d" % from_archives)
+    out.append("  from_the_c_runtime\t%d" % from_crt)
+    out.append("  UNATTRIBUTED\t%d" % len(unattributed))
+    out.append("so_vec_constants_excluded\t%d" % len(so_vec))
+    out.append("so_vec_not_file_local\t%d" % len(bad_vec))
+    out.append("# ---- the identity ----")
+    out.append("# link_level - linker_dropped == from_link_line_objects")
+    out.append("objects_side\t%d - %d = %d\tvs from_link_line_objects %d\t%s"
+               % (len(link), len(dropped), len(link) - len(dropped), from_objects,
+                  "AGREE" if len(link) - len(dropped) == from_objects else "DISAGREE"))
+    out.append("# every .so symbol has exactly one source")
+    out.append("partition\t%d + %d + %d = %d\tvs so_mutable %d\t%s"
+               % (from_objects, from_archives, from_crt, accounted, len(so),
+                  "AGREE" if accounted == len(so) else "DISAGREE"))
+    for n, d in unattributed[:25]:
+        out.append("# unattributed\t%s\t%s" % (n, d))
+    for n in bad_vec[:10]:
+        out.append("# vec_not_file_local\t%s" % n)
+    out.append("reconcile\t%s" % ("AGREE" if agreed else "DISAGREE"))
+    if len(link) - len(dropped) != from_objects:
+        agreed = False
+    return out, agreed
+
+
+# ---------------------------------------------------------------------------
+# the ledger and the gate
+# ---------------------------------------------------------------------------
+
+# `mangled` and not `name` is the KEY, and the reason is one row: studio.o
+# holds two distinct statics that both demangle to
+# `CStudioHdr::GroupStudioHdr(int)::__executeCount`. Keyed on the demangled
+# name they collapse into one row, the gate reports the other as a symbol with
+# no ledger row, and the link level reads 468 instead of 469. `name` is carried
+# beside it so the file is readable, but nothing joins on it.
+LEDGER_COLUMNS = ("home", "mangled", "name", "tu", "bind", "kind", "scope",
+                  "size", "disposition", "owner", "reason")
+
+
+def read_ledger(path=None):
+    """{(home, mangled): rowdict}, keyed exactly as link_key(): `home` is the
+    object basename for a LOCAL symbol and the empty string for a folded one."""
+    path = path or LEDGER
+    out = {}
+    if not os.path.exists(path):
+        return out
+    with open(path, errors="replace") as fh:
+        for line in fh:
+            if not line.strip() or line.startswith("#"):
+                continue
+            f = line.rstrip("\n").split("\t")
+            if f[0] == "home":
+                continue
+            row = dict(zip(LEDGER_COLUMNS, f + [""] * len(LEDGER_COLUMNS)))
+            out[(row["home"], row["mangled"])] = row
+    return out
+
+
+# ---------------------------------------------------------------------------
+# what the instrument may derive, and what it must leave to a human
+#
+# Only two rules fire, and each is a fact the tree states rather than a reading
+# of intent:
+#
+#   DEAD   the linker DROPPED it. Nothing in the shipped DLL reads it, which is
+#          the strongest 0-consumer proof available and is re-derivable at any
+#          tip. 33 rows on this tree.
+#   FLOOR  it is static-init REGISTRATION, or it belongs to a header outside
+#          this port. `__g_Create*_reg` InterfaceReg nodes, the DLL instance
+#          whose address EXPOSE_SINGLE_INTERFACE_GLOBALVAR takes at static-init,
+#          the two stock chains the engine walks, the Steam SDK's own inline
+#          accessor cells under public/steam/, and the unwinder's DW.ref.
+#
+# Everything else is UNRULED. That is an ADMISSION, not a disposition: MEMBER,
+# MANAGED and CONST each need a human to read the code and name a consumer or a
+# managed home, and a tool that guessed them would produce a ledger nobody had
+# read row by row -- the exact failure `tools/shim-census`'s passthrough
+# classifier was caught by. The UNRULED count is capped in
+# docs/globals-ratchet.tsv and is the number this plan exists to drive to zero.
+# ---------------------------------------------------------------------------
+
+FLOOR_BY_NAME = frozenset((
+    # EXPOSE_SINGLE_INTERFACE_GLOBALVAR takes this object's address during
+    # static init. plan_globals.md §2: it is THE static that survives.
+    "(anonymous namespace)::s_gameShellDll",
+    # Stock static-init chains the engine walks before DLLInit.
+    "g_pServerClassHead",
+    "s_pNonModifiedPointerProxyHead",
+))
+
+# ---------------------------------------------------------------------------
+# THE CLIENT'S FLOOR, AND IT IS NOT THE SERVER'S WITH THE NAMES CHANGED.
+#
+# Two differences settled by reading the tree rather than assumed from the
+# server's shape (plan_globals.md §2 describes ONE root; the client has four
+# objects of that shape and a longer list of walked chains):
+#
+#   the roots     `CreateInterface` is the DLL's FIRST entry point -- the
+#                 engine resolves IBaseClientDLL before it calls anything the
+#                 DLL controls -- so the object it returns has no earlier
+#                 moment in which to be constructed. On the client that is
+#                 g_ShellClientDLL, and THREE more objects of the identical
+#                 shape: g_Prediction (IPrediction) and the two
+#                 EXPOSE_SINGLE_INTERFACE singletons, whose instance the macro
+#                 declares for the caller. The server has one.
+#
+#   the chains    four stock registration lists, each with a walker ON THE
+#                 CLIENT LINK LINE (verified, not assumed -- the server's
+#                 s_pNonModifiedPointerProxyHead lives in sourcesharp/public/
+#                 dt_send.cpp, which the client link edge does NOT name, and
+#                 stock game/client/hud_element_helper.cpp is likewise not on
+#                 it: the port's shell_hud_framework.cpp replaced it). The
+#                 registration nodes themselves are reached BY NAME and link
+#                 nothing, which is exactly why a symbol census cannot see
+#                 that they are live and why the HEAD is the floor.
+#
+# Every entry is pinned by CLIENT_FLOOR_SUBJECT below: a FLOOR means "stays
+# forever" and hides the row from the UNRULED count, so it must stop being
+# claimed the moment the mechanism that justifies it leaves the tree.
+# ---------------------------------------------------------------------------
+
+#
+# THE ROOTS' EVIDENCE IS A GREP OF THE SHIPPED MODULES, NOT THE MACRO.
+#
+# `derive()` already refuses to floor an InterfaceReg node on its existence,
+# because a node registers a STRING and whether anything resolves that string
+# is a separate question (memory: grep-the-engine-for-the-interface-string;
+# IServerTools has no Linux caller). The same doubt applies to the INSTANCE an
+# EXPOSE_SINGLE_INTERFACE declares. So each root below carries the module that
+# actually resolves its version string, found by grepping the shipped binaries
+# under Source SDK Base 2013 Multiplayer/bin/linux64 on 2026-09-21:
+#
+#   VClient017                     -> engine.so
+#   VClientPrediction001           -> engine.so
+#   VClientDllSharedAppSystems001  -> engine.so
+#   GameClientExports001           -> GameUI.so   (not the engine)
+#
+# All four resolve, so all four objects have an outside caller that takes their
+# address, and `CreateInterface` is the DLL's first entry point -- there is no
+# earlier moment in which to construct them. Had one NOT resolved it would be
+# UNRULED like the other 63 registration nodes, not floored.
+#
+CLIENT_FLOOR_ROOTS = {
+    "g_ShellClientDLL":
+        "engine.so resolves VClient017 and CreateInterface returns this "
+        "object's address; the DLL's first entry point, so nothing it "
+        "controls runs earlier",
+    "g_Prediction":
+        "engine.so resolves VClientPrediction001 and CreateInterface returns "
+        "this object's address",
+    "__g_CClientDLLSharedAppSystems_singleton":
+        "engine.so resolves VClientDllSharedAppSystems001 and CreateInterface "
+        "returns this object's address",
+    "__g_CGameClientExports_singleton":
+        "GameUI.so -- not the engine -- resolves GameClientExports001 and "
+        "CreateInterface returns this object's address",
+}
+
+# Stock static-init chains, each with a walker ON THE CLIENT LINK EDGE. The
+# nodes that push themselves onto these lists are reached BY NAME and link
+# nothing, which is why a symbol census cannot see that they are live and why
+# the HEAD is the floor rather than the nodes.
+CLIENT_FLOOR_CHAINS = {
+    "g_pClientClassHead":
+        "the ClientClass list; shell_clientdll.cpp's GetAllClasses hands its "
+        "head to the engine and shell_tempents_client.cpp walks it",
+    "CClientEffectRegistration::s_pHead":
+        "the DECLARE_CLIENT_EFFECT list, walked in shell_effect_dispatch_client.cpp "
+        "for the managed dispatch table",
+    "CScreenSpaceEffectRegistration::s_pHead":
+        "the screen-space effect list, walked in ScreenSpaceEffects.cpp",
+    "CHudElementHelper::m_sHelpers":
+        "the DECLARE_HUDELEMENT list, walked in shell_hud_framework.cpp",
+}
+
+CLIENT_FLOOR_REASON = dict(CLIENT_FLOOR_ROOTS, **CLIENT_FLOOR_CHAINS)
+CLIENT_FLOOR_BY_NAME = frozenset(CLIENT_FLOOR_REASON)
+
+FLOOR_BY_NAME_BY_SIDE = {
+    "server": FLOOR_BY_NAME,
+    "client": CLIENT_FLOOR_BY_NAME,
+}
+
+# (relative path, needle) per client floor name. The needle is the MECHANISM,
+# not the name: for a root it is the macro invocation that makes
+# CreateInterface return the object's address, and for a chain head it is the
+# walk. A grep for the name alone would pass on a comment mentioning it --
+# a name in text is not a reference.
+CLIENT_FLOOR_SUBJECT = (
+    ("g_ShellClientDLL", "game/client/shell_clientdll.cpp",
+     "EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellClientDLL, IBaseClientDLL, "
+     "CLIENT_DLL_INTERFACE_VERSION, g_ShellClientDLL )"),
+    ("g_Prediction", "game/client/shell_prediction.cpp",
+     "EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CSourceSharpPrediction, IPrediction,"),
+    ("__g_CClientDLLSharedAppSystems_singleton",
+     "game/client/shell_clientdll_appsystems.cpp",
+     "EXPOSE_SINGLE_INTERFACE( CClientDLLSharedAppSystems,"),
+    ("__g_CGameClientExports_singleton",
+     "game/client/shell_clientdll_gameclientexports.cpp",
+     "EXPOSE_SINGLE_INTERFACE( CGameClientExports,"),
+    ("g_pClientClassHead", "sourcesharp/game/client/shell_clientdll.cpp",
+     "return g_pClientClassHead;"),
+    ("CClientEffectRegistration::s_pHead",
+     "sourcesharp/game/client/shell_effect_dispatch_client.cpp",
+     "pReg = CClientEffectRegistration::s_pHead; pReg; pReg = pReg->m_pNext"),
+    ("CScreenSpaceEffectRegistration::s_pHead",
+     "game/client/ScreenSpaceEffects.cpp",
+     "pReg=CScreenSpaceEffectRegistration::s_pHead; pReg!=NULL; "
+     "pReg=pReg->m_pNext"),
+    ("CHudElementHelper::m_sHelpers",
+     "sourcesharp/game/client/shell_hud_framework.cpp",
+     "p = m_sHelpers; p; p = p->GetNext()"),
+)
+
+# The client shell tree moved out from under stock game/client, so the two
+# roots above live under either prefix depending on the port's state. Try both
+# rather than pinning a path that a later move would falsify for no reason.
+CLIENT_FLOOR_PREFIXES = ("", "sourcesharp/")
+
+
+def check_floor_subject(subject=None):
+    """[] when every client FLOOR still has the mechanism that justifies it.
+
+    `subject` is a seam for --self-test only. check_vec_subject() records why:
+    a guard that has never been shown to fire is a guard nobody has checked,
+    and `== []` on a healthy tree passes whether or not the function can ever
+    return anything else.
+    """
+    bad = []
+    rows = subject if subject is not None else CLIENT_FLOOR_SUBJECT
+    for name, rel, needle in rows:
+        found = False
+        for prefix in CLIENT_FLOOR_PREFIXES:
+            path = os.path.join(SRC, prefix + rel)
+            try:
+                if needle in open(path, errors="replace").read():
+                    found = True
+                    break
+            except OSError:
+                continue
+        if not found:
+            bad.append("%s is FLOOR because of `%s` in %s, and that is no "
+                       "longer there" % (name, needle, rel))
+    return bad
+
+# Headers that are not this port's to change. A static inside one of them is
+# the vendor's, and moving it means forking the header.
+FLOOR_HEADER_PREFIXES = ("public/steam/",)
+
+# The unwinder's indirect reference to __gxx_personality_v0, emitted by the
+# compiler into .data of every TU that can throw. Not ours and not state we
+# wrote.
+FLOOR_COMPILER_EMITTED = frozenset(("DW.ref.__gxx_personality_v0",))
+
+
+def derive(row, is_dropped, side="server"):
+    """(disposition, reason). UNRULED whenever no rule fires.
+
+    `side` defaults to server so that every caller written before the client
+    had a ledger keeps its meaning; the ONLY thing it selects is which named
+    floor list applies, because the server's three names and the client's nine
+    are different mechanisms in different files and neither set is true of the
+    other side.
+    """
+    if is_dropped:
+        return "DEAD", "the linker drops it: nothing in the shipped .so reads it"
+    # THE NAMED FLOOR IS TESTED BEFORE THE REGISTRATION RULE, and the order is
+    # the point. The registration rule is an ADMISSION -- "settle this by
+    # grepping the engine for the string" -- and a name in the list below is a
+    # row where somebody has already done that grep and written the answer
+    # down. Tested the other way round, `__g_CGameClientExports_singleton`
+    # matched `EXPOSE_SINGLE_INTERFACE` in the source line at its definition,
+    # came back UNRULED, and its entry in the list was dead text that nothing
+    # would ever have reported as unreachable.
+    if row.name in FLOOR_BY_NAME_BY_SIDE.get(side, frozenset()):
+        if side == "client":
+            return "FLOOR", CLIENT_FLOOR_REASON[row.name]
+        return "FLOOR", "static-init registration named in plan_globals.md 2"
+    if row.category == "iface-registration":
+        # NOT a floor, and this rule used to say it was.
+        #
+        # An InterfaceReg node registers an interface STRING. Whether anything
+        # asks for that string is a separate question the node's existence does
+        # not answer: `IServerTools` has no Linux caller and `PluginHelpersCheck`
+        # does (memory: grep-the-engine-for-the-interface-string). The
+        # 619-row ruling table, which did that analysis, ruled 2 of these 11
+        # DEAD for exactly that reason -- "InterfaceReg node for GameMovement001
+        # that nobody resolves".
+        #
+        # A wrong FLOOR is the most expensive kind of wrong ruling: it means
+        # "stays forever" and it hides the row from the UNRULED count that the
+        # ratchet drives to zero. So the node is UNRULED with the check that
+        # settles it written down.
+        return ("UNRULED",
+                "InterfaceReg node: settle by grepping the ENGINE for the "
+                "interface string it registers, not by its existence")
+    if row.name in FLOOR_COMPILER_EMITTED:
+        return "FLOOR", "compiler-emitted unwinder reference, not state this port wrote"
+    for p in FLOOR_HEADER_PREFIXES:
+        if row.defined_at.startswith(p):
+            return "FLOOR", "a static in %s: the vendor's header, not ours" % p
+    return "UNRULED", ""
+
+
+def linker_dropped_keys(side, config, rows, link):
+    """The link_key()s the linker garbage-collects out of the .so."""
+    sop = so_path(side, config)
+    if not os.path.exists(sop):
+        die("the linked .so is not on disk: %s" % sop)
+    so, _ = so_state(sop)
+    so_names = collections.Counter(n for n, _, _, _ in so)
+    dropped, seen = set(), collections.Counter()
+    for k in sorted(link):
+        r = link[k]
+        if r.bind == "LOCAL":
+            seen[r.mangled] += 1
+            if seen[r.mangled] > so_names.get(r.mangled, 0):
+                dropped.add(k)
+        elif r.mangled not in so_names:
+            dropped.add(k)
+    return dropped
+
+
+def reseed(side, config, mtime_policy, ledger_path=None, write=False):
+    """RECONCILE the ledger against the tree. Never regenerate it.
+
+    A human ruling already in the ledger is carried forward untouched; a symbol
+    with no row gets one, derived if a rule fires and UNRULED if not; a row
+    whose symbol is gone is listed and, with --write, removed. Regenerating
+    from the raw schema would overwrite the triage, which is what the
+    `scan-guards --tsv is not the ledger` note on this project records.
+    """
+    rows, objs, _ = take_census(side, config, mtime_policy)
+    link = link_level(rows)
+
+    # derive()'s vendor-header rule reads the DWARF definition line, and this
+    # host's `nm` may not emit one: binutils 2.35.2 in the steamrt sniper
+    # container prints no file:line at all. Deriving from an empty column would
+    # quietly rule 8 Steam SDK cells UNRULED instead of FLOOR. The GATE does not
+    # need DWARF -- only reseed does -- so this refusal is here and not there.
+    withloc = sum(1 for r in link.values() if r.defined_at)
+    if link and withloc * 4 < len(link):
+        die("this `nm` reports a DWARF definition line for only %d of %d "
+            "symbols, so reseed cannot derive. Run it on a host whose binutils "
+            "emits `nm -l` locations; `gate` reads the symbol table only and "
+            "works anywhere." % (withloc, len(link)))
+
+    dropped = linker_dropped_keys(side, config, rows, link)
+    existing = read_ledger(ledger_path or ledger_for(side))
+
+    kept = added = 0
+    out_rows = []
+    derived = collections.Counter()
+    for k in sorted(link, key=lambda k: (link[k].tu, link[k].name, k[0])):
+        r = link[k]
+        if k in existing and existing[k]["disposition"]:
+            e = existing[k]
+            disp, owner, reason = e["disposition"], e["owner"], e["reason"]
+            kept += 1
+        else:
+            disp, reason = derive(r, k in dropped, side)
+            owner = ""
+            added += 1
+            derived[disp] += 1
+        out_rows.append((k[0], r.mangled, r.name, r.tu, r.bind, r.kind,
+                         r.scope, str(r.size), disp, owner, reason))
+    pruned = sorted(k for k in existing if k not in link)
+
+    report = provenance((("side", side), ("config", config),
+                         ("objects", len(objs))))
+    report.append("link_level\t%d" % len(link))
+    report.append("rows_carried_forward\t%d" % kept)
+    report.append("rows_added\t%d" % added)
+    for d, n in sorted(derived.items()):
+        report.append("  added_as_%s\t%d" % (d, n))
+    report.append("rows_pruned\t%d" % len(pruned))
+    for k in pruned[:20]:
+        report.append("# pruned\t%s\t%s" % k)
+    for d, n in sorted(collections.Counter(r[8] for r in out_rows).items()):
+        report.append("disposition_%s\t%d" % (d, n))
+
+    if write:
+        path = ledger_path or ledger_for(side)
+        head = []
+        if os.path.exists(path):
+            with open(path, errors="replace") as fh:
+                for line in fh:
+                    if line.startswith("#"):
+                        head.append(line.rstrip("\n"))
+                    else:
+                        break
+        with open(path, "w") as fh:
+            for line in head:
+                fh.write(line + "\n")
+            fh.write("\t".join(LEDGER_COLUMNS) + "\n")
+            for r in out_rows:
+                fh.write("\t".join(r) + "\n")
+        report.append("wrote\t%s" % os.path.relpath(path, ROOT))
+    return report, out_rows
+
+
+def gate(side, config, mtime_policy, ledger_path=None):
+    """(report_lines, ok). Set membership, BOTH ways.
+
+    plan_globals.md G0: the gate is membership, not a count. A count alone goes
+    the wrong way for the wrong reason -- deleting one static and adding another
+    is invisible to it -- and a keep-list nobody re-derives rots silently, which
+    is the failure this repo caught at a merge on 2026-09-20. So BOTH:
+
+      up     a state symbol with no ledger row FAILS.
+      stale  a ledger row naming a symbol that is no longer on the link line
+             FAILS. A row describing a tree that no longer exists still reads
+             as a claim, and nothing would ever contradict it.
+
+    and a third, because the ledger's own vocabulary can rot too: a disposition
+    outside plan_globals.md 1's six plus UNRULED FAILS, so a seventh cannot be
+    created by typing one into the file.
+    """
+    rows, objs, _ = take_census(side, config, mtime_policy)
+    link = link_level(rows)
+    ledger = read_ledger(ledger_path or ledger_for(side))
+
+    no_row = sorted(k for k in link if k not in ledger)
+    stale = sorted(k for k in ledger if k not in link)
+    bad_disp = sorted(k for k, v in ledger.items()
+                      if v["disposition"] not in DISPOSITIONS)
+    unruled = sorted(k for k, v in ledger.items()
+                     if v["disposition"] == "UNRULED")
+
+    ok = not no_row and not stale and not bad_disp
+    out = provenance((("side", side), ("config", config), ("objects", len(objs))))
+    out.append("link_level\t%d" % len(link))
+    out.append("ledger_rows\t%d" % len(ledger))
+    out.append("symbols_with_no_ledger_row\t%d" % len(no_row))
+    out.append("ledger_rows_with_no_symbol\t%d" % len(stale))
+    out.append("bad_disposition\t%d" % len(bad_disp))
+    for d in DISPOSITIONS:
+        out.append("disposition_%s\t%d"
+                   % (d, sum(1 for v in ledger.values()
+                             if v["disposition"] == d)))
+    out.append("unruled\t%d" % len(unruled))
+    for k in no_row[:20]:
+        out.append("# no_ledger_row\t%s\t%s" % k)
+    for k in stale[:20]:
+        out.append("# no_such_symbol\t%s\t%s" % k)
+    for k in bad_disp[:20]:
+        out.append("# bad_disposition\t%s\t%s" % k)
+    out.append("gate\t%s" % ("PASS" if ok else "FAIL"))
+    return out, ok
+    return out, ok
+
+
+# ---------------------------------------------------------------------------
+# summary
+# ---------------------------------------------------------------------------
+
+def summary(side, config, mtime_policy):
+    rows, objs, archives = take_census(side, config, mtime_policy)
+    state = [r for r in rows if is_state(r)]
+    link = link_level(rows)
+    guards = [r for r in rows if r.kind in MUTABLE_KINDS and r.category == "guard"]
+    vecs = [r for r in rows if r.kind in MUTABLE_KINDS and is_vec_constant(r)]
+
+    initialisers = 0
+    for o in objs:
+        if "_GLOBAL__sub_I_" in sh("nm", os.path.join(SRC, o)):
+            initialisers += 1
+
+    out = provenance((("side", side), ("config", config)))
+    out.append("objects\t%d" % len(objs))
+    out.append("archives\t%d" % len(archives))
+    out.append("population\t%d" % len(rows))
+    for k in sorted(ALL_KINDS):
+        out.append("  kind_%s\t%d" % (k, sum(1 for r in rows if r.kind == k)))
+    out.append("mutable_raw\t%d" % sum(1 for r in rows if r.kind in MUTABLE_KINDS))
+    out.append("  minus_guard_variables\t%d" % len(guards))
+    out.append("  minus_vec_header_constants\t%d" % len(vecs))
+    out.append("object_level\t%d" % len(state))
+    out.append("link_level\t%d" % len(link))
+    out.append("object_level_bytes\t%d" % sum(r.size for r in state))
+    out.append("objects_with_a_static_initialiser\t%d" % initialisers)
+    for s in ("file-or-global", "function-local", "class-or-namespace"):
+        out.append("scope_%s\t%d" % (s, sum(1 for r in state if r.scope == s)))
+    for c, n in collections.Counter(r.category for r in state).most_common():
+        out.append("category_%s\t%d" % (c, n))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# --self-test
+# ---------------------------------------------------------------------------
+
+_PASS, _FAIL = [], []
+
+
+def ok(cond, what):
+    (_PASS if cond else _FAIL).append(what)
+    sys.stderr.write("  %s  %s\n" % ("ok  " if cond else "FAIL", what))
+
+
+def _mkrow(**kw):
+    base = dict(object="a.o", tu="game/server/a.cpp", kind="bss", bind="LOCAL",
+                scope="file-or-global", category="other", size=4,
+                mangled="_ZL3s_n", name="s_n", defined_at="", text="")
+    base.update(kw)
+    return Row(**base)
+
+
+def self_test():
+    sys.stderr.write("globals-census --self-test\n")
+
+    # -------------------------------------------------------------------
+    # METHOD RULE 3, and it is the whole reason this block exists first.
+    #
+    # Re-running this census on 2026-09-21 with `kind ~ /bss|data/` returned
+    # 11,820 rows from a 1,017-row mutable population, because the substring
+    # also matches `rodata` and `data.rel.ro`. The filter below must be a SET
+    # MEMBERSHIP test, and these rows are the ones that tell the two apart.
+    # -------------------------------------------------------------------
+    ok("rodata" not in MUTABLE_KINDS,
+       "rodata is not mutable state -- a substring filter says it is")
+    ok("relro" not in MUTABLE_KINDS,
+       "relro (.data.rel.ro: vtables, typeinfo) is not mutable state")
+    ok(isinstance(MUTABLE_KINDS, frozenset),
+       "MUTABLE_KINDS is a SET, so it cannot be used as a substring pattern")
+    ok(is_state(_mkrow(kind="bss")), "a .bss symbol is state")
+    ok(is_state(_mkrow(kind="data")), "a .data symbol is state")
+    ok(is_state(_mkrow(kind="tls")), "a thread-local is state")
+    ok(not is_state(_mkrow(kind="rodata")), "a .rodata constant is not state")
+    ok(not is_state(_mkrow(kind="relro")), "a vtable in .data.rel.ro is not state")
+
+    # kind_of: .data.rel.ro must lose to .data, or every vtable is state.
+    ok(kind_of(".data.rel.ro") == "relro",
+       ".data.rel.ro is relro -- tested before .data, or vtables count as state")
+    ok(kind_of(".data.rel.ro.local") == "relro", ".data.rel.ro.local is relro")
+    ok(kind_of(".bss._ZL3s_n") == "bss", "a -ffunction-sections .bss.<sym> is bss")
+    ok(kind_of(".data.s_n") == "data", "a per-symbol .data section is data")
+    ok(kind_of(".rodata.cst8") == "rodata", ".rodata.cst8 is rodata")
+    ok(kind_of(".tbss") == "tls" and kind_of(".tdata") == "tls",
+       "thread-local sections are tls")
+    ok(kind_of(".text") is None and kind_of(".init_array") is None,
+       "sections that are not storage are not classified")
+
+    # exclusions
+    ok(not is_state(_mkrow(category="guard")),
+       "a guard variable is not the state it guards")
+    # THE ROW THAT DISCRIMINATES, TWICE OVER.
+    #
+    # These four ARE file-locals (`_ZL11vec2_origin`), so the first version of
+    # this exclusion, keyed on the MANGLED name, matched none of the 406 and the
+    # object level read 958 instead of 552.
+    #
+    # The SECOND version keyed on the demangled name AND the DWARF file. That
+    # is exact on this host and matched NOTHING in the steamrt sniper
+    # container, where `nm` is binutils 2.35.2 and prints no file:line: the
+    # gtest reported 875 against a ceiling of 469. Hence the empty-defined_at
+    # rows below, which are the container's shape.
+    ok(not is_state(_mkrow(mangled="_ZL11vec2_origin", name="vec2_origin",
+                           size=8, defined_at="public/mathlib/vector2d.h:150")),
+       "vec2_origin is a header constant with one -O0 copy per TU -- and it is "
+       "a FILE-LOCAL, so a mangled-name test misses every one of them")
+    ok(not is_state(_mkrow(mangled="_ZL11vec2_origin", name="vec2_origin",
+                           size=8, defined_at="")),
+       "and it is excluded with NO DWARF LINE AT ALL, which is what the sniper "
+       "container's nm gives -- a count that depends on which binutils is "
+       "installed is not a measurement")
+    ok(not is_state(_mkrow(mangled="_ZL12vec4_invalid", name="vec4_invalid",
+                           size=16, defined_at="")),
+       "vec4_invalid at 16 bytes is a Vector4D and is excluded the same way")
+    ok(is_state(_mkrow(mangled="vec2_origin", name="vec2_origin", size=8)),
+       "a NON-file-local named vec2_origin is somebody's global and is state -- "
+       "the four header definitions can only produce the _ZL form")
+    ok(is_state(_mkrow(mangled="_ZL11vec2_origin", name="vec2_origin",
+                       size=64)),
+       "a file-local named vec2_origin that is NOT 8 bytes is not a Vector2D "
+       "and is state")
+    ok(is_state(_mkrow(mangled="_ZL9vec3_zero", name="vec3_zero", size=12)),
+       "the exclusion is the four named constants, not everything in mathlib")
+
+    ok(check_vec_subject() == [],
+       "public/mathlib/vector{2,4}d.h still define all four constants, so the "
+       "exclusion that drops 406 rows still names its subject")
+    # ... and the guard can actually FIRE. Without these two the row above
+    # passes for a `return []` stub, which a mutation proved.
+    ok(len(check_vec_subject(
+        (("public/mathlib/vector2d.h", ("const Vector2D vec2_moved_away",)),)
+    )) == 1,
+       "check_vec_subject REPORTS a header that no longer defines the constant "
+       "it is supposed to")
+    ok(len(check_vec_subject(
+        (("public/mathlib/a_header_that_is_not_there.h", ("anything",)),)
+    )) == 1,
+       "check_vec_subject REPORTS a header that is gone, rather than reading "
+       "the missing file as nothing to complain about")
+
+    # -------------------------------------------------------------------
+    # The counting rule. LOCAL once per object, everything else once by name.
+    # -------------------------------------------------------------------
+    rows = [
+        _mkrow(object="a.o", bind="LOCAL", mangled="_ZL3s_n"),
+        _mkrow(object="b.o", bind="LOCAL", mangled="_ZL3s_n"),
+        _mkrow(object="a.o", bind="GLOBAL", mangled="g_x"),
+        _mkrow(object="b.o", bind="GLOBAL", mangled="g_x"),
+        _mkrow(object="a.o", bind="UNIQUE", mangled="_ZZ3foovE3s_m"),
+        _mkrow(object="b.o", bind="UNIQUE", mangled="_ZZ3foovE3s_m"),
+    ]
+    ok(len(rows) == 6, "six object-level rows in the fixture")
+    ok(len(link_level(rows)) == 4,
+       "link level folds the two GLOBAL g_x into one and the two UNIQUE into "
+       "one, and keeps both LOCAL s_n -- 4, not 6 and not 3")
+    ok(link_key(_mkrow(object="a.o", bind="LOCAL")) !=
+       link_key(_mkrow(object="b.o", bind="LOCAL")),
+       "two TUs' file-local statics of the same name are two pieces of state")
+    ok(link_key(_mkrow(object="a.o", bind="WEAK", mangled="w")) ==
+       link_key(_mkrow(object="b.o", bind="WEAK", mangled="w")),
+       "a WEAK symbol the linker folds is ONE piece of state")
+
+    # -------------------------------------------------------------------
+    # scope_of: the shape tools/statics-audit could not see.
+    # -------------------------------------------------------------------
+    for demangled, want in (
+        ("PhysicsShell()::s_Shell", "function-local"),
+        ("CFoo::Bar() const::s_n", "function-local"),
+        ("CFoo::Bar(int (*)(char))::s_n", "function-local"),
+        ("CFoo::s_nCount", "class-or-namespace"),
+        ("ns::g_x", "class-or-namespace"),
+        ("g_pEngine", "file-or-global"),
+        ("guard variable for PhysicsShell()::s_Shell", "function-local"),
+        # A template argument carrying `::` but no function call: the depth
+        # walk must not read the inner `::` as a qualifier boundary.
+        ("CUtlVector<ns::T>", "file-or-global"),
+    ):
+        got = scope_of(demangled)
+        ok(got == want, "scope_of(%r) is %s%s"
+           % (demangled, want, "" if got == want else " -- got %s" % got))
+
+    # -------------------------------------------------------------------
+    # _size: readelf prints a decimal size normally and hex for a big one.
+    # -------------------------------------------------------------------
+    ok(_size("266392") == 266392, "a decimal size parses as decimal")
+    ok(_size("0x41098") == 266392, "a hex size parses as hex")
+    ok(_size("16") == 16, "16 is sixteen, not twenty-two -- decimal by default")
+
+    # -------------------------------------------------------------------
+    # The link-edge reader, on a fixture graph with a CONTINUED edge. Reading
+    # only the first line would return two objects out of three and every
+    # count after it would be wrong in the direction that looks fine.
+    # -------------------------------------------------------------------
+    tmp = tempfile.mkdtemp(prefix="globals-census-selftest-")
+    try:
+        # A CMake build dir: farm/<cfg>/build beside farm/<cfg>/src.
+        g = os.path.join(tmp, "farm", "debug", "build")
+        os.makedirs(g)
+        src = os.path.join(tmp, "farm", "debug", "src")
+        srv = "src/server/native/CMakeFiles/server_sourcesharp.dir/"
+        cli = "src/client/native/CMakeFiles/client_sourcesharp.dir/"
+        with open(os.path.join(g, "build.ninja"), "w") as fh:
+            fh.write("build %sa.cpp.o: CXX_COMPILER__server_sourcesharp_Debug %s/game/server/a.cpp\n" % (srv, src))
+            fh.write("build out/client.so: CXX_SHARED_LIBRARY_LINKER__client_sourcesharp_Debug"
+                     " %sz.cpp.o\n" % cli)
+            fh.write("  LINK_LIBRARIES = -ldl\n\n")
+            fh.write("build out/server.so: CXX_SHARED_LIBRARY_LINKER__server_sourcesharp_Debug $\n")
+            fh.write("    %sa.cpp.o $\n" % srv)
+            fh.write("    %sb.cpp.o | lib/libtier1.a\n" % srv)
+            fh.write("  LINK_LIBRARIES = -lmanaged_host  lib/libtier1.a  /abs/tier2.a\n")
+            fh.write("\nbuild somethingelse: phony\n")
+        with open(os.path.join(g, "compile_commands.json"), "w") as fh:
+            import json
+            json.dump([{"directory": g, "command": "c++ -c x", "file": src + "/game/server/a.cpp",
+                        "output": srv + "a.cpp.o"},
+                       {"directory": g, "command": "c++ -c x", "file": src + "/game/client/z.cpp",
+                        "output": cli + "z.cpp.o"}], fh)
+        objs, arch = link_edge(g, "server")
+        ok(len(objs) == 2, "the continued link edge yields both objects (got %d)"
+           % len(objs))
+        ok(arch == ["/abs/tier2.a", os.path.join(g, "lib/libtier1.a")],
+           "the archives are read off the same edge's LINK_LIBRARIES (got %s)" % arch)
+        ok(all("client" not in o for o in objs),
+           "the client's own link edge is not mixed into the server's")
+        cobjs, _ = link_edge(g, "client")
+        ok(len(cobjs) == 1, "the client edge reads independently")
+        ok(compile_edges(g, "server")[os.path.join(g, srv + "a.cpp.o")]
+           == "game/server/a.cpp", "compile_commands.json maps object to source")
+        ok(object_name(os.path.join(g, srv + "a.cpp.o")) == "a.o",
+           "the ledger's object name is VPC's spelling, a.o, not a.cpp.o")
+
+        # The refusal. `audit` is what stands between an unbuilt tree and a
+        # census reporting zero statics.
+        f = audit(g, [os.path.join(g, srv + "a.cpp.o")], {}, "off")
+        ok(f and "MISSING" in f[0],
+           "an object the graph names that is not on disk is FATAL")
+        ok(audit(g, [], {}, "off"), "an empty link edge is FATAL, not zero state")
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # -------------------------------------------------------------------
+    # The ledger join, both directions, on a fixture.
+    # -------------------------------------------------------------------
+    tmp2 = tempfile.mkdtemp(prefix="globals-census-ledger-")
+    try:
+        p = os.path.join(tmp2, "l.tsv")
+        with open(p, "w") as fh:
+            fh.write("# a comment\n")
+            fh.write("\t".join(LEDGER_COLUMNS) + "\n")
+            fh.write("a.o\t_ZL3s_n\ts_n\tgame/server/a.cpp\tLOCAL\tbss\t"
+                     "file-or-global\t4\tDEAD\tlane\tbecause\n")
+            fh.write("b.o\t_ZZ3foovE3s_m\tfoo()::s_m\tgame/server/b.cpp\t"
+                     "LOCAL\tbss\tfunction-local\t4\tfoo()::s_m_0 exists too"
+                     "\t\t\n")
+        led = read_ledger(p)
+        ok(len(led) == 2, "the ledger reader skips comments and the header row")
+        ok(led[("a.o", "_ZL3s_n")]["disposition"] == "DEAD",
+           "the ledger's disposition is read from the right column")
+        ok(("a.o", "s_n") not in led,
+           "the ledger key is the MANGLED name, the one link_key() folds on -- "
+           "keyed on the demangled name studio.o's two __executeCount statics "
+           "collapse into one row and the gate reports a phantom orphan")
+        ok(led[("a.o", "_ZL3s_n")]["name"] == "s_n",
+           "the demangled name is carried beside the key so the file reads")
+    finally:
+        import shutil
+        shutil.rmtree(tmp2, ignore_errors=True)
+
+    # -------------------------------------------------------------------
+    # The reconciliation's own traps.
+    # -------------------------------------------------------------------
+    ok("u" in ARCHIVE_DATA_TYPES,
+       "nm type `u` (GNU_UNIQUE) is a data definition -- leaving it out left "
+       "12 CDmxElement/CDmxAttribute template `defaultValue` statics looking "
+       "as though nothing on the link line defined them, and they landed in "
+       "the unattributed residue")
+    ok("V" in ARCHIVE_DATA_TYPES and "v" in ARCHIVE_DATA_TYPES,
+       "weak data counts as a definition")
+    ok("T" not in ARCHIVE_DATA_TYPES and "t" not in ARCHIVE_DATA_TYPES,
+       "text is not data -- a filter that took every defined symbol would "
+       "attribute half the archive to every unattributed name")
+    ok("U" not in ARCHIVE_DATA_TYPES,
+       "an UNDEFINED reference is not a definition (memory: "
+       "nm-without-symbol-type-inflates)")
+
+    tmp3 = tempfile.mkdtemp(prefix="globals-census-archives-")
+    try:
+        with open(os.path.join(tmp3, "build.ninja"), "w") as fh:
+            fh.write("build lib/public/linux64/mathlib.a: CXX_STATIC_LIBRARY_LINKER__mathlib_Debug a.o b.o\n")
+            fh.write("build lib/public/linux64/tier1.a: CXX_STATIC_LIBRARY_LINKER__tier1_Debug c.o\n")
+            fh.write("build lib/public/linux64/copied.a: CUSTOM_COMMAND x\n")
+            fh.write("# lib/public/linux64/tier2.a is prebuilt, not built\n")
+        built = built_archives(tmp3)
+        ok(built == {os.path.join(tmp3, "lib/public/linux64/mathlib.a"),
+                     os.path.join(tmp3, "lib/public/linux64/tier1.a")},
+           "built_archives reads the archives the BUILD links (got %s)"
+           % sorted(built))
+        ok(os.path.join(tmp3, "lib/public/linux64/tier2.a") not in built,
+           "a PREBUILT archive is not a build output -- its mtime is when the "
+           "worktree was written and says nothing about which config it is")
+
+        # A .so older than both archives. Only the BUILT one may be reported.
+        so = os.path.join(tmp3, "server.so")
+        open(so, "w").close()
+        os.utime(so, (1000, 1000))
+        srcdir = os.path.join(tmp3, "lib", "public", "linux64")
+        os.makedirs(srcdir)
+        for a in ("mathlib.a", "tier2.a"):
+            f = os.path.join(srcdir, a)
+            open(f, "w").close()
+            os.utime(f, (2000, 2000))
+        old_src = globals()["SRC"]
+        try:
+            globals()["SRC"] = tmp3
+            names = [os.path.join(tmp3, "lib/public/linux64/mathlib.a"),
+                     os.path.join(tmp3, "lib/public/linux64/tier2.a")]
+            stale = archives_are_current(names, so, built)
+        finally:
+            globals()["SRC"] = old_src
+        ok(stale == [os.path.join(tmp3, "lib/public/linux64/mathlib.a")],
+           "a BUILT archive newer than the .so is the config-mismatch refusal, "
+           "and a TRACKED one newer than it is not (got %s)" % stale)
+    finally:
+        import shutil
+        shutil.rmtree(tmp3, ignore_errors=True)
+
+    # -------------------------------------------------------------------
+    # partition_so, driven over a fixture. THE LIVE NUMBER CANNOT TEST THIS:
+    # UNATTRIBUTED is 0 on a healthy tree whether the partition is right or
+    # whether it absorbs everything into the archive bucket, and a mutation
+    # proved exactly that -- `elif True` left the whole suite green.
+    # -------------------------------------------------------------------
+    _so = [
+        ("g_x", "g_x", "GLOBAL", "1000"),               # a link-line global
+        ("_ZL3s_n", "s_n", "LOCAL", "1008"),            # a link-line local
+        ("_ZN5tier1L3s_qE", "tier1::s_q", "LOCAL", "1010"),   # an archive's
+        ("__dso_handle", "__dso_handle", "GLOBAL", "1018"),   # the C runtime
+        ("_ZL7mystery", "mystery", "LOCAL", "1020"),    # nobody's
+    ]
+    _obj_global = {"g_x"}
+    _obj_local = collections.Counter({"_ZL3s_n": 1})
+    _arch = {"_ZN5tier1L3s_qE"}
+    _o, _a, _c, _u = partition_so(_so, _obj_global, _obj_local, _arch)
+    ok((_o, _a, _c) == (2, 1, 1),
+       "partition_so sources 2 from objects, 1 from an archive and 1 from the "
+       "C runtime (got %r)" % ((_o, _a, _c),))
+    ok([n for n, _ in _u] == ["_ZL7mystery"],
+       "a symbol no independently-derived source explains is REPORTED, not "
+       "absorbed -- this is the assertion the live UNATTRIBUTED==0 cannot make")
+    ok(_o + _a + _c + len(_u) == len(_so),
+       "the partition is total: every symbol lands in exactly one bucket")
+
+    # One file-local NAME, two pieces of state: a link-line object's copy and
+    # an archive's. Found at the Phase 0 merge (plan_sharp_repo.md) on the
+    # client: detailobjectsystem.o and mathlib.a each carry
+    # _ZL17Four_MagicNumbers, client.so holds both, and a name-membership
+    # partition put BOTH in the objects bucket -- 1716 vs link_level less
+    # dropped 1715, reconcile DISAGREE. The object side owns only as many
+    # copies as the objects emit.
+    _so3 = [
+        ("_ZL5magic", "magic", "LOCAL", "1000"),        # the object's copy
+        ("_ZL5magic", "magic", "LOCAL", "1010"),        # the archive's copy
+    ]
+    _o3, _a3, _c3, _u3 = partition_so(
+        _so3, set(), collections.Counter({"_ZL5magic": 1}), {"_ZL5magic"})
+    ok((_o3, _a3, len(_u3)) == (1, 1, 0),
+       "a local name an object AND an archive both emit is one copy each, "
+       "not two from the objects (got %r)" % ((_o3, _a3, len(_u3)),))
+
+    _o2, _a2, _c2, _u2 = partition_so(_so, set(), collections.Counter(), set())
+    ok(len(_u2) == 4 and _c2 == 1,
+       "with no objects and no archives to attribute to, four of the five are "
+       "unattributed and only the named crt symbol is explained -- the buckets "
+       "do not quietly swallow what they cannot source")
+
+    ok(reconcilable_config("server") in (None,) + CONFIGS,
+       "reconcilable_config answers a config or None, never a guess")
+    ok(reconcilable_config("server") is not None,
+       "one of the two configs is reconcilable in this tree right now -- if "
+       "neither is, something built the other config last and the "
+       "reconciliation cannot be taken at all")
+
+    ok("__dso_handle" in CRT_SYMBOLS and "dwarf_reg_size_table" in CRT_SYMBOLS,
+       "the C runtime residue is a NAMED list, so a new one reddens as "
+       "unattributed instead of vanishing into a bucket that always balances")
+    ok(len(CRT_SYMBOLS) == 19,
+       "19 crt/libgcc names (14 + the host libgcc 15 unwinder's 5, Phase 6b), which is what the partition needs on this tree; "
+       "a change here is a change to what the reconciliation excuses")
+
+    ok(set(DISPOSITIONS) == {"GONE", "DEAD", "CONST", "MANAGED", "MEMBER",
+                             "FLOOR", "UNRULED"},
+       "plan_globals.md 1's six dispositions plus UNRULED, and no eighth can "
+       "be created by typing one into the ledger")
+    ok("UNRULED" in DISPOSITIONS,
+       "UNRULED is a first-class row state: a symbol with no ruling still has "
+       "a row, so the gate's membership check is about the SET and the ratchet "
+       "is about the ruling")
+
+    # -------------------------------------------------------------------
+    # derive(): two rules fire and everything else is an admission. A tool
+    # that guessed MEMBER/MANAGED/CONST would produce a ledger nobody read.
+    # -------------------------------------------------------------------
+    ok(derive(_mkrow(), True) == ("DEAD",
+       "the linker drops it: nothing in the shipped .so reads it"),
+       "a symbol the linker dropped derives DEAD")
+    ok(derive(_mkrow(category="iface-registration"), False)[0] == "UNRULED",
+       "an InterfaceReg node is NOT derived FLOOR: it registers a string, and "
+       "whether anything resolves that string is a question its existence does "
+       "not answer -- the ruling table found 2 of 11 dead for that reason")
+    ok(derive(_mkrow(name="(anonymous namespace)::s_gameShellDll"), False)[0]
+       == "FLOOR", "the DLL instance whose address static-init takes is FLOOR")
+    ok(derive(_mkrow(defined_at="public/steam/isteamugc.h:395"), False)[0]
+       == "FLOOR", "a static inside a vendor header under public/steam/ is FLOOR")
+    ok(derive(_mkrow(defined_at="public/mathlib/vector.h:9"), False)[0]
+       == "UNRULED",
+       "the vendor-header rule names public/steam/ and nothing else -- it is "
+       "not a licence for every header under public/")
+    ok(derive(_mkrow(category="convar"), False)[0] == "UNRULED",
+       "a ConVar object is NOT derived: whether it becomes managed, a member "
+       "or stays is a ruling somebody makes, not a category lookup")
+    ok(derive(_mkrow(scope="function-local", size=266392), False)[0] == "UNRULED",
+       "being big and function-local derives nothing -- PhysicsShell()::s_Shell "
+       "is 266,392 bytes and still needs a human to say where it goes")
+    ok(derive(_mkrow(), True)[0] == "DEAD"
+       and derive(_mkrow(category="iface-registration"), True)[0] == "DEAD",
+       "DEAD wins: a registration node the linker dropped is gone, whatever "
+       "string it would have registered")
+    ok(derive(_mkrow(name="(anonymous namespace)::s_gameShellDll"), True)[0]
+       == "DEAD",
+       "and DEAD wins over the named floor too -- the linker is the evidence, "
+       "a name in a list is a claim")
+
+    # -------------------------------------------------------------------
+    # ONE LEDGER PER SIDE.
+    #
+    # `--side client` existed before any of this and every ledger path in the
+    # file was the server's, so the client gate joined 1,966 client symbols
+    # against 469 server rows and failed in both directions at once -- which
+    # reads like a gate working, and is a gate answering about another tree.
+    # -------------------------------------------------------------------
+    ok(ledger_for("server") != ledger_for("client"),
+       "the two sides do not share a ledger file: a client reseed would "
+       "otherwise rewrite the rows the server lanes are ruling")
+    ok(ledger_for("server") == LEDGER,
+       "the server's ledger path is unchanged -- other lanes own that file")
+    ok(os.path.basename(ledger_for("client")) == "globals-client-ledger.tsv",
+       "the client's ledger is docs/globals-client-ledger.tsv")
+    ok(set(LEDGER_BY_SIDE) == set(SIDES) and set(RATCHET_BY_SIDE) == set(SIDES),
+       "every side the census accepts has a ledger and a ratchet, so "
+       "--side <new> cannot silently fall back to the server's")
+    ok(ratchet_for("server") != ratchet_for("client"),
+       "and the two ratchets are separate too -- one ceiling cannot cap two "
+       "populations that differ by 4x")
+
+    # -------------------------------------------------------------------
+    # THE CLIENT'S FLOOR IS NOT THE SERVER'S.
+    # -------------------------------------------------------------------
+    ok(derive(_mkrow(name="g_ShellClientDLL"), False, "client")[0] == "FLOOR",
+       "the client's CreateInterface root is FLOOR on the client")
+    ok(derive(_mkrow(name="g_ShellClientDLL"), False, "server")[0] == "UNRULED",
+       "and is NOT floored on the server, where no such object exists -- the "
+       "two lists are different mechanisms in different files")
+    ok(derive(_mkrow(name="(anonymous namespace)::s_gameShellDll"),
+              False, "client")[0] == "UNRULED",
+       "and the server's root is not a floor on the client either")
+    ok(derive(_mkrow(name="g_ShellClientDLL"), False)[0] == "UNRULED",
+       "derive() still defaults to the server, so every caller written before "
+       "the client had a ledger keeps its meaning")
+    ok(derive(_mkrow(name="g_ShellClientDLL"), True, "client")[0] == "DEAD",
+       "DEAD still wins over the client's named floor -- the linker is "
+       "evidence and a name in a list is a claim")
+    ok(derive(_mkrow(name="__g_CGameClientExports_singleton",
+                     category="iface-registration"), False, "client")[0]
+       == "FLOOR",
+       "the named floor is tested BEFORE the registration rule: the singleton's "
+       "own definition line IS an EXPOSE_SINGLE_INTERFACE, so tested after it "
+       "the list entry was dead text nothing would report as unreachable")
+    ok("GameUI.so" in derive(_mkrow(name="__g_CGameClientExports_singleton",
+                                    category="iface-registration"),
+                             False, "client")[1],
+       "and the reason names the module that actually resolves the string -- "
+       "GameClientExports001 is in GameUI.so and not in the engine")
+    ok(derive(_mkrow(category="iface-registration"), False, "client")[0]
+       == "UNRULED",
+       "a registration node NOT in the list is still UNRULED on the client: "
+       "the floor is a grep somebody did, not a shape")
+    ok(len(CLIENT_FLOOR_ROOTS) == 4 and len(CLIENT_FLOOR_CHAINS) == 4
+       and not (set(CLIENT_FLOOR_ROOTS) & set(CLIENT_FLOOR_CHAINS)),
+       "four roots and four chains, disjoint -- the two groups are different "
+       "evidence and merging them would hide which was checked how")
+    ok(all(CLIENT_FLOOR_REASON[n] for n in CLIENT_FLOOR_BY_NAME),
+       "every client floor carries a written reason: a disposition with no "
+       "evidence is worse than UNRULED because it looks settled")
+    ok(len(CLIENT_FLOOR_BY_NAME) == 8,
+       "the client floor is eight names: four CreateInterface roots and four "
+       "walked registration chains (got %d; CUserMessageRegister's left with "
+       "c_user_message_register.cpp, lane HC 2026-10-04)" % len(CLIENT_FLOOR_BY_NAME))
+    ok(len(CLIENT_FLOOR_SUBJECT) == len(CLIENT_FLOOR_BY_NAME)
+       and {r[0] for r in CLIENT_FLOOR_SUBJECT} == set(CLIENT_FLOOR_BY_NAME),
+       "every client floor name is pinned by a subject row, and no subject "
+       "row pins a name that is not floored")
+    ok("s_pNonModifiedPointerProxyHead" not in CLIENT_FLOOR_BY_NAME,
+       "the server's dt_send.cpp chain is NOT a client floor: that file is "
+       "not on the client link edge, and a floor copied across sides is a "
+       "claim nobody measured")
+
+    # The guard, driven over a fixture: a guard that has never been shown to
+    # fire is a guard nobody has checked.
+    ok(check_floor_subject() == [],
+       "every client FLOOR still has the mechanism that justifies it")
+    ok(len(check_floor_subject(
+        (("x", "game/client/shell_clientdll.cpp", "no such text anywhere"),))) == 1,
+       "a floor whose mechanism has left the file is reported, not excused")
+    ok(len(check_floor_subject(
+        (("x", "game/client/there-is-no-such-file.cpp", "anything"),))) == 1,
+       "and so is one whose file is gone")
+    ok(check_floor_subject(
+        (("g_ShellClientDLL", "game/client/shell_clientdll.cpp",
+          "EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellClientDLL, IBaseClientDLL, "
+          "CLIENT_DLL_INTERFACE_VERSION, g_ShellClientDLL )"),)) == [],
+       "the root's mechanism is found under the sourcesharp/ prefix as well "
+       "as the stock one, so moving the shell tree does not falsify it")
+
+    # audit()'s side, which was hardcoded to "server": a client run with a
+    # broken regex sent the reader to look at the edge that still works.
+    with tempfile.TemporaryDirectory() as _t:
+        _g = _t
+        ok("no client link edge" in audit(_g, [], {}, "off", "client")[0],
+           "an empty CLIENT link edge names the client in its refusal")
+        ok("no server link edge" in audit(_g, [], {}, "off")[0],
+           "and the refusal still says server when no side is given")
+
+    ok(ROOT == os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+       "the repo root comes from this file's own location, never a hardcoded "
+       "worktree path -- a committed harness outlives its lane")
+
+    sys.stderr.write("\n%d ok, %d FAILED\n" % (len(_PASS), len(_FAIL)))
+    return 1 if _FAIL else 0
+
+
+# ---------------------------------------------------------------------------
+
+def main(argv=None):
+    p = argparse.ArgumentParser(
+        prog="globals-census",
+        description="static-storage state on the server link line")
+    p.add_argument("--self-test", "--selftest", dest="self_test",
+                   action="store_true", help="run the hermetic self-test")
+    p.add_argument("--side", choices=SIDES, default="server")
+    p.add_argument("--config", choices=CONFIGS + ("auto",), default="debug",
+                   help="'auto' is for `reconcile` only: it picks whichever "
+                        "config's graph-built archives are still the ones its "
+                        ".so was linked from. At most one ever is.")
+    p.add_argument("--mtime-policy", choices=("on", "off"), default="off",
+                   help="'on' refuses when an object is older than its source. "
+                        "Default off: a regenerated graph makes every object "
+                        "look stale and that is not evidence of anything -- "
+                        "ninja's own `-n` is the real check. The MISSING "
+                        "refusal is unconditional either way.")
+    p.add_argument("--out", help="write the census TSV here instead of stdout")
+    p.add_argument("--ledger", help="a ledger other than docs/globals-ledger.tsv")
+    p.add_argument("--write", action="store_true",
+                   help="reseed: actually rewrite the ledger. Without it the "
+                        "reconciliation is reported and nothing is changed.")
+    p.add_argument("cmd", nargs="?", default="summary",
+                   choices=("census", "summary", "reconcile", "gate", "reseed"))
+    args = p.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
+
+    if args.cmd == "census":
+        rows, objs, archives = take_census(args.side, args.config, args.mtime_policy)
+        fh = open(args.out, "w") if args.out else sys.stdout
+        try:
+            for line in provenance((("side", args.side), ("config", args.config),
+                                    ("objects", len(objs)),
+                                    ("archives", len(archives)))):
+                fh.write(line + "\n")
+            w = csv.writer(fh, delimiter="\t", lineterminator="\n",
+                           quoting=csv.QUOTE_NONE, escapechar="\\")
+            w.writerow(COLUMNS)
+            for r in rows:
+                w.writerow(r)
+        finally:
+            if args.out:
+                fh.close()
+        return 0
+
+    if args.cmd == "summary":
+        print("\n".join(summary(args.side, args.config, args.mtime_policy)))
+        return 0
+
+    if args.cmd == "reconcile":
+        cfg = args.config
+        if cfg == "auto":
+            cfg = reconcilable_config(args.side)
+            if cfg is None:
+                die("neither config is reconcilable: in both, a graph-built "
+                    "archive is newer than the .so it links into. "
+                    "lib/public/linux64/*.a is not config-qualified, so "
+                    "whichever config was built LAST is the one that can be "
+                    "reconciled -- build one and try again.")
+        lines, agreed = reconcile(args.side, cfg, args.mtime_policy)
+        print("\n".join(lines))
+        return 0 if agreed else 1
+
+    if args.cmd == "reseed":
+        lines, _ = reseed(args.side, args.config, args.mtime_policy,
+                          args.ledger, args.write)
+        print("\n".join(lines))
+        return 0
+
+    if args.cmd == "gate":
+        lines, good = gate(args.side, args.config, args.mtime_policy, args.ledger)
+        print("\n".join(lines))
+        return 0 if good else 1
+
+    p.print_help()
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

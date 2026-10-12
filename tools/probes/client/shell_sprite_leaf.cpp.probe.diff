@@ -1,0 +1,164 @@
+--- a/src/client/native/shell_sprite_leaf.cpp
++++ b/src/client/native/shell_sprite_leaf.cpp
+@@ -64,6 +64,7 @@
+ #include "sourcesharp.h"
+ #include "managed_runtime_client.h"
+ #include "imanaged_areas_client.h"   // plan_client_vtables CE6: IManagedTempEntsClient
++#include "fx_probe_log.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -197,12 +198,16 @@
+ 	// stock spelled it twice, once in each direction, and the two could drift.
+ 	if ( SpriteRule( rendermode, SS_SPRITE_RULE_OPAQUE ) )
+ 	{
++		FxProbeLog( "spb 1" );
+ 		render->SetBlend( 1.0f );
+ 	}
+ 	
+ 	material = psprite->GetMaterial( (RenderMode_t)rendermode, frame );
+ 	if ( !material )
++	{
++		FxProbeLog( "spq-nomat" );
+ 		return;
++	}
+ 
+ 	CMatRenderContextPtr pRenderContext( materials );
+ 	
+@@ -273,6 +278,13 @@
+ 	meshBuilder.AdvanceVertex();
+ 	
+ 	meshBuilder.End();
++	FxProbeLog( "spq wire=%d scale=%.9g col=%d %d %d %d hdr=%.9g uv=%.9g %.9g %.9g %.9g p0=%.9g %.9g %.9g p1=%.9g %.9g %.9g p2=%.9g %.9g %.9g p3=%.9g %.9g %.9g",
++		( ShouldDrawInWireFrameMode() || r_drawsprites.GetInt() == 2 ) ? 1 : 0, scale, r, g, b, a, flHDRColorScale,
++		flMinU, flMinV, flMaxU, flMaxV,
++		vec_a.x + vec_b.x, vec_a.y + vec_b.y, vec_a.z + vec_b.z,
++		vec_c.x + vec_b.x, vec_c.y + vec_b.y, vec_c.z + vec_b.z,
++		vec_c.x + vec_d.x, vec_c.y + vec_d.y, vec_c.z + vec_d.z,
++		vec_a.x + vec_d.x, vec_a.y + vec_d.y, vec_a.z + vec_d.z );
+ 	pMesh->Draw();
+ 
+ 	// Step 7a's gate: counted AFTER the quad has been built and drawn, past
+@@ -297,13 +309,17 @@
+ 	float brightness;
+ 
+ 	brightness = PixelVisibility_FractionVisible( params, queryHandle );
++	FxProbeLog( "spg-vis pos=%.9g %.9g %.9g proxy=%.9g aspect=%.9g frac=%.9g", params.position.x, params.position.y, params.position.z, params.proxySize, params.proxyAspect, brightness );
+ 	if ( brightness <= 0.0f )
+ 	{
++		FxProbeLog( "spg-ret 0" );
+ 		return 0.0f;
+ 	}
+ 	dist = GlowSightDistance( params.position, false );
++	FxProbeLog( "spg-dist %.9g", dist );
+ 	if ( dist <= 0.0f )
+ 	{
++		FxProbeLog( "spg-ret 0" );
+ 		return 0.0f;
+ 	}
+ 
+@@ -311,6 +327,7 @@
+ 	// holds its brightness at any range, which is what a distant beacon needs.
+ 	if ( renderfx == (int)SpriteRules()[ SS_SPRITE_NO_DISSIPATION_FX ] )
+ 	{
++		FxProbeLog( "spg-ret %.9g", (float)alpha * (1.0f/255.0f) * brightness );
+ 		return (float)alpha * (1.0f/255.0f) * brightness;
+ 	}
+ 
+@@ -335,6 +352,7 @@
+ 		*pscale *= dist * ( 1.0f / SpriteRules()[ SS_SPRITE_GLOW_SCALE_DIVISOR ] );
+ 	}
+ 
++	FxProbeLog( "spg-ret %.9g scale=%.9g", fadeOut * brightness, *pscale );
+ 	return fadeOut * brightness;
+ }
+ 
+@@ -519,6 +537,7 @@
+ 
+ 	if ( !r_drawsprites.GetBool() || !model || modelinfo->GetModelType( model ) != mod_sprite )
+ 	{
++		FxProbeLog( "spr-skip draw=%d model=%d", r_drawsprites.GetInt(), model ? modelinfo->GetModelType( model ) : -1 );
+ 		return 0;
+ 	}
+ 
+@@ -526,9 +545,18 @@
+ 	CEngineSprite *psprite = (CEngineSprite *)modelinfo->GetModelExtraData( model );
+ 	if ( !psprite )
+ 	{
++		FxProbeLog( "spr-skip nosprite" );
+ 		return 0;
+ 	}
+ 
++	{
++		FxProbeLog( "spr-in id=%p draw=%d wire=%d orient=%d ext=%.9g %.9g %.9g %.9g wh=%d %d o=%.9g %.9g %.9g a=%.9g %.9g %.9g att=%d mode=%d fx=%d alpha=%d rgb=%d %d %d scale=%.9g hdr=%.9g blend=%.9g fwd=%.9g %.9g %.9g right=%.9g %.9g %.9g up=%.9g %.9g %.9g frame=%.9g",
++			(void *)this, r_drawsprites.GetInt(), ShouldDrawInWireFrameMode() ? 1 : 0, psprite->GetOrientation(),
++			psprite->GetLeft(), psprite->GetRight(), psprite->GetUp(), psprite->GetDown(),
++			psprite->GetWidth(), psprite->GetHeight(),
++			origin.x, origin.y, origin.z, angles.x, angles.y, angles.z, attachedto ? 1 : 0, rendermode, renderfx, alpha, r, g, b, scale, flHDRColorScale,
++			render->GetBlend(), CurrentViewForward().x, CurrentViewForward().y, CurrentViewForward().z, CurrentViewRight().x, CurrentViewRight().y, CurrentViewRight().z, CurrentViewUp().x, CurrentViewUp().y, CurrentViewUp().z, frame );
++	}
+ 	Vector effect_origin;
+ 	VectorCopy( origin, effect_origin );
+ 
+@@ -561,9 +589,11 @@
+ 			b *= blend;
+ 		}
+ 
++		FxProbeLog( "spr-blend %.9g rgb=%d %d %d scale=%.9g", blend, r, g, b, scale );
+ 		render->SetBlend( blend );
+ 		if ( blend <= 0.0f )
+ 		{
++			FxProbeLog( "spr-ret 0" );
+ 			return 0;
+ 		}
+ 	}
+@@ -571,6 +601,7 @@
+ 	// Get orthonormal basis
+ 	Vector forward, right, up;
+ 	GetSpriteAxes( (SPRITETYPE)psprite->GetOrientation(), origin, angles, forward, right, up );
++	FxProbeLog( "spr-axes f=%.9g %.9g %.9g r=%.9g %.9g %.9g u=%.9g %.9g %.9g eo=%.9g %.9g %.9g", forward.x, forward.y, forward.z, right.x, right.y, right.z, up.x, up.y, up.z, effect_origin.x, effect_origin.y, effect_origin.z );
+ 
+ 	// Draw
+ 	DrawSpriteModel( 
+@@ -586,6 +617,7 @@
+ 		alpha, 
+ 		forward, right, up, flHDRColorScale );
+ 
++	FxProbeLog( "spr-ret 1" );
+ 	return 1;
+ }
+ 
+@@ -752,3 +784,33 @@
+ 		}
+ 	}
+ }
++
++
++// c2-fx probe (debug): GetSpriteAxes over every SPRITETYPE (and one past),
++// a seeded spread of origins and angles plus the near-vertical ones its
++// early returns are for, with the outputs pre-filled so a return that
++// leaves them alone is visible.
++CON_COMMAND( cs_cl_probe_spriteaxes, "c2-fx probe (debug): log GetSpriteAxes over a fixed battery against the current view" )
++{
++	unsigned int seed = 12345u;
++	auto next = [&seed]() -> float { seed = seed * 1103515245u + 12345u; return (float)( ( seed >> 8 ) & 0xFFFF ) / 65535.0f; };
++	FxProbeLog( "spa-view fwd=%.9g %.9g %.9g right=%.9g %.9g %.9g up=%.9g %.9g %.9g",
++		CurrentViewForward().x, CurrentViewForward().y, CurrentViewForward().z,
++		CurrentViewRight().x, CurrentViewRight().y, CurrentViewRight().z,
++		CurrentViewUp().x, CurrentViewUp().y, CurrentViewUp().z );
++	for ( int type = 0; type <= 5; ++type )
++	{
++		for ( int k = 0; k < 44; ++k )
++		{
++			Vector o( ( next() - 0.5f ) * 4000.0f, ( next() - 0.5f ) * 4000.0f, ( next() - 0.5f ) * 1000.0f );
++			if ( k == 0 ) o = Vector( 0.001f, 0.0f, -900.0f );
++			if ( k == 1 ) o = Vector( 0.0f, 0.0f, 0.0f );
++			if ( k == 2 ) o = Vector( 10.0f, 5.0f, 600.0f );
++			QAngle a( ( next() - 0.5f ) * 180.0f, ( next() - 0.5f ) * 720.0f, ( k % 3 == 0 ) ? 0.0f : ( next() - 0.5f ) * 720.0f );
++			Vector f( 777.0f, 778.0f, 779.0f ), r( 787.0f, 788.0f, 789.0f ), u( 797.0f, 798.0f, 799.0f );
++			C_SpriteRenderer::GetSpriteAxes( (C_SpriteRenderer::SPRITETYPE)type, o, a, f, r, u );
++			FxProbeLog( "spa type=%d o=%.9g %.9g %.9g a=%.9g %.9g %.9g f=%.9g %.9g %.9g r=%.9g %.9g %.9g u=%.9g %.9g %.9g",
++				type, o.x, o.y, o.z, a.x, a.y, a.z, f.x, f.y, f.z, r.x, r.y, r.z, u.x, u.y, u.z );
++		}
++	}
++}

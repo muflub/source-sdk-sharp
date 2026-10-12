@@ -1,0 +1,220 @@
+--- beamdraw.cpp
++++ beamdraw.cpp
+@@ -22,4 +22,82 @@
+ #include "tier0/memdbgon.h"
+ 
++//==== C2-BEAMS BEAM PROBE (tools/probes/client/c2-beams/*.diff; debug,
++//==== SS_CLIENT_PROBES only). Tab-separated rows to $SOURCESHARP_PROBE_LOG;
++//==== %.9g round-trips a float.
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <stdlib.h>
++static int C2Fd()
++{
++	static int s_fd = -2;
++	if ( s_fd == -2 )
++	{
++		const char *p = getenv( "SOURCESHARP_PROBE_LOG" );
++		s_fd = p ? open( p, O_WRONLY | O_CREAT | O_APPEND, 0644 ) : -1;
++	}
++	return s_fd;
++}
++static void C2Log( const char *fmt, ... )
++{
++	const int fd = C2Fd();
++	if ( fd < 0 )
++		return;
++	char buf[8192];
++	va_list a;
++	va_start( a, fmt );
++	int n = vsnprintf( buf, sizeof( buf ), fmt, a );
++	va_end( a );
++	if ( n > (int)sizeof( buf ) - 1 )
++		n = (int)sizeof( buf ) - 1;
++	if ( n > 0 && write( fd, buf, n ) < 0 )
++		return;
++}
++#define C2V "\t%.9g\t%.9g\t%.9g"
++#define C2X( v ) (double)(v).x, (double)(v).y, (double)(v).z
++
++extern int g_C2BeamCtx;
++class C2SegDraw : public CBeamSegDraw
++{
++public:
++	void Start( IMatRenderContext *pRenderContext, int nSegs, IMaterial *pMaterial = 0, CMeshBuilder *pMeshBuilder = NULL, int nMeshVertCount = 0 )
++	{
++		C2Log( "SG\t%d\t%d\t%d\n", g_C2BeamCtx, nSegs, pMaterial ? 1 : 0 );
++		CBeamSegDraw::Start( pRenderContext, nSegs, pMaterial, pMeshBuilder, nMeshVertCount );
++	}
++	virtual void NextSeg( BeamSeg_t *pSeg )
++	{
++		C2Log( "SN\t%d" C2V C2V "\t%.9g\t%.9g\t%.9g\n", g_C2BeamCtx, C2X( pSeg->m_vPos ), C2X( pSeg->m_vColor ),
++			pSeg->m_flTexCoord, pSeg->m_flWidth, pSeg->m_flAlpha );
++		CBeamSegDraw::NextSeg( pSeg );
++	}
++};
++class C2MeshBuilder : public CMeshBuilder
++{
++public:
++	float m_p[3], m_c[4], m_t[2];
++	int m_k;
++	C2MeshBuilder() { m_k = -1; m_c[0] = m_c[1] = m_c[2] = m_c[3] = 0; m_t[0] = m_t[1] = 0; m_p[0] = m_p[1] = m_p[2] = 0; }
++	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nPrimitives )
++	{
++		C2Log( "MB\t%d\t%d\t%d\n", g_C2BeamCtx, (int)type, nPrimitives );
++		CMeshBuilder::Begin( pMesh, type, nPrimitives );
++	}
++	void Position3fv( const float *v ) { m_p[0] = v[0]; m_p[1] = v[1]; m_p[2] = v[2]; CMeshBuilder::Position3fv( v ); }
++	void Color3fv( const float *v ) { m_k = 0; m_c[0] = v[0]; m_c[1] = v[1]; m_c[2] = v[2]; m_c[3] = 1; CMeshBuilder::Color3fv( v ); }
++	void Color3f( float r, float g, float b ) { m_k = 0; m_c[0] = r; m_c[1] = g; m_c[2] = b; m_c[3] = 1; CMeshBuilder::Color3f( r, g, b ); }
++	void Color3ubv( const unsigned char *v ) { m_k = 1; m_c[0] = v[0]; m_c[1] = v[1]; m_c[2] = v[2]; m_c[3] = 255; CMeshBuilder::Color3ubv( v ); }
++	void Color4ubv( const unsigned char *v ) { m_k = 2; m_c[0] = v[0]; m_c[1] = v[1]; m_c[2] = v[2]; m_c[3] = v[3]; CMeshBuilder::Color4ubv( v ); }
++	void TexCoord2f( int stage, float s, float t ) { m_t[0] = s; m_t[1] = t; CMeshBuilder::TexCoord2f( stage, s, t ); }
++	void AdvanceVertex()
++	{
++		C2Log( "MV\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\n", g_C2BeamCtx, m_k,
++			m_p[0], m_p[1], m_p[2], m_c[0], m_c[1], m_c[2], m_c[3], m_t[0], m_t[1] );
++		CMeshBuilder::AdvanceVertex();
++	}
++};
++//==== END PROBE HELPERS
++
+ extern ConVar r_drawsprites;
+ extern ConVar r_DrawBeams;
+@@ -36,4 +114,6 @@
+ CEngineSprite *Draw_SetSpriteTexture( const model_t *pSpriteModel, int frame, int rendermode )
+ {
++	C2Log( "ST\t%d\t%s\t%d\t%d\t%d\n", g_C2BeamCtx, pSpriteModel ? modelinfo->GetModelName( pSpriteModel ) : "-", frame, rendermode,
++		ShouldDrawInWireFrameMode() || r_DrawBeams.GetInt() == 2 ? 1 : 0 );
+ 	CEngineSprite			*psprite;
+ 	IMaterial		*material;
+@@ -78,4 +158,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -84,5 +165,5 @@
+ 	IMesh* pMesh = pRenderContext->GetDynamicMesh( );
+ 
+-	CMeshBuilder meshBuilder;
++	C2MeshBuilder meshBuilder;
+ 	meshBuilder.Begin( pMesh, MATERIAL_QUADS, 1 );
+ 
+@@ -155,5 +236,5 @@
+ 	}
+ 
+-	CMeshBuilder meshBuilder;
++	C2MeshBuilder meshBuilder;
+ 	Vector point;
+ 	CMatRenderContextPtr pRenderContext( materials );
+@@ -247,4 +328,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -331,5 +413,5 @@
+ 	// Specify all the segments.
+ 	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
+-	CBeamSegDraw segDraw;
++	C2SegDraw segDraw;
+ 	segDraw.Start( pRenderContext, segments, NULL );
+ 
+@@ -501,4 +583,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -532,5 +615,5 @@
+ 	// Specify all the segments.
+ 	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
+-	CBeamSegDraw segDraw;
++	C2SegDraw segDraw;
+ 	segDraw.Start( pRenderContext, segments, NULL );
+ 
+@@ -686,4 +769,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -701,5 +785,5 @@
+ 	IMaterial *pBeamMaterial = pBeamSprite->GetMaterial( (RenderMode_t)rendermode );
+ 	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
+-	CBeamSegDraw segDraw;
++	C2SegDraw segDraw;
+ 	segDraw.Start( pRenderContext, (segments-1)*(numAttachments-1), pBeamMaterial );
+ 
+@@ -1029,4 +1113,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -1052,5 +1137,5 @@
+ 	IMesh* pMesh = pRenderContext->GetDynamicMesh( );
+ 
+-	CMeshBuilder meshBuilder;
++	C2MeshBuilder meshBuilder;
+ 	meshBuilder.Begin( pMesh, MATERIAL_TRIANGLE_STRIP, (segments - 1) * 2 );
+ 
+@@ -1127,4 +1212,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -1148,5 +1234,5 @@
+ 	IMesh* pMesh = pRenderContext->GetDynamicMesh( );
+ 
+-	CMeshBuilder meshBuilder;
++	C2MeshBuilder meshBuilder;
+ 	meshBuilder.Begin( pMesh, MATERIAL_TRIANGLE_STRIP, (segments - 1) * 2 );
+ 
+@@ -1213,4 +1299,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -1259,5 +1346,8 @@
+ 
+ 	// Is that box in PVS && frustum?
+-	if ( !engine->IsBoxVisible( screen, tmp ) || engine->CullBox( screen, tmp ) )	
++	const int c2Vis = engine->IsBoxVisible( screen, tmp ) ? 1 : 0;
++	const int c2Cull = engine->CullBox( screen, tmp ) ? 1 : 0;
++	C2Log( "RB\t%d" C2V C2V "\t%d\t%d\n", g_C2BeamCtx, C2X( screen ), C2X( tmp ), c2Vis, c2Cull );
++	if ( !c2Vis || c2Cull )	
+ 	{
+ 		return;
+@@ -1273,5 +1363,5 @@
+ 	IMesh* pMesh = pRenderContext->GetDynamicMesh( );
+ 
+-	CMeshBuilder meshBuilder;
++	C2MeshBuilder meshBuilder;
+ 	meshBuilder.Begin( pMesh, MATERIAL_TRIANGLE_STRIP, (segments) * 2 );
+ 
+@@ -1378,4 +1468,5 @@
+ 		{
+ 			pHDRColorScaleVar->SetFloatValue( flHDRColorScale );
++			C2Log( "HD\t%d\t%.9g\n", g_C2BeamCtx, flHDRColorScale );
+ 		}
+ 	}
+@@ -1417,5 +1508,5 @@
+ 	IMesh* pMesh = pRenderContext->GetDynamicMesh( );
+ 
+-	CMeshBuilder meshBuilder;
++	C2MeshBuilder meshBuilder;
+ 	meshBuilder.Begin( pMesh, MATERIAL_QUADS, count );
+ 
+@@ -1494,5 +1585,5 @@
+ 
+ 	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
+-	CBeamSegDraw beamDraw;
++	C2SegDraw beamDraw;
+ 	beamDraw.Start( pRenderContext, subdivisions+1, NULL );
+ 

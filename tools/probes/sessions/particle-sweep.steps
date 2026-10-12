@@ -1,0 +1,14 @@
+# C0 probe 1, upper bound: every loaded particle definition started in turn in
+# front of the view, with the IParticleSystemQuery calls each one caused.
+wait iface-list 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 5
+cmd cs_cl_probe_pq
+cmd cs_cl_probe_particle_sweep
+wait pq-sweep-start 30
+shot sweep
+wait pq-sweep-done 1500
+cmd disconnect
+sleep 3
+quit

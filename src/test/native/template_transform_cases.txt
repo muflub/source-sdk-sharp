@@ -1,0 +1,44 @@
+# Where a templated entity ends up — the golden table, and the ONE record of it.
+#
+# point_template stores each of its sources as a transform in the template's own
+# space, and puts a copy back into the world when it is instanced. The whole of
+# that is six numbers in and six numbers out:
+#
+#   capture   matEntityToTemplate = InverseTR( TR(templateOrigin, templateAngles) )
+#                                 * TR(entityOrigin, entityAngles)
+#   instance  matStoredLocalToWorld = TR(newOrigin, newAngles) * matEntityToTemplate
+#             out = ( translation of that, MatrixToAngles of that )
+#
+# The arithmetic used to be C++ (CPointTemplate::AddTemplateNamed and
+# ::CreateInstance, over mathlib's VMatrix) and is now C#. This file is what
+# stops the port from quietly meaning something else. TWO tests read it:
+#
+#   sourcesharp/test/template_transform_test.cpp   — recomputes every row with
+#       the REAL VMatrix and asserts the table still describes it. That is what
+#       keeps the table a record of native rather than a record of a guess.
+#
+#   SourceSharp.Tests/TemplateTransformTests.cs    — recomputes every row with
+#       the managed Transform and asserts it agrees. That is the one that can
+#       actually go red, and it is the point of the file.
+#
+# A fixture standing in for native drifts silently unless something asserts the
+# agreement (docs/writing-tests.md). This is that assertion, in both directions.
+#
+# The expected values were emitted by the VMatrix arithmetic above at c078025f.
+# Angles are pitch/yaw/roll in degrees, positions in units, in Source's order.
+#
+# name  tOrigin(3) tAngles(3)  eOrigin(3) eAngles(3)  nOrigin(3) nAngles(3)  outOrigin(3) outAngles(3)
+#
+identity-everything 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.000000 0.000000 0.000000 -0.000000 0.000000 0.000000
+pure-translation 0 0 0 0 0 0 64 0 0 0 0 0 100 200 8 0 0 0 164.000000 200.000000 8.000000 -0.000000 0.000000 0.000000
+instance-where-template 10 -20 30 5 45 -15 40 60 80 12 34 56 10 -20 30 5 45 -15 40.000004 60.000000 79.999992 11.999998 34.000000 55.999996
+template-yaw-only 0 0 0 0 90 0 64 0 0 0 0 0 0 0 0 0 0 0 -0.000003 -64.000000 0.000000 -0.000000 -90.000000 0.000000
+instance-yaw-only 0 0 0 0 0 0 64 0 0 0 0 0 0 0 0 0 90 0 -0.000003 64.000000 0.000000 -0.000000 90.000000 0.000000
+full-rotation-both -128 64 32 10 20 30 -64 96 48 -25 170 5 512 -256 0 40 -110 75 475.510315 -315.071533 -23.559631 -70.237343 48.757782 -31.184347
+gimbal-forward-is-z 0 0 0 90 0 0 0 0 64 90 0 0 0 0 0 0 0 0 -64.000000 0.000000 -0.000003 -0.000000 0.000000 0.000000
+gimbal-in-the-answer 0 0 0 0 0 0 0 0 64 -90 45 0 0 0 0 0 0 0 0.000000 0.000000 64.000000 -89.999992 45.000000 0.000000
+roll-only 0 0 0 0 0 45 0 32 0 0 0 0 0 0 0 0 0 0 0.000000 22.627417 -22.627417 -0.000000 0.000000 -45.000000
+far-from-the-origin 4096 -4096 1024 0 135 0 4160 -4032 1088 0 45 0 -2048 2048 -512 0 -90 0 -2138.509766 2048.000000 -448.000000 -0.000000 179.999985 0.000000
+answer-is-straight-down 0 0 0 0 0 0 32 0 0 0 0 0 0 0 0 90 0 0 -0.000001 0.000000 -32.000000 89.999992 -0.000000 0.000000
+answer-is-straight-up 0 0 0 0 0 0 32 0 0 0 0 0 0 0 0 -90 0 0 -0.000001 0.000000 32.000000 -89.999992 -0.000000 0.000000
+gimbal-eats-the-roll 0 0 0 0 0 0 0 0 0 0 0 60 0 0 0 90 30 0 0.000000 0.000000 0.000000 89.999992 -30.000000 0.000000

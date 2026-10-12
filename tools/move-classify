@@ -1,0 +1,517 @@
+#!/usr/bin/env python3
+"""Classify every file of the SourceSharp fork at a frozen tip T.
+
+    tools/move-classify --fork ../source-sdk-2013 --tip T [--base 22288b919]
+                        [--out docs/move/ledger.tsv]
+    tools/move-classify --self-test
+
+One row per file tracked at T, plus the untracked plan files at the top of the
+fork, each with exactly one class (plan_sharp_repo.md, Phase 1):
+
+  VALVE          identical to Valve upstream (--base)
+  VALVE-EDITED   a Valve path we modified
+  VALVE-DERIVED  added by us but carrying >= valvetext.RUN consecutive
+                 content lines verbatim from Valve, or relocated Valve code
+                 (src/sourcesharp/public, src/sourcesharp/common)
+  OURS           SourceSharp-authored, moves to `dest`
+  OURS-OVERLAY   SourceSharp-authored at a Valve-tree path, moves to `dest`
+  MOD-COPY       game/mod_sharp, copied whole to game/mod_test
+  DROP           goes nowhere (dead tools, lane probes, stale output)
+
+Columns: path class dest valve_header header_reason run valve_match
+borderline sha256. `valve_header` is filled for source files that move (OURS,
+OURS-OVERLAY, MOD-COPY): rules 1 (Valve copyright today) and 3 (native code
+built against SDK headers) are decided here; rule 2 (ports Valve logic) comes
+from --rulings, a TSV of path<TAB>yes|no<TAB>reason written by per-module
+review. A source file with no decision is `?`, and the run exits non-zero
+with --strict.
+"""
+
+import argparse
+import hashlib
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import valvetext as vt  # noqa: E402
+
+BASE = "22288b919"
+
+# Ordered: first match wins. (prefix, dest prefix). A prefix ending in "/"
+# maps a directory; otherwise an exact path.
+PATH_MAP = [
+    ("src/sourcesharp/managed/SourceSharp.Abi/", "src/abi/"),
+    ("src/sourcesharp/managed/SourceSharp.Client/", "src/client/managed/"),
+    ("src/sourcesharp/managed/SourceSharp.Server/", "src/server/managed/"),
+    ("src/sourcesharp/managed/SourceSharp.Shared/", "src/shared/managed/"),
+    ("src/sourcesharp/managed/SourceSharp.Bootstrap/", "src/host/managed/"),
+    # An oracle's stock scrape: it reads the pristine Valve SDK
+    # (src/test/oracle/managed), not the farm.
+    ("src/sourcesharp/managed/SourceSharp.Tests/StockContract.cs",
+     "src/test/oracle/managed/StockContract.cs"),
+    ("src/sourcesharp/managed/SourceSharp.Tests/", "src/test/managed/"),
+    ("src/sourcesharp/managed/SourceSharp.DevApi/", "src/devapi/"),
+    ("src/sourcesharp/managed/SourceSharp.Generators/", "src/generators/"),
+    ("src/sourcesharp/managed/SourceSharp.MapGen/", "src/mapgen/"),
+    ("src/sourcesharp/managed/", ""),
+    ("src/sourcesharp/game/client/", "src/client/native/"),
+    ("src/sourcesharp/game/server/", "src/server/native/"),
+    ("src/sourcesharp/game/shared/", "src/shared/native/"),
+    ("src/sourcesharp/host/", "src/host/native/"),
+    ("src/sourcesharp/sourcesharp.vpc", "src/host/native/sourcesharp.vpc"),
+    # An oracle: it compiles upstream's weapon_parse.cpp, so it reads the
+    # pristine Valve SDK (src/test/oracle/native), not the farm.
+    ("src/sourcesharp/test/weapon_script_oracle_test.cpp",
+     "src/test/oracle/native/weapon_script_oracle_test.cpp"),
+    ("src/sourcesharp/test/weapon_parse_stub/",
+     "src/test/oracle/native/weapon_parse_stub/"),
+    ("src/sourcesharp/test/", "src/test/native/"),
+    # Relocated Valve code, kept local by user decision 2026-09-27 (their
+    # rows are OURS through docs/move/overrides.tsv).
+    ("src/sourcesharp/public/", "src/shared/native/"),
+    ("src/sourcesharp/common/", "src/shared/native/"),
+    ("src/sourcesharp/webui/", "src/webui/"),
+    ("src/game/client/", "src/client/native/sdk/game/client/"),
+    ("src/game/server/", "src/server/native/sdk/game/server/"),
+    ("src/game/shared/", "src/shared/native/sdk/game/shared/"),
+    ("src/public/", "src/shared/native/sdk/public/"),
+    # The native launcher is built for parity until Phase 6a retires it.
+    ("src/launcher_main/", "src/launcher/legacy/sdk/launcher_main/"),
+    ("src/devtools/", "tools/build/devtools/"),
+    ("src/vpc_scripts/", "tools/build/vpc_scripts/"),
+    ("src/buildsourcesharp", "tools/build/buildsourcesharp"),
+    ("src/buildcpptests", "tools/build/buildcpptests"),
+    ("src/buildonecpptest", "tools/build/buildonecpptest"),
+    ("src/cpptest_one", "tools/build/cpptest_one"),
+    ("src/build_check", "tools/build/build_check"),
+    ("src/preprocess_target", "tools/build/preprocess_target"),
+    ("game/mod_sharp/", "game/mod_test/"),
+    ("maps/ss_sandbox.vmf", "game/mod_test/maps/ss_sandbox.vmf"),
+    ("devapi", "tools/devapi"),
+    ("devapi-proxy", "tools/devapi-proxy"),
+    ("tools/", "tools/"),
+    ("docs/", "docs/"),
+    (".claude/skills/", ".claude/skills/"),
+    (".vscode/", ".vscode/"),
+    ("Makefile", "Makefile"),
+    ("CLAUDE.md", "CLAUDE.md"),
+]
+
+# Relocated Valve code by decision, whatever the measured run.
+DERIVED_DIRS = ("src/sourcesharp/public/", "src/sourcesharp/common/")
+
+# Added paths that go nowhere. Tools are decided by tools-triage.tsv.
+DROP_RULES = [
+    (re.compile(r"^src/f-srvshim-objs-.*\.txt$"), "lane output"),
+    (re.compile(r"^src/tmp/"), "scratch"),
+    (re.compile(r"(^|/)__pycache__/"), "bytecode"),
+    (re.compile(r"^home/"), "stray benchmark output"),
+    (re.compile(r"^game/mod_(hl2mp|tf)(/|_linux64$)"),
+     "runtime output of a Valve mod, not ours"),
+    (re.compile(r"^src/\.gitignore$"), "replaced by the new repo .gitignore"),
+    (re.compile(r"^tools/\.gitignore$"), "replaced by the new repo .gitignore"),
+    (re.compile(r"^\.claude/entity-port/"), "lane status scratch"),
+    (re.compile(r"\.log$"), "log"),
+    (re.compile(r"(^|/)\.test-legs/"), "test-leg output"),
+    (re.compile(r"^plan_(globals|shim)_rulings\.tsv$|^plan_globals_census\.py$"),
+     "a plan's working data; nothing reads it (the plan keeps its prose)"),
+    (re.compile(r"^plan_maptools"), "map tools moved to source-sdk-map-tools"),
+    (re.compile(r"^src/sourcesharp/test/exepath_test\.cpp$"),
+     "retired in Phase 6a with the native launcher; kept as a source# fact"),
+    (re.compile(r"^src/sourcesharp/test/(break_model_return_type|"
+                r"ragdoll_model_guard|entitylist_slot0)_test\.cpp$"),
+     "culled 2026-09-27: every case read Valve stock neither DLL compiles "
+     "(user ruling)"),
+    (re.compile(r"^docs/shim-orphans\.tsv$"),
+     "stale tools/shim-census snapshot of a dirty tree; nothing reads it"),
+]
+
+PLAN_FILE = re.compile(r"^plan[^/]*$")
+
+# Modules that are original work by decision (plan, Phase 1): no header,
+# whatever a grep nominates.
+ORIGINAL_WORK = ("src/webui/", "src/devapi/", "src/generators/",
+                 "src/mapgen/", "tools/")
+
+SOURCE_EXT = (".cs", ".cpp", ".h", ".ts", ".tsx", ".vpc")
+NATIVE_EXT = (".cpp", ".h")
+VALVE_COPYRIGHT = re.compile(rb"Copyright[^\n]{0,20}Valve", re.I)
+# Rule 3: native code compiled against Valve SDK headers.
+SDK_INCLUDE = re.compile(
+    r'^\s*#\s*include\s*[<"]('
+    r'cbase\.h|tier[0-3]/|public/|mathlib/|vstdlib/|appframework/|'
+    r'engine/|materialsystem/|vgui|vphysics|datamap\.h|dt_[a-z_]+\.h|'
+    r'networkvar\.h|string_t\.h|basehandle\.h|ehandle\.h|'
+    r'igameevents\.h|eiface\.h|cdll_int\.h|icliententity|iserverentity|'
+    r'edict\.h|const\.h|shareddefs\.h|basetypes\.h|interface\.h|'
+    r'filesystem\.h|convar\.h|icvar\.h|studio\.h|bone_setup\.h|'
+    r'collisionutils\.h|soundflags\.h|utlvector\.h|utlmap\.h|'
+    r'ispatialpartition\.h|engine_ifaces|gametrace\.h|cmodel\.h|'
+    r'bspflags\.h|worldsize\.h|vcollide|physics|takedamageinfo\.h|'
+    r'baseentity|c_baseentity|baseplayer|player\.h|gamerules|'
+    r'usercmd\.h|igamemovement\.h|in_buttons\.h|shake\.h|'
+    r'sharedInterface\.h|predictable_entity\.h|entitylist|'
+    r'globalvars_base\.h|vprof\.h|platform\.h|dbg\.h|memdbgon\.h|'
+    r'KeyValues\.h|keyvalues\.h|checksum_|bitbuf\.h|coordsize\.h'
+    r')', re.M)
+
+
+def dest_for(path):
+    for prefix, dest in PATH_MAP:
+        if prefix.endswith("/"):
+            if path.startswith(prefix):
+                return dest + path[len(prefix):]
+        elif path == prefix:
+            return dest
+    if PLAN_FILE.match(path):
+        return "docs/plans/" + path
+    return None
+
+
+def load_tsv(path, ncols):
+    rows = {}
+    if not path:
+        return rows
+    with open(path) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < ncols:
+                raise SystemExit(f"{path}: short row: {line!r}")
+            rows[parts[0]] = parts[1:]
+    return rows
+
+
+def header_decision(path, cls, data, rulings):
+    """(valve_header, reason) for a moving source file; ("", "") otherwise."""
+    if cls not in ("OURS", "OURS-OVERLAY", "MOD-COPY"):
+        return "", ""
+    if not path.endswith(SOURCE_EXT):
+        return "", ""
+    if path in rulings:
+        yn, reason = rulings[path][0], rulings[path][1]
+        return yn, reason
+    head = data[:4096]
+    dest = dest_for(path) or ""
+    for prefix in ORIGINAL_WORK:
+        if dest.startswith(prefix):
+            return "no", f"original work ({prefix.rstrip('/')})"
+    if VALVE_COPYRIGHT.search(head):
+        return "yes", "rule 1: carries a Valve copyright header"
+    if path.endswith(NATIVE_EXT):
+        text = data.decode("utf-8", "replace")
+        m = SDK_INCLUDE.search(text)
+        if m and "/test/" not in path and not path.startswith(
+                "src/sourcesharp/test/"):
+            return "yes", f"rule 3: native code built against SDK headers " \
+                          f"(#include {m.group(1)})"
+    return "?", "needs rule-2 review"
+
+
+def classify(fork, tip, base, triage, rulings, extra_files, index=None,
+             overrides=None):
+    """Yield ledger rows for every file at `tip` plus `extra_files`.
+
+    `overrides` maps path -> [class, reason]: a reviewed ruling that replaces
+    the measured class (e.g. a format's key table that is data, not logic).
+    """
+    overrides = overrides or {}
+    if index is None:
+        index = vt.ValveIndex.from_git(fork, base)
+    base_shas = vt.blob_shas(fork, base)
+    tip_shas = vt.blob_shas(fork, tip)
+
+    def emit(path, data):
+        sha = hashlib.sha256(data).hexdigest()
+        run, match, border = 0, "", 0
+        reason = ""
+        if path.startswith("game/mod_sharp/"):
+            cls = "MOD-COPY"
+        elif PLAN_FILE.match(path):
+            cls = "OURS"
+            for rx, why in DROP_RULES:
+                if rx.search(path):
+                    cls, reason = "DROP", why
+                    break
+        elif path in base_shas:
+            cls = "VALVE" if base_shas[path] == tip_shas.get(path) \
+                else "VALVE-EDITED"
+        else:
+            cls = None
+            for rx, why in DROP_RULES:
+                if rx.search(path):
+                    cls, reason = "DROP", why
+                    break
+            if cls is None and path.startswith("tools/"):
+                top = path.split("/")[1]
+                decision = triage.get(top)
+                if decision is None:
+                    raise SystemExit(f"tools triage has no row for {top}")
+                if decision[0] == "DROP":
+                    cls, reason = "DROP", "tools triage: " + decision[1]
+            if cls is None:
+                run, match, border = index.measure(data)
+                match = match or ""
+                if path in overrides:
+                    cls, reason = overrides[path][0], \
+                        "override: " + overrides[path][1]
+                elif path.startswith(DERIVED_DIRS):
+                    cls = "VALVE-DERIVED"
+                    reason = "relocated Valve code (public/common)"
+                elif run >= vt.RUN:
+                    cls = "VALVE-DERIVED"
+                    reason = f"{run} verbatim content lines of {match}"
+                elif dest_for(path) is None:
+                    raise SystemExit(f"no destination for added path {path}")
+                elif path.startswith("src/") and not path.startswith(
+                        "src/sourcesharp/"):
+                    cls = "OURS-OVERLAY"
+                else:
+                    cls = "OURS"
+        dest = dest_for(path) if cls in (
+            "OURS", "OURS-OVERLAY", "MOD-COPY") else ""
+        if cls in ("OURS", "OURS-OVERLAY", "MOD-COPY") and not dest:
+            raise SystemExit(f"no destination for {cls} path {path}")
+        yn, hreason = header_decision(path, cls, data, rulings)
+        if reason and (cls in ("DROP", "VALVE-DERIVED")
+                       or reason.startswith("override")):
+            hreason = reason
+        return [path, cls, dest, yn, hreason, str(run), match, str(border),
+                sha]
+
+    for path, data in vt.iter_blobs(fork, tip):
+        yield emit(path, data)
+    for path in sorted(extra_files):
+        with open(os.path.join(fork, path), "rb") as f:
+            yield emit(path, f.read())
+
+
+def untracked_plans(fork):
+    out = subprocess.run(
+        ["git", "-C", fork, "ls-files", "--others", "--exclude-standard"],
+        check=True, capture_output=True, text=True).stdout.split()
+    return [p for p in out if PLAN_FILE.match(p)]
+
+
+# Counted in the ledger header but not listed: they stay in the fork, and
+# sdk-links/*.txt already names every one the farm links.
+UNLISTED = ("VALVE", "VALVE-EDITED")
+
+LINK_EXCLUDE = re.compile(
+    r"^(src/lib/public/linux64/(tier1|mathlib|raytrace|vgui_controls|"
+    r"matsys_controls)\.a|game/.*\.so(\.dbg)?|game/mod_[A-Za-z0-9_]+_linux64"
+    r"|game/bin/.*)$")
+
+COLUMNS = ["path", "class", "dest", "valve_header", "reason", "run",
+           "valve_match", "borderline", "sha256"]
+
+
+def write_ledger(rows, out, tip, fork):
+    counts = {}
+    for r in rows:
+        counts[r[1]] = counts.get(r[1], 0) + 1
+    yes = sum(1 for r in rows if r[3] == "yes")
+    no = sum(1 for r in rows if r[3] == "no")
+    unk = sum(1 for r in rows if r[3] == "?")
+    tip_full = subprocess.run(["git", "-C", fork, "rev-parse", tip],
+                              check=True, capture_output=True,
+                              text=True).stdout.strip()
+    kept = [r for r in rows if r[1] not in UNLISTED]
+    with open(out, "w") as f:
+        f.write(f"# move-ledger at fork tip {tip_full}\n")
+        f.write(f"# rows {len(rows)}; " + "; ".join(
+            f"{k} {counts[k]}" for k in sorted(counts)) + "\n")
+        f.write(f"# listed below: {len(kept)} rows; VALVE and VALVE-EDITED "
+                "rows are counted, not listed (sdk-links/ names them)\n")
+        f.write(f"# valve_header: yes {yes}; no {no}; undecided {unk}\n")
+        f.write(f"# derived threshold: {vt.RUN} consecutive content lines; "
+                f"borderline >= {vt.BORDERLINE}\n")
+        f.write("\t".join(COLUMNS) + "\n")
+        for r in kept:
+            f.write("\t".join(r) + "\n")
+    return counts, yes, no, unk
+
+
+def write_links(rows, out, tip):
+    """The initial manifest, into the directory `out` (sdk-links/): every
+    VALVE, VALVE-EDITED and VALVE-DERIVED path, minus build outputs, game/bin
+    and anything under src/sourcesharp/ (this repo's tree, never a fork
+    link), all in tests.txt with the other four lists empty. Correct first,
+    not minimal: `tools/sdk-census --write` sorts it into the lists by
+    consumer and drops what nothing uses."""
+    from collections import Counter
+    paths = sorted(r[0] for r in rows
+                   if r[1] in ("VALVE", "VALVE-EDITED", "VALVE-DERIVED")
+                   and not LINK_EXCLUDE.match(r[0])
+                   and not r[0].startswith("src/sourcesharp/"))
+    os.makedirs(out, exist_ok=True)
+    for name in ("client", "server", "shared", "libs"):
+        with open(os.path.join(out, name + ".txt"), "w") as f:
+            f.write("# empty until `tools/sdk-census --write` sorts "
+                    "tests.txt\n")
+    out = os.path.join(out, "tests.txt")
+    c = Counter(x.split("/")[0] if not x.startswith("src/")
+                else "src/" + x.split("/")[1] for x in paths)
+    with open(out, "w") as f:
+        f.write(
+            "# Files of the Valve fork (ROOT) that the farm links in, one per "
+            "line.\n# This is the list of Valve code we still depend on: it "
+            "shrinks as code is\n# ported, and a fully ported file's line is "
+            "deleted. Never a directory, never\n# a build output, never a "
+            "path this repo supplies (tools/setup enforces it).\n")
+        f.write(f"# {len(paths)} links (initial set from the ledger at "
+                f"{tip})\n")
+        for k in sorted(c):
+            f.write(f"#   {c[k]:5d} {k}\n")
+        for x in paths:
+            f.write(x + "\n")
+    return len(paths)
+
+
+def self_test():
+    """A planted verbatim Valve block must flip a file to VALVE-DERIVED."""
+    with tempfile.TemporaryDirectory() as d:
+        def git(*a):
+            subprocess.run(["git", "-C", d, *a], check=True,
+                           capture_output=True)
+        git("init", "-q")
+        git("config", "user.email", "t@t")
+        git("config", "user.name", "t")
+        valve_body = "\n".join(
+            f"    float value{i} = ComputeSomething( pEntity, {i} ) * 2.0f;"
+            for i in range(30))
+        os.makedirs(f"{d}/src/game/server")
+        with open(f"{d}/src/game/server/stock.cpp", "w") as f:
+            f.write("void Stock()\n{\n" + valve_body + "\n}\n")
+        with open(f"{d}/src/game/server/edited.cpp", "w") as f:
+            f.write("int a;\n")
+        # Valve code with a comment every few lines; a copy that drops the
+        # comments must still be caught (the code-only view).
+        commented = "\n".join(
+            f"    if ( group{i} == COLLISION_GROUP_{i} ) return Rule{i}();"
+            + (f"\n    // Valve explains rule {i} at some length here"
+               if i % 3 == 0 else "") for i in range(20))
+        with open(f"{d}/src/game/server/rules.cpp", "w") as f:
+            f.write("bool Rules()\n{\n" + commented + "\n}\n")
+        git("add", ".")
+        git("commit", "-qm", "base")
+        base = subprocess.run(["git", "-C", d, "rev-parse", "HEAD"],
+                              capture_output=True, text=True).stdout.strip()
+        lines = valve_body.splitlines()
+        os.makedirs(f"{d}/src/sourcesharp/game/server")
+        # 12 verbatim content lines, interleaved with trivial ones.
+        planted = "\n{\n".join(lines[3:15])
+        with open(f"{d}/src/sourcesharp/game/server/planted.cpp", "w") as f:
+            f.write("// ours\nvoid Mine()\n{\n" + planted + "\n}\n")
+        eleven = "\n".join(lines[3:14])
+        with open(f"{d}/src/sourcesharp/game/server/eleven.cpp", "w") as f:
+            f.write("void Mine()\n{\n" + eleven + "\n}\n")
+        stripped = "\n".join(
+            f"    if ( group{i} == COLLISION_GROUP_{i} ) return Rule{i}();"
+            for i in range(2, 16))
+        with open(f"{d}/src/sourcesharp/game/server/uncommented.cpp",
+                  "w") as f:
+            f.write("bool Mine()\n{\n" + stripped + "\n}\n")
+        with open(f"{d}/src/sourcesharp/game/server/clean.cpp", "w") as f:
+            f.write("int Clean() { return 42; }\n")
+        with open(f"{d}/src/game/server/edited.cpp", "w") as f:
+            f.write("int a;\nint b;\n")
+        with open(f"{d}/src/game/server/overlay.h", "w") as f:
+            f.write("#pragma once\nstruct Overlay {};\n")
+        os.makedirs(f"{d}/tools/keepme")
+        os.makedirs(f"{d}/tools/dropme")
+        with open(f"{d}/tools/keepme/x", "w") as f:
+            f.write("x\n")
+        with open(f"{d}/tools/dropme/y", "w") as f:
+            f.write("y\n")
+        git("add", ".")
+        git("commit", "-qm", "tip")
+        triage = {"keepme": ["KEEP", "t"], "dropme": ["DROP", "t"]}
+        rows = {r[0]: r for r in classify(d, "HEAD", base, triage, {}, [])}
+        want = {
+            "src/game/server/stock.cpp": "VALVE",
+            "src/game/server/edited.cpp": "VALVE-EDITED",
+            "src/game/server/overlay.h": "OURS-OVERLAY",
+            "src/sourcesharp/game/server/planted.cpp": "VALVE-DERIVED",
+            "src/sourcesharp/game/server/eleven.cpp": "OURS",
+            "src/sourcesharp/game/server/uncommented.cpp": "VALVE-DERIVED",
+            "src/sourcesharp/game/server/clean.cpp": "OURS",
+            "tools/keepme/x": "OURS",
+            "tools/dropme/y": "DROP",
+        }
+        bad = 0
+        for p, c in want.items():
+            got = rows[p][1]
+            ok = got == c
+            bad += not ok
+            print(f"{'ok ' if ok else 'BAD'} {p}: {got} (want {c})")
+        border = int(rows["src/sourcesharp/game/server/eleven.cpp"][7])
+        ok = border >= vt.BORDERLINE
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} eleven.cpp borderline run {border}")
+        dest = rows["src/game/server/overlay.h"][2]
+        ok = dest == "src/server/native/sdk/game/server/overlay.h"
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} overlay dest {dest}")
+        print("self-test", "FAILED" if bad else "passed")
+        return 1 if bad else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--fork")
+    ap.add_argument("--tip")
+    ap.add_argument("--base", default=BASE)
+    ap.add_argument("--triage", default="docs/move/tools-triage.tsv",
+                    help="tools triage TSV: tool KEEP|DROP why")
+    ap.add_argument("--rulings", help="rule-2 rulings TSV: path yes|no why")
+    ap.add_argument("--overrides", default="docs/move/overrides.tsv",
+                    help="reviewed class rulings TSV: path class why")
+    ap.add_argument("--out", default="docs/move/ledger.tsv")
+    ap.add_argument("--links", help="also write the initial manifest into "
+                    "this directory (sdk-links/)")
+    ap.add_argument("--strict", action="store_true",
+                    help="fail if a moving source file has no header ruling")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    if not (a.fork and a.tip):
+        ap.error("--fork and --tip are required")
+    triage = load_tsv(a.triage, 3)
+    rulings = load_tsv(a.rulings, 3)
+    overrides = load_tsv(a.overrides, 3) if os.path.exists(
+        a.overrides) else {}
+    rows = list(classify(a.fork, a.tip, a.base, triage, rulings,
+                         untracked_plans(a.fork), overrides=overrides))
+    tracked = subprocess.run(["git", "-C", a.fork, "ls-tree", "-r",
+                              "--name-only", a.tip], check=True,
+                             capture_output=True, text=True).stdout.split("\n")
+    tracked = [t for t in tracked if t]
+    n_extra = len(untracked_plans(a.fork))
+    if len(rows) != len(tracked) + n_extra:
+        print(f"row count {len(rows)} != tracked {len(tracked)} + "
+              f"untracked plans {n_extra}", file=sys.stderr)
+        return 1
+    if len({r[0] for r in rows}) != len(rows):
+        print("duplicate paths in ledger", file=sys.stderr)
+        return 1
+    counts, yes, no, unk = write_ledger(rows, a.out, a.tip, a.fork)
+    if a.links:
+        print(f"{write_links(rows, a.links, a.tip)} links -> {a.links}")
+    print(f"{len(rows)} rows (= {len(tracked)} tracked + {n_extra} plans)")
+    for k in sorted(counts):
+        print(f"  {k:14} {counts[k]}")
+    print(f"  valve_header yes {yes}, no {no}, undecided {unk}")
+    if a.strict and unk:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

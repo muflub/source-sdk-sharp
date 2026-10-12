@@ -1,0 +1,43 @@
+# lane c2-fx: the client-side effect list's oracle (clientsideeffects*.cpp,
+# fx_line/quad/staticline/discreetline.cpp, fx_tracer.cpp, probe copies). The
+# list's adds, draws and removals, every effect's creation and per-frame draw
+# inputs with the mesh it built, every random draw, the tracer and tracer-sound
+# decisions. Needs the probe build (fx_probes_debug.cpp, probe_copies.cmake).
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_probe_fxbattery 0
+sleep 2
+cmd cs_cl_probe_fxbattery 1
+sleep 0.3
+cmd cs_cl_probe_fxbattery 2
+sleep 2
+cmd cs_cl_probe_fxtracersound 10
+sleep 0.5
+cmd cs_cl_probe_fxtracersound 40
+sleep 0.5
+cmd cs_cl_probe_fxtracersound 200
+sleep 0.7
+cmd cs_cl_probe_fxtracersound 4
+sleep 1
+cmd cs_cl_probe_fxtracercb
+sleep 1
+cmd r_drawtracers 0
+cmd cs_cl_probe_fxtracercb
+cmd r_drawtracers 1
+sleep 1
+cmd tracer_extra 0
+cmd cs_cl_probe_fxbattery 3
+sleep 2
+cmd tracer_extra 1
+cmd cs_te_fire all
+sleep 2
+cmd cs_te_fire all
+sleep 2
+cmd cs_cl_probe_fxbattery 4
+sleep 0.2
+cmd disconnect
+sleep 2
+quit

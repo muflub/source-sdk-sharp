@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# tools/reached-by-name -- who could drive a console command or a ConVar.
+#
+# =============================================================================
+# WHY THIS EXISTS
+# =============================================================================
+#
+# tools/shim-census answers "who imports this" over the ninja link line, which
+# is the right question for a symbol and the WRONG one for a console command.
+# A ConCommand or a ConVar is reached BY NAME, through a string, at runtime:
+# nothing links to it, no object imports it, and every symbol-based census in
+# this tree reports it as dead.
+#
+# That is not hypothetical. Lane 2-physics found "dead" physics-world
+# scaffolding with 8 tools and 27 sites driving it. Lane 3c-entityshell found
+# `cs_standalone_spawn`, which lane S1 ruled deletable, driven by eight tools
+# INCLUDING tools/live-gate -- deleting it would have broken the gate that
+# would have caught the deletion. The same sweep found `cs_sv_setlocal`, which
+# looks identical to every symbol measure, with zero drivers anywhere.
+#
+# So before deleting anything reachable by name, run this. A zero row is not a
+# proof on its own -- somebody may type the word -- but a non-zero row is a
+# refusal, and it names the files that have to be re-pointed first.
+#
+# =============================================================================
+# USE
+# =============================================================================
+#
+#     printf 'cs_standalone_spawn\ncs_sv_setlocal\n' | tools/reached-by-name
+#
+#     NAME                        tools   docs    cfg managed  gtest
+#     cs_standalone_spawn             8      0      0      0      0
+#     cs_sv_setlocal                  0      0      0      0      0
+#
+# One name per line on stdin. Counts FILES, not occurrences, because what a
+# caller needs to know is how many places have to change. `grep -w` so that
+# `kill` does not match `killvector`; a name that is a substring of an ordinary
+# English word will still over-count, which is the safe direction.
+#
+# Root is derived from this script's own location, never a hardcoded path: a
+# committed harness outlives the lane that wrote it, and one with a worktree
+# path in it measures somebody else's tree while reporting on yours.
+#
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG="${SOURCESHARP_CONFIG:-debug}"   # whose runtime cfg/ to read
+
+count() {
+    # A path that does not exist is 0, not an error: not every checkout has
+    # every tree, and a missing directory must not read as a driver.
+    [ -e "$2" ] || { echo 0; return; }
+    grep -rlw "$1" "${@:2}" 2>/dev/null | grep -c . || true
+}
+
+printf '%-26s %6s %6s %6s %6s %6s\n' NAME tools docs cfg managed gtest
+
+while read -r name; do
+    [ -z "$name" ] && continue
+
+    printf '%-26s %6s %6s %6s %6s %6s\n' "$name" \
+        "$(count "$name" "$ROOT/tools")" \
+        "$(count "$name" "$ROOT/docs")" \
+        "$(count "$name" "$ROOT/bin/$CONFIG/mods/test/cfg")" \
+        "$(count "$name" "$ROOT/src" --include=*.cs)" \
+        "$(count "$name" "$ROOT/src/test/native")"
+done

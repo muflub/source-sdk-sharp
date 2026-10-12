@@ -1,0 +1,58 @@
+"GameInfo"
+{
+	game	"TF2Descent"
+	title	"DESCENT"
+	type multiplayer_only
+	nomodels 0
+	nohimodel 1
+	nocrosshair 1
+
+	FileSystem
+	{
+		SteamAppId				243750
+
+		// plan_host_sdk §2.5 and §2.7. Every path is relative to this file or to
+		// the engine, never |appid_N|: that form asks the Steam client, which a
+		// hosted pod does not have. The layout is the same locally and in a pod:
+		//   mods/tf2_descent/        this directory
+		//   mods/test/           the core game's scripts and resources
+		//   ../../content/tf/    TF2's content (a pod's /game/content; locally
+		//                        bin/<config>/content, which make setup links)
+		//   pool/maps/           a pod's generated levels, fetched per instance
+		SearchPaths
+		{
+			game+mod			|gameinfo_path|custom/*
+			mod+mod_write		|gameinfo_path|.
+			game+game_write		|gameinfo_path|.
+			default_write_path	|gameinfo_path|.
+			gamebin				|gameinfo_path|bin
+
+			// The generated levels, found by their plain name (tf2_descent-<d>-<h>).
+			game				|gameinfo_path|pool
+
+			// The TF2 mod's own files (TF2Descent builds on it), then the core game's.
+			game				|gameinfo_path|../tf2
+			game				|gameinfo_path|../test
+
+			// TF2: TF2Descent's look.
+			game				|gameinfo_path|../../content/tf/tf2_textures.vpk
+			game				|gameinfo_path|../../content/tf/tf2_misc.vpk
+			game				|gameinfo_path|../../content/tf/tf2_sound_misc.vpk
+
+			// The engine's base content, wherever the engine is installed.
+			game+mod			|all_source_engine_paths|hl2mp/hl2mp_english.vpk
+			game+mod			|all_source_engine_paths|hl2mp/hl2mp_pak.vpk
+			game				|all_source_engine_paths|hl2_complete/hl2_complete_textures.vpk
+			game				|all_source_engine_paths|hl2_complete/hl2_complete_misc.vpk
+			game				|all_source_engine_paths|hl2/hl2_textures.vpk
+			game				|all_source_engine_paths|hl2/hl2_misc.vpk
+			platform			|all_source_engine_paths|platform/platform_misc.vpk
+			game				|all_source_engine_paths|hl2mp
+			game				|all_source_engine_paths|hl2_complete
+			game				|all_source_engine_paths|hl2
+			platform			|all_source_engine_paths|platform
+
+			game+download		|gameinfo_path|download
+		}
+	}
+}

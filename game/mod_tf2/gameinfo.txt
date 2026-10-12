@@ -1,0 +1,49 @@
+"GameInfo"
+{
+	game	"TF2"
+	title	"TF2"
+	type multiplayer_only
+	nomodels 0
+	nohimodel 1
+	nocrosshair 1
+
+	FileSystem
+	{
+		SteamAppId				243750
+
+		// The TF2 mod: stock TF2 logic ported to SourceSharp, on TF2's own
+		// content. Paths are relative to this file or to the engine, never
+		// |appid_N| (a dedicated pod has no Steam client). Layout, locally and
+		// in a pod alike:
+		//   mods/tf2/            this directory
+		//   mods/test/           the core game's scripts and resources
+		//   ../../content/tf/    TF2's content (a pod's /game/content; locally
+		//                        bin/<config>/content, which make setup links)
+		SearchPaths
+		{
+			game+mod			|gameinfo_path|custom/*
+			mod+mod_write		|gameinfo_path|.
+			game+game_write		|gameinfo_path|.
+			default_write_path	|gameinfo_path|.
+			gamebin				|gameinfo_path|bin
+
+			// TF2 first: its scripts, materials, models and sounds.
+			game				|gameinfo_path|../../content/tf/tf2_misc.vpk
+			game				|gameinfo_path|../../content/tf/tf2_textures.vpk
+			game				|gameinfo_path|../../content/tf/tf2_sound_misc.vpk
+			game				|gameinfo_path|../../content/tf/tf2_sound_vo_english.vpk
+
+			// The core game's own files.
+			game				|gameinfo_path|../test
+
+			// The engine's base content, wherever the engine is installed.
+			game				|all_source_engine_paths|hl2/hl2_textures.vpk
+			game				|all_source_engine_paths|hl2/hl2_misc.vpk
+			platform			|all_source_engine_paths|platform/platform_misc.vpk
+			game				|all_source_engine_paths|hl2
+			platform			|all_source_engine_paths|platform
+
+			game+download		|gameinfo_path|download
+		}
+	}
+}

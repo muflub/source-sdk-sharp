@@ -1,0 +1,28 @@
+# lane c2-sims: record point_worldtext's layout (tools/probes/c2sims-worldtext-probe.diff
+# applied) on dm_lockdown: five texts over the five glyph tables, the three
+# orientations, spacing and the rainbow, then 150 draws. Run with
+# --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 10 -20 0
+sleep 1
+cmd ent_create point_worldtext targetname c2wt0 message "Hello, World! 0123" textsize 12 font 0 orientation 0 color "255 128 64 255"
+cmd setang_exact 10 -10 0
+sleep 1
+cmd ent_create point_worldtext targetname c2wt1 message "Rainbow ~{|}" textsize 16 font 4 orientation 1 rainbow 1
+cmd setang_exact 10 0 0
+sleep 1
+cmd ent_create point_worldtext targetname c2wt2 message "Mono spaced_text" textsize 10 font 8 orientation 2 textspacingX 2 textspacingY 3 color "64 255 64 200"
+cmd setang_exact 10 10 0
+sleep 1
+cmd ent_create point_worldtext targetname c2wt3 message "TF2 font: @#$%" textsize 14 font 2 orientation 0
+cmd setang_exact 10 20 0
+sleep 1
+cmd ent_create point_worldtext targetname c2wt4 message "Professor" textsize 20 font 6 orientation 0 color "200 200 255 255"
+cmd setang_exact 5 0 0
+sleep 2
+cmd cs_cl_probe_sim worldtext 150
+wait sim. recorded 60
+quit

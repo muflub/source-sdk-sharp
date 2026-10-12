@@ -1,0 +1,182 @@
+--- c_rope.cpp
++++ c_rope.cpp
+@@ -37,4 +37,56 @@
+ #include "tier0/memdbgon.h"
+ 
++//==== C2-BEAMS ROPE PROBE (tools/probes/client/c2-beams/c_rope.diff; debug,
++//==== SS_CLIENT_PROBES only). Appends tab-separated rows to
++//==== $SOURCESHARP_PROBE_LOG; %.9g round-trips a float.
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <stdlib.h>
++static int C2Fd()
++{
++	static int s_fd = -2;
++	if ( s_fd == -2 )
++	{
++		const char *p = getenv( "SOURCESHARP_PROBE_LOG" );
++		s_fd = p ? open( p, O_WRONLY | O_CREAT | O_APPEND, 0644 ) : -1;
++	}
++	return s_fd;
++}
++static void C2Log( const char *fmt, ... )
++{
++	const int fd = C2Fd();
++	if ( fd < 0 )
++		return;
++	char buf[8192];
++	va_list a;
++	va_start( a, fmt );
++	int n = vsnprintf( buf, sizeof( buf ), fmt, a );
++	va_end( a );
++	if ( n > (int)sizeof( buf ) - 1 )
++		n = (int)sizeof( buf ) - 1;
++	if ( n > 0 && write( fd, buf, n ) < 0 )
++		return;
++}
++#define C2V "\t%.9g\t%.9g\t%.9g"
++#define C2X( v ) (double)(v).x, (double)(v).y, (double)(v).z
++static int g_C2Rope = -1;
++static float C2RandomFloat( float lo, float hi )
++{
++	const float r = ::RandomFloat( lo, hi );
++	C2Log( "RF\t%d\t%.9g\t%.9g\t%.9g\n", g_C2Rope, lo, hi, r );
++	return r;
++}
++static Vector C2RandomVector( float lo, float hi )
++{
++	const Vector v = ::RandomVector( lo, hi );
++	C2Log( "RV\t%d\t%.9g\t%.9g" C2V "\n", g_C2Rope, lo, hi, C2X( v ) );
++	return v;
++}
++#define RandomFloat C2RandomFloat
++#define RandomVector C2RandomVector
++//==== END PROBE HELPERS
++
+ //-----------------------------------------------------------------------------
+ // SOURCESHARP: THE ROPE'S CLIENTCLASS AND RECV TABLE WERE HERE, AND NOTHING
+@@ -1203,4 +1255,11 @@
+ 
+ 	pRope->FinishInit( pMaterialName );
++	C2Log( "RC\t%d\t%d\t%d\t%.9g\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g" C2V C2V "\n",
++		pRope->m_nRopeIndex, pRope->m_RopeFlags, pRope->m_nSegments, pRope->m_Width,
++		pMaterialName ? pMaterialName : "", pRope->m_TextureHeight, pRope->m_pBackMaterial ? 1 : 0,
++		(int)pRope->m_bConstrainBetweenEndpoints, (int)pRope->m_bNewDataThisFrame, (int)pRope->m_bApplyWind,
++		pRope->m_fLockedPoints, (int)pRope->m_Subdiv, pRope->m_TextureScale,
++		pRope->m_flCurrentGustTimer, pRope->m_flCurrentGustLifetime, C2X( pRope->m_vWindDir ),
++		C2X( pRope->m_flPreviousImpulse ) );
+ 	return pRope;
+ }
+@@ -1395,4 +1454,5 @@
+ void C_RopeKeyframe::SetStartPos( const Vector &vPos )
+ {
++	C2Log( "SP\t%d\t0" C2V "\n", m_nRopeIndex, C2X( vPos ) );
+ 	m_bEndPointIsFixed[0] = true;
+ 	m_vFixedEndPointPos[0] = vPos;
+@@ -1406,4 +1466,5 @@
+ void C_RopeKeyframe::SetEndPos( const Vector &vPos )
+ {
++	C2Log( "SP\t%d\t1" C2V "\n", m_nRopeIndex, C2X( vPos ) );
+ 	m_bEndPointIsFixed[1] = true;
+ 	m_vFixedEndPointPos[1] = vPos;
+@@ -1430,4 +1491,6 @@
+ void C_RopeKeyframe::RecomputeSprings()
+ {
++	C2Log( "RS\t%d\t%d\t%d\t%.9g\t%.9g\t%d\t%.9g\n", m_nRopeIndex, m_RopeLength, m_Slack,
++		m_Width, m_TextureScale, (int)m_Subdiv, m_flScrollSpeed );
+ 	m_RopePhysics.ResetSpringLength(
+ 		(m_RopeLength + m_Slack + ROPESLACK_FUDGEFACTOR) / (m_RopePhysics.NumNodes() - 1) );
+@@ -1437,4 +1500,5 @@
+ void C_RopeKeyframe::ShakeRope( const Vector &vCenter, float flRadius, float flMagnitude )
+ {
++	C2Log( "SK\t%d" C2V "\t%.9g\t%.9g\n", m_nRopeIndex, C2X( vCenter ), flRadius, flMagnitude );
+ 	// Sum up whatever it would apply to all of our points.
+ 	for ( int i=0; i < m_nSegments; i++ )
+@@ -1559,4 +1623,14 @@
+ void C_RopeKeyframe::RopeThink()
+ {
++	{
++		Vector vWind;
++		GetWindspeedAtTime( gpGlobals->curtime, vWind );
++		C2Log( "RT\t%d\t%.9g\t%.9g" C2V C2V "\t%d\t%d\t%.9g\t%d\t%d\n", m_nRopeIndex,
++			gpGlobals->frametime, gpGlobals->curtime, C2X( MainViewOrigin() ), C2X( vWind ),
++			r_drawropes.GetInt(), rope_shake.GetInt(), rope_wind_dist.GetFloat(),
++			rope_collide.GetInt(), (int)m_bPhysicsInitted );
++	}
++	g_C2Rope = m_nRopeIndex;
++	[&]() {
+ 	// Only recalculate the endpoint attachments once per frame.
+ 	m_bEndPointAttachmentPositionsDirty = true;
+@@ -1600,4 +1674,17 @@
+ 		UpdateBBox();
+ 	}
++	}();
++	g_C2Rope = -1;
++	for ( int i = 0; i < m_RopePhysics.NumNodes(); i++ )
++	{
++		const CSimplePhysics::CNode *pNode = m_RopePhysics.GetNode( i );
++		C2Log( "RN\t%d\t%d" C2V C2V C2V "\n", m_nRopeIndex, i,
++			C2X( pNode->m_vPos ), C2X( pNode->m_vPrevPos ), C2X( pNode->m_vPredicted ) );
++	}
++	C2Log( "RX\t%d\t%d\t%d" C2V C2V "\t%.9g\t%.9g\t%.9g" C2V "\t%d\t%d\t%d\t%d" C2V C2V "\t%.9g\n",
++		m_nRopeIndex, (int)m_bPhysicsInitted, (int)m_bApplyWind, C2X( m_flImpulse ), C2X( m_flPreviousImpulse ),
++		m_flCurrentGustTimer, m_flCurrentGustLifetime, m_flTimeToNextGust, C2X( m_vWindDir ),
++		m_iForcePointMoveCounter, m_fPrevLockedPoints, m_fLockedPoints, m_nLinksTouchingSomething,
++		C2X( m_vRenderMins ), C2X( m_vRenderMaxs ), m_RopePhysics.GetSpringLength() );
+ }
+ 
+@@ -1628,4 +1715,7 @@
+ int C_RopeKeyframe::DrawModel( int flags )
+ {
++	C2Log( "DM\t%d\t%d\t%d\n", m_nRopeIndex, (int)m_bConstrainBetweenEndpoints, (int)m_bPhysicsInitted );
++	g_C2Rope = m_nRopeIndex;
++	const int c2Ret = [&]() -> int {
+ 	VPROF_BUDGET( "C_RopeKeyframe::DrawModel", VPROF_BUDGETGROUP_ROPES );
+ 	if( !InitRopePhysics() )
+@@ -1673,4 +1763,16 @@
+ 	RopeManager()->AddToRenderCache( this );
+ 	return 1;
++	}();
++	g_C2Rope = -1;
++	if ( m_bConstrainBetweenEndpoints )
++	{
++		for ( int i = 0; i < m_RopePhysics.NumNodes(); i++ )
++		{
++			const CSimplePhysics::CNode *pNode = m_RopePhysics.GetNode( i );
++			C2Log( "CN\t%d\t%d" C2V C2V C2V "\n", m_nRopeIndex, i,
++				C2X( pNode->m_vPos ), C2X( pNode->m_vPrevPos ), C2X( pNode->m_vPredicted ) );
++		}
++	}
++	return c2Ret;
+ }
+ 
+@@ -1869,4 +1971,14 @@
+ 	if ( !pSegmentData )
+ 		return;
++	C2Log( "BR\t%d\t%d" C2V C2V "\t%d" C2V "\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\n",
++		m_nRopeIndex, (int)bQueued, C2X( vCurrentViewForward ), C2X( vCurrentViewOrigin ),
++		pQueuedData->m_iNodeCount, C2X( pQueuedData->m_vColorMod ), pQueuedData->m_RopeLength, pQueuedData->m_Slack,
++		m_flCurScroll, m_Width, m_TextureScale, m_TextureHeight, (int)m_Subdiv, rope_subdiv.GetInt(), m_RopeFlags,
++		(int)ShouldUseFakeAA( m_pBackMaterial ), ScreenWidth(), mat_fullbright.GetInt(), (int)RopeManager()->IsHolidayLightMode(),
++		rope_smooth_enlarge.GetFloat(), rope_smooth_minalpha.GetFloat(), rope_smooth_maxalpha.GetFloat(),
++		rope_smooth_minwidth.GetFloat(), rope_smooth_maxalphawidth.GetFloat() );
++	for ( int i = 0; i < pQueuedData->m_iNodeCount; i++ )
++		C2Log( "BP\t%d\t%d" C2V C2V "\n", m_nRopeIndex, i, C2X( pQueuedData->m_pPredictedPositions[i] ), C2X( pQueuedData->m_pLightValues[i] ) );
++	[&]() {
+ 
+ 	// Get the lighting values.
+@@ -2029,4 +2141,12 @@
+ 		}
+ 	}
++	}();
++	for ( int i = 0; i < pSegmentData->m_nSegmentCount; i++ )
++	{
++		const BeamSeg_t &seg = pSegmentData->m_Segments[i];
++		C2Log( "BS\t%d\t%d" C2V C2V "\t%.9g\t%.9g\t%.9g\t%.9g\n", m_nRopeIndex, i, C2X( seg.m_vPos ), C2X( seg.m_vColor ),
++			seg.m_flTexCoord, seg.m_flAlpha, seg.m_flWidth, pSegmentData->m_BackWidths[i] );
++	}
++	C2Log( "BE\t%d\t%d\t%.9g\n", m_nRopeIndex, pSegmentData->m_nSegmentCount, pSegmentData->m_flMaxBackWidth );
+ }
+ 

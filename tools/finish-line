@@ -1,0 +1,316 @@
+#!/usr/bin/env bash
+# The definition of done, one command per property (ROUTE_TO_DONE §5).
+# Prints PASS/FAIL per row and exits 1 if any row fails. NOT a substitute for
+# the live gate, which is row 5 and must be run separately on a quiet box.
+#
+#=============================================================================#
+# TWO WAYS THIS CERTIFIED A TREE IT WAS NOT LOOKING AT, BOTH FIXED HERE.
+#
+# This script is the merge checklist's step 3 -- "make check stamped, then
+# tools/finish-line <log>" -- and on 2026-09-15 it certified lane gate-zero's
+# branch with rows measured somewhere else entirely. Both causes are the same
+# mistake in two costumes: A PATH IS NOT A COMMIT.
+#
+#   1. IT cd'd TO A HARDCODED WORKTREE.
+#
+#          W=$HOME/git/source-sdk-2013/.claude/worktrees/<a fixed worktree>
+#          cd "$W" || exit 2
+#
+#      So rows 1-4 and 6 -- the gates, the compiled-TU sweeps, the alias
+#      header, the ratchet -- were facts about THAT checkout no matter which
+#      branch you ran this from, and its four FAILs were mainline's own.
+#      It now measures THE TREE THIS SCRIPT IS IN, which for a git worktree is
+#      the branch you are standing on, and it PRINTS which tree and which
+#      commit before any row, so the reader can see it.
+#
+#   2. IT IGNORED ITS ARGUMENT AND GLOBBED /tmp FOR A LOG.
+#
+#          L=$(ls -t $TMPDIR/*/*/scratchpad/check*.log | head -1)
+#
+#      `$1` was never read. The newest check log belonging to ANY agent
+#      session on this machine was certified instead: the run that found this
+#      read MAKE_CHECK_EXIT=0 and "6 legs passed" off a log whose own
+#      FINISH_LINE_TIP was 6aa6ae45a -- another branch -- while the log
+#      actually handed to it said MAKE_CHECK_EXIT=2 and five legs.
+#
+#      The commit that introduced the FINISH_LINE_TIP stamp is titled "the
+#      suite row certified from ANOTHER TREE'S log -- now it demands
+#      provenance". The stamp was added and the reader was not, so the
+#      provenance check has never once run.
+#
+#      It now reads ONLY "$1", REFUSES a log whose FINISH_LINE_TIP is missing
+#      or is not this HEAD, and SKIPS the suite rows when no log is given --
+#      never certifies them from a file it went looking for.
+#
+# `--self-test` drives every one of those refusals against a temporary log and
+# fails if any of them passes. A checker with no check on itself is how this
+# got two chances to be wrong.
+#=============================================================================#
+cd "$(dirname "$0")/.." || exit 2
+TREE=$(pwd -P)
+HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(not a git tree)")
+
+# THE BUILD ROWS 2-4 READ. Since Phase 6b the compiled-TU list is the CMake
+# build's (tools/cmakegraph.py: compile_commands.json, refused unless it agrees
+# with the CMakeLists source lists), and the files are the farm's src/ beside
+# it. This script is the repo's tools/ or a farm's (farm/<x>/tools is a link to
+# it); from the repo the farm is farm/<config>. SOURCESHARP_BUILD_DIR overrides.
+if [ "$(basename "$(dirname "$(pwd)")")" = farm ]; then FARM=$(pwd)
+else FARM="$(pwd)/farm/${SOURCESHARP_CONFIG:-debug}"; fi
+BUILD_DIR="${SOURCESHARP_BUILD_DIR:-$FARM/build}"
+FSRC="$(dirname "$BUILD_DIR")/src"
+CMAKEGRAPH="$(dirname "$(readlink -f "$0")")/cmakegraph.py"
+
+# The farm-relative sources server_sourcesharp and client_sourcesharp compile,
+# sorted and unique. Prints nothing and fails when either cannot be read, so
+# the rows below FAIL on it rather than measuring an empty list.
+compiled_tus() {
+  local sv cl
+  sv=$(python3 "$CMAKEGRAPH" sources server --build-dir "$BUILD_DIR") || return 1
+  cl=$(python3 "$CMAKEGRAPH" sources client --build-dir "$BUILD_DIR") || return 1
+  printf '%s\n%s\n' "$sv" "$cl" | grep . | LC_ALL=C sort -u
+}
+
+#-----------------------------------------------------------------------------
+# WHICH TREE, WHICH COMMIT, SAID BEFORE ANY ROW. The whole of this script's
+# failure was that a reader could not tell, and a header is what makes a
+# pasted report answerable later.
+#-----------------------------------------------------------------------------
+printf "\n  tree   %s\n" "$TREE"
+printf "  head   %s\n" "$HEAD_SHA"
+printf "  branch %s\n" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '(none)')"
+printf "  build  %s\n\n" "$BUILD_DIR"
+
+fails=0
+row() { # <name> <expected> <actual>
+  if [ "$2" = "$3" ]; then printf "  PASS  %-52s %s\n" "$1" "$3"
+  else printf "  FAIL  %-52s got=%s want=%s\n" "$1" "$3" "$2"; fails=$((fails+1)); fi
+}
+
+#-----------------------------------------------------------------------------
+# --self-test: the refusals, each driven and each required to FIRE.
+#
+# It asserts the NEGATIVE, which is the only direction that can catch this
+# script's actual history: every bug it has had was a row that PASSED when it
+# should have refused. So each case below builds a log that must be refused and
+# fails if the run comes back clean, and the last case is the POSITIVE CONTROL
+# -- a correctly stamped log whose suite rows really are read -- because a
+# script that refused everything would pass all the others.
+#
+# Rows 1-4 and 6 are not driven here: they measure the tree, take minutes, and
+# their answers are the subject rather than the mechanism. What is tested is
+# what went wrong: WHICH TREE, and WHICH LOG.
+#-----------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+  SELFTEST_BEGIN=1
+  t=0; bad=0
+  say() { t=$((t+1)); printf "  %-56s %s\n" "$1" "$2"; }
+  no()  { bad=$((bad+1)); printf "  SELF-TEST FAILED: %s\n" "$1"; }
+  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+
+  # THE SCRIPT'S REAL CODE: comments stripped, and THIS BLOCK REMOVED.
+  #
+  # Two corrections, both found by running this self-test rather than by
+  # thinking about it, and both are the same hazard the wave brief names --
+  # PROSE COUNTS AS CODE TO A RAW GREP.
+  #
+  #   * comments, because the header above QUOTES both defects verbatim in
+  #     order to explain them, so a raw grep convicts the explanation. This is
+  #     the correction tools/entity-gates and tools/entity-census already
+  #     carry.
+  #   * this block, because the two cases below have to WRITE THE NEEDLES DOWN
+  #     to search for them, so the self-test convicts itself. The markers are
+  #     assignments rather than comments precisely because the first sed has
+  #     already removed every comment by the time the second one runs.
+  code() { sed 's/#.*//' "$0" | sed '/SELFTEST_BEGIN=1/,/SELFTEST_END=1/d'; }
+
+  # The tree is THIS tree, not a hardcoded one.
+  if code | grep -q 'worktrees/entity-port'; then
+    no "the script still names a hardcoded worktree"
+  else
+    say "no hardcoded worktree path in the code" ok
+  fi
+
+  # The log is the ARGUMENT, not something globbed out of /tmp.
+  if code | grep -q 'ls -t /tmp'; then
+    no "the script still globs /tmp for a check log"
+  else
+    say "no /tmp glob for a check log in the code" ok
+  fi
+
+  # AND THE STRIPPER IS NOT A BLINDFOLD. If `code` returned nothing -- a sed
+  # that stopped working, a $0 that is not readable -- both rows above would
+  # pass for the wrong reason, which is this whole file's failure mode.
+  if [ "$(code | grep -c .)" -gt 40 ]; then
+    say "the comment stripper still leaves real code to read" ok
+  else
+    no "the comment stripper returned almost nothing, so the two rows above mean nothing"
+  fi
+
+  # A log with no stamp is refused.
+  printf 'MAKE_CHECK_EXIT=0\n' > "$tmp/nostamp.log"
+  if "$0" "$tmp/nostamp.log" 2>/dev/null |
+       grep -q 'FAIL  check log provenance (FINISH_LINE_TIP == HEAD).*got=none'; then
+    say "an unstamped log is refused" ok
+  else
+    no "an unstamped log was NOT refused"
+  fi
+
+  # A log stamped with another commit is refused, and the row SHOWS both.
+  printf 'MAKE_CHECK_EXIT=0\nFINISH_LINE_TIP=%s\n' \
+         "0000000000000000000000000000000000000000" > "$tmp/wrong.log"
+  if "$0" "$tmp/wrong.log" 2>/dev/null |
+       grep -q 'FAIL  check log provenance (FINISH_LINE_TIP == HEAD).*got=0000000'; then
+    say "a log stamped with another commit is refused" ok
+  else
+    no "a log from another commit was NOT refused"
+  fi
+
+  # No log at all is a FAIL -- mainline's contract, and the stricter one. A
+  # checker that goes quiet when it was handed nothing is the same silence in
+  # a smaller costume, and this lane had written a SKIP here.
+  out=$("$0" 2>/dev/null)
+  if printf '%s' "$out" | grep -q 'FAIL  check log supplied as \$1'; then
+    say "no log given is a FAIL, not a skip" ok
+  else
+    no "with no log given the suite rows were not refused"
+  fi
+  if printf '%s' "$out" | grep -qE '(PASS|FAIL)  make check exit 0'; then
+    no "with no log given a make-check row was still printed"
+  else
+    say "and no make-check row is printed from nowhere" ok
+  fi
+
+  # THE POSITIVE CONTROL. A correctly stamped log IS read -- otherwise every
+  # case above would pass in a script that refused unconditionally.
+  printf 'MAKE_CHECK_EXIT=7\nFINISH_LINE_TIP=%s\n' "$HEAD_SHA" > "$tmp/right.log"
+  if "$0" "$tmp/right.log" 2>/dev/null | grep -q 'FAIL  make check exit 0 *got=7'; then
+    say "a correctly stamped log IS read (control: exit 7 seen)" ok
+  else
+    no "a correctly stamped log's suite rows were not read"
+  fi
+
+  printf "\n  finish-line --self-test: %d case(s), %d failed\n" "$t" "$bad"
+  SELFTEST_END=1
+  exit $([ "$bad" -eq 0 ] && echo 0 || echo 1)
+fi
+
+# 1. the three gates
+timeout 900 tools/entity-gates >/dev/null 2>&1; row "tools/entity-gates exit 0" 0 $?
+
+# 2. no alias/SOURCESHARP directives left in COMPILED stock TUs.
+#
+# §5 says "over the compiled TU list", and the first version of this row did not:
+# it swept all of src/game and src/public and read 313 files. Only 68 of those
+# were TUs the two game DLLs actually compiled -- the other 244 were not built,
+# so arms in them are not residue and deleting them would be churn. Over-counting
+# by 5x here would have aimed a whole wave at the wrong files.
+#
+# AND IT IS STOCK ONLY, which is a second correction. Of the 116 compiled TUs
+# carrying arms, 68 are stock (game/, public/) and 48 are the PORT'S OWN shim
+# (sourcesharp/). §5's property is "every kept STOCK TU carries zero" -- the
+# shim's own guards are a separate question with a separate owner, and counting
+# them here would make this row unreachable for a reason that is not residue.
+# Three measurements of this one property gave 313, 68 and 116, each measuring
+# something different; the one §5 asks for is stock-and-compiled.
+tus2=$(compiled_tus 2>/dev/null) || tus2=""
+if [ -z "$tus2" ]; then
+  row "compiled-TU list could be read (row 2)" yes no
+else
+  n=0
+  while IFS= read -r f; do
+    [ -f "$FSRC/$f" ] || continue
+    case "$f" in sourcesharp/*) continue;; esac   # STOCK only -- see below
+    grep -qE '^[[:space:]]*#[[:space:]]*ifn?def[[:space:]]+(SS_CBASEENTITY_ALIAS|SOURCESHARP)\b' "$FSRC/$f" && n=$((n+1))
+  done <<< "$tus2"
+  row "COMPILED STOCK TUs carrying alias/SOURCESHARP" 0 "$n"
+fi
+
+# 3. the alias header is gone
+# In the FARM's src/: the repo root has no src/public, so a relative path read
+# from there answered "absent" for any tree.
+if [ -d "$FSRC/public" ]; then
+  [ -e "$FSRC/public/ss_cbaseentity_alias.h" ] && a=present || a=absent
+else
+  a="unreadable ($FSRC/public is not there)"
+fi
+row "src/public/ss_cbaseentity_alias.h" absent "$a"
+
+# 4. nothing depends on baseentity.h any more.
+#
+# ROUTE_TO_DONE proposes `grep -c baseentity.h .../objs/*/*.d`. THAT COMMAND
+# CANNOT FAIL ON THIS TREE: there are no .d files anywhere (ninja consumes the
+# compiler's depfiles into a binary .ninja_deps -- VPC's inside the build
+# container, CMake's in farm/<config>/build). The row passed at 0 while every TU
+# still included the header. Measured at the SOURCE instead, over the TUs the
+# two game targets actually compile -- and if the TU list cannot be built, this
+# row FAILS rather than passing, because a row that cannot measure must never
+# read as a pass.
+tus=$(compiled_tus 2>/dev/null) || tus=""
+if [ -z "$tus" ]; then
+  row "compiled-TU list could be read" yes no
+else
+  inc=0
+  while IFS= read -r f; do
+    [ -f "$FSRC/$f" ] || continue
+    grep -qE '^[[:space:]]*#[[:space:]]*include[[:space:]]+"[^"]*baseentity\.h"' "$FSRC/$f" && inc=$((inc+1))
+  done <<< "$tus"
+  row "compiled stock TUs including baseentity.h" 0 "$inc"
+fi
+
+# 5. the suite: six legs, zero warnings.
+#
+# MAINLINE'S BLOCK, TAKEN WHOLE, because its contract is the stricter one: NO
+# LOG IS A FAIL AND NOT A SKIP. This lane had written a SKIP there and the
+# coordinator's rule is right -- a finish line that stays quiet when it was
+# given nothing to read is the same silence in a smaller costume.
+#
+# WHAT THIS LANE FOUND THAT MAINLINE'S FIX DID NOT REACH is above, at the `cd`:
+# the provenance test below compares the log's stamp against `git rev-parse
+# HEAD`, and until this merge that ran inside a HARDCODED entity-port worktree.
+# So on any other branch it compared the log against MAINLINE'S head -- it
+# refused, which is the safe direction, but for the wrong reason and with a
+# misleading want= -- and rows 1-4 and 6 went on measuring that other checkout
+# in silence. Third defect in this checker; the first two are described below
+# in mainline's own words.
+#
+# 5. the suite: six legs, zero warnings.
+#
+# THIS ROW USED TO GLOB `$TMPDIR/*/*/scratchpad/check*.log` AND TAKE THE
+# NEWEST. That reads EVERY session's scratchpad on the box, and worse, a log has
+# no provenance: `armed-link` caught it certifying a green suite from a log
+# produced by a DIFFERENT TREE (280 test binaries against its own 279) while its
+# real `make check` exited 2. A finish line that certifies from someone else's
+# run is the worst instrument in this project, because it is the one that says
+# "done".
+#
+# Now: the log must be passed in as $1 AND must carry a `FINISH_LINE_TIP=<sha>`
+# line matching HEAD. Write it with:
+#     make check > log 2>&1; echo "MAKE_CHECK_EXIT=$?" >> log
+#     echo "FINISH_LINE_TIP=$(git rev-parse HEAD)" >> log
+# No log, or a mismatched tip, is a FAIL -- never a pass, and never a silent skip.
+L="${1:-}"
+if [ -n "$L" ] && [ -f "$L" ]; then
+  want="$HEAD_SHA"          # the header's reading, so there is only one
+  got=$(grep -o 'FINISH_LINE_TIP=[0-9a-f]*' "$L" 2>/dev/null | tail -1 | cut -d= -f2)
+  if [ "$got" != "$want" ]; then
+    row "check log provenance (FINISH_LINE_TIP == HEAD)" "$want" "${got:-none}"
+    L=""
+  fi
+else
+  row "check log supplied as \$1" yes "${L:+missing-file}${L:-no}"
+  L=""
+fi
+if [ -n "$L" ]; then
+  row "make check exit 0"            0 "$(grep -o 'MAKE_CHECK_EXIT=[0-9]*' "$L" | tail -1 | cut -d= -f2)"
+  row "leg rows passed (whitespace-tolerant)" 5 "$(grep -cE '^[[:space:]]+(runner|managed|native|entity|ui)[[:space:]]+passed' "$L")"
+  row "warnings (needle warning:|warning CS)"  0 "$(grep -cE 'warning:|warning CS' "$L")"
+fi
+
+# 6. ratchet + census agree on the same tree
+timeout 900 tools/entity-ratchet >/dev/null 2>&1; row "tools/entity-ratchet exit 0" 0 $?
+
+printf "\n  row 5 of §5 -- tools/live-gate 245/0/0 with two reloads AND a map change --\n"
+printf "  is NOT checked here. Run it on a quiet box; silence is not a pass.\n\n"
+[ "$fails" -eq 0 ] && echo "FINISH LINE: all checked rows PASS" || echo "FINISH LINE: $fails row(s) FAIL"
+exit $([ "$fails" -eq 0 ] && echo 0 || echo 1)

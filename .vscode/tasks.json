@@ -1,0 +1,54 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Started by the "Debug the game (C#)" configuration, and never finishes:
+      // it is the game.
+      //
+      // The problem matcher is not there to find problems. A background task has
+      // to tell VS Code when it is "ready", or the attach either goes early —
+      // before the runtime exists, which fails — or waits for the task to exit,
+      // which it never does. endsPattern is the line the managed side prints
+      // when it starts holding for a debugger, so the attach happens in exactly
+      // the window where it works.
+      "label": "run the game for debugging",
+      "type": "shell",
+      "command": "make run-debug",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(SourceSharp) (waiting)$",
+          "file": 1,
+          "message": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^==> running ",
+          "endsPattern": "waiting for a debugger \\(pid"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "build the mod",
+      "type": "shell",
+      "command": "make debug",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "problemMatcher": ["$gcc", "$msCompile"]
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "make test",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

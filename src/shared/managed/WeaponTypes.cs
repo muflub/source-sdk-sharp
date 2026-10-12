@@ -1,0 +1,432 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+//
+// Inspired by and based on the Half-Life 2 Source SDK 2013 by Valve:
+// https://github.com/ValveSoftware/source-sdk-2013
+//
+//=============================================================================//
+
+using System.Collections.Immutable;
+using SourceSharp.Abi;
+
+namespace SourceSharp.Shared;
+
+/// <summary>
+/// What one weapon does when it is fired.
+///
+/// Damage per pellet, not per shot — a shotgun that did its damage once would
+/// be a rifle with a spread pattern drawn on it, and the difference shows the
+/// moment somebody is hit by half a cone.
+/// </summary>
+/// <param name="Name">The entity classname, which is how a weapon is identified everywhere else.</param>
+/// <param name="Interval">Seconds between shots — the fire rate the stock attack path reads.</param>
+/// <param name="Pellets">
+/// Bullets per trigger pull. One for everything that is not a shotgun, and it
+/// costs one ROUND however many pellets it fires — a shotgun that spent seven
+/// would empty its clip in a single pull.
+/// </param>
+/// <param name="Spread">
+/// Half-angle of the cone, in degrees. Zero takes the base class's cone rather
+/// than firing perfectly straight, because "unregistered" and "perfectly
+/// accurate" should not be the same value.
+/// </param>
+public readonly record struct WeaponType(
+    string Name,
+    float Interval,
+    int Pellets = 1,
+    float Spread = 0f)
+{
+    /// <summary>
+    /// The entity this weapon throws instead of firing bullets, or empty for a
+    /// hitscan weapon.
+    ///
+    /// A weapon is one or the other, not both: a grenade launcher that also
+    /// fired a bullet down the middle would be two weapons wearing one model.
+    /// </summary>
+    public string Projectile { get; init; } = "";
+
+    /// <summary>How fast it leaves the hand, in units per second.</summary>
+    public float LaunchSpeed { get; init; }
+
+    /// <summary>
+    /// Whether what it launches is thrown or aimed.
+    ///
+    /// A thrown projectile is lofted and shoved: it goes roughly where you are
+    /// looking, arcs, and the arc is the point — a grenade thrown flat at the
+    /// floor is a grenade dropped at your feet. An aimed one leaves along the
+    /// exact line of sight at a fixed speed, because a bolt that landed a
+    /// little below the crosshair is a broken crossbow rather than a heavy one.
+    ///
+    /// <para>
+    /// It also decides HOW it is set moving. A thrown projectile is a physics
+    /// prop and takes an impulse; an aimed one flies under
+    /// <see cref="ScriptedEntityKind.Projectile"/> and has its velocity set
+    /// outright. Shoving the second would be applying an impulse to a physics
+    /// object it does not have, which is silently nothing at all.
+    /// </para>
+    /// </summary>
+    public bool Thrown { get; init; }
+
+    /// <summary>
+    /// What the other trigger does, or null for a weapon with one.
+    ///
+    /// Most weapons have none, and that is the honest default rather than an
+    /// omission: a pistol's right mouse button does nothing in Half-Life
+    /// either.
+    /// </summary>
+    public SecondaryFire? Secondary { get; init; }
+
+    //-------------------------------------------------------------------------
+    // What used to come from scripts/weapon_<name>.txt (Phase 10).
+    //
+    // The scripts were the C++ weapon class's way of getting per-name data into
+    // one generic shell. The hierarchy weapon reads THIS table on both sides
+    // instead — the same one-list rule as the ammo table and the fire rates —
+    // so the script files stop being an authority. Values below are quoted from
+    // the shipped scripts, not invented.
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// Rounds a full clip holds, or -1 for a weapon with no clip — which fires
+    /// straight from its reserve pool (frag, RPG) or needs none (crowbar).
+    /// </summary>
+    public int ClipSize { get; init; } = -1;
+
+    /// <summary>
+    /// The ammo this weapon's primary fire spends, by the name
+    /// <see cref="AmmoTypes"/> registered — or empty for a melee weapon.
+    /// </summary>
+    public string AmmoName { get; init; } = "";
+
+    /// <summary>The pool the alt-fire draws on, when it has one of its own.</summary>
+    public string SecondaryAmmoName { get; init; } = "";
+
+    /// <summary>The v_ model the local carrier sees.</summary>
+    public string ViewModel { get; init; } = "";
+
+    /// <summary>The w_ model everyone else sees, and the pickup on the ground.</summary>
+    public string WorldModel { get; init; } = "";
+
+    /// <summary>Seconds after a deploy before the first shot may fire.</summary>
+    public float DeployTime { get; init; } = 0.5f;
+
+    /// <summary>Soundscript entries, from the script's SoundData block.</summary>
+    public string FireSound { get; init; } = "";
+    public string EmptySound { get; init; } = "";
+    public string ReloadSound { get; init; } = "";
+
+    /// <summary>
+    /// A melee weapon's reach and per-hit damage. Melee is the one attack whose
+    /// damage is not the ammunition's, because there is no ammunition.
+    /// </summary>
+    public float MeleeRange { get; init; }
+    public float MeleeDamage { get; init; }
+
+    /// <summary>Whether this row swings rather than shoots.</summary>
+    public bool IsMelee => AmmoName.Length == 0 && Projectile.Length == 0;
+}
+
+/// <summary>
+/// The other trigger.
+///
+/// A separate record rather than a second set of fields on
+/// <see cref="WeaponType"/>, because the two are not the same shape. A primary
+/// attack always spends the clip and is bounded by a fire rate the ENGINE
+/// holds, since the stock attack path reads it during a shot. A secondary
+/// spends a different ammunition pool with no clip in front of it, and nothing
+/// native needs to know its rate.
+/// </summary>
+/// <param name="Interval">Seconds between alt-fires.</param>
+/// <param name="AmmoCost">
+/// How much of the secondary pool one press spends. The shotgun is the reason
+/// this is not always one: both barrels is two shells.
+/// </param>
+public readonly record struct SecondaryFire(float Interval, int AmmoCost = 1)
+{
+    /// <summary>
+    /// Bullets per press, for an alt-fire that shoots rather than launches.
+    /// </summary>
+    public int Pellets { get; init; }
+
+    /// <summary>Half-angle of the cone, in degrees.</summary>
+    public float Spread { get; init; }
+
+    /// <summary>What it launches, or empty for one that shoots.</summary>
+    public string Projectile { get; init; } = "";
+
+    public float LaunchSpeed { get; init; }
+
+    /// <summary>Lofted like a throw rather than sent along the line of sight.</summary>
+    public bool Thrown { get; init; }
+
+    /// <summary>
+    /// Whether it spends the CLIP as well as the secondary pool.
+    ///
+    /// The shotgun's double blast does: it is the same two shells the primary
+    /// would have fired one at a time, so it has no separate ammunition and
+    /// takes from the clip instead. Everything else here draws on a pool the
+    /// primary never touches.
+    /// </summary>
+    public bool FromClip { get; init; }
+
+    /// <summary>The alt-fire's own soundscript entry (the script's double_shot).</summary>
+    public string Sound { get; init; } = "";
+}
+
+/// <summary>
+/// How each weapon fires, declared here and registered natively at startup.
+///
+/// What is NOT here any more is damage. That belongs to the ammunition, which
+/// is how stock does it — FireBullets asks the ammo definition — so two weapons
+/// sharing a type hit equally hard and differ by rate of fire, spread and
+/// pellet count. See <see cref="AmmoTypes"/>.
+///
+/// <para>
+/// These numbers are held natively once registered, because the stock attack
+/// path asks for them DURING a shot. One generic shell serves every weapon
+/// name, so none of this can be inherited from a per-weapon C++ class the way
+/// stock does; this table is what replaces those classes.
+/// </para>
+/// </summary>
+public static class WeaponTypes
+{
+    public static readonly ImmutableArray<WeaponType> All =
+    [
+        // Melee. Its script gives it no ammo type, so the attack path treats it
+        // as a weapon that does not use clips.
+        new(EntityNames.WeaponCrowbar, Interval: 0.5f)
+        {
+            ViewModel   = "models/weapons/v_crowbar.mdl",
+            WorldModel  = "models/weapons/w_crowbar.mdl",
+            FireSound   = "Weapon_Crowbar.Single",
+            // Stock's sk_plr_dmg_crowbar and CWeaponCrowbar's 75-unit reach.
+            MeleeRange  = 75f,
+            MeleeDamage = 10f,
+        },
+
+        new(EntityNames.WeaponPistol,   Interval: 0.20f, Spread: 1.0f)
+        {
+            ClipSize    = 18,
+            AmmoName    = "Pistol",
+            ViewModel   = "models/weapons/v_pistol.mdl",
+            WorldModel  = "models/weapons/w_pistol.mdl",
+            FireSound   = "Weapon_Pistol.Single",
+            EmptySound  = "Weapon_Pistol.Empty",
+            ReloadSound = "Weapon_Pistol.Reload",
+        },
+
+        new(EntityNames.Weapon357,      Interval: 0.75f, Spread: 0.5f)
+        {
+            ClipSize    = 6,
+            AmmoName    = "357",
+            ViewModel   = "models/weapons/v_357.mdl",
+            WorldModel  = "models/weapons/w_357.mdl",
+            FireSound   = "Weapon_357.Single",
+            // The 357's own script borrows the pistol's dry click, so this
+            // does too rather than inventing an entry the soundscripts lack.
+            EmptySound  = "Weapon_Pistol.Empty",
+        },
+        // The SMG launches a grenade, on the ammunition dm_lockdown already
+        // scatters six boxes of. It is thrown rather than aimed, because an
+        // underslung launcher lobs — and because it is the same ss_grenade the
+        // frag throws, which is the whole argument for the projectile being an
+        // entity rather than a weapon feature.
+        new(EntityNames.WeaponSmg1,     Interval: 0.075f, Spread: 3.0f)
+        {
+            Secondary = new SecondaryFire(Interval: 1.0f)
+            {
+                Projectile = "ss_grenade",
+                LaunchSpeed = 1000f,
+                Thrown = true,
+                Sound = "Weapon_SMG1.Double",
+            },
+            ClipSize    = 45,
+            AmmoName    = "SMG1",
+            SecondaryAmmoName = "SMG1_Grenade",
+            ViewModel   = "models/weapons/v_smg1.mdl",
+            WorldModel  = "models/weapons/w_smg1.mdl",
+            FireSound   = "Weapon_SMG1.Single",
+            EmptySound  = "Weapon_SMG1.Empty",
+            ReloadSound = "Weapon_SMG1.Reload",
+        },
+
+        // The AR2's alt-fire is stock's energy ball, and now it is one: a ball
+        // that ricochets off the world and keeps going. It stood in as a rocket
+        // for a while, which was the same shot without the thing that makes it
+        // interesting — a rocket that hits a wall is over.
+        new(EntityNames.WeaponAr2,      Interval: 0.10f, Spread: 2.0f)
+        {
+            Secondary = new SecondaryFire(Interval: 1.5f)
+            {
+                Projectile = EntityNames.SsEnergyball,
+
+                // Slower than the round it replaces, and it has to be: the
+                // whole point is a shot you can watch come back off a wall, and
+                // at 1800 the first bounce happens before anyone has seen the
+                // first leg of it.
+                LaunchSpeed = 1000f,
+                Sound = "Weapon_IRifle.Single",
+            },
+            ClipSize    = 30,
+            AmmoName    = "AR2",
+            SecondaryAmmoName = "AR2AltFire",
+            ViewModel   = "models/weapons/v_irifle.mdl",
+            WorldModel  = "models/weapons/w_irifle.mdl",
+            FireSound   = "Weapon_AR2.Single",
+            EmptySound  = "Weapon_IRifle.Empty",
+            ReloadSound = "Weapon_AR2.Reload",
+        },
+
+        // The one that needs a pellet count. Seven pellets of buckshot at eight
+        // damage each is 56 at point blank and much less past the spread, which
+        // is the behaviour a shotgun is FOR.
+        new(EntityNames.WeaponShotgun, Interval: 0.90f, Pellets: 7, Spread: 5f)
+        {
+            // Both barrels. Twice the pellets for twice the shells, out of the
+            // CLIP rather than a pool of its own — it is the same buckshot the
+            // primary fires, spent two at a time. Wider, because a double blast
+            // that were merely twice as strong would have no drawback and would
+            // simply be the better button.
+            Secondary = new SecondaryFire(Interval: 1.5f, AmmoCost: 2)
+            {
+                Pellets = 12,
+                Spread = 10f,
+                FromClip = true,
+                Sound = "Weapon_Shotgun.Double",
+            },
+            ClipSize    = 6,
+            AmmoName    = "Buckshot",
+            ViewModel   = "models/weapons/v_shotgun.mdl",
+            WorldModel  = "models/weapons/w_shotgun.mdl",
+            FireSound   = "Weapon_Shotgun.Single",
+            EmptySound  = "Weapon_Shotgun.Empty",
+            ReloadSound = "Weapon_Shotgun.Reload",
+        },
+
+        // Aimed, not thrown: both leave along the line of sight rather than
+        // arcing, which is what separates them from the grenade below.
+        new(EntityNames.WeaponCrossbow, Interval: 1.5f)
+        {
+            Projectile = "ss_bolt",
+
+            // Stock's BOLT_AIR_VELOCITY. Fast enough to feel instant across a
+            // room and slow enough to have to be led across a map — that gap IS
+            // the crossbow, and stock already picked the number that gets it.
+            LaunchSpeed = 2500f,
+            ClipSize    = 1,
+            AmmoName    = "XBowBolt",
+            ViewModel   = "models/weapons/v_crossbow.mdl",
+            WorldModel  = "models/weapons/w_crossbow.mdl",
+            FireSound   = "Weapon_Crossbow.Single",
+            EmptySound  = "Weapon_Pistol.Empty",
+            ReloadSound = "Weapon_Crossbow.Reload",
+        },
+
+        new(EntityNames.WeaponRpg, Interval: 2.0f)
+        {
+            Projectile = "ss_rocket",
+
+            // Stock's TERMINAL speed, held from the moment it leaves rather
+            // than accelerated up to. Dodgeable is still the point — see
+            // docs/divergences.md — but 1000 read as a lobbed pipe rather than
+            // something under thrust, which is a different weapon from the one
+            // that was wanted.
+            LaunchSpeed = 1500f,
+            AmmoName    = "RPG_Round",
+            ViewModel   = "models/weapons/v_rpg.mdl",
+            WorldModel  = "models/weapons/w_rocket_launcher.mdl",
+            FireSound   = "Weapon_RPG.Single",
+            EmptySound  = "Weapon_SMG1.Empty",
+        },
+
+        new(EntityNames.WeaponFrag, Interval: 1.0f)
+        {
+            Projectile = "ss_grenade",
+            LaunchSpeed = 900f,
+            Thrown = true,
+            AmmoName    = "Grenade",
+            ViewModel   = "models/weapons/v_grenade.mdl",
+            WorldModel  = "models/weapons/w_grenade.mdl",
+        },
+    ];
+
+    /// <summary>
+    /// Hands the table to the native side, which is where the attack path reads
+    /// it. Called on both sides: the client predicts a shot and needs the same
+    /// fire rate to predict it with.
+    ///
+    /// <para>
+    /// This is also where the nine classnames come into existence. Each row
+    /// claims its own name for the generic weapon shell, so the table above is
+    /// the ONLY place the mod says what weapons it has — a row is a weapon, and
+    /// there is nothing else to add. The names used to be a second list in
+    /// <c>shell_weapon.cpp</c>, which meant a weapon added here and not there
+    /// did not exist and failed as "unknown entity" rather than as anything
+    /// about this table.
+    /// </para>
+    ///
+    /// <para>
+    /// The classname claim does nothing on the client, where the slot is null:
+    /// the entity factory dictionary is the server's, and a client builds a
+    /// weapon from the network class the server sent rather than from a name.
+    /// One method still serves both sides, because the numbers below it are
+    /// needed on both and the names are needed on one.
+    /// </para>
+    /// </summary>
+    public static void Register(string side, IEngineWeapons weapons, ILog log)
+    {
+        foreach (var weapon in All)
+        {
+            // The CLASSNAMES are not claimed here any more (Phase 10): each row
+            // is a [ScriptedEntity] attribute on WeaponPickup, so the names go
+            // through the same registration as every other managed entity. What
+            // this still fills is the native fire-rate table, which is only
+            // read by code that dies with basecombatweapon_shared.cpp — kept
+            // until that file leaves, then this loop goes with it.
+            weapons.RegisterWeaponType(weapon.Name, weapon.Interval, weapon.Spread, weapon.Pellets);
+        }
+
+        log.Msg($"[SourceSharp/{side}] registered {All.Length} weapon type(s)\n");
+    }
+
+    /// <summary>
+    /// The profile for a classname, or null when there is none.
+    ///
+    /// Case-insensitive because a classname arrives from the engine and from map
+    /// keyvalues, and those do not agree about case as reliably as one would
+    /// like.
+    /// </summary>
+    public static WeaponType? For(string className)
+    {
+        foreach (var weapon in All)
+        {
+            if (string.Equals(weapon.Name, className, StringComparison.OrdinalIgnoreCase))
+                return weapon;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A weapon's position in <see cref="All"/>, or -1.
+    ///
+    /// THE INDEX IS THE WIRE FORMAT (Phase 10): the carried weapon networks
+    /// WHICH weapon it is as this number, and the client resolves it against
+    /// the same table in the same assembly. Rows are therefore APPENDED, never
+    /// reordered — the same rule the ammo table lives by, pinned by
+    /// WeaponTests.TheTableOrderIsTheWireFormat.
+    /// </summary>
+    public static int IndexOf(string className)
+    {
+        for (int i = 0; i < All.Length; i++)
+        {
+            if (string.Equals(All[i].Name, className, StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>The row a networked index names, or null for -1 and anything stale.</summary>
+    public static WeaponType? ByIndex(int index)
+        => index >= 0 && index < All.Length ? All[index] : null;
+}

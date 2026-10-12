@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# docs/todo.md "Re-measure test timings on a quiet machine": one run of each
+# command, each stamped with uptime (load1), the exit code and TIP.
+# Writes timings-<stamp>.tsv into docs/measurements/. Run only when the box is quiet.
+set -u
+cd "$(dirname "$0")/.."
+TIP=$(git rev-parse --short HEAD)
+OUT=docs/measurements/timings-$(date +%Y%m%d-%H%M%S).tsv
+echo -e 'command\tseconds\tload1\texit\ttip' > "$OUT"
+one() { # name  cmd...
+	local name=$1; shift
+	local l rc
+	l=$(cut -d' ' -f1 /proc/loadavg)
+	local t0=$(date +%s.%N)
+	"$@" > "/tmp/timing-$name.log" 2>&1
+	rc=$?
+	local t1=$(date +%s.%N)
+	local u
+	u=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.1f", b-a}')
+	printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$u" "$l" "$rc" "$TIP" >> "$OUT"
+	echo "$name $u s load=$l rc=$rc"
+}
+one debug make debug          # warm
+one test make test
+one test-full make test-full
+rm -rf farm/release/build     # cold: the release tree's own build dir
+one release-cold make release
+one release-warm make release
+cat "$OUT"

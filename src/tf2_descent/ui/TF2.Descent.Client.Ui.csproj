@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    TF2Descent's client UI (plan_tf2_rpg §10 Phase 8, docs/plans/descent_ui.md):
+    the game's screens on the SourceSharp UI toolkit, mirroring
+    src/client/ui/screens — the toolkit and the data contract only, never the
+    core, the engine or Abi (the same assembly rule UiAssemblyRulesTests holds
+    over the core screens). Game state arrives through the IDescent*Source
+    interfaces beside these files; the wiring to netstate lives in
+    src/tf2_descent/client, not here. Discovered by the preview, lint and UI
+    tests through tools/ui-preview-assemblies.txt.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\client\ui\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+  </ItemGroup>
+</Project>

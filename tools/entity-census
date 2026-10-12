@@ -1,0 +1,475 @@
+#!/bin/bash
+#
+# tools/entity-census -- the plan_entity.md §1 table, the shim->stock cross-edge
+# list, and the §3.16 cast census, measured from the tree rather than recited.
+#
+# WHY THIS EXISTS. Every number in plan_entity.md §1 is a number the port has to
+# drive to zero, and a number nobody can re-take is a number that gets quoted
+# rather than checked. §1 says 1,207 / 602 entity members and 33 / 91 entity-list
+# members; this tool reads 1,185 / 584 and 62 / 120 on the SAME binaries, and
+# neither pair is wrong -- §1 took its counts without a symbol-type filter and
+# with a narrower entity-list pattern than its own appendix uses. Two readings
+# of one tree, indistinguishable in prose. So the census is a COMMAND, its
+# output is a checked-in file, it carries both readings, and a gtest fails when
+# the file and the tree disagree.
+#
+# USAGE, from a worktree root:
+#
+#   tools/entity-census            # measure, diff against the baseline, exit 1 on drift
+#   tools/entity-census --print    # measure, print, exit 0 (no baseline needed)
+#   tools/entity-census --write    # measure, overwrite docs/entity-census.txt
+#   tools/entity-census --dump-patterns
+#                                  # print the LOADED cast families, verbatim,
+#                                  # one "<name><TAB><regex>" per line. This is
+#                                  # the loader's own output, so a test can put
+#                                  # a backslash in and watch it come back --
+#                                  # see entity_census_test.cpp.
+#
+#   --build-dir PATH  the CMake build       (default build, i.e. farm/<config>/build;
+#                   its compile_commands.json + build.ninja are the object table)
+#   --bindir PATH   built DLLs              (default game/mod_sharp/bin/linux64)
+#   --baseline PATH checked-in census       (default docs/entity-census.txt)
+#   --patterns PATH §3.16 cast families     (default tools/entity-census-patterns)
+#
+# THE THREE METHOD RULES, each of which was a wrong answer before it was a rule:
+#
+#  1. OBJECT TABLES, NOT LINKER OUTPUT. `ld` does not reliably name the objects
+#     it consumed, so the compiled-TU list is read out of the CMake build: the
+#     objects on each DLL's link edge in build.ninja, each mapped to its source
+#     by compile_commands.json (tools/cmakegraph.py, which also refuses a
+#     database that disagrees with the CMakeLists source lists). Never an `ls`
+#     of the object directory. That list is exact: it is what the build links.
+#
+#  2. `nm` COUNTS FILTER ON SYMBOL TYPE (`$2 ~ /^[TWVDBRt]$/`). Without the
+#     filter, weak inline emissions and undefined references read as
+#     definitions and every count inflates.
+#
+#  3. THE PATTERN FILE IS READ WITH `read -r`. Without -r the backslashes in
+#     the regexes are eaten and every cast count is wrong, silently -- see the
+#     header of tools/entity-census-patterns. entity_census_test.cpp pins this.
+#
+set -uo pipefail
+
+# EVERY sort/comm/grep in this file must agree on collation. Without this the
+# `sort -u` lists and `comm` disagree, `comm` warns to stderr, and -- the part
+# that matters -- it silently drops most of the intersection: the shim->stock
+# cross-edge count came out 6 instead of 376 the first time this ran.
+export LC_ALL=C
+
+die() { echo "entity-census: $*" >&2; exit 2; }
+
+MODE=diff
+BUILD_DIR=build
+BINDIR=game/mod_sharp/bin/linux64
+BASELINE=docs/entity-census.txt
+PATTERNS=tools/entity-census-patterns
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --print) MODE=print ;;
+        --dump-patterns) MODE=dump ;;
+        --write) MODE=write ;;
+        --diff)  MODE=diff ;;
+        --build-dir) BUILD_DIR="${2:-}"; shift ;;
+        --bindir)   BINDIR="${2:-}";   shift ;;
+        --baseline) BASELINE="${2:-}"; shift ;;
+        --patterns) PATTERNS="${2:-}"; shift ;;
+        -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
+        *) die "unknown argument: $1" ;;
+    esac
+    shift
+done
+
+[ -f "$BUILD_DIR/build.ninja" ] || die "no object table at $BUILD_DIR/build.ninja (build first: make debug)"
+[ -f "$PATTERNS" ] || die "no pattern file at $PATTERNS"
+
+BUILD_ABS=$(readlink -f "$BUILD_DIR")
+SRC="$(dirname "$BUILD_ABS")/src"      # farm/<config>/build -> farm/<config>/src
+CMAKEGRAPH="$(dirname "$(readlink -f "$0")")/cmakegraph.py"
+SRC_ABS=$(readlink -f "$SRC")
+
+TMP=$(mktemp -d) || die "mktemp failed"
+trap 'rm -rf "$TMP"' EXIT
+
+#-----------------------------------------------------------------------------
+# The pattern file. READ -r, and the loader refuses a file it read nothing from:
+# a census whose pattern list came back empty would report zero of every cast
+# and look like a finished port.
+#-----------------------------------------------------------------------------
+PAT_NAMES=()
+PAT_REGEX=()
+while IFS=$'\t' read -r name regex; do
+    case "$name" in ''|'#'*) continue ;; esac
+    [ -n "$regex" ] || die "pattern '$name' has no regex (the file is TAB separated)"
+    PAT_NAMES+=( "$name" )
+    PAT_REGEX+=( "$regex" )
+done < "$PATTERNS"
+[ ${#PAT_NAMES[@]} -gt 0 ] || die "$PATTERNS produced no patterns"
+
+# Dump is served here, before anything below needs a built tree: the point of
+# the mode is to make the LOADER testable on its own.
+if [ "$MODE" = dump ]; then
+    for i in "${!PAT_NAMES[@]}"; do
+        printf '%s\t%s\n' "${PAT_NAMES[$i]}" "${PAT_REGEX[$i]}"
+    done
+    exit 0
+fi
+
+#-----------------------------------------------------------------------------
+# The compiled TU list, per side, from the object table. Two columns:
+# <object path> <source path>: the object absolute, the source relative to src/.
+#-----------------------------------------------------------------------------
+for side in server client; do
+    python3 "$CMAKEGRAPH" objects "$side" --build-dir "$BUILD_ABS" > "$TMP/map.$side" \
+        || die "the CMake build at $BUILD_DIR cannot say what $side links (see above)"
+    [ -s "$TMP/map.$side" ] || die "the object table names no $side TUs -- is $BUILD_DIR the right build?"
+    awk '$2 ~  /^sourcesharp\// {print $2}' "$TMP/map.$side" | sort -u > "$TMP/shim_src.$side"
+    awk '$2 !~ /^sourcesharp\// {print $2}' "$TMP/map.$side" | sort -u > "$TMP/stock_src.$side"
+    awk '$2 ~  /^sourcesharp\// {print $1}' "$TMP/map.$side" > "$TMP/shim_obj.$side"
+    awk '$2 !~ /^sourcesharp\// {print $1}' "$TMP/map.$side" > "$TMP/stock_obj.$side"
+done
+
+# Counts a category of source directory prefixes out of one side's TU list.
+dircount() { # <side> <egrep prefix>
+    awk -v p="$2" '$2 ~ p {n++} END{print n+0}' "$TMP/map.$1"
+}
+
+# Sums the PER-FILE counts and ignores wc's own "total" rows. Summing the
+# totals instead looks equivalent and is not: xargs splits a long list into
+# several wc invocations, and a batch holding exactly one file gets no total
+# row at all -- so the sum silently loses that file, and only for list lengths
+# that happen to split that way.
+lines_of() { # <file listing source paths>  -> total line count
+    if [ -s "$1" ]; then
+        ( cd "$SRC_ABS" && xargs -a "$1" wc -l 2>/dev/null \
+          | awk '$2 != "total" && NF >= 2 { t += $1 } END { print t+0 }' )
+    else
+        echo 0
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# Entity-defining / entity-using / entity-free, over the STOCK TUs of a side.
+#
+# "Defines an entity class" is read as "registers one with the engine":
+# LINK_ENTITY_TO_CLASS, IMPLEMENT_SERVERCLASS_ST or IMPLEMENT_CLIENTCLASS*.
+# That is the fact the port has to remove, and unlike "derives from CBaseEntity"
+# it does not depend on a header the TU merely includes.
+#-----------------------------------------------------------------------------
+DEFINES_RE='LINK_ENTITY_TO_CLASS|IMPLEMENT_SERVERCLASS_ST|IMPLEMENT_CLIENTCLASS'
+USES_RE='\bC_?Base(Entity|Player|Animating|CombatCharacter|CombatWeapon|Flex)\b|\bg?_?pEntityList\b|\bgEntList\b'
+
+# STRIPPED, for the same reason cast_count is, and this is the SEVENTH time
+# prose has been counted as code in this port. It bit here on 2026-09-08:
+# `entitylist.cpp` joined "defines an entity class" 9 -> 10 on the strength of
+# ONE COMMENT -- diag-visibility's `report_entities` work wrote
+# "// and EntityDissolve.cpp still LINK_ENTITY_TO_CLASS, so that list is empty"
+# at entitylist.cpp:2335, and a raw grep cannot tell that from a declaration.
+#
+# Wave 2 fixed `cast_count` here and `scan_sites` in tools/entity-gates and
+# wrote down why -- "a gate that cannot tell a comment from a declaration is a
+# gate somebody passes by rewording a comment" -- but the DEFINING/USING
+# classification was never fixed, so it kept the hole after its neighbours lost
+# it. Same FLOOR as those two: a // inside a string literal strips the rest of
+# the line, and a /* */ block spanning lines is not tracked.
+files_matching() { # <file list> <regex> -> filenames with a CODE match
+    [ -s "$1" ] || return 0
+    ( cd "$SRC_ABS" && xargs -r -a "$1" grep -nE --with-filename -- "$2" </dev/null 2>/dev/null ) \
+        | awk -F: 'NF>=3 {
+              f=$1
+              i=index($0,":"); r=substr($0,i+1); j=index(r,":"); t=substr(r,j+1)
+              sub(/\/\/.*$/, "", t)
+              if (t ~ /^[ \t]*\*/) t=""
+              print f ":" t
+            }' \
+        | grep -E -- "$2" \
+        | cut -d: -f1 | sort -u
+}
+
+classify() { # <side> -> writes def./use./free. source lists
+    local side="$1"
+    files_matching "$TMP/stock_src.$side" "$DEFINES_RE" > "$TMP/def.$side"
+    comm -23 "$TMP/stock_src.$side" "$TMP/def.$side" > "$TMP/notdef.$side"
+    files_matching "$TMP/notdef.$side" "$USES_RE" > "$TMP/use.$side"
+    comm -23 "$TMP/notdef.$side" "$TMP/use.$side" > "$TMP/free.$side"
+}
+classify server
+classify client
+
+#-----------------------------------------------------------------------------
+# nm over the built DLLs. RULE 2 lives here.
+#-----------------------------------------------------------------------------
+nm_count() { # <so> <grep pattern>
+    local so="$1" pat="$2"
+    nm -C --defined-only "$so" 2>/dev/null | awk '$2 ~ /^[TWVDBRt]$/' | grep -c "$pat"
+}
+SERVER_SO="$BINDIR/server.so"
+CLIENT_SO="$BINDIR/client.so"
+# A MISSING DLL IS A REFUSAL, NOT A DASH. Printing "-" for a count nobody could
+# take would let an unbuilt tree produce a census, and a later --write would
+# then bake the dashes into the baseline as if they were measurements.
+for so in "$SERVER_SO" "$CLIENT_SO"; do
+    [ -f "$so" ] || die "no $so -- build first: src/buildsourcesharp debug"
+done
+SRV_ENT=$(nm_count "$SERVER_SO" 'CBaseEntity::\|C_BaseEntity::')
+CLI_ENT=$(nm_count "$CLIENT_SO" 'CBaseEntity::\|C_BaseEntity::')
+SRV_LIST=$(nm_count "$SERVER_SO" 'CGlobalEntityList::\|CClientEntityList::\|CBaseEntityList::')
+CLI_LIST=$(nm_count "$CLIENT_SO" 'CGlobalEntityList::\|CClientEntityList::\|CBaseEntityList::')
+
+# THE TWO LOOSER READINGS, carried so nobody chases a phantom regression.
+#
+# plan_entity.md §1 records 1,207 / 602 entity members and 33 / 91 entity-list
+# members, and the tool's own rows read 1,185 / 584 and 62 / 120. Neither pair
+# is stale: they are DIFFERENT READINGS of the same binaries.
+#
+#   1,207 / 602 is the count with NO symbol-type filter -- weak inline
+#   emissions and non-definition rows counted as definitions. It is inflated
+#   by 22 / 18. The type-filtered row above is the one of record.
+#
+#   33 / 91 is the count with CBaseEntityList:: left out of the pattern, which
+#   is what §1's row does and what Appendix A's command does NOT.
+#
+# Both are measured here so the reconciliation is checked rather than asserted:
+# if one of them stops reproducing §1, the baseline moves and the gate says so.
+nm_count_untyped() { nm -C --defined-only "$1" 2>/dev/null | grep -c "$2"; }
+SRV_ENT_UNTYPED=$(nm_count_untyped "$SERVER_SO" 'CBaseEntity::\|C_BaseEntity::')
+CLI_ENT_UNTYPED=$(nm_count_untyped "$CLIENT_SO" 'CBaseEntity::\|C_BaseEntity::')
+SRV_LIST_NARROW=$(nm_count "$SERVER_SO" 'CGlobalEntityList::\|CClientEntityList::')
+CLI_LIST_NARROW=$(nm_count "$CLIENT_SO" 'CGlobalEntityList::\|CClientEntityList::')
+
+#-----------------------------------------------------------------------------
+# The cast census. RULE 3 lives here: PAT_REGEX came off the pattern file
+# through `read -r`, and goes to grep -E verbatim.
+#
+# grep -c over a file list prints "<file>:<count>"; --with-filename forces the
+# prefix even when xargs happens to hand grep a single file in its last batch,
+# which is the difference between a parsed count and a silently dropped one.
+#-----------------------------------------------------------------------------
+cast_count() { # <source list file> <regex>  ->  "<sites> in <files> files"
+    # PROSE IS NOT A CAST, and this counter used to think it was.
+    #
+    # tools/entity-gates' derivation scan already carried the rule -- "a gate
+    # that cannot tell a comment from a declaration is a gate somebody passes by
+    # rewording a comment" -- and its OTHER scans did not, so gates 2 and 3
+    # counted English. Fixing that there made this file disagree with the gate,
+    # which EntityGates.EveryCastFamilyAgreesWithTheCommittedCensusBaseline
+    # caught immediately. Both instruments now count CODE, and they agree
+    # because they apply the same two rules.
+    #
+    # Same FLOOR as the gate: a // inside a string literal strips the rest of
+    # the line, and a /* */ block spanning lines is not tracked. Measured over
+    # the whole tree when this landed: 171 sites dropped, 171 of them prose.
+    if [ ! -s "$1" ]; then echo "0 in 0 files"; return; fi
+    ( cd "$SRC_ABS" && xargs -r -a "$1" grep -nE --with-filename -- "$2" </dev/null 2>/dev/null ) \
+        | awk -F: 'NF>=3 {
+              f=$1
+              i=index($0,":"); r=substr($0,i+1); j=index(r,":"); t=substr(r,j+1)
+              sub(/\/\/.*$/, "", t)
+              if (t ~ /^[ \t]*\*/) t=""
+              print f ":" t
+            }' \
+        | grep -E -- "$2" \
+        | awk -F: '{c[$1]++} END{n=0;f=0; for(k in c){n+=c[k];f++} printf "%d in %d files\n", n+0, f+0}'
+}
+
+#-----------------------------------------------------------------------------
+# Shim -> stock cross-edges: symbols a shim object leaves undefined that a stock
+# object of the same DLL defines. This is the ordering instrument -- a stock TU
+# with zero edges can be deleted the moment nothing else names it.
+#
+# IT IS A FLOOR, NOT A PROOF. A call through a virtual emits no undefined
+# symbol, an inlined header body emits none, and a data-only dependency emits
+# none. Zero edges means "the linker needs nothing from it", never "nothing
+# uses it".
+#-----------------------------------------------------------------------------
+#
+# --print-file-name rather than nm's multi-file headers: xargs may split the
+# list into several nm invocations, and a run whose LAST batch holds one file
+# gets no header at all, so header-parsing loses a whole object's symbols
+# depending only on how long the argument list happened to be.
+undef_of() { # <object list file> -> sorted unique undefined symbols
+    ( cd "$SRC_ABS" && xargs -a "$1" nm -u --print-file-name 2>/dev/null ) \
+        | awk -F: 'NF>=2 { n=split($NF,a," "); if (a[1]=="U") print a[2] }' | sort -u
+}
+defs_by_obj() { # <object list file> -> "<object>\t<symbol>"  (RULE 2: type filter)
+    ( cd "$SRC_ABS" && xargs -a "$1" nm --defined-only --print-file-name 2>/dev/null ) \
+        | awk -F: 'NF>=2 { n=split($NF,a," ");
+                           if (n>=3 && a[2] ~ /^[TWVDBRt]$/) print $1 "\t" a[3] }'
+}
+
+for side in server client; do
+    undef_of "$TMP/shim_obj.$side" > "$TMP/shim_undef.$side"
+    defs_by_obj "$TMP/stock_obj.$side" | sort -u > "$TMP/stock_defs.$side"
+    awk -F'\t' '{print $2}' "$TMP/stock_defs.$side" | sort -u > "$TMP/stock_def_syms.$side"
+    comm -12 "$TMP/shim_undef.$side" "$TMP/stock_def_syms.$side" > "$TMP/edges.$side"
+    # Per stock TU: how many of the crossed symbols it defines. The secondary
+    # sort key is not cosmetic -- awk's `for (o in c)` walks a hash in an order
+    # that varies between runs, so without it two runs of an UNCHANGED tree
+    # differ and the baseline diff is noise instead of a signal. It is the
+    # object's FILE NAME (baseviewport.cpp.o -> baseviewport.o), not its path:
+    # the path is build-system layout (VPC's objs/<project>/x.o, CMake's
+    # CMakeFiles/<target>.dir/<source path>.o), and a tie order that moved with
+    # the build system would move the baseline with it. Within one DLL no two
+    # TUs share a file name (VPC's flat object dir could not have built them).
+    awk -F'\t' 'NR==FNR{want[$0]=1; next} want[$2]{c[$1]++} END{for(o in c) print c[o] "\t" o}' \
+        "$TMP/edges.$side" "$TMP/stock_defs.$side" \
+        | awk -F'\t' '{k=$2; sub(/.*\//, "", k); sub(/\.(cpp|c)\.o$/, ".o", k); print $0 "\t" k}' \
+        | sort -t "$(printf '\t')" -k1,1rn -k3,3 | cut -f1,2 > "$TMP/edges_by_obj.$side"
+    # stock TUs with no cross-edge at all, named by source
+    awk -F'\t' '{print $2}' "$TMP/edges_by_obj.$side" | sort -u > "$TMP/edged_obj.$side"
+done
+
+obj_to_src() { # <side> <object path>
+    awk -v o="$2" '$1==o {print $2}' "$TMP/map.$1"
+}
+
+#-----------------------------------------------------------------------------
+# Render.
+#-----------------------------------------------------------------------------
+GITSHA=$(git -C "$SRC_ABS" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GITDESC=$(git -C "$SRC_ABS" rev-parse HEAD 2>/dev/null || echo "unknown")
+BRANCH=$(git -C "$SRC_ABS" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+# The baseline itself is excluded: --write always dirties it, so counting it
+# would stamp "(working tree dirty)" on every census ever taken and the note
+# would stop meaning anything.
+DIRTY=$(git -C "$SRC_ABS" status --porcelain 2>/dev/null \
+        | grep -v -- "$(basename "$BASELINE")\$" | head -1)
+[ -n "$DIRTY" ] && DIRTY=" (working tree dirty)" || DIRTY=""
+
+render() {
+cat <<EOF
+# plan_entity.md §1 / §3.16 census -- MEASURED, not recited.
+#
+# commit   $GITDESC ($GITSHA) on $BRANCH$DIRTY
+#          -- the tree state MEASURED, so for a committed census this is the
+#             parent of the commit carrying this file, never that commit itself.
+# measured $(date -u '+%Y-%m-%d %H:%M:%SZ')
+# object table $BUILD_DIR/build.ninja + compile_commands.json
+# binaries     $BINDIR
+# patterns     $PATTERNS ($(printf '%s\n' "${PAT_NAMES[@]}" | wc -l) families)
+#
+# Regenerate with: tools/entity-census --write
+# Check   with:    tools/entity-census        (exit 1 if the tree moved)
+#
+# LINES BEGINNING '#' ARE NOT COMPARED. Everything else is: a number that moves
+# without this file moving is a red entity_census_test.
+#
+# WHICH NUMBERS ARE SUFFICIENT AND WHICH ARE FLOORS
+#   SUFFICIENT  objects linked, and every per-directory split of it: read from
+#               the CMake object table, which is exactly what the build links.
+#   SUFFICIENT  the nm member counts: every defined symbol in the DLL, filtered
+#               on symbol type so weak inline emissions do not inflate them.
+#               Zero here means the class contributes no code to the binary.
+#   FLOOR       the cast census: it counts SPELLINGS in the §3.16 pattern list.
+#               A cast spelled a way the list does not carry is not counted.
+#               Widening the list is a line in tools/entity-census-patterns.
+#   FLOOR       the cross-edge counts: a virtual call, an inlined header body
+#               and a data-only dependency all emit no undefined symbol. Zero
+#               edges means the linker needs nothing from that TU, NEVER that
+#               nothing uses it. (See memory: consumer-count-is-not-flip-distance,
+#               ld-stops-naming-objects.)
+#   FLOOR       the entity-defining / using / free split: it reads TEXT, per the
+#               regexes named below, over the compiled stock TUs only.
+#   INFLATED    the two rows marked "§1's reading" are carried ONLY to reconcile
+#               with plan_entity.md §1, which took them that way. Do not report
+#               progress against them; report against the row above each.
+
+== 1. WHERE THE TREE STANDS ==
+                                                            server    client
+objects linked                                            $(printf '%8s  %8s' "$(wc -l < "$TMP/map.server")" "$(wc -l < "$TMP/map.client")")
+  ... stock game/server | game/client                     $(printf '%8s  %8s' "$(dircount server '^game/server')" "$(dircount client '^game/client')")
+  ... stock game/shared                                   $(printf '%8s  %8s' "$(dircount server '^game/shared')" "$(dircount client '^game/shared')")
+  ... stock public                                        $(printf '%8s  %8s' "$(dircount server '^public')" "$(dircount client '^public')")
+  ... SourceSharp shim (sourcesharp/**)                   $(printf '%8s  %8s' "$(wc -l < "$TMP/shim_src.server")" "$(wc -l < "$TMP/shim_src.client")")
+stock TUs that define an entity class                     $(printf '%8s  %8s' "$(wc -l < "$TMP/def.server")" "$(wc -l < "$TMP/def.client")")
+  ... their lines                                         $(printf '%8s  %8s' "$(lines_of "$TMP/def.server")" "$(lines_of "$TMP/def.client")")
+stock TUs that use an entity type but define none         $(printf '%8s  %8s' "$(wc -l < "$TMP/use.server")" "$(wc -l < "$TMP/use.client")")
+  ... their lines                                         $(printf '%8s  %8s' "$(lines_of "$TMP/use.server")" "$(lines_of "$TMP/use.client")")
+stock TUs with entity-free text                           $(printf '%8s  %8s' "$(wc -l < "$TMP/free.server")" "$(wc -l < "$TMP/free.client")")
+  ... their lines                                         $(printf '%8s  %8s' "$(lines_of "$TMP/free.server")" "$(lines_of "$TMP/free.client")")
+CBaseEntity:: / C_BaseEntity:: members in the DLL         $(printf '%8s  %8s' "$SRV_ENT" "$CLI_ENT")
+  ... same, with NO symbol-type filter (§1's reading)     $(printf '%8s  %8s' "$SRV_ENT_UNTYPED" "$CLI_ENT_UNTYPED")
+entity-list members (CGlobalEntityList/CClientEntityList/     $(printf '%8s  %8s' "$SRV_LIST" "$CLI_LIST")
+                     CBaseEntityList) in the DLL
+  ... same, without CBaseEntityList:: (§1's reading)      $(printf '%8s  %8s' "$SRV_LIST_NARROW" "$CLI_LIST_NARROW")
+shim -> stock cross-edges (distinct symbols)              $(printf '%8s  %8s' "$(wc -l < "$TMP/edges.server")" "$(wc -l < "$TMP/edges.client")")
+stock TUs the shim links against                          $(printf '%8s  %8s' "$(wc -l < "$TMP/edged_obj.server")" "$(wc -l < "$TMP/edged_obj.client")")
+
+# defines-an-entity regex: $DEFINES_RE
+# uses-an-entity regex:    $USES_RE
+
+== 2. CAST CENSUS (§3.16) ==
+# Sites and files, over the COMPILED TU list only -- a file the build does not
+# compile cannot cast anything at runtime. FLOOR: only these spellings.
+pattern                 server stock          server shim           client stock          client shim
+EOF
+for i in "${!PAT_NAMES[@]}"; do
+    printf '%-22s  %-20s  %-20s  %-20s  %-20s\n' "${PAT_NAMES[$i]}" \
+        "$(cast_count "$TMP/stock_src.server" "${PAT_REGEX[$i]}")" \
+        "$(cast_count "$TMP/shim_src.server"  "${PAT_REGEX[$i]}")" \
+        "$(cast_count "$TMP/stock_src.client" "${PAT_REGEX[$i]}")" \
+        "$(cast_count "$TMP/shim_src.client"  "${PAT_REGEX[$i]}")"
+done
+
+echo
+echo "== 3. SHIM -> STOCK CROSS-EDGES, PER STOCK TU =="
+echo "# FLOOR. Sorted by edges. A TU at 0 is one nothing in the shim links"
+echo "# against -- a deletion candidate, not a proof of deadness."
+for side in server client; do
+    echo
+    echo "-- $side: $(wc -l < "$TMP/edges.$side") distinct symbols across $(wc -l < "$TMP/edged_obj.$side") of $(wc -l < "$TMP/stock_src.$side") stock TUs"
+    while IFS=$'\t' read -r n obj; do
+        printf '  %5d  %s\n' "$n" "$(obj_to_src "$side" "$obj")"
+    done < "$TMP/edges_by_obj.$side"
+    echo "  -- zero-edge stock TUs:"
+    while read -r obj; do
+        grep -qxF "$obj" "$TMP/edged_obj.$side" || printf '  %5d  %s\n' 0 "$(obj_to_src "$side" "$obj")"
+    done < "$TMP/stock_obj.$side" | sort -k2,2
+done
+
+echo
+echo "== 4. THE EDGES THEMSELVES =="
+echo "# The symbols behind section 3, demangled, grouped by the stock TU that"
+echo "# defines them. This is what a deletion actually costs: to drop a TU, the"
+echo "# shim must stop needing every name listed under it."
+echo "#"
+echo "# FLOOR, for the same reason section 3 is: a virtual call, an inlined"
+echo "# header body and a data-only dependency appear here as nothing at all."
+for side in server client; do
+    echo
+    echo "-- $side"
+    while IFS=$'\t' read -r n obj; do
+        printf '%s (%s)\n' "$(obj_to_src "$side" "$obj")" "$n"
+        awk -F'\t' -v o="$obj" 'NR==FNR{want[$0]=1; next} $1==o && want[$2]{print $2}' \
+            "$TMP/edges.$side" "$TMP/stock_defs.$side" \
+            | sort -u | c++filt | sed 's/^/    /'
+    done < "$TMP/edges_by_obj.$side"
+done
+}
+
+OUT="$TMP/census.txt"
+render > "$OUT" || die "render failed"
+
+case "$MODE" in
+    print) cat "$OUT" ;;
+    write)
+        mkdir -p "$(dirname "$BASELINE")"
+        cp "$OUT" "$BASELINE"
+        echo "entity-census: wrote $BASELINE ($(grep -vc '^#' "$BASELINE") compared lines)"
+        ;;
+    diff)
+        [ -f "$BASELINE" ] || die "no baseline at $BASELINE -- take one with --write"
+        grep -v '^#' "$BASELINE" > "$TMP/base.cmp"
+        grep -v '^#' "$OUT"      > "$TMP/now.cmp"
+        if diff -u "$TMP/base.cmp" "$TMP/now.cmp" > "$TMP/d"; then
+            echo "entity-census: tree agrees with $BASELINE"
+            exit 0
+        fi
+        echo "entity-census: THE TREE MOVED AND $BASELINE DID NOT."
+        echo "entity-census: - is the committed baseline, + is this tree."
+        sed -e "1s|.*|--- $BASELINE|" -e "2s|.*|+++ (measured now)|" "$TMP/d"
+        echo "entity-census: if the move is the intended one, re-take the baseline:"
+        echo "entity-census:   tools/entity-census --write   && git add $BASELINE"
+        exit 1
+        ;;
+esac

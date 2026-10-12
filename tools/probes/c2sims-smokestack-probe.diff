@@ -1,0 +1,81 @@
+diff --git a/src/client/native/shell_smokestack_sim.cpp b/src/client/native/shell_smokestack_sim.cpp
+index 4df1de9e..4fb0b2e7 100644
+--- a/src/client/native/shell_smokestack_sim.cpp
++++ b/src/client/native/shell_smokestack_sim.cpp
+@@ -17,6 +17,13 @@
+ 
+ #include "managed_convar_ref.h"
+ 
++// c2-sims probe (tools/probes/c2sims-smokestack-probe.diff): the recorder is
++// tools/probes/client/c2sims_probes_debug.cpp (SS_CLIENT_PROBES=ON builds only).
++bool C2SimsProbe_On();
++bool C2SimsProbe_BeginFrame();
++void C2SimsProbe_Arm( bool bArm );
++void C2SimsProbe_Row( const char *pFmt, ... );
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -416,6 +423,20 @@ void C_SmokeStack::Update(float fTimeDelta)
+ 		return;
+ 	}
+ 
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		C2SimsProbe_Row( "F\t%.9g\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta,
++			m_ParticleEffect.WasDrawnPrevFrame() ? 1 : 0, m_ParticleEffect.GetAlwaysSimulate() ? 1 : 0,
++			gpGlobals->curtime, Helper_GetFrameTime(), m_flAlwaysSimulateUntil,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z );
++		C2SimsProbe_Row( "P\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%.9g\t%d",
++			m_SpreadSpeed, m_Speed, m_StartSize, m_EndSize, m_Rate, m_JetLength, m_flRollSpeed, m_flBaseSpread, m_flTwist,
++			m_bEmit, m_vWind.x, m_vWind.y, m_vWind.z, m_clrRender.r, m_clrRender.g, m_clrRender.b, m_clrRender.a,
++			m_InvLifetime, m_iMaxFrames );
++		C2SimsProbe_Arm( true );
++	}
++
+ 	// What ClientThink used to do, five seconds after Start(). See the note
+ 	// where ClientThink was declared: this runs every frame for every effect,
+ 	// so the deadline is no longer at the mercy of a think that was scheduled
+@@ -478,6 +499,11 @@ void C_SmokeStack::Update(float fTimeDelta)
+ 		m_TwistMat[1][0] = -sin(flTwist);
+ 		m_TwistMat[1][1] =  cos(flTwist);
+ 	}
++	if ( bProbe )
++	{
++		C2SimsProbe_Arm( false );
++		C2SimsProbe_Row( "T\t%d\t%.9g\t%.9g\t%.9g\t%.9g", m_bTwist, m_TwistMat[0][0], m_TwistMat[0][1], m_TwistMat[1][0], m_TwistMat[1][1] );
++	}
+ 
+ 	QueueLightParametersInRenderer();
+ }
+@@ -514,6 +540,9 @@ void C_SmokeStack::RenderParticles( CParticleRenderIterator *pIterator )
+ 		float alpha = TableCos( -M_PI_F + tLifetime * M_PI_F * 2.f ) * 0.5f + 0.5f;
+ 		if( tLifetime > 0.5f )
+ 			alpha *= alpha;
++		if ( C2SimsProbe_On() )
++			C2SimsProbe_Row( "D\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++				alpha * m_flAlphaScale, FLerp(m_StartSize, m_EndSize, tLifetime), DEG2RAD( pParticle->m_flAngle ) );
+ 
+ 		m_Renderer.RenderParticle(
+ 			pIterator->GetParticleDraw(),
+@@ -554,6 +583,8 @@ void C_SmokeStack::SimulateParticles( CParticleSimulateIterator *pIterator )
+ 	if( bQuickTest == false && m_bEmit && (!m_ParticleEffect.WasDrawnPrevFrame() && !m_ParticleEffect.GetAlwaysSimulate()) )
+ 		return;
+ 
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "S\t%.9g\t%d\t%d", pIterator->GetTimeDelta(), m_bInView ? 1 : 0, bDrawn ? 1 : 0 );
+ 	SmokeStackParticle *pParticle = (SmokeStackParticle*)pIterator->GetFirst();
+ 	while ( pParticle )
+ 	{
+@@ -590,6 +621,10 @@ void C_SmokeStack::SimulateParticles( CParticleSimulateIterator *pIterator )
+ #endif
+ 
+ 			pParticle->m_flAngle += pParticle->m_flRollDelta * pIterator->GetTimeDelta();
++			if ( C2SimsProbe_On() )
++				C2SimsProbe_Row( "Q\t0\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++					pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_Velocity.x, pParticle->m_Velocity.y, pParticle->m_Velocity.z,
++					pParticle->m_vAccel.x, pParticle->m_vAccel.y, pParticle->m_vAccel.z, pParticle->m_Lifetime, pParticle->m_flAngle, pParticle->m_flRollDelta );
+ 
+ 			if ( bSortNow == true )
+ 			{

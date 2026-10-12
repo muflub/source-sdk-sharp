@@ -1,0 +1,37 @@
+#!/bin/bash
+# Preprocess one translation unit with -E -P (no line markers) and write the
+# token stream to <outfile>. Extra flags (-D...) may follow the outfile.
+#
+#   tools/build/preprocess_target <target> <source> <outfile> [extra flags...]
+#
+#   target   server | client | a CMake target (server_sourcesharp, tier1, ...)
+#   source   farm-relative, as the CMakeLists spell it:
+#            sourcesharp/game/server/shell_frame.cpp
+#
+# The command is the TU's own line from the CMake build's compile database
+# (tools/cmakegraph.py, farm/$SOURCESHARP_CONFIG/build, default debug) with -E -P
+# spliced in, so the preprocessor sees exactly the -D/-I set the build uses. A
+# source the target does not compile is refused, not guessed. (Before Phase 6b
+# this read VPC's ninja graph and ran inside the sniper container.)
+set -uo pipefail
+here=$(dirname -- "$(readlink -f -- "$0")")
+repo=$(cd -- "$here/../.." && pwd)
+[ $# -ge 3 ] || { sed -n '2,15p' "$0"; exit 2; }
+target="$1"; src="$2"; out="$3"; shift 3
+build="$repo/farm/${SOURCESHARP_CONFIG:-debug}/build"
+
+cmd=$(PYTHONPATH="$repo/tools" python3 -c '
+import sys, cmakegraph as g
+t = g.SIDES.get(sys.argv[1], sys.argv[1])
+try:
+    print(g.compile_command(t, sys.argv[2], sys.argv[3]))
+except g.GraphError as e:
+    sys.exit("preprocess_target: %s" % e)
+' "$target" "$src" "$build") || exit 2
+
+cmd="${cmd/ -c / -E -P $* -c }"
+cmd=$(echo "$cmd" | sed -E 's# -o [^ ]+# -o /dev/stdout#')
+( cd "$build" && eval "$cmd" ) > "$out" 2> "$out.err"
+rc=$?
+echo "==> exit $rc ; $(wc -l < "$out") lines, $(wc -c < "$out") bytes into $out"
+exit $rc

@@ -1,0 +1,37 @@
+# plan_client_novalve C7 step 1, A/B by hand: at each pose, a stock frame and a plan frame
+# (cs_cl_render_plan), recorded by cs_cl_render_trace. Run with --no-probe-build.
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/pose1-stock.txt
+wait recorded \d+ lines to .*pose1-stock 20
+cmd cs_cl_render_plan 1
+sleep 1
+cmd cs_cl_render_trace {out}/pose1-plan.txt
+wait recorded \d+ lines to .*pose1-plan 20
+shot pose1-plan
+cmd cs_cl_render_plan 0
+api teleport pos=-3843,2894,0 ang=25,90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/pose2-stock.txt
+wait recorded \d+ lines to .*pose2-stock 20
+cmd cs_cl_render_plan 1
+sleep 1
+cmd cs_cl_render_trace {out}/pose2-plan.txt
+wait recorded \d+ lines to .*pose2-plan 20
+cmd cs_cl_render_plan 0
+api teleport pos=-3843,3300,0 ang=-15,200,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/pose3-stock.txt
+wait recorded \d+ lines to .*pose3-stock 20
+cmd cs_cl_render_plan 1
+sleep 1
+cmd cs_cl_render_trace {out}/pose3-plan.txt
+wait recorded \d+ lines to .*pose3-plan 20
+cmd cs_cl_render_plan 0
+sleep 1
+quit

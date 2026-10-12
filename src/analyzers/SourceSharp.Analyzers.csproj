@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- netstandard2.0 for the same reason as SourceSharp.Generators: the
+         compiler loads an analyzer into its own process, which is a
+         netstandard2.0 host. A net10.0 analyzer builds and is silently ignored. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>false</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+
+    <!-- Run by the compiler, never shipped into the mod's bin directory. -->
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/analyzers/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- RS2008's rule list: the only thing that notices a rule id being added,
+         changed or dropped. -->
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+    <!-- The waiver list is data the analyzer reads, not a source of it. -->
+    <None Include="static-state-waivers.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pinned to the generators' version: the .NET 10 SDK's compiler loads it. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"
+                      PrivateAssets="all" />
+  </ItemGroup>
+</Project>

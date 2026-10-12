@@ -1,0 +1,636 @@
+#!/usr/bin/env python3
+"""tools/loadprof/lp -- measure map loads (plan_map_load.md P0).
+
+    tools/loadprof/lp listen [--config release] [--tag T] [--perf] [--sample] [--arg A]...
+        A listen server: cold dm_lockdown, map ss_sandbox, changelevel dm_lockdown,
+        changelevel dm_lockdown (same map), map dm_lockdown (same map).
+    tools/loadprof/lp hosted --api HOST:PORT --hub INSTANCE [--addr HOST:PORT] [--hops N] [--precmd C]...
+        A remote client of a hosted tf2_descent stack: join the hub, then hop
+        down/up through the admin API (tf2_descent_travel 1 down|up).
+    tools/loadprof/lp phases RUN_DIR       per-load phase costs (listen or hosted)
+    tools/loadprof/lp gap RUN_DIR FROM TO  main-thread profile of a log-delimited window
+    tools/loadprof/lp --self-test
+
+Both game modes launch with every flag a local game carries — LAN mode with
+-hushsteam, the 60 fps cap, -background, -instance (tools/local_launch.py owns
+the list; the --self-test asserts the flags are on the line) — plus the probe
+flags above. --arg A adds profiling-specific flags on top.
+
+The probe (tools/loadprof/ssprobe.c, built into bin/<config>/loadprof/) timestamps
+the engine's own load milestones on CLOCK_MONOTONIC; --perf records the engine
+process with perf on the same clock, --sample adds the probe's 2 ms wall-clock
+main-thread sampler. A run is a directory under tools/.loadprof/.
+
+EVERY NUMBER IS A PROPERTY OF THE BOX. GPU waits dominate the off-CPU half of a
+load, and every game on the machine shares the render GPU, so record how many
+other games were up (the run's meta.json does) and compare only runs taken
+under the same regime.
+"""
+import argparse, bisect, collections, glob, importlib.util, json, os, re, shutil, signal, subprocess, sys, time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RUNS = os.path.join(ROOT, "tools", ".loadprof")
+MS_RE = re.compile(r"\s*([0-9.]+) /\s*([0-9.]+):  (.*)")
+DONE_RE = re.compile(r"Model Loading time [0-9]")
+
+
+def _local_launch():
+    """tools/local_launch.py, by path (live-gate's pattern): this file is also
+    loaded by path, and the shared local-launch flags must come from the one
+    place that owns them, not from a copy that drifts (docs/todo.md: lp's
+    games were built by hand and missed the shared settings)."""
+    path = os.path.join(ROOT, "tools", "local_launch.py")
+    spec = importlib.util.spec_from_file_location("local_launch", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def listen_args(port, extra=(), environ=None):
+    """The listen server's argv: the probe harness's own flags, then every
+    flag a local game carries (tools/local_launch.py owns that list — LAN
+    mode with -hushsteam, the 60 fps cap, a background window, and a private
+    -instance game dir, so lp's games stop taking focus, running uncapped,
+    and sharing the engine's writable game directory).
+
+    A function, and --self-test asserts the shared half is on the line: an
+    inline list at the call site is how they went missing in the first place.
+    """
+    own = ["-devapi", "-devapisocket", "-condebug", "-nomessagebox", "-nocrashdialog",
+           "-assertlog", "-novid", "-windowed", "-w", "1280", "-h", "720",
+           "-nohltv", "+tv_enable", "0", "-port", str(port), *extra, "+map", "dm_lockdown"]
+    return own + _local_launch().local_args(environ)
+
+
+def hosted_args(port, extra=(), environ=None):
+    """The hosted client's argv, with the same shared flags minus -hushsteam.
+
+    -hushsteam is dropped exactly as `make join` drops it (Makefile's join
+    target): a client of a HOSTED server is the one case the shared list
+    names for leaving it out, and the hosted tf2_descent stack runs a real
+    server that may validate tickets. The 2026-10-05 join census (249 joins)
+    saw no difference either way on a LAN listen server; matching join's
+    recipe keeps the profile's regime the same as the tool humans drive by
+    hand. STEAM_AUTH=1 drops LAN mode wholesale, for the Steam-auth
+    features."""
+    flags = [a for a in _local_launch().local_args(environ) if a != "-hushsteam"]
+    own = ["-mod", "tf2_descent", "-devapi", "-devapisocket", "-condebug", "-nomessagebox",
+           "-nocrashdialog", "-assertlog", "-novid", "-windowed", "-w", "1280", "-h", "720",
+           "-nohltv", "+tv_enable", "0", "-port", str(port),
+           "+clientport", str(port + 1), *extra]
+    return own + flags
+
+
+class Fail(Exception):
+    pass
+
+
+# --------------------------------------------------------------------------- reading a run
+
+def read_milestones(path):
+    """[(t, delta, message)] from the probe's .ts file. A missing or empty file is a failure."""
+    if not os.path.isfile(path):
+        raise Fail(f"no milestone file {path}: the probe was not loaded, or wrote elsewhere")
+    rows = []
+    with open(path, errors="replace") as f:
+        for line in f:
+            m = MS_RE.match(line)
+            if m:
+                rows.append((float(m.group(1)), float(m.group(2)), m.group(3).rstrip()))
+    if not rows:
+        raise Fail(f"{path} holds no milestones")
+    return rows
+
+
+def first(rows, start, pred):
+    for i in range(start, len(rows)):
+        if pred(rows[i][2]):
+            return i
+    return None
+
+
+LISTEN_ANCHORS = [
+    ("teardown, BSP mount, material reload", lambda m: m.startswith("modelloader->GetModelForName(maps/")),
+    ("world BSP + collision", lambda m: m == "SV_SpawnServer -- Finished"),
+    ("server game DLL LevelInit + activate", lambda m: m == "SV_ActivateServer(finished)"),
+    ("signon handshake", lambda m: m == "R_LevelInit: Start"),
+    ("R_LevelInit + client LevelInitPreEntity", lambda m: m.startswith("LevelInitPreEntity: end")),
+    ("first snapshot", lambda m: "create 'CWorld'" in m),
+    ("CL_FullyConnected", lambda m: bool(DONE_RE.match(m))),
+]
+
+CLIENT_ANCHORS = [
+    ("connect: signon 2 -> ServerInfo", lambda m: m.strip() == "CBaseClient::ProcessServerInfo"),
+    ("resource wait (downloads, prepare)", lambda m: m.startswith("Map_LoadModel: Start")),
+    ("Map_LoadModel", lambda m: m.startswith("Map_LoadModel: Finish")),
+    ("R_LevelInit + signon", lambda m: m.startswith("LevelInitPreEntity: start")),
+    ("client LevelInitPreEntity", lambda m: m.startswith("LevelInitPreEntity: end")),
+    ("first snapshot", lambda m: "create 'CWorld'" in m),
+    ("CL_FullyConnected", lambda m: bool(DONE_RE.match(m))),
+]
+
+
+def phases(rows):
+    """Split milestones into loads. A load starts at SV_SpawnServer( (listen) or at
+    the client's SetSignonState: start 2 (remote client), and ends at the
+    'Model Loading time <n>' summary CL_FullyConnected prints. Every phase anchor
+    must be present: a load with a missing anchor is a failure, never a short row."""
+    ends = [i for i, r in enumerate(rows) if DONE_RE.match(r[2])]
+    if not ends:
+        raise Fail("no load completed (no 'Model Loading time <n>' line)")
+    listen = any(r[2].startswith("SV_SpawnServer(") for r in rows)
+    out, prev = [], -1
+    for e in ends:
+        if listen:
+            s = first(rows, prev + 1, lambda m: m.startswith("SV_SpawnServer("))
+            anchors = LISTEN_ANCHORS
+        else:
+            s = None
+            for i in range(e, prev, -1):
+                if rows[i][2].startswith("CClientState::SetSignonState: start 2"):
+                    s = i
+                    break
+            anchors = CLIENT_ANCHORS
+        if s is None or s > e:
+            raise Fail(f"load ending at line {e}: no start anchor")
+        marks, cur = [s], s
+        for name, pred in anchors:
+            j = first(rows, cur, pred)
+            if j is None or j > e:
+                raise Fail(f"load ending at line {e}: phase '{name}' has no end anchor")
+            marks.append(j)
+            cur = j
+        costs = [rows[b][0] - rows[a][0] for a, b in zip(marks, marks[1:])]
+        name = rows[s][2] if listen else next((r[2] for r in rows[s:e] if r[2].startswith("Map_LoadModel")), "client load")
+        out.append({"start": rows[s][0], "end": rows[e][0], "what": name,
+                    "phases": [(n, c) for (n, _), c in zip(anchors, costs)], "total": rows[e][0] - rows[s][0]})
+        prev = e
+    return out
+
+
+def read_samples(path):
+    if not os.path.isfile(path):
+        raise Fail(f"no sample file {path}: run with --sample")
+    out = []
+    with open(path) as f:
+        for line in f:
+            if line.startswith("T "):
+                p = line.split()
+                out.append((float(p[1]), p[2:]))
+    if not out:
+        raise Fail(f"{path} holds no samples")
+    out.sort()
+    return out
+
+
+class Namer:
+    """Names a stripped frame by its .eh_frame function bounds and the strings it references."""
+
+    def __init__(self, libdirs):
+        self.libdirs = libdirs
+        self.cache, self.libs = {}, {}
+
+    def _lib(self, lib):
+        if lib not in self.libs:
+            path = next((os.path.join(d, lib) for d in self.libdirs if os.path.isfile(os.path.join(d, lib))), None)
+            if path is None:
+                self.libs[lib] = None
+            else:
+                out = subprocess.run(["readelf", "--debug-dump=frames", path], capture_output=True, text=True).stdout
+                fdes = sorted((int(a, 16), int(b, 16)) for a, b in re.findall(r"FDE cie=\w+ pc=([0-9a-f]+)\.\.([0-9a-f]+)", out))
+                syms = {}
+                for flag in ([], ["-D"]):
+                    for line in subprocess.run(["nm", "-C", "--defined-only", *flag, path], capture_output=True, text=True).stdout.splitlines():
+                        p = line.split(" ", 2)
+                        if len(p) == 3 and p[1] in "tTwWiI":
+                            syms.setdefault(int(p[0], 16), p[2])
+                self.libs[lib] = (path, fdes, syms)
+        return self.libs[lib]
+
+    def name(self, frame):
+        m = re.match(r"([^+]+)\+0x([0-9a-f]+)", frame)
+        if not m:
+            return frame
+        lib, off = m.group(1), int(m.group(2), 16)
+        info = self._lib(lib)
+        if not info:
+            return lib
+        path, fdes, syms = info
+        i = bisect.bisect_right(fdes, (off, 1 << 62)) - 1
+        if i < 0 or not (fdes[i][0] <= off < fdes[i][1]):
+            return f"{lib}+{off:#x}"
+        lo, hi = fdes[i]
+        key = (lib, lo)
+        if key not in self.cache:
+            if lo in syms:
+                self.cache[key] = f"{lib}:{syms[lo][:90]}"
+            else:
+                dis = subprocess.run(["objdump", "-d", "--no-show-raw-insn", f"--start-address={lo:#x}", f"--stop-address={hi:#x}", path],
+                                     capture_output=True, text=True).stdout
+                secs = subprocess.run(["readelf", "-SW", path], capture_output=True, text=True).stdout
+                ro = re.search(r"\.rodata\s+PROGBITS\s+([0-9a-f]+)\s+([0-9a-f]+)\s+([0-9a-f]+)", secs)
+                strs = []
+                if ro:
+                    ra, rf, rs = (int(x, 16) for x in ro.groups())
+                    with open(path, "rb") as f:
+                        data = f.read()
+                    for mm in re.finditer(r"# ([0-9a-f]+)", dis):
+                        va = int(mm.group(1), 16)
+                        if ra <= va < ra + rs:
+                            fo = rf + va - ra
+                            e = data.find(b"\0", fo, fo + 120)
+                            s = data[fo:e]
+                            if len(s) > 3 and all(32 <= c < 127 for c in s) and s.decode() not in strs:
+                                strs.append(s.decode())
+                self.cache[key] = f"{lib}:{lo:#x}" + (" [" + " | ".join(x[:40] for x in strs[:3]) + "]" if strs else "")
+        return self.cache[key]
+
+
+def gap_profile(run, frm, to, depth=8):
+    rows = read_milestones(os.path.join(run, "probe.ts"))
+    samples = read_samples(os.path.join(run, "probe.samples"))
+    times = [s[0] for s in samples]
+    meta = load_meta(run)
+    namer = Namer(meta.get("libdirs", []))
+    wins = []
+    for i, (t, _, m) in enumerate(rows):
+        if m.strip() == frm.strip():
+            j = first(rows, i + 1, lambda x: x.strip() == to.strip())
+            if j is not None:
+                wins.append((t, rows[j][0]))
+    if not wins:
+        raise Fail(f"no window from '{frm}' to '{to}'")
+    out = []
+    for t0, t1 in wins:
+        ss = samples[bisect.bisect_left(times, t0):bisect.bisect_right(times, t1)]
+        incl, stacks = collections.Counter(), collections.Counter()
+        for _, fr in ss:
+            names = [namer.name(f) for f in fr if f != "|FP|"]
+            for n in set(names):
+                incl[n] += 1
+            stacks[" <- ".join(names[:depth])] += 1
+        out.append({"seconds": t1 - t0, "samples": len(ss), "inclusive": incl.most_common(12), "stacks": stacks.most_common(3)})
+    return out
+
+
+def load_meta(run):
+    p = os.path.join(run, "meta.json")
+    return json.load(open(p)) if os.path.isfile(p) else {}
+
+
+# --------------------------------------------------------------------------- running the game
+
+def sh(cmd, **kw):
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True, **kw)
+
+
+def other_games():
+    return [p for p in sh("pgrep -x hl2_linux64").stdout.split()]
+
+
+class Game:
+    """One game process with the probe preloaded, its own TMPDIR, devapi dir and ports."""
+
+    def __init__(self, run, config, args, perf=False, sample_from=None):
+        self.run, self.config = run, config
+        self.game = os.path.join(ROOT, "bin", config)
+        if not os.path.isfile(os.path.join(self.game, "source#")):
+            raise Fail(f"no {self.game}/source#: run make {config}")
+        self.shim = os.path.join(self.game, "loadprof", "ssprobe.so")
+        if not os.path.isfile(self.shim):
+            raise Fail(f"no {self.shim}: run make loadprof-probe CONFIG={config}")
+        # unix socket paths must stay under 108 bytes
+        self.devdir = f"/tmp/{os.getuid()}-lp-{os.path.basename(run)[-12:]}"
+        shutil.rmtree(self.devdir, ignore_errors=True)
+        os.makedirs(self.devdir)
+        os.makedirs(os.path.join(run, "tmp"), exist_ok=True)
+        os.makedirs(os.path.join(run, "perfmap"), exist_ok=True)
+        env = dict(os.environ, TMPDIR=os.path.join(run, "tmp"), SOURCESHARP_DEVAPI_DIR=self.devdir,
+                   SSPROBE_OUT=os.path.join(run, "probe"), LD_PRELOAD=self.shim)
+        if sample_from:
+            env.update(SSPROBE_SAMPLE="1", SSPROBE_SAMPLE_FROM=sample_from)
+        if perf:
+            env.update(DOTNET_PerfMapEnabled="1", DOTNET_PerfMapJitDumpPath=os.path.join(run, "perfmap"))
+        offload = os.path.join(ROOT, "tools", "gpu-offload")
+        quoted = " ".join("'" + a.replace("'", "'\\''") + "'" for a in args)
+        self.stdout = open(os.path.join(run, "game.stdout"), "w")
+        self.proc = subprocess.Popen(["bash", "-c", f". '{offload}' && exec ./source\\# {quoted}"], cwd=self.game, env=env,
+                                     stdout=self.stdout, stderr=subprocess.STDOUT, start_new_session=True)
+        self.engine = None
+        for _ in range(120):
+            kids = sh(f"pgrep -P {self.proc.pid} -x hl2_linux64").stdout.split()
+            if kids:
+                self.engine = int(kids[0])
+                break
+            time.sleep(0.5)
+        if self.engine is None:
+            self.stop()
+            raise Fail("the engine process never started")
+        exe = os.readlink(f"/proc/{self.engine}/exe")
+        self.libdirs = [os.path.join(os.path.dirname(exe), "bin", "linux64"), os.path.join(self.game, "bin", "linux64")]
+        self.perf = None
+        if perf:
+            self.perf = subprocess.Popen(["perf", "record", "-q", "-F", "499", "--call-graph", "dwarf,8192", "-k", "CLOCK_MONOTONIC",
+                                          "-p", str(self.engine), "-o", os.path.join(run, "perf.data")],
+                                         stdout=subprocess.DEVNULL, stderr=open(os.path.join(run, "perf.log"), "w"))
+
+    def loads(self):
+        p = os.path.join(self.run, "probe.ts")
+        if not os.path.isfile(p):
+            return 0
+        with open(p, errors="replace") as f:
+            return sum(1 for line in f if ":  Model Loading time " in line and DONE_RE.search(line))
+
+    def wait_loads(self, n, timeout=300):
+        t = time.time()
+        while self.loads() < n:
+            if self.proc.poll() is not None or not os.path.exists(f"/proc/{self.engine}"):
+                raise Fail(f"the game exited while waiting for load {n}")
+            if time.time() - t > timeout:
+                raise Fail(f"load {n} did not complete in {timeout} s")
+            time.sleep(1)
+        time.sleep(6)
+
+    def devapi(self, cmd):
+        socks = glob.glob(os.path.join(self.devdir, "*.sock"))
+        if not socks:
+            raise Fail("the game opened no devapi socket")
+        env = dict(os.environ, SOURCESHARP_DEVAPI_DIR=self.devdir, DEVAPI_PID=os.path.basename(socks[0])[:-5])
+        r = subprocess.run([os.path.join(ROOT, "tools", "devapi"), "cmd", cmd], env=env, capture_output=True, text=True)
+        if '"ok":true' not in r.stdout.replace(" ", ""):
+            raise Fail(f"devapi cmd {cmd!r}: {r.stdout.strip()} {r.stderr.strip()}")
+
+    def wait_devapi(self, timeout=180):
+        t = time.time()
+        while not glob.glob(os.path.join(self.devdir, "*.sock")):
+            if time.time() - t > timeout:
+                raise Fail("no devapi socket")
+            time.sleep(1)
+        time.sleep(10)
+
+    def stop(self):
+        if getattr(self, "perf", None):
+            self.perf.send_signal(signal.SIGINT)
+            self.perf.wait()
+        try:
+            self.devapi("quit")
+            self.proc.wait(timeout=20)
+        except Exception:
+            pass
+        for pid in (self.engine, self.proc.pid):
+            if pid and os.path.exists(f"/proc/{pid}"):
+                os.kill(pid, signal.SIGTERM)
+        shutil.rmtree(self.devdir, ignore_errors=True)
+
+
+def new_run(tag):
+    os.makedirs(RUNS, exist_ok=True)
+    n = 1
+    while os.path.exists(os.path.join(RUNS, f"{tag}-{n}")):
+        n += 1
+    run = os.path.join(RUNS, f"{tag}-{n}")
+    os.makedirs(run)
+    return run
+
+
+def write_meta(run, game, extra):
+    meta = {"tip": sh(f"git -C '{ROOT}' rev-parse HEAD").stdout.strip(), "config": game.config,
+            "other_games": len(other_games()) - 1, "libdirs": game.libdirs, "engine_pid": game.engine, **extra}
+    json.dump(meta, open(os.path.join(run, "meta.json"), "w"), indent=1)
+
+
+def cmd_listen(a):
+    run = new_run(a.tag)
+    args = listen_args(a.port, a.arg)
+    g = Game(run, a.config, args, perf=a.perf, sample_from="SV_SpawnServer(" if a.sample else None)
+    write_meta(run, g, {"mode": "listen", "args": args})
+    try:
+        g.wait_loads(1)
+        for i, step in enumerate(["map ss_sandbox", "changelevel dm_lockdown", "changelevel dm_lockdown", "map dm_lockdown"], 2):
+            g.devapi(step)
+            g.wait_loads(i)
+    finally:
+        g.stop()
+    print(run)
+    return report(run)
+
+
+def api(a, method, path, body=None):
+    cmd = ["curl", "-s", "-m", "10", "-X", method, f"http://{a.api}{path}"]
+    if body is not None:
+        cmd += ["-H", "content-type: application/json", "-d", json.dumps(body)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise Fail(f"admin API {path}: curl exit {r.returncode}")
+    return r.stdout
+
+
+def current_instance(a):
+    s = json.loads(api(a, "GET", "/ops/sessions") or "[]")
+    s = s if isinstance(s, list) else s.get("sessions", [])
+    live = [x for x in s if str(x.get("state", "")).lower() not in ("ended", "closed")]
+    return (live[-1].get("instanceId") or live[-1].get("instance")) if live else a.hub
+
+
+def cmd_hosted(a):
+    run = new_run(a.tag)
+    args = hosted_args(a.port, a.arg)
+    g = Game(run, a.config, args, perf=a.perf, sample_from="CClientState::SetSignonState: start 2" if a.sample else None)
+    write_meta(run, g, {"mode": "hosted", "args": args, "addr": a.addr})
+    try:
+        g.wait_devapi()
+        for c in a.precmd:
+            g.devapi(c)
+        g.devapi(f"connect {a.addr}")
+        g.wait_loads(1)
+        for i in range(a.hops):
+            direction = "down" if i % 2 == 0 else "up"
+            api(a, "POST", f"/ops/instances/{current_instance(a)}/exec", {"command": f"tf2_descent_travel 1 {direction}"})
+            g.wait_loads(i + 2)
+    finally:
+        g.stop()
+    print(run)
+    return report(run)
+
+
+def report(run):
+    loads = phases(read_milestones(os.path.join(run, "probe.ts")))
+    meta = load_meta(run)
+    print(f"{run}  tip {meta.get('tip', '?')[:10]}  other games {meta.get('other_games', '?')}")
+    for k, ld in enumerate(loads):
+        print(f"  load {k}: {ld['total']:6.2f}s  {ld['what'][:48]}")
+        for n, c in ld["phases"]:
+            print(f"      {c:6.3f}s  {n}")
+    return 0
+
+
+def cmd_gap(a):
+    for k, w in enumerate(gap_profile(a.run, a.frm, a.to)):
+        print(f"window {k}: {w['seconds']:.3f}s, {w['samples']} samples")
+        for n, c in w["inclusive"]:
+            print(f"   {100 * c / max(w['samples'], 1):5.1f}%  {n}")
+    return 0
+
+
+# --------------------------------------------------------------------------- self-test
+
+CHECKS = [0, 0]
+
+
+def ck(cond, what):
+    CHECKS[0] += 1
+    if not cond:
+        CHECKS[1] += 1
+        print(f"FAIL: {what}")
+
+
+def _ts(lines):
+    """A milestone file. Each phase is split by a filler line, so a phase cost is
+    never one line's own delta: reading the delta column instead of differencing
+    the anchors' times gets every phase wrong."""
+    t, out = 100.0, []
+    for dt, msg in lines:
+        if dt:
+            t += dt / 2
+            out.append(f"{t:10.4f} / {dt / 2:8.4f}:  KeyValues::LoadFromFile(GAME/materials/filler.vmt): Begin\n")
+        t += dt / 2
+        out.append(f"{t:10.4f} / {dt / 2:8.4f}:  {msg}\n")
+    return "".join(out)
+
+
+LISTEN_FIXTURE = [(0, "SV_SpawnServer(dm_lockdown)"), (0.5, "modelloader->GetModelForName(maps/dm_lockdown.bsp) -- Start"),
+                  (0.25, "SV_SpawnServer -- Finished"), (0.125, "SV_ActivateServer(finished)"), (0.5, "R_LevelInit: Start"),
+                  (0.25, "LevelInitPreEntity: end 5"), (0.375, "cl:  create 'CWorld'"), (0.125, "Model Loading time 1.0")]
+
+CLIENT_FIXTURE = [(0, "CClientState::SetSignonState: start 2"), (1.5, " CBaseClient::ProcessServerInfo"), (0.5, "Map_LoadModel: Start"),
+                  (4.0, "Map_LoadModel: Finish - loading took 4.0 seconds"), (0.25, "LevelInitPreEntity: start 5"),
+                  (1.25, "LevelInitPreEntity: end 5"), (0.5, "cl:  create 'CWorld'"), (0.25, "Model Loading time 2.0")]
+
+
+def self_test():
+    import tempfile
+    d = tempfile.mkdtemp(prefix="lp-selftest-")
+    try:
+        p = os.path.join(d, "probe.ts")
+        open(p, "w").write(_ts(LISTEN_FIXTURE + LISTEN_FIXTURE))
+        loads = phases(read_milestones(p))
+        ck(len(loads) == 2, "two listen loads are found")
+        ck([round(c, 3) for _, c in loads[0]["phases"]] == [0.5, 0.25, 0.125, 0.5, 0.25, 0.375, 0.125], "listen phases are the anchor deltas")
+        ck(abs(loads[0]["total"] - 2.125) < 1e-6, "a listen load's total is spawn to FullyConnected")
+
+        open(p, "w").write(_ts(CLIENT_FIXTURE))
+        loads = phases(read_milestones(p))
+        ck(len(loads) == 1 and dict(loads[0]["phases"])["Map_LoadModel"] == 4.0, "a remote client's Map_LoadModel is its own phase")
+        ck(dict(loads[0]["phases"])["resource wait (downloads, prepare)"] == 0.5, "the resource wait is ServerInfo to Map_LoadModel")
+
+        broken = [r for r in LISTEN_FIXTURE if not r[1].startswith("R_LevelInit")]
+        open(p, "w").write(_ts(broken))
+        try:
+            phases(read_milestones(p))
+            ck(False, "a load missing a phase anchor is refused")
+        except Fail:
+            ck(True, "a load missing a phase anchor is refused")
+
+        open(p, "w").write("")
+        try:
+            read_milestones(p)
+            ck(False, "an empty milestone file is a failure")
+        except Fail:
+            ck(True, "an empty milestone file is a failure")
+        try:
+            read_milestones(os.path.join(d, "missing.ts"))
+            ck(False, "a missing milestone file is a failure")
+        except Fail:
+            ck(True, "a missing milestone file is a failure")
+
+        s = os.path.join(d, "probe.samples")
+        open(s, "w").write("LOAD 0\n")
+        try:
+            read_samples(s)
+            ck(False, "an empty sample set is a failure")
+        except Fail:
+            ck(True, "an empty sample set is a failure")
+        open(s, "w").write("LOAD 2\nT 100.10 libc.so.6+0x10 |FP| ?0x1234\nT 100.20 libc.so.6+0x10\n")
+        ck(len(read_samples(s)) == 2, "samples parse, including a frame-pointer continuation")
+
+        # The launch settings this tool was written out of (docs/todo.md):
+        # lp built its argv by hand, so its games took the desktop focus,
+        # ran uncapped, shared the engine's writable game directory and
+        # carried no LAN flags. Each builder's TAIL must be exactly what
+        # tools/local_launch.py says every local game carries — compared to
+        # the source itself, so a future edit cannot restyle a copy.
+        shared = _local_launch().local_args({})
+        join_tail = [a for a in shared if a != "-hushsteam"]
+        for name, made, tail in (
+                ("listen", listen_args(27931, ["--probe-extra"]), shared),
+                # a hosted client drops -hushsteam the way `make join` does.
+                ("hosted", hosted_args(27947, ["--probe-extra"]), join_tail)):
+            ck(made[-len(tail):] == tail,
+               f"{name}: the argv ends in local_launch.py's flags verbatim "
+               f"({made[-len(tail):]!r} vs {tail!r})")
+            for flag in ("+sv_lan", "1", "+fps_max", "60", "-background", "-instance"):
+                ck(flag in made, f"{name}: carries {flag}")
+        ck("-hushsteam" in listen_args(27931, ["--probe-extra"]), "listen: keeps -hushsteam")
+        ck("-hushsteam" not in hosted_args(27947, ["--probe-extra"]),
+           "hosted: drops -hushsteam like make join")
+        ck("-mod" in hosted_args(27947) and "tf2_descent" in hosted_args(27947),
+           "hosted: still the tf2_descent mod")
+        la = listen_args(27931)
+        ck(la[la.index("-port") + 1] == "27931", "listen: its own port")
+        ck(la[la.index("+map") + 1] == "dm_lockdown", "listen: opens dm_lockdown")
+        ha = hosted_args(27947)
+        ck(ha[ha.index("+clientport") + 1] == "27948", "hosted: clientport one above the port")
+        steam = listen_args(27931, environ={"STEAM_AUTH": "1"})
+        ck("-hushsteam" not in steam and "+sv_lan" not in steam,
+           "STEAM_AUTH=1 leaves the Steam game server to the listen server")
+        ck("+fps_max" in steam and "-instance" in steam,
+           "STEAM_AUTH=1 keeps the cap and the private game dir")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    print(f"{CHECKS[0]} checks, {CHECKS[1]} failed")
+    return 1 if CHECKS[1] else 0
+
+
+def main():
+    if sys.argv[1:] == ["--self-test"]:
+        return self_test()
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    for name in ("listen", "hosted"):
+        p = sub.add_parser(name)
+        p.add_argument("--config", default="release")
+        p.add_argument("--tag", default=name)
+        p.add_argument("--perf", action="store_true")
+        p.add_argument("--sample", action="store_true")
+        p.add_argument("--arg", action="append", default=[])
+        p.add_argument("--port", type=int, default=27931 if name == "listen" else 27947)
+        if name == "hosted":
+            p.add_argument("--api", required=True)
+            p.add_argument("--hub", required=True)
+            p.add_argument("--addr", default=None)
+            p.add_argument("--hops", type=int, default=4)
+            p.add_argument("--precmd", action="append", default=[])
+    p = sub.add_parser("phases")
+    p.add_argument("run")
+    p = sub.add_parser("gap")
+    p.add_argument("run")
+    p.add_argument("frm")
+    p.add_argument("to")
+    a = ap.parse_args()
+    try:
+        if a.cmd == "listen":
+            return cmd_listen(a)
+        if a.cmd == "hosted":
+            if a.addr is None:
+                a.addr = sh("hostname -I").stdout.split()[0] + ":27015"
+            return cmd_hosted(a)
+        if a.cmd == "phases":
+            return report(a.run)
+        return cmd_gap(a)
+    except Fail as e:
+        print(f"loadprof: {e}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

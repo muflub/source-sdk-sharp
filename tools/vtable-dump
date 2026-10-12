@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Dump a C++ vtable out of a built .so, naming every slot.
+
+A sub-vtable begins at the pair (offset-to-top, typeinfo-pointer); the
+typeinfo pointer is the relocation whose addend resolves to
+`typeinfo for <class>`, so the boundaries are found by NAME and not by a
+guess about which words are relocated.  Settles a vtable slot count without
+running the game.  Root derived from this script's own location.
+"""
+import os, re, subprocess, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+
+
+def nm_map(so):
+    out = subprocess.run(['nm', '-C', '-S', so], capture_output=True, text=True).stdout
+    addrs, sizes = {}, {}
+    for line in out.split('\n'):
+        p = line.split(' ', 3)
+        if len(p) >= 3 and re.fullmatch(r'[0-9a-f]+', p[0]):
+            if len(p) == 4:
+                sizes[p[3]] = int(p[1], 16)
+                addrs.setdefault(int(p[0], 16), p[3])
+            else:
+                addrs.setdefault(int(p[0], 16), p[2])
+    return addrs, sizes
+
+
+def relocs(so):
+    out = subprocess.run(['readelf', '-rW', so], capture_output=True, text=True).stdout
+    r = {}
+    for line in out.split('\n'):
+        f = line.split()
+        if len(f) >= 4 and f[2] == 'R_X86_64_RELATIVE':
+            try:
+                r[int(f[0], 16)] = int(f[3], 16)
+            except ValueError:
+                pass
+    return r
+
+
+def nearest(addrs, a):
+    if a in addrs:
+        return addrs[a]
+    lo = max((x for x in addrs if x <= a), default=None)
+    return ('%s+0x%x' % (addrs[lo], a - lo)) if lo is not None else '0x%x' % a
+
+
+if __name__ == '__main__':
+    so = sys.argv[1]
+    if not os.path.isabs(so):
+        so = os.path.join(ROOT, so)
+    cls = sys.argv[2]
+    verbose = '-v' in sys.argv
+    addrs, sizes = nm_map(so)
+    key = 'vtable for ' + cls
+    base = next((a for a, n in addrs.items() if n == key), None)
+    if base is None:
+        sys.exit('no ' + key)
+    size = sizes[key]
+    rel = relocs(so)
+    ti = 'typeinfo for ' + cls
+    n = size // 8
+    print('%s  base=0x%x  bytes=%d  words=%d' % (key, base, size, n))
+    subs, cur = [], None
+    i = 0
+    while i < n:
+        va = base + i * 8
+        target = rel.get(va)
+        name = nearest(addrs, target) if target is not None else None
+        if name == ti:
+            cur = {'start': i + 1, 'slots': []}
+            subs.append(cur)
+            i += 1
+            continue
+        if cur is not None and target is not None:
+            cur['slots'].append(name)
+        i += 1
+    total = 0
+    for k, s in enumerate(subs):
+        print('  sub-vtable %d (words %d..): %d virtual slots' % (k, s['start'], len(s['slots'])))
+        total += len(s['slots'])
+        if verbose:
+            for j, nm in enumerate(s['slots']):
+                print('      [%2d] %s' % (j, nm))
+    print('  TOTAL %d virtual slots across %d sub-vtables' % (total, len(subs)))

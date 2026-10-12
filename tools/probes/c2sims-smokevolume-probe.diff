@@ -1,0 +1,197 @@
+diff --git a/src/client/native/shell_smokevolume_sim.cpp b/src/client/native/shell_smokevolume_sim.cpp
+index e0509126..7d1098f3 100644
+--- a/src/client/native/shell_smokevolume_sim.cpp
++++ b/src/client/native/shell_smokevolume_sim.cpp
+@@ -26,6 +26,13 @@
+ 
+ #include "managed_convar_ref.h"
+ 
++// c2-sims probe (tools/probes/c2sims-smokevolume-probe.diff): the recorder is
++// tools/probes/client/c2sims_probes_debug.cpp (SS_CLIENT_PROBES=ON builds only).
++bool C2SimsProbe_On();
++bool C2SimsProbe_BeginFrame();
++void C2SimsProbe_Arm( bool bArm );
++void C2SimsProbe_Row( const char *pFmt, ... );
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -123,8 +130,10 @@ public:
+ 
+ 	void			VolumeWorldSpaceAABB( Vector *pWorldMins, Vector *pWorldMaxs ) const
+ 	{
++		// PROBE ONLY: the recording's bounds are already world-space (see the
++		// factory), so the box is not moved a second time.
+ 		SourceSharp_BoundsToWorld( m_vecVolumeMins, m_vecVolumeMaxs,
+-		                           GetAbsOrigin(), pWorldMins, pWorldMaxs );
++		                           C2SimsProbe_On() ? vec3_origin : GetAbsOrigin(), pWorldMins, pWorldMaxs );
+ 	}
+ 
+ 	// What OnDataChanged was. Not an override any more -- nothing sends
+@@ -139,6 +148,8 @@ public:
+ // IParticleEffect.
+ public:
+ 	virtual void	Update(float fTimeDelta);
++	void			UpdateInner(float fTimeDelta);
++	void			ProbeCells();
+ 	virtual void RenderParticles( CParticleRenderIterator *pIterator );
+ 	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+ 	virtual void	NotifyRemove();
+@@ -446,6 +457,13 @@ void C_FuncSmokeVolume::ApplyUpdate( bool bCreated )
+ //	Warning( "m_Density: %f\n", m_Density );
+ //	Warning( "m_MovementSpeed: %f\n", m_MovementSpeed );
+ 	
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "V\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s",
++			bCreated ? 1 : 0, VolumeMins().x, VolumeMins().y, VolumeMins().z, VolumeMaxs().x, VolumeMaxs().y, VolumeMaxs().z,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z,
++			m_ParticleDrawWidth, m_ParticleSpacingDistance, m_DensityRampSpeed, m_RotationSpeed, m_MovementSpeed,
++			m_Color1.r, m_Color1.g, m_Color1.b, m_Color2.r, m_Color2.g, m_Color2.b, m_spawnflags, mat_reduceparticles.GetBool() ? 1 : 0,
++			m_MaterialName );
+ 	if( bCreated )
+ 	{
+ 		Vector size = VolumeMaxs() - VolumeMins();
+@@ -473,6 +491,41 @@ void C_FuncSmokeVolume::Start( CParticleMgr *pParticleMgr, IPrototypeArgAccess *
+ 
+ 
+ void C_FuncSmokeVolume::Update( float fTimeDelta )
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			m_CurrentDensity, m_Density );
++		C2SimsProbe_Arm( true );
++	}
++	UpdateInner( fTimeDelta );
++	if ( bProbe )
++	{
++		C2SimsProbe_Arm( false );
++		ProbeCells();
++	}
++}
++
++void C_FuncSmokeVolume::ProbeCells()
++{
++	const int nTotal = m_xCount * m_yCount * m_zCount;
++	for ( int i = 0; i < nTotal; i++ )
++	{
++		SmokeParticleInfo *pInfo = &m_pSmokeParticleInfos[i];
++		if ( !pInfo->m_pParticle )
++			continue;
++		SmokeGrenadeParticle *p = pInfo->m_pParticle;
++		C2SimsProbe_Row( "G\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%.9g\t%.9g\t%d",
++			i, pInfo->m_TradeIndex,
++			pInfo->m_TradeIndex == -1 ? 0.0f : pInfo->m_TradeClock, pInfo->m_TradeIndex == -1 ? 0.0f : pInfo->m_TradeDuration,
++			p->m_Pos.x, p->m_Pos.y, p->m_Pos.z, p->m_FadeAlpha, p->m_Color[0], p->m_Color[1], p->m_Color[2],
++			p->m_RotationFactor, p->m_CurRotation, p->m_ColorInterp );
++	}
++}
++
++void C_FuncSmokeVolume::UpdateInner( float fTimeDelta )
+ {
+ 	// Update our world space bbox if we've moved at all.
+ 	// We do this manually because sometimes people make HUGE bboxes, and if they're constantly changing because their
+@@ -495,6 +548,8 @@ void C_FuncSmokeVolume::Update( float fTimeDelta )
+ 		vWorldMaxs += Vector( m_ParticleRadius, m_ParticleRadius, m_ParticleRadius );
+ 
+ 		m_ParticleEffect.SetBBox( vWorldMins, vWorldMaxs );
++		if ( C2SimsProbe_On() )
++			C2SimsProbe_Row( "B\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", vWorldMins.x, vWorldMins.y, vWorldMins.z, vWorldMaxs.x, vWorldMaxs.y, vWorldMaxs.z );
+ 	}
+ 		
+ 	// lerp m_CurrentDensity towards m_Density at a rate of m_DensityRampSpeed
+@@ -678,6 +733,10 @@ void C_FuncSmokeVolume::RenderParticles( CParticleRenderIterator *pIterator )
+ 		Vector tRenderPos;
+ 		TransformParticle( ParticleMgr()->GetModelView(), renderPos, tRenderPos );
+ 		float sortKey = 1;//tRenderPos.z;
++		if ( C2SimsProbe_On() )
++			C2SimsProbe_Row( "D\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", renderPos.x, renderPos.y, renderPos.z,
++				color.x, color.y, color.z, alpha, m_ParticleRadius, pParticle->m_CurRotation,
++				( ( alpha > 0.05f ) || !mat_reduceparticles.GetBool() ) ? 1 : 0 );
+ 
+ 		// If we're reducing particle cost, only render sufficiently opaque particles 
+ 		if ( ( alpha > 0.05f ) || !mat_reduceparticles.GetBool() )
+@@ -702,6 +761,8 @@ void C_FuncSmokeVolume::SimulateParticles( CParticleSimulateIterator *pIterator
+ 	if ( m_CurrentDensity == 0 )
+ 		return;
+ 
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "S\t%.9g", pIterator->GetTimeDelta() );
+ 	SmokeGrenadeParticle *pParticle = (SmokeGrenadeParticle*)pIterator->GetFirst();
+ 	while ( pParticle )
+ 	{
+@@ -736,6 +797,11 @@ void C_FuncSmokeVolume::NotifyRemove()
+ 
+ void C_FuncSmokeVolume::FillVolume()
+ {
++	if ( C2SimsProbe_On() )
++	{
++		C2SimsProbe_Row( "N\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g", m_xCount, m_yCount, m_zCount, m_SpacingRadius, m_ParticleRadius, m_CurrentDensity );
++		C2SimsProbe_Arm( true );
++	}
+ 	Vector vPos;
+ 	for(int x=0; x < m_xCount; x++)
+ 	{
+@@ -747,6 +813,8 @@ void C_FuncSmokeVolume::FillVolume()
+ 				if(SmokeParticleInfo *pInfo = GetSmokeParticleInfo(x,y,z))
+ 				{
+ 					int contents = GetWorldPointContents(vPos);
++					if ( C2SimsProbe_On() )
++						C2SimsProbe_Row( "C\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g", x, y, z, contents, vPos.x, vPos.y, vPos.z );
+ 					if(contents & CONTENTS_SOLID)
+ 					{
+ 						pInfo->m_pParticle = NULL;
+@@ -772,6 +840,8 @@ void C_FuncSmokeVolume::FillVolume()
+ #endif
+ 
+ 						Vector vColor = EngineGetLightForPoint(vPos);
++						if ( C2SimsProbe_On() )
++							C2SimsProbe_Row( "L\t%.9g\t%.9g\t%.9g", vColor.x, vColor.y, vColor.z );
+ 						pInfo->m_Color[0] = LinearToTexture( vColor.x );
+ 						pInfo->m_Color[1] = LinearToTexture( vColor.y );
+ 						pInfo->m_Color[2] = LinearToTexture( vColor.z );
+@@ -783,6 +853,9 @@ void C_FuncSmokeVolume::FillVolume()
+ 						{
+ 							trace_t trace;
+ 							WorldTraceLine(vPos, vPos + s_FadePlaneDirections[i] * 100, MASK_SOLID_BRUSHONLY, &trace);
++							if ( C2SimsProbe_On() )
++								C2SimsProbe_Row( "T\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", i, trace.fraction,
++									trace.plane.normal.x, trace.plane.normal.y, trace.plane.normal.z, trace.plane.dist );
+ 							if(trace.fraction < 1.0f)
+ 							{
+ 								float dist = DotProduct(trace.plane.normal, vPos) - trace.plane.dist;
+@@ -801,11 +874,17 @@ void C_FuncSmokeVolume::FillVolume()
+ 
+ 						pInfo->m_pParticle = pParticle;
+ 						pInfo->m_TradeIndex = -1;
++						if ( C2SimsProbe_On() )
++							C2SimsProbe_Row( "K\t%d\t%d\t%d\t%.9g\t%d\t%.9g\t%.9g", pInfo->m_Color[0], pInfo->m_Color[1], pInfo->m_Color[2],
++								pInfo->m_FadeAlpha, pParticle ? pParticle->m_ColorInterp : -1,
++								pParticle ? pParticle->m_RotationFactor : 0.0f, pParticle ? pParticle->m_CurRotation : 0.0f );
+ 					}
+ 				}
+ 			}
+ 		}
+ 	}
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Arm( false );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -860,6 +939,14 @@ CShellParticleEffect *SourceSharp_CreateSmokeVolume( const char *pszModel, const
+ 	// default would fill a point and nothing else.
+ 	Vector vecMins, vecMaxs;
+ 	modelinfo->GetModelBounds( pModel, vecMins, vecMaxs );
++	// PROBE ONLY: dm_lockdown has no brush without an origin, and stock places
++	// the grid at the model's LOCAL bounds; the recording moves the box to the
++	// entity so its cells are in the map (the README says so).
++	if ( C2SimsProbe_On() )
++	{
++		vecMins += vecOrigin;
++		vecMaxs += vecOrigin;
++	}
+ 	pSmoke->SetVolumeBounds( vecMins, vecMaxs );
+ 
+ 	return pSmoke;

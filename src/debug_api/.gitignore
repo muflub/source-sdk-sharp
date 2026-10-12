@@ -1,0 +1,5 @@
+# Build output. The sources are in src/sourcesharp/webui; this directory is
+# what the assembly embeds. The UI build stages its output in ui.staging/
+# and writes only the files that changed (src/webui/build.mjs).
+/ui/
+/ui.staging/

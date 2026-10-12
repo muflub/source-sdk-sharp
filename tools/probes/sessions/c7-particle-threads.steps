@@ -1,0 +1,26 @@
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+cmd sv_cheats 1
+api place tools/probes/sessions/c7-thirty-fires.json
+cmd setpos 800 380 70
+cmd setang 0 90 0
+sleep 3
+cmd setpos 800 380 70
+cmd setang 0 90 0
+cmd ent_fire c7fire* StartFire
+sleep 3
+cmd setpos 800 380 70
+cmd setang 0 90 0
+cmd r_threaded_particles 1
+sleep 5
+cmd cs_cl_pso_trace_start
+cmd r_threaded_particles 0
+sleep 5
+cmd cs_cl_pso_trace_stop
+cmd r_threaded_particles 1
+sleep 5
+shot fires
+cmd cs_cl_particle_report
+sleep 1
+quit

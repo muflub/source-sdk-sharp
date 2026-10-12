@@ -1,0 +1,17 @@
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+cmd sv_cheats 1
+sleep 2
+cmd cs_cl_render_trace {out}/before.txt
+wait recorded \d+ lines to .*before 20
+api place tools/probes/sessions/c7-shake-fade.json
+cmd ent_fire c7fade Fade
+cmd ent_fire c7shake StartShake
+sleep 2
+cmd cs_cl_render_trace {out}/during1.txt
+wait recorded \d+ lines to .*during1 20
+sleep 0.2
+cmd cs_cl_render_trace {out}/during2.txt
+wait recorded \d+ lines to .*during2 20
+quit

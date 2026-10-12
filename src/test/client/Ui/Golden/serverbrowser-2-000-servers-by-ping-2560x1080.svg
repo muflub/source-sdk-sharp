@@ -1,0 +1,421 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="528" y="84" width="1504" height="924" rx="20" fill="#000000" fill-opacity="0.17" data-e="2"/>
+<rect x="534" y="90" width="1492" height="912" rx="14" fill="#000000" fill-opacity="0.43" data-e="2"/>
+<rect x="540" y="90" width="1480" height="900" rx="8" fill="#111317" data-e="2"/>
+<rect x="540.5" y="90.5" width="1479" height="899" rx="7.5" fill="none" stroke="#ffb52e" stroke-opacity="0.6" stroke-width="1" data-e="2"/>
+<rect x="2013" y="976" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2010" y="980" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2013" y="980" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2006" y="983" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2010" y="983" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2013" y="983" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="556" y="96" width="1448" height="40" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="14"/>
+<rect x="568" y="106" width="4" height="20" rx="2" fill="#ffb52e" data-e="15"/>
+<text x="584" y="124.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="16">SERVERS</text>
+<polygon points="1979.4,110 1990,120.6 1988.6,122 1978,111.4" fill="#b2aea4" data-e="19"/>
+<polygon points="1988.6,110 1990,111.4 1979.4,122 1978,120.6" fill="#b2aea4" data-e="19"/>
+<clipPath id="c0"><rect x="546" y="136" width="1468" height="848"/></clipPath><g clip-path="url(#c0)" data-e="20">
+<text x="562" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="23">INTERNET</text>
+<rect x="562" y="185" width="98" height="4" fill="#ffb52e" data-e="24"/>
+<text x="684" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#b2aea4" xml:space="preserve" data-e="26">FAVOURITES</text>
+<text x="831" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#b2aea4" xml:space="preserve" data-e="29">LAN</text>
+<text x="894" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#b2aea4" xml:space="preserve" data-e="32">HISTORY</text>
+<rect x="562" y="228" width="280" height="40" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="36"/>
+<rect x="562.5" y="228.5" width="279" height="39" rx="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="36"/>
+<clipPath id="c1"><rect x="562" y="228" width="280" height="40"/></clipPath><g clip-path="url(#c1)" data-e="36">
+<text x="575" y="255.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="37">Map contains…</text>
+<text x="574" y="254.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="37">Map contains…</text>
+</g>
+<rect x="858" y="242" width="20" height="20" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="40"/>
+<rect x="858.5" y="242.5" width="19" height="19" rx="1.5" fill="none" stroke="#b2aea4" stroke-width="1" data-e="40"/>
+<text x="887" y="259.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="41">Not full</text>
+<text x="886" y="258.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="41">Not full</text>
+<rect x="962" y="242" width="20" height="20" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="43"/>
+<rect x="962.5" y="242.5" width="19" height="19" rx="1.5" fill="none" stroke="#b2aea4" stroke-width="1" data-e="43"/>
+<text x="991" y="259.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="44">Not empty</text>
+<text x="990" y="258.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="44">Not empty</text>
+<rect x="1091" y="242" width="20" height="20" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="46"/>
+<rect x="1091.5" y="242.5" width="19" height="19" rx="1.5" fill="none" stroke="#b2aea4" stroke-width="1" data-e="46"/>
+<text x="1120" y="259.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="47">No password</text>
+<text x="1119" y="258.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="47">No password</text>
+<text x="1241" y="219.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="49">MAX PING</text>
+<rect x="1241" y="228" width="140" height="40" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="50"/>
+<rect x="1241.5" y="228.5" width="139" height="39" rx="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="50"/>
+<text x="1254" y="255.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="51">&lt; 150 ms</text>
+<text x="1253" y="254.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="51">&lt; 150 ms</text>
+<polygon points="1357.7,245.1 1359.6,245.1 1363,249 1363,251.4" fill="#b2aea4" data-e="53"/>
+<polygon points="1363,249 1366.4,245.1 1368.3,245.1 1363,251.4" fill="#b2aea4" data-e="53"/>
+<rect x="562" y="284" width="1040" height="628" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="56"/>
+<clipPath id="c2"><rect x="562" y="284" width="1040" height="628"/></clipPath><g clip-path="url(#c2)" data-e="56">
+<rect x="562" y="284" width="1040" height="36" fill="#2c3038" fill-opacity="0.82" data-e="57"/>
+<rect x="576" y="301" width="8" height="7" fill="#b2aea4" data-e="58"/>
+<rect x="577" y="298" width="2" height="4" fill="#b2aea4" data-e="58"/>
+<rect x="581" y="298" width="2" height="4" fill="#b2aea4" data-e="58"/>
+<polygon points="577.1,298.4 578.3,296.7 581.7,296.7 582.9,298.4 581.4,298.4 578.6,298.4" fill="#b2aea4" data-e="58"/>
+<text x="658" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="60">SERVER</text>
+<text x="1018" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="61">GAME</text>
+<text x="1226" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="62">MAP</text>
+<text x="1448" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="63">PLAYERS</text>
+<text x="1542" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#ffb52e" xml:space="preserve" data-e="65">PING</text>
+<polygon points="1578.7,304.9 1584,298.6 1584,301 1580.6,304.9" fill="#ffb52e" data-e="66"/>
+<polygon points="1584,298.6 1589.3,304.9 1587.4,304.9 1584,301" fill="#ffb52e" data-e="66"/>
+<clipPath id="c3"><rect x="562" y="320" width="1040" height="557"/></clipPath><g clip-path="url(#c3)" data-e="67">
+<rect x="562" y="320" width="1040" height="32" fill="#ffb52e" fill-opacity="0.18" data-e="70"/>
+<text x="659" y="343.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="73">Whiteforest Gaming #179</text>
+<text x="658" y="342.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="73">Whiteforest Gaming #179</text>
+<text x="1019" y="343.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="74">Half-Life 2: Deathmatch</text>
+<text x="1018" y="342.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="74">Half-Life 2: Deathmatch</text>
+<text x="1227" y="343.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="75">dm_killbox_kbh</text>
+<text x="1226" y="342.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="75">dm_killbox_kbh</text>
+<text x="1444" y="343.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="76">15 / 16</text>
+<text x="1443" y="342.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="76">15 / 16</text>
+<text x="1560" y="343.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="78">8</text>
+<text x="1559" y="342.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="78">8</text>
+<rect x="1574" y="339" width="3" height="5" fill="#f2eee6" data-e="79"/>
+<rect x="1578" y="335" width="3" height="9" fill="#f2eee6" data-e="79"/>
+<rect x="1583" y="332" width="3" height="12" fill="#f2eee6" data-e="79"/>
+<rect x="1587" y="328" width="3" height="16" fill="#f2eee6" data-e="79"/>
+<rect x="562" y="352" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="81"/>
+<polygon points="608,362 614,363.7 613.3,369.4 608,374 602.7,369.4 602,363.7" fill="#7ed66e" data-e="84"/>
+<text x="659" y="375.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="85">Lambda Lockers #215</text>
+<text x="658" y="374.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="85">Lambda Lockers #215</text>
+<text x="1019" y="375.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="86">SourceSharp</text>
+<text x="1018" y="374.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="86">SourceSharp</text>
+<text x="1227" y="375.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="87">dm_lockdown</text>
+<text x="1226" y="374.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="87">dm_lockdown</text>
+<text x="1455" y="375.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="88">8 / 16</text>
+<text x="1454" y="374.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="88">8 / 16</text>
+<text x="1560" y="375.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="90">8</text>
+<text x="1559" y="374.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="90">8</text>
+<rect x="1574" y="371" width="3" height="5" fill="#f2eee6" data-e="91"/>
+<rect x="1578" y="367" width="3" height="9" fill="#f2eee6" data-e="91"/>
+<rect x="1583" y="364" width="3" height="12" fill="#f2eee6" data-e="91"/>
+<rect x="1587" y="360" width="3" height="16" fill="#f2eee6" data-e="91"/>
+<polygon points="608,394 614,395.7 613.3,401.4 608,406 602.7,401.4 602,395.7" fill="#7ed66e" data-e="96"/>
+<text x="659" y="407.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="97">[EU] Combine Overwatch #234</text>
+<text x="658" y="406.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="97">[EU] Combine Overwatch #234</text>
+<text x="1019" y="407.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="98">SourceSharp</text>
+<text x="1018" y="406.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="98">SourceSharp</text>
+<text x="1227" y="407.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="99">jb_lego_jail</text>
+<text x="1226" y="406.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="99">jb_lego_jail</text>
+<text x="1455" y="407.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="100">9 / 16</text>
+<text x="1454" y="406.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="100">9 / 16</text>
+<text x="1560" y="407.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="102">8</text>
+<text x="1559" y="406.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="102">8</text>
+<rect x="1574" y="403" width="3" height="5" fill="#f2eee6" data-e="103"/>
+<rect x="1578" y="399" width="3" height="9" fill="#f2eee6" data-e="103"/>
+<rect x="1583" y="396" width="3" height="12" fill="#f2eee6" data-e="103"/>
+<rect x="1587" y="392" width="3" height="16" fill="#f2eee6" data-e="103"/>
+<rect x="562" y="416" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="105"/>
+<polygon points="608,426 614,427.7 613.3,433.4 608,438 602.7,433.4 602,427.7" fill="#7ed66e" data-e="108"/>
+<text x="659" y="439.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="109">City 17 | Fast DL #333</text>
+<text x="658" y="438.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="109">City 17 | Fast DL #333</text>
+<text x="1019" y="439.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="110">Half-Life 2: Deathmatch</text>
+<text x="1018" y="438.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="110">Half-Life 2: Deathmatch</text>
+<text x="1227" y="439.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="111">jb_lego_jail</text>
+<text x="1226" y="438.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="111">jb_lego_jail</text>
+<text x="1455" y="439.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="112">3 / 32</text>
+<text x="1454" y="438.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="112">3 / 32</text>
+<text x="1560" y="439.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="114">8</text>
+<text x="1559" y="438.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="114">8</text>
+<rect x="1574" y="435" width="3" height="5" fill="#f2eee6" data-e="115"/>
+<rect x="1578" y="431" width="3" height="9" fill="#f2eee6" data-e="115"/>
+<rect x="1583" y="428" width="3" height="12" fill="#f2eee6" data-e="115"/>
+<rect x="1587" y="424" width="3" height="16" fill="#f2eee6" data-e="115"/>
+<polygon points="608,458 614,459.7 613.3,465.4 608,470 602.7,465.4 602,459.7" fill="#7ed66e" data-e="120"/>
+<text x="659" y="471.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="121">Nova Prospekt Night #337</text>
+<text x="658" y="470.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="121">Nova Prospekt Night #337</text>
+<text x="1019" y="471.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="122">Half-Life 2: Deathmatch</text>
+<text x="1018" y="470.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="122">Half-Life 2: Deathmatch</text>
+<text x="1227" y="471.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="123">dm_lockdown</text>
+<text x="1226" y="470.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="123">dm_lockdown</text>
+<text x="1466" y="471.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="124">5 / 8</text>
+<text x="1465" y="470.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="124">5 / 8</text>
+<text x="1560" y="471.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="126">8</text>
+<text x="1559" y="470.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="126">8</text>
+<rect x="1574" y="467" width="3" height="5" fill="#f2eee6" data-e="127"/>
+<rect x="1578" y="463" width="3" height="9" fill="#f2eee6" data-e="127"/>
+<rect x="1583" y="460" width="3" height="12" fill="#f2eee6" data-e="127"/>
+<rect x="1587" y="456" width="3" height="16" fill="#f2eee6" data-e="127"/>
+<rect x="562" y="480" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="129"/>
+<polygon points="608,490 614,491.7 613.3,497.4 608,502 602.7,497.4 602,491.7" fill="#7ed66e" data-e="132"/>
+<text x="618" y="500.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="133">BOTS</text>
+<text x="659" y="503.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="134">Nova Prospekt Night #777</text>
+<text x="658" y="502.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="134">Nova Prospekt Night #777</text>
+<text x="1019" y="503.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="135">Half-Life 2: Deathmatch</text>
+<text x="1018" y="502.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="135">Half-Life 2: Deathmatch</text>
+<text x="1227" y="503.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="136">dm_crossfire</text>
+<text x="1226" y="502.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="136">dm_crossfire</text>
+<text x="1455" y="503.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="137">5 / 24</text>
+<text x="1454" y="502.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="137">5 / 24</text>
+<text x="1560" y="503.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="139">8</text>
+<text x="1559" y="502.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="139">8</text>
+<rect x="1574" y="499" width="3" height="5" fill="#f2eee6" data-e="140"/>
+<rect x="1578" y="495" width="3" height="9" fill="#f2eee6" data-e="140"/>
+<rect x="1583" y="492" width="3" height="12" fill="#f2eee6" data-e="140"/>
+<rect x="1587" y="488" width="3" height="16" fill="#f2eee6" data-e="140"/>
+<text x="659" y="535.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="145">Whiteforest Gaming #1199</text>
+<text x="658" y="534.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="145">Whiteforest Gaming #1199</text>
+<text x="1019" y="535.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="146">Half-Life 2: Deathmatch</text>
+<text x="1018" y="534.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="146">Half-Life 2: Deathmatch</text>
+<text x="1227" y="535.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="147">dm_powerhouse</text>
+<text x="1226" y="534.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="147">dm_powerhouse</text>
+<text x="1444" y="535.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="148">10 / 24</text>
+<text x="1443" y="534.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="148">10 / 24</text>
+<text x="1560" y="535.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="150">8</text>
+<text x="1559" y="534.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="150">8</text>
+<rect x="1574" y="531" width="3" height="5" fill="#f2eee6" data-e="151"/>
+<rect x="1578" y="527" width="3" height="9" fill="#f2eee6" data-e="151"/>
+<rect x="1583" y="524" width="3" height="12" fill="#f2eee6" data-e="151"/>
+<rect x="1587" y="520" width="3" height="16" fill="#f2eee6" data-e="151"/>
+<rect x="562" y="544" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="153"/>
+<rect x="576" y="559" width="8" height="7" fill="#b2aea4" data-e="154"/>
+<rect x="577" y="556" width="2" height="4" fill="#b2aea4" data-e="154"/>
+<rect x="581" y="556" width="2" height="4" fill="#b2aea4" data-e="154"/>
+<polygon points="577.1,556.4 578.3,554.7 581.7,554.7 582.9,556.4 581.4,556.4 578.6,556.4" fill="#b2aea4" data-e="154"/>
+<polygon points="608,554 614,555.7 613.3,561.4 608,566 602.7,561.4 602,555.7" fill="#7ed66e" data-e="156"/>
+<text x="659" y="567.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="157">[EU] Combine Overwatch #1204</text>
+<text x="658" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="157">[EU] Combine Overwatch #1204</text>
+<text x="1019" y="567.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="158">Half-Life 2: Deathmatch</text>
+<text x="1018" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="158">Half-Life 2: Deathmatch</text>
+<text x="1227" y="567.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="159">jb_lego_jail</text>
+<text x="1226" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="159">jb_lego_jail</text>
+<text x="1444" y="567.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="160">30 / 32</text>
+<text x="1443" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="160">30 / 32</text>
+<text x="1560" y="567.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="162">8</text>
+<text x="1559" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="162">8</text>
+<rect x="1574" y="563" width="3" height="5" fill="#f2eee6" data-e="163"/>
+<rect x="1578" y="559" width="3" height="9" fill="#f2eee6" data-e="163"/>
+<rect x="1583" y="556" width="3" height="12" fill="#f2eee6" data-e="163"/>
+<rect x="1587" y="552" width="3" height="16" fill="#f2eee6" data-e="163"/>
+<polygon points="608,586 614,587.7 613.3,593.4 608,598 602.7,593.4 602,587.7" fill="#7ed66e" data-e="168"/>
+<text x="659" y="599.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="169">Lambda Lockers #1345</text>
+<text x="658" y="598.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="169">Lambda Lockers #1345</text>
+<text x="1019" y="599.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="170">Half-Life 2: Deathmatch</text>
+<text x="1018" y="598.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="170">Half-Life 2: Deathmatch</text>
+<text x="1227" y="599.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="171">dm_lockdown</text>
+<text x="1226" y="598.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="171">dm_lockdown</text>
+<text x="1455" y="599.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="172">0 / 16</text>
+<text x="1454" y="598.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="172">0 / 16</text>
+<text x="1560" y="599.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="174">8</text>
+<text x="1559" y="598.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="174">8</text>
+<rect x="1574" y="595" width="3" height="5" fill="#f2eee6" data-e="175"/>
+<rect x="1578" y="591" width="3" height="9" fill="#f2eee6" data-e="175"/>
+<rect x="1583" y="588" width="3" height="12" fill="#f2eee6" data-e="175"/>
+<rect x="1587" y="584" width="3" height="16" fill="#f2eee6" data-e="175"/>
+<rect x="562" y="608" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="177"/>
+<polygon points="608,618 614,619.7 613.3,625.4 608,630 602.7,625.4 602,619.7" fill="#7ed66e" data-e="180"/>
+<text x="659" y="631.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="181">Resistance HQ #1488</text>
+<text x="658" y="630.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="181">Resistance HQ #1488</text>
+<text x="1019" y="631.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="182">Half-Life 2: Deathmatch</text>
+<text x="1018" y="630.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="182">Half-Life 2: Deathmatch</text>
+<text x="1227" y="631.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="183">jb_lego_jail</text>
+<text x="1226" y="630.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="183">jb_lego_jail</text>
+<text x="1444" y="631.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="184">10 / 16</text>
+<text x="1443" y="630.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="184">10 / 16</text>
+<text x="1560" y="631.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="186">8</text>
+<text x="1559" y="630.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="186">8</text>
+<rect x="1574" y="627" width="3" height="5" fill="#f2eee6" data-e="187"/>
+<rect x="1578" y="623" width="3" height="9" fill="#f2eee6" data-e="187"/>
+<rect x="1583" y="620" width="3" height="12" fill="#f2eee6" data-e="187"/>
+<rect x="1587" y="616" width="3" height="16" fill="#f2eee6" data-e="187"/>
+<polygon points="608,650 614,651.7 613.3,657.4 608,662 602.7,657.4 602,651.7" fill="#7ed66e" data-e="192"/>
+<text x="659" y="663.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="193">[EU] Combine Overwatch #1514</text>
+<text x="658" y="662.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="193">[EU] Combine Overwatch #1514</text>
+<text x="1019" y="663.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="194">Half-Life 2: Deathmatch</text>
+<text x="1018" y="662.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="194">Half-Life 2: Deathmatch</text>
+<text x="1227" y="663.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="195">dm_crossfire</text>
+<text x="1226" y="662.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="195">dm_crossfire</text>
+<text x="1444" y="663.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="196">11 / 16</text>
+<text x="1443" y="662.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="196">11 / 16</text>
+<text x="1560" y="663.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="198">8</text>
+<text x="1559" y="662.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="198">8</text>
+<rect x="1574" y="659" width="3" height="5" fill="#f2eee6" data-e="199"/>
+<rect x="1578" y="655" width="3" height="9" fill="#f2eee6" data-e="199"/>
+<rect x="1583" y="652" width="3" height="12" fill="#f2eee6" data-e="199"/>
+<rect x="1587" y="648" width="3" height="16" fill="#f2eee6" data-e="199"/>
+<rect x="562" y="672" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="201"/>
+<polygon points="608,682 614,683.7 613.3,689.4 608,694 602.7,689.4 602,683.7" fill="#7ed66e" data-e="204"/>
+<text x="659" y="695.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="205">Whiteforest Gaming #1599</text>
+<text x="658" y="694.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="205">Whiteforest Gaming #1599</text>
+<text x="1019" y="695.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="206">SourceSharp</text>
+<text x="1018" y="694.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="206">SourceSharp</text>
+<text x="1227" y="695.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="207">dm_frenzy</text>
+<text x="1226" y="694.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="207">dm_frenzy</text>
+<text x="1466" y="695.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="208">6 / 8</text>
+<text x="1465" y="694.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="208">6 / 8</text>
+<text x="1560" y="695.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="210">8</text>
+<text x="1559" y="694.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="210">8</text>
+<rect x="1574" y="691" width="3" height="5" fill="#f2eee6" data-e="211"/>
+<rect x="1578" y="687" width="3" height="9" fill="#f2eee6" data-e="211"/>
+<rect x="1583" y="684" width="3" height="12" fill="#f2eee6" data-e="211"/>
+<rect x="1587" y="680" width="3" height="16" fill="#f2eee6" data-e="211"/>
+<polygon points="608,714 614,715.7 613.3,721.4 608,726 602.7,721.4 602,715.7" fill="#7ed66e" data-e="216"/>
+<text x="659" y="727.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="217">Kleiner's Lab | Newbies #1690</text>
+<text x="658" y="726.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="217">Kleiner's Lab | Newbies #1690</text>
+<text x="1019" y="727.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="218">Half-Life 2: Deathmatch</text>
+<text x="1018" y="726.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="218">Half-Life 2: Deathmatch</text>
+<text x="1227" y="727.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="219">ss_sandbox</text>
+<text x="1226" y="726.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="219">ss_sandbox</text>
+<text x="1466" y="727.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="220">7 / 8</text>
+<text x="1465" y="726.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="220">7 / 8</text>
+<text x="1560" y="727.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="222">8</text>
+<text x="1559" y="726.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="222">8</text>
+<rect x="1574" y="723" width="3" height="5" fill="#f2eee6" data-e="223"/>
+<rect x="1578" y="719" width="3" height="9" fill="#f2eee6" data-e="223"/>
+<rect x="1583" y="716" width="3" height="12" fill="#f2eee6" data-e="223"/>
+<rect x="1587" y="712" width="3" height="16" fill="#f2eee6" data-e="223"/>
+<rect x="562" y="736" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="225"/>
+<text x="602" y="756.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="228">BOTS</text>
+<text x="659" y="759.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="229">Whiteforest Gaming #1789</text>
+<text x="658" y="758.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="229">Whiteforest Gaming #1789</text>
+<text x="1019" y="759.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="230">Half-Life 2: Deathmatch</text>
+<text x="1018" y="758.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="230">Half-Life 2: Deathmatch</text>
+<text x="1227" y="759.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="231">jb_lego_jail</text>
+<text x="1226" y="758.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="231">jb_lego_jail</text>
+<text x="1455" y="759.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="232">0 / 24</text>
+<text x="1454" y="758.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="232">0 / 24</text>
+<text x="1560" y="759.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="234">8</text>
+<text x="1559" y="758.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="234">8</text>
+<rect x="1574" y="755" width="3" height="5" fill="#f2eee6" data-e="235"/>
+<rect x="1578" y="751" width="3" height="9" fill="#f2eee6" data-e="235"/>
+<rect x="1583" y="748" width="3" height="12" fill="#f2eee6" data-e="235"/>
+<rect x="1587" y="744" width="3" height="16" fill="#f2eee6" data-e="235"/>
+<text x="659" y="791.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="240">[EU] Combine Overwatch #254</text>
+<text x="658" y="790.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="240">[EU] Combine Overwatch #254</text>
+<text x="1019" y="791.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="241">Half-Life 2: Deathmatch</text>
+<text x="1018" y="790.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="241">Half-Life 2: Deathmatch</text>
+<text x="1227" y="791.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="242">jb_lego_jail</text>
+<text x="1226" y="790.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="242">jb_lego_jail</text>
+<text x="1455" y="791.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="243">6 / 32</text>
+<text x="1454" y="790.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="243">6 / 32</text>
+<text x="1560" y="791.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="245">9</text>
+<text x="1559" y="790.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="245">9</text>
+<rect x="1574" y="787" width="3" height="5" fill="#f2eee6" data-e="246"/>
+<rect x="1578" y="783" width="3" height="9" fill="#f2eee6" data-e="246"/>
+<rect x="1583" y="780" width="3" height="12" fill="#f2eee6" data-e="246"/>
+<rect x="1587" y="776" width="3" height="16" fill="#f2eee6" data-e="246"/>
+<rect x="562" y="800" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="248"/>
+<polygon points="608,810 614,811.7 613.3,817.4 608,822 602.7,817.4 602,811.7" fill="#7ed66e" data-e="251"/>
+<text x="659" y="823.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="252">City 17 | Fast DL #353</text>
+<text x="658" y="822.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="252">City 17 | Fast DL #353</text>
+<text x="1019" y="823.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="253">SourceSharp</text>
+<text x="1018" y="822.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="253">SourceSharp</text>
+<text x="1227" y="823.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="254">dm_frenzy</text>
+<text x="1226" y="822.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="254">dm_frenzy</text>
+<text x="1444" y="823.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="255">11 / 24</text>
+<text x="1443" y="822.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="255">11 / 24</text>
+<text x="1560" y="823.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="257">9</text>
+<text x="1559" y="822.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="257">9</text>
+<rect x="1574" y="819" width="3" height="5" fill="#f2eee6" data-e="258"/>
+<rect x="1578" y="815" width="3" height="9" fill="#f2eee6" data-e="258"/>
+<rect x="1583" y="812" width="3" height="12" fill="#f2eee6" data-e="258"/>
+<rect x="1587" y="808" width="3" height="16" fill="#f2eee6" data-e="258"/>
+<text x="602" y="852.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="263">BOTS</text>
+<text x="659" y="855.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="264">Black Mesa East 24/7 #436</text>
+<text x="658" y="854.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="264">Black Mesa East 24/7 #436</text>
+<text x="1019" y="855.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="265">Half-Life 2: Deathmatch</text>
+<text x="1018" y="854.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="265">Half-Life 2: Deathmatch</text>
+<text x="1227" y="855.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="266">dm_underpass</text>
+<text x="1226" y="854.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="266">dm_underpass</text>
+<text x="1455" y="855.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="267">3 / 24</text>
+<text x="1454" y="854.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="267">3 / 24</text>
+<text x="1560" y="855.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="269">9</text>
+<text x="1559" y="854.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="269">9</text>
+<rect x="1574" y="851" width="3" height="5" fill="#f2eee6" data-e="270"/>
+<rect x="1578" y="847" width="3" height="9" fill="#f2eee6" data-e="270"/>
+<rect x="1583" y="844" width="3" height="12" fill="#f2eee6" data-e="270"/>
+<rect x="1587" y="840" width="3" height="16" fill="#f2eee6" data-e="270"/>
+<rect x="562" y="864" width="1040" height="32" fill="#2c3038" fill-opacity="0.29" data-e="272"/>
+<polygon points="608,874 614,875.7 613.3,881.4 608,886 602.7,881.4 602,875.7" fill="#7ed66e" data-e="275"/>
+<text x="618" y="884.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="276">BOTS</text>
+<text x="659" y="887.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="277">Whiteforest Gaming #749</text>
+<text x="658" y="886.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="277">Whiteforest Gaming #749</text>
+<text x="1019" y="887.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="278">SourceSharp</text>
+<text x="1018" y="886.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="278">SourceSharp</text>
+<text x="1227" y="887.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="279">jb_lego_jail</text>
+<text x="1226" y="886.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="279">jb_lego_jail</text>
+<text x="1455" y="887.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="280">0 / 32</text>
+<text x="1454" y="886.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="280">0 / 32</text>
+<text x="1560" y="887.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="282">9</text>
+<text x="1559" y="886.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="282">9</text>
+<rect x="1574" y="883" width="3" height="5" fill="#f2eee6" data-e="283"/>
+<rect x="1578" y="879" width="3" height="9" fill="#f2eee6" data-e="283"/>
+<rect x="1583" y="876" width="3" height="12" fill="#f2eee6" data-e="283"/>
+<rect x="1587" y="872" width="3" height="16" fill="#f2eee6" data-e="283"/>
+</g>
+<rect x="1594" y="320" width="6" height="557" rx="3" fill="#ffffff" fill-opacity="0.1" data-e="296"/>
+<rect x="1594" y="320" width="6" height="24" rx="3" fill="#b2aea4" fill-opacity="0.7" data-e="297"/>
+<rect x="562" y="877" width="1040" height="35" fill="#2c3038" fill-opacity="0.82" data-e="298"/>
+<text x="574" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="299">1580</text>
+<text x="609" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="300">SHOWN</text>
+<text x="660" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="301">OF</text>
+<text x="681" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="302">2000</text>
+</g>
+<rect x="1618" y="284" width="380" height="628" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="304"/>
+<clipPath id="c4"><rect x="1618" y="284" width="380" height="628"/></clipPath><g clip-path="url(#c4)" data-e="304">
+<text x="1634" y="322.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="305">Whiteforest Gaming #179</text>
+<text x="1634" y="355.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="308">MAP</text>
+<text x="1635" y="379.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="309">dm_killbox_kbh</text>
+<text x="1634" y="378.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="309">dm_killbox_kbh</text>
+<text x="1814" y="355.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="311">PLAYERS</text>
+<text x="1815" y="379.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="312">15 / 16</text>
+<text x="1814" y="378.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="312">15 / 16</text>
+<text x="1634" y="406.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="314">PING</text>
+<text x="1635" y="430.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="315">8 ms</text>
+<text x="1634" y="429.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="315">8 ms</text>
+<rect x="1634" y="447" width="348" height="1" fill="#ffffff" fill-opacity="0.1" data-e="317"/>
+<text x="1634" y="474.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="318">ON THE SERVER</text>
+<clipPath id="c5"><rect x="1634" y="491" width="348" height="405"/></clipPath><g clip-path="url(#c5)" data-e="319">
+<text x="1635" y="510.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="321">Gordon</text>
+<text x="1634" y="509.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="321">Gordon</text>
+<text x="1889" y="510.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="322">31</text>
+<text x="1888" y="509.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="322">31</text>
+<text x="1927" y="510.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="323">42 min</text>
+<text x="1926" y="509.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="323">42 min</text>
+<text x="1635" y="538.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="325">Alyx</text>
+<text x="1634" y="537.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="325">Alyx</text>
+<text x="1889" y="538.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="326">27</text>
+<text x="1888" y="537.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="326">27</text>
+<text x="1927" y="538.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="327">40 min</text>
+<text x="1926" y="537.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="327">40 min</text>
+<text x="1635" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="329">barney.calhoun</text>
+<text x="1634" y="565.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="329">barney.calhoun</text>
+<text x="1889" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="330">19</text>
+<text x="1888" y="565.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="330">19</text>
+<text x="1927" y="566.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="331">12 min</text>
+<text x="1926" y="565.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="331">12 min</text>
+<text x="1635" y="594.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="333">Dr. Kleiner</text>
+<text x="1634" y="593.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="333">Dr. Kleiner</text>
+<text x="1889" y="594.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="334">14</text>
+<text x="1888" y="593.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="334">14</text>
+<text x="1927" y="594.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="335">55 min</text>
+<text x="1926" y="593.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="335">55 min</text>
+<text x="1635" y="622.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="337">Odessa Cubbage</text>
+<text x="1634" y="621.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="337">Odessa Cubbage</text>
+<text x="1889" y="622.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="338">11</text>
+<text x="1888" y="621.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="338">11</text>
+<text x="1938" y="622.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="339">8 min</text>
+<text x="1937" y="621.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="339">8 min</text>
+<text x="1635" y="650.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="341">Vortigaunt</text>
+<text x="1634" y="649.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="341">Vortigaunt</text>
+<text x="1900" y="650.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="342">9</text>
+<text x="1899" y="649.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="342">9</text>
+<text x="1927" y="650.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="343">33 min</text>
+<text x="1926" y="649.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="343">33 min</text>
+<text x="1635" y="678.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="345">xXx_Headcrab_Slayer_From_…</text>
+<text x="1634" y="677.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="345">xXx_Headcrab_Slayer_From_…</text>
+<text x="1900" y="678.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="346">4</text>
+<text x="1899" y="677.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="346">4</text>
+<text x="1938" y="678.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="347">3 min</text>
+<text x="1937" y="677.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="347">3 min</text>
+</g>
+</g>
+<rect x="562" y="928" width="189" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="349"/>
+<text x="578" y="956.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="350">ADD FAVOURITE</text>
+<rect x="1741" y="928" width="121" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="352"/>
+<text x="1757" y="956.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="353">REFRESH</text>
+<rect x="1874" y="928" width="124" height="40" rx="4" fill="#ffb52e" data-e="354"/>
+<text x="1890" y="956.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#1a1204" xml:space="preserve" data-e="355">CONNECT</text>
+</g>
+</svg>

@@ -1,0 +1,104 @@
+# docs/client-fork-roots.txt: the fork headers client.so may include directly (plan_client_novalve.md 3.1).
+# tools/client-novalve-census --allowlist turns this into docs/client-fork-allowlist.txt (their closure).
+# A new root is a reviewed one-line change; the closure must stay out of game/, vscript/, steam/.
+# particles/ and dmxloader/ are allowed: particles.a is a bound library by the user's ruling (plan 3.4).
+# Taken at C0 as plan 3.1 lists them: the server's roots (docs/server-fork-roots.txt) plus the client's.
+# Plan 3.1 names that are NOT roots here, and why:
+#   ivieweffects.h       lives in game/client (a forbidden directory): IViewEffects is the client's own
+#                        interface; it is written new or found to be unneeded in C5, never allowlisted.
+#   iclientleafsystem.h  spelled engine/IClientLeafSystem.h in the fork (the engine-called interface).
+#   shaderapi/*          "only if a type leaks": none has yet; a reviewed root when one does.
+#   particles/particles.h          (plan 3.4) OPEN: under CLIENT_DLL it #includes game/client/c_pixel_visibility.h
+#                                  (particles.h:27-28), a forbidden directory. Needs a ruling before it can be a
+#                                  root: a header of ours that particles.h finds first, or a fork edit (asked, never
+#                                  done from this repo). Until then it counts in fork-hdr-not-allowed.
+#   inputsystem/iinputsystem.h     OPEN: #includes steam/isteamcontroller.h (iinputsystem.h:20), which reaches seven
+#                                  steam/ headers. The other three inputsystem/ headers are roots. Same ruling needed.
+cdll_int.h
+client_class.h
+datacache/idatacache.h
+datacache/imdlcache.h
+dt_common.h
+dt_recv.h
+dt_send.h
+edict.h
+eiface.h
+engine/IClientLeafSystem.h
+engine/ICollideable.h
+engine/IEngineSound.h
+engine/IEngineTrace.h
+engine/iserverplugin.h
+engine/ishadowmgr.h
+engine/IStaticPropMgr.h
+engine/ivdebugoverlay.h
+engine/ivmodelinfo.h
+engine/ivmodelrender.h
+engine/SndInfo.h
+filesystem.h
+game/server/iplayerinfo.h
+icliententity.h
+icliententitylist.h
+iclientnetworkable.h
+iclientrenderable.h
+iclientunknown.h
+icvar.h
+iefx.h
+igameevents.h
+ihandleentity.h
+inetchannel.h
+inetmessage.h
+inputsystem/AnalogCode.h
+inputsystem/ButtonCode.h
+inputsystem/InputEnums.h
+iprediction.h
+irecipientfilter.h
+iserverentity.h
+iservernetworkable.h
+iserverunknown.h
+ispatialpartition.h
+ivoiceserver.h
+ivrenderview.h
+materialsystem/deformations.h
+materialsystem/IColorCorrection.h
+materialsystem/imaterial.h
+materialsystem/imaterialproxy.h
+materialsystem/imaterialsystem.h
+materialsystem/imaterialsystemhardwareconfig.h
+materialsystem/imaterialsystemstub.h
+materialsystem/imaterialvar.h
+materialsystem/imesh.h
+materialsystem/itexture.h
+materialsystem/MaterialSystemUtil.h
+materialsystem/materialsystem_config.h
+materialsystem/meshreader.h
+mathlib/bumpvects.h
+mathlib/compressed_light_cube.h
+mathlib/compressed_vector.h
+mathlib/lightdesc.h
+mathlib/mathlib.h
+mathlib/math_pfns.h
+mathlib/ssemath.h
+mathlib/ssequaternion.h
+mathlib/vector.h
+mathlib/vector2d.h
+mathlib/vector4d.h
+mathlib/vmatrix.h
+mathlib/vplane.h
+networkstringtabledefs.h
+scenefilecache/ISceneFileCache.h
+server_class.h
+SoundEmitterSystem/isoundemittersystembase.h
+toolframework/iserverenginetools.h
+vgui/IInput.h
+vgui/IPanel.h
+vgui/IScheme.h
+vgui/ISurface.h
+view_shared.h
+vphysics/collision_set.h
+vphysics/constraints.h
+vphysics/friction.h
+vphysics/object_hash.h
+vphysics/performance.h
+vphysics/player_controller.h
+vphysics/vehicles.h
+vphysics_interface.h

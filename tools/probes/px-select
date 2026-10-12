@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""tools/probes/px-select -- lane c5-proxies: turn a probe session's "px" lines
+(tools/probes/client/c5proxies_probes_debug.cpp) into the material proxy
+oracle fixture (src/test/client/Fixtures/proxies-stock.tsv.gz).
+
+    tools/probes/px-select PROBE_LOG OUT_TSV_GZ [--title T]
+
+Keeps, in order and tab-separated (the tag first), every line the managed
+replay reads: px-init, px-key, px-findvar, px-initok (each proxy's Init),
+px-bind, px-before, px-get, px-rnd, px-set, px-iset, px-end (each bind).
+px-after (the vars' state after the bind) is dropped: the replay compares the
+calls stock made, not the material system's answer to them. A px-before row's
+sixteen matrix floats are kept only for a matrix-typed var (type 7). The
+header names the source log and the counts.
+"""
+import argparse
+import collections
+import gzip
+import sys
+
+KEEP = {"px-init", "px-key", "px-findvar", "px-initok", "px-bind", "px-before",
+        "px-get", "px-rnd", "px-set", "px-iset", "px-end"}
+MATRIX = "7"
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("log")
+    ap.add_argument("out")
+    ap.add_argument("--title", default="")
+    a = ap.parse_args()
+
+    rows = []
+    counts = collections.Counter()
+    for line in open(a.log, errors="replace"):
+        parts = line.split()
+        # "<ns> <pid> px <tag> ..."
+        if len(parts) < 4 or parts[2] != "px" or parts[3] not in KEEP:
+            continue
+        fields = parts[3:]
+        if fields[0] == "px-before":
+            # tag id name type vecsize int float v0 v1 v2 v3 frames tex m0..m15
+            if fields[3] != MATRIX:
+                fields = fields[:13]
+        counts[fields[0]] += 1
+        rows.append("\t".join(fields))
+
+    if not counts["px-bind"] or not counts["px-init"]:
+        print("px-select: no px-init/px-bind lines in", a.log, file=sys.stderr)
+        return 1
+    with gzip.open(a.out, "wt") as f:
+        f.write("# " + (a.title or "material proxy oracle") + "\n")
+        f.write("# from " + a.log + " by tools/probes/px-select\n")
+        f.write("# " + " ".join("%s=%d" % kv for kv in sorted(counts.items())) + "\n")
+        for r in rows:
+            f.write(r + "\n")
+    print("px-select:", " ".join("%s=%d" % kv for kv in sorted(counts.items())))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

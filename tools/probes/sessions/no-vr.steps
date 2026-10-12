@@ -1,0 +1,9 @@
+# C0 probe 2: the engine with no ClientVirtualReality001 (--no-vr): launch,
+# load, join (the HUD's first paint), leave, quit.
+wait iface-check 120
+wait first paint 240
+sleep 4
+shot joined
+cmd disconnect
+sleep 3
+quit

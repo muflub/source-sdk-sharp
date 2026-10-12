@@ -1,0 +1,257 @@
+diff --git a/src/client/native/shell_soundscape_client.cpp b/src/client/native/shell_soundscape_client.cpp
+index 20f959bd..d2d703e0 100644
+--- a/src/client/native/shell_soundscape_client.cpp
++++ b/src/client/native/shell_soundscape_client.cpp
+@@ -199,6 +199,34 @@ struct subsoundscapeparams_t
+ 
+ #include "shell_clientsystem.h"	// plan_cworld_trace.md T4
+ 
++//---- c2-sims soundscape probe (tools/probes/c2sims-sndscape-probe.diff) ----
++bool C2SimsProbe_BeginFrame();
++int C2SimsProbe_Frame();
++void C2SimsProbe_Arm( bool bArm );
++void C2SimsProbe_Row( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
++static void SsAmbient( const char *pName, float flVolume, int iPitch, int iFlags = 0 )
++{
++	C2SimsProbe_Row( "A\t%s\t%.9g\t%d\t%d", pName, flVolume, iPitch, iFlags );
++	enginesound->EmitAmbientSound( pName, flVolume, iPitch, iFlags );
++}
++static void SsEmit( IRecipientFilter &filter, const EmitSound_t &ep )
++{
++	C2SimsProbe_Row( "E\t%s\t%.9g\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g", ep.m_pSoundName, ep.m_flVolume, (int)ep.m_SoundLevel,
++	                 ep.m_nPitch, ep.m_nFlags, ep.m_pOrigin->x, ep.m_pOrigin->y, ep.m_pOrigin->z );
++	GameSound_Emit(filter, SOUND_FROM_WORLD, ep);
++}
++static void SsStop( const char *pName )
++{
++	C2SimsProbe_Row( "S\t%s", pName );
++	GameSound_Stop( SOUND_FROM_WORLD, CHAN_STATIC, pName );
++}
++static void SsRoom( IRecipientFilter &filter, int n ) { C2SimsProbe_Row( "D\troom\t%d", n ); enginesound->SetRoomType( filter, n ); }
++static void SsPlayerDsp( IRecipientFilter &filter, int n ) { C2SimsProbe_Row( "D\tplayer\t%d", n ); enginesound->SetPlayerDSP( filter, n, false ); }
++static void SsSetF( ConVar *v, float f ) { C2SimsProbe_Row( "V\t%s\tset\t%.9g", v->GetName(), f ); v->SetValue( f ); }
++static void SsSetS( ConVar *v, const char *t ) { C2SimsProbe_Row( "V\t%s\tset\t%s", v->GetName(), t ); v->SetValue( t ); }
++static void SsRevert( ConVar *v ) { C2SimsProbe_Row( "V\t%s\trevert", v->GetName() ); v->Revert(); }
++static bool g_bSsProbePush = false;	// a push the probe made, not the server's
++
+ //-----------------------------------------------------------------------------
+ // SourceSharp_SoundscapeReportRefusal WAS DECLARED HERE and is gone with its
+ // subject -- plan_entity.md step 8e-sound. See the note at the bottom of this
+@@ -328,6 +356,8 @@ public:
+ 	// Writes nothing, so it is safe under sv_cheats 0.
+ 	//-------------------------------------------------------------------------
+ 	void SourceSharpSoundscapeReport();
++	void SsProbeScript( int f );
++	void SsProbeUpdate( float frametime );
+ 
+ 	void UpdateLoopingSounds( float frametime );
+ 	int AddLoopingAmbient( const char *pSoundName, float volume, int pitch );
+@@ -491,8 +521,14 @@ void Soundscape_OnStopAllSounds()
+ //-----------------------------------------------------------------------------
+ static int g_nSoundscapePushes = 0;
+ 
++bool C2SimsProbe_On();
+ void Soundscape_Update( audioparams_t &audio )
+ {
++	if ( C2SimsProbe_On() && !g_bSsProbePush )
++	{
++		C2SimsProbe_Row( "X\tdropped\t%d\t%d", (int)audio.soundscapeIndex, (int)audio.entIndex );
++		return;
++	}
+ 	g_nSoundscapePushes++;
+ 	g_SoundscapeSystem.UpdateAudioParams( audio );
+ }
+@@ -863,7 +899,75 @@ void C_SoundscapeSystem::UpdateLoopingSounds( float frametime )
+ 	}
+ }
+ 
++static void SsProbePush( int idx, int ent, int bits, const Vector &p0 )
++{
++	audioparams_t a;
++	a.soundscapeIndex = idx;
++	a.entIndex = ent;
++	a.localBits = bits;
++	for ( int i = 0; i < NUM_AUDIO_LOCAL_SOUNDS; ++i )
++		a.localSound.Set( i, i == 0 ? p0 : vec3_origin );
++	C2SimsProbe_Row( "X\tpush\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g", idx, ent, bits, p0.x, p0.y, p0.z );
++	g_bSsProbePush = true;
++	Soundscape_Update( a );
++	g_bSsProbePush = false;
++}
++
++void C_SoundscapeSystem::SsProbeScript( int f )
++{
++	if ( f == 1 )
++	{
++		C2SimsProbe_Row( "X\treset" );
++		Shutdown();
++		Init();
++		SsProbePush( -2, 0, 0, vec3_origin );
++		SsProbePush( -1, 0, 0, vec3_origin );
++	}
++	if ( f == 2 ) { C2SimsProbe_Row( "X\tforce\tc2probe.full\t48" ); ForceSoundscape( "c2probe.full", 48 ); }
++	if ( f == 150 ) { C2SimsProbe_Row( "X\tforce\te3_c17_01_battle\t64" ); ForceSoundscape( "e3_c17_01_battle", 64 ); }
++	if ( f == 300 ) { C2SimsProbe_Row( "X\tname\tc17_02_street_lower_1" ); SsProbePush( FindSoundscapeByName( "c17_02_street_lower_1" ), 1, 1, Vector( 100, 200, 64 ) ); }
++	if ( f == 450 ) { C2SimsProbe_Row( "X\tname\tc17_02_street_upper_2" ); SsProbePush( FindSoundscapeByName( "c17_02_street_upper_2" ), 1, 1, Vector( 300, 200, 64 ) ); }
++	if ( f == 600 ) { C2SimsProbe_Row( "X\tname\tc17_02_street_upper_2" ); SsProbePush( FindSoundscapeByName( "c17_02_street_upper_2" ), 1, 1, Vector( 300, 200, 64 ) ); }
++	if ( f == 620 ) { SsProbePush( 9999, 1, 0, vec3_origin ); }
++	if ( f == 650 ) { SsProbePush( -1, 0, 0, vec3_origin ); }
++	if ( f == 700 )
++	{
++		C2SimsProbe_Row( "X\tflush" );
++		audioparams_t tmp;
++		GetAudioParams( tmp );
++		Shutdown();
++		Init();
++		g_bSsProbePush = true;
++		Soundscape_Update( tmp );
++		g_bSsProbePush = false;
++	}
++	if ( f == 720 ) { C2SimsProbe_Row( "X\tname\tc17_02_street_upper_1" ); SsProbePush( FindSoundscapeByName( "c17_02_street_upper_1" ), 1, 1, Vector( 300, 200, 64 ) ); }
++	if ( f == 800 ) { C2SimsProbe_Row( "X\tstop" ); StartNewSoundscape( NULL ); }
++	if ( f == 850 ) { C2SimsProbe_Row( "X\tforce\tc2probe.full\t48" ); ForceSoundscape( "c2probe.full", 48 ); }
++	if ( f == 900 ) { C2SimsProbe_Row( "X\tforce\tno_such_soundscape\t48" ); ForceSoundscape( "no_such_soundscape", 48 ); }
++}
++
+ void C_SoundscapeSystem::Update( float frametime ) 
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		C2SimsProbe_Arm( true );
++		const Vector o = MainViewOrigin(), fw = MainViewForward(), rt = MainViewRight();
++		C2SimsProbe_Row( "F\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d",
++		                 C2SimsProbe_Frame(), gpGlobals->curtime, frametime, o.x, o.y, o.z, fw.x, fw.y, fw.z, rt.x, rt.y, rt.z,
++		                 soundscape_fadetime.GetFloat(), IsBeingRestored() ? 1 : 0 );
++		SsProbeScript( C2SimsProbe_Frame() );
++	}
++	SsProbeUpdate( frametime );
++	if ( bProbe )
++	{
++		C2SimsProbe_Row( "Q\t%d\t%d\t%d\t%d", GetCurrentSoundscape(), m_loopingSounds.Count(), m_randomSounds.Count(), m_loopingSoundId );
++		C2SimsProbe_Arm( false );
++	}
++}
++
++void C_SoundscapeSystem::SsProbeUpdate( float frametime )
+ {
+ 	if ( m_forcedSoundscapeIndex >= 0 )
+ 	{
+@@ -991,12 +1095,12 @@ void C_SoundscapeSystem::StartNewSoundscape( KeyValues *pSoundscape )
+ 		if ( !params.wroteDSPVolume )
+ 		{
+ 			if ( ConVar *pDSPVolume = DSPVolumeVar() )
+-				pDSPVolume->Revert();
++				SsRevert( pDSPVolume );
+ 		}
+ 		if ( !params.wroteSoundMixer )
+ 		{
+ 			if ( ConVar *pSoundMixer = SoundMixerVar() )
+-				pSoundMixer->Revert();
++				SsRevert( pSoundMixer );
+ 		}
+ 	}
+ }
+@@ -1063,7 +1167,7 @@ void C_SoundscapeSystem::ProcessDSP( KeyValues *pDSP )
+ {
+ 	int roomType = pDSP->GetInt();
+ 	CLocalPlayerFilter filter;
+-	enginesound->SetRoomType( filter, roomType );
++	SsRoom( filter, roomType );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -1074,7 +1178,7 @@ void C_SoundscapeSystem::ProcessDSPPlayer( KeyValues *pDSPPlayer )
+ {
+ 	int dspType = pDSPPlayer->GetInt();
+ 	CLocalPlayerFilter filter;
+-	enginesound->SetPlayerDSP( filter, dspType, false );
++	SsPlayerDsp( filter, dspType );
+ }
+ 
+ 
+@@ -1088,14 +1192,14 @@ void C_SoundscapeSystem::ProcessSoundMixer( KeyValues *pSoundMixer, subsoundscap
+ 	// or game/server/player.cpp and neither is compiled -- so the right half
+ 	// was true as well. Two routes, one answer.
+ 	if ( ConVar *pVar = SoundMixerVar() )
+-		pVar->SetValue( pSoundMixer->GetString() );
++		SsSetS( pVar, pSoundMixer->GetString() );
+ 	params.wroteSoundMixer = true;
+ }
+ 
+ void C_SoundscapeSystem::ProcessDSPVolume( KeyValues *pKey, subsoundscapeparams_t &params )
+ {
+ 	if ( ConVar *pVar = DSPVolumeVar() )
+-		pVar->SetValue( pKey->GetFloat() );
++		SsSetF( pVar, pKey->GetFloat() );
+ 	params.wroteDSPVolume = true;
+ }
+ 
+@@ -1547,7 +1651,7 @@ int C_SoundscapeSystem::AddLoopingSound( const char *pSoundName, bool isAmbient,
+ 		if ( isAmbient )
+ 		{
+ 			// start at 0 and fade in
+-			enginesound->EmitAmbientSound( pSoundName, 0, pitch );
++			SsAmbient( pSoundName, 0, pitch );
+ 			m_loopingSounds[soundSlot].volumeCurrent = 0.0;
+ 		}
+ 		else
+@@ -1563,7 +1667,7 @@ int C_SoundscapeSystem::AddLoopingSound( const char *pSoundName, bool isAmbient,
+ 			ep.m_nPitch = pitch;
+ 			ep.m_pOrigin = &position;
+ 
+-			GameSound_Emit( filter, SOUND_FROM_WORLD, ep );
++			SsEmit( filter, ep );
+ 			m_loopingSounds[soundSlot].volumeCurrent = 0.05;
+ 		}
+ 	}
+@@ -1590,11 +1694,11 @@ void C_SoundscapeSystem::StopLoopingSound( loopingsound_t &loopSound )
+ {
+ 	if ( loopSound.isAmbient )
+ 	{
+-		enginesound->EmitAmbientSound( loopSound.pWaveName, 0, 0, SND_STOP );
++		SsAmbient( loopSound.pWaveName, 0, 0, SND_STOP );
+ 	}
+ 	else
+ 	{
+-		GameSound_Stop( SOUND_FROM_WORLD, CHAN_STATIC, loopSound.pWaveName );
++		SsStop( loopSound.pWaveName );
+ 	}
+ }
+ 
+@@ -1603,7 +1707,7 @@ void C_SoundscapeSystem::UpdateLoopingSound( loopingsound_t &loopSound )
+ {
+ 	if ( loopSound.isAmbient )
+ 	{
+-		enginesound->EmitAmbientSound( loopSound.pWaveName, loopSound.volumeCurrent, loopSound.pitch, SND_CHANGE_VOL );
++		SsAmbient( loopSound.pWaveName, loopSound.volumeCurrent, loopSound.pitch, SND_CHANGE_VOL );
+ 	}
+ 	else
+ 	{
+@@ -1618,7 +1722,7 @@ void C_SoundscapeSystem::UpdateLoopingSound( loopingsound_t &loopSound )
+ 		ep.m_nPitch = loopSound.pitch;
+ 		ep.m_pOrigin = &loopSound.position;
+ 
+-		GameSound_Emit( filter, SOUND_FROM_WORLD, ep );
++		SsEmit( filter, ep );
+ 	}
+ }
+ 
+@@ -1653,7 +1757,7 @@ void C_SoundscapeSystem::PlayRandomSound( randomsound_t &sound )
+ 
+ 	if ( sound.isAmbient )
+ 	{
+-		enginesound->EmitAmbientSound( pWaveName, sound.masterVolume * RandomInterval( sound.volume ), (int)RandomInterval( sound.pitch ) );
++		SsAmbient( pWaveName, sound.masterVolume * RandomInterval( sound.volume ), (int)RandomInterval( sound.pitch ) );
+ 	}
+ 	else
+ 	{
+@@ -1671,7 +1775,7 @@ void C_SoundscapeSystem::PlayRandomSound( randomsound_t &sound )
+ 		}
+ 		ep.m_pOrigin = &sound.position;
+ 
+-		GameSound_Emit( filter, SOUND_FROM_WORLD, ep );
++		SsEmit( filter, ep );
+ 	}
+ }
+ 

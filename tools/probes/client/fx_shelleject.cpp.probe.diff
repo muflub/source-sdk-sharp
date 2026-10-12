@@ -1,0 +1,43 @@
+--- a/src/game/client/fx_shelleject.cpp
++++ b/src/game/client/fx_shelleject.cpp
+@@ -12,6 +12,7 @@
+ #include "c_te_legacytempents.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_log.h"
+ #include "tier0/memdbgon.h"
+ 
+ //-----------------------------------------------------------------------------
+@@ -21,8 +22,10 @@
+ {
+ 	// Use the gun angles to orient the shell
+ 	IClientRenderable *pRenderable = data.GetRenderable();
++	FxProbeLog( "fxs-call ent=%d o=%.9g %.9g %.9g a=%.9g %.9g %.9g has=%d ra=%.9g %.9g %.9g", data.entindex(), data.m_vOrigin.x, data.m_vOrigin.y, data.m_vOrigin.z, data.m_vAngles.x, data.m_vAngles.y, data.m_vAngles.z, pRenderable ? 1 : 0, pRenderable ? pRenderable->GetRenderAngles().x : 0.0f, pRenderable ? pRenderable->GetRenderAngles().y : 0.0f, pRenderable ? pRenderable->GetRenderAngles().z : 0.0f );
+ 	if ( pRenderable )
+ 	{
++		FxProbeLog( "fxs-eject type=%d", 0 );
+ 		tempents->EjectBrass( data.m_vOrigin, data.m_vAngles, pRenderable->GetRenderAngles(), 0 );
+ 	}
+ }
+@@ -36,8 +39,10 @@
+ {
+ 	// Use the gun angles to orient the shell
+ 	IClientRenderable *pRenderable = data.GetRenderable();
++	FxProbeLog( "fxs-call ent=%d o=%.9g %.9g %.9g a=%.9g %.9g %.9g has=%d ra=%.9g %.9g %.9g", data.entindex(), data.m_vOrigin.x, data.m_vOrigin.y, data.m_vOrigin.z, data.m_vAngles.x, data.m_vAngles.y, data.m_vAngles.z, pRenderable ? 1 : 0, pRenderable ? pRenderable->GetRenderAngles().x : 0.0f, pRenderable ? pRenderable->GetRenderAngles().y : 0.0f, pRenderable ? pRenderable->GetRenderAngles().z : 0.0f );
+ 	if ( pRenderable )
+ 	{
++		FxProbeLog( "fxs-eject type=%d", 1 );
+ 		tempents->EjectBrass( data.m_vOrigin, data.m_vAngles, pRenderable->GetRenderAngles(), 1 );
+ 	}
+ }
+@@ -51,8 +56,10 @@
+ {
+ 	// Use the gun angles to orient the shell
+ 	IClientRenderable *pRenderable = data.GetRenderable();
++	FxProbeLog( "fxs-call ent=%d o=%.9g %.9g %.9g a=%.9g %.9g %.9g has=%d ra=%.9g %.9g %.9g", data.entindex(), data.m_vOrigin.x, data.m_vOrigin.y, data.m_vOrigin.z, data.m_vAngles.x, data.m_vAngles.y, data.m_vAngles.z, pRenderable ? 1 : 0, pRenderable ? pRenderable->GetRenderAngles().x : 0.0f, pRenderable ? pRenderable->GetRenderAngles().y : 0.0f, pRenderable ? pRenderable->GetRenderAngles().z : 0.0f );
+ 	if ( pRenderable )
+ 	{
++		FxProbeLog( "fxs-eject type=%d", 2 );
+ 		tempents->EjectBrass( data.m_vOrigin, data.m_vAngles, pRenderable->GetRenderAngles(), 2 );
+ 	}
+ }

@@ -1,0 +1,26 @@
+# lane c5-particles: the smoke stack's lit quads through the sphere renderer
+# (tools/probes/client/shell_managed_particles.cpp.probe.diff applied), for
+# the managed lighting's oracle (sphere-stock.tsv). Each stack is lit by two
+# env_particlelights naming it (one ambient, one directional), created before
+# it so its Activate collects them. The first stack's material asks for the
+# pixel-shader path ($USINGPIXELSHADER 1: the directional light is skipped);
+# the second's does not, so both arms of the lighting are recorded.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 0 0 0
+sleep 2
+cmd ent_create env_particlelight targetname c5amb PSName c5stack Color "255 128 64" Intensity 5000
+cmd ent_create env_particlelight targetname c5dir PSName c5stack Color "64 128 255" Intensity 20000 Directional 1
+cmd ent_create env_smokestack targetname c5stack InitialState 1 SmokeMaterial particle/SmokeStack.vmt BaseSpread 20 SpreadSpeed 15 Speed 30 StartSize 10 EndSize 15 Rate 40 JetLength 180 Twist 20 Roll 10 WindAngle 30 WindSpeed 20 rendercolor "200 180 160" renderamt 200
+sleep 10
+cmd ent_fire c5stack kill
+cmd setpos_exact -3843 2894 0
+cmd setang_exact 0 90 0
+sleep 2
+cmd ent_create env_particlelight targetname c5amb2 PSName c5stack2 Color "40 255 40" Intensity 800
+cmd ent_create env_particlelight targetname c5dir2 PSName c5stack2 Color "255 255 255" Intensity 90000 Directional 1
+cmd ent_create env_smokestack targetname c5stack2 InitialState 1 SmokeMaterial particle/particle_smokegrenade.vmt BaseSpread 30 SpreadSpeed 20 Speed 40 StartSize 8 EndSize 30 Rate 30 JetLength 200 Twist 0 Roll 0 rendercolor "90 120 255" renderamt 255
+sleep 12
+quit

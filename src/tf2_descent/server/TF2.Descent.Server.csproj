@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Bootstrap loads assemblies by simple name from bin/<config>/bin/managed,
+      so the SDK and its dependencies (Host.Contracts, Grpc.Net.Client,
+      Google.Protobuf) must be copied there; a class library does not copy its
+      packages by default.
+    -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="TF2.Descent.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="SourceSharp.Host.Sdk" Version="$(HostSdkVersion)" />
+    <!-- TF2.Descent's shared source compiles into each side (plan_side_isolation §2.4): no shared assembly. -->
+    <Compile Include="..\shared\**\*.cs" Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+    <ProjectReference Include="..\rules\TF2.Descent.Rules.csproj" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <!-- The generator writes the other half of each [ScriptVars] class (the
+         transition entity's keys), as it does for SourceSharp.Server. -->
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- TF2Descent builds on the TF2 mod. -->
+    <ProjectReference Include="..\..\tf2\server\TF2.Server.csproj" />
+  </ItemGroup>
+</Project>

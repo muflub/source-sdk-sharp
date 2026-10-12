@@ -1,0 +1,424 @@
+#!/usr/bin/env python3
+"""Prove that no Valve code or asset is in this repo.
+
+    tools/valve-text-audit [--root ROOT]      ROOT: the Valve fork checkout
+    tools/valve-text-audit --self-test
+
+Audits every file git would commit here (tracked plus untracked, minus
+ignored) against Valve's upstream tree (valvetext.BASE in ROOT):
+
+  text     no run of >= valvetext.RUN consecutive content lines matches Valve
+           text (the attribution header does not license a copy)
+  header   `Copyright Valve` appears only inside the exact attribution header
+           (tools/valve-header.txt) at the top of a file that the move ledger
+           marks valve_header=yes, or that docs/valve-header-new.tsv lists
+  binary   no .so/.dll/.bsp/.vpk/.vtf/.mdl, and no game/ file whose blob is in
+           ROOT
+
+Named exemptions live in tools/valve-text-exempt.tsv (path prefix, reason,
+and optionally the one rule it lifts: text, header or binary; all when absent);
+the audit reports how many files each one covers, so an exemption that grows
+is visible. A row whose path is `ledger:<ruling>` covers every file the move
+ledger places (its dest) under that override ruling (docs/move/overrides.tsv,
+reason `override: <ruling>`): one named exemption for a set the ledger already
+lists file by file. Findings are stamped with this repo's HEAD.
+"""
+
+import argparse
+import hashlib
+import os
+import pickle
+import re
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import valvetext as vt  # noqa: E402
+
+BASE = "22288b919"
+BINARY = re.compile(r"\.(so|dll|bsp|vpk|vtf|mdl)$", re.I)
+COPYRIGHT = re.compile(rb"Copyright[^\n]{0,20}Valve", re.I)
+
+
+def repo_files(repo):
+    out = subprocess.run(
+        ["git", "-C", repo, "ls-files", "-z", "--cached", "--others",
+         "--exclude-standard"], check=True, capture_output=True).stdout
+    return sorted({p for p in out.decode().split("\0")
+                   if p and os.path.isfile(os.path.join(repo, p))})
+
+
+def load_tsv(path, ncols):
+    rows = []
+    if not os.path.exists(path):
+        return rows
+    for line in open(path):
+        line = line.rstrip("\n")
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < ncols:
+            raise SystemExit(f"{path}: short row {line!r}")
+        rows.append(parts)
+    return rows
+
+
+def header_yes(repo):
+    yes = set()
+    ledger = os.path.join(repo, "docs", "move", "ledger.tsv")
+    if os.path.exists(ledger):
+        cols = None
+        for line in open(ledger):
+            if line.startswith("#"):
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if cols is None:
+                cols = parts
+                continue
+            r = dict(zip(cols, parts))
+            if r.get("valve_header") == "yes":
+                yes.add(r["dest"])
+    for row in load_tsv(os.path.join(repo, "docs", "valve-header-new.tsv"),
+                        2):
+        yes.add(row[0])
+    return yes
+
+
+def ledger_ruled(repo, ruling):
+    """Dest paths the move ledger places under an override `ruling`."""
+    out = set()
+    ledger = os.path.join(repo, "docs", "move", "ledger.tsv")
+    if not os.path.exists(ledger):
+        return out
+    cols = None
+    for line in open(ledger):
+        if line.startswith("#"):
+            continue
+        parts = line.rstrip("\n").split("\t")
+        if cols is None:
+            cols = parts
+            continue
+        r = dict(zip(cols, parts))
+        if r.get("reason") == "override: " + ruling and r.get("dest"):
+            out.add(r["dest"])
+    return out
+
+
+def audit(repo, index, root_blobs, out=print):
+    header = open(os.path.join(HERE, "valve-header.txt"), "rb").read()
+    exempt = load_tsv(os.path.join(repo, "tools", "valve-text-exempt.tsv"), 2)
+    yes = header_yes(repo)
+    covered = {e[0]: 0 for e in exempt}
+    ruled = {e[0]: ledger_ruled(repo, e[0][len("ledger:"):])
+             for e in exempt if e[0].startswith("ledger:")}
+    findings = []
+    files = repo_files(repo)
+    for p in files:
+        hits = [e for e in exempt if p == e[0] or (
+            e[0].endswith("/") and p.startswith(e[0]))
+            or p in ruled.get(e[0], ())]
+        lifted = set()
+        for e in hits:
+            covered[e[0]] += 1
+            lifted |= {e[2]} if len(e) > 2 and e[2] else {"all"}
+        if "all" in lifted:
+            continue
+        data = open(os.path.join(repo, p), "rb").read()
+        found_before = len(findings)
+        if BINARY.search(p):
+            findings.append(("binary", p, "Valve binary/asset type"))
+        sha = hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+        if p.startswith("game/") and sha in root_blobs:
+            findings.append(("binary", p, "blob exists in ROOT"))
+        run, match, _ = index.measure(data)
+        if run >= vt.RUN:
+            findings.append(("text", p, f"{run} content lines of {match}"))
+        body = data[len(header):] if data.startswith(header) else data
+        if data.startswith(header) and p not in yes:
+            findings.append(("header", p, "header on a file not marked yes"))
+        if p in yes and not data.startswith(header):
+            findings.append(("header", p, "marked yes but no header"))
+        if COPYRIGHT.search(body):
+            findings.append(("header", p, "Valve copyright outside the "
+                             "attribution header"))
+        if lifted:
+            findings[found_before:] = [f for f in findings[found_before:]
+                                       if f[0] not in lifted]
+    for e in exempt:
+        rule = e[2] if len(e) > 2 and e[2] else "all rules"
+        out(f"exempt ({rule}): {e[0]} ({covered[e[0]]} files): {e[1]}")
+        if e[0].startswith("ledger:") and not ruled[e[0]]:
+            # A ledger-keyed exemption that covers nothing is a typo in the
+            # ruling, and would silently exempt nothing it was meant to.
+            findings.append(("exempt", e[0], "names a ruling no ledger "
+                             "row carries"))
+    for kind, p, why in findings:
+        out(f"FINDING {kind}: {p}: {why}")
+    out(f"audited {len(files) - sum(covered.values())} files; "
+        f"{len(findings)} findings")
+    return findings
+
+
+def root_blob_set(root):
+    shas = set(vt.blob_shas(root, BASE).values())
+    shas |= set(vt.blob_shas(root, "HEAD").values())
+    return shas
+
+
+# THE INDEX CACHE. Indexing Valve's tree is 10 of the audit's 15 s, and it is
+# a function of the tree at BASE alone, so it is kept on disk, shared by every
+# worktree. The key is everything the index depends on: BASE's tree id in
+# ROOT (it names exactly the content indexed), valvetext.py's source (the gram
+# rules), the Python version and the hash seed. The last two are load-bearing:
+# valvetext.grams() keys grams by hash(), which Python salts per process, so an
+# index pickled under one seed matches NOTHING under another -- a cache that
+# silently found no Valve text anywhere. main() pins PYTHONHASHSEED (re-exec)
+# so the seed is the same in every run, and the key carries it anyway.
+CACHE_ENV = "SOURCESHARP_VALVETEXT_CACHE"
+CACHE_KEEP = 4
+
+
+def pin_hash_seed():
+    """Re-exec under PYTHONHASHSEED=0 unless already there."""
+    if os.environ.get("PYTHONHASHSEED") != "0":
+        os.environ["PYTHONHASHSEED"] = "0"
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
+def cache_dir():
+    return os.environ.get(CACHE_ENV) or os.path.join(
+        os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
+        "sourcesharp", "valvetext")
+
+
+def index_key(root, rev):
+    tree = subprocess.run(
+        ["git", "-C", root, "rev-parse", "--verify", rev + "^{tree}"],
+        check=True, capture_output=True, text=True).stdout.strip()
+    with open(vt.__file__, "rb") as f:
+        code = hashlib.sha256(f.read()).hexdigest()
+    seed = os.environ.get("PYTHONHASHSEED", "random")
+    return hashlib.sha256(
+        f"{tree}|{code}|{sys.version}|{seed}".encode()).hexdigest()[:32]
+
+
+def cached_index(root, rev, cdir=None, out=print):
+    """The index of ROOT at REV, from the cache when its key matches."""
+    if not os.environ.get("PYTHONHASHSEED", "").isdigit():
+        # A salted hash() makes a pickled index match nothing in the next
+        # process: never read or write the cache under one.
+        out("index: built (no fixed PYTHONHASHSEED, so not cached)")
+        return vt.ValveIndex.from_git(root, rev)
+    cdir = cdir or cache_dir()
+    path = os.path.join(cdir, index_key(root, rev) + ".pickle")
+    try:
+        with open(path, "rb") as f:
+            index = pickle.load(f)
+        if isinstance(index, vt.ValveIndex) and index.big and index.paths:
+            out(f"index: cached ({path})")
+            return index
+    except (OSError, EOFError, pickle.UnpicklingError, AttributeError,
+            ImportError, IndexError, TypeError, ValueError):
+        pass
+    index = vt.ValveIndex.from_git(root, rev)
+    try:
+        os.makedirs(cdir, exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "wb") as f:
+            pickle.dump(index, f, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp, path)
+        old = sorted((p for p in os.listdir(cdir) if p.endswith(".pickle")),
+                     key=lambda p: os.path.getmtime(os.path.join(cdir, p)))
+        for p in old[:-CACHE_KEEP]:
+            os.unlink(os.path.join(cdir, p))
+    except OSError as exc:
+        out(f"index: not cached ({exc})")
+    out(f"index: built ({path})")
+    return index
+
+
+def cache_self_test():
+    """The cache returns an index that still FINDS Valve text, keyed so a
+    changed tree, gram code or hash seed misses."""
+    bad = 0
+    valve = "\n".join(f"    int w{i} = Stock( pEnt, {i} ) * {i + 3};"
+                      for i in range(20)) + "\n"
+    copied = ("\n".join(valve.splitlines()[2:15]) + "\n").encode()
+
+    def ok(label, cond):
+        nonlocal bad
+        bad += not cond
+        print(f"{'ok ' if cond else 'BAD'} cache: {label}")
+
+    with tempfile.TemporaryDirectory() as d:
+        root, cdir = f"{d}/valve", f"{d}/cache"
+        subprocess.run(["git", "init", "-q", root], check=True)
+        with open(f"{root}/stock.cpp", "w") as f:
+            f.write(valve)
+        g = ["git", "-C", root, "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(g + ["add", "."], check=True)
+        subprocess.run(g + ["commit", "-qm", "v"], check=True)
+        said = []
+        first = cached_index(root, "HEAD", cdir, said.append)
+        second = cached_index(root, "HEAD", cdir, said.append)
+        ok("the first run builds and the second reads it back",
+           said[-2].startswith("index: built") and said[-1].startswith("index: cached"))
+        ok("the cached index finds a planted copy (the positive arm)",
+           second.measure(copied)[0] >= vt.RUN and first.measure(copied)[0] >= vt.RUN)
+        ok("and not clean text", second.measure(b"int clean = 1;\n")[0] == 0)
+        key = index_key(root, "HEAD")
+        seed = os.environ.get("PYTHONHASHSEED")
+        os.environ["PYTHONHASHSEED"] = "1"
+        ok("a different hash seed is a different key", index_key(root, "HEAD") != key)
+        del os.environ["PYTHONHASHSEED"]
+        cached_index(root, "HEAD", cdir, said.append)
+        ok("an unpinned (salted) hash never touches the cache",
+           said[-1].startswith("index: built (no fixed PYTHONHASHSEED"))
+        if seed is None:
+            del os.environ["PYTHONHASHSEED"]
+        else:
+            os.environ["PYTHONHASHSEED"] = seed
+        with open(f"{root}/more.cpp", "w") as f:
+            f.write("int more;\n")
+        subprocess.run(g + ["add", "."], check=True)
+        subprocess.run(g + ["commit", "-qm", "w"], check=True)
+        ok("a new tree is a different key", index_key(root, "HEAD") != key)
+        path = os.path.join(cdir, index_key(root, "HEAD") + ".pickle")
+        cached_index(root, "HEAD", cdir, said.append)
+        with open(path, "wb") as f:
+            f.write(b"not a pickle")
+        third = cached_index(root, "HEAD", cdir, said.append)
+        ok("a corrupt cache file is rebuilt, not trusted",
+           said[-1].startswith("index: built") and third.measure(copied)[0] >= vt.RUN)
+    return bad
+
+
+def self_test():
+    bad = 0
+    valve = "\n".join(f"    int v{i} = Stock( pEnt, {i} ) + {i * 7};"
+                      for i in range(20))
+    index = vt.ValveIndex()
+    index.add("src/game/server/stock.cpp", valve.encode())
+    header = open(os.path.join(HERE, "valve-header.txt"), "rb").read()
+    with tempfile.TemporaryDirectory() as d:
+        subprocess.run(["git", "init", "-q", d], check=True)
+        os.makedirs(f"{d}/tools")
+        os.makedirs(f"{d}/docs")
+        os.makedirs(f"{d}/game/mod_test")
+
+        def w(p, data):
+            with open(f"{d}/{p}", "wb") as f:
+                f.write(data)
+        w("tools/valve-text-exempt.tsv", b"game/mod_test/\tcopied whole\n")
+        w("docs/valve-header-new.tsv", b"yes.cs\tports X\n")
+        w("clean.cs", b"int x;\n")
+        w("yes.cs", header + b"\nint y;\n")
+        w("game/mod_test/copy.txt", valve.encode())
+        base = {"clean.cs", "yes.cs", "game/mod_test/copy.txt"}
+        cases = [
+            ("text", "copied.cpp",
+             ("\n".join(valve.splitlines()[2:14])).encode()),
+            ("header", "noheader-yes.cs", b"int z;\n"),
+            ("header", "stray.cs", b"// Copyright Valve Corporation\n"),
+            ("header", "unlisted.cs", header + b"\nint q;\n"),
+            ("binary", "game/mod_other/x.bsp", b"VBSP"),
+        ]
+        blobs = set()
+        for kind, p, data in cases:
+            os.makedirs(os.path.dirname(f"{d}/{p}") or d, exist_ok=True)
+            w(p, data)
+            if p == "noheader-yes.cs":
+                with open(f"{d}/docs/valve-header-new.tsv", "ab") as f:
+                    f.write(b"noheader-yes.cs\tports Y\n")
+            got = audit(d, index, blobs, out=lambda m: None)
+            hit = [f for f in got if f[1] == p and f[0] == kind]
+            others = [f for f in got if f[1] in base]
+            ok = bool(hit) and not others
+            bad += not ok
+            print(f"{'ok ' if ok else 'BAD'} planted {kind}: {p}")
+            os.unlink(f"{d}/{p}")
+            if p == "noheader-yes.cs":
+                w("docs/valve-header-new.tsv", b"yes.cs\tports X\n")
+        # A header-only exemption lifts the header rule and nothing else.
+        with open(f"{d}/tools/valve-text-exempt.tsv", "ab") as f:
+            f.write(b"gen.cs\tgenerator\theader\n")
+        w("gen.cs", b'Line("// Copyright Valve Corporation");\n')
+        got = audit(d, index, blobs, out=lambda m: None)
+        ok = not [f for f in got if f[1] == "gen.cs"]
+        w("gen.cs", b'Line("// Copyright Valve Corporation");\n'
+          + ("\n".join(valve.splitlines()[2:14])).encode())
+        got = audit(d, index, blobs, out=lambda m: None)
+        ok = ok and [f[0] for f in got if f[1] == "gen.cs"] == ["text"]
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a header-only exemption still "
+              f"catches copied text")
+        os.unlink(f"{d}/gen.cs")
+        # A ledger-keyed exemption lifts its rule for exactly the files the
+        # ledger places under that ruling, and nowhere else.
+        os.makedirs(f"{d}/docs/move", exist_ok=True)
+        w("docs/move/ledger.tsv",
+          b"# ledger\npath\tclass\tdest\tvalve_header\treason\n"
+          b"x/kept.cpp\tOURS\tkept.cpp\tno\toverride: kept local\n")
+        with open(f"{d}/tools/valve-text-exempt.tsv", "ab") as f:
+            f.write(b"ledger:kept local\tkept by decision\ttext\n")
+        copied = ("\n".join(valve.splitlines()[2:14])).encode()
+        w("kept.cpp", copied)
+        w("other.cpp", copied)
+        seen = []
+        got = audit(d, index, blobs, out=seen.append)
+        ok = (not [f for f in got if f[1] == "kept.cpp"]
+              and [f[0] for f in got if f[1] == "other.cpp"] == ["text"]
+              and any("ledger:kept local (1 files)" in m for m in seen))
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a ledger-keyed exemption covers "
+              f"its ruled files only, and says how many")
+        os.unlink(f"{d}/other.cpp")
+        with open(f"{d}/tools/valve-text-exempt.tsv", "ab") as f:
+            f.write(b"ledger:no such ruling\ttypo\ttext\n")
+        got = audit(d, index, blobs, out=lambda m: None)
+        ok = [f[0] for f in got] == ["exempt"]
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} a ledger-keyed exemption that "
+              f"covers nothing is a finding")
+        w("tools/valve-text-exempt.tsv",
+          b"game/mod_test/\tcopied whole\n"
+          b"gen.cs\tgenerator\theader\n"
+          b"ledger:kept local\tkept by decision\ttext\n")
+        got = audit(d, index, blobs, out=lambda m: None)
+        ok = not got
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} clean tree has no findings "
+              f"(exempt copies ignored)")
+    bad += cache_self_test()
+    print("self-test", "FAILED" if bad else "passed")
+    return 1 if bad else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    pin_hash_seed()
+    if a.self_test:
+        return self_test()
+    repo = os.path.dirname(HERE)
+    root = a.root
+    local = os.path.join(repo, "sdk-root.lock.local")
+    if root is None and os.path.exists(local):
+        root = open(local).read().strip()
+    if root is None:
+        ap.error("--root, or run make setup first")
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "--short",
+                           "HEAD"], capture_output=True,
+                          text=True).stdout.strip() or "(no commit)"
+    print(f"valve-text-audit at {head} against {root} {BASE}")
+    index = cached_index(root, BASE)
+    findings = audit(repo, index, root_blob_set(root))
+    return 1 if findings else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

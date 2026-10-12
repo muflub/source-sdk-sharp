@@ -1,0 +1,35 @@
+# docs/server-novalve-ratchet.tsv: tools/server-novalve-census's rows.
+# A row may only fall. Regenerate with --write and review the diff.
+# measured at fcd85593d
+# 2026-09-29: memalloc-importers added by hand at a90849d (40, debug), the objects importing g_pMemAlloc
+# 2026-09-30: re-taken at P4's close (dfade15 + server.so's own version script): tier0/tier1/vstdlib
+#   imports 0, fork-src 0, NEEDED 0, link-forbidden 0 (devtools/version_script.linux.txt replaced
+#   by cmake/version_script_server.txt, CreateInterface only), memalloc-importers 21.
+# 2026-10-01: P5 closed -- shell_mapparse.cpp, the last legacy TU, moved onto the R5 set: incdir-forbidden 6 -> 0,
+#   incdir-forbidden-tus 1 -> 0, fork-hdr-not-allowed 118 -> 45, fork-hdr-total 230 -> 157 (debug).
+# 2026-10-04: steam-auth-game, a client's net message to the server (the user's ruling: a new INetMessage).
+#   inetchannel.h and inetmessage.h join the roots (docs/server-fork-roots.txt): the engine's net message
+#   ABI, which has no managed spelling. fork-hdr-total 157 -> 159 (raised by hand); fork-hdr-not-allowed
+#   45 -> 44 (inetchannelinfo.h is in the roots' closure now).
+# 2026-10-12, lane input (C9 tier0/vstdlib pure move): vstdlib_random_port.cpp and randoverride.cpp left server.so for
+#   src/client/native (gc-dropped, no server importer of RandomInt/rand/srand; user ruling 2026-10-12):
+#   fork-hdr-not-allowed 44 -> 40, fork-hdr-total 159 -> 154.
+fork-hdr-not-allowed	40
+fork-hdr-total	154
+fork-src	0
+imports:dmxloader	0
+imports:particles	0
+imports:steam_api	0
+imports:tier0	0
+imports:tier1	0
+imports:tier2	0
+imports:tier3	0
+imports:vstdlib	0
+incdir-forbidden	0
+incdir-forbidden-tus	0
+link-forbidden	0
+memalloc-definers	0
+memalloc-importers	0
+memalloc-in-dll	0
+native-convar-decls	0
+needed-forbidden	0

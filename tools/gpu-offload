@@ -1,0 +1,68 @@
+# The two environment variables the game must be launched with on this machine.
+#
+# SOURCED, NOT RUN. There is no #! line and no exec: `. tools/gpu-offload` from
+# the shell that is about to start the game. Every launch path in the tree does
+# it — the Makefile's run, run-debug, run-release and headless targets, and
+# `tools/debug-api run` — and gpu_offload_test.cpp fails the build if one of them
+# stops.
+#
+#-----------------------------------------------------------------------------
+# WHY, AND THE SYMPTOM THAT MATTERS
+#-----------------------------------------------------------------------------
+#
+# This machine has two GPUs and the desktop runs off the NVIDIA one. Without
+# PRIME render offload, DXVK enumerates and picks the OTHER card, then cannot
+# build a swapchain that the NVIDIA-driven display can present, and the process
+# takes SIGTRAP inside hl2.sh:
+#
+#   info:  Device properties:
+#   info:    Device : AMD Radeon RX 9070 XT (RADV GFX1201)
+#   ...
+#   err:   D3D9SwapChainEx: Failed to recreate swap chain: VK_ERROR_INITIALIZATION_FAILED
+#   hl2.sh: line 113: ... Trace/breakpoint trap (core dumped)
+#
+# THE SIGNATURE IS ZERO `[SourceSharp]` LINES. That is the detail worth
+# remembering, and the reason this file exists rather than a note somebody was
+# meant to have read. The failure is in the renderer, which comes up BEFORE
+# server.so is loaded and long before the managed host starts — so the log holds
+# not one line of ours, `tools/debug-api status` never answers because no socket is
+# ever created, and the whole thing reads exactly like "the port change I just
+# made broke module init". It has cost this project real work: a sound lift
+# shipped with ss_sandbox's emitters unexercised, a lane abandoned live
+# verification entirely, and three attempts to verify -assertstack live failed
+# for what was almost certainly this.
+#
+# `-textmode` does not dodge it. It fails identically, which removes the obvious
+# workaround and is why "just run it headless" is not the answer.
+#
+# A run that HAS the variables says so, in the same block:
+#
+#   info:  Device properties:
+#   info:    Device : NVIDIA GeForce RTX 2070 SUPER
+#
+# If a launch dies with no `[SourceSharp]` line at all, read the Device line
+# before reading anything else.
+#
+#-----------------------------------------------------------------------------
+# OVERRIDING IT
+#-----------------------------------------------------------------------------
+#
+# Nothing here is forced. Both variables are set only if they are not already
+# set, so the environment always wins:
+#
+#   SS_GPU_OFFLOAD=0 make run              set neither — a single-GPU machine
+#   __GLX_VENDOR_LIBRARY_NAME=mesa make run   drive the other card instead
+#   SS_GPU_OFFLOAD=0 tools/debug-api run          the same, for debug-api
+#
+# SS_GPU_OFFLOAD=0 exists because "unset it" is not expressible on a command
+# line: a variable this file would default anyway cannot be turned off by
+# clearing it. On a machine with one GPU the variables are harmless rather than
+# wrong — the NVIDIA GLX vendor library simply is not there and the loader falls
+# back — but an explicit off switch beats asking anyone to find out.
+
+if [ "${SS_GPU_OFFLOAD:-1}" != "0" ]; then
+	: "${__NV_PRIME_RENDER_OFFLOAD:=1}"
+	: "${__GLX_VENDOR_LIBRARY_NAME:=nvidia}"
+	export __NV_PRIME_RENDER_OFFLOAD
+	export __GLX_VENDOR_LIBRARY_NAME
+fi

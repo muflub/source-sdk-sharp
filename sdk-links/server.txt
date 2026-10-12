@@ -1,0 +1,19 @@
+# sdk-links/server.txt: fork files that only server.so's graph (server_sourcesharp) uses.
+# The farm links the union of sdk-links/*.txt, one link per file (tools/setup).
+# This is Valve code we still depend on: it shrinks as code is ported, and a
+# fully ported file's line is deleted. tools/sdk-census decides which list a
+# file belongs in; `make sdk-census` fails on a line nothing uses or a line in
+# the wrong list, and `tools/sdk-census --write` regenerates every list.
+# 11 links here; 697 in all lists (were 708)
+#      11 src/public
+src/public/bone_setup.h
+src/public/dt_send.h
+src/public/game/server/iplayerinfo.h
+src/public/ivoiceserver.h
+src/public/server_class.h
+src/public/tier1/fmtstr.h
+src/public/toolframework/iserverenginetools.h
+src/public/vphysics/friction.h
+src/public/vphysics/player_controller.h
+src/public/vphysics/vehicles.h
+src/public/vstdlib/iprocessutils.h

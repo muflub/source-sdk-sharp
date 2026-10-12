@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+"""tools/kwin-bg-rule -- the KWin window rule that keeps background games out of the way.
+
+    tools/kwin-bg-rule              install or refresh the rule, then ask KWin to reload
+    tools/kwin-bg-rule --remove     take the rule out again (the user's other rules stay)
+    tools/kwin-bg-rule --print      print the rule's section as it would be written
+    tools/kwin-bg-rule --file PATH  edit PATH instead of ~/.config/kwinrulesrc
+                                    (no reload; for trying it on a copy)
+    tools/kwin-bg-rule --self-test
+    tools/kwin-bg-rule --probe      live: does an SDL2 window of the class the
+                                    rule matches survive SDL_SetWindowBordered?
+
+WHY. Agents launch games all day (gates, headless runs, probes, the nightly
+gate), and each new game window took the user's desktop focus. A BACKGROUND
+launch (tools/local_launch.py, the Makefile's LOCAL_BG_ARGS) passes the
+launcher -background, and the launcher then names the window's X11 class
+sourcesharp-bg (SDL_VIDEO_X11_WMCLASS). This rule matches that class:
+
+  - focus stealing prevention Extreme (forced): KWin never activates it on
+    its own; clicking it or picking it in Alt+Tab still does;
+  - kept below other windows when it appears (applied initially, so a
+    person who brings one up can then look at it);
+  - not in the taskbar or the pager (forced); Alt+Tab still lists it.
+
+NEVER MINIMISED. A minimised window is unmapped, and SDL2's
+X11_SetWindowBordered (system libSDL2 2.32.10, which the engine loads) waits
+for its window with `do { XSync; XGetWindowAttributes; } while (map_state !=
+IsViewable)` and no timeout. The engine calls SDL_SetWindowBordered while it
+creates its window (engine.so 0x5db298), before it has pumped the unmap event
+that would tell SDL the window is hidden, so a game KWin minimised in that
+gap spun there forever: its main thread at 100% in XGetWindowAttributes,
+WM_STATE Iconic, no dev API socket, the console ending at "[CFontManager]
+Forcing freetype2 for GorDIN Semibold" (measured 2026-10-05 with perf on a
+stalled game; mapping its window released it at once). Under load KWin is
+quicker than the engine more often: 26 of 160 servers stalled in the
+hushsteam lane's rounds of 4-6 concurrent games (docs/todo.md). An SDL2
+window of this class that never pumps events reproduces it alone:
+`--probe` creates one, waits, and calls SDL_SetWindowBordered.
+
+A kept-below, unfocused game still renders and still screenshots: 59 fps
+kept below an occluding window, with engine_no_focus_sleep 0 (which
+-background also sets), measured 2026-10-04 on dm_lockdown at fps_max 60;
+tools/debug-api cmd jpeg showed the HUD.
+
+IDEMPOTENT AND SCOPED. Only the section named GROUP (and any older section
+carrying our Description) is added, replaced or removed; every other line of
+the file is written back byte for byte, and [General]'s rules= and count= are
+recomputed from the rule list without reordering the user's rules.
+
+KDE Plasma 6 on Wayland or X11 (KWin). Elsewhere the file is still written,
+and the reload is skipped with a note.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+GROUP = "sourcesharp-background"
+DESCRIPTION = "SourceSharp background games (tools/kwin-bg-rule)"
+WMCLASS = "sourcesharp-bg"
+
+# KWin rule policies: 2 = Force, 3 = Apply initially. Match kinds: 1 = exact.
+# fsplevel 4 = Extreme.
+# types=1 is NET::NormalMask: the game's main window, nothing else.
+RULE = [
+    ("Description", DESCRIPTION),
+    ("wmclass", WMCLASS),
+    ("wmclassmatch", "1"),
+    ("wmclasscomplete", "false"),
+    ("types", "1"),
+    ("fsplevel", "4"),
+    ("fsplevelrule", "2"),
+    ("below", "true"),
+    ("belowrule", "3"),
+    ("skiptaskbar", "true"),
+    ("skiptaskbarrule", "2"),
+    ("skippager", "true"),
+    ("skippagerrule", "2"),
+]
+
+
+def default_path():
+    base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.join(base, "kwinrulesrc")
+
+
+def split_sections(text):
+    """[(name or None, [lines])]: the preamble, then one entry per [group]."""
+    sections = [(None, [])]
+    for line in text.splitlines(keepends=True):
+        s = line.strip()
+        if s.startswith("[") and s.endswith("]") and len(s) > 2:
+            sections.append((s[1:-1], [line]))
+        else:
+            sections[-1][1].append(line)
+    return sections
+
+
+def get(lines, key):
+    for line in lines:
+        k, sep, v = line.partition("=")
+        if sep and k.strip() == key:
+            return v.strip()
+    return None
+
+
+def is_ours(name, lines):
+    return name == GROUP or get(lines, "Description") == DESCRIPTION
+
+
+def rule_section():
+    return ["[%s]\n" % GROUP] + ["%s=%s\n" % kv for kv in RULE]
+
+
+def edit(text, install=True):
+    """The file with our rule added (install) or removed, all else kept."""
+    sections = split_sections(text)
+    general = next((s for s in sections if s[0] == "General"), None)
+    old_ids = []
+    if general is not None:
+        old_ids = [r for r in (get(general[1], "rules") or "").split(",") if r]
+    ours = {name for name, lines in sections if name and name != "General" and is_ours(name, lines)}
+    kept = [s for s in sections if not (s[0] in ours)]
+    ids = [r for r in old_ids if r not in ours]
+    if install:
+        ids.append(GROUP)
+    if general is None:
+        general = ("General", ["[General]\n"])
+        kept.insert(1, general)
+    lines = general[1]
+    for key, value in (("count", str(len(ids))), ("rules", ",".join(ids))):
+        for i, line in enumerate(lines):
+            k, sep, _ = line.partition("=")
+            if sep and k.strip() == key:
+                lines[i] = "%s=%s\n" % (key, value)
+                break
+        else:
+            at = len(lines)
+            while at > 1 and not lines[at - 1].strip():
+                at -= 1
+            lines.insert(at, "%s=%s\n" % (key, value))
+    out = []
+    for _name, body in kept:
+        if out and out[-1].strip() and body and body[0].lstrip().startswith("["):
+            out.append("\n")
+        out.extend(body)
+    if install:
+        if out and not out[-1].endswith("\n"):
+            out[-1] += "\n"
+        if out and out[-1].strip():
+            out.append("\n")
+        out.extend(rule_section())
+    return "".join(out)
+
+
+def write_atomic(path, text):
+    d = os.path.dirname(path) or "."
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".kwinrulesrc.")
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+    if os.path.exists(path):
+        shutil.copymode(path, tmp)
+    os.replace(tmp, path)
+
+
+def reconfigure():
+    for qdbus in ("qdbus6", "qdbus", "qdbus-qt6"):
+        exe = shutil.which(qdbus)
+        if exe:
+            rc = subprocess.run([exe, "org.kde.KWin", "/KWin", "reconfigure"],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+            if rc == 0:
+                print("kwin-bg-rule: KWin reloaded its rules (%s)" % qdbus)
+                return 0
+    print("kwin-bg-rule: no running KWin answered; the rule applies from its next start")
+    return 0
+
+
+def self_test():
+    checks = []
+
+    def ok(cond, name):
+        checks.append((bool(cond), name))
+
+    user = ("[$Version]\nupdate_info=kwinrules.upd:replace-placement-string-to-enum\n\n"
+            "[General]\ncount=2\nrules=1b2c,9f00\n\n"
+            "[1b2c]\nDescription=Firefox on screen 2\nwmclass=firefox\nwmclassmatch=1\n\n"
+            "[9f00]\nDescription=Keep konsole above\nabove=true\naboverule=2\n")
+    once = edit(user)
+    secs = dict((n, l) for n, l in split_sections(once) if n)
+    ok(GROUP in secs, "install adds our section")
+    ok(get(secs["General"], "rules") == "1b2c,9f00," + GROUP, "the user's rules keep their order, ours is last")
+    ok(get(secs["General"], "count") == "3", "count is the number of rules")
+    ok(get(secs[GROUP], "wmclass") == WMCLASS and get(secs[GROUP], "fsplevel") == "4",
+       "the rule matches sourcesharp-bg with Extreme focus stealing prevention")
+    def others(t):
+        return [l for l in t.splitlines()[:len(user.splitlines())] if not l.startswith(("count=", "rules="))]
+    ok(others(once) == others(user) and len(others(user)) == 14,
+       "every other line of the user's file is kept, byte for byte, in place")
+    ok(edit(once) == once, "a second install changes nothing (idempotent)")
+    removed = edit(once, install=False)
+    ok(removed.rstrip("\n") == user.rstrip("\n"), "remove gives back the user's file")
+    ok(edit(user, install=False).rstrip("\n") == user.rstrip("\n"), "remove with no rule of ours changes nothing")
+    # An older copy of ours under another group name (a UUID from the GUI) is replaced, not doubled.
+    stale = user.replace("rules=1b2c,9f00", "rules=1b2c,9f00,abcd").replace("count=2", "count=3") \
+        + "\n[abcd]\nDescription=%s\nwmclass=old\n" % DESCRIPTION
+    fixed = dict((n, l) for n, l in split_sections(edit(stale)) if n)
+    ok("abcd" not in fixed and get(fixed["General"], "rules") == "1b2c,9f00," + GROUP,
+       "a stale section with our Description is replaced by ours")
+    fresh = dict((n, l) for n, l in split_sections(edit("")) if n)
+    ok(get(fresh["General"], "rules") == GROUP and get(fresh["General"], "count") == "1",
+       "an empty or missing file gets a [General] and our rule")
+    ok(not [k for k, _ in RULE if k.startswith("minimize")] and "minimize" not in once,
+       "the rule never minimises: SDL_SetWindowBordered spins on an unmapped window")
+    old = [(k, v) for k, v in RULE] + [("minimize", "true"), ("minimizerule", "3")]
+    old_text = "".join(["[%s]\n" % GROUP] + ["%s=%s\n" % kv for kv in old])
+    ok(edit(user.replace("count=2", "count=3").replace("rules=1b2c,9f00", "rules=1b2c,9f00," + GROUP)
+            + "\n" + old_text) == once,
+       "an installed rule that still minimises is rewritten without it")
+    # The negative control: a rule that differs is seen to differ.
+    drifted = once.replace("fsplevel=4", "fsplevel=1")
+    ok(drifted != once and edit(drifted) == once, "a drifted copy of our rule is rewritten")
+    # And end to end on a temp file through main().
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "kwinrulesrc")
+        with open(p, "w") as f:
+            f.write(user)
+        rc1 = main(["--file", p])
+        with open(p) as f:
+            after = f.read()
+        rc2 = main(["--file", p, "--remove"])
+        with open(p) as f:
+            back = f.read()
+        ok(rc1 == 0 and after == once, "--file installs into the given file")
+        ok(rc2 == 0 and back == removed, "--file --remove takes it out again")
+    for good, name in checks:
+        print("  %s  %s" % ("ok  " if good else "FAIL", name))
+    bad = sum(1 for g, _ in checks if not g)
+    print("\n%d check(s), %d failed" % (len(checks), bad))
+    return 1 if bad else 0
+
+
+PROBE = r"""
+import ctypes, os, subprocess, sys, time, re
+sdl = ctypes.CDLL("libSDL2-2.0.so.0")
+sdl.SDL_CreateWindow.restype = ctypes.c_void_p
+if sdl.SDL_Init(0x20) != 0:
+    sys.exit(3)
+title = "kwin-bg-rule-probe-%d" % os.getpid()
+w = ctypes.c_void_p(sdl.SDL_CreateWindow(title.encode(), 0, 0, 320, 200, 0x4))
+time.sleep(2.0)
+state = "?"
+for line in subprocess.run(["xwininfo", "-root", "-tree"], capture_output=True, text=True).stdout.splitlines():
+    if '"%s"' % title in line:
+        info = subprocess.run(["xwininfo", "-id", line.split()[0]], capture_output=True, text=True).stdout
+        m = re.search(r"Map State: (\w+)", info)
+        state = m.group(1) if m else state
+print("map state before SDL_SetWindowBordered: " + state, flush=True)
+sdl.SDL_SetWindowBordered(w, 0)
+print("returned", flush=True)
+"""
+
+
+def probe(wmclass=WMCLASS, wait=15):
+    """Live: an SDL2 window of class WMCLASS that pumps no events, then
+    SDL_SetWindowBordered. 0 if it returned; 1 if it was still spinning after
+    WAIT seconds (then killed); 2 if no X display or SDL2 could be used."""
+    if not os.environ.get("DISPLAY") or not shutil.which("xwininfo"):
+        print("kwin-bg-rule --probe: needs an X display (DISPLAY) and xwininfo", file=sys.stderr)
+        return 2
+    env = dict(os.environ, SDL_VIDEO_X11_WMCLASS=wmclass, SDL_VIDEODRIVER="x11")
+    p = subprocess.Popen([sys.executable, "-c", PROBE], env=env, stdout=subprocess.PIPE, text=True)
+    try:
+        out, _ = p.communicate(timeout=wait)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        out, _ = p.communicate()
+        print(out.rstrip())
+        print("STALLED: SDL_SetWindowBordered did not return in %d s for a window of class %s" % (wait, wmclass))
+        return 1
+    print(out.rstrip())
+    if p.returncode != 0 or "returned" not in out:
+        print("kwin-bg-rule --probe: the probe could not run (exit %d)" % p.returncode, file=sys.stderr)
+        return 2
+    print("ok: SDL_SetWindowBordered returned for a window of class %s" % wmclass)
+    return 0
+
+
+def main(argv):
+    if argv == ["--self-test"]:
+        return self_test()
+    if argv == ["--probe"]:
+        return probe()
+    if argv == ["--print"]:
+        sys.stdout.write("".join(rule_section()))
+        return 0
+    path, live, install = default_path(), True, True
+    args = list(argv)
+    while args:
+        a = args.pop(0)
+        if a == "--file" and args:
+            path, live = args.pop(0), False
+        elif a == "--remove":
+            install = False
+        else:
+            print(__doc__.split("WHY.")[0].rstrip(), file=sys.stderr)
+            return 2
+    text = ""
+    if os.path.exists(path):
+        with open(path) as f:
+            text = f.read()
+    new = edit(text, install)
+    if new != text:
+        write_atomic(path, new)
+        print("kwin-bg-rule: %s %s" % ("installed in" if install else "removed from", path))
+    else:
+        print("kwin-bg-rule: %s already %s" % (path, "has the rule" if install else "lacks the rule"))
+    return reconfigure() if live else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

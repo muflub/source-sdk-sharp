@@ -1,0 +1,19 @@
+# C0 probe 4: does a texture uploaded ONCE through DrawSetTextureRGBA survive
+# mat_setvideomode? Quadrants at (16,16)+256: TL red, TR green, BR blue, BL
+# white. Screenshots before and after two mode changes (tools/probes/c0-texture-check).
+wait iface-list 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 3
+cmd cs_cl_probe_texture
+sleep 2
+shot tex-before
+cmd mat_setvideomode 1024 768 1
+sleep 5
+shot tex-after-1024x768
+cmd mat_setvideomode 1280 720 1
+sleep 5
+shot tex-after-1280x720
+cmd disconnect
+sleep 2
+quit

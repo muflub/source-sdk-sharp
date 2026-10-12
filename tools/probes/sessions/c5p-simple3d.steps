@@ -1,0 +1,28 @@
+# lane c5-particles: particle_simple3d.cpp recorded (tools/probes/client/particle_simple3d.cpp.probe.diff
+# with particle_collision.cpp's probe): the shattersurface temp entity's glass shards (CSimple3DEmitter)
+# fired in front of the player, stepped until they settle, seen from several angles.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -3843 2894 0
+sleep 1
+cmd setang_exact 10 90 0
+sleep 0.3
+cmd cs_te_fire shattersurface -3843 3050 20 broadcast
+cmd cs_te_fire shattersurface -3800 3000 60 broadcast
+sleep 4
+cmd setang_exact 20 100 0
+sleep 0.3
+cmd cs_te_fire shattersurface -3843 3050 20 broadcast
+cmd cs_te_fire shattersurface -3800 3000 60 broadcast
+sleep 4
+cmd setang_exact 0 80 0
+sleep 0.3
+cmd cs_te_fire shattersurface -3843 3050 20 broadcast
+cmd cs_te_fire shattersurface -3800 3000 60 broadcast
+sleep 4
+cmd setang_exact 15 120 0
+sleep 0.3
+cmd cs_te_fire shattersurface -3843 3050 20 broadcast
+cmd cs_te_fire shattersurface -3800 3000 60 broadcast
+sleep 4

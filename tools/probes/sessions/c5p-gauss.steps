@@ -1,0 +1,25 @@
+# lane c5-particles: FX_GaussExplosion recorded (shell_impact_effects.cpp.probe.diff's gauss rows, with
+# fx_sparks.cpp's and particle_collision.cpp's probes): the gaussexplosion temp entity fired by cs_te_fire
+# in front of the player, near the floor and in the air.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -3843 2894 0
+cmd setang_exact 10 90 0
+sleep 1
+cmd cs_te_fire gaussexplosion -3843 3050 4 broadcast
+sleep 1.2
+cmd cs_te_fire gaussexplosion -3800 3100 40 broadcast
+sleep 1.2
+cmd cs_te_fire gaussexplosion -3880 3000 10 broadcast
+sleep 1.2
+cmd cs_te_fire gaussexplosion -3843 3200 80 broadcast
+sleep 1.2
+cmd cs_te_fire gaussexplosion -3760 3050 2 broadcast
+sleep 1.2
+cmd cs_te_fire gaussexplosion -3900 3150 30 broadcast
+sleep 1.2
+cmd cs_te_fire gaussexplosion -3843 3050 4 broadcast
+sleep 1.2
+cmd cs_te_fire gaussexplosion -3820 3120 60 broadcast
+sleep 1.2

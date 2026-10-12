@@ -1,0 +1,37 @@
+# THE STATIC-STATE WAIVERS: the mutable statics that stay, each with the reason
+# it stays, read at build time by StaticStateAnalyzer (src/analyzers,
+# SS0001/SS0002/SS0003) over the runtime assemblies Directory.Build.props
+# names in SourceSharpStaticStateGated.
+#
+# The owner's rule (2026-09-29): managed code keeps no state in statics; a
+# cache, a registry, a counter, a hook or a "current" pointer is an injected
+# service. Statics to zero (plan_abi_hotreload, 2026-10-04): the only waivers
+# allowed are the two kinds the scan cannot tell from state:
+#   TABLE        CONSTANT TABLE: written once by its initialiser and only read
+#   NULL-OBJECT  STATELESS NULL OBJECT / DEFAULT: an instance with no state that changes
+#
+# A row goes when its static does: a row naming no mutable static fails the
+# build (SS0002), so this list only shrinks.
+#
+# Format: one row per line, "<Assembly>: <Namespace.Type>.<field><TAB><TABLE|NULL-OBJECT>".
+# A field is named as the CLR names it: an auto-property by its backing field
+# (<Name>k__BackingField), a nested type with ".", a generic one with `N.
+
+# P1 run 3: moved Abi -> Shared.Interop; stateless null objects and an empty value.
+SourceSharp.Shared.Interop: SourceSharp.Abi.EmptyTiers.Instance	NULL-OBJECT
+SourceSharp.Shared.Interop: SourceSharp.Abi.ModelDescriptor.Empty	NULL-OBJECT
+SourceSharp.Shared.Interop: SourceSharp.Abi.NoClientReplayEngine.Instance	NULL-OBJECT
+SourceSharp.Shared.Interop: SourceSharp.Abi.NoInterpolationBlocks.Instance	NULL-OBJECT
+SourceSharp.Shared.Interop: SourceSharp.Abi.NoRenderPolicyBlocks.Instance	NULL-OBJECT
+
+# P1 run 3: moved Abi -> Shared; a stateless empty value. One per side since
+# the shared source compiles into each (plan_side_isolation P7).
+SourceSharp.Server: SourceSharp.Abi.SavedIo.<Empty>k__BackingField	NULL-OBJECT
+SourceSharp.Client: SourceSharp.Abi.SavedIo.<Empty>k__BackingField	NULL-OBJECT
+
+# P1 run 3: moved Abi -> Server; a stateless comparer.
+SourceSharp.Server: SourceSharp.Abi.ThinkScheduler.DueOrder.Instance	NULL-OBJECT
+
+SourceSharp.Server: SourceSharp.Server.Pickups.Health	TABLE
+SourceSharp.Server: SourceSharp.Shared.WeaponScriptDatabase.<Null>k__BackingField	NULL-OBJECT
+SourceSharp.Client: SourceSharp.Shared.WeaponScriptDatabase.<Null>k__BackingField	NULL-OBJECT

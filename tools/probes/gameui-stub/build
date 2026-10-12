@@ -1,0 +1,21 @@
+#!/bin/bash
+# Build the C0 probe's logging GameUI.so (gameui_stub.cpp) into
+# farm/<config>/build/probes/gameui-stub/GameUI.so, or into $1.
+# Never into bin/: the shipped game does not load it. tools/probes/c0-session
+# places it for one probe run and takes it away again.
+set -euo pipefail
+HERE="$(dirname -- "$(readlink -f -- "$0")")"
+ROOT="$(readlink -f "$HERE/../../..")"
+CONFIG="${CONFIG:-debug}"
+OUT="${1:-$ROOT/farm/$CONFIG/build/probes/gameui-stub/GameUI.so}"
+mkdir -p "$(dirname "$OUT")"
+CXX="${CXX:-clang++-22}"
+"$CXX" -std=c++17 -shared -fPIC -O0 -g -Wall -Wextra -Werror -Wno-unused-parameter \
+  -fvisibility=hidden -o "$OUT" "$HERE/gameui_stub.cpp" -ldl
+# The one export the engine needs, and nothing else.
+exports=$(nm -D --defined-only "$OUT" | awk '$2=="T"{print $3}' | sort | tr '\n' ' ')
+if [[ "$exports" != "CreateInterface " ]]; then
+  echo "gameui-stub: unexpected exports: $exports" >&2
+  exit 1
+fi
+echo "$OUT"

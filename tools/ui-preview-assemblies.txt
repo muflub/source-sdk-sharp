@@ -1,0 +1,10 @@
+# Extra screen assemblies the UI preview, lint and golden tests discover on
+# top of the toolkit's gallery and src/client/ui/screens (plan_client_ui §7).
+# One entry per line: <AssemblyName>[=game/<moddir>]. The assembly must sit
+# beside the preview tool's output; `=game/<moddir>` names the mod whose
+# resource/<name>_english.txt chains into the preview's localiser (the game
+# reads the mod's own file through GameUiLocaliser; the preview must see the
+# same tokens). A missing assembly or language file is a failure, never a
+# silent skip: tools/ui-preview, tools/ui-lint and the SourceSharp.Tests.Ui
+# facts all discover through PreviewRun.AllSamples.
+TF2.Descent.Client.Ui=game/mod_tf2_descent

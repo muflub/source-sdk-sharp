@@ -1,0 +1,139 @@
+symbol	server-compiled?	stock	behaviour	dependencies	cluster
+ExtractAnimValue(int,mstudioanimvalue_t*,float,float&,float&)	yes (nm T)	267-336	interp decode of a 2-value anim section; null section => both 0	PORTED BoneSetupExtract.cs (ExtractAnimValue 2-value)	extract
+ExtractAnimValue(int,mstudioanimvalue_t*,float,float&)	yes (nm T)	339-369	fast single-value decode; null => 0	PORTED BoneSetupExtract.cs (ExtractAnimValue fast)	extract
+CalcBoneQuaternion(9-arg core)	yes (nm T)	374-474	bone quat: RAWROT/RAWROT2 early return, no-ANIMROT delta-identity/baseQuat arm, two-angle QuaternionBlend (align then lerp) when the pair differs, non-delta baseRot add, BONE_FIXED_ALIGNMENT QuaternionAlign; no slerp, no STUDIO_ANIM_QUATERNION flag exists	ExtractAnimValue; AngleQuaternion/QuaternionBlend (mathlib_base); PORTED BoneSetupExtract.cs (CalcBoneQuaternion core)	extract
+CalcBoneQuaternion(mstudiobone_t overload)	yes (nm W inline)	476-489	linearbones-vs-bone dispatch into the core	CalcBoneQuaternion(core); PORTED BoneSetupExtract.cs (CalcBoneQuaternion bone overload)	extract
+CalcBonePosition(5-arg core)	yes (nm T)	498-550	bone offset from base pos*posscale + anim, 2-value interp or fast 1-value, non-delta absolute	ExtractAnimValue; PORTED BoneSetupExtract.cs (CalcBonePosition core)	extract
+CalcBonePosition(mstudiobone_t overload)	yes (nm W inline)	553-566	linearbones-vs-bone dispatch	CalcBonePosition(core); PORTED BoneSetupExtract.cs (CalcBonePosition bone overload)	extract
+SetupSingleBoneMatrix	no (CLIENT_DLL ours 638)	571-611	single-frame world matrix for one bone	CalcBoneQuaternion; CalcBonePosition; BuildBoneChain; PORTED BoneSetupAdj.cs (SetupSingleBoneMatrix)	blend
+CalcDecompressedAnimation	yes (file-static, in .text)	613-659	16-bit quantized pos+rot decode (/32766 spellings), QuaternionBlend-when-changed arm	ExtractAnimValue; AngleQuaternion/QuaternionBlend (mathlib_base); PORTED BoneSetupExtract.cs (CalcDecompressedAnimation)	extract
+CalcLocalHierarchyAnimation	yes (file-static)	664-768	pose-param-weighted (SimpleSpline) local-hierarchy override; rebuild parent chain, concat local anim	SimpleSpline; CalcDecompressedAnimation; BuildBoneChain; AngleMatrix/ConcatTransforms; PORTED BoneSetupExtract.cs (CalcLocalHierarchyAnimation)	extract
+CalcZeroframeData	yes (file-static)	776-877	apply animdesc zero-frame blob over pos[]/q[] honoring boneMask+weight	pZeroFrameData (hdr-read); PORTED BoneSetupExtract.cs (CalcZeroframeData)	extract
+CalcVirtualAnimation	yes (file-static)	884-1023	virtual-model arm: per-group boneMap over group hdr, zeroframe + local-hierarchy pass	CalcZeroframeData; CalcBoneQuaternion; CalcBonePosition; CalcLocalHierarchyAnimation; g_MatrixPool; PORTED BoneSetupExtract.cs (CalcVirtualAnimation)	extract
+CalcAnimation	yes (file-static)	1031-1159	one animation over pos[]/q[]: virtual dispatch, per-bone anim walk, zeroframe fallback, hierarchy tail	CalcVirtualAnimation; CalcBoneQuaternion; CalcBonePosition; CalcZeroframeData; CalcLocalHierarchyAnimation; g_MatrixPool; PORTED BoneSetupExtract.cs (CalcAnimation)	extract
+QuaternionSM	yes (nm T)	1165-1176	qt = normalize(s*p * q)	mathlib Quaternion ops; PORTED BoneSetupMath.cs (QuaternionSM)	blend
+QuaternionSMSIMD	no (not compiled x86)	1179-1186	fltx4 arm; ALLOW_SIMD_QUATERNION_MATH is _X360-only (ssequaternion.h:42)	DEAD not compiled x86 (ALLOW_SIMD_QUATERNION_MATH is _X360-only, ssequaternion.h:42)	blend
+QuaternionMA	yes (nm T)	1192-1203	qt = normalize(p * (s*q))	mathlib; PORTED BoneSetupMath.cs (QuaternionMA)	blend
+QuaternionMASIMD	no (not compiled x86)	1206-1213	fltx4 arm	DEAD not compiled x86 (ALLOW_SIMD_QUATERNION_MATH is _X360-only, ssequaternion.h:42)	blend
+QuaternionAccumulate	yes (nm T)	1220-1229	qt = p + s*align(p,q), no renorm	QuaternionAlign; PORTED BoneSetupMath.cs (QuaternionAccumulate)	blend
+QuaternionAccumulateSIMD	no (not compiled x86)	1232-1239	fltx4 arm	DEAD not compiled x86 (ALLOW_SIMD_QUATERNION_MATH is _X360-only, ssequaternion.h:42)	blend
+WorldSpaceSlerp	yes (nm T)	1249-1365	slerp a subtree in world space: build both chains, MatrixAngles at bone, slerp, restore local	BuildBoneChain; g_MatrixPool; MatrixAngles/QuaternionMatrix; PORTED BoneSetupBlend.cs (WorldSpaceSlerp)	blend
+SlerpBones	yes (nm T)	1373-1522	blend q1/pos1<-q2/pos2 at s; WORLDSPACE flag routes to WorldSpaceSlerp; per-bone weight + virtualgroup map; BONE_FIXED_ALIGNMENT selects NoAlign	WorldSpaceSlerp; QuaternionMA; QuaternionSM; PORTED BoneSetupBlend.cs (SlerpBones)	blend
+BlendBones	yes (nm T)	1531-1627	weight-gated lerp of q (QuaternionBlend/NoAlign) and pos; s<=0 no-op, s>=1 copy arms	QuaternionBlend; pSeqGroup/seqdesc.weight (hdr-read); PORTED BoneSetupBlend.cs (BlendBones)	blend
+ScaleBones	yes (nm T)	1632-1677	fade delta bones to identity/zero by s - the pos-scaled-not-offset trap	weight/seqgroup (hdr-read); PORTED BoneSetupBlend.cs (ScaleBones)	blend
+Studio_LocalPoseParameter	yes (nm T)	1682-1768	resolve seq pose-key iLocalIndex -> (setting,index), clamped+looped per poseparamdesc	hdr-read poseparams (from studio.cpp); PORTED BoneSetupHdrRead.cs (LocalPoseParameter)	hdr-read
+Studio_CalcBoneToBoneTransform	no (CLIENT_DLL ours 1841)	1770-1777	bone-to-bone matrix via parent-chain rebuild	BuildBoneChain; PORTED BoneSetupAdj.cs (CalcBoneToBoneTransform)	blend
+InitPose	yes (nm T)	1782-1812	seed pos/q from linearbones or bone records for boneMask	hdr-read bone accessors; PORTED BoneSetupBlend.cs (InitPose)	blend
+PoseIsAllZeros	yes (nm W inline)	1816-1830	true when a cell's weight array is all-zero	weight() (hdr-read); PORTED BoneSetupBlend.cs (PoseIsAllZeros)	blend
+Calc3WayBlendIndices	yes (nm T)	1840-1915	diagonal-split 3-way weights, even/odd triangulation bit	weight() (hdr-read); PORTED BoneSetupBlend.cs (Calc3WayBlendIndices)	blend
+CalcPoseSingle	yes (nm T)	1922-2116	s0/s1 cell table over up to 4 CalcAnimation + Blend/ScaleBones; REALTIME flTime*CPS frac, CYCLEPOSE shared param, loop wrap vs clamp; anim_3wayblend gate (stock ConVar 1838 -> managed convar service)	Studio_LocalPoseParameter; Studio_CPS; PoseIsAllZeros; Calc3WayBlendIndices; CalcAnimation; BlendBones; ScaleBones; g_VectorPool/g_QaternionPool; PORTED BoneSetupPose.cs (CalcPoseSingle)	blend
+CBoneSetup::AddSequenceLayers	yes (nm T)	2125-2211	non-LOCAL autolayers: cycle or shared-pose index, peak/tail ramp +SimpleSpline, XFADE/NOBLEND weights, recurse AccumulatePose	SimpleSpline; CBoneSetup::AccumulatePose; iRelativeSeq/pAutolayer (hdr-read); PORTED BoneSetupPose.cs (AddSequenceLayers)	blend
+CBoneSetup::AddLocalLayers	yes (nm T)	2218-2286	LOCAL autolayers, cycle-ramped; same weight arms	SimpleSpline; CBoneSetup::AccumulatePose; PORTED BoneSetupPose.cs (AddLocalLayers)	blend
+IBoneSetup::IBoneSetup	yes (nm T)	2291-2295	owns a CBoneSetup	CBoneSetup ctor; RULED no separate IBoneSetup type — CBoneSetup's own surface (BoneSetupPose.cs header ruling)	blend
+IBoneSetup::~IBoneSetup	yes (nm T)	2297-2303	deletes the CBoneSetup	RULED dtor deletes m_pBoneSetup — GC owns the managed CBoneSetup (no type to destruct)	blend
+IBoneSetup::InitPose	yes (nm T)	2305-2308	thunk to global InitPose	InitPose; PORTED BoneSetupPose.cs (InitPose; thunk folded per the batch ruling)	blend
+IBoneSetup::AccumulatePose	yes (nm T)	2310-2313	thunk	CBoneSetup::AccumulatePose; PORTED BoneSetupPose.cs (AccumulatePose; thunk folded)	blend
+IBoneSetup::CalcAutoplaySequences	yes (nm T)	2315-2318	thunk	CBoneSetup::CalcAutoplaySequences; PORTED BoneSetupPose.cs (CalcAutoplaySequences; thunk folded)	blend
+IBoneSetup::CalcBoneAdj	no (CLIENT_DLL ours 2396)	2322-2326	thunk to CalcBoneAdj	CalcBoneAdj; PORTED BoneSetupAdj.cs (CalcBoneAdj; thunk folded into the member)	blend
+IBoneSetup::GetStudioHdr	no (CLIENT_DLL ours 2403)	2328-2331	exposes hdr pointer	PORTED BoneSetupPose.cs (StudioHdr property; thunk folded)	hdr-read
+CBoneSetup::CBoneSetup	yes (nm T)	2333-2339	stores hdr/boneMask/poseParameter/poseDebugger	PORTED BoneSetupPose.cs (CBoneSetup ctor)	blend
+CalcPose	no (#if 0 dead stock 2341-2387)	2341-2387	unreferenced whole-pose driver; do not port	CalcPoseSingle; AddSequenceLayers; CIKContext; DEAD stock body is #if 0 (oracle 2341-2387): nothing to port	n/a
+CBoneSetup::AccumulatePose	yes (nm T)	2393-2457	InitPose scratch or in-place, CalcPoseSingle, AddLocalLayers, SlerpBones at flWeight, AddDependencies, AddSequenceLayers, SolveSequenceLocks; pose-debugger arm client-only	InitPose; CalcPoseSingle; AddLocalLayers; SlerpBones; CIKContext::AddDependencies; AddSequenceLayers; CIKContext::SolveSequenceLocks; PORTED BoneSetupPose.cs (AccumulatePose)	blend
+CBoneSetup::InitPose	no (declared stock:35, never defined)	35	declaration only; nm has IBoneSetup::InitPose only	DEAD declared (stock bone_setup.h:35), never defined: nothing to port	n/a
+CalcBoneAdj	no (CLIENT_DLL ours 2539)	2462-2518	controller[] -> bone pos/q adjustments (XR/YR/ZR/X/Y/Z) via QuaternionSM	QuaternionSM; pBoneController (hdr-read); PORTED BoneSetupAdj.cs (CalcBoneAdj)	blend
+CalcBoneDerivatives	no (CLIENT_DLL ours 2600)	2521-2541	velocity/angVel from prev/current matrices over dt (ragdoll feed)	mathlib; PORTED BoneSetupAdj.cs (CalcBoneDerivatives)	blend
+CalcBoneVelocityFromDerivative	no (CLIENT_DLL ours 2624)	2543-2557	push stored derivative through new orientation	PORTED BoneSetupAdj.cs (CalcBoneVelocityFromDerivative)	blend
+CIKSolver::findD	yes (nm T)	2587-2589	d = (c + (a*a - b*b)/c)/2	PORTED BoneSetupIk.cs (CIKSolver.FindD)	ik
+CIKSolver::findE	yes (nm T)	2590	E = sqrt(a*a - d*d)	PORTED BoneSetupIk.cs (CIKSolver.FindE)	ik
+CIKSolver::solve	yes (nm T)	2600-2611	two-bone closed form; accept iff d > (radius-B) && d < A	findD; findE; defineM; rot; normalize; PORTED BoneSetupIk.cs (CIKSolver.Solve)	ik
+CIKSolver::defineM	yes (nm T)	2619-2645	orthonormal basis from thigh->knee frame; handedness matters	cross; normalize; length; PORTED BoneSetupIk.cs (CIKSolver.DefineM)	ik
+CIKSolver::dot	yes (nm T)	2649	dot3	PORTED BoneSetupIk.cs (CIKSolver.Dot)	ik
+CIKSolver::length	yes (nm T)	2651	len3	dot; PORTED BoneSetupIk.cs (CIKSolver.Length)	ik
+CIKSolver::normalize	yes (nm T)	2653-2657	divide by length; stock guards zero NOT — the zero vector divides by zero (NaN), port keeps that	length; PORTED BoneSetupIk.cs (CIKSolver.Normalize)	ik
+CIKSolver::cross	yes (nm T)	2659-2663	cross3 into buffer	PORTED BoneSetupIk.cs (CIKSolver.Cross)	ik
+CIKSolver::rot	yes (nm T)	2665-2668	out = M*v	PORTED BoneSetupIk.cs (CIKSolver.Rot)	ik
+debugLine	yes (inline no-op; drawLine arm #if 0)	2677 (2680-2683 dead)	empty debug-draw stub	DEAD inline no-op (drawLine arm #if 0): nothing to port	n/a
+Studio_SolveIK(mstudioikchain_t*)	yes (nm T)	2690-2705	chain entry: kneeDir set -> 6-arg, else 4-arg	Studio_SolveIK overloads; pLink (hdr-read); PORTED BoneSetupIk.cs (StudioSolveIk ikchain overload)	ik
+Studio_SolveIK(thigh,knee,foot,foot)	yes (nm T)	2714-2747	two-bone reach; derives kneeDir from current knee then delegates	Studio_SolveIK(6-arg); MatrixPosition; PORTED BoneSetupIk.cs (StudioSolveIk 4-arg)	ik
+Studio_AlignIKMatrix	yes (nm T)	2752-2771	slam matrix columns to aim at a vector	CrossProduct/VectorNormalize (mathlib); PORTED BoneSetupIk.cs (StudioAlignIkMatrix)	ik
+Studio_SolveIK(thigh,knee,foot,foot,kneePos,kneeDir)	yes (nm T)	2778-2871	exact two-bone: CIKSolver::solve in thigh frame, min/max length clamps, rebuild via Align + Concat	CIKSolver::solve; Studio_AlignIKMatrix; ConcatTransforms; PORTED BoneSetupIk.cs (StudioSolveIk 6-arg)	ik
+Studio_IKRuleWeight(mstudioikrule_t,anim)	yes (nm T)	2875-2912	start/peak/tail/end ramp, wrap when end>1, iFrame/fraq from anim, SimpleSpline	SimpleSpline; PORTED BoneSetupIk.cs (StudioIkRuleWeight anim overload)	ik
+Studio_IKRuleWeight(ikcontextikrule_t)	yes (nm T)	2915-2940	same ramp on cycle only	PORTED BoneSetupIk.cs (StudioIkRuleWeight ikcontext overload)	ik
+Studio_IKShouldLatch	yes (nm T)	2947-2963	1 inside peak..tail arms else 0	PORTED BoneSetupIk.cs (StudioIkShouldLatch)	ik
+Studio_IKTail	yes (nm T)	2970-2986	release-ramp value for a cycle	PORTED BoneSetupIk.cs (StudioIkTail)	ik
+Studio_IKAnimationError	yes (nm T)	2994-3035	sample error keyframe pair (QuaternionBlend + pos lerp) or compressed error; <0.0001 veto except IK_GROUND	Studio_IKRuleWeight; CalcDecompressedAnimation; pError/pCompressedError (hdr-read); PORTED BoneSetupIk.cs (StudioIkAnimationError)	ik
+Studio_IKSequenceError	yes (nm T)	3043-3209	per-rule accumulate over 4 anim weights: latch/release bookkeeping, pos/QuaternionAccumulate, attachment lookup	Studio_SeqAnims; Studio_IKRuleWeight; Studio_IKTail; Studio_IKShouldLatch; Studio_IKAnimationError; QuaternionAccumulate; PORTED BoneSetupIk.cs (StudioIkSequenceError)	ik
+CIKContext::CIKContext	yes (nm T)	3216-3223	target capacity, framecounter -1	PORTED CikContext.cs (CIKContext ctor)	ik
+CIKContext::~CIKContext	yes (nm W)	(inline in class, bone_setup.h 271+)	default dtor	RULED trivial dtor — GC owns the arrays (CikContext.cs header)	ik
+CIKContext::Init	yes (nm T)	3226-3251	bind hdr, angles->m_rootxform, boneMask; size m_ikChainRule to numikchains, 12-slot zeroed targets	AngleMatrix; ClearTargets; PORTED CikContext.cs (Init)	ik
+CIKContext::AddDependencies	yes (nm T)	3253-3335	per ik rule: boneMask gate, fold IKSequenceError results into m_ikChainRule with flWeight	Studio_SeqAnims; Studio_IKSequenceError; PORTED CikContext.cs (AddDependencies)	ik
+CIKContext::AddAutoplayLocks	yes (nm T)	3343-3391	append autoplay-lock rules, eval bone via BuildBoneChain, seed pos/q/knee bookkeeping	CIKContext::BuildBoneChain; g_MatrixPool; GetNumIKAutoplayLocks (hdr-read); PORTED CikContext.cs (AddAutoplayLocks)	ik
+CIKContext::AddSequenceLocks	yes (nm T)	3398-3447	sequence-lock twin over seqdesc locks	CIKContext::BuildBoneChain; g_MatrixPool; PORTED CikContext.cs (AddSequenceLocks)	ik
+CIKContext::BuildBoneChain	yes (nm T)	3452-3461	member thunk, asserts boneMask, forwards m_rootxform	BuildBoneChain(core); PORTED CikContext.cs (BuildBoneChain)	ik
+BuildBoneChain(7-arg core)	yes (nm T)	3468-3495	recursive parent-first concat, boneComputed memo, root = rootxform	BuildBoneChain(core); ConcatTransforms; PORTED BoneSetupExtract.cs (BuildBoneChain 7-arg core)	ik
+SolveBone	yes (nm T)	3501-3518	back out local pos/q from world matrices (invert parent, concat, MatrixAngles); no parent==-1 arm — callers pass chain bones only	MatrixInvert/ConcatTransforms/MatrixAngles; PORTED BoneSetupIk.cs (SolveBone)	ik
+CIKTarget::SetOwner	no (CLIENT_DLL ours 3607)	3525-3530	store owner entindex + abs origin/angles	PORTED CikContext.cs (CikTarget.SetOwner)	ik
+CIKTarget::ClearOwner	no (CLIENT_DLL)	3536-3539	owner = -1	PORTED CikContext.cs (CikTarget.ClearOwner)	ik
+CIKTarget::GetOwner	no (CLIENT_DLL)	3545-3548	read owner	PORTED CikContext.cs (CikTarget.GetOwner)	ik
+CIKTarget::UpdateOwner	no (CLIENT_DLL)	3554-3568	shift est/latched pos by owner motion delta	PORTED CikContext.cs (CikTarget.UpdateOwner; AngleIMatrix twin NA-10)	ik
+CIKTarget::SetPos	no (CLIENT_DLL)	3575-3578	est.pos = pos	PORTED CikContext.cs (CikTarget.SetPos)	ik
+CIKTarget::SetAngles	no (CLIENT_DLL)	3584-3587	AngleQuaternion into est.q, clears onWorld	PORTED CikContext.cs (CikTarget.SetAngles)	ik
+CIKTarget::SetQuaternion	no (CLIENT_DLL)	3593-3596	est.q = q	PORTED CikContext.cs (CikTarget.SetQuaternion)	ik
+CIKTarget::SetNormal	no (CLIENT_DLL)	3603-3618	tilt foot quaternion to surface slope	PORTED CikContext.cs (CikTarget.SetNormal)	ik
+CIKTarget::SetPosWithNormalOffset	no (CLIENT_DLL)	3626-3645	estimate disc-centre from edge pos+normal	PORTED CikContext.cs (CikTarget.SetPosWithNormalOffset)	ik
+CIKTarget::SetOnWorld	no (CLIENT_DLL)	3651-3654	est.onWorld flag	PORTED CikContext.cs (CikTarget.SetOnWorld)	ik
+CIKTarget::IsActive	no (CLIENT_DLL)	3660-3663	est.flWeight > 0	PORTED CikContext.cs (CikTarget.IsActive)	ik
+CIKTarget::IKFailed	no (CLIENT_DLL)	3669-3678	zero latched deltas, clear flags	PORTED CikContext.cs (CikTarget.IKFailed)	ik
+CIKTarget::MoveReferenceFrame	no (CLIENT_DLL)	3685-3691	translate est by delta	PORTED CikContext.cs (CikTarget.MoveReferenceFrame)	ik
+CIKContext::ClearTargets	yes (nm T)	3699-3706	zero all CIKTarget slots	PORTED CikContext.cs (ClearTargets)	ik
+CIKContext::UpdateTargets	no (CLIENT_DLL ours 3821)	3713-3942	run boneToWorld over active targets: error/latch/release bookkeeping, ramp decay	CIKContext::BuildBoneChain; QuaternionSM; QuaternionMA; PORTED CikContext.cs (UpdateTargets; trace fields NA-08, client cull NA-02)	ik
+CIKContext::AutoIKRelease	no (CLIENT_DLL ours 4059)	3949-4042	dt-based release ramp converted to ikcontext rules with SimpleSpline weight	SimpleSpline; PORTED CikContext.cs (AutoIKRelease; DevWarning arms NA-04)	ik
+CIKContext::SolveDependencies	no (CLIENT_DLL ours 4158)	4046-4264	blend chain results toward rule targets, Studio_SolveIK arm, SolveBone x3 unwind; #if 0 tail	BuildBoneChain (member); Studio_SolveIK; SolveBone; QuaternionSlerp; PORTED CikContext.cs (SolveDependencies; chainResult[32] hardening NA-05, WORLD/UNLATCH NA-06)	ik
+CIKContext::SolveAutoplayLocks	yes (nm T)	4272-4287	per autoplay lock: SolveLock	CIKContext::SolveLock; g_MatrixPool; numchains (hdr-read); PORTED CikContext.cs (SolveAutoplayLocks over SolveLockParams)	ik
+CIKContext::SolveSequenceLocks	yes (nm T)	4295-4311	sequence-lock twin	CIKContext::SolveLock; g_MatrixPool; PORTED CikContext.cs (SolveSequenceLocks over SolveLockParams)	ik
+CIKContext::AddAllLocks	no (CLIENT_DLL ours 4432)	4318-4365	autoplay+sequence locks together	CIKContext::BuildBoneChain; PORTED CikContext.cs (AddAllLocks)	ik
+CIKContext::SolveAllLocks	no (CLIENT_DLL ours 4489)	4373-4394	solve every lock slot	CIKContext::SolveLock; PORTED CikContext.cs (SolveAllLocks; g_MatrixPool rent NA-03)	ik
+CIKContext::SolveLock	yes (nm T)	4402-4451	one lock: build chain, read foot p3, kneePos/kneeDir arm, slerp q at flLocalQWeight, SolveBone up chain	CIKContext::BuildBoneChain; Studio_SolveIK; SolveBone; QuaternionSlerp; PORTED CikContext.cs (SolveLock)	ik
+CBoneSetup::CalcAutoplaySequences	yes (nm T)	4457-4493	autoplay list: cycle = flRealTime*CPS frac, AccumulatePose between Add/SolveAutoplayLocks	Studio_CPS; CBoneSetup::AccumulatePose; CIKContext::AddAutoplayLocks; CIKContext::SolveAutoplayLocks; GetAutoplayList (hdr-read); PORTED BoneSetupPose.cs (CalcAutoplaySequences)	blend
+Studio_BuildMatrices	yes (nm T)	4499-4577	world matrices: chain list (iBone -1 all reversed else parent walk), AngleMatrix + flScale offset/axis arms, QuaternionMatrix + Concat parent walk	boneParent/boneFlags (hdr-read); mathlib; PORTED BoneSetupBlend.cs (StudioBuildMatrices)	blend
+DoAxisInterpBone	no (CLIENT_DLL ours 4704)	4586-4692	procedural axis-interp bone	PORTED BoneSetupProcedural.cs (DoAxisInterpBone; NP-07 premise, NP-08 guard)	blend
+DoQuatInterpBone	no (CLIENT_DLL ours 4820)	4700-4770	procedural quat-interp bone	PORTED BoneSetupProcedural.cs (DoQuatInterpBone; NP-09 UB arms)	blend
+DoAimAtBone	no (CLIENT_DLL ours 4907)	4785-4925	procedural aim bone, aim_constraint gate (stock 4777)	PORTED BoneSetupProcedural.cs (DoAimAtBone; NP-06 aimConstraintEnabled)	blend
+CalcProceduralBone	no (CLIENT_DLL ours 5056)	4932-4965	dispatch procedural bone by type	DoAxisInterpBone; DoQuatInterpBone; DoAimAtBone; PORTED BoneSetupProcedural.cs (CalcProceduralBone; NP-02 flat dispatch)	blend
+FindController	no (CLIENT_DLL ours 5101)	4975-4985	first bonecontroller matching iController	PORTED BoneSetupProcedural.cs (FindController)	blend
+Studio_SetController	no (CLIENT_DLL ours 5122)	4994-5044	clamp+loop controller value by type	hdr-read; PORTED BoneSetupQuery.cs (SetController; NQ-07 private FindController)	hdr-read
+Studio_GetController	no (CLIENT_DLL ours 5182)	5052-5062	inverse of Set	hdr-read; PORTED BoneSetupQuery.cs (GetController)	hdr-read
+Studio_CalcDefaultPoseParameters	yes (nm T)	5070-5091	init poseParameter[] from each param's default/start	hdr-read poseparams; PORTED BoneSetupHdrRead.cs (CalcDefaultPoseParameters)	hdr-read
+Studio_SetPoseParameter	no (CLIENT_DLL ours 5231)	5099-5126	clamp/loop a pose param to ctlValue	hdr-read; PORTED BoneSetupQuery.cs (SetPoseParameter)	hdr-read
+Studio_GetPoseParameter	no (CLIENT_DLL ours 5268)	5134-5144	ctlValue back to param space	hdr-read; PORTED BoneSetupQuery.cs (GetPoseParameter)	hdr-read
+ClipRayToHitbox	yes (file-static)	5153-5253	slab test per axis (entry/exit t, sign arms), start-inside arm, plane normal from ray dir, hitpoint compute, tr via pbox surfaceProp	pHitbox (hdr-read); mathlib; injected surface props; PORTED BoneSetupTrace.cs (ClipRayToHitbox)	trace
+SweepBoxToStudio	yes (nm T)	5262-5314	box-sweep arm: scaled/rotated ray+matrices, ClipRayToHitbox per hitbox with content/solid gates, nearest keep	ClipRayToHitbox; MatrixInvert/Scale; PORTED BoneSetupTrace.cs (SweepBoxToStudio)	trace
+TraceToStudio	yes (nm T)	5320-5433	ray arm: delegates to Sweep when !IsRay; scale+origin offset, per-hitbox clip, nearest trace	ClipRayToHitbox; PORTED BoneSetupTrace.cs (TraceToStudio)	trace
+Studio_SeqAnims	yes (nm T)	5441-5471	resolve the 4 anim indices + bilinear weights	Studio_LocalPoseParameter; iRelativeAnim (hdr-read); PORTED BoneSetupHdrRead.cs (SeqAnims)	hdr-read
+Studio_MaxFrame	no (CLIENT_DLL ours 5610)	5477-5500	max frame across weighted anims	hdr-read; PORTED BoneSetupQuery.cs (MaxFrame)	hdr-read
+Studio_FPS	no (CLIENT_DLL ours 5642)	5507-5525	weighted fps	hdr-read; PORTED BoneSetupQuery.cs (Fps)	hdr-read
+Studio_CPS	yes (nm T)	5532-5549	weighted sum anim fps/numframes over Studio_SeqAnims (0 -> Duration 0)	Studio_SeqAnims; PORTED BoneSetupHdrRead.cs (Cps)	hdr-read
+Studio_Duration	yes (nm T)	5555-5564	1/CPS, 0 when CPS 0	Studio_CPS; PORTED BoneSetupHdrRead.cs (Duration)	hdr-read
+Studio_AnimPosition	no (CLIENT_DLL ours 5710)	5573-5624	sample movement frames at cycle	pAnimMovement (hdr-read); PORTED BoneSetupQuery.cs (AnimPosition; NQ-08/NQ-10)	hdr-read
+Studio_AnimVelocity	no (CLIENT_DLL ours 5773)	5634-5662	movement delta per frame / dt	hdr-read; PORTED BoneSetupQuery.cs (AnimVelocity)	hdr-read
+Studio_AnimMovement	no (CLIENT_DLL ours 5812)	5671-5689	accumulate movement between cycles	hdr-read; PORTED BoneSetupQuery.cs (AnimMovement; NQ-02/NQ-11 yaw rotate)	hdr-read
+Studio_FindAnimDistance	no (CLIENT_DLL ours 5839)	5696-5729	cycle where accumulated movement passes flDist	hdr-read; PORTED BoneSetupQuery.cs (FindAnimDistance; NQ-12 SolveQuadratic)	hdr-read
+Studio_SeqMovement	no (CLIENT_DLL ours 5883)	5738-5776	weighted across the 4 anims	Studio_SeqAnims; Studio_AnimMovement; PORTED BoneSetupQuery.cs (SeqMovement; NQ-09)	hdr-read
+Studio_SeqVelocity	no (CLIENT_DLL ours 5932)	5785-5811	weighted anim velocity	Studio_SeqAnims; Studio_AnimVelocity; PORTED BoneSetupQuery.cs (SeqVelocity)	hdr-read
+Studio_FindSeqDistance	no (CLIENT_DLL ours 5966)	5817-5836	weighted anim distance	Studio_SeqAnims; Studio_FindAnimDistance; PORTED BoneSetupQuery.cs (FindSeqDistance)	hdr-read
+Studio_FindAttachment	yes (nm T)	5842-5857	case-insensitive attachment lookup (ss::StrICmp -> C# OrdinalIgnoreCase)	hdr-read attachments; PORTED BoneSetupHdrRead.cs (FindAttachment)	hdr-read
+Studio_FindRandomAttachment	no (CLIENT_DLL ours 6014)	5863-5885	RandomInt over matching attachments	attachment scan; PORTED BoneSetupQuery.cs (FindRandomAttachment; randomIndex injected NQ-01, StrStr NQ-03)	hdr-read
+Studio_BoneIndexByName	no (CLIENT_DLL ours 6044)	5891-5920	case-insensitive bone name -> index	hdr-read; PORTED BoneSetupQuery.cs (BoneIndexByName; linear scan NQ-05, ASCII fold NQ-04)	hdr-read
+Studio_GetDefaultSurfaceProps	no (CLIENT_DLL ours 6077)	5922-5925	hdr surfaceProp (physics answer); server consumers must go via hdr-read injected data	hdr-read; PORTED BoneSetupHdrRead.cs (GetDefaultSurfaceProps)	hdr-read
+Studio_GetMass	no (CLIENT_DLL ours 6084)	5927-5930	hdr mass	hdr-read; PORTED BoneSetupHdrRead.cs (GetMass)	hdr-read
+Studio_GetKeyValueText	no (CLIENT_DLL ours 6095)	5936-5946	activity-localized sequence text	hdr-read; PORTED BoneSetupHdrRead.cs (GetKeyValueText)	hdr-read
+Studio_PrefetchSequence	no (CLIENT_DLL ours 6109)	5948-5970	async load kick	hdr-read; PORTED BoneSetupHdrRead.cs (PrefetchSequence)	hdr-read
+Studio_RunBoneFlexDrivers	no (CLIENT_DLL ours 6139)	5976-6048	project bone-local offset onto flexdriver axis	hdr-read flexdrivers; PORTED BoneSetupHdrRead.cs (RunBoneFlexDrivers)	hdr-read
+CBoneCache::CreateResource	no (CLIENT_DLL ours 115)	82-108	build cached-bone index maps from boneMask, alloc block	PORTED BoneCacheStore.cs (BoneCache.CreateResource)	client-only
+CBoneCache (12 other members: EstimatedSize/DestroyResource/ctor/Init/UpdateBones/GetCachedBone/ReadCachedBones/ReadCachedBonePointers/IsValid/BoneArray/StudioToCached/CachedToStudio)	no (CLIENT_DLL ours 144-277)	110-213	space cache of world matrices keyed by hdr+mask, TTL IsValid	PORTED BoneCacheStore.cs (all 12; BoneArray/StudioToCached/CachedToStudio become arrays, NC-04)	client-only
+g_StudioBoneCache + Studio_Get/Create/Destroy/InvalidateBoneCache	no (CLIENT_DLL ours 280-343)	216-244	CDataManager singleton + handle API; static state - any client port must inject (SS0001)	PORTED BoneCacheStore.cs (BoneCacheStore injected service; entity-side Invalidate half NC-02, ruling requested)	client-only
+BuildBoneChain(convenience overload)	no (CLIENT_DLL ours 317)	250-261	temp CBoneBitList wrapper over the core; server arm keeps only the 7-arg	BuildBoneChain(core); PORTED BoneCacheStore.cs (BoneSetupChain.BuildBoneChain, NC-10 promotion pending)	ik
+CBoneSetupMemoryPool<T>::Alloc (x3 instantiations)	yes (nm T/W; 12 emissions incl ctor/dtor)	53-62	free-list Pop, fallback new T[MAXSTUDIOBONES] + alignment check	CTSListBase; PORTED BoneSetupBlend.cs (Rent; NB-05 divergence: per-call rent, no static pool)	blend
+CBoneSetupMemoryPool<T>::Free (x3)	yes (nm T x3)	64-67	Push block back; managed port rents/stackallocs instead	CTSListBase; PORTED BoneSetupBlend.cs (Rent counterpart; NB-05: GC frees the rent)	blend
+SimpleSpline	yes (nm T; defined stock shared/vertexflags.cpp)	(vertexflags.cpp)	cubic 3t^2-2t^3 ease used by every weight ramp	PORTED BoneSetupMath.cs (SimpleSpline)	blend
+ss::StrICmp / ss::AsciiLower	yes (nm T; our ss_string.h)	(ours)	case-insensitive compare for attachment/bone names	PORTED BoneSetupHdrRead.cs (AsciiEquals/FoldAscii; NQ-04 file-local fold)	hdr-read

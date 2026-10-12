@@ -1,0 +1,43 @@
+# lane c5-particles: particle_collision.cpp's CParticleCollision recorded
+# (tools/probes/client/particle_collision.cpp.probe.diff applied): bullets into
+# the floor and a wall at three places, and two explosions, so impacts' flecks
+# and the explosion's debris set up collision planes and move against them.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd use weapon_smg1
+sleep 1
+cmd setpos_exact -3843 2894 0
+cmd setang_exact 60 0 0
+sleep 1
+cmd +attack
+sleep 2
+cmd -attack
+sleep 3
+cmd setang_exact 10 90 0
+sleep 1
+cmd +attack
+sleep 2
+cmd -attack
+sleep 3
+cmd setpos_exact -3667 3439 12
+cmd setang_exact 30 180 0
+sleep 1
+cmd +attack
+sleep 2
+cmd -attack
+sleep 3
+cmd ent_create env_explosion targetname c5boom iMagnitude 100
+cmd ent_fire c5boom explode
+sleep 4
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 45 0 0
+sleep 1
+cmd +attack
+sleep 2
+cmd -attack
+sleep 3
+cmd ent_create env_explosion targetname c5boom2 iMagnitude 200
+cmd ent_fire c5boom2 explode
+sleep 4
+quit

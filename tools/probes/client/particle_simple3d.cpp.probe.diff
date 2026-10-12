@@ -1,0 +1,61 @@
+--- a/src/game/client/particle_simple3d.cpp	2026-10-05 12:08:23.963171457 -0700
++++ b/src/game/client/particle_simple3d.cpp	2026-10-05 12:08:34.029076870 -0700
+@@ -9,6 +9,9 @@
+ #include "particle_simple3d.h"
+ #include "view.h"
+ 
++// lane c5-particles probe: CSimple3DEmitter's steps and draws (simple3d-stock.tsv).
++#include "fx_probe_log.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -36,12 +39,17 @@
+ 	while ( pParticle )
+ 	{
+ 		const float	timeDelta = pIterator->GetTimeDelta();
++		FxProbeLog( "s3s\t%p\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)this, (void *)pParticle,
++		            timeDelta, pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x,
++		            pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_vAngles.x, pParticle->m_vAngles.y,
++		            pParticle->m_vAngles.z, pParticle->m_flAngSpeed, pParticle->m_flLifeRemaining );
+ 
+ 		//Should this particle die?
+ 		pParticle->m_flLifeRemaining -= timeDelta;
+ 
+ 		if ( pParticle->IsDead() )
+ 		{
++			FxProbeLog( "s3so\t%p\tremoved", (void *)pParticle );
+ 			pIterator->RemoveParticle( pParticle );
+ 		}
+ 		else
+@@ -82,6 +90,10 @@
+ 					pParticle->m_vAngles.y = 0.5*pParticle->m_vAngles.z;
+ 				}
+ 			}
++			FxProbeLog( "s3so\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)pParticle,
++			            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y,
++			            pParticle->m_vecVelocity.z, pParticle->m_vAngles.x, pParticle->m_vAngles.y, pParticle->m_vAngles.z,
++			            pParticle->m_flAngSpeed, pParticle->m_flLifeRemaining, trace.fraction );
+ 		}
+ 
+ 		pParticle = (Particle3D*)pIterator->GetNext();
+@@ -118,6 +130,19 @@
+ 			color[2] = pParticle->m_uchBackColor[2] / 255.0f;
+ 		}
+ 
++		{
++			Vector skN, skW, skH;
++			AngleVectors( pParticle->m_vAngles, &skN, &skW, &skH );
++			const Vector vo = CurrentViewOrigin(), vf = CurrentViewForward();
++			FxProbeLog( "s3d\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
++			            "\t|\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++			            (void *)pParticle, vo.x, vo.y, vo.z, vf.x, vf.y, vf.z, pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++			            pParticle->m_vAngles.x, pParticle->m_vAngles.y, pParticle->m_vAngles.z, pParticle->m_flLifeRemaining,
++			            pParticle->m_uchFrontColor[0], pParticle->m_uchFrontColor[1], pParticle->m_uchFrontColor[2],
++			            pParticle->m_uchBackColor[0], pParticle->m_uchBackColor[1], pParticle->m_uchBackColor[2], pParticle->m_uchSize,
++			            sortKey, color.x, color.y, color.z, pParticle->GetFadeFraction(), skN.x, skN.y, skN.z, skW.x, skW.y, skW.z,
++			            skH.x, skH.y, skH.z );
++		}
+ 		//Render it in world space
+ 		RenderParticle_ColorSizeAngles(
+ 			pIterator->GetParticleDraw(),

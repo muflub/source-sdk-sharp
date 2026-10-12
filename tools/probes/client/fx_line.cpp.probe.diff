@@ -1,0 +1,27 @@
+--- a/src/game/client/fx_line.cpp
++++ b/src/game/client/fx_line.cpp
+@@ -14,6 +14,8 @@
+ #include "view.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_mesh.h"
++#define CMeshBuilder CProbeMeshBuilder
+ #include "tier0/memdbgon.h"
+ 
+ /*
+@@ -28,6 +30,7 @@
+ 	m_FXData = data;
+ 	
+ 	m_FXData.m_flLifeTime = 0.0f;
++	FxProbeLog( "fxe-new Line %p %s mat=%s s=%.9g %.9g %.9g e=%.9g %.9g %.9g sv=%.9g %.9g %.9g ev=%.9g %.9g %.9g a=%.9g %.9g sc=%.9g %.9g die=%.9g", (void *)this, name, data.m_pMaterial ? data.m_pMaterial->GetName() : "(null)", data.m_vecStart.x, data.m_vecStart.y, data.m_vecStart.z, data.m_vecEnd.x, data.m_vecEnd.y, data.m_vecEnd.z, data.m_vecStartVelocity.x, data.m_vecStartVelocity.y, data.m_vecStartVelocity.z, data.m_vecEndVelocity.x, data.m_vecEndVelocity.y, data.m_vecEndVelocity.z, data.m_flStartAlpha, data.m_flEndAlpha, data.m_flStartScale, data.m_flEndScale, data.m_flDieTime );
+ 	
+ 	if ( m_FXData.m_pMaterial != NULL )
+ 	{
+@@ -47,6 +50,7 @@
+ void CFXLine::Draw( double frametime )
+ {
+ 	// Update the effect
++	FxProbeLog( "fxe-draw %p ft=%.17g view=%.9g %.9g %.9g", (void *)this, frametime, CurrentViewOrigin().x, CurrentViewOrigin().y, CurrentViewOrigin().z );
+ 	Update( frametime );
+ 
+ 	Vector lineDir, viewDir;

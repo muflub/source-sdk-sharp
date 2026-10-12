@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# Build and run ONE native gtest, by name:
+#
+#   farm/<config>/src/cpptest_one client_orphan_evictions_test
+#
+# WHY THIS EXISTS. The whole suite is the right thing before a commit and the
+# wrong thing in a mutation loop: a harness that mutates the tree, rebuilds and
+# reads one verdict should not pay for every other binary on each iteration.
+#
+# Since Phase 6b this is `buildcpptests NAME`: the flags and sources are the
+# ones src/test/native/CMakeLists.txt gives the target, so they cannot drift
+# from the suite's, and the run is `ctest -R '^NAME$'`. An unknown name is a
+# refusal (exit 1). The binary lands where the suite puts it,
+# bin/<config>/cpptest/<name>, so a harness can then re-run it directly (from
+# farm/<config>/src, the working directory the tests are written against).
+# That matters for the source-SCANNING tests: they read the tree at run time,
+# so a mutation to the tree needs no rebuild at all.
+#
+name="${1:?a test name, e.g. client_orphan_evictions_test}"
+if [ $# -gt 1 ]; then
+    echo "cpptest_one: takes only a test name since Phase 6b; the sources of" >&2
+    echo "$name are the ones src/test/native/CMakeLists.txt names." >&2
+    exit 2
+fi
+exec "$(dirname -- "$0")/buildcpptests" "$name"

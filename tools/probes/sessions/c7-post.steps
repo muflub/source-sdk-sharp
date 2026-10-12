@@ -1,0 +1,131 @@
+# plan_client_novalve C7 step 3 ("freeze recordings", user ruling 2026-10-12): stock's
+# post-processing, recorded before viewrender.cpp and view.cpp leave, for the
+# post-process port's ops and its managed proxies. One stock frame each
+# (cs_cl_render_plan 0) with a post-processing setting changed, on ss_sandbox
+# (HDR_TYPE_INTEGER: tonemap, bloom) and on dm_lockdown (no HDR lighting:
+# HDR_TYPE_NONE). Each frame carries every convar and the engine's answers
+# (`cvar`/`env` lines) and every screen-space draw's bound material vars
+# (`q material.var`). Every build carries the recorder: run with --no-probe-build.
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-post.steps --no-probe-build
+# then copy OUT/*.txt to src/test/client/Fixtures/post-stock/ (README there).
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+sleep 3
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-default.txt
+wait recorded \d+ lines to .*post-sandbox-default\.txt 20
+cmd mat_debug_postprocessing_effects 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-debug-quadrants.txt
+wait recorded \d+ lines to .*post-sandbox-debug-quadrants\.txt 20
+cmd mat_debug_postprocessing_effects 0
+cmd mat_debug_postprocessing_effects 2
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-debug-centre.txt
+wait recorded \d+ lines to .*post-sandbox-debug-centre\.txt 20
+cmd mat_debug_postprocessing_effects 0
+cmd mat_debug_process_halfscreen 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-halfscreen.txt
+wait recorded \d+ lines to .*post-sandbox-halfscreen\.txt 20
+cmd mat_debug_process_halfscreen 0
+cmd mat_postprocessing_combine 0
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-nocombine.txt
+wait recorded \d+ lines to .*post-sandbox-nocombine\.txt 20
+cmd mat_postprocessing_combine 1
+cmd mat_software_aa_strength 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-softwareaa.txt
+wait recorded \d+ lines to .*post-sandbox-softwareaa\.txt 20
+cmd mat_software_aa_strength 0
+cmd mat_software_aa_strength 1
+cmd mat_software_aa_quality 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-softwareaa-quality.txt
+wait recorded \d+ lines to .*post-sandbox-softwareaa-quality\.txt 20
+cmd mat_software_aa_strength 0
+cmd mat_software_aa_quality 0
+cmd mat_show_histogram 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-histogram.txt
+wait recorded \d+ lines to .*post-sandbox-histogram\.txt 20
+cmd mat_show_histogram 0
+cmd mat_debug_bloom 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-debugbloom.txt
+wait recorded \d+ lines to .*post-sandbox-debugbloom\.txt 20
+cmd mat_debug_bloom 0
+cmd mat_disable_bloom 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-nobloom.txt
+wait recorded \d+ lines to .*post-sandbox-nobloom\.txt 20
+cmd mat_disable_bloom 0
+cmd mat_colorcorrection 0
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-nocolorcorrection.txt
+wait recorded \d+ lines to .*post-sandbox-nocolorcorrection\.txt 20
+cmd mat_colorcorrection 1
+cmd mat_force_tonemap_scale 1.5
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-forcetonemap.txt
+wait recorded \d+ lines to .*post-sandbox-forcetonemap\.txt 20
+cmd mat_force_tonemap_scale 0
+cmd localplayer_visionflags 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-pyro.txt
+wait recorded \d+ lines to .*post-sandbox-pyro\.txt 20
+cmd localplayer_visionflags 0
+cmd mat_fullbright 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-sandbox-fullbright.txt
+wait recorded \d+ lines to .*post-sandbox-fullbright\.txt 20
+cmd mat_fullbright 0
+cmd cl_mouselook 0
+cmd mat_motion_blur_enabled 1
+cmd +right
+sleep 1
+cmd cs_cl_render_trace {out}/post-sandbox-motionblur.txt
+wait recorded \d+ lines to .*post-sandbox-motionblur\.txt 20
+cmd -right
+cmd mat_motion_blur_enabled 0
+cmd cl_mouselook 1
+cmd map dm_lockdown
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+api teleport pos=-3843,2894,0 ang=25,90,0 settle=1
+sleep 2
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-lockdown-default.txt
+wait recorded \d+ lines to .*post-lockdown-default\.txt 20
+cmd mat_software_aa_strength 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-lockdown-softwareaa.txt
+wait recorded \d+ lines to .*post-lockdown-softwareaa\.txt 20
+cmd mat_software_aa_strength 0
+cmd mat_debug_postprocessing_effects 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-lockdown-debug-quadrants.txt
+wait recorded \d+ lines to .*post-lockdown-debug-quadrants\.txt 20
+cmd mat_debug_postprocessing_effects 0
+cmd mat_force_bloom 1
+sleep 1.5
+cmd cs_cl_render_trace {out}/post-lockdown-forcebloom.txt
+wait recorded \d+ lines to .*post-lockdown-forcebloom\.txt 20
+cmd mat_force_bloom 0
+cmd cl_mouselook 0
+cmd mat_motion_blur_enabled 1
+cmd +right
+sleep 1
+cmd cs_cl_render_trace {out}/post-lockdown-motionblur.txt
+wait recorded \d+ lines to .*post-lockdown-motionblur\.txt 20
+cmd -right
+cmd mat_motion_blur_enabled 0
+cmd cl_mouselook 1
+quit

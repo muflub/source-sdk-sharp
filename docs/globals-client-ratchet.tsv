@@ -1,0 +1,377 @@
+# docs/globals-client-ratchet.tsv -- ceilings on the CLIENT's static state.
+# The server's are docs/globals-ratchet.tsv; separate files because one ceiling
+# cannot cap two populations that differ by 4x, and because different lanes own
+# them. Read by src/sourcesharp/test/globals_client_ledger_test.cpp.
+#
+# metric	subject	ceiling
+#
+# The two membership ceilings are ZERO and fail on the first row in either
+# direction: a symbol with no ledger row, and a ledger row whose symbol is gone.
+# The rest are ratchets: lower them in the commit that lowers the number; raise
+# one only deliberately, saying what came back.
+#
+# client_globals_floor is a ceiling the server does not have. FLOOR means
+# "stays forever" and hides a row from the UNRULED count, so it is the one
+# disposition that can make this ledger look finished without anything having
+# moved. It may only rise with a named reason in tools/globals-census.
+#
+# Measured at 281d19e1b + this lane, debug graph, 253 objects:
+#   tools/globals-census gate --side client       link_level 1966, unruled 1682, FLOOR 33
+#   tools/globals-census summary --side client    objects_with_a_static_initialiser 243
+#   tools/globals-census reconcile --side client --config auto   UNATTRIBUTED 0
+#
+# Re-measured in Phase 6b (CMake + host clang 22, -gdwarf-4), debug, 253 objects:
+#   link_level 1803, unruled 1680, FLOOR 33, static initialisers 243,
+#   UNATTRIBUTED 0. 1966 -> 1803 is 02c78a6's s_EarlyMissHook (-1) and 162
+#   rows reseed pruned because clang does not emit the symbol: unreferenced
+#   internal-linkage constants (156 _ZL12sg_IndexSwap, one per TU;
+#   bloodcolors, commandercolors, And255Mask, s_flLastTimeUpdate x2, a
+#   DrawSplineSegs thresh) -- 161 of them ruled DEAD, 1 (bloodcolors) UNRULED.
+# 2026-10-11, lane c5-particles: the native dust volume's statics left (g_DustSystem, the two lists, five counters...;
+#   make globals-client-ledger pruned 10 rows): link_level 1482 -> 1472, unruled 1395 -> 1385.
+# 2026-10-11, lane c5-particles port-forward onto main 2eafcb77, re-measured at the rebased tip (make
+#   globals-client-ledger, then make globals-client-census): link_level 1525 -> 1482, unruled 1437 -> 1395
+#   (the lane's evicted TUs' statics left; the rain's TracerQuads batch buffers in
+#   shell_precipitation_client.cpp came, three rows), objects with a static initialiser 202 -> 190.
+# 2026-10-11, lane c5-particles rebased onto main 375193a4 (client-novalve): re-measured (make globals-client-ledger, +7/-11 rows;
+#   make globals-client-census gate PASS): link_level 1338 -> 1285, unruled 1259 -> 1208, static init 179 -> 150.
+# 2026-10-11, lane c5-particles: shell_te_particle_render.cpp's ramps left with it (4 rows pruned): link_level 1285 -> 1281,
+#   unruled 1208 -> 1204, static init 150 -> 149.
+# 2026-10-11, lane c5-particles rebased onto client-novalve b4eec29f: re-measured (make globals-client-ledger, then
+#   make globals-client-census gate PASS): link_level 1360 -> 1303, unruled 1281 -> 1226, static init 179 -> 152.
+# 2026-10-11, lane c5-particles: particles_ez.cpp's singletons and particles_simple.cpp's statics left (9 rows pruned):
+#   link_level 1303 -> 1294, unruled 1226 -> 1217, static init 152 -> 150.
+# 2026-10-11, lane c5-particles rebased onto client-novalve 7941b344: re-measured (gate PASS): link_level 1055 -> 1046,
+#   unruled 978 -> 969, static init 145 -> 143 (particles_ez.cpp's singletons and particles_simple.cpp's statics).
+#   2026-10-12, plan physics_bones_native_zero Phase 3: fork game/client/ragdoll.cpp left client.so -- its seven rows
+#   (gRagdolls, ragdoll_sleepaftertime, CRagdoll's datadesc statics and DrawWireframe's colour) left the ledger with it
+#   (make globals-client-ledger): link level 1043 -> 1036, unruled 966 -> 960; static initialisers 145 -> 143
+#   (measured by globals-census summary --side client: ragdoll.o's gRagdolls and ConVar, and one object since the
+#   last re-take). g_ShellClientDLL grew 1160 -> 1176 bytes with IManagedRagdollsClient's holder (a FLOOR row).
+#   2026-10-12, plan physics_bones_native_zero Phase 3: ragdoll_library.cpp shrank to two forwarders -- its seven rows
+#   (the id table, the tail resolver, the counters) left the ledger (make globals-client-ledger): link level 1036 -> 1029,
+#   unruled 960 -> 953.
+#   2026-10-12, plan physics_bones_native_zero Phase 3: bone_setup.cpp deleted -- its six rows left the ledger
+#   (make globals-client-ledger): link level 1029 -> 1023, unruled 953 -> 947.
+client_globals_symbols_with_no_row	docs/globals-client-ledger.tsv	0
+client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
+# 2026-09-28, plan_server_novalve.md P2.3: 1801 (-2: shell_movement.cpp's
+# movement-audit statics, the audit is C# on the server now).
+#   2026-09-28, plan_server_novalve.md P2.3b: link_level 1799 (-2: developer deleted, the
+#   engine owns it; hl2_episodic declared in C# on both sides).
+#   2026-09-29, C++11 workarounds removed: link_level 1798 (-1: the user-message hook
+#   table, a function-local static filled at first use, is a constexpr array now --
+#   constant data, not a global). Thirteen storage rows renamed function-local ->
+#   file-or-global (inline variables), same sizes and rulings.
+#   2026-09-29, the shim root on the client (plan_engineapi_vtables A4): 1799, RAISED +1:
+#   g_ShimRoot, which now owns the areas that leave EngineApi as by-value members (the
+#   console first). The client's struct trampolines reach the console through it until the
+#   client's own wave. ONE static for every area, not one per area.
+#   2026-09-30, P4 VProf deleted from bone_setup.cpp (shared): 1798 (-1: its _DEBUG
+#   SEQ_ANIMS counter).
+#   2026-09-30, P4 threads and clock onto std (shared files): 1800, RAISED +2: the same two
+#   as the server's -- collisionproperty's thread_local read-lock depth and ss_clock.h's
+#   start point.
+#   2026-10-01, P5 lane R: 1798 (-2: g_pVoiceGameMgrHelper, ruled DEAD on this side too, and
+#   g_VoiceGameMgrHelper, deleted from shared shell_shared.cpp).
+#   2026-10-01, server gc cull (shared TUs): 1797 (-1: AddMultiDamage's warningCount, deleted with the
+#   function, which neither DLL kept).
+#   2026-10-01, plan_client_vtables CC-last: 1796 (-1: g_EngineApi, the client's copy of the
+#   struct it filled; it passes none now). g_ShimRoot's row is 152 bytes, not 16: the client's
+#   shim root holds its CShimAreasClient by value since CB1.
+#   2026-10-01, plan_client_vtables CE-last: 1795 (-1: g_ManagedApi, the client's ManagedApi table; it is
+#   handed none now). g_ShellClientDLL's row is 1032 bytes, not 976: the client DLL object holds seven
+#   more managed-area pointers since CE2-CE9a.
+#   2026-10-01, -fno-exceptions (user ruling): 1794 (-1: DW.ref.__gxx_personality_v0, gone from the objects
+#   we compile; client.so still links Valve's prebuilt EH-enabled archives).
+#   2026-10-04, lane HC: 1793 (-1: CUserMessageRegister::s_pHead, with c_user_message_register.cpp; no
+#   compiled TU declared a USER_MESSAGE_REGISTER). It was a FLOOR row, so client_globals_floor falls to
+#   the measured 31 (it had stood at 33 with two rows of slack).
+#   2026-10-04, lane HC: 1791 (-2: `usermessages` and s_usermessage_helper, the CUserMessages object the
+#   HookMessage forwarder was reached through and its static-init allocator; both UNRULED, so
+#   client_globals_unruled falls to the measured 1670).
+# RAISED 2026-10-03, 1794 -> 1795: plan_map_load P1's hook back-pointer, shell_map_material_reload.cpp's
+#   s_pHooks (ruled FLOOR in the ledger: the engine calls the hooked slots with its own `this`).
+#   2026-10-04, landing merge (engineapi-vtables d85d71c4 with main 192fafc4): both sides' rows above, measured by
+#   `make globals-client-census` on the merged tree: 1792 (lane HC's 1791 + main's s_pHooks), floor 32 (31 +
+#   s_pHooks, a FLOOR row), unruled 1670 (s_pHooks is FLOOR, so lane HC's 1670 stands).
+#   2026-10-05, lane c1: 1780 (-12: vgui_video.cpp's and vgui_video_player.cpp's rows, with the files: the two
+#   playvideo command objects and ten panel-map statics; g_ShimRoot's row re-keyed at its measured 184 bytes
+#   by `make globals-client-ledger`, net 0). unruled 1670 -> 1663, static initialisers measured 239 (the ceiling had stood at 243)
+#   (tools/globals-census summary --side client, objects_with_a_static_initialiser).
+#   2026-10-05, lane c1: 1771 (-11 with vgui_fpspanel.cpp: g_FPSPanel, `fps`, three convars, six panel-map
+#   statics; +2 shell_client.cpp's no-op s_AbsentFPSPanel and `fps`). unruled 1663 -> 1654, static
+#   initialisers 239 -> 238.
+#   2026-10-05, lane c1: 1759 (-14 with vgui_netgraphpanel.cpp: g_NetGraphPanel, g_pNetGraphPanel,
+#   `netgraphpanel`, ten net_* convars, one function-local; +2 shell_client.cpp's no-op
+#   s_AbsentNetGraphPanel and `netgraphpanel`). unruled 1654 -> 1642, static initialisers 238 -> 237.
+#   2026-10-05, lane c1: 1719 (-41 with client_virtualreality.cpp: its InterfaceReg node for
+#   ClientVirtualReality001, 36 vr_* convars and commands (32 + 4), the object and function-locals; +1
+#   g_ClientVirtualReality, now shell_clientdll.cpp's no-op object). unruled 1642 -> 1602, static
+#   initialisers 237 -> 236.
+# RAISED 2026-10-05, 1719 -> 1721 (lane c1): client.so carries the allocation checker in debug
+#   (plan_server_novalve 3.6, taken for the client in plan_client_novalve C1): alloc_check.o's g_State
+#   and t_depth, ruled FLOOR as server.so's are, so client_globals_floor 32 -> 34 and unruled stays
+#   1602. Release carries neither.
+#   2026-10-05, lane c1: 1714 (-7 with posedebugger.cpp: g_pPoseDebugger, s_PoseDebuggerImpl,
+#   s_PoseDebuggerStub, posedebuggerstart/end, ui_posedebug_fade_in/out_time). unruled 1602 -> 1595,
+#   static initialisers 235 -> 234.
+#   2026-10-05, lane c1: 1711 (-3 with interpolatortypes.cpp: g_CurveNameMap, g_InterpolatorNameMap and a
+#   function-local, all DEAD rows, so unruled stays 1595). static initialisers 233 -> 232.
+#   2026-10-05, lane c1: 1708 (-4 with studio_stats.cpp: g_pStudioStatsEntity and three r_studio_stats*
+#   convars; +1 g_pStudioStatsEntity, now shell_client.cpp's NULL for viewrender.cpp). unruled 1595 ->
+#   1592, static initialisers 232 -> 231.
+#   2026-10-05, lane classmap: 1706 (-2 with classmap.cpp: GetClassMap's g_Classmap and Lookup's buffer,
+#   both DEAD rows, so unruled stays 1592). static initialisers 230 -> 229.
+#   2026-10-05, lane c2-beams: 1665 (c_rope.cpp left: its 44 rows -- the 20 rope convars, the
+#   subdivision and light tables, the VPROF tick counters, g_Ropes, s_RopeManager, the ShakeRopes
+#   registration -- went; shell_rope_render.cpp's executor added g_RopeExecutor and g_RopeMaterials).
+#   unruled 1592 -> 1551.
+#   2026-10-05, lane c2-beams: 1663 (rope_physics.cpp left: its two function-local statics,
+#   flEnergy and nIterations, are RopePhysics.cs constants). unruled 1551 -> 1549.
+#   2026-10-05, lane c2-beams: 1650 (view_beams.cpp, beamdraw.cpp and shell_beam_endpoint_client.cpp
+#   left: s_ViewRenderBeams, beamRandom, r_DrawBeams, g_BeamCreationAllowed, the HDR colour-scale caches
+#   and the two once-per-id sets went; shell_beam_render.cpp's executor added `beams`, its renderable
+#   pool, the wireframe material and one cache; shell_sprite_render.cpp's s_rDrawBeams reference).
+#   unruled 1549 -> 1536.
+#   2026-10-05, lane c2-beams: 1645 (spritemodel.cpp left: its scissor state and three material-var
+#   caches went; shell_sprite_leaf.cpp's CEngineSprite added its three caches). unruled stays 1536.
+#   2026-10-05, lane ui: 1644 (plan_client_ui U2: shell_hud.cpp's g_bInHudPaint and g_hHudFont went
+#   with the old HUD's draw slots; the UI's paint window, one POD g_UiPaint, came). unruled 1536 -> 1535.
+#   2026-10-05, lane c2-sims: 1707. decals.cpp left (decalsystem and g_DecalSystem now
+#   shell_decals_client.cpp's, -0); the steam jet's three (g_SteamJets, g_ManagedSteam,
+#   g_SteamJetSystem) left with shell_steamjet_sim/render.cpp and the executor's two
+#   (g_ManagedParticles, g_ManagedParticlesSystem) came in (-1). unruled 1592 -> 1591, static
+#   initialisers 230 -> 229.
+#   (the deltas above were taken before the rebase onto client-novalve f8967566; the rows are re-measured there)
+#   (the deltas above were taken before the rebase onto client-novalve 4890795c; the rows are re-measured there)
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+#   2026-10-05, lane c2-sims: 1703 (-4 with shell_smokestack_sim/render.cpp: g_SmokeStacks,
+#   g_ManagedStacks, g_SmokeStackSystem and a mat_reduceparticles ref). unruled 1591 -> 1587, static
+#   initialisers 229 -> 227.
+#   (the numbers in the note above were taken before the rebase onto client-novalve 4890795c; the rows are re-measured there)
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+#   2026-10-05, lane c2-sims: 1698 (-5 with shell_smokevolume_sim.cpp and shell_smoke_render.cpp:
+#   g_SmokeVolumes, g_ManagedSmoke, g_SmokeVolumeSystem, s_FadePlaneDirections and a mat_reduceparticles
+#   ref). unruled 1587 -> 1582, static initialisers 227 -> 225.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the trails: shell_trail_sim.cpp/.h and shell_trail_render.cpp left (g_ManagedTrails,
+#   g_TrailSystem, cl_sporeclipdistance and the dust trail's precache register went with them;
+#   RPGShotDown's register and cs_cl_effect_kinds moved): link_level 1696 -> 1691, unruled 1582 -> 1577,
+#   objects with a static initialiser 224 -> 222.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), point_worldtext: shell_worldtext_sim.cpp left (its five glyph tables, five font heads,
+#   g_mapfonts and the two rainbow convar refs are WorldTextLayout's data and convar reads now):
+#   link_level 1691 -> 1678, unruled 1577 -> 1564, objects with a static initialiser 222 -> 221.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the wind: s_windControllers, g_ManagedWinds and g_ManagedWindThink left with the simulation;
+#   s_vecPublishedWind and s_nPublishedWinds hold what managed publishes: link_level 1678 -> 1677, unruled 1564 -> 1563.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# C2 (lane c2-sims), the embers: g_Embers and shell_embers_render.cpp's registry went with C_Embers:
+#   link_level 1616 -> 1614, unruled 1507 -> 1505, objects with a static initialiser 214 -> 213.
+#   (the deltas above were taken before the rebase onto client-novalve 33d68d62; the rows are re-measured there)
+# 2026-10-05, C2 fx (the client-side effect list): the seven fork TUs that left client.so took four
+#   link-level rows with them (the ledger 1613 -> 1609 rows); the row moves with the ledger. Found by the
+#   rebase onto main ace0f66a: the lane's commit had moved the ledger and not this row.
+# 2026-10-05, C2 fx: evict fx_shelleject.cpp: the ledger holds 1606 link-level rows, the row said 1609; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: evict effect_dispatch_data.cpp's client half: the ledger holds 1602 link-level rows, the row said 1606; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: sprites draw from SpriteRenderer's plan: the ledger holds 1599 link-level rows, the row said 1602; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: env_spritetrail draws from the managed ring: the ledger holds 1598 link-level rows, the row said 1599; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: evict smoke_fog_overlay.cpp; the overlay's decision plays in C#: the ledger holds 1597 link-level rows, the row said 1598; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, U3: the menu layer in game: the ledger holds 1602 link-level rows, the row said 1597; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+#   2026-10-05, lane ui: 1618 (plan_client_ui U3: the menu root, CSourceSharpMenuRoot, is a vgui::Panel
+#   class, and DECLARE_CLASS_SIMPLE gives every one five function-local statics -- the message, key and
+#   animation maps' chain flags and map pointers -- as CSourceSharpHud's own five). unruled 1504 -> 1509.
+#   (re-measured on the rebase onto client-novalve 3432d25e, lane c2-fx's changes inside it: 1602, unruled 1494)
+# C2 (lane c2-sims), sound envelopes: soundenvelope.cpp left (g_Controller, its datamaps, allocators and convars;
+#   ShellClientSoundController()::s_Controller replaces g_Controller): link_level 1613 -> 1590, unruled 1504 -> 1482.
+#   (re-measured on the rebase onto client-novalve 63ebb9e8: link_level 1602 -> 1579, unruled 1494 -> 1472)
+# C2 (lane c2-sims), soundscapes: shell_soundscape_client.cpp left (g_SoundscapeSystem, its two convar pointers,
+#   the push counter, soundscape_fadetime's reference and five commands; ClientSoundscapeSystem()::s_System is the
+#   shell's): link_level 1579 -> 1570, unruled 1472 -> 1463. objects with a static initialiser 213 -> 203, measured
+#   here; the ceiling had not been re-taken since before the rebase onto client-novalve 63ebb9e8.
+# C2 (lane c2-sims), SoundParametersInternal.cpp left (its name tables and ToString buffers, all DEAD rows, and one
+#   UNRULED): link_level 1570 -> 1554, unruled 1463 -> 1462, objects with a static initialiser 203 -> 202.
+# 2026-10-05, C2 fx: the legacy tempents' carry-out (IShimFxClient emitters, sounds,: the ledger holds 1555 link-level rows, the row said 1554; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: evict c_te_legacytempents.cpp; shell_legacy_tempents_client.cpp: the ledger holds 1566 link-level rows, the row said 1555; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: drop the TempEntPoolPlaySound slot and the native PlaySound pat: the ledger holds 1567 link-level rows, the row said 1566; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: studio tempents hand the engine a pose (CShellRenderable::Setup: the ledger holds 1568 link-level rows, the row said 1567; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: the legacy tempents' carry-out: 1463 UNRULED rows against a ceiling of 1462; RAISED with the rows this commit
+#   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
+# 2026-10-05, C2 fx: evict c_te_legacytempents.cpp; shell_legacy_tempents_client.cpp: 1475 UNRULED rows against a ceiling of 1463; RAISED with the rows this commit
+#   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
+# 2026-10-05, C2 fx: drop the TempEntPoolPlaySound slot and the native PlaySound pat: 1476 UNRULED rows against a ceiling of 1475; RAISED with the rows this commit
+#   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
+# 2026-10-05, C2 fx: studio tempents hand the engine a pose (CShellRenderable::Setup: 1477 UNRULED rows against a ceiling of 1476; RAISED with the rows this commit
+#   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
+# C2 (lane c2-sims), the weather: shell_effects_sim.cpp's precipitation statics (g_Precipitations, s_pSnowFallMgr,
+#   g_PrecipHack, the splash globals and the convar refs) and shell_precipitation_render.cpp's registry left:
+#   link_level 1554 -> 1508, unruled 1462 -> 1420.
+#   (re-measured on the rebase onto client-novalve 491b5bf2, lane c2-fx's tempents inside it: 1521, unruled 1434)
+# 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: the ledger holds 1522 link-level rows, the row said 1521; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: the ledger holds 1524 link-level rows, the row said 1522; it moves with the
+#   ledger (found on the rebase onto main ace0f66a: the commit moved the ledger and not this row).
+# 2026-10-09, merged todo batch: 1525 (console_display_forward.o's g_Forwarder and
+#   g_pInstalledCvar join, +2 — the console-capture forwarder's statics, ruled FLOOR in both
+#   ledgers, the engine's display-func list holds the object and calls its vtable (the floor
+#   ceiling covers them below); SourceSharpTePool_Reserve(int)::s_bSaid leaves, -1, its export
+#   deleted with the tempent-pool retirement. The census leg is test-full only, so neither
+#   lane's filtered legs saw this).
+# 2026-10-05, lane c5-proxies (ported onto main 2eafcb77 2026-10-11), the material proxy trampoline:
+#   RAISED for one commit (the evicted TUs take it back down). Its 44 InterfaceReg nodes, one per proxy
+#   name, the handle table and the refusal-name interning; measured by make globals-client-ledger and
+#   globals_client_ledger_test at this commit: link_level 1525 -> 1571 (+46).
+# 2026-10-05, lane c5-proxies (ported onto main 2eafcb77 2026-10-11), the eviction: the 22 fork proxy TUs
+#   and shell_materialproxies.cpp left (their InterfaceReg nodes, PlayerLogo's bind counts, the alpha-proxy
+#   stats, the null stub's once-flag and the cs_cl_alphaproxy / cs_cl_playerlogo commands): link_level
+#   1571 -> 1522 (49 rows pruned by make globals-client-ledger), measured by make globals-client-census.
+# 2026-10-05, lane c5-proxies (ported onto main 2eafcb77): cl_mat_stub.cpp left, its native mat_stub ConVar
+#   with it (the convar is managed now): link_level 1522 -> 1521 (make globals-client-census).
+# 2026-10-11, lane ui rebased onto client-novalve 26adc6bf: 1338 (make globals-client-ledger: 1338 carried, 0 added, 0 pruned).
+# 2026-10-11, C7 step 1 (the render call recorder and the executor entry joined client.so): link 1338 -> 1344 (make globals-client-census).
+# 2026-10-11, rebased onto client-novalve c348afb31: link 1344 -> 1352 (make globals-client-census). +8 are lane camproto's shell_view_targets.cpp statics (g_ViewTargets, g_pCamera, s_RenderTargets, ...), which c348afb31 links but has no ledger rows for; the rows are added here, UNRULED as reconciled.
+# 2026-10-11, C7 step 1 (the render plan's executor beside stock's viewrender): link 1352 -> 1355 (make globals-client-census).
+# C7 item 7 (2026-10-11): one crossing per view for its custom draws -- the leaf-list capture, the batch ask, stored sprite plans carried out at DrawModel (render 36.3 -> 21.4 crossings/frame, live-gate render row): link 1355 -> 1360 (make globals-client-census).
+# 2026-10-11, lane c6-input, rebased onto client-novalve fef8d2443: in_main, in_camera, in_mouse, in_joystick, in_steamcontroller and cam_thirdperson left client.so for ClientInput (C#): link_level 1303 -> 1062, unruled 1226 -> 985 (make globals-client-ledger).
+# 2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443): c_rumble.cpp left client.so for ClientRumble: link_level 1062 -> 1059, unruled 985 -> 982 (make globals-client-ledger).
+# 2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443): movehelper_client.cpp left client.so; shell_prediction.cpp holds IMoveHelper's singleton: link_level 1059 -> 1055, unruled 982 -> 978 (make globals-client-ledger).
+# 2026-10-11, physics_bones_native_zero 1.2 (client half, the flip): the native bone probe and replay left
+#   shell_standalone_client.cpp (s_nClientBoneProbePass, the two commands): link_level 1046 -> 1043, unruled 969 -> 966
+#   (rows removed from the ledger by hand; gate PASS).
+# 2026-10-11, lane c6-input (rebased onto client-novalve 42cea5ea3): re-measured (make globals-client-ledger, then
+#   make globals-client-census gate PASS): link_level 1046 -> 1013, unruled 969 -> 959, floor 36 -> 13, static init
+#   143 -> 139: clientsteamcontext.cpp, secure_command_line.cpp, util_shared_library's Steam half, gametrace_client.cpp
+#   and shell_playerresource.cpp left client.so (the Steam accessors' function-local statics were the FLOOR rows).
+#   The ledger was reconciled at those commits and this ratchet was not; census-test caught it.
+# 2026-10-11, lane c6-input: interpolatedvar.cpp left client.so: link_level 1013 -> 1008, unruled 959 -> 957, objects_with_static_init 139 -> 138 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: recvproxy.cpp and dt_utlvector_recv.cpp left client.so: objects_with_static_init 138 -> 136 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 9aecaaf14: link_level 1008 -> 1000, unruled 957 -> 949, objects_with_static_init 138 -> 136 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 9aecaaf14: link_level 1000 -> 999, unruled 949 -> 948 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 9aecaaf14: link_level 999 -> 998, unruled 948 -> 947, objects_with_static_init 136 -> 135 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 9aecaaf14: link_level 998 -> 995, unruled 947 -> 945, objects_with_static_init 135 -> 134 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 9aecaaf14: link_level 995 -> 994, unruled 945 -> 944, objects_with_static_init 134 -> 133 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: IShimConVarsClient's watch table and decided values (shell_convars_client.cpp) joined client.so: link_level 994 -> 998, unruled 944 -> 948, objects_with_static_init 133 -> 134 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: cdll_bounded_cvars.cpp left for shell_bounded_cvars_client.cpp, its values C#'s: link_level 998 -> 990, unruled 948 -> 940 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: C9 tier3: the client's tier3 lookups are tier_connect.cpp's: link_level 990 -> 999, unruled 940 -> 949, objects_with_static_init 134 -> 135 (make globals-client-ledger, gate PASS).
+# C7 item 5 (2026-10-11): the observer's view -- ClientTraceHull, ClientEntityRenderPose and ViewOverrideSet (IShimViewClient), the chase filter, OverrideView carrying out managed's ObserverCamera (OverrideView +2 for the override call; s_ViewOverride the one new static): link 999 -> 1000 (make globals-client-census).
+# 2026-10-12, physics_bones_native_zero 2.6 (re-measured on main 466d9e12c): physics_shared.cpp left client.so for
+#   shell_physics_shared_client.cpp, the remnant fork physics.cpp links: SURFACEPROP_MANIFEST_FILE, physgametrace and
+#   g_PhysGameTrace (both DEAD) and the data-object table went; the pointers, g_SolidSetup, a 16-byte stage-less
+#   registration and the friction refusal came with the remnant: link_level 977 -> 975, unruled 928 (make
+#   globals-client-ledger; gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 0945d192a: link_level 1000 -> 1004, unruled 950 -> 954 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 0945d192a: objects_with_static_init 135 -> 136 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: particles.a's tier2 imports stubbed; tier2.a left the client link: objects_with_static_init 136 -> 137 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: tier0/vstdlib ports compiled into the client: link_level 1004 -> 1015, unruled 954 -> 965, objects_with_static_init 137 -> 138 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: our tier0/vstdlib call sites rerouted: objects_with_static_init 138 -> 139 (make globals-client-ledger, gate PASS).
+# C7 post-processing (2026-10-12), rebased onto client-novalve b771f62dd: viewpostprocess.cpp left client.so (its convars, static tables and proxy statics went; shell_viewpostprocess_client.cpp's eight globals and the proxy trampoline's two registrations joined): link 1015 -> 922, unruled 965 -> 872 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 0945d192a: link_level 922 -> 934, unruled 872 -> 884, objects_with_static_init 139 -> 141 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: tier1 strtools + bitbuf wired: objects_with_static_init 141 -> 143 (make globals-client-ledger, gate PASS).
+# C7 (2026-10-12), rebased onto client-novalve d4c33a7a4: view_effects.cpp left client.so: link 934 -> 920 (make globals-client-ledger, gate PASS).
+# plan_physics_bones_perf A2 (2026-10-12): the frame's skeleton batch -- g_BoneBatch (shell_standalone_client.cpp, 16 bytes:
+#   the frame the table was asked in and its address) holds what managed answered at the frame's first SetupBones ask, so
+#   the frame's other asks copy from it (client SetupBones crossings 25 -> 1 a frame): link_level 895 -> 896 (make
+#   globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: rebased onto client-novalve 0945d192a: objects_with_static_init 143 -> 142 (make globals-client-ledger, gate PASS).
+# RAISED 920 -> 921 (2026-10-12, C7 step 3 phase 3): shell_viewrender_client.cpp's CShellViewRender, the object `view` points at (constant-initialized; its TU's static init is the SDK headers' own); it is what replaces stock's g_DefaultViewRender at the eviction.
+# 2026-10-11, lane c6-input: rebased onto client-novalve 0945d192a: link_level 921 -> 925, unruled 871 -> 875 (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: re-measured after rebase onto a9ae7cb6e: link_level 900 -> 898, unruled 853 -> 852, objects_with_static_init 138 -> 137 (make globals-client-ledger, gate PASS).
+# RAISED 898 -> 900 (2026-10-12, lane particles-so, plan_particles_so.md, re-measured on client-novalve
+#   8237b7ced): particles_lib_client.cpp's two, the library's object (g_pLib) and g_pParticleSystemMgr, which
+#   particles.a defined while it linked into client.so (make globals-client-ledger, gate PASS).
+# 2026-10-12, lane c6-input: ilocalize.o left client.so (C9): objects_with_static_init 137 -> 138, keyvalues_client.o (vector2d.h's file-static vec2_origin/vec2_invalid, through ilocalize.h -> KeyValues.h; the K5 members join this object, so it is the one new initialiser) (make globals-client-ledger, gate PASS).
+# 2026-10-12, lane c6-input: interface.o and rangecheckedvar.o left client.so (C9): InterfaceReg::s_pInterfaceRegs is ours (FLOOR), g_bDoRangeChecks DEAD; both were tier1.a members' before, which this census does not count, so the state is the same and only its home moved: link_level 898 -> 900, floor 13 -> 14 (make globals-client-ledger, gate PASS).
+# 2026-10-12, lane c6-input: mempool.o left client.so (C9): objects_with_static_init 138 -> 139, tier1_client.o (mempool.h reaches vector2d.h's file-static vec2_origin/vec2_invalid, as every client TU with mathlib does; no state of ours) (make globals-client-ledger, gate PASS).
+# 2026-10-11, lane c6-input: re-measured after rebase onto 628901edd: link_level 900 -> 902 (make globals-client-ledger, gate PASS).
+# REBASED onto client-novalve 628901edd (2026-10-12, lane c6-input): the C9 notes above re-measured on particles-so's 900: link_level 900 -> 902 (s_pInterfaceRegs, g_bDoRangeChecks), floor 13 -> 14, static-init objects 137 -> 139 (keyvalues_client.o, tier1_client.o).
+# 2026-10-12, C7 step 3 eviction (viewrender.cpp, view.cpp and viewdebug.cpp left client.so), re-measured after the rebase onto client-novalve 832cd5a5e : link 902 -> 798 (make globals-client-census).
+# 2026-10-12, lane c6-input: proxyentity.cpp and bone_accessor.cpp left client.so (C9 survey), re-measured on main 1c6e4dbe7: objects_with_static_init 136 -> 134 (make globals-client-ledger, gate PASS).
+# 2026-10-12, lane c6-input: re-measured on main d2a8769fa (C9 survey evictions): objects_with_static_init 134 -> 133 (make globals-client-ledger, gate PASS).
+# 2026-10-12, lane c6-input: sequence_Transitioner.cpp left client.so (C9): objects_with_static_init 133 -> 132 (make globals-client-ledger, gate PASS).
+# 2026-10-12, lane c6-input: vgui_consolepanel.cpp left client.so (C9): link_level 799 -> 797, unruled 752 -> 751, objects_with_static_init 132 -> 131 (make globals-client-ledger, gate PASS).
+# 2026-10-12, lane c6-input: colorcorrectionmgr.cpp left client.so (C9): link_level 797 -> 796, unruled 751 -> 750, objects_with_static_init 131 -> 130 (make globals-client-ledger, gate PASS).
+# 2026-10-12, C7: shell_viewpostprocess_client.cpp, shell_vieweffects_client.cpp and COM_GetModDirectory went (their importers call managed or the names' writer): link 796 -> 792 (make globals-client-census).
+client_globals_link_level	src/game/client	792
+# 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
+#   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
+# 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
+#   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
+# 2026-10-05, lane c5-proxies (ported onto main 2eafcb77): the same rows, unruled 1437 -> 1482 (+45).
+# 2026-10-05, lane c5-proxies, the eviction: unruled 1482 -> 1433 (make globals-client-census).
+# 2026-10-05, lane c5-proxies, cl_mat_stub.cpp left: unruled 1433 -> 1432.
+# 2026-10-11, lane ui rebased onto client-novalve 26adc6bf: 1259 UNRULED rows (make globals-client-ledger).
+# 2026-10-11, C7 step 1 (the render call recorder and the executor entry joined client.so): unruled 1259 -> 1265 (make globals-client-census).
+# 2026-10-11, rebased onto client-novalve c348afb31: unruled 1265 -> 1273 (make globals-client-census). +8 are lane camproto's shell_view_targets.cpp statics (g_ViewTargets, g_pCamera, s_RenderTargets, ...), which c348afb31 links but has no ledger rows for; the rows are added here, UNRULED as reconciled.
+# 2026-10-11, C7 step 1 (the render plan's executor beside stock's viewrender): unruled 1273 -> 1276 (make globals-client-census).
+# C7 item 7 (2026-10-11): one crossing per view for its custom draws -- the leaf-list capture, the batch ask, stored sprite plans carried out at DrawModel (render 36.3 -> 21.4 crossings/frame, live-gate render row): unruled 1276 -> 1281 (make globals-client-census).
+# C7 item 5 (2026-10-11): the observer's view -- ClientTraceHull, ClientEntityRenderPose and ViewOverrideSet (IShimViewClient), the chase filter, OverrideView carrying out managed's ObserverCamera (OverrideView +2 for the override call; s_ViewOverride the one new static): unruled 949 -> 950 (make globals-client-census).
+# C7 post-processing (2026-10-12), rebased onto client-novalve b771f62dd: viewpostprocess.cpp left client.so (its convars, static tables and proxy statics went; shell_viewpostprocess_client.cpp's eight globals and the proxy trampoline's two registrations joined): link 1015 -> 922, unruled 965 -> 872 (make globals-client-ledger, gate PASS).
+# C7 (2026-10-12): view_effects.cpp left client.so (g_ViewEffects, its convars and callback statics went; the stand-in and its vieweffects joined): link 934 -> 920, unruled 884 -> 870 (make globals-client-ledger, gate PASS).
+# plan_physics_bones_perf A2 (2026-10-12): g_BoneBatch, the frame's skeleton-batch address (see the link-level row): unruled 848 -> 849 (make globals-client-census).
+# RAISED 870 -> 871 (2026-10-12, C7 step 3 phase 3): shell_viewrender_client.cpp's CShellViewRender, the object `view` points at (constant-initialized; its TU's static init is the SDK headers' own); it is what replaces stock's g_DefaultViewRender at the eviction.
+# RAISED 852 -> 854 (2026-10-12, lane particles-so): the same two rows, reconciled UNRULED like their neighbours.
+# 2026-10-12, C7 step 3 eviction (viewrender.cpp, view.cpp and viewdebug.cpp left client.so), re-measured after the rebase onto client-novalve 628901edd: unruled 854 -> 751 (make globals-client-census).
+# 2026-10-12, C7: shell_viewpostprocess_client.cpp, shell_vieweffects_client.cpp and COM_GetModDirectory went (their importers call managed or the names' writer): unruled 750 -> 746 (make globals-client-census).
+client_globals_unruled	docs/globals-client-ledger.tsv	746
+#   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
+#   ruled FLOOR against the engine display-func list).
+client_globals_floor	docs/globals-client-ledger.tsv	14
+#   2026-10-05, lane c1: glow_outline_effect.cpp left (no ledger row: its body sat under GLOWS_ENABLE);
+#   static initialisers 236 -> 235 (the header statics its empty object still initialised).
+#   2026-10-05, lane c1: bonelist.cpp left (no ledger row); static initialisers 234 -> 233.
+#   2026-10-05, lane c1: bone_merge_cache.cpp left (no ledger row); static initialisers 231 -> 230.
+#   2026-10-05, lane c2-beams: c_rope.cpp left; static initialisers 229 -> 228.
+#   2026-10-05, lane c2-beams: rope_physics.cpp, simple_physics.cpp and rope_helpers.cpp left;
+#   static initialisers 228 -> 225.
+#   2026-10-05, lane c2-beams: view_beams.cpp, beamdraw.cpp and shell_beam_endpoint_client.cpp
+#   left, shell_beam_render.cpp came; static initialisers 225 -> 223.
+#   2026-10-05, lane c2-beams: spritemodel.cpp left; static initialisers 223 -> 222.
+#   2026-10-05, squash order (C2 beams/ropes/sims committed before C2 fx): at this commit lane c2-fx's
+#   evictions have not landed, so 212 objects carry a static initialiser, measured by
+#   globals_client_ledger_test; the C2 fx commit takes it to 202.
+#   2026-10-05, C2 fx: its evictions take the static initialisers 212 -> 202 (globals_client_ledger_test).
+#   2026-10-05, lane c5-proxies (ported onto main 2eafcb77): shell_material_proxy_client.cpp came (its 44
+#   InterfaceReg nodes and handle table); static initialisers 202 -> 203.
+#   2026-10-05, lane c5-proxies, the eviction: the 22 fork proxy TUs and shell_materialproxies.cpp
+#   left; static initialisers 203 -> 180 (make globals-client-census, ported onto main 2eafcb77).
+#   2026-10-05, lane c5-proxies, cl_mat_stub.cpp left: static initialisers 180 -> 179.
+#   2026-10-11, lane c6-input, rebased onto client-novalve fef8d2443: in_main, in_camera, in_mouse, in_joystick, in_steamcontroller and cam_thirdperson left client.so for ClientInput (C#): static initialisers 152 -> 146.
+#   2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443): c_rumble.cpp left client.so for ClientRumble: static initialisers 146 -> 145.
+#   2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443), C6 cluster 9: shell_physics_client.cpp binds IShimPhysicsClient (environment, g_Collisions, surface audio, impact emit) and the declarations: static initialisers 145 -> 146. The new TU's only
+#   initialiser is mathlib's header statics (vec2_origin, vec2_invalid, vec4_origin, vec4_invalid), which every cbase.h TU carries.
+#   2026-10-11, lane c6-input (rebased onto client-novalve fef8d2443): movehelper_client.cpp left client.so; shell_prediction.cpp holds IMoveHelper's singleton: static initialisers 146 -> 145.
+#   2026-10-11, the client batch rebased onto main f9098c6a6: static initialisers 143 -> 144 RAISED. main's console
+#   batch (e21f6e0be, 22272363f) gave CConsoleDisplayForward a CConsoleLineBuffer member, so the client's g_Forwarder
+#   (console_display_forward.cpp) is now dynamically initialised (readelf: .init_array in its object). Measured by
+#   globals-census summary --side client at the rebased tip.
+#   2026-10-11, plan physics_bones_native_zero: static initialisers 144 -> 145 RAISED. studio_sequence_timing.cpp,
+#   split out of bone_setup.cpp so server.so could drop bone_setup.cpp, is a new client object; through studio.h it
+#   includes the fork's vector2d.h/vector4d.h, whose file-static vec2_origin/vec2_invalid/vec4_origin/vec4_invalid
+#   are dynamically initialised (readelf: .init_array; objdump: the four Vector2D/Vector4D ctors). Unavoidable
+#   without a fork edit; the server count is unchanged (bone_setup.o carried the same four). Both files leave
+#   client.so with the client bones flip.
+#   2026-10-12, plan physics_bones_native_zero Phase 3: static initialisers 143 -> 142 LOWERED. ragdoll_shared.cpp
+#   (deleted) carried the fork's vector2d.h/vector4d.h file statics through studio.h. Measured by make globals-client-census.
+#   2026-10-12, plan physics_bones_native_zero Phase 3: static initialisers 142 -> 141 LOWERED. bone_setup.cpp
+#   (deleted) carried the same vector2d.h/vector4d.h file statics. Measured by make globals-client-census.
+#   2026-10-12, plan physics_bones_native_zero: static initialisers 141 -> 140 LOWERED, reversing the 144 -> 145 raise.
+#   studio_sequence_timing.cpp (deleted: the model descriptor's durations are managed) carried the same
+#   vector2d.h/vector4d.h file statics. Measured by make globals-client-census (objects_with_a_static_initialiser 140);
+#   the ledger reconciled unchanged (link level 1023, unruled 947).
+#   2026-10-11, rebased onto main a4bc36394: 144 -> 140 measured (globals-census summary --side client): the lane's four
+#   left, main's g_Forwarder stays.
+# RAISED 142 -> 143 (2026-10-12, C7 step 3 phase 3): shell_viewrender_client.cpp's CShellViewRender, the object `view` points at (constant-initialized; its TU's static init is the SDK headers' own); it is what replaces stock's g_DefaultViewRender at the eviction.
+# 2026-10-12, C7: shell_viewpostprocess_client.cpp, shell_vieweffects_client.cpp and COM_GetModDirectory went (their importers call managed or the names' writer): static 130 -> 128 (make globals-client-census).
+client_globals_objects_with_static_init	src/game/client	128
+client_globals_reconcile_unattributed	src/game/client	0

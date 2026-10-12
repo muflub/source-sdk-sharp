@@ -1,0 +1,1565 @@
+frame	path=0 framecount=312 rect=0,0,1280,720
+env	realtime	5.1559782
+env	curtime	5.98097801
+env	frametime	0.0167299416
+env	hdrtype	0
+env	dxlevel	100
+env	hwdxlevel	100
+env	maphashdrlighting	0
+env	candosrgbreadfromrts	1
+env	fakesrgbwrite	0
+env	supportsps20	1
+env	tonemapscalelinear	1,1,1
+env	viewport	0,0,1280,720
+env	videomodeheight	720
+env	gamedirectory	/tmp/ssi-user/3557600/test
+env	customtonemap	0,0,0,0,0,0,0
+cvar	r_spewleaf	0
+cvar	sb_mod_suggested_maxplayers	0
+cvar	sb_filter_incompatible_versions	1
+cvar	sb_showblacklists	0
+cvar	sb_firstopentime	0
+cvar	sb_numtimesopened	0
+cvar	sb_quick_list_bit_field	-1
+cvar	cl_debugrumble	0
+cvar	cl_rumblescale	1.0
+cvar	cl_thirdperson	0
+cvar	c_orthoheight	100
+cvar	c_orthowidth	100
+cvar	c_mindistance	30
+cvar	c_maxdistance	200
+cvar	c_minyaw	-135
+cvar	c_maxyaw	135
+cvar	c_minpitch	0
+cvar	c_maxpitch	90
+cvar	cam_showangles	0
+cvar	cam_collision	1
+cvar	cam_idealdistup	0
+cvar	cam_idealdistright	0
+cvar	cam_idealdist	150
+cvar	cam_idealpitch	0
+cvar	cam_idealyaw	0
+cvar	cam_idealdelta	4.0
+cvar	cam_ideallag	4.0
+cvar	cam_snapto	0
+cvar	cam_command	0
+cvar	sc_look_sensitivity_scale	0.125
+cvar	sc_pitch_sensitivity_default	0.75
+cvar	sc_pitch_sensitivity	0.75
+cvar	sc_yaw_sensitivity_default	1.0
+cvar	sc_yaw_sensitivity	1.0
+cvar	joy_accel_filter	0.2
+cvar	joy_virtual_peg	0
+cvar	joy_pegged	0.75
+cvar	joy_xcontroller_cfg_loaded	0
+cvar	joy_movement_stick	0
+cvar	sv_stickysprint_default	0
+cvar	joy_movement_stick_default	0
+cvar	joy_inverty_default	0
+cvar	option_duck_method_default	1.0
+cvar	joy_pitchsensitivity_default	-1.0
+cvar	joy_yawsensitivity_default	-1.25
+cvar	joy_inverty	0
+cvar	joy_autosprint	0
+cvar	joy_wingmanwarrior_turnhack	0
+cvar	joy_display_input	0
+cvar	joy_diagonalpov	0
+cvar	joy_vehicle_turn_lowmap	0.4
+cvar	joy_vehicle_turn_lowend	0.7
+cvar	joy_autoaimdampen	0
+cvar	joy_autoaimdampenrange	0
+cvar	joy_accelmax	1.0
+cvar	joy_accelscale	0.6
+cvar	joy_lowmap	1
+cvar	joy_lowend	1
+cvar	joy_response_look	0
+cvar	joy_response_move_vehicle	6
+cvar	joy_response_move	1
+cvar	joy_yawsensitivity	-1
+cvar	joy_pitchsensitivity	1
+cvar	joy_sidesensitivity	1
+cvar	joy_forwardsensitivity	-1
+cvar	joy_yawthreshold	0.15
+cvar	joy_pitchthreshold	0.15
+cvar	joy_sidethreshold	0.15
+cvar	joy_forwardthreshold	0.15
+cvar	joy_advaxisv	0
+cvar	joy_advaxisu	3
+cvar	joy_advaxisr	1
+cvar	joy_advaxisz	0
+cvar	joy_advaxisy	2
+cvar	joy_advaxisx	4
+cvar	joy_advanced	1
+cvar	joy_name	joystick
+cvar	cl_mouseenable	1
+cvar	cl_mouselook	1
+cvar	m_limitedcapture_workaround	0
+cvar	m_rawinput_onetime_reset	1
+cvar	m_rawinput	1
+cvar	m_mouseaccel2	0
+cvar	m_mouseaccel1	0
+cvar	m_mousespeed	1
+cvar	m_customaccel_exponent	1
+cvar	m_customaccel_max	0
+cvar	m_customaccel_scale	0.04
+cvar	m_customaccel	0
+cvar	m_forward	1
+cvar	m_yaw	0.022
+cvar	m_side	0.8
+cvar	sensitivity	3
+cvar	m_filter	0
+cvar	m_pitch	0.022
+cvar	in_usekeyboardsampletime	1
+cvar	sv_noclipduringpause	0
+cvar	thirdperson_screenspace	0
+cvar	thirdperson_platformer	0
+cvar	joystick	0
+cvar	lookstrafe	0
+cvar	lookspring	0
+cvar	cl_backspeed	450
+cvar	cl_forwardspeed	450
+cvar	cl_upspeed	320
+cvar	cl_sidespeed	450
+cvar	cl_pitchup	89
+cvar	cl_pitchdown	89
+cvar	cl_pitchspeed	225
+cvar	cl_yawspeed	210
+cvar	cl_anglespeedkey	0.67
+cvar	mat_stub	0
+cvar	cs_cl_draw_batch	1
+cvar	cs_cl_render_plan	0
+cvar	rope_solid_maxalpha	1
+cvar	rope_solid_minalpha	0.0
+cvar	rope_solid_maxwidth	1
+cvar	rope_solid_minwidth	0.3
+cvar	rope_rendersolid	1
+cvar	rope_averagelight	1
+cvar	rope_wind_dist	1000
+cvar	r_ropes_holiday_lights_allowed	1
+cvar	r_rope_holiday_light_scale	0.055
+cvar	r_ropetranslucent	1
+cvar	r_queued_ropes	1
+cvar	r_drawropes	1
+cvar	rope_smooth_maxalpha	0.5
+cvar	rope_smooth_maxalphawidth	1.75
+cvar	rope_smooth_minalpha	0.2
+cvar	rope_smooth_minwidth	0.3
+cvar	rope_smooth_enlarge	1.4
+cvar	rope_smooth	1
+cvar	rope_collide	1
+cvar	rope_subdiv	2
+cvar	rope_shake	0
+cvar	cs_ui_scale	1
+cvar	cs_ui_autoreload	1
+cvar	cl_showtextmsg	1
+cvar	spec_scoreboard	0
+cvar	cl_spec_mode	1
+cvar	cl_showpausedimage	1
+cvar	hud_deathnotice_time	6
+cvar	cl_disablehtmlmotd	0
+cvar	hud_freezecamhide	0
+cvar	hud_takesshots	0
+cvar	cl_drawhud	1
+cvar	hud_saytext_time	12
+cvar	scr_centertime	2
+cvar	cs_cl_overview_every	2
+cvar	cs_cl_overview	0
+cvar	voice_clientdebug	0
+cvar	voice_modenable	1
+cvar	r_FadeProps	1
+cvar	scene_clientflex	1
+cvar	scene_print	0
+cvar	english	1
+cvar	cl_new_impact_effects	0
+cvar	r_drawflecks	1
+cvar	fx_drawimpactdust	1
+cvar	fx_drawimpactdebris	1
+cvar	pointworldtext_rainbowspeed_char	15.0f
+cvar	pointworldtext_rainbowspeed_time	100.0f
+cvar	cl_sporeclipdistance	512
+cvar	cl_spraydisable	0
+cvar	r_drawtracers_firstperson	1
+cvar	cl_fasttempentcollision	5
+cvar	func_break_max_pieces	15
+cvar	cl_ejectbrass	1
+cvar	muzzleflash_light	1
+cvar	fx_drawmetalspark	1
+cvar	r_drawtracers	1
+cvar	tracer_extra	1
+cvar	r_rainspeed	600.0f
+cvar	r_rainlength	0.1f
+cvar	r_rainwidth	0.5
+cvar	r_raindensity	0.001
+cvar	r_rainalphapow	0.8
+cvar	r_rainalpha	0.4
+cvar	r_SnowRayEnable	1
+cvar	r_SnowRayRadius	256
+cvar	r_SnowRayLength	8192.0f
+cvar	r_SnowEndSize	0
+cvar	r_SnowStartSize	1
+cvar	r_SnowColorBlue	200
+cvar	r_SnowColorGreen	175
+cvar	r_SnowColorRed	150
+cvar	r_SnowEndAlpha	255
+cvar	r_SnowStartAlpha	25
+cvar	r_SnowZoomRadius	512.0f
+cvar	r_SnowZoomOffset	384.0f
+cvar	r_SnowDebugBox	0
+cvar	r_SnowWindScale	0.0035
+cvar	r_SnowFallSpeed	1.5
+cvar	r_SnowPosScale	1
+cvar	r_SnowSpeedScale	1
+cvar	r_SnowOutsideRadius	1024
+cvar	r_SnowInsideRadius	256
+cvar	r_SnowParticles	500
+cvar	r_SnowEnable	1
+cvar	r_RainProfile	0
+cvar	r_DrawRain	1
+cvar	r_RainSimulate	1
+cvar	r_RainSideVel	130
+cvar	r_RainRadius	1500
+cvar	r_RainHack	0
+cvar	r_RainSplashPercentage	20
+cvar	cl_windspeed	0
+cvar	cl_winddir	0
+cvar	hud_drawhistory_time	5
+cvar	soundscape_fadetime	3.0
+cvar	vcollide_wireframe	0
+cvar	cl_interp_npcs	0.0
+cvar	r_lightmap_bicubic_set	1
+cvar	hud_fastswitch	1
+cvar	showparticlecounts	0
+cvar	cs_cl_player_predict	1
+cvar	cs_cl_build_stamp	1
+cvar	cs_cl_log_input	0
+cvar	r_pixelvisibility_partial	1
+cvar	r_dopixelvisibility	1
+cvar	r_drawpixelvisibility	0
+cvar	r_pixelvisibility_spew	0
+cvar	cl_drawleaf	-1
+cvar	r_PortalTestEnts	1
+cvar	cl_threaded_client_leaf_system	0
+cvar	r_flashlightdrawfrustum	0
+cvar	r_flashlightmodels	1
+cvar	r_flashlightdepthres	512
+cvar	r_threaded_client_shadow_manager	0
+cvar	r_shadowmaxrendered	32
+cvar	cl_detaildist	1200
+cvar	cl_detailfade	400
+cvar	cl_detail_multiplier	1
+cvar	cl_fastdetailsprites	1
+cvar	r_newflashlight	1
+cvar	r_swingflashlight	1
+cvar	r_flashlightlockposition	0
+cvar	r_flashlightfov	45.0
+cvar	r_flashlightoffsetx	10.0
+cvar	r_flashlightoffsety	-20.0
+cvar	r_flashlightoffsetz	24.0
+cvar	r_flashlightnear	4.0
+cvar	r_flashlightfar	750.0
+cvar	r_flashlightconstant	0.0
+cvar	r_flashlightlinear	100.0
+cvar	r_flashlightquadratic	0.0
+cvar	r_flashlightvisualizetrace	0
+cvar	r_flashlightambient	0.0
+cvar	r_flashlightshadowatten	0.35
+cvar	r_flashlightladderdist	40.0
+cvar	cl_ShowSunVectors	0
+cvar	cl_sun_decay_rate	0.05
+cvar	r_drawparticles	1
+cvar	particle_simulateoverflow	0
+cvar	cl_particleeffect_aabb_buffer	2
+cvar	cl_particle_show_bbox	0
+cvar	cl_particle_show_bbox_cost	0
+cvar	cl_particle_stats_trigger_count	0
+cvar	r_particle_sim_spike_threshold_ms	5
+cvar	r_threaded_particles	1
+cvar	cl_particle_retire_cost	0
+cvar	particle_sim_alt_cores	2
+cvar	r_particle_timescale	1.0
+cvar	cl_phys_timescale	1.0
+cvar	cl_ragdoll_collide	0
+cvar	ragdoll_sleepaftertime	5.0f
+cvar	zoom_sensitivity_ratio	1.0
+cvar	v_centermove	0.15
+cvar	v_centerspeed	500
+cvar	viewmodel_fov	54
+cvar	mat_viewportscale	1.0
+cvar	mat_viewportupscale	1
+cvar	cl_leveloverview	0
+cvar	r_mapextents	16384
+cvar	gl_clear	0
+cvar	gl_clear_randomcolor	0
+cvar	r_farz	-1
+cvar	cl_demoviewoverride	0
+cvar	cl_software_cursor	0
+cvar	shake_show	0
+cvar	cl_drawmaterial	
+cvar	mat_showwatertextures	0
+cvar	mat_wateroverlaysize	256
+cvar	mat_showframebuffertexture	0
+cvar	mat_framebuffercopyoverlaysize	256
+cvar	mat_showcamerarendertarget	0
+cvar	mat_camerarendertargetoverlaysize	256
+cvar	mat_hsv	0
+cvar	mat_yuv	0
+cvar	cl_overdraw_test	FCVAR_NEVER_AS_STRING
+cvar	mat_drawTexture	
+cvar	mat_drawTextureScale	1.0
+cvar	mat_showlightmappage	-1
+cvar	cl_drawshadowtexture	0
+cvar	cl_shadowtextureoverlaysize	256
+cvar	mat_bloomscale	1
+cvar	mat_bloomamount_rate	0.05f
+cvar	mat_debug_postprocessing_effects	0
+cvar	mat_debug_process_halfscreen	0
+cvar	mat_postprocessing_combine	1
+cvar	mat_debug_autoexposure	0
+cvar	mat_autoexposure_max	2
+cvar	mat_autoexposure_min	0.5
+cvar	mat_show_histogram	0
+cvar	mat_hdr_uncapexposure	0
+cvar	mat_force_bloom	0
+cvar	mat_disable_bloom	0
+cvar	mat_debug_bloom	0
+cvar	mat_non_hdr_bloom_scalefactor	.3
+cvar	mat_bloom_scalefactor_scalar	1.0
+cvar	mat_exposure_center_region_x	0.9
+cvar	mat_exposure_center_region_y	0.85
+cvar	mat_exposure_center_region_x_flashlight	0.9
+cvar	mat_exposure_center_region_y_flashlight	0.85
+cvar	mat_tonemap_percent_target	60.0
+cvar	mat_tonemap_percent_bright_pixels	2.0
+cvar	mat_tonemap_min_avglum	3.0
+cvar	mat_software_aa_strength	0.000000
+cvar	mat_software_aa_quality	0
+cvar	mat_software_aa_edge_threshold	1.0
+cvar	mat_software_aa_blur_one_pixel_lines	0.5
+cvar	mat_software_aa_tap_offset	1.0
+cvar	mat_software_aa_debug	0
+cvar	mat_software_aa_strength_vgui	1.000000
+cvar	mat_dump_rts	0
+cvar	pyro_vignette	2
+cvar	pyro_vignette_distortion	1
+cvar	pyro_min_intensity	0.1
+cvar	pyro_max_intensity	0.35
+cvar	pyro_min_rate	0.05
+cvar	pyro_max_rate	0.2
+cvar	pyro_min_side_length	0.3
+cvar	pyro_max_side_length	0.55
+cvar	pyro_min_side_width	0.65
+cvar	pyro_max_side_width	0.95
+cvar	r_queued_post_processing	0
+cvar	mat_postprocess_x	4
+cvar	mat_postprocess_y	1
+cvar	mat_motion_blur_forward_enabled	0
+cvar	mat_motion_blur_falling_min	10.0
+cvar	mat_motion_blur_falling_max	20.0
+cvar	mat_motion_blur_falling_intensity	1.0
+cvar	mat_motion_blur_rotation_intensity	1.0
+cvar	mat_motion_blur_strength	1.0
+cvar	cl_maxrenderable_dist	3000
+cvar	r_entityclips	1
+cvar	r_drawopaqueworld	1
+cvar	r_3dsky	1
+cvar	r_skybox	1
+cvar	r_drawviewmodel	1
+cvar	r_drawtranslucentrenderables	1
+cvar	r_drawopaquerenderables	1
+cvar	r_threaded_renderables	0
+cvar	r_DrawDetailProps	1
+cvar	r_worldlistcache	1
+cvar	fog_override	0
+cvar	fog_start	-1
+cvar	fog_end	-1
+cvar	fog_color	-1 -1 -1
+cvar	fog_enable	-1
+cvar	fog_startskybox	-1
+cvar	fog_endskybox	-1
+cvar	fog_maxdensityskybox	-1
+cvar	fog_colorskybox	-1 -1 -1
+cvar	fog_enableskybox	-1
+cvar	fog_maxdensity	-1
+cvar	fog_radial	-1
+cvar	fog_radialskybox	-1
+cvar	r_debugcheapwater	0
+cvar	r_WaterDrawRefraction	1
+cvar	r_WaterDrawReflection	1
+cvar	r_ForceWaterLeaf	1
+cvar	mat_drawwater	1
+cvar	mat_clipz	1
+cvar	r_screenfademinsize	0
+cvar	r_screenfademaxsize	0
+cvar	cl_drawmonitors	1
+cvar	r_eyewaterepsilon	10.0f
+cvar	r_drawopaquestaticpropslast	0
+cvar	localplayer_visionflags	0
+cvar	cl_show_num_particle_systems	0
+cvar	cl_team	default
+cvar	cl_class	default
+cvar	cl_predict	1.0
+cvar	cl_interp_ratio	2.0
+cvar	cl_interp	0.1
+cvar	r_drawsprites	1
+cvar	r_updaterefracttexture	1
+cvar	r_depthoverlay	0
+cvar	cl_sourcesharp_verbose	1
+cvar	r_sse_s	1
+cvar	cl_jiggle_bone_framerate_cutoff	20
+cvar	vgui_message_dialog_modal	1
+cvar	commentary_firstrun	0
+cvar	cs_sv_playershadow_trace	0
+cvar	sourcesharp_player_shadow	1
+cvar	cs_sv_nettable_profile	0
+cvar	nextlevel	
+cvar	mp_clan_ready_signal	ready
+cvar	mp_clan_readyrestart	0
+cvar	mp_waitingforplayers_cancel	0
+cvar	mp_waitingforplayers_restart	0
+cvar	mp_waitingforplayers_time	0
+cvar	mp_restartgame_immediate	0
+cvar	mp_restartgame	0
+cvar	tv_delaymapchange_protect	1
+cvar	tv_delaymapchange	0
+cvar	mp_mapcycle_empty_timeout_seconds	0
+cvar	mp_show_voice_icons	1
+cvar	mp_fraglimit	0
+cvar	mp_timelimit	0
+cvar	mp_chattime	10
+cvar	sv_skyname	sky_day02_09
+cvar	sv_stepsize	18
+cvar	sv_maxvelocity	3500
+cvar	sv_bounce	0
+cvar	sv_friction	4
+cvar	sv_rollangle	0
+cvar	sv_rollspeed	200
+cvar	sv_waterfriction	1
+cvar	sv_airaccelerate	10
+cvar	sv_accelerate	10
+cvar	sv_maxspeed	320
+cvar	sv_specnoclip	1
+cvar	sv_specspeed	3
+cvar	sv_specaccelerate	5
+cvar	sv_noclipspeed	5
+cvar	sv_noclipaccelerate	5
+cvar	sv_stopspeed	75
+cvar	sv_gravity	600
+cvar	sv_soundemitter_trace	0
+cvar	phys_pushscale	1
+cvar	r_AirboatViewZHeight	0.0
+cvar	r_AirboatViewDampenDamp	1.0
+cvar	r_AirboatViewDampenFreq	7.0
+cvar	r_JeepViewZHeight	10.0
+cvar	r_JeepViewDampenDamp	1.0
+cvar	r_JeepViewDampenFreq	7.0
+cvar	r_VehicleViewDampen	1
+cvar	sv_waterdist	12
+cvar	sv_wateraccelerate	10
+cvar	sv_footsteps	1
+cvar	sv_backspeed	0.6
+cvar	sv_motd_unload_on_dismissal	0
+cvar	motdfile_text	motd_text.txt
+cvar	motdfile	motd.txt
+cvar	sv_hudhint_sound	1
+cvar	mp_fadetoblack	0
+cvar	mp_friendlyfire	0
+cvar	mp_allowspectators	1.0
+cvar	mp_forcecamera	1
+cvar	cs_sv_spawn_protect	0
+cvar	cs_sv_fraglimit	0
+cvar	cs_sv_respawn_delay	-1
+cvar	suitvolume	0.25
+cvar	mp_allowNPCs	1
+cvar	mp_defaultteam	0
+cvar	mp_teamoverride	1
+cvar	mp_teamlist	hgrunt;scientist
+cvar	decalfrequency	10
+cvar	mp_autocrosshair	1
+cvar	mp_flashlight	0
+cvar	mp_footsteps	1
+cvar	mp_forcerespawn	0
+cvar	mp_weaponstay	0
+cvar	mp_falldamage	0
+cvar	mp_teamplay	0
+cvar	lservercfgfile	listenserver.cfg
+cvar	servercfgfile	server.cfg
+cvar	mapcyclefile	mapcycle.txt
+cvar	displaysoundlist	0
+cvar	cs_sv_movers_pushed	0
+cvar	cs_sv_movers_blocked	0
+cvar	sourcesharp_physworld_report	0
+cvar	phys_timescale	1
+cvar	phys_speeds	0
+cvar	hl2_episodic	0
+cvar	default_fov	90
+cvar	sourcesharp_movement_managed	1
+cvar	g_Language	0
+cvar	sourcesharp_solidity_before_physics	1
+cvar	sourcesharp_collision_rules_recheck	1
+cvar	sv_sourcesharp_verbose	1
+cvar	old_radiusdamage	0.0
+cvar	sv_allow_point_servercommand	always
+cvar	sv_vehicle_autoaim_scale	8
+cvar	ai_LOS_mode	0
+cvar	ai_post_frame_navigation	0
+cvar	ai_shot_stats	0
+cvar	sv_max_usercmd_move_magnitude	1000
+cvar	sv_strict_notarget	0
+cvar	cs_sv_friendly_fire	1
+cvar	cs_sv_banned_names	
+cvar	cs_sv_allow_flashlight	1
+cvar	cs_sv_spawn_health	100
+cvar	cs_sv_damage_scale	1.0
+cvar	cs_sv_armour_bonus	1.0
+cvar	cs_sv_armour_ratio	0.2
+cvar	cs_sv_verbose_joins	1
+cvar	cs_sv_greeting	hello
+cvar	aim_constraint	1
+cvar	anim_3wayblend	1
+cvar	vscript_perf_warning_spew_ms	1.5
+cvar	rcon_address	
+cvar	dbg_demofile	0
+cvar	r_visocclusion	0
+cvar	r_occlusion	1
+cvar	r_occludermincount	0
+cvar	r_occlusionspew	0
+cvar	r_occluderminarea	0
+cvar	r_occludeemaxarea	0
+cvar	mat_color_projection	0
+cvar	sv_namechange_cooldown_seconds	30.0
+cvar	sv_netspike_on_reliable_snapshot_overflow	0
+cvar	sv_netspike_sendtime_ms	0
+cvar	sv_netspike_output	1
+cvar	sv_no_name_changes	0
+cvar	sv_signon_dos_disconnect	20
+cvar	cl_resend	6
+cvar	name	player
+cvar	password	
+cvar	cl_interpolate	1.0
+cvar	cl_clanid	0
+cvar	cl_show_connectionless_packet_warnings	0
+cvar	cl_connectmethod	listenserver
+cvar	sv_unlockedchapters	1
+cvar	tv_nochat	0
+cvar	cl_localnetworkbackdoor	1
+cvar	cl_ignorepackets	0
+cvar	cl_playback_screenshots	0
+cvar	dev_loadtime_map_start	0.000000
+cvar	dev_loadtime_map_elapsed	2.243100
+cvar	jpeg_quality	90
+cvar	cl_screenshotname	
+cvar	cl_simulate_no_quicktime	0
+cvar	cl_language	english
+cvar	cl_cloud_settings	1
+cvar	demo_recordcommands	1
+cvar	demo_quitafterplayback	0
+cvar	demo_debug	0
+cvar	demo_interpolateview	1
+cvar	demo_pauseatservertick	0
+cvar	timedemo_runcount	0
+cvar	demo_interplimit	4000
+cvar	demo_avellimit	2000
+cvar	demo_fastforwardstartspeed	2
+cvar	demo_fastforwardfinalspeed	20
+cvar	demo_fastforwardramptime	5
+cvar	cl_showdemooverlay	0
+cvar	demo_legacy_rollback	1
+cvar	cl_entityreport	0
+cvar	cl_entityreport_sorted	0
+cvar	cl_flushentitypacket	0
+cvar	cl_debug_player_perf	0
+cvar	cl_showevents	0
+cvar	cl_showpluginmessages	0
+cvar	mat_texture_list	0
+cvar	mat_texture_list_all	FCVAR_NEVER_AS_STRING
+cvar	mat_texture_list_view	FCVAR_NEVER_AS_STRING
+cvar	mat_show_texture_memory_usage	FCVAR_NEVER_AS_STRING
+cvar	cl_timeout	30
+cvar	cl_logofile	materials/vgui/logos/spray.vtf
+cvar	cl_soundfile	sound/player/jingle.wav
+cvar	cl_allowdownload	1
+cvar	cl_downloadfilter	all
+cvar	cl_always_flush_models	0
+cvar	mat_colorcorrection	0
+cvar	mat_colcorrection_disableentities	0
+cvar	con_timestamp	0
+cvar	con_logfile	console.log
+cvar	con_trace	0
+cvar	con_notifytime	8
+cvar	contimes	8
+cvar	con_drawnotify	1
+cvar	con_enable	0
+cvar	con_filter_enable	0
+cvar	con_filter_text	
+cvar	con_filter_text_out	
+cvar	con_nprint_bgalpha	50
+cvar	con_nprint_bgborder	5
+cvar	mat_dynamic_tonemapping	1
+cvar	building_cubemaps	0
+cvar	reload_materials	0
+cvar	r_DrawBeams	1
+cvar	mat_force_tonemap_scale	0.0
+cvar	mat_leafvis	0
+cvar	r_visambient	0
+cvar	r_drawclipbrushes	0
+cvar	enable_debug_overlays	1
+cvar	r_DispDrawAxes	0
+cvar	disp_dynamic	0
+cvar	r_drawtranslucentworld	1
+cvar	r_drawleaf	-1
+cvar	r_drawworld	1
+cvar	r_drawfuncdetail	1
+cvar	fog_enable_water_fog	1
+cvar	r_fastzreject	0
+cvar	r_fastzrejectdisp	0
+cvar	mat_surfaceid	0
+cvar	mat_surfacemat	0
+cvar	r_frustumcullworld	1
+cvar	fast_fogvolume	0
+cvar	opt_EnumerateLeavesFastAlgorithm	1
+cvar	r_drawlights	0
+cvar	r_drawlightinfo	0
+cvar	r_avglightmap	0
+cvar	r_maxdlights	32
+cvar	r_visualizetraces	0
+cvar	r_visualizelighttraces	0
+cvar	r_visualizelighttracesshowfulltrace	0
+cvar	r_aspectratio	0
+cvar	r_dynamiclighting	1
+cvar	r_drawskybox	1
+cvar	r_drawmodelstatsoverlay	0
+cvar	r_drawmodelstatsoverlaydistance	500
+cvar	r_DrawModelLightOrigin	0
+cvar	r_lod	-1
+cvar	r_entity	-1
+cvar	r_lightaverage	1
+cvar	r_lightinterp	5
+cvar	r_eyeglintlodpixels	20.0
+cvar	r_decalstaticprops	1
+cvar	r_debugrandomstaticlighting	0
+cvar	r_proplightingfromdisk	1
+cvar	r_itemblinkmax	.3
+cvar	r_itemblinkrate	4.5
+cvar	r_proplightingpooling	-1.0
+cvar	r_showenvcubemap	0
+cvar	r_eyemove	1
+cvar	r_eyeshift_x	0
+cvar	r_eyeshift_y	0
+cvar	r_eyeshift_z	0
+cvar	r_eyesize	0
+cvar	mat_softwareskin	0
+cvar	r_nohw	0
+cvar	r_nosw	0
+cvar	r_teeth	1
+cvar	r_drawentities	1
+cvar	r_flex	1
+cvar	r_eyes	1
+cvar	r_skin	0
+cvar	r_modelwireframedecal	0
+cvar	r_maxmodeldecal	50
+cvar	r_ambientboost	1
+cvar	r_ambientmin	0.3
+cvar	r_ambientfraction	0.1
+cvar	r_ambientfactor	5
+cvar	r_lightcachemodel	-1
+cvar	r_drawmodelstatsoverlaymin	0.1
+cvar	r_drawmodelstatsoverlaymax	1.5
+cvar	r_staticprop_lod	-1
+cvar	r_norefresh	0
+cvar	r_decals	200
+cvar	mp_decals	200
+cvar	r_lightmap	-1
+cvar	r_lightstyle	-1
+cvar	r_dynamic	1
+cvar	mat_wireframe	0
+cvar	mat_normals	0
+cvar	mat_bumpbasis	0
+cvar	mat_envmapsize	128
+cvar	mat_envmaptgasize	32.0
+cvar	mat_levelflush	1
+cvar	r_drawbrushmodels	1
+cvar	mat_show_ab_hdr	0
+cvar	mat_max_worldmesh_vertices	65536
+cvar	mat_loadtextures	1
+cvar	mod_offline_hdr_switch	1
+cvar	mod_touchalldata	1
+cvar	mod_forcetouchdata	1
+cvar	mat_excludetextures	0
+cvar	r_unloadlightmaps	0
+cvar	r_hunkalloclightmaps	1
+cvar	mod_dynamicunloadtime	150
+cvar	mod_dynamicunloadtex	1
+cvar	mod_dynamicloadpause	0
+cvar	mod_dynamicloadthrottle	0
+cvar	mod_dynamicloadspew	0
+cvar	r_renderoverlayfragment	1
+cvar	r_overlaywireframe	0
+cvar	r_overlayfadeenable	0
+cvar	r_overlayfademin	1750.0f
+cvar	r_overlayfademax	2000.0f
+cvar	r_ClipAreaPortals	1
+cvar	r_DrawPortals	0
+cvar	r_snapportal	-1
+cvar	r_portalscloseall	0
+cvar	r_portalsopenall	0
+cvar	r_ShowViewerArea	0
+cvar	r_decal_overlap_count	3
+cvar	r_decal_overlap_area	0.4
+cvar	r_decal_cover_count	4
+cvar	r_dscale_nearscale	1
+cvar	r_dscale_neardist	100
+cvar	r_dscale_farscale	4
+cvar	r_dscale_fardist	2000
+cvar	r_dscale_basefov	90
+cvar	r_spray_lifetime	2
+cvar	r_queued_decals	0
+cvar	r_drawdecals	1
+cvar	r_drawbatchdecals	1
+cvar	r_shadows	1
+cvar	r_shadows_gamecontrol	1
+cvar	r_shadowwireframe	0
+cvar	r_shadowids	0
+cvar	r_flashlightdrawsweptbbox	0
+cvar	r_flashlightdrawfrustumbbox	0
+cvar	r_flashlightnodraw	0
+cvar	r_flashlightupdatedepth	1
+cvar	r_flashlightdrawdepth	0
+cvar	r_flashlightrenderworld	1
+cvar	r_flashlightrendermodels	1
+cvar	r_flashlightrender	1
+cvar	r_flashlightculldepth	1
+cvar	r_flashlightclip	0
+cvar	r_flashlightdrawclip	0
+cvar	sv_logblocks	0
+cvar	rcon_password	
+cvar	sv_rcon_banpenalty	0
+cvar	sv_rcon_maxfailures	10
+cvar	sv_rcon_minfailures	5
+cvar	sv_rcon_minfailuretime	30
+cvar	sv_rcon_whitelist_address	
+cvar	sv_rcon_maxpacketsize	1024
+cvar	sv_rcon_maxpacketbans	1
+cvar	sv_steamblockingcheck	0
+cvar	sdr_spew_level	4
+cvar	sv_use_steam_networking	1
+cvar	sv_master_share_game_socket	1
+cvar	sv_steamgroup	
+cvar	sv_shutdown_timeout_minutes	360
+cvar	sv_pure_kick_clients	1
+cvar	sv_pure_trace	0
+cvar	sv_pure_consensus	5
+cvar	sv_pure_retiretime	900
+cvar	sv_cheats	1
+cvar	sv_lan	1
+cvar	sv_pausable	0
+cvar	sv_contact	
+cvar	sv_cacheencodedents	1
+cvar	sv_voiceenable	1
+cvar	sv_downloadurl	
+cvar	sv_maxreplay	0
+cvar	sv_consistency	1
+cvar	sv_voicecodec	steam
+cvar	sv_mincmdrate	10
+cvar	sv_maxcmdrate	66
+cvar	sv_client_cmdrate_difference	20
+cvar	sv_client_min_interp_ratio	1
+cvar	sv_client_max_interp_ratio	5
+cvar	sv_client_predict	-1
+cvar	sv_restrict_aspect_ratio_fov	1
+cvar	tv_enable	0
+cvar	sv_memlimit	0
+cvar	sv_minuptimelimit	0
+cvar	sv_maxuptimelimit	0
+cvar	sv_parallel_sendsnapshot	0
+cvar	voice_debugfeedbackfrom	0
+cvar	sv_timeout	65
+cvar	sv_maxrate	0
+cvar	sv_minrate	3500
+cvar	sv_maxupdaterate	66
+cvar	sv_minupdaterate	10
+cvar	sv_stressbots	0
+cvar	sv_allowdownload	1
+cvar	sv_allowupload	1
+cvar	sv_sendtables	0
+cvar	sv_max_dropped_packets_to_process	10
+cvar	sv_quota_stringcmdspersecond	40
+cvar	sv_deltatime	0
+cvar	sv_deltaprint	0
+cvar	sv_filterban	1
+cvar	sv_creationtickcheck	1
+cvar	sv_logsdir	logs
+cvar	sv_logfile	1
+cvar	sv_logflush	0
+cvar	sv_logecho	1
+cvar	sv_log_onefile	0
+cvar	sv_logbans	0
+cvar	sv_logsecret	0
+cvar	sv_logfilename_format	
+cvar	sv_logfilecompress	0
+cvar	sv_debugmanualmode	0
+cvar	sv_parallel_packentities	1
+cvar	sv_forcepreload	0
+cvar	sv_rcon_log	1
+cvar	sv_max_queries_sec	3.0
+cvar	sv_max_queries_window	30
+cvar	sv_max_queries_sec_global	3000
+cvar	sv_max_connects_sec	2.0
+cvar	sv_max_connects_window	4
+cvar	sv_max_connects_sec_global	0
+cvar	sv_region	-1
+cvar	sv_instancebaselines	1
+cvar	sv_stats	1
+cvar	sv_enableoldqueries	0
+cvar	sv_password	
+cvar	sv_tags	gravity
+cvar	sv_visiblemaxplayers	-1
+cvar	sv_alternateticks	0
+cvar	sv_allow_wait_command	1
+cvar	sv_allow_color_correction	1
+cvar	sv_debugtempentities	0
+cvar	cl_clock_correction	1
+cvar	cl_clockdrift_max_ms	150
+cvar	cl_clockdrift_max_ms_threadmode	0
+cvar	cl_clock_showdebuginfo	0
+cvar	cl_clock_correction_force_server_tick	999
+cvar	cl_clock_correction_adjustment_max_amount	200
+cvar	cl_clock_correction_adjustment_min_offset	10
+cvar	cl_clock_correction_adjustment_max_offset	90
+cvar	rate	80000
+cvar	cl_cmdrate	30
+cvar	cl_updaterate	20
+cvar	map_noareas	0
+cvar	r_DrawDisp	1
+cvar	r_DispWalkable	0
+cvar	r_DispBuildable	0
+cvar	sv_logdownloadlist	1
+cvar	sv_downloadlist_include_navfile	0
+cvar	dtwatchent	-1
+cvar	dtwatchvar	
+cvar	dtwarning	0
+cvar	dtwatchclass	
+cvar	dt_UsePartialChangeEnts	0
+cvar	dt_ShowPartialChangeEnts	0
+cvar	net_showevents	0
+cvar	tv_maxrate	8000
+cvar	tv_relaypassword	
+cvar	tv_chattimelimit	8
+cvar	tv_chatgroupsize	0
+cvar	tv_autoretry	1
+cvar	tv_timeout	30
+cvar	tv_snapshotrate	16
+cvar	tv_maxclients	128
+cvar	tv_autorecord	0
+cvar	tv_name	SourceTV
+cvar	tv_password	
+cvar	tv_overridemaster	0
+cvar	tv_dispatchmode	1
+cvar	tv_transmitall	0
+cvar	tv_debug	0
+cvar	tv_title	SourceTV
+cvar	tv_deltacache	2
+cvar	tv_relayvoice	1
+cvar	cfgver	
+cvar	violence_hblood	1
+cvar	violence_hgibs	1
+cvar	violence_ablood	1
+cvar	violence_agibs	1
+cvar	closecaption	0
+cvar	host_competitive_ever_enabled	0
+cvar	mem_test_each_frame	0
+cvar	mem_test_every_n_seconds	0
+cvar	singlestep	0
+cvar	next	0
+cvar	host_showcachemiss	0
+cvar	mem_dumpstats	0
+cvar	host_ShowIPCCallCount	0
+cvar	telemetry_pause	0
+cvar	telemetry_resume	0
+cvar	telemetry_framecount	0
+cvar	telemetry_level	0
+cvar	telemetry_server	localhost
+cvar	telemetry_demostart	0
+cvar	telemetry_demoend	0
+cvar	host_thread_mode	0
+cvar	threadpool_affinity	1
+cvar	host_profile	0
+cvar	host_limitlocal	0
+cvar	host_framerate	0
+cvar	host_timescale	1.0
+cvar	host_speeds	0
+cvar	host_flush_threshold	20
+cvar	host_timer_spin_ms	0
+cvar	skill	1
+cvar	deathmatch	1
+cvar	coop	0
+cvar	vcr_verbose	0
+cvar	mem_periodicdumps	0
+cvar	host_sleep	0
+cvar	hostname	Half-Life 2 Deathmatch
+cvar	host_map	dm_lockdown
+cvar	voice_recordtofile	0
+cvar	voice_inputfromfile	0
+cvar	sv_allow_voice_from_file	1
+cvar	mm_minplayers	2
+cvar	mm_max_spectators	4
+cvar	r_novis	0
+cvar	r_lockpvs	0
+cvar	net_showudp	0
+cvar	net_showtcp	0
+cvar	net_maxfragments	1260
+cvar	net_showmsg	0
+cvar	net_showfragments	0
+cvar	net_showpeaks	0
+cvar	net_blockmsg	0
+cvar	net_showdrop	0
+cvar	net_drawslider	0
+cvar	net_chokeloop	0
+cvar	net_maxfilesize	16
+cvar	net_compresspackets	1
+cvar	net_compresspackets_minsize	1024
+cvar	net_maxcleartime	4.0
+cvar	net_maxpacketdrop	5000
+cvar	net_disconnect_reason	0
+cvar	net_droponsendoverflow	0
+cvar	net_chan_stats_lru	3
+cvar	net_chan_stats_dump	0
+cvar	net_chan_stats_dump_top_msgs	5
+cvar	net_chan_limit_msec	0
+cvar	net_warningthrottle	5
+cvar	net_showudp_wire	0
+cvar	net_udp_rcvbuf	131072
+cvar	net_showsplits	0
+cvar	net_splitrate	1
+cvar	ip	localhost
+cvar	hostport	27415
+cvar	hostip	2130706689
+cvar	clientport	27005
+cvar	tv_port	27020
+cvar	matchmakingport	27025
+cvar	systemlinkport	27030
+cvar	net_fakelag	0
+cvar	net_fakeloss	0
+cvar	net_droppackets	0
+cvar	net_fakejitter	0
+cvar	net_compressvoice	0
+cvar	net_usesocketsforloopback	0
+cvar	sv_maxroutable	1260
+cvar	net_maxroutable	1260
+cvar	net_splitpacket_maxrate	80000
+cvar	net_queued_packet_thread	1
+cvar	net_queue_trace	0
+cvar	sv_use_steam_voice	0
+cvar	sv_dumpstringtables	0
+cvar	sv_compressstringtablebaselines_threshold	2048
+cvar	sv_useexplicitdelete	1
+cvar	sv_lowedict_threshold	8
+cvar	sv_lowedict_action	0
+cvar	replay_debug	0
+cvar	replay_ignorereplayticks	0
+cvar	snd_refdist	36
+cvar	snd_refdb	60
+cvar	snd_foliage_db_loss	4
+cvar	snd_gain	1
+cvar	snd_gain_max	1
+cvar	snd_gain_min	0.01
+cvar	r_partition_level	-1
+cvar	r_DrawSpecificStaticProp	-1
+cvar	r_drawstaticprops	1
+cvar	r_colorstaticprops	0
+cvar	r_staticpropinfo	0
+cvar	r_drawmodeldecals	1
+cvar	pipeline_static_props	1
+cvar	mem_min_heapsize	64
+cvar	mem_max_heapsize	512
+cvar	mem_max_heapsize_dedicated	128
+cvar	sys_minidumpspewlines	500
+cvar	spew_consolelog_to_debugstring	0
+cvar	sys_minidumpexpandedspew	1
+cvar	engine_no_focus_sleep	0
+cvar	fps_max	60
+cvar	mat_powersavingsmode	0
+cvar	async_serialize	0
+cvar	testscript_debug	0
+cvar	vprof_dump_spikes	0
+cvar	vprof_dump_spikes_node	
+cvar	vprof_dump_spikes_budget_group	
+cvar	vprof_dump_oninterval	0
+cvar	vprof_report_oninterval	0
+cvar	vprof_counters	0
+cvar	rpt_vprof_time	0.25
+cvar	bugreporter_includebsp	1
+cvar	bugreporter_uploadasync	0
+cvar	download_debug	0
+cvar	save_history_count	1
+cvar	sv_autosave	1
+cvar	save_async	1
+cvar	save_disable	0
+cvar	save_noxsave	0
+cvar	save_screenshot	1
+cvar	save_spew	0
+cvar	save_asyncdelay	0
+cvar	save_console	0
+cvar	save_huddelayframes	1
+cvar	lightcache_maxmiss	2
+cvar	r_lightcache_numambientsamples	162
+cvar	r_ambientlightingonly	0
+cvar	r_oldlightselection	0
+cvar	r_worldlights	4
+cvar	r_radiosity	4
+cvar	r_worldlightmin	0.0002
+cvar	r_avglight	1
+cvar	r_drawlightcache	0
+cvar	r_minnewsamples	3
+cvar	r_maxnewsamples	6
+cvar	r_maxsampledist	128
+cvar	r_lightcachecenter	1
+cvar	r_lightcache_zbuffercache	0
+cvar	save_in_memory	0
+cvar	cl_allowupload	1
+cvar	cl_voice_filter	
+cvar	voice_debugfeedback	0
+cvar	cl_savescreenshotstosteam	0
+cvar	cl_screenshotusertag	
+cvar	cl_screenshotlocation	
+cvar	snd_vox_globaltimeout	300
+cvar	snd_vox_seqtimetout	300
+cvar	snd_vox_sectimetout	300
+cvar	snd_vox_captiontrace	0
+cvar	snd_rear_speaker_scale	1.0
+cvar	snd_mergemethod	1
+cvar	snd_delay_sound_shift	0.01
+cvar	snd_surround_speakers	-1
+cvar	snd_noextraupdate	0
+cvar	snd_show	0
+cvar	snd_visualize	0
+cvar	snd_pitchquality	1
+cvar	volume	1.0
+cvar	snd_musicvolume	1.0
+cvar	snd_mixahead	0.1
+cvar	snd_mix_async	0
+cvar	snd_mute_losefocus	1
+cvar	sound_device_override	
+cvar	voice_steal	2
+cvar	dsp_dist_min	0.0
+cvar	dsp_dist_max	1440.0
+cvar	dsp_mix_min	0.320000
+cvar	dsp_mix_max	0.8
+cvar	dsp_db_min	80
+cvar	dsp_db_mixdrop	0.5
+cvar	snd_showstart	0
+cvar	snd_obscured_gain_dB	-2.70
+cvar	adsp_debug	0
+cvar	adsp_door_height	112
+cvar	adsp_wall_height	128
+cvar	adsp_low_ceiling	108
+cvar	snd_defer_trace	1
+cvar	snd_ducktovolume	0.55
+cvar	snd_duckerattacktime	0.5
+cvar	snd_duckerreleasetime	2.5
+cvar	snd_duckerthreshold	0.15
+cvar	snd_ducking_off	1
+cvar	snd_spatialize_roundrobin	0
+cvar	snd_debug_gaincurve	0
+cvar	snd_debug_gaincurvevol	1.0
+cvar	snd_debug_panlaw	0
+cvar	snd_ShowThreadFrameTime	0
+cvar	snd_soundmixer	Default_Mix
+cvar	snd_showclassname	0
+cvar	snd_disable_mixer_duck	0
+cvar	snd_showmixer	0
+cvar	dsp_room	1
+cvar	dsp_water	14.000000
+cvar	dsp_player	0
+cvar	dsp_facingaway	0
+cvar	dsp_speaker	50.000000
+cvar	dsp_spatial	40.000000
+cvar	dsp_automatic	60
+cvar	room_type	0
+cvar	dsp_off	0
+cvar	dsp_slow_cpu	0
+cvar	snd_profile	0
+cvar	dsp_volume	1.0
+cvar	dsp_vol_5ch	0.5
+cvar	dsp_vol_4ch	0.5
+cvar	dsp_vol_2ch	1.0
+cvar	dsp_enhance_stereo	0
+cvar	adsp_room_min	102
+cvar	adsp_duct_min	106
+cvar	adsp_hall_min	110
+cvar	adsp_tunnel_min	114
+cvar	adsp_street_min	118
+cvar	adsp_alley_min	122
+cvar	adsp_courtyard_min	126
+cvar	adsp_openspace_min	130
+cvar	adsp_openwall_min	130
+cvar	adsp_openstreet_min	118
+cvar	adsp_opencourtyard_min	126
+cvar	snd_cull_duplicates	0
+cvar	snd_async_spew_blocking	1
+cvar	snd_async_spew	0
+cvar	snd_async_fullyasync	0
+cvar	snd_async_stream_spew	0
+cvar	snd_async_minsize	262144
+cvar	voice_avggain	0.5
+cvar	voice_maxgain	10
+cvar	voice_scale	1
+cvar	voice_loopback	0
+cvar	voice_fadeouttime	0.1
+cvar	voice_profile	0
+cvar	voice_showchannels	0
+cvar	voice_showincoming	0
+cvar	voice_enable	1
+cvar	voice_forcemicrecord	1
+cvar	voice_buffer_ms	100
+cvar	voice_writevoices	0
+cvar	voice_overdrive	2
+cvar	voice_overdrivefadetime	0.4
+cvar	budget_bargraph_background_alpha	128
+cvar	budget_peaks_window	30
+cvar	budget_averages_window	30
+cvar	budget_show_peaks	1
+cvar	budget_show_averages	0
+cvar	budget_show_history	1
+cvar	budget_history_numsamplesvisible	100
+cvar	budget_history_range_ms	66.666666667
+cvar	budget_panel_bottom_of_history_fraction	.25
+cvar	budget_bargraph_range_ms	16.6666666667
+cvar	budget_background_alpha	128
+cvar	budget_panel_x	0
+cvar	budget_panel_y	50
+cvar	budget_panel_width	512
+cvar	budget_panel_height	384
+cvar	vgui_nav_lock	0
+cvar	vgui_nav_lock_default_button	0
+cvar	r_drawvgui	1
+cvar	gameui_xbox	0
+cvar	vgui_ui_scale_width	1920
+cvar	vgui_ui_scale_height	1080
+cvar	vgui_ui_scale_factor	1
+cvar	vgui_ui_scale_factor_deck_additional	1.5
+cvar	mat_drawTitleSafe	0
+cvar	vgui_drawfocus	0
+cvar	vgui_drawtree	0
+cvar	vgui_drawtree_visible	1
+cvar	vgui_drawtree_hidden	0
+cvar	vgui_drawtree_popupsonly	0
+cvar	vgui_drawtree_freeze	0
+cvar	vgui_drawtree_panelptr	0
+cvar	vgui_drawtree_panelalpha	0
+cvar	vgui_drawtree_render_order	0
+cvar	vgui_drawtree_bounds	0
+cvar	vgui_drawtree_draw_selected	0
+cvar	texture_budget_panel_global	0
+cvar	showbudget_texture	0
+cvar	showbudget_texture_global_sum	0.0f
+cvar	texture_budget_panel_x	0
+cvar	texture_budget_panel_y	450
+cvar	texture_budget_panel_width	512
+cvar	texture_budget_panel_height	284
+cvar	texture_budget_panel_bottom_of_history_fraction	.25
+cvar	texture_budget_background_alpha	128
+cvar	vprof_graph	0
+cvar	vprof_graphwidth	512
+cvar	vprof_graphheight	256
+cvar	vprof_verbose	1
+cvar	vprof_unaccounted_limit	0.3
+cvar	vprof_warningmsec	10
+cvar	vprof_scope	
+cvar	tf_debug_tabcontainer	0
+cvar	panel_test_title_safe	0
+cvar	vgui_cache_res_files	1
+cvar	studio_queue_mode	1
+cvar	r_hwmorph	1
+cvar	r_randomflex	0
+cvar	r_flashlightscissor	1
+cvar	r_glint_procedural	0
+cvar	r_glint_alwaysdraw	0
+cvar	r_studio_stats	0
+cvar	developer	0
+cvar	mem_force_flush	0
+cvar	datacachesize	512
+cvar	r_rootlod	0
+cvar	mod_forcedata	1
+cvar	mod_test_not_available	0
+cvar	mod_test_mesh_not_available	0
+cvar	mod_test_verts_not_available	0
+cvar	mod_load_mesh_async	0
+cvar	mod_load_anims_async	0
+cvar	mod_load_vcollide_async	0
+cvar	mod_trace_load	0
+cvar	mod_lock_mdls_on_load	0
+cvar	mod_load_fakestall	0
+cvar	mod_load_showstall	0
+cvar	r_bloomtintr	0.3
+cvar	r_bloomtintg	0.59
+cvar	r_bloomtintb	0.11
+cvar	r_bloomtintexponent	2.2
+cvar	r_flashlight_version2	0
+cvar	mat_disable_lightwarp	0
+cvar	mat_disable_fancy_blending	0
+cvar	mat_motion_blur_percent_of_screen_max	4.0
+cvar	gl_amd_occlusion_workaround	1
+cvar	mat_visualize_dof	0
+cvar	r_showz_power	1.0f
+cvar	r_rimlight	1
+cvar	mat_use_compressed_hdr_textures	1
+cvar	r_lightwarpidentity	0
+cvar	mat_luxels	0
+cvar	mat_reduceparticles	0
+cvar	mat_texture_tracking	0
+cvar	mat_spew_on_texture_size	0
+cvar	mat_lodin_time	5.0
+cvar	mat_lodin_hidden_pop	1
+cvar	mat_spewalloc	0
+cvar	mat_morphstats	0
+cvar	mat_showenvmapmask	0
+cvar	mat_debugdepth	0
+cvar	mat_forcemanagedtextureintohardware	1
+cvar	mat_supportflashlight	1
+cvar	mat_texture_reload_frame_swap_workaround	0
+cvar	mat_requires_rt_alloc_first	0
+cvar	mat_tonemapping_occlusion_use_stencil	0
+cvar	mat_dxlevel	100
+cvar	mat_vsync	0
+cvar	mat_forcehardwaresync	1
+cvar	mat_trilinear	0
+cvar	mat_forceaniso	1
+cvar	mat_filterlightmaps	1
+cvar	mat_filtertextures	1
+cvar	mat_mipmaptextures	1
+cvar	mat_vrmode_adapter	-1
+cvar	mat_showmiplevels	0
+cvar	mat_specular	1
+cvar	mat_bumpmap	1
+cvar	mat_phong	1
+cvar	r_lightmap_bicubic	1
+cvar	mat_parallaxmap	1
+cvar	mat_reducefillrate	0
+cvar	mat_picmip	0
+cvar	mat_slopescaledepthbias_normal	0.0f
+cvar	mat_depthbias_normal	0.0f
+cvar	mat_slopescaledepthbias_decal	-0.5
+cvar	mat_depthbias_decal	-262144
+cvar	mat_monitorgamma	2.2
+cvar	mat_monitorgamma_tv_range_min	16
+cvar	mat_monitorgamma_tv_range_max	255
+cvar	mat_monitorgamma_tv_exp	2.5
+cvar	mat_monitorgamma_tv_enabled	0
+cvar	mat_antialias	0
+cvar	mat_aaquality	0
+cvar	mat_diffuse	1
+cvar	mat_showlowresimage	0
+cvar	mat_fullbright	0
+cvar	mat_normalmaps	0
+cvar	mat_measurefillrate	0
+cvar	mat_fillrate	0
+cvar	mat_reversedepth	0
+cvar	mat_bufferprimitives	0
+cvar	mat_drawflat	0
+cvar	mat_softwarelighting	0
+cvar	mat_proxy	0
+cvar	mat_norendering	0
+cvar	mat_compressedtextures	1
+cvar	mat_fastspecular	1
+cvar	mat_fastnobump	0
+cvar	r_shadowrendertotexture	0
+cvar	r_flashlightdepthtexture	1
+cvar	r_waterforceexpensive	0
+cvar	r_waterforcereflectentities	0
+cvar	mat_motion_blur_enabled	0
+cvar	mat_queue_mode	-1
+cvar	mat_queue_report	0
+cvar	mat_lightmap_pfms	0
+cvar	mat_accelerate_adjust_exposure_down	3.0
+cvar	mat_hdr_manual_tonemap_rate	1.0
+cvar	mat_hdr_tonemapscale	1.0
+cvar	mat_tonemap_algorithm	1
+cvar	mat_report_queue_status	0
+cvar	joy_xcontroller_found	0
+cvar	joy_axisbutton_threshold	0.3
+cvar	joy_axis_deadzone	0.2
+cvar	joy_active	-1
+cvar	joy_gamecontroller_config	
+cvar	sc_joystick_map	1
+cvar	sc_disable	0
+cvar	r_shader_srgb	0
+cvar	mat_disablehwmorph	0
+cvar	mat_texture_limit	FCVAR_NEVER_AS_STRING
+cvar	mat_frame_sync_enable	1
+cvar	mat_frame_sync_force_texture	0
+cvar	r_pix_start	0
+cvar	r_pix_recordframes	0
+cvar	mat_alphacoverage	1
+cvar	r_radialfog_force	-1
+cvar	r_pixelfog	1
+cvar	mat_supports_d3d9ex	1
+cvar	mat_forcedynamic	0
+cvar	mat_debugalttab	0
+cvar	mat_hdr_level	2
+cvar	mat_slopescaledepthbias_shadowmap	16
+cvar	mat_depthbias_shadowmap	0.0005
+cvar	mat_fastclip	0
+cvar	mat_remoteshadercompile	127.0.0.1
+cvar	mat_force_ps_patch	0
+cvar	mat_disable_ps_patch	0
+cvar	gl_blit_halfx	0
+cvar	gl_blit_halfy	0
+cvar	gl_swapdebug	0
+cvar	gl_swaplimit	0
+cvar	gl_swapinterval	0
+cvar	gl_swaplimit_mt	3
+cvar	gl_disable_forced_vsync	0
+cvar	gl_swaptear	1
+cvar	gl_finish	0
+cvar	sdl_double_click_size	2
+cvar	sdl_double_click_time	400
+cvar	sdl_displayindex_fullscreen	-1
+cvar	sdl_displayindex	0
+cvar	fs_report_sync_opens	0
+cvar	fs_warning_mode	0
+cvar	filesystem_buffer_size	0
+cvar	fs_monitor_read_from_pack	0
+cvar	async_mode	0
+cvar	async_simulate_delay	0
+cvar	async_allow_held_files	1
+cvar	filesystem_unbuffered_io	1
+cvar	filesystem_native	1
+cvar	filesystem_max_stdio_read	16
+cvar	filesystem_report_buffered_io	0
+cvar	loader_spew_info	0
+cvar	loader_spew_info_ex	0
+cvar	lzma_persistent_buffer	0
+render.SetMainView	origin=-4116,4600,65.9199982 angles=0,-90,0
+q	engine.IsSkyboxVisibleFromPoint	point=-4116,4600,65.9199982 => 1
+q	render.GetVisibleFogVolume	eye=-4116,4600,65.9199982 volume=-1 leaf=-1 infog=0 dist=0 height=1000000 material=-
+in	size=916
+inbytes	000000000000000000050000d0020000000000000000000000050000d00200000000000000000000000000000000000000000000000000003985d4427dc3884200a080c500c08f450ad78342000000000000b4c2000000000000e040d7b3dd460000803fd7b3dd4600000000398ee33f00000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022000000030000002c64bf403b0d893c380100001000000000000000640000000000000000000000398ee33f01000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000803f00000000000000009b000000b7000000d5000000ff000000ff000000ff0000009b000000b7000000d5000000ff000000ff000000ff0000000000004400409c450000803f0000004400409c450000000000000000010000000000000000000000ffffffffffffffff00000000617d000000247449000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cdcccc3d0000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000803f0000803f00000000000000000000803f0000803f0000803f0000000000000000000080bf000080bf000080bf000080bf000080bf000080bf000080bf000080bf000080bf000080bf0000803f00000000000000000000803f0000803f0000803f0000803f000020410000803f0000803f0000803f0000803f0000803f0000803f000000000000803f0000803f00803b450000803f0000000000000000000080bf000000000000804300000000000080430000000000000000000080430000803f0000000000000000000080bf000080bf000080bf000080bf000080bf000080bf00000000000000000000000000000000000000000000000000000000
+shadow.AdvanceFrame
+render.SceneBegin
+ctx.TurnOnToneMapping
+render.Push3DView	clear=0x0 rt=- depth=- xywh=0,0,1280,720 unscaled=0,0,1280,720 eye=0 ortho=0:0,0,0,0 fov=106.260201 fovvm=68.381813 origin=-4116,4600,65.9199982 angles=0,-90,0 z=7,28377.9199 zvm=1,28377.9199 subrect=0 aspect=1.77777779 offcenter=0:0,0,0,0 bloom=1 cachefull=0 projoverride=0
+q	engine.IsSkyboxVisibleFromPoint	point=-4116,4600,65.9199982 => 1
+shadow.PreRender
+shadow.ComputeShadowDepthTextures
+ctx.SetIntRenderingParameter	10=1
+shadow.PreRender
+render.ViewSetupVisEx	novis=0 n=1 origin=-4116,4600,65.9199982 => flags=0x0
+q	render.GetVisibleFogVolume	eye=-4116,4600,65.9199982 volume=-1 leaf=-1 infog=0 dist=0 height=1000000 material=-
+render.BeginUpdateLightmaps
+render.CreateWorldList	list=0
+render.BuildWorldLists	list=0 forceleaf=-1 visdata=0 shadowdepth=0 reflheight=- => fogvolume=0 leaves=54
+props.ComputePropOpacity	origin=-4116,4600,65.9199982 factor=1
+render.BeginUpdateLightmaps
+scene	size=7240
+scenebytes	36000000be00000006000000000000001600000005000000070000000c0000003c000000420000000b0000000000000001000000000000000000000000000000000000000000000001000000ffffffff21040000000000000000000000000000000000002204000001000000000000000000000000000000350400000200000000000000000000000000000034040000030000000000000000000000000000002e040000040000000000000000000000000000008f03000005000000000000000000000000000000a003000006000000000000000000000000000000960300000700000000000000000000000000000093030000080000000000000000000000000000009403000009000000000000000000000000000000950300000a000000000000000000000000000000920300000b000000000000000000000000000000910300000c0000000000000000000000000000009c0300000d000000000000000000000000000000980300000e000000000000000000000000000000990300000f0000000000000000000000000000009a030000100000000000000000000000000000009b0300001100000000000000000000000000000097030000120000000000000000000000000000009d030000130000000000000000000000000000006303000014000000000000000000000000000000ab03000015000000000000000000000000000000a803000016000000000000000000000000000000a903000017000000000000000000000000000000b503000018000000000000000000000000000000b103000019000000000000000000000000000000b20300001a000000000000000000000000000000b40300001b000000000000000000000000000000b00300001c000000000000000000000000000000bc0300001d000000000000000000000000000000c20300001e000000000000000000000000000000320300001f0000000000000000000000000000002903000020000000000000000000000000000000250300002100000000000000000000000000000026030000220000000000000000000000000000002803000023000000000000000000000000000000240300002400000000000000000000000000000037030000250000000000000000000000000000003d030000260000000000000000000000000000003b03000027000000000000000000000000000000ad02000028000000000000000000000000000000a702000029000000000000000000000000000000a60200002a000000000000000000000000000000a00200002b0000000000000000000000000000009f0200002c000000000000000000000000000000b30200002d000000000000000000000000000000c50200002e000000000000000000000000000000bd0200002f0000000000000000000000000000002806000030000000000000000000000000000000250600003100000000000000000000000000000022060000320000000000000000000000000000002006000033000000000000000000000000000000b5040000340000000000000000000000000000008a04000035000000000000000000000000000000000000000100000000000000ffffffffff0000000000803f0000803f0000803f000000000100000002000000ffffffffff0000000000803f0000803f0000803f000000000100000004000000ffffffffff0000000000803f0000803f0000803f00000000010000001c000000ffffffffff0000000000803f0000803f0000803f00000000010000002d000000ffffffffff0000000000803f0000803f0000803f000000000100000035000000ffffffffff0000000000803f0000803f0000803f020000000100000000000000ffffffffff0000000000803f0000803f0000803f020000000100000002000000ffffffffff0000000000803f0000803f0000803f020000000100000004000000ffffffffff0000000000803f0000803f0000803f020000000100000018000000ffffffffff0000000000803f0000803f0000803f020000000100000018000000ffffffffff0000000000803f0000803f0000803f020000000100000018000000ffffffffff0000000000803f0000803f0000803f02000000010000001c000000ffffffffff0000000000803f0000803f0000803f02000000010000001e000000ffffffffff0000000000803f0000803f0000803f02000000010000001f000000ffffffffff0000000000803f0000803f0000803f02000000010000001f000000ffffffffff0000000000803f0000803f0000803f02000000010000001f000000ffffffffff0000000000803f0000803f0000803f02000000010000001f000000ffffffffff0000000000803f0000803f0000803f020000000100000020000000ffffffffff0000000000803f0000803f0000803f020000000100000020000000ffffffffff0000000000803f0000803f0000803f020000000100000020000000ffffffffff0000000000803f0000803f0000803f020000000100000020000000ffffffffff0000000000803f0000803f0000803f020000000100000020000000ffffffffff0000000000803f0000803f0000803f020000000100000020000000ffffffffff0000000000803f0000803f0000803f020000000100000021000000ffffffffff0000000000803f0000803f0000803f020000000100000026000000ffffffffff0000000000803f0000803f0000803f020000000100000035000000ffffffffff0000000000803f0000803f0000803f020000000100000035000000ffffffffff0000000000803f0000803f0000803f0300000001000000000000007e010000ff0000000000803f0000803f0000803f03000000010000000000000082010000ff0000000000803f0000803f0000803f03000000010000000000000084010000ff0000000000803f0000803f0000803f03000000010000000000000086010000ff0000000000803f0000803f0000803f03000000010000000000000088010000ff0000000000803f0000803f0000803f040000000100000000000000ffffffffff0000000000803f0000803f0000803f040000000100000017000000ffffffffff0000000000803f0000803f0000803f040000000100000017000000ffffffffff0000000000803f0000803f0000803f04000000010000001f000000ffffffffff0000000000803f0000803f0000803f040000000100000030000000ffffffffff0000000000803f0000803f0000803f040000000100000035000000ffffffffff0000000000803f0000803f0000803f040000000100000035000000ffffffffff0000000000803f0000803f0000803f050000000100000000000000c0000000ff0000000000803f0000803f0000803f050000000100000000000000c1000000ff0000000000803f0000803f0000803f0500000001000000020000001c000000ff0000000000803f0000803f0000803f05000000010000000500000025000000ff0000000000803f0000803f0000803f05000000210000001c000000ac000000ff0000000000803f0000803f0000803f05000000010000001e0000001b000000ff0000000000803f0000803f0000803f05000000010000001e00000008010000ff0000000000803f0000803f0000803f050000000100000026000000ce000000ff0000000000803f0000803f0000803f050000000100000033000000d1000000ff0000000000803f0000803f0000803f05000000010000003300000047010000ff0000000000803f0000803f0000803f05000000010000003300000048010000ff0000000000803f0000803f0000803f05000000010000003500000049010000ff0000000000803f0000803f0000803f060000000000000000000000ffffffff00000000000000000000000000000000060000000000000001000000ffffffff00000000000000000000000000000000060000000000000002000000ffffffff00000000000000000000000000000000060000000000000003000000ffffffff00000000000000000000000000000000060000000000000004000000ffffffff00000000000000000000000000000000060000000000000005000000ffffffff00000000000000000000000000000000060000000000000006000000ffffffff00000000000000000000000000000000060000000000000007000000ffffffff00000000000000000000000000000000060000000000000008000000ffffffff00000000000000000000000000000000060000000000000009000000ffffffff0000000000000000000000000000000006000000000000000a000000ffffffff0000000000000000000000000000000006000000000000000b000000ffffffff0000000000000000000000000000000006000000000000000c000000ffffffff0000000000000000000000000000000006000000000000000d000000ffffffff0000000000000000000000000000000006000000000000000e000000ffffffff0000000000000000000000000000000006000000000000000f000000ffffffff00000000000000000000000000000000060000000000000010000000ffffffff00000000000000000000000000000000060000000000000011000000ffffffff00000000000000000000000000000000060000000000000012000000ffffffff00000000000000000000000000000000060000000000000013000000ffffffff00000000000000000000000000000000060000000000000014000000ffffffff00000000000000000000000000000000060000000000000015000000ffffffff00000000000000000000000000000000060000000000000016000000ffffffff00000000000000000000000000000000060000000000000017000000ffffffff00000000000000000000000000000000060000000000000018000000ffffffff00000000000000000000000000000000060000000100000018000000ffffffffff0000000000803f0000803f0000803f060000000100000018000000ffffffffff0000000000803f0000803f0000803f060000000000000019000000ffffffff0000000000000000000000000000000006000000000000001a000000ffffffff0000000000000000000000000000000006000000000000001b000000ffffffff0000000000000000000000000000000006000000000000001c000000ffffffff0000000000000000000000000000000006000000010000001c000000ffffffffff0000000000803f0000803f0000803f06000000000000001d000000ffffffff0000000000000000000000000000000006000000000000001e000000ffffffff0000000000000000000000000000000006000000000000001f000000ffffffff0000000000000000000000000000000006000000010000001f000000ffffffffff0000000000803f0000803f0000803f060000000000000020000000ffffffff00000000000000000000000000000000060000000100000020000000ffffffffff0000000000803f0000803f0000803f060000000100000020000000ffffffffff0000000000803f0000803f0000803f060000000000000021000000ffffffff00000000000000000000000000000000060000000000000022000000ffffffff00000000000000000000000000000000060000000000000023000000ffffffff00000000000000000000000000000000060000000000000024000000ffffffff00000000000000000000000000000000060000000000000025000000ffffffff00000000000000000000000000000000060000000000000026000000ffffffff00000000000000000000000000000000060000000000000027000000ffffffff00000000000000000000000000000000060000000000000028000000ffffffff00000000000000000000000000000000060000000000000029000000ffffffff0000000000000000000000000000000006000000000000002a000000ffffffff0000000000000000000000000000000006000000000000002b000000ffffffff0000000000000000000000000000000006000000000000002c000000ffffffff0000000000000000000000000000000006000000000000002d000000ffffffff0000000000000000000000000000000006000000000000002e000000ffffffff0000000000000000000000000000000006000000000000002f000000ffffffff00000000000000000000000000000000060000000000000030000000ffffffff00000000000000000000000000000000060000000000000031000000ffffffff00000000000000000000000000000000060000000000000032000000ffffffff00000000000000000000000000000000060000000000000033000000ffffffff00000000000000000000000000000000060000000000000034000000ffffffff00000000000000000000000000000000060000000000000035000000ffffffff00000000000000000000000000000000070000000000000000000000ffffffff00000000000000000000000000000000070000000000000001000000ffffffff00000000000000000000000000000000070000000000000002000000ffffffff00000000000000000000000000000000070000000000000003000000ffffffff00000000000000000000000000000000070000000000000004000000ffffffff00000000000000000000000000000000070000000000000005000000ffffffff0000000000000000000000000000000007000000010000000500000079000000ff0000000000803f0000803f0000803f0700000001000000050000007a000000ff0000000000803f0000803f0000803f070000000000000006000000ffffffff00000000000000000000000000000000070000000000000007000000ffffffff00000000000000000000000000000000070000000000000008000000ffffffff00000000000000000000000000000000070000000000000009000000ffffffff0000000000000000000000000000000007000000000000000a000000ffffffff0000000000000000000000000000000007000000000000000b000000ffffffff0000000000000000000000000000000007000000000000000c000000ffffffff0000000000000000000000000000000007000000000000000d000000ffffffff0000000000000000000000000000000007000000000000000e000000ffffffff0000000000000000000000000000000007000000000000000f000000ffffffff00000000000000000000000000000000070000000000000010000000ffffffff00000000000000000000000000000000070000000000000011000000ffffffff00000000000000000000000000000000070000000000000012000000ffffffff00000000000000000000000000000000070000000000000013000000ffffffff00000000000000000000000000000000070000000000000014000000ffffffff00000000000000000000000000000000070000000000000015000000ffffffff00000000000000000000000000000000070000000000000016000000ffffffff00000000000000000000000000000000070000000000000017000000ffffffff00000000000000000000000000000000070000000000000018000000ffffffff00000000000000000000000000000000070000000000000019000000ffffffff0000000000000000000000000000000007000000000000001a000000ffffffff0000000000000000000000000000000007000000000000001b000000ffffffff0000000000000000000000000000000007000000000000001c000000ffffffff0000000000000000000000000000000007000000000000001d000000ffffffff0000000000000000000000000000000007000000000000001e000000ffffffff0000000000000000000000000000000007000000000000001f000000ffffffff00000000000000000000000000000000070000000000000020000000ffffffff00000000000000000000000000000000070000000000000021000000ffffffff00000000000000000000000000000000070000000000000022000000ffffffff00000000000000000000000000000000070000000000000023000000ffffffff00000000000000000000000000000000070000000000000024000000ffffffff00000000000000000000000000000000070000000000000025000000ffffffff00000000000000000000000000000000070000000000000026000000ffffffff00000000000000000000000000000000070000000100000026000000d2000000ff0000000000803f0000803f0000803f070000000000000027000000ffffffff00000000000000000000000000000000070000000000000028000000ffffffff00000000000000000000000000000000070000000000000029000000ffffffff0000000000000000000000000000000007000000000000002a000000ffffffff0000000000000000000000000000000007000000000000002b000000ffffffff0000000000000000000000000000000007000000000000002c000000ffffffff0000000000000000000000000000000007000000000000002d000000ffffffff0000000000000000000000000000000007000000000000002e000000ffffffff0000000000000000000000000000000007000000000000002f000000ffffffff00000000000000000000000000000000070000000000000030000000ffffffff00000000000000000000000000000000070000000100000030000000ad000000ff0000000000803f0000803f0000803f070000000100000030000000ae000000ff0000000000803f0000803f0000803f07000000010000003000000018010000ff0000000000803f0000803f0000803f070000000000000031000000ffffffff00000000000000000000000000000000070000000000000032000000ffffffff00000000000000000000000000000000070000000100000032000000cf000000ff0000000000803f0000803f0000803f070000000100000032000000d0000000ff0000000000803f0000803f0000803f070000000100000032000000d3000000ff0000000000803f0000803f0000803f070000000100000032000000d4000000ff0000000000803f0000803f0000803f070000000100000032000000f5000000ff0000000000803f0000803f0000803f07000000010000003200000019010000ff0000000000803f0000803f0000803f070000000000000033000000ffffffff00000000000000000000000000000000070000000000000034000000ffffffff00000000000000000000000000000000070000000000000035000000ffffffff000000000000000000000000000000000800000001000000000000001a000000800000000000803f0000803f0000803f080000000100000000000000c3000000c80000000000803f0000803f0000803f080000000100000000000000c7000000ff0000000000803f0000803f0000803f080000000100000000000000c2000000c80000000000803f0000803f0000803f080000000100000000000000c8000000ff0000000000803f0000803f0000803f08000000050000001700000038010000ff0000000000803f0000803f0000803f08000000050000001700000039010000ff0000000000803f0000803f0000803f0800000005000000170000003a010000ff0000000000803f0000803f0000803f0800000005000000170000003b010000ff0000000000803f0000803f0000803f0800000001000000340000001e000000800000000000803f0000803f0000803f080000000100000034000000bb000000800000000000803f0000803f0000803f0a000000010000000000000096010000ff0000000000803f0000803f0000803f
+render.EndUpdateLightmaps
+render.EndUpdateLightmaps
+ctx.FogMode	1
+ctx.FogColor3fv	0.607843161,0.717647076,0.835294187
+ctx.FogStart	512
+ctx.FogEnd	5000
+ctx.FogMaxDensity	1
+ctx.FogRadial	0
+shadow.ComputeShadowTextures	leaves=54
+engine.Sound_ExtraUpdate
+ctx.ClearBuffers	color=0 depth=1 stencil=1
+ctx.SetHeightClipMode	0
+ctx.SetFrameBufferCopyTexture	texture=_rt_poweroftwofb index=0
+render.DrawWorldLists	list=0 flags=0x15 waterz=0
+render.SetBlend	1
+render.SetColorModulation	1,1,1
+render.SetBlend	1
+props.DrawStaticProps	count=6 shadowdepth=0 wireframe=0
+render.SetColorModulation	1,1,1
+render.SetColorModulation	1,1,1
+render.SetColorModulation	1,1,1
+render.SetColorModulation	1,1,1
+render.SetColorModulation	1,1,1
+render.SetColorModulation	1,1,1
+render.SetBlend	1
+props.DrawStaticProps	count=22 shadowdepth=0 wireframe=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=192 model=models/props_combine/combinecamera001.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=193 model=models/props_combine/combinecamera001.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=28 model=models/props_wasteland/controlroom_chair001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=37 model=models/props_wasteland/prison_heater001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+render.DrawBrushModelEx	model=*12 mode=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=27 model=models/props_wasteland/prison_heater002a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=264 model=models/weapons/w_shotgun.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=206 model=models/props_wasteland/prison_heater002a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=209 model=models/props_junk/wood_crate001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=327 model=models/props_junk/wood_crate001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=328 model=models/props_junk/wood_crate001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=329 model=models/props_junk/wood_crate001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+render.SetBlend	1
+props.DrawStaticProps	count=7 shadowdepth=0 wireframe=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=121 model=models/props_wasteland/controlroom_filecabinet001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=122 model=models/props_wasteland/controlroom_filecabinet001a.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=210 model=models/items/healthkit.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=173 model=models/props_wasteland/prison_sink001b.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=174 model=models/props_wasteland/prison_toilet01.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=280 model=models/items/healthkit.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=207 model=models/props_wasteland/prison_sink001b.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=208 model=models/props_wasteland/prison_toilet01.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=211 model=models/items/battery.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=212 model=models/items/boxmrounds.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=245 model=models/items/combine_rifle_ammo01.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+model.DrawModelEx	ent=281 model=models/items/healthkit.mdl flags=0x1 skin=0 body=0
+render.SetColorModulation	1,1,1
+render.SetBlend	1
+props.DrawStaticProps	count=6 shadowdepth=0 wireframe=0
+ctx.CopyRenderTargetToTextureEx	texture=_rt_poweroftwofb id=0 src=- dst=-
+ctx.SetFullScreenDepthTextureValidityFlag	1
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=53 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=52 flags=0x5 => 0
+render.SetBlend	0.501960814
+render.SetColorModulation	1,1,1
+render.SetBlend	0.501960814
+render.SetBlend	0.501960814
+render.SetColorModulation	1,1,1
+render.SetBlend	0.501960814
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=51 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=50 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=49 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=48 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=47 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=46 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=45 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=44 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=43 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=42 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=41 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=40 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=39 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=38 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=37 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=36 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=35 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=34 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=33 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=32 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=31 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=30 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=29 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=28 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=27 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=26 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=25 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=24 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=23 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=22 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=21 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=20 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=19 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=18 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=17 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=16 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=15 flags=0x5 => 1
+render.DrawTranslucentSurfaces	list=0 leaf=15 flags=0x5 shadowdepth=0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=14 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=13 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=12 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=11 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=10 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=9 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=8 flags=0x5 => 1
+render.DrawTranslucentSurfaces	list=0 leaf=8 flags=0x5 shadowdepth=0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=7 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=6 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=5 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=4 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=3 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=2 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=1 flags=0x5 => 0
+q	render.LeafContainsTranslucentSurfaces	list=0 leaf=0 flags=0x5 => 0
+render.SetBlend	1
+render.SetColorModulation	1,1,1
+render.SetBlend	1
+render.SetBlend	0.784313738
+render.SetColorModulation	1,1,1
+render.SetBlend	0.784313738
+render.SetBlend	1
+render.SetColorModulation	1,1,1
+render.SetBlend	1
+render.SetBlend	0.784313738
+render.SetColorModulation	1,1,1
+render.SetBlend	0.784313738
+render.SetBlend	0.501960814
+render.SetColorModulation	1,1,1
+render.SetBlend	0.501960814
+render.SetBlend	1
+render.SetBlend	1
+render.SetColorModulation	1,1,1
+render.SetBlend	0
+render.SetBlend	1
+render.SetColorModulation	1,1,1
+render.SetBlend	0
+render.SetBlend	1
+render.SetColorModulation	1,1,1
+render.SetBlend	0
+render.SetBlend	1
+render.SetColorModulation	1,1,1
+render.SetBlend	0
+render.SetBlend	1
+ctx.SetFrameBufferCopyTexture	texture=- index=0
+ctx.SetHeightClipMode	0
+ctx.ClearColor4ub	0,0,0,255
+ctx.FogMode	0
+ctx.DepthRange	0,0.00999999978
+ctx.DepthRange	0,1
+engine.Sound_ExtraUpdate
+render.Draw3DDebugOverlays
+shadow.UnlockAllShadowDepthTextures
+engine.DrawPortals
+ctx.FogMode	0
+render.SceneEnd
+render.DrawLights
+ctx.MatrixMode	1
+ctx.PushMatrix
+render.SetColorModulation	1,1,1
+render.SetBlend	1
+render.Push3DView	clear=0x0 rt=- depth=- xywh=0,0,1280,720 unscaled=0,0,1280,720 eye=0 ortho=0:0,0,0,0 fov=68.381813 fovvm=68.381813 origin=-4116,4600,65.9199982 angles=0,-90,0 z=1,28377.9199 zvm=1,28377.9199 subrect=0 aspect=1.77777779 offcenter=0:0,0,0,0 bloom=1 cachefull=0 projoverride=0
+ctx.DepthRange	0,0.100000001
+model.DrawModelEx	ent=406 model=models/weapons/v_crowbar.mdl flags=0x1 skin=0 body=0
+ctx.DepthRange	0,1
+render.PopView
+ctx.MatrixMode	1
+ctx.PopMatrix
+render.ViewDrawFade	color=0,0,0,0 material=debug/debugtranslucentsinglecolor
+engine.Sound_ExtraUpdate
+engine.GrabPreColorCorrectedFrame	0,0,1280,720
+render.PopView
+ctx.SetRenderTarget	rt=-
+render.Push2DView	clear=0x0 rt=- xywh=0,0,1280,720
+ctx.PushRenderTargetAndViewport	rt=- depth=- xywh=0,0,1280,720
+render.VGui_Paint	mode=0x2
+ctx.PopRenderTargetAndViewport
+ctx.Flush	hardware=0
+render.PopView
+render.Push2DView	clear=0x0 rt=- xywh=0,0,1280,720
+render.VGui_Paint	mode=0x5
+render.PopView

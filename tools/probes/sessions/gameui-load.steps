@@ -1,0 +1,12 @@
+# C0 probe 3: the loading screen. The first load comes from the command line
+# (--arg=+cs_cl_probe_paint --arg=+map --arg=dm_lockdown), the second from
+# the console in game.
+wait first paint 240
+cmd cs_cl_probe_paint
+sleep 3
+cmd map dm_lockdown
+wait OnConnectToServer2(.|\n)*OnConnectToServer2 240
+sleep 4
+cmd disconnect
+sleep 3
+quit

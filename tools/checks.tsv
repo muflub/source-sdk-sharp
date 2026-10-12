@@ -1,0 +1,31 @@
+# The tree checks: instruments that scan the tree, each with its self-test
+# first. tools/run-checks runs one tier of them at once; tools/leg-floor
+# counts the rows, so a row that never ran fails the leg. Columns:
+# name<TAB>tier<TAB>command (bash -c from the repo root; $SOURCESHARP_CONFIG
+# is the configuration). Tiers: routine (make test), full (make test-full adds
+# them). Each self-test runs before its tree scan, in one row, because the
+# dangerous result for a scan is a clean report from a scan that stopped working.
+entrypoint-decls	routine	tools/entrypoint-decls --self-test && cd farm/$SOURCESHARP_CONFIG && tools/entrypoint-decls
+vtable-layout	routine	cd farm/$SOURCESHARP_CONFIG && tools/vtable-layout --self-test && tools/vtable-layout
+shim-areas	routine	tools/shim-areas --self-test && tools/shim-areas
+shim-vtable-order	routine	tools/shim-areas --vtable-order
+managed-areas	routine	tools/managed-areas --self-test && tools/managed-areas
+launcher-name-test	routine	tools/launcher-name-test --self-test && tools/launcher-name-test
+valve-text-audit	routine	tools/valve-text-audit --self-test && tools/valve-text-audit
+valve-header	routine	tools/valve-header --self-test && tools/valve-header check
+convar-ref-census	routine	tools/convar-ref-census --self-test
+novalve-snapshot	routine	tools/novalve-snapshot --self-test
+abi-parity	routine	tools/abi-parity --self-test && tools/abi-parity --config $SOURCESHARP_CONFIG
+shim-scope	routine	tools/shim-scope --self-test && tools/shim-scope
+loadprof	routine	tools/loadprof/lp --self-test
+live-gate	full	tools/live-gate --self-test
+run-checks	full	tools/run-checks --self-test
+daily-gate	routine	tools/daily-gate --self-test
+local-launch	routine	python3 tools/local_launch.py --self-test
+kwin-bg-rule	routine	tools/kwin-bg-rule --self-test
+slot-census	routine	tools/slot-census --self-test
+concurrent-start	routine	tools/concurrent-start --self-test
+c0-probes	routine	tools/probes/c0-analyse --self-test
+ui-preview	routine	tools/ui-preview --self-test
+ui-lint	routine	tools/ui-lint --self-test
+sdk-upstream	routine	tools/sdk-upstream --self-test

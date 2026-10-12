@@ -1,0 +1,56 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+[CSoundPatch] m_flScriptVolume	LAYOUT	the patch's construction
+[CSoundPatch] void Init(	BOUNDARY	the sound-script lookup (GameSound_GetParameters) and the filter copy; stock's Init
+[CSoundPatch] int Handle()	SLOT-HELP	accessor
+[CSoundPatch] void SetHandle(	SLOT-HELP	accessor
+[CSoundPatch] void SetCaptionDuration(	SLOT-HELP	accessor
+[CSoundPatch] void SetBaseFlags(	SLOT-HELP	accessor
+[CSoundPatch] const char *Name()	SLOT-HELP	accessor
+[CSoundPatch] bool FilterIsActive()	SLOT-HELP	accessor
+[CSoundPatch] int EntIndex()	SLOT-HELP	accessor
+[CSoundPatch] void Emit(	BOUNDARY	one EmitSound_t through GameSound_Emit with the volume, pitch and flags managed decided
+[CSoundPatch] void Stop()	BOUNDARY	GameSound_Stop
+[CShellClientSoundController] CShellClientSoundController()	LAYOUT	construction
+[CShellClientSoundController] CSoundPatch *Resolve(	SLOT-HELP	handle -> patch
+[CShellClientSoundController] void Free(	SLOT-HELP	frees a patch managed destroyed
+[CShellClientSoundController] CSoundPatch *Build(	SLOT-HELP	stock's vision-filter translation, then Track
+[CShellClientSoundController] CSoundPatch *Track(	SLOT-HELP	allocates the patch and tells managed its handle
+[CShellClientSoundController] static IManagedSoundControllerClient *Ask()	SLOT-HELP	the area
+static CShellClientSoundController *ShellClientSoundController()	HOOK	the function-local instance
+CSoundEnvelopeController &CSoundEnvelopeController::GetController()	SLOT	the static stock's callers name
+void SourceSharp_ClientSoundPatchEmit(	SLOT	IShimEngine::SoundPatchEmit, the client's body
+void SourceSharp_ClientSoundPatchStop(	SLOT	IShimEngine::SoundPatchStop, the client's body
+void SourceSharp_ClientSoundPatchState(	SLOT	IShimEngine::SoundPatchState, the client's body
+void SourceSharp_ClientSoundPatchFree(	SLOT	IShimEngine::SoundPatchFree, the client's body
+[CClientCopyFilter] CClientCopyFilter() : m_bActive( false ), m_bReliable( false ), m_bInitMessage( false )	BOUNDARY	the copied recipient filter the engine's EmitSound reads (stock's CCopyRecipientFilter)
+[CClientCopyFilter] void Init( IRecipientFilter *pSrc )	BOUNDARY	the copied recipient filter the engine's EmitSound reads (stock's CCopyRecipientFilter)
+[CClientCopyFilter] bool IsActive() const	BOUNDARY	the copied recipient filter the engine's EmitSound reads (stock's CCopyRecipientFilter)
+[CClientCopyFilter] virtual bool IsReliable() const	BOUNDARY	the copied recipient filter the engine's EmitSound reads (stock's CCopyRecipientFilter)
+[CClientCopyFilter] virtual bool IsInitMessage() const	BOUNDARY	the copied recipient filter the engine's EmitSound reads (stock's CCopyRecipientFilter)
+[CClientCopyFilter] virtual int GetRecipientCount() const	BOUNDARY	the copied recipient filter the engine's EmitSound reads (stock's CCopyRecipientFilter)
+[CClientCopyFilter] virtual int GetRecipientIndex( int slot ) const	BOUNDARY	the copied recipient filter the engine's EmitSound reads (stock's CCopyRecipientFilter)
+[CShellClientSoundController] virtual void SystemReset() OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void SystemUpdate() OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void Play( CSoundPatch *pSound, float volume, float pitch, float flStartTime ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void CommandAdd( CSoundPatch *pSound, float executeDeltaTime, soundcommands_t command,	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void CommandClear( CSoundPatch *pSound ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void Shutdown( CSoundPatch *pSound ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual CSoundPatch *SoundCreate( IRecipientFilter &filter, int nEntIndex, const char *pSoundName ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual CSoundPatch *SoundCreate( IRecipientFilter &filter, int nEntIndex, const EmitSound_t &es ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void SoundDestroy( CSoundPatch *pSound ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void SoundChangePitch( CSoundPatch *pSound, float pitchTarget, float deltaTime ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void SoundChangeVolume( CSoundPatch *pSound, float volumeTarget, float deltaTime ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void SoundFadeOut( CSoundPatch *pSound, float deltaTime, bool destroyOnFadeout ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual float SoundGetPitch( CSoundPatch *pSound ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual float SoundGetVolume( CSoundPatch *pSound ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual float SoundPlayEnvelope( CSoundPatch *pSound, soundcommands_t soundCommand, envelopePoint_t *points, i	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual float SoundPlayEnvelope( CSoundPatch *pSound, soundcommands_t soundCommand, envelopeDescription_t *env	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void CheckLoopingSoundsForPlayer( CBasePlayer *pPlayer ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual string_t SoundGetName( CSoundPatch *pSound ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual void SoundSetCloseCaptionDuration( CSoundPatch *pSound, float flDuration ) OVERRIDE	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual CSoundPatch *SoundCreate( IRecipientFilter &attnFilter	SLOT	CSoundEnvelopeController's vtable: forwards to IManagedSoundControllerClient
+[CShellClientSoundController] virtual CSoundPatch *SoundCreate( IRecipientFilter &levelFilter	SLOT	CSoundEnvelopeController's vtable (physics.cpp's friction sounds): forwards to IManagedSoundControllerClient
+int32_t SourceSharp_ClientSoundScriptParameters(	BOUNDARY	IShimEngine's client body: GameSound_GetParameters, the script's numbers handed back (lane c6-input)
+int32_t SourceSharp_ClientSoundPatchCreate(	BOUNDARY	IShimEngine's client body: stock's client PhysFrictionSound's SoundCreate on the entity, the patch handle handed back
+int32_t SourceSharp_ClientSurfaceScrapeSound(	BOUNDARY	IShimEngine's client body: physprops' scrape sound name, one read

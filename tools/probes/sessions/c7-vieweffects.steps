@@ -1,0 +1,28 @@
+# plan_client_novalve C7: view_effects.cpp's oracle. A probe build
+# (view_effects.cpp.probe.diff) logs every Shake and Fade, every CalcShake (its
+# random draws and the frame's offset, roll and rumble angle) and every
+# GetFadeParams on ss_sandbox, while the sandbox's env_shake and env_fade fire,
+# overlapping. OUT/probe.log's v* rows become src/test/client/Fixtures/view-effects-stock.tsv.
+#   cmake -S . -B farm/debug/build -DSS_CLIENT_PROBES=ON && ninja -C farm/debug/build client_sourcesharp
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-vieweffects.steps --no-probe-build
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+api fire emitters_shake StartShake
+sleep 0.5
+api fire emitters_fade Fade
+sleep 0.3
+api fire emitters_shake StartShake
+sleep 2
+api fire emitters_fade Fade
+api fire emitters_shake StopShake
+sleep 1
+api fire emitters_shake StartShake
+sleep 0.2
+api fire emitters_shake Amplitude 12
+sleep 0.2
+api fire emitters_shake Frequency 80
+sleep 2
+quit

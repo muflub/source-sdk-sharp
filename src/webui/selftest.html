@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Debug API self-test</title>
+<link rel="stylesheet" href="/ui/app.css">
+</head>
+<body style="display:block; padding:16px">
+
+<h2>Self-test</h2>
+<p class="note">
+  The checks that need a real browser: whether a hidden panel is actually hidden,
+  which is a question about the CSS cascade; the drag that makes a connection,
+  which ends by asking the document what is under the pointer; and clicking an
+  entity in a viewport, which needs a canvas with a size and a GPU behind it.
+  Everything else is in Vitest &mdash; <code>npm test</code> in src/sourcesharp/webui.
+</p>
+
+<pre id="out" class="log" style="max-height:50vh"></pre>
+
+<!-- The graph renders itself into this. On screen rather than parked
+     off-canvas: the drop asks the document what is under the pointer, and
+     nothing is under a pointer outside the viewport. -->
+<div class="map-pane" id="graph-host" style="width:900px; height:600px"></div>
+
+<!-- Likewise the viewports: a canvas that has never been shown has no size, and
+     a click is picked against what is on screen. -->
+<div class="map-pane" id="viewport-host" style="width:900px; height:600px"></div>
+
+<script type="module" src="/ui/selftest.js"></script>
+</body>
+</html>

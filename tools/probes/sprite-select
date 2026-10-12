@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""tools/probes/sprite-select -- lane c2-fx: a probe.log from
+tools/probes/sessions/fx-sprites.steps into the two sprite fixtures.
+
+    tools/probes/sprite-select PROBE_LOG OUT_DIR
+
+Writes OUT_DIR/sprite-stock.tsv.gz (every sprite draw: spc, spr-*, spg-*,
+spb, spq rows; every spa battery row) and OUT_DIR/spritetrail-stock.tsv.gz
+(every trl-* row and the fxr random draws between them). A row is the probe
+line after its "<ns> <pid> fx " prefix, so its fields are the probe's own
+"key=value" groups (README beside the fixtures).
+
+Fails when a fixture would be empty or a draw is cut short: a recording that
+did not reach a subject is not a fixture.
+"""
+import gzip, pathlib, sys
+
+def main():
+    if len(sys.argv) != 3:
+        sys.exit(__doc__)
+    log, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+    sprite, trail = [], []
+    for line in log.read_text(errors='replace').splitlines():
+        parts = line.split(' ', 3)
+        if len(parts) < 4 or parts[2] != 'fx':
+            continue
+        row = parts[3]
+        tag = row.split(' ', 1)[0]
+        if tag.startswith(('spr-', 'spg-', 'spq', 'spb', 'spc', 'spa')):
+            sprite.append(row)
+        elif tag.startswith('trl-') or tag == 'fxr':
+            trail.append(row)
+    opened = sum(1 for r in sprite if r.startswith(('spr-in ', 'spr-skip ')))
+    closed = sum(1 for r in sprite if r.startswith(('spr-ret ', 'spr-skip ')))
+    if opened == 0 or opened != closed:
+        sys.exit(f'sprite-select: {opened} draws opened, {closed} closed')
+    if not any(r.startswith('trl-draw ') for r in trail):
+        sys.exit('sprite-select: no trail draw recorded')
+    out.mkdir(parents=True, exist_ok=True)
+    for name, rows in (('sprite-stock.tsv.gz', sprite), ('spritetrail-stock.tsv.gz', trail)):
+        with gzip.GzipFile(out / name, 'wb', mtime=0) as f:
+            f.write(('\n'.join(rows) + '\n').encode())
+        print(f'{name}: {len(rows)} rows')
+
+main()

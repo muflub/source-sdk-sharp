@@ -1,0 +1,50 @@
+{
+  // The native build is CMake with presets (CMakePresets.json): its build
+  // trees live in farm/<config>/build. Without this, CMake Tools configures
+  // into ./build on open.
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": false,
+    "makefile.configureOnOpen": false,
+
+    // Naming the solution outright stops C# Dev Kit hunting for one. Its scan
+    // runs `rg --files --hidden --no-ignore --follow`, which followed the Wine
+    // prefix's Z: drive into / and walked the whole filesystem, /proc included.
+    // The prefix has moved out of the tree, but the scan is worth not running.
+    "dotnet.defaultSolution": "SourceSharp.slnx",
+
+    // Nothing in this checkout is meant to be reached through a symlink, and a
+    // single link to / is enough to turn any search into a filesystem crawl.
+    "search.followSymlinks": false,
+
+    // Generated, fetched, or duplicated trees. Search already honours
+    // .gitignore, so these are belt and braces -- but they are also what makes
+    // the difference between a 33k-file workspace and a 124k-file one.
+    "search.exclude": {
+        "**/.claude/worktrees": true,
+        "**/node_modules": true,
+        "**/obj": true,
+        "bin": true,
+        "farm": true,
+        "tools/node": true
+    },
+
+    // The watcher does NOT honour .gitignore, so this list is the only thing
+    // keeping inotify off ~12GB of build output and fetched tools. bin/ is
+    // here because it is also where the running game writes (console.log,
+    // cfg/, stats.txt under bin/<config>/mods/test), and every write wakes the
+    // extension host; farm/ is thousands of links plus VPC and ninja output.
+    "files.watcherExclude": {
+        "**/.claude/worktrees/**": true,
+        "**/bin/**": true,
+        "**/node_modules/**": true,
+        "**/obj/**": true,
+        "bin/**": true,
+        "farm/**": true,
+        "tools/node/**": true
+    },
+
+    // Four duplicate checkouts are noise in the Explorer tree.
+    "files.exclude": {
+        "**/.claude/worktrees": true
+    }
+}

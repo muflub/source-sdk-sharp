@@ -1,0 +1,134 @@
+# KeyValues text load corpus: case<TAB>text. The text is escaped: \n \r \t \v \f \\ and \xHH for any other byte
+# outside 0x20..0x7e. Read by keyvalues_load_oracle_test (pristine KeyValues.cpp) and KeyValuesLoadTests (managed).
+# No case loads a SUBNORMAL float: whether (float)strtod keeps one is the thread's MXCSR (the oracle binary flushes
+# them to zero, the test runner does not), not the load's decision; 1e-46 underflows to zero under either.
+sprite_basic	"Sprite"\n{\n\t"$spriteorientation" "vp_parallel"\n\t"$spriteorigin" "[ 0.50 0.50 ]"\n\t"$basetexture" "sprites/glow01"\n\t"$ignorez" 1\n}\n
+unquoted_tokens	Sprite\n{\n$basetexture sprites/foo\n$ignorez 1\n$alpha .5\n}\n
+proxies_nested	"UnlitGeneric"\n{\n\t"$basetexture" "sprites/a"\n\t"$frame" "0"\n\t"Proxies"\n\t{\n\t\t"AnimatedTexture"\n\t\t{\n\t\t\t"animatedtexturevar" "$basetexture"\n\t\t\t"animatedtextureframenumvar" "$frame"\n\t\t\t"animatedtextureframerate" 10\n\t\t}\n\t}\n}\n
+value_00	"m"\n{\n\t"k" "1"\n}\n
+value_01	"m"\n{\n\t"k" "-5"\n}\n
+value_02	"m"\n{\n\t"k" "+7"\n}\n
+value_03	"m"\n{\n\t"k" " 12"\n}\n
+value_04	"m"\n{\n\t"k" "12 "\n}\n
+value_05	"m"\n{\n\t"k" "1.5"\n}\n
+value_06	"m"\n{\n\t"k" ".5"\n}\n
+value_07	"m"\n{\n\t"k" "5."\n}\n
+value_08	"m"\n{\n\t"k" "1e3"\n}\n
+value_09	"m"\n{\n\t"k" "1e"\n}\n
+value_10	"m"\n{\n\t"k" "1E-2"\n}\n
+value_11	"m"\n{\n\t"k" "inf"\n}\n
+value_12	"m"\n{\n\t"k" "-inf"\n}\n
+value_13	"m"\n{\n\t"k" "INF"\n}\n
+value_14	"m"\n{\n\t"k" "infinity"\n}\n
+value_15	"m"\n{\n\t"k" "nan"\n}\n
+value_16	"m"\n{\n\t"k" "NaN"\n}\n
+value_17	"m"\n{\n\t"k" "0x10"\n}\n
+value_18	"m"\n{\n\t"k" "0X1F"\n}\n
+value_19	"m"\n{\n\t"k" "1x"\n}\n
+value_20	"m"\n{\n\t"k" "0x1p3"\n}\n
+value_21	"m"\n{\n\t"k" "0x0000000000000010"\n}\n
+value_22	"m"\n{\n\t"k" "0xFFFFFFFFFFFFFFFF"\n}\n
+value_23	"m"\n{\n\t"k" "0xabcdefABCDEF0123"\n}\n
+value_24	"m"\n{\n\t"k" "0x00000000000000ZZ"\n}\n
+value_25	"m"\n{\n\t"k" "0x-000000000000001"\n}\n
+value_26	"m"\n{\n\t"k" "99999999999"\n}\n
+value_27	"m"\n{\n\t"k" "4294967296"\n}\n
+value_28	"m"\n{\n\t"k" "2147483648"\n}\n
+value_29	"m"\n{\n\t"k" "-2147483649"\n}\n
+value_30	"m"\n{\n\t"k" "-99999999999999999999999"\n}\n
+value_31	"m"\n{\n\t"k" "99999999999999999999"\n}\n
+value_32	"m"\n{\n\t"k" "3.4e39"\n}\n
+value_33	"m"\n{\n\t"k" "1e-50"\n}\n
+value_34	"m"\n{\n\t"k" "1e-46"\n}\n
+value_35	"m"\n{\n\t"k" ""\n}\n
+value_36	"m"\n{\n\t"k" "0"\n}\n
+value_37	"m"\n{\n\t"k" "-0"\n}\n
+value_38	"m"\n{\n\t"k" "00012"\n}\n
+value_39	"m"\n{\n\t"k" "1,5"\n}\n
+value_40	"m"\n{\n\t"k" "abc"\n}\n
+value_41	"m"\n{\n\t"k" "1.5.2"\n}\n
+value_42	"m"\n{\n\t"k" "--1"\n}\n
+value_43	"m"\n{\n\t"k" "+"\n}\n
+value_44	"m"\n{\n\t"k" "-"\n}\n
+value_45	"m"\n{\n\t"k" "."\n}\n
+value_46	"m"\n{\n\t"k" "e5"\n}\n
+value_47	"m"\n{\n\t"k" "\t3"\n}\n
+value_48	"m"\n{\n\t"k" "3\t"\n}\n
+value_49	"m"\n{\n\t"k" "1.0f"\n}\n
+value_50	"m"\n{\n\t"k" "0.1"\n}\n
+value_51	"m"\n{\n\t"k" "16777217"\n}\n
+value_52	"m"\n{\n\t"k" "-.5e+1"\n}\n
+unquoted_values	m { a 1 b 2.5 c x d -3 e 1e2 f inf }
+cond_value_00	"m"\n{\n\t"a" "1" [$WIN32]\n\t"b" "2"\n}\n
+cond_value_01	"m"\n{\n\t"a" "1" [$X360]\n\t"b" "2"\n}\n
+cond_value_02	"m"\n{\n\t"a" "1" [!$X360]\n\t"b" "2"\n}\n
+cond_value_03	"m"\n{\n\t"a" "1" [$LINUX]\n\t"b" "2"\n}\n
+cond_value_04	"m"\n{\n\t"a" "1" [$WINDOWS]\n\t"b" "2"\n}\n
+cond_value_05	"m"\n{\n\t"a" "1" [$OSX]\n\t"b" "2"\n}\n
+cond_value_06	"m"\n{\n\t"a" "1" [$POSIX]\n\t"b" "2"\n}\n
+cond_value_07	"m"\n{\n\t"a" "1" [$DECK]\n\t"b" "2"\n}\n
+cond_value_08	"m"\n{\n\t"a" "1" [!$DECK]\n\t"b" "2"\n}\n
+cond_value_09	"m"\n{\n\t"a" "1" [$UNKNOWN]\n\t"b" "2"\n}\n
+cond_value_10	"m"\n{\n\t"a" "1" [!$WIN32]\n\t"b" "2"\n}\n
+cond_value_11	"m"\n{\n\t"a" "1" [$win32]\n\t"b" "2"\n}\n
+cond_value_12	"m"\n{\n\t"a" "1" [$POSIX&&$LINUX]\n\t"b" "2"\n}\n
+cond_value_13	"m"\n{\n\t"a" "1" foo[$X360]\n\t"b" "2"\n}\n
+cond_value_14	"m"\n{\n\t"a" "1" [$X360\n\t"b" "2"\n}\n
+cond_value_15	"m"\n{\n\t"a" "1" $X360]\n\t"b" "2"\n}\n
+cond_before_value	"m"\n{\n\t"a" [$WIN32] "1"\n\t"b" [$X360] "2"\n\t"c" "3"\n}\n
+cond_twice	"m"\n{\n\t"a" [$WIN32] [$X360]\n\t"b" "2"\n}\n
+cond_block	"m"\n{\n\t"p" [$X360]\n\t{\n\t\t"x" "1"\n\t}\n\t"q" [$WIN32]\n\t{\n\t\t"y" "2"\n\t}\n\t"z" "3"\n}\n
+cond_root	"m" [$X360]\n{\n\t"a" "1"\n}\n"n" [$WIN32]\n{\n\t"b" "2"\n}\n
+cond_root_first_rejected_only	"m" [$X360]\n{\n\t"a" "1"\n}\n
+cond_quoted	"m"\n{\n\t"a" "[$X360]"\n\t"b" "1" "[$X360]"\n}\n
+cond_last_value_eof	"m"\n{\n\t"a" "1" [$X360]
+comments	// head\n"m" // after root\n{ // after brace\n\t"a" // between\n\t"1" // after value\n\t// whole line\n\t"b" "2"\n}\n// tail
+comment_eof_no_newline	"m"\n{\n\t"a" "1"\n}\n// tail no newline
+slashes_in_tokens	m { a/b c//d e / f x "g//h" }
+single_slash_token	m { a / }
+empty_block	"m"\n{\n\t"e"\n\t{\n\t}\n\t"f" "1"\n}\n
+duplicate_keys	"m"\n{\n\t"a" "1"\n\t"a" "2"\n\t"A" "3"\n\t"a" { "x" "y" }\n}\n
+empty_key_name	"m"\n{\n\t"a" "1"\n\t"" "2"\n\t"b" "3"\n}\n
+brace_as_value	"m"\n{\n\t"a" }\n\t"b" "3"\n}\n
+quoted_braces	"m"\n{\n\t"{" "}"\n\t"a" "{"\n}\n
+missing_close	"m"\n{\n\t"a" "1"\n\t"b" "2"\n
+missing_close_no_ws	"m"\n{\n\t"a" "1"
+key_at_eof	"m"\n{\n\t"a"
+extra_close	"m"\n{\n\t"a" "1"\n}\n}\n"n" { "b" "2" }\n
+root_without_brace	"a" "b"\n"c" { "d" "e" }\n
+multiple_roots	"m" { "a" "1" }\n"n" { "b" "2" }\n"o" { }\n
+empty_input	
+whitespace_only	  \n\t\r\n  
+comment_only	// nothing here\n
+unterminated_quote_value	"m"\n{\n\t"a" "unterminated
+unterminated_quote_key	"m"\n{\n\t"unterminated
+backslash_quote	"m"\n{\n\t"a" "x\\"y"\n\t"b" "c:\\\\path\\\\"\n}\n
+del_char	"m"\n{\n\t"a" "x\x7fy"\n\t"b" "2"\n}\n
+long_quoted	"m"\n{\n\t"a" "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"\n\t"b" "2"\n}\n
+long_unquoted	"m"\n{\n\ta uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\n\tb 2\n}\n
+crlf	"m"\r\n{\r\n\t"a" "1"\r\n\t"b" "x y"\r\n}\r\n
+vtab_ff_ws	"m"\v{\f"a"\v"1"\f}
+high_bytes	"m"\n{\n\t"a" "caf\xc3\xa9"\n\t"\xc3\xa9t\xc3\xa9" "1"\n\tz\xc3\xa9 2\n}\n
+include_base_nullfs	#include "other.vmt"\n#base "base.vmt"\n"m"\n{\n\t"a" "1"\n}\n
+include_case	#INCLUDE "x"\n#Base "y"\n"m" { "a" "1" }
+include_eof	"m" { "a" "1" }\n#include
+include_in_block	"m"\n{\n\t#include "x"\n\t#base "y"\n}\n
+root_brace_token	{ "a" "1" }
+root_quoted_empty	"" { "a" "1" }
+adjacent_tokens	"m"{"a""1""b"{"c""2"}}
+unquoted_adjacent_quote	m{a"1"b 2}
+deep_nesting	"m" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" "v" } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } }
+value_then_peek_quoted	"m"\n{\n\t"a" "1"\n\t"[$X360]" "2"\n}\n
+real_shape_spritecard	"SpriteCard"\n{\n\t"$basetexture" "particle/fire"\n\t"$additive" "1"\n\t"$vertexcolor" 1\n\t"$vertexalpha" 1\n\t"$maxsize" ".5"\n\t"$overbrightfactor" "2.0"\n\t"$color" "{255 128 0}"\n\t"$orientation" "3"\n}\n
+value_hexfloat_lead_space	"m"\n{\n\t"k" " 0x10"\n}\n
+value_hexfloat_neg	"m"\n{\n\t"k" "-0x1p3"\n}\n
+value_hexfloat_plus_frac	"m"\n{\n\t"k" "+0x1.8p1"\n}\n
+value_neg_nan	"m"\n{\n\t"k" "-nan"\n}\n
+value_nan_payload	"m"\n{\n\t"k" "nan(123)"\n}\n
+value_nan_bad_payload	"m"\n{\n\t"k" "nan(12"\n}\n
+value_infinit	"m"\n{\n\t"k" "infinit"\n}\n
+value_exp_no_digits	"m"\n{\n\t"k" "2e+"\n}\n
+value_big_digits	"m"\n{\n\t"k" "123456789012345678901234567890.5"\n}\n
+value_float_round	"m"\n{\n\t"k" "0.1000000000000000055511151231257827"\n}\n
+value_space_minus	"m"\n{\n\t"k" " -7"\n}\n
+deep_nesting_60	"m" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" { "k" "v" } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } } }

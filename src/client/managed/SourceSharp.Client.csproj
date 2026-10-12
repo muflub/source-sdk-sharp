@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- The tests build entities with a HANDLE, which only the registry may
+         set in production: cs_bonemerge picks by the index packed into it,
+         and a selection rule that cannot be handed an index cannot be tested. -->
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <!-- plan_side_isolation P7: the shared source's grant (UserMessageRegistry.Register,
+         which MessageOrderTests reaches) comes with it. -->
+    <InternalsVisibleTo Include="TF2.Descent.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <!-- The oracle's no-caller-arm tests step a spawn helper's second half
+         (RocketFlareInto, SpawnTempModelInto) without its create, which means
+         they reserve a slot themselves: the oracle reads stock code, but it
+         rigs our pool, and Reserve is the pool's own reservation step. -->
+    <InternalsVisibleTo Include="SourceSharp.OracleTests" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\interface\SourceSharp.Client.Interface.csproj" />
+    <!-- plan_side_isolation P7: SourceSharp.Shared is not an assembly. Its
+         source folder compiles into each side (stock Source's game/shared), so
+         the two sides share no managed type. -->
+    <Compile Include="..\..\shared\managed\**\*.cs" Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- The generator writes the other half of the shared source's partials
+         ([StandaloneNetState], user-message payloads); see SourceSharp.Server's
+         copy for how to read what it wrote. -->
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <!-- plan_client_vtables: the client's managed-built bindings, which need
+         /unsafe; this assembly stays without it. -->
+    <ProjectReference Include="..\interop\SourceSharp.Client.Interop.csproj" />
+    <!-- No reference to the UI's toolkit, screens or host (plan_client_ui U5):
+         they load in the UI's own collectible context (Ui/UiLoader.cs), and the
+         host references this assembly, not the other way. -->
+  </ItemGroup>
+</Project>

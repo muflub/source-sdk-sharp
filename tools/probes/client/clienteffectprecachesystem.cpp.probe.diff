@@ -1,0 +1,66 @@
+--- a/src/game/client/clienteffectprecachesystem.cpp	2026-10-05 06:03:04.342971303 -0700
++++ b/src/game/client/clienteffectprecachesystem.cpp	2026-10-05 06:03:04.348695003 -0700
+@@ -11,6 +11,7 @@
+ #include "fx.h"
+ #include "clienteffectprecachesystem.h"
+ #include "particles/particles.h"
++#include "fx_probe_log.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -27,17 +28,21 @@
+ //-----------------------------------------------------------------------------
+ void CClientEffectPrecacheSystem::LevelInitPreEntity( void )
+ {
++	FxProbeLog( "pc-ev init n=%d", m_Effects.Size() );
+ 	//Precache all known effects
+ 	for ( int i = 0; i < m_Effects.Size(); i++ )
+ 	{
++		FxProbeLog( "pc-cache %d 1", i );
+ 		m_Effects[i]->Cache();
+ 	}
+ 	
+ 	//FIXME: Double check this
+ 	//Finally, force the cache of these materials
++	FxProbeLog( "pc-used" );
+ 	materials->CacheUsedMaterials();
+ 
+ 	// Now, cache off our material handles
++	FxProbeLog( "pc-handles" );
+ 	FX_CacheMaterialHandles();
+ }
+ 
+@@ -46,6 +51,7 @@
+ //-----------------------------------------------------------------------------
+ void CClientEffectPrecacheSystem::LevelShutdownPreEntity( void )
+ {
++	FxProbeLog( "pc-ev shutdownpre n=%d", m_Effects.Size() );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -53,9 +59,11 @@
+ //-----------------------------------------------------------------------------
+ void CClientEffectPrecacheSystem::LevelShutdownPostEntity( void )
+ {
++	FxProbeLog( "pc-ev shutdownpost n=%d", m_Effects.Size() );
+ 	// mark all known effects as free
+ 	for ( int i = 0; i < m_Effects.Size(); i++ )
+ 	{
++		FxProbeLog( "pc-cache %d 0", i );
+ 		m_Effects[i]->Cache( false );
+ 	}
+ }
+@@ -65,6 +73,7 @@
+ //-----------------------------------------------------------------------------
+ void CClientEffectPrecacheSystem::Shutdown( void )
+ {
++	FxProbeLog( "pc-ev shutdown n=%d", m_Effects.Size() );
+ 	//Release all effects
+ 	m_Effects.Purge();
+ }
+@@ -77,4 +86,5 @@
+ {
+ 	//Hold onto this effect for precaching later
+ 	m_Effects.AddToTail( effect );
++	FxProbeLog( "pc-reg %d", m_Effects.Size() - 1 );
+ }

@@ -1,0 +1,10 @@
+row	before	after	delta
+dissolve draws	0	0	0
+dust motes	0	0	0
+dust puffs	0	0	0
+gauss puffs	0	0	0
+impact blood	0	0	0
+impact dust	0	0	0
+impact flecks	0	0	0
+rope draws	559	1991	1432
+sprite quads	300	658	358

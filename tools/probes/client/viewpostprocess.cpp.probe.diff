@@ -1,0 +1,135 @@
+--- a/src/game/client/viewpostprocess.cpp
++++ b/src/game/client/viewpostprocess.cpp
+@@ -24,6 +24,7 @@
+ #include "tier0/vprof.h"
+ 
+ #include "proxyentity.h"
++#include "fx_probe_log.h"
+ 
+ //-----------------------------------------------------------------------------
+ // Globals
+@@ -490,6 +491,12 @@
+ 	scry_min += skip_edgey;
+ 	scrx_max -= skip_edgex;
+ 	scry_max -= skip_edgey;
++	// PROBE (C7 step 2, tonemap-stock.tsv): the query this bucket issues.
++	FxProbeLog( "tiq\t%d\t%d\t%.9g,%.9g\t%.9g,%.9g,%.9g,%.9g\t%d,%d,%d,%d\t%d\t%.9g,%.9g,%.9g,%.9g\t%d,%d,%d,%d\t%.9g\t%d",
++	            frm_num, m_state, m_min_lum, m_max_lum, m_minx, m_miny, m_maxx, m_maxy, xl, yl, dest_width, dest_height,
++	            g_bFlashlightIsOn ? 1 : 0, mat_exposure_center_region_x.GetFloat(), mat_exposure_center_region_y.GetFloat(),
++	            mat_exposure_center_region_x_flashlight.GetFloat(), mat_exposure_center_region_y_flashlight.GetFloat(),
++	            scrx_min, scry_min, scrx_max, scry_max, tscale, m_npixels );
+ 	pRenderContext->DrawScreenSpaceRectangle( test_mat,
+ 											  scrx_min, scry_min,
+ 											  1 + scrx_max - scrx_min,
+@@ -559,6 +566,7 @@
+ 	// find which histogram entries should have something done this frame
+ 	int n_queries_issued_this_frame=0;
+ 	cur_query_frame++;
++	FxProbeLog( "tu\t%d\t%d", cur_query_frame, mat_tonemap_algorithm.GetInt() ); // PROBE: an update
+ 
+ 	int nNumRanges = N_LUMINANCE_RANGES;
+ 	if ( mat_tonemap_algorithm.GetInt() == 1 )
+@@ -583,6 +591,7 @@
+ 					CMatRenderContextPtr pRenderContext( materials );
+ 					int np = pRenderContext->OcclusionQuery_GetNumPixelsRendered(
+ 						CurHistogram[i].m_occ_handle );
++					FxProbeLog( "trb\t%d\t%d\t%d", cur_query_frame, i, np ); // PROBE: the readback
+ 					if ( np !=- 1 ) 						// -1=query not finished. wait until
+ 						// next time
+ 					{
+@@ -714,6 +723,8 @@
+ 		flTargetScalar *= flLastScale;
+ 
+ 		flTargetScalar = MAX( 0.001f, flTargetScalar );
++		FxProbeLog( "tts\t%d\t%.9g,%.9g,%.9g\t%.9g\t%.9g", bGetIdealTargetForDebugMode ? 1 : 0, mat_tonemap_percent_bright_pixels.GetFloat(),
++		            mat_tonemap_percent_target.GetFloat(), mat_tonemap_min_avglum.GetFloat(), flLastScale, flTargetScalar ); // PROBE
+ 		return flTargetScalar;
+ 	}
+ 	else // Original tonemapping
+@@ -759,6 +770,7 @@
+ 
+ 		// Compute target scalar
+ 		float flTargetScalar = 0.005 / average_luminance;
++		FxProbeLog( "tts0\t%.9g", flTargetScalar ); // PROBE: the original algorithm's target
+ 
+ 		return flTargetScalar;
+ 	}
+@@ -1126,6 +1138,7 @@
+ {
+ 	CMatRenderContextPtr pRenderContext( materials );
+ 	s_nInAverage = 0;
++	FxProbeLog( "tr\t%.9g", value ); // PROBE: ResetToneMapping
+ 	pRenderContext->ResetToneMappingScale(value);
+ }
+ 
+@@ -1138,6 +1151,7 @@
+ 		return;
+ 
+ 	float flForcedTonemapScale = mat_force_tonemap_scale.GetFloat();
++	FxProbeLog( "tsm\t%.9g\t%.9g,%.9g\t%.9g\t%d\t%d", newvalue, minvalue, maxvalue, flForcedTonemapScale, mat_fullbright.GetInt(), s_nInAverage ); // PROBE
+ 
+ 	if( mat_fullbright.GetInt() == 1 )
+ 	{
+@@ -1148,6 +1162,7 @@
+ 	{
+ 		mat_hdr_tonemapscale.SetValue( flForcedTonemapScale );
+ 		pRenderContext->ResetToneMappingScale( flForcedTonemapScale );
++		FxProbeLog( "tsr\t%.9g", flForcedTonemapScale ); // PROBE: the reset
+ 		return;
+ 	}
+ 
+@@ -1182,6 +1197,7 @@
+ 		avg = MIN( maxvalue, MAX( minvalue, avg ));
+ 		pRenderContext->SetGoalToneMappingScale( avg );
+ 		mat_hdr_tonemapscale.SetValue( avg );
++		FxProbeLog( "tsa\t%.9g", avg ); // PROBE: the averaged goal
+ 	}
+ }
+ 
+@@ -1467,6 +1483,11 @@
+ 	}
+ 
+ 	flBloomAmount *= mat_bloom_scalefactor_scalar.GetFloat();
++	FxProbeLog( "tb\t%d,%d,%d,%d,%d,%d\t%d\t%d\t%.9g,%.9g,%.9g,%.9g,%.9g\t%.9g", engine->GetDXSupportLevel(), (int)hdrType, mat_hdr_level.GetInt(),
++	            engine->MapHasHDRLighting() ? 1 : 0, mat_force_bloom.GetInt(), mat_disable_bloom.GetInt(), mat_fullbright.GetInt(),
++	            ( !g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() && g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ) ? 1 : 0,
++	            mat_bloomamount_rate.GetFloat(), mat_bloomscale.GetFloat(), g_bUseCustomBloomScale ? g_flCustomBloomScale : -1.0f,
++	            mat_non_hdr_bloom_scalefactor.GetFloat(), mat_bloom_scalefactor_scalar.GetFloat(), flBloomAmount ); // PROBE
+ 
+ 	return flBloomAmount;
+ }
+@@ -1621,6 +1642,8 @@
+ 			float flTargetScalar = g_HDR_HistogramSystem.GetTargetTonemapScalar();
+ 			float flTargetScalarClamped = MAX( flAutoExposureMin, MIN( flAutoExposureMax, flTargetScalar ) );
+ 			flTargetScalarClamped = MAX( 0.001f, flTargetScalarClamped ); // Don't let this go to 0!
++			FxProbeLog( "tt\t%.9g\t%.9g\t%.9g,%.9g\t%d,%d", flTargetScalar, flTargetScalarClamped, flAutoExposureMin, flAutoExposureMax,
++			            mat_dynamic_tonemapping.GetInt(), mat_show_histogram.GetInt() ); // PROBE
+ 			if ( mat_dynamic_tonemapping.GetInt() )
+ 			{
+ 				SetToneMapScale( pRenderContext, flTargetScalarClamped, flAutoExposureMin, flAutoExposureMax );
+@@ -2261,6 +2284,9 @@
+ 	float flAutoExposureMin;
+ 	float flAutoExposureMax;
+ 	GetExposureRange( &flAutoExposureMin, &flAutoExposureMax );
++	FxProbeLog( "tx\t%d,%.9g\t%d,%.9g\t%.9g,%.9g\t%d\t%.9g,%.9g\t%d\t%d", g_bUseCustomAutoExposureMin ? 1 : 0, g_flCustomAutoExposureMin,
++	            g_bUseCustomAutoExposureMax ? 1 : 0, g_flCustomAutoExposureMax, mat_autoexposure_min.GetFloat(), mat_autoexposure_max.GetFloat(),
++	            mat_hdr_uncapexposure.GetInt(), flAutoExposureMin, flAutoExposureMax, (int)hdrType, bFlashlightIsOn ? 1 : 0 ); // PROBE: a frame's post
+ 
+ 	if ( mat_debug_bloom.GetInt() == 1 )
+ 	{
+@@ -2957,6 +2983,15 @@
+ 		//====================================//
+ 		// Store current frame for next frame //
+ 		//====================================//
++		// PROBE (C7 step 2, motionblur-stock.tsv): the inputs this frame's values
++		// were computed from, and the values.
++		FxProbeLog( "mb\t%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g\t%.9g\t%d\t%.9g,%.9g,%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g,%.9g",
++		            gpGlobals->realtime, viewBlur.origin.x, viewBlur.origin.y, viewBlur.origin.z,
++		            viewBlur.angles.x, viewBlur.angles.y, viewBlur.angles.z, viewBlur.fov, viewBlur.m_flAspectRatio,
++		            mat_motion_blur_forward_enabled.GetInt(), mat_motion_blur_falling_min.GetFloat(), mat_motion_blur_falling_max.GetFloat(),
++		            mat_motion_blur_falling_intensity.GetFloat(), mat_motion_blur_rotation_intensity.GetFloat(), mat_motion_blur_strength.GetFloat(),
++		            g_vMotionBlurValues[0], g_vMotionBlurValues[1], g_vMotionBlurValues[2], g_vMotionBlurValues[3] );
++
+ 		VectorCopy( vCurrentPosition, s_vPreviousPositon );
+ 		s_mPreviousFrameBasisVectors = mCurrentBasisVectors;
+ 		s_flPreviousPitch = flCurrentPitch;

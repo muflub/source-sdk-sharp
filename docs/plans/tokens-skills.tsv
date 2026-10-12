@@ -1,0 +1,50 @@
+Descent_Skill_Title	Skills
+Descent_Skill_Level	Level
+Descent_Skill_Points	Points
+Descent_Skill_Tier	Tier
+Descent_Skill_Floor	at level
+Descent_Skill_Req_Met	Prerequisites met
+Descent_Skill_Req_Missing	Prerequisites missing
+Descent_Skill_Empty_Title	No skills yet
+Descent_Skill_Empty_Body	Nothing to learn here; return when you have points.
+Descent_Skill_Group_Generic	Sellsword tricks
+Descent_Skill_Group_Capacity	Capacity
+Descent_Skill_Group_Sustain	Sustain
+Descent_Skill_Group_Fortune	Fortune
+Descent_Tab_Airborne	Airborne
+Descent_Tab_Command	Command
+Descent_Tab_Mercenary	Mercenary
+Descent_Skill_FragOut	Frag Out
+Descent_Skill_Splash	Splash Damage
+Descent_Skill_HeavyAmmo	Heavy Ammo
+Descent_Skill_RocketFamily	Rocket Family
+Descent_Skill_Grenadier	Grenadier
+Descent_Skill_DoubleJump	Double Jump
+Descent_Skill_AirDash	Air Dash
+Descent_Skill_SteadyLand	Steady Landing
+Descent_Skill_HeightBoost	Height Boost
+Descent_Skill_RallyFlag	Rally Flag
+Descent_Skill_BattleDrum	Battle Drum
+Descent_Skill_Leadership	Leadership
+Descent_Skill_PackMule	Pack Mule
+Descent_Skill_BeltPouches	Belt Pouches
+Descent_Skill_QuickDraw	Quick Draw
+Descent_Skill_ThickSkin	Thick Skin
+Descent_Skill_SecondWind	Second Wind
+Descent_Skill_FindersKeepers	Finder's Keepers
+Descent_Skill_Greed	Greed
+Descent_Spell_Title	Spellbook
+Descent_Spell_Known	Known spells
+Descent_Spell_Scrolls	Scrolls
+Descent_Spell_NoKnown	No tomes read yet
+Descent_Spell_Empty_Title	Nothing learned yet
+Descent_Spell_Empty_Body	Read a tome in town to learn its spell.
+Descent_Spell_Scrolls_Empty	No scrolls in the pack
+Descent_Spell_Fireball	Fireball
+Descent_Spell_ChainLightning	Chain Lightning
+Descent_Spell_FrostNova	Frost Nova
+Descent_Scroll_Fireball	Scroll of Fireball
+Descent_Scroll_Frost	Scroll of Frost
+Descent_Scroll_Identify	Scroll of Identify
+Descent_Spell_Req_Smarts	needs Smarts
+Descent_Spell_Rank	rank

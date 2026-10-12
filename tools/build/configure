@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+#   tools/build/configure <preset> [cmake args...]
+#
+# `cmake --preset <preset>`, run from the repo root, made safe against one CMake
+# behaviour: when the compiler a cache recorded no longer resolves to the same
+# path (PATH changed, a toolchain moved), CMake DELETES the cache and configures
+# again WITHOUT the preset's cache variables -- CMAKE_BUILD_TYPE among them --
+# printing only "you may have to reset some variables". cmake/SourceSharp.cmake
+# then stops on the empty build type. Configuring once more applies the preset
+# to the fresh cache, so that is what this does, once, and only then.
+set -euo pipefail
+repo="$(cd -- "$(dirname -- "$(readlink -f -- "$0")")/../.." && pwd -P)"
+cd "$repo"
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+status=0
+cmake --preset "$@" > "$log" 2>&1 || status=$?
+if grep -q "require your cache to be deleted" "$log"; then
+    echo "-- the $1 cache was reset (its compiler changed); configuring again with the preset"
+    status=0
+    cmake --preset "$@" > "$log" 2>&1 || status=$?
+fi
+if [[ $status -ne 0 ]]; then
+    cat "$log"
+fi
+exit $status

@@ -1,0 +1,1412 @@
+/*
+ * A developer tool, dressed as one: dense, monospaced where it carries data,
+ * and dark by default because it sits next to a game window. The light palette
+ * is there for anyone whose system asks for it.
+ */
+
+:root {
+  --bg:        #14161a;
+  --bg-raised: #1b1e24;
+  --bg-input:  #101215;
+  --line:      #2b303a;
+  --text:      #dfe3ea;
+  --dim:       #8b93a3;
+  --accent:    #5aa9e6;
+  --warn:      #ffb454;
+  --warn-bg:   #2a2015;
+  --good:      #6cc47f;
+  --bad:       #e06c75;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:        #f5f6f8;
+    --bg-raised: #ffffff;
+    --bg-input:  #ffffff;
+    --line:      #d8dce3;
+    --text:      #1a1d22;
+    --dim:       #5f6773;
+    --accent:    #1f6fb2;
+    --warn:      #9a5b00;
+    --warn-bg:   #fdf3e2;
+    --good:      #2e7d43;
+    --bad:       #b3261e;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/*
+ * A panel is display:grid, and any explicit display beats the [hidden]
+ * attribute's user-agent display:none -- so every tab would render at once,
+ * stacked down the page, with the selected one indistinguishable from the rest.
+ */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+ * The shell's grid lives here rather than on the body, because React mounts
+ * into a div and the header, tabs, panels and console are its children — a grid
+ * on the body would only ever see that one div and give it everything.
+ */
+/*
+ * Flex, not grid, and for the usual reason: a hidden element is not a grid item,
+ * so a template of fixed rows mis-assigns every row below anything that comes
+ * and goes — and the banner saying the game has died is exactly that. It arrived
+ * and pushed the tabs into the log pane's row.
+ */
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#root > main { flex: 1; min-height: 0; }
+
+/* ---- header ---------------------------------------------------------- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { letter-spacing: .3px; }
+.brand b { color: var(--accent); }
+.spacer { flex: 1; }
+
+.instances { display: flex; align-items: center; gap: 6px; color: var(--dim); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.chip b { color: var(--text); font-weight: 500; }
+
+.conn { font-size: 11px; font-family: var(--mono); }
+.conn[data-state="live"]    { color: var(--good); }
+.conn[data-state="waiting"] { color: var(--dim); }
+.conn[data-state="lost"]    { color: var(--bad); }
+
+/* ---- which build this game is running -------------------------------- */
+
+/* On screen the whole time, so it sits at the weight of the chips rather than
+   competing with them — until something has been rebuilt underneath the game,
+   which is the one moment it is worth interrupting for. */
+.build { position: relative; }
+
+.build-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  color: var(--dim);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.build-line:hover { border-color: var(--accent); }
+.build-line b { color: var(--text); font-weight: 500; }
+
+.build[data-stale="yes"] .build-line { border-color: var(--warn); color: var(--warn); }
+.build[data-stale="yes"] .build-line b { color: var(--warn); }
+
+.build .mark {
+  color: var(--bg);
+  background: var(--warn);
+  border-radius: 2px;
+  padding: 0 5px;
+}
+
+.build-pane {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 640px;
+  max-width: 90vw;
+  padding: 14px 16px;
+  text-align: left;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+/* Side by side, because the whole reason there are two of these is that they
+   can disagree, and one at a time cannot show a disagreement. */
+.build-halves { display: flex; gap: 20px; }
+.build-half { flex: 1; min-width: 0; }
+.build-half h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .4px; color: var(--dim); }
+.build-half[data-fresh="stale"] h3 { color: var(--warn); }
+
+.build-half dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+.build-half dt { color: var(--dim); }
+.build-half dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.build-half dd.mono { font-family: var(--mono); }
+.build-half dd.path { color: var(--dim); font-size: 11px; }
+
+.build-pane .note { margin: 12px 0 0; font-size: 11px; color: var(--dim); }
+.build-pane .warn,
+.build-half .warn {
+  margin: 8px 0 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-radius: 3px;
+}
+
+/* Only ever seen when a rebuild could not be applied on its own, so it is meant
+   to catch the eye rather than sit quietly in the bar. */
+.rebuilt {
+  font-size: 11px;
+  padding: 3px 8px;
+  margin-right: 8px;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* ---- the game has gone, and the picker that follows ------------------ */
+
+.banner.stale {
+  padding: 8px 12px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.banner.stale button {
+  margin-left: auto;
+  padding: 3px 10px;
+  color: var(--bad);
+  background: #fff;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+}
+
+.picker {
+  min-width: 320px;
+  max-width: 90vw;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-raised);
+}
+
+.picker h2 { margin: 0 0 4px; font-size: 15px; }
+.picker ul { margin: 12px 0 0; padding: 0; list-style: none; }
+.picker li + li { margin-top: 6px; }
+
+.picker li button {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.picker li button:hover { border-color: var(--accent); }
+.picker li button span { color: var(--dim); }
+
+/* ---- tabs ------------------------------------------------------------ */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--dim);
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+
+/* ---- panels ---------------------------------------------------------- */
+
+main { overflow: hidden; display: grid; }
+
+.panel {
+  overflow: auto;
+  padding: 12px 14px 20px;
+  display: grid;
+  grid-template-rows: auto;
+  align-content: start;
+  gap: 10px;
+}
+
+/* The log panel must fill its space rather than grow with content: it is a
+   tail, and a tail that pushes the page down cannot follow.
+   Flex rather than grid rows, because a hidden note is not a grid item at all —
+   with explicit rows the pane would land in an "auto" one whenever the note was
+   not showing, which is almost always. */
+.panel[data-panel="logs"] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel[data-panel="logs"] .log { flex: 1; min-height: 0; }
+
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 8px 0 0; }
+
+.note { margin: 0; color: var(--dim); max-width: 78ch; }
+
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toolbar label { color: var(--dim); display: flex; align-items: center; gap: 5px; }
+.count { color: var(--dim); font-family: var(--mono); font-size: 11px; margin-left: auto; }
+
+input, select, button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+input[type="checkbox"] { padding: 0; accent-color: var(--accent); }
+input[type="search"], input[type="text"], input[type="number"] { min-width: 12ch; }
+button { background: var(--bg-raised); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- log ------------------------------------------------------------- */
+
+.log {
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.line { display: flex; gap: 10px; align-items: baseline; }
+.line .seq { color: var(--dim); user-select: none; min-width: 6ch; text-align: right; }
+.line .at { color: var(--dim); opacity: .8; user-select: none; }
+.line .text { flex: 1; }
+.line.warn { background: var(--warn-bg); }
+.line.warn .text { color: var(--warn); }
+
+/* Only on the line under the pointer: a mute button on every line would be a
+   column of them down a log that is mostly read, not clicked. */
+.line .mute {
+  visibility: hidden;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--dim);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.line:hover .mute { visibility: visible; }
+.line .mute:hover { color: var(--bad); }
+
+/* ---- the feed, and what is repeating in it --------------------------- */
+
+/* Flex, so that the aside coming and going does not move the log; and so the
+   log keeps its own scrolling rather than the row's. */
+.log-area { display: flex; gap: 10px; flex: 1; min-height: 0; }
+.log-area > .log { flex: 1; }
+
+/* A third of the row, and never so narrow that the patterns are all ellipsis:
+   the whole point is being able to read which line is repeating. */
+.popular {
+  flex: 0 0 33%;
+  min-width: 240px;
+  overflow: auto;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.popular h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.popular ul { margin: 0; padding: 0; list-style: none; }
+
+.popular li button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 4px;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.popular li button:hover { background: var(--bg-input); }
+.popular li button:hover .shape { color: var(--bad); }
+
+.popular .count { color: var(--accent); min-width: 4ch; text-align: right; }
+
+/* One line each, filling the row so the text starts where the eye expects it:
+   this is a list to pick from, not to read. */
+.popular .shape { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.popular .note { margin: 8px 0 0; font-size: 11px; }
+
+/* ---- the lines being hidden ------------------------------------------ */
+
+.hidden-lines { display: flex; flex-direction: column; gap: 10px; align-items: start; }
+
+.pattern-list { margin: 0; padding: 0; list-style: none; width: 100%; }
+
+.pattern-list li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-raised);
+}
+
+.pattern-list li + li { margin-top: 4px; }
+.pattern-list code { flex: 1; font-size: 12px; overflow-wrap: anywhere; }
+
+/* ---- tables ---------------------------------------------------------- */
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+
+table { border-collapse: collapse; width: 100%; }
+
+th, td {
+  text-align: left;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-raised);
+  color: var(--dim);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+td.name, td.mono { font-family: var(--mono); }
+td.help { color: var(--dim); }
+.empty { color: var(--dim); padding: 10px; }
+
+/* A convar sitting on a value the class did not declare is the interesting
+   one in a list of eighty, so it is the one that gets marked. */
+tr.changed td.name::after {
+  content: "modified";
+  margin-left: 8px;
+  font-family: system-ui, sans-serif;
+  font-size: 10px;
+  color: var(--warn);
+}
+
+tr.unregistered td.name { color: var(--dim); text-decoration: line-through; }
+
+/* A row from the engine's registry rather than this mod's. Marked by a pill on
+   the name and nothing louder: in a merged listing these outnumber ours fifty to
+   one, so a background tint would colour the whole table and say nothing. */
+tr.native td.name { color: var(--dim); }
+tr.native td.name .pill { color: var(--text); }
+
+.value-cell { display: flex; gap: 6px; align-items: center; }
+.value-cell input[type="text"], .value-cell input[type="number"] { width: 14ch; }
+.value-cell.saved input { border-color: var(--good); }
+.value-cell.failed input { border-color: var(--bad); }
+
+/* Small and next to the value, which is where the eye already is. */
+.modified-dot { color: var(--accent); font-size: 10px; line-height: 1; }
+
+/* Quiet: it is context for the list, not part of the toolbar's controls. */
+.loaded-at { color: var(--dim); font-size: 11px; font-family: var(--mono); }
+
+/* ---- a filter box that suggests ------------------------------------- */
+
+.filter-box { position: relative; display: inline-block; }
+
+.suggestions {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 6;
+  margin: 2px 0 0;
+  padding: 3px;
+  min-width: 100%;
+  list-style: none;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 35%);
+}
+
+.suggestions button {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.suggestions button.highlighted { background: var(--bg-input); }
+
+/* Wrapping rather than one long line: a convar with four flags should not make
+   its row three times the height of every other one. */
+td.flags { max-width: 18ch; }
+td.flags .pill + .pill { margin-left: 3px; }
+.dim { color: var(--dim); }
+
+/* ---- a row's actions ------------------------------------------------- */
+
+td.actions { width: 1%; text-align: right; }
+th.actions-head { width: 1%; }
+
+.row-menu { position: relative; display: inline-block; }
+
+.row-menu-trigger {
+  padding: 0 6px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--dim);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  cursor: default;
+}
+
+.row-menu:hover .row-menu-trigger { color: var(--text); background: var(--bg-input); }
+
+/* Hover, or focus for a keyboard. No open state to hold, and nothing left open
+   when the row it belongs to is filtered out from under the pointer. */
+.row-menu-items { display: none; }
+.row-menu:hover .row-menu-items,
+.row-menu:focus-within .row-menu-items { display: block; }
+
+.row-menu-items {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 35%);
+}
+
+.row-menu-items button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.row-menu-items button:hover:not(:disabled) { background: var(--bg-input); }
+.row-menu-items button:disabled { color: var(--dim); cursor: default; }
+
+/* ---- sortable headings ----------------------------------------------- */
+
+th.sortable { padding: 0; }
+
+th.sortable button {
+  width: 100%;
+  padding: 6px 8px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+th.sortable button:hover { color: var(--text); }
+th.sortable .arrow { color: var(--accent); }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* ---- entity cards ---------------------------------------------------- */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.card h3 { margin: 0; font-family: var(--mono); font-size: 13px; font-weight: 500; }
+.card .sub { color: var(--dim); font-size: 11px; margin: 2px 0 8px; }
+.card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; }
+.card dt { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+.card dd { margin: 0; font-family: var(--mono); font-size: 12px; }
+
+.pill {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  margin: 0 4px 4px 0;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.pill.out { background: color-mix(in srgb, var(--good) 18%, transparent); }
+.pill.none { background: none; color: var(--dim); padding-left: 0; }
+
+.expand { background: none; border: none; color: var(--dim); cursor: pointer; padding: 0 4px; font-family: var(--mono); }
+tr.detail td { background: var(--bg-input); }
+tr.invalid td { color: var(--dim); }
+
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.detail-grid h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-family: var(--mono); font-size: 12px; }
+.kv .k { color: var(--dim); }
+
+/* ---- console --------------------------------------------------------- */
+
+.console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--line);
+}
+
+.console .prompt { color: var(--accent); font-family: var(--mono); }
+.console input { flex: 1; font-family: var(--mono); }
+
+/* ---- marked log lines ------------------------------------------------ */
+
+.line.marked { border-left: 2px solid var(--accent); padding-left: 6px; }
+
+code {
+  font-family: var(--mono);
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+/* ---- sub tabs -------------------------------------------------------- */
+
+.tabs.sub { padding: 0; background: none; border-bottom: 1px solid var(--line); }
+
+.map-pane-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--dim);
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.map-pane-tab:hover { color: var(--text); }
+.map-pane-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+
+.modes { display: flex; gap: 10px; border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; }
+.modes label { color: var(--text); }
+
+.file-button {
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text);
+}
+.file-button:hover { border-color: var(--accent); }
+
+/* ---- the entity debugger --------------------------------------------- */
+
+/* Fills its space rather than growing: three of its four children scroll
+   independently, which they cannot do inside a panel that grows to fit them. */
+/* Flex rather than grid rows: several of these children are hidden most of the
+   time, and a hidden element is not a grid item at all — with explicit rows the
+   panes would land in an "auto" one and collapse. */
+.panel.map-panel { display: flex; flex-direction: column; overflow: hidden; }
+.panel.map-panel > .map-layout { flex: 1; min-height: 0; }
+
+/* Three columns: what the map contains, what is being looked at, and what is
+   selected. The list is beside the panes rather than in a strip above them —
+   it is what every other pane is about, and a full-width band of it was pushing
+   the graph and the viewports off the bottom of the screen. */
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 20%) 1fr minmax(280px, 26%);
+  gap: 10px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.map-main, .inspector { min-height: 0; overflow: hidden; display: grid; }
+
+.map-side { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; overflow: hidden; }
+.map-side .toolbar { padding: 0 0 6px; }
+.map-side .toolbar input[type="search"] { width: 100%; }
+.map-side .count { padding-top: 6px; }
+.map-main { grid-template-rows: auto 1fr; }
+
+/* The options read as a form rather than a strip of controls, now that they
+   have a pane to themselves. */
+.map-options { overflow: auto; padding: 4px 2px; }
+.map-options .toolbar { flex-wrap: wrap; }
+
+.map-list { overflow: auto; }
+
+/* One line per row. A wrapping cell in a pane this narrow makes every row a
+   paragraph tall, and six hundred of those cannot be scanned. */
+.map-list td, .map-list th { padding: 3px 8px; font-size: 12px; white-space: nowrap; }
+
+/* Fixed layout so the columns share the pane instead of the widest classname
+   deciding how wide the table is and pushing the rest out of sight. */
+.map-list table { table-layout: fixed; }
+.map-list td { overflow: hidden; text-overflow: ellipsis; }
+.map-list th:last-child, .map-list td:last-child { width: 5.5ch; text-align: right; }
+.map-list tr { cursor: pointer; }
+.map-list tr.selected { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+
+/* Marked for a group. Distinct from the selection, which is a different idea —
+   one entity is being looked at, any number are being collected. */
+.map-list tr.marked { box-shadow: inset 3px 0 0 var(--good); }
+.map-list tr.marked td:first-child { font-weight: 600; }
+
+/* ---- groups ---------------------------------------------------------- */
+
+.group-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.group-card.template { border-left: 3px solid var(--accent); }
+
+.group-head { display: flex; align-items: center; gap: 8px; }
+
+.group-name {
+  flex: 1;
+  font: 500 13px/1 system-ui, sans-serif;
+  background: none;
+  border: 1px solid transparent;
+  padding: 3px 4px;
+}
+.group-name:hover, .group-name:focus { border-color: var(--line); background: var(--bg-input); }
+
+.group-card .sub { color: var(--dim); font-size: 11px; margin: 2px 0 8px; }
+.group-card .toolbar { margin-top: 8px; }
+
+/*
+ * Flex, not grid rows.
+ *
+ * Every one of these panes has children that are hidden most of the time — a
+ * note, an editor bar, a status line — and a hidden element is not a grid item
+ * at all. With explicit rows the thing that should fill the pane lands in an
+ * "auto" one instead and collapses to nothing, which is exactly what happened
+ * to the graph, and to the log pane before it.
+ */
+.map-pane {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map-pane > .graph,
+.map-pane > .viewports,
+.map-pane > .table-wrap,
+.map-pane > .cards { flex: 1; min-height: 0; }
+
+.map-pane[data-pane="groups"] { overflow: auto; }
+.map-pane[data-pane="groups"] > .cards { flex: none; }
+
+.inspector {
+  overflow: auto;
+  display: block;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.inspect-header h3 { margin: 0; font-family: var(--mono); font-size: 14px; }
+.inspect-header .sub { color: var(--dim); margin: 2px 0 0; font-family: var(--mono); font-size: 12px; }
+.warn-note { color: var(--warn); margin: 6px 0 0; }
+
+.inspect-section { margin-top: 14px; }
+.inspect-section h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--dim);
+}
+
+.fire-form { display: grid; grid-template-columns: 1fr 1fr 70px auto; gap: 6px; }
+.fire-form input { min-width: 0; }
+
+.output-group { margin-bottom: 10px; }
+.output-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.output-name { font-family: var(--mono); color: var(--good); }
+.input-name { font-family: var(--mono); color: var(--accent); }
+
+.connection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 12px;
+  padding: 2px 0 2px 10px;
+  border-left: 1px solid var(--line);
+}
+
+.connection .arrow { color: var(--dim); }
+.connection .param { font-family: var(--mono); color: var(--warn); }
+.connection .delay { color: var(--dim); }
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+button.link:hover { color: var(--accent); }
+
+button.tiny { padding: 0 5px; font-size: 11px; margin-left: 6px; }
+button.danger { margin-top: 8px; color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+button.danger:hover { border-color: var(--bad); }
+
+/* Three number boxes over one vector. */
+.vector-field { display: flex; gap: 3px; }
+.vector-field input { width: 7ch; }
+
+.kv-table { width: 100%; }
+.kv-table td { padding: 2px 4px; border: none; font-size: 12px; }
+.kv-table td.name { font-family: var(--mono); color: var(--dim); width: 40%; }
+.kv-table input { width: 60%; }
+
+textarea.yaml {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px;
+  resize: vertical;
+}
+
+/* ---- the connection graph -------------------------------------------- */
+
+.graph {
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 0;
+  cursor: grab;
+}
+.graph.dragging { cursor: grabbing; }
+
+.graph-svg { width: 100%; height: 100%; display: block; }
+
+.edge {
+  fill: none;
+  stroke: var(--dim);
+  stroke-width: 1.2;
+  color: var(--dim);
+  opacity: .55;
+}
+.edge.related { stroke: var(--accent); color: var(--accent); opacity: 1; stroke-width: 2; }
+.edge.broken { stroke: var(--bad); color: var(--bad); stroke-dasharray: 4 3; opacity: .9; }
+
+.edge.wire { stroke: var(--good); stroke-width: 2; stroke-dasharray: 5 3; opacity: 1; pointer-events: none; }
+.edge.added { stroke: var(--good); color: var(--good); opacity: 1; }
+
+.node-body { fill: var(--bg-raised); stroke: var(--line); stroke-width: 1; }
+.node-header { stroke: rgba(0, 0, 0, .35); stroke-width: 1; }
+.node.selected .node-body { stroke: var(--text); stroke-width: 2; }
+.node.missing .node-body { stroke: var(--bad); stroke-dasharray: 4 3; }
+
+.node-name { font: 500 11px/1 system-ui, sans-serif; fill: #10131a; }
+.node-class { font: 10px/1 var(--mono); fill: rgba(16, 19, 26, .72); }
+.node.missing .node-name { fill: var(--bad); }
+.node.missing .node-class { fill: var(--dim); }
+
+/* Ports. The hit area is far larger than the dot -- a four pixel target is not
+   something to ask anyone to hit with a drag. */
+.port-hit { fill: transparent; }
+.port-dot { fill: var(--bg-input); stroke: var(--dim); stroke-width: 1.5; }
+.port-label { font: 10px/1 var(--mono); fill: var(--dim); pointer-events: none; }
+
+.port-out { cursor: crosshair; }
+.port-out .port-dot { stroke: var(--good); }
+.port-in .port-dot { stroke: var(--accent); }
+
+.port:hover .port-dot { fill: currentColor; r: 5.5; }
+.port-out:hover .port-dot { fill: var(--good); }
+.port-in:hover .port-dot { fill: var(--accent); }
+.port:hover .port-label { fill: var(--text); }
+
+/* While a wire is being dragged every input becomes a target worth seeing. */
+.graph.wiring .port-in .port-dot { fill: var(--accent); r: 5.5; }
+.graph.wiring { cursor: crosshair; }
+
+.wire-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--good);
+  border-radius: 6px;
+}
+.wire-editor input { width: 12ch; }
+.wire-from { font-family: var(--mono); color: var(--good); }
+.wire-to { font-family: var(--mono); color: var(--accent); }
+
+.hint { color: var(--dim); font-size: 11px; }
+
+/* ---- the viewports --------------------------------------------------- */
+
+.viewports {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 6px;
+  min-height: 0;
+}
+
+.viewport {
+  position: relative;
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.viewport canvas { width: 100%; height: 100%; display: block; }
+
+.viewport-label {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  z-index: 1;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  pointer-events: none;
+}
+
+/* ---- the event log --------------------------------------------------- */
+
+#events td { padding: 2px 8px; font-size: 12px; }
+tr.event-spawned td:nth-child(2) { color: var(--good); }
+tr.event-removed td:nth-child(2) { color: var(--bad); }
+tr.event-output  td:nth-child(2) { color: var(--accent); }
+tr.event-input   td:nth-child(2) { color: var(--warn); }
+tr.event-level   td:nth-child(2) { color: var(--dim); }
+
+/* ---- the map file ----------------------------------------------------- */
+
+/* A left column that stays put and a right one that scrolls. The lump table is
+   the navigation for this tab, and navigation that scrolls away with what it is
+   navigating is navigation you have to scroll back to. */
+.panel.mapfile-panel { display: flex; flex-direction: column; overflow: hidden; }
+
+.mapfile {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 24%) 1fr;
+  gap: 12px;
+}
+
+.mapfile > .lumps,
+.mapfile > .lump-detail {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px 12px;
+}
+
+.mapfile > .lumps { display: flex; flex-direction: column; gap: 8px; }
+.mapfile > .lumps > .table-wrap { border: 0; overflow-y: auto; }
+
+.lumps header,
+.lump-section header,
+.lump-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.lumps header h3,
+.lump-section header h3,
+.lump-head h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--dim);
+  margin: 0;
+}
+
+.lump-head { margin-bottom: 6px; }
+.toolbar.thin { font-size: 11px; gap: 8px; }
+
+/* The whole row is the target: a lump is a thing you point at, and a link inside
+   a cell would make a table of sixty-four rows into sixty-four small targets. */
+.lump-list tbody tr { cursor: pointer; }
+.lump-list tbody tr:hover { background: var(--bg-raised); }
+.lump-list tbody tr.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.lump-list tbody tr.dim td { color: var(--dim); }
+.lump-list td { padding: 2px 8px; font-size: 12px; }
+.lump-list td.name { display: flex; align-items: baseline; gap: 6px; }
+
+/* A lump with something readable behind it, marked so the rows that reward a
+   click can be told from the ones that do not. */
+.lump-list tbody tr.decoded td.name { color: var(--text); }
+.lump-list tbody tr.decoded td.name::before { content: "▸"; color: var(--accent); font-size: 10px; }
+.lump-list tbody tr:not(.decoded) td.name::before { content: "·"; color: var(--line); font-size: 10px; }
+
+/* The bar sits behind its own number rather than in a column of its own: two
+   columns saying the same thing is a wider table for no more information. */
+td.size { position: relative; }
+td.size .bar {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 2px;
+}
+td.size .value { position: relative; }
+
+th.numeric, td.numeric { text-align: right; }
+
+.lump-section { margin-top: 14px; }
+.lump-section:first-of-type { margin-top: 4px; }
+.lump-section header .spacer { flex: 1; }
+.lump-section header button { font-size: 11px; padding: 1px 8px; }
+.lump-section .note { margin: 4px 0 6px; font-size: 12px; }
+
+.facts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.banner.warn {
+  padding: 8px 12px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.banner.warn ul { margin: 4px 0 0; padding-left: 18px; }
+
+.banner.error {
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--bad) 15%, transparent);
+  border: 1px solid var(--bad);
+  border-radius: 6px;
+  font-size: 13px;
+  margin: 0;
+}
+
+.empty-pane { color: var(--dim); max-width: 70ch; padding: 12px 2px; }
+
+.contents ul { list-style: none; margin: 6px 0 12px; padding: 0; }
+.contents li { display: flex; align-items: baseline; gap: 10px; padding: 3px 0; }
+.contents li .count { margin-left: auto; }
+.contents li .dim { font-family: var(--mono); font-size: 11px; min-width: 7ch; text-align: right; }
+
+/* ---- net tables ------------------------------------------------------ */
+
+/*
+ * The schema and the entity inspector.
+ *
+ * Everything here is dense on purpose: the questions this tab answers are
+ * "where does this field sit" and "did that byte just move", and both are read
+ * by comparing adjacent numbers. Space between them makes that harder, not
+ * easier.
+ */
+
+.map-pane-tab[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--accent); }
+
+.schema-table td, .field-table td { padding: 2px 8px; font-size: 12px; }
+.schema-table th, .field-table th { font-size: 11px; }
+.field-table { width: 100%; border-collapse: collapse; }
+.field-table tbody tr.changed td { background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.field-table td.value { color: var(--text); }
+
+/* An enum field's members, under the field they belong to. Dimmer than the row
+   above because they are the field's DOMAIN and not another field -- a reader
+   scanning offsets should skip them, and a reader turning a decoded 3 into a
+   name should find them without leaving the table. */
+.field-table tr.enum-members td { padding-top: 0; padding-bottom: 4px; font-size: 11px; }
+.field-table tr.enum-members .enum-kind {
+  color: var(--accent); text-transform: uppercase; font-size: 10px; margin-right: 8px;
+}
+.field-table tr.enum-members .enum-member { color: var(--dim); margin-right: 10px; }
+
+/* A SHARED WORD and the fields inside it.
+
+   The four rows under one of these used to be four ordinary rows reporting the
+   same offset and the same four bytes each, which read as four four-byte fields
+   and got the packer blamed for spending sixteen bytes on a colour. So the word
+   is drawn as a container: its own row states the size, and its fields are
+   indented inside a bracket down the left, which is the part that makes "these
+   four are one word" visible before anybody reads a number. */
+.field-table tr.packed-word td {
+  padding-top: 5px; color: var(--dim); font-size: 11px;
+  border-top: 1px solid var(--line);
+}
+.field-table tr.packed-word .word-tag {
+  color: var(--accent); text-transform: uppercase; font-size: 10px; margin-right: 8px;
+}
+.field-table tr.packed-member td:nth-child(2) {
+  padding-left: 20px; border-left: 2px solid var(--line); margin-left: 8px;
+}
+.field-table tr.packed-member td.shared { color: var(--dim); font-style: italic; }
+
+/* A layout close to its tier ceiling. The one number on the schema pane that
+   is a warning rather than a reading. */
+td.near-ceiling { color: var(--warn); }
+
+.tier-card .sub { color: var(--dim); font-size: 11px; }
+/* A projected tier is drawn as a projection. When Step 6 registers the tiers
+   this attribute flips to true and the dashes go. */
+.tier-card[data-live="false"] { border-style: dashed; }
+
+/*
+ * The hex ruler.
+ *
+ * The field boundaries are drawn ON the bytes rather than beside them, because
+ * the question is always "which field owns THIS byte" and an answer in another
+ * column is one the reader has to carry across.
+ */
+.hex-grid {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  background: var(--bg-input);
+}
+
+.hex-row { display: flex; gap: 14px; white-space: nowrap; }
+.hex-offset { color: var(--dim); }
+.hex-bytes { display: flex; }
+.hex-ascii { color: var(--dim); }
+
+.hex-byte {
+  padding: 0 2px;
+  margin-right: 1px;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+}
+
+/* Six colours, cycled by position in the field list. Adjacent fields therefore
+   never share one, which is the only thing the colouring is for. */
+.hex-byte[data-colour="0"] { border-bottom-color: #5aa9e6; }
+.hex-byte[data-colour="1"] { border-bottom-color: #6cc47f; }
+.hex-byte[data-colour="2"] { border-bottom-color: #ffb454; }
+.hex-byte[data-colour="3"] { border-bottom-color: #c678dd; }
+.hex-byte[data-colour="4"] { border-bottom-color: #56b6c2; }
+.hex-byte[data-colour="5"] { border-bottom-color: #e06c75; }
+
+.hex-byte[data-start="true"] { border-left: 1px solid var(--line); padding-left: 1px; }
+.hex-byte[data-end="true"] { border-right: 1px solid var(--line); padding-right: 1px; }
+
+/* A byte no field claims -- padding, or the tail native reserves for a greedier
+   class. Dimmed rather than hidden: a value landing in one is a layout that does
+   not agree with itself. */
+.hex-byte[data-unclaimed="true"] { color: var(--dim); }
+
+/* What moved since the last sample. The tint is the whole point of the panel:
+   a field reading the wrong bytes moves when its NEIGHBOUR is written. */
+.hex-byte[data-changed="true"],
+.hex-ascii span[data-changed="true"] {
+  background: color-mix(in srgb, var(--warn) 30%, transparent);
+  color: var(--text);
+}
+
+.change-line[data-state="moved"] { color: var(--warn); }
+.change-line[data-state="first"] { color: var(--dim); }
+
+.entity-index { width: 8ch; }
+
+/* --- Net tables: the traffic pane (Part 13's third panel, Step 9) ---------- */
+/*
+ * The bar is scaled against the busiest class rather than an absolute ceiling:
+ * what a reader wants here is the ordering and the relative size, and a fixed
+ * scale makes every row invisible on a quiet map.
+ */
+.traffic-class { font-family: var(--mono); }
+.traffic-bar-cell { width: 22%; padding-left: 8px; }
+.traffic-bar {
+  display: block;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent, #4d8fd6);
+  min-width: 1px;
+}
+.traffic-fields-row td { padding-top: 0; border-top: 0; }
+.traffic-fields { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 2px 0 6px; }
+.traffic-field { color: var(--dim); font-size: 11px; white-space: nowrap; }
+.traffic-field code { font-family: var(--mono); }
+.traffic-field-words { margin-left: 4px; opacity: 0.75; }
+.traffic-live { color: var(--dim); font-size: 11px; display: inline-flex; gap: 4px;
+                align-items: center; }
+
+/* --- Prediction: how far apart, and is it growing ------------------------- */
+/*
+ * One distinction carries this whole tab: INSIDE TOLERANCE versus GENUINELY
+ * DIVERGING. Everything else on the page is detail, and a reader who takes only
+ * the colour away should still have taken the right thing away — so "within" is
+ * the good colour everywhere it appears, "over" is the bad one, and the two
+ * states that have no ratio at all (nothing declared, a kind that can never be
+ * tolerated) are warned rather than coloured as either. Nothing here is left to
+ * be inferred from a number being larger than another number.
+ */
+
+.pred-verdict { padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px;
+                margin: 8px 0; background: var(--bg-raised); }
+.pred-headline { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+
+.pred-verdict[data-state="clean"]     .pred-headline { color: var(--good); }
+.pred-verdict[data-state="tolerated"] .pred-headline { color: var(--good); }
+.pred-verdict[data-state="breaking"]  .pred-headline { color: var(--bad); }
+.pred-verdict[data-state="unavailable"] .pred-headline,
+.pred-verdict[data-state="unread"]      .pred-headline { color: var(--dim); }
+
+.pred-counters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 0; }
+
+/* The charts. Hand-rolled SVG from the geometry in drift.ts -- there is no
+   chart library here and there cannot be one: the page travels down a loopback
+   socket with no CDN behind it. */
+.pred-rate, .pred-drift { display: block; width: 100%; margin: 8px 0; }
+.pred-drift { max-height: 260px; }
+
+.pred-axis { stroke: var(--line); stroke-width: 1; }
+.pred-tick { fill: var(--dim); font-size: 10px; font-family: var(--mono); }
+
+.pred-line { fill: none; stroke-width: 1.5; }
+.pred-line-drift { stroke: var(--accent); }
+.pred-line-rate  { stroke: var(--bad); }
+
+/* The tolerance, drawn across the chart rather than over it. Dashed so it never
+   reads as data: it is the line the data is being judged against. */
+.pred-tolerance line { stroke: var(--warn); stroke-width: 1; stroke-dasharray: 4 3; }
+.pred-tolerance text { fill: var(--warn); font-size: 10px; font-family: var(--mono); }
+
+.pred-point { fill: var(--accent); cursor: pointer; }
+.pred-point[data-over="true"] { fill: var(--bad); }
+.pred-point[data-selected="true"] { stroke: var(--text); stroke-width: 2; }
+
+.pred-trend { margin: 6px 0; font-size: 12px; }
+.pred-trend[data-direction="growing"] b   { color: var(--bad); }
+.pred-trend[data-direction="shrinking"] b { color: var(--good); }
+.pred-trend[data-direction="steady"] b    { color: var(--dim); }
+
+.pred-field-picker { display: inline-flex; gap: 6px; align-items: center; color: var(--dim); }
+.pred-live { color: var(--dim); font-size: 11px; display: inline-flex; gap: 4px;
+             align-items: center; }
+
+/* The standing pill, in the fields table and over every field of a compare.
+   Same vocabulary in both places on purpose -- a reader learns it once. */
+.pill[data-state="within"] { color: var(--good); border-color: var(--good); }
+.pill[data-state="over"]   { color: var(--bad);  border-color: var(--bad); }
+.pill[data-state="none-declared"],
+.pill[data-state="not-tolerable"] { color: var(--warn); border-color: var(--warn); }
+
+.pred-fields-table tbody tr { cursor: pointer; }
+.pred-field-row[data-selected="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.pred-ratio[data-state="over"] { color: var(--bad); font-weight: 600; }
+.pred-ratio[data-state="within"] { color: var(--good); }
+.pred-ratio[data-state="none-declared"],
+.pred-ratio[data-state="not-tolerable"] { color: var(--warn); }
+
+/* One compare: the record list beside the fields it found. */
+.pred-record { display: flex; gap: 12px; align-items: flex-start; }
+.pred-record-list { display: flex; flex-direction: column; gap: 2px; width: 210px;
+                    max-height: 60vh; overflow-y: auto; flex: none; }
+.pred-record-item { display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+                    padding: 4px 6px; text-align: left; font-size: 11px;
+                    border: 1px solid var(--line); border-radius: 3px;
+                    background: var(--bg-raised); color: var(--text); cursor: pointer; }
+.pred-record-item[data-broke="true"] { border-left: 3px solid var(--bad); }
+.pred-record-item[data-broke="false"] { border-left: 3px solid var(--good); }
+.pred-record-item[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.pred-record-detail { flex: 1; min-width: 0; }
+
+.pred-field { border: 1px solid var(--line); border-radius: 4px; padding: 8px; margin: 8px 0; }
+.pred-field[data-state="over"] { border-left: 3px solid var(--bad); }
+.pred-field[data-state="within"] { border-left: 3px solid var(--good); }
+.pred-field[data-state="none-declared"],
+.pred-field[data-state="not-tolerable"] { border-left: 3px solid var(--warn); }
+.pred-field-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 6px;
+                   font-size: 12px; }
+
+/*
+ * The component bars. Scaled against the TOLERANCE, not against each other: the
+ * mark sits at the middle of every track, so the visible range runs to twice
+ * what the field declared and a bar past the middle is a field out of tolerance
+ * without the reader doing any arithmetic. Scaled against each other, the
+ * longest bar would be full width whether it was a millimetre or a mile out.
+ */
+.pred-components { width: 100%; }
+.pred-bar-cell { width: 34%; }
+.pred-bar-track { position: relative; display: block; height: 10px; border-radius: 2px;
+                  background: color-mix(in srgb, var(--line) 60%, transparent); }
+.pred-bar-mark { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--warn); }
+.pred-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px;
+                 background: var(--good); min-width: 1px; }
+.pred-bar-fill[data-over="true"] { background: var(--bad); }
+
+/* It ran off the end: at least twice the tolerance, and the bar can say no more
+   than "at least". A squared-off end rather than a rounded one, so a clamped bar
+   does not read as one that happened to stop exactly at the edge. */
+.pred-bar-fill[data-clamped="true"] { border-radius: 2px 0 0 2px; }
+
+.pred-delta[data-over="true"] { color: var(--bad); font-weight: 600; }
+.pred-component[data-over="true"] .name { color: var(--bad); }
+
+/* ---- Mockups (plan_client_ui §7): make ui-preview's pictures ---- */
+.mockups { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+.mockups-bar { display: flex; align-items: center; gap: 16px; }
+.mockups-pickers { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.mockups .picker { display: flex; align-items: center; gap: 4px; }
+.mockups .picker > span { margin-right: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.mockups .picker button, .mockups .segmented button {
+  background: var(--bg-input); color: var(--text); border: 1px solid var(--line);
+  border-radius: 4px; padding: 3px 8px; cursor: pointer;
+}
+.mockups .picker button[aria-pressed="true"], .mockups .segmented button[aria-selected="true"] {
+  border-color: var(--accent); color: var(--accent);
+}
+.mockup { display: flex; flex-direction: column; gap: 6px; }
+.mockup-frame {
+  position: relative; width: 100%; max-width: 1600px; background: #2a2d31 center / cover no-repeat;
+  border: 1px solid var(--line); overflow: hidden;
+}
+.mockup.compact .mockup-frame { max-width: 480px; }
+.mockup-frame img, .mockup-svg, .mockup-svg svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.mockup-highlight { position: absolute; outline: 2px solid #ff3dbb; background: rgba(255, 61, 187, .12); pointer-events: none; }
+.mockup-inspector { font-size: 13px; min-height: 1.4em; }
+.mockups-empty code { background: var(--bg-input); padding: 1px 5px; border-radius: 3px; }
+.gallery { display: flex; flex-direction: column; gap: 20px; }
+.gallery-part h3 { margin: 0 0 6px; }
+.gallery-states { display: flex; flex-wrap: wrap; gap: 12px; }
+.gallery-states figure { margin: 0; width: 480px; }
+.gallery-states figcaption { font-size: 12px; color: var(--dim); }

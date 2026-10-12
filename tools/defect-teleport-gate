@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+"""Lane defect-teleport's gate: an entity that teleports is DRAWN where it went.
+
+    tools/defect-teleport-gate
+
+Launches ONE game on ss_sandbox, drives it FROM THE CONSOLE, and prints
+PASS/FAIL per check with the number each verdict was reached from. Exit 0 only
+when every check passed.
+
+THE DEFECT. Stock's CBaseEntity::Teleport calls IncrementInterpolationFrame(),
+which bumps the networked m_ubInterpolationFrame; the client's PostDataUpdate
+ends with `if ( Teleported() || IsNoInterpolationFrame() ) AddToTeleportList()`,
+and that is what CLEARS the entity's interpolation history so the new pose is
+DRAWN rather than blended to. This hierarchy bumped nothing, and the managed
+interpolation pass reset a ring on exactly ONE condition -- a HANDLE REBIND,
+i.e. a different entity arriving in the same slot. A create is covered by that;
+a live entity jumping is not. So a point_teleport or a managed Entities.Teleport
+drew the subject travelling the whole distance over the interpolation window.
+
+A SLIDE IS A RENDERED SYMPTOM, AND THIS GATE MEASURES A RENDERED THING.
+
+The standing failure this gate is built against is a counter that moves while
+nothing renders -- 8e-render's dust row passed every counter it had and drew
+nothing. So no row below is of the form "the interpolation frame was bumped" or
+"the teleport count went up". Every row is the pose the frame was DRAWN with:
+cs_cl_teleport_report reads the entity's RENDER TAIL, which is what
+GetRenderOrigin answers and what the renderer reads per draw, against the pose
+the packet delivered. Its `lagging` is a count of RENDERED FRAMES on which those
+two differed, which is what "drawn sliding to where it went" IS.
+
+AND IT HAS A CONTROL ARM, on the same entity over the same distance:
+
+    move    cs_sv_teleport_probe writes the origin. Nothing declares a jump, so
+            the client interpolates -- and MUST, or the measurement is blind. A
+            zero here does not mean the build is good; it means the instrument
+            cannot see the thing the fix is supposed to remove, and every other
+            row is then worthless. This is the row that would have been the
+            defect itself before the fix.
+
+    jump    the same entity, the same destination, the same distance, declared a
+            jump. Zero lagging frames: drawn where it went, on the first frame.
+
+Driven move / jump / move / jump, which is the same on-off-on shape
+tools/7a-effect-gate drives r_3dsky through, for the same reason: one pair could
+be the map settling.
+
+DEBT, with a removal owner: this is lane defect-teleport's gate and nothing else
+reads it, along with the three console commands it drives
+(cs_cl_teleport_watch, cs_cl_teleport_report, cs_sv_teleport_probe). It goes
+when tools/live-gate grows an interpolation step, the same booking
+tools/8e-entfire-gate carries.
+"""
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+
+# The flags every local game carries (+sv_lan 1 unless STEAM_AUTH=1, +fps_max
+# 60): tools/local_launch.py, the Makefile's LOCAL_GAME_ARGS.
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import local_launch  # noqa: E402
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# The game this configuration built, and the mod in it. bin/<config> holds the
+# launcher and the shared bin/; the mod is bin/<config>/mods/test, handed to the
+# launcher with -game, and -condebug writes console.log there.
+# SOURCESHARP_CONFIG picks the configuration; debug when unset.
+CONFIG = os.environ.get("SOURCESHARP_CONFIG") or "debug"
+GAME_DIR = os.path.join(ROOT, "bin", CONFIG)
+MOD_DIR = os.path.join(GAME_DIR, "mods", "test")
+
+def launch_command(mod_dir):
+    """source#, run from the game directory. No -game: it takes the mod from
+    mods.yaml beside it, so every launch proves the file supplies it. `#` is
+    quoted, so no shell reads it as a comment (tools/launcher-name-test)."""
+    return "./'source#'"
+SOCKET_DIR = os.environ.get("DEBUG_API_DIR", "/tmp/sourcesharp-debug-api")
+CONSOLE = os.path.join(MOD_DIR, "console.log")
+
+LAUNCH = ["-debugapi", "-debugapisocket", "-condebug", "-nomessagebox",
+          "-nocrashdialog", "-assertlog", "-insecure", "-novid", "-windowed",
+          "-w", "640", "-h", "480", "-maxplayers", "2",
+          ] + local_launch.local_args() + ["+map", "ss_sandbox"]
+
+# The fixture cs_sv_propshot places, and where. Both come from PropShot.cs
+# rather than being typed here: the gate's premise is that the two arms move ONE
+# entity between TWO places, and a driver that spelled the origin itself would
+# be the second copy of it.
+SUBJECT = "cs_propshot"
+
+# A prop_dynamic AND NOT A prop_physics, and the reason is the control arm's
+# purity rather than convenience. A motion-disabled prop_physics still has a
+# solver object, and writing its origin does not move the object -- the solver
+# DRAGS it there over several ticks, so the server delivers the 500 units in
+# small steps and the client's drawn pose is never far behind. Measured, on the
+# first run of this gate: 39 lagging frames but a maximum lag of only 10.7
+# units. That is still a slide and the row still passed, but the two arms then
+# differ in the PHYSICS PATH as well as in the declaration, which is exactly
+# what a control arm must not do. A prop_dynamic has no solver object, so both
+# arms are one instantaneous pose change and the only difference between them is
+# whether it was declared a jump.
+PROP_CLASS = os.environ.get("SS_TELEPORT_GATE_CLASS", "prop_dynamic")
+
+# 500 units along Y, on the same open floor. Far enough that a slide is many
+# frames long at any interpolation amount, near enough to stay on the floor the
+# fixture stands on.
+TRAVEL = 500.0
+
+# How long a jump is drawn over if it is drawn at all. cl_interp is a tenth of a
+# second by default and the report is read well past that, so a build that slid
+# has had every chance to finish sliding before it is asked.
+SETTLE = 1.6
+
+FAILURES = []
+
+
+def check(name, ok, detail):
+    print("  %-46s %s   %s" % (name, "PASS" if ok else "FAIL", detail))
+    if not ok:
+        FAILURES.append(name)
+    return ok
+
+
+def live_sockets():
+    if not os.path.isdir(SOCKET_DIR):
+        return []
+    out = []
+    for name in os.listdir(SOCKET_DIR):
+        if not name.endswith(".sock"):
+            continue
+        try:
+            os.kill(int(name[:-5]), 0)
+        except (OSError, ValueError):
+            continue
+        out.append(os.path.join(SOCKET_DIR, name))
+    return out
+
+
+def debug_api(pid, *args):
+    env = dict(os.environ, DEBUG_API_PID=str(pid), DEBUG_API_DIR=SOCKET_DIR)
+    r = subprocess.run([os.path.join(ROOT, "tools", "debug-api")] + list(args),
+                       capture_output=True, text=True, env=env, timeout=120)
+    return r.stdout
+
+
+def console():
+    try:
+        with open(CONSOLE, "r", errors="replace") as fh:
+            return fh.read()
+    except IOError:
+        return ""
+
+
+def count_games():
+    # `pgrep -c` prints 0 AND exits 1, so a shell `|| echo 0` emits TWO zeroes.
+    r = subprocess.run(["pgrep", "-x", "hl2_linux64"], capture_output=True, text=True)
+    return len([l for l in r.stdout.split("\n") if l.strip()])
+
+
+REPORT = re.compile(
+    r"teleport-probe: index (-?\d+) frames (\d+) lagging (\d+) "
+    r"maxlag ([\d.]+) lastlag ([\d.]+) delivered ([\d.]+) deliveries (\d+) "
+    r"biggest ([\d.]+) arrivallag ([\d.]+) sincelagging (\d+) sincemaxlag ([\d.]+) "
+    r"resets (\d+)")
+
+
+def report(pid):
+    """The LAST teleport-probe line the client has written, as numbers.
+
+    Reads the line the command emits rather than counting anything itself, and
+    returns None when there is no line -- a failed console read must not be
+    reported as a measurement of zero, which is the flake tools/7a-effect-gate's
+    handover names as a check saying the wrong thing.
+    """
+    debug_api(pid, "cmd", "cs_cl_teleport_report")
+    time.sleep(1.0)
+
+    matches = REPORT.findall(console())
+    if not matches:
+        return None
+
+    (index, frames, lagging, maxlag, lastlag, delivered,
+     deliveries, biggest, arrivallag, sincelagging, sincemaxlag, resets) = matches[-1]
+    return dict(index=int(index), frames=int(frames), lagging=int(lagging),
+                maxlag=float(maxlag), lastlag=float(lastlag),
+                delivered=float(delivered), deliveries=int(deliveries),
+                biggest=float(biggest), arrivallag=float(arrivallag),
+                sincelagging=int(sincelagging), sincemaxlag=float(sincemaxlag),
+                resets=int(resets))
+
+
+def probe(pid, how, x, y, z):
+    debug_api(pid, "cmd", "cs_sv_teleport_probe %s %s %.1f %.1f %.1f" % (how, SUBJECT, x, y, z))
+
+
+def arm(pid, index, how, at, to):
+    """One arm: warm the history, zero the probe, then take the step.
+
+    THE WARM-UP IS NOT DECORATION AND IT IS WHY THIS FUNCTION IS NOT THREE
+    LINES. An entity that has stood still for two seconds has ONE usable sample
+    in its history -- a stationary entity is not carried in a packet, so no
+    sample is filed for it -- and a history with nothing to blend from clamps to
+    whatever arrives, which draws even an undeclared 500-unit step almost at its
+    destination. Measured, on the third run of this gate: the control arm's
+    biggest single delivery was the whole 500 units and the entity was drawn
+    only 10.8 units short of it.
+
+    That is a true fact about a long-stationary entity and a WEAK control arm:
+    the slide the ledger describes is what happens to something with a recent
+    past -- a train, a lift, a thrown prop, anything a map actually teleports.
+    So both arms are given the same recent past, three small moves in the
+    quarter-second before the step, and the probe is zeroed AFTER them so only
+    the step is measured. The warm-up is `move` in both arms, so the two still
+    differ in exactly one thing: whether the STEP was declared a jump.
+    """
+    for i in range(1, 4):
+        probe(pid, "move", at[0] + 5.0 * i, at[1], at[2])
+        time.sleep(0.06)
+
+    debug_api(pid, "cmd", "cs_cl_teleport_watch %d" % index)
+    time.sleep(0.15)
+
+    probe(pid, how, to[0], to[1], to[2])
+    time.sleep(SETTLE)
+    return report(pid)
+
+
+def ledger_row_is_gone():
+    """Whether ContractBaseline.cs still carries the teleport row, in CODE.
+
+    Comment-stripped, because the retirement note that replaced the row names
+    the defect at length in a comment and a raw grep would read that as the row
+    still being there. The second value is the POSITIVE CONTROL: a subject that
+    IS a live row in the same file, found by the same search, so an absence
+    produced by a failed read or an eaten file is not reported as a closed
+    defect.
+    """
+    path = os.path.join(ROOT, "src", "sourcesharp", "managed",
+                        "SourceSharp.Tests.Common", "ContractBaseline.cs")
+    try:
+        with open(path, "r", errors="replace") as fh:
+            src = fh.read()
+    except IOError:
+        return None, None
+
+    code = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    code = "\n".join(re.sub(r"//.*$", "", line) for line in code.split("\n"))
+
+    return ("An entity that teleports is drawn sliding" not in code,
+            "a point gib's bounce sheds no energy" in code)
+
+
+def main():
+    tmpdir = "/tmp/ss-defect-teleport"
+    os.makedirs(tmpdir, exist_ok=True)
+    os.makedirs(SOCKET_DIR, exist_ok=True)
+    if os.path.exists(CONSOLE):
+        os.remove(CONSOLE)
+
+    print("box before: hl2_linux64 %d, free -g:" % count_games())
+    subprocess.run(["free", "-g"])
+
+    known = set(live_sockets())
+    quoted = " ".join("'%s'" % a for a in LAUNCH)
+    line = (". '%s/tools/gpu-offload'; cd '%s' && exec %s %s"
+            % (ROOT, GAME_DIR, launch_command(MOD_DIR), quoted))
+    log = open(os.path.join(tmpdir, "launch.log"), "wb")
+    popen = subprocess.Popen(["bash", "-c", line], stdout=log,
+                             stderr=subprocess.STDOUT,
+                             env=dict(os.environ, TMPDIR=tmpdir),
+                             start_new_session=True)
+
+    pid = None
+    deadline = time.time() + 240
+    while time.time() < deadline:
+        fresh = [s for s in live_sockets() if s not in known]
+        if fresh:
+            pid = int(os.path.basename(fresh[0])[:-5])
+            break
+        if popen.poll() is not None:
+            break
+        time.sleep(1.0)
+
+    if pid is None:
+        try:
+            os.killpg(os.getpgid(popen.pid), signal.SIGKILL)
+        except OSError:
+            pass
+        print("no socket appeared; the game never came up")
+        return 2
+
+    try:
+        return run(pid)
+    finally:
+        try:
+            os.killpg(os.getpgid(popen.pid), signal.SIGTERM)
+        except OSError:
+            pass
+        try:
+            popen.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(os.getpgid(popen.pid), signal.SIGKILL)
+            except OSError:
+                pass
+            popen.wait(timeout=30)
+        print("box after: hl2_linux64 %d" % count_games())
+
+
+def run(pid):
+    # Let the map finish loading and a client finish joining: every row below is
+    # about a NETWORKED pose, and there is nothing to network to until then.
+    time.sleep(12.0)
+
+    print("\n== the fixture ==")
+
+    debug_api(pid, "cmd", "cs_sv_propshot %s" % PROP_CLASS)
+    time.sleep(2.0)
+
+    placed = re.findall(
+        r"\[SourceSharp/PropShot\] \S+ index=(\d+) "
+        r"origin=\((-?[\d.]+), (-?[\d.]+), (-?[\d.]+)\)",
+        console())
+    if not placed:
+        check("the fixture prop was placed", False, "no cs_sv_propshot line in console.log")
+        return 1
+
+    index = int(placed[-1][0])
+    check("the fixture prop was placed", True, "index %d" % index)
+
+    # THE PREMISE. A prop standing still is drawn where the packet put it, so
+    # the probe reads frames and no lag. Without this row a `lagging 0` on the
+    # jump arm could mean the client never rendered the entity at all.
+    debug_api(pid, "cmd", "cs_cl_teleport_watch %d" % index)
+    time.sleep(2.0)
+    still = report(pid)
+
+    if still is None:
+        check("the client is drawing the fixture", False, "no teleport-probe line")
+        return 1
+
+    check("the client is drawing the fixture", still["frames"] > 0,
+          "%d rendered frame(s) of index %d" % (still["frames"], still["index"]))
+    check("...and at rest it is drawn where it is", still["lagging"] == 0,
+          "lagging %d, maxlag %.3f" % (still["lagging"], still["maxlag"]))
+
+    # PropShot.Origin, read back off the placement line rather than typed here.
+    home = [float(v) for v in placed[-1][1:4]]
+    away = [home[0], home[1] - TRAVEL, home[2]]
+
+    print("\n== the control arm: the same journey, not declared a jump ==")
+
+    a = arm(pid, index, "move", home, away)
+    b = arm(pid, index, "move", away, home)
+
+    for label, r in (("out", a), ("back", b)):
+        if r is None:
+            check("control (%s): the drawn pose lags" % label, False, "no teleport-probe line")
+            continue
+        check("control (%s): the drawn pose lags" % label, r["sincelagging"] > 0,
+              "%d rendered frame(s) after it arrived, maxlag %.1f, delivered %.1f"
+              % (r["sincelagging"], r["sincemaxlag"], r["delivered"]))
+
+        # THE LEDGER'S OWN CLAIM AS ONE NUMBER: on the frame the pose arrived,
+        # the entity was drawn somewhere else. Measured against the STEP that
+        # arrived rather than against the whole journey, because the journey
+        # arrives in as many pieces as the snapshot rate gives it -- see the
+        # `deliveries` column, which is what says which of the two this is.
+        check("control (%s): drawn short of where it arrived" % label,
+              r["arrivallag"] > r["biggest"] / 4.0,
+              "%.1f units short of a %.1f-unit step, in %d delivery(s)"
+              % (r["arrivallag"], r["biggest"], r["deliveries"]))
+
+    print("\n== the treatment: the same journey, declared a jump ==")
+
+    c = arm(pid, index, "jump", home, away)
+    d = arm(pid, index, "jump", away, home)
+
+    for label, r in (("out", c), ("back", d)):
+        if r is None:
+            check("teleport (%s): drawn where it went" % label, False, "no teleport-probe line")
+            continue
+        check("teleport (%s): the entity was rendered" % label, r["frames"] > 0,
+              "%d rendered frame(s)" % r["frames"])
+        check("teleport (%s): the pose really moved" % label, r["delivered"] > TRAVEL / 2.0,
+              "delivered %.1f over the window" % r["delivered"])
+        check("teleport (%s): drawn where it went" % label, r["sincelagging"] == 0,
+              "%d lagging frame(s) after it arrived, of %d rendered, maxlag %.3f"
+              % (r["sincelagging"], r["frames"], r["sincemaxlag"]))
+        check("teleport (%s): and drawn there ON ARRIVAL" % label,
+              r["arrivallag"] == 0.0,
+              "%.3f units short of a %.1f-unit step, in %d delivery(s)"
+              % (r["arrivallag"], r["biggest"], r["deliveries"]))
+
+    print("\n== the ledger, and the run itself ==")
+
+    gone, control = ledger_row_is_gone()
+    check("the teleport row has LEFT OpenDefects", gone is True,
+          "ContractBaseline.cs, comment-stripped")
+    check("...and the same search still finds a live row", control is True,
+          "the positive control")
+
+    text = console()
+    bad = len(re.findall(r"Assertion Failed|Segmentation fault", text))
+    check("no assertion and no segfault", bad == 0, "%d match(es)" % bad)
+
+    print("")
+    if FAILURES:
+        print("FAIL: %d check(s) -- %s" % (len(FAILURES), ", ".join(FAILURES)))
+        return 1
+
+    print("PASS: every check")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

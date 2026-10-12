@@ -1,0 +1,5 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+inline uint8_t *ImageEncodeBlock( int nPixelBytes 	SLOT-HELP	the BitBlock the screenshot pixels are read into for IManagedMaterialFilesClient::EncodeImage (C9)
+inline unsigned char *ImageEncodePixels( uint8_t *pBlock 	SLOT-HELP	where in that block the pixels go (C9)
+inline unsigned char *ImageEncode( 	SLOT-HELP	asks managed for the file's size, then the file, on the heap its writer frees with (C9)

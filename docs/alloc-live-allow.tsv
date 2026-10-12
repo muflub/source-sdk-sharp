@@ -1,0 +1,34 @@
+# docs/alloc-live-allow.tsv -- server.so's allocation sites still live at unload, each
+# allowed with its reason (plan_server_novalve.md 3.6, the P4 exit gate).
+#
+# tools/novalve-snapshot enforces it: every live site in the allocation checker's unload
+# report is resolved (addr2line over the debug server.so) to its function, argument list
+# dropped, and must match a row's key exactly. A live site with no row fails the capture,
+# and so does a row that matches no live site (a fixed leak takes its row out with it).
+# The blocks/bytes columns are the measurement the row was reviewed at, not a limit.
+#
+# Reviewed by the user 2026-09-30. At 5fbe408 (console objects freed after
+# UnregisterConCommands, the one group ruled FIX): 4873 allocations, 3903 releases,
+# 0 mismatches, 0 foreign frees, 970 live at 17 sites in 9 functions.
+#
+# Nothing below is freed by the engine or by us: these are registrations the engine
+# holds pointers into for as long as server.so is loaded, so nothing crosses the
+# boundary (the user's rule). Each reason was checked against the allocating line.
+#
+# KNOWN LIMIT: the checker records one return address, and in a debug build that is
+# the std::__new_allocator frame for any std container, so the three std:: keys name
+# the ALLOCATOR, not the owner. Their owner today is the entity-class descriptors'
+# ss::StringPool (shell_standalone_class.cpp:297), but a leak of any other std
+# container would pass under the same key. Follow-up: record the first frame outside
+# std:: at allocation.
+#
+# key	file	blocks	bytes	owner	reason
+SourceSharp_InstallStandaloneClass	shell_standalone_class.cpp	149	16688	entity classes	one descriptor per C#-installed entity class; the engine's entity factory table and ServerClass list point into them for the DLL's lifetime
+std::__new_allocator<std::__detail::_Hash_node<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>, true>>::allocate	new_allocator.h	361	17328	entity classes	each descriptor's kept strings (ss::StringPool m_Kept: keyvalue and input names), owned by the descriptor
+std::__new_allocator<std::__detail::_Hash_node_base*>::allocate	new_allocator.h	149	15496	entity classes	the kept-string pools' bucket arrays, one per descriptor
+std::__new_allocator<char>::allocate	new_allocator.h	69	1353	entity classes	the kept strings too long for the small-string buffer
+CStandaloneScriptedClass::Describe	shell_standalone_class.cpp	79	1696	entity classes	each scripted class's array of output names (shell_standalone_class.cpp:128), owned by its descriptor
+SourceSharp_TempEntRegister	shell_tempents.cpp	133	36304	temp-entity classes	each C#-registered temp entity's SendProp array, SendTable and ServerClass (shell_tempents.cpp:440/503/525); the ServerClass joins the server class list the engine walks to build its tables
+RegisterStandaloneTiers	shell_standalone.cpp	21	137776	network tables	the standalone entity tiers' SendProps, SendTables and ServerClasses, built at load and read by the engine's networking every tick
+SendPropArray3	dt_send.cpp	6	7520	network tables	the array props inside those SendTables (stock dt_send.cpp allocates these once and never frees them either)
+CWorldNetTable::Declare	shell_world_nettable.cpp	3	25936	network tables	the world's SendTable and props, declared once per load and read by the engine every tick

@@ -1,0 +1,125 @@
+--- a/src/game/client/particle_collision.cpp	2026-10-05 10:30:31.991050539 -0700
++++ b/src/game/client/particle_collision.cpp	2026-10-05 10:30:47.157441985 -0700
+@@ -11,6 +11,42 @@
+ #include "particle_collision.h"
+ #include "engine/ivdebugoverlay.h"
+ 
++// lane c5-particles probe: every trace, random draw, Setup and MoveParticle,
++// for the managed CParticleCollision's oracle (particlecollision-stock.tsv).
++#include "fx_probe_log.h"
++
++static void C5pTrace( const Vector &s, const Vector &e, trace_t *ptr )
++{
++	UTIL_TraceLine( s, e, MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, ptr );
++	FxProbeLog( "pct\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d",
++	            s.x, s.y, s.z, e.x, e.y, e.z, ptr->fraction, ptr->endpos.x, ptr->endpos.y, ptr->endpos.z,
++	            ptr->plane.normal.x, ptr->plane.normal.y, ptr->plane.normal.z, ptr->plane.dist,
++	            ptr->allsolid ? 1 : 0, ptr->startsolid ? 1 : 0 );
++}
++
++static float C5pRandom( float lo, float hi )
++{
++	const float v = random->RandomFloat( lo, hi );
++	FxProbeLog( "pcr\t%.9g\t%.9g\t%.9g", lo, hi, v );
++	return v;
++}
++
++struct C5pMoveLog
++{
++	const void *pThis; Vector &o; Vector &v; float *pRoll; trace_t *pTrace; int nRet;
++	C5pMoveLog( const void *t, Vector &origin, Vector &velocity, float *roll, float dt, trace_t *tr, float grav, float damp, int planes )
++		: pThis( t ), o( origin ), v( velocity ), pRoll( roll ), pTrace( tr ), nRet( 0 )
++	{
++		FxProbeLog( "pcm\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%d",
++		            t, o.x, o.y, o.z, v.x, v.y, v.z, roll ? 1 : 0, roll ? *roll : 0.0f, dt, grav, damp, planes );
++	}
++	~C5pMoveLog()
++	{
++		FxProbeLog( "pcmo\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%d",
++		            pThis, o.x, o.y, o.z, v.x, v.y, v.z, pRoll ? *pRoll : 0.0f, nRet, pTrace->fraction, pTrace->allsolid ? 1 : 0 );
++	}
++};
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -92,7 +128,7 @@
+ 		//If we need an exact trace, test again on a successful hit
+ 		if ( ( coarse == false ) && ( pTrace->fraction < 1.0f ) )
+ 		{
+-			UTIL_TraceLine( start, end, MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, pTrace );
++			C5pTrace( start, end, pTrace );
+ 		}
+ 
+ 		#if	__DEBUG_PARTICLE_COLLISION_OVERLAY
+@@ -170,7 +206,7 @@
+ 		testEnd[2] -= flGravIncr * (0.5f*(dStepTime*i)*(dStepTime*i) );
+ 
+ 		//Trace the line
+-		UTIL_TraceLine( testStart, testEnd, MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &tr );
++		C5pTrace( testStart, testEnd, &tr );
+ 
+ 		//See if we found one
+ 		if ( tr.fraction != 1.0f )
+@@ -250,6 +286,9 @@
+ //-----------------------------------------------------------------------------
+ void CParticleCollision::Setup( const Vector &origin, const Vector *dir, float angularSpread, float minSpeed, float maxSpeed, float gravity, float dampen )
+ {
++	FxProbeLog( "pcs\t%p\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++	            this, origin.x, origin.y, origin.z, dir ? 1 : 0, dir ? dir->x : 0.0f, dir ? dir->y : 0.0f, dir ? dir->z : 0.0f,
++	            angularSpread, minSpeed, maxSpeed, gravity, dampen );
+ 	//Take the information for this simulation
+ 	m_flGravity				= gravity;
+ 	m_flCollisionDampen		= dampen;
+@@ -296,6 +335,14 @@
+ 		DevMsg( 1, "CParticleCollision: Found %d active plane(s)\n", m_nActivePlanes );
+ 		#endif	//__DEBUG_PARTICLE_COLLISION_OVERLAY
+ 	}
++	{
++		char buf[1024]; int n = 0;
++		for ( int i = 0; i < m_nActivePlanes && n < (int)sizeof( buf ) - 80; i++ )
++			n += Q_snprintf( buf + n, sizeof( buf ) - n, "\t%.9g\t%.9g\t%.9g\t%.9g", m_collisionPlanes[i].m_Normal.x,
++			                 m_collisionPlanes[i].m_Normal.y, m_collisionPlanes[i].m_Normal.z, m_collisionPlanes[i].m_Dist );
++		buf[n] = 0;
++		FxProbeLog( "pcp\t%p\t%d%s", this, m_nActivePlanes, buf );
++	}
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -306,7 +353,8 @@
+ //			timeDelta - time step
+ //-----------------------------------------------------------------------------
+ bool CParticleCollision::MoveParticle( Vector &origin, Vector &velocity, float *rollDelta, float timeDelta, trace_t *pTrace )
+-{	
++{
++	C5pMoveLog c5pLog( this, origin, velocity, rollDelta, timeDelta, pTrace, m_flGravity, m_flCollisionDampen, m_nActivePlanes );	
+ 	//Don't bother with non-moving particles
+ 	if ( velocity == vec3_origin )
+ 		return false;
+@@ -328,7 +376,7 @@
+ 		{
+ 			#if	__DEBUG_PARTICLE_COLLISION_RETEST
+ 			//Retest the collision with a true trace line to avoid errant collisions
+-			UTIL_TraceLine( origin, testPosition, MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, pTrace );
++			C5pTrace( origin, testPosition, pTrace );
+ 			#endif	//__DEBUG_RETEST_COLLISION
+ 
+ 			//Did we hit anything?
+@@ -360,7 +408,7 @@
+ 					velocity += pTrace->plane.normal * (-proj*2.0f);
+ 					
+ 					//Apply dampening
+-					velocity *= random->RandomFloat( (m_flCollisionDampen-0.1f), (m_flCollisionDampen+0.1f) );
++					velocity *= C5pRandom( (m_flCollisionDampen-0.1f), (m_flCollisionDampen+0.1f) );
+ 
+ 					//Dampen the roll of the particles
+ 					if ( rollDelta != NULL )
+@@ -368,7 +416,7 @@
+ 						(*rollDelta) *= -0.25f;
+ 					}
+ 
+-					return true;
++					{ c5pLog.nRet = 1; return true; }
+ 				}
+ 			}
+ 			else

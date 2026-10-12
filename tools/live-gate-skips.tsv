@@ -1,0 +1,90 @@
+# tools/live-gate-skips.tsv -- the live gate's RECORDED skips.
+#
+# A step that skips did not run. It is not a pass, and until 2026-09-06 it was
+# not a failure either: the gate printed a loud banner, counted the skips, and
+# exited 0 anyway. On 2026-09-06 `second-client` -- PASS PASS on the two merges
+# before it -- silently became SKIP SKIP, and `make live-gate` still exited 0.
+# The only thing that noticed was a human comparing "4 skipped" with "6 skipped"
+# in the last line of the output.
+#
+# That is the failure mode this whole tree keeps meeting from other directions:
+# a check that quietly stops checking. tools/entity-gates counts its stale
+# allowlist entries; tools/dead-conditionals makes its `pending` list
+# shrink-only. This file is the same discipline for the live gate:
+#
+#   * a step that skips and is NOT listed here          -> the gate FAILS
+#   * a listed step that ran and did NOT skip           -> the gate FAILS, so
+#     the row is deleted rather than left to mask the next regression
+#
+# So losing coverage takes an edit to a tracked file with a reason and an owner
+# in it, and getting coverage back takes one too.
+#
+# A row is `skip<TAB>step<TAB>owner<TAB>reason`. `owner` is the plan_entity.md
+# step that makes the row deletable.
+#
+# `lift` WAS HERE AND IS NOT ANY MORE -- plan_entity.md step 2g, which is what
+# it named as its owner. Its row is deleted rather than kept as a comment,
+# because this file's own rule is that a listed step which runs and does not
+# skip FAILS the gate: leaving the row would mask the next regression, which is
+# the entire failure mode the file exists for.
+#
+# Its recorded reason was also HALF WRONG, and that is worth carrying forward
+# rather than deleting with the row. "A managed brush mover is not solid to the
+# player" was never true: measured per tick on 2g's branch, the player lands on
+# the plate and GroundEntity reads the lift. What they then did was walk off the
+# far edge, because the usercmd the step sent to get them simulated was
+# +forward -- 320 units a second across a 114-unit plate. The REAL half was that
+# a managed mover carried nobody: Riders.Carry had four hand-written callers and
+# func_movelinear was not one, so the lift rose through its passenger and was
+# blocked by them. Both are fixed; see step_lift's docstring.
+#
+# WHAT MAY BE LISTED HERE, AND IT IS NARROW. The one step below skips because the
+# GAME CANNOT DO THE THING YET -- the capability has never existed on this
+# branch, it was measured and written up by step 0d, and it starts passing
+# with no edit to the gate. A capability that EXISTED AND STOPPED WORKING is a
+# regression and belongs in no ledger; `second-client` is exactly that, which is
+# why it is not here and why its never-joined arm is a failure and not a skip.
+#
+# `push` WAS HERE AND IS NOT ANY MORE -- plan_entity.md step 3f, which is what
+# it named as its owner. The row is deleted rather than kept as a comment,
+# because this file's own rule is that a listed step which runs and does not
+# skip FAILS the gate: leaving the row would mask the next regression, which is
+# the entire failure mode the file exists for.
+#
+# ITS RECORDED REASON WAS RIGHT, and that is worth saying explicitly because
+# `lift`'s was half wrong and the next reader of this file should not assume
+# either way. It said "ss_player has no VPhysics shadow, so the player walks
+# into a prop, is stopped by it, and moves it 0.0 units". Measured per tick on
+# 3f's branch BEFORE anything changed (tools/3f-probe-push, on entity-port
+# 9f370367): the player accelerates for four ticks, covers 27.3 units, meets
+# the crate and stops dead 36.8 horizontal units from its origin, and the crate
+# moves 0.000 units for the remaining 2.85 seconds. Solid to the player, and
+# nothing in the other direction.
+#
+# What closed it is stock's own mechanism ported: two bbox hulls and an
+# IPhysicsPlayerController, built from SsPlayer's numbers through
+# EngineApi::PlayerInitVCollision and dragged after the player at the end of
+# each command. See shell_standalone_player.cpp.
+#
+# AND ONE THING THE MEASUREMENT FOUND THAT THE LEDGER DID NOT SAY, kept here
+# because it is the part that took two gate runs to see: the shove is only
+# stock-shaped if the player's m_touchedPhysObject is ported with it. Reading
+# the controller's IsInContact() instead was true on 359 of 5760 updates, so
+# 94% of a push ran the full-force arm of PostThinkVPhysics -- and the crate
+# outran the player pushing it, 119 units of crate against 74 of player, which
+# fails `push`'s own "what stopped them was the prop" check from the other side.
+# With the flag ported the same four rounds read 66-68 units of crate every
+# time. tools/3f-shadow-ab is the A/B that says so.
+
+# skip	step	owner	reason
+# THE LEDGER IS EMPTY. Every step of the live gate runs. A row added here needs
+# a step, an owner and a reason, and the owner is the plan_entity.md step that
+# makes it deletable again.
+#
+# RELEASE-ONLY ROWS (2026-10-01): the diagnostic console commands are compiled
+# into a debug server.so only (user ruling: they live in *_debug.cpp files CMake
+# compiles for debug builds). A `skip@release` row waives a step in a release
+# run only; a debug run still requires it to pass.
+skip@release	skinned-model	debug-only diagnostics (user ruling 2026-10-01)	needs cs_standalone_spawn and cs_sv_boneprobe, which a release server.so does not have
+skip@release	viewmodel-merge	debug-only diagnostics (user ruling 2026-10-01)	needs cs_standalone_spawn, which a release server.so does not have
+skip@release	engine-vectors	debug-only diagnostics (user ruling 2026-10-01)	needs cs_sv_engine_vectors, which a release server.so does not have

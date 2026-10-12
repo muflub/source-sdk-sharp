@@ -1,0 +1,24 @@
+--- a/src/game/client/in_steamcontroller.cpp	2026-10-05 07:22:19.896499606 -0700
++++ b/src/game/client/in_steamcontroller.cpp	2026-10-05 07:23:15.092889703 -0700
+@@ -29,6 +29,7 @@
+ #include "tier1/convar_serverbounded.h"
+ #include "cam_thirdperson.h"
+ #include "ienginevgui.h"
++#include "c6input_probe.h"
+ 
+ #if defined( _X360 )
+ #include "xbox/xbox_win32stubs.h"
+@@ -287,11 +288,13 @@
+ 						cmdbuf[0] = '-';
+ 					}
+ 
++					C6P_Log( "Q\t%s", cmdbuf );
+ 					engine->ClientCmd_Unrestricted( cmdbuf );
+ 
+ 					// Hack - if we're taunting, we manufacture a stop taunt command for certain inputs (keyboard equivalent of this goes through another codepath).
+ 					if ( bTaunting && data.bState && ( cmdmap.flags & CONTROLLER_ACTION_FLAGS_STOPS_TAUNT ) )
+ 					{
++						C6P_Log( "Q\tstop_taunt" );
+ 						engine->ClientCmd_Unrestricted( "stop_taunt" );
+ 					}
+ 				}

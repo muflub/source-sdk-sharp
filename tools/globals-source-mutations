@@ -1,0 +1,83 @@
+#!/bin/bash
+#
+# plan_globals.md G0's own mutation proof, end to end and through a REAL BUILD.
+#
+#   arm 1  `static int s_x;` at file scope in a shim .cpp     -> gate RED
+#   arm 2  a static inside an INLINE ACCESSOR (no `static` at
+#          file scope anywhere -- tools/statics-audit's blind
+#          spot, and how 134 link-level rows came to exist)    -> gate RED
+#   restore                                                    -> gate GREEN
+#
+# Both arms live inside the existing .cpp rather than in a new header, so the
+# shim ratchets (shim_cpp_files, shim_lines, SS_REASON markers) are untouched
+# and a red here can only be this gate. The symbol shapes are the ones that
+# matter: arm 1 emits a LOCAL in .bss, arm 2 a GNU_UNIQUE.
+#
+# Restore is a rewrite with a FRESH mtime, never `git checkout --` -- that
+# deletes the uncommitted work under test. The subject file is restored
+# byte-identically and rebuilt before the script exits, in a trap, so an
+# interrupted run does not leave a probe static behind.
+#
+# It rebuilds five times and takes about two minutes.
+set -u
+# The repo root from this script's own location, NEVER a hardcoded worktree
+# path: a committed harness outlives its lane, and a later lane would otherwise
+# mutate somebody else's tree and still report RED/GREEN.
+W=$(cd "$(dirname "$(readlink -f -- "$0")")/.." && pwd)
+CPP="$W/src/sourcesharp/game/server/shell_gametags.cpp"
+LOG="$W/tools/.globals-source-mutations.log"
+
+cd "$W" || exit 1
+
+BACKUP=$(mktemp)
+cp "$CPP" "$BACKUP"
+restore() { cp "$BACKUP" "$CPP"; touch "$CPP"; }
+trap 'restore; rm -f "$BACKUP"' EXIT
+
+rebuild() { make debug > "$LOG" 2>&1; }
+gate()    { python3 tools/globals-census gate > /dev/null 2>&1; echo $?; }
+detail()  { python3 tools/globals-census gate 2>&1 \
+              | grep -E 'link_level|symbols_with_no_ledger_row|# no_ledger_row' | head -5; }
+
+echo "=== control"
+rebuild || { echo "control build FAILED"; tail -20 "$LOG"; exit 1; }
+echo "gate exit $(gate)   (expect 0)"
+detail
+
+echo
+echo "=== arm 1: a file-scope static in a shim .cpp"
+cat >> "$CPP" <<'EOF'
+
+static int s_nLaneEightBProbe;
+int SourceSharpLaneEightBProbe() { return ++s_nLaneEightBProbe; }
+EOF
+touch "$CPP"
+rebuild || { echo "arm 1 build FAILED"; tail -20 "$LOG"; }
+echo "gate exit $(gate)   (expect NON-zero)"
+detail
+restore
+rebuild > /dev/null 2>&1
+echo "restored gate exit $(gate)   (expect 0)"
+
+echo
+echo "=== arm 2: a static inside an inline accessor"
+cat >> "$CPP" <<'EOF'
+
+inline int &LaneEightBAccessor()
+{
+	static int s_nHidden;
+	return s_nHidden;
+}
+int SourceSharpLaneEightBAccessorUse() { return ++LaneEightBAccessor(); }
+EOF
+touch "$CPP"
+echo "  what a SOURCE SCANNER for file-scope statics sees in that addition:"
+echo "    grep -c '^static' -> $(tail -7 "$CPP" | grep -c '^static')"
+rebuild || { echo "arm 2 build FAILED"; tail -20 "$LOG"; }
+echo "gate exit $(gate)   (expect NON-zero)"
+detail
+restore
+rebuild > /dev/null 2>&1
+echo
+echo "=== restored gate exit $(gate)   (expect 0)"
+detail

@@ -1,0 +1,227 @@
+--- a/src/game/client/fx_water.cpp	2026-10-05 11:55:18.806586797 -0700
++++ b/src/game/client/fx_water.cpp	2026-10-05 11:55:55.892841929 -0700
+@@ -26,6 +26,12 @@
+ // that quarantine is retired and the calls below name GameSound_* directly.
+ #include "gamesound.h"
+ 
++// lane c5-particles probe: the gunshot splash's spawns, the ripple, CSplashParticle's steps and alphas (watersplash-stock.tsv).
++#include "fx_probe_log.h"
++static float WsRandF( float lo, float hi ) { const float v = random->RandomFloat( lo, hi ); FxProbeLog( "wsr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v ); return v; }
++static int WsRandI( int lo, int hi ) { const int v = random->RandomInt( lo, hi ); FxProbeLog( "wsr\ti\t%d\t%d\t%d", lo, hi, v ); return v; }
++static Vector WsRandomVector( float lo, float hi ) { const Vector v = RandomVector( lo, hi ); for ( int k = 0; k < 3; k++ ) FxProbeLog( "wsr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v[k] ); return v; }
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -100,6 +106,9 @@
+ 	Vector endPos = origin + Vector(0,0,-64);
+ 
+ 	UTIL_TraceLine( startPos, endPos, MASK_WATER, NULL, COLLISION_GROUP_NONE, &tr );
++	FxProbeLog( "wre\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++	            origin.x, origin.y, origin.z, scale, pColor ? 1 : 0, color.x, color.y, color.z, flLifetime, flAlpha,
++	            tr.fraction, tr.endpos.x, tr.endpos.y, tr.endpos.z, tr.plane.normal.x, tr.plane.normal.y, tr.plane.normal.z );
+ 	
+ 	if ( tr.fraction < 1.0f )
+ 	{
+@@ -112,8 +121,8 @@
+ 					flAlpha,	// start alpha
+ 					0.0f,		// end alpha
+ 					0.25f,
+-					random->RandomFloat( 0, 360 ),
+-					random->RandomFloat( -16.0f, 16.0f ),
++					WsRandF( 0, 360 ),
++					WsRandF( -16.0f, 16.0f ),
+ 					color, 
+ 					flLifetime, 
+ 					"effects/splashwake1", 
+@@ -130,6 +139,8 @@
+ {
+ 	VPROF_BUDGET( "FX_GunshotSplash", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 	
++	FxProbeLog( "wse\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", origin.x, origin.y, origin.z, normal.x, normal.y, normal.z, scale,
++	            cl_show_splashes.GetBool() ? 1 : 0 );
+ 	if ( cl_show_splashes.GetBool() == false )
+ 		return;
+ 
+@@ -137,7 +148,11 @@
+ 	float	luminosity;
+ 	
+ 	// Get our lighting information
+-	FX_GetSplashLighting( origin + ( normal * scale ), &color, &luminosity );
++	{
++		const Vector wsRaw = engine->GetLightForPoint( origin + ( normal * scale ), true );
++		FX_GetSplashLighting( origin + ( normal * scale ), &color, &luminosity );
++		FxProbeLog( "wsl\t%.9g\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%.9g", wsRaw.x, wsRaw.y, wsRaw.z, color.x, color.y, color.z, luminosity );
++	}
+ 
+ 	float flScale = scale / 8.0f;
+ 
+@@ -157,6 +172,7 @@
+ 	sparkEmitter->SetFlag( bitsPARTICLE_TRAIL_VELOCITY_DAMPEN );
+ 	sparkEmitter->SetVelocityDampen( 2.0f );
+ 	sparkEmitter->GetBinding().SetBBox( origin - Vector( 32, 32, 32 ), origin + Vector( 32, 32, 32 ) );
++	FxProbeLog( "wsc\t%p\ttrail", (void *)sparkEmitter.GetObject() );
+ 
+ 	PMaterialHandle	hMaterial = ParticleMgr()->GetPMaterial( "effects/splash2" );
+ 
+@@ -170,8 +186,8 @@
+ 	for ( int i = 0; i < 16; i++ )
+ 	{
+ 		offset = origin;
+-		offset[0] += random->RandomFloat( -8.0f, 8.0f ) * flScale;
+-		offset[1] += random->RandomFloat( -8.0f, 8.0f ) * flScale;
++		offset[0] += WsRandF( -8.0f, 8.0f ) * flScale;
++		offset[1] += WsRandF( -8.0f, 8.0f ) * flScale;
+ 
+ 		tParticle = (TrailParticle *) sparkEmitter->AddParticle( sizeof(TrailParticle), hMaterial, offset );
+ 
+@@ -179,22 +195,26 @@
+ 			break;
+ 
+ 		tParticle->m_flLifetime	= 0.0f;
+-		tParticle->m_flDieTime	= random->RandomFloat( 0.25f, 0.5f );
++		tParticle->m_flDieTime	= WsRandF( 0.25f, 0.5f );
+ 
+-		offDir = normal + RandomVector( -0.8f, 0.8f );
++		offDir = normal + WsRandomVector( -0.8f, 0.8f );
+ 
+-		tParticle->m_vecVelocity = offDir * random->RandomFloat( SPLASH_MIN_SPEED * flScale * 3.0f, SPLASH_MAX_SPEED * flScale * 3.0f );
+-		tParticle->m_vecVelocity[2] += random->RandomFloat( 32.0f, 64.0f ) * flScale;
++		tParticle->m_vecVelocity = offDir * WsRandF( SPLASH_MIN_SPEED * flScale * 3.0f, SPLASH_MAX_SPEED * flScale * 3.0f );
++		tParticle->m_vecVelocity[2] += WsRandF( 32.0f, 64.0f ) * flScale;
+ 
+-		tParticle->m_flWidth		= random->RandomFloat( 1.0f, 3.0f );
+-		tParticle->m_flLength		= random->RandomFloat( 0.025f, 0.05f );
++		tParticle->m_flWidth		= WsRandF( 1.0f, 3.0f );
++		tParticle->m_flLength		= WsRandF( 0.025f, 0.05f );
+ 
+-		colorRamp = random->RandomFloat( 0.75f, 1.25f );
++		colorRamp = WsRandF( 0.75f, 1.25f );
+ 
+ 		tParticle->m_color.r = MIN( 1.0f, color[0] * colorRamp ) * 255;
+ 		tParticle->m_color.g = MIN( 1.0f, color[1] * colorRamp ) * 255;
+ 		tParticle->m_color.b = MIN( 1.0f, color[2] * colorRamp ) * 255;
+ 		tParticle->m_color.a = luminosity * 255;
++		FxProbeLog( "wsp\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d", (void *)tParticle,
++		            tParticle->m_Pos.x, tParticle->m_Pos.y, tParticle->m_Pos.z, tParticle->m_flLifetime, tParticle->m_flDieTime,
++		            tParticle->m_flWidth, tParticle->m_flLength, tParticle->m_vecVelocity.x, tParticle->m_vecVelocity.y,
++		            tParticle->m_vecVelocity.z, tParticle->m_color.r, tParticle->m_color.g, tParticle->m_color.b, tParticle->m_color.a );
+ 	}
+ 
+ 	// Setup the particle emitter
+@@ -203,6 +223,7 @@
+ 	pSimple->SetClipHeight( origin.z );
+ 	pSimple->SetParticleCullRadius( scale * 2.0f );
+ 	pSimple->GetBinding().SetBBox( origin - Vector( 32, 32, 32 ), origin + Vector( 32, 32, 32 ) );
++	FxProbeLog( "wsc\t%p\tsplash\t%.9g", (void *)pSimple.GetObject(), scale * 2.0f );
+ 
+ 	SimpleParticle	*pParticle;
+ 
+@@ -218,13 +239,14 @@
+ 		pParticle->m_flDieTime	= 2.0f;	//NOTENOTE: We use a clip plane to realistically control our lifespan
+ 
+ 		pParticle->m_vecVelocity.Random( -0.2f, 0.2f );
+-		pParticle->m_vecVelocity += ( normal * random->RandomFloat( 4.0f, 6.0f ) );
++		for ( int k = 0; k < 3; k++ ) FxProbeLog( "wsr\tf\t%.9g\t%.9g\t%.9g", -0.2f, 0.2f, pParticle->m_vecVelocity[k] );
++		pParticle->m_vecVelocity += ( normal * WsRandF( 4.0f, 6.0f ) );
+ 		
+ 		VectorNormalize( pParticle->m_vecVelocity );
+ 
+ 		pParticle->m_vecVelocity *= 50 * flScale * (8-i);
+ 		
+-		colorRamp = random->RandomFloat( 0.75f, 1.25f );
++		colorRamp = WsRandF( 0.75f, 1.25f );
+ 
+ 		pParticle->m_uchColor[0]	= MIN( 1.0f, color[0] * colorRamp ) * 255.0f;
+ 		pParticle->m_uchColor[1]	= MIN( 1.0f, color[1] * colorRamp ) * 255.0f;
+@@ -236,8 +258,13 @@
+ 		pParticle->m_uchStartAlpha	= RemapValClamped( i, 7, 0, 255, 32 ) * luminosity;
+ 		pParticle->m_uchEndAlpha	= 0;
+ 		
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-		pParticle->m_flRollDelta	= random->RandomFloat( -4.0f, 4.0f );
++		pParticle->m_flRoll			= WsRandI( 0, 360 );
++		pParticle->m_flRollDelta	= WsRandF( -4.0f, 4.0f );
++		FxProbeLog( "wss\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g", (void *)pParticle,
++		            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y,
++		            pParticle->m_vecVelocity.z, pParticle->m_flLifetime, pParticle->m_flDieTime, pParticle->m_uchColor[0], pParticle->m_uchColor[1],
++		            pParticle->m_uchColor[2], pParticle->m_uchStartAlpha, pParticle->m_uchEndAlpha, pParticle->m_uchStartSize,
++		            pParticle->m_uchEndSize, pParticle->m_flRoll, pParticle->m_flRollDelta );
+ 	}
+ 
+ 	// Do a ripple
+@@ -254,6 +281,7 @@
+ 	ep.m_pOrigin = &origin;
+ 
+ 
++	FxProbeLog( "wsd\t%.9g\t%.9g\t%.9g", origin.x, origin.y, origin.z );
+ 	GameSound_Emit( filter, SOUND_FROM_WORLD, ep );
+ }
+ 
+@@ -470,7 +498,12 @@
+ 	float	luminosity;
+ 	
+ 	// Get our lighting information
+-	FX_GetSplashLighting( data.m_vOrigin + ( Vector(0,0,1) * 4.0f ), &color, &luminosity );
++	{
++		const Vector wsRaw = engine->GetLightForPoint( data.m_vOrigin + ( Vector(0,0,1) * 4.0f ), true );
++		FX_GetSplashLighting( data.m_vOrigin + ( Vector(0,0,1) * 4.0f ), &color, &luminosity );
++		FxProbeLog( "wrc\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%.9g", data.m_vOrigin.x, data.m_vOrigin.y, data.m_vOrigin.z,
++		            data.m_flScale, wsRaw.x, wsRaw.y, wsRaw.z, color.x, color.y, color.z, luminosity );
++	}
+ 
+ 	FX_WaterRipple( data.m_vOrigin, flScale, &color, 1.5f, luminosity );
+ }
+@@ -552,11 +585,14 @@
+ 	{
+ 		float flAlpha = pParticle->m_uchStartAlpha / 255.0f;
+ 
+-		return  flAlpha * RemapValClamped(pParticle->m_Pos.z,
++		const float flWsAlpha = flAlpha * RemapValClamped(pParticle->m_Pos.z,
+ 								m_flClipHeight,
+ 								m_flClipHeight - ( UpdateScale( pParticle ) * 0.5f ),
+ 								1.0f,
+ 								0.0f );
++		FxProbeLog( "wsa\t%.9g\t%.9g\t%d\t%d\t%d\t%.9g\t%.9g\t|\t%.9g\t%.9g", pParticle->m_Pos.z, m_flClipHeight, pParticle->m_uchStartAlpha,
++		            pParticle->m_uchStartSize, pParticle->m_uchEndSize, pParticle->m_flLifetime, pParticle->m_flDieTime, UpdateScale( pParticle ), flWsAlpha );
++		return flWsAlpha;
+ 	}
+ 
+ 	return (pParticle->m_uchStartAlpha/255.0f) + ( (float)(pParticle->m_uchEndAlpha/255.0f) - (float)(pParticle->m_uchStartAlpha/255.0f) ) * (pParticle->m_flLifetime / pParticle->m_flDieTime);
+@@ -584,6 +620,11 @@
+ 	
+ 	while ( pParticle )
+ 	{
++		FxProbeLog( "wst\t%p\t%p\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d",
++		            (void *)this, (void *)pParticle, timeDelta, m_bUseClipHeight ? 1 : 0, m_flClipHeight, pParticle->m_Pos.x,
++		            pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z,
++		            pParticle->m_flLifetime, pParticle->m_flDieTime, pParticle->m_flRoll, pParticle->m_flRollDelta,
++		            pParticle->m_uchStartSize, pParticle->m_uchEndSize );
+ 		//Update velocity
+ 		UpdateVelocity( pParticle, timeDelta );
+ 		pParticle->m_Pos += pParticle->m_vecVelocity * timeDelta;
+@@ -594,6 +635,7 @@
+ 			// See if we're below, and therefore need to clip
+ 			if ( pParticle->m_Pos.z + UpdateScale( pParticle ) < m_flClipHeight )
+ 			{
++				FxProbeLog( "wsto\t%p\tclipped", (void *)pParticle );
+ 				pIterator->RemoveParticle( pParticle );
+ 				pParticle = (SimpleParticle*)pIterator->GetNext();
+ 				continue;
+@@ -605,7 +647,16 @@
+ 		UpdateRoll( pParticle, timeDelta );
+ 
+ 		if ( pParticle->m_flLifetime >= pParticle->m_flDieTime )
++		{
++			FxProbeLog( "wsto\t%p\tremoved", (void *)pParticle );
+ 			pIterator->RemoveParticle( pParticle );
++		}
++		else
++		{
++			FxProbeLog( "wsto\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)pParticle, pParticle->m_Pos.x,
++			            pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y,
++			            pParticle->m_vecVelocity.z, pParticle->m_flLifetime, pParticle->m_flRoll, pParticle->m_flRollDelta );
++		}
+ 
+ 		pParticle = (SimpleParticle*)pIterator->GetNext();
+ 	}

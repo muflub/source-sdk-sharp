@@ -1,0 +1,56 @@
+diff --git a/src/client/native/shell_effects_sim.cpp b/src/client/native/shell_effects_sim.cpp
+index 020319e4..8011e101 100644
+--- a/src/client/native/shell_effects_sim.cpp
++++ b/src/client/native/shell_effects_sim.cpp
+@@ -40,6 +40,11 @@
+ #include "trail_lifetime.h"
+ #include "managed_convar_ref.h"
+ 
++// c2-sims probe (tools/probes/c2sims-wind-probe.diff)
++bool C2SimsProbe_On();
++bool C2SimsProbe_BeginFrame();
++void C2SimsProbe_Row( const char *pFmt, ... );
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -1670,6 +1675,8 @@ void CEnvWindShared::UpdateTreeSway( float flTime )
+ 	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
+ 	// Dividing by 2 helps the numbers the shader is expecting stay in line with other expected game values.
+ 	Vector vecWind = Lerp( flPercentage, m_PrevSwayVector, m_CurrentSwayVector ) / 2;
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "V\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", flTime, m_flSwayTime, vecWind.x, vecWind.y, vecWind.z );
+ 	pRenderContext->SetVectorRenderingParameter( VECTOR_RENDERPARM_WIND_DIRECTION, vecWind );
+ #endif
+ }
+@@ -1747,6 +1754,11 @@ float CEnvWindShared::WindThink( float flTime )
+ //			UpdateWindSound( flTotalWindSpeed );
+ 
+ 			// Always immediately call, the wind is forever varying
++			if ( C2SimsProbe_On() )
++				C2SimsProbe_Row( "W\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++					flTime, m_currentWindVector.x, m_currentWindVector.y, m_currentWindVector.z,
++					m_flWindSpeed, m_flAveWindSpeed, m_iWindDir, m_bGusting ? 1 : 0, m_flSwitchTime, m_flSimTime,
++					m_flWindAngleVariation, m_flWindSpeedVariation, m_flVariationTime );
+ 			return ( flTime + 0.01f );
+ 		}
+ 
+@@ -2050,6 +2062,7 @@ void C_EnvWind::Start( int nWindSeed, float flStartTime,
+ 
+ void C_EnvWind::Think( float flCurTime )
+ {
++	C2SimsProbe_BeginFrame();
+ 	// Update the wind speed
+ 	m_Schedule.Served( m_EnvWindShared.WindThink( flCurTime ) );
+ }
+@@ -3414,6 +3427,10 @@ void SourceSharp_WindUpdate( uint32_t hOwner,
+ 	// stored fields, then start thinking. Init re-reads the seed and the
+ 	// start facts from its arguments, so they are passed back in.
+ 	pWind->Start( nWindSeed, flStartTime, nInitialWindDir, flInitialWindSpeed );
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "S\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%d\t%.9g\t%d\t%d\t%.9g\t%.9g",
++			nMinWind, nMaxWind, nMinGust, nMaxGust, flMinGustDelay, flMaxGustDelay, nGustDirChange, flGustDuration,
++			nWindSeed, nInitialWindDir, flInitialWindSpeed, flStartTime );
+ 
+ 	// NOT verbatim: the think only starts when the parameters can advance
+ 	// time. CEnvWindShared::WindThink is a while(true) whose switch time

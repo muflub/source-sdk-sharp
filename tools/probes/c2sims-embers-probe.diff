@@ -1,0 +1,109 @@
+diff --git a/src/client/native/shell_effects_sim.cpp b/src/client/native/shell_effects_sim.cpp
+index 34dbb1da..1810fa1d 100644
+--- a/src/client/native/shell_effects_sim.cpp
++++ b/src/client/native/shell_effects_sim.cpp
+@@ -39,6 +39,22 @@
+ #include "trail_lifetime.h"
+ #include "managed_convar_ref.h"
+ 
++// c2-sims probe (tools/probes/c2sims-embers-probe.diff)
++bool C2SimsProbe_On();
++bool C2SimsProbe_BeginFrame();
++void C2SimsProbe_Arm( bool bArm );
++void C2SimsProbe_Row( const char *pFmt, ... );
++static void C2SimsProbe_Particle( const char *pTag, const SimpleParticle *p, int nMaterial )
++{
++	if ( !C2SimsProbe_On() )
++		return;
++	C2SimsProbe_Row( "%s\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", pTag, nMaterial,
++		p->m_Pos.x, p->m_Pos.y, p->m_Pos.z, p->m_vecVelocity.x, p->m_vecVelocity.y, p->m_vecVelocity.z,
++		p->m_flRoll, p->m_flRollDelta, p->m_flLifetime, p->m_flDieTime,
++		p->m_uchColor[0], p->m_uchColor[1], p->m_uchColor[2], p->m_uchStartAlpha, p->m_uchEndAlpha,
++		p->m_uchStartSize, p->m_uchEndSize, p->m_iFlags );
++}
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -1526,6 +1542,8 @@ public:
+ 							CEmberEmitter( const char *pDebugName );
+ 	static CSmartPtr<CEmberEmitter>	Create( const char *pDebugName );
+ 	virtual void			UpdateVelocity( SimpleParticle *pParticle, float timeDelta );
++	void					UpdateVelocity_Probed( SimpleParticle *pParticle, float timeDelta );
++	virtual float			UpdateRoll( SimpleParticle *pParticle, float timeDelta );
+ 	virtual Vector			UpdateColor( const SimpleParticle *pParticle );
+ 
+ private:
+@@ -1550,6 +1568,22 @@ CSmartPtr<CEmberEmitter> CEmberEmitter::Create( const char *pDebugName )
+ 
+ 
+ void CEmberEmitter::UpdateVelocity( SimpleParticle *pParticle, float timeDelta )
++{
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "T\t%.9g", timeDelta );
++	C2SimsProbe_Arm( true );
++	UpdateVelocity_Probed( pParticle, timeDelta );
++	C2SimsProbe_Arm( false );
++}
++
++float CEmberEmitter::UpdateRoll( SimpleParticle *pParticle, float timeDelta )
++{
++	float r = CSimpleEmitter::UpdateRoll( pParticle, timeDelta );
++	C2SimsProbe_Particle( "Q", pParticle, -1 );
++	return r;
++}
++
++void CEmberEmitter::UpdateVelocity_Probed( SimpleParticle *pParticle, float timeDelta )
+ {
+ 	float	speed = VectorNormalize( pParticle->m_vecVelocity );
+ 	Vector	offset;
+@@ -1579,6 +1613,9 @@ Vector CEmberEmitter::UpdateColor( const SimpleParticle *pParticle )
+ 	color[1] = ( (float) pParticle->m_uchColor[1] * ramp ) / 255.0f;
+ 	color[2] = ( (float) pParticle->m_uchColor[2] * ramp ) / 255.0f;
+ 
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "D\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++			color.x, color.y, color.z, UpdateAlpha( pParticle ), UpdateScale( pParticle ), pParticle->m_flRoll );
+ 	return color;
+ }
+ 
+@@ -1618,6 +1655,7 @@ public:
+ 
+ 	// Once a frame, from ManagedEmbers_Simulate(). Was AddEntity().
+ 	void	Simulate( void );
++	void	Simulate_Probed( void );
+ 
+ 	void	OnDataChanged( DataUpdateType_t updateType );
+ 
+@@ -1752,6 +1790,23 @@ void C_Embers::Start( void )
+ // what calls it, and driven now by ManagedEmbers_Simulate() below.
+ //-----------------------------------------------------------------------------
+ void C_Embers::Simulate( void )
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", gpGlobals->frametime, gpGlobals->curtime,
++			GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z, GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z );
++		C2SimsProbe_Row( "P\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d",
++			m_nDensity, m_nLifetime, m_nSpeed, m_bEmit ? 1 : 0, m_vecMins.x, m_vecMins.y, m_vecMins.z, m_vecMaxs.x, m_vecMaxs.y, m_vecMaxs.z,
++			m_clrRender.r, m_clrRender.g, m_clrRender.b );
++		C2SimsProbe_Arm( true );
++	}
++	Simulate_Probed();
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
++}
++
++void C_Embers::Simulate_Probed( void )
+ {
+ 	if ( m_bEmit == false )
+ 		return;
+@@ -1843,6 +1898,7 @@ void C_Embers::SpawnEmber( void )
+ 	sParticle->m_vecVelocity[0]	+= random->RandomFloat( -(m_nSpeed/8), (m_nSpeed/8) );
+ 	sParticle->m_vecVelocity[1]	+= random->RandomFloat( -(m_nSpeed/8), (m_nSpeed/8) );
+ 	sParticle->m_vecVelocity[2]	+= random->RandomFloat( -(m_nSpeed/8), (m_nSpeed/8) );
++	C2SimsProbe_Particle( "N", sParticle, 0 );
+ 
+ 	// UpdateVisibility() was here: C_BaseEntity's re-evaluation of whether the
+ 	// entity belongs in the client leaf system. The embers are drawn by

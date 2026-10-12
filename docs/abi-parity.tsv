@@ -1,0 +1,61 @@
+# K2 (plan_server_novalve.md, plan_client_novalve.md): types read by layout across the
+# engine/DLL boundary, compiled from the pristine upstream headers and from the DLL's
+# include set (server.so's R5 set; every set client.so compiles with), layouts diffed by
+# tools/abi-parity. side<TAB>type<TAB>header as #included<TAB>why it is read by layout[<TAB>options].
+#
+# Client types the plan listed and that are NOT rows, measured at c6c53802 (each is
+# a row the day something reads it by layout again):
+#   CPlayerState  no client TU holds one: C_StandalonePlayer and its CPlayerState are
+#                 deleted (shell_player_orphans.cpp, client_player_orphans_test), and
+#                 no IBaseClientDLL method passes one (public/cdll_int.h).
+#   kbutton_t     the engine asks IN_IsKeyDown(name, isdown) and gets a bool BY VALUE
+#                 (public/cdll_int.h's IBaseClientDLL::IN_IsKeyDown; the body is
+#                 shell_clientdll.cpp's CShellClientDLL::IN_IsKeyDown, which asks
+#                 IManagedInputClient::InputIsKeyDown and writes the bool). kbutton_t
+#                 is client-internal. Since C6 (lane c6-input) its state is managed's
+#                 (KeyButton.cs); shell_input.cpp keeps nine kbutton_t objects only as
+#                 address tokens for native callers (KeyState(&in_forward)), and nothing
+#                 reads one by layout on either side.
+#   CUserCmd      the engine never reads one from the DLL: IBaseClientDLL's three user-
+#                 command entry points take only a bit buffer and slot numbers
+#                 (WriteUsercmdDeltaToBuffer( bf_write*, from, to, isnew ),
+#                 EncodeUserCmdToBuffer( bf_write&, slot ), DecodeUserCmdFromBuffer(
+#                 bf_read&, slot ); shell_clientdll.cpp forwards each to shell_input.cpp's
+#                 codec of the same name), so the codec WRITES THE ENGINE'S BIT BUFFER
+#                 and the ring stays in client.so. IInput, which hands out CUserCmd
+#                 pointers (GetUserCmd), is not an exposed interface (shell_input.cpp
+#                 has no EXPOSE_*); its only callers are client.so's own prediction.
+#                 Managed gets and gives a field copy (SourceSharpUserCmd /
+#                 SourceSharpDecodedUserCmd, shell_prediction.cpp, shell_input.cpp's
+#                 CreateMove). Re-checked at C6's close (integrator's K2 ruling): no
+#                 struct goes to the engine by pointer, so no row. A row is owed the day
+#                 one does.
+#   SourceSharpInputMailbox  not an engine type: the block between client.so and its
+#                 managed input (shell_input.cpp). Its layout is held by
+#                 COMPILE_TIME_ASSERTs there and InputMailboxTests' same offsets.
+server	CPlayerState	PlayerState.h	IServerGameClients::GetPlayerState hands the engine a pointer it reads by field
+server	studiohdr_t	studio.h	the model header: the engine and bone setup walk it by offset
+server	mstudiobone_t	studio.h	bone records under studiohdr_t, read by bone setup
+server	mstudioseqdesc_t	studio.h	sequence records under studiohdr_t
+server	mstudioanimdesc_t	studio.h	animation records under studiohdr_t
+server	vcollide_t	vcollide.h	VPhysics collision data the engine loads and server.so reads
+server	typedescription_t	datamap.h	save/restore field descriptors the engine's save code walks
+server	datamap_t	datamap.h	the save/restore descriptor table IServerGameDLL's save entry points pass
+server	CSaveRestoreData	tier0/platform.h,mathlib/vector.h,datamap.h,string_t.h,const.h,saverestoretypes.h|engineabi/saverestore.h	the save block itself: the engine allocates it, server.so constructs it, both read it by field	shape undef=GAME_DLL
+server	CSaveRestoreSegment	tier0/platform.h,mathlib/vector.h,datamap.h,string_t.h,const.h,saverestoretypes.h|engineabi/saverestore.h	the buffer and token table, the save block's first base	shape undef=GAME_DLL
+server	CGameSaveRestoreInfo	tier0/platform.h,mathlib/vector.h,datamap.h,string_t.h,const.h,saverestoretypes.h|engineabi/saverestore.h	levelInfo and the entity table the engine walks, the save block's second base	shape undef=GAME_DLL
+server	entitytable_t	tier0/platform.h,mathlib/vector.h,datamap.h,string_t.h,const.h,saverestoretypes.h|engineabi/saverestore.h	the engine walks the entity table by index	shape undef=GAME_DLL
+server	saverestorelevelinfo_t	tier0/platform.h,mathlib/vector.h,datamap.h,string_t.h,const.h,saverestoretypes.h|engineabi/saverestore.h	the level transition record the engine reads	shape undef=GAME_DLL
+server	levellist_t	tier0/platform.h,mathlib/vector.h,datamap.h,string_t.h,const.h,saverestoretypes.h|engineabi/saverestore.h	the level connections inside saverestorelevelinfo_t	shape undef=GAME_DLL
+client	RecvTable	dt_recv.h	IBaseClientDLL::GetAllClasses: the engine walks every class's RecvTable by field (props, prop count, decoder, name)
+client	RecvProp	dt_recv.h	the engine walks the RecvProps of each RecvTable by stride and field: name, type, flags, string size, offset, the proxy pointers, the sub-table
+client	CRecvProxyData	dt_recv.h	built by the engine and passed to every RecvProxy: the prop, the DVariant value, the element and object ID
+client	ClientClass	client_class.h	the linked list GetAllClasses hands the engine: create functions, name, RecvTable, next, class ID written back by the engine
+client	CViewSetup	view_shared.h	RenderView/GetPlayerView take it from and give it to the engine; IVRenderView::Push3DView/Push2DView read it
+client	studiohdr_t	studio.h	the model header the engine's mdlcache loads and the client's bone setup walks by offset
+client	mstudiobone_t	studio.h	bone records under studiohdr_t, read by the client's bone setup
+client	mstudioseqdesc_t	studio.h	sequence records under studiohdr_t, read by the client's animation code
+client	mstudioanimdesc_t	studio.h	animation records under studiohdr_t, read by the client's animation code
+client	vcollide_t	vcollide.h	IVModelInfoClient::GetVCollide hands the client the engine's collision data (ragdolls)
+client	EngineBlockClientTail_t	engine_block_generated.h	ours, read by layout by managed (EngineBlockTests hold C# against C++); its members are upstream's Vector/QAngle/matrix3x4_t, compiled here against upstream's mathlib and the client's	with=src/shared/native
+client	CStandardRecvProxies	dt_recv.h	IBaseClientDLL::GetStandardRecvProxies hands the engine this table; LocalNetworkBackdoor reads its proxy pointers by field to match props against them (plan_client_novalve C8: engineabi_recv_names.cpp builds it)

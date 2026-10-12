@@ -1,0 +1,785 @@
+From 0691c5d1d7e3347b52272733cd00a4eba7fd61d0 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Mon, 12 Oct 2026 13:19:27 -0700
+Subject: [PATCH 1/5] SourceSharp: public SDK headers for a managed game DLL
+
+Engine-interface headers under src/public (networkvar.h, datamap.h,
+dt_send.h, dt_recv.h, the iclient*/iserver* entity interfaces, gametrace.h,
+toolframework/itoolentity.h, tier1/utlblockmemory.h, ...): declarations and
+hooks the SourceSharp host needs, and fixes so the headers compile under
+clang 22. Without this, upstream fails in tier1/utlblockmemory.h
+("non-const reference cannot bind to bit-field").
+---
+ src/public/client_class.h              |  8 +--
+ src/public/datamap.h                   | 28 ++++++--
+ src/public/dt_recv.h                   | 16 ++++-
+ src/public/dt_send.h                   | 16 ++++-
+ src/public/eiface.h                    |  7 +-
+ src/public/gametrace.h                 | 14 ++--
+ src/public/haptics/haptic_utils.h      |  6 +-
+ src/public/icliententity.h             |  3 +
+ src/public/iclientrenderable.h         |  2 +-
+ src/public/iclientunknown.h            |  4 +-
+ src/public/isaverestore.h              | 10 +--
+ src/public/iserverentity.h             |  4 ++
+ src/public/iservernetworkable.h        |  4 +-
+ src/public/iserverunknown.h            |  4 +-
+ src/public/networkvar.h                | 90 +++++++++++++++++++++-----
+ src/public/saverestoretypes.h          | 14 ++--
+ src/public/tier1/utlblockmemory.h      |  9 +++
+ src/public/toolframework/itoolentity.h | 66 +++++++++----------
+ 18 files changed, 209 insertions(+), 96 deletions(-)
+
+diff --git a/src/public/client_class.h b/src/public/client_class.h
+index f8d1ca197f3a5b205a54e1b44d12f4d906292141..c674bf8669b270d0fd6fb6f7a1fd6b964034595c 100644
+--- a/src/public/client_class.h
++++ b/src/public/client_class.h
+@@ -103,11 +103,9 @@ public:
+ 	INTERNAL_IMPLEMENT_CLIENTCLASS_PROLOGUE(clientClassName, dataTable, serverClassName) \
+ 	static IClientNetworkable* _##clientClassName##_CreateObject( int entnum, int serialNum ) \
+ 	{ \
+-		clientClassName *pRet = new clientClassName; \
+-		if ( !pRet ) \
+-			return 0; \
+-		pRet->Init( entnum, serialNum ); \
+-		return pRet; \
++		(void)entnum; \
++		(void)serialNum; \
++		return NULL; \
+ 	} \
+ 	ClientClass __g_##clientClassName##ClientClass(#serverClassName, \
+ 													_##clientClassName##_CreateObject, \
+diff --git a/src/public/datamap.h b/src/public/datamap.h
+index 7a306b34e31cf806c687980095c72e6aa9ab0ba2..bdddd66eb6b92e62036b7024ce7ad4dacc0874f7 100644
+--- a/src/public/datamap.h
++++ b/src/public/datamap.h
+@@ -17,10 +17,12 @@
+ 
+ #include "tier1/utlvector.h"
+ 
++class SINGLE_INHERITANCE IGameEntity;
++
++#include "entity_funcslot.h"
++
+ #include "tier0/memdbgon.h"
+ 
+-// SINGLE_INHERITANCE restricts the size of CBaseEntity pointers-to-member-functions to 4 bytes
+-class SINGLE_INHERITANCE CBaseEntity;
+ struct inputdata_t;
+ 
+ #define INVALID_TIME (FLT_MAX * -1.0) // Special value not rebased on save/load
+@@ -204,7 +206,7 @@ extern ISaveRestoreOps *eventFuncs;
+ #define DEFINE_OUTPUT( name, outputname )	{ FIELD_CUSTOM, #name, { (int)_hacky_datamap_offsetof(classNameTypedef, name), 0 }, 1, FTYPEDESC_OUTPUT | FTYPEDESC_SAVE | FTYPEDESC_KEY, outputname, eventFuncs }
+ 
+ // replaces EXPORT table for portability and non-DLL based systems (xbox)
+-#define DEFINE_FUNCTION_RAW( function, func_type )			{ FIELD_VOID, nameHolder.GenerateName(#function), { NULL, NULL }, 1, FTYPEDESC_FUNCTIONTABLE, NULL, NULL, (inputfunc_t)((func_type)(&classNameTypedef::function)) }
++#define DEFINE_FUNCTION_RAW( function, func_type )			{ FIELD_VOID, nameHolder.GenerateName(#function), { NULL, NULL }, 1, FTYPEDESC_FUNCTIONTABLE, NULL, NULL, ::EntityFuncSlot< IGameEntity, inputfunc_t, classNameTypedef >( (func_type)(&classNameTypedef::function) ) }
+ #define DEFINE_FUNCTION( function )			DEFINE_FUNCTION_RAW( function, inputfunc_t )
+ 
+ 
+@@ -245,7 +247,7 @@ class ISaveRestoreOps;
+ //
+ // Function prototype for all input handlers.
+ //
+-typedef void (CBaseEntity::*inputfunc_t)(inputdata_t &data);
++typedef void (IGameEntity::*inputfunc_t)(inputdata_t &data);
+ 
+ struct datamap_t;
+ struct typedescription_t;
+@@ -422,6 +424,24 @@ inline void DataMapAccess(T *ignored, datamap_t **p)
+ }
+ 
+ //-----------------------------------------------------------------------------
++class IGameEntity;
++
++inline void DataMapAccess( IGameEntity *ignored, datamap_t **p )
++{
++	*p = NULL;
++}
++
++template <typename T>
++constexpr datamap_t *PredMapBaseAccess( T * )
++{
++	return &T::m_PredMap;
++}
++
++constexpr datamap_t *PredMapBaseAccess( IGameEntity * )
++{
++	return NULL;
++}
++
+ 
+ class CDatadescGeneratedNameHolder
+ {
+diff --git a/src/public/dt_recv.h b/src/public/dt_recv.h
+index 1a31e1d9b8baa1cc24ecb2e1843fe75a01517c8b..4f0a46d51903b588fcbff08c4a72c7c5465bf05a 100644
+--- a/src/public/dt_recv.h
++++ b/src/public/dt_recv.h
+@@ -255,9 +255,23 @@ inline bool RecvTable::IsInMainList() const
+ // ------------------------------------------------------------------------------------------------------ //
+ // See notes on BEGIN_SEND_TABLE for a description. These macros work similarly.
+ // ------------------------------------------------------------------------------------------------------ //
++
++class IGameEntity;
++
++template <typename T>
++inline RecvTable *RecvTableBaseAccess( T * )
++{
++	return T::m_pClassRecvTable;
++}
++
++inline RecvTable *RecvTableBaseAccess( IGameEntity * )
++{
++	return NULL;
++}
++
+ #define BEGIN_RECV_TABLE(className, tableName) \
+ 	BEGIN_RECV_TABLE_NOBASE(className, tableName) \
+-		RecvPropDataTable("baseclass", 0, 0, className::BaseClass::m_pClassRecvTable, DataTableRecvProxy_StaticDataTable),
++		RecvPropDataTable("baseclass", 0, 0, RecvTableBaseAccess( (className::BaseClass *)NULL ), DataTableRecvProxy_StaticDataTable),
+ 
+ #define BEGIN_RECV_TABLE_NOBASE(className, tableName) \
+ 	template <typename T> int ClientClassInit(T *); \
+diff --git a/src/public/dt_send.h b/src/public/dt_send.h
+index e8204b7d87e2d1cff52aa9abf02e51709c4e1b17..24568108cc6d230fde5b98094ace66fd13153cf4 100644
+--- a/src/public/dt_send.h
++++ b/src/public/dt_send.h
+@@ -548,9 +548,23 @@ inline void SendTable::SetHasPropsEncodedAgainstTickcount( bool bState )
+ 
+ // If you don't want to interit a base class's properties, use BEGIN_SEND_TABLE_NOBASE.
+ // ------------------------------------------------------------------------------------------------------ //
++
++class IGameEntity;
++
++template <typename T>
++inline SendTable *SendTableBaseAccess( T * )
++{
++	return T::m_pClassSendTable;
++}
++
++inline SendTable *SendTableBaseAccess( IGameEntity * )
++{
++	return NULL;
++}
++
+ #define BEGIN_SEND_TABLE(className, tableName) \
+ 	BEGIN_SEND_TABLE_NOBASE(className, tableName) \
+-		SendPropDataTable("baseclass", 0, className::BaseClass::m_pClassSendTable, SendProxy_DataTableToDataTable),
++		SendPropDataTable("baseclass", 0, SendTableBaseAccess( (className::BaseClass *)NULL ), SendProxy_DataTableToDataTable),
+ 
+ #define BEGIN_SEND_TABLE_NOBASE(className, tableName) \
+ 	template <typename T> int ServerClassInit(T *); \
+diff --git a/src/public/eiface.h b/src/public/eiface.h
+index 160de2c352859e1ba69120f25c12c155bf08d2b6..72d3a059c6c9324c20e5f97e291f83c599fce1e6 100644
+--- a/src/public/eiface.h
++++ b/src/public/eiface.h
+@@ -41,13 +41,12 @@ class	ServerClass;
+ class	IMoveHelper;
+ struct  Ray_t;
+ struct	studiohdr_t;
+-class	CBaseEntity;
++class IGameEntity;
+ class	CRestore;
+ class	CSave;
+ class	variant_t;
+ struct	vcollide_t;
+ class	IRecipientFilter;
+-class	CBaseEntity;
+ class	ITraceFilter;
+ struct	client_textmessage_t;
+ class	INetChannelInfo;
+@@ -676,8 +675,8 @@ public:
+ 	virtual void			FreeContainingEntity( edict_t * ) = 0; 
+ 
+ 	// This allows the engine to get at edicts in a CGameTrace.
+-	virtual edict_t*		BaseEntityToEdict( CBaseEntity *pEnt ) = 0;
+-	virtual CBaseEntity*	EdictToBaseEntity( edict_t *pEdict ) = 0;
++	virtual edict_t*		BaseEntityToEdict( IGameEntity *pEnt ) = 0;
++	virtual IGameEntity*	EdictToBaseEntity( edict_t *pEdict ) = 0;
+ 
+ 	// This sets a bit in pInfo for each edict in the list that wants to be transmitted to the 
+ 	// client specified in pInfo.
+diff --git a/src/public/gametrace.h b/src/public/gametrace.h
+index f1a12d540b40ae3e4a39f36f7caefbfa78e81f85..98e702d040ca91e2982298b64e064fe9ee207eee 100644
+--- a/src/public/gametrace.h
++++ b/src/public/gametrace.h
+@@ -16,11 +16,9 @@
+ #include "ihandleentity.h"
+ #include "ispatialpartition.h"
+ 
+-#if defined( CLIENT_DLL )
+-	class C_BaseEntity;
+-#else
+-	class CBaseEntity;
+-#endif
++class IGameEntity;
++
++class IHandleEntity;
+ 
+ 
+ //-----------------------------------------------------------------------------
+@@ -61,11 +59,7 @@ public:
+ 	int			hitgroup;				// 0 == generic, non-zero is specific body part
+ 	short		physicsbone;			// physics bone hit by trace in studio
+ 
+-#if defined( CLIENT_DLL )
+-		C_BaseEntity *m_pEnt;
+-#else
+-		CBaseEntity *m_pEnt;
+-#endif
++	IHandleEntity *m_pEnt;
+ 
+ 	// NOTE: this member is overloaded.
+ 	// If hEnt points at the world entity, then this is the static prop index.
+diff --git a/src/public/haptics/haptic_utils.h b/src/public/haptics/haptic_utils.h
+index 8190b970fe7e6387501f2bbee9e42f2ee9b5d285..60fcdb97cfaf5ababacf56cb0435a2bfaf0e878f 100644
+--- a/src/public/haptics/haptic_utils.h
++++ b/src/public/haptics/haptic_utils.h
+@@ -7,7 +7,7 @@
+ #include "haptics/ihaptics.h"
+ 
+ // forward decl.
+-class C_BaseEntity;
++#include "igameentity.h"
+ class C_BaseCombatCharacter;
+ class C_BasePlayer;
+ class bf_read;
+@@ -90,8 +90,8 @@ void HapticProcessSound(const char* soundname, int entIndex);
+ 	void DisconnectHaptics();
+ 
+ 	void UpdateAvatarEffect(void);
+-	void HapticsExitedVehicle(C_BaseEntity* vehicle, C_BaseCombatCharacter *pPassenger );
+-	void HapticsEnteredVehicle(C_BaseEntity* vehicle, C_BaseCombatCharacter *pPassenger );
++	void HapticsExitedVehicle(IGameEntity* vehicle, C_BaseCombatCharacter *pPassenger );
++	void HapticsEnteredVehicle(IGameEntity* vehicle, C_BaseCombatCharacter *pPassenger );
+ 	
+ 	//bool value true if user is using a haptic device.
+ 	extern ConVar hap_HasDevice;
+diff --git a/src/public/icliententity.h b/src/public/icliententity.h
+index 213381f06444039734a75a85da2c987beb2d4835..d9299429dbff98e2b7e6cbe1bf7077f527b27e6b 100644
+--- a/src/public/icliententity.h
++++ b/src/public/icliententity.h
+@@ -15,6 +15,7 @@
+ #include "iclientrenderable.h"
+ #include "iclientnetworkable.h"
+ #include "iclientthinkable.h"
++#include "igameentity.h"
+ 
+ struct Ray_t;
+ class CGameTrace;
+@@ -42,6 +43,8 @@ public:
+ 	// Retrieve sound spatialization info for the specified sound on this entity
+ 	// Return false to indicate sound is not audible
+ 	virtual bool			GetSoundSpatialization( SpatializationInfo_t& info ) = 0;
++
++	virtual IGameEntity		*GetGameEntity() { return NULL; }
+ };
+ 
+ 
+diff --git a/src/public/iclientrenderable.h b/src/public/iclientrenderable.h
+index 77ce8f220fe59d9af2d9cbc95832cf366f679fdb..d6d918aee354e68a24f0f68b3666b731cb3eadf6 100644
+--- a/src/public/iclientrenderable.h
++++ b/src/public/iclientrenderable.h
+@@ -270,7 +270,7 @@ public:
+ 	virtual IClientRenderable*	GetClientRenderable()	{ return this; }
+ 	virtual IClientNetworkable*	GetClientNetworkable()	{ return 0; }
+ 	virtual IClientEntity*		GetIClientEntity()		{ return 0; }
+-	virtual C_BaseEntity*		GetBaseEntity()			{ return 0; }
++	virtual IGameEntity*		GetBaseEntity()			{ return 0; }
+ 	virtual IClientThinkable*	GetClientThinkable()	{ return 0; }
+ 
+ 
+diff --git a/src/public/iclientunknown.h b/src/public/iclientunknown.h
+index ac7e1e8f1297fba9edce7562db8729223c0b7ee1..889caf9f31592c17a489484bd55e6f8a5b71a287 100644
+--- a/src/public/iclientunknown.h
++++ b/src/public/iclientunknown.h
+@@ -14,9 +14,9 @@
+ 
+ #include "tier0/platform.h"
+ #include "ihandleentity.h"
++#include "igameentity.h"
+ 
+ class IClientNetworkable;
+-class C_BaseEntity;
+ class IClientRenderable;
+ class ICollideable;
+ class IClientEntity;
+@@ -33,7 +33,7 @@ public:
+ 	virtual IClientNetworkable*	GetClientNetworkable() = 0;
+ 	virtual IClientRenderable*	GetClientRenderable() = 0;
+ 	virtual IClientEntity*		GetIClientEntity() = 0;
+-	virtual C_BaseEntity*		GetBaseEntity() = 0;
++	virtual IGameEntity*		GetBaseEntity() = 0;
+ 	virtual IClientThinkable*	GetClientThinkable() = 0;
+ };
+ 
+diff --git a/src/public/isaverestore.h b/src/public/isaverestore.h
+index bfb40a17f58e6a1dd4b394aaae626974e4312a98..61ab3e07f3b7872042d70d2aadc9cd5b1f6e8e0b 100644
+--- a/src/public/isaverestore.h
++++ b/src/public/isaverestore.h
+@@ -17,14 +17,14 @@
+ #endif
+ 
+ #ifndef CLIENT_DLL
+-class SINGLE_INHERITANCE CBaseEntity;
++class SINGLE_INHERITANCE IGameEntity;
+ #endif
+ 
+ class Vector;
+ class VMatrix;
+ struct edict_t;
+ template< class T > class CHandle;
+-typedef CHandle<CBaseEntity> EHANDLE;
++typedef CHandle<IGameEntity> EHANDLE;
+ struct matrix3x4_t;
+ 
+ class CSaveRestoreData;
+@@ -195,11 +195,11 @@ public:
+ 	virtual void	WritePositionVector( const Vector &value ) = 0;		// Offset for landmark if necessary
+ 	virtual void	WritePositionVector( const Vector *value, int count = 1 ) = 0;	// array of pos vectors
+ 
+-	virtual void	WriteEntityPtr( const char *pname, CBaseEntity **ppEntity, int count = 1 ) = 0;
++	virtual void	WriteEntityPtr( const char *pname, IGameEntity **ppEntity, int count = 1 ) = 0;
+ 	virtual void	WriteEdictPtr( const char *pname, edict_t **ppEdict, int count = 1 ) = 0;
+ 	virtual void	WriteEHandle( const char *pname, const EHANDLE *pEHandle, int count = 1 ) = 0;
+ 
+-	virtual void	WriteEntityPtr( CBaseEntity **ppEntity, int count = 1 ) = 0;
++	virtual void	WriteEntityPtr( IGameEntity **ppEntity, int count = 1 ) = 0;
+ 	virtual void	WriteEdictPtr( edict_t **ppEdict, int count = 1 ) = 0;
+ 	virtual void	WriteEHandle( const EHANDLE *pEHandle, int count = 1 ) = 0;
+ 
+@@ -287,7 +287,7 @@ public:
+ 	virtual int		ReadPositionVector( Vector *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
+ 	virtual int		ReadFunction( datamap_t *pMap, inputfunc_t **pValue, int count = 1, int nBytesAvailable = 0) = 0;
+ 	
+-	virtual int		ReadEntityPtr( CBaseEntity **ppEntity, int count = 1, int nBytesAvailable = 0 ) = 0;
++	virtual int		ReadEntityPtr( IGameEntity **ppEntity, int count = 1, int nBytesAvailable = 0 ) = 0;
+ 	virtual int		ReadEdictPtr( edict_t **ppEdict, int count = 1, int nBytesAvailable = 0 ) = 0;
+ 	virtual int		ReadEHandle( EHANDLE *pEHandle, int count = 1, int nBytesAvailable = 0 ) = 0;
+ 	virtual int		ReadVMatrix( VMatrix *pValue, int count = 1, int nBytesAvailable = 0) = 0;
+diff --git a/src/public/iserverentity.h b/src/public/iserverentity.h
+index a53e9c34fc3c8ea174d05746bb137443a6196129..8923a9efa9e015f70f897d37f2cf7b49c3432599 100644
+--- a/src/public/iserverentity.h
++++ b/src/public/iserverentity.h
+@@ -13,6 +13,7 @@
+ 
+ 
+ #include "iserverunknown.h"
++#include "igameentity.h"
+ #include "string_t.h"
+ 
+ 
+@@ -20,6 +21,7 @@
+ struct Ray_t;
+ class ServerClass;
+ class ICollideable;
++class IGameEntity;
+ class IServerNetworkable;
+ class Vector;
+ class QAngle;
+@@ -36,6 +38,8 @@ public:
+  	virtual string_t		GetModelName( void ) const = 0;
+ 
+ 	virtual void			SetModelIndex( int index ) = 0;
++
++	virtual IGameEntity	*GetGameEntity() { return NULL; }
+ };
+ 
+ 
+diff --git a/src/public/iservernetworkable.h b/src/public/iservernetworkable.h
+index cefa75346f0ef9c742c3c771d2a6eb56e7f4cfa6..e680b63784238ee869389bda134489cf61f023e0 100644
+--- a/src/public/iservernetworkable.h
++++ b/src/public/iservernetworkable.h
+@@ -13,6 +13,7 @@
+ 
+ 
+ #include "ihandleentity.h"
++class IGameEntity;
+ #include "basetypes.h"
+ #include "bitvec.h"
+ #include "const.h"
+@@ -29,7 +30,6 @@
+ class ServerClass;
+ class SendTable;
+ struct edict_t;
+-class CBaseEntity;
+ class CSerialEntity;
+ class CBaseNetworkable;
+ 
+@@ -102,7 +102,7 @@ public:
+ 
+ 	// In place of a generic QueryInterface.
+ 	virtual CBaseNetworkable* GetBaseNetworkable() = 0;
+-	virtual CBaseEntity*	GetBaseEntity() = 0; // Only used by game code.
++	virtual IGameEntity*	GetBaseEntity() = 0;
+ 	virtual PVSInfo_t*		GetPVSInfo() = 0; // get current visibilty data
+ 
+ protected:
+diff --git a/src/public/iserverunknown.h b/src/public/iserverunknown.h
+index 97f3c998ac6fbc8975ca4d6450b4fe7afdd30956..339e25c0ec78e62db0e1210eae576df4cf683d2c 100644
+--- a/src/public/iserverunknown.h
++++ b/src/public/iserverunknown.h
+@@ -14,10 +14,10 @@
+ 
+ 
+ #include "ihandleentity.h"
++class IGameEntity;
+ 
+ class ICollideable;
+ class IServerNetworkable;
+-class CBaseEntity;
+ 
+ 
+ // This is the server's version of IUnknown. We may want to use a QueryInterface-like
+@@ -28,7 +28,7 @@ public:
+ 	// Gets the interface to the collideable + networkable representation of the entity
+ 	virtual ICollideable*		GetCollideable() = 0;
+ 	virtual IServerNetworkable*	GetNetworkable() = 0;
+-	virtual CBaseEntity*		GetBaseEntity() = 0;
++	virtual IGameEntity*		GetBaseEntity() = 0;
+ };
+ 
+ 
+diff --git a/src/public/networkvar.h b/src/public/networkvar.h
+index 9877e093811295ad1b6a9331756fd7744d7099b5..5c020bc56657e40654422037fb67ae1915943d1f 100644
+--- a/src/public/networkvar.h
++++ b/src/public/networkvar.h
+@@ -13,6 +13,7 @@
+ 
+ #include "tier0/dbg.h"
+ #include "convar.h"
++#include "chain_state_notify.h"
+ 
+ #if defined( CLIENT_DLL ) || defined( GAME_DLL )
+ 	#include "basehandle.h"
+@@ -114,26 +115,17 @@ inline int CheckDeclareClass_Access( T *, const char *pShouldBe )
+ 	
+ 	// These macros setup an entity pointer in your class. Use IMPLEMENT_NETWORKVAR_CHAIN before you do
+ 	// anything inside the class itself.
+-	class CBaseEntity;
+-	class CAutoInitEntPtr
+-	{
+-	public:
+-		CAutoInitEntPtr()
+-		{
+-			m_pEnt = NULL;
+-		}
+-		CBaseEntity *m_pEnt;
+-	};
++	typedef CChainStateNotify CAutoInitEntPtr;
+ 
+ 	//TODO: Currently, these don't get the benefit of tracking changes to individual vars.
+ 	// Would be nice if they did.
+ 	#define DECLARE_NETWORKVAR_CHAIN() \
+ 		CAutoInitEntPtr __m_pChainEntity; \
+-		void NetworkStateChanged() { CHECK_USENETWORKVARS __m_pChainEntity.m_pEnt->NetworkStateChanged(); } \
+-		void NetworkStateChanged( void *pVar ) { CHECK_USENETWORKVARS __m_pChainEntity.m_pEnt->NetworkStateChanged(); }
++		void NetworkStateChanged() { CHECK_USENETWORKVARS __m_pChainEntity.NetworkStateChanged(); } \
++		void NetworkStateChanged( void *pVar ) { CHECK_USENETWORKVARS __m_pChainEntity.NetworkStateChanged(); }
+ 
+ 	#define IMPLEMENT_NETWORKVAR_CHAIN( varName ) \
+-		(varName)->__m_pChainEntity.m_pEnt = this;
++		(varName)->__m_pChainEntity = this;
+ 
+ 
+ 
+@@ -577,6 +569,40 @@ private:
+ #if defined( CLIENT_DLL ) || defined( GAME_DLL )
+ 	inline void NetworkVarConstruct( CBaseHandle &x ) {}
+ 
++	template< class T > class CHandle;
++
++#if defined( SOURCESHARP )
++	class IGameEntity;
++
++	inline CBaseHandle SourceSharp_EntityHandle( const IHandleEntity *pEntity )
++	{
++		CBaseHandle handle;
++		handle = pEntity;
++		return handle;
++	}
++
++	inline CBaseHandle SourceSharp_EntityHandle( const IGameEntity *pEntity )
++	{
++		if ( pEntity )
++		{
++			static const IGameEntity *s_pLastComplaint = NULL;
++			if ( s_pLastComplaint != pEntity )
++			{
++				s_pLastComplaint = pEntity;
++				Warning( "[SourceSharp] network handle: %p was set from a GAME ENTITY "
++				         "pointer. There is no route from that face back to a handle "
++				         "(plan_entity.md 3.3): the slot table resolves handles to "
++				         "shells and not the other way. Hold an IHandleEntity, whose "
++				         "GetRefEHandle() answers directly. This slot will not "
++				         "replicate.\n", (const void *)pEntity );
++				AssertMsg( false, "SourceSharp_EntityHandle: no reverse route from IGameEntity" );
++			}
++		}
++
++		return CBaseHandle();
++	}
++#endif
++
+ 	template< class Type, class Changer >
+ 	class CNetworkHandleBase : public CNetworkVarBase< CBaseHandle, Changer >
+ 	{
+@@ -589,7 +615,12 @@ private:
+ 		const Type& operator=( const CNetworkHandleBase<Type,Changer> &val ) 
+ 		{ 
+ 			const CBaseHandle &handle = CNetworkVarBase<CBaseHandle,Changer>::Set( val.m_Value );
++#if defined( SOURCESHARP )
++			(void)handle;
++			return *DerefHandle();
++#else
+ 			return *(const Type*)handle.Get();
++#endif
+ 		}
+ 
+ 		bool operator !() const 
+@@ -599,37 +630,64 @@ private:
+ 		
+ 		operator Type*() const 
+ 		{ 
+-			return static_cast< Type* >( CNetworkHandleBase<Type,Changer>::m_Value.Get() );
++			return DerefHandle();
+ 		}
+ 
+ 		const Type* Set( const Type *val )
+ 		{
++#if defined( SOURCESHARP )
++			if ( DerefHandle() != val )
++			{
++				this->NetworkStateChanged();
++				CNetworkHandleBase<Type,Changer>::m_Value =
++					SourceSharp_EntityHandle( val );
++			}
++#else
+ 			if ( CNetworkHandleBase<Type,Changer>::m_Value != val )
+ 			{
+ 				this->NetworkStateChanged();
+ 				CNetworkHandleBase<Type,Changer>::m_Value = val;
+ 			}
++#endif
+ 			return val;
+ 		}
+ 		
+ 		Type* Get() const 
+ 		{ 
+-			return static_cast< Type* >( CNetworkHandleBase<Type,Changer>::m_Value.Get() );
++			return DerefHandle();
+ 		}
+ 
+ 		Type* operator->() const 
+ 		{ 
+-			return static_cast< Type* >( CNetworkHandleBase<Type,Changer>::m_Value.Get() );
++			return DerefHandle();
+ 		}
+ 
+ 		bool operator==( const Type *val ) const 
+ 		{
++#if defined( SOURCESHARP )
++			return DerefHandle() == val;
++#else
+ 			return CNetworkHandleBase<Type,Changer>::m_Value == val; 
++#endif
+ 		}
+ 
+ 		bool operator!=( const Type *val ) const 
+ 		{
++#if defined( SOURCESHARP )
++			return DerefHandle() != val;
++#else
+ 			return CNetworkHandleBase<Type,Changer>::m_Value != val;
++#endif
++		}
++
++	private:
++		Type* DerefHandle() const
++		{
++#if defined( SOURCESHARP )
++			return CHandle<Type>::UnsafeFromBaseHandle( CNetworkHandleBase<Type,Changer>::m_Value ).Get();
++#else
++			return static_cast< Type* >( CNetworkHandleBase<Type,Changer>::m_Value.Get() );
++#endif
+ 		}
+ 	};
+ 
+diff --git a/src/public/saverestoretypes.h b/src/public/saverestoretypes.h
+index cd9e457f3c577d8f1bf8ce0591b62db011730457..528ffa7d4461229d1c9a81e7926b23fe0c39fbce 100644
+--- a/src/public/saverestoretypes.h
++++ b/src/public/saverestoretypes.h
+@@ -203,8 +203,8 @@ public:
+ 		return pReturn;
+ 	}
+ 
+-	CBaseEntity *GetCurrentEntityContext()	{ return m_pCurrentEntity; }
+-	void		SetCurrentEntityContext(CBaseEntity *pEntity) { m_pCurrentEntity = pEntity; }
++	IGameEntity *GetCurrentEntityContext()	{ return m_pCurrentEntity; }
++	void		SetCurrentEntityContext(IGameEntity *pEntity) { m_pCurrentEntity = pEntity; }
+ 
+ 	int NumEntities()						{ return tableCount; }
+ 	entitytable_t *GetEntityInfo( int i )	{ return (pTable + i); }
+@@ -231,7 +231,7 @@ public:
+ 		m_EntityToIndex.Purge();
+ 	}
+ 
+-	int	GetEntityIndex( const CBaseEntity *pEntity )
++	int	GetEntityIndex( const IGameEntity *pEntity )
+ 	{
+ #ifdef SR_ENTS_VISIBLE
+ 		if ( pEntity )
+@@ -268,16 +268,16 @@ public:
+ private:
+ 	int			tableCount;		// Number of elements in the entity table
+ 	entitytable_t	*pTable;		// Array of entitytable_t elements (1 for each entity)
+-	CBaseEntity		*m_pCurrentEntity; // only valid during the save functions of this entity, NULL otherwise
++	IGameEntity		*m_pCurrentEntity;
+ 
+ 
+ 	struct CHashElement
+ 	{
+-		const CBaseEntity *pEntity; 
++		const IGameEntity *pEntity; 
+ 		int index;
+ 
+-		CHashElement( const CBaseEntity *pEntity, int index) : pEntity(pEntity), index(index) {}
+-		CHashElement( const CBaseEntity *pEntity ) : pEntity(pEntity) {}
++		CHashElement( const IGameEntity *pEntity, int index) : pEntity(pEntity), index(index) {}
++		CHashElement( const IGameEntity *pEntity ) : pEntity(pEntity) {}
+ 		CHashElement() {}
+ 	};
+ 
+diff --git a/src/public/tier1/utlblockmemory.h b/src/public/tier1/utlblockmemory.h
+index 8d86c59e8395a791115ce8796a8c69f094f2ee80..cc12461da368ba986b9a8272e7495b04394ae67b 100644
+--- a/src/public/tier1/utlblockmemory.h
++++ b/src/public/tier1/utlblockmemory.h
+@@ -137,8 +137,17 @@ void CUtlBlockMemory<T,I>::Swap( CUtlBlockMemory< T, I > &mem )
+ {
+ 	V_swap( m_pMemory, mem.m_pMemory );
+ 	V_swap( m_nBlocks, mem.m_nBlocks );
++#ifdef __clang__
++	int nIndexMask = m_nIndexMask;
++	m_nIndexMask = mem.m_nIndexMask;
++	mem.m_nIndexMask = nIndexMask;
++	int nIndexShift = m_nIndexShift;
++	m_nIndexShift = mem.m_nIndexShift;
++	mem.m_nIndexShift = nIndexShift;
++#else
+ 	V_swap( m_nIndexMask, mem.m_nIndexMask );
+ 	V_swap( m_nIndexShift, mem.m_nIndexShift );
++#endif
+ }
+ 
+ 
+diff --git a/src/public/toolframework/itoolentity.h b/src/public/toolframework/itoolentity.h
+index 38790ef26262ff71884eca43b76ed70a271aa1a1..89a8044b71a8368cdcbdd3409fad377b7b5405a4 100644
+--- a/src/public/toolframework/itoolentity.h
++++ b/src/public/toolframework/itoolentity.h
+@@ -27,7 +27,7 @@ class IToolSystem;
+ class IClientRenderable;
+ class Vector;
+ class QAngle;
+-class CBaseEntity;
++#include "igameentity.h"
+ class CBaseAnimating;
+ class CTakeDamageInfo;
+ class ITempEntsSystem;
+@@ -181,19 +181,19 @@ public:
+ 	virtual bool IsInNoClipMode( IClientEntity *pClientPlayer = NULL ) = 0;
+ 
+ 	// entity searching
+-	virtual CBaseEntity *FirstEntity( void ) = 0;
+-	virtual CBaseEntity *NextEntity( CBaseEntity *pEntity ) = 0;
+-	virtual CBaseEntity *FindEntityByHammerID( int iHammerID ) = 0;
++	virtual IGameEntity *FirstEntity( void ) = 0;
++	virtual IGameEntity *NextEntity( IGameEntity *pEntity ) = 0;
++	virtual IGameEntity *FindEntityByHammerID( int iHammerID ) = 0;
+ 
+ 	// entity query
+-	virtual bool GetKeyValue( CBaseEntity *pEntity, const char *szField, char *szValue, int iMaxLen ) = 0;
+-	virtual bool SetKeyValue( CBaseEntity *pEntity, const char *szField, const char *szValue ) = 0;
+-	virtual bool SetKeyValue( CBaseEntity *pEntity, const char *szField, float flValue ) = 0;
+-	virtual bool SetKeyValue( CBaseEntity *pEntity, const char *szField, const Vector &vecValue ) = 0;
++	virtual bool GetKeyValue( IGameEntity *pEntity, const char *szField, char *szValue, int iMaxLen ) = 0;
++	virtual bool SetKeyValue( IGameEntity *pEntity, const char *szField, const char *szValue ) = 0;
++	virtual bool SetKeyValue( IGameEntity *pEntity, const char *szField, float flValue ) = 0;
++	virtual bool SetKeyValue( IGameEntity *pEntity, const char *szField, const Vector &vecValue ) = 0;
+ 
+ 	// entity spawning
+-	virtual CBaseEntity *CreateEntityByName( const char *szClassName ) = 0;
+-	virtual void DispatchSpawn( CBaseEntity *pEntity ) = 0;
++	virtual IGameEntity *CreateEntityByName( const char *szClassName ) = 0;
++	virtual void DispatchSpawn( IGameEntity *pEntity ) = 0;
+ 
+ 	// This reloads a portion or all of a particle definition file.
+ 	// It's up to the server to decide if it cares about this file
+@@ -204,42 +204,42 @@ public:
+ 	virtual void MoveEngineViewTo( const Vector &vPos, const QAngle &vAngles ) = 0;
+ 
+ 	virtual bool DestroyEntityByHammerId( int iHammerID ) = 0;
+-	virtual CBaseEntity *GetBaseEntityByEntIndex( int iEntIndex ) = 0;
+-	virtual void RemoveEntity( CBaseEntity *pEntity ) = 0;
+-	virtual void RemoveEntityImmediate( CBaseEntity *pEntity ) = 0;
++	virtual IGameEntity *GetBaseEntityByEntIndex( int iEntIndex ) = 0;
++	virtual void RemoveEntity( IGameEntity *pEntity ) = 0;
++	virtual void RemoveEntityImmediate( IGameEntity *pEntity ) = 0;
+ 	virtual IEntityFactoryDictionary *GetEntityFactoryDictionary( void ) = 0;
+ 
+-	virtual void SetMoveType( CBaseEntity *pEntity, int val ) = 0;
+-	virtual void SetMoveType( CBaseEntity *pEntity, int val, int moveCollide ) = 0;
++	virtual void SetMoveType( IGameEntity *pEntity, int val ) = 0;
++	virtual void SetMoveType( IGameEntity *pEntity, int val, int moveCollide ) = 0;
+ 	virtual void ResetSequence( CBaseAnimating *pEntity, int nSequence ) = 0;
+ 	virtual void ResetSequenceInfo( CBaseAnimating *pEntity ) = 0;
+ 
+ 	virtual void ClearMultiDamage( void ) = 0;
+ 	virtual void ApplyMultiDamage( void ) = 0;
+-	virtual void AddMultiDamage( const CTakeDamageInfo &pTakeDamageInfo, CBaseEntity *pEntity ) = 0;
+-	virtual void RadiusDamage( const CTakeDamageInfo &info, const Vector &vecSrc, float flRadius, int iClassIgnore, CBaseEntity *pEntityIgnore ) = 0;
++	virtual void AddMultiDamage( const CTakeDamageInfo &pTakeDamageInfo, IGameEntity *pEntity ) = 0;
++	virtual void RadiusDamage( const CTakeDamageInfo &info, const Vector &vecSrc, float flRadius, int iClassIgnore, IGameEntity *pEntityIgnore ) = 0;
+ 
+ 	virtual ITempEntsSystem *GetTempEntsSystem( void ) = 0;
+ 	virtual CBaseTempEntity *GetTempEntList( void ) = 0;
+ 
+ 	virtual CGlobalEntityList *GetEntityList( void ) = 0;
+ 	virtual bool IsEntityPtr( void *pTest ) = 0;
+-	virtual CBaseEntity *FindEntityByClassname( CBaseEntity *pStartEntity, const char *szName ) = 0;
+-	virtual CBaseEntity *FindEntityByName( CBaseEntity *pStartEntity, const char *szName, CBaseEntity *pSearchingEntity = NULL, CBaseEntity *pActivator = NULL, CBaseEntity *pCaller = NULL, IEntityFindFilter *pFilter = NULL ) = 0;
+-	virtual CBaseEntity *FindEntityInSphere( CBaseEntity *pStartEntity, const Vector &vecCenter, float flRadius ) = 0;
+-	virtual CBaseEntity *FindEntityByTarget( CBaseEntity *pStartEntity, const char *szName ) = 0;
+-	virtual CBaseEntity *FindEntityByModel( CBaseEntity *pStartEntity, const char *szModelName ) = 0;
+-	virtual CBaseEntity *FindEntityByNameNearest( const char *szName, const Vector &vecSrc, float flRadius, CBaseEntity *pSearchingEntity = NULL, CBaseEntity *pActivator = NULL, CBaseEntity *pCaller = NULL ) = 0;
+-	virtual CBaseEntity *FindEntityByNameWithin( CBaseEntity *pStartEntity, const char *szName, const Vector &vecSrc, float flRadius, CBaseEntity *pSearchingEntity = NULL, CBaseEntity *pActivator = NULL, CBaseEntity *pCaller = NULL ) = 0;
+-	virtual CBaseEntity *FindEntityByClassnameNearest( const char *szName, const Vector &vecSrc, float flRadius ) = 0;
+-	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName, const Vector &vecSrc, float flRadius ) = 0;
+-	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName, const Vector &vecMins, const Vector &vecMaxs ) = 0;
+-	virtual CBaseEntity *FindEntityGeneric( CBaseEntity *pStartEntity, const char *szName, CBaseEntity *pSearchingEntity = NULL, CBaseEntity *pActivator = NULL, CBaseEntity *pCaller = NULL ) = 0;
+-	virtual CBaseEntity *FindEntityGenericWithin( CBaseEntity *pStartEntity, const char *szName, const Vector &vecSrc, float flRadius, CBaseEntity *pSearchingEntity = NULL, CBaseEntity *pActivator = NULL, CBaseEntity *pCaller = NULL ) = 0;
+-	virtual CBaseEntity *FindEntityGenericNearest( const char *szName, const Vector &vecSrc, float flRadius, CBaseEntity *pSearchingEntity = NULL, CBaseEntity *pActivator = NULL, CBaseEntity *pCaller = NULL ) = 0;
+-	virtual CBaseEntity *FindEntityNearestFacing( const Vector &origin, const Vector &facing, float threshold ) = 0;
+-	virtual CBaseEntity *FindEntityClassNearestFacing( const Vector &origin, const Vector &facing, float threshold, char *classname ) = 0;
+-	virtual CBaseEntity *FindEntityProcedural( const char *szName, CBaseEntity *pSearchingEntity = NULL, CBaseEntity *pActivator = NULL, CBaseEntity *pCaller = NULL ) = 0;
++	virtual IGameEntity *FindEntityByClassname( IGameEntity *pStartEntity, const char *szName ) = 0;
++	virtual IGameEntity *FindEntityByName( IGameEntity *pStartEntity, const char *szName, IGameEntity *pSearchingEntity = NULL, IGameEntity *pActivator = NULL, IGameEntity *pCaller = NULL, IEntityFindFilter *pFilter = NULL ) = 0;
++	virtual IGameEntity *FindEntityInSphere( IGameEntity *pStartEntity, const Vector &vecCenter, float flRadius ) = 0;
++	virtual IGameEntity *FindEntityByTarget( IGameEntity *pStartEntity, const char *szName ) = 0;
++	virtual IGameEntity *FindEntityByModel( IGameEntity *pStartEntity, const char *szModelName ) = 0;
++	virtual IGameEntity *FindEntityByNameNearest( const char *szName, const Vector &vecSrc, float flRadius, IGameEntity *pSearchingEntity = NULL, IGameEntity *pActivator = NULL, IGameEntity *pCaller = NULL ) = 0;
++	virtual IGameEntity *FindEntityByNameWithin( IGameEntity *pStartEntity, const char *szName, const Vector &vecSrc, float flRadius, IGameEntity *pSearchingEntity = NULL, IGameEntity *pActivator = NULL, IGameEntity *pCaller = NULL ) = 0;
++	virtual IGameEntity *FindEntityByClassnameNearest( const char *szName, const Vector &vecSrc, float flRadius ) = 0;
++	virtual IGameEntity *FindEntityByClassnameWithin( IGameEntity *pStartEntity, const char *szName, const Vector &vecSrc, float flRadius ) = 0;
++	virtual IGameEntity *FindEntityByClassnameWithin( IGameEntity *pStartEntity, const char *szName, const Vector &vecMins, const Vector &vecMaxs ) = 0;
++	virtual IGameEntity *FindEntityGeneric( IGameEntity *pStartEntity, const char *szName, IGameEntity *pSearchingEntity = NULL, IGameEntity *pActivator = NULL, IGameEntity *pCaller = NULL ) = 0;
++	virtual IGameEntity *FindEntityGenericWithin( IGameEntity *pStartEntity, const char *szName, const Vector &vecSrc, float flRadius, IGameEntity *pSearchingEntity = NULL, IGameEntity *pActivator = NULL, IGameEntity *pCaller = NULL ) = 0;
++	virtual IGameEntity *FindEntityGenericNearest( const char *szName, const Vector &vecSrc, float flRadius, IGameEntity *pSearchingEntity = NULL, IGameEntity *pActivator = NULL, IGameEntity *pCaller = NULL ) = 0;
++	virtual IGameEntity *FindEntityNearestFacing( const Vector &origin, const Vector &facing, float threshold ) = 0;
++	virtual IGameEntity *FindEntityClassNearestFacing( const Vector &origin, const Vector &facing, float threshold, char *classname ) = 0;
++	virtual IGameEntity *FindEntityProcedural( const char *szName, IGameEntity *pSearchingEntity = NULL, IGameEntity *pActivator = NULL, IGameEntity *pCaller = NULL ) = 0;
+ };
+ 
+ typedef IServerTools IServerTools001;
+-- 
+2.53.0
+

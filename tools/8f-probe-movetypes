@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+"""Apply step 8f-movetypes' TEMPORARY live-drive probe.
+
+    tools/8f-probe-movetypes                 # apply (saves the originals)
+    src/buildsourcesharp debug
+    tools/8f-movetype-gate                   # drive the three move types live
+    tools/8f-probe-movetypes --remove        # restore by COPY + touch
+
+WHY A PROBE AT ALL, AND WHY IT IS NOT A GAP IN THE PORT
+-------------------------------------------------------
+MOVETYPE_OBSERVER, MOVETYPE_FLY and MOVETYPE_FLYGRAVITY are UNREACHABLE in this
+build. Not "rare" -- unreachable, and measured rather than assumed: at step
+8f-movetypes, across all 391 $File rows of the two VPC scripts that then defined
+the build (the source lists are src/{server,client}/native/CMakeLists.txt since
+Phase 6b), no compiled TU wrote any of the three onto a player. Every mention is a reader or a switch case. The shim's own observer path
+(CStandalonePlayer::SetObserver) maps observer onto MOVETYPE_NOCLIP, where
+stock's CBasePlayer::StartObserverMode sets MOVETYPE_OBSERVER; and nothing at
+all sets a flying type on a player here, where stock's Event_Killed sets
+MOVETYPE_FLYGRAVITY on a dying one (player.cpp:1743).
+
+So the three arms cannot be reached by playing the game, and a live gate that
+drove a player normally and reported "it did not crash" would pass on a build in
+which all three did nothing. That is the exact shape this project has found 24+
+times. The probe exists so the gate can put a real player, on a real map, with
+real world traces, into each of the three -- and see them MOVE.
+
+WHERE IT IS APPLIED, AND WHY THAT MOVED
+---------------------------------------
+Step 8f-igamemovement moved the whole servicing half of CGameMovement --
+ProcessMovement's preamble, SourceSharpFillConstants and the
+sourcesharp_movement_managed ConVar -- out of game/shared/gamemovement.cpp and
+into sourcesharp/game/shared/shell_movement.cpp's CShellGameMovement. All three
+of this probe's C++ anchors went with it, so between that merge and step
+8f-remove this script asserted "anchor not unique (0)" and applied nothing.
+Step 8f-remove repointed it: the anchors are the SAME TEXT, in the shim.
+
+That also survives gamemovement.cpp leaving both builds at 8f-remove, which is the
+whole point of repointing rather than deleting -- the file it used to patch is
+not compiled any more, so a probe aimed at it could never drive anything again.
+
+WHAT IT DOES
+------------
+ss8f_movetype  sets the PLAYER'S OWN move type, not a field of the crossing.
+               That matters: MoveType is a networked, predicted field
+               (standalone_player_sync.cpp:222/287), so the client learns it
+               over the same wire a real caller would use and predicts the same
+               arm the server ran. A probe that only rewrote the blob would have
+               driven the server and left the client on MOVETYPE_WALK, and the
+               mispredictions that followed would have been the probe's.
+
+ss8f_obsmode   overrides nObserverMode in the crossing, because observer mode is
+               NOT on the predicted player state -- PlayerNetState has no such
+               field and IMovementPlayer has no MvSetObserverMode. The matching
+               client patch below derives the same value from the move type, so
+               the two sides still agree. THIS IS A REAL HOLE IN THE PORT and it
+               is written up in the step's handover, not papered over here: an
+               observer arm that ever becomes reachable needs the mode on the
+               wire, and that is a change to a shared header and to the
+               predicted blob, which is not this lane's.
+
+COMMITTED so the gate can be re-run, and for no other reason: nothing in
+`make check` applies it, and it must never be applied to a tree being built for
+anything else. It restores by copy + touch -- never `git checkout --`, which
+deletes uncommitted work, and never a preserved mtime, which makes MSBuild skip
+the rebuild and re-run the unpatched assembly. Every anchor is asserted unique,
+so a second application fails loudly rather than doubling the probe.
+"""
+import os
+import shutil
+import sys
+
+CPP = "src/sourcesharp/game/shared/shell_movement.cpp"
+CS = "src/sourcesharp/managed/SourceSharp.Client/ClientPlayerPrediction.cs"
+SAVE = ".8f-probe-saved"
+
+CONVARS = '''
+// ---------------------------------------------------------------------------
+// STEP 8f-movetypes' LIVE-DRIVE PROBE. tools/8f-probe-movetypes applies this;
+// it is NOT in the tree. See that file for why the three move types need one.
+// ---------------------------------------------------------------------------
+ConVar ss8f_movetype( "ss8f_movetype", "0", FCVAR_CHEAT | FCVAR_REPLICATED,
+	"8f probe: force the player's MOVETYPE_* (0 = leave it alone)." );
+ConVar ss8f_obsmode( "ss8f_obsmode", "0", FCVAR_CHEAT | FCVAR_REPLICATED,
+	"8f probe: force the player's OBS_MODE_* on the movement crossing." );
+'''
+
+FORCE = '''
+	// 8f probe. The PLAYER'S move type, so the wire carries it to the client
+	// and both sides predict the same arm.
+	if ( ss8f_movetype.GetInt() != 0 &&
+	     (int)pPlayer->MvGetMoveType() != ss8f_movetype.GetInt() )
+	{
+		pPlayer->MvSetMoveType( (MoveType_t)ss8f_movetype.GetInt() );
+	}
+'''
+
+OBS = '''
+	// 8f probe. Observer mode is not a networked field; the client patch
+	// derives the same value from the move type so the two sides agree.
+	if ( ss8f_obsmode.GetInt() != 0 )
+		state.nObserverMode = ss8f_obsmode.GetInt();
+'''
+
+CLIENT = '''
+        // 8f probe. The server forces MOVETYPE_OBSERVER through ss8f_movetype
+        // and OBS_MODE_ROAMING through ss8f_obsmode; the move type is on the
+        // wire and the mode is not, so it is derived here from the move type
+        // rather than left at zero -- which would have the client predict the
+        // "don't move in fixed cam" arm against a server that roamed.
+        _move.ObserverMode = _move.MoveType == 10 ? 7 : 0;
+'''
+
+
+def edit(path, subs):
+    s = open(path, encoding="utf-8", errors="surrogateescape").read()
+    for old, new, why in subs:
+        n = s.count(old)
+        assert n == 1, "anchor not unique (%d): %s in %s" % (n, why, path)
+        s = s.replace(old, new)
+    open(path, "w", encoding="utf-8", errors="surrogateescape").write(s)
+
+
+def restore(path):
+    saved = os.path.join(SAVE, path.replace("/", "_"))
+    if not os.path.exists(saved):
+        print("  no saved copy for %s -- was the probe applied?" % path)
+        return False
+    shutil.copyfile(saved, path)          # copy, NOT copy2: the mtime must move
+    os.utime(path, None)
+    print("  restored %s" % path)
+    return True
+
+
+def save(path):
+    os.makedirs(SAVE, exist_ok=True)
+    shutil.copyfile(path, os.path.join(SAVE, path.replace("/", "_")))
+
+
+if "--remove" in sys.argv:
+    ok = restore(CPP) and restore(CS)
+    sys.exit(0 if ok else 1)
+
+if os.path.exists(SAVE):
+    sys.stderr.write("%s already exists: the probe looks applied. --remove first.\n" % SAVE)
+    sys.exit(2)
+
+save(CPP)
+save(CS)
+
+edit(CPP, [
+    ('\t"Run the ten ported CGameMovement methods in C# (1) or in the stock C++ '
+     'they forward from (0)." );\n',
+     '\t"Run the ten ported CGameMovement methods in C# (1) or in the stock C++ '
+     'they forward from (0)." );\n' + CONVARS,
+     "probe convars"),
+
+    ("\tmv = pMove;\n\tmv->m_flMaxSpeed = pPlayer->MvGetPlayerMaxSpeed();\n",
+     "\tmv = pMove;\n\tmv->m_flMaxSpeed = pPlayer->MvGetPlayerMaxSpeed();\n" + FORCE,
+     "force the player's move type"),
+
+    ("\tstate.nObserverMode         = player->MvGetObserverMode();\n",
+     "\tstate.nObserverMode         = player->MvGetObserverMode();\n" + OBS,
+     "force the observer mode on the crossing"),
+])
+
+edit(CS, [
+    ("        _move.MoveType = _working.MoveType;\n",
+     "        _move.MoveType = _working.MoveType;\n" + CLIENT,
+     "derive the observer mode on the client"),
+])
+
+print("probe applied to %s and %s (originals under %s/)" % (CPP, CS, SAVE))

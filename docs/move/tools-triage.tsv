@@ -1,0 +1,118 @@
+# tools/ triage for the move (plan_sharp_repo.md Phase 2). tool<TAB>KEEP|DROP<TAB>why
+.gitignore	DROP	plan drop (a new tools/.gitignore is written)
+2f-record-flight	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-flight-trajectory-stock.md
+2g-record-push	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-mover-push-stock.md
+3a-penetration-granularity	DROP	plan drop; named only by src/buildcpptests, src/sourcesharp/game/server/physics.cpp, src/sourcesharp/game/server/physworld_match_rule.h, src/sourcesharp/test/cpp_alias_t1_test.cpp, src/sourcesharp/test/physworld_match_rule_test.cpp
+3d-cmdgate	KEEP	opened by Makefile:990
+3e-gen-movestate	DROP	plan drop; named only by src/sourcesharp/host/sourcesharp.h, src/sourcesharp/managed/SourceSharp.Abi/Abi.cs, src/sourcesharp/managed/SourceSharp.Tests/MovementTests.cs
+3e-probe-movement	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-movement-processmovement-stock.md
+3e-record-movement	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-movement-processmovement-stock.md
+3e-select-movement	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-movement-processmovement-stock.md
+3f-gatebisect	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:654 (one of the 8 probes)
+3f-probe-push	DROP	plan drop; named only by src/sourcesharp/game/server/shell_standalone_player.cpp, tools/live-gate-skips.tsv
+3f-reload-props	DROP	plan drop; named only by tools/3f-gatebisect
+3f-secondclient-props	DROP	plan drop; named only by tools/3f-gatebisect
+3f-shadow-ab	KEEP	plan keep list (keep as useful; no automated opener)
+4d-record-bones	DROP	plan drop; named only by docs/entity-shell.md, src/sourcesharp/game/shared/bone_library.h
+4d-replay-bones	DROP	plan drop; named only by docs/entity-shell.md, src/buildcpptests, src/sourcesharp/test/bone_library_test.cpp
+4f-component	KEEP	opened by src/sourcesharp/test/component_closure_test.cpp:54,78
+4g-probe-areaportal	DROP	plan drop; unreferenced outside dropped tools
+6a-crossings-by-entity-count	DROP	plan drop; named only by src/sourcesharp/test/shell_diagnostics_surface_test.cpp
+6a-probe-interp.diff	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-interpolation-stock.md
+6a-record-interp	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-interpolation-stock.md
+6a-select-interp	DROP	plan drop; named only by src/sourcesharp/managed/SourceSharp.Tests/Fixtures/README-interpolation-stock.md
+6b-policy-by-entity-count	DROP	plan drop; named only by src/sourcesharp/test/shell_diagnostics_surface_test.cpp
+6c-gate-probe	DROP	plan drop; named only by docs/entity-shell.md, src/sourcesharp/game/client/shell_standalone_client.cpp, src/sourcesharp/managed/SourceSharp.Tests/StandaloneBonesTests.cs, src/sourcesharp/test/bone_merge_key_test.cpp, tools/live-gate
+6c-record-bones	DROP	plan drop; named only by docs/entity-shell.md
+6c-replay-bones	DROP	plan drop; named only by docs/entity-shell.md, src/sourcesharp/test/bone_library_test.cpp
+6d-event-once	DROP	plan drop; unreferenced outside dropped tools
+6d-record-layers	DROP	plan drop; named only by docs/entity-shell.md
+6d-replay-layers	DROP	plan drop; named only by docs/entity-shell.md
+7a-effect-gate	KEEP	plan keep list (keep as useful; no automated opener)
+7a-impact-crossings	DROP	plan drop; unreferenced outside dropped tools
+7b-bonerecord-agree	DROP	plan drop; named only by src/buildcpptests, src/sourcesharp/host/sourcesharp.h, src/sourcesharp/managed/SourceSharp.Client/Standalone/ClientBoneRecorder.cs, src/sourcesharp/managed/SourceSharp.Tests/ClientBoneRecorderTests.cs, src/sourcesharp/test/standalone_bone_subject_test.cpp
+7c-view-gate	KEEP	plan keep list (keep as useful; no automated opener)
+7d-shadow-gate	DROP	plan drop; named only by src/sourcesharp/game/client/shell_renderable_facts.cpp
+7e-particle-sound-gate	KEEP	plan keep list (keep as useful; no automated opener)
+7f-consumers	DROP	plan drop; named only by tools/4f-component, tools/shim-census
+8e-entfire-gate	KEEP	plan keep list (keep as useful; no automated opener)
+8e-mutations	DROP	plan drop; unreferenced outside dropped tools
+8e-physfreeze	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:652 (one of the 8 probes)
+8f-movetype-gate	KEEP	opened by src/sourcesharp/test/gamemovement_evicted_test.cpp:632 (ReadTool)
+8f-mutate	DROP	plan drop; unreferenced outside dropped tools
+8f-probe-movetypes	KEEP	opened by src/sourcesharp/test/gamemovement_evicted_test.cpp:663 (ReadTool)
+abi-slot-census.py	KEEP	plan keep list (keep as useful; no automated opener)
+build-stamp	KEEP	opened by src/sourcesharp/managed/Directory.Build.props:58 (Exec)
+c8-beam-tempent-gate	DROP	plan drop; unreferenced outside dropped tools
+c8-clientsystems-gate	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:655 (one of the 8 probes; c8-* but plan keeps it)
+c8-effect-kinds-gate	DROP	plan drop; unreferenced outside dropped tools
+c8-entitystatics-gate	DROP	plan drop; unreferenced outside dropped tools
+c8-rope-gate	DROP	plan drop; unreferenced outside dropped tools
+c8-shared6-predict-gate	DROP	plan drop; unreferenced outside dropped tools
+client-only-probe	KEEP	opened by Makefile:940
+convar-ref-census	KEEP	opened by Makefile:799 (runner leg: --self-test)
+crate-sleep-analyse	DROP	plan drop; unreferenced outside dropped tools
+crate-sleep-probe	DROP	plan drop; unreferenced outside dropped tools
+dead-conditionals	KEEP	opened by src/sourcesharp/test/dead_conditionals_test.cpp:183
+dead-conditionals-ledger	KEEP	opened by src/sourcesharp/test/dead_conditionals_test.cpp:184 and tools/dead-conditionals:171
+defect-alc-reload-probe	DROP	plan drop; named only by docs/globals-ledger.tsv
+defect-shadow-probe	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:657 (one of the 8 probes); also loaded by tools/c8-clientsystems-gate:87, tools/phys-wakesleep-gate:94
+defect-teleport-gate	KEEP	plan keep list (keep as useful; no automated opener)
+entity-census	KEEP	opened by Makefile:837
+entity-census-patterns	KEEP	opened by src/sourcesharp/test/entity_census_test.cpp:150 and close_rulings_test.cpp:87
+entity-gates	KEEP	opened by Makefile:842 and src/sourcesharp/test/close_rulings_test.cpp:480
+entity-gates-allowlist	KEEP	opened by src/sourcesharp/test/entity_gates_test.cpp:160 and tools/entity-gates:120
+entity-ratchet	KEEP	opened by Makefile:703 (ENTITY_TEST) and Makefile:844
+entrypoint-decls	KEEP	opened by Makefile:799 (runner leg)
+f-srvshim-nm-owers	DROP	plan drop; unreferenced outside dropped tools
+f-srvshim-sitemap	DROP	plan drop; unreferenced outside dropped tools
+f-wind-gate	DROP	plan drop; named only by src/sourcesharp/game/client/shell_effects_sim.cpp
+finish-line	KEEP	plan keep list (keep as useful; no automated opener)
+fx-impact-gate	KEEP	plan keep list (keep as useful; no automated opener)
+gateseq-probe	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:653 (one of the 8 probes)
+get-node	KEEP	opened by Makefile:852 (@./tools/get-node) and src/buildsourcesharp:67
+globals-census	KEEP	opened by Makefile:859 [integration branch], src/sourcesharp/test/globals_ledger_test.cpp:317 [integration branch], globals_client_ledger_test.cpp:379 [lane 9d-clientglobals], tools/globals-gate-mutations:18
+globals-census-crosscheck	KEEP	plan keep list (globals-* from Phase 0; lane 9d-clientglobals only; standalone, no automated opener)
+globals-census-mutations	KEEP	plan keep list (globals-* from Phase 0; standalone, no automated opener)
+globals-gate-mutations	KEEP	plan keep list (globals-* from Phase 0; standalone, no automated opener)
+globals-source-mutations	KEEP	plan keep list (globals-* from Phase 0; standalone, no automated opener)
+gpu-offload	KEEP	opened by Makefile:114 (GPU_OFFLOAD) and tools/3d-cmdgate:204
+header-consumers	KEEP	plan keep list (keep as useful; no automated opener)
+leg-floor	KEEP	opened by Makefile:799-804 (every test leg)
+live-gate	KEEP	opened by Makefile:922 (live-gate target)
+live-gate-budget.tsv	KEEP	opened by tools/leg-floor:378 (kept tool)
+live-gate-lease	DROP	deleted 2026-10-05 (hushsteam lane): 10 rounds of 4 and 6 concurrent joined games logged no Steam ticket failure; local games run -hushsteam
+live-gate-scenarios	KEEP	opened by tools/live-gate:247 (SCENARIOS) and tools/fx-impact-gate:316
+live-gate-skips.tsv	KEEP	opened by tools/live-gate:1243 (SKIP_LEDGER)
+maptools	DROP	plan drop (moves to source-sdk-map-tools). CONFLICT: executed by Makefile:398,496,513,531,536,567,800 and opened by kept tools/leg-floor:333 (floor_maptools); both must be edited, see tools-name-edits.tsv
+movemath-gate	KEEP	opened by Makefile:975
+mutate-managed	KEEP	plan keep list (keep as useful; no automated opener)
+mutate-native	KEEP	plan keep list (keep as useful; no automated opener)
+nan-explain-probe	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:659 (one of the 8 probes); removed 2026-09-28 with the shadow-controller probe (user ruling)
+p4-exit-probe-skybox	KEEP	opened by src/sourcesharp/test/client_data_walk_test.cpp:116
+p4base-probe-precache	DROP	plan drop; unreferenced outside dropped tools
+p4phys-livelines	DROP	plan drop; unreferenced outside dropped tools
+p4phys-ringprobe	DROP	plan drop; named only by src/sourcesharp/game/server/shell_serversystems.cpp, src/sourcesharp/host/sourcesharp.h, src/sourcesharp/test/physics_event_sink_test.cpp
+p4util-holders	DROP	plan drop; named only by src/sourcesharp/game/shared/util_shared_library.cpp, src/sourcesharp/test/cycle_debt_move_test.cpp
+phys-wakesleep-gate	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:656 (one of the 8 probes)
+phys-wakesleep-mutate	DROP	plan drop; unreferenced outside dropped tools
+physics-defects-ovprobe	KEEP	opened by src/sourcesharp/test/physics_event_sink_test.cpp:658 (one of the 8 probes); removed 2026-09-28 with the octree audit it drove (user ruling)
+physics-scope	KEEP	opened by src/sourcesharp/test/physics_move_scope_test.cpp:710-715 (classify, fnmap.tsv, rulings.tsv)
+policy-player-crossings	DROP	plan drop; named only by docs/globals-ledger.tsv, src/sourcesharp/test/shell_diagnostics_surface_test.cpp
+reached-by-name	KEEP	plan keep list (keep as useful; no automated opener)
+run-test-legs	KEEP	opened by Makefile:798 (make test)
+savesmash-repro	DROP	plan drop; named only by docs/globals-ledger.tsv, src/sourcesharp/test/shell_diagnostics_surface_test.cpp
+shim-census	KEEP	plan keep list (keep as useful; no automated opener)
+shim-facade-audit	DROP	deleted 2026-10-04 (plan_side_isolation P7): it read the pre-move src/sourcesharp/ layout from the repo root, failed on its first input, and nothing ran it
+shim-header-census	KEEP	plan keep list (keep as useful; no automated opener)
+shim-orphan-reach	KEEP	opened by src/sourcesharp/test/orphan_reach_test.cpp:209
+shim-policy-audit	KEEP	plan keep list (keep as useful; no automated opener)
+sub-entitylist-crossings	DROP	plan drop; named only by docs/globals-ledger.tsv, src/sourcesharp/test/shell_diagnostics_surface_test.cpp
+sub-factory-crossings	DROP	plan drop; unreferenced outside dropped tools
+sub-ioqueue-gate	DROP	plan drop; unreferenced outside dropped tools
+sub-variant-inputs	DROP	plan drop; named only by docs/globals-ledger.tsv, src/sourcesharp/test/shell_diagnostics_surface_test.cpp
+variant-oracle.c	KEEP	plan keep list (keep as useful; no automated opener)
+vtable-dump	KEEP	plan keep list (keep as useful; no automated opener)
+vtable-layout	KEEP	plan keep list (generator of committed layouts; no automated opener found)
+vtable-policy.json	KEEP	opened by tools/vtable-layout:123 (POLICY_FILE)
+worktree-setup	KEEP	opened by Makefile:125 (tools/worktree-setup --check)

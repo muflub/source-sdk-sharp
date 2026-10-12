@@ -1,0 +1,665 @@
+#!/usr/bin/env python3
+"""tools/phys-wakesleep-gate -- IS A SLEPT PROP STILL A WALL?
+
+THE DEFECT. Lane `crate-sleep` found that the port mapped prop_physics's
+`Sleep` input to `EnableMotion(false)`, where stock's
+`CPhysicsProp::InputSleep` (game/server/props.cpp:2719) is
+`pPhysicsObject->Sleep()`. Those are different vphysics calls:
+
+    Sleep()             -> stops simulating it. Still motion-enabled, still
+                           MOVEABLE. Any contact revives it.
+    EnableMotion(false) -> pins it, so IsMoveable() goes FALSE.
+
+and the player controller treats a contact that is not moveable (or is
+heavier than its pushable-mass limit) as immovable: it clamps the PLAYER's
+own shadow velocity to zero along that contact normal. A crate a map sent to Sleep became a wall the player could not walk
+through, and nothing could ever shove it awake again.
+
+WHY A COUNTER WOULD NOT SHOW THIS, and why this gate reads POSITIONS. The wall
+is a clamp inside the solver: every loop still runs, every tick still counts,
+and a broken build's tick count is a working build's tick count. `8f-movetypes`
+was misled by exactly that. So every reading here is a DISTANCE.
+
+THE THREE ARMS, and the third is the point.
+
+    control   nothing is fired. The crate is asleep at rest anyway (93 of 96
+              holds, per `crate-sleep`), so this is what "asleep and not
+              pinned" looks like before any input touches it.
+    sleep     the `Sleep` input -- the thing under test.
+    pinned    the `DisableMotion` input, which is EXACTLY what `Sleep` used to
+              do. THE NEGATIVE CONTROL, and it is what makes a green `sleep`
+              arm mean anything: if `pinned` does not stop the player dead,
+              this gate cannot detect a wall at all and its other two arms are
+              measuring nothing. It runs in the SAME PROCESS on the SAME BUILD,
+              so it cannot differ by build, box or map load.
+
+THREE GUARDS AGAINST A FALSE PASS, because this gate's hoped-for result is "the
+player did NOT stop", which is also what a game the client never joined reports,
+and what a map whose crate never spawned reports:
+
+    1. A FREE-WALK CONTROL ON EVERY HOLD, before the crate is spawned. The
+       player walks the same duration in the open and must cover FREE_WALK
+       units. A client that never joined, or a frozen player, covers nothing --
+       and that hold is VOID rather than a pass. The integrator's bulletin of
+       2026-09-09 records a control run of an UNTOUCHED tree in which
+       ISteamUser::GetAuthSessionTicket failed, the client never joined, and
+       every client-side reading answered "nothing".
+    2. THE MOVEABLE BIT ITSELF, read from vphysics through
+       `ss_physworld_object`. That is the exact predicate the player
+       controller tests, so it does not depend on the walk at all.
+    3. AND THAT EVERY SUCH READING IS OF THE CRATE. `ss_physworld_object` takes
+       a CLASSNAME substring, so `prop_physics` names all of dm_lockdown's; the
+       nearest object to where the entity list puts the crate wins, and how far
+       away it was travels with the reading and is asserted on. A crate shoved
+       into a cluster of the map's own props would otherwise hand back one of
+       THOSE -- asleep, moveable, and indistinguishable from a pass.
+
+EXIT CODES: 0 passed, 1 a real red about the code, 2 not measurable. Reported as
+three counts, passed / failed / discarded.
+
+A GATE, NOT A PROBE: it asserts, and exits non-zero when an arm misses.
+
+Run it with a per-lane debug-api directory, TMPDIR and DEBUG_API_UI_PORT. The socket
+directory default is machine-wide and the UI proxy port is a fixed 27110; a
+second concurrent `debug-api run` on it dies EADDRINUSE and takes the game with
+it.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import math
+import statistics
+import os
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(
+        name, path, loader=importlib.machinery.SourceFileLoader(name, path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+lg = _load("livegate", os.path.join(HERE, "live-gate"))
+dsp = _load("defectshadowprobe", os.path.join(HERE, "defect-shadow-probe"))
+
+# IMPORTED, never restated, so this gate and the two probes before it cannot
+# drift into disagreeing about what a free walk is.
+FREE_WALK = dsp.FREE_WALK
+phys_objects = dsp.phys_objects
+nearest_object = dsp.nearest_object
+box = dsp.box
+
+ARMS = ("control", "sleep", "pinned")
+
+# What each arm fires at the crate before the walk. `pinned` is the pre-fix
+# spelling of `sleep`, which is why it is the negative control.
+ARM_INPUT = {"control": None, "sleep": "Sleep", "pinned": "DisableMotion"}
+
+
+def free_walk_limit(hold):
+    """dsp.verdict's boundary, hoisted so this file can assert on it directly."""
+    return FREE_WALK * hold / 2.0
+
+
+def read_crate(g, index, logpath):
+    """asleep / moveable for the crate, by POSITION and not by name.
+
+    A physics object is named by its CLASSNAME, so `prop_physics` names all of
+    dm_lockdown's. The nearest one to where the entity says the crate is wins,
+    and the distance travels with the reading.
+    """
+    where = lg.prop_origin(g, index)
+    hit = nearest_object(phys_objects(g.api, logpath, "prop_physics"), where)
+    if not hit:
+        return None
+    o = hit[0]
+    o["speed"] = math.sqrt(sum(v * v for v in o["vel"]))
+    return o
+
+
+def one_hold(g, logpath, hold, arm):
+    out = {"arm": arm, "hold": hold}
+    g.cheats()
+    g.teleport(g.scen["openFloor"], g.scen["openFloorAngles"], settle=1.2)
+
+    # -------------------------------------------------------------------
+    # GUARD 1: the free walk, with nothing in front of the player.
+    #
+    # Before the crate exists, so it cannot be about the crate. This is what
+    # separates "the prop is not a wall" from "this client never joined and
+    # nothing moves at all", and it is measured on EVERY hold rather than once
+    # per process: the ticket failure is intermittent.
+    # -------------------------------------------------------------------
+    open_from = g.player_origin()
+    if open_from is None:
+        out["note"] = "no player before the free walk"
+        return out
+
+    g.api.cmd("+forward")
+    time.sleep(hold)
+    g.api.cmd("-forward")
+    time.sleep(0.6)
+    open_to = g.player_origin()
+    out["freeWalked"] = round(lg.distance(open_from, open_to), 1) if open_to else None
+
+    if out["freeWalked"] is None or out["freeWalked"] < free_walk_limit(hold):
+        # VOID, not failed. A player who cannot walk in an empty room says
+        # nothing about whether a slept crate is a wall.
+        out["void"] = "the player could not walk in the open (%s < %.0f)" % (
+            out["freeWalked"], free_walk_limit(hold))
+        return out
+
+    # -------------------------------------------------------------------
+    # The crate, settled, with the player 64 units off it and facing it.
+    # -------------------------------------------------------------------
+    g.teleport(g.scen["openFloor"], g.scen["openFloorAngles"], settle=1.2)
+    index, resting, fell = lg.spawn_prop(g)
+    if index is None or resting is None:
+        out["note"] = "no prop"
+        return out
+    out["fell"] = fell
+
+    here = g.player_origin()
+    if here is None:
+        out["note"] = "no player"
+        lg.kill_prop(g)
+        return out
+
+    dx, dy = resting[0] - here[0], resting[1] - here[1]
+    span = math.hypot(dx, dy) or 1.0
+    stand = [resting[0] - dx / span * 64.0,
+             resting[1] - dy / span * 64.0,
+             resting[2]]
+    g.teleport(stand, settle=1.2)
+    g.face(resting, lift=64.0)
+
+    rest = read_crate(g, index, logpath)
+    out["asleepAtRest"] = rest["asleep"] if rest else None
+    out["moveableAtRest"] = rest["moveable"] if rest else None
+    out["awayAtRest"] = rest["awayFromCrate"] if rest else None
+
+    # -------------------------------------------------------------------
+    # THE ARM'S INPUT, and then GUARD 2: the moveable bit straight out of
+    # vphysics. This is the exact predicate the player controller tests, so
+    # it answers the wall question without depending on the walk at all.
+    # -------------------------------------------------------------------
+    inp = ARM_INPUT[arm]
+    if inp:
+        g.api.fire(lg.PROP_NAME, inp)
+        time.sleep(0.3)
+
+    after = read_crate(g, index, logpath)
+    out["asleepAfterInput"] = after["asleep"] if after else None
+    out["moveableAfterInput"] = after["moveable"] if after else None
+    out["awayAfterInput"] = after["awayFromCrate"] if after else None
+
+    # -------------------------------------------------------------------
+    # THE WALK INTO IT.
+    # -------------------------------------------------------------------
+    walked_from = g.player_origin()
+    g.api.cmd("+forward")
+    time.sleep(hold)
+    g.api.cmd("-forward")
+    time.sleep(0.8)
+
+    walked_to = g.player_origin()
+    moved_to = lg.prop_origin(g, index)
+    out["walked"] = round(lg.distance(walked_from, walked_to), 1) if walked_to else None
+    out["moved"] = round(lg.distance(resting, moved_to), 1) if moved_to else None
+    out["verdict"] = dsp.verdict(out)
+
+    # A WALK THAT NEVER MET THE CRATE. The player is teleported 64 units out
+    # and turned to face it, and that mostly puts the crate in their path -- but
+    # not always: one PINNED hold walked 317.7 units while its crate moved 0.0,
+    # which is not a pinned crate failing to be a wall, it is a player who went
+    # past the side of one. The two are told apart by the crate: a hold where
+    # the player walked FREE and the crate did not move at all is a hold with no
+    # contact in it, and a hold with no contact measures nothing about what
+    # happens on contact.
+    if (out.get("moved") or 0) <= 0.05 and out["verdict"] == "FREE":
+        out["miss"] = ("the walk never met the crate: walked %s and it moved %s"
+                       % (out.get("walked"), out.get("moved")))
+
+    # -------------------------------------------------------------------
+    # THE SHOVE-REVIVES CLAUSE, READ WHILE THE SHOVE IS STILL HAPPENING.
+    #
+    # Stock's Sleep stops simulation and any contact undoes it; the pin is
+    # undone by nothing. But vphysics puts an object that has come back to rest
+    # STRAIGHT BACK to sleep, and the first version of this read the crate 0.8 s
+    # after the walk ended -- so a crate that had been shoved 176 units read
+    # `asleep=1` and the clause went red on a crate that had plainly revived.
+    # Measured, in the same smoke run: the CONTROL arm, whose crate moved only
+    # 47 units and was therefore still settling, read `asleep=0` at the same
+    # point. The reading was racing the solver, not measuring the pin.
+    #
+    # So the shove is re-applied and the reading taken with +forward HELD. That
+    # is a separate push AFTER every measured number above, so it cannot move
+    # `walked` or `moved`. NO INPUT IS FIRED -- a Wake fired to make the answer
+    # come out is not a reading of anything.
+    # -------------------------------------------------------------------
+    g.api.cmd("+forward")
+    time.sleep(0.3)
+    shoved = read_crate(g, index, logpath)
+    g.api.cmd("-forward")
+    if shoved:
+        out["asleepDuringShove"] = shoved["asleep"]
+        out["moveableDuringShove"] = shoved["moveable"]
+        out["awayDuringShove"] = shoved["awayFromCrate"]
+
+    lg.kill_prop(g)
+    return out
+
+
+def judge(rows, hold):
+    """The clauses, each named, each with the rows it was read from.
+
+    TWO KINDS, and the difference is the difference between exit 1 and exit 2:
+
+        gate      a fact about whether this run could measure anything at all
+                  -- the map settled, the client is driving a player, the crate
+                  exists, the instrument can still detect a wall. A miss here
+                  is UNMEASURABLE and is NOT a red about the code.
+        subject   a fact about the code under test. A miss here is a red.
+
+    The order matters as much as the kinds: every `gate` clause is read before
+    any `subject` one, because this gate's hoped-for answer -- "nothing stopped
+    the player" -- is also what a map with no crate in it reports.
+    """
+    findings = []
+    notes = []
+
+    def gate(name, ok, detail):
+        findings.append(("gate", name, ok, detail))
+
+    def subject(rows_read, name, ok, detail):
+        """A subject clause, DOWNGRADED TO UNMEASURABLE WHEN IT HAS NO ROWS.
+
+        `all([])` is True and `bool([])` is False, so a subject clause written
+        the obvious way answers FAIL on a run that produced no holds at all --
+        a red about the code, reported by a run that never reached the code.
+        The empty case is exactly the box failing, and the box is a `gate`.
+        """
+        findings.append(("subject" if rows_read else "gate", name, ok, detail))
+
+    def arm(name):
+        return [r for r in rows if r.get("arm") == name and "void" not in r
+                and "note" not in r and "miss" not in r]
+
+    def arm_all(name):
+        return [r for r in rows if r.get("arm") == name and "void" not in r
+                and "note" not in r]
+
+    census = [r for r in rows if "mapEntities" in r]
+
+    live = arm("sleep")
+    pin = arm("pinned")
+    ctl = arm("control")
+
+    # THE MAP FIRST. Every clause below is read from holds taken on it.
+    gate("every map load reached its full entity count",
+         bool(census) and all(r["mapSettled"] for r in census),
+         "%s (wanted %s)" % ([r["mapEntities"] for r in census],
+                             [r["mapEntitiesWanted"] for r in census]))
+
+    missed = [r for r in rows if "miss" in r]
+    gate("every arm kept holds in which the player actually met the crate",
+         bool(live) and bool(pin) and bool(ctl) and len(missed) * 2 <= len(rows),
+         "%d holds had no contact in them: %s"
+         % (len(missed), [(r.get("arm"), r.get("miss")) for r in missed]))
+
+    reloads = [r for r in census if r["load"] > 1]
+    gate("every RELOAD emptied the entity list before refilling it",
+         bool(reloads) and all(r.get("mapEmptied") for r in reloads),
+         "emptied on reload: %s" % [r.get("mapEmptied") for r in reloads])
+
+    gate("every arm produced holds",
+         len(live) > 0 and len(pin) > 0 and len(ctl) > 0,
+         "sleep %d, pinned %d, control %d" % (len(live), len(pin), len(ctl)))
+
+    # THE NEGATIVE CONTROL FIRST. If a pinned crate does not stop the player,
+    # nothing below can mean anything, so it is read before the subject.
+    gate("NEGATIVE CONTROL: a pinned crate IS a wall",
+         bool(pin) and all(r.get("moveableAfterInput") == 0 for r in pin),
+         "moveable after DisableMotion: %s" % [r.get("moveableAfterInput") for r in pin])
+    gate("NEGATIVE CONTROL: and the player is stopped dead by it",
+         bool(pin) and all(r.get("verdict") == "STUCK" for r in pin),
+         "walked: %s (free walk is %.0f)" % ([r.get("walked") for r in pin],
+                                             free_walk_limit(hold)))
+
+    # THE SUBJECT -- and first that there WAS a crate, asleep, to walk into.
+    # A hold whose prop never spawned reports a player nothing stopped, which
+    # is this gate's hoped-for answer arrived at the wrong way.
+    gate("the crate existed and physics was running on every sleep hold",
+         bool(live) and all(r.get("moveableAtRest") is not None
+                            and (r.get("fell") or 0) > 0 for r in live),
+         "fell: %s, read from vphysics: %s"
+         % ([r.get("fell") for r in live],
+            [r.get("moveableAtRest") is not None for r in live]))
+
+    subject(live, "and the Sleep input really did put it to sleep",
+            bool(live) and all(r.get("asleepAfterInput") == 1 for r in live),
+            "asleep after Sleep: %s" % [r.get("asleepAfterInput") for r in live])
+
+    subject(live, "a SLEPT crate is still moveable, so it is not a wall",
+            bool(live) and all(r.get("moveableAfterInput") == 1 for r in live),
+            "moveable after Sleep: %s" % [r.get("moveableAfterInput") for r in live])
+    # THE REVIVAL, AND IT IS A DISPLACEMENT AND NOT A BIT.
+    #
+    # `Sleep()` stops simulation. A body under it that the player then
+    # DISPLACES by 37 units has been put back into simulation by the contact --
+    # that is the revival, and it is the whole gameplay consequence of the
+    # difference. The pin forbids it outright: it makes IsMoveable() false,
+    # the player controller clamps the player's velocity to zero along the
+    # contact normal, and every pinned hold in every run so far
+    # has moved its crate 0.0.
+    #
+    # WHY NOT THE `asleep` BIT DURING THE SHOVE, which is what this clause read
+    # first. Because the NEGATIVE CONTROL says it does not discriminate: over
+    # four holds each the sleep arm read [0, 1, 0, 1] and the PINNED arm read
+    # [0, 1, 0, 1] -- the same pattern, from crates one of which cannot be
+    # revived by anything. It is tracking whether the crate happened to be in
+    # motion at the instant of the read (`away` > 0 on exactly those holds),
+    # which is the push jam and not this lane's subject. The readings are still
+    # taken and still printed, in the `asleep@shove` column; they are not a
+    # clause, and the note above the run says why.
+    subject(live, "a shove REVIVES a slept crate: asleep at the input, and then "
+                  "displaced by the player -- which the pin never allows",
+            bool(live) and all(r.get("asleepAfterInput") == 1
+                               and (r.get("moved") or 0) > 1.0 for r in live)
+            and bool(pin) and all((r.get("moved") or 0) == 0.0 for r in pin),
+            "slept and then moved: %s   (pinned, also asleep at the input, "
+            "moved: %s)"
+            % ([r.get("moved") for r in live], [r.get("moved") for r in pin]))
+
+    # AND THE PLAYER GETS PAST THE PIN'S CONTACT STOP.
+    #
+    # THIS CLAUSE IS CORROBORATION. The two above it carry the finding and are
+    # clean by an enormous margin; this one is the closest thing to "the player
+    # walked through where the crate is" that the instrument can actually
+    # separate, and it is the weakest of the three. Three spellings of it have
+    # been wrong, each in the same way -- fitted to the draws that had happened:
+    #
+    #   1. "every sleep hold walks FREE". A coin flip. Pooled over six runs on
+    #      the fixed build the free draw is sleep 10/24, control 6/24, pinned
+    #      0/24: the UNTOUCHED control arm draws the jammed mode about as often
+    #      as the sleep arm does, because the jam is lane fix-push-jam's and not
+    #      this lane's. It went red on a run whose own control arm was 1/4.
+    #   2. "the shortest slept walk beats the longest pinned one by 16", set
+    #      from three runs whose jammed band was 62.6-74. The fourth drew a
+    #      jammed hold at 35.4.
+    #   3. The same against the pinned MAXIMUM. Over all 33 pinned holds
+    #      recorded the pinned walk is 21.1 to 38.5 -- two outliers, one high
+    #      and one low, in the same arm on the same input. A maximum is one draw.
+    #
+    # WHAT IS ACTUALLY STABLE is the pinned arm's CENTRE. The pin clamps the
+    # player's shadow velocity to zero along the contact normal, so they stop
+    # where they touch the crate, and that is geometry: the MEDIAN pinned walk
+    # is 27.2 to 28.4 in every one of the nine runs recorded here, fixed and
+    # pre-fix alike. A slept crate is shoved instead and the player advances the
+    # contact stop plus the shove.
+    #
+    #     six runs on the fixed build   margins 38.3 36.0 35.2 7.9 5.7 33.2
+    #     three PRE-FIX control runs    margins -1.1 -0.7 -0.2
+    #
+    # MARGIN is 4.0: 1.7 below the smallest positive margin measured and 4.2
+    # above the largest pre-fix one. The jam is what bounds it from above, and
+    # nothing here can raise it.
+    MARGIN = 4.0
+    live_walks = [r.get("walked") for r in live if r.get("walked") is not None]
+    pin_walks = [r.get("walked") for r in pin if r.get("walked") is not None]
+    live_free = [r for r in live if r.get("verdict") == "FREE"]
+    pin_free = [r for r in pin if r.get("verdict") == "FREE"]
+    ctl_free = [r for r in ctl if r.get("verdict") == "FREE"]
+    stop = statistics.median(pin_walks) if pin_walks else None
+    subject(live, "and the player walks PAST where the pin stops them dead, on "
+                  "every slept hold",
+            bool(live_walks) and stop is not None
+            and min(live_walks) > stop + MARGIN
+            and len(pin_free) == 0,
+            "slept walks %s (shortest %.1f), pinned walks %s (median %.1f), "
+            "margin %.1f needs %.0f; pinned free holds %d"
+            % (live_walks, min(live_walks) if live_walks else -1,
+               pin_walks, stop if stop is not None else -1,
+               (min(live_walks) - stop) if live_walks and stop is not None else 0,
+               MARGIN, len(pin_free)))
+
+    # RECORDED, NOT ASSERTED. See the block above the revival clause.
+    notes.append("free-mode draws this run: sleep %d/%d, control %d/%d, "
+                 "pinned %d/%d -- the jam is lane fix-push-jam's and the control "
+                 "arm draws it too, so it is a rate and not a clause"
+                 % (len(live_free), len(live), len(ctl_free), len(ctl),
+                    len(pin_free), len(pin)))
+    notes.append("asleep@shove reads sleep %s / pinned %s / control %s -- the "
+                 "same pattern from arms one of which cannot revive, so it is a "
+                 "reading and not a clause"
+                 % ([r.get("asleepDuringShove") for r in live],
+                    [r.get("asleepDuringShove") for r in pin],
+                    [r.get("asleepDuringShove") for r in ctl]))
+
+    # THE READINGS ARE OF THE CRATE. `ss_physworld_object prop_physics` names
+    # every physics prop on dm_lockdown and the nearest one to where the entity
+    # list says the crate is wins -- so a crate shoved into a cluster of the
+    # map's own props could hand back a reading of one of THOSE, which would be
+    # asleep and moveable and would look exactly like a pass.
+    aways = [r[k] for r in rows for k in ("awayAtRest", "awayAfterInput",
+                                          "awayDuringShove")
+             if r.get(k) is not None]
+    gate("every vphysics reading was of the crate itself",
+         bool(aways) and max(aways) < 64.0,
+         "furthest reading from where the entity list puts the crate: %s units "
+         "(over %d readings)" % (max(aways) if aways else None, len(aways)))
+
+    voids = [r for r in rows if "void" in r]
+    gate("no hold was voided by a player who could not walk",
+         not voids, "%d voided: %s" % (len(voids), [r.get("void") for r in voids]))
+
+    # THE RELOAD. One map load hides a whole bug class, so both loads must have
+    # produced holds in the arm under test.
+    loads = sorted({r.get("load") for r in live})
+    gate("the sleep arm ran on more than one map load",
+         len(loads) >= 2, "loads: %s" % loads)
+
+    return findings, notes
+
+
+def run(scen, loads, repeats, hold, keep):
+    port = lg.free_udp_port(*lg.GATE_PORT_RANGE)
+    scratch = os.path.join(os.environ.get("TMPDIR", "/tmp"),
+                           "ss-wakesleep-%d-%d" % (os.getpid(), port))
+    os.makedirs(scratch, exist_ok=True)
+    log = os.path.join(scratch, "server.log")
+
+    argv = lg.server_launch(port, scen["map"])
+    game = lg.Game.launch(argv, log, os.path.join(scratch, "server"))
+    if game is None:
+        return [{"note": "no socket"}], None
+
+    api = game.api
+    g = lg.Gate(api, scen, verbose=False)
+    rows = []
+    bound = None
+    try:
+        # WHAT WE ACTUALLY BOUND, from /proc, not what we asked for: the bind
+        # loop walks upward in silence and a lane can end up talking to another
+        # lane's game.
+        try:
+            bound = lg.bound_server_port(api, wanted=port, seconds=60.0)
+        except Exception as exc:
+            rows.append({"note": "could not read the bound port: %s" % exc})
+
+        for n in range(loads):
+            emptied = None
+            if n:
+                api.cmd("map %s" % scen["map"])
+
+                # THE OLD LEVEL MUST GO FIRST, and this is a guard and not
+                # tidiness. The census is asked "is the count back up to 473?",
+                # and on a RELOAD the list it is asking is still the previous
+                # map's until the level unloads -- so a `map` command that did
+                # nothing at all answers "settled" on its first poll, from the
+                # map that is already loaded, and every hold below is taken on
+                # a game that never reloaded. The reload is the whole reason
+                # this gate runs twice.
+                emptied = bool(api.wait_for(
+                    lambda: api.census()[0] < scen["entities"], 120.0))
+
+            # THE FULL ENTITY COUNT, ON EVERY LOAD INCLUDING THE FIRST, and
+            # recorded rather than merely waited on. A map that timed out short
+            # of its count is a map whose crate may never have spawned -- and
+            # "nothing stopped the player" is what this gate HOPES to see, so a
+            # short map is a FALSE PASS and not a false red. The integrator's
+            # bulletin of 2026-09-09 records `tools/live-gate` reading
+            # "471 entities" after a 240 s timeout and it meaning "not finished
+            # spawning", not "two are missing".
+            # THE HIGH-WATER MARK, not a second census taken afterwards. The
+            # first version read the count again once wait_for returned and
+            # printed 471 next to settled=True -- entities come and go after
+            # the map has finished spawning, and a second read is a reading of
+            # a different moment. What the clause is about is whether the map
+            # ever got there.
+            seen = []
+            settled = api.wait_for(
+                lambda: (seen.append(api.census()[0])
+                         or seen[-1] >= scen["entities"]), 240.0)
+            reached = max(seen) if seen else 0
+            rows.append({"load": n + 1, "mapEntities": reached,
+                         "mapEntitiesWanted": scen["entities"],
+                         "mapEmptied": emptied,
+                         "mapSettled": bool(settled)})
+            if not settled:
+                rows.append({"note": "the map never reached %d entities (got %d)"
+                                     % (scen["entities"], reached), "load": n + 1})
+                break
+
+            if not api.wait_for(lambda: api.player(scen["playerClass"]), 120.0):
+                rows.append({"note": "no player on load %d" % (n + 1), "load": n + 1})
+                break
+            time.sleep(2.0)
+
+            for r in range(repeats):
+                for a in ARMS:
+                    try:
+                        row = one_hold(g, log, hold, a)
+                    except Exception as exc:
+                        rows.append({"note": "api died: %s" % exc,
+                                     "load": n + 1, "repeat": r + 1, "arm": a})
+                        break
+                    row["load"] = n + 1
+                    row["repeat"] = r + 1
+                    rows.append(row)
+                    if not api.alive():
+                        rows.append({"note": "the process died", "load": n + 1})
+                        break
+                if not api.alive():
+                    break
+            if not api.alive():
+                break
+    finally:
+        if not keep:
+            try:
+                api.cmd("quit")
+            except Exception:
+                pass
+            game.kill()
+    return rows, bound
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--map", default="dm_lockdown")
+    p.add_argument("--loads", type=int, default=2,
+                   help="map loads in ONE process. Two is the minimum: one map "
+                        "load hides a whole class of reload bug.")
+    p.add_argument("--repeats", type=int, default=2,
+                   help="passes of all three arms per load")
+    p.add_argument("--hold", type=float, default=2.0)
+    p.add_argument("--json", default=None)
+    p.add_argument("--keep", action="store_true")
+    args = p.parse_args()
+
+    scen = lg.load_scenario(args.map)
+
+    print("phys-wakesleep-gate  map %s  loads %d  repeats %d  hold %.1f"
+          % (args.map, args.loads, args.repeats, args.hold))
+    print("box before: %s" % box())
+
+    rows, bound = run(scen, args.loads, args.repeats, args.hold, args.keep)
+
+    print("box after:  %s" % box())
+    print("bound server port: %s" % bound)
+    print()
+
+    hdr = ("load", "rep", "arm", "freeWalk", "asleep@rest", "mv@rest",
+           "asleep@in", "mv@in", "walked", "moved", "asleep@shove", "away",
+           "verdict")
+    print("%4s %4s %-8s %9s %12s %8s %10s %6s %8s %7s %13s %6s %8s" % hdr)
+    for r in rows:
+        if "mapEntities" in r:
+            print("     load %s: reached %s of %s entities, settled=%s, "
+                  "emptied first=%s"
+                  % (r["load"], r["mapEntities"], r["mapEntitiesWanted"],
+                     r["mapSettled"], r.get("mapEmptied")))
+            continue
+        if "miss" in r:
+            print("%4s %4s %-8s  -- MISSED, dropped: %s"
+                  % (r.get("load"), r.get("repeat"), r.get("arm"), r["miss"]))
+            continue
+        if "note" in r or "void" in r:
+            print("%4s %4s %-8s  -- %s" % (r.get("load"), r.get("repeat"),
+                                           r.get("arm"), r.get("note") or r.get("void")))
+            continue
+        print("%4s %4s %-8s %9s %12s %8s %10s %6s %8s %7s %13s %6s %8s"
+              % (r.get("load"), r.get("repeat"), r.get("arm"),
+                 r.get("freeWalked"), r.get("asleepAtRest"), r.get("moveableAtRest"),
+                 r.get("asleepAfterInput"), r.get("moveableAfterInput"),
+                 r.get("walked"), r.get("moved"), r.get("asleepDuringShove"),
+                 r.get("awayDuringShove"), r.get("verdict")))
+    print()
+
+    findings, notes = judge(rows, args.hold)
+    for n in notes:
+        print("NOTE   %s" % n)
+    if notes:
+        print()
+
+    passed = failed = discarded = 0
+    for kind, name, ok, detail in findings:
+        if ok:
+            word = "PASS"
+            passed += 1
+        elif kind == "gate":
+            word = "UNMEAS"
+            discarded += 1
+        else:
+            word = "FAIL"
+            failed += 1
+        print("%-6s %s\n         %s" % (word, name, detail))
+
+    if args.json:
+        with open(args.json, "w") as fh:
+            json.dump({"rows": rows, "boundPort": bound,
+                       "passed": passed, "failed": failed, "discarded": discarded,
+                       "findings": [{"kind": k, "name": n, "ok": ok, "detail": d}
+                                    for k, n, ok, d in findings]}, fh, indent=1)
+
+    print("\npassed %d   failed %d   discarded %d" % (passed, failed, discarded))
+
+    # exit 0 green; exit 1 a REAL RED about the code; exit 2 the box made this
+    # run unmeasurable -- the map never settled, the client is not driving a
+    # player, the crate never spawned, or the instrument can no longer detect a
+    # wall. An unmeasurable run is never reported as a red, and -- because this
+    # gate's hoped-for answer is a NEGATIVE -- it is never reported as a pass
+    # either. A discarded gate clause outranks a green subject one.
+    if discarded:
+        return 2
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

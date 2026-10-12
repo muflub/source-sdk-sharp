@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+"""
+Puts a browser in front of the game's development API.
+
+Two problems, one solution. A browser cannot open a Unix domain socket, and the
+per-process socket is exactly what lets several game instances run at once — so
+without something in between, the web UI would only ever work against a single
+game on a fixed TCP port, which is the arrangement the socket exists to escape.
+
+So this listens on a normal TCP port and forwards to whichever instance the page
+asks for. Selection travels in a `_pid` query parameter on every request rather
+than being held here, so two browser tabs can watch two games without one
+changing the other's mind.
+
+The page always names one, even when only one is running. Choosing for it looked
+like a kindness and was a trap: a socket outlives the process that made it, so a
+forgotten instance answers with an old map and an old build and nothing says so.
+
+Everything else is a straight pass-through. The one path it answers itself is
+/_instances, which is the list of live games — something no single instance
+could tell you, since knowing about the others is the whole point.
+
+    tools/debug-api ui              serve on 127.0.0.1:27110 and open a browser
+    tools/debug-api ui 8080         a different port
+"""
+
+import http.server
+import json
+import os
+import signal
+import socket
+import sys
+import threading
+import webbrowser
+
+SOCKET_DIR = "/tmp/sourcesharp-debug-api"
+DEFAULT_PORT = 27110
+FALLBACK_TCP_PORT = int(os.environ.get("DEBUG_API_PORT", "27100"))
+
+# Long enough for the game to answer a request that has to wait for a frame, and
+# short enough that a wedged game shows as one rather than hanging the page.
+TIMEOUT = 10.0
+
+
+def live_instances():
+    """
+    Every game that is actually up.
+
+    A socket file outlives the process that made it, so the file existing proves
+    nothing — the pid in its name still being alive is what does. A stale file
+    left by a crash would otherwise show as an instance that never answers.
+    """
+    found = []
+
+    try:
+        names = os.listdir(SOCKET_DIR)
+    except OSError:
+        names = []
+
+    for name in names:
+        if not name.endswith(".sock"):
+            continue
+
+        try:
+            pid = int(name[: -len(".sock")])
+        except ValueError:
+            continue
+
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            continue
+
+        found.append({"pid": pid, "socket": os.path.join(SOCKET_DIR, name)})
+
+    found.sort(key=lambda i: i["pid"])
+    return found
+
+
+def connect(instance):
+    """A connection to one instance, over whichever transport it listens on."""
+    if instance.get("socket"):
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.settimeout(TIMEOUT)
+        client.connect(instance["socket"])
+        return client
+
+    client = socket.create_connection(("127.0.0.1", instance["port"]), TIMEOUT)
+    client.settimeout(TIMEOUT)
+    return client
+
+
+def request(instance, method, target, body=b""):
+    """
+    One request/response against an instance.
+
+    The game closes the connection after every reply and speaks no keep-alive, so
+    this reads to end-of-stream rather than trusting Content-Length. That also
+    means a fresh connection per request, which is what the game expects.
+    """
+    head = (
+        f"{method} {target} HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        f"Content-Length: {len(body)}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode("ascii")
+
+    with connect(instance) as client:
+        client.sendall(head + body)
+
+        chunks = []
+        while True:
+            chunk = client.recv(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+
+    raw = b"".join(chunks)
+    split = raw.find(b"\r\n\r\n")
+
+    if split < 0:
+        raise OSError("no response headers")
+
+    headers = raw[:split].decode("latin-1").split("\r\n")
+    status = int(headers[0].split(" ")[1])
+
+    content_type = "application/json"
+    for line in headers[1:]:
+        if line.lower().startswith("content-type:"):
+            content_type = line.split(":", 1)[1].strip()
+
+    return status, content_type, raw[split + 4 :]
+
+
+class Unchosen(Exception):
+    """
+    No game was named, or the one named is not there.
+
+    Carries the instances it found, because a refusal that only says "name one"
+    leaves the caller to go and ask a second endpoint which names there are --
+    and the answer was already in hand when the refusal was written. The page
+    puts them straight into its picker; a person reading the JSON gets the pid,
+    the map and whether each is answering, which is what the choice is made on.
+    """
+
+    def __init__(self, message, instances):
+        super().__init__(message)
+        self.message = message
+        self.instances = instances
+
+
+def choose(pid, any_will_do=False):
+    """
+    Which instance a request means.
+
+    An explicit pid, or nothing. Not "the only one, if there is only one" —
+    that read as a convenience and behaved as a trap. A socket file outlives the
+    process that made it, a forgotten instance answers happily with an old map
+    and an old build, and nothing in the answer says which game gave it. Every
+    reading taken through one is plausible and about the wrong game.
+
+    So a request that acts on a game names the game. The page has a picker for
+    exactly this, and with one instance up it is one click.
+
+    any_will_do is for the requests that are not about a game at all: the page
+    itself, which every instance serves from the same build. Refusing those
+    until the page names an instance meant the browser was handed the refusal
+    instead of the page — and a page that never loaded could not name anything,
+    so it stayed that way.
+
+    With no sockets at all there is the fixed TCP port, which is what a game
+    started without -debugapisocket listens on. That is not a choice between
+    games; it is the only transport there is.
+    """
+    instances = live_instances()
+
+    if pid:
+        for instance in instances:
+            if str(instance["pid"]) == str(pid):
+                return instance
+
+        # The named game has gone -- a crash, a quit, or a link from yesterday.
+        # The ones still up travel with the refusal so the page can offer them
+        # rather than showing an error and an empty picker.
+        raise Unchosen(f"no live instance with pid {pid}", instances)
+
+    if instances:
+        if any_will_do:
+            return instances[0]
+        raise Unchosen("name a game: this proxy does not choose one for you", instances)
+
+    return {"pid": None, "port": FALLBACK_TCP_PORT}
+
+
+def describe(instance):
+    """An instance as the picker shows it: its pid, and enough to tell it apart."""
+    entry = {"pid": instance["pid"], "ok": False, "map": "", "address": ""}
+
+    try:
+        status, _, body = request(instance, "GET", "/status")
+        if status == 200:
+            data = json.loads(body)
+            entry["ok"] = bool(data.get("ok"))
+            entry["map"] = data.get("map", "")
+            entry["address"] = data.get("address", "")
+    except (OSError, ValueError):
+        # Up as a process but not answering. Listed anyway, marked down: an
+        # instance that stopped serving is worth seeing, not hiding.
+        pass
+
+    return entry
+
+
+class Proxy(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    # The default logs every request to stderr, which buries the one line that
+    # matters — the URL to open — under a poll every quarter second.
+    def log_message(self, fmt, *args):
+        pass
+
+    def do_GET(self):
+        self.forward("GET", b"")
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        self.forward("POST", self.rfile.read(length))
+
+    def forward(self, method, body):
+        path, _, query = self.path.partition("?")
+
+        # Selection travels per-request, so it is stripped here rather than
+        # relied on downstream: the game has no notion of which instance it is.
+        pid = ""
+        kept = []
+        for pair in query.split("&"):
+            if pair.startswith("_pid="):
+                pid = pair[len("_pid=") :]
+            elif pair:
+                kept.append(pair)
+
+        if path == "/_instances":
+            self.send_json(200, {"instances": [describe(i) for i in live_instances()]})
+            return
+
+        # The page lives at /ui inside the game, so the bare address opening the
+        # UI is one redirect rather than something the user has to know.
+        if path == "/":
+            self.send_response(302)
+            self.send_header("Location", "/ui")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+
+        target = path + ("?" + "&".join(kept) if kept else "")
+
+        # The interface's own files belong to no game in particular, so any
+        # instance can serve them — but "any" has to mean one that answers. A
+        # socket file outlives whatever made it, and handing the browser a
+        # connection refused instead of the page is the worst of both.
+        anybody = path.startswith("/ui")
+
+        try:
+            if anybody:
+                # Whoever answers first, starting with the one the page named:
+                # the files are identical, so this is about reaching a game at
+                # all rather than about reaching a particular one.
+                candidates = live_instances() or [choose("", any_will_do=True)]
+                candidates.sort(key=lambda one: str(one.get("pid")) != str(pid))
+            else:
+                candidates = [choose(pid)]
+        except Unchosen as e:
+            # The same shape /_instances answers with, so anything that can read
+            # that list can read this one: a refusal is a listing with a reason
+            # attached, not a different kind of answer.
+            self.send_json(409, {
+                "error": e.message,
+                "instances": [describe(one) for one in e.instances],
+            })
+            return
+
+        error = None
+
+        for instance in candidates:
+            try:
+                status, content_type, payload = request(instance, method, target, body)
+                break
+            except OSError as e:
+                error = e
+        else:
+            self.send_json(502, {"error": f"could not reach the game: {error}"})
+            return
+
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def send_json(self, status, payload):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def main(argv):
+    port = DEFAULT_PORT
+
+    if len(argv) > 1 and argv[1]:
+        try:
+            port = int(argv[1])
+        except ValueError:
+            print(f"usage: {argv[0]} [port]", file=sys.stderr)
+            return 2
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Proxy)
+    url = f"http://127.0.0.1:{port}/"
+
+    instances = live_instances()
+    if instances:
+        print(f"instances: {', '.join(str(i['pid']) for i in instances)}")
+    else:
+        print(f"no unix-socket instances; falling back to 127.0.0.1:{FALLBACK_TCP_PORT}")
+
+    print(f"debug-api UI on {url}   (ctrl-c to stop)")
+
+    # Opening the browser from another thread, because it can block for as long
+    # as a cold browser takes to start and the server should already be up when
+    # the first request arrives.
+    if os.environ.get("DEBUG_API_NO_BROWSER") != "1":
+        threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
+
+    signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt))
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print()
+    finally:
+        server.server_close()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

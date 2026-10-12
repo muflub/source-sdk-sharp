@@ -1,0 +1,16 @@
+/* Linked after the fork's devtools/version_script.linux.txt, by lld only.
+ *
+ * That script hides the C++ runtime with demangled patterns
+ * (extern "C++" { *std::*; __gnu_cxx*; ... }). lld matches those against LLVM's
+ * demangling, and LLVM cannot demangle some names gcc emits -- e.g. the
+ * std::pow<double, int> in Valve's prebuilt tier1.a (strtools.o), whose
+ * mangling carries a `sr` expression. An undemangleable name matches no
+ * extern "C++" pattern, falls through to `global: *`, and is exported, where
+ * GNU ld (which demangles it) keeps it local. These are the same patterns on
+ * the MANGLED names, so both linkers export the same set (Phase 6b parity).
+ */
+{
+  local:
+    _ZSt*; _ZNSt*; _ZNKSt*;
+    _ZN9__gnu_cxx*; _ZNK9__gnu_cxx*;
+};

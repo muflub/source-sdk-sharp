@@ -1,0 +1,1 @@
+{"notShippedTotal":7,"refusedTotal":1,"rows":[{"ledger":"not-shipped","name":"C_HLTVCamera","reason":"SourceTV camera not shipped","count":7},{"ledger":"refused","name":"IBaseClientDLL::GetPresenceID","reason":"refused: unreachable in this build","count":1}]}

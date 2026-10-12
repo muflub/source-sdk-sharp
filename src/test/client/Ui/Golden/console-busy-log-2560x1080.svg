@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="500" y="210" width="1560" height="672" rx="20" fill="#000000" fill-opacity="0.17" data-e="3"/>
+<rect x="506" y="216" width="1548" height="660" rx="14" fill="#000000" fill-opacity="0.43" data-e="3"/>
+<rect x="512" y="216" width="1536" height="648" rx="8" fill="#111317" data-e="3"/>
+<rect x="512.5" y="216.5" width="1535" height="647" rx="7.5" fill="none" stroke="#ffb52e" stroke-opacity="0.6" stroke-width="1" data-e="3"/>
+<rect x="2041" y="850" width="2" height="2" fill="#b2aea4" data-e="12"/>
+<rect x="2038" y="854" width="2" height="2" fill="#b2aea4" data-e="12"/>
+<rect x="2041" y="854" width="2" height="2" fill="#b2aea4" data-e="12"/>
+<rect x="2034" y="857" width="2" height="2" fill="#b2aea4" data-e="12"/>
+<rect x="2038" y="857" width="2" height="2" fill="#b2aea4" data-e="12"/>
+<rect x="2041" y="857" width="2" height="2" fill="#b2aea4" data-e="12"/>
+<rect x="528" y="222" width="1504" height="40" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="15"/>
+<rect x="540" y="232" width="4" height="20" rx="2" fill="#ffb52e" data-e="16"/>
+<text x="556" y="250.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="17">CONSOLE</text>
+<polygon points="2007.4,236 2018,246.6 2016.6,248 2006,237.4" fill="#b2aea4" data-e="20"/>
+<polygon points="2016.6,236 2018,237.4 2007.4,248 2006,246.6" fill="#b2aea4" data-e="20"/>
+<clipPath id="c0"><rect x="518" y="262" width="1524" height="596"/></clipPath><g clip-path="url(#c0)" data-e="21">
+<clipPath id="c1"><rect x="534" y="278" width="1492" height="491"/></clipPath><g clip-path="url(#c1)" data-e="23">
+<text x="542" y="282.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="30">] sv_cheats 1</text>
+<text x="542" y="306.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="33">] cl_interp_ratio 2</text>
+<text x="542" y="330.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="36">&quot;cl_interp_ratio&quot; = &quot;2&quot; ( def. &quot;2&quot; ) min. 1.000000 max. 5.000000</text>
+<text x="542" y="354.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="39">] give weapon_ar3</text>
+<rect x="534" y="361" width="1492" height="24" fill="#ff4e40" fill-opacity="0.08" data-e="41"/>
+<text x="542" y="378.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ff4e40" xml:space="preserve" data-e="42">Unknown entity class 'weapon_ar3': give failed</text>
+<text x="542" y="402.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="45">] give weapon_ar2</text>
+<text x="542" y="426.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="48">Alyx killed Overwatch with ar2</text>
+<text x="542" y="450.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="51">[SourceSharp/Hud] first paint: 1920x1080, local health 100</text>
+<text x="542" y="474.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="54">Lag compensation: 12 records rewound for Overwatch</text>
+<text x="542" y="498.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ff8a3d" xml:space="preserve" data-e="57">ConVarRef sv_skyname doesn't point to an existing ConVar</text>
+<text x="542" y="522.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="60">] status</text>
+<text x="542" y="546.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="63">hostname: SourceSharp Deathmatch | dm_lockdown 24/7</text>
+<text x="542" y="570.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="66">version : 9a05cdf2/24 9093 secure</text>
+<text x="542" y="594.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="69">map     : dm_lockdown at: -2739 x, 2563 y, 192 z</text>
+<text x="542" y="618.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="72">players : 12 humans, 4 bots (16 max)</text>
+<text x="542" y="642.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="75"># userid name                uniqueid            connected ping loss state</text>
+<text x="542" y="666.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="78">#      2 &quot;Gordon&quot;            [U:1:1234567]       12:41       18    0 active</text>
+<text x="542" y="690.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="81">#      3 &quot;Alyx&quot;              [U:1:7654321]       11:02       34    0 active</text>
+<rect x="534" y="697" width="1492" height="24" fill="#ff4e40" fill-opacity="0.08" data-e="83"/>
+<text x="542" y="714.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ff4e40" xml:space="preserve" data-e="84">Error: CUtlRBTree overflow in the soundscape cache (512 entries)</text>
+<text x="542" y="738.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="87">] mat_setvideomode 2560 1080 1</text>
+<text x="542" y="762.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="90">Video mode changed: 2560x1080 windowed</text>
+</g>
+<rect x="2018" y="278" width="6" height="491" rx="3" fill="#ffffff" fill-opacity="0.1" data-e="92"/>
+<rect x="2018" y="455" width="6" height="314" rx="3" fill="#b2aea4" fill-opacity="0.7" data-e="93"/>
+<rect x="534" y="785" width="1492" height="1" fill="#ffffff" fill-opacity="0.1" data-e="94"/>
+<text x="534" y="827.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="97">]</text>
+<rect x="555" y="802" width="1209" height="40" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="98"/>
+<rect x="556" y="803" width="1207" height="38" rx="3" fill="none" stroke="#ffb52e" stroke-width="2" data-e="98"/>
+<clipPath id="c2"><rect x="555" y="802" width="1209" height="40"/></clipPath><g clip-path="url(#c2)" data-e="98">
+<text x="567" y="827.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="99">sv_gravity 600</text>
+<rect x="693" y="813" width="2" height="18" fill="#ffb52e" data-e="99"/>
+</g>
+<rect x="1776" y="808" width="118" height="28" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="100"/>
+<polygon points="1784.7,824.9 1790,818.6 1790,821 1786.6,824.9" fill="#b2aea4" data-e="101"/>
+<polygon points="1790,818.6 1795.3,824.9 1793.4,824.9 1790,821" fill="#b2aea4" data-e="101"/>
+<text x="1800" y="826.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="102">HISTORY</text>
+<text x="1859" y="826.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="103">4 / 6</text>
+<rect x="1906" y="802" width="120" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="104"/>
+<text x="1928" y="830.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="105">SUBMIT</text>
+</g>
+</svg>

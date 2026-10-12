@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""Mutate one native file, run one gtest, restore, and report RED/GREEN.
+
+A test that has never been seen to FAIL is not evidence. This drives the red
+path: it replaces one exact string in a source file, runs a single named gtest
+binary, puts the file back, and runs the test again so the restore is proved as
+well as performed.
+
+=============================================================================
+THE TWO WAYS A MUTATION HARNESS LIES, BOTH OF WHICH THIS AVOIDS
+=============================================================================
+
+RESTORING WITH AN IDENTICAL MTIME. `shutil.copy2` and `cp -p` carry the
+timestamp across, so ninja and MSBuild decide there is nothing to rebuild and
+the OLD binary runs again -- the harness reports GREEN on restore having tested
+nothing, and, worse, can report GREEN on the MUTATED arm for the same reason.
+This writes the bytes and then bumps the mtime explicitly.
+
+RESTORING WITH `git checkout --`. That is the obvious way to put a file back
+and it DELETES THE UNCOMMITTED WORK UNDER TEST -- which is usually the very
+change whose red path is being proved. This keeps the original text in memory
+and writes it back.
+
+Root is derived from this script's own location, never a hardcoded worktree
+path: a committed harness outlives the lane that wrote it, and one carrying a
+worktree path mutates somebody else's tree while reporting RED/GREEN for yours.
+
+    tools/mutate-native <file> <find> <replace> <test-name>
+
+Lane 3c-entityshell's commit messages name this as `.lane3c/mutate.py`, which
+is where it was written; it is the same script.
+"""
+import io, os, subprocess, sys, time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+
+
+def run_test(name):
+    # The farm's copy of tools/build/buildcpptests: the farm path is how it
+    # knows the configuration (SOURCESHARP_CONFIG, default debug). It builds
+    # the one target and runs `ctest -R '^name$'`; an unknown name exits 1.
+    cfg = os.environ.get('SOURCESHARP_CONFIG', 'debug')
+    runner = os.path.join(ROOT, 'farm', cfg, 'src', 'buildcpptests')
+    p = subprocess.run([runner, name], cwd=ROOT,
+                       capture_output=True, text=True, errors='replace')
+    return p.returncode, p.stdout + p.stderr
+
+
+if __name__ == '__main__':
+    rel, find, repl, test = sys.argv[1:5]
+    path = os.path.join(ROOT, rel)
+
+    original = io.open(path, encoding='utf-8').read()
+    if find not in original:
+        sys.exit('anchor not present in %s' % rel)
+
+    mutated = original.replace(find, repl, 1)
+    assert mutated != original
+
+    try:
+        io.open(path, 'w', encoding='utf-8').write(mutated)
+        os.utime(path, (time.time() + 1, time.time() + 1))
+        rc, out = run_test(test)
+        verdict = 'RED' if rc != 0 else 'GREEN'
+        print('MUTATED -> %s (exit %d)' % (verdict, rc))
+        for line in out.split('\n'):
+            if 'FAILED' in line or 'OK ]' in line or 'PASSED' in line:
+                print('   ' + line.strip())
+    finally:
+        io.open(path, 'w', encoding='utf-8').write(original)
+        os.utime(path, (time.time() + 2, time.time() + 2))
+
+    rc, out = run_test(test)
+    print('RESTORED -> %s (exit %d)' % ('RED' if rc else 'GREEN', rc))

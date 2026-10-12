@@ -1,0 +1,4260 @@
+From 2fd17b2baf47751be7732d95a84932cb81432cac Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Mon, 12 Oct 2026 13:19:27 -0700
+Subject: [PATCH 4/5] SourceSharp: trim game/client headers to the native
+ remainder
+
+c_baseentity.h, c_world.h, c_baseplayer.h, tempent.h, c_rope.h and the other
+client headers reduced to the members the native client.so still uses, with
+the interfaces it gains (the world's ICollideable member, ...); the rest of
+each class lives in managed code.
+---
+ src/game/client/c_baseanimating.h            |   18 +-
+ src/game/client/c_basecombatcharacter.h      |   19 +-
+ src/game/client/c_baseentity.h               | 2047 +-----------------
+ src/game/client/c_baseflex.h                 |    6 +-
+ src/game/client/c_baseplayer.h               |   88 +-
+ src/game/client/c_basetempentity.h           |    2 +-
+ src/game/client/c_env_fog_controller.h       |    6 +-
+ src/game/client/c_recipientfilter.h          |   13 +-
+ src/game/client/c_rope.h                     |   69 +-
+ src/game/client/c_soundscape.h               |    3 +-
+ src/game/client/c_sun.h                      |    4 +-
+ src/game/client/c_te_legacytempents.h        |   20 +-
+ src/game/client/c_te_particlesystem.h        |   15 -
+ src/game/client/c_vguiscreen.h               |   18 +-
+ src/game/client/c_world.h                    |  250 ++-
+ src/game/client/cbase.h                      |   15 -
+ src/game/client/cdll_util.h                  |   28 +-
+ src/game/client/client_thinklist.h           |    4 +-
+ src/game/client/clienteffectprecachesystem.h |    4 +-
+ src/game/client/cliententitylist.h           |   29 +-
+ src/game/client/clientleafsystem.h           |    4 +-
+ src/game/client/colorcorrectionmgr.h         |    4 +-
+ src/game/client/detailobjectsystem.h         |    4 +-
+ src/game/client/fx.h                         |    2 +
+ src/game/client/fx_impact.h                  |    8 +-
+ src/game/client/hud_closecaption.h           |    1 +
+ src/game/client/hud_pdump.h                  |    2 +-
+ src/game/client/iclassmap.h                  |    6 +-
+ src/game/client/iclientmode.h                |    6 +-
+ src/game/client/iclientshadowmgr.h           |    4 +-
+ src/game/client/iinput.h                     |    2 +-
+ src/game/client/input.h                      |    5 +-
+ src/game/client/iviewrender.h                |    6 +-
+ src/game/client/iviewrender_beams.h          |   13 +-
+ src/game/client/particlemgr.h                |    2 +
+ src/game/client/particles_new.h              |   22 +-
+ src/game/client/prediction.h                 |   21 +-
+ src/game/client/proxyentity.h                |    5 +-
+ src/game/client/ragdoll.h                    |   16 +-
+ src/game/client/tempent.h                    |  116 +-
+ src/game/client/toolframework_client.h       |    3 +-
+ src/game/client/viewrender.h                 |   10 +-
+ 42 files changed, 631 insertions(+), 2289 deletions(-)
+
+diff --git a/src/game/client/c_baseanimating.h b/src/game/client/c_baseanimating.h
+index 987213cf655876421b0ea5d20bfc743f59c881f4..f1056ddb1b85b6f9bcd516091a2cb30d1d4ef387 100644
+--- a/src/game/client/c_baseanimating.h
++++ b/src/game/client/c_baseanimating.h
+@@ -50,7 +50,9 @@ class IBoneSetup;
+ FORWARD_DECLARE_HANDLE( memhandle_t );
+ typedef unsigned short MDLHandle_t;
+ 
++#ifndef SOURCESHARP
+ extern ConVar vcollide_wireframe;
++#endif
+ 
+ 
+ struct ClientModelRenderInfo_t : public ModelRenderInfo_t
+@@ -88,11 +90,13 @@ typedef unsigned int			ClientSideAnimationListHandle_t;
+ #define		INVALID_CLIENTSIDEANIMATION_LIST_HANDLE	(ClientSideAnimationListHandle_t)~0
+ 
+ 
+-class C_BaseAnimating : public C_BaseEntity, private IModelLoadCallback
++class C_BaseAnimating : public IGameEntity, private IModelLoadCallback
+ {
+ public:
+-	DECLARE_CLASS( C_BaseAnimating, C_BaseEntity );
++	DECLARE_CLASS( C_BaseAnimating, IGameEntity );
+ 	DECLARE_CLIENTCLASS();
++	void NetworkStateChanged() {}
++	void NetworkStateChanged( void *pVar ) {}
+ 	DECLARE_PREDICTABLE();
+ 	DECLARE_INTERPOLATION();
+ 
+@@ -147,7 +151,7 @@ public:
+ 	virtual void UpdateIKLocks( float currentTime );
+ 	virtual void CalculateIKLocks( float currentTime );
+ 	virtual bool ShouldDraw();
+-	virtual void UpdateVisibility() OVERRIDE;
++	virtual void UpdateVisibility();
+ 	virtual int DrawModel( int flags );
+ 	virtual int	InternalDrawModel( int flags );
+ 	virtual bool OnInternalDrawModel( ClientModelRenderInfo_t *pInfo );
+@@ -308,7 +312,7 @@ public:
+ 	virtual int GetBody()			{ return m_nBody; }
+ 	virtual int GetSkin()			{ return m_nSkin; }
+ 
+-	bool IsOnFire() { return ( (GetFlags() & FL_ONFIRE) != 0 ); }
++	bool IsOnFire() { return false; }
+ 
+ 	inline float					GetPlaybackRate();
+ 	inline void						SetPlaybackRate( float rate );
+@@ -644,6 +648,10 @@ private:
+ 	bool							m_bHasAttachedParticles;
+ };
+ 
++
++inline void DataMapAccess( C_BaseAnimating *, datamap_t **p ) { *p = NULL; }
++
++
+ enum 
+ {
+ 	RAGDOLL_FRICTION_OFF = -2,
+@@ -672,7 +680,7 @@ public:
+ 	bool ShouldSavePhysics( void ) { return true; }
+ 	virtual void	OnSave();
+ 	virtual void	OnRestore();
+-	virtual int ObjectCaps( void ) { return BaseClass::ObjectCaps() | FCAP_SAVE_NON_NETWORKABLE; }
++	virtual int ObjectCaps( void ) { return FCAP_SAVE_NON_NETWORKABLE; }
+ 	virtual IPVSNotify*				GetPVSNotifyInterface() { return this; }
+ 
+ 	void	HandleAnimatedFriction( void );
+diff --git a/src/game/client/c_basecombatcharacter.h b/src/game/client/c_basecombatcharacter.h
+index 0a135b05a31e23b81787f104ebb5a758862b737a..967b5dfba72ff94f9df23d0c9add3dfdca3f9131 100644
+--- a/src/game/client/c_basecombatcharacter.h
++++ b/src/game/client/c_basecombatcharacter.h
+@@ -43,13 +43,13 @@ public:
+ 	// Vision
+ 	// -----------------------
+ 	enum FieldOfViewCheckType { USE_FOV, DISREGARD_FOV };
+-	bool IsAbleToSee( const CBaseEntity *entity, FieldOfViewCheckType checkFOV );	// Visible starts with line of sight, and adds all the extra game checks like fog, smoke, camo...
++	bool IsAbleToSee( const IGameEntity *entity, FieldOfViewCheckType checkFOV );
+ 	bool IsAbleToSee( C_BaseCombatCharacter *pBCC, FieldOfViewCheckType checkFOV );	// Visible starts with line of sight, and adds all the extra game checks like fog, smoke, camo...
+ 
+-	virtual bool IsLookingTowards( const CBaseEntity *target, float cosTolerance = BCC_DEFAULT_LOOK_TOWARDS_TOLERANCE ) const;	// return true if our view direction is pointing at the given target, within the cosine of the angular tolerance. LINE OF SIGHT IS NOT CHECKED.
++	virtual bool IsLookingTowards( const IGameEntity *target, float cosTolerance = BCC_DEFAULT_LOOK_TOWARDS_TOLERANCE ) const;
+ 	virtual bool IsLookingTowards( const Vector &target, float cosTolerance = BCC_DEFAULT_LOOK_TOWARDS_TOLERANCE ) const;	// return true if our view direction is pointing at the given target, within the cosine of the angular tolerance. LINE OF SIGHT IS NOT CHECKED.
+ 
+-	virtual bool IsInFieldOfView( CBaseEntity *entity ) const;	// Calls IsLookingAt with the current field of view.  
++	virtual bool IsInFieldOfView( IGameEntity *entity ) const;
+ 	virtual bool IsInFieldOfView( const Vector &pos ) const;
+ 
+ 	enum LineOfSightCheckType
+@@ -57,8 +57,8 @@ public:
+ 		IGNORE_NOTHING,
+ 		IGNORE_ACTORS
+ 	};
+-	virtual bool IsLineOfSightClear( CBaseEntity *entity, LineOfSightCheckType checkType = IGNORE_NOTHING ) const;// strictly LOS check with no other considerations
+-	virtual bool IsLineOfSightClear( const Vector &pos, LineOfSightCheckType checkType = IGNORE_NOTHING, CBaseEntity *entityToIgnore = NULL ) const;
++	virtual bool IsLineOfSightClear( IGameEntity *entity, LineOfSightCheckType checkType = IGNORE_NOTHING ) const;
++	virtual bool IsLineOfSightClear( const Vector &pos, LineOfSightCheckType checkType = IGNORE_NOTHING, IGameEntity *entityToIgnore = NULL ) const;
+ 
+ 
+ 	// -----------------------
+@@ -164,16 +164,9 @@ public:
+ 
+ };
+ 
+-inline C_BaseCombatCharacter *ToBaseCombatCharacter( C_BaseEntity *pEntity )
++inline C_BaseCombatCharacter *ToBaseCombatCharacter( IGameEntity *pEntity )
+ {
+-	if ( !pEntity || !pEntity->IsBaseCombatCharacter() )
+ 		return NULL;
+-
+-#if _DEBUG
+-	return dynamic_cast<C_BaseCombatCharacter *>( pEntity );
+-#else
+-	return static_cast<C_BaseCombatCharacter *>( pEntity );
+-#endif
+ }
+ 
+ //-----------------------------------------------------------------------------
+diff --git a/src/game/client/c_baseentity.h b/src/game/client/c_baseentity.h
+index 8ca3e375e9917f980d6b8affc078c4ce07aa4ccc..7b3c19f87c13910429d34d5d841d9da318ca73b7 100644
+--- a/src/game/client/c_baseentity.h
++++ b/src/game/client/c_baseentity.h
+@@ -32,6 +32,9 @@
+ #include "networkvar.h"
+ #include "interpolatedvar.h"
+ #include "collisionproperty.h"
++#include "entity_debug_globals.h"
++#include "entity_abs_query_state.h"
++#include "c_baseentity_statics.h"
+ #include "particle_property.h"
+ #include "toolframework/itoolentity.h"
+ #include "tier0/threadtools.h"
+@@ -111,13 +114,13 @@ struct VarMapping_t
+ 
+ struct serialentity_t;
+ 
+-typedef CHandle<C_BaseEntity> EHANDLE; // The client's version of EHANDLE.
++typedef CHandle<IGameEntity> EHANDLE;
+ 
+-typedef void (C_BaseEntity::*BASEPTR)(void);
+-typedef void (C_BaseEntity::*ENTITYFUNCPTR)(C_BaseEntity *pOther );
++typedef void (IGameEntity::*BASEPTR)(void);
++typedef void (IGameEntity::*ENTITYFUNCPTR)(IGameEntity *pOther );
+ 
+ // For entity creation on the client
+-typedef C_BaseEntity* (*DISPATCHFUNCTION)( void );
++typedef IGameEntity* (*DISPATCHFUNCTION)( void );
+ 
+ #include "touchlink.h"
+ #include "groundlink.h"
+@@ -144,7 +147,7 @@ struct PredictionContext
+ 	char const					*m_pszCreationModule;
+ 	int							m_nCreationLineNumber;
+ 	// The entity to whom we are attached
+-	CHandle< C_BaseEntity >		m_hServerEntity;
++	CHandle< IGameEntity >		m_hServerEntity;
+ };
+ #endif
+ 
+@@ -160,7 +163,7 @@ struct thinkfunc_t
+ };
+ 
+ #define CREATE_PREDICTED_ENTITY( className )	\
+-	C_BaseEntity::CreatePredictedEntityByName( className, __FILE__, __LINE__ );
++	IGameEntity::CreatePredictedEntityByName( className, __FILE__, __LINE__ );
+ 
+ 
+ 
+@@ -172,1566 +175,20 @@ struct thinkfunc_t
+ //-----------------------------------------------------------------------------
+ // Purpose: Base client side entity object
+ //-----------------------------------------------------------------------------
+-class C_BaseEntity : public IClientEntity
+-{
+-// Construction
+-	DECLARE_CLASS_NOBASE( C_BaseEntity );
+-
+-	friend class CPrediction;
+-	friend void cc_cl_interp_all_changed( IConVar *pConVar, const char *pOldString, float flOldValue );
+-
+-public:
+-	DECLARE_DATADESC();
+-	DECLARE_CLIENTCLASS();
+-	DECLARE_PREDICTABLE();
+-
+-									C_BaseEntity();
+-	virtual							~C_BaseEntity();
+-
+-	static C_BaseEntity				*CreatePredictedEntityByName( const char *classname, const char *module, int line, bool persist = false );
+-	
+-	// FireBullets uses shared code for prediction.
+-	virtual void					FireBullets( const FireBulletsInfo_t &info );
+-	virtual void					ModifyFireBulletsDamage( CTakeDamageInfo* dmgInfo ) {}
+-	virtual bool					ShouldDrawUnderwaterBulletBubbles();
+-	virtual bool					ShouldDrawWaterImpacts( void ) { return true; }
+-	virtual bool					HandleShotImpactingWater( const FireBulletsInfo_t &info, 
+-		const Vector &vecEnd, ITraceFilter *pTraceFilter, Vector *pVecTracerDest );
+-	virtual ITraceFilter*			GetBeamTraceFilter( void );
+-	virtual void					DispatchTraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator = NULL );
+-	virtual void					TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir, trace_t *ptr, CDmgAccumulator *pAccumulator = NULL );
+-	virtual void					DoImpactEffect( trace_t &tr, int nDamageType );
+-	virtual void					MakeTracer( const Vector &vecTracerSrc, const trace_t &tr, int iTracerType );
+-	virtual int						GetTracerAttachment( void );
+-	void							ComputeTracerStartPosition( const Vector &vecShotSrc, Vector *pVecTracerStart );
+-	void							TraceBleed( float flDamage, const Vector &vecDir, trace_t *ptr, int bitsDamageType );
+-	virtual int						BloodColor();
+-	virtual const char*				GetTracerType();
+-
+-	virtual void					Spawn( void );
+-	virtual void					SpawnClientEntity( void );
+-	virtual void					Precache( void );
+-	virtual void					Activate();
+-
+-	virtual void					ParseMapData( CEntityMapData *mapData );
+-	virtual bool					KeyValue( const char *szKeyName, const char *szValue );
+-	virtual bool					KeyValue( const char *szKeyName, float flValue );
+-	virtual bool					KeyValue( const char *szKeyName, const Vector &vecValue );
+-	virtual bool					GetKeyValue( const char *szKeyName, char *szValue, int iMaxLen );
+-
+-		// Entities block Line-Of-Sight for NPCs by default.
+-	// Set this to false if you want to change this behavior.
+-	void							SetBlocksLOS( bool bBlocksLOS );
+-	bool							BlocksLOS( void );
+-	void							SetAIWalkable( bool bBlocksLOS );
+-	bool							IsAIWalkable( void );
+-
+-
+-	void							Interp_SetupMappings( VarMapping_t *map );
+-	
+-	// Returns 1 if there are no more changes (ie: we could call RemoveFromInterpolationList).
+-	int								Interp_Interpolate( VarMapping_t *map, float currentTime );
+-	
+-	void							Interp_RestoreToLastNetworked( VarMapping_t *map );
+-	void							Interp_UpdateInterpolationAmounts( VarMapping_t *map );
+-	void							Interp_HierarchyUpdateInterpolationAmounts();
+-
+-	// Called by the CLIENTCLASS macros.
+-	virtual bool					Init( int entnum, int iSerialNum );
+-
+-	// Called in the destructor to shutdown everything.
+-	void							Term();
+-
+-	// memory handling, uses calloc so members are zero'd out on instantiation
+-    void							*operator new( size_t stAllocateBlock );
+-	void							*operator new[]( size_t stAllocateBlock );
+-    void							*operator new( size_t stAllocateBlock, int nBlockUse, const char *pFileName, int nLine );
+-	void							*operator new[]( size_t stAllocateBlock, int nBlockUse, const char *pFileName, int nLine );
+-	void							operator delete( void *pMem );
+-	void							operator delete( void *pMem, int nBlockUse, const char *pFileName, int nLine ) { operator delete( pMem ); }
+-
+-	// This just picks one of the routes to IClientUnknown.
+-	IClientUnknown*					GetIClientUnknown()	{ return this; }
+-	virtual C_BaseAnimating*		GetBaseAnimating() { return NULL; }
+-	virtual void					SetClassname( const char *className );
+-
+-	string_t						m_iClassname;
+-
+-// IClientUnknown overrides.
+-public:
+-
+-	virtual void SetRefEHandle( const CBaseHandle &handle );
+-	virtual const CBaseHandle& GetRefEHandle() const;
+-
+-	void					SetToolHandle( HTOOLHANDLE handle );
+-	HTOOLHANDLE				GetToolHandle() const;
+-
+-	void					EnableInToolView( bool bEnable );
+-	bool					IsEnabledInToolView() const;
+-
+-	void					SetToolRecording( bool recording );
+-	bool					IsToolRecording() const;
+-	bool					HasRecordedThisFrame() const;
+-	virtual void			RecordToolMessage();
+-
+-	// used to exclude entities from being recorded in the SFM tools
+-	void					DontRecordInTools();
+-	bool					ShouldRecordInTools() const;
+-
+-	virtual void					Release();
+-	virtual ICollideable*			GetCollideable()		{ return &m_Collision; }
+-	virtual IClientNetworkable*		GetClientNetworkable()	{ return this; }
+-	virtual IClientRenderable*		GetClientRenderable()	{ return this; }
+-	virtual IClientEntity*			GetIClientEntity()		{ return this; }
+-	virtual C_BaseEntity*			GetBaseEntity()			{ return this; }
+-	virtual IClientThinkable*		GetClientThinkable()	{ return this; }
+-
+-
+-// Methods of IClientRenderable
+-public:
+-
+-	virtual const Vector&			GetRenderOrigin( void );
+-	virtual const QAngle&			GetRenderAngles( void );
+-	virtual Vector					GetObserverCamOrigin( void ) { return GetRenderOrigin(); }	// Return the origin for player observers tracking this target
+-	virtual const matrix3x4_t &		RenderableToWorldTransform();
+-	virtual bool					IsTransparent( void );
+-	virtual bool					IsTwoPass( void );
+-	virtual bool					UsesPowerOfTwoFrameBufferTexture();
+-	virtual bool					UsesFullFrameBufferTexture();
+-	virtual bool					IgnoresZBuffer( void ) const;
+-	virtual const model_t			*GetModel( void ) const;
+-	virtual int						DrawModel( int flags );
+-	virtual void					ComputeFxBlend( void );
+-	virtual int						GetFxBlend( void );
+-	virtual bool					LODTest() { return true; }   // NOTE: UNUSED
+-	virtual void					GetRenderBounds( Vector& mins, Vector& maxs );
+-	virtual IPVSNotify*				GetPVSNotifyInterface();
+-	virtual void					GetRenderBoundsWorldspace( Vector& absMins, Vector& absMaxs );
+-
+-	virtual void					GetShadowRenderBounds( Vector &mins, Vector &maxs, ShadowType_t shadowType );
+-
+-	// Determine the color modulation amount
+-	virtual void					GetColorModulation( float* color );
+-
+-	virtual void OnThreadedDrawSetup() {}
+-public:
+-	virtual bool					TestCollision( const Ray_t &ray, unsigned int fContentsMask, trace_t& tr );
+-	virtual bool					TestHitboxes( const Ray_t &ray, unsigned int fContentsMask, trace_t& tr );
+-
+-	// To mimic server call convention
+-	C_BaseEntity					*GetOwnerEntity( void ) const;
+-	void							SetOwnerEntity( C_BaseEntity *pOwner );
+-
+-	C_BaseEntity					*GetEffectEntity( void ) const;
+-	void							SetEffectEntity( C_BaseEntity *pEffectEnt );
+-
+-	// This function returns a value that scales all damage done by this entity.
+-	// Use CDamageModifier to hook in damage modifiers on a guy.
+-	virtual float					GetAttackDamageScale( void );
+-
+-// IClientNetworkable implementation.
+-public:
+-	virtual void					NotifyShouldTransmit( ShouldTransmitState_t state );
+-
+-	// save out interpolated values
+-	virtual void					PreDataUpdate( DataUpdateType_t updateType );
+-	virtual void					PostDataUpdate( DataUpdateType_t updateType );
+-	virtual void					OnDataUnchangedInPVS();
+-
+-	virtual void					ValidateModelIndex( void );
+-
+-	// pvs info. NOTE: Do not override these!!
+-	virtual void					SetDormant( bool bDormant );
+-	virtual bool					IsDormant( void );
+-
+-	// Tells the entity that it's about to be destroyed due to the client receiving
+-	// an uncompressed update that's caused it to destroy all entities & recreate them.
+-	virtual void					SetDestroyedOnRecreateEntities( void );
+-
+-	virtual int				GetEFlags() const;
+-	virtual void			SetEFlags( int iEFlags );
+-	void					AddEFlags( int nEFlagMask );
+-	void					RemoveEFlags( int nEFlagMask );
+-	bool					IsEFlagSet( int nEFlagMask ) const;
+-
+-	// checks to see if the entity is marked for deletion
+-	bool							IsMarkedForDeletion( void );
+-
+-	virtual int						entindex( void ) const;
+-	
+-	// This works for client-only entities and returns the GetEntryIndex() of the entity's handle,
+-	// so the sound system can get an IClientEntity from it.
+-	int GetSoundSourceIndex() const;	
+-
+-	// Server to client message received
+-	virtual void					ReceiveMessage( int classID, bf_read &msg );
+-
+-	virtual void*					GetDataTableBasePtr();
+-
+-// IClientThinkable.
+-public:
+-	// Called whenever you registered for a think message (with SetNextClientThink).
+-	virtual void					ClientThink();
+-
+-	virtual ClientThinkHandle_t		GetThinkHandle();
+-	virtual void					SetThinkHandle( ClientThinkHandle_t hThink );
+-
+-
+-public:
+-
+-	void AddVar( void *data, IInterpolatedVar *watcher, int type, bool bSetup=false );
+-	void RemoveVar( void *data, bool bAssert=true );
+-	VarMapping_t* GetVarMapping();
+-
+-	VarMapping_t	m_VarMap;
+-
+-
+-public:
+-	// An inline version the game code can use
+-	CCollisionProperty		*CollisionProp();
+-	const CCollisionProperty*CollisionProp() const;
+-	CParticleProperty		*ParticleProp();
+-	const CParticleProperty *ParticleProp() const;
+-
+-	// Simply here for game shared 
+-	bool					IsFloating();
+-
+-	virtual bool					ShouldSavePhysics();
+-
+-// save/restore stuff
+-	virtual void					OnSave();
+-	virtual void					OnRestore();
+-	// capabilities for save/restore
+-	virtual int						ObjectCaps( void );
+-	// only overload these if you have special data to serialize
+-	virtual int						Save( ISave &save );
+-	virtual int						Restore( IRestore &restore );
+-
+-private:
+-
+-	int SaveDataDescBlock( ISave &save, datamap_t *dmap );
+-	int RestoreDataDescBlock( IRestore &restore, datamap_t *dmap );
+-
+-	// Called after restoring data into prediction slots. This function is used in place of proxies
+-	// on the variables, so if some variable like m_nModelIndex needs to update other state (like 
+-	// the model pointer), it is done here.
+-	void OnPostRestoreData();
+-
+-public:
+-
+-	// Called after spawn, and in the case of self-managing objects, after load
+-	virtual bool	CreateVPhysics();
+-
+-	// Convenience routines to init the vphysics simulation for this object.
+-	// This creates a static object.  Something that behaves like world geometry - solid, but never moves
+-	IPhysicsObject *VPhysicsInitStatic( void );
+-
+-	// This creates a normal vphysics simulated object
+-	IPhysicsObject *VPhysicsInitNormal( SolidType_t solidType, int nSolidFlags, bool createAsleep, solid_t *pSolid = NULL );
+-
+-	// This creates a vphysics object with a shadow controller that follows the AI
+-	// Move the object to where it should be and call UpdatePhysicsShadowToCurrentPosition()
+-	IPhysicsObject *VPhysicsInitShadow( bool allowPhysicsMovement, bool allowPhysicsRotation, solid_t *pSolid = NULL );
+-
+-private:
+-	// called by all vphysics inits
+-	bool			VPhysicsInitSetup();
+-public:
+-
+-	void			VPhysicsSetObject( IPhysicsObject *pPhysics );
+-	// destroy and remove the physics object for this entity
+-	virtual void	VPhysicsDestroyObject( void );
+-
+-	// Purpose: My physics object has been updated, react or extract data
+-	virtual void					VPhysicsUpdate( IPhysicsObject *pPhysics );
+-	inline IPhysicsObject			*VPhysicsGetObject( void ) const { return m_pPhysicsObject; }
+-	virtual int						VPhysicsGetObjectList( IPhysicsObject **pList, int listMax );
+-	virtual bool					VPhysicsIsFlesh( void );
+-
+-// IClientEntity implementation.
+-public:
+-	virtual bool					SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime );
+-	virtual void					SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights, float *pFlexDelayedWeights );
+-	virtual bool					UsesFlexDelayedWeights() { return false; }
+-	virtual void					DoAnimationEvents( void );
+-
+-	// Add entity to visible entities list?
+-	virtual void					AddEntity( void );
+-
+-	virtual const Vector&			GetAbsOrigin( void ) const;
+-	virtual const QAngle&			GetAbsAngles( void ) const;
+-
+-	const Vector&					GetNetworkOrigin() const;
+-	const QAngle&					GetNetworkAngles() const;
+-
+-	void SetNetworkOrigin( const Vector& org );
+-	void SetNetworkAngles( const QAngle& ang );
+-
+-	const Vector&					GetLocalOrigin( void ) const;
+-	void							SetLocalOrigin( const Vector& origin );
+-	vec_t							GetLocalOriginDim( int iDim ) const;		// You can use the X_INDEX, Y_INDEX, and Z_INDEX defines here.
+-	void							SetLocalOriginDim( int iDim, vec_t flValue );
+-
+-	const QAngle&					GetLocalAngles( void ) const;
+-	void							SetLocalAngles( const QAngle& angles );
+-	vec_t							GetLocalAnglesDim( int iDim ) const;		// You can use the X_INDEX, Y_INDEX, and Z_INDEX defines here.
+-	void							SetLocalAnglesDim( int iDim, vec_t flValue );
+-
+-	virtual const Vector&			GetPrevLocalOrigin() const;
+-	virtual const QAngle&			GetPrevLocalAngles() const;
+-
+-	void							SetLocalTransform( const matrix3x4_t &localTransform );
+-
+-	void							SetModelName( string_t name );
+-	string_t						GetModelName( void ) const;
+-
+-	int								GetModelIndex( void ) const;
+-	void							SetModelIndex( int index );
+-	virtual int						CalcOverrideModelIndex() { return -1; }
+-
+-	// These methods return a *world-aligned* box relative to the absorigin of the entity.
+-	// This is used for collision purposes and is *not* guaranteed
+-	// to surround the entire entity's visual representation
+-	// NOTE: It is illegal to ask for the world-aligned bounds for
+-	// SOLID_BSP objects
+-	virtual const Vector&			WorldAlignMins( ) const;
+-	virtual const Vector&			WorldAlignMaxs( ) const;
+-
+-	// This defines collision bounds *in whatever space is currently defined by the solid type*
+-	//	SOLID_BBOX:		World Align
+-	//	SOLID_OBB:		Entity space
+-	//	SOLID_BSP:		Entity space
+-	//	SOLID_VPHYSICS	Not used
+-	void							SetCollisionBounds( const Vector& mins, const Vector &maxs );
+-
+-	// NOTE: These use the collision OBB to compute a reasonable center point for the entity
+-	virtual const Vector&			WorldSpaceCenter( ) const;
+-
+-	// FIXME: Do we want this?
+-	const Vector&					WorldAlignSize( ) const;
+-	bool							IsPointSized() const;
+-
+-	// Returns a radius of a sphere 
+-	// *centered at the world space center* bounding the collision representation 
+-	// of the entity. NOTE: The world space center *may* move when the entity rotates.
+-	float							BoundingRadius() const;
+-
+-	// Used when the collision prop is told to ask game code for the world-space surrounding box
+-	virtual void					ComputeWorldSpaceSurroundingBox( Vector *pVecWorldMins, Vector *pVecWorldMaxs );
+-	virtual float						GetHealthBarHeightOffset() const { return 0.f; }
+-
+-	// Returns the entity-to-world transform
+-	matrix3x4_t						&EntityToWorldTransform();
+-	const matrix3x4_t				&EntityToWorldTransform() const;
+-
+-	// Some helper methods that transform a point from entity space to world space + back
+-	void							EntityToWorldSpace( const Vector &in, Vector *pOut ) const;
+-	void							WorldToEntitySpace( const Vector &in, Vector *pOut ) const;
+-
+-	// This function gets your parent's transform. If you're parented to an attachment,
+-	// this calculates the attachment's transform and gives you that.
+-	//
+-	// You must pass in tempMatrix for scratch space - it may need to fill that in and return it instead of 
+-	// pointing you right at a variable in your parent.
+-	matrix3x4_t&					GetParentToWorldTransform( matrix3x4_t &tempMatrix );
+-
+-	void							GetVectors(Vector* forward, Vector* right, Vector* up) const;
+-
+-	// Sets abs angles, but also sets local angles to be appropriate
+-	void							SetAbsOrigin( const Vector& origin );
+- 	void							SetAbsAngles( const QAngle& angles );
+-
+-	void							AddFlag( int flags );
+-	void							RemoveFlag( int flagsToRemove );
+-	void							ToggleFlag( int flagToToggle );
+-	int								GetFlags( void ) const;
+-	void							ClearFlags();
+-
+-	MoveType_t						GetMoveType( void ) const;
+-	MoveCollide_t					GetMoveCollide( void ) const;
+-	virtual SolidType_t				GetSolid( void ) const;
+-
+-	virtual int			 			GetSolidFlags( void ) const;
+-	bool							IsSolidFlagSet( int flagMask ) const;
+-	void							SetSolidFlags( int nFlags );
+-	void							AddSolidFlags( int nFlags );
+-	void							RemoveSolidFlags( int nFlags );
+-	bool							IsSolid() const;
+-
+-	virtual class CMouthInfo		*GetMouth( void );
+-
+-	// Retrieve sound spatialization info for the specified sound on this entity
+-	// Return false to indicate sound is not audible
+-	virtual bool					GetSoundSpatialization( SpatializationInfo_t& info );
+-
+-	// Attachments
+-	virtual int						LookupAttachment( const char *pAttachmentName ) { return -1; }
+-	virtual bool					GetAttachment( int number, matrix3x4_t &matrix );
+-	virtual bool					GetAttachment( int number, Vector &origin );
+-	virtual	bool					GetAttachment( int number, Vector &origin, QAngle &angles );
+-	virtual bool					GetAttachmentVelocity( int number, Vector &originVel, Quaternion &angleVel );
+-
+-	// Team handling
+-	virtual C_Team					*GetTeam( void ) const;
+-	virtual int						GetTeamNumber( void ) const;
+-	virtual void					ChangeTeam( int iTeamNum );			// Assign this entity to a team.
+-	virtual int						GetRenderTeamNumber( void );
+-	virtual bool					InSameTeam( const C_BaseEntity *pEntity ) const;	// Returns true if the specified entity is on the same team as this one
+-	virtual bool					InLocalTeam( void );
+-
+-	// ID Target handling
+-	virtual bool					IsValidIDTarget( void ) { return false; }
+-	virtual const char				*GetIDString( void ) { return ""; };
+-
+-	// See CSoundEmitterSystem
+-	virtual void ModifyEmitSoundParams( EmitSound_t &params );
+-
+-	void	EmitSound( const char *soundname, float soundtime = 0.0f, float *duration = NULL );  // Override for doing the general case of CPASAttenuationFilter( this ), and EmitSound( filter, entindex(), etc. );
+-	void	EmitSound( const char *soundname, HSOUNDSCRIPTHANDLE& handle, float soundtime = 0.0f, float *duration = NULL );  // Override for doing the general case of CPASAttenuationFilter( this ), and EmitSound( filter, entindex(), etc. );
+-	void	StopSound( const char *soundname );
+-	void	StopSound( const char *soundname, HSOUNDSCRIPTHANDLE& handle );
+-	void	GenderExpandString( char const *in, char *out, int maxlen );
+-
+-	static float GetSoundDuration( const char *soundname, char const *actormodel );
+-
+-	static bool	GetParametersForSound( const char *soundname, CSoundParameters &params, const char *actormodel );
+-	static bool	GetParametersForSound( const char *soundname, HSOUNDSCRIPTHANDLE& handle, CSoundParameters &params, const char *actormodel );
+-
+-	static void EmitSound( IRecipientFilter& filter, int iEntIndex, const char *soundname, const Vector *pOrigin = NULL, float soundtime = 0.0f, float *duration = NULL );
+-	static void EmitSound( IRecipientFilter& filter, int iEntIndex, const char *soundname, HSOUNDSCRIPTHANDLE& handle, const Vector *pOrigin = NULL, float soundtime = 0.0f, float *duration = NULL );
+-	static void StopSound( int iEntIndex, const char *soundname );
+-	static soundlevel_t LookupSoundLevel( const char *soundname );
+-	static soundlevel_t LookupSoundLevel( const char *soundname, HSOUNDSCRIPTHANDLE& handle );
+-
+-	static void EmitSound( IRecipientFilter& filter, int iEntIndex, const EmitSound_t & params );
+-	static void EmitSound( IRecipientFilter& filter, int iEntIndex, const EmitSound_t & params, HSOUNDSCRIPTHANDLE& handle );
+-
+-	static void StopSound( int iEntIndex, int iChannel, const char *pSample );
+-
+-	static void EmitAmbientSound( int entindex, const Vector& origin, const char *soundname, int flags = 0, float soundtime = 0.0f, float *duration = NULL );
+-
+-	// These files need to be listed in scripts/game_sounds_manifest.txt
+-	static HSOUNDSCRIPTHANDLE PrecacheScriptSound( const char *soundname );
+-	static void PrefetchScriptSound( const char *soundname );
+-
+-	// For each client who appears to be a valid recipient, checks the client has disabled CC and if so, removes them from 
+-	//  the recipient list.
+-	static void RemoveRecipientsIfNotCloseCaptioning( C_RecipientFilter& filter );
+-	static void EmitCloseCaption( IRecipientFilter& filter, int entindex, char const *token, CUtlVector< Vector >& soundorigins, float duration, bool warnifmissing = false );
+-
+-	// Moves all aiments into their correct position for the frame
+-	static void	MarkAimEntsDirty();
+-	static void CalcAimEntPositions();
+-
+-	static bool IsPrecacheAllowed();
+-	static void SetAllowPrecache( bool allow );
+-
+-	static bool m_bAllowPrecache;
+-
+-	static bool IsSimulatingOnAlternateTicks();
+-
+-// C_BaseEntity local functions
+-public:
+-
+-	void UpdatePartitionListEntry();
+-
+-	// This can be used to setup the entity as a client-only entity. 
+-	// Override this to perform per-entity clientside setup
+-	virtual bool InitializeAsClientEntity( const char *pszModelName, RenderGroup_t renderGroup );
+-
+-	
+-
+-
+-
+-	// This function gets called on all client entities once per simulation phase.
+-	// It dispatches events like OnDataChanged(), and calls the legacy function AddEntity().
+-	virtual void					Simulate();	
+-
+-
+-	// This event is triggered during the simulation phase if an entity's data has changed. It is 
+-	// better to hook this instead of PostDataUpdate() because in PostDataUpdate(), server entity origins
+-	// are incorrect and attachment points can't be used.
+-	virtual void					OnDataChanged( DataUpdateType_t type );
+-
+-	// This is called once per frame before any data is read in from the server.
+-	virtual void					OnPreDataChanged( DataUpdateType_t type );
+-
+-	bool IsStandable() const;
+-	bool IsBSPModel() const;
+-
+-	
+-	// If this is a vehicle, returns the vehicle interface
+-	virtual IClientVehicle*			GetClientVehicle() { return NULL; }
+-
+-	// Returns the aiment render origin + angles
+-	virtual void					GetAimEntOrigin( IClientEntity *pAttachedTo, Vector *pAbsOrigin, QAngle *pAbsAngles );
+-	
+-	// get network origin from previous update
+-	virtual const Vector&			GetOldOrigin();
+-
+-	// Methods relating to traversing hierarchy
+-	C_BaseEntity *GetMoveParent( void ) const;
+-	C_BaseEntity *GetRootMoveParent();
+-	C_BaseEntity *FirstMoveChild( void ) const;
+-	C_BaseEntity *NextMovePeer( void ) const;
+-
+-	inline ClientEntityHandle_t		GetClientHandle() const	{ return ClientEntityHandle_t( m_RefEHandle ); }
+-	inline bool						IsServerEntity( void );
+-
+-	virtual RenderGroup_t			GetRenderGroup();
+-
+-	virtual void					GetToolRecordingState( KeyValues *msg );
+-	virtual void					CleanupToolRecordingState( KeyValues *msg );
+-
+-	// The value returned by here determines whether or not (and how) the entity
+-	// is put into the spatial partition.
+-	virtual CollideType_t			GetCollideType( void );
+-
+-	virtual bool					ShouldDraw();
+-	inline	bool					IsVisible() const { return m_hRender != INVALID_CLIENT_RENDER_HANDLE; }
+-	virtual void					UpdateVisibility();
+-	
+-	// Returns true if the entity changes its position every frame on the server but it doesn't
+-	// set animtime. In that case, the client returns true here so it copies the server time to
+-	// animtime in OnDataChanged and the position history is correct for interpolation.
+-	virtual bool					IsSelfAnimating();
+-
+-	// Set appropriate flags and store off data when these fields are about to change
+-	virtual	void					OnLatchInterpolatedVariables( int flags );
+-	// For predictable entities, stores last networked value
+-	void							OnStoreLastNetworkedValue();
+-
+-	// Initialize things given a new model.
+-	virtual CStudioHdr				*OnNewModel();
+-	virtual void					OnNewParticleEffect( const char *pszParticleName, CNewParticleEffect *pNewParticleEffect );
+-
+-	bool							IsSimulatedEveryTick() const;
+-	bool							IsAnimatedEveryTick() const;
+-	void							SetSimulatedEveryTick( bool sim );
+-	void							SetAnimatedEveryTick( bool anim );
+-
+-	void							Interp_Reset( VarMapping_t *map );
+-	virtual void					ResetLatched();
+-	
+-	float							GetInterpolationAmount( int flags );
+-	float							GetLastChangeTime( int flags );
+-
+-	// Interpolate the position for rendering
+-	virtual bool					Interpolate( float currentTime );
+-
+-	// Did the object move so far that it shouldn't interpolate?
+-	bool							Teleported( void );
+-	// Is this a submodel of the world ( *1 etc. in name ) ( brush models only )
+-	virtual bool					IsSubModel( void );
+-	// Deal with EF_* flags
+-	virtual void					CreateLightEffects( void );
+-
+-	void							AddToAimEntsList();
+-	void							RemoveFromAimEntsList();
+-
+-	// Reset internal fields
+-	virtual void					Clear( void );
+-	// Helper to draw raw brush models
+-	virtual int						DrawBrushModel( bool bTranslucent, int nFlags, bool bTwoPass );
+-
+-	// returns the material animation start time
+-	virtual float					GetTextureAnimationStartTime();
+-	// Indicates that a texture animation has wrapped
+-	virtual void					TextureAnimationWrapped();
+-
+-	// Set the next think time. Pass in CLIENT_THINK_ALWAYS to have Think() called each frame.
+-	virtual void					SetNextClientThink( float nextThinkTime );
+-
+-	// anything that has health can override this...
+-	virtual void					SetHealth(int iHealth) {}
+-	virtual int						GetHealth() const { return 0; }
+-	virtual int						GetMaxHealth() const { return 1; }
+-	virtual bool					IsVisibleToTargetID( void ) const { return false; }
+-	virtual bool					IsHealthBarVisible( void ) const { return false; }
+-
+-	// Returns the health fraction
+-	float							HealthFraction() const;
+-
+-	// Should this object cast shadows?
+-	virtual ShadowType_t			ShadowCastType();
+-
+-	// Should this object receive shadows?
+-	virtual bool					ShouldReceiveProjectedTextures( int flags );
+-
+-	// Shadow-related methods
+-	virtual bool IsShadowDirty( );
+-	virtual void MarkShadowDirty( bool bDirty );
+-	virtual IClientRenderable *GetShadowParent();
+-	virtual IClientRenderable *FirstShadowChild();
+-	virtual IClientRenderable *NextShadowPeer();
+-
+-	// Sets up a render handle so the leaf system will draw this entity.
+-	void							AddToLeafSystem();
+-	void							AddToLeafSystem( RenderGroup_t group );
+-	// remove entity form leaf system again
+-	void							RemoveFromLeafSystem();	
+-
+-	// A method to apply a decal to an entity
+-	virtual void					AddDecal( const Vector& rayStart, const Vector& rayEnd,
+-										const Vector& decalCenter, int hitbox, int decalIndex, bool doTrace, trace_t& tr, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );
+-
+-	virtual void					AddColoredDecal( const Vector& rayStart, const Vector& rayEnd,
+-		const Vector& decalCenter, int hitbox, int decalIndex, bool doTrace, trace_t& tr, Color cColor, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );
+-
+-	// A method to remove all decals from an entity
+-	void							RemoveAllDecals( void );
+-
+-	// Is this a brush model?
+-	bool							IsBrushModel() const;
+-
+-	// A random value 0-1 used by proxies to make sure they're not all in sync
+-	float							ProxyRandomValue() const { return m_flProxyRandomValue; }
+-
+-	// The spawn time of this entity
+-	float							SpawnTime() const { return m_flSpawnTime; }
+-
+-	virtual bool					IsClientCreated( void ) const;
+-
+-	virtual void					UpdateOnRemove( void );
+-
+-	virtual void					SUB_Remove( void );
+-
+-	// Prediction stuff
+-	/////////////////
+-	void							CheckInitPredictable( const char *context );
+-
+-	void							AllocateIntermediateData( void );
+-	void							DestroyIntermediateData( void );
+-	void							ShiftIntermediateDataForward( int slots_to_remove, int previous_last_slot );
+-
+-	void							*GetPredictedFrame( int framenumber );
+-	void							*GetOriginalNetworkDataObject( void );
+-	bool							IsIntermediateDataAllocated( void ) const;
+-
+-	void							InitPredictable( void );
+-	void							ShutdownPredictable( void );
+-
+-	virtual void					SetPredictable( bool state );
+-	bool							GetPredictable( void ) const;
+-	void							PreEntityPacketReceived( int commands_acknowledged );
+-	void							PostEntityPacketReceived( void );
+-	bool							PostNetworkDataReceived( int commands_acknowledged );
+-	virtual bool					PredictionErrorShouldResetLatchedForAllPredictables( void ) { return true; } //legacy behavior is that any prediction error causes all predictables to reset latched
+-	bool							GetPredictionEligible( void ) const;
+-	void							SetPredictionEligible( bool canpredict );
+-
+-	enum
+-	{
+-		SLOT_ORIGINALDATA = -1,
+-	};
+-
+-	int								SaveData( const char *context, int slot, int type );
+-	virtual int						RestoreData( const char *context, int slot, int type );
+-
+-	virtual char const *			DamageDecal( int bitsDamageType, int gameMaterial );
+-	virtual void					DecalTrace( trace_t *pTrace, char const *decalName );
+-	virtual void					ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName );
+-
+-	virtual bool					ShouldPredict( void ) { return false; };
+-	// interface function pointers
+-	void							(C_BaseEntity::*m_pfnThink)(void);
+-	virtual void					Think( void )
+-	{
+-		AssertMsg( m_pfnThink != &C_BaseEntity::Think, "Infinite recursion is infinitely bad." );
+-
+-		if ( m_pfnThink )
+-		{
+-			( this->*m_pfnThink )();
+-		}
+-	}
+-
+-	void							PhysicsDispatchThink( BASEPTR thinkFunc );
+-	
+-	// Toggle the visualization of the entity's abs/bbox
+-	enum
+-	{
+-		VISUALIZE_COLLISION_BOUNDS		= 0x1,
+-		VISUALIZE_SURROUNDING_BOUNDS	= 0x2,
+-		VISUALIZE_RENDER_BOUNDS			= 0x4,
+-	};
+-
+-	void							ToggleBBoxVisualization( int fVisFlags );
+-	void							DrawBBoxVisualizations( void );
+-
+-// Methods implemented on both client and server
+-public:
+-	void							SetSize( const Vector &vecMin, const Vector &vecMax ); // UTIL_SetSize( pev, mins, maxs );
+-	char const						*GetClassname( void );
+-	char const						*GetDebugName( void );
+-	static int						PrecacheModel( const char *name ); 
+-	static bool						PrecacheSound( const char *name );
+-	static void						PrefetchSound( const char *name );
+-	void							Remove( ); // UTIL_Remove( this );
+-
+-public:
+-
+-	// Returns the attachment point index on our parent that our transform is relative to.
+-	// 0 if we're relative to the parent's absorigin and absangles.
+-	unsigned char			GetParentAttachment() const;
+-
+-	// Externalized data objects ( see sharreddefs.h for DataObjectType_t )
+-	bool					HasDataObjectType( int type ) const;
+-	void					AddDataObjectType( int type );
+-	void					RemoveDataObjectType( int type );
+-
+-	void					*GetDataObject( int type );
+-	void					*CreateDataObject( int type );
+-	void					DestroyDataObject( int type );
+-	void					DestroyAllDataObjects( void );
+-
+-	// Determine approximate velocity based on updates from server
+-	void					EstimateAbsVelocity( Vector& vel );
+-
+-#if !defined( NO_ENTITY_PREDICTION )
+-	// The player drives simulation of this entity
+-	void					SetPlayerSimulated( C_BasePlayer *pOwner );
+-	bool					IsPlayerSimulated( void ) const;
+-	CBasePlayer				*GetSimulatingPlayer( void );
+-	void					UnsetPlayerSimulated( void );
+-#endif
+-
+-	// Sorry folks, here lies TF2-specific stuff that really has no other place to go
+-	virtual bool			CanBePoweredUp( void ) { return false; }
+-	virtual bool			AttemptToPowerup( int iPowerup, float flTime, float flAmount = 0, C_BaseEntity *pAttacker = NULL, CDamageModifier *pDamageModifier = NULL ) { return false; }
+-
+-	void					SetCheckUntouch( bool check );
+-	bool					GetCheckUntouch() const;
+-
+-	virtual bool			IsCurrentlyTouching( void ) const;
+-
+-	virtual void			StartTouch( C_BaseEntity *pOther );
+-	virtual void			Touch( C_BaseEntity *pOther ); 
+-	virtual void			EndTouch( C_BaseEntity *pOther );
+-
+-	void (C_BaseEntity ::*m_pfnTouch)( C_BaseEntity *pOther );
+-
+-	void					PhysicsStep( void );
+-
+-protected:
+-	static bool				sm_bDisableTouchFuncs;	// Disables PhysicsTouch and PhysicsStartTouch function calls
+-
+-public:
+-	touchlink_t				*PhysicsMarkEntityAsTouched( C_BaseEntity *other );
+-	void					PhysicsTouch( C_BaseEntity *pentOther );
+-	void					PhysicsStartTouch( C_BaseEntity *pentOther );
+-
+-	// HACKHACK:Get the trace_t from the last physics touch call (replaces the even-hackier global trace vars)
+-	static const trace_t	&GetTouchTrace( void );
+-
+-	// FIXME: Should be private, but I can't make em private just yet
+-	void					PhysicsImpact( C_BaseEntity *other, trace_t &trace );
+- 	void					PhysicsMarkEntitiesAsTouching( C_BaseEntity *other, trace_t &trace );
+-	void					PhysicsMarkEntitiesAsTouchingEventDriven( C_BaseEntity *other, trace_t &trace );
+-
+-	// Physics helper
+-	static void				PhysicsRemoveTouchedList( C_BaseEntity *ent );
+-	static void				PhysicsNotifyOtherOfUntouch( C_BaseEntity *ent, C_BaseEntity *other );
+-	static void				PhysicsRemoveToucher( C_BaseEntity *other, touchlink_t *link );
+-
+-	groundlink_t			*AddEntityToGroundList( CBaseEntity *other );
+-	void					PhysicsStartGroundContact( CBaseEntity *pentOther );
+-
+-	static void				PhysicsNotifyOtherOfGroundRemoval( CBaseEntity *ent, CBaseEntity *other );
+-	static void				PhysicsRemoveGround( CBaseEntity *other, groundlink_t *link );
+-	static void				PhysicsRemoveGroundList( CBaseEntity *ent );
+-
+-	void					StartGroundContact( CBaseEntity *ground );
+-	void					EndGroundContact( CBaseEntity *ground );
+-
+-	void					SetGroundChangeTime( float flTime );
+-	float					GetGroundChangeTime( void );
+-
+-	// Remove this as ground entity for all object resting on this object
+-	void					WakeRestingObjects();
+-	bool					HasNPCsOnIt();
+-
+-	bool					PhysicsCheckWater( void );
+-	void					PhysicsCheckVelocity( void );
+-	void					PhysicsAddHalfGravity( float timestep );
+-	void					PhysicsAddGravityMove( Vector &move );
+-
+-	virtual unsigned int	PhysicsSolidMaskForEntity( void ) const;
+-
+-	void					SetGroundEntity( C_BaseEntity *ground );
+-	C_BaseEntity			*GetGroundEntity( void );
+-
+-	void					PhysicsPushEntity( const Vector& push, trace_t *pTrace );
+-	void					PhysicsCheckWaterTransition( void );
+-
+-	// Performs the collision resolution for fliers.
+-	void					PerformFlyCollisionResolution( trace_t &trace, Vector &move );
+-	void					ResolveFlyCollisionBounce( trace_t &trace, Vector &vecVelocity, float flMinTotalElasticity = 0.0f );
+-	void					ResolveFlyCollisionSlide( trace_t &trace, Vector &vecVelocity );
+-	void					ResolveFlyCollisionCustom( trace_t &trace, Vector &vecVelocity );
+-
+-	void					PhysicsCheckForEntityUntouch( void );
+-
+-	// Creates the shadow (if it doesn't already exist) based on shadow cast type
+-	void					CreateShadow();
+-
+-	// Destroys the shadow; causes its type to be recomputed if the entity doesn't go away immediately.
+-	void					DestroyShadow();
+-
+-protected:
+-		// think function handling
+-	enum thinkmethods_t
+-	{
+-		THINK_FIRE_ALL_FUNCTIONS,
+-		THINK_FIRE_BASE_ONLY,
+-		THINK_FIRE_ALL_BUT_BASE,
+-	};
+-public:
+-
+-	// Unlinks from hierarchy
+-	// Set the movement parent. Your local origin and angles will become relative to this parent.
+-	// If iAttachment is a valid attachment on the parent, then your local origin and angles 
+-	// are relative to the attachment on this entity.
+-	void SetParent( C_BaseEntity *pParentEntity, int iParentAttachment=0 );
+-
+-	bool					PhysicsRunThink( thinkmethods_t thinkMethod = THINK_FIRE_ALL_FUNCTIONS );
+-	bool					PhysicsRunSpecificThink( int nContextIndex, BASEPTR thinkFunc );
+-
+-	virtual void					PhysicsSimulate( void );
+-	virtual bool					IsAlive( void );
+-
+-	bool							IsInWorld( void ) { return true; }
+-
+-	bool							IsWorld() { return entindex() == 0; }
+-	/////////////////
+-
+-	virtual bool					IsPlayer( void ) const { return false; };
+-	virtual bool					IsBaseCombatCharacter( void ) { return false; };
+-	virtual C_BaseCombatCharacter	*MyCombatCharacterPointer( void ) { return NULL; }
+-	virtual bool					IsNPC( void ) { return false; }
+-	C_AI_BaseNPC					*MyNPCPointer( void ); 
+-	virtual bool					IsNextBot() { return false; }
+-	// TF2 specific
+-	virtual bool					IsBaseObject( void ) const { return false; }
+-	virtual bool					IsBaseCombatWeapon( void ) const { return false; }
+-	virtual class C_BaseCombatWeapon		*MyCombatWeaponPointer() { return NULL; }
+-	virtual bool					IsCombatItem( void ) const { return false; }
+-
+-	virtual bool					IsBaseTrain( void ) const { return false; }
+-
+-	// Returns the eye point + angles (used for viewing + shooting)
+-	virtual Vector			EyePosition( void );
+-	virtual const QAngle&	EyeAngles( void );		// Direction of eyes
+-	virtual const QAngle&	LocalEyeAngles( void );	// Direction of eyes in local space (pl.v_angle)
+-	
+-	// position of ears
+-	virtual Vector		EarPosition( void );
+-
+-	Vector	EyePosition( void ) const;			// position of eyes
+-	const QAngle &EyeAngles( void ) const;		// Direction of eyes in world space
+-	const QAngle &LocalEyeAngles( void ) const;	// Direction of eyes
+-	Vector	EarPosition( void ) const;			// position of ears
+-
+-	// Called by physics to see if we should avoid a collision test....
+-	virtual bool		ShouldCollide( int collisionGroup, int contentsMask ) const;
+-
+-	// Sets physics parameters
+-	void				SetFriction( float flFriction );
+-
+-	void				SetGravity( float flGravity );
+-	float				GetGravity( void ) const;
+-
+-	// Sets the model from a model index 
+-	void				SetModelByIndex( int nModelIndex );
+-
+-	// Set model... (NOTE: Should only be used by client-only entities
+-	// Returns false if the model name is bogus or otherwise can't be loaded
+-	bool				SetModel( const char *pModelName );
+-
+-	void				SetModelPointer( const model_t *pModel );
+-
+-
+-	// Access movetype and solid.
+-	void				SetMoveType( MoveType_t val, MoveCollide_t moveCollide = MOVECOLLIDE_DEFAULT );	// Set to one of the MOVETYPE_ defines.
+-	void				SetMoveCollide( MoveCollide_t val );	// Set to one of the MOVECOLLIDE_ defines.
+-	void				SetSolid( SolidType_t val );	// Set to one of the SOLID_ defines.
+-
+-	// NOTE: Setting the abs velocity in either space will cause a recomputation
+-	// in the other space, so setting the abs velocity will also set the local vel
+-	void				SetLocalVelocity( const Vector &vecVelocity );
+-	void				SetAbsVelocity( const Vector &vecVelocity );
+-	const Vector&		GetLocalVelocity() const;
+-	const Vector&		GetAbsVelocity( ) const;
+-
+-	void				ApplyLocalVelocityImpulse( const Vector &vecImpulse );
+-	void				ApplyAbsVelocityImpulse( const Vector &vecImpulse );
+-	void				ApplyLocalAngularVelocityImpulse( const AngularImpulse &angImpulse );
+-
+-	// NOTE: Setting the abs velocity in either space will cause a recomputation
+-	// in the other space, so setting the abs velocity will also set the local vel
+-	void				SetLocalAngularVelocity( const QAngle &vecAngVelocity );
+-	const QAngle&		GetLocalAngularVelocity( ) const;
+-
+-//	void				SetAbsAngularVelocity( const QAngle &vecAngAbsVelocity );
+-//	const QAngle&		GetAbsAngularVelocity( ) const;
+-
+-	const Vector&		GetBaseVelocity() const;
+-	void				SetBaseVelocity( const Vector& v );
+-
+-	virtual const Vector &GetViewOffset() const;
+-	virtual void		  SetViewOffset( const Vector& v );
+-
+-#ifdef SIXENSE
+-	const Vector&		GetEyeOffset() const;
+-	void				SetEyeOffset( const Vector& v );
+-
+-	const QAngle &		GetEyeAngleOffset() const;
+-	void				SetEyeAngleOffset( const QAngle & qa );
+-#endif
+-
+-	// Invalidates the abs state of all children
+-	void InvalidatePhysicsRecursive( int nChangeFlags );
+-
+-	ClientRenderHandle_t	GetRenderHandle() const;
+-
+-	void				SetRemovalFlag( bool bRemove );
+-
+-	// Effects...
+-	bool				IsEffectActive( int nEffectMask ) const;
+-	void				AddEffects( int nEffects );
+-	void				RemoveEffects( int nEffects );
+-	int					GetEffects( void ) const;
+-	void				ClearEffects( void );
+-	void				SetEffects( int nEffects );
+-
+-	// Computes the abs position of a point specified in local space
+-	void				ComputeAbsPosition( const Vector &vecLocalPosition, Vector *pAbsPosition );
+-
+-	// Computes the abs position of a direction specified in local space
+-	void				ComputeAbsDirection( const Vector &vecLocalDirection, Vector *pAbsDirection );
+-
+-	// These methods encapsulate MOVETYPE_FOLLOW, which became obsolete
+-	void				FollowEntity( CBaseEntity *pBaseEntity, bool bBoneMerge = true );
+-	void				StopFollowingEntity( );	// will also change to MOVETYPE_NONE
+-	bool				IsFollowingEntity();
+-	CBaseEntity			*GetFollowedEntity();
+-
+-	// For shadows rendering the correct body + sequence...
+-	virtual int GetBody() { return 0; }
+-	virtual int GetSkin() { return 0; }
+-
+-	// Stubs on client
+-	void	NetworkStateManualMode( bool activate )		{ }
+-	void	NetworkStateChanged()						{ }
+-	void	NetworkStateChanged( void *pVar )			{ }
+-	void	NetworkStateSetUpdateInterval( float N )	{ }
+-	void	NetworkStateForceUpdate()					{ }
+-
+-	// Think functions with contexts
+-	int		RegisterThinkContext( const char *szContext );
+-	BASEPTR	ThinkSet( BASEPTR func, float flNextThinkTime = 0, const char *szContext = NULL );
+-	void	SetNextThink( float nextThinkTime, const char *szContext = NULL );
+-	float	GetNextThink( const char *szContext = NULL );
+-	float	GetLastThink( const char *szContext = NULL );
+-	int		GetNextThinkTick( const char *szContext = NULL );
+-	int		GetLastThinkTick( const char *szContext = NULL );
+-	
+-	// These set entity flags (EFL_*) to help optimize queries
+-	void	CheckHasThinkFunction( bool isThinkingHint = false );
+-	void	CheckHasGamePhysicsSimulation();
+-	bool	WillThink();
+-	bool	WillSimulateGamePhysics();
+-	int		GetFirstThinkTick();	// get first tick thinking on any context
+-
+-	float	GetAnimTime() const;
+-	void	SetAnimTime( float at );
+-
+-	float	GetSimulationTime() const;
+-	void	SetSimulationTime( float st );
+-
+-	float	GetCreateTime()										{ return m_flCreateTime; }
+-	void	SetCreateTime( float flCreateTime )					{ m_flCreateTime = flCreateTime; }
+-
+-	int		GetCreationTick() const;
+-
+-	virtual void ClientAdjustStartSoundParams( EmitSound_t &params ) {}
+-	virtual void ClientAdjustStartSoundParams( StartSoundParams_t& params ) {}
+-
+-#ifdef _DEBUG
+-	void FunctionCheck( void *pFunction, const char *name );
+-
+-	ENTITYFUNCPTR TouchSet( ENTITYFUNCPTR func, char *name ) 
+-	{ 
+-		//COMPILE_TIME_ASSERT( sizeof(func) == 4 );
+-		m_pfnTouch = func; 
+-		//FunctionCheck( *(reinterpret_cast<void **>(&m_pfnTouch)), name ); 
+-		return func;
+-	}
+-#endif
+-
+-	// Gets the model instance + shadow handle
+-	virtual ModelInstanceHandle_t GetModelInstance() { return m_ModelInstance; }
+-	void SetModelInstance( ModelInstanceHandle_t hInstance) { m_ModelInstance = hInstance; }
+-	bool SnatchModelInstance( C_BaseEntity * pToEntity );
+-	virtual ClientShadowHandle_t GetShadowHandle() const	{ return m_ShadowHandle; }
+-	virtual ClientRenderHandle_t&	RenderHandle();
+-
+-	void CreateModelInstance();
+-
+-	// Sets the origin + angles to match the last position received
+-	void MoveToLastReceivedPosition( bool force = false );
+-
+-	// Return the IHasAttributes interface for this base entity. Removes the need for:
+-	//	dynamic_cast< IHasAttributes * >( pEntity );
+-	// Which is remarkably slow.
+-	// GetAttribInterface( CBaseEntity *pEntity ) in attribute_manager.h uses
+-	//  this function, tests for NULL, and Asserts m_pAttributes == dynamic_cast.
+-	inline IHasAttributes *GetHasAttributesInterfacePtr() const { return m_pAttributes; }
+-
+-protected:
+-	// NOTE: m_pAttributes needs to be set in the leaf class constructor.
+-	IHasAttributes *m_pAttributes;
+-
+-	// Only meant to be called from subclasses
+-	void DestroyModelInstance();
+-
+-	// Interpolate entity
+-	static void ProcessTeleportList();
+-	static void ProcessInterpolatedList();
+-	static void CheckInterpolatedVarParanoidMeasurement();
+-
+-	// overrideable rules if an entity should interpolate
+-	virtual bool ShouldInterpolate();
+-
+-	// Call this in OnDataChanged if you don't chain it down!
+-	void MarkMessageReceived();
+-
+-	// Gets the last message time
+-	float	GetLastMessageTime() const		{ return m_flLastMessageTime; }
+-
+-	// For non-players
+-	int	PhysicsClipVelocity (const Vector& in, const Vector& normal, Vector& out, float overbounce );
+-
+-	// Allow entities to perform client-side fades
+-    virtual unsigned char GetClientSideFade() { return 255; }
+-
+-protected:
+-	// Two part guts of Interpolate(). Shared with C_BaseAnimating.
+-	enum
+-	{
+-		INTERPOLATE_STOP=0,
+-		INTERPOLATE_CONTINUE
+-	};
+-
+-	// Returns INTERPOLATE_STOP or INTERPOLATE_CONTINUE.
+-	// bNoMoreChanges is set to 1 if you can call RemoveFromInterpolationList on the entity.
+-	int BaseInterpolatePart1( float &currentTime, Vector &oldOrigin, QAngle &oldAngles, Vector &oldVel, int &bNoMoreChanges );
+-	void BaseInterpolatePart2( Vector &oldOrigin, QAngle &oldAngles, Vector &oldVel, int nChangeFlags );
+-
+-
+-public:
+-	// Accessors for above
+-	static int						GetPredictionRandomSeed( bool bUseUnSyncedServerPlatTime = false );
+-	static void						SetPredictionRandomSeed( const CUserCmd *cmd );
+-	static C_BasePlayer				*GetPredictionPlayer( void );
+-	static void						SetPredictionPlayer( C_BasePlayer *player );
+-	static void						CheckCLInterpChanged();
+-
+-	// Collision group accessors
+-	int GetCollisionGroup() const;
+-	void SetCollisionGroup( int collisionGroup );
+-	void							CollisionRulesChanged();
+-
+-	static C_BaseEntity				*Instance( int iEnt );
+-	// Doesn't do much, but helps with trace results
+-	static C_BaseEntity				*Instance( IClientEntity *ent );
+-	static C_BaseEntity				*Instance( CBaseHandle hEnt );
+-	// For debugging shared code
+-	static bool						IsServer( void );
+-	static bool						IsClient( void );
+-	static char const				*GetDLLType( void );
+-	static void	SetAbsQueriesValid( bool bValid );
+-	static bool IsAbsQueriesValid( void );
+-
+-	// Enable/disable abs recomputations on a stack.
+-	static void PushEnableAbsRecomputations( bool bEnable );
+-	static void PopEnableAbsRecomputations();
+-
+-	// This requires the abs recomputation stack to be empty and just sets the global state. 
+-	// It should only be used at the scope of the frame loop.
+-	static void EnableAbsRecomputations( bool bEnable );		
+-	
+-	static bool IsAbsRecomputationsEnabled( void );
+-
+-
+-	// Bloat the culling bbox past the parent ent's bbox in local space if EF_BONEMERGE_FASTCULL is set.
+-	virtual void BoneMergeFastCullBloat( Vector &localMins, Vector &localMaxs, const Vector &thisEntityMins, const Vector &thisEntityMaxs ) const;
+-
+-
+-	// Accessors for color.
+-	const color32 GetRenderColor() const;
+-	void SetRenderColor( byte r, byte g, byte b );
+-	void SetRenderColor( byte r, byte g, byte b, byte a );
+-	void SetRenderColorR( byte r );
+-	void SetRenderColorG( byte g );
+-	void SetRenderColorB( byte b );
+-	void SetRenderColorA( byte a );
+-
+-	void SetRenderMode( RenderMode_t nRenderMode, bool bForceUpdate = false );
+-	RenderMode_t GetRenderMode() const;
+-
+-public:	
+-
+-	// Determine what entity this corresponds to
+-	int								index;	
+-
+-	// Render information
+-	unsigned char					m_nRenderFX;
+-	unsigned char					m_nRenderFXBlend;
+-
+-	// Entity flags that are only for the client (ENTCLIENTFLAG_ defines).
+-	unsigned short					m_EntClientFlags;
+-
+-	CNetworkColor32( m_clrRender );
+-
+-private:
+-	
+-	// Model for rendering
+-	const model_t					*model;
+-
+-public:
+-	// Time animation sequence or frame was last changed
+-	float							m_flAnimTime;
+-	float							m_flOldAnimTime;
+-
+-	float							m_flSimulationTime;
+-	float							m_flOldSimulationTime;
+-	
+-	float							m_flCreateTime;
+-
+-	byte							m_ubInterpolationFrame;
+-	byte							m_ubOldInterpolationFrame;
+-
+-private:
+-	// Effects to apply
+-	int								m_fEffects;
+-	unsigned char 					m_nRenderMode;
+-	unsigned char 					m_nOldRenderMode;
+-
+-public:
+-	// Used to store the state we were added to the BSP as, so it can
+-	// reinsert the entity if the state changes.
+-	ClientRenderHandle_t			m_hRender;	// link into spatial partition
+-
+-	// Interpolation says don't draw yet
+-	bool							m_bReadyToDraw;
+-
+-	// Should we be interpolating?
+-	static bool						IsInterpolationEnabled();
+-
+-	// Should we interpolate this tick?  (Used to be EF_NOINTERP)
+-	bool							IsNoInterpolationFrame();
+-
+-	// 
+-	int								m_nNextThinkTick;
+-	int								m_nLastThinkTick;
+-
+-	// Object model index
+-	short							m_nModelIndex;
+-
+-#ifdef TF_CLIENT_DLL
+-	int								m_nModelIndexOverrides[MAX_VISION_MODES];
+-#endif
+-
+-	char							m_takedamage;
+-	char							m_lifeState;
+-
+-	int								m_iHealth;
+-
+-	// was pev->speed
+-	float							m_flSpeed;
+-
+-	// Team Handling
+-	int								m_iTeamNum;
+-
+-#if !defined( NO_ENTITY_PREDICTION )
+-	// Certain entities (projectiles) can be created on the client
+-	CPredictableId					m_PredictableID;
+-	PredictionContext				*m_pPredictionContext;
+-#endif
+-
+-	// used so we know when things are no longer touching
+-	int								touchStamp;	
+-
+-	// Called after predicted entity has been acknowledged so that no longer needed entity can
+-	//  be deleted
+-	// Return true to force deletion right now, regardless of isbeingremoved
+-	virtual bool					OnPredictedEntityRemove( bool isbeingremoved, C_BaseEntity *predicted );
+-
+-	bool							IsDormantPredictable( void ) const;
+-	bool							BecameDormantThisPacket( void ) const;
+-	void							SetDormantPredictable( bool dormant );
+-
+-	int								GetWaterLevel() const;
+-	void							SetWaterLevel( int nLevel );
+-	int								GetWaterType() const;
+-	void							SetWaterType( int nType );
+-
+-	float							GetElasticity( void ) const;
+-
+-	int								GetTextureFrameIndex( void );
+-	void							SetTextureFrameIndex( int iIndex );
+-
+-	virtual bool					GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const;
+-	virtual bool					GetShadowCastDirection( Vector *pDirection, ShadowType_t shadowType ) const;
+-	virtual C_BaseEntity 			*GetShadowUseOtherEntity( void ) const;
+-	virtual void					SetShadowUseOtherEntity( C_BaseEntity *pEntity );
+-
+-	CInterpolatedVar< QAngle >& GetRotationInterpolator();
+-	CInterpolatedVar< Vector >& GetOriginInterpolator();
+-	virtual bool					AddRagdollToFadeQueue( void ) { return true; }
+-
+-	// Dirty bits
+-	void							MarkRenderHandleDirty();
+-
+-	// used by SourceTV since move-parents may be missing when child spawns.
+-	void							HierarchyUpdateMoveParent();
+-
+-	virtual bool					IsDeflectable() { return false; }
+-
+-	bool			IsCombatCharacter() { return MyCombatCharacterPointer() == NULL ? false : true; }
+-protected:
+-	int								m_nFXComputeFrame;
+-
+-	// FIXME: Should I move the functions handling these out of C_ClientEntity
+-	// and into C_BaseEntity? Then we could make these private.
+-	// Client handle
+-	CBaseHandle m_RefEHandle;	// Reference ehandle. Used to generate ehandles off this entity.
+-
+-private:
+-	// Set by tools if this entity should route "info" to various tools listening to HTOOLENTITIES
+-#ifndef NO_TOOLFRAMEWORK
+-	bool							m_bEnabledInToolView;
+-	bool							m_bToolRecording;
+-	HTOOLHANDLE						m_ToolHandle;
+-	int								m_nLastRecordedFrame;
+-	bool							m_bRecordInTools; // should this entity be recorded in the tools (we exclude some things like models for menus)
+-#endif
+-
+-protected:
+-	// pointer to the entity's physics object (vphysics.dll)
+-	IPhysicsObject					*m_pPhysicsObject;	
+-
+-#if !defined( NO_ENTITY_PREDICTION )
+-	bool							m_bPredictionEligible;
+-#endif
+-
+-	int								m_nSimulationTick;
+-
+-	// Think contexts
+-	int								GetIndexForThinkContext( const char *pszContext );
+-	CUtlVector< thinkfunc_t >		m_aThinkFunctions;
+-	int								m_iCurrentThinkContext;
+-
+-	// Object eye position
+-	Vector							m_vecViewOffset;
+-
+-#if defined(SIXENSE)
+-	Vector							m_vecEyeOffset;
+-	QAngle							m_EyeAngleOffset;    
+-#endif
+-	// Allow studio models to tell us what their m_nBody value is
+-	virtual int						GetStudioBody( void ) { return 0; }
+-
+-public:
+-	// This can be used to setup the entity as a client-only entity. It gets an entity handle,
+-	// a render handle, and is put into the spatial partition.
+-	bool InitializeAsClientEntityByIndex( int iIndex, RenderGroup_t renderGroup );
+-
+-	void TrackAngRotation( bool bTrack );
+-
+-private:
+-	friend void OnRenderStart();
+-
+-	// Figure out the smoothly interpolated origin for all server entities. Happens right before
+-	// letting all entities simulate.
+-	static void InterpolateServerEntities();
+-	
+-	// Check which entities want to be drawn and add them to the leaf system.
+-	static void	AddVisibleEntities();
+-
+-	// For entities marked for recording, post bone messages to IToolSystems
+-	static void ToolRecordEntities();
+-
+-	// Computes the base velocity
+-	void UpdateBaseVelocity( void );
+-
+-	// Physics-related private methods
+-	void PhysicsPusher( void );
+-	void PhysicsNone( void );
+-	void PhysicsNoclip( void );
+-	void PhysicsParent( void );
+-	void PhysicsStepRunTimestep( float timestep );
+-	void PhysicsToss( void );
+-	void PhysicsCustom( void );
+-
+-	// Simulation in local space of rigid children
+-	void PhysicsRigidChild( void );
+-
+-	// Computes absolute position based on hierarchy
+-	void CalcAbsolutePosition( );
+-	void CalcAbsoluteVelocity();
+-
+-	// Computes new angles based on the angular velocity
+-	void SimulateAngles( float flFrameTime );
+-
+-	// Implement this if you use MOVETYPE_CUSTOM
+-	virtual void PerformCustomPhysics( Vector *pNewPosition, Vector *pNewVelocity, QAngle *pNewAngles, QAngle *pNewAngVelocity );
+-
+-	// methods related to decal adding
+-	void AddStudioDecal( const Ray_t& ray, int hitbox, int decalIndex, bool doTrace, trace_t& tr, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );
+-	void AddColoredStudioDecal( const Ray_t& ray, int hitbox, int decalIndex, bool doTrace, trace_t& tr, Color cColor, int maxLODToDecal );
+-	void AddBrushModelDecal( const Ray_t& ray, const Vector& decalCenter, int decalIndex, bool doTrace, trace_t& tr );
+-
+-	void ComputePackedOffsets( void );
+-	int ComputePackedSize_R( datamap_t *map );
+-	int GetIntermediateDataSize( void );
+-
+-	void UnlinkChild( C_BaseEntity *pParent, C_BaseEntity *pChild );
+-	void LinkChild( C_BaseEntity *pParent, C_BaseEntity *pChild );
+-	void HierarchySetParent( C_BaseEntity *pNewParent );
+-	void UnlinkFromHierarchy();
+-
+-	// Computes the water level + type
+-	void UpdateWaterState();
+-
+-	// Checks a sweep without actually performing the move
+-	void PhysicsCheckSweep( const Vector& vecAbsStart, const Vector &vecAbsDelta, trace_t *pTrace );
+-
+-	// FIXME: REMOVE!!!
+-	void MoveToAimEnt( );
+-	
+-	// Sets/Gets the next think based on context index
+-	void SetNextThink( int nContextIndex, float thinkTime );
+-	void SetLastThink( int nContextIndex, float thinkTime );
+-	float GetNextThink( int nContextIndex ) const;
+-	int	GetNextThinkTick( int nContextIndex ) const;
+-
+-	// Object velocity
+-	Vector							m_vecVelocity;
+-	CInterpolatedVar< Vector >		m_iv_vecVelocity;
+-
+-	Vector							m_vecAbsVelocity;
+-
+-	// was pev->avelocity
+-	QAngle							m_vecAngVelocity;
+-
+-//	QAngle							m_vecAbsAngVelocity;
+-
+-#if !defined( NO_ENTITY_PREDICTION )
+-	// It's still in the list for "fixup purposes" and simulation, but don't try to render it any more...
+-	bool							m_bDormantPredictable;
+-
+-	// So we can clean it up
+-	int								m_nIncomingPacketEntityBecameDormant;
+-#endif
+-
+-	// The spawn time of the entity
+-	float							m_flSpawnTime;
+-
+-	// Timestamp of message arrival
+-	float							m_flLastMessageTime;
+-
+-	// Base velocity
+-	Vector							m_vecBaseVelocity;
+-	
+-	// Gravity multiplier
+-	float							m_flGravity;
+-
+-	// Model instance data..
+-	ModelInstanceHandle_t			m_ModelInstance;
+-
+-	// Shadow data
+-	ClientShadowHandle_t			m_ShadowHandle;
+-
+-	// A random value used by material proxies for each model instance.
+-	float							m_flProxyRandomValue;
+-
+-	ClientThinkHandle_t				m_hThink;
+-
+-	int								m_iEFlags;	// entity flags EFL_*
+-
+-	// Object movetype
+-	unsigned char					m_MoveType;
+-	unsigned char					m_MoveCollide;
+-	unsigned char					m_iParentAttachment; // 0 if we're relative to the parent's absorigin and absangles.
+-	unsigned char					m_iOldParentAttachment;
+-
+-	unsigned char					m_nWaterLevel;
+-	unsigned char					m_nWaterType;
+-	// For client/server entities, true if the entity goes outside the PVS.
+-	// Unused for client only entities.
+-	bool							m_bDormant;
+-	// Prediction system
+-	bool							m_bPredictable;
+-
+-
+-	// Hierarchy
+-	CHandle<C_BaseEntity>			m_pMoveParent;
+-	CHandle<C_BaseEntity>			m_pMoveChild;
+-	CHandle<C_BaseEntity>			m_pMovePeer;
+-	CHandle<C_BaseEntity>			m_pMovePrevPeer;
+-
+-	// The moveparent received from networking data
+-	CHandle<C_BaseEntity>			m_hNetworkMoveParent;
+-	CHandle<C_BaseEntity>			m_hOldMoveParent;
+-
+-	string_t						m_ModelName;
+-
+-	CNetworkVarEmbedded( CCollisionProperty, m_Collision );
+-	CNetworkVarEmbedded( CParticleProperty, m_Particles );
+-
+-	// Physics state
+-	float							m_flElasticity;
+-
+-	float							m_flShadowCastDistance;
+-	EHANDLE							m_ShadowDirUseOtherEntity;
+-
+-	EHANDLE							m_hGroundEntity;
+-	float							m_flGroundChangeTime;
+-
+-
+-	// Friction.
+-	float							m_flFriction;       
+-
+-	Vector							m_vecAbsOrigin;
+-
+-	// Object orientation
+-	QAngle							m_angAbsRotation;
+-
+-	Vector							m_vecOldOrigin;
+-	QAngle							m_vecOldAngRotation;
+-
+-	Vector							m_vecOrigin;
+-	CInterpolatedVar< Vector >		m_iv_vecOrigin;
+-	QAngle							m_angRotation;
+-	CInterpolatedVar< QAngle >		m_iv_angRotation;
+-
+-	// Specifies the entity-to-world transform
+-	matrix3x4_t						m_rgflCoordinateFrame;
+-
+-	// Last values to come over the wire. Used for interpolation.
+-	Vector							m_vecNetworkOrigin;
+-	QAngle							m_angNetworkAngles;
+-
+-	// Behavior flags
+-	int								m_fFlags;
+-
+-	// used to cull collision tests
+-	int								m_CollisionGroup;
+-
+-#if !defined( NO_ENTITY_PREDICTION )
+-	// For storing prediction results and pristine network state
+-	byte							*m_pIntermediateData[ MULTIPLAYER_BACKUP ];
+-	byte							*m_pOriginalData;
+-	int								m_nIntermediateDataCount;
+-
+-	bool							m_bIsPlayerSimulated;
+-#endif
+-
+-	CNetworkVar( bool, m_bSimulatedEveryTick );
+-	CNetworkVar( bool, m_bAnimatedEveryTick );
+-	CNetworkVar( bool, m_bAlternateSorting );
+-
+-	//Adrian
+-	unsigned char					m_iTextureFrameIndex;
+-
+-	// Bbox visualization
+-	unsigned char					m_fBBoxVisFlags;
+-
+-	// The list that holds OnDataChanged events uses this to make sure we don't get multiple
+-	// OnDataChanged calls in the same frame if the client receives multiple packets.
+-	int								m_DataChangeEventRef;
+-
+-#if !defined( NO_ENTITY_PREDICTION )
+-	// Player who is driving my simulation
+-	CHandle< CBasePlayer >			m_hPlayerSimulationOwner;
+-#endif
+-
+-	// The owner!
+-	EHANDLE							m_hOwnerEntity;
+-	EHANDLE							m_hEffectEntity;
+-	
+-	// This is a random seed used by the networking code to allow client - side prediction code
+-	//  randon number generators to spit out the same random numbers on both sides for a particular
+-	//  usercmd input.
+-	static int						m_nPredictionRandomSeed;
+-	static C_BasePlayer				*m_pPredictionPlayer;
+-	static bool						s_bAbsQueriesValid;
+-	static bool						s_bAbsRecomputationEnabled;
+-
+-	static bool						s_bInterpolate;
+-	
+-	int								m_fDataObjectTypes;
+-
+-	AimEntsListHandle_t				m_AimEntsListHandle;
+-	int								m_nCreationTick;
+-
+-	
+-public:
+-	float							m_fRenderingClipPlane[4]; //world space clip plane when drawing
+-	bool							m_bEnableRenderingClipPlane; //true to use the custom clip plane when drawing
+-	float *							GetRenderClipPlane( void ); // Rendering clip plane, should be 4 floats, return value of NULL indicates a disabled render clip plane
+-
+-protected:
+-
+-	void AddToInterpolationList();
+-	void RemoveFromInterpolationList();
+-	unsigned short m_InterpolationListEntry;	// Entry into g_InterpolationList (or g_InterpolationList.InvalidIndex if not in the list).
+-	
+-	void AddToTeleportList();
+-	void RemoveFromTeleportList();
+-	unsigned short m_TeleportListEntry;
+-
+-	CThreadFastMutex m_CalcAbsolutePositionMutex;
+-	CThreadFastMutex m_CalcAbsoluteVelocityMutex;
+-
+-#ifdef TF_CLIENT_DLL
+-	// TF prevents drawing of any entity attached to players that aren't items in the inventory of the player.
+-	// This is to prevent servers creating fake cosmetic items and attaching them to players.
+-public:
+-	virtual bool ValidateEntityAttachedToPlayer( bool &bShouldRetry );
+-	bool EntityDeemedInvalid( void ) { return (m_bValidatedOwner && m_bDeemedInvalid); }
+-protected:
+-	bool m_bValidatedOwner;
+-	bool m_bDeemedInvalid;
+-	bool m_bWasDeemedInvalid;
+-	RenderMode_t m_PreviousRenderMode;
+-	color32 m_PreviousRenderColor;
+-#endif
+ 
+-private:
+-	bool	m_bOldShouldDraw;
+-};
+ 
+ EXTERN_RECV_TABLE(DT_BaseEntity);
+ 
+-inline bool FClassnameIs( C_BaseEntity *pEntity, const char *szClassname )
+-{ 
+-	Assert( pEntity );
+-	if ( pEntity == NULL )
+-		return false;
+-
+-	return !strcmp( pEntity->GetClassname(), szClassname ) ? true : false; 
+-}
++bool FClassnameIs( IGameEntity *pEntity, const char *szClassname );
+ 
+-#define SetThink( a ) ThinkSet( static_cast <void (CBaseEntity::*)(void)> (a), 0, NULL )
+-#define SetContextThink( a, b, context ) ThinkSet( static_cast <void (CBaseEntity::*)(void)> (a), (b), context )
++#define SetThink( a ) ThinkSet( static_cast <void (IGameEntity::*)(void)> (a), 0, NULL )
++#define SetContextThink( a, b, context ) ThinkSet( static_cast <void (IGameEntity::*)(void)> (a), (b), context )
+ 
+ #ifdef _DEBUG
+-#define SetTouch( a ) TouchSet( static_cast <void (C_BaseEntity::*)(C_BaseEntity *)> (a), #a )
++#define SetTouch( a ) TouchSet( static_cast <void (IGameEntity::*)(IGameEntity *)> (a), #a )
+ 
+ #else
+-#define SetTouch( a ) m_pfnTouch = static_cast <void (C_BaseEntity::*)(C_BaseEntity *)> (a)
++#define SetTouch( a ) m_pfnTouch = static_cast <void (IGameEntity::*)(IGameEntity *)> (a)
+ 
+ #endif
+ 
+@@ -1739,485 +196,35 @@ inline bool FClassnameIs( C_BaseEntity *pEntity, const char *szClassname )
+ //-----------------------------------------------------------------------------
+ // An inline version the game code can use
+ //-----------------------------------------------------------------------------
+-inline CCollisionProperty *C_BaseEntity::CollisionProp()
+-{
+-	return &m_Collision;
+-}
+-
+-inline const CCollisionProperty *C_BaseEntity::CollisionProp() const
+-{
+-	return &m_Collision;
+-}
+-
+-//-----------------------------------------------------------------------------
+-// An inline version the game code can use
+-//-----------------------------------------------------------------------------
+-inline CParticleProperty *C_BaseEntity::ParticleProp()
+-{
+-	return &m_Particles;
+-}
+-
+-inline const CParticleProperty *C_BaseEntity::ParticleProp() const
+-{
+-	return &m_Particles;
+-}
+-
+-//-----------------------------------------------------------------------------
+-// Purpose: Returns whether this entity was created on the client.
+-//-----------------------------------------------------------------------------
+-inline bool C_BaseEntity::IsServerEntity( void )
+-{
+-	return index != -1;
+-}
+-
+-//-----------------------------------------------------------------------------
+-// Inline methods
+-//-----------------------------------------------------------------------------
+-inline matrix3x4_t &C_BaseEntity::EntityToWorldTransform()
+-{ 
+-	Assert( s_bAbsQueriesValid );
+-	CalcAbsolutePosition();
+-	return m_rgflCoordinateFrame; 
+-}
+-
+-inline const matrix3x4_t &C_BaseEntity::EntityToWorldTransform() const
+-{
+-	Assert( s_bAbsQueriesValid );
+-	const_cast<C_BaseEntity*>(this)->CalcAbsolutePosition();
+-	return m_rgflCoordinateFrame; 
+-}
+-
+-inline const Vector& C_BaseEntity::GetNetworkOrigin() const
+-{
+-	return m_vecNetworkOrigin;
+-}
+-
+-inline const QAngle& C_BaseEntity::GetNetworkAngles() const
+-{
+-	return m_angNetworkAngles;
+-}
+-
+-inline const model_t *C_BaseEntity::GetModel( void ) const
+-{
+-	return model;
+-}
+-
+-inline int C_BaseEntity::GetModelIndex( void ) const
+-{
+-	return m_nModelIndex;
+-}
+-
+-//-----------------------------------------------------------------------------
+-// Some helper methods that transform a point from entity space to world space + back
+-//-----------------------------------------------------------------------------
+-inline void C_BaseEntity::EntityToWorldSpace( const Vector &in, Vector *pOut ) const
+-{
+-	if ( GetAbsAngles() == vec3_angle )
+-	{
+-		VectorAdd( in, GetAbsOrigin(), *pOut );
+-	}
+-	else
+-	{
+-		VectorTransform( in, EntityToWorldTransform(), *pOut );
+-	}
+-}
+-
+-inline void C_BaseEntity::WorldToEntitySpace( const Vector &in, Vector *pOut ) const
+-{
+-	if ( GetAbsAngles() == vec3_angle )
+-	{
+-		VectorSubtract( in, GetAbsOrigin(), *pOut );
+-	}
+-	else
+-	{
+-		VectorITransform( in, EntityToWorldTransform(), *pOut );
+-	}
+-}
+-
+-inline const Vector &C_BaseEntity::GetAbsVelocity( ) const
+-{
+-	Assert( s_bAbsQueriesValid );
+-	const_cast<C_BaseEntity*>(this)->CalcAbsoluteVelocity();
+-	return m_vecAbsVelocity;
+-}
+-
+-inline C_BaseEntity	*C_BaseEntity::Instance( IClientEntity *ent )
+-{
+-	return ent ? ent->GetBaseEntity() : NULL;
+-}
+-
+-// For debugging shared code
+-inline bool	C_BaseEntity::IsServer( void )
+-{
+-	return false;
+-}
+-
+-inline bool	C_BaseEntity::IsClient( void )
+-{
+-	return true;
+-}
+-
+-inline const char *C_BaseEntity::GetDLLType( void )
+-{
+-	return "client";
+-}
+-
+-
+-//-----------------------------------------------------------------------------
+-// Methods relating to solid type + flags
+-//-----------------------------------------------------------------------------
+-inline void C_BaseEntity::SetSolidFlags( int nFlags )
+-{
+-	CollisionProp()->SetSolidFlags( nFlags );
+-}
+-
+-inline bool C_BaseEntity::IsSolidFlagSet( int flagMask ) const
+-{
+-	return CollisionProp()->IsSolidFlagSet( flagMask );
+-}
+-
+-inline int	C_BaseEntity::GetSolidFlags( void ) const
+-{
+-	return CollisionProp()->GetSolidFlags( );
+-}
+-
+-inline void C_BaseEntity::AddSolidFlags( int nFlags )
+-{
+-	CollisionProp()->AddSolidFlags( nFlags );
+-}
+-
+-inline void C_BaseEntity::RemoveSolidFlags( int nFlags )
+-{
+-	CollisionProp()->RemoveSolidFlags( nFlags );
+-}
+-
+-inline bool C_BaseEntity::IsSolid() const
+-{
+-	return CollisionProp()->IsSolid( );
+-}
+-
+-inline void C_BaseEntity::SetSolid( SolidType_t val )
+-{
+-	CollisionProp()->SetSolid( val );
+-}
+-
+-inline SolidType_t C_BaseEntity::GetSolid( ) const
+-{
+-	return CollisionProp()->GetSolid( );
+-}
+-
+-inline void C_BaseEntity::SetCollisionBounds( const Vector& mins, const Vector &maxs )
+-{
+-	CollisionProp()->SetCollisionBounds( mins, maxs );
+-}
+-
+-
+-//-----------------------------------------------------------------------------
+-// Methods relating to bounds
+-//-----------------------------------------------------------------------------
+-inline const Vector& C_BaseEntity::WorldAlignMins( ) const
+-{
+-	Assert( !CollisionProp()->IsBoundsDefinedInEntitySpace() );
+-	Assert( CollisionProp()->GetCollisionAngles() == vec3_angle );
+-	return CollisionProp()->OBBMins();
+-}
+-
+-inline const Vector& C_BaseEntity::WorldAlignMaxs( ) const
+-{
+-	Assert( !CollisionProp()->IsBoundsDefinedInEntitySpace() );
+-	Assert( CollisionProp()->GetCollisionAngles() == vec3_angle );
+-	return CollisionProp()->OBBMaxs();
+-}
+-
+-inline const Vector& C_BaseEntity::WorldAlignSize( ) const
+-{
+-	Assert( !CollisionProp()->IsBoundsDefinedInEntitySpace() );
+-	Assert( CollisionProp()->GetCollisionAngles() == vec3_angle );
+-	return CollisionProp()->OBBSize();
+-}
+-
+-inline float CBaseEntity::BoundingRadius() const
+-{
+-	return CollisionProp()->BoundingRadius();
+-}
+-
+-inline bool CBaseEntity::IsPointSized() const
+-{
+-	return CollisionProp()->BoundingRadius() == 0.0f;
+-}
+-
+-
+-//-----------------------------------------------------------------------------
+-// Methods relating to traversing hierarchy
+-//-----------------------------------------------------------------------------
+-inline C_BaseEntity *C_BaseEntity::GetMoveParent( void ) const
+-{
+-	return m_pMoveParent; 
+-}
+-
+-inline C_BaseEntity *C_BaseEntity::FirstMoveChild( void ) const
+-{
+-	return m_pMoveChild; 
+-}
+-
+-inline C_BaseEntity *C_BaseEntity::NextMovePeer( void ) const
+-{
+-	return m_pMovePeer; 
+-}
+-
+-//-----------------------------------------------------------------------------
+-// Velocity
+-//-----------------------------------------------------------------------------
+-inline const Vector& C_BaseEntity::GetLocalVelocity() const 
+-{ 
+-	return m_vecVelocity; 
+-}
+-
+-inline const QAngle& C_BaseEntity::GetLocalAngularVelocity( ) const
+-{
+-	return m_vecAngVelocity;
+-}
+-
+-inline const Vector& C_BaseEntity::GetBaseVelocity() const 
+-{ 
+-	return m_vecBaseVelocity; 
+-}
+-
+-inline void	C_BaseEntity::SetBaseVelocity( const Vector& v ) 
+-{ 
+-	m_vecBaseVelocity = v; 
+-}
+-
+-inline void C_BaseEntity::SetFriction( float flFriction ) 
+-{ 
+-	m_flFriction = flFriction; 
+-}
+-
+-inline void C_BaseEntity::SetGravity( float flGravity ) 
+-{ 
+-	m_flGravity = flGravity; 
+-}
+-
+-inline float C_BaseEntity::GetGravity( void ) const 
+-{ 
+-	return m_flGravity; 
+-}
+-
+-inline int C_BaseEntity::GetWaterLevel() const
+-{
+-	return m_nWaterLevel;
+-}
+-
+-inline void C_BaseEntity::SetWaterLevel( int nLevel )
+-{
+-	m_nWaterLevel = nLevel;
+-}
+-
+-inline float C_BaseEntity::GetElasticity( void )	const			
+-{ 
+-	return m_flElasticity; 
+-}
+-
+-inline const color32 CBaseEntity::GetRenderColor() const
+-{
+-	return m_clrRender.Get();
+-}
+-
+-inline void C_BaseEntity::SetRenderColor( byte r, byte g, byte b )
+-{
+-	color32 clr = { r, g, b, m_clrRender->a };
+-	m_clrRender = clr;
+-}
+-
+-inline void C_BaseEntity::SetRenderColor( byte r, byte g, byte b, byte a )
+-{
+-	color32 clr = { r, g, b, a };
+-	m_clrRender = clr;
+-}
+-
+-inline void C_BaseEntity::SetRenderColorR( byte r )
+-{
+-	SetRenderColor( r, GetRenderColor().g, GetRenderColor().b );
+-}
+-
+-inline void C_BaseEntity::SetRenderColorG( byte g )
+-{
+-	SetRenderColor( GetRenderColor().r, g, GetRenderColor().b );
+-}
+-
+-inline void C_BaseEntity::SetRenderColorB( byte b )
+-{
+-	SetRenderColor( GetRenderColor().r, GetRenderColor().g, b );
+-}
+-
+-inline void C_BaseEntity::SetRenderColorA( byte a )
+-{
+-	SetRenderColor( GetRenderColor().r, GetRenderColor().g, GetRenderColor().b, a );
+-}
+-
+-inline RenderMode_t CBaseEntity::GetRenderMode() const
+-{
+-	return (RenderMode_t)m_nRenderMode;
+-}
+-
+-//-----------------------------------------------------------------------------
+-// checks to see if the entity is marked for deletion
+-//-----------------------------------------------------------------------------
+-inline bool C_BaseEntity::IsMarkedForDeletion( void ) 
+-{ 
+-	return (m_iEFlags & EFL_KILLME); 
+-}
+-
+-inline void C_BaseEntity::AddEFlags( int nEFlagMask )
+-{
+-	m_iEFlags |= nEFlagMask;
+-}
+-
+-inline void C_BaseEntity::RemoveEFlags( int nEFlagMask )
+-{
+-	m_iEFlags &= ~nEFlagMask;
+-}
+-
+-inline bool CBaseEntity::IsEFlagSet( int nEFlagMask ) const
+-{
+-	return (m_iEFlags & nEFlagMask) != 0;
+-}
+-
+-inline unsigned char CBaseEntity::GetParentAttachment() const
+-{
+-	return m_iParentAttachment;
+-}
+-
+-inline ClientRenderHandle_t CBaseEntity::GetRenderHandle() const 
+-{ 
+-	return m_hRender; 
+-}
+-
+-inline ClientRenderHandle_t& CBaseEntity::RenderHandle()
+-{
+-	return m_hRender;
+-}
+-
+-#ifdef SIXENSE
+-
+-inline const Vector& CBaseEntity::GetEyeOffset() const 
+-{ 
+-	return m_vecEyeOffset; 
+-}
+-
+-inline void CBaseEntity::SetEyeOffset( const Vector& v ) 
+-{ 
+-	m_vecEyeOffset = v; 
+-}
+-
+-inline const QAngle & CBaseEntity::GetEyeAngleOffset() const 
+-{ 
+-	return m_EyeAngleOffset; 
+-}
+-
+-inline void CBaseEntity::SetEyeAngleOffset( const QAngle & qa ) 
+-{ 
+-	m_EyeAngleOffset = qa; 
+-}
+-
+-#endif
+-
+-//-----------------------------------------------------------------------------
+-// Methods to cast away const
+-//-----------------------------------------------------------------------------
+-inline Vector C_BaseEntity::EyePosition( void ) const
+-{
+-	return const_cast<C_BaseEntity*>(this)->EyePosition();
+-}
+-
+-inline const QAngle &C_BaseEntity::EyeAngles( void ) const		// Direction of eyes in world space
+-{
+-	return const_cast<C_BaseEntity*>(this)->EyeAngles();
+-}
+ 
+-inline const QAngle &C_BaseEntity::LocalEyeAngles( void ) const	// Direction of eyes
+-{
+-	return const_cast<C_BaseEntity*>(this)->LocalEyeAngles();
+-}
++#include "handle_cross.h"
+ 
+-inline Vector	C_BaseEntity::EarPosition( void ) const			// position of ears
++inline IGameEntity *SDKEntityFromUnknown( IClientUnknown *pUnknown )
+ {
+-	return const_cast<C_BaseEntity*>(this)->EarPosition();
++	return SourceSharp_SDKEntityFromUnknown< SourceSharpClientPartition >( pUnknown );
+ }
+ 
+-inline VarMapping_t* C_BaseEntity::GetVarMapping()
++inline IGameEntity *SDKEntityFromRenderable( IClientRenderable *pRenderable )
+ {
+-	return &m_VarMap;
++	return pRenderable ? SDKEntityFromUnknown( pRenderable->GetIClientUnknown() ) : NULL;
+ }
+ 
+-//-----------------------------------------------------------------------------
+-// Should we be interpolating?
+-//-----------------------------------------------------------------------------
+-inline bool	C_BaseEntity::IsInterpolationEnabled()
+-{
+-	return s_bInterpolate;
+-}
+ 
+-//-----------------------------------------------------------------------------
+-// Should we be interpolating during this frame? (was EF_NOINTERP)
+-//-----------------------------------------------------------------------------
+-inline bool C_BaseEntity::IsNoInterpolationFrame()
+-{
+-	return m_ubOldInterpolationFrame != m_ubInterpolationFrame;
+-}
++IGameEntity *CreateEntityByName( const char *className );
+ 
+ //-----------------------------------------------------------------------------
+-// Purpose: 
+-// Input  : handle - 
+-// Output : inline void
+ //-----------------------------------------------------------------------------
+-inline void C_BaseEntity::SetToolHandle( HTOOLHANDLE handle )
+-{
+-#ifndef NO_TOOLFRAMEWORK
+-	m_ToolHandle = handle;
+-#endif
+-}
++#include "handle_cross.h"
++#include "igameentity.h"
+ 
+-//-----------------------------------------------------------------------------
+-// Purpose: 
+-// Input  :  - 
+-// Output : inline HTOOLHANDLE
+-//-----------------------------------------------------------------------------
+-inline HTOOLHANDLE C_BaseEntity::GetToolHandle() const
+-{
+-#ifndef NO_TOOLFRAMEWORK
+-	return m_ToolHandle;
+-#else
+-	return (HTOOLHANDLE)0;
+-#endif
+-}
++class C_BaseCombatWeapon;
+ 
+-//-----------------------------------------------------------------------------
+-// 
+-//-----------------------------------------------------------------------------
+-inline bool C_BaseEntity::IsEnabledInToolView() const
+-{
+-#ifndef NO_TOOLFRAMEWORK
+-	return m_bEnabledInToolView;
+-#else
+-	return false;
+-#endif
+-}
++template<> C_BaseCombatWeapon *CHandle<C_BaseCombatWeapon>::Get() const;
+ 
+-//-----------------------------------------------------------------------------
+-// Purpose: 
+-// Input  :  - 
+-// Output : inline bool
+-//-----------------------------------------------------------------------------
+-inline bool C_BaseEntity::ShouldRecordInTools() const
++template<>
++inline IGameEntity *CHandle<IGameEntity>::Get() const
+ {
+-#ifndef NO_TOOLFRAMEWORK
+-	return m_bRecordInTools;
+-#else
+-	return true;
+-#endif
++	return SourceSharp_CrossHandleToClientGameEntity< IGameEntity, IClientUnknown >( CBaseHandle::Get() );
+ }
+ 
+-C_BaseEntity *CreateEntityByName( const char *className );
+-
+ #endif // C_BASEENTITY_H
+diff --git a/src/game/client/c_baseflex.h b/src/game/client/c_baseflex.h
+index f0c96635370e3b44651ab8244dda12b003596a92..0396f1b96421c8bea990b24b83ab8b1cc445bf76 100644
+--- a/src/game/client/c_baseflex.h
++++ b/src/game/client/c_baseflex.h
+@@ -192,7 +192,7 @@ public:
+ 	void				RemoveChoreoScene( CChoreoScene *scene );
+ 
+ 	// Start the specifics of an scene event
+-	virtual bool		StartSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CChoreoEvent *event, CChoreoActor *actor, C_BaseEntity *pTarget );
++	virtual bool		StartSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CChoreoEvent *event, CChoreoActor *actor, IGameEntity *pTarget );
+ 
+ 	// Manipulation of events for the object
+ 	// Should be called by think function to process all scene events
+@@ -213,7 +213,7 @@ public:
+ 	virtual	bool		ClearSceneEvent( CSceneEventInfo *info, bool fastKill, bool canceled );
+ 
+ 	// Add the event to the queue for this actor
+-	void				AddSceneEvent( CChoreoScene *scene, CChoreoEvent *event, C_BaseEntity *pTarget = NULL, bool bClientSide = false );
++	void				AddSceneEvent( CChoreoScene *scene, CChoreoEvent *event, IGameEntity *pTarget = NULL, bool bClientSide = false );
+ 
+ 	// Remove the event from the queue for this actor
+ 	void				RemoveSceneEvent( CChoreoScene *scene, CChoreoEvent *event, bool fastKill );
+@@ -234,7 +234,7 @@ public:
+ 
+ private:
+ 
+-	bool RequestStartSequenceSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CChoreoEvent *event, CChoreoActor *actor, CBaseEntity *pTarget );
++	bool RequestStartSequenceSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CChoreoEvent *event, CChoreoActor *actor, IGameEntity *pTarget );
+ 
+ 	bool ProcessFlexAnimationSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CChoreoEvent *event );
+ 	bool ProcessFlexSettingSceneEvent( CSceneEventInfo *info, CChoreoScene *scene, CChoreoEvent *event );
+diff --git a/src/game/client/c_baseplayer.h b/src/game/client/c_baseplayer.h
+index 11a7fabca8808702aeb2e8846ecf6bb561864a4d..0807ac4e22e13dafcf8138f7d938de3180ef5bc2 100644
+--- a/src/game/client/c_baseplayer.h
++++ b/src/game/client/c_baseplayer.h
+@@ -14,7 +14,9 @@
+ 
+ #include "c_playerlocaldata.h"
+ #include "c_basecombatcharacter.h"
++#include "baseplayer_shared.h"
+ #include "PlayerState.h"
++#include "imovementplayer.h"
+ #include "usercmd.h"
+ #include "shareddefs.h"
+ #include "timedevent.h"
+@@ -68,7 +70,7 @@ bool IsInFreezeCam( void );
+ //-----------------------------------------------------------------------------
+ // Purpose: Base Player class
+ //-----------------------------------------------------------------------------
+-class C_BasePlayer : public C_BaseCombatCharacter, public CGameEventListener
++class C_BasePlayer : public C_BaseCombatCharacter, public CGameEventListener, public IMovementPlayer
+ {
+ public:
+ 	DECLARE_CLASS( C_BasePlayer, C_BaseCombatCharacter );
+@@ -79,6 +81,55 @@ public:
+ 	C_BasePlayer();
+ 	virtual			~C_BasePlayer();
+ 
++	virtual CPlayerLocalData &MvLocal() OVERRIDE { return m_Local; }
++	virtual CPlayerState     &MvPlayerState() OVERRIDE { return pl; }
++	virtual float          &MvWaterJumpTime() OVERRIDE { return m_flWaterJumpTime; }
++	virtual Vector         &MvWaterJumpVel() OVERRIDE { return m_vecWaterJumpVel; }
++	virtual float          &MvSwimSoundTime() OVERRIDE { return m_flSwimSoundTime; }
++	virtual float          &MvStepSoundTime() OVERRIDE { return m_flStepSoundTime; }
++	virtual float          &MvSurfaceFriction() OVERRIDE { return m_surfaceFriction; }
++	virtual surfacedata_t *&MvSurfaceData() OVERRIDE { return m_pSurfaceData; }
++	virtual int            &MvSurfaceProps() OVERRIDE { return m_surfaceProps; }
++	virtual char           &MvTextureType() OVERRIDE { return m_chTextureType; }
++	virtual Vector         &MvLadderNormal() OVERRIDE { return m_vecLadderNormal; }
++	virtual int            &MvStuckLast() OVERRIDE { return m_StuckLast; }
++	virtual int             MvHealth() const OVERRIDE { return 0; }
++	virtual IHandleEntity  *MvGetGroundEntity() OVERRIDE { return NULL; }
++	virtual void            MvSetGroundEntity( IHandleEntity *pGround ) OVERRIDE { (void)pGround; }
++	virtual const Vector   &MvGetBaseVelocity() const OVERRIDE { return vec3_origin; }
++	virtual void            MvSetBaseVelocity( const Vector &v ) OVERRIDE { (void)v; }
++	virtual MoveType_t      MvGetMoveType() const OVERRIDE { return MOVETYPE_NONE; }
++	virtual void            MvSetMoveType( MoveType_t val ) OVERRIDE { (void)val; }
++	virtual MoveCollide_t   MvGetMoveCollide() const OVERRIDE { return MOVECOLLIDE_DEFAULT; }
++	virtual void            MvSetMoveCollide( MoveCollide_t val ) OVERRIDE { (void)val; }
++	virtual const Vector   &MvGetViewOffset() const OVERRIDE { return vec3_origin; }
++	virtual void            MvSetViewOffset( const Vector &v ) OVERRIDE { (void)v; }
++	virtual float           MvGetGravity() const OVERRIDE { return 0.0f; }
++	virtual void            MvSetGravity( float flGravity ) OVERRIDE { (void)flGravity; }
++	virtual float           MvGetStepSize() const OVERRIDE { return GetStepSize(); }
++	virtual float           MvGetLaggedMovementValue() OVERRIDE { return GetLaggedMovementValue(); }
++	virtual float           MvGetPlayerMaxSpeed() OVERRIDE { return GetPlayerMaxSpeed(); }
++	virtual int             MvGetWaterLevel() const OVERRIDE { return 0; }
++	virtual void            MvSetWaterLevel( int nLevel ) OVERRIDE { (void)nLevel; }
++	virtual int             MvGetWaterType() const OVERRIDE { return 0; }
++	virtual void            MvSetWaterType( int nType ) OVERRIDE { (void)nType; }
++	virtual int             MvGetFlags() const OVERRIDE { return 0; }
++	virtual void            MvAddFlag( int flags ) OVERRIDE { (void)flags; }
++	virtual void            MvRemoveFlag( int flags ) OVERRIDE { (void)flags; }
++	virtual int             MvEntIndex() const OVERRIDE { return -1; }
++	virtual int             MvCurrentCommandNumber() const OVERRIDE { return CurrentCommandNumber(); }
++	virtual bool            MvIsServer() const OVERRIDE { return false; }
++	virtual bool            MvIsAlive() const OVERRIDE { return false; }
++	virtual bool            MvIsObserver() const OVERRIDE { return IsObserver(); }
++	virtual int             MvGetObserverMode() const OVERRIDE { return GetObserverMode(); }
++	virtual IGameEntity    *MvGetObserverTarget() const OVERRIDE { return GetObserverTarget(); }
++	virtual bool            MvIsInAVehicle() const OVERRIDE { return IsInAVehicle(); }
++	virtual void            MvPlayStepSound( Vector &vecOrigin, surfacedata_t *psurface, float fvol, bool force ) OVERRIDE { PlayStepSound( vecOrigin, psurface, fvol, force ); }
++	virtual void            MvUpdateStepSound( surfacedata_t *psurface, const Vector &vecOrigin, const Vector &vecVelocity ) OVERRIDE { UpdateStepSound( psurface, vecOrigin, vecVelocity ); }
++	virtual float           GetModelScale() const OVERRIDE { return BaseClass::GetModelScale(); }
++	virtual bool            MvInFirstPersonView() OVERRIDE { return InFirstPersonView(); }
++	virtual void            MvResetLatched() OVERRIDE { ResetLatched(); }
++
+ 	virtual void	Spawn( void );
+ 	virtual void	SharedSpawn(); // Shared between client and server.
+ 	virtual bool	GetSteamID( CSteamID *pID );
+@@ -134,12 +185,12 @@ public:
+ 	virtual void	AvoidPhysicsProps( CUserCmd *pCmd );
+ 	
+ 	virtual void	PlayerUse( void );
+-	CBaseEntity		*FindUseEntity( void );
+-	virtual bool	IsUseableEntity( CBaseEntity *pEntity, unsigned int requiredCaps );
++	IGameEntity		*FindUseEntity( void );
++	virtual bool	IsUseableEntity( IGameEntity *pEntity, unsigned int requiredCaps );
+ 
+ 	// Data handlers
+ 	virtual bool	IsPlayer( void ) const { return true; }
+-	virtual int		GetHealth() const { return m_iHealth; }
++	virtual int		GetHealth() const { return 0; }
+ 
+ 	int		GetBonusProgress() const { return m_iBonusProgress; }
+ 	int		GetBonusChallenge() const { return m_iBonusChallenge; }
+@@ -147,7 +198,7 @@ public:
+ 	// observer mode
+ 	virtual int			GetObserverMode() const;
+ 	void				SetObserverMode ( int iNewMode );
+-	virtual CBaseEntity	*GetObserverTarget() const;
++	virtual IGameEntity	*GetObserverTarget() const;
+ 	void			SetObserverTarget( EHANDLE hObserverTarget );
+ 
+ 	bool			AudioStateIsUnderwater( Vector vecMainViewOrigin );
+@@ -234,9 +285,9 @@ public:
+ 	virtual bool				ViewModel_IsUsingFBTexture( void );
+ 
+ #if !defined( NO_ENTITY_PREDICTION )
+-	void						AddToPlayerSimulationList( C_BaseEntity *other );
++	void						AddToPlayerSimulationList( IGameEntity *other );
+ 	void						SimulatePlayerSimulatedEntities( void );
+-	void						RemoveFromPlayerSimulationList( C_BaseEntity *ent );
++	void						RemoveFromPlayerSimulationList( IGameEntity *ent );
+ 	void						ClearPlayerSimulationList( void );
+ #endif
+ 
+@@ -268,7 +319,7 @@ public:
+ 	virtual float				GetFOV( void );	
+ 	int							GetDefaultFOV( void ) const;
+ 	virtual bool				IsZoomed( void )	{ return false; }
+-	bool						SetFOV( CBaseEntity *pRequester, int FOV, float zoomRate = 0.0f, int iZoomStart = 0 );
++	bool						SetFOV( IGameEntity *pRequester, int FOV, float zoomRate = 0.0f, int iZoomStart = 0 );
+ 	void						ClearZoomOwner( void );
+ 
+ 	float						GetFOVDistanceAdjustFactor();
+@@ -298,7 +349,7 @@ public:
+ 	bool				IsPlayerDead();
+ 	bool				IsPoisoned( void ) { return m_Local.m_bPoisoned; }
+ 
+-	C_BaseEntity				*GetUseEntity();
++	IGameEntity				*GetUseEntity();
+ 
+ 	// Vehicles...
+ 	IClientVehicle			*GetVehicle();
+@@ -453,7 +504,7 @@ protected:
+ 	void				CalcVehicleView(IClientVehicle *pVehicle, Vector& eyeOrigin, QAngle& eyeAngles,
+ 							float& zNear, float& zFar, float& fov );
+ 	virtual void		CalcObserverView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
+-	virtual Vector		GetChaseCamViewOffset( CBaseEntity *target );
++	virtual Vector		GetChaseCamViewOffset( IGameEntity *target );
+ 	void				CalcChaseCamView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
+ 	virtual void		CalcInEyeCamView( Vector& eyeOrigin, QAngle& eyeAngles, float& fov );
+ 
+@@ -537,7 +588,7 @@ private:
+ 	CNetworkVar( CBaseCombatWeaponHandle, m_hLastWeapon );
+ 
+ #if !defined( NO_ENTITY_PREDICTION )
+-	CUtlVector< CHandle< C_BaseEntity > > m_SimulatedByThisPlayer;
++	CUtlVector< CHandle< IGameEntity > > m_SimulatedByThisPlayer;
+ #endif
+ 
+ 	// players own view models, left & right hand
+@@ -648,19 +699,13 @@ EXTERN_RECV_TABLE(DT_BasePlayer);
+ //-----------------------------------------------------------------------------
+ // Inline methods
+ //-----------------------------------------------------------------------------
+-inline C_BasePlayer *ToBasePlayer( C_BaseEntity *pEntity )
++inline C_BasePlayer *ToBasePlayer( IGameEntity *pEntity )
+ {
+-	if ( !pEntity || !pEntity->IsPlayer() )
++	(void)pEntity;
+ 		return NULL;
+-
+-#if _DEBUG
+-	Assert( dynamic_cast<C_BasePlayer *>( pEntity ) != NULL );
+-#endif
+-
+-	return static_cast<C_BasePlayer *>( pEntity );
+ }
+ 
+-inline C_BaseEntity *C_BasePlayer::GetUseEntity() 
++inline IGameEntity *C_BasePlayer::GetUseEntity() 
+ { 
+ 	return m_hUseEntity;
+ }
+@@ -668,8 +713,7 @@ inline C_BaseEntity *C_BasePlayer::GetUseEntity()
+ 
+ inline IClientVehicle *C_BasePlayer::GetVehicle() 
+ { 
+-	C_BaseEntity *pVehicleEnt = m_hVehicle.Get();
+-	return pVehicleEnt ? pVehicleEnt->GetClientVehicle() : NULL;
++	return NULL;
+ }
+ 
+ inline bool C_BasePlayer::IsObserver() const 
+diff --git a/src/game/client/c_basetempentity.h b/src/game/client/c_basetempentity.h
+index 2f3740ead01918dee30a9746f4ba6c237f40c7ab..c5e03e539f7118f86a54d77608de5154a9007d88 100644
+--- a/src/game/client/c_basetempentity.h
++++ b/src/game/client/c_basetempentity.h
+@@ -44,7 +44,7 @@ public:
+ 	virtual IClientNetworkable*	GetClientNetworkable()	{ return this; }
+ 	virtual IClientRenderable*	GetClientRenderable()	{ return 0; }
+ 	virtual IClientEntity*		GetIClientEntity()		{ return 0; }
+-	virtual C_BaseEntity*		GetBaseEntity()			{ return 0; }
++	virtual IGameEntity*		GetBaseEntity()			{ return 0; }
+ 	virtual IClientThinkable*	GetClientThinkable()	{ return 0; }
+ 
+ 
+diff --git a/src/game/client/c_env_fog_controller.h b/src/game/client/c_env_fog_controller.h
+index 267f36cacdcb4acc29f6af2259411e7ed6320d32..0487fc0b1a06d7e3b04fb53689f231273929af79 100644
+--- a/src/game/client/c_env_fog_controller.h
++++ b/src/game/client/c_env_fog_controller.h
+@@ -8,6 +8,8 @@
+ #ifndef C_ENV_FOG_CONTROLLER_H
+ #define C_ENV_FOG_CONTROLLER_H
+ 
++#include "playernet_vars.h"
++
+ #define CFogController C_FogController
+ 
+ //=============================================================================
+@@ -16,11 +18,11 @@
+ // Compares a set of integer inputs to the one main input
+ // Outputs true if they are all equivalant, false otherwise
+ //
+-class C_FogController : public C_BaseEntity
++class C_FogController : public IGameEntity
+ {
+ public:
+ 	DECLARE_NETWORKCLASS();
+-	DECLARE_CLASS( C_FogController, C_BaseEntity );
++	DECLARE_CLASS( C_FogController, IGameEntity );
+ 
+ 	C_FogController();
+ 
+diff --git a/src/game/client/c_recipientfilter.h b/src/game/client/c_recipientfilter.h
+index d501452f871e2de2cb8bf7443fe1531f2f6fc874..43e1361bab371c7bc0d38ce7d1850efc223a6262 100644
+--- a/src/game/client/c_recipientfilter.h
++++ b/src/game/client/c_recipientfilter.h
+@@ -13,7 +13,7 @@
+ 
+ #include "irecipientfilter.h"
+ #include "utlvector.h"
+-#include "c_baseentity.h"
++#include "icliententity.h"
+ #include "soundflags.h"
+ #include "bitvec.h"
+ 
+@@ -48,6 +48,9 @@ public:
+ 	void			AddRecipientsByPVS( const Vector& origin );
+ 	void			AddRecipientsByPAS( const Vector& origin );
+ 	void			AddRecipient( C_BasePlayer *player );
++
++	void			AddRecipientByPlayerIndex( int playerindex );
++
+ 	void			RemoveRecipient( C_BasePlayer *player );
+ 	void			AddRecipientsByTeam( C_Team *team );
+ 	void			RemoveRecipientsByTeam( C_Team *team );
+@@ -126,7 +129,7 @@ public:
+ class CPASAttenuationFilter : public CPASFilter
+ {
+ public:
+-	CPASAttenuationFilter( C_BaseEntity *entity, float attenuation = ATTN_NORM ) :
++	CPASAttenuationFilter( IClientEntity *entity, float attenuation = ATTN_NORM ) :
+ 		CPASFilter( entity->GetAbsOrigin() )
+ 	{
+ 	}
+@@ -136,7 +139,7 @@ public:
+ 	{
+ 	}
+ 
+-	CPASAttenuationFilter( C_BaseEntity *entity, const char *lookupSound ) :
++	CPASAttenuationFilter( IClientEntity *entity, const char *lookupSound ) :
+ 		CPASFilter( entity->GetAbsOrigin() )
+ 	{
+ 	}
+@@ -146,7 +149,7 @@ public:
+ 	{
+ 	}
+ 
+-	CPASAttenuationFilter( C_BaseEntity *entity, const char *lookupSound, HSOUNDSCRIPTHANDLE& handle ) :
++	CPASAttenuationFilter( IClientEntity *entity, const char *lookupSound, HSOUNDSCRIPTHANDLE& handle ) :
+ 		CPASFilter( entity->GetAbsOrigin() )
+ 	{
+ 	}
+@@ -186,4 +189,6 @@ public:
+ };
+ 
+ 
++void RecipientFilter_RemoveIfNotCloseCaptioning( C_RecipientFilter& filter );
++
+ #endif // C_RECIPIENTFILTER_H
+diff --git a/src/game/client/c_rope.h b/src/game/client/c_rope.h
+index b9bfb2c8b57f3a690c21cd9c4dc9708928fc77c0..2af930787fae3f263fa385bc571fe0a75e17e0e3 100644
+--- a/src/game/client/c_rope.h
++++ b/src/game/client/c_rope.h
+@@ -12,6 +12,7 @@
+ #endif
+ 
+ #include "c_baseentity.h"
++#include "shell_renderable.h"
+ #include "rope_physics.h"
+ #include "materialsystem/imaterial.h"
+ #include "rope_shared.h"
+@@ -26,12 +27,11 @@ struct RopeSegData_t;
+ #define MAX_ROPE_SEGMENTS		(ROPE_MAX_SEGMENTS+(ROPE_MAX_SEGMENTS-1)*MAX_ROPE_SUBDIVS)
+ 
+ //=============================================================================
+-class C_RopeKeyframe : public C_BaseEntity
++class C_RopeKeyframe : public CShellRenderable
+ {
+ public:
+ 
+-	DECLARE_CLASS( C_RopeKeyframe, C_BaseEntity );
+-	DECLARE_CLIENTCLASS();
++	typedef CShellRenderable BaseClass;
+ 
+ 
+ private:
+@@ -55,8 +55,8 @@ public:
+ 
+ 	// This can be used for client-only ropes.
+ 	static C_RopeKeyframe* Create(
+-		C_BaseEntity *pStartEnt,
+-		C_BaseEntity *pEndEnt,
++		IGameEntity *pStartEnt,
++		IGameEntity *pEndEnt,
+ 		int iStartAttachment=0,
+ 		int iEndAttachment=0,
+ 		float ropeWidth = 2,
+@@ -82,11 +82,14 @@ public:
+ 	void SetupHangDistance( float flHangDist );
+ 
+ 	// Change which entities the rope is connected to.
+-	void SetStartEntity( C_BaseEntity *pEnt );
+-	void SetEndEntity( C_BaseEntity *pEnt );
++	void SetStartEntity( IGameEntity *pEnt );
++	void SetEndEntity( IGameEntity *pEnt );
+ 
+-	C_BaseEntity* GetStartEntity() const;
+-	C_BaseEntity* GetEndEntity() const;
++	IGameEntity* GetStartEntity() const;
++	IGameEntity* GetEndEntity() const;
++
++	void SetStartPos( const Vector &vPos );
++	void SetEndPos( const Vector &vPos );
+ 
+ 	// Hook the physics. Pass in your own implementation of CSimplePhysics::IHelper. The
+ 	// default implementation is returned so you can call through to it if you want.
+@@ -100,6 +103,11 @@ public:
+ 	// Use this when rope length and slack change to recompute the spring length.
+ 	void			RecomputeSprings();
+ 
++	int				NumRopeNodes()				{ return m_RopePhysics.NumNodes(); }
++	const Vector	&RopeNodePos( int iNode )	{ return m_RopePhysics.GetNode( iNode )->m_vPredicted; }
++	bool			IsEndPointFixed( int iPt )	{ return m_bEndPointIsFixed[iPt]; }
++	const Vector	&FixedEndPointPos( int iPt ){ return m_vFixedEndPointPos[iPt]; }
++
+ 	void ShakeRope( const Vector &vCenter, float flRadius, float flMagnitude );
+ 
+ 	// Get the attachment position of one of the endpoints.
+@@ -121,20 +129,20 @@ public:
+ 
+ 	void			BuildRope( RopeSegData_t *pRopeSegment, const Vector &vCurrentViewForward, const Vector &vCurrentViewOrigin, BuildRopeQueuedData_t *pQueuedData, bool bQueued );
+ 
+-// C_BaseEntity overrides.
+ public:
+ 
+-	virtual void	OnDataChanged( DataUpdateType_t updateType );
+-	virtual void	ClientThink();
+-	virtual int		DrawModel( int flags );
+-	virtual bool	ShouldDraw();
+-	virtual const Vector& WorldSpaceCenter() const;
++	virtual int		DrawModel( int flags ) OVERRIDE;
++	virtual bool	ShouldDraw() OVERRIDE;
++
++	virtual bool	IsTransparent() OVERRIDE { return false; }
++
++	virtual void	GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
+ 
+ 	// Specify ROPE_ATTACHMENT_START_POINT or ROPE_ATTACHMENT_END_POINT for the attachment.
+-	virtual	bool	GetAttachment( int number, Vector &origin, QAngle &angles );
+-	virtual bool	GetAttachment( int number, matrix3x4_t &matrix );
+-	virtual bool	GetAttachment( int number, Vector &origin );
+-	virtual bool	GetAttachmentVelocity( int number, Vector &originVel, Quaternion &angleVel );
++	virtual	bool	GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE;
++	virtual bool	GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE;
++
++	void			RopeThink();
+ 
+ private:
+ 	
+@@ -151,17 +159,25 @@ private:
+ 
+ 	void			UpdateBBox();
+ 	bool			InitRopePhysics();
++
++	void			UpdateRopeVisibility();
+ 	
+ 	bool			GetEndPointAttachment( int iPt, Vector &vPos, QAngle &angle );
+ 	
+ 	Vector			*GetRopeSubdivVectors( int *nSubdivs );
+ 	void			CalcLightValues();
+ 
+-	void			ReceiveMessage( int classID, bf_read &msg );
+-	bool			CalculateEndPointAttachment( C_BaseEntity *pEnt, int iAttachment, Vector &vPos, QAngle *pAngles );
++	bool			CalculateEndPointAttachment( IClientEntity *pEnt, int iAttachment, Vector &vPos, QAngle *pAngles );
++
++	bool			ComputeEndPoint( int iPt, Vector &vPos, QAngle *pAngles );
+ 
+ 
+ private:
++	friend void SourceSharp_RopeConfigure( C_RopeKeyframe *pRope,
++	                                       const Vector &vecStart, const Vector &vecEnd,
++	                                       float flSlack, float flWidth, float flTextureScale,
++	                                       int nSubdiv, float flScrollSpeed );
++
+ 	// Track which links touched something last frame. Used to prevent wind from gusting on them.
+ 	CBitVec<ROPE_MAX_SEGMENTS>		m_LinksTouchingSomething;
+ 	int								m_nLinksTouchingSomething;
+@@ -177,7 +193,9 @@ private:
+ 	float			m_flScrollSpeed;
+ 
+ 	int				m_RopeFlags;			// Combo of ROPE_ flags.
+-	int				m_iRopeMaterialModelIndex;	// Index of sprite model with the rope's material.
++
++	Vector			m_vRenderMins;
++	Vector			m_vRenderMaxs;
+ 		
+ 	CRopePhysics<ROPE_MAX_SEGMENTS>	m_RopePhysics;
+ 	Vector			m_LightValues[ROPE_MAX_SEGMENTS]; // light info when the rope is created.
+@@ -189,6 +207,9 @@ private:
+ 	short			m_iStartAttachment;	// StartAttachment/EndAttachment are attachment points.
+ 	short			m_iEndAttachment;
+ 
++	bool			m_bEndPointIsFixed[2];
++	Vector			m_vFixedEndPointPos[2];
++
+ 	unsigned char	m_Subdiv;			// Number of subdivions in between segments.
+ 
+ 	int				m_RopeLength;		// Length of the rope, used for tension.
+@@ -238,6 +259,10 @@ private:
+ };
+ 
+ 
++void Rope_SimulateAll( float flFrameTime );
++
++int Rope_CountAll();
++
+ // Profiling info.
+ void Rope_ResetCounters();
+ //void Rope_ShowRSpeeds();
+diff --git a/src/game/client/c_soundscape.h b/src/game/client/c_soundscape.h
+index 8c5f45e9fe3c40860cddc5eae2173e29706cd4a1..e18416bc4cfd3f68df4a6dbe1d9d89bf11ef641e 100644
+--- a/src/game/client/c_soundscape.h
++++ b/src/game/client/c_soundscape.h
+@@ -15,7 +15,8 @@
+ class IGameSystem;
+ struct audioparams_t;
+ 
+-extern IGameSystem *ClientSoundscapeSystem();
++class CClientSystem;
++extern CClientSystem *ClientSoundscapeSystem();
+ 
+ // call when audio params may have changed
+ extern void Soundscape_Update( audioparams_t &audio );
+diff --git a/src/game/client/c_sun.h b/src/game/client/c_sun.h
+index 5f15e35f679c091c92f262a53635546c223b1176..61a6163e9530a04c12abc4b90aaf9717a3de4a24 100644
+--- a/src/game/client/c_sun.h
++++ b/src/game/client/c_sun.h
+@@ -57,10 +57,10 @@ protected:
+ // Sun entity
+ //
+ 
+-class C_Sun : public C_BaseEntity
++class C_Sun : public IGameEntity
+ {
+ public:
+-	DECLARE_CLASS( C_Sun, C_BaseEntity );
++	DECLARE_CLASS( C_Sun, IGameEntity );
+ 	DECLARE_CLIENTCLASS();
+ 
+ 					C_Sun();
+diff --git a/src/game/client/c_te_legacytempents.h b/src/game/client/c_te_legacytempents.h
+index d4edd5b9bd499f0bdc356f9aaa72d3e2874bcf52..acff45ff38c80e8b16ad1278e687e94ed5b19857 100644
+--- a/src/game/client/c_te_legacytempents.h
++++ b/src/game/client/c_te_legacytempents.h
+@@ -12,7 +12,10 @@
+ #pragma once
+ #endif
+ 
+-class C_BaseEntity;
++#include "igameentity.h"
++
++class IClientRenderable;
++
+ class C_LocalTempEntity;
+ class C_PhysPropClientside;
+ struct model_t;
+@@ -60,7 +63,7 @@ public:
+ 	virtual void				Bubbles( const Vector &mins, const Vector &maxs, float height, int modelIndex, int count, float speed ) = 0;
+ 	virtual void				BubbleTrail( const Vector &start, const Vector &end, float flWaterZ, int modelIndex, int count, float speed ) = 0;
+ 	virtual void				Sprite_Explode( C_LocalTempEntity *pTemp, float scale, int flags ) = 0;
+-	virtual void				FizzEffect( C_BaseEntity *pent, int modelIndex, int density, int current ) = 0;
++	virtual void				FizzEffect( IClientRenderable *pent, int modelIndex, int density, int current ) = 0;
+ 	virtual C_LocalTempEntity	*DefaultSprite( const Vector &pos, int spriteIndex, float framerate ) = 0;
+ 	virtual void				Sprite_Smoke( C_LocalTempEntity *pTemp, float scale ) = 0;
+ 	virtual C_LocalTempEntity	*TempSprite( const Vector &pos, const Vector &dir, float scale, int modelIndex, int rendermode, int renderfx, float a, float life, int flags, const Vector &normal = vec3_origin ) = 0;
+@@ -74,7 +77,7 @@ public:
+ 	
+ 	virtual void				PlaySound ( C_LocalTempEntity *pTemp, float damp ) = 0;
+ 	virtual void				PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0 ) = 0;
+-	virtual C_LocalTempEntity	*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAccel, int modelindex, int lifetime, CBaseEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL ) = 0;
++	virtual C_LocalTempEntity	*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAccel, int modelindex, int lifetime, IGameEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL ) = 0;
+ 	virtual C_PhysPropClientside		*PhysicsProp( const model_t *pModel, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0, int nModelIndex = -1 ) = 0;
+ };
+ 
+@@ -113,7 +116,7 @@ public:
+ 	virtual void			Bubbles( const Vector &mins, const Vector &maxs, float height, int modelIndex, int count, float speed );
+ 	virtual void			BubbleTrail( const Vector &start, const Vector &end, float height, int modelIndex, int count, float speed );
+ 	virtual void			Sprite_Explode( C_LocalTempEntity *pTemp, float scale, int flags );
+-	virtual void			FizzEffect( C_BaseEntity *pent, int modelIndex, int density, int current );
++	virtual void			FizzEffect( IClientRenderable *pent, int modelIndex, int density, int current );
+ 	virtual C_LocalTempEntity		*DefaultSprite( const Vector &pos, int spriteIndex, float framerate );
+ 	virtual void			Sprite_Smoke( C_LocalTempEntity *pTemp, float scale );
+ 	virtual C_LocalTempEntity		*TempSprite( const Vector &pos, const Vector &dir, float scale, int modelIndex, int rendermode, int renderfx, float a, float life, int flags, const Vector &normal = vec3_origin );
+@@ -129,7 +132,7 @@ public:
+ 	void					HL1EjectBrass( const Vector &vecPosition, const QAngle &angAngles, const Vector &vecVelocity, int nType );
+ 	void					CSEjectBrass( const Vector &vecPosition, const QAngle &angAngles, int nType, int nShellType, CBasePlayer *pShooter );
+ 	void					PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0 );
+-	C_LocalTempEntity		*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAcceleration, int modelindex, int lifetime, CBaseEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL );
++	C_LocalTempEntity		*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAcceleration, int modelindex, int lifetime, IGameEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL );
+ 	C_PhysPropClientside	*PhysicsProp( const model_t *pModel, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0, int modelindex = -1 );
+ 
+ // Data
+@@ -171,6 +174,13 @@ protected:
+ 	C_LocalTempEntity		*TempEntAlloc( const Vector& org, const model_t *model );
+ 	C_LocalTempEntity		*TempEntAllocHigh( const Vector& org, const model_t *model );
+ 
++public:
++	void					 PoolFreeObject( C_LocalTempEntity *pTemp );
++	int						 PoolAddVisible( C_LocalTempEntity *pTemp );
++
++	C_LocalTempEntity		*PoolCreateObject();
++private:
++
+ // Material handle caches
+ private:
+ 
+diff --git a/src/game/client/c_te_particlesystem.h b/src/game/client/c_te_particlesystem.h
+index 7bd7b4ba4c6815252ca439c88e3d1746e7c0f89d..b0be17887a53125178e4d967be5e61fcb21685d5 100644
+--- a/src/game/client/c_te_particlesystem.h
++++ b/src/game/client/c_te_particlesystem.h
+@@ -41,21 +41,6 @@ typedef enum {
+ 
+ 
+ 
+-class C_TEParticleSystem : public C_BaseTempEntity
+-{
+-public:
+-
+-	DECLARE_CLASS( C_TEParticleSystem, C_BaseTempEntity );
+-	DECLARE_CLIENTCLASS();
+-
+-					C_TEParticleSystem();
+-
+-
+-public:
+-
+-	// particle effect sort origin
+-	Vector			m_vecOrigin;
+-};
+ 
+ 
+ // This is the class that legacy tempents use to emit particles.
+diff --git a/src/game/client/c_vguiscreen.h b/src/game/client/c_vguiscreen.h
+index e62cba1b31b2dbe1eaa8befbe8f52cf37489b217..0e110720668e46a064a18f4b612951e5b97aae7c 100644
+--- a/src/game/client/c_vguiscreen.h
++++ b/src/game/client/c_vguiscreen.h
+@@ -26,10 +26,10 @@ class KeyValues;
+ //-----------------------------------------------------------------------------
+ struct VGuiScreenInitData_t
+ {
+-	C_BaseEntity *m_pEntity;
++	IGameEntity *m_pEntity;
+ 
+ 	VGuiScreenInitData_t() : m_pEntity(NULL) {}
+-	VGuiScreenInitData_t( C_BaseEntity *pEntity ) : m_pEntity(pEntity) {}
++	VGuiScreenInitData_t( IGameEntity *pEntity ) : m_pEntity(pEntity) {}
+ };
+ 
+ #define DECLARE_VGUI_SCREEN_FACTORY( _PanelClass, _nameString )	\
+@@ -51,7 +51,7 @@ public:
+ 	virtual void OnCommand( const char *command );
+ 
+ protected:
+-	C_BaseEntity *GetEntity() const { return m_hEntity.Get(); }
++	IGameEntity *GetEntity() const { return m_hEntity.Get(); }
+ 
+ private:
+ 	EHANDLE	m_hEntity;
+@@ -60,9 +60,9 @@ private:
+ //-----------------------------------------------------------------------------
+ // Purpose: 
+ //-----------------------------------------------------------------------------
+-class C_VGuiScreen : public C_BaseEntity
++class C_VGuiScreen : public IGameEntity
+ {
+-	DECLARE_CLASS( C_VGuiScreen, C_BaseEntity );
++	DECLARE_CLASS( C_VGuiScreen, IGameEntity );
+ public:
+ 	DECLARE_CLIENTCLASS();
+ 
+@@ -163,20 +163,20 @@ private:
+ //-----------------------------------------------------------------------------
+ // Returns an entity that is the nearby vgui screen; NULL if there isn't one
+ //-----------------------------------------------------------------------------
+-C_BaseEntity *FindNearbyVguiScreen( const Vector &viewPosition, const QAngle &viewAngle, int nTeam = -1 );
++IGameEntity *FindNearbyVguiScreen( const Vector &viewPosition, const QAngle &viewAngle, int nTeam = -1 );
+ 
+ 
+ //-----------------------------------------------------------------------------
+ // Activates/Deactivates vgui screen
+ //-----------------------------------------------------------------------------
+-void ActivateVguiScreen( C_BaseEntity *pVguiScreen );
+-void DeactivateVguiScreen( C_BaseEntity *pVguiScreen );
++void ActivateVguiScreen( IGameEntity *pVguiScreen );
++void DeactivateVguiScreen( IGameEntity *pVguiScreen );
+ 
+ 
+ //-----------------------------------------------------------------------------
+ // Updates vgui screen button state
+ //-----------------------------------------------------------------------------
+-void SetVGuiScreenButtonState( C_BaseEntity *pVguiScreen, int nButtonState );
++void SetVGuiScreenButtonState( IGameEntity *pVguiScreen, int nButtonState );
+ 
+ 
+ #endif // C_VGUISCREEN_H
+diff --git a/src/game/client/c_world.h b/src/game/client/c_world.h
+index e0951afea1f2a9c2727f6acfc528bf405fb94f50..ad2823fa4b099af06a6160ffc41695a167027c04 100644
+--- a/src/game/client/c_world.h
++++ b/src/game/client/c_world.h
+@@ -10,70 +10,242 @@
+ #pragma once
+ #endif
+ 
+-#include "c_baseentity.h"
++#include "icliententity.h"
++#include "iclientrenderable.h"
++#include "engine/ICollideable.h"
++#include "basehandle.h"
++#include "mathlib/vector.h"
++#include "shell_world_nettable_client.h"
++#include "world_net_sync.h"
+ 
+ #if defined( CLIENT_DLL )
+ #define CWorld C_World
+ #endif
+ 
+-class C_World : public C_BaseEntity
++class C_World;
++struct model_t;
++
++class CWorldClientCollideable : public ICollideable
+ {
+ public:
+-	DECLARE_CLASS( C_World, C_BaseEntity );
+-	DECLARE_CLIENTCLASS();
++	explicit CWorldClientCollideable( C_World *pOuter );
+ 
+-	C_World( void );
+-	~C_World( void );
+-	
+-	// Override the factory create/delete functions since the world is a singleton.
+-	virtual bool Init( int entnum, int iSerialNum );
+-	virtual void Release();
++	void SetBounds( const Vector &vecMins, const Vector &vecMaxs )
++	{
++		m_vecMins = vecMins;
++		m_vecMaxs = vecMaxs;
++	}
+ 
+-	virtual void Precache();
+-	virtual void Spawn();
++	virtual IHandleEntity *GetEntityHandle() OVERRIDE;
+ 
+-	// Don't worry about adding the world to the collision list; it's already there
+-	virtual CollideType_t	GetCollideType( void )	{ return ENTITY_SHOULD_NOT_COLLIDE; }
++	virtual const Vector &OBBMinsPreScaled() const OVERRIDE { return m_vecMins; }
++	virtual const Vector &OBBMaxsPreScaled() const OVERRIDE { return m_vecMaxs; }
++	virtual const Vector &OBBMins() const OVERRIDE { return m_vecMins; }
++	virtual const Vector &OBBMaxs() const OVERRIDE { return m_vecMaxs; }
+ 
+-	virtual void OnDataChanged( DataUpdateType_t updateType );
+-	virtual void PreDataUpdate( DataUpdateType_t updateType );
++	virtual void WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const OVERRIDE
++	{
++		if ( pMins ) *pMins = m_vecMins;
++		if ( pMaxs ) *pMaxs = m_vecMaxs;
++	}
+ 
+-	float GetWaveHeight() const;
+-	const char *GetDetailSpriteMaterial() const;
++	virtual bool TestCollision( const Ray_t &, unsigned int, trace_t & ) OVERRIDE { return false; }
++	virtual bool TestHitboxes( const Ray_t &, unsigned int, trace_t & ) OVERRIDE { return false; }
+ 
+-public:
+-	enum
++	virtual int            GetCollisionModelIndex() OVERRIDE;
++	virtual const model_t *GetCollisionModel() OVERRIDE;
++
++	virtual const Vector      &GetCollisionOrigin() const OVERRIDE { return m_vecOrigin; }
++	virtual const QAngle      &GetCollisionAngles() const OVERRIDE { return m_angRotation; }
++	virtual const matrix3x4_t &CollisionToWorldTransform() const OVERRIDE { return m_Transform; }
++
++	virtual SolidType_t GetSolid() const OVERRIDE { return m_nSolidType; }
++	virtual int         GetSolidFlags() const OVERRIDE { return m_nSolidFlags; }
++
++	virtual IClientUnknown *GetIClientUnknown() OVERRIDE;
++
++	virtual int GetCollisionGroup() const OVERRIDE { return COLLISION_GROUP_NONE; }
++
++	virtual void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) OVERRIDE
+ 	{
+-		MAX_DETAIL_SPRITE_MATERIAL_NAME_LENGTH = 256,
+-	};
+-
+-	float	m_flWaveHeight;
+-	Vector	m_WorldMins;
+-	Vector	m_WorldMaxs;
+-	bool	m_bStartDark;
+-	float	m_flMaxOccludeeArea;
+-	float	m_flMinOccluderArea;
+-	float	m_flMinPropScreenSpaceWidth;
+-	float	m_flMaxPropScreenSpaceWidth;
+-	bool	m_bColdWorld;
++		if ( pMins ) *pMins = m_vecMins;
++		if ( pMaxs ) *pMaxs = m_vecMaxs;
++	}
++
++	virtual bool ShouldTouchTrigger( int ) const OVERRIDE { return false; }
++
++	virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE { return NULL; }
+ 
+ private:
+-	void	RegisterSharedActivities( void );
+-	char	m_iszDetailSpriteMaterial[MAX_DETAIL_SPRITE_MATERIAL_NAME_LENGTH];
++	C_World *m_pOuter;
++
++	Vector       m_vecMins;
++	Vector       m_vecMaxs;
++
++	Vector       m_vecOrigin;
++	QAngle       m_angRotation;
++	matrix3x4_t  m_Transform;
++
++	SolidType_t  m_nSolidType;
++	int          m_nSolidFlags;
+ };
+ 
+-inline float C_World::GetWaveHeight() const
++class C_World : public IClientEntity
+ {
+-	return m_flWaveHeight;
+-}
++public:
++	C_World( void );
++	virtual ~C_World( void );
++
++	static void *operator new( size_t stAllocateBlock );
++	static void *operator new( size_t stAllocateBlock, int nBlockUse,
++	                           const char *pFileName, int nLine );
++	static void  operator delete( void *pMem );
++	static void  operator delete( void *pMem, int nBlockUse,
++	                              const char *pFileName, int nLine );
++
++	unsigned char *DataBlob();
++	int            BlobBytes() const;
++
++	bool Init( int entnum, int iSerialNum );
++
++	void Precache();
++	void Spawn();
++
++	float       GetWaveHeight();
++	const char *GetDetailSpriteMaterial();
++
++	Vector GetWorldMins();
++	Vector GetWorldMaxs();
++
++	bool  GetStartDark();
++	bool  IsColdWorld();
++	float GetMaxOccludeeArea();
++	float GetMinOccluderArea();
++	float GetMinPropScreenSpaceWidth();
++	float GetMaxPropScreenSpaceWidth();
+ 
+-inline const char *C_World::GetDetailSpriteMaterial() const
++	virtual void SetRefEHandle( const CBaseHandle &handle ) OVERRIDE { m_RefEHandle = handle; }
++	virtual const CBaseHandle &GetRefEHandle() const OVERRIDE { return m_RefEHandle; }
++
++	bool IsBoundToTheLevel() const { return m_RefEHandle.IsValid(); }
++
++	virtual IClientUnknown     *GetIClientUnknown() OVERRIDE     { return this; }
++	virtual ICollideable       *GetCollideable() OVERRIDE        { return &m_Collideable; }
++	virtual IClientNetworkable *GetClientNetworkable() OVERRIDE  { return this; }
++	virtual IClientRenderable  *GetClientRenderable() OVERRIDE   { return this; }
++	virtual IClientEntity      *GetIClientEntity() OVERRIDE      { return this; }
++	virtual IClientThinkable   *GetClientThinkable() OVERRIDE    { return this; }
++
++	virtual IGameEntity *GetBaseEntity() OVERRIDE { return NULL; }
++
++
++	virtual ClientClass *GetClientClass() OVERRIDE;
++	virtual void         Release() OVERRIDE;
++	virtual void         NotifyShouldTransmit( ShouldTransmitState_t state ) OVERRIDE {}
++	virtual void         OnPreDataChanged( DataUpdateType_t updateType ) OVERRIDE {}
++	virtual void         OnDataChanged( DataUpdateType_t updateType ) OVERRIDE;
++
++	virtual void         PreDataUpdate( DataUpdateType_t updateType ) OVERRIDE;
++
++	void                 DeliverPendingDataChanged();
++
++	virtual void         PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE {}
++	virtual bool         IsDormant( void ) OVERRIDE { return false; }
++	virtual int          entindex( void ) const OVERRIDE
+ {
+-	return m_iszDetailSpriteMaterial;
++		return m_RefEHandle.IsValid() ? m_RefEHandle.GetEntryIndex() : -1;
+ }
++	virtual void         ReceiveMessage( int classID, bf_read &msg ) OVERRIDE {}
++	virtual void         SetDestroyedOnRecreateEntities( void ) OVERRIDE {}
++	virtual void         OnDataUnchangedInPVS() OVERRIDE {}
++
++	virtual void *GetDataTableBasePtr() OVERRIDE { return this; }
++
++	virtual void                ClientThink() OVERRIDE {}
++	virtual ClientThinkHandle_t GetThinkHandle() OVERRIDE { return m_hThink; }
++	virtual void                SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE { m_hThink = hThink; }
++
++	virtual const Vector &GetAbsOrigin( void ) const OVERRIDE;
++	virtual const QAngle &GetAbsAngles( void ) const OVERRIDE;
++	virtual CMouthInfo   *GetMouth( void ) OVERRIDE { return NULL; }
++	virtual bool          GetSoundSpatialization( SpatializationInfo_t &info ) OVERRIDE { return false; }
++
++	virtual const Vector     &GetRenderOrigin( void ) OVERRIDE;
++	virtual const QAngle     &GetRenderAngles( void ) OVERRIDE;
++	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE;
++	virtual bool              ShouldDraw( void ) OVERRIDE { return false; }
++	virtual bool              IsTransparent( void ) OVERRIDE { return false; }
++	virtual bool              IsTwoPass( void ) OVERRIDE { return false; }
++	virtual void              OnThreadedDrawSetup() OVERRIDE {}
++	virtual bool              UsesPowerOfTwoFrameBufferTexture() OVERRIDE { return false; }
++	virtual bool              UsesFullFrameBufferTexture() OVERRIDE { return false; }
++	virtual ClientShadowHandle_t GetShadowHandle() const OVERRIDE { return CLIENTSHADOW_INVALID_HANDLE; }
++	virtual ClientRenderHandle_t &RenderHandle() OVERRIDE { return m_hRender; }
++	virtual int               GetBody() OVERRIDE { return 0; }
++	virtual int               GetSkin() OVERRIDE { return 0; }
++	virtual bool              UsesFlexDelayedWeights() OVERRIDE { return false; }
++
++	virtual const model_t    *GetModel() const OVERRIDE { return NULL; }
++	virtual int               DrawModel( int flags ) OVERRIDE { return 0; }
++	virtual void              ComputeFxBlend() OVERRIDE {}
++	virtual int               GetFxBlend() OVERRIDE { return 255; }
++	virtual bool              LODTest() OVERRIDE { return true; }
++	virtual bool              SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones,
++	                                      int boneMask, float currentTime ) OVERRIDE { return true; }
++	virtual void              SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount,
++	                                        float *pFlexWeights, float *pFlexDelayedWeights ) OVERRIDE {}
++	virtual void              DoAnimationEvents( void ) OVERRIDE {}
++	virtual IPVSNotify       *GetPVSNotifyInterface() OVERRIDE { return NULL; }
++	virtual void              GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
++	virtual void              GetRenderBoundsWorldspace( Vector &mins, Vector &maxs ) OVERRIDE;
++	virtual void              GetShadowRenderBounds( Vector &mins, Vector &maxs,
++	                                                 ShadowType_t shadowType ) OVERRIDE;
++	virtual void              GetColorModulation( float *color ) OVERRIDE;
++	virtual bool              ShouldReceiveProjectedTextures( int flags ) OVERRIDE { return false; }
++	virtual bool              GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const OVERRIDE { return false; }
++	virtual bool              GetShadowCastDirection( Vector *pDirection, ShadowType_t shadowType ) const OVERRIDE { return false; }
++	virtual bool              IsShadowDirty() OVERRIDE { return false; }
++	virtual void              MarkShadowDirty( bool bDirty ) OVERRIDE {}
++	virtual IClientRenderable *GetShadowParent() OVERRIDE { return NULL; }
++	virtual IClientRenderable *FirstShadowChild() OVERRIDE { return NULL; }
++	virtual IClientRenderable *NextShadowPeer() OVERRIDE { return NULL; }
++	virtual ShadowType_t      ShadowCastType() OVERRIDE { return SHADOWS_NONE; }
++	virtual void              CreateModelInstance() OVERRIDE {}
++	virtual ModelInstanceHandle_t GetModelInstance() OVERRIDE { return MODEL_INSTANCE_INVALID; }
++	virtual int               LookupAttachment( const char *pAttachmentName ) OVERRIDE { return -1; }
++	virtual bool              GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE { return false; }
++	virtual bool              GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE { return false; }
++	virtual float            *GetRenderClipPlane( void ) OVERRIDE { return NULL; }
++	virtual void              RecordToolMessage() OVERRIDE {}
++	virtual bool              IgnoresZBuffer( void ) const OVERRIDE { return false; }
++
++private:
++	void RegisterSharedActivities( void );
++
++	bool ResolveFields();
++
++	void ReportIfChanged();
++
++	SourceSharpWorldFields_t m_Fields;
++
++	enum { REPORT_BUFFER = 512 };
++	unsigned char m_LastReported[ REPORT_BUFFER ];
++	bool          m_bReportedOnce;
++
++	CBaseHandle             m_RefEHandle;
++
++	int                     m_DataChangeEventRef;
++
++	ClientThinkHandle_t     m_hThink;
++	ClientRenderHandle_t    m_hRender;
++
++	CWorldClientCollideable m_Collideable;
++};
+ 
+ void ClientWorldFactoryInit();
+ void ClientWorldFactoryShutdown();
+ C_World* GetClientWorldEntity();
+ 
++void *GetClientWorldRenderable();
++
+ #endif // C_WORLD_H
+diff --git a/src/game/client/cbase.h b/src/game/client/cbase.h
+index 57e3260bd3609f4b3ac886c759ae3a0e4dffdc83..6744dddd99691fb5730ad24f9760c80fb4873dc4 100644
+--- a/src/game/client/cbase.h
++++ b/src/game/client/cbase.h
+@@ -38,21 +38,6 @@ struct studiohdr_t;
+ #include <baseentity_shared.h>
+ 
+ 
+-// This is a precompiled header.  Include a bunch of common stuff.
+-// This is kind of ugly in that it adds a bunch of dependency where it isn't needed.
+-// But on balance, the compile time is much lower (even incrementally) once the precompiled
+-// headers contain these headers.
+-#include "precache_register.h"
+-#include "c_basecombatweapon.h"
+-#include "c_basecombatcharacter.h"
+-#include "gamerules.h"
+-#include "c_baseplayer.h"
+-#include "itempents.h"
+ #include "vphysics_interface.h"
+-#include "physics.h"
+-#include "c_recipientfilter.h"
+-#include "cdll_client_int.h"
+-#include "worldsize.h"
+-#include "engine/ivmodelinfo.h"
+ 
+ #endif // CBASE_H
+diff --git a/src/game/client/cdll_util.h b/src/game/client/cdll_util.h
+index f0d7736ca65958ec8502769ec9afacfc0734f888..518583164df87d016e19d6f272cd8005184d6ec9 100644
+--- a/src/game/client/cdll_util.h
++++ b/src/game/client/cdll_util.h
+@@ -30,7 +30,7 @@ class ITexture;
+ class IClientEntity;
+ class CHudTexture;
+ class CGameTrace;
+-class C_BaseEntity;
++#include "igameentity.h"
+ 
+ struct Ray_t;
+ struct client_textmessage_t;
+@@ -60,8 +60,8 @@ void	UTIL_Bubbles( const Vector& mins, const Vector& maxs, int count );
+ void	UTIL_Smoke( const Vector &origin, const float scale, const float framerate );
+ void	UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName = NULL );
+ int		UTIL_PrecacheDecal( const char *name, bool preload = false );
+-void	UTIL_EmitAmbientSound( C_BaseEntity *entity, const Vector &vecOrigin, const char *samp, float vol, soundlevel_t soundlevel, int fFlags, int pitch );
+-void	UTIL_SetOrigin( C_BaseEntity *entity, const Vector &vecOrigin );
++void	UTIL_EmitAmbientSound( IGameEntity *entity, const Vector &vecOrigin, const char *samp, float vol, soundlevel_t soundlevel, int fFlags, int pitch );
++void	UTIL_SetOrigin( IGameEntity *entity, const Vector &vecOrigin );
+ void	UTIL_ScreenShake( const Vector &center, float amplitude, float frequency, float duration, float radius, ShakeCommand_t eCommand, bool bAirShake=false );
+ byte	*UTIL_LoadFileForMe( const char *filename, int *pLength );
+ void	UTIL_FreeFile( byte *buffer );
+@@ -70,7 +70,7 @@ const char *UTIL_SafeName( const char *oldName );	///< Wraps UTIL_MakeSafeName,
+ void	UTIL_ReplaceKeyBindings( const wchar_t *inbuf, int inbufsizebytes, OUT_Z_BYTECAP(outbufsizebytes) wchar_t *outbuf, int outbufsizebytes, GameActionSet_t action_set = GAME_ACTION_SET_NONE );
+ 
+ // Fade out an entity based on distance fades
+-unsigned char UTIL_ComputeEntityFade( C_BaseEntity *pEntity, float flMinDist, float flMaxDist, float flFadeScale );
++unsigned char UTIL_ComputeEntityFade( IClientEntity *pEntity, float flMinDist, float flMaxDist, float flFadeScale );
+ 
+ client_textmessage_t	*TextMessageGet( const char *pName );
+ 
+@@ -104,21 +104,21 @@ enum
+ 
+ void UTIL_PrecacheOther( const char *szClassname );
+ 
+-void UTIL_SetTrace(trace_t& tr, const Ray_t& ray, C_BaseEntity *edict, float fraction, int hitgroup, unsigned int contents, const Vector& normal, float intercept );
++void UTIL_SetTrace(trace_t& tr, const Ray_t& ray, IGameEntity *edict, float fraction, int hitgroup, unsigned int contents, const Vector& normal, float intercept );
+ 
+ bool GetVectorInScreenSpace( Vector pos, int& iX, int& iY, Vector *vecOffset = NULL );
+ bool GetVectorInHudSpace( Vector pos, int& iX, int& iY, Vector *vecOffset = NULL );
+-bool GetTargetInScreenSpace( C_BaseEntity *pTargetEntity, int& iX, int& iY, Vector *vecOffset = NULL );
+-bool GetTargetInHudSpace( C_BaseEntity *pTargetEntity, int& iX, int& iY, Vector *vecOffset = NULL );
++bool GetTargetInScreenSpace( IClientEntity *pTargetEntity, int& iX, int& iY, Vector *vecOffset = NULL );
++bool GetTargetInHudSpace( IClientEntity *pTargetEntity, int& iX, int& iY, Vector *vecOffset = NULL );
+ 
+ // prints messages through the HUD (stub in client .dll right now )
+ class C_BasePlayer;
+ void ClientPrint( C_BasePlayer *player, int msg_dest, const char *msg_name, const char *param1 = NULL, const char *param2 = NULL, const char *param3 = NULL, const char *param4 = NULL );
+ 
+ // Pass in an array of pointers and an array size, it fills the array and returns the number inserted
+-int			UTIL_EntitiesInBox( C_BaseEntity **pList, int listMax, const Vector &mins, const Vector &maxs, int flagMask, int partitionMask = PARTITION_CLIENT_NON_STATIC_EDICTS );
+-int			UTIL_EntitiesInSphere( C_BaseEntity **pList, int listMax, const Vector &center, float radius, int flagMask, int partitionMask = PARTITION_CLIENT_NON_STATIC_EDICTS );
+-int			UTIL_EntitiesAlongRay( C_BaseEntity **pList, int listMax, const Ray_t &ray, int flagMask, int partitionMask = PARTITION_CLIENT_NON_STATIC_EDICTS );
++int			UTIL_EntitiesInBox( IGameEntity **pList, int listMax, const Vector &mins, const Vector &maxs, int flagMask, int partitionMask = PARTITION_CLIENT_NON_STATIC_EDICTS );
++int			UTIL_EntitiesInSphere( IGameEntity **pList, int listMax, const Vector &center, float radius, int flagMask, int partitionMask = PARTITION_CLIENT_NON_STATIC_EDICTS );
++int			UTIL_EntitiesAlongRay( IGameEntity **pList, int listMax, const Ray_t &ray, int flagMask, int partitionMask = PARTITION_CLIENT_NON_STATIC_EDICTS );
+ 
+ // make this a fixed size so it just sits on the stack
+ #define MAX_SPHERE_QUERY	256
+@@ -129,16 +129,16 @@ public:
+ 	// UNDONE: make an iterative query of ISpatialPartition so we could
+ 	// make queries like this optimal
+ 	CEntitySphereQuery( const Vector &center, float radius, int flagMask=0, int partitionMask = PARTITION_CLIENT_NON_STATIC_EDICTS );
+-	C_BaseEntity *GetCurrentEntity();
++	IGameEntity *GetCurrentEntity();
+ 	inline void NextEntity() { m_listIndex++; }
+ 
+ private:
+ 	int			m_listIndex;
+ 	int			m_listCount;
+-	C_BaseEntity *m_pList[MAX_SPHERE_QUERY];
++	IGameEntity *m_pList[MAX_SPHERE_QUERY];
+ };
+ 
+-C_BaseEntity *CreateEntityByName( const char *className );
++IGameEntity *CreateEntityByName( const char *className );
+ // creates an entity by name, and ensure it's correctness
+ // does not spawn the entity
+ // use the CREATE_ENTITY() macro which wraps this, instead of using it directly
+@@ -181,6 +181,6 @@ bool UTIL_HasLoadedAnyMap();
+ // Performs a near-miss check of pEntity against the local player.
+ // Plays pszNearMissSound in their ears and returns true when a near-
+ // miss is detected.
+-bool UTIL_BPerformNearMiss( const CBaseEntity* pEntity, const char* pszNearMissSound, float flNearMissDistanceThreshold );
++bool UTIL_BPerformNearMiss( const IGameEntity* pEntity, const char* pszNearMissSound, float flNearMissDistanceThreshold );
+ 
+ #endif // !UTIL_H
+diff --git a/src/game/client/client_thinklist.h b/src/game/client/client_thinklist.h
+index 9d3b3b545c1790837da066b652a3bca65b3c1250..1e1220294d5c2f520b3422dd4c766ce6d4290c2c 100644
+--- a/src/game/client/client_thinklist.h
++++ b/src/game/client/client_thinklist.h
+@@ -26,7 +26,9 @@
+ #define INVALID_THINK_HANDLE ClientThinkList()->GetInvalidThinkHandle()
+ 
+ 
+-class CClientThinkList : public IGameSystemPerFrame
++#include "shell_clientsystem.h"
++
++class CClientThinkList : public CClientSystemPerFrame
+ {
+ public:
+ 
+diff --git a/src/game/client/clienteffectprecachesystem.h b/src/game/client/clienteffectprecachesystem.h
+index e05a50019e76f4e88db8650b8cd1acf5e3faa699..e0ada1bc293a297a9d162b1df4af7e0a51f75064 100644
+--- a/src/game/client/clienteffectprecachesystem.h
++++ b/src/game/client/clienteffectprecachesystem.h
+@@ -31,7 +31,9 @@ public:
+ // Responsible for managing precaching of particles
+ //-----------------------------------------------------------------------------
+ 
+-class CClientEffectPrecacheSystem : public IGameSystem
++#include "shell_clientsystem.h"
++
++class CClientEffectPrecacheSystem : public CClientSystem
+ {
+ public:
+ 	virtual char const *Name() { return "CCLientEffectPrecacheSystem"; }
+diff --git a/src/game/client/cliententitylist.h b/src/game/client/cliententitylist.h
+index 2e7415d5384a103a197b4988755a38ef48861be4..228fe74ad53ca058eb91abe2da83865e61979018 100644
+--- a/src/game/client/cliententitylist.h
++++ b/src/game/client/cliententitylist.h
+@@ -16,6 +16,7 @@
+ #include "icliententitylist.h"
+ #include "iclientunknown.h"
+ #include "utllinkedlist.h"
++
+ #include "utlvector.h"
+ #include "icliententityinternal.h"
+ #include "ispatialpartition.h"
+@@ -25,7 +26,7 @@
+ 
+ class C_Beam;
+ class C_BaseViewModel;
+-class C_BaseEntity;
++#include "igameentity.h"
+ 
+ 
+ #define INPVS_YES			0x0001		// The entity thinks it's in the PVS.
+@@ -136,12 +137,11 @@ public:
+ 	// All methods of accessing specialized IClientUnknown's go through here.
+ 	IClientUnknown*			GetListedEntity( int entnum );
+ 	
+-	// Simple wrappers for convenience..
+-	C_BaseEntity*			GetBaseEntity( int entnum );
++	IGameEntity*			GetBaseEntity( int entnum );
+ 	ICollideable*			GetCollideable( int entnum );
+ 
+ 	IClientRenderable*		GetClientRenderableFromHandle( ClientEntityHandle_t hEnt );
+-	C_BaseEntity*			GetBaseEntityFromHandle( ClientEntityHandle_t hEnt );
++	IGameEntity*			GetBaseEntityFromHandle( ClientEntityHandle_t hEnt );
+ 	ICollideable*			GetCollideableFromHandle( ClientEntityHandle_t hEnt );
+ 	IClientThinkable*		GetClientThinkableFromHandle( ClientEntityHandle_t hEnt );
+ 
+@@ -153,14 +153,14 @@ public:
+ 	bool					IsHandleValid( ClientEntityHandle_t handle ) const;
+ 
+ 	// For backwards compatibility...
+-	C_BaseEntity*			GetEnt( int entnum ) { return GetBaseEntity( entnum ); }
++	IGameEntity*			GetEnt( int entnum ) { return GetBaseEntity( entnum ); }
+ 
+ 	void					RecomputeHighestEntityUsed( void );
+ 
+ 
+ 	// Use this to iterate over all the C_BaseEntities.
+-	C_BaseEntity* FirstBaseEntity() const;
+-	C_BaseEntity* NextBaseEntity( C_BaseEntity *pEnt ) const;
++	IGameEntity* FirstBaseEntity() const;
++	IGameEntity* NextBaseEntity( IGameEntity *pEnt ) const;
+ 
+ 	class CPVSNotifyInfo
+ 	{
+@@ -180,8 +180,8 @@ public:
+ 	void AddListenerEntity( IClientEntityListener *pListener );
+ 	void RemoveListenerEntity( IClientEntityListener *pListener );
+ 
+-	void NotifyCreateEntity( C_BaseEntity *pEnt );
+-	void NotifyRemoveEntity( C_BaseEntity *pEnt );
++	void NotifyCreateEntity( IGameEntity *pEnt );
++	void NotifyRemoveEntity( IGameEntity *pEnt );
+ 
+ private:
+ 
+@@ -207,7 +207,7 @@ private:
+ 	EntityCacheInfo_t	m_EntityCacheInfo[NUM_ENT_ENTRIES];
+ 
+ 	// For fast iteration.
+-	CUtlLinkedList<C_BaseEntity*, unsigned short> m_BaseEntities;
++	CUtlLinkedList<IGameEntity*, unsigned short> m_BaseEntities;
+ 
+ 
+ private:
+@@ -230,7 +230,7 @@ public:
+ 	C_AllBaseEntityIterator();
+ 
+ 	void Restart();
+-	C_BaseEntity* Next();	// keep calling this until it returns null.
++	IGameEntity* Next();
+ 
+ private:
+ 	unsigned short m_CurBaseEntity;
+@@ -242,7 +242,7 @@ public:
+ 	C_BaseEntityIterator();
+ 
+ 	void Restart();
+-	C_BaseEntity* Next();	// keep calling this until it returns null.
++	IGameEntity* Next();
+ 
+ private:
+ 	unsigned short m_CurBaseEntity;
+@@ -298,11 +298,12 @@ inline CClientEntityList& ClientEntityList()
+ class IClientEntityListener
+ {
+ public:
+-	virtual void OnEntityCreated( C_BaseEntity *pEntity ) {};
++	virtual void OnEntityCreated( IGameEntity *pEntity ) {};
+ 	//virtual void OnEntitySpawned( C_BaseEntity *pEntity ) {};
+-	virtual void OnEntityDeleted( C_BaseEntity *pEntity ) {};
++	virtual void OnEntityDeleted( IGameEntity *pEntity ) {};
+ };
+ 
+ 
++
+ #endif // CLIENTENTITYLIST_H
+ 
+diff --git a/src/game/client/clientleafsystem.h b/src/game/client/clientleafsystem.h
+index dd48ec0bb04c2f4ff51dd1184ad766f804d1b84f..26602e9ba8daf120587cad1208d9fa0451d93aab 100644
+--- a/src/game/client/clientleafsystem.h
++++ b/src/game/client/clientleafsystem.h
+@@ -132,7 +132,9 @@ public:
+ //-----------------------------------------------------------------------------
+ // The client leaf system
+ //-----------------------------------------------------------------------------
+-abstract_class IClientLeafSystem : public IClientLeafSystemEngine, public IGameSystemPerFrame
++#include "shell_clientsystem.h"
++
++abstract_class IClientLeafSystem : public IClientLeafSystemEngine, public CClientSystemPerFrame
+ {
+ public:
+ 	// Adds and removes renderables from the leaf lists
+diff --git a/src/game/client/colorcorrectionmgr.h b/src/game/client/colorcorrectionmgr.h
+index 3d5271db6ca7caaabd128bbc72cb9898a258e509..2347f706b1b78a2d9a8be1242ff20ea23372ef9c 100644
+--- a/src/game/client/colorcorrectionmgr.h
++++ b/src/game/client/colorcorrectionmgr.h
+@@ -21,7 +21,9 @@
+ DECLARE_POINTER_HANDLE( ClientCCHandle_t );
+ #define INVALID_CLIENT_CCHANDLE ( (ClientCCHandle_t)0 )
+ 
+-class CColorCorrectionMgr : public CBaseGameSystem
++#include "shell_clientsystem.h"
++
++class CColorCorrectionMgr : public CClientSystem
+ {
+ 	// Inherited from IGameSystemPerFrame
+ public:
+diff --git a/src/game/client/detailobjectsystem.h b/src/game/client/detailobjectsystem.h
+index 11bb696fa80bd48b7d0a85d65544cf82c5180afd..04696a06735c3db8d514ceb366de9820378f89e4 100644
+--- a/src/game/client/detailobjectsystem.h
++++ b/src/game/client/detailobjectsystem.h
+@@ -24,7 +24,9 @@ struct model_t;
+ //-----------------------------------------------------------------------------
+ // Responsible for managing detail objects
+ //-----------------------------------------------------------------------------
+-abstract_class IDetailObjectSystem : public IGameSystem
++#include "shell_clientsystem.h"
++
++abstract_class IDetailObjectSystem : public CClientSystem
+ {
+ public:
+     // Gets a particular detail object
+diff --git a/src/game/client/fx.h b/src/game/client/fx.h
+index 3b5e4e93b99825879eafc50177c1bd03db1a09ca..879bf7f06bda9cd84f01a522ce821728d258c748 100644
+--- a/src/game/client/fx.h
++++ b/src/game/client/fx.h
+@@ -35,6 +35,8 @@ enum
+ 	FX_ENERGYSPLASH_DEFAULT_EXPLOSIVE = ~0,
+ };
+ 
++#include "icliententityinternal.h"
++
+ bool FX_GetAttachmentTransform( ClientEntityHandle_t hEntity, int attachmentIndex, matrix3x4_t &transform );
+ bool FX_GetAttachmentTransform( ClientEntityHandle_t hEntity, int attachmentIndex, Vector *origin, QAngle *angles );
+ 
+diff --git a/src/game/client/fx_impact.h b/src/game/client/fx_impact.h
+index ad57f7e7cb281c8219cf498098c7be654c6e2817..b02828e47760a82b8ed077bc10f46d5d9bf33f08 100644
+--- a/src/game/client/fx_impact.h
++++ b/src/game/client/fx_impact.h
+@@ -14,10 +14,10 @@
+ #include "istudiorender.h"
+ 
+ // Parse the impact data from the server's data block
+-C_BaseEntity *ParseImpactData( const CEffectData &data, Vector *vecOrigin, Vector *vecStart, Vector *vecShotDir, short &nSurfaceProp, int &iMaterial, int &iDamageType, int &iHitbox );
++IGameEntity *ParseImpactData( const CEffectData &data, Vector *vecOrigin, Vector *vecStart, Vector *vecShotDir, short &nSurfaceProp, int &iMaterial, int &iDamageType, int &iHitbox );
+ 
+ // Get the decal name to use based on an impact with the specified entity, surface material, and damage type
+-char const *GetImpactDecal( C_BaseEntity *pEntity, int iMaterial, int iDamageType );
++char const *GetImpactDecal( IGameEntity *pEntity, int iMaterial, int iDamageType );
+ 
+ // Basic decal handling
+ // Returns true if it hit something
+@@ -27,7 +27,7 @@ enum
+ 	IMPACT_REPORT_RAGDOLL_IMPACTS = 0x2,
+ };
+ 
+-bool Impact( Vector &vecOrigin, Vector &vecStart, int iMaterial, int iDamageType, int iHitbox, C_BaseEntity *pEntity, trace_t &tr, int nFlags = 0, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );
++bool Impact( Vector &vecOrigin, Vector &vecStart, int iMaterial, int iDamageType, int iHitbox, IGameEntity *pEntity, trace_t &tr, int nFlags = 0, int maxLODToDecal = ADDDECAL_TO_ALL_LODS );
+ 
+ // Flags for PerformCustomEffects
+ enum
+@@ -39,7 +39,7 @@ enum
+ void PerformCustomEffects( const Vector &vecOrigin, trace_t &tr, const Vector &shotDir, int iMaterial, int iScale, int nFlags = 0 );
+ 
+ // Play the correct impact sound according to the material hit
+-void PlayImpactSound( C_BaseEntity *pServerEntity, trace_t &tr, Vector &vecServerOrigin, int nServerSurfaceProp );
++void PlayImpactSound( IGameEntity *pServerEntity, trace_t &tr, Vector &vecServerOrigin, int nServerSurfaceProp );
+ 
+ // This can be used to hook impact sounds and play them at a later time.
+ // Shotguns do this so it doesn't play 10 identical sounds in the same spot.
+diff --git a/src/game/client/hud_closecaption.h b/src/game/client/hud_closecaption.h
+index 2a14de3b06d4a7f1d7b1b6c9d5ebeed717bc44f3..453899ff351778caece621f6afba82fdaceb2ca0 100644
+--- a/src/game/client/hud_closecaption.h
++++ b/src/game/client/hud_closecaption.h
+@@ -11,6 +11,7 @@
+ #pragma once
+ #endif
+ 
++#include "datacache/idatacache.h"
+ #include "hudelement.h"
+ #include <vgui_controls/Panel.h>
+ #include "captioncompiler.h"
+diff --git a/src/game/client/hud_pdump.h b/src/game/client/hud_pdump.h
+index c5e152e61c519537f819e4c98167a1ce40c27a36..a796333ddcbe6b4a62c7c1612b479fa433c2ae88 100644
+--- a/src/game/client/hud_pdump.h
++++ b/src/game/client/hud_pdump.h
+@@ -43,7 +43,7 @@ public:
+ 
+ 	// Remove dump info
+ 	void		Clear();
+-	void		DumpEntity( C_BaseEntity *ent, int commands_acknowledged );
++	void		DumpEntity( IGameEntity *ent, int commands_acknowledged );
+ 
+ 	void DumpComparision( const char *classname, const char *fieldname, const char *fieldtype,
+ 		bool networked, bool noterrorchecked, bool differs, bool withintolerance, const char *value );
+diff --git a/src/game/client/iclassmap.h b/src/game/client/iclassmap.h
+index 78ac84c9838a7347135d9e3b8163cbc3f1e5004c..07b584ed05ade8eb8149080ee28d250e07618e17 100644
+--- a/src/game/client/iclassmap.h
++++ b/src/game/client/iclassmap.h
+@@ -11,8 +11,8 @@
+ #pragma once
+ #endif
+ 
+-class C_BaseEntity;
+-typedef C_BaseEntity* (*DISPATCHFUNCTION)( void );
++#include "igameentity.h"
++typedef IGameEntity* (*DISPATCHFUNCTION)( void );
+ 
+ abstract_class IClassMap
+ {
+@@ -21,7 +21,7 @@ public:
+ 
+ 	virtual void			Add( const char *mapname, const char *classname, int size, DISPATCHFUNCTION factory = 0 ) = 0;
+ 	virtual char const		*Lookup( const char *classname ) = 0;
+-	virtual C_BaseEntity	*CreateEntity( const char *mapname ) = 0;
++	virtual IGameEntity	*CreateEntity( const char *mapname ) = 0;
+ 	virtual int				GetClassSize( const char *classname ) = 0;
+ };
+ 
+diff --git a/src/game/client/iclientmode.h b/src/game/client/iclientmode.h
+index a313d8ffdbbdc18fde6bc01d317b8aa9d0d4ba88..985642f96425e81250b1d10f6b5da4a8d2462275 100644
+--- a/src/game/client/iclientmode.h
++++ b/src/game/client/iclientmode.h
+@@ -13,7 +13,7 @@
+ #include "client_virtualreality.h"
+ 
+ class CViewSetup;
+-class C_BaseEntity;
++#include "igameentity.h"
+ class C_BasePlayer;
+ class CUserCmd;
+ 
+@@ -75,8 +75,8 @@ public:
+ 
+ 	// The mode can choose to draw/not draw entities.
+ 	virtual bool	ShouldDrawDetailObjects( ) = 0;
+-	virtual bool	ShouldDrawEntity(C_BaseEntity *pEnt) = 0;
+-	virtual bool	ShouldDrawLocalPlayer( C_BasePlayer *pPlayer ) = 0;
++	virtual bool	ShouldDrawEntity( IClientUnknown *pEnt ) = 0;
++	virtual bool	ShouldDrawLocalPlayer() = 0;
+ 	virtual bool	ShouldDrawParticles( ) = 0;
+ 
+ 	// The mode can choose to not draw fog
+diff --git a/src/game/client/iclientshadowmgr.h b/src/game/client/iclientshadowmgr.h
+index 174f57a8dc42dbd5e27d2487e2caeda8c7dfc2b7..9329dce30b130e51b23ae2e979e70086dd465380 100644
+--- a/src/game/client/iclientshadowmgr.h
++++ b/src/game/client/iclientshadowmgr.h
+@@ -39,7 +39,9 @@ enum ShadowReceiver_t
+ //-----------------------------------------------------------------------------
+ // The class responsible for dealing with shadows on the client side
+ //-----------------------------------------------------------------------------
+-abstract_class IClientShadowMgr : public IGameSystemPerFrame
++#include "shell_clientsystem.h"
++
++abstract_class IClientShadowMgr : public CClientSystemPerFrame
+ {
+ public:
+ 	// Create, destroy shadows
+diff --git a/src/game/client/iinput.h b/src/game/client/iinput.h
+index bb4751200b064d7a667ccf13cf0e6007b59d7a13..695543be8c77b1a5063b01cb8bf7470d7ac6b755 100644
+--- a/src/game/client/iinput.h
++++ b/src/game/client/iinput.h
+@@ -44,7 +44,7 @@ public:
+ 
+ 	virtual CUserCmd	*GetUserCmd( int sequence_number ) = 0;
+ 
+-	virtual void		MakeWeaponSelection( C_BaseCombatWeapon *weapon ) = 0;
++	virtual void		MakeWeaponSelection( int nWeaponEntIndex ) = 0;
+ 
+ 	// Retrieve key state
+ 	virtual float		KeyState ( kbutton_t *key ) = 0;
+diff --git a/src/game/client/input.h b/src/game/client/input.h
+index 28c7a704f4af138846de05edf2655cb1c2bc8cec..08bcc214258cab400c4c96834e19c58417706306 100644
+--- a/src/game/client/input.h
++++ b/src/game/client/input.h
+@@ -15,6 +15,7 @@
+ #include "iinput.h"
+ #include "mathlib/vector.h"
+ #include "kbutton.h"
++#include "usercmd.h"
+ #include "ehandle.h"
+ #include "inputsystem/AnalogCode.h"
+ #include "steam/isteamcontroller.h"
+@@ -55,7 +56,7 @@ public:
+ 
+ 	virtual		CUserCmd	*GetUserCmd( int sequence_number );
+ 
+-	virtual		void		MakeWeaponSelection( C_BaseCombatWeapon *weapon );
++	virtual		void		MakeWeaponSelection( int nWeaponEntIndex );
+ 
+ 	virtual		float		KeyState( kbutton_t *key );
+ 	virtual		int			KeyEvent( int down, ButtonCode_t keynum, const char *pszCurrentBinding );
+@@ -291,7 +292,7 @@ private:
+ 	CameraThirdData_t	*m_pCameraThirdData;
+ 
+ 	// Set until polled by CreateMove and cleared
+-	CHandle< C_BaseCombatWeapon > m_hSelectedWeapon;
++	int m_nSelectedWeaponIndex;
+ 
+ #if defined( HL2_CLIENT_DLL )
+ 	CUtlVector< CEntityGroundContact > m_EntityGroundContact;
+diff --git a/src/game/client/iviewrender.h b/src/game/client/iviewrender.h
+index c66061aed970202ae108bdd1e8aef548199b7cdb..ffc7f77a38d61a71179788fc055563207cc82abb 100644
+--- a/src/game/client/iviewrender.h
++++ b/src/game/client/iviewrender.h
+@@ -54,7 +54,7 @@ enum DrawFlags_t
+ // Purpose: View setup and rendering
+ //-----------------------------------------------------------------------------
+ class CViewSetup;
+-class C_BaseEntity;
++#include "igameentity.h"
+ struct vrect_t;
+ class C_BaseViewModel;
+ struct WriteReplayScreenshotParams_t;
+@@ -130,8 +130,8 @@ public:
+ 
+ 	virtual void		GetScreenFadeDistances( float *min, float *max ) = 0;
+ 
+-	virtual C_BaseEntity *GetCurrentlyDrawingEntity() = 0;
+-	virtual void		SetCurrentlyDrawingEntity( C_BaseEntity *pEnt ) = 0;
++	virtual IClientUnknown *GetCurrentlyDrawingEntity() = 0;
++	virtual void		SetCurrentlyDrawingEntity( IClientUnknown *pEnt ) = 0;
+ 
+ 	virtual bool		UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView ) = 0;
+ 
+diff --git a/src/game/client/iviewrender_beams.h b/src/game/client/iviewrender_beams.h
+index ae6411da51e97a9150115c01a12a25aa1c24a721..39912455d0dfed7c1908ac8c0282518a084bde50 100644
+--- a/src/game/client/iviewrender_beams.h
++++ b/src/game/client/iviewrender_beams.h
+@@ -15,6 +15,7 @@
+ // common to server, too
+ #include "beam_flags.h"
+ #include "tempentity.h"
++#include "basehandle.h"
+ 
+ extern void SetBeamCreationAllowed( bool state );
+ extern bool BeamCreationAllowed( void );
+@@ -31,6 +32,8 @@ class Beam_t;
+ // Purpose: Popcorn trail for Beam Follow rendering...
+ //-----------------------------------------------------------------------------
+ 
++class IClientEntity;
++
+ struct BeamTrail_t
+ {
+ 	// NOTE:  Don't add user defined fields except after these four fields.
+@@ -47,10 +50,9 @@ struct BeamInfo_t
+ {
+ 	int			m_nType;
+ 
+-	// Entities
+-	C_BaseEntity* m_pStartEnt;
++	IClientEntity* m_pStartEnt;
+ 	int			m_nStartAttachment;
+-	C_BaseEntity* m_pEndEnt;
++	IClientEntity* m_pEndEnt;
+ 	int			m_nEndAttachment;
+ 
+ 	// Points
+@@ -118,10 +120,11 @@ public:
+ 	// Updates the state of the temp ent beams
+ 	virtual void	UpdateTempEntBeams() = 0;
+ 
+-	virtual void	DrawBeam( C_Beam* pbeam, ITraceFilter *pEntityBeamTraceFilter = NULL ) = 0;
+ 	virtual void	DrawBeam( Beam_t *pbeam ) = 0;
+ 
+-	virtual void	KillDeadBeams( CBaseEntity *pEnt ) = 0;
++	virtual void	KillDeadBeams( IGameEntity *pEnt ) = 0;
++
++	virtual void	KillDeadBeams( const CBaseHandle &hDeadEntity ) = 0;
+ 
+ 	// New interfaces!
+ 	virtual Beam_t	*CreateBeamEnts( BeamInfo_t &beamInfo ) = 0;
+diff --git a/src/game/client/particlemgr.h b/src/game/client/particlemgr.h
+index 8fd10e0353a4fcff51978f62002deae5a0392411..1f917b8c8dfe2510ff8f2072f03b27f1c6daf594 100644
+--- a/src/game/client/particlemgr.h
++++ b/src/game/client/particlemgr.h
+@@ -703,6 +703,8 @@ public:
+ 	void StatsNewParticleEffectDrawn ( CNewParticleEffect *pParticles );
+ 	void StatsOldParticleEffectDrawn ( CParticleEffectBinding *pParticles );
+ 
++	void SourceSharpParticleReport();
++
+ private:
+ 	struct RetireInfo_t
+ 	{
+diff --git a/src/game/client/particles_new.h b/src/game/client/particles_new.h
+index 06d98c9ce70050d1b8b73eb35ee9081add83b8a0..d0672f6df51916fb41495a854f495eee4b7a9d43 100644
+--- a/src/game/client/particles_new.h
++++ b/src/game/client/particles_new.h
+@@ -67,13 +67,13 @@ public:
+ 	bool GetAutoUpdateBBox( void );
+ 	bool ShouldPerformCullCheck() const;
+ 	void MarkShouldPerformCullCheck( bool bEnable );
+-	CBaseEntity *GetOwner( void ) { return m_hOwner; }
+-	void SetOwner( CBaseEntity *pOwner ) { m_hOwner = pOwner; }
++	IGameEntity *GetOwner( void ) { return m_hOwner; }
++	void SetOwner( IGameEntity *pOwner ) { m_hOwner = pOwner; }
+ 	CNewParticleEffect* ReplaceWith( const char *pParticleSystemName );
+ 
+-	static CSmartPtr<CNewParticleEffect> Create( CBaseEntity *pOwner, const char *pParticleSystemName,
++	static CSmartPtr<CNewParticleEffect> Create( IGameEntity *pOwner, const char *pParticleSystemName,
+ 												 const char *pDebugName = NULL );
+-	static CSmartPtr<CNewParticleEffect> Create( CBaseEntity *pOwner, CParticleSystemDefinition *pDef,
++	static CSmartPtr<CNewParticleEffect> Create( IGameEntity *pOwner, CParticleSystemDefinition *pDef,
+ 												 const char *pDebugName = NULL );
+ 	virtual int DrawModel( int flags );
+ 
+@@ -84,7 +84,7 @@ public:
+ 	void StopEmission( bool bInfiniteOnly = false, bool bRemoveAllParticles = false, bool bWakeOnStop = false );
+ 	void SetDormant( bool bDormant );
+ 	void SetControlPoint( int nWhichPoint, const Vector &v );
+-	void SetControlPointEntity( int nWhichPoint, CBaseEntity *pEntity );
++	void SetControlPointEntity( int nWhichPoint, IGameEntity *pEntity );
+ 	void SetControlPointOrientation( int nWhichPoint, const Quaternion &q );
+ 	void SetControlPointOrientation( int nWhichPoint, const Vector &forward, const Vector &right, const Vector &up );
+ 	void SetControlPointForwardVector( int nWhichPoint, const Vector &v );
+@@ -126,8 +126,8 @@ public:
+ 
+ 	int AllocateToolParticleEffectId();
+ 	int GetToolParticleEffectId() const;
+-	CNewParticleEffect( CBaseEntity *pOwner, const char *pEffectName );
+-	CNewParticleEffect( CBaseEntity *pOwner, CParticleSystemDefinition *pEffect );
++	CNewParticleEffect( IGameEntity *pOwner, const char *pEffectName );
++	CNewParticleEffect( IGameEntity *pOwner, CParticleSystemDefinition *pEffect );
+ 	virtual ~CNewParticleEffect();
+ 
+ protected:
+@@ -198,10 +198,6 @@ inline const Vector &CNewParticleEffect::GetSortOrigin( void )
+ 	return m_vSortOrigin;
+ }
+ 
+-inline bool CNewParticleEffect::ShouldDraw( void )
+-{
+-	return true;
+-}
+ 
+ inline bool CNewParticleEffect::IsTransparent( void )
+ {
+@@ -311,7 +307,7 @@ inline void CNewParticleEffect::MarkShouldPerformCullCheck( bool bEnable )
+ 	m_bShouldPerformCullCheck = bEnable;
+ }
+ 
+-inline CSmartPtr<CNewParticleEffect> CNewParticleEffect::Create( CBaseEntity *pOwner, const char *pParticleSystemName, const char *pDebugName )
++inline CSmartPtr<CNewParticleEffect> CNewParticleEffect::Create( IGameEntity *pOwner, const char *pParticleSystemName, const char *pDebugName )
+ {
+ 	CNewParticleEffect *pRet = new CNewParticleEffect( pOwner, pParticleSystemName );
+ 	pRet->m_pDebugName = pDebugName ? pDebugName : pParticleSystemName;
+@@ -319,7 +315,7 @@ inline CSmartPtr<CNewParticleEffect> CNewParticleEffect::Create( CBaseEntity *pO
+ 	return pRet;
+ }
+ 
+-inline CSmartPtr<CNewParticleEffect> CNewParticleEffect::Create( CBaseEntity *pOwner, CParticleSystemDefinition *pDef, const char *pDebugName )
++inline CSmartPtr<CNewParticleEffect> CNewParticleEffect::Create( IGameEntity *pOwner, CParticleSystemDefinition *pDef, const char *pDebugName )
+ {
+ 	CNewParticleEffect *pRet = new CNewParticleEffect( pOwner, pDef );
+ 	pRet->m_pDebugName = pDebugName ? pDebugName : pDef->GetName();
+diff --git a/src/game/client/prediction.h b/src/game/client/prediction.h
+index 07e65d9b29cd0bfe8cf169287ef7863f4422a72a..e110fd6c87d03046e7da7f8c3778f08e607039b9 100644
+--- a/src/game/client/prediction.h
++++ b/src/game/client/prediction.h
+@@ -73,14 +73,9 @@ public:
+ 	virtual void	GetLocalViewAngles( QAngle& ang );
+ 	virtual void	SetLocalViewAngles( QAngle& ang );
+ 
+-	virtual void	RunCommand( C_BasePlayer *player, CUserCmd *ucmd, IMoveHelper *moveHelper );
+ 
+ // Internal
+ protected:
+-	virtual void	SetupMove( C_BasePlayer *player, CUserCmd *ucmd, IMoveHelper *pHelper, CMoveData *move );
+-	virtual void	FinishMove( C_BasePlayer *player, CUserCmd *ucmd, CMoveData *move );
+-	virtual void	SetIdealPitch ( C_BasePlayer *player, const Vector& origin, const QAngle& angles, const Vector& viewheight );
+-
+ 	void			CheckError( int commands_acknowledged );
+ 
+ 	// Called before and after any movement processing
+@@ -94,14 +89,6 @@ protected:
+ 	void			RunPostThink( C_BasePlayer *player );
+ 
+ private:
+-	virtual void	_Update
+-					( 
+-						bool received_new_world_update,
+-						bool validframe,		// Is frame data valid
+-						int incoming_acknowledged, // Last command acknowledged to have been run by server (un-modded)
+-						int outgoing_command	// Last command (most recent) sent to server (un-modded)
+-					);
+-
+ 	// Actually does the prediction work, returns false if an error occurred
+ 	bool			PerformPrediction( bool received_new_world_update, C_BasePlayer *localPlayer, int incoming_acknowledged, int outgoing_command );
+ 
+@@ -109,7 +96,7 @@ private:
+ 	void			RestoreEntityToPredictedFrame( int predicted_frame );
+ 	int				ComputeFirstCommandToExecute( bool received_new_world_update, int incoming_acknowledged, int outgoing_command );
+ 
+-	void			DumpEntity( C_BaseEntity *ent, int commands_acknowledged );
++	void			DumpEntity( IGameEntity *ent, int commands_acknowledged );
+ 
+ 	void			ShutdownPredictables( void );
+ 	void			ReinitPredictables( void );
+@@ -119,7 +106,7 @@ private:
+ 	void			RunSimulation( int current_command, float curtime, CUserCmd *cmd, C_BasePlayer *localPlayer );
+ 	void			Untouch( void );
+ 	void			StorePredictionResults( int predicted_frame );
+-	bool			ShouldDumpEntity( C_BaseEntity *ent );
++	bool			ShouldDumpEntity( IGameEntity *ent );
+ 
+ 	void			SmoothViewOnMovingPlatform( C_BasePlayer *pPlayer, Vector& offset );
+ 
+@@ -127,7 +114,7 @@ private:
+ // Data
+ protected:
+ 	// Last object the player was standing on
+-	CHandle< C_BaseEntity > m_hLastGround;
++	CHandle< IGameEntity > m_hLastGround;
+ private:
+ 	bool			m_bInPrediction;
+ 	bool			m_bFirstTimePredicted;
+@@ -141,7 +128,7 @@ private:
+ 	int				m_nServerCommandsAcknowledged;
+ 	int				m_bPreviousAckHadErrors;
+ 	int				m_bPreviousAckErrorTriggersFullLatchReset;
+-	CUtlVector< CHandle< CBaseEntity > > m_EntsWithPredictionErrorsInLastAck;
++	CUtlVector< CHandle< IGameEntity > > m_EntsWithPredictionErrorsInLastAck;
+ 	int				m_nIncomingPacketNumber;
+ 
+ #endif
+diff --git a/src/game/client/proxyentity.h b/src/game/client/proxyentity.h
+index 08fe427026d87db072ccf7ca55e8c003aef4842b..93abf6d4f601cff4904d3899add926a19632ce98 100644
+--- a/src/game/client/proxyentity.h
++++ b/src/game/client/proxyentity.h
+@@ -12,6 +12,7 @@
+ 
+ 
+ class IMaterialVar;
++class IClientEntity;
+ 
+ //-----------------------------------------------------------------------------
+ // Base class all material proxies should inherit from
+@@ -20,11 +21,11 @@ abstract_class CEntityMaterialProxy : public IMaterialProxy
+ {
+ public:
+ 	virtual void Release( void );
+-	virtual void OnBind( void *pC_BaseEntity );
++	virtual void OnBind( void *pRenderable );
+ 
+ protected:
+ 	// base classes should implement these
+-	virtual void OnBind( C_BaseEntity *pBaseEntity ) = 0;
++	virtual void OnBind( IClientEntity *pEntity ) = 0;
+ 	virtual void OnBindNotEntity( void *pRenderable ) {}
+ };
+ 
+diff --git a/src/game/client/ragdoll.h b/src/game/client/ragdoll.h
+index 5ee9dfcb3b839c0ac4c0c4f2e687c2272f329f7a..4fda7766c2f7bba96603f428e3a54ba62931e8b4 100644
+--- a/src/game/client/ragdoll.h
++++ b/src/game/client/ragdoll.h
+@@ -18,7 +18,7 @@
+ 
+ #define RAGDOLL_VISUALIZE	0
+ 
+-class C_BaseEntity;
++#include "igameentity.h"
+ class CStudioHdr;
+ struct mstudiobone_t;
+ class Vector;
+@@ -30,7 +30,7 @@ abstract_class IRagdoll
+ public:
+ 	virtual ~IRagdoll() {}
+ 
+-	virtual void RagdollBone( C_BaseEntity *ent, mstudiobone_t *pbones, int boneCount, bool *boneSimulated, CBoneAccessor &pBoneToWorld ) = 0;
++	virtual void RagdollBone( IGameEntity *ent, mstudiobone_t *pbones, int boneCount, bool *boneSimulated, CBoneAccessor &pBoneToWorld ) = 0;
+ 	virtual const Vector& GetRagdollOrigin( ) = 0;
+ 	virtual void GetRagdollBounds( Vector &mins, Vector &maxs ) = 0;
+ 	virtual int RagdollBoneCount() const = 0;
+@@ -49,7 +49,7 @@ public:
+ 	DECLARE_SIMPLE_DATADESC();
+ 	
+ 	void Init( 
+-		C_BaseEntity *ent, 
++		IGameEntity *ent, 
+ 		CStudioHdr *pstudiohdr, 
+ 		const Vector &forceVector, 
+ 		int forceBone, 
+@@ -59,10 +59,10 @@ public:
+ 		float boneDt,
+ 		bool bFixedConstraints=false );
+ 
+-	virtual void RagdollBone( C_BaseEntity *ent, mstudiobone_t *pbones, int boneCount, bool *boneSimulated, CBoneAccessor &pBoneToWorld );
++	virtual void RagdollBone( IGameEntity *ent, mstudiobone_t *pbones, int boneCount, bool *boneSimulated, CBoneAccessor &pBoneToWorld );
+ 	virtual const Vector& GetRagdollOrigin( );
+ 	virtual void GetRagdollBounds( Vector &theMins, Vector &theMaxs );
+-	void	BuildRagdollBounds( C_BaseEntity *ent );
++	void	BuildRagdollBounds( IGameEntity *ent );
+ 	
+ 	virtual IPhysicsObject *GetElement( int elementNum );
+ 	virtual IPhysicsConstraintGroup *GetConstraintGroup() { return m_ragdoll.pGroup; }
+@@ -115,7 +115,7 @@ public:
+ 
+ 
+ CRagdoll *CreateRagdoll( 
+-	C_BaseEntity *ent, 
++	IGameEntity *ent, 
+ 	CStudioHdr *pstudiohdr, 
+ 	const Vector &forceVector, 
+ 	int forceBone, 
+@@ -127,8 +127,8 @@ CRagdoll *CreateRagdoll(
+ 
+ 
+ // save this ragdoll's creation as the current tick
+-void NoteRagdollCreationTick( C_BaseEntity *pRagdoll );
++void NoteRagdollCreationTick( IGameEntity *pRagdoll );
+ // returns true if the ragdoll was created on this tick
+-bool WasRagdollCreatedOnCurrentTick( C_BaseEntity *pRagdoll );
++bool WasRagdollCreatedOnCurrentTick( IGameEntity *pRagdoll );
+ 
+ #endif // RAGDOLL_H
+diff --git a/src/game/client/tempent.h b/src/game/client/tempent.h
+index 8085ef2a55757a2024f4d3f82065fa9dd0932101..a3af3d0aca5f81c02a1f537f03b9ed6e55495488 100644
+--- a/src/game/client/tempent.h
++++ b/src/game/client/tempent.h
+@@ -12,8 +12,10 @@
+ #endif
+ 
+ #include "c_baseentity.h"
+-#include "c_baseanimating.h"
+ #include "c_sprite.h"
++#include "shell_renderable.h"
++#include "cliententitylist.h"
++#include "shell_cliententitylist.h"
+ 
+ // Temporary entity array
+ #define TENTPRIORITY_LOW	0
+@@ -56,13 +58,10 @@ class C_LocalTempEntity;
+ 
+ typedef int (*pfnDrawHelper)( C_LocalTempEntity *entity, int flags );
+ 
+-//-----------------------------------------------------------------------------
+-// Purpose: Should this derive from some other class
+-//-----------------------------------------------------------------------------
+-class C_LocalTempEntity : public C_BaseAnimating, public C_SpriteRenderer
++class C_LocalTempEntity : public CShellRenderable, public C_SpriteRenderer
+ {
+ public:
+-	DECLARE_CLASS( C_LocalTempEntity, C_BaseAnimating );
++	typedef CShellRenderable BaseClass;
+ 
+ 	C_LocalTempEntity();
+ 
+@@ -71,8 +70,7 @@ public:
+ 	virtual bool					IsActive( void );
+ 	virtual bool					Frame( float frametime, int framenumber );
+ 
+-	// C_BaseAnimating , etc. override
+-	virtual int						DrawModel( int flags );
++	virtual int						DrawModel( int flags ) OVERRIDE;
+ 
+ 	// Sets the velocity
+ 	void SetVelocity( const Vector &vecVelocity );
+@@ -86,9 +84,89 @@ public:
+ 	void							OnRemoveTempEntity();
+ 
+ 	void							SetImpactEffect( const char *pszImpactEffect ) { m_pszImpactEffect = pszImpactEffect; }
+-	CNewParticleEffect*				AddParticleEffect( const char *pszParticleEffect );
+ 	void							SetParticleEffect( const char *pszParticleEffect ) { m_pszParticleEffect = pszParticleEffect; }
+ 
++	const Vector &GetLocalOrigin() const                 { return GetAbsOrigin(); }
++	void          SetLocalOrigin( const Vector &vecOrg ) { SetAbsOrigin( vecOrg ); }
++
++	vec_t GetLocalOriginDim( int iDim ) const            { return GetAbsOrigin()[ iDim ]; }
++	void  SetLocalOriginDim( int iDim, vec_t flValue )
++	{
++		Vector vecOrg = GetAbsOrigin();
++		vecOrg[ iDim ] = flValue;
++		SetAbsOrigin( vecOrg );
++	}
++
++	const QAngle &GetLocalAngles() const                 { return GetAbsAngles(); }
++	void          SetLocalAngles( const QAngle &ang )    { SetAbsAngles( ang ); }
++
++	vec_t GetLocalAnglesDim( int iDim ) const            { return GetAbsAngles()[ iDim ]; }
++	void  SetLocalAnglesDim( int iDim, vec_t flValue )
++	{
++		QAngle ang = GetAbsAngles();
++		ang[ iDim ] = flValue;
++		SetAbsAngles( ang );
++	}
++
++	virtual const model_t *GetModel( void ) const OVERRIDE { return m_pModel; }
++	void SetModelPointer( const model_t *pModel )          { m_pModel = pModel; }
++
++	RenderMode_t GetRenderMode() const { return (RenderMode_t)m_nRenderMode; }
++	void SetRenderMode( RenderMode_t nMode, bool bForceUpdate = false ) { m_nRenderMode = nMode; }
++
++	void SetRenderColor( byte r, byte g, byte b )
++	{
++		m_clrRender.r = r; m_clrRender.g = g; m_clrRender.b = b;
++	}
++	void SetRenderColor( byte r, byte g, byte b, byte a )
++	{
++		SetRenderColor( r, g, b );
++		m_clrRender.a = a;
++	}
++	void SetRenderColorA( byte a ) { m_clrRender.a = a; }
++
++	void SetTempEntOwner( IGameEntity *pOwner );
++	void SetTempEntOwnerHandle( const CBaseHandle &hOwner ) { m_hOwnerEntity = hOwner; }
++	IHandleEntity *TempEntOwnerHandle() const
++	{
++		return SourceSharp_ClientUnknownFromHandle( m_hOwnerEntity );
++	}
++
++	int TempEntOwnerIndex() const
++	{
++		return m_hOwnerEntity.IsValid() ? m_hOwnerEntity.GetEntryIndex() : -1;
++	}
++
++	void SetGravity( float flGravity ) { m_flGravity = flGravity; }
++	float GetGravity() const           { return m_flGravity; }
++
++	virtual bool ShouldDraw( void ) OVERRIDE
++	{
++		if ( m_nRenderMode == kRenderNone )
++			return false;
++
++		return m_pModel != NULL;
++	}
++
++	virtual bool IsTransparent( void ) OVERRIDE;
++
++	virtual void GetRenderBounds( Vector &theMins, Vector &theMaxs ) OVERRIDE;
++
++	virtual void GetColorModulation( float *color ) OVERRIDE;
++
++	RenderGroup_t GetRenderGroup();
++
++	using CShellRenderable::AddToLeafSystem;
++	void AddToLeafSystem() { AddToLeafSystem( GetRenderGroup() ); }
++
++	virtual bool IgnoresZBuffer( void ) const OVERRIDE
++	{
++		return m_nRenderMode == kRenderGlow || m_nRenderMode == kRenderWorldGlow;
++	}
++
++	virtual void ComputeFxBlend( void ) OVERRIDE;
++	virtual int  GetFxBlend( void ) OVERRIDE { return m_nRenderFXBlend; }
++
+ protected:
+ 
+ 	pfnDrawHelper					m_pfnDrawHelper;
+@@ -132,9 +210,29 @@ public:
+ 	int								m_iLastCollisionFrame;
+ 	Vector							m_vLastCollisionOrigin;
+ 
++public:
++	int								index;
++
++	int								m_nBody;
++	int								m_nSkin;
++	int								m_nHitboxSet;
++
++	int								m_nRenderMode;
++	int								m_nRenderFX;
++	color32							m_clrRender;
++
+ private:
+ 	C_LocalTempEntity( const C_LocalTempEntity & );
+ 
++	const model_t					*m_pModel;
++
++	CBaseHandle						m_hOwnerEntity;
++
++	float							m_flGravity;
++
++	int								m_nRenderFXBlend;
++	int								m_nFXComputeFrame;
++
+ 	Vector							m_vecTempEntVelocity;
+ 	Vector							m_vecPrevLocalOrigin;
+ 
+diff --git a/src/game/client/toolframework_client.h b/src/game/client/toolframework_client.h
+index b4c42aa4b8ea17a22ba0a3e4c47309e6e80cc2c2..46f837ec0d9bb24f217dabc990074d4a63f4d2bd 100644
+--- a/src/game/client/toolframework_client.h
++++ b/src/game/client/toolframework_client.h
+@@ -18,6 +18,7 @@
+ // Forward declarations
+ //-----------------------------------------------------------------------------
+ class KeyValues;
++class IClientEntity;
+ struct AudioState_t;
+ 
+ 
+@@ -91,7 +92,7 @@ enum TERecordingType_t
+ class CRecordEffectOwner
+ {
+ public:
+-	CRecordEffectOwner( C_BaseEntity *pEntity, bool bIsViewModel = false );
++	CRecordEffectOwner( IClientEntity *pEntity, bool bIsViewModel = false );
+ 	~CRecordEffectOwner();
+ 
+ private:
+diff --git a/src/game/client/viewrender.h b/src/game/client/viewrender.h
+index 052e3a7b7df35b4fc5100d4ad1f0bd68341996d4..0ba4e6ee3a802bab6588a67083db95d7faf5b2bc 100644
+--- a/src/game/client/viewrender.h
++++ b/src/game/client/viewrender.h
+@@ -29,7 +29,7 @@ class IScreenSpaceEffect;
+ class CClientViewSetup;
+ class CViewRender;
+ struct ClientWorldListInfo_t;
+-class C_BaseEntity;
++#include "igameentity.h"
+ struct WriteReplayScreenshotParams_t;
+ class CReplayScreenshotTaker;
+ 
+@@ -396,8 +396,8 @@ public:
+ 
+ 	virtual void	GetScreenFadeDistances( float *min, float *max );
+ 
+-	virtual C_BaseEntity *GetCurrentlyDrawingEntity();
+-	virtual void		  SetCurrentlyDrawingEntity( C_BaseEntity *pEnt );
++	virtual IClientUnknown *GetCurrentlyDrawingEntity();
++	virtual void		  SetCurrentlyDrawingEntity( IClientUnknown *pEnt );
+ 
+ 	virtual bool		UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView );
+ 
+@@ -433,7 +433,7 @@ private:
+ 
+ 	void			DrawMonitors( const CViewSetup &cameraView );
+ 
+-	bool			DrawOneMonitor( ITexture *pRenderTarget, int cameraNum, C_PointCamera *pCameraEnt, const CViewSetup &cameraView, C_BasePlayer *localPlayer, 
++	bool			DrawOneMonitor( ITexture *pRenderTarget, int cameraNum, C_PointCamera *pCameraEnt, const CViewSetup &cameraView,
+ 						int x, int y, int width, int height );
+ 
+ 	// Drawing primitives
+@@ -501,7 +501,7 @@ private:
+ 	bool				m_bDrawOverlay;
+ 
+ 	int					m_BaseDrawFlags;	// Set in ViewDrawScene and OR'd into m_DrawFlags as it goes.
+-	C_BaseEntity		*m_pCurrentlyDrawingEntity;
++	IClientUnknown		*m_pCurrentlyDrawingEntity;
+ 
+ #if defined( CSTRIKE_DLL )
+ 	float				m_flLastFOV;
+-- 
+2.53.0
+

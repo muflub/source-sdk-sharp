@@ -1,0 +1,1098 @@
+#!/usr/bin/env python3
+"""tools/leg-floor -- how much of itself must a test leg actually run?
+
+    tools/leg-floor <leg>         print that leg's floor declaration(s)
+    tools/leg-floor --all         print every leg's
+    tools/leg-floor --list        the same, with the derivation spelled out
+    tools/leg-floor --self-test   check that every derivation reads the tree
+
+WHY THIS EXISTS
+===============
+
+`make test` reported
+
+    native     passed      exit 0     287 gtests in 21 binaries
+    ALL 6 TEST LEGS PASSED
+
+on a run of a leg that has 116 binaries in it. The leg was genuinely
+truncated -- a merge landed underneath it -- and NOTHING ANYWHERE NOTICED,
+because nothing anywhere knew how many binaries there were supposed to be.
+
+tools/run-test-legs already refuses the two obvious vacuous greens: a leg
+that never started (NOT RUN) and a leg that exited 0 reporting no tests at
+all (NO TESTS). What it could not refuse was the one in between -- a leg that
+ran a fifth of itself, reported a real, non-zero, correctly-extracted count,
+and exited 0. Its floor was ONE. One gtest in one binary out of 116 passed.
+
+So each leg now declares, BEFORE IT RUNS, how much of itself there is. The
+declaration goes on stdout in a form tools/run-test-legs enforces:
+
+    [leg-floor] gtest-binaries == 116
+    [leg-floor] must-not-compile == 4
+
+and the runner -- the only party that observes what actually happened --
+fails the leg when what it counted does not clear that.
+
+THE DIVISION OF LABOUR, WHICH IS THE POINT
+==========================================
+
+This script DECLARES and never OBSERVES. It runs before the leg, reads the
+tree, and says how big the leg is. It cannot see, and must never be given a
+way to see, what the leg then did.
+
+tools/run-test-legs OBSERVES and never DECLARES. It counts what came out of
+the leg and compares that against a number it did not choose.
+
+Two parties, and neither can produce a green on its own. A leg that lies
+about what it ran cannot: the count is the runner's. A runner reading the
+wrong log cannot: the floor line in that log will not match what it counted.
+That is what makes this different from a leg printing its own "all 116 ran",
+which is the shape of the fixture-summary bug this tree already hit -- a
+leg's self-reported "53 checks, 3 failed" went straight into the harness
+built to stop unbelievable summaries.
+
+WHY NOT A NUMBER IN A FILE
+==========================
+
+Because it rots, and this port has been bitten by that twice: two mutation
+rows expired when a tree count moved 599 -> 666, and a doc's pinned figures
+were red across an unknown number of merges. A pinned 116 is wrong the next
+time somebody adds an ss_cpptest() call, and the fix for a stale pin is to
+edit the pin -- which teaches the reflex a floor exists to prevent.
+
+So every number below is COUNTED OUT OF THE TREE at the moment the leg
+starts. src/test/native/CMakeLists.txt names its binaries; the manifest in tools/checkers
+names its checkers; vitest.config.ts names the globs its files come from;
+the managed suite's fact attributes are in its sources. Add a test and the
+floor rises on its own. Nobody edits anything.
+
+WHY SOME FLOORS ARE `>=` AND SOME ARE `==`
+==========================================
+
+`==` where the tree names the units one-for-one and the leg runs each once:
+src/test/native/CMakeLists.txt has one `ss_cpptest*()` call per binary, and ctest runs it once,
+so 115 is a truncated run and 117 is a log with somebody else's output in
+it. Both are wrong and both are refused.
+
+`>=` where the tree names a LOWER BOUND. An xUnit [Theory] is one method and
+any number of cases, so the method count floors the test count without
+predicting it. A `>=` floor still catches the failure this exists for -- a
+leg that ran a fifth of itself is nowhere near its lower bound -- and it does
+not go red the day somebody adds an [InlineData] row.
+
+Every `>=` derivation here is deliberately the CONSERVATIVE count, and each
+names where it undercounts. An undercount weakens the floor; a guess that
+overcounts breaks the build for no reason and gets the floor deleted. Only
+the first of those is recoverable.
+
+WHAT A FAILED DERIVATION DOES
+=============================
+
+Exits non-zero, so the `&&` in the leg stops the leg before it runs. That is
+deliberate and it is the uncomfortable direction: a leg nobody can size is
+exactly the leg that reports a fifth of itself as a pass, so it does not get
+to run unmeasured. It never falls back to a number, and it never declares a
+floor of 0 -- a floor of 0 cannot fail, and a check that cannot fail is worse
+than no check.
+"""
+import contextlib
+import glob
+import io
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
+
+# The units tools/run-test-legs can observe. A floor naming anything else is
+# refused there rather than ignored -- a typo'd unit that is silently skipped
+# is a floor that cannot fail.
+UNITS = (
+    'gtest-binaries', 'gtest-tests', 'must-not-compile',
+    'dotnet-tests', 'ui-tests', 'ui-files', 'checks',
+)
+
+
+class CannotDerive(Exception):
+    """The tree did not answer. Never fall back to a number; fail the leg."""
+
+
+def _read(rel):
+    path = os.path.join(ROOT, rel)
+    try:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            return f.read()
+    except OSError as exc:
+        raise CannotDerive('cannot read %s (%s)' % (rel, exc))
+
+
+def _uncommented(text, marker='#'):
+    """Source with whole-line comments removed.
+
+    Load-bearing, not tidy. src/test/native/CMakeLists.txt discusses its tests in prose at
+    length -- gib_verdict_test.cpp is named in three comments and compiled on
+    one line -- and tools/checkers found by mutation that a substring search
+    over the raw file reads a merely-DISCUSSED test as wired. The same trap
+    applies to counting: a commented-out ss_cpptest() call must not raise the
+    floor for a binary that will never run.
+    """
+    return '\n'.join(ln for ln in text.splitlines()
+                     if not ln.lstrip().startswith(marker))
+
+
+def _nonzero(rel, what, n):
+    if n <= 0:
+        raise CannotDerive(
+            'derived a floor of %d %s from %s. A floor of zero cannot fail, '
+            'so it is refused rather than declared -- either the derivation '
+            'has stopped matching the tree, or the tree really has none left, '
+            'and both need a human.' % (n, what, rel))
+    return n
+
+
+# ---------------------------------------------------------------------------
+# The derivations. Each returns a list of (unit, op, n, how).
+# ---------------------------------------------------------------------------
+# THE NATIVE MANIFEST. Since Phase 6b the native tests are CMake targets, one
+# call per binary in src/test/native/CMakeLists.txt, and tools/build/
+# buildcpptests is a thin driver over ctest; before that it was the bash script
+# itself (one build_and_run* line per binary), and these patterns were
+# `^build_and_run(?:_[a-z0-9_]+)?\s+(\S+)` and `^build_must_not_compile\s+(\S+)`.
+NATIVE_MANIFEST = 'src/test/native/CMakeLists.txt'
+
+# Any `ss_cpptest*` helper, not an enumerated list of them. The bash version
+# was `(?:_mathlib)?`, and the day build_and_run_engine_headers was added the
+# floor did NOT rise with it: the leg ran 135 binaries against a floor of 134
+# and reported SHORT RUN -- "the log holds output it did not write". That is
+# this file's own stated property failing ("Add a test and the floor rises on
+# its own"), and enumerating helper names is what made it possible to break by
+# adding one. So nothing but a binary-making helper may start with
+# `ss_cpptest`: the flag helpers are ss_test_*_flags for that reason.
+#
+# A call must START a line (so `function(ss_cpptest name)` in the helper file,
+# or a mention inside another call, is not one), CMake command names are
+# case-insensitive, and the name may sit on the next line after the `(`.
+RE_BUILD_RUN = re.compile(r'^ss_cpptest(?:_[a-z0-9_]+)?\s*\(\s*([A-Za-z0-9_.+-]+)',
+                          re.M | re.I)
+RE_MUST_NOT = re.compile(r'^ss_must_not_compile\s*\(\s*([A-Za-z0-9_.+-]+)', re.M | re.I)
+# A binary moved to the census tier (cmake/SourceSharpTests.cmake ss_census):
+# still one ss_cpptest*() call, so still counted above, and then taken out of
+# the native leg and put in the census leg -- which together are the manifest.
+RE_CENSUS = re.compile(r'^ss_census\s*\(\s*([A-Za-z0-9_.+-]+)\s*\)', re.M | re.I)
+
+
+def _census_split(src, bins):
+    census = RE_CENSUS.findall(src)
+    stray = sorted(set(census) - set(bins))
+    if stray:
+        raise CannotDerive(
+            '%s moves to the census tier what it never defines: %s'
+            % (NATIVE_MANIFEST, ' '.join(stray)))
+    if len(set(census)) != len(census):
+        raise CannotDerive('%s calls ss_census() twice for one test' % NATIVE_MANIFEST)
+    return [b for b in bins if b not in census], census
+
+
+def _native_manifest():
+    """The manifest with whole-line comments out -- refusing a bracket comment,
+    which is the one CMake comment form `_uncommented` cannot see."""
+    src = _read(NATIVE_MANIFEST)
+    if re.search(r'#\[=*\[', src):
+        raise CannotDerive(
+            '%s has a bracket comment (#[[ ... ]]); a call inside one would be '
+            'counted as a binary that never runs. Use line comments.'
+            % NATIVE_MANIFEST)
+    return _uncommented(src)
+
+
+def floor_native():
+    """One gtest binary per ss_cpptest*() call in src/test/native/CMakeLists.txt.
+
+    src/test/native/CMakeLists.txt IS the native leg's manifest: every binary
+    and must-not-compile check the leg runs is one call there, and ctest runs
+    each exactly once. This is the execution half: every binary the manifest
+    names must actually have run in this invocation.
+
+    `==` and not `>=`: each call builds one binary and ctest runs it once, and
+    each run prints exactly one `[==========] N tests ... ran.` line. Fewer is a
+    truncated leg; more means the log holds output this leg did not produce.
+    """
+    src = _native_manifest()
+    bins = RE_BUILD_RUN.findall(src)
+    nc = RE_MUST_NOT.findall(src)
+    names = bins + nc
+    bins, census = _census_split(src, bins)
+    if len(set(names)) != len(names):
+        dup = sorted({b for b in names if names.count(b) > 1})
+        raise CannotDerive(
+            '%s names these tests twice: %s. The floor counts calls, so a '
+            'duplicate name would demand a run that cannot happen.'
+            % (NATIVE_MANIFEST, ' '.join(dup)))
+    return [
+        ('gtest-binaries', '==',
+         _nonzero(NATIVE_MANIFEST, 'binaries', len(bins)),
+         '%d ss_cpptest*() calls, less %d ss_census()' % (len(bins), len(census))),
+        ('must-not-compile', '==',
+         _nonzero(NATIVE_MANIFEST, 'must-not-compile checks', len(nc)),
+         '%d ss_must_not_compile() calls' % len(nc)),
+    ]
+
+
+def floor_census():
+    """The census tier (make test-full): the ss_cpptest*() binaries the
+    manifest moves there with ss_census(), run by buildcpptests --census."""
+    src = _native_manifest()
+    _, census = _census_split(src, RE_BUILD_RUN.findall(src))
+    return [('gtest-binaries', '==',
+             _nonzero(NATIVE_MANIFEST, 'census binaries', len(census)),
+             '%d ss_census() calls' % len(census))]
+
+
+RE_CUSTOM_FACT = re.compile(r'class\s+(\w+?)Attribute\s*:\s*FactAttribute')
+
+
+RE_THEORY = re.compile(r'\[Theory\s*[\](]')
+RE_INLINE = re.compile(r'\[InlineData\s*[\](]')
+
+
+def floor_managed():
+    """One dotnet test, at least, per xUnit case the sources spell out.
+
+    The same rule tools/checkers' sweep_managed applies one file at a time: a
+    test method is one xUnit will discover, which means [Fact], [Theory], or
+    an attribute the suite declares as a FactAttribute subclass. The custom
+    ones are FOUND rather than listed -- SandboxMapFact is the only one today
+    and naming it here would go stale the way a pinned count does.
+
+    A [Theory] is ONE method and as many cases as it has data rows, so
+    counting methods left the floor 73 short of the truth -- and 73 of slack
+    is 73 tests that can stop running with nothing to say so. A whole test
+    class made non-public (70 tests, no diagnostic anywhere, exactly the shape
+    CLAUDE.md warns about) slipped through a method count and does not slip
+    through this one. So the rows are counted where they are written down:
+
+        facts + max(InlineData rows, [Theory] methods)
+
+    which is 1,292 against a real 1,332 today. `>=`, and the remaining 40 are
+    named: [MemberData]/[ClassData] rows are computed at runtime and cannot be
+    counted from source, and a [Fact] inherited from a base class is not
+    spelled in the derived file. Both leave the floor BELOW the truth, which
+    is the safe direction -- a floor that overshoots breaks the build for no
+    reason and gets deleted.
+
+    If those 40 ever matter, the exact number is available from
+    `dotnet test --list-tests`, which enumerates every case including theory
+    expansion without running any of them. It is not used here because it
+    needs the toolchain and a build, and this script must stay hermetic and
+    instant: it runs before every leg, including on trees that cannot build.
+
+    WHOLE-LINE // COMMENTS ARE STRIPPED FIRST, for the reason
+    the native manifest's are: a commented-out [Fact] is a test that does not
+    run, and counting it would raise the floor for a case that cannot happen.
+    """
+    return _floor_dotnet('src/test/managed', TEST_COMMON)
+
+
+def floor_managed_server():
+    """The server's facts (src/test/server, plan_side_isolation P6): the
+    managed rule over that project alone. Its custom fact attributes are
+    declared in the linked helpers (TEST_COMMON), so they are read there."""
+    return _floor_dotnet('src/test/server', TEST_COMMON)
+
+
+def floor_managed_client():
+    """The client's facts (src/test/client); see floor_managed_server."""
+    return _floor_dotnet('src/test/client', TEST_COMMON)
+
+
+# The fact-less helpers the test projects link (plan_side_isolation P6). They
+# hold no case to count -- a fact there would run once per linking project --
+# but they declare the custom FactAttribute subclasses the projects use.
+TEST_COMMON = 'src/test/common'
+
+
+def _cs_texts(d):
+    root = os.path.join(ROOT, d)
+    if not os.path.isdir(root):
+        raise CannotDerive('%s is not there' % d)
+    texts = []
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if x not in ('obj', 'bin')]
+        for fn in sorted(files):
+            if fn.endswith('.cs'):
+                with open(os.path.join(dirpath, fn), encoding='utf-8',
+                          errors='replace') as f:
+                    texts.append(_uncommented(f.read(), '//'))
+    if not texts:
+        raise CannotDerive('%s holds no .cs files' % d)
+    return texts
+
+
+def _floor_dotnet(d, attributes=None):
+    texts = _cs_texts(d)
+
+    allowed = {'Fact'}
+    for txt in texts + (_cs_texts(attributes) if attributes else []):
+        allowed.update(RE_CUSTOM_FACT.findall(txt))
+    pat = re.compile(r'\[(?:%s)\s*[\](]' % '|'.join(sorted(allowed)))
+    facts = sum(len(pat.findall(t)) for t in texts)
+    theories = sum(len(RE_THEORY.findall(t)) for t in texts)
+    inline = sum(len(RE_INLINE.findall(t)) for t in texts)
+    n = facts + max(inline, theories)
+    return [('dotnet-tests', '>=', _nonzero(d, 'xUnit cases', n),
+             '%d [%s] + %d theory rows (%d [Theory], %d [InlineData]) '
+             'in %d .cs files'
+             % (facts, '/'.join(sorted(allowed)), max(inline, theories),
+                theories, inline, len(texts)))]
+
+
+RE_VITEST_INCLUDE = re.compile(r'include\s*:\s*\[(.*?)\]', re.S)
+
+
+def floor_ui():
+    """One vitest file per file vitest's own include globs match.
+
+    The globs are read out of vitest.config.ts rather than written down again
+    here, so the leg and its floor cannot disagree about what a test file is.
+    A second copy of a pattern is how they always do.
+    """
+    cfgrel = 'src/webui/vitest.config.ts'
+    cfg = _read(cfgrel)
+    m = RE_VITEST_INCLUDE.search(cfg)
+    if not m:
+        raise CannotDerive(
+            'no `include:` array in %s. The floor is the set of files vitest '
+            'itself would collect, so without the globs there is nothing to '
+            'count.' % cfgrel)
+    globs = re.findall(r'''['"]([^'"]+)['"]''', m.group(1))
+    if not globs:
+        raise CannotDerive('the `include:` array in %s is empty' % cfgrel)
+    webui = os.path.dirname(os.path.join(ROOT, cfgrel))
+    found = set()
+    for g in globs:
+        found.update(glob.glob(os.path.join(webui, g), recursive=True))
+    return [('ui-files', '==', _nonzero(cfgrel, 'test files', len(found)),
+             '%d files matching %s' % (len(found), ' '.join(globs)))]
+
+
+# The check-emitting call site in each self-test, which is what its
+# "<n> checks, <m> failed" line counts. Anchored at the start of a line so a
+# mention inside a comment or a string does not raise the floor.
+RE_ST_OK = r'^[ \t]*_st_ok '
+RE_CK = r'^[ \t]*ck\('
+
+
+def _count_sites(rel, pattern):
+    return len(re.findall(pattern, _read(rel), re.M))
+
+
+def floor_runner():
+    """The harness's own two self-tests, counted by their check call sites.
+
+    The `runner` leg is `tools/run-test-legs --self-test` plus this script's
+    --self-test, and both report through the generic "<n> checks, <m> failed"
+    contract, so the leg's count is the sum.
+
+    `>=` because a self-test may add a check that is not an _st_ok/ck call --
+    tools/checkers has exactly one, its fixture-leak guard. Undercounting by
+    one or two still catches what matters here, which is one of the two halves
+    not running at all.
+    """
+    a = _count_sites('tools/run-test-legs', RE_ST_OK)
+    b = _count_sites('tools/leg-floor', RE_CK)
+    return [('checks', '>=',
+             _nonzero('tools/run-test-legs', 'checks', a + b),
+             '%d _st_ok in run-test-legs + %d ck( in leg-floor' % (a, b))]
+
+
+# THE TREE CHECKS (tools/checks.tsv, run by tools/run-checks): one manifest
+# row per check, and run-checks prints exactly one `<n> checks, <m> failed`
+# line for the rows of the tier it ran (a check's own summary is defused in
+# its output). So the floor is the row count, and `==`: fewer is a truncated
+# leg, more is output this leg did not write.
+CHECKS_MANIFEST = 'tools/checks.tsv'
+
+
+def _check_rows(tier):
+    n = 0
+    names = []
+    for line in _read(CHECKS_MANIFEST).splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        parts = line.split('\t')
+        if len(parts) != 3:
+            raise CannotDerive('%s: %r is not name<TAB>tier<TAB>command'
+                               % (CHECKS_MANIFEST, line))
+        names.append(parts[0].strip())
+        if parts[1].strip() == tier:
+            n += 1
+    if len(set(names)) != len(names):
+        raise CannotDerive('%s names a check twice' % CHECKS_MANIFEST)
+    return [('checks', '==', _nonzero(CHECKS_MANIFEST, '%s checks' % tier, n),
+             '%d %s rows in %s' % (n, tier, CHECKS_MANIFEST))]
+
+
+def floor_checks():
+    """The routine tier of tools/checks.tsv (make test)."""
+    return _check_rows('routine')
+
+
+def floor_checks_full():
+    """The full tier of tools/checks.tsv (make test-full adds it)."""
+    return _check_rows('full')
+
+
+# A row of either instrument's committed file: not blank, not a comment, and
+# carrying the column count that file's reader demands. Counting every
+# non-comment line instead would let a stray fragment raise the floor for a
+# check nothing runs.
+def _tsv_rows(rel, columns):
+    n = 0
+    for line in _read(rel).splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if len(line.split('\t')) == columns:
+            n += 1
+    return n
+
+
+def floor_entity():
+    """plan_entity.md step 8c's leg: the census, the three gates, the budget.
+
+    THREE POPULATIONS, EACH COUNTED WHERE IT IS WRITTEN DOWN, so the floor
+    rises on its own the way every other one here does:
+
+      * docs/entity-ratchet.tsv  -- one gated (or reconciliation) row of
+        `tools/entity-gates --tsv`, one check each. A row added to the gates
+        and baselined raises this by one.
+      * tools/live-gate-budget.tsv -- one live-gate stage, one check each. A
+        stage added to tools/live-gate raises it by one, because the leg fails
+        until that stage has a budget row.
+      * tools/entity-ratchet's own --self-test, by its ck() call sites, for the
+        reason floor_runner counts this file's: the leg runs the fixtures
+        first, and a fixture suite that stopped running is exactly how a
+        comparison that can no longer fail goes unnoticed.
+
+    `>=`, and the undercount is NAMED rather than left as slack: the leg also
+    runs five checks that are a property of the tool rather than of any row --
+    the census diff, and the two set checks each of the gate and budget halves
+    ("every baselined row was measured" and its converse, "every live-gate
+    stage has a budget row" and its converse). 85 against a real 90 today.
+    Undercounting weakens the floor; overcounting breaks the build for no
+    reason and gets the floor deleted, and only the first is recoverable.
+    """
+    rows = _tsv_rows('docs/entity-ratchet.tsv', 5)
+    stages = _tsv_rows('tools/live-gate-budget.tsv', 10)
+    fixtures = _count_sites('tools/entity-ratchet', RE_CK)
+    # EACH POPULATION IS REFUSED AT ZERO, not just their sum. Two of the three
+    # could empty out and the sum would still be a plausible non-zero number,
+    # and a floor the leg clears while measuring nothing is the shape this file
+    # exists to remove. _nonzero on the total alone would not have caught it.
+    for what, count, where in (('ratchet rows', rows, 'docs/entity-ratchet.tsv'),
+                               ('budget stages', stages, 'tools/live-gate-budget.tsv'),
+                               ('ck( sites', fixtures, 'tools/entity-ratchet')):
+        _nonzero(where, what, count)
+    n = rows + stages + fixtures
+    return [('checks', '>=',
+             _nonzero('docs/entity-ratchet.tsv', 'checks', n),
+             '%d ratchet rows + %d budget stages + %d ck( in entity-ratchet'
+             % (rows, stages, fixtures))]
+
+
+RE_FIXTURE_TREE = re.compile(r'^FIXTURE_TREE_EXPECT = \{(.*?)^\}', re.S | re.M)
+
+
+RE_MANIFEST = re.compile(r'^MANIFEST = \[(.*?)^\]', re.S | re.M)
+
+# THE ORACLE LEG (src/test/oracle): ports checked against upstream Valve code
+# read from the pristine clone at valve-sdk.lock. Two halves, each sized the
+# way its kind is sized elsewhere here: the managed project's xUnit cases, and
+# one binary per ss_cpptest*() call in the oracle CMakeLists (the same helpers;
+# tools/build/buildcpptests --oracle runs them and prints `==> <name>`).
+ORACLE_MANAGED = 'src/test/oracle/managed'
+ORACLE_NATIVE = 'src/test/oracle/native/CMakeLists.txt'
+
+
+def _oracle_manifest():
+    src = _read(ORACLE_NATIVE)
+    if re.search(r'#\[=*\[', src):
+        raise CannotDerive('%s has a bracket comment' % ORACLE_NATIVE)
+    return _uncommented(src)
+
+
+def floor_oracle():
+    """The oracle project's xUnit cases, and its native binaries."""
+    bins = RE_BUILD_RUN.findall(_oracle_manifest())
+    if len(set(bins)) != len(bins):
+        raise CannotDerive('%s names a binary twice' % ORACLE_NATIVE)
+    return _floor_dotnet(ORACLE_MANAGED) + [
+        ('gtest-binaries', '==',
+         _nonzero(ORACLE_NATIVE, 'oracle binaries', len(bins)),
+         '%d ss_cpptest*() calls' % len(bins))]
+
+
+def floor_oracle_managed():
+    """The oracle leg's managed half alone: `make test` runs the two halves as
+    separate legs, so each can share a group with the leg whose tool it uses
+    (tools/run-test-legs: dotnet with dotnet, ninja with ninja)."""
+    return _floor_dotnet(ORACLE_MANAGED)
+
+
+def floor_descent():
+    """The TF2Descent mod's facts (src/tf2_descent/tests): the same counting rule as
+    the managed leg, over that project alone."""
+    return _floor_dotnet('src/tf2_descent/tests')
+
+
+def floor_oracle_native():
+    """The oracle leg's native half alone; see floor_oracle_managed."""
+    return [f for f in floor_oracle() if f[0] == 'gtest-binaries']
+
+
+def roster_oracle():
+    return [('gtest-binaries', n)
+            for n in RE_BUILD_RUN.findall(_oracle_manifest())]
+
+
+def roster_native():
+    """Not how many binaries, but WHICH -- by name, one line each.
+
+    A count says "95 never ran". A roster says which 95.
+    src/test/native/CMakeLists.txt already names every binary, and
+    tools/build/buildcpptests prints `==> <name>` over each one's output, so
+    the names it declared and the names that appear in the log
+    can be compared directly -- and the leg's failure names the binaries that
+    were missing instead of a subtraction.
+
+    This is the honest form of the floor, and the count is kept alongside it
+    rather than replaced: the roster proves each binary was REACHED, and the
+    count proves each one RAN. A binary whose `==>` printed and whose gtest
+    summary never did is caught by the count and by nothing else.
+    """
+    src = _native_manifest()
+    bins, _ = _census_split(src, RE_BUILD_RUN.findall(src))
+    return ([('gtest-binaries', n) for n in bins]
+            + [('must-not-compile', n) for n in RE_MUST_NOT.findall(src)])
+
+
+def roster_census():
+    src = _native_manifest()
+    _, census = _census_split(src, RE_BUILD_RUN.findall(src))
+    return [('gtest-binaries', n) for n in census]
+
+
+# THE TIERS (Makefile TEST_LEGS / TEST_FULL_LEGS). `make test` runs checks,
+# managed, managed-server, managed-client, tf2_descent, native, entity and ui;
+# `make test-full` adds runner, checks-full, oracle-managed, oracle-native and
+# census. Every leg here belongs to exactly one tier, so each tier's size is the
+# sum of its legs' floors (`tools/leg-floor --list`). native and census split
+# src/test/native/CMakeLists.txt's binaries by ss_census(), checks and
+# checks-full split tools/checks.tsv by its tier column: in both, the two legs
+# together are the whole manifest. `oracle` is the two oracle legs' sum, for
+# `make oracle-test`; no tier runs it as a leg.
+LEGS = {
+    'entity': floor_entity,
+    'runner': floor_runner,
+    'checks': floor_checks,
+    'checks-full': floor_checks_full,
+    'managed': floor_managed,
+    'managed-server': floor_managed_server,
+    'managed-client': floor_managed_client,
+    'tf2_descent': floor_descent,
+    'native': floor_native,
+    'census': floor_census,
+    'oracle': floor_oracle,
+    'oracle-managed': floor_oracle_managed,
+    'oracle-native': floor_oracle_native,
+    'ui': floor_ui,
+}
+
+# Legs whose units are NAMED things rather than a population. Only the native
+# leg has one today: it is the only leg whose manifest is a list of names the
+# log prints back. tools/run-test-legs refuses a roster on any unit it has no
+# way to spot in a log, rather than ignoring it.
+ROSTERS = {
+    'native': roster_native,
+    'census': roster_census,
+    'oracle': roster_oracle,
+    'oracle-native': roster_oracle,
+}
+
+
+def declare(leg, explain=False, out=None):
+    out = out or sys.stdout
+    for unit, op, n, how in LEGS[leg]():
+        if unit not in UNITS:
+            raise CannotDerive(
+                '%s is not a unit tools/run-test-legs can observe (%s)'
+                % (unit, ' '.join(UNITS)))
+        if explain:
+            out.write('%-10s [leg-floor] %-16s %s %-6d  %s\n'
+                      % (leg, unit, op, n, how))
+        else:
+            out.write('[leg-floor] %s %s %d\n' % (unit, op, n))
+    if leg in ROSTERS:
+        names = ROSTERS[leg]()
+        if not names:
+            raise CannotDerive(
+                'the %s leg declares a roster and the roster is empty. An '
+                'empty roster is satisfied by any run at all.' % leg)
+        for unit, name in names:
+            if explain:
+                out.write('%-10s [leg-roster] %-16s %s\n' % (leg, unit, name))
+            else:
+                out.write('[leg-roster] %s %s\n' % (unit, name))
+
+
+def main(argv):
+    if not argv or argv[0] in ('-h', '--help'):
+        sys.stderr.write(__doc__.split('\n\n')[0].strip() + '\n')
+        return 2
+    if argv[0] in ('--all', '--list'):
+        rc = 0
+        for leg in sorted(LEGS):
+            try:
+                declare(leg, argv[0] == '--list')
+            except CannotDerive as exc:
+                sys.stderr.write('leg-floor: %s: %s\n' % (leg, exc))
+                rc = 1
+        return rc
+    leg = argv[0]
+    if leg not in LEGS:
+        sys.stderr.write('leg-floor: no such leg %r (have: %s)\n'
+                         % (leg, ' '.join(sorted(LEGS))))
+        return 2
+    try:
+        declare(leg)
+    except CannotDerive as exc:
+        sys.stderr.write(
+            'leg-floor: cannot derive the %s leg\'s floor: %s\n'
+            '           The leg is NOT run. A leg nobody can size is exactly '
+            'the leg\n'
+            '           that reports a fifth of itself as a pass.\n'
+            % (leg, exc))
+        return 1
+    return 0
+
+
+# ===========================================================================
+# Self-test.
+#
+# The question it has to answer is not "does this print a number" -- an
+# instrument with no tree under it answered 0 to everything in this port, and
+# three of its five mutation controls passed on 0 -> 0. It is:
+#
+#   1. does each derivation READ THE TREE?  Proved by mutation: change the
+#      fixture, require the number to move, and require it to move by the
+#      right amount.
+#   2. does a tree with nothing in it FAIL rather than declare 0?
+#   3. is the derivation still pointed at the REAL sources?  A fixture is a
+#      stand-in and stand-ins drift; the last block asserts the production
+#      tree answers too, and answers something bigger than a toy.
+# ===========================================================================
+def self_test():
+    import shutil
+    import tempfile
+
+    checks = failed = 0
+    transcripts = []
+
+    def quiet(fn, *a, **kw):
+        """Run a derivation with its output CAPTURED.
+
+        Not tidiness. tools/run-test-legs reads `[leg-floor] ...` lines out of
+        a leg's log and enforces them, and the fixture derivations below emit
+        exactly that line with deliberately wrong numbers in it. Left on
+        stdout they would become this leg's floor -- a self-test dictating the
+        gate it is testing. tools/checkers hit the same shape from the other
+        end and its comment is the precedent: a leg whose summary cannot be
+        believed is what the harness exists to prevent.
+        """
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rv = fn(*a, **kw)
+        transcripts.append(buf.getvalue())
+        return rv
+
+    def ck(label, cond, detail=''):
+        nonlocal checks, failed
+        checks += 1
+        print('  %-5s %s%s' % ('ok' if cond else 'FAIL', label,
+                               ('   -- ' + detail) if detail else ''))
+        if not cond:
+            failed += 1
+
+    def n_of(fn, unit='ignored'):
+        """The number one derivation produced, or None if it refused."""
+        try:
+            rows = fn()
+        except CannotDerive:
+            return None
+        for u, _op, n, _how in rows:
+            if unit == 'ignored' or u == unit:
+                return n
+        return None
+
+    print('==> tools/leg-floor self-test')
+
+    global ROOT
+    saved_root = ROOT
+    tmp = tempfile.mkdtemp(prefix='leg-floor-selftest.')
+    try:
+        ROOT = tmp
+
+        def put(rel, body):
+            p = os.path.join(tmp, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, 'w') as f:
+                f.write(body)
+
+        # -- tree checks ---------------------------------------------------
+        put(CHECKS_MANIFEST,
+            '# a comment\na\troutine\ttools/a\nb\troutine\ttools/b\n'
+            'c\tfull\ttools/c\n')
+        ck('checks counts the routine rows', n_of(floor_checks, 'checks') == 2,
+           'got %s, want 2' % n_of(floor_checks, 'checks'))
+        ck('checks-full counts the full rows', n_of(floor_checks_full, 'checks') == 1,
+           'got %s, want 1' % n_of(floor_checks_full, 'checks'))
+        with open(os.path.join(tmp, CHECKS_MANIFEST), 'a') as f:
+            f.write('d\troutine\ttools/d\n')
+        ck('adding a routine row raises the checks floor by one',
+           n_of(floor_checks, 'checks') == 3, 'got %s' % n_of(floor_checks, 'checks'))
+        put(CHECKS_MANIFEST, 'a\tfull\ttools/a\n')
+        ck('a tier with no rows REFUSES rather than declaring 0',
+           n_of(floor_checks, 'checks') is None)
+        put(CHECKS_MANIFEST, 'a\troutine\ttools/a\na\tfull\ttools/a\n')
+        ck('a check named twice is refused', n_of(floor_checks, 'checks') is None)
+        put(CHECKS_MANIFEST, 'a\troutine\n')
+        ck('a malformed row is refused', n_of(floor_checks, 'checks') is None)
+
+        # -- native ------------------------------------------------------
+        put(NATIVE_MANIFEST,
+            '# a comment naming ghost_test.cpp at length\n'
+            '# ss_cpptest(ghost SOURCES sourcesharp/test/ghost_test.cpp)\n'
+            'ss_cpptest(alpha\n    SOURCES sourcesharp/test/alpha_test.cpp)\n'
+            'ss_cpptest_mathlib(beta SOURCES sourcesharp/test/beta_test.cpp)\n'
+            'ss_must_not_compile(gamma EXPECT "error: no" SOURCES g.cpp)\n'
+            'ss_test_compile_flags(ss_cpptest_dtobjs)\n')
+        ck('native counts ss_cpptest AND ss_cpptest_mathlib',
+           n_of(floor_native, 'gtest-binaries') == 2,
+           'got %s, want 2' % n_of(floor_native, 'gtest-binaries'))
+        ck('native counts ss_must_not_compile separately',
+           n_of(floor_native, 'must-not-compile') == 1,
+           'got %s, want 1' % n_of(floor_native, 'must-not-compile'))
+        ck('an ss_cpptest call that is only a COMMENT does not count',
+           n_of(floor_native, 'gtest-binaries') == 2,
+           'the fixture comments out a third binary')
+
+        before = n_of(floor_native, 'gtest-binaries')
+        with open(os.path.join(tmp, NATIVE_MANIFEST), 'a') as f:
+            f.write('ss_cpptest(delta SOURCES sourcesharp/test/delta_test.cpp)\n')
+        ck('adding a binary raises the native floor by one',
+           n_of(floor_native, 'gtest-binaries') == before + 1,
+           '%s -> %s' % (before, n_of(floor_native, 'gtest-binaries')))
+
+        # A helper this file has never heard of. The pattern used to enumerate
+        # them -- `(?:_mathlib)?` -- and the day build_and_run_engine_headers
+        # landed the floor did not rise with it: 135 binaries ran against a
+        # floor of 134 and the leg reported SHORT RUN, "the log holds output it
+        # did not write". The floor's whole claim is that adding a test raises
+        # it on its own, so a helper name it must be taught is a defect in the
+        # floor rather than in the recipe.
+        before = n_of(floor_native, 'gtest-binaries')
+        with open(os.path.join(tmp, NATIVE_MANIFEST), 'a') as f:
+            f.write('ss_cpptest_never_seen_before(eps '
+                    'SOURCES sourcesharp/test/eps_test.cpp)\n')
+        ck('an ss_cpptest helper this file does not enumerate still counts',
+           n_of(floor_native, 'gtest-binaries') == before + 1,
+           '%s -> %s' % (before, n_of(floor_native, 'gtest-binaries')))
+
+        # And the definition of such a helper is not a binary: `function(ss_cpptest_x
+        # {` has a `(` where the pattern needs whitespace, which is the only
+        # thing keeping the generalised pattern from counting every helper twice.
+        before = n_of(floor_native, 'gtest-binaries')
+        with open(os.path.join(tmp, NATIVE_MANIFEST), 'a') as f:
+            f.write('function(ss_cpptest_never_seen_before name)\n'
+                    '  _ss_cpptest(PLAIN ${name} ${ARGN})\nendfunction()\n')
+        ck('a helper DEFINITION line is not counted as a binary',
+           n_of(floor_native, 'gtest-binaries') == before,
+           '%s -> %s' % (before, n_of(floor_native, 'gtest-binaries')))
+
+        # The census tier: ss_census() moves a binary from the native leg to
+        # the census leg, and the two together are every ss_cpptest*() call.
+        before = n_of(floor_native, 'gtest-binaries')
+        with open(os.path.join(tmp, NATIVE_MANIFEST), 'a') as f:
+            f.write('ss_census(alpha)\n')
+        ck('ss_census() takes a binary out of the native leg',
+           n_of(floor_native, 'gtest-binaries') == before - 1,
+           '%s -> %s' % (before, n_of(floor_native, 'gtest-binaries')))
+        ck('and puts it in the census leg', n_of(floor_census, 'gtest-binaries') == 1,
+           'got %s' % n_of(floor_census, 'gtest-binaries'))
+        ck('the census roster names it, the native roster does not',
+           roster_census() == [('gtest-binaries', 'alpha')]
+           and ('gtest-binaries', 'alpha') not in roster_native())
+        with open(os.path.join(tmp, NATIVE_MANIFEST), 'a') as f:
+            f.write('ss_census(nosuch)\n')
+        ck('ss_census() of a test the manifest never defines is refused',
+           n_of(floor_native, 'gtest-binaries') is None
+           and n_of(floor_census, 'gtest-binaries') is None)
+
+        put(NATIVE_MANIFEST, '# nothing but prose\n')
+        ck('a recipe with no binaries REFUSES rather than declaring 0',
+           n_of(floor_native, 'gtest-binaries') is None)
+
+        put(NATIVE_MANIFEST,
+            'ss_cpptest(twice SOURCES a.cpp)\nss_cpptest(twice SOURCES b.cpp)\n'
+            'ss_must_not_compile(g EXPECT "e" SOURCES g.cpp)\n')
+        ck('a duplicate binary name is refused, not counted twice',
+           n_of(floor_native, 'gtest-binaries') is None)
+
+        put(NATIVE_MANIFEST,
+            'ss_cpptest(same SOURCES a.cpp)\n'
+            'ss_must_not_compile(same EXPECT "e" SOURCES a.cpp)\n')
+        ck('a binary and a must-not-compile check with one name are refused '
+           '(ctest cannot hold both)',
+           n_of(floor_native, 'gtest-binaries') is None)
+
+        # CMake command names are case-insensitive, and a call may put the
+        # name on the line after its `(`. Both still build a binary, so both
+        # must raise the floor -- a spelling the pattern missed is a binary
+        # that runs with no floor under it.
+        put(NATIVE_MANIFEST,
+            'SS_CPPTEST(upper SOURCES a.cpp)\n'
+            'ss_cpptest_tier1 (\n    spaced\n    SOURCES b.cpp)\n'
+            'ss_must_not_compile(g EXPECT "e" SOURCES g.cpp)\n')
+        ck('an upper-case call and a name on the next line are both counted',
+           n_of(floor_native, 'gtest-binaries') == 2,
+           'got %s, want 2' % n_of(floor_native, 'gtest-binaries'))
+
+        # A bracket comment is the one CMake comment whole-line stripping
+        # cannot see: a call inside it would be declared and never run.
+        put(NATIVE_MANIFEST,
+            'ss_cpptest(alpha SOURCES a.cpp)\n#[[\nss_cpptest(hidden SOURCES h.cpp)\n]]\n'
+            'ss_must_not_compile(g EXPECT "e" SOURCES g.cpp)\n')
+        ck('a bracket comment in the manifest is REFUSED, not half-read',
+           n_of(floor_native, 'gtest-binaries') is None)
+
+        # -- managed -----------------------------------------------------
+        # The linked helpers (TEST_COMMON) hold no fact; the projects read
+        # their custom attributes there.
+        put('src/test/common/Helpers.cs', 'class H {}\n')
+        put('src/test/managed/ATests.cs',
+            'class A { [Fact] public void X(){} [Theory] public void Y(){}\n'
+            '  [Fact(Skip="s")] public void Z(){} }\n')
+        ck('managed counts [Fact], [Fact(...)] and [Theory]',
+           n_of(floor_managed) == 3, 'got %s, want 3' % n_of(floor_managed))
+
+        put('src/test/common/MapFactAttribute.cs',
+            'public sealed class SandboxMapFactAttribute : FactAttribute {}\n')
+        put('src/test/managed/BTests.cs',
+            'class B { [SandboxMapFact] public void W(){} }\n')
+        ck('a FactAttribute SUBCLASS is discovered, not listed',
+           n_of(floor_managed) == 4, 'got %s, want 4' % n_of(floor_managed))
+
+        put('src/test/server/STests.cs',
+            'class S { [SandboxMapFact] public void W(){} [Fact] public void V(){} }\n')
+        put('src/test/client/CTests.cs', 'class C { [Fact] public void V(){} }\n')
+        ck("each side's project is floored alone, with the shared attributes",
+           (n_of(floor_managed_server), n_of(floor_managed_client), n_of(floor_managed))
+           == (2, 1, 4), 'got %s' % ((n_of(floor_managed_server),
+                                     n_of(floor_managed_client), n_of(floor_managed)),))
+
+        # A [Theory] is one method and as many cases as it has rows. Counting
+        # methods left 73 of slack, and a whole test class going undiscovered
+        # (70 tests) fitted inside it.
+        put('src/test/managed/ATests.cs',
+            'class A { [Fact] public void X(){}\n'
+            '  [Theory] [InlineData(1)] [InlineData(2)] [InlineData(3)]\n'
+            '  public void Y(int i){} }\n')
+        ck('a [Theory] counts its InlineData rows, not itself',
+           n_of(floor_managed) == 5, 'got %s, want 1 fact + 3 rows + 1 '
+           'SandboxMapFact' % n_of(floor_managed))
+
+        put('src/test/managed/ATests.cs',
+            'class A { [Fact] public void X(){}\n'
+            '  // [Fact] public void Disabled(){}\n'
+            '  [Theory] public void Y(){} }\n')
+        ck('a commented-out [Fact] does not raise the floor',
+           n_of(floor_managed) == 3, 'got %s, want 1 fact + 1 bare theory + 1 '
+           'SandboxMapFact' % n_of(floor_managed))
+
+        put('src/test/managed/ATests.cs',
+            'class A { public void X(){} }\n')
+        put('src/test/managed/BTests.cs',
+            'class B { public void W(){} }\n')
+        ck('a suite with no fact methods REFUSES rather than declaring 0',
+           n_of(floor_managed) is None)
+
+        # -- ui ----------------------------------------------------------
+        put('src/webui/vitest.config.ts',
+            "export default { test: { include: "
+            "['src/**/*.test.ts', 'src/**/*.test.tsx'] } };\n")
+        put('src/webui/src/a.test.ts', '')
+        put('src/webui/src/deep/b.test.tsx', '')
+        put('src/webui/src/deep/notatest.ts', '')
+        ck('ui counts the files vitest\'s own globs match, recursively',
+           n_of(floor_ui) == 2, 'got %s, want 2' % n_of(floor_ui))
+
+        put('src/webui/vitest.config.ts',
+            "export default { test: { include: ['src/**/*.test.ts'] } };\n")
+        ck('narrowing the config\'s globs narrows the floor',
+           n_of(floor_ui) == 1, 'got %s, want 1' % n_of(floor_ui))
+
+        put('src/webui/vitest.config.ts',
+            "export default { test: { environment: 'jsdom' } };\n")
+        ck('a config with no include array REFUSES rather than declaring 0',
+           n_of(floor_ui) is None)
+
+        # -- the "<n> checks" legs ---------------------------------------
+        put('tools/run-test-legs',
+            '    _st_ok a "x" ok\n    _st_ok b "y" ok\n'
+            '# _st_ok c "commented out" ok\n')
+        put('tools/leg-floor', '        ck("one", True)\n')
+        ck('runner sums both self-tests\' check call sites',
+           n_of(floor_runner) == 3, 'got %s, want 3' % n_of(floor_runner))
+        ck('a check site that is only a COMMENT does not count',
+           n_of(floor_runner) == 3)
+
+        put('tools/run-test-legs', '# no checks here at all\n')
+        put('tools/leg-floor', '# nor here\n')
+        ck('a self-test with no checks REFUSES rather than declaring 0',
+           n_of(floor_runner) is None)
+
+        # -- entity ------------------------------------------------------
+        put('docs/entity-ratchet.tsv',
+            '# gate\trole\tmetric\tserver\tclient\n'
+            '1\tgate\tcstyle\t3\t4\n'
+            '3\tgate\tEHANDLE\t5\t6\n'
+            'a stray fragment with no columns at all\n')
+        put('tools/live-gate-budget.tsv',
+            '# columns:\n'
+            'join\ttotal\t1\t2\t3\t4\t5\t6\t7\t8\n')
+        put('tools/entity-ratchet',
+            '    ck("one", True)\n    ck("two", True)\n'
+            '# ck("commented out", True)\n')
+        ck('entity sums ratchet rows, budget stages and its own fixture checks',
+           n_of(floor_entity) == 5, 'got %s, want 2 + 1 + 2' % n_of(floor_entity))
+        ck('a line without the reader\'s column count is not a row',
+           n_of(floor_entity) == 5, 'the fixture carries a stray fragment')
+
+        put('docs/entity-ratchet.tsv', '# every row gone\n')
+        ck('an EMPTY ratchet baseline REFUSES, even though the other two '
+           'populations would still sum to a plausible number',
+           n_of(floor_entity) is None)
+
+        # -- the declaration itself --------------------------------------
+        put(NATIVE_MANIFEST,
+            'ss_cpptest(alpha SOURCES a.cpp)\n'
+            'ss_must_not_compile(g EXPECT "e" SOURCES g.cpp)\n')
+        # Deliberately through the REAL stdout path, so quiet() has something
+        # to hold back and the leak guard below is not asserting about an
+        # empty list. A guard that passes on "nothing happened" is the shape
+        # this whole file is against.
+        quiet(declare, 'native')
+        ck('a declaration is exactly the lines run-test-legs parses',
+           transcripts[-1] == '[leg-floor] gtest-binaries == 1\n'
+                              '[leg-floor] must-not-compile == 1\n'
+                              '[leg-roster] gtest-binaries alpha\n'
+                              '[leg-roster] must-not-compile g\n',
+           repr(transcripts[-1]))
+
+        # -- the roster ---------------------------------------------------
+        put(NATIVE_MANIFEST,
+            '# ss_cpptest(ghost SOURCES g.cpp) -- discussed, never built\n'
+            'ss_cpptest(alpha SOURCES a.cpp)\n'
+            'ss_cpptest_mathlib(beta SOURCES b.cpp)\n'
+            'ss_must_not_compile(gamma EXPECT "error: no" SOURCES g.cpp)\n')
+        names = roster_native()
+        ck('the roster names every binary, not just how many',
+           names == [('gtest-binaries', 'alpha'), ('gtest-binaries', 'beta'),
+                     ('must-not-compile', 'gamma')], repr(names))
+        ck('a binary that is only MENTIONED in a comment is not on the roster',
+           not any(n == 'ghost' for _u, n in names))
+        ck('the roster and the count are derived from the same lines',
+           len([n for u, n in names if u == 'gtest-binaries'])
+           == n_of(floor_native, 'gtest-binaries'))
+
+        # A derivation that names a unit the runner cannot observe is refused
+        # HERE as well as there. A floor nobody checks is a floor that cannot
+        # fail, and a typo is the ordinary way to get one.
+        LEGS['_bogus'] = lambda: [('gtests-binaries', '==', 3, 'typo')]
+        try:
+            declare('_bogus', out=io.StringIO())
+            bad = False
+        except CannotDerive:
+            bad = True
+        finally:
+            del LEGS['_bogus']
+        ck('a floor naming an unobservable unit is refused', bad)
+
+    finally:
+        ROOT = saved_root
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # -- and the fixture is not the tree ---------------------------------
+    #
+    # Every check above ran against a stand-in. A stand-in drifts: rename
+    # ss_cpptest tomorrow and all of them still pass while the real floor
+    # silently becomes 0 -- which is the failure this file's own header calls
+    # the worst one. So the last block asks the REAL tree, and asks for a
+    # number big enough that a broken derivation cannot reach it by accident.
+    for leg in sorted(LEGS):
+        try:
+            rows = LEGS[leg]()
+            ns = ', '.join('%s %s %d' % (u, o, n) for u, o, n, _h in rows)
+            ok = bool(rows) and all(n >= 2 for _u, _o, n, _h in rows)
+        except CannotDerive as exc:
+            ns, ok = str(exc), False
+        ck('the REAL tree sizes the %s leg' % leg, ok, ns)
+
+    for leg in sorted(ROSTERS):
+        try:
+            names = ROSTERS[leg]()
+            # Only the units a roster names: the oracle leg also declares a
+            # dotnet-tests floor, which is a population, not a roster.
+            counts = dict((u, n) for u, _o, n, _h in LEGS[leg]()
+                          if u in ('gtest-binaries', 'must-not-compile'))
+            per = {}
+            for u, _n in names:
+                per[u] = per.get(u, 0) + 1
+            ok = bool(names) and per == counts
+            detail = '%d names: %s' % (len(names), per)
+        except CannotDerive as exc:
+            ok, detail = False, str(exc)
+        ck('the REAL %s roster names as many as the floor counts' % leg,
+           ok, detail)
+
+    # The fixture derivations above emit `[leg-floor]` lines with deliberately
+    # wrong numbers. If they ever reach stdout, run-test-legs reads them as
+    # this leg's floor. tools/checkers pins the same property for the same
+    # reason; this is that guard for this file.
+    # `held` must be NON-ZERO for this to pass. If it is 0 the capture is not
+    # capturing anything -- either quiet() stopped being used or the fixture
+    # stopped declaring -- and "nothing leaked" would be true for the same
+    # reason a scan of an empty tree is clean. Same shape as the guard in
+    # tools/checkers, and it is worded as a floor for the same reason.
+    held = sum(len(re.findall(r'^\[leg-floor\] ', t, re.M))
+               for t in transcripts)
+    checks += 1
+    if held > 0:
+        print('  ok    the fixture declarations were CAPTURED, not left on '
+              'stdout   -- %d floor lines held back across %d passes'
+              % (held, len(transcripts)))
+    else:
+        print('  FAIL  the fixture declarations were CAPTURED, not left on '
+              'stdout   -- %d passes produced %d floor lines. If this is 0 '
+              'the capture is not happening and run-test-legs will enforce '
+              'the fixtures.' % (len(transcripts), held))
+        failed += 1
+
+    print('  ==> %d checks, %d failed' % (checks, failed))
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    if '--self-test' in sys.argv[1:]:
+        sys.exit(self_test())
+    sys.exit(main(sys.argv[1:]))

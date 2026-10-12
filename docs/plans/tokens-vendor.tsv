@@ -1,0 +1,29 @@
+Descent_Vendor_Medic	The Medic
+Descent_Vendor_Spy	The Spy
+Descent_Vendor_Scout	The Scout
+Descent_Vendor_Stance_Weapons	Buy well. Hale watches both hands.
+Descent_Vendor_Stance_Healing	Potions by the crate, kit by the hour.
+Descent_Vendor_Stance_Identify	Hand it over. Say nothing.
+Descent_Vendor_Stance_Gambling	One crate, one coin. The Scout swears it pays.
+Descent_Vendor_Tab_Buy	Buy
+Descent_Vendor_Tab_Sell	Sell
+Descent_Vendor_Tab_BuyBack	Buy-back
+Descent_Vendor_Btn_Buy	Buy
+Descent_Vendor_Btn_Sell	Sell
+Descent_Vendor_Btn_BuyBack	Buy-back
+Descent_Vendor_Btn_Identify	Identify
+Descent_Vendor_Col_Wares	Wares
+Descent_Vendor_Col_Level	Ilvl
+Descent_Vendor_Col_Price	Price
+Descent_Vendor_Caption_YourItems	Your items
+Descent_Vendor_Hint_Pick	Pick an item to price it.
+Descent_Vendor_Empty_Wares_Title	Sold out
+Descent_Vendor_Empty_Wares_Body	The shelves are bare. Come back after the next run.
+Descent_Vendor_Note_Odds	Ask the Scout about the odds.
+Descent_Vendor_Engineer	The Engineer
+Descent_Vendor_Merasmus	Merasmus
+Descent_Vendor_Stance_Armour	Plate that holds. Built, not bought.
+Descent_Vendor_Stance_Magic	Tomes of true power. Mostly true.
+Descent_Vendor_Stance_Repair	Nothing's broken I cannot fix.
+Descent_Craft_Inputs_Salvage	Eats: 1 item, any wear
+Descent_Craft_Preview_Salvage	A stack of Scrap Metal, one per rung

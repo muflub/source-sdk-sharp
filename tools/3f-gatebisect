@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""tools/3f-gatebisect -- WHICH live-gate steps have to run before the world's
+physics goes missing?
+
+WHY THIS EXISTS. Step 3f's failure is "every physics prop in the SECOND pass of
+the live gate fell five to six thousand units, through the map's floor", four
+times in eight armed passes. `tools/3f-secondclient-props` reduced the
+suspected cause -- a second client joining and leaving, then a reload -- to a
+two-minute experiment and got 0 of 9. So the cause is somewhere else in the
+twenty steps the gate runs before that reload, and the way to find out which is
+to run SUBSETS of them.
+
+    tools/3f-gatebisect --steps join,move,die,respawn --rounds 3
+
+One round is: run the named steps, then take the level down the way the gate
+does between its passes (`disconnect`, wait for the census to reach 0/0, then
+`map`), then ask two questions of the new level:
+
+  * how many physics props are BELOW THE MAP -- measured, not inferred from one
+    crate; if the world's physics is gone every prop in the map falls, and the
+    gate's own crate is the last place that shows;
+  * what `ss_physworld_report` says, which distinguishes the three things that
+    could produce it (no world object / world with collisions off / the rule
+    table refusing the pair). See physics.cpp.
+
+ITS OWN CONSOLE LOG AND ITS OWN REPORT FILE, so it can run BESIDE a live gate.
+`+con_logfile` moves this instance's console log off bin/<config>/mods/test/console.log
+(five gate steps read it, so -condebug cannot simply be dropped), and the
+physics report writes /tmp/ss-physworld-<pid>.log as well as Msg'ing. Two
+instances sharing one console.log is how a diagnosis ends up being about the
+wrong game -- see PhysWorldReportEmit.
+
+A PROBE, NOT A GATE: it prints a table, it does not assert.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import os
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+spec = importlib.util.spec_from_file_location(
+    "livegate", os.path.join(HERE, "live-gate"),
+    loader=importlib.machinery.SourceFileLoader("livegate", os.path.join(HERE, "live-gate")))
+lg = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lg)
+
+# Below this the prop is not on any floor this map has. dm_lockdown's lowest
+# walkable surface is around z = -200; the failure puts them at -5000 to -6000.
+BELOW_THE_MAP = -1000.0
+
+# 3f's failing crates fell "five to six THOUSAND units"; a healthy one on this
+# map falls 56 to 148 (tools/3f-secondclient-props, nine drops). A thousand is
+# not near either number, which is what makes it a threshold rather than a
+# guess.
+BELOW_A_FRESH_CRATE_SHOULD_NOT_FALL = 1000.0
+
+PROP_CLASSES = ("prop_physics", "prop_physics_respawnable", "prop_physics_multiplayer")
+
+
+def server_launch_own_console(port, mapname, console_name):
+    """The gate's own server line, with its console log somewhere else.
+
+    -condebug STAYS -- five of the gate's steps read the console log through
+    `Gate.count_console` and a probe without it cannot run them. What moves is
+    WHERE it lands: `con_logfile` is a ConVar with a callback that closes the
+    open file and reopens the named one, and a `+` on the command line runs
+    after Con_Init has already pointed it at console.log. So this instance
+    writes bin/<config>/mods/test/<console_name> and a live gate running beside it
+    keeps console.log to itself.
+
+    The steps that read it all compare a count before against a count after,
+    so a log that starts a few seconds into the run costs them nothing.
+    """
+    return lg.server_launch(port, mapname) + ["+con_logfile", console_name]
+
+
+def props_below(api):
+    """(how many props are below the map, how many there are, the lowest z)."""
+    lowest = None
+    below = 0
+    total = 0
+    for klass in PROP_CLASSES:
+        try:
+            ents = api.ents(klass)
+        except lg.ApiError:
+            continue
+        for e in ents:
+            z = e["origin"][2]
+            total += 1
+            if lowest is None or z < lowest:
+                lowest = z
+            if z < BELOW_THE_MAP:
+                below += 1
+    return below, total, lowest
+
+
+def physworld_line(pid):
+    """The last line the game's own report wrote for THIS pid."""
+    path = "/tmp/ss-physworld-%s.log" % pid
+    try:
+        with open(path) as fp:
+            lines = [l.strip() for l in fp if l.strip()]
+    except IOError:
+        return "(no report file %s)" % path
+    return lines[-1] if lines else "(report file empty)"
+
+
+def run_steps(g, step_ids):
+    """The gate's own step functions, run for their SIDE EFFECTS.
+
+    Their checks are not this probe's subject -- a step that fails here is
+    still a step that ran, and running it is the whole point. So a failure is
+    counted and reported and does not stop the round.
+    """
+    ran = []
+    for step_id in step_ids:
+        if step_id not in lg.BY_ID:
+            raise SystemExit("no such step: %s (have: %s)"
+                             % (step_id, ",".join(lg.RUN_ORDER)))
+        _, _, func = lg.BY_ID[step_id]
+        g._step = step_id
+        g.began = time.time()   # what Gate.mark measures from
+        before = len(g.failures)
+        try:
+            func(g)
+        except lg.Skipped as why:
+            print("      SKIP %-14s %s" % (step_id, why), flush=True)
+            ran.append(step_id + ":skip")
+            continue
+        except lg.ApiError as why:
+            g.failures.append((step_id, "dev API stopped answering: %s" % why))
+            ran.append(step_id + ":API")
+            continue
+        ran.append(step_id + (":FAIL" if len(g.failures) > before else ""))
+    return ran
+
+
+def take_the_level_down_and_back(g):
+    """Exactly what the live gate does between its two passes.
+
+    Step 16 (`shutdown`) disconnects and waits for the census to reach 0/0, so
+    the process sits with no level and no physics environment at all; main()
+    then issues `map` for the next pass. That is not a `map` reload, and
+    tools/3f-reload-props only ever did the latter.
+    """
+    g.api.cmd("disconnect")
+    # No level, so no ticks to wait on: the census is polled until it is 0/0.
+    g.api.wait_for(lambda: g.api.census() == (0, 0), 60.0, 0.25)
+    g.api.cmd("map %s" % g.scen["map"])
+    # The census was 0/0 before `map`, so the first player seen is the new
+    # level's: no fixed eight seconds first.
+    if not g.api.wait_for(lambda: g.api.player(g.scen["playerClass"]), 120.0, 0.25):
+        return False
+    # Settled: a prop still falling at level init has not FALLEN THROUGH
+    # anything yet, and reading the census a second after the map came back
+    # would call a healthy level sick. Six seconds of GAME.
+    g.ticks(6.0)
+    return True
+
+
+def main(argv):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--steps", default=",".join(lg.RUN_ORDER[:-1]),
+                    help="comma-separated live-gate step ids to run each round")
+    ap.add_argument("--rounds", type=int, default=3)
+    ap.add_argument("--arm", default="shadow", choices=("shadow", "noshadow"))
+    ap.add_argument("--no-reload", action="store_true",
+                    help="do NOT take the level down between rounds. The "
+                         "failure gate2 caught was in PASS 1, so a reload is "
+                         "not part of it and paying 30s a round for one is "
+                         "paying for the wrong experiment.")
+    ap.add_argument("--convar", action="append", default=[],
+                    help="name=value, set on the server before the arm's map "
+                         "loads. Repeatable. This is how the collision-rules "
+                         "A/B is run in ONE process rather than two builds.")
+    ap.add_argument("--verbose", action="store_true",
+                    help="print the steps' own lines. `push` says how far its "
+                         "crate fell, and that number IS the symptom.")
+    args = ap.parse_args(argv)
+
+    step_ids = [s for s in args.steps.split(",") if s]
+    scen = lg.load_scenario("dm_lockdown")
+    scratch = os.path.join("/tmp", "ss-3f-bisect-%d" % os.getpid())
+    os.makedirs(scratch, exist_ok=True)
+
+    port = lg.free_udp_port(*lg.GATE_PORT_RANGE)
+    log = os.path.join(scratch, "server.log")
+    console_name = "3f-bisect-%d.log" % os.getpid()
+    print("== launching %s on port %d (arm %s; console %s; steps %s)"
+          % (scen["map"], port, args.arm, console_name, ",".join(step_ids)))
+    game = lg.Game.launch(server_launch_own_console(port, scen["map"], console_name),
+                          log, os.path.join(scratch, "server"))
+    if game is None:
+        print("== NO SOCKET; read %s" % log)
+        return 1
+
+    api = game.api
+    print("== game pid %s" % api.pid)
+    api.wait_for(lambda: api.player(scen["playerClass"]), 120.0)
+
+    g = lg.Gate(api, scen, verbose=args.verbose)
+    g.no_second_client = False
+    g.server_port = port
+    g.scratch = scratch
+    g.own_log = log
+    g.count_log = lambda needle: lg.count_in(log, needle)
+    g.last_log_line = lambda needle: lg.last_line_in(log, needle)
+    # This instance's own console, through /console: the API follows the file
+    # +con_logfile named (ConsoleTail), so this reads the bisect's game and
+    # never a gate's running beside it.
+    # The launcher names the file to the game (SOURCESHARP_CONSOLE_LOG): an
+    # -instance launch moves +con_logfile into cfg/sslaunch.cfg, where the
+    # API used to miss it and followed console.log, which this game never
+    # writes (join's boundary-probe check, 10 of 10 rounds red, 2026-10-05).
+    lg.attach_console(g, api)
+
+    broken = 0
+    try:
+        # DevMsg(1) ON. CCollisionEvent::AdditionalCollisionChecksThisTick
+        # prints "VPhysics exceeded collision check limit ... Interpenetration
+        # may result!" at developer 1 and at no lower level, and that line is
+        # one of the two things that could make a single moving prop pass
+        # through a floor every other prop is standing on.
+        api.cmd("developer 1")
+        # The teardown report is OFF by default in the build (it writes a file
+        # from inside the game, in a stock TU the port is deleting). This tool
+        # is the investigating session, so it turns it on -- which restores the
+        # AT-LEVEL-INIT automatic report physworld_line() reads below.
+        api.cmd("sourcesharp_physworld_report 1")
+        api.cmd("sourcesharp_player_shadow %d" % (1 if args.arm == "shadow" else 0))
+        for pair in args.convar:
+            name, _, value = pair.partition("=")
+            api.cmd("%s %s" % (name.strip(), value.strip()))
+        # Each /command ran on the game thread before it answered, so nothing
+        # is left to wait for before the map. The level is taken to 0/0 first,
+        # as between rounds, so the player waited for is the new level's and
+        # not the one already standing -- which is what the eight-second sleep
+        # here was guessing at.
+        api.cmd("disconnect")
+        api.wait_for(lambda: api.census() == (0, 0), 60.0, 0.25)
+        api.cmd("map %s" % scen["map"])
+        api.wait_for(lambda: api.player(scen["playerClass"]), 120.0, 0.25)
+        g.ticks(4.0)
+
+        for round_number in range(1, args.rounds + 1):
+            started = time.time()
+            ran = run_steps(g, step_ids)
+            if not args.no_reload and not take_the_level_down_and_back(g):
+                print("  round %d: THE MAP NEVER CAME BACK" % round_number, flush=True)
+                continue
+
+            # ASKED AGAIN HERE, and that is not redundant. The automatic
+            # report runs at LevelInitPostEntity, which is BEFORE the local
+            # client is put in the server and therefore before any player's
+            # InitVCollision has run. A shadow that breaks the world breaks it
+            # after that line was already written, so the level-init line would
+            # read healthy on the very run this probe is looking for.
+            try:
+                api.cmd("ss_physworld_report")
+                g.ticks(1.0)
+            except lg.ApiError:
+                pass
+
+            below, total, lowest = props_below(api)
+            before_the_crate = physworld_line(api.pid)
+
+            # AND ONE CRATE OF OUR OWN, dropped where the gate drops its.
+            # 3f's symptom is reported as "every physics prop fell" but the
+            # gate only ever measures the props IT spawns -- and the census it
+            # quotes as unchanged cannot see a map prop that fell, only one
+            # that stopped existing. So both are measured: the map's props by
+            # position, and a fresh one by how far it falls.
+            g.cheats()
+            g.teleport(scen["openFloor"], scen["openFloorAngles"], settle=1.2)
+            player_at = g.player_origin()
+            index, resting, fell = lg.spawn_prop(g)
+            fields = {}
+            if index is not None:
+                try:
+                    fields = g.api.fields(index)
+                except lg.ApiError:
+                    fields = {}
+
+            # WITH THE CRATE STILL IN THE WORLD. The report walks the objects
+            # the environment holds RIGHT NOW, so a report taken before the
+            # crate was made cannot say whether the rule table refuses THAT
+            # pair -- which is the whole question when a crate falls through a
+            # floor every other prop is standing on.
+            try:
+                g.api.cmd("ss_physworld_report")
+                g.ticks(1.0)
+            except lg.ApiError:
+                pass
+            with_the_crate = physworld_line(api.pid)
+
+            lg.kill_prop(g)
+
+            # THE EXPERIMENT, RUN THE MOMENT THE SYMPTOM APPEARS. vphysics
+            # caches ShouldCollide per pair until RecheckCollisionFilter is
+            # called, so "the rule table says collide" and "the solver lets
+            # them collide" are different claims. If a crate dropped AFTER the
+            # filter is re-asked lands, the rule was never the problem.
+            after_recheck = None
+            if fell > BELOW_A_FRESH_CRATE_SHOULD_NOT_FALL:
+                try:
+                    g.api.cmd("ss_physworld_recheck")
+                    g.ticks(0.5)
+                    g.teleport(scen["openFloor"], scen["openFloorAngles"], settle=1.2)
+                    _i2, _r2, after_recheck = lg.spawn_prop(g)
+                    lg.kill_prop(g)
+                except lg.ApiError:
+                    after_recheck = None
+
+            gone = below > 0 or fell > BELOW_A_FRESH_CRATE_SHOULD_NOT_FALL
+            verdict = "THROUGH THE FLOOR" if gone else "ok"
+            if gone:
+                broken += 1
+            print("  round %d (%.0fs): %d of %d map props below the map (lowest z %s); "
+                  "a fresh crate fell %.1f -- %s"
+                  % (round_number, time.time() - started, below, total,
+                     "n/a" if lowest is None else "%.1f" % lowest, fell, verdict),
+                  flush=True)
+            print("      before the crate: %s" % before_the_crate, flush=True)
+            print("      with the crate:   %s" % with_the_crate, flush=True)
+            print("      steps ran: %s" % " ".join(ran), flush=True)
+            # THE MESSAGES, not just which step went red. 3f's symptom is a
+            # DISTANCE -- "the crate fell 5,983 units" -- and a step id alone
+            # cannot tell that from "the crate settled 20 units short".
+            for step_id, why in g.failures:
+                print("      FAIL %-14s %s" % (step_id, why), flush=True)
+
+            # WHEN IT GOES WRONG, EVERYTHING ABOUT THE CRATE. "It fell 6000
+            # units" has at least three causes -- it was created in the void
+            # because the aim trace missed, it never got a physics object at
+            # all, or the world stopped being solid -- and the numbers that
+            # tell them apart are all here and all gone a second later.
+            if gone:
+                print("      the player was at %s; the crate rested at %s"
+                      % (player_at, resting), flush=True)
+                print("      crate fields: %s" % fields, flush=True)
+                print("      map props below: %d of %d, lowest z %s"
+                      % (below, total, lowest), flush=True)
+                print("      a crate dropped AFTER ss_physworld_recheck fell %s"
+                      % ("(not measured)" if after_recheck is None
+                         else "%.1f" % after_recheck), flush=True)
+
+            g.failures = []
+
+        print()
+        print("%s: %d of %d rounds lost the world"
+              % (args.arm, broken, args.rounds))
+    finally:
+        game.kill()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

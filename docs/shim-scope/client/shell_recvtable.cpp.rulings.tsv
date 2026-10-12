@@ -1,0 +1,5 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+static void CopyName(	SLOT-HELP	copies a name into a caller buffer for the two dev API slots below; decides nothing
+SourceSharp_ClientRecvProp(	INSTRUMENT	the dev API nettables route: reports the recv tables the engine holds, each once; managed decides agreement (plan_client_novalve 4.4)
+SourceSharp_ClientSchemaRefusal(	INSTRUMENT	the dev API nettables route: forwards the payload decoder schema-refusal counters to managed (plan_client_novalve 4.4)

@@ -1,0 +1,175 @@
+--- a/src/game/client/c_rumble.cpp	2026-10-05 07:23:32.077359925 -0700
++++ b/src/game/client/c_rumble.cpp	2026-10-05 07:31:53.036507351 -0700
+@@ -11,6 +11,25 @@
+ #include "c_rumble.h"
+ #include "rumble_shared.h"
+ #include "inputsystem/iinputsystem.h"
++#include <stdarg.h>
++
++// c6-input probe (debug): cs_cl_probe_rumble N records the mixer over N frames
++// into $SOURCESHARP_C6_FIXTURE_DIR/rumble-stock.tsv, with a scripted effect
++// schedule, the local player's alive check bypassed while armed (it answers
++// NULL on this build, so stock's update never ran past it).
++static FILE *s_pRumbleProbe = NULL;
++static int s_nRumbleFrames = 0;
++static int s_nRumbleFrame = 0;
++static void RumbleProbeLog( const char *pFmt, ... )
++{
++	if ( !s_pRumbleProbe )
++		return;
++	va_list ap;
++	va_start( ap, pFmt );
++	vfprintf( s_pRumbleProbe, pFmt, ap );
++	va_end( ap );
++	fputc( '\n', s_pRumbleProbe );
++}
+ 
+ ConVar cl_rumblescale( "cl_rumblescale", "1.0", FCVAR_ARCHIVE | FCVAR_ARCHIVE_XBOX, "Scale sensitivity of rumble effects (0 to 1.0)" ); 
+ ConVar cl_debugrumble( "cl_debugrumble", "0", FCVAR_ARCHIVE, "Turn on rumble debugging spew" );
+@@ -598,6 +617,7 @@
+ 	if( (rumbleFlags & RUMBLE_FLAG_RANDOM_AMPLITUDE) )
+ 	{
+ 		pChannel->scale = random->RandomFloat( 0.1f, 1.0f );
++		RumbleProbeLog( "RR\t%.9g", pChannel->scale );
+ 	}
+ }
+ 
+@@ -774,6 +794,13 @@
+ 		fRightMotor = 0.0f;
+ 	}
+ 
++	RumbleProbeLog( "U\t%.9g\t%d\t%.9g\t%.9g\t%.9g", curtime, engine->IsPaused() ? 1 : 0, cl_rumblescale.GetFloat(), fLeftMotor, fRightMotor );
++	for ( int c = 0; c < MAX_RUMBLE_CHANNELS && s_pRumbleProbe; c++ )
++	{
++		RumbleChannel_t &ch = m_Channels[ c ];
++		RumbleProbeLog( "CH\t%d\t%d\t%d\t%.9g\t%d\t%d\t%.9g", c, ch.in_use ? 1 : 0, ch.waveformIndex, ch.starttime, ch.priority, (int)ch.rumbleFlags, ch.scale );
++	}
++
+ 	inputsystem->SetRumble( fLeftMotor, fRightMotor );
+ }
+ 
+@@ -790,6 +817,7 @@
+ //---------------------------------------------------------
+ void RumbleEffect( unsigned char effectIndex, unsigned char rumbleData, unsigned char rumbleFlags )
+ {
++	RumbleProbeLog( "E\t%.9g\t%d\t%d\t%d", gpGlobals->curtime, (int)effectIndex, (int)rumbleData, (int)rumbleFlags );
+ 	g_RumbleEffects.StartEffect( effectIndex, rumbleData, rumbleFlags );	
+ }
+ 
+@@ -797,6 +825,60 @@
+ //---------------------------------------------------------
+ void UpdateRumbleEffects()
+ {
++	if ( s_pRumbleProbe )
++	{
++		// The schedule: every effect, each flag, and channel contention.
++		static const int s_Script[][4] =
++		{
++			// frame, effect, data, flags
++			{ 2, RUMBLE_PISTOL, 0, 0 }, { 3, RUMBLE_357, 0, 0 }, { 4, RUMBLE_SMG1, 0, 0 },
++			{ 5, RUMBLE_AR2, 0, 0 },                                   // a fourth: slams the oldest
++			{ 20, RUMBLE_AR2_ALT_FIRE, 50, RUMBLE_FLAG_INITIAL_SCALE },
++			{ 24, RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_ONLYONE },       // already playing: refused
++			{ 26, RUMBLE_AR2_ALT_FIRE, 20, RUMBLE_FLAG_UPDATE_SCALE },
++			{ 30, RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART },
++			{ 40, RUMBLE_JEEP_ENGINE_LOOP, 0, RUMBLE_FLAG_LOOP },
++			{ 45, RUMBLE_SHOTGUN_SINGLE, 0, RUMBLE_FLAG_RANDOM_AMPLITUDE },
++			{ 46, RUMBLE_SHOTGUN_DOUBLE, 0, 0 }, { 47, RUMBLE_RPG_MISSILE, 0, 0 },
++			{ 48, RUMBLE_CROWBAR_SWING, 0, 0 },
++			{ 80, RUMBLE_JEEP_ENGINE_LOOP, 0, RUMBLE_FLAG_STOP },
++			{ 82, RUMBLE_PHYSCANNON_OPEN, 0, 0 }, { 83, RUMBLE_PHYSCANNON_LOW, 0, RUMBLE_FLAG_LOOP },
++			{ 84, RUMBLE_AIRBOAT_GUN, 0, RUMBLE_FLAG_LOOP },
++			{ 140, RUMBLE_FLAT_LEFT, 0, 0 },                           // loops are never slammed
++			{ 200, RUMBLE_STOP_ALL, 0, 0 },
++			{ 202, RUMBLE_FLAT_RIGHT, 0, 0 }, { 203, RUMBLE_FLAT_BOTH, 0, RUMBLE_FLAG_RANDOM_AMPLITUDE },
++			{ 204, RUMBLE_FALL_LONG, 0, 0 },
++			{ 240, RUMBLE_FALL_SHORT, 0, 0 }, { 241, RUMBLE_PORTALGUN_LEFT, 0, 0 },
++			{ 242, RUMBLE_PORTALGUN_RIGHT, 0, 0 },
++			{ 280, RUMBLE_PORTAL_PLACEMENT_FAILURE, 0, 0 }, { 281, RUMBLE_DMG_LOW, 0, 0 },
++			{ 282, RUMBLE_PHYSCANNON_MEDIUM, 100, RUMBLE_FLAG_INITIAL_SCALE | RUMBLE_FLAG_LOOP },
++			{ 330, RUMBLE_STOP_ALL, 0, 0 },
++		};
++		for ( int i = 0; i < (int)ARRAYSIZE( s_Script ); i++ )
++			if ( s_Script[ i ][ 0 ] == s_nRumbleFrame )
++				RumbleEffect( (unsigned char)s_Script[ i ][ 1 ], (unsigned char)s_Script[ i ][ 2 ], (unsigned char)s_Script[ i ][ 3 ] );
++		if ( s_nRumbleFrame == 300 )
++		{
++			RumbleProbeLog( "#\tshake" );
++			UpdateScreenShakeRumble( -0.4f, 0 );
++		}
++		if ( s_nRumbleFrame == 320 )
++			UpdateScreenShakeRumble( 0.7f, 0 );
++		if ( s_nRumbleFrame == 340 )
++			EnableRumbleOutput( false );
++		if ( s_nRumbleFrame == 350 )
++			EnableRumbleOutput( true );
++		g_RumbleEffects.UpdateEffects( gpGlobals->curtime );
++		if ( ++s_nRumbleFrame >= s_nRumbleFrames )
++		{
++			fprintf( s_pRumbleProbe, "#\tend\t%d frames\n", s_nRumbleFrame );
++			fclose( s_pRumbleProbe );
++			s_pRumbleProbe = NULL;
++			Msg( "[c6-input probe] rumble recorded\n" );
++		}
++		return;
++	}
++
+ 	C_BasePlayer *localPlayer = C_BasePlayer::GetLocalPlayer();
+ 	if( !localPlayer || !localPlayer->MvIsAlive() )
+ 	{
+@@ -811,6 +893,12 @@
+ //---------------------------------------------------------
+ void UpdateScreenShakeRumble( float shake, float balance )
+ {
++	RumbleProbeLog( "SS\t%.9g\t%.9g", shake, balance );
++	if ( s_pRumbleProbe )
++	{
++		g_RumbleEffects.UpdateScreenShakeRumble( shake, balance );
++		return;
++	}
+ 	C_BasePlayer *localPlayer = C_BasePlayer::GetLocalPlayer();
+ 	if( !localPlayer || !localPlayer->MvIsAlive() )
+ 	{
+@@ -824,5 +912,42 @@
+ //---------------------------------------------------------
+ void EnableRumbleOutput( bool bEnable )
+ {
++	RumbleProbeLog( "EN\t%d", bEnable ? 1 : 0 );
+ 	g_RumbleEffects.SetOutputEnabled( bEnable );
+ }
++
++// Driven once a frame by the input probe (c6input_probes_debug.cpp): the
++// client mode's Update, which stock calls this from, is not called here.
++void C6P_RumbleFrame()
++{
++	if ( s_pRumbleProbe )
++		UpdateRumbleEffects();
++}
++
++CON_COMMAND( cs_cl_probe_rumble, "c6-input probe (debug): record the stock rumble mixer over N frames into $SOURCESHARP_C6_FIXTURE_DIR/rumble-stock.tsv" )
++{
++	const char *pDir = getenv( "SOURCESHARP_C6_FIXTURE_DIR" );
++	if ( s_pRumbleProbe || !pDir || !*pDir )
++	{
++		Msg( "[c6-input probe] rumble: busy, or SOURCESHARP_C6_FIXTURE_DIR is not set\n" );
++		return;
++	}
++	char path[ 1024 ];
++	Q_snprintf( path, sizeof( path ), "%s/rumble-stock.tsv", pDir );
++	s_pRumbleProbe = fopen( path, "w" );
++	if ( !s_pRumbleProbe )
++		return;
++	s_nRumbleFrames = args.ArgC() > 1 ? atoi( args[ 1 ] ) : 400;
++	s_nRumbleFrame = 0;
++	fprintf( s_pRumbleProbe, "# rumble-stock.tsv: STOCK c_rumble.cpp, recorded -- see README-rumble-stock.md.\n" );
++	for ( int w = 0; w < NUM_RUMBLE_EFFECTS; w++ )
++	{
++		RumbleWaveform_t &wf = g_RumbleEffects.m_Waveforms[ w ];
++		fprintf( s_pRumbleProbe, "W\t%d\t%d", w, wf.numSamples );
++		for ( int i = 0; i < NUM_WAVE_SAMPLES; i++ )
++			fprintf( s_pRumbleProbe, "\t%.9g,%.9g", wf.amplitude_left[ i ], wf.amplitude_right[ i ] );
++		fputc( '\n', s_pRumbleProbe );
++	}
++	g_RumbleEffects.StopAllEffects();
++	fprintf( s_pRumbleProbe, "V\tcl_rumblescale\t%s\n", cl_rumblescale.GetString() );
++}

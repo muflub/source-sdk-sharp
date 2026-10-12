@@ -1,0 +1,118 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+//
+// Inspired by and based on the Half-Life 2 Source SDK 2013 by Valve:
+// https://github.com/ValveSoftware/source-sdk-2013
+//
+//=============================================================================//
+//========= SourceSharp — the managed client's convar watch and decided values
+//
+// SS_REASON b  an interface resolved by name at load
+//
+// IShimConVarsClient's two slots (plan_client_novalve C8, lane c6-input).
+//
+// WATCH. tier1's ChangeStringValue calls every installed global change
+// callback for every convar in the process, the engine's replicated ones
+// included when the server's value arrives. The client's one callback
+// (sourcesharp_gamesystem.cpp's SourceSharp_OnConVarChanged) forwards our own
+// registry's names; a WATCHED name is forwarded too, through the same
+// ConVarChanged, under the id this answered. The table lives here, survives a
+// managed reload (a re-watch answers the same id) and is never shrunk.
+//
+// VALUES. A value managed decided, stored under a name native code reads
+// without crossing (the server-bounded convars' GetFloat, the client's
+// interpolation amount). Mechanism only: what each value is, is C#'s.
+//=============================================================================//
+
+#include "cbase.h"
+#include "convar.h"
+#include "sourcesharp_entrypoints.h"
+#include "shell_convars_client.h"
+
+#include "tier0/memdbgon.h"
+
+namespace
+{
+const int kMaxWatched = 32;
+const int kNameBytes = 64;
+
+// The watched names; an id is SOURCESHARP_CONVAR_WATCH_ID_BASE + the index.
+char g_szWatched[ kMaxWatched ][ kNameBytes ];
+int g_nWatched = 0;
+
+// The decided values: a name and its float, set by managed.
+struct DecidedValue_t
+{
+	char szName[ kNameBytes ];
+	float flValue;
+};
+const int kMaxDecided = 8;
+DecidedValue_t g_Decided[ kMaxDecided ];
+int g_nDecided = 0;
+} // namespace
+
+int32_t SourceSharp_ConVarsClientWatch( const char *pName )
+{
+	if ( !pName || !pName[0] || !g_pCVar || !g_pCVar->FindVar( pName ) )
+		return -1;
+
+	for ( int i = 0; i < g_nWatched; i++ )
+	{
+		if ( !V_stricmp( g_szWatched[ i ], pName ) )
+			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
+	}
+
+	if ( g_nWatched >= kMaxWatched || V_strlen( pName ) >= kNameBytes )
+		return -1;
+
+	V_strncpy( g_szWatched[ g_nWatched ], pName, kNameBytes );
+	SourceSharp_EnsureConVarChangeCallback();
+	return SOURCESHARP_CONVAR_WATCH_ID_BASE + g_nWatched++;
+}
+
+int32_t SourceSharp_ClientWatchedConVarId( const char *pName )
+{
+	if ( !pName )
+		return -1;
+	for ( int i = 0; i < g_nWatched; i++ )
+	{
+		if ( !V_stricmp( g_szWatched[ i ], pName ) )
+			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
+	}
+	return -1;
+}
+
+int32_t SourceSharp_ConVarsClientSetValue( const char *pName, float flValue )
+{
+	if ( !pName || !pName[0] || V_strlen( pName ) >= kNameBytes )
+		return 0;
+
+	for ( int i = 0; i < g_nDecided; i++ )
+	{
+		if ( !V_stricmp( g_Decided[ i ].szName, pName ) )
+		{
+			g_Decided[ i ].flValue = flValue;
+			return 1;
+		}
+	}
+
+	if ( g_nDecided >= kMaxDecided )
+		return 0;
+
+	V_strncpy( g_Decided[ g_nDecided ].szName, pName, kNameBytes );
+	g_Decided[ g_nDecided ].flValue = flValue;
+	g_nDecided++;
+	return 1;
+}
+
+bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut )
+{
+	for ( int i = 0; i < g_nDecided; i++ )
+	{
+		if ( !V_stricmp( g_Decided[ i ].szName, pName ) )
+		{
+			*pOut = g_Decided[ i ].flValue;
+			return true;
+		}
+	}
+	return false;
+}

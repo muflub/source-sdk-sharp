@@ -1,0 +1,75 @@
+#!/bin/bash
+#
+# CI's native build: the same CMake project as `make debug|release`, inside
+# Valve's steamrt sniper SDK image, which gives the shipped binaries sniper's
+# glibc 2.31 floor. The only target that needs podman (or docker).
+#
+#   tools/build/ci-build [release|debug]      (make ci-build [CONFIG=...])
+#
+# The repo and ROOT (the fork, read-only) are mounted at their host paths, so
+# the farm's absolute links resolve inside the container unchanged. The preset
+# is ci-<config>: the image's gcc (CMakePresets.json says why), build tree
+# farm/<config>/build-ci, output bin/ci-<config>/linux64 -- never the local
+# bin/<config>, so reproducing CI does not replace what `make run` launches.
+#
+# Then the CI-only gate: no GLIBC_ symbol version newer than 2.31 in any output.
+#
+set -euo pipefail
+
+CONFIG="${1:-release}"
+case "$CONFIG" in debug|release) ;; *) echo "usage: $0 [release|debug]"; exit 1 ;; esac
+
+REPO="$(cd -- "$(dirname -- "$(readlink -f -- "$0")")/../.." && pwd -P)"
+IMAGE="${SS_CI_IMAGE:-registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest}"
+GLIBC_CEILING="2.31"
+OUT="$REPO/bin/ci-$CONFIG/linux64"
+
+if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
+    ROOT="$(cat -- "$REPO/sdk-root.lock.local" 2> /dev/null || true)"
+    if [[ -z "$ROOT" || ! -d "$ROOT" ]]; then
+        echo "error: no ROOT recorded; run: make setup ROOT=../source-sdk-2013"
+        exit 1
+    fi
+    runner="$(command -v podman || command -v docker || true)"
+    if [[ -z "$runner" ]]; then
+        echo "error: ci-build needs podman (sudo apt install podman) or docker"
+        exit 1
+    fi
+    # See memory podman-breaks-on-snap-refresh: a snap-set XDG_DATA_HOME
+    # breaks podman's store after a refresh; ~/.local/share is the real one.
+    if [[ "${XDG_DATA_HOME:-}" == */snap/* ]]; then
+        export XDG_DATA_HOME="$HOME/.local/share"
+    fi
+    echo "==> ci-build $CONFIG in $IMAGE"
+    exec "$runner" run --rm -i --userns=keep-id \
+        --env SS_IN_CI_CONTAINER=1 \
+        --mount type=bind,source="$REPO",target="$REPO" \
+        --mount type=bind,source="$ROOT",target="$ROOT",ro \
+        --workdir "$REPO" \
+        "$IMAGE" "$REPO/tools/build/ci-build" "$CONFIG"
+fi
+
+cd "$REPO"
+cmake --preset "ci-$CONFIG" > /dev/null
+cmake --build --preset "ci-$CONFIG"
+
+echo "==> GLIBC ceiling: no symbol version newer than GLIBC_$GLIBC_CEILING"
+fail=0
+shopt -s nullglob
+sos=( "$OUT"/*.so )
+if [[ ${#sos[@]} -eq 0 ]]; then
+    echo "!! no .so under $OUT -- nothing was measured"
+    exit 1
+fi
+for so in "${sos[@]}"; do
+    newest="$(objdump -T "$so" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' | sed 's/GLIBC_//' | sort -uV | tail -1)"
+    over="$(printf '%s\n%s\n' "$GLIBC_CEILING" "$newest" | sort -V | tail -1)"
+    if [[ -n "$newest" && "$over" != "$GLIBC_CEILING" ]]; then
+        echo "!! $(basename "$so") needs GLIBC_$newest"
+        objdump -T "$so" | grep -E "GLIBC_$newest" | head -5 | sed 's/^/     /'
+        fail=1
+    else
+        echo "   $(basename "$so"): newest GLIBC_${newest:-none}"
+    fi
+done
+exit $fail

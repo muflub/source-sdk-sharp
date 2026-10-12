@@ -1,0 +1,9 @@
+# lane c2-sims: record stock decals.cpp (cs_cl_probe_decals) on dm_lockdown.
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait iface-list 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 3
+cmd cs_cl_probe_decals
+wait c2-sims probe\] decals 30
+quit

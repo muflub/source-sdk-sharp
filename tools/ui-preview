@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""tools/ui-preview -- mock-ups of every UI screen, offline (plan_client_ui §7).
+
+    tools/ui-preview [--png] [--config debug|release] [--only NAME]
+    tools/ui-preview --watch [--png] [--port 7191]
+    tools/ui-preview --icons   rasterise src/client/ui/icons into its atlas
+    tools/ui-preview --self-test
+
+Builds src/tools/UiPreview (the UI assemblies come with it; no native build)
+and runs it: every screen x sample x size, and every gallery part, to
+bin/<config>/ui-preview/ as SVG + element JSON, and with --png as PNG drawn
+by SkiaSharp over the dm_lockdown backdrops, plus gallery/sheet.png.
+
+--watch keeps going: on every save under src/client/ui/ (or to the language
+file or ui-theme.yaml) it rebuilds and re-renders, prints the time from save
+to picture, and serves the pictures and the dev web UI on 127.0.0.1:<port>:
+open http://127.0.0.1:7191/#mockups. The page reloads itself over
+/preview/events (server-sent events) after each render.
+
+`make ui-preview [PNG=1] [WATCH=1]` runs this.
+"""
+import http.server
+import json
+import os
+import subprocess
+import sys
+import threading
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+
+WATCHED = [
+    ('src/client/ui', ('.cs', '.csproj', '.ttf', '.jpg', '_english.txt')),
+    ('src/client/interface/Ui', ('.cs',)),
+    ('src/tools/UiPreview', ('.cs', '.csproj')),
+    ('game/mod_test/resource', ('mod_sharp_english.txt', 'ui-theme.yaml')),
+]
+
+
+def snapshot(root=ROOT, watched=WATCHED):
+    """path -> mtime_ns of every watched file."""
+    seen = {}
+    for rel, suffixes in watched:
+        base = os.path.join(root, rel)
+        for d, dirs, files in os.walk(base):
+            dirs[:] = [x for x in dirs if x not in ('bin', 'obj')]
+            for f in files:
+                if f.endswith(suffixes):
+                    p = os.path.join(d, f)
+                    try:
+                        seen[p] = os.stat(p).st_mtime_ns
+                    except FileNotFoundError:
+                        pass
+    return seen
+
+
+def changed(before, after):
+    """The paths added, removed or modified between two snapshots, sorted."""
+    keys = set(before) | set(after)
+    return sorted(k for k in keys if before.get(k) != after.get(k))
+
+
+def needs_build(paths):
+    """A theme file or language file change needs no compile, only a render."""
+    return any(not (p.endswith('ui-theme.yaml') or p.endswith('_english.txt')) for p in paths)
+
+
+def sse(event, data):
+    """One server-sent event, as bytes."""
+    return f'event: {event}\ndata: {json.dumps(data)}\n\n'.encode()
+
+
+def tool_dll(config):
+    return os.path.join(ROOT, 'bin', config, 'tools', 'ui-preview', 'SourceSharp.UiPreview.dll')
+
+
+def build(config):
+    cmd = ['dotnet', 'build', os.path.join(ROOT, 'src/tools/UiPreview'), '--nologo', '-v', 'q',
+           '-c', 'Release' if config == 'release' else 'Debug']
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(r.stdout[-4000:] + r.stderr[-2000:], file=sys.stderr)
+    return r.returncode
+
+
+def render(config, png, only, quiet=False):
+    cmd = ['dotnet', tool_dll(config), '--root', ROOT]
+    if png:
+        cmd.append('--png')
+    if only:
+        cmd += ['--only', only]
+    if quiet:
+        cmd.append('--quiet')
+    return subprocess.run(cmd).returncode
+
+
+class Clients:
+    """The pages listening on /preview/events."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.queues = []
+
+    def add(self):
+        q = []
+        with self.lock:
+            self.queues.append(q)
+        return q
+
+    def remove(self, q):
+        with self.lock:
+            if q in self.queues:
+                self.queues.remove(q)
+
+    def send(self, payload):
+        with self.lock:
+            for q in self.queues:
+                q.append(payload)
+
+
+def serve(config, port, clients):
+    out = os.path.join(ROOT, 'bin', config, 'ui-preview')
+    webui = os.path.join(ROOT, 'src', 'debug_api', 'ui')
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def translate_path(self, path):
+            path = path.split('?', 1)[0].split('#', 1)[0]
+            if path.startswith('/preview/'):
+                return os.path.join(out, path[len('/preview/'):])
+            return os.path.join(webui, path.lstrip('/') or 'index.html')
+
+        def end_headers(self):
+            self.send_header('Cache-Control', 'no-store')
+            super().end_headers()
+
+        def do_GET(self):
+            if self.path.startswith('/preview/events'):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.end_headers()
+                q = clients.add()
+                try:
+                    self.wfile.write(sse('hello', {'ok': True}))
+                    self.wfile.flush()
+                    while True:
+                        while q:
+                            self.wfile.write(q.pop(0))
+                            self.wfile.flush()
+                        time.sleep(0.05)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                finally:
+                    clients.remove(q)
+                return
+            super().do_GET()
+
+    server = http.server.ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    if not os.path.isfile(os.path.join(webui, 'index.html')):
+        print(f'ui-preview: the web UI is not built ({webui}); run `make ui` for the Mockups tab', file=sys.stderr)
+    print(f'ui-preview: serving http://127.0.0.1:{port}/#mockups (pictures under /preview/)')
+
+
+def watch(config, png, only, port):
+    clients = Clients()
+    serve(config, port, clients)
+    if build(config) != 0:
+        print('ui-preview: the first build failed; fix it and save', file=sys.stderr)
+    else:
+        render(config, png, only)
+    before = snapshot()
+    while True:
+        time.sleep(0.1)
+        after = snapshot()
+        paths = changed(before, after)
+        if not paths:
+            continue
+        saved = max(after.get(p, 0) for p in paths) / 1e9
+        time.sleep(0.05)               # let an editor finish writing
+        before = snapshot()
+        ok = (not needs_build(paths) or build(config) == 0) and render(config, png, only, quiet=True) == 0
+        took = time.time() - saved
+        print(f'ui-preview: {len(paths)} file(s) changed -> {"picture" if ok else "FAILED"} in {took:.2f} s from save', flush=True)
+        clients.send(sse('render' if ok else 'failed', {'seconds': round(took, 3), 'files': [os.path.relpath(p, ROOT) for p in paths]}))
+
+
+def self_test():
+    import tempfile
+    failures = []
+    total = [0]
+
+    def check(cond, what):
+        total[0] += 1
+        if not cond:
+            failures.append(what)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, 'src/client/ui/screens'))
+        a = os.path.join(tmp, 'src/client/ui/screens/A.cs')
+        open(a, 'w').write('a')
+        open(os.path.join(tmp, 'src/client/ui/screens/notes.txt'), 'w').write('x')
+        watched = [('src/client/ui', ('.cs',))]
+        s1 = snapshot(tmp, watched)
+        check(list(s1) == [a], f'snapshot sees only watched suffixes: {list(s1)}')
+        check(changed(s1, snapshot(tmp, watched)) == [], 'no change, nothing reported')
+        os.utime(a, ns=(1, s1[a] + 1_000_000))
+        check(changed(s1, snapshot(tmp, watched)) == [a], 'a touched file is reported')
+        os.remove(a)
+        check(changed(s1, snapshot(tmp, watched)) == [a], 'a removed file is reported')
+
+    check(not needs_build(['/x/game/mod_test/resource/ui-theme.yaml']), 'a theme edit needs no build')
+    check(needs_build(['/x/src/client/ui/screens/Hud.cs', '/x/ui-theme.yaml']), 'a .cs edit needs a build')
+    check(sse('render', {'seconds': 1.5}) == b'event: render\ndata: {"seconds": 1.5}\n\n', 'sse format')
+    check(tool_dll('debug').endswith('bin/debug/tools/ui-preview/SourceSharp.UiPreview.dll'), 'tool path')
+
+    for f in failures:
+        print('FAIL:', f)
+    print(f'ui-preview self-test: {total[0] - len(failures)}/{total[0]} passed')
+    return 1 if failures else 0
+
+
+def main(argv):
+    if '--self-test' in argv:
+        return self_test()
+    config = argv[argv.index('--config') + 1] if '--config' in argv else os.environ.get('CONFIG', 'debug')
+    only = argv[argv.index('--only') + 1] if '--only' in argv else None
+    port = int(argv[argv.index('--port') + 1]) if '--port' in argv else 7191
+    png = '--png' in argv
+    if '--watch' in argv:
+        try:
+            watch(config, png, only, port)
+        except KeyboardInterrupt:
+            return 0
+    if build(config) != 0:
+        return 1
+    if '--icons' in argv:
+        # The icon atlas (make ui-icons): rasterised beside the SVGs, then the
+        # tool is built again so the toolkit embeds what was just written.
+        rc = subprocess.run(['dotnet', tool_dll(config), '--root', ROOT, '--icons']).returncode
+        return rc if rc != 0 else build(config)
+    return render(config, png, only)
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

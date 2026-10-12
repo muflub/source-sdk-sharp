@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- netstandard2.0 is not a choice: the compiler loads a generator into its
+         own process, and that process is a netstandard2.0 host. A net10.0
+         generator builds and is then silently ignored. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>false</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+
+    <!-- Built and run by the compiler, never shipped into the mod's bin
+         directory. Directory.Build.props points every other project there. -->
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/generators/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The rule list RS2008 asks for. An AdditionalFile rather than a suppression
+         because the warning is worth keeping: it is the only thing that notices a
+         diagnostic id being added, changed or quietly dropped, and a rule that
+         disappears from a generator leaves no trace anywhere else. -->
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The only NuGet dependency in the tree, and it is a BUILD-time one:
+         nothing the mod loads at runtime references it. PrivateAssets=all keeps
+         it from flowing to anything that references this project. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"
+                      PrivateAssets="all" />
+  </ItemGroup>
+</Project>

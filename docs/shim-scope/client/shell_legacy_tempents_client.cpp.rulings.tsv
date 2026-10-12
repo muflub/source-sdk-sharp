@@ -1,0 +1,56 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+static void PutVector(	SLOT-HELP	packs a Vector into the float rows the IManagedFxClient tempent slots take
+C_LocalTempEntity::C_LocalTempEntity()	LAYOUT	the renderable's field defaults over the pool's zeroed block; the record is managed's
+C_LocalTempEntity::Prepare	BOUNDARY	resets recycled memory before the managed spawn record is written whole
+C_LocalTempEntity::SetVelocity	LAYOUT	ITempEnts-facing setter of a C_LocalTempEntity field
+C_LocalTempEntity::SetAcceleration	LAYOUT	ITempEnts-facing setter of a C_LocalTempEntity field
+C_LocalTempEntity::IsActive	SLOT	vtable member kept for layout; lifetime is ClientTempEntPool's
+C_LocalTempEntity::Frame	SLOT	vtable member kept for layout; the frame is ClientTempEntFrame's
+C_LocalTempEntity::OnRemoveTempEntity	SLOT	vtable member; breakmodel groups are TempEntBreakGroups'
+C_LocalTempEntity::IsTransparent	SLOT	IClientRenderable slot; the answer is TempEntRender's (TempEntIsTransparent)
+C_LocalTempEntity::GetRenderBounds	SLOT	IClientRenderable slot; reads the model's bounds from modelinfo
+C_LocalTempEntity::GetColorModulation	SLOT	IClientRenderable slot; scales the stored colour bytes
+C_LocalTempEntity::GetRenderGroup	SLOT	IClientRenderable slot; the group is TempEntRender's (TempEntRenderGroup)
+C_LocalTempEntity::ComputeFxBlend	SLOT	C_BaseEntity slot; the blend and alpha are TempEntRender's (TempEntBlend), written back
+C_LocalTempEntity::DrawStudioModel	BOUNDARY	executes the studio draw through modelrender
+C_LocalTempEntity::DrawModel	SLOT	IClientRenderable slot; the occlusion alpha is TempEntRender's (TempEntOccludedAlpha), then the draw by model type
+static int BreakModelDrawHelper(	BOUNDARY	executes DrawModelEx with the lighting origin TempEntBreakGroups names
+SourceSharpTePool_JoinBreakGroup	BOUNDARY	installs the breakmodel draw path on a slot managed put in a group
+CTempEnts::CTempEnts	LAYOUT	ITempEnts object; the pool memory
+CTempEnts::~CTempEnts	LAYOUT	ITempEnts object teardown
+CTempEnts::Init	SLOT	ITempEnts slot
+CTempEnts::Shutdown	SLOT	ITempEnts slot
+CTempEnts::LevelInit	SLOT	ITempEnts slot; forwards to TempEntsLevelInit
+CTempEnts::LevelShutdown	SLOT	ITempEnts slot
+CTempEnts::Update	SLOT	ITempEnts slot; the frame is the managed pool's
+CTempEnts::Clear	SLOT	ITempEnts slot; forwards to the pool
+CTempEnts::FindTempEntByID	SLOT	ITempEnts slot; forwards to the pool
+CTempEnts::TempEntAlloc	SLOT	ITempEnts slot; forwards to the pool
+CTempEnts::AddVisibleTempEntity	BOUNDARY	adds a slot the managed frame kept to the leaf system
+CTempEnts::MuzzleFlash( int type	SLOT	ITempEnts slot; the flash is MuzzleFlashes' (TempEntMuzzleFlash)
+CTempEnts::MuzzleFlash( const Vector	SLOT	ITempEnts slot; the flash is MuzzleFlashes' (TempEntMuzzleFlash)
+CTempEnts::EjectBrass	SLOT	ITempEnts slot; the shell is ClientTempEntDecisions' (TempEntEjectBrass)
+CTempEnts::AttachTentToPlayer	SLOT	ITempEnts slot; TempEntAttachments decides (TempEntAttach)
+CTempEnts::PlaySound	SLOT	ITempEnts slot with no caller in the build (the managed frame plays the bounce through TempEntSounds); warns once
+CTempEnts::BloodSprite	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::RicochetSprite	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::BreakModel	SLOT	ITempEnts slot with no caller in the build (the te forward is managed); warns once
+CTempEnts::Bubbles	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::BubbleTrail	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::Sprite_Explode	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::FizzEffect	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::DefaultSprite	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::Sprite_Smoke	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::TempSprite	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::KillAttachedTents	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::Sprite_Spray	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::SpawnTempModel	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::Sprite_Trail	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::RocketFlare	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::HL1EjectBrass	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::CSEjectBrass	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::PhysicsProp( int,	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::PhysicsProp( const model_t	SLOT	ITempEnts slot with no caller in the build; warns once
+CTempEnts::ClientProjectile	SLOT	ITempEnts slot with no caller in the build; warns once
+CShellRenderable::SetupBones	SLOT	IClientRenderable slot the engine's studio draw calls: a thunk into IManagedBonesClient::PoseModel (the rest-pose build is managed); the render transform in every slot without one

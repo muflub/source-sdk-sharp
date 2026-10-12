@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    What the two halves of the dev API share (plan_devapi_interfaces §2): the
+    debug channel's protocol and codec, JSON helpers and small utilities.
+    System.* only, and no game assembly may reference it.
+  -->
+</Project>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- TF2Descent's client side. Never the SDK or Host.Contracts. -->
+  <PropertyGroup>
+    <!-- Bootstrap loads by simple name from bin/<config>/bin/managed, so the
+         prefetch's SharpZipLib must be copied there, as the server copies the
+         SDK's packages (DeployedReferencesTests). -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- TF2.Descent's shared source compiles into each side (plan_side_isolation §2.4): no shared assembly. -->
+    <Compile Include="..\shared\**\*.cs" Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" />
+    <!-- The generator writes each shared user message payload's wire code. -->
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- bzip2 for the next level's prefetch (fastdl serves .bsp.bz2; .NET has none). The host's own version. -->
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- TF2Descent builds on the TF2 mod. -->
+    <ProjectReference Include="..\..\tf2\client\TF2.Client.csproj" />
+  </ItemGroup>
+</Project>

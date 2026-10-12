@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- plan_client_vtables (the user, 2026-10-01): the client's managed-built
+         contracts, generated areas and bindings, which need function pointers.
+         SourceSharp.Client itself stays compiled without /unsafe; these
+         bindings call a safe host interface it implements. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- plan_particles_so.md: the client's bindings are internal (pointer code);
+         the client's facts bind them over tables they build, as the shared
+         interop's facts do. -->
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\shared\interop\SourceSharp.Shared.Interop.csproj" />
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

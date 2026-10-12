@@ -1,0 +1,25 @@
+# plan_client_novalve C7 step 1: the render plan's oracle. Stock's render calls for one
+# frame at three fixed poses on dm_lockdown (cs_cl_render_trace, shell_render_trace_client.cpp),
+# with the inputs RenderView had (the executor notes them while a frame is recorded).
+# Every build carries the recorder: run with --no-probe-build.
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-render.steps --no-probe-build
+# then copy OUT/pose*.txt to src/test/client/Fixtures/render-stock/ (README there).
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/dm_lockdown-pose1.txt
+wait recorded \d+ lines to .*pose1 20
+api teleport pos=-3843,2894,0 ang=25,90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/dm_lockdown-pose2.txt
+wait recorded \d+ lines to .*pose2 20
+api teleport pos=-3800,2500,0 ang=-20,30,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/dm_lockdown-pose3.txt
+wait recorded \d+ lines to .*pose3 20
+quit

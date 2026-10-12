@@ -1,0 +1,675 @@
+#!/usr/bin/env python3
+"""tools/managed-areas -- the server's ManagedApi areas as managed-built interfaces.
+
+    tools/managed-areas            check the generated files are what the inputs say
+    tools/managed-areas --write    write them
+    tools/managed-areas --self-test
+
+    exit 0   they are current
+    exit 1   they are not -- run --write and read the diff
+
+plan_engineapi_vtables.md Phase E, the reverse of tools/shim-areas. Its ONE
+input is docs/managed-interfaces.tsv (plan_managed_vtable_reload.md L0): every
+managed-built interface native calls, one row per method in slot order, with
+the C return type and parameters. It used to read the ManagedApi slot
+signatures in sourcesharp.h, grouped by docs/engineapi-areas.tsv and listed by
+docs/managedapi-switched.txt; E-last deletes those signatures, so the
+interfaces are declared here instead. From the spec this writes:
+
+  src/shared/native/imanaged_areas.h      the C++ abstract classes native calls:
+                                          one method per slot, named after the
+                                          slot, Release first (slot 0) and Validate second (slot 1), no destructor --
+                                          tools/vtable-layout's
+                                          implemented-by-managed kind -- and the
+                                          accessor native calls each through
+  src/shared/native/shell_managed_areas.h CManagedAreas, the pointers the shim
+                                          root holds by value
+  src/shared/native/shell_managed_areas.inc  acquiring each from the managed
+                                          root at its compiler's count
+                                          (managed_accept.h), releasing each, and
+                                          the accessors; included by
+                                          shell_internalfactory.cpp
+  src/test/native/managed_areas_layout.inc   one length test per area
+  src/server/managed/ManagedAreas.g.cs    the C# contracts ManagedVtableGenerator
+                                          builds the tables from, typed from the
+                                          generated layouts (VtableLayouts.g.cs)
+                                          so they match them exactly
+
+TWO PASSES when an area is added: --write (the header), tools/vtable-layout
+--write (its layout), --write again (the contract, read from the layout).
+
+IManagedRuntimeServer is hand-declared (sourcesharp_gamesystem.h, D5) and is
+not generated here.
+"""
+
+import csv
+import os
+import re
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+SPEC = 'docs/managed-interfaces.tsv'
+LAYOUTS = 'src/abi/VtableLayouts.g.cs'
+VALVE = 'tools/valve-header.txt'
+
+OUT_IFACE = 'src/shared/native/imanaged_areas.h'
+OUT_CORE = 'src/shared/native/imanaged_core.h'
+OUT_RUNTIME = 'src/shared/native/imanaged_runtime.h'
+OUT_HOLDER = 'src/shared/native/shell_managed_areas.h'
+OUT_IMPL = 'src/shared/native/shell_managed_areas.inc'
+OUT_TEST = 'src/test/native/managed_areas_layout.inc'
+OUT_MANAGED = 'src/server/interop/ManagedAreas.g.cs'   # SourceSharp.Server.Interop (SI)
+
+# plan_client_vtables CD: the client's side. Its areas are the spec's
+# interfaces whose names end in `Client`; its runtime is IManagedRuntimeClient.
+# The DECLARATIONS are unguarded (native tests compile them without
+# CLIENT_DLL); the holder, the bodies and the accessors are the client's only,
+# in files of their own, so nothing about the server's files changes.
+OUT_RUNTIME_CLIENT = 'src/shared/native/imanaged_runtime_client.h'
+OUT_IFACE_CLIENT = 'src/shared/native/imanaged_areas_client.h'
+OUT_HOLDER_CLIENT = 'src/shared/native/shell_managed_areas_client.h'
+OUT_IMPL_CLIENT = 'src/shared/native/shell_managed_areas_client.inc'
+OUT_MANAGED_CLIENT = 'src/client/interop/ManagedAreas.g.cs'   # SourceSharp.Client.Interop
+
+# The two that are not areas (plan_managed_vtable_reload.md L0b): the root
+# LoadSideV2 hands native, which BOTH sides take, and the shell game DLL's
+# runtime, which only the server does. They are declared in imanaged_core.h
+# (the root, both sides, no ABI types) and imanaged_runtime.h (the runtime,
+# the server's, which takes the ABI's SourceSharpMapLoad and so includes
+# sourcesharp.h -- a header the root's users do not all have on their path),
+# and nothing else is generated for them: the root is accepted by
+# ManagedRoot_Accept and the runtime by ManagedRoot_AcquireAreas, each by hand,
+# and their C# contracts (IManagedRoot in ManagedRoot.cs, IServerRuntime in
+# ServerRuntimeBinding.cs) are held to their layouts by ManagedVtableGenerator.
+# The value says whether the declaration is the server's only.
+CORE = {'IManagedRoot': False, 'IManagedRuntimeServer': True, 'IManagedRuntimeClient': False}
+
+
+def is_client(iface):
+    """plan_client_vtables CD: a client area or the client's runtime."""
+    return iface.endswith('Client')
+
+GENERATED = '// GENERATED by `tools/managed-areas --write` from docs/managed-interfaces.tsv. DO NOT EDIT.'
+
+
+def read(rel):
+    with open(os.path.join(ROOT, rel)) as f:
+        return f.read()
+
+
+def strip_comments(text):
+    text = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), text, flags=re.S)
+    return re.sub(r'//[^\n]*', '', text)
+
+
+def parse_spec(text):
+    """[(interface, [(method, return, parameters)])] in first-appearance order.
+
+    One row per method, slot order within an interface; `void` parameters are
+    an empty list. Release is never a row: every interface gets it last.
+    """
+    order, methods = [], {}
+    rows = [l for l in text.splitlines() if l.strip() and not l.lstrip().startswith('#')]
+    if not rows or rows[0].split('\t') != ['interface', 'method', 'return', 'parameters']:
+        raise SystemExit('tools/managed-areas: %s does not start with its header row' % SPEC)
+    for n, line in enumerate(rows[1:], 2):
+        cells = line.split('\t')
+        if len(cells) != 4 or not all(c.strip() for c in cells):
+            raise SystemExit('tools/managed-areas: %s row %d is not four cells: %r' % (SPEC, n, line))
+        iface, method, ret, params = (c.strip() for c in cells)
+        if method == 'Release':
+            raise SystemExit('tools/managed-areas: %s declares Release on %s; it is added, never listed'
+                             % (SPEC, iface))
+        if iface not in methods:
+            order.append(iface)
+            methods[iface] = []
+        if any(m == method for m, _r, _p in methods[iface]):
+            raise SystemExit('tools/managed-areas: %s declares %s::%s twice' % (SPEC, iface, method))
+        methods[iface].append((method, ret, '' if params == 'void' else params))
+    return [(i, methods[i]) for i in order]
+
+
+def spec():
+    return parse_spec(read(SPEC))
+
+
+def short(iface):
+    return iface[len('IManaged'):]
+
+
+def model():
+    """[(interface, [(method, return, parameters)])] for the server's managed-built AREAS."""
+    return [a for a in spec() if a[0] not in CORE and not is_client(a[0])]
+
+
+def client_model():
+    """plan_client_vtables CD: the client's managed-built areas."""
+    return [a for a in spec() if a[0] not in CORE and is_client(a[0])]
+
+
+def core():
+    """The root and the runtime, from the same spec. Both must be declared."""
+    found = [a for a in spec() if a[0] in CORE]
+    missing = sorted(set(CORE) - set(i for i, _m in found))
+    if missing:
+        raise SystemExit('tools/managed-areas: %s declares no %s' % (SPEC, ', '.join(missing)))
+    return found
+
+
+def method_lines(ss):
+    """`virtual void *Acquire(...)`: a pointer return binds to the name, as written by hand."""
+    def head(ret, s):
+        return '%s%s%s' % (ret, '' if ret.endswith('*') else ' ', s)
+    return ['\tvirtual %s( %s ) = 0;' % (head(ret, s), params) if params
+            else '\tvirtual %s() = 0;' % head(ret, s) for s, ret, params in ss]
+
+
+def layout_fields(layouts_text, struct):
+    """[(slot, [C# parameter types after self], C# return)] of a generated layout, or None."""
+    m = re.search(r' unsafe struct %s\n\{(.*?)\n\}' % re.escape(struct), layouts_text, re.S)
+    if not m:
+        return None
+    out = []
+    for f in re.finditer(r'public delegate\* unmanaged(?:\[\w+\])?<([^;]*)>\s+(\w+);', m.group(1)):
+        types = [t.strip() for t in split_top(f.group(1))]
+        out.append((f.group(2), types[1:-1], types[-1]))
+    return out
+
+
+VALIDATE = 'int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )'
+
+
+def object_lines():
+    """IManagedObject: the two slots every managed-built interface starts with
+    (L1). Each interface derives from it (L1b), and single inheritance keeps
+    them at slots 0 and 1 of the one vtable, so native can hold, accept and
+    release any area through the base."""
+    return ['// plan_managed_vtable_reload.md L1b: the base of every managed-built interface.',
+            '// Single inheritance puts Release at slot 0 and Validate at slot 1 of the',
+            '// derived interface\'s one vtable; there is no second vtable pointer.',
+            'abstract_class IManagedObject', '{', 'public:',
+            '\tvirtual void Release() = 0;', '\tvirtual %s = 0;' % VALIDATE, '};', '']
+
+
+def interface_open(iface):
+    return ['abstract_class %s : public IManagedObject' % iface, '{', 'public:']
+
+
+def slot_hashes(layouts_text, struct):
+    """Each slot's hash, in slot order, as tools/vtable-layout wrote it on the
+    field ([SlotHash(0x...)]) -- the one place it is computed. None while there
+    is no layout."""
+    m = re.search(r' unsafe struct %s\n\{(.*?)\n\}' % re.escape(struct), layouts_text, re.S)
+    if not m:
+        return None
+    return [int(h, 16) for h in re.findall(r'\[SlotHash\(0x([0-9a-f]{8})\)\]', m.group(1))] or None
+
+
+def hash_lines(iface, hashes):
+    """k<I>SlotHashes and k<I>SlotCount, or a note until the layout exists."""
+    if hashes is None:
+        return ['// k%sSlotHashes: no layout yet -- run tools/vtable-layout --write, then this again.' % iface, '']
+    return ['static const uint32_t k%sSlotHashes[] = {' % iface] + \
+           ['\t' + ' '.join('0x%08x,' % h for h in hashes[i:i + 8])
+            for i in range(0, len(hashes), 8)] + \
+           ['};', 'static const int32_t k%sSlotCount = %d;' % (iface, len(hashes)), '']
+
+
+def split_top(s):
+    out, depth, cur = [], 0, ''
+    for ch in s:
+        if ch == '<':
+            depth += 1
+        elif ch == '>':
+            depth -= 1
+        if ch == ',' and depth == 0:
+            out.append(cur)
+            cur = ''
+        else:
+            cur += ch
+    if cur.strip():
+        out.append(cur)
+    return out
+
+
+def factory_lines(areas):
+    """plan_client_vtables SI: the generated Create methods are internal to the
+    interop assembly; this is the public door the game assembly builds each
+    area's block through. Stateless."""
+    m = ['/// <summary>Builds each managed-built area\'s block in a side\'s registry.</summary>',
+         'public static class ManagedAreaFactory', '{']
+    for i, _ss in areas:
+        m.append('    public static ManagedVtable Create(ManagedVtables vtables, %s target)' % i)
+        m.append('        => %s__ManagedVtable.Create(vtables, target);' % i)
+    return m + ['}', '']
+
+
+def generate():
+    areas = model()
+    valve = read(VALVE).rstrip('\n')
+
+    # ---- the root and the runtime ---------------------------------------------
+    def core_header(guard, purpose, includes, iface, ss, server_only):
+        out = [valve, '', GENERATED, '//'] + ['// ' + l if l else '//' for l in purpose] + \
+              ['', '#ifndef %s' % guard, '#define %s' % guard, '#pragma once', ''] + \
+              ['#include %s' % inc for inc in includes] + ['']
+        if server_only:
+            out += ['#ifndef CLIENT_DLL', '']
+        if not server_only:
+            out += object_lines()
+        out += interface_open(iface) + method_lines(ss) + \
+               ['};', ''] + hash_lines(iface, slot_hashes(read(LAYOUTS), 'Managed%sVtbl' % short(iface)))
+        if server_only:
+            out += ['#endif // !CLIENT_DLL', '']
+        return out + ['#endif // %s' % guard, '']
+
+    cores = dict(core())
+    k = core_header('IMANAGED_CORE_H',
+                    ['plan_managed_vtable_reload.md L0b: IManagedObject, the base every',
+                     'managed-built interface derives from, and IManagedRoot, the one object',
+                     'LoadSideV2 hands native (both sides). IMPLEMENTED BY MANAGED, so no virtual',
+                     'destructor: Release is at slot 0 and Validate at slot 1.'],
+                    ['<stdint.h>', '"tier0/platform.h"'], 'IManagedRoot', cores['IManagedRoot'], False)
+    r = core_header('IMANAGED_RUNTIME_H',
+                    ['plan_managed_vtable_reload.md L0b: IManagedRuntimeServer, the shell game DLL\'s',
+                     'calls into the mod (the server). IMPLEMENTED BY MANAGED, so no virtual',
+                     'destructor: Release is at slot 0 and Validate at 1; the map loads take the ABI\'s flat',
+                     'SourceSharpMapLoad by pointer, and the stop is not a slot (DLLShutdown',
+                     'unloads the managed side itself).'],
+                    ['<stdint.h>', '"tier0/platform.h"', '"sourcesharp.h"', '"imanaged_core.h"'],
+                    'IManagedRuntimeServer', cores['IManagedRuntimeServer'], True)
+
+    # ---- the interfaces ------------------------------------------------------
+    h = [valve, '', GENERATED, '//',
+         '// plan_engineapi_vtables.md Phase E: the server\'s managed-built areas',
+         '// (docs/managed-interfaces.tsv). IMPLEMENTED BY MANAGED --',
+         '// ManagedVtableGenerator writes each table from SourceSharp.Server -- so no',
+         '// virtual destructor; Release is slot 0 and Validate slot 1, and native takes',
+         '// an area only when Validate matches its k<I>SlotHashes (managed_accept.h).',
+         '// Each is acquired again on every load and released before every unload,',
+         '// so native keeps no pointer and calls through the accessor.',
+         '', '#ifndef IMANAGED_AREAS_H', '#define IMANAGED_AREAS_H', '#pragma once', '',
+         '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
+         '#include "imanaged_core.h"', '', '#ifndef CLIENT_DLL', '']
+    layouts = read(LAYOUTS)
+    for i, ss in areas:
+        h += interface_open(i) + method_lines(ss) + ['};', '']
+        h += hash_lines(i, slot_hashes(layouts, 'Managed%sVtbl' % short(i)))
+    for i, _ss in areas:
+        h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
+    h += ['', '#endif // !CLIENT_DLL', '', '#endif // IMANAGED_AREAS_H', '']
+
+    # ---- the holder ----------------------------------------------------------
+    c = [valve, '', GENERATED, '//',
+         '// Everything native holds from managed: the root, the runtime and the areas.',
+         '// plan_managed_vtable_reload.md L2: the game DLL object owns them',
+         '// (CShellGameDll::m_Managed, shell_gamedll.cpp); there is no static of their own.',
+         '// Plain pointers, no initialisers.', '',
+         '#pragma once', '', '#include <stddef.h>', '#include "imanaged_areas.h"',
+         '#include "imanaged_runtime.h"', '#include "imanaged_root.h"', '', '#ifndef CLIENT_DLL', '',
+         'struct CManagedAreas', '{']
+    c += ['\t%s *m_p%s;' % (i, short(i)) for i, _ss in areas] or ['\tint m_nUnused;   // no area is managed-built yet']
+    c += ['};', '',
+          'struct CManagedHolders', '{',
+          '\tIManagedRoot *m_pRoot;',
+          '\tIManagedRuntimeServer *m_pRuntimeServer;',
+          '\tCManagedAreas m_Areas;', '};', '',
+          '// The game DLL object\'s holders (shell_gamedll.cpp).',
+          'CManagedHolders &ShellGameDll_Managed();', '',
+          '// True when the root, the runtime and every area have been released.',
+          'inline bool ManagedHolders_Empty( const CManagedHolders &holders )', '{']
+    held = ['holders.m_pRoot', 'holders.m_pRuntimeServer'] + \
+           ['holders.m_Areas.m_p%s' % short(i) for i, _ss in areas]
+    c += ['\treturn !' + held[0]] + ['\t\t&& !%s' % x for x in held[1:-1]] + \
+         ['\t\t&& !%s;' % held[-1], '}', '']
+    c += [
+          '// Every area from the root, each accepted through its Validate; false with the',
+          '// reason on the first refusal.',
+          'bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy );',
+          '', '// After a reload (plan_managed_vtable_reload.md L4): every held area answers its',
+          '// Validate through the patched block; false with the reason on the first that does not.',
+          'bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy );',
+          '', '// Each area nulled, then released.',
+          'void ManagedAreas_Release( CManagedAreas &areas );', '', '#endif // !CLIENT_DLL', '']
+
+    # ---- the bodies ----------------------------------------------------------
+    im = [valve, '', GENERATED, '//',
+          '// Included at the end of shell_internalfactory.cpp. The areas live on the game DLL',
+          '// object (ShellGameDll_Managed(), plan_managed_vtable_reload.md L2).', '',
+          '#ifndef CLIENT_DLL', '',
+          'bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy )',
+          '{']
+    if areas:
+        im += ['\tvoid *pObject = NULL;', '']
+    else:
+        im += ['\t(void)areas;', '\t(void)pRoot;', '\t(void)pWhy;', '\t(void)nWhy;']
+    for i, _ss in areas:
+        im += ['\tpObject = pRoot->Acquire( "%s" );' % i,
+               '\tareas.m_p%s = ManagedAccept< %s >( pObject, k%sSlotHashes, k%sSlotCount, pWhy, nWhy );'
+               % (short(i), i, i, i),
+               '\tif ( !areas.m_p%s )' % short(i),
+               '\t\treturn false;', '']
+    im += ['\treturn true;', '}', '',
+           'bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy )', '{']
+    if not areas:
+        im += ['\t(void)areas;', '\t(void)pWhy;', '\t(void)nWhy;']
+    for i, _ss in areas:
+        im += ['\tif ( !ManagedAcceptObject( areas.m_p%s, k%sSlotHashes, k%sSlotCount, pWhy, nWhy ) )'
+               % (short(i), i, i),
+               '\t\treturn false;']
+    im += ['\treturn true;', '}', '',
+           'void ManagedAreas_Release( CManagedAreas &areas )', '{']
+    if not areas:
+        im.append('\t(void)areas;')
+    for i, _ss in areas:
+        im.append('\tManagedRelease( areas.m_p%s );' % short(i))
+    im += ['}', '']
+    for i, _ss in areas:
+        im += ['%s *Managed%s()' % (i, short(i)), '{',
+               '\treturn ShellGameDll_Managed().m_Areas.m_p%s;' % short(i), '}', '']
+    im += ['#endif // !CLIENT_DLL', '']
+
+    # ---- the length tests ----------------------------------------------------
+    # Both sides' areas (plan_client_vtables CE2): the client's declarations are
+    # unguarded so this test sees them, and every generated layout needs a test.
+    tested = areas + client_model()
+    t = [GENERATED, '//',
+         '// Included by vtable_index_agreement_test.cpp: the compiler\'s count for each',
+         '// managed-built area, held to its generated layout.', '']
+    for i, ss in tested:
+        n = len(ss) + 2   # Release (slot 0) and Validate (slot 1) first
+        t += ['TEST( VtableLayoutLength, Managed%sIs%dSlots )' % (short(i), n), '{',
+              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, ss[-1][0]),
+              '\tEXPECT_EQ( %d, compiler );' % n,
+              '\tEXPECT_EQ( 0, VTableHook::MemberOf( &%s::Release ).slot );' % i,
+              '\tEXPECT_EQ( 1, VTableHook::MemberOf( &%s::Validate ).slot );' % i,
+              '\tEXPECT_EQ( compiler, k%sSlotCount );' % i,
+              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Managed%sVtbl" ) );' % short(i), '}', '']
+    t += ['const char *kManagedAreasCovered[] = {']
+    t += ['\t"Managed%sVtbl",' % short(i) for i, _ss in tested] or ['\t"ManagedRootVtbl",   // none generated yet; the root stands in']
+    t += ['};', '', 'const int kManagedAreasGenerated = %d;' % len(tested), '']
+
+    # ---- the managed contracts -----------------------------------------------
+    layouts = read(LAYOUTS)
+    m = [GENERATED, '//',
+         '// The contracts ManagedVtableGenerator builds each managed-built area from,',
+         '// typed from its generated layout so a contract speaks its slots\' exact types.',
+         '// A binding implements one and is registered with ManagedBindings by name.',
+         '', 'using SourceSharp.Abi;', '', 'namespace SourceSharp.Server.Interop;', '']
+    for i, ss in areas:
+        fields = layout_fields(layouts, 'Managed%sVtbl' % short(i))
+        if fields is None:
+            m += ['// %s: no layout yet -- run tools/vtable-layout --write, then this again.' % i, '']
+            continue
+        m += ['[ManagedVtable(typeof(Managed%sVtbl))]' % short(i),
+              'public unsafe interface %s' % i, '{']
+        for name, ptypes, ret in fields:
+            if name in ('Release', 'Validate'):
+                continue
+            m.append('    %s %s(%s);' % (ret, name, ', '.join('%s a%d' % (ty, k) for k, ty in enumerate(ptypes))))
+        m += ['}', '']
+    m += factory_lines(areas)
+
+    out = {OUT_CORE: '\n'.join(k), OUT_RUNTIME: '\n'.join(r), OUT_IFACE: '\n'.join(h), OUT_HOLDER: '\n'.join(c), OUT_IMPL: '\n'.join(im),
+           OUT_TEST: '\n'.join(t), OUT_MANAGED: '\n'.join(m)}
+    out.update(client_outputs(valve, cores, layouts))
+    return out
+
+
+def client_outputs(valve, cores, layouts):
+    """plan_client_vtables CD: the client's runtime, areas, holder, bodies and
+    contracts, in files of their own (the server's are unchanged)."""
+    areas = client_model()
+
+    # ---- the runtime: declared unguarded, like the root ------------------------
+    rc = [valve, '', GENERATED, '//',
+          '// plan_client_vtables CD: IManagedRuntimeClient, the shell client DLL\'s calls into',
+          '// the mod. IMPLEMENTED BY MANAGED, so no virtual destructor: Release is at slot 0',
+          '// and Validate at 1 (IManagedObject). Declared on both sides so native tests see it;',
+          '// only the client holds one (shell_managed_areas_client.h).', '',
+          '#ifndef IMANAGED_RUNTIME_CLIENT_H', '#define IMANAGED_RUNTIME_CLIENT_H', '#pragma once', '',
+          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "imanaged_core.h"', '']
+    rc += interface_open('IManagedRuntimeClient') + method_lines(cores['IManagedRuntimeClient']) + ['};', '']
+    rc += hash_lines('IManagedRuntimeClient', slot_hashes(layouts, 'ManagedRuntimeClientVtbl'))
+    rc += ['#endif // IMANAGED_RUNTIME_CLIENT_H', '']
+
+    # ---- the areas -------------------------------------------------------------
+    h = [valve, '', GENERATED, '//',
+         '// plan_client_vtables CE: the client\'s managed-built areas (docs/managed-interfaces.tsv,',
+         '// the interfaces named *Client). IMPLEMENTED BY MANAGED, as imanaged_areas.h. The',
+         '// declarations are unguarded so native tests compile them; the accessors are the',
+         '// client\'s.', '',
+         '#ifndef IMANAGED_AREAS_CLIENT_H', '#define IMANAGED_AREAS_CLIENT_H', '#pragma once', '',
+         '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
+         '#include "imanaged_core.h"', '']
+    for i, ss in areas:
+        h += interface_open(i) + method_lines(ss) + ['};', '']
+        h += hash_lines(i, slot_hashes(layouts, 'Managed%sVtbl' % short(i)))
+    h += ['#ifdef CLIENT_DLL', '']
+    for i, _ss in areas:
+        h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
+    h += ['', '#endif // CLIENT_DLL', '', '#endif // IMANAGED_AREAS_CLIENT_H', '']
+
+    # ---- the holder ------------------------------------------------------------
+    c = [valve, '', GENERATED, '//',
+         '// Everything the client holds from managed: the root, its runtime and its areas,',
+         '// owned by the client DLL object (CShellClientDLL::m_Managed, shell_clientdll.cpp),',
+         '// as the server\'s are by CShellGameDll (plan_managed_vtable_reload.md L2).',
+         '// Plain pointers, no initialisers.', '',
+         '#pragma once', '', '#include <stddef.h>', '#include "imanaged_areas_client.h"',
+         '#include "imanaged_runtime_client.h"', '#include "imanaged_root.h"', '', '#ifdef CLIENT_DLL', '',
+         'struct CManagedAreasClient', '{']
+    c += ['\t%s *m_p%s;' % (i, short(i)) for i, _ss in areas] or ['\tint m_nUnused;   // no client area is managed-built yet']
+    c += ['};', '',
+          'struct CManagedHoldersClient', '{',
+          '\tIManagedRoot *m_pRoot;',
+          '\tIManagedRuntimeClient *m_pRuntimeClient;',
+          '\tCManagedAreasClient m_Areas;', '};', '',
+          '// The client DLL object\'s holders (shell_clientdll.cpp).',
+          'CManagedHoldersClient &ShellClientDll_Managed();', '',
+          '// This load\'s runtime, or NULL outside a load (shell_internalfactory.cpp).',
+          'IManagedRuntimeClient *ManagedRuntimeClient();', '',
+          '// True when the root, the runtime and every area have been released.',
+          'inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )', '{']
+    held = ['holders.m_pRoot', 'holders.m_pRuntimeClient'] + ['holders.m_Areas.m_p%s' % short(i) for i, _ss in areas]
+    c += ['\treturn !' + held[0]] + ['\t\t&& !%s' % x for x in held[1:-1]] + ['\t\t&& !%s;' % held[-1], '}', '']
+    c += ['bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy );',
+          'bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, size_t nWhy );',
+          'void ManagedAreasClient_Release( CManagedAreasClient &areas );', '', '#endif // CLIENT_DLL', '']
+
+    # ---- the bodies --------------------------------------------------------------
+    im = [valve, '', GENERATED, '//',
+          '// plan_client_vtables CD: the client\'s areas, acquired, validated and released.',
+          '// Included at the end of shell_internalfactory.cpp, client only.', '',
+          'bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy )',
+          '{']
+    im += ['\tvoid *pObject = NULL;', ''] if areas else ['\t(void)areas;', '\t(void)pRoot;', '\t(void)pWhy;', '\t(void)nWhy;']
+    for i, _ss in areas:
+        im += ['\tpObject = pRoot->Acquire( "%s" );' % i,
+               '\tareas.m_p%s = ManagedAccept< %s >( pObject, k%sSlotHashes, k%sSlotCount, pWhy, nWhy );' % (short(i), i, i, i),
+               '\tif ( !areas.m_p%s )' % short(i), '\t\treturn false;', '']
+    im += ['\treturn true;', '}', '',
+           'bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, size_t nWhy )', '{']
+    if not areas:
+        im += ['\t(void)areas;', '\t(void)pWhy;', '\t(void)nWhy;']
+    for i, _ss in areas:
+        im += ['\tif ( !ManagedAcceptObject( areas.m_p%s, k%sSlotHashes, k%sSlotCount, pWhy, nWhy ) )' % (short(i), i, i),
+               '\t\treturn false;']
+    im += ['\treturn true;', '}', '', 'void ManagedAreasClient_Release( CManagedAreasClient &areas )', '{']
+    if not areas:
+        im.append('\t(void)areas;')
+    for i, _ss in areas:
+        im.append('\tManagedRelease( areas.m_p%s );' % short(i))
+    im += ['}', '']
+    for i, _ss in areas:
+        im += ['%s *Managed%s()' % (i, short(i)), '{', '\treturn ShellClientDll_Managed().m_Areas.m_p%s;' % short(i), '}', '']
+
+    # ---- the managed contracts ----------------------------------------------------
+    m = [GENERATED, '//',
+         '// The contracts ManagedVtableGenerator builds each of the client\'s managed-built',
+         '// areas from (plan_client_vtables CE), typed from its generated layout.',
+         '', 'using SourceSharp.Abi;', '', 'namespace SourceSharp.Client.Interop;', '']
+    for i, ss in areas:
+        fields = layout_fields(layouts, 'Managed%sVtbl' % short(i))
+        if fields is None:
+            m += ['// %s: no layout yet -- run tools/vtable-layout --write, then this again.' % i, '']
+            continue
+        m += ['[ManagedVtable(typeof(Managed%sVtbl))]' % short(i), 'public unsafe interface %s' % i, '{']
+        for name, ptypes, ret in fields:
+            if name in ('Release', 'Validate'):
+                continue
+            m.append('    %s %s(%s);' % (ret, name, ', '.join('%s a%d' % (ty, k) for k, ty in enumerate(ptypes))))
+        m += ['}', '']
+
+    m += factory_lines(areas)
+
+    return {OUT_RUNTIME_CLIENT: '\n'.join(rc), OUT_IFACE_CLIENT: '\n'.join(h), OUT_HOLDER_CLIENT: '\n'.join(c),
+            OUT_IMPL_CLIENT: '\n'.join(im), OUT_MANAGED_CLIENT: '\n'.join(m)}
+
+
+def self_test():
+    arms = []
+
+    def expect(name, cond):
+        arms.append(bool(cond))
+        print('  %-4s %s' % ('ok' if cond else 'FAIL', name))
+
+    def refuses(text):
+        try:
+            parse_spec(text)
+            return False
+        except SystemExit:
+            return True
+
+    head = 'interface\tmethod\treturn\tparameters\n'
+    parsed = parse_spec('# a comment\n' + head + 'IA\tA\tvoid\tconst char *p\nIA\tB\tint32_t\tvoid\n'
+                        'IB\tC\tvoid\tvoid\n')
+    expect('rows group by interface in first-appearance order, methods in slot order',
+           parsed == [('IA', [('A', 'void', 'const char *p'), ('B', 'int32_t', '')]),
+                      ('IB', [('C', 'void', '')])])
+    expect('a spec without its header row is refused', refuses('IA\tA\tvoid\tvoid\n'))
+    expect('a row that is not four cells is refused', refuses(head + 'IA\tA\tvoid\n'))
+    expect('Release is never a row: it is added last', refuses(head + 'IA\tRelease\tvoid\tvoid\n'))
+    expect('a method declared twice is refused', refuses(head + 'IA\tA\tvoid\tvoid\nIA\tA\tvoid\tvoid\n'))
+
+    fields = layout_fields('public unsafe struct ManagedXVtbl\n{\n'
+                           '    public delegate* unmanaged<void*, byte*, int> A; // 0\n'
+                           '    public delegate* unmanaged<void*, void> Release; // 1\n}',
+                           'ManagedXVtbl')
+    expect('a layout field keeps its types after self', fields == [('A', ['byte*'], 'int'), ('Release', [], 'void')])
+
+    real = globals()['spec']
+    try:
+        globals()['spec'] = lambda: [i for i in real() if i[0] == 'IManagedSoundEnt' or i[0] in CORE]
+        out = generate()
+    finally:
+        globals()['spec'] = real
+    sound_ent = out[OUT_IFACE][out[OUT_IFACE].index('abstract_class IManagedSoundEnt'):]
+    sound_ent = sound_ent[:sound_ent.index('};')]
+    expect('an interface derives from IManagedObject, which holds Release (slot 0) and Validate (slot 1)',
+           sound_ent.startswith('abstract_class IManagedSoundEnt : public IManagedObject\n{\npublic:\n'))
+    expect('an interface does not redeclare the base\'s two slots',
+           'Release' not in sound_ent and 'Validate' not in sound_ent)
+    expect('the areas header sees the base it derives from',
+           '#include "imanaged_core.h"' in out[OUT_IFACE])
+    expect('its compiled slot hashes and count are emitted, one per slot',
+           'static const uint32_t kIManagedSoundEntSlotHashes[]' in out[OUT_IFACE]
+           and 'static const int32_t kIManagedSoundEntSlotCount = 6;' in out[OUT_IFACE])
+    expect('no virtual destructor is emitted', '~' not in out[OUT_IFACE])
+    expect('it is accepted through Validate, against its compiled hashes',
+           'ManagedAccept< IManagedSoundEnt >( pObject, kIManagedSoundEntSlotHashes, '
+           'kIManagedSoundEntSlotCount, pWhy, nWhy )' in out[OUT_IMPL])
+    expect('it is released through the base, which nulls the holder first (managed_accept.h)',
+           '\tManagedRelease( areas.m_pSoundEnt );' in out[OUT_IMPL])
+    # plan_managed_vtable_reload.md L2: the game DLL object owns the holders.
+    expect('the holders are one struct: the root, the runtime and the areas',
+           'struct CManagedHolders\n{\n\tIManagedRoot *m_pRoot;\n\tIManagedRuntimeServer *m_pRuntimeServer;\n'
+           '\tCManagedAreas m_Areas;\n};' in out[OUT_HOLDER])
+    expect('an area\'s accessor reads the game DLL object\'s holders, not a static',
+           'IManagedSoundEnt *ManagedSoundEnt()\n{\n\treturn ShellGameDll_Managed().m_Areas.m_pSoundEnt;\n}'
+           in out[OUT_IMPL] and 'g_ShimRoot' not in out[OUT_IMPL])
+    expect('the emptiness check names the area too',
+           '\t\t&& !holders.m_Areas.m_pSoundEnt' in out[OUT_HOLDER])
+
+    # A row edited by hand reaches the output: the check this tool runs in the
+    # runner leg must see it, or the spec is not what the headers say.
+    def edited():
+        areas = real()
+        k = next(n for n, (i, _ms) in enumerate(areas) if i not in CORE)
+        i, ms = areas[k]
+        name, ret, params = ms[0]
+        changed = (i, [(name, ret, (params + ', int32_t nExtra') if params else 'int32_t nExtra')] + ms[1:])
+        return areas[:k] + [changed] + areas[k + 1:]
+    expect('a spec row changed by hand changes the generated header', edited_differs(edited, real))
+
+    out = generate()
+    expect('the root and the runtime are declared in their own headers, not as areas',
+           'abstract_class IManagedRoot' in out[OUT_CORE]
+           and 'abstract_class IManagedRuntimeServer' in out[OUT_RUNTIME]
+           and 'IManagedRuntimeServer' not in out[OUT_IFACE]
+           and 'IManagedRoot\n' not in out[OUT_IFACE])
+    expect('the runtime is the server\'s only and takes the ABI header; the root is neither',
+           out[OUT_RUNTIME].index('#ifndef CLIENT_DLL') < out[OUT_RUNTIME].index('abstract_class IManagedRuntimeServer')
+           and '"sourcesharp.h"' in out[OUT_RUNTIME]
+           and 'CLIENT_DLL' not in out[OUT_CORE] and 'sourcesharp.h' not in out[OUT_CORE])
+    try:
+        globals()['spec'] = lambda: [a for a in real() if a[0] != 'IManagedRoot']
+        core()
+        refused = False
+    except SystemExit:
+        refused = True
+    finally:
+        globals()['spec'] = real
+    expect('a spec without the root is refused, not generated without it', refused)
+    # plan_client_vtables CD: the client's side, in files of its own.
+    expect('the client runtime is declared unguarded beside its hashes',
+           'abstract_class IManagedRuntimeClient : public IManagedObject' in out[OUT_RUNTIME_CLIENT]
+           and 'kIManagedRuntimeClientSlotCount' in out[OUT_RUNTIME_CLIENT]
+           and 'CLIENT_DLL' not in out[OUT_RUNTIME_CLIENT])
+    expect('the client holder is the client DLL object\'s, client-only',
+           'CManagedHoldersClient &ShellClientDll_Managed();' in out[OUT_HOLDER_CLIENT]
+           and out[OUT_HOLDER_CLIENT].index('#ifdef CLIENT_DLL') < out[OUT_HOLDER_CLIENT].index('struct CManagedHoldersClient'))
+    expect('no client interface reaches the server\'s files',
+           not any(is_client(i) for i, _ss in model()) and any(i == 'IManagedClients' for i, _ss in model())
+           and 'IManagedRuntimeClient' not in out[OUT_IFACE] + out[OUT_HOLDER] + out[OUT_IMPL] + out[OUT_MANAGED])
+    print('\n%d arm(s), %d failed.' % (len(arms), arms.count(False)))
+    return 0 if all(arms) else 1
+
+
+def edited_differs(edited, real):
+    """Whether generate() over `edited` writes a different interface header than over `real`."""
+    g = globals()
+    try:
+        g['spec'] = edited
+        a = generate()[OUT_IFACE]
+        g['spec'] = real
+        b = generate()[OUT_IFACE]
+    finally:
+        g['spec'] = real
+    return a != b and 'int32_t nExtra' in a
+
+
+def main(argv):
+    if '--self-test' in argv:
+        return self_test()
+    out = generate()
+    if '--write' in argv:
+        for rel, text in out.items():
+            with open(os.path.join(ROOT, rel), 'w') as f:
+                f.write(text)
+            print('wrote %s' % rel)
+        return 0
+    stale = [rel for rel, text in out.items()
+             if not os.path.exists(os.path.join(ROOT, rel)) or read(rel) != text]
+    if stale:
+        print('tools/managed-areas: stale: %s -- run `tools/managed-areas --write` and read the diff'
+              % ', '.join(stale))
+        return 1
+    print('tools/managed-areas: %d generated file(s) are what the inputs say (%d area(s)).'
+          % (len(out), len(model())))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

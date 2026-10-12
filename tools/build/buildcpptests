@@ -1,0 +1,195 @@
+#!/bin/bash
+#
+# Builds and runs the native tests: the ctest suite that
+# src/test/native/CMakeLists.txt defines (helpers in cmake/SourceSharpTests.cmake).
+#
+#   farm/<config>/src/buildcpptests            all of them (make cpp-test, and
+#                                              make test's native leg)
+#   farm/<config>/src/buildcpptests NAME...    only those
+#   farm/<config>/src/buildcpptests --census   the census tier instead (make
+#                                              test-full's census leg): the
+#                                              ctest label `census`, which the
+#                                              plain run leaves out (2-15 s each)
+#   farm/<config>/src/buildcpptests --oracle   the oracle tests instead (make
+#                                              test's oracle leg): the ctest
+#                                              label `oracle`, which the plain
+#                                              run leaves out; they compile
+#                                              upstream Valve code from the
+#                                              pristine clone (src/test/oracle)
+#
+# The farm places this file at farm/<config>/src/buildcpptests, and the
+# configuration is read off that path; run from anywhere else it is
+# $SOURCESHARP_CONFIG (default debug). On the host, with the CMake preset's
+# compiler (clang 22): the tests are part of the CMake build since Phase 6b, and
+# this is the thin driver that
+#
+#   1. configures the preset            cmake --preset <config>
+#   2. builds the test binaries         cmake --build --preset <config> --target ...
+#   3. runs them through ctest          ctest --preset <config> -V
+#
+# and prints each test's output as one block, headed `==> <name>` (or
+# `==> <name> (must NOT compile)`), in the order the tests finish. That heading
+# and gtest's own `[==========] N tests from M test suites ran.` line are what
+# tools/run-test-legs counts; the roster it checks them against comes from
+# tools/leg-floor, which reads src/test/native/CMakeLists.txt.
+#
+# THE EXIT STATUS IS THE SUITE'S. A build failure stops the run before ctest
+# (never run a stale binary: ninja is what makes the binaries current), and
+# ctest's status is propagated, not a pipe's.
+#
+# ONE TEST BY NAME, which is what every caller believes this does, and AN
+# UNMATCHED NAME IS A REFUSAL, NOT A SKIP: a filter that quietly runs nothing
+# exits 0, and a mutation harness reading that as GREEN would report that every
+# one of its mutations left the suite passing. So a name ctest does not know
+# stops the run.
+#
+set -uo pipefail
+
+# --oracle: the `oracle` label and the ss_oracle_tests target; otherwise
+# everything else (the native leg), so neither leg runs the other's tests.
+suite=native
+if [ "${1:-}" = "--oracle" ]; then
+    suite=oracle
+    shift
+elif [ "${1:-}" = "--census" ]; then
+    suite=census
+    shift
+fi
+
+script=$(readlink -f -- "$0")
+repo=$(cd "$(dirname -- "$script")/../.." && pwd)
+here=$(cd "$(dirname -- "$0")" && pwd)
+
+case "$here" in
+    */farm/debug/src)   config=debug ;;
+    */farm/release/src) config=release ;;
+    *)                  config=${SOURCESHARP_CONFIG:-debug} ;;
+esac
+case "$config" in
+    debug|release) ;;
+    *) echo "!! buildcpptests: no such configuration '$config' (debug or release)"; exit 2 ;;
+esac
+
+cd "$repo" || exit 2
+
+# The oracles build in their own directory (the oracle-<config> preset,
+# farm/<config>/build-oracle), so this and the native leg can run at once.
+preset=$config
+[ "$suite" = oracle ] && preset="oracle-$config"
+
+echo "-- configuring the $preset preset"
+cfglog=$(mktemp)
+trap 'rm -f "$cfglog"' EXIT
+if ! "$repo/tools/build/configure" "$preset" > "$cfglog" 2>&1; then
+    cat "$cfglog"
+    echo "!! cmake --preset $preset failed; nothing was built and nothing was run."
+    exit 1
+fi
+
+# What ctest knows: name and label (gtest or must-not-compile), one per line.
+roster=$(ctest --preset "$preset" --show-only=json-v1 2>/dev/null | python3 -c '
+import json, sys
+for t in json.load(sys.stdin).get("tests", []):
+    labels = []
+    for p in t.get("properties", []):
+        if p.get("name") == "LABELS":
+            labels = p.get("value", [])
+    print(t["name"], ",".join(labels) or "-")
+' | awk -v suite="$suite" '(suite == "oracle") == ($2 == "oracle") && (suite != "census" || $2 ~ /(^|,)census(,|$)/)')
+if [ -z "$roster" ]; then
+    echo "!! ctest --preset $preset lists no $suite tests. Is SS_BUILD_TESTS off?"
+    exit 1
+fi
+
+targets=()
+regex=""
+if [ $# -gt 0 ]; then
+    for n in "$@"; do
+        label=$(printf '%s\n' "$roster" | awk -v n="$n" '$1 == n { print $2 }')
+        if [ -z "$label" ]; then
+            echo "!! no test here is named: $n"
+            echo "!! Nothing was built and nothing was run. That is a refusal rather"
+            echo "!! than an exit 0, because a harness would read the 0 as GREEN."
+            exit 1
+        fi
+        # A label LIST (census,gtest): match an element, never the whole.
+        case ",$label," in *,gtest,*|*,oracle,*) targets+=( "$n" ) ;; esac
+        regex="$regex${regex:+|}$n"
+    done
+    regex="^($regex)\$"
+elif [ "$suite" = oracle ]; then
+    targets=( ss_oracle_tests )
+else
+    targets=( ss_cpptests )
+fi
+
+if [ ${#targets[@]} -gt 0 ]; then
+    echo "-- building ${targets[*]}"
+    if ! cmake --build --preset "$preset" --target "${targets[@]}"; then
+        echo "!! the build failed; nothing was run (the binaries on disk would be stale)."
+        exit 1
+    fi
+fi
+
+args=( --preset "$preset" -V --no-tests=error -j "$(nproc)" )
+[ -n "$regex" ] && args+=( -R "$regex" )
+# By name, a census test runs from either suite; otherwise each suite runs its
+# own label and the native leg leaves the census tier to --census.
+if [ "$suite" = oracle ]; then args+=( -L '^oracle$' )
+elif [ "$suite" = census ]; then args+=( -L '^census$' )
+elif [ -n "$regex" ]; then args+=( -LE '^oracle$' )
+else args+=( -LE '^(oracle|census)$' ); fi
+
+# ctest -V prefixes every line a test prints with `<number>: `, and tests run in
+# parallel interleave. Regroup: hold each test's lines until ctest reports it
+# finished, then print them as one block under its heading.
+ctest "${args[@]}" 2>&1 | ROSTER="$roster" python3 -u -c '
+import os, re, sys
+label = dict(l.split(" ", 1) for l in os.environ["ROSTER"].splitlines())
+names, held = {}, {}
+start = re.compile(r"^\s*Start\s+(\d+): (\S+)$")
+line = re.compile(r"^(\d+): ?(.*)$")
+done = re.compile(r"^\s*\d+/\d+ Test\s+#(\d+): (\S+) ")
+noise = re.compile(r"^(Test command:|Working Directory:|Environment variables:|Test timeout computed to be:| [A-Z_]+=)")
+for raw in sys.stdin:
+    raw = raw.rstrip("\n")
+    m = start.match(raw)
+    if m:
+        names[m.group(1)] = m.group(2)
+        held.setdefault(m.group(1), [])
+        continue
+    m = line.match(raw)
+    if m and m.group(1) in held:
+        if not noise.match(m.group(2)):
+            held[m.group(1)].append(m.group(2))
+        continue
+    m = done.match(raw)
+    if m:
+        n, name = m.group(1), m.group(2)
+        kind = label.get(name, "-")
+        print("==> %s%s" % (name, " (must NOT compile)" if kind == "must-not-compile" else ""))
+        for l in held.pop(n, []):
+            print(l)
+        print(raw.strip())
+        if "Regex=[s_bMathlibInitialized]" in raw:
+            print("!! %s RAN AGAINST AN UNINITIALISED MATHLIB. Its results are" % name)
+            print("!! not evidence: both sides of every comparison came from the")
+            print("!! same uninitialised tables. Include sourcesharp/test/")
+            print("!! mathlib_test_env.h from its source.")
+        print()
+        continue
+    if raw.startswith("test ") or raw.startswith("UpdateCTestConfiguration"):
+        continue
+    print(raw)
+for n, ls in held.items():
+    print("==> %s (never reported finished)" % names.get(n, n))
+    for l in ls:
+        print(l)
+'
+status=( "${PIPESTATUS[@]}" )
+rc=${status[0]}
+if [ "${status[1]}" -ne 0 ]; then
+    echo "!! the output regrouping failed (exit ${status[1]}); ctest exited $rc"
+    [ "$rc" -eq 0 ] && rc=1
+fi
+exit "$rc"

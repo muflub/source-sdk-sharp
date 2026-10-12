@@ -1,0 +1,675 @@
+# ieffects-stock.tsv: stock's client IEffects (EffectsClient.cpp), recorded through its probe copy.
+# See README-ieffects-stock.md. One event per row, in call order: call / suppress / draw / fx / arm.
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	23
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	23	23	23	23	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	23
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	23	23	23	23	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	21
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	21	21	21	21	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	32
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	32	32	32	32	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	34
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	34	34	34	34	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	33
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	33	33	33	33	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	31
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	31	31	31	31	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	31
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	31	31	31	31	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	34
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	34	34	34	34	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	32
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	32	32	32	32	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	28
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	28	28	28	28	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	29
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	29	29	29	29	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	25
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	25	25	25	25	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	27
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	27	27	27	27	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	21
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	21	21	21	21	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	21
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	21	21	21	21	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	20
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	20	20	20	20	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	31
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	31	31	31	31	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	20
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	20	20	20	20	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	20
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	20	20	20	20	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	29
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	29	29	29	29	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	20
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	20	20	20	20	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	23
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	23	23	23	23	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	22
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	22	22	22	22	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	25
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	25	25	25	25	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	23
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	23	23	23	23	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	28
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	28	28	28	28	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	29
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	29	29	29	29	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	30
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	30	30	30	30	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Ricochet	0	40	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	0	40	32	0	0	1
+fx	FX_RicochetSound	0	40	32
+call	EnergySplash	64	40	32	0	0	1	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	64	40	32	0	0	1	1
+call	MetalSparks	-64	-152	32	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-64	-152	32	0	0	1
+call	MuzzleFlash	-64	168	48	-45	90	0	2	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	-64	168	48	-45	90	0	2
+call	Smoke	128	-24	40	259	50	12
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	26
+fx	FX_Smoke	128	-24	40	270	0	0	5	4	26	26	26	26	255
+call	Sparks	-192	232	32	4	2	1	0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-192	232	32	4	2	1	0	0	1
+call	Sparks	-3970.63989	5622	65.5924988	4	4	1	-1	-0	0
+suppress	cp=1	rc=1	sound=0
+fx	FX_ElectricSpark	-3970.63989	5622	65.5924988	4	4	1	-1	-0	0
+call	MetalSparks	-3970.63989	5622	65.5924988	-1	-0	0
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-3970.63989	5622	65.5924988	-1	-0	0
+call	Ricochet	-3970.63989	5622	65.5924988	-1	-0	0
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-3970.63989	5622	65.5924988	-1	-0	0
+fx	FX_RicochetSound	-3970.63989	5622	65.5924988
+call	MuzzleFlash	-3970.63989	5622	65.5924988	0	0	0	1	0
+suppress	cp=1	rc=1	sound=0
+fx	Msg-no-case	0
+call	Smoke	-3970.63989	5622	65.5924988	0	10	4
+suppress	cp=1	rc=1	sound=0
+draw	RandomInt	20	35	27
+fx	FX_Smoke	-3970.63989	5622	65.5924988	270	0	0	1	4	27	27	27	27	255
+call	EnergySplash	-3970.63989	5622	65.5924988	-1	-0	0	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_EnergySplash	-3970.63989	5622	65.5924988	-1	-0	0	1
+call	MuzzleFlash	0	0	64	0	90	0	1.5	0
+suppress	cp=1	rc=1	sound=0
+fx	Msg-no-case	0
+call	MuzzleFlash	0	0	64	0	90	0	1.5	1
+suppress	cp=1	rc=1	sound=0
+fx	FX_MuzzleEffect	0	0	64	0	90	0	1.5
+call	MuzzleFlash	0	0	64	0	90	0	1.5	2
+suppress	cp=1	rc=1	sound=0
+fx	FX_GunshipMuzzleEffect	0	0	64	0	90	0	1.5
+call	MuzzleFlash	0	0	64	0	90	0	1.5	3
+suppress	cp=1	rc=1	sound=0
+fx	Msg-no-case	3
+call	MuzzleFlash	0	0	64	0	90	0	1.5	4
+suppress	cp=1	rc=1	sound=0
+fx	FX_StriderMuzzleEffect	0	0	64	0	90	0	1.5
+call	MuzzleFlash	0	0	64	0	90	0	1.5	7
+suppress	cp=1	rc=1	sound=0
+fx	Msg-no-case	7
+call	MuzzleFlash	0	0	64	0	90	0	1.5	-1
+suppress	cp=1	rc=1	sound=0
+fx	Msg-no-case	-1
+arm	suppress-events	1
+call	Sparks	-3970.63989	5622	65.5924988	4	4	1	-1	-0	0
+suppress	cp=0	rc=1	sound=0
+call	MetalSparks	-3970.63989	5622	65.5924988	-1	-0	0
+suppress	cp=0	rc=1	sound=0
+call	Ricochet	-3970.63989	5622	65.5924988	-1	-0	0
+suppress	cp=0	rc=1	sound=0
+call	MuzzleFlash	-3970.63989	5622	65.5924988	0	0	0	1	0
+suppress	cp=0	rc=1	sound=0
+call	Smoke	-3970.63989	5622	65.5924988	0	10	4
+suppress	cp=0	rc=1	sound=0
+call	EnergySplash	-3970.63989	5622	65.5924988	-1	-0	0	1
+suppress	cp=0	rc=1	sound=0
+call	MuzzleFlash	0	0	64	0	90	0	1.5	4
+suppress	cp=0	rc=1	sound=0
+call	MuzzleFlash	0	0	64	0	90	0	1.5	1
+suppress	cp=0	rc=1	sound=0
+call	MuzzleFlash	0	0	64	0	90	0	1.5	2
+suppress	cp=0	rc=1	sound=0
+arm	suppress-events	0
+call	SuppressEffectsSounds	1
+call	Ricochet	-3970.63989	5622	65.5924988	-1	-0	0
+suppress	cp=1	rc=1	sound=1
+fx	FX_MetalSpark	-3970.63989	5622	65.5924988	-1	-0	0
+call	Ricochet	-3970.63989	5622	65.5924988	-1	-0	0
+suppress	cp=1	rc=1	sound=1
+fx	FX_MetalSpark	-3970.63989	5622	65.5924988	-1	-0	0
+call	SuppressEffectsSounds	0
+call	Ricochet	-3970.63989	5622	65.5924988	-1	-0	0
+suppress	cp=1	rc=1	sound=0
+fx	FX_MetalSpark	-3970.63989	5622	65.5924988	-1	-0	0
+fx	FX_RicochetSound	-3970.63989	5622	65.5924988

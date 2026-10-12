@@ -1,0 +1,141 @@
+--- a/src/client/native/shell_sprite_render.cpp
++++ b/src/client/native/shell_sprite_render.cpp
+@@ -76,6 +76,7 @@
+ #include "particle_follow_mask.h"
+ 
+ #include "shell_effect_registry.h"
++#include "fx_probe_log.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -284,6 +285,9 @@
+ 	pRenderer->SetGlowProxySize( flGlowProxySize );
+ 
+ 	s_flPendingAspect = SourceSharpSpriteAspect( pModel );
++	FxProbeLog( "spc h=%u ws=%d scale=%.9g wh=%.9g %.9g render=%.9g proxy=%.9g aspect=%.9g off=%.9g %.9g %.9g", hOwner, (int)bWorldSpaceScale, flScale,
++		(float)modelinfo->GetModelSpriteWidth( pModel ), (float)modelinfo->GetModelSpriteHeight( pModel ), flRenderScale, flGlowProxySize, s_flPendingAspect,
++		vecOffset.x, vecOffset.y, vecOffset.z );
+ 
+ 	return pRenderer->DrawSprite( pOwner,
+ 	                              pModel,
+@@ -449,6 +453,8 @@
+ // A managed env_spritetrail's ribbon: the ring, the numbers it draws with, and
+ // nothing else.
+ //-----------------------------------------------------------------------------
++class CSourceSharpSpriteTrail;
++static void FxProbeTrailParams( CSourceSharpSpriteTrail *pTrail );
+ class CSourceSharpSpriteTrail : public CShellRenderable
+ {
+ public:
+@@ -483,8 +489,11 @@
+ 	// What ClientThink was: lay a point down and re-measure the box.
+ 	void Tick()
+ 	{
++		FxProbeTrailParams( this );
++		FxProbeLog( "trl-tick id=%p t=%.9g o=%.9g %.9g %.9g n=%d first=%d next=%.9g", (void *)this, gpGlobals->curtime, GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, m_nStepCount, m_nFirstStep, m_flUpdateTime );
+ 		UpdateTrail();
+ 		UpdateBoundingBox();
++		FxProbeLog( "trl-box id=%p n=%d first=%d next=%.9g mins=%.9g %.9g %.9g maxs=%.9g %.9g %.9g", (void *)this, m_nStepCount, m_nFirstStep, m_flUpdateTime, m_vecRenderMins.x, m_vecRenderMins.y, m_vecRenderMins.z, m_vecRenderMaxs.x, m_vecRenderMaxs.y, m_vecRenderMaxs.z );
+ 	}
+ 
+ 	//-------------------------------------------------------------------------
+@@ -496,6 +505,12 @@
+ 	// every trail this build can make, so the arithmetic is dropped rather than
+ 	// carried as six identities; see the note at the top of this section.
+ 	//-------------------------------------------------------------------------
++	void FxProbeOverride( const float *v )
++	{
++		if ( m_flLifeTime == v[0] && m_flStartWidth == v[1] && m_flEndWidth == v[2] && m_flStartWidthVariance == v[3] && m_flTextureRes == v[4] && m_flMinFadeLength == v[5] )
++			return;
++		SourceSharpUpdate( m_nModelIndex, v[0], v[1], v[2], v[3], v[4], v[5], m_nRenderMode, m_clrRender.r, m_clrRender.g, m_clrRender.b, m_nBrightness, m_bVisible );
++	}
+ 	void SourceSharpUpdate( int nModelIndex,
+ 	                        float flLifeTime, float flStartWidth, float flEndWidth,
+ 	                        float flStartWidthVariance, float flTextureRes,
+@@ -523,6 +538,9 @@
+ 		m_nBrightness = a;
+ 
+ 		m_bVisible = bVisible;
++		FxProbeLog( "trl-upd id=%p model=%d life=%.9g sw=%.9g ew=%.9g var=%.9g tex=%.9g fade=%.9g mode=%d rgba=%d %d %d %d vis=%d",
++			(void *)this, nModelIndex, flLifeTime, flStartWidth, flEndWidth, flStartWidthVariance, flTextureRes, flMinFadeLength,
++			nRenderMode, r, g, b, a, bVisible ? 1 : 0 );
+ 	}
+ 
+ private:
+@@ -562,6 +580,17 @@
+ // Stock CSpriteTrail::UpdateTrail. ComputeScreenPosition folded in, because with
+ // SCREEN_SPACE_TRAILS at 0 its whole body was `*pScreenPos = GetRenderOrigin()`.
+ //-----------------------------------------------------------------------------
++// c2-fx probe (debug): "life startwidth endwidth variance texres fadelength"
++// laid over every trail's own (logged as a trl-upd row when it takes), so the
++// recording reaches the arms the sandbox's ribbon leaves at zero.
++static ConVar cs_cl_probe_trailparams( "cs_cl_probe_trailparams", "", 0, "c2-fx probe (debug): override every managed trail's life/widths/variance/texres/fade" );
++static void FxProbeTrailParams( CSourceSharpSpriteTrail *pTrail )
++{
++	float v[6];
++	if ( sscanf( cs_cl_probe_trailparams.GetString(), "%f %f %f %f %f %f", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5] ) != 6 )
++		return;
++	pTrail->FxProbeOverride( v );
++}
+ void CSourceSharpSpriteTrail::UpdateTrail()
+ {
+ 	// Can't update too quickly
+@@ -590,7 +619,7 @@
+ 		// `long random()` instead -- one of this file's includes brings it in
+ 		// where SpriteTrail.cpp's did not. The free function is the same uniform
+ 		// stream through a name that cannot be shadowed.
+-		pNewPoint->m_flWidthVariance = RandomFloat( -m_flStartWidthVariance, m_flStartWidthVariance );
++		pNewPoint->m_flWidthVariance = FxProbeRandomFloat( -m_flStartWidthVariance, m_flStartWidthVariance );
+ 
+ 		if (pLast)
+ 		{
+@@ -657,6 +686,8 @@
+ {
+ 	VPROF_BUDGET( "CSourceSharpSpriteTrail::DrawModel", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 
++	FxProbeLog( "trl-draw id=%p t=%.9g o=%.9g %.9g %.9g n=%d first=%d vis=%d wire=%d", (void *)this, gpGlobals->curtime, GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, m_nStepCount, m_nFirstStep, m_bVisible ? 1 : 0,
++		( ShouldDrawInWireFrameMode() || s_rDrawBeams.GetInt() == 2 ) ? 1 : 0 );
+ 	// Must have at least one point
+ 	if ( m_nStepCount < 1 )
+ 		return 1;
+@@ -772,6 +803,7 @@
+ 
+ 		curSeg.m_flTexCoord = pPoint->m_flTexCoord;
+ 
++		FxProbeLog( "trl-seg pos=%.9g %.9g %.9g col=%.9g %.9g %.9g alpha=%.9g width=%.9g tc=%.9g", curSeg.m_vPos.x, curSeg.m_vPos.y, curSeg.m_vPos.z, curSeg.m_vColor.x, curSeg.m_vColor.y, curSeg.m_vColor.z, curSeg.m_flAlpha, curSeg.m_flWidth, curSeg.m_flTexCoord );
+ 		segDraw.NextSeg( &curSeg );
+ 
+ 		// See if we're done with this bad boy
+@@ -787,6 +819,7 @@
+ 	}
+ 
+ 	segDraw.End();
++	FxProbeLog( "trl-end id=%p n=%d first=%d", (void *)this, m_nStepCount, m_nFirstStep );
+ 
+ 	return 1;
+ }
+@@ -918,6 +951,15 @@
+ // Backwards, so that removing an entry mid-walk cannot make the sweep skip its
+ // neighbour. Release() shortens the list itself, through the gone callback.
+ //-----------------------------------------------------------------------------
++static ConVar cs_cl_probe_trailwiggle( "cs_cl_probe_trailwiggle", "0", 0, "c2-fx probe (debug): radius of a circle laid on every managed trail's followed origin" );
++static Vector FxProbeTrailWiggle()
++{
++	const float r = cs_cl_probe_trailwiggle.GetFloat();
++	if ( r == 0.0f )
++		return vec3_origin;
++	const float t = gpGlobals->curtime * 2.0f;
++	return Vector( r * cosf( t ), r * sinf( t ), 0.25f * r * sinf( 3.0f * t ) );
++}
+ static void ManagedSpriteTrails_Follow()
+ {
+ 	for ( int i = g_ManagedTrails.Count() - 1; i >= 0; i-- )
+@@ -932,7 +974,7 @@
+ 			continue;
+ 		}
+ 
+-		pTrail->SetAbsOrigin( pOwner->GetAbsOrigin() );
++		pTrail->SetAbsOrigin( pOwner->GetAbsOrigin() + FxProbeTrailWiggle() );
+ 		pTrail->SetAbsAngles( pOwner->GetAbsAngles() );
+ 		pTrail->Tick();
+ 	}

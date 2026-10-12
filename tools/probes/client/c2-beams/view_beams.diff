@@ -1,0 +1,399 @@
+--- view_beams.cpp
++++ view_beams.cpp
+@@ -72,4 +72,116 @@
+ #include "tier0/memdbgon.h"
+ 
++//==== C2-BEAMS BEAM PROBE (tools/probes/client/c2-beams/*.diff; debug,
++//==== SS_CLIENT_PROBES only). Tab-separated rows to $SOURCESHARP_PROBE_LOG;
++//==== %.9g round-trips a float.
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <stdlib.h>
++static int C2Fd()
++{
++	static int s_fd = -2;
++	if ( s_fd == -2 )
++	{
++		const char *p = getenv( "SOURCESHARP_PROBE_LOG" );
++		s_fd = p ? open( p, O_WRONLY | O_CREAT | O_APPEND, 0644 ) : -1;
++	}
++	return s_fd;
++}
++static void C2Log( const char *fmt, ... )
++{
++	const int fd = C2Fd();
++	if ( fd < 0 )
++		return;
++	char buf[8192];
++	va_list a;
++	va_start( a, fmt );
++	int n = vsnprintf( buf, sizeof( buf ), fmt, a );
++	va_end( a );
++	if ( n > (int)sizeof( buf ) - 1 )
++		n = (int)sizeof( buf ) - 1;
++	if ( n > 0 && write( fd, buf, n ) < 0 )
++		return;
++}
++#define C2V "\t%.9g\t%.9g\t%.9g"
++#define C2X( v ) (double)(v).x, (double)(v).y, (double)(v).z
++
++#include <unordered_map>
++int g_C2BeamCtx = -1;
++static std::unordered_map< const Beam_t *, int > g_C2BeamIds;
++static int g_C2NextBeam = 0;
++static int C2Id( const Beam_t *p )
++{
++	if ( !p )
++		return -1;
++	std::unordered_map< const Beam_t *, int >::const_iterator it = g_C2BeamIds.find( p );
++	return it == g_C2BeamIds.end() ? -1 : it->second;
++}
++static unsigned int C2NoiseHash( const float *p )
++{
++	unsigned int h = 2166136261u;
++	const unsigned char *b = (const unsigned char *)p;
++	for ( int i = 0; i < (int)( ( NOISE_DIVISIONS + 1 ) * sizeof( float ) ); i++ )
++		h = ( h ^ b[i] ) * 16777619u;
++	return h;
++}
++static int C2Entry( const CBaseHandle &h ) { return h.IsValid() ? h.GetEntryIndex() : -1; }
++static void C2LogBeam( const char *tag, const Beam_t *b )
++{
++	int nTrail = 0;
++	for ( const BeamTrail_t *t = b->trail; t; t = t->next )
++		nTrail++;
++	C2Log( "%s\t%d\t%d\t%d\t%d" C2V C2V C2V C2V "\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%d\t%.9g\t%.9g\t%u\t%d" C2V C2V "\t%d\t%d\t%d\t%.9g\n",
++		tag, C2Id( b ), b->type, b->flags, b->numAttachments,
++		C2X( b->attachment[0] ), C2X( b->attachment[1] ), C2X( b->attachment[2] ), C2X( b->delta ),
++		b->t, b->freq, b->die, b->width, b->endWidth, b->fadeLength, b->amplitude, b->life,
++		b->r, b->g, b->b, b->brightness, b->speed, b->frameRate, b->frame, b->segments,
++		C2Entry( b->entity[0] ), C2Entry( b->entity[1] ), b->attachmentIndex[0], b->attachmentIndex[1],
++		b->modelIndex, b->haloIndex, b->haloScale, b->frameCount, b->start_radius, b->end_radius,
++		C2NoiseHash( b->rgNoise ), (int)b->m_bCalculatedNoise, C2X( b->m_Mins ), C2X( b->m_Maxs ),
++		nTrail, b->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE ? 1 : 0, (int)b->m_bCalculatedNoise,
++		b->m_flHDRColorScale );
++	int i = 0;
++	for ( const BeamTrail_t *t = b->trail; t; t = t->next, i++ )
++		C2Log( "%sT\t%d\t%d\t%.9g" C2V C2V "\n", tag, C2Id( b ), i, t->die, C2X( t->org ), C2X( t->vel ) );
++}
++// The entity pointers are read only for the creations that set them: BeamInfo_t's
++// constructor leaves them uninitialised, and the point/ring-point/circle forms
++// never write them.
++static void C2LogInfo( const char *kind, const BeamInfo_t &bi, int nEnts )
++{
++	const bool bEnts = nEnts != 0;
++	IClientEntity *pStart = ( nEnts & 1 ) ? bi.m_pStartEnt : NULL;
++	IClientEntity *pEnd = ( nEnts & 2 ) ? bi.m_pEndEnt : NULL;
++	C2Log( "BI\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d" C2V C2V "\t%d\t%s\t%d\t%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d" C2V "\t%.9g\t%.9g\t%.9g\t%.9g\n",
++		kind, bi.m_nType,
++		pStart ? C2Entry( pStart->GetRefEHandle() ) : -1, pStart && pStart->GetModel() ? 1 : 0, bEnts ? bi.m_nStartAttachment : 0,
++		pEnd ? C2Entry( pEnd->GetRefEHandle() ) : -1, pEnd && pEnd->GetModel() ? 1 : 0, bEnts ? bi.m_nEndAttachment : 0,
++		C2X( bi.m_vecStart ), C2X( bi.m_vecEnd ),
++		bi.m_nModelIndex, bi.m_pszModelName ? bi.m_pszModelName : "-", bi.m_nHaloIndex, bi.m_pszHaloName ? bi.m_pszHaloName : "-",
++		bi.m_flHaloScale, bi.m_flLife, bi.m_flWidth, bi.m_flEndWidth, bi.m_flFadeLength, bi.m_flAmplitude, bi.m_flBrightness,
++		bi.m_flSpeed, bi.m_nStartFrame, bi.m_flFrameRate, bi.m_flRed, bi.m_flGreen, bi.m_flBlue, (int)bi.m_bRenderable,
++		bi.m_nSegments, bi.m_nFlags, C2X( bi.m_vecCenter ), bi.m_flStartRadius, bi.m_flEndRadius,
++		gpGlobals->curtime, gpGlobals->frametime );
++}
++static void C2LogModel( int nIndex )
++{
++	const model_t *m = modelinfo->GetModel( nIndex );
++	C2Log( "MD\t%d\t%d\t%d\t%s\n", nIndex, m ? 1 : 0, m ? modelinfo->GetModelFrameCount( m ) : 0,
++		m ? modelinfo->GetModelName( m ) : "-" );
++}
++static void C2LogView( const char *tag )
++{
++	const VMatrix &w = engine->WorldToScreenMatrix();
++	C2Log( "%s" C2V C2V C2V C2V C2V C2V C2V "\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\n", tag,
++		C2X( CurrentViewOrigin() ), C2X( CurrentViewForward() ), C2X( CurrentViewRight() ), C2X( CurrentViewUp() ),
++		C2X( CurrentViewAngles() ), C2X( MainViewUp() ), C2X( MainViewRight() ),
++		w[0][0], w[0][1], w[0][2], w[0][3], w[1][0], w[1][1], w[1][2], w[1][3],
++		w[2][0], w[2][1], w[2][2], w[2][3], w[3][0], w[3][1], w[3][2], w[3][3],
++		gpGlobals->curtime, gpGlobals->frametime, r_DrawBeams.GetInt() );
++}
++//==== END PROBE HELPERS
++
+ 
+ //-----------------------------------------------------------------------------
+@@ -323,6 +435,9 @@
+                                     bool bInterpretAttachmentIndexAsHitboxIndex, Vector& pt )
+ {
+-	return SourceSharp_ComputeBeamEntPosition( hEnt, nAttachment,
++	const bool c2Ok = SourceSharp_ComputeBeamEntPosition( hEnt, nAttachment,
+ 	                                           bInterpretAttachmentIndexAsHitboxIndex, pt );
++	C2Log( "EP\t%d\t%d\t%d\t%d" C2V "\n", C2Entry( hEnt ), nAttachment,
++		(int)bInterpretAttachmentIndexAsHitboxIndex, (int)c2Ok, C2X( pt ) );
++	return c2Ok;
+ }
+ 
+@@ -562,4 +677,5 @@
+ void CViewRenderBeams::ClearBeams( void )
+ {
++	C2Log( "CL\n" );
+ 	Beam_t *next = NULL;
+ 	for( ; m_pActiveBeams; m_pActiveBeams = next )
+@@ -632,4 +748,6 @@
+ 	pBeam->next		= m_pActiveBeams;
+ 	m_pActiveBeams	= pBeam;
++	g_C2BeamIds[ pBeam ] = g_C2NextBeam++;
++	C2Log( "BA\t%d\t%d\n", C2Id( pBeam ), (int)bRenderable );
+ 
+ 	if ( bRenderable )
+@@ -651,4 +769,5 @@
+ void CViewRenderBeams::BeamFree( Beam_t* pBeam )
+ {
++	C2Log( "BF\t%d\t%.9g\n", C2Id( pBeam ), gpGlobals->curtime );
+ 	// Free particles that have died off.
+ 	FreeDeadTrails( &pBeam->trail );
+@@ -700,4 +819,5 @@
+ void CViewRenderBeams::KillDeadBeams( const CBaseHandle &hDeadEntity )
+ {
++	C2Log( "KD\t%d\t%.9g\n", C2Entry( hDeadEntity ), gpGlobals->curtime );
+ 	Beam_t *pbeam;
+ 	Beam_t *pnewlist;
+@@ -856,7 +976,10 @@
+ 
+ 	// Check bbox
+-	if ( engine->IsBoxVisible( mins, maxs ) )
++	const int c2Vis = engine->IsBoxVisible( mins, maxs ) ? 1 : 0;
++	const int c2Cull = engine->CullBox( mins, maxs ) ? 1 : 0;
++	C2Log( "CB" C2V C2V "\t%d\t%d\t%d\n", C2X( mins ), C2X( maxs ), pvsOnly, c2Vis, c2Cull );
++	if ( c2Vis )
+ 	{
+-		if ( pvsOnly || !engine->CullBox( mins, maxs ) )
++		if ( pvsOnly || !c2Cull )
+ 		{
+ 			// Beam is visible
+@@ -957,4 +1080,7 @@
+ Beam_t *CViewRenderBeams::CreateBeamEnts( BeamInfo_t &beamInfo )
+ {
++	C2LogInfo( "CreateBeamEnts", beamInfo, 3 );
++	if ( beamInfo.m_nModelIndex >= 0 ) C2LogModel( beamInfo.m_nModelIndex );
++	Beam_t *c2Beam = [&]() -> Beam_t * {
+ 	// Don't start temporary beams out of the PVS
+ 	if ( beamInfo.m_flLife != 0 && 
+@@ -990,4 +1116,8 @@
+ 
+ 	return pBeam;
++	}();
++	C2Log( "BR\tCreateBeamEnts\t%d\n", C2Id( c2Beam ) );
++	if ( c2Beam ) C2LogBeam( "BS", c2Beam );
++	return c2Beam;
+ }
+ 
+@@ -1070,4 +1200,7 @@
+ Beam_t *CViewRenderBeams::CreateBeamEntPoint( BeamInfo_t &beamInfo )
+ {
++	C2LogInfo( "CreateBeamEntPoint", beamInfo, 3 );
++	if ( beamInfo.m_nModelIndex >= 0 ) C2LogModel( beamInfo.m_nModelIndex );
++	Beam_t *c2Beam = [&]() -> Beam_t * {
+ 	if ( beamInfo.m_flLife != 0 )
+ 	{
+@@ -1120,4 +1253,8 @@
+ 	UpdateBeam( pBeam, 0 );
+ 	return pBeam;
++	}();
++	C2Log( "BR\tCreateBeamEntPoint\t%d\n", C2Id( c2Beam ) );
++	if ( c2Beam ) C2LogBeam( "BS", c2Beam );
++	return c2Beam;
+ }
+ 
+@@ -1171,4 +1308,7 @@
+ Beam_t *CViewRenderBeams::CreateBeamPoints( BeamInfo_t &beamInfo )
+ {
++	C2LogInfo( "CreateBeamPoints", beamInfo, 0 );
++	if ( beamInfo.m_nModelIndex >= 0 ) C2LogModel( beamInfo.m_nModelIndex );
++	Beam_t *c2Beam = [&]() -> Beam_t * {
+ 	// Don't start temporary beams out of the PVS
+ 	if ( beamInfo.m_flLife != 0 && !CullBeam( beamInfo.m_vecStart, beamInfo.m_vecEnd, 1 ) )
+@@ -1199,4 +1339,8 @@
+ 
+ 	return pBeam;
++	}();
++	C2Log( "BR\tCreateBeamPoints\t%d\n", C2Id( c2Beam ) );
++	if ( c2Beam ) C2LogBeam( "BS", c2Beam );
++	return c2Beam;
+ }
+ 
+@@ -1252,4 +1396,7 @@
+ Beam_t *CViewRenderBeams::CreateBeamCirclePoints( BeamInfo_t &beamInfo )
+ {
++	C2LogInfo( "CreateBeamCirclePoints", beamInfo, 0 );
++	if ( beamInfo.m_nModelIndex >= 0 ) C2LogModel( beamInfo.m_nModelIndex );
++	Beam_t *c2Beam = [&]() -> Beam_t * {
+ 	Beam_t *pBeam = CreateGenericBeam( beamInfo );
+ 	if ( !pBeam )
+@@ -1265,4 +1412,8 @@
+ 
+ 	return pBeam;
++	}();
++	C2Log( "BR\tCreateBeamCirclePoints\t%d\n", C2Id( c2Beam ) );
++	if ( c2Beam ) C2LogBeam( "BS", c2Beam );
++	return c2Beam;
+ }
+ 
+@@ -1307,4 +1458,7 @@
+ Beam_t *CViewRenderBeams::CreateBeamFollow( BeamInfo_t &beamInfo )
+ {
++	C2LogInfo( "CreateBeamFollow", beamInfo, 1 );
++	if ( beamInfo.m_nModelIndex >= 0 ) C2LogModel( beamInfo.m_nModelIndex );
++	Beam_t *c2Beam = [&]() -> Beam_t * {
+ 	beamInfo.m_vecStart = vec3_origin;
+ 	beamInfo.m_vecEnd = vec3_origin;
+@@ -1327,4 +1481,8 @@
+ 
+ 	return pBeam;
++	}();
++	C2Log( "BR\tCreateBeamFollow\t%d\n", C2Id( c2Beam ) );
++	if ( c2Beam ) C2LogBeam( "BS", c2Beam );
++	return c2Beam;
+ }
+ 
+@@ -1380,4 +1538,7 @@
+ Beam_t *CViewRenderBeams::CreateBeamRingPoint( BeamInfo_t &beamInfo )
+ {
++	C2LogInfo( "CreateBeamRingPoint", beamInfo, 0 );
++	if ( beamInfo.m_nModelIndex >= 0 ) C2LogModel( beamInfo.m_nModelIndex );
++	Beam_t *c2Beam = [&]() -> Beam_t * {
+ 	// ??
+ 	Vector endpos = beamInfo.m_vecCenter;
+@@ -1402,4 +1563,8 @@
+ 
+ 	return pBeam;
++	}();
++	C2Log( "BR\tCreateBeamRingPoint\t%d\n", C2Id( c2Beam ) );
++	if ( c2Beam ) C2LogBeam( "BS", c2Beam );
++	return c2Beam;
+ }
+ 
+@@ -1455,4 +1620,7 @@
+ Beam_t *CViewRenderBeams::CreateBeamRing( BeamInfo_t &beamInfo )
+ {
++	C2LogInfo( "CreateBeamRing", beamInfo, 3 );
++	if ( beamInfo.m_nModelIndex >= 0 ) C2LogModel( beamInfo.m_nModelIndex );
++	Beam_t *c2Beam = [&]() -> Beam_t * {
+ 	// Don't start temporary beams out of the PVS
+ 	if ( beamInfo.m_flLife != 0 && 
+@@ -1485,4 +1653,8 @@
+ 
+ 	return pBeam;
++	}();
++	C2Log( "BR\tCreateBeamRing\t%d\n", C2Id( c2Beam ) );
++	if ( c2Beam ) C2LogBeam( "BS", c2Beam );
++	return c2Beam;
+ }
+ 
+@@ -1689,4 +1861,5 @@
+ 	// Get frame time
+ 	float frametime = gpGlobals->frametime;
++	C2Log( "UF\t%.9g\t%.9g\n", gpGlobals->curtime, frametime );
+ 
+ 	if ( frametime == 0.0f )
+@@ -1727,4 +1900,5 @@
+ 		// Compute bounds for the beam
+ 		pBeam->ComputeBounds();
++		C2LogBeam( "UB", pBeam );
+ 
+ 		// Indicates the beam moved
+@@ -1805,4 +1979,5 @@
+ 			debugoverlay->ScreenPosition( pbeam->attachment[0], screenLast );
+ 			debugoverlay->ScreenPosition( particles->org, screen );
++			C2Log( "SC\t0" C2V C2V C2V C2V "\n", C2X( pbeam->attachment[0] ), C2X( screenLast ), C2X( particles->org ), C2X( screen ) );
+ 		}
+ 	}
+@@ -1814,4 +1989,5 @@
+ 			debugoverlay->ScreenPosition( particles->org, screenLast );
+ 			debugoverlay->ScreenPosition( particles->next->org, screen );
++			C2Log( "SC\t1" C2V C2V C2V C2V "\n", C2X( particles->org ), C2X( screenLast ), C2X( particles->next->org ), C2X( screen ) );
+ 		}
+ 		particles = particles->next;
+@@ -1912,4 +2088,5 @@
+ 
+ 	float haloFractionVisible = PixelVisibility_FractionVisible( params, pbeam->m_queryHandleHalo );
++	C2Log( "PV\t%d\t%.9g\t%.9g\n", C2Id( pbeam ), pbeam->m_haloProxySize, haloFractionVisible );
+ 	if ( fade && haloFractionVisible > 0.0f )
+ 	{
+@@ -2002,4 +2179,10 @@
+ void CViewRenderBeams::DrawBeam( Beam_t *pbeam )
+ {
++	C2LogView( "DV" );
++	C2LogBeam( "DB", pbeam );
++	C2LogModel( pbeam->modelIndex );
++	C2LogModel( pbeam->haloIndex );
++	g_C2BeamCtx = C2Id( pbeam );
++	[&]() {
+ 	Assert( pbeam->delta.IsValid() );
+ 
+@@ -2115,4 +2298,8 @@
+ 		break;
+ 	}
++	}();
++	C2Log( "DE\t%d\n", g_C2BeamCtx );
++	C2LogBeam( "DA", pbeam );
++	g_C2BeamCtx = -1;
+ }
+ 
+@@ -2202,2 +2389,61 @@
+ // siblings, none of which ever makes an entity.
+ //-----------------------------------------------------------------------------
++
++//==== C2-BEAMS PROBE COMMAND: the stock creation paths no temp entity reaches
++//==== in this build (a halo, a disk, a cylinder, sine noise, shading, a fade, a
++//==== tesla and a laser between points), made by the stock code itself so the
++//==== draw functions behind them are recorded.
++CON_COMMAND( c2_beam_probe_extra, "C2 beams probe (debug): make the beam shapes no temp entity reaches, in front of the view" )
++{
++	const int nLaser = modelinfo->GetModelIndex( "sprites/laserbeam.vmt" );
++	if ( nLaser < 0 )
++	{
++		Msg( "c2_beam_probe_extra: sprites/laserbeam.vmt is not precached\n" );
++		return;
++	}
++	Vector o = MainViewOrigin(), f = MainViewForward(), r = MainViewRight(), u = MainViewUp();
++	Vector at = o + f * 160.0f;
++	struct Shape_t { int type; int flags; int halo; float dx, dz; };
++	const Shape_t shapes[] =
++	{
++		{ TE_BEAMPOINTS, 0, 1, -60, 30 },
++		{ TE_BEAMPOINTS, FBEAM_SINENOISE | FBEAM_SHADEIN | FBEAM_SHADEOUT, 0, -30, 30 },
++		{ TE_BEAMPOINTS, FBEAM_FADEIN | FBEAM_NOTILE, 0, 0, 30 },
++		{ TE_BEAMPOINTS, FBEAM_FADEOUT | FBEAM_ONLYNOISEONCE | FBEAM_SOLID, 0, 30, 30 },
++		{ TE_BEAMPOINTS, FBEAM_HALOBEAM, 1, 60, 30 },
++		{ TE_BEAMDISK, 0, 0, -45, -30 },
++		{ TE_BEAMCYLINDER, 0, 0, -15, -30 },
++		{ TE_BEAMTESLA, 0, 0, 15, -30 },
++		{ TE_BEAMLASER, 0, 0, 45, -30 },
++	};
++	for ( int i = 0; i < (int)ARRAYSIZE( shapes ); i++ )
++	{
++		BeamInfo_t bi;
++		bi.m_nType = shapes[i].type;
++		bi.m_vecStart = at + r * shapes[i].dx + u * shapes[i].dz;
++		bi.m_vecEnd = bi.m_vecStart + u * 40.0f + r * 8.0f;
++		bi.m_nModelIndex = nLaser;
++		bi.m_nHaloIndex = shapes[i].halo ? nLaser : -1;
++		bi.m_flHaloScale = 3.0f;
++		bi.m_flLife = 2.0f;
++		bi.m_flWidth = 2.0f;
++		bi.m_flEndWidth = 4.0f;
++		bi.m_flFadeLength = 0.0f;
++		bi.m_flAmplitude = 2.0f;
++		bi.m_flBrightness = 200.0f;
++		bi.m_flSpeed = 1.5f;
++		bi.m_nStartFrame = 0;
++		bi.m_flFrameRate = 10.0f;
++		bi.m_flRed = 255.0f; bi.m_flGreen = 128.0f; bi.m_flBlue = 64.0f;
++		bi.m_nSegments = shapes[i].type == TE_BEAMTESLA ? 20 : -1;
++		bi.m_nFlags = shapes[i].flags;
++		if ( shapes[i].type == TE_BEAMDISK || shapes[i].type == TE_BEAMCYLINDER )
++		{
++			bi.m_vecEnd = bi.m_vecStart + Vector( 0, 0, 24 );
++			s_ViewRenderBeams.CreateBeamCirclePoints( bi );
++		}
++		else
++			s_ViewRenderBeams.CreateBeamPoints( bi );
++	}
++	Msg( "c2_beam_probe_extra: %d shapes\n", (int)ARRAYSIZE( shapes ) );
++}

@@ -1,0 +1,56 @@
+{
+  // Debugging the mod's C# means attaching to the game, because that is where
+  // the runtime lives: the native shell loads CoreCLR into hl2_linux64 and calls
+  // in. There is nothing to launch, so every configuration here attaches.
+  //
+  // See docs/debugging.md for what has to be true for an attach to work.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // The usual one. Starts the game, waits for it to say it is holding for a
+      // debugger, then attaches — so breakpoints in module init are hit rather
+      // than raced past.
+      "name": "Debug the game (C#)",
+      "type": "coreclr",
+      "request": "attach",
+      "processName": "hl2_linux64",
+      "preLaunchTask": "run the game for debugging",
+
+      // The mod's own assemblies are the only managed code in the process, and
+      // the bootstrap is worth stepping into when the question is why a module
+      // did not load at all.
+      "justMyCode": false
+    },
+    {
+      // For a game that is already up — including one started by `make run`,
+      // which does not wait for anything. Attaching mid-session is fine; you
+      // just cannot break on what has already happened.
+      "name": "Attach to the running game (C#)",
+      "type": "coreclr",
+      "request": "attach",
+      "processName": "hl2_linux64",
+      "justMyCode": false
+    },
+    {
+      // The native half. One process has one tracer on Linux, so this and the
+      // C# configurations are a choice rather than a pair — attaching both to
+      // the same game is not possible.
+      //
+      // It asks which process because, unlike the C# debugger, this one has no
+      // processName option.
+      "name": "Attach to the running game (C++)",
+      "type": "cppdbg",
+      "request": "attach",
+      "program": "${env:HOME}/.steam/steam/steamapps/common/Source SDK Base 2013 Multiplayer/hl2_linux64",
+      "processId": "${command:pickProcess}",
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "readable containers",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}

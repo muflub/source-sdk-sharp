@@ -1,0 +1,349 @@
+#!/usr/bin/env python3
+#
+# tools/dead-conditionals -- a conditional in a SourceSharp shim file whose
+# identifier this build never defines is dead code, and this finds it.
+#
+# WHY IT EXISTS. plan_entity.md ports stock translation units into
+# src/sourcesharp/**, and stock files arrive carrying the conditionals of every
+# game Valve ever shipped from this tree. cdll_client_int.cpp arrived with
+# thirteen distinct conditional identifiers of which exactly ONE, _DEBUG, is
+# defined by this build: nineteen references to TF_CLIENT_DLL, fifteen to
+# REPLAY_ENABLED, six to SIXENSE, and so on down to one apiece. Every one of
+# them is code that cannot execute, in a file that is supposed to say what it
+# does. Phase 7 ports a lot more of them, and the fifty-sixth reference is not
+# going to be caught by eye.
+#
+# WHAT IT IS NOT. It is not a preprocessor. It does not tell you whether a
+# BRANCH is taken; it tells you whether an IDENTIFIER can ever be defined at
+# all, which is the far cheaper question and the one that catches the whole
+# class. A conditional whose identifier is defined -- on the command line, by a
+# header, by the compiler -- is left entirely alone.
+#
+# HOW IT DECIDES, in order, for each identifier in each `#if / #ifdef / #ifndef
+# / #elif` line of each compiled shim TU:
+#
+#   1. `defined` and `sizeof` are operators, not identifiers.
+#   2. On the TU's own -D list -> LIVE. This is the authority: the TU's entry
+#      in the CMake build's compile_commands.json IS the compile command line,
+#      so it cannot disagree with what the compiler sees. Per TU (so per
+#      target), not merged: the client defines CLIENT_DLL and the server
+#      GAME_DLL, and a merged list would call both live everywhere.
+#   3. Starts with `__`, or is `_MSC_VER` -> compiler-provided.
+#   4. #defined by the file itself -> local (an include guard, a local switch).
+#   5. On the LEDGER's allow list -> waived, with the reason written down.
+#   6. #defined anywhere in src/** -> a header provides it.
+#   7. Anything left is REPORTED, naming the file and the define.
+#
+# Step 6 is deliberately generous and it is why this is a FLOOR rather than a
+# proof: a define some unrelated header happens to spell is not reported even
+# if that header is never included here. What it cannot miss is the shape that
+# matters -- a mod guard like TF_CLIENT_DLL or SIXENSE, which exists ONLY as a
+# -D in a build script for a game this is not, and so survives every step
+# above.
+#
+# THE LEDGER, tools/dead-conditionals-ledger, has two kinds of row and both are
+# checked for staleness, because an allowlist nobody re-reads is the same trap
+# as no allowlist at all:
+#
+#   allow <NAME> <reason>            never reported, anywhere. For guards that
+#                                    are legitimately conditional in THIS build
+#                                    -- portability, side markers, other build
+#                                    configurations of this same tree.
+#   pending <FILE> <NAME> <reason>   a site that was already here when this
+#                                    check landed and has an owner to remove it.
+#
+#   * an `allow` name the build DOES define is stale       -> fail
+#   * an `allow` name no shim file uses is stale           -> fail
+#   * a `pending` site that is no longer there is stale    -> fail
+#   * a site that is neither allowed nor pending           -> fail
+#
+# So the count can only go down. A newly ported file carrying a dead guard has
+# no ledger row and fails naming the file and the define; cleaning one up and
+# leaving its row behind fails too.
+#
+# Usage:
+#   tools/dead-conditionals                    scan this tree, exit 0 or 1
+#   tools/dead-conditionals --list             print every site, exit 0
+#   tools/dead-conditionals --root D --build-dir B --ledger F --prefix P
+#                                              drive it over a fixture
+#
+# THE OBJECT TABLE is the CMake build beside the tree: <root>/build (farm/
+# <config>/build when run from the farm root, as the tests do), its
+# compile_commands.json read for every TU under <root>/src/<prefix>, each with
+# its own -D set. A target tools/cmakegraph.py knows a CMakeLists source list
+# for (the game DLLs, the host, the static SDK libraries) is cross-checked
+# against that list, and a database that disagrees -- a stale build -- is
+# refused; a target it does not know (a fixture's) is read as given.
+#
+# Exit 0 clean, 1 findings or a stale ledger, 2 cannot measure (no
+# compile_commands.json: the tree is not built; a stale one). Never a silent
+# pass -- see run-test-legs' header for why a checker that cannot measure must
+# say so rather than report zero.
+#
+import argparse
+import os
+import re
+import shlex
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import cmakegraph  # noqa: E402
+
+CONDITIONAL = re.compile(r'^[ \t]*#[ \t]*(?:if|ifdef|ifndef|elif)[ \t]+(.*)$', re.M)
+DEFINE = re.compile(r'^[ \t]*#[ \t]*define[ \t]+([A-Za-z_][A-Za-z0-9_]*)', re.M)
+IDENT = re.compile(r'\b[A-Za-z_][A-Za-z0-9_]*\b')
+BLOCK_COMMENT = re.compile(r'/\*.*?\*/', re.S)
+LINE_COMMENT = re.compile(r'//.*$')
+OPERATORS = ("defined", "sizeof")
+SOURCE_SUFFIXES = (".h", ".hpp", ".inc", ".cpp", ".cxx", ".c")
+SKIP_DIRS = {"_vpc_", ".git", "thirdparty", "lib", "devtools", "utils"}
+
+
+def read(path):
+    with open(path, "r", errors="replace") as f:
+        return f.read()
+
+
+KNOWN_TARGETS = (cmakegraph.SERVER, cmakegraph.CLIENT, cmakegraph.HOST) + cmakegraph.SDK_LIBS
+TARGET = re.compile(r'(?:^|/)CMakeFiles/([^/]+)\.dir/')
+
+
+def command_defines(entry):
+    """The set of -D names on one compile command (`-DX`, `-DX=v`, `-D X`)."""
+    if entry.get('arguments'):
+        toks = list(entry['arguments'])
+    else:
+        try:
+            toks = shlex.split(entry['command'])
+        except ValueError as e:
+            raise cmakegraph.GraphError('an unparsable compile command for %s: %s'
+                                        % (entry['file'], e))
+    names = set()
+    for i, t in enumerate(toks):
+        if t == '-D' and i + 1 < len(toks):
+            t = '-D' + toks[i + 1]
+        m = re.match(r'-D([A-Za-z_][A-Za-z0-9_]*)', t)
+        if m:
+            names.add(m.group(1))
+    return names
+
+
+def compiled_sources(bdir, prefix):
+    """[(target, farm-relative source, {-D names})] for every TU the build
+    compiles under `prefix`, one per (target, source). A GraphError when the
+    database cannot be read or a known target's disagrees with its list."""
+    rows = {}
+    targets = set()
+    for e in cmakegraph.compile_commands(bdir):
+        # The native TEST harness (src/test/native/CMakeLists.txt, googletest
+        # under _deps/) is in the same database since Phase 6b. Its binaries
+        # are not the build this judges -- VPC's graph never held them -- and
+        # their -D sets are the tests' own, so they are left out by where
+        # CMake puts them rather than by name.
+        out = os.path.relpath(e['output'], bdir) if os.path.isabs(e['output']) else e['output']
+        if out.startswith('src/test/') or out.startswith('_deps/') or '/_deps/' in e['file']:
+            continue
+        m = TARGET.search(e['output'])
+        if not m:
+            raise cmakegraph.GraphError('%s: an object outside any CMakeFiles/<target>.dir/: %s'
+                                        % (os.path.join(bdir, 'compile_commands.json'), e['output']))
+        rel = cmakegraph.farm_relative(e['file'], bdir)
+        if not rel.startswith(prefix):
+            continue
+        target = m.group(1)
+        targets.add(target)
+        rows[(target, rel)] = command_defines(e)
+    for t in sorted(targets):
+        if t in KNOWN_TARGETS:
+            cmakegraph.compiled_sources(t, bdir)   # refuses a stale database
+    return [(t, rel, d) for (t, rel), d in sorted(rows.items())]
+
+
+def conditional_identifiers(text):
+    """Every identifier in a conditional directive, comments stripped."""
+    names = []
+    for line in CONDITIONAL.findall(text):
+        line = BLOCK_COMMENT.sub(" ", line)
+        line = LINE_COMMENT.sub("", line)
+        names.extend(IDENT.findall(line))
+    return names
+
+
+class CannotMeasure(Exception):
+    pass
+
+
+def tree_defines(root):
+    """Every name #defined anywhere in the source we compile against.
+
+    A DANGLING SYMLINK is skipped: the farm links every repo file, and a file
+    deleted since the farm was last set up leaves its link behind until
+    tools/setup re-runs. Skipping it can only REMOVE a "a header provides it"
+    excuse, so it can only add findings, never hide one. Any other file that
+    cannot be read is CANNOT MEASURE (exit 2), not a traceback: Python's exit
+    status for an uncaught exception is 1, which is this tool's "findings".
+    """
+    names = set()
+    for base, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for f in files:
+            if f.endswith(SOURCE_SUFFIXES):
+                path = os.path.join(base, f)
+                if os.path.islink(path) and not os.path.exists(path):
+                    continue
+                try:
+                    names.update(DEFINE.findall(read(path)))
+                except OSError as e:
+                    raise CannotMeasure("cannot read %s: %s" % (path, e.strerror))
+    return names
+
+
+def load_ledger(path):
+    allow, pending, errors = {}, {}, []
+    if not os.path.exists(path):
+        return allow, pending, ["ledger not found: %s" % path]
+    for n, raw in enumerate(read(path).splitlines(), 1):
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        parts = [p for p in parts if p != ""]
+        if parts[0] == "allow" and len(parts) >= 3:
+            allow[parts[1]] = "\t".join(parts[2:])
+        elif parts[0] == "pending" and len(parts) >= 4:
+            pending[(parts[1], parts[2])] = "\t".join(parts[3:])
+        else:
+            errors.append("%s:%d: not an `allow NAME reason` or "
+                          "`pending FILE NAME reason` row: %s" % (path, n, raw))
+    return allow, pending, errors
+
+
+def main():
+    ap = argparse.ArgumentParser(add_help=True)
+    ap.add_argument("--root", default=None,
+                    help="tree root (the directory holding src/ and tools/)")
+    ap.add_argument("--build-dir", default=None,
+                    help="the CMake build to read (default <root>/build)")
+    ap.add_argument("--ledger", default=None, help="the ledger to read")
+    ap.add_argument("--prefix", default="sourcesharp/",
+                    help="only scan sources under this path, relative to src/")
+    ap.add_argument("--list", action="store_true",
+                    help="print every site found and exit 0")
+    args = ap.parse_args()
+
+    root = args.root
+    if root is None:
+        here = os.path.dirname(os.path.abspath(__file__))
+        root = os.path.dirname(here)
+    bdir = os.path.abspath(args.build_dir or os.path.join(root, "build"))
+    db_path = os.path.join(bdir, "compile_commands.json")
+    ledger_path = args.ledger or os.path.join(
+        root, "tools", "dead-conditionals-ledger")
+    src = os.path.join(root, "src")
+
+    if not os.path.exists(db_path):
+        sys.stderr.write(
+            "dead-conditionals: CANNOT MEASURE -- no %s.\n"
+            "dead-conditionals: the object table IS the compile command line, "
+            "and without it there is no\n"
+            "dead-conditionals: authority for which defines are live. This is "
+            "not a pass:\n"
+            "dead-conditionals:   make debug\n" % db_path)
+        return 2
+
+    try:
+        sources = compiled_sources(bdir, args.prefix)
+    except cmakegraph.GraphError as e:
+        sys.stderr.write("dead-conditionals: CANNOT MEASURE -- %s\n" % e)
+        return 2
+    if not sources:
+        sys.stderr.write("dead-conditionals: CANNOT MEASURE -- %s names no "
+                         "compiled source under '%s'.\n"
+                         % (db_path, args.prefix))
+        return 2
+
+    allow, pending, errors = load_ledger(ledger_path)
+    try:
+        everywhere = tree_defines(src)
+    except CannotMeasure as e:
+        sys.stderr.write("dead-conditionals: CANNOT MEASURE -- %s\n" % e)
+        return 2
+
+    found = []          # (file, name)
+    allow_used = set()
+    for project, rel, live in sources:
+        path = os.path.join(src, rel)
+        if not os.path.exists(path):
+            errors.append("%s: named by %s, not on disk" % (rel, db_path))
+            continue
+        text = read(path)
+        mine = set(DEFINE.findall(text))
+        seen = set()
+        for name in conditional_identifiers(text):
+            if name in seen or name in OPERATORS:
+                continue
+            seen.add(name)
+            if name in live or name.startswith("__") or name == "_MSC_VER":
+                continue
+            if name in mine:
+                continue
+            if name in allow:
+                allow_used.add(name)
+                continue
+            if name in everywhere:
+                continue
+            found.append((rel, name))
+    # A shared file is compiled into BOTH projects, so it is scanned twice.
+    found = sorted(set(found))
+
+    if args.list:
+        for rel, name in found:
+            print("%s\t%s\t%s" % (rel, name,
+                                  pending.get((rel, name), "NOT IN LEDGER")))
+        return 0
+
+    unlisted = [p for p in found if p not in pending]
+    stale_pending = sorted(set(pending) - set(found))
+    # An allow row is stale when the build defines the name EVERYWHERE it could
+    # matter -- that is, on every command line that compiles a shim TU. Not the
+    # union: CLIENT_DLL is on the client's command line and not the server's,
+    # which is exactly why a shared file conditioning on it is legitimate and
+    # allowed.
+    always_d = None
+    for _, _, d in sources:
+        always_d = set(d) if always_d is None else (always_d & d)
+    always_d = always_d or set()
+    stale_allow_live = sorted(n for n in allow if n in always_d)
+    stale_allow_unused = sorted(n for n in allow if n not in allow_used)
+
+    for rel, name in unlisted:
+        print("dead-conditionals: %s: %s is never defined by this build"
+              % (rel, name))
+    for rel, name in stale_pending:
+        print("dead-conditionals: STALE ledger row: %s no longer conditions on "
+              "%s -- delete the row" % (rel, name))
+    for name in stale_allow_live:
+        print("dead-conditionals: STALE allow row: this build DOES define %s, "
+              "so it must not be waived" % name)
+    for name in stale_allow_unused:
+        print("dead-conditionals: STALE allow row: no shim file conditions on "
+              "%s any more -- delete the row" % name)
+    for e in errors:
+        print("dead-conditionals: %s" % e)
+
+    bad = (len(unlisted) + len(stale_pending) + len(stale_allow_live)
+           + len(stale_allow_unused) + len(errors))
+    print("dead-conditionals: %d compiled shim TU(s), %d conditioned site(s), "
+          "%d waived, %d pending, %d problem(s)"
+          % (len(sources), len(found), len(allow_used), len(pending), bad))
+    if bad:
+        print("dead-conditionals: a conditional this build never defines is "
+              "dead code. Delete it, keeping the arm the build takes -- or, if "
+              "it is legitimately conditional here, add a row to %s saying why."
+              % ledger_path)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,5 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+void SourceSharp_FxImpactOverlay(	BOUNDARY	IShimFxClient: the overlay FxEffects.GunshipImpact placed and coloured, handed to the glow system (B4)
+bool CExplosionOverlay::Update(	HOOK	the glow system's per-frame Update on a CWarpOverlay, onto the shared ramp (B3)
+bool CGunshipImpactOverlay::Update(	HOOK	the glow system's per-frame Update on a CWarpOverlay, onto the shared ramp (B3)

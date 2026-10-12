@@ -1,0 +1,929 @@
+#!/bin/bash
+#
+# tools/run-test-legs -- run every test leg, whatever the legs before it did,
+# and refuse a leg that ran less of itself than the tree says it has.
+#
+# WHY THIS EXISTS
+#
+# `make test` used to be three recipe lines: the managed suite, then cpp-test,
+# then ui-test. Make abandons a recipe at the first line that fails. So ANY
+# managed failure took the native suite (959 gtests across 81 binaries) and the
+# UI suite (349 tests) with it -- and said NOTHING about them. Not "skipped",
+# not "not run". Nothing. A leg that never ran looked exactly like a leg that
+# passed, and the only trace that 1,308 tests had gone unrun was their absence
+# from the middle of a log nobody reads the middle of.
+#
+# So: every leg runs, the summary at the tail names every leg's result
+# explicitly, and the exit status is non-zero unless every leg actually passed.
+#
+# AND THEN THE SAME BUG CAME BACK ONE LEVEL DOWN. This is a real summary:
+#
+#     native     passed      exit 0     287 gtests in 21 binaries
+#     ALL 6 TEST LEGS PASSED
+#
+# The native leg has 116 binaries in it. A merge landed underneath the run, the
+# leg was truncated, and it reported a pass -- because the count it printed was
+# real, non-zero, correctly extracted, and compared against NOTHING. The floor
+# for every leg here was ONE: one gtest in one binary out of 116 was a pass,
+# and so was one test out of 1,332, and one UI file out of 24.
+#
+# Anything that truncates a run lands in exactly that state -- an interrupt, a
+# tree that changed underneath it, a container that went away, a `-k 0` that
+# gave up early. So every leg now declares how big it is BEFORE it runs (see
+# tools/leg-floor), and this refuses the leg when what it counted does not
+# clear that.
+#
+# USAGE
+#
+#   tools/run-test-legs "name:shell command" ["name:shell command" ...]
+#   tools/run-test-legs --self-test          check this script's own reporting
+#
+# The command is everything after the FIRST colon (so it may contain colons),
+# run with `bash -c` from the current directory. Output is streamed to the
+# terminal as it happens AND captured to tools/.test-legs/<name>.log (override
+# with SS_TEST_LEG_LOGS), which is what the count extraction below reads.
+#
+# WHAT EACH RESULT MEANS
+#
+#   passed      exited 0, reported a test count, and cleared its floor
+#   FAILED      exited non-zero
+#   SHORT RUN   exited 0 and ran less than it declared      -> the run FAILS
+#   NO FLOOR    exited 0 and declared nothing to clear      -> the run FAILS
+#   NO TESTS    exited 0 but reported no tests at all       -> the run FAILS
+#   LOG LOST    a second run wiped this run's logs          -> the run FAILS
+#   INCOMPLETE  started and never produced a result         -> the run FAILS
+#   NOT RUN     never started at all                        -> the run FAILS
+#
+# NOT RUN is the whole point: it is the state every leg starts in, and it is
+# what the summary prints for a leg the runner never reached -- a Ctrl-C, a
+# kill, a bug in here. Silence is never reported as success. Only an observed
+# zero exit with an observed test count over an observed floor is ever printed
+# as "passed".
+#
+# NO TESTS is the same idea one level down. A leg that quietly degrades to
+# running nothing -- a test project that matched no assemblies, a runner that
+# printed its usage and exited 0, a suite whose binaries all failed to build --
+# exits 0, and calling that "passed" is the same false green this script exists
+# to kill. If a leg's reporting format changes, this says NO TESTS rather than
+# blessing it: teach extract_counts the new format, do not delete the check.
+#
+# SHORT RUN is that idea one level down again, and it is the one the 287/21
+# summary above needed. Between "ran everything" and "ran nothing" is "ran a
+# fifth", and the first two were the only ones this script could tell apart.
+#
+# NO FLOOR is what stops the whole mechanism being opt-out. A leg that declares
+# nothing is not quietly given the old floor of one -- it fails, and names
+# itself, exactly like a leg that reported no tests. Silence is not a pass here
+# either.
+#
+# LOG LOST is the one that is not about the leg at all. THE COUNTS ARE READ
+# BACK OUT OF A FILE AT A FIXED PATH, and a second `make test` in the same tree
+# begins by deleting that directory and refilling it. Two runs overlapping --
+# which is what happens when somebody merges into a worktree a suite is running
+# in -- and the first one extracts its counts from the second one's
+# part-written log. Reproduced deliberately: a run that really executed 116
+# binaries reported
+#
+#     native  passed  exit 0   105 gtests in 21 binaries
+#
+# reading a concurrent run's file. The floor catches the arithmetic either way
+# -- 21 does not clear 116, and a longer foreign log does not clear an `==` --
+# but it would blame the leg for something the leg did not do. So the run
+# stamps the directory with an id and checks it is still there, and the failure
+# says which of the two things went wrong.
+
+set -u -o pipefail          # deliberately NOT -e: a failing leg is the case
+                            # this script handles, not a reason to stop
+
+# The units a leg may declare a floor in, which is exactly the set this script
+# can COUNT for itself. A floor naming anything else is refused rather than
+# ignored: a typo'd unit that is silently skipped is a floor that cannot fail,
+# and this port has found 46 of those.
+FLOOR_UNITS='gtest-binaries gtest-tests must-not-compile dotnet-tests ui-tests ui-files checks'
+
+# ---------------------------------------------------------------------------
+# Count extraction.
+#
+# THE ONE RULE: an extractor that does not recognise the output must print
+# NOTHING. An extractor that guesses -- "0 tests", "ok" -- turns NO TESTS back
+# into the false green this file exists to prevent.
+#
+# Two lines come out. The first is for humans and goes in the summary. The
+# second is `unit=n` pairs for every unit in FLOOR_UNITS, which is what the
+# floor comparison reads -- so the number a floor is checked against is the
+# same number the summary prints, and neither can move without the other.
+# ---------------------------------------------------------------------------
+extract_all() {
+    local log=$1
+    [ -s "$log" ] || return 0
+
+    # Strip ANSI colour first: vitest writes it whenever it thinks it can.
+    sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -- "$log" | awk '
+        function grab(line, key,   t) {
+            if (!match(line, key "[ \t]*[0-9]+")) return -1
+            t = substr(line, RSTART, RLENGTH)
+            gsub(/[^0-9]/, "", t)
+            return t + 0
+        }
+        function firstnum(line,   t) {
+            if (!match(line, /[0-9]+/)) return -1
+            t = substr(line, RSTART, RLENGTH)
+            return t + 0
+        }
+
+        # --- dotnet test / VSTest: one summary line per test assembly -------
+        # Failed!  - Failed: 2, Passed: 1169, Skipped: 0, Total: 1171, ...
+        /Total:[ \t]*[0-9]+/ && /Failed:[ \t]*[0-9]+/ {
+            n = grab($0, "Total:");  if (n >= 0) { dn_total  += n; dn = 1 }
+            n = grab($0, "Failed:"); if (n >= 0)   dn_failed += n
+        }
+
+        # --- gtest: one such line per test binary that ran ------------------
+        # [==========] 8 tests from 2 test cases ran. (1 ms total)
+        /^\[==========\].*tests? from .*ran\./ {
+            if (match($0, /[0-9]+ tests?/)) {
+                t = substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", t)
+                gt_tests += t + 0
+                gt_bins++
+            }
+        }
+
+        # --- src/buildcpptests compile-refusal checks ------------------------
+        # ==> entity_funcslot_loudness_test (must NOT compile)
+        # These emit no gtest line at all -- they are checks that a file FAILS
+        # to build -- so without this they could all be deleted and the counts
+        # above would not move.
+        /^==> .*\(must NOT compile\)/ { nc++ }
+
+        # --- vitest ---------------------------------------------------------
+        #      Tests  349 passed (349)
+        # Test Files  30 passed (30)
+        /^[ \t]*Tests[ \t]+[0-9]/      { if (match($0, /\([0-9]+\)/)) {
+                                             t = substr($0, RSTART, RLENGTH)
+                                             gsub(/[^0-9]/, "", t); vt = t + 0 } }
+        /^[ \t]*Test Files[ \t]+[0-9]/ { if (match($0, /\([0-9]+\)/)) {
+                                             t = substr($0, RSTART, RLENGTH)
+                                             gsub(/[^0-9]/, "", t); vf = t + 0 } }
+
+        # --- the generic contract -------------------------------------------
+        # Anything that has no machine-readable summary of its own can say
+        #     <n> checks, <m> failed
+        # on a line of its own and be counted. The self-test below uses it.
+        /[0-9]+ checks?, [0-9]+ failed/ {
+            n = firstnum($0); if (n >= 0) { ck_total += n; ck = 1 }
+            m = grab($0, "checks?,"); if (m >= 0) ck_failed += m
+        }
+
+        END {
+            out = ""
+            if (dn)       out = dn_total " tests, " dn_failed " failed"
+            if (gt_bins)  out = (out ? out "; " : "") \
+                                gt_tests " gtests in " gt_bins " binaries"
+            if (nc)       out = (out ? out ", " : "") \
+                                nc " must-not-compile"
+            if (vt)       out = (out ? out "; " : "") vt " ui tests" \
+                                (vf ? " in " vf " files" : "")
+            if (ck)       out = (out ? out "; " : "") \
+                                ck_total " checks, " ck_failed " failed"
+            print out
+            printf "gtest-binaries=%d gtest-tests=%d must-not-compile=%d", \
+                   gt_bins + 0, gt_tests + 0, nc + 0
+            printf " dotnet-tests=%d ui-tests=%d ui-files=%d checks=%d\n", \
+                   dn_total + 0, vt + 0, vf + 0, ck_total + 0
+        }
+    '
+}
+
+# ---------------------------------------------------------------------------
+# Floors.
+#
+# A leg declares how big it is by printing, at column zero, one line per unit:
+#
+#     [leg-floor] gtest-binaries == 116
+#
+# ANCHORED AT COLUMN ZERO, and that is not cosmetic. Legs print other tools'
+# output, and tools/checkers indents every checker's transcript by four
+# spaces. A declaration that could be made from inside a nested transcript is
+# a declaration a fixture can make, and a fixture that sets the gate it is
+# tested by is how this tree got a leg reporting "53 checks, 3 failed" from
+# fixtures INTO the harness built to stop unbelievable summaries.
+#
+# Nothing here derives a floor. tools/leg-floor derives them from the tree and
+# never sees what the leg did; this counts what the leg did and never chooses
+# the number. Neither party can make a green on its own, which is the whole
+# design -- see tools/leg-floor's header.
+# ---------------------------------------------------------------------------
+extract_floors() {
+    local log=$1
+    [ -s "$log" ] || return 0
+    sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -- "$log" \
+        | grep -E '^\[leg-floor\] [a-z][a-z0-9-]* (==|>=) [0-9]+$' || :
+}
+
+# ---------------------------------------------------------------------------
+# Rosters.
+#
+# A count says "95 never ran". A roster says WHICH 95. Where the tree names
+# the units one by one -- src/buildcpptests names every binary it builds and
+# prints `==> <name>` before each -- the leg declares the names as well as the
+# number:
+#
+#     [leg-roster] gtest-binaries vtable_hook_test
+#
+# and a leg that did not produce one of them fails NAMING IT. That is what the
+# brief asked for over a magic number, and it is strictly more than the count:
+# the count catches a binary whose gtest summary never appeared, the roster
+# catches a binary the run never reached, and a truncated leg is both.
+#
+# ROSTER_UNITS is the units this script has an evidence rule for, below. A
+# roster on anything else is REFUSED, not ignored -- a roster nobody can check
+# is satisfied by every run, which is the shape of a check that cannot fail.
+# ---------------------------------------------------------------------------
+ROSTER_UNITS='gtest-binaries must-not-compile'
+
+extract_roster() {
+    local log=$1
+    [ -s "$log" ] || return 0
+    sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -- "$log" \
+        | grep -E '^\[leg-roster\] [a-z][a-z0-9-]* [A-Za-z0-9._-]+$' || :
+}
+
+# What the log shows actually happened, in the same `unit name` shape.
+#
+# The pairing is src/buildcpptests' output convention and nothing subtler: it
+# prints `==> <name>`, then builds, then runs, and the run prints exactly one
+# gtest summary line. So a name counts as having RUN only if a gtest summary
+# follows its `==>` before the next one -- a binary that printed its heading
+# and then died does not count, which is the case a bare grep for the name
+# would have blessed.
+roster_seen() {
+    local log=$1
+    [ -s "$log" ] || return 0
+    sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -- "$log" | awk '
+        /^==> .+ \(must NOT compile\)$/ { print "must-not-compile " $2
+                                          cur = ""; next }
+        /^==> /                         { cur = $2; next }
+        /^\[==========\].*tests? from .*ran\./ {
+            if (cur != "") { print "gtest-binaries " cur; cur = "" }
+        }'
+}
+
+# check_roster <declared roster lines> <observed lines> <floor lines>
+#   exit 0  every declared name was produced
+#   exit 1  it was not, or the roster itself is unusable; reasons on stdout
+check_roster() {
+    { printf '%s\n' "$2" | sed 's/^/O /'
+      printf '%s\n' "$1" | sed 's/^/D /'
+      printf '%s\n' "$3" | sed 's/^/F /'
+    } | awk -v units="$ROSTER_UNITS" '
+        BEGIN { n = split(units, u, " ")
+                for (i = 1; i <= n; i++) known[u[i]] = 1 }
+
+        $1 == "O" && NF == 3 { seen[$2 SUBSEP $3] = 1; next }
+        $1 == "F" && NF == 5 { floor[$3] += $5 + 0; next }
+        $1 == "D" && NF == 4 {
+            unit = $3; name = $4
+            if (!(unit in known)) { badunit[unit] = 1; next }
+            declared[unit]++
+            if (!((unit SUBSEP name) in seen)) {
+                nmiss[unit]++
+                if (nmiss[unit] <= 12) miss[unit] = miss[unit] " " name
+            }
+        }
+        END {
+            for (unit in badunit) {
+                printf "%s: a roster on a unit this runner has no way to spot in a log. Rostered units: %s\n", unit, units
+                bad++
+            }
+            for (unit in declared) {
+                # The declaration has to agree with itself. A roster of 3 next
+                # to a floor of 116 means one of the two stopped tracking the
+                # tree, and whichever it is, the pair is no longer evidence.
+                if ((unit in floor) && floor[unit] != declared[unit]) {
+                    printf "%s: the leg declared a floor of %d and a roster of %d names -- the declaration disagrees with itself\n", unit, floor[unit], declared[unit]
+                    bad++
+                    continue
+                }
+                if (nmiss[unit]) {
+                    printf "%s: %d of the %d the tree names never ran:%s%s\n",
+                           unit, nmiss[unit], declared[unit], miss[unit],
+                           (nmiss[unit] > 12 ? " ... and " nmiss[unit] - 12 " more" : "")
+                    bad++
+                }
+            }
+            exit (bad ? 1 : 0)
+        }'
+}
+
+# check_floors <floor lines> <unit=n pairs>
+#   exit 0  every declared floor cleared
+#   exit 1  at least one was not; the reasons are on stdout, one per line
+#   exit 2  the leg declared no floor at all
+check_floors() {
+    printf '%s\n' "$1" | awk -v obs="$2" -v units="$FLOOR_UNITS" '
+        BEGIN {
+            n = split(obs, kv, " ")
+            for (i = 1; i <= n; i++) {
+                split(kv[i], p, "=")
+                have[p[1]] = p[2] + 0
+            }
+            n = split(units, u, " ")
+            for (i = 1; i <= n; i++) known[u[i]] = 1
+        }
+        NF != 4 { next }
+        {
+            unit = $2; op = $3; want = $4 + 0
+            any++
+            if (!(unit in known)) {
+                printf "%s: not a unit this runner counts, so a floor on it could never fail. Known: %s\n", unit, units
+                bad++
+                next
+            }
+            if (want <= 0) {
+                printf "%s: declared a floor of %d, and a floor of 0 cannot fail\n", unit, want
+                bad++
+                next
+            }
+            # Two commands in one leg may each declare their share; the leg
+            # runs both, so the shares add up.
+            total[unit] += want
+            if (op == "==") exact[unit] = 1
+            seen[unit] = 1
+        }
+        END {
+            if (!any) exit 2
+            for (unit in seen) {
+                got  = (unit in have) ? have[unit] : 0
+                want = total[unit]
+                if (exact[unit] && got != want) {
+                    printf "%s: ran %d, and the tree says there are exactly %d", unit, got, want
+                    if (got < want) printf " -- %d never ran\n", want - got
+                    else            printf " -- %d more than this leg can produce, so the log holds output it did not write\n", got - want
+                    bad++
+                } else if (!exact[unit] && got < want) {
+                    printf "%s: ran %d, and the tree says there are at least %d -- short by %d\n", unit, got, want, want - got
+                    bad++
+                }
+            }
+            exit (bad ? 1 : 0)
+        }'
+}
+
+# ===========================================================================
+# Self-test: does this script's own reporting do what its header claims?
+#
+# It is here because this script is an INSTRUMENT. An instrument that reads
+# "passed" when it measured nothing is worse than no instrument, and that is
+# exactly the failure mode it was written to remove from `make test`. Each
+# check below is one sentence of the header, executed.
+# ===========================================================================
+_st_checks=0
+_st_failed=0
+_st_captured=''            # every fixture leg's output, for the leak guard
+
+_st_ok() {              # _st_ok <label> <what> <ok|no>
+    _st_checks=$((_st_checks + 1))
+    if [ "$3" = ok ]; then
+        printf '  ok    %s: %s\n' "$1" "$2"
+    else
+        printf '  FAIL  %s: %s\n' "$1" "$2"
+        _st_failed=$((_st_failed + 1))
+    fi
+}
+
+_st_has()  { case "$1" in *"$2"*) echo ok ;; *) echo no ;; esac; }
+_st_hasnt() { case "$1" in *"$2"*) echo no ;; *) echo ok ;; esac; }
+_st_re()   { printf '%s\n' "$1" | grep -qE "$2" && echo ok || echo no; }
+_st_rc()   { [ "$1" -eq "$2" ] && echo ok || echo no; }
+_st_rcne() { [ "$1" -ne "$2" ] && echo ok || echo no; }
+
+# Shorthand for a fixture leg that behaves: it declares a floor and meets it.
+_st_gt() {              # _st_gt <name> <binaries> [declared]
+    printf '%s:echo "[leg-floor] gtest-binaries == %s"; for i in $(seq 1 %s); do echo "[==========] 5 tests from 1 test case ran. (1 ms total)"; done' \
+        "$1" "${3:-$2}" "$2"
+}
+
+# _st_kill_on <marker> <pid>: TERM the backgrounded runner <pid> once the
+# fixture leg's marker exists, never on a clock. The killed cases used
+# `timeout 1`, which is a bet that the runner starts and the leg finishes
+# inside one second; on a box running a full `make test` the bet was lost
+# (killed-par went red, 2026-10-04) and the case measured nothing. Gives up
+# after 60 s and kills anyway, so a runner that never gets there is red, not
+# hung.
+_st_kill_on() {
+    local i
+    for i in $(seq 1 1200); do
+        [ -e "$1" ] && break
+        sleep 0.05
+    done
+    kill -TERM "$2" 2>/dev/null
+}
+
+self_test() {
+    local me tmp out rc pid
+    me=$(readlink -f -- "$0")
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/run-test-legs-selftest.XXXXXX") || return 2
+    export SS_TEST_LEG_LOGS="$tmp/logs"
+
+    echo "==> run-test-legs self-test"
+
+    # 1. Every leg passes: the happy path has to be reachable, or every check
+    #    below passes for the wrong reason.
+    out=$("$me" "alpha:echo '[leg-floor] gtest-binaries == 1'; echo '[==========] 3 tests from 1 test case ran.'" \
+                "beta:echo '[leg-floor] ui-tests >= 7'; echo 'Tests  7 passed (7)'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok all-pass "exits 0"                "$(_st_rc  "$rc" 0)"
+    _st_ok all-pass "says ALL 2 TEST LEGS PASSED" \
+                                             "$(_st_has "$out" 'ALL 2 TEST LEGS PASSED')"
+    _st_ok all-pass "counts the gtests"      "$(_st_has "$out" '3 gtests in 1 binaries')"
+    _st_ok all-pass "counts the ui tests"    "$(_st_has "$out" '7 ui tests')"
+
+    # 1b. The native leg's real shape since Phase 6b: upstream googletest says
+    #     "test suite(s)" where the 2013 copy said "test case(s)", and
+    #     tools/build/buildcpptests prints ctest's completion line after each
+    #     binary's block. Both binaries -- one of them a singular "1 test" --
+    #     must count and satisfy the roster.
+    out=$("$me" "gt112:echo '[leg-floor] gtest-binaries == 2'; echo '[leg-roster] gtest-binaries alpha'; echo '[leg-roster] gtest-binaries beta'; echo '==> alpha'; echo '[==========] 4 tests from 1 test suite ran. (0 ms total)'; echo '1/2 Test   #1: alpha ......   Passed    0.00 sec'; echo '==> beta'; echo '[==========] 1 test from 1 test suite ran. (0 ms total)'; echo '2/2 Test   #2: beta .......   Passed    0.00 sec'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok gtest112 "exits 0"                "$(_st_rc  "$rc" 0)"
+    _st_ok gtest112 "counts both binaries and every test" \
+                                             "$(_st_has "$out" '5 gtests in 2 binaries')"
+
+    # 2. THE BUG. A failing first leg must not suppress the ones after it.
+    out=$("$me" "one:echo boom; exit 1" \
+                "two:echo '[leg-floor] gtest-binaries == 1'; echo '[==========] 5 tests from 1 test case ran.'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok first-fails "exits non-zero"      "$(_st_rcne "$rc" 0)"
+    _st_ok first-fails "the second leg still ran" \
+                                             "$(_st_has "$out" '5 gtests in 1 binaries')"
+    _st_ok first-fails "names the leg that failed" \
+                                             "$(_st_has "$out" 'TEST LEGS NOT PASSED (1 of 2): one')"
+    _st_ok first-fails "does not claim all passed" \
+                                             "$(_st_hasnt "$out" 'ALL 2 TEST LEGS PASSED')"
+
+    # 3. A leg that exits 0 having produced no output at all is NOT a pass.
+    out=$("$me" "quiet:true" 2>&1); rc=$?
+    _st_ok silent "exits non-zero"           "$(_st_rcne "$rc" 0)"
+    _st_ok silent "reports NO TESTS"         "$(_st_re   "$out" 'quiet +NO TESTS')"
+    _st_ok silent "does not claim it passed" "$(_st_hasnt "$out" 'ALL 1 TEST LEGS PASSED')"
+
+    # 4. A leg the runner never reached is NOT a pass. Killed mid-first-leg:
+    #    the summary still prints, and the leg that never started says so.
+    #    --preserve-status is load-bearing: without it $? is timeout's own 124
+    #    whatever the runner did, and "exits non-zero" below becomes a check
+    #    that cannot fail. It was one, and a mutation that made the TERM trap
+    #    exit 0 was what showed it -- the self-test stayed green.
+    #    Both legs in ONE group, so the second really never starts: groups run
+    #    concurrently, and only a group's legs wait for each other.
+    rm -rf -- "$SS_TEST_LEG_LOGS/.markers"
+    "$me" "slow@g:sleep 30" "never@g:echo hi" > "$tmp/killed.out" 2>&1 & pid=$!
+    _st_kill_on "$SS_TEST_LEG_LOGS/.markers/slow.started" "$pid"
+    wait "$pid"; rc=$?; out=$(cat -- "$tmp/killed.out")
+    _st_ok killed "exits non-zero"           "$(_st_rcne "$rc" 0)"
+    _st_ok killed "still prints a summary"   "$(_st_has  "$out" 'TEST LEG SUMMARY')"
+    _st_ok killed "the leg that never started says NOT RUN" \
+                                             "$(_st_re   "$out" 'never +NOT RUN')"
+    _st_ok killed "does not claim all passed" \
+                                             "$(_st_hasnt "$out" 'ALL 2 TEST LEGS PASSED')"
+
+    # 4b. In PARALLEL, a leg in another group that finished before the runner
+    #     was killed is not a pass either, and is not called NOT RUN: it ran.
+    rm -rf -- "$SS_TEST_LEG_LOGS/.markers"
+    "$me" "slow:sleep 30" "quick:echo hi" > "$tmp/killed-par.out" 2>&1 & pid=$!
+    _st_kill_on "$SS_TEST_LEG_LOGS/.markers/quick.rc" "$pid"
+    wait "$pid"; rc=$?; out=$(cat -- "$tmp/killed-par.out")
+    _st_ok killed-par "exits non-zero"       "$(_st_rcne "$rc" 0)"
+    _st_ok killed-par "the finished leg is INCOMPLETE, not NOT RUN" \
+                                             "$(_st_re   "$out" 'quick +INCOMPLETE +exit - +finished \(exit 0\)')"
+
+    # 4c. Separate groups run at the same time. Without this the runner could
+    #     fall back to one-at-a-time and every other check here would still pass.
+    #     Not timed against the wall (that was `< 1.8 s for two 1 s legs`,
+    #     a bet on an idle box): each leg waits until it sees the other has
+    #     started, so both pass only if they overlap, and a one-at-a-time
+    #     runner leaves the first one waiting until it gives up and fails.
+    rm -f -- "$tmp/para."*
+    cat > "$tmp/para.sh" <<PARA
+touch "$tmp/para.\$1"
+for i in \$(seq 1 200); do [ -e "$tmp/para.\$2" ] && break; sleep 0.05; done
+[ -e "$tmp/para.\$2" ] || { echo "para\$1: para\$2 never ran while I did"; exit 1; }
+echo '[leg-floor] ui-tests >= 1'; echo 'Tests  1 passed (1)'
+PARA
+    out=$("$me" "para1:bash '$tmp/para.sh' 1 2" "para2:bash '$tmp/para.sh' 2 1" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok parallel "both pass, so they overlapped (each saw the other running)" \
+                                             "$(_st_rc "$rc" 0)"
+
+    # 4d. A group's legs do not overlap: the second starts after the first ends.
+    rm -f -- "$tmp/serial."*
+    out=$("$me" "ser1@s:date +%s%N > '$tmp/serial.a0'; sleep 0.5; date +%s%N > '$tmp/serial.a1'; echo '[leg-floor] ui-tests >= 1'; echo 'Tests  1 passed (1)'" \
+                "ser2@s:date +%s%N > '$tmp/serial.b0'; echo '[leg-floor] ui-tests >= 1'; echo 'Tests  1 passed (1)'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok serial "both pass"                "$(_st_rc "$rc" 0)"
+    _st_ok serial "the second started after the first ended" \
+                                             "$( [ -s "$tmp/serial.a1" ] && [ -s "$tmp/serial.b0" ] && [ "$(cat "$tmp/serial.b0")" -ge "$(cat "$tmp/serial.a1")" ] && echo ok || echo no )"
+
+    # 4e. A killed run takes its legs with it: nothing is left to finish later.
+    rm -f -- "$tmp/survivor"
+    rm -rf -- "$SS_TEST_LEG_LOGS/.markers"
+    "$me" "orphan:sleep 2; touch '$tmp/survivor'" > "$tmp/orphan.out" 2>&1 & pid=$!
+    _st_kill_on "$SS_TEST_LEG_LOGS/.markers/orphan.started" "$pid"
+    wait "$pid"
+    sleep 3
+    _st_ok reaped "the orphan leg had started when the runner was killed" \
+                                             "$( [ -e "$SS_TEST_LEG_LOGS/.markers/orphan.started" ] && echo ok || echo no )"
+    _st_ok reaped "no leg outlived the runner" \
+                                             "$( [ ! -e "$tmp/survivor" ] && echo ok || echo no )"
+
+    # 5. A malformed leg spec is refused rather than silently skipped.
+    out=$("$me" "no-colon-here" 2>&1); rc=$?
+    _st_ok badspec "exits non-zero"          "$(_st_rcne "$rc" 0)"
+    _st_ok badspec "says what is wrong"      "$(_st_has  "$out" 'want name:command')"
+
+    # 6. And so is a name that would not stay inside the log directory.
+    out=$("$me" "../escape:true" 2>&1); rc=$?
+    _st_ok badname "exits non-zero"          "$(_st_rcne "$rc" 0)"
+    _st_ok badname "refuses the name"        "$(_st_has  "$out" 'want name:command')"
+
+    # -----------------------------------------------------------------------
+    # 7. THE 287/21 CASE, which is why the rest of this section exists. A leg
+    #    that declares 116 binaries and runs 21 of them exits 0, reports a
+    #    real count, and must NOT pass.
+    # -----------------------------------------------------------------------
+    out=$("$me" "$(_st_gt native 21 116)" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok truncated "exits non-zero"        "$(_st_rcne "$rc" 0)"
+    _st_ok truncated "reports SHORT RUN"     "$(_st_re   "$out" 'native +SHORT RUN')"
+    _st_ok truncated "names the unit and both numbers" \
+                                             "$(_st_has  "$out" 'gtest-binaries: ran 21, and the tree says there are exactly 116')"
+    _st_ok truncated "says how many never ran" \
+                                             "$(_st_has  "$out" '95 never ran')"
+    _st_ok truncated "does not claim it passed" \
+                                             "$(_st_hasnt "$out" 'ALL 1 TEST LEGS PASSED')"
+
+    # 8. And the same leg at full size passes, or check 7 proves nothing.
+    out=$("$me" "$(_st_gt native 116)" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok full "exits 0"                    "$(_st_rc   "$rc" 0)"
+    _st_ok full "reports 116 binaries"       "$(_st_has  "$out" '116 binaries')"
+
+    # 9. A leg that declares nothing is not given the old floor of one.
+    out=$("$me" "nofloor:echo '[==========] 5 tests from 1 test case ran.'" 2>&1); rc=$?
+    _st_ok nofloor "exits non-zero"          "$(_st_rcne "$rc" 0)"
+    _st_ok nofloor "reports NO FLOOR"        "$(_st_re   "$out" 'nofloor +NO FLOOR')"
+    _st_ok nofloor "says nothing sized it"   "$(_st_has  "$out" 'no [leg-floor] line')"
+
+    # 10. A floor of zero is refused. It would pass forever.
+    out=$("$me" "zero:echo '[leg-floor] gtest-binaries >= 0'; echo '[==========] 5 tests from 1 test case ran.'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok zerofloor "exits non-zero"        "$(_st_rcne "$rc" 0)"
+    _st_ok zerofloor "says a floor of 0 cannot fail" \
+                                             "$(_st_has  "$out" 'a floor of 0 cannot fail')"
+
+    # 11. A floor on a unit this script does not count is refused, not
+    #     ignored. A typo is the ordinary way to get a check that cannot fail.
+    out=$("$me" "typo:echo '[leg-floor] gtests-binaries == 1'; echo '[==========] 5 tests from 1 test case ran.'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok badunit "exits non-zero"          "$(_st_rcne "$rc" 0)"
+    _st_ok badunit "names the unit it cannot count" \
+                                             "$(_st_has  "$out" 'gtests-binaries: not a unit this runner counts')"
+
+    # 12. `==` refuses MORE than declared as well as fewer -- that is a log
+    #     holding output this leg did not write, which is how a leg reads
+    #     another run's counts out of a shared log path.
+    out=$("$me" "$(_st_gt over 130 116)" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok over "exits non-zero"             "$(_st_rcne "$rc" 0)"
+    _st_ok over "says the log holds output the leg did not write" \
+                                             "$(_st_has  "$out" 'did not write')"
+
+    # 13. `>=` does not: a [Theory] is one method and many cases, so the
+    #     managed floor has to admit more than it names.
+    out=$("$me" "atleast:echo '[leg-floor] ui-tests >= 7'; echo 'Tests  20 passed (20)'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok atleast "exits 0"                 "$(_st_rc   "$rc" 0)"
+
+    # 14. A declaration INDENTED inside another tool's transcript is not a
+    #     declaration. tools/checkers indents every checker's output by four
+    #     spaces, so without this a checker could set the gate it is checked
+    #     by -- which is the fixture-summary bug this tree already had.
+    out=$("$me" "indented:echo '    [leg-floor] gtest-binaries == 1'; echo '[==========] 5 tests from 1 test case ran.'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok indented "an indented floor line does not count as one" \
+                                             "$(_st_re   "$out" 'indented +NO FLOOR')"
+
+    # 15. Two commands in one leg each declare their share, and the shares
+    #     add up: `tools/leg-floor X && thing-one && thing-two` is the shape
+    #     every leg in the Makefile has.
+    out=$("$me" "split:echo '[leg-floor] gtest-binaries == 1'; echo '[leg-floor] gtest-binaries == 2'; for i in 1 2 3; do echo '[==========] 5 tests from 1 test case ran.'; done" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok split "two declarations of one unit add up" "$(_st_rc "$rc" 0)"
+    _st_ok split "and three binaries is what they add to" \
+                                             "$(_st_has "$out" '3 binaries')"
+
+    # -----------------------------------------------------------------------
+    # The roster. A count says 95 never ran; these say which.
+    # -----------------------------------------------------------------------
+    local _gt='[==========] 5 tests from 1 test case ran. (1 ms total)'
+
+    # 16. All the names the tree declared appeared, so the leg passes -- and
+    #     without this the four after it could all pass for the wrong reason.
+    out=$("$me" "roster:echo '[leg-floor] gtest-binaries == 2'; echo '[leg-roster] gtest-binaries alpha'; echo '[leg-roster] gtest-binaries beta'; echo '==> alpha'; echo '$_gt'; echo '==> beta'; echo '$_gt'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok roster "a leg that produced every name it declared passes" \
+                                             "$(_st_rc "$rc" 0)"
+
+    # 17. THE ONE THE BRIEF ASKED FOR: a binary the tree names and the run
+    #     never produced fails the leg BY NAME.
+    out=$("$me" "roster:echo '[leg-floor] gtest-binaries == 2'; echo '[leg-roster] gtest-binaries alpha'; echo '[leg-roster] gtest-binaries beta'; echo '==> alpha'; echo '$_gt'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok missing "exits non-zero"          "$(_st_rcne "$rc" 0)"
+    _st_ok missing "names the binary that never ran" \
+                                             "$(_st_has "$out" '1 of the 2 the tree names never ran: beta')"
+
+    # 18. And a binary that printed its heading and then produced no gtest
+    #     summary is named too -- it was reached and it did not run, which a
+    #     grep for the name in the log would have blessed.
+    out=$("$me" "roster:echo '[leg-floor] gtest-binaries == 2'; echo '[leg-roster] gtest-binaries alpha'; echo '[leg-roster] gtest-binaries beta'; echo '==> alpha'; echo '$_gt'; echo '==> beta'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok headed "a heading with no gtest summary does not count as a run" \
+                                             "$(_st_has "$out" 'never ran: beta')"
+
+    # 19. A roster on a unit this script cannot spot in a log is refused, not
+    #     ignored. Ignoring it would make it a check that cannot fail.
+    out=$("$me" "roster:echo '[leg-floor] checks >= 1'; echo '[leg-roster] checks something'; echo '1 checks, 0 failed'" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok rosterunit "exits non-zero"       "$(_st_rcne "$rc" 0)"
+    _st_ok rosterunit "says it has no way to spot that unit" \
+                                             "$(_st_has "$out" 'no way to spot in a log')"
+
+    # 20. A declaration has to agree with itself: a roster of 2 beside a
+    #     floor of 5 means one of the two stopped tracking the tree.
+    out=$("$me" "roster:echo '[leg-floor] gtest-binaries == 5'; echo '[leg-roster] gtest-binaries alpha'; echo '[leg-roster] gtest-binaries beta'; for i in 1 2 3 4 5; do echo '==> alpha'; echo '$_gt'; done" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok agree "a floor and a roster that disagree are refused" \
+                                             "$(_st_has "$out" 'the declaration disagrees with itself')"
+
+    # 21. A second run in the same tree wipes this one's logs, and the counts
+    #     must not be read out of the replacement. The leg here does exactly
+    #     what a concurrent `make test` does to it.
+    out=$("$me" "clobbered:echo '[leg-floor] gtest-binaries == 1'; echo '$_gt'; rm -rf \"\$SS_TEST_LEG_LOGS\"; mkdir -p \"\$SS_TEST_LEG_LOGS\"; echo someone-else > \"\$SS_TEST_LEG_LOGS/.run-id\"" 2>&1); rc=$?
+    _st_captured=$_st_captured$out
+    _st_ok clobbered "exits non-zero"        "$(_st_rcne "$rc" 0)"
+    _st_ok clobbered "reports LOG LOST"      "$(_st_re   "$out" 'clobbered +LOG LOST')"
+    _st_ok clobbered "blames the other run, not the leg" \
+                                             "$(_st_has  "$out" 'another run replaced')"
+
+    rm -rf -- "$tmp"
+
+    # 22. The leak guard. Every fixture above declares a floor, and those
+    #     declarations are real lines at column zero. They must reach the
+    #     runner's own captured variable and NOT this script's stdout -- if
+    #     they reached stdout, the `runner` leg's floor would be set by its
+    #     own fixtures. tools/checkers pins the same property from the other
+    #     end, after a leg reported "53 checks, 3 failed" out of fixtures.
+    #
+    #     It counts what was HELD and requires it non-zero: a guard that
+    #     passes when nothing was captured is the vacuous green this file is
+    #     against.
+    local held
+    held=$(printf '%s\n' "$_st_captured" | grep -cE '^\[leg-floor\] ' || :)
+    _st_ok leak "the fixture declarations were captured, not printed ($held held)" \
+                                             "$([ "${held:-0}" -gt 0 ] && echo ok || echo no)"
+
+    printf '  ==> %d checks, %d failed\n' "$_st_checks" "$_st_failed"
+    [ "$_st_failed" -eq 0 ]
+}
+
+if [ "${1:-}" = "--self-test" ]; then
+    self_test
+    exit $?
+fi
+
+# ===========================================================================
+# The runner proper.
+# ===========================================================================
+if [ $# -eq 0 ]; then
+    echo "usage: $0 \"name:shell command\" [\"name:shell command\" ...]" >&2
+    echo "       $0 --self-test" >&2
+    exit 2
+fi
+
+repo=$(cd -- "$(dirname -- "$(readlink -f -- "$0")")/.." && pwd) || exit 2
+logdir=${SS_TEST_LEG_LOGS:-$repo/tools/.test-legs}
+rm -rf -- "$logdir"
+mkdir -p -- "$logdir" || exit 2
+
+# Whose logs these are. Checked after every leg: see LOG LOST in the header.
+runid="$$.$(date +%s%N).${RANDOM}"
+printf '%s\n' "$runid" > "$logdir/.run-id" || exit 2
+
+names=() cmds=() groups=() state=() note=() rcs=()
+
+for spec in "$@"; do
+    name=${spec%%:*}
+    cmd=${spec#*:}
+    # name@group: legs in one group run one after another, in order; groups
+    # run concurrently. A leg with no @group is a group of its own.
+    group=$name
+    case "$name" in *@*) group=${name#*@}; name=${name%%@*} ;; esac
+    # The name becomes a filename under $logdir, so keep it to something that
+    # cannot escape it or collide once slashes are involved.
+    if [ -z "$name" ] || [ -z "$group" ] || [ "$cmd" = "$spec" ] || [ -z "${cmd// /}" ] \
+       || [ -n "${name//[A-Za-z0-9._-]/}" ] || [ -n "${group//[A-Za-z0-9._-]/}" ]; then
+        echo "run-test-legs: bad leg \"$spec\" -- want name:command" >&2
+        exit 2
+    fi
+    names+=("$name")
+    cmds+=("$cmd")
+    groups+=("$group")
+    state+=("NOT RUN")
+    note+=("the runner never reached it")
+    rcs+=("-")
+done
+
+# ---------------------------------------------------------------------------
+# The summary. Printed exactly once, from the EXIT trap, so it appears whether
+# the run finished, was interrupted, or fell over inside this script.
+# ---------------------------------------------------------------------------
+printed=0
+
+summary() {
+    [ "$printed" = 1 ] && return 0
+    printed=1
+
+    local i w=4 bad=()
+    for i in "${!names[@]}"; do
+        [ ${#names[i]} -gt $w ] && w=${#names[i]}
+    done
+
+    printf '\n'
+    printf '================================================================================\n'
+    printf '  TEST LEG SUMMARY\n'
+    printf '================================================================================\n'
+    for i in "${!names[@]}"; do
+        printf '  %-*s  %-10s  exit %-4s  %s\n' \
+            "$w" "${names[i]}" "${state[i]}" "${rcs[i]}" "${note[i]}"
+        [ "${state[i]}" = "passed" ] || bad+=("${names[i]}")
+    done
+    printf -- '--------------------------------------------------------------------------------\n'
+    if [ ${#bad[@]} -eq 0 ]; then
+        printf '  ALL %d TEST LEGS PASSED\n' "${#names[@]}"
+    else
+        # One line, named legs, at the tail of the log: this is what a human
+        # scanning the last screenful of a long run actually sees.
+        printf '  TEST LEGS NOT PASSED (%d of %d): %s\n' \
+            "${#bad[@]}" "${#names[@]}" "${bad[*]}"
+        printf '  logs: %s\n' "$logdir"
+    fi
+    printf '================================================================================\n'
+}
+
+# The legs run in the background, one process group per leg group. An exit
+# from here -- finished, interrupted or killed -- takes whatever is still
+# running with it, so a killed `make test` leaves no dotnet behind.
+group_pids=()
+reap_children() {
+    local pid
+    for pid in "${group_pids[@]}"; do
+        kill -TERM -- "-$pid" 2>/dev/null
+    done
+}
+
+# What the markers say about a leg that has no result yet: started and not
+# finished is INCOMPLETE, never started is NOT RUN.
+note_unfinished() {
+    local i
+    for i in "${!names[@]}"; do
+        [ "${state[i]}" = "NOT RUN" ] || [ "${state[i]}" = "INCOMPLETE" ] || continue
+        if [ -e "$markdir/${names[i]}.rc" ]; then
+            state[i]="INCOMPLETE"
+            note[i]="finished (exit $(cat -- "$markdir/${names[i]}.rc" 2>/dev/null)), but the runner stopped before checking it"
+        elif [ -e "$markdir/${names[i]}.started" ]; then
+            state[i]="INCOMPLETE"
+            note[i]="started, and the runner never saw it finish"
+        fi
+    done
+}
+
+on_exit() { local rc=$?; reap_children; note_unfinished; summary; exit "$rc"; }
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# ---------------------------------------------------------------------------
+# Run them. All of them.
+# ---------------------------------------------------------------------------
+overall=0
+
+# IN PARALLEL, one background chain per group (2026-09-29: the legs took 82 s
+# one after another, most of it waiting on each other). Each leg writes only
+# its own log, and marks when it started and how it exited; the logs are
+# printed in leg order afterwards, so the transcript reads as it always did.
+# Legs that must not overlap share a group (the Makefile puts the two
+# `dotnet test` legs in one: concurrent MSBuild runs have hung here).
+markdir="$logdir/.markers"
+mkdir -p -- "$markdir" || exit 2
+
+run_group() {
+    local g=$1 i log
+    for i in "${!names[@]}"; do
+        [ "${groups[i]}" = "$g" ] || continue
+        log="$logdir/${names[i]}.log"
+        : > "$markdir/${names[i]}.started"
+        bash -c "${cmds[i]}" > "$log" 2>&1 < /dev/null
+        printf '%s\n' "$?" > "$markdir/${names[i]}.rc"
+    done
+}
+
+seen_groups=()
+for i in "${!names[@]}"; do
+    g=${groups[i]}
+    case " ${seen_groups[*]} " in *" $g "*) continue ;; esac
+    seen_groups+=("$g")
+    setsid bash -c "$(declare -p names cmds groups logdir markdir); $(declare -f run_group); run_group \"\$1\"" \
+        run-test-legs-group "$g" &
+    group_pids+=("$!")
+done
+
+for pid in "${group_pids[@]}"; do
+    wait "$pid"
+done
+group_pids=()
+
+for i in "${!names[@]}"; do
+    log="$logdir/${names[i]}.log"
+    printf '\n==> test leg: %s%s\n' "${names[i]}" \
+        "$([ "${groups[i]}" != "${names[i]}" ] && printf ' (group %s)' "${groups[i]}")"
+    printf '    %s\n\n' "${cmds[i]}"
+    [ -f "$log" ] && cat -- "$log"
+
+    # Before anything is read back out of $log or the markers: are they still
+    # ours? A second run in the same tree deletes this directory and refills
+    # it, and the counts would then be that run's. See LOG LOST in the header.
+    if [ "$(cat -- "$logdir/.run-id" 2>/dev/null)" != "$runid" ]; then
+        state[i]="LOG LOST"
+        note[i]="another run replaced $logdir while this leg was running -- its output is gone, so nothing here measured it"
+        overall=1
+        printf '\n!! leg %s: %s\n' "${names[i]}" "${note[i]}"
+        continue
+    fi
+
+    if [ ! -e "$markdir/${names[i]}.rc" ]; then
+        note_unfinished
+        overall=1
+        continue
+    fi
+    rc=$(cat -- "$markdir/${names[i]}.rc")
+
+    rcs[i]=$rc
+
+    counts='' obs=''
+    if [ -s "$log" ]; then
+        mapfile -t _ec < <(extract_all "$log")
+        counts=${_ec[0]:-}
+        obs=${_ec[1]:-}
+    fi
+
+    if [ "$rc" -ne 0 ]; then
+        state[i]="FAILED"
+        note[i]=${counts:-"no test count in its output"}
+        overall=1
+    elif [ -z "$counts" ]; then
+        # Exited 0 and reported nothing. See the header: this is a failure.
+        state[i]="NO TESTS"
+        note[i]="exited 0 but reported no tests -- see $log"
+        overall=1
+    else
+        floors=$(extract_floors "$log")
+        fmsg=$(check_floors "$floors" "$obs"); frc=$?
+        roster=$(extract_roster "$log")
+        if [ -n "$roster" ]; then
+            rmsg=$(check_roster "$roster" "$(roster_seen "$log")" "$floors")
+            if [ -n "$rmsg" ]; then
+                fmsg=${fmsg:+$fmsg$'\n'}$rmsg
+                [ "$frc" -eq 0 ] && frc=1
+            fi
+        fi
+        if [ "$frc" -eq 2 ]; then
+            state[i]="NO FLOOR"
+            note[i]="$counts -- and no [leg-floor] line, so nothing said how much of it there should have been"
+            overall=1
+        elif [ "$frc" -ne 0 ]; then
+            # Printed here as well as in the summary: the summary gets one
+            # line per leg, and a leg may miss more than one floor.
+            printf '\n!! leg %s ran less than the tree says it has:\n' "${names[i]}"
+            printf '%s\n' "$fmsg" | sed 's/^/!!   /'
+            printf '!! see tools/leg-floor for where that expectation comes from.\n'
+            state[i]="SHORT RUN"
+            note[i]=$(printf '%s' "$fmsg" | paste -sd';' -)
+            overall=1
+        else
+            state[i]="passed"
+            note[i]=$counts
+        fi
+    fi
+done
+
+summary
+exit "$overall"

@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""tools/probes/client/c2-beams/select-beams -- make the beam oracle fixture.
+
+    select-beams RAW_PROBE_LOG OUT_TSV [--draw-every 30] [--update-every 8]
+
+The view_beams.diff/beamdraw.diff probes log every beam creation (BI/BR/BS),
+allocation and free (BA/BF), every frame's update (UF, then UB/UBT per beam)
+with the engine answers it read (CB box culls, EP entity positions, KD kills),
+and every draw: the view (DV), the state before and after (DB/DA), the model
+reads (MD), and what beamdraw.cpp emitted (ST texture binds, HD HDR scales,
+SG/SN beam-segment strips, MB/MV mesh vertices) with the answers it read (PV
+pixel visibility, RB ring box culls, SC debug-overlay screen positions).
+
+Every INPUT row is kept, so the replay runs every frame and every draw that
+changes state. OUTPUT rows are sampled: a draw is kept whole (marked DM ... 1)
+on its beam's first draw and every DRAW_EVERY-th after; the draws of the beam
+types whose draw changes state (a ring re-noises through the shared random
+stream, a follow beam grows and ages its trail) are kept as inputs only
+(DM ... 0); every other draw is dropped. UB rows are kept for every
+UPDATE_EVERY-th frame and the three frames after a creation.
+
+It prints what it kept per tag and fails when an arm is missing from the
+selection (a halo, a disk, a cylinder, a ring, a follow, a tesla, a laser, sine
+noise, a fade).
+"""
+import argparse
+import collections
+import sys
+
+INPUT_TAGS = {"BI", "BR", "BS", "BA", "BF", "UF", "CB", "EP", "KD", "CL", "MD"}
+DRAW_TAGS = {"DV", "DB", "DBT", "ST", "HD", "SG", "SN", "MB", "MV", "RB", "PV", "SC", "DE", "DA", "DAT"}
+DRAW_INPUTS = {"DV", "MD", "PV", "RB", "SC", "DE"}
+STATEFUL_DRAW_TYPES = {"4", "5", "7"}   # TE_BEAMFOLLOW, TE_BEAMRING, TE_BEAMRINGPOINT
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("raw")
+    ap.add_argument("out")
+    ap.add_argument("--draw-every", type=int, default=30)
+    ap.add_argument("--update-every", type=int, default=8)
+    a = ap.parse_args()
+
+    out = []
+    kept = collections.Counter()
+    draws = collections.Counter()
+    frame = -1
+    created_at = -100
+    group = None
+
+    def flush():
+        nonlocal group
+        if group is None:
+            return
+        rows = group
+        group = None
+        db = next((r for r in rows if r[0] == "DB"), None)
+        if db is None:
+            return
+        bid, btype = db[1], db[2]
+        draws[bid] += 1
+        n = draws[bid]
+        full = n == 1 or n % a.draw_every == 0
+        if full:
+            keep = rows
+        elif btype in STATEFUL_DRAW_TYPES:
+            keep = [r for r in rows if r[0] in DRAW_INPUTS]
+        else:
+            return
+        out.append(["DM", bid, btype, "1" if full else "0"])
+        kept["DM"] += 1
+        for r in keep:
+            out.append(r)
+            kept[r[0]] += 1
+
+    for line in open(a.raw, errors="replace"):
+        c = line.rstrip("\n").split("\t")
+        tag = c[0]
+        if tag not in INPUT_TAGS and tag not in DRAW_TAGS and tag not in ("UB", "UBT"):
+            continue
+        if tag == "DV":
+            flush()
+            group = [c]
+            continue
+        if group is not None and tag in DRAW_TAGS | {"MD"}:
+            group.append(c)
+            if tag == "DA":
+                pass
+            continue
+        flush()
+        if tag == "UF":
+            frame += 1
+        if tag == "BI":
+            created_at = frame
+        if tag in ("UB", "UBT"):
+            if frame % a.update_every != 0 and frame - created_at > 3:
+                continue
+        out.append(c)
+        kept[tag] += 1
+    flush()
+
+    print(" ".join("%s=%d" % (t, kept[t]) for t in sorted(kept)))
+    types = collections.Counter(r[2] for r in out if r[0] == "DM" and r[3] == "1")
+    flags = [int(r[3]) for r in out if r[0] == "DB"]
+    halo = any(r[0] == "PV" for r in out)
+    print("full draws by type: " + " ".join("%s=%d" % kv for kv in sorted(types.items())))
+    bad = [name for name, ok in [
+        ("points", types["0"] > 0), ("disk", types["2"] > 0), ("cylinder", types["3"] > 0),
+        ("follow", types["4"] > 0), ("ringpoint", types["7"] > 0), ("laser", types["8"] > 0),
+        ("tesla", types["9"] > 0), ("halo", halo),
+        ("sine noise", any(f & 0x10 for f in flags)), ("fade in", any(f & 0x4 for f in flags)),
+        ("fade out", any(f & 0x8 for f in flags)),
+        ("strips", kept["SN"] > 0), ("meshes", kept["MV"] > 0)] if not ok]
+    if bad:
+        sys.exit("select-beams: the selection lost " + ", ".join(bad))
+    with open(a.out, "w") as f:
+        f.write("# beam oracle: see README-beam-stock.md. Rows as the view_beams.diff/beamdraw.diff probes wrote them.\n")
+        for r in out:
+            f.write("\t".join(r) + "\n")
+    print("wrote %d rows to %s" % (len(out), a.out))
+
+
+if __name__ == "__main__":
+    main()

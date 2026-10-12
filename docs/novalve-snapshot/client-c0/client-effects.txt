@@ -1,0 +1,10 @@
+# pose [-2739.0, 2563.0, 143.0] [0.0, 210.0, 0.0], window 6s
+dissolve draws	still
+dust motes	still
+dust puffs	still
+gauss puffs	still
+impact blood	still
+impact dust	still
+impact flecks	still
+rope draws	moved
+sprite quads	moved

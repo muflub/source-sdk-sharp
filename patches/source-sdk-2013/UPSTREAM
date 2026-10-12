@@ -1,0 +1,9 @@
+# The pin for tools/sdk-upstream (make sdk-upstream): Valve's repository, the
+# upstream commit the series applies to, and the commit `git am` makes from
+# them. tools/setup accepts `result` as ROOT with no flag (check_root).
+# Re-pin result only after regenerating the series on purpose:
+# tools/sdk-upstream --write-result DIR.
+url=https://github.com/ValveSoftware/source-sdk-2013
+branch=master
+base=be57e3d01ac7d7aa6a2cacbfef187c0b46616db0
+result=ef93ea43c8732eb82ee88612c349cd03c95eaf31

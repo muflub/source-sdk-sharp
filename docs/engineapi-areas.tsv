@@ -1,0 +1,528 @@
+slot	struct	interface	kind	base	side	suppress	body	managed	client_body
+AcquireInterface	EngineApi	IShimRoot	root		both	-	SourceSharp_AcquireInterface	int, byte*, int*, byte*, int, void*	
+GetCurrentTime	EngineApi	IShimEngine	shared		both	S	SourceSharp_GetCurrentTime	float	
+GetGlobalVarsPtr	EngineApi	IShimEngine	shared		both	-	SourceSharp_GetGlobalVarsPtr	nint	
+FilesGameFileSize	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesGameFileSize	byte*, int	SourceSharp_ClientFilesGameFileSize
+FilesReadGameFile	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesReadGameFile	byte*, byte*, int, int	SourceSharp_ClientFilesReadGameFile
+FilesSizeOnPath	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesSizeOnPath	byte*, byte*, int	
+FilesReadOnPath	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesReadOnPath	byte*, byte*, void*, int, int	
+SoundPatchEmit	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchEmit	int, float, float, int, float, int, void	SourceSharp_ClientSoundPatchEmit
+SoundPatchStop	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchStop	int, void	SourceSharp_ClientSoundPatchStop
+SoundPatchState	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchState	int, int*, int*, void	SourceSharp_ClientSoundPatchState
+SoundPatchFree	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchFree	int, void	SourceSharp_ClientSoundPatchFree
+SoundScriptParameters	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundScriptParameters	byte*, float*, int	SourceSharp_ClientSoundScriptParameters
+SoundPatchCreate	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchCreate	uint, int, byte*, int, int	SourceSharp_ClientSoundPatchCreate
+SurfaceScrapeSound	EngineApi	IShimEngine	shared		both	-	SourceSharp_SurfaceScrapeSound	int, int, byte*, int, int	SourceSharp_ClientSurfaceScrapeSound
+Msg	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleMsg	byte*, void	
+Warning	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleWarning	byte*, void	
+RegisterConCommand	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRegisterConCommand	byte*, byte*, int, int	
+RegisterConVar	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRegisterConVar	byte*, byte*, byte*, int, int, float, int, float, int	
+SetConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleSetConVarValue	int, byte*, void	
+GetConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleGetConVarValue	int, byte*, int, void	
+FindConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleFindConVarValue	byte*, byte*, int, int	
+SetNamedConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleSetNamedConVarValue	byte*, byte*, void	
+RevertNamedConVar	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRevertNamedConVar	byte*, void	
+ConsoleSnapshot	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshot	int	
+ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshotEntry	int, ConsoleEntry*, int	
+ExecuteServerCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	SourceSharp_ExecuteServerCommand	byte*, void	
+SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	SourceSharp_SendClientCommand	uint, byte*, void	
+GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	SourceSharp_GetCommandClientHandle	uint	
+ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	SourceSharp_ListenForGameEvent	byte*, void	
+EventGetInt	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetInt	IntPtr, byte*, int	
+EventGetFloat	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetFloat	IntPtr, byte*, float	
+EventGetBool	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetBool	IntPtr, byte*, int	
+EventGetString	EngineApi	IShimEvents	shared		both	-	SourceSharp_EventGetString	IntPtr, byte*, byte*	
+EventCreate	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventCreate	byte*, IntPtr	
+EventSetInt	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetInt	IntPtr, byte*, int, void	
+EventSetFloat	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetFloat	IntPtr, byte*, float, void	
+EventSetBool	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetBool	IntPtr, byte*, int, void	
+EventSetString	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventSetString	IntPtr, byte*, byte*, void	
+EventFire	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventFire	IntPtr, int	
+EventFree	EngineApi	IShimEventsServer	ext	IShimEvents	server	-	SourceSharp_EventFree	IntPtr, void	
+StringTableFind	EngineApi	IShimStringTables	shared		both	-	SourceSharp_StringTableFind	byte*, int	
+StringTableFindStringIndex	EngineApi	IShimStringTables	shared		both	-	SourceSharp_StringTableFindStringIndex	int, byte*, int	
+StringTableGetString	EngineApi	IShimStringTables	shared		both	-	SourceSharp_StringTableGetString	int, int, byte*, int, int	
+StringTableGetNumStrings	EngineApi	IShimStringTables	shared		both	-	SourceSharp_StringTableGetNumStrings	int, int	
+StringTableCreate	EngineApi	IShimStringTablesServer	ext	IShimStringTables	server	-	SourceSharp_StringTableCreate	byte*, int, int	
+StringTableAddString	EngineApi	IShimStringTablesServer	ext	IShimStringTables	server	-	SourceSharp_StringTableAddString	int, byte*, int	
+NetHierarchyDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetHierarchyDeclare	int, int	
+NetPublishType	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetPublishType	byte*, int, uint, int, uint*, int	
+NetTierInfo	EngineApi	IShimNetwork	shared		both	-	SourceSharp_NetTierInfo	int, int, byte**, int*, int*, int*, int*, int	
+WorldNetDeclare	EngineApi	IShimNetwork	shared		both	-	SourceSharp_WorldNetDeclare	int, int	
+EntityGetDataBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	S	SourceSharp_EntityGetDataBlob	uint, int*, void*	
+EntityBindBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityBindBlob	uint, int*, EntitySlot**, uint*, void*	
+EntityMarkStateChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityMarkStateChanged	uint, void	
+EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityMarkBlockChanged	uint, int, void	
+EntityPayloadAgreement	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityPayloadAgreement	uint, int*, int*, int	
+EntityGetEngineBlock	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntityGetEngineBlock	uint, int*, void*	
+EntitySetTransmitAlways	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	SourceSharp_EntitySetTransmitAlways	uint, int, void	
+ModelDescriptor	EngineApi	IShimModels	shared		both	-	SourceSharp_ModelDescriptor	int, byte*, int, int	
+EntityGetModelName	EngineApi	IShimModels	shared		both	-	SourceSharp_EntityGetModelName	uint, byte*, int, void	SourceSharp_ClientEntityGetModelName
+EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	SourceSharp_EntitiesInvalidateMdlCacheAll	int	SourceSharp_ClientEntitiesInvalidateMdlCacheAll
+StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	SourceSharp_StandaloneSetModelScale	uint, float, void	
+EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	SourceSharp_EntitySetModel	uint, byte*, void	
+EntitySetSequence	EngineApi	IShimModelsServer	ext	IShimModels	server	-	SourceSharp_EntitySetSequence	uint, int, void	
+EntityGetTextureFrame	EngineApi	IShimModelsServer	ext	IShimModels	server	S	SourceSharp_EntityGetTextureFrame	uint, int	
+EntitySetTextureFrame	EngineApi	IShimModelsServer	ext	IShimModels	server	S	SourceSharp_EntitySetTextureFrame	uint, int, void	
+PrecacheModel	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheModel	byte*, int	
+PrecacheSound	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheSound	byte*, void	
+PrecacheDecal	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheDecal	byte*, int	
+PrecacheMaterial	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheMaterial	byte*, void	
+PrecacheParticleSystem	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheParticleSystem	byte*, void	
+MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, float*, float*, float*, int, int, MoveTraceBlob*, void	
+MovePointContents	EngineApi	IShimMovement	shared		both	-	SourceSharp_MovePointContents	float*, int, int	
+MoveSurface	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveSurface	int, MoveSurfaceBlob*, int	
+MoveEffect	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveEffect	int, float*, float, int, int	
+CurrentGravity	EngineApi	IShimMovement	shared		both	-	SourceSharp_CurrentGravity	float	
+RegisterMovementParams	EngineApi	IShimMovement	shared		both	-	SourceSharp_RegisterMovementParams	MovementParams*, void	
+PlayerRunMove	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerRunMove	uint, int, int, int	
+PlayerShadowFacts	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowFacts	uint, PlayerShadowFacts*, int	
+PlayerShadowAdopt	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowAdopt	uint, nint, nint, nint, int	
+PlayerShadowRelease	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowRelease	uint, void	
+PlayerShadowCommit	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowCommit	uint, int, int, void	
+PlayerSetMoveType	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetMoveType	uint, int, int	
+PlayerForceButtons	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerForceButtons	uint, int, int, void	
+PlayerGetButtons	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerGetButtons	uint, int	
+PlayerSetButtonsDisabled	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetButtonsDisabled	uint, int, int, void	
+PlayerSetLaggedMovement	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetLaggedMovement	uint, float, void	
+PlayerSetAllowAutoMovement	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetAllowAutoMovement	uint, int, void	
+PlayerSetSlowMovement	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetSlowMovement	uint, int, void	
+PlayerSetMovementConstraint	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetMovementConstraint	uint, float*, float, float, float, void	
+PlayerSetFrozen	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetFrozen	uint, int, void	
+PointContents	EngineApi	IShimWorld	shared		both	-	SourceSharp_PointContents	float*, int	
+SurfacePropGameMaterial	EngineApi	IShimWorld	shared		both	-	SourceSharp_SurfacePropGameMaterial	int, int	
+TraceLine	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLine	float*, float*, int, uint, float*, float*, float*, uint*, int	
+TraceHull	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceHull	float*, float*, float*, float*, int, uint, uint*, int*, int	
+TraceLineSurface	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLineSurface	float*, float*, int, uint, float*, float*, float*, uint*, int*, int*, int	
+TracePlayerAim	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TracePlayerAim	uint, float, float*, uint	
+AngleVectorsFromForward	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AngleVectorsFromForward	float*, float*, float*, void	
+WaterSurfaceBelow	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_WaterSurfaceBelow	float*, float*, int*, int	
+SurfacePropIndex	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_SurfacePropIndex	byte*, int	
+EntityModelSurfaceProp	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_EntityModelSurfaceProp	uint, int	
+InvisibleRangeReach	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_InvisibleRangeReach	int	
+EngineLightStyle	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_EngineLightStyle	int, byte*, void	
+SetSkyboxParams	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_SetSkyboxParams	SkyboxParams*, void	
+WorldChapterTitle	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_WorldChapterTitle	byte*	
+AreaPortalCreate	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalCreate	int, int, uint	
+AreaPortalDestroy	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalDestroy	uint, void	
+AreaPortalSetOpen	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalSetOpen	uint, int, void	
+AreaPortalSetWindow	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalSetWindow	uint, uint, float, void	
+EntityTraceHull	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_EntityTraceHull	uint, float*, float*, float*, float*, int, int, float*, int	
+EntityGetIndex	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetIndex	uint, int	SourceSharp_ClientEntityGetIndex
+EntityGetOrigin	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntityGetOrigin	uint, float*, void	SourceSharp_ClientEntityGetOrigin
+EntityGetAngles	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetAngles	uint, float*, void	SourceSharp_ClientEntityGetAngles
+EntitySetSkin	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntitySetSkin	uint, int, void	
+EntityIsValid	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntityIsValid	uint, int	SourceSharp_ClientEntityIsValid
+EntityIsPlayer	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityIsPlayer	uint, int	
+EntityGetClassName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntityGetClassName	uint, byte*, int, void	
+EntityGetName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntityGetName	uint, byte*, int, void	
+EntityGetState	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetState	uint, int*, int	
+FindEntityByClassname	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_FindEntityByClassname	uint, byte*, uint	
+FindBaseEntityByName	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_FindBaseEntityByName	byte*, uint	
+EntitiesInSphere	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitiesInSphere	float*, float, uint*, int, int	
+EntitySetKeyValue	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetKeyValue	uint, byte*, byte*, int	
+EntityGetSpawnOrigin	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetSpawnOrigin	uint, float*, void	
+EntityGetSpawnAngles	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetSpawnAngles	uint, float*, void	
+EntityGetSpawnFlags	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetSpawnFlags	uint, int	
+EntitySetSpawnFlags	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetSpawnFlags	uint, int, void	
+EntityGetHealth	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetHealth	uint, int	
+EntitySetHealth	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntitySetHealth	uint, int, void	
+EntityGetArmor	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntityGetArmor	uint, int	
+EntitySetArmor	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntitySetArmor	uint, int, void	
+EntitySetVisible	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetVisible	uint, int, void	
+EntitySetOwner	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	S	SourceSharp_EntitySetOwner	uint, uint, void	
+EntityMakePickup	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntityMakePickup	uint, float, float, float, void	
+EntitySetPickupEnabled	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitySetPickupEnabled	uint, int, void	
+EntityDetectInSkybox	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntityDetectInSkybox	uint, int	
+EntitiesSdkPlayerSkyboxArea	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitiesSdkPlayerSkyboxArea	int, int*, int	
+EntitiesStandalonePlayerSkyboxArea	EngineApi	IShimEntitiesServer	ext	IShimEntities	server	-	SourceSharp_EntitiesStandalonePlayerSkyboxArea	int, int*, int	
+CreateEntity	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_CreateEntity	byte*, uint	
+EntitySpawn	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntitySpawn	uint, void	
+EntityRemove	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityRemove	uint, void	
+DestroyShell	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_DestroyShell	uint*, int, void	
+MapSpawnCreate	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_MapSpawnCreate	byte*, byte*, int, uint	
+TemplateCapture	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_TemplateCapture	byte*, int, int*, float*, float*, int, int	
+EntitiesPurgeMapRefs	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntitiesPurgeMapRefs	void	
+EntitiesCleanupDeleteList	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntitiesCleanupDeleteList	void	
+RegisterScriptedEntity	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_RegisterScriptedEntity	byte*, byte**, int, int, void	
+RegisterWeaponEntity	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_RegisterWeaponEntity	byte*, void	
+RegisterClassOps	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_RegisterClassOps	byte*, uint, void	
+EntityDispatch	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityDispatch	uint, int, OpArgs*, int	
+EntityFactoryCount	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryCount	int	
+EntityFactoryNameAt	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryNameAt	int, byte*	
+EntityFactoryRefusalCount	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryRefusalCount	int	
+EntityFactoryRefusalNameAt	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryRefusalNameAt	int, byte*	
+EntityFactoryRefusalTimesAt	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_EntityFactoryRefusalTimesAt	int, int	
+TemplateSpawnKeyed	EngineApi	IShimEntityLifecycle	server		server	-	SourceSharp_TemplateSpawnKeyed	byte*, byte*, int*, float*, float*, int, uint*, int, int	
+EntitySetOrigin	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetOrigin	uint, float*, void	
+EntitySetAngles	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetAngles	uint, float*, void	
+EntityTeleport	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityTeleport	uint, float*, float*, int, void	
+EntityGetVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetVelocity	uint, float*, void	
+EntitySetVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetVelocity	uint, float*, void	
+EntityAddBaseVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityAddBaseVelocity	uint, float*, void	
+EntityGetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetAngularVelocity	uint, float*, void	
+EntitySetAngularVelocity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntitySetAngularVelocity	uint, float*, void	
+EntityGetEyePosition	EngineApi	IShimTransform	server		server	S	SourceSharp_EntityGetEyePosition	uint, float*, void	
+EntityGetEyeAngles	EngineApi	IShimTransform	server		server	S	SourceSharp_EntityGetEyeAngles	uint, float*, void	
+EntityGetWorldSpaceCenter	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetWorldSpaceCenter	uint, float*, void	
+EntityMoveToPosition	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityMoveToPosition	uint, float*, float, void	
+EntityMoveToAngles	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityMoveToAngles	uint, float*, float, void	
+EntityStopMoving	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityStopMoving	uint, void	
+EntityGetGravity	EngineApi	IShimTransform	server		server	-	SourceSharp_EntityGetGravity	uint, float	
+EntitySetGravity	EngineApi	IShimTransform	server		server	S	SourceSharp_EntitySetGravity	uint, float, void	
+EntitySetFriction	EngineApi	IShimTransform	server		server	S	SourceSharp_EntitySetFriction	uint, float, void	
+EntitySetBounce	EngineApi	IShimTransform	server		server	S	SourceSharp_EntitySetBounce	uint, int, void	
+EntitySetParent	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntitySetParent	uint, uint, int, int	
+EntityGetParent	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetParent	uint, uint	
+EntityGetParentAttachment	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetParentAttachment	uint, int	
+EntitySetLocalTransform	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntitySetLocalTransform	uint, float*, float*, void	
+EntityGetLocalTransform	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetLocalTransform	uint, float*, float*, void	
+EntityParentProbe	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityParentProbe	uint, int	
+EntityGetAttachmentFrame	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetAttachmentFrame	uint, int, float*, float*, int	
+EntityLookupAttachmentAny	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityLookupAttachmentAny	uint, byte*, int	
+RegisterCollisionRules	EngineApi	IShimCollision	shared		both	-	SourceSharp_RegisterCollisionRules	CollisionRulesBlob*, void	
+EntityGetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetBounds	uint, float*, float*, void	
+EntityGetBoundsSize	EngineApi	IShimCollisionServer	ext	IShimCollision	server	S	SourceSharp_EntityGetBoundsSize	uint, float*, void	
+EntitySetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetBounds	uint, float*, float*, void	
+EntityGetSolidType	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetSolidType	uint, int	
+EntitySetSolidity	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetSolidity	uint, int, int, void	
+EntityGetSolidFlags	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetSolidFlags	uint, int	
+EntitySetNotSolid	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetNotSolid	uint, int, void	
+EntitySetBrushSolidity	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetBrushSolidity	uint, int, void	
+EntityGetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetCollisionGroup	uint, int	
+EntitySetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetCollisionGroup	uint, int, void	
+EntityOverlapReport	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityOverlapReport	uint*, int, int	
+EntityDestroyPhysics	EngineApi	IShimPhysics	server		server	-	SourceSharp_EntityDestroyPhysics	uint, void	
+EntitySetForceServerRagdoll	EngineApi	IShimPhysics	server		server	-	SourceSharp_EntitySetForceServerRagdoll	uint, int, void	
+EntityPhysicsObject	EngineApi	IShimPhysics	server		server	S	SourceSharp_EntityPhysicsObject	uint, nint	
+PhysicsEnvironmentPointer	EngineApi	IShimPhysics	server		server	S	SourceSharp_PhysicsEnvironmentPointer	nint	
+PhysicsWorldObject	EngineApi	IShimPhysics	server		server	S	SourceSharp_PhysicsWorldObject	nint	
+PhysicsUpdateOwners	EngineApi	IShimPhysics	server		server	-	SourceSharp_PhysicsUpdateOwners	void**, float*, int, uint*, int	
+EntitySwapPhysicsObject	EngineApi	IShimPhysics	server		server	-	SourceSharp_EntitySwapPhysicsObject	uint, nint, void**, int	
+ApplyDamage	EngineApi	IShimDamage	server		server	-	SourceSharp_ApplyDamage	uint, uint, float, int, void	
+EntityTakeDamage	EngineApi	IShimDamage	server		server	-	SourceSharp_EntityTakeDamage	uint, uint, float, int, float*, float*, int, void	
+RadiusDamage	EngineApi	IShimDamage	server		server	-	SourceSharp_RadiusDamage	float*, float, float, int, uint, void	
+ExplosionDamage	EngineApi	IShimDamage	server		server	-	SourceSharp_ExplosionDamage	float*, float, float, int, uint, uint, uint, float, void	
+EntitySetTakeDamageMode	EngineApi	IShimDamage	server		server	-	SourceSharp_EntitySetTakeDamageMode	uint, int, int	
+EntityIgnite	EngineApi	IShimDamage	server		server	-	SourceSharp_EntityIgnite	uint, float, void	
+EntityDissolve	EngineApi	IShimDamage	server		server	-	SourceSharp_EntityDissolve	uint, int, float, float*, int	
+ApplyDamageForce	EngineApi	IShimDamage	server		server	-	SourceSharp_ApplyDamageForce	uint, uint, float, int, float*, float*, void	
+RegisterGameRulesPolicy	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterGameRulesPolicy	GameRulesPolicyBlob*, void	
+RegisterDamageRules	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterDamageRules	DamageRuleMasks*, void	
+EndRound	EngineApi	IShimGameRules	server		server	-	SourceSharp_EndRound	void	
+GetPlayerHandle	EngineApi	IShimPlayers	server		server	S	SourceSharp_GetPlayerHandle	int, uint	
+GetPlayerUserId	EngineApi	IShimPlayers	server		server	-	SourceSharp_GetPlayerUserId	uint, int	
+GetPlayerTeam	EngineApi	IShimPlayers	server		server	S	SourceSharp_GetPlayerTeam	uint, int	
+AddPlayerScore	EngineApi	IShimPlayers	server		server	-	SourceSharp_AddPlayerScore	uint, int, int, void	
+PlayerIsAlive	EngineApi	IShimPlayers	server		server	S	SourceSharp_PlayerIsAlive	uint, int	
+PlayerRespawn	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerRespawn	uint, void	
+PlayerPlaceAtSpawn	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerPlaceAtSpawn	uint, float*, float*, void	
+PlayerGetObserverMode	EngineApi	IShimPlayers	server		server	S	SourceSharp_PlayerGetObserverMode	uint, int	
+PlayerSetObserverMode	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetObserverMode	uint, int, void	
+PlayerSetViewEntity	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetViewEntity	uint, uint, void	
+PlayerSetFov	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetFov	uint, uint, int, float, void	
+PlayerSnapEyeAngles	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSnapEyeAngles	uint, float*, void	
+GetPlayerShootOrigin	EngineApi	IShimPlayers	server		server	-	SourceSharp_GetPlayerShootOrigin	uint, float*, void	
+PlayerSetSoundscape	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetSoundscape	uint, int, int, int, float*, void	
+ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsStandalonePlayerEarPosition	int, float*, int	
+ClientsSdkPlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsSdkPlayerEarPosition	int, float*, int	
+PlayerBoxInPvs	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerBoxInPvs	uint, float*, float*, int	
+RegisterAmmoType	EngineApi	IShimWeapons	shared		both	-	SourceSharp_RegisterAmmoType	byte*, int, int, int, float, float, void	
+RegisterWeaponType	EngineApi	IShimWeapons	shared		both	-	SourceSharp_RegisterWeaponType	byte*, float, float, int, void	
+WeaponGetState	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponGetState	uint, WeaponState*, int	
+WeaponIdle	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponIdle	uint, void	
+WeaponSetNextPrimaryAttack	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	S	SourceSharp_WeaponSetNextPrimaryAttack	uint, float, void	
+WeaponSetNextSecondaryAttack	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	S	SourceSharp_WeaponSetNextSecondaryAttack	uint, float, void	
+WeaponSetClip	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	S	SourceSharp_WeaponSetClip	uint, int, void	
+WeaponSetInReload	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	S	SourceSharp_WeaponSetInReload	uint, int, void	
+WeaponTakeAmmo	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponTakeAmmo	uint, int, int	
+WeaponTakeSecondaryAmmo	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponTakeSecondaryAmmo	uint, int, int	
+WeaponPlaySound	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponPlaySound	uint, int, void	
+WeaponSendAnim	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponSendAnim	uint, int, void	
+WeaponAnimDuration	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	S	SourceSharp_WeaponAnimDuration	uint, int, float	
+WeaponFireBullets	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponFireBullets	uint, int, float, void	
+WeaponMuzzleFlash	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponMuzzleFlash	uint, void	
+WeaponAddViewKick	EngineApi	IShimWeaponsServer	ext	IShimWeapons	server	-	SourceSharp_WeaponAddViewKick	uint, void	
+GivePlayerItem	EngineApi	IShimInventory	server		server	-	SourceSharp_GivePlayerItem	uint, byte*, int	
+GivePlayerAmmo	EngineApi	IShimInventory	server		server	-	SourceSharp_GivePlayerAmmo	uint, int, byte*, int	
+GetPlayerActiveWeapon	EngineApi	IShimInventory	server		server	-	SourceSharp_GetPlayerActiveWeapon	uint, byte*, int, void	
+PlayerGetActiveWeaponEntity	EngineApi	IShimInventory	server		server	-	SourceSharp_PlayerGetActiveWeaponEntity	uint, uint	
+PlayerGetWeaponEntity	EngineApi	IShimInventory	server		server	-	SourceSharp_PlayerGetWeaponEntity	uint, int, uint	
+PlayerGetViewModelEntity	EngineApi	IShimInventory	server		server	-	SourceSharp_PlayerGetViewModelEntity	uint, uint	
+PlayerDropActiveWeapon	EngineApi	IShimInventory	server		server	-	SourceSharp_PlayerDropActiveWeapon	uint, float*, int	
+PlayerHolsterActiveWeapon	EngineApi	IShimInventory	server		server	-	SourceSharp_PlayerHolsterActiveWeapon	uint, int	
+PlayerDeployLastWeapon	EngineApi	IShimInventory	server		server	-	SourceSharp_PlayerDeployLastWeapon	uint, int	
+PlayerRemoveAllItems	EngineApi	IShimInventory	server		server	-	SourceSharp_PlayerRemoveAllItems	uint, int, void	
+EntityEmitSound	EngineApi	IShimSound	server		server	-	SourceSharp_EntityEmitSound	uint, byte*, void	
+EntityStopSound	EngineApi	IShimSound	server		server	-	SourceSharp_EntityStopSound	uint, byte*, void	
+EmitSoundAtPosition	EngineApi	IShimSound	server		server	-	SourceSharp_EmitSoundAtPosition	byte*, float*, void	
+EmitAmbientSound	EngineApi	IShimSound	server		server	-	SourceSharp_EmitAmbientSound	int, float*, byte*, float, int, int, int, void	
+EmitWorldSoundScript	EngineApi	IShimSound	server		server	-	SourceSharp_EmitWorldSoundScript	byte*, float*, int, float, int	
+TempEntRegister	EngineApi	IShimEffects	shared		both	-	SourceSharp_TempEntRegister	TeClassDesc*, int	SourceSharp_TempEntRegisterClient
+TempEntPlayback	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_TempEntPlayback	int, void*, int, TeFilterDesc*, float, void	
+EffectDispatchIndex	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_EffectDispatchIndex	byte*, int	
+ExplosionEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ExplosionEffect	float*, int, float, int, int, int, int, void	
+ViewPunch	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ViewPunch	float*, float*, float, int, void	
+SparkEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_SparkEffect	float*, int, int, int, float*, void	
+ImpactEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ImpactEffect	float*, float*, int, int, uint, void	
+MuzzleFlashEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_MuzzleFlashEffect	float*, float*, float, int, void	
+TracerEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_TracerEffect	float*, float*, void	
+BubbleEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_BubbleEffect	uint, int, float, void	
+FunnelEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_FunnelEffect	float*, int, int, void	
+DustEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_DustEffect	float*, float*, float, float, void	
+SplashEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_SplashEffect	float*, float, int, void	
+BloodEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_BloodEffect	float*, float*, int, float, int, int, void	
+BloodDecal	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_BloodDecal	float*, float*, int, int	
+PaintDecal	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_PaintDecal	int, float*, float*, float, int, int, int	
+ShootGib	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ShootGib	byte*, GibShot*, int	
+FireEffectCreate	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_FireEffectCreate	int, float*, float, int, uint	
+FireEffectScale	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_FireEffectScale	uint, float, float, void	
+FireEffectEnable	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_FireEffectEnable	uint, int, void	
+DrawWorldText	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawWorldText	float*, int, byte*, float, int, int, int, int, void	
+DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	
+AddLineOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_AddLineOverlay	float*, float*, int, int, int, int, float, void	
+OverlayCounts	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_OverlayCounts	uint*, uint*, uint*, uint*, int*, void	
+OverlayResetCounts	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_OverlayResetCounts	void	
+GetLocalPlayerHealth	EngineApi	IShimHudClient	client		client	S	SourceSharp_GetLocalPlayerHealth	int	
+GetLocalPlayerIndex	EngineApi	IShimHudClient	client		client	-	SourceSharp_GetLocalPlayerIndex	int	
+HudLocalise	EngineApi	IShimHudClient	client		client	-	SourceSharp_HudLocalise	byte*, byte*, int, void	
+HudLookupBinding	EngineApi	IShimHudClient	client		client	-	SourceSharp_HudLookupBinding	byte*, byte*, int, void	
+HudTextMessageGet	EngineApi	IShimHudClient	client		client	-	SourceSharp_HudTextMessageGet	byte*, TextMessage*, int	
+ClientGetUserCmd	EngineApi	IShimPredictionClient	client		client	-	SourceSharp_ClientGetUserCmd	int, UserCmd*, int	
+ClientPlayerPredictionDrive	EngineApi	IShimPredictionClient	client		client	-	SourceSharp_ClientPlayerPredictionDrive	uint, ClientPlayerViewBlob*, void	
+MoveBeginClientCommand	EngineApi	IShimPredictionClient	client		client	-	SourceSharp_ClientBeginMoveCommand	uint, int, MoveStateBlob*, int	
+MoveEndClientCommand	EngineApi	IShimPredictionClient	client		client	-	SourceSharp_ClientEndMoveCommand	int, int*, void	
+ClientEntityModelBounds	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_ClientEntityModelBounds	int, float*, float*, float*, int	
+ClientEntityOrigin	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_ClientEntityOrigin	int, float*, int	
+ClientWindSpeed	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_ClientWindSpeed	float, float*, void	
+TempEntPoolAddVisible	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolAddVisible	int, int	
+TempEntPoolCapacity	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolCapacity	int	
+TempEntPoolCreate	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolCreate	int, float*, int, int, int	
+TempEntPoolDestroy	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolDestroy	int, void	
+TempEntPoolReadLife	EngineApi	IShimTempEntPoolClient	client		client	S	SourceSharp_TempEntPoolReadLife	int, TempEntLife*, int	
+TempEntPoolReadStatics	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolReadStatics	int, TempEntStatics*, int	
+TempEntPoolReadTransform	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolReadTransform	int, TempEntTransform*, int	
+TempEntPoolSimulate	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolSimulate	int, float, int, int	
+TempEntPoolWriteLife	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteLife	int, TempEntLife*, int	
+TempEntPoolWriteSpawn	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteSpawn	int, TempEntSpawn*, int	
+TempEntPoolWriteTransform	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteTransform	int, TempEntTransform*, int	
+ClientDecalBrushModel	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalBrushModel	int, float*, int, void	
+ClientDecalIndexFromName	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalIndexFromName	byte*, int	
+ClientDecalNameFromIndex	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalNameFromIndex	int, byte*, int, int	
+ClientDecalShoot	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalShoot	int, int, float*, float*, int, void	
+ClientDecalStaticProp	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalStaticProp	float*, float*, int, int, void	
+ClientDecalStudioModel	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalStudioModel	int, float*, float*, int, void	
+ClientEnergySplash	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientEnergySplash	float*, float*, int, void	
+ClientEntityModelType	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientEntityModelType	int, int	
+ClientExplosionFireball	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientExplosionFireball	float*, void	
+ClientIsLowViolence	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientIsLowViolence	int	
+ClientMetalSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientMetalSparks	float*, float*, void	
+ClientMuzzleFlash	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientMuzzleFlash	float*, float*, float, int, void	
+ClientPlayerDecalShoot	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientPlayerDecalShoot	float*, int, int, void	
+ClientRicochet	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientRicochet	float*, float*, void	
+ClientSmoke	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSmoke	float*, int, float, float, void	
+ClientSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSparks	float*, int, int, float*, void	
+EffectDispatchName	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_EffectDispatchName	int, byte*, int, void	
+DrawSprite	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSprite	uint, int, float, int, int, int, int, int, int, float, int, float, float, int	
+DrawSpriteOffset	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSpriteOffset	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, int	
+ParticleSystemFollowPoints	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemFollowPoints	uint, int, int	
+ParticleSystemStart	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStart	uint, byte*, int	
+ParticleSystemStop	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStop	uint, void	
+SpriteTrailDestroy	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_SpriteTrailDestroy	uint, void	
+SpriteTrailUpdate	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_SpriteTrailUpdate	uint, int, int, void	
+WindPublish	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_WindPublish	float*, float*, int, void	
+RopeMaterial	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_RopeMaterial	byte*, int*, int*, int	
+RopeDraw	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_RopeDraw	int, float*, int, float*, int, int, void	
+ClientViewState	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ClientViewState	int, float*, float*, float*, float*, int*, int*, int*, void	
+ClientComputeLighting	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ClientComputeLighting	float*, float*, float*, void	
+ClientTraceHullWorld	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ClientTraceHullWorld	float*, float*, float*, float*, int, int*, float*, float	
+BeamView	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamView	int, float*, void	
+BeamModelInfo	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamModelInfo	int, int*, int	
+BeamModelIndex	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamModelIndex	byte*, int	
+BeamEntityAt	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamEntityAt	int, uint	
+BeamEntityHasModel	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamEntityHasModel	uint, int	
+BeamEntityFacts	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamEntityFacts	uint, int, int, float*, int	
+BeamBoxVisibility	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamBoxVisibility	float*, float*, int	
+BeamHaloVisibility	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamHaloVisibility	float*, float, float	
+BeamScreenPosition	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamScreenPosition	float*, float*, int	
+BeamRenderableAdd	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamRenderableAdd	float*, int	
+BeamRenderableChanged	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamRenderableChanged	int, float*, void	
+BeamRenderableRemove	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamRenderableRemove	int, void	
+BeamBindSprite	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamBindSprite	int, int, int, int, int	
+BeamSetHdrColorScale	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamSetHdrColorScale	int, int, float, void	
+BeamGlow	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamGlow	int, int, int	
+BeamDrawStrip	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamDrawStrip	float*, int, void	
+BeamDrawMesh	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamDrawMesh	int, int, int, float*, int, void	
+ActivateOccluder	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ActivateOccluder	int, int, void	
+ClientEmitSound	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientEmitSound	uint, byte*, float*, void	
+ClientInterpBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientInterpBlocks	int*, float*, void**	
+ClientPolicyBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientPolicyBlocks	int*, void**	
+DynamicLightRelease	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_DynamicLightRelease	int, void	
+DynamicLightUpdate	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_DynamicLightUpdate	DynamicLight*, void	
+StandaloneIsDormant	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneIsDormant	uint, int	
+StandaloneSetBlending	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetBlending	uint, int, int, int, void	
+StandaloneSetCustomDraw	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetCustomDraw	uint, float*, float*, void	
+StandaloneSetFade	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetFade	uint, int, float, float, float, void	
+StandaloneSetOverlayModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetOverlayModel	uint, int, void	
+StandaloneSetShadowCast	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetShadowCast	uint, int, void	
+StandaloneSetViewModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetViewModel	uint, int, void	
+StandaloneShadowCast	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneShadowCast	uint, int*, int*, int	
+SurfaceSetEdges	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetEdges	uint, byte*, int, void	
+ClientRecvProp	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientRecvProp	int, byte*, int, byte*, int, byte*, int, int*, int*, int*, int*, int	
+ClientSchemaRefusal	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientSchemaRefusal	int, uint*, uint*, uint*, int*, byte*, int, int*, int	
+StandaloneEngineBlock	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneEngineBlock	uint, int*, void*	
+StandaloneStoreSequence	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneStoreSequence	uint, int, float, float, float, int, void	
+StandaloneSetRagdoll	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetRagdoll	uint, int, void	
+ConNPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNPrintf	void*, int, byte*, void	
+ConNXPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNXPrintf	void*, int, float, float*, int, byte*, void	
+GetLightForPoint	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPoint	void*, float*, int, float*, void	
+GetLightForPointFast	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPointFast	void*, float*, int, float*, void	
+ClientColorCorrection	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientColorCorrection	int, int, byte*, float, int	
+ClientSetWorldRenderState	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientSetWorldRenderState	int, float*, int, void	
+GetLocalPlayerOrigin	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLocalPlayerOrigin	float*, int	
+SetViewerFogParams	EngineApi	IShimViewClient	client		client	-	SourceSharp_SetViewerFogParams	FogParams*, void	
+SetViewerSkyboxParams	EngineApi	IShimViewClient	client		client	-	SourceSharp_SetViewerSkyboxParams	SkyboxParams*, void	
+ClientTraceLine	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientTraceLine	float*, float*, int, int, int, float*, float*, float*, int*, int*, int*, int*, int	
+ClientTraceHull	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientTraceHull	float*, float*, float*, float*, int, int, int, float*, float*, int	
+ClientEntityRenderPose	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientEntityRenderPose	int, float*, float*, int	
+ViewOverrideSet	EngineApi	IShimViewClient	client		client	-	SourceSharp_ViewOverrideSet	int, float*, float*, int, void	
+EntitiesUpdateVisibilityAll	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientEntitiesUpdateVisibilityAll	int	
+RenderViewToTarget	EngineApi	IShimViewClient	client		client	-	SourceSharp_RenderViewToTarget	int, ViewTargetSetup*, int	
+ViewTargetInfo	EngineApi	IShimViewClient	client		client	-	SourceSharp_ViewTargetInfo	int, int*, int	
+UserMessageSend	EngineApi	IShimUserMessages	server		server	-	SourceSharp_UserMessageSend	int, byte*, int, int, int, int	
+ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
+ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	
+SendServerMessage	EngineApi	IShimNetClient	client		client	-	SourceSharp_SendServerMessage	byte*, byte*, int, int	
+PlayerShadowCounts	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_PlayerShadowCounts	int*, int, int	
+ExitWatchArm	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_ExitWatchArm	byte*, int	
+ExitWatchRead	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_ExitWatchRead	int*, int, int	
+ExitWatchDisarm	EngineApi	IShimDiagnostics	server		server	-	SourceSharp_ExitWatchDisarm	int	
+ClientNetFlow	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNetFlow	int, float*, int, int	
+ClientNetChannel	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNetChannel	float*, int, int	
+ClientNetPacket	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNetPacket	int, int, float*, int, int	
+ClientNotShipped	EngineApi	IShimDiagnosticsClient	client		client	-	SourceSharp_ClientNotShipped	int, byte*, int, byte*, int, int*, int*, int	
+ClientRefusal	EngineApi	IShimDiagnosticsClient	client		client	-	SourceSharp_ClientRefusal	int, byte*, int, int*, int*, int	
+UiDrawFilledRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawFilledRect	int, int, int, int, uint, void	
+UiDrawFilledRectFade	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawFilledRectFade	int, int, int, int, uint, int, int, int, void	
+UiDrawOutlinedRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawOutlinedRect	int, int, int, int, uint, void	
+UiDrawLine	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawLine	int, int, int, int, uint, void	
+UiDrawTexturedRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawTexturedRect	int, int, int, int, int, float, float, float, float, uint, void	
+UiDrawPolygon	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawPolygon	int, float*, int, uint, void	
+UiDrawText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawText	int, int, int, ushort*, int, uint, void	
+UiMeasureText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiMeasureText	int, ushort*, int, int*, int*, void	
+UiSetClip	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiSetClip	int, int, int, int, int, void	
+UiTextureCreate	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiTextureCreate	int	
+UiTextureUpload	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiTextureUpload	int, byte*, int, int, void	
+UiFontAddFile	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontAddFile	byte*, int	
+UiFontCreate	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontCreate	byte*, int, int, int, int	
+UiFontMetrics	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontMetrics	int, int*, int*, void	
+UiFontAdvances	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontAdvances	int, int, int, int*, int	
+UiScreenSize	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiScreenSize	int*, int*, void	
+UiPlaySound	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiPlaySound	byte*, void	
+ParticlesCreate	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesCreate	uint, int, byte*, float, int, int	
+ParticlesConfigure	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesConfigure	uint, int, float, void	
+ParticlesDestroy	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesDestroy	uint, int, void	
+ParticlesSetLights	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesSetLights	uint, int, float*, int, void	
+ParticlesTraceLine	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesTraceLine	float*, float*, int, float*, int, int	
+WorldTextMeshUpdate	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_WorldTextMeshUpdate	uint, byte*, float*, int, int	
+WorldTextMeshDestroy	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_WorldTextMeshDestroy	uint, void	
+ParticleSystemsRead	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemsRead	int, ParticleSystemInfo*, byte*, int, int	
+ParticleDefinitionReads	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleDefinitionReads	int	
+ParticleQueryUnanswered	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleQueryUnanswered	int*, int, int	
+ParticlesMaterialVarInt	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesMaterialVarInt	uint, int, byte*, int*, int	
+ParticlesCreateAt	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesCreateAt	int, byte*, float*, float, int, int	
+ParticleSystemNameFromIndex	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemNameFromIndex	int, byte*, int, int	
+ParticleSystemOneShot	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemOneShot	byte*, float*, float*, int, float*, int	
+ParticlesWorldTrace	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesWorldTrace	float*, float*, float*, int, int	
+ParticlesView	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesView	float*, int*, float*, void	
+ParticlesPixelVisible	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesPixelVisible	float*, int*, float	
+ParticlesTraceMask	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesTraceMask	float*, float*, uint, float*, int, int	
+ParticlesSetSpace	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesSetSpace	uint, int, uint, int, int, ParticleFollow*, int	
+ParticlesBrushPointContents	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesBrushPointContents	uint, float*, int	
+EffectRegistrationCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationCount	int	
+EffectRegistrationName	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationName	int, byte*, int, int	
+EffectRegistrationRun	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationRun	int, EffectData*, void	
+FxCanPredict	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxCanPredict	int	
+FxRecipientCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxRecipientCount	float*, int	
+FxMaterialFind	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialFind	byte*, int	
+FxMaterialAddRef	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialAddRef	int, void	
+FxMaterialRelease	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialRelease	int, void	
+FxMaterialName	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialName	int, byte*, int, int	
+FxDrawQuads	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxDrawQuads	int, int, float*, int, void	
+FxView	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxView	float*, void	
+FxMainViewOrigin	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMainViewOrigin	float*, void	
+FxEmitTracerSound	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEmitTracerSound	byte*, float*, float*, int	
+FxLocalPlayer	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLocalPlayer	int	
+FxViewAngles	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxViewAngles	float*, void	
+FxEntityAttachment	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEntityAttachment	int, int, float*, byte*, int, int	
+FxDispatchParticleEffect	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxDispatchParticleEffect	int, float*, float*, float*, int, void	
+FxEntityRenderAngles	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEntityRenderAngles	int, float*, int	
+FxEjectBrass	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEjectBrass	float*, float*, float*, int, void	
+FxSpriteGlowFraction	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteGlowFraction	float*, float, float, float	
+FxGlowSightDistance	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxGlowSightDistance	float*, float	
+FxSpriteDrawBegin	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawBegin	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, float*, int	
+FxSpriteDrawEnd	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawEnd	float*, int	
+FxSpriteDrawStore	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawStore	float*, int	
+FxPrecacheCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxPrecacheCount	int	
+FxPrecacheCache	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxPrecacheCache	int, int, void	
+FxCacheUsedMaterials	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxCacheUsedMaterials	void	
+FxCacheMaterialHandles	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxCacheMaterialHandles	void	
+FxRenderableAttachment	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxRenderableAttachment	uint, int, float*, int	
+FxHandleEntityIndex	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxHandleEntityIndex	uint, int	
+FxElight	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxElight	int, float*, int, int, int, int, float, float, float, void	
+FxVectorRandom	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxVectorRandom	float, float, float*, void	
+FxMaterialsCached	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialsCached	int	
+FxImpactOverlay	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxImpactOverlay	float*, float*, void	
+FxSoundParameters	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSoundParameters	byte*, float*, byte*, int, int	
+FxEmitWorldSound	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEmitWorldSound	byte*, int, float, int, int, float*, void	
+FxTempEntCreateNamed	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxTempEntCreateNamed	int, float*, byte*, int, int	
+FxLoadModel	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLoadModel	byte*, void	
+FxModelFrameCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxModelFrameCount	byte*, int	
+UiSetMenuInput	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetMenuInput	int, int, void	
+UiSetCursor	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetCursor	int, void	
+UiDebugOverlayText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayText	int, float*, float*, int*, uint*, byte*, int, int	
+UiDebugOverlayClearDead	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayClearDead	void	
+SoundscapeEmitAmbient	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeEmitAmbient	byte*, float, int, int, void	
+SoundscapeEmitWorld	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeEmitWorld	byte*, float, int, int, int, float*, void	
+SoundscapeStopWorld	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeStopWorld	byte*, void	
+SoundscapeSetRoomType	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetRoomType	int, void	
+SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetPlayerDsp	int, void	
+SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMainView	float*, void	
+SoundscapeMakingResLists	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMakingResLists	int	
+SoundscapeTouchSoundFile	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeTouchSoundFile	byte*, void	
+PrecipitationTraceLine	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationTraceLine	float*, float*, int, int, float*, int	
+PrecipitationTraceVolume	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationTraceVolume	uint, float*, float*, float*, float*, float*, int	
+PrecipitationPointContents	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationPointContents	float*, int	
+PrecipitationInPvs	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationInPvs	uint, int	
+PrecipitationPlayer	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationPlayer	float*, int	
+PrecipitationWorldBounds	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationWorldBounds	float*, void	
+PrecipitationScreenWidth	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationScreenWidth	int	
+ProxyFindVar	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyFindVar	int, byte*, int, int*, int	
+ProxyFindTexture	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyFindTexture	int, byte*, byte*, int, int*, int	
+ProxyVarTexture	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyVarTexture	int, int, byte*, int, int	
+ProxyBindEntity	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyBindEntity	int, void*, int	
+ProxyReadView	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyReadView	int, float*, int, int	
+ProxyPlayerCustomFile	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyPlayerCustomFile	int, uint*, int	
+ProxyNotShipped	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyNotShipped	byte*, byte*, void	
+InputCursorState	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputCursorState	int*, int*, void	
+InputGetCursorPos	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputGetCursorPos	int*, int*, void	
+InputSetCursorPos	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputSetCursorPos	int, int, void	
+InputSetCursorArrow	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputSetCursorArrow	void	
+InputVguiScreenSize	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputVguiScreenSize	int*, int*, void	
+InputHudFacts	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputHudFacts	float*, int*, float*, void	
+InputStopPitchDrift	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputStopPitchDrift	void	
+InputSetLocalViewAngles	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputSetLocalViewAngles	float*, void	
+InputViewerCameraModeChanged	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputViewerCameraModeChanged	void	
+InputViewerAimIsAssisted	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputViewerAimIsAssisted	int	
+InputShowScoreboard	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputShowScoreboard	int, void	
+InputMailbox	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputMailbox	void*	
+PhysicsClientEnvironment	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientEnvironment	void*	
+PhysicsClientCollisionEvents	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientCollisionEvents	void*	
+PhysicsClientSurfaceAudio	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSurfaceAudio	int, byte*, int, byte*, int, float*, int	
+PhysicsClientEmitImpactSound	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientEmitImpactSound	byte*, float*, int, float, int	
+PhysicsClientCollideExtent	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientCollideExtent	void*, float*, float*, float*, float*, void	
+PhysicsClientPointContents	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientPointContents	float*, int	
+PhysicsClientSplashLighting	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSplashLighting	float*, float*, void	
+PhysicsClientSplashEffect	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSplashEffect	int, float*, float*, float, float*, float, float, void	
+ConVarsClientWatch	EngineApi	IShimConVarsClient	client		client	-	SourceSharp_ConVarsClientWatch	byte*, int	
+ConVarsClientSetValue	EngineApi	IShimConVarsClient	client		client	-	SourceSharp_ConVarsClientSetValue	byte*, float, int	

@@ -1,0 +1,547 @@
+--- a/src/game/client/fx_sparks.cpp
++++ b/src/game/client/fx_sparks.cpp
+@@ -20,6 +20,53 @@
+ #include "c_pixel_visibility.h"
+ #include "particles_ez.h"
+ 
++// lane c5-particles probe: the sparks' spawns, the trail and glow emitters' steps and draws (sparks-stock.tsv).
++#include "fx_probe_log.h"
++#include "particles/particles.h"
++
++static float SkRandF( float lo, float hi )
++{
++	const float v = random->RandomFloat( lo, hi );
++	FxProbeLog( "skr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v );
++	return v;
++}
++
++static int SkRandI( int lo, int hi )
++{
++	const int v = random->RandomInt( lo, hi );
++	FxProbeLog( "skr\ti\t%d\t%d\t%d", lo, hi, v );
++	return v;
++}
++
++// Vector::Random draws three rand()s; the port draws three floats in [lo, hi].
++static void SkLogRandomVector( const Vector &v, float lo, float hi )
++{
++	for ( int k = 0; k < 3; k++ )
++		FxProbeLog( "skr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v[k] );
++}
++
++static void SkLogTrail( const void *pEmitter, const TrailParticle *p )
++{
++	FxProbeLog( "skp\t%p\t%p\ttrail\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d",
++	            pEmitter, (const void *)p, p->m_Pos.x, p->m_Pos.y, p->m_Pos.z, p->m_flLifetime, p->m_flDieTime, p->m_flWidth,
++	            p->m_flLength, p->m_vecVelocity.x, p->m_vecVelocity.y, p->m_vecVelocity.z,
++	            p->m_color.r, p->m_color.g, p->m_color.b, p->m_color.a );
++}
++
++static void SkLogSimple( const void *pEmitter, const SimpleParticle *p, const char *pMaterial )
++{
++	FxProbeLog( "skp\t%p\t%p\tsimple\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%s",
++	            pEmitter, (const void *)p, p->m_Pos.x, p->m_Pos.y, p->m_Pos.z, p->m_vecVelocity.x, p->m_vecVelocity.y,
++	            p->m_vecVelocity.z, p->m_flLifetime, p->m_flDieTime, p->m_uchColor[0], p->m_uchColor[1], p->m_uchColor[2],
++	            p->m_uchStartAlpha, p->m_uchEndAlpha, p->m_uchStartSize, p->m_uchEndSize, p->m_flRoll, p->m_flRollDelta, pMaterial );
++}
++
++static void SkLogEmitter( const void *pEmitter, const char *pKind, const char *pName, const Vector &sort )
++{
++	FxProbeLog( "skc\t%p\t%s\t%s\t%.9g\t%.9g\t%.9g\t%.9g", pEmitter, pKind, pName, sort.x, sort.y, sort.z,
++	            gpGlobals->curtime );
++}
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -85,12 +132,17 @@
+ {
+ 	if ( gpGlobals->curtime > m_flDeathTime )
+ 	{
++		FxProbeLog( "sgs\t%p\t%.9g\t%.9g\tdead", (void *)this, gpGlobals->curtime, m_flDeathTime );
+ 		pIterator->RemoveAllParticles();
+ 		return;
+ 	}
+ 
+ 	if ( !WasTestedInView(1<<0) )
++	{
++		FxProbeLog( "sgs\t%p\t%.9g\t%.9g\tuntested", (void *)this, gpGlobals->curtime, m_flDeathTime );
+ 		return;
++	}
++	FxProbeLog( "sgs\t%p\t%.9g\t%.9g\tstep", (void *)this, gpGlobals->curtime, m_flDeathTime );
+ 
+ 	BaseClass::SimulateParticles( pIterator );
+ }
+@@ -133,16 +185,23 @@
+ void CSimpleGlowEmitter::RenderParticles( CParticleRenderIterator *pIterator )
+ {
+ 	unsigned char viewMask = CurrentViewMask();
++	const int nSkWasTested = m_wasTested, nSkWasVisible = m_isVisible;
++	float flSkVisible = -1.0f;
+ 	if ( !WasTestedInView(CurrentViewMask()) )
+ 	{
+ 		pixelvis_queryparams_t params;
+ 		params.Init(GetSortOrigin());
+ 		
+ 		float visible = PixelVisibility_FractionVisible( params, &m_queryHandle );
++		flSkVisible = visible;
+ 		if ( visible == 0.0f )
+ 		{
+ 			if ( (gpGlobals->curtime - m_startTime) <= 0.1f )
++			{
++				FxProbeLog( "sgr\t%p\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g\t|\t%d\t%d\t0", (void *)this, (int)CurrentViewID(),
++				            nSkWasTested, nSkWasVisible, flSkVisible, gpGlobals->curtime, m_startTime, m_wasTested, m_isVisible );
+ 				return;
++			}
+ 			SetVisibleInView(viewMask, false);
+ 		}
+ 		else
+@@ -152,6 +211,9 @@
+ 
+ 		SetTestedInView(viewMask, true);
+ 	}
++	FxProbeLog( "sgr\t%p\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g\t|\t%d\t%d\t%d", (void *)this, (int)CurrentViewID(),
++	            nSkWasTested, nSkWasVisible, flSkVisible, gpGlobals->curtime, m_startTime, m_wasTested, m_isVisible,
++	            IsVisibleInView(viewMask) ? 1 : 0 );
+ 	if ( !IsVisibleInView(viewMask) )
+ 		return;
+ 
+@@ -239,6 +301,26 @@
+ 
+ 		//See if we should fade
+ 		Vector vecScaledDelta = (delta*scale);
++		{
++			const VMatrix &mv = ParticleMgr()->GetModelView();
++			Vector skVerts[4];
++			const bool bSkOk = Tracer_ComputeVerts( start, vecScaledDelta, flWidth, skVerts );
++			FxProbeLog( "std\t%p\t%p\t%d\t%d"
++			            "\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g"
++			            "\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d"
++			            "\t|\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d"
++			            "\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++			            (void *)this, (const void *)pParticle, m_fFlags, (int)CurrentViewID(),
++			            mv[0][0], mv[0][1], mv[0][2], mv[0][3], mv[1][0], mv[1][1], mv[1][2], mv[1][3], mv[2][0], mv[2][1], mv[2][2], mv[2][3],
++			            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x,
++			            pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_flLifetime, pParticle->m_flDieTime,
++			            pParticle->m_flLength, pParticle->m_flWidth, pParticle->m_color.r, pParticle->m_color.g,
++			            pParticle->m_color.b, pParticle->m_color.a,
++			            start.x, start.y, start.z, vecScaledDelta.x, vecScaledDelta.y, vecScaledDelta.z, flWidth,
++			            color[0], color[1], color[2], color[3], bSkOk ? 1 : 0,
++			            skVerts[0].x, skVerts[0].y, skVerts[0].z, skVerts[1].x, skVerts[1].y, skVerts[1].z,
++			            skVerts[2].x, skVerts[2].y, skVerts[2].z, skVerts[3].x, skVerts[3].y, skVerts[3].z );
++		}
+ 		Tracer_Draw( pIterator->GetParticleDraw(), start, vecScaledDelta, flWidth, color );
+ 		
+ 		pParticle = (const TrailParticle*)pIterator->GetNext( sortKey );
+@@ -258,6 +340,10 @@
+ 	while ( pParticle )
+ 	{
+ 		const float	timeDelta = pIterator->GetTimeDelta();
++		FxProbeLog( "sts\t%p\t%p\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++		            (void *)this, (void *)pParticle, timeDelta, m_fFlags, m_flVelocityDampen, pParticle->m_Pos.x,
++		            pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y,
++		            pParticle->m_vecVelocity.z, pParticle->m_flLifetime, pParticle->m_flDieTime );
+ 
+ 		//Simulate the movement with collision
+ 		trace_t trace;
+@@ -281,7 +367,16 @@
+ 		pParticle->m_flLifetime += timeDelta;
+ 
+ 		if ( pParticle->m_flLifetime >= pParticle->m_flDieTime )
++		{
++			FxProbeLog( "stso\t%p\tremoved", (void *)pParticle );
+ 			pIterator->RemoveParticle( pParticle );
++		}
++		else
++		{
++			FxProbeLog( "stso\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)pParticle,
++			            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x,
++			            pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_flLifetime );
++		}
+ 
+ 		pParticle = (TrailParticle*)pIterator->GetNext();
+ 	}
+@@ -301,6 +396,8 @@
+ void FX_ElectricSpark( const Vector &pos, int nMagnitude, int nTrailLength, const Vector *vecDir )
+ {
+ 	VPROF_BUDGET( "FX_ElectricSpark", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
++	FxProbeLog( "ske\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g", pos.x, pos.y, pos.z, nMagnitude, nTrailLength,
++	            vecDir ? 1 : 0, vecDir ? vecDir->x : 0.0f, vecDir ? vecDir->y : 0.0f, vecDir ? vecDir->z : 0.0f );
+ 	CSmartPtr<CTrailParticles> pSparkEmitter	= CTrailParticles::Create( "FX_ElectricSpark 1" );
+ 
+ 	if ( !pSparkEmitter )
+@@ -325,12 +422,13 @@
+ 							bitsPARTICLE_TRAIL_VELOCITY_DAMPEN );
+ 
+ 	pSparkEmitter->SetSortOrigin( pos );
++	SkLogEmitter( pSparkEmitter.GetObject(), "trail", "FX_ElectricSpark 1", pos );
+ 
+ 	//
+ 	// Big sparks.
+ 	//
+ 	Vector	dir;
+-	int		numSparks = nMagnitude * nMagnitude * random->RandomFloat( 2, 4 );
++	int		numSparks = nMagnitude * nMagnitude * SkRandF( 2, 4 );
+ 
+ 	int i;
+ 	TrailParticle	*pParticle;
+@@ -342,10 +440,11 @@
+ 			return;
+ 
+ 		pParticle->m_flLifetime	= 0.0f;
+-		pParticle->m_flDieTime	= nMagnitude * random->RandomFloat( 1.0f, 2.0f );
++		pParticle->m_flDieTime	= nMagnitude * SkRandF( 1.0f, 2.0f );
+ 
+ 		dir.Random( -1.0f, 1.0f );
+-		dir[2] = random->RandomFloat( 0.5f, 1.0f );
++		SkLogRandomVector( dir, -1.0f, 1.0f );
++		dir[2] = SkRandF( 0.5f, 1.0f );
+ 	
+ 		if ( vecDir )
+ 		{
+@@ -353,12 +452,13 @@
+ 			VectorNormalize( dir );
+ 		}
+ 			
+-		pParticle->m_flWidth		= random->RandomFloat( 2.0f, 5.0f );
+-		pParticle->m_flLength		= nTrailLength * random->RandomFloat( 0.02, 0.05f );
++		pParticle->m_flWidth		= SkRandF( 2.0f, 5.0f );
++		pParticle->m_flLength		= nTrailLength * SkRandF( 0.02, 0.05f );
+ 		
+-		pParticle->m_vecVelocity	= dir * random->RandomFloat( SPARK_ELECTRIC_MINSPEED, SPARK_ELECTRIC_MAXSPEED );
++		pParticle->m_vecVelocity	= dir * SkRandF( SPARK_ELECTRIC_MINSPEED, SPARK_ELECTRIC_MAXSPEED );
+ 
+ 		Color32Init( pParticle->m_color, 255, 255, 255, 255 );
++		SkLogTrail( pSparkEmitter.GetObject(), pParticle );
+ 	}
+ 
+ #ifdef _XBOX
+@@ -380,9 +480,9 @@
+ 	sParticle.m_uchColor[2]	= 255;
+ 	sParticle.m_uchStartAlpha	= 255;
+ 	sParticle.m_uchEndAlpha	= 255;
+-	sParticle.m_uchStartSize	= nMagnitude * random->RandomInt( 4, 8 );
++	sParticle.m_uchStartSize	= nMagnitude * SkRandI( 4, 8 );
+ 	sParticle.m_uchEndSize		= 0;
+-	sParticle.m_flRoll			= random->RandomInt( 0, 360 );
++	sParticle.m_flRoll			= SkRandI( 0, 360 );
+ 	sParticle.m_flRollDelta	= 0.0f;
+ 
+ 	AddSimpleParticle( &sParticle, ParticleMgr()->GetPMaterial( "effects/yellowflare" ) );
+@@ -404,9 +504,10 @@
+ 	pSparkEmitter2->SetSortOrigin( pos );
+ 	
+ 	pSparkEmitter2->m_ParticleCollision.SetGravity( 400.0f );
++	SkLogEmitter( pSparkEmitter2.GetObject(), "trail", "FX_ElectricSpark 2", pos );
+ 	pSparkEmitter2->SetFlag( bitsPARTICLE_TRAIL_VELOCITY_DAMPEN );
+ 
+-	numSparks = nMagnitude * random->RandomInt( 16, 32 );
++	numSparks = nMagnitude * SkRandI( 16, 32 );
+ 
+ 	// Dump out sparks
+ 	for ( i = 0; i < numSparks; i++ )
+@@ -419,25 +520,28 @@
+ 		pParticle->m_flLifetime	= 0.0f;
+ 
+ 		dir.Random( -1.0f, 1.0f );
++		SkLogRandomVector( dir, -1.0f, 1.0f );
+ 		if ( vecDir )
+ 		{
+ 			dir += *vecDir;
+ 			VectorNormalize( dir );
+ 		}
+ 		
+-		pParticle->m_flWidth		= random->RandomFloat( 2.0f, 4.0f );
+-		pParticle->m_flLength		= nTrailLength * random->RandomFloat( 0.02f, 0.03f );
+-		pParticle->m_flDieTime		= nMagnitude * random->RandomFloat( 0.1f, 0.2f );
++		pParticle->m_flWidth		= SkRandF( 2.0f, 4.0f );
++		pParticle->m_flLength		= nTrailLength * SkRandF( 0.02f, 0.03f );
++		pParticle->m_flDieTime		= nMagnitude * SkRandF( 0.1f, 0.2f );
+ 		
+-		pParticle->m_vecVelocity	= dir * random->RandomFloat( 128, 256 );
++		pParticle->m_vecVelocity	= dir * SkRandF( 128, 256 );
+ 
+ 		Color32Init( pParticle->m_color, 255, 255, 255, 255 );
++		SkLogTrail( pSparkEmitter2.GetObject(), pParticle );
+ 	}
+ 
+ 	//
+ 	// Caps
+ 	//
+ 	CSmartPtr<CSimpleGlowEmitter> pSimple = CSimpleGlowEmitter::Create( "FX_ElectricSpark 3", pos, gpGlobals->curtime + 0.2 );
++	SkLogEmitter( pSimple.GetObject(), "glow", "FX_ElectricSpark 3", pos );
+ 
+ 	// NOTE: None of these will render unless the effect is visible!
+ 	//
+@@ -460,10 +564,11 @@
+ 	sParticle->m_uchColor[2]	= 255;
+ 	sParticle->m_uchStartAlpha	= 255;
+ 	sParticle->m_uchEndAlpha	= 255;
+-	sParticle->m_uchStartSize	= nMagnitude * random->RandomInt( 4, 8 );
++	sParticle->m_uchStartSize	= nMagnitude * SkRandI( 4, 8 );
+ 	sParticle->m_uchEndSize		= 0;
+-	sParticle->m_flRoll			= random->RandomInt( 0, 360 );
++	sParticle->m_flRoll			= SkRandI( 0, 360 );
+ 	sParticle->m_flRollDelta	= 0.0f;
++	SkLogSimple( pSimple.GetObject(), sParticle, "effects/yellowflare_noz" );
+ 	
+ 	sParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pSimple->GetPMaterial( "effects/yellowflare_noz" ), pos );
+ 		
+@@ -475,24 +580,25 @@
+ 	
+ 	sParticle->m_vecVelocity.Init();
+ 
+-	float	fColor = random->RandomInt( 32, 64 );
++	float	fColor = SkRandI( 32, 64 );
+ 	sParticle->m_uchColor[0]	= fColor;
+ 	sParticle->m_uchColor[1]	= fColor;
+ 	sParticle->m_uchColor[2]	= fColor;
+ 	sParticle->m_uchStartAlpha	= fColor;
+ 	sParticle->m_uchEndAlpha	= 0;
+-	sParticle->m_uchStartSize	= nMagnitude * random->RandomInt( 32, 64 );
++	sParticle->m_uchStartSize	= nMagnitude * SkRandI( 32, 64 );
+ 	sParticle->m_uchEndSize		= 0;
+-	sParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-	sParticle->m_flRollDelta	= random->RandomFloat( -1.0f, 1.0f );
++	sParticle->m_flRoll			= SkRandI( 0, 360 );
++	sParticle->m_flRollDelta	= SkRandF( -1.0f, 1.0f );
++	SkLogSimple( pSimple.GetObject(), sParticle, "effects/yellowflare_noz" );
+ 
+ 	//
+ 	// Smoke
+ 	//
+ 	Vector	sOffs;
+ 
+-	sOffs[0] = pos[0] + random->RandomFloat( -4.0f, 4.0f );
+-	sOffs[1] = pos[1] + random->RandomFloat( -4.0f, 4.0f );
++	sOffs[0] = pos[0] + SkRandF( -4.0f, 4.0f );
++	sOffs[1] = pos[1] + SkRandF( -4.0f, 4.0f );
+ 	sOffs[2] = pos[2];
+ 
+ 	sParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_DustPuff[1], sOffs );
+@@ -507,18 +613,19 @@
+ 	
+ 	sParticle->m_vecVelocity[2] = 16.0f;
+ 	
+-	sParticle->m_vecVelocity[0] = random->RandomFloat( -16.0f, 16.0f );
+-	sParticle->m_vecVelocity[1] = random->RandomFloat( -16.0f, 16.0f );
++	sParticle->m_vecVelocity[0] = SkRandF( -16.0f, 16.0f );
++	sParticle->m_vecVelocity[1] = SkRandF( -16.0f, 16.0f );
+ 
+ 	sParticle->m_uchColor[0]	= 255;
+ 	sParticle->m_uchColor[1]	= 255;
+ 	sParticle->m_uchColor[2]	= 200;
+-	sParticle->m_uchStartAlpha	= random->RandomInt( 16, 32 );
++	sParticle->m_uchStartAlpha	= SkRandI( 16, 32 );
+ 	sParticle->m_uchEndAlpha	= 0;
+-	sParticle->m_uchStartSize	= random->RandomInt( 4, 8 );
++	sParticle->m_uchStartSize	= SkRandI( 4, 8 );
+ 	sParticle->m_uchEndSize		= sParticle->m_uchStartSize*4.0f;
+-	sParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-	sParticle->m_flRollDelta	= random->RandomFloat( -2.0f, 2.0f );
++	sParticle->m_flRoll			= SkRandI( 0, 360 );
++	sParticle->m_flRollDelta	= SkRandF( -2.0f, 2.0f );
++	SkLogSimple( pSimple.GetObject(), sParticle, "particle/particle_noisesphere" );
+ 
+ 	//
+ 	// Dlight
+@@ -529,7 +636,7 @@
+ 
+ 	dl->origin	= pos;
+ 	dl->color.r = dl->color.g = dl->color.b = 250;
+-	dl->radius	= random->RandomFloat(16,32);
++	dl->radius	= SkRandF(16,32);
+ 	dl->die		= gpGlobals->curtime + 0.001;
+ 	*/
+ 
+@@ -621,6 +728,9 @@
+ void FX_MetalSpark( const Vector &position, const Vector &direction, const Vector &surfaceNormal, int iScale )
+ {
+ 	VPROF_BUDGET( "FX_MetalSpark", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
++	FxProbeLog( "skm\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%d", position.x, position.y, position.z,
++	            direction.x, direction.y, direction.z, surfaceNormal.x, surfaceNormal.y, surfaceNormal.z, iScale,
++	            g_pParticleSystemMgr->ParticleThrottleScaling(), fx_drawmetalspark.GetBool() ? 1 : 0 );
+ 
+ 	if ( !fx_drawmetalspark.GetBool() )
+ 		return;
+@@ -643,8 +753,9 @@
+ 	sparkEmitter->SetGravity( METAL_SPARK_GRAVITY );
+ 	sparkEmitter->SetCollisionDamped( METAL_SPARK_DAMPEN );
+ 	sparkEmitter->GetBinding().SetBBox( offset - Vector( 32, 32, 32 ), offset + Vector( 32, 32, 32 ) );
++	SkLogEmitter( sparkEmitter.GetObject(), "trail", "FX_MetalSpark 1", offset );
+ 
+-	int	numSparks = random->RandomInt( 4, 8 ) * ( iScale * 2 );
++	int	numSparks = SkRandI( 4, 8 ) * ( iScale * 2 );
+ 	numSparks = (int)( 0.5f + (float)numSparks * g_pParticleSystemMgr->ParticleThrottleScaling() );
+ 	
+ 	if ( g_Material_Spark == NULL )
+@@ -669,27 +780,28 @@
+ 		if( iScale > 1 && i%3 == 0 )
+ 		{
+ 			// Every third spark goes flying far if we're having a big batch of sparks.
+-			pParticle->m_flDieTime	= random->RandomFloat( 0.15f, 0.25f );
++			pParticle->m_flDieTime	= SkRandF( 0.15f, 0.25f );
+ 		}
+ 		else
+ 		{
+-			pParticle->m_flDieTime	= random->RandomFloat( 0.05f, 0.1f );
++			pParticle->m_flDieTime	= SkRandF( 0.05f, 0.1f );
+ 		}
+ 
+-		float	spreadOfs = random->RandomFloat( 0.0f, 2.0f );
++		float	spreadOfs = SkRandF( 0.0f, 2.0f );
+ 
+-		dir[0] = direction[0] + random->RandomFloat( -(METAL_SPARK_SPREAD*spreadOfs), (METAL_SPARK_SPREAD*spreadOfs) );
+-		dir[1] = direction[1] + random->RandomFloat( -(METAL_SPARK_SPREAD*spreadOfs), (METAL_SPARK_SPREAD*spreadOfs) );
+-		dir[2] = direction[2] + random->RandomFloat( -(METAL_SPARK_SPREAD*spreadOfs), (METAL_SPARK_SPREAD*spreadOfs) );
++		dir[0] = direction[0] + SkRandF( -(METAL_SPARK_SPREAD*spreadOfs), (METAL_SPARK_SPREAD*spreadOfs) );
++		dir[1] = direction[1] + SkRandF( -(METAL_SPARK_SPREAD*spreadOfs), (METAL_SPARK_SPREAD*spreadOfs) );
++		dir[2] = direction[2] + SkRandF( -(METAL_SPARK_SPREAD*spreadOfs), (METAL_SPARK_SPREAD*spreadOfs) );
+ 	
+ 		VectorNormalize( dir );
+ 
+-		pParticle->m_flWidth		= random->RandomFloat( 1.0f, 4.0f );
+-		pParticle->m_flLength		= random->RandomFloat( length*0.25f, length );
++		pParticle->m_flWidth		= SkRandF( 1.0f, 4.0f );
++		pParticle->m_flLength		= SkRandF( length*0.25f, length );
+ 		
+-		pParticle->m_vecVelocity	= dir * random->RandomFloat( (METAL_SPARK_MINSPEED*(2.0f-spreadOfs)), (METAL_SPARK_MAXSPEED*(2.0f-spreadOfs)) );
++		pParticle->m_vecVelocity	= dir * SkRandF( (METAL_SPARK_MINSPEED*(2.0f-spreadOfs)), (METAL_SPARK_MAXSPEED*(2.0f-spreadOfs)) );
+ 		
+ 		Color32Init( pParticle->m_color, 255, 255, 255, 255 );
++		SkLogTrail( sparkEmitter.GetObject(), pParticle );
+ 	}
+ 
+ 	//
+@@ -704,11 +816,13 @@
+ 	data.SetNormal( surfaceNormal );
+ 	data.SetAlpha( 1.0f, 0.0f );
+ 	data.SetLifeTime( 0.1f );
+-	data.SetYaw( random->RandomInt( 0, 360 ) );
++	data.SetYaw( SkRandI( 0, 360 ) );
+ 	
+-	int scale = random->RandomInt( 24, 28 );
++	int scale = SkRandI( 24, 28 );
+ 	data.SetScale( scale, 0 );
+ 
++	FxProbeLog( "skq\tdata\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", offset.x, offset.y, offset.z,
++	            surfaceNormal.x, surfaceNormal.y, surfaceNormal.z, data.m_flYaw, data.m_flStartScale );
+ 	FX_AddQuad( data );
+ }
+ 
+@@ -856,6 +970,7 @@
+ void FX_EnergySplash( const Vector &pos, const Vector &normal, int nFlags )
+ {
+ 	VPROF_BUDGET( "FX_EnergySplash", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
++	FxProbeLog( "skn\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", pos.x, pos.y, pos.z, normal.x, normal.y, normal.z, nFlags );
+ 	Vector	offset = pos + ( normal * 2.0f );
+ 
+ 	// Quick flash
+@@ -867,7 +982,7 @@
+ 				1.0f,
+ 				0.0f,
+ 				0.4f,
+-				random->RandomInt( 0, 360 ), 
++				SkRandI( 0, 360 ), 
+ 				0,
+ 				Vector( 1.0f, 1.0f, 1.0f ), 
+ 				0.25f, 
+@@ -883,7 +998,7 @@
+ 				1.0f,
+ 				0.0f,
+ 				0.4f,
+-				random->RandomInt( 0, 360 ), 
++				SkRandI( 0, 360 ), 
+ 				0,
+ 				Vector( 1.0f, 1.0f, 1.0f ), 
+ 				0.5f, 
+@@ -896,6 +1011,7 @@
+ 
+ 	pEmitter = CSimpleEmitter::Create( "C_EntityDissolve" );
+ 	pEmitter->SetSortOrigin( pos );
++	SkLogEmitter( pEmitter.GetObject(), "simple", "C_EntityDissolve", pos );
+ 
+ 	if ( g_Material_Spark == NULL )
+ 	{
+@@ -905,9 +1021,9 @@
+ 	// Anime ground effects
+ 	for ( int j = 0; j < 8; j++ )
+ 	{
+-		offset.x = random->RandomFloat( -8.0f, 8.0f );
+-		offset.y = random->RandomFloat( -8.0f, 8.0f );
+-		offset.z = random->RandomFloat( 0.0f, 4.0f );
++		offset.x = SkRandF( -8.0f, 8.0f );
++		offset.y = SkRandF( -8.0f, 8.0f );
++		offset.z = SkRandF( 0.0f, 4.0f );
+ 
+ 		offset += pos;
+ 
+@@ -916,25 +1032,26 @@
+ 		if ( sParticle == NULL )
+ 			return;
+ 
+-		sParticle->m_vecVelocity = Vector( Helper_RandomFloat( -4.0f, 4.0f ), Helper_RandomFloat( -4.0f, 4.0f ), Helper_RandomFloat( 16.0f, 64.0f ) );
++		sParticle->m_vecVelocity = Vector( SkRandF( -4.0f, 4.0f ), SkRandF( -4.0f, 4.0f ), SkRandF( 16.0f, 64.0f ) );
+ 		
+-		sParticle->m_uchStartSize	= random->RandomFloat( 2, 4 );
++		sParticle->m_uchStartSize	= SkRandF( 2, 4 );
+ 
+-		sParticle->m_flDieTime = random->RandomFloat( 0.4f, 0.6f );
++		sParticle->m_flDieTime = SkRandF( 0.4f, 0.6f );
+ 		
+ 		sParticle->m_flLifetime		= 0.0f;
+ 
+-		sParticle->m_flRoll			= Helper_RandomInt( 0, 360 );
++		sParticle->m_flRoll			= SkRandI( 0, 360 );
+ 
+ 		float alpha = 255;
+ 
+-		sParticle->m_flRollDelta	= Helper_RandomFloat( -4.0f, 4.0f );
++		sParticle->m_flRollDelta	= SkRandF( -4.0f, 4.0f );
+ 		sParticle->m_uchColor[0]	= alpha;
+ 		sParticle->m_uchColor[1]	= alpha;
+ 		sParticle->m_uchColor[2]	= alpha;
+ 		sParticle->m_uchStartAlpha	= alpha;
+ 		sParticle->m_uchEndAlpha	= 0;
+ 		sParticle->m_uchEndSize		= 0;
++		SkLogSimple( pEmitter.GetObject(), sParticle, "effects/spark" );
+ 	}
+ }
+ 
+@@ -1468,6 +1585,7 @@
+ void FX_SparkFan( Vector &position, Vector &normal )
+ {
+ 	Vector	offset = position + ( normal * 1.0f );
++	FxProbeLog( "skf\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", position.x, position.y, position.z, normal.x, normal.y, normal.z );
+ 
+ 	CSmartPtr<CTrailParticles> sparkEmitter = CTrailParticles::Create( "FX_MetalScrape 1" );
+ 
+@@ -1505,19 +1623,20 @@
+ 
+ 		pParticle->m_flLifetime	= 0.0f;
+ 
+-		float	spreadOfs = random->RandomFloat( 0.0f, 2.0f );
++		float	spreadOfs = SkRandF( 0.0f, 2.0f );
+ 
+-		dir[0] = normal[0] + random->RandomFloat( -(METAL_SCRAPE_SPREAD*spreadOfs), (METAL_SCRAPE_SPREAD*spreadOfs) );
+-		dir[1] = normal[1] + random->RandomFloat( -(METAL_SCRAPE_SPREAD*spreadOfs), (METAL_SCRAPE_SPREAD*spreadOfs) );
+-		dir[2] = normal[2] + random->RandomFloat( -(METAL_SCRAPE_SPREAD*spreadOfs), (METAL_SCRAPE_SPREAD*spreadOfs) );
++		dir[0] = normal[0] + SkRandF( -(METAL_SCRAPE_SPREAD*spreadOfs), (METAL_SCRAPE_SPREAD*spreadOfs) );
++		dir[1] = normal[1] + SkRandF( -(METAL_SCRAPE_SPREAD*spreadOfs), (METAL_SCRAPE_SPREAD*spreadOfs) );
++		dir[2] = normal[2] + SkRandF( -(METAL_SCRAPE_SPREAD*spreadOfs), (METAL_SCRAPE_SPREAD*spreadOfs) );
+ 	
+-		pParticle->m_flWidth		= random->RandomFloat( 2.0f, 5.0f );
+-		pParticle->m_flLength		= random->RandomFloat( length*0.25f, length );
+-		pParticle->m_flDieTime		= random->RandomFloat( 2.0f, 2.0f );
++		pParticle->m_flWidth		= SkRandF( 2.0f, 5.0f );
++		pParticle->m_flLength		= SkRandF( length*0.25f, length );
++		pParticle->m_flDieTime		= SkRandF( 2.0f, 2.0f );
+ 		
+-		pParticle->m_vecVelocity	= dir * random->RandomFloat( (METAL_SCRAPE_MINSPEED*(2.0f-spreadOfs)), (METAL_SCRAPE_MAXSPEED*(2.0f-spreadOfs)) );
++		pParticle->m_vecVelocity	= dir * SkRandF( (METAL_SCRAPE_MINSPEED*(2.0f-spreadOfs)), (METAL_SCRAPE_MAXSPEED*(2.0f-spreadOfs)) );
+ 		
+ 		Color32Init( pParticle->m_color, 255, 255, 255, 255 );
++		SkLogTrail( sparkEmitter.GetObject(), pParticle );
+ 	}
+ }
+ 

@@ -1,0 +1,248 @@
+{
+  "_comment": [
+    "The map-shaped half of tools/live-gate: everything the sixteen steps need",
+    "to know about THIS map, so the driver holds the checks and this holds the",
+    "coordinates. A second map is a second file, not a second driver.",
+    "",
+    "Every number here was read off a live dm_lockdown with ./debug-api and is",
+    "reproducible: `debug-api mapents dm_lockdown` for the brush entities,",
+    "`debug-api ents \"*\"` for the census, `debug-api aim` for the sight lines."
+  ],
+
+  "map": "dm_lockdown",
+  "entities": 473,
+  "classes": 61,
+
+  "_otherMap": [
+    "THE MAP-CHANGE STEP'S TARGET. Not a second deathmatch map -- there is only",
+    "one of those on this box -- but ss_sandbox, which `make map MAP=ss_sandbox`",
+    "builds from Sandbox.cs and whose own gate asserts that EVERY class the mod",
+    "registers has an instance in it and that every temp entity it sends has a",
+    "station that fires it. Changing to it and back is therefore a teardown of",
+    "one of everything, which is exactly what a level-shutdown defect needs.",
+    "",
+    "THE FLOORS ARE FLOORS AND THE EQUALITY IS THE ASSERTION. minEntities and",
+    "minClasses only have to be un-clearable by an empty or half-loaded level;",
+    "what pins the number is the step's own cross-pass comparison, which",
+    "requires the SECOND visit in one process to read exactly what the first",
+    "did. A count that drifts between two visits is a leak.",
+    "",
+    "mustHold is there because a census is a number and a map is what is in it:",
+    "a game that answered about the map it never left would clear both floors.",
+    "ss_te_tester is the classname Sandbox.cs places 43 of, one per temp entity",
+    "the mod sends, and dm_lockdown holds none."
+  ],
+  "_otherMapMeasured": [
+    "READ OFF A LIVE ss_sandbox on 2026-09-14, both passes of one process:",
+    "1234 entities / 271 classes, and 43 ss_te_tester. The floors below are set",
+    "under those at roughly 90% -- tight enough that a half-loaded level or a",
+    "game answering about the map it never left cannot clear them (dm_lockdown",
+    "is 473 / 61), loose enough that regenerating the map from Sandbox.cs with",
+    "one class more or less does not turn the gate red for a reason that is not",
+    "a defect. What pins the number exactly is the step's own cross-pass",
+    "equality, which needs no constant here at all."
+  ],
+  "otherMap": {
+    "map":         "ss_sandbox",
+    "minEntities": 1100,
+    "minClasses":  240,
+    "mustHold":    [ "ss_te_tester" ],
+    "_switchedPairs": [
+      "Classes whose count is a lamp's STATE: a lit point_spotlight owns one",
+      "spotlight_end and one ss_beam. The weighed plate's drum lights one about",
+      "0.6s after level start and, in 9 of 40 visits (reload-probe, f48aeb1),",
+      "leaves the plate and douses it at ~8s. The cross-visit equality forgives the two",
+      "moving together and nothing else (census_drift in tools/live-gate)."
+    ],
+    "switchedPairs": { "spotlight_end": "ss_beam" },
+    "_renderPoses": [
+      "render-plan-sandbox compares at the spawn the client joins at and at these: under the",
+      "mirror pool's surface (the under-water fixture's pose). ss_sandbox's view lists hold",
+      "renderables that are not entities, which dm_lockdown's do not: the draw batch's",
+      "GetRefEHandle crash (b4eec29fb) lived there."
+    ],
+    "renderPoses": [
+      { "position": [-828, 2048, 8], "angles": [-30, 90, 0] }
+    ]
+  },
+
+  "playerClass":  "ss_player",
+  "weaponClass":  "ss_weapon",
+  "ragdollClass": "ss_ragdoll",
+
+  "_openFloor": [
+    "Flat, walled-off floor in the yard south of the showers. The player is put",
+    "here for every step that needs room: it is far from the map's scripted",
+    "triggers (which explode walls), it has 300+ units of clear sight along +Y,",
+    "and looking 25 degrees down puts the aim point on the floor about 105",
+    "units ahead -- which is where ent_create and prop_physics_create put what",
+    "they make."
+  ],
+  "openFloor":      [-3843, 2894, 0],
+  "openFloorAngles": [25, 90, 0],
+
+  "_pushFloor": [
+    "Where the push step walks into its crate: openFloor moved 323 units east,",
+    "same angles. openFloor's own path to the crate crosses eight concrete_chunk",
+    "props the map lays on the floor (-3980..-3804, 2952..3036); a player who",
+    "steps onto one stands on physics, which turns the push's lean off (stock,",
+    "player.cpp:4811), and the pair creeps at 1-12 u/s. tools/pushprobe,",
+    "physics-managed 2a89728f: 6-13 jams per run there; here 1 of 20 holds, with",
+    "player and crate walking at 48-52 u/s, stock's push cap (player.cpp:8233).",
+    "The knock-loose step walks the same line to its pinned crate: at openFloor",
+    "18 of 20 knock holds jammed, here 0 of 20, every crate knocked loose."
+  ],
+  "pushFloor":      [-3520, 2894, 0],
+
+  "_trigger": [
+    "trigger_multiple *20, whose ONLY connection is OnStartTouch -> PlaySound.",
+    "Chosen for being inert: dm_lockdown's other triggers Explode walls and Kill",
+    "brushes, and a gate that rearranges the map it is measuring cannot then",
+    "compare a census against it."
+  ],
+  "trigger": {
+    "class":   "trigger_multiple",
+    "inside":  [-3395, 5838, 92],
+    "outside": [-3843, 2894, 0]
+  },
+
+  "_door": [
+    "showers_gate3 slides 130 units along +Y on Open (movedir 0 90 0, wait -1 so",
+    "it stays open). tport_switch_cover_1 is the rotating kind and turns to yaw",
+    "160. Both are checked, because 'a door opened' is two different mechanisms."
+  ],
+  "door":         { "name": "showers_gate3",         "minMove": 64 },
+  "rotatingDoor": { "name": "tport_switch_cover_1",  "minYaw": 45 },
+
+  "_lift": [
+    "dm_lockdown HAS NO LIFT -- no func_plat, no func_tracktrain, no vertical",
+    "func_door; its three doors all move horizontally and its brush models are",
+    "4-unit-thin plates nobody could ride. So the gate BUILDS one: a",
+    "func_movelinear wearing brush model *7 (a 64x112x2 plate, flat side up)",
+    "pointed straight up. movedir is a QAngle, not a vector -- '0 0 1' reads as",
+    "yaw 0 and moves the lift sideways, which is how this was first written and",
+    "how it first passed while measuring nothing.",
+    "The lift is Killed at the end of its step so the next census is the map's."
+  ],
+  "lift": {
+    "brushModel": "*7",
+    "name":       "ss_livegate_lift",
+    "speed":      60,
+    "distance":   96,
+    "minRise":    20
+  },
+
+  "_pickups": [
+    "item_healthkit gives 25 and only takes if the player is hurt, so the damage",
+    "step runs first. Ammo is trickier: a weapon's Reserve only shows the pool",
+    "of the ACTIVE weapon's ammo type, so the gate gives an smg1 (which arrives",
+    "with a full clip and an EMPTY reserve), makes it active, and then walks",
+    "onto an item_ammo_smg1. Reserve 0 -> non-zero is the pickup."
+  ],
+  "healthItemClass": "item_healthkit",
+  "ammoItemClass":   "item_ammo_smg1",
+  "ammoWeapon":      "weapon_smg1",
+
+  "propModel": "models/props_junk/wood_crate001a.mdl",
+
+  "_projectile": [
+    "NOT one of the sixteen, and here because `shoot` IS HITSCAN. The SMG's",
+    "shot is a trace applied the same tick and nothing is ever in the air, so a",
+    "build whose flight integrator (plan_entity.md step 2f, EntityMotion.cs)",
+    "was never registered passes `shoot` unchanged. Step 2f measured that,",
+    "said so in its handover, and left the gate to whoever owns it.",
+    "",
+    "FIRED FLAT, pitch 0, along openFloorAngles' yaw. The yard's far wall is",
+    "367 units away at eye height and that is what step 2f's separate probe",
+    "recorded for both ss_bolt and ss_rocket standing here. At the scenario's",
+    "own 25-degrees-down angle a bolt is in the floor after 123.9 units, which",
+    "is why this step sets its own pitch instead of reusing openFloorAngles.",
+    "",
+    "minTravel 200 SITS BETWEEN TWO MEASURED NUMBERS and --self-test asserts",
+    "it lies strictly between them, because a threshold outside that interval",
+    "makes the step a check that cannot fail in one direction or cannot pass",
+    "in the other:",
+    "",
+    "  stationary 68.4 -- where a bolt sits when the integrator is not run.",
+    "    IT IS NOT ZERO, and that is the whole reason this number is written",
+    "    down: a shot leaves from the EYE, 64 units above the player's origin,",
+    "    so a projectile that never moves an inch is still 68.4 units from the",
+    "    shooter. A travel threshold under 68.4 would pass on a build that",
+    "    flies nothing. Measured by disabling EntityMotion.RunFrame, not",
+    "    reasoned about: every sighting of the unmoved bolt read 68.4.",
+    "  recordedTravel 367.0 -- what a bolt that DOES fly reaches here, on this",
+    "    branch and in step 2f's independent probe.",
+    "",
+    "minTargetRange 150 is the floor under the crate arm: `ent_create` puts the",
+    "crate where the player LOOKS and it then falls and slides, so where it",
+    "ends up is measured each run rather than assumed. Observed 269.7 and",
+    "338.3 in two probe runs. The range is CHECKED, not noted -- a crate that",
+    "landed at the player's feet would still be destroyed and would prove",
+    "nothing about travel.",
+    "",
+    "AND ONE DRAW OF THAT CRATE IS A COIN FLIP, which those two probe runs",
+    "were too few to show. Lane 3f later read 111.5 -- UNDER the 150 floor --",
+    "and the gate went red on a step whose subject (does a bolt fly and hit)",
+    "was never reached. Three readings of the SAME commit disagreed about",
+    "`projectile` for this reason and nothing else. The step now resamples the",
+    "target up to PROJECTILE_TARGET_TRIES times and keeps the furthest draw;",
+    "the floor is unchanged, because the floor is not what was wrong. 111.5 is",
+    "only 43 units above the 68.4 an unflown bolt reads, so lowering it to fit",
+    "that draw would have taken the meaning out of the assertion.",
+    "",
+    "AND THE COIN FLIP WAS A BUG, not a fixture that needed more draws. Lane",
+    "diag-gateseq measured it: `ent_create` set the crate's ORIGIN to the aim",
+    "point, and wood_crate001a's origin is 28 units above its base, so every",
+    "crate was born 28 units inside the floor and vphysics threw it 29 to 164",
+    "units clear. THAT ejection was the extra distance -- 269.7 and 338.3 are",
+    "readings of it. With `shoot`'s gibs at the aim point the ejection went",
+    "sideways or backwards (bearing 180 against a clean draw's 82), and in one",
+    "round of three it came out the WRONG SIDE and the crate rested at",
+    "z = -5935, which is lane 3f-shadow's prop-fall.",
+    "",
+    "targetPitch 11 is the repair, and it is a fixture built by GEOMETRY rather",
+    "than by an ejection. openFloorAngles' 25 degrees puts the aim point 140",
+    "units out from a 64-unit eye, which is under minTargetRange and always",
+    "was; 11 degrees puts it 324.1 units out on flat floor (z 1.02) and the",
+    "crate settles at 322.8, identically on every draw of every round.",
+    "--self-test asserts 64/tan(targetPitch) clears minTargetRange with margin",
+    "and that it is SHALLOWER than openFloorAngles, so the constant is",
+    "checkable without a live game. minTargetRange itself is untouched: the",
+    "fixture was what was wrong, and it still is not the threshold."
+  ],
+  "projectile": {
+    "weapon":         "weapon_crossbow",
+    "class":          "ss_bolt",
+    "pitch":          0,
+    "fireSeconds":    5.0,
+    "settleSeconds":  1.5,
+    "minTravel":      200.0,
+    "minTargetRange": 150.0,
+    "stationary":     68.4,
+    "recordedTravel": 367.0,
+    "targetPitch":    11
+  },
+
+  "_effects": [
+    "rope-settle and beam-ring (plan_client_novalve 5.3): both read the managed",
+    "effect counters through their console readouts (cs_cl_rope_spans,",
+    "cs_cl_beams) and flip the managed draw switch (r_drawropes, r_DrawBeams) for",
+    "the flat side of the A/B. The poses are the C2 lane's recording poses",
+    "(tools/probes/sessions/c2-ropes.steps and c2-beams.steps): the ropes hang",
+    "in view from ropePose, and a ring fired at beamRing is in view, in the PVS",
+    "and inside the frustum from beamPose."
+  ],
+  "renderStand": { "position": [-4116, 4600, 3], "angles": [0, -90, 0] },
+  "_renderPoses": [
+    "The render plan's other recorded poses (src/test/client/Fixtures/render-stock/README.md):",
+    "render-plan compares stock and plan at each as well as at the stand, so the live evidence",
+    "covers every pose the oracle holds (C7 step 2)."
+  ],
+  "renderPoses": [
+    { "position": [-3843, 2894, 0], "angles": [25, 90, 0] },
+    { "position": [-3800, 2500, 0], "angles": [-20, 30, 0] }
+  ],
+  "ropePose":  { "position": [-3800, 2500, 120], "angles": [-40, 30, 0] },
+  "beamPose":  { "position": [-3800, 2500, 64],  "angles": [0, 0, 0] },
+  "beamRing":  [-3640, 2500, 30]
+}

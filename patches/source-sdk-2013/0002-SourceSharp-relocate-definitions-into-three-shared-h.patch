@@ -1,0 +1,588 @@
+From 67dd34b66c3e1b67d55ab8e6bd20f3e84a710f89 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Mon, 12 Oct 2026 13:19:27 -0700
+Subject: [PATCH 2/5] SourceSharp: relocate definitions into three shared
+ headers
+
+ammodef.h, interval.h and mapentities_shared.h carry inline definitions
+taken from ammodef.cpp, interval.cpp and mapentities_shared.cpp, so
+SourceSharp can use them without compiling those .cpp files. The .cpp files
+themselves are unchanged.
+---
+ src/game/shared/ammodef.h            | 182 ++++++++++++++--
+ src/game/shared/interval.h           |  38 +++-
+ src/game/shared/mapentities_shared.h | 297 ++++++++++++++++++++++++++-
+ 3 files changed, 496 insertions(+), 21 deletions(-)
+
+diff --git a/src/game/shared/ammodef.h b/src/game/shared/ammodef.h
+index 71c1707f2320741d38c914283e2d7016f06df34a..a46bf44c7f9e8ec581bd6ec8ebb82a033071bc6d 100644
+--- a/src/game/shared/ammodef.h
++++ b/src/game/shared/ammodef.h
+@@ -59,6 +59,8 @@ enum AmmoFlags_t
+ 
+ 
+ #include "shareddefs.h"
++#include "convar.h"
++#include "tier1/strtools.h"
+ 
+ //=============================================================================
+ //	>> CAmmoDef
+@@ -71,26 +73,174 @@ public:
+ 
+ 	Ammo_t				m_AmmoType[MAX_AMMO_TYPES];
+ 
+-	Ammo_t				*GetAmmoOfIndex(int nAmmoIndex);
+-	int					Index(const char *psz);
+-	int					PlrDamage(int nAmmoIndex);
+-	int					NPCDamage(int nAmmoIndex);
+-	int					MaxCarry(int nAmmoIndex);
+-	int					DamageType(int nAmmoIndex);
+-	int					TracerType(int nAmmoIndex);
+-	float				DamageForce(int nAmmoIndex);
+-	int					MinSplashSize(int nAmmoIndex);
+-	int					MaxSplashSize(int nAmmoIndex);
+-	int					Flags(int nAmmoIndex);
+-
+-	void				AddAmmoType(char const* name, int damageType, int tracerType, int plr_dmg, int npc_dmg, int carry, float physicsForceImpulse, int nFlags, int minSplashSize = 4, int maxSplashSize = 8 );
++	Ammo_t *GetAmmoOfIndex( int nAmmoIndex )
++	{
++		if ( nAmmoIndex >= m_nAmmoIndex )
++			return NULL;
++
++		return &m_AmmoType[ nAmmoIndex ];
++	}
++
++	int Index( const char *psz )
++	{
++		if ( !psz )
++			return -1;
++
++		for ( int i = 1; i < m_nAmmoIndex; i++ )
++		{
++			if ( stricmp( psz, m_AmmoType[i].pName ) == 0 )
++				return i;
++		}
++
++		return -1;
++	}
++
++	int PlrDamage( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 0;
++
++		if ( m_AmmoType[nAmmoIndex].pPlrDmg == USE_CVAR )
++		{
++			if ( m_AmmoType[nAmmoIndex].pPlrDmgCVar )
++				return m_AmmoType[nAmmoIndex].pPlrDmgCVar->GetFloat();
++
++			return 0;
++		}
++
++		return m_AmmoType[nAmmoIndex].pPlrDmg;
++	}
++
++	int NPCDamage( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 0;
++
++		if ( m_AmmoType[nAmmoIndex].pNPCDmg == USE_CVAR )
++		{
++			if ( m_AmmoType[nAmmoIndex].pNPCDmgCVar )
++				return m_AmmoType[nAmmoIndex].pNPCDmgCVar->GetFloat();
++
++			return 0;
++		}
++
++		return m_AmmoType[nAmmoIndex].pNPCDmg;
++	}
++
++	int MaxCarry( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 0;
++
++		if ( m_AmmoType[nAmmoIndex].pMaxCarry == USE_CVAR )
++		{
++			if ( m_AmmoType[nAmmoIndex].pMaxCarryCVar )
++				return m_AmmoType[nAmmoIndex].pMaxCarryCVar->GetFloat();
++
++			return 0;
++		}
++
++		return m_AmmoType[nAmmoIndex].pMaxCarry;
++	}
++
++	int DamageType( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 0;
++
++		return m_AmmoType[nAmmoIndex].nDamageType;
++	}
++
++	int TracerType( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 0;
++
++		return m_AmmoType[nAmmoIndex].eTracerType;
++	}
++
++	float DamageForce( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 0;
++
++		return m_AmmoType[nAmmoIndex].physicsForceImpulse;
++	}
++
++	int MinSplashSize( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 4;
++
++		return m_AmmoType[nAmmoIndex].nMinSplashSize;
++	}
++
++	int MaxSplashSize( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 8;
++
++		return m_AmmoType[nAmmoIndex].nMaxSplashSize;
++	}
++
++	int Flags( int nAmmoIndex )
++	{
++		if ( nAmmoIndex < 1 || nAmmoIndex >= m_nAmmoIndex )
++			return 0;
++
++		return m_AmmoType[nAmmoIndex].nFlags;
++	}
++
++	void AddAmmoType( char const *name, int damageType, int tracerType,
++	                  int plr_dmg, int npc_dmg, int carry, float physicsForceImpulse,
++	                  int nFlags, int minSplashSize = 4, int maxSplashSize = 8 )
++	{
++		if ( AddAmmoType( name, damageType, tracerType, nFlags,
++		                  minSplashSize, maxSplashSize ) == false )
++			return;
++
++		m_AmmoType[m_nAmmoIndex].pPlrDmg = plr_dmg;
++		m_AmmoType[m_nAmmoIndex].pNPCDmg = npc_dmg;
++		m_AmmoType[m_nAmmoIndex].pMaxCarry = carry;
++		m_AmmoType[m_nAmmoIndex].physicsForceImpulse = physicsForceImpulse;
++
++		m_nAmmoIndex++;
++	}
++
+ 	void				AddAmmoType(char const* name, int damageType, int tracerType, char const* plr_cvar, char const* npc_var, char const* carry_cvar, float physicsForceImpulse, int nFlags, int minSplashSize = 4, int maxSplashSize = 8 );
+ 
+-	CAmmoDef(void);
+-	virtual ~CAmmoDef( void );
++	CAmmoDef( void )
++	{
++		m_nAmmoIndex = 1;
++		memset( m_AmmoType, 0, sizeof( m_AmmoType ) );
++	}
++
++	virtual ~CAmmoDef( void )
++	{
++		for ( int i = 1; i < MAX_AMMO_TYPES; i++ )
++		{
++			delete[] m_AmmoType[ i ].pName;
++		}
++	}
+ 
+ private:
+-	bool				AddAmmoType(char const* name, int damageType, int tracerType, int nFlags, int minSplashSize, int maxSplashSize );
++	bool AddAmmoType( char const *name, int damageType, int tracerType,
++	                  int nFlags, int minSplashSize, int maxSplashSize )
++	{
++		if ( m_nAmmoIndex == MAX_AMMO_TYPES )
++			return false;
++
++		int len = strlen( name );
++		m_AmmoType[m_nAmmoIndex].pName = new char[len + 1];
++		Q_strncpy( m_AmmoType[m_nAmmoIndex].pName, name, len + 1 );
++		m_AmmoType[m_nAmmoIndex].nDamageType	= damageType;
++		m_AmmoType[m_nAmmoIndex].eTracerType	= tracerType;
++		m_AmmoType[m_nAmmoIndex].nMinSplashSize	= minSplashSize;
++		m_AmmoType[m_nAmmoIndex].nMaxSplashSize	= maxSplashSize;
++		m_AmmoType[m_nAmmoIndex].nFlags	= nFlags;
++
++		return true;
++	}
+ };
+ 
+ 
+diff --git a/src/game/shared/interval.h b/src/game/shared/interval.h
+index 08f726109216613cf5db2d7cd51544238f644c66..d6350ebcf8161b28d6837a38ee5ada3ef46351dc 100644
+--- a/src/game/shared/interval.h
++++ b/src/game/shared/interval.h
+@@ -12,9 +12,43 @@
+ #endif
+ 
+ #include "basetypes.h"
++#include "tier1/strtools.h"
++#include "vstdlib/random.h"
+ 
+ 
+-interval_t ReadInterval( const char *pString );
+-float RandomInterval( const interval_t &interval );
++inline interval_t ReadInterval( const char *pString )
++{
++	interval_t tmp;
++
++	tmp.start = 0;
++	tmp.range = 0;
++
++	char tempString[128];
++	Q_strncpy( tempString, pString, sizeof(tempString) );
++
++	char *token = strtok( tempString, "," );
++	if ( token )
++	{
++		tmp.start = atof( token );
++		token = strtok( NULL, "," );
++		if ( token )
++		{
++			tmp.range = atof( token ) - tmp.start;
++		}
++	}
++
++	return tmp;
++}
++
++inline float RandomInterval( const interval_t &interval )
++{
++	float out = interval.start;
++	if ( interval.range != 0 )
++	{
++		out += RandomFloat( 0, interval.range );
++	}
++
++	return out;
++}
+ 
+ #endif // INTERVAL_H
+diff --git a/src/game/shared/mapentities_shared.h b/src/game/shared/mapentities_shared.h
+index fee9f0d0ef929b03969430c5b7370b520df9b1e9..26b2f73270b96851dbb131da8e4c006dbe282463 100644
+--- a/src/game/shared/mapentities_shared.h
++++ b/src/game/shared/mapentities_shared.h
+@@ -12,6 +12,11 @@
+ 
+ #define MAPKEY_MAXLENGTH	2048
+ 
++#include "tier0/dbg.h"
++#include "tier1/strtools.h"
++#include <cstring>
++#include <cstdlib>
++
+ 
+ //-----------------------------------------------------------------------------
+ // Purpose: encapsulates the data string in the map file 
+@@ -42,9 +47,295 @@ public:
+ 	const char *CurrentBufferPosition( void );
+ };
+ 
+-const char *MapEntity_ParseToken( const char *data, char *newToken );
+-const char *MapEntity_SkipToNextEntity( const char *pMapData, char *pWorkBuffer );
+-bool MapEntity_ExtractValue( const char *pEntData, const char *keyName, char Value[MAPKEY_MAXLENGTH] );
+ 
++inline const char *MapEntity_ParseToken( const char *data, char *newToken )
++{
++	struct BraceTable_t
++	{
++		bool m_bIsBrace[ 256 ];
++
++		BraceTable_t()
++		{
++			Q_memset( m_bIsBrace, 0, sizeof( m_bIsBrace ) );
++
++			for ( const char *c = "{}()\'"; *c; c++ )
++				m_bIsBrace[ (unsigned char)*c ] = true;
++		}
++	};
++
++	static const BraceTable_t s_Braces;
++
++	int len = 0;
++	newToken[0] = 0;
++
++	if ( !data )
++		return NULL;
++
++	int c;
++skipwhite:
++	while ( ( c = *data ) <= ' ' )
++	{
++		if ( c == 0 )
++			return NULL;
++		data++;
++	}
++
++	if ( c == '/' && data[1] == '/' )
++	{
++		while ( *data && *data != '\n' )
++			data++;
++		goto skipwhite;
++	}
++
++	if ( c == '\"' )
++	{
++		data++;
++		while ( len < MAPKEY_MAXLENGTH )
++		{
++			c = *data++;
++			if ( c == '\"' || !c )
++			{
++				newToken[len] = 0;
++				return data;
++			}
++			newToken[len] = c;
++			len++;
++		}
++
++		if ( len >= MAPKEY_MAXLENGTH )
++		{
++			len--;
++			newToken[len] = 0;
++		}
++	}
++
++	if ( s_Braces.m_bIsBrace[ (unsigned char)c ] )
++	{
++		newToken[len] = c;
++		len++;
++
++		if ( len >= MAPKEY_MAXLENGTH )
++		{
++			len--;
++		}
++		newToken[len] = 0;
++		return data + 1;
++	}
++
++	do
++	{
++		newToken[len] = c;
++		data++;
++		len++;
++
++		if ( len >= MAPKEY_MAXLENGTH )
++		{
++			len--;
++			newToken[len] = 0;
++		}
++
++		c = *data;
++		if ( s_Braces.m_bIsBrace[ (unsigned char)c ] )
++			break;
++
++	} while ( c > 32 );
++
++	if ( len >= MAPKEY_MAXLENGTH )
++	{
++		len--;
++	}
++	newToken[len] = 0;
++	return data;
++}
++
++inline int MapEntity_GetNumKeysInEntity( const char *pEntData )
++{
++	char token[MAPKEY_MAXLENGTH];
++	const char *inputData = pEntData;
++	int iNumKeys = 0;
++
++	while ( inputData )
++	{
++		inputData = MapEntity_ParseToken( inputData, token );
++		if ( token[0] == '}' )
++			break;
++
++		iNumKeys++;
++
++		inputData = MapEntity_ParseToken( inputData, token );
++	}
++
++	return iNumKeys;
++}
++
++inline bool MapEntity_ExtractValue( const char *pEntData, const char *keyName,
++                                    char Value[MAPKEY_MAXLENGTH] )
++{
++	char token[MAPKEY_MAXLENGTH];
++	const char *inputData = pEntData;
++
++	while ( inputData )
++	{
++		inputData = MapEntity_ParseToken( inputData, token );
++		if ( token[0] == '}' )
++			break;
++
++		if ( !strcmp( token, keyName ) )
++		{
++			inputData = MapEntity_ParseToken( inputData, token );
++			Q_strncpy( Value, token, MAPKEY_MAXLENGTH );
++			return true;
++		}
++
++		inputData = MapEntity_ParseToken( inputData, token );
++	}
++
++	return false;
++}
++
++inline const char *MapEntity_SkipToNextEntity( const char *pMapData, char *pWorkBuffer )
++{
++	if ( !pMapData )
++		return NULL;
++
++	int openBraceCount = 1;
++	while ( pMapData != NULL )
++	{
++		pMapData = MapEntity_ParseToken( pMapData, pWorkBuffer );
++
++		if ( pWorkBuffer[0] == '{' && pWorkBuffer[1] == 0 )
++		{
++			openBraceCount++;
++		}
++		else if ( pWorkBuffer[0] == '}' && pWorkBuffer[1] == 0 )
++		{
++			if ( --openBraceCount == 0 )
++			{
++				return pMapData;
++			}
++		}
++	}
++
++	return NULL;
++}
++
++inline bool CEntityMapData::ExtractValue( const char *keyName, char *value )
++{
++	return MapEntity_ExtractValue( m_pEntData, keyName, value );
++}
++
++inline bool CEntityMapData::GetFirstKey( char *keyName, char *value )
++{
++	m_pCurrentKey = m_pEntData;
++	return GetNextKey( keyName, value );
++}
++
++inline const char *CEntityMapData::CurrentBufferPosition( void )
++{
++	return m_pCurrentKey;
++}
++
++inline bool CEntityMapData::GetNextKey( char *keyName, char *value )
++{
++	char token[MAPKEY_MAXLENGTH];
++
++	char *pPrevKey = m_pCurrentKey;
++	m_pCurrentKey = (char*)MapEntity_ParseToken( m_pCurrentKey, token );
++	if ( token[0] == '}' )
++	{
++		m_pCurrentKey = pPrevKey;
++		return false;
++	}
++
++	if ( !m_pCurrentKey )
++	{
++		Warning( "CEntityMapData::GetNextKey: EOF without closing brace\n" );
++		Assert(0);
++		return false;
++	}
++
++	Q_strncpy( keyName, token, MAPKEY_MAXLENGTH );
++
++	int n = strlen( keyName );
++	while ( n && keyName[n-1] == ' ' )
++	{
++		keyName[n-1] = 0;
++		n--;
++	}
++
++	m_pCurrentKey = (char*)MapEntity_ParseToken( m_pCurrentKey, token );
++	if ( !m_pCurrentKey )
++	{
++		Warning( "CEntityMapData::GetNextKey: EOF without closing brace\n" );
++		Assert(0);
++		return false;
++	}
++	if ( token[0] == '}' )
++	{
++		Warning( "CEntityMapData::GetNextKey: closing brace without data\n" );
++		Assert(0);
++		return false;
++	}
++
++	Q_strncpy( value, token, MAPKEY_MAXLENGTH );
++	return true;
++}
++
++inline bool CEntityMapData::SetValue( const char *keyName, char *NewValue, int nKeyInstance )
++{
++	Assert( m_nEntDataSize != -1 );
++	if ( m_nEntDataSize == -1 )
++		return false;
++
++	char token[MAPKEY_MAXLENGTH];
++	char *inputData = m_pEntData;
++	char *prevData;
++
++	char newvaluebuf[ 1024 ];
++	int nCurrKeyInstance = 0;
++
++	while ( inputData )
++	{
++		inputData = (char*)MapEntity_ParseToken( inputData, token );
++		if ( token[0] == '}' )
++			break;
++
++		if ( !strcmp( token, keyName ) )
++		{
++			++nCurrKeyInstance;
++			if ( nCurrKeyInstance > nKeyInstance )
++			{
++				int entLen = strlen( m_pEntData );
++				char *postData = new char[entLen];
++				prevData = inputData;
++				inputData = (char*)MapEntity_ParseToken( inputData, token );
++				Q_strncpy( postData, inputData, entLen );
++
++				if ( NewValue[0] != '\"' )
++				{
++					Q_snprintf( newvaluebuf, sizeof( newvaluebuf ), "\"%s\"", NewValue );
++				}
++				else
++				{
++					Q_strncpy( newvaluebuf, NewValue, sizeof( newvaluebuf ) );
++				}
++
++				int iNewValueLen = Q_strlen( newvaluebuf );
++				int iPadding = iNewValueLen - Q_strlen( token ) - 2;
++
++				Q_strncpy( prevData+1, newvaluebuf, iNewValueLen+1 );
++				Q_strcat( prevData, postData, m_nEntDataSize - ((prevData-m_pEntData)+1) );
++
++				m_pCurrentKey += iPadding;
++				delete [] postData;
++				return true;
++			}
++		}
++
++		inputData = (char*)MapEntity_ParseToken( inputData, token );
++	}
++
++	return false;
++}
+ 
+ #endif // MAPENTITIES_SHARED_H
+-- 
+2.53.0
+

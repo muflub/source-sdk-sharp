@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The game's screens (plan_client_ui §4): scoreboard, HUD, team menu, centre
+    print, each with its sample states. Over the toolkit and the contract only;
+    game data arrives through the data interfaces in SourceSharp.Client.Interface.
+  -->
+  <ItemGroup>
+    <!-- The UI analyzer (plan_client_ui §5.8.5a): SSUI rules, errors under the
+         tree's TreatWarningsAsErrors. A mod's UI assembly references it the same way. -->
+    <ProjectReference Include="..\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+  </ItemGroup>
+</Project>

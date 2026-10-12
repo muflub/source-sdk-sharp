@@ -1,0 +1,16 @@
+# lane c2-sims: record the smoke volume sim (tools/probes/c2sims-smokevolume-probe.diff
+# applied) on dm_lockdown at the steam jet's fixed position looking 25 degrees down: the recording starts,
+# then a func_smokevolume is created on the map's brush model *4 at the
+# aim point, 60 frames from its Start.
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 25 0 0
+sleep 2
+cmd cs_cl_probe_sim smokevolume 60
+cmd ent_create func_smokevolume targetname c2smoke model *4 Color1 "120 120 140" Color2 "220 210 200" Material particle/particle_smokegrenade ParticleDrawWidth 64 ParticleSpacingDistance 48 DensityRampSpeed 0.5 RotationSpeed 20 MovementSpeed 15 Density 0.7
+cmd setang_exact 0 0 0
+wait sim. recorded 60
+quit

@@ -1,0 +1,326 @@
+# shelleject-stock.tsv: stock's shell-eject effects (fx_shelleject.cpp), recorded through its probe copy; see README-shelleject-stock.md
+# tools/probes/fx-select probe.log (prefixes fxs, mesh every 0): 324 rows kept, 0 mesh rows dropped
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4116	4560	65.9199982	a=0	90	5	has=1	ra=0	-90	0
+fxs-eject	type=0
+fxs-call	ent=0	o=-4116	4560	60.9199982	a=10	90	5	has=1	ra=0	0	0
+fxs-eject	type=0
+fxs-call	ent=-1	o=-4116	4560	55.9199982	a=20	90	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4116	4560	50.9199982	a=30	90	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4126	4560	65.9199982	a=0	110	5	has=1	ra=0	-90	0
+fxs-eject	type=1
+fxs-call	ent=0	o=-4126	4560	60.9199982	a=10	110	5	has=1	ra=0	0	0
+fxs-eject	type=1
+fxs-call	ent=-1	o=-4126	4560	55.9199982	a=20	110	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4126	4560	50.9199982	a=30	110	5	has=0	ra=0	0	0
+fxs-call	ent=1	o=-4136	4560	65.9199982	a=0	130	5	has=1	ra=0	-90	0
+fxs-eject	type=2
+fxs-call	ent=0	o=-4136	4560	60.9199982	a=10	130	5	has=1	ra=0	0	0
+fxs-eject	type=2
+fxs-call	ent=-1	o=-4136	4560	55.9199982	a=20	130	5	has=0	ra=0	0	0
+fxs-call	ent=-1	o=-4136	4560	50.9199982	a=30	130	5	has=0	ra=0	0	0

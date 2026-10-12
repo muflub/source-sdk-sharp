@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Test doubles the test assemblies share (plan_abi_hotreload Phase 1, the
+    user's ruling: RecordingEngine moves to a test assembly). SourceSharp.Tests,
+    SourceSharp.OracleTests and TF2.Descent.Tests reference it; no product
+    assembly may (TestSupportClosureTests holds that from the project files and
+    from the built metadata). Its output stays out of the game's managed
+    directory for the same reason.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/test-support/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <!-- RecordingEngine implements the IEngine* areas, which left Abi for
+         Shared.Interop in Phase 1 run 3. -->
+    <ProjectReference Include="..\..\shared\interop\SourceSharp.Shared.Interop.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The suite may reach the doubles' internals. EngineStateScope, which
+         this was for, went with the static reload store (statics to zero):
+         each composition's store is its own SideState's. -->
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,59 @@
+# Which frame a parented child hangs from, and which links the frame sweep must
+# look at -- the golden table, and the ONE record of the rule.
+#
+# plan_entity.md step 2h moved parenting's policy into C#. The rule that picks a
+# parent's frame is now ParentFrameRule in SourceSharp.Abi/Hierarchy.cs; the C++
+# twin in sourcesharp/game/server/shell_parent_frame.h survives because the
+# native shell still poses the skeleton an attachment frame is read out of, and
+# still has to name which of the five answers it is being asked for.
+#
+# TWO DECLARATIONS OF ONE RULE IS DRIFT WAITING TO HAPPEN, so they are not
+# believed -- they are compared, through this file. Two tests read it:
+#
+#   sourcesharp/test/shell_parent_frame_test.cpp  -- asserts
+#       SourceSharp_ParentFrameKind and SourceSharp_LinkNeedsSweeping reproduce
+#       every row.
+#
+#   SourceSharp.Tests/HierarchyTests.cs           -- asserts
+#       ParentFrameRule.KindFor and ParentFrameRule.NeedsSweeping reproduce the
+#       same rows.
+#
+# EVERY COMBINATION IS HERE, enumerated rather than sampled: there are only
+# sixteen of the first and eight of the second, and every one of the ways this
+# rule can be wrong is SILENT -- a decoration a few dozen units from where it
+# belongs, a muzzle flash at an NPC's feet, or a child that freezes in mid-air
+# the moment its parent stops moving. None of those fails a build or prints a
+# line.
+#
+# Columns:
+#   kind  hasStandalone hasBase parentAttachment parentCanPose  ->  frame kind
+#   sweep resolved parentAttachment parentIsBase                ->  1 if swept
+#
+# parentAttachment is written as 0 or 3 because the rule reads only "> 0"; 3 is
+# an ordinary one-based attachment index and 1 would not distinguish a rule that
+# had accidentally been written as "== 1".
+#
+kind 0 0 0 0 None
+kind 0 0 0 1 None
+kind 0 0 3 0 None
+kind 0 0 3 1 None
+kind 0 1 0 0 BaseOrigin
+kind 0 1 0 1 BaseOrigin
+kind 0 1 3 0 BaseOrigin
+kind 0 1 3 1 BaseAttachment
+kind 1 0 0 0 StandaloneOrigin
+kind 1 0 0 1 StandaloneOrigin
+kind 1 0 3 0 StandaloneOrigin
+kind 1 0 3 1 StandaloneAttachment
+kind 1 1 0 0 StandaloneOrigin
+kind 1 1 0 1 StandaloneOrigin
+kind 1 1 3 0 StandaloneOrigin
+kind 1 1 3 1 StandaloneAttachment
+sweep 0 0 0 0
+sweep 0 0 1 0
+sweep 0 3 0 0
+sweep 0 3 1 0
+sweep 1 0 0 0
+sweep 1 0 1 1
+sweep 1 3 0 1
+sweep 1 3 1 1

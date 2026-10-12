@@ -1,0 +1,81 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+static int32_t ButtonTokenId(	SLOT-HELP	a kbutton_t token's address to its KeyButtons id (KeyState's lookup), deciding nothing
+[CSourceSharpInput] CSourceSharpInput()	LAYOUT	the ring pointers, empty, and the input mailbox zeroed with its size
+[CSourceSharpInput] SourceSharpInputMailbox *Mailbox()	LAYOUT	the input mailbox's address, for IShimInputClient::InputMailbox
+[CSourceSharpInput] bool Published(	SLOT-HELP	reads a bit managed published in the input mailbox (ClientInput.Published), deciding nothing
+[CSourceSharpInput] bool ShakeIsNoop(	SLOT-HELP	carries out the skip rule ClientRumble published (ShakeNoop): always, never, or when the bits equal its value
+[CSourceSharpInput] virtual void Init_All(	SLOT	IInput::Init_All: allocates the CUserCmd ring the engine encodes from, then IManagedInputClient::InputInit
+[CSourceSharpInput] virtual void Shutdown_All(	SLOT	IInput::Shutdown_All: InputShutdown, then frees the ring
+[CSourceSharpInput] virtual int GetButtonBits(	SLOT	IInput::GetButtonBits -> InputGetButtonBits
+[CSourceSharpInput] virtual void CreateMove(	SLOT	IInput::CreateMove: the ring slot reset and stamped, InputCreateMove fills the field copy, copied in and verified (stock's CRC)
+[CSourceSharpInput] virtual void ExtraMouseSample(	SLOT	IInput::ExtraMouseSample -> InputExtraMouseSample
+[CSourceSharpInput] virtual bool WriteUsercmdDeltaToBuffer(	SLOT	IInput::WriteUsercmdDeltaToBuffer: the wire codec (f) over the ring, stock's body
+[CSourceSharpInput] virtual void EncodeUserCmdToBuffer(	SLOT	IInput::EncodeUserCmdToBuffer: the codec (f)
+[CSourceSharpInput] virtual void DecodeUserCmdFromBuffer(	SLOT	IInput::DecodeUserCmdFromBuffer: the codec (f)
+[CSourceSharpInput] virtual CUserCmd *GetUserCmd(	SLOT	IInput::GetUserCmd: the ring slot by sequence number (prediction reads it by pointer)
+[CSourceSharpInput] virtual void MakeWeaponSelection(	SLOT	IInput::MakeWeaponSelection -> InputMakeWeaponSelection
+[CSourceSharpInput] virtual float KeyState(	SLOT	IInput::KeyState: the token's id -> InputKeyState
+[CSourceSharpInput] virtual int KeyEvent(	SLOT	IInput::KeyEvent: InputKeyEvent's answer, or the client mode's KeyInput when managed answers -1 (carries out managed's decision)
+[CSourceSharpInput] virtual kbutton_t *FindKey(	SLOT	IInput::FindKey: the engine's two names as tokens
+[CSourceSharpInput] virtual void ControllerCommands(	SLOT	IInput::ControllerCommands: stock's empty body
+[CSourceSharpInput] virtual void Joystick_Advanced(	SLOT	IInput::Joystick_Advanced -> InputJoystickAdvanced
+[CSourceSharpInput] virtual void Joystick_SetSampleTime(	SLOT	IInput::Joystick_SetSampleTime -> InputSetJoystickSampleTime
+[CSourceSharpInput] virtual void IN_SetSampleTime(	SLOT	IInput::IN_SetSampleTime -> InputSetKeyboardSampleTime
+[CSourceSharpInput] virtual void AccumulateMouse(	SLOT	IInput::AccumulateMouse -> InputAccumulateMouse
+[CSourceSharpInput] virtual void ActivateMouse(	SLOT	IInput::ActivateMouse -> InputActivateMouse
+[CSourceSharpInput] virtual void DeactivateMouse(	SLOT	IInput::DeactivateMouse -> InputDeactivateMouse
+[CSourceSharpInput] virtual void ClearStates(	SLOT	IInput::ClearStates -> InputClearStates
+[CSourceSharpInput] virtual float GetLookSpring(	SLOT	IInput::GetLookSpring -> InputGetLookSpring
+[CSourceSharpInput] virtual void GetFullscreenMousePos(	SLOT	IInput::GetFullscreenMousePos: four ints through InputGetFullscreenMousePos
+[CSourceSharpInput] virtual void SetFullscreenMousePos(	SLOT	IInput::SetFullscreenMousePos -> InputSetFullscreenMousePos
+[CSourceSharpInput] virtual void ResetMouse(	SLOT	IInput::ResetMouse -> InputResetMouse
+[CSourceSharpInput] virtual float GetLastForwardMove(	SLOT	IInput::GetLastForwardMove -> InputGetLastForwardMove
+[CSourceSharpInput] virtual float Joystick_GetForward(	SLOT	IInput::Joystick_GetForward through InputJoystickAxes
+[CSourceSharpInput] virtual float Joystick_GetSide(	SLOT	IInput::Joystick_GetSide through InputJoystickAxes
+[CSourceSharpInput] virtual float Joystick_GetPitch(	SLOT	IInput::Joystick_GetPitch through InputJoystickAxes
+[CSourceSharpInput] virtual float Joystick_GetYaw(	SLOT	IInput::Joystick_GetYaw through InputJoystickAxes
+[CSourceSharpInput] virtual void CAM_Think(	SLOT	IInput::CAM_Think: the held CameraThirdData_t's values, then InputCamThink
+[CSourceSharpInput] virtual int CAM_IsThirdPerson(	SLOT	IInput::CAM_IsThirdPerson -> InputCamOp
+[CSourceSharpInput] virtual void CAM_ToThirdPerson(	SLOT	IInput::CAM_ToThirdPerson -> InputCamOp
+[CSourceSharpInput] virtual void CAM_ToFirstPerson(	SLOT	IInput::CAM_ToFirstPerson -> InputCamOp
+[CSourceSharpInput] virtual void CAM_StartMouseMove(	SLOT	IInput::CAM_StartMouseMove -> InputCamOp
+[CSourceSharpInput] virtual void CAM_EndMouseMove(	SLOT	IInput::CAM_EndMouseMove -> InputCamOp
+[CSourceSharpInput] virtual void CAM_StartDistance(	SLOT	IInput::CAM_StartDistance -> InputCamOp
+[CSourceSharpInput] virtual void CAM_EndDistance(	SLOT	IInput::CAM_EndDistance -> InputCamOp
+[CSourceSharpInput] virtual int CAM_InterceptingMouse(	SLOT	IInput::CAM_InterceptingMouse -> InputCamOp
+[CSourceSharpInput] virtual void CAM_ToOrthographic(	SLOT	IInput::CAM_ToOrthographic -> InputCamOp
+[CSourceSharpInput] virtual bool CAM_IsOrthographic(	SLOT	IInput::CAM_IsOrthographic -> InputCamOp
+[CSourceSharpInput] virtual void CAM_OrthographicSize(	SLOT	IInput::CAM_OrthographicSize -> InputCamOrthographicSize
+[CSourceSharpInput] virtual void SetPreferredGameActionSet(	SLOT	IInput::SetPreferredGameActionSet -> InputSetPreferredGameActionSet
+[CSourceSharpInput] virtual GameActionSet_t GetPreferredGameActionSet(	SLOT	IInput::GetPreferredGameActionSet -> InputGetPreferredGameActionSet
+[CSourceSharpInput] virtual void SetGameActionSetFlags(	SLOT	IInput::SetGameActionSetFlags -> InputSetGameActionSetFlags
+[CSourceSharpInput] virtual void LevelInit(	SLOT	IInput::LevelInit -> InputLevelInit
+[CSourceSharpInput] virtual void ClearInputButton(	SLOT	IInput::ClearInputButton -> InputClearInputButton
+[CSourceSharpInput] virtual void CAM_SetCameraThirdData(	SLOT	IInput::CAM_SetCameraThirdData: holds the pointer (as stock did) and hands its values to InputCamSetCameraThirdData
+[CSourceSharpInput] virtual void CAM_CameraThirdThink(	SLOT	IInput::CAM_CameraThirdThink -> InputCamOp
+[CSourceSharpInput] virtual bool EnableJoystickMode(	SLOT	IInput::EnableJoystickMode -> InputEnableJoystickMode
+[CSourceSharpInput] virtual bool IsSteamControllerActive(	SLOT	IInput::IsSteamControllerActive -> InputIsSteamControllerActive
+[CSourceSharpInput] CUserCmd *Verified(	SLOT-HELP	the codec's slot lookup: the null command for a slot the ring passed, the verified copy for one whose CRC moved (stock's rules)
+[CSourceSharpInput] float JoystickAxis(	SLOT-HELP	one of InputJoystickAxes' four
+[CSourceSharpInput] int CamOp(	SLOT-HELP	InputCamOp, NULL-safe
+CThirdPersonManager::CThirdPersonManager(	LAYOUT	the name clientmode_shared.cpp links against
+void CThirdPersonManager::Init(	HOOK	clientmode_shared.cpp's level-shutdown reset -> InputThirdPersonInit
+void SourceSharp_InputCursorState(	BOUNDARY	IShimInputClient::InputCursorState: vgui::surface()'s IsCursorVisible / IsCursorLocked
+void SourceSharp_InputGetCursorPos(	BOUNDARY	IShimInputClient::InputGetCursorPos: vgui_int.cpp's GetVGUICursorPos
+void SourceSharp_InputSetCursorPos(	BOUNDARY	IShimInputClient::InputSetCursorPos: SetVGUICursorPos
+void SourceSharp_InputSetCursorArrow(	BOUNDARY	IShimInputClient::InputSetCursorArrow: surface SetCursor( dc_arrow )
+void SourceSharp_InputVguiScreenSize(	BOUNDARY	IShimInputClient::InputVguiScreenSize: surface GetScreenSize
+void SourceSharp_InputHudFacts(	BOUNDARY	IShimInputClient::InputHudFacts: gHUD's sensitivity, key bits and FOV adjust
+void SourceSharp_InputStopPitchDrift(	BOUNDARY	IShimInputClient::InputStopPitchDrift: view->StopPitchDrift
+void SourceSharp_InputSetLocalViewAngles(	BOUNDARY	IShimInputClient::InputSetLocalViewAngles: prediction->SetLocalViewAngles
+void SourceSharp_InputViewerCameraModeChanged(	BOUNDARY	IShimInputClient::InputViewerCameraModeChanged: the viewer seam (view_facts.h)
+int32_t SourceSharp_InputViewerAimIsAssisted(	BOUNDARY	IShimInputClient::InputViewerAimIsAssisted: the viewer seam (view_facts.h)
+void SourceSharp_InputShowScoreboard(	BOUNDARY	IShimInputClient::InputShowScoreboard: the viewport's scoreboard panel, and the squelch mode's end on release
+void UpdateRumbleEffects()	HOOK	c_rumble.h's name for ClientModeShared::Update (not called here); empty, the managed frame steps the mixer
+void UpdateScreenShakeRumble(	BOUNDARY	c_rumble.h's name for view_effects.cpp -> InputRumbleScreenShake
+void StopAllRumbleEffects(	BOUNDARY	the level shutdown's -> InputRumbleStopAll
+void *SourceSharp_InputMailbox(	BOUNDARY	IShimInputClient::InputMailbox: the input mailbox's address, asked once by managed
+[CSourceSharpInput] static void FromFlat(	LAYOUT	a managed command's fields onto the engine's CUserCmd, field for field (C9 usercmd)
+[CSourceSharpInput] static void ToFlat(	LAYOUT	a CUserCmd's wire fields into the flat struct the managed codec reads (C9 usercmd)
+[CSourceSharpInput] static int Encode(	SLOT-HELP	one InputEncodeUserCmd crossing and one BitBlock copy into the engine's bf_write; decides nothing (C9 usercmd)

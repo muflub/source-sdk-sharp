@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The rules module the hosting service replays rolls with (Host.Contracts'
+    IGameRules). The service loads it ALONE, in its own process: it references
+    Host.Contracts and nothing else, and TF2DescentTests checks that closure.
+  -->
+  <ItemGroup>
+    <PackageReference Include="SourceSharp.Host.Contracts" Version="$(HostContractsVersion)" />
+  </ItemGroup>
+</Project>

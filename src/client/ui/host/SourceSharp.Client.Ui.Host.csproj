@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The UI in game (plan_client_ui U5): the composition of the toolkit, the
+    screens and the core's sources, and the runtime the core forwards to. The
+    core loads this assembly, the toolkit and the screens into their own
+    collectible load context (SourceSharp.Client's UiLoader) and never names
+    their types, so a UI-only deploy reloads them without the core. It
+    references the core; the core does not reference it.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <ProjectReference Include="..\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\interop\SourceSharp.Client.Interop.csproj" />
+    <ProjectReference Include="..\..\managed\SourceSharp.Client.csproj" />
+    <ProjectReference Include="..\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+    <ProjectReference Include="..\screens\SourceSharp.Client.Ui.csproj" />
+  </ItemGroup>
+</Project>

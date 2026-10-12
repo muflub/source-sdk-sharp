@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Who, on the LINK LINE, reaches a header?
+
+Answers the question shim-census calls vacuous for headers: it walks the
+`#include` graph UPWARD from the header to the translation units the build
+actually compiles, on each side.  Root is derived from this script's own
+location, never hardcoded.
+
+    tools/header-consumers src/sourcesharp/game/server/notify_gate.h
+    tools/header-consumers --build-dir D src/...   (default <root>/build, i.e.
+                                                   farm/<config>/build from the farm)
+
+The link line is the CMake build's: the sources of server.so and client.so,
+out of compile_commands.json, cross-checked against the CMakeLists source lists
+and against the object count of each link edge in build.ninja
+(tools/cmakegraph.py).  The include graph is every #include under the farm's
+src/, which is a tree of SYMLINKS -- so the grep dereferences them (-R).  A
+plain -r skips every symlinked file and answers "0 TU(s)" for every header,
+which is how this tool read until Phase 6b.
+
+Exit 2, naming the problem, when the build cannot be read, the include index
+is implausibly small, or a header argument does not exist: an answer of 0 TUs
+is only an answer once the measurement is known to have worked.
+"""
+import os, re, sys, subprocess, collections
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import cmakegraph  # noqa: E402
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+# From the farm (farm/<config>/tools links the repo's), the farm's own build/;
+# from the repo, the config's farm build (cmakegraph.build_dir). The sources are
+# that build's farm src/, and paths print relative to that farm.
+BUILD_DIR = os.path.join(ROOT, 'build')
+if not os.path.isdir(BUILD_DIR):
+    BUILD_DIR = cmakegraph.build_dir(os.environ.get('SOURCESHARP_CONFIG') or 'debug')
+SRC = cmakegraph.farm_src(BUILD_DIR)
+ROOT = os.path.dirname(SRC)
+
+# The farm's src/ holds tens of thousands of #include lines; a few hundred means
+# the grep walked almost nothing (a plain -r over the symlink farm finds 0).
+MIN_INCLUDERS = 1000
+
+
+def die(msg):
+    sys.stderr.write('header-consumers: %s\n' % msg)
+    sys.exit(2)
+
+
+def link_line():
+    """{side: {abs source path}} for every object on each .so's link edge."""
+    out = collections.defaultdict(set)
+    try:
+        for side, target in cmakegraph.SIDES.items():
+            srcs = cmakegraph.compiled_sources(target, BUILD_DIR)
+            n = len(cmakegraph.link_edge(target, BUILD_DIR)['objects'])
+            if n != len(srcs):
+                die("build.ninja links %d objects into %s but compile_commands.json "
+                    "compiles %d sources" % (n, target, len(srcs)))
+            for rel in srcs:
+                out[side].add(os.path.normpath(os.path.join(SRC, rel)))
+    except cmakegraph.GraphError as e:
+        die('cannot read the CMake build at %s: %s (build first: make debug)' % (BUILD_DIR, e))
+    return out
+
+
+def index_includes():
+    """{basename -> [files that #include it]} over the whole src tree."""
+    idx = collections.defaultdict(set)
+    cmd = ['grep', '-RIn', '--include=*.h', '--include=*.cpp', '--include=*.hpp',
+           '--include=*.inl', r'^[ \t]*#[ \t]*include', SRC]
+    p = subprocess.run(cmd, capture_output=True, text=True, errors='replace')
+    inc = re.compile(r'#\s*include\s*[<"]([^>"]+)[>"]')
+    for line in p.stdout.split('\n'):
+        if not line:
+            continue
+        try:
+            path, _lineno, text = line.split(':', 2)
+        except ValueError:
+            continue
+        m = inc.search(text)
+        if m:
+            idx[os.path.basename(m.group(1))].add(os.path.abspath(path))
+    includers = set().union(*idx.values()) if idx else set()
+    if len(includers) < MIN_INCLUDERS:
+        die('the #include index over %s names only %d including files -- the '
+            'grep walked almost nothing' % (SRC, len(includers)))
+    return idx
+
+
+def reaches(header, idx, sides):
+    """Every file that transitively includes `header`, and the TUs among them."""
+    base = os.path.basename(header)
+    seen = set()
+    frontier = {base}
+    files = set()
+    while frontier:
+        nxt = set()
+        for b in frontier:
+            if b in seen:
+                continue
+            seen.add(b)
+            for f in idx.get(b, ()):  # f includes b
+                if f in files:
+                    continue
+                files.add(f)
+                nxt.add(os.path.basename(f))
+        frontier = nxt
+    res = {}
+    for side, srcs in sides.items():
+        res[side] = sorted(files & srcs)
+    return files, res
+
+
+if __name__ == '__main__':
+    argv = sys.argv[1:]
+    if len(argv) >= 2 and argv[0] == '--build-dir':
+        BUILD_DIR = os.path.abspath(argv[1])
+        SRC = cmakegraph.farm_src(BUILD_DIR)
+        ROOT = os.path.dirname(SRC)
+        argv = argv[2:]
+    args = [a for a in argv if not a.startswith('-')]
+    if not args:
+        die('name at least one header')
+    for hdr in args:
+        if not os.path.exists(hdr) and not os.path.exists(os.path.join(ROOT, hdr)):
+            die('%s does not exist (from here or from %s)' % (hdr, ROOT))
+    sides = link_line()
+    idx = index_includes()
+    for hdr in args:
+        allf, res = reaches(hdr, idx, sides)
+        print('== %s' % hdr)
+        for side in ('server', 'client'):
+            hits = res.get(side, [])
+            print('   %-6s %d TU(s) on the link line' % (side, len(hits)))
+            for h in hits:
+                print('      %s' % os.path.relpath(h, ROOT))
+        tests = sorted(f for f in allf if '/test' in f or f.endswith('_test.cpp'))
+        print('   tests/other including it (not on link line): %d' % len(tests))
+        for t in tests[:12]:
+            print('      %s' % os.path.relpath(t, ROOT))

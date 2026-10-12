@@ -1,0 +1,15 @@
+# lane c5-proxies: the material proxies' oracle (tools/probes/client/c5proxies_probes_debug.cpp):
+# stock's own binds on dm_lockdown, then the probe scene (content and synthetic materials
+# carrying every registered proxy name) once a frame for 300 frames. Needs the probe build.
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd cs_cl_probe_pxregs
+cmd cs_cl_probe_proxies 1
+sleep 5
+cmd cs_cl_probe_pxscene 300
+sleep 12
+cmd cs_cl_probe_proxies 0
+sleep 0.5
+quit

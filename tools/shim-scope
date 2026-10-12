@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""tools/shim-scope -- the function-level LOGIC ledger of a native shim
+directory: plan_client_novalve.md 4.1 R7 and 4.3 (N0 for the client).
+
+    tools/shim-scope                check: every source file's function map
+                                    matches its committed fnmap.tsv, every
+                                    ruling names one function, and print the
+                                    LOGIC total; exit 1 on any drift
+    tools/shim-scope --write        regenerate the fnmap.tsv files (and an
+                                    empty rulings.tsv for a new source file);
+                                    review the diff
+    tools/shim-scope --report       also list every LOGIC function
+    tools/shim-scope --self-test    this script's own checks
+    --scope client                  the only scope today: src/client/native
+
+It generalises tools/physics-scope (fnmap + classify, written for one server
+file) to every .cpp and .h under a directory, with the ledgers in
+docs/shim-scope/<scope>/<path>.{fnmap,rulings}.tsv, one pair per source file.
+
+THE FUNCTION MAP. A row is a function DEFINITION with a body: at file scope,
+inside namespaces and extern "C" blocks, or inline in a class body (headed
+`[Class] ...`). Its count is the body's CODE lines, comments and blank lines
+stripped, from the head line to the closing brace. Preprocessor lines are
+skipped; string and character literals cannot open a brace. Data initialisers
+(`= {`), enums and class data are not functions and are not rows.
+
+    fnmap.tsv     code_lines<TAB>verdict<TAB>head    GENERATED (--write)
+    rulings.tsv   key<TAB>verdict<TAB>reason         HAND-WRITTEN
+
+A ruling's `key` is a substring of exactly one head (rows whose heads are
+identical, such as one signature under two #if arms, are ruled together).
+
+THE VERDICTS. Everything native may keep is a binding (plan_native_bindings_only
+1, B1-B5); LOGIC is what must move to C#:
+
+    SLOT         a vtable slot the engine or a fork library calls (B1)
+    SLOT-HELP    a helper whose only caller is a SLOT, deciding nothing
+    LAYOUT       builds or fills a struct the engine reads by layout (B2)
+    HOOK         registration or a system slot the engine drives (B3)
+    BOUNDARY     a pass-through onto an engine or library call (B4)
+    HOST         the managed host's own plumbing (B5)
+    LIVE-API     another object imports it (cite the measurement)
+    INSTRUMENT   a counter, report or diagnostic
+    STOCK-DEBUG  stock debug-only code
+    LOGIC        it decides something: R7 counts it
+
+AN UNRULED FUNCTION COUNTS AS LOGIC. Doing nothing cannot make R7 fall: only
+a reviewed ruling with a reason, or the code leaving, does. The R7 ratchet row
+itself is `logic-lines` in docs/client-novalve-ratchet.tsv
+(tools/client-novalve-census reads this script's total).
+
+DRIFT IS RED. A function added, removed or grown, a ruling that names nothing
+or two different functions, an unknown verdict, a source file with no ledger
+or a ledger with no source file: each fails the check. The fnmap carries no
+line numbers, so moving code does not churn it; growing a SLOT does, which is
+the point (logic hidden in a binding shows in the diff).
+"""
+
+import argparse
+import os
+import re
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCOPES = {"client": "src/client/native"}
+VERDICTS = ("SLOT", "SLOT-HELP", "LAYOUT", "HOOK", "BOUNDARY", "HOST", "LIVE-API",
+            "INSTRUMENT", "STOCK-DEBUG", "LOGIC")
+LOGIC = "LOGIC"
+UNRULED = "UNRULED"
+HEAD_MAX = 140
+
+
+# ---------------------------------------------------------------- the parser
+
+
+def strip_code(text):
+    """Comments removed, string and char literal CONTENTS removed (the quotes
+    stay), preprocessor lines (and their continuations) blanked. One output
+    line per input line."""
+    out, inblock, pp_cont = [], False, False
+    for ln in text.split("\n"):
+        if pp_cont:
+            pp_cont = ln.rstrip().endswith("\\")
+            out.append("")
+            continue
+        s, buf, i = ln, [], 0
+        if inblock:
+            j = s.find("*/")
+            if j < 0:
+                out.append("")
+                continue
+            i = j + 2
+            inblock = False
+        while i < len(s):
+            c = s[i]
+            if s.startswith("//", i):
+                break
+            if s.startswith("/*", i):
+                j = s.find("*/", i + 2)
+                if j < 0:
+                    inblock = True
+                    break
+                buf.append(" ")
+                i = j + 2
+                continue
+            if c in "\"'":
+                # A digit separator (1'000) is not a literal.
+                if c == "'" and i > 0 and s[i - 1].isalnum() and i + 1 < len(s) and s[i + 1].isalnum():
+                    i += 1
+                    continue
+                j = i + 1
+                while j < len(s):
+                    if s[j] == "\\":
+                        j += 2
+                        continue
+                    if s[j] == c:
+                        break
+                    j += 1
+                buf.append(c + c)
+                i = j + 1
+                continue
+            buf.append(c)
+            i += 1
+        line = "".join(buf)
+        if line.lstrip().startswith("#"):
+            pp_cont = ln.rstrip().endswith("\\")
+            line = ""
+        out.append(line)
+    return out
+
+
+RE_SIG = re.compile(r"^[A-Za-z_~][\w:<>,*&\s~\[\]]*\(")
+RE_CALLLIKE = re.compile(r"^\w+\s*\(.*\)\s*;?\s*$")       # a macro line: FOO( ... )
+RE_LABEL = re.compile(r"^(?:public|private|protected)\s*:\s*")
+RE_NS = re.compile(r"^(?:inline\s+)?namespace\b[^(]*$|^extern\s*\"\"\s*$")
+RE_ENUM = re.compile(r"^(?:typedef\s+)?enum\b")
+RE_CLASS = re.compile(r"^(?:template\s*<.*>\s*)?(?:typedef\s+)?(class|struct|union)\b\s*"
+                      r"(?:(?:alignas|__attribute__|DECLSPEC\w*)\s*\(\(?[^)]*\)?\)\s*)*([A-Za-z_]\w*)?")
+
+
+def _is_macro_line(l):
+    """FOO( ... ) alone on a line: a single identifier called, no type before it."""
+    if not RE_CALLLIKE.match(l):
+        return False
+    callee = l.split("(", 1)[0].strip()
+    return re.match(r"^\w+$", callee) is not None
+
+
+def _kind(pending):
+    """What a `{` opens, from the statement text before it at this scope.
+    `pending` is [(line_no, text)]. Returns (kind, name_or_head, head_line)."""
+    lines = [(n, RE_LABEL.sub("", t.strip())) for n, t in pending]
+    lines = [(n, t) for n, t in lines if t]
+    text = " ".join(t for _, t in lines)
+    if not text:
+        return "other", None, None
+    if RE_NS.match(text):
+        return "ns", None, None
+    if RE_ENUM.match(text):
+        return "other", None, None
+    m = RE_CLASS.match(text)
+    if m and "(" not in text[m.end():].split(":")[0]:
+        return "class", m.group(2) or "(anonymous)", None
+    paren = text.find("(")
+    if paren < 0 or "=" in text[:paren].replace("==", "").replace("operator=", ""):
+        return "other", None, None
+    # The head: the first signature line after any leading macro lines; a
+    # body opened straight after a macro line (CON_COMMAND( x, "y" ) {) is
+    # that macro's.
+    rest, dropped = list(lines), None
+    while rest and _is_macro_line(rest[0][1]):
+        dropped = rest.pop(0)
+    for n, t in rest:
+        if RE_SIG.match(t):
+            return "func", t, n
+    if dropped is not None and not rest:
+        return "func", dropped[1], dropped[0]
+    n, t = (rest or lines)[0]
+    return "func", t, n
+
+
+def fnmap(text, spans=None):
+    """[(code_lines, head)] for every function definition in a source text.
+    `spans`, when given a list, receives (first_line, last_line), 0-based."""
+    code = strip_code(text)
+    rows = []
+    stack = []          # entries: [kind, name, head_line, head]
+    pending = []        # [(line_no, text)] at the current ns/class scope
+
+    def at_decl_scope():
+        return not stack or stack[-1][0] in ("ns", "class")
+
+    for n, s in enumerate(code):
+        seg = 0
+        for i, ch in enumerate(s):
+            if ch not in "{};":
+                continue
+            if not at_decl_scope():
+                if ch == "{":
+                    stack.append(["other", None, n, None])
+                elif ch == "}":
+                    e = stack.pop()
+                    if e[0] == "func":
+                        lines = sum(1 for k in range(e[2], n + 1) if code[k].strip())
+                        rows.append((lines, e[3]))
+                        if spans is not None:
+                            spans.append((e[2], n))
+                    if at_decl_scope():
+                        pending, seg = [], i + 1
+                continue
+            piece = s[seg:i]
+            pend = pending + ([(n, piece)] if piece.strip() else [])
+            if ch == "{":
+                kind, what, line = _kind(pend)
+                if kind == "func":
+                    cls = [e[1] for e in stack if e[0] == "class"]
+                    head = ("[%s] " % "::".join(cls) if cls else "") + what.strip()
+                    stack.append(["func", None, line, head[:HEAD_MAX]])
+                else:
+                    stack.append([kind, what, n, None])
+            elif ch == "}" and stack:
+                stack.pop()
+            pending, seg = [], i + 1
+        if at_decl_scope() and s[seg:].strip():
+            pending.append((n, s[seg:]))
+    if stack:
+        raise ValueError("unbalanced braces: %d scope(s) open at end of file (%s at line %d)"
+                         % (len(stack), stack[-1][0], stack[-1][2] + 1))
+    return rows
+
+
+# ---------------------------------------------------------------- the ledger
+
+
+def read_tsv(path):
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    out = []
+    for l in open(path, encoding="utf-8"):
+        l = l.rstrip("\n")
+        if not l.strip() or l.startswith("#"):
+            continue
+        out.append(l.split("\t"))
+    return out
+
+
+def classify(rows, rulings):
+    """Apply rulings to fnmap rows. Returns (verdict per row, problems)."""
+    problems = []
+    verdicts = [UNRULED] * len(rows)
+    for r in rulings:
+        if len(r) < 3 or not r[2].strip():
+            problems.append("ruling without a reason: %s" % "\t".join(r))
+            continue
+        key, verdict = r[0], r[1]
+        if verdict not in VERDICTS:
+            problems.append("unknown verdict %r for %r" % (verdict, key))
+            continue
+        hits = [i for i, (_, h) in enumerate(rows) if key in h]
+        if not hits:
+            problems.append("ruling names no function: %r" % key)
+            continue
+        if len({rows[i][1] for i in hits}) > 1:
+            problems.append("ruling names %d different functions: %r" % (len({rows[i][1] for i in hits}), key))
+            continue
+        for i in hits:
+            if verdicts[i] != UNRULED:
+                problems.append("two rulings for one function: %r" % rows[i][1])
+            verdicts[i] = verdict
+    return verdicts, problems
+
+
+def logic_lines(rows, verdicts):
+    return sum(n for (n, _), v in zip(rows, verdicts) if v in (LOGIC, UNRULED))
+
+
+def render_fnmap(rel, rows, verdicts):
+    out = ["# %s: GENERATED by tools/shim-scope --write. Do not edit; rule in the .rulings.tsv beside it." % rel,
+           "# code_lines\tverdict\thead   (UNRULED counts as LOGIC)"]
+    for (n, h), v in zip(rows, verdicts):
+        out.append("%d\t%s\t%s" % (n, v, h))
+    return "\n".join(out) + "\n"
+
+
+RULINGS_HEAD = ("# key (a substring of one fnmap head)\tverdict\treason\n"
+                "# Verdicts: %s. An unruled function counts as LOGIC.\n" % " ".join(VERDICTS))
+
+
+def sources(scope_dir):
+    out = []
+    for root, _, files in os.walk(os.path.join(REPO, scope_dir)):
+        for f in files:
+            if f.endswith((".cpp", ".h")):
+                out.append(os.path.relpath(os.path.join(root, f), os.path.join(REPO, scope_dir)))
+    return sorted(out)
+
+
+def measure(scope="client", write=False, report=False, quiet=False):
+    """Check (or rewrite) the scope's ledgers. Returns (logic_lines, problems,
+    per-verdict totals)."""
+    scope_dir = SCOPES[scope]
+    ledger = os.path.join(REPO, "docs", "shim-scope", scope)
+    problems, totals, logic_total, logic_rows = [], {}, 0, []
+    srcs = sources(scope_dir)
+    if not srcs:
+        return 0, ["no source files under " + scope_dir], {}
+    for rel in srcs:
+        text = open(os.path.join(REPO, scope_dir, rel), encoding="utf-8", errors="replace").read()
+        try:
+            rows = fnmap(text)
+        except ValueError as e:
+            problems.append("%s: cannot be mapped: %s" % (rel, e))
+            continue
+        fpath = os.path.join(ledger, rel + ".fnmap.tsv")
+        rpath = os.path.join(ledger, rel + ".rulings.tsv")
+        if write and not os.path.isfile(rpath):
+            os.makedirs(os.path.dirname(rpath), exist_ok=True)
+            with open(rpath, "w") as f:
+                f.write(RULINGS_HEAD)
+        try:
+            rulings = read_tsv(rpath)
+        except FileNotFoundError:
+            problems.append("%s: no rulings ledger (run --write)" % rel)
+            continue
+        verdicts, probs = classify(rows, rulings)
+        problems += ["%s: %s" % (rel, p) for p in probs]
+        want = render_fnmap(os.path.join(scope_dir, rel), rows, verdicts)
+        if write:
+            with open(fpath, "w") as f:
+                f.write(want)
+        elif not os.path.isfile(fpath):
+            problems.append("%s: no fnmap ledger (run --write)" % rel)
+        elif open(fpath, encoding="utf-8").read() != want:
+            problems.append("%s: fnmap.tsv drifted from the source (run --write and review the diff)" % rel)
+        for (n, h), v in zip(rows, verdicts):
+            totals.setdefault(v, [0, 0])
+            totals[v][0] += 1
+            totals[v][1] += n
+            if v in (LOGIC, UNRULED):
+                logic_rows.append((n, v, rel, h))
+        logic_total += logic_lines(rows, verdicts)
+    # A ledger whose source file is gone is stale.
+    if os.path.isdir(ledger):
+        known = set(srcs)
+        for root, _, files in os.walk(ledger):
+            for f in files:
+                rel = os.path.relpath(os.path.join(root, f), ledger)
+                base = re.sub(r"\.(fnmap|rulings)\.tsv$", "", rel)
+                if base == rel or base not in known:
+                    problems.append("stale ledger with no source file: docs/shim-scope/%s/%s" % (scope, rel))
+    if not quiet:
+        for v in sorted(totals, key=lambda k: -totals[k][1]):
+            print("  %-12s %5d functions %7d code lines" % (v, totals[v][0], totals[v][1]))
+        print("  %-12s %5d files    %7d LOGIC lines (LOGIC + UNRULED)" % ("R7", len(srcs), logic_total))
+        if report:
+            for n, v, rel, h in sorted(logic_rows, reverse=True):
+                print("%6d  %-8s %s: %s" % (n, v, rel, h))
+    return logic_total, problems, totals
+
+
+# ---------------------------------------------------------------- self-test
+
+
+def self_test():
+    checks = failed = 0
+
+    def ck(what, ok, why=""):
+        nonlocal checks, failed
+        checks += 1
+        if not ok:
+            failed += 1
+            print("  FAIL %s %s" % (what, why))
+
+    src = '''// a file
+#include "x.h"
+#define BRACE {
+namespace {
+int Add( int a, int b )
+{
+    // a comment line is not code
+    return a + b;
+}
+}
+namespace ss { namespace inner {
+void Two()
+{
+    int x = 1;
+
+    x++;
+}
+} }
+static const int kTable[] = { 1, 2, 3 };
+enum Colour { Red, Green };
+class CFoo : public IBar
+{
+public:
+    int Get() const { return m_x; }
+    virtual void Set( int x ) override
+    {
+        m_x = x;
+    }
+    struct Inner { void Go() { } };
+private:
+    int m_x;
+};
+CON_COMMAND( ss_thing, "help" )
+{
+    Msg( "{" );
+    char c = '}';
+}
+CFoo::CFoo()
+    : m_a( 1 ),
+      m_b( 2 )
+{
+}
+extern "C" void Exported( int a,
+                          int b )
+{
+    if ( a ) { b++; }
+}
+'''
+    rows = fnmap(src)
+    heads = [h for _, h in rows]
+    ck("a function inside an anonymous namespace is a row", "int Add( int a, int b )" in heads, str(heads))
+    ck("its count is code lines only (head, braces, return; no comment)",
+       dict((h, n) for n, h in rows).get("int Add( int a, int b )") == 4, str(rows))
+    ck("nested namespaces on one line are transparent", "void Two()" in heads)
+    ck("blank lines are not counted", dict((h, n) for n, h in rows).get("void Two()") == 5, str(rows))
+    ck("a data initialiser and an enum are not functions",
+       not any("kTable" in h or "Colour" in h for h in heads))
+    ck("an inline member is a row headed by its class", "[CFoo] int Get() const" in heads, str(heads))
+    ck("a multi-line member body counts its lines",
+       dict((h, n) for n, h in rows).get("[CFoo] virtual void Set( int x ) override") == 4, str(rows))
+    ck("a nested class's member is headed Outer::Inner", "[CFoo::Inner] void Go()" in heads, str(heads))
+    ck("a macro-opened body is the macro's row, braces in literals ignored",
+       dict((h, n) for n, h in rows).get('CON_COMMAND( ss_thing, "" )') == 5, str(rows))
+    ck("a constructor's initialiser list does not become the head",
+       "CFoo::CFoo()" in heads and not any(h.startswith("m_b") for h in heads), str(heads))
+    ck("a multi-line extern \"C\" signature is one row",
+       dict((h, n) for n, h in rows).get('extern "" void Exported( int a,') == 5, str(rows))
+    ck("a #define's brace opens nothing", len(rows) == 8, "%d rows: %s" % (len(rows), heads))
+    try:
+        fnmap("void F()\n{\n    if ( x ) {\n}\n")
+        ck("an unbalanced file is refused, never mapped short", False)
+    except ValueError:
+        ck("an unbalanced file is refused, never mapped short", True)
+
+    rows = [(4, "int Add( int a, int b )"), (5, "void Two()"), (3, "[CFoo] int Get() const")]
+    v, p = classify(rows, [["Add(", "SLOT", "the engine calls it"]])
+    ck("a ruling sets its function's verdict", v == ["SLOT", UNRULED, UNRULED] and not p, str((v, p)))
+    ck("an unruled function counts as LOGIC", logic_lines(rows, v) == 8)
+    ck("negative control: no rulings, everything is LOGIC", logic_lines(rows, classify(rows, [])[0]) == 12)
+    v, p = classify(rows, [["Two", "LOGIC", "decides"]])
+    ck("a function ruled LOGIC still counts", logic_lines(rows, v) == 12 and not p)
+    _, p = classify(rows, [["Nope", "SLOT", "x"]])
+    ck("a ruling that names nothing is a problem", p and "names no function" in p[0], str(p))
+    _, p = classify(rows, [["(", "SLOT", "x"]])
+    ck("a ruling that names two different functions is a problem", p and "different" in p[0], str(p))
+    _, p = classify(rows, [["Two", "MAYBE", "x"]])
+    ck("an unknown verdict is a problem", p and "unknown verdict" in p[0], str(p))
+    _, p = classify(rows, [["Two", "SLOT", ""]])
+    ck("a ruling without a reason is a problem", p and "without a reason" in p[0], str(p))
+    _, p = classify(rows, [["Two", "SLOT", "a"], ["void Two", "HOOK", "b"]])
+    ck("two rulings for one function is a problem", p and "two rulings" in p[0], str(p))
+    dup = [(2, "void F()"), (3, "void F()")]
+    v, p = classify(dup, [["void F()", "SLOT", "one signature, two #if arms"]])
+    ck("identical heads are ruled together", v == ["SLOT", "SLOT"] and not p, str((v, p)))
+
+    print("%d checks, %d failed" % (checks, failed))
+    return 1 if failed else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--scope", choices=sorted(SCOPES), default="client")
+    ap.add_argument("--write", action="store_true")
+    ap.add_argument("--report", action="store_true")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    total, problems, _ = measure(a.scope, write=a.write, report=a.report)
+    for p in problems:
+        print("  FAIL " + p)
+    print("%d checks, %d failed" % (1 + len(problems), len(problems)))
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

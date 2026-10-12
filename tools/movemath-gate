@@ -1,0 +1,917 @@
+#!/bin/bash
+#
+# tools/movemath-gate -- the live gate for docs/plan-audit.md decision E1.
+#
+#   tools/movemath-gate                 8 jumps per arm on dm_lockdown
+#   tools/movemath-gate --jumps 12
+#   tools/movemath-gate --map dm_lockdown --allow 0
+#
+#=============================================================================
+# STEP 8f-remove RETIRED ARM 1, AND EVERY CHECK THAT READ IT. READ THIS FIRST.
+#=============================================================================
+#
+# This gate was born an A/B. `sourcesharp_movement_managed 0` selected stock's
+# C++ movement bodies, `1` selected the managed ones, and the two arms were
+# taken thirty seconds apart in one process so that everything which was not the
+# port was held still by construction.
+#
+# game/shared/gamemovement.cpp left BOTH builds at plan_entity.md step 8f-remove.
+# There is no stock C++ movement in this build any more -- not "unused", not
+# "behind a convar": not compiled. So the 0 arm has nothing to select, and the
+# shim answers it with kMovementFatal_NoStock, an Error() that does not return.
+# Arm 1 could not be run; running it would kill the game mid-gate.
+#
+# A gate arm that cannot be satisfied is a check that fails forever or is
+# quietly ignored, so it was retired IN THE SAME COMMIT that removed the file.
+# Four checks read it and each was dealt with on its own terms rather than
+# deleted in a batch:
+#
+#   1  "the switch gates the server"     -> replaced, TWICE. A structural check
+#                                           that gamemovement.cpp is in neither
+#                                           target (the reason arm 1 is gone is
+#                                           still true), and arm F below, which
+#                                           proves the 0 arm is now FATAL by
+#                                           firing it.
+#   2b "the client ran in the stock arm" -> subsumed. Its content was "the
+#                                           client has one loop and no convar
+#                                           can switch it off"; with one arm
+#                                           left, check 2's client half IS that
+#                                           statement.
+#   7  "no worse than stock"             -> retired. There is no stock to be no
+#                                           worse than. The property it guarded
+#                                           is check 5, which is absolute.
+#   raw count vs stock + margin          -> became an ABSOLUTE cap, RAW_ALLOW.
+#                                           The margin was measured against a
+#                                           baseline that no longer exists; the
+#                                           cap is the same number, now standing
+#                                           on its own.
+#
+# WHAT REPLACED THE A/B, AND WHY IT IS NOT A BEFORE/AFTER EITHER. The gate no
+# longer compares two implementations -- it asserts that the ONE implementation
+# ran, on both sides, that the meter it is judged by is alive and can go red,
+# and that no declared field disagreed. Arm F then proves the other arm's
+# absence is loud rather than silent, which is the half a deletion usually
+# loses.
+#
+#=============================================================================
+# WHY THIS WAS AN A/B AND NOT A BEFORE/AFTER
+#=============================================================================
+#
+# tools/prediction-jump-gate already answers "does this build mispredict when
+# the player jumps". Run before and after a change it answers a WEAKER question
+# than it looks: two builds differ by everything that landed between them, and
+# the prediction meter is delta-compressed per dword -- a field the server stops
+# re-sending keeps whatever the client's own replay last wrote, so a low count is
+# not proof (docs/divergences.md). Comparing two runs of two builds compares two
+# noisy numbers.
+#
+# So E1 shipped its own switch. sourcesharp_movement_managed is FCVAR_REPLICATED,
+# so both sides always run the SAME half of the movement code, and the two arms
+# below are taken in ONE process, on ONE map, from one connect: stock C++, then
+# the managed port, thirty seconds apart. Everything that is not this change is
+# held still by construction.
+#
+#=============================================================================
+# AND WHY THE COUNTERS ARE HALF THE GATE
+#=============================================================================
+#
+# The property under test is "zero mispredictions with the port on". A build
+# where all ten managed slots were NULL -- managed never started, the ABI drifted,
+# a binding was forgotten -- reports zero mispredictions too, because every
+# forwarder returns false and the stock body runs. That is the check that cannot
+# fail, and it is the exact shape this gate has to refuse.
+#
+# cs_{sv,cl}_move_managed_report counts calls in the FORWARDER, per side. This
+# gate requires:
+#
+#   * the counters to GROW across the managed arm       (the port really runs)
+#   * BOTH SIDES to grow                                (movement is predicted;
+#                                                        a server-only port is
+#                                                        the two-copies bug back)
+#   * the player to leave the ground and come back      (a gate that never
+#                                                        jumped passes on
+#                                                        anything)
+#   * zero mispredictions in the managed arm            (the property)
+#   * and the 0 arm to be FATAL rather than silent      (arm F, last, because
+#                                                        it ends the process)
+#
+#=============================================================================
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# The game this configuration built (bin/<config>: the launcher and the shared
+# bin/) and the mod in it, which -game names and -condebug writes console.log
+# into. SOURCESHARP_CONFIG picks the configuration; debug when unset.
+CONFIG="${SOURCESHARP_CONFIG:-debug}"
+GAME_DIR="$ROOT/bin/$CONFIG"
+# The CMake build of that configuration (farm/<config>/build), which check 1
+# reads for what the two game targets compile. ROOT is the repo, or a farm when
+# this runs as farm/<x>/tools/movemath-gate; SOURCESHARP_BUILD_DIR overrides.
+if [ "$(basename "$(dirname "$ROOT")")" = farm ]; then
+    BUILD_DIR="${SOURCESHARP_BUILD_DIR:-$(dirname "$ROOT")/$CONFIG/build}"
+else
+    BUILD_DIR="${SOURCESHARP_BUILD_DIR:-$ROOT/farm/$CONFIG/build}"
+fi
+CMAKEGRAPH="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/cmakegraph.py"
+MOD_DIR="$GAME_DIR/mods/test"
+# source#, which takes the mod from mods.yaml beside it: no -game.
+LAUNCH=( "./source#" )
+
+MAP=dm_lockdown
+JUMPS=8
+ALLOW=0
+SETTLE=${SETTLE:-12}
+KEEP=0
+SELFTEST=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --map)   MAP="$2"; shift 2 ;;
+        --jumps) JUMPS="$2"; shift 2 ;;
+        --allow) ALLOW="$2"; shift 2 ;;
+        --keep)  KEEP=1; shift ;;
+        --self-test) SELFTEST=1; shift ;;
+        # 2..97 is the whole header block, which ends at the `set -uo` on 99.
+        # It was 2..55 and step 8f-remove's retirement note pushed the rest of
+        # the header past it, so --help stopped mid-sentence and said nothing
+        # about the counters or the arms.
+        -h|--help) sed -n '2,97p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'; exit 0 ;;
+        *) echo "movemath-gate: unknown argument '$1'" >&2; exit 64 ;;
+    esac
+done
+
+# /tmp/sourcesharp-debug-api is ONE directory for the whole machine, and a harness
+# that adopts "whichever socket appeared" adopts another worktree's game. Every
+# other launcher in this tree honours DEBUG_API_DIR; this one did not,
+# so two lanes running it at once killed each other's games.
+SOCKET_DIR=${DEBUG_API_DIR:-/tmp/sourcesharp-debug-api}
+LOG="$ROOT/tools/.movemath-gate.log"
+CONSOLE_LOG="$MOD_DIR/console.log"
+FAILURES=0
+
+pass() { printf '  ok    %s\n' "$*"; }
+fail() { printf '  FAIL  %s\n' "$*"; FAILURES=$(( FAILURES + 1 )); }
+
+# ---------------------------------------------------------------------------
+# THE TWO PARSERS, as stdin filters.
+#
+# Separated from the console commands that produce their input for one reason:
+# so --self-test can drive them over fixture text with no game, no map and no
+# GPU. A live gate whose PARSING has never been tested is a gate that reports
+# whatever a format change leaves behind -- and blank readings from a parser
+# that stopped matching are what made an earlier run of this script announce
+# "ok the switch gates" over a window in which nothing at all was measured.
+# ---------------------------------------------------------------------------
+parse_holds() {    # <field index> ; log text on stdin
+    grep -a "player prediction: local player present" | tail -1 \
+        | sed 's/.*ringed — //' \
+        | awk -v f="$1" '{ print $f }'
+}
+
+parse_move_total() {   # log text on stdin
+    grep -a "movemath(" | tail -1 \
+        | sed -E 's/.*movemath\([a-z]+\): ([0-9]+) managed call.*/\1/'
+}
+
+# THE TWO PREDICATES EVERY LIVENESS CHECK IS BUILT ON, defined ONCE and here so
+# that --self-test exercises the ones the gate uses. Defining a second copy
+# inside the self-test would test the copy, and the real one could drift under
+# a green light.
+grew() {   # <before> <after>
+    [ -n "$1" ] && [ -n "$2" ] && [ "$2" -gt "$1" ] 2>/dev/null
+}
+
+# A blank reading is not "no calls" -- it is a console command whose output
+# never reached the log, and a gate that treats the two the same reports "the
+# switch gates" over a run that measured nothing. It did, once, before this.
+numeric() { [ -n "${1:-}" ] && [ "$1" -eq "$1" ] 2>/dev/null; }
+
+# THE TWO PREDICATES STEP 8f-remove ADDED, here for the same reason as the two
+# above: the checks that replaced arm 1 are the ones with no history of being
+# run, so they are the ones a self-test has to drive.
+#
+# targets_compiling_gamemovement counts the CMake TARGETS (server_sourcesharp,
+# client_sourcesharp) that compile the file -- what matters is how many SIDES
+# have it. It reads what the build COMPILES (tools/cmakegraph.py: the build's
+# compile_commands.json, refused unless it agrees with the CMakeLists source
+# lists), so a mention in a comment cannot answer for a build instruction; the
+# path is anchored whole, so gamemovement.cpp.bak or a path ending in
+# _gamemovement.cpp does not read as the file itself.
+#
+# A BUILD IT CANNOT READ ANSWERS `UNREADABLE`, NEVER 0. Its predecessor grepped
+# server_csharp.vpc and client_csharp.vpc with `2>/dev/null | wc -l`, and when
+# the gate ran from the repo root (which has no src/game/ at all) both paths were
+# missing and it answered 0 -- "in neither build" -- for a reason that had
+# nothing to do with the file.
+targets_compiling_gamemovement() {   # <cmake build dir>
+    local n=0 side list
+    for side in server client; do
+        list="$(python3 "$CMAKEGRAPH" sources "$side" --build-dir "$1" 2>/dev/null)" \
+            || { echo UNREADABLE; return; }
+        [ -n "$list" ] || { echo UNREADABLE; return; }
+        if printf '%s\n' "$list" | grep -qE '(^|/)gamemovement\.cpp$'; then
+            n=$(( n + 1 ))
+        fi
+    done
+    echo "$n"
+}
+
+# IS THE GAME STILL RUNNING? READ /proc, NEVER `kill -0`.
+#
+# THIS IS A BUG THIS GATE HAD, FOR ONE RUN, AND IT IS THE RECORDED SHAPE. Arm F
+# first asked `kill -0 "$GAMEPID"` and reported the game ALIVE six seconds after
+# a fatal that had, in fact, killed it. The game is this script's own background
+# child and nothing ever `wait`s for it, so when it dies it becomes a ZOMBIE --
+# and a zombie answers `kill -0` for as long as nobody reaps it. The signal that
+# means "dead" and the signal that means "alive" were the same signal.
+#
+# Measured rather than reasoned: the identical fatal, fired at a game launched
+# under `setsid` (so init reaps it instead of a shell), read
+#
+#     t= 1s  kill-0=yes  /proc-state=R     <- still running
+#     t= 2s  kill-0=no   /proc-state=gone  <- gone, two seconds after the command
+#
+# So Error() does stop the process, promptly, and the old check was measuring
+# its own process table. /proc/PID/stat field 3 is the discriminator that works
+# for a child and a stranger alike: `Z` is a corpse nobody has reaped, an absent
+# entry is gone, and anything else is a process that is still there.
+#
+# `debug-api status` is NOT used for this. The same measurement had it answering
+# `yes` about a pid that was already gone -- a socket file outlives its server,
+# and a probe that finds no socket for a pid is not distinguishable out here
+# from one that finds a slow one.
+# SPLIT IN THREE so --self-test can drive the JUDGEMENT without needing a real
+# zombie to hand. A first attempt at the fixture made one with `( exit 0 ) &`
+# and it read `gone`, because bash reaps its own background children as soon as
+# it notices them -- so the fixture tested bash's job control and not this
+# predicate, and it failed for a reason that had nothing to do with the bug.
+# The reading of /proc is one line; the judgement is what had the bug.
+classify_state() {   # <field 3 of /proc/PID/stat, or empty> -> gone|zombie|letter
+    case "${1:-}" in
+        "") echo gone ;;
+        Z)  echo zombie ;;
+        *)  echo "$1" ;;
+    esac
+}
+
+verdict_is_running() {   # <a classified state>
+    case "${1:-}" in
+        gone|zombie) return 1 ;;
+        *)           return 0 ;;
+    esac
+}
+
+game_state() {   # <pid> -> gone | zombie | the kernel's state letter
+    [ -r "/proc/$1/stat" ] || { echo gone; return; }
+    classify_state "$(awk '{print $3}' "/proc/$1/stat" 2>/dev/null)"
+}
+
+game_is_running() {   # <pid>
+    verdict_is_running "$(game_state "$1")"
+}
+
+# The fatal's own line, counted out of a log. A count and not a boolean: the log
+# is APPENDED to across a run and across runs, so "is it in there" would be
+# answered by a fatal from an hour ago. Arm F compares before against after.
+parse_fatal_count() {   # log text on stdin
+    grep -ac "FATAL: the .* side was asked to move a player"
+}
+
+# ---------------------------------------------------------------------------
+# --self-test: the half of this gate that needs no game.
+#
+# It is in the checkers manifest, beside `tools/d19-gate --self-test` and
+# `tools/abtest --self-test`, for their reason: the live half cannot run in
+# `make check`, and a live gate whose reasoning has never been exercised is a
+# gate nobody has read. Every case below is a failure this script has actually
+# had or would silently accept.
+# ---------------------------------------------------------------------------
+if [ "$SELFTEST" = 1 ]; then
+    T=0
+    ok()  { T=$(( T + 1 )); printf '  ok    %s\n' "$*"; }
+    bad() { T=$(( T + 1 )); printf '  FAIL  %s\n' "$*"; FAILURES=$(( FAILURES + 1 )); }
+    eq()  { [ "$2" = "$3" ] && ok "$1 -> '$2'" || bad "$1: expected '$3', got '$2'"; }
+
+    echo "== movemath-gate --self-test"
+
+    # 1. The counter line, as the forwarder prints it.
+    GOT="$(printf '%s\n' "[SourceSharp] movemath(server): 16183 managed call(s) total" | parse_move_total)"
+    eq "the server counter parses" "$GOT" "16183"
+
+    GOT="$(printf '%s\n' "[SourceSharp] movemath(client): 0 managed call(s) total" | parse_move_total)"
+    eq "a zero counter parses AS ZERO and not as blank" "$GOT" "0"
+
+    # 2. The LAST line wins. Both arms read the same log, which only grows.
+    GOT="$(printf '%s\n%s\n' \
+        "[SourceSharp] movemath(server): 111 managed call(s) total" \
+        "[SourceSharp] movemath(server): 222 managed call(s) total" | parse_move_total)"
+    eq "the newest counter line wins" "$GOT" "222"
+
+    # 3. Nothing to parse must come back EMPTY, so the numeric guard can catch
+    #    it. A parser that invented a 0 here would make a dead gate look green.
+    GOT="$(printf '%s\n' "nothing to see" | parse_move_total)"
+    eq "no counter line parses to empty, not to zero" "$GOT" ""
+
+    # 4. The prediction report line, field 3 -- the holds.
+    LINE="[SourceSharp] player prediction: local player present, 268 byte(s) ringed — 984 save(s), 984 hold(s) (0 tolerated), 0 misprediction(s), 0 no-basis"
+    GOT="$(printf '%s\n' "$LINE" | parse_holds 3)"
+    eq "the holds field parses" "$GOT" "984"
+
+    GOT="$(printf '%s\n' "$LINE" | parse_holds 1)"
+    eq "the saves field parses" "$GOT" "984"
+
+    # 5. The "no local player" line must NOT be read as a reading. It is the
+    #    shape the log carries before the client has spawned.
+    GOT="$(printf '%s\n' "[SourceSharp] player prediction: no local player, 0 byte(s) ringed — 0 save(s), 0 hold(s) (0 tolerated), 0 misprediction(s), 0 no-basis" | parse_holds 3)"
+    eq "a report with no local player parses to empty" "$GOT" ""
+
+    # 6. grew(): the comparison the liveness checks are built on. THE REAL ONE,
+    #    defined above and used by the live half -- not a copy of it.
+    grew 10 20  && ok "grew 10 20"                 || bad "grew 10 20 said no"
+    grew 20 20  && bad "grew 20 20 said yes"       || ok "grew 20 20 is not growth"
+    grew 20 10  && bad "grew 20 10 said yes"       || ok "grew 20 10 is not growth"
+    grew "" 20  && bad "grew '' 20 said yes"       || ok "a blank BEFORE is not growth"
+    grew 10 ""  && bad "grew 10 '' said yes"       || ok "a blank AFTER is not growth"
+
+    # 7. numeric(): the guard that turns a blank reading into a FAILURE rather
+    #    than into a quiet "no calls". Two runs were thrown away for want of it.
+    numeric 0      && ok "numeric 0"               || bad "numeric 0 said no"
+    numeric 16183  && ok "numeric 16183"           || bad "numeric 16183 said no"
+    numeric ""     && bad "numeric '' said yes"    || ok "a blank is not numeric"
+    numeric "x"    && bad "numeric x said yes"     || ok "a word is not numeric"
+    numeric "1 2"  && bad "numeric '1 2' said yes" || ok "two numbers are not a number"
+
+    # 8. STEP 8f-remove's structural predicate -- the check that replaced arm
+    #    1's structural half. Driven over fixture CMake builds (a stand-in repo
+    #    whose CMakeLists name the sources, and a compile_commands.json that
+    #    compiles them), because the failure that matters is a ONE-SIDED
+    #    removal and the live tree can only ever show one of the three states.
+    ST="$(mktemp -d)"
+    mkfix() {   # <name> <server sources> <client sources>  (space-separated)
+        local d="$ST/$1" side srcs f sep=""
+        mkdir -p "$d/farm/build"
+        printf '[' > "$d/farm/build/compile_commands.json"
+        for side in server client; do
+            if [ "$side" = server ]; then srcs="$2"; else srcs="$3"; fi
+            mkdir -p "$d/repo/src/$side/native"
+            {
+                printf 'set(%s_sourcesharp_sources\n' "$side"
+                printf '    # gamemovement.cpp left this target at step 8f-remove\n'
+                for f in $srcs; do printf '    %s\n' "$f"; done
+                printf ')\n'
+            } > "$d/repo/src/$side/native/CMakeLists.txt"
+            for f in $srcs; do
+                printf '%s{"directory": "%s", "command": "c++ -c %s", "file": "%s", "output": "CMakeFiles/%s_sourcesharp.dir/%s.o"}' \
+                    "$sep" "$d/farm/build" "$f" "$d/farm/src/$f" "$side" "$f" \
+                    >> "$d/farm/build/compile_commands.json"
+                sep=", "
+            done
+        done
+        printf ']\n' >> "$d/farm/build/compile_commands.json"
+    }
+    fixgm() {   # <name>
+        SOURCESHARP_REPO="$ST/$1/repo" targets_compiling_gamemovement "$ST/$1/farm/build"
+    }
+    GM=game/shared/gamemovement.cpp
+    mkfix both      "$GM game/shared/gamestringpool.cpp" "$GM game/shared/movevars_shared.cpp"
+    mkfix onesided  "game/shared/gamestringpool.cpp"     "$GM game/shared/movevars_shared.cpp"
+    mkfix neither   "game/shared/gamestringpool.cpp"     "game/shared/movevars_shared.cpp"
+    mkfix decoy     "$GM.bak"                            "game/shared/movevars_shared.cpp"
+    mkfix decoy2    "sourcesharp/game/shared/shell_gamemovement.cpp" "game/shared/movevars_shared.cpp"
+    mkfix stale     "game/shared/gamestringpool.cpp"     "game/shared/movevars_shared.cpp"
+    # stale: the list names the file, the build never compiled it (a list
+    # edited and the build not re-run) -- the build answers for nothing.
+    sed -i "s#^)#    $GM\n)#" "$ST/stale/repo/src/server/native/CMakeLists.txt"
+
+    eq "both targets compiling it reads 2"      "$(fixgm both)" "2"
+    eq "A ONE-SIDED removal reads 1, not 0"     "$(fixgm onesided)" "1"
+    eq "neither target compiling it reads 0"    "$(fixgm neither)" "0"
+    eq "a COMMENT in the list mentioning the file is not a build instruction" \
+        "$(grep -c gamemovement.cpp "$ST/neither/repo/src/server/native/CMakeLists.txt"):$(fixgm neither)" "1:0"
+    eq "gamemovement.cpp.bak is not gamemovement.cpp"          "$(fixgm decoy)" "0"
+    eq "shell_gamemovement.cpp is not gamemovement.cpp"        "$(fixgm decoy2)" "0"
+    eq "a list the build disagrees with is UNREADABLE, not 0"  "$(fixgm stale)" "UNREADABLE"
+    eq "a build dir that is not there is UNREADABLE, not 0" \
+        "$(targets_compiling_gamemovement "$ST/no-such-build")" "UNREADABLE"
+
+    # 9. THE ZOMBIE, which is the bug arm F shipped with for one run. A dead
+    #    child nobody has reaped answers `kill -0` exactly like a live process,
+    #    and the game IS this script's own unreaped child -- so the old check
+    #    reported a game ALIVE six seconds after a fatal that had killed it two
+    #    seconds in. Every state the kernel can report, judged.
+    eq "a zombie is classified as a zombie"   "$(classify_state Z)" "zombie"
+    eq "no state at all is classified as gone" "$(classify_state '')" "gone"
+    eq "a running process keeps its letter"    "$(classify_state R)" "R"
+    eq "a sleeping process keeps its letter"   "$(classify_state S)" "S"
+    eq "uninterruptible sleep keeps its letter" "$(classify_state D)" "D"
+
+    verdict_is_running zombie && bad "A ZOMBIE WAS REPORTED AS A RUNNING GAME -- this is the bug arm F had" \
+                              || ok "a zombie is NOT a running game, which kill -0 could not tell"
+    verdict_is_running gone   && bad "a gone process was reported as running" \
+                              || ok "a gone process is not a running game"
+    verdict_is_running R      && ok  "a running process IS a running game" \
+                              || bad "a running process was reported as not running -- arm F would pass on a live game"
+    verdict_is_running S      && ok  "a sleeping process IS a running game" \
+                              || bad "a sleeping process was reported as not running"
+
+    #    And the two ends against the REAL /proc, because a classifier that is
+    #    right about every letter is still useless if the reader hands it the
+    #    wrong one. Without the first of these, a game_state that answered
+    #    "gone" for everything would pass arm F on a live game.
+    if game_is_running $$; then
+        ok "this shell reads as running through the real /proc ($(game_state $$))"
+    else
+        bad "game_state says this very shell is not running"
+    fi
+    DEADPID=$(( $(cat /proc/sys/kernel/pid_max) - 1 ))
+    eq "a pid that does not exist reads gone" "$(game_state $DEADPID)" "gone"
+    if game_is_running $DEADPID; then
+        bad "a nonexistent pid was reported as a running game"
+    else
+        ok "a nonexistent pid is not a running game"
+    fi
+
+    # 10. Arm F's parser. The count is what makes the arm a BEFORE/AFTER rather
+    #    than "is the word FATAL in the log", which a fatal from a previous run
+    #    would answer for.
+    FLINE="[SourceSharp] FATAL: the server side was asked to move a player and has nothing to move them with."
+    eq "the fatal line counts" "$(printf '%s\n' "$FLINE" | parse_fatal_count)" "1"
+    eq "a log with no fatal counts ZERO, not blank" \
+        "$(printf '%s\n' "[SourceSharp] movemath(server): 12 managed call(s) total" | parse_fatal_count)" "0"
+    eq "two fatals count as two, so a stale one cannot answer for a new one" \
+        "$(printf '%s\n%s\n' "$FLINE" "$FLINE" | parse_fatal_count)" "2"
+    eq "the client's spelling of the same line counts too" \
+        "$(printf '%s\n' "[SourceSharp] FATAL: the client side was asked to move a player and has nothing to move them with." | parse_fatal_count)" "1"
+
+    rm -rf "$ST"
+
+    echo
+    if [ "$FAILURES" = 0 ]; then
+        echo "== SELF-TEST PASSED ($T check(s))"
+        exit 0
+    fi
+    echo "== SELF-TEST FAILED ($FAILURES of $T)"
+    exit 1
+fi
+
+mkdir -p "$SOCKET_DIR"
+RUN_TMP="/tmp/sourcesharp-movemath-gate-$$"
+mkdir -p "$RUN_TMP"
+KNOWN="$(ls "$SOCKET_DIR"/*.sock 2>/dev/null | sort)"
+
+WRAPPER=""
+GAMEPID=""
+cleanup() {
+    if [ "$KEEP" = 0 ]; then
+        [ -n "$GAMEPID" ] && kill -9 "$GAMEPID" 2>/dev/null
+        [ -n "$WRAPPER" ] && kill -9 "$WRAPPER" 2>/dev/null
+    fi
+    rm -rf "$RUN_TMP"
+}
+trap cleanup EXIT
+
+echo "== launching $MAP (log: $LOG)"
+# tools/gpu-offload, like every other launch path in this tree: without it DXVK
+# picks the wrong card and the process dies before server.so loads.
+( cd "$GAME_DIR" && . "$ROOT/tools/gpu-offload" && \
+  TMPDIR="$RUN_TMP" DEBUG_API_DIR="$SOCKET_DIR" "${LAUNCH[@]}" \
+    -debugapi -debugapisocket -condebug -nomessagebox -nocrashdialog -assertlog \
+    -novid -windowed -w 640 -h 480 $(python3 "$ROOT/tools/local_launch.py") +map "$MAP" ) > "$LOG" 2>&1 &
+WRAPPER=$!
+
+# ONE LAUNCH PUTS UP SEVERAL SOCKETS AND ONLY ONE OF THEM SURVIVES.
+#
+# source# is a launcher: the process that first registers a debug-api
+# socket answers on it and is then replaced, so a probe run at second one talks
+# to something that will not exist at second twelve -- which reads, from out
+# here, as `no socket for pid N; these are up: M` and an entire run of blank
+# measurements. So the wait below only establishes that SOMETHING came up; the
+# pick is made AFTER the settle, over every new socket, and the winner is the
+# one that answers THEN.
+pick_game_pid() {
+    local cand pid best=""
+    for cand in $(comm -13 <(echo "$KNOWN") <(ls "$SOCKET_DIR"/*.sock 2>/dev/null | sort)); do
+        [ -S "$cand" ] || continue
+        pid="$(basename "$cand" .sock)"
+        DEBUG_API_PID="$pid" DEBUG_API_DIR="$SOCKET_DIR" "$ROOT/tools/debug-api" status > /dev/null 2>&1 && best="$pid"
+    done
+    echo "$best"
+}
+
+for _ in $(seq 180); do
+    [ -n "$(pick_game_pid)" ] && break
+    sleep 1
+done
+
+sleep "$SETTLE"
+GAMEPID="$(pick_game_pid)"
+
+if [ -z "$GAMEPID" ]; then
+    echo "== NO SOCKET. The game never came up, or it came up and died; read $LOG,"
+    echo "   and read the 'Device :' line in it before anything else (tools/gpu-offload)."
+    exit 1
+fi
+
+echo "== game pid $GAMEPID"
+
+d() { DEBUG_API_PID="$GAMEPID" DEBUG_API_DIR="$SOCKET_DIR" "$ROOT/tools/debug-api" "$@"; }
+
+# The meter's own numbers, from the console: the per-field records live behind
+# /prediction, but "how many compares have happened at all" is only in the
+# report line.
+report_field() {   # <field index in the report line>
+    d cmd "cs_cl_player_predict_report" > /dev/null
+    sleep 1
+    cat "$LOG" "$CONSOLE_LOG" 2>/dev/null | parse_holds "$1"
+}
+
+# The forwarder's own counters. Native Msg output lands in console.log reliably
+# and in the wrapper's stdout only sometimes (docs/debugging.md), so both are read.
+move_total() {     # <sv|cl>
+    d cmd "cs_${1}_move_managed_report" > /dev/null
+    sleep 1
+    cat "$LOG" "$CONSOLE_LOG" 2>/dev/null | parse_move_total
+}
+
+jump_window() {    # <n>
+    for _ in $(seq "$1"); do
+        d cmd "+jump" > /dev/null
+        sleep 0.15
+        d cmd "ss_ground" > /dev/null   # mid-air, if the jump took
+        sleep 0.15
+        d cmd "-jump" > /dev/null
+        sleep 0.7
+        d cmd "ss_ground" > /dev/null   # back on the floor
+        sleep 0.3
+    done
+    sleep 2
+}
+
+# THE ARM'S OWN RECORDS, KEPT.
+#
+# This used to write one prediction.json and overwrite it three times, so a
+# failing run printed the records of arm THREE -- the deliberately corrupted one
+# -- under a message about arm two. The per-arm copies are what let a reader ask
+# the only question that matters when both arms report a non-zero count: are the
+# two arms mispredicting the SAME FIELDS, which is a tree-wide condition, or
+# different ones, which is the port.
+#=============================================================================
+# THE RAW COUNT IS NOT THE PROPERTY, AND MEASURING IT SAID SO.
+#
+# `mispredicted` counts every RECORD in which the predicted blob and the
+# arrived blob differ anywhere -- including at a byte NO DECLARED FIELD CLAIMS.
+# PredictionJudge labels those "(padding@N)" and counts them, deliberately: two
+# blobs that differ do differ.
+#
+# On this tree that makes the raw count useless as a gate on the movement port.
+# Measured, both arms in one process:
+#
+#   arm 1, sourcesharp_movement_managed 0   89 mispredictions, ALL padding
+#   arm 2, sourcesharp_movement_managed 1   89 mispredictions, ALL padding
+#
+# Arm 1 runs NO managed movement -- its counters are flat -- so 89 is the tree's
+# own number and the port neither causes it nor moves it. A pass criterion that
+# is identical with the port off and with it on is measuring nothing about the
+# port, which is this file's own complaint about the check that cannot fail,
+# read the other way round: a check that cannot PASS.
+#
+# So the property is counted over the records that name a DECLARED field. That
+# is strictly stronger than the raw count on the thing being gated -- one real
+# field disagreeing fails it, where the raw count would have failed anyway and
+# said nothing -- and arm 3's poke still turns it red, because the poke corrupts
+# a real field.
+#
+# THE RAW COUNT IS STILL READ, STILL PRINTED, AND STILL COMPARED between the
+# arms. Nothing is hidden; what changed is which number the pass hangs on.
+#=============================================================================
+real_mispredicted() {   # <arm label>
+    python3 - "$ROOT/tools/.movemath-gate-$1.json" <<'PY' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print(-1)
+    sys.exit(0)
+n = 0
+for r in d.get("records", []):
+    for f in r.get("fields", []):
+        if not str(f.get("name", "")).startswith("(padding"):
+            n += 1
+            break
+print(n)
+PY
+}
+
+mispredicted() {   # <arm label>
+    local out="$RUN_TMP/prediction.json"
+    d prediction 0 400 > "$out"
+    [ -n "${1:-}" ] && cp "$out" "$ROOT/tools/.movemath-gate-$1.json" 2>/dev/null
+    python3 -c '
+import json, sys
+try:
+    print(json.load(open(sys.argv[1])).get("mispredicted", -1))
+except Exception:
+    print(-1)
+' "$out"
+}
+
+# ss_ground is FCVAR_CHEAT, and a cheat command at sv_cheats 0 reports success
+# and does nothing -- indistinguishable from a player who never jumped.
+d cmd "sv_cheats 1" > /dev/null
+
+# ---------------------------------------------------------------------------
+# ARM 1 IS GONE. See the block at the top of this file: gamemovement.cpp is in
+# neither target as of plan_entity.md step 8f-remove, so `sourcesharp_movement_managed 0`
+# selects nothing and is answered with an Error() that does not return. The
+# structural half of what it used to prove is checked below without a game; the
+# behavioural half is arm F, which fires the fatal on purpose and is LAST.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# ARM 2 -- the movement loop, which is the only one there is.
+# ---------------------------------------------------------------------------
+echo
+echo "== arm 2: sourcesharp_movement_managed 1 (C#) -- the only implementation"
+d cmd "sourcesharp_movement_managed 1" > /dev/null
+sleep 1
+d prediction-reset > /dev/null
+
+SV_BEFORE_B="$(move_total sv)"; CL_BEFORE_B="$(move_total cl)"
+HOLDS_BEFORE_B="$(report_field 3)"
+
+jump_window "$JUMPS"
+
+SV_AFTER_B="$(move_total sv)"; CL_AFTER_B="$(move_total cl)"
+HOLDS_AFTER_B="$(report_field 3)"
+MISS_B="$(mispredicted managed)"
+REAL_B="$(real_mispredicted managed)"
+
+echo "   movemath server $SV_BEFORE_B -> $SV_AFTER_B, client $CL_BEFORE_B -> $CL_AFTER_B"
+echo "   holds $HOLDS_BEFORE_B -> $HOLDS_AFTER_B, mispredicted $MISS_B ($REAL_B on a declared field)"
+
+# ---------------------------------------------------------------------------
+# ARM 3 -- THE PROVOCATION.
+#
+# Arms 1 and 2 both report zero, which is the answer this gate wants and
+# therefore the answer it must be hardest on. THE METER UNDERSTATES: the
+# prediction blob is delta-compressed per dword, so a field the server stops
+# re-sending keeps whatever the client's own replay last wrote, and a compare
+# against a value the client wrote itself cannot fail (docs/divergences.md --
+# ~500 compares once sat on exactly that). A quiet meter and a broken meter
+# read the same from out here.
+#
+# cs_cl_player_predict_poke is the tree's own answer to that: it corrupts the
+# replayed blob at one offset on every save until a compare witnesses it. So
+# the last thing this gate does is break prediction ON PURPOSE and require the
+# meter to say so. If this arm reports zero, the two zeros above meant nothing.
+# ---------------------------------------------------------------------------
+echo
+echo "== arm 3: cs_cl_player_predict_poke (the meter must be able to go red)"
+# THE POKE IS BACK TO ONE OFFSET, AND WHAT IT PROVES IS THE RAW METER.
+#
+# A sweep of the whole 512-byte ring was tried and abandoned on measurement: at
+# ~45 seconds an offset it is an hour and a half, and the first forty offsets
+# all landed in bytes no declared field claims. Poking is not how the
+# declared-field measure was shown to go red.
+#
+# HOW IT WAS SHOWN, and it is stronger than a poke because the provocation was a
+# real defect rather than a synthetic one. This lane bound the four movement
+# slots inside sourcesharp_gamesystem.cpp's `#ifndef CLIENT_DLL` block, so the
+# client's managed loop got a NULL MoveTrace and fell through the floor. With
+# that bug in:
+#
+#   arm 1 (stock)     87 mispredicted,  0 naming a declared field
+#   arm 2 (managed)   88 mispredicted, 16 naming Origin, Velocity, FallVelocity,
+#                                         Flags and GroundEntity
+#
+# and with the four lines moved out of the block, on the same box, the same
+# afternoon: 0 and 0. The measure moved with the defect and moved back with the
+# fix, which is exactly the red path a mutation is run for. The runs are in the
+# step's status note.
+#
+# So arm 3 keeps its ORIGINAL job -- the meter is alive, the raw count moves
+# under a deliberate corruption -- and the declared-field count is printed
+# beside it so a reader can see which kind of difference the poke produced.
+d prediction-reset > /dev/null
+d cmd "cs_cl_player_predict_poke 0" > /dev/null
+sleep 1
+
+jump_window 3
+
+MISS_C="$(mispredicted poked)"
+REAL_C="$(real_mispredicted poked)"
+echo "   mispredicted with the ring poked: $MISS_C ($REAL_C on a declared field)"
+
+# ---------------------------------------------------------------------------
+# ARM F -- WHAT ARM 1 BECAME. LAST, BECAUSE IT ENDS THE PROCESS.
+#
+# Retiring arm 1 leaves a claim behind: that `sourcesharp_movement_managed 0` is
+# now a LOUD refusal rather than a player who quietly stops moving. That claim
+# is the entire justification for deleting the stock body, and this project has
+# eight recorded silent losses -- every one of them a path that was believed to
+# be loud. A fatal that has never been fired is a belief.
+#
+# So the last thing this gate does is ask for the arm that no longer exists, and
+# require BOTH halves of the contract shell_gamemovement.h states: the whole
+# message reaches the log FIRST, and then the process stops. Either alone is a
+# fail -- a message with a survivor is a fatal that did not fire, and a death
+# with no message is the crash the message exists to prevent being mistaken for.
+#
+# The exit shape is the engine's: tier0's Error() goes through the spew handler
+# and ends in Sys_Error, which this tree has seen finish as `*** stack smashing
+# detected ***` and as a crash dump. That pre-dates this arm and is why the
+# check is "the process is gone", not "it exited cleanly".
+# ---------------------------------------------------------------------------
+echo
+echo "== arm F: sourcesharp_movement_managed 0 -- the arm that is now FATAL"
+FATAL_BEFORE="$(cat "$CONSOLE_LOG" 2>/dev/null | parse_fatal_count)"
+d cmd "sourcesharp_movement_managed 0" > /dev/null 2>&1
+
+# WAITED FOR, not sampled once. Error() goes through the engine's spew handler
+# into Sys_Error, which writes a crash dump on the way out, so the interval
+# between the message landing and the process going is real work and not a
+# fixed number. Measured at ~2 seconds on an idle box; 30 is the allowance for a
+# loaded one, and the loop leaves as soon as the process does, so the allowance
+# costs nothing on a healthy run.
+for _ in $(seq 30); do
+    game_is_running "$GAMEPID" || break
+    sleep 1
+done
+
+FATAL_AFTER="$(cat "$CONSOLE_LOG" 2>/dev/null | parse_fatal_count)"
+NOSTOCK_SEEN="$(grep -ac "sourcesharp_movement_managed is 0 and this build has no stock" "$CONSOLE_LOG" 2>/dev/null)"
+GAME_STATE="$(game_state "$GAMEPID")"
+echo "   fatal lines $FATAL_BEFORE -> $FATAL_AFTER, reason line(s) $NOSTOCK_SEEN, process now: $GAME_STATE"
+
+echo "-- RESULT"
+
+# THE READINGS THEMSELVES ARE A CHECK -- grew() and numeric() are defined once,
+# beside the parsers, and --self-test exercises those same two.
+for R in "$SV_BEFORE_B:sv-before-managed" "$SV_AFTER_B:sv-after-managed" \
+         "$CL_BEFORE_B:cl-before-managed" "$CL_AFTER_B:cl-after-managed" \
+         "$HOLDS_BEFORE_B:holds-before-managed" "$HOLDS_AFTER_B:holds-after-managed" \
+         "$MISS_B:mispredicted-managed" \
+         "$REAL_B:real-mispredicted-managed" \
+         "$REAL_C:real-mispredicted-poked"; do
+    if ! numeric "${R%%:*}"; then
+        fail "the reading '${R##*:}' came back as '${R%%:*}' -- nothing below it measured anything"
+    fi
+done
+
+# -1 is the mispredicted() parse failure sentinel, and it is <= 0. Without this
+# a run where /prediction returned nothing at all reports "no misprediction".
+if [ "${MISS_B:--1}" -lt 0 ] 2>/dev/null; then
+    fail "the misprediction count did not parse ($MISS_B) -- the property was never tested"
+    MISS_B=999999
+fi
+
+# 1. THERE IS NOTHING FOR THE SWITCH TO GATE, AND THAT IS CHECKED RATHER THAN
+#    ASSUMED. This is what replaced arm 1's "the switch really gates": the
+#    reason arm 1 was retired is a fact about the tree, so the gate reads the
+#    tree. Two targets are the whole of it -- game/shared/gamemovement.cpp
+#    was compiled into server_sourcesharp and into client_sourcesharp, and a
+#    ONE-SIDED removal is silently wrong: the side that kept it would still link a second, complete
+#    CGameMovement, the convar there would still select it, and the two sides
+#    would run different movement code under prediction. That is precisely the
+#    divergence this gate exists to catch, so it is checked here and not only
+#    in the test suite.
+#
+#    It reads what the build COMPILES and not a link check on purpose.
+#    `--gc-sections` drops what nothing reaches, so a build can carry the TU
+#    and show no symbol for it; the target's source list is what decides
+#    whether it is compiled at all. The build is $BUILD_DIR; one that cannot
+#    be read is a FAIL, never a pass.
+GM_SIDES="$(targets_compiling_gamemovement "$BUILD_DIR")"
+if [ "$GM_SIDES" = 0 ]; then
+    pass "gamemovement.cpp is compiled into NEITHER server_sourcesharp nor client_sourcesharp, so there is no second movement implementation for a convar to select"
+elif numeric "$GM_SIDES"; then
+    fail "gamemovement.cpp is still compiled into $GM_SIDES of the two game targets -- a one-sided build compiles a whole second CGameMovement, and the two sides then move differently under prediction"
+else
+    fail "could not read what the CMake build at $BUILD_DIR compiles ($GM_SIDES: tools/cmakegraph.py sources server|client --build-dir $BUILD_DIR says why) -- the one-sided-removal check measured nothing"
+fi
+
+# 2. THE PORT REALLY RUNS, ON BOTH SIDES. This is the check that stops the whole
+#    gate from being satisfiable by a build where managed never bound a slot.
+if grew "$SV_BEFORE_B" "$SV_AFTER_B"; then
+    pass "the SERVER ran managed movement ($SV_BEFORE_B -> $SV_AFTER_B calls)"
+else
+    fail "the server never called managed movement ($SV_BEFORE_B -> $SV_AFTER_B) -- nothing was measured"
+fi
+
+if grew "$CL_BEFORE_B" "$CL_AFTER_B"; then
+    pass "the CLIENT ran managed movement ($CL_BEFORE_B -> $CL_AFTER_B calls)"
+else
+    fail "the client never called managed movement ($CL_BEFORE_B -> $CL_AFTER_B) -- one side ported is the two-copies bug back"
+fi
+
+# 2b. RETIRED WITH ARM 1, AND SUBSUMED RATHER THAN DROPPED. It read "the
+#     client's managed loop ran in the STOCK arm too", and what it was really
+#     asserting is that the client has ONE movement loop which no convar can
+#     switch off -- step 6f deleted C_StandalonePlayer and the client's replay
+#     calls the managed loop directly because there is nothing else to call.
+#     With the stock arm gone, check 2's client half is that same statement
+#     about the same counter: a flat CL counter means the replay stopped.
+#
+# 3. THE METER IS ALIVE across the arm being judged.
+if grew "$HOLDS_BEFORE_B" "$HOLDS_AFTER_B"; then
+    pass "the prediction meter ran in the managed arm ($HOLDS_BEFORE_B -> $HOLDS_AFTER_B holds)"
+else
+    fail "no compares happened in the managed arm ($HOLDS_BEFORE_B -> $HOLDS_AFTER_B)"
+fi
+
+# 4. THE JUMPS HAPPENED. It is the ground TRANSITION the movement code is about.
+ONGROUND_SEEN="$(cat "$LOG" "$CONSOLE_LOG" 2>/dev/null | grep -ac "onground=1")"
+AIRBORNE_SEEN="$(cat "$LOG" "$CONSOLE_LOG" 2>/dev/null | grep -ac "onground=0")"
+
+if [ "${ONGROUND_SEEN:-0}" -gt 0 ] && [ "${AIRBORNE_SEEN:-0}" -gt 0 ]; then
+    pass "the player left the ground and came back ($AIRBORNE_SEEN airborne / $ONGROUND_SEEN grounded samples)"
+else
+    fail "the player never made a ground transition ($AIRBORNE_SEEN airborne / $ONGROUND_SEEN grounded)"
+fi
+
+# 5. THE PROPERTY.
+if [ "${REAL_B:--1}" -ge 0 ] && [ "${REAL_B:-1}" -le "$ALLOW" ] 2>/dev/null; then
+    pass "no DECLARED FIELD mispredicted across $JUMPS managed jumps (allowed $ALLOW); the raw count was $MISS_B"
+else
+    fail "$REAL_B command(s) mispredicted a declared field across $JUMPS managed jumps (allowed $ALLOW)"
+    python3 - "$RUN_TMP/prediction.json" <<'PY' 2>/dev/null
+import json, sys
+d = json.load(open(sys.argv[1]))
+for r in d.get("records", [])[:6]:
+    print("     command %s:" % r.get("command"))
+    for f in r.get("fields", []):
+        comps = ", ".join(
+            "pred %.4f srv %.4f d=%.4f" % (c["predicted"], c["server"], c["delta"])
+            for c in f.get("components", []))
+        print("       %-14s %s" % (f.get("name"), comps))
+PY
+fi
+
+# 6. THE METER CAN GO RED. Without this the two zeros above are consistent with
+#    a meter that stopped comparing at all.
+if [ "${MISS_C:-0}" -gt 0 ] 2>/dev/null; then
+    pass "the meter reported the deliberate corruption ($MISS_C misprediction(s), $REAL_C of them naming a field) -- the counts above are readings, not silence"
+else
+    fail "a poked prediction ring still reported $MISS_C misprediction(s) -- this meter cannot go red, so nothing above was measured"
+fi
+
+# 7. RETIRED WITH ARM 1. "The port may not be WORSE than the code it replaces"
+#    needs the code it replaces, and gamemovement.cpp is in neither target. The
+#    property it guarded did not go with it: check 5 is ABSOLUTE -- no declared
+#    field may mispredict at all, allowance $ALLOW, which defaults to 0 -- and
+#    is strictly stronger than "no worse than stock" was.
+#
+# AND THE RAW COUNT, NOW CAPPED ABSOLUTELY -- and the number is the same one,
+# standing on its own for the first time.
+#
+# IT USED TO BE A MARGIN AROUND STOCK'S READING, and the margin was measured
+# rather than chosen. Four consecutive runs on one box, port unchanged between
+# them, read stock 91 / managed 89, then 89/87, then 87/89, then 87/88 -- the
+# direction flipping, so a strict `<=` was a coin toss dressed as a gate.
+#
+# plan_entity.md STEP 6f FOUND WHAT THOSE ~89 WERE. Every one of them was a byte
+# of the ENGINE BLOCK -- the first 368 of a player's 524-byte image, the shell's
+# networked pose and render state, written by the engine's own decoder every
+# update and predicted by nobody. The offsets 3e named, 24-27 and 108-111, are
+# inside it. The compare now takes the block from the arrival on both sides, and
+# the raw count read 0 in BOTH arms while there were still two: there was never
+# any noise, there was a region being compared that nothing claimed to predict.
+#
+# STEP 8f-remove took the baseline away with arm 1. `stock + 4` cannot be
+# evaluated when there is no stock, and the two honest answers are to delete the
+# check or to name the number. Deleting it loses the only reading that would
+# catch a whole-blob divergence no DECLARED field claims -- which is exactly
+# what the ~89 were, so it is not hypothetical. So the cap is absolute and it is
+# the SAME 4: the spread that was measured while both arms existed, kept as the
+# allowance rather than tightened onto the 0 the last three runs read. A check
+# that tightens itself on one good reading is a check that fails the next time
+# the tree is honest about something.
+RAW_ALLOW=${RAW_ALLOW:-4}
+if [ "${MISS_B:-1}" -le "$RAW_ALLOW" ] 2>/dev/null; then
+    pass "the raw misprediction count is within its measured spread ($MISS_B, cap $RAW_ALLOW, padding included)"
+else
+    fail "the raw misprediction count is $MISS_B, over the cap of $RAW_ALLOW -- something outside every declared field is diverging, which is what the engine block did before step 6f"
+fi
+
+# 8. ARM F. Both halves, and each names what its own failure means.
+if grew "${FATAL_BEFORE:-0}" "${FATAL_AFTER:-0}" && [ "${NOSTOCK_SEEN:-0}" -gt 0 ] 2>/dev/null; then
+    pass "the 0 arm PRINTED its refusal by name ($FATAL_BEFORE -> $FATAL_AFTER fatal line(s), naming kMovementFatal_NoStock)"
+else
+    fail "asking for the removed arm printed no fatal ($FATAL_BEFORE -> $FATAL_AFTER, $NOSTOCK_SEEN reason line(s)) -- sourcesharp_movement_managed 0 is a SILENT no-op, which is a player who stops moving and a server that says nothing"
+fi
+
+if ! game_is_running "$GAMEPID"; then
+    pass "and the process STOPPED (/proc says '$GAME_STATE'), which is the other half of the contract: it did not carry on with nothing moving the players"
+else
+    fail "the game is STILL RUNNING (/proc says '$GAME_STATE') after being asked for the removed arm. The message may have printed, but Error() returned -- so the next user command runs the managed preamble with no body behind it"
+fi
+
+echo
+if [ "$FAILURES" = 0 ]; then
+    echo "== MOVEMATH GATE PASSED"
+    exit 0
+fi
+
+echo "== MOVEMATH GATE FAILED ($FAILURES check(s))"
+exit 1

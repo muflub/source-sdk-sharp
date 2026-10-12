@@ -1,0 +1,128 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "local",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/farm/${presetName}/build",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-22",
+        "SS_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "local",
+      "displayName": "debug: host clang 22 + lld",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "local",
+      "displayName": "release: host clang 22 + lld",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "ci",
+      "hidden": true,
+      "generator": "Ninja",
+      "description": "Inside registry.gitlab.steamos.cloud/steamrt/sniper/sdk (tools/build/ci-build). The image's default gcc (10) is the compiler: it is the one the VPC build used and it builds this code with zero warnings; the image's clang is 11.",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "x86_64-linux-gnu-g++",
+        "SS_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "ci-debug",
+      "inherits": "ci",
+      "displayName": "ci-debug: sniper container gcc",
+      "binaryDir": "${sourceDir}/farm/debug/build-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SS_DEPLOY_DIR": "${sourceDir}/bin/ci-debug/linux64"
+      }
+    },
+    {
+      "name": "ci-release",
+      "inherits": "ci",
+      "displayName": "ci-release: sniper container gcc",
+      "binaryDir": "${sourceDir}/farm/release/build-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SS_DEPLOY_DIR": "${sourceDir}/bin/ci-release/linux64"
+      }
+    },
+    {
+      "name": "oracle-debug",
+      "inherits": "debug",
+      "displayName": "oracle-debug: the oracle tests' own build directory",
+      "binaryDir": "${sourceDir}/farm/debug/build-oracle",
+      "cacheVariables": {
+        "SS_TEST_TREE": "oracle"
+      }
+    },
+    {
+      "name": "oracle-release",
+      "inherits": "release",
+      "displayName": "oracle-release: the oracle tests' own build directory",
+      "binaryDir": "${sourceDir}/farm/release/build-oracle",
+      "cacheVariables": {
+        "SS_TEST_TREE": "oracle"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "ci-debug",
+      "configurePreset": "ci-debug"
+    },
+    {
+      "name": "ci-release",
+      "configurePreset": "ci-release"
+    },
+    {
+      "name": "oracle-debug",
+      "configurePreset": "oracle-debug"
+    },
+    {
+      "name": "oracle-release",
+      "configurePreset": "oracle-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "oracle-debug",
+      "configurePreset": "oracle-debug"
+    },
+    {
+      "name": "oracle-release",
+      "configurePreset": "oracle-release"
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+== after the setters
+KvRoot	0	
+  int	2	7
+  neg	2	-2147483648
+  float	3	40200000
+  negfloat	3	c0300000
+  big	3	4f32d05e
+  str	1	hello
+  nullstr	1	
+  empty	1	
+  numstr	1	  -12abc
+  floatstr	1	1.5e2x
+  hex	1	0x1F
+  ptr	4	
+  u64	7	
+  u64small	7	
+  path	0	
+    to	0	
+      leaf	2	4
+      other	1	x
+    also	3	3f800000
+  trailing	2	5
+  a	0	
+    	0	
+      b	2	6
+  nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+    x	2	8
+  retype	3	41180000
+  retype2	2	11
+  block	2	12
+    child	1	c
+  dup	1	first
+  Adopted	0	
+    v	2	1
+  EmptyParent	0	
+    OnlyChild	0	
+Self	0	
+  kid	2	1
+Pair	0	
+  first	2	1
+  second	2	2
+Same	0	
+  k	2	2
+== GetDataType, GetInt, GetFloat, then GetString (which converts)
+int	type 2	int 7	float 40e00000
+neg	type 2	int -2147483648	float cf000000
+float	type 3	int 2	float 40200000
+negfloat	type 3	int -2	float c0300000
+big	type 3	int -2147483648	float 4f32d05e
+str	type 1	int 0	float 00000000
+nullstr	type 1	int 0	float 00000000
+empty	type 1	int 0	float 00000000
+numstr	type 1	int -12	float c1400000
+floatstr	type 1	int 1	float 43160000
+hex	type 1	int 0	float 41f80000
+ptr	type 4	int 1450748877	float 00000000
+u64	type 7	int 0	float 5f7edcbb
+u64small	type 7	int 0	float 42280000
+path	type 0	int 0	float 00000000
+path/to/leaf	type 2	int 4	float 40800000
+path/to	type 0	int 0	float 00000000
+trailing	type 2	int 5	float 40a00000
+block	type 2	int 12	float 41400000
+missing	type 0	int -77	float c0f00000
+missing/deeper	type 0	int -77	float c0f00000
+Adopted	type 0	int 0	float 00000000
+EmptyParent	type 0	int 0	float 00000000
+(null)	type 0	int 0	float 00000000
+	type 0	int 0	float 00000000
+int	string 7	type now 1
+neg	string -2147483648	type now 1
+float	string 2.500000	type now 1
+negfloat	string -2.750000	type now 1
+big	string 3000000000.000000	type now 1
+str	string hello	type now 1
+nullstr	string 	type now 1
+empty	string 	type now 1
+numstr	string   -12abc	type now 1
+floatstr	string 1.5e2x	type now 1
+hex	string 0x1F	type now 1
+ptr	string 20015998348237	type now 1
+u64	string -81985529216486896	type now 1
+u64small	string 42	type now 1
+path	string <the default>	type now 0
+path/to/leaf	string 4	type now 1
+path/to	string <the default>	type now 0
+trailing	string 5	type now 1
+block	string 12	type now 1
+missing	string <the default>	type now 0
+missing/deeper	string <the default>	type now 0
+Adopted	string <the default>	type now 0
+EmptyParent	string <the default>	type now 0
+(null)	string <the default>	type now 0
+	string <the default>	type now 0
+SetString from its own value keeps the pointer: 1
+names: KvRoot Pair path
+== after the getters
+KvRoot	0	
+  int	1	7
+  neg	1	-2147483648
+  float	1	2.500000
+  negfloat	1	-2.750000
+  big	1	3000000000.000000
+  str	1	hello
+  nullstr	1	
+  empty	1	
+  numstr	1	  -12abc
+  floatstr	1	1.5e2x
+  hex	1	0x1F
+  ptr	1	20015998348237
+  u64	1	-81985529216486896
+  u64small	1	42
+  path	0	
+    to	0	
+      leaf	1	4
+      other	1	x
+    also	3	3f800000
+  trailing	1	5
+  a	0	
+    	0	
+      b	2	6
+  nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+    x	2	8
+  retype	3	41180000
+  retype2	2	11
+  block	1	12
+    child	1	c
+  dup	1	first
+  Adopted	0	
+    v	2	1
+  EmptyParent	0	
+    OnlyChild	0	
+Self	0	
+  kid	2	1
+Pair	0	
+  first	2	1
+  second	2	2
+Same	0	
+  k	2	2
+== deleted

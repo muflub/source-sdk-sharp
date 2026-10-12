@@ -1,0 +1,177 @@
+--- a/src/client/native/shell_dust_render.cpp	2026-10-11 13:58:07.036413876 -0700
++++ b/src/client/native/shell_dust_render.cpp	2026-10-11 13:58:15.972365956 -0700
+@@ -93,6 +93,19 @@
+ #include "particles_ez.h"
+ #include "shell_effect_ledger.h"
+ #include "shell_effect_registry.h"
++#include "fx_probe_log.h"
++
++// lane c5-particles probe (dust motes): every rand() the motes draw, logged as
++// the int it returned ("dmr"), and Vector::Random's expression over it.
++static int DmRand() { const int v = rand(); FxProbeLog( "dmr\t%d", v ); return v; }
++static Vector DmRandomVector( float lo, float hi )
++{
++	Vector v;
++	v.x = lo + ( (float)DmRand() / VALVE_RAND_MAX ) * ( hi - lo );
++	v.y = lo + ( (float)DmRand() / VALVE_RAND_MAX ) * ( hi - lo );
++	v.z = lo + ( (float)DmRand() / VALVE_RAND_MAX ) * ( hi - lo );
++	return v;
++}
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -385,6 +398,12 @@
+ void CSourceSharpDustVolume::RenderParticles( CParticleRenderIterator *pIterator )
+ {
+ 	const CSourceSharpDustParticle *pParticle = (const CSourceSharpDustParticle*)pIterator->GetFirst();
++	{
++		const VMatrix &mv = ParticleMgr()->GetModelView();
++		FxProbeLog( "dmv\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d",
++		            (void *)this, mv[0][0], mv[0][1], mv[0][2], mv[0][3], mv[1][0], mv[1][1], mv[1][2], mv[1][3],
++		            mv[2][0], mv[2][1], mv[2][2], mv[2][3], m_DustFlags, m_DistMax, m_Color.r, m_Color.g, m_Color.b, m_Color.a );
++	}
+ 
+ 	while ( pParticle )
+ 	{
+@@ -423,6 +442,17 @@
+ 				flAlpha * m_Color.a,
+ 				flSize
+ 				);
++			FxProbeLog( "dmd\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++			            (void *)this, pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++			            pParticle->m_flLifetime, pParticle->m_flDieTime, pParticle->m_flSize,
++			            tPos.x, tPos.y, tPos.z, flAlpha * m_Color.a, flSize, sortKey );
++		}
++		else
++		{
++			FxProbeLog( "dmc\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%.9g\t%.9g\t%.9g\t%.9g",
++			            (void *)this, pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++			            pParticle->m_flLifetime, pParticle->m_flDieTime, pParticle->m_flSize,
++			            tPos.x, tPos.y, tPos.z, sortKey );
+ 
+ 			// Step 7a's gate: inside the distance test, so a volume whose motes
+ 			// are all culled reads zero. shell_effect_ledger.h.
+@@ -440,11 +470,17 @@
+ {
+ 	Vector vecWind;
+ 	GetWindspeedAtTime( gpGlobals->curtime, vecWind );
++	FxProbeLog( "dmw\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", (void *)this, pIterator->GetTimeDelta(),
++	            gpGlobals->frametime, vecWind.x, vecWind.y, vecWind.z, m_DustFlags );
+ 
+ 	CSourceSharpDustParticle *pParticle = (CSourceSharpDustParticle*)pIterator->GetFirst();
+ 
+ 	while ( pParticle )
+ 	{
++		FxProbeLog( "dmi\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)this,
++		            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++		            pParticle->m_vVelocity.x, pParticle->m_vVelocity.y, pParticle->m_vVelocity.z,
++		            pParticle->m_flLifetime, pParticle->m_flDieTime );
+ 		// Velocity.
+ 		if( !(m_DustFlags & DUSTFLAGS_FROZEN) )
+ 		{
+@@ -453,7 +489,10 @@
+ 
+ 			if( pParticle->m_flLifetime >= pParticle->m_flDieTime )
+ 			{
++				FxProbeLog( "dmo\t%p\tremoved", (void *)this );
+ 				pIterator->RemoveParticle( pParticle );
++				pParticle = (CSourceSharpDustParticle*)pIterator->GetNext();
++				continue;
+ 			}
+ 			else
+ 			{
+@@ -481,6 +520,10 @@
+ 				pParticle->m_Pos.MulAdd( pParticle->m_Pos, pParticle->m_vVelocity, pIterator->GetTimeDelta() );
+ 			}
+ 		}
++		FxProbeLog( "dmo\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)this,
++		            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++		            pParticle->m_vVelocity.x, pParticle->m_vVelocity.y, pParticle->m_vVelocity.z,
++		            pParticle->m_flLifetime );
+ 
+ 		pParticle = (CSourceSharpDustParticle*)pIterator->GetNext();
+ 	}
+@@ -491,6 +534,11 @@
+ //-----------------------------------------------------------------------------
+ void CSourceSharpDustVolume::ApplyUpdate( bool bCreated )
+ {
++	FxProbeLog( "dmu\t%p\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++	            (void *)this, bCreated ? 1 : 0, m_Color.r, m_Color.g, m_Color.b, m_Color.a, m_SpawnRate, m_flSizeMin, m_flSizeMax,
++	            m_SpeedMax, m_LifetimeMin, m_LifetimeMax, m_DistMax, m_FallSpeed, m_DustFlags,
++	            m_vecOrigin.x, m_vecOrigin.y, m_vecOrigin.z, m_vecVolumeMins.x, m_vecVolumeMins.y, m_vecVolumeMins.z,
++	            m_vecVolumeMaxs.x, m_vecVolumeMaxs.y, m_vecVolumeMaxs.z );
+ 	if ( bCreated )
+ 	{
+ 		m_hMaterial = GetPMaterial( "particle/sparkles" );
+@@ -527,6 +575,8 @@
+ 	m_Brush.Bind( pOwner, m_vecVolumeMins, m_vecVolumeMaxs );
+ 
+ 	m_vecOrigin = pOwner->GetAbsOrigin();
++	FxProbeLog( "dmt\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%d", (void *)this, gpGlobals->frametime,
++	            m_vecOrigin.x, m_vecOrigin.y, m_vecOrigin.z, m_bSpawnFrozenBatch ? 1 : 0 );
+ 
+ 	// The frozen batch stock made inside OnDataChanged. See the member's note.
+ 	if ( m_bSpawnFrozenBatch )
+@@ -547,10 +597,13 @@
+ 		{
+ 			float flDelta = MIN( gpGlobals->frametime, 0.1f );
+ 
++			int nEvents = 0;
+ 			while( m_Spawner.NextEvent( flDelta ) )
+ 			{
++				nEvents++;
+ 				AttemptSpawnNewParticle( &m_Brush );
+ 			}
++			FxProbeLog( "dmn\t%p\t%d", (void *)this, nEvents );
+ 		}
+ 	}
+ 
+@@ -564,6 +617,8 @@
+ 	vWorldMaxs += Vector( m_flSizeMax, m_flSizeMax, m_flSizeMax );
+ 
+ 	GetBinding().SetBBox( vWorldMins, vWorldMaxs );
++	FxProbeLog( "dmb\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)this,
++	            vWorldMins.x, vWorldMins.y, vWorldMins.z, vWorldMaxs.x, vWorldMaxs.y, vWorldMaxs.z );
+ 
+ }
+ 
+@@ -591,10 +646,11 @@
+ 
+ 	for( int iTest=0; iTest < nTests; iTest++ )
+ 	{
+-		Vector vPercent = RandomVector( 0, 1 );
++		Vector vPercent = DmRandomVector( 0, 1 );
+ 		Vector vTest = m_vecOrigin + WorldAlignMins() + (WorldAlignMaxs() - WorldAlignMins()) * vPercent;
+ 
+ 		int contents = enginetrace->GetPointContents_Collideable( pVolume, vTest );
++		FxProbeLog( "dmp\t%p\t%.9g\t%.9g\t%.9g\t%d", (void *)this, vTest.x, vTest.y, vTest.z, contents );
+ 
+ 		if( contents & CONTENTS_SOLID )
+ 		{
+@@ -607,18 +663,22 @@
+ 			{
+ 				m_nSpawnMade++;
+ 
+-				pParticle->m_vVelocity = RandomVector( -m_SpeedMax, m_SpeedMax );
++				pParticle->m_vVelocity = DmRandomVector( -m_SpeedMax, m_SpeedMax );
+ 				pParticle->m_vVelocity.z -= m_FallSpeed;
+ 
+ 				pParticle->m_flLifetime = 0;
+-				pParticle->m_flDieTime = RemapVal( rand(), 0, VALVE_RAND_MAX, m_LifetimeMin, m_LifetimeMax );
++				pParticle->m_flDieTime = RemapVal( DmRand(), 0, VALVE_RAND_MAX, m_LifetimeMin, m_LifetimeMax );
+ 
+ 				if( m_DustFlags & DUSTFLAGS_SCALEMOTES )
+-					pParticle->m_flSize = RemapVal( rand(), 0, VALVE_RAND_MAX, m_flSizeMin/10000.0f, m_flSizeMax/10000.0f );
++					pParticle->m_flSize = RemapVal( DmRand(), 0, VALVE_RAND_MAX, m_flSizeMin/10000.0f, m_flSizeMax/10000.0f );
+ 				else
+-					pParticle->m_flSize = RemapVal( rand(), 0, VALVE_RAND_MAX, m_flSizeMin, m_flSizeMax );
++					pParticle->m_flSize = RemapVal( DmRand(), 0, VALVE_RAND_MAX, m_flSizeMin, m_flSizeMax );
+ 
+ 				pParticle->m_Color = m_Color;
++				FxProbeLog( "dmm\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)this,
++				            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++				            pParticle->m_vVelocity.x, pParticle->m_vVelocity.y, pParticle->m_vVelocity.z,
++				            pParticle->m_flDieTime, pParticle->m_flSize );
+ 			}
+ 
+ 			break;

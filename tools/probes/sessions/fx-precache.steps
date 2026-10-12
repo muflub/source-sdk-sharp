@@ -1,0 +1,19 @@
+# lane c2-fx: the client effect precache system's oracle (probe copy of
+# clienteffectprecachesystem.cpp): every registration, and each level's
+# precache and release, over six map loads. Needs the probe build.
+wait managed client module initialized 120
+# A map change is waited out by time: "first paint" is already in the log
+# after the first load, so waiting on it again returns at once.
+cmd map dm_lockdown
+sleep 12
+cmd map ss_sandbox
+sleep 12
+cmd map dm_lockdown
+sleep 12
+cmd map ss_sandbox
+sleep 12
+cmd map dm_lockdown
+sleep 12
+cmd map ss_sandbox
+sleep 12
+quit

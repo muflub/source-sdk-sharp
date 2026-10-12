@@ -1,0 +1,64 @@
+# plan_abi_hotreload §2 / §5 row 12: the files of SourceSharp.Abi that are binding plumbing, with the rule that keeps each.
+# a = the generated boundary (VtableLayouts.g.cs, ShimAreas.g.cs) and what it names: derived by the census, never listed here.
+# b = value contract (blittable mirror, or numbers native interprets); c = state that must outlive the collectible context;
+# d = the side-loading contract or the binding machinery; e = the Log sink or loader infrastructure; x = a delete target, not a seed.
+# The census (src/test/managed/AbiResidency.cs) seeds from these rows plus rule a, keeps whatever they name, and moves the rest.
+file	rule	reason
+AssemblyInfo.cs	d	InternalsVisibleTo list; shrinks as internals leave
+BuildInfo.cs	c	build stamp the Bootstrap writes and the client HUD reads (user: build/stamp info stays)
+BuildStamp.cs	c	stamp hashing the Bootstrap/GameLoadContext use; folds into the Bootstrap once SE2 hands the stamp over as data
+ClientFrameStage.cs	b	value contract: ClientFrameStage_t numbers passed through unchanged
+ClientPlayerViewBlob.cs	b	blittable mirror of SourceSharpClientPlayerView; ShimAreas.g.cs routes it
+ClientRenderGroup.cs	b	value contract: RenderGroup_t, COMPILE_TIME_ASSERTed at the shell call site
+ClientShadowFlag.cs	b	value contract: SHADOW_FLAGS_* bits asserted at the shell call site
+ColorCorrectionOp.cs	b	value contract: SourceSharpColorCorrectionOp
+ConsoleEntry.cs	b	blittable mirror of SourceSharpConsoleEntry; ShimAreas.g.cs routes it
+Crossings.cs	c	crossing counters (user: plumbing); per side under P5
+DataUpdateType.cs	b	value contract: DataUpdateType_t passed as int32
+Decisions.cs	b	value contract: Decision.UseStockRule<0 is read by native; CommandResult/PlayerRelationship numbers cross
+Diagnostics.cs	e	process-wide crash handlers the Bootstrap installs: loader infra (could fold into Bootstrap)
+DynamicLight.cs	b	blittable mirror of SourceSharpDynamicLight; ShimAreas.g.cs routes it
+EffectData.cs	b	blittable mirror of SourceSharpEffectData_t; ShimAreas.g.cs routes it
+EngineBlock.cs	b	engine block layout; native EngineBlock_t is generated from it
+EngineBlockFingerprint.cs	b	fingerprint of the engine block layout (boundary drift check)
+EngineLimits.cs	b	value contract: MAX_PLAYERS and MAX_EDICTS the engine is built around (split out of Log.cs)
+EntityOp.cs	b	entity-op numbers native passes to Crossings.CountEntityOp, which keys its counters by them (Enum.GetNames, Read(EntityOp))
+EventIdStamps.cs	c	CEventAction::s_iNextIDStamp: restored connections keep their stamps across a managed reload, so the counter must too (P1 run 3 lifetime ruling b)
+FogParams.cs	b	blittable mirror of SourceSharpFogParams; ShimAreas.g.cs routes it
+GitProvenance.cs	e	build provenance the Bootstrap reads (loader infra; folds into Bootstrap after SE2)
+Globals.cs	b	CGlobalVarsRaw layout mirror + its pointer reader
+ILog.cs	e	the log contract each composition registers over its own console (statics to zero; the static Log is gone)
+ISideModule.cs	d	module contract the Bootstrap loads (until SE2 makes the entry raw pointers)
+InputButtons.cs	b	IN_* bits: the meaning of UserCmd.Buttons (value contract)
+Interpolated.cs	b	InterpolationKind + [Interpolated] decorate EngineBlockHead fields
+ManagedVtable.cs	d	managed-built vtable machinery + per-side registry that outlives reloads
+ManagedVtableAttributes.cs	d	[ImplementedByManaged]/[ManagedVtable]/[SlotHash]: boundary contract metadata
+ManagedVtableHashFiles.cs	d	reload check reads slot hashes from disk (Bootstrap Entry.cs:263)
+MapLoadRaw.cs	b	blittable mirror of SourceSharpMapLoad (user example)
+MoveEffectKind.cs	b	value contract: SourceSharpMoveEffect
+MoveStateBlob.cs	b	blittable SourceSharpMoveState (user example)
+MoveSurfaceBlob.cs	b	blittable SourceSharpMoveSurface
+MoveTraceBlob.cs	b	blittable SourceSharpMoveTraceResult
+NativeDocAttribute.cs	b	C++ comments for the generated native engine block
+NativeInterfaceFactory.cs	d	acquire-by-version binding machinery
+OpArgs.cs	b	blittable SourceSharpOpArgs; ShimAreas.g.cs routes it
+ProcMaps.cs	e	/proc/self/maps reader the Bootstrap stamps native with (loader infra)
+RagdollState.cs	b	value contract: SourceSharpRagdollState bits
+ReloadSections.cs	c	the reload carrier's per-side section interface (IReloadSections over ReloadStore): bytes a module hands its next build, injected by the side's composition
+ReloadStore.cs	c	the reload carrier: BCL-typed bytes per side that must outlive the collectible context (D6)
+ShadowCast.cs	b	value contract: ShadowType_t (+-1)
+ShadowCastChoice.cs	b	value contract: StandaloneShadowChoice_t
+ShimConsole.cs	d	first area through the root; the Log fallback before a side composes
+ShimRoot.cs	d	shim root binding (user example)
+Side.cs	d	side enum of the module contract
+SideState.cs	c	state that outlives the collectible context: the side's registry and counters, held by the Bootstrap as one opaque handle per game instance (statics to zero)
+SkyboxParams.cs	b	blittable mirror of SourceSharpSkyboxParams; ShimAreas.g.cs routes it
+TeForward.cs	b	value contract: one value per shell_te_forwards entry point (tempent_forwards.h)
+TempEntStatics.cs	b	blittable SourceSharpTempEnt statics; ShimAreas.g.cs routes it
+TempEntTransform.cs	b	blittable temp-ent transform; ShimAreas.g.cs routes it
+TextMessage.cs	b	blittable SourceSharpTextMessage; ShimAreas.g.cs routes it
+ThirdPersonCameraBlob.cs	b	blittable SourceSharpThirdPerson* blob
+Transform.cs	b	blittable 3x4 matrix: EngineBlockHead.WorldTransform's type, mapped to matrix3x4_t in the engine block's native layout
+UserCmd.cs	b	blittable SourceSharpUserCmd (user example; ISideModule names it)
+Vtable.cs	d	vtable acquire + marshalling helpers (binding machinery)
+WorldRenderState.cs	b	value contract: SourceSharpWorldRenderState

@@ -1,0 +1,11 @@
+/* server.so's export list (plan_server_novalve.md 3.2, K1): the engine finds the game
+   DLL through CreateInterface and asks it for every interface by name; nothing else
+   is looked up in server.so. Everything else stays local, so no symbol of ours can
+   interpose on, or be interposed by, the engine's libraries. Replaces Valve's
+   devtools/version_script.linux.txt (global: *), which also exported tier1's cvar. */
+{
+  global:
+    CreateInterface;
+  local:
+    *;
+};

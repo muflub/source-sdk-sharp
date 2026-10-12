@@ -1,0 +1,257 @@
+tbat-sprite n=0 fx=0 mode=0 ok=1
+tbat-sprite n=1 fx=0 mode=1 ok=1
+tbat-sprite n=2 fx=0 mode=2 ok=1
+tbat-sprite n=3 fx=0 mode=3 ok=1
+tbat-sprite n=4 fx=0 mode=4 ok=1
+tbat-sprite n=5 fx=0 mode=5 ok=1
+tbat-sprite n=6 fx=0 mode=9 ok=1
+tbat-sprite n=7 fx=1 mode=0 ok=1
+tbat-sprite n=8 fx=1 mode=1 ok=1
+tbat-sprite n=9 fx=1 mode=2 ok=1
+tbat-sprite n=10 fx=1 mode=3 ok=1
+tbat-sprite n=11 fx=1 mode=4 ok=1
+tbat-sprite n=12 fx=1 mode=5 ok=1
+tbat-sprite n=13 fx=1 mode=9 ok=1
+tbat-sprite n=14 fx=2 mode=0 ok=1
+tbat-sprite n=15 fx=2 mode=1 ok=1
+tbat-sprite n=16 fx=2 mode=2 ok=1
+tbat-sprite n=17 fx=2 mode=3 ok=1
+tbat-sprite n=18 fx=2 mode=4 ok=1
+tbat-sprite n=19 fx=2 mode=5 ok=1
+tbat-sprite n=20 fx=2 mode=9 ok=1
+tbat-sprite n=21 fx=3 mode=0 ok=1
+tbat-sprite n=22 fx=3 mode=1 ok=1
+tbat-sprite n=23 fx=3 mode=2 ok=1
+tbat-sprite n=24 fx=3 mode=3 ok=1
+tbat-sprite n=25 fx=3 mode=4 ok=1
+tbat-sprite n=26 fx=3 mode=5 ok=1
+tbat-sprite n=27 fx=3 mode=9 ok=1
+tbat-sprite n=28 fx=4 mode=0 ok=1
+tbat-sprite n=29 fx=4 mode=1 ok=1
+tbat-sprite n=30 fx=4 mode=2 ok=1
+tbat-sprite n=31 fx=4 mode=3 ok=1
+tbat-sprite n=32 fx=4 mode=4 ok=1
+tbat-sprite n=33 fx=4 mode=5 ok=1
+tbat-sprite n=34 fx=4 mode=9 ok=1
+tbat-sprite n=35 fx=5 mode=0 ok=1
+tbat-sprite n=36 fx=5 mode=1 ok=1
+tbat-sprite n=37 fx=5 mode=2 ok=1
+tbat-sprite n=38 fx=5 mode=3 ok=1
+tbat-sprite n=39 fx=5 mode=4 ok=1
+tbat-sprite n=40 fx=5 mode=5 ok=1
+tbat-sprite n=41 fx=5 mode=9 ok=1
+tbat-sprite n=42 fx=6 mode=0 ok=1
+tbat-sprite n=43 fx=6 mode=1 ok=1
+tbat-sprite n=44 fx=6 mode=2 ok=1
+tbat-sprite n=45 fx=6 mode=3 ok=1
+tbat-sprite n=46 fx=6 mode=4 ok=1
+tbat-sprite n=47 fx=6 mode=5 ok=1
+tbat-sprite n=48 fx=6 mode=9 ok=1
+tbat-sprite n=49 fx=7 mode=0 ok=1
+tbat-sprite n=50 fx=7 mode=1 ok=1
+tbat-sprite n=51 fx=7 mode=2 ok=1
+tbat-sprite n=52 fx=7 mode=3 ok=1
+tbat-sprite n=53 fx=7 mode=4 ok=1
+tbat-sprite n=54 fx=7 mode=5 ok=1
+tbat-sprite n=55 fx=7 mode=9 ok=1
+tbat-sprite n=56 fx=8 mode=0 ok=1
+tbat-sprite n=57 fx=8 mode=1 ok=1
+tbat-sprite n=58 fx=8 mode=2 ok=1
+tbat-sprite n=59 fx=8 mode=3 ok=1
+tbat-sprite n=60 fx=8 mode=4 ok=1
+tbat-sprite n=61 fx=8 mode=5 ok=1
+tbat-sprite n=62 fx=8 mode=9 ok=1
+tbat-sprite n=63 fx=9 mode=0 ok=1
+tbat-sprite n=64 fx=9 mode=1 ok=1
+tbat-sprite n=65 fx=9 mode=2 ok=1
+tbat-sprite n=66 fx=9 mode=3 ok=1
+tbat-sprite n=67 fx=9 mode=4 ok=1
+tbat-sprite n=68 fx=9 mode=5 ok=1
+tbat-sprite n=69 fx=9 mode=9 ok=1
+tbat-sprite n=70 fx=10 mode=0 ok=1
+tbat-sprite n=71 fx=10 mode=1 ok=1
+tbat-sprite n=72 fx=10 mode=2 ok=1
+tbat-sprite n=73 fx=10 mode=3 ok=1
+tbat-sprite n=74 fx=10 mode=4 ok=1
+tbat-sprite n=75 fx=10 mode=5 ok=1
+tbat-sprite n=76 fx=10 mode=9 ok=1
+tbat-sprite n=77 fx=11 mode=0 ok=1
+tbat-sprite n=78 fx=11 mode=1 ok=1
+tbat-sprite n=79 fx=11 mode=2 ok=1
+tbat-sprite n=80 fx=11 mode=3 ok=1
+tbat-sprite n=81 fx=11 mode=4 ok=1
+tbat-sprite n=82 fx=11 mode=5 ok=1
+tbat-sprite n=83 fx=11 mode=9 ok=1
+tbat-sprite n=84 fx=12 mode=0 ok=1
+tbat-sprite n=85 fx=12 mode=1 ok=1
+tbat-sprite n=86 fx=12 mode=2 ok=1
+tbat-sprite n=87 fx=12 mode=3 ok=1
+tbat-sprite n=88 fx=12 mode=4 ok=1
+tbat-sprite n=89 fx=12 mode=5 ok=1
+tbat-sprite n=90 fx=12 mode=9 ok=1
+tbat-sprite n=91 fx=13 mode=0 ok=1
+tbat-sprite n=92 fx=13 mode=1 ok=1
+tbat-sprite n=93 fx=13 mode=2 ok=1
+tbat-sprite n=94 fx=13 mode=3 ok=1
+tbat-sprite n=95 fx=13 mode=4 ok=1
+tbat-sprite n=96 fx=13 mode=5 ok=1
+tbat-sprite n=97 fx=13 mode=9 ok=1
+tbat-sprite n=98 fx=14 mode=0 ok=1
+tbat-sprite n=99 fx=14 mode=1 ok=1
+tbat-sprite n=100 fx=14 mode=2 ok=1
+tbat-sprite n=101 fx=14 mode=3 ok=1
+tbat-sprite n=102 fx=14 mode=4 ok=1
+tbat-sprite n=103 fx=14 mode=5 ok=1
+tbat-sprite n=104 fx=14 mode=9 ok=1
+tbat-sprite n=105 fx=15 mode=0 ok=1
+tbat-sprite n=106 fx=15 mode=1 ok=1
+tbat-sprite n=107 fx=15 mode=2 ok=1
+tbat-sprite n=108 fx=15 mode=3 ok=1
+tbat-sprite n=109 fx=15 mode=4 ok=1
+tbat-sprite n=110 fx=15 mode=5 ok=1
+tbat-sprite n=111 fx=15 mode=9 ok=1
+tbat-sprite n=112 fx=16 mode=0 ok=1
+tbat-sprite n=113 fx=16 mode=1 ok=1
+tbat-sprite n=114 fx=16 mode=2 ok=1
+tbat-sprite n=115 fx=16 mode=3 ok=1
+tbat-sprite n=116 fx=16 mode=4 ok=1
+tbat-sprite n=117 fx=16 mode=5 ok=1
+tbat-sprite n=118 fx=16 mode=9 ok=1
+tbat-sprite n=119 fx=17 mode=0 ok=1
+tbat-sprite n=120 fx=17 mode=1 ok=1
+tbat-sprite n=121 fx=17 mode=2 ok=1
+tbat-sprite n=122 fx=17 mode=3 ok=1
+tbat-sprite n=123 fx=17 mode=4 ok=1
+tbat-sprite n=124 fx=17 mode=5 ok=1
+tbat-sprite n=125 fx=17 mode=9 ok=1
+tbat-sprite n=126 fx=18 mode=0 ok=1
+tbat-sprite n=127 fx=18 mode=1 ok=1
+tbat-sprite n=128 fx=18 mode=2 ok=1
+tbat-sprite n=129 fx=18 mode=3 ok=1
+tbat-sprite n=130 fx=18 mode=4 ok=1
+tbat-sprite n=131 fx=18 mode=5 ok=1
+tbat-sprite n=132 fx=18 mode=9 ok=1
+tbat-sprite n=133 fx=19 mode=0 ok=1
+tbat-sprite n=134 fx=19 mode=1 ok=1
+tbat-sprite n=135 fx=19 mode=2 ok=1
+tbat-sprite n=136 fx=19 mode=3 ok=1
+tbat-sprite n=137 fx=19 mode=4 ok=1
+tbat-sprite n=138 fx=19 mode=5 ok=1
+tbat-sprite n=139 fx=19 mode=9 ok=1
+tbat-sprite n=140 fx=20 mode=0 ok=1
+tbat-sprite n=141 fx=20 mode=1 ok=1
+tbat-sprite n=142 fx=20 mode=2 ok=1
+tbat-sprite n=143 fx=20 mode=3 ok=1
+tbat-sprite n=144 fx=20 mode=4 ok=1
+tbat-sprite n=145 fx=20 mode=5 ok=1
+tbat-sprite n=146 fx=20 mode=9 ok=1
+fxr f -255 255 -211.9245
+fxr f -255 255 -174.623611
+fxr f -255 255 -61.4841309
+tbat-studio fx=0 ok=1
+fxr f -255 255 38.2259521
+fxr f -255 255 130.008392
+fxr f -255 255 -210.742416
+tbat-studio fx=1 ok=1
+fxr f -255 255 -94.9868622
+fxr f -255 255 231.720581
+fxr f -255 255 39.4073792
+tbat-studio fx=2 ok=1
+fxr f -255 255 60.6227112
+fxr f -255 255 204.468353
+fxr f -255 255 230.104675
+tbat-studio fx=3 ok=1
+fxr f -255 255 -214.19342
+fxr f -255 255 115.335876
+fxr f -255 255 61.601593
+tbat-studio fx=4 ok=1
+fxr f -255 255 -95.7993011
+fxr f -255 255 -173.292175
+fxr f -255 255 -144.124603
+tbat-studio fx=5 ok=1
+fxr f -255 255 231.574646
+fxr f -255 255 31.4558105
+fxr f -255 255 133.276703
+tbat-studio fx=6 ok=1
+fxr f -255 255 -93.9093628
+fxr f -255 255 -59.7913971
+fxr f -255 255 197.880096
+tbat-studio fx=7 ok=1
+fxr f -255 255 -28.8254089
+fxr f -255 255 48.9024963
+fxr f -255 255 187.374695
+tbat-studio fx=8 ok=1
+fxr f -255 255 -103.780182
+fxr f -255 255 -43.4088593
+fxr f -255 255 -33.6256104
+tbat-studio fx=9 ok=1
+fxr f -255 255 53.2580566
+fxr f -255 255 -35.3244019
+fxr f -255 255 58.0491028
+tbat-studio fx=10 ok=1
+fxr f -255 255 0.896881104
+fxr f -255 255 49.8594971
+fxr f -255 255 -30.0338898
+tbat-studio fx=11 ok=1
+fxr f -255 255 127.232361
+fxr f -255 255 -122.550278
+fxr f -255 255 -176.742645
+tbat-studio fx=12 ok=1
+fxr f -255 255 197.549774
+fxr f -255 255 -225.634125
+fxr f -255 255 -65.537735
+tbat-studio fx=13 ok=1
+fxr f -255 255 -16.8671875
+fxr f -255 255 171.14267
+fxr f -255 255 -106.242676
+tbat-studio fx=14 ok=1
+fxr f -255 255 -66.4512939
+fxr f -255 255 -85.9225311
+fxr f -255 255 -36.7031555
+tbat-studio fx=15 ok=1
+fxr f -255 255 -226.037964
+fxr f -255 255 4.69827271
+fxr f -255 255 120.264557
+tbat-studio fx=16 ok=1
+fxr f -255 255 -5.0818634
+fxr f -255 255 -120.508392
+fxr f -255 255 -240.969009
+tbat-studio fx=17 ok=1
+fxr f -255 255 146.925232
+fxr f -255 255 -170.301895
+fxr f -255 255 237.371277
+tbat-studio fx=18 ok=1
+fxr f -255 255 142.826355
+fxr f -255 255 -166.714859
+fxr f -255 255 173.282745
+tbat-studio fx=19 ok=1
+fxr f -255 255 -139.302338
+fxr f -255 255 -143.985657
+fxr f -255 255 -230.640045
+tbat-studio fx=20 ok=1
+tat-in client=1 model=214 z=10 life=2 t=14.2430668 max=16
+tat-out o=-3843 2894 10 mode=0 a=255 amt=255 fx=14 client=1 off=0 0 10 die=16.2430668 flags=106752 framemax=0 rate=10 type=2
+tat-in client=1 model=-1 z=10 life=3 t=14.2430668 max=16
+tat-in client=1 model=0 z=10 life=4 t=14.2430668 max=16
+tat-in client=1 model=99999 z=10 life=5 t=14.2430668 max=16
+tat-in client=0 model=214 z=18 life=2 t=14.2430668 max=16
+tat-in client=0 model=-1 z=18 life=3 t=14.2430668 max=16
+tat-in client=0 model=0 z=18 life=4 t=14.2430668 max=16
+tat-in client=0 model=99999 z=18 life=5 t=14.2430668 max=16
+tat-in client=-1 model=214 z=26 life=2 t=14.2430668 max=16
+tat-in client=-1 model=-1 z=26 life=3 t=14.2430668 max=16
+tat-in client=-1 model=0 z=26 life=4 t=14.2430668 max=16
+tat-in client=-1 model=99999 z=26 life=5 t=14.2430668 max=16
+tat-in client=17 model=214 z=34 life=2 t=14.2430668 max=16
+tat-in client=17 model=-1 z=34 life=3 t=14.2430668 max=16
+tat-in client=17 model=0 z=34 life=4 t=14.2430668 max=16
+tat-in client=17 model=99999 z=34 life=5 t=14.2430668 max=16
+tat-in client=1 model=214 z=42 life=2 t=14.2430668 max=16
+tat-out o=-3843 2894 42 mode=0 a=255 amt=255 fx=14 client=1 off=0 0 42 die=16.2430668 flags=106752 framemax=0 rate=10 type=2
+tat-in client=1 model=-1 z=42 life=3 t=14.2430668 max=16
+tat-in client=1 model=0 z=42 life=4 t=14.2430668 max=16
+tat-in client=1 model=99999 z=42 life=5 t=14.2430668 max=16
+teb-in type=0 cvar=1 model=models/weapons/shell.mdl
+teb-in type=1 cvar=1 model=models/weapons/rifleshell.mdl
+teb-in type=2 cvar=1 model=models/weapons/shotgun_shell.mdl
+teb-in type=0 cvar=1 model=models/weapons/shell.mdl

@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+"""tools/gateseq-probe -- WHY does `projectile`'s target crate settle 260 units
+downrange when the step runs alone and 137 when it runs after the gate's other
+steps?
+
+WHY THIS EXISTS, AND WHY tools/3f-gatebisect IS NOT ENOUGH. gatebisect runs a
+subset of the gate's steps and then asks the physics questions lane 3f-shadow
+needed: is a prop below the map, what does the world report say. It does not
+ask the question THIS defect turns on, which is where the crate was PUT before
+physics ever touched it.
+
+`ent_create` places the entity at `TracePlayerAim(issuer, 8192)` -- the point
+the player is looking at (DevCommandsLive.cs SpawningCommand.Spawn). So the
+crate's resting place is the sum of TWO things the gate never separates:
+
+    where it was CREATED   -- entirely the player's origin and eye angles
+    how far it SLID        -- physics
+
+and "the fixture settled 137 units downrange" has one reading in which the
+port is broken (the crate never moved when it should have) and one in which it
+is perfectly healthy (the crate was created at the geometric answer for a
+25-degree look from a 64-unit eye, and stayed there). A distance alone cannot
+tell those apart. This tool takes both halves separately, for every draw:
+
+    the player's origin, the eye the trace starts from, the aim point it ends
+    at, the horizontal range of that aim point, then the crate's first sighting
+    and its resting place.
+
+USAGE
+
+    tools/gateseq-probe --steps join,move,jump,damage,pickup,shoot --draws 4
+    tools/gateseq-probe --steps '' --draws 4        # the control
+
+`--steps` is the PREFIX to run before measuring, in the gate's own step
+functions, exactly as gatebisect runs them. `--draws` is how many crates to
+sample per round, which mirrors PROJECTILE_TARGET_TRIES.
+
+A PROBE, NOT A GATE: it prints a table, it does not assert.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import math
+import os
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+spec = importlib.util.spec_from_file_location(
+    "livegate", os.path.join(HERE, "live-gate"),
+    loader=importlib.machinery.SourceFileLoader("livegate", os.path.join(HERE, "live-gate")))
+lg = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lg)
+
+
+# LANE 8e-physics: --report-every-draw makes the physworld report unconditional.
+# The report was only taken on a SUNK draw, which means a healthy game produced
+# no control to compare a sick one against -- and the ask ledger the report now
+# carries is exactly a number that needs a control.
+ALWAYS_REPORT = [False]
+
+
+def physworld(api, tag):
+    """Take ss_physworld_report and print the [SS-PHYSWORLD] summary line.
+
+    LANE 8e-physics. The ask ledger's `asks=` counter STOPS MOVING in a sick
+    game -- 15830 at draw 1 and 15830 at draw 2, where a healthy game climbs by
+    ~1700 in the same ten seconds. So the question the probe could not ask was
+    WHEN it stopped, and the answer needs the counter sampled between the
+    prefix's steps rather than only at the end.
+    """
+    path = "/tmp/ss-physworld-%s.log" % api.pid
+    try:
+        before = len(open(path).read()) if os.path.exists(path) else 0
+        api.cmd("ss_physworld_report")
+        time.sleep(0.7)
+        if not os.path.exists(path):
+            return
+        text = open(path).read()[before:]
+        for line in text.splitlines():
+            if "[SS-PHYSWORLD]" in line:
+                print("    %-24s %s" % (tag, line.strip()), flush=True)
+    except lg.ApiError:
+        print("    %-24s (the dev API did not answer)" % tag, flush=True)
+
+
+def horizontal(a, b):
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def bearing(frm, to):
+    """Compass yaw from `frm` to `to`, in Source's convention (+x is 0, +y is 90)."""
+    return math.degrees(math.atan2(to[1] - frm[1], to[0] - frm[0])) % 360.0
+
+
+def neighbours(api, point, radius=250.0):
+    """Everything standing within `radius` of the aim point, by class.
+
+    THE OTHER HALF OF "where the crate was created". `ent_create` puts the
+    crate at the aim point whatever is already there, and a crate created
+    inside another solid is a penetration for the solver to resolve rather
+    than a prop resting on a floor. The gate's `shoot` step spawns a crate at
+    this very point and BREAKS it, and a broken wood crate leaves gibs, so
+    "what else is at the aim point" is not a background detail here.
+    """
+    counts = {}
+    try:
+        ents = api.ents("*")
+    except lg.ApiError:
+        return counts
+    for e in ents:
+        o = e.get("origin")
+        if not o:
+            continue
+        if horizontal(o, point) <= radius and abs(o[2] - point[2]) <= radius:
+            counts[e["classname"]] = counts.get(e["classname"], 0) + 1
+    return counts
+
+
+def draw(g, api):
+    """One crate, with everything that decides where it ends up."""
+    here = g.player_origin()
+    aim = api.get("aim", 1)
+    eye = aim.get("eye")
+    point = aim.get("aim")
+    klass = aim.get("hitClass")
+
+    near = neighbours(api, point) if point else {}
+
+    index, resting, moved = lg.spawn_prop(g)
+    made_at = None
+    if index is not None:
+        # spawn_prop threw the first sighting away; ask again for the record.
+        made_at = point
+
+    row = {
+        "player": here,
+        "eye": eye,
+        "aimPoint": point,
+        "aimClass": klass,
+        "aimRange": None if (here is None or point is None) else horizontal(here, point),
+        "aimBearing": None if (here is None or point is None) else bearing(here, point),
+        "aimDrop": None if (here is None or point is None) else here[2] - point[2],
+        "resting": resting,
+        "slid": None if (resting is None or point is None) else horizontal(point, resting),
+        "range": None if (resting is None or here is None) else horizontal(here, resting),
+        "bearing": None if (resting is None or here is None) else bearing(here, resting),
+        "displaced": moved,
+        "near": near,
+        "report": [],
+    }
+    # WHEN IT GOES THROUGH THE FLOOR, ASK THE GAME WHILE THE CRATE IS STILL IN
+    # IT. `ss_physworld_report` is the explicit command lane 3f-shadow added and
+    # is NOT behind `sourcesharp_physworld_report`, so it answers on a stock
+    # debug build; it walks the objects the environment holds RIGHT NOW, which
+    # is the only moment the question "is the rule table refusing THIS pair"
+    # can be asked at all. 3f-shadow's handover names this as the next
+    # experiment and could never run it, because the only instrument that
+    # reproduced the failure was the 25-minute gate.
+    sank = resting is not None and resting[2] < -1000.0
+    row["sank"] = sank
+    if sank or ALWAYS_REPORT[0]:
+        try:
+            path = "/tmp/ss-physworld-%s.log" % api.pid
+            before = len(open(path).read()) if os.path.exists(path) else 0
+            api.cmd("ss_physworld_report")
+            time.sleep(1.0)
+            if os.path.exists(path):
+                text = open(path).read()[before:]
+                lines = [l.strip() for l in text.splitlines() if l.strip()]
+                row["report"] = lines[-4:]
+        except lg.ApiError:
+            pass
+
+    lg.kill_prop(g)
+    return row
+
+
+def show(round_number, rows):
+    print("  round %d" % round_number, flush=True)
+    for n, r in enumerate(rows, 1):
+        def f(v):
+            return "n/a" if v is None else "%.1f" % v
+        print("    draw %d: player %s eye %s" % (n, r["player"], r["eye"]), flush=True)
+        print("            aim %s class %r  range %s bearing %s drop %s"
+              % (r["aimPoint"], r["aimClass"], f(r["aimRange"]),
+                 f(r["aimBearing"]), f(r["aimDrop"])), flush=True)
+        print("            at the aim point already: %s"
+              % (", ".join("%s x%d" % (k, v) for k, v in sorted(r["near"].items()))
+                 or "(nothing)"), flush=True)
+        print("            crate rests %s  slid %s from the aim point; "
+              "range %s bearing %s"
+              % (r["resting"], f(r["slid"]), f(r["range"]), f(r["bearing"])), flush=True)
+        for line in r.get("report", []):
+            print("            REPORT %s" % line, flush=True)
+
+
+def main(argv):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--steps", default="",
+                    help="comma-separated live-gate step ids to run BEFORE measuring")
+    ap.add_argument("--rounds", type=int, default=3)
+    ap.add_argument("--draws", type=int, default=4)
+    ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--report-between-steps", action="store_true",
+                    help="take ss_physworld_report before the prefix and after "
+                         "EVERY step of it, so a run that stops asking the "
+                         "collision filter names the step it stopped at")
+    ap.add_argument("--report-every-draw", action="store_true",
+                    help="take ss_physworld_report after EVERY draw, not only "
+                         "after one that sank. The ask ledger's control.")
+    ap.add_argument("--no-initial-map", action="store_true",
+                    help="measure on the map the COMMAND LINE loaded, instead of "
+                         "issuing `map` first and measuring on the reload.\n"
+                         "\n"
+                         "THIS IS NOT A CONVENIENCE. tools/live-gate runs its "
+                         "first pass on the command-line load; tools/3f-gatebisect "
+                         "and this probe both issue `map` and wait before they "
+                         "measure anything. If a defect only shows on the first "
+                         "load, every instrument that reloads is blind to it and "
+                         "only the gate can see it -- which is exactly the shape "
+                         "lane 3f-shadow reported (the live gate reproduced it 1 "
+                         "in 4 and nothing else reproduced it in 40+ rounds).")
+    ap.add_argument("--pitch", type=float, default=None,
+                    help="look this far DOWN for the measurement instead of the "
+                         "scenario's openFloorAngles pitch. The aim point's range "
+                         "is 64/tan(pitch) on a flat floor -- 25 degrees puts it "
+                         "140 units out, which is under the projectile step's own "
+                         "minTargetRange -- so this is how a usable target pitch "
+                         "is CHOSEN rather than guessed.")
+    args = ap.parse_args(argv)
+    ALWAYS_REPORT[0] = args.report_every_draw
+
+    step_ids = [s for s in args.steps.split(",") if s]
+    scen = lg.load_scenario("dm_lockdown")
+    scratch = os.path.join("/tmp", "ss-gateseq-%d" % os.getpid())
+    os.makedirs(scratch, exist_ok=True)
+
+    port = lg.free_udp_port(*lg.GATE_PORT_RANGE)
+    log = os.path.join(scratch, "server.log")
+    console_name = "gateseq-%d.log" % os.getpid()
+    print("== launching %s on port %d (steps %s; console %s)"
+          % (scen["map"], port, ",".join(step_ids) or "(none)", console_name), flush=True)
+    game = lg.Game.launch(lg.server_launch(port, scen["map"]) + ["+con_logfile", console_name],
+                          log, os.path.join(scratch, "server"))
+    if game is None:
+        print("== NO SOCKET; read %s" % log)
+        return 1
+
+    api = game.api
+    print("== game pid %s" % api.pid, flush=True)
+    api.wait_for(lambda: api.player(scen["playerClass"]), 120.0)
+
+    g = lg.Gate(api, scen, verbose=args.verbose)
+    g.no_second_client = False
+    g.server_port = port
+    g.scratch = scratch
+    g.own_log = log
+    g.count_log = lambda needle: lg.count_in(log, needle)
+    g.last_log_line = lambda needle: lg.last_line_in(log, needle)
+    # Through /console, which follows the file +con_logfile named (the
+    # launcher names it to the game), never a path worked out here.
+    lg.attach_console(g, api)
+
+    try:
+        if not args.no_initial_map:
+            api.cmd("map %s" % scen["map"])
+            time.sleep(8.0)
+            api.wait_for(lambda: api.player(scen["playerClass"]), 120.0)
+        time.sleep(4.0)
+
+        for round_number in range(1, args.rounds + 1):
+            g.failures = []
+            if args.report_between_steps:
+                physworld(api, "before any step")
+            for step_id in step_ids:
+                if step_id not in lg.BY_ID:
+                    raise SystemExit("no such step: %s" % step_id)
+                g._step = step_id
+                try:
+                    lg.BY_ID[step_id][2](g)
+                except (lg.Skipped, lg.ApiError):
+                    pass
+                if args.report_between_steps:
+                    physworld(api, "after %s" % step_id)
+
+            # EXACTLY what step_projectile does before its resample loop, and
+            # nothing else: cheats, impulse 101, then the teleport whose angles
+            # the whole placement hangs on.
+            g.cheats()
+            api.cmd("impulse 101")
+            time.sleep(0.6)
+            angles = list(scen["openFloorAngles"])
+            if args.pitch is not None:
+                angles[0] = args.pitch
+            g.teleport(scen["openFloor"], angles, settle=1.0)
+
+            rows = [draw(g, api) for _ in range(args.draws)]
+            show(round_number, rows)
+
+            # Down and back, the way the gate goes between passes.
+            api.cmd("disconnect")
+            api.wait_for(lambda: api.census() == (0, 0), 60.0, 1.0)
+            time.sleep(1.0)
+            api.cmd("map %s" % scen["map"])
+            time.sleep(8.0)
+            if not api.wait_for(lambda: api.player(scen["playerClass"]), 120.0):
+                print("  THE MAP NEVER CAME BACK", flush=True)
+                break
+            time.sleep(6.0)
+    finally:
+        game.kill()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

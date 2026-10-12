@@ -1,0 +1,367 @@
+# docs/globals-ratchet.tsv -- the RATCHET CEILINGS for plan_globals.md.
+#
+# Same convention as docs/shim-ratchet.tsv, and for the same reason: every
+# number here is a CEILING re-measured FROM THE TREE on each test run. The test
+# that reads this file is
+#
+#   sourcesharp/test/globals_ledger_test.cpp
+#
+# and it FAILS when a measured number goes ABOVE its ceiling. Going below is the
+# whole point of the plan and needs no ceremony beyond lowering the row.
+#
+# NOTHING HERE IS A KEEP-LIST. This file holds only counts; the per-symbol
+# rulings live in docs/globals-ledger.tsv, which the gate re-derives against the
+# symbol table on every run. A list of names nobody re-derives rots silently.
+#
+# HOW TO CHANGE IT
+#   you made a number smaller   lower the row, in the same commit
+#   you made a number BIGGER    that is the regression this file exists to
+#                               catch. Raising a row is a deliberate act: say
+#                               in the commit message what came back and why.
+#
+# MERGING TWO LANES' VERSIONS: do not keep both. Re-measure against the merged
+# tree and write the number you measured.
+#
+# columns:
+# metric	subject	ceiling
+#
+# ---------------------------------------------------------------------------
+# THE LEDGER MUST COVER THE SYMBOL TABLE, BOTH WAYS.
+#
+# These two are the membership gate and both ceilings are ZERO, which is the
+# point: a ceiling of zero fails on the first row in either direction.
+#
+#   globals_symbols_with_no_row   a piece of state nobody has written down.
+#   globals_rows_with_no_symbol   a row describing a tree that no longer
+#                                 exists. This is the direction a keep-list
+#                                 rots in, and it is the one that was caught at
+#                                 a merge on this project on 2026-09-20: a row
+#                                 naming a file deleted three phases earlier
+#                                 still read as a live claim because nothing
+#                                 ever checked it against the tree.
+#
+# measured 2026-09-21 in lane 8b-globals by
+#   python3 tools/globals-census gate
+# ---------------------------------------------------------------------------
+globals_symbols_with_no_row	docs/globals-ledger.tsv	0
+globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
+#
+# ---------------------------------------------------------------------------
+# THE STATE ITSELF. plan_globals.md 1: state is a SECTION, not a keyword. Every
+# OBJECT/TLS/GNU_UNIQUE symbol in .bss*, .data*, .tbss* or .tdata* of an object
+# on the server link line, with LOCAL counted once per object and UNIQUE/WEAK/
+# GLOBAL once per mangled name, minus guard variables and minus the four
+# vec2_/vec4_ constants public/mathlib/vector{2,4}d.h defines.
+#
+# A function-local static is state. A static inside an inline accessor is
+# state. `tools/statics-audit` scanned the source text and so counted none of
+# the 134 function-local rows here, which is how a global moved inside an
+# accessor came to satisfy "no file-scope statics in SourceSharp's C++".
+#
+# plan_globals.md 2's target is ONE: s_gameShellDll, whose address
+# EXPOSE_SINGLE_INTERFACE_GLOBALVAR takes at static init. This row is the number
+# the whole plan exists to drive down.
+#
+# measured 2026-09-21 in lane 8b-globals, two independent readings agreeing:
+#   python3 tools/globals-census summary          -> link_level 469
+#   python3 tools/globals-census reconcile        -> 469 - 33 dropped = 436
+#   Phase 6b (CMake + host clang 22, -gdwarf-4) re-measure: link_level 468
+#   (02c78a6 removed s_EarlyMissHook), 468 - 33 dropped = 435, UNATTRIBUTED 0
+#   once the host libgcc 15 unwinder's five statics are named in CRT_SYMBOLS.
+#                                                    from_link_line_objects 436
+#   2026-09-28, the shadow-controller probe removed (user ruling): link_level
+#   464 (-4: g_ShadowNanWatch, two ConVars, ss_shadowctrl_command),
+#   464 - 33 dropped = 431, UNATTRIBUTED 0.
+#   2026-09-28, the octree audit removed (user ruling): link_level 463 (-1:
+#   SourceSharpAuditIvpOvTree's s_nPerLevel), 463 - 33 dropped = 430.
+# (the doc's own figure, at 216533fa8 and 229 commits back, was 619)
+# ---------------------------------------------------------------------------
+#   2026-09-28, plan_server_novalve.md P0: link_level 464 (+2 -1): RAISED
+#   deliberately for the debug allocation checker's g_State and t_depth
+#   (alloc_check.cpp, FLOOR, release carries neither), and scriptmanager gone
+#   with VScript.
+#   2026-09-28, plan_server_novalve.md P2.1: link_level 463 (-1: shell_particlequery.cpp's
+#   s_Query, gone with CParticleSystemMgr).
+#   2026-09-28, plan_server_novalve.md P2.3: link_level 458 (-18 movement ConVars declared
+#   in C# now, -2 audit statics, +15 by-name refs ruled MANAGED, +1 dropped-message
+#   sentinel ruled CONST, -1 net elsewhere).
+#   2026-09-28, plan_server_novalve.md P2.2 (usercmd to C#): 457 (-1: shell_gameclients.cpp's
+#   sv_max_usercmd_move_magnitude ref; the clamp is C#'s).
+#   2026-09-28, plan_server_novalve.md P2.3b (the rest of the server's ConVars): 455
+#   (-9 native ConVars: skill and developer deleted, the engine owns both; g_Language,
+#   hl2_episodic, default_fov and the four sourcesharp_* switches declared in C#;
+#   +6 by-name refs ruled MANAGED; sv_sourcesharp_verbose's slot is now its ref).
+#   2026-09-28, plan_server_novalve.md P2.3c (commands declared in C#): 457, RAISED +2.
+#   47 ConCommand objects became 47 SS_NATIVE_COMMAND list nodes (CONST) and three
+#   physics ConVars became three by-name refs (MANAGED), one for one; what came
+#   back is the list's head pointer (CONST) and PhysTimescale()'s last-seen value
+#   (MEMBER), which is how a phys_timescale change still resets the simulation
+#   clock once the ConVar's change callback is C#'s.
+#   2026-09-28, plan_server_novalve.md P2.4 (soundscape index to C#): 455 (-2: the
+#   registry g_SoundscapeSystem and sv_soundscape_printdebuginfo's body node, now a
+#   managed [ConCommand]).
+#   2026-09-28, plan_server_novalve.md P2.5 (Steam to C#): 440 (-15: the two Steam
+#   contexts, steamid.cpp's CSteamID::Render statics, and the steam_api.h
+#   accessors' callback counters, all gone with libsteam_api.so and steam/).
+#   2026-09-28, plan_server_novalve.md P3 (tier3 off the link): 441, RAISED +1: mdlcache,
+#   the IMDLCache pointer ConnectTier3Libraries used to own in tier3.a, is defined in
+#   tier_connect.cpp now; UNRULED like the other engine interface pointers.
+#   2026-09-28, plan_server_novalve.md P3 (tier2 off the link): 442, RAISED +1:
+#   g_pFullFileSystem, tier2's, is defined in tier_connect.cpp now (UNRULED like the
+#   other engine interface pointers; its one reader is the model sounds cache).
+#   2026-09-28, plan_server_novalve.md P3 (model sounds cache to C#): 437 (-5: the cache,
+#   its saver system, the X360 symbol helper, the cache's save counter, and
+#   g_pFullFileSystem, whose only reader was the cache).
+#   2026-09-28, plan_server_novalve.md P3 (tier1's small members): 443, RAISED +6: tier1.cpp's
+#   cvar, g_pCVar, g_pProcessUtils and g_pUtlSortVectorQSortContext, and the connect-once
+#   flag, are defined in tier_connect.cpp now; interface.cpp's registry head
+#   InterfaceReg::s_pInterfaceRegs in tier1_port.cpp (CONST, static-init only).
+#   g_GameStringPool grew 56 -> 64 bytes (its own set instead of CStringPool).
+#   2026-09-29, plan_server_novalve.md P3 (tier1's datamanager, checksum_crc and utlsymbol):
+#   442 (-1: g_StudioBoneCache, the bone cache's CDataManager, is client-only; no server
+#   object called it). The shown-once sets in sound_emitter.cpp and the precache-once list
+#   are std::sets now (sizes changed; two function-local names gained [abi:cxx11]).
+#   2026-09-29, the interface factory as one function (shell_factory.cpp): 430 (-12: the
+#   eleven EXPOSE_ macros' InterfaceReg nodes (__g_Create*_reg) and the list head
+#   InterfaceReg::s_pInterfaceRegs. The factory's rows are const data, not state).
+#   2026-09-29, tier1's convar.cpp ported (convar_port.cpp): 438, RAISED +8, and none of it
+#   is new state -- it is tier1's own, now defined in server.so instead of taken from
+#   libtier1.a: ConCommandBase::s_pConCommandBases / s_pAccessor, the registration's DLL
+#   identifier, flags and once-flag, the engine-list accessor, the missing-convar stand-in
+#   ConVarRef answers with, and ConVarRef::Init's warn-once flag.
+#   2026-09-29, the live engine-vector check (cs_sv_engine_vectors): 439, RAISED +1: its
+#   SS_NATIVE_COMMAND list node, CONST like every other command body's.
+#   2026-09-29, the area-portal list as a std::list plus a token map (user's design, so a
+#   removed portal's token is never handed out again): 440, RAISED +1: g_AreaPortalsById,
+#   the token -> record map beside g_AreaPortals. The serial counter became the token
+#   counter (NextAreaPortalToken()::s_nLast), one for one.
+#   2026-09-29, the shim root (plan_engineapi_vtables A3): 441, RAISED +1: g_ShimRoot, the
+#   stateless IShimRoot singleton LoadSideV2 hands the server's managed side -- 8 bytes, a
+#   vptr and nothing else, the same shape as g_ShimFrame and g_ShimLevel. It is the ONE
+#   pointer the server's EngineApi slots are re-acquired through in Phase C.
+#   2026-09-30, server.so's own tier0 spew and assert entry points (tier0_spew_port.cpp, P4):
+#   448, RAISED +7: the spew slot, the assert-notify pointer, the early-line buffer and its
+#   lock, and the three thread_locals _SpewInfo hands _SpewMessage. tier0 held the same
+#   state inside libtier0.so; server.so no longer links it for these.
+#   2026-09-30, P4.2's console.log fix: 450, RAISED +2: the default spew hands each line to
+#   the engine's tier0 slot, found at runtime -- s_pEngineGetSpew (the getter, kept once
+#   found) and t_bInEngine (thread_local, stops a slot that leads back here recursing).
+#   2026-09-30, P4 VProf deleted: 448 (-2: bone_setup's _DEBUG SEQ_ANIMS counter and
+#   vprof.h's inline CVProfile::EnterScope fAsserted, both gone with the include).
+#   2026-09-30, P4 threads and clock onto std: 450, RAISED +2: collisionproperty's
+#   partition read-lock depth (CThreadLocalInt, a pthread key inside libtier0, is now a
+#   std thread_local) and ss_clock.h's start point (Plat_FloatTime's base, which tier0
+#   held). The state was always there; it has left libtier0 for server.so.
+#   2026-09-30, P4.6 libtier1.a off the link: 451, RAISED +1: GetCPUInformation's answer
+#   (tier0 held it; mathlib reads it), a CPUID reading taken once and never written again.
+#   2026-09-30, plan_engineapi_vtables C6c: 449 (-1: g_EngineApi, the server's copy of the
+#   struct it has not passed since C6b; the fill and the table are the client's alone now).
+#   2026-09-30, P4.7 libvstdlib off the link: 452, RAISED +1: server.so's own random
+#   stream (vstdlib_random_port.cpp), the state libvstdlib held for it before.
+#   MERGED 2026-09-30, engineapi-vtables C6c (-1) over P4.6/P4.7 (+2): 451.
+#   2026-09-30, P4.8 memoverride gone, server.so links no tier0: 453 (451 at c9030bf), RAISED +2: our own
+#   g_pMemAlloc (was tier0's import) and the vptr-only heap object it points at, both
+#   CONST. P5 step 5 deletes both.
+#   2026-09-30, P5 wave 3: 452 (-1: CSourceSharpEntityRegistrationBase::s_pHead, gone with
+#   the SOURCESHARP_LINK_ENTITY machinery nothing invoked).
+#   2026-10-01, P5 wave 9: 450 (-2: upstream's _DEBUG function-local statics in
+#   CSaveRestoreSegment::FindCreateSymbol, tokensparsed and beentheredonethat, gone with
+#   engineabi/saverestore.h's rewrite of the token table, which counts nothing).
+#   2026-10-01, P5 lane R: 449 (-1: g_VguiScreenStringOps, whose one reader -- vguiscreen.cpp's
+#   datadesc -- is not compiled into server.so; deleted with its Init).
+#   2026-10-01, P5 lane E 4: 446 on its own branch (-4: CServerNetworkProperty::m_DataMap, its DataDescInit
+#   g_DataMapHolder and DataMapInit's two function-local statics, gone with
+#   ServerNetworkProperty.cpp; server.so never constructed the class).
+#   MERGED 2026-10-01 (p5-lane-E 45c8dee + server-novalve a7c1f21): lane R -1, lane E -4 over 450: 445, measured.
+#   2026-10-01, P5 lane R: 446 (-3: serverenginetools, xboxsystem, matchmaking -- ruled DEAD,
+#   never assigned or read; their definitions deleted from shell_engineboundary.cpp).
+#   2026-10-01, P5 lane R: 444 (-2: g_pVoiceGameMgrHelper, ruled DEAD -- its reader,
+#   voice_gamemgr.cpp, is not compiled -- and g_VoiceGameMgrHelper, the object it pointed at).
+#   2026-10-01, P5 lane R: 443 (-1: g_MapEntityRefs, written only by CMapLoadEntityFilter, which
+#   no compiled TU uses, and never read; lane E's finding).
+#   MERGED 2026-10-01 (p5-lane-R 481625d + server-novalve e5277cd): 450 - 7 (lane R) - 4 (lane E) = 439, the ledger's row count.
+#   2026-10-01, P5 lane SP: 447 (-2: g_PropDataSystem and GetMassEquivalent's masstext, with
+#   shell_propdata_system.cpp leaving server.so -- the server's CPropData was in no system table).
+#   MERGED 2026-10-01 (p5-lane-SP 52afdea + server-novalve 4366040): 439 - 2 (lane SP) = 437, the ledger's row count.
+#   2026-10-01, P5 lane SP: 436 (-1: decalsystem, the IDecalEmitterSystem pointer, with its last
+#   caller gone; shell_decals.cpp answers ss_decals.h).
+#   2026-10-01, P5 lane R: 435 (-1: g_pPlayerResource, ruled DEAD -- never assigned, no reader in
+#   either DLL; its definition and player_resource.h include out of shell_gamerules.cpp).
+#   2026-10-01, P5 lane SP: 435 (-1: g_pEffects, the Valve IEffects pointer, with its last importer
+#   switched to ss::Effects()).
+#   2026-10-01, P5 lane SP: 434 (-1: g_RecipientFilterPredictionSystem, a bare IPredictionSystem on a
+#   list nothing on the server walks).
+#   2026-10-01, P5 lane SP: 431 (-3: g_pPhysSaveRestoreManager and the two s_Absent statics behind it
+#   and GetPhysObjSaveRestoreOps, now client-only; the server's one call is an empty ss:: function).
+#   MERGED 2026-10-01 (p5-lane-SP 833ee78 + server-novalve c495b96): 435 - 2 (lane SP) = 433, the ledger's row count.
+#   2026-10-01, P5 (integrator): 432 (-1: IPredictionSystem::g_pPredictionSystems, the list head no
+#   server object read once lane SP's ss::TePrediction replaced the suppress-host reads; nm: only its own B).
+#   MERGED 2026-10-01 (p5-lane-SP 8fe7a56 + server-novalve c2576ee): the ledger's row count, 430.
+#   MERGED 2026-10-01 (p5-lane-SP 363c170 + server-novalve f8d3fda): 432 - 3 (lane SP's phys save/restore statics) = 429, the ledger's row count.
+#   2026-10-01, P5 (integrator): 428 (-1: g_AI_SchedulesManager, shell_absent.cpp's empty manager, imported
+#   by no server object once world_adapter stopped calling LoadAllSchedules; deleted).
+#   2026-10-01, P5 step 5 (integrator): 426 (-2: tier0_heap_port.cpp's g_pMemAlloc and its CGlibcHeap s_Heap,
+#   deleted with the file). make globals-ledger also refreshed two rows a4's L2 changed (s_gameShellDll,
+#   g_ShimRoot: section and size), no count change.
+#   2026-10-01, server gc cull group 2: 423 (-3: shell_tempents.cpp's g_TeShiftedField, g_iTeScratchClass and
+#   SourceSharpTe_ToolsRefused's s_bSaid, all DEAD rows the linker already dropped, gone with their functions).
+#   2026-10-01, server gc cull group 3a: 422 (-1: UTIL_RemoveImmediate's s_RefuseImmediate, gone with it).
+#   2026-10-01, server gc cull group 3b: 419 (-3: function-local statics of PhysicsLink_RemoveGroundList,
+#   PhysicsLink_RemoveTouchedList and GameStartFrame, gone with their functions).
+#   2026-10-01, server gc cull (physics.cpp): 417 (-2: the refusal statics of PhysGetMassCenterOverride and
+#   PhysicsRefuseShadowAccessor, gone with their functions).
+#   2026-10-01, server gc cull (shared TUs): 413 (-4: dt_utlvector_common.cpp's g_RTDict and g_STDict,
+#   s_LastEntityReasonableEmitTime and AddMultiDamage's warningCount, DEAD rows the linker already dropped,
+#   fenced client-only or deleted with their functions). ss::SecondsSinceStart's s_Start, a WEAK inline local,
+#   is now emitted from studio.o instead of entity_shared_statics.o; its ruling is carried over.
+#   2026-10-01, server gc cull (remainder): 411 (-2: g_PhysGameTrace and physgametrace, DEAD rows the linker
+#   already dropped, now client-only with CPhysicsGameTrace).
+#   2026-10-01, dead-state sweep after the server gc cull: 410 (-1: g_PrecacheOtherList, the precache-other
+#   system whose only writer the cull deleted; its kServerSystems row went with it). s_ServerGameClients
+#   moved bss -> data, constant-initialised now its constructor (which only NULLed the bot hook) is gone.
+#   2026-10-01, P5 (user ruling): 409 (-1: shell_shared.cpp's server g_AmmoDef, the ss::CAmmoDef table C#
+#   wrote and nothing read; the server's managed side no longer registers and the slot refuses).
+#   2026-10-01, P5: 408 (-1: MapEntity_ParseToken's s_Braces, gone with the native map-text parser now that the
+#   world and the templates arrive parsed). overlay_library's s_Pool row refreshed (804 bytes: nArmed went in fb8c684).
+#   2026-10-01, plan_client_vtables CE-last: 407 (-1: g_ManagedApi, the shared gamesystem's ManagedApi table;
+#   neither side is handed one now).
+#   2026-10-01, -fno-exceptions (user ruling): 406 (-1: DW.ref.__gxx_personality_v0, the compiler's reference
+#   to the EH personality routine, emitted by no object once nothing compiles with exceptions).
+#   2026-10-01, physics stock parity E1: 405 (-2: DispatchStartTouch's s_RefuseContactTouch and DispatchEndTouch's
+#   s_RefuseContactUntouch, the two printed refusals the contact-touch port replaced).
+#   2026-10-02, physics stock parity H: 404 (-1: ShouldSolvePenetration's s_RefusePenetrationRules, replaced by the
+#   penetrate ledger, which is a member of g_Collisions rather than a static).
+#   2026-10-02, merge with main 96d57d1: 403 (main's 406 is the base's 407 less one; physics stock parity's
+#   E1 and H took three more).
+#   2026-10-02, plan_side_isolation P2: 400 (-3: ss::usermessages and s_usermessage_helper, the native
+#   user-message registry, and SourceSharp_DroppedMessage()::dropped, whose sentinel is now a field of the
+#   send file's open-message class; the registry is C#'s).
+#   2026-10-04, user-message payload model: 399 (-1: MsgBuffer()::open, the native senders' open
+#   message, with UserMessageBegin/MessageEnd; no native code writes a user message any more).
+#   2026-10-04, debug-api lane: 400 (+1: exit_watch.cpp's g_ExitWatch, the dev API exit recorders' facts
+#   and chained handlers; a signal handler gets no argument of ours, so static storage is the only home.
+#   Ruled FLOOR, zero-initialised, no static initialiser).
+#   2026-10-05, player-msgs lane (damage carries its attacker): 399 (-1: CTakeDamageInfo stores
+#   GameEntity_RefHandle, so SourceSharp_EntityHandle and its s_pLastComplaint left the link line;
+#   make globals-ledger dropped the row, measured on the rebase onto main ace0f66a).
+#   2026-10-07, physics B2.2 (nine taken-over IPhysicsCollisionEvent bodies deleted): 398
+#   (-1: physics.o's s_RefuseWaterFlag, the refuse-water flag whose bodies are now C#'s;
+#   make globals-ledger dropped the row; census gate PASS on the warm farm graph).
+#   2026-10-09, merged todo batch: 400 (+2: console_display_forward.o's g_Forwarder and
+#   g_pInstalledCvar, the console-capture forwarder's statics — the census leg is test-full
+#   only, so the lane's filtered legs never ran it; ruled FLOOR, the engine's display-func
+#   list holds the object and calls its vtable, same shape as exit_watch's g_ExitWatch above).
+#   2026-10-11, plan physics_bones_native_zero 2.1: 393 (-7: physics.cpp's g_Collisions,
+#   g_PostSimulationQueue, the three penetration counters and PhysicsAskLedger's s_Ledger, and
+#   physics_debug.cpp's ss_physworld_penetration command body; the solver they served is managed).
+#   2026-10-11, plan physics_bones_native_zero 1.2: 391 (-2: shell_standalone_hierarchy_debug.o's
+#   cs_sv_boneprobe command body and s_nBoneProbePass; the probe is managed. tools/globals-census summary:
+#   link_level 391).
+#   2026-10-11, plan physics_bones_native_zero: 386 (-5: bone_setup.cpp left server.so -- its
+#   g_MatrixPool/g_QaternionPool/g_VectorPool, anim_3wayblend's ref and CalcLocalHierarchyAnimation's
+#   function-local static; studio_sequence_timing.cpp, which replaced it, has none).
+#   2026-10-11, plan physics_bones_native_zero 2.4: 384 (-2: shell_constraints.o's constraintevents
+#   and g_pConstraintEvents; the constraint table and its event handler are managed).
+#   2026-10-11, plan physics_bones_native_zero 2.3 / 2.5: 364 (-20, make globals-ledger at the lane tip:
+#   physics.o's PhysFrame / PhysTimescale statics, the running average, the phys_speeds / phys_timescale /
+#   physworld_report refs and air_density's command body; physics_debug.o's cs_sv_physics_shell,
+#   physics_budget and ss_physworld_report command bodies and one CFmtStrN COMDAT local;
+#   PhysicsShell()::s_Shell and PhysicsNanLedger()::s_Ledger; shell_standalone_player.o's shadow switch
+#   and five shadow counters, and _debug.o's cs_sv_playershadow body. All managed or deleted with
+#   their subject; g_PhysicsHook shrank 128 -> 64 bytes and keeps its row).
+#   2026-10-12, plan physics_bones_native_zero 2.6: 360 (-4, make globals-ledger: physics_shared.cpp left
+#   server.so -- SURFACEPROP_MANIFEST_FILE, g_EntityCollisionHash, g_SolidSetup and g_DataObjectAccessSystem
+#   went with it; the five vphysics pointers keep their rows, now physics.cpp's).
+#   2026-10-12, InitPhysics to managed: 358 (-2, make globals-ledger: CStandaloneEntity::InitPhysics' s_bNameProbeDone
+#   and the sourcesharp_solidity_before_physics ref left shell_standalone_base.cpp with the function).
+# LOWERED 2026-10-12, 384 -> 383: vstdlib_random_port.cpp left server.so for src/client/native (its s_Stream; lane input, C9 tier0/vstdlib pure move).
+# LOWERED 2026-10-12, 383 -> 382: g_pProcessUtils left tier_connect.cpp (no importer on either link; lane input, C9 tier1).
+globals_link_level	src/game/server	356
+#
+# ---------------------------------------------------------------------------
+# THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
+# symbol has a ledger row so the membership gate passes, but no human has read
+# it and said where it goes. This is the number the plan exists to drive to
+# zero, and it is the one row here that is a statement about POLICY rather than
+# about size -- the same shape as `shim_reason_none` in docs/shim-ratchet.tsv.
+#
+# G0 derived only the dispositions that are facts the tree states: DEAD for the
+# 33 the linker drops, and FLOOR for 12 rows -- 8 Steam SDK cells inside vendor
+# headers, s_gameShellDll, the two stock static-init chains the engine walks,
+# and the compiler's own DW.ref. MEMBER, MANAGED and CONST are left to the
+# steps that read the code.
+#
+# THE 11 InterfaceReg NODES ARE NOT IN THAT FLOOR, though an earlier draft of
+# the derivation put them there. A node registers an interface STRING, and
+# whether anything asks for that string is a separate question its existence
+# does not answer: the 619-row ruling table, which did that analysis, ruled 2
+# of these 11 DEAD -- "InterfaceReg node for GameMovement001 that nobody
+# resolves". A wrong FLOOR is the most expensive wrong ruling there is: it
+# means "stays forever" AND it hides the row from this count.
+#
+#   python3 tools/globals-census gate  ->  unruled 424
+# lowered in lane 9b-playerstate, same command -> unruled 349: the player
+# cluster's 75 rows ruled (shell_playerlocaldata, shell_standalone_player,
+# movevars_shared, shell_movement). Lanes 9a/9c lower this too: at merge,
+# re-measure the merged tree rather than keeping either number.
+# re-measured at the Phase 0 merge of 9b + 9c (plan_sharp_repo.md), same
+# command -> unruled 279: 349 less 9c's 70 world-state rows.
+# ---------------------------------------------------------------------------
+globals_unruled	docs/globals-ledger.tsv	279
+#
+# ---------------------------------------------------------------------------
+# STATIC INITIALISERS. Every one of these runs before DLLInit, in link order,
+# with no engine available -- so anything they touch cannot depend on the
+# engine, and anything that goes wrong in one has no way to report it.
+# plan_globals.md 2 makes reset structural by moving state into two heap tiers
+# created at DLL init and level init; an object with no static initialiser is
+# the end state.
+#
+# measured 2026-09-21 in lane 8b-globals by
+#   python3 tools/globals-census summary  -> objects_with_a_static_initialiser 103
+# out of 108 objects on the link line. (the doc: 138 of 143, at 216533fa8)
+# ---------------------------------------------------------------------------
+# RAISED 2026-10-01, 103 -> 116: the diagnostics moved into 21 debug-only *_debug.cpp objects (user ruling),
+#   each with its SS_NATIVE_COMMAND registration's constructor; 8 hosts lost theirs. Measured on the DEBUG link,
+#   which is the only one that compiles them; a release server.so links none of the 21.
+globals_objects_with_static_init	src/game/server	116
+#
+# ---------------------------------------------------------------------------
+# THE SECOND INSTRUMENT MUST RECONCILE.
+#
+# `tools/globals-census` is one program: every count it prints comes from the
+# same link-edge parser, the same readelf call and the same fold key, so a bug
+# in any of them moves all three numbers together and nothing inside the tool
+# would notice. `globals-census reconcile` reads the LINKED server.so instead
+# and partitions every mutable symbol in it into exactly one independently
+# derived source -- a link-line object, an archive (`nm` over the .a files,
+# nothing to do with the .so), or a NAMED list of 14 crt/libgcc symbols.
+#
+# UNATTRIBUTED is what is left over, and its ceiling is ZERO. That is what
+# makes the claim falsifiable: the first draft defined "from an archive" as
+# "in the .so and not in an object", which made the identity true by
+# construction -- a check that could not fail, and this project has counted
+# more than fifty of those.
+#
+# At 85e21958b, server, whichever config was built last:
+#
+#   debug     469 - 33 dropped = 436 from link-line objects
+#             436 + 129 archive + 14 crt = 579 = so_mutable        AGREE
+#   release   453 - 29 dropped = 424
+#             424 + 125 archive + 14 crt = 563 = so_mutable        AGREE
+#
+# (the doc, at 216533fa8: 619 - 51 + 146 = 714)
+#
+# AND A TRAP THAT COST ONE WRONG READING. lib/public/linux64/*.a is NOT
+# config-qualified: both graphs write that one path, so after
+# `make debug && make release` the archives on disk are the RELEASE ones and
+# the debug .so was linked against archives that no longer exist. Attributing
+# its symbols to what is on disk left 476 instances unattributed. The tool
+# refuses rather than answering, and `--config auto` picks whichever config is
+# still reconcilable -- at most one ever is. Only mathlib.a and tier1.a can go
+# stale this way; the other four link-line archives are tracked binaries.
+#
+# measured 2026-09-21 in lane 8b-globals by
+#   python3 tools/globals-census reconcile --config auto
+# ---------------------------------------------------------------------------
+globals_reconcile_unattributed	src/game/server	0

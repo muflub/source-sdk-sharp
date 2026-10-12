@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    source#: the mod launcher, NativeAOT. Replaces the native
+    launcher_main_mod_sharp and Valve's hl2.sh: finds the engine install through
+    Steam, then starts the engine with the mod mods.yaml names, restarting it
+    while it exits with the restart code, as hl2.sh did.
+
+    The assembly is SourceSharp.Launcher because MSBuild is not trusted with a
+    `#` in a file name; the PublishSourceSharp target below copies the native
+    binary to bin/<config>/source# after publish.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <!-- Not beside the managed game assemblies: the launcher is not loaded by the game. -->
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/launcher/</OutputPath>
+    <PublishDir>$(RepoRoot)bin/$(SourceSharpConfig)/launcher/publish/</PublishDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\mods\SourceSharp.Mods.csproj" />
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+
+  <Target Name="PublishSourceSharp" AfterTargets="Publish">
+    <Copy SourceFiles="$(PublishDir)SourceSharp.Launcher"
+          DestinationFiles="$(RepoRoot)bin/$(SourceSharpConfig)/source#" />
+  </Target>
+</Project>

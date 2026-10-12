@@ -1,0 +1,174 @@
+namespace SourceSharp.Abi;
+
+//=============================================================================
+// IBaseFileSystem, AND THE `this` ADJUSTMENT THAT IS NO LONGER ANYBODY'S
+// PROBLEM.
+//
+// IBaseFileSystem is a SECOND base of CFileSystem_Stdio, so its subobject does
+// not sit at the top of the object and a method inherited from it dispatches
+// through a secondary vtable at a non-zero offset. An earlier revision of
+// docs/vtable-binding.md called that a refusal -- "the compiler is not here to
+// compute that offset, so a multiple-inheritance interface is a guess". Then it
+// stopped being a refusal and became four agreeing derivations of the number 8,
+// re-confirmed on every acquire.
+//
+// IT IS NOW NEITHER. Native asks for "VBaseFileSystem011" -- the interface's own
+// factory name -- and the module hands back the subobject pointer with the
+// adjustment already applied, by name rather than by arithmetic. Where native
+// does need the upcast it writes `static_cast<IBaseFileSystem *>( filesystem )`
+// and the compiler emits the same adjustment it would emit at any other call
+// site.
+//
+// So there is no offset in this file, no confirmation of one, and nothing that
+// could be off by eight. That is the shape of the whole refactor in one
+// interface: the safest way to be right about a number is for no number to be
+// there.
+//
+//-----------------------------------------------------------------------------
+// AND THE OVERLOAD TRAP IS STILL REAL. `IBaseFileSystem` declares Size TWICE --
+// `Size( FileHandle_t )` at slot 6 and `Size( const char *, const char * )` at
+// slot 7 -- so the generated struct has `Size` and `Size_2`, IN THAT ORDER, and
+// the one this file wants is the SECOND. Calling `Size` would hand a filename to
+// a method expecting a file handle. The field's trailing comment in
+// VtableLayouts.g.cs carries the parameter list that tells them apart, and
+// tools/vtable-layout --self-test has an arm on the ordering.
+//=============================================================================
+
+/// <summary>How big a game file is, without the engine's file handles.</summary>
+public interface IVtableBaseFileSystem
+{
+    /// <summary>
+    /// The size in bytes of a file on a search path, or 0 when it is not there.
+    ///
+    /// <para>
+    /// 0 for missing is the filesystem's own answer and is deliberately not
+    /// folded into -1 here: <c>shell_files.cpp</c> already records that this
+    /// method cannot tell an empty file from an absent one, which is why the
+    /// ABI slot goes through Open/Size/Close instead.
+    /// </para>
+    /// </summary>
+    uint FileSize(string fileName, string pathId);
+
+    /// <summary>
+    /// When a file on a search path was last written, in seconds since the Unix
+    /// epoch, or 0 when it is not there.
+    ///
+    /// <para>
+    /// The engine's own answer is a <c>long</c> holding <c>st_mtime</c>, so this
+    /// is that number and not a <see cref="DateTime"/>: converting it here would
+    /// put a timezone and a calendar between the slot and the thing its answer
+    /// is compared against.
+    /// </para>
+    /// </summary>
+    long FileTime(string fileName, string pathId);
+
+    /// <summary>
+    /// Whether a file is on a search path at all.
+    ///
+    /// <para>
+    /// <b>It is here because <see cref="FileSize"/> cannot answer the question
+    /// alone</b> — plan_native_api.md Phase 3. Size answers 0 both for a file
+    /// that is empty and for one that is not there, and the whole reason
+    /// shell_files.cpp went through Open/Size/Close was to tell those apart.
+    /// The pair does it without a handle: exists-then-size, two reads, no
+    /// <c>FileHandle_t</c> for managed code to own across a GC.
+    /// </para>
+    /// </summary>
+    bool FileExists(string fileName, string pathId);
+
+    // NOTHING THAT WRITES, AND NO HANDLES.
+    //
+    // Read, Write, Open, Close, Seek, Tell, Flush, Precache,
+    // IsFileWritable, SetFileWritable, ReadFile, WriteFile and UnzipFile are all
+    // typed in the struct and none of them is here. Two grounds: the handle
+    // methods hand out a FileHandle_t whose lifetime managed code would then own
+    // across a GC, and SetFileWritable chmods a file while WriteFile creates
+    // one. The absence IS the decision; there is no table recording it.
+}
+
+/// <summary>
+/// <see cref="IVtableBaseFileSystem"/> over the engine's own object, called
+/// through its vtable.
+/// </summary>
+public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
+{
+    /// <summary>
+    /// <c>IBaseFileSystem</c>'s OWN factory name, which is the whole of the
+    /// multiple-inheritance solve: the module answers it with the subobject
+    /// pointer, so nothing here adds eight to anything.
+    /// </summary>
+    public const string InterfaceVersion = "VBaseFileSystem011";
+
+    private readonly void* _self;
+    private readonly BaseFileSystemVtbl* _vtbl;
+
+    private EngineBaseFileSystem(void* self, void** table)
+    {
+        _self = self;
+        _vtbl = (BaseFileSystemVtbl*)table;
+    }
+
+    /// <summary>
+    /// The engine's base filesystem, or null with the reason.
+    ///
+    /// <para>
+    /// THE ONLY ONE OF THE FIVE THAT NAMES A FACTORY KIND. The other four come
+    /// from the engine's appSystem factory; this one comes from the FILESYSTEM
+    /// role, which is a different factory on the server and the same one on the
+    /// client — a difference native resolves and no caller has to know.
+    /// </para>
+    ///
+    /// <para>
+    /// Through <paramref name="engine"/>'s own side's interface factory
+    /// (plan_abi_hotreload D8), never the process-wide one that followed the
+    /// thread's active side.
+    /// </para>
+    /// </summary>
+    public static IVtableBaseFileSystem? Acquire(ModuleEngine engine, out string why)
+        => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
+
+    /// <summary>
+    /// The same, through one side's own interface factory (plan_abi_hotreload
+    /// D8): what <see cref="EngineBound"/> holds per side.
+    /// </summary>
+    internal static IVtableBaseFileSystem? Acquire(NativeInterfaceFactory factory, out string why)
+        => Vtable.TryAcquire<BaseFileSystemVtbl>(
+               factory, SourceSharpFactoryType.FileSystem,
+               InterfaceVersion, out void* self, out void** table, out why)
+            ? new EngineBaseFileSystem(self, table)
+            : null;
+
+    /// <inheritdoc/>
+    public bool FileExists(string fileName, string pathId)
+    {
+        byte[] name = Vtable.Utf8(fileName);
+        byte[] path = Vtable.Utf8(pathId);
+
+        fixed (byte* n = name)
+        fixed (byte* p = path)
+            return _vtbl->FileExists(_self, n, p) != 0;
+    }
+
+    /// <inheritdoc/>
+    public uint FileSize(string fileName, string pathId)
+    {
+        byte[] name = Vtable.Utf8(fileName);
+        byte[] path = Vtable.Utf8(pathId);
+
+        // Size_2 AND NOT Size. The first overload takes a FileHandle_t.
+        fixed (byte* n = name)
+        fixed (byte* p = path)
+            return _vtbl->Size_2(_self, n, p);
+    }
+
+    /// <inheritdoc/>
+    public long FileTime(string fileName, string pathId)
+    {
+        byte[] name = Vtable.Utf8(fileName);
+        byte[] path = Vtable.Utf8(pathId);
+
+        fixed (byte* n = name)
+        fixed (byte* p = path)
+            return _vtbl->GetFileTime(_self, n, p);
+    }
+}

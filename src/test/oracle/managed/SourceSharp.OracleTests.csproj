@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    THE ORACLE TESTS: a port checked against the Valve code it replaced, read
+    from a PRISTINE clone of upstream source-sdk-2013 at valve-sdk.lock, not
+    the fork and not the farm. The farm links only the fork files the game
+    compiles (sdk-links/), so a port's reference, which by definition is no
+    longer compiled, is read here instead. `make setup` provisions the clone;
+    tests find it through $SOURCESHARP_VALVE_SDK (the Makefile exports it) or
+    valve-sdk.lock.local, and a missing or moved clone FAILS them (ValveSdk).
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/oracle-tests/</OutputPath>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+  <!--
+    Helpers shared with SourceSharp.Tests, compiled in whole rather than
+    copied: the contract baseline both projects read (the diff here, its
+    ratchets there), and the container a managed entity registry is built
+    with. Each is self-contained (product types only).
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\common\ContractBaseline.cs" Link="Shared\ContractBaseline.cs" />
+    <Compile Include="..\..\common\TestServices.cs" Link="Shared\TestServices.cs" />
+    <Compile Include="..\..\common\TestServices.Server.cs" Link="Shared\TestServices.Server.cs" />
+    <Compile Include="..\..\common\RecordingJointTables.cs" Link="Shared\RecordingJointTables.cs" />
+    <Compile Include="..\..\common\RecordingBlastSweep.cs" Link="Shared\RecordingBlastSweep.cs" />
+    <Compile Include="..\..\common\RecordingDecals.cs" Link="Shared\RecordingDecals.cs" />
+    <Compile Include="..\..\common\TempEntsDouble.cs" Link="Shared\TempEntsDouble.cs" />
+    <Compile Include="..\..\common\RecordingEffectDispatch.cs" Link="Shared\RecordingEffectDispatch.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\support\SourceSharp.TestSupport.csproj" />
+    <ProjectReference Include="..\..\..\server\managed\SourceSharp.Server.csproj" />
+    <ProjectReference Include="..\..\..\client\managed\SourceSharp.Client.csproj" Aliases="client" />
+    <!-- Aliased (plan_side_isolation P7): the shared source compiles into both sides, so its types exist twice here; unqualified names are the server's copy. -->
+  </ItemGroup>
+</Project>

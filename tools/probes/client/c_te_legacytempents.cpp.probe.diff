@@ -1,0 +1,1366 @@
+--- a/src/game/client/c_te_legacytempents.cpp	2026-10-05 07:08:40.128949423 -0700
++++ b/src/game/client/c_te_legacytempents.cpp	2026-10-05 07:26:00.538426808 -0700
+@@ -38,6 +38,64 @@
+ #include "c_basedoor.h"
+ 
+ // NOTE: Always include this last!
++
++//==== c2-fx TEMPENT PROBE (tools/probes/client/c_te_legacytempents.cpp.probe.diff;
++//==== debug, SS_CLIENT_PROBES only). Rows to $SOURCESHARP_PROBE_LOG through FxProbeLog.
++#include "fx_probe_log.h"
++class CTrailParticles;
++
++#define FXV "%.9g %.9g %.9g"
++#define FXX( v ) (double)(v).x, (double)(v).y, (double)(v).z
++static const char *ProbeMat( PMaterialHandle h )
++{
++	IMaterial *m = h ? ParticleMgr()->PMaterialToIMaterial( h ) : NULL;
++	return m ? m->GetName() : "null";
++}
++struct ProbeAdded_t { Particle *p; int size; bool trail; };
++static CUtlVector< ProbeAdded_t > g_ProbeAdded;
++static int g_nProbeDepth = 0;
++template < class E > static bool ProbeIsTrail( CSmartPtr< E > & ) { return false; }
++static bool ProbeIsTrail( CSmartPtr< CTrailParticles > & ) { return true; }
++template < class E > static Particle *ProbeAdd( E &e, int size, PMaterialHandle h, const Vector &pos )
++{
++	Particle *p = e->AddParticle( size, h, pos );
++	const bool bTrail = ProbeIsTrail( e );
++	FxProbeLog( "tmf-add n=%d size=%d mat=%s pos=" FXV " ok=%d", g_ProbeAdded.Count(), size, ProbeMat( h ), FXX( pos ), p ? 1 : 0 );
++	if ( p ) { ProbeAdded_t a = { p, size, bTrail }; g_ProbeAdded.AddToTail( a ); }
++	return p;
++}
++struct ProbeScope
++{
++	ProbeScope( const char *pName, ClientEntityHandle_t h, int att )
++	{
++		if ( g_nProbeDepth++ == 0 ) g_ProbeAdded.RemoveAll();
++		FxProbeLog( "tmf-begin %s h=%d att=%d smg=%d combine=%d dust=%d", pName, h.ToInt(), att,
++			g_Mat_SMG_Muzzleflash[0] ? 1 : 0, g_Mat_Combine_Muzzleflash[0] ? 1 : 0, g_Mat_DustPuff[0] ? 1 : 0 );
++	}
++	~ProbeScope()
++	{
++		if ( --g_nProbeDepth != 0 ) return;
++		for ( int i = 0; i < g_ProbeAdded.Count(); i++ )
++		{
++			Particle *q = g_ProbeAdded[i].p;
++			if ( g_ProbeAdded[i].trail )
++			{
++				TrailParticle *t = (TrailParticle *)q;
++				FxProbeLog( "tmf-trail n=%d pos=" FXV " vel=" FXV " col=%d %d %d %d die=%.9g life=%.9g len=%.9g width=%.9g", i, FXX( t->m_Pos ), FXX( t->m_vecVelocity ),
++					t->m_color.r, t->m_color.g, t->m_color.b, t->m_color.a, t->m_flDieTime, t->m_flLifetime, t->m_flLength, t->m_flWidth );
++			}
++			else
++			{
++				SimpleParticle *s = (SimpleParticle *)q;
++				FxProbeLog( "tmf-simple n=%d pos=" FXV " vel=" FXV " roll=%.9g die=%.9g life=%.9g col=%d %d %d sa=%d ea=%d ss=%d es=%d flags=%d rd=%.9g", i, FXX( s->m_Pos ), FXX( s->m_vecVelocity ),
++					s->m_flRoll, s->m_flDieTime, s->m_flLifetime, s->m_uchColor[0], s->m_uchColor[1], s->m_uchColor[2], s->m_uchStartAlpha, s->m_uchEndAlpha, s->m_uchStartSize, s->m_uchEndSize, s->m_iFlags, s->m_flRollDelta );
++			}
++		}
++		FxProbeLog( "tmf-end n=%d", g_ProbeAdded.Count() );
++		g_ProbeAdded.RemoveAll();
++	}
++};
++
+ #include "tier0/memdbgon.h"
+ #include "shell_cliententitylist.h"
+ // The SHARED relay, because armed a C_BaseEntity is an IGameEntity: seven
+@@ -237,6 +295,7 @@
+ bool C_LocalTempEntity::IsTransparent( void )
+ {
+ 	bool modelIsTransparent = modelinfo->IsTranslucent( GetModel() );
++	FxProbeLog( "ttr id=%p transl=%d mode=%d", (void *)this, modelIsTransparent ? 1 : 0, m_nRenderMode );
+ 	return modelIsTransparent || ( m_nRenderMode != kRenderNormal );
+ }
+ 
+@@ -297,7 +356,7 @@
+ {
+ 	// Don't sort things that don't need rendering
+ 	if ( m_nRenderMode == kRenderNone )
+-		return RENDER_GROUP_OPAQUE_ENTITY;
++		{ RenderGroup_t g_ = RENDER_GROUP_OPAQUE_ENTITY; FxProbeLog( "trg id=%p mode=%d blend=%d twopass=%d group=%d", (void *)this, m_nRenderMode, m_nRenderFXBlend, modelinfo->IsTranslucentTwoPass( GetModel() ) ? 1 : 0, (int)g_ ); return g_; }
+ 
+ 	// Bypassing GetFxBlend's frame protection, exactly as stock does and for
+ 	// the same reason: this is called from the leaf-system add, before anything
+@@ -311,7 +370,7 @@
+ 
+ 	// Don't need to sort invisible stuff
+ 	if ( nFXBlend == 0 )
+-		return RENDER_GROUP_OPAQUE_ENTITY;
++		{ RenderGroup_t g_ = RENDER_GROUP_OPAQUE_ENTITY; FxProbeLog( "trg id=%p mode=%d blend=%d twopass=%d group=%d", (void *)this, m_nRenderMode, m_nRenderFXBlend, modelinfo->IsTranslucentTwoPass( GetModel() ) ? 1 : 0, (int)g_ ); return g_; }
+ 
+ 	RenderGroup_t renderGroup = RENDER_GROUP_OPAQUE_ENTITY;
+ 	if ( ( nFXBlend != 255 ) || IsTransparent() )
+@@ -325,7 +384,7 @@
+ 		renderGroup = RENDER_GROUP_TWOPASS;
+ 	}
+ 
+-	return renderGroup;
++	{ RenderGroup_t g_ = renderGroup; FxProbeLog( "trg id=%p mode=%d blend=%d twopass=%d group=%d", (void *)this, m_nRenderMode, m_nRenderFXBlend, modelinfo->IsTranslucentTwoPass( GetModel() ) ? 1 : 0, (int)g_ ); return g_; }
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -351,6 +410,8 @@
+ 	if ( m_nFXComputeFrame == gpGlobals->framecount )
+ 		return;
+ 
++
++	FxProbeLog( "tfx-in id=%p fc=%d fx=%d a=%d mode=%d index=%d t=%.9g o=%.9g %.9g %.9g vo=%.9g %.9g %.9g vf=%.9g %.9g %.9g", (void *)this, gpGlobals->framecount, m_nRenderFX, m_clrRender.a, m_nRenderMode, index, gpGlobals->curtime, GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, CurrentViewOrigin().x, CurrentViewOrigin().y, CurrentViewOrigin().z, CurrentViewForward().x, CurrentViewForward().y, CurrentViewForward().z );
+ 	int blend = 0;
+ 	float offset;
+ 
+@@ -513,7 +574,7 @@
+ 					blend = m_clrRender.a;
+ 				else
+ 					blend = (int) ((1.0 - (dist - 100) * (1.0 / 400.0)) * m_clrRender.a);
+-				blend += random->RandomInt(-32,31);
++				blend += FxProbeRandomInt(-32,31);
+ 			}
+ 		}
+ 		break;
+@@ -532,6 +593,7 @@
+ 	blend = clamp( blend, 0, 255 );
+ 
+ 	m_nRenderFXBlend = blend;
++	FxProbeLog( "tfx-out id=%p blend=%d a=%d", (void *)this, blend, m_clrRender.a );
+ 	m_nFXComputeFrame = gpGlobals->framecount;
+ 
+ 	// Update the render group. Stock does this through GetRenderHandle(); the
+@@ -668,6 +730,7 @@
+ 	if ( GetRenderMode() == kRenderNone )
+ 		return drawn;
+ 
++	FxProbeLog( "tdm-in id=%p mode=%d flags=%d a=%d amt=%d n=%.9g %.9g %.9g o=%.9g %.9g %.9g mv=%.9g %.9g %.9g type=%d frame=%.9g scale=%.9g rgb=%d %d %d fx=%d skin=%d", (void *)this, GetRenderMode(), flags, m_clrRender.a, tempent_renderamt, m_vecNormal.x, m_vecNormal.y, m_vecNormal.z, GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, MainViewOrigin().x, MainViewOrigin().y, MainViewOrigin().z, modelinfo->GetModelType( GetModel() ), m_flFrame, m_flSpriteScale, m_clrRender.r, m_clrRender.g, m_clrRender.b, m_nRenderFX, m_nSkin );
+ 	if ( this->flags & FTENT_BEOCCLUDED )
+ 	{
+ 		// Check normal
+@@ -682,6 +745,7 @@
+ 		}
+ 	}
+ 
++	FxProbeLog( "tdm-a id=%p a=%d", (void *)this, m_clrRender.a );
+ 	switch ( modelinfo->GetModelType( GetModel() ) )
+ 	{
+ 	case mod_sprite:
+@@ -899,6 +963,7 @@
+ //-----------------------------------------------------------------------------
+ void CBreakableHelper::Insert( C_LocalTempEntity *entity, bool isSlave )
+ {
++	FxProbeLog( "tbh-insert id=%p slave=%d", (void *)entity, isSlave ? 1 : 0 );
+ 	// A master signifies the start of a new run of broken objects
+ 	if ( !isSlave )
+ 	{
+@@ -918,6 +983,7 @@
+ //-----------------------------------------------------------------------------
+ void CBreakableHelper::Remove( C_LocalTempEntity *entity )
+ {
++	FxProbeLog( "tbh-remove id=%p", (void *)entity );
+ 	for ( unsigned short i = m_Breakables.Head(); i != m_Breakables.InvalidIndex() ; )
+ 	{
+ 		unsigned short n = m_Breakables.Next( i );
+@@ -966,6 +1032,7 @@
+ //-----------------------------------------------------------------------------
+ void CBreakableHelper::Clear()
+ {
++	FxProbeLog( "tbh-clear" );
+ 	m_Breakables.RemoveAll();
+ 	m_nCurrentContext = 0;
+ }
+@@ -1055,8 +1122,8 @@
+ 
+ 	for (i=0 ; i<count ; i++)
+ 	{
+-		origin[0] = mins[0] + random->RandomInt(0,width-1);
+-		origin[1] = mins[1] + random->RandomInt(0,depth-1);
++		origin[0] = mins[0] + FxProbeRandomInt(0,width-1);
++		origin[1] = mins[1] + FxProbeRandomInt(0,depth-1);
+ 		origin[2] = mins[2];
+ 		pTemp = TempEntAlloc( origin, model );
+ 		if (!pTemp)
+@@ -1067,12 +1134,12 @@
+ 		pTemp->x = origin[0];
+ 		pTemp->y = origin[1];
+ 
+-		float zspeed = random->RandomInt(80,140);
++		float zspeed = FxProbeRandomInt(80,140);
+ 		pTemp->SetVelocity( Vector(xspeed, yspeed, zspeed) );
+ 		pTemp->die = gpGlobals->curtime + (maxHeight / zspeed) - 0.1;
+-		pTemp->m_flFrame = random->RandomInt(0,frameCount-1);
++		pTemp->m_flFrame = FxProbeRandomInt(0,frameCount-1);
+ 		// Set sprite scale
+-		pTemp->m_flSpriteScale = 1.0 / random->RandomFloat(2,5);
++		pTemp->m_flSpriteScale = 1.0 / FxProbeRandomFloat(2,5);
+ 		pTemp->SetRenderMode( kRenderTransAlpha );
+ 		pTemp->SetRenderColorA( 255 );
+ 	}
+@@ -1106,9 +1173,9 @@
+ 
+ 	for (i=0 ; i<count ; i++)
+ 	{
+-		origin[0] = random->RandomInt( mins[0], maxs[0] );
+-		origin[1] = random->RandomInt( mins[1], maxs[1] );
+-		origin[2] = random->RandomInt( mins[2], maxs[2] );
++		origin[0] = FxProbeRandomInt( mins[0], maxs[0] );
++		origin[1] = FxProbeRandomInt( mins[1], maxs[1] );
++		origin[2] = FxProbeRandomInt( mins[2], maxs[2] );
+ 		pTemp = TempEntAlloc( origin, model );
+ 		if (!pTemp)
+ 			return;
+@@ -1117,15 +1184,15 @@
+ 
+ 		pTemp->x = origin[0];
+ 		pTemp->y = origin[1];
+-		SinCos( random->RandomInt( -3, 3 ), &sine, &cosine );
++		SinCos( FxProbeRandomInt( -3, 3 ), &sine, &cosine );
+ 		
+-		float zspeed = random->RandomInt(80,140);
++		float zspeed = FxProbeRandomInt(80,140);
+ 		pTemp->SetVelocity( Vector(speed * cosine, speed * sine, zspeed) );
+ 		pTemp->die = gpGlobals->curtime + ((height - (origin[2] - mins[2])) / zspeed) - 0.1;
+-		pTemp->m_flFrame = random->RandomInt( 0, frameCount-1 );
++		pTemp->m_flFrame = FxProbeRandomInt( 0, frameCount-1 );
+ 		
+ 		// Set sprite scale
+-		pTemp->m_flSpriteScale = 1.0 / random->RandomFloat(4,16);
++		pTemp->m_flSpriteScale = 1.0 / FxProbeRandomFloat(4,16);
+ 		pTemp->SetRenderMode( kRenderTransAlpha );
+ 		
+ 		pTemp->SetRenderColor( 255, 255, 255, 192 );
+@@ -1160,7 +1227,7 @@
+ 
+ 	for (i=0 ; i<count ; i++)
+ 	{
+-		dist = random->RandomFloat( 0, 1.0 );
++		dist = FxProbeRandomFloat( 0, 1.0 );
+ 		VectorLerp( start, end, dist, origin );
+ 		pTemp = TempEntAlloc( origin, model );
+ 		if (!pTemp)
+@@ -1170,14 +1237,14 @@
+ 
+ 		pTemp->x = origin[0];
+ 		pTemp->y = origin[1];
+-		angle = random->RandomInt( -3, 3 );
++		angle = FxProbeRandomInt( -3, 3 );
+ 
+-		float zspeed = random->RandomInt(80,140);
++		float zspeed = FxProbeRandomInt(80,140);
+ 		pTemp->SetVelocity( Vector(speed * cos(angle), speed * sin(angle), zspeed) );
+ 		pTemp->die = gpGlobals->curtime + ((flWaterZ - origin[2]) / zspeed) - 0.1;
+-		pTemp->m_flFrame = random->RandomInt(0,frameCount-1);
++		pTemp->m_flFrame = FxProbeRandomInt(0,frameCount-1);
+ 		// Set sprite scale
+-		pTemp->m_flSpriteScale = 1.0 / random->RandomFloat(4,8);
++		pTemp->m_flSpriteScale = 1.0 / FxProbeRandomFloat(4,8);
+ 		pTemp->SetRenderMode( kRenderTransAlpha );
+ 		
+ 		pTemp->SetRenderColor( 255, 255, 255, 192 );
+@@ -1210,6 +1277,7 @@
+ 
+ 	// This is the main change, look up a lighting origin from the helper singleton
+ 	const Vector *pLightingOrigin = g_BreakableHelper.GetLightingOrigin( entity );
++	FxProbeLog( "tlo id=%p o=%.9g %.9g %.9g lo=%d " FXV, (void *)entity, entity->GetAbsOrigin().x, entity->GetAbsOrigin().y, entity->GetAbsOrigin().z, pLightingOrigin ? 1 : 0, pLightingOrigin ? pLightingOrigin->x : 0.0, pLightingOrigin ? pLightingOrigin->y : 0.0, pLightingOrigin ? pLightingOrigin->z : 0.0 );
+ 	if ( pLightingOrigin )
+ 	{
+ 		sInfo.pLightingOrigin = pLightingOrigin;
+@@ -1293,9 +1361,9 @@
+ 		Vector vecLocalSpot, vecSpot;
+ 
+ 		// fill up the box with stuff
+-		vecLocalSpot[0] = random->RandomFloat(-0.5,0.5) * size[0];
+-		vecLocalSpot[1] = random->RandomFloat(-0.5,0.5) * size[1];
+-		vecLocalSpot[2] = random->RandomFloat(-0.5,0.5) * size[2];
++		vecLocalSpot[0] = FxProbeRandomFloat(-0.5,0.5) * size[0];
++		vecLocalSpot[1] = FxProbeRandomFloat(-0.5,0.5) * size[1];
++		vecLocalSpot[2] = FxProbeRandomFloat(-0.5,0.5) * size[2];
+ 		VectorTransform( vecLocalSpot, transform, vecSpot );
+ 
+ 		pTemp = TempEntAlloc(vecSpot, pModel);
+@@ -1308,24 +1376,24 @@
+ 		
+ 		if ( modelinfo->GetModelType( pModel ) == mod_sprite )
+ 		{
+-			pTemp->m_flFrame = random->RandomInt(0,frameCount-1);
++			pTemp->m_flFrame = FxProbeRandomInt(0,frameCount-1);
+ 		}
+ 		else if ( modelinfo->GetModelType( pModel ) == mod_studio )
+ 		{
+-			pTemp->m_nBody = random->RandomInt(0,frameCount-1);
++			pTemp->m_nBody = FxProbeRandomInt(0,frameCount-1);
+ 		}
+ 
+ 		pTemp->flags |= FTENT_COLLIDEWORLD | FTENT_FADEOUT | FTENT_SLOWGRAVITY;
+ 
+-		if ( random->RandomInt(0,255) < 200 ) 
++		if ( FxProbeRandomInt(0,255) < 200 ) 
+ 		{
+ 			pTemp->flags |= FTENT_ROTATE;
+-			pTemp->m_vecTempEntAngVelocity[0] = random->RandomFloat(-256,255);
+-			pTemp->m_vecTempEntAngVelocity[1] = random->RandomFloat(-256,255);
+-			pTemp->m_vecTempEntAngVelocity[2] = random->RandomFloat(-256,255);
++			pTemp->m_vecTempEntAngVelocity[0] = FxProbeRandomFloat(-256,255);
++			pTemp->m_vecTempEntAngVelocity[1] = FxProbeRandomFloat(-256,255);
++			pTemp->m_vecTempEntAngVelocity[2] = FxProbeRandomFloat(-256,255);
+ 		}
+ 
+-		if ( (random->RandomInt(0,255) < 100 ) && (flags & BREAK_SMOKE) )
++		if ( (FxProbeRandomInt(0,255) < 100 ) && (flags & BREAK_SMOKE) )
+ 		{
+ 			pTemp->flags |= FTENT_SMOKETRAIL;
+ 		}
+@@ -1343,11 +1411,11 @@
+ 			pTemp->tempent_renderamt = 255;		// Set this for fadeout
+ 		}
+ 
+-		pTemp->SetVelocity( Vector( dir[0] + random->RandomFloat(-randRange,randRange),
+-							dir[1] + random->RandomFloat(-randRange,randRange),
+-							dir[2] + random->RandomFloat(   0,randRange) ) );
++		pTemp->SetVelocity( Vector( dir[0] + FxProbeRandomFloat(-randRange,randRange),
++							dir[1] + FxProbeRandomFloat(-randRange,randRange),
++							dir[2] + FxProbeRandomFloat(   0,randRange) ) );
+ 
+-		pTemp->die = gpGlobals->curtime + life + random->RandomFloat(0,1);	// Add an extra 0-1 secs of life
++		pTemp->die = gpGlobals->curtime + life + FxProbeRandomFloat(0,1);	// Add an extra 0-1 secs of life
+ 
+ 		// We use a special rendering function because these objects will want to share their lighting
+ 		//  origin with the first/master object.  Prevents a huge spike in Light Cache building in maps
+@@ -1543,7 +1611,7 @@
+ 		pTemp->SetRenderColor( 255, 255, 255, 255 );
+ 		pTemp->tempent_renderamt = 255;
+ 		pTemp->m_nRenderFX = kRenderFxNoDissipation;
+-		//pTemp->scale = random->RandomFloat( 0.1, 0.25 );
++		//pTemp->scale = FxProbeRandomFloat( 0.1, 0.25 );
+ 		pTemp->m_flSpriteScale = 0.5;
+ 		pTemp->flags |= FTENT_FADEOUT | FTENT_SLOWGRAVITY;
+ 		pTemp->fadeSpeed = 2.0;
+@@ -1553,14 +1621,14 @@
+ 		velocity.x = dir[ 0 ] + random->RandomFloat ( -noise, noise );
+ 		velocity.y = dir[ 1 ] + random->RandomFloat ( -noise, noise );
+ 		velocity.z = dir[ 2 ] + random->RandomFloat ( 0, znoise );
+-		velocity *= random->RandomFloat( (speed * 0.8), (speed * 1.2) );
++		velocity *= FxProbeRandomFloat( (speed * 0.8), (speed * 1.2) );
+ 		pTemp->SetVelocity( velocity );
+ 
+ 		pTemp->SetLocalOrigin( pos );
+ 
+ 		pTemp->die = gpGlobals->curtime + 0.35;
+ 
+-		pTemp->m_flFrame = random->RandomInt( 0, frameCount );
++		pTemp->m_flFrame = FxProbeRandomInt( 0, frameCount );
+ 	}
+ }
+ 
+@@ -1610,9 +1678,9 @@
+ 		pTemp->flags |= FTENT_COLLIDEWORLD | FTENT_SPRCYCLE | FTENT_FADEOUT | FTENT_SLOWGRAVITY;
+ 
+ 		Vector vecVel = vecDir * flSpeed;
+-		vecVel.x += random->RandomInt( -127,128 ) * flAmplitude;
+-		vecVel.y += random->RandomInt( -127,128 ) * flAmplitude;
+-		vecVel.z += random->RandomInt( -127,128 ) * flAmplitude;
++		vecVel.x += FxProbeRandomInt( -127,128 ) * flAmplitude;
++		vecVel.y += FxProbeRandomInt( -127,128 ) * flAmplitude;
++		vecVel.z += FxProbeRandomInt( -127,128 ) * flAmplitude;
+ 		pTemp->SetVelocity( vecVel );
+ 		pTemp->SetLocalOrigin( vecPos );
+ 
+@@ -1622,9 +1690,9 @@
+ 		pTemp->tempent_renderamt	= nRenderamt;
+ 		pTemp->SetRenderColor( 255, 255, 255 );
+ 
+-		pTemp->m_flFrame	= random->RandomInt( 0, flFrameCount - 1 );
++		pTemp->m_flFrame	= FxProbeRandomInt( 0, flFrameCount - 1 );
+ 		pTemp->m_flFrameMax	= flFrameCount - 1;
+-		pTemp->die			= gpGlobals->curtime + flLife + random->RandomFloat( 0, 4 );
++		pTemp->die			= gpGlobals->curtime + flLife + FxProbeRandomFloat( 0, 4 );
+ 	}
+ }
+ 
+@@ -1637,6 +1705,7 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::AttachTentToPlayer( int client, int modelIndex, float zoffset, float life )
+ {
++	FxProbeLog( "tat-in client=%d model=%d z=%.9g life=%.9g t=%.9g max=%d", client, modelIndex, zoffset, life, gpGlobals->curtime, gpGlobals->maxClients );
+ 	C_LocalTempEntity			*pTemp;
+ 	const model_t		*pModel;
+ 	Vector				position;
+@@ -1700,6 +1769,7 @@
+ 	}
+ 
+ 	pTemp->m_flFrame = 0;
++	FxProbeLog( "tat-out o=%.9g %.9g %.9g mode=%d a=%d amt=%d fx=%d client=%d off=%.9g %.9g %.9g die=%.9g flags=%d framemax=%.9g rate=%.9g type=%d", pTemp->GetAbsOrigin().x, pTemp->GetAbsOrigin().y, pTemp->GetAbsOrigin().z, pTemp->GetRenderMode(), pTemp->m_clrRender.a, pTemp->tempent_renderamt, pTemp->m_nRenderFX, pTemp->clientIndex, pTemp->tentOffset.x, pTemp->tentOffset.y, pTemp->tentOffset.z, pTemp->die, pTemp->flags, pTemp->m_flFrameMax, pTemp->m_flFrameRate, modelinfo->GetModelType( pTemp->GetModel() ) );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -1767,7 +1837,7 @@
+ 	pTemp->die = gpGlobals->curtime;
+ 
+ 	pTemp->m_flFrame = 0;
+-	pTemp->SetLocalAnglesDim( Z_INDEX, 45 * random->RandomInt( 0, 7 ) );
++	pTemp->SetLocalAnglesDim( Z_INDEX, 45 * FxProbeRandomInt( 0, 7 ) );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -1794,7 +1864,7 @@
+ 		{
+ 			pTemp->SetRenderMode( kRenderTransTexture );
+ 			pTemp->m_nRenderFX		= kRenderFxClampMinScale;
+-			pTemp->m_flSpriteScale	= random->RandomFloat( size / 25, size / 35);
++			pTemp->m_flSpriteScale	= FxProbeRandomFloat( size / 25, size / 35);
+ 			pTemp->flags			= FTENT_SPRANIMATE;
+  
+ 			pTemp->m_clrRender		= impactcolor;
+@@ -1808,7 +1878,7 @@
+ 			pTemp->m_flFrame		= 0;
+ 			pTemp->m_flFrameMax		= frameCount - 1;
+ 			pTemp->bounceFactor		= 0;
+-			pTemp->SetLocalAnglesDim( Z_INDEX, random->RandomInt( 0, 360 ) );
++			pTemp->SetLocalAnglesDim( Z_INDEX, FxProbeRandomInt( 0, 360 ) );
+ 		}
+ 	}
+ }
+@@ -1870,7 +1940,7 @@
+ 	pTemp->SetRenderMode( kRenderTransAlpha );
+ 	pTemp->m_nRenderFX = kRenderFxNone;
+ 	pTemp->SetVelocity( Vector( 0, 0, 30 ) );
+-	int iColor = random->RandomInt(20,35);
++	int iColor = FxProbeRandomInt(20,35);
+ 	pTemp->SetRenderColor( iColor,
+ 		iColor,
+ 		iColor,
+@@ -1889,6 +1959,7 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::EjectBrass( const Vector &pos1, const QAngle &angles, const QAngle &gunAngles, int type )
+ {
++	FxProbeLog( "teb-in type=%d cvar=%d model=%s", type, cl_ejectbrass.GetBool() ? 1 : 0, ( type >= 0 && type < 3 && m_pShells[type] ) ? modelinfo->GetModelName( m_pShells[type] ) : "null" );
+ 	if ( cl_ejectbrass.GetBool() == false )
+ 		return;
+ 
+@@ -1938,9 +2009,9 @@
+ 	pTemp->SetAbsAngles( vecAngles );
+ 	pTemp->m_nBody	= 0;
+ 	pTemp->flags |= iFlags;
+-	pTemp->m_vecTempEntAngVelocity[0] = random->RandomFloat(-255,255);
+-	pTemp->m_vecTempEntAngVelocity[1] = random->RandomFloat(-255,255);
+-	pTemp->m_vecTempEntAngVelocity[2] = random->RandomFloat(-255,255);
++	pTemp->m_vecTempEntAngVelocity[0] = FxProbeRandomFloat(-255,255);
++	pTemp->m_vecTempEntAngVelocity[1] = FxProbeRandomFloat(-255,255);
++	pTemp->m_vecTempEntAngVelocity[2] = FxProbeRandomFloat(-255,255);
+ 	pTemp->SetRenderMode( kRenderNormal );
+ 	pTemp->tempent_renderamt = 255;
+ 	pTemp->SetVelocity( vecVelocity );
+@@ -1958,6 +2029,7 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::MuzzleFlash( int type, ClientEntityHandle_t hEntity, int attachmentIndex, bool firstPerson )
+ {
++	FxProbeLog( "tmf-call1 type=%d h=%d att=%d fp=%d", type, hEntity.ToInt(), attachmentIndex, firstPerson ? 1 : 0 );
+ 	switch( type )
+ 	{
+ 	case MUZZLEFLASH_COMBINE:
+@@ -2035,6 +2107,7 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::MuzzleFlash( const Vector& pos1, const QAngle& angles, int type, ClientEntityHandle_t hEntity, bool firstPerson )
+ {
++	FxProbeLog( "tmf-call2 type=%d h=%d fp=%d pos=" FXV " ang=" FXV, type, hEntity.ToInt(), firstPerson ? 1 : 0, FXX( pos1 ), FXX( angles ) );
+ #ifdef CSTRIKE_DLL
+ 
+ 	return;
+@@ -2159,7 +2232,7 @@
+ 
+ 	if ( flags & TE_EXPLFLAG_ROTATE )
+ 	{
+-		pTemp->SetLocalAnglesDim( Z_INDEX, random->RandomInt( 0, 360 ) );
++		pTemp->SetLocalAnglesDim( Z_INDEX, FxProbeRandomInt( 0, 360 ) );
+ 	}
+ 
+ 	pTemp->m_nRenderFX = kRenderFxNone;
+@@ -2384,6 +2457,7 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::PlaySound ( C_LocalTempEntity *pTemp, float damp )
+ {
++	FxProbeLog( "tps-in id=%p hit=%d damp=%.9g vel=%.9g %.9g %.9g o=%.9g %.9g %.9g", (void *)pTemp, pTemp->hitSound, damp, pTemp->GetVelocity().x, pTemp->GetVelocity().y, pTemp->GetVelocity().z, pTemp->GetAbsOrigin().x, pTemp->GetAbsOrigin().y, pTemp->GetAbsOrigin().z );
+ 	const char	*soundname = NULL;
+ 	float fvol;
+ 	bool isshellcasing = false;
+@@ -2473,18 +2547,19 @@
+ 	if ( isshellcasing )
+ 	{	
+ 		// play first bounce, then 1 out of 3		
+-		if ( zvel < 200 && random->RandomInt(0,3) )
++		if ( zvel < 200 && FxProbeRandomInt(0,3) )
+ 			return;
+ 	}
+ 	else
+ 	{
+-		if ( random->RandomInt(0,5) ) 
++		if ( FxProbeRandomInt(0,5) ) 
+ 			return;
+ 	}
+ 
+ 	CSoundParameters params;
+ 	if ( !GameSound_GetParameters( soundname, params, NULL ) )
+ 		return;
++	FxProbeLog( "tps-params name=%s vol=%.9g pitch=%d lo=%d hi=%d level=%d chan=%d", soundname, params.volume, params.pitch, params.pitchlow, params.pitchhigh, (int)params.soundlevel, params.channel );
+ 
+ 	fvol = params.volume;
+ 
+@@ -2501,9 +2576,9 @@
+ 			fvol *= MIN (1.0, ((float)zvel) / 450.0); 
+ 		}
+ 		
+-		if ( !random->RandomInt(0,3) && !isshellcasing )
++		if ( !FxProbeRandomInt(0,3) && !isshellcasing )
+ 		{
+-			pitch = random->RandomInt( params.pitchlow, params.pitchhigh );
++			pitch = FxProbeRandomInt( params.pitchlow, params.pitchhigh );
+ 		}
+ 		else
+ 		{
+@@ -2520,6 +2595,7 @@
+ 		ep.m_nPitch = pitch;
+ 		ep.m_pOrigin = &pTemp->GetAbsOrigin();
+ 
++		FxProbeLog( "tps-emit sound=%s vol=%.9g level=%d pitch=%d chan=%d o=%.9g %.9g %.9g", ep.m_pSoundName, ep.m_flVolume, (int)ep.m_SoundLevel, ep.m_nPitch, ep.m_nChannel, pTemp->GetAbsOrigin().x, pTemp->GetAbsOrigin().y, pTemp->GetAbsOrigin().z );
+ 		GameSound_Emit( filter, SOUND_FROM_WORLD, ep );
+ 	}
+ }
+@@ -2730,24 +2806,27 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::MuzzleFlash_Combine_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_Combine_Player", hEntity, attachmentIndex );
+ 	VPROF_BUDGET( "MuzzleFlash_Combine_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 	CSmartPtr<CLocalSpaceEmitter> pSimple = CLocalSpaceEmitter::Create( "MuzzleFlash", hEntity, attachmentIndex, FLE_VIEWMODEL );
++	FxProbeLog( "tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash args=%s", "hEntity, attachmentIndex, FLE_VIEWMODEL" );
+ 
+ 	CacheMuzzleFlashes();
+ 
+ 	SimpleParticle *pParticle;
+ 	Vector			forward(1,0,0), offset; //NOTENOTE: All coords are in local space
+ 
+-	float flScale = random->RandomFloat( 2.0f, 2.25f );
++	float flScale = FxProbeRandomFloat( 2.0f, 2.25f );
+ 
+ 	pSimple->SetDrawBeforeViewModel( true );
++	FxProbeLog( "tmf-cfg drawbeforeviewmodel" );
+ 
+ 	// Flash
+ 	for ( int i = 1; i < 6; i++ )
+ 	{
+ 		offset = (forward * (i*8.0f*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_Combine_MuzzleFlash_Player[random->RandomInt(0,1)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), m_Material_Combine_MuzzleFlash_Player[FxProbeRandomInt(0,1)], offset );
+ 			
+ 		if ( pParticle == NULL )
+ 			return;
+@@ -2759,19 +2838,19 @@
+ 
+ 		pParticle->m_uchColor[0]	= 255;
+ 		pParticle->m_uchColor[1]	= 255;
+-		pParticle->m_uchColor[2]	= 200+random->RandomInt(0,55);
++		pParticle->m_uchColor[2]	= 200+FxProbeRandomInt(0,55);
+ 
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 255;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 6.0f, 8.0f ) * (12-(i))/12) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 6.0f, 8.0f ) * (12-(i))/12) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ 
+ 	// Tack on the smoke
+-	pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_Combine_MuzzleFlash_Player[random->RandomInt(0,1)], vec3_origin );
++	pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), m_Material_Combine_MuzzleFlash_Player[FxProbeRandomInt(0,1)], vec3_origin );
+ 		
+ 	if ( pParticle == NULL )
+ 		return;
+@@ -2785,13 +2864,13 @@
+ 	pParticle->m_uchColor[1]	= 255;
+ 	pParticle->m_uchColor[2]	= 255;
+ 
+-	pParticle->m_uchStartAlpha	= random->RandomInt( 64, 128 );
++	pParticle->m_uchStartAlpha	= FxProbeRandomInt( 64, 128 );
+ 	pParticle->m_uchEndAlpha	= 32;
+ 
+-	pParticle->m_uchStartSize	= random->RandomFloat( 10.0f, 16.0f );
++	pParticle->m_uchStartSize	= FxProbeRandomFloat( 10.0f, 16.0f );
+ 	pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+ 	
+-	pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++	pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 	pParticle->m_flRollDelta	= 0.0f;
+ }
+ 
+@@ -2803,6 +2882,7 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::MuzzleFlash_Combine_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_Combine_NPC", hEntity, attachmentIndex );
+ 	VPROF_BUDGET( "MuzzleFlash_Combine_NPC", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 
+ 	// If the material isn't available, let's not do anything.
+@@ -2812,13 +2892,14 @@
+ 	}
+ 
+ 	CSmartPtr<CLocalSpaceEmitter> pSimple = CLocalSpaceEmitter::Create( "MuzzleFlash_Combine_NPC", hEntity, attachmentIndex );
++	FxProbeLog( "tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_Combine_NPC args=%s", "hEntity, attachmentIndex" );
+ 
+ 	SimpleParticle *pParticle;
+ 	Vector			forward(1,0,0), offset; //NOTENOTE: All coords are in local space
+ 
+-	float flScale = random->RandomFloat( 1.0f, 1.5f );
++	float flScale = FxProbeRandomFloat( 1.0f, 1.5f );
+ 
+-	float burstSpeed = random->RandomFloat( 50.0f, 150.0f );
++	float burstSpeed = FxProbeRandomFloat( 50.0f, 150.0f );
+ 
+ #define	FRONT_LENGTH 6
+ 
+@@ -2827,7 +2908,7 @@
+ 	{
+ 		offset = (forward * (i*2.0f*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[random->RandomInt(0,1)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[FxProbeRandomInt(0,1)], offset );
+ 		if ( pParticle == NULL )
+ 			return;
+ 
+@@ -2843,9 +2924,9 @@
+ 		pParticle->m_uchStartAlpha	= 255.0f;
+ 		pParticle->m_uchEndAlpha	= 0;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 6.0f, 8.0f ) * (FRONT_LENGTH*1.25f-(i))/(FRONT_LENGTH)) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 6.0f, 8.0f ) * (FRONT_LENGTH*1.25f-(i))/(FRONT_LENGTH)) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ 	
+@@ -2854,14 +2935,14 @@
+ 
+ #define	SIDE_LENGTH	6
+ 
+-	burstSpeed = random->RandomFloat( 50.0f, 150.0f );
++	burstSpeed = FxProbeRandomFloat( 50.0f, 150.0f );
+ 
+ 	// Diagonal flash
+ 	for ( int i = 1; i < SIDE_LENGTH; i++ )
+ 	{
+ 		offset = (dir * (i*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[random->RandomInt(0,1)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[FxProbeRandomInt(0,1)], offset );
+ 			
+ 		if ( pParticle == NULL )
+ 			return;
+@@ -2878,21 +2959,21 @@
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 0;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ 
+ 	dir = right + up;
+-	burstSpeed = random->RandomFloat( 50.0f, 150.0f );
++	burstSpeed = FxProbeRandomFloat( 50.0f, 150.0f );
+ 
+ 	// Diagonal flash
+ 	for ( int i = 1; i < SIDE_LENGTH; i++ )
+ 	{
+ 		offset = (-dir * (i*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[random->RandomInt(0,1)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[FxProbeRandomInt(0,1)], offset );
+ 		if ( pParticle == NULL )
+ 			return;
+ 
+@@ -2908,21 +2989,21 @@
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 0;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ 
+ 	dir = up;
+-	burstSpeed = random->RandomFloat( 50.0f, 150.0f );
++	burstSpeed = FxProbeRandomFloat( 50.0f, 150.0f );
+ 
+ 	// Top flash
+ 	for ( int i = 1; i < SIDE_LENGTH; i++ )
+ 	{
+ 		offset = (dir * (i*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[random->RandomInt(0,1)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[FxProbeRandomInt(0,1)], offset );
+ 		if ( pParticle == NULL )
+ 			return;
+ 
+@@ -2938,18 +3019,18 @@
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 0;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 2.0f, 4.0f ) * (SIDE_LENGTH-(i))/(SIDE_LENGTH*0.5f)) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ 
+-	pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[2], vec3_origin );
++	pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), g_Mat_Combine_Muzzleflash[2], vec3_origin );
+ 	if ( pParticle == NULL )
+ 		return;
+ 
+ 	pParticle->m_flLifetime		= 0.0f;
+-	pParticle->m_flDieTime		= random->RandomFloat( 0.3f, 0.4f );
++	pParticle->m_flDieTime		= FxProbeRandomFloat( 0.3f, 0.4f );
+ 
+ 	pParticle->m_vecVelocity.Init();
+ 
+@@ -2960,9 +3041,9 @@
+ 	pParticle->m_uchStartAlpha	= 255;
+ 	pParticle->m_uchEndAlpha	= 0;
+ 
+-	pParticle->m_uchStartSize	= flScale * random->RandomFloat( 12.0f, 16.0f );
++	pParticle->m_uchStartSize	= flScale * FxProbeRandomFloat( 12.0f, 16.0f );
+ 	pParticle->m_uchEndSize		= 0.0f;
+-	pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++	pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 	pParticle->m_flRollDelta	= 0.0f;
+ 
+ 	matrix3x4_t	matAttachment;
+@@ -2974,17 +3055,21 @@
+ 		origin.x = matAttachment[0][3];
+ 		origin.y = matAttachment[1][3];
+ 		origin.z = matAttachment[2][3];
++		FxProbeLog( "tmf-attm ok=1 origin=" FXV, FXX( origin ) );
+ 	}
+ 	else
+ 	{
+ 		//NOTENOTE: If you're here, you've specified an entity or an attachment that is invalid
+ 		Assert(0);
++		FxProbeLog( "tmf-attm ok=0" );
+ 		return;
+ 	}
+ 
++	FxProbeLog( "tmf-lightcvar %d", muzzleflash_light.GetBool() ? 1 : 0 );
+ 	if ( muzzleflash_light.GetBool() )
+ 	{
+ 		IClientEntity *pEnt = SSClientEntityFromHandle( hEntity );
++		FxProbeLog( "tmf-light ent=%d entindex=%d", pEnt ? 1 : 0, pEnt ? pEnt->entindex() : -1 );
+ 		if ( pEnt )
+ 		{
+ 			dlight_t *el = effects->CL_AllocElight( LIGHT_INDEX_MUZZLEFLASH + pEnt->entindex() );
+@@ -2996,9 +3081,10 @@
+ 			el->color.b = 255;
+ 			el->color.exponent = 5;
+ 
+-			el->radius	= random->RandomInt( 32, 128 );
++			el->radius	= FxProbeRandomInt( 32, 128 );
+ 			el->decay	= el->radius / 0.05f;
+ 			el->die		= gpGlobals->curtime + 0.05f;
++			FxProbeLog( "tmf-elight key=%d origin=" FXV " col=%d %d %d %d radius=%.9g decay=%.9g die=%.9g t=%.9g", LIGHT_INDEX_MUZZLEFLASH + pEnt->entindex(), FXX( el->origin ), el->color.r, el->color.g, el->color.b, el->color.exponent, el->radius, el->decay, el->die, gpGlobals->curtime );
+ 		}
+ 	}
+ }
+@@ -3010,8 +3096,10 @@
+ 
+ void CTempEnts::MuzzleFlash_AR2_NPC( const Vector &origin, const QAngle &angles, ClientEntityHandle_t hEntity )
+ {
++	ProbeScope probeScope( "MuzzleFlash_AR2_NPC", hEntity, -1 );
+ 	//Draw the cloud of fire
+ 	FX_MuzzleEffect( origin, angles, 1.0f, hEntity );
++	FxProbeLog( "tmf-fx %s", "FX_MuzzleEffect( origin, angles, 1.0f, hEntity );" );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -3019,8 +3107,10 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::MuzzleFlash_SMG1_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_SMG1_NPC", hEntity, attachmentIndex );
+ 	//Draw the cloud of fire
+ 	FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );
++	FxProbeLog( "tmf-fx %s", "FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );" );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -3028,24 +3118,27 @@
+ //-----------------------------------------------------------------------------
+ void CTempEnts::MuzzleFlash_SMG1_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_SMG1_Player", hEntity, attachmentIndex );
+ 	VPROF_BUDGET( "MuzzleFlash_SMG1_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 	CSmartPtr<CLocalSpaceEmitter> pSimple = CLocalSpaceEmitter::Create( "MuzzleFlash_SMG1_Player", hEntity, attachmentIndex, FLE_VIEWMODEL );
++	FxProbeLog( "tmf-create kind=CLocalSpaceEmitter name=MuzzleFlash_SMG1_Player args=%s", "hEntity, attachmentIndex, FLE_VIEWMODEL" );
+ 
+ 	CacheMuzzleFlashes();
+ 
+ 	SimpleParticle *pParticle;
+ 	Vector			forward(1,0,0), offset; //NOTENOTE: All coords are in local space
+ 
+-	float flScale = random->RandomFloat( 1.25f, 1.5f );
++	float flScale = FxProbeRandomFloat( 1.25f, 1.5f );
+ 
+ 	pSimple->SetDrawBeforeViewModel( true );
++	FxProbeLog( "tmf-cfg drawbeforeviewmodel" );
+ 
+ 	// Flash
+ 	for ( int i = 1; i < 6; i++ )
+ 	{
+ 		offset = (forward * (i*8.0f*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[random->RandomInt(0,3)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[FxProbeRandomInt(0,3)], offset );
+ 			
+ 		if ( pParticle == NULL )
+ 			return;
+@@ -3057,14 +3150,14 @@
+ 
+ 		pParticle->m_uchColor[0]	= 255;
+ 		pParticle->m_uchColor[1]	= 255;
+-		pParticle->m_uchColor[2]	= 200+random->RandomInt(0,55);
++		pParticle->m_uchColor[2]	= 200+FxProbeRandomInt(0,55);
+ 
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 255;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ }
+@@ -3076,10 +3169,13 @@
+ 
+ void CTempEnts::MuzzleFlash_Shotgun_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_Shotgun_Player", hEntity, attachmentIndex );
+ 	VPROF_BUDGET( "MuzzleFlash_Shotgun_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "MuzzleFlash_Shotgun_Player" );
++	FxProbeLog( "tmf-create kind=CSimpleEmitter name=MuzzleFlash_Shotgun_Player args=%s", "" );
+ 
+ 	pSimple->SetDrawBeforeViewModel( true );
++	FxProbeLog( "tmf-cfg drawbeforeviewmodel" );
+ 
+ 	CacheMuzzleFlashes();
+ 
+@@ -3088,8 +3184,10 @@
+ 
+ 	// Get our attachment's transformation matrix
+ 	FX_GetAttachmentTransform( hEntity, attachmentIndex, &origin, &angles );
++	FxProbeLog( "tmf-att origin=" FXV " angles=" FXV, FXX( origin ), FXX( angles ) );
+ 
+ 	pSimple->GetBinding().SetBBox( origin - Vector( 4, 4, 4 ), origin + Vector( 4, 4, 4 ) );
++	FxProbeLog( "tmf-cfg bbox origin=" FXV, FXX( origin ) );
+ 
+ 	Vector forward;
+ 	AngleVectors( angles, &forward, NULL, NULL );
+@@ -3097,14 +3195,14 @@
+ 	SimpleParticle *pParticle;
+ 	Vector offset;
+ 
+-	float flScale = random->RandomFloat( 1.25f, 1.5f );
++	float flScale = FxProbeRandomFloat( 1.25f, 1.5f );
+ 
+ 	// Flash
+ 	for ( int i = 1; i < 6; i++ )
+ 	{
+ 		offset = origin + (forward * (i*8.0f*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[random->RandomInt(0,3)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[FxProbeRandomInt(0,3)], offset );
+ 			
+ 		if ( pParticle == NULL )
+ 			return;
+@@ -3116,14 +3214,14 @@
+ 
+ 		pParticle->m_uchColor[0]	= 255;
+ 		pParticle->m_uchColor[1]	= 255;
+-		pParticle->m_uchColor[2]	= 200+random->RandomInt(0,55);
++		pParticle->m_uchColor[2]	= 200+FxProbeRandomInt(0,55);
+ 
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 255;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ }
+@@ -3135,8 +3233,10 @@
+ 
+ void CTempEnts::MuzzleFlash_Shotgun_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_Shotgun_NPC", hEntity, attachmentIndex );
+ 	//Draw the cloud of fire
+ 	FX_MuzzleEffectAttached( 0.75f, hEntity, attachmentIndex );
++	FxProbeLog( "tmf-fx %s", "FX_MuzzleEffectAttached( 0.75f, hEntity, attachmentIndex );" );
+ 
+ 	// If the material isn't available, let's not do anything else.
+ 	if ( g_Mat_SMG_Muzzleflash[0] == NULL )
+@@ -3151,38 +3251,42 @@
+ 	// Setup the origin.
+ 	Vector	origin;
+ 	IClientRenderable *pRenderable = SSClientRenderableFromHandle( hEntity );
++	FxProbeLog( "tmf-renderable %d", pRenderable ? 1 : 0 );
+ 	if ( !pRenderable )
+ 		return;
+ 
+ 	pRenderable->GetAttachment( attachmentIndex, origin, angles );
++	FxProbeLog( "tmf-att origin=" FXV " angles=" FXV, FXX( origin ), FXX( angles ) );
+ 	AngleVectors( angles, &forward );
+ 
+ 	//Embers less often
+-	if ( random->RandomInt( 0, 2 ) == 0 )
++	if ( FxProbeRandomInt( 0, 2 ) == 0 )
+ 	{
+ 		//Embers
+ 		CSmartPtr<CEmberEffect> pEmbers = CEmberEffect::Create( "muzzle_embers" );
++		FxProbeLog( "tmf-create kind=CEmberEffect name=muzzle_embers args=%s", "" );
+ 		pEmbers->SetSortOrigin( origin );
++		FxProbeLog( "tmf-cfg sortorigin=" FXV, FXX( origin ) );
+ 
+ 		SimpleParticle	*pParticle;
+ 
+-		int	numEmbers = random->RandomInt( 0, 4 );
++		int	numEmbers = FxProbeRandomInt( 0, 4 );
+ 
+ 		for ( int i = 0; i < numEmbers; i++ )
+ 		{
+-			pParticle = (SimpleParticle *) pEmbers->AddParticle( sizeof( SimpleParticle ), g_Mat_SMG_Muzzleflash[0], origin );
++			pParticle = (SimpleParticle *) ProbeAdd( pEmbers, sizeof( SimpleParticle ), g_Mat_SMG_Muzzleflash[0], origin );
+ 				
+ 			if ( pParticle == NULL )
+ 				return;
+ 
+ 			pParticle->m_flLifetime		= 0.0f;
+-			pParticle->m_flDieTime		= random->RandomFloat( 0.2f, 0.4f );
++			pParticle->m_flDieTime		= FxProbeRandomFloat( 0.2f, 0.4f );
+ 
+-			pParticle->m_vecVelocity.Random( -0.05f, 0.05f );
++			pParticle->m_vecVelocity.Random( -0.05f, 0.05f ); FxProbeLog( "tmf-vrand lo=%.9g hi=%.9g v=" FXV, -0.05f, 0.05f, FXX( pParticle->m_vecVelocity ) );
+ 			pParticle->m_vecVelocity += forward;
+ 			VectorNormalize( pParticle->m_vecVelocity );
+ 
+-			pParticle->m_vecVelocity	*= random->RandomFloat( 64.0f, 256.0f );
++			pParticle->m_vecVelocity	*= FxProbeRandomFloat( 64.0f, 256.0f );
+ 
+ 			pParticle->m_uchColor[0]	= 255;
+ 			pParticle->m_uchColor[1]	= 128;
+@@ -3204,28 +3308,32 @@
+ 	//
+ 	
+ 	CSmartPtr<CTrailParticles> pTrails = CTrailParticles::Create( "MuzzleFlash_Shotgun_NPC" );
++	FxProbeLog( "tmf-create kind=CTrailParticles name=MuzzleFlash_Shotgun_NPC args=%s", "" );
+ 	pTrails->SetSortOrigin( origin );
++	FxProbeLog( "tmf-cfg sortorigin=" FXV, FXX( origin ) );
+ 
+ 	TrailParticle	*pTrailParticle;
+ 
+ 	pTrails->SetFlag( bitsPARTICLE_TRAIL_FADE );
++	FxProbeLog( "tmf-cfg flag=%d", (int)bitsPARTICLE_TRAIL_FADE );
+ 	pTrails->m_ParticleCollision.SetGravity( 0.0f );
++	FxProbeLog( "tmf-cfg gravity=%.9g", (float)(0.0f) );
+ 
+-	int	numEmbers = random->RandomInt( 4, 8 );
++	int	numEmbers = FxProbeRandomInt( 4, 8 );
+ 
+ 	for ( int i = 0; i < numEmbers; i++ )
+ 	{
+-		pTrailParticle = (TrailParticle *) pTrails->AddParticle( sizeof( TrailParticle ), g_Mat_SMG_Muzzleflash[0], origin );
++		pTrailParticle = (TrailParticle *) ProbeAdd( pTrails, sizeof( TrailParticle ), g_Mat_SMG_Muzzleflash[0], origin );
+ 			
+ 		if ( pTrailParticle == NULL )
+ 			return;
+ 
+ 		pTrailParticle->m_flLifetime		= 0.0f;
+-		pTrailParticle->m_flDieTime		= random->RandomFloat( 0.1f, 0.2f );
++		pTrailParticle->m_flDieTime		= FxProbeRandomFloat( 0.1f, 0.2f );
+ 
+ 		float spread = 0.05f;
+ 
+-		pTrailParticle->m_vecVelocity.Random( -spread, spread );
++		pTrailParticle->m_vecVelocity.Random( -spread, spread ); FxProbeLog( "tmf-vrand lo=%.9g hi=%.9g v=" FXV, -spread, spread, FXX( pTrailParticle->m_vecVelocity ) );
+ 		pTrailParticle->m_vecVelocity += forward;
+ 		
+ 		VectorNormalize( pTrailParticle->m_vecVelocity );
+@@ -3234,12 +3342,12 @@
+ 		float dot = forward.Dot( pTrailParticle->m_vecVelocity );
+ 
+ 		dot = (1.0f-fabs(dot)) / spread;
+-		pTrailParticle->m_vecVelocity *= (random->RandomFloat( 256.0f, 1024.0f ) * (1.0f-dot));
++		pTrailParticle->m_vecVelocity *= (FxProbeRandomFloat( 256.0f, 1024.0f ) * (1.0f-dot));
+ 
+ 		Color32Init( pTrailParticle->m_color, 255, 242, 191, 255 );
+ 
+ 		pTrailParticle->m_flLength	= 0.05f;
+-		pTrailParticle->m_flWidth	= random->RandomFloat( 0.25f, 0.5f );
++		pTrailParticle->m_flWidth	= FxProbeRandomFloat( 0.25f, 0.5f );
+ 	}
+ }
+ 
+@@ -3248,10 +3356,13 @@
+ //==================================================
+ void CTempEnts::MuzzleFlash_357_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_357_Player", hEntity, attachmentIndex );
+ 	VPROF_BUDGET( "MuzzleFlash_357_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "MuzzleFlash_357_Player" );
++	FxProbeLog( "tmf-create kind=CSimpleEmitter name=MuzzleFlash_357_Player args=%s", "" );
+ 
+ 	pSimple->SetDrawBeforeViewModel( true );
++	FxProbeLog( "tmf-cfg drawbeforeviewmodel" );
+ 
+ 	CacheMuzzleFlashes();
+ 
+@@ -3260,8 +3371,10 @@
+ 
+ 	// Get our attachment's transformation matrix
+ 	FX_GetAttachmentTransform( hEntity, attachmentIndex, &origin, &angles );
++	FxProbeLog( "tmf-att origin=" FXV " angles=" FXV, FXX( origin ), FXX( angles ) );
+ 
+ 	pSimple->GetBinding().SetBBox( origin - Vector( 4, 4, 4 ), origin + Vector( 4, 4, 4 ) );
++	FxProbeLog( "tmf-cfg bbox origin=" FXV, FXX( origin ) );
+ 
+ 	Vector forward;
+ 	AngleVectors( angles, &forward, NULL, NULL );
+@@ -3272,39 +3385,39 @@
+ 	// Smoke
+ 	offset = origin + forward * 8.0f;
+ 
+-	pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_DustPuff[0], offset );
++	pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), g_Mat_DustPuff[0], offset );
+ 		
+ 	if ( pParticle == NULL )
+ 		return;
+ 
+ 	pParticle->m_flLifetime		= 0.0f;
+-	pParticle->m_flDieTime		= random->RandomFloat( 0.5f, 1.0f );
++	pParticle->m_flDieTime		= FxProbeRandomFloat( 0.5f, 1.0f );
+ 
+ 	pParticle->m_vecVelocity.Init();
+-	pParticle->m_vecVelocity = forward * random->RandomFloat( 8.0f, 64.0f );
+-	pParticle->m_vecVelocity[2] += random->RandomFloat( 4.0f, 16.0f );
++	pParticle->m_vecVelocity = forward * FxProbeRandomFloat( 8.0f, 64.0f );
++	pParticle->m_vecVelocity[2] += FxProbeRandomFloat( 4.0f, 16.0f );
+ 
+-	int color = random->RandomInt( 200, 255 );
++	int color = FxProbeRandomInt( 200, 255 );
+ 	pParticle->m_uchColor[0]	= color;
+ 	pParticle->m_uchColor[1]	= color;
+ 	pParticle->m_uchColor[2]	= color;
+ 
+-	pParticle->m_uchStartAlpha	= random->RandomInt( 64, 128 );
++	pParticle->m_uchStartAlpha	= FxProbeRandomInt( 64, 128 );
+ 	pParticle->m_uchEndAlpha	= 0;
+ 
+-	pParticle->m_uchStartSize	= random->RandomInt( 2, 4 );
++	pParticle->m_uchStartSize	= FxProbeRandomInt( 2, 4 );
+ 	pParticle->m_uchEndSize		= pParticle->m_uchStartSize * 8.0f;
+-	pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-	pParticle->m_flRollDelta	= random->RandomFloat( -0.5f, 0.5f );
++	pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
++	pParticle->m_flRollDelta	= FxProbeRandomFloat( -0.5f, 0.5f );
+ 
+-	float flScale = random->RandomFloat( 1.25f, 1.5f );
++	float flScale = FxProbeRandomFloat( 1.25f, 1.5f );
+ 
+ 	// Flash
+ 	for ( int i = 1; i < 6; i++ )
+ 	{
+ 		offset = origin + (forward * (i*8.0f*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[random->RandomInt(0,3)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[FxProbeRandomInt(0,3)], offset );
+ 			
+ 		if ( pParticle == NULL )
+ 			return;
+@@ -3316,14 +3429,14 @@
+ 
+ 		pParticle->m_uchColor[0]	= 255;
+ 		pParticle->m_uchColor[1]	= 255;
+-		pParticle->m_uchColor[2]	= 200+random->RandomInt(0,55);
++		pParticle->m_uchColor[2]	= 200+FxProbeRandomInt(0,55);
+ 
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 255;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ }
+@@ -3335,9 +3448,12 @@
+ 
+ void CTempEnts::MuzzleFlash_Pistol_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_Pistol_Player", hEntity, attachmentIndex );
+ 	VPROF_BUDGET( "MuzzleFlash_Pistol_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "MuzzleFlash_Pistol_Player" );
++	FxProbeLog( "tmf-create kind=CSimpleEmitter name=MuzzleFlash_Pistol_Player args=%s", "" );
+ 	pSimple->SetDrawBeforeViewModel( true );
++	FxProbeLog( "tmf-cfg drawbeforeviewmodel" );
+ 
+ 	CacheMuzzleFlashes();
+ 
+@@ -3346,8 +3462,10 @@
+ 
+ 	// Get our attachment's transformation matrix
+ 	FX_GetAttachmentTransform( hEntity, attachmentIndex, &origin, &angles );
++	FxProbeLog( "tmf-att origin=" FXV " angles=" FXV, FXX( origin ), FXX( angles ) );
+ 
+ 	pSimple->GetBinding().SetBBox( origin - Vector( 4, 4, 4 ), origin + Vector( 4, 4, 4 ) );
++	FxProbeLog( "tmf-cfg bbox origin=" FXV, FXX( origin ) );
+ 
+ 	Vector forward;
+ 	AngleVectors( angles, &forward, NULL, NULL );
+@@ -3358,42 +3476,42 @@
+ 	// Smoke
+ 	offset = origin + forward * 8.0f;
+ 
+-	if ( random->RandomInt( 0, 3 ) != 0 )
++	if ( FxProbeRandomInt( 0, 3 ) != 0 )
+ 	{
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), g_Mat_DustPuff[0], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), g_Mat_DustPuff[0], offset );
+ 			
+ 		if ( pParticle == NULL )
+ 			return;
+ 
+ 		pParticle->m_flLifetime		= 0.0f;
+-		pParticle->m_flDieTime		= random->RandomFloat( 0.25f, 0.5f );
++		pParticle->m_flDieTime		= FxProbeRandomFloat( 0.25f, 0.5f );
+ 
+ 		pParticle->m_vecVelocity.Init();
+-		pParticle->m_vecVelocity = forward * random->RandomFloat( 48.0f, 64.0f );
+-		pParticle->m_vecVelocity[2] += random->RandomFloat( 4.0f, 16.0f );
++		pParticle->m_vecVelocity = forward * FxProbeRandomFloat( 48.0f, 64.0f );
++		pParticle->m_vecVelocity[2] += FxProbeRandomFloat( 4.0f, 16.0f );
+ 
+-		int color = random->RandomInt( 200, 255 );
++		int color = FxProbeRandomInt( 200, 255 );
+ 		pParticle->m_uchColor[0]	= color;
+ 		pParticle->m_uchColor[1]	= color;
+ 		pParticle->m_uchColor[2]	= color;
+ 
+-		pParticle->m_uchStartAlpha	= random->RandomInt( 64, 128 );
++		pParticle->m_uchStartAlpha	= FxProbeRandomInt( 64, 128 );
+ 		pParticle->m_uchEndAlpha	= 0;
+ 
+-		pParticle->m_uchStartSize	= random->RandomInt( 2, 4 );
++		pParticle->m_uchStartSize	= FxProbeRandomInt( 2, 4 );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize * 4.0f;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-		pParticle->m_flRollDelta	= random->RandomFloat( -0.1f, 0.1f );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
++		pParticle->m_flRollDelta	= FxProbeRandomFloat( -0.1f, 0.1f );
+ 	}
+ 
+-	float flScale = random->RandomFloat( 1.0f, 1.25f );
++	float flScale = FxProbeRandomFloat( 1.0f, 1.25f );
+ 
+ 	// Flash
+ 	for ( int i = 1; i < 6; i++ )
+ 	{
+ 		offset = origin + (forward * (i*4.0f*flScale));
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[random->RandomInt(0,3)], offset );
++		pParticle = (SimpleParticle *) ProbeAdd( pSimple, sizeof( SimpleParticle ), m_Material_MuzzleFlash_Player[FxProbeRandomInt(0,3)], offset );
+ 			
+ 		if ( pParticle == NULL )
+ 			return;
+@@ -3405,14 +3523,14 @@
+ 
+ 		pParticle->m_uchColor[0]	= 255;
+ 		pParticle->m_uchColor[1]	= 255;
+-		pParticle->m_uchColor[2]	= 200+random->RandomInt(0,55);
++		pParticle->m_uchColor[2]	= 200+FxProbeRandomInt(0,55);
+ 
+ 		pParticle->m_uchStartAlpha	= 255;
+ 		pParticle->m_uchEndAlpha	= 255;
+ 
+-		pParticle->m_uchStartSize	= ( (random->RandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
++		pParticle->m_uchStartSize	= ( (FxProbeRandomFloat( 6.0f, 8.0f ) * (8-(i))/6) * flScale );
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
++		pParticle->m_flRoll			= FxProbeRandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
+ 	}
+ }
+@@ -3424,7 +3542,9 @@
+ 
+ void CTempEnts::MuzzleFlash_Pistol_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_Pistol_NPC", hEntity, attachmentIndex );
+ 	FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );
++	FxProbeLog( "tmf-fx %s", "FX_MuzzleEffectAttached( 0.5f, hEntity, attachmentIndex, NULL, true );" );
+ }
+ 
+ 
+@@ -3437,8 +3557,10 @@
+ 
+ void CTempEnts::MuzzleFlash_RPG_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
+ {
++	ProbeScope probeScope( "MuzzleFlash_RPG_NPC", hEntity, attachmentIndex );
+ 	//Draw the cloud of fire
+ 	FX_MuzzleEffectAttached( 1.5f, hEntity, attachmentIndex );
++	FxProbeLog( "tmf-fx %s", "FX_MuzzleEffectAttached( 1.5f, hEntity, attachmentIndex );" );
+ 
+ }
+ 
+@@ -3467,7 +3589,7 @@
+ 	pTemp->m_nRenderFX = kRenderFxNoDissipation;
+ 	pTemp->tempent_renderamt = 255;
+ 	pTemp->m_flFrameRate = 1.0;
+-	pTemp->m_flFrame = random->RandomInt( 0, nframeCount - 1);
++	pTemp->m_flFrame = FxProbeRandomInt( 0, nframeCount - 1);
+ 	pTemp->m_flSpriteScale = 1.0;
+ 	pTemp->SetAbsOrigin( pos );
+ 	pTemp->die = gpGlobals->curtime + 0.01;
+@@ -3512,9 +3634,9 @@
+ 	pTemp->m_nBody	= 0;
+ 	pTemp->flags |= ( FTENT_COLLIDEWORLD | FTENT_FADEOUT | FTENT_GRAVITY | FTENT_ROTATE );
+ 
+-	pTemp->m_vecTempEntAngVelocity[0] = random->RandomFloat( -512,511 );
+-	pTemp->m_vecTempEntAngVelocity[1] = random->RandomFloat( -256,255 );
+-	pTemp->m_vecTempEntAngVelocity[2] = random->RandomFloat( -256,255 );
++	pTemp->m_vecTempEntAngVelocity[0] = FxProbeRandomFloat( -512,511 );
++	pTemp->m_vecTempEntAngVelocity[1] = FxProbeRandomFloat( -256,255 );
++	pTemp->m_vecTempEntAngVelocity[2] = FxProbeRandomFloat( -256,255 );
+ 
+ 	//Face forward
+ 	pTemp->SetAbsAngles( angAngles );
+@@ -3581,9 +3703,9 @@
+ 
+ 	AngleVectors( angVelocity, &forward, &right, &up );
+ 	
+-	velocity = forward * nVelocity * random->RandomFloat( 1.2, 2.8 ) +
+-			   up * random->RandomFloat( -10, 10 ) +
+-			   right * random->RandomFloat( -20, 20 );
++	velocity = forward * nVelocity * FxProbeRandomFloat( 1.2, 2.8 ) +
++			   up * FxProbeRandomFloat( -10, 10 ) +
++			   right * FxProbeRandomFloat( -20, 20 );
+ 
+ 	// THE ONE FAMILY-8 VALUE THE ENGINE BLOCK DOES NOT CARRY -- lane `f-block`.
+ 	//
+@@ -3631,8 +3753,8 @@
+ 	pTemp->m_nBody	= 0;
+ 	pTemp->flags = FTENT_FADEOUT | FTENT_GRAVITY | FTENT_COLLIDEALL | FTENT_HITSOUND | FTENT_ROTATE | FTENT_CHANGERENDERONCOLLIDE;
+ 
+-	pTemp->m_vecTempEntAngVelocity[0] = random->RandomFloat(-256,256);
+-	pTemp->m_vecTempEntAngVelocity[1] = random->RandomFloat(-256,256);
++	pTemp->m_vecTempEntAngVelocity[0] = FxProbeRandomFloat(-256,256);
++	pTemp->m_vecTempEntAngVelocity[1] = FxProbeRandomFloat(-256,256);
+ 	pTemp->m_vecTempEntAngVelocity[2] = 0;
+ 	pTemp->SetRenderMode( kRenderNormal );
+ 	pTemp->tempent_renderamt = 255;
+@@ -3675,3 +3797,86 @@
+ 	
+ }
+ 
++
++
++//==== c2-fx probe battery (debug): cs_cl_probe_tebattery render|muzzle|sound|attach [entindex]
++static int ProbeModel( const char *pName )
++{
++	int n = modelinfo->GetModelIndex( pName );
++	return n;
++}
++CON_COMMAND( cs_cl_probe_tebattery, "c2-fx probe (debug): drive the legacy tempents' decisions over a fixed battery" )
++{
++	CTempEnts *pTe = static_cast< CTempEnts * >( tempents );
++	const char *what = args.ArgC() > 1 ? args[1] : "";
++	const Vector eye = MainViewOrigin();
++	Vector fwd, right, up;
++	AngleVectors( MainViewAngles(), &fwd, &right, &up );
++	if ( !Q_stricmp( what, "render" ) )
++	{
++		int sprite = ProbeModel( "sprites/glow01.spr" );
++		if ( sprite <= 0 ) sprite = ProbeModel( "sprites/muzzleflash4.vmt" );
++		const int modes[] = { kRenderNormal, kRenderTransColor, kRenderTransTexture, kRenderGlow, kRenderTransAlpha, kRenderTransAdd, kRenderWorldGlow };
++		int n = 0;
++		for ( int fx = 0; fx <= 20; fx++ )
++		{
++			for ( int m = 0; m < (int)ARRAYSIZE( modes ); m++, n++ )
++			{
++				Vector pos = eye + fwd * ( 150.0f + ( n % 5 ) * 10.0f ) + right * ( ( n % 15 ) * 6.0f - 42.0f ) + up * ( ( n / 15 ) * 4.0f - 20.0f );
++				C_LocalTempEntity *p = pTe->TempSprite( pos, vec3_origin, 0.15f, sprite, modes[m], fx, 200.0f / 255.0f, 4.0f, 0 );
++				if ( p && ( n % 4 ) == 0 ) { p->flags |= FTENT_BEOCCLUDED; p->m_vecNormal = ( ( n % 8 ) == 0 ) ? -fwd : fwd; p->tempent_renderamt = 180; }
++				FxProbeLog( "tbat-sprite n=%d fx=%d mode=%d ok=%d", n, fx, modes[m], p ? 1 : 0 );
++			}
++		}
++		const model_t *shell = engine->LoadModel( "models/weapons/rifleshell.mdl" );
++		for ( int fx = 0; fx <= 20 && shell; fx++ )
++		{
++			Vector pos = eye + fwd * 80.0f + right * ( fx * 3.0f - 30.0f ) - up * 10.0f;
++			C_LocalTempEntity *p = pTe->SpawnTempModel( shell, pos, vec3_angle, vec3_origin, 4.0f, FTENT_NONE );
++			if ( p ) { p->m_nRenderFX = fx; p->SetRenderMode( ( fx % 3 ) == 0 ? kRenderNormal : kRenderTransTexture ); p->SetRenderColorA( 150 ); if ( fx % 5 == 0 ) { p->flags |= FTENT_BEOCCLUDED; p->m_vecNormal = -fwd; p->tempent_renderamt = 200; } }
++			FxProbeLog( "tbat-studio fx=%d ok=%d", fx, p ? 1 : 0 );
++		}
++	}
++	else if ( !Q_stricmp( what, "muzzle" ) )
++	{
++		const int ent = args.ArgC() > 2 ? atoi( args[2] ) : engine->GetLocalPlayer();
++		CBaseHandle h = SSClientHandleFromIndex( ent );
++		for ( int type = 0; type <= MUZZLEFLASH_COMBINE_TURRET; type++ )
++		{
++			for ( int fp = 0; fp < 2; fp++ )
++			{
++				pTe->MuzzleFlash( type, h, 1, fp != 0 );
++				pTe->MuzzleFlash( eye + fwd * 64.0f, MainViewAngles(), type, h, fp != 0 );
++			}
++		}
++	}
++	else if ( !Q_stricmp( what, "sound" ) )
++	{
++		C_LocalTempEntity *p = pTe->TempSprite( eye + fwd * 64.0f, vec3_origin, 0.1f, ProbeModel( "sprites/glow01.spr" ), kRenderTransAdd, 0, 1.0f, 0.5f, 0 );
++		if ( !p ) return;
++		const float zv[] = { 0.0f, 50.0f, -120.0f, 199.0f, 200.0f, -260.0f, 349.0f, 400.0f, -900.0f };
++		const float damps[] = { 0.0f, 0.5f, 1.0f };
++		for ( int hit = 0; hit <= 9; hit++ )
++			for ( int z = 0; z < (int)ARRAYSIZE( zv ); z++ )
++				for ( int d = 0; d < (int)ARRAYSIZE( damps ); d++ )
++					for ( int rep = 0; rep < 3; rep++ )
++					{
++						p->hitSound = hit;
++						p->SetVelocity( Vector( 10.0f, -5.0f, zv[z] ) );
++						pTe->PlaySound( p, damps[d] );
++					}
++	}
++	else if ( !Q_stricmp( what, "attach" ) )
++	{
++		const int me = engine->GetLocalPlayer();
++		const int models[] = { ProbeModel( "sprites/glow01.spr" ), ProbeModel( "models/weapons/shell.mdl" ), 0, 99999 };
++		const int clients[] = { me, 0, -1, gpGlobals->maxClients + 1, me };
++		for ( int c = 0; c < (int)ARRAYSIZE( clients ); c++ )
++			for ( int m = 0; m < (int)ARRAYSIZE( models ); m++ )
++				pTe->AttachTentToPlayer( clients[c], models[m], 10.0f + c * 8.0f, 2.0f + m );
++	}
++	else
++	{
++		Msg( "cs_cl_probe_tebattery render|muzzle|sound|attach [entindex]\n" );
++	}
++}

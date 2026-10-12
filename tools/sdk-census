@@ -1,0 +1,417 @@
+#!/usr/bin/env python3
+"""Which fork files the farm actually needs, and WHO needs each one: the
+census behind sdk-links/*.txt.
+
+    tools/sdk-census                     report per-list counts; exit 1 if a
+                                         list names a file nothing uses, or a
+                                         file sits in the wrong list
+                                         (make sdk-census)
+    tools/sdk-census --trace LOG...      add strace -y logs to what was seen
+    tools/sdk-census --write             rewrite every list to the needed set
+    tools/sdk-census --self-test
+
+The farm links the union of five lists (tools/setup). A file is in exactly
+one, decided by which targets of the CMake build use it (either
+configuration):
+
+  client  only client.so's graph (client_sourcesharp) uses it
+  server  only server.so's graph (server_sourcesharp)
+  shared  both DLLs (or the managed host library, libmanaged_host.so)
+  libs    only the Valve static libraries (tier1, mathlib, raytrace)
+  tests   nothing above: only test targets compile it, or only a traced run
+          (make test, a configure, the live gate's driver) opened it
+
+"Uses" is: a source in the target's compile, a header ninja recorded in the
+deps of one of the target's objects (`ninja -t deps`, object path
+`<target>.dir/...`), or a farm file on the target's link line
+(`ninja -t commands`). Traced reads come from `strace -f -y -e trace=%file`:
+-y annotates each fd with the path the kernel resolved, which for a farm link
+IS the fork file. tests.txt is also the record of those traced reads, so the
+check needs no re-trace: a tests.txt line the graph does not use is trusted
+as traced until `--trace ... --write` retakes it.
+
+The lists are the Valve code SourceSharp still depends on, split by consumer,
+so a link nothing uses is a lie and the check fails on it, and a file whose
+use moved (a port took it out of the server, a test stopped reading it) fails
+with "belongs in X" until `--write` moves it. The lists only shrink: ports
+delete lines, and this finds the lines nobody deleted.
+"""
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from collections import Counter
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIGS = ("debug", "release")
+LISTS = ("client", "server", "shared", "libs", "tests")
+LIBS = ("tier1", "mathlib", "raytrace")
+# SourceSharp's own tree: linked from this repo by tools/module-map.tsv (the
+# relocated Valve code there included, kept local by user decision
+# 2026-09-27), so no list may ever name a fork file under it.
+LOCAL_PREFIX = "src/sourcesharp/"
+# CMake target -> consumer. Anything else (a *_test, gtest, ss_cpptest_*) is
+# a test target.
+TARGETS = {"client_sourcesharp": "client", "server_sourcesharp": "server",
+           "sourcesharp": "host", **{lib: "libs" for lib in LIBS}}
+# A link step's output -> consumer (ninja -t commands has no .dir/ there).
+OUTPUTS = {"client.so": "client", "server.so": "server",
+           "libmanaged_host.so": "host",
+           **{f"lib{lib}.a": "libs" for lib in LIBS}}
+LIST_HEAD = {
+    "client": "fork files that only client.so's graph (client_sourcesharp) "
+              "uses",
+    "server": "fork files that only server.so's graph (server_sourcesharp) "
+              "uses",
+    "shared": "fork files both DLLs use (or the managed host library)",
+    "libs": "fork files that only the Valve static libraries use (tier1, "
+            "mathlib, raytrace)",
+    "tests": "fork files that only test targets compile, or that only a "
+             "traced run (make test, a configure, the live gate's driver) "
+             "opened",
+}
+
+
+def list_path(repo, name):
+    return os.path.join(repo, "sdk-links", name + ".txt")
+
+
+def read_list(path):
+    if not os.path.exists(path):
+        return []
+    return [l.strip() for l in open(path)
+            if l.strip() and not l.lstrip().startswith("#")]
+
+
+def read_lists(repo):
+    return {n: read_list(list_path(repo, n)) for n in LISTS}
+
+
+def root_dir(repo):
+    local = os.path.join(repo, "sdk-root.lock.local")
+    return os.path.realpath(open(local).read().strip())
+
+
+def farm_rel(path, farm):
+    """`src/...` for a path inside the farm (lexically), else None."""
+    p = os.path.normpath(path)
+    if p.startswith(farm + "/"):
+        return p[len(farm) + 1:]
+    return None
+
+
+def consumer_of_object(line):
+    m = re.search(r"([A-Za-z0-9_]+)\.dir/", line)
+    if m:
+        return TARGETS.get(m.group(1), "tests")
+    return None
+
+
+def consumer_of_output(path):
+    base = os.path.basename(path)
+    if base in OUTPUTS:
+        return OUTPUTS[base]
+    return "tests"
+
+
+def graph_uses(repo, cfg):
+    """{farm-relative path: {consumer}} the CMake build of `cfg` reads."""
+    farm = os.path.join(repo, "farm", cfg)
+    build = os.path.join(farm, "build")
+    if not os.path.exists(os.path.join(build, "build.ninja")):
+        raise SystemExit(f"no CMake build at {build}: run make {cfg} first")
+    uses = {}
+
+    def add(path, who):
+        if not os.path.isabs(path):
+            path = os.path.join(build, path)
+        r = farm_rel(path, farm)
+        if r:
+            uses.setdefault(r, set()).add(who)
+
+    deps = subprocess.run(["ninja", "-C", build, "-t", "deps"],
+                          capture_output=True, text=True, check=True).stdout
+    n_objects = 0
+    who = None
+    for line in deps.splitlines():
+        if not line.startswith(" "):
+            if "#deps" not in line:
+                who = None
+                continue
+            n_objects += 1
+            if "(VALID)" not in line:
+                raise SystemExit(f"{cfg}: stale deps entry, rebuild: "
+                                 f"{line[:120]}")
+            out = line.split(":")[0]
+            who = consumer_of_object(out) or consumer_of_output(out)
+            continue
+        if who:
+            add(line.strip(), who)
+    if n_objects == 0:
+        raise SystemExit(f"{cfg}: ninja recorded no deps (never built?)")
+    cmds = subprocess.run(["ninja", "-C", build, "-t", "commands"],
+                          capture_output=True, text=True, check=True).stdout
+    for cmd in cmds.splitlines():
+        m = re.search(r"\s-o\s+(\S+)", cmd)
+        out = m.group(1) if m else ""
+        who = consumer_of_object(out) or consumer_of_output(out)
+        for tok in re.findall(r"(?:^|\s)(\S+\.(?:a|so|cpp|c|cc|h|txt))"
+                              r"(?=\s|$)", cmd):
+            add(tok, who)
+    return uses, n_objects
+
+
+OPEN = re.compile(r'\bopen(?:at2?)?\(.*\)\s+=\s+\d+<([^<>]+)>')
+
+
+def traced_paths(logs, root):
+    """ROOT-relative files OPENED (the fd strace -y resolved for an open call
+    that succeeded). A stat, an access check or a directory listing reads no
+    content: a walker that stats a whole tree does not depend on each file it
+    passed. What such a check does need, the gate re-run on the shrunken farm
+    finds -- and the file goes back in."""
+    seen = set()
+    for log in logs:
+        with open(log, errors="replace") as f:
+            for line in f:
+                if "O_DIRECTORY" in line:
+                    continue
+                m = OPEN.search(line)
+                if m and m.group(1).startswith(root + "/"):
+                    seen.add(m.group(1)[len(root) + 1:])
+    return seen
+
+
+def classify(consumers):
+    """The one list a file with these consumers belongs in."""
+    dlls = consumers & {"client", "server"}
+    if "host" in consumers or dlls == {"client", "server"}:
+        return "shared"
+    if dlls:
+        return dlls.pop()
+    if "libs" in consumers:
+        return "libs"
+    return "tests"
+
+
+def census(lists, uses, traced):
+    """-> (want {path: list}, problems [(path, have, want)]).
+
+    want covers every listed path; a listed path nothing uses has want None.
+    traced None means "no trace given": a tests.txt line the graph does not
+    use is then trusted as a traced read."""
+    have = {}
+    problems = []
+    for name in LISTS:
+        for p in lists[name]:
+            if p in have:
+                problems.append((p, have[p] + "+" + name, "one list"))
+            have[p] = name
+    want = {}
+    for p, h in have.items():
+        if p.startswith(LOCAL_PREFIX):
+            want[p] = None
+            problems.append((p, h, "local"))
+            continue
+        if p in uses:
+            want[p] = classify(uses[p])
+        elif traced is None:
+            want[p] = "tests" if h == "tests" else None
+        else:
+            want[p] = "tests" if p in traced else None
+        if want[p] != h:
+            problems.append((p, h, want[p]))
+    return want, problems
+
+
+def write_lists(repo, want, before):
+    os.makedirs(os.path.join(repo, "sdk-links"), exist_ok=True)
+    total = sum(1 for w in want.values() if w)
+    for name in LISTS:
+        paths = sorted(p for p, w in want.items() if w == name)
+        groups = Counter(x.split("/")[0] if not x.startswith("src/")
+                         else "src/" + x.split("/")[1] for x in paths)
+        head = [
+            f"# sdk-links/{name}.txt: {LIST_HEAD[name]}.",
+            "# The farm links the union of sdk-links/*.txt, one link per "
+            "file (tools/setup).",
+            "# This is Valve code we still depend on: it shrinks as code is "
+            "ported, and a",
+            "# fully ported file's line is deleted. tools/sdk-census decides "
+            "which list a",
+            "# file belongs in; `make sdk-census` fails on a line nothing "
+            "uses or a line in",
+            "# the wrong list, and `tools/sdk-census --write` regenerates "
+            "every list.",
+            f"# {len(paths)} links here; {total} in all lists (were {before})",
+        ]
+        head += [f"#   {groups[k]:5d} {k}" for k in sorted(groups)]
+        with open(list_path(repo, name), "w") as f:
+            f.write("\n".join(head) + "\n")
+            for x in paths:
+                f.write(x + "\n")
+
+
+def gather(repo, configs):
+    uses = {}
+    for cfg in configs:
+        u, n = graph_uses(repo, cfg)
+        print(f"graph {cfg}: {n} objects, {len(u)} farm paths")
+        for p, w in u.items():
+            uses.setdefault(p, set()).update(w)
+    return uses
+
+
+def self_test():
+    bad = 0
+
+    def ok(cond, what):
+        nonlocal bad
+        bad += not cond
+        print(f"{'ok ' if cond else 'BAD'} {what}")
+
+    with tempfile.TemporaryDirectory() as d:
+        root = os.path.join(d, "fork")
+        repo = os.path.join(d, "repo")
+        farm = os.path.join(repo, "farm", "debug")
+        os.makedirs(os.path.join(root, "src", "game"))
+        os.makedirs(os.path.join(farm, "build"))
+        log = os.path.join(d, "t.log")
+        with open(log, "w") as f:
+            f.write(f'123 openat(AT_FDCWD, "{farm}/src/game/a.h", O_RDONLY)'
+                    f' = 3<{root}/src/game/a.h>\n')
+            f.write(f'124 newfstatat(AT_FDCWD, "{farm}/src/game/b.h", ...) '
+                    f'= 0\n')
+            f.write(f'125 openat(AT_FDCWD, "/usr/include/x.h", O_RDONLY) '
+                    f'= 4</usr/include/x.h>\n')
+        got = traced_paths([log], root)
+        ok(got == {"src/game/a.h"}, "a trace yields the fork files opened, "
+           f"not the ones only stat'ed ({sorted(got)})")
+        ok(farm_rel(f"{farm}/src/../src/x", farm) == "src/x" and
+           farm_rel("/elsewhere/src/x", farm) is None,
+           "farm paths are recognised lexically")
+        with open(os.path.join(farm, "build", "build.ninja"), "w") as f:
+            f.write("")
+        try:
+            graph_uses(repo, "debug")
+            refused = False
+        except SystemExit as e:
+            refused = "no deps" in str(e) or "ninja" in str(e)
+        ok(refused, "an unbuilt graph is refused, not read as empty")
+
+    # Who uses a file decides its list.
+    ok(consumer_of_object("CMakeFiles/client_sourcesharp.dir/src/x.cpp.o")
+       == "client" and
+       consumer_of_object("CMakeFiles/tier1.dir/src/k.cpp.o") == "libs" and
+       consumer_of_object("CMakeFiles/foo_test.dir/src/t.cpp.o") == "tests"
+       and consumer_of_output("out/server.so") == "server" and
+       consumer_of_output("/b/bin/debug/cpptest/foo_test") == "tests",
+       "an object or a link output is attributed to its target")
+    cases = {("client",): "client", ("server",): "server",
+             ("client", "server"): "shared", ("client", "libs"): "client",
+             ("host",): "shared", ("libs",): "libs",
+             ("libs", "tests"): "libs", ("tests",): "tests",
+             ("client", "server", "libs", "tests"): "shared"}
+    wrong = [c for c, w in cases.items() if classify(set(c)) != w]
+    ok(not wrong, f"each consumer set lands in one list (wrong: {wrong})")
+
+    uses = {"a.h": {"client"}, "b.h": {"client", "server"},
+            "c.h": {"server"}, "k.cpp": {"libs"}, "t.cpp": {"tests"}}
+    good = {"client": ["a.h"], "server": ["c.h"], "shared": ["b.h"],
+            "libs": ["k.cpp"], "tests": ["t.cpp", "traced.h"]}
+    _, probs = census(good, uses, None)
+    ok(probs == [], f"a correct split passes with no trace ({probs})")
+    moved = dict(good, server=["c.h", "a.h"], client=[])
+    _, probs = census(moved, uses, None)
+    ok(("a.h", "server", "client") in probs,
+       f"a file whose use moved belongs in the other list ({probs})")
+    ghost = dict(good, client=["a.h", "gone.h"])
+    _, probs = census(ghost, uses, None)
+    ok(("gone.h", "client", None) in probs,
+       "a DLL-list line nothing uses is unused")
+    twice = dict(good, shared=["b.h", "a.h"])
+    _, probs = census(twice, uses, None)
+    ok(any(p[0] == "a.h" and p[2] == "one list" for p in probs),
+       "a path in two lists is refused")
+    local = dict(good, shared=["b.h", "src/sourcesharp/game/x.cpp"])
+    local_uses = dict(uses, **{"src/sourcesharp/game/x.cpp": {"client",
+                                                              "server"}})
+    want, probs = census(local, local_uses, None)
+    ok(("src/sourcesharp/game/x.cpp", "shared", "local") in probs and
+       want["src/sourcesharp/game/x.cpp"] is None,
+       "a src/sourcesharp/ line is refused even when the build uses it")
+    _, probs = census(good, uses, set())
+    ok(("traced.h", "tests", None) in probs,
+       "a retaken trace that no longer opens a tests.txt file drops it")
+    want, probs = census(good, uses, {"traced.h"})
+    ok(probs == [] and want["traced.h"] == "tests",
+       "a retaken trace that opens it keeps it in tests")
+    print("self-test", "FAILED" if bad else "passed")
+    return 1 if bad else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--trace", nargs="*", default=None)
+    ap.add_argument("--write", action="store_true")
+    ap.add_argument("--config", choices=CONFIGS, action="append")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    configs = a.config or [c for c in CONFIGS if os.path.exists(
+        os.path.join(REPO, "farm", c, "build", "build.ninja"))]
+    if not configs:
+        raise SystemExit("no CMake build in farm/*/build: run make debug")
+    lists = read_lists(REPO)
+    uses = gather(REPO, configs)
+    traced = None
+    if a.trace is not None:
+        traced = traced_paths(a.trace, root_dir(REPO))
+        print(f"traced: {len(traced)} fork paths in {len(a.trace)} log(s)")
+    want, problems = census(lists, uses, traced)
+    total = sum(len(v) for v in lists.values())
+    for name in LISTS:
+        n_want = sum(1 for w in want.values() if w == name)
+        print(f"sdk-links/{name + '.txt':11s} {len(lists[name]):5d} links; "
+              f"belong here {n_want:5d}")
+    local = [p for p, h, w in problems if w == "local"]
+    unused = [p for p, h, w in problems if w is None]
+    moved = [(p, h, w) for p, h, w in problems
+             if w not in (None, "one list", "local")]
+    twice = [(p, h) for p, h, w in problems if w == "one list"]
+    print(f"all lists: {total} links; needed "
+          f"{sum(1 for w in want.values() if w)}; unused {len(unused)}; "
+          f"in the wrong list {len(moved)}; in two lists {len(twice)}; "
+          f"under {LOCAL_PREFIX} {len(local)}")
+    if a.write:
+        if twice:
+            for p, h in twice:
+                print(f"  in two lists: {p} ({h})")
+            return 1
+        write_lists(REPO, want, total)
+        print("wrote " + ", ".join(
+            f"{n}.txt ({sum(1 for w in want.values() if w == n)})"
+            for n in LISTS))
+        return 0
+    for p in local:
+        print(f"  {p}: {LOCAL_PREFIX} is this repo's (module-map), never a "
+              "fork link")
+    for p in unused[:20]:
+        print(f"  unused: {p}")
+    if len(unused) > 20:
+        print(f"  ... {len(unused) - 20} more")
+    for p, h, w in moved[:20]:
+        print(f"  {p}: in {h}.txt, belongs in {w}")
+    if len(moved) > 20:
+        print(f"  ... {len(moved) - 20} more")
+    for p, h in twice:
+        print(f"  in two lists: {p} ({h})")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

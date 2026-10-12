@@ -1,0 +1,27 @@
+Descent_Sheet_Title	Character Sheet
+Descent_Sheet_Level	Level
+Descent_Sheet_Experience	Experience
+Descent_Sheet_Next_Level	Next Level
+Descent_Sheet_Points	Points to Distribute
+Descent_Sheet_Attributes	Attributes
+Descent_Sheet_Combat	Combat
+Descent_Sheet_Resists	Resistances
+Descent_Sheet_Resists_At_Cap	At cap
+Descent_Sheet_Armour	Armour
+Descent_Sheet_Crit	Crit Chance
+Descent_Sheet_Damage	Damage
+Descent_Sheet_Australium	Australium
+Descent_Sheet_Revive_Hint	A party member is close enough to revive you
+Descent_Sheet_Spend	Spend per click
+Descent_Sheet_Apply	Apply
+Descent_Sheet_Reset	Reset
+Descent_Sheet_Staged	points staged
+Descent_Attr_Brawn_Detail	Governs health, melee damage and the carry weight the backpack allows.
+Descent_Attr_Smarts_Detail	Governs mana, spell damage and the chance spells land.
+Descent_Attr_Aim_Detail	Governs hit chance, critical chance and firing arcs.
+Descent_Attr_Grit_Detail	Governs armour, resistance to effects and how long you stay standing.
+Descent_Sheet_Life_Detail	Health; falls to death, refilled by potions, heal kits and the church.
+Descent_Sheet_Mana_Detail	Fuel for spells; regenerates slowly, faster out of combat.
+Descent_Sheet_Armour_Detail	Reduces incoming damage; scales with Grit and worn plating.
+Descent_Sheet_Crit_Detail	Chance a hit lands for double damage; scales with Aim.
+Descent_Sheet_Damage_Detail	The weapon's rolled hit range, as the swing will read.

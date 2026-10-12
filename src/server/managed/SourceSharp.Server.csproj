@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\interface\SourceSharp.Server.Interface.csproj" />
+    <!-- plan_side_isolation P7: SourceSharp.Shared is not an assembly. Its
+         source folder compiles into each side (stock Source's game/shared), so
+         the two sides share no managed type. -->
+    <Compile Include="..\..\shared\managed\**\*.cs" Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- plan_client_vtables SI: the server's managed-built contracts, generated
+         areas and bindings live there, so this assembly compiles without /unsafe
+         (GameAssembliesAreSafeTests). -->
+    <ProjectReference Include="..\interop\SourceSharp.Server.Interop.csproj" />
+
+    <!-- The generator writes the other half of every [ScriptedVars] class: the
+         storage behind each declared map key and the dispatch that turns a key
+         NAME into an assignment, and the shared source's [StandaloneNetState]
+         and user-message partials.
+
+         It runs inside the compiler and its output is source. To READ what it
+         wrote, build with EmitCompilerGeneratedFiles=true and
+         CompilerGeneratedFilesOutputPath=obj/generated on the command line;
+         setting those two IN this file turns the output into files the SDK's
+         default glob then compiles as sources, so the next build finds two
+         implementations of every partial property and stops. -->
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The tests reach a couple of internal seams rather than widening the
+         real API to make them reachable. -->
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <!-- plan_side_isolation P7: the shared source's grant (UserMessageRegistry.Register,
+         which MessageOrderTests reaches) comes with it. -->
+    <InternalsVisibleTo Include="TF2.Descent.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <!-- Phase 1 run 3: the oracle tests build an entity registry the way the
+         tests do (TestServices, compiled into both), through the registry's
+         internal constructors, which they reached through Abi's grant. -->
+    <InternalsVisibleTo Include="SourceSharp.OracleTests" />
+  </ItemGroup>
+  <!-- plan_side_isolation P7: SourceSharp.Shared stopped being an assembly.
+       A tree built before the fold still holds its last build in the managed
+       directory; nothing loads it, but a file there that no build writes is a
+       stale stamp waiting to mislead, so the build that replaced it removes it. -->
+  <Target Name="RemoveFoldedSharedAssembly" AfterTargets="Build">
+    <Delete Files="$(OutDir)SourceSharp.Shared.dll;$(OutDir)SourceSharp.Shared.pdb;$(OutDir)SourceSharp.Shared.deps.json" />
+  </Target>
+</Project>

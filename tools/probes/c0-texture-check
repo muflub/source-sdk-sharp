@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""tools/probes/c0-texture-check -- read the probe texture's four quadrants
+out of c0-session screenshots (tools/probes/sessions/texture-videomode.steps).
+
+    tools/probes/c0-texture-check SHOT.jpg [SHOT.jpg ...]
+
+The panel (shell_probes_debug.cpp, cs_cl_probe_texture) draws a 64x64 texture
+uploaded ONCE through DrawSetTextureRGBA at (16,16) size 256: top-left red,
+top-right green, bottom-right blue, bottom-left white. For each screenshot
+this prints the mean colour of a 32x32 patch at each quadrant's centre and
+whether it matches, and exits 1 if any shot does not show all four. A shot
+that cannot be read is a failure.
+"""
+import sys
+
+from PIL import Image
+
+QUADS = [("TL red", (80, 80), (255, 0, 0)), ("TR green", (208, 80), (0, 255, 0)),
+         ("BR blue", (208, 208), (0, 0, 255)), ("BL white", (80, 208), (255, 255, 255))]
+
+
+def mean(img, cx, cy):
+    px = [img.getpixel((x, y)) for x in range(cx - 16, cx + 16) for y in range(cy - 16, cy + 16)]
+    return tuple(sum(p[i] for p in px) // len(px) for i in range(3))
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    bad = 0
+    for path in sys.argv[1:]:
+        try:
+            img = Image.open(path).convert("RGB")
+        except OSError as e:
+            print("%s: UNREADABLE %s" % (path, e))
+            bad += 1
+            continue
+        cells = []
+        ok = True
+        for name, (cx, cy), want in QUADS:
+            got = mean(img, cx, cy)
+            hit = all(abs(g - w) <= 60 for g, w in zip(got, want))
+            ok &= hit
+            cells.append("%s=%s%s" % (name, got, "" if hit else " MISMATCH"))
+        print("%s %s: %s" % ("ok  " if ok else "FAIL", path.split("/")[-1], "; ".join(cells)))
+        bad += 0 if ok else 1
+    sys.exit(1 if bad else 0)
+
+
+if __name__ == "__main__":
+    main()

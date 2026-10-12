@@ -1,0 +1,42 @@
+# plan_client_novalve C7 post-processing: the managed post program against
+# stock's viewpostprocess.cpp, live, on the plan path. Each pair is a frame with
+# cs_cl_post_plan 0 (stock's functions) and one with 1 (PostProcessPlanner's
+# ops); their post-processing calls must agree but for the tonemap goal's value.
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-post-live.steps --no-probe-build
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_render_plan 1
+cmd cs_cl_post_plan 0
+sleep 1
+cmd cs_cl_render_trace {out}/sandbox-stock.txt
+wait recorded \d+ lines to .*sandbox-stock 20
+cmd cs_cl_post_plan 1
+sleep 2
+cmd cs_cl_render_trace {out}/sandbox-managed.txt
+wait recorded \d+ lines to .*sandbox-managed 20
+cmd mat_show_histogram 1
+sleep 2
+cmd cs_cl_render_trace {out}/histogram-managed.txt
+wait recorded \d+ lines to .*histogram-managed 20
+cmd mat_show_histogram 0
+cmd cl_mouselook 0
+cmd mat_motion_blur_enabled 1
+cmd +right
+sleep 1
+cmd cs_cl_render_trace {out}/motionblur-managed.txt
+wait recorded \d+ lines to .*motionblur-managed 20
+cmd cs_cl_post_plan 0
+sleep 1
+cmd cs_cl_render_trace {out}/motionblur-stock.txt
+wait recorded \d+ lines to .*motionblur-stock 20
+cmd -right
+cmd mat_motion_blur_enabled 0
+cmd cl_mouselook 1
+cmd cs_cl_post_plan 1
+sleep 5
+cmd cs_cl_render_trace {out}/sandbox-managed-late.txt
+wait recorded \d+ lines to .*sandbox-managed-late 20
+quit

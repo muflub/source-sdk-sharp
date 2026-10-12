@@ -1,0 +1,141 @@
+--- a/src/game/client/in_main.cpp	2026-10-05 07:22:19.893525897 -0700
++++ b/src/game/client/in_main.cpp	2026-10-05 07:22:49.001669168 -0700
+@@ -50,6 +50,7 @@
+ 
+ // Need this for steam controller
+ #include "clientsteamcontext.h"
++#include "c6input_probe.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -373,8 +374,32 @@
+ KeyDown
+ ============
+ */
++// c6-input probe: every button's name, for the "K" lines.
++extern void C6P_NameCameraButtons();
++static void C6P_NameMainButtons()
++{
++	static bool s_bDone = false;
++	if ( s_bDone )
++		return;
++	s_bDone = true;
++#define C6P_N( b, n ) C6P_NameButton( &b, n )
++	C6P_N( in_speed, "speed" ); C6P_N( in_walk, "walk" ); C6P_N( in_jlook, "jlook" ); C6P_N( in_strafe, "strafe" );
++	C6P_N( in_commandermousemove, "commandermousemove" ); C6P_N( in_forward, "forward" ); C6P_N( in_back, "back" );
++	C6P_N( in_moveleft, "moveleft" ); C6P_N( in_moveright, "moveright" ); C6P_N( in_graph, "graph" );
++	C6P_N( in_joyspeed, "joyspeed" ); C6P_N( in_klook, "klook" ); C6P_N( in_left, "left" ); C6P_N( in_right, "right" );
++	C6P_N( in_lookup, "lookup" ); C6P_N( in_lookdown, "lookdown" ); C6P_N( in_use, "use" ); C6P_N( in_jump, "jump" );
++	C6P_N( in_attack, "attack" ); C6P_N( in_attack2, "attack2" ); C6P_N( in_up, "moveup" ); C6P_N( in_down, "movedown" );
++	C6P_N( in_duck, "duck" ); C6P_N( in_reload, "reload" ); C6P_N( in_alt1, "alt1" ); C6P_N( in_alt2, "alt2" );
++	C6P_N( in_score, "score" ); C6P_N( in_break, "break" ); C6P_N( in_zoom, "zoom" ); C6P_N( in_grenade1, "grenade1" );
++	C6P_N( in_grenade2, "grenade2" ); C6P_N( in_attack3, "attack3" ); C6P_N( in_ducktoggle, "ducktoggle" );
++#undef C6P_N
++	C6P_NameCameraButtons();
++}
++
+ void KeyDown( kbutton_t *b, const char *c )
+ {
++	C6P_NameMainButtons();
++	C6P_Log( "K\t%s\td\t%s", C6P_ButtonName( b ), c ? c : "<null>" );
+ 	int		k = -1;
+ 	if ( c && c[0] )
+ 	{
+@@ -409,6 +434,8 @@
+ */
+ void KeyUp( kbutton_t *b, const char *c )
+ {	
++	C6P_NameMainButtons();
++	C6P_Log( "K\t%s\tu\t%s", C6P_ButtonName( b ), c ? c : "<null>" );
+ 	if ( !c || !c[0] )
+ 	{
+ 		b->down[0] = b->down[1] = 0;
+@@ -536,6 +563,7 @@
+ void IN_Impulse( const CCommand &args )
+ {
+ 	in_impulse = atoi( args[1] );
++	C6P_Log( "I\t%d", in_impulse );
+ }
+ 
+ void IN_ScoreDown( const CCommand &args )
+@@ -641,6 +669,7 @@
+ void CInput::IN_SetSampleTime( float frametime )
+ {
+ 	m_flKeyboardSampleTime = frametime;
++	C6P_Log( "S\t%.9g", frametime );
+ }
+ 
+ /*
+@@ -1009,6 +1038,35 @@
+ ================
+ */
+ 
++// c6-input probe: what an event read and what it left. Expanded inside CInput's
++// own members, so the private state is in reach.
++struct C6P_Envelope { float envelopeScale[2]; bool peggedAxis[2]; bool axisPeggedDir[2]; };
++extern C6P_Envelope controlEnvelope;
++#define C6P_IN( tag, seq, ft, act ) \
++	do { if ( C6P_Armed() ) { QAngle a_; engine->GetViewAngles( a_ ); \
++		C6P_Log( tag "\t%d\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%.9g\t%d\t%.9g\t%d\t%.9g\t%.9g", (int)(seq), (ft), (act) ? 1 : 0, a_[0], a_[1], a_[2], \
++			vgui::surface()->IsCursorVisible() ? 1 : 0, vgui::surface()->IsCursorLocked() ? 1 : 0, m_fMouseActive ? 1 : 0, \
++			m_fCameraInterceptingMouse ? 1 : 0, gHUD.GetSensitivity(), gHUD.m_iKeyBits, gHUD.GetFOVSensitivityAdjust(), \
++			CAM_IsThirdPerson(), m_flKeyboardSampleTime, m_flRemainingJoystickSampleTime ); } } while ( 0 )
++#define C6P_OUT( tag, cmd ) \
++	do { if ( C6P_Armed() ) { QAngle a_; engine->GetViewAngles( a_ ); const Vector &o_ = g_ThirdPersonManager.GetCameraOffsetAngles(); \
++		C6P_Log( tag "\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g" \
++			"\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d%d%d%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d", \
++			(cmd)->viewangles[0], (cmd)->viewangles[1], (cmd)->viewangles[2], (cmd)->forwardmove, (cmd)->sidemove, (cmd)->upmove, \
++			(cmd)->buttons, (int)(cmd)->impulse, (cmd)->weaponselect, (cmd)->mousedx, (cmd)->mousedy, (cmd)->random_seed, \
++			a_[0], a_[1], a_[2], m_flPreviousMouseXPosition, m_flPreviousMouseYPosition, m_flAccumulatedMouseXMovement, m_flAccumulatedMouseYMovement, \
++			m_flKeyboardSampleTime, m_flRemainingJoystickSampleTime, m_flPreviousJoystickForward, m_flPreviousJoystickSide, \
++			m_flPreviousJoystickPitch, m_flPreviousJoystickYaw, controlEnvelope.envelopeScale[0], controlEnvelope.envelopeScale[1], \
++			m_angPreviousViewAngles[0], m_angPreviousViewAngles[1], \
++			controlEnvelope.peggedAxis[0] ? 1 : 0, controlEnvelope.peggedAxis[1] ? 1 : 0, controlEnvelope.axisPeggedDir[0] ? 1 : 0, controlEnvelope.axisPeggedDir[1] ? 1 : 0, \
++			m_flLastForwardMove, o_[0], o_[1], o_[2], cam_idealyaw.GetFloat(), cam_idealpitch.GetFloat(), CAM_IsThirdPerson(), in_impulse, s_ClearInputState ); \
++		C6P_Log( "KS\t%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\t%d", \
++			in_speed.state, in_walk.state, in_jlook.state, in_strafe.state, in_commandermousemove.state, in_forward.state, in_back.state, \
++			in_moveleft.state, in_moveright.state, in_graph.state, in_joyspeed.state, in_klook.state, in_left.state, in_right.state, \
++			in_lookup.state, in_lookdown.state, in_use.state, in_jump.state, in_attack.state, in_attack2.state, in_up.state, in_down.state, \
++			in_duck.state, in_reload.state, in_alt1.state, in_alt2.state, in_score.state, in_break.state, in_zoom.state, in_grenade1.state, \
++			in_grenade2.state, in_attack3.state, in_ducktoggle.state, in_cancel ); } } while ( 0 )
++
+ void CInput::ExtraMouseSample( float frametime, bool active )
+ {
+ 	CUserCmd dummy;
+@@ -1016,6 +1074,9 @@
+ 
+ 	cmd->Reset();
+ 
++	C6P_BeforeExtraMouseSample();
++	C6P_IN( "E", 0, frametime, active );
++
+ 
+ 	QAngle viewangles;
+ 	engine->GetViewAngles( viewangles );
+@@ -1120,6 +1181,7 @@
+ 		}
+ 	}
+ 
++	C6P_OUT( "e", cmd );
+ }
+ 
+ void CInput::CreateMove ( int sequence_number, float input_sample_frametime, bool active )
+@@ -1127,6 +1189,10 @@
+ 	CUserCmd *cmd = &m_pCommands[ sequence_number % MULTIPLAYER_BACKUP ];
+ 	CVerifiedUserCmd *pVerified = &m_pVerifiedCommands[ sequence_number % MULTIPLAYER_BACKUP ];
+ 
++	C6P_NameMainButtons();
++	C6P_BeforeCreateMove( sequence_number );
++	C6P_IN( "C", sequence_number, input_sample_frametime, active );
++
+ 	cmd->Reset();
+ 
+ 	cmd->command_number = sequence_number;
+@@ -1325,6 +1391,7 @@
+ 
+ 	pVerified->m_cmd = *cmd;
+ 	pVerified->m_crc = cmd->GetChecksum();
++	C6P_OUT( "c", cmd );
+ }
+ 
+ //-----------------------------------------------------------------------------

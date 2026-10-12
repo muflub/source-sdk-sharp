@@ -1,0 +1,12 @@
+# lane c6-input: the stock input oracle (input-stock.tsv) and the rumble
+# mixer's (rumble-stock.tsv). Needs the probe build and
+# --env SOURCESHARP_C6_FIXTURE_DIR=<dir>. sv_cheats 1 so m_pitch, the camera
+# convars and `thirdperson` take the script's values.
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+sleep 0.5
+cmd cs_cl_probe_input 420
+cmd cs_cl_probe_rumble 400
+sleep 20
+quit

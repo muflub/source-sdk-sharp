@@ -1,0 +1,41 @@
+--- a/src/game/client/c_tracer.cpp	2026-10-05 10:39:04.470943347 -0700
++++ b/src/game/client/c_tracer.cpp	2026-10-05 10:39:04.478083019 -0700
+@@ -8,6 +8,9 @@
+ #include "particledraw.h"
+ #include "materialsystem/imesh.h"
+ 
++// lane c5-particles probe: every Tracer_ComputeVerts, in and out (tracer-stock.tsv).
++#include "fx_probe_log.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -58,8 +61,28 @@
+ //-----------------------------------------------------------------------------
+ // Computes the four verts to draw the tracer with
+ //-----------------------------------------------------------------------------
++static bool Tracer_ComputeVerts_Stock( const Vector &start, const Vector &delta, float width, Vector *pVerts );
++
+ bool Tracer_ComputeVerts( const Vector &start, const Vector &delta, float width, Vector *pVerts )
+ {
++	static int s_nRows = 0;
++	const bool bRet = Tracer_ComputeVerts_Stock( start, delta, width, pVerts );
++	if ( s_nRows < 6000 )
++	{
++		s_nRows++;
++		if ( bRet )
++			FxProbeLog( "trv\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t1\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++			            start.x, start.y, start.z, delta.x, delta.y, delta.z, width,
++			            pVerts[0].x, pVerts[0].y, pVerts[0].z, pVerts[1].x, pVerts[1].y, pVerts[1].z,
++			            pVerts[2].x, pVerts[2].y, pVerts[2].z, pVerts[3].x, pVerts[3].y, pVerts[3].z );
++		else
++			FxProbeLog( "trv\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t0", start.x, start.y, start.z, delta.x, delta.y, delta.z, width );
++	}
++	return bRet;
++}
++
++static bool Tracer_ComputeVerts_Stock( const Vector &start, const Vector &delta, float width, Vector *pVerts )
++{
+ 	Vector clippedStart, clippedDelta;
+ 
+ 	// Clip the tracer

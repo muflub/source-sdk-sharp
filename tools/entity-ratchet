@@ -1,0 +1,926 @@
+#!/usr/bin/env python3
+"""tools/entity-ratchet -- plan_entity.md step 8c: the census, the three gates
+and the crossing budget, as one `make test` leg.
+
+    tools/entity-ratchet              measure and compare; non-zero on regression
+    tools/entity-ratchet --write      re-take docs/entity-ratchet.tsv (LOWER only)
+    tools/entity-ratchet --write --allow-regression
+                                      ... and let a row RISE, deliberately
+    tools/entity-ratchet --self-test  check that this script can fail
+
+WHY THIS IS NOT "tools/entity-gates EXITS 0"
+============================================
+
+tools/entity-gates answers "is the port finished?" and its own header says
+every gate FAILS today, by design. A leg wired to its exit code would be red
+from the day it landed until the day the port ends, which is a leg nobody can
+keep green and therefore a leg everybody learns to ignore. That is not a gate,
+it is a broken window.
+
+tools/entity-census is the opposite shape: it fails on ANY drift, up or down,
+and is re-taken with --write. That one IS usable as a leg and is run as-is.
+
+So the gates become a RATCHET instead. Every gated row of `entity-gates --tsv`
+is recorded in docs/entity-ratchet.tsv, and the leg fails when a row goes UP.
+Red on regression, green on progress:
+
+    server 32 -> 33 casts     FAIL   a cast came back
+    server 32 -> 31 casts     pass   and --write records the new floor
+
+That is the direction plan_entity.md §5 asks for -- "each phase may only lower
+it" -- applied to the three gates rather than only to the crossing budget.
+
+WHAT STOPS THE RATCHET BEING WOUND BACK
+=======================================
+
+A ratchet whose baseline anybody can raise is a comment. Three things:
+
+  * `--write` REFUSES to raise a row. Lowering needs nothing; raising needs
+    `--allow-regression` on the command line, which is one grep away in a diff.
+  * A row `entity-gates` produces and the baseline does not name FAILS, and so
+    does a row the baseline names and the gates did not produce. So a regression
+    cannot be hidden by deleting its row, and a gate that silently stopped being
+    measured is not a pass. (This is also what stops somebody lowering the leg's
+    floor by shortening the baseline: tools/leg-floor sizes this leg from the
+    baseline's row count, and a shorter baseline is a failing run.)
+  * BOTH SIDES are compared. A check that only looked at the server column
+    would be half a check, and every row here has two numbers.
+
+WHAT THIS LEG DELIBERATELY DOES NOT DO
+======================================
+
+It does NOT run the live gate and it does NOT enforce a crossing COUNT. It
+cannot: a crossing count needs a game, a map and five minutes, and
+tools/live-gate-budget.tsv's own header records that the same unchanged build
+measured `projectile` at 35.349 and at 221.043 per frame an hour apart -- 6.3x,
+on every rate row together. A budget that cannot resolve a regression under 2x
+does not belong on a hair trigger in `make test`, and three live-gate steps are
+red today for known, root-caused reasons (STATE.md: 7a's dust row, 7e's
+soundscapes, the residual prop-fall). A leg that went red for those would be
+re-run until it passed, which is how a gate becomes a coin flip.
+
+What it enforces about the budget is everything that does NOT need a game --
+the file's own arithmetic and its agreement with tools/live-gate:
+
+  * every stage tools/live-gate runs has a row, and every row is a stage it runs
+  * ceiling_per_frame is exactly recorded_per_frame*1.5+10
+  * ceiling_total is NOT ABOVE total_max*1.5+200, clamped up by SHORT_STAGE_FLOOR
+    -- this is the one that catches a ceiling widened by hand, which is the
+    only way §5's ratchet gets defeated without a measurement
+  * recorded_per_frame really is recorded_total/recorded_frames
+  * gated_on agrees with recorded_frames against MIN_FRAMES_FOR_RATE
+  * total_min <= recorded_total <= total_max, samples >= 1, and no ceiling below
+    the largest total the row itself records
+
+EVERY CONSTANT IN THAT LIST IS IMPORTED FROM tools/live-gate, never copied.
+1.5, 10, 200, 20, 4 and SHORT_STAGE_FLOOR are read out of that module at run
+time, so the two files cannot drift apart -- and the self-test asserts the
+values it got are the values the source spells, from a second, independent
+reading of the file.
+
+WHY A BUILT TREE IS REQUIRED, AND WHY THAT IS NOT A SKIP
+========================================================
+
+entity-gates and entity-census read game/mod_sharp/bin/linux64/*.so and the
+CMake build (build/compile_commands.json, build/build.ninja), in
+farm/<config> (see FARM below).
+Both are build output; a checkout that has never been built has neither. So
+does the `native` leg (it cannot link without the farm's
+src/lib/public/linux64/tier1.a), and this leg behaves the same way:
+it FAILS, loudly, naming the build command. It never reports NOT MEASURED and
+it never exits 0 having measured nothing -- a tool that answers "clean" to an
+unbuilt tree is the false green tools/run-test-legs exists to refuse.
+
+EXIT 1 FROM entity-gates IS EXPECTED AND IS NOT AN ERROR. Its header defines
+three exit codes: 0 all gates pass, 1 a gate failed, 2 could not measure. Only
+2 is fatal here. Reading 1 as a failure is the mistake this whole file avoids.
+"""
+import collections
+import importlib.machinery
+import importlib.util
+import io
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
+sys.path.insert(0, HERE)
+import cmakegraph  # noqa: E402
+
+# The tree that is MEASURED is not this one. entity-gates and entity-census read
+# build/ (the CMake binary dir) and game/mod_sharp/bin/linux64 relative to where
+# they run -- the build's own view -- and only the farm has that view:
+# farm/<config>/build is where CMake and ninja ran, and its game/mod_sharp is
+# the compat link to bin/<config>/mods/test. So they run there, and the deploy
+# edges are resolved there. The baseline, the tools and live-gate are this
+# repo's. The baseline was measured on debug; SOURCESHARP_CONFIG=release
+# measures farm/release, whose -O2 counts are not the baseline's.
+CONFIG = os.environ.get('SOURCESHARP_CONFIG') or 'debug'
+FARM = os.path.join(ROOT, 'farm', CONFIG)
+
+BASELINE = 'docs/entity-ratchet.tsv'
+GATES = 'tools/entity-gates'
+BUILD = 'build'       # the CMake binary dir, relative to FARM
+CENSUS = 'tools/entity-census'
+LIVE_GATE = 'tools/live-gate'
+
+# Roles entity-gates emits. `verdict` rows are derived from the others and
+# carry no numbers, so they are not baselined; `gate` and `reconcile` both are.
+# reconcile rows are ratcheted too: they are the SAME population read a looser
+# way, so one of them rising is the same regression seen through a wider lens.
+RATCHETED_ROLES = ('gate', 'reconcile')
+
+
+class CannotMeasure(Exception):
+    """Nothing was measured. Never report a clean tree from one of these."""
+
+
+# ---------------------------------------------------------------------------
+# tools/live-gate, imported rather than re-typed.
+# ---------------------------------------------------------------------------
+def load_live_gate(path=None):
+    path = path or os.path.join(ROOT, LIVE_GATE)
+    if not os.path.isfile(path):
+        raise CannotMeasure('no %s -- the crossing budget has no owner to '
+                            'check it against' % LIVE_GATE)
+    loader = importlib.machinery.SourceFileLoader('_ss_live_gate', path)
+    spec = importlib.util.spec_from_loader('_ss_live_gate', loader)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        loader.exec_module(module)
+    except Exception as exc:                       # pragma: no cover - defensive
+        raise CannotMeasure('cannot import %s (%s)' % (LIVE_GATE, exc))
+    for want in ('MIN_FRAMES_FOR_RATE', 'SHORT_STAGE_FLOOR', 'ceiling_for',
+                 'ceiling_total_for', 'read_budget', 'ALL_STEPS', 'BUDGET'):
+        if not hasattr(module, want):
+            raise CannotMeasure(
+                '%s no longer defines %s. The budget checks are built out of '
+                'that module on purpose -- a copy of the formula here would '
+                'drift from the one that records it.' % (LIVE_GATE, want))
+    return module
+
+
+# ---------------------------------------------------------------------------
+# WHICH BUILD ARE THESE COUNTS OFF? -- the precondition, and it is not academic.
+#
+# entity-gates and entity-census read the TU list from the DEBUG object table
+# and the nm counts from game/mod_sharp/bin/linux64/*.so. Those are two
+# different things and nothing made them agree. In the old single tree
+# `src/buildsourcesharp release` deployed to the SAME directory, at -O2, and
+# stripped the debug info out of what it left there -- so a release build
+# followed by `make test` would compare
+# release nm counts against a debug baseline and against a debug TU list, and
+# the leg would go red with hundreds of movement in rows nobody touched.
+#
+# That is a MISLEADING RED, which this project has already paid for once: the
+# live gate's failures were being misattributed for a week (STATE.md). A red
+# that names the wrong cause is worse than a red that says "I could not
+# measure", so this says the latter.
+#
+# The build itself carries the answer -- each DLL's link edge in build.ninja
+# names the file it links (build/out/server.so) and its POST_BUILD deploy step
+# the directory it copies it to -- so the deployed file and the file the object
+# table describes are compared by GNU build-id, which is exact and costs
+# nothing (readelf -n reads only the note sections). Each configuration has its
+# own build dir and its own bin/<config> now, so the old failure (a release
+# build deployed over the debug one) cannot happen the old way; the check
+# stays, because "the DLL under test is the one this object table describes"
+# is still the precondition and a stale deploy still breaks it.
+#
+# EVERY deployed target is checked, not only the two DLLs the gates read. All
+# three come out of one build, so one of them disagreeing means the deployed
+# tree is not this build -- and picking out "the two that matter" would mean a
+# second, hand-written copy of the paths entity-gates already defaults to,
+# which is the drift a single source of truth exists to prevent.
+#
+# It RAISES rather than reporting a failed check. Every number after it would
+# be measured on the wrong binary, so reporting them at all would be inventing
+# evidence. And it is deliberately NOT also printed as a passing row: a row
+# that can only ever be green is the check-that-cannot-fail this tree has found
+# two dozen of.
+# ---------------------------------------------------------------------------
+DEPLOYED_TARGETS = (cmakegraph.SERVER, cmakegraph.CLIENT, cmakegraph.HOST)
+
+
+def deploy_edges(bdir):
+    """-> [(deployed path, linked path)], absolute, one per deployed target.
+
+    A target whose link edge or deploy step cannot be read is refused: a
+    MISSING deploy is exactly what this check exists to catch.
+    """
+    try:
+        return [(cmakegraph.deployed_so(t, bdir), cmakegraph.link_edge(t, bdir)['output'])
+                for t in DEPLOYED_TARGETS]
+    except cmakegraph.GraphError as exc:
+        raise CannotMeasure('%s. Build first:  make debug' % exc)
+
+
+def build_id(path):
+    """The GNU build-id of an ELF file, or None if it has none."""
+    try:
+        proc = subprocess.run(['readelf', '-n', path], stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, universal_newlines=True)
+    except OSError as exc:
+        raise CannotMeasure('cannot run readelf (%s)' % exc)
+    found = re.search(r'Build ID: ([0-9a-f]+)', proc.stdout)
+    return found.group(1) if found else None
+
+
+def check_deployed_is_this_build(edges, id_of):
+    """-> how many binaries agreed. Anything else raises."""
+    if not edges:
+        raise CannotMeasure(
+            'no deploy edge in %s/build.ninja, so nothing here can tell which '
+            'build the DLLs under test came from. An unchecked deployment is how a '
+            'release binary gets compared against a debug baseline.' % BUILD)
+    for deployed, linked in edges:
+        theirs, ours = id_of(deployed), id_of(linked)
+        if ours is None:
+            raise CannotMeasure(
+                '%s has no GNU build-id, so the deployed binary cannot be '
+                'identified. Build first:  make debug' % linked)
+        if theirs is None:
+            raise CannotMeasure(
+                '%s has no GNU build-id -- it is missing, stripped past its '
+                'notes, or not an ELF file at all. Build first:  '
+                'make debug' % deployed)
+        if theirs != ours:
+            raise CannotMeasure(
+                '%s (build-id %s) is NOT the binary %s describes (%s). The '
+                'gates read the TU list from this build and the symbol '
+                'counts from the deployed file, so every count would be off a '
+                'different build -- a stale or foreign deploy. Re-deploy:  '
+                'make debug'
+                % (deployed, theirs[:12], linked, ours[:12]))
+    return len(edges)
+
+
+# ---------------------------------------------------------------------------
+# The gate rows.
+# ---------------------------------------------------------------------------
+GateRow = collections.namedtuple('GateRow', 'gate role metric srv cli')
+
+
+def parse_gate_tsv(text):
+    """`entity-gates --tsv` output -> {(gate, role, metric): GateRow}.
+
+    A LINE THIS CANNOT PARSE IS AN ERROR, never a skip. tools/live-gate's own
+    budget reader records why: the reader that skipped a row it did not
+    understand turned a schema change into an EMPTY budget that gated nothing
+    and still exited 0. Same trap, same treatment.
+    """
+    rows = {}
+    for number, line in enumerate(text.splitlines(), 1):
+        line = line.rstrip('\n')
+        if not line.strip():
+            continue
+        parts = line.split('\t')
+        if len(parts) != 6:
+            raise CannotMeasure(
+                '%s --tsv line %d has %d column(s), not 6: %r. The row schema '
+                'is gate/role/metric/server/client/verdict; a line this cannot '
+                'read is refused rather than skipped, because a reader that '
+                'skips what it does not understand reports an empty tree as a '
+                'clean one.' % (GATES, number, len(parts), line))
+        gate, role, metric, srv, cli, _verdict = parts
+        if role not in RATCHETED_ROLES:
+            continue
+        try:
+            row = GateRow(gate, role, metric, int(srv), int(cli))
+        except ValueError:
+            raise CannotMeasure(
+                '%s --tsv line %d has a non-numeric count: %r' % (GATES, number, line))
+        key = (gate, role, metric)
+        if key in rows:
+            raise CannotMeasure(
+                '%s --tsv names the row %r twice. The baseline is keyed on it, '
+                'so a duplicate would silently ratchet only one of the two.'
+                % (GATES, key))
+        rows[key] = row
+    return rows
+
+
+def run_gates(argv=None):
+    """The production measurement. Exit 1 is a FAILING GATE, not an error."""
+    cmd = [os.path.join(ROOT, GATES), '--tsv'] + list(argv or [])
+    try:
+        proc = subprocess.run(cmd, cwd=FARM, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, universal_newlines=True)
+    except OSError as exc:
+        raise CannotMeasure('cannot run %s (%s)' % (GATES, exc))
+    if proc.returncode not in (0, 1):
+        raise CannotMeasure(
+            '%s exited %d (its exit 2 means "nothing was measured"):\n%s\n'
+            'Build first:  make debug'
+            % (GATES, proc.returncode, proc.stderr.strip()))
+    rows = parse_gate_tsv(proc.stdout)
+    if not rows:
+        raise CannotMeasure(
+            '%s --tsv produced no gated rows at all. Every comparison below '
+            'would then pass for the reason an empty scan is always clean.'
+            % GATES)
+    return rows
+
+
+def read_baseline(path):
+    text = None
+    try:
+        with open(path, encoding='utf-8') as handle:
+            text = handle.read()
+    except OSError as exc:
+        raise CannotMeasure(
+            'no ratchet baseline at %s (%s). Take one with '
+            '`tools/entity-ratchet --write`.' % (path, exc))
+    rows = {}
+    for number, line in enumerate(text.splitlines(), 1):
+        line = line.rstrip('\n')
+        if not line.strip() or line.startswith('#'):
+            continue
+        parts = line.split('\t')
+        if len(parts) != 5:
+            raise CannotMeasure(
+                '%s line %d has %d column(s), not 5: %r' % (path, number, len(parts), line))
+        gate, role, metric, srv, cli = parts
+        try:
+            rows[(gate, role, metric)] = GateRow(gate, role, metric, int(srv), int(cli))
+        except ValueError:
+            raise CannotMeasure('%s line %d has a non-numeric count: %r'
+                                % (path, number, line))
+    if not rows:
+        raise CannotMeasure(
+            '%s names no rows. An empty baseline makes every comparison below '
+            'vacuous, so it is refused rather than treated as "nothing to '
+            'check".' % path)
+    return rows
+
+
+BASELINE_HEADER = """\
+# docs/entity-ratchet.tsv -- the RATCHET FLOOR for plan_entity.md's three gates.
+#
+# Written by `tools/entity-ratchet --write`, checked by `tools/entity-ratchet`,
+# run as the `entity` leg of `make test`. Read that tool's header first.
+#
+# One row per gated (and per reconciliation) row of `tools/entity-gates --tsv`.
+# The leg FAILS when a number here goes UP, and passes when it goes down --
+# plan_entity.md §5's "each phase may only lower it", applied to the gates.
+#
+# HOW TO CHANGE IT
+#   you made a number smaller   tools/entity-ratchet --write     (no ceremony)
+#   you made a number BIGGER    that is the regression this file exists to
+#                               catch. `--write` refuses; `--write
+#                               --allow-regression` does it and the diff shows
+#                               exactly which row you widened and by how much.
+#
+# MERGING TWO LANES' VERSIONS OF THIS FILE: do not resolve it by hand and do
+# not keep both. It is a MEASUREMENT, not a list of claims -- the shape the
+# lane brief warns about, where two lanes each move one number and keep-both
+# leaves a row that was never true of any tree. Take the merge, build, and run
+# `tools/entity-ratchet --write`; the tool refuses to write a row that went up,
+# so a resolution that hid a regression cannot be committed by accident.
+#
+# These are the numbers the port drives to ZERO. Every one of them reaching 0
+# is the definition of done, and on that day `tools/entity-gates` exits 0 and
+# this file is a list of zeroes.
+#
+# columns:
+# gate\trole\tmetric\tserver\tclient
+"""
+
+
+def write_baseline(path, rows):
+    order = sorted(rows.values(), key=lambda r: (r.gate, r.role, r.metric))
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(BASELINE_HEADER)
+        for row in order:
+            handle.write('%s\t%s\t%s\t%d\t%d\n'
+                         % (row.gate, row.role, row.metric, row.srv, row.cli))
+
+
+def gate_checks(observed, baseline):
+    """-> [(label, ok, detail)], one per row plus the two set checks. PURE.
+
+    Both sides of every row are compared. A row present on one side only is a
+    failure with a name, not a silently dropped comparison.
+    """
+    out = []
+
+    missing = sorted(set(baseline) - set(observed))
+    out.append((
+        'every baselined row was measured', not missing,
+        'the baseline names %d row(s) %s did not produce: %s'
+        % (len(missing), GATES, '; '.join('%s/%s/%s' % k for k in missing[:6]))
+        if missing else '%d rows' % len(baseline)))
+
+    extra = sorted(set(observed) - set(baseline))
+    out.append((
+        'every measured row is baselined', not extra,
+        '%s produced %d row(s) the baseline does not name, so nothing '
+        'ratchets them: %s. Re-take with --write.'
+        % (GATES, len(extra), '; '.join('%s/%s/%s' % k for k in extra[:6]))
+        if extra else '%d rows' % len(observed)))
+
+    for key in sorted(set(observed) & set(baseline)):
+        now, was = observed[key], baseline[key]
+        rose = []
+        if now.srv > was.srv:
+            rose.append('server %d -> %d (+%d)' % (was.srv, now.srv, now.srv - was.srv))
+        if now.cli > was.cli:
+            rose.append('client %d -> %d (+%d)' % (was.cli, now.cli, now.cli - was.cli))
+        label = 'gate %s %s: %s' % (key[0], key[1], key[2])
+        if rose:
+            out.append((label, False,
+                        'ROSE -- ' + ', '.join(rose)
+                        + '. A gated number may only go DOWN (plan_entity.md §5).'))
+        elif now.srv < was.srv or now.cli < was.cli:
+            out.append((label, True,
+                        'improved %d/%d -> %d/%d; re-take with --write'
+                        % (was.srv, was.cli, now.srv, now.cli)))
+        else:
+            out.append((label, True, 'held at %d/%d' % (now.srv, now.cli)))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# The crossing budget: the half that needs no game.
+# ---------------------------------------------------------------------------
+Consts = collections.namedtuple(
+    'Consts', 'min_frames_for_rate short_stage_floor ceiling_for ceiling_total_for')
+
+
+def consts_from(module):
+    return Consts(module.MIN_FRAMES_FOR_RATE, dict(module.SHORT_STAGE_FLOOR),
+                  module.ceiling_for, module.ceiling_total_for)
+
+
+def budget_row_issues(stage, row, consts):
+    """Everything wrong with one budget row, as sentences. PURE.
+
+    The formula cap is the load-bearing one: `ceiling_total` may sit BELOW
+    total_max*1.5+200 (tools/live-gate keeps an existing ceiling when a raise
+    is unearned) but it may never sit above it, because that is a limit
+    relaxed rather than a measurement corrected -- exactly what §5 forbids.
+    """
+    bad = []
+    if row.frames < 1:
+        bad.append('recorded_frames %d' % row.frames)
+        return bad
+    if row.samples < 1:
+        bad.append('samples %d: a row resting on no measurement' % row.samples)
+    want_gated = 'rate' if row.frames >= consts.min_frames_for_rate else 'total'
+    if row.gated_on != want_gated:
+        bad.append('gated_on=%s on %d frames; MIN_FRAMES_FOR_RATE=%d says %s'
+                   % (row.gated_on, row.frames, consts.min_frames_for_rate, want_gated))
+    rate = round(row.total / float(row.frames), 3)
+    if round(row.rate, 3) != rate:
+        bad.append('recorded_per_frame %s but %d/%d = %s'
+                   % (row.rate, row.total, row.frames, rate))
+    # THE FORMULA IS APPLIED TO THE FULL-PRECISION RATE, not to the rounded
+    # one in the file. tools/live-gate computes ceiling_for(rate) from
+    # total/frames and only THEN rounds `rate` to three places for the column,
+    # so four of today's twenty rows differ in the last decimal from the
+    # ceiling the rounded column would give -- hot-reload, map-reload,
+    # save-load and second-client. Comparing against the rounded column would
+    # make this check fail on an untouched file, which is how a real invariant
+    # gets deleted. TOLERANCE 0.001: one unit in the last recorded place. A
+    # ceiling widened by hand moves by tens, never by a thousandth.
+    want_rate_ceiling = consts.ceiling_for(row.total / float(row.frames))
+    if abs(row.ceiling_rate - want_rate_ceiling) > 0.001:
+        bad.append('ceiling_per_frame %s but the formula on %d/%d gives %s'
+                   % (row.ceiling_rate, row.total, row.frames,
+                      round(want_rate_ceiling, 3)))
+    cap = consts.ceiling_total_for(max(row.total_max,
+                                       consts.short_stage_floor.get(stage, 0)))
+    if row.ceiling_total > cap:
+        bad.append('ceiling_total %d is ABOVE the %d the formula allows for '
+                   'total_max=%d -- a limit relaxed, not a measurement corrected'
+                   % (row.ceiling_total, cap, row.total_max))
+    if row.ceiling_total < row.total_max:
+        bad.append('ceiling_total %d is below total_max %d -- the row fails on '
+                   'its own recorded sample' % (row.ceiling_total, row.total_max))
+    if not row.total_min <= row.total <= row.total_max:
+        bad.append('recorded_total %d is outside total_min..total_max %d..%d'
+                   % (row.total, row.total_min, row.total_max))
+    return bad
+
+
+def budget_checks(budget, stages, consts):
+    """-> [(label, ok, detail)], the two set checks plus one per row. PURE."""
+    out = []
+    missing = [s for s in stages if s not in budget]
+    out.append((
+        'every live-gate stage has a budget row', not missing,
+        'tools/live-gate runs %s with no row in the budget, so they are '
+        'ungated' % ', '.join(missing) if missing
+        else '%d stages' % len(stages)))
+    extra = [s for s in sorted(budget) if s not in stages]
+    out.append((
+        'every budget row is a live-gate stage', not extra,
+        'the budget gates %s, which tools/live-gate does not run' % ', '.join(extra)
+        if extra else '%d rows' % len(budget)))
+    for stage in sorted(budget):
+        issues = budget_row_issues(stage, budget[stage], consts)
+        out.append(('budget %s' % stage, not issues,
+                    '; '.join(issues) if issues
+                    else 'gated_on=%s, ceiling %s/frame, %d total'
+                         % (budget[stage].gated_on, budget[stage].ceiling_rate,
+                            budget[stage].ceiling_total)))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# The census: run as-is. It is already a diff against a committed baseline.
+# ---------------------------------------------------------------------------
+def census_check():
+    cmd = [os.path.join(ROOT, CENSUS)]
+    try:
+        proc = subprocess.run(cmd, cwd=FARM, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, universal_newlines=True)
+    except OSError as exc:
+        raise CannotMeasure('cannot run %s (%s)' % (CENSUS, exc))
+    if proc.returncode == 2:
+        raise CannotMeasure('%s could not measure: %s\nBuild first:  '
+                            'make debug'
+                            % (CENSUS, proc.stderr.strip()))
+    if proc.returncode == 0:
+        return [('census agrees with docs/entity-census.txt', True,
+                 proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else 'exit 0')]
+    detail = (proc.stdout + proc.stderr).strip().splitlines()
+    if len(detail) > 30:
+        detail = detail[:30] + ['... %d more lines; run `make entity-census`'
+                                % (len(detail) - 30)]
+    return [('census agrees with docs/entity-census.txt', False,
+             '\n      '.join(detail))]
+
+
+# ---------------------------------------------------------------------------
+# The run.
+# ---------------------------------------------------------------------------
+def report(results, out=sys.stdout):
+    failed = 0
+    for label, ok, detail in results:
+        out.write('  %-5s %s%s\n' % ('ok' if ok else 'FAIL', label,
+                                     ('   -- ' + detail) if detail else ''))
+        if not ok:
+            failed += 1
+    out.write('  ==> %d checks, %d failed\n' % (len(results), failed))
+    return failed
+
+
+def measure():
+    """Every section runs, whatever the ones before it did."""
+    live = load_live_gate()
+    agreed = check_deployed_is_this_build(deploy_edges(os.path.join(FARM, BUILD)), build_id)
+    print('    %d deployed DLL(s) carry the build-id %s/build.ninja describes'
+          % (agreed, BUILD))
+    results = []
+    results += census_check()
+    results += gate_checks(run_gates(), read_baseline(os.path.join(ROOT, BASELINE)))
+    results += budget_checks(live.read_budget(live.BUDGET),
+                             [s[0] for s in live.ALL_STEPS], consts_from(live))
+    return results
+
+
+def do_write(allow_regression):
+    path = os.path.join(ROOT, BASELINE)
+    observed = run_gates()
+    try:
+        old = read_baseline(path)
+    except CannotMeasure:
+        old = {}
+    rose = []
+    for key, row in sorted(observed.items()):
+        was = old.get(key)
+        if was is None:
+            continue
+        if row.srv > was.srv or row.cli > was.cli:
+            rose.append('%s/%s/%s  %d/%d -> %d/%d'
+                        % (key[0], key[1], key[2], was.srv, was.cli, row.srv, row.cli))
+    if rose and not allow_regression:
+        sys.stderr.write(
+            'entity-ratchet: REFUSING to write. %d row(s) would go UP:\n'
+            % len(rose))
+        for line in rose:
+            sys.stderr.write('    %s\n' % line)
+        sys.stderr.write(
+            '  A gated number going up is the regression this file exists to\n'
+            '  catch (plan_entity.md §5: each phase may only lower it). If the\n'
+            '  rise is real and intended, say so on the command line:\n'
+            '      tools/entity-ratchet --write --allow-regression\n'
+            '  and the diff will show exactly which row you widened.\n')
+        return 1
+    write_baseline(path, observed)
+    print('entity-ratchet: wrote %s (%d rows%s)'
+          % (BASELINE, len(observed),
+             ', %d RAISED deliberately' % len(rose) if rose else ''))
+    return 0
+
+
+def main(argv):
+    os.chdir(FARM)
+    allow = '--allow-regression' in argv
+    argv = [a for a in argv if a != '--allow-regression']
+    if argv and argv[0] in ('-h', '--help'):
+        sys.stderr.write(__doc__.split('\n\n')[0].strip() + '\n')
+        return 2
+    if argv and argv[0] == '--write':
+        try:
+            return do_write(allow)
+        except CannotMeasure as exc:
+            sys.stderr.write('entity-ratchet: %s\n' % exc)
+            return 2
+    if argv:
+        sys.stderr.write('entity-ratchet: unknown argument %r\n' % argv[0])
+        return 2
+    print('==> tools/entity-ratchet -- census, the three gates, the crossing budget')
+    try:
+        results = measure()
+    except CannotMeasure as exc:
+        # NOT a skip, NOT a zero-check pass. tools/run-test-legs would read a
+        # silent exit as NO TESTS; this says what went wrong and fails.
+        sys.stderr.write('entity-ratchet: NOTHING WAS MEASURED: %s\n' % exc)
+        return 2
+    return 1 if report(results) else 0
+
+
+# ===========================================================================
+# Self-test.
+#
+# The dangerous result for a ratchet is a PASS, so every check below is
+# written as a pair: the good input passes, and one deliberately broken input
+# FAILS. A comparison that only ever saw agreeing numbers would be green on a
+# tree with a cast planted in it, which is the one thing step 8c's gate asks
+# this leg to catch.
+#
+# The fixture transcripts are CAPTURED, not printed. report() writes lines
+# that look exactly like the production ones, and a fixture's "3 checks, 2
+# failed" left on stdout would be summed into this leg's own count by
+# tools/run-test-legs -- the fixture-summary bug tools/leg-floor and
+# tools/checkers both carry a guard against. The last check here is that guard.
+# ===========================================================================
+def self_test():
+    import tempfile
+
+    checks = failed = 0
+    transcripts = []
+
+    def ck(label, cond, detail=''):
+        nonlocal checks, failed
+        checks += 1
+        print('  %-5s %s%s' % ('ok' if cond else 'FAIL', label,
+                               ('   -- ' + detail) if detail else ''))
+        if not cond:
+            failed += 1
+
+    def quiet(results):
+        """report() a fixture's results with stdout HELD BACK, and hand the
+        results straight back so a check can look at them."""
+        buf = io.StringIO()
+        report(results, out=buf)
+        transcripts.append(buf.getvalue())
+        return results
+
+    def fails(results):
+        return [(l, d) for l, ok, d in results if not ok]
+
+    def refused(fn, *a):
+        try:
+            fn(*a)
+        except CannotMeasure:
+            return True
+        return False
+
+    print('==> tools/entity-ratchet self-test')
+
+    # -- the gate row parser -------------------------------------------------
+    GOOD = ('1\tgate\tmembers\t10\t20\tFAIL\n'
+            '3\treconcile\tToEngineIface\t5\t6\t-\n'
+            '1\tverdict\tbase entity\t-\t-\tFAIL\n')
+    rows = parse_gate_tsv(GOOD)
+    ck('the parser keeps gate rows', ('1', 'gate', 'members') in rows)
+    ck('the parser keeps reconcile rows too -- the same population, read loosely',
+       ('3', 'reconcile', 'ToEngineIface') in rows)
+    ck('the parser drops verdict rows, which carry no numbers', len(rows) == 2,
+       'got %d' % len(rows))
+    ck('a line the parser cannot read is REFUSED, not skipped',
+       refused(parse_gate_tsv, '1\tgate\tshort\t3\n'))
+    ck('a non-numeric count is refused', refused(parse_gate_tsv, '1\tgate\tm\tx\t2\tFAIL\n'))
+    ck('a duplicated row is refused -- the baseline is keyed on it',
+       refused(parse_gate_tsv, GOOD + '1\tgate\tmembers\t10\t20\tFAIL\n'))
+
+    # -- the ratchet ---------------------------------------------------------
+    base = parse_gate_tsv(GOOD)
+    ck('an unchanged tree passes', not fails(quiet(gate_checks(base, base))),
+       'without this the six checks below pass for the wrong reason')
+
+    up_s = parse_gate_tsv('1\tgate\tmembers\t11\t20\tFAIL\n'
+                          '3\treconcile\tToEngineIface\t5\t6\t-\n')
+    got = fails(quiet(gate_checks(up_s, base)))
+    ck('a SERVER number that rose fails', len(got) == 1 and 'server 10 -> 11' in got[0][1],
+       repr(got))
+
+    up_c = parse_gate_tsv('1\tgate\tmembers\t10\t21\tFAIL\n'
+                          '3\treconcile\tToEngineIface\t5\t6\t-\n')
+    got = fails(quiet(gate_checks(up_c, base)))
+    ck('a CLIENT number that rose fails -- both columns are compared',
+       len(got) == 1 and 'client 20 -> 21' in got[0][1], repr(got))
+
+    up_r = parse_gate_tsv('1\tgate\tmembers\t10\t20\tFAIL\n'
+                          '3\treconcile\tToEngineIface\t6\t6\t-\n')
+    ck('a RECONCILE row that rose fails as well', len(fails(quiet(gate_checks(up_r, base)))) == 1)
+
+    down = parse_gate_tsv('1\tgate\tmembers\t9\t20\tFAIL\n'
+                          '3\treconcile\tToEngineIface\t5\t6\t-\n')
+    res = quiet(gate_checks(down, base))
+    ck('a number that FELL passes -- red on regression, green on progress',
+       not fails(res) and any('improved' in d for _l, _ok, d in res), repr(fails(res)))
+
+    gone = parse_gate_tsv('1\tgate\tmembers\t10\t20\tFAIL\n')
+    got = fails(quiet(gate_checks(gone, base)))
+    ck('a baselined row the gates stopped producing fails',
+       any('did not produce' in d for _l, d in got), repr(got))
+
+    new = parse_gate_tsv(GOOD + '3\tgate\tbrand-new-family\t7\t8\tFAIL\n')
+    got = fails(quiet(gate_checks(new, base)))
+    ck('a measured row the baseline does not name fails -- a regression cannot '
+       'be hidden by deleting its row',
+       any('does not name' in d for _l, d in got), repr(got))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        empty = os.path.join(tmp, 'empty.tsv')
+        with open(empty, 'w') as handle:
+            handle.write('# only a comment\n')
+        ck('an EMPTY baseline is refused, not treated as nothing to check',
+           refused(read_baseline, empty))
+        ck('a missing baseline is refused', refused(read_baseline, os.path.join(tmp, 'nope')))
+        round_trip = os.path.join(tmp, 'rt.tsv')
+        write_baseline(round_trip, base)
+        ck('--write and the reader agree on the format', read_baseline(round_trip) == base,
+           'a baseline this tool cannot read back is a ratchet with no floor')
+
+    # -- the budget ----------------------------------------------------------
+    live = load_live_gate()
+    real = consts_from(live)
+    Row = live.BudgetRow
+
+    def row(**kw):
+        d = dict(ceiling_rate=160.0, ceiling_total=1700, gated_on='total',
+                 rate=100.0, total=1000, frames=10, samples=5,
+                 total_min=900, total_max=1000)
+        d.update(kw)
+        return Row(**d)
+
+    ck('a well-formed budget row passes', not budget_row_issues('x', row(), real),
+       'without this every budget check below passes for the wrong reason')
+
+    ck('a ceiling_total ABOVE the formula fails -- the only way §5 is defeated '
+       'without a measurement',
+       any('ABOVE' in i for i in budget_row_issues('x', row(ceiling_total=1701), real)),
+       repr(budget_row_issues('x', row(ceiling_total=1701), real)))
+    ck('and one BELOW it passes -- live-gate keeps an unearned raise off',
+       not budget_row_issues('x', row(ceiling_total=1400), real))
+    ck('a ceiling_total below total_max fails on the row\'s own sample',
+       any('below total_max' in i for i in budget_row_issues('x', row(ceiling_total=900, total=900, total_min=900), real)))
+    ck('a ceiling_per_frame off the formula fails',
+       any('ceiling_per_frame' in i for i in budget_row_issues('x', row(ceiling_rate=999.0), real)))
+    ck('recorded_per_frame that is not total/frames fails',
+       any('recorded_per_frame' in i for i in budget_row_issues('x', row(rate=42.0, ceiling_rate=73.0), real)))
+    ck('gated_on disagreeing with recorded_frames fails',
+       any('gated_on' in i for i in budget_row_issues('x', row(gated_on='rate'), real)))
+    ck('recorded_total outside total_min..total_max fails',
+       any('outside' in i for i in budget_row_issues('x', row(total_max=900, ceiling_total=1550), real)))
+    ck('samples of 0 fails -- a ceiling resting on no measurement',
+       any('samples' in i for i in budget_row_issues('x', row(samples=0), real)))
+
+    # SHORT_STAGE_FLOOR raises the cap for a named stage and only for it.
+    floor_stage = sorted(real.short_stage_floor)[0] if real.short_stage_floor else None
+    if floor_stage:
+        f = real.short_stage_floor[floor_stage]
+        cap = real.ceiling_total_for(f)
+        ck('SHORT_STAGE_FLOOR raises the cap for the stage it names',
+           not budget_row_issues(floor_stage, row(ceiling_total=cap), real)
+           and any('ABOVE' in i for i in budget_row_issues('x', row(ceiling_total=cap), real)),
+           '%s floor %d -> cap %d' % (floor_stage, f, cap))
+
+    # THE CONSTANTS ARE READ, NOT WRITTEN. Drive the same row through a stub
+    # whose formulas differ and require the verdict to follow the stub: if 1.5,
+    # 10 or 200 were spelled in this file the stub could not move it.
+    stub = Consts(9999, {}, lambda r: 0.0, lambda t: 0)
+    ck('the checks follow the constants they are GIVEN, so tools/live-gate '
+       'owns 1.5, 10, 200 and MIN_FRAMES_FOR_RATE',
+       bool(budget_row_issues('x', row(), stub))
+       and not budget_row_issues('x', row(), real),
+       'the same row is clean under live-gate\'s constants and dirty under a stub')
+
+    good_budget = {'a': row(), 'b': row()}
+    ck('a budget whose stages match live-gate\'s passes',
+       not fails(quiet(budget_checks(good_budget, ['a', 'b'], real))))
+    got = fails(quiet(budget_checks(good_budget, ['a', 'b', 'c'], real)))
+    ck('a live-gate stage with no budget row fails',
+       any('ungated' in d for _l, d in got), repr(got))
+    got = fails(quiet(budget_checks(good_budget, ['a'], real)))
+    ck('a budget row for a stage live-gate does not run fails',
+       any('does not run' in d for _l, d in got), repr(got))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        stale = os.path.join(tmp, 'six-column.tsv')
+        with open(stale, 'w') as handle:
+            handle.write('join\t365.929\t2691\t237.286\t1661\t7\n')
+        try:
+            live.read_budget(stale)
+            ok = False
+        except SystemExit:
+            ok = True
+        ck('a budget file in the OLD schema is refused by live-gate\'s own reader',
+           ok, 'this tool uses that reader rather than a second copy of it')
+
+    # -- which build is deployed ---------------------------------------------
+    fx = tempfile.mkdtemp(prefix='entity-ratchet-')
+    try:
+        def edge(target, out, dest):
+            return ('build %s: CXX_SHARED_LIBRARY_LINKER__%s_Debug a.o\n'
+                    '  POST_BUILD = cd x && cmake -DIN=%s -DDEST_DIR=%s -P deploy.cmake\n\n'
+                    % (out, target, out, dest))
+        with open(os.path.join(fx, 'build.ninja'), 'w') as handle:
+            handle.write(edge('server_sourcesharp', 'out/server.so', '/d')
+                         + 'build out/x.o: CXX_COMPILER__server_sourcesharp_Debug x.cpp\n'
+                         + edge('client_sourcesharp', 'out/client.so', '/d')
+                         + edge('sourcesharp', 'out/libmanaged_host.so', '/d'))
+        edges = deploy_edges(fx)
+        ck('the deploy edges come out of build.ninja: link output -> DEST_DIR',
+           edges == [('/d/server.so', os.path.join(fx, 'out/server.so')),
+                     ('/d/client.so', os.path.join(fx, 'out/client.so')),
+                     ('/d/libmanaged_host.so', os.path.join(fx, 'out/libmanaged_host.so'))],
+           repr(edges))
+        ck('a compile edge is not a deploy edge -- only a link edge names a deployment',
+           len(edges) == 3)
+        with open(os.path.join(fx, 'build.ninja'), 'w') as handle:
+            handle.write(edge('server_sourcesharp', 'out/server.so', '/d'))
+        ck('a build with a deployed target missing is refused, not half-checked',
+           refused(deploy_edges, fx))
+    finally:
+        import shutil
+        shutil.rmtree(fx)
+    ck('matching build-ids pass',
+       check_deployed_is_this_build(edges, lambda p: 'deadbeef') == 3)
+    ck('a DEPLOYED binary from a different build is refused, not compared',
+       refused(check_deployed_is_this_build, edges,
+               lambda p: 'aaaa' if p.startswith('/d/') else 'bbbb'))
+    ck('a binary with no build-id is refused',
+       refused(check_deployed_is_this_build, edges, lambda p: None))
+    ck('an empty deploy list is refused, not passed as "nothing to compare"',
+       refused(check_deployed_is_this_build, [], lambda p: 'x'))
+
+    # -- and the fixtures are not the tree -----------------------------------
+    #
+    # Every check above ran against a stand-in, and a stand-in drifts: rename a
+    # column tomorrow and all of them still pass while the real files stop
+    # being read at all. So the last block asks the REAL tree.
+    src = open(os.path.join(ROOT, LIVE_GATE), encoding='utf-8').read()
+    spelled = re.search(r'^MIN_FRAMES_FOR_RATE = (\d+)$', src, re.M)
+    ck('the imported MIN_FRAMES_FOR_RATE is the one tools/live-gate spells',
+       bool(spelled) and int(spelled.group(1)) == real.min_frames_for_rate,
+       'imported %s, source says %s' % (real.min_frames_for_rate,
+                                        spelled.group(1) if spelled else 'nothing'))
+
+    try:
+        real_base = read_baseline(os.path.join(ROOT, BASELINE))
+    except CannotMeasure as exc:
+        real_base = {}
+        print('  (baseline unreadable: %s)' % exc)
+    ck('the REAL ratchet baseline parses and names a serious number of rows',
+       len(real_base) >= 20, '%d rows' % len(real_base))
+
+    real_edges = deploy_edges(os.path.join(FARM, BUILD))
+    ck('the REAL build names its deployments and they carry this '
+       'build\'s id',
+       bool(real_edges) and check_deployed_is_this_build(real_edges, build_id)
+       == len(real_edges), '%d deploy edges' % len(real_edges))
+
+    real_budget = live.read_budget(live.BUDGET)
+    stages = [s[0] for s in live.ALL_STEPS]
+    ck('the REAL budget covers every live-gate stage and breaks no invariant',
+       not fails(quiet(budget_checks(real_budget, stages, real))),
+       '%d rows, %d stages' % (len(real_budget), len(stages)))
+
+    # The fixture-summary guard. report() above wrote lines that look exactly
+    # like production ones; they must have been HELD, not printed, or
+    # tools/run-test-legs would sum a fixture's "2 failed" into this leg. The
+    # count must be NON-ZERO: a guard that passes when nothing was captured is
+    # the vacuous green this file is against.
+    held = sum(len(re.findall(r'^  ==> \d+ checks?, \d+ failed$', t, re.M))
+               for t in transcripts)
+    ck('the fixture summaries were CAPTURED, not left on stdout', held > 0,
+       '%d held across %d fixture passes' % (held, len(transcripts)))
+
+    print('  ==> %d checks, %d failed' % (checks, failed))
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    if '--self-test' in sys.argv[1:]:
+        os.chdir(FARM)
+        sys.exit(self_test())
+    sys.exit(main(sys.argv[1:]))

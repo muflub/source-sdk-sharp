@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- The managed root both sides hand native at load (ManagedRoot.cs). Its
+         thunks need function pointers, and SourceSharp.Shared never allows
+         unsafe (GameAssembliesAreSafeTests); Abi holds only what crosses the
+         boundary unchanged (AbiResidencyTests), so the root lives here. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.OracleTests" />
+    <!-- plan_abi_hotreload Phase 1: PlayerCommandQueue (Server.Interop) drives
+         MovementRunner's internal RunMove and Api, which it reached when both
+         were in Abi. -->
+    <InternalsVisibleTo Include="SourceSharp.Server.Interop" />
+    <!-- Phase 1 run 3: ClientReplayEngine (Client.Interop) reads the internal
+         MovementBridge.ReadConstants, which it reached through Abi's grant. -->
+    <InternalsVisibleTo Include="SourceSharp.Client.Interop" />
+    <!-- Phase 1 run 3, wave A: StringTableRegistry (Shared) names the internal
+         IEngineStringTables; RecordingEngine (TestSupport) implements it; the
+         server entity cluster (Server) and its oracle tests keep the internal
+         seams they reached through Abi's grant. -->
+    <InternalsVisibleTo Include="SourceSharp.TestSupport" />
+    <InternalsVisibleTo Include="SourceSharp.Server" />
+    <!-- plan_side_isolation P7: the shared source (NetArray, NetStateTransfer
+         read NetState.Blob) compiles into the client too. -->
+    <InternalsVisibleTo Include="SourceSharp.Client" />
+    <!-- And the shared source compiled ALONE, which SideAuditTests audits as the
+         code both sides compile (SharedSourceBuild, src/test/managed). -->
+    <InternalsVisibleTo Include="SourceSharp.SharedSource" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

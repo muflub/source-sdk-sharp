@@ -1,0 +1,467 @@
+{
+ "_comment": [
+  "tools/vtable-policy.json -- WHY A SLOT THIS TREE CAN TYPE IS STILL NOT",
+  "EXPOSED, one entry per method, in prose.",
+  "",
+  "THIS IS NOT VERIFICATION AND MUST NOT BE READ AS ANY. The engine factory",
+  "interfaces are stable: the version string is the contract, and it changes",
+  "when the layout does. What is written here is POLICY -- a judgement about",
+  "what managed code may be allowed to do -- and policy is not a fact about",
+  "the ABI.",
+  "",
+  "WHERE IT SHOWS UP. tools/vtable-layout copies each reason into the comment",
+  "on the generated struct field it names, so a refusal whose only trace was",
+  "a deleted method has a trace again. The struct still TYPES every one of",
+  "these slots, because the struct describes the ABI; what a refusal decides",
+  "is that the impl class exposes no method reaching that field.",
+  "",
+  "THE GENERATOR REQUIRES EVERY KEY TO NAME A REAL DECLARATION in the class",
+  "it is filed under, so a method renamed in a header takes its reason with",
+  "it rather than leaving a comment on nothing.",
+  "",
+  "These 72 reasons were written against five interfaces over several lanes",
+  "and are carried verbatim from the C# ledgers that used to hold them."
+ ],
+ "IUniformRandomStream": {
+  "SetSeed": [
+   "returns nothing, so its only observable is its effect, and on this",
+   "engine build seeding through it does not reseed the stream the other",
+   "three draw from. Refused a second time on the rule that managed code",
+   "may ask for server randomness and may not be a source of it."
+  ]
+ },
+ "IVModelInfo": {
+  "GetModelFrameCount": [
+   "its answer has exactly one other source in this process and that",
+   "source is the ABI path -- SourceSharp_ModelFrameCount, compiled from",
+   "the same header this slot number was read out of. Two derivations that",
+   "share a header agree with each other and are wrong together the moment",
+   "the shipped engine differs, which is the failure the whole instrument",
+   "exists to catch. Nothing else in the process knows how many frames a",
+   "model has: the count lives on the loaded model and there is no second",
+   "door into it. Bound the day one appears, and not before."
+  ]
+ },
+ "IBaseFileSystem": {
+  "Read": [
+   "slot 0, so its only neighbour is Write. A control that writes through",
+   "a file handle to prove an index is not one worth running, and no other",
+   "slot takes ( void *, int, FileHandle_t )."
+  ],
+  "Write": [
+   "not read-only; nothing on this boundary needs it."
+  ],
+  "Open": [
+   "neighbours are Write and Close, and Close takes a FileHandle_t --",
+   "handing it the filename deletes a CFileHandle that is a string. No",
+   "adjacent slot is callable and the handle it returns is not a value",
+   "known another way."
+  ],
+  "Close": [
+   "returns void, so its only observable is its effect. Refused on the",
+   "ground IUniformRandomStream::SetSeed was refused on."
+  ],
+  "Seek": [
+   "takes a FileHandle_t, which only the refused Open can produce."
+  ],
+  "Tell": [
+   "takes a FileHandle_t, which only the refused Open can produce."
+  ],
+  "Flush": [
+   "takes a FileHandle_t, which only the refused Open can produce."
+  ],
+  "Precache": [
+   "loads a file into a cache. A control with a side effect is not a",
+   "control."
+  ],
+  "IsFileWritable": [
+   "as FileExists, and nothing on this boundary calls it."
+  ],
+  "SetFileWritable": [
+   "not read-only."
+  ],
+  "ReadFile": [
+   "takes CUtlBuffer &, which is a C++ object this side cannot construct."
+  ],
+  "WriteFile": [
+   "not read-only, and takes CUtlBuffer &."
+  ],
+  "UnzipFile": [
+   "not read-only."
+  ]
+ },
+ "IVEngineClient013": {
+  "ClientCmd_Unrestricted": [
+   "slot 106 and 26 compiled call sites, the heaviest method on this",
+   "interface that is not varargs -- and it RUNS A CONSOLE COMMAND. It",
+   "returns void, so its only observable is its effect, which is",
+   "IUniformRandomStream::SetSeed's ground; and the effect changes the",
+   "game, which is LoadModel's. Slot 105 dereferences a Vector & and slot",
+   "107 sets a restriction flag, so there is no control beside it that",
+   "could be run either. A wrong index here would execute an arbitrary",
+   "string as a console command. ONE MEMBER uses it, by integrator ruling",
+   "(C6, Steam to managed): EngineClient.ConnectFromSteamLaunch, which",
+   "throws for anything but `connect ...` and runs only what SecureLaunch",
+   "passed through stock's safe-character check. Unrestricted because the",
+   "client state restricts commands from construction and connect is not",
+   "FCVAR_CLIENTCMD_CAN_EXECUTE, so stock sent it this way too."
+  ],
+  "ExecuteClientCmd": [
+   "slot 102 and 16 call sites. It runs a console command too, so it is",
+   "ClientCmd_Unrestricted's ground exactly."
+  ],
+  "ClientCmd": [
+   "slot 7 and 17 call sites. Not a member: it is reached through members",
+   "named for their purpose (Reconnect, RequestManagedReload, JoinTeam,",
+   "SpectatorCommand, SubmitConsoleLine), since managed code may run console commands (user,",
+   "2026-10-05, plan_client_novalve.md 8). The raw slot adds nothing they need."
+  ],
+  "IsPlayingDemo": [
+   "slot 76 and 20 call sites. It answers one bit, the bit is false",
+   "whenever this gate could ask, and a wrong slot returning zero AGREES",
+   "with it -- so the comparison could not fail. GetLocalPlayer's ground",
+   "(asserting a constant) and FileExists' (a control that agrees) at",
+   "once."
+  ],
+  "GetAchievementMgr": [
+   "slot 114 and 13 call sites. It returns a pointer to an IAchievementMgr",
+   "and nothing else in this process knows what that pointer should be;",
+   "there is no second door into it. GetModelFrameCount's ground."
+  ],
+  "IsHLTV": [
+   "slot 86 and 14 call sites. One bit, false on every map this gate runs,",
+   "and its neighbour IsPlayingTimeDemo answers the same bit.",
+   "IsPlayingDemo's ground."
+  ],
+  "GetPlayerInfo": [
+   "slot 8 and 12 call sites -- below the floor all along. It WRITES a",
+   "player_info_t through a pointer and the process has no second",
+   "statement of what belongs in one."
+  ],
+  "GetAppID": [
+   "slot 104 and 2 compiled call sites, and it WOULD HAVE PASSED -- which",
+   "is why it is written down. Measured live under this gate it answers",
+   "243750, which is exactly what steam.inf in the mod directory says",
+   "(`appID=243750`) and what the SDK base's steam_appid.txt says, both",
+   "read by System.IO with no engine in the route. Refused anyway, because",
+   "that agreement is a property of the ENVIRONMENT and not of the index:",
+   "the engine asks the STEAM CLIENT for the app id and falls back to a",
+   "hard-coded 215 when there is none -- a freshly dlopen'd engine with no",
+   "Steam answers 215, measured. A row that passes when Steam happens to be running and fails",
+   "when it is not is not holding a slot against a second source; it is",
+   "reporting the weather. Its 243750 is kept as corroboration of the",
+   "resolved numbering instead."
+  ],
+  "Con_NPrintf": [
+   "varargs, and a varargs call cannot be issued through a fixed indirect",
+   "signature at all -- whatever the transport. The heaviest single method",
+   "on this interface at 44 compiled call sites, and it needs a native",
+   "entry point. Slot 29, so the floor never covered it and nothing about",
+   "it changed. THE FIXED-ARITY THUNK WAS COSTED AND NOT BUILT, which is",
+   "written down so it is not re-proposed as though it were free. It would",
+   "work and it would be safe: `engine->Con_NPrintf( pos, \"%s\", text )` in",
+   "C++ passes the text as an ARGUMENT and never as the format string, and",
+   "the slot is the COMPILER'S rather than one this side derived, so no",
+   "managed index is in it. shell_standalone_player.cpp:201 already does",
+   "exactly that, so the pattern is in the tree. What stops it is the",
+   "price: a thunk is a 468th EngineApi slot, taking the ABI from 603",
+   "fields to 604 and its version from 217 to 218 -- and `no C++ was added",
+   "and no ABI slot was added` is the headline result this whole binding",
+   "exists to hold. It is a transport decision for a lane that can move",
+   "those numbers, not something a refactor may do on the way past."
+  ],
+  "GetMaxClients": [
+   "slot 21, and gpGlobals->maxClients would be a genuine second source: a",
+   "struct field from globalvars_base.h read through a raw pointer, with",
+   "no vtable index anywhere in it. Refused because it has ZERO compiled",
+   "call sites in this client (tools/engine-demand --detail",
+   "IVEngineClient), which is the ground docs/plan-audit.md \u00a73.12 drops",
+   "IDataCache and ISceneFileCache on. Surface with no demand behind it."
+  ],
+  "GetLevelVersion": [
+   "slot 52, and it has the STRONGEST available proof of anything on this",
+   "interface -- gpGlobals->mapversion, and the map revision at byte 8 +",
+   "64*16 of the .bsp, which System.IO can read without the engine at all.",
+   "Refused anyway, on the same ground as GetMaxClients: zero compiled",
+   "call sites. Recorded because a bar that only ever excludes the",
+   "unprovable is not a bar; this one excludes something provable."
+  ],
+  "GetDXSupportLevel": [
+   "slot 47 and 15 compiled call sites, so the demand is real and the slot",
+   "is below the floor. Its answer has one other source in this process --",
+   "the mat_dxlevel convar -- and managed code has no way to read a convar",
+   "it did not declare, so there is nothing to hold it against. Bindable",
+   "the day there is; not before."
+  ],
+  "IsInGame": [
+   "slot 26, and its neighbour IsConnected (27) answers the same bit",
+   "whenever the assertion could be made. A control that AGREES is not a",
+   "control -- IBaseFileSystem::FileExists' ground exactly -- and picking",
+   "a further slot that happens to disagree would be picking a control to",
+   "make a row pass."
+  ],
+  "IsConnected": [
+   "as IsInGame, and the two are each other's problem."
+  ],
+  "Time": [
+   "slot 14. gpGlobals->curtime is the only other clock in the process and",
+   "the client's is not the server's; asserting they are close is a",
+   "tolerance, and this file has no tolerances."
+  ],
+  "GetLocalPlayer": [
+   "slot 12. On a listen server the answer is 1, and asserting a constant",
+   "is not holding a slot against a second source."
+  ],
+  "GetScreenSize": [
+   "slot 5. The only other statement of the window size in this process is",
+   "the -w/-h the harness itself passed, so the row would be checking the",
+   "test against the test -- and a window the engine legitimately sized",
+   "differently would read as a wrong index."
+  ],
+  "LoadModel": [
+   "slot 13 and 25 compiled call sites. It LOADS a model that is not",
+   "loaded, so the method under test has a side effect on the engine's",
+   "model cache, and each of its control slots would have that side effect",
+   "too."
+  ],
+  "GetViewAngles": [
+   "slot 19 and 29 compiled call sites, the heaviest below the floor. It",
+   "writes through a QAngle & and the process has no second statement of",
+   "where the local player is looking."
+  ],
+  "SetViewAngles": [
+   "slot 20; not read-only, and nothing on this boundary needs it."
+  ],
+  "IsPaused": [
+   "slot 84 and 8 call sites, the heaviest thing left in the band. One",
+   "bit, false whenever this gate could ask, and its neighbour",
+   "IsTakingScreenshot (85) answers the same bit. IsPlayingDemo's ground",
+   "and FileExists' at once."
+  ],
+  "IsTakingScreenshot": [
+   "slot 85 and 4 call sites, and IsPlayingTimeDemo slot 78 with 4. As",
+   "IsPaused: one bit each, false under the gate, and each has a neighbour",
+   "answering the same bit."
+  ],
+  "GetScreenAspectRatio": [
+   "slot 95 and 6 call sites. The only other statement of the window's",
+   "shape in this process is the -w/-h the harness itself passed, so the",
+   "row would be checking the test against the test. GetScreenSize's",
+   "ground exactly, and it was below the floor all along."
+  ],
+  "DebugDrawPhysCollide": [
+   "slot 73 and 8 call sites. It DRAWS, and it takes a CPhysCollide *, an",
+   "IMaterial * and a matrix3x4_t & that this side cannot construct. A",
+   "side effect and no callable shape."
+  ],
+  "ComputeLighting": [
+   "slot 67 and 5 call sites. It writes a Vector & and an array of them,",
+   "and the process has no second statement of what the light at a point",
+   "is. GetViewAngles' ground."
+  ],
+  "SaveAllocMemory": [
+   "slot 70 and 4 call sites, with SaveFreeMemory (71). They allocate and",
+   "free engine memory; the observable is the effect. SetSeed's ground."
+  ],
+  "GetNetChannelInfo": [
+   "slot 72 and 3 call sites. It returns an INetChannelInfo * and nothing",
+   "else in this process knows what that pointer should be.",
+   "GetAchievementMgr's ground."
+  ],
+  "MapHasHDRLighting": [
+   "slot 103 and 1 call site, and this one was MEASURED before it was",
+   "refused. Its second source is real and independent: LUMP_LIGHTING_HDR",
+   "is lump 53 of the .bsp and System.IO reads its length at byte 8 +",
+   "53*16 with no engine in the route -- the same shape of route that",
+   "binds IVEngineServer::GetMapEntitiesString. On dm_lockdown, the map",
+   "every gate here runs, that lump is ZERO BYTES, so the engine answers",
+   "false and a wrong slot returning zero AGREES with it. IsPlayingDemo's",
+   "ground, arrived at by reading the map rather than by arguing. Bindable",
+   "on a map whose HDR lump is not empty -- and choosing such a map to",
+   "make the row pass would be choosing a control to make a row pass."
+  ],
+  "GetMapEntitiesString": [
+   "slot 93, and it is PROVABLE and PROVED -- by the identical measurement",
+   "that binds IVEngineServer::GetMapEntitiesString at slot 70:",
+   "LUMP_ENTITIES of the loaded .bsp, byte for byte, read by System.IO",
+   "with no engine and no index in the route. Refused on GetMaxClients'",
+   "ground: ZERO compiled call sites in this client, against ONE in the",
+   "server. The third thing this bar excludes that could have passed, and",
+   "the first where the same method binds on the other side of the",
+   "boundary."
+  ],
+  "IsLowViolence": [
+   "slot 117 and 2 call sites, with GetUILanguage (91). Both answer a",
+   "property of the ENVIRONMENT -- a Steam setting, a -language on the",
+   "command line -- so a row would pass or fail on how the machine is",
+   "configured rather than on the index. GetAppID's ground."
+  ],
+  "GetPausedExpireTime": [
+   "slot 134 and 2 call sites. Unpaused it answers a constant, and",
+   "asserting a constant is not holding a slot against a second source.",
+   "GetLocalPlayer's ground."
+  ],
+  "GetMouseDelta": [
+   "slot 127 and 2 call sites, and it is one of the two declarations the",
+   "whole floor problem is about. It writes two int & and the process has",
+   "no second statement of how far the mouse moved."
+  ],
+  "SetGamestatsData": [
+   "slot 125 and 2 call sites, with ServerCmdKeyValues (128) and",
+   "SetAchievementMgr (113). Setters and senders. Not read-only, and the",
+   "observable is the effect."
+  ]
+ },
+ "IVEngineClient": {
+  "GetClientVersion": [
+   "slot 141, and it is PROVABLE and was PROVED: measured live it answers",
+   "2000, which is exactly `ClientVersion=2000` in the mod's own steam.inf",
+   "-- a file System.IO reads with no engine and no index in the route,",
+   "and the engine parses steam.inf to answer it. Refused on",
+   "GetMaxClients' ground -- ZERO compiled call sites. Recorded because a",
+   "bar that only ever excludes the unprovable is not a bar, and this is",
+   "the second thing it excludes that could have passed. Its 2000 is kept",
+   "as corroboration of the resolved numbering instead."
+  ],
+  "IsWindowedMode": [
+   "slot 139 and 1 call site. Its only other source is the -windowed the",
+   "harness itself passed -- GetScreenSize's ground -- and it is already",
+   "GetProtocolVersion's +1 control, which is the job it is good for."
+  ]
+ },
+ "IVEngineServer": {
+  "Time": [
+   "slot 49 and 12 compiled call sites, the second heaviest. The shipped",
+   "slot answers a wall clock and gpGlobals->curtime is the only other",
+   "clock in the process; asserting the two are close is a tolerance, and",
+   "this file has no tolerances. IVEngineClient::Time's ground."
+  ],
+  "GetServerTime": [
+   "slot 118 and 8 call sites. As Time: the only other clock is",
+   "gpGlobals's, asserting the two are close is a tolerance, and the two",
+   "are each other's problem."
+  ],
+  "ServerCommand": [
+   "slot 36 and 5 call sites. It queues a console command, returns void,",
+   "and its only observable is what that did -- SetSeed's ground and",
+   "LoadModel's at once, which is exactly why ClientCmd_Unrestricted is",
+   "refused on the client. A wrong index here would run an arbitrary",
+   "string as a command."
+  ],
+  "CreateEdict": [
+   "slot 21 and 5 call sites. It ALLOCATES an edict out of the engine's",
+   "free list. The method under test changes the server's entity table,",
+   "and so would every control beside it."
+  ],
+  "PrecacheModel": [
+   "slot 4 and 4 call sites, with PrecacheSentenceFile (5), PrecacheDecal",
+   "(6) and PrecacheGeneric (7). They precache -- the model is added to",
+   "the very string table IsModelPrecached is held against, so calling one",
+   "would move the second source. IBaseFileSystem::Precache's ground. Slot",
+   "7 is also the reason IsModelPrecached has no control BELOW it: it",
+   "takes a filename in the same first register, so an index one too low",
+   "would not fault, it would LOAD A FILE. SetFileWritable's ground",
+   "exactly."
+  ],
+  "EmitAmbientSound": [
+   "slot 27 and 3 call sites. It plays a sound to every client in the PVS.",
+   "A side effect with a network packet in it."
+  ],
+  "ClientCommand": [
+   "slot 38 and 4 call sites. Varargs, which cannot be issued through a",
+   "fixed indirect signature at all -- and it runs a command on a client,",
+   "so it would be refused twice over."
+  ],
+  "Con_NPrintf": [
+   "slot 46, and Con_NXPrintf slot 47. Varargs. The floor was never their",
+   "problem and nothing about them has changed."
+  ],
+  "Con_NXPrintf": [
+   "slot 47. Varargs, exactly as Con_NPrintf at 46 -- and it is filed",
+   "here in its own right because the older ledger named it only inside",
+   "Con_NPrintf's prose, where a table keyed by method name could not",
+   "see it. A reason that lives inside another method's sentence is a",
+   "reason nothing can check."
+  ],
+  "GetClientConVarValue": [
+   "slot 55 and 3 call sites. Its answer is a convar's value on a",
+   "connected client, and managed code has no way to read a convar it did",
+   "not declare -- IVEngineClient::GetDXSupportLevel's ground. Bindable",
+   "the day there is one; not before."
+  ],
+  "GetAppID": [
+   "slot 101 and 1 call site, and it is the client's slot 104 all over",
+   "again: it answers the same app id, from the Steam client, falling",
+   "back to a hard-coded 215 when there is none. A row that passes when Steam happens to be running and fails",
+   "when it is not is reporting the weather."
+  ],
+  "CompareFileTime": [
+   "slot 52, and it WOULD HAVE BEEN PROVABLE -- System.IO measures both",
+   "files' mtimes with no engine in the route, which is the derivation",
+   "IBaseFileSystem::GetFileTime is already bound against. Refused on",
+   "GetMaxClients' ground: ZERO compiled call sites in this server.",
+   "Recorded because a bar that only ever excludes the unprovable is not a",
+   "bar."
+  ],
+  "GetServerVersion": [
+   "slot 117, and steam.inf's ServerVersion= would state its answer. Zero",
+   "compiled call sites. GetClientVersion's ground exactly, on the other",
+   "interface."
+  ],
+  "GetMostRecentlyLoadedFileName": [
+   "slot 94, and GetSaveFileName slot 95. They are GetMapEntitiesString's",
+   "controls, and being a control is NOT why they are refused -- that was",
+   "the mistake recorded against IBaseFileSystem::GetFileTime and lifted.",
+   "They are refused because under this gate no save has been loaded and",
+   "no save file has been named, so each answers an empty string;",
+   "asserting a constant is not holding a slot against a second source.",
+   "GetLocalPlayer's ground."
+  ],
+  "IsDecalPrecached": [
+   "slot 9, and IsGenericPrecached slot 10. Both are IsModelPrecached's",
+   "controls and both are in principle bindable the same way -- against",
+   "the \"decalprecache\" and \"genericprecache\" string tables. Neither has a",
+   "compiled call site worth the surface (1 and 0), and the negative half",
+   "of the law they would need is what makes them useful as controls.",
+   "Recorded so the next lane knows the route exists rather than re-",
+   "deriving it."
+  ],
+  "SentenceGroupIndexFromName": [
+   "slot 33 and 4 call sites, with five more sentence methods behind it.",
+   "Their second source is scripts/sentences.txt, which this mod does not",
+   "ship, so there is nothing on disk to hold them against here."
+  ],
+  "PvAllocEntPrivateData": [
+   "slot 23, with FreeEntPrivateData (24), SaveAllocMemory (25) and",
+   "SaveFreeMemory (26). They allocate and free engine memory; the",
+   "observable is the effect. SetSeed's ground."
+  ],
+  "FindMap": [
+   "slot 122. It is GetGameDir's control and nothing more: measured live",
+   "it answers \"dm_lockdown\" for an empty buffer, which is the map this",
+   "harness itself asked the engine to load -- so a row would be checking",
+   "the harness against the harness, GetScreenSize's ground. Zero compiled",
+   "call sites besides. Being a control is NOT the reason (that mistake is",
+   "recorded against IBaseFileSystem::GetFileTime and lifted); the reason",
+   "is that its answer comes from the test.slot 124the shipped table is",
+   "125 slots and eiface.h declares 124 methods, so one slot in the",
+   "running table has no declaration anywhere in this tree. It is either a",
+   "method a later interface version appended or a virtual the engine's",
+   "implementation declares itself. Length alone cannot tell those apart",
+   "-- the same thing the engine client's 147th slot could not settle -- so it is refused,",
+   "and DeclaredMethods is the constant that refuses it."
+  ],
+  "LightStyle": [
+   "A SETTER, and this impl is a read-only window on IVEngineServer.",
+   "SetAreaPortalState (60) and SetAreaPortalStates (87) are refused",
+   "beside it on the same ground.",
+   "",
+   "plan_native_api.md Appendix B rules the flat entry that makes this",
+   "call \"C -- converts now\", and Phase 3 did NOT convert it: the row",
+   "and this line disagree, and lifting a recorded policy line to",
+   "satisfy a plan row is the owner's call rather than a lane's. See",
+   "EngineServer.cs, which says the same thing where the method would",
+   "have been."
+  ]
+ }
+}

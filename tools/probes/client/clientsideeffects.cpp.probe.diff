@@ -1,0 +1,51 @@
+--- a/src/game/client/clientsideeffects.cpp
++++ b/src/game/client/clientsideeffects.cpp
+@@ -15,6 +15,7 @@
+ #include "tier0/vprof.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_log.h"
+ #include "tier0/memdbgon.h"
+ 
+ bool g_FXCreationAllowed = false;
+@@ -161,6 +162,7 @@
+ 	if ( effect == NULL )
+ 		return;
+ 
++	FxProbeLog( "fxl-add %p %s n=%d", (void *)effect, effect->GetName(), m_nEffects );
+ 	if ( m_nEffects >= MAX_EFFECTS )
+ 	{
+ 		DevWarning( 1, "No room for effect %s\n", effect->GetName() );
+@@ -197,6 +199,7 @@
+ 		return;
+ 
+ 	CClientSideEffect *pEffect = m_rgEffects[effectIndex];
++	FxProbeLog( "fxl-remove %p i=%d n=%d", (void *)pEffect, effectIndex, m_nEffects );
+ 	m_nEffects--;
+ 
+ 	if ( m_nEffects > 0 && effectIndex != m_nEffects )
+@@ -221,6 +224,8 @@
+ 	CClientSideEffect *effect;
+ 
+ 	// Go backwards so deleting effects doesn't screw up
++	if ( m_nEffects > 0 )
++		FxProbeLog( "fxl-draw ft=%.17g n=%d", frametime, m_nEffects );
+ 	for ( i = m_nEffects - 1 ; i >= 0; i-- )
+ 	{
+ 		effect = m_rgEffects[ i ];
+@@ -229,6 +234,7 @@
+ 
+ 		// Simulate
+ 		effect->Draw( frametime );
++		FxProbeLog( "fxl-drawn %p active=%d", (void *)effect, effect->IsActive() ? 1 : 0 );
+ 
+ 		// Remove it if needed
+ 		if ( !effect->IsActive() )
+@@ -245,6 +251,7 @@
+ 
+ void CEffectsList::Flush( void )
+ {
++	FxProbeLog( "fxl-flush n=%d", m_nEffects );
+ 	int i;
+ 	CClientSideEffect *effect;
+ 

@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""tools/probes/fx-select -- lane c2-fx: turn a probe session's "fx" lines into a
+fixture (src/test/client/Fixtures/*.tsv).
+
+    tools/probes/fx-select PROBE_LOG OUT_TSV [--prefix P ...] [--mesh-every N]
+
+Keeps the probe log's "fx" lines whose tag starts with one of the prefixes (all
+when none is given), in order, as tab-separated rows (the tag first, then the
+fields). With --mesh-every N, an effect's mesh (the fxm-* rows after its
+fxe-draw) is kept on its first three draws, on every Nth draw after that, and
+on its last draw; every other draw keeps its fxe-draw row (the inputs, which
+the replay needs for every frame) and drops the vertices. The header names the
+source log, the options and the counts.
+"""
+import argparse
+import collections
+import sys
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("log")
+    ap.add_argument("out")
+    ap.add_argument("--prefix", action="append", default=[])
+    ap.add_argument("--mesh-every", type=int, default=0)
+    ap.add_argument("--title", default="")
+    a = ap.parse_args()
+
+    rows = []
+    for line in open(a.log, errors="replace"):
+        f = line.rstrip("\n").split(" ")
+        if len(f) < 4 or f[2] != "fx":
+            continue
+        tag = f[3]
+        if a.prefix and not any(tag.startswith(p) for p in a.prefix):
+            continue
+        rows.append(f[3:])
+    if not rows:
+        sys.exit("fx-select: no fx rows matched in %s" % a.log)
+
+    # Which draw of its effect each fxe-draw is, and each effect's last draw.
+    draws = collections.Counter()
+    last = {}
+    index = []
+    for i, r in enumerate(rows):
+        if r[0] == "fxe-draw":
+            draws[r[1]] += 1
+            index.append((i, r[1], draws[r[1]]))
+            last[r[1]] = draws[r[1]]
+    keep_mesh = set()
+    for i, ptr, n in index:
+        if (not a.mesh_every or n <= 3 or n % a.mesh_every == 0 or n == last[ptr]):
+            keep_mesh.add(i)
+
+    out = []
+    dropping = False
+    kept = dropped = 0
+    for i, r in enumerate(rows):
+        if r[0] == "fxe-draw":
+            dropping = i not in keep_mesh
+        elif not r[0].startswith("fxm-"):
+            dropping = False
+        if dropping and r[0].startswith("fxm-"):
+            dropped += 1
+            continue
+        kept += 1
+        out.append("\t".join(r))
+
+    with open(a.out, "w") as fh:
+        if a.title:
+            fh.write("# %s\n" % a.title)
+        fh.write("# tools/probes/fx-select %s (prefixes %s, mesh every %d): %d rows kept, %d mesh rows dropped\n"
+                 % (a.log.split("/")[-1], ",".join(a.prefix) or "all", a.mesh_every, kept, dropped))
+        fh.write("\n".join(out) + "\n")
+    print("fx-select: %d rows, %d mesh rows dropped -> %s" % (kept, dropped, a.out))
+
+
+if __name__ == "__main__":
+    main()

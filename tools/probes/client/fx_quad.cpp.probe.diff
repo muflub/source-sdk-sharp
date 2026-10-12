@@ -1,0 +1,27 @@
+--- a/src/game/client/fx_quad.cpp
++++ b/src/game/client/fx_quad.cpp
+@@ -11,6 +11,8 @@
+ #include "tier0/vprof.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_mesh.h"
++#define CMeshBuilder CProbeMeshBuilder
+ #include "tier0/memdbgon.h"
+ 
+ static const char g_EffectName[] = "Quad";
+@@ -19,6 +21,7 @@
+ 	: CClientSideEffect( g_EffectName )
+ {
+ 	m_FXData = data;
++	FxProbeLog( "fxe-new Quad %p mat=%s flags=%u o=%.9g %.9g %.9g n=%.9g %.9g %.9g sc=%.9g %.9g die=%.9g life=%.9g a=%.9g %.9g c=%.9g %.9g %.9g yaw=%.9g %.9g sb=%.9g ab=%.9g", (void *)this, data.m_pMaterial ? data.m_pMaterial->GetName() : "(null)", data.m_uiFlags, data.m_vecOrigin.x, data.m_vecOrigin.y, data.m_vecOrigin.z, data.m_vecNormal.x, data.m_vecNormal.y, data.m_vecNormal.z, data.m_flStartScale, data.m_flEndScale, data.m_flDieTime, data.m_flLifeTime, data.m_flStartAlpha, data.m_flEndAlpha, data.m_Color.x, data.m_Color.y, data.m_Color.z, data.m_flYaw, data.m_flDeltaYaw, data.m_flScaleBias, data.m_flAlphaBias );
+ 
+ 	if ( data.m_pMaterial != NULL )
+ 	{
+@@ -44,6 +47,7 @@
+ 	VPROF_BUDGET( "FX_Quad::Draw", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 
+ 	// Update the effect
++	FxProbeLog( "fxe-draw %p ft=%.17g", (void *)this, frametime );
+ 	Update( frametime );
+ 
+ 	float	scaleTimePerc, alphaTimePerc;

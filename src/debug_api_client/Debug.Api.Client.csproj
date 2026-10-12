@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The client's half of the dev API (plan_side_isolation §2.6, user ruling:
+    a Debug.Api.Server and a Debug.Api.Client). It references its side's Interface
+    and the dev API's shared code only (plan_devapi_interfaces); the client
+    loads it by name when -debugui is given and hands it its hooks.
+    It reaches the server's dev API over the debug channel, and the server
+    proxies client requests to it (ruling 11).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\debug_api_shared\Debug.Api.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+</Project>

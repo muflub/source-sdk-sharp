@@ -1,0 +1,145 @@
+--- a/src/game/client/EffectsClient.cpp
++++ b/src/game/client/EffectsClient.cpp
+@@ -37,6 +37,7 @@
+ #include "IEffects.h"
+ #include "fx.h"
+ #include "c_te_legacytempents.h"
++#include "fx_probe_log.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+@@ -79,6 +80,7 @@
+ 	//-----------------------------------------------------------------------------
+ 	bool SuppressTE( C_RecipientFilter& filter )
+ 	{
++		FxProbeLog( "ie-suppress cp=%d rc=%d sound=%d", CanPredict() ? 1 : 0, filter.GetRecipientCount(), m_bSuppressSound ? 1 : 0 );
+ 		if ( !CanPredict() )
+ 			return true;
+ 
+@@ -123,6 +125,7 @@
+ //-----------------------------------------------------------------------------
+ void CEffectsClient::SuppressEffectsSounds( bool bSuppress )
+ {
++	FxProbeLog( "ie-call SuppressEffectsSounds %d", bSuppress ? 1 : 0 );
+ 	m_bSuppressSound = bSuppress;
+ }
+ 
+@@ -136,6 +139,7 @@
+ 	unsigned char noise, unsigned char r, unsigned char g,
+ 	unsigned char b, unsigned char brightness, unsigned char nSpeed)
+ {
++	FxProbeLog( "ie-call Beam" );
+ 	Assert(0);
+ //	CBroadcastRecipientFilter filter;
+ //	if ( !SuppressTE( filter ) )
+@@ -153,10 +157,12 @@
+ //-----------------------------------------------------------------------------
+ void CEffectsClient::Smoke( const Vector &vecOrigin, int modelIndex, float scale, float framerate )
+ {
++	FxProbeLog( "ie-call Smoke %.9g %.9g %.9g %d %.9g %.9g", vecOrigin.x, vecOrigin.y, vecOrigin.z, modelIndex, scale, framerate );
+ 	CPVSFilter filter( vecOrigin );
+ 	if ( !SuppressTE( filter ) )
+ 	{
+ 		int iColor = random->RandomInt(20,35);
++		FxProbeLog( "ie-draw RandomInt 20 35 %d", iColor );
+ 		color32 color;
+ 		color.r = iColor;
+ 		color.g = iColor;
+@@ -164,48 +170,58 @@
+ 		color.a = iColor;
+ 		QAngle angles;
+ 		VectorAngles( Vector(0,0,1), angles );
++		FxProbeLog( "ie-fx FX_Smoke %.9g %.9g %.9g %.9g %.9g %.9g %.9g 4 %d %d %d %d 255", vecOrigin.x, vecOrigin.y, vecOrigin.z, angles.x, angles.y, angles.z, scale * 0.1f, color.r, color.g, color.b, color.a );
+ 		FX_Smoke( vecOrigin, angles, scale * 0.1f, 4, (unsigned char *)&color, 255 );
+ 	}
+ }
+ 
+ void CEffectsClient::Sparks( const Vector &position, int nMagnitude, int nTrailLength, const Vector *pVecDir )
+ {
++	FxProbeLog( "ie-call Sparks %.9g %.9g %.9g %d %d %d %.9g %.9g %.9g", position.x, position.y, position.z, nMagnitude, nTrailLength, pVecDir ? 1 : 0, pVecDir ? pVecDir->x : 0.0f, pVecDir ? pVecDir->y : 0.0f, pVecDir ? pVecDir->z : 0.0f );
+ 	CPVSFilter filter( position );
+ 	if ( !SuppressTE( filter ) )
+ 	{
++		FxProbeLog( "ie-fx FX_ElectricSpark %.9g %.9g %.9g %d %d %d %.9g %.9g %.9g", position.x, position.y, position.z, nMagnitude, nTrailLength, pVecDir ? 1 : 0, pVecDir ? pVecDir->x : 0.0f, pVecDir ? pVecDir->y : 0.0f, pVecDir ? pVecDir->z : 0.0f );
+ 		FX_ElectricSpark( position, nMagnitude, nTrailLength, pVecDir );
+ 	}
+ }
+ 
+ void CEffectsClient::Dust( const Vector &pos, const Vector &dir, float size, float speed )
+ {
++	FxProbeLog( "ie-call Dust %.9g %.9g %.9g %.9g %.9g %.9g %.9g %.9g", pos.x, pos.y, pos.z, dir.x, dir.y, dir.z, size, speed );
+ 	CPVSFilter filter( pos );
+ 	if ( !SuppressTE( filter ) )
+ 	{
++		FxProbeLog( "ie-fx FX_Dust %.9g %.9g %.9g %.9g %.9g %.9g %.9g %.9g", pos.x, pos.y, pos.z, dir.x, dir.y, dir.z, size, speed );
+ 		FX_Dust( pos, dir, size, speed );
+ 	}
+ }
+ 
+ void CEffectsClient::MuzzleFlash( const Vector &vecOrigin, const QAngle &vecAngles, float flScale, int iType )
+ {
++	FxProbeLog( "ie-call MuzzleFlash %.9g %.9g %.9g %.9g %.9g %.9g %.9g %d", vecOrigin.x, vecOrigin.y, vecOrigin.z, vecAngles.x, vecAngles.y, vecAngles.z, flScale, iType );
+ 	CPVSFilter filter( vecOrigin );
+ 	if ( !SuppressTE( filter ) )
+ 	{
+ 		switch( iType )
+ 		{
+ 		case MUZZLEFLASH_TYPE_DEFAULT:
++			FxProbeLog( "ie-fx FX_MuzzleEffect %.9g %.9g %.9g %.9g %.9g %.9g %.9g", vecOrigin.x, vecOrigin.y, vecOrigin.z, vecAngles.x, vecAngles.y, vecAngles.z, flScale );
+ 			FX_MuzzleEffect( vecOrigin, vecAngles, flScale, INVALID_EHANDLE );
+ 			break;
+ 
+ 		case MUZZLEFLASH_TYPE_GUNSHIP:
++			FxProbeLog( "ie-fx FX_GunshipMuzzleEffect %.9g %.9g %.9g %.9g %.9g %.9g %.9g", vecOrigin.x, vecOrigin.y, vecOrigin.z, vecAngles.x, vecAngles.y, vecAngles.z, flScale );
+ 			FX_GunshipMuzzleEffect( vecOrigin, vecAngles, flScale, INVALID_EHANDLE );
+ 			break;
+ 
+ 		case MUZZLEFLASH_TYPE_STRIDER:
++			FxProbeLog( "ie-fx FX_StriderMuzzleEffect %.9g %.9g %.9g %.9g %.9g %.9g %.9g", vecOrigin.x, vecOrigin.y, vecOrigin.z, vecAngles.x, vecAngles.y, vecAngles.z, flScale );
+ 			FX_StriderMuzzleEffect( vecOrigin, vecAngles, flScale, INVALID_EHANDLE );
+ 			break;
+ 		
+ 		default:
++			FxProbeLog( "ie-fx Msg-no-case %d", iType );
+ 			Msg("No case for Muzzleflash type: %d\n", iType );
+ 			break;
+ 		}
+@@ -214,31 +230,38 @@
+ 
+ void CEffectsClient::MetalSparks( const Vector &position, const Vector &direction )
+ {
++	FxProbeLog( "ie-call MetalSparks %.9g %.9g %.9g %.9g %.9g %.9g", position.x, position.y, position.z, direction.x, direction.y, direction.z );
+ 	CPVSFilter filter( position );
+ 	if ( !SuppressTE( filter ) )
+ 	{
++		FxProbeLog( "ie-fx FX_MetalSpark %.9g %.9g %.9g %.9g %.9g %.9g", position.x, position.y, position.z, direction.x, direction.y, direction.z );
+ 		FX_MetalSpark( position, direction, direction );
+ 	}
+ }
+ 
+ void CEffectsClient::EnergySplash( const Vector &position, const Vector &direction, bool bExplosive )
+ {
++	FxProbeLog( "ie-call EnergySplash %.9g %.9g %.9g %.9g %.9g %.9g %d", position.x, position.y, position.z, direction.x, direction.y, direction.z, bExplosive ? 1 : 0 );
+ 	CPVSFilter filter( position );
+ 	if ( !SuppressTE( filter ) )
+ 	{
++		FxProbeLog( "ie-fx FX_EnergySplash %.9g %.9g %.9g %.9g %.9g %.9g %d", position.x, position.y, position.z, direction.x, direction.y, direction.z, bExplosive ? 1 : 0 );
+ 		FX_EnergySplash( position, direction, bExplosive );
+ 	}
+ }
+ 
+ void CEffectsClient::Ricochet( const Vector &position, const Vector &direction )
+ {
++	FxProbeLog( "ie-call Ricochet %.9g %.9g %.9g %.9g %.9g %.9g", position.x, position.y, position.z, direction.x, direction.y, direction.z );
+ 	CPVSFilter filter( position );
+ 	if ( !SuppressTE( filter ) )
+ 	{
++		FxProbeLog( "ie-fx FX_MetalSpark %.9g %.9g %.9g %.9g %.9g %.9g", position.x, position.y, position.z, direction.x, direction.y, direction.z );
+ 		FX_MetalSpark( position, direction, direction );
+ 
+ 		if ( !m_bSuppressSound )
+ 		{
++			FxProbeLog( "ie-fx FX_RicochetSound %.9g %.9g %.9g", position.x, position.y, position.z );
+ 			FX_RicochetSound( position );
+ 		}
+ 	}

@@ -1,0 +1,45 @@
+# lane c2-fx: the shell-eject effects' oracle (fx_shelleject.cpp, probe copy):
+# each callback's input, whether the owner has a renderable and its render
+# angles, and the brass type ejected. Needs the probe build.
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+cmd cs_cl_probe_fxshells
+sleep 0.3
+quit

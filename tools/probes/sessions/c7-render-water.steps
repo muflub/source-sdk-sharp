@@ -1,0 +1,28 @@
+# plan_client_novalve C7 step 1, the water map: standing in the sandbox's mirror pool
+# (Sandbox.cs's MirrorWater) with the eye under the surface, so stock draws the under-water
+# view: the fog volume's state, the clear to its colour, the under-water draw flags.
+# (Above the surface no view finds the water: ssmap flags 2 of 2345 leaves
+# CONTENTS_TESTFOGVOLUME, so the engine's visible-fog-volume query answers -1 from outside;
+# docs/todo.md.)
+# A stock frame for the fixture, then a stock/plan pair. Run with --no-probe-build on a tree
+# whose ss_sandbox.bsp is built (make map MAP=ss_sandbox).
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+api teleport pos=-828,2048,8 ang=-30,90,0 settle=1
+sleep 2
+cmd cs_cl_render_trace {out}/ss_sandbox-underwater.txt
+wait recorded \d+ lines to .*ss_sandbox-underwater 20
+sleep 1
+cmd cs_cl_render_trace {out}/water-stock.txt
+wait recorded \d+ lines to .*water-stock 20
+cmd cs_cl_render_plan 1
+sleep 1
+cmd cs_cl_render_trace {out}/water-plan.txt
+wait recorded \d+ lines to .*water-plan 20
+cmd cs_cl_render_plan 0
+shot water
+quit

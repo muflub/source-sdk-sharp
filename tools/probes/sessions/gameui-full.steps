@@ -1,0 +1,49 @@
+# C0 probes 1 and 3: one session menu -> map -> effects -> disconnect -> quit,
+# with the logging GameUI stub, the PaintTraverseEx counter and the particle
+# query counter.
+wait iface-list 120
+cmd cs_cl_probe_paint
+cmd cs_cl_probe_modules
+maps
+sleep 8
+shot menu
+cmd map dm_lockdown
+wait first paint 240
+sleep 5
+cmd sv_cheats 1
+cmd impulse 101
+sleep 2
+shot ingame
+cmd +attack
+sleep 4
+cmd -attack
+cmd use weapon_smg1
+sleep 1
+cmd +attack
+sleep 3
+cmd -attack
+cmd +attack2
+sleep 1
+cmd -attack2
+sleep 3
+cmd use weapon_ar2
+sleep 1
+cmd +attack
+sleep 3
+cmd -attack
+cmd use weapon_frag
+sleep 1
+cmd +attack
+sleep 1
+cmd -attack
+sleep 5
+cmd cs_cl_probe_pq
+cmd toggleconsole
+sleep 2
+cmd toggleconsole
+sleep 1
+cmd disconnect
+sleep 6
+shot after-disconnect
+cmd cs_cl_probe_pq
+quit

@@ -1,0 +1,5 @@
+// The TF2 mod's startup script, ahead of TF2's own (its VPK carries one). The
+// engine runs valve.rc instead of the command line's + commands when one
+// exists, so this must end in stuffcmds, or +map never runs.
+exec autoexec.cfg
+stuffcmds

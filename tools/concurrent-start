@@ -1,0 +1,435 @@
+#!/usr/bin/env python3
+"""tools/concurrent-start [--config debug] [-n 6] [--rounds 1] [--wait 150] [--join-wait 120] [--second-client] [--keep-stalled]
+
+Starts N live-gate servers (dm_lockdown) from this tree AT ONCE, in a tight
+loop, and reports per round which of them JOINED -- their map loaded, they
+hold exactly one `ss_player`, and their client printed "[SourceSharp/Hud]
+first paint" -- and how many "KeyValues Error: LoadFromBuffer: missing { in
+file videoconfig_linux.cfg" lines each one printed: the trace of games reading
+each other's half-written video config (docs/todo.md, 2026-10-05).
+
+SOCKET IS READINESS, THE JOIN IS THE MEASUREMENT. Until 2026-10-06 this tool
+counted a game as started the moment its dev API socket appeared, so every
+concurrency number it reported included games that opened a socket and never
+finished starting -- a stall that never stalls the socket is invisible here.
+A game now counts as joined only with all three pieces of evidence, and a
+game that opened its socket but never joined is reported NOT JOINED, with
+the half it failed on named, and fails the run (docs/todo.md). A listen
+server's own client IS its join: the census proves the map, the ss_player
+proves the client connected to its own server, the first paint proves the
+client side runs.
+
+--second-client adds the join the live-gate's step 13 asserts: one more
+client per game, launched with no -condebug, connecting to the port the
+server ACTUALLY bound (never the literal -port), and the server must then
+hold two players and the newcomer's own client counters must show it loaded
+the level. That is what makes the measurements reproducible from the repo.
+
+The games carry tools/local_launch.py's flags, so INSTANCE=0 runs them on the
+tree's shared mods/<id>/ (as before -instance) and the default runs each on a
+game directory of its own. Compare the two:
+
+    INSTANCE=0 tools/concurrent-start -n 6 --rounds 5
+    tools/concurrent-start -n 6 --rounds 5
+
+Each game has its own TMPDIR and DEBUG_API_DIR under one scratch directory;
+games are found and stopped by that TMPDIR, never by name. --keep-stalled
+leaves a game that never opened its socket, or never joined, running, for
+/proc inspection. Waits on tools/box-ready before each round. Exits 1 if any
+game stalled or never joined.
+
+--self-test checks the decision table the live arms are built on, without
+launching anything (registered in tools/checks.tsv).
+"""
+
+import argparse
+import glob
+import importlib.machinery
+import importlib.util
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NEEDLE = "missing { in file videoconfig_linux.cfg"
+PAINT = "[SourceSharp/Hud] first paint"
+
+
+def live_gate():
+    loader = importlib.machinery.SourceFileLoader("livegate", os.path.join(ROOT, "tools", "live-gate"))
+    spec = importlib.util.spec_from_loader("livegate", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def tmpdir_of(pid):
+    try:
+        for entry in open("/proc/%s/environ" % pid, "rb").read().split(b"\0"):
+            if entry.startswith(b"TMPDIR="):
+                return entry[7:].decode(errors="replace")
+    except OSError:
+        pass
+    return ""
+
+
+def games_in(tmpdir):
+    out = subprocess.run(["pgrep", "-x", "hl2_linux64"], capture_output=True, text=True).stdout.split()
+    return [int(p) for p in out if tmpdir_of(p) == tmpdir]
+
+
+def stop(tmpdir):
+    for pid in games_in(tmpdir):
+        os.kill(pid, signal.SIGTERM)
+    deadline = time.time() + 30
+    while time.time() < deadline and games_in(tmpdir):
+        time.sleep(1)
+    for pid in games_in(tmpdir):
+        os.kill(pid, signal.SIGKILL)
+
+
+def pid_from_stem(stem):
+    """The integer behind a dev API socket's stem, or None.
+
+    The socket is named <pid>.sock after the engine process that owns it --
+    exactly the pid tools/debug-api wants in DEBUG_API_PID. A stem that is
+    not digits names no pid: None, never a guess.
+    """
+    return int(stem) if stem.isdigit() else None
+
+
+def sock_pid(sock_dir):
+    for path in sorted(glob.glob(os.path.join(sock_dir, "*.sock"))):
+        pid = pid_from_stem(os.path.basename(path)[:-len(".sock")])
+        if pid is not None:
+            return pid
+    return None
+
+
+def join_decision(d):
+    """(joined, reason) for one server, from what was OBSERVED about it.
+
+    The point is in the ordering and in every arm being reachable: `died`
+    outranks everything (an exit mid-startup explains the other zeros), then
+    the map, then the player, then the paint. A game with an unloaded map and
+    no player reports the MAP, because that is the thing it is still waiting
+    on. The self-test pins each arm by flipping exactly one input.
+    """
+    if d.get("died"):
+        return (False, "the game process exited during start-up")
+    if not d.get("map_loaded"):
+        return (False, "the map census never reached %r entities" % d.get("want"))
+    players = d.get("players", 0)
+    if players != 1:
+        return (False, "the server holds %d players, not the one its own "
+                       "listen client makes (a second client reached it, or "
+                       "its own never joined)" % players)
+    if not d.get("painted"):
+        return (False, "no %r line in the game's console log" % PAINT)
+    return (True, "")
+
+
+def second_client_decision(d):
+    """(joined, reason) for the --second-client arm, same table discipline."""
+    if d.get("client_missing"):
+        return (False, "a second instance never opened a dev API socket")
+    if d.get("before") != 1:
+        return (False, "the server already holds %r players before the second "
+                       "client launches; someone else's client reached it" % d.get("before"))
+    if d.get("after") != 2:
+        return (False, "the server holds %r players after the second client "
+                       "connected" % d.get("after"))
+    if d.get("level_init", 0) < 1:
+        return (False, "the newcomer's client never reported ClientLevelInit "
+                       "(the server has its entity before the client has its "
+                       "level; the readout must be waited for)")
+    if d.get("standalone", 0) < 2:
+        return (False, "the newcomer's client built only %r networked entities "
+                       "from the server" % d.get("standalone"))
+    return (True, "")
+
+
+def _game_api(lg, g):
+    """An Api bound to this game's socket directory and owning pid.
+
+    tools/debug-api takes DEBUG_API_DIR from the environment, so pointing the
+    environment at THIS game's `s` directory is what stops one game's socket
+    answering another game's questions.
+    """
+    os.environ["DEBUG_API_DIR"] = g["sdir"]
+    return lg.Api(sock_pid(g["sdir"]))
+
+
+def _paint_seen(lg, api, seconds):
+    """Until the game's OWN console log carries the first-paint line.
+
+    The path comes from /console, never from a guess at
+    bin/<config>/mods/test/console.log: with -instance every game writes its
+    own instance's log, and a shared path would let one game's paint satisfy
+    another game's check.
+    """
+    box = {}
+
+    def path_or_none():
+        try:
+            box["path"] = lg.console_file(api)
+            return box.get("path")
+        except Exception:
+            return None
+
+    if not api.wait_for(path_or_none, seconds, 1.0):
+        return False
+    return bool(api.wait_for(lambda: lg.count_in(box["path"], PAINT) > 0, 30.0, 1.0))
+
+
+def assert_join(lg, scen, g, wait):
+    """Fill g["join"] = (joined, reason) by driving the game through its API."""
+    g["join"] = (False, "never opened a dev API socket")
+    if sock_pid(g["sdir"]) is None:
+        return
+    api = _game_api(lg, g)
+    deadline = time.time() + wait
+    state = {"want": scen["entities"], "died": False, "map_loaded": False,
+             "players": 0, "painted": False}
+
+    def left():
+        return max(0.1, deadline - time.time())
+
+    state["map_loaded"] = bool(api.wait_map(scen["entities"], left()))
+    if not state["map_loaded"] and not api.alive():
+        state["died"] = True
+    if not state["died"]:
+        got_player = api.wait_for(lambda: len(api.ents(scen["playerClass"])) >= 1,
+                                  left(), 1.0)
+        state["players"] = len(api.ents(scen["playerClass"])) if got_player else 0
+        if not state["players"] and not api.alive():
+            state["died"] = True
+    if not state["died"] and state["players"] == 1:
+        state["painted"] = _paint_seen(lg, api, left())
+    g["join"] = join_decision(state)
+
+
+def assert_second_client(lg, scen, g, wait):
+    """Fill g["second"] = (joined, reason) for the --second-client arm.
+
+    Mirrors live-gate's step_second_client's join evidence, and for its
+    reasons (read them there): net_usesocketsforloopback on both sides or the
+    packets never leave the process; the bound port from /proc or the client
+    joins another lane's server; the newcomer's counters waited for or the
+    server's early snapshot makes a healthy client look dead.
+    """
+    api = _game_api(lg, g)
+    before = len(api.ents(scen["playerClass"]))
+    state = {"before": before, "after": None}
+    if before != 1:
+        g["second"] = second_client_decision(state)
+        return
+
+    srv_port = lg.bound_server_port(api)
+    if srv_port is None:
+        g["second"] = (False, "the port the server actually bound could not be "
+                              "read from /proc; the client will not be sent to "
+                              "a guessed 27015")
+        return
+
+    d = g["dir"]
+    os.makedirs(os.path.join(d, "tmp2"), exist_ok=True)
+    os.makedirs(os.path.join(d, "s2"), exist_ok=True)
+    # NOT lg.launch_with_free_port: it waits for a socket under the
+    # import-time SOCKET_DIR, and every game here gets a DEBUG_API_DIR of its
+    # own, so that wait would hang to its cap and report a client that joined
+    # fine as never started. Same launch shape as the games above.
+    client_port = lg.free_udp_port(*lg.GATE_PORT_RANGE)
+    quoted = " ".join("'%s'" % a.replace("'", "'\\''")
+                      for a in lg.client_launch(client_port))
+    line = ". '%s/tools/gpu-offload'; cd '%s' && exec %s %s" % (
+        ROOT, lg.GAME_DIR, lg.launch_command(lg.MOD_DIR), quoted)
+    env = dict(os.environ, TMPDIR=os.path.join(d, "tmp2"),
+               DEBUG_API_DIR=os.path.join(d, "s2"))
+    log = open(os.path.join(d, "client2.log"), "w")
+    popen = subprocess.Popen(["bash", "-c", line], stdout=log,
+                             stderr=subprocess.STDOUT, env=env,
+                             start_new_session=True)
+    client = None
+    deadline = time.time() + min(wait, 240.0)
+    while time.time() < deadline:
+        cpid = sock_pid(os.path.join(d, "s2"))
+        if cpid is not None:
+            client = lg.Game(cpid, popen, os.path.join(d, "tmp2"), log.name)
+            break
+        if popen.poll() is not None:
+            break
+        time.sleep(1.0)
+    if client is None:
+        try:
+            os.killpg(os.getpgid(popen.pid), signal.SIGKILL)
+        except OSError:
+            pass
+        popen.kill()
+        state["client_missing"] = True
+        g["second"] = second_client_decision(state)
+        return
+    g["client"] = client
+    # tools/debug-api picks the socket directory from DEBUG_API_DIR at CALL
+    # time, and these two games' sockets live in two different directories, so
+    # the environment is switched around each side's calls. Every server-api
+    # wait below is inside a lambda that runs after the switch back.
+    try:
+        os.environ["DEBUG_API_DIR"] = os.path.join(d, "s2")
+        client.api.convar("net_usesocketsforloopback", 1)
+        client.api.cmd("connect 127.0.0.1:%d" % srv_port)
+        os.environ["DEBUG_API_DIR"] = g["sdir"]
+        deadline = time.time() + wait
+        joined = api.wait_for(lambda: len(api.ents(scen["playerClass"])) >= 2,
+                              max(0.1, deadline - time.time()), 1.0)
+        players = api.ents(scen["playerClass"])
+        state["after"] = len({p["index"] for p in players})
+        if joined:
+            newcomer = max(p["index"] for p in players)
+            ops = api.wait_for(
+                lambda: api.client_crossings(newcomer).get("ops", {})
+                .get("ClientLevelInit", 0) >= 1,
+                max(0.1, deadline - time.time()), 1.0)
+            got = api.client_crossings(newcomer).get("ops", {}) if ops else {}
+            state["level_init"] = got.get("ClientLevelInit", 0)
+            state["standalone"] = got.get("ClientStandaloneCreate", 0)
+        g["second"] = second_client_decision(state)
+    finally:
+        os.environ["DEBUG_API_DIR"] = g["sdir"]
+        client.kill()
+
+
+def one_round(lg, scen, base, n, wait, join_wait, second_client, keep_stalled):
+    games = []
+    for i in range(n):
+        d = os.path.join(base, "g%d" % i)
+        os.makedirs(os.path.join(d, "tmp"))
+        os.makedirs(os.path.join(d, "s"))
+        args = lg.server_launch(27900 + i * 3, "dm_lockdown")
+        quoted = " ".join("'%s'" % a.replace("'", "'\\''") for a in args)
+        line = ". '%s/tools/gpu-offload'; cd '%s' && exec %s %s" % (ROOT, lg.GAME_DIR, lg.launch_command(lg.MOD_DIR), quoted)
+        env = dict(os.environ, TMPDIR=os.path.join(d, "tmp"), DEBUG_API_DIR=os.path.join(d, "s"))
+        games.append(dict(dir=d, sdir=os.path.join(d, "s"), line=line, env=env))
+    for g in games:
+        g["proc"] = subprocess.Popen(["bash", "-c", g["line"]], stdout=open(os.path.join(g["dir"], "out.log"), "w"),
+                                     stderr=subprocess.STDOUT, env=g["env"], start_new_session=True)
+    t0 = time.time()
+    while time.time() - t0 < wait and not all(glob.glob(os.path.join(g["dir"], "s", "*.sock")) for g in games):
+        time.sleep(1)
+    for g in games:
+        g["socket"] = bool(glob.glob(os.path.join(g["dir"], "s", "*.sock")))
+        g["errors"] = open(os.path.join(g["dir"], "out.log"), errors="replace").read().count(NEEDLE)
+    for g in games:
+        if g["socket"]:
+            assert_join(lg, scen, g, join_wait)
+        else:
+            g["join"] = (False, "never opened a dev API socket")
+        g["second"] = None
+        if g["join"][0] and second_client:
+            assert_second_client(lg, scen, g, join_wait)
+        g["ok"] = g["join"][0] and (g["second"] is None or g["second"][0])
+    for g in games:
+        if g["ok"] or not keep_stalled:
+            stop(g["env"]["TMPDIR"])
+            if g.get("client"):
+                stop(os.path.join(g["dir"], "tmp2"))
+    return games
+
+
+def self_test():
+    ok = True
+    n = 0
+
+    def check(cond, why):
+        nonlocal ok, n
+        n += 1
+        print("%s %s" % ("ok  " if cond else "FAIL", why), flush=True)
+        if not cond:
+            ok = False
+
+    good = {"died": False, "map_loaded": True, "players": 1, "painted": True, "want": 473}
+    check(join_decision(good)[0] is True, "all three pieces of evidence, joined")
+    check(join_decision(dict(good, died=True))[1].startswith("the game process exited"),
+          "an exit outranks every other zero (it explains them)")
+    check("map census" in join_decision(dict(good, map_loaded=False))[1],
+          "an unloaded map is named as what the game waits on, not the missing player")
+    check("holds 0 players" in join_decision(dict(good, players=0))[1],
+          "a server with no ss_player never joined, and says so")
+    check("holds 2 players" in join_decision(dict(good, players=2))[1],
+          "and TWO players before we launched anyone is another gate's client, also refused")
+    check("first paint" in join_decision(dict(good, painted=False))[1],
+          "a painted HUD is required, by name")
+    check(join_decision({"died": False, "map_loaded": False, "players": 0, "painted": False,
+                         "want": 473})[1].startswith("the map census"),
+          "the all-zero game reports the map, so the reason is never empty")
+
+    sgood = {"client_missing": False, "before": 1, "after": 2, "level_init": 1, "standalone": 37}
+    check(second_client_decision(sgood)[0] is True, "two players and a loaded newcomer level, joined")
+    check("never opened" in second_client_decision({"before": 1, "after": 2, "client_missing": True})[1],
+          "a second instance that never opened a socket is named")
+    check("already holds" in second_client_decision(dict(sgood, before=2))[1],
+          "a server that did not start from exactly one player is somebody else's game")
+    check("after the second client" in second_client_decision(dict(sgood, after=1))[1],
+          "a newcomer the server never listed is refused")
+    check("ClientLevelInit" in second_client_decision(dict(sgood, level_init=0))[1],
+          "the server holding the entity is NOT the client loading the level")
+    check("built only" in second_client_decision(dict(sgood, standalone=1))[1],
+          "and building the world from the server is required too")
+
+    check(pid_from_stem("1234") == 1234, "the socket file names the engine pid")
+    check(pid_from_stem("notapid") is None, "a sock file that names no pid is None, never a guess")
+
+    print("concurrent-start self-test: %d checks, %d failed" % (n, 0 if ok else n), flush=True)
+    return 0 if ok else 1
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--config", default=os.environ.get("SOURCESHARP_CONFIG", "debug"))
+    ap.add_argument("-n", type=int, default=6)
+    ap.add_argument("--rounds", type=int, default=1)
+    ap.add_argument("--wait", type=int, default=150)
+    ap.add_argument("--join-wait", type=int, default=120)
+    ap.add_argument("--second-client", action="store_true")
+    ap.add_argument("--keep-stalled", action="store_true")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    os.environ["SOURCESHARP_CONFIG"] = a.config
+    lg = live_gate()
+    scen = lg.load_scenario("dm_lockdown")
+    scratch = tempfile.mkdtemp(prefix="cstart-", dir="/tmp")
+    stalled = total = 0
+    try:
+        for r in range(1, a.rounds + 1):
+            subprocess.run([os.path.join(ROOT, "tools", "box-ready"), "gate", "--wait"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            games = one_round(lg, scen, os.path.join(scratch, "r%d" % r), a.n,
+                              a.wait, a.join_wait, a.second_client, a.keep_stalled)
+            bad = [g for g in games if not g["ok"]]
+            stalled += len(bad)
+            total += len(games)
+            print("round %d: %d/%d joined (first paint + one ss_player%s); videoconfig parse errors per game %s"
+                  % (r, len(games) - len(bad), len(games),
+                     ", second client" if a.second_client else "",
+                     [g["errors"] for g in games]), flush=True)
+            for g in bad:
+                why = g["join"][1]
+                if g["join"][0] and g["second"] is not None and not g["second"][0]:
+                    why = "second client: " + g["second"][1]
+                print("  NOT JOINED %s: %s" % (g["dir"], why), flush=True)
+    finally:
+        if not a.keep_stalled or not stalled:
+            shutil.rmtree(scratch, ignore_errors=True)
+    print("%d of %d games stalled or never joined (instance %s)"
+          % (stalled, total, "off" if os.environ.get("INSTANCE") == "0" else "on"))
+    return 1 if stalled else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

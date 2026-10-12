@@ -1,0 +1,6 @@
+command	seconds	load1	exit	tip
+debug	14.0	0.34	0	f725b434
+test	25.1	7.30	0	f725b434
+test-full	27.0	16.95	0	f725b434
+release-cold	42.1	18.80	0	f725b434
+release-warm	3.1	24.59	0	f725b434

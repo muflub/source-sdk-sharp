@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-scale="1">
+<rect x="12" y="766" width="488" height="302" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="1"/>
+<rect x="20" y="774" width="304" height="68" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="4"/>
+<polygon points="34.4,786 37.6,786 39.5,787.9 39.5,791.8 37.6,793.7 34.4,793.7 32.5,791.8 32.5,787.9" fill="#7ebaf6" data-e="7"/>
+<polygon points="32.8,795 39.2,795 43,797.5 44,802 28,802 29,797.5" fill="#7ebaf6" data-e="7"/>
+<text x="53" y="801.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="8">Bugha</text>
+<text x="52" y="800.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="8">Bugha</text>
+<rect x="220" y="792" width="96" height="4" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="9"/>
+<rect x="220" y="792" width="96" height="4" rx="2" fill="#7ebaf6" data-e="10"/>
+<polygon points="34.4,814 37.6,814 39.5,815.9 39.5,819.8 37.6,821.7 34.4,821.7 32.5,819.8 32.5,815.9" fill="#7ebaf6" data-e="13"/>
+<polygon points="32.8,823 39.2,823 43,825.5 44,830 28,830 29,825.5" fill="#7ebaf6" data-e="13"/>
+<text x="53" y="829.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="14">Merasmus</text>
+<text x="52" y="828.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="14">Merasmus</text>
+<rect x="220" y="820" width="96" height="4" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="15"/>
+<rect x="220" y="820" width="77" height="4" rx="2" fill="#7ebaf6" data-e="16"/>
+<rect x="20" y="850" width="96" height="96" rx="8" fill="#2c3038" fill-opacity="0.82" data-e="20"/>
+<rect x="20.5" y="850.5" width="95" height="95" rx="7.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="20"/>
+<clipPath id="c0"><rect x="20" y="850" width="96" height="96"/></clipPath><g clip-path="url(#c0)" data-e="21">
+<rect x="20" y="850" width="96" height="96" fill="#b2362f" data-e="22"/>
+</g>
+<text x="42" y="906.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="24">140</text>
+<text x="41" y="905.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#f2eee6" xml:space="preserve" data-e="24">140</text>
+<text x="82" y="932.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="25">/ 140</text>
+<rect x="50" y="950" width="36" height="19" rx="2" fill="#111317" data-e="26"/>
+<text x="54" y="964.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="27">LIFE</text>
+<rect x="124" y="850" width="96" height="96" rx="8" fill="#2c3038" fill-opacity="0.82" data-e="29"/>
+<rect x="124.5" y="850.5" width="95" height="95" rx="7.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="29"/>
+<clipPath id="c1"><rect x="124" y="850" width="96" height="96"/></clipPath><g clip-path="url(#c1)" data-e="30">
+<rect x="124" y="869" width="96" height="77" fill="#3458a6" data-e="31"/>
+</g>
+<text x="171" y="906.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="33">96</text>
+<text x="170" y="905.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#f2eee6" xml:space="preserve" data-e="33">96</text>
+<text x="186" y="932.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="34">/ 120</text>
+<rect x="150" y="950" width="44" height="19" rx="2" fill="#111317" data-e="35"/>
+<text x="154" y="964.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="36">MANA</text>
+<rect x="20" y="988" width="208" height="4" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="39"/>
+<rect x="20" y="988" width="153" height="4" rx="2" fill="#ffb52e" data-e="40"/>
+<rect x="236" y="981" width="43" height="19" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="41"/>
+<text x="240" y="995.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="42">Lv 18</text>
+<rect x="287" y="977" width="33" height="27" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="43"/>
+<rect x="287.5" y="977.5" width="32" height="26" rx="1.5" fill="none" stroke="#ffb52e" stroke-width="1" data-e="43"/>
+<text x="295" y="995.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="44">1+</text>
+<rect x="20" y="1012" width="112" height="48" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="47"/>
+<rect x="20.5" y="1012.5" width="111" height="47" rx="3.5" fill="none" stroke="#ffb52e" stroke-width="1" data-e="47"/>
+<rect x="24" y="1018" width="16" height="16" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="50"/>
+<text x="28" y="1030.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="51">1</text>
+<text x="44" y="1030.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="52">Healing Buff</text>
+<text x="24" y="1049.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="54">4</text>
+<rect x="140" y="1012" width="112" height="48" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="55"/>
+<rect x="140.5" y="1012.5" width="111" height="47" rx="3.5" fill="none" stroke="#ffb52e" stroke-width="1" data-e="55"/>
+<rect x="144" y="1018" width="16" height="16" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="58"/>
+<text x="148" y="1030.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="59">2</text>
+<text x="164" y="1030.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="60">Healing Buff</text>
+<text x="144" y="1049.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="62">2</text>
+<rect x="260" y="1012" width="112" height="48" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="63"/>
+<rect x="260.5" y="1012.5" width="111" height="47" rx="3.5" fill="none" stroke="#ffb52e" stroke-width="1" data-e="63"/>
+<rect x="264" y="1018" width="16" height="16" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="66"/>
+<text x="268" y="1030.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="67">3</text>
+<text x="284" y="1030.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="68">Vitality</text>
+<text x="264" y="1049.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="70">1</text>
+<rect x="380" y="1012" width="112" height="48" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="71"/>
+<rect x="380.5" y="1012.5" width="111" height="47" rx="3.5" fill="none" stroke="#ffb52e" stroke-width="1" data-e="71"/>
+<rect x="384" y="1016" width="16" height="16" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="74"/>
+<text x="388" y="1028.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="75">4</text>
+<rect x="1652" y="12" width="256" height="196" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="80"/>
+<rect x="1652.5" y="12.5" width="255" height="195" rx="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="80"/>
+<clipPath id="c2"><rect x="1660" y="20" width="240" height="180"/></clipPath><g clip-path="url(#c2)" data-e="82">
+<rect x="1682" y="99" width="53" height="28" fill="#606a7a" fill-opacity="0.59" data-e="83"/>
+<rect x="1682.5" y="99.5" width="52" height="27" fill="none" stroke="#969eaa" stroke-width="1" data-e="83"/>
+<rect x="1758" y="88" width="60" height="44" fill="#606a7a" fill-opacity="0.59" data-e="84"/>
+<rect x="1758.5" y="88.5" width="59" height="43" fill="none" stroke="#969eaa" stroke-width="1" data-e="84"/>
+<rect x="1840" y="99" width="38" height="28" fill="#606a7a" fill-opacity="0.59" data-e="85"/>
+<rect x="1840.5" y="99.5" width="37" height="27" fill="none" stroke="#969eaa" stroke-width="1" data-e="85"/>
+<rect x="1765" y="37" width="45" height="22" fill="#404650" fill-opacity="0.43" data-e="86"/>
+<rect x="1765.5" y="37.5" width="44" height="21" fill="none" stroke="#969eaa" stroke-width="1" data-e="86"/>
+<rect x="1724" y="109" width="22" height="2" fill="#969eaa" data-e="88"/>
+<rect x="1806" y="109" width="23" height="2" fill="#969eaa" data-e="90"/>
+<rect x="1779" y="45" width="2" height="28" fill="#969eaa" data-e="92"/>
+<polygon points="1853.7,110.1 1855.6,110.1 1859,114 1859,116.4" fill="#ffb52e" data-e="94"/>
+<polygon points="1859,114 1862.4,110.1 1864.3,110.1 1859,116.4" fill="#ffb52e" data-e="94"/>
+<polygon points="1767.4,93 1778,103.6 1776.6,105 1766,94.4" fill="#ff4e40" data-e="96"/>
+<polygon points="1776.6,93 1778,94.4 1767.4,105 1766,103.6" fill="#ff4e40" data-e="96"/>
+<polygon points="1846.4,102.3 1849.6,102.3 1850.5,105.3 1848,107.1 1845.5,105.3" fill="#ff8a3d" data-e="98"/>
+<polygon points="1848,98 1849.6,102.3 1846.4,102.3" fill="#ff8a3d" data-e="98"/>
+<polygon points="1854,102.6 1850.5,105.3 1849.6,102.3" fill="#ff8a3d" data-e="98"/>
+<polygon points="1851.7,109.8 1848,107.1 1850.5,105.3" fill="#ff8a3d" data-e="98"/>
+<polygon points="1844.3,109.8 1845.5,105.3 1848,107.1" fill="#ff8a3d" data-e="98"/>
+<polygon points="1842,102.6 1846.4,102.3 1845.5,105.3" fill="#ff8a3d" data-e="98"/>
+<rect x="1798" y="120" width="8" height="7" fill="#f2eee6" data-e="100"/>
+<rect x="1799" y="117" width="2" height="4" fill="#f2eee6" data-e="100"/>
+<rect x="1803" y="117" width="2" height="4" fill="#f2eee6" data-e="100"/>
+<polygon points="1799.1,117.4 1800.3,115.7 1803.7,115.7 1804.9,117.4 1803.4,117.4 1800.6,117.4" fill="#f2eee6" data-e="100"/>
+<polygon points="1762.6,115 1767.4,115 1771,118.6 1771,123.4 1767.4,127 1762.6,127 1759,123.4 1759,118.6" fill="#f2eee6" data-e="102"/>
+<polygon points="1786.8,104 1789.2,104 1790.6,105.4 1790.6,108.3 1789.2,109.8 1786.8,109.8 1785.4,108.3 1785.4,105.4" fill="#7ebaf6" data-e="104"/>
+<polygon points="1785.6,110.7 1790.4,110.7 1793.3,112.6 1794,116 1782,116 1782.7,112.6" fill="#7ebaf6" data-e="104"/>
+<rect x="1696" y="104" width="2" height="2" fill="#ffb52e" data-e="106"/>
+<rect x="1696" y="106" width="7" height="2" fill="#ffb52e" data-e="108"/>
+<rect x="1696" y="107" width="11" height="2" fill="#ffb52e" data-e="110"/>
+<rect x="1696" y="108" width="16" height="3" fill="#ffb52e" data-e="112"/>
+<rect x="1696" y="110" width="16" height="2" fill="#ffb52e" data-e="114"/>
+<rect x="1696" y="112" width="11" height="2" fill="#ffb52e" data-e="116"/>
+<rect x="1696" y="113" width="7" height="2" fill="#ffb52e" data-e="118"/>
+<rect x="1696" y="114" width="2" height="3" fill="#ffb52e" data-e="120"/>
+</g>
+</svg>

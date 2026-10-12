@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""
+tools/nogc-relink -- do server.so and client.so still link with nothing collected?
+
+    tools/nogc-relink                       # both sides, the build in ./build
+    tools/nogc-relink --build-dir farm/debug/build
+    tools/nogc-relink --side client
+
+Exit 0: every side linked. Exit 1: a side failed; its undefined symbols are
+printed. Exit 2: refused (no build, an object missing from disk, no link
+command) -- never a pass.
+
+=============================================================================
+WHY THIS EXISTS
+=============================================================================
+
+`make debug GC_SECTIONS=0` is the documented first resort when a symbol goes
+missing without a link error, and the Makefile says to keep it working. It
+breaks in one way that every normal check is blind to: a retained translation
+unit names a symbol whose defining file was evicted, and the only functions
+holding that reference are dead, so --gc-sections drops them before the linker
+ever needs the callee. `make` passes, `make test` passed, and the diagnostic
+build fails. It has happened three times: props.cpp's three symbols (server and
+client), GameSound_EmitSentenceByIndex (server), and
+C_BaseAnimating::LookupAttachment from c_rope.cpp (client, since this repo's
+first commit).
+
+A full GC_SECTIONS=0 build answers it, but it recompiles everything into the
+same build tree, so it cannot be a test. This answers the same question from
+the NORMAL build's objects: it takes ninja's own link command for each .so
+(`ninja -t commands`), drops `-Wl,--gc-sections`, and links into a temporary
+directory. With the collector off every section is kept, and a section is a
+superset of what -ffunction-sections splits it into, so the set of undefined
+symbols is the same one the diagnostic build meets. It does not compile.
+
+What it cannot see: anything the diagnostic build changes at COMPILE time.
+GC_SECTIONS=0 also drops -ffunction-sections and -fdata-sections, which moves
+no reference. The real proof stays `make debug GC_SECTIONS=0`.
+"""
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import cmakegraph  # noqa: E402
+
+
+def refuse(msg):
+    print('nogc-relink: REFUSED: %s' % msg, file=sys.stderr)
+    sys.exit(2)
+
+
+def link_command(target, bdir):
+    """(output, the compiler-driver link step of ninja's command for it)."""
+    try:
+        # Cross-checks one object per compiled source, each on disk: an unbuilt
+        # or half-built tree is a refusal, not an empty link that "passes".
+        cmakegraph.link_objects(target, bdir)
+        out = cmakegraph.link_edge(target, bdir)['output']
+    except cmakegraph.GraphError as e:
+        refuse(str(e))
+    rel = os.path.relpath(out, bdir)
+    r = subprocess.run(['ninja', '-C', bdir, '-t', 'commands', rel],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        refuse("ninja -t commands %s failed: %s" % (rel, r.stderr.strip()))
+    # The last line is the link edge; CMake wraps it as `: && <link> && <post>`.
+    steps = r.stdout.strip().split('\n')[-1].split(' && ')
+    links = [s for s in steps if ' -shared ' in s and re.search(r' -o \S+', s)]
+    if len(links) != 1:
+        refuse("expected one -shared step in %s's link command, found %d" % (rel, len(links)))
+    return out, links[0]
+
+
+def relink(side, bdir, tmp):
+    target = cmakegraph.SIDES[side]
+    out, cmd = link_command(target, bdir)
+    had_gc = ' -Wl,--gc-sections' in cmd
+    cmd = cmd.replace(' -Wl,--gc-sections', '')
+    dest = os.path.join(tmp, os.path.basename(out))
+    cmd = re.sub(r' -o \S+', ' -o ' + shlex.quote(dest), cmd, count=1)
+    r = subprocess.run(['bash', '-c', cmd], cwd=bdir, capture_output=True, text=True)
+    log = r.stdout + r.stderr
+    undefined = sorted(set(re.findall(r'undefined symbol: (.+)', log)))
+    linked = r.returncode == 0 and os.path.isfile(dest) and os.path.getsize(dest) > 0
+    print('%-6s %s  (%s, --gc-sections %s)' % (
+        side, 'LINKED' if linked else 'FAILED', os.path.basename(out),
+        'dropped' if had_gc else 'was already off'))
+    if not linked:
+        for s in undefined:
+            print('       undefined: %s' % s)
+        if not undefined:
+            print('\n'.join('       ' + l for l in log.strip().split('\n')[-15:]))
+    return linked
+
+
+def main(argv):
+    bdir, sides = 'build', ['server', 'client']
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == '--build-dir' and i + 1 < len(argv):
+            i += 1
+            bdir = argv[i]
+        elif a == '--side' and i + 1 < len(argv) and argv[i + 1] in cmakegraph.SIDES:
+            i += 1
+            sides = [argv[i]]
+        else:
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+        i += 1
+    bdir = os.path.abspath(bdir)
+    if not os.path.isfile(os.path.join(bdir, 'build.ninja')):
+        refuse('no build.ninja in %s -- run `make debug` first' % bdir)
+    with tempfile.TemporaryDirectory(prefix='nogc-relink-') as tmp:
+        ok = [relink(s, bdir, tmp) for s in sides]
+    return 0 if all(ok) else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

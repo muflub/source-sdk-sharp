@@ -1,0 +1,39 @@
+# server.so evictions
+
+Files that left `server_sourcesharp`'s source list, with the reason and what
+took over. This file is the only record: CMakeLists.txt keeps no comment
+for a file that left. Newest first.
+
+| date | file | lines | reason | what replaced it |
+|---|---|--:|---|---|
+| 2026-10-12 | src/shared/native/physics_shared.cpp | 1363 | plan physics_bones_native_zero 2.6: after the flip (CPhysicsHook and CStandaloneEntity::InitPhysics ask IManagedPhysicsFrame for the world, the surface sounds and a model's solid) nm over the 125 kept server objects found no referrer but the five vphysics pointers and DataObjectAccessGameSystem; physics.cpp defines the pointers, and the data-object system (two watcher refusals nothing asked) left with its kServerSystems[] row | ServerPhysicsWorld (managed) over the shared PhysicsWorldBuilder, ModelSolidParse, SurfaceSoundPrecache and SolidKeyDefaults; the native g_EntityCollisionHash went too (the pairs are EntityPairCollisions' since 2.1) |
+| 2026-10-12 | src/shared/native/studio_sequence_timing.cpp (deleted) | 219 | physics_bones_native_zero: its only caller was model_descriptor.cpp's walk (`Studio_CalcDefaultPoseParameters`, then `Studio_Duration` per sequence). The descriptor blob dropped the duration (format v3), so nothing calls it; nm over the kept objects (debug) finds no reference to its five symbols (`Studio_Duration`, `Studio_CPS`, `Studio_SeqAnims`, `Studio_LocalPoseParameter`, `Studio_CalcDefaultPoseParameters`) | `ModelDescriptors` takes each sequence's default duration from `StudioSequenceTiming` (SourceSharp.Shared.Bones) over the server skeletons' `StudioModels`; live parity on dm_lockdown (load + changelevel): max difference 0 over 1010 sequences |
+| 2026-10-11 | src/shared/native/bone_library.cpp | 651 | physics_bones_native_zero 1.2: the server's skeleton is managed (SourceSharp.Server's `ServerSkeletons` over `ServerBoneDriver`/`BoneLibrary`); after the flip no server object references a symbol it defines (nm over the link line: 0 of its 14; only shell_standalone_hierarchy(.debug) did) | the client still compiles it on its own list. bone_setup.cpp stays on the server for model_descriptor.cpp's `Studio_Duration` / `Studio_CalcDefaultPoseParameters` (and bone_library had been its other caller) |
+| 2026-10-11 | src/server/native/shell_standalone_hierarchy_debug.cpp | 763 | physics_bones_native_zero 1.2: `cs_sv_boneprobe` probed the native skeleton that is gone; its record/replay arms were an oracle for bone_library.cpp | `SkeletonProbeCommand` (seq, scale) in SkeletonCommands.cs, debug builds only, with `cs_sv_bonecompare` / `cs_sv_bonecost` |
+| 2026-10-11 | src/shared/native/bone_setup.cpp | 6212 | physics_bones_native_zero: its last server callers were model_descriptor.cpp's `Studio_Duration` and `Studio_CalcDefaultPoseParameters`; those two and their closure (`Studio_CPS`, `Studio_SeqAnims`, `Studio_LocalPoseParameter`, 193 lines) moved unchanged to studio_sequence_timing.cpp, which the server compiles in its place (nm: server_srv.so keeps those five, none of bone_setup's IK/BuildMatrices/CBoneSetup) | the client compiles both files. The managed end state, ModelDescriptors over the managed StudioHdr, is in docs/todo.md |
+| 2026-10-04 | src/server/native/shell_vieweffects.cpp | 370 | user-message payload model: the screen shake and screen fade senders (UTIL_ScreenShake, UTIL_ScreenFadeAll/Slot, the 7.9 fixed point) had no caller -- C#'s `ScreenEffects` decides both and sends `Shake`/`Fade` payloads, and the `IShimEffectsServer` ScreenShake/ScreenFade slots that reached the native walks were never called from managed code | the slots and `SourceSharp_ScreenShake`/`ScreenFade` are gone; the view punch walk (not a message) moved into shell_scripted.cpp beside `SourceSharp_ViewPunch`, its one caller |
+| 2026-10-02 | src/shared/native/shell_usermessage_registry.cpp | 338 | plan_side_isolation P2: the user-message registry is C#'s (`UserMessageRegistry`) | `IServerGameDLL::GetUserMessageInfo` and the Valve senders' name lookup forward to it through `IManagedUserMessages` |
+| 2026-10-02 | src/shared/native/shell_usermessages.cpp | 475 | plan_side_isolation P2: registration, the managed send path and the dropped-message sentinel | C#'s `UserMessageSender` sends through `IShimUserMessages::UserMessageSend` (shell_usermessage_send.cpp); the sentinel is a field of that file's open-message class |
+| 2026-10-02 | src/server/native/ss_usermessages.h | 76 | plan_side_isolation P2: `ss::CUserMessages`, server.so's native list | none: `UserMessageBegin` and `MessageEnd` are declared in usermessage_write.h |
+
+`make debug GC_SECTIONS=0` after this eviction (plan_side_isolation P2, 2026-10-02): server.so links; client.so's one undefined symbol is C_BaseAnimating::LookupAttachment from c_rope.cpp, which no user-message file references (unrelated to this eviction).
+
+## Moved from src/server/native/CMakeLists.txt's comments (2026-10-12)
+
+Reasons that lived only in a comment at the file's old place in the source list,
+moved here verbatim with the date the comment was written (git blame). Newest first.
+
+| date | file | reason |
+|---|---|---|
+| 2026-10-11 | physics_fx.cpp | physics_fx.cpp deleted 2026-10-11: PhysicsSplash had no caller; the splash is SourceSharp.Server's PhysicsSplashPlan (PhysicsFluidEvents). |
+| 2026-10-01 | particle_manifest.cpp | particle_manifest.cpp left (P5 lane SP): its server half is the two DispatchParticleEffect overloads, and no server object references either (nm over every server_sourcesharp object). client.so still builds it. |
+| 2026-10-01 | ragdoll_shared.cpp | ragdoll_shared.cpp left (P5 lane SP): no server object references any of its 62 defined symbols (nm), and the linked server.so kept only its TU-local vec2/vec4 constant initialisers. client.so still builds it. |
+| 2026-10-01 | shell_movement_audit.cpp | shell_movement_audit.cpp left (2026-10-01): --print-gc-sections discarded every section it gave server.so (no server object reaches the movement-convar audit); the client keeps it. |
+| 2026-10-01 | shell_propdata_system.cpp | shell_propdata_system.cpp left (P5 lane SP): the server's CPropData is in no system table (shell_serversystems.cpp: PropData is C#'s), its hooks are empty on this side, and no server object references a symbol it defines (nm). client.so still builds it. |
+| 2026-09-29 | shell_particlequery.cpp | plan_server_novalve.md P2.1: the IParticleSystemQuery handed to CParticleSystemMgr::Init, gone with the manager when the manifests moved to C#. |
+| 2026-09-29 | usercmd.cpp | plan_server_novalve.md P2.2: ReadUsercmd, the server's half of the usercmd codec, is C# (UserCmdCodec.cs); the file is the client's WriteUsercmd. |
+| 2026-09-29 | steamid.cpp | plan_server_novalve.md P2.5: CSteamID's out-of-line members; no object on the server link line imported one (nm -u), and the file includes a steam/ header server.so no longer reaches. The client still compiles it. |
+| 2026-09-29 | shell_soundscape.cpp | plan_server_novalve.md P2.4: the soundscape registry (stock's CSoundscapeSystem, built by vstdlib's KeyValues parse); the index is SourceSharp.Server.Soundscapes' shared SoundscapeLibrary, held to the registry's table on dm_lockdown first. |
+| 2026-09-29 | shell_propdata.cpp | plan_server_novalve.md P2.4: the two IShimLevel steps that loaded and freed the native propdata.txt tree; C#'s PropData parses the file and resolves a model's prop data (PropPhysics) itself, so the steps are retired and the tree unused. |
+| 2026-10-01 | memoverride.cpp | plan_server_novalve.md P4.8: routed server.so's malloc/free/new/delete to tier0's g_pMemAlloc. server.so uses glibc directly (plan_server_novalve.md 3.6). |
+| 2026-10-01 | tier0_heap_port.cpp | plan_server_novalve.md P5 step 5: server.so's own g_pMemAlloc. With NO_MALLOC_OVERRIDE no object named it, and --print-gc-sections discarded every section it contributed; deleted. |

@@ -1,0 +1,27 @@
+--- a/src/game/client/fx_discreetline.cpp
++++ b/src/game/client/fx_discreetline.cpp
+@@ -18,6 +18,8 @@
+ #include "view.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_mesh.h"
++#define CMeshBuilder CProbeMeshBuilder
+ #include "tier0/memdbgon.h"
+ 
+ /*
+@@ -46,6 +48,7 @@
+ 	m_fLife				= life;
+ 	m_fStartTime		= 0.0f;
+ 	m_fLength			= length;
++	FxProbeLog( "fxe-new DiscreetLine %p %s mat=%s o=%.9g %.9g %.9g d=%.9g %.9g %.9g vel=%.9g len=%.9g clip=%.9g scale=%.9g life=%.9g", (void *)this, name, shader, start.x, start.y, start.z, direction.x, direction.y, direction.z, velocity, length, clipLength, scale, life );
+ }
+ 
+ CFXDiscreetLine::~CFXDiscreetLine( void )
+@@ -70,6 +73,7 @@
+ 	Vector tmp;
+ 
+ 	// Update the effect
++	FxProbeLog( "fxe-draw %p ft=%.17g view=%.9g %.9g %.9g fwd=%.9g %.9g %.9g sw=%d extra=%d", (void *)this, frametime, CurrentViewOrigin().x, CurrentViewOrigin().y, CurrentViewOrigin().z, CurrentViewForward().x, CurrentViewForward().y, CurrentViewForward().z, ScreenWidth(), tracer_extra.GetBool() ? 1 : 0 );
+ 	Update( frametime );
+ 
+ 	// Calculate our distance along our path

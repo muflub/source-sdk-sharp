@@ -1,0 +1,16 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+CClientEffectRegistration::CClientEffectRegistration	HOOK	DECLARE_CLIENT_EFFECT's static-init registration (B3): pushes the name and function on the list
+EffectRegistrationAt	SLOT-HELP	walks the registration list to the walk index managed chose; decides nothing
+EffectDataToClient	BOUNDARY	SourceSharpEffectData_t -> CEffectData field for field (entity index -> handle through the slot table) for a registration call
+EffectDataFromClient	BOUNDARY	CEffectData -> SourceSharpEffectData_t field for field (handle -> entry index) for the managed table
+SourceSharp_EffectRegistrationCount	HOOK	reads the registration list (B3) for the managed dispatch table
+SourceSharp_EffectRegistrationName	HOOK	reads one registration's name (B3) for the managed dispatch table
+SourceSharp_EffectRegistrationRun	BOUNDARY	runs the registration managed's EffectDispatchTable picked, by walk index (B4)
+DispatchEffectToCallback	BOUNDARY	a native caller's dispatch carried to the managed table (IManagedFxClient); the table decides
+TE_DispatchEffect	LIVE-API	ITempEntsSystem::DispatchEffect's body (shell_te_forwards_client.cpp imports it, nm -u); one call onward
+void DispatchEffect( const char *pName, const CEffectData &data )	LIVE-API	stock's client DispatchEffect (cdll_util.cpp, c_rope.cpp, particle_manifest.cpp, util_shared_library.cpp import it, nm -u); a filter and one call onward
+void DispatchEffect( const char *pName, const CEffectData &data, C_RecipientFilter &filter )	LIVE-API	stock's filtered DispatchEffect: one call onto the client's te
+CEffectData::GetRenderable	LIVE-API	fx.cpp imports it (nm -u): the effect's owner resolved through the slot table
+CEffectData::GetEntity	LIVE-API	shell_impact_effects.cpp imports it (nm -u): the effect's owner resolved through the slot table
+CEffectData::entindex	LIVE-API	fx.cpp and shell_impact_effects.cpp import it (nm -u): the owner's index, -1 for none

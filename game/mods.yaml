@@ -1,0 +1,80 @@
+# The mods this launcher can start. Read by source# (src/launcher), by
+# Bootstrap (src/host/managed) for the assemblies to load, and by tools/setup
+# to lay out bin/<config>/mods/<id>/. Paths are relative to this file as it is
+# seen from bin/<config>/mods.yaml, except `content`, which is relative to the
+# repo root.
+#
+# `defaults` holds any of a mod's settings; each mod overrides what it gives.
+# Maps merge key by key, and a scalar or a list a mod gives replaces the
+# default's (a mod restates a whole list, as tf2_descent does its assemblies).
+# `{id}` in a title or a path is the mod's id. The engine has two roles:
+# `client` (source# -mod X: the game client and listen server) and
+# `dedicated` (source# -mod X -dedicated, and a hosted pod through the
+# resolved mod.dedicated.yaml that make mod-image writes).
+default_mod: test
+defaults:
+  title: "{id}"
+  game_dir: mods/{id}
+  content: game/mod_{id}
+  steam_appid: 243750
+  managed_dir: bin/managed
+  assemblies:
+    server: [SourceSharp.Server]
+    client: [SourceSharp.Client]
+  engine:
+    client:
+      appid: 243750
+      exe: hl2_linux64
+      restart_exit_code: 42
+      fd_limit: 2048
+      # -novid: skip the intro video on a player's launch (the Makefile's
+      # RUN_ARGS carry it for dev runs; this is the plain `source#` path).
+      args: [-novid]
+      env: {}
+    dedicated:
+      # 244310's install is the engine directory (its bin/linux64 holds the
+      # 64-bit *_srv.so); srcds_linux64 itself, and the libraries 244310 lacks,
+      # come from 243750 (plan_host_sdk P0(5)).
+      appid: 244310
+      exe: srcds_linux64
+      exe_appid: 243750
+      restart_exit_code: 42
+      fd_limit: 4096
+      # -insecure: a SourceSharp client is always insecure (modded binaries
+      # get no VAC), and an insecure client refuses a secure server ("You must
+      # restart before you can connect to secure servers", P6's first join).
+      args: [-console, -insecure, -nohltv, +tv_enable, "0"]
+      env: {}
+mods:
+  test:
+    title: SourceSharp test mod
+  # Stock TF2 logic ported to SourceSharp, on TF2's content.
+  tf2:
+    title: TF2
+    assemblies:
+      server: [SourceSharp.Server, TF2.Server]
+      client: [SourceSharp.Client, TF2.Client]
+  # TF2Descent builds on the TF2 mod: its assemblies load after TF2's.
+  tf2_descent:
+    title: TF2Descent
+    assemblies:
+      server: [SourceSharp.Server, TF2.Server, TF2.Descent.Server]
+      client: [SourceSharp.Client, TF2.Client, TF2.Descent.Client]
+    # The hosted server-browser entry (host plan_steam_auth S-18): source#
+    # -resolve -dedicated writes it into mod.dedicated.yaml, and the game
+    # server hands it to the host SDK before Booting. name, description,
+    # tags, map and the rules' values are templates over the keys the host
+    # publishes: {hub_map} {players} {max_players} {levels_open} {deepest}
+    # {players_by_level} {pool_ready}; any other key is refused. region is
+    # Steam's region string ("" is Steam's default); max_players 0 is the
+    # host's capacity; an empty map is {hub_map}.
+    browser:
+      name: "TF2 Descent ({levels_open} levels open)"
+      description: "TF2 Descent"
+      tags: "rpg,coop,descent,deepest{deepest}"
+      region: ""
+      max_players: 0
+      map: "depth {deepest}"
+      rules:
+        players_by_level: "{players_by_level}"
+        pool_ready: "{pool_ready}"

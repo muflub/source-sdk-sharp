@@ -1,0 +1,100 @@
+--- a/src/client/native/shell_managed_particles.cpp	2026-10-12 11:56:46.729959936 -0700
++++ b/src/client/native/shell_managed_particles.cpp	2026-10-12 11:56:46.737394592 -0700
+@@ -59,6 +59,37 @@
+ #include "fx_water.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++// ---- C7 particles phase 2 probe (shell_managed_particles.cpp.pm.probe.diff) ----
++#include <fcntl.h>
++#include <unistd.h>
++static void PmShellLog( const char *pFmt, ... )
++{
++	static int s_fd = -2;
++	if ( s_fd == -2 )
++	{
++		const char *pPath = getenv( "SOURCESHARP_PROBE_LOG" );
++		s_fd = ( pPath && *pPath ) ? open( pPath, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644 ) : -1;
++	}
++	if ( s_fd < 0 )
++		return;
++	char buf[ 512 ];
++	va_list ap;
++	va_start( ap, pFmt );
++	int n = V_vsnprintf( buf, sizeof( buf ) - 2, pFmt, ap );
++	va_end( ap );
++	if ( n < 0 )
++		return;
++	if ( n > (int)sizeof( buf ) - 2 )
++		n = sizeof( buf ) - 2;
++	buf[ n++ ] = '\n';
++	(void)!write( s_fd, buf, n );
++}
++static const Particle *PmNext( CParticleRenderIterator *pIterator, const void *pBinding, int nId, float flKey )
++{
++	PmShellLog( "pm\tkey\t%p\t%d\t%.9g", pBinding, nId, flKey );
++	return pIterator->GetNext( flKey );
++}
++// ---- end probe ----
+ #include "tier0/memdbgon.h"
+ 
+ // shell_client_orphans.cpp: the view model FOV squash CLocalSpaceEmitter applied (FLE_VIEWMODEL).
+@@ -372,6 +403,7 @@
+ 			{
+ 				pParticle->m_Pos = GetAbsOrigin();
+ 				pParticle->m_nId = ids[i];
++				PmShellLog( "pm\tspawn\t%p\t%d\t%.9g,%.9g,%.9g", &m_ParticleEffect, ids[i], pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z );
+ 			}
+ 		}
+ 	}
+@@ -412,6 +444,7 @@
+ 			{
+ 				pParticle->m_Pos = GetAbsOrigin();
+ 				pParticle->m_nId = newIds[k];
++				PmShellLog( "pm\tspawn\t%p\t%d\t%.9g,%.9g,%.9g", &m_ParticleEffect, newIds[k], pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z );
+ 			}
+ 		}
+ 	}
+@@ -436,14 +469,14 @@
+ 			const SourceSharpParticleQuad_t *pQuad = Find( p->m_nId, nQuads );
+ 			if ( !pQuad )
+ 			{
+-				p = (const ManagedParticle_t *)pIterator->GetNext( 0.0f );
++				p = (const ManagedParticle_t *)PmNext( pIterator, &m_ParticleEffect, p->m_nId, 0.0f );
+ 				continue;
+ 			}
+ 
+ 			if ( pQuad->Kind == 5 )
+ 			{
+ 				RenderAnglesQuad( pIterator->GetParticleDraw(), *pQuad, ParticleMgr()->GetModelView() );
+-				p = (const ManagedParticle_t *)pIterator->GetNext( pQuad->SortKey );
++				p = (const ManagedParticle_t *)PmNext( pIterator, &m_ParticleEffect, p->m_nId, pQuad->SortKey );
+ 				continue;
+ 			}
+ 
+@@ -458,7 +491,7 @@
+ 				                             pQuad->Alpha, pQuad->Size );
+ 				// Step 7a's gate: one per mote handed to the mesh. shell_effect_ledger.h.
+ 				g_SourceSharpEffects.nDustMotes++;
+-				p = (const ManagedParticle_t *)pIterator->GetNext( pQuad->SortKey );
++				p = (const ManagedParticle_t *)PmNext( pIterator, &m_ParticleEffect, p->m_nId, pQuad->SortKey );
+ 				continue;
+ 			}
+ 
+@@ -466,7 +499,7 @@
+ 			{
+ 				if ( pQuad->Size > 0.0f )
+ 					RenderTracerQuad( pIterator->GetParticleDraw(), *pQuad );
+-				p = (const ManagedParticle_t *)pIterator->GetNext( pQuad->SortKey );
++				p = (const ManagedParticle_t *)PmNext( pIterator, &m_ParticleEffect, p->m_nId, pQuad->SortKey );
+ 				continue;
+ 			}
+ 
+@@ -498,7 +531,7 @@
+ 			else
+ 				RenderParticle_ColorSizeAngle( pIterator->GetParticleDraw(), tPos, vColor, flAlpha, pQuad->Size, pQuad->Roll );
+ 
+-			p = (const ManagedParticle_t *)pIterator->GetNext( pQuad->FixedSort == 1 ? pQuad->SortKey
++			p = (const ManagedParticle_t *)PmNext( pIterator, &m_ParticleEffect, p->m_nId, pQuad->FixedSort == 1 ? pQuad->SortKey
+ 			                                                   : pQuad->FixedSort == 2 ? (float)(int)tPos.z
+ 			                                                   : tPos.z );
+ 		}

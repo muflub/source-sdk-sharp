@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The mods.yaml model and parser, shared by the launcher (source#, NativeAOT)
+    and Bootstrap (which loads the assemblies a mod lists). AOT-safe: YAML is
+    read through YamlDotNet's source-generated static context, so there is no
+    reflection for the trimmer to warn about.
+  -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+    <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="18.1.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

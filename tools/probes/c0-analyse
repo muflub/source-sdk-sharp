@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""tools/probes/c0-analyse -- summarise one c0-session probe.log.
+
+    tools/probes/c0-analyse OUT_DIR/probe.log [--sequence]
+
+Prints:
+  order      the first time each of VClient017 / GameUI011 / GameConsole004 was
+             asked for (seconds from the first log line) and by which module
+  iface      every distinct name the client's CreateInterface answered, with
+             the asking module (material proxies collapsed into one count)
+  loads      per OnLevelLoadingStarted .. OnLevelLoadingFinished window: show_progress, UpdateProgressBar
+             calls by return value, and ISurface::PaintTraverseEx calls inside
+             the window, split by whether the preceding progress call
+             returned true; plus the paint rate outside any window
+  pq         the last IParticleSystemQuery count line, non-zero methods only
+  sequence   (--sequence) the IGameUI / IGameConsole calls in order, repeats
+             of one call run-length collapsed
+
+A missing or empty log is an error, never an empty summary.
+
+    tools/probes/c0-analyse --self-test    the load-window arithmetic on a
+                                            synthetic log, and the refusals
+"""
+import os
+import re
+import sys
+
+
+SELF_TEST_LOG = """\
+1000000000 1 client iface VClient017 from engine.so
+1100000000 1 gameui CreateInterface GameUI011 from /x/engine.so -> answered
+1200000000 1 client paint n=1 from engine.so
+2000000000 1 gameui IGameUI OnLevelLoadingStarted show_progress=1
+2100000000 1 client paint n=2 from engine.so
+2200000000 1 gameui IGameUI UpdateProgressBar enter progress=0.1 text=(null)
+2200000001 1 gameui IGameUI UpdateProgressBar exit ret=1
+2300000000 1 client paint n=3 from engine.so
+2300000001 1 client paint n=4 from engine.so
+2400000000 1 gameui IGameUI UpdateProgressBar enter progress=0.2 text=(null)
+2400000001 1 gameui IGameUI UpdateProgressBar exit ret=0
+2500000000 1 client paint n=5 from engine.so
+2600000000 1 gameui IGameUI OnLevelLoadingFinished error=0 reason= extended= (UpdateProgressBar calls=2)
+2700000000 1 client paint n=6 from engine.so
+"""
+
+
+def self_test():
+    import io
+    import contextlib
+    import tempfile
+    failures = 0
+
+    def check(name, ok, detail=""):
+        nonlocal failures
+        print("  %s  %s%s" % ("ok  " if ok else "FAIL", name, ("   -- " + detail) if detail and not ok else ""))
+        failures += 0 if ok else 1
+
+    with tempfile.TemporaryDirectory() as d:
+        log = os.path.join(d, "probe.log")
+        with open(log, "w") as f:
+            f.write(SELF_TEST_LOG)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            analyse(log, sequence=True)
+        out = buf.getvalue()
+        check("the client resolves first", re.search(r"VClient017\s+0\.000 s", out) is not None, out)
+        check("GameUI011 is timed from the first line", re.search(r"GameUI011\s+0\.100 s", out) is not None, out)
+        check("one paint before the first progress call, two after a true return, one after a false one",
+              "paints: 1 before the first progress call, 2 after a true return, 1 after a false return" in out, out)
+        check("paints outside the window are counted apart (n=1 and n=6)",
+              "paints outside load windows: 2" in out, out)
+        check("progress calls are tallied by return value", "ret=0 x1, ret=1 x1" in out, out)
+        check("the sequence collapses enter/exit into one UpdateProgressBar per call",
+              "IGameUI UpdateProgressBar  (x2)" in out, out)
+        for name, text in (("an empty log", ""), ("a log with no probe lines", "hello\n")):
+            with open(log, "w") as f:
+                f.write(text)
+            try:
+                analyse(log, sequence=False)
+                check(name + " is refused", False, "it was summarised")
+            except SystemExit as e:
+                check(name + " is refused", e.code not in (0, None), str(e.code))
+        try:
+            analyse(os.path.join(d, "absent.log"), sequence=False)
+            check("a missing log is refused", False, "it was summarised")
+        except SystemExit as e:
+            check("a missing log is refused", e.code not in (0, None), str(e.code))
+    print("%d failed" % failures)
+    return 1 if failures else 0
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    if sys.argv[1] == "--self-test":
+        sys.exit(self_test())
+    analyse(sys.argv[1], sequence="--sequence" in sys.argv)
+
+
+def analyse(path, sequence):
+    try:
+        lines = [l.rstrip("\n") for l in open(path, errors="replace")]
+    except OSError as e:
+        sys.exit("c0-analyse: %s" % e)
+    if not lines:
+        sys.exit("c0-analyse: %s is empty" % path)
+
+    rows = []
+    for l in lines:
+        parts = l.split(" ", 3)
+        if len(parts) < 4 or not parts[0].isdigit():
+            continue
+        rows.append((int(parts[0]), parts[2], parts[3]))
+    if not rows:
+        sys.exit("c0-analyse: no probe lines in %s" % path)
+    t0 = rows[0][0]
+
+    def sec(t):
+        return (t - t0) / 1e9
+
+    # ---- order
+    print("order:")
+    for name in ("VClient017", "GameUI011", "GameConsole004"):
+        hit = next(((t, who, text) for t, who, text in rows
+                    if (who == "client" and text.startswith("iface %s from" % name)
+                        and "ld-linux" not in text)
+                    or (who == "gameui" and text.startswith("CreateInterface %s from" % name))), None)
+        if hit:
+            print("  %-15s %8.3f s  %s" % (name, sec(hit[0]), hit[2].split(" from ", 1)[1].split("/")[-1]))
+        else:
+            print("  %-15s never asked for" % name)
+
+    # ---- iface
+    print("iface (client CreateInterface, by name and asker):")
+    names = {}
+    proxies = 0
+    for t, who, text in rows:
+        m = re.match(r"iface (\S+) from (\S+)", text) if who == "client" else None
+        if not m:
+            continue
+        if m.group(1).endswith("_IMaterialProxy003"):
+            proxies += 1
+            continue
+        key = "%s from %s" % (m.group(1), m.group(2))
+        names[key] = names.get(key, 0) + 1
+    for k, n in names.items():
+        print("  %3d  %s" % (n, k))
+    print("  %3d  *_IMaterialProxy003 (material proxies)" % proxies)
+
+    # ---- loads
+    print("loads:")
+    window = None
+    outside_paints = 0
+    loads = []
+    last_ret = None
+    for t, who, text in rows:
+        if who == "gameui" and text.startswith("IGameUI OnLevelLoadingStarted show_progress"):
+            window = {"start": t, "show": text.split("=")[1], "calls": {}, "paint_after_true": 0,
+                      "paint_after_false": 0, "paint_before_first": 0, "end": None}
+            last_ret = None
+            loads.append(window)
+            continue
+        if window is not None and who == "gameui" and text.startswith("IGameUI OnLevelLoadingFinished"):
+            window["end"] = t
+            window = None
+            continue
+        if who == "gameui" and text.startswith("IGameUI UpdateProgressBar exit"):
+            m = re.search(r"ret=(\d)", text)
+            last_ret = m.group(1)
+            if window is not None:
+                window["calls"][text.split("exit ", 1)[1]] = window["calls"].get(text.split("exit ", 1)[1], 0) + 1
+            continue
+        if who == "client" and text.startswith("paint n="):
+            if window is None:
+                outside_paints += 1
+            elif last_ret is None:
+                window["paint_before_first"] += 1
+            elif last_ret == "1":
+                window["paint_after_true"] += 1
+            else:
+                window["paint_after_false"] += 1
+    for i, w in enumerate(loads):
+        dur = sec(w["end"]) - sec(w["start"]) if w["end"] else float("nan")
+        print("  load %d at %.3f s, %.3f s long, show_progress=%s" % (i + 1, sec(w["start"]), dur, w["show"]))
+        print("    UpdateProgressBar: %s" % (", ".join("%s x%d" % kv for kv in sorted(w["calls"].items())) or "none"))
+        print("    paints: %d before the first progress call, %d after a true return, %d after a false return"
+              % (w["paint_before_first"], w["paint_after_true"], w["paint_after_false"]))
+    print("  paints outside load windows: %d" % outside_paints)
+
+    # ---- pq
+    pq = [text for t, who, text in rows if who == "client" and text.startswith("pq-counts")]
+    if pq:
+        print("pq: " + re.sub(r" \w+=0\b", "", pq[-1]))
+
+    # ---- sequence
+    if sequence:
+        print("sequence:")
+        last, n, first = None, 0, None
+        out = []
+        for t, who, text in rows:
+            if who != "gameui" or not (text.startswith("IGameUI") or text.startswith("IGameConsole")
+                                       or text.startswith("CreateInterface")):
+                continue
+            if text.startswith("IGameUI UpdateProgressBar enter"):
+                continue
+            if text.startswith("IGameUI UpdateProgressBar exit"):
+                text = "IGameUI UpdateProgressBar"
+            key = re.sub(r"(panel|factory)=\S+", r"\1=*", text)
+            key = re.sub(r" \(call \d+\)| \(RunFrame calls=\d+\)| \(UpdateProgressBar calls=\d+\)", "", key)
+            key = re.sub(r" from \S*/", " from ", key)
+            if key == last:
+                n += 1
+                continue
+            if last is not None:
+                out.append((first, n, last))
+            last, n, first = key, 1, t
+        out.append((first, n, last))
+        for t, n, k in out:
+            print("  %8.3f %s%s" % (sec(t), k, "  (x%d)" % n if n > 1 else ""))
+
+
+if __name__ == "__main__":
+    main()

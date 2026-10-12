@@ -1,0 +1,27 @@
+--- a/src/game/client/fx_staticline.cpp
++++ b/src/game/client/fx_staticline.cpp
+@@ -14,6 +14,8 @@
+ #include "view.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_mesh.h"
++#define CMeshBuilder CProbeMeshBuilder
+ #include "tier0/memdbgon.h"
+ 
+ /*
+@@ -39,6 +41,7 @@
+ 	m_uiFlags	= flags;
+ 	m_fLife		= life;
+ 	m_fScale	= scale * 0.5f;
++	FxProbeLog( "fxe-new StaticLine %p %s mat=%s s=%.9g %.9g %.9g e=%.9g %.9g %.9g scale=%.9g life=%.9g flags=%u", (void *)this, name, shader, start.x, start.y, start.z, end.x, end.y, end.z, scale, life, flags );
+ }
+ 
+ CFXStaticLine::~CFXStaticLine( void )
+@@ -57,6 +60,7 @@
+ 	Vector tmp;
+ 
+ 	// Update the effect
++	FxProbeLog( "fxe-draw %p ft=%.17g view=%.9g %.9g %.9g", (void *)this, frametime, CurrentViewOrigin().x, CurrentViewOrigin().y, CurrentViewOrigin().z );
+ 	Update( frametime );
+ 
+ 	// Get the proper orientation for the line

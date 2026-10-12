@@ -1,0 +1,11 @@
+# lane c2-sims: record the client soundscape system (C_SoundscapeSystem in
+# shell_soundscape_client.cpp, tools/probes/c2sims-soundscape-probe.diff applied)
+# on dm_lockdown, with src/test/client/Fixtures/soundscapes_c2probe.txt copied
+# in as the map's own scripts/soundscapes_dm_lockdown.txt. 1000 frames; the
+# script is in the diff (SsProbeScript).
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd cs_cl_probe_sim soundscape 1000
+wait sim: recorded 120
+quit

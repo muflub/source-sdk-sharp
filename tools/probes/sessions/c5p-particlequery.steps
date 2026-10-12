@@ -1,0 +1,59 @@
+# lane c5-particles: particlesystemquery.cpp's answers, recorded for the
+# managed particle query's oracle (particlequery-stock.tsv). The C0 sweep
+# starts every loaded definition in front of the view, which is what reaches
+# the trace, lighting and hit-box methods (C0 probe 1); the collision-group
+# names are read while the definitions load.
+# Run with --env SOURCESHARP_C5P_FIXTURE_DIR=<dir> on a probes build.
+wait iface-list 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 5
+cmd sv_cheats 1
+cmd cs_cl_probe_particle_sweep
+wait pq-sweep-start 30
+# the view walks while the sweep runs, so the lighting and trace answers
+# are taken at many points rather than one
+sleep 10
+cmd setpos -3843 2894 0
+sleep 10
+cmd setpos -3667 3439 12
+sleep 10
+cmd setpos -4067 5622 12
+sleep 10
+cmd setpos -3443 2894 0
+sleep 10
+cmd setpos -3893 1700 0
+sleep 10
+cmd setpos -3600 2600 0
+sleep 10
+cmd setpos -4000 3000 0
+sleep 10
+cmd setpos -3700 3200 20
+sleep 10
+cmd setpos -3300 2700 0
+sleep 10
+cmd setpos -3950 4200 12
+sleep 10
+cmd setpos -4100 5200 12
+sleep 10
+cmd setpos -3800 5000 12
+sleep 10
+cmd setpos -3500 3600 12
+sleep 10
+cmd setpos -3843 2400 0
+sleep 10
+cmd setpos -3200 3000 0
+sleep 10
+cmd setpos -4200 3800 12
+sleep 10
+cmd setpos -3650 4600 12
+sleep 10
+cmd setpos -3900 2100 0
+sleep 10
+cmd setpos -3400 3300 0
+sleep 10
+cmd setpos -4050 4900 12
+wait pq-sweep-done 1500
+cmd disconnect
+sleep 3
+quit

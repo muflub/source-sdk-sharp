@@ -1,0 +1,152 @@
+#!/bin/bash
+# tools/local-hosted -- the tf2_descent mod against the real hosting service, run
+# locally (plan_host_sdk §2.7(10); the host's D-H13 local mode).
+#
+#   tools/local-hosted [--config debug|release] [--host-root DIR] [--port N] [--process] [--pack DIR]
+#
+# --port N is the hub's game port, given to the service too (its
+# Instances.GamePort), so a run can stay clear of another game or the local
+# cluster's gateway on 27015.
+#
+# --pack DIR bakes the room library in DIR (the host's tested steps,
+# 2026-10-02): the service runs with its internal endpoint on 127.0.0.1:5005
+# and MapPool.AutoActivateBakes, then `make bake` posts the pack, which
+# activates for its depths so a descent finds a level. DIR is the library
+# itself (rooms.vmf, gameinfo.txt, materials/, library.json); it is also the
+# bake's content, because the TF2 install's packed materials fail the room
+# rules.
+#
+# SAME PROCESS BY DEFAULT, the host's default local travel
+# (Instances.LocalTravel=SameProcess): only the hub runs, and a hop changes
+# that one game's level (LevelHop links the level files and changelevels; the
+# process becomes the target instance at its next Booting). With --process the
+# service runs Instances.LocalTravel=Process and step 3 below starts one game
+# per level; without it a second game would take the hub's own instance token
+# and port.
+#
+# 1. Starts the host's local service (`make -C HOST_ROOT local`) unless its hub
+#    file, bin/local/local-host.json, is already there and the service answers.
+# 2. Starts the hub: a hosted dedicated server on tf2_descent_town with
+#    -hostlocal <that file>.
+# 3. Watches for local-level-<id>.json (a level the service created) and, once
+#    the file names its map and files (`map`; `levelFiles`: the .bsp, .nav3d
+#    and .map2d in the local pool's store, agreed with the host 2026-09-30),
+#    links each into the tf2_descent mod's pool/maps under its own name and starts
+#    a dedicated server for it, each on its own port and temp directory
+#    (CLAUDE.md: concurrent games).
+# Ctrl-C stops what this started, by PID, and nothing else.
+set -uo pipefail
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+config=debug
+host_root=$(cd "$ROOT/../source-sdk-sharp-host" 2>/dev/null && pwd || true)
+# The hub's port: what the service gives a pod (the local profile expects
+# 27015 and refuses another as port_mismatch, P5's first hosted run).
+port=27015
+travel=SameProcess
+pack=
+while [ $# -gt 0 ]; do
+  case $1 in
+    --pack) pack=$(cd "$2" && pwd); shift 2 ;;
+    --process) travel=Process; shift ;;
+    --config) config=$2; shift 2 ;;
+    --host-root) host_root=$2; shift 2 ;;
+    --port) port=$2; shift 2 ;;
+    *) echo "local-hosted: unknown argument $1" >&2; exit 2 ;;
+  esac
+done
+[ -d "$host_root" ] || { echo "local-hosted: no source-sdk-sharp-host checkout (--host-root)" >&2; exit 2; }
+local_dir="$host_root/bin/local"
+hub_file="$local_dir/local-host.json"
+game="$ROOT/bin/$config"
+pool="$game/mods/tf2_descent/pool/maps"
+logs="$ROOT/tools/.local-hosted"
+mkdir -p "$logs" "$pool"
+[ -e "$game/mods/tf2_descent/maps/tf2_descent_town.bsp" ] || { echo "local-hosted: no tf2_descent_town.bsp: make town CONFIG=$config" >&2; exit 1; }
+
+# Each job runs in a session of its own (setsid), so its id is its process
+# group's: stopping the group reaches the game and the service under each
+# make, which a plain kill of the make does not (the first runs left both).
+started=()
+cleanup() {
+  for pgid in "${started[@]}"; do
+    kill -- "-$pgid" 2>/dev/null
+  done
+  wait 2>/dev/null
+}
+trap cleanup EXIT INT TERM
+
+# --- 1. the service --------------------------------------------------------
+# The hub file outlives the service, so "is it running" is asked of the
+# service's game API port (the local profile's 5001), not of the file.
+answers() { (exec 3<>/dev/tcp/127.0.0.1/5001) 2>/dev/null; }
+if ! answers; then
+  echo "local-hosted: starting the host's local service ($host_root)"
+  before=$(stat -c %Y "$hub_file" 2>/dev/null || echo 0)
+  echo "local-hosted: local travel is $travel, game port $port"
+  service_env=(SOURCESHARP_SERVICE_Instances__LocalTravel="$travel" SOURCESHARP_SERVICE_Instances__GamePort="$port")
+  [ -n "$pack" ] && service_env+=(SOURCESHARP_SERVICE_Listen__Internal=127.0.0.1:5005
+                                  SOURCESHARP_SERVICE_MapPool__AutoActivateBakes=true)
+  env "${service_env[@]}" \
+    setsid bash -c 'cd "$1" && exec make local' _ "$host_root" > "$logs/service.log" 2>&1 &
+  started+=($!)
+  for _ in $(seq 1 120); do
+    now=$(stat -c %Y "$hub_file" 2>/dev/null || echo 0)
+    answers && [ -s "$hub_file" ] && [ "$now" -gt "$before" ] && break
+    sleep 1
+  done
+  answers && [ -s "$hub_file" ] || { echo "local-hosted: the service did not come up (see $logs/service.log)" >&2; exit 1; }
+fi
+
+# --- 1b. the room pack (--pack) --------------------------------------------
+if [ -n "$pack" ]; then
+  echo "local-hosted: baking $pack (log $logs/bake.log)"
+  make -C "$host_root" bake ARGS="--library $(basename "$pack") --source $pack --content $pack --out $logs/bake --service http://127.0.0.1:5005" \
+    > "$logs/bake.log" 2>&1 || { echo "local-hosted: the bake failed (see $logs/bake.log)" >&2; exit 1; }
+  grep -q "accepted" "$logs/bake.log" || { echo "local-hosted: the service did not accept the pack (see $logs/bake.log)" >&2; exit 1; }
+fi
+
+# --- 2. the hub ------------------------------------------------------------
+start_game() { # name file map port
+  local name=$1 file=$2 map=$3 p=$4 tmp
+  tmp=$(mktemp -d "/tmp/tf2_descent-$name-XXXX")
+  echo "local-hosted: $name on $map, port $p (log $logs/$name.log)"
+  TMPDIR="$tmp" DEBUG_API_DIR="$tmp/debug-api" setsid make -C "$ROOT" dedicated CONFIG="$config" \
+    HOSTED=1 HOST_LOCAL_FILE="$file" DEDICATED_MAP="$map" DEDICATED_PORT="$p" > "$logs/$name.log" 2>&1 &
+  started+=($!)
+}
+# The port the service allocated for an instance, from its file (`port`,
+# agreed with the host 2026-09-30); empty while the host does not write it.
+file_port() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("port") or "")' "$1"; }
+hub_port=$(file_port "$hub_file"); hub_port=${hub_port:-$port}
+start_game hub "$hub_file" tf2_descent_town "$hub_port"
+
+# --- 3. levels as the service creates them (--process only) ----------------
+if [ "$travel" = SameProcess ]; then
+  echo "local-hosted: same-process travel: the hub changes level itself; Ctrl-C to stop"
+  wait
+  exit 0
+fi
+declare -A running=()
+next=$((port + 100))
+while sleep 2; do
+  for f in "$local_dir"/local-level-*.json; do
+    [ -e "$f" ] || continue
+    id=$(basename "$f" .json); id=${id#local-level-}
+    [ -n "${running[$id]:-}" ] && continue
+    mapfile -t fields < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("map") or ""); [print(x) for x in (d.get("levelFiles") or [])]' "$f")
+    map=${fields[0]:-}
+    if [ -z "$map" ] || [ ${#fields[@]} -lt 2 ]; then
+      echo "local-hosted: $f names no map/levelFiles yet (the host's local files need them); not started" >&2
+      running[$id]=skipped
+      continue
+    fi
+    for file in "${fields[@]:1}"; do
+      ln -sfn "$file" "$pool/$(basename "$file")"
+    done
+    [ -e "$pool/$map.bsp" ] || { echo "local-hosted: $f's levelFiles hold no $map.bsp" >&2; running[$id]=skipped; continue; }
+    level_port=$(file_port "$f"); level_port=${level_port:-$next}
+    start_game "level-$id" "$f" "$map" "$level_port"
+    running[$id]=$level_port
+    next=$((next + 100))
+  done
+done

@@ -1,0 +1,99 @@
+# lane c5-particles: fx_blood.cpp recorded (tools/probes/client/fx_blood.cpp.probe.diff, with the
+# particles_simple.cpp probe's bloodgore steps and the fx_sparks / particle_simple3d / particle_collision
+# probes): bloodspray with each flag and colour, bloodimpact with each colour (the mech colour reaches the
+# bullet impact), and HunterDamage, run locally by c5p_dispatch in front of the player.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -3843 2894 0
+cmd setang_exact 10 90 0
+sleep 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 1
+sleep 0.7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 2
+sleep 0.7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 4
+sleep 0.7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 7
+sleep 0.7
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 0 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 0 0
+sleep 0.5
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 1 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 1 0
+sleep 0.5
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 2 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 2 0
+sleep 0.5
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 3 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 3 0
+sleep 0.5
+cmd c5p_dispatch HunterDamage -3843 3050 40 0 -0.7 0.7 1 0 0
+sleep 1.5
+cmd setang_exact 20 100 0
+sleep 0.3
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 1
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 1
+sleep 0.7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 2
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 2
+sleep 0.7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 4
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 4
+sleep 0.7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 0 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 0 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 1 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 1 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 2 3 7
+cmd c5p_dispatch bloodspray -3843 3050 40 0 -0.6 0.8 6 3 7
+sleep 0.7
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 0 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 0 0
+sleep 0.5
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 1 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 1 0
+sleep 0.5
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 2 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 2 0
+sleep 0.5
+cmd c5p_dispatch bloodimpact -3820 3060 30 0.3 -0.9 0.3 4 3 0
+cmd c5p_dispatch bloodimpact -3860 3040 50 0 -1 0 4 3 0
+sleep 0.5
+cmd c5p_dispatch HunterDamage -3843 3050 40 0 -0.7 0.7 1 0 0
+sleep 1.5
+cmd setang_exact 20 100 0
+sleep 0.3
+sleep 3

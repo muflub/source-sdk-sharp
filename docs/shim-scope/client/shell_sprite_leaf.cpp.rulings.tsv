@@ -1,0 +1,24 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+static bool SpriteModeHasMaterial(	SLOT-HELP	which render modes carry a material; the CEngineSprite members below ask it
+bool CEngineSprite::Init(	LAYOUT	IBaseClientDLL::InitSprite fills the engine-allocated CEngineSprite (GetSpriteSize): its materials from the sprite's .vmt (spritemodel.cpp's, ported)
+void CEngineSprite::Shutdown(	LAYOUT	IBaseClientDLL::ShutdownSprite: the materials' references go
+bool CEngineSprite::IsVideo()	LAYOUT	enginesprite.h's member; video sprites are deleted with the client video system
+void CEngineSprite::GetTexCoordRange(	LAYOUT	enginesprite.h's member, read by the sprite quad
+void CEngineSprite::SetFrame(	LAYOUT	enginesprite.h's member: $frame on a mode's material
+IMaterial *CEngineSprite::GetMaterial(	LAYOUT	enginesprite.h's member: a mode's material at a frame, read by the sprite and beam executors
+int CEngineSprite::GetOrientation(	LAYOUT	enginesprite.h's member: the $spriteorientation read at init
+void CEngineSprite::UnloadMaterial(	LAYOUT	enginesprite.h's member: drops the materials' references
+int SourceSharp_PlanSprite(	BOUNDARY	C_SpriteRenderer::DrawSprite's executor: reads the sprite model, the attachment, the blend and the view for SpriteRenderer's plan (IManagedFxClient::SpritePlan), then sets the blend and builds the quad the plan chose
+float SourceSharp_FxSpriteGlowFraction(	BOUNDARY	IShimFxClient: PixelVisibility_FractionVisible on the planned sprite's query handle
+float SourceSharp_FxGlowSightDistance(	BOUNDARY	IShimFxClient: GlowSightDistance, for the planner's glow fade
+static void PutVector(	SLOT-HELP	packs a vector into the plan's request floats
+int C_SpriteRenderer::DrawSprite(	SLOT	Sprite.h's member, C_LocalTempEntity's draw: forwards to the planner with stock's proxy size
+float C_SpriteRenderer::GlowBlend(	LAYOUT	Sprite.h's virtual, a slot in C_LocalTempEntity's vtable; nothing calls it now that the blend is the planner's
+static bool GatherSprite(	BOUNDARY	reads the sprite model, the attachment, the blend and the view into SpriteRenderer's request (SS_SPRITE_IN_*)
+static int ExecuteSprite(	BOUNDARY	carries a SpriteRenderer plan out: the blend it chose, the quad it built
+int SourceSharp_SpriteDrawBegin(	BOUNDARY	the direct path's first half: the request into managed's buffer and the glow query armed for its questions
+int32_t SourceSharp_FxSpriteDrawEnd(	BOUNDARY	the direct path's second half: carries the managed plan out
+int32_t SourceSharp_FxSpriteDrawStore(	SLOT	IShimFxSpriteDraw::Store: keeps the plan managed made in the view's batch for the sprite's own DrawModel
+int SourceSharp_SpriteExecuteStored(	BOUNDARY	carries out a stored managed plan at DrawModel; a blend that moved since the batch hands the draw back to the per-entity crossing
+void SourceSharp_SpriteStoredClear(	SLOT-HELP	drops the stored plans at a new batch and at level shutdown

@@ -1,0 +1,718 @@
+#!/bin/bash
+#
+# tools/entity-gates -- the three checks in plan_entity.md's "Definition of
+# done", run against two built DLLs, answering PASS or FAIL rather than
+# reporting movement.
+#
+# WHY THIS EXISTS, AND HOW IT DIFFERS FROM tools/entity-census.
+#
+#   The census (Phase 0a) is an ODOMETER: it measures the tree and diffs the
+#   measurement against a committed baseline, so a number that moves without
+#   docs/entity-census.txt moving is a red test. It answers "did anything
+#   change?", and every number in it is legitimate at any value.
+#
+#   This tool is a GATE. It answers one question -- "is the port finished?" --
+#   and the only passing answer on all three counts is ZERO. It shares the
+#   census's §3.16 pattern file (tools/entity-census-patterns) rather than
+#   carrying a second copy, because two lists of cast spellings drifting apart
+#   is exactly the hole §3.16 says a single list closes.
+#
+#   Today every gate FAILS, by design: the definition of done describes the end
+#   state, not this tree. A gate that could only ever print FAIL would be
+#   untestable, so the tool takes --build-dir/--patterns/--server/--client and
+#   entity_gates_test.cpp drives it against a fixture whose counts are zero and
+#   watches it print PASS. That is the only way to know the pass path runs.
+#
+# USAGE, from a worktree root:
+#
+#   tools/entity-gates                      # the deployed DLLs
+#   tools/entity-gates SERVER.so CLIENT.so  # gate some other build
+#   tools/entity-gates --tsv                # machine-readable rows
+#
+#   --build-dir PATH  the CMake build    (default build, i.e. farm/<config>/build:
+#                     compile_commands.json names the TUs, and the sources are
+#                     read from PATH/../src)
+#   --patterns PATH   §3.16 cast list    (default tools/entity-census-patterns)
+#   --allowlist PATH  permitted casts    (default tools/entity-gates-allowlist)
+#   --only N          run gate N only (1|2|3); the others print SKIPPED
+#   --tsv             one row per metric: gate<TAB>role<TAB>metric<TAB>srv<TAB>cli
+#
+# EXIT CODES. Three, not two, because "the tree still has entities in it" and
+# "I could not take the measurement" are different answers and a caller that
+# accepted any non-zero for both would read a crash as progress.
+#
+#   0  every gate passed -- the definition of done holds on these binaries
+#   1  at least one gate failed; the FIRST failing gate is named on the last line
+#   2  refused: a missing DLL, a missing object table, an empty pattern file,
+#      a stripped binary. Nothing was measured.
+#
+# WHY THESE GATES CAN REACH ZERO. See also docs/engine-boundary.md, which
+# covers EdictToBaseEntity and BaseEntityToEdict and is not repeated here.
+#
+#   GATE 1 -- clause 1 says every GetBaseEntity()-shaped method may answer NULL.
+#   The public headers agree: IServerNetworkable::GetBaseEntity carries Valve's
+#   comment "// Only used by game code." (public/iservernetworkable.h:105), and
+#   public/iclientrenderable.h:273 already ships an object that answers NULL to
+#   it. Answering NULL is a state the interface already allows, not one this
+#   port invents.
+#
+#   GATE 2 -- the six names this gate drives to zero appear 1,171 / 103 / 40
+#   times under game/ for gEntList / cl_entitylist / CBaseEntityList. All six
+#   are SDK convention, which is why CBaseEntityList:: belongs in the gated
+#   pattern rather than in the §1-reading footnote -- the whole of the
+#   33/91-vs-62/120 question below. IClientEntityList is deliberately NOT in the
+#   pattern: §6 keeps it, and its interface addresses entities by INDEX or by
+#   HANDLE, so a slot table is enough for it.
+#
+# WHICH NUMBERS PROVE WHAT. Every row is tagged, and the tags are not decoration:
+#
+#   [nm  FLOOR]  read from the built DLL. `--gc-sections` drops what nothing
+#                reaches, so a symbol absent from the binary was not necessarily
+#                absent from the source. plan_entity.md §5 says this in as many
+#                words: nm is the FAST check, the source scan is the SUFFICIENT
+#                one. A green nm row NEVER passes a gate on its own -- every
+#                gate here also carries a source row, and both must read 0.
+#   [src FLOOR]  read from the source of the compiled TUs. A floor for its own
+#                reason: it counts SPELLINGS, and a cast spelled a way the
+#                pattern list does not carry is not counted. Widening the list
+#                is one line in tools/entity-census-patterns.
+#
+#   No row in this tool is SUFFICIENT on its own. The gate is the conjunction.
+#
+# THE TWO READINGS OF THE nm COUNTS, settled once so nobody re-opens it.
+# plan_entity.md §1's table and its own Appendix A give different commands, and
+# BOTH reproduce exactly on today's binaries:
+#
+#   1207 / 602  entity members    -- `nm` with NO symbol-type filter
+#   1185 / 584  entity members    -- the same with `awk '$2 ~ /^[TWVDBRt]$/'`
+#     33 /  91  entity-list       -- §1's pattern, which OMITS CBaseEntityList::
+#     62 / 120  entity-list       -- Appendix A's, which INCLUDES it
+#
+# The gate is the STRICT reading of each pair -- type-filtered, and
+# CBaseEntityList:: included -- because it is the one a weak inline emission
+# cannot inflate and the one that covers the whole of the definition of done's
+# clause 2. The loose reading is measured too and printed as a reconciliation
+# row, so the §1 numbers stay reproducible from this tool and the discrepancy
+# stops being a thing anyone has to rediscover. Every row says which it is.
+#
+set -uo pipefail
+
+# Every sort/comm/grep here must agree on collation, for the reason recorded at
+# the top of tools/entity-census: without it `comm` silently drops most of an
+# intersection and the answer looks like progress.
+export LC_ALL=C
+
+die() { echo "entity-gates: $*" >&2; exit 2; }
+
+BUILD_DIR=build
+PATTERNS=tools/entity-census-patterns
+ALLOWLIST=tools/entity-gates-allowlist
+SERVER_SO=""
+CLIENT_SO=""
+ONLY=""
+TSV=0
+POSITIONAL=()
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --build-dir) BUILD_DIR="${2:-}"; shift ;;
+        --patterns)  PATTERNS="${2:-}";  shift ;;
+        --allowlist) ALLOWLIST="${2:-}"; shift ;;
+        --server)    SERVER_SO="${2:-}"; shift ;;
+        --client)    CLIENT_SO="${2:-}"; shift ;;
+        --only)      ONLY="${2:-}";      shift ;;
+        --tsv)       TSV=1 ;;
+        -h|--help)   sed -n '2,60p' "$0"; exit 0 ;;
+        -*)          die "unknown argument: $1" ;;
+        *)           POSITIONAL+=( "$1" ) ;;
+    esac
+    shift
+done
+
+case ${#POSITIONAL[@]} in
+    0) ;;
+    2) SERVER_SO="${POSITIONAL[0]}"; CLIENT_SO="${POSITIONAL[1]}" ;;
+    *) die "expected two DLL paths (server, client), got ${#POSITIONAL[@]}" ;;
+esac
+[ -n "$SERVER_SO" ] || SERVER_SO=game/mod_sharp/bin/linux64/server.so
+[ -n "$CLIENT_SO" ] || CLIENT_SO=game/mod_sharp/bin/linux64/client.so
+
+case "$ONLY" in ''|1|2|3) ;; *) die "--only takes 1, 2 or 3, not '$ONLY'" ;; esac
+
+[ -f "$BUILD_DIR/compile_commands.json" ] || die "no object table at $BUILD_DIR/compile_commands.json (build first: make debug)"
+[ -f "$PATTERNS" ] || die "no pattern file at $PATTERNS"
+for so in "$SERVER_SO" "$CLIENT_SO"; do
+    [ -f "$so" ] || die "no $so -- build first: src/buildsourcesharp debug"
+done
+
+BUILD_ABS=$(readlink -f "$BUILD_DIR")
+SRC_ABS=$(readlink -f "$(dirname "$BUILD_ABS")/src")   # farm/<config>/build -> farm/<config>/src
+[ -d "$SRC_ABS" ] || die "$BUILD_DIR does not sit beside a source root (../src)"
+CMAKEGRAPH="$(dirname "$(readlink -f "$0")")/cmakegraph.py"
+
+TMP=$(mktemp -d) || die "mktemp failed"
+trap 'rm -rf "$TMP"' EXIT
+
+#-----------------------------------------------------------------------------
+# A STRIPPED BINARY MUST BE A REFUSAL, NOT A PASS.
+#
+# `nm` on a stripped .so prints "no symbols" to stderr and nothing to stdout, so
+# every count over it is 0 and every nm row reads PASS. That is the single most
+# dangerous false green this tool could produce -- the finished-port answer,
+# from a binary nobody could measure. A DLL with no symbol table at all is
+# therefore refused before any gate runs.
+#-----------------------------------------------------------------------------
+for so in "$SERVER_SO" "$CLIENT_SO"; do
+    n=$( nm --defined-only "$so" 2>/dev/null | wc -l )
+    [ "$n" -gt 0 ] || die "$so has no symbol table (stripped, or not an object file at all). Every count over it would read 0 and every nm gate would read PASS."
+done
+
+#-----------------------------------------------------------------------------
+# The §3.16 pattern file, read with `read -r`. See the file's own header: without
+# -r the backslashes are eaten, every regex means something else, every count
+# comes out low, and the gate reads greener than the tree. The loader refuses an
+# empty result for the same reason -- no patterns means no casts found means a
+# finished port.
+#-----------------------------------------------------------------------------
+PAT_NAMES=()
+PAT_REGEX=()
+while IFS=$'\t' read -r name regex; do
+    case "$name" in ''|'#'*) continue ;; esac
+    [ -n "$regex" ] || die "pattern '$name' has no regex ($PATTERNS is TAB separated)"
+    PAT_NAMES+=( "$name" )
+    PAT_REGEX+=( "$regex" )
+done < "$PATTERNS"
+[ ${#PAT_NAMES[@]} -gt 0 ] || die "$PATTERNS produced no patterns"
+
+# REPORTED BUT NOT GATED. The census carries one family the definition of done
+# does not require to be zero: ToEngineIface counts casts in the OTHER
+# direction -- an entity forced to IHandleEntity, IServerEntity and the rest.
+# The end state still has those: the shell IS an IServerEntity, and a
+# derived->base conversion is not a downcast onto an entity path. They are
+# counted here because §3.16's note is right that they break silently when the
+# base relationship goes away, but they are printed, not gated. Every OTHER
+# family in the file is gated, including one added after this line was written:
+# a new spelling is a line in the pattern file, not a hole here.
+UNGATED_FAMILIES=" ToEngineIface "
+is_gated() { case "$UNGATED_FAMILIES" in *" $1 "*) return 1 ;; *) return 0 ;; esac; }
+
+#-----------------------------------------------------------------------------
+# The compiled TU list, per side, out of the CMake build (tools/cmakegraph.py:
+# compile_commands.json, refused when it disagrees with the CMakeLists source
+# lists) -- not out of linker output, which does not reliably name the objects
+# it consumed. This list is exactly what the build compiles.
+#-----------------------------------------------------------------------------
+for side in server client; do
+    python3 "$CMAKEGRAPH" sources "$side" --build-dir "$BUILD_ABS" > "$TMP/map.$side" \
+        || die "the CMake build at $BUILD_DIR cannot say what $side compiles (see above)"
+    [ -s "$TMP/map.$side" ] || die "the object table names no $side TUs -- is $BUILD_DIR the right build?"
+    awk '$1 ~  /^sourcesharp\// {print $1}' "$TMP/map.$side" | sort -u > "$TMP/shim_src.$side"
+    awk '$1 !~ /^sourcesharp\// {print $1}' "$TMP/map.$side" | sort -u > "$TMP/stock_src.$side"
+    cat "$TMP/shim_src.$side" "$TMP/stock_src.$side" | sort -u > "$TMP/src.$side"
+done
+
+#-----------------------------------------------------------------------------
+# The allowlist. plan_entity.md §5: "the resolver's static_cast is allowlisted
+# by file and line". One entry per line, "<path relative to src/>:<line>",
+# optionally TAB and a reason. Empty today -- the slot-table resolver arrives in
+# step 1c -- and the mechanism is tested against a fixture rather than left
+# until there is something to put in it.
+#
+# A STALE ENTRY FAILS THE GATE. An allowlisted line that no longer matches any
+# pattern means the file moved under the allowlist: the real cast is somewhere
+# else and something innocent is now excused by line number. Silently ignoring
+# it would turn the allowlist into a hole that widens every time the file is
+# edited.
+#-----------------------------------------------------------------------------
+: > "$TMP/allow"
+ALLOW_N=0
+if [ -f "$ALLOWLIST" ]; then
+    while IFS=$'\t' read -r site _reason; do
+        case "$site" in ''|'#'*) continue ;; esac
+        case "$site" in
+            *:[0-9]*) ;;
+            *) die "allowlist entry '$site' is not <path>:<line>" ;;
+        esac
+        printf '%s\n' "$site" >> "$TMP/allow"
+    done < "$ALLOWLIST"
+    ALLOW_N=$( wc -l < "$TMP/allow" )
+fi
+sort -u "$TMP/allow" -o "$TMP/allow"
+
+#=============================================================================
+# Measurement primitives.
+#=============================================================================
+
+# RULE: symbol-type filtered. Without `$2 ~ /^[TWVDBRt]$/` weak inline
+# emissions read as definitions and every count inflates -- that is the whole
+# of the 1207-vs-1185 discrepancy above.
+nm_strict() { nm -C --defined-only "$1" 2>/dev/null | awk '$2 ~ /^[TWVDBRt]$/'; }
+
+nm_strict_count() { nm_strict "$1" | grep -c "$2"; }
+nm_loose_count()  { nm -C --defined-only "$1" 2>/dev/null | grep -c "$2"; }
+
+#-----------------------------------------------------------------------------
+# WHICH CLASSES DERIVE FROM AN ENTITY, read out of the binary itself.
+#
+# plan_entity.md §5 gate 1 counts members "of CBaseEntity::, C_BaseEntity::, and
+# of any class whose vtable references theirs". A hardcoded list of subclass
+# names would be a hole the first time somebody adds one, so the list is
+# DERIVED: gcc emits, for every polymorphic class, a `typeinfo for X` object
+# whose body holds a pointer to each direct base's typeinfo. Walking those
+# pointers transitively from CBaseEntity/C_BaseEntity's typeinfo gives every
+# class in the DLL that derives from an entity, at any depth.
+#
+# THREE THINGS THAT MADE THIS WRONG BEFORE IT WAS RIGHT:
+#
+#  1. The typeinfo symbols here are LOCAL (`nm` type `d`), so the relocations
+#     that point at them are R_X86_64_RELATIVE against a section, with the
+#     target only in the ADDEND. Matching on relocation symbol NAMES finds zero.
+#  2. A relocation must be attributed to the typeinfo object that CONTAINS it,
+#     which needs the symbol's SIZE. Attributing to the nearest preceding
+#     symbol instead pulls in whatever object follows a typeinfo in
+#     .data.rel.ro -- it put eleven material proxies in the client's list, none
+#     of which derives from an entity.
+#  3. `typeinfo for CBaseEntity*` (mangled _ZTIP...) also points at
+#     CBaseEntity's typeinfo. A pointer type is not a derived class; _ZTIP is
+#     excluded.
+#
+# FLOOR: a class the compiler never needed RTTI for emits no typeinfo and does
+# not appear. Zero here is necessary, not sufficient -- which is why gate 1 also
+# carries a source row.
+#
+# mawk has no strtonum() and no \< , so the addresses stay HEX STRINGS and are
+# compared lexicographically -- correct only because every one is zero-padded to
+# 16 characters, which the padding below guarantees.
+#
+# AND EVERY ONE CARRIES A LEADING 'x'. Without it, an address whose hex digits
+# happen to all be decimal -- 0000000000326948 -- is a "strnum" to awk and is
+# compared as the NUMBER 326,948, while 00000000008fdd48 stays a string. The
+# containment test then answers at random depending on which digits an address
+# happens to have, and the material proxies come back into the client's derived
+# list exactly as if the size bound were not there at all. That is what this
+# looked like before the prefix: a bug that reproduces, is stable run to run,
+# and is invisible in the code.
+#-----------------------------------------------------------------------------
+derived_classes() { # <so> -> demangled class names, one per line, sorted
+    local so="$1"
+
+    # start<TAB>end<TAB>mangled, for every non-pointer typeinfo object.
+    nm -S --defined-only "$so" 2>/dev/null \
+        | awk 'NF==4 && $4 ~ /^_ZTI/ && $4 !~ /^_ZTIP/ {print $1, $2, $4}' \
+        | while read -r a s n; do
+              printf 'x%016x\tx%016x\t%s\n' "$((16#$a))" "$((16#$a + 16#$s))" "$n"
+          done | sort > "$TMP/zti.tab"
+
+    readelf -rW "$so" 2>/dev/null \
+        | awk 'NF==4 && $3=="R_X86_64_RELATIVE" { a=tolower($4); while (length(a)<16) a="0" a; print "x"$1"\tx"a }' \
+        | sort > "$TMP/rel.tab"
+
+    # Roots by DEMANGLED name. Matching mangled names by hand is how the first
+    # run of this looked for _ZTI13C_BaseEntity: "C_BaseEntity" is twelve
+    # characters, the mangling carries the length, and the client's roots came
+    # back empty -- with an empty class list, `grep -f` matches EVERY line and
+    # the member count came out 31,481. Both failure modes are gone: the names
+    # are demangled here, and grep -f is guarded on a non-empty list below.
+    cut -f3 "$TMP/zti.tab" | c++filt | sed 's/^typeinfo for //' > "$TMP/zti.names"
+    paste "$TMP/zti.tab" "$TMP/zti.names" > "$TMP/zti.full"
+    awk -F'\t' '$4=="CBaseEntity" || $4=="C_BaseEntity" {print $1}' "$TMP/zti.full" | sort -u > "$TMP/zti.roots"
+
+    awk -F'\t' '
+        # EVERY COUNTER IS INITIALISED HERE, and that is not tidiness. `st[n]`
+        # with n never assigned subscripts the array with the EMPTY STRING, not
+        # with 0 -- awk converts the uninitialised value to "" in a subscript
+        # and to 0 in the ++ that follows. So record zero lands in st[""], the
+        # loops below start at st[0] and find nothing there, and exactly one
+        # symbol and one relocation vanish from every run. It is silent, it
+        # reproduces, and it cost an afternoon in the gate-1 source scan below,
+        # where losing record zero out of one record printed no sites at all.
+        BEGIN { n = 0; m = 0; k = 0 }
+        FILENAME==ZTI { st[n]=$1; en[n]=$2; nm_[n]=$4; n++; next }
+        FILENAME==REL { ro[m]=$1; ra[m]=$2; m++; next }
+        { root[$0]=1 }
+        END {
+            # edges: the typeinfo object containing relocation j names ra[j].
+            for (j=0;j<m;j++) {
+                lo=0; hi=n-1; best=-1
+                while (lo<=hi) { mid=int((lo+hi)/2)
+                    if (st[mid] <= ro[j]) { best=mid; lo=mid+1 } else hi=mid-1 }
+                if (best<0 || ro[j] >= en[best]) continue
+                ef[k]=best; et[k]=ra[j]; k++
+            }
+            for (i=0;i<n;i++) if (st[i] in root) { live[st[i]]=1; found[i]=1 }
+            changed=1
+            while (changed) { changed=0
+                for (j=0;j<k;j++) {
+                    if (!(et[j] in live) || (ef[j] in found)) continue
+                    found[ef[j]]=1; live[st[ef[j]]]=1; changed=1 } }
+            for (i=0;i<n;i++) if (i in found) print nm_[i]
+        }' ZTI="$TMP/zti.full" REL="$TMP/rel.tab" \
+        "$TMP/zti.full" "$TMP/rel.tab" "$TMP/zti.roots" | sort -u
+}
+
+# Members, in the strict nm list, of a list of class names. Guarded on the list
+# being non-empty: `grep -cf /dev/null` matches nothing, but an empty PATTERN
+# LINE matches everything, and a name list that came back empty by accident
+# would otherwise report the whole binary.
+members_of() { # <so> <file of class names>
+    if [ ! -s "$2" ]; then echo 0; return; fi
+    sed -e 's/[][\.*^$(){}?+|/]/\\&/g' -e 's/^/\\b/' -e 's/$/::/' "$2" > "$TMP/clsre"
+    nm_strict "$1" | grep -cf "$TMP/clsre"
+}
+
+# grep -n over one side's compiled TUs; prints "<path>:<line>" per matching
+# line. --with-filename is not optional: xargs may hand grep a single file in
+# its last batch, and without it that batch's output has no path prefix, which
+# is the difference between an allowlist lookup and a silently unfiltered count.
+scan_sites() { # <source list file> <regex> -> file:line, one per line
+    # PROSE IS NOT A SITE, and this row used to think it was.
+    #
+    # The derivation scan above already says why: "a gate that cannot tell a
+    # comment from a declaration is a gate somebody passes by rewording a
+    # comment, which is a worse outcome than a slightly lower count." That rule
+    # was implemented for gate 1's decls and NOT here, so gates 2 and 3 counted
+    # any line of English that happened to spell a gated token.
+    #
+    # It was not hypothetical. takedamageinfo_library.cpp:17 explains, in a
+    # comment, which two symbols hold the file in the cycle -- and naming
+    # `g_pEntityList` there raised gate 2 by one on BOTH sides, which the 8c
+    # ratchet then correctly refused as a regression. The fix is to count code,
+    # not to reword the sentence.
+    #
+    # Same rule and same FLOOR as the derivation scan: a match after a // on its
+    # own line, or on a block-comment body line, is skipped; a /* */ block
+    # spanning lines is not tracked.
+    [ -s "$1" ] || return 0
+    # grep STAYS the matcher: the regexes use \b, a GNU extension that awk's
+    # POSIX match() does not support -- an awk re-match silently counts nothing,
+    # which a mutation caught here (a real code site failed to raise the count).
+    # So awk only STRIPS, and the original regex is re-applied by grep.
+    ( cd "$SRC_ABS" && xargs -r -a "$1" grep -nE --with-filename -- "$2" </dev/null 2>/dev/null ) \
+      | awk -F: 'NF>=3 {
+            f=$1; l=$2
+            i=index($0,":"); r=substr($0,i+1); j=index(r,":"); t=substr(r,j+1)
+            sub(/\/\/.*$/, "", t)
+            if (t ~ /^[ \t]*\*/) t=""
+            t = strip_strings(t)
+            print f ":" l ":" t
+          }
+          # A STRING LITERAL IS PROSE TOO, and this row learned that the same way
+          # it learned a comment is. game/server/physics.cpp:506 is a §7 REFUSAL
+          # MESSAGE -- text this build PRINTS to the console -- and it explains
+          # which two symbols hold the shadow list in place: "...would carry
+          # entitem_t\047s EHANDLE and g_EntListMemPool into a file §6 keeps".
+          # That sentence raised the EHANDLE row by one, on the server, forever,
+          # and the only way to lower it was to reword a refusal. The comment
+          # strip above already carries the ruling: "a gate that cannot tell a
+          # comment from a declaration is a gate somebody passes by rewording a
+          # comment, which is a worse outcome than a slightly lower count."
+          #
+          # AND IT IS SOUND RATHER THAN CONVENIENT: a CAST CANNOT BE INSIDE A
+          # STRING LITERAL. Every family in the pattern file counts a conversion
+          # or a call, and neither is code when it sits between quotes.
+          #
+          # A PREPROCESSOR ARM IS NOT STRIPPED, AND THAT IS DELIBERATE. This
+          # scanner does not honour `#if` / `#ifdef` of any kind, so a cast
+          # inside `#if 0` -- or inside a guard the build never arms -- IS
+          # COUNTED. That over-counts against a tree mid-port, which is what
+          # ROUTE_TO_DONE §1c found and what the residue wave existed to settle;
+          # against a FINISHED one it is the direction you want, because a cast
+          # re-introduced under any guard at all is a cast somebody can arm.
+          # Measured from both sides by the mutation pass of lane the-close: a
+          # `#if 0`-wrapped `dynamic_cast< IGameEntity * >` in a compiled TU
+          # raises gate 3, and an unwrapped one raises it the same way.
+          #
+          # FLOOR: escaped quotes are honoured; a string continued across lines
+          # is not tracked, which is the same floor the block-comment strip has.
+          function strip_strings( s,   out, i, c, n ) {
+            out = ""; n = length(s); i = 1
+            while ( i <= n ) {
+              c = substr(s, i, 1)
+              if ( c == "\"" || c == "\047" ) {
+                q = c; i++
+                while ( i <= n ) {
+                  if ( substr(s, i, 1) == "\\" ) { i += 2; continue }
+                  if ( substr(s, i, 1) == q ) { i++; break }
+                  i++
+                }
+                continue
+              }
+              out = out c; i++
+            }
+            return out
+          }' \
+      | grep -E -- "$2" \
+      | awk -F: 'NF>=3 {print $1":"$2}'
+}
+
+# Sites minus the allowlist. Also records which allowlist entries were used, so
+# a stale one can be named.
+scan_gated() { # <source list file> <regex> -> count, appends hits to $TMP/allow_used
+    local sites; sites=$( scan_sites "$1" "$2" )
+    [ -n "$sites" ] || { echo 0; return; }
+    printf '%s\n' "$sites" | sort -u > "$TMP/sites"
+    comm -12 "$TMP/sites" "$TMP/allow" >> "$TMP/allow_used"
+    comm -23 "$TMP/sites" "$TMP/allow" | wc -l
+}
+: > "$TMP/allow_used"
+
+#=============================================================================
+# Reporting. Every row goes through one of these, so the human table and the
+# --tsv rows can never disagree about a number: they are the same call.
+#=============================================================================
+FIRST_FAIL=""
+declare -A GATE_VERDICT
+
+row() { # <gate> <tag> <label> <srv> <cli>
+    local gate="$1" tag="$2" label="$3" srv="$4" cli="$5" verdict
+    if [ "$srv" -eq 0 ] && [ "$cli" -eq 0 ]; then verdict=PASS; else verdict=FAIL; fi
+    [ "$verdict" = FAIL ] && GATE_VERDICT[$gate]=FAIL
+    if [ "$TSV" -eq 1 ]; then
+        printf '%s\tgate\t%s\t%s\t%s\t%s\n' "$gate" "$label" "$srv" "$cli" "$verdict"
+    else
+        printf '  [%-9s] %-52s %7s  %7s   %s\n' "$tag" "$label" "$srv" "$cli" "$verdict"
+    fi
+}
+
+recon() { # <gate> <label> <srv> <cli>   -- printed, never gated
+    if [ "$TSV" -eq 1 ]; then
+        printf '%s\treconcile\t%s\t%s\t%s\t-\n' "$1" "$2" "$3" "$4"
+    else
+        printf '  [%-9s] %-52s %7s  %7s\n' "reconcile" "$2" "$3" "$4"
+    fi
+}
+
+banner() {
+    [ "$TSV" -eq 1 ] && return 0
+    echo
+    echo "== $* =="
+    printf '  %-64s %7s  %7s\n' "" "server" "client"
+}
+
+GATE_VERDICT[1]=PASS; GATE_VERDICT[2]=PASS; GATE_VERDICT[3]=PASS
+runs() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
+
+if [ "$TSV" -eq 0 ]; then
+cat <<EOF
+entity-gates -- plan_entity.md "Definition of done", measured on these binaries.
+
+  server     $SERVER_SO
+  client     $CLIENT_SO
+  objects    $BUILD_DIR/compile_commands.json ($(wc -l < "$TMP/map.server") server TUs, $(wc -l < "$TMP/map.client") client TUs)
+  patterns   $PATTERNS (${#PAT_NAMES[@]} families)
+  allowlist  $ALLOWLIST ($ALLOW_N entries)
+
+  Tags:  [nm  FLOOR]  from the DLL; --gc-sections drops what nothing reaches.
+         [src FLOOR]  from the compiled TU source; counts spellings only.
+         [reconcile]  plan_entity.md §1's looser reading. NOT gated -- printed
+                      so the §1 numbers stay reproducible from this tool.
+  No single row is sufficient. A gate passes only when every gated row is 0.
+EOF
+fi
+
+#=============================================================================
+# GATE 1 -- NO BASE ENTITY IN NATIVE CODE
+#=============================================================================
+if runs 1; then
+banner "GATE 1 -- NO BASE ENTITY IN NATIVE CODE"
+
+ENT_RE='CBaseEntity::\|C_BaseEntity::'
+S1=$(nm_strict_count "$SERVER_SO" "$ENT_RE"); C1=$(nm_strict_count "$CLIENT_SO" "$ENT_RE")
+row 1 "nm  FLOOR" "CBaseEntity:: / C_BaseEntity:: members" "$S1" "$C1"
+
+derived_classes "$SERVER_SO" > "$TMP/derived.server"
+derived_classes "$CLIENT_SO" > "$TMP/derived.client"
+# The roots themselves are in the closure; the gate wants classes DERIVED from
+# them counted separately from the two roots, so the roots come back out.
+grep -vxE 'CBaseEntity|C_BaseEntity' "$TMP/derived.server" > "$TMP/sub.server" || true
+grep -vxE 'CBaseEntity|C_BaseEntity' "$TMP/derived.client" > "$TMP/sub.client" || true
+row 1 "nm  FLOOR" "classes derived from them (typeinfo closure)" \
+    "$(wc -l < "$TMP/sub.server")" "$(wc -l < "$TMP/sub.client")"
+row 1 "nm  FLOOR" "... their members" \
+    "$(members_of "$SERVER_SO" "$TMP/sub.server")" "$(members_of "$CLIENT_SO" "$TMP/sub.client")"
+
+# The source row. SCAN SET: the compiled TUs, plus every header under
+# src/sourcesharp -- the shim is ours end to end, and the definition of done's
+# clause 1 ends "No shim class inherits from a stock entity class", which is a
+# statement about shim HEADERS. Stock headers are deliberately NOT swept: the
+# build's source lists compiled 160 of the tree's server files and 286 of its client ones (VPC era),
+# and grepping the other several thousand would count declarations no DLL can
+# contain -- a gate that can never go green measures nothing.
+#
+# KIN is not hardcoded. The base names are seeded from the classes the binary
+# closure above found, unioned with the entity roots §3.16's own pattern file
+# names, and then closed transitively over the scan set itself, so a shim class
+# deriving from a shim class deriving from an entity is one site, not zero.
+: > "$TMP/shim_hdr"
+[ -d "$SRC_ABS/sourcesharp" ] && \
+    ( cd "$SRC_ABS" && find sourcesharp -name '*.h' -o -name '*.hpp' ) | sort -u > "$TMP/shim_hdr"
+cat "$TMP/src.server" "$TMP/src.client" "$TMP/shim_hdr" | sort -u > "$TMP/scanset"
+( cd "$SRC_ABS" && xargs -a "$TMP/scanset" grep -nE --with-filename -- \
+    '(^|[^A-Za-z0-9_])(class|struct)[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:[^;{]*(public|protected|private)[[:space:]]' 2>/dev/null ) \
+    > "$TMP/decls" || true
+
+# The seed. CBasePlayer and kin are here as well as in the binary closure
+# because a class the compiler emitted no typeinfo for is invisible to that
+# closure; §3.16's cstyle regex names the same set.
+{ cat "$TMP/sub.server" "$TMP/sub.client"
+  printf '%s\n' CBaseEntity C_BaseEntity CBasePlayer C_BasePlayer \
+      CBaseAnimating C_BaseAnimating CBaseAnimatingOverlay C_BaseAnimatingOverlay \
+      CBaseCombatCharacter C_BaseCombatCharacter CBaseCombatWeapon C_BaseCombatWeapon \
+      CBaseFlex C_BaseFlex CWorld C_World; } | sort -u > "$TMP/kinseed"
+KINSEED=$( paste -sd, "$TMP/kinseed" )
+
+awk -v ROOTS="$KINSEED" '
+BEGIN { n = 0 }   # see the note on BEGIN in derived_classes: an uninitialised
+                  # subscript is "" and not 0, and record zero is lost.
+function bases(s,   out, b) {
+  out=""
+  while (match(s, /(public|protected|private)[ \t]+[A-Za-z_][A-Za-z0-9_:]*/)) {
+    b=substr(s, RSTART, RLENGTH); s=substr(s, RSTART+RLENGTH)
+    sub(/^(public|protected|private)[ \t]+/, "", b)
+    sub(/^.*:/, "", b)                 # drop a namespace qualifier
+    out = out " " b
+  }
+  return out
+}
+{
+  txt=$0; sub(/^[^:]*:[0-9]+:/, "", txt)
+  if (!match(txt, /(^|[^A-Za-z0-9_])(class|struct)[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*:/)) next
+  # PROSE IS NOT A DERIVATION. Two shim files explain, in comments, what a class
+  # used to be -- "It was `class C_SourceSharpRopeAnchor : public C_BaseEntity`"
+  # -- and a text scan reads those as sites. A gate that cannot tell a comment
+  # from a declaration is a gate somebody passes by rewording a comment, which
+  # is a worse outcome than a slightly lower count. So a match that sits after a
+  # // on its own line, or on a block-comment body line, is skipped.
+  # FLOOR: a /* */ block spanning lines is not tracked.
+  ic = index(txt, "//")
+  if (ic > 0 && ic < RSTART) next
+  if (match(substr(txt, 1, RSTART), /^[ \t]*\*/)) next
+  if (!match(txt, /(^|[^A-Za-z0-9_])(class|struct)[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*:/)) next
+  d=substr(txt, RSTART, RLENGTH)
+  sub(/^[^A-Za-z0-9_]*(class|struct)[ \t]+/, "", d); sub(/[ \t]*:$/, "", d)
+  rest=substr(txt, RSTART+RLENGTH); sub(/[;{].*$/, "", rest)
+  bl=bases(rest); if (bl == "") next
+  site[n]=$0; der[n]=d; bas[n]=bl; n++
+}
+END {
+  split(ROOTS, r, ","); for (i in r) kin[r[i]]=1
+  changed=1
+  while (changed) { changed=0
+    for (i=0;i<n;i++) { if (der[i] in kin) continue
+      m=split(bas[i], bb, " ")
+      for (j=1;j<=m;j++) if (bb[j] in kin) { kin[der[i]]=1; changed=1; break } } }
+  for (i=0;i<n;i++) { m=split(bas[i], bb, " ")
+    for (j=1;j<=m;j++) if (bb[j] in kin) { print site[i]; break } }
+}' "$TMP/decls" | sort -u > "$TMP/derivesites"
+
+# THE SIDE SPLIT IS BY DIRECTORY, and a file in neither side's directory counts
+# for BOTH. game/shared and sourcesharp/game/shared are compiled into both DLLs,
+# so a derivation there is a derivation on both sides and belongs in both
+# columns; anything else outside the four side directories is counted twice for
+# the same conservative reason. The definition of done wants zero in both
+# columns, so over-attributing can only make the gate harder, never greener.
+DS_S=$( awk -F: '{print $1}' "$TMP/derivesites" | grep -cvE '^game/client/|^sourcesharp/game/client/' )
+DS_C=$( awk -F: '{print $1}' "$TMP/derivesites" | grep -cvE '^game/server/|^sourcesharp/game/server/' )
+row 1 "src FLOOR" "\": public <entity>\" decls (TUs + shim headers)" "$DS_S" "$DS_C"
+
+recon 1 "same, no symbol-type filter (§1's reading: 1207/602)" \
+    "$(nm_loose_count "$SERVER_SO" "$ENT_RE")" "$(nm_loose_count "$CLIENT_SO" "$ENT_RE")"
+fi
+
+#=============================================================================
+# GATE 2 -- NO ENTITY LIST IN NATIVE CODE
+#=============================================================================
+if runs 2; then
+banner "GATE 2 -- NO ENTITY LIST IN NATIVE CODE"
+
+LIST_RE='CGlobalEntityList::\|CClientEntityList::\|CBaseEntityList::'
+row 2 "nm  FLOOR" "entity-list members (incl. CBaseEntityList::)" \
+    "$(nm_strict_count "$SERVER_SO" "$LIST_RE")" "$(nm_strict_count "$CLIENT_SO" "$LIST_RE")"
+
+# §5 names these four spellings. IEntityListener is in the list because a
+# listener is the "can be listened to" half of clause 2, and it leaves no
+# member symbol of its own to count.
+LIST_SRC_RE='\bgEntList\b|\bClientEntityList\s*\(|\bcl_entitylist\b|\bIEntityListener\b|\bg_pEntityList\b'
+row 2 "src FLOOR" "gEntList / ClientEntityList() / IEntityListener" \
+    "$(scan_sites "$TMP/src.server" "$LIST_SRC_RE" | wc -l)" \
+    "$(scan_sites "$TMP/src.client" "$LIST_SRC_RE" | wc -l)"
+
+recon 2 "same, without CBaseEntityList:: (§1's reading: 33/91)" \
+    "$(nm_strict_count "$SERVER_SO" 'CGlobalEntityList::\|CClientEntityList::')" \
+    "$(nm_strict_count "$CLIENT_SO" 'CGlobalEntityList::\|CClientEntityList::')"
+fi
+
+#=============================================================================
+# GATE 3 -- NO ENTITY CASTS
+#=============================================================================
+if runs 3; then
+banner "GATE 3 -- NO ENTITY CASTS (§3.16, over the compiled TU list)"
+
+G3_S=0; G3_C=0
+for i in "${!PAT_NAMES[@]}"; do
+    name="${PAT_NAMES[$i]}"; re="${PAT_REGEX[$i]}"
+    s=$( scan_gated "$TMP/src.server" "$re" )
+    c=$( scan_gated "$TMP/src.client" "$re" )
+    if is_gated "$name"; then
+        row 3 "src FLOOR" "$name" "$s" "$c"
+        G3_S=$(( G3_S + s )); G3_C=$(( G3_C + c ))
+    else
+        recon 3 "$name (the other direction -- not gated)" "$s" "$c"
+    fi
+done
+# Families are summed, and one source LINE can hit two of them -- the fixture's
+# `dynamic_cast< CBaseEntity * >( (CBaseEntity *)p )` is one line and two
+# families. The total is therefore hits, not distinct lines, which is the same
+# shape the census reports and the reason the label says so.
+row 3 "src FLOOR" "TOTAL, families summed (one line can hit two)" "$G3_S" "$G3_C"
+
+# Stale allowlist entries. See the allowlist block above: an entry matching no
+# site excuses whatever now sits on that line number.
+sort -u "$TMP/allow_used" -o "$TMP/allow_used"
+comm -23 "$TMP/allow" "$TMP/allow_used" > "$TMP/allow_stale"
+STALE=$( wc -l < "$TMP/allow_stale" )
+row 3 "src FLOOR" "stale allowlist entries (match no cast site)" "$STALE" 0
+if [ "$STALE" -gt 0 ] && [ "$TSV" -eq 0 ]; then
+    sed 's/^/      stale: /' "$TMP/allow_stale"
+fi
+fi
+
+#=============================================================================
+# Verdict. Every gate has printed its counts by now -- one run says where the
+# tree stands on all three -- and the exit code names the FIRST that failed.
+#=============================================================================
+for g in 1 2 3; do
+    runs "$g" || continue
+    [ "${GATE_VERDICT[$g]}" = FAIL ] || continue
+    [ -n "$FIRST_FAIL" ] || FIRST_FAIL="$g"
+done
+
+NAME_1="base entity"; NAME_2="entity list"; NAME_3="entity casts"
+if [ "$TSV" -eq 1 ]; then
+    for g in 1 2 3; do
+        if runs "$g"; then v="${GATE_VERDICT[$g]}"; else v=SKIPPED; fi
+        eval "n=\$NAME_$g"
+        printf '%s\tverdict\t%s\t-\t-\t%s\n' "$g" "$n" "$v"
+    done
+    printf 'all\tverdict\tfirst failure\t-\t-\t%s\n' "${FIRST_FAIL:-none}"
+else
+    echo
+    echo "== SUMMARY =="
+    for g in 1 2 3; do
+        if runs "$g"; then v="${GATE_VERDICT[$g]}"; else v=SKIPPED; fi
+        eval "n=\$NAME_$g"
+        printf '  gate %s  %-14s %s\n' "$g" "$n" "$v"
+    done
+    if [ -n "$FIRST_FAIL" ]; then
+        eval "n=\$NAME_$FIRST_FAIL"
+        echo
+        echo "entity-gates: FIRST FAILURE is gate $FIRST_FAIL ($n)."
+        echo "entity-gates: the definition of done does NOT hold on these binaries."
+    else
+        echo
+        echo "entity-gates: all gates PASS -- no base entity, no entity list, no entity casts."
+    fi
+fi
+
+[ -n "$FIRST_FAIL" ] && exit 1
+exit 0

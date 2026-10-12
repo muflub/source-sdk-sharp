@@ -1,0 +1,16 @@
+Descent_Map_Title	Automap
+Descent_Map_Storey	Storey
+Descent_Map_Labels	Labels
+Descent_Map_EmptyTitle	Nothing revealed
+Descent_Map_EmptyBody	No rooms on this storey have been explored yet.
+Descent_Map_MStairs	Stairs
+Descent_Map_MBoss	Boss
+Descent_Map_MCorpse	Corpse
+Descent_Map_MParty	Party
+Descent_Map_MShrine	Shrine
+Descent_Map_MShrineUsed	Used shrine
+Descent_Map_MLoot	Loot
+Descent_Map_MLockedLoot	Locked loot
+Descent_Map_MPortal	Portal
+Descent_Map_MTrap	Trap
+Descent_Map_MFountain	Fountain

@@ -1,0 +1,112 @@
+--- a/src/client/native/shell_te_backends_client.cpp	2026-10-11 16:10:36.441021258 -0700
++++ b/src/client/native/shell_te_backends_client.cpp	2026-10-11 16:10:36.461802123 -0700
+@@ -986,6 +986,16 @@
+ // c5-particles, called by ClientTeLargeFunnel.
+ //-----------------------------------------------------------------------------
+ 
++#include "fx_probe_log.h"
++// lane c5-particles probe (the blood stream, the debug line): draws and particles, tab-separated.
++static float TbRandF( float lo, float hi ) { const float v = random->RandomFloat( lo, hi ); FxProbeLog( "tpr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v ); return v; }
++static void TbState( const void *pRen, const StandardParticle_t *p )
++{
++	FxProbeLog( "tpp\t%p\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d", pRen, (const void *)p,
++	            p->m_Pos.x, p->m_Pos.y, p->m_Pos.z, p->m_Velocity.x, p->m_Velocity.y, p->m_Velocity.z, p->m_Lifetime,
++	            (int)p->m_EffectData, (int)p->m_EffectDataWord, p->m_Color[0], p->m_Color[1], p->m_Color[2], p->m_Color[3] );
++}
++
+ //-----------------------------------------------------------------------------
+ // A stream of blood. c_te_bloodstream.cpp's TE_BloodStream, verbatim but for
+ // the members becoming arguments and the tool recording (see the header note).
+@@ -1014,6 +1024,8 @@
+ 	CSmartPtr<CTEParticleRenderer> pRen = CTEParticleRenderer::Create( "TEBloodStream", org );
+ 	if( !pRen )
+ 		return;
++	FxProbeLog( "tbe\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d", (void *)pRen.GetObject(), org.x, org.y, org.z,
++	            req.vecDirection.x, req.vecDirection.y, req.vecDirection.z, req.r, req.g, req.b, req.a, req.nAmount );
+ 
+ 	// Add our particles.
+ 	Vector		dirCopy;
+@@ -1030,7 +1042,7 @@
+ 		StandardParticle_t *p = pRen->AddParticle();
+ 		if(p)
+ 		{
+-			p->SetColor(req.r * random->RandomFloat(0.7, 1.0), req.g, req.b);
++			p->SetColor(req.r * TbRandF(0.7, 1.0), req.g, req.b);
+ 			p->SetAlpha(req.a);
+ 			p->m_Pos = org;
+ 			pRen->SetParticleLifetime(p, 2);
+@@ -1044,6 +1056,7 @@
+ 			VectorScale (dirCopy, speedCopy, p->m_Velocity);
+ 
+ 			speedCopy -= 0.00001;// so last few will drip
++			TbState( pRen.GetObject(), p );
+ 		}
+ 	}
+ 
+@@ -1055,7 +1068,7 @@
+ 		if(p)
+ 		{
+ 			pRen->SetParticleLifetime(p, 3);
+-			p->SetColor(req.r * random->RandomFloat(0.7, 1.0), req.g, req.b);
++			p->SetColor(req.r * TbRandF(0.7, 1.0), req.g, req.b);
+ 			p->SetAlpha(req.a);
+ 			p->m_Pos = org;
+ 			pRen->SetParticleType(p, pt_vox_slowgrav);
+@@ -1065,13 +1078,14 @@
+ 			dirCopy[2] -= arc;
+ 			arc -= 0.005;
+ 
+-			num = random->RandomFloat(0,1);
++			num = TbRandF(0,1);
+ 			speedCopy = req.nAmount * num;
+ 
+ 			num *= 1.7;
+ 
+ 			VectorScale (dirCopy, num, dirCopy);// randomize a bit
+ 			p->m_Velocity = dirCopy * speedCopy;
++			TbState( pRen.GetObject(), p );
+ 
+ 
+ 			// add a few extra voxels directly adjacent to this one to give a
+@@ -1082,12 +1096,12 @@
+ 				if( pChunky )
+ 				{
+ 					pRen->SetParticleLifetime( pChunky, 3);
+-					pChunky->SetColor(random->RandomFloat(0.7, 1.0), req.g, req.b);
++					pChunky->SetColor(TbRandF(0.7, 1.0), req.g, req.b);
+ 					pChunky->SetAlpha(req.a);
+ 					pChunky->m_Pos.Init(
+-						org[0] + random->RandomFloat(-1,1),
+-						org[1] + random->RandomFloat(-1,1),
+-						org[2] + random->RandomFloat(-1,1));
++						org[0] + TbRandF(-1,1),
++						org[1] + TbRandF(-1,1),
++						org[2] + TbRandF(-1,1));
+ 
+ 					pRen->SetParticleType( pChunky, pt_vox_slowgrav);
+ 
+@@ -1098,6 +1112,7 @@
+ 					VectorScale (dirCopy, num, dirCopy);// randomize a bit
+ 
+ 					pChunky->m_Velocity = dirCopy * speedCopy;
++					TbState( pRen.GetObject(), pChunky );
+ 				}
+ 			}
+ 		}
+@@ -1139,6 +1154,8 @@
+ 	CSmartPtr<CTEParticleRenderer> pRen = CTEParticleRenderer::Create( "TEShowLine", vecAt );
+ 	if( !pRen )
+ 		return;
++	FxProbeLog( "tse\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)pRen.GetObject(), req.vecStart.x, req.vecStart.y, req.vecStart.z,
++	            req.vecEnd.x, req.vecEnd.y, req.vecEnd.z );
+ 
+ 	while (len > 0)
+ 	{
+@@ -1156,6 +1173,7 @@
+ 			pRen->SetParticleType(p, pt_static);
+ 
+ 			p->m_Pos = vecAt;
++			TbState( pRen.GetObject(), p );
+ 
+ 			vecAt += vec;
+ 		}

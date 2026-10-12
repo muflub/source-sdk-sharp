@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+"""tools/probes/c0-session -- one scripted game session for the client no-Valve
+C0 probes (docs/plans/plan_client_novalve.md §6 C0 item 7, answers in §8).
+
+    tools/probes/c0-session OUT_DIR STEPS_FILE [options]
+
+      --gameui none|gamebin|view   where to put the logging GameUI.so stub
+                                   (tools/probes/gameui-stub) for this run:
+                                   none     the stock module only
+                                   gamebin  bin/<config>/bin/linux64/GameUI.so,
+                                            the mod's GAMEBIN (removed after)
+                                   view     an engine view under OUT_DIR: every
+                                            install entry linked, bin/linux64's
+                                            GameUI.so replaced by the stub, run
+                                            through -engine
+      --no-vr                      SOURCESHARP_PROBE_NO_VR=1 (the client takes
+                                   ClientVirtualReality001 off its list)
+      --arg A                      one extra engine argument (repeatable),
+                                   e.g. --arg=-nosteam
+      --env K=V                    one more variable for the game (repeatable),
+                                   e.g. SOURCESHARP_PROBE_PROGRESS_FORCE=1
+      --config debug               the probes are debug-only code
+
+STEPS_FILE, one step per line ('#' comments; {out} is OUT_DIR):
+      cmd <console command>        through tools/debug-api cmd
+      api <args...>                tools/debug-api <args...> (e.g. fire, ents)
+      sleep <seconds>
+      wait <regex> <seconds>       until console.log (this run's part) or the
+                                   probe log matches; a timeout FAILS the run
+      shot <name>                  `jpeg`, then copy the newest screenshot to
+                                   OUT_DIR/<name>.jpg
+      maps                         record the GameUI/client/engine mappings
+      quit                         `quit`, and wait for the game to exit
+
+Writes OUT_DIR/probe.log (SOURCESHARP_PROBE_LOG), OUT_DIR/console.log (this
+run's part), OUT_DIR/maps.txt (the GameUI.so / client.so mappings, read from
+/proc while the game is up) and OUT_DIR/result.txt (exit status per step).
+
+THE PROBES ARE OPT-IN. The client half (src/client/native/shell_probes_debug.cpp)
+is compiled only into a debug client.so configured with SS_CLIENT_PROBES=ON:
+
+    cmake -S . -B farm/debug/build -DSS_CLIENT_PROBES=ON && ninja -C farm/debug/build client_sourcesharp
+    ... probe runs ...
+    cmake -S . -B farm/debug/build -DSS_CLIENT_PROBES=OFF && make debug
+
+This refuses to run against a build without them (compile_commands.json is
+read), because a session with no probe lines proves nothing.
+
+It runs ONE game with its own TMPDIR, DEBUG_API_DIR and -port, and only ever
+kills that game: the pid whose environment carries this run's TMPDIR.
+"""
+import argparse
+import glob
+import os
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+ROOT = os.path.realpath(os.path.join(HERE, "..", ".."))
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import local_launch  # noqa: E402
+
+INSTALL_DEFAULT = os.path.expanduser(
+    "~/.steam/steam/steamapps/common/Source SDK Base 2013 Multiplayer")
+
+RUN_ARGS = ["-debugapi", "-debugapisocket", "-condebug", "-nomessagebox", "-nocrashdialog",
+            "-novid", "-windowed", "-w", "1280", "-h", "720", "-nohltv", "+tv_enable", "0",
+            "-assertlog"]
+
+
+def log(msg):
+    print("c0-session: " + msg, flush=True)
+
+
+def build_view(view, install, stub):
+    """An engine directory whose bin/linux64/GameUI.so is the stub."""
+    if os.path.exists(view):
+        shutil.rmtree(view)
+    os.makedirs(view)
+    for e in os.listdir(install):
+        if e != "bin":
+            os.symlink(os.path.join(install, e), os.path.join(view, e))
+    os.makedirs(os.path.join(view, "bin"))
+    for e in os.listdir(os.path.join(install, "bin")):
+        if e != "linux64":
+            os.symlink(os.path.join(install, "bin", e), os.path.join(view, "bin", e))
+    lin = os.path.join(view, "bin", "linux64")
+    os.makedirs(lin)
+    for e in os.listdir(os.path.join(install, "bin", "linux64")):
+        if e != "GameUI.so":
+            os.symlink(os.path.join(install, "bin", "linux64", e), os.path.join(lin, e))
+    shutil.copyfile(stub, os.path.join(lin, "GameUI.so"))
+
+
+def game_pids_for(tmpdir):
+    """Every hl2_linux64 whose environment carries our TMPDIR. More than one
+    happens: a game that cannot reach Steam starts a second copy of itself."""
+    out = []
+    for p in glob.glob("/proc/[0-9]*"):
+        try:
+            with open(os.path.join(p, "comm")) as f:
+                if f.read().strip() != "hl2_linux64":
+                    continue
+            with open(os.path.join(p, "environ"), "rb") as f:
+                env = f.read().split(b"\0")
+        except OSError:
+            continue
+        if ("TMPDIR=" + tmpdir).encode() in env:
+            out.append(int(os.path.basename(p)))
+    return sorted(out)
+
+
+def game_pid_for(tmpdir):
+    pids = game_pids_for(tmpdir)
+    return pids[0] if pids else None
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("out")
+    ap.add_argument("steps")
+    ap.add_argument("--gameui", default="none", choices=["none", "gamebin", "view"])
+    ap.add_argument("--no-vr", action="store_true")
+    ap.add_argument("--arg", action="append", default=[])
+    ap.add_argument("--env", action="append", default=[], help="K=V for the game's environment")
+    ap.add_argument("--config", default="debug")
+    ap.add_argument("--install", default=INSTALL_DEFAULT)
+    ap.add_argument("--port", type=int, default=27415)
+    ap.add_argument("--no-probe-build", action="store_true",
+                    help="the session's evidence is a file a step writes through a recorder every "
+                         "build carries (cs_cl_render_trace), not probe lines; skip the probe-build check")
+    a = ap.parse_args()
+
+    ccdb = os.path.join(ROOT, "farm", a.config, "build", "compile_commands.json")
+    try:
+        probes_built = "shell_probes_debug.cpp" in open(ccdb).read()
+    except OSError:
+        probes_built = False
+    if not probes_built and not a.no_probe_build:
+        sys.exit("c0-session: %s does not compile shell_probes_debug.cpp; configure with "
+                 "-DSS_CLIENT_PROBES=ON first (see this script's header)" % ccdb)
+    out = os.path.abspath(a.out)
+    os.makedirs(out, exist_ok=True)
+    game = os.path.join(ROOT, "bin", a.config)
+    mod = os.path.join(game, "mods", "test")
+    console = os.path.join(mod, "console.log")
+    shots = os.path.join(mod, "screenshots")
+    probe_log = os.path.join(out, "probe.log")
+    if os.path.exists(probe_log):
+        os.remove(probe_log)
+    tmpdir = os.path.join(out, "tmp")
+    apidir = "/tmp/ssp-%d" % os.getpid()      # short: the socket path limit is 108
+    os.makedirs(tmpdir, exist_ok=True)
+    os.makedirs(apidir, exist_ok=True)
+    # {out} in a step is OUT_DIR, so a step can name a file the session keeps.
+    steps = [l.strip().replace("{out}", out) for l in open(a.steps)
+             if l.strip() and not l.strip().startswith("#")]
+
+    placed = None
+    env = dict(os.environ)
+    env.update({
+        "TMPDIR": tmpdir,
+        "DEBUG_API_DIR": apidir,
+        "SOURCESHARP_PROBE_LOG": probe_log,
+        "SOURCESHARP_PROBE_STOCK_GAMEUI": os.path.join(a.install, "bin", "linux64", "GameUI.so"),
+        "__NV_PRIME_RENDER_OFFLOAD": env.get("__NV_PRIME_RENDER_OFFLOAD", "1"),
+        "__GLX_VENDOR_LIBRARY_NAME": env.get("__GLX_VENDOR_LIBRARY_NAME", "nvidia"),
+    })
+    for kv in a.env:
+        k, _, v = kv.partition("=")
+        env[k] = v
+    if a.no_vr:
+        env["SOURCESHARP_PROBE_NO_VR"] = "1"
+    extra = []
+    if a.gameui != "none":
+        stub = subprocess.run([os.path.join(HERE, "gameui-stub", "build")], check=True,
+                              capture_output=True, text=True).stdout.strip()
+        if a.gameui == "gamebin":
+            placed = os.path.join(game, "bin", "linux64", "GameUI.so")
+            if os.path.exists(placed):
+                sys.exit("c0-session: %s exists; refusing to overwrite it" % placed)
+            shutil.copyfile(stub, placed)
+        else:
+            view = os.path.join(out, "engine-view")
+            build_view(view, a.install, stub)
+            extra += ["-engine", view]
+
+    results = []
+    proc = None
+    pid = None
+    try:
+        start = os.path.getsize(console) if os.path.exists(console) else 0
+        argv = ["./source#", "-mod", "test"] + extra + RUN_ARGS + local_launch.local_args() + \
+            ["-port", str(a.port)] + a.arg
+        log("launch: " + " ".join(argv))
+        with open(os.path.join(out, "launch.txt"), "w") as f:
+            f.write(" ".join(argv) + "\n")
+        proc = subprocess.Popen(argv, cwd=game, env=env, stdout=open(os.path.join(out, "stdout.txt"), "w"),
+                                stderr=subprocess.STDOUT)
+
+        def console_text():
+            try:
+                with open(console, "rb") as f:
+                    f.seek(start)
+                    return f.read().decode("utf-8", "replace")
+            except OSError:
+                return ""
+
+        def probe_text():
+            try:
+                return open(probe_log, errors="replace").read()
+            except OSError:
+                return ""
+
+        deadline = time.time() + 180
+        while time.time() < deadline and proc.poll() is None:
+            pid = pid or game_pid_for(tmpdir)
+            if pid and os.path.exists(os.path.join(apidir, "%d.sock" % pid)):
+                break
+            time.sleep(1)
+        else:
+            results.append("launch FAIL: no debug-api socket (exit=%s)" % proc.poll())
+            raise SystemExit(1)
+        log("game pid %d" % pid)
+        api_env = dict(os.environ, DEBUG_API_DIR=apidir, DEBUG_API_PID=str(pid))
+
+        def api(*args):
+            return subprocess.run([os.path.join(ROOT, "tools", "debug-api")] + list(args), env=api_env,
+                                  capture_output=True, text=True, timeout=60)
+
+        maps_done = False
+        for step in steps:
+            verb, _, rest = step.partition(" ")
+            if proc.poll() is not None and verb != "quit":
+                results.append("%s FAIL: game exited (%s)" % (step, proc.poll()))
+                raise SystemExit(1)
+            if verb == "cmd":
+                r = api("cmd", rest)
+                results.append("%s -> rc=%d %s" % (step, r.returncode, (r.stdout + r.stderr).strip()[:200]))
+            elif verb == "api":
+                r = api(*rest.split())
+                results.append("%s -> rc=%d %s" % (step, r.returncode, " ".join((r.stdout + r.stderr).split())[:300]))
+            elif verb == "sleep":
+                time.sleep(float(rest))
+                results.append(step)
+            elif verb == "wait":
+                rx, _, secs = rest.rpartition(" ")
+                t0 = time.time()
+                ok = False
+                while time.time() - t0 < float(secs):
+                    if re.search(rx, console_text()) or re.search(rx, probe_text()):
+                        ok = True
+                        break
+                    if proc.poll() is not None:
+                        break
+                    time.sleep(0.5)
+                results.append("%s -> %s after %.1fs" % (step, "ok" if ok else "TIMEOUT", time.time() - t0))
+                if not ok:
+                    raise SystemExit(1)
+            elif verb == "shot":
+                before = set(glob.glob(os.path.join(shots, "*.jpg")))
+                api("cmd", "jpeg")
+                got = None
+                for _ in range(20):
+                    time.sleep(0.5)
+                    new = set(glob.glob(os.path.join(shots, "*.jpg"))) - before
+                    if new:
+                        got = max(new, key=os.path.getmtime)
+                        time.sleep(0.5)
+                        break
+                if got:
+                    shutil.copyfile(got, os.path.join(out, rest + ".jpg"))
+                results.append("%s -> %s" % (step, got or "NO SCREENSHOT"))
+            elif verb == "maps":
+                with open("/proc/%d/maps" % pid) as f:
+                    lines = sorted({l.split()[-1] for l in f if l.rstrip().endswith((".so",))
+                                    and re.search(r"(GameUI|client|engine|ServerBrowser)\.so$", l.rstrip())})
+                with open(os.path.join(out, "maps.txt"), "w") as f:
+                    f.write("\n".join(lines) + "\n")
+                maps_done = True
+                results.append("maps -> " + "; ".join(lines))
+            elif verb == "quit":
+                api("cmd", "quit")
+                try:
+                    proc.wait(timeout=90)
+                    results.append("quit -> exit %d" % proc.returncode)
+                except subprocess.TimeoutExpired:
+                    results.append("quit FAIL: still running after 90 s")
+                    raise SystemExit(1)
+            else:
+                results.append("unknown step " + step)
+                raise SystemExit(2)
+        if not maps_done:
+            results.append("(no maps step)")
+    finally:
+        if proc and proc.poll() is None:
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+        for attempt in range(3):
+            pids = game_pids_for(tmpdir)
+            if not pids:
+                break
+            for gp in pids:
+                log("killing our game pid %d (attempt %d)" % (gp, attempt + 1))
+                try:
+                    os.kill(gp, signal.SIGTERM if attempt == 0 else signal.SIGKILL)
+                except OSError:
+                    pass
+            time.sleep(5)
+        if game_pids_for(tmpdir):
+            results.append("CLEANUP FAIL: game pid(s) %s still up" % game_pids_for(tmpdir))
+        if proc and proc.poll() is None:
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        if placed and os.path.exists(placed):
+            os.remove(placed)
+            log("removed " + placed)
+        try:
+            with open(console, "rb") as f:
+                f.seek(start)
+                open(os.path.join(out, "console.log"), "wb").write(f.read())
+        except (OSError, NameError):
+            pass
+        with open(os.path.join(out, "result.txt"), "w") as f:
+            f.write("\n".join(results) + "\n")
+        for r in results:
+            log(r)
+        shutil.rmtree(apidir, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    main()

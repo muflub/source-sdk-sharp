@@ -1,0 +1,11 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+namespace	LAYOUT	the render plan's buffers, the TracerQuads batch's and the tracer material lookup
+void DrawPrecipitation()	BOUNDARY	viewrender.cpp's call: hands managed the view, carries out its plan (FX_WaterRipple, and the tracers' quads as Tracer_Draw wound them, their corners TracerGeometry's in one IManagedParticlesClient::TracerQuads crossing a render) with stock's render-context setup
+int32_t SourceSharp_PrecipitationTraceLine(	BOUNDARY	UTIL_TraceLine through CTraceFilterSimple, one stock call
+int32_t SourceSharp_PrecipitationTraceVolume(	BOUNDARY	UTIL_TraceModel's body: ClipRayToEntity against the owner, MASK_ALL
+int32_t SourceSharp_PrecipitationPointContents(	LIVE-API	enginetrace->GetPointContents
+int32_t SourceSharp_PrecipitationInPvs(	LIVE-API	IsRenderableInPVS for the owner
+int32_t SourceSharp_PrecipitationPlayer(	LIVE-API	the local player shell's origin, eye, centre and the view's angles and FOV
+void SourceSharp_PrecipitationWorldBounds(	LIVE-API	the world entity's bounds
+int32_t SourceSharp_PrecipitationScreenWidth()	LIVE-API	ScreenWidth()

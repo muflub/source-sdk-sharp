@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Mutation-verify tools/globals-census --self-test.
+
+Restores with a FRESH mtime each time (cp then touch with no -r): an identical
+mtime in a LOOP leaves an object newer than its source and the next run
+re-executes the mutant. Never `git checkout --`: it deletes uncommitted work.
+"""
+import os, shutil, subprocess, sys, tempfile, glob
+
+TOOL = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "globals-census")
+BACKUP = TOOL + ".mutation-backup"
+
+MUTATIONS = [
+    ("rodata counts as mutable state",
+     'MUTABLE_KINDS = frozenset(("bss", "data", "tls"))',
+     'MUTABLE_KINDS = frozenset(("bss", "data", "tls", "rodata"))'),
+    ("the archive nm filter loses GNU_UNIQUE",
+     'ARCHIVE_DATA_TYPES = frozenset("BbDdGgSsuVv")',
+     'ARCHIVE_DATA_TYPES = frozenset("BbDdGgSsVv")'),
+    ("LOCAL statics are folded by name across objects",
+     'return (row.object, row.mangled) if row.bind == "LOCAL" else ("", row.mangled)',
+     'return ("", row.mangled)'),
+    # The exclusion was ONCE keyed on the DWARF file. That needle is gone: the
+    # sniper container's nm emits no file:line and the header test matched
+    # nothing there, so the rule reads the symbol table only now. These two
+    # arms are the two halves of what replaced it.
+    ("the vec exclusion ignores the file-local form",
+     '    m = VEC_MANGLED.match(row.mangled)\n    if m is None:\n        return False',
+     '    m = VEC_MANGLED.match(row.mangled)\n    if m is None:\n        return True'),
+    ("the vec exclusion ignores the size",
+     '    return row.size == VEC_SIZES[m.group(1)]',
+     '    return True'),
+    ("the vec subject check cannot refuse",
+     "    bad = []\n    for rel, needles in (subject if subject is not None else VEC_SUBJECT):",
+     "    return []\n    bad = []\n    for rel, needles in (subject if subject is not None else VEC_SUBJECT):"),
+    ("the stale-archive refusal ignores whether the archive is built",
+     '        if a not in built:\n            continue\n',
+     ''),
+    ("a function-local static reads as file scope",
+     '    if re.search(r"\\)( const)?::", core):\n        return "function-local"',
+     '    if False:\n        return "function-local"'),
+    # int(tok, 0) is NOT a mutation: base 0 auto-detects and agrees on both
+    # forms. It stayed green and the test was right, so the needle is the
+    # genuinely wrong reading instead -- every decimal size read as hex.
+    ("every readelf size is read as hex",
+     '    return int(tok, 16) if tok.lower().startswith("0x") else int(tok)',
+     '    return int(tok, 16)'),
+    ("the link edge stops at its first line",
+     '            if take:\n                lines.append(line)\n'
+     '                if not line.rstrip("\\n").endswith("$"):\n                    break',
+     '            if take:\n                lines.append(line)\n                break'),
+    ("a missing object is not fatal",
+     '        fatal.append("MISSING: %d object%s the graph names is not on disk "',
+     '        pass\n    if False:\n        fatal.append("MISSING: %d object%s the graph names is not on disk "'),
+]
+
+
+def clear_caches():
+    for d in glob.glob(os.path.join(os.path.dirname(TOOL), "**", "__pycache__"),
+                       recursive=True):
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def run():
+    p = subprocess.run([sys.executable, TOOL, "--self-test"],
+                       capture_output=True, text=True)
+    tail = [l for l in p.stderr.splitlines() if l.strip().endswith("FAILED")]
+    return p.returncode, (tail[-1].strip() if tail else "?")
+
+
+def restore():
+    shutil.copy(BACKUP, TOOL)          # copy, NOT copy2: a fresh mtime
+    os.utime(TOOL, None)
+    os.chmod(TOOL, 0o755)
+    clear_caches()
+
+
+shutil.copy(TOOL, BACKUP)
+try:
+    restore()
+    rc, line = run()
+    print("CONTROL      rc=%d  %s" % (rc, line))
+    assert rc == 0, "the control run must be green before any mutation"
+
+    for name, old, new in MUTATIONS:
+        src = open(BACKUP).read()
+        if old not in src:
+            print("SKIP         %-58s  NEEDLE NOT FOUND" % name)
+            continue
+        before = src
+        open(TOOL, "w").write(src.replace(old, new, 1))
+        os.utime(TOOL, None)
+        clear_caches()
+        assert open(TOOL).read() != before, "the mutation did not change the file"
+        rc, line = run()
+        print("%-12s %-58s  rc=%d  %s"
+              % ("RED" if rc != 0 else "!! STILL GREEN", name, rc, line))
+        restore()
+        rc2, line2 = run()
+        assert rc2 == 0, "restore left the tool red: %s" % line2
+finally:
+    restore()
+    os.remove(BACKUP)
+    print("restored, control:", run())

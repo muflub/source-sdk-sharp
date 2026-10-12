@@ -1,0 +1,15 @@
+# lane c5-particles: where stock draws the dust puff (tools/probes/client/particles_ez.cpp.probe.diff, on the
+# stock render path, cs_cl_render_plan 0): each DrawParticleSingletons call's sky flag, view and particle count,
+# while dust puffs (cs_te_fire dust) are alive in front of the player.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+cmd setpos_exact -3893 1414 65
+cmd setang_exact 10 90 0
+sleep 1
+cmd cs_te_fire dust -3893 1540 80
+sleep 0.5
+cmd cs_te_fire dust -3893 1560 80
+sleep 2
+quit

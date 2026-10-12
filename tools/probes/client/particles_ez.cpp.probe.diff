@@ -1,0 +1,22 @@
+--- a/src/game/client/particles_ez.cpp	2026-10-11 17:29:40.332270095 -0700
++++ b/src/game/client/particles_ez.cpp	2026-10-11 17:29:40.339620293 -0700
+@@ -6,6 +6,8 @@
+ 
+ #include <predictable_entity.h>
+ #include "particles_ez.h"
++#include "fx_probe_log.h"
++#include "viewrender.h"
+ #include "igamesystem.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
+@@ -142,6 +144,10 @@
+ 
+ void DrawParticleSingletons( bool bInSkybox )
+ {
++	// lane c5-particles probe: which call draws the dust puff's particles, in which view.
++	FxProbeLog( "eps\t%d\t%d\t%d\t%d", bInSkybox ? 1 : 0, CurrentViewID(),
++	            g_pSimpleSingleton[0].IsValid() ? g_pSimpleSingleton[0]->GetBinding().GetNumActiveParticles() : -1,
++	            g_pSimpleSingleton[1].IsValid() ? g_pSimpleSingleton[1]->GetBinding().GetNumActiveParticles() : -1 );
+ 	if ( g_pSimpleSingleton[bInSkybox].IsValid() )
+ 	{
+ 		g_pSimpleSingleton[bInSkybox]->GetBinding().DrawModel( 1 );

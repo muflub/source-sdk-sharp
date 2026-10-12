@@ -1,0 +1,27 @@
+# The once-a-day live gate (tools/daily-gate; user ruling 2026-10-04).
+#
+# INSTALL (once, from the main checkout, after this file is on main):
+#   mkdir -p ~/.config/systemd/user
+#   cp tools/systemd/sourcesharp-daily-gate.service tools/systemd/sourcesharp-daily-gate.timer ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now sourcesharp-daily-gate.timer
+#   systemctl --user list-timers sourcesharp-daily-gate.timer     # the next run
+# RUN NOW:   systemctl --user start sourcesharp-daily-gate.service
+# RESULT:    tools/daily-gate --status   (~/.local/state/sourcesharp/daily-gate/latest)
+#
+# THE GAME NEEDS THE GRAPHICAL SESSION. A user service inherits the user
+# manager's environment, which the desktop fills at login (DISPLAY,
+# WAYLAND_DISPLAY, XAUTHORITY, XDG_RUNTIME_DIR); `systemctl --user
+# show-environment` shows it. Without a session the game cannot open a
+# window and the report says the gate failed, never that it passed.
+# tools/gpu-offload is sourced, as every launch path in the tree does.
+[Unit]
+Description=SourceSharp daily live gate (tools/daily-gate)
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/git/source-sdk-sharp
+ExecStart=/bin/bash -c '. tools/gpu-offload && exec tools/daily-gate'
+TimeoutStartSec=6h
+Nice=5

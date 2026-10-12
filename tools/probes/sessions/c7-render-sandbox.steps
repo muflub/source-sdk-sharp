@@ -1,0 +1,28 @@
+# plan_client_novalve C7 step 2: ss_sandbox's spawn, where the view lists hold translucent
+# renderables that are not entities. Three stock frames then three plan frames: s1 is the
+# fixture (ss_sandbox-spawn.txt); the rest measure how far two adjacent frames differ on
+# each path (16 of 1150 calls between two STOCK frames on 2026-10-11, the moving props'
+# order), which is why the live compare does not run here. Needs ss_sandbox.bsp built.
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-render-sandbox.steps --no-probe-build
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+cmd cs_cl_render_trace {out}/s1.txt
+wait recorded \d+ lines to .*s1 20
+cmd cs_cl_render_trace {out}/s2.txt
+wait recorded \d+ lines to .*s2 20
+cmd cs_cl_render_trace {out}/s3.txt
+wait recorded \d+ lines to .*s3 20
+cmd cs_cl_render_plan 1
+sleep 1
+cmd cs_cl_render_trace {out}/p1.txt
+wait recorded \d+ lines to .*p1 20
+cmd cs_cl_render_trace {out}/p2.txt
+wait recorded \d+ lines to .*p2 20
+cmd cs_cl_render_trace {out}/p3.txt
+wait recorded \d+ lines to .*p3 20
+cmd cs_cl_render_plan 0
+quit

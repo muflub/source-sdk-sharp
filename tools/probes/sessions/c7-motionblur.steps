@@ -1,0 +1,60 @@
+# plan_client_novalve C7 step 2: DoImageSpaceMotionBlur's oracle. A probe build
+# (viewpostprocess.cpp.probe.diff) logs every frame's inputs and values as "mb"
+# rows while the player turns, walks, looks down and up (cl_mouselook 0) and jumps at dm_lockdown's open floor on the stock
+# path with mat_motion_blur_enabled 1; then the same with the strength and the
+# forward switch changed. OUT/probe.log's mb rows become
+# src/test/client/Fixtures/motionblur-stock.tsv.
+#   cmake -S . -B farm/debug/build -DSS_CLIENT_PROBES=ON && ninja -C farm/debug/build client_sourcesharp
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-motionblur.steps
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 2
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+cmd mat_motion_blur_enabled 1
+api teleport pos=-3843,2894,0 ang=0,90,0 settle=1
+sleep 1
+cmd cl_mouselook 0
+cmd +right
+cmd +forward
+sleep 2
+cmd -right
+cmd +lookdown
+sleep 0.3
+cmd -lookdown
+cmd +left
+sleep 1
+cmd +lookup
+sleep 0.6
+cmd -lookup
+sleep 0.5
+cmd -left
+cmd +jump
+sleep 0.5
+cmd -jump
+cmd +lookdown
+sleep 0.2
+cmd -lookdown
+cmd mat_motion_blur_strength 2
+cmd mat_motion_blur_forward_enabled 1
+cmd +left
+sleep 1
+cmd -left
+cmd +lookup
+sleep 0.5
+cmd -lookup
+cmd +jump
+sleep 0.5
+cmd -jump
+cmd -forward
+cmd mat_motion_blur_strength 1
+cmd mat_motion_blur_forward_enabled 0
+api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
+sleep 1
+cmd +right
+sleep 0.5
+cmd -right
+cmd cl_mouselook 1
+cmd mat_motion_blur_enabled 0
+quit

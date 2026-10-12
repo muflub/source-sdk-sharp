@@ -1,0 +1,97 @@
+diff --git a/src/client/native/shell_steamjet_sim.cpp b/src/client/native/shell_steamjet_sim.cpp
+index 8530196f..921ea54a 100644
+--- a/src/client/native/shell_steamjet_sim.cpp
++++ b/src/client/native/shell_steamjet_sim.cpp
+@@ -16,6 +16,13 @@
+ #include "fx.h"
+ #include "jet_lifetime.h"
+ 
++// c2-sims probe (tools/probes/c2sims-steamjet-probe.diff): the recorder lives in
++// tools/probes/client/c2sims_probes_debug.cpp (SS_CLIENT_PROBES=ON builds only).
++bool C2SimsProbe_On();
++bool C2SimsProbe_BeginFrame();
++void C2SimsProbe_Arm( bool bArm );
++void C2SimsProbe_Row( const char *pFmt, ... );
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -339,6 +346,18 @@ void C_SteamJet::Update(float fTimeDelta)
+ 		return;
+ 	}
+ 
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		C2SimsProbe_Row( "F\t%.9g\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta,
++			m_ParticleEffect.WasDrawnPrevFrame() ? 1 : 0, 0,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z );
++		C2SimsProbe_Row( "P\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%.9g\t%d\t%d\t%d\t%d\t%.9g",
++			m_SpreadSpeed, m_Speed, m_StartSize, m_EndSize, m_Rate, m_JetLength, m_bEmit, m_bFaceLeft ? 1 : 0, m_nType,
++			m_spawnflags, m_flRollSpeed, m_clrRender.r, m_clrRender.g, m_clrRender.b, m_clrRender.a, m_Lifetime );
++		C2SimsProbe_Arm( true );
++	}
++
+ 	if( m_bEmit )
+ 	{
+ 		// Add new particles.
+@@ -367,6 +386,8 @@ void C_SteamJet::Update(float fTimeDelta)
+ 			VectorMin( GetAbsOrigin(), vEndPoint, vMin );
+ 			VectorMax( GetAbsOrigin(), vEndPoint, vMax );
+ 			m_ParticleEffect.SetBBox( vMin, vMax );
++			if ( C2SimsProbe_On() )
++				C2SimsProbe_Row( "B\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", vMin.x, vMin.y, vMin.z, vMax.x, vMax.y, vMax.z );
+ 
+ 			if ( m_ParticleEffect.WasDrawnPrevFrame() )
+ 			{
+@@ -397,6 +418,8 @@ void C_SteamJet::Update(float fTimeDelta)
+ 			UpdateLightingRamp();
+ 		}	
+ 	}
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
+ }
+ 
+ 
+@@ -477,6 +500,10 @@ void C_SteamJet::RenderParticles( CParticleRenderIterator *pIterator )
+ 		vRampColor[2] = MIN( 1.0f, vRampColor[2] );
+ 
+ 		float sinLifetime = sin(pParticle->m_Lifetime * 3.14159f / pParticle->m_DieTime);
++		if ( C2SimsProbe_On() )
++			C2SimsProbe_Row( "D\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++				pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, vRampColor.x, vRampColor.y, vRampColor.z,
++				sinLifetime * (m_clrRender.a/255.0f), FLerp(pParticle->m_uchStartSize, pParticle->m_uchEndSize, pParticle->m_Lifetime), pParticle->m_flRoll );
+ 
+ 		if ( m_nType == STEAM_HEATWAVE )
+ 		{
+@@ -510,6 +537,8 @@ void C_SteamJet::SimulateParticles( CParticleSimulateIterator *pIterator )
+ 	if ( m_ParticleEffect.WasDrawnPrevFrame() == false && m_bEmit )
+ 		return;
+ 
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "S\t%.9g", pIterator->GetTimeDelta() );
+ 	SteamJetParticle *pParticle = (SteamJetParticle*)pIterator->GetFirst();
+ 	while ( pParticle )
+ 	{
+@@ -525,6 +554,12 @@ void C_SteamJet::SimulateParticles( CParticleSimulateIterator *pIterator )
+ 			pParticle->m_flRoll += pParticle->m_flRollDelta * pIterator->GetTimeDelta();
+ 			pParticle->m_Pos = pParticle->m_Pos + pParticle->m_Velocity * pIterator->GetTimeDelta();
+ 		}
++		if ( C2SimsProbe_On() )
++			C2SimsProbe_Row( "Q\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d",
++				pParticle->m_Lifetime > pParticle->m_DieTime ? 1 : 0,
++				pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_Velocity.x, pParticle->m_Velocity.y, pParticle->m_Velocity.z,
++				pParticle->m_flRoll, pParticle->m_flRollDelta, pParticle->m_Lifetime, pParticle->m_DieTime,
++				pParticle->m_uchStartSize, pParticle->m_uchEndSize );
+ 
+ 		pParticle = (SteamJetParticle*)pIterator->GetNext();
+ 	}
+@@ -564,6 +599,8 @@ void C_SteamJet::UpdateLightingRamp()
+ 		
+ 		Vector *pRamp = &m_Ramps[iRamp];
+ 		*pRamp = WorldGetLightForPoint(vTestPos, false);
++		if ( C2SimsProbe_On() )
++			C2SimsProbe_Row( "L\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", vTestPos.x, vTestPos.y, vTestPos.z, pRamp->x, pRamp->y, pRamp->z );
+ 		
+ 		if ( IsEmissive() )
+ 		{

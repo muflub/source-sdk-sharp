@@ -1,0 +1,20 @@
+diff --git a/src/client/native/shell_managed_particles.cpp b/src/client/native/shell_managed_particles.cpp
+index 4a4a751c..392dfe51 100644
+--- a/src/client/native/shell_managed_particles.cpp
++++ b/src/client/native/shell_managed_particles.cpp
+@@ -454,12 +454,14 @@ CON_COMMAND( cs_cl_effect_kinds,
+ 	Msg( "[SourceSharp] effect kinds: %d executor(s)\n", g_ManagedParticles.Count() );
+ }
+ 
++void C2SimsProbe_Tick();	// c2-sims probe (tools/probes/c2sims-sndenv-probe.diff)
++
+ class CSourceSharpManagedParticlesSystem : public CClientSystemPerFrame
+ {
+ public:
+ 	CSourceSharpManagedParticlesSystem() : CClientSystemPerFrame( "CSourceSharpManagedParticlesSystem" ) {}
+ 
+-	virtual void PreRender() OVERRIDE { ManagedParticles_Follow(); }
++	virtual void PreRender() OVERRIDE { C2SimsProbe_Tick(); ManagedParticles_Follow(); }
+ 
+ 	virtual void LevelShutdownPostEntity() OVERRIDE
+ 	{

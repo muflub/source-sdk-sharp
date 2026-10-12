@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# Puts a pinned Node into tools/node, if it is not already there.
+#
+# The web UI is TypeScript and React, so building it needs Node — and requiring
+# everyone who builds this mod to have installed the right one themselves is a
+# prerequisite that will be wrong on somebody's machine on the first day. This
+# downloads one instead, into the tree, ignored by git.
+#
+# Pinned rather than "latest": a toolchain that changes underneath a build is a
+# build that fails for reasons nobody changed. Verified against the checksums
+# nodejs.org publishes alongside it, because this is a binary being downloaded
+# and run.
+#
+set -euo pipefail
+
+VERSION="v24.19.0"
+HERE="$(dirname -- "$(readlink -f -- "$0")")"
+TARGET="$HERE/node"
+
+if [[ -x "$TARGET/bin/node" ]]; then
+    have="$("$TARGET/bin/node" -v)"
+    [[ "$have" == "$VERSION" ]] && exit 0
+
+    echo "==> replacing Node $have with $VERSION"
+    rm -rf "$TARGET"
+fi
+
+case "$(uname -m)" in
+    x86_64)  ARCH="x64" ;;
+    aarch64) ARCH="arm64" ;;
+    *) echo "no pinned Node for $(uname -m); install Node $VERSION and put it on PATH" >&2; exit 1 ;;
+esac
+
+NAME="node-$VERSION-linux-$ARCH"
+BASE="https://nodejs.org/dist/$VERSION"
+
+# Unpacked in a temporary directory beside the target rather than in /tmp: a
+# Node tarball is 30MB packed and 200MB open, and /tmp is small on more machines
+# than people expect.
+WORK="$HERE/.get-node"
+rm -rf "$WORK"
+mkdir -p "$WORK"
+trap 'rm -rf "$WORK"' EXIT
+
+echo "==> downloading Node $VERSION ($ARCH)"
+curl -fSL --progress-bar -o "$WORK/$NAME.tar.xz" "$BASE/$NAME.tar.xz"
+curl -fsSL -o "$WORK/SHASUMS256.txt" "$BASE/SHASUMS256.txt"
+
+echo "==> verifying"
+( cd "$WORK" && grep " $NAME.tar.xz\$" SHASUMS256.txt | sha256sum -c - )
+
+tar -xJf "$WORK/$NAME.tar.xz" -C "$WORK"
+mv "$WORK/$NAME" "$TARGET"
+
+echo "==> Node $("$TARGET/bin/node" -v) is in tools/node"

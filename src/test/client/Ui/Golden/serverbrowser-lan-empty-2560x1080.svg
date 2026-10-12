@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="528" y="84" width="1504" height="924" rx="20" fill="#000000" fill-opacity="0.17" data-e="2"/>
+<rect x="534" y="90" width="1492" height="912" rx="14" fill="#000000" fill-opacity="0.43" data-e="2"/>
+<rect x="540" y="90" width="1480" height="900" rx="8" fill="#111317" data-e="2"/>
+<rect x="540.5" y="90.5" width="1479" height="899" rx="7.5" fill="none" stroke="#ffb52e" stroke-opacity="0.6" stroke-width="1" data-e="2"/>
+<rect x="2013" y="976" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2010" y="980" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2013" y="980" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2006" y="983" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2010" y="983" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="2013" y="983" width="2" height="2" fill="#b2aea4" data-e="11"/>
+<rect x="556" y="96" width="1448" height="40" rx="4" fill="#2c3038" fill-opacity="0.82" data-e="14"/>
+<rect x="568" y="106" width="4" height="20" rx="2" fill="#ffb52e" data-e="15"/>
+<text x="584" y="124.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="16">SERVERS</text>
+<polygon points="1979.4,110 1990,120.6 1988.6,122 1978,111.4" fill="#b2aea4" data-e="19"/>
+<polygon points="1988.6,110 1990,111.4 1979.4,122 1978,120.6" fill="#b2aea4" data-e="19"/>
+<clipPath id="c0"><rect x="546" y="136" width="1468" height="848"/></clipPath><g clip-path="url(#c0)" data-e="20">
+<text x="562" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#b2aea4" xml:space="preserve" data-e="23">INTERNET</text>
+<text x="684" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#b2aea4" xml:space="preserve" data-e="26">FAVOURITES</text>
+<text x="831" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="29">LAN</text>
+<rect x="831" y="185" width="39" height="4" fill="#ffb52e" data-e="30"/>
+<text x="894" y="174.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#b2aea4" xml:space="preserve" data-e="32">HISTORY</text>
+<rect x="562" y="228" width="280" height="40" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="36"/>
+<rect x="562.5" y="228.5" width="279" height="39" rx="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="36"/>
+<clipPath id="c1"><rect x="562" y="228" width="280" height="40"/></clipPath><g clip-path="url(#c1)" data-e="36">
+<text x="575" y="255.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="37">Map contains…</text>
+<text x="574" y="254.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="37">Map contains…</text>
+</g>
+<rect x="858" y="242" width="20" height="20" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="40"/>
+<rect x="858.5" y="242.5" width="19" height="19" rx="1.5" fill="none" stroke="#b2aea4" stroke-width="1" data-e="40"/>
+<text x="887" y="259.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="41">Not full</text>
+<text x="886" y="258.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="41">Not full</text>
+<rect x="962" y="242" width="20" height="20" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="43"/>
+<rect x="962.5" y="242.5" width="19" height="19" rx="1.5" fill="none" stroke="#b2aea4" stroke-width="1" data-e="43"/>
+<text x="991" y="259.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="44">Not empty</text>
+<text x="990" y="258.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="44">Not empty</text>
+<rect x="1091" y="242" width="20" height="20" rx="2" fill="#0d0f13" fill-opacity="0.84" data-e="46"/>
+<rect x="1091.5" y="242.5" width="19" height="19" rx="1.5" fill="none" stroke="#b2aea4" stroke-width="1" data-e="46"/>
+<text x="1120" y="259.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="47">No password</text>
+<text x="1119" y="258.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="47">No password</text>
+<text x="1241" y="219.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="49">MAX PING</text>
+<rect x="1241" y="228" width="140" height="40" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="50"/>
+<rect x="1241.5" y="228.5" width="139" height="39" rx="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="50"/>
+<text x="1254" y="255.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="51">Any</text>
+<text x="1253" y="254.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="51">Any</text>
+<polygon points="1357.7,245.1 1359.6,245.1 1363,249 1363,251.4" fill="#b2aea4" data-e="53"/>
+<polygon points="1363,249 1366.4,245.1 1368.3,245.1 1363,251.4" fill="#b2aea4" data-e="53"/>
+<rect x="562" y="284" width="1040" height="628" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="56"/>
+<clipPath id="c2"><rect x="562" y="284" width="1040" height="628"/></clipPath><g clip-path="url(#c2)" data-e="56">
+<rect x="562" y="284" width="1040" height="36" fill="#2c3038" fill-opacity="0.82" data-e="57"/>
+<rect x="576" y="301" width="8" height="7" fill="#b2aea4" data-e="58"/>
+<rect x="577" y="298" width="2" height="4" fill="#b2aea4" data-e="58"/>
+<rect x="581" y="298" width="2" height="4" fill="#b2aea4" data-e="58"/>
+<polygon points="577.1,298.4 578.3,296.7 581.7,296.7 582.9,298.4 581.4,298.4 578.6,298.4" fill="#b2aea4" data-e="58"/>
+<text x="658" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="60">SERVER</text>
+<text x="1018" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="61">GAME</text>
+<text x="1226" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="62">MAP</text>
+<text x="1448" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="63">PLAYERS</text>
+<text x="1542" y="306.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#ffb52e" xml:space="preserve" data-e="65">PING</text>
+<polygon points="1578.7,304.9 1584,298.6 1584,301 1580.6,304.9" fill="#ffb52e" data-e="66"/>
+<polygon points="1584,298.6 1589.3,304.9 1587.4,304.9 1584,301" fill="#ffb52e" data-e="66"/>
+<polygon points="1078.4,516 1085.6,516 1089.9,520.3 1089.9,529 1085.6,533.3 1078.4,533.3 1074.1,529 1074.1,520.3" fill="#b2aea4" data-e="69"/>
+<polygon points="1074.8,536.2 1089.2,536.2 1097.8,541.9 1100,552 1064,552 1066.2,541.9" fill="#b2aea4" data-e="69"/>
+<text x="994" y="594.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="71">NO SERVERS HERE</text>
+<text x="941" y="628.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="72">No games were found on your local</text>
+<text x="940" y="627.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="72">No games were found on your local</text>
+<text x="917" y="652.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="72">network. Start a game on this network, or</text>
+<text x="916" y="651.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="72">network. Start a game on this network, or</text>
+<text x="1013" y="676.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="72">check its firewall.</text>
+<text x="1012" y="675.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="72">check its firewall.</text>
+<rect x="562" y="877" width="1040" height="35" fill="#2c3038" fill-opacity="0.82" data-e="73"/>
+<text x="574" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="74">0</text>
+<text x="586" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="75">SHOWN</text>
+<text x="637" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="76">OF</text>
+<text x="658" y="899.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="77">0</text>
+</g>
+<rect x="1618" y="284" width="380" height="628" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="79"/>
+<clipPath id="c3"><rect x="1618" y="284" width="380" height="628"/></clipPath><g clip-path="url(#c3)" data-e="79">
+<text x="1635" y="319.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="80">Select a server to see who is playing.</text>
+<text x="1634" y="318.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="80">Select a server to see who is playing.</text>
+</g>
+<rect x="562" y="928" width="189" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="82"/>
+<text x="578" y="956.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="83">ADD FAVOURITE</text>
+<rect x="1741" y="928" width="121" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="85"/>
+<text x="1757" y="956.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="86">REFRESH</text>
+<rect x="1874" y="928" width="124" height="40" rx="4" fill="#ffb52e" data-e="87"/>
+<text x="1890" y="956.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#1a1204" xml:space="preserve" data-e="88">CONNECT</text>
+</g>
+</svg>

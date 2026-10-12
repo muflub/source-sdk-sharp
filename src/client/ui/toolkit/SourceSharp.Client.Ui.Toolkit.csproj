@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The UI toolkit (plan_client_ui §4, §5): layout, widgets, composites, theme,
+    the SVG backend. Behaviour over SourceSharp.Client.Interface's UI contract,
+    and nothing else: no engine, no Abi, so a screen and its toolkit preview
+    and test without a game, and reload with the UI (§3.2's UI ALC).
+    No statics with state (StaticStateCensusTests covers this assembly).
+  -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The UI's fonts (IBM Plex, OFL: ../fonts/OFL.txt), measured by UiFontLibrary. -->
+    <EmbeddedResource Include="..\fonts\*.ttf" LogicalName="fonts/%(Filename)%(Extension)" />
+    <!-- And beside the managed assemblies, for the game: vgui registers a font
+         from a file (VguiBackend, plan_client_ui U2). -->
+    <None Include="..\fonts\*.ttf;..\fonts\OFL.txt" Link="fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- SourceSharp's own UI copy (#SS_UI_*): the core's, embedded, so no mod
+         folder has to carry it (UiLanguageFile.Core); a mod's file overrides. -->
+    <EmbeddedResource Include="..\resource\sourcesharp_ui_english.txt" LogicalName="resource/sourcesharp_ui_english.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The icon set (plan_client_ui; user ruling 2026-10-05): the original SVG art,
+         and the atlas and manifest tools/ui-icons rasterises from it (committed,
+         rebuilt by `make ui-icons`; UiIconTests holds them in step). -->
+    <EmbeddedResource Include="..\icons\*.svg" LogicalName="icons/art/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\icons\atlas\icons.tsv" LogicalName="icons/icons.tsv" Condition="Exists('..\icons\atlas\icons.tsv')" />
+    <EmbeddedResource Include="..\icons\atlas\icons.a8z" LogicalName="icons/icons.a8z" Condition="Exists('..\icons\atlas\icons.a8z')" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The UI analyzer (plan_client_ui §5.8.5a): SSUI rules, errors under the
+         tree's TreatWarningsAsErrors. A mod's UI assembly references it the same way. -->
+    <ProjectReference Include="..\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\interface\SourceSharp.Client.Interface.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+# lane c2-sims: the client friction sound through the managed sound controller
+# (tools/probes/c2sims-sndenv-probe.diff applied, -DSS_CLIENT_PROBES=ON):
+# crossings before, 120 frames of PhysFrictionSound, crossings after its
+# patch has been shut down.
+wait first paint 240
+sleep 3
+cmd cs_cl_crossings
+cmd cs_cl_probe_friction 120
+wait friction: drove 30
+sleep 2
+cmd cs_cl_crossings
+quit

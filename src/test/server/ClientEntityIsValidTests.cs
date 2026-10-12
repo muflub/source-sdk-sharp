@@ -1,0 +1,164 @@
+using System.Runtime.InteropServices;
+
+using SourceSharp.Abi;
+
+using Xunit;
+
+namespace SourceSharp.Tests;
+
+/// <summary>
+/// The client answers "is this handle alive" from its own entity list.
+///
+/// <para>
+/// It used not to. EntityIsValid lived in the server-only IShimEntitiesServer
+/// area, so on the client <c>Has_EntityIsValid</c> was false and every ask
+/// answered false. The one client caller is a restore: <c>SavedHandles.Resolve</c>
+/// re-checks every handle a <c>cs_cl_reload</c> carries across, so every
+/// restored <see cref="EntityHandle"/> field came back <see cref="EntityHandle.None"/>.
+/// SideAuditTests' transitive walk found it (lane side-audit, 2026-10-02).
+/// </para>
+///
+/// <para>
+/// <b>THE SLOT SUPPRESSES THE GC TRANSITION, so no managed fake can serve it</b>
+/// (calling an <c>[UnmanagedCallersOnly]</c> method that way kills the test
+/// host). Each fact serves its own entities area through a
+/// <see cref="FakeShimRoot"/> with a real native function in the slot instead:
+/// libc's <c>getpagesize</c>, which answers non-zero ("alive"), or
+/// <c>sched_yield</c>, which answers 0 ("gone"). Both ignore their arguments,
+/// so the answer can only have come from the slot the fact filled, and the
+/// pair is the control: the same handle, kept or dropped by the slot's answer
+/// alone. The table is laid out as the server's area, a superset of the shared
+/// base with EntityIsValid at the same index. Nothing here is static.
+/// </para>
+/// </summary>
+public unsafe class ClientEntityIsValidTests : IDisposable
+{
+    private static readonly EntityHandle Saved = new(0x0012_8005u);
+
+    private readonly FakeShimRoot _root = new();
+    private readonly List<nint> _blocks = new();
+
+    public void Dispose()
+    {
+        _root.Dispose();
+        foreach (nint block in _blocks)
+            NativeMemory.Free((void*)block);
+    }
+
+    [Fact]
+    public void AClientSideAsksItsOwnSlotWhetherAnEntityIsValid()
+    {
+        Serve("SourceSharpEntities001", Alive);
+        var engine = Attached(Side.Client);
+
+        Assert.True(engine.ClientAttached, "the client side has its Entities area attached");
+        Assert.True(engine.EntityIsValid(Saved), "and answers from it: the slot said alive");
+    }
+
+    [Fact]
+    public void AClientSideAnswersGoneWhenItsSlotDoes()
+    {
+        // The control: a side that answered "valid" without asking would pass
+        // the fact above.
+        Serve("SourceSharpEntities001", Gone);
+        var engine = Attached(Side.Client);
+
+        Assert.False(engine.EntityIsValid(Saved), "the client answers gone when its slot says gone");
+    }
+
+    [Fact]
+    public void AServerSideStillAsksItsSlot()
+    {
+        // The retention half: the server's route must survive the move.
+        Serve("SourceSharpEntitiesServer001", Alive);
+        var alive = Attached(Side.Server);
+        Assert.True(alive.EntityIsValid(Saved), "the server answers alive when its slot does");
+
+        using var other = new FakeShimRoot();
+        var gone = new EngineSide(Side.Server);
+        gone.Initialize();
+        other.Area("SourceSharpEntitiesServer001", Area(Gone));
+        Assert.True(gone.AttachShims(other.Bind(), out string why), why);
+        Assert.False(gone.EntityIsValid(Saved), "and gone when its slot does");
+    }
+
+    [Fact]
+    public void ASavedHandleSurvivesAClientRestore()
+    {
+        Serve("SourceSharpEntities001", Alive);
+        var engine = Attached(Side.Client);
+
+        var record = new ReloadRecord("client");
+        new SaveRecordAccess(record, "client", new RecordingLog()).Write("target", Saved);
+
+        var reader = new SaveRecordAccess(record, "client", new RecordingLog(),
+            new SavedHandles(new EngineHost(engine), new EngineEntities(engine)));
+        EntityHandle restored = reader.ReadHandle("target");
+
+        Assert.True(restored.Value == Saved.Value,
+            $"a saved handle to a live client entity comes back as itself (0x{restored.Value:X8}, " +
+            $"saved 0x{Saved.Value:X8})");
+    }
+
+    [Fact]
+    public void ASavedHandleToAGoneEntityComesBackNone()
+    {
+        Serve("SourceSharpEntities001", Gone);
+        var engine = Attached(Side.Client);
+
+        var record = new ReloadRecord("client");
+        new SaveRecordAccess(record, "client", new RecordingLog()).Write("target", Saved);
+
+        var reader = new SaveRecordAccess(record, "client", new RecordingLog(),
+            new SavedHandles(new EngineHost(engine), new EngineEntities(engine)));
+
+        Assert.True(reader.ReadHandle("target").Value == EntityHandle.None.Value,
+            "a saved handle the client's list no longer holds comes back None");
+    }
+
+    //-------------------------------------------------------------------------
+
+    /// <summary>libc's getpagesize: ignores its arguments and answers non-zero.</summary>
+    private const string Alive = "getpagesize";
+
+    /// <summary>libc's sched_yield: ignores its arguments and answers 0.</summary>
+    private const string Gone = "sched_yield";
+
+    /// <summary>Serves an entities area for <paramref name="version"/> whose EntityIsValid slot is <paramref name="answer"/>.</summary>
+    private void Serve(string version, string answer) => _root.Area(version, Area(answer));
+
+    private void* Area(string answer)
+    {
+        Type vtbl = typeof(ShimEntitiesServerVtbl);
+        int words = Marshal.SizeOf(vtbl) / sizeof(nint);
+        var table = (nint*)Alloc(words * sizeof(nint));
+        var self = (nint*)Alloc(sizeof(nint));
+
+        int slot = (int)Marshal.OffsetOf(vtbl, nameof(ShimEntitiesServerVtbl.EntityIsValid)) / sizeof(nint);
+        nint libc = NativeLibrary.Load("libc.so.6");
+        table[slot] = NativeLibrary.GetExport(libc, answer);
+        self[0] = (nint)table;
+        return self;
+    }
+
+    private EngineSide Attached(Side side)
+    {
+        var api = new EngineSide(side);
+        api.Initialize();
+
+        string why;
+        bool attached = side == Side.Server
+            ? api.AttachShims(_root.Bind(), out why)
+            : api.AttachClientShims(_root.Bind(), out why);
+
+        Assert.True(attached, why);
+        return api;
+    }
+
+    private void* Alloc(int bytes)
+    {
+        void* p = NativeMemory.AllocZeroed((nuint)bytes);
+        _blocks.Add((nint)p);
+        return p;
+    }
+}

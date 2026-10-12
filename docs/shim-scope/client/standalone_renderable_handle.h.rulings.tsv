@@ -1,0 +1,3 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+inline bool RenderableEntityHandleWord(	SLOT-HELP	a renderable's entity handle word, asked only of an entity (a non-entity renderable's GetRefEHandle is a null dereference)

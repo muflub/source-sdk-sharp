@@ -1,0 +1,93 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+IViewRender *ShellViewRender()	SLOT-HELP	the IViewRender client init sets `view` to
+void Init(	SLOT	IViewRender::Init: forwarded to stock's object until its port
+void LevelInit(	SLOT	IViewRender::LevelInit: clears its screen overlay as stock's does, then forwarded to stock's object until its port
+void LevelShutdown(	SLOT	IViewRender::LevelShutdown: forwarded to stock's object until its port
+void Shutdown(	SLOT	IViewRender::Shutdown: releases its screen overlay as stock's does, then forwarded to stock's object until its port
+void OnRenderStart(	SLOT	IViewRender::OnRenderStart: forwarded to stock's object until its port
+void CShellViewRender::Render(	SLOT	CViewRender::Render (view.cpp), mono: carries out managed's view decision -- the main view, the client mode's hooks, the debug clears, the 3D view, the full-screen 2D panels
+void RenderView(	SLOT	IViewRender::RenderView: the render plan's view, carried out by the executor; stock's only for a view the planner declines
+int GetDrawFlags(	SLOT	IViewRender::GetDrawFlags: the draw flags of the view the executor is drawing
+void StartPitchDrift(	SLOT	IViewRender::StartPitchDrift: pitch drift is not shipped: nothing reads what it would set
+void StopPitchDrift(	SLOT	IViewRender::StopPitchDrift: pitch drift is not shipped: nothing reads what it would set
+VPlane *GetFrustum(	SLOT	IViewRender::GetFrustum: its own frustum, the one the engine's Push3DView fills
+bool ShouldDrawBrushModels(	SLOT	IViewRender::ShouldDrawBrushModels: r_drawbrushmodels read by name
+const CViewSetup *GetPlayerViewSetup(	SLOT	IViewRender::GetPlayerViewSetup: forwarded to stock's object until its port
+const CViewSetup *GetViewSetup(	SLOT	IViewRender::GetViewSetup: the view the plan is drawing or last drew
+void DisableVis(	SLOT	IViewRender::DisableVis: no vis for the next frame's views, cleared by Render
+bool ForceNoVis()	SLOT-HELP	DisableVis's flag, for the plan's inputs
+bool ShellViewRender_ForceNoVis()	SLOT-HELP	DisableVis's flag, for the executor
+int BuildWorldListsNumber(	SLOT	IViewRender::BuildWorldListsNumber: its own world list build number
+void SetCheapWaterStartDistance(	SLOT	IViewRender::SetCheapWaterStartDistance: its own distance
+void SetCheapWaterEndDistance(	SLOT	IViewRender::SetCheapWaterEndDistance: its own distance
+void GetWaterLODParams(	SLOT	IViewRender::GetWaterLODParams: its own distances
+void DriftPitch(	SLOT	IViewRender::DriftPitch: says pitch drift is not shipped
+void SetScreenOverlayMaterial(	SLOT	IViewRender::SetScreenOverlayMaterial: its own overlay reference
+IMaterial *GetScreenOverlayMaterial(	SLOT	IViewRender::GetScreenOverlayMaterial: its own overlay
+void WriteSaveGameScreenshot(	SLOT	IViewRender::WriteSaveGameScreenshot: the PC size, through WriteSaveGameScreenshotOfSize
+void WriteReplayScreenshot(	SLOT	IViewRender::WriteReplayScreenshot: says replay is not shipped
+void UpdateReplayScreenshotCache(	SLOT	IViewRender::UpdateReplayScreenshotCache: replay is not shipped: nothing to update
+void QueueOverlayRenderView(	SLOT	IViewRender::QueueOverlayRenderView: says it is not shipped
+float GetZNear(	SLOT	IViewRender::GetZNear: managed's ViewSetUp answer
+float GetZFar(	SLOT	IViewRender::GetZFar: managed's ViewSetUp answer
+void GetScreenFadeDistances(	SLOT	IViewRender::GetScreenFadeDistances: r_screenfademinsize and r_screenfademaxsize read by name
+IClientUnknown *GetCurrentlyDrawingEntity(	SLOT	IViewRender::GetCurrentlyDrawingEntity: its own currently drawing entity
+void SetCurrentlyDrawingEntity(	SLOT	IViewRender::SetCurrentlyDrawingEntity: its own currently drawing entity
+bool UpdateShadowDepthTexture(	SLOT	IViewRender::UpdateShadowDepthTexture: the plan's shadow-depth view; stock's only with no plan to draw it in
+void FreezeFrame(	SLOT	IViewRender::FreezeFrame: into managed's freeze state
+IReplayScreenshotSystem *GetReplayScreenshotSystem(	SLOT	IViewRender::GetReplayScreenshotSystem: this object, as stock's answered
+void CShellViewRender::WriteSaveGameScreenshotOfSize(	SLOT	CViewRender::WriteSaveGameScreenshotOfSize (view.cpp): managed's view drawn through the plan, read back and written as TGA or VTF
+void ReleaseScreenOverlay()	SLOT-HELP	drops the overlay reference, as CMaterialReference::Shutdown
+void SetCurrentView(	SLOT-HELP	the executor's SetCurrentViewSetup op writes GetViewSetup's answer
+void IncWorldListsNumber()	SLOT-HELP	the executor's world list builds count up
+void IncRenderablesListsNumber()	SLOT-HELP	the executor's renderable list builds count up
+int RenderablesListsNumber()	SLOT-HELP	the renderable list build number the leaf system stamps
+void ShellViewRender_SetCurrentView(	SLOT-HELP	for the executor
+void ShellViewRender_IncWorldListsNumber()	SLOT-HELP	for the executor
+void ShellViewRender_IncRenderablesListsNumber()	SLOT-HELP	for the executor
+int ShellViewRender_RenderablesListsNumber()	SLOT-HELP	for the executor
+void ShellView_ComputeCamera(	SLOT-HELP	view.cpp's ComputeCameraVariables: the view's bases and world-to-view matrix
+void ShellView_SetMainView(	SLOT-HELP	SetUpViews' end: this frame's main view, the last one kept
+const ShellCamera_t &ShellView_Main()	SLOT-HELP	the main view state
+const Vector &ShellView_PrevMainOrigin()	SLOT-HELP	the last frame's main view origin
+const QAngle &ShellView_PrevMainAngles()	SLOT-HELP	the last frame's main view angles
+void ShellView_SetupCurrentView(	SLOT-HELP	viewrender.cpp's SetupCurrentView: the current view's state, and the engine's fade range and depth parameter when asked
+void ShellView_FinishCurrentView()	SLOT-HELP	viewrender.cpp's FinishCurrentView
+void ShellView_AllowCurrentViewAccess(	SLOT-HELP	viewrender.cpp's AllowCurrentViewAccess
+bool ShellView_CurrentViewAccessAllowed()	SLOT-HELP	viewrender.cpp's IsCurrentViewAccessAllowed
+const ShellCamera_t &ShellView_Current()	SLOT-HELP	the current view state
+int ShellView_CurrentViewID()	SLOT-HELP	viewrender.cpp's CurrentViewID
+void DemoCamera(	SLOT-HELP	view.cpp's CalcDemoViewOverride carried out: managed's DemoViewCamera around the engine's view angles and the input's extra mouse sample
+void CShellViewRender::SetUpViews()	SLOT	CViewRender::SetUpViews (view.cpp): managed's planes and FOV, the client mode's override, the view entity, the tools, the demo camera, the bones, the main view and the audio state, carried out
+const Vector &MainViewOrigin()	SLOT-HELP	view.cpp's name, from the view state
+const QAngle &MainViewAngles()	SLOT-HELP	view.cpp's name, from the view state
+const Vector &MainViewForward()	SLOT-HELP	view.cpp's name, from the view state
+const Vector &MainViewRight()	SLOT-HELP	view.cpp's name, from the view state
+const Vector &MainViewUp()	SLOT-HELP	view.cpp's name, from the view state
+const VMatrix &MainWorldToViewMatrix()	SLOT-HELP	view.cpp's name, from the view state
+const Vector &PrevMainViewOrigin()	SLOT-HELP	view.cpp's name, from the view state
+const QAngle &PrevMainViewAngles()	SLOT-HELP	view.cpp's name, from the view state
+const Vector &CurrentViewOrigin()	SLOT-HELP	viewrender.cpp's name, from the view state
+const QAngle &CurrentViewAngles()	SLOT-HELP	viewrender.cpp's name, from the view state
+const Vector &CurrentViewForward()	SLOT-HELP	viewrender.cpp's name, from the view state
+const Vector &CurrentViewRight()	SLOT-HELP	viewrender.cpp's name, from the view state
+const Vector &CurrentViewUp()	SLOT-HELP	viewrender.cpp's name, from the view state
+const VMatrix &CurrentWorldToViewMatrix()	SLOT-HELP	viewrender.cpp's name, from the view state
+view_id_t CurrentViewID()	SLOT-HELP	viewrender.cpp's name, from the view state
+bool DrawingShadowDepthView(	SLOT-HELP	viewrender.cpp's name, from the view state
+void SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, view_id_t viewID )	SLOT-HELP	viewrender.cpp's name, into the view state with the engine's fade range and depth parameter
+void FinishCurrentView()	SLOT-HELP	viewrender.cpp's name, into the view state
+void AllowCurrentViewAccess( bool allow )	SLOT-HELP	viewrender.cpp's name, into the view state
+bool IsCurrentViewAccessAllowed()	SLOT-HELP	viewrender.cpp's name, from the view state
+bool R_CullSphere(	BOUNDARY	view.cpp's frustum test glow_overlay.cpp calls: a sphere outside any plane
+static void SoftwareCursorChanged(	BOUNDARY	cl_software_cursor's change: the vgui surface's software cursor
+static void ViewPosition(	BOUNDARY	getpos's and spec_pos's position: the main view, or the player's own
+CON_COMMAND( spec_pos	BOUNDARY	prints the position as spec_goto
+CON_COMMAND( getpos	BOUNDARY	prints the position as setpos and setang
+static void CenterView()	SLOT-HELP	centerview: view->StartPitchDrift (pitch drift is not shipped)
+static void CheapWaterCommand(	BOUNDARY	r_cheapwaterstart and r_cheapwaterend: set or print a cheap-water distance
+CON_COMMAND( r_cheapwaterstart	BOUNDARY	the start distance
+CON_COMMAND( r_cheapwaterend	BOUNDARY	the end distance
+CON_COMMAND_F( r_screenoverlay	BOUNDARY	the screen overlay material: set by name, off, or printed
+[CPostProcessingPrecache] void Cache(	BOUNDARY	the post-processing materials referenced for DX9 and up, when the precache registry asks

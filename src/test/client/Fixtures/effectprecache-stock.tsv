@@ -1,0 +1,254 @@
+# stock CClientEffectPrecacheSystem, six map loads (lane c2-fx)
+# tools/probes/fx-select probe.log (prefixes pc, mesh every 0): 252 rows kept, 0 mesh rows dropped
+pc-reg	0
+pc-reg	1
+pc-reg	2
+pc-reg	3
+pc-reg	4
+pc-reg	5
+pc-reg	6
+pc-reg	7
+pc-reg	8
+pc-reg	9
+pc-reg	10
+pc-reg	11
+pc-reg	12
+pc-reg	13
+pc-reg	14
+pc-reg	15
+pc-reg	16
+pc-ev	init	n=17
+pc-cache	0	1
+pc-cache	1	1
+pc-cache	2	1
+pc-cache	3	1
+pc-cache	4	1
+pc-cache	5	1
+pc-cache	6	1
+pc-cache	7	1
+pc-cache	8	1
+pc-cache	9	1
+pc-cache	10	1
+pc-cache	11	1
+pc-cache	12	1
+pc-cache	13	1
+pc-cache	14	1
+pc-cache	15	1
+pc-cache	16	1
+pc-used
+pc-handles
+pc-ev	shutdownpre	n=17
+pc-ev	shutdownpost	n=17
+pc-cache	0	0
+pc-cache	1	0
+pc-cache	2	0
+pc-cache	3	0
+pc-cache	4	0
+pc-cache	5	0
+pc-cache	6	0
+pc-cache	7	0
+pc-cache	8	0
+pc-cache	9	0
+pc-cache	10	0
+pc-cache	11	0
+pc-cache	12	0
+pc-cache	13	0
+pc-cache	14	0
+pc-cache	15	0
+pc-cache	16	0
+pc-ev	init	n=17
+pc-cache	0	1
+pc-cache	1	1
+pc-cache	2	1
+pc-cache	3	1
+pc-cache	4	1
+pc-cache	5	1
+pc-cache	6	1
+pc-cache	7	1
+pc-cache	8	1
+pc-cache	9	1
+pc-cache	10	1
+pc-cache	11	1
+pc-cache	12	1
+pc-cache	13	1
+pc-cache	14	1
+pc-cache	15	1
+pc-cache	16	1
+pc-used
+pc-handles
+pc-ev	shutdownpre	n=17
+pc-ev	shutdownpost	n=17
+pc-cache	0	0
+pc-cache	1	0
+pc-cache	2	0
+pc-cache	3	0
+pc-cache	4	0
+pc-cache	5	0
+pc-cache	6	0
+pc-cache	7	0
+pc-cache	8	0
+pc-cache	9	0
+pc-cache	10	0
+pc-cache	11	0
+pc-cache	12	0
+pc-cache	13	0
+pc-cache	14	0
+pc-cache	15	0
+pc-cache	16	0
+pc-ev	init	n=17
+pc-cache	0	1
+pc-cache	1	1
+pc-cache	2	1
+pc-cache	3	1
+pc-cache	4	1
+pc-cache	5	1
+pc-cache	6	1
+pc-cache	7	1
+pc-cache	8	1
+pc-cache	9	1
+pc-cache	10	1
+pc-cache	11	1
+pc-cache	12	1
+pc-cache	13	1
+pc-cache	14	1
+pc-cache	15	1
+pc-cache	16	1
+pc-used
+pc-handles
+pc-ev	shutdownpre	n=17
+pc-ev	shutdownpost	n=17
+pc-cache	0	0
+pc-cache	1	0
+pc-cache	2	0
+pc-cache	3	0
+pc-cache	4	0
+pc-cache	5	0
+pc-cache	6	0
+pc-cache	7	0
+pc-cache	8	0
+pc-cache	9	0
+pc-cache	10	0
+pc-cache	11	0
+pc-cache	12	0
+pc-cache	13	0
+pc-cache	14	0
+pc-cache	15	0
+pc-cache	16	0
+pc-ev	init	n=17
+pc-cache	0	1
+pc-cache	1	1
+pc-cache	2	1
+pc-cache	3	1
+pc-cache	4	1
+pc-cache	5	1
+pc-cache	6	1
+pc-cache	7	1
+pc-cache	8	1
+pc-cache	9	1
+pc-cache	10	1
+pc-cache	11	1
+pc-cache	12	1
+pc-cache	13	1
+pc-cache	14	1
+pc-cache	15	1
+pc-cache	16	1
+pc-used
+pc-handles
+pc-ev	shutdownpre	n=17
+pc-ev	shutdownpost	n=17
+pc-cache	0	0
+pc-cache	1	0
+pc-cache	2	0
+pc-cache	3	0
+pc-cache	4	0
+pc-cache	5	0
+pc-cache	6	0
+pc-cache	7	0
+pc-cache	8	0
+pc-cache	9	0
+pc-cache	10	0
+pc-cache	11	0
+pc-cache	12	0
+pc-cache	13	0
+pc-cache	14	0
+pc-cache	15	0
+pc-cache	16	0
+pc-ev	init	n=17
+pc-cache	0	1
+pc-cache	1	1
+pc-cache	2	1
+pc-cache	3	1
+pc-cache	4	1
+pc-cache	5	1
+pc-cache	6	1
+pc-cache	7	1
+pc-cache	8	1
+pc-cache	9	1
+pc-cache	10	1
+pc-cache	11	1
+pc-cache	12	1
+pc-cache	13	1
+pc-cache	14	1
+pc-cache	15	1
+pc-cache	16	1
+pc-used
+pc-handles
+pc-ev	shutdownpre	n=17
+pc-ev	shutdownpost	n=17
+pc-cache	0	0
+pc-cache	1	0
+pc-cache	2	0
+pc-cache	3	0
+pc-cache	4	0
+pc-cache	5	0
+pc-cache	6	0
+pc-cache	7	0
+pc-cache	8	0
+pc-cache	9	0
+pc-cache	10	0
+pc-cache	11	0
+pc-cache	12	0
+pc-cache	13	0
+pc-cache	14	0
+pc-cache	15	0
+pc-cache	16	0
+pc-ev	init	n=17
+pc-cache	0	1
+pc-cache	1	1
+pc-cache	2	1
+pc-cache	3	1
+pc-cache	4	1
+pc-cache	5	1
+pc-cache	6	1
+pc-cache	7	1
+pc-cache	8	1
+pc-cache	9	1
+pc-cache	10	1
+pc-cache	11	1
+pc-cache	12	1
+pc-cache	13	1
+pc-cache	14	1
+pc-cache	15	1
+pc-cache	16	1
+pc-used
+pc-handles
+pc-ev	shutdownpre	n=17
+pc-ev	shutdownpost	n=17
+pc-cache	0	0
+pc-cache	1	0
+pc-cache	2	0
+pc-cache	3	0
+pc-cache	4	0
+pc-cache	5	0
+pc-cache	6	0
+pc-cache	7	0
+pc-cache	8	0
+pc-cache	9	0
+pc-cache	10	0
+pc-cache	11	0
+pc-cache	12	0
+pc-cache	13	0
+pc-cache	14	0
+pc-cache	15	0
+pc-cache	16	0
+pc-ev	shutdown	n=17

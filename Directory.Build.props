@@ -1,0 +1,117 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <!--
+      Managed output lands next to the native binaries, in the game directory of
+      the configuration being built: bin/<config>/bin/managed. Debug and release
+      each have their own, so building one never overwrites the other.
+    -->
+    <SourceSharpConfig Condition="'$(Configuration)' == 'Release'">release</SourceSharpConfig>
+    <SourceSharpConfig Condition="'$(SourceSharpConfig)' == ''">debug</SourceSharpConfig>
+    <SourceSharpBinDir>$(RepoRoot)bin/$(SourceSharpConfig)/bin/managed/</SourceSharpBinDir>
+    <!--
+      Intermediates stay out of src/ too. Per project, not per configuration:
+      restore writes project.assets.json here before a configuration is known,
+      and obj/ already keeps a subdirectory per configuration beneath it.
+    -->
+    <BaseIntermediateOutputPath>$(RepoRoot)bin/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>$(SourceSharpBinDir)</OutputPath>
+    <!-- Deterministic layout generation depends on stable metadata ordering. -->
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!--
+      EVERY WARNING IS AN ERROR (the user's call, 2026-09-30), as -Werror is on
+      every native target, and for the same reason: a warning prints only in the
+      step that compiled the assembly, so when `make debug` or a `dotnet build`
+      ran first, `make check`'s own log has none and the warning is never seen
+      again. Five xUnit2013 warnings sat in the tree unseen exactly that way.
+
+      This used to be two promotions only (CS0108/CS0114, the member-hiding
+      pair: SsPickup's `const string ClassName` over ScriptedEntity's property),
+      on the grounds that TreatWarningsAsErrors promotes whatever the CURRENT
+      SDK's analysers say, so a .NET update could stop the build for reasons
+      that are not the code's. AnalysisLevel below answers that: the analyser
+      rule set is pinned to .NET 10's and moves only when this line does. The
+      xUnit analysers are pinned by their package version. What is left
+      unpinned is the C# compiler's own warnings under LangVersion latest,
+      which a compiler update changes rarely.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>10.0</AnalysisLevel>
+  </PropertyGroup>
+
+  <!--
+    THIS REPO'S ANALYZERS (src/analyzers): rules the build enforces, each over
+    the projects named in its list. One analyzer assembly; the roles a project
+    is under reach it as SourceSharpAnalyzerRoles (CompilerVisibleProperty).
+
+    static-state (SS0001-SS0003): a new mutable static in a runtime assembly
+      fails the compile unless src/analyzers/static-state-waivers.txt names it
+      with its reason. The set StaticStateCensusTests covers (a fact there
+      checks the two lists agree). The Bootstrap owns the process-wide handles
+      by design. The same projects hold the side entries, so the role also
+      carries SS0070-SS0071: each ABI thunk counts its own crossing first.
+    mod (SS0010-SS0013): a mod reaches the core only by constructor injection
+      and hook interfaces (plan_host_sdk 2.8, 2.11).
+    test (SS0020, SS0050-SS0051, SS0060-SS0062): the test projects' own rules.
+    interface (SS0030): the contract assemblies hold interfaces, enums and pure
+      data, never behaviour (the user's rule, 2026-10-04). Client.Interface
+      and Server.Interface (its one body, DebugExitFacts.None, moved to
+      DebugProcess.NoFacts in SourceSharp.Server). Debug.Api.Shared is not an
+      interface library (user ruling, 2026-10-05) and is not on this list.
+  -->
+  <PropertyGroup>
+    <SourceSharpStaticStateGated>;SourceSharp.Abi;SourceSharp.Server;SourceSharp.Client;Debug.Api.Server;SourceSharp.Shared.Interop;SourceSharp.Server.Interop;SourceSharp.Client.Interop;Debug.Api.Client;SourceSharp.Server.Interface;SourceSharp.Client.Interface;Debug.Api.Shared;SourceSharp.Client.Ui.Toolkit;SourceSharp.Client.Ui;</SourceSharpStaticStateGated>
+    <SourceSharpModGated>;TF2.Descent.Rules;TF2.Descent.Server;TF2.Descent.Client;TF2.Server;TF2.Client;</SourceSharpModGated>
+    <SourceSharpTestGated>;SourceSharp.Shared.Tests;SourceSharp.Server.Tests;SourceSharp.Client.Tests;TF2.Descent.Tests;SourceSharp.OracleTests;SourceSharp.TestSupport;</SourceSharpTestGated>
+    <SourceSharpInterfaceGated>;SourceSharp.Client.Interface;SourceSharp.Server.Interface;</SourceSharpInterfaceGated>
+    <SourceSharpStaticStateWaivers Condition="'$(SourceSharpStaticStateWaivers)' == ''">$(RepoRoot)src/analyzers/static-state-waivers.txt</SourceSharpStaticStateWaivers>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SourceSharpAnalyzerRoles Condition="$(SourceSharpStaticStateGated.Contains(';$(MSBuildProjectName);'))">$(SourceSharpAnalyzerRoles),static-state</SourceSharpAnalyzerRoles>
+    <SourceSharpAnalyzerRoles Condition="$(SourceSharpModGated.Contains(';$(MSBuildProjectName);'))">$(SourceSharpAnalyzerRoles),mod</SourceSharpAnalyzerRoles>
+    <SourceSharpAnalyzerRoles Condition="$(SourceSharpTestGated.Contains(';$(MSBuildProjectName);'))">$(SourceSharpAnalyzerRoles),test</SourceSharpAnalyzerRoles>
+    <SourceSharpAnalyzerRoles Condition="$(SourceSharpInterfaceGated.Contains(';$(MSBuildProjectName);'))">$(SourceSharpAnalyzerRoles),interface</SourceSharpAnalyzerRoles>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(SourceSharpAnalyzerRoles)' != ''">
+    <ProjectReference Include="$(RepoRoot)src/analyzers/SourceSharp.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <CompilerVisibleProperty Include="SourceSharpAnalyzerRoles" />
+  </ItemGroup>
+  <ItemGroup Condition="$(SourceSharpAnalyzerRoles.Contains('static-state'))">
+    <AdditionalFiles Include="$(SourceSharpStaticStateWaivers)" />
+  </ItemGroup>
+
+  <!--
+    Which source this build was made from, written beside the assemblies.
+
+    The hash and the time in a build stamp come from the built files themselves
+    and cannot be wrong about what is loaded; the branch cannot be recovered from
+    a .dll at all, and neither can "the tree had uncommitted work in it", which
+    is a fact about the moment of the build and not about the tree afterwards.
+    So the build writes them down.
+
+    ON Bootstrap ONLY, so seven projects do not each run git; and AfterTargets
+    Build rather than a compile step, so it costs nothing when the compile is
+    skipped and — crucially — is NOT an input to any compilation. A generated
+    source file carrying a timestamp would make every build a full rebuild of
+    everything downstream of it, which is the trap this shape avoids.
+
+    A plain `dotnet build` refreshes it, which matters: rebuilding the managed
+    half alone and hot-reloading it is the loop this stamp is for.
+  -->
+  <Target Name="SourceSharpBuildStamp"
+          AfterTargets="Build"
+          Condition="'$(MSBuildProjectName)' == 'SourceSharp.Bootstrap' and '$(OS)' != 'Windows_NT'">
+    <Exec Command="&quot;$(RepoRoot)tools/build-stamp&quot; &quot;$(SourceSharpBinDir)sourcesharp.build&quot;"
+          ContinueOnError="true"
+          StandardOutputImportance="low" />
+  </Target>
+</Project>

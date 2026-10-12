@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The client's hook points for its dev API (plan_devapi_interfaces §2): the
+    same model as SourceSharp.Server.Interface. System.* only.
+  -->
+</Project>

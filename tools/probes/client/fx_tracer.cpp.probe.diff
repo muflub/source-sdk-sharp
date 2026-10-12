@@ -1,0 +1,34 @@
+--- a/src/game/client/fx_tracer.cpp
++++ b/src/game/client/fx_tracer.cpp
+@@ -11,6 +11,7 @@
+ #include "particles_new.h"
+ 
+ // memdbgon must be the last include file in a .cpp file!!!
++#include "fx_probe_log.h"
+ #include "tier0/memdbgon.h"
+ 
+ ConVar r_drawtracers( "r_drawtracers", "1", FCVAR_CHEAT );
+@@ -64,6 +65,7 @@
+ void TracerCallback( const CEffectData &data )
+ {
+ 	C_BasePlayer *player = C_BasePlayer::GetLocalPlayer();
++	FxProbeLog( "fxt-cb Tracer player=%d draw=%d flags=%d ent=%d", player ? 1 : 0, r_drawtracers.GetBool() ? 1 : 0, data.m_fFlags, data.entindex() );
+ 	if ( !player )
+ 		return;
+ 
+@@ -111,6 +113,7 @@
+ void ParticleTracerCallback( const CEffectData &data )
+ {
+ 	C_BasePlayer *player = C_BasePlayer::GetLocalPlayer();
++	FxProbeLog( "fxt-cb ParticleTracer player=%d draw=%d flags=%d ent=%d", player ? 1 : 0, r_drawtracers.GetBool() ? 1 : 0, data.m_fFlags, data.entindex() );
+ 	if ( !player )
+ 		return;
+ 
+@@ -156,6 +159,7 @@
+ //-----------------------------------------------------------------------------
+ void TracerSoundCallback( const CEffectData &data )
+ {
++	FxProbeLog( "fxt-cb TracerSound flags=%d ent=%d", data.m_fFlags, data.entindex() );
+ 	// Grab the data
+ 	Vector vecStart = GetTracerOrigin( data );
+ 	

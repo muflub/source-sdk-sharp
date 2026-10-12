@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Emits SourceSharp.Bootstrap.runtimeconfig.json, which the native host
+         passes to hostfxr_initialize_for_runtime_config. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- ManagedPins' facts (ReloadPinTests) and the Bootstrap's own. -->
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- No SourceSharp.Abi reference (plan_side_entries SE2): the Bootstrap
+         names no Abi type. GameLoadContext loads the one copy into this
+         context by path, and each side's own entry does the rest. -->
+    <ProjectReference Include="..\..\mods\SourceSharp.Mods.csproj" />
+  </ItemGroup>
+</Project>

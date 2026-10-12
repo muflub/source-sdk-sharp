@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""Run one tier of the tree checks in tools/checks.tsv, all at once.
+
+    tools/run-checks TIER [--manifest PATH]   run every row of tier TIER
+    tools/run-checks --self-test
+
+The checks are the instruments that used to be one serial `&&` chain in the
+`runner` leg of `make test` (entrypoint-decls, vtable-layout, valve-text-audit,
+abi-parity, ...). They are independent of one another, so they run in
+parallel here: the chain's wall time was the SUM of its parts (33 s at
+79d3b8af, valve-text-audit 13.8 s of it); this one's is the slowest part.
+
+tools/checks.tsv is the manifest, one row per check:
+
+    name<TAB>tier<TAB>shell command
+
+run with `bash -c` from the repo root. `$SOURCESHARP_CONFIG` names the
+configuration (the Makefile exports it; debug when unset). The tier is
+`routine` (make test) or `full` (make test-full adds it). tools/leg-floor
+counts the same rows, so the leg's floor is the manifest and a row that never
+ran is a SHORT RUN, not a pass.
+
+OUTPUT. Each check's own output is held until it finishes, then printed whole
+under `==> check NAME: ok (1.2 s)` or `==> check NAME: FAILED (exit N, 1.2 s)`,
+every line indented by `  | `. A check's output may contain its own
+`<n> checks, <m> failed` summary (the self-tests print one); tools/run-test-legs
+sums every such line, so they are rewritten to `<n> checks; <m> failed` here
+and only this script's last line, `<n> checks, <m> failed`, is counted: one per
+manifest row.
+
+EXIT. Non-zero when any check failed, when the tier names no row (a filter that
+runs nothing is a refusal, never a pass), or when the manifest cannot be read.
+"""
+
+import concurrent.futures
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MANIFEST = os.path.join(ROOT, 'tools', 'checks.tsv')
+TIERS = ('routine', 'full')
+COUNT = re.compile(r'([0-9]+ checks?), ([0-9]+ failed)')
+
+
+class Refused(Exception):
+    pass
+
+
+def rows(path, tier=None):
+    """The manifest's rows (name, tier, command), refusing a malformed one."""
+    try:
+        text = open(path, encoding='utf-8').read()
+    except OSError as exc:
+        raise Refused('cannot read %s: %s' % (path, exc))
+    out, seen = [], set()
+    for n, line in enumerate(text.splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        parts = line.split('\t')
+        if len(parts) != 3 or not all(p.strip() for p in parts):
+            raise Refused('%s:%d: want name<TAB>tier<TAB>command' % (path, n))
+        name, t, cmd = (p.strip() for p in parts)
+        if t not in TIERS:
+            raise Refused('%s:%d: tier %r is not one of %s' % (path, n, t, ' '.join(TIERS)))
+        if name in seen:
+            raise Refused('%s:%d: %s is named twice' % (path, n, name))
+        seen.add(name)
+        if tier is None or t == tier:
+            out.append((name, t, cmd))
+    return out
+
+
+def run_one(row, cwd, env):
+    name, _, cmd = row
+    start = time.monotonic()
+    with tempfile.TemporaryFile() as log:
+        rc = subprocess.run(['bash', '-c', cmd], cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                            stdout=log, stderr=subprocess.STDOUT).returncode
+        log.seek(0)
+        text = log.read().decode('utf-8', 'replace')
+    return name, rc, time.monotonic() - start, text
+
+
+def run(tier, manifest=MANIFEST, cwd=ROOT, out=sys.stdout, jobs=None):
+    todo = rows(manifest, tier)
+    if not todo:
+        raise Refused('%s names no %s check; a tier that runs nothing is not a pass'
+                      % (manifest, tier))
+    env = dict(os.environ)
+    env.setdefault('SOURCESHARP_CONFIG', 'debug')
+    failed = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs or len(todo)) as pool:
+        for f in concurrent.futures.as_completed([pool.submit(run_one, r, cwd, env) for r in todo]):
+            name, rc, secs, text = f.result()
+            if rc:
+                failed += 1
+            if rc == 0:
+                out.write('==> check %s: ok (%.1f s)\n' % (name, secs))
+            else:
+                out.write('==> check %s: FAILED (exit %d, %.1f s)\n' % (name, rc, secs))
+            for line in text.splitlines():
+                out.write('  | ' + COUNT.sub(r'\1; \2', line) + '\n')
+            out.flush()
+    out.write('%d checks, %d failed\n' % (len(todo), failed))
+    return 1 if failed else 0
+
+
+def self_test():
+    bad, n = 0, 0
+
+    def ck(label, cond, detail=''):
+        nonlocal bad, n
+        n += 1
+        if not cond:
+            bad += 1
+            print('  FAIL %s %s' % (label, detail))
+
+    import io
+    with tempfile.TemporaryDirectory() as d:
+        m = os.path.join(d, 'checks.tsv')
+
+        def put(body):
+            with open(m, 'w') as f:
+                f.write(body)
+
+        def go(tier):
+            buf = io.StringIO()
+            try:
+                rc = run(tier, m, d, buf)
+            except Refused as exc:
+                return 'refused', str(exc)
+            return rc, buf.getvalue()
+
+        put('# comment\n'
+            'a\troutine\techo hello; echo "5 checks, 0 failed"\n'
+            'b\troutine\tsleep 0.3; touch b.ran\n'
+            'c\tfull\ttouch c.ran\n')
+        rc, text = go('routine')
+        ck('a passing tier exits 0', rc == 0, repr(rc))
+        ck('every routine row ran', os.path.exists(os.path.join(d, 'b.ran')))
+        ck('a full row does not run in the routine tier', not os.path.exists(os.path.join(d, 'c.ran')))
+        counted = COUNT.findall(text)
+        ck('only the closing line is a count', counted == [('2 checks', '0 failed')], repr(counted))
+        ck("a check's own summary is printed, defused", '5 checks; 0 failed' in text, text)
+        ck("a check's output is printed", '  | hello' in text, text)
+
+        put('a\troutine\ttrue\nb\troutine\techo broke; exit 3\n')
+        rc, text = go('routine')
+        ck('a failing check fails the tier', rc == 1, repr(rc))
+        ck('the failure is named with its exit', '==> check b: FAILED (exit 3' in text, text)
+        ck('the failing count is reported', '2 checks, 1 failed' in text, text)
+
+        put('a\troutine\tsleep 1\nb\troutine\tsleep 1\nc\troutine\tsleep 1\n')
+        t = time.monotonic()
+        rc, _ = go('routine')
+        ck('the checks run at once', rc == 0 and time.monotonic() - t < 2.5,
+           '%.1f s for three 1 s checks' % (time.monotonic() - t))
+
+        put('a\tfull\ttrue\n')
+        rc, _ = go('routine')
+        ck('a tier with no rows is refused', rc == 'refused', repr(rc))
+        put('a\tnightly\ttrue\n')
+        ck('an unknown tier is refused', go('nightly')[0] == 'refused')
+        put('a\troutine\n')
+        ck('a short row is refused', go('routine')[0] == 'refused')
+        put('a\troutine\ttrue\na\tfull\ttrue\n')
+        ck('a name used twice is refused', go('routine')[0] == 'refused')
+        os.remove(m)
+        ck('a missing manifest is refused', go('routine')[0] == 'refused')
+
+    # The production manifest answers, in both tiers, and every command names a
+    # tool that exists.
+    try:
+        real = rows(MANIFEST)
+    except Refused as exc:
+        real = []
+        ck('the real manifest reads', False, str(exc))
+    for t in TIERS:
+        ck('the real manifest has %s rows' % t, any(r[1] == t for r in real))
+    for name, _, cmd in real:
+        tools = re.findall(r'\btools/[A-Za-z0-9_./-]+', cmd)
+        ck('%s names a tool' % name, bool(tools), cmd)
+        for tool in tools:
+            ck('%s: %s exists' % (name, tool), os.path.exists(os.path.join(ROOT, tool)))
+
+    print('%d checks, %d failed' % (n, bad))
+    return 1 if bad else 0
+
+
+def main(argv):
+    if argv[:1] == ['--self-test']:
+        return self_test()
+    if len(argv) not in (1, 3) or (len(argv) == 3 and argv[1] != '--manifest'):
+        sys.stderr.write(__doc__.split('\n\n')[0] + '\n')
+        return 2
+    try:
+        return run(argv[0], argv[2] if len(argv) == 3 else MANIFEST)
+    except Refused as exc:
+        sys.stderr.write('run-checks: %s\n' % exc)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

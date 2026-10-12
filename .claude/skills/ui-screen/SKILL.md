@@ -1,0 +1,17 @@
+---
+name: ui-screen
+description: Write or change a SourceSharp UI screen, HUD element, dialog or UI part (src/client/ui) so it looks like a shipped game's UI - the write, preview, look, lint, golden loop
+---
+You are writing UI for SourceSharp's managed toolkit. Read docs/ui/authoring.md first; it is short and every rule in it is checked.
+
+The loop, every time, until all of it is true:
+
+1. **Write** the screen in `src/client/ui/screens/<Name>.cs` (a `UiScreen`, or a `UiPanel<TProps>` for a reusable part) and its samples in `<Name>.Samples.cs` (`[UiSample("...")]` static methods built from the fakes in `screens/Samples/FakeSources.cs`; a part gets `[UiGallery("Part", "state")]` entries). Take game data only through data interfaces in `src/client/interface/Ui/UiSources.cs`, by constructor: one interface per concern, and each panel takes only the interfaces it reads (add a small new one rather than widening one; `UiSourceUseTests` fails on a source taken but unread). Sub-panels come in by constructor too; `TProps` is only for per-call decisions. Samples register fakes per interface on `UiSampleServices` and `Create<T>()` the screen. Start from the parts in authoring.md section 5 and copy the exemplars in section 10 (scoreboard for tables, HUD for HUD elements, team menu for dialogs). Use tokens (`Space`, `Tone`, `Text`, `Radius`), `#Tokens` for copy (add them to `src/client/ui/resource/sourcesharp_ui_english.txt`, UTF-16), `ui.Data` for names (it keeps their case), `ui.Number`/interpolation for numbers. No allocation in `Describe`, no statics.
+2. **Render**: `make ui-preview PNG=1` (or keep `make ui-preview WATCH=1 PNG=1` running).
+3. **Look**: open every PNG of your screen with the Read tool: `bin/debug/ui-preview/screens/<screen>/<sample>-<W>x<H>.png` at every size the preview writes (1024x768, 1280x1024, 1920x1080, 2560x1080, 3440x1440, 1080x1920, 1440x2560, 1920x1080-ui1.5, 1080x1920-ui1.75; portrait and the ui-scaled ones use the narrow arrangement), plus `-dark.png` and `-bright.png` at 1920x1080; for a part, `bin/debug/ui-preview/gallery/sheet.png`. Ask of each: is the hierarchy obvious (one thing biggest), are edges aligned, is spacing on the 4 du scale and consistent, does text read over the bright still, is anything cramped, clipped or floating, does it look like the scoreboard exemplar's family? Fix what you see; do not argue with a picture.
+4. **Build and lint**: the build must be clean of the analyzer's SSUI001-SSUI005 errors (allocation in describe, raw values, literal copy, loop keys, mutable statics: authoring.md section 8 lists the fixes), and `make ui-lint` must end `0 finding(s)`. Each line names the rule, the element and the fix. Do not silence a rule with `.Layered()` or `Raw.*` unless the design really is a layer or a one-off; every `Raw.*` is listed for the reviewer.
+5. **Test**: `make managed-test FILTER='FullyQualifiedName~SourceSharp.Tests.Ui'` (samples on screen, lint clean, zero allocation per frame).
+6. **Golden**: for a screen with goldens, `UI_GOLDEN_WRITE=1 make managed-test FILTER='FullyQualifiedName~UiGoldenTests'`, then read the diff of the SVG goldens and look at the pixel golden PNGs before committing them.
+7. **Commit** the screen, samples, tokens and goldens, with the PNG paths you looked at in the message.
+
+If a picture needs a human to look good, the defaults or the guide are wrong: say so in the report rather than tuning one screen around them.

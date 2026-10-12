@@ -1,0 +1,29 @@
+# plan_engineapi_vtables Phase C: the shim areas whose EngineSide calls go
+# through their vtable on the server (tools/shim-areas reads this). One
+# interface per line, as named in docs/engineapi-areas.tsv.
+IShimDebugOverlay
+IShimDiagnostics
+IShimPrecache
+IShimGameRules
+IShimConsoleServer
+IShimDamage
+IShimSound
+IShimHierarchy
+IShimInventory
+IShimPhysics
+IShimCollisionServer
+IShimTransform
+IShimEntityLifecycle
+IShimPlayers
+IShimMovementServer
+IShimWeaponsServer
+IShimWorldServer
+IShimEffectsServer
+IShimEntitiesServer
+IShimModelsServer
+IShimNetworkServer
+IShimStringTablesServer
+IShimUserMessages
+IShimEventsServer
+IShimEngine
+IShimConsole

@@ -1,0 +1,16 @@
+# C2 rope oracle (tools/probes/client/c2-beams/README.md): dm_lockdown, the
+# viewer parked under the shower cables (four spans, all inside rope_wind_dist
+# of the view, so the gust wind is on), looking up at them so BuildRope runs.
+wait iface-list 120
+cmd map dm_lockdown
+wait first paint 240
+cmd sv_cheats 1
+cmd setpos_exact -3800 2500 120
+cmd setang_exact -40 30 0
+sleep 3
+shot ropes
+sleep 12
+shot ropes-late
+cmd disconnect
+sleep 2
+quit

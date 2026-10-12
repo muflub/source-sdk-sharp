@@ -1,0 +1,13 @@
+# lane c2-sims: record env_embers (tools/probes/c2sims-embers-probe.diff applied) on
+# dm_lockdown: an env_embers on brush *4 (the smoke volume's), 120 frames from
+# its first simulate. Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 0 0 0
+sleep 1
+cmd cs_cl_probe_sim embers 120
+cmd ent_create env_embers targetname c2embers model *4 density 40 lifetime 3 speed 40 rendercolor "255 180 90" spawnflags 1
+wait sim. recorded 60
+quit

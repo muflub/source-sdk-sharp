@@ -1,0 +1,472 @@
+diff --git a/src/client/native/shell_trail_sim.cpp b/src/client/native/shell_trail_sim.cpp
+index a32a5d28..7a436b6c 100644
+--- a/src/client/native/shell_trail_sim.cpp
++++ b/src/client/native/shell_trail_sim.cpp
+@@ -28,6 +28,60 @@
+ 
+ #include "managed_convar_ref.h"
+ 
++// c2-sims probe (tools/probes/c2sims-trail-probe.diff): the recorder is
++// tools/probes/client/c2sims_probes_debug.cpp (SS_CLIENT_PROBES=ON builds only).
++bool C2SimsProbe_On();
++bool C2SimsProbe_BeginFrame();
++void C2SimsProbe_Arm( bool bArm );
++void C2SimsProbe_Row( const char *pFmt, ... );
++static void C2SimsProbe_Particle( const char *pTag, const SimpleParticle *p, int nMaterial )
++{
++	if ( !C2SimsProbe_On() )
++		return;
++	C2SimsProbe_Row( "%s\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", pTag, nMaterial,
++		p->m_Pos.x, p->m_Pos.y, p->m_Pos.z, p->m_vecVelocity.x, p->m_vecVelocity.y, p->m_vecVelocity.z,
++		p->m_flRoll, p->m_flRollDelta, p->m_flLifetime, p->m_flDieTime,
++		p->m_uchColor[0], p->m_uchColor[1], p->m_uchColor[2], p->m_uchStartAlpha, p->m_uchEndAlpha,
++		p->m_uchStartSize, p->m_uchEndSize, p->m_iFlags );
++}
++
++
++int C2SimsProbe_Frame();
++static void C2SimsProbe_Draw( const char *pTag, const Vector &pos, const Vector &color, float alpha, float scale, float roll )
++{
++	if ( C2SimsProbe_On() )
++		C2SimsProbe_Row( "%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", pTag, pos.x, pos.y, pos.z, color.x, color.y, color.z, alpha, scale, roll );
++}
++// An emitter of stock class TBase whose rules are logged: Q<tag> after each
++// roll step, D<tag> at each render, and its velocity step's draws recorded.
++template < class TBase >
++class CC2SimsProbeEmitter : public TBase
++{
++public:
++	CC2SimsProbeEmitter( const char *pTag, const char *pName ) : TBase( pName ), m_pTag( pTag ) { this->SetDynamicallyAllocated( true ); }
++	const char *m_pTag;
++	virtual float UpdateRoll( SimpleParticle *p, float dt )
++	{
++		float r = TBase::UpdateRoll( p, dt );
++		char tag[ 8 ]; Q_snprintf( tag, sizeof( tag ), "Q%s", m_pTag );
++		C2SimsProbe_Particle( tag, p, -1 );
++		return r;
++	}
++	virtual void UpdateVelocity( SimpleParticle *p, float dt )
++	{
++		C2SimsProbe_Arm( true );
++		TBase::UpdateVelocity( p, dt );
++		C2SimsProbe_Arm( false );
++	}
++	virtual Vector UpdateColor( const SimpleParticle *p )
++	{
++		Vector c = TBase::UpdateColor( p );
++		char tag[ 8 ]; Q_snprintf( tag, sizeof( tag ), "D%s", m_pTag );
++		C2SimsProbe_Draw( tag, p->m_Pos, c, this->UpdateAlpha( p ), this->UpdateScale( p ), p->m_flRoll );
++		return c;
++	}
++};
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -60,6 +114,7 @@ public:
+ 			pParticle->m_flRollDelta = ( pParticle->m_flRollDelta > 0.0f ) ? 0.5f : -0.5f;
+ 		}
+ 
++		C2SimsProbe_Particle( "Q", pParticle, -1 );
+ 		return pParticle->m_flRoll;
+ 	}
+ 
+@@ -69,6 +124,13 @@ public:
+ 		return ( ((float)pParticle->m_uchStartAlpha/255.0f) * sin( M_PI * (pParticle->m_flLifetime / pParticle->m_flDieTime) ) );
+ 	}
+ 
++	virtual Vector UpdateColor( const SimpleParticle *pParticle )
++	{
++		Vector c = CSimpleEmitter::UpdateColor( pParticle );
++		C2SimsProbe_Draw( "D", pParticle->m_Pos, c, UpdateAlpha( pParticle ), UpdateScale( pParticle ), pParticle->m_flRoll );
++		return c;
++	}
++
+ private:
+ 	CRocketTrailParticle( const CRocketTrailParticle & );
+ };
+@@ -107,6 +169,9 @@ public:
+ 		color[1] = ( (float) pParticle->m_uchColor[1] * ramp ) / 255.0f;
+ 		color[2] = ( (float) pParticle->m_uchColor[2] * ramp ) / 255.0f;
+ 
++		if ( C2SimsProbe_On() )
++			C2SimsProbe_Row( "D\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z,
++				color.x, color.y, color.z, UpdateAlpha( pParticle ), CSimpleEmitter::UpdateScale( pParticle ), pParticle->m_flRoll );
+ 		return color;
+ 	}
+ 
+@@ -123,6 +188,7 @@ public:
+ 			pParticle->m_flRollDelta = ( pParticle->m_flRollDelta > 0.0f ) ? 0.5f : -0.5f;
+ 		}
+ 
++		C2SimsProbe_Particle( "Q", pParticle, -1 );
+ 		return pParticle->m_flRoll;
+ 	}
+ 
+@@ -252,6 +318,24 @@ void C_SmokeTrail::Update( float fTimeDelta )
+ {
+ 	if ( !m_pSmokeEmitter )
+ 		return;
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta, gpGlobals->curtime,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			GetAbsVelocity().x, GetAbsVelocity().y, GetAbsVelocity().z );
++		C2SimsProbe_Row( "P\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d",
++			m_SpawnRate, m_ParticleLifetime, m_MinSpeed, m_MaxSpeed, m_MinDirectedSpeed, m_MaxDirectedSpeed,
++			m_StartSize, m_EndSize, m_SpawnRadius, m_Opacity, m_StartColor.x, m_StartColor.y, m_StartColor.z, m_StopEmitTime, m_bEmit ? 1 : 0 );
++		C2SimsProbe_Arm( true );
++	}
++	Update_Probed( fTimeDelta );
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
++}
++
++void C_SmokeTrail::Update_Probed( float fTimeDelta )
++{
+ 
+ 	Vector	offsetColor;
+ 
+@@ -327,6 +411,7 @@ void C_SmokeTrail::Update( float fTimeDelta )
+ 			
+ 		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= random->RandomFloat( -1.0f, 1.0f );
++		C2SimsProbe_Particle( "N", pParticle, pParticle->m_pSubTexture == m_MaterialHandle[0] ? 0 : 1 );
+     }
+ }
+ 
+@@ -451,6 +536,23 @@ void C_RocketTrail::Start( CParticleMgr *pParticleMgr, IPrototypeArgAccess *pArg
+ // Input  : fTimeDelta - 
+ //-----------------------------------------------------------------------------
+ void C_RocketTrail::Update( float fTimeDelta )
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		{ int f = C2SimsProbe_Frame(); SetAbsOrigin( GetAbsOrigin() + Vector( 40.0f * ( f & 1 ), 15.0f * ( ( f >> 1 ) & 1 ), 0 ) ); m_bDamaged = f > 60; }
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta, gpGlobals->curtime,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			GetAbsVelocity().x, GetAbsVelocity().y, GetAbsVelocity().z, gpGlobals->frametime );
++		C2SimsProbe_Row( "P\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g", m_SpawnRate, m_ParticleLifetime, m_MinSpeed, m_MaxSpeed, m_StartSize, m_EndSize, m_SpawnRadius, m_Opacity, m_StartColor.x, m_StartColor.y, m_StartColor.z, m_StopEmitTime, m_bEmit ? 1 : 0, m_bDamaged ? 1 : 0, m_flFlareScale, m_vecLastPosition.x, m_vecLastPosition.y, m_vecLastPosition.z );
++		C2SimsProbe_Arm( true );
++	}
++	Update_Probed( fTimeDelta );
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
++}
++
++void C_RocketTrail::Update_Probed( float fTimeDelta )
+ {
+ 	if ( !m_pRocketEmitter )
+ 		return;
+@@ -458,7 +560,7 @@ void C_RocketTrail::Update( float fTimeDelta )
+ 	if ( gpGlobals->frametime == 0.0f )
+ 		return;
+ 
+-	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "MuzzleFlash" );
++	CSmartPtr<CSimpleEmitter> pSimple = new CC2SimsProbeEmitter< CSimpleEmitter >( "F", "MuzzleFlash" );
+ 	pSimple->SetSortOrigin( GetAbsOrigin() );
+ 	
+ 	SimpleParticle *pParticle;
+@@ -501,6 +603,7 @@ void C_RocketTrail::Update( float fTimeDelta )
+ 		pParticle->m_uchEndSize		= pParticle->m_uchStartSize;
+ 		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= 0.0f;
++		{ int m = 0; for ( int k = 1; k <= 4; k++ ) if ( pParticle->m_pSubTexture == pSimple->GetPMaterial( VarArgs( "effects/muzzleflash%d", k ) ) ) m = k; C2SimsProbe_Particle( "NF", pParticle, m ); }
+ 	}
+ 
+ 	// Add new particles (undamaged version)
+@@ -562,6 +665,7 @@ void C_RocketTrail::Update( float fTimeDelta )
+ 				
+ 				pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+ 				pParticle->m_flRollDelta	= random->RandomFloat( -8.0f, 8.0f );
++				C2SimsProbe_Particle( "N", pParticle, pParticle->m_pSubTexture == m_MaterialHandle[0] ? 0 : 1 );
+ 			}
+ 		}
+ 	}
+@@ -570,7 +674,7 @@ void C_RocketTrail::Update( float fTimeDelta )
+ 	{
+ 		Vector			offsetColor;
+ 
+-		CSmartPtr<CEmberEffect>	pEmitter = CEmberEffect::Create("C_RocketTrail::damaged");
++		CSmartPtr<CEmberEffect>	pEmitter = new CC2SimsProbeEmitter< CEmberEffect >( "E", "C_RocketTrail::damaged" );
+ 
+ 		pEmitter->SetSortOrigin( GetAbsOrigin() );
+ 
+@@ -609,6 +713,7 @@ void C_RocketTrail::Update( float fTimeDelta )
+ 				
+ 				pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+ 				pParticle->m_flRollDelta	= random->RandomFloat( -8.0f, 8.0f );
++				{ int m = 0; for ( int k = 1; k <= 4; k++ ) if ( pParticle->m_pSubTexture == m_pRocketEmitter->GetPMaterial( VarArgs( "sprites/flamelet%d", k ) ) ) m = k; C2SimsProbe_Particle( "NE", pParticle, m ); }
+ 			}
+ 		}
+ 	}
+@@ -640,7 +745,21 @@ SporeEffect* SporeEffect::Create( const char *pDebugName )
+ // Input  : fTimeDelta - 
+ // Output : Vector
+ //-----------------------------------------------------------------------------
++float SporeEffect::UpdateRoll( SimpleParticle *pParticle, float timeDelta )
++{
++	float r = CSimpleEmitter::UpdateRoll( pParticle, timeDelta );
++	C2SimsProbe_Particle( "Q", pParticle, -1 );
++	return r;
++}
++
+ void SporeEffect::UpdateVelocity( SimpleParticle *pParticle, float timeDelta )
++{
++	C2SimsProbe_Arm( true );
++	UpdateVelocity_Probed( pParticle, timeDelta );
++	C2SimsProbe_Arm( false );
++}
++
++void SporeEffect::UpdateVelocity_Probed( SimpleParticle *pParticle, float timeDelta )
+ {
+ 	float	speed = VectorNormalize( pParticle->m_vecVelocity );
+ 	Vector	offset;
+@@ -669,6 +788,7 @@ Vector SporeEffect::UpdateColor( const SimpleParticle *pParticle )
+ 	color[1] = ( (float) pParticle->m_uchColor[1] * ramp ) / 255.0f;
+ 	color[2] = ( (float) pParticle->m_uchColor[2] * ramp ) / 255.0f;
+ 
++	C2SimsProbe_Draw( "D", pParticle->m_Pos, color, UpdateAlpha( pParticle ), UpdateScale( pParticle ), pParticle->m_flRoll );
+ 	return color;
+ }
+ 
+@@ -776,6 +896,7 @@ void C_SporeExplosion::AddParticles( void )
+ 		sParticle->m_uchEndSize		= 1;
+ 
+ 		sParticle->m_vecVelocity	= dir * Helper_RandomFloat( 128.0f, 256.0f );
++		C2SimsProbe_Particle( "N", sParticle, 0 );
+ 	}
+ 
+ 	//Add smokey bits
+@@ -800,6 +921,7 @@ void C_SporeExplosion::AddParticles( void )
+ 	sParticle->m_uchEndSize		= m_flEndSize;
+ 
+ 	sParticle->m_vecVelocity	= dir * Helper_RandomFloat( 64.0f, 128.0f );
++	C2SimsProbe_Particle( "N", sParticle, 1 );
+ }
+ 
+ 
+@@ -812,6 +934,23 @@ static CManagedConVarRef cl_sporeclipdistance( "cl_sporeclipdistance" );
+ // Input  : fTimeDelta - 
+ //-----------------------------------------------------------------------------
+ void C_SporeExplosion::Update( float fTimeDelta )
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		m_bEmit = true;	// no map can raise it (see the README): forced, and logged in P
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta, gpGlobals->curtime,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			GetAbsVelocity().x, GetAbsVelocity().y, GetAbsVelocity().z, gpGlobals->frametime );
++		C2SimsProbe_Row( "P\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t%.9g", m_flSpawnRate, m_flPreviousSpawnRate, m_flParticleLifetime, m_flStartSize, m_flEndSize, m_flSpawnRadius, m_bEmit ? 1 : 0, MainViewOrigin().x, MainViewOrigin().y, MainViewOrigin().z, cl_sporeclipdistance.GetFloat() );
++		C2SimsProbe_Arm( true );
++	}
++	Update_Probed( fTimeDelta );
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
++}
++
++void C_SporeExplosion::Update_Probed( float fTimeDelta )
+ {
+ 	if( m_bEmit )
+ 	{
+@@ -918,6 +1057,7 @@ public:
+ 	virtual void RenderParticles( CParticleRenderIterator *pIterator );
+ 	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+ 	virtual void	StartRender( VMatrix &effectMatrix );
++	void			Update_Probed( float fTimeDelta );	// c2-sims probe
+ 
+ public:
+ 	Vector	m_vecEndColor;
+@@ -1047,6 +1187,7 @@ void C_SporeTrail::AddParticles( void )
+ 	sParticle->m_uchEndSize		= 1.0f;
+ 	
+ 	sParticle->m_vecVelocity	= RandomVector( -8.0f, 8.0f );
++	C2SimsProbe_Particle( "N", sParticle, 0 );
+ }
+ 
+ //-----------------------------------------------------------------------------
+@@ -1054,6 +1195,23 @@ void C_SporeTrail::AddParticles( void )
+ // Input  : fTimeDelta - 
+ //-----------------------------------------------------------------------------
+ void C_SporeTrail::Update( float fTimeDelta )
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		m_bEmit = true;	// no map can raise it (see the README): forced, and logged in P
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta, gpGlobals->curtime,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			GetAbsVelocity().x, GetAbsVelocity().y, GetAbsVelocity().z, gpGlobals->frametime );
++		C2SimsProbe_Row( "P\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", m_bEmit ? 1 : 0, m_mAttachmentMatrix[0][0], m_mAttachmentMatrix[0][1], m_mAttachmentMatrix[0][2], m_mAttachmentMatrix[0][3], m_mAttachmentMatrix[1][0], m_mAttachmentMatrix[1][1], m_mAttachmentMatrix[1][2], m_mAttachmentMatrix[1][3], m_mAttachmentMatrix[2][0], m_mAttachmentMatrix[2][1], m_mAttachmentMatrix[2][2], m_mAttachmentMatrix[2][3] );
++		C2SimsProbe_Arm( true );
++	}
++	Update_Probed( fTimeDelta );
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
++}
++
++void C_SporeTrail::Update_Probed( float fTimeDelta )
+ {
+ 	if ( m_pParticleMgr == NULL )
+ 		return;
+@@ -1089,6 +1247,7 @@ void C_SporeTrail::RenderParticles( CParticleRenderIterator *pIterator )
+ 	{
+ 		//Render
+ 		Vector	tPos;
++		{ Vector w; Vector3DMultiplyPosition( m_mAttachmentMatrix, pParticle->m_Pos, w ); C2SimsProbe_Draw( "D", w, Vector( 1, 1, 1 ), 1.0f, 4.0f, 0.0f ); }
+ 		TransformParticle( m_pParticleMgr->GetModelView(), pParticle->m_Pos, tPos );
+ 		float sortKey = tPos.z;
+ 
+@@ -1120,6 +1279,7 @@ void C_SporeTrail::SimulateParticles( CParticleSimulateIterator *pIterator )
+ 
+ 		//Should this particle die?
+ 		pParticle->m_flLifetime += pIterator->GetTimeDelta();
++		C2SimsProbe_Particle( "Q", pParticle, -1 );
+ 
+ 		if ( pParticle->m_flLifetime >= pParticle->m_flDieTime )
+ 		{
+@@ -1215,6 +1375,23 @@ void C_FireTrail::Start( CParticleMgr *pParticleMgr, IPrototypeArgAccess *pArgs
+ // Input  : fTimeDelta - 
+ //-----------------------------------------------------------------------------
+ void C_FireTrail::Update( float fTimeDelta )
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		{ int f = C2SimsProbe_Frame(); SetAbsOrigin( GetAbsOrigin() + Vector( 30.0f * ( f & 1 ), 9.0f * ( ( f >> 1 ) & 1 ), 0 ) ); }
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta, gpGlobals->curtime,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			GetAbsVelocity().x, GetAbsVelocity().y, GetAbsVelocity().z, gpGlobals->frametime );
++		C2SimsProbe_Row( "P\t%.9g\t%.9g\t%.9g\t%.9g", m_flLifetime, m_vecLastPosition.x, m_vecLastPosition.y, m_vecLastPosition.z );
++		C2SimsProbe_Arm( true );
++	}
++	Update_Probed( fTimeDelta );
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
++}
++
++void C_FireTrail::Update_Probed( float fTimeDelta )
+ {
+ 	if ( !m_pTrailEmitter )
+ 		return;
+@@ -1278,6 +1455,7 @@ void C_FireTrail::Update( float fTimeDelta )
+ 				
+ 				pParticle->m_flRoll			= 0.0f;//random->RandomInt( 0, 360 );
+ 				pParticle->m_flRollDelta	= random->RandomFloat( -16.0f, 16.0f );
++				{ int m = 0; for ( int k = 0; k < NUM_FTRAIL_MATERIALS; k++ ) if ( pParticle->m_pSubTexture == m_hMaterial[k] ) { m = k; break; } C2SimsProbe_Particle( "N", pParticle, m ); }
+ 			}
+ 		}
+ 
+@@ -1310,6 +1488,7 @@ void C_FireTrail::Update( float fTimeDelta )
+ 			
+ 			pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+ 			pParticle->m_flRollDelta	= random->RandomFloat( -16.0f, 16.0f );
++			{ int m = 0; for ( int k = 0; k < NUM_FTRAIL_MATERIALS; k++ ) if ( pParticle->m_pSubTexture == m_hMaterial[k] ) { m = k; break; } C2SimsProbe_Particle( "N", pParticle, m ); }
+ 		}
+ 	}
+ 
+@@ -1352,9 +1531,17 @@ public:
+ 		
+ 		pParticle->m_flRollDelta *= ExponentialDecay( 0.5, timeDelta );
+ 
++		C2SimsProbe_Particle( "Q", pParticle, -1 );
+ 		return pParticle->m_flRoll;
+ 	}
+ 
++	virtual Vector UpdateColor( const SimpleParticle *pParticle )
++	{
++		Vector c = CSimpleEmitter::UpdateColor( pParticle );
++		C2SimsProbe_Draw( "D", pParticle->m_Pos, c, UpdateAlpha( pParticle ), UpdateScale( pParticle ), pParticle->m_flRoll );
++		return c;
++	}
++
+ private:
+ 	CDustFollower( const CDustFollower & );
+ };
+@@ -1493,6 +1680,22 @@ void C_DustTrail::Start( CParticleMgr *pParticleMgr, IPrototypeArgAccess *pArgs
+ // Input  : fTimeDelta - 
+ //-----------------------------------------------------------------------------
+ void C_DustTrail::Update( float fTimeDelta )
++{
++	const bool bProbe = C2SimsProbe_BeginFrame();
++	if ( bProbe )
++	{
++		C2SimsProbe_Row( "F\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", fTimeDelta, gpGlobals->curtime,
++			GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z, GetAbsAngles().x, GetAbsAngles().y, GetAbsAngles().z,
++			GetAbsVelocity().x, GetAbsVelocity().y, GetAbsVelocity().z, gpGlobals->frametime );
++		C2SimsProbe_Row( "P\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", m_SpawnRate, m_ParticleLifetime, m_MinSpeed, m_MaxSpeed, m_MinDirectedSpeed, m_MaxDirectedSpeed, m_StartSize, m_EndSize, m_SpawnRadius, m_Opacity, m_Color.x, m_Color.y, m_Color.z, m_StopEmitTime, m_StartEmitTime, m_bEmit ? 1 : 0 );
++		C2SimsProbe_Arm( true );
++	}
++	Update_Probed( fTimeDelta );
++	if ( bProbe )
++		C2SimsProbe_Arm( false );
++}
++
++void C_DustTrail::Update_Probed( float fTimeDelta )
+ {
+ 	if ( !m_pDustEmitter )
+ 		return;
+@@ -1579,6 +1782,7 @@ void C_DustTrail::Update( float fTimeDelta )
+ 			
+ 		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+ 		pParticle->m_flRollDelta	= random->RandomFloat( -1.0f, 1.0f );
++		C2SimsProbe_Particle( "N", pParticle, 0 );
+     }
+ }
+ 
+diff --git a/src/client/native/shell_trail_sim.h b/src/client/native/shell_trail_sim.h
+index b29a01e8..03e1aa43 100644
+--- a/src/client/native/shell_trail_sim.h
++++ b/src/client/native/shell_trail_sim.h
+@@ -77,6 +77,7 @@ public:
+ // IParticleEffect.
+ public:
+ 	virtual void	Update(float fTimeDelta);
++	void			Update_Probed(float fTimeDelta);	// c2-sims probe
+ 	virtual void RenderParticles( CParticleRenderIterator *pIterator );
+ 	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+ 
+@@ -141,6 +142,7 @@ public:
+ // IParticleEffect.
+ public:
+ 	virtual void	Update(float fTimeDelta);
++	void			Update_Probed( float fTimeDelta );	// c2-sims probe
+ 	virtual void RenderParticles( CParticleRenderIterator *pIterator );
+ 	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+ 
+@@ -196,6 +198,8 @@ public:
+ 	static SporeEffect*		Create( const char *pDebugName );
+ 
+ 	virtual void			UpdateVelocity( SimpleParticle *pParticle, float timeDelta );
++	void					UpdateVelocity_Probed( SimpleParticle *pParticle, float timeDelta );	// c2-sims probe
++	virtual float			UpdateRoll( SimpleParticle *pParticle, float timeDelta );	// c2-sims probe
+ 	virtual Vector			UpdateColor( const SimpleParticle *pParticle );
+ 	virtual float			UpdateAlpha( const SimpleParticle *pParticle );
+ 
+@@ -220,6 +224,7 @@ public:
+ // IParticleEffect
+ public:
+ 	virtual void	Update( float fTimeDelta );
++	void			Update_Probed( float fTimeDelta );	// c2-sims probe
+ 	virtual void RenderParticles( CParticleRenderIterator *pIterator );
+ 	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+ 
+@@ -282,6 +287,7 @@ public:
+ 
+ 	virtual void	Start( CParticleMgr *pParticleMgr, IPrototypeArgAccess *pArgs );
+ 	virtual void	Update( float fTimeDelta );
++	void			Update_Probed( float fTimeDelta );	// c2-sims probe
+ 
+ 	// C_ParticleTrail's two public fields. m_nAttachment is written by the
+ 	// shell and read by nothing here — stock only ever consulted it from
+@@ -343,6 +349,7 @@ public:
+ // IParticleEffect.
+ public:
+ 	virtual void	Update(float fTimeDelta);
++	void			Update_Probed( float fTimeDelta );	// c2-sims probe
+ 	virtual void RenderParticles( CParticleRenderIterator *pIterator );
+ 	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+ 

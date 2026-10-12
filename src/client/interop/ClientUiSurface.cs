@@ -1,0 +1,170 @@
+using System.Text;
+
+using SourceSharp.Abi;
+
+namespace SourceSharp.Client.Interop;
+
+/// <summary>
+/// The UI's draw primitives (plan_client_ui §8 U2): IShimUiClient's slots, one
+/// call each. VguiBackend is the only caller; what to draw is decided there.
+/// Colours are packed 0xRRGGBBAA. The draw calls do nothing outside the native
+/// paint window.
+/// </summary>
+public interface IUiSurface
+{
+    void FilledRect(int x0, int y0, int x1, int y1, uint rgba);
+
+    void FilledRectFade(int x0, int y0, int x1, int y1, uint rgba, int alpha0, int alpha1, bool horizontal);
+
+    void OutlinedRect(int x0, int y0, int x1, int y1, uint rgba);
+
+    void Line(int x0, int y0, int x1, int y1, uint rgba);
+
+    void TexturedRect(int texture, int x0, int y0, int x1, int y1, float s0, float t0, float s1, float t1, uint rgba);
+
+    /// <summary>A polygon of (x, y, u, v) vertices, four floats each.</summary>
+    void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba);
+
+    void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba);
+
+    void MeasureText(int font, ReadOnlySpan<char> text, out int width, out int height);
+
+    void SetClip(bool enabled, int x0, int y0, int x1, int y1);
+
+    int TextureCreate();
+
+    void TextureUpload(int texture, ReadOnlySpan<byte> rgba, int wide, int tall);
+
+    bool FontAddFile(string path);
+
+    /// <summary>A vgui font handle, or 0 when the surface refused it.</summary>
+    int FontCreate(string family, int tall, int weight, int vguiFlags);
+
+    void FontMetrics(int font, out int tall, out int ascent);
+
+    /// <summary>Each character's advance (a + b + c) from <paramref name="first"/> on; how many it filled.</summary>
+    int FontAdvances(int font, int first, Span<int> advances);
+
+    void ScreenSize(out int wide, out int tall);
+
+    void PlaySound(string path);
+
+    /// <summary>Whether the menu root takes the mouse and the keyboard (a screen that wants them is open).</summary>
+    void SetMenuInput(bool mouse, bool keyboard);
+
+    /// <summary>The menu root's cursor, as a UiCursor value.</summary>
+    void SetCursor(int shape);
+}
+
+/// <summary>The real surface, over the IShimUiClient api.</summary>
+internal sealed unsafe class ClientUiSurface(EngineSide api) : IUiSurface
+{
+    public void FilledRect(int x0, int y0, int x1, int y1, uint rgba)
+        => api.ClientShims.UiDrawFilledRect(x0, y0, x1, y1, rgba);
+
+    public void FilledRectFade(int x0, int y0, int x1, int y1, uint rgba, int alpha0, int alpha1, bool horizontal)
+        => api.ClientShims.UiDrawFilledRectFade(x0, y0, x1, y1, rgba, alpha0, alpha1, horizontal ? 1 : 0);
+
+    public void OutlinedRect(int x0, int y0, int x1, int y1, uint rgba)
+        => api.ClientShims.UiDrawOutlinedRect(x0, y0, x1, y1, rgba);
+
+    public void Line(int x0, int y0, int x1, int y1, uint rgba)
+        => api.ClientShims.UiDrawLine(x0, y0, x1, y1, rgba);
+
+    public void TexturedRect(int texture, int x0, int y0, int x1, int y1, float s0, float t0, float s1, float t1, uint rgba)
+        => api.ClientShims.UiDrawTexturedRect(texture, x0, y0, x1, y1, s0, t0, s1, t1, rgba);
+
+    public void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba)
+    {
+        if (xyuv.Length < 12)
+            return;
+        fixed (float* p = xyuv)
+            api.ClientShims.UiDrawPolygon(texture, p, xyuv.Length / 4, rgba);
+    }
+
+    public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba)
+    {
+        if (text.IsEmpty)
+            return;
+        fixed (char* p = text)
+            api.ClientShims.UiDrawText(font, x, y, (ushort*)p, text.Length, rgba);
+    }
+
+    public void MeasureText(int font, ReadOnlySpan<char> text, out int width, out int height)
+    {
+        int w = 0, h = 0;
+        if (!text.IsEmpty)
+        {
+            fixed (char* p = text)
+                api.ClientShims.UiMeasureText(font, (ushort*)p, text.Length, &w, &h);
+        }
+        width = w;
+        height = h;
+    }
+
+    public void SetClip(bool enabled, int x0, int y0, int x1, int y1)
+        => api.ClientShims.UiSetClip(enabled ? 1 : 0, x0, y0, x1, y1);
+
+    public int TextureCreate() => api.ClientShims.UiTextureCreate();
+
+    public void TextureUpload(int texture, ReadOnlySpan<byte> rgba, int wide, int tall)
+    {
+        if (rgba.Length < wide * tall * 4)
+            return;
+        fixed (byte* p = rgba)
+            api.ClientShims.UiTextureUpload(texture, p, wide, tall);
+    }
+
+    public bool FontAddFile(string path)
+    {
+        fixed (byte* p = Utf8(path))
+            return api.ClientShims.UiFontAddFile(p) != 0;
+    }
+
+    public int FontCreate(string family, int tall, int weight, int vguiFlags)
+    {
+        fixed (byte* p = Utf8(family))
+            return api.ClientShims.UiFontCreate(p, tall, weight, vguiFlags);
+    }
+
+    public void FontMetrics(int font, out int tall, out int ascent)
+    {
+        int t = 0, a = 0;
+        api.ClientShims.UiFontMetrics(font, &t, &a);
+        tall = t;
+        ascent = a;
+    }
+
+    public int FontAdvances(int font, int first, Span<int> advances)
+    {
+        if (advances.IsEmpty)
+            return 0;
+        fixed (int* p = advances)
+            return api.ClientShims.UiFontAdvances(font, first, advances.Length, p);
+    }
+
+    public void ScreenSize(out int wide, out int tall)
+    {
+        int w = 0, t = 0;
+        api.ClientShims.UiScreenSize(&w, &t);
+        wide = w;
+        tall = t;
+    }
+
+    public void PlaySound(string path)
+    {
+        fixed (byte* p = Utf8(path))
+            api.ClientShims.UiPlaySound(p);
+    }
+
+    public void SetMenuInput(bool mouse, bool keyboard) => api.ClientShims.UiSetMenuInput(mouse ? 1 : 0, keyboard ? 1 : 0);
+
+    public void SetCursor(int shape) => api.ClientShims.UiSetCursor(shape);
+
+    private static byte[] Utf8(string s)
+    {
+        byte[] bytes = new byte[Encoding.UTF8.GetByteCount(s) + 1];
+        Encoding.UTF8.GetBytes(s, bytes);
+        return bytes;
+    }
+}

@@ -1,0 +1,61 @@
+# plan_client_novalve C7 step 2: the tonemap's oracle (auto exposure's histogram,
+# the target scalar, the eased goal scale, the exposure range and the bloom
+# amount). A probe build (viewpostprocess.cpp.probe.diff) logs the histogram's
+# queries and readbacks and each frame's decisions as t* rows on the stock path
+# on ss_sandbox (dm_lockdown has no HDR lighting, and without it stock
+# never runs the tonemap) while the view turns, looks up at the hall's skylight
+# and goes under the mirror pool, then with the tonemap cvars
+# changed. OUT/probe.log's t* rows become src/test/client/Fixtures/tonemap-stock.tsv.
+#   cmake -S . -B farm/debug/build -DSS_CLIENT_PROBES=ON && ninja -C farm/debug/build client_sourcesharp
+#   tools/probes/c0-session OUT tools/probes/sessions/c7-tonemap.steps --no-probe-build
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_cl_render_plan 0
+sleep 3
+cmd cl_mouselook 0
+cmd +right
+sleep 3
+cmd -right
+cmd +lookup
+sleep 0.6
+cmd -lookup
+sleep 2
+cmd +lookdown
+sleep 1.2
+cmd -lookdown
+sleep 2
+api teleport pos=-828,2048,8 ang=-30,90,0 settle=1
+sleep 3
+api teleport pos=-828,2048,8 ang=-80,90,0 settle=1
+sleep 2
+cmd mat_autoexposure_max 1.2
+cmd mat_tonemap_percent_target 45
+cmd mat_bloomamount_rate 0.2
+cmd mat_bloomscale 0.5
+cmd +left
+sleep 2
+cmd -left
+cmd mat_hdr_uncapexposure 1
+sleep 2
+cmd mat_hdr_uncapexposure 0
+cmd mat_force_tonemap_scale 1.5
+sleep 0.5
+cmd mat_force_tonemap_scale 0
+sleep 1
+cmd mat_tonemap_algorithm 0
+cmd +right
+sleep 2
+cmd -right
+cmd mat_tonemap_algorithm 1
+cmd mat_autoexposure_max 2
+cmd mat_tonemap_percent_target 60
+cmd mat_bloomamount_rate 0.05
+cmd mat_bloomscale 1
+cmd +right
+sleep 2
+cmd -right
+cmd cl_mouselook 1
+quit

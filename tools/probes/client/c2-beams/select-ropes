@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""tools/probes/client/c2-beams/select-ropes -- make the rope oracle fixture.
+
+    select-ropes RAW_PROBE_LOG OUT_TSV [--ropes 0,1] [--thinks 240] [--build-every 8]
+
+Keeps, for each chosen rope (C_RopeKeyframe::m_nRopeIndex), every row the
+c_rope.diff probe wrote from its creation up to and including its THINKS-th
+RopeThink: the configuration (RC, RS), the endpoint writes (SP), the inputs of
+each think (RT), the random draws inside it (RF, RV), the node state after it
+(RN) and the rest of its state (RX), the DrawModel rows (DM, CN), and every
+BUILD_EVERY-th BuildRope (BR with its BP inputs and BS/BE outputs). Rows of
+other ropes and the C0 probe's own lines are dropped; order is kept, because
+the replay is an event stream.
+
+It PRINTS what it kept per rope and tag, so a fixture that lost an arm (no
+gust draws, no wind, no build) is visible rather than merely smaller. It fails
+when a chosen rope has fewer thinks than asked, no random draw, or no build.
+"""
+import argparse
+import collections
+import sys
+
+TAGS = {"RC", "RS", "SP", "RT", "RF", "RV", "RN", "RX", "DM", "CN", "BR", "BP", "BS", "BE", "SK"}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("raw")
+    ap.add_argument("out")
+    ap.add_argument("--ropes", default="0,1")
+    ap.add_argument("--thinks", type=int, default=240)
+    ap.add_argument("--build-every", type=int, default=8)
+    a = ap.parse_args()
+    ropes = {int(r) for r in a.ropes.split(",")}
+    thinks = collections.Counter()
+    builds = collections.Counter()
+    done = set()
+    in_build = {}
+    kept = collections.Counter()
+    out = []
+    for line in open(a.raw, errors="replace"):
+        c = line.rstrip("\n").split("\t")
+        if c[0] not in TAGS or len(c) < 2:
+            continue
+        r = int(c[1])
+        if r not in ropes or r in done:
+            continue
+        tag = c[0]
+        if tag == "BR":
+            builds[r] += 1
+            in_build[r] = (builds[r] - 1) % a.build_every == 0
+        if tag in ("BR", "BP", "BS", "BE") and not in_build.get(r):
+            continue
+        out.append(line if line.endswith("\n") else line + "\n")
+        kept[(r, tag)] += 1
+        if tag == "RT":
+            thinks[r] += 1
+        if tag == "RX" and thinks[r] >= a.thinks:
+            done.add(r)
+    bad = []
+    for r in sorted(ropes):
+        row = " ".join("%s=%d" % (t, kept[(r, t)]) for t in sorted(TAGS) if kept[(r, t)])
+        print("rope %d: %s" % (r, row))
+        if thinks[r] < a.thinks:
+            bad.append("rope %d has %d thinks, asked %d" % (r, thinks[r], a.thinks))
+        if kept[(r, "RF")] + kept[(r, "RV")] == 0:
+            bad.append("rope %d drew no random number (no gust in the window)" % r)
+        if kept[(r, "BS")] == 0:
+            bad.append("rope %d was never built" % r)
+    if bad:
+        sys.exit("select-ropes: " + "; ".join(bad))
+    with open(a.out, "w") as f:
+        f.write("# rope oracle: see README-rope-stock.md. Rows as the c_rope.diff probe wrote them.\n")
+        f.writelines(out)
+    print("wrote %d rows to %s" % (len(out), a.out))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,558 @@
+#!/usr/bin/env python3
+"""tools/abi-parity -- K2: the types the engine reads by layout are laid out as upstream.
+
+    tools/abi-parity [--side server|client|all] [--config C]
+                                  check the rows of docs/abi-parity.tsv for that
+                                  side (default all)
+    tools/abi-parity --self-test  the comparison, shown to fail on planted drift
+    tools/abi-parity --mutation-proof [--side S] [--config C]
+                                  per side, one row's header copied into a shadow
+                                  directory: the unchanged copy passes, the copy
+                                  with a field shifted fails (no repo or fork
+                                  file is written)
+
+plan_server_novalve.md K2. server.so re-declares, or compiles from the fork,
+types whose bytes the engine reads directly: CPlayerState through
+IServerGameClients, the studio records bone setup walks, vcollide_t, the
+save/restore descriptors. A field moved, resized or reordered is silent
+corruption, never a compile error. So each listed type is compiled twice with
+clang -fdump-record-layouts:
+
+  ORACLE  the pristine upstream clone at valve-sdk.lock (valve-sdk.lock.local
+          names the directory), with the stock public/, common/ and game/ dirs;
+  OURS    the include set the side's TUs compile with, read from
+          compile_commands.json: server.so's moved TUs (the R5 set, a TU in
+          server_novalve_sources), or every distinct set client.so's TUs use
+          (plan_client_novalve.md K2: each set is checked),
+
+with the same defines and -std both times, and the two layout dumps must be
+identical: every offset, every field type and name, size, dsize and
+alignment. A row whose type never appears in either dump, a missing clone, a
+missing build tree or an empty list FAILS: none of those measured anything.
+
+docs/abi-parity.tsv rows: side<TAB>type<TAB>headers<TAB>reason[<TAB>options].
+  side      server, client, or server,client: which DLL's include set and
+            defines the row is compiled with (CLIENT_DLL vs GAME_DLL), and which
+            game/ directory the oracle side adds (game/server or game/client).
+  headers   "h.h" for both sides, or "oracle1.h,oracle2.h|ours.h": a re-declared
+            type is compiled from upstream's header on the oracle side and from
+            ours on our side; extra oracle headers supply what upstream's header
+            needs and does not include.
+  options   space-separated:
+    shape         for a type we RE-DECLARE: every top-level member and base must
+                  sit at the same offset under the same name, and size, data size
+                  and alignment must match, but type spellings may differ (a
+                  CBaseEntity * that is an IGameEntity * here, a CUtlHash held as
+                  opaque storage of the same size). The default, exact, compares
+                  the whole dump line by line.
+    undef=MACRO   undefine MACRO on the oracle side only, to compile upstream's
+                  header as the ENGINE does (e.g. undef=GAME_DLL).
+    with=DIR      a repo-relative include directory appended on BOTH sides: a
+                  type of ours (the engine block's tail) whose members are
+                  upstream's types, compiled once against upstream's headers
+                  and once against the DLL's.
+"""
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIST = os.path.join(ROOT, "docs", "abi-parity.tsv")
+ORACLE_COMMON = ["src/public", "src/public/tier0", "src/public/tier1", "src/common",
+                 "src/game/shared"]
+# Per side: the target whose compile_commands entries give OURS, a flag a TU must
+# carry to count (server: the moved TUs only), and the oracle's game/ directory.
+SIDES = {
+    "server": {"target": "server_sourcesharp.dir", "need": "-DSS_ENGINEABI",
+               "first_only": True, "oracle": ORACLE_COMMON + ["src/game/server"]},
+    "client": {"target": "client_sourcesharp.dir", "need": None,
+               "first_only": False, "oracle": ORACLE_COMMON + ["src/game/client"]},
+}
+LAYOUT_START = "*** Dumping AST Record Layout"
+
+
+def read_list(path):
+    """[{sides: [side], type, oracle: [headers], ours: [headers], shape: bool,
+    undef: [macros], with: [dirs]}]."""
+    rows = []
+    with open(path) as f:
+        for line in f:
+            if not line.strip() or line.startswith("#"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            if len(fields) < 4 or not fields[3].strip():
+                raise ValueError("row needs side, type, header and a reason: %r" % line[:80])
+            sides = fields[0].split(",")
+            if not sides or any(sd not in SIDES for sd in sides):
+                raise ValueError("unknown side %r in row %r (server, client)"
+                                 % (fields[0], fields[1]))
+            spec = fields[2]
+            oracle, ours = spec.split("|", 1) if "|" in spec else (spec, spec)
+            opts = fields[4].split() if len(fields) > 4 else []
+            bad = [o for o in opts if o != "shape" and not o.startswith(("undef=", "with="))]
+            if bad:
+                raise ValueError("unknown option %r in row %r" % (bad[0], fields[1]))
+            rows.append({"sides": sides, "type": fields[1], "oracle": oracle.split(","),
+                         "ours": ours.split(","), "shape": "shape" in opts,
+                         "undef": [o[6:] for o in opts if o.startswith("undef=")],
+                         "with": [o[5:] for o in opts if o.startswith("with=")]})
+    return rows
+
+
+def raw_layout_of(dump, type_name):
+    """The layout block clang printed for type_name, as printed (indentation
+    marks nesting); None if it is not in the dump."""
+    blocks = dump.split(LAYOUT_START)[1:]
+    head = re.compile(r"^\s*0 \| (?:class|struct|union) %s(?: |$)" % re.escape(type_name))
+    for block in blocks:
+        lines = [l for l in block.splitlines() if l.strip()]
+        if lines and head.match(lines[0]):
+            out = []
+            for l in lines:
+                out.append(l)
+                if "[sizeof=" in l:
+                    break
+            return out
+    return None
+
+
+ANON_AT = re.compile(r"\((anonymous|unnamed) at [^)]*\)")
+
+
+def normalise_line(line):
+    """One layout line, whitespace collapsed and an anonymous record's source
+    location dropped: clang names it "(anonymous at FILE:LINE:COL)" (or
+    "unnamed" when a member is declared with it), and the
+    oracle's file is another checkout. Its members are still compared. PURE."""
+    return ANON_AT.sub(r"(\1)", re.sub(r"\s+", " ", line.strip()))
+
+
+def layout_of(dump, type_name):
+    """raw_layout_of, normalised (normalise_line)."""
+    raw = raw_layout_of(dump, type_name)
+    return None if raw is None else [normalise_line(l) for l in raw]
+
+
+TOP_MEMBER = re.compile(r"^\s*(\d+) \|   (\S.*)$")
+
+
+def shape_of(raw):
+    """The engine-visible shape of a raw layout: (offset, member name) for each
+    TOP-LEVEL member and base, then the size/alignment line. Type spellings are
+    dropped; a base keeps its class name (that is its identity). PURE."""
+    if raw is None:
+        return None
+    out = []
+    for l in raw[1:]:
+        if "[sizeof=" in l:
+            out.append(re.sub(r"\s+", " ", l.strip()))
+            continue
+        m = TOP_MEMBER.match(l)
+        if not m or m.group(2).startswith(" "):
+            continue  # nested deeper than the record's own members
+        text = m.group(2).strip()
+        if text.endswith("(base)") or text.endswith("(primary base)"):
+            name = " ".join(text.split()[-3:]) if "primary" in text else " ".join(text.split()[-2:])
+        else:
+            name = text.split()[-1]
+        out.append("%s %s" % (m.group(1), name))
+    return out
+
+
+def compare(oracle, ours):
+    """Problems between two normalised layouts (lists of lines). PURE."""
+    if oracle is None and ours is None:
+        return ["the type is in neither dump: nothing was measured"]
+    if oracle is None:
+        return ["the type is not in the oracle's dump"]
+    if ours is None:
+        return ["the type is not in our dump"]
+    if oracle == ours:
+        return []
+    problems = []
+    for i in range(max(len(oracle), len(ours))):
+        a = oracle[i] if i < len(oracle) else "<none>"
+        b = ours[i] if i < len(ours) else "<none>"
+        if a != b:
+            problems.append("line %d: oracle %r, ours %r" % (i, a, b))
+            if len(problems) >= 4:
+                break
+    return problems
+
+
+def dump(compiler, flags, includes, headers, type_name, workdir):
+    tu = os.path.join(workdir, "k2_probe.cpp")
+    with open(tu, "w") as f:
+        for header in ([headers] if isinstance(headers, str) else headers):
+            f.write('#include "%s"\n' % header)
+        # Requiring the size is what makes clang lay the record out (and dump it).
+        f.write("static_assert( sizeof( %s ) > 0, \"\" );\n" % type_name)
+    # -fdelayed-template-parsing: the pristine clone predates clang 21, which
+    # rejects utlblockmemory.h's Swap when it parses the template (the fork
+    # patched it). Bodies are parsed only on instantiation; layouts are unaffected.
+    cmd = [compiler, "-fsyntax-only", "-w", "-fdelayed-template-parsing", "-Xclang",
+           "-fdump-record-layouts"]
+    cmd += flags + ["-I" + d for d in includes] + [tu]
+    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    return r.returncode, r.stdout, r.stderr
+
+
+def flags_of(command):
+    """compiler, the defines/-std/-m flags and the include dirs of one compile
+    command. PURE."""
+    args = shlex.split(command)
+    flags = [a for a in args[1:] if a.startswith(("-D", "-std=", "-m")) and not a.startswith("-MD")]
+    incs = [a[2:] for a in args if a.startswith("-I")]
+    return args[0], flags, incs
+
+
+def build_sets(cc, side):
+    """The (compiler, flags, include dirs) sets a side compiles with, from a
+    loaded compile_commands.json. server: the first TU in server_novalve_sources
+    (it carries -DSS_ENGINEABI). client: every DISTINCT set client.so's TUs use,
+    so a TU given its own include set is not left unmeasured. PURE."""
+    spec = SIDES[side]
+    ents = [e for e in cc if spec["target"] in e["output"]
+            and (spec["need"] is None or spec["need"] in e["command"])]
+    if not ents:
+        raise RuntimeError("no %s TU (%s%s) in compile_commands.json"
+                           % (side, spec["target"],
+                              ", with " + spec["need"] if spec["need"] else ""))
+    sets = []
+    for e in ents[:1] if spec["first_only"] else ents:
+        got = flags_of(e["command"])
+        if got not in sets:
+            sets.append(got)
+    return sets
+
+
+def oracle_root():
+    local = os.path.join(ROOT, "valve-sdk.lock.local")
+    path = open(local).read().strip() if os.path.exists(local) \
+        else os.path.join(os.path.dirname(ROOT), "source-sdk-2013-valve")
+    want = open(os.path.join(ROOT, "valve-sdk.lock")).read().strip()
+    head = subprocess.run(["git", "-C", path, "rev-parse", "HEAD"], stdout=subprocess.PIPE,
+                          stderr=subprocess.DEVNULL, text=True).stdout.strip()
+    if head != want:
+        raise RuntimeError("the oracle clone %s is at %r, valve-sdk.lock wants %s"
+                           % (path, head, want))
+    return path
+
+
+def check_row(row, side, sets, oracle_incs, flags_index, tmp, shadow=None):
+    """Problems for one row on one side (each of the side's include sets), and
+    the last layout line of ours for the report."""
+    type_name = row["type"]
+    extra = [os.path.join(ROOT, d) for d in row["with"]]
+    last = None
+    for compiler, flags, ours_incs in sets:
+        if shadow:
+            ours_incs = [shadow] + ours_incs
+        oflags = flags + ["-U" + m for m in row["undef"]]
+        rc_o, out_o, err_o = dump(compiler, oflags, oracle_incs + extra, row["oracle"],
+                                  type_name, tmp)
+        rc_u, out_u, err_u = dump(compiler, flags, ours_incs + extra, row["ours"], type_name, tmp)
+        where = "" if len(sets) == 1 else " (include set %d of %d)" % (flags_index(flags, ours_incs), len(sets))
+        if rc_o or rc_u:
+            which, err = ("oracle", err_o) if rc_o else ("ours", err_u)
+            first = next((l for l in err.splitlines() if "error" in l), err[:200])
+            return ["%s does not compile%s: %s" % (which, where, first[:160])], None
+        if row["shape"]:
+            lo = shape_of(raw_layout_of(out_o, type_name))
+            lu = shape_of(raw_layout_of(out_u, type_name))
+        else:
+            lo, lu = layout_of(out_o, type_name), layout_of(out_u, type_name)
+        problems = compare(lo, lu)
+        if row["shape"] and not problems and len(lu) < 2:
+            problems = ["the shape has no members: nothing was compared"]
+        if problems:
+            return [p + where for p in problems], None
+        last = (lu[-1], len(lu))
+    return [], last
+
+
+def load_side_sets(config, sides):
+    with open(os.path.join(ROOT, "farm", config, "build", "compile_commands.json")) as f:
+        cc = json.load(f)
+    return {sd: build_sets(cc, sd) for sd in sides}
+
+
+def check(config="debug", sides=("server", "client"), only=None, shadow=None):
+    """Exit status of a K2 run over the rows of `sides` (`only`: one type)."""
+    try:
+        rows = read_list(LIST)
+        if not rows:
+            raise ValueError("docs/abi-parity.tsv lists no type: an empty K2 measures nothing")
+        side_sets = load_side_sets(config, sides)
+        vroot = oracle_root()
+    except (OSError, ValueError, RuntimeError) as e:
+        print("abi-parity: FAIL  %s" % e)
+        return 1
+    # For mutation proofs only: a directory searched BEFORE our include set, so a
+    # planted copy of one header shadows ours without writing to the fork.
+    shadow = shadow or os.environ.get("ABI_PARITY_OURS_SHADOW")
+    if shadow:
+        print("abi-parity: our side is shadowed by %s (mutation run)" % shadow)
+    failed = total = 0
+    with tempfile.TemporaryDirectory(prefix="abi-parity-") as tmp:
+        for side in sides:
+            sets = side_sets[side]
+            oracle_incs = [os.path.join(vroot, d) for d in SIDES[side]["oracle"]]
+            mine = [r for r in rows if side in r["sides"] and (only is None or r["type"] == only)]
+            if not mine:
+                # A side with no rows measured nothing: that is a failure, not a pass.
+                failed += 1
+                print("  FAIL  %s: no row%s for this side" % (side, "" if only is None else " " + only))
+                continue
+            print("abi-parity: %s, %d row(s), %d include set(s)" % (side, len(mine), len(sets)))
+
+            def index(flags, incs, sets=sets):
+                return 1 + [(f, i) for _, f, i in sets].index((flags, incs))
+            for row in mine:
+                total += 1
+                problems, last = check_row(row, side, sets, oracle_incs, index, tmp, shadow)
+                if problems:
+                    failed += 1
+                    print("  FAIL  %-7s %-28s %s" % (side, row["type"], problems[0]))
+                    for p in problems[1:]:
+                        print("        %-7s %-28s %s" % ("", "", p))
+                else:
+                    what = "members and bases at identical offsets (shape)" if row["shape"] \
+                        else "layout lines identical"
+                    print("  ok    %-7s %-28s %s, %d %s" % (side, row["type"], last[0], last[1], what))
+    print("abi-parity: %d check(s), %d failed" % (total, failed))
+    return 1 if failed or not total else 0
+
+
+# The row per side the mutation proof perturbs: a type compiled straight from
+# its own header (no "oracle|ours" split), so a shadow copy of that header is
+# what our side reads.
+MUTATION_ROWS = {"server": ("CPlayerState", "PlayerState.h"),
+                 "client": ("RecvProp", "dt_recv.h")}
+MUTATION_FIELD = "\tint ss_abi_parity_mutation;\n"
+
+
+def plant_field(text, type_name):
+    """text with one int member inserted first in type_name's body, which shifts
+    every following field's offset. None if the definition is not found. PURE."""
+    lines = text.splitlines(True)
+    head = re.compile(r"^\s*(?:class|struct)\s+%s\b(?!\s*;)" % re.escape(type_name))
+    for i, l in enumerate(lines):
+        if head.match(l):
+            for j in range(i, min(i + 4, len(lines))):
+                if "{" in lines[j]:
+                    return "".join(lines[:j + 1] + [MUTATION_FIELD] + lines[j + 1:])
+            return None
+    return None
+
+
+def mutation_proof(config="debug", sides=("server", "client")):
+    """For each side: the shadowed, unchanged header passes (the shadow is
+    accepted), the shadowed header with a field planted fails (and the plant
+    is proven to have changed the bytes). Writes only to a temp directory."""
+    import hashlib
+    try:
+        side_sets = load_side_sets(config, sides)
+    except (OSError, RuntimeError) as e:
+        print("abi-parity: FAIL  %s" % e)
+        return 1
+    bad = 0
+    for side in sides:
+        type_name, header = MUTATION_ROWS[side]
+        incs = side_sets[side][0][2]
+        src = next((os.path.join(d, header) for d in incs
+                    if os.path.isfile(os.path.join(d, header))), None)
+        if src is None:
+            print("  FAIL  %s: %s is on no include dir of the side" % (side, header))
+            bad += 1
+            continue
+        with tempfile.TemporaryDirectory(prefix="abi-parity-mut-") as shadow:
+            dst = os.path.join(shadow, header)
+            with open(src) as f:
+                original = f.read()
+            with open(dst, "w") as f:
+                f.write(original)
+            print("== %s, %s from %s, shadow copy UNCHANGED (must pass)" % (side, type_name, src))
+            rc_same = check(config, (side,), only=type_name, shadow=shadow)
+            planted = plant_field(original, type_name)
+            if planted is None:
+                print("  FAIL  %s: no definition of %s in %s to perturb" % (side, type_name, src))
+                bad += 1
+                continue
+            with open(dst, "w") as f:
+                f.write(planted)
+            with open(dst, "rb") as f:
+                h_after = hashlib.sha256(f.read()).hexdigest()
+            h_before = hashlib.sha256(original.encode()).hexdigest()
+            print("== %s, %s shadow copy with a field planted, sha256 %s -> %s (must FAIL)"
+                  % (side, type_name, h_before[:12], h_after[:12]))
+            rc_mut = check(config, (side,), only=type_name, shadow=shadow)
+            ok = rc_same == 0 and rc_mut != 0 and h_before != h_after
+            print("mutation-proof %s: unchanged rc=%d, planted rc=%d -> %s"
+                  % (side, rc_same, rc_mut, "PROVEN" if ok else "NOT PROVEN"))
+            bad += 0 if ok else 1
+    return 1 if bad else 0
+
+
+def self_test():
+    checks = []
+
+    def ok(cond, name):
+        checks.append((bool(cond), name))
+
+    base = "struct S { int a; float b; char c[3]; };\n"
+    drifts = {
+        "a field reordered": "struct S { float b; int a; char c[3]; };\n",
+        "a field resized": "struct S { int a; double b; char c[3]; };\n",
+        "a field added": "struct S { int a; float b; char c[3]; int d; };\n",
+        "a field renamed": "struct S { int a; float bb; char c[3]; };\n",
+        "padding changed by alignment": "struct alignas(16) S { int a; float b; char c[3]; };\n",
+    }
+    compiler = "clang++"
+    for c in ("clang++-22", "clang++"):
+        if subprocess.run(["which", c], stdout=subprocess.DEVNULL).returncode == 0:
+            compiler = c
+            break
+    with tempfile.TemporaryDirectory(prefix="abi-parity-st-") as tmp:
+        def layout(src):
+            d = tempfile.mkdtemp(dir=tmp)
+            with open(os.path.join(d, "t.h"), "w") as f:
+                f.write(src)
+            rc, out, _ = dump(compiler, ["-std=c++17"], [d], "t.h", "S", d)
+            return layout_of(out, "S") if rc == 0 else None
+
+        same = compare(layout(base), layout(base))
+        lb = layout(base)
+        ok(lb is not None and len(lb) >= 4, "the base type dumps, with a line per field")
+        ok(same == [], "identical declarations compare identical")
+        for name, src in drifts.items():
+            ok(compare(lb, layout(src)) != [], "%s is caught" % name)
+        ok(compare(lb, None) != [], "a type missing from our dump fails")
+
+        def shape(src):
+            d = tempfile.mkdtemp(dir=tmp)
+            with open(os.path.join(d, "t.h"), "w") as f:
+                f.write(src)
+            rc, out, _ = dump(compiler, ["-std=c++17"], [d], "t.h", "S", d)
+            return shape_of(raw_layout_of(out, "S")) if rc == 0 else None
+
+        sbase = "struct A; struct S { A *p; int n; struct In { int x, y; } in; };\n"
+        sh = shape(sbase)
+        ok(sh is not None and len(sh) == 4, "shape: one line per top-level member, plus the size")
+        ok(compare(sh, shape("struct B; struct S { B *p; int n; struct In2 { int a, b; } in; };\n")) == [],
+           "shape: a pointer to another type and a re-declared member type of the same size pass")
+        ok(compare(sh, shape("struct A; struct S { A *p; int n; struct In { int x, y; } in; int z; };\n")) != [],
+           "shape: an added member is caught")
+        ok(compare(sh, shape("struct A; struct S { int n; A *p; struct In { int x, y; } in; };\n")) != [],
+           "shape: reordered members are caught")
+        ok(compare(sh, shape("struct A; struct S { A *p; int count; struct In { int x, y; } in; };\n")) != [],
+           "shape: a renamed member is caught")
+        ok(compare(sh, shape("struct A; struct S { A *p; int n; struct In { int x, y, z, w; } in; };\n")) != [],
+           "shape: a member grown in size is caught (the size line)")
+        ok(compare(shape("struct B0 { int b; }; struct S : B0 { int n; };\n"),
+                   shape("struct B1 { int b; }; struct S : B1 { int n; };\n")) != [],
+           "shape: a different base class is caught")
+        ok(compare(None, None) != [], "a type in neither dump fails, never passes")
+        anon = "struct S { int a; union { int i; float f; } u; union { int j; short k; }; };\n"
+        la = layout(anon)
+        ok(la is not None and any("(anonymous)" in l for l in la) and any("(unnamed)" in l for l in la)
+           and not any(" at " in l for l in la),
+           "an anonymous or unnamed member type's source location is dropped")
+        ok(compare(la, layout("\n\n" + anon)) == [],
+           "the same anonymous union declared on another line compares identical")
+        ok(compare(la, layout("struct S { int a; union { int i; double f; } u; union { int j; short k; }; };\n")) != [],
+           "a member of an anonymous union resized is still caught")
+        ok(layout_of("garbage", "S") is None, "no layout block reads as missing")
+
+        # The mutation proof's plant: it must change the layout, and find the
+        # definition rather than a forward declaration.
+        cls = "class S;\nclass S\n{\npublic:\n\tint a;\n\tfloat b;\n};\n"
+        planted = plant_field(cls, "S")
+        ok(planted is not None and planted.count("ss_abi_parity_mutation") == 1,
+           "plant_field skips the forward declaration and plants one member")
+        ok(compare(layout(cls), layout(planted or cls)) != [],
+           "a planted field is caught by the layout comparison")
+        ok(plant_field("class S;\n", "S") is None, "plant_field on a forward declaration only: None")
+
+    def cc_entry(target, cmd):
+        return {"output": "CMakeFiles/%s/x.o" % target, "command": cmd}
+    cc = [cc_entry("server_sourcesharp.dir", "c++ -DGAME_DLL -Ia -c x.cpp"),
+          cc_entry("server_sourcesharp.dir", "c++ -DGAME_DLL -DSS_ENGINEABI -Ib -c y.cpp"),
+          cc_entry("client_sourcesharp.dir", "c++ -DCLIENT_DLL -Ic -c z.cpp"),
+          cc_entry("client_sourcesharp.dir", "c++ -DCLIENT_DLL -Ic -c w.cpp"),
+          cc_entry("client_sourcesharp.dir", "c++ -DCLIENT_DLL -Id -c v.cpp")]
+    sv = build_sets(cc, "server")
+    ok(len(sv) == 1 and sv[0][2] == ["b"], "server: the SS_ENGINEABI TU's include set")
+    cl = build_sets(cc, "client")
+    ok([x[2] for x in cl] == [["c"], ["d"]], "client: every distinct include set, once each")
+    ok(all("-DCLIENT_DLL" in x[1] for x in cl), "client: the client's defines are kept")
+    try:
+        build_sets([cc_entry("server_sourcesharp.dir", "c++ -c x.cpp")], "client")
+        refused = False
+    except RuntimeError:
+        refused = True
+    ok(refused, "no client TU in compile_commands.json is a failure")
+
+    with tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False) as f:
+        f.write("# only a comment\n")
+    try:
+        ok(read_list(f.name) == [], "a list of only comments reads as empty (check() refuses it)")
+    finally:
+        os.unlink(f.name)
+    def refuses(text):
+        with tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False) as f:
+            f.write(text)
+        try:
+            read_list(f.name)
+            return False
+        except ValueError:
+            return True
+        finally:
+            os.unlink(f.name)
+
+    def parses(text):
+        with tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False) as f:
+            f.write(text)
+        try:
+            return read_list(f.name)
+        finally:
+            os.unlink(f.name)
+    ok(refuses("client\tS\tt.h\t\n"), "a row without a reason is refused")
+    ok(refuses("S\tt.h\twhy\n"), "a row without a side column is refused")
+    ok(refuses("engine\tS\tt.h\twhy\n"), "an unknown side is refused")
+    ok(refuses("client\tS\tt.h\twhy\tbogus\n"), "an unknown option is refused")
+    r = parses("server,client\tS\ta.h|b.h\twhy\tshape with=src/x undef=GAME_DLL\n")
+    ok(len(r) == 1 and r[0]["sides"] == ["server", "client"] and r[0]["oracle"] == ["a.h"]
+       and r[0]["ours"] == ["b.h"] and r[0]["shape"] and r[0]["with"] == ["src/x"]
+       and r[0]["undef"] == ["GAME_DLL"], "a two-side row with every option parses")
+
+    for good, name in checks:
+        print("  %s  %s" % ("ok  " if good else "FAIL", name))
+    bad = [n for g, n in checks if not g]
+    print("\n%d check(s), %d failed" % (len(checks), len(bad)))
+    return 1 if bad else 0
+
+
+def main(argv):
+    if argv[:1] == ["--self-test"]:
+        return self_test()
+    cfg, sides = "debug", ("server", "client")
+    if "--config" in argv:
+        cfg = argv[argv.index("--config") + 1]
+    if "--side" in argv:
+        want = argv[argv.index("--side") + 1]
+        if want != "all" and want not in SIDES:
+            print("abi-parity: --side is server, client or all, not %r" % want)
+            return 2
+        sides = tuple(SIDES) if want == "all" else (want,)
+    if "--mutation-proof" in argv:
+        return mutation_proof(cfg, sides)
+    return check(cfg, sides)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

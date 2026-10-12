@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The UI preview tool (plan_client_ui §5.8.4, §7): renders every screen and
+    gallery entry with sample data to SVG (diffs, the web Mockups tab) and, with
+    SkiaSharp (MIT; user ruling 2026-10-04), straight to PNG. Watch mode
+    rebuilds and re-renders on save and serves the pictures to the web UI.
+
+    A TOOL, not the game: it builds into bin/<config>/tools/ui-preview, never
+    into the game's managed directory, so the game never ships libSkiaSharp.
+    The client tests reference it for the PNG backend and the lint's backdrops.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>SourceSharp.UiPreview</AssemblyName>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/tools/ui-preview/</OutputPath>
+    <RootNamespace>SourceSharp.UiPreview</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.153.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+    <ProjectReference Include="..\..\client\ui\screens\SourceSharp.Client.Ui.csproj" />
+    <!-- The game UI assemblies listed in tools/ui-preview-assemblies.txt must
+         build beside the tool; each listed game adds its reference here. -->
+    <ProjectReference Include="..\..\tf2_descent\ui\TF2.Descent.Client.Ui.csproj" />
+  </ItemGroup>
+</Project>

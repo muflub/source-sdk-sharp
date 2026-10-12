@@ -1,0 +1,556 @@
+#!/usr/bin/env python3
+"""plan_entity.md step 7a's own gate: does each effect actually DRAW?
+
+    tools/7a-effect-gate
+
+Launches ONE game on ss_sandbox, walks the camera to each station the step's
+effects live on, and prints PASS/FAIL per effect with the number the verdict
+came from. Exit 0 only when every check passed.
+
+WHY THIS EXISTS RATHER THAN A SCREENSHOT. 7a's gate sentence is "each effect
+draws on the sandbox map's station", and every word of that is a picture. A
+picture is exactly the evidence this port has been fooled by before: a sprite
+drawn at scale zero, a dust volume that spawns no motes, an impact whose
+material handles were never cached, and a rope whose render cache is reset each
+frame and never filled all produce the SAME frame -- the station, with nothing
+on it -- and "the game did not crash" is true of all four.
+
+So every check below is a DELTA in a counter that is incremented at the point
+the effect hands geometry to the material system or the particle manager
+(shell_effect_ledger.h), taken while the camera is at that station:
+
+  sprite quads     DrawSpriteModel, once per quad drawn, past every early-out
+  rope draws       CRopeManager::RenderNonSolidRopes, once per rope whose
+                   segments were written into the mesh
+  dust motes       the managed dust volume's RenderParticles, once per mote
+                   inside the distance test
+  impact flecks    CreateFleckParticles, once per fleck the emitter gave us
+  impact dust      FX_DustImpact, once per particle actually allocated
+
+A DELTA rather than a total, deliberately: a total is nonzero the moment
+anything anywhere has ever drawn one, so "walk to the rope station" would pass
+on sprites drawn in the spawn room. Each check zeroes its own reading by taking
+the counter before the station and again after.
+
+AND EVERY CHECK PROVES, IN THE SAME RUN, THAT IT CAN FAIL.
+
+A delta that is nonzero is not on its own evidence that this counter is wired
+to this effect -- a counter incremented once per frame from anywhere would
+read the same. So the sprite and rope checks are a CAUSAL A/B against the
+renderer's own switch, taken three times:
+
+    r_drawsprites 1   delta must be > 0
+    r_drawsprites 0   delta must be EXACTLY 0     <-- the proof it can fail
+    r_drawsprites 1   delta must be > 0 again     <-- and that it is not a latch
+
+and the same for ropes with r_drawropes. Both are the FIRST early-out in the
+function the counter sits at the bottom of, so a counter that kept ticking
+with the switch off is a counter that is not measuring that draw.
+
+The two temp-entity effects are the same shape with the fire as the switch: a
+window with `cs_te_fire all` in it must move them, and an idle window of the
+same length must move them by exactly zero.
+
+The dust row USED TO FAIL on this tree, for a measured reason written down in
+.claude/entity-port/requests/7a.md and in shell_dust_render.cpp: an invisible
+managed brush reached the client with ModelIndex 0, so there was no shape to
+put a mote inside. It was not waived -- the row said FAIL and this script
+exited 1. Step 8e-render closed it at the cause: CStandaloneEntity::SetVisible
+now sets EF_NODRAW in the block's Effects word and leaves the model index
+resolved, m_fEffects is on the wire, and ClientRenderPolicy.Drawn refuses the
+draw on the bit. NOTHING IN THIS FILE CHANGED WITH IT -- the row's check, its
+threshold and its notes are the ones 7a wrote, which is what makes a green
+reading here evidence rather than a re-scored gate.
+
+WHAT THIS DOES NOT CHECK, said out loud:
+
+  * `c_entitydissolve.cpp`'s dissolve. ss_sandbox has no station for it and
+    could not: Sandbox.cs says env_entity_dissolver is not placed because the
+    engine builds one BY CLASSNAME for its own dissolve effect. The counter
+    exists (`dissolve draws`) and is printed as a note, and it is NOT asserted.
+  * `FX_DebrisFlecks` and `FX_GaussExplosion`, both in the moved impact file
+    (the gauss discharge is C# since lane c5-particles, SparkEffects, and its
+    `gauss puffs` counter left with it).
+    `FX_GaussExplosion` DID fire on `cs_te_fire all` -- 24 particles on the
+    confirming run -- and `FX_DebrisFlecks` does not, because flecks come from
+    fx_impact.cpp's "Impact" dispatch, which needs a bullet trace carrying a
+    surface material, and the sandbox's ss_te_tester fires every temp entity
+    from the origin with no such trace. Neither is ASSERTED, because a check
+    whose subject depends on the map's own weapon behaviour is a check that
+    fails for reasons other than the one it is named for; both are printed in
+    the final-ledger note. FX_Blood and FX_Dust are in the same two objects and
+    ARE asserted, so the objects are proven live either way.
+  * world fog and the 3D skybox. Step 7c measured both absent and put them on
+    the not-shipped ledger; step 7a re-reads that ledger here rather than
+    inheriting the row in silence, and asserts the rows are PRESENT -- an
+    absence with a name is what is being checked, not the fog.
+
+DEBT, with a removal owner: this is 7a's gate and nothing else reads it. It
+goes with step 8c, which folds the live gates into a `make test` leg, or sooner
+if tools/live-gate grows an effects step.
+"""
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+
+# The flags every local game carries (+sv_lan 1 unless STEAM_AUTH=1, +fps_max
+# 60): tools/local_launch.py, the Makefile's LOCAL_GAME_ARGS.
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import local_launch  # noqa: E402
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# The game this configuration built, and the mod in it. bin/<config> holds the
+# launcher and the shared bin/; the mod is bin/<config>/mods/test, handed to the
+# launcher with -game, and -condebug writes console.log there.
+# SOURCESHARP_CONFIG picks the configuration; debug when unset.
+CONFIG = os.environ.get("SOURCESHARP_CONFIG") or "debug"
+GAME_DIR = os.path.join(ROOT, "bin", CONFIG)
+MOD_DIR = os.path.join(GAME_DIR, "mods", "test")
+
+def launch_command(mod_dir):
+    """source#, run from the game directory. No -game: it takes the mod from
+    mods.yaml beside it, so every launch proves the file supplies it. `#` is
+    quoted, so no shell reads it as a comment (tools/launcher-name-test)."""
+    return "./'source#'"
+SOCKET_DIR = os.environ.get("DEBUG_API_DIR", "/tmp/sourcesharp-debug-api")
+CONSOLE = os.path.join(MOD_DIR, "console.log")
+
+LAUNCH = ["-debugapi", "-debugapisocket", "-condebug", "-nomessagebox",
+          "-nocrashdialog", "-assertlog", "-insecure", "-novid", "-windowed",
+          "-w", "1280", "-h", "720", "-maxplayers", "2",
+          ] + local_launch.local_args() + ["+map", "ss_sandbox"]
+
+# Where to stand, and which way to look, for each station. World coordinates,
+# read out of the compiled map rather than guessed: `debug-api mapents ss_sandbox`
+# gives the station entities' own origins, and the two site-local placements in
+# Sandbox.cs are resolved against them (env_wind is local (-184,160,260) and
+# world (1416,1440,260), so the weather site's origin is (1600,1280,0)).
+STATIONS = {
+    # SPRITES: env_sprite "sprites_plain" is at (800 1920 72). Stand south of
+    # it on the station floor and look north.
+    "sprites":  ("800 1700 40",   "0 90 0"),
+    # ROPES AND RAILS: move_rope "keyframes_rope0" (-1056 -1152 230) to
+    # keyframe_rope "keyframes_rope2" (-864 -1248 230). The cable is overhead,
+    # so the camera looks UP as well as along it -- a rope out of frame draws
+    # nothing and would fail this for the wrong reason.
+    "joints":   ("-960 -1350 40", "-35 90 0"),
+    # WEATHER: func_dustmotes "weather_motes" occupies x 1496..1592,
+    # y 1376..1504, z 16..200 (site origin (1600 1280 0) + the local box in
+    # Sandbox.cs). Stand south of it, inside DistMax, looking north.
+    "weather":  ("1544 1300 60",  "0 90 0"),
+    # SKY: the worldfx plot is the ONLY plot in ss_sandbox with a sky face over
+    # it (Room() cuts one skylight, over this plot), and sky_camera "skycam"
+    # sits under it at (-320 1760 96) -- the map's own spawn line prints that
+    # origin. `engine->IsSkyboxVisibleFromPoint` answers off the leaf the EYE is
+    # in, so standing anywhere else in the hall gives SKYBOX_NOT_VISIBLE and the
+    # 3D skybox correctly does not render. Looking up, because that is where the
+    # hole is.
+    "sky":      ("-320 1760 40",  "-45 90 0"),
+}
+
+FAILURES = []
+NOTES = []
+
+
+def check(name, ok, detail):
+    print("  %-30s %s   %s" % (name, "PASS" if ok else "FAIL", detail))
+    if not ok:
+        FAILURES.append(name)
+    return ok
+
+
+def live_sockets():
+    if not os.path.isdir(SOCKET_DIR):
+        return []
+    out = []
+    for name in os.listdir(SOCKET_DIR):
+        if not name.endswith(".sock"):
+            continue
+        try:
+            os.kill(int(name[:-5]), 0)
+        except (OSError, ValueError):
+            continue
+        out.append(os.path.join(SOCKET_DIR, name))
+    return out
+
+
+def debug_api(pid, *args):
+    env = dict(os.environ, DEBUG_API_PID=str(pid), DEBUG_API_DIR=SOCKET_DIR)
+    r = subprocess.run([os.path.join(ROOT, "tools", "debug-api")] + list(args),
+                       capture_output=True, text=True, env=env, timeout=120)
+    return r.stdout
+
+
+def console():
+    try:
+        with open(CONSOLE, "r", errors="replace") as fh:
+            return fh.read()
+    except IOError:
+        return ""
+
+
+def tail_after(marker):
+    text = console()
+    i = text.rfind(marker)
+    return text[i:] if i >= 0 else ""
+
+
+ROWS = ["sprite quads", "rope draws", "dust motes", "dust puffs",
+        "impact flecks", "impact dust", "impact blood",
+        "dissolve draws"]
+
+
+def ledger(pid):
+    """Every counter cs_cl_effects_report prints, as a dict, with the managed
+    rows cs_cl_fx_report prints in the same shape."""
+    debug_api(pid, "cmd", "cs_cl_effects_report")
+    time.sleep(1.2)
+    text = tail_after("effect draws (7a)")
+    out = {}
+    for row in ROWS:
+        m = re.search(re.escape(row) + r"\s+(\d+)", text)
+        if m:
+            out[row] = int(m.group(1))
+    # "impact blood" is managed's since FX_Blood left native code (lane
+    # c5-particles: ImpactSprays.Blood); cs_cl_fx_report prints it in the
+    # same shape. Absent there, it stays absent here -- a missing row is a
+    # failure of the check that reads it, never a zero.
+    # "dust puffs" too, since FX_Dust left (DustPuff).
+    out.pop("impact blood", None)
+    out.pop("dust puffs", None)
+    debug_api(pid, "cmd", "cs_cl_fx_report")
+    time.sleep(1.2)
+    fx = tail_after("fx: dispatch")
+    for row in ("impact blood", "dust puffs"):
+        m = re.search(re.escape(row) + r"\s+(\d+)", fx)
+        if m:
+            out[row] = int(m.group(1))
+    return out
+
+
+def stand(pid, where):
+    pos, ang = STATIONS[where]
+    debug_api(pid, "cmd", "setpos " + pos)
+    time.sleep(0.4)
+    debug_api(pid, "cmd", "setang " + ang)
+    time.sleep(0.4)
+
+
+def at_station(pid, where, settle=6.0):
+    """(before, after) ledgers around `settle` seconds spent at a station."""
+    stand(pid, where)
+    before = ledger(pid)
+    time.sleep(settle)
+    after = ledger(pid)
+    return before, after
+
+
+def delta(before, after, row):
+    if row not in before or row not in after:
+        return None
+    return after[row] - before[row]
+
+
+def switch_ab(pid, where, convar, row, settle=5.0):
+    """(on, off, on-again) deltas for one counter against its renderer switch.
+
+    The middle reading is the whole point: it is the run's own proof that this
+    check can fail. A counter that keeps moving with the renderer turned off is
+    not measuring that renderer, and every "the effect drew" verdict taken
+    through it would be true of a build in which it drew nothing.
+    """
+    stand(pid, where)
+    time.sleep(1.0)
+
+    debug_api(pid, "cmd", "%s 1" % convar)
+    time.sleep(0.5)
+    b = ledger(pid)
+    a = None
+    time.sleep(settle)
+    a = ledger(pid)
+    onA = delta(b, a, row)
+
+    debug_api(pid, "cmd", "%s 0" % convar)
+    time.sleep(1.5)
+    b = ledger(pid)
+    time.sleep(settle)
+    a = ledger(pid)
+    off = delta(b, a, row)
+
+    debug_api(pid, "cmd", "%s 1" % convar)
+    time.sleep(1.5)
+    b = ledger(pid)
+    time.sleep(settle)
+    a = ledger(pid)
+    onB = delta(b, a, row)
+
+    return onA, off, onB
+
+
+def count_games():
+    # `pgrep -c` prints 0 AND exits 1, so a shell `|| echo 0` emits TWO zeroes.
+    r = subprocess.run(["pgrep", "-x", "hl2_linux64"], capture_output=True, text=True)
+    return str(len([l for l in r.stdout.split("\n") if l.strip()]))
+
+
+def main():
+    tmpdir = "/tmp/ss-7a-effectgate"
+    os.makedirs(tmpdir, exist_ok=True)
+    os.makedirs(SOCKET_DIR, exist_ok=True)
+    if os.path.exists(CONSOLE):
+        os.remove(CONSOLE)
+
+    print("box before: hl2_linux64 %s, free -g:" % count_games())
+    subprocess.run(["free", "-g"])
+
+    known = set(live_sockets())
+    quoted = " ".join("'%s'" % a for a in LAUNCH)
+    line = (". '%s/tools/gpu-offload'; cd '%s' && exec %s %s"
+            % (ROOT, GAME_DIR, launch_command(MOD_DIR), quoted))
+    log = open(os.path.join(tmpdir, "launch.log"), "wb")
+    popen = subprocess.Popen(["bash", "-c", line], stdout=log,
+                             stderr=subprocess.STDOUT,
+                             env=dict(os.environ, TMPDIR=tmpdir),
+                             start_new_session=True)
+
+    pid = None
+    deadline = time.time() + 240
+    while time.time() < deadline:
+        fresh = [s for s in live_sockets() if s not in known]
+        if fresh:
+            pid = int(os.path.basename(fresh[0])[:-5])
+            break
+        if popen.poll() is not None:
+            break
+        time.sleep(1.0)
+
+    if pid is None:
+        try:
+            os.killpg(os.getpgid(popen.pid), signal.SIGKILL)
+        except OSError:
+            pass
+        print("no socket appeared; the game never came up")
+        return 2
+
+    try:
+        print("game pid %d" % pid)
+        for _ in range(60):
+            if "ss_player" in debug_api(pid, "ents", "ss_player"):
+                break
+            time.sleep(1.0)
+
+        debug_api(pid, "cmd", "sv_cheats 1")
+        time.sleep(0.5)
+
+        # setpos is a player command and answers "no player issued that" --
+        # silently, from out here -- while the local player is still arriving.
+        for _ in range(15):
+            before = console().count("no player issued that")
+            debug_api(pid, "cmd", "setpos " + STATIONS["sprites"][0])
+            time.sleep(1.0)
+            if console().count("no player issued that") == before:
+                break
+        time.sleep(1.5)
+
+        # -------------------------------------------------------------
+        # SPRITES. c_sprite.cpp's leaf renderer, now shell_sprite_leaf.cpp.
+        # Three readings against r_drawsprites, which is DrawSprite's own
+        # first early-out: on, off, on.
+        # -------------------------------------------------------------
+        onA, off, onB = switch_ab(pid, "sprites", "r_drawsprites", "sprite quads")
+        check("sprite: quads drawn", (onA or 0) > 0,
+              "%s quads emitted with r_drawsprites 1 at the sprites station" % onA)
+        check("sprite: and the count is that draw",
+              off == 0 and (onB or 0) > 0,
+              "r_drawsprites 0 gave %s (must be 0) and 1 again gave %s "
+              "(must be > 0) -- a counter that kept ticking with the renderer "
+              "switched off is not measuring it" % (off, onB))
+
+        # -------------------------------------------------------------
+        # ROPES. c_rope.cpp's CRopeManager, still stock and still compiled --
+        # see rope_verdict_test.cpp for why it did not leave with the others.
+        # -------------------------------------------------------------
+        onA, off, onB = switch_ab(pid, "joints", "r_drawropes", "rope draws")
+        check("rope: segments meshed", (onA or 0) > 0,
+              "%s rope draw(s) written into the mesh at the joints station" % onA)
+        check("rope: and the count is that draw",
+              off == 0 and (onB or 0) > 0,
+              "r_drawropes 0 gave %s (must be 0) and 1 again gave %s "
+              "(must be > 0)" % (off, onB))
+
+        # -------------------------------------------------------------
+        # DUST MOTES. Two volumes on the weather station. FAILS on this tree;
+        # see the docstring, and cs_cl_dust_report says why in the notes.
+        # -------------------------------------------------------------
+        b, a = at_station(pid, "weather", settle=8.0)
+        d = delta(b, a, "dust motes")
+        debug_api(pid, "cmd", "cs_cl_dust_report")
+        time.sleep(1.2)
+        NOTES.append("dust report: "
+                     + " ".join(tail_after("managed dust volumes").split())[:420])
+        check("dust: motes rendered", d is not None and d > 0,
+              "%s mote(s) rendered at the weather station; cs_cl_dust_report "
+              "in the notes says why if this is 0" % d)
+
+        # -------------------------------------------------------------
+        # FX_Dust (the body moved out of c_func_dust.cpp) and FX_Blood (out of
+        # c_impact_effects.cpp), both reached by playing a temp entity. The
+        # control comes first: an idle window of the same length must move
+        # neither, or "the fire did it" is not what was measured.
+        # -------------------------------------------------------------
+        idleBefore = ledger(pid)
+        time.sleep(5.0)
+        idleAfter = ledger(pid)
+        idlePuff = delta(idleBefore, idleAfter, "dust puffs")
+        idleBlood = delta(idleBefore, idleAfter, "impact blood")
+
+        fireBefore = ledger(pid)
+        NOTES.append("cs_te_fire all: " + " ".join(
+            debug_api(pid, "cmd", "cs_te_fire all").split())[:160])
+        time.sleep(5.0)
+        fireAfter = ledger(pid)
+        dPuff = delta(fireBefore, fireAfter, "dust puffs")
+        dBlood = delta(fireBefore, fireAfter, "impact blood")
+
+        check("dust puff: FX_Dust emits",
+              (dPuff or 0) > 0 and idlePuff == 0,
+              "cs_te_fire all gave %s particle(s) against %s in an idle window "
+              "of the same length" % (dPuff, idlePuff))
+
+        check("impact: FX_Blood emits",
+              (dBlood or 0) > 0 and idleBlood == 0,
+              "cs_te_fire all gave %s particle(s) against %s in an idle window "
+              "of the same length" % (dBlood, idleBlood))
+
+        # -------------------------------------------------------------
+        # THE GAPS THAT MUST BE NAMED RATHER THAN SILENT. 7c's rows, re-read
+        # here because c_env_fog_controller.cpp is 7a's file and 7a did NOT
+        # close either.
+        #
+        # THE FOG ROW WENT BY BEING FIXED (step 8e-render), and this check
+        # turned over rather than being deleted. 7c's rule was that an absence
+        # carries a NAME AND A COUNT instead of being invisible, because "the
+        # fog is off" and "nobody asked" are one screenshot. The fog is shipped
+        # now -- the master env_fog_controller's resolved values ride in
+        # PlayerNetState and the managed client pushes the viewer's copy -- so
+        # the honest reading is no longer "is the gap named" but "did anything
+        # arrive", and cs_cl_fog is where that number lives. A row that had
+        # simply been dropped from this list would have made a closed gap and a
+        # broken wire look identical again, which is the whole thing 7c was
+        # guarding against.
+        #
+        # ss_sandbox HAS a master env_fog_controller, so a push is expected. A
+        # zero here on this map means the wire is broken, not that the map is
+        # foggless -- cs_cl_fog says which.
+        # -------------------------------------------------------------
+        debug_api(pid, "cmd", "cs_cl_notshipped")
+        time.sleep(1.2)
+        led = tail_after("not-shipped ledger (client)")
+        check("world fog is NOT on the ledger any more", "world fog (client)" not in led,
+              "cs_cl_notshipped %s the row"
+              % ("still carries" if "world fog (client)" in led else "no longer carries"))
+        # -------------------------------------------------------------
+        # THE 3D SKYBOX. THIS ROW IS THE INVERSE OF WHAT IT WAS.
+        #
+        # It used to assert the row was PRESENT, and that was correct: step 7c
+        # measured the skybox absent and the gap stayed open longer than any
+        # other on this port. Lane defect-skybox closed it, and closing it took
+        # TWO faults -- phase4-exit's reachability half (UpdateAllClientData
+        # walked UTIL_PlayerByIndex, which cannot answer, so
+        # SourceSharp_FillSkyboxParams was never reached) and the wire half
+        # (CStandalonePlayer networks PlayerNetState, not CPlayerLocalData, so
+        # what the server filled went nowhere).
+        #
+        # Inverted rather than deleted, for the reason the fog's row was: a row
+        # that simply disappears from this gate makes a closed gap and a broken
+        # wire look identical again, which is the whole thing 7c was guarding
+        # against.
+        # -------------------------------------------------------------
+        check("3D skybox is NOT on the ledger any more",
+              "3D skybox (client)" not in led,
+              "cs_cl_notshipped %s the row"
+              % ("still carries" if "3D skybox (client)" in led else "no longer carries"))
+
+        debug_api(pid, "cmd", "cs_cl_fog")
+        time.sleep(1.2)
+        fogtext = tail_after("[SourceSharp/Client] fog:")
+        m = re.search(r"(\d+) pass\(es\), (\d+) push\(es\), (\d+) clear", fogtext)
+        NOTES.append("fog: " + " ".join(fogtext.split())[:300])
+        check("world fog reaches the renderer",
+              m is not None and int(m.group(2)) > 0,
+              "cs_cl_fog reports %s push(es) over %s pass(es)"
+              % (m.group(2) if m else "?", m.group(1) if m else "?"))
+
+        # -------------------------------------------------------------
+        # THE 3D SKYBOX REACHES THE CLIENT. The three render rows that read
+        # cs_cl_skybox_report (visible, drawn, and its r_3dsky A/B) were
+        # retired 2026-10-11 (integrator's ruling): that command and its
+        # counters left when the repo was cut on 2026-09-28 and nothing
+        # replaced them, so the rows read None on every tree. C7's render
+        # compare covers the sky draw; this gate keeps the managed half.
+        # -------------------------------------------------------------
+        stand(pid, "sky")
+        time.sleep(5.0)
+        # WHAT IS STILL MEASURABLE: whether the skybox REACHES the client, from
+        # the managed cs_cl_skybox (ClientSkybox: passes, pushes, viewer). At the
+        # sky station a viewer must be found and the sky pushed at least once.
+        debug_api(pid, "cmd", "cs_cl_skybox")
+        time.sleep(1.2)
+        skytext = tail_after("[SourceSharp/Client] skybox:")
+        sm = re.search(r"(\d+) pass\(es\), (\d+) push\(es\), (\d+) clear\(s\), viewer (found|NOT found)",
+                       skytext)
+        NOTES.append("skybox: " + " ".join(skytext.split())[:240])
+        check("3D skybox: the sky reaches the client",
+              sm is not None and int(sm.group(2)) > 0 and sm.group(4) == "found",
+              "cs_cl_skybox reports %s push(es) over %s pass(es), viewer %s"
+              % (sm.group(2) if sm else "?", sm.group(1) if sm else "?",
+                 sm.group(4) if sm else "?"))
+
+        # -------------------------------------------------------------
+        # And nothing fell over on the way.
+        # -------------------------------------------------------------
+        text = console()
+        nbad = len(re.findall(r"Assertion|SIGSEGV|Segmentation", text))
+        check("no assertion and no segfault", nbad == 0,
+              "%d matches for Assertion|SIGSEGV|Segmentation" % nbad)
+
+        NOTES.append("final ledger: " + " ".join(
+            "%s=%s" % (k, v) for k, v in sorted(ledger(pid).items())))
+
+    finally:
+        try:
+            os.killpg(os.getpgid(popen.pid), signal.SIGKILL)
+        except OSError:
+            pass
+        try:
+            popen.wait(timeout=20)
+        except Exception:
+            pass
+        log.close()
+        # The game is a grandchild (bash -> hl2.sh -> hl2_linux64), so the wait
+        # above returns before it is reaped. Sampling immediately reports a
+        # process that is on its way out as a leak -- which the first run of
+        # this gate did.
+        for _ in range(20):
+            if count_games() == "0":
+                break
+            time.sleep(0.5)
+        print("box after: hl2_linux64 %s" % count_games())
+
+    print()
+    for note in NOTES:
+        print("  note: " + note)
+    print()
+    if FAILURES:
+        print("7a-effect-gate: FAILED -- " + ", ".join(FAILURES))
+        return 1
+    print("7a-effect-gate: every check passed")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

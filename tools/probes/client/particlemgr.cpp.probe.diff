@@ -1,0 +1,252 @@
+--- a/src/game/client/particlemgr.cpp	2026-10-12 12:50:41.326824394 -0700
++++ b/src/game/client/particlemgr.cpp	2026-10-12 12:50:41.344216647 -0700
+@@ -35,6 +35,58 @@
+ #include "tier0/memdbgon.h"
+ #include "shell_cliententitylist.h"
+ 
++// ---- C7 particles phase 2 probe (tools/probes/client/particlemgr.cpp.probe.diff) ----
++// The old-style manager's decisions, one line each, to SOURCESHARP_PROBE_LOG
++// (tag "pm"). Every binding here is shell_managed_particles.cpp's executor,
++// whose particles carry managed's id right after the Particle header.
++#include <fcntl.h>
++#include <unistd.h>
++#include "viewrender.h"
++static void PmLog( const char *pFmt, ... )
++{
++	static int s_fd = -2;
++	if ( s_fd == -2 )
++	{
++		const char *pPath = getenv( "SOURCESHARP_PROBE_LOG" );
++		s_fd = ( pPath && *pPath ) ? open( pPath, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644 ) : -1;
++	}
++	if ( s_fd < 0 )
++		return;
++	static char buf[ 65536 ];
++	va_list ap;
++	va_start( ap, pFmt );
++	int n = V_vsnprintf( buf, sizeof( buf ) - 2, pFmt, ap );
++	va_end( ap );
++	if ( n < 0 )
++		return;
++	if ( n > (int)sizeof( buf ) - 2 )
++		n = sizeof( buf ) - 2;
++	buf[ n++ ] = '\n';
++	(void)!write( s_fd, buf, n );
++}
++// ManagedParticle_t's id sits in Particle's tail padding (Particle is not a
++// layout POD: Vector has a constructor), right after m_Pos.
++static int PmId( const Particle *p ) { return *(const int32 *)( (const char *)&p->m_Pos + sizeof( Vector ) ); }
++static int PmRandomInt( int lo, int hi )
++{
++	const int v = random->RandomInt( lo, hi );
++	PmLog( "pm\trnd\t%d\t%d\t%d", lo, hi, v );
++	return v;
++}
++#define PM_V( v ) (v).x, (v).y, (v).z
++// One material's particles in list order: id and position.
++static void PmList( const char *pTag, const void *pEffect, int iMat, const Particle *pHead )
++{
++	static char buf[ 60000 ];
++	int n = 0;
++	int count = 0;
++	for ( const Particle *p = pHead->m_pNext; p != pHead && n < (int)sizeof( buf ) - 64; p = p->m_pNext, count++ )
++		n += V_snprintf( buf + n, sizeof( buf ) - n, " %d:%.9g,%.9g,%.9g", PmId( p ), PM_V( p->m_Pos ) );
++	buf[ n ] = 0;
++	PmLog( "pm\t%s\t%p\t%d\t%d\t%s", pTag, pEffect, iMat, count, buf );
++}
++// ---- end probe ----
++
+ //-----------------------------------------------------------------------------
+ // SOURCESHARP: THIS FILE'S "who is at this index / behind this handle" ASKS.
+ //
+@@ -209,6 +261,7 @@
+ // The is the max size of the particles for use in bounding	computation
+ void CParticleEffectBinding::SetParticleCullRadius( float flMaxParticleRadius )
+ {
++	PmLog( "pm\tcull\t%p\t%.9g", this, flMaxParticleRadius );
+ 	if ( m_flParticleCullRadius != flMaxParticleRadius )
+ 	{
+ 		m_flParticleCullRadius = flMaxParticleRadius;
+@@ -361,6 +414,7 @@
+ 	}
+ 
+ 	SetDrawn( true );
++	PmLog( "pm\tdraw\t%p\t%d\t%d\t%d\t%d\t%d", this, flags, m_nActiveParticles, CurrentViewID(), (int)m_FrameCode, (int)m_pParticleMgr->m_FrameCode );
+ 	
+ 	// Don't do anything if there are no particles.
+ 	if( !m_nActiveParticles )
+@@ -370,7 +424,7 @@
+ 	VMatrix mTempModel, mTempView;
+ 	RenderStart( mTempModel, mTempView );
+ 
+-	bool bBucketSort = random->RandomInt( 0, BUCKET_SORT_EVERY_N ) == 0;
++	bool bBucketSort = PmRandomInt( 0, BUCKET_SORT_EVERY_N ) == 0;
+ 
+ 	// Set frametime to zero if we've already rendered this frame.
+ 	float flFrameTime = 0;
+@@ -398,11 +452,14 @@
+ 			UpdateScreenEffectTexture();
+ 		}
+ 		
++		PmList( "drawbefore", this, iMaterial, &pMaterial->m_Particles );
++		PmLog( "pm\tdrawmat\t%p\t%d\t%d\t%.9g", this, iMaterial, bBucketSort ? 1 : 0, flFrameTime );
+ 		DrawMaterialParticles( 
+ 			bBucketSort,
+ 			pMaterial, 
+ 			flFrameTime,
+ 			bWireframe );
++		PmList( "drawafter", this, iMaterial, &pMaterial->m_Particles );
+ 	}
+ 
+ 	if ( ShouldDrawInWireFrameMode() )
+@@ -576,6 +633,7 @@
+ 
+ void CParticleEffectBinding::SetBBox( const Vector &bbMin, const Vector &bbMax, bool bDisableAutoUpdate )
+ {
++	PmLog( "pm\tsetbbox\t%p\t%d\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g", this, bDisableAutoUpdate ? 1 : 0, PM_V( bbMin ), PM_V( bbMax ) );
+ 	m_Min = bbMin;
+ 	m_Max = bbMax;
+ 	
+@@ -591,6 +649,9 @@
+ 
+ void CParticleEffectBinding::SetLocalSpaceTransform( const matrix3x4_t &transform )
+ {
++	PmLog( "pm\tsetlocal\t%p\t%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g", this,
++	       transform[0][0], transform[0][1], transform[0][2], transform[0][3], transform[1][0], transform[1][1], transform[1][2], transform[1][3],
++	       transform[2][0], transform[2][1], transform[2][2], transform[2][3] );
+ 	m_LocalSpaceTransform.CopyFrom3x4( transform );
+ 	if ( m_LocalSpaceTransform.IsIdentity() )
+ 	{
+@@ -664,6 +725,7 @@
+ 		 )
+ 	{
+ 		// call leafsystem to updated this guy
++		PmLog( "pm\tchanged\t%p", this );
+ 		ClientLeafSystem()->RenderableChanged( m_hRenderHandle );
+ 
+ 		// remember last parameters
+@@ -715,7 +777,7 @@
+ 		// auto update the bbox after N frames then randomly 1/N or after 2*N frames 
+ 		bool bFullBBoxUpdate = false;
+ 		++m_UpdateBBoxCounter;
+-		if ( ( m_UpdateBBoxCounter >= BBOX_UPDATE_EVERY_N && random->RandomInt( 0, BBOX_UPDATE_EVERY_N ) == 0 ) ||
++		if ( ( m_UpdateBBoxCounter >= BBOX_UPDATE_EVERY_N && PmRandomInt( 0, BBOX_UPDATE_EVERY_N ) == 0 ) ||
+ 			 ( m_UpdateBBoxCounter >= 2*BBOX_UPDATE_EVERY_N ) )
+ 		{
+ 			bFullBBoxUpdate = true;
+@@ -732,6 +794,7 @@
+ 		{
+ 			CEffectMaterial *pMaterial = m_Materials[i];
+ 
++			PmList( "simlist", this, i, &pMaterial->m_Particles );
+ 			CParticleSimulateIterator simulateIterator;
+ 
+ 			simulateIterator.m_pEffectBinding = this;
+@@ -750,6 +813,7 @@
+ 		{
+ 			BBoxCalcEnd( bboxSet, bbMin, bbMax );
+ 		}
++		PmLog( "pm\tsimbbox\t%p\t%d\t%d\t%d", this, bFullBBoxUpdate ? 1 : 0, bboxSet ? 1 : 0, m_UpdateBBoxCounter );
+ 	}
+ }
+ 
+@@ -1003,6 +1067,7 @@
+ 
+ void CParticleEffectBinding::RemoveParticle( Particle *pParticle )
+ {
++	PmLog( "pm\tkill\t%p\t%d", this, PmId( pParticle ) );
+ 	UnlinkParticle( pParticle );
+ 	
+ 	// Important that this is updated BEFORE NotifyDestroyParticle is called.
+@@ -1341,6 +1406,7 @@
+ #endif
+ 
+ 	pEffect->m_ListIndex = m_Effects.AddToTail( pEffect );
++	PmLog( "pm\tadd\t%p\t%d\t%.9g", pEffect, pEffect->m_Flags, pEffect->m_flParticleCullRadius );
+ 
+ 	Assert( pEffect->m_ListIndex != 0xFFFF );
+ 
+@@ -1363,6 +1429,7 @@
+ 	if( pEffect->GetRemovalInProgressFlag() )
+ 		return;
+ 	pEffect->SetRemovalInProgressFlag();
++	PmLog( "pm\tremove\t%p", pEffect );
+ 
+ 	// Don't call RemoveEffect while inside an IParticleEffect's Update() function.
+ 	// Return false from the Update function instead.
+@@ -1472,6 +1539,7 @@
+ 	VPROF( "CParticleMgr::IncrementFrameCode()" );
+ 
+ 	++m_FrameCode;
++	PmLog( "pm\tframecode\t%d", (int)m_FrameCode );
+ 	if ( m_FrameCode == 0 )
+ 	{
+ 		// Reset all the CParticleEffectBindings..
+@@ -1527,6 +1595,7 @@
+ 		CParticleEffectBinding *pEffect = m_Effects[i];
+ 		
+ 		// Tell the effect if it was drawn or not.
++		PmLog( "pm\tpost\t%p\t%d", pEffect, pEffect->WasDrawn() ? 1 : 0 );
+ 		pEffect->SetWasDrawnPrevFrame( pEffect->WasDrawn() );
+ 
+ 		// Now that we've rendered, clear this flag so it'll simulate next frame.
+@@ -1906,6 +1975,7 @@
+ 		nCount = particlesToSimulate.Count();
+ 	}
+ 
++	const double flSimStart = Plat_FloatTime();
+ 	if ( nCount )
+ 	{
+ 		UpdateDirtySpatialPartitionEntities();
+@@ -1936,6 +2006,16 @@
+ 		}
+ 	}
+ 
++	{
++		int nEffects = 0, nParticles = 0;
++		for ( CNewParticleEffect *p = m_NewEffects.m_pHead; p; p = p->m_pNext )
++		{
++			nEffects++;
++			nParticles += CountParticleSystemActiveParticles( p );
++		}
++		PmLog( "pm\tnewsim\t%d\t%d\t%d\t%d\t%.3f", gpGlobals->framecount, nEffects, nCount, nParticles,
++		       ( Plat_FloatTime() - flSimStart ) * 1e6 );
++	}
+ 	// now, run non-reentrant part for updating changes
+ 	for( int i=0; i<nCount; i++)
+ 	{
+@@ -1984,6 +2064,7 @@
+ 
+ 	m_bUpdatingEffects = true;
+ 
++	PmLog( "pm\tupdate\t%d\t%.9g", gpGlobals->framecount, flTimeDelta );
+ 	if( flTimeDelta > 0.1f )
+ 		flTimeDelta = 0.1f;
+ 
+@@ -1991,6 +2072,9 @@
+ 	{
+ 		CParticleEffectBinding *pEffect = m_Effects[iEffect];
+ 
++		PmLog( "pm\teffect\t%p\t%d\t%d\t%d\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g", pEffect, pEffect->m_Flags,
++		       pEffect->m_nActiveParticles, pEffect->m_UpdateBBoxCounter, PM_V( pEffect->m_Min ), PM_V( pEffect->m_Max ),
++		       PM_V( pEffect->m_LastMin ), PM_V( pEffect->m_LastMax ), PM_V( pEffect->m_pSim->GetSortOrigin() ) );
+ 		// Don't update this effect if it will be removed.
+ 		if( pEffect->GetRemoveFlag() )
+ 			continue;
+@@ -2006,6 +2090,7 @@
+ 			{
+ 				pEffect->SetNeedsBBoxUpdate( false );
+ 			}
++			PmLog( "pm\tfirstbbox\t%p\t%d\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g", pEffect, pEffect->GetNeedsBBoxUpdate() ? 1 : 0, PM_V( pEffect->m_Min ), PM_V( pEffect->m_Max ) );
+ 		}
+ 
+ 		// This flag will get set to true if the effect is drawn through the leaf system.
+@@ -2021,6 +2106,8 @@
+ 
+ 		// Update its position in the leaf system if its bbox changed.
+ 		pEffect->DetectChanges();
++		PmLog( "pm\tafter\t%p\t%d\t%d\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g", pEffect, pEffect->m_Flags, pEffect->m_nActiveParticles,
++		       PM_V( pEffect->m_Min ), PM_V( pEffect->m_Max ), PM_V( pEffect->m_LastMin ), PM_V( pEffect->m_LastMax ) );
+ 	}
+ 
+ 	if ( g_bMeasureParticlePerformance )					// use fixed time step

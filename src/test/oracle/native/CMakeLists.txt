@@ -1,0 +1,579 @@
+# THE NATIVE ORACLES: a port checked against the Valve code it replaced, with
+# that code compiled from the PRISTINE upstream clone at valve-sdk.lock -- not
+# the fork and not the farm, which holds only what the game DLLs compile.
+#
+# Where the clone is: $SOURCESHARP_VALVE_SDK (the Makefile exports it), else
+# the path `make setup` recorded in valve-sdk.lock.local. With no clone the
+# oracles are registered as tests that FAIL, naming the fix: a missing
+# reference is a failure, never a skip, and it must not stop the rest of the
+# build from configuring.
+#
+# The subject (the upstream .cpp and its game/ headers) comes from the clone;
+# the library headers (public/, public/tier0, public/tier1, common/) come from
+# the farm, because the test links the farm's tier1/tier0/vstdlib and the
+# headers must describe the libraries actually linked.
+#
+# These binaries carry the `oracle` label and the ss_oracle_tests target; the
+# native leg excludes them and `make test`'s oracle leg runs them
+# (tools/build/buildcpptests --oracle). tools/leg-floor oracle counts the
+# ss_cpptest*() calls below.
+
+set(SS_CPPTEST_GROUP oracle)
+
+set(SS_VALVE_SDK "$ENV{SOURCESHARP_VALVE_SDK}")
+if(NOT SS_VALVE_SDK AND EXISTS "${PROJECT_SOURCE_DIR}/valve-sdk.lock.local")
+  file(STRINGS "${PROJECT_SOURCE_DIR}/valve-sdk.lock.local" SS_VALVE_SDK LIMIT_COUNT 1)
+endif()
+set(SS_VALVE_SRC "${SS_VALVE_SDK}/src")
+# Every oracle test is told where the clone is (valve_sdk.h reads it).
+list(APPEND SS_CPPTEST_ENV "SOURCESHARP_VALVE_SDK=${SS_VALVE_SDK}")
+
+# ss_oracle_missing(<name>): the oracle cannot be built; register a test of that
+# name that fails and says why.
+function(ss_oracle_missing name why)
+  add_test(NAME ${name}
+    COMMAND sh -c "echo '!! ${name}: ${why}. Run make setup.'; exit 1")
+  set_tests_properties(${name} PROPERTIES LABELS oracle)
+  message(WARNING "oracle ${name}: ${why}; its test will FAIL. Run make setup.")
+endfunction()
+
+# THE WEAPON SCRIPT ORACLE, for the managed weapon script database --
+# plan_entity.md §6's "17 that LEAVE" row for weapons_resource.cpp /
+# weapon_parse.cpp / weapon_parse_default.cpp.
+#
+# It compiles upstream's game/shared/weapon_parse.cpp (FileWeaponInfo_t::Parse)
+# and weapon_parse_default.cpp (the CreateWeaponInfo() it is reached through)
+# and runs them over the mod's scripts, pinning the golden table the managed
+# suite reads (sourcesharp/test/weapon_script_cases.txt) to the code it was
+# taken from rather than agreeing with itself.
+#
+# tier1 because the subject reads its input through the REAL KeyValues, and a
+# hand-written KV stand-in would be the very thing the golden guards against:
+# GetInt and GetString CONVERT from a type KeyValues assigned at load time.
+#
+# weapon_parse_stub/ holds three one-TU header shims (cbase.h, util_shared.h,
+# cdll_util.h); see those files. The clone's game/shared comes AFTER them, so
+# ammodef.h, weapon_parse.h and shareddefs.h are upstream's.
+#
+# The -Wno- flags are for VALVE'S CODE, not this port's: this compiles a stock
+# game/shared translation unit with -Wall. weapon_parse.cpp's
+# `for ( int i=0; i < ARRAYSIZE( g_ItemFlags ); i++ )` is a signed/unsigned
+# comparison Valve wrote; the subject is the code as it actually is, so it is
+# suppressed here rather than edited there. -Wno-unused-variable for
+# public/tier1/utlblockmemory.h (an unused local in a template);
+# -Wno-inconsistent-missing-override -Wno-overloaded-virtual for
+# public/filesystem_passthru.h, the same two the game build names in
+# cmake/SourceSharp.cmake.
+set(weapon_parse "${SS_VALVE_SRC}/game/shared/weapon_parse.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${weapon_parse}")
+  ss_oracle_missing(weapon_script_oracle_test
+    "no pristine Valve SDK (${SS_VALVE_SDK}): need ${weapon_parse}")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(weapon_script_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-sign-compare -Wno-unused-variable
+            -Wno-inconsistent-missing-override -Wno-overloaded-virtual
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/weapon_parse_stub public public/tier0 public/tier1
+             ${SS_VALVE_SRC}/game/shared common
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/weapon_script_oracle_test.cpp
+            ${weapon_parse}
+            ${SS_VALVE_SRC}/game/shared/weapon_parse_default.cpp)
+endif()
+
+# THE ORACLES THAT READ, rather than compile, upstream's text: each parses one
+# upstream file out of the pristine clone (valve_sdk.h, $SOURCESHARP_VALVE_SDK)
+# and compares what it declares with the port's value. They were checks in the
+# native leg that read the file out of the farm, which no longer carries it
+# because neither DLL compiles it.
+#
+# The native damage masks (shell_gamerules.cpp) against CMultiplayRules's
+# Damage_Get* sets in game/shared/multiplay_gamerules.cpp.
+ss_cpptest(gamerules_damage_oracle_test
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/gamerules_damage_oracle_test.cpp
+            # P5 lane R: ss_shareddefs.h's restated constants (the GR_* codes
+            # among them) against upstream's shareddefs.h / util_shared.h /
+            # gamerules.h.
+            ${CMAKE_CURRENT_SOURCE_DIR}/ss_shareddefs_oracle_test.cpp)
+
+# The save codec's two time sentinels (shell_savegame.h) against upstream's
+# ZERO_TIME (game/shared/saverestore.cpp) and INVALID_TIME (public/datamap.h).
+ss_cpptest(save_field_codec_oracle_test
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/save_field_codec_oracle_test.cpp)
+
+# The five client animation-event ids folded into precache_model.cpp against
+# upstream's game/shared/ModelSoundsCache.cpp.
+ss_cpptest(server_wave2_oracle_test
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/server_wave2_oracle_test.cpp)
+
+# tier1's convar.cpp, pristine, run through the SAME facts as the port
+# (src/test/native/convar_port_test.cpp against src/shared/native/convar_port.cpp).
+# Stock passing them is what says the facts describe stock's behaviour, so the
+# port passing them says the port behaves as stock does.
+set(convar_stock "${SS_VALVE_SRC}/tier1/convar.cpp")
+if(NOT EXISTS "${convar_stock}")
+  ss_oracle_missing(convar_stock_oracle_test "no ${convar_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(convar_stock_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC GAME_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable -Wno-sign-compare
+            -Wno-register -Wno-deprecated-register
+            # ButtonCode.h:313's IsMouseCode, reached through cdll_int.h.
+            -Wno-tautological-overlap-compare
+    INCLUDES public public/tier0 public/tier1 common
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/convar_port_test.cpp
+            ${convar_stock})
+endif()
+
+# THE STRING HELPER ORACLE. src/shared/native/ss_string.h replaces tier1's
+# strtools.cpp at our server call sites (so server.so stops extracting it);
+# this links the pristine strtools.cpp and runs every helper beside the
+# function it replaces, over edge cases and seeded random inputs. The object
+# comes first on the link line, so its V_ definitions are the ones the test
+# calls and libtier1.a's copy of the member is never extracted.
+#
+# -Wno- flags for VALVE'S CODE, not the test's: the MSVC pragmas in
+# strtools.cpp and the tier1 headers, utlblockmemory.h's unused local,
+# platform.h's dangling else in DECLARE_ALIGNED_BYTE_ARRAY and fmtstr.h's
+# set-but-unused `result`.
+set(strtools_stock "${SS_VALVE_SRC}/tier1/strtools.cpp")
+set(strtools_unicode_stock "${SS_VALVE_SRC}/tier1/strtools_unicode.cpp")
+if(NOT EXISTS "${strtools_stock}" OR NOT EXISTS "${strtools_unicode_stock}")
+  ss_oracle_missing(ss_string_oracle_test "no ${strtools_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(ss_string_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else
+            -Wno-unused-but-set-variable
+    INCLUDES public public/tier0 public/tier1 common ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/ss_string_oracle_test.cpp
+            ${strtools_stock}
+            ${strtools_unicode_stock})
+endif()
+
+# ss::EngineUtlVector<T> (src/shared/native/engine_utlvector.h), the layout view
+# server.so reads engine-built vectors through, against the PRISTINE CUtlVector:
+# the clone's public headers come first on the include path, after one stand-in
+# (utlvector_stub/tier1/utlblockmemory.h, which says why).
+set(utlvector_stock "${SS_VALVE_SRC}/public/tier1/utlvector.h")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${utlvector_stock}")
+  ss_oracle_missing(engine_utlvector_layout_oracle_test "no ${utlvector_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(engine_utlvector_layout_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/engine_utlvector_layout_oracle_test.cpp)
+endif()
+
+# The save block's token table (engineabi/saverestore.h) against upstream's
+# CSaveRestoreSegment, each in its own TU (saverestore_symbol/), every token's
+# slot compared: the engine shares the table, so placement is save format.
+set(saverestore_stock "${SS_VALVE_SRC}/public/saverestoretypes.h")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${saverestore_stock}")
+  ss_oracle_missing(saverestore_symbol_oracle_test "no ${saverestore_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+# -Wno-nontrivial-memcall is for VALVE'S CODE: CGameSaveRestoreInfo's constructor
+# memsets a saverestorelevelinfo_t holding Vectors (ours zeroes it through void *).
+ss_cpptest_tier1(saverestore_symbol_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable -Wno-nontrivial-memcall
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/saverestore_symbol_oracle_test.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/saverestore_symbol/upstream.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/saverestore_symbol/ours.cpp)
+endif()
+
+# engine_heap.h's lookup and EngineFilledUtlVector against the PRISTINE
+# memalloc.h (slots) and THE GAME'S OWN libtier0.so (a real CUtlVector grown
+# through it, read through the view, freed through the lookup). The game's copy
+# is found in Steam's library folders here; the test fails, naming the fix,
+# when none is. It links no tier0: it must first see a process without one.
+set(SS_ENGINE_TIER0 "$ENV{SOURCESHARP_ENGINE_TIER0}")
+if(NOT SS_ENGINE_TIER0)
+  foreach(_vdf "$ENV{HOME}/.steam/steam/steamapps/libraryfolders.vdf"
+               "$ENV{HOME}/.steam/debian-installation/steamapps/libraryfolders.vdf"
+               "$ENV{HOME}/.local/share/Steam/steamapps/libraryfolders.vdf")
+    if(SS_ENGINE_TIER0 OR NOT EXISTS "${_vdf}")
+      continue()
+    endif()
+    file(STRINGS "${_vdf}" _paths REGEX "\"path\"")
+    foreach(_line IN LISTS _paths)
+      string(REGEX REPLACE ".*\"path\"[ \t]+\"([^\"]+)\".*" "\\1" _lib "${_line}")
+      set(_cand "${_lib}/steamapps/common/Source SDK Base 2013 Multiplayer/bin/linux64/libtier0.so")
+      if(NOT SS_ENGINE_TIER0 AND EXISTS "${_cand}")
+        set(SS_ENGINE_TIER0 "${_cand}")
+      endif()
+    endforeach()
+  endforeach()
+endif()
+set(memalloc_stock "${SS_VALVE_SRC}/public/tier0/memalloc.h")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${memalloc_stock}")
+  ss_oracle_missing(engine_heap_oracle_test "no ${memalloc_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+set(_ss_env_before ${SS_CPPTEST_ENV})
+list(APPEND SS_CPPTEST_ENV "SOURCESHARP_ENGINE_TIER0=${SS_ENGINE_TIER0}")
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest(engine_heap_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/shared/native ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/engine_heap_oracle_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/engine_heap.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
+    LIBS dl)
+set(SS_CPPTEST_ENV ${_ss_env_before})
+endif()
+
+# vstdlib_random_port.cpp (server.so's own random stream, P4) against THE
+# GAME'S OWN libvstdlib.so, draw for draw. It sits beside the libtier0.so found
+# above and needs it on the library path (it has no RPATH). Links no vstdlib.
+get_filename_component(_ss_engine_bin "${SS_ENGINE_TIER0}" DIRECTORY)
+set(_ss_env_before ${SS_CPPTEST_ENV})
+if(SS_ENGINE_TIER0)
+  list(APPEND SS_CPPTEST_ENV "SOURCESHARP_ENGINE_VSTDLIB=${_ss_engine_bin}/libvstdlib.so"
+                             "LD_LIBRARY_PATH=${_ss_engine_bin}")
+endif()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest(vstdlib_random_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/vstdlib_random_oracle_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/vstdlib_random_port.cpp
+    LIBS dl)
+set(SS_CPPTEST_ENV ${_ss_env_before})
+
+# ss_containers.h (src/shared/native), the standard-library stand-ins for the
+# tier1 container semantics server.so's own code relied on, against the
+# PRISTINE CUtlDict / CaselessStringLessThan / V_stricmp: the clone's
+# public headers first, after the utlblockmemory.h stand-in (utlvector_stub/,
+# which says why). Links the farm's tier1 for V_stricmp and tier0 for the
+# dictionary's key copies.
+set(utldict_stock "${SS_VALVE_SRC}/public/tier1/utldict.h")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${utldict_stock}")
+  ss_oracle_missing(ss_containers_oracle_test "no ${utldict_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(ss_containers_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/ss_containers_oracle_test.cpp)
+endif()
+
+# vcollide_t's layout, which SourceSharp.Abi.VCollideLayout reads in place to
+# get a model's collision keyvalue text (break pieces), against the PRISTINE
+# public/vcollide.h. VCollideLayoutTests pins the managed struct to the same
+# numbers.
+set(vcollide_stock "${SS_VALVE_SRC}/public/vcollide.h")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${vcollide_stock}")
+  ss_oracle_missing(engine_vcollide_layout_oracle_test "no ${vcollide_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest(engine_vcollide_layout_oracle_test
+    INCLUDES ${SS_VALVE_SRC}/public
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/engine_vcollide_layout_oracle_test.cpp)
+endif()
+
+# THE PRECIPITATION ORACLE (lane c2-sims): stock's client weather --
+# CClient_Precipitation's rain, snow and ash and CSnowFallManager's snowfall --
+# run offline from the PRISTINE game/client/c_effects.cpp over a scripted world
+# (precipitation_stub/precip_harness.h says what is stock and what is
+# stand-in), seeded, and held to the golden
+# src/test/client/Fixtures/precipitation-stock.tsv, which the managed port's
+# PrecipitationOracleTests replays. In the game every one of those emission
+# paths is dead (they ask C_BasePlayer::GetLocalPlayer(), NULL in this mod), so
+# a live recording could only record nothing.
+#
+# mathlib because the subject is vector math (AngleVectors, VectorNormalize,
+# RandomVector) and tier1/vstdlib for its ConVars and the random streams.
+# Upstream's public/collisionutils.cpp is compiled beside it for
+# IsBoxIntersectingSphere and IntersectRayWithBox. The -Wno- flags are for
+# VALVE'S CODE: c_effects.cpp's misleading indentation, its unused
+# `vecCenter = ( a, b ) * 0.5` comma (under _DEBUG only, but parsed), the
+# unused vOldPos-style locals and the MSVC pragmas.
+set(c_effects_stock "${SS_VALVE_SRC}/game/client/c_effects.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${c_effects_stock}")
+  ss_oracle_missing(precipitation_oracle_test "no ${c_effects_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject is COPIED, byte for byte, into its own directory before it is
+# included: its quoted #includes would otherwise find game/client's real
+# headers beside it ahead of the stand-ins.
+configure_file("${c_effects_stock}" "${CMAKE_CURRENT_BINARY_DIR}/precipitation_subject/c_effects.cpp" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(precipitation_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-misleading-indentation -Wno-unused-variable -Wno-unused-value
+            -Wno-unused-but-set-variable -Wno-dangling-else -Wno-sign-compare -Wno-comma
+            -Wno-unused-function -Wno-unused-private-field -Wno-inconsistent-missing-override
+            -Wno-overloaded-virtual -Wno-keyword-macro -Wno-c++11-narrowing
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/precipitation_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/precipitation_subject
+             ${SS_VALVE_SRC}/game/client ${SS_VALVE_SRC}/game/shared
+             sourcesharp/test
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/precipitation_oracle_test.cpp
+            ${SS_VALVE_SRC}/public/collisionutils.cpp)
+endif()
+
+# THE VOICE BAN ORACLE (lane ui, C3 step 4, plan cluster 15): stock's
+# CVoiceBanMgr from the PRISTINE game/shared/voice_banmgr.cpp, over an
+# in-memory voice_ban.dt (voiceban_stub/), held to the golden
+# src/test/client/Fixtures/voiceban-stock.tsv that the managed VoiceBanList
+# replays: the file format stays compatible both ways. -Wno-dangling-else is for
+# VALVE'S tier0/platform.h, which memdbgon.h brings in.
+set(voice_banmgr_stock "${SS_VALVE_SRC}/game/shared/voice_banmgr.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${voice_banmgr_stock}")
+  ss_oracle_missing(voiceban_oracle_test "no ${voice_banmgr_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest(voiceban_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/voiceban_stub public public/tier0 ${SS_VALVE_SRC}/game/shared
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/voiceban_oracle_test.cpp)
+endif()
+
+# The client's recv-table builders (engineabi/recv.h, plan_client_novalve C8)
+# against upstream's public/dt_recv.cpp, linked into one binary: upstream
+# supplies the Valve names, ours the engineabi::recv namespace, and every
+# builder's prop and every proxy's output is compared. -Wno- flags are for
+# VALVE'S CODE: platform.h's pragmas and dangling else; utlvector_stub/ stands
+# in for utlblockmemory.h, which upstream's headers include and clang refuses.
+set(dt_recv_stock "${SS_VALVE_SRC}/public/dt_recv.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${dt_recv_stock}")
+  ss_oracle_missing(recv_builders_oracle_test "no ${dt_recv_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(recv_builders_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/recv_builders_oracle_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv.cpp
+            ${dt_recv_stock})
+endif()
+
+# public/tier2/meshutils.h's five generators, ours (src/client/native/
+# mesh_index_client.cpp, in ss::meshutils) against tier2.a's own meshutils.o
+# (plan_client_novalve C9). The SDK ships no source for them: the archive
+# object is the reference.
+set(tier2_stock "${SS_VALVE_SRC}/lib/public/linux64/tier2.a")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${tier2_stock}")
+  ss_oracle_missing(meshutils_oracle_test "no ${tier2_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(meshutils_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0
+             ${PROJECT_SOURCE_DIR}/src/client/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/meshutils_oracle_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/mesh_index_client.cpp
+    LIBS ${tier2_stock})
+endif()
+
+# CMaterialReference and CTextureReference, ours (src/client/native/
+# material_reference_client.cpp) against upstream's public/materialsystem/
+# MaterialSystemUtil.cpp, compiled beside them with its classes renamed
+# (materialreference_stock.cpp), over a recording material-system double
+# (plan_client_novalve C9).
+# -Wno-reorder-ctor and -Wno-unused-private-field are for VALVE'S HEADERS
+# (bitmap/imageformat.h's constructor, the material headers' unused fields).
+set(msu_stock "${SS_VALVE_SRC}/public/materialsystem/MaterialSystemUtil.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${msu_stock}")
+  ss_oracle_missing(materialreference_oracle_test "no ${msu_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(materialreference_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+            "SS_STOCK_MATERIALSYSTEMUTIL_CPP=\"${msu_stock}\""
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-private-field -Wno-reorder-ctor
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/materialreference_oracle_test.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/materialreference_stock.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/material_reference_client.cpp)
+endif()
+
+# tier2's CBeamSegDraw, from tier2.a's own beamsegdraw.o (the SDK ships no
+# source for it), over a recording render context and mesh: stock is held to
+# the golden src/test/client/Fixtures/beamsegdraw-stock.tsv that the managed
+# BeamSegDraw replays, and src/client/native/beam_strip_vertex.h, the
+# executors' writer, to the buffers stock wrote (plan_client_novalve C9).
+# -Wno-reorder-ctor, -Wno-unused-private-field and -Wno-overloaded-virtual are
+# for VALVE'S HEADERS (the two above; materialsystem/imesh.h's IMesh hides
+# its bases' ValidateData, ModifyBegin and ModifyEnd).
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${tier2_stock}")
+  ss_oracle_missing(beamsegdraw_oracle_test "no ${tier2_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(beamsegdraw_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-private-field -Wno-reorder-ctor
+            -Wno-overloaded-virtual
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${SS_VALVE_SRC}/public/tier1
+             ${PROJECT_SOURCE_DIR}/src/shared/native ${PROJECT_SOURCE_DIR}/src/client/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/beamsegdraw_oracle_test.cpp
+    LIBS ${tier2_stock})
+endif()
+
+# Pristine tier1 bitbuf.cpp over src/test/native/bitbuf_scenario.h, held to
+# the golden src/test/client/Fixtures/bitbuf-stock.tsv that bitbuf_client_test
+# replays against client.so's bitbuf members (plan_client_novalve C9). The
+# -Wno- flags are for VALVE'S CODE, as ss_string_oracle_test's, plus
+# bitvec.h's memset of a non-trivial class (-Wno-nontrivial-memcall).
+set(bitbuf_stock "${SS_VALVE_SRC}/tier1/bitbuf.cpp")
+if(NOT EXISTS "${bitbuf_stock}")
+  ss_oracle_missing(bitbuf_stock_oracle_test "no ${bitbuf_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(bitbuf_stock_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else
+            -Wno-unused-but-set-variable -Wno-nontrivial-memcall
+    INCLUDES public public/tier0 public/tier1 common ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/bitbuf_stock_oracle_test.cpp
+            ${bitbuf_stock})
+endif()
+
+# Pristine game/shared/usercmd.cpp's WriteUsercmd (with pristine bitbuf.cpp)
+# over seeded command pairs, held to the golden
+# src/test/client/Fixtures/usercmd-encode-stock.tsv that the managed encoder
+# (UserCmdCodec) replays (plan_client_novalve C9). usercmd_stub/ stands in
+# for the game's cbase.h and imovehelper.h; the subject and its header are
+# COPIED, byte for byte, into their own directory first, so their quoted
+# includes find the stand-ins rather than game/shared's. The -Wno- flags are
+# for VALVE'S CODE.
+set(usercmd_stock "${SS_VALVE_SRC}/game/shared/usercmd.cpp")
+if(NOT EXISTS "${usercmd_stock}" OR NOT EXISTS "${bitbuf_stock}")
+  ss_oracle_missing(usercmd_encode_oracle_test "no ${usercmd_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+configure_file("${usercmd_stock}" "${CMAKE_CURRENT_BINARY_DIR}/usercmd_subject/usercmd.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/usercmd.h" "${CMAKE_CURRENT_BINARY_DIR}/usercmd_subject/usercmd.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(usercmd_encode_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else
+            -Wno-unused-but-set-variable -Wno-nontrivial-memcall
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/usercmd_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/usercmd_subject
+             public public/tier0 public/tier1 common
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/usercmd_encode_oracle_test.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/usercmd_subject/usercmd.cpp
+            ${bitbuf_stock})
+endif()
+
+# Pristine tier1/KeyValues.cpp's LoadFromBuffer over the corpus
+# src/test/client/Fixtures/keyvalues-load-cases.tsv, held to the golden
+# keyvalues-load-stock.tsv that the managed loader (KeyValuesLoad) replays
+# (plan_client_novalve C9, KeyValues K4). The pristine file's definitions are
+# the ones linked: libtier1.a's KeyValues.o defines nothing this one does not,
+# so the archive member is never extracted. The -Wno- flags are for VALVE'S CODE
+# (the out-of-range one is the int-against-LONG_MAX overflow test, always false
+# on LP64, which is why a long overflow loads as a truncated int).
+set(keyvalues_stock "${SS_VALVE_SRC}/tier1/KeyValues.cpp")
+if(NOT EXISTS "${keyvalues_stock}")
+  ss_oracle_missing(keyvalues_load_oracle_test "no ${keyvalues_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(keyvalues_load_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else
+            -Wno-unused-but-set-variable -Wno-nontrivial-memcall
+            -Wno-inconsistent-missing-override -Wno-overloaded-virtual -Wno-reorder-ctor
+            -Wno-tautological-constant-out-of-range-compare -Wno-undefined-bool-conversion
+    INCLUDES public public/tier0 public/tier1 common
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/keyvalues_load_oracle_test.cpp
+            ${keyvalues_stock})
+endif()
+
+# Pristine tier1/KeyValues.cpp over src/test/native/keyvalues_scenario.h,
+# recorded as the golden src/test/client/Fixtures/keyvalues-members-stock.tsv
+# that keyvalues_client_test replays against client.so's own KeyValues
+# members (plan_client_novalve C9 K5). The -Wno- flags are for VALVE'S CODE,
+# as keyvalues_load_oracle_test's.
+if(NOT EXISTS "${keyvalues_stock}")
+  ss_oracle_missing(keyvalues_members_oracle_test "no ${keyvalues_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(keyvalues_members_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else
+            -Wno-unused-but-set-variable -Wno-nontrivial-memcall
+            -Wno-inconsistent-missing-override -Wno-overloaded-virtual -Wno-reorder-ctor
+            -Wno-tautological-constant-out-of-range-compare -Wno-undefined-bool-conversion
+    INCLUDES public public/tier0 public/tier1 common ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/keyvalues_members_oracle_test.cpp
+            ${keyvalues_stock})
+endif()
+
+# ss_crc32.h (src/shared/native) against pristine tier1/checksum_crc.cpp,
+# compiled into the test so its CRC32_* are the ones called and libtier1.a's
+# member is never extracted (plan_client_novalve C9, the small tier1 pieces).
+set(checksum_crc_stock "${SS_VALVE_SRC}/tier1/checksum_crc.cpp")
+if(NOT EXISTS "${checksum_crc_stock}")
+  ss_oracle_missing(ss_crc32_oracle_test "no ${checksum_crc_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(ss_crc32_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else -Wno-implicit-fallthrough
+    INCLUDES public public/tier0 public/tier1 common ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/ss_crc32_oracle_test.cpp
+            ${checksum_crc_stock})
+endif()
+
+# Pristine tier1/mempool.cpp over src/test/native/mempool_scenario.h, recorded
+# as the golden src/test/client/Fixtures/mempool-stock.tsv that
+# mempool_client_test replays against client.so's CUtlMemoryPool members
+# (tier1_client.cpp, plan_client_novalve C9).
+set(mempool_stock "${SS_VALVE_SRC}/tier1/mempool.cpp")
+if(NOT EXISTS "${mempool_stock}")
+  ss_oracle_missing(mempool_stock_oracle_test "no ${mempool_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(mempool_stock_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else -Wno-sign-compare
+    INCLUDES public public/tier0 public/tier1 common ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/mempool_stock_oracle_test.cpp
+            ${mempool_stock})
+endif()
+
+# Pristine bitmap.a (TGAWriter) and vtf.a (CVTFTexture), the prebuilt archives
+# the SDK ships (no source), over seeded pixel buffers, recorded as the golden
+# src/test/client/Fixtures/image-encode-stock.tsv that the managed screenshot
+# encoders replay byte for byte (plan_client_novalve C9: bitmap.a and vtf.a
+# off client.so).
+set(bitmap_stock "${SS_VALVE_SRC}/lib/public/linux64/bitmap.a")
+set(vtf_stock "${SS_VALVE_SRC}/lib/public/linux64/vtf.a")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${bitmap_stock}" OR NOT EXISTS "${vtf_stock}")
+  ss_oracle_missing(image_encode_oracle_test "no ${bitmap_stock} or ${vtf_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(image_encode_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable -Wno-reorder-ctor
+    INCLUDES public public/tier0 public/tier1
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/image_encode_oracle_test.cpp
+    LIBS ${vtf_stock} ${bitmap_stock})
+endif()

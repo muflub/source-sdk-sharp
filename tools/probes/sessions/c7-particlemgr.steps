@@ -1,0 +1,22 @@
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+cmd sv_cheats 1
+cmd setpos -1640 1560 60
+cmd setang 0 90 0
+sleep 3
+cmd setang 0 60 0
+sleep 2
+cmd map dm_lockdown
+wait first paint 240
+cmd sv_cheats 1
+cmd give weapon_smg1
+cmd give item_ammo_smg1
+sleep 1
+cmd use weapon_smg1
+sleep 1
+cmd +attack
+sleep 2
+cmd -attack
+sleep 1
+quit

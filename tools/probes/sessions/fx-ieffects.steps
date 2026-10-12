@@ -1,0 +1,103 @@
+# lane c2-fx: IEffects' oracle (EffectsClient.cpp, probe copy). Every call, the
+# suppression state it saw, the random draw and the FX_* call it made: from
+# networked temp entities (cs_te_fire all), from the backend scaffolding, and
+# from the arms a session does not reach alone (SuppressEvents on, the ricochet
+# sound suppressed, each muzzle-flash type). Needs the probe build.
+wait managed client module initialized 120
+cmd map dm_lockdown
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_te_fire all
+sleep 0.5
+cmd cs_cl_te_backend sparks
+cmd cs_cl_te_backend metalsparks
+cmd cs_cl_te_backend ricochet
+cmd cs_cl_te_backend muzzleflash
+cmd cs_cl_te_backend smoke
+cmd cs_cl_te_backend splash
+cmd cs_cl_te_backend dust
+cmd cs_cl_probe_fxmuzzle 0
+cmd cs_cl_probe_fxmuzzle 1
+cmd cs_cl_probe_fxmuzzle 2
+cmd cs_cl_probe_fxmuzzle 3
+cmd cs_cl_probe_fxmuzzle 4
+cmd cs_cl_probe_fxmuzzle 7
+cmd cs_cl_probe_fxmuzzle -1
+cmd cs_cl_probe_fxsuppress 1
+cmd cs_cl_te_backend sparks
+cmd cs_cl_te_backend metalsparks
+cmd cs_cl_te_backend ricochet
+cmd cs_cl_te_backend muzzleflash
+cmd cs_cl_te_backend smoke
+cmd cs_cl_te_backend splash
+cmd cs_cl_te_backend dust
+cmd cs_cl_probe_fxmuzzle 4
+cmd cs_cl_probe_fxmuzzle 1
+cmd cs_cl_probe_fxmuzzle 2
+cmd cs_cl_probe_fxsuppress 0
+cmd cs_cl_probe_fxsuppresssound 1
+cmd cs_cl_te_backend ricochet
+cmd cs_cl_te_backend ricochet
+cmd cs_cl_probe_fxsuppresssound 0
+cmd cs_cl_te_backend ricochet
+sleep 2
+quit

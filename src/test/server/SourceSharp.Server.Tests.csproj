@@ -1,0 +1,93 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The server's facts: this project references SourceSharp.Server and never the client.
+    plan_side_isolation P6 (with P7b): the suite is split by side, so each side's
+    facts compile against that side alone. Fact-less helpers shared between the
+    test projects live in ../common and are linked in by name below.
+  -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/tests-server/</OutputPath>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <!-- StaticStateWaivers reads the static-state waiver list through the analyzer's parser. -->
+    <ProjectReference Include="..\..\analyzers\SourceSharp.Analyzers.csproj" />
+    <ProjectReference Include="..\support\SourceSharp.TestSupport.csproj" />
+    <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
+    <ProjectReference Include="..\..\server\interface\SourceSharp.Server.Interface.csproj" />
+    <ProjectReference Include="..\..\debug_api\Debug.Api.Server.csproj" />
+    <ProjectReference Include="..\..\mapgen\SourceSharp.MapGen.csproj" />
+    <ProjectReference Include="..\..\debug_api_shared\Debug.Api.Shared.csproj" />
+    <ProjectReference Include="..\..\mods\SourceSharp.Mods.csproj" />
+    <ProjectReference Include="..\..\launcher\SourceSharp.Launcher.csproj" />
+    <ProjectReference Include="..\..\host\managed\SourceSharp.Bootstrap.csproj" />
+    <ProjectReference Include="..\..\generators\SourceSharp.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- LINKS -->
+    <!-- The mdl fixture builder: ServerSkeletonsTests pose real (built) models. -->
+    <Compile Include="..\common\StudioHdrBuilder.cs" Link="common\StudioHdrBuilder.cs" />
+    <Compile Include="..\common\StudioHdrBuilder.Procedural.cs" Link="common\StudioHdrBuilder.Procedural.cs" />
+    <Compile Include="..\common\StudioHdrBuilder.Query.cs" Link="common\StudioHdrBuilder.Query.cs" />
+    <Compile Include="..\common\ServiceRegistryTests.Helpers.cs" Link="common\ServiceRegistryTests.Helpers.cs" />
+    <Compile Include="..\common\UserMessageFixtures.cs" Link="common\UserMessageFixtures.cs" />
+    <Compile Include="..\common\SideReach.cs" Link="common\SideReach.cs" />
+    <Compile Include="..\common\EngineApiCensusTests.Helpers.cs" Link="common\EngineApiCensusTests.Helpers.cs" />
+    <Compile Include="..\common\TestConVars.cs" Link="common\TestConVars.cs" />
+    <Compile Include="..\common\RecordingUserMessageEngine.cs" Link="common\RecordingUserMessageEngine.cs" />
+    <Compile Include="..\common\FakeStringTable.cs" Link="common\FakeStringTable.cs" />
+    <Compile Include="..\common\SideAudit.cs" Link="common\SideAudit.cs" />
+    <Compile Include="..\common\AssemblyInfo.cs" Link="common\AssemblyInfo.cs" />
+    <Compile Include="..\common\ProcessWide.cs" Link="common\ProcessWide.cs" />
+    <Compile Include="..\common\EntityInjectionShared.cs" Link="common\EntityInjectionShared.cs" />
+    <Compile Include="..\common\TwoInstanceProbe.cs" Link="common\TwoInstanceProbe.cs" />
+    <Compile Include="..\common\SaveThrowerEntity.cs" Link="common\SaveThrowerEntity.cs" />
+    <Compile Include="..\common\EntityInjectionFixtures.cs" Link="common\EntityInjectionFixtures.cs" />
+    <Compile Include="..\common\DebugApiGoldenWorldTests.Helpers.cs" Link="common\DebugApiGoldenWorldTests.Helpers.cs" />
+    <Compile Include="..\common\SideContext.cs" Link="common\SideContext.cs" />
+    <Compile Include="..\common\DebugApiGoldenTouchingTests.Helpers.cs" Link="common\DebugApiGoldenTouchingTests.Helpers.cs" />
+    <Compile Include="..\common\TestShellLessRelay.cs" Link="common\TestShellLessRelay.cs" />
+    <Compile Include="..\common\ProbeStringTable.cs" Link="common\ProbeStringTable.cs" />
+    <Compile Include="..\common\SourceFileNamesExistTests.Helpers.cs" Link="common\SourceFileNamesExistTests.Helpers.cs" />
+    <Compile Include="..\common\EngineApiAreasTests.Helpers.cs" Link="common\EngineApiAreasTests.Helpers.cs" />
+    <Compile Include="..\common\ManagedVtableTests.Helpers.cs" Link="common\ManagedVtableTests.Helpers.cs" />
+    <Compile Include="..\common\AbiParityTests.Helpers.cs" Link="common\AbiParityTests.Helpers.cs" />
+    <Compile Include="..\common\AnimListSources.cs" Link="common\AnimListSources.cs" />
+    <Compile Include="..\common\FakeShimRoot.cs" Link="common\FakeShimRoot.cs" />
+    <Compile Include="..\common\ScriptedVarInventory.cs" Link="common\ScriptedVarInventory.cs" />
+    <Compile Include="..\common\StaticStateWaivers.cs" Link="common\StaticStateWaivers.cs" />
+    <Compile Include="..\common\TestMapSpawner.cs" Link="common\TestMapSpawner.cs" />
+    <Compile Include="..\common\TestStringTables.cs" Link="common\TestStringTables.cs" />
+    <Compile Include="..\common\DebugApiJson.cs" Link="common\DebugApiJson.cs" />
+    <Compile Include="..\common\NeverPumped.cs" Link="common\NeverPumped.cs" />
+    <Compile Include="..\common\TestDebugHooks.cs" Link="common\TestDebugHooks.cs" />
+    <Compile Include="..\common\TestConsoleBuffer.cs" Link="common\TestConsoleBuffer.cs" />
+    <Compile Include="..\common\CMakeGraph.cs" Link="common\CMakeGraph.cs" />
+    <Compile Include="..\common\ContractBaseline.cs" Link="common\ContractBaseline.cs" />
+    <Compile Include="..\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\common\ReloadFixtures.cs" Link="common\ReloadFixtures.cs" />
+    <Compile Include="..\common\RecordingCommandLine.cs" Link="common\RecordingCommandLine.cs" />
+    <Compile Include="..\common\SandboxMapFactAttribute.cs" Link="common\SandboxMapFactAttribute.cs" />
+    <Compile Include="..\common\RecordingBlastSweep.cs" Link="common\RecordingBlastSweep.cs" />
+    <Compile Include="..\common\RecordingDecals.cs" Link="common\RecordingDecals.cs" />
+    <Compile Include="..\common\DebugApiGolden.cs" Link="common\DebugApiGolden.cs" />
+    <Compile Include="..\common\RepoSourceFactAttribute.cs" Link="common\RepoSourceFactAttribute.cs" />
+    <Compile Include="..\common\SharedSourceFactAttribute.cs" Link="common\SharedSourceFactAttribute.cs" />
+    <Compile Include="..\common\TestServices.cs" Link="common\TestServices.cs" />
+    <Compile Include="..\common\TestServices.Server.cs" Link="common\TestServices.Server.cs" />
+    <Compile Include="..\common\RecordingJointTables.cs" Link="common\RecordingJointTables.cs" />
+    <Compile Include="..\common\TempEntsDouble.cs" Link="common\TempEntsDouble.cs" />
+    <Compile Include="..\common\RecordingEffectDispatch.cs" Link="common\RecordingEffectDispatch.cs" />
+  </ItemGroup>
+</Project>

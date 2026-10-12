@@ -1,0 +1,14 @@
+# lane c2-sims: record the client wind (tools/probes/c2sims-wind-probe.diff
+# applied) on dm_lockdown: the recording starts, then an env_wind with short
+# gusts is created, and 400 thinks are recorded (the Start row first).
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -4066.64 5622 1.59
+cmd setang_exact 0 37 0
+sleep 1
+cmd cs_cl_probe_sim wind 400
+cmd ent_create env_wind targetname c2wind minwind 20 maxwind 60 mingust 80 maxgust 150 mingustdelay 0.4 maxgustdelay 0.9 gustduration 0.5 gustdirchange 30
+wait sim. recorded 60
+quit

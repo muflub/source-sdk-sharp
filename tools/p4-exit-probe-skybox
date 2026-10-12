@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""tools/p4-exit-probe-skybox -- does a managed player's 3d-skybox area ever get
+written?
+
+WHY THIS EXISTS. game/server/playerlocaldata.cpp's UpdateAllClientData walked
+UTIL_PlayerByIndex, which under SOURCESHARP returns NULL for every index --
+UTIL_SDKPlayerFromEdict says so in its own comment ("Output: NULL, always, in
+this build"). So the loop ran maxClients times and its BODY never ran once, and
+two things went with it:
+
+  1. the 3D SKYBOX never reached a client: ClientData_Update is the ONLY caller
+     of SourceSharp_FillSkyboxParams in the tree, so the managed sky_camera's
+     push had no reader;
+  2. m_skybox3d.area stayed at its CONSTRUCTED 0 instead of stock's 255, and
+     shell_gameents.cpp's CheckTransmit reads it -- shell_transmitsteps.cpp's
+     own comment says why that matters: "area 0 is a real visleaf area ...
+     CheckTransmit RETURNS EARLY for one of them and walks 473 edicts for the
+     other."
+
+THIS PROBE READS (2), WHICH IS ON EVERY MAP. (1) needs a map with a sky_camera
+and dm_lockdown has none, which is exactly why no live gate this project has
+could ever have seen the bug.
+
+IT USES AN INSTRUMENT THAT WAS ALREADY THERE. `cs_sv_transmitset` prints
+`skyarea=%d` from the value CheckTransmit actually used, so this probe adds no
+convar, no counter and no debt.
+
+READ OUT OF THE GAME'S OWN STDOUT, NOT THE DEV API LOG: native Msg() output
+lands in console.log and never in the debug-api log.
+
+    tools/p4-exit-probe-skybox [--map dm_lockdown] [--expect 255]
+
+Exit 0 when the observed area is the expected one, 1 when it is not, 2 when the
+probe could not measure. `--expect 0` is how the BEFORE half of the A/B is run:
+a probe that only ever passes is not a probe, and this one is run against a
+build with the fix reverted to prove it can fail.
+"""
+
+import argparse
+import importlib.machinery
+import importlib.util
+import os
+import re
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+spec = importlib.util.spec_from_file_location(
+    "livegate", os.path.join(HERE, "live-gate"),
+    loader=importlib.machinery.SourceFileLoader("livegate", os.path.join(HERE, "live-gate")))
+lg = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lg)
+
+HEAD = re.compile(r"TRANSMITSET: recipient=(-?\d+) count=(\d+) skyarea=(-?\d+)")
+
+
+def transmitset(api, logpath):
+    """Arm the capture, let a frame run, dump it, parse the header.
+
+    The offset is taken BEFORE the dump so what is parsed is THIS ask.
+    """
+    api.cmd("cs_sv_transmitset arm")
+    time.sleep(1.0)                      # at least one CheckTransmit
+    start = os.path.getsize(logpath)
+    api.cmd("cs_sv_transmitset")
+
+    text = ""
+    deadline = time.time() + 20.0
+    while time.time() < deadline:
+        with open(logpath, "rb") as f:
+            f.seek(start)
+            text = f.read().decode("latin-1")
+        m = HEAD.search(text)
+        if m:
+            return int(m.group(1)), int(m.group(2)), int(m.group(3)), text
+        if "TRANSMITSET: nocapture" in text:
+            return None, None, None, text
+        time.sleep(0.4)
+    return None, None, None, text
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--map", default="dm_lockdown")
+    ap.add_argument("--expect", type=int, default=255)
+    args = ap.parse_args()
+
+    tmp = os.path.join(lg.SOCKET_DIR, "p4-exit-skybox-tmp")
+    log = os.path.join(lg.ROOT, "tools", ".p4-exit-probe-skybox.log")
+
+    port = lg.free_udp_port(27700, 27890)
+    game = lg.Game.launch(lg.server_launch(port, args.map), log, tmp)
+    if game is None:
+        print("could not launch a game; see %s" % log)
+        return 2
+
+    try:
+        game.api.wait_map(1, seconds=120.0)
+        recipient, count, area, text = transmitset(game.api, log)
+        if area is None:
+            print("cs_sv_transmitset answered nothing usable:")
+            print(text[-600:])
+            return 2
+
+        print("  recipient=%d  count=%d  skyarea=%d" % (recipient, count, area))
+
+        # THE PREMISE, ASSERTED BEFORE THE CLAIM. A capture of nothing would
+        # report skyarea=0 from an uninitialised field and read exactly like
+        # the bug.
+        if count <= 0:
+            print("  FAIL: the capture is empty, so skyarea is not a reading "
+                  "of anything")
+            return 2
+
+        ok = (area == args.expect)
+        print("  %s expected skyarea=%d, got %d"
+              % ("PASS" if ok else "FAIL", args.expect, area))
+        if args.expect == 255 and not ok and area == 0:
+            print("        0 is the CONSTRUCTED value: nothing ever wrote the "
+                  "field, which is the bug this probe is for.")
+        return 0 if ok else 1
+    finally:
+        game.kill()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

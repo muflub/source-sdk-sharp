@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="1088" y="1049" width="384" height="27" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="2"/>
+<text x="1096" y="1067.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="3">n 19:04:12 1a0e · m 20:31:40 4337 · client-ui@8cd02c00</text>
+<rect x="2347" y="48" width="181" height="40" rx="4" fill="#111317" data-e="6"/>
+<text x="2360" y="75.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="7">Alyx</text>
+<text x="2359" y="74.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#7ebaf6" xml:space="preserve" data-e="7">Alyx</text>
+<path transform="translate(2402 56) scale(1 1)" fill-rule="evenodd" fill="#ff8a3d" d="M14 4 H30 V6 H36 V7 H46 V10 H40 V15 H30 V12 H26 V20 H22 V12 H19 L18 21 H13 L14 12 H8 V11 H1 V5 H8 V6 H14 Z M3 7 H6 V9 H3 Z" data-icon="smg1" data-rect="2402 56 48 24" data-e="8"/>
+<text x="2459" y="75.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="9">Barney</text>
+<text x="2458" y="74.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f6705e" xml:space="preserve" data-e="9">Barney</text>
+<rect x="2311" y="92" width="217" height="40" rx="4" fill="#111317" data-e="10"/>
+<text x="2324" y="119.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="11">Barney</text>
+<text x="2323" y="118.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f6705e" xml:space="preserve" data-e="11">Barney</text>
+<path transform="translate(2389 100) scale(1 1)" fill-rule="evenodd" fill="#ff8a3d" d="M12 5 H26 V6 H62 V12 H46 V15 H34 V12 H26 V13 H20 L19 21 H14 L15 13 H12 L2 14 V7 L12 6 Z M28 8 H54 V10 H28 Z M37 12 H39 V15 H37 Z M41 12 H43 V15 H41 Z M5 9 H10 V11 H5 Z" data-icon="shotgun" data-rect="2389 100 64 24" data-e="12"/>
+<text x="2462" y="119.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="13">Grigori</text>
+<text x="2461" y="118.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#7ebaf6" xml:space="preserve" data-e="13">Grigori</text>
+<rect x="2333" y="136" width="195" height="40" rx="4" fill="#111317" data-e="14"/>
+<rect x="2334" y="137" width="193" height="38" rx="3" fill="none" stroke="#ffb52e" stroke-width="2" data-e="14"/>
+<text x="2346" y="163.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="15">Gordon</text>
+<text x="2345" y="162.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f6705e" xml:space="preserve" data-e="15">Gordon</text>
+<path transform="translate(2413 144) scale(1 1)" fill-rule="evenodd" fill="#ff8a3d" d="M20 4 H32 V7 H28 V9 H44 V2 H47 V9 H56 L60 10.5 L56 12 H47 V22 H44 V12 H26 L25 20 H20 L21 12 H14 L2 15 V9 H24 V7 H20 Z" data-icon="crossbow" data-rect="2413 144 60 24" data-e="16"/>
+<text x="2482" y="163.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="17">Alyx</text>
+<text x="2481" y="162.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#7ebaf6" xml:space="preserve" data-e="17">Alyx</text>
+<rect x="2303" y="180" width="225" height="40" rx="4" fill="#111317" data-e="18"/>
+<text x="2316" y="207.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="19">Grigori</text>
+<text x="2315" y="206.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#7ebaf6" xml:space="preserve" data-e="19">Grigori</text>
+<path transform="translate(2378 188) scale(1 1)" fill-rule="evenodd" fill="#ff8a3d" d="M2 6 H8 V7 H34 V3 H42 V7 H60 V6 H70 V13 H60 V12 H44 V18 H40 V12 H31 L30 20 H25 L26 12 H8 V13 H2 Z M36 4 H40 V6 H36 Z" data-icon="rpg" data-rect="2378 188 72 24" data-e="20"/>
+<text x="2459" y="207.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="21">Kleiner</text>
+<text x="2458" y="206.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#f6705e" xml:space="preserve" data-e="21">Kleiner</text>
+<rect x="1263" y="538" width="13" height="4" fill="#000000" fill-opacity="0.47" data-e="25"/>
+<rect x="1284" y="538" width="13" height="4" fill="#000000" fill-opacity="0.47" data-e="25"/>
+<rect x="1278" y="523" width="4" height="13" fill="#000000" fill-opacity="0.47" data-e="25"/>
+<rect x="1278" y="544" width="4" height="13" fill="#000000" fill-opacity="0.47" data-e="25"/>
+<rect x="1264" y="539" width="11" height="2" fill="#f2eee6" fill-opacity="0.85" data-e="25"/>
+<rect x="1285" y="539" width="11" height="2" fill="#f2eee6" fill-opacity="0.85" data-e="25"/>
+<rect x="1279" y="524" width="2" height="11" fill="#f2eee6" fill-opacity="0.85" data-e="25"/>
+<rect x="1279" y="545" width="2" height="11" fill="#f2eee6" fill-opacity="0.85" data-e="25"/>
+<rect x="29" y="939" width="238" height="98" rx="11" fill="#000000" fill-opacity="0.09" data-e="33"/>
+<rect x="30.5" y="940.5" width="235" height="95" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="33"/>
+<rect x="32" y="940" width="232" height="92" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="33"/>
+<rect x="48" y="978" width="24" height="8" fill="#ffb52e" data-e="35"/>
+<rect x="56" y="970" width="8" height="8" fill="#ffb52e" data-e="35"/>
+<rect x="56" y="986" width="8" height="8" fill="#ffb52e" data-e="35"/>
+<text x="85" y="1000.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="36">100</text>
+<text x="84" y="999.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#ffb52e" xml:space="preserve" data-e="36">100</text>
+<text x="200" y="986.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="38">HEALTH</text>
+<rect x="48" y="1016" width="200" height="4" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="39"/>
+<rect x="48" y="1016" width="200" height="4" rx="2" fill="#ffb52e" data-e="40"/>
+<rect x="273" y="939" width="238" height="98" rx="11" fill="#000000" fill-opacity="0.09" data-e="42"/>
+<rect x="274.5" y="940.5" width="235" height="95" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="42"/>
+<rect x="276" y="940" width="232" height="92" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="42"/>
+<polygon points="304,970 316,973.4 314.6,984.9 304,994 293.4,984.9 292,973.4" fill="#ffb52e" data-e="44"/>
+<text x="329" y="1000.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="45">60</text>
+<text x="328" y="999.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#ffb52e" xml:space="preserve" data-e="45">60</text>
+<text x="463" y="986.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="47">SUIT</text>
+<rect x="292" y="1016" width="200" height="4" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="48"/>
+<rect x="292" y="1016" width="120" height="4" rx="2" fill="#ffb52e" data-e="49"/>
+<rect x="2231" y="939" width="300" height="98" rx="11" fill="#000000" fill-opacity="0.09" data-e="56"/>
+<rect x="2232.5" y="940.5" width="297" height="95" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="56"/>
+<rect x="2234" y="940" width="294" height="92" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="56"/>
+<polygon points="2257.7,978.6 2259.6,972.4 2262,970 2264.4,972.4 2266.3,978.6" fill="#ffb52e" data-e="58"/>
+<rect x="2258" y="980" width="8" height="12" fill="#ffb52e" data-e="58"/>
+<rect x="2256" y="992" width="12" height="2" fill="#ffb52e" data-e="58"/>
+<text x="2287" y="1000.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="59">32</text>
+<text x="2286" y="999.15" font-family="IBM Plex Sans Condensed" font-size="46" font-weight="700" fill="#ffb52e" xml:space="preserve" data-e="59">32</text>
+<text x="2349" y="989.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="60">/ 180</text>
+<text x="2348" y="988.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="60">/ 180</text>
+<rect x="2404" y="962" width="1" height="40" fill="#ffffff" fill-opacity="0.1" data-e="61"/>
+<rect x="2417" y="962" width="12" height="16" rx="2" fill="#ffb52e" data-e="64"/>
+<rect x="2433" y="962" width="12" height="16" rx="2" fill="#ffb52e" data-e="65"/>
+<rect x="2449" y="962" width="12" height="16" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="66"/>
+<rect x="2449.5" y="962.5" width="11" height="15" rx="1.5" fill="none" stroke="#ffb52e" stroke-width="1" data-e="66"/>
+<text x="2417" y="996.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="67">ALT</text>
+<text x="2485" y="986.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="69">SMG</text>
+</svg>

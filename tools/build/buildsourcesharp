@@ -1,0 +1,168 @@
+#!/bin/bash
+#
+# Builds the SourceSharp mod: the web UI, the managed C#, the source# launcher,
+# then the native C++ with CMake + Ninja on the host (clang 22 + lld).
+#
+# Usage: farm/<config>/src/buildsourcesharp [debug|release] [--test] [--no-strip] [--no-gc-sections] [--coverage]
+#
+# Runs from a farm (tools/setup): farm/<config>/src is the old checkout's src/
+# as a tree of links. The configuration defaults to the farm's own, and naming
+# the other one is an error: each farm builds into its own bin/<config>.
+#
+# The native half is `cmake --preset <config>` + `cmake --build --preset
+# <config>` from the repo root (CMakeLists.txt, CMakePresets.json). It compiles
+# the farm's sources, so sdk-links/ stays the one record of the Valve files
+# the build depends on. No container: a local build does not care how old glibc is.
+# CI runs the same project inside Valve's sniper SDK image (tools/build/ci-build).
+#
+# --coverage builds for reach evidence: -O0 (debug) + --coverage on every
+# translation unit, so a run leaves .gcda files. It is the input to the guard
+# reach check (G2), which convicts a TRUE-DEAD row if its region executed.
+# It forces debug, because -O2 line attribution is lossy enough to convict an
+# innocent row, and the .gcda only reads back against -O0 objects.
+#
+set -euo pipefail
+
+# $script is this file in the repo (tools/build/); the farm links it in as
+# src/buildsourcesharp, and it must run from THERE, so the unresolved path
+# decides the working directory.
+script=$(readlink -f -- "$0")
+pushd "$(dirname -- "$0")" > /dev/null
+FARM_SRC="$(pwd)"
+FARM="$(dirname -- "$FARM_SRC")"
+SS_REPO="$(cd -- "$(dirname -- "$script")/../.." && pwd -P)"
+FARM_CONFIG="$(basename -- "$FARM")"
+if [[ "$(dirname -- "$FARM")" != "$SS_REPO/farm" ]]; then
+    echo "error: run this from a farm, farm/<config>/src/buildsourcesharp (make debug does)"
+    exit 1
+fi
+
+MODE="$FARM_CONFIG"
+RUN_TEST=0
+NO_STRIP=0
+NO_GC_SECTIONS=0
+COVERAGE=0
+for arg in "$@"; do
+    case "$arg" in
+        debug|release) MODE="$arg" ;;
+        --test) RUN_TEST=1 ;;
+        --no-strip) NO_STRIP=1 ;;
+        --no-gc-sections) NO_GC_SECTIONS=1 ;;
+        --coverage) COVERAGE=1 ;;
+        *) echo "usage: $0 [debug|release] [--test] [--no-strip] [--no-gc-sections] [--coverage]"; exit 1 ;;
+    esac
+done
+
+# Coverage is an -O0 instrument, so it takes precedence over the mode named on
+# the command line: a "release --coverage" build would instrument at -O2 and
+# attribute a hit to the wrong line.
+if [[ $COVERAGE -eq 1 && $MODE == release ]]; then
+    echo "==> --coverage forces a debug (-O0) build"
+    MODE="debug"
+fi
+if [[ $MODE != "$FARM_CONFIG" ]]; then
+    echo "error: this is the $FARM_CONFIG farm; build $MODE from farm/$MODE/src"
+    exit 1
+fi
+
+# --- managed: needs the .NET SDK ------------------------------------------
+DOTNET="${DOTNET:-$HOME/.dotnet/dotnet}"
+if [[ ! -x "$DOTNET" ]]; then
+    if command -v dotnet &> /dev/null; then
+        DOTNET="$(command -v dotnet)"
+    else
+        echo "error: dotnet not found. Install the .NET 10 SDK, or set DOTNET=/path/to/dotnet"
+        exit 1
+    fi
+fi
+
+# The UI is built before the managed assemblies because Debug.Api.Server
+# embeds it at compile time; a debug build serves it straight from the tree.
+echo "==> building the web UI ($MODE)"
+
+REPO="$(cd .. && pwd)"
+"$REPO/tools/get-node"
+export PATH="$REPO/tools/node/bin:$PATH"
+
+# npm's cache and temp directory kept in the tree, so a build touches nothing
+# outside it.
+export npm_config_cache="$REPO/tools/.npm-cache"
+export TMPDIR="$REPO/tools/.npm-tmp"
+mkdir -p "$TMPDIR"
+
+if [[ ! -d sourcesharp/webui/node_modules ]]; then
+    echo "==> installing UI dependencies"
+    ( cd sourcesharp/webui && npm ci --no-audit --no-fund )
+fi
+
+( cd sourcesharp/webui && npm run build --silent -- $([[ $MODE == debug ]] && echo --dev) )
+
+echo "==> building managed assemblies ($MODE)"
+"$DOTNET" build "$SS_REPO/SourceSharp.slnx" -v q --nologo \
+    -c "$([[ $MODE == debug ]] && echo Debug || echo Release)"
+
+# The launcher is NativeAOT, which `dotnet build` does not produce; publish
+# copies it to bin/<config>/source# (src/launcher's post-publish target).
+echo "==> publishing the launcher, source# ($MODE)"
+"$DOTNET" publish "$SS_REPO/src/launcher/SourceSharp.Launcher.csproj" -v q --nologo \
+    -c "$([[ $MODE == debug ]] && echo Debug || echo Release)"
+
+# --- native: CMake + Ninja on the host --------------------------------------
+#
+# Every option is passed on every configure, so crossing back over one (a
+# --no-gc-sections build followed by a normal one) takes effect: a CMake cache
+# variable left from the last run would otherwise stick.
+#
+# Dead code is dropped at link time by default; --no-gc-sections is the way
+# back out (see SS_GC_SECTIONS in cmake/SourceSharp.cmake). It changes the
+# compiler command line, so everything rebuilds when you cross that line.
+cmake_opts=(
+    -DSS_GC_SECTIONS=$([[ $NO_GC_SECTIONS -eq 1 ]] && echo OFF || echo ON)
+    -DSS_COVERAGE=$([[ $COVERAGE -eq 1 ]] && echo ON || echo OFF)
+    -DSS_SPLIT_DEBUG=$([[ $NO_STRIP -eq 1 ]] && echo OFF || echo ON)
+)
+if [[ $NO_GC_SECTIONS -eq 1 ]]; then
+    echo "==> link-time dead code removal is OFF for this build"
+fi
+if [[ $COVERAGE -eq 1 ]]; then
+    echo "==> building for reach evidence (--coverage on every translation unit)"
+fi
+
+echo "==> configuring native ($MODE)"
+"$SS_REPO/tools/build/configure" "$MODE" "${cmake_opts[@]}"
+
+# Not piped or filtered on purpose: set -e stops on the real exit status, and
+# the compiler's own "file:line:col: error:" lines are the output to read.
+echo "==> building native"
+( cd "$SS_REPO" && cmake --build --preset "$MODE" )
+
+# --- which source the NATIVE half was built from ---------------------------
+#
+# The managed build wrote the three facts (see Directory.Build.props) from the
+# same tree the .so files were just linked from. Its own copy beside the .so
+# files, because the two halves diverge on purpose: rebuilding the managed half
+# alone leaves this one untouched, which is exactly right -- the native half in
+# a running game is still whatever it was built from.
+if [[ -f ../game/mod_sharp/bin/managed/sourcesharp.build ]]; then
+    cp -f ../game/mod_sharp/bin/managed/sourcesharp.build \
+          ../game/mod_sharp/bin/linux64/sourcesharp.build
+fi
+
+# Debug builds keep everything -- no split, no strip -- so a backtrace is usable
+# without chasing a sidecar. A release build splits the DWARF into <name>.dbg
+# as it deploys (cmake/deploy.cmake); gdb follows the .gnu_debuglink.
+if [[ $MODE == debug ]]; then
+    echo "==> debug build: symbols and DWARF kept in the binaries"
+fi
+
+if [[ $RUN_TEST -eq 1 ]]; then
+    echo "==> type-checking and testing the web UI"
+    (
+        cd sourcesharp/webui && npm run check --silent && npm test --silent
+    )
+
+    # plan_client_vtables CC-last (2b): the fake-engine harness drove the host
+    # through LoadSide V1 with a struct of stubs, and both are gone.
+fi
+
+popd > /dev/null

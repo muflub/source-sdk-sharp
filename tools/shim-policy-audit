@@ -1,0 +1,334 @@
+#!/usr/bin/env python3
+"""shim-policy-audit -- rank every SourceSharp shim TU as POLICY or BINDING.
+
+The test is plan_entity.md section 6's own closing sentence:
+
+    "Nothing on this list decides what the game does.
+     Nothing on it names an entity type."
+
+so this instrument measures exactly those two things, and nothing else.
+It is DELIBERATELY not a complexity metric.  Branch density (the first-pass
+instrument) ranks a mesh builder above a rule table, because a mesh builder
+branches per vertex and decides nothing.  What separates the two is not how
+many branches a file has but WHAT ITS BRANCHES ARE ABOUT.
+
+Three signals, each tied to one half of that sentence:
+
+  decides   a control-flow condition (if / while / switch / case / ternary)
+            or a ConVar declaration whose text contains a GAME-SEMANTIC token
+            -- a damage type, a movetype, a solid type, a spawnflag, a button,
+            a team, an activity, a collision group, a render group, a game
+            classname.  These are the tokens that mean "what the game does".
+            A null guard, a bounds check or a `!pMesh` early-out contains no
+            such token and is not counted, which is the whole point.
+
+  names     an occurrence of a STOCK ENTITY TYPE name (CBaseEntity, CBasePlayer,
+            C_BaseAnimating, CAI_BaseNPC, ...) or of a map classname string
+            literal.  Section 6's second sentence, counted directly.
+
+  binds     evidence the file exists to answer the engine: an engine interface
+            base (`: public IFoo`), an EXPOSE/INTERFACEVERSION macro, or a call
+            through an engine global (engine->, enginetrace->, modelrender->,
+            physenv->, partition->, materials->, ...).
+
+Counting hygiene, because prose-counted-as-code has bitten this port five
+times: comments and string literals are stripped before ANY code-token count.
+String literals are scanned separately, and only for the classname signal.
+
+Output is a TSV.  It states the signals; it does not state a verdict.  The
+verdict is argued file by file in
+.claude/entity-port/status/shim-audit.md -- a script cannot read intent, and
+handing back a number with a verdict attached is the error this instrument
+exists to avoid.
+"""
+
+import os
+import re
+import sys
+
+# ---------------------------------------------------------------------------
+# Token lists.  Each entry is here because it names a decision the GAME makes,
+# not a resource the ENGINE manages.
+# ---------------------------------------------------------------------------
+
+GAME_TOKEN_RE = re.compile(r"""\b(
+      DMG_[A-Z0-9_]+            # damage types
+    | MOVETYPE_[A-Z0-9_]+       # how a thing moves
+    | MOVECOLLIDE_[A-Z0-9_]+
+    | SOLID_[A-Z0-9_]+ | FSOLID_[A-Z0-9_]+
+    | COLLISION_GROUP_[A-Z0-9_]+
+    | MASK_[A-Z0-9_]+ | CONTENTS_[A-Z0-9_]+   # what a trace is allowed to hit
+    | (?<![A-Za-z0-9_])FL_[A-Z0-9_]+          # entity flags
+    | (?<![A-Za-z0-9_])EF_[A-Z0-9_]+          # effects flags
+    | (?<![A-Za-z0-9_])SF_[A-Z0-9_]+          # spawnflags
+    | (?<![A-Za-z0-9_])IN_[A-Z0-9_]+          # buttons
+    | ACT_[A-Z0-9_]+                          # activities
+    | TEAM_[A-Z0-9_]+ | CLASS_[A-Z0-9_]+ | HITGROUP_[A-Z0-9_]+
+    | LIFE_[A-Z0-9_]+ | WATERLEVEL_[A-Z0-9_]+
+    | RENDER_GROUP_[A-Z0-9_]+ | RENDERMODE_[A-Z0-9_]+ | kRenderFx[A-Za-z0-9_]*
+    | kRender[A-Z][A-Za-z0-9_]*
+    | SHADOWS_[A-Z0-9_]+ | SHADOW_[A-Z0-9_]+
+    | PLAYER_[A-Z0-9_]+ | OBS_MODE_[A-Z0-9_]+
+    | DAMAGE_[A-Z0-9_]+ | BLOOD_COLOR_[A-Z0-9_]+
+    | USE_[A-Z0-9_]+ | CAP_[A-Z0-9_]+
+    | AMMO_[A-Z0-9_]+ | WEAPON_[A-Z0-9_]+
+    | HUD_[A-Z0-9_]+
+    | GAME_[A-Z0-9_]+ | GR_[A-Z0-9_]+
+    | SND_[A-Z0-9_]+ | CHAN_[A-Z0-9_]+ | SNDLVL_[A-Z0-9_]+
+    | ATTN_[A-Z0-9_]+ | PITCH_[A-Z0-9_]+
+    | BREAK_[A-Z0-9_]+ | MATERIAL_[A-Z0-9_]+
+    | ROLL_[A-Z0-9_]+ | PATTERN_[A-Z0-9_]+
+    | SIMULATION_[A-Z0-9_]+
+    | LATCH_[A-Z0-9_]+ | INTERPOLATE_[A-Z0-9_]+
+    | BONEMERGE_[A-Z0-9_]+ | BONE_[A-Z0-9_]+
+)\b""", re.X)
+
+# Stock entity type names.  The shell classes the port OWNS are excluded on
+# purpose: section 6 sanctions CEntityShell / C_EntityShell by name, and the
+# tree's current CStandaloneEntity / C_StandaloneEntity are their present
+# spelling.  Counting them would flag every file section 6 explicitly keeps.
+ENTITY_TYPE_RE = re.compile(r"""\b(
+      CBaseEntity | C_BaseEntity
+    | CBasePlayer | C_BasePlayer
+    | CBaseAnimating | C_BaseAnimating
+    | CBaseCombatCharacter | C_BaseCombatCharacter
+    | CBaseCombatWeapon | C_BaseCombatWeapon
+    | CBaseFlex | C_BaseFlex
+    | CAI_BaseNPC | C_AI_BaseNPC
+    | CBaseToggle | CBaseTrigger | CBaseDoor | CBaseButton
+    | CBaseProjectile | CBaseGrenade | C_BaseGrenade
+    | CBaseViewModel | C_BaseViewModel
+    | CBaseTempEntity | C_BaseTempEntity
+    | CWorld | C_World
+    | CSprite | C_Sprite | CBeam | C_Beam
+    | CRagdollProp | C_ServerRagdoll | C_ClientRagdoll
+    | CPhysicsProp | CBreakableProp | CDynamicProp
+    | CFuncBrush | CFuncAreaPortal | CFuncAreaPortalWindow
+    | CPointEntity | CServerOnlyEntity | CLogicalEntity
+)\b""", re.X)
+
+# A map classname in a string literal.  These prefixes are the Source entity
+# naming convention; "worldspawn" and "player" are named outright.
+CLASSNAME_RE = re.compile(r"""^(
+      npc_ | weapon_ | item_ | ammo_ | prop_ | func_ | trigger_ | info_
+    | env_ | point_ | logic_ | filter_ | ai_ | math_ | path_ | light
+    | move_ | game_ | phys_ | keyframe_ | color_ | shadow_ | infodecal
+    | test_ | vgui_ | scripted_ | assault_ | aiscripted_ | commentary_
+    | material_ | sky_ | water_ | beam | gib | grenade_
+)[a-z0-9_]*$|^(worldspawn|player|soundent|bodyque)$""", re.X)
+
+ENGINE_GLOBAL_RE = re.compile(r"""\b(
+      engine | enginetrace | enginesound | modelrender | modelinfo
+    | physenv | physcollision | physprops | physics | physgamedata
+    | partition | staticpropmgr | soundemitterbase | gameeventmanager
+    | networkstringtable | filesystem | materials | render | view
+    | debugoverlay | datacache | mdlcache | g_pMDLCache | g_pMaterialSystem
+    | g_pFullFileSystem | g_pVGuiPanel | g_pEffects | clienteffects
+    | effects | vgui | inputsystem | shadowmgr | clientleafsystem
+    | g_pClientMode | g_pStudioRender | studiorender | vprof
+)\s*->""", re.X)
+
+IFACE_BASE_RE = re.compile(r":\s*(?:public\s+|virtual\s+public\s+)(I[A-Z][A-Za-z0-9_]*)")
+EXPOSE_RE = re.compile(r"\b(EXPOSE_SINGLE_INTERFACE|EXPOSE_INTERFACE|INTERFACEVERSION_|CreateInterface)\b")
+CONVAR_RE = re.compile(r"\b(ConVar|ConCommand)\s+\w+\s*\(")
+
+# A float literal somebody CHOSE.  0/1/-1/0.5/2 are structural (identity,
+# midpoint, doubling) and are excluded so that "flScale * 0.5f" is not read as
+# a tuning knob.  This signal is EVIDENCE, NOT A VERDICT: bone_setup-style
+# leaf math has chosen constants too, and section 6 keeps that math.  It is
+# here because a rain splash chance and a jump height look exactly like each
+# other to every other signal.
+TUNING_RE = re.compile(r"(?<![A-Za-z0-9_.])(?!0\.0*[fF]?\b)(?!1\.0*[fF]?\b)(?!0\.50*[fF]?\b)(?!2\.0*[fF]?\b)\d+\.\d+[fF]?\b")
+
+# Randomness in native code is by construction a decision about what the game
+# does -- and on a predicted path it has to be the SHARED generator, so a bare
+# RandomFloat in the shim is both policy and a prediction hazard.
+RAND_RE = re.compile(r"\b(RandomFloat|RandomInt|RandomVector|SharedRandomFloat|SharedRandomInt|RandomAngle)\s*\(")
+
+# Does the file already delegate?  A file with policy signals and ZERO managed
+# calls is deciding entirely in C++; one with many is a thunk around a managed
+# decision and its signals are the argument list, not the rule.
+MANAGED_RE = re.compile(r"\b(SourceSharp_[A-Za-z0-9_]+|EntityOp_[A-Za-z0-9_]+|ManagedDispatch|g_pManagedRuntime|CallManaged[A-Za-z0-9_]*|Dispatch[A-Za-z0-9_]*Op)\s*\(")
+
+STRING_RE = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+
+
+def strip_comments_and_strings(text):
+    """Remove // and /* */ comments, then blank out string and char literals.
+
+    Prose counted as code has bitten this port five times; the audit doc says
+    that this ran.  Returns (code_with_strings_blanked, [string literals]).
+    """
+    out = []
+    i, n = 0, len(text)
+    state = 'code'
+    while i < n:
+        c = text[i]
+        nxt = text[i + 1] if i + 1 < n else ''
+        if state == 'code':
+            if c == '/' and nxt == '/':
+                state = 'line'
+                i += 2
+                continue
+            if c == '/' and nxt == '*':
+                state = 'block'
+                i += 2
+                continue
+            if c == '"':
+                state = 'str'
+                out.append('"')
+                i += 1
+                continue
+            if c == "'":
+                state = 'chr'
+                out.append("'")
+                i += 1
+                continue
+            out.append(c)
+            i += 1
+        elif state == 'line':
+            if c == '\n':
+                state = 'code'
+                out.append('\n')
+            i += 1
+        elif state == 'block':
+            if c == '*' and nxt == '/':
+                state = 'code'
+                i += 2
+                continue
+            if c == '\n':
+                out.append('\n')
+            i += 1
+        elif state == 'str':
+            if c == '\\':
+                out.append(c)
+                out.append(nxt)
+                i += 2
+                continue
+            out.append(c)
+            if c == '"':
+                state = 'code'
+            i += 1
+        elif state == 'chr':
+            if c == '\\':
+                out.append(c)
+                out.append(nxt)
+                i += 2
+                continue
+            out.append(c)
+            if c == "'":
+                state = 'code'
+            i += 1
+    code = ''.join(out)
+    literals = [m.group(0)[1:-1] for m in STRING_RE.finditer(code)]
+    code_nostr = STRING_RE.sub('""', code)
+    code_nostr = re.sub(r"'(?:[^'\\]|\\.)*'", "''", code_nostr)
+    return code_nostr, literals
+
+
+def conditions(code):
+    """Yield the text of every control-flow condition in `code`.
+
+    if/while/switch: balance-match the parenthesis.  case labels: the label.
+    Ternaries: the run of text before the `?` back to the last statement
+    boundary -- approximate, and reported separately so it can be discounted.
+    """
+    for m in re.finditer(r"\b(if|while|switch)\s*\(", code):
+        i = m.end() - 1
+        depth = 0
+        j = i
+        while j < len(code):
+            if code[j] == '(':
+                depth += 1
+            elif code[j] == ')':
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        yield code[i + 1:j]
+    for m in re.finditer(r"\bcase\s+([^:\n]{1,120}):", code):
+        yield m.group(1)
+    for m in re.finditer(r"([^;{}\n]{0,120})\?[^:;]{0,120}:", code):
+        yield m.group(1)
+
+
+def audit_file(path):
+    raw = open(path, 'r', errors='replace').read()
+    code, literals = strip_comments_and_strings(raw)
+
+    total_lines = raw.count('\n') + 1
+    code_lines = sum(1 for ln in code.splitlines() if ln.strip())
+
+    decide_conds = 0
+    decide_tokens = set()
+    for cond in conditions(code):
+        hits = GAME_TOKEN_RE.findall(cond)
+        if hits:
+            decide_conds += 1
+            decide_tokens.update(h if isinstance(h, str) else h[0] for h in hits)
+
+    convars = len(CONVAR_RE.findall(code))
+    tuning = len(TUNING_RE.findall(code))
+    rand = len(RAND_RE.findall(code))
+    managed = len(MANAGED_RE.findall(code))
+    game_tok_all = len(GAME_TOKEN_RE.findall(code))
+
+    entity_types = ENTITY_TYPE_RE.findall(code)
+    classnames = [s for s in literals if CLASSNAME_RE.match(s)]
+
+    iface_bases = set(IFACE_BASE_RE.findall(code))
+    engine_calls = len(ENGINE_GLOBAL_RE.findall(code))
+    exposes = len(EXPOSE_RE.findall(code))
+
+    return dict(
+        path=path,
+        lines=total_lines,
+        code_lines=code_lines,
+        decide_conds=decide_conds,
+        convars=convars,
+        tuning=tuning,
+        rand=rand,
+        managed=managed,
+        game_tok_all=game_tok_all,
+        n_entity_types=len(entity_types),
+        entity_types=';'.join(sorted(set(entity_types))[:6]),
+        n_classnames=len(set(classnames)),
+        classnames=';'.join(sorted(set(classnames))[:6]),
+        n_iface=len(iface_bases),
+        ifaces=';'.join(sorted(iface_bases)[:6]),
+        engine_calls=engine_calls,
+        exposes=exposes,
+        decide_tokens=';'.join(sorted(decide_tokens)[:8]),
+    )
+
+
+COLS = ['path', 'lines', 'code_lines', 'decide_conds', 'convars', 'tuning', 'rand',
+        'managed', 'game_tok_all',
+        'n_entity_types', 'n_classnames', 'n_iface', 'engine_calls', 'exposes',
+        'decide_per_kloc', 'bind_per_kloc', 'ifaces', 'entity_types',
+        'classnames', 'decide_tokens']
+
+
+def main():
+    roots = sys.argv[1:] or ['src/sourcesharp/game']
+    rows = []
+    for root in roots:
+        if os.path.isfile(root):
+            rows.append(audit_file(root))
+            continue
+        for dirpath, _dirs, files in os.walk(root):
+            for f in sorted(files):
+                if f.endswith(('.cpp', '.h')):
+                    rows.append(audit_file(os.path.join(dirpath, f)))
+    for r in rows:
+        kloc = max(r['code_lines'], 1) / 1000.0
+        r['decide_per_kloc'] = round((r['decide_conds'] + r['convars']) / kloc, 1)
+        r['bind_per_kloc'] = round((r['engine_calls'] + r['exposes'] * 5 + r['n_iface'] * 5) / kloc, 1)
+    rows.sort(key=lambda r: -(r['decide_conds'] + r['convars']))
+    print('\t'.join(COLS))
+    for r in rows:
+        print('\t'.join(str(r[c]) for c in COLS))
+
+
+if __name__ == '__main__':
+    main()

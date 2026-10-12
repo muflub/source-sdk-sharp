@@ -1,0 +1,810 @@
+--- a/src/game/client/fx_explosion.cpp	2026-10-05 12:33:04.494133771 -0700
++++ b/src/game/client/fx_explosion.cpp	2026-10-05 12:33:40.914994298 -0700
+@@ -28,6 +28,38 @@
+ // that quarantine is retired and the calls below name GameSound_* directly.
+ #include "gamesound.h"
+ 
++// lane c5-particles probe: the explosions' inputs, probes, draws and particles (explosion-stock.tsv).
++#include "fx_probe_log.h"
++static float ExRandF( float lo, float hi ) { const float v = random->RandomFloat( lo, hi ); FxProbeLog( "xr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v ); return v; }
++static int ExRandI( int lo, int hi ) { const int v = random->RandomInt( lo, hi ); FxProbeLog( "xr\ti\t%d\t%d\t%d", lo, hi, v ); return v; }
++static Vector ExRandomVector( float lo, float hi ) { const Vector v = RandomVector( lo, hi ); for ( int k = 0; k < 3; k++ ) FxProbeLog( "xr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v[k] ); return v; }
++static void ExVecRandom( Vector &v, float lo, float hi ) { v.Random( lo, hi ); for ( int k = 0; k < 3; k++ ) FxProbeLog( "xr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v[k] ); }
++static const char *ExMatName( PMaterialHandle h )
++{
++	if ( h == g_Mat_DustPuff[1] ) return "particle/particle_noisesphere";
++	if ( h == ParticleMgr()->GetPMaterial( "effects/fire_embers1" ) ) return "effects/fire_embers1";
++	if ( h == ParticleMgr()->GetPMaterial( "effects/fire_embers2" ) ) return "effects/fire_embers2";
++	if ( h == ParticleMgr()->GetPMaterial( "effects/fire_cloud2" ) ) return "effects/fire_cloud2";
++	if ( h == ParticleMgr()->GetPMaterial( "effects/splash1" ) ) return "effects/splash1";
++	if ( h == ParticleMgr()->GetPMaterial( "effects/splash2" ) ) return "effects/splash2";
++	if ( h == g_Mat_Fleck_Cement[0] ) return "effects/fleck_cement1";
++	if ( h == g_Mat_Fleck_Cement[1] ) return "effects/fleck_cement2";
++	return "?";
++}
++static void ExSimple( const char *pEmitter, const SimpleParticle *p, PMaterialHandle h )
++{
++	FxProbeLog( "xsp\t%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%s", pEmitter,
++	            p->m_Pos.x, p->m_Pos.y, p->m_Pos.z, p->m_vecVelocity.x, p->m_vecVelocity.y, p->m_vecVelocity.z, p->m_flLifetime, p->m_flDieTime,
++	            p->m_uchColor[0], p->m_uchColor[1], p->m_uchColor[2], p->m_uchStartAlpha, p->m_uchEndAlpha, p->m_uchStartSize, p->m_uchEndSize,
++	            p->m_flRoll, p->m_flRollDelta, ExMatName( h ) );
++}
++static void ExTrail( const TrailParticle *p )
++{
++	FxProbeLog( "xtp\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d", p->m_Pos.x, p->m_Pos.y, p->m_Pos.z,
++	            p->m_flLifetime, p->m_flDieTime, p->m_flWidth, p->m_flLength, p->m_vecVelocity.x, p->m_vecVelocity.y, p->m_vecVelocity.z,
++	            p->m_color.r, p->m_color.g, p->m_color.b, p->m_color.a );
++}
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -182,8 +214,10 @@
+ 	m_vecOrigin = position;
+ 	m_fFlags	= flags;
+ 
++	FxProbeLog( "xe\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", position.x, position.y, position.z, force, scale, flags );
+ 	//Find the force of the explosion
+ 	GetForceDirection( m_vecOrigin, force, &m_vecDirection, &m_flForce );
++	FxProbeLog( "xf\t%.9g\t%.9g\t%.9g\t%.9g", m_vecDirection.x, m_vecDirection.y, m_vecDirection.z, m_flForce );
+ 
+ #if __EXPLOSION_DEBUG
+ 	if ( debugoverlay )
+@@ -232,6 +266,7 @@
+ 	SimpleParticle	*pParticle;
+ 
+ 	CSmartPtr<CExplosionParticle> pSimple = CExplosionParticle::Create( "exp_smoke" );
++	FxProbeLog( "xc\texp_smoke" );
+ 	pSimple->SetSortOrigin( m_vecOrigin );
+ 	pSimple->SetNearClip( 64, 128 );
+ 
+@@ -247,6 +282,7 @@
+ 
+ 	//Find area ambient light color and use it to tint smoke
+ 	Vector worldLight = WorldGetLightForPoint( offset, true );
++	FxProbeLog( "xl\t%.9g\t%.9g\t%.9g", worldLight.x, worldLight.y, worldLight.z );
+ 	
+ 	Vector	tint;
+ 	float	luminosity;
+@@ -281,20 +317,20 @@
+ 				pParticle->m_flLifetime = 0.0f;
+ 
+ 	#ifdef INVASION_CLIENT_DLL
+-				pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
++				pParticle->m_flDieTime	= ExRandF( 0.5f, 1.0f );
+ 	#endif
+ 	#ifdef _XBOX
+ 				pParticle->m_flDieTime	= 1.0f;
+ 	#else
+-				pParticle->m_flDieTime	= random->RandomFloat( 2.0f, 3.0f );
++				pParticle->m_flDieTime	= ExRandF( 2.0f, 3.0f );
+ 	#endif
+ 
+-				pParticle->m_vecVelocity.Random( -spread, spread );
+-				pParticle->m_vecVelocity += ( m_vecDirection * random->RandomFloat( 1.0f, 6.0f ) );
++				ExVecRandom( pParticle->m_vecVelocity, -spread, spread );
++				pParticle->m_vecVelocity += ( m_vecDirection * ExRandF( 1.0f, 6.0f ) );
+ 				
+ 				VectorNormalize( pParticle->m_vecVelocity );
+ 
+-				float	fForce = random->RandomFloat( 1, 750 ) * force;
++				float	fForce = ExRandF( 1, 750 ) * force;
+ 
+ 				//Scale the force down as we fall away from our main direction
+ 				ScaleForceByDeviation( pParticle->m_vecVelocity, m_vecDirection, spread, &fForce );
+@@ -308,7 +344,7 @@
+ 				}
+ 				#endif
+ 
+-				int nColor = random->RandomInt( luminosity*0.5f, luminosity );
++				int nColor = ExRandI( luminosity*0.5f, luminosity );
+ 				pParticle->m_uchColor[0] = ( worldLight[0] * nColor );
+ 				pParticle->m_uchColor[1] = ( worldLight[1] * nColor );
+ 				pParticle->m_uchColor[2] = ( worldLight[2] * nColor );
+@@ -319,8 +355,9 @@
+ 				pParticle->m_uchStartAlpha	= 255;
+ 				pParticle->m_uchEndAlpha	= 0;
+ 				
+-				pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-				pParticle->m_flRollDelta	= random->RandomFloat( -2.0f, 2.0f );
++				pParticle->m_flRoll			= ExRandI( 0, 360 );
++				pParticle->m_flRollDelta	= ExRandF( -2.0f, 2.0f );
++				ExSimple( "core", pParticle, m_Material_Smoke );
+ 			}
+ 		}
+ 
+@@ -333,7 +370,7 @@
+ 
+ 		for ( i = 0; i < 8; i++ )
+ 		{
+-			offset.Random( -16.0f, 16.0f );
++			ExVecRandom( offset, -16.0f, 16.0f );
+ 			offset += m_vecOrigin;
+ 
+ 			pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_Smoke, offset );
+@@ -343,17 +380,17 @@
+ 				pParticle->m_flLifetime = 0.0f;
+ 
+ 	#ifdef INVASION_CLIENT_DLL
+-				pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
++				pParticle->m_flDieTime	= ExRandF( 0.5f, 1.0f );
+ 	#else
+-				pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
++				pParticle->m_flDieTime	= ExRandF( 0.5f, 1.0f );
+ 	#endif
+ 
+-				pParticle->m_vecVelocity.Random( -spread, spread );
+-				pParticle->m_vecVelocity += ( m_vecDirection * random->RandomFloat( 1.0f, 6.0f ) );
++				ExVecRandom( pParticle->m_vecVelocity, -spread, spread );
++				pParticle->m_vecVelocity += ( m_vecDirection * ExRandF( 1.0f, 6.0f ) );
+ 				
+ 				VectorNormalize( pParticle->m_vecVelocity );
+ 
+-				float	fForce = random->RandomFloat( 1, 2000 ) * force;
++				float	fForce = ExRandF( 1, 2000 ) * force;
+ 
+ 				//Scale the force down as we fall away from our main direction
+ 				ScaleForceByDeviation( pParticle->m_vecVelocity, m_vecDirection, spread, &fForce );
+@@ -367,19 +404,20 @@
+ 				}
+ 				#endif
+ 
+-				int nColor = random->RandomInt( luminosity*0.5f, luminosity );
++				int nColor = ExRandI( luminosity*0.5f, luminosity );
+ 				pParticle->m_uchColor[0] = ( worldLight[0] * nColor );
+ 				pParticle->m_uchColor[1] = ( worldLight[1] * nColor );
+ 				pParticle->m_uchColor[2] = ( worldLight[2] * nColor );
+ 						
+-				pParticle->m_uchStartSize	= random->RandomInt( 32, 64 );
++				pParticle->m_uchStartSize	= ExRandI( 32, 64 );
+ 				pParticle->m_uchEndSize		= pParticle->m_uchStartSize * 2;
+ 
+-				pParticle->m_uchStartAlpha	= random->RandomFloat( 128, 255 );
++				pParticle->m_uchStartAlpha	= ExRandF( 128, 255 );
+ 				pParticle->m_uchEndAlpha	= 0;
+ 				
+-				pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-				pParticle->m_flRollDelta	= random->RandomFloat( -8.0f, 8.0f );
++				pParticle->m_flRoll			= ExRandI( 0, 360 );
++				pParticle->m_flRollDelta	= ExRandF( -8.0f, 8.0f );
++				ExSimple( "core", pParticle, m_Material_Smoke );
+ 			}
+ 		}
+ #endif // !_XBOX
+@@ -410,18 +448,18 @@
+ 			SinCos( flYaw, &forward.y, &forward.x );
+ 			forward.z = 0.0f;
+ 
+-			offset = ( RandomVector( -4.0f, 4.0f ) + m_vecOrigin ) + ( forward * random->RandomFloat( 8.0f, 16.0f ) );
++			offset = ( ExRandomVector( -4.0f, 4.0f ) + m_vecOrigin ) + ( forward * ExRandF( 8.0f, 16.0f ) );
+ 
+ 			pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_Smoke, offset );
+ 
+ 			if ( pParticle != NULL )
+ 			{
+ 				pParticle->m_flLifetime = 0.0f;
+-				pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.5f );
++				pParticle->m_flDieTime	= ExRandF( 0.5f, 1.5f );
+ 
+ 				pParticle->m_vecVelocity = forward;
+ 			
+-				float	fForce = random->RandomFloat( 500, 2000 ) * force;
++				float	fForce = ExRandF( 500, 2000 ) * force;
+ 
+ 				//Scale the force down as we fall away from our main direction
+ 				ScaleForceByDeviation( pParticle->m_vecVelocity, pParticle->m_vecVelocity, spread, &fForce );
+@@ -435,19 +473,20 @@
+ 				}
+ 				#endif
+ 
+-				int nColor = random->RandomInt( luminosity*0.5f, luminosity );
++				int nColor = ExRandI( luminosity*0.5f, luminosity );
+ 				pParticle->m_uchColor[0] = ( worldLight[0] * nColor );
+ 				pParticle->m_uchColor[1] = ( worldLight[1] * nColor );
+ 				pParticle->m_uchColor[2] = ( worldLight[2] * nColor );
+ 
+-				pParticle->m_uchStartSize	= random->RandomInt( 16, 32 );
++				pParticle->m_uchStartSize	= ExRandI( 16, 32 );
+ 				pParticle->m_uchEndSize		= pParticle->m_uchStartSize * 4;
+ 
+-				pParticle->m_uchStartAlpha	= random->RandomFloat( 16, 32 );
++				pParticle->m_uchStartAlpha	= ExRandF( 16, 32 );
+ 				pParticle->m_uchEndAlpha	= 0;
+ 				
+-				pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-				pParticle->m_flRollDelta	= random->RandomFloat( -8.0f, 8.0f );
++				pParticle->m_flRoll			= ExRandI( 0, 360 );
++				pParticle->m_flRollDelta	= ExRandF( -8.0f, 8.0f );
++				ExSimple( "core", pParticle, m_Material_Smoke );
+ 			}
+ 		}
+ #endif
+@@ -471,22 +510,23 @@
+ 
+ 	for ( i = 0; i < 16; i++ )
+ 	{
+-		offset.Random( -32.0f, 32.0f );
++		ExVecRandom( offset, -32.0f, 32.0f );
+ 		offset += m_vecOrigin;
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_Embers[random->RandomInt(0,1)], offset );
++		const int nExEmb = ExRandI(0,1);
++		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_Embers[nExEmb], offset );
+ 
+ 		if ( pParticle != NULL )
+ 		{
+ 			pParticle->m_flLifetime = 0.0f;
+-			pParticle->m_flDieTime	= random->RandomFloat( 2.0f, 3.0f );
++			pParticle->m_flDieTime	= ExRandF( 2.0f, 3.0f );
+ 
+-			pParticle->m_vecVelocity.Random( -spread*2, spread*2 );
++			ExVecRandom( pParticle->m_vecVelocity, -spread*2, spread*2 );
+ 			pParticle->m_vecVelocity += m_vecDirection;
+ 			
+ 			VectorNormalize( pParticle->m_vecVelocity );
+ 
+-			float	fForce = random->RandomFloat( 1.0f, 400.0f );
++			float	fForce = ExRandF( 1.0f, 400.0f );
+ 
+ 			//Scale the force down as we fall away from our main direction
+ 			float	vDev = ScaleForceByDeviation( pParticle->m_vecVelocity, m_vecDirection, spread );
+@@ -500,10 +540,10 @@
+ 			}
+ 			#endif
+ 
+-			int nColor = random->RandomInt( 192, 255 );
++			int nColor = ExRandI( 192, 255 );
+ 			pParticle->m_uchColor[0]	= pParticle->m_uchColor[1] = pParticle->m_uchColor[2] = nColor;
+ 			
+-			pParticle->m_uchStartSize	= random->RandomInt( 8, 16 ) * vDev;
++			pParticle->m_uchStartSize	= ExRandI( 8, 16 ) * vDev;
+ 
+ 			pParticle->m_uchStartSize	= clamp( pParticle->m_uchStartSize, (uint8) 4, (uint8) 32 );
+ 
+@@ -512,8 +552,9 @@
+ 			pParticle->m_uchStartAlpha	= 255;
+ 			pParticle->m_uchEndAlpha	= 0;
+ 			
+-			pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-			pParticle->m_flRollDelta	= random->RandomFloat( -8.0f, 8.0f );
++			pParticle->m_flRoll			= ExRandI( 0, 360 );
++			pParticle->m_flRollDelta	= ExRandF( -8.0f, 8.0f );
++			ExSimple( "core", pParticle, m_Material_Embers[nExEmb] );
+ 		}
+ 	}
+ #endif // !_XBOX
+@@ -535,7 +576,7 @@
+ 
+ 	for ( i = 0; i < numFireballs; i++ )
+ 	{
+-		offset.Random( -48.0f, 48.0f );
++		ExVecRandom( offset, -48.0f, 48.0f );
+ 		offset += m_vecOrigin;
+ 
+ 		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_FireCloud, offset );
+@@ -543,14 +584,14 @@
+ 		if ( pParticle != NULL )
+ 		{
+ 			pParticle->m_flLifetime = 0.0f;
+-			pParticle->m_flDieTime	= random->RandomFloat( 0.2f, 0.4f );
++			pParticle->m_flDieTime	= ExRandF( 0.2f, 0.4f );
+ 
+-			pParticle->m_vecVelocity.Random( -spread*0.75f, spread*0.75f );
++			ExVecRandom( pParticle->m_vecVelocity, -spread*0.75f, spread*0.75f );
+ 			pParticle->m_vecVelocity += m_vecDirection;
+ 			
+ 			VectorNormalize( pParticle->m_vecVelocity );
+ 
+-			float	fForce = random->RandomFloat( 400.0f, 800.0f );
++			float	fForce = ExRandF( 400.0f, 800.0f );
+ 
+ 			//Scale the force down as we fall away from our main direction
+ 			float	vDev = ScaleForceByDeviation( pParticle->m_vecVelocity, m_vecDirection, spread );
+@@ -564,10 +605,10 @@
+ 			}
+ 			#endif
+ 
+-			int nColor = random->RandomInt( 128, 255 );
++			int nColor = ExRandI( 128, 255 );
+ 			pParticle->m_uchColor[0]	= pParticle->m_uchColor[1] = pParticle->m_uchColor[2] = nColor;
+ 			
+-			pParticle->m_uchStartSize	= random->RandomInt( 32, 85 ) * vDev;
++			pParticle->m_uchStartSize	= ExRandI( 32, 85 ) * vDev;
+ 
+ 			pParticle->m_uchStartSize	= clamp( pParticle->m_uchStartSize, (uint8) 32, (uint8) 85 );
+ 
+@@ -576,8 +617,9 @@
+ 			pParticle->m_uchStartAlpha	= 255;
+ 			pParticle->m_uchEndAlpha	= 0;
+ 			
+-			pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-			pParticle->m_flRollDelta	= random->RandomFloat( -16.0f, 16.0f );
++			pParticle->m_flRoll			= ExRandI( 0, 360 );
++			pParticle->m_flRollDelta	= ExRandF( -16.0f, 16.0f );
++			ExSimple( "core", pParticle, m_Material_FireCloud );
+ 		}
+ 	}
+ }
+@@ -595,6 +637,7 @@
+ 	//
+ 
+ 	CSmartPtr<CTrailParticles> pSparkEmitter	= CTrailParticles::Create( "CreateDebris 1" );
++	FxProbeLog( "xc\tsparks" );
+ 	if ( pSparkEmitter == NULL )
+ 	{
+ 		assert(0);
+@@ -616,9 +659,9 @@
+ 	pSparkEmitter->GetBinding().SetBBox( m_vecOrigin - Vector( 128, 128, 128 ), m_vecOrigin + Vector( 128, 128, 128 ) );
+ 
+ #ifndef _XBOX
+-	int		numSparks = random->RandomInt( 8, 16 );
++	int		numSparks = ExRandI( 8, 16 );
+ #else
+-	int		numSparks = random->RandomInt( 2, 4 );
++	int		numSparks = ExRandI( 2, 4 );
+ #endif
+ 
+ 	Vector	dir;
+@@ -635,18 +678,19 @@
+ 			break;
+ 
+ 		tParticle->m_flLifetime	= 0.0f;
+-		tParticle->m_flDieTime	= random->RandomFloat( 0.1f, 0.15f );
++		tParticle->m_flDieTime	= ExRandF( 0.1f, 0.15f );
+ 
+-		dir.Random( -spread, spread );
++		ExVecRandom( dir, -spread, spread );
+ 		dir += m_vecDirection;
+ 		VectorNormalize( dir );
+ 		
+-		tParticle->m_flWidth		= random->RandomFloat( 2.0f, 16.0f );
+-		tParticle->m_flLength		= random->RandomFloat( 0.05f, 0.1f );
++		tParticle->m_flWidth		= ExRandF( 2.0f, 16.0f );
++		tParticle->m_flLength		= ExRandF( 0.05f, 0.1f );
+ 		
+-		tParticle->m_vecVelocity	= dir * random->RandomFloat( 1500, 2500 );
++		tParticle->m_vecVelocity	= dir * ExRandF( 1500, 2500 );
+ 
+ 		Color32Init( tParticle->m_color, 255, 255, 255, 255 );
++		ExTrail( tParticle );
+ 	}
+ 
+ #ifndef _XBOX
+@@ -656,6 +700,7 @@
+ 
+ 	Vector	offset;
+ 	CSmartPtr<CFleckParticles> fleckEmitter = CFleckParticles::Create( "CreateDebris 2", m_vecOrigin, Vector(128,128,128) );
++	FxProbeLog( "xc\tflecks" );
+ 	if ( !fleckEmitter )
+ 		return;
+ 
+@@ -664,9 +709,9 @@
+ 	
+ 
+ #ifdef _XBOX
+-	int	numFlecks = random->RandomInt( 8, 16 );
++	int	numFlecks = ExRandI( 8, 16 );
+ #else	
+-	int	numFlecks = random->RandomInt( 16, 32 );
++	int	numFlecks = ExRandI( 16, 32 );
+ #endif // _XBOX
+ 
+ 
+@@ -675,11 +720,12 @@
+ 	{
+ 		offset = m_vecOrigin + ( m_vecDirection * 16.0f );
+ 
+-		offset[0] += random->RandomFloat( -8.0f, 8.0f );
+-		offset[1] += random->RandomFloat( -8.0f, 8.0f );
+-		offset[2] += random->RandomFloat( -8.0f, 8.0f );
++		offset[0] += ExRandF( -8.0f, 8.0f );
++		offset[1] += ExRandF( -8.0f, 8.0f );
++		offset[2] += ExRandF( -8.0f, 8.0f );
+ 
+-		FleckParticle *pParticle = (FleckParticle *) fleckEmitter->AddParticle( sizeof(FleckParticle), g_Mat_Fleck_Cement[random->RandomInt(0,1)], offset );
++		const int nExFl = ExRandI(0,1);
++		FleckParticle *pParticle = (FleckParticle *) fleckEmitter->AddParticle( sizeof(FleckParticle), g_Mat_Fleck_Cement[nExFl], offset );
+ 
+ 		if ( pParticle == NULL )
+ 			break;
+@@ -687,27 +733,31 @@
+ 		pParticle->m_flLifetime	= 0.0f;
+ 		pParticle->m_flDieTime	= 3.0f;
+ 		
+-		dir[0] = m_vecDirection[0] + random->RandomFloat( -1.0f, 1.0f );
+-		dir[1] = m_vecDirection[1] + random->RandomFloat( -1.0f, 1.0f );
+-		dir[2] = m_vecDirection[2] + random->RandomFloat( -1.0f, 1.0f );
++		dir[0] = m_vecDirection[0] + ExRandF( -1.0f, 1.0f );
++		dir[1] = m_vecDirection[1] + ExRandF( -1.0f, 1.0f );
++		dir[2] = m_vecDirection[2] + ExRandF( -1.0f, 1.0f );
+ 
+-		pParticle->m_uchSize		= random->RandomInt( 1, 3 );
++		pParticle->m_uchSize		= ExRandI( 1, 3 );
+ 
+ 		VectorNormalize( dir );
+ 
+-		float	fForce = ( random->RandomFloat( 64, 256 ) * ( 4 - pParticle->m_uchSize ) );
++		float	fForce = ( ExRandF( 64, 256 ) * ( 4 - pParticle->m_uchSize ) );
+ 
+ 		float	fDev = ScaleForceByDeviation( dir, m_vecDirection, 0.8f );
+ 
+ 		pParticle->m_vecVelocity = dir * ( fForce * ( 16.0f * (fDev*fDev*0.5f) ) );
+ 
+-		pParticle->m_flRoll			= random->RandomFloat( 0, 360 );
+-		pParticle->m_flRollDelta	= random->RandomFloat( 0, 360 );
++		pParticle->m_flRoll			= ExRandF( 0, 360 );
++		pParticle->m_flRollDelta	= ExRandF( 0, 360 );
+ 
+-		float colorRamp = random->RandomFloat( 0.5f, 1.5f );
++		float colorRamp = ExRandF( 0.5f, 1.5f );
+ 		pParticle->m_uchColor[0] = MIN( 1.0f, 0.25f*colorRamp )*255.0f;
+ 		pParticle->m_uchColor[1] = MIN( 1.0f, 0.25f*colorRamp )*255.0f;
+ 		pParticle->m_uchColor[2] = MIN( 1.0f, 0.25f*colorRamp )*255.0f;
++		FxProbeLog( "xfp\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%d\t%d\t%d", nExFl, pParticle->m_Pos.x, pParticle->m_Pos.y,
++		            pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_flLifetime,
++		            pParticle->m_flDieTime, pParticle->m_uchSize, pParticle->m_flRoll, pParticle->m_flRollDelta, pParticle->m_uchColor[0],
++		            pParticle->m_uchColor[1], pParticle->m_uchColor[2] );
+ 	}
+ #endif // !_XBOX
+ }
+@@ -748,6 +798,7 @@
+ 		return;
+ 
+ 	CLocalPlayerFilter filter;
++	FxProbeLog( "xs\tBaseExplosionEffect.Sound" );
+ 	GameSound_Emit( filter, SOUND_FROM_WORLD, "BaseExplosionEffect.Sound", &m_vecOrigin );
+ }
+ 
+@@ -766,6 +817,7 @@
+ 	//Trace into the world
+ 	trace_t	tr;
+ 	UTIL_TraceLine( origin, endpos, CONTENTS_SOLID, NULL, COLLISION_GROUP_NONE, &tr );
++	FxProbeLog( "xpt\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", origin.x, origin.y, origin.z, endpos.x, endpos.y, endpos.z, tr.fraction );
+ 
+ 	//Push back a proportional amount to the probe
+ 	(*vecDirection) = -(*vecDirection) * (1.0f-tr.fraction);
+@@ -971,6 +1023,10 @@
+ 		m_flDepth = MAX_WATER_SURFACE_DISTANCE;
+ 	}
+ 
++	FxProbeLog( "xwt\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", tr.startsolid ? 1 : 0, tr.fraction, tr.fractionleftsolid, m_vecWaterSurface.x, m_vecWaterSurface.y,
++	            m_vecWaterSurface.z );
++	FxProbeLog( "xwd\t%.9g", m_flDepth );
++	{ const Vector r = engine->GetLightForPoint( m_vecOrigin + Vector( 0, 0, 32 ), true ); FxProbeLog( "xl\t%.9g\t%.9g\t%.9g", r.x, r.y, r.z ); }
+ 	// Get our lighting information
+ 	FX_GetSplashLighting( m_vecOrigin + Vector( 0, 0, 32 ), &m_vecColor, &m_flLuminosity );
+ 
+@@ -989,9 +1045,10 @@
+ 	// Get our lighting information for the water surface
+ 	Vector	color;
+ 	float	luminosity;
++	{ const Vector r = engine->GetLightForPoint( m_vecWaterSurface + Vector( 0, 0, 8 ), true ); FxProbeLog( "xl\t%.9g\t%.9g\t%.9g", r.x, r.y, r.z ); }
+ 	FX_GetSplashLighting( m_vecWaterSurface + Vector( 0, 0, 8 ), &color, &luminosity );
+ 
+-	float lifetime = random->RandomFloat( 0.8f, 1.0f );
++	float lifetime = ExRandF( 0.8f, 1.0f );
+ 
+ 	// Ground splash
+ 	FX_AddQuad( m_vecWaterSurface + Vector(0,0,2), 
+@@ -1002,8 +1059,8 @@
+ 				luminosity,
+ 				0.0f,
+ 				0.25f,
+-				random->RandomInt( 0, 360 ), 
+-				random->RandomFloat( -4, 4 ), 
++				ExRandI( 0, 360 ), 
++				ExRandF( -4, 4 ), 
+ 				color,
+ 				2.0f,
+ 				"effects/splashwake1",
+@@ -1022,9 +1079,9 @@
+ 	FXLineData_t lineData;
+ 
+ 	start = m_vecWaterSurface;
+-	end = start + ( Vector( 0, 0, 1 ) * random->RandomFloat( radius, radius*1.5f ) );
++	end = start + ( Vector( 0, 0, 1 ) * ExRandF( radius, radius*1.5f ) );
+ 
+-	if ( random->RandomInt( 0, 1 ) )
++	if ( ExRandI( 0, 1 ) )
+ 	{
+ 		flags |= FXSTATICLINE_FLIP_HORIZONTAL;
+ 	}
+@@ -1047,15 +1104,16 @@
+ 	lineData.m_vecStartVelocity = vec3_origin;
+ 
+ 	lineData.m_vecEnd = end;
+-	lineData.m_vecEndVelocity = Vector(0,0,random->RandomFloat( 650, 750 ));
++	lineData.m_vecEndVelocity = Vector(0,0,ExRandF( 650, 750 ));
+ 
++	FxProbeLog( "xln\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", lineData.m_vecStart.z, lineData.m_vecEnd.z, lineData.m_vecEndVelocity.z, lineData.m_flDieTime, lineData.m_flStartAlpha, lineData.m_flStartScale, lineData.m_flEndScale, lineData.m_vecStart.x, lineData.m_vecEnd.x, lineData.m_flEndAlpha );
+ 	FX_AddLine( lineData );
+ 
+ 	// Inner filler shaft
+ 	start = m_vecWaterSurface;
+-	end = start + ( Vector(0,0,1) * random->RandomFloat( 32, 64 ) );
++	end = start + ( Vector(0,0,1) * ExRandF( 32, 64 ) );
+ 
+-	if ( random->RandomInt( 0, 1 ) )
++	if ( ExRandI( 0, 1 ) )
+ 	{
+ 		flags |= FXSTATICLINE_FLIP_HORIZONTAL;
+ 	}
+@@ -1078,8 +1136,9 @@
+ 	lineData.m_vecStartVelocity = vec3_origin;
+ 
+ 	lineData.m_vecEnd = end;
+-	lineData.m_vecEndVelocity = Vector(0,0,1) * random->RandomFloat( 64, 128 );
++	lineData.m_vecEndVelocity = Vector(0,0,1) * ExRandF( 64, 128 );
+ 
++	FxProbeLog( "xln\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", lineData.m_vecStart.z, lineData.m_vecEnd.z, lineData.m_vecEndVelocity.z, lineData.m_flDieTime, lineData.m_flStartAlpha, lineData.m_flStartScale, lineData.m_flEndScale, lineData.m_vecStart.x, lineData.m_vecEnd.x, lineData.m_flEndAlpha );
+ 	FX_AddLine( lineData );
+ }
+ 
+@@ -1113,6 +1172,7 @@
+ 	SimpleParticle	*pParticle;
+ 
+ 	CSmartPtr<CWaterExplosionParticle> pSimple = CWaterExplosionParticle::Create( "waterexp_bubbles" );
++	FxProbeLog( "xc\tbubbles" );
+ 	pSimple->SetSortOrigin( m_vecOrigin );
+ 	pSimple->SetNearClip( 64, 128 );
+ 
+@@ -1121,6 +1181,7 @@
+ 
+ 	//Find area ambient light color and use it to tint bubbles
+ 	Vector	worldLight;
++	{ const Vector r = engine->GetLightForPoint( offset, true ); FxProbeLog( "xl\t%.9g\t%.9g\t%.9g", r.x, r.y, r.z ); }
+ 	FX_GetSplashLighting( offset, &worldLight, NULL );
+ 
+ 	//
+@@ -1134,23 +1195,24 @@
+ 
+ 	for ( i = 0; i < 16; i++ )
+ 	{
+-		offset.Random( -32.0f, 32.0f );
++		ExVecRandom( offset, -32.0f, 32.0f );
+ 		offset += m_vecOrigin;
+ 
+-		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pMaterial[random->RandomInt(0,1)], offset );
++		const int nExMat = ExRandI(0,1);
++		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), pMaterial[nExMat], offset );
+ 
+ 		if ( pParticle != NULL )
+ 		{
+ 			pParticle->m_flLifetime = 0.0f;
+ 
+ #ifdef INVASION_CLIENT_DLL
+-			pParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
++			pParticle->m_flDieTime	= ExRandF( 0.5f, 1.0f );
+ #else
+-			pParticle->m_flDieTime	= random->RandomFloat( 2.0f, 3.0f );
++			pParticle->m_flDieTime	= ExRandF( 2.0f, 3.0f );
+ #endif
+ 
+-			pParticle->m_vecVelocity.Random( -spread, spread );
+-			pParticle->m_vecVelocity += ( m_vecDirection * random->RandomFloat( 1.0f, 6.0f ) );
++			ExVecRandom( pParticle->m_vecVelocity, -spread, spread );
++			pParticle->m_vecVelocity += ( m_vecDirection * ExRandF( 1.0f, 6.0f ) );
+ 			
+ 			VectorNormalize( pParticle->m_vecVelocity );
+ 
+@@ -1172,14 +1234,15 @@
+ 			pParticle->m_uchColor[1] = m_vecColor.y * 255;
+ 			pParticle->m_uchColor[2] = m_vecColor.z * 255;
+ 			
+-			pParticle->m_uchStartSize	= random->RandomInt( 32, 64 );
++			pParticle->m_uchStartSize	= ExRandI( 32, 64 );
+ 			pParticle->m_uchEndSize		= pParticle->m_uchStartSize * 2;
+ 			
+ 			pParticle->m_uchStartAlpha	= m_flLuminosity;
+ 			pParticle->m_uchEndAlpha	= 0;
+ 			
+-			pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-			pParticle->m_flRollDelta	= random->RandomFloat( -8.0f, 8.0f );
++			pParticle->m_flRoll			= ExRandI( 0, 360 );
++			pParticle->m_flRollDelta	= ExRandF( -8.0f, 8.0f );
++			ExSimple( "bubbles", pParticle, pMaterial[nExMat] );
+ 		}
+ 	}
+ }
+@@ -1207,6 +1270,7 @@
+ 	TrailParticle	*tParticle;
+ 
+ 	CSmartPtr<CTrailParticles> sparkEmitter = CTrailParticles::Create( "splash" );
++	FxProbeLog( "xc\tdrops" );
+ 
+ 	if ( !sparkEmitter )
+ 		return;
+@@ -1220,8 +1284,8 @@
+ 	for ( i = 0; i < numDrops; i++ )
+ 	{
+ 		offset = m_vecWaterSurface;
+-		offset[0] += random->RandomFloat( -16.0f, 16.0f ) * flScale;
+-		offset[1] += random->RandomFloat( -16.0f, 16.0f ) * flScale;
++		offset[0] += ExRandF( -16.0f, 16.0f ) * flScale;
++		offset[1] += ExRandF( -16.0f, 16.0f ) * flScale;
+ 
+ 		tParticle = (TrailParticle *) sparkEmitter->AddParticle( sizeof(TrailParticle), hMaterial, offset );
+ 
+@@ -1229,27 +1293,28 @@
+ 			break;
+ 
+ 		tParticle->m_flLifetime	= 0.0f;
+-		tParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
++		tParticle->m_flDieTime	= ExRandF( 0.5f, 1.0f );
+ 
+-		offDir = Vector(0,0,1) + RandomVector( -1.0f, 1.0f );
++		offDir = Vector(0,0,1) + ExRandomVector( -1.0f, 1.0f );
+ 
+-		tParticle->m_vecVelocity = offDir * random->RandomFloat( 50.0f * flScale * 2.0f, 100.0f * flScale * 2.0f );
+-		tParticle->m_vecVelocity[2] += random->RandomFloat( 32.0f, 128.0f ) * flScale;
++		tParticle->m_vecVelocity = offDir * ExRandF( 50.0f * flScale * 2.0f, 100.0f * flScale * 2.0f );
++		tParticle->m_vecVelocity[2] += ExRandF( 32.0f, 128.0f ) * flScale;
+ 
+-		tParticle->m_flWidth		= clamp( random->RandomFloat( 1.0f, 3.0f ) * flScale, 0.1f, 4.0f );
+-		tParticle->m_flLength		= random->RandomFloat( length*0.25f, length )/* * flScale*/;
++		tParticle->m_flWidth		= clamp( ExRandF( 1.0f, 3.0f ) * flScale, 0.1f, 4.0f );
++		tParticle->m_flLength		= ExRandF( length*0.25f, length )/* * flScale*/;
+ 
+-		colorRamp = random->RandomFloat( 1.5f, 2.0f );
++		colorRamp = ExRandF( 1.5f, 2.0f );
+ 
+ 		FloatToColor32( tParticle->m_color, MIN( 1.0f, m_vecColor[0] * colorRamp ), MIN( 1.0f, m_vecColor[1] * colorRamp ), MIN( 1.0f, m_vecColor[2] * colorRamp ), m_flLuminosity );
++		ExTrail( tParticle );
+ 	}
+ 
+ 	//Dump out drops
+ 	for ( i = 0; i < 4; i++ )
+ 	{
+ 		offset = m_vecWaterSurface;
+-		offset[0] += random->RandomFloat( -16.0f, 16.0f ) * flScale;
+-		offset[1] += random->RandomFloat( -16.0f, 16.0f ) * flScale;
++		offset[0] += ExRandF( -16.0f, 16.0f ) * flScale;
++		offset[1] += ExRandF( -16.0f, 16.0f ) * flScale;
+ 
+ 		tParticle = (TrailParticle *) sparkEmitter->AddParticle( sizeof(TrailParticle), hMaterial, offset );
+ 
+@@ -1257,24 +1322,26 @@
+ 			break;
+ 
+ 		tParticle->m_flLifetime	= 0.0f;
+-		tParticle->m_flDieTime	= random->RandomFloat( 0.5f, 1.0f );
++		tParticle->m_flDieTime	= ExRandF( 0.5f, 1.0f );
+ 
+-		offDir = Vector(0,0,1) + RandomVector( -0.2f, 0.2f );
++		offDir = Vector(0,0,1) + ExRandomVector( -0.2f, 0.2f );
+ 
+-		tParticle->m_vecVelocity = offDir * random->RandomFloat( 50 * flScale * 3.0f, 100 * flScale * 3.0f );
+-		tParticle->m_vecVelocity[2] += random->RandomFloat( 32.0f, 128.0f ) * flScale;
++		tParticle->m_vecVelocity = offDir * ExRandF( 50 * flScale * 3.0f, 100 * flScale * 3.0f );
++		tParticle->m_vecVelocity[2] += ExRandF( 32.0f, 128.0f ) * flScale;
+ 
+-		tParticle->m_flWidth		= clamp( random->RandomFloat( 2.0f, 3.0f ) * flScale, 0.1f, 4.0f );
+-		tParticle->m_flLength		= random->RandomFloat( length*0.25f, length )/* * flScale*/;
++		tParticle->m_flWidth		= clamp( ExRandF( 2.0f, 3.0f ) * flScale, 0.1f, 4.0f );
++		tParticle->m_flLength		= ExRandF( length*0.25f, length )/* * flScale*/;
+ 
+-		colorRamp = random->RandomFloat( 1.5f, 2.0f );
++		colorRamp = ExRandF( 1.5f, 2.0f );
+ 
+ 		FloatToColor32( tParticle->m_color, MIN( 1.0f, m_vecColor[0] * colorRamp ), MIN( 1.0f, m_vecColor[1] * colorRamp ), MIN( 1.0f, m_vecColor[2] * colorRamp ), m_flLuminosity );
++		ExTrail( tParticle );
+ 	}
+ 
+ #endif
+ 
+ 	CSmartPtr<CSplashParticle> pSimple = CSplashParticle::Create( "splish" );
++	FxProbeLog( "xc\tsplish" );
+ 	pSimple->SetSortOrigin( m_vecWaterSurface );
+ 	pSimple->SetClipHeight( m_vecWaterSurface.z );
+ 	pSimple->GetBinding().SetBBox( m_vecWaterSurface-(Vector(32.0f, 32.0f, 32.0f)*flScale), m_vecWaterSurface+(Vector(32.0f, 32.0f, 32.0f)*flScale) );
+@@ -1291,14 +1358,14 @@
+ 		pParticle->m_flLifetime = 0.0f;
+ 		pParticle->m_flDieTime	= 2.0f;	//NOTENOTE: We use a clip plane to realistically control our lifespan
+ 
+-		pParticle->m_vecVelocity.Random( -0.2f, 0.2f );
+-		pParticle->m_vecVelocity += ( Vector( 0, 0, random->RandomFloat( 4.0f, 6.0f ) ) );
++		ExVecRandom( pParticle->m_vecVelocity, -0.2f, 0.2f );
++		pParticle->m_vecVelocity += ( Vector( 0, 0, ExRandF( 4.0f, 6.0f ) ) );
+ 		
+ 		VectorNormalize( pParticle->m_vecVelocity );
+ 
+ 		pParticle->m_vecVelocity *= 50 * flScale * (8-i);
+ 		
+-		colorRamp = random->RandomFloat( 0.75f, 1.25f );
++		colorRamp = ExRandF( 0.75f, 1.25f );
+ 
+ 		pParticle->m_uchColor[0]	= MIN( 1.0f, m_vecColor[0] * colorRamp ) * 255.0f;
+ 		pParticle->m_uchColor[1]	= MIN( 1.0f, m_vecColor[1] * colorRamp ) * 255.0f;
+@@ -1310,8 +1377,9 @@
+ 		pParticle->m_uchStartAlpha	= RemapValClamped( i, 7, 0, 255, 32 ) * m_flLuminosity;
+ 		pParticle->m_uchEndAlpha	= 0;
+ 		
+-		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-		pParticle->m_flRollDelta	= random->RandomFloat( -4.0f, 4.0f );
++		pParticle->m_flRoll			= ExRandI( 0, 360 );
++		pParticle->m_flRollDelta	= ExRandF( -4.0f, 4.0f );
++		ExSimple( "splish", pParticle, hMaterial );
+ 	}
+ }
+ 
+@@ -1324,15 +1392,18 @@
+ 		return;
+ 
+ 	CLocalPlayerFilter filter;
++	FxProbeLog( "xs\tPhysics.WaterSplash" );
+ 	GameSound_Emit( filter, SOUND_FROM_WORLD, "Physics.WaterSplash", &m_vecWaterSurface );
+ 
+ 	if ( m_flDepth > 128 )
+ 	{
+-		GameSound_Emit( filter, SOUND_FROM_WORLD, "WaterExplosionEffect.Sound", &m_vecOrigin );
++		FxProbeLog( "xs\tWaterExplosionEffect.Sound" );
++	GameSound_Emit( filter, SOUND_FROM_WORLD, "WaterExplosionEffect.Sound", &m_vecOrigin );
+ 	}
+ 	else
+ 	{
+-		GameSound_Emit( filter, SOUND_FROM_WORLD, "BaseExplosionEffect.Sound", &m_vecOrigin );
++		FxProbeLog( "xs\tBaseExplosionEffect.Sound" );
++	GameSound_Emit( filter, SOUND_FROM_WORLD, "BaseExplosionEffect.Sound", &m_vecOrigin );
+ 	}
+ }
+ 
+@@ -1379,6 +1450,7 @@
+ 	float spread = 1.0f - (0.15f*force);
+ 
+ 	CSmartPtr<CExplosionParticle> pSimple = CExplosionParticle::Create( "exp_smoke" );
++	FxProbeLog( "xc\texp_smoke" );
+ 	pSimple->SetSortOrigin( m_vecOrigin );
+ 	pSimple->SetNearClip( 32, 64 );
+ 
+@@ -1395,7 +1467,7 @@
+ 
+ 	for ( i = 0; i < 32; i++ )
+ 	{
+-		offset.Random( -48.0f, 48.0f );
++		ExVecRandom( offset, -48.0f, 48.0f );
+ 		offset += m_vecOrigin;
+ 
+ 		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_FireCloud, offset );
+@@ -1403,14 +1475,14 @@
+ 		if ( pParticle != NULL )
+ 		{
+ 			pParticle->m_flLifetime = 0.0f;
+-			pParticle->m_flDieTime	= random->RandomFloat( 0.2f, 0.4f );
++			pParticle->m_flDieTime	= ExRandF( 0.2f, 0.4f );
+ 
+-			pParticle->m_vecVelocity.Random( -spread*0.75f, spread*0.75f );
++			ExVecRandom( pParticle->m_vecVelocity, -spread*0.75f, spread*0.75f );
+ 			pParticle->m_vecVelocity += m_vecDirection;
+ 			
+ 			VectorNormalize( pParticle->m_vecVelocity );
+ 
+-			float	fForce = random->RandomFloat( 400.0f, 800.0f );
++			float	fForce = ExRandF( 400.0f, 800.0f );
+ 
+ 			//Scale the force down as we fall away from our main direction
+ 			float	vDev = ScaleForceByDeviation( pParticle->m_vecVelocity, m_vecDirection, spread );
+@@ -1424,10 +1496,10 @@
+ 			}
+ 			#endif
+ 
+-			int nColor = random->RandomInt( 128, 255 );
++			int nColor = ExRandI( 128, 255 );
+ 			pParticle->m_uchColor[0]	= pParticle->m_uchColor[1] = pParticle->m_uchColor[2] = nColor;
+ 			
+-			pParticle->m_uchStartSize	= random->RandomInt( 32, 85 ) * vDev;
++			pParticle->m_uchStartSize	= ExRandI( 32, 85 ) * vDev;
+ 
+ 			pParticle->m_uchStartSize	= clamp( pParticle->m_uchStartSize, (uint8) 32, (uint8) 85 );
+ 
+@@ -1436,8 +1508,9 @@
+ 			pParticle->m_uchStartAlpha	= 255;
+ 			pParticle->m_uchEndAlpha	= 0;
+ 			
+-			pParticle->m_flRoll			= random->RandomInt( 0, 360 );
+-			pParticle->m_flRollDelta	= random->RandomFloat( -16.0f, 16.0f );
++			pParticle->m_flRoll			= ExRandI( 0, 360 );
++			pParticle->m_flRollDelta	= ExRandF( -16.0f, 16.0f );
++			ExSimple( "core", pParticle, m_Material_FireCloud );
+ 		}
+ 	}
+ }

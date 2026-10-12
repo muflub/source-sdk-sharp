@@ -1,0 +1,449 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+//
+// Inspired by and based on the Half-Life 2 Source SDK 2013 by Valve:
+// https://github.com/ValveSoftware/source-sdk-2013
+//
+//=============================================================================//
+
+//========= SourceSharp — the engine boundary, defined and acquired ==========//
+// SS_REASON b  an interface resolved by name at load
+//
+// plan_shim.md §5 3a. TWO TRANSLATION UNITS BECAME ONE: shell_engineglobals.cpp
+// DEFINED every global the engine hands this DLL, and shell_engineinterfaces.cpp
+// ACQUIRED them from the factories. One file held the names and the other held
+// the only thing that ever writes them, and a reader asking "what is `modelinfo`
+// and who set it" had to open both.
+//
+// THE DEFINITIONS AND THE ACQUISITION ARE NOT TWO SUBJECTS. Every name defined
+// in the first half is assigned in the second and nowhere else, which is the
+// property that makes the pair safe to read as one thing and would make either
+// half alone misleading: a definition list with no writer reads as state, and an
+// acquisition with its definitions elsewhere reads as a cache.
+//
+//=============================================================================
+// WHY THESE ARE ALLOWED TO BE GLOBALS AT ALL, when the standing owner rule for
+// src/sourcesharp is "no file-scope statics or globals; state goes in a class as
+// fields". It is an IMPOSSIBILITY rather than a preference:
+//
+//   * `engine`, `gpGlobals`, `filesystem` and the rest are the SDK's own
+//     spelling, named by well over a thousand call sites across game code that
+//     this port does not own and is not rewriting. They are the boundary, not
+//     state behind it;
+//   * `g_pSharedChangeInfo` is a pointer the ENGINE follows, handed over at
+//     DLLInit;
+//   * `CBaseEdict::GetChangeAccessor` is a member of a class declared in
+//     public/edict.h, so it cannot live anywhere but a .cpp that includes it,
+//     and both its bodies are one call on `engine`.
+//
+// tools/statics-audit gates `static`, and none of these is one -- they are
+// non-static file-scope definitions with external linkage, which is the only
+// shape that can answer an `extern` in somebody else's header. The two Steam
+// contexts DID have to change shape: stock wrote them `static`, and they are in
+// an anonymous namespace here, which is the arrangement shell_gamedll.cpp
+// already uses for its singleton.
+//
+//=============================================================================
+// THE ACQUISITION WAS NOT IN THE PLAN AND HAD TO BE. plan_gamedll.md gives
+// DLLInit's contents to Part 9 ("DLLInit's eight TODOs"), and all eight of those
+// are GAME SYSTEMS -- CPhysicsHook, the particle system manager, GameStringSystem
+// and so on -- which Phase 7 wires through kServerSystems[]. None of the eight is
+// an engine interface, and nothing else in the plan assigned them either.
+// Measured rather than assumed: before that half existed the shell's DLLInit
+// acquired exactly two, `engine` and `cvar`, and every other one of the twenty
+// was still NULL with -shellgamedll.
+//
+// That is invisible until a map loads, which is why it surfaced in Phase 6 and
+// not in Phase 4: `networkstringtable` is NULL, so Part 8's very first line --
+// networkstringtable->CreateStringTable -- is a null dereference; `filesystem`
+// is NULL, so the particle manifests and the MOTD cannot be read; `modelinfo`,
+// `partition`, `enginetrace` and `soundemitterbase` are NULL, so nothing that
+// spawns can precache a model, link into the partition, trace, or emit.
+//
+// TRANSLITERATED from CServerGameDLL::DLLInit (gameinterface.cpp:659-732), in
+// stock's order, with stock's "return false on the first miss". The X360 arms
+// are dropped -- IsX360() is a compile-time false in this build -- and REPLAY is
+// not defined here.
+//
+// NOTHING WAS RETYPED, RENAMED OR REORDERED IN EITHER HALF. Both are verbatim
+// carries, with the declarations that only stock's CServerGameDLL used left
+// behind.
+//
+//===========================================================================//
+
+// P5 lane R: on the R5 include set -- public/ headers and server.so's own.
+// cbase.h, gameinterface.h, mapentities.h, networkstringtable_gamedll.h,
+// sharedInterface.h and enginecallback.h are gone; what this file used from
+// them is the interfaces' own public/ headers and the declarations below.
+#include "networkstringtabledefs.h"
+#include "engine/IEngineTrace.h"
+#include "filesystem.h"
+#include "ivoiceserver.h"
+#include "ispatialpartition.h"
+#include "engine/IEngineSound.h"
+#include "engine/IStaticPropMgr.h"
+#include "engine/ivdebugoverlay.h"
+#include "engine/iserverplugin.h"
+#include "datacache/idatacache.h"
+#include "igameevents.h"
+#include "SoundEmitterSystem/isoundemittersystembase.h"
+#include "scenefilecache/ISceneFileCache.h"
+
+// Only the acquisition half needed these; the definitions above
+// compile without them.
+#include "eiface.h"
+#include "ss_init_factory.h"
+#include "vstdlib/random.h"
+#include "tier0/icommandline.h"
+#include "datacache/imdlcache.h"
+#include "shell_server.h"
+
+
+//=============================================================================//
+// 1. THE DEFINITIONS -- was shell_engineglobals.cpp
+//=============================================================================//
+
+//-----------------------------------------------------------------------------
+// THE TWO STEAM CONTEXTS WERE DEFINED HERE -- plan_server_novalve.md P2.5.
+// steamapicontext had no server reader but GetSteamUtils (client-only now), and
+// steamgameserverapicontext's one user was the game server context, which is
+// C#'s own (SteamGameServerFlat). server.so includes no steam/ header.
+//-----------------------------------------------------------------------------
+
+IUploadGameStats *gamestatsuploader = NULL;
+
+// SOURCESHARP: `CTimedEventMgr g_NetworkPropertyEventMgr;` was here.
+// plan_shim.md Phase 1d deleted it with game/server/timedeventmgr.cpp: the
+// only thing that could put an entity into its heap was
+// CServerNetworkProperty::SetUpdateInterval, which had no caller in any
+// compiled translation unit, so the manager was an empty heap walked once per
+// frame forever. See shell_frame.cpp's FrameFireNetworkPropertyEvents,
+// which is the step that walked it.
+
+// g_MapEntityRefs is gone: its only writer was CMapLoadEntityFilter
+// (gameinterface.h), which no compiled TU uses, and nothing read it; the one
+// other reference was shell_level.cpp's Purge.
+
+//-----------------------------------------------------------------------------
+// Engine interfaces. Every one is acquired in
+// sourcesharp/game/server/shell_engineinterfaces.cpp, which transliterates
+// stock's DLLInit acquisition list and returns false on the first miss.
+//-----------------------------------------------------------------------------
+IVEngineServer	*engine = NULL;
+IVoiceServer	*g_pVoiceServer = NULL;
+#if !defined(_STATIC_LINKED)
+IFileSystem		*filesystem = NULL;
+#else
+extern IFileSystem *filesystem;
+#endif
+INetworkStringTableContainer *networkstringtable = NULL;
+IStaticPropMgrServer *staticpropmgr = NULL;
+// sharedInterface.h's `random`. Under POSIX that header renames it with
+// `#define random random_valve` (stdlib.h's random() would collide), so its
+// link name is random_valve, and that is the name defined here.
+IUniformRandomStream *random_valve = NULL;
+IEngineSound *enginesound = NULL;
+ISpatialPartition *partition = NULL;
+IVModelInfo *modelinfo = NULL;
+IEngineTrace *enginetrace = NULL;
+IGameEventManager2 *gameeventmanager = NULL;
+IDataCache *datacache = NULL;
+IVDebugOverlay * debugoverlay = NULL;
+ISoundEmitterSystemBase *soundemitterbase = NULL;
+IServerPluginHelpers *serverpluginhelpers = NULL;
+ISceneFileCache *scenefilecache = NULL;
+// serverenginetools, xboxsystem and matchmaking are gone: nothing assigned or
+// read them (the globals ledger ruled all three DEAD, dropped by the linker).
+
+//-----------------------------------------------------------------------------
+// WHAT USED TO STAND HERE, AND WHY THE SPACE IS EMPTY -- plan_shim.md step 5c.
+//
+// Three globals and the two replay headers that declared their types:
+//
+//     #if defined( REPLAY_ENABLED )
+//     IReplaySystem        *g_pReplay              = NULL;
+//     IServerReplayContext *g_pReplayServerContext = NULL;
+//     #endif
+//     ConVar *sv_maxreplay = NULL;
+//
+// HLTV AND REPLAY ARE DROPPED FROM THIS MOD. That is a decision, not an
+// accident of the build, and these three are the first thing it deletes.
+//
+// The first two never existed in any binary this tree produces: REPLAY_ENABLED
+// is defined only by src/vpc_scripts/source_replay_private.vpc, which is
+// included only from source_replay.vpc, which NEITHER project script includes.
+// Measured rather than assumed -- `grep -c REPLAY_ENABLED` over BOTH generated
+// graphs (src/_vpc_/ninja/sdk_csharp_debug.ninja and ..._release.ninja) is 0.
+//
+// sv_maxreplay did exist, as real storage in this object, and its comment said
+// it was kept because game/server/player.cpp dereferences it after a NULL test.
+// THAT READER IS NOT ON EITHER LINK LINE: player.cpp is not compiled here, and
+// the census over the ninja graph's objects reports 0 importers on both sides
+// (server 0/108, client 0/253, 0 ghosts). It was storage for a reader that had
+// already gone.
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// String tables. Created by SourceSharp_CreateNetworkStringTables in
+// sourcesharp/game/server/shell_stringtables.cpp, which is also where the six
+// accessors that read them live (Phase A4).
+//-----------------------------------------------------------------------------
+INetworkStringTable *g_pStringTableParticleEffectNames = NULL;
+INetworkStringTable *g_pStringTableEffectDispatch = NULL;
+INetworkStringTable *g_pStringTableVguiScreen = NULL;
+INetworkStringTable *g_pStringTableMaterials = NULL;
+INetworkStringTable *g_pStringTableInfoPanel = NULL;
+INetworkStringTable *g_pStringTableClientSideChoreoScenes = NULL;
+INetworkStringTable *g_pStringTableServerMapCycle = NULL;
+
+#ifdef TF_DLL
+INetworkStringTable *g_pStringTableServerPopFiles = NULL;
+INetworkStringTable *g_pStringTableServerMapCycleMvM = NULL;
+#endif
+
+// g_VguiScreenStringOps is gone: its one reader was vguiscreen.cpp's datadesc,
+// which server.so does not compile; the only reference left was its own Init.
+
+// Holds global variables shared between engine and game.
+CGlobalVars *gpGlobals;
+
+#if !defined( _XBOX ) // Don't doubly define this symbol.
+CSharedEdictChangeInfo *g_pSharedChangeInfo = NULL;
+#endif
+
+//-----------------------------------------------------------------------------
+// CBaseEdict is declared in public/edict.h and these two are its only
+// out-of-line members on the server. Nineteen objects in the compiled set call
+// them.
+//-----------------------------------------------------------------------------
+IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
+{
+	return engine->GetChangeAccessor( (const edict_t *)this );
+}
+
+//-----------------------------------------------------------------------------
+// The ConVars that outlived stock's CServerGameDLL because their READERS are
+// elsewhere. Each is named with its reader, so a later pass can tell them from
+// the twelve A9 step 3 deleted for having none.
+//
+// TWO OF THE THREE ARE DECLARED IN MANAGED CODE NOW -- see §6's ConVar rule and
+// SourceSharp.Server/ConVars.cs. Their readers are named there instead, and
+// neither reader is compiled into THIS build, so nothing here holds a ref:
+//
+//   ai_post_frame_navigation   game/server/ai_basenpc.cpp (three reads) and
+//                              ai_navigator.cpp; declared extern in
+//                              ai_basenpc.h:3250. Neither .cpp is in this vpc.
+//   sv_unlockedchapters        game/server/EnvMessage.cpp sets it to "15" when
+//                              a chapter is unlocked and GameStats.cpp reads
+//                              the name out of config.cfg as text. Neither is
+//                              in this vpc.
+//
+// They are still REGISTERED, which was the whole point of keeping them: a
+// setting an operator or a save writes has to have somewhere to land. What
+// changed is that the default, the flags and the help text are declared where
+// managed code can read them.
+//
+// A THIRD ENTRY STOOD ON THIS LIST AND HAS BEEN DELETED, not moved:
+// sv_maxreplay was a POINTER rather than a declaration, so this rule never
+// applied to it, and step 5c dropped it with the rest of Replay. See the block
+// above IScriptManager for the 0-consumer measurement.
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// The rollback-independent server clock. Written by
+// SourceSharp_LevelResetServerTime and the frame's first step (both in
+// shell_level.cpp); read by game/shared/baseprojectile.cpp, which declares
+// it extern beside its own comment saying why it is not gpGlobals->curtime.
+//-----------------------------------------------------------------------------
+float g_flServerCurTime = 0.0f;
+
+//-----------------------------------------------------------------------------
+// The chained-Activate debug pair. DEBUG-ONLY IN STOCK AND STILL IS: the macros
+// that read them are `((void)0)` in a release build, so these two definitions
+// exist only where an AssertMsg can fire.
+//
+// Their writers and readers are in three other files -- baseentity.cpp's
+// CBaseEntity::Activate, hl2/npc_citizen17.cpp, and shell_level.cpp's
+// activate-all-entities step, which is where the BeginCheckChainedActivate /
+// EndCheckChainedActivate pair went when stock's ServerActivate was deleted.
+// All three declare them extern at the point of use, which is stock's own
+// arrangement for them.
+//-----------------------------------------------------------------------------
+#ifdef DEBUG
+bool g_bReceivedChainedActivate;
+bool g_bCheckForChainedActivate;
+#endif
+
+//=============================================================================//
+// 2. THE ACQUISITION -- was shell_engineinterfaces.cpp
+//=============================================================================//
+
+//-----------------------------------------------------------------------------
+// THE sv_cheats HANDLE, and why the STORAGE lives beside the code that fills it.
+//
+// This was `ConVar *sv_cheats = NULL;` in game/server/client.cpp. Nothing else
+// in that 1,800-line file wrote it -- DLLInit below is the only writer in the
+// build -- and it was one of exactly two things any other object still needed
+// from that TU. tools/4a-owes named both:
+//
+//     $ tools/4a-owes client
+//       shell_engineinterfaces (1)   sv_cheats
+//       shell_standalone_player (1)  sv_cheats
+//       world_adapter (1)            ClientPrecache()
+//
+// Same shape and same reason as the Phase 4 exit lane's IMPLEMENT_MOVEHELPER():
+// a definition whose only contribution is storage belongs with its installer.
+// The DECLARATION stays exactly where stock puts it (player.h:182), so not one
+// dereference on either side changed and there is no second spelling to drift.
+//
+// NULL until DLLInit runs, which is stock's own state: client.cpp initialised
+// it to NULL too, and DLLInit refuses to start the server if FindVar answers
+// nothing.
+//-----------------------------------------------------------------------------
+ConVar *sv_cheats = NULL;
+
+// Stock's, all defined in gameinterface.cpp outside the class. enginecallback.h
+// declares most of them; these four it does not.
+extern INetworkStringTableContainer *networkstringtable;
+extern IUniformRandomStream *random_valve;
+extern ISoundEmitterSystemBase *soundemitterbase;
+extern IServerPluginHelpers *serverpluginhelpers;
+extern ISceneFileCache *scenefilecache;
+extern IUploadGameStats *gamestatsuploader;
+
+// game.cpp:105. Stock's DLLInit calls it before anything reads a game convar.
+extern void InitializeCvars( void );
+
+// The engine's model cache (connected with the tiers).
+extern IMDLCache *mdlcache;
+
+// The particle system's questions were answered here by shell_particlequery.cpp
+// (plan_entity.md step 4c) for CParticleSystemMgr::Init. Both left server.so in
+// plan_server_novalve.md P2.1: nothing on the server asks the manager anything.
+
+//-----------------------------------------------------------------------------
+// Purpose: The straight-line half of stock's DLLInit -- acquire, connect, and
+//          the two files of game events. No game system is added or inited
+//          here; that is Part 9 and Phase 7.
+//
+// Returns false the moment one interface is missing, which is stock's own
+// behaviour and the only useful one: a server missing `modelinfo` does not
+// half-work, it crashes on the first model, several seconds later, somewhere
+// else.
+//-----------------------------------------------------------------------------
+bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
+                                          CreateInterfaceFn physicsFactory,
+                                          CreateInterfaceFn fileSystemFactory )
+{
+	if ( (g_pVoiceServer = (IVoiceServer *)appSystemFactory( INTERFACEVERSION_VOICESERVER, NULL )) == NULL )
+		return false;
+	if ( (networkstringtable = (INetworkStringTableContainer *)appSystemFactory( INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL )) == NULL )
+		return false;
+	if ( (staticpropmgr = (IStaticPropMgrServer *)appSystemFactory( INTERFACEVERSION_STATICPROPMGR_SERVER, NULL )) == NULL )
+		return false;
+	if ( (random_valve = (IUniformRandomStream *)appSystemFactory( VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL )) == NULL )
+		return false;
+	if ( (enginesound = (IEngineSound *)appSystemFactory( IENGINESOUND_SERVER_INTERFACE_VERSION, NULL )) == NULL )
+		return false;
+	if ( (::partition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL )) == NULL )
+		return false;
+	if ( (modelinfo = (IVModelInfo *)appSystemFactory( VMODELINFO_SERVER_INTERFACE_VERSION, NULL )) == NULL )
+		return false;
+	if ( (enginetrace = (IEngineTrace *)appSystemFactory( INTERFACEVERSION_ENGINETRACE_SERVER, NULL )) == NULL )
+		return false;
+	if ( (filesystem = (IFileSystem *)fileSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL )) == NULL )
+		return false;
+	if ( (gameeventmanager = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL )) == NULL )
+		return false;
+	if ( (datacache = (IDataCache *)appSystemFactory( DATACACHE_INTERFACE_VERSION, NULL )) == NULL )
+		return false;
+
+	// TWENTY-FIRST, AND IT WAS MISSING. Phase 6 transliterated stock's
+	// acquisition block and this one is at gameinterface.cpp:703, inside it --
+	// it was dropped, and nothing noticed because nothing on the shell path
+	// had reached CServerGameDLL::GameFrame, whose
+	// `gamestatsuploader->UpdateConnection()` is the only per-frame reader.
+	// Phase 7 puts that line in the frame's order, so the NULL would have been
+	// a dereference sixty-six times a second on the first map.
+	if ( (gamestatsuploader = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL )) == NULL )
+		return false;
+	if ( (soundemitterbase = (ISoundEmitterSystemBase *)appSystemFactory( SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL )) == NULL )
+		return false;
+
+	// mdlcache is connected by ConnectTier3Libraries, which the shell's DLLInit
+	// has already called. Checked, not acquired -- exactly as stock does.
+	if ( !mdlcache )
+		return false;
+
+	if ( (serverpluginhelpers = (IServerPluginHelpers *)appSystemFactory( INTERFACEVERSION_ISERVERPLUGINHELPERS, NULL )) == NULL )
+		return false;
+	if ( (scenefilecache = (ISceneFileCache *)appSystemFactory( SCENE_FILE_CACHE_INTERFACE_VERSION, NULL )) == NULL )
+		return false;
+
+	// NO VSCRIPT. Stock acquired IScriptManager here (optional, skipped under
+	// -noscripting); nothing in server.so ever called it, and plan_server_novalve
+	// dropped it: vscript/ivscript.h is the header whose closure reached cbase.h
+	// (variant.h -> ehandle.h). engine.so carries no VScriptManager string, so
+	// the engine never asks this DLL for one either.
+
+	// Both the client and the game DLL Connect this; the soundemittersystem
+	// handles the second one gracefully. Stock's comment, and its call.
+	if ( !soundemitterbase->Connect( appSystemFactory ) )
+		return false;
+
+	// The three factories, stored for whatever inits later and needs one.
+	// physics_impact_damage, the physics hook and the save/restore blocks all
+	// read this list rather than being handed a factory.
+	ss::factorylist_t factories;
+	factories.engineFactory = appSystemFactory;
+	factories.fileSystemFactory = fileSystemFactory;
+	factories.physicsFactory = physicsFactory;
+	ss::FactoryList_Store( factories );
+
+	// The engine's own event list, then the mod's. BOTH before anything can
+	// fire one -- an event fired with no descriptor loaded is dropped with a
+	// warning, which reads as "the event does not happen".
+	gameeventmanager->LoadEventsFromFile( "resource/gameevents.res" );
+
+	// stock's DLLInit loads this one much later, immediately before
+	// InitAllSystems, and its comment says why: "MUST be before
+	// InitAllSystems() so it can pickup the mod specific events". The shell
+	// calls no InitAllSystems, so the only ordering that still matters is
+	// "before anything fires one", and both files are loaded together here.
+	gameeventmanager->LoadEventsFromFile( "resource/ModEvents.res" );
+
+	// The game's convars, before anything reads one.
+	InitializeCvars();
+
+	// No particle system manager: stock inited CParticleSystemMgr here so
+	// LevelInit could read the manifests through it. They are read in C# since
+	// plan_server_novalve.md P2.1, and server.so links neither particles.a nor
+	// dmxloader.a.
+
+	// The one convar handle the rest of the SERVER reads through a global.
+	// player.h:182 declares it; util_shared.cpp, the entity input path and
+	// every FCVAR_CHEAT guard dereference it, so a NULL here is a crash on the
+	// first cheat check rather than "cheats are off".
+	//
+	// AND THE STORAGE IS HERE NOW TOO -- see just above this function. It was
+	// game/server/client.cpp's, which is a file the Phase 4 exit removes.
+	sv_cheats = g_pCVar->FindVar( "sv_cheats" );
+
+	if ( !sv_cheats )
+		return false;
+
+	// try to get debug overlay, may be NULL if on HLDS -- stock's comment, and
+	// stock does NOT check the answer.
+	debugoverlay = (IVDebugOverlay *)appSystemFactory( VDEBUG_OVERLAY_INTERFACE_VERSION, NULL );
+
+	// "init the gamestatsupload connection" -- stock's comment, at
+	// gameinterface.cpp:842-843, the last thing its DLLInit does before
+	// returning true. DLLShutdown calls the SAME method again to reset it,
+	// which is stock's own arrangement and not a mistake here.
+	gamestatsuploader->InitConnection();
+
+	return true;
+}
+
+// cs_sv_engine_vectors, the live check of engine_heap.h's vectors, is a
+// diagnostic: it lives in shell_engineboundary_debug.cpp, which only a debug
+// build compiles.

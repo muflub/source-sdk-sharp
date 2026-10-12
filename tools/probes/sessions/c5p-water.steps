@@ -1,0 +1,68 @@
+# lane c5-particles: fx_water.cpp recorded (tools/probes/client/fx_water.cpp.probe.diff applied with
+# fx_sparks.cpp's and particle_collision.cpp's probes): the watersplash, gunshotsplash and waterripple
+# client effects dispatched by cs_sv_te_dispatch in front of the player, seen from several angles.
+wait first paint 240
+sleep 3
+cmd sv_cheats 1
+cmd setpos_exact -3843 2894 0
+sleep 1
+cmd setang_exact 10 90 0
+sleep 0.3
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd setang_exact 0 80 0
+sleep 0.3
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd setang_exact 20 100 0
+sleep 0.3
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd setang_exact 5 70 0
+sleep 0.3
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd setang_exact 10 110 0
+sleep 0.3
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd setang_exact -5 90 0
+sleep 0.3
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5
+cmd cs_sv_te_dispatch watersplash -3843 3050 4
+cmd cs_sv_te_dispatch gunshotsplash -3800 3100 2
+cmd cs_sv_te_dispatch waterripple -3880 3000 2
+sleep 1.5

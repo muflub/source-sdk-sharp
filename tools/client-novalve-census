@@ -1,0 +1,8 @@
+#!/bin/sh
+# tools/client-novalve-census -- tools/server-novalve-census --target client:
+# R1-R8 of plan_client_novalve.md 4.1 over out/client.so, against
+# docs/client-novalve-ratchet.tsv, docs/client-fork-roots.txt and
+# docs/client-fork-allowlist.txt. One measuring code path for both DLLs; the
+# differences are the CLIENT target in that script. Same flags (--write,
+# --allowlist, --report, --self-test, --config).
+exec "$(dirname "$0")/server-novalve-census" --target client "$@"

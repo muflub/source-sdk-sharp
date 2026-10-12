@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The UI analyzer (plan_client_ui §5.8.5a): code shapes the UI rules forbid,
+    caught at build time in every UI assembly (the toolkit, the screens, a
+    mod's UI), with warnings as errors. ui-lint judges what a sample drew; this
+    judges every code path. Set up as src/generators is: netstandard2.0 (the
+    compiler's host), built beside the generators, never shipped.
+    The code fix (nearest token) is in ../analyzers.codefixes, because an
+    analyzer assembly may not reference the workspaces (RS1038).
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>false</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/analyzers/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+    <Compile Include="..\..\..\generators\IsExternalInit.cs" Link="IsExternalInit.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,21 @@
+Descent_Stash_Title	Stash
+Descent_Stash_Backpack	Backpack
+Descent_Stash_Stash	Stash Locker
+Descent_Stash_PlanRank	Storage Plan rank
+Descent_Stash_Empty	The locker is empty.
+Descent_Stash_EmptyBody	Withdraw gear from your backpack to store it here. Higher Storage Plan ranks unlock more rows.
+Descent_Party_Title	Party
+Descent_Party_CodeLabel	Party code
+Descent_Party_CodePlaceholder	Enter a friend's code
+Descent_Party_CodeHint	Share this code; a friend enters it to join your party.
+Descent_Party_Invite	Invite
+Descent_Party_Leave	Leave Party
+Descent_Party_Apply	Apply
+Descent_Depth_Title	Choose a Depth
+Descent_Depth_Locked	Unreachable
+Descent_Depth_Descend	Descend
+Descent_Depth_Leader	Leader reached
+Descent_Depth_Boss	Boss
+Descent_Depth_Tile_Catacombs	Catacombs
+Descent_Depth_Tile_Mines	Mines
+Descent_Depth_Tile_RobotWorks	Robot Works

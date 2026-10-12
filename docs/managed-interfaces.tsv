@@ -1,0 +1,317 @@
+# plan_managed_vtable_reload.md L0: the managed-built interfaces native calls,
+# one row per method in slot order (Release is not listed: the generator adds
+# it last). tools/managed-areas and tools/vtable-layout read this and nothing
+# else, so a managed-built interface is declared here, never by hand.
+# Seeded at L0a from the ManagedApi slot signatures in sourcesharp.h.
+interface	method	return	parameters
+IManagedRoot	Acquire	void *	const char *pszName
+IManagedRuntimeServer	OnSystemStart	bool	void
+IManagedRuntimeServer	OnGameStart	bool	void
+IManagedRuntimeServer	OnGamePostStart	void	void
+IManagedRuntimeServer	OnGameStop	void	void
+IManagedRuntimeServer	OnMapLoad_Transition	bool	const SourceSharpMapLoad *pLoad
+IManagedRuntimeServer	OnMapLoad_LoadGame	bool	const SourceSharpMapLoad *pLoad
+IManagedRuntimeServer	OnMapLoad_Background	bool	const SourceSharpMapLoad *pLoad
+IManagedRuntimeServer	OnMapLoad_NewGame	bool	const SourceSharpMapLoad *pLoad
+IManagedRuntimeServer	OnMapUnload	void	void
+IManagedRuntimeServer	OnServerActivate	void	void
+IManagedRuntimeServer	OnGameFrame	void	bool simulating
+IManagedRuntimeServer	OnPreClientUpdate	void	void
+IManagedRuntimeServer	OnThink	void	void
+IManagedRuntimeServer	CreateNetworkStringTables	void	void
+IManagedRuntimeServer	OnTickInterval	float	void
+IManagedRuntimeServer	OnShouldHideServer	bool	void
+IManagedRuntimeServer	OnBrowserMapOverride	int	char *pOut, int nOutSize
+IManagedRuntimeServer	OnBrowserGameData	int	char *pOut, int nOutSize
+IManagedRuntimeServer	OnIsManualMapChangeOkay	bool	char *pReasonOut, int nOutSize
+IManagedRuntimeServer	OnQueryCvarValueFinished	void	int nCookie, int nEntIndex, int eStatus, const char *pCvarName, const char *pCvarValue
+IManagedRuntimeServer	OnHibernation	void	bool bHibernating
+IManagedRuntimeServer	OnStatusLines	int	char *pOut, int nOutSize
+IManagedRuntimeServer	OnInvalidateMdlCache	void	void
+IManagedRuntimeServer	OnSteamGameServerActivated	void	void
+IManagedRuntimeServer	OnSteamGameServerShutdown	void	void
+IManagedRuntimeServer	OnMapLoadPreEntity	void	const char *pszMapName
+IManagedRuntimeServer	OnMapUnloadPreEntity	void	void
+IManagedRuntimeServer	OnWorldKeyValue	int	uint32_t hWorld, const char *pKey, const char *pValue
+IManagedRuntimeServer	OnGetGameDescription	void	char *pOut, int nOutSize
+IManagedPhysicsFrame	Frame	void	void
+IManagedPhysicsFrame	CreateWorld	void *	void
+IManagedPhysicsFrame	PrecacheSurfaceSounds	int32_t	void
+IManagedResources	ServerDecalIndexForName	int32_t	const char *pszName
+IManagedResources	ServerDecalNameForIndex	int32_t	int32_t nIndex, char *pOut, int32_t nOutSize
+IManagedResources	ServerDecalTranslateForGameMaterial	int32_t	const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize
+IManagedResources	ServerPropDataRandomChunkModel	int32_t	const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize
+IManagedResources	ModelPrecacheComponents	void	const char *pszModelName
+IManagedSaveRestore	ReloadSave	int32_t	void
+IManagedSaveRestore	ReloadRestore	int32_t	void
+IManagedSaveRestore	SaveCollectEntities	int32_t	char *pBuffer, int32_t nBytes
+IManagedSaveRestore	SaveRestoreEntities	int32_t	const char *pBuffer, int32_t nBytes
+IManagedSoundController	ServerSoundControllerCreate	void	int32_t hPatch
+IManagedSoundController	ServerSoundControllerDestroy	void	int32_t hPatch
+IManagedSoundController	ServerSoundControllerPlay	void	int32_t hPatch, float flVolume, float flPitch, float flStartTime
+IManagedSoundController	ServerSoundControllerPlayEnvelope	float	int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints
+IManagedSoundController	ServerSoundControllerChangePitch	void	int32_t hPatch, float flTarget, float flDeltaTime
+IManagedSoundController	ServerSoundControllerChangeVolume	void	int32_t hPatch, float flTarget, float flDeltaTime
+IManagedSoundController	ServerSoundControllerGetPitch	float	int32_t hPatch
+IManagedSoundController	ServerSoundControllerGetVolume	float	int32_t hPatch
+IManagedSoundController	ServerSoundControllerFadeOut	void	int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout
+IManagedSoundController	ServerSoundControllerCommandAdd	void	int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue
+IManagedSoundController	ServerSoundControllerCommandClear	void	int32_t hPatch
+IManagedSoundController	ServerSoundControllerReset	void	void
+IManagedSoundController	ServerSoundControllerShutdown	void	int32_t hPatch
+IManagedSoundEnt	ServerSoundEntInit	void	int32_t nMaxClients, float flCurTime
+IManagedSoundEnt	ServerSoundEntShutdown	void	void
+IManagedSoundEnt	ServerSoundEntInsert	void	int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget
+IManagedSoundEnt	ServerSoundEntResetClientSound	void	int32_t nIndex
+IManagedHierarchy	HierarchyParentMoved	void	uint32_t hParent
+IManagedHierarchy	HierarchyChildMoved	void	uint32_t hChild
+IManagedHierarchy	HierarchySetParent	int32_t	uint32_t hChild, uint32_t hParent, int32_t nParentAttachment
+IManagedHierarchy	HierarchyGetParentAttachment	int32_t	uint32_t hChild
+IManagedHierarchy	HierarchySetParentName	void	uint32_t hChild, const char *pParentName
+IManagedHierarchy	HierarchySetParentAttachmentName	void	uint32_t hChild, const char *pAttachmentName
+IManagedHierarchy	HierarchyEntityRemoved	int32_t	uint32_t hEntity
+IManagedHierarchy	HierarchyResolveParentNames	int32_t	void
+IManagedHierarchy	HierarchyToLocal	int32_t	uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR
+IManagedHierarchy	HierarchyToWorld	int32_t	uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR
+IManagedHierarchy	HierarchySetLocal	void	uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR
+IManagedEntities	Dispatch	int32_t	uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs
+IManagedEntities	EntityRemoveRequested	int32_t	uint32_t hEntity
+IManagedEntities	OnEntityIgnite	void	uint32_t hEntity, float flLifetime, float flSize
+IManagedEntities	OnFireAddHeatInRadius	void	const float *pOriginXYZ, float flRadius, float flHeat
+IManagedEntities	OnRagdollMagnetForce	int32_t	uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ
+IManagedEntities	ShellLessFindByName	int32_t	const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax
+IManagedEntities	ShellLessFindByClassname	int32_t	const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax
+IManagedEntities	TemplatesAddNamed	int32_t	const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen
+IManagedClients	OnClientConnect	int32_t	const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize
+IManagedClients	OnClientPutInServer	void	int32_t nEntIndex, const char *pPlayerName
+IManagedClients	OnClientActive	void	int32_t nEntIndex, int32_t bLoadGame
+IManagedClients	OnClientGamePrecache	void	void
+IManagedClients	OnRespawn	void	int32_t nEntIndex, int32_t bCopyCorpse
+IManagedClients	OnPlayerSpawn	void	uint32_t hPlayer
+IManagedClients	OnPlayerSpawned	void	uint32_t hPlayer
+IManagedClients	OnPlayerKilled	void	uint32_t hPlayer, uint32_t hAttacker
+IManagedClients	OnSelectSpawnPoint	uint32_t	uint32_t hPlayer
+IManagedClients	GetPlayerRelationship	int32_t	uint32_t hPlayer, uint32_t hTarget
+IManagedClients	ServerSkyboxAreaForClient	int32_t	int32_t iClientEdict, int32_t *pOutArea
+IManagedClients	ServerEarPositionForClient	int32_t	int32_t iClientEdict, float *pOutXYZ
+IManagedClients	OnClientNetMessage	int32_t	int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen
+IManagedClients	OnClientSettingsChanged	int32_t	int32_t nEntIndex
+IManagedClients	ServerTransmitAlwaysForClient	int32_t	int32_t iClientEdict
+IManagedEvents	OnGameEvent	void	const char *pEventName, void *hEvent
+IManagedUserMessages	GetUserMessageInfo	bool	int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize
+IManagedUserMessages	CloseCaptionsWanted	bool	void
+IManagedUserMessages	EmitCloseCaption	void	const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender
+IManagedTempEnts	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
+IManagedDiagnostics	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset
+IManagedCommands	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
+IManagedCommands	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
+IManagedCommands	OnClientCommand	int32_t	uint32_t hPlayer, const char *pCommand
+IManagedNetState	NetStateFieldOffset	int32_t	const char *pClassName, const char *pFieldName
+IManagedNetState	NetStateFieldBits	int32_t	const char *pClassName, const char *pFieldName
+IManagedPlayerCommands	MoveProcessMovement	int32_t	SourceSharpMoveState *pState
+IManagedPlayerCommands	PlayerRunCommands	int32_t	uint32_t hPlayer, int32_t nCount
+IManagedPlayerCommands	PlayerDecodeCommands	int32_t	uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead
+IManagedPlayerCommands	OnPlayerSurfaceChanged	void	uint32_t hPlayer, int32_t nGameMaterial
+IManagedFrame	Frame	void	float flFrameTime
+IManagedFrame	FramePreThink	void	float flFrameTime
+IManagedFrame	FramePostThink	void	float flFrameTime
+IManagedFrame	LevelInit	void	const char *pMapName
+IManagedFrame	LevelShutdown	void	void
+IManagedRuntimeClient	Frame	void	float flFrameTime
+IManagedRuntimeClient	ClientStage	void	int32_t nStage
+IManagedRuntimeClient	LevelInit	void	const char *pMapName
+IManagedRuntimeClient	LevelShutdown	void	void
+IManagedRuntimeClient	ClientInvalidateMdlCache	void	void
+IManagedRuntimeClient	ParticlesNeedFullReload	int32_t	int32_t nPreviousMapParticleFiles
+IManagedRuntimeClient	MapMaterialReload	int32_t	const char *pszNextBsp, const char *pszPreviousBsp, char *pOut, int32_t nOutSize
+IManagedCommandsClient	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
+IManagedCommandsClient	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
+IManagedEventsClient	OnGameEvent	void	const char *pEventName, void *hEvent
+IManagedUserMessagesClient	DispatchUserMessage	bool	int32_t nIndex, const uint8_t *pBlock, int32_t nBlockBytes
+IManagedStandaloneClient	OnStandaloneCreate	int32_t	uint32_t hEntity, const char *pClassName
+IManagedStandaloneClient	OnStandaloneSpawn	void	uint32_t hEntity
+IManagedStandaloneClient	OnStandaloneRemoved	void	uint32_t hEntity
+IManagedStandaloneClient	OnStandaloneDataChanged	void	uint32_t hEntity, const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType
+IManagedStandaloneClient	OnStandaloneDraw	int32_t	uint32_t hEntity
+IManagedStandaloneClient	OnStandaloneDormancyChanged	void	uint32_t hEntity, int32_t bDormant
+IManagedStandaloneClient	NetStateFieldOffset	int32_t	const char *pClassName, const char *pFieldName
+IManagedStandaloneClient	NetStateFieldBits	int32_t	const char *pClassName, const char *pFieldName
+IManagedStandaloneClient	OnStandaloneDrawBatch	void	const uint32_t *pHandles, int32_t nCount, int32_t *pResults
+IManagedPredictionClient	MoveProcessMovement	int32_t	SourceSharpMoveState *pState
+IManagedPredictionClient	ClientPredictionUpdate	void	int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived
+IManagedPredictionClient	ThirdPersonCamera	int32_t	SourceSharpThirdPersonCamera *pIo
+IManagedHudClient	OnCreateMove	void	SourceSharpUserCmd *pCmd, float flInputSampleTime, int32_t bActive
+IManagedTempEntsClient	OnTempEntity	void	int32_t hClass, const unsigned char *pBlob, int32_t nBytes
+IManagedTempEntsClient	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
+IManagedTempEntsClient	OnTempEntPoolAlloc	int32_t	int32_t nPriority
+IManagedTempEntsClient	OnTempEntPoolUpdate	void	float flFrameTime
+IManagedTempEntsClient	OnTempEntPoolClear	void	void
+IManagedTempEntsClient	OnTempEntEjectBrass	int32_t	int32_t nSlot, int32_t nType, const float *pAnglesPYR, const float *pGunAnglesPYR
+IManagedTempEntsClient	OnImpactChoice	int32_t	const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax
+IManagedSaveRestoreClient	ReloadSave	int32_t	void
+IManagedSaveRestoreClient	ReloadRestore	int32_t	void
+IManagedBeamsClient	BeamsLifecycle	void	int32_t nOp, int32_t nArg
+IManagedBeamsClient	BeamsUpdate	void	float flCurTime, float flFrameTime
+IManagedBeamsClient	BeamsKillDead	void	uint32_t hEntity, float flCurTime
+IManagedBeamsClient	BeamsCreate	int32_t	int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime
+IManagedBeamsClient	BeamsDraw	void	int32_t nRenderable
+IManagedDiagnosticsClient	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset
+IManagedDiagnosticsClient	Md5PseudoRandom	uint32_t	uint32_t nSeed
+IManagedDecalsClient	Init	void	void
+IManagedDecalsClient	LevelInitPreEntity	void	void
+IManagedDecalsClient	Shutdown	void	void
+IManagedDecalsClient	IndexForName	int32_t	const char *pszName
+IManagedDecalsClient	NameForIndex	int32_t	int32_t nIndex, char *pOut, int32_t nOutSize
+IManagedDecalsClient	TranslateForGameMaterial	int32_t	const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize
+IManagedParticlesClient	Frame	int32_t	const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes
+IManagedParticlesClient	DrawBegin	int32_t	const SourceSharpParticleDrawIn_t *pIn, uint8_t *pOut, int32_t nOutBytes
+IManagedParticlesClient	DrawEnd	int32_t	uint32_t hOwner, int32_t nChannel, const uint8_t *pKeys, int32_t nKeyBytes
+IManagedParticlesClient	FrameCode	int32_t	void
+IManagedParticlesClient	PostRender	int32_t	void
+IManagedParticlesClient	QueryCollisionGroup	int32_t	const char *pszName
+IManagedParticlesClient	QueryLighting	int32_t	const float *pOriginXYZ, uint8_t *pRgbaOut
+IManagedParticlesClient	QueryTrace	int32_t	const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, int32_t nCollisionGroup, int32_t bHasIgnore
+IManagedParticlesClient	QueryHitBoxPoints	int32_t	int32_t nControlPoint, const float *pControlPointXYZ, int32_t bHasObject, int32_t nPoints, float *pPointsOut, int32_t *pIndicesOut, float *pRelativeOut
+IManagedParticlesClient	QueryHitBoxInfo	int32_t	int32_t nControlPoint, int32_t bHasObject, int32_t nBufSize
+IManagedParticlesClient	ImpactDebris	int32_t	const float *pEndPosXYZ, const float *pNormalXYZ, const float *pColorXYZ, int32_t nMaterial, int32_t iScale, int32_t bNoFlecks, float flThrottle
+IManagedParticlesClient	ImpactDust	int32_t	const float *pOriginXYZ, const float *pNormalXYZ, const float *pColorXYZ, float flScale, float flThrottle
+IManagedParticlesClient	ImpactMetalSpark	int32_t	const float *pOriginXYZ, const float *pShotDirXYZ, const float *pNormalXYZ, int32_t iScale, float flThrottle
+IManagedParticlesClient	WaterSplash	int32_t	int32_t nKind, const float *pOriginXYZ, const float *pNormalXYZ, float flScale, const float *pColorXYZ, float flLifetime, float flAlpha
+IManagedParticlesClient	SplashTint	int32_t	const float *pColorXYZ, float *pTintXYZ, float *pLuminosity
+IManagedParticlesClient	TracerQuads	int32_t	int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut
+IManagedParticlesClient	ManifestFiles	int32_t	int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes
+IManagedUiClient	Paint	void	int32_t nLayer, int32_t nScreenW, int32_t nScreenH
+IManagedUiClient	ScreenSizeChanged	void	int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH
+IManagedWorldTextClient	Draw	int32_t	uint32_t hOwner, const SourceSharpWorldTextView_t *pView, SourceSharpWorldTextVertex_t *pOut, int32_t nMax
+IManagedFxClient	DispatchEffect	void	const char *pEffectName, const SourceSharpEffectData_t *pData
+IManagedFxClient	Smoke	void	const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFramerate
+IManagedFxClient	Sparks	void	const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float *pDirXYZ
+IManagedFxClient	Dust	void	const float *pOriginXYZ, const float *pDirXYZ, float flSize, float flSpeed
+IManagedFxClient	MuzzleFlash	void	const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType
+IManagedFxClient	MetalSparks	void	const float *pPositionXYZ, const float *pDirXYZ
+IManagedFxClient	EnergySplash	void	const float *pPositionXYZ, const float *pDirXYZ, int32_t bExplosive
+IManagedFxClient	Ricochet	void	const float *pPositionXYZ, const float *pDirXYZ
+IManagedFxClient	SuppressEffectsSounds	void	int32_t bSuppress
+IManagedFxClient	DrawEffects	void	float flFrameTime
+IManagedFxClient	FlushEffects	void	void
+IManagedFxClient	EffectsLevelInit	void	void
+IManagedFxClient	AddLine	void	const float *pData, int32_t nMaterial
+IManagedFxClient	AddQuad	void	const float *pData, uint32_t nFlags, int32_t nMaterial
+IManagedFxClient	AddQuadNamed	void	const float *pData, uint32_t nFlags, const char *pMaterial
+IManagedFxClient	AddStaticLine	void	const float *pStartXYZ, const float *pEndXYZ, float flScale, float flLife, const char *pMaterial, int32_t nFlags
+IManagedFxClient	AddDiscreetLine	void	const float *pStartXYZ, const float *pDirXYZ, float flVelocity, float flLength, float flClip, float flScale, float flLife, const char *pMaterial
+IManagedFxClient	TracerSound	void	const float *pStartXYZ, const float *pEndXYZ, int32_t nType
+IManagedFxClient	SpritePlan	int32_t	const float *pIn, int32_t nIn, float *pOut, int32_t nOut
+IManagedFxClient	SpriteTrailTick	int32_t	uint32_t hOwner, float flCurTime, const float *pOriginXYZ, float *pOutBox6
+IManagedFxClient	SpriteTrailDraw	int32_t	uint32_t hOwner, float flCurTime, const float *pOriginXYZ
+IManagedFxClient	EffectsPrecache	void	int32_t nOp
+IManagedFxClient	SmokeFogPlan	int32_t	float flAlpha, int32_t bHasMaterial, float *pInOutColorXYZ, float *pOutRGBA
+IManagedFxClient	TempEntIsTransparent	int32_t	int32_t bTranslucent, int32_t nRenderMode
+IManagedFxClient	TempEntRenderGroup	int32_t	int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent, int32_t bTwoPass
+IManagedFxClient	TempEntBlend	void	const float *pIn, int32_t *pOut
+IManagedFxClient	TempEntOccludedAlpha	int32_t	int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt, const float *pIn9
+IManagedFxClient	TempEntLightingOrigin	int32_t	int32_t nSlot
+IManagedFxClient	TempEntMuzzleFlash	void	int32_t nType, uint32_t hEntity, int32_t nAttachment, int32_t bFirstPerson, int32_t bWorldPath
+IManagedFxClient	TempEntEjectBrass	void	const float *pIn9, int32_t nType
+IManagedFxClient	TempEntAttach	int32_t	int32_t nClient, int32_t nModelIndex, float flZOffset, float flLife, int32_t nMaxClients
+IManagedFxClient	TempEntsLevelInit	void	void
+IManagedUiClient	Input	void	int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar, float flDelta
+IManagedUiClient	ViewportPanel	int32_t	const char *pszName, int32_t bShow
+IManagedUiClient	CenterPrint	void	const char *pszText, int32_t r, int32_t g, int32_t b, int32_t a
+IManagedUiClient	CenterClear	void	void
+IManagedUiClient	PlaqueState	void	int32_t nFacts, int32_t nPausedSeconds
+IManagedUiClient	VoiceStatus	void	int32_t nEntIndex, int32_t bTalking
+IManagedUiClient	KeyInput	int32_t	int32_t bDown, int32_t nKey, const char *pszBinding, int32_t bConsoleVisible, int32_t nMaxClients
+IManagedUiClient	VoiceIsBlocked	int32_t	int32_t nClient
+IManagedUiClient	VoiceToggleBlocked	void	int32_t nClient
+IManagedSoundControllerClient	ClientSoundControllerCreate	void	int32_t hPatch
+IManagedSoundControllerClient	ClientSoundControllerDestroy	void	int32_t hPatch
+IManagedSoundControllerClient	ClientSoundControllerPlay	void	int32_t hPatch, float flVolume, float flPitch, float flStartTime
+IManagedSoundControllerClient	ClientSoundControllerPlayEnvelope	float	int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints
+IManagedSoundControllerClient	ClientSoundControllerChangePitch	void	int32_t hPatch, float flTarget, float flDeltaTime
+IManagedSoundControllerClient	ClientSoundControllerChangeVolume	void	int32_t hPatch, float flTarget, float flDeltaTime
+IManagedSoundControllerClient	ClientSoundControllerGetPitch	float	int32_t hPatch
+IManagedSoundControllerClient	ClientSoundControllerGetVolume	float	int32_t hPatch
+IManagedSoundControllerClient	ClientSoundControllerFadeOut	void	int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout
+IManagedSoundControllerClient	ClientSoundControllerCommandAdd	void	int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue
+IManagedSoundControllerClient	ClientSoundControllerCommandClear	void	int32_t hPatch
+IManagedSoundControllerClient	ClientSoundControllerReset	void	void
+IManagedSoundControllerClient	ClientSoundControllerShutdown	void	int32_t hPatch
+IManagedSoundscapesClient	ClientSoundscapesLevelInit	void	const char *pMapName
+IManagedSoundscapesClient	ClientSoundscapesUpdate	void	float flFrameTime
+IManagedSoundscapesClient	ClientSoundscapesLevelShutdown	void	void
+IManagedPrecipitationClient	PrecipitationRender	int32_t	const float *pView, float *pTracers, int32_t nMaxTracers, float *pSplashes, int32_t nMaxSplashes, int32_t *pnSplashes
+IManagedConsoleOutput	ConsoleLine	void	const char *pText, int32_t nWarning
+IManagedConsoleOutput	ConsoleBufferAttach	void	void *pBuffer
+IManagedConsoleOutputClient	ClientConsoleLine	void	const char *pText, int32_t nWarning
+IManagedConsoleOutputClient	ClientConsoleBufferAttach	void	void *pBuffer
+IManagedMaterialFilesClient	SpriteMaterial	int32_t	const char *pszSpriteName, uint8_t *pBlock, int32_t nBlockBytes
+IManagedMaterialFilesClient	EncodeImage	int32_t	int32_t nKind, int32_t nWidth, int32_t nHeight, int32_t bPadPowerOfTwo, const uint8_t *pPixelBlock, int32_t nPixelBlockBytes, uint8_t *pOut, int32_t nOutBytes
+IManagedMaterialProxyClient	ProxyInit	int32_t	int32_t hProxy, const char *pszName, const char *pszMaterial, const SourceSharpProxyKey_t *pKeys, int32_t nKeys
+IManagedMaterialProxyClient	ProxyBind	int32_t	int32_t hProxy, const SourceSharpProxyBindIn_t *pIn, SourceSharpProxyVar_t *pVars, SourceSharpProxyOp_t *pOps, int32_t nMaxOps
+IManagedMaterialProxyClient	ProxyRelease	void	int32_t hProxy
+IManagedMaterialProxyClient	MatStubEnabled	int32_t	void
+IManagedBones	TestHitboxes	int32_t	uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts
+IManagedRenderClient	RenderFrame	int32_t	const SourceSharpRenderFrameIn_t *pIn, SourceSharpRenderFrameOut_t *pOut
+IManagedRenderClient	RenderTraceDone	void	int32_t nTag, const char *pText, int32_t nLength
+IManagedRenderClient	RenderPlanBuild	int32_t	const SourceSharpRenderInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps
+IManagedRenderClient	RenderViewProgram	int32_t	const SourceSharpViewScene_t *pScene, int32_t nSceneBytes, SourceSharpRenderOp_t *pOps, int32_t nMaxOps
+IManagedRenderClient	RenderPostProgram	int32_t	const SourceSharpPostInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps
+IManagedRenderClient	ViewEffectsFade	void	int32_t nDuration, int32_t nHoldTime, int32_t nFlags, int32_t r, int32_t g, int32_t b, int32_t a, float flCurTime
+IManagedRenderClient	ViewEffectsCalcShake	void	float flCurTime, float flFrameTime, float *pOut
+IManagedRenderClient	ViewEffectsFadeParams	void	float flCurTime, int32_t *pOut
+IManagedRenderClient	ViewEffectsReset	void	int32_t nWhich
+IManagedRenderClient	RenderShadowDepthPlan	int32_t	const SourceSharpViewSetup_t *pView, SourceSharpRenderOp_t *pOps, int32_t nMaxOps, int32_t *pIndexBase
+IManagedRenderClient	ViewSetUp	void	const SourceSharpViewSetUpIn_t *pIn, SourceSharpViewSetUpOut_t *pOut
+IManagedRenderClient	ViewScreenshot	void	const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut
+IManagedRenderClient	ViewFreezeFrame	void	float flFreezeTime, float flCurTime
+IManagedRenderClient	ViewDemoCamera	int32_t	int32_t nStage, const float *pIn, float *pOut
+IManagedInputClient	InputInit	void	int32_t bNoMouse
+IManagedInputClient	InputShutdown	void	void
+IManagedInputClient	InputLevelInit	void	void
+IManagedInputClient	InputCreateMove	void	int32_t nSequence, float flSampleTime, int32_t bActive, SourceSharpDecodedUserCmd *pCmd
+IManagedInputClient	InputExtraMouseSample	void	float flFrameTime, int32_t bActive
+IManagedInputClient	InputGetButtonBits	int32_t	int32_t bReset
+IManagedInputClient	InputMakeWeaponSelection	void	int32_t nWeaponEntIndex
+IManagedInputClient	InputKeyState	float	int32_t nButton
+IManagedInputClient	InputKeyEvent	int32_t	int32_t nDown, int32_t nKeyCode, const char *pszBinding
+IManagedInputClient	InputIsKeyDown	int32_t	const char *pszName, int32_t *pDown
+IManagedInputClient	InputJoystickAdvanced	void	void
+IManagedInputClient	InputAccumulateMouse	void	void
+IManagedInputClient	InputActivateMouse	void	void
+IManagedInputClient	InputDeactivateMouse	void	void
+IManagedInputClient	InputClearStates	void	void
+IManagedInputClient	InputGetLookSpring	float	void
+IManagedInputClient	InputGetFullscreenMousePos	void	int32_t *pInOut
+IManagedInputClient	InputSetFullscreenMousePos	void	int32_t x, int32_t y
+IManagedInputClient	InputResetMouse	void	void
+IManagedInputClient	InputGetLastForwardMove	float	void
+IManagedInputClient	InputJoystickAxes	void	float *pOut
+IManagedInputClient	InputClearInputButton	void	int32_t nBits
+IManagedInputClient	InputCamThink	void	void
+IManagedInputClient	InputCamOp	int32_t	int32_t nOp
+IManagedInputClient	InputCamOrthographicSize	void	float *pOut
+IManagedInputClient	InputCamSetCameraThirdData	void	const float *pData, const float *pOffset
+IManagedInputClient	InputSetPreferredGameActionSet	void	int32_t nActionSet
+IManagedInputClient	InputGetPreferredGameActionSet	int32_t	void
+IManagedInputClient	InputSetGameActionSetFlags	void	int32_t nFlags
+IManagedInputClient	InputEnableJoystickMode	int32_t	void
+IManagedInputClient	InputIsSteamControllerActive	int32_t	void
+IManagedInputClient	InputThirdPersonInit	void	void
+IManagedInputClient	InputRumbleScreenShake	void	float flShake, float flBalance
+IManagedInputClient	InputRumbleStopAll	void	void
+IManagedInputClient	InputEncodeUserCmd	int32_t	const SourceSharpDecodedUserCmd *pTo, const SourceSharpDecodedUserCmd *pFrom, uint8_t *pBlock, int32_t nBlockBytes
+IManagedInputClient	InputDecodeUserCmd	int32_t	const uint8_t *pBlock, int32_t nBlockBytes, SourceSharpDecodedUserCmd *pOut
+IManagedBonesClient	SetupBones	int32_t	uint32_t hEntity, const void *pBlock, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount
+IManagedBonesClient	TestHitboxes	int32_t	uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts, float flCurrentTime, int32_t nFrameCount
+IManagedBonesClient	GetAttachment	int32_t	uint32_t hEntity, const void *pBlock, int32_t nAttachment, float *pAttachmentToWorld, float flCurrentTime, int32_t nFrameCount
+IManagedBonesClient	LookupAttachment	int32_t	uint32_t hEntity, const void *pBlock, const char *pszName
+IManagedBonesClient	PoseModel	int32_t	int32_t nModelIndex, const float *pOriginAngles, const float *pRenderToWorld, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount
+IManagedBonesClient	BoneBatch	void *	int32_t nFrameCount, float flCurrentTime
+IManagedRagdollsClient	StepPoses	int32_t	void
+IManagedRagdollsClient	DestroyAll	int32_t	void
+IManagedPhysicsClient	CreateWorld	void *	void
+IManagedPhysicsClient	ParseSurfaceData	int32_t	void
+IManagedPhysicsClient	PrecacheSurfaceSounds	int32_t	void
+IManagedPhysicsClient	SolidKeyValue	void	void *pData, const char *pKey, const char *pValue
+IManagedPhysicsClient	SolidDefaults	void	void *pData

@@ -1,0 +1,83 @@
+--- a/src/game/client/fx_fleck.cpp	2026-10-05 10:45:47.550294567 -0700
++++ b/src/game/client/fx_fleck.cpp	2026-10-05 10:46:15.173407178 -0700
+@@ -8,6 +8,9 @@
+ #include <predictable_entity.h>
+ #include "fx_fleck.h"
+ 
++// lane c5-particles probe: the fleck system's merges, steps and draws (fleck-stock.tsv).
++#include "fx_probe_log.h"
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -135,7 +138,14 @@
+ {
+ 	CFleckParticles *pMerge = g_FleckMergeList.FindAndMergeParticleSystem( pDebugName, vCenter, extents );
+ 	if ( pMerge )
++	{
++		Vector mins, maxs;
++		pMerge->GetBinding().GetWorldspaceBounds( &mins, &maxs );
++		FxProbeLog( "fkc\t%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%p\t1\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g",
++		            pDebugName, vCenter.x, vCenter.y, vCenter.z, extents.x, extents.y, extents.z, (void *)pMerge,
++		            mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z );
+ 		return pMerge;
++	}
+ 
+ 	CFleckParticles *pRet = new CFleckParticles( pDebugName );
+ 	if ( pRet )
+@@ -143,6 +153,8 @@
+ 		pRet->GetBinding().SetBBox( vCenter - extents, vCenter + extents );
+ 		pRet->SetSortOrigin(vCenter);
+ 	}
++	FxProbeLog( "fkc\t%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t|\t%p\t0", pDebugName, vCenter.x, vCenter.y, vCenter.z,
++	            extents.x, extents.y, extents.z, (void *)pRet );
+ 	return pRet;
+ }
+ 
+@@ -196,6 +208,9 @@
+ 			1.0f - (pParticle->m_flLifetime / pParticle->m_flDieTime),
+ 			pParticle->m_uchSize,
+ 			pParticle->m_flRoll );
++		FxProbeLog( "fkd\t%p\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)this, (void *)pParticle,
++		            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, color[0], color[1], color[2],
++		            1.0f - (pParticle->m_flLifetime / pParticle->m_flDieTime), (float)pParticle->m_uchSize, pParticle->m_flRoll );
+ 
+ 		pParticle = (const FleckParticle*)pIterator->GetNext( sortKey );
+ 	}
+@@ -208,12 +223,17 @@
+ 	while ( pParticle )
+ 	{
+ 		const float	timeDelta = pIterator->GetTimeDelta();
++		FxProbeLog( "fks\t%p\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", (void *)this, (void *)pParticle,
++		            timeDelta, pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x,
++		            pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_flRoll, pParticle->m_flRollDelta,
++		            pParticle->m_flLifetime, pParticle->m_flDieTime );
+ 
+ 		//Should this particle die?
+ 		pParticle->m_flLifetime += timeDelta;
+ 
+ 		if ( pParticle->m_flLifetime >= pParticle->m_flDieTime )
+ 		{
++			FxProbeLog( "fkso\t%p\tremoved", (void *)pParticle );
+ 			pIterator->RemoveParticle( pParticle );
+ 		}
+ 		else
+@@ -225,11 +245,18 @@
+ 			m_ParticleCollision.MoveParticle( pParticle->m_Pos, pParticle->m_vecVelocity, &pParticle->m_flRollDelta, timeDelta, &trace );
+ 
+ 			// If we're in solid, then stop moving
++			// trace.allsolid is read uninitialised when the collision has no planes
++			// (MoveParticle writes nothing); the probe marks it.
++			const bool bC5pAllSolid = trace.allsolid;
+ 			if ( trace.allsolid )
+ 			{
+ 				pParticle->m_vecVelocity = vec3_origin;
+ 				pParticle->m_flRollDelta = 0.0f;
+ 			}
++			FxProbeLog( "fkso\t%p\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", (void *)pParticle,
++			            pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x,
++			            pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_flRoll, pParticle->m_flRollDelta,
++			            pParticle->m_flLifetime, bC5pAllSolid ? 1 : 0 );
+ 		}
+ 
+ 		pParticle = (FleckParticle*)pIterator->GetNext();

@@ -1,0 +1,47 @@
+# Where a parented child ends up -- the golden table, and the ONE record of it.
+#
+# Parenting composes childToWorld = parentToWorld * childToParent, with the
+# offset measured ONCE at link time:
+#
+#   link      childToParent = MatrixInvert( AngleMatrix(pAng, pOrg) )
+#                             * AngleMatrix(cAng, cOrg)
+#   compose   childToWorld  = AngleMatrix(nAng, nOrg) * childToParent
+#             out = ( translation of that, MatrixAngles of that )
+#
+# That arithmetic used to be C++ -- ComputeChildToParentFrame and ComposeOneLink
+# in shell_standalone_hierarchy.cpp, over mathlib's matrix3x4_t -- and is now C#.
+# This file is what stops the port from quietly meaning something else. TWO tests
+# read it:
+#
+#   sourcesharp/test/parent_compose_test.cpp   -- recomputes every row with the
+#       REAL AngleMatrix/MatrixInvert/ConcatTransforms/MatrixAngles and asserts the
+#       table still describes them. That is what keeps the table a record of native
+#       rather than a record of a guess.
+#
+#   SourceSharp.Tests/HierarchyTests.cs       -- recomputes every row with
+#       Hierarchy.MeasureOffset and Hierarchy.Compose, which is the port.
+#
+# THE ROTATIONS ARE THE POINT. `translation-only` is in the table deliberately and
+# is the row a composition that ignored the parent's rotation entirely would still
+# pass; every other row fails such a composition. A table of translations would be
+# a check that cannot fail.
+#
+# Generated with mathlib. Columns:
+#   name
+#   parentOrigin(3) parentAngles(3)     the parent's frame at link time
+#   childOrigin(3)  childAngles(3)      where the child stood, in the world
+#   movedOrigin(3)  movedAngles(3)      the parent's frame after it moved
+#   outOrigin(3)    outAngles(3)        where the child is composed to
+#
+identity             0 0 0 0 0 0  10 0 0 0 0 0  0 0 0 0 0 0  10.0000 0.0000 0.0000 -0.0000 0.0000 0.0000
+yaw-90               0 0 0 0 0 0  10 0 0 0 0 0  0 0 0 0 90 0  -0.0000 10.0000 0.0000 -0.0000 90.0000 0.0000
+yaw-90-translated    0 0 0 0 0 0  10 0 0 0 0 0  100 -50 25 0 90 0  100.0000 -40.0000 25.0000 -0.0000 90.0000 0.0000
+translation-only     0 0 0 0 0 0  10 0 0 0 0 0  13 -7 2 0 0 0  23.0000 -7.0000 2.0000 -0.0000 0.0000 0.0000
+pitch-only           0 0 0 0 0 0  10 0 4 0 0 0  0 0 0 30 0 0  10.6603 0.0000 -1.5359 30.0000 0.0000 0.0000
+roll-only            0 0 0 0 0 0  0 8 3 0 0 0  0 0 0 0 0 45  0.0000 3.5355 7.7782 -0.0000 0.0000 45.0000
+full-rotation        0 0 0 0 0 0  12 -3 4 0 45 0  0 0 0 20 -70 35  -0.4265 -12.7215 -2.6422 -8.0059 -34.2020 38.9835
+parent-was-rotated   5 5 5 10 20 30  12 -3 4 0 45 0  -40 60 10 -15 110 -25  -35.0179 63.6947 18.6906 0.9279 131.8001 -59.9512
+child-facing         0 0 0 0 0 0  0 0 0 13 -24 55  0 0 0 0 180 0  0.0000 0.0000 0.0000 13.0000 156.0000 55.0000
+near-vertical        0 0 0 0 0 0  20 0 0 0 0 0  0 0 0 89.9 0 0  0.0349 0.0000 -20.0000 89.9000 0.0000 0.0000
+attachment-frame     33 12 64 5 -95 12  40 10 60 0 -95 0  35 20 66 5 -40 12  40.6533 24.5869 62.0000 -0.0000 -40.0000 0.0000
+deep-offset          -200 300 -8 0 0 0  600 -100 90 7 3 -9  -200 300 -8 0 120 0  -253.5899 1192.8203 90.0000 7.0000 123.0000 -9.0000

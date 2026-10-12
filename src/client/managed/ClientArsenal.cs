@@ -1,0 +1,506 @@
+using SourceSharp.Abi;
+using SourceSharp.Client.Standalone;
+using SourceSharp.Shared;
+
+namespace SourceSharp.Client;
+
+/// <summary>
+/// The weapon machine's client half: the REPLAY (Phase 10, over Phase 9c4's
+/// crossing) and the misprediction meter for the weapon and the viewmodel.
+///
+/// <para>
+/// The same <see cref="WeaponLogic"/> the server runs, run once per REPLAYED
+/// command over WORKING COPIES of the two declared states. The basis is the
+/// decoded state the server last sent (phase 2 resets the copies to it, once
+/// per frame, exactly as the player's native replay restores its pristine
+/// blob), and every command's result is saved in a <see cref="PredictionRing"/>
+/// whose slot the acknowledgement is judged against.
+/// </para>
+///
+/// <para>
+/// DELIBERATELY NOT WRITTEN INTO THE NATIVE BLOB. Stock can scribble
+/// predictions over networked memory because PreEntityPacketReceived restores
+/// the server's word before every packet decodes; without that restore, a
+/// scribbled word the server never re-sends corrupts the client's view
+/// permanently — the delta only carries what changed. The working copies keep
+/// the prediction entirely on this side of that hazard, and the decoded state
+/// stays the server's word by construction.
+/// </para>
+/// </summary>
+public sealed class ClientArsenal : ILocalArsenal
+{
+    // This class's log, handed in by its composition (statics to zero).
+    private readonly ILog _log;
+
+    private readonly IClientStandalones _standalones;
+    private readonly IEngineEntityRender _render;
+    private readonly IGameClock _clock;
+    private readonly IEngineHud _screen;
+
+    private readonly WeaponNetState _weapon = new();
+    private readonly ViewModelNetState _viewModel = new();
+    private readonly WeaponLogic _machine;
+
+    private readonly PredictionRing _weaponRing = new();
+    private readonly PredictionRing _viewModelRing = new();
+
+    // Scratch for ring saves, sized on first use. Reused: this runs per
+    // replayed command per frame.
+    private byte[] _weaponScratch = Array.Empty<byte>();
+    private byte[] _viewModelScratch = Array.Empty<byte>();
+
+    private ClientSsWeapon? _localWeapon;
+    private ClientSsViewModel? _localViewModel;
+
+    // The meter.
+    private int _saves, _holds, _tolerated, _mispredicts, _noBasis;
+    private int _lastMissCommand = -1;
+    private string _lastMissFields = "";
+    private int _pokeOffset = -1;
+    private int _lastComparedDecode = -1;
+
+    // The side's declared states (statics to zero), which name a mispredicted
+    // field.
+    private readonly NetStateCatalog _catalog;
+
+    public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
+                         IGameClock clock, IEngineHud screen, NetStateCatalog catalog)
+    {
+
+        _log = log;
+        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        _standalones = standalones;
+        _render = render;
+        _clock = clock;
+        _screen = screen;
+        _machine = new WeaponLogic(new ClientWeaponArms(this));
+
+        _weapon.BindLocal();
+        _viewModel.BindLocal();
+    }
+
+    /// <summary>
+    /// One crossing from the native replay. Phase 2 is the frame's basis
+    /// reset (cmd carries the acknowledged command number); phase 1 is one
+    /// replayed command, after its movement.
+    /// </summary>
+    public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime)
+        => OnPlayerCommand(player, in cmd, phase, firstTime, _clock.Now);
+
+    /// <summary>
+    /// The replay's form: <paramref name="commandTime"/> is the replayed
+    /// command's own clock, its tick base times the tick interval -- what the
+    /// server's run of the same command read as curtime. The engine's curtime
+    /// here is the FRAME's, the same for every command a frame replays.
+    /// </summary>
+    public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime,
+                                float commandTime)
+    {
+        if (phase == 2)
+        {
+            ResetBasis(player, cmd.CommandNumber);
+            return;
+        }
+
+        if (phase != 1 || _localWeapon is null || _localViewModel is null)
+            return;
+
+        if (_weapon.WeaponTypeId < 0)
+            return;
+
+        // The clock is the command's own, as the server's run of it read. Read
+        // from the engine instead it was the frame's curtime, and every timer
+        // the machine sets (TimeWeaponIdle, NextPrimaryAttack) mispredicted.
+        _machine.RunCommand(_weapon, _viewModel, cmd.Buttons,
+                            commandTime, effectsLive: firstTime);
+
+        SaveCommand(cmd.CommandNumber);
+
+        // The PREDICTED sequence reaches the renderer here — this is what
+        // makes the fire animation start the frame the trigger is pressed
+        // rather than a round trip later. Present is edge-triggered, so the
+        // replayed commands that changed nothing cost nothing, and the
+        // decode's own push of the same (sequence, parity) is a no-op when
+        // the prediction held.
+        _localViewModel.Present(_viewModel.Sequence, _viewModel.AnimationParity,
+                                _viewModel.PlaybackRate);
+    }
+
+    //-------------------------------------------------------------------------
+    // The basis, and the compare it carries.
+    //-------------------------------------------------------------------------
+
+    /// <summary>The working weapon state the replay runs, for tests.</summary>
+    internal WeaponNetState WorkingWeapon => _weapon;
+
+    private void ResetBasis(EntityHandle player, int acknowledged)
+    {
+        // Players hold 1..maxplayers identically on both sides; the low bits
+        // of a client handle are its entity-list entry.
+        int localIndex = (int)(player.Value & 0xFFFF);
+
+        FindLocalPair(localIndex);
+
+        if (_localWeapon is null || _localViewModel is null)
+            return;
+
+        // A fresh decode means the decoded states hold the server's word and
+        // the acknowledged command's slot has something to be judged against.
+        int decode = _localWeapon.Decodes + _localViewModel.Decodes;
+
+        if (decode != _lastComparedDecode)
+        {
+            _lastComparedDecode = decode;
+            Compare(acknowledged);
+        }
+
+        // The reset itself: the working copies go back to the server's word,
+        // so a frame with no new packet re-predicts the same commands from the
+        // same start and lands on the same answer.
+        ResizeRings();
+        CopyState(_localWeapon.State, _weapon);
+        CopyState(_localViewModel.State, _viewModel);
+    }
+
+    private void Compare(int acknowledged)
+    {
+        CompareOne(_weaponRing, _localWeapon!.State, EntityNames.SsWeapon, acknowledged);
+        CompareOne(_viewModelRing, _localViewModel!.State, EntityNames.SsViewModel, acknowledged);
+    }
+
+    private void CompareOne(PredictionRing ring, NetState arrivedState, string className, int acknowledged)
+    {
+        ReadOnlySpan<byte> predicted = ring.CommandBytes(acknowledged);
+
+        if (predicted.IsEmpty)
+        {
+            _noBasis++;
+            return;
+        }
+
+        byte[] arrived = arrivedState.Snapshot();
+
+        if (arrived.Length != predicted.Length)
+        {
+            _noBasis++;
+            return;
+        }
+
+        // The engine block comes from the arrival on both sides, as the player
+        // compare does it: the server moves a carried weapon and viewmodel to
+        // their owner every frame and nothing here predicts that, so the
+        // origin's bytes read as "(padding@24..)" mispredictions on every
+        // landing.
+        byte[] judged = PredictionJudge.OverlayDeclared(predicted, arrived,
+            PredictionJudge.DeclaredStart(arrivedState.GetType(), arrived.Length));
+
+        if (judged.AsSpan().SequenceEqual(arrived))
+        {
+            _holds++;
+            ClearWitnessedPoke(ring, acknowledged, className);
+            return;
+        }
+
+        ClearWitnessedPoke(ring, acknowledged, className);
+
+        int standing = PredictionJudge.Judge(_catalog, NetSchema.TypeIdOf(className),
+            judged, arrived, out string fields, out _);
+
+        if (standing == 0)
+        {
+            _holds++;
+            _tolerated++;
+            return;
+        }
+
+        _mispredicts++;
+        _lastMissCommand = acknowledged;
+        _lastMissFields = $"{className}: {(fields.Length > 0 ? fields : "(unnamed)")}";
+
+        // REPORTED A FEW TIMES AND THEN COUNTED SILENTLY. A misprediction that
+        // repeats does so every command -- twenty times a second, per weapon --
+        // and it was drowning the console for anyone looking at anything else.
+        // Nothing is lost: _mispredicts keeps the tally and _lastMissFields
+        // keeps the most recent one, which is what the report reads.
+        if (_mispredicts <= QuietAfter)
+        {
+            _log.Msg($"[SourceSharp] weapon prediction: MISPREDICTION on '{className}' at command " +
+                    $"{acknowledged} — {standing} byte(s) stand: {fields}" +
+                    (_mispredicts == QuietAfter
+                        ? " (quiet from here; the tally keeps counting)"
+                        : "") + "\n");
+        }
+    }
+
+    /// <summary>
+    /// How many mispredictions are reported before the log goes quiet. The
+    /// COUNTING never stops — see the note where this is read.
+    /// </summary>
+    public const int QuietAfter = 3;
+
+    private void ClearWitnessedPoke(PredictionRing ring, int acknowledged, string className)
+    {
+        if (_pokeOffset < 0 || ring.CommandBytes(acknowledged).IsEmpty)
+            return;
+
+        _log.Msg($"[SourceSharp] weapon prediction: poke at offset {_pokeOffset} on " +
+                   $"'{className}' was seen by the compare — poke cleared\n");
+        _pokeOffset = -1;
+    }
+
+    private void SaveCommand(int command)
+    {
+        if (_weaponScratch.Length > 0 && _weapon.CopyTo(_weaponScratch) == _weaponScratch.Length)
+        {
+            if (_weaponRing.SaveCommand(command, _weaponScratch))
+            {
+                _saves++;
+
+                // A poke in flight damages every slot as it is saved, so the
+                // next ack has a provably wrong basis — persistent until a
+                // compare witnesses it (9c1's one-shot-poke lesson).
+                if (_pokeOffset >= 0)
+                    _weaponRing.CorruptCommand(command, _pokeOffset);
+            }
+        }
+
+        if (_viewModelScratch.Length > 0 && _viewModel.CopyTo(_viewModelScratch) == _viewModelScratch.Length)
+            _viewModelRing.SaveCommand(command, _viewModelScratch);
+    }
+
+    //-------------------------------------------------------------------------
+    // Bookkeeping.
+    //-------------------------------------------------------------------------
+
+    private void FindLocalPair(int localIndex)
+    {
+        // Re-resolved per frame, because either entity can arrive, die, or
+        // change owners between any two frames.
+        //
+        // TWO CLASSNAME LOOKUPS AND NOT ONE WALK — plan_entity.md §3.5's
+        // find-by-class, lane entlist-client. The pair being looked for is two
+        // named classes; walking every live entity to find them asked the
+        // directory nothing and cost the population once per frame.
+        _localWeapon = null;
+        _localViewModel = null;
+
+        foreach (var entity in _standalones.OfClass(EntityNames.SsWeapon))
+        {
+            if (entity is ClientSsWeapon weapon && weapon.State.OwnerIndex == localIndex)
+                _localWeapon = weapon;
+        }
+
+        foreach (var entity in _standalones.OfClass(EntityNames.SsViewModel))
+        {
+            if (entity is ClientSsViewModel viewModel && viewModel.State.OwnerIndex == localIndex)
+                _localViewModel = viewModel;
+        }
+    }
+
+    private void ResizeRings()
+    {
+        int weaponBytes = _localWeapon!.State.Snapshot().Length;
+        int viewModelBytes = _localViewModel!.State.Snapshot().Length;
+
+        if (_weaponRing.BlobBytes != weaponBytes)
+        {
+            _weaponRing.Init(weaponBytes);
+            _weaponScratch = new byte[weaponBytes];
+        }
+
+        if (_viewModelRing.BlobBytes != viewModelBytes)
+        {
+            _viewModelRing.Init(viewModelBytes);
+            _viewModelScratch = new byte[viewModelBytes];
+        }
+    }
+
+    private static void CopyState(NetState from, NetState to)
+    {
+        // Snapshot allocates; this runs once per frame per state, and the
+        // decoded side has no span accessor. Worth a CopyTo pair if profiling
+        // ever asks.
+        byte[] bytes = from.Snapshot();
+
+        if (bytes.Length > 0)
+            to.Decode(bytes);
+    }
+
+    //-------------------------------------------------------------------------
+    // The HUD's feed (ILocalArsenal). The DECODED state on purpose: it is the
+    // server's word, held byte-for-byte by the measured prediction almost
+    // every frame anyway, and unlike the replay's working copies it is valid
+    // whether or not a replay ran this frame (prediction can be off).
+    //-------------------------------------------------------------------------
+
+    public bool TryGetSecondary(out int current, out int max)
+    {
+        (current, max) = (-1, 0);
+        if (_localWeapon is null || _localWeapon.State.WeaponTypeId < 0)
+            return false;
+        if (WeaponTypes.ByIndex(_localWeapon.State.WeaponTypeId) is not { } type
+            || type.SecondaryAmmoName.Length == 0 || AmmoTypes.For(type.SecondaryAmmoName) is not { } ammo)
+            return false;
+        (current, max) = (_localWeapon.State.SecondaryReserve, ammo.MaxCarry);
+        return true;
+    }
+
+    public bool TryGetActive(out string name, out int clip, out int reserve)
+    {
+        name = "";
+        clip = -1;
+        reserve = -1;
+
+        int local = _screen.LocalPlayerIndex;
+
+        if (local <= 0)
+            return false;
+
+        // Re-resolved per ask rather than trusted: the pair the replay found
+        // can have been removed or re-owned between frames, and the replay
+        // only looks while prediction is running at all.
+        FindLocalPair(local);
+
+        if (_localWeapon is null)
+            return false;
+
+        var state = _localWeapon.State;
+
+        if (state.WeaponTypeId < 0)
+            return false;
+
+        var type = WeaponTypes.ByIndex(state.WeaponTypeId);
+        name = type?.Name ?? $"#{state.WeaponTypeId}";
+        clip = state.Clip;
+        // A weapon that spends no ammunition (the crowbar) has no pool, whatever
+        // the networked reserve says (0): -1, as a weapon with no clip has no clip.
+        reserve = type is { AmmoName.Length: 0 } ? -1 : state.Reserve;
+        return true;
+    }
+
+    //-------------------------------------------------------------------------
+    // The instruments.
+    //-------------------------------------------------------------------------
+
+    public string Report()
+    {
+        string line =
+            $"[SourceSharp] weapon prediction: pair {(_localWeapon is not null && _localViewModel is not null ? "present" : "absent")}, " +
+            $"{_weaponRing.BlobBytes}+{_viewModelRing.BlobBytes} byte(s) ringed — {_saves} save(s), " +
+            $"{_holds} hold(s) ({_tolerated} tolerated), {_mispredicts} misprediction(s), {_noBasis} no-basis";
+
+        if (_lastMissCommand >= 0)
+            line += $"\n  last mismatch: command {_lastMissCommand}: {_lastMissFields}";
+
+        return line;
+    }
+
+    /// <summary>
+    /// The sequence an animation kind resolves to on the local viewmodel's
+    /// current model — the ONE lookup the replay's arms fire with.
+    /// </summary>
+    internal int ResolveSequence(WeaponAnim anim)
+        => _localViewModel is null
+            ? -1
+            : WeaponAnimNames.Resolve(_render, _localViewModel.Handle, anim);
+
+    /// <summary>Arms the poke: every future weapon-ring save is damaged at the
+    /// offset until a compare witnesses it.</summary>
+    public bool Poke(int offset)
+    {
+        if (_weaponRing.BlobBytes == 0 || offset < 0 || offset >= _weaponRing.BlobBytes)
+            return false;
+
+        _pokeOffset = offset;
+        return true;
+    }
+
+    //-------------------------------------------------------------------------
+    // The arms: what the machine's decisions do HERE, which is almost nothing.
+    // Effects are the server's until client-side effects land; the two asks
+    // that write PREDICTED STATE answer from the same model the server read.
+    //-------------------------------------------------------------------------
+
+    private sealed class ClientWeaponArms : IWeaponArms
+    {
+        private readonly ClientArsenal _owner;
+
+        public ClientWeaponArms(ClientArsenal owner) => _owner = owner;
+
+        public void Sound(string soundScript) { }
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees) { }
+        public void MeleeSwing(in WeaponType type) { }
+        public void Launch(in WeaponType type, string projectile, float speed, bool thrown) { }
+
+        public int LookupSequence(WeaponAnim anim) => _owner.ResolveSequence(anim);
+
+        public float AnimDuration(WeaponAnim anim)
+        {
+            int sequence = LookupSequence(anim);
+
+            if (sequence < 0 || _owner._localViewModel is null)
+                return 0f;
+
+            return _owner._render.SequenceDuration(_owner._localViewModel.Handle, sequence);
+        }
+    }
+}
+
+/// <summary>
+/// The console door onto the weapon meter — cs_cl_player_predict_report's twin
+/// for the pair the player carries.
+/// </summary>
+[ConCommand("cs_cl_weapon_predict_report",
+            Help = "What the weapon and viewmodel prediction rings have seen")]
+public sealed class WeaponPredictReportCommand : IConCommand
+{
+    // This class's log, handed in by its composition (statics to zero).
+    private readonly ILog _log;
+
+    private readonly ClientArsenal _arsenal;
+
+    public WeaponPredictReportCommand(ILog log, ClientArsenal arsenal) 
+
+    {
+
+        _log = log;
+
+        _arsenal = arsenal;
+
+    }
+
+    public void Execute(string args) => _log.Msg(_arsenal.Report() + "\n");
+}
+
+/// <summary>
+/// The provocation that proves the weapon meter can go red: corrupts the
+/// weapon ring's saves at one offset until a compare witnesses it.
+/// </summary>
+[ConCommand("cs_cl_weapon_predict_poke",
+            Help = "cs_cl_weapon_predict_poke [offset] — corrupt the weapon's replayed slots until a compare sees it")]
+public sealed class WeaponPredictPokeCommand : IConCommand
+{
+    // This class's log, handed in by its composition (statics to zero).
+    private readonly ILog _log;
+
+    private readonly ClientArsenal _arsenal;
+
+    public WeaponPredictPokeCommand(ILog log, ClientArsenal arsenal) 
+
+    {
+
+        _log = log;
+
+        _arsenal = arsenal;
+
+    }
+
+    public void Execute(string args)
+    {
+        int offset = int.TryParse(args.Trim(), out int parsed) ? parsed : 0;
+
+        _log.Msg(_arsenal.Poke(offset)
+            ? $"[SourceSharp] weapon prediction: poking offset {offset} until a compare sees it\n"
+            : "[SourceSharp] weapon prediction: nothing ringed at that offset\n");
+    }
+}

@@ -1,0 +1,3 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+bool ThreadInMainThread()	HOST	threadtools.h's ThreadInMainThread over tier0_thread_port.cpp's ThreadGetCurrentId (C9 tier0)

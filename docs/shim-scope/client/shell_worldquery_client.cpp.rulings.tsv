@@ -1,0 +1,7 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+static int TraceHitIndex( IHandleEntity *pHit )	SLOT-HELP	SourceSharp_ClientTraceLine (the world query trace slot) is its only caller: it reads the hit handle and asks the table, deciding nothing (C6, gametrace_client.cpp left)
+[CObserverNoNPCsOrPlayerFilter] CObserverNoNPCsOrPlayerFilter(	SLOT-HELP	the chase camera's stock filter, constructed
+[CObserverNoNPCsOrPlayerFilter] virtual bool ShouldHitEntity(	SLOT-HELP	util_shared.cpp's CTraceFilterNoNPCsOrPlayer rule over this tree's shells: the simple filter, minus players
+int32_t SourceSharp_ClientTraceHull(	SLOT	IShimViewClient::ClientTraceHull: UTIL_TraceHull with the stock filter and mask managed names
+int32_t SourceSharp_ClientEntityRenderPose(	SLOT	IShimViewClient::ClientEntityRenderPose: an entity's drawn origin and angles by index

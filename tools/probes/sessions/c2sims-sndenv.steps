@@ -1,0 +1,9 @@
+# lane c2-sims: record the client sound envelope controller
+# (tools/probes/c2sims-sndenv-probe.diff applied) on dm_lockdown: one patch on
+# the local player, a fixed script, 200 frames.
+# Run with --env SOURCESHARP_C2SIMS_FIXTURE_DIR=<dir>.
+wait first paint 240
+sleep 3
+cmd cs_cl_probe_sndenv 200
+wait sndenv. recorded 60
+quit

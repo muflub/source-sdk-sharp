@@ -1,0 +1,58 @@
+# key (unique substring of the fnmap head line)	verdict	reason
+class CPhysicsHook	HOOK	the IGameSystem object itself; kServerSystems names it
+PhysicsGameSystem	LIVE-API	shell_serversystems.o imports it (measured)
+CPhysicsHook::Init	HOOK	engine-driven game-system slot
+CPhysicsHook::LevelInitPreEntity	HOOK	creates physenv and binds the three vphysics event interfaces
+CPhysicsHook::LevelInitPostEntity	HOOK	engine-driven game-system slot
+CPhysicsHook::LevelShutdownPreEntity	HOOK	engine-driven game-system slot
+CPhysicsHook::LevelShutdownPostEntity	HOOK	engine-driven game-system slot
+CPhysicsHook::FrameUpdatePostEntityThink	HOOK	engine-driven game-system slot; forwards to managed's PhysicsFrame (IManagedPhysicsFrame)
+PhysicsWorldOwner	LIVE-API	physics_debug.o imports it (measured, debug build; physics_shared.o did until it left at 2.6)
+SourceSharp_PhysicsUpdateOwners	LIVE-API	IShimPhysics slot: the owners' transform update managed's PhysicsFrame asks after each simulate (plan_physics_bones_native_zero 2.3)
+#
+# MOVED TO physics_debug.cpp (2026-10-01 user ruling: diagnostic console commands live in debug files
+# that only a debug build compiles). No longer in physics.cpp, so no longer ruled here; their rulings were:
+#   SS_NATIVE_COMMAND( ss_physworld_report )	INSTRUMENT	named by 4 tools
+#   ss_physworld_recheck	INSTRUMENT	named by 1 tool, 2 sites
+#   SourceSharpReportObjectsOutOfBounds	INSTRUMENT	ss_physworld_bounds's body
+#   ss_physworld_bounds	INSTRUMENT	named by 1 tool, 3 sites
+#   SS_NATIVE_COMMAND( ss_physworld_object )	INSTRUMENT	named by 4 tools, 11 sites; physworld_match_rule.h pins its match rule
+#   ss_physworld_penetration	INSTRUMENT	named by 1 tool, 4 sites
+#   IterateActivePhysicsEntities	STOCK-DEBUG	only callers are physics_highlight_active and physics_report_active
+#   CallbackHighlight	STOCK-DEBUG	physics_highlight_active's callback
+#   CallbackReport	STOCK-DEBUG	physics_report_active's callback
+#   cs_sv_physics_shell	INSTRUMENT	named by 2 files, 6 sites; the event ring's own report
+#   physics_highlight_active	STOCK-DEBUG	stock console command; nothing in tools/ docs/ managed/ cfg/ names it
+#   physics_report_active	STOCK-DEBUG	stock console command; nothing in tools/ docs/ managed/ cfg/ names it
+#   class CConstraintFloodEntry	STOCK-DEBUG	physics_budget's constraint walk; nothing else constructs one
+#   class CConstraintFloodList	STOCK-DEBUG	physics_budget's constraint walk
+#   MarkVPhysicsDebug	STOCK-DEBUG	physics_select's callback, passed as a pointer
+#   void PhysicsCommand	STOCK-DEBUG	physics_select's argument parse
+#   physics_select	STOCK-DEBUG	stock console command; nothing in tools/ docs/ managed/ cfg/ names it
+#   physics_budget	STOCK-DEBUG	stock console command; nothing in tools/ docs/ managed/ cfg/ names it
+#   PhysForceEntityToSleep	STOCK-DEBUG	its ONLY call site is inside CON_COMMAND( physics_budget ) at physics.cpp:2616; no drain reaches it
+#
+# MANAGED SINCE plan_physics_bones_native_zero 2.3 (PhysWorldReport, PhysicsBudget, AirDensityCommand,
+# PhysicsSolver.ForceEntityToSleep). No longer in physics.cpp; their rulings were:
+#   EntityPhysicsObject( IGameEntity *pEntity )	BOUNDARY	one-line pVPhysics() accessor; cpp_alias_t1's anchor for this file
+#   EntityPhysicsObjectList	BOUNDARY	VPhysicsGetObjectList passthrough over raw IPhysicsObject*
+#   PhysWorldReportEmit	INSTRUMENT	the SS-PHYSWORLD report's sink; physics_debug.cpp's instruments reach it through physics_internal.h
+#   void SourceSharp_PhysWorldReport	INSTRUMENT	the SS-PHYSWORLD report; LevelInitPostEntity runs it when sourcesharp_physworld_report is on, and ss_physworld_report (physics_debug.cpp) through physics_internal.h
+#   PhysForceEntityToSleep	STOCK-DEBUG	its ONLY call site is physics_budget in physics_debug.cpp again: the penetrate drain that reached it went managed at plan_physics_bones_native_zero 2.1 (SLOT-HELP since H)
+#   void CC_AirDensity	STOCK-DEBUG	air_density's handler, called by its SS_NATIVE_COMMAND body
+#   SS_NATIVE_COMMAND( air_density )	STOCK-DEBUG	air_density's native body (plan_server_novalve.md P2.3c: declared in C#)
+#
+# MANAGED SINCE plan_physics_bones_native_zero 2.3 (PhysicsSoundBatch over EmitWorldSoundScript). No longer in
+# physics.cpp; their rulings were:
+#   CPhysicsHook::PreClientUpdate	HOOK	engine-driven game-system slot
+#   SourceSharp_PlayImpactSounds	HOOK	PreClientUpdate's queued impact sounds (vphysics_sound.h's PlayImpactSounds on ss:: filters, P5)
+#   SourceSharp_PlayBreakSounds	HOOK	PreClientUpdate's queued break sounds (vphysics_sound.h's PlayBreakSounds on ss:: filters, P5)
+#   ManagedPhysicsObjectOf	BOUNDARY	a packed handle back to its managed entity's raw IPhysicsObject * (the sound slots); SLOT-HELP until plan_physics_bones_native_zero 2.1 deleted the penetrate ledger that also read it
+#   SourceSharp_EntityPhysicsImpactSound	LIVE-API	IShimPhysics slot: managed queues an impact sound (physics stock parity C3)
+#   SourceSharp_EntityPhysicsBreakSound	LIVE-API	IShimPhysics slot: managed queues a break sound (physics stock parity L)
+#
+# MANAGED SINCE plan_physics_bones_native_zero 2.3 (PhysicsFrame over IManagedPhysicsFrame). No longer in
+# physics.cpp; their rulings were:
+#   PhysTimescale()	INSTRUMENT	phys_timescale's read, and its change callback as a comparison (plan_server_novalve.md P2.3c: the ConVar is C#'s)
+#   void PhysFrame	HOOK	the per-tick simulate; CPhysicsHook::FrameUpdatePostEntityThink is its only caller
+#   PhysicsRecordShadowStress	LIVE-API	the STRESS ring write for a player's hull (B5); shell_standalone_player.o imports it, because the ring's engine half is this file's alone

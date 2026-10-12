@@ -1,0 +1,128 @@
+--- a/src/client/native/shell_te_backends_client.cpp
++++ b/src/client/native/shell_te_backends_client.cpp
+@@ -109,6 +109,11 @@
+ 
+ #include "managed_convar_ref.h"
+ 
++// lane c5-particles probe: C_TEShatterSurface's shards (shatter-stock.tsv), sh* rows.
++#include "fx_probe_log.h"
++static float C5pShF( float lo, float hi ) { const float v = ::random->RandomFloat( lo, hi ); FxProbeLog( "shr\tf\t%.9g\t%.9g\t%.9g", lo, hi, v ); return v; }
++static int C5pShI( int lo, int hi ) { const int v = ::random->RandomInt( lo, hi ); FxProbeLog( "shr\ti\t%d\t%d\t%d", lo, hi, v ); return v; }
++
+ // memdbgon must be the last include file in a .cpp file!!!
+ #include "tier0/memdbgon.h"
+ 
+@@ -1059,6 +1064,7 @@
+ 		return;
+ 
+ 	const Vector vecOrigin( req.vecOrigin.x, req.vecOrigin.y, req.vecOrigin.z );
++	FxProbeLog( "lfi\t%.9g\t%.9g\t%.9g\t%d\t%d", vecOrigin.x, vecOrigin.y, vecOrigin.z, (int)nReversed, req.bReversed ? 1 : 0 );
+ 
+ 	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "TELargeFunnel" );
+ 
+@@ -1090,7 +1096,7 @@
+ 
+ 					vecDir[0] = i;
+ 					vecDir[1] = j;
+-					vecDir[2] = random->RandomFloat(100, 800);
++					vecDir[2] = C5pShF( 100, 800 );
+ 
+ 					pParticle->m_uchStartAlpha	= 255;
+ 					pParticle->m_uchEndAlpha	= 0;
+@@ -1099,7 +1105,7 @@
+ 				{
+ 					pParticle->m_Pos[0] = vecOrigin[0] + i;
+ 					pParticle->m_Pos[1] = vecOrigin[1] + j;
+-					pParticle->m_Pos[2] = vecOrigin[2] + random->RandomFloat(100, 800);
++					pParticle->m_Pos[2] = vecOrigin[2] + C5pShF( 100, 800 );
+ 
+ 					// send particle heading to org at a random speed
+ 					vecDir = vecOrigin - pParticle->m_Pos;
+@@ -1115,7 +1121,7 @@
+ 				pParticle->m_flLifetime = 0;
+ 				pParticle->m_flDieTime = invratio;
+ 
+-				if( random->RandomInt( 0, 10 ) < 5 )
++				if( C5pShI( 0, 10 ) < 5 )
+ 				{
+ 					// small green particle
+ 					pParticle->m_uchColor[0] = 0;
+@@ -1138,6 +1144,7 @@
+ 				pParticle->m_flRoll			= i;	// pseudorandom
+ 				pParticle->m_flRollDelta	= 0;
+ 				pParticle->m_iFlags = 0;
++				FxProbeLog( "lfp\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g", i, j, pParticle->m_Pos.x, pParticle->m_Pos.y, pParticle->m_Pos.z, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y, pParticle->m_vecVelocity.z, pParticle->m_flLifetime, pParticle->m_flDieTime, pParticle->m_uchColor[0], pParticle->m_uchColor[1], pParticle->m_uchColor[2], pParticle->m_uchStartAlpha, pParticle->m_uchEndAlpha, pParticle->m_uchStartSize, pParticle->m_uchEndSize, pParticle->m_flRoll, pParticle->m_flRollDelta );
+ 			}
+ 		}
+ 	}
+@@ -1493,6 +1500,11 @@
+ 
+ 	Vector vecColor;
+ 	engine->ComputeLighting( vecOrigin, NULL, true, vecColor );
++	FxProbeLog( "shi\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g",
++	            vecOrigin.x, vecOrigin.y, vecOrigin.z, vecAngles.x, vecAngles.y, vecAngles.z, vecForce.x, vecForce.y, vecForce.z,
++	            vecForcePos.x, vecForcePos.y, vecForcePos.z, req.flShardSize, req.nWide, req.nHigh, req.nSurfaceType,
++	            req.nFrontRGB[0], req.nFrontRGB[1], req.nFrontRGB[2], req.nBackRGB[0], req.nBackRGB[1], req.nBackRGB[2],
++	            vecColor.x, vecColor.y, vecColor.z );
+ 
+ 	// HACK: Blend a little toward white to match the materials...
+ 	VectorLerp( vecColor, Vector( 1, 1, 1 ), 0.3, vecColor );
+@@ -1519,12 +1531,13 @@
+ 	{
+ 		for ( int height = 0; height < req.nHigh; height++ )
+ 		{
++			const int nC5pMat = C5pShI( 0, 1 );
+ 			pParticle = (Particle3D *) pGlassEmitter->AddParticle(
+-				sizeof( Particle3D ), hMaterial[ random->RandomInt( 0, 1 ) ], vCurPos );
++				sizeof( Particle3D ), hMaterial[ nC5pMat ], vCurPos );
+ 
+ 			Vector vForceVel = Vector( 0, 0, 0 );
+ 
+-			if ( random->RandomInt( 0, 3 ) != 0 )
++			if ( C5pShI( 0, 3 ) != 0 )
+ 			{
+ 				float flForceDistSqr = ( vCurPos - vecForcePos ).LengthSqr();
+ 				vForceVel = vecForce;
+@@ -1537,15 +1550,18 @@
+ 
+ 			if ( pParticle )
+ 			{
+-				pParticle->m_flLifeRemaining = random->RandomFloat( GLASS_SHARD_MIN_LIFE,
++				pParticle->m_flLifeRemaining = C5pShF( GLASS_SHARD_MIN_LIFE,
+ 				                                                    GLASS_SHARD_MAX_LIFE );
+ 				pParticle->m_vecVelocity   = vForceVel;
+-				pParticle->m_vecVelocity  += RandomVector( -25, 25 );
++				const Vector vC5pR = RandomVector( -25, 25 );
++				for ( int c5k = 0; c5k < 3; c5k++ )
++					FxProbeLog( "shr\tf\t%.9g\t%.9g\t%.9g", -25.0f, 25.0f, vC5pR[c5k] );
++				pParticle->m_vecVelocity  += vC5pR;
+ 				pParticle->m_uchSize       = req.flShardSize
+-				                           + random->RandomFloat( -0.5 * req.flShardSize,
++				                           + C5pShF( -0.5 * req.flShardSize,
+ 				                                                   0.5 * req.flShardSize );
+ 				pParticle->m_vAngles       = vecAngles;
+-				pParticle->m_flAngSpeed    = random->RandomFloat( -400, 400 );
++				pParticle->m_flAngSpeed    = C5pShF( -400, 400 );
+ 
+ 				pParticle->m_uchFrontColor[0] = (byte)( req.nFrontRGB[0] * vecColor.x );
+ 				pParticle->m_uchFrontColor[1] = (byte)( req.nFrontRGB[1] * vecColor.y );
+@@ -1553,6 +1569,11 @@
+ 				pParticle->m_uchBackColor[0]  = (byte)( req.nBackRGB[0]  * vecColor.x );
+ 				pParticle->m_uchBackColor[1]  = (byte)( req.nBackRGB[1]  * vecColor.y );
+ 				pParticle->m_uchBackColor[2]  = (byte)( req.nBackRGB[2]  * vecColor.z );
++				FxProbeLog( "shp\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d", nC5pMat,
++				            vCurPos.x, vCurPos.y, vCurPos.z, pParticle->m_flLifeRemaining, pParticle->m_vecVelocity.x, pParticle->m_vecVelocity.y,
++				            pParticle->m_vecVelocity.z, (int)pParticle->m_uchSize, pParticle->m_flAngSpeed,
++				            pParticle->m_uchFrontColor[0], pParticle->m_uchFrontColor[1], pParticle->m_uchFrontColor[2],
++				            pParticle->m_uchBackColor[0], pParticle->m_uchBackColor[1], pParticle->m_uchBackColor[2] );
+ 			}
+ 
+ 			// Keep track of min and max speed for collision detection
+@@ -1574,6 +1595,7 @@
+ 	Vector vMoveDir = vecForce;
+ 	VectorNormalize( vMoveDir );
+ 
++	FxProbeLog( "shc\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", vMoveDir.x, vMoveDir.y, vMoveDir.z, flMinSpeed, flMaxSpeed );
+ 	pGlassEmitter->m_ParticleCollision.Setup( vecOrigin, &vMoveDir, GLASS_SHARD_NOISE,
+ 	                                          flMinSpeed, flMaxSpeed, GLASS_SHARD_GRAVITY,
+ 	                                          GLASS_SHARD_DAMPING );

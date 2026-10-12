@@ -1,0 +1,344 @@
+#!/usr/bin/env python3
+"""Apply or check the Valve attribution header (tools/valve-header.txt).
+
+    tools/valve-header apply [--ledger docs/move/ledger.tsv] [--root .]
+    tools/valve-header check [--ledger docs/move/ledger.tsv] [--root .]
+    tools/valve-header review [--out docs/valve-header-review.md]
+    tools/valve-header --self-test
+
+The ledger's `valve_header` column decides: `yes` files must start with the
+header byte for byte; `no` files must not contain it.
+
+apply: if the file's first comment block names `Copyright Valve`, that block
+is replaced and any `Purpose:` text in it is kept below the new header.
+Otherwise the header is prepended, followed by one blank line. A file that
+already starts with the header is left alone, so a second run changes nothing.
+"""
+
+import argparse
+import os
+import re
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+HEADER = open(os.path.join(HERE, "valve-header.txt"), "rb").read()
+MARK = HEADER.splitlines()[2]  # the "Inspired by ..." line
+BOM = b"\xef\xbb\xbf"
+VALVE = re.compile(rb"Copyright[^\n]{0,20}Valve", re.I)
+
+
+def first_comment_block(data):
+    """(start, end) byte span of the leading comment block, or None.
+
+    The block is a run of `//` lines, or one `/* ... */`, after optional
+    blank lines.
+    """
+    i = 0
+    n = len(data)
+    while i < n and data[i:i + 1] in (b"\n", b"\r", b" ", b"\t"):
+        i += 1
+    start = i
+    if data.startswith(b"/*", i):
+        j = data.find(b"*/", i)
+        if j < 0:
+            return None
+        end = data.find(b"\n", j)
+        return start, (n if end < 0 else end + 1)
+    if not data.startswith(b"//", i):
+        return None
+    j = i
+    while j < n:
+        k = data.find(b"\n", j)
+        line_end = n if k < 0 else k + 1
+        if not data[j:line_end].lstrip().startswith(b"//"):
+            break
+        j = line_end
+    return start, j
+
+
+# Lines of a Valve banner that are Valve's boilerplate, not content.
+_BOILER = re.compile(
+    rb"^//\s*("
+    rb"|[=\-*]+.*"                       # rules: //=====  //-----
+    rb"|.*Copyright[^\n]{0,20}Valve.*"   # the copyright line itself
+    rb"|\$(NoKeywords|Workfile|Date|Revision|Author|Header|Log)\b.*"
+    rb"|Purpose:\s*"                      # an empty Purpose:
+    rb")\s*$")
+
+
+def kept_lines(block):
+    """Every line of the old banner except Valve's boilerplate, in order: the
+    Purpose: text and anything else a file carries there (SS_REASON markers
+    are read by tests, so nothing but boilerplate may be dropped)."""
+    out = []
+    for line in block.splitlines(keepends=True):
+        if not line.endswith(b"\n"):
+            line += b"\n"
+        if _BOILER.match(line.strip()):
+            continue
+        out.append(line)
+    return b"".join(out)
+
+
+# A pure rule line: `//====//`, `//-----`, with nothing else on it.
+_RULE = re.compile(rb"^//\s*[=\-*]{3,}[=\-*/\s]*$")
+
+
+def banner_rewrite(block):
+    """The first comment block with Valve's banner in it, rewritten: the
+    banner -- from its copyright line to the rule that closes it -- loses its
+    boilerplate (kept_lines), and every line before and after the banner in
+    the same block is kept byte for byte. A relocated file often carries its
+    own prose above or below Valve's banner (`//=== SourceSharp -- RELOCATED
+    STOCK, reason (f) ===//`, blank `//` separators); only the banner is
+    Valve's to replace."""
+    lines = block.splitlines(keepends=True)
+    ci = next(i for i, ln in enumerate(lines) if VALVE.search(ln))
+    ei = next((j for j in range(ci + 1, len(lines))
+               if _RULE.match(lines[j].strip())), len(lines) - 1)
+    return (b"".join(lines[:ci]) + kept_lines(b"".join(lines[ci:ei + 1]))
+            + b"".join(lines[ei + 1:]))
+
+
+def apply_one(data):
+    bom = b""
+    if data.startswith(BOM):
+        bom, data = BOM, data[len(BOM):]
+    if data.startswith(HEADER):
+        return bom + data
+    span = first_comment_block(data)
+    if span and VALVE.search(data[span[0]:span[1]]):
+        block = data[span[0]:span[1]]
+        keep = banner_rewrite(block)
+        rest = data[span[1]:]
+        body = HEADER + keep
+        if rest and not rest.startswith((b"\n", b"\r\n")):
+            body += b"\n"
+        return bom + body + rest
+    nl = b"\r\n" if b"\r\n" in data[:4096] else b"\n"
+    header = HEADER.replace(b"\n", nl)
+    return bom + header + nl + data
+
+
+def has_header(data):
+    if data.startswith(BOM):
+        data = data[len(BOM):]
+    return data.startswith(HEADER) or data.startswith(
+        HEADER.replace(b"\n", b"\r\n"))
+
+
+def load_ledger(path):
+    rows = []
+    with open(path) as f:
+        cols = None
+        for line in f:
+            if line.startswith("#"):
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if cols is None:
+                cols = parts
+                continue
+            rows.append(dict(zip(cols, parts)))
+    return rows
+
+
+def targets(rows):
+    for r in rows:
+        if r["valve_header"] in ("yes", "no") and r["dest"]:
+            yield r["dest"], r["valve_header"]
+
+
+NEW_FILES = os.path.join(os.path.dirname(HERE), "docs", "valve-header-new.tsv")
+
+
+def new_rows(path=NEW_FILES):
+    """Files added after the move that carry the header: path<TAB>why. The
+    ledger only knows the files that moved; this is where a new port says why
+    it has the header, and `check` holds it to it like a ledger yes."""
+    rows = []
+    if os.path.exists(path):
+        for line in open(path):
+            line = line.rstrip("\n")
+            if line and not line.startswith("#"):
+                parts = line.split("\t")
+                if len(parts) < 2 or not parts[1].strip():
+                    raise SystemExit(f"{path}: a row needs a reason: {line!r}")
+                rows.append({"dest": parts[0], "valve_header": "yes"})
+    return rows
+
+
+def cmd_apply(rows, root):
+    changed = 0
+    for dest, yn in targets(rows):
+        if yn != "yes":
+            continue
+        p = os.path.join(root, dest)
+        data = open(p, "rb").read()
+        new = apply_one(data)
+        if new != data:
+            with open(p, "wb") as f:
+                f.write(new)
+            changed += 1
+    print(f"applied: {changed} files changed")
+    return 0
+
+
+def cmd_check(rows, root):
+    bad = 0
+    yes = 0
+    for dest, yn in targets(rows):
+        p = os.path.join(root, dest)
+        if not os.path.exists(p):
+            print(f"missing: {dest}")
+            bad += 1
+            continue
+        data = open(p, "rb").read()
+        if yn == "yes":
+            yes += 1
+            if not has_header(data):
+                print(f"no header: {dest}")
+                bad += 1
+        elif has_header(data):
+            # Only a header AT THE TOP is an applied one; a generator that
+            # writes the header into its output carries the lines as data.
+            print(f"header on a `no` file: {dest}")
+            bad += 1
+    print(f"check: {yes} yes files; {bad} problems")
+    return 1 if bad else 0
+
+
+NOMINATE = re.compile(rb"stock|\\.cpp\\b|ported|\\bport\\b|Valve|mirror",
+                      re.I)
+MODULE = re.compile(r"^(src/(abi|client|server|shared|host|test|launcher|"
+                    r"debug_api|generators|mapgen|webui)(/(managed|native))?)")
+
+
+def cmd_review(rows, root, out):
+    """The checkpoint list: every yes, and every no a grep nominates, by
+    module, each with its reason; counts per rule."""
+    groups = {}
+    rules = {}
+    nominated_no = 0
+    for r in rows:
+        if r["valve_header"] not in ("yes", "no") or not r["dest"]:
+            continue
+        dest = r["dest"]
+        m = MODULE.match(dest)
+        mod = m.group(1) if m else dest.split("/")[0]
+        why = r["reason"]
+        if r["valve_header"] == "yes":
+            rule = ("rule 1" if why.startswith("rule 1") else
+                    "rule 3" if why.startswith("rule 3") else "rule 2")
+            rules[rule] = rules.get(rule, 0) + 1
+            groups.setdefault(mod, []).append(("yes", dest, why))
+        else:
+            path = os.path.join(root, dest)
+            if os.path.exists(path) and NOMINATE.search(
+                    open(path, "rb").read()):
+                nominated_no += 1
+                groups.setdefault(mod, []).append(("no", dest, why))
+    yes = sum(rules.values())
+    with open(out, "w") as f:
+        f.write("# Valve attribution header: review list\n\n")
+        f.write("Every file that gets the header (`yes`), and every file a "
+                "grep nominated (it mentions stock, a `.cpp`, porting, Valve "
+                "or mirroring) that does not (`no`), with the reason for "
+                "each. To flip a row, edit its line in "
+                "`docs/move/header-rulings.tsv`, then run "
+                "`tools/move-classify ... --rulings docs/move/header-rulings.tsv`"
+                ", `tools/valve-header apply` and `tools/valve-header review`."
+                "\n\n")
+        f.write(f"- **yes: {yes}** (rule 1, Valve copyright today: "
+                f"{rules.get('rule 1', 0)}; rule 2, ports Valve logic: "
+                f"{rules.get('rule 2', 0)}; rule 3, native code built "
+                f"against SDK headers: {rules.get('rule 3', 0)})\n")
+        f.write(f"- **grep-nominated no: {nominated_no}**\n\n")
+        for mod in sorted(groups):
+            items = sorted(groups[mod], key=lambda x: (x[0] != "yes", x[1]))
+            ny = sum(1 for i in items if i[0] == "yes")
+            f.write(f"## {mod} ({ny} yes, {len(items) - ny} nominated no)\n\n")
+            f.write("| | file | reason |\n|---|---|---|\n")
+            for yn, dest, why in items:
+                short = dest[len(mod) + 1:] if dest.startswith(mod + "/") \
+                    else dest
+                why = why.replace("|", "\\|")
+                f.write(f"| {yn} | `{short}` | {why} |\n")
+            f.write("\n")
+    print(f"review: {yes} yes, {nominated_no} nominated no -> {out}")
+    return 0
+
+
+def self_test():
+    cases = {
+        "valve banner replaced, purpose kept": (
+            b"//====== Copyright Valve Corporation, All rights reserved. ===//"
+            b"\n//\n// Purpose: Does a thing.\n//\n// $NoKeywords: $\n//====//"
+            b"\n#include \"cbase.h\"\n",
+            HEADER + b"// Purpose: Does a thing.\n\n#include \"cbase.h\"\n"),
+        "banner content kept, boilerplate dropped": (
+            b"//====== Copyright Valve Corporation, All rights reserved. ===//"
+            b"\n// SS_REASON x  NO LETTER FITS\n//\n// Purpose: A thing.\n"
+            b"//          More of it.\n//\n// $NoKeywords: $\n//====//\nint x;\n",
+            HEADER + b"// SS_REASON x  NO LETTER FITS\n// Purpose: A thing.\n"
+            b"//          More of it.\n\nint x;\n"),
+        "prose around an embedded banner kept byte for byte": (
+            b"//=== SourceSharp -- RELOCATED, reason (f) ===//\n"
+            b"// SS_REASON f  a codec\n//\n// Why it is here.\n//\n"
+            b"//====== Copyright Valve Corporation, All rights reserved. ===//"
+            b"\n//\n// Purpose: Does a thing.\n//\n// $NoKeywords: $\n//====//"
+            b"\n//\n// More of ours.\n#include \"cbase.h\"\n",
+            HEADER + b"//=== SourceSharp -- RELOCATED, reason (f) ===//\n"
+            b"// SS_REASON f  a codec\n//\n// Why it is here.\n//\n"
+            b"// Purpose: Does a thing.\n//\n// More of ours.\n"
+            b"\n#include \"cbase.h\"\n"),
+        "prepended": (
+            b"using System;\n",
+            HEADER + b"\nusing System;\n"),
+        "own comment kept": (
+            b"// Our own note.\nint x;\n",
+            HEADER + b"\n// Our own note.\nint x;\n"),
+    }
+    bad = 0
+    for name, (src, want) in cases.items():
+        got = apply_one(src)
+        ok = got == want
+        again = apply_one(got) == got
+        bad += (not ok) + (not again)
+        print(f"{'ok ' if ok else 'BAD'} {name}"
+              f"{'' if again else ' (not idempotent)'}")
+        if not ok:
+            print(repr(got))
+    with tempfile.TemporaryDirectory() as d:
+        open(f"{d}/a.cs", "wb").write(HEADER + b"\nx\n")
+        open(f"{d}/b.cs", "wb").write(b"x\n")
+        rows = [{"dest": "a.cs", "valve_header": "yes"},
+                {"dest": "b.cs", "valve_header": "yes"}]
+        r = cmd_check(rows, d)
+        ok = r == 1
+        bad += not ok
+        print(f"{'ok ' if ok else 'BAD'} check fails on a missing header")
+    print("self-test", "FAILED" if bad else "passed")
+    return 1 if bad else 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cmd", nargs="?", choices=["apply", "check", "review"])
+    ap.add_argument("--out", default="docs/valve-header-review.md")
+    ap.add_argument("--ledger", default="docs/move/ledger.tsv")
+    ap.add_argument("--root", default=".")
+    ap.add_argument("--self-test", action="store_true")
+    a = ap.parse_args()
+    if a.self_test:
+        return self_test()
+    if not a.cmd:
+        ap.error("apply or check")
+    rows = load_ledger(a.ledger) + new_rows()
+    if a.cmd == "review":
+        return cmd_review(rows, a.root, a.out)
+    return (cmd_apply if a.cmd == "apply" else cmd_check)(rows, a.root)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

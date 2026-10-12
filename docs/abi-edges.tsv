@@ -1,0 +1,4 @@
+# plan_abi_hotreload §2: the references the Abi census cannot see in source, written down so it can.
+# from = an Abi file (an edge inside Abi) or a consumer tier (Shared, Server, ...); to = the Abi file it reaches.
+# Each row says how the reference is made. A row whose `to` file is gone fails EveryEdgeNamesAnAbiFile.
+from	to	how

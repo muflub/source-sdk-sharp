@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!-- Built and run from the repo, not shipped into the mod's bin directory. -->
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/mapgen/</OutputPath>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Server, so the coverage check can enumerate every [ScriptedEntity] the
+         mod actually implements rather than a list kept by hand. -->
+    <ProjectReference Include="..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\server\managed\SourceSharp.Server.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""Mutate one managed file, run one xUnit filter, restore, report RED/GREEN.
+
+The managed half of tools/mutate-native, and it avoids the same two lies: it
+restores by writing the bytes back and bumping the mtime EXPLICITLY (an
+identical mtime makes MSBuild skip the rebuild, so the old assembly re-runs and
+the harness reports on a binary that never contained the mutation), and it never
+restores with `git checkout --`, which would delete the uncommitted work whose
+red path is being proved.
+
+The filter is an ordinary `dotnet test --filter` expression, so a whole class is
+`FullyQualifiedName~SomeTests` and a single fact is the full name. Prefer a
+filter narrow enough to run in seconds: the value of this harness is that it can
+be run per assertion, and a six-minute full-suite arm is one nobody runs twice.
+
+Root is derived from this script's own location, never a hardcoded worktree
+path, for the reason tools/mutate-native states at length.
+
+    tools/mutate-managed <file> <find> <replace> <xunit-filter>
+
+Lane 3c-entityshell's commit messages name this as `.lane3c/mutate_managed.py`,
+which is where it was written; it is the same script.
+"""
+import io, os, subprocess, sys, time
+
+# realpath: through a farm's tools link this still lands in the repo, whose
+# src/ holds the managed modules (src/<module>/managed, the tests in
+# src/test/{managed,server,client}). <file> is relative to it.
+HERE = os.path.dirname(os.path.realpath(__file__))
+ROOT = os.path.dirname(HERE)
+DOTNET = os.environ.get('DOTNET', os.path.expanduser('~/.dotnet/dotnet'))
+if not os.path.exists(DOTNET):
+    DOTNET = 'dotnet'
+
+
+# The suite is one project per side plus the cross-side one (plan_side_isolation
+# P6). A filter runs in each; one that matches nothing anywhere is an error, not
+# a GREEN: a mutation whose facts never ran proves nothing.
+PROJECTS = ('src/test/managed', 'src/test/server', 'src/test/client')
+
+
+def run(flt):
+    env = dict(os.environ, MSBUILDDISABLENODEREUSE='1')
+    rc, out, ran = 0, '', 0
+    for project in PROJECTS:
+        p = subprocess.run([DOTNET, 'test', '-m:1', '--nologo', '--filter', flt],
+                           cwd=os.path.join(ROOT, project),
+                           capture_output=True, text=True, errors='replace', env=env)
+        text = p.stdout + p.stderr
+        if 'Passed!' in text or 'Failed!' in text:
+            ran += 1
+        rc = rc or p.returncode
+        out += text
+    if ran == 0:
+        sys.exit('the filter %r ran no test in %s' % (flt, ', '.join(PROJECTS)))
+    return rc, out
+
+
+if __name__ == '__main__':
+    rel, find, repl, flt = sys.argv[1:5]
+    path = os.path.join(ROOT, rel)
+    original = io.open(path, encoding='utf-8').read()
+    if find not in original:
+        sys.exit('anchor not present in %s' % rel)
+
+    try:
+        io.open(path, 'w', encoding='utf-8').write(original.replace(find, repl, 1))
+        os.utime(path, (time.time() + 1, time.time() + 1))
+        rc, out = run(flt)
+        print('MUTATED -> %s (exit %d)' % ('RED' if rc else 'GREEN', rc))
+        for line in out.split('\n'):
+            if 'Failed!' in line or 'Passed!' in line or line.strip().startswith('Failed Source'):
+                print('   ' + line.strip())
+    finally:
+        io.open(path, 'w', encoding='utf-8').write(original)
+        os.utime(path, (time.time() + 2, time.time() + 2))
+
+    rc, out = run(flt)
+    print('RESTORED -> %s (exit %d)' % ('RED' if rc else 'GREEN', rc))
+    for line in out.split('\n'):
+        if 'Passed!' in line or 'Failed!' in line:
+            print('   ' + line.strip())

@@ -1,0 +1,334 @@
+# tools/live-gate-budget.tsv -- the crossing budget of plan_entity.md §5.
+#
+# One row per stage of the live gate, RECORDED FROM A BUILD rather than chosen:
+# `tools/live-gate --record` writes this file from the run it just did.
+#
+# INBOUND ONLY. These are native->managed thunk entries (Crossings' own
+# qualifier); the managed->engine direction belongs to step 0e's probes.
+#
+# ===========================================================================
+# TWO KINDS OF ROW, AND THE `gated_on` COLUMN SAYS WHICH
+# ===========================================================================
+#
+# gated_on=rate   the stage ran >= 20 server frames, so it HAS a rate. Enforced
+#                 on ceiling_per_frame = recorded_per_frame*1.5 + 10, from ONE
+#                 sample. A rate over that many frames is stable, so one sample
+#                 is an estimate and this ceiling is TIGHT: hot-reload runs at
+#                 97% of its ceiling and is meant to.
+#
+# gated_on=total  the stage is too short for a rate (5 frames is nearly all
+#                 fixed cost, and one frame either way moves a rate by tens).
+#                 Enforced on ceiling_total = total_max*1.5 + 200, where
+#                 total_max is the LARGEST of `samples` measurements, not one
+#                 of them. This ceiling is DELIBERATELY LOOSE and the columns
+#                 say by how much: total_min..total_max is the observed spread.
+#                 `die` has been measured between 481 and 1403 with no code
+#                 change behind it -- 2.9x. A ceiling built from 1.5x one draw
+#                 from that sits below the stage's own median, which is exactly
+#                 the bug this schema replaced.
+#
+# So: to tell a loose ceiling from a tight one, read `gated_on`, then
+# total_min..total_max against ceiling_total. A row whose spread is a factor of
+# three is loose because the quantity is, and it says so in its own columns.
+#
+# ===========================================================================
+# THE §5 RATCHET, AND WHAT IT RATCHETS ON
+# ===========================================================================
+#
+# §5: "the initial budget is whatever Phase 0 measures on today's build; each
+# phase may only lower it." A row may move DOWN freely. Moving one UP is
+# governed by evidence, not by prohibition, because the two directions are not
+# symmetric:
+#
+#   * a rate ceiling never rises. --record rewrites it from one sample and
+#     --record-totals does not touch it at all.
+#   * a total ceiling rises only when `samples` >= 4. Below that --record
+#     KEEPS the ceiling already on disk and prints why, so a lane cannot widen
+#     a short stage as a side effect of the run that failed on it. One 2-pass
+#     run is 2 samples; a raise takes at least two deliberate runs merged with
+#     `tools/live-gate --record-totals`.
+#
+# That distinction is the whole point. Relaxing a limit because your change
+# cost more is what §5 forbids. Correcting a ceiling that was computed from a
+# bad measurement -- one draw from a 2.9x-wide distribution -- is not relaxing
+# a limit, because there was never a measurement there to relax. The sample
+# count in each row is what lets a reader tell those two apart.
+#
+# The ratchet has a FLOOR under it in the other direction, or "down is free"
+# would walk a total ceiling straight back into the bug: record on a quiet
+# night, draw N low samples, and the ceiling sinks below the stage's own
+# population again. tools/live-gate's SHORT_STAGE_FLOOR holds the largest total
+# this project has ever measured for a stage, and a ceiling is never recorded
+# below it. For `die` that is 1403, from the eighteen busy-box measurements in
+# .claude/entity-port/status/diag-saveload.md.
+#
+# ===========================================================================
+# WHAT A TOTAL-GATED CEILING CAN AND CANNOT CATCH -- SAY IT RATHER THAN IMPLY IT
+# ===========================================================================
+#
+# `die` costs between 481 and 1403 inbound crossings with no code change behind
+# it. Any ceiling that does not fail on that spread cannot detect a regression
+# smaller than the spread. That is a property of the measurement, not a choice
+# made here, and no formula fixes it:
+#
+#   CAN catch    a gross regression -- a per-entity crossing appearing where a
+#                per-frame one used to be, an added round trip per ragdoll
+#                bone. Those are 3x-and-up and go straight through the ceiling.
+#   CANNOT catch a 20% rise. Nothing gated on an 8-frame total can.
+#
+# So what else guards these four stages? Honestly: less than guards the other
+# thirteen, and that is worth knowing rather than papering over.
+#
+#   * the PER_FRAME_OPS invariants (ServerFrame and friends, exactly one per
+#     server frame) do NOT apply: they need >= 30 frames, and a 1/8 reset
+#     artefact is bigger than their 0.05 tolerance.
+#   * the four stages' WORK is nearly all counted somewhere else. `join`'s
+#     entity creation shows up in the map load the gate waits on; `die`'s
+#     ragdoll and `damage`'s traces recur inside `shoot` and `respawn`, which
+#     are rate-gated over hundreds of frames at 270.120 and 221.149. A change
+#     that made dying expensive would move those too.
+#   * the steps' own PASS/FAIL assertions are unaffected by any of this. A
+#     ragdoll that stops spawning fails `die` on behaviour, not on budget.
+#
+# And one hole, named rather than hidden: `die` is BIMODAL. It ran 8 server
+# frames in 14 of this lane's 16 calibration passes and 28-30 in the other two.
+# A long pass is checked against ceiling_per_frame, which for a total-gated row
+# came from the SHORT run -- 735/8 = 91.875 -> 147.812 -- while the stage
+# actually runs at 710/30 = 23.7 when it is long. So a long `die` is checked
+# against a ceiling six times its own rate and cannot fail. The gate PRINTS a
+# note when that happens rather than a silent tick. Fixing it properly means
+# recording two ceilings for a bimodal stage, and nothing has needed that yet.
+#
+# The one thing that would make these tight is more frames per stage, and that
+# is a change to what the steps DO, which belongs to whoever owns them.
+#
+# ===========================================================================
+# AND THE RATE ROWS HAVE THE SAME PROBLEM. MEASURED 2026-09-06.
+# ===========================================================================
+#
+# Everything above treats a rate as the STABLE normalisation -- "a rate over
+# that many frames is stable, so one sample is an estimate and this ceiling is
+# TIGHT". The `projectile` row was added on 2026-09-06 and its first two
+# recordings falsified that, on an unchanged build, in the same worktree, on
+# the same map, an hour apart:
+#
+#     run 1  pass 1   48711 crossings / 1378 frames =  35.349 per frame
+#     run 1  pass 2   53647 crossings / 1520 frames =  35.294
+#     run 2  pass 1  306211 crossings / 1554 frames = 197.047
+#     run 2  pass 2  339964 crossings / 1538 frames = 221.043
+#
+# 6.3x, over fifteen hundred frames. And it is NOT this stage: the whole run
+# moves together. Every rate-gated stage, run 1 against run 2, first pass:
+#
+#     move 37.996 / 203.337   jump 35.223 / 190.480   pickup 35.311 / 185.920
+#     shoot 35.639 / 173.689  push 35.766 / 199.862   trigger 32.155 / 186.820
+#     door 27.566 / 161.680   lift 32.086 / 170.915
+#
+# So a run lands in one of two regimes and a rate row recorded in the quiet one
+# fails in the busy one. That is not hypothetical: `projectile` was first
+# recorded at 63.024 from run 1 and the very next gate run failed it twice, at
+# 197.047 and 221.043, with nothing changed in between. The ceiling here is
+# re-derived from run 2 -- the SAME REGIME EVERY OTHER ROW IN THIS FILE WAS
+# RECORDED IN, which is the only thing that makes it comparable to its
+# neighbours (recorded_per_frame: move 192.918, jump 188.384, shoot 173.413,
+# push 202.234, trigger 183.147, projectile 197.047). It is a bad measurement
+# corrected, in the header's own sense above, and the failure that forced the
+# correction is written here rather than quietly dropped.
+#
+# WHAT THIS MEANS FOR EVERY ROW BELOW, said plainly: a stage whose cost varies
+# 6x with nothing changed cannot detect a regression smaller than 6x, and that
+# is now known to apply to the RATE rows and not only to the four total ones.
+# The rows are not wrong -- they were all recorded in the busy regime and they
+# do catch a gross regression there -- but a gate run that lands in the quiet
+# regime is checking every stage against a ceiling roughly 8x its own cost.
+#
+# NOT DIAGNOSED. The cause is a crossing that fires ~165 more times per server
+# frame in one regime than the other; the per-op breakdown is in
+# `debug-api status`.crossings.ops and no run above captured it. Whoever owns the
+# budget should record ops-level evidence before tightening any rate row, and
+# a second sample per row would be worth more than a tighter formula.
+#
+# WOULD A RATE BE BETTER AFTER ALL? MEASURED, NOT ASSUMED.
+# The premise of MIN_FRAMES_FOR_RATE is that a short stage's total is the more
+# stable of its two normalisations. Over 78 short passes from this lane's ten
+# gate runs that is true for two of the four stages and false for the other two:
+#
+#   stage      n   total spread     rate spread    ceiling / typical cost
+#   join      20   112..703 6.3x    20..54  2.7x    total 9.6x   rate 4.0x
+#   damage    20   517..1160 2.2x   37..290 7.9x    total 2.6x   rate 2.3x
+#   die       18   848..1695 2.0x   106..173 1.6x   total 2.0x   rate 2.1x
+#   shutdown  20   597..732 1.2x    102..305 3.0x   total 2.0x   rate 1.6x
+#
+# `join` and `die` scale with frames (per-frame work); `damage` and `shutdown`
+# are fixed cost, so more frames only means more idle ones. But the number that
+# decides whether a gate is strict -- ceiling over TYPICAL cost -- lands within
+# a fifth of 2x for both normalisations on three of the four, and `join` is loose
+# either way because its cost genuinely varies six-fold. Picking a
+# normalisation per stage off n=20 would be over-fitting for no measurable
+# gain, so the total is kept for all four. Recorded here so the next person
+# does not have to re-derive it.
+#
+# THE `render` ROW IS PER CLIENT FRAME (plan_client_novalve.md 3.3, C0 item 6). step_render reads
+# the local client's own counters (/client/{slot}/status) over >= 300 client frames at the spawn
+# pose, so its recorded_per_frame and ceiling_per_frame are client crossings per client frame,
+# not per server frame like every other row. Recorded at e1694de2 (debug, one 2-pass gate run,
+# lane census, 2026-10-04) through live-gate's own write_budget over that run's two samples
+# only, so no other row moved: pass 1 3441/323 = 10.653, pass 2 6372/303 = 21.030. The two
+# passes differ 2x in their op mix (pass 1 led by ClientStage 1035, ClientStandaloneDraw 969;
+# pass 2 by ClientStage 2121, ClientOnCreateMove 1062, ClientMd5PseudoRandom 1062), so the
+# header's regime caveat applies here too; a second run is worth more than a tighter ceiling.
+#
+# THE `view-camera` ROW (lane camproto, 2026-10-05) was recorded alone: `tools/live-gate --steps
+# join,view-camera --record` into a COPY of this file, and only its view-camera row moved here, so no
+# other row moved. Debug, on client-cam-proto at dd212f00: pass 1 8706/858 = 10.147,
+# pass 2 8467/821. Per server frame, like every row but `render`; the stage cycles cs_cl_overview
+# 1/2/0 for nine seconds, so the second view's own client-side crossings are not in it.
+#
+# columns:
+# stage	gated_on	ceiling_per_frame	ceiling_total	recorded_per_frame	recorded_total	recorded_frames	samples	total_min	total_max
+# 2026-10-11, USER RULING -- damage-message and frag-credit RE-BASELINED UPWARD (a deliberate
+#   override of the §5 "a rate ceiling never rises" rule, not a measurement correction).
+#   plan_physics_bones_native_zero 2.1 (4202f899b) moved vphysics' IPhysicsCollisionSolver to a
+#   managed-built table, so every mid-step ShouldCollide / ShouldSolvePenetration ask is now an
+#   inbound crossing (ops 235/236) where it used to be a native call. Without those two ops the
+#   stages measured ~11.3/frame. The user chose re-baselining over a native answer cache.
+#   Measured at 004b7074a, debug, dm_lockdown, 2 passes (damage-message 31.635/31.834,
+#   frag-credit 41.145/38.714 per frame); rate ceilings by the formula recorded*1.5+10, total ceilings total_max*1.5+200.
+# 2026-10-12, plan_physics_bones_perf (lane A, bones perf at 20450cce0; recorded at 2c29c2af3, debug,
+#   dm_lockdown, 2 passes): render 42.125 -> 30.109, skinned-model 90.972 -> 19.254, viewmodel-merge
+#   93.880 -> 20.155 per frame -- the frame's skeletons are built in one BoneBatch crossing (client
+#   SetupBones 12-26 -> 0-1 a frame) and a merged follower is its source's skeleton. LOWERED, not
+#   raised; only these three rows carried from the --record scratch copy.
+join	total	365.929	2691	237.286	1661	7	13	108	1661
+# rope-settle: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.439	11547)
+rope-settle	rate	57.126	29418	31.418	18882	601	2	18882	19479
+# beam-ring: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.465	11381)
+beam-ring	rate	56.841	34628	31.227	22952	735	2	21719	22952
+# proxy-animated (lane c5-proxies): hand-added from its two passes of `tools/live-gate --steps proxy-animated`
+# (debug, client-c5-proxies on client-novalve 5c8f622e, before the rebase onto df8808cc: 8625/1001 and 8502/981), with the file's own ceilings
+# (per frame x1.5 + 10, total x1.5 + 200); the nightly --record re-takes it.
+# proxy-animated: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	22.925	13137)
+proxy-animated	rate	56.567	44205	31.044	29337	945	2	29053	29337
+# view-camera: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.22	13259)
+view-camera	rate	56.856	41679	31.237	27520	881	2	27520	27653
+# render-plan (C7 step 1): hand-added from its two passes of `tools/live-gate --steps join,render-plan --passes 2`
+# (debug, client-r-c7 on client-novalve 7289d410: 2757/249 and 2611/234), with the file's own ceilings
+# (per frame x1.5 + 10, total x1.5 + 200); the nightly --record re-takes it.
+# Re-recorded 2026-10-11 (C7 step 2): render-plan now also compares at the oracle's two other dm_lockdown
+# poses and its plan frames draw from managed's view programs; two passes of `tools/live-gate --steps
+# join,render-plan,render-plan-sandbox,draw-batch --passes 2` (debug, client-r-c7 on client-novalve b4eec29fb:
+# 8476/739 and 9410/844), the file's own ceilings.
+# render-plan: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	26.724	14315)
+render-plan	rate	56.719	45368	31.146	26194	841	2	26194	30112
+# draw-batch (C7 item 7): hand-added from its two passes in the same run as render's row above
+# (16756/1490 and 14154/1242), with the file's own ceilings; the nightly --record re-takes it.
+# draw-batch: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	26.868	25334)
+draw-batch	rate	56.898	57357	31.266	35424	1133	2	35424	38105
+# render-plan-sandbox (C7 step 2): hand-added from the same run's two passes (13425/601 and 13549/532: the
+# map change to ss_sandbox and back are in it), with the file's own ceilings; the nightly --record re-takes it.
+# Re-recorded 2026-10-12 on client-novalve 39291937d: the step crosses 47.7-49.2 a frame there (24477/498 and
+# 23216/487, two passes of `live-gate --steps join,render,rope-settle,beam-ring,proxy-animated,view-camera,
+# render-plan,draw-batch,render-plan-sandbox --passes 2`, debug), against 25.5 when the row was taken. The row
+# counts SERVER crossings, and the rise is the server's physics on ss_sandbox: the top op is
+# ServerPhysicsSolverShouldCollide (10830 and 10379 of the two passes), then MotionSimulate, CollisionFriction
+# and ShouldSolvePenetration, none of which this lane touches (physics 2.2/2.4 arrived with the sync to main
+# 67827fc7a). The file's own ceilings.
+render-plan-sandbox	rate	83.726	36915	49.151	24477	498	2	23216	24477
+# ui-scoreboard: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.469	1628)
+ui-scoreboard	rate	56.299	5012	30.866	2531	82	2	2531	3208
+# ui-teammenu: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.481	7104)
+ui-teammenu	rate	56.871	21245	31.247	14030	449	2	12698	14030
+# ui-resize: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	24.589	4196)
+ui-resize	rate	55.793	8195	30.528	3755	123	2	3755	5330
+# ui-form: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.152	7806)
+ui-form	rate	56.809	22676	31.206	13481	432	2	13481	14984
+# ui-keys: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.175	5340)
+ui-keys	rate	56.654	9887	31.103	5754	185	2	5754	6458
+# 2026-10-05, render RE-RECORDED AT A FIXED STAND (client-novalve, rebase onto main 590d77ac). The window
+# was taken wherever `join` left the player, one of dm_lockdown's spawns at random, and the rate followed
+# the view: 21.2 to 32.3 client crossings per client frame over three spawns, failing the old 25.98
+# ceiling only at (-4116, 4600). step_render now setpos_exact/setangs to the scenario's renderStand,
+# that spawn looking south (the busiest of the three), and settles first. Recorded there by hand from
+# two 2-pass runs (debug): 10280/319 = 32.226, 10316/319 = 32.339, 10312/320 = 32.225, 10280/319 = 32.226
+# -- the instrument now repeats to 0.4%. Ceiling from the first pass by ceiling_for (x1.5 + 10).
+# C7 owes the driver: ClientStandaloneDraw, ONE crossing per drawn standalone entity, is 16.0 per
+# client frame here (5104 of 10280, half the rate), and it is the term that moved between spawns.
+# 2026-10-11, render RE-RECORDED for C7 item 7: a view's custom draws (the stand's env_sprites and
+# point_spotlight beams) are prepared in ONE crossing per view (OnStandaloneDrawBatch) and drawn from
+# their prepared plans, so ClientStandaloneDraw (16.0 a frame) leaves the top ops. Recorded by hand from
+# the two passes of `tools/live-gate --steps join,render,render-plan,draw-batch --passes 2` (debug,
+# client-r-c7 on client-novalve 35acabce): 6599/308 = 21.425 and 6865/323 = 21.254, against 32.226
+# before; draw-batch's own A/B in the same run reads 21.5 batched vs 37.3 unbatched. Ceilings by the
+# file's formula (per frame x1.5 + 10 from the first pass, total x1.5 + 200 from the larger).
+# input-usercmd: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.209	3804)
+input-usercmd	rate	56.778	12098	31.185	7235	232	2	7235	7932
+# render: 2026-10-12, client batch 4: three client ops at once a frame each -- ClientRenderPostProgram (viewpostprocess.cpp
+#   left client.so, so every frame's post-processing is the post crossing) and ViewEffects' CalcShake and FadeParams
+#   (view_effects.cpp left client.so). Plain main 775ae7f52 measures 39.125 / 39.283 (two passes of `live-gate --steps render`),
+#   batch 4 41.119 (13117/319) and 42.125 (13480/320); the per-op counts differ by those three ops at 319-322 each.
+#   Port budget rise allowed by user ruling 2026-10-12; perf pass after the port (C7 follow-up: fold the three into the
+#   per-frame crossing). Re-recorded from the higher pass, the file's own ceilings. Was: rate	42.138	10497	21.425	6599	308.
+render	rate	55.164	14652	30.109	9635	320	2	9195	9635
+# kill-feed: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.483	21048)
+kill-feed	rate	56.873	63912	31.249	41811	1338	2	41811	42475
+# ui-motd: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.464	849)
+ui-motd	rate	56.345	4695	30.897	2997	97	2	2224	2997
+# text-msg: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.375	815)
+text-msg	total	56.0	840	30.667	368	12	4	368	427
+# chat-notices: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.614	887)
+chat-notices	rate	56.688	2067	31.125	1245	40	2	765	1245
+# changename: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	27.335	1965)
+changename	rate	57.062	5307	31.375	2510	80	2	2510	3405
+# ui-newmap: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	32.307	4884)
+ui-newmap	rate	117.541	21182	71.694	13837	193	2	13837	13988
+# voice-state: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.481	3636)
+voice-state	rate	56.753	8514	31.169	4613	148	2	4613	5543
+# loading-disc: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.538	806)
+loading-disc	rate	55.791	3588	30.527	2259	74	2	1562	2259
+# debug-overlay: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.478	2336)
+debug-overlay	rate	59.959	4446	33.306	2831	85	2	2194	2831
+move	rate	299.377	63573	192.918	42249	219	1	42249	42249
+jump	rate	292.576	72257	188.384	48038	255	1	48038	48038
+damage	total	361.0	1940	234.0	936	4	13	517	1160
+damage-message	rate	57.453	43002	31.635	28535	902	2	27887	28535
+pickup	rate	288.556	27498	185.704	18199	98	1	18199	18199
+shoot	rate	270.12	144306	173.413	96071	554	1	96071	96071
+projectile	rate	305.57	510146	197.047	306211	1554	2	306211	339964
+push	rate	313.351	219219	202.234	146013	722	1	146013	146013
+contact-touch	rate	93.443	53997	55.629	26368	474	2	26368	35865
+start-asleep	rate	100.176	34985	60.117	23085	384	2	23085	23190
+trigger	rate	284.721	37562	183.147	24908	136	1	24908	24908
+penetration	rate	98.568	31385	59.045	20784	352	2	20784	20790
+impact-damage	rate	105.528	19422	63.685	12737	200	2	12737	12815
+knock-loose	rate	97.952	40742	58.635	26503	452	2	26503	27028
+stress	rate	98.125	46172	58.75	30550	520	2	30550	30648
+prop-hurts-player	rate	91.562	23690	54.375	15660	288	2	4716	15660
+door	rate	307.07	19212	198.047	12675	64	1	12675	12675
+lift	rate	277.165	427397	178.11	284798	1599	1	284798	284798
+die	total	147.812	2742	91.875	735	8	11	735	1362
+respawn	rate	221.149	84237	140.766	56025	398	1	56025	56025
+skinned-model	rate	38.882	8571	19.254	5449	283	2	5449	5581
+viewmodel-merge	rate	40.233	10902	20.155	7135	354	2	6908	7135
+engine-vectors	rate	96.935	2199	57.957	1333	23	2	1271	1333
+second-client	rate	114.584	170462	69.722	113508	1628	1	113508	113508
+frag-credit	rate	71.717	92067	41.145	22136	538	2	22136	61245
+# chat: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.373	23397)
+chat	rate	58.809	83273	32.539	55382	1702	2	49671	55382
+# spectate: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	25.231	15614)
+spectate	rate	58.676	71705	32.451	47670	1469	2	42749	47670
+# round-end: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	26.915	20091)
+round-end	rate	68.308	77972	38.872	50806	1307	2	50806	51848
+save-load	rate	105.207	138917	63.472	92478	1457	1	92478	92478
+hot-reload	rate	298.368	98822	192.246	65748	342	1	65748	65748
+map-reload	rate	187.677	14769	118.451	9713	82	1	9713	9713
+# phys-convert (plan_physics_bones_native_zero, the last server physics lane): recorded 2026-10-12 by
+# `tools/live-gate --steps join,push,stress,phys-convert --passes 2 --record --budget <scratch copy>` (debug, this
+# lane at ca31f55ec on main 775ae7f52: 22414/402 and 22295/398); only this row carried. The map change to ss_sandbox
+# and back is in it; the top op is ServerPhysicsSolverShouldCollide (~10k a pass), which the user's 2026-10-11 ruling
+# allows (physics crossings, perf pass at the end).
+phys-convert	rate	93.634	33821	55.756	22414	402	2	22295	22414
+shutdown	total	386.0	1328	250.667	752	3	13	596	752
+# map-change: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	45.613	5592)
+map-change	rate	126.495	25782	77.664	16620	214	2	16620	17055
+# sigterm-shutdown: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	26.922	10725)
+sigterm-shutdown	rate	57.143	35840	31.429	23760	756	2	20110	23760

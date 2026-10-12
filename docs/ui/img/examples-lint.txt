@@ -1,0 +1,17 @@
+# ui-preview --docs: the lint of each docs/ui example (generated)
+contrast-dont: 1 finding(s)
+  [contrast] contrast-dont › "Picked up 45 SMG rounds" is 1.1:1 over the bright still (needs 4.5:1); put it on a Surface, or use Tone.Text
+contrast-do: 0 finding(s)
+elide-dont: 1 finding(s)
+  [clipped] elide-dont › "xXx_Headcrab_Slayer_From_Ravenholm_xXx" overflows its box by 184 du; use .Elide() or a wider box
+elide-do: 0 finding(s)
+tokens-dont: 4 finding(s)
+  [localise] tokens-dont › "CHOOSE YOUR SIDE" is a literal string; use a #Token (the core's sourcesharp_ui_english.txt, or the mod's resource/*_english.txt), or ui.Data for game data
+  [localise] tokens-dont › "Pick a team to spawn" is a literal string; use a #Token (the core's sourcesharp_ui_english.txt, or the mod's resource/*_english.txt), or ui.Data for game data
+  [raw] tokens-dont uses Raw.*; use a Tone or Space token, or add one to the theme
+  [raw] tokens-dont › "CHOOSE YOUR SIDE" uses Raw.*; use a Tone or Space token, or add one to the theme
+tokens-do: 0 finding(s)
+alignment-dont: 2 finding(s)
+  [alignment] alignment-dont top edge is 1.5 du from alignment-dont › HudMeter[health]'s; give both the same anchor and inset
+  [raw] alignment-dont uses Raw.*; use a Tone or Space token, or add one to the theme
+alignment-do: 0 finding(s)
