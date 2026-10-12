@@ -457,9 +457,14 @@ def apply_links(base, links, check, report, managed_prefixes=None):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.islink(path):
             os.unlink(path)
-        # Windows tells a directory link from a file link at creation; the
-        # other platforms ignore the flag.
-        os.symlink(target, path, target_is_directory=os.path.isdir(target))
+        # Windows tells a directory link from a file link at creation (a
+        # file link at a directory opens as neither); the other platforms
+        # ignore the flag. A relative target is relative to the link's own
+        # directory, not to the cwd this runs from.
+        resolved = target if os.path.isabs(target) else os.path.join(
+            os.path.dirname(path), target)
+        os.symlink(target, path,
+                   target_is_directory=os.path.isdir(resolved))
 
     # Stale links.
     want = set(links)
@@ -861,6 +866,9 @@ def self_test():
               == f"{repo}/src/server/native/sdk/game/server/entity_funcs.h"
               and os.path.islink(f"{repo}/bin/debug/mods/test/bin")
               and os.readlink(f"{repo}/bin/debug/mods/test/bin") == "../../bin"
+              # Through the relative link: a Windows file link at a
+              # directory (the target judged from the wrong cwd) is not one.
+              and os.path.isdir(f"{repo}/bin/debug/mods/test/bin")
               and not os.path.islink(f"{farm}/src/sourcesharp/game/server"))
         bad += not ok
         print(f"{'ok ' if ok else 'BAD'} links land where the plan says")
