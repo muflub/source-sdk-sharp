@@ -497,15 +497,22 @@ def newest_runtime(dotnet_root, major="10."):
                                   for x in re.split(r"[.-]", v)])
 
 
-def provision_dotnet(dest, check, report):
-    """The bundled runtime: host/fxr and one Microsoft.NETCore.App."""
-    src = os.path.expanduser("~/.dotnet")
+# The host's entry library in a .NET install, per platform: what the managed
+# host dlopens (src/host/native/sourcesharp.cpp, FindBundledHostFxr).
+HOSTFXR = {"linux": "libhostfxr.so", "windows": "hostfxr.dll",
+           "osx": "libhostfxr.dylib"}
+
+
+def provision_dotnet(dest, check, report, dotnet_root=None):
+    """The bundled runtime: host/fxr and one Microsoft.NETCore.App, copied
+    from ~/.dotnet (or dotnet_root: where a runner's SDK is)."""
+    src = os.path.expanduser(dotnet_root or "~/.dotnet")
     ver = newest_runtime(src)
     if ver is None:
-        raise SetupError("no .NET 10 runtime under ~/.dotnet (never use "
+        raise SetupError(f"no .NET 10 runtime under {src} (never use "
                          "/usr/bin/dotnet: the Ubuntu package miscompiles)")
     have = os.path.join(dest, "shared", "Microsoft.NETCore.App", ver)
-    fxr = os.path.join(dest, "host", "fxr", ver, "libhostfxr.so")
+    fxr = os.path.join(dest, "host", "fxr", ver, HOSTFXR[platform_name()])
     if os.path.isdir(have) and os.path.isfile(fxr):
         return 0
     report(f"provision .NET runtime {ver} into {dest}")
@@ -698,6 +705,7 @@ def provision_valve(repo, root, valve, check, report, url=VALVE_URL):
 # --- main -----------------------------------------------------------------------
 
 def run(repo, root, configs, check=False, accept=False, provision=True,
+        dotnet_root=None, runtime_only=False,
         out=print, verbose=False, valve=None, valve_url=VALVE_URL,
         repin=False):
     changes = 0
@@ -740,9 +748,10 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
         if os.path.isdir(game) or check:
             changes += apply_links(game, bplan, check, report,
                                    managed_prefixes=managed)
-        if provision:
+        if provision or runtime_only:
             changes += provision_dotnet(os.path.join(game, "bin", "dotnet"),
-                                        check, report)
+                                        check, report, dotnet_root)
+        if provision:
             for m in mods:
                 changes += provision_cfg(repo, m[2], os.path.join(
                     game, os.path.normpath(m[1])), check, report)
@@ -1127,6 +1136,13 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--config", choices=CONFIGS)
     ap.add_argument("--no-provision", action="store_true")
+    ap.add_argument("--provision-runtime", action="store_true",
+                    help="with --no-provision: still bundle the .NET runtime "
+                         "into bin/<config>/bin/dotnet (a release archive "
+                         "ships it; Node and the cfg seeds it does not need)")
+    ap.add_argument("--dotnet-root", metavar="DIR",
+                    help="the .NET install the bundled runtime is copied "
+                         "from (default ~/.dotnet; a runner's is elsewhere)")
     ap.add_argument("--no-valve-sdk", action="store_true",
                     help="do not clone or check the pristine Valve SDK the "
                          "oracle tests read (a native-only build, as CI's "
@@ -1164,6 +1180,8 @@ def main():
         changes = run(repo, root, [a.config] if a.config else CONFIGS,
                       check=a.check, accept=a.accept_root,
                       provision=not a.no_provision, verbose=a.verbose,
+                      dotnet_root=a.dotnet_root,
+                      runtime_only=a.provision_runtime,
                       valve=None if a.no_valve_sdk else valve,
                       repin=a.repin_root)
     except SetupError as e:

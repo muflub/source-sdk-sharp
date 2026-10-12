@@ -104,6 +104,10 @@ jobs:
   # bundled .NET, no Node and no oracle clone.
   native:
     name: native (${{ matrix.name }})
+    # After package: the managed assemblies are the same bytes on every
+    # platform and are built once, there; this job takes them from its
+    # artifact and ships them with its own native libraries and launcher.
+    needs: package
     strategy:
       fail-fast: false
       matrix:
@@ -158,6 +162,31 @@ jobs:
           ls -la bin/release/source#*
           ./bin/release/source#* --help | sed -n 1p
 
+      # The managed assemblies from the Linux build, and the bundled .NET
+      # runtime for this platform from the SDK setup-dotnet installed
+      # (DOTNET_ROOT): the two pieces of the game directory a native build
+      # does not make.
+      - uses: actions/download-artifact@v8
+        with:
+          name: managed-release
+          path: bin/release/bin/managed
+
+      - name: Bundle the .NET runtime (tools/setup --provision-runtime)
+        run: |
+          python tools/setup --root ../source-sdk-2013-upstream --config release \
+            --no-provision --no-valve-sdk --provision-runtime --dotnet-root "$DOTNET_ROOT"
+          ls bin/release/bin/dotnet/host/fxr
+
+      - name: Label
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
+          echo "SS_LABEL=$v" >> "$GITHUB_ENV"
+
+      - name: Package
+        run: |
+          python tools/package-release --config release --platform ${{ matrix.name }} --label "$SS_LABEL" --out dist
+          ls -la dist
+
       - name: ROOT is untouched
         run: |
           status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
@@ -169,10 +198,8 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: native-${{ matrix.name }}
-          path: |
-            bin/release/bin/${{ matrix.bindir }}
-            bin/release/source#*
+          name: sourcesharp-${{ matrix.name }}
+          path: dist/*
 
   # The Linux release build, made on every run: the managed assemblies and the
   # launcher in Release, the native libraries inside Valve's sniper SDK
@@ -237,6 +264,13 @@ jobs:
         with:
           name: sourcesharp-linux-x64
           path: dist/*
+
+      # For the Windows and macOS jobs (native, below): the same assemblies
+      # every platform ships.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: managed-release
+          path: bin/release/bin/managed
 
   release:
     if: startsWith(github.ref, 'refs/tags/')

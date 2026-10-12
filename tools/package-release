@@ -2,52 +2,86 @@
 """tools/package-release -- the game directory as a release archive.
 
     tools/package-release --config release --label v1.2.3 --out dist \\
+                          [--platform linux-x64|win-x64|osx-x64] \\
                           [--native bin/ci-release/linux64]
     tools/package-release --self-test
 
-Writes dist/sourcesharp-<label>-linux-x64.tar.gz, holding bin/<config> as a
-plain directory tree named sourcesharp/ that runs from wherever it is
-unpacked, and dist/sourcesharp-<label>-linux-x64-dbg.tar.gz with the split
-debug info (<name>.dbg) when the native build made any.
+Writes dist/sourcesharp-<label>-<platform>.tar.gz (a .zip for win-x64),
+holding bin/<config> as a plain directory tree named sourcesharp/ that runs
+from wherever it is unpacked, and dist/sourcesharp-<label>-<platform>-dbg.*
+with the split debug info (<name>.dbg on Linux, the .pdb files on Windows)
+when the native build made any.
 
 bin/<config> is not that tree: tools/setup composes it from LINKS. The mod's
-content, mods.yaml and libsteam_api.so are absolute symlinks into this repo
-and into ROOT, which mean nothing on another machine, and mods/<id>/bin is a
-relative link to ../../bin, which is exactly what a game directory needs. So
-the rule is: an absolute link is replaced by a copy of what it points at, a
-relative link is kept as a link. The managed assemblies and the bundled
-runtime are real files and are copied.
+content, mods.yaml and the Steam API library are absolute symlinks into this
+repo and into ROOT, which mean nothing on another machine, and mods/<id>/bin
+is a relative link to ../../bin, which is exactly what a game directory
+needs. So the rule is: an absolute link is replaced by a copy of what it
+points at, a relative link is kept as a link -- except in a Windows archive,
+where a zip holds no links and the engine wants real files, so a relative
+link becomes a copy too (mods/<id>/bin is the one, and it is the shared bin/
+again). The managed assemblies and the bundled runtime are real files and
+are copied.
 
---native names the directory whose .so files ship. The default is the game
-directory's own bin/linux64 (a host clang build); CI passes
+--platform names the layout (PLATFORMS below: the engine's bin directory,
+the launcher's and the libraries' names, the Steam library, the debug-info
+kind, the archive kind). The default is the platform this runs on.
+
+--native names the directory whose libraries ship. The default is the game
+directory's own bin/<platform dir> (a host build); the Linux CI passes
 bin/ci-<config>/linux64, the build made inside Valve's sniper container
 (tools/build/ci-build), whose glibc floor is the one the shipped binaries
-must have. Whatever is in bin/linux64 besides regular files (libsteam_api.so's
-link, the server_srv.so -> server.so alias) is kept from the game directory.
+must have. Whatever is in that directory besides regular files (the Steam
+library's link, the server_srv.so alias) is kept from the game directory.
 
 A missing input is a failure, never a thinner archive: the launcher, the
-three native libraries, libsteam_api.so, the managed assemblies and the
-bundled runtime are each required, and the archive is not written without
-them. The engine's own droppings (console logs, steam_appid.txt) are left out.
+platform's native libraries, its Steam library where Valve ships one, the
+managed assemblies and the bundled runtime are each required, and the
+archive is not written without them. The engine's own droppings (console
+logs, steam_appid.txt) are left out.
 """
 
 import argparse
-import io
 import os
 import shutil
 import stat
 import sys
 import tarfile
 import tempfile
+import zipfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOP = "sourcesharp"
-RID = "linux-x64"
-LAUNCHER = "source#"
-NATIVE_REQUIRED = ("server.so", "client.so", "libmanaged_host.so")
+
+# What a release archive of each platform holds, as Valve's layout and this
+# build name things. `steam` is None where Valve ships no Steam API library
+# (macOS: the launcher takes -engine there). `links` says what a relative
+# symlink in the game directory becomes: kept as a link in a tar, or copied
+# for a zip. `debug` is the split debug info's extension, None where the
+# build splits none (macOS keeps it in the objects).
+PLATFORMS = {
+    "linux-x64": dict(bindir="linux64", launcher="source#", steam="libsteam_api.so",
+                      native=("server.so", "client.so", "libmanaged_host.so"),
+                      debug=".dbg", archive="tar", links="keep"),
+    "win-x64": dict(bindir="x64", launcher="source#.exe", steam="steam_api64.dll",
+                    native=("server.dll", "client.dll", "managed_host.dll", "ss_particles.dll"),
+                    debug=".pdb", archive="zip", links="copy"),
+    "osx-x64": dict(bindir="osx64", launcher="source#", steam=None,
+                    native=("server.dylib", "client.dylib", "libmanaged_host.dylib"),
+                    debug=None, archive="tar", links="keep"),
+}
+
 # Files the engine writes while it runs; never part of a release.
 DROPPINGS = ("steam_appid.txt",)
 DROPPING_SUFFIXES = (".log",)
+
+
+def current_platform():
+    if sys.platform.startswith("win"):
+        return "win-x64"
+    if sys.platform == "darwin":
+        return "osx-x64"
+    return "linux-x64"
 
 
 class PackageError(Exception):
@@ -58,28 +92,35 @@ def is_dropping(name):
     return name in DROPPINGS or name.endswith(DROPPING_SUFFIXES)
 
 
-def stage_tree(src, dst):
-    """Copy src to dst: absolute links dereferenced, relative links kept."""
+def read_link(path):
+    """os.readlink, minus the \\\\?\\ prefix Windows puts on an absolute target."""
+    t = os.readlink(path)
+    if t.startswith("\\\\?\\"):
+        t = t[4:]
+    return t
+
+
+def stage_tree(src, dst, links):
+    """Copy src to dst: absolute links dereferenced, relative links kept or
+    copied as `links` says."""
     os.makedirs(dst, exist_ok=True)
     for name in sorted(os.listdir(src)):
         if is_dropping(name):
             continue
-        s = os.path.join(src, name)
-        d = os.path.join(dst, name)
-        stage_entry(s, d)
+        stage_entry(os.path.join(src, name), os.path.join(dst, name), links)
 
 
-def stage_entry(s, d):
+def stage_entry(s, d, links):
     if os.path.islink(s):
-        target = os.readlink(s)
-        if not os.path.isabs(target):
+        target = read_link(s)
+        if not os.path.isabs(target) and links == "keep":
             os.symlink(target, d)
             return
         if not os.path.exists(s):
             raise PackageError(f"{s} is a link to {target}, which does not exist")
         s = os.path.realpath(s)
     if os.path.isdir(s):
-        stage_tree(s, d)
+        stage_tree(s, d, links)
     else:
         shutil.copy2(s, d)
 
@@ -90,19 +131,21 @@ def require_dir_with_files(path, what):
         raise PackageError(f"{what} is missing or empty: {path}")
 
 
-def stage(game, native, work):
+def stage(game, native, work, plat):
     """Compose work/sourcesharp from the game directory; returns the list of
-    .dbg files (absolute paths) that go to the symbols archive."""
-    launcher = os.path.join(game, LAUNCHER)
-    if not os.path.isfile(launcher) or not os.access(launcher, os.X_OK):
+    debug-info files (absolute paths) that go to the symbols archive."""
+    launcher = os.path.join(game, plat["launcher"])
+    if not os.path.isfile(launcher) or (plat["launcher"] == "source#" and not os.access(launcher, os.X_OK)):
         raise PackageError(f"no launcher at {launcher}: publish src/launcher first")
     require_dir_with_files(os.path.join(game, "bin", "managed"), "the managed assemblies")
     if not os.path.isdir(os.path.join(game, "bin", "dotnet", "host", "fxr")):
         raise PackageError(f"no bundled .NET runtime under {game}/bin/dotnet (tools/setup provisions it)")
-    steam = os.path.join(game, "bin", "linux64", "libsteam_api.so")
-    if not os.path.exists(steam):
-        raise PackageError(f"no libsteam_api.so at {steam} (tools/setup links it from ROOT)")
-    for so in NATIVE_REQUIRED:
+    bindir = os.path.join(game, "bin", plat["bindir"])
+    if plat["steam"]:
+        steam = os.path.join(bindir, plat["steam"])
+        if not os.path.exists(steam):
+            raise PackageError(f"no {plat['steam']} at {steam} (tools/setup links it from ROOT)")
+    for so in plat["native"]:
         if not os.path.isfile(os.path.join(native, so)):
             raise PackageError(f"{so} is not in {native}: the native build did not run, or --native is wrong")
 
@@ -114,67 +157,94 @@ def stage(game, native, work):
         s = os.path.join(game, name)
         d = os.path.join(top, name)
         if name == "bin":
-            stage_bin(s, native, d)
+            stage_bin(s, native, d, plat)
         else:
-            stage_entry(s, d)
-    dbg = sorted(os.path.join(native, f) for f in os.listdir(native) if f.endswith(".dbg"))
-    return dbg
+            stage_entry(s, d, plat["links"])
+    # A copied mods/<id>/bin (the Windows layout) was copied from the game
+    # directory's bin, whose libraries are the host build's; make it the same
+    # bin that ships, native libraries from --native included.
+    if plat["links"] == "copy":
+        for mod in sorted(os.listdir(os.path.join(top, "mods"))) if os.path.isdir(os.path.join(top, "mods")) else []:
+            mod_bin = os.path.join(top, "mods", mod, "bin")
+            if os.path.isdir(mod_bin):
+                shutil.rmtree(mod_bin)
+                shutil.copytree(os.path.join(top, "bin"), mod_bin, symlinks=True)
+    if plat["debug"] is None:
+        return []
+    return sorted(os.path.join(native, f) for f in os.listdir(native) if f.endswith(plat["debug"]))
 
 
-def stage_bin(src, native, dst):
+def stage_bin(src, native, dst, plat):
     os.makedirs(dst)
     for name in sorted(os.listdir(src)):
         s = os.path.join(src, name)
         d = os.path.join(dst, name)
-        if name != "linux64":
-            stage_entry(s, d)
+        if name != plat["bindir"]:
+            stage_entry(s, d, plat["links"])
             continue
         # The shipped libraries come from --native; the rest of the game
-        # directory's linux64 (the libsteam_api.so link, the server_srv.so
-        # alias) is kept, and a regular file there that --native did not
-        # build (a host clang .so) does not ship.
+        # directory's platform bin (the Steam library's link, the
+        # server_srv.so alias) is kept, and a regular file there that
+        # --native did not build (a host build's library) does not ship.
         os.makedirs(d)
         for entry in sorted(os.listdir(s)):
             e = os.path.join(s, entry)
             if os.path.islink(e) or os.path.isdir(e):
-                stage_entry(e, os.path.join(d, entry))
+                stage_entry(e, os.path.join(d, entry), plat["links"])
         for entry in sorted(os.listdir(native)):
             e = os.path.join(native, entry)
-            if os.path.isfile(e) and not os.path.islink(e) and not entry.endswith(".dbg"):
+            if os.path.isfile(e) and not os.path.islink(e) and not (plat["debug"] and entry.endswith(plat["debug"])):
                 shutil.copy2(e, os.path.join(d, entry))
 
 
-def write_tar(path, root, arcname):
+def write_archive(path, kind, root, arcname):
+    if kind == "zip":
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            for d, dirs, files in os.walk(root):
+                for f in sorted(files):
+                    full = os.path.join(d, f)
+                    z.write(full, os.path.join(arcname, os.path.relpath(full, root)))
+        return
     with tarfile.open(path, "w:gz") as tar:
         tar.add(root, arcname=arcname)
 
 
-def write_dbg_tar(path, dbg):
+def write_dbg_archive(path, kind, dbg, bindir):
+    if kind == "zip":
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in dbg:
+                z.write(f, f"{TOP}/bin/{bindir}/{os.path.basename(f)}")
+        return
     with tarfile.open(path, "w:gz") as tar:
         for f in dbg:
-            tar.add(f, arcname=f"{TOP}/bin/linux64/{os.path.basename(f)}")
+            tar.add(f, arcname=f"{TOP}/bin/{bindir}/{os.path.basename(f)}")
 
 
-def package(repo, config, label, out, native=None, log=print):
+def package(repo, config, label, out, native=None, platform=None, log=print):
+    platform = platform or current_platform()
+    if platform not in PLATFORMS:
+        raise PackageError(f"unknown platform {platform}: one of {', '.join(PLATFORMS)}")
+    plat = PLATFORMS[platform]
     game = os.path.join(repo, "bin", config)
     if not os.path.isdir(game):
         raise PackageError(f"no game directory at {game}: run make setup and build {config}")
-    native = os.path.abspath(native) if native else os.path.join(game, "bin", "linux64")
+    native = os.path.abspath(native) if native else os.path.join(game, "bin", plat["bindir"])
     os.makedirs(out, exist_ok=True)
-    main = os.path.join(out, f"sourcesharp-{label}-{RID}.tar.gz")
-    symbols = os.path.join(out, f"sourcesharp-{label}-{RID}-dbg.tar.gz")
+    ext = ".zip" if plat["archive"] == "zip" else ".tar.gz"
+    main = os.path.join(out, f"sourcesharp-{label}-{platform}{ext}")
+    symbols = os.path.join(out, f"sourcesharp-{label}-{platform}-dbg{ext}")
     with tempfile.TemporaryDirectory(prefix="package-release-") as work:
-        dbg = stage(game, native, work)
-        write_tar(main, os.path.join(work, TOP), TOP)
+        dbg = stage(game, native, work, plat)
+        write_archive(main, plat["archive"], os.path.join(work, TOP), TOP)
         files = sum(len(fs) for _, _, fs in os.walk(os.path.join(work, TOP)))
     log(f"{os.path.relpath(main)}: {files} entries, {os.path.getsize(main) // 1024} KB")
     if dbg:
-        write_dbg_tar(symbols, dbg)
-        log(f"{os.path.relpath(symbols)}: {len(dbg)} .dbg, {os.path.getsize(symbols) // 1024} KB")
+        write_dbg_archive(symbols, plat["archive"], dbg, plat["bindir"])
+        log(f"{os.path.relpath(symbols)}: {len(dbg)} {plat['debug']}, {os.path.getsize(symbols) // 1024} KB")
     else:
         if os.path.exists(symbols):
             os.remove(symbols)
-        log("no .dbg files beside the native libraries; no symbols archive")
+        log("no split debug info beside the native libraries; no symbols archive")
     return main, (symbols if dbg else None)
 
 
@@ -196,9 +266,10 @@ def self_test():
         if mode is not None:
             os.chmod(path, mode)
 
-    def fixture():
-        """A repo with a game directory the way tools/setup composes one, a
-        ROOT it links into, and a native build directory."""
+    def fixture(platform="linux-x64"):
+        """A repo with a game directory the way tools/setup composes one for
+        the platform, a ROOT it links into, and a native build directory."""
+        plat = PLATFORMS[platform]
         d = tempfile.mkdtemp(prefix="package-release-test-")
         repo = os.path.join(d, "repo")
         root = os.path.join(d, "root")
@@ -206,17 +277,20 @@ def self_test():
         touch(os.path.join(repo, "game", "mods.yaml"), b"default_mod: test\n")
         touch(os.path.join(repo, "game", "mod_test", "gameinfo.txt"), b"GameInfo\n")
         touch(os.path.join(repo, "game", "mod_test", "maps", "a.bsp"), b"VBSP")
-        touch(os.path.join(root, "game", "bin", "linux64", "libsteam_api.so"), b"steam")
-        touch(os.path.join(game, LAUNCHER), b"#!/bin/sh\n", 0o755)
+        touch(os.path.join(game, plat["launcher"]), b"#!/bin/sh\n", 0o755)
         os.symlink(os.path.join(repo, "game", "mods.yaml"), os.path.join(game, "mods.yaml"))
         touch(os.path.join(game, "bin", "managed", "SourceSharp.Server.dll"), b"MZ")
         touch(os.path.join(game, "bin", "dotnet", "host", "fxr", "10.0.0", "libhostfxr.so"), b"ELF")
         touch(os.path.join(game, "bin", "dotnet", "shared", "Microsoft.NETCore.App", "10.0.0", "x.dll"))
-        os.makedirs(os.path.join(game, "bin", "linux64"))
-        os.symlink(os.path.join(root, "game", "bin", "linux64", "libsteam_api.so"),
-                   os.path.join(game, "bin", "linux64", "libsteam_api.so"))
-        os.symlink("server.so", os.path.join(game, "bin", "linux64", "server_srv.so"))
-        touch(os.path.join(game, "bin", "linux64", "server.so"), b"host clang build")
+        bindir = os.path.join(game, "bin", plat["bindir"])
+        os.makedirs(bindir)
+        if plat["steam"]:
+            touch(os.path.join(root, "game", "bin", plat["bindir"], plat["steam"]), b"steam")
+            os.symlink(os.path.join(root, "game", "bin", plat["bindir"], plat["steam"]),
+                       os.path.join(bindir, plat["steam"]))
+        if platform == "linux-x64":
+            os.symlink("server.so", os.path.join(bindir, "server_srv.so"))
+        touch(os.path.join(bindir, plat["native"][0]), b"host build")
         mod = os.path.join(game, "mods", "test")
         os.makedirs(os.path.join(mod, "maps"))
         os.symlink(os.path.join(repo, "game", "mod_test", "gameinfo.txt"), os.path.join(mod, "gameinfo.txt"))
@@ -225,44 +299,53 @@ def self_test():
         touch(os.path.join(mod, "cfg", "settings.scr"), b"seed")
         touch(os.path.join(mod, "console.log"), b"engine wrote this")
         touch(os.path.join(game, "steam_appid.txt"), b"243750")
-        native = os.path.join(repo, "bin", "ci-release", "linux64")
-        for so in NATIVE_REQUIRED:
-            touch(os.path.join(native, so), b"sniper build of " + so.encode())
-            touch(os.path.join(native, so + ".dbg"), b"DWARF")
+        native = os.path.join(repo, "bin", "ci-release", plat["bindir"])
+        for so in plat["native"]:
+            touch(os.path.join(native, so), b"ci build of " + so.encode())
+            if plat["debug"]:
+                touch(os.path.join(native, os.path.splitext(so)[0] + plat["debug"]
+                                   if plat["debug"] == ".pdb" else so + plat["debug"]), b"DEBUG INFO")
         return repo, native
 
     def members(path):
+        if path.endswith(".zip"):
+            with zipfile.ZipFile(path) as z:
+                return {i.filename: i for i in z.infolist()}
         with tarfile.open(path) as tar:
             return {m.name: m for m in tar.getmembers()}
 
     def content(path, name):
+        if path.endswith(".zip"):
+            with zipfile.ZipFile(path) as z:
+                return z.read(name)
         with tarfile.open(path) as tar:
             return tar.extractfile(name).read()
 
+    # --- linux-x64: the layout the game directory has, links and all --------
     repo, native = fixture()
     out = os.path.join(repo, "dist")
-    main, symbols = package(repo, "release", "test", out, native, log=lambda _: None)
+    main, symbols = package(repo, "release", "test", out, native, "linux-x64", log=lambda _: None)
     m = members(main)
-    expect("the archive is named for the label and rid",
-           os.path.basename(main) == f"sourcesharp-test-{RID}.tar.gz")
-    expect("the launcher ships, executable",
-           f"{TOP}/{LAUNCHER}" in m and m[f"{TOP}/{LAUNCHER}"].mode & stat.S_IXUSR)
-    expect("mods.yaml, an absolute link, ships as a file",
+    expect("linux: the archive is named for the label and platform",
+           os.path.basename(main) == "sourcesharp-test-linux-x64.tar.gz")
+    expect("linux: the launcher ships, executable",
+           f"{TOP}/source#" in m and m[f"{TOP}/source#"].mode & stat.S_IXUSR)
+    expect("linux: mods.yaml, an absolute link, ships as a file",
            m[f"{TOP}/mods.yaml"].isfile() and content(main, f"{TOP}/mods.yaml") == b"default_mod: test\n")
-    expect("the mod's content, linked per file, ships as files",
+    expect("linux: the mod's content, linked per file, ships as files",
            m[f"{TOP}/mods/test/gameinfo.txt"].isfile() and m[f"{TOP}/mods/test/maps/a.bsp"].isfile())
-    expect("mods/test/bin stays a relative link to ../../bin",
+    expect("linux: mods/test/bin stays a relative link to ../../bin",
            m[f"{TOP}/mods/test/bin"].issym() and m[f"{TOP}/mods/test/bin"].linkname == "../../bin")
-    expect("server_srv.so stays a relative link to server.so",
+    expect("linux: server_srv.so stays a relative link to server.so",
            m[f"{TOP}/bin/linux64/server_srv.so"].issym()
            and m[f"{TOP}/bin/linux64/server_srv.so"].linkname == "server.so")
-    expect("libsteam_api.so, linked from ROOT, ships as a file",
+    expect("linux: libsteam_api.so, linked from ROOT, ships as a file",
            m[f"{TOP}/bin/linux64/libsteam_api.so"].isfile()
            and content(main, f"{TOP}/bin/linux64/libsteam_api.so") == b"steam")
-    expect("the native libraries come from --native, not the game directory's own build",
-           content(main, f"{TOP}/bin/linux64/server.so") == b"sniper build of server.so"
+    expect("linux: the native libraries come from --native, not the game directory's own build",
+           content(main, f"{TOP}/bin/linux64/server.so") == b"ci build of server.so"
            and f"{TOP}/bin/linux64/client.so" in m and f"{TOP}/bin/linux64/libmanaged_host.so" in m)
-    expect("no .dbg in the game archive", not any(n.endswith(".dbg") for n in m))
+    expect("linux: no .dbg in the game archive", not any(n.endswith(".dbg") for n in m))
     expect("the seeded cfg ships", f"{TOP}/mods/test/cfg/settings.scr" in m)
     expect("the managed assemblies and the runtime ship",
            f"{TOP}/bin/managed/SourceSharp.Server.dll" in m
@@ -272,35 +355,73 @@ def self_test():
     expect("nothing in the archive is an absolute link",
            not any(mm.issym() and os.path.isabs(mm.linkname) for mm in m.values()))
     s = members(symbols)
-    expect("the symbols archive holds every .dbg beside the native libraries",
-           set(s) == {f"{TOP}/bin/linux64/{so}.dbg" for so in NATIVE_REQUIRED})
+    expect("linux: the symbols archive holds every .dbg beside the native libraries",
+           set(s) == {f"{TOP}/bin/linux64/{so}.dbg" for so in PLATFORMS["linux-x64"]["native"]})
 
-    # Without --native the game directory's own linux64 is what ships.
+    # Without --native the game directory's own libraries are what ship.
     repo2, _ = fixture()
-    for so in NATIVE_REQUIRED:
+    for so in PLATFORMS["linux-x64"]["native"]:
         touch(os.path.join(repo2, "bin", "release", "bin", "linux64", so), b"host")
-    main2, symbols2 = package(repo2, "release", "t", os.path.join(repo2, "dist"), log=lambda _: None)
+    main2, symbols2 = package(repo2, "release", "t", os.path.join(repo2, "dist"), None, "linux-x64", log=lambda _: None)
     expect("without --native, bin/linux64's own libraries ship and there is no symbols archive",
            content(main2, f"{TOP}/bin/linux64/server.so") == b"host" and symbols2 is None)
 
+    # --- win-x64: a zip, no links, the mod's bin a real copy, .pdb apart -----
+    repo, native = fixture("win-x64")
+    main, symbols = package(repo, "release", "test", os.path.join(repo, "dist"), native, "win-x64", log=lambda _: None)
+    m = members(main)
+    expect("windows: the archive is a zip named for the platform",
+           os.path.basename(main) == "sourcesharp-test-win-x64.zip")
+    expect("windows: source#.exe, the DLLs and steam_api64.dll ship under bin/x64",
+           f"{TOP}/source#.exe" in m
+           and all(f"{TOP}/bin/x64/{so}" in m for so in PLATFORMS["win-x64"]["native"])
+           and content(main, f"{TOP}/bin/x64/steam_api64.dll") == b"steam"
+           and content(main, f"{TOP}/bin/x64/server.dll") == b"ci build of server.dll")
+    expect("windows: mods/test/bin is a real copy of the shipped bin (a zip holds no links)",
+           content(main, f"{TOP}/mods/test/bin/x64/server.dll") == b"ci build of server.dll"
+           and f"{TOP}/mods/test/bin/managed/SourceSharp.Server.dll" in m
+           and f"{TOP}/mods/test/bin/dotnet/host/fxr/10.0.0/libhostfxr.so" in m)
+    expect("windows: no .pdb in the game archive, every .pdb in the symbols zip",
+           not any(n.endswith(".pdb") for n in m)
+           and set(members(symbols)) == {f"{TOP}/bin/x64/{os.path.splitext(so)[0]}.pdb" for so in PLATFORMS["win-x64"]["native"]})
+    expect("windows: the mod's content ships as files",
+           content(main, f"{TOP}/mods/test/gameinfo.txt") == b"GameInfo\n")
+
+    # --- osx-x64: no Steam library to require, no debug info to split --------
+    repo, native = fixture("osx-x64")
+    main, symbols = package(repo, "release", "test", os.path.join(repo, "dist"), native, "osx-x64", log=lambda _: None)
+    m = members(main)
+    expect("macos: the dylibs ship under bin/osx64 with no Steam library required",
+           all(f"{TOP}/bin/osx64/{so}" in m for so in PLATFORMS["osx-x64"]["native"])
+           and not any("steam_api" in n for n in m) and symbols is None)
+    expect("macos: mods/test/bin stays a relative link",
+           m[f"{TOP}/mods/test/bin"].issym() and m[f"{TOP}/mods/test/bin"].linkname == "../../bin")
+
+    # The default platform is this machine's.
+    expect("the default platform is the one this runs on",
+           current_platform() == {"linux": "linux-x64", "win32": "win-x64", "darwin": "osx-x64"}.get(
+               "win32" if sys.platform.startswith("win") else sys.platform, "linux-x64"))
+
     # Refusals: each required input missing is an error naming it, and no archive.
-    def refuses(name, mutate, needle):
-        r, n = fixture()
+    def refuses(name, mutate, needle, platform="linux-x64"):
+        r, n = fixture(platform)
         mutate(r, n)
         o = os.path.join(r, "dist")
         try:
-            package(r, "release", "t", o, n, log=lambda _: None)
+            package(r, "release", "t", o, n, platform, log=lambda _: None)
             expect(name, False)
         except PackageError as e:
-            expect(name, needle in str(e) and not os.path.exists(os.path.join(o, f"sourcesharp-t-{RID}.tar.gz")))
+            expect(name, needle in str(e) and not any(f.startswith("sourcesharp-t-") for f in (os.listdir(o) if os.path.isdir(o) else [])))
 
     refuses("a missing launcher is refused",
-            lambda r, n: os.remove(os.path.join(r, "bin", "release", LAUNCHER)), "launcher")
+            lambda r, n: os.remove(os.path.join(r, "bin", "release", "source#")), "launcher")
     refuses("a missing native library is refused naming it",
             lambda r, n: os.remove(os.path.join(n, "client.so")), "client.so")
     refuses("a missing libsteam_api.so is refused",
             lambda r, n: os.remove(os.path.join(r, "bin", "release", "bin", "linux64", "libsteam_api.so")),
             "libsteam_api.so")
+    refuses("windows: a missing ss_particles.dll is refused naming it",
+            lambda r, n: os.remove(os.path.join(n, "ss_particles.dll")), "ss_particles.dll", "win-x64")
     refuses("an empty managed directory is refused",
             lambda r, n: os.remove(os.path.join(r, "bin", "release", "bin", "managed", "SourceSharp.Server.dll")),
             "managed")
@@ -310,6 +431,11 @@ def self_test():
             lambda r, n: os.remove(os.path.join(r, "game", "mod_test", "maps", "a.bsp")), "does not exist")
     refuses("a missing game directory is refused",
             lambda r, n: shutil.rmtree(os.path.join(r, "bin", "release")), "game directory")
+    try:
+        package(REPO, "release", "t", "/nonexistent", None, "amiga", log=lambda _: None)
+        expect("an unknown platform is refused", False)
+    except PackageError as e:
+        expect("an unknown platform is refused", "amiga" in str(e))
 
     print("package-release self-test:", "PASS" if failures == 0 else f"{failures} FAILED")
     return 1 if failures else 0
@@ -320,7 +446,8 @@ def main(argv):
     ap.add_argument("--config", choices=("debug", "release"), default="release")
     ap.add_argument("--label", help="the version in the archive name (a tag, or a short sha)")
     ap.add_argument("--out", default="dist", help="where the archives go (default dist/)")
-    ap.add_argument("--native", help="the directory whose .so files ship (default bin/<config>/bin/linux64)")
+    ap.add_argument("--platform", choices=sorted(PLATFORMS), help="the layout to pack (default: this machine's)")
+    ap.add_argument("--native", help="the directory whose libraries ship (default bin/<config>/bin/<platform dir>)")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args(argv)
     if a.self_test:
@@ -328,7 +455,7 @@ def main(argv):
     if not a.label:
         ap.error("--label is required")
     try:
-        package(REPO, a.config, a.label, a.out, a.native)
+        package(REPO, a.config, a.label, a.out, a.native, a.platform)
     except PackageError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
