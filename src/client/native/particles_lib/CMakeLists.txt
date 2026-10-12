@@ -7,6 +7,14 @@
 # local, so the library's tier1 and client.so's tier1 ports never meet.
 # client.so dlopens it from beside itself (particles_lib_client.cpp).
 
+# Not on macOS: it links particles.a and dmxloader.a, prebuilt archives Valve
+# ships for Linux and Windows only (cmake/sdk/CMakeLists.txt), and their
+# sources are not in the SDK, so there is nothing to build it from there.
+if(SS_PLATFORM STREQUAL osx)
+  message(STATUS "libss_particles: not built on macOS (no particles.a / dmxloader.a to link)")
+  return()
+endif()
+
 add_library(ss_particles SHARED)
 set_target_properties(ss_particles PROPERTIES OUTPUT_NAME ss_particles NO_SONAME ON)
 ss_sdk_target(ss_particles PROJECTDIR particles RPATH_ORIGIN
@@ -50,8 +58,7 @@ if(SS_ALLOC_CHECK)
   target_link_libraries(ss_particles PRIVATE ss_alloc_check_wraps)
 endif()
 
-target_link_libraries(ss_particles PRIVATE
-    rt
-    dl
-    "$<LINK_GROUP:RESCAN,sdk::particles,sdk::dmxloader,tier1,mathlib,sdk::tier0,sdk::vstdlib>"
-)
+if(SS_PLATFORM STREQUAL linux)
+  target_link_libraries(ss_particles PRIVATE rt dl)
+endif()
+ss_link_group(ss_particles sdk::particles sdk::dmxloader tier1 mathlib sdk::tier0 sdk::vstdlib)

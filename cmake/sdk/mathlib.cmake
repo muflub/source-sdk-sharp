@@ -7,7 +7,6 @@ add_library(mathlib STATIC)
 ss_sdk_compile(mathlib PROJECTDIR mathlib)
 
 set(mathlib_sources
-    mathlib/3dnow.cpp
     mathlib/almostequal.cpp
     mathlib/anorms.cpp
     mathlib/bumpvects.cpp
@@ -30,6 +29,10 @@ set(mathlib_sources
     mathlib/vector.cpp
     mathlib/vmatrix.cpp
 )
+# 3dnow.cpp is [$WINDOWS||$LINUX] in mathlib.vpc: not on macOS.
+if(NOT SS_PLATFORM STREQUAL osx)
+  list(APPEND mathlib_sources mathlib/3dnow.cpp)
+endif()
 list(TRANSFORM mathlib_sources PREPEND "${SS_SRC}/")
 target_sources(mathlib PRIVATE ${mathlib_sources})
 

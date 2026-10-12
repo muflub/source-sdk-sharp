@@ -6,6 +6,11 @@
 add_library(sourcesharp SHARED)
 set_target_properties(sourcesharp PROPERTIES OUTPUT_NAME managed_host NO_SONAME ON)
 ss_sdk_target(sourcesharp PROJECTDIR sourcesharp NO_WRAP)
+# libmanaged_host.so / libmanaged_host.dylib / managed_host.dll: the lib prefix
+# the game libraries do without (ss_sdk_target), on the platforms that use one.
+if(NOT SS_PLATFORM STREQUAL windows)
+  set_target_properties(sourcesharp PROPERTIES PREFIX "lib")
+endif()
 
 # 1 translation units, sorted: the Valve files that still come from the fork
 # first, then this repo's, each group alphabetically (link order is this order;
@@ -21,6 +26,10 @@ target_sources(sourcesharp PRIVATE ${sourcesharp_sources})
 
 target_compile_definitions(sourcesharp PRIVATE
     DLLNAME=libmanaged_host
+    # sourcesharp.h: this target EXPORTS the API; every other includer of the
+    # header imports it (SOURCESHARP_EXPORT is __declspec(dllexport) here and
+    # dllimport there; one visibility attribute on the GNU platforms).
+    SOURCESHARP_HOST_BUILD
 )
 
 # The host includes nothing of Valve's: only the system headers and its own

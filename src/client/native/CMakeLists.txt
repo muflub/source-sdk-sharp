@@ -287,12 +287,10 @@ target_include_directories(client_sourcesharp PRIVATE
     ${SS_SRC}/vgui2/include
 )
 
-# libmanaged_host.so has no SONAME, so it is named with -L/-l (as VPC did): by
-# path, DT_NEEDED would record the build directory.
-add_dependencies(client_sourcesharp sourcesharp)
-target_link_options(client_sourcesharp PRIVATE -L$<TARGET_FILE_DIR:sourcesharp>)
-target_link_libraries(client_sourcesharp PRIVATE managed_host)
-set_property(TARGET client_sourcesharp APPEND PROPERTY LINK_DEPENDS $<TARGET_FILE:sourcesharp>)
+# The managed host: by -L/-l on Linux (libmanaged_host.so has no SONAME, so a
+# link by path would record the build directory in DT_NEEDED), by target on
+# the others (ss_link_host).
+ss_link_host(client_sourcesharp)
 
 # VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
 # refer to each other in both directions, and GNU ld (the CI link) resolves an
@@ -302,10 +300,19 @@ set_property(TARGET client_sourcesharp APPEND PROPERTY LINK_DEPENDS $<TARGET_FIL
 # particles_lib/): client.so dlopens it, and particles_lib_client.cpp defines
 # the names client.so's objects take from particles.a as forwards to it.
 target_include_directories(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/src/client/native/particles_lib/include)
-add_dependencies(client_sourcesharp ss_particles)
-target_link_libraries(client_sourcesharp PRIVATE
-    rt
-    z
-    dl
-    "$<LINK_GROUP:RESCAN,sdk::tier0,tier1,sdk::vstdlib,mathlib>"
-)
+# No libss_particles on macOS (particles_lib/CMakeLists.txt): the client builds
+# and links there (the loader fails at run time, as it would with the library
+# missing beside it); the dependency exists where the library does.
+if(TARGET ss_particles)
+  add_dependencies(client_sourcesharp ss_particles)
+endif()
+# rt and dl are glibc's; zlib is the system's on Linux and macOS and Valve's
+# libz.lib on Windows (cmake/sdk).
+if(SS_PLATFORM STREQUAL linux)
+  target_link_libraries(client_sourcesharp PRIVATE rt z dl)
+elseif(SS_PLATFORM STREQUAL windows)
+  target_link_libraries(client_sourcesharp PRIVATE sdk::z)
+else()
+  target_link_libraries(client_sourcesharp PRIVATE z)
+endif()
+ss_link_group(client_sourcesharp sdk::tier0 tier1 sdk::vstdlib mathlib)

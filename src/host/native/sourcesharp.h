@@ -19,8 +19,15 @@
 extern "C" {
 #endif
 
+// The host (SOURCESHARP_HOST_BUILD, its CMake target) exports the API; the
+// game libraries, which include this header to call it, import it. On the GNU
+// platforms one visibility attribute serves both sides.
 #ifdef _WIN32
-	#define SOURCESHARP_EXPORT __declspec(dllexport)
+	#ifdef SOURCESHARP_HOST_BUILD
+		#define SOURCESHARP_EXPORT __declspec(dllexport)
+	#else
+		#define SOURCESHARP_EXPORT __declspec(dllimport)
+	#endif
 #else
 	#define SOURCESHARP_EXPORT __attribute__((visibility("default")))
 #endif
