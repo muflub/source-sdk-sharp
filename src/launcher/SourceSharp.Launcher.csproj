@@ -14,7 +14,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <!-- The platform this build runs on, x64 on each: the engine is x86-64
+         only, so an Apple Silicon machine publishes the osx-x64 launcher too.
+         Linux unless the host says otherwise (a build on Linux is the Linux
+         launcher, as before). -->
+    <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">linux-x64</RuntimeIdentifier>
     <!-- Not beside the managed game assemblies: the launcher is not loaded by the game. -->
     <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/launcher/</OutputPath>
     <PublishDir>$(RepoRoot)bin/$(SourceSharpConfig)/launcher/publish/</PublishDir>
@@ -26,8 +32,11 @@
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
   </ItemGroup>
 
+  <!-- source#, or source#.exe on Windows, where the engine's loader wants
+       the extension (the name is otherwise the same on every platform; the
+       Makefile's launcher-name-test reads it). -->
   <Target Name="PublishSourceSharp" AfterTargets="Publish">
-    <Copy SourceFiles="$(PublishDir)SourceSharp.Launcher"
-          DestinationFiles="$(RepoRoot)bin/$(SourceSharpConfig)/source#" />
+    <Copy SourceFiles="$(PublishDir)SourceSharp.Launcher$(NativeBinaryExt)"
+          DestinationFiles="$(RepoRoot)bin/$(SourceSharpConfig)/source#$(NativeBinaryExt)" />
   </Target>
 </Project>

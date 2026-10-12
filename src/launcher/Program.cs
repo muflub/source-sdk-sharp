@@ -14,5 +14,5 @@ foreach (DictionaryEntry e in Environment.GetEnvironmentVariables())
 
 var launcher = new Launcher(
     new NativeSteam(), new ProcessRunner(), new Rlimit(), new SdlMessageBox(),
-    Console.Out, Console.Error);
+    Console.Out, Console.Error, LauncherPlatform.Current);
 return launcher.Run(args, launcherDir, env);

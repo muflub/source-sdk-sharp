@@ -22,8 +22,17 @@ internal sealed class Launcher(
     IRlimit rlimit,
     IMessageBox messageBox,
     TextWriter stdout,
-    TextWriter stderr)
+    TextWriter stderr,
+    LauncherPlatform? platform = null)
 {
+    /// <summary>
+    /// The platform's spellings (library directory, Steam library, loader
+    /// variable, executable names): Linux's unless the caller says, which
+    /// keeps every fact written against the Linux launcher pinning what it
+    /// pinned; Program.cs passes <see cref="LauncherPlatform.Current"/>.
+    /// </summary>
+    internal LauncherPlatform Platform { get; } = platform ?? LauncherPlatform.Linux;
+
     public const string Prefix = "[Source Mod Launcher]";
 
     /// <summary>
@@ -205,11 +214,19 @@ internal sealed class Launcher(
         if (!File.Exists(Path.Combine(mod.GameDir, "gameinfo.txt")))
             return Error($"Mod '{mod.Id}' has no gameinfo.txt in {mod.GameDir}.");
 
-        string steamLibrary = Path.Combine(launcherDir, "bin", "linux64", "libsteam_api.so");
+        // Valve's launcher_main.vpc names the engine binary per platform from
+        // one stem; mods.yaml spells the Linux one.
+        role = role with { Exe = Platform.ExeName(role.Exe) };
+
+        string steamLibrary = Path.Combine(Platform.LibraryDir(launcherDir), Platform.SteamLibrary ?? "");
         string install;
         if (engineDir is not null)
         {
             install = Path.GetFullPath(engineDir);
+        }
+        else if (Platform.SteamLibrary is null)
+        {
+            return Error($"No Steam API library ships for {Platform.Name}: name the engine directory with -engine <dir> or SOURCESHARP_ENGINE_DIR.");
         }
         else
         {
@@ -243,8 +260,11 @@ internal sealed class Launcher(
         // executable, run from there (plan_host_sdk P0: BASE_PATH came out as
         // steamapps/common/ and no HL2 content mounted). A pod's /opt/srcds has
         // no space, which is why the host never met this.
+        // Linux only: the view is symbolic links, which Windows grants only to
+        // a privileged process, and srcds_win64 takes its base directory from
+        // the working directory rather than argv[0].
         string libraryInstall = exeInstall;
-        if (dedicated && (install.Contains(' ') || exeInstall.Contains(' ')))
+        if (dedicated && Platform.Name == "linux" && (install.Contains(' ') || exeInstall.Contains(' ')))
         {
             string view = Path.Combine(launcherDir, "engines", "dedicated");
             try
@@ -294,7 +314,7 @@ internal sealed class Launcher(
         }
 
         List<string> ours = TakeOurFlags(args);
-        Dictionary<string, string> env = GameEnvironment(environment, install, libraryInstall, role, mod, config.Path);
+        Dictionary<string, string> env = GameEnvironment(environment, install, libraryInstall, role, mod, config.Path, Platform);
         env.Remove(LaunchArgsVariable);
         if (ours.Count > 0)
             env[LaunchArgsVariable] = string.Join('\n', ours);
@@ -399,24 +419,33 @@ internal sealed class Launcher(
 
     /// <summary>hl2.sh's environment, the mod's own, where Bootstrap finds mods.yaml, and where a fatal report goes.</summary>
     internal static Dictionary<string, string> GameEnvironment(
-        IReadOnlyDictionary<string, string> current, string install, string exeInstall, EngineSettings role, Mod mod, string modsYaml)
+        IReadOnlyDictionary<string, string> current, string install, string exeInstall, EngineSettings role, Mod mod, string modsYaml,
+        LauncherPlatform? platform = null)
     {
+        platform ??= LauncherPlatform.Linux;
         var env = new Dictionary<string, string>(current, StringComparer.Ordinal);
 
         // hl2.sh: export LD_LIBRARY_PATH="${GAMEROOT}/bin/$plat_dir":$LD_LIBRARY_PATH
         // -- including the trailing colon when it was empty, kept for parity.
-        current.TryGetValue("LD_LIBRARY_PATH", out string? ld);
+        // The platform names the variable (PATH on Windows, DYLD_LIBRARY_PATH
+        // on macOS) and the separator; the shape is the same.
+        current.TryGetValue(platform.LibraryPathVariable, out string? ld);
         //
         // Then, when the executable comes from another install (exe_appid), that
         // install's libraries after the engine's: the dedicated server takes its
         // libsteam_api, filesystem_stdio, libtier0 and libvstdlib from 243750.
-        string libraries = Path.Combine(install, "bin", "linux64");
+        string libraries = platform.LibraryDir(install);
         if (!string.Equals(Path.GetFullPath(exeInstall), Path.GetFullPath(install), StringComparison.Ordinal))
-            libraries += ":" + Path.Combine(exeInstall, "bin", "linux64");
-        env["LD_LIBRARY_PATH"] = libraries + ":" + (ld ?? "");
-        env["__GL_THREADED_OPTIMIZATIONS"] = "1";
-        if (File.Exists(Path.Combine(install, "pathmatch.inf")))
-            env["ENABLE_PATHMATCH"] = "1";
+            libraries += platform.PathListSeparator + platform.LibraryDir(exeInstall);
+        env[platform.LibraryPathVariable] = libraries + platform.PathListSeparator + (ld ?? "");
+        if (platform.Name == "linux")
+        {
+            // hl2.sh's own two: the NVIDIA GL threading hint, and tier0's
+            // case-insensitive path fixups when the install asks for them.
+            env["__GL_THREADED_OPTIMIZATIONS"] = "1";
+            if (File.Exists(Path.Combine(install, "pathmatch.inf")))
+                env["ENABLE_PATHMATCH"] = "1";
+        }
 
         foreach (var (k, v) in role.Env)
             env[k] = v;
@@ -517,10 +546,10 @@ internal sealed class Launcher(
     /// arguments add up to more than 512 bytes (<see cref="EngineCommandLineLimit"/>).
     /// A tool's TMPDIR under an agent's scratchpad is over 100 characters.
     /// </summary>
-    internal static string InstanceBase(IReadOnlyDictionary<string, string> environment) =>
+    internal static string InstanceBase(IReadOnlyDictionary<string, string> environment, LauncherPlatform? platform = null) =>
         environment.TryGetValue(InstanceRootVariable, out string? r) && r.Length > 0
             ? Path.GetFullPath(r)
-            : "/tmp/ssi-" + Environment.UserName;
+            : (platform ?? LauncherPlatform.Linux).DefaultInstanceBase(Environment.UserName);
 
     /// <summary>
     /// A new, empty directory for one instance's game dir: &lt;base&gt;/&lt;this
@@ -530,7 +559,7 @@ internal sealed class Launcher(
     /// </summary>
     internal string NewInstanceRoot(IReadOnlyDictionary<string, string> environment)
     {
-        string bas = InstanceBase(environment);
+        string bas = InstanceBase(environment, Platform);
         Directory.CreateDirectory(bas);
         SweepStaleInstances(bas);
         string pid = Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -562,9 +591,33 @@ internal sealed class Launcher(
                 continue;
             if (!int.TryParse(pidText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int pid) || pid <= 0)
                 continue;
-            if (Directory.Exists($"/proc/{pid}") || new FileInfo(entry).LinkTarget is not null)
+            if (ProcessIsRunning(pid) || new FileInfo(entry).LinkTarget is not null)
                 continue;
             RemoveInstance(entry);
+        }
+    }
+
+    /// <summary>
+    /// Whether a process with that id is running: /proc/&lt;pid&gt; where
+    /// there is a /proc (the reading the sweep was written with), else the
+    /// process table.
+    /// </summary>
+    internal bool ProcessIsRunning(int pid)
+    {
+        if (Platform.HasProcFs)
+            return Directory.Exists($"/proc/{pid}");
+        try
+        {
+            using var p = System.Diagnostics.Process.GetProcessById(pid);
+            return !p.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
     }
 
