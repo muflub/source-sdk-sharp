@@ -239,7 +239,10 @@ enum
 
 	STANDALONE_NET_FIELD_COUNT,
 };
-static_assert( STANDALONE_NET_FIELD_COUNT == SOURCESHARP_TIER_PROPS_STANDALONE,
+// Both sides are enumerators of two different unnamed enums, which gcc's
+// -Wenum-compare (an error here) refuses to compare as enums; as ints the
+// assertion says the same thing.
+static_assert( (int)STANDALONE_NET_FIELD_COUNT == (int)SOURCESHARP_TIER_PROPS_STANDALONE,
                "NetTierInfo's real-prop count is this list's length" );
 
 #endif // SOURCESHARP_STANDALONE_NETTABLE_H

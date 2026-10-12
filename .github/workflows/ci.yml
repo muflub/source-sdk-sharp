@@ -141,6 +141,18 @@ jobs:
           python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
           python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --no-valve-sdk
 
+      # What the farm's links came out as on this platform: a Windows link
+      # answers differently to each of these when it was made wrong.
+      - name: The farm's links resolve
+        run: |
+          python - <<'EOF'
+          import os
+          for p in ("farm/release/src/public/tier0/platform.h", "farm/release/src/sourcesharp/game/shared/ss_platform.h", "farm/release/src/buildsourcesharp"):
+              t = os.readlink(p) if os.path.islink(p) else None
+              print(f"{p}: lexists={os.path.lexists(p)} islink={os.path.islink(p)} exists={os.path.exists(p)} target={t!r} target_exists={os.path.exists(t) if t else None}")
+          EOF
+          ls -la farm/release/src/public/tier0 | head -n 5
+
       - name: Configure (cmake --preset ${{ matrix.preset }})
         run: cmake --preset ${{ matrix.preset }}
 

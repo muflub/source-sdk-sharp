@@ -230,6 +230,11 @@ if(SS_PLATFORM STREQUAL osx)
   # Apple's clang is a release or two behind LLVM's, so a -Wno- above it does
   # not know yet must not itself be the warning (-Werror) that stops the build.
   list(APPEND SS_WARN_CLANG -Wno-unknown-warning-option)
+  # Apple's SDK marks sprintf, strcpy and friends deprecated
+  # (__deprecated_msg in its headers; nothing else's libc does), and Valve's
+  # code calls them throughout (checksum_sha1.cpp first). Valve's sites, so
+  # the warning is off here rather than the code edited.
+  list(APPEND SS_WARN_CLANG -Wno-deprecated-declarations)
 endif()
 # MSVC: source_win32_base.vpc's set. /W3, not VPC's /W4: VPC turns warnings
 # into errors on 32-bit Windows only ([!$WIN64]) and lets the 64-bit build's
