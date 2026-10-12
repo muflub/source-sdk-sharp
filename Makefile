@@ -228,6 +228,27 @@ endef
 .DEFAULT_GOAL := help
 HOST_ROOT ?= $(abspath ../source-sdk-sharp-host)
 
+# HOST_SDK=0: build and test without the host's SDK package.
+#
+# The TF2Descent server speaks the host's 2.x SDK (src/tf2_descent/
+# Directory.Build.props pins SourceSharp.Host.Sdk 2.6.0), and that SDK is
+# packed from a host checkout this tree's owner has; the host's public main
+# packs 1.0.0 and lacks the 2.x API, so a machine with only the public host
+# (CI, a fresh contributor) cannot compile TF2.Descent.Server or its facts.
+# HOST_SDK=0 builds SourceSharp.NoHost.slnf instead -- SourceSharp.slnx minus
+# exactly those two projects (tools/nohost-sln keeps the filter honest) --
+# drops the tf2_descent test leg with them, and asks the host only for the
+# Contracts package the rules module restores (which the public host packs).
+# Everything else builds and is tested the same; .github/workflows/ci.yml runs
+# this way until the host publishes the 2.x SDK.
+HOST_SDK ?= 1
+SLN := $(if $(filter 0,$(HOST_SDK)),SourceSharp.NoHost.slnf,SourceSharp.slnx)
+# buildsourcesharp builds the same solution (it reads SS_SLN).
+export SS_SLN := $(SLN)
+# What `make setup` must find in $(HOST_ROOT)/bin/nupkg, else it runs host-pack.
+HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
+                 $(if $(filter 0,$(HOST_SDK)),,$(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg)
+
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test descent-test
 .PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-full cpp-test census-test oracle-test check clean clean-sockets \
@@ -300,7 +321,7 @@ host-pack:
 # missing, and fails (naming HOST_ROOT) when there is no host checkout.
 setup:
 	@tools/setup $(if $(ROOT),--root $(ROOT)) $(if $(VALVE_SDK),--valve-sdk $(VALVE_SDK)) $(SETUP_ARGS)
-	@if ! ls $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg >/dev/null 2>&1; then \
+	@if ! ls $(HOST_PACKAGES) >/dev/null 2>&1; then \
 	    echo "setup: the host packages are missing; building them (make host-pack)"; $(MAKE) --no-print-directory host-pack; fi
 
 # ROOT from stock upstream instead of the fork: clone Valve's
@@ -734,7 +755,7 @@ ORACLE_NATIVE_TEST  = $(FARM)/src/buildcpptests --oracle
 # the assemblies: no MSBuild in any leg, so they run at once. The managed
 # tests are always the Debug build, whatever CONFIG says, as before. The
 # standalone targets (managed-test, descent-test, oracle-test) still build.
-TEST_BUILD    = $(DOTNET) build SourceSharp.slnx -v q --nologo -c Debug
+TEST_BUILD    = $(DOTNET) build $(SLN) -v q --nologo -c Debug
 TEST_DLLS    := $(CURDIR)/bin/debug
 MANAGED_LEG   = $(DOTNET) test $(TEST_DLLS)/tests/SourceSharp.Shared.Tests.dll --nologo
 SERVER_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-server/SourceSharp.Server.Tests.dll --nologo
@@ -858,7 +879,7 @@ TEST_LEGS = \
     'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
     'managed-server:tools/leg-floor managed-server && $(SERVER_LEG)' \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
-    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)' \
+    $(if $(filter 0,$(HOST_SDK)),,'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)') \
     'native@ninja:tools/leg-floor native && $(CPP_TEST)' \
     'entity@ninja:tools/leg-floor entity && $(ENTITY_TEST)' \
     'ui:tools/leg-floor ui && $(UI_TEST)'

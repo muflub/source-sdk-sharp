@@ -1,0 +1,37 @@
+{
+  "solution": {
+    "path": "SourceSharp.slnx",
+    "projects": [
+      "src/abi/SourceSharp.Abi.csproj",
+      "src/host/managed/SourceSharp.Bootstrap.csproj",
+      "src/client/interface/SourceSharp.Client.Interface.csproj",
+      "src/client/managed/SourceSharp.Client.csproj",
+      "src/client/ui/toolkit/SourceSharp.Client.Ui.Toolkit.csproj",
+      "src/client/ui/screens/SourceSharp.Client.Ui.csproj",
+      "src/client/ui/host/SourceSharp.Client.Ui.Host.csproj",
+      "src/client/ui/analyzers/SourceSharp.Client.Ui.Analyzers.csproj",
+      "src/client/ui/analyzers.codefixes/SourceSharp.Client.Ui.Analyzers.CodeFixes.csproj",
+      "src/tf2_descent/client/TF2.Descent.Client.csproj",
+      "src/tf2_descent/rules/TF2.Descent.Rules.csproj",
+      "src/tf2_descent/ui/TF2.Descent.Client.Ui.csproj",
+      "src/debug_api_client/Debug.Api.Client.csproj",
+      "src/debug_api/Debug.Api.Server.csproj",
+      "src/debug_api_shared/Debug.Api.Shared.csproj",
+      "src/analyzers/SourceSharp.Analyzers.csproj",
+      "src/generators/SourceSharp.Generators.csproj",
+      "src/launcher/SourceSharp.Launcher.csproj",
+      "src/mapgen/SourceSharp.MapGen.csproj",
+      "src/mods/SourceSharp.Mods.csproj",
+      "src/server/interface/SourceSharp.Server.Interface.csproj",
+      "src/server/managed/SourceSharp.Server.csproj",
+      "src/test/managed/SourceSharp.Shared.Tests.csproj",
+      "src/test/server/SourceSharp.Server.Tests.csproj",
+      "src/test/client/SourceSharp.Client.Tests.csproj",
+      "src/test/support/SourceSharp.TestSupport.csproj",
+      "src/tf2/client/TF2.Client.csproj",
+      "src/tf2/server/TF2.Server.csproj",
+      "src/test/oracle/managed/SourceSharp.OracleTests.csproj",
+      "src/tools/UiPreview/SourceSharp.UiPreview.csproj"
+    ]
+  }
+}
