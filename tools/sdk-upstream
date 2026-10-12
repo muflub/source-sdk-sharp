@@ -127,8 +127,14 @@ def prepare(sdk_dir, pin, out):
     url = pin["url"]
     if not os.path.lexists(sdk_dir):
         out(f"clone {url} ({pin['branch']}) into {sdk_dir}")
+        # LF in the working tree whatever the machine's git says: the series
+        # was made against LF files, and on a Windows git with autocrlf on,
+        # a CRLF checkout would make every patch's context miss. Recorded in
+        # the clone's own config so every later checkout and the am read
+        # the same.
         r = subprocess.run(["git", "clone", "-q", "--no-checkout",
                             "--single-branch", "--branch", pin["branch"],
+                            "-c", "core.autocrlf=false", "-c", "core.eol=lf",
                             url, sdk_dir], capture_output=True, text=True)
         if r.returncode:
             raise Refused(f"clone of {url} failed: {r.stderr.strip()}")

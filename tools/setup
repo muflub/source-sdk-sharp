@@ -315,22 +315,43 @@ def find_tf2():
     return None
 
 
-def plan_bin(repo, root, cfg, mods, tf2=None):
+# Where the engine loads game libraries from, and the Steam API library Valve
+# ships for it, per platform (the layout of Valve's game/bin): linux64 with
+# libsteam_api.so, x64 with steam_api64.dll, and osx64, for which Valve ships
+# nothing (cmake/sdk/CMakeLists.txt). The dedicated engine on Linux loads the
+# game DLL as server_srv.so, the client and listen server as server.so: one
+# library, two names (plan_host_sdk §2.5; H0a found a dedicated run calling
+# address 0 without it). Windows' srcds loads server.dll under its own name.
+PLATFORM_BIN = {
+    "linux": ("linux64", "libsteam_api.so", "server_srv.so"),
+    "windows": ("x64", "steam_api64.dll", None),
+    "osx": ("osx64", None, None),
+}
+
+
+def platform_name():
+    if sys.platform.startswith("win"):
+        return "windows"
+    if sys.platform == "darwin":
+        return "osx"
+    return "linux"
+
+
+def plan_bin(repo, root, cfg, mods, tf2=None, platform=None):
     """bin/<cfg>-relative path -> link target (None means a real directory)."""
+    bindir, steam, alias = PLATFORM_BIN[platform or platform_name()]
     out = {
         "bin": None,
-        "bin/linux64": None,
+        "bin/" + bindir: None,
         "bin/managed": None,
-        "bin/linux64/libsteam_api.so": os.path.join(
-            root, "game/bin/linux64/libsteam_api.so"),
-        # The dedicated engine loads the game DLL as server_srv.so, the
-        # client and listen server as server.so: one library, two names
-        # (plan_host_sdk §2.5; H0a found a dedicated run calling address 0
-        # without it).
-        "bin/linux64/server_srv.so": ("rel", "server.so"),
         "mods.yaml": os.path.join(repo, "game", "mods.yaml"),
         "mods": None,
     }
+    if steam:
+        out["bin/%s/%s" % (bindir, steam)] = os.path.join(
+            root, "game/bin", bindir, steam)
+    if alias:
+        out["bin/%s/%s" % (bindir, alias)] = ("rel", "server.so")
     if tf2:
         out["content"] = tf2
     for mod_id, game_dir, content in mods:
@@ -353,7 +374,16 @@ def plan_bin(repo, root, cfg, mods, tf2=None):
 # --- applying a plan ------------------------------------------------------------
 
 def link_ok(path, target):
-    return os.path.islink(path) and os.readlink(path) == target
+    return os.path.islink(path) and read_link(path) == target
+
+
+def read_link(path):
+    """os.readlink, minus the \\?\\ prefix Windows puts on an absolute
+    target, so a link made from `target` reads back as `target`."""
+    t = os.readlink(path)
+    if t.startswith("\\\\?\\"):
+        t = t[4:]
+    return t
 
 
 def clear_linked_parents(base, rel, links, check, report):
@@ -424,7 +454,9 @@ def apply_links(base, links, check, report, managed_prefixes=None):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.islink(path):
             os.unlink(path)
-        os.symlink(target, path)
+        # Windows tells a directory link from a file link at creation; the
+        # other platforms ignore the flag.
+        os.symlink(target, path, target_is_directory=os.path.isdir(target))
 
     # Stale links.
     want = set(links)
@@ -695,8 +727,11 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
             os.path.isdir(farm) or check) else 0
         game = os.path.join(repo, "bin", cfg)
         bplan = plan_bin(repo, root, cfg, mods, tf2)
-        managed = ["bin/linux64/libsteam_api.so", "mods.yaml"] + [
+        bindir, steam, _ = PLATFORM_BIN[platform_name()]
+        managed = ["mods.yaml"] + [
             os.path.normpath(m[1]) for m in mods] + (["content"] if tf2 else [])
+        if steam:
+            managed.insert(0, "bin/%s/%s" % (bindir, steam))
         if not check:
             os.makedirs(game, exist_ok=True)
         if os.path.isdir(game) or check:
@@ -1089,6 +1124,10 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--config", choices=CONFIGS)
     ap.add_argument("--no-provision", action="store_true")
+    ap.add_argument("--no-valve-sdk", action="store_true",
+                    help="do not clone or check the pristine Valve SDK the "
+                         "oracle tests read (a native-only build, as CI's "
+                         "Windows and macOS jobs make, has no oracle leg)")
     ap.add_argument("--valve-sdk", help="the pristine Valve SDK clone "
                     "(default: remembered, else ../source-sdk-2013-valve)")
     ap.add_argument("--verbose", "-v", action="store_true")
@@ -1122,7 +1161,8 @@ def main():
         changes = run(repo, root, [a.config] if a.config else CONFIGS,
                       check=a.check, accept=a.accept_root,
                       provision=not a.no_provision, verbose=a.verbose,
-                      valve=valve, repin=a.repin_root)
+                      valve=None if a.no_valve_sdk else valve,
+                      repin=a.repin_root)
     except SetupError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -1135,7 +1175,7 @@ def main():
     if a.root:
         with open(local, "w") as f:
             f.write(root + "\n")
-    if not a.check:
+    if not a.check and not a.no_valve_sdk:
         # Where the pristine clone is, for the tests (RepoLayout.ValveSdk /
         # the oracle CMake) and for the next setup.
         with open(os.path.join(repo, "valve-sdk.lock.local"), "w") as f:
