@@ -67,8 +67,8 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 22 | 5 | 30 |  |  |  | 60 | 34,985 |
-| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 40 | 18,674 |
+| a | a vtable the engine or VPhysics calls through | 22 | 5 | 30 |  |  |  | 60 | 34,987 |
+| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 40 | 18,672 |
 | c | static-init registration | 19 | 6 | 3 |  |  |  | 29 | 5,345 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 4 | 2 |  |  | 20 | 11,547 |
 | e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,112 |

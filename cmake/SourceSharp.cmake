@@ -160,6 +160,16 @@ else()
     # gcc-only optimisation switches; clang has no spelling for either (its loop
     # unswitching is on at -O2, and predictive commoning has no equivalent).
     list(APPEND SS_OPT_release -fpredictive-commoning -funswitch-loops)
+    # No speculative devirtualization (gcc -O2 has it on; clang has no such
+    # pass). gcc guesses the dynamic type of a virtual call from the classes
+    # a header defines inline, and compiles that class's body behind a
+    # vtable check. Our libraries leave out Valve code on purpose, and the
+    # guesses reach it: random_valve->RandomFloat() guessed as vstdlib's
+    # CDefaultUniformRandomStream calls RandomFloat, which server.so does not
+    # link; our view's GetFrustum() guessed as CViewRender's calls
+    # CBase3dView::GetFrustum, which client.so does not compile. Both are
+    # undefined symbols at link, and the guess is wrong at run time anyway.
+    list(APPEND SS_OPT_release -fno-devirtualize-speculatively)
   endif()
 endif()
 set(SS_DEFS_debug DEBUG _DEBUG)
@@ -180,6 +190,14 @@ set(SS_WARN_GNU
   -Wformat-security -Werror=format
   -Wno-overloaded-virtual -Wno-placement-new -Wno-c++20-compat -Wno-class-memaccess
   -Wno-conversion-null -Wno-invalid-offsetof -Wno-reorder -Werror=delete-non-virtual-dtor)
+# gcc 10 (CI's sniper container) only, and not in the VPC list: its
+# -Wmaybe-uninitialized follows inlining, and CUtlVectorFixedGrowable's switch
+# from inline to heap storage (utlmemory.h's memcpy of the whole fixed
+# buffer) reads elements nothing has written yet, by design. It fires in
+# every TU that grows one past its fixed count (shell_material_proxy_client,
+# shell_managed_particles), always in Valve's header. clang's
+# -Wuninitialized, which is on, still checks our own code.
+list(APPEND SS_WARN_GNU -Wno-maybe-uninitialized)
 # The same intent for clang. Dropped, because clang has no such warning:
 # -Wno-nonnull-compare, -Wno-placement-new, -Wno-class-memaccess,
 # -Wno-conversion-null. Added lines carry their

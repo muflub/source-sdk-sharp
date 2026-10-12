@@ -4003,4 +4003,6 @@ COMPILE_TIME_ASSERT( STANDALONE_NOINTERP_PARITY_BITS == NOINTERP_PARITY_MAX_BITS
 // the solidity pair's width. This TU sees const.h (its FSOLID_NOT_SOLID uses
 // prove it), so the pair's wire width is pinned to the engine's own number for
 // the FSOLID_* bits here, where a disagreement is a build error.
-COMPILE_TIME_ASSERT( STANDALONE_SOLID_FLAGS_MAX_BITS == FSOLID_MAX_BITS );
+// As ints: an unnamed enum's enumerator against SolidFlags_t's is an
+// -Wenum-compare error under the sniper container's gcc.
+COMPILE_TIME_ASSERT( (int)STANDALONE_SOLID_FLAGS_MAX_BITS == (int)FSOLID_MAX_BITS );
