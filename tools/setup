@@ -436,6 +436,9 @@ def apply_links(base, links, check, report, managed_prefixes=None):
             continue
         if isinstance(target, tuple):
             target = target[1]
+        # The platform's separators: Windows resolves a link whose target
+        # is written with forward slashes to nothing. A no-op elsewhere.
+        target = os.path.normpath(target)
         if link_ok(path, target):
             continue
         changes += 1
@@ -744,7 +747,7 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
                 changes += provision_cfg(repo, m[2], os.path.join(
                     game, os.path.normpath(m[1])), check, report)
         out(f"{cfg}: {shown[0]} changes; {len(links)} farm links "
-            f"({sum(1 for p in links if links[p].startswith(root + '/'))} "
+            f"({sum(1 for p in links if os.path.normpath(links[p]).startswith(os.path.normpath(root) + os.sep))} "
             f"from ROOT)")
     if valve is not None:
         changes += provision_valve(repo, root, valve, check, report,

@@ -2,7 +2,8 @@ name: Linux toolchain
 description: >-
   What a Linux build of SourceSharp needs on a GitHub runner: clang 22 and
   lld 22 from apt.llvm.org (the host presets name them), cmake and ninja,
-  zlib's headers (the NativeAOT launcher), PyYAML (tools/setup reads
+  zlib's headers (the NativeAOT launcher), libuuid's (every game library
+  links -luuid, as VPC's link rule did), PyYAML (tools/setup reads
   mods.yaml), and the .NET 10 SDK at ~/.dotnet, which is where the Makefile
   and tools/setup look (README, "Prerequisites").
 
@@ -25,7 +26,7 @@ runs:
           | sudo tee /etc/apt/sources.list.d/llvm-22.list > /dev/null
         sudo apt-get update -qq
         sudo apt-get install -y -qq --no-install-recommends \
-          cmake ninja-build clang-22 lld-22 zlib1g-dev python3-yaml
+          cmake ninja-build clang-22 lld-22 zlib1g-dev uuid-dev python3-yaml
         clang++-22 --version | sed -n 1p
         ld.lld-22 --version | sed -n 1p
         cmake --version | sed -n 1p

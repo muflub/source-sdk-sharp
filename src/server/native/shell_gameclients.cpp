@@ -361,8 +361,6 @@ void CServerGameClients::ClientDisconnect( edict_t *pEdict )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientDisconnect );
 
-	extern bool	g_fGameOver;
-
 	// The whole CBasePlayer body below is guarded on the resolve, so a
 	// standalone player used to leave SILENTLY: entity standing, edict still
 	// hooked, managed side never told. Destroying the shell is the rest of the

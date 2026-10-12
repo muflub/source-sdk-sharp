@@ -354,6 +354,14 @@ function(ss_sdk_compile tgt)
     ${SS_COMMON_DEFS} ${SS_DEFS_${SS_CONFIG}}
     PROJECTDIR=${SS_SRC}/${A_PROJECTDIR}
     $<$<BOOL:${SS_COVERAGE}>:SS_COVERAGE=1>)
+  if(SS_PLATFORM STREQUAL osx)
+    # platform.h includes <malloc.h> on every platform; macOS has no such
+    # header (its allocator API is <malloc/malloc.h>), so one that forwards
+    # to it sits first on the include path there. Under cmake/, not the shim
+    # tree: it is build plumbing, and the shim's line ratchet walks the tree.
+    target_include_directories(${tgt} BEFORE PRIVATE
+      ${PROJECT_SOURCE_DIR}/cmake/compat/osx)
+  endif()
   # CMake defines <target>_EXPORTS in every shared library's TUs; VPC did not,
   # and nothing reads it.
   set_target_properties(${tgt} PROPERTIES DEFINE_SYMBOL "")
