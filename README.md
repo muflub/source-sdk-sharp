@@ -82,31 +82,39 @@ package the rules module needs. Everything else is built and tested the same.
 
 ### CI and releases
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull
-request: `make check-public` on Linux, set up with `make sdk-upstream`; the
-native libraries on Windows (MSVC, the `windows-release` preset) from the
-same farm, packaged with the Linux-built managed assemblies as
-`sourcesharp-<version>-win-x64.zip`; and the Linux release build,
-`make ci-build` (the native libraries inside Valve's sniper container)
-packaged by `tools/package-release` into one game directory,
-`sourcesharp-<version>-linux-x64.tar.gz`, with the split debug info beside
-it in `-dbg.tar.gz`. Pushing a tag attaches the archives to the GitHub
-release. There is no macOS job: Valve no longer supports the Source SDK 2013
-games on macOS, and the launcher has no macOS build. The `osx-*` CMake
-presets remain for the native libraries alone; Valve ships no prebuilt
-libraries for macOS, so that build links with dynamic lookup and has no
-particles library (`cmake/sdk/CMakeLists.txt`).
+`.github/workflows/ci.yml` runs on every push to `main`, every pull request
+and every tag, with one job per platform the game ships on. Each job does a
+full Release build, packages the release archive, and runs the tests:
 
-`make check-public` is the whole build plus the *public tier* of test legs
-(`TEST_PUBLIC_LEGS` in the Makefile): the legs whose result depends on this
-tree alone. The other legs hold facts recorded on one machine (bit-for-bit
-float goldens), facts that read the fork's comments (which the patch series
-does not carry) and facts that need a Steam install, so off that machine they
-fail for reasons that are not the code's; the Makefile lists them with the
-numbers. CI still runs them after the gate, as an informational step that
-cannot fail the job, so the distance to a green `make check` on a runner is
-measured on every run. `make check` on a machine with the fork and Steam
-remains the gate before merging to `main`.
+- **Linux** is set up with `make sdk-upstream` and built with `make release`
+  (clang), which the tests run against. The shipped native libraries are
+  built again inside Valve's sniper container (`make ci-build`: gcc 10 and
+  the engine runtime's glibc ceiling). `tools/package-release` makes
+  `sourcesharp-<version>-linux-x64.tar.gz`, with the split debug info beside
+  it in `-dbg.tar.gz`.
+- **Windows** builds everything itself from the same farm: the web UI, the
+  managed assemblies, the native libraries with MSVC (the `windows-release`
+  preset) and the NativeAOT launcher. It packages
+  `sourcesharp-<version>-win-x64.zip`, with the `.pdb` files in `-dbg.zip`,
+  and runs the managed test projects. The native gtest suite is Linux-only.
+
+Pushing a tag attaches both platforms' archives to the GitHub release once
+both jobs are green. There is no macOS job: Valve no longer supports the
+Source SDK 2013 games on macOS, and the launcher has no macOS build. The
+`osx-*` CMake presets remain for the native libraries alone; Valve ships no
+prebuilt libraries for macOS, so that build links with dynamic lookup and has
+no particles library (`cmake/sdk/CMakeLists.txt`).
+
+What the tests gate on is the *public tier* of test legs (`TEST_PUBLIC_LEGS`
+in the Makefile; `make check-public` is the whole build plus that tier): the
+legs whose result depends on this tree alone. The other legs hold facts
+recorded on one machine (bit-for-bit float goldens), facts that read the
+fork's comments (which the patch series does not carry) and facts that need a
+Steam install, so off that machine they fail for reasons that are not the
+code's; the Makefile lists them with the numbers. CI still runs them after
+the gate, as a step that cannot fail the job, so the distance to a green
+`make check` on a runner is measured on every run. `make check` on a machine
+with the fork and Steam remains the gate before merging to `main`.
 
 ## Layout
 

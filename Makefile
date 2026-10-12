@@ -921,12 +921,18 @@ test-full: ui
 # `make check-public` is `make check` over this tier. It is a FLOOR, not the
 # gate: `make check` on a machine with the fork and Steam stays the gate, and
 # a leg joins this tier when it passes on the public inputs, never by being
-# made unable to fail.
+# made unable to fail. managed, tf2_descent and oracle-managed joined it
+# 2026-10-12: CI's ubuntu-24.04 runner passed all three on the public inputs
+# at 1f22fed (2111, 172 and 175 tests, 0 failed), with the host packages
+# packed from the public host repo.
 TEST_PUBLIC_LEGS = \
     'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
     'ui:tools/leg-floor ui && $(UI_TEST)' \
     'runner:tools/leg-floor runner && tools/run-test-legs --self-test && tools/leg-floor --self-test' \
-    'checks-full:tools/leg-floor checks-full && $(CHECKS_TEST) full'
+    'checks-full:tools/leg-floor checks-full && $(CHECKS_TEST) full' \
+    'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
+    $(if $(filter 0,$(HOST_SDK)),,'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)') \
+    'oracle-managed:tools/leg-floor oracle-managed && $(ORACLE_MANAGED_LEG)'
 
 test-public: ui
 	@$(TEST_BUILD)

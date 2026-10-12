@@ -1,23 +1,29 @@
 name: CI
 
-# Linux is the platform the game is developed and tested on, so the Linux job
-# is the gate: `make check-public`, the whole build plus the public tier of
-# test legs (the Makefile's TEST_PUBLIC_LEGS says what that is and why), on a
-# tree set up the public way (`make sdk-upstream`: stock Valve source-sdk-2013
-# plus patches/source-sdk-2013/). The managed assemblies are the same bytes
-# on every platform, so they are built once, there, and the package job
-# (also Linux) builds the shipped Linux native libraries inside Valve's
-# sniper container and makes the Linux release archive on every run.
+# Two jobs, one per platform the game ships on, and the same shape on both:
+# a full Release build, the tests, and the release archive, on every push to
+# main, every pull request and every tag. A tag also attaches both archives
+# to the GitHub release (the release job), once both jobs are green.
 #
-# Windows builds what is its own: the native libraries (server, client,
-# particles, the managed host) with MSVC, from the same farm, through the
-# windows-release preset, and ships them with the Linux-built managed
-# assemblies. The release job attaches both platforms' archives to the
-# GitHub release when a tag is pushed.
+# Linux is set up the public way (`make sdk-upstream`: stock Valve
+# source-sdk-2013 plus patches/source-sdk-2013/). `make release` builds
+# everything with clang, and that build is what the tests run against; the
+# shipped native libraries are built again inside Valve's sniper container
+# (make ci-build: gcc 10 and the glibc 2.31 ceiling the engine's runtime
+# has). Windows builds everything itself too, with MSVC for the native half,
+# and runs the managed test projects. The native gtest suite is Linux-only:
+# it runs against the Linux build's instruments.
 #
-# No macOS job: Valve no longer supports the Source SDK 2013 games on macOS,
-# so nothing would run what it built, and the launcher has no macOS build.
-# The osx column of the CMake project stays as code, but CI holds nothing to.
+# What each platform's tests gate on is the public tier (TEST_PUBLIC_LEGS in
+# the Makefile): the legs whose result depends on this tree alone. The rest
+# hold goldens recorded on one machine, facts that read the fork's comments,
+# and facts that need a Steam install; they run on every build for the
+# record, cannot fail the job, and a leg that comes good moves into the tier.
+#
+# No macOS: Valve no longer supports the Source SDK 2013 games on macOS, so
+# nothing would run what a macOS job built, and the launcher has no macOS
+# build. The osx column of the CMake project stays as code, but CI holds
+# nothing to.
 
 on:
   push:
@@ -43,9 +49,9 @@ env:
 
 jobs:
   linux:
-    name: linux (make check-public)
+    name: linux-x64 (build, test, package)
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v7
         with:
@@ -62,193 +68,19 @@ jobs:
       - name: Set up (make sdk-upstream)
         run: make sdk-upstream
 
-      # debug build (web UI, managed, launcher, native tests included, with
-      # clang 22), then the public tier of test legs: the ones a machine with
-      # only the public inputs can be held to (TEST_PUBLIC_LEGS in the
-      # Makefile names them and says why the rest are not).
-      - name: Build and test (make check-public)
-        run: make check-public
-
-      # The rest of `make check`, for the record and not for the verdict: at
-      # 0805b2f these legs fail off the owner's machine for machine-recorded
-      # float goldens, facts that read the fork's comments, and facts that
-      # need a Steam install (the Makefile lists them). The step cannot fail
-      # the job; its leg summary is in the log and the logs are uploaded, so
-      # the distance to a green `make check` on a runner is measured on every
-      # run and a leg that comes good can be moved into the public tier.
-      - name: Every other leg (informational, make test-full)
-        continue-on-error: true
-        run: make test-full
-
-      # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
-      # it. A write means an output was linked where it should have been built.
-      - name: ROOT is untouched
-        run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
-          if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
-            echo "$status"
-            exit 1
-          fi
-
-      - name: Upload test-leg logs
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-legs-linux
-          path: tools/.test-legs
-          if-no-files-found: ignore
-
-  # The native libraries on Windows, whose toolchain differs from Linux's:
-  # the same farm (tools/sdk-upstream and tools/setup are Python and run
-  # anywhere git and symlinks do), the same CMake project, the platform's
-  # preset. --no-provision --no-valve-sdk: a native-only build needs no
-  # bundled .NET, no Node and no oracle clone. A matrix of one, so a second
-  # platform is one more row.
-  native:
-    name: native (${{ matrix.name }})
-    # After package: the managed assemblies are the same bytes on every
-    # platform and are built once, there; this job takes them from its
-    # artifact and ships them with its own native libraries and launcher.
-    needs: package
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: win-x64, os: windows-latest, preset: windows-release, bindir: x64 }
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Tools (PyYAML for tools/setup, Ninja for the build)
-        run: python -m pip install --quiet pyyaml ninja
-
-      # cl, link and the Windows SDK on PATH, as a VS 2022 x64 developer
-      # prompt would have them (the presets name `cl`).
-      - uses: ilammy/msvc-dev-cmd@v1
-        if: runner.os == 'Windows'
-        with:
-          arch: x64
-
-      - name: Set up (tools/sdk-upstream, tools/setup)
-        run: |
-          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --no-valve-sdk
-
-      # What the farm's links came out as on this platform: a Windows link
-      # answers differently to each of these when it was made wrong.
-      - name: The farm's links resolve
-        run: |
-          python - <<'EOF'
-          import os
-          for p in ("farm/release/src/public/tier0/platform.h", "farm/release/src/sourcesharp/game/shared/ss_platform.h", "farm/release/src/buildsourcesharp"):
-              t = os.readlink(p) if os.path.islink(p) else None
-              print(f"{p}: lexists={os.path.lexists(p)} islink={os.path.islink(p)} exists={os.path.exists(p)} target={t!r} target_exists={os.path.exists(t) if t else None}")
-          EOF
-          ls -la farm/release/src/public/tier0 | head -n 5
-
-      - name: Configure (cmake --preset ${{ matrix.preset }})
-        run: cmake --preset ${{ matrix.preset }}
-
-      - name: Build
-        run: cmake --build --preset ${{ matrix.preset }}
-
-      - name: What was built
-        run: ls -la bin/release/bin/${{ matrix.bindir }}
-
-      # source#, the launcher: NativeAOT for this platform (the csproj picks
-      # the RID from the host), into bin/release/source#[.exe].
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Launcher (dotnet publish src/launcher)
-        run: |
-          dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
-          ls -la bin/release/source#*
-          ./bin/release/source#* --help | sed -n 1p
-
-      # The managed assemblies from the Linux build, and the bundled .NET
-      # runtime for this platform from the SDK setup-dotnet installed
-      # (DOTNET_ROOT): the two pieces of the game directory a native build
-      # does not make.
-      - uses: actions/download-artifact@v8
-        with:
-          name: managed-release
-          path: bin/release/bin/managed
-
-      - name: Bundle the .NET runtime (tools/setup --provision-runtime)
-        run: |
-          python tools/setup --root ../source-sdk-2013-upstream --config release \
-            --no-provision --no-valve-sdk --provision-runtime --dotnet-root "$DOTNET_ROOT"
-          ls bin/release/bin/dotnet/host/fxr
-
       - name: Label
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
           echo "SS_LABEL=$v" >> "$GITHUB_ENV"
 
-      - name: Package
-        run: |
-          python tools/package-release --config release --platform ${{ matrix.name }} --label "$SS_LABEL" --out dist
-          ls -la dist
+      # Everything, Release: the web UI, the managed assemblies, the launcher
+      # (NativeAOT) and the native libraries with clang 22, deployed into the
+      # game directory bin/release.
+      - name: Build (make release)
+        run: make release
 
-      - name: ROOT is untouched
-        run: |
-          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
-          if [[ -n "$status" ]]; then
-            echo "::error::the build wrote into ROOT:"
-            echo "$status"
-            exit 1
-          fi
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: sourcesharp-${{ matrix.name }}
-          path: dist/*
-
-  # The Linux release build, made on every run: the managed assemblies and the
-  # launcher in Release, the native libraries inside Valve's sniper SDK
-  # container (make ci-build: gcc, and the glibc 2.31 ceiling the engine's
-  # runtime has), packaged by tools/package-release into one game directory
-  # that runs from wherever it is unpacked. Uploaded as a workflow artifact;
-  # the release job attaches it to the GitHub release on a tag.
-  package:
-    name: package (linux-x64)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - uses: ./.github/actions/toolchain-linux
-      - uses: ./.github/actions/host-packages
-
-      - name: Set up (make sdk-upstream)
-        run: make sdk-upstream
-
-      - name: Label
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
-          echo "SS_LABEL=$v" >> "$GITHUB_ENV"
-
-      # What buildsourcesharp does for `make release`, minus its host-clang
-      # native build, which the container build below replaces.
-      - name: Web UI, managed assemblies and launcher (Release)
-        run: |
-          make ui CONFIG=release
-          ~/.dotnet/dotnet build SourceSharp.slnx -v q --nologo -c Release
-          ~/.dotnet/dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
-
+      # The shipped native libraries: the same CMake project inside Valve's
+      # sniper SDK container, so they run on the engine's runtime.
       - name: Native libraries in the sniper container (make ci-build)
         env:
           # The runner carries podman too; docker is the one whose daemon is up.
@@ -279,16 +111,186 @@ jobs:
           name: sourcesharp-linux-x64
           path: dist/*
 
-      # For the Windows job (native, above): the same assemblies
-      # every platform ships.
+      # The gate: the public tier over the release build (the managed tests
+      # are always the Debug build, whatever CONFIG says; the Makefile builds
+      # it first).
+      - name: Test (make test-public CONFIG=release)
+        run: make test-public CONFIG=release
+
+      # Every other leg, for the record and not for the verdict (see the top
+      # of this file). Its leg summary is in the log and the logs are
+      # uploaded below.
+      - name: Every other leg (informational, make test-full CONFIG=release)
+        continue-on-error: true
+        run: make test-full CONFIG=release
+
+      # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
+      # it. A write means an output was linked where it should have been built.
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
+
+      - name: Upload test-leg logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-legs-linux
+          path: tools/.test-legs
+          # The directory's name starts with a dot, which the action skips
+          # unless told.
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  windows:
+    name: win-x64 (build, test, package)
+    runs-on: windows-latest
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The tree's files are LF and some facts read them byte for byte; the
+      # runner's git would check them out CRLF.
+      - name: Check out with LF line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Tools (PyYAML for tools/setup, Ninja for the build)
+        run: python -m pip install --quiet pyyaml ninja
+
+      # cl, link and the Windows SDK on PATH, as a VS 2022 x64 developer
+      # prompt would have them (the presets name `cl`).
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # The pinned Node tools/get-node fetches on Linux (VERSION there).
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+
+      - uses: ./.github/actions/host-packages
+
+      # tools/sdk-upstream and tools/setup are Python and run anywhere git and
+      # symlinks do. --no-provision --no-valve-sdk: no bundled .NET yet (it is
+      # bundled from setup-dotnet's below), no Linux Node and no oracle clone.
+      # Both configurations: the build is Release, the tests read Debug's.
+      - name: Set up (tools/sdk-upstream, tools/setup)
+        run: |
+          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
+          for cfg in release debug; do
+            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --no-valve-sdk
+          done
+
+      # What the farm's links came out as on this platform: a Windows link
+      # answers differently to each of these when it was made wrong.
+      - name: The farm's links resolve
+        run: |
+          python - <<'EOF'
+          import os
+          for p in ("farm/release/src/public/tier0/platform.h", "farm/release/src/sourcesharp/game/shared/ss_platform.h", "farm/release/src/buildsourcesharp"):
+              t = os.readlink(p) if os.path.islink(p) else None
+              print(f"{p}: lexists={os.path.lexists(p)} islink={os.path.islink(p)} exists={os.path.exists(p)} target={t!r} target_exists={os.path.exists(t) if t else None}")
+          EOF
+          ls -la farm/release/src/public/tier0 | head -n 5
+
+      # What `make ui CONFIG=release` does, with setup-node's npm.
+      - name: Web UI
+        working-directory: src/webui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build --silent
+
+      - name: Managed assemblies (Release)
+        run: dotnet build SourceSharp.slnx -v q --nologo -c Release
+
+      - name: Native libraries (cmake --preset windows-release)
+        run: |
+          cmake --preset windows-release
+          cmake --build --preset windows-release
+          ls -la bin/release/bin/x64
+
+      # source#, the launcher: NativeAOT for win-x64 (the csproj picks it on
+      # Windows), into bin/release/source#.exe.
+      - name: Launcher (dotnet publish src/launcher)
+        run: |
+          dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Release
+          ls -la bin/release/source#*
+          ./bin/release/source#.exe --help | sed -n 1p
+
+      # The bundled .NET runtime for this platform, from the SDK setup-dotnet
+      # installed (DOTNET_ROOT).
+      - name: Bundle the .NET runtime (tools/setup --provision-runtime)
+        run: |
+          python tools/setup --root ../source-sdk-2013-upstream --config release \
+            --no-provision --no-valve-sdk --provision-runtime --dotnet-root "$DOTNET_ROOT"
+          ls bin/release/bin/dotnet/host/fxr
+
+      - name: Label
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
+          echo "SS_LABEL=$v" >> "$GITHUB_ENV"
+
+      - name: Package
+        run: |
+          python tools/package-release --config release --platform win-x64 --label "$SS_LABEL" --out dist
+          ls -la dist
+
       - uses: actions/upload-artifact@v7
         with:
-          name: managed-release
-          path: bin/release/bin/managed
+          name: sourcesharp-win-x64
+          path: dist/*
+
+      # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
+      # from the built assemblies as the Makefile's legs run them.
+      - name: Build the tests (Debug)
+        run: dotnet build SourceSharp.slnx -v q --nologo -c Debug
+
+      # The gate: the managed legs of the public tier (TEST_PUBLIC_LEGS).
+      # oracle-managed reads the pristine upstream clone, which only the
+      # Linux job provisions.
+      - name: Test (managed, tf2_descent)
+        run: |
+          dotnet test bin/debug/tests/SourceSharp.Shared.Tests.dll --nologo
+          dotnet test bin/debug/tf2_descent-tests/TF2.Descent.Tests.dll --nologo
+
+      # The server and client facts, for the record as on Linux.
+      - name: Every other managed leg (informational, server and client)
+        continue-on-error: true
+        run: |
+          rc=0
+          dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo || rc=1
+          dotnet test bin/debug/tests-client/SourceSharp.Client.Tests.dll --nologo || rc=1
+          exit $rc
+
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [linux, native, package]
+    needs: [linux, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
