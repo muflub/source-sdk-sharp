@@ -10560,7 +10560,13 @@ def self_test():
         pass
 
     saved = BY_ID["render"], BY_ID["join"]
+    saved_debug = globals()["DEBUG_COMMANDS"]
     try:
+        # _RenderApi's counters read as a debug build's, where each window
+        # starts from cs_sv_crossings reset; a release build's window is the
+        # difference from a snapshot of the same fixed counters, which is
+        # zero. Pinned, so this checks run_step and not SOURCESHARP_CONFIG.
+        globals()["DEBUG_COMMANDS"] = True
         BY_ID["render"] = ("render", "render", _fake_render)
         BY_ID["join"] = ("join", "join", _fake_server_step)
         api = _RenderApi()
@@ -10580,6 +10586,7 @@ def self_test():
            "and a server window still is (no ServerFrame ops in 40 frames is red)")
     finally:
         BY_ID["render"], BY_ID["join"] = saved
+        globals()["DEBUG_COMMANDS"] = saved_debug
     # The console feed's losses (console-batch): read every step, said either
     # way. A missing field or an unanswered /status is UNAVAILABLE, never a
     # quiet zero: a readout that cannot be read must say so.
