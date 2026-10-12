@@ -9,13 +9,16 @@ name: CI
 # (also Linux) builds the shipped Linux native libraries inside Valve's
 # sniper container and makes the Linux release archive on every run.
 #
-# Windows and macOS build what is theirs: the native libraries (server,
-# client, particles, the managed host) with their own toolchains, from the
-# same farm, through the windows-* and osx-* presets. Valve's SDK ships
-# prebuilt libraries for Windows and none for macOS, so macOS links with
-# dynamic lookup and builds no particles library (cmake/sdk/CMakeLists.txt).
-# The release job attaches every platform's archive to the GitHub release
-# when a tag is pushed.
+# Windows builds what is its own: the native libraries (server, client,
+# particles, the managed host) with MSVC, from the same farm, through the
+# windows-release preset, and ships them with the Linux-built managed
+# assemblies. The release job attaches both platforms' archives to the
+# GitHub release when a tag is pushed.
+#
+# No macOS job: Valve no longer supports the Source SDK 2013 games on macOS
+# (the 2025 SDK update dropped it), so nothing would run what it built. The
+# osx column of the CMake project and the launcher's macOS platform stay as
+# code, for anyone who still has the old engine, but CI holds nothing to.
 
 on:
   push:
@@ -97,11 +100,12 @@ jobs:
           path: tools/.test-legs
           if-no-files-found: ignore
 
-  # The native libraries on the platforms whose toolchains differ from
-  # Linux's: the same farm (tools/sdk-upstream and tools/setup are Python and
-  # run anywhere git and symlinks do), the same CMake project, the platform's
+  # The native libraries on Windows, whose toolchain differs from Linux's:
+  # the same farm (tools/sdk-upstream and tools/setup are Python and run
+  # anywhere git and symlinks do), the same CMake project, the platform's
   # preset. --no-provision --no-valve-sdk: a native-only build needs no
-  # bundled .NET, no Node and no oracle clone.
+  # bundled .NET, no Node and no oracle clone. A matrix of one, so a second
+  # platform is one more row.
   native:
     name: native (${{ matrix.name }})
     # After package: the managed assemblies are the same bytes on every
@@ -113,7 +117,6 @@ jobs:
       matrix:
         include:
           - { name: win-x64, os: windows-latest, preset: windows-release, bindir: x64 }
-          - { name: osx-x64, os: macos-latest, preset: osx-release, bindir: osx64 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     defaults:
@@ -163,7 +166,7 @@ jobs:
         run: ls -la bin/release/bin/${{ matrix.bindir }}
 
       # source#, the launcher: NativeAOT for this platform (the csproj picks
-      # win-x64 / osx-x64 from the host), into bin/release/source#[.exe].
+      # the RID from the host), into bin/release/source#[.exe].
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
@@ -277,7 +280,7 @@ jobs:
           name: sourcesharp-linux-x64
           path: dist/*
 
-      # For the Windows and macOS jobs (native, below): the same assemblies
+      # For the Windows job (native, above): the same assemblies
       # every platform ships.
       - uses: actions/upload-artifact@v7
         with:

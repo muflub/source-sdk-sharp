@@ -84,15 +84,18 @@ package the rules module needs. Everything else is built and tested the same.
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull
 request: `make check-public` on Linux, set up with `make sdk-upstream`; the
-native libraries on Windows (MSVC, the `windows-release` preset) and macOS
-(Apple clang, x86_64, the `osx-release` preset) from the same farm; and the
-Linux release build, `make ci-build` (the native libraries inside Valve's
-sniper container) packaged by `tools/package-release` into one game
-directory, `sourcesharp-<version>-linux-x64.tar.gz`, with the split debug
-info beside it in `-dbg.tar.gz`. Pushing a tag attaches the archives to the
-GitHub release. Valve ships prebuilt libraries for Linux and Windows and none
-for macOS, so the macOS build links with dynamic lookup and has no particles
-library (`cmake/sdk/CMakeLists.txt`).
+native libraries on Windows (MSVC, the `windows-release` preset) from the
+same farm, packaged with the Linux-built managed assemblies as
+`sourcesharp-<version>-win-x64.zip`; and the Linux release build,
+`make ci-build` (the native libraries inside Valve's sniper container)
+packaged by `tools/package-release` into one game directory,
+`sourcesharp-<version>-linux-x64.tar.gz`, with the split debug info beside
+it in `-dbg.tar.gz`. Pushing a tag attaches the archives to the GitHub
+release. There is no macOS job: Valve no longer supports the Source SDK 2013
+games on macOS. The `osx-*` presets and `tools/package-release --platform
+osx-x64` remain for a machine that still has the old engine; Valve ships no
+prebuilt libraries for macOS, so that build links with dynamic lookup and has
+no particles library (`cmake/sdk/CMakeLists.txt`).
 
 `make check-public` is the whole build plus the *public tier* of test legs
 (`TEST_PUBLIC_LEGS` in the Makefile): the legs whose result depends on this
