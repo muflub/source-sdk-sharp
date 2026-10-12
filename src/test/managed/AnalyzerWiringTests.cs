@@ -46,16 +46,46 @@ public class AnalyzerWiringTests
         return roles;
     }
 
+    /// <summary>
+    /// The gated projects that were not built, on purpose: under
+    /// <c>make ... HOST_SDK=0</c> (SS_HOST_SDK=0 in the environment, exported by
+    /// the Makefile) the build is <c>SourceSharp.NoHost.slnf</c>, and the
+    /// projects it leaves out of <c>SourceSharp.slnx</c> have no editorconfig to
+    /// read. Computed from the two files, not listed here, so the filter stays
+    /// the one record of what is left out; empty under any other value, so a
+    /// full build is still held to every project.
+    /// </summary>
+    internal static HashSet<string> NotBuiltWithoutHostSdk(string? hostSdk)
+    {
+        if (hostSdk != "0")
+            return [];
+
+        var all = Regex.Matches(File.ReadAllText(RepoLayout.Repo("SourceSharp.slnx")), @"<Project Path=""([^""]+)""")
+            .Select(m => m.Groups[1].Value).ToList();
+        string filter = File.ReadAllText(RepoLayout.Repo("SourceSharp.NoHost.slnf"));
+        var leftOut = all.Where(p => !filter.Contains($"\"{p}\"")).Select(Path.GetFileNameWithoutExtension).ToHashSet();
+        Assert.True(leftOut.Count > 0, "SourceSharp.NoHost.slnf leaves nothing out of SourceSharp.slnx; HOST_SDK=0 would then build everything");
+        return leftOut!;
+    }
+
     [Fact]
     public void EveryGatedProjectsCompilerSeesItsRole()
     {
         var missing = new List<string>();
+        var notBuilt = NotBuiltWithoutHostSdk(Environment.GetEnvironmentVariable("SS_HOST_SDK"));
         int checkedProjects = 0;
+        int leftOut = 0;
 
         foreach (var (role, projects) in GatedLists())
         {
             foreach (string project in projects)
             {
+                if (notBuilt.Contains(project))
+                {
+                    leftOut++;
+                    continue;
+                }
+
                 checkedProjects++;
                 string? roles = RolesTheCompilerSees(project);
 
@@ -64,9 +94,18 @@ public class AnalyzerWiringTests
             }
         }
 
-        Assert.True(checkedProjects >= 23, $"the gated lists name the runtime and mod projects ({checkedProjects})");
+        Assert.True(checkedProjects + leftOut >= 23, $"the gated lists name the runtime and mod projects ({checkedProjects + leftOut})");
+        Assert.True(leftOut <= notBuilt.Count, $"{leftOut} gated projects were left out, more than the {notBuilt.Count} the filter leaves out");
         Assert.True(missing.Count == 0, string.Join("\n", missing));
     }
+
+    [Fact]
+    public void WithTheHostSdkNothingIsLeftOut() =>
+        Assert.Empty(NotBuiltWithoutHostSdk(null));
+
+    [Fact]
+    public void WithoutTheHostSdkExactlyTheFiltersProjectsAreLeftOut() =>
+        Assert.Equal(["TF2.Descent.Server", "TF2.Descent.Tests"], NotBuiltWithoutHostSdk("0").Order());
 
     [Fact]
     public void AnUngatedProjectHasNoRoles() =>

@@ -5,12 +5,19 @@ name: CI
 # (CLAUDE.md), on a tree set up the public way (`make sdk-upstream`: stock
 # Valve source-sdk-2013 plus patches/source-sdk-2013/). Windows and macOS
 # build the managed solution and run the web UI's suite, which is what of
-# this repo is portable today: the native build, the farm the managed facts
-# read and the launcher are Linux (bin/linux64, clang + lld, /proc), and a
-# managed fact that reads the farm or the built .so has nothing to read on
-# those runners. The package job makes the release archive on every run, so
-# a pull request proves the shipped build still builds; the release job
-# attaches it to the GitHub release when a tag is pushed.
+# this repo is portable today. What those platforms are meant to contribute
+# to a release is their own native libraries (server, client, particles) and
+# launcher over the managed assemblies the Linux job builds, which are the
+# same on every platform; that waits on a port of the native build, which is
+# Linux by construction (cmake/SourceSharp.cmake: _LINUX/POSIX defines,
+# .so, lld version scripts, Valve's linux64 prebuilts, bin/linux64), and of
+# the launcher (LD_LIBRARY_PATH, /proc, libc). Valve's SDK ships Windows x64
+# .lib files for such a port and nothing for macOS. Until then a managed
+# fact that reads the farm or the built .so has nothing to read on those
+# runners, so no managed test leg runs there. The package job makes the
+# release archive on every run, so a pull request proves the shipped build
+# still builds; the release job attaches it to the GitHub release when a tag
+# is pushed.
 #
 # HOST_SDK=0 everywhere: the host repo's public main lacks the 2.x SDK the
 # Descent server speaks (the Makefile says more), so the server and its facts
@@ -60,10 +67,23 @@ jobs:
       - name: Set up (make sdk-upstream)
         run: make sdk-upstream HOST_SDK=0
 
-      # debug build (web UI, managed, launcher, native with clang 22), then
-      # every test leg of both tiers, reported leg by leg (tools/run-test-legs).
-      - name: Build and test (make check)
-        run: make check HOST_SDK=0
+      # debug build (web UI, managed, launcher, native tests included, with
+      # clang 22), then the public tier of test legs: the ones a machine with
+      # only the public inputs can be held to (TEST_PUBLIC_LEGS in the
+      # Makefile names them and says why the rest are not).
+      - name: Build and test (make check-public)
+        run: make check-public HOST_SDK=0
+
+      # The rest of `make check`, for the record and not for the verdict: at
+      # 0805b2f these legs fail off the owner's machine for machine-recorded
+      # float goldens, facts that read the fork's comments, and facts that
+      # need a Steam install (the Makefile lists them). The step cannot fail
+      # the job; its leg summary is in the log and the logs are uploaded, so
+      # the distance to a green `make check` on a runner is measured on every
+      # run and a leg that comes good can be moved into the public tier.
+      - name: Every other leg (informational, make test-full)
+        continue-on-error: true
+        run: make test-full HOST_SDK=0
 
       # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
       # it. A write means an output was linked where it should have been built.

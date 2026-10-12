@@ -82,14 +82,25 @@ package the rules module needs. Everything else is built and tested the same.
 ### CI and releases
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull
-request: `make check HOST_SDK=0` on Linux, set up with `make sdk-upstream`;
-the managed solution and the web UI's suite on Windows and macOS; and the
-release build, `make ci-build` (the native libraries inside Valve's sniper
-container) packaged by `tools/package-release` into one game directory,
-`sourcesharp-<version>-linux-x64.tar.gz`, with the split debug info beside it
-in `-dbg.tar.gz`. Pushing a tag attaches both to the GitHub release. The game
-runs on Linux; the Windows and macOS jobs prove the managed code is portable,
-not that the game runs there.
+request: `make check-public HOST_SDK=0` on Linux, set up with `make
+sdk-upstream`; the managed solution and the web UI's suite on Windows and
+macOS; and the release build, `make ci-build` (the native libraries inside
+Valve's sniper container) packaged by `tools/package-release` into one game
+directory, `sourcesharp-<version>-linux-x64.tar.gz`, with the split debug
+info beside it in `-dbg.tar.gz`. Pushing a tag attaches both to the GitHub
+release. The game runs on Linux; the Windows and macOS jobs prove the managed
+code is portable, not that the game runs there.
+
+`make check-public` is the whole build plus the *public tier* of test legs
+(`TEST_PUBLIC_LEGS` in the Makefile): the legs whose result depends on this
+tree alone. The other legs hold facts recorded on one machine (bit-for-bit
+float goldens), facts that read the fork's comments (which the patch series
+does not carry) and facts that need a Steam install, so off that machine they
+fail for reasons that are not the code's; the Makefile lists them with the
+numbers. CI still runs them after the gate, as an informational step that
+cannot fail the job, so the distance to a green `make check` on a runner is
+measured on every run. `make check` on a machine with the fork and Steam
+remains the gate before merging to `main`.
 
 ## Layout
 
