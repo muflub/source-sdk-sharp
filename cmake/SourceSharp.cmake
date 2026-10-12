@@ -102,8 +102,11 @@ set(CMAKE_C_FLAGS_RELEASE "")
 set(SS_IS_CLANG OFF)
 set(SS_IS_MSVC OFF)
 if(SS_PLATFORM STREQUAL windows)
-  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    message(FATAL_ERROR "unsupported compiler ${CMAKE_CXX_COMPILER_ID} on Windows: MSVC (Valve's README names VS 2022's v143)")
+  # cl, or clang-cl, which takes cl's flags and links with lld-link: with the
+  # MSVC CRT and Windows SDK laid out by xwin it cross-builds this column
+  # from Linux. MSVC stays what the shipped build and CI use.
+  if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
+    message(FATAL_ERROR "unsupported compiler ${CMAKE_CXX_COMPILER_ID} on Windows: MSVC (Valve's README names VS 2022's v143), or clang-cl")
   endif()
   set(SS_IS_MSVC ON)
 elseif(SS_PLATFORM STREQUAL osx)
