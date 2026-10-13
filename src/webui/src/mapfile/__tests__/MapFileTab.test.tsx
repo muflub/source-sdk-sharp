@@ -18,6 +18,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapFileTab } from '../MapFileTab';
 import type { MapFile, MapLump } from '../../types';
 
+/*
+ * The lump list's row for one lump: the one body row of the list whose text
+ * matches, and exactly one, as a getBy query insists.
+ *
+ * Not getByRole('row', { name }), which these tests used. A role query computes
+ * the accessible name of every row on the page (a row's whole text, through
+ * dom-accessibility-api), and once a lump is open its own table's rows are on
+ * the page too: 0.1-0.3 s a query here, and the two tests that make three of
+ * them went past vitest's 5 s budget on a loaded CI runner. A row's name IS
+ * its text, so matching the text picks the same row; scoping it to the list
+ * keeps an opened lump's rows out of it.
+ */
+function lumpRow(name: RegExp): HTMLElement {
+  const list = document.querySelector<HTMLElement>('table.lump-list');
+
+  if (!list) throw new Error('no lump list on the page');
+
+  const rows = Array.from(list.querySelectorAll<HTMLElement>('tbody tr'))
+    .filter(row => name.test(row.textContent ?? ''));
+
+  if (rows.length !== 1) throw new Error(`${rows.length} lump rows match ${name}`);
+
+  return rows[0]!;
+}
+
 vi.mock('../../api', () => ({
   getMap: vi.fn(),
   getMapFile: vi.fn(),
@@ -185,7 +210,7 @@ describe('the lump table', () => {
   it('lists the lumps with their sizes and record counts', async () => {
     await show();
 
-    const planes = screen.getByRole('row', { name: /planes/ });
+    const planes = lumpRow(/planes/);
 
     expect(within(planes).getByText('200 B')).toBeTruthy();
     expect(within(planes).getByText('10')).toBeTruthy();
@@ -196,7 +221,7 @@ describe('the lump table', () => {
   it('shows no count for a lump that is not an array of records', async () => {
     await show();
 
-    const entities = screen.getByRole('row', { name: /entities/ });
+    const entities = lumpRow(/entities/);
 
     expect(within(entities).getAllByText('—').length).toBeGreaterThan(0);
   });
@@ -208,15 +233,15 @@ describe('the lump table', () => {
   it('hides the lumps nothing here can read', async () => {
     await show();
 
-    expect(screen.getByRole('row', { name: /visibility/ })).toBeTruthy();
+    expect(lumpRow(/visibility/)).toBeTruthy();
 
     await userEvent.click(screen.getByLabelText(/readable only/));
 
     expect(screen.queryByRole('row', { name: /visibility/ })).toBeNull();
-    expect(screen.getByRole('row', { name: /texdata/ })).toBeTruthy();
+    expect(lumpRow(/texdata/)).toBeTruthy();
 
     // The big lumps count as readable even before anybody has opened one.
-    expect(screen.getByRole('row', { name: /faces/ })).toBeTruthy();
+    expect(lumpRow(/faces/)).toBeTruthy();
   });
 
   it('says how many are left rather than letting a short list pass for the file', async () => {
@@ -233,7 +258,7 @@ describe('the lump table', () => {
     await userEvent.click(screen.getByLabelText(/empty ones/));
 
     // Empty and readable: shown, because only the undecodable ones were hidden.
-    expect(screen.getByRole('row', { name: /texinfo/ })).toBeTruthy();
+    expect(lumpRow(/texinfo/)).toBeTruthy();
     expect(screen.queryByRole('row', { name: /visibility/ })).toBeNull();
   });
 
@@ -244,7 +269,7 @@ describe('the lump table', () => {
 
     await userEvent.click(screen.getByLabelText(/empty ones/));
 
-    expect(screen.getByRole('row', { name: /vertexes/ })).toBeTruthy();
+    expect(lumpRow(/vertexes/)).toBeTruthy();
   });
 });
 
@@ -266,7 +291,7 @@ describe('reading a lump', () => {
 
   it('opens a lump by clicking its row', async () => {
     await show();
-    await userEvent.click(screen.getByRole('row', { name: /texdata/ }));
+    await userEvent.click(lumpRow(/texdata/));
 
     expect(screen.getByRole('heading', { name: /2\. texdata/ })).toBeTruthy();
   });
@@ -278,7 +303,7 @@ describe('reading a lump', () => {
    */
   it('says why a lump has no table rather than showing an empty one', async () => {
     await show();
-    await userEvent.click(screen.getByRole('row', { name: /visibility/ }));
+    await userEvent.click(lumpRow(/visibility/));
 
     expect(screen.getByText(/Nothing here decodes this lump/)).toBeTruthy();
   });
@@ -286,8 +311,8 @@ describe('reading a lump', () => {
   it('closes a lump by clicking it again', async () => {
     await show();
 
-    await userEvent.click(screen.getByRole('row', { name: /texdata/ }));
-    await userEvent.click(screen.getByRole('row', { name: /texdata/ }));
+    await userEvent.click(lumpRow(/texdata/));
+    await userEvent.click(lumpRow(/texdata/));
 
     expect(screen.getByText('What this map has in it')).toBeTruthy();
   });
@@ -375,7 +400,7 @@ describe('reading a big lump', () => {
     api.getMapLump.mockResolvedValue(faces);
 
     await show();
-    await userEvent.click(screen.getByRole('row', { name: /faces/ }));
+    await userEvent.click(lumpRow(/faces/));
 
     expect(await screen.findByText('metal/wall062a')).toBeTruthy();
     expect(api.getMapLump).toHaveBeenCalledWith('ss_sandbox', 7);
@@ -385,11 +410,11 @@ describe('reading a big lump', () => {
     api.getMapLump.mockResolvedValue(faces);
 
     await show();
-    await userEvent.click(screen.getByRole('row', { name: /faces/ }));
+    await userEvent.click(lumpRow(/faces/));
     await screen.findByText('metal/wall062a');
 
-    await userEvent.click(screen.getByRole('row', { name: /texdata/ }));
-    await userEvent.click(screen.getByRole('row', { name: /faces/ }));
+    await userEvent.click(lumpRow(/texdata/));
+    await userEvent.click(lumpRow(/faces/));
     await screen.findByText('metal/wall062a');
 
     expect(api.getMapLump).toHaveBeenCalledTimes(1);
@@ -399,7 +424,7 @@ describe('reading a big lump', () => {
     api.getMapLump.mockResolvedValue(faces);
 
     await show();
-    await userEvent.click(screen.getByRole('row', { name: /faces/ }));
+    await userEvent.click(lumpRow(/faces/));
     await screen.findByText('metal/wall062a');
 
     await userEvent.click(screen.getByRole('button', { name: 'CSV' }));
@@ -419,9 +444,9 @@ describe('reading a big lump', () => {
     api.getMapLump.mockRejectedValue(new Error('gone'));
 
     await show();
-    await userEvent.click(screen.getByRole('row', { name: /faces/ }));
-    await userEvent.click(screen.getByRole('row', { name: /texdata/ }));
-    await userEvent.click(screen.getByRole('row', { name: /faces/ }));
+    await userEvent.click(lumpRow(/faces/));
+    await userEvent.click(lumpRow(/texdata/));
+    await userEvent.click(lumpRow(/faces/));
 
     expect(api.getMapLump.mock.calls.length).toBeGreaterThan(1);
   });
