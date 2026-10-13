@@ -4762,6 +4762,13 @@ ss_cpptest(cmake_graph_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/cmake_graph_test.cpp)
 
+# The tests' precompiled gtest header (cmake/SourceSharpTests.cmake): every TU
+# that reads one reads a header built with its own flags, token for token, and
+# no header serves a single TU.
+ss_cpptest(test_pch_test
+    LINUX_ONLY "reads the compile database's clang lines, and MSVC builds the tests without a precompiled header"
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/test_pch_test.cpp)
+
 # ---------------------------------------------------------------------------
 # Phase 6b: the link-line facts that outlived VPC (they were in
 # vpc_link_libraries_test, vpc_no_protobuf_test and vpc_platforms_test, beside

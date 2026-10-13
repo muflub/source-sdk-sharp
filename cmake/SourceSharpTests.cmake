@@ -148,6 +148,116 @@ endfunction()
 
 set(SS_CPPTEST_KEYWORDS DEFINES OPTIONS INCLUDES SOURCES LIBS)
 
+# --- the precompiled gtest header ------------------------------------------------------
+#
+# Every test TU parses gtest/gtest.h, and with it most of the standard library:
+# about 0.8 s of each TU's 2.8 s at -O1 (clang 22, 40 TUs of the largest flag
+# set, 2026-10-13). One precompiled gtest.h per flag set takes that back. Only
+# gtest.h: adding the standard headers the tests use saved nothing more, and
+# cmake_graph.h made the load slower than the parse it saved.
+#
+# A precompiled header is only accepted by a compile with the flags it was built
+# with (clang refuses a different -O level or a different -D set), so tests
+# share one when they share every flag: the same compile definitions, options,
+# include directories and linked libraries, in the same directory. The first
+# test of each set builds it and the rest REUSE_FROM that one: 30 headers, read
+# by 332 of the 354 test TUs (2026-10-13). A set with a single TU gets none,
+# since building the header costs more (1.1 s) than its one parse saves.
+#
+# The sets are only known once every test is defined and nothing more is added
+# to one, so the headers are attached at the end of each directory that defines
+# tests (cmake_language DEFER). gtest.h then comes before a TU's own first
+# line, so only a TU that reads nothing but system headers before gtest.h gets
+# it (_ss_cpptest_pch_safe). test_pch_test holds the sets to their flags.
+#
+# Not on MSVC yet: its /Yu needs the forced /FI of the POSIX compat header and
+# the PDB the header was built with to agree across REUSE_FROM, which is its
+# own change. -DSS_CPPTEST_PCH=OFF builds every test the old way.
+option(SS_CPPTEST_PCH "precompile gtest/gtest.h once per test flag set" ON)
+
+# Notes <name> for the pass at the end of its directory.
+function(_ss_cpptest_pch_record name)
+  if(NOT SS_CPPTEST_PCH OR SS_IS_MSVC)
+    return()
+  endif()
+  set_property(DIRECTORY APPEND PROPERTY SS_CPPTEST_PCH_TARGETS ${name})
+  get_property(deferred DIRECTORY PROPERTY SS_CPPTEST_PCH_DEFERRED)
+  if(NOT deferred)
+    set_property(DIRECTORY PROPERTY SS_CPPTEST_PCH_DEFERRED ON)
+    cmake_language(DEFER CALL _ss_cpptest_pch_attach)
+  endif()
+endfunction()
+
+# <var> is ON when <src> may be compiled with gtest.h ahead of its first line:
+# it includes gtest/gtest.h itself, and every directive before that is an
+# #include <...>, a system header gtest.h reads or could. A TU that sets a macro,
+# opens a conditional or reads one of our headers first depends on what comes
+# before gtest.h and the standard library (server_string_pool_alloc_test reads
+# tier0/memdbgon.h first on purpose, and with the header the pool's strdup was
+# no longer tier0's), and so does a subject .cpp built into a test that never
+# reads gtest.h at all: those compile as they always have.
+function(_ss_cpptest_pch_safe src var)
+  set(${var} OFF PARENT_SCOPE)
+  if(NOT EXISTS "${src}")
+    return()
+  endif()
+  file(STRINGS "${src}" directives REGEX "^[ \t]*#")
+  foreach(d IN LISTS directives)
+    if(d MATCHES "^[ \t]*#[ \t]*include[ \t]*[<\"]gtest/gtest\\.h[>\"]")
+      set(${var} ON PARENT_SCOPE)
+      return()
+    elseif(NOT d MATCHES "^[ \t]*#[ \t]*include[ \t]*<")
+      return()
+    endif()
+  endforeach()
+endfunction()
+
+# At the end of the directory, when nothing more is added to a test: the tests
+# keyed by every property that reaches their compile line (what a test's own
+# CMakeLists adds after its ss_cpptest*() call included, and the libraries it
+# links, whose usage requirements do), then one header per set of two or more
+# TUs that may read it (_ss_cpptest_pch_safe), built by the set's first test and
+# reused by the others.
+function(_ss_cpptest_pch_attach)
+  get_property(targets DIRECTORY PROPERTY SS_CPPTEST_PCH_TARGETS)
+  set(keys "")
+  foreach(name IN LISTS targets)
+    set(key "")
+    foreach(prop COMPILE_DEFINITIONS COMPILE_OPTIONS INCLUDE_DIRECTORIES LINK_LIBRARIES)
+      get_target_property(v ${name} ${prop})
+      string(APPEND key "${prop}=${v}|")
+    endforeach()
+    string(MD5 hash "${key}")
+    if(NOT hash IN_LIST keys)
+      list(APPEND keys ${hash})
+      set(names_${hash} "")
+      set(tus_${hash} 0)
+    endif()
+    list(APPEND names_${hash} ${name})
+    get_target_property(sources ${name} SOURCES)
+    list(FILTER sources INCLUDE REGEX "\\.(cpp|cc|cxx)$")
+    foreach(src IN LISTS sources)
+      _ss_cpptest_pch_safe("${src}" safe)
+      if(safe)
+        math(EXPR tus_${hash} "${tus_${hash}} + 1")
+      else()
+        set_source_files_properties("${src}" PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+      endif()
+    endforeach()
+  endforeach()
+  foreach(hash IN LISTS keys)
+    if(tus_${hash} LESS 2)
+      continue()
+    endif()
+    set(names ${names_${hash}})
+    list(POP_FRONT names donor)
+    target_precompile_headers(${donor} PRIVATE <gtest/gtest.h>)
+    foreach(name IN LISTS names)
+      target_precompile_headers(${name} REUSE_FROM ${donor})
+    endforeach()
+  endforeach()
+endfunction()
+
 # THE TESTS NAME LINUX'S DEFINES, and on Windows they are translated here,
 # once, rather than in each of ~300 calls: the POSIX platform names a test
 # passes for Valve's headers (POSIX, LINUX, GNUC, COMPILER_GCC and their
@@ -284,6 +394,7 @@ function(_ss_cpptest kind name)
   target_compile_options(${name} PRIVATE ${A_OPTIONS})
   target_include_directories(${name} PRIVATE ${A_INCLUDES})
   target_link_libraries(${name} PRIVATE GTest::gtest GTest::gtest_main ${A_LIBS})
+  _ss_cpptest_pch_record(${name})
 
   set(env ${SS_CPPTEST_ENV})
   if(kind STREQUAL "MATHLIB")
