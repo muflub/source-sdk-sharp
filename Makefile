@@ -241,7 +241,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \
         ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
         entity-census entity-gates entity-ratchet \
         globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
@@ -877,10 +877,14 @@ MANAGED_TEST_LEGS = \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
     'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)'
 CHECK_MANAGED ?= 1
+# NATIVE_TIER=fast runs the native leg's fast tier in place of the whole leg
+# (tools/test-tiers); CI's linux-check does, and linux-native-slow runs the
+# rest (make cpp-test-slow).
+NATIVE_TIER ?=
 TEST_LEGS = \
     'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
     $(if $(filter 0,$(CHECK_MANAGED)),,$(MANAGED_TEST_LEGS)) \
-    'native@ninja:tools/leg-floor native && $(CPP_TEST)' \
+    $(if $(NATIVE_TIER),$(call TIER_LEG,native-$(NATIVE_TIER)),'native@ninja:tools/leg-floor native && $(CPP_TEST)') \
     'entity@ninja:tools/leg-floor entity && $(ENTITY_TEST)' \
     'ui:tools/leg-floor ui && $(UI_TEST)'
 TEST_FULL_LEGS = \
@@ -907,8 +911,10 @@ managed-legs: ui
 # A QUICK LOCAL LOOP: `make test` without its slow tests, and the slow tests
 # alone (tools/test-tiers; tools/test-tiers.tsv lists the slow tier, measured:
 # a managed fact or native binary of 2 s or more, or a class whose facts add up
-# to 20 s). The two together run what `make test` runs. Neither is a gate --
-# `make test`, `make check` and CI still run every leg whole. Each tier leg has
+# to 20 s). The two together run what `make test` runs. Locally neither is a
+# gate: `make test` and `make check` run every leg whole. CI runs the two tiers
+# in jobs of their own (managed-legs-<tier>, NATIVE_TIER=fast and
+# cpp-test-slow below), which together run every test. Each tier leg has
 # its own floor (tools/leg-floor <leg>-fast / <leg>-slow), and a fast run names
 # any fast test that has grown past the threshold. Regenerate the list with
 # `tools/test-tiers measure --write` after `make debug`.
@@ -931,6 +937,20 @@ test-slow: ui
 	@tools/test-tiers legs slow > /dev/null
 	@$(TEST_BUILD)
 	@tools/run-test-legs $(TEST_SLOW_LEGS)
+
+# One tier of the managed legs alone, as managed-legs runs the whole of them:
+# CI's linux-managed and windows-managed jobs, one per tier.
+managed-legs-fast managed-legs-slow: managed-legs-%: ui
+	@tools/test-tiers legs $* > /dev/null
+	@$(TEST_BUILD)
+	@$(DOTNET) publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
+	@tools/run-test-legs $(foreach l,$(filter-out native-%,$(shell tools/test-tiers legs $*)),$(call TIER_LEG,$(l)))
+
+# The native leg's slow tier alone: buildcpptests builds and runs those tests
+# by name, so this needs a configured tree and not the whole debug build.
+cpp-test-slow:
+	@tools/test-tiers legs slow > /dev/null
+	@tools/run-test-legs $(call TIER_LEG,native-slow)
 
 # Every leg: the routine tier and the milestone tier together.
 test-full: ui
