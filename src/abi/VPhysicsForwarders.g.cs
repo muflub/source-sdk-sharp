@@ -630,3 +630,31 @@ internal unsafe struct VPhysicsKeyParserFwd : IForwarderTable
     // void IVPhysicsKeyParser::SkipBlock( void )
     public delegate* unmanaged<void*, void> SkipBlock;
 }
+
+/// <summary>
+/// <c>IPhysicsCollisionEvent</c> through its forwarders (SSFwd_PhysicsCollisionEvent): 6 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct PhysicsCollisionEventFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_PhysicsCollisionEvent";
+
+    // void IPhysicsCollisionEvent::PreCollision( vcollisionevent_t * )
+    public delegate* unmanaged<void*, void*, void> PreCollision;
+
+    // void IPhysicsCollisionEvent::StartTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> StartTouch;
+
+    // void IPhysicsCollisionEvent::EndTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> EndTouch;
+
+    // void IPhysicsCollisionEvent::PostSimulationFrame( void )
+    public delegate* unmanaged<void*, void> PostSimulationFrame;
+
+    // void IPhysicsCollisionEvent::ObjectEnterTrigger( IPhysicsObject *, IPhysicsObject * )
+    public delegate* unmanaged<void*, void*, void*, void> ObjectEnterTrigger;
+
+    // void IPhysicsCollisionEvent::ObjectLeaveTrigger( IPhysicsObject *, IPhysicsObject * )
+    public delegate* unmanaged<void*, void*, void*, void> ObjectLeaveTrigger;
+}

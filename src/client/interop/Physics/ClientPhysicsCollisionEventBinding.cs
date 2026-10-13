@@ -22,13 +22,15 @@ public interface IClientFluidSink
 /// The client's IPhysicsCollisionEvent, written by managed (plan_client_novalve
 /// C6, cluster 9; lane c6-input), the server's B2.2 shape on the client's own
 /// environment. A slot not taken over forwards unchanged to native's handler
-/// (game/client/physics.cpp's g_Collisions) through that handler's vtable.
+/// (game/client/physics.cpp's g_Collisions) through IPhysicsCollisionEvent's
+/// forwarders (plan_engine_forwarders.md), which call the handler's own method.
 /// </summary>
 public sealed unsafe class ClientPhysicsCollisionEventBinding(Crossings crossings, nint native, IClientImpactSink impacts,
-                                                              IClientFluidSink fluids, IClientFrictionSink friction)
+                                                              IClientFluidSink fluids, IClientFrictionSink friction,
+                                                              VPhysicsTables vphysics)
     : IPhysicsCollisionEventSink
 {
-    private PhysicsCollisionEventVtbl* Native => *(PhysicsCollisionEventVtbl**)native;
+    private PhysicsCollisionEventFwd* Native => vphysics.PhysicsCollisionEvent;
 
     public void PreCollision(void* pEvent)
     {

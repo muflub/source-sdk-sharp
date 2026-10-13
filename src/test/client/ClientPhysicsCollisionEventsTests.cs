@@ -20,41 +20,36 @@ public unsafe class ClientPhysicsCollisionEventsTests : IDisposable
     private static void Saw(string what) => (t_seen ??= new()).Add(what);
 
     [UnmanagedCallersOnly] private static void Pre(void* self, void* ev) => Saw($"Pre {(nint)ev:x}");
-    [UnmanagedCallersOnly] private static void Post(void* self, void* ev) => Saw($"Post {(nint)ev:x}");
-    [UnmanagedCallersOnly] private static void Fric(void* self, void* o, float e, int s, int h, void* d) => Saw($"Friction {(nint)o:x} {e} {s} {h} {(nint)d:x}");
     [UnmanagedCallersOnly] private static void Start(void* self, void* a, void* b, void* d) => Saw($"StartTouch {(nint)a:x} {(nint)b:x} {(nint)d:x}");
     [UnmanagedCallersOnly] private static void End(void* self, void* a, void* b, void* d) => Saw($"EndTouch {(nint)a:x} {(nint)b:x} {(nint)d:x}");
-    [UnmanagedCallersOnly] private static void FStart(void* self, void* o, void* f) => Saw($"FluidStart {(nint)o:x} {(nint)f:x}");
-    [UnmanagedCallersOnly] private static void FEnd(void* self, void* o, void* f) => Saw($"FluidEnd {(nint)o:x} {(nint)f:x}");
     [UnmanagedCallersOnly] private static void PostSim(void* self) => Saw("PostSimulationFrame");
     [UnmanagedCallersOnly] private static void Enter(void* self, void* t, void* o) => Saw($"Enter {(nint)t:x} {(nint)o:x}");
     [UnmanagedCallersOnly] private static void Leave(void* self, void* t, void* o) => Saw($"Leave {(nint)t:x} {(nint)o:x}");
 
-    private readonly PhysicsCollisionEventVtbl* _vtbl;
+    // Native's handler is reached through IPhysicsCollisionEvent's forwarders,
+    // which hold only the slots the binding forwards: one the binding takes
+    // over (PostCollision, Friction, the fluid touches) has no forwarder, so
+    // forwarding it is a compile error rather than something to watch for.
+    private readonly PhysicsCollisionEventFwd* _fwd;
     private readonly nint* _native;
 
     public ClientPhysicsCollisionEventsTests()
     {
         t_seen = new();
-        _vtbl = (PhysicsCollisionEventVtbl*)NativeMemory.AllocZeroed((nuint)sizeof(PhysicsCollisionEventVtbl));
-        _vtbl->PreCollision = &Pre;
-        _vtbl->PostCollision = &Post;
-        _vtbl->Friction = &Fric;
-        _vtbl->StartTouch = &Start;
-        _vtbl->EndTouch = &End;
-        _vtbl->FluidStartTouch = &FStart;
-        _vtbl->FluidEndTouch = &FEnd;
-        _vtbl->PostSimulationFrame = &PostSim;
-        _vtbl->ObjectEnterTrigger = &Enter;
-        _vtbl->ObjectLeaveTrigger = &Leave;
+        _fwd = (PhysicsCollisionEventFwd*)NativeMemory.AllocZeroed((nuint)sizeof(PhysicsCollisionEventFwd));
+        _fwd->PreCollision = &Pre;
+        _fwd->StartTouch = &Start;
+        _fwd->EndTouch = &End;
+        _fwd->PostSimulationFrame = &PostSim;
+        _fwd->ObjectEnterTrigger = &Enter;
+        _fwd->ObjectLeaveTrigger = &Leave;
         _native = (nint*)NativeMemory.AllocZeroed((nuint)sizeof(nint));
-        *_native = (nint)_vtbl;
     }
 
     public void Dispose()
     {
         NativeMemory.Free(_native);
-        NativeMemory.Free(_vtbl);
+        NativeMemory.Free(_fwd);
     }
 
     private sealed class RecordingImpacts : IClientImpactSink
@@ -82,7 +77,8 @@ public unsafe class ClientPhysicsCollisionEventsTests : IDisposable
     private readonly RecordingFriction _friction = new();
 
     private ClientPhysicsCollisionEventBinding Sink(Crossings? crossings = null)
-        => new(crossings ?? new Crossings(), (nint)_native, _impacts, _fluids, _friction);
+        => new(crossings ?? new Crossings(), (nint)_native, _impacts, _fluids, _friction,
+               TestVPhysics.Of(new VPhysicsTables.Set { PhysicsCollisionEvent = _fwd }));
 
     [Fact]
     public void ThePostCollisionGoesToTheImpactSoundsAndIsNotForwarded()

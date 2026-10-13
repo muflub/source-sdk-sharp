@@ -28,7 +28,7 @@ namespace SourceSharp.Server;
          + "(getter, GetVelocity, ShouldCollide, motion Simulate), ns per call.")]
 public sealed class PhysicsCostBench(PhysicsSolver solver, IPhysicsSolverWorld solverWorld, PhysicsMotionControllers motion,
                                      IVPhysicsInspect inspect, IEngineEntityPhysics physics,
-                                     IEngineConsole console) : IConCommand
+                                     IEngineConsole console, VPhysicsTables vphysics) : IConCommand
 {
     /// <summary>The most objects the solver item pairs up: 48 makes 1,128 pairs.</summary>
     public const int MaxObjects = 48;
@@ -50,7 +50,7 @@ public sealed class PhysicsCostBench(PhysicsSolver solver, IPhysicsSolverWorld s
         }
 
         nint[] all = inspect.Objects(environment);
-        var objects = new VPhysicsSolverObjects();
+        var objects = new VPhysicsSolverObjects(vphysics);
         nint moveable = 0;
         foreach (nint o in all)
         {
@@ -90,7 +90,7 @@ public sealed class PhysicsCostBench(PhysicsSolver solver, IPhysicsSolverWorld s
             return;
         }
 
-        var calls = new VPhysicsMotionCalls();
+        var calls = new VPhysicsMotionCalls(vphysics);
 
         Report("getter", rounds, CallsPerRound, () =>
         {

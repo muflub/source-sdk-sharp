@@ -352,6 +352,17 @@ FORWARD = [
             'ParseRagdollConstraint', 'ParseSurfaceTable', 'ParseCustom', 'SkipBlock',
         ],
     ),
+    dict(
+        struct='PhysicsCollisionEventVtbl',
+        library='vphysics',
+        # The client's own C++ handler (game/client/physics.cpp's g_Collisions),
+        # which ClientPhysicsCollisionEventBinding forwards the slots it does
+        # not take over to.
+        methods=[
+            'PreCollision', 'StartTouch', 'EndTouch', 'PostSimulationFrame',
+            'ObjectEnterTrigger', 'ObjectLeaveTrigger',
+        ],
+    ),
 ]
 
 PREFIX = 'SSFwd_'

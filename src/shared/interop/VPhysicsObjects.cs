@@ -2,7 +2,7 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// Calls on vphysics' own <c>IPhysicsObject</c>, made by managed directly
-/// through the generated <see cref="PhysicsObjectVtbl"/> (plan_physics_managed:
+/// through the generated <see cref="PhysicsObjectFwd"/> (plan_physics_managed:
 /// managed invokes the vtable methods itself, no shim slot per method). The
 /// pointer comes from <c>IEngineEntityPhysics.PhysicsObject</c>; 0 is no object
 /// and every call on it is a no-op, as stock's NULL checks are.
@@ -80,6 +80,12 @@ public interface IVPhysicsFluids
 
 public sealed unsafe class VPhysicsFluids : IVPhysicsFluids
 {
+    private readonly VPhysicsTables _vphysics;
+
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsFluids(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+
     public (Vector Normal, float Dist) SurfacePlane(nint fluid)
     {
         if (fluid == 0)
@@ -87,24 +93,30 @@ public sealed unsafe class VPhysicsFluids : IVPhysicsFluids
 
         Vector normal;
         float dist;
-        var vtbl = *(PhysicsFluidControllerVtbl**)fluid;
+        var vtbl = _vphysics.PhysicsFluidController;
         vtbl->GetSurfacePlane((void*)fluid, &normal, &dist);
         return (normal, dist);
     }
 
     public float Density(nint fluid)
-        => fluid == 0 ? 0f : (*(PhysicsFluidControllerVtbl**)fluid)->GetDensity((void*)fluid);
+        => fluid == 0 ? 0f : (_vphysics.PhysicsFluidController)->GetDensity((void*)fluid);
 }
 
 /// <summary>The real objects. Holds nothing: the pointer is the whole of the object.</summary>
 public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
 {
+    private readonly VPhysicsTables _vphysics;
+
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsObjects(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+
     public void RecheckContactPoints(nint physicsObject)
     {
         if (physicsObject == 0)
             return;
 
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = _vphysics.PhysicsObject;
         vtbl->RecheckContactPoints((void*)physicsObject);
     }
 
@@ -113,7 +125,7 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
         if (physicsObject == 0)
             return 0;
 
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = _vphysics.PhysicsObject;
         return (nint)vtbl->GetGameData((void*)physicsObject);
     }
 
@@ -122,12 +134,12 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
         if (physicsObject == 0)
             return 0;
 
-        var objectVtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var objectVtbl = _vphysics.PhysicsObject;
         void* snapshot = objectVtbl->CreateFrictionSnapshot((void*)physicsObject);
         if (snapshot == null)
             return 0;
 
-        var snapshotVtbl = *(PhysicsFrictionSnapshotVtbl**)snapshot;
+        var snapshotVtbl = _vphysics.PhysicsFrictionSnapshot;
         int count = 0;
         while (snapshotVtbl->IsValid(snapshot) != 0)
         {
@@ -147,7 +159,7 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
             return Vector.Zero;
 
         Vector point;
-        var vtbl = *(PhysicsCollisionDataVtbl**)collisionData;
+        var vtbl = _vphysics.PhysicsCollisionData;
         vtbl->GetContactPoint((void*)collisionData, &point);
         return point;
     }
@@ -158,7 +170,7 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
             return (Vector.Zero, Vector.Zero);
 
         Vector linear, angular;
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = _vphysics.PhysicsObject;
         vtbl->GetVelocity((void*)physicsObject, &linear, &angular);
         return (linear, angular);
     }
@@ -168,24 +180,24 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
         if (physicsObject == 0)
             return;
 
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = _vphysics.PhysicsObject;
         vtbl->AddVelocity((void*)physicsObject, &linear, &angular);
     }
 
     public float LinearDrag(nint physicsObject, Vector direction)
-        => physicsObject == 0 ? 0f : (*(PhysicsObjectVtbl**)physicsObject)->CalculateLinearDrag((void*)physicsObject, &direction);
+        => physicsObject == 0 ? 0f : (_vphysics.PhysicsObject)->CalculateLinearDrag((void*)physicsObject, &direction);
 
     public float AngularDrag(nint physicsObject, Vector axis)
-        => physicsObject == 0 ? 0f : (*(PhysicsObjectVtbl**)physicsObject)->CalculateAngularDrag((void*)physicsObject, &axis);
+        => physicsObject == 0 ? 0f : (_vphysics.PhysicsObject)->CalculateAngularDrag((void*)physicsObject, &axis);
 
     public float Mass(nint physicsObject)
-        => physicsObject == 0 ? 0f : (*(PhysicsObjectVtbl**)physicsObject)->GetMass((void*)physicsObject);
+        => physicsObject == 0 ? 0f : (_vphysics.PhysicsObject)->GetMass((void*)physicsObject);
 
     public ushort GameFlags(nint physicsObject)
-        => physicsObject == 0 ? (ushort)0 : (*(PhysicsObjectVtbl**)physicsObject)->GetGameFlags((void*)physicsObject);
+        => physicsObject == 0 ? (ushort)0 : (_vphysics.PhysicsObject)->GetGameFlags((void*)physicsObject);
 
     public int MaterialIndex(nint physicsObject)
-        => physicsObject == 0 ? 0 : (*(PhysicsObjectVtbl**)physicsObject)->GetMaterialIndex((void*)physicsObject);
+        => physicsObject == 0 ? 0 : (_vphysics.PhysicsObject)->GetMaterialIndex((void*)physicsObject);
 
     public (Vector X, Vector Y, Vector Z) Axes(nint physicsObject)
     {
@@ -194,7 +206,7 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
 
         // matrix3x4_t: three rows of four floats; the axes are its columns.
         float* m = stackalloc float[12];
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = _vphysics.PhysicsObject;
         vtbl->GetPositionMatrix((void*)physicsObject, m);
         return (new Vector(m[0], m[4], m[8]), new Vector(m[1], m[5], m[9]), new Vector(m[2], m[6], m[10]));
     }
@@ -204,18 +216,18 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
         if (physicsObject == 0)
             return;
 
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = _vphysics.PhysicsObject;
         vtbl->SetVelocity((void*)physicsObject, &linear, &angular);
     }
 
     public bool IsStatic(nint physicsObject)
-        => physicsObject != 0 && (*(PhysicsObjectVtbl**)physicsObject)->IsStatic((void*)physicsObject) != 0;
+        => physicsObject != 0 && (_vphysics.PhysicsObject)->IsStatic((void*)physicsObject) != 0;
 
     public bool IsMoveable(nint physicsObject)
-        => physicsObject != 0 && (*(PhysicsObjectVtbl**)physicsObject)->IsMoveable((void*)physicsObject) != 0;
+        => physicsObject != 0 && (_vphysics.PhysicsObject)->IsMoveable((void*)physicsObject) != 0;
 
     public ushort CallbackFlags(nint physicsObject)
-        => physicsObject == 0 ? (ushort)0 : (*(PhysicsObjectVtbl**)physicsObject)->GetCallbackFlags((void*)physicsObject);
+        => physicsObject == 0 ? (ushort)0 : (_vphysics.PhysicsObject)->GetCallbackFlags((void*)physicsObject);
 
     public Vector SurfaceNormal(nint collisionData)
     {
@@ -223,7 +235,7 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
             return Vector.Zero;
 
         Vector normal;
-        var vtbl = *(PhysicsCollisionDataVtbl**)collisionData;
+        var vtbl = _vphysics.PhysicsCollisionData;
         vtbl->GetSurfaceNormal((void*)collisionData, &normal);
         return normal;
     }
@@ -234,7 +246,7 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
             return Vector.Zero;
 
         Vector velocity;
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = _vphysics.PhysicsObject;
         vtbl->GetVelocityAtPoint((void*)physicsObject, &worldPoint, &velocity);
         return velocity;
     }
@@ -261,24 +273,30 @@ public interface IVPhysicsEnvironment
 
 public sealed unsafe class VPhysicsEnvironment : IVPhysicsEnvironment
 {
+    private readonly VPhysicsTables _vphysics;
+
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsEnvironment(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+
     public void SetObjectEventHandler(nint environment, nint handler)
     {
         if (environment == 0)
             return;
 
-        var vtbl = *(PhysicsEnvironmentVtbl**)environment;
+        var vtbl = _vphysics.PhysicsEnvironment;
         vtbl->SetObjectEventHandler((void*)environment, (void*)handler);
     }
 
     public float SimulationTimestep(nint environment)
-        => environment == 0 ? 0f : (*(PhysicsEnvironmentVtbl**)environment)->GetSimulationTimestep((void*)environment);
+        => environment == 0 ? 0f : (_vphysics.PhysicsEnvironment)->GetSimulationTimestep((void*)environment);
 
     public void SetCollisionSolver(nint environment, nint handler)
     {
         if (environment == 0)
             return;
 
-        var vtbl = *(PhysicsEnvironmentVtbl**)environment;
+        var vtbl = _vphysics.PhysicsEnvironment;
         vtbl->SetCollisionSolver((void*)environment, (void*)handler);
     }
 
@@ -287,7 +305,7 @@ public sealed unsafe class VPhysicsEnvironment : IVPhysicsEnvironment
         if (environment == 0)
             return;
 
-        var vtbl = *(PhysicsEnvironmentVtbl**)environment;
+        var vtbl = _vphysics.PhysicsEnvironment;
         vtbl->SetCollisionEventHandler((void*)environment, (void*)handler);
     }
 
@@ -296,7 +314,7 @@ public sealed unsafe class VPhysicsEnvironment : IVPhysicsEnvironment
         if (environment == 0)
             return;
 
-        var vtbl = *(PhysicsEnvironmentVtbl**)environment;
+        var vtbl = _vphysics.PhysicsEnvironment;
         vtbl->SetConstraintEventHandler((void*)environment, (void*)handler);
     }
 }

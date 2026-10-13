@@ -3,9 +3,9 @@ namespace SourceSharp.Abi;
 /// <summary>
 /// The vphysics calls managed's physics frame makes (plan_physics_bones_native_zero
 /// 2.3: PhysFrame and the player's stress left physics.cpp), each a direct call
-/// through <see cref="PhysicsEnvironmentVtbl"/>, <see cref="PhysicsObjectVtbl"/>,
-/// <see cref="PhysicsShadowControllerVtbl"/> or
-/// <see cref="PhysicsPlayerControllerVtbl"/>. A 0 pointer answers zero.
+/// through <see cref="PhysicsEnvironmentFwd"/>, <see cref="PhysicsObjectFwd"/>,
+/// <see cref="PhysicsShadowControllerFwd"/> or
+/// <see cref="PhysicsPlayerControllerFwd"/>. A 0 pointer answers zero.
 /// </summary>
 public interface IVPhysicsFrameCalls
 {
@@ -59,11 +59,20 @@ public interface IVPhysicsFrameCalls
 /// <summary>The real vphysics. Holds nothing.</summary>
 public sealed unsafe class VPhysicsFrameCalls : IVPhysicsFrameCalls
 {
-    private readonly Server.Interop.VPhysicsSolverObjects _objects = new();
+    private readonly VPhysicsTables _vphysics;
 
-    private static PhysicsEnvironmentVtbl* Env(nint e) => *(PhysicsEnvironmentVtbl**)e;
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsFrameCalls(VPhysicsTables vphysics)
+    {
+        _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+        _objects = new Server.Interop.VPhysicsSolverObjects(vphysics);
+    }
 
-    private static PhysicsObjectVtbl* Obj(nint o) => *(PhysicsObjectVtbl**)o;
+    private readonly Server.Interop.VPhysicsSolverObjects _objects;
+
+    private PhysicsEnvironmentFwd* Env(nint e) => _vphysics.PhysicsEnvironment;
+
+    private PhysicsObjectFwd* Obj(nint o) => _vphysics.PhysicsObject;
 
     public void Simulate(nint environment, float deltaTime)
     {
@@ -145,7 +154,7 @@ public sealed unsafe class VPhysicsFrameCalls : IVPhysicsFrameCalls
         if (shadow == null)
             return (false, false, Vector.Zero);
 
-        var vtbl = *(PhysicsShadowControllerVtbl**)shadow;
+        var vtbl = _vphysics.PhysicsShadowController;
         Vector impulse;
         vtbl->GetLastImpulse(shadow, &impulse);
         return (true, vtbl->IsPhysicallyControlled(shadow) != 0, impulse);
@@ -157,7 +166,7 @@ public sealed unsafe class VPhysicsFrameCalls : IVPhysicsFrameCalls
             return Vector.Zero;
 
         Vector impulse;
-        (*(PhysicsPlayerControllerVtbl**)controller)->GetLastImpulse((void*)controller, &impulse);
+        (_vphysics.PhysicsPlayerController)->GetLastImpulse((void*)controller, &impulse);
         return impulse;
     }
 

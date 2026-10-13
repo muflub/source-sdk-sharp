@@ -11,7 +11,7 @@ public interface IVtableInputSystem
 }
 
 /// <summary>
-/// IInputSystem through its vtable (InputSystemVtbl, generated): only
+/// IInputSystem through its forwarders (InputSystemFwd, generated): only
 /// ButtonCodeToString is reached. The client's appSystemFactory answers
 /// InputSystemVersion001; the server has no input system.
 /// </summary>

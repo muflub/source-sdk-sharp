@@ -3,7 +3,7 @@ namespace SourceSharp.Abi;
 /// <summary>
 /// vphysics' <c>IPhysicsCollision</c>, the members the managed player shadow
 /// and the physics diagnostics call (plan_physics_bones_native_zero 2.5),
-/// through <see cref="PhysicsCollisionVtbl"/>.
+/// through its forwarders, <see cref="PhysicsCollisionFwd"/>.
 /// </summary>
 public interface IVPhysicsCollision
 {
@@ -19,12 +19,12 @@ public sealed unsafe class PhysicsCollision : IVPhysicsCollision
     public const string InterfaceVersion = "VPhysicsCollision007";
 
     private readonly void* _self;
-    private readonly PhysicsCollisionVtbl* _vtbl;
+    private readonly PhysicsCollisionFwd* _fwd;
 
-    private PhysicsCollision(void* self, void** table)
+    private PhysicsCollision(void* self, PhysicsCollisionFwd* table)
     {
         _self = self;
-        _vtbl = (PhysicsCollisionVtbl*)table;
+        _fwd = table;
     }
 
     /// <summary>
@@ -32,14 +32,14 @@ public sealed unsafe class PhysicsCollision : IVPhysicsCollision
     /// own side; null, with the reason, when it does not answer.
     /// </summary>
     public static IVPhysicsCollision? Acquire(ModuleEngine engine, out string why)
-        => Vtable.TryAcquire<PhysicsCollisionVtbl>(
+        => Forwarders.TryAcquire<PhysicsCollisionFwd>(
                (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
-               SourceSharpFactoryType.Physics, InterfaceVersion, out void* self, out void** table, out why)
+               SourceSharpFactoryType.Physics, InterfaceVersion, out void* self, out PhysicsCollisionFwd* table, out why)
             ? new PhysicsCollision(self, table)
             : null;
 
     public nint BoxCollide(Vector mins, Vector maxs)
-        => (nint)_vtbl->BBoxToCollide(_self, &mins, &maxs);
+        => (nint)_fwd->BBoxToCollide(_self, &mins, &maxs);
 
     public (Vector Mins, Vector Maxs) Bounds(nint collide)
     {
@@ -48,7 +48,7 @@ public sealed unsafe class PhysicsCollision : IVPhysicsCollision
 
         Vector mins, maxs;
         Vector origin = Vector.Zero, angles = Vector.Zero;
-        _vtbl->CollideGetAABB(_self, &mins, &maxs, (void*)collide, &origin, &angles);
+        _fwd->CollideGetAABB(_self, &mins, &maxs, (void*)collide, &origin, &angles);
         return (mins, maxs);
     }
 }

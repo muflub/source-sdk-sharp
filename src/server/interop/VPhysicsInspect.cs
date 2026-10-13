@@ -14,8 +14,8 @@ public readonly record struct PhysicsObjectReadout(
 
 /// <summary>
 /// The environment and object reads managed's physics diagnostics make, each a
-/// direct call through <see cref="PhysicsEnvironmentVtbl"/> or
-/// <see cref="PhysicsObjectVtbl"/> (plan_physics_bones_native_zero 2.3: the
+/// direct call through <see cref="PhysicsEnvironmentFwd"/> or
+/// <see cref="PhysicsObjectFwd"/> (plan_physics_bones_native_zero 2.3: the
 /// SS-PHYSWORLD report, physics_budget and air_density left native). Every
 /// call on 0 is a no-op answering zero.
 /// </summary>
@@ -49,11 +49,17 @@ public interface IVPhysicsInspect
 /// <summary>The real vphysics. Holds nothing: every pointer is handed in.</summary>
 public sealed unsafe class VPhysicsInspect : IVPhysicsInspect
 {
+    private readonly VPhysicsTables _vphysics;
+
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsInspect(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+
     private const int MaxName = 256;
 
-    private static PhysicsEnvironmentVtbl* Env(nint environment) => *(PhysicsEnvironmentVtbl**)environment;
+    private PhysicsEnvironmentFwd* Env(nint environment) => _vphysics.PhysicsEnvironment;
 
-    private static PhysicsObjectVtbl* Obj(nint physicsObject) => *(PhysicsObjectVtbl**)physicsObject;
+    private PhysicsObjectFwd* Obj(nint physicsObject) => _vphysics.PhysicsObject;
 
     public nint[] Objects(nint environment)
     {

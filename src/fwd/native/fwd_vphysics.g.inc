@@ -622,6 +622,33 @@ static void *const s_VPhysicsKeyParserSlots[] = {
 
 static const SSForwarderTable s_VPhysicsKeyParserTable = { s_VPhysicsKeyParserSlots, 8 };
 
+//-----------------------------------------------------------------------------
+// PhysicsCollisionEvent: 6 forwarder(s) over IPhysicsCollisionEvent.
+//-----------------------------------------------------------------------------
+// void IPhysicsCollisionEvent::PreCollision( vcollisionevent_t * )
+static void SSFwd_PhysicsCollisionEvent_PreCollision( IPhysicsCollisionEvent *self, vcollisionevent_t * a0 ) { self->PreCollision( a0 ); }
+// void IPhysicsCollisionEvent::StartTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
+static void SSFwd_PhysicsCollisionEvent_StartTouch( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1, IPhysicsCollisionData * a2 ) { self->StartTouch( a0, a1, a2 ); }
+// void IPhysicsCollisionEvent::EndTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
+static void SSFwd_PhysicsCollisionEvent_EndTouch( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1, IPhysicsCollisionData * a2 ) { self->EndTouch( a0, a1, a2 ); }
+// void IPhysicsCollisionEvent::PostSimulationFrame( void )
+static void SSFwd_PhysicsCollisionEvent_PostSimulationFrame( IPhysicsCollisionEvent *self ) { self->PostSimulationFrame(); }
+// void IPhysicsCollisionEvent::ObjectEnterTrigger( IPhysicsObject *, IPhysicsObject * )
+static void SSFwd_PhysicsCollisionEvent_ObjectEnterTrigger( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1 ) { self->ObjectEnterTrigger( a0, a1 ); }
+// void IPhysicsCollisionEvent::ObjectLeaveTrigger( IPhysicsObject *, IPhysicsObject * )
+static void SSFwd_PhysicsCollisionEvent_ObjectLeaveTrigger( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1 ) { self->ObjectLeaveTrigger( a0, a1 ); }
+
+static void *const s_PhysicsCollisionEventSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_PreCollision ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_StartTouch ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_EndTouch ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_PostSimulationFrame ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_ObjectEnterTrigger ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_ObjectLeaveTrigger ),
+};
+
+static const SSForwarderTable s_PhysicsCollisionEventTable = { s_PhysicsCollisionEventSlots, 6 };
+
 // The tables by the name managed asks for, SSFwd_<table>.
 static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_Physics", &s_PhysicsTable },
@@ -640,4 +667,5 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_PhysicsCollisionSet", &s_PhysicsCollisionSetTable },
 	{ "SSFwd_PhysicsCollisionData", &s_PhysicsCollisionDataTable },
 	{ "SSFwd_VPhysicsKeyParser", &s_VPhysicsKeyParserTable },
+	{ "SSFwd_PhysicsCollisionEvent", &s_PhysicsCollisionEventTable },
 };

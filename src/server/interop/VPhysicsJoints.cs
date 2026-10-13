@@ -5,10 +5,10 @@ namespace SourceSharp.Server.Interop;
 /// <summary>
 /// The vphysics calls managed's constraint, spring and motion-controller
 /// tables make (plan_physics_bones_native_zero 2.4), each one a direct call
-/// through a generated vtable: <see cref="PhysicsEnvironmentVtbl"/> for the
-/// creators, <see cref="PhysicsConstraintVtbl"/>, <see cref="PhysicsSpringVtbl"/>
-/// and <see cref="PhysicsMotionControllerVtbl"/> for what they return, and
-/// <see cref="PhysicsObjectVtbl"/> for the bodies they join. A 0 pointer is a
+/// through a generated vtable: <see cref="PhysicsEnvironmentFwd"/> for the
+/// creators, <see cref="PhysicsConstraintFwd"/>, <see cref="PhysicsSpringFwd"/>
+/// and <see cref="PhysicsMotionControllerFwd"/> for what they return, and
+/// <see cref="PhysicsObjectFwd"/> for the bodies they join. A 0 pointer is a
 /// no-op answering zero, as stock's NULL checks are.
 /// </summary>
 public interface IVPhysicsJoints
@@ -118,15 +118,21 @@ public interface IVPhysicsJoints
 /// <summary>The real vphysics. Holds nothing: every pointer is handed in.</summary>
 public sealed unsafe class VPhysicsJoints : IVPhysicsJoints
 {
-    private static PhysicsEnvironmentVtbl* Env(nint environment) => *(PhysicsEnvironmentVtbl**)environment;
+    private readonly VPhysicsTables _vphysics;
 
-    private static PhysicsConstraintVtbl* Constraint(nint constraint) => *(PhysicsConstraintVtbl**)constraint;
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsJoints(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
 
-    private static PhysicsSpringVtbl* Spring(nint spring) => *(PhysicsSpringVtbl**)spring;
+    private PhysicsEnvironmentFwd* Env(nint environment) => _vphysics.PhysicsEnvironment;
 
-    private static PhysicsMotionControllerVtbl* Controller(nint controller) => *(PhysicsMotionControllerVtbl**)controller;
+    private PhysicsConstraintFwd* Constraint(nint constraint) => _vphysics.PhysicsConstraint;
 
-    private static PhysicsObjectVtbl* Object(nint physicsObject) => *(PhysicsObjectVtbl**)physicsObject;
+    private PhysicsSpringFwd* Spring(nint spring) => _vphysics.PhysicsSpring;
+
+    private PhysicsMotionControllerFwd* Controller(nint controller) => _vphysics.PhysicsMotionController;
+
+    private PhysicsObjectFwd* Object(nint physicsObject) => _vphysics.PhysicsObject;
 
     public nint CreateFixedConstraint(nint environment, nint reference, nint attached, in ConstraintFixedParams p)
     {

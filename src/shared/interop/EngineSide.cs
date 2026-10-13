@@ -99,7 +99,16 @@ internal sealed unsafe partial class EngineSide
     /// the last thin forwards): made here, through the object's vtable, and
     /// the velocity home and the impulse decided here rather than in native.
     /// </summary>
-    internal EntityPhysicsMotion Motion => _motion ??= new EntityPhysicsMotion(new MotionHost(this), new VPhysicsMotionCalls());
+    internal EntityPhysicsMotion Motion => _motion ??= new EntityPhysicsMotion(new MotionHost(this), new VPhysicsMotionCalls(VPhysics));
+
+    /// <summary>
+    /// This side's vphysics forwarder tables (plan_engine_forwarders.md), bound
+    /// from its own interface factory on first use: what every vphysics service
+    /// of the side calls objects through.
+    /// </summary>
+    internal VPhysicsTables VPhysics => _vphysics ??= new VPhysicsTables(Interfaces);
+
+    private VPhysicsTables? _vphysics;
 
     private EntityPhysicsMotion? _motion;
 
@@ -4483,7 +4492,7 @@ internal sealed unsafe partial class EngineSide
 
     /// <summary>
     /// The entity's <c>IPhysicsObject *</c>, or 0 for none: what managed calls
-    /// vphysics through directly, by the generated <c>PhysicsObjectVtbl</c>
+    /// vphysics through directly, by the generated <c>PhysicsObjectFwd</c>
     /// (plan_physics_managed). Valid until the entity's object is destroyed.
     /// </summary>
     public nint EntityPhysicsObject(EntityHandle entity)
@@ -4492,7 +4501,7 @@ internal sealed unsafe partial class EngineSide
     /// <summary>
     /// The level's <c>IPhysicsEnvironment *</c>, or 0 between levels: managed
     /// installs its own vphysics callback tables on it, by the generated
-    /// <c>PhysicsEnvironmentVtbl</c> (plan_physics_managed B2).
+    /// <c>PhysicsEnvironmentFwd</c> (plan_physics_managed B2).
     /// </summary>
     public nint PhysicsEnvironmentPointer()
         => s_Initialized && ServerAttached ? ServerShims.PhysicsEnvironmentPointer() : 0;
@@ -4507,10 +4516,10 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public unsafe Vector PhysicsCollideExtent(nint physicsObject, Vector direction)
     {
-        if (!s_Initialized || !ServerAttached || physicsObject == 0 || !PhysicsCollisionTable(out void* collision, out PhysicsCollisionVtbl* vt))
+        if (!s_Initialized || !ServerAttached || physicsObject == 0 || !PhysicsCollisionTable(out void* collision, out PhysicsCollisionFwd* vt))
             return Vector.Zero;
 
-        PhysicsObjectVtbl* obj = *(PhysicsObjectVtbl**)physicsObject;
+        PhysicsObjectFwd* obj = VPhysics.PhysicsObject;
         void* collide = obj->GetCollide((void*)physicsObject);
         if (collide == null)
             return Vector.Zero;
@@ -4524,24 +4533,24 @@ internal sealed unsafe partial class EngineSide
     // vphysics' IPhysicsCollision, acquired on first use from this side's
     // factories; the pointer is the vphysics module's for the process.
     private void* _physicsCollision;
-    private PhysicsCollisionVtbl* _physicsCollisionVt;
+    private PhysicsCollisionFwd* _physicsCollisionFwd;
     private bool _physicsCollisionAsked;
 
-    private unsafe bool PhysicsCollisionTable(out void* self, out PhysicsCollisionVtbl* vt)
+    private unsafe bool PhysicsCollisionTable(out void* self, out PhysicsCollisionFwd* vt)
     {
         if (!_physicsCollisionAsked)
         {
             _physicsCollisionAsked = true;
-            if (Vtable.TryAcquire<PhysicsCollisionVtbl>(Interfaces, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
-                                                        out void* collision, out void** table, out _))
+            if (Forwarders.TryAcquire<PhysicsCollisionFwd>(Interfaces, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
+                                                           out void* collision, out PhysicsCollisionFwd* table, out _))
             {
                 _physicsCollision = collision;
-                _physicsCollisionVt = (PhysicsCollisionVtbl*)table;
+                _physicsCollisionFwd = table;
             }
         }
 
         self = _physicsCollision;
-        vt = _physicsCollisionVt;
+        vt = _physicsCollisionFwd;
         return self != null;
     }
 
@@ -4582,7 +4591,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || physicsObject == 0)
             return Vector.Zero;
 
-        return (*(PhysicsObjectVtbl**)physicsObject)->GetInertia((void*)physicsObject);
+        return (VPhysics.PhysicsObject)->GetInertia((void*)physicsObject);
     }
 
     /// <summary>
