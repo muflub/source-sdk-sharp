@@ -52,6 +52,7 @@ allow	NDEBUG	configuration marker: the release preset defines it (SS_DEFS_releas
 # delete the row". A waiver is not a fact; removing it makes the check stricter,
 # which is the direction this file's own header says the list may move.
 allow	SS_COVERAGE	another configuration of this tree: the coverage build defines it.
+allow	SS_NO_CRT	another configuration of this tree: the Windows build defines it on a NO_RUNTIME target (ss_sdk_target, cmake/SourceSharp.cmake), libss_fwd_engine's DLL, which links no CRT and so defines _fltused itself; the Linux build links no CRT either but MSVC's codegen is the only one that expects that symbol.
 # PHASE 6B, FOR A RULING: the two link-mode rows below were waived as "other
 # VPC configurations" of this tree. VPC is retired, and neither VPC's own graph
 # (main at 8e35279) nor the CMake build defines _STATIC_LINKED or _SHARED_LIB on
