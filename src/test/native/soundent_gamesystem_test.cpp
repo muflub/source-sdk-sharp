@@ -181,7 +181,9 @@ TEST( SoundEntGameSystem, NoTrackedMapSpawnsASoundent )
 		<< strTracked << " has no readable entity lump. It is a TRACKED file, "
 		<< "so this is not a missing build artefact — either the map has been "
 		<< "replaced or the reader below is broken, and in both cases every "
-		<< "count it produces is meaningless.";
+		<< "count it produces is meaningless."
+		<< " (read " << ReadRaw( strTracked ).size() << " bytes, starting \""
+		<< ReadRaw( strTracked ).substr( 0, 4 ) << "\")";
 
 	// The reader, checked before it is believed. A garbage lump reports zero
 	// for everything, and a zero `soundent` count would then read as good news.

@@ -581,7 +581,9 @@ TEST( ClipVphysicsPort, CSharpServesTheClassnameAndTheTrackedMapStillHasThree )
 	const std::string lump = EntityLump( strTracked );
 	ASSERT_FALSE( lump.empty() )
 		<< strTracked << " has no readable entity lump. It is a TRACKED file, so "
-		<< "this is not a missing build artefact.";
+		<< "this is not a missing build artefact."
+		<< " (read " << ReadRaw( strTracked ).size() << " bytes, starting \""
+		<< ReadRaw( strTracked ).substr( 0, 4 ) << "\")";
 
 	// The reader, checked before it is believed.
 	ASSERT_GE( CountClassname( lump, "worldspawn" ), 1 )

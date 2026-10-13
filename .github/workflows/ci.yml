@@ -239,7 +239,7 @@ jobs:
         run: |
           python - <<'EOF'
           import os
-          for p in ("farm/release/src/public/tier0/platform.h", "farm/release/src/sourcesharp/game/shared/ss_platform.h", "farm/release/src/buildsourcesharp"):
+          for p in ("farm/release/src/public/tier0/platform.h", "farm/release/src/sourcesharp/game/shared/ss_platform.h", "farm/release/src/buildsourcesharp", "farm/release/game/mod_sharp/maps", "farm/release/game/mod_sharp/maps/dm_lockdown.bsp"):
               t = os.readlink(p) if os.path.islink(p) else None
               print(f"{p}: lexists={os.path.lexists(p)} islink={os.path.islink(p)} exists={os.path.exists(p)} target={t!r} target_exists={os.path.exists(t) if t else None}")
           EOF

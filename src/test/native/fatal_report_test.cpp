@@ -17,14 +17,21 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fstream>
+#include <filesystem>
 #include <sstream>
+#include <vector>
 
 namespace
 {
+// Under the platform's temp directory (TMPDIR on Linux, TEMP on Windows): a
+// literal /tmp is \tmp on Windows' current drive, which does not exist.
 std::string MakeTempDir()
 {
-	char szTemplate[] = "/tmp/fatal_report_test.XXXXXX";
-	const char *pszDir = mkdtemp( szTemplate );
+	std::string strTemplate =
+		( std::filesystem::temp_directory_path() / "fatal_report_test.XXXXXX" ).string();
+	std::vector< char > template_( strTemplate.begin(), strTemplate.end() );
+	template_.push_back( '\0' );
+	const char *pszDir = mkdtemp( template_.data() );
 	return pszDir ? pszDir : "";
 }
 
