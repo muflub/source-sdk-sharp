@@ -152,11 +152,18 @@ TEST( SteamContextSources, TheContextIsGoneAndSoAreTheStubs )
 
 	// The retention half: the managed path exists and binds the engine's copy.
 	// An instance per server load since P1 run 3, in Server.Interop: it opens
-	// the library through its loader, and the process loader is RTLD_NOLOAD.
+	// the library through its loader, and the process loader is
+	// LoadedLibrary's, which never loads one: RTLD_NOLOAD on Linux,
+	// GetModuleHandleW on Windows.
 	const std::string flat = Read( "sourcesharp/managed/SourceSharp.Server.Interop/SteamGameServerFlat.cs" );
 	ASSERT_FALSE( flat.empty() );
 	EXPECT_NE( std::string::npos, flat.find( "_library = _loader.OpenLoaded(Library);" ) );
-	EXPECT_NE( std::string::npos, flat.find( "public IntPtr OpenLoaded(string file) => DlOpen(file, RTLD_NOW | RTLD_NOLOAD);" ) );
+	EXPECT_NE( std::string::npos, flat.find( "public IntPtr OpenLoaded(string file) => LoadedLibrary.Open(file);" ) );
+
+	const std::string loaded = Read( "sourcesharp/managed/SourceSharp.Shared.Interop/LoadedLibrary.cs" );
+	ASSERT_FALSE( loaded.empty() );
+	EXPECT_NE( std::string::npos, loaded.find(
+		"=> OperatingSystem.IsWindows() ? GetModuleHandleW(file) : DlOpen(file, RTLD_NOW | RTLD_NOLOAD);" ) );
 }
 
 //-----------------------------------------------------------------------------
