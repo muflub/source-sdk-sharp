@@ -53,29 +53,14 @@ inline std::vector<ConsoleLineDrained> ConsoleLineParse( const ConsoleLineTaken 
 	return lines;
 }
 
-// An acquire load: gcc's builtin on the GNU compilers; under MSVC, which has
-// no __atomic, a volatile read (an acquire on x64) and a compiler barrier,
-// as console_line_buffer.h's lock helpers do.
-template < typename T >
-inline T ConsoleLineLoadAcquire( const T *p )
-{
-#ifdef _MSC_VER
-	const T v = *(const volatile T *)p;
-	_ReadWriteBarrier();
-	return v;
-#else
-	return __atomic_load_n( p, __ATOMIC_ACQUIRE );
-#endif
-}
-
 inline uint32_t ConsoleLineSequence( const CConsoleLineBuffer &buffer )
 {
-	return ConsoleLineLoadAcquire( &buffer.m_Header.nSeq );
+	return buffer.m_Header.nSeq.load( std::memory_order_acquire );
 }
 
 inline bool ConsoleLineLocked( const CConsoleLineBuffer &buffer )
 {
-	return ConsoleLineLoadAcquire( &buffer.m_Header.nLock ) != 0;
+	return buffer.m_Header.nLock.load( std::memory_order_acquire ) != 0;
 }
 
 #endif // SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H

@@ -30,27 +30,6 @@
 #include "console_display_forward.h"
 #include "console_line_buffer.h"
 
-// The attach flag's two operations, spelled per compiler as
-// console_line_buffer.h spells its lock word's (no __atomic under MSVC).
-static inline bool AttachFlagExchange( bool *pFlag, bool bValue )
-{
-#ifdef _MSC_VER
-	return _InterlockedExchange8( (volatile char *)pFlag, (char)bValue ) != 0;
-#else
-	return __atomic_exchange_n( pFlag, bValue, __ATOMIC_ACQ_REL );
-#endif
-}
-
-static inline void AttachFlagStoreRelease( bool *pFlag, bool bValue )
-{
-#ifdef _MSC_VER
-	_ReadWriteBarrier();
-	*(volatile bool *)pFlag = bValue;
-#else
-	__atomic_store_n( pFlag, bValue, __ATOMIC_RELEASE );
-#endif
-}
-
 namespace
 {
 
@@ -69,7 +48,7 @@ public:
 
 	/// Hands the buffer to this load's area, once per install; false outside a load.
 	bool Attach();
-	void Detach() { AttachFlagStoreRelease( &m_bAttached, false ); }
+	void Detach() { m_bAttached.store( false, std::memory_order_release ); }
 
 private:
 	void Forward( const char *pText, int nWarning );
@@ -77,7 +56,7 @@ private:
 	// The lines, and their one sequence, outlive a managed reload: the
 	// forwarder is this DLL's, not the load's. 1 MiB (2 x 512 KiB halves).
 	CConsoleLineBuffer m_Buffer;
-	bool m_bAttached = false;
+	std::atomic< bool > m_bAttached{ false };
 
 	// Every spew reaches ColorPrint, a Msg too (the engine's spew handler); its colour is the
 	// spew type's: warning (255,90,90), assert (255,20,20), error (20,70,255). Read back, not decided.
@@ -124,7 +103,7 @@ bool CConsoleDisplayForward::Attach()
 	{
 		return false;
 	}
-	if ( !AttachFlagExchange( &m_bAttached, true ) )
+	if ( !m_bAttached.exchange( true, std::memory_order_acq_rel ) )
 	{
 #ifdef CLIENT_DLL
 		pArea->ClientConsoleBufferAttach( &m_Buffer );

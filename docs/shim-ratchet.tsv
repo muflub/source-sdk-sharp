@@ -1601,7 +1601,8 @@ shim_cpp_files	src/sourcesharp	218
 # RAISED 2026-10-13, 143726 -> 143860 (+134, measured by the walk): vtable_hook.h's Microsoft-ABI MemberOf, which reads the slot from the vcall thunk a pointer to a virtual member points at (MSVC, and clang-cl, which took the Itanium branch before); without it every slot count on Windows was "not virtual". Held by vtable_hook_test and managed_accept_test on the Windows build.
 # RAISED 2026-10-13, 143860 -> 143890 (+30, measured by the walk): MSVC's C4355 ('this' in an initialiser list) disabled at the four constructors that pass this on purpose (CWorld, C_World, CStandaloneEntity, CSourceSharpCommand): tier1/convar.h ends with `#pragma warning( default : 4355 )`, which undoes the build's /wd4355 for the rest of every file that includes it.
 # RAISED 2026-10-13, 143890 -> 143904 (+14, measured by the walk): MSVC on CI: ss_platform.h includes <windows.h> with C4005 off (Valve's xboxstubs.h defines INVALID_HANDLE_VALUE first, to the same value); fatal_report.cpp calls the witness unconditionally under MSVC, where its alternate name always binds; particles_lib_client.cpp turns off C4073, which only reports what init_seg(lib) does.
-shim_lines	src/sourcesharp	143904
+# LOWERED 2026-10-13, 143904 -> 143847 (-57, measured by the walk): the console line buffer's lock and counter words and the display forward's attach flag are std::atomic, in place of per-compiler __atomic builtins and Interlocked intrinsics; the yield is std::this_thread::yield.
+shim_lines	src/sourcesharp	143847
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their
