@@ -163,6 +163,63 @@ uniformity only. Decide in phase 5.
 
 Each phase lands green on both CI jobs before the next starts.
 
+## 8a. Phase 1, as built (2026-10-13, branch claude/engine-forwarders)
+
+What the spike settled, so later phases follow it rather than re-deciding:
+
+- **The generator** is `tools/engine-forwarders`, beside `tools/vtable-layout`
+  and reusing its header walk (`derive_chain`, `signature_of`, `slot_hash`).
+  It runs from the farm, as vtable-layout does, and writes
+  `src/fwd/native/fwd_engine.g.inc` and `src/abi/EngineForwarders.g.cs`.
+  `FORWARD` lists, per interface, the methods managed calls by the field
+  names `VtableLayouts.g.cs` gives them (an overload's second is `Name_2`);
+  the table is in header declaration order whatever order the list has.
+  A routine row in `tools/checks.tsv` runs its self-test and its staleness
+  check.
+- **The table** is a plain struct, not a C++ vtable: `SSForwarderTable`
+  (`src/fwd/native/ss_fwd.h`) is the slot array, a hash per slot and the
+  count. Its first word is the slot array, so the internal factory can hand
+  it out as an object like any other. The forwarders take the ENGINE object
+  first; managed calls `_fwd->GetModel(_self, index)`.
+- **The library** is `libss_fwd_engine.so` / `ss_fwd_engine.dll` in
+  `src/fwd/native` (mapped into the farm as `sourcesharp/fwd`, shim letter
+  b). It links no SDK library. **It exports `SSFwdEngine_Table`, not
+  `CreateInterface`** (section 4 said CreateInterface): the game DLLs export
+  CreateInterface themselves, and a second one in a library they need would
+  be one more symbol for the engine's lookup to resolve against.
+- **Who loads it (section 4's open question): the game DLLs.** server.so
+  and client.so link it as client.so links libss_particles (DT_NEEDED,
+  RUNPATH $ORIGIN; the import library on Windows), and
+  `SourceSharp_InternalFactory` serves every `SSFwd_<table>` name through
+  `SSFwdEngine_Serve`. Managed has no path to a native library of its own
+  (it never loads one; only the launcher builds a `bin/<platform>` path), so
+  this is the route that already works, on both sides, unchanged.
+- **The engine object** is still acquired from the engine's factory by
+  version string, but as a pointer only: its vtable length is not held
+  against anything, because managed never indexes it. The object is asked
+  for before the table, so a side that does not serve the name says so by
+  that name.
+- **The check at bind** is count, then every slot's hash
+  (`Forwarders.TryBind`), naming the slot that differs.
+
+**The measurement** (one hot call, from managed, the path the game takes):
+`GetModelType` through the engine object's vtable slot against through its
+forwarder, 50M calls a round, 5 rounds, release build of the scratch
+harness, on the 4-core Xeon @ 2.10 GHz this ran on:
+
+| | vtable | forwarder | difference |
+|---|---|---|---|
+| ns per call, 5 rounds | 2.18 - 2.72 | 2.91 - 3.28 | +0.49 to +1.05 |
+
+So about +0.5 to +1 ns a call: one extra direct call and return. IVModelInfo
+is asked a handful of times per model load, not per frame; the per-frame
+cost question belongs to phase 3 (vphysics), which measures the physics
+frame before and after as section 7 says.
+
+**What phase 1 still owes:** the Windows build and run of the forwarders
+(CI's windows job: `ss_fwd_engine.dll`, `fwd_engine_test`, and the managed
+facts there).
+
 ## 9. Done when
 
 - No managed code reads an engine object's vptr or knows which ABI it runs on.
