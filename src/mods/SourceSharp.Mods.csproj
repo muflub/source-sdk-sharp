@@ -9,6 +9,10 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
+    <!-- ModsConfig.IsWithin's facts hold the Windows path spelling on any OS. -->
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
     <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="18.1.0" PrivateAssets="all" />
   </ItemGroup>

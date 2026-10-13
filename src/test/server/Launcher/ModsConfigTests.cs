@@ -9,6 +9,36 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class ModsConfigTests
 {
+    // ---- the containment rule, under both platforms' spellings ----------
+    //
+    // ModsConfig.Inside refused every mod on Windows: it compared with a literal
+    // '/', and GetFullPath answers with backslashes there. IsWithin takes the
+    // separator and the comparison, so the Windows case is held here on any OS.
+
+    [Fact]
+    public void A_path_under_the_root_is_within_it_with_forward_slashes()
+        => Assert.True(ModsConfig.IsWithin("/games/sharp", "/games/sharp/mods/test", '/', StringComparison.Ordinal));
+
+    [Fact]
+    public void A_path_under_the_root_is_within_it_with_backslashes()
+        => Assert.True(ModsConfig.IsWithin(@"D:\a\game", @"D:\a\game\mods\test", '\\', StringComparison.OrdinalIgnoreCase));
+
+    [Fact]
+    public void The_root_itself_is_within_it()
+        => Assert.True(ModsConfig.IsWithin(@"D:\a\game\", @"D:\a\game", '\\', StringComparison.OrdinalIgnoreCase));
+
+    [Fact]
+    public void A_sibling_sharing_the_roots_prefix_is_not_within_it()
+        => Assert.False(ModsConfig.IsWithin(@"D:\a\game", @"D:\a\gameplay\mods", '\\', StringComparison.OrdinalIgnoreCase));
+
+    [Fact]
+    public void A_parent_of_the_root_is_not_within_it()
+        => Assert.False(ModsConfig.IsWithin("/games/sharp", "/games", '/', StringComparison.Ordinal));
+
+    [Fact]
+    public void Windows_drive_letter_case_does_not_matter()
+        => Assert.True(ModsConfig.IsWithin(@"d:\a\game", @"D:\A\Game\mods", '\\', StringComparison.OrdinalIgnoreCase));
+
     private const string Path = "/games/sharp/bin/debug/mods.yaml";
 
     private const string Minimal = """

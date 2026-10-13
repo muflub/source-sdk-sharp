@@ -351,10 +351,28 @@ public sealed class ModsConfig
             throw new ModsConfigException($"{where}: {key} must be relative, not {rel}");
 
         string full = System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, rel));
-        string root = System.IO.Path.GetFullPath(baseDir).TrimEnd('/') + "/";
-        if (!(full + "/").StartsWith(root, StringComparison.Ordinal))
+        if (!IsWithin(System.IO.Path.GetFullPath(baseDir), full, System.IO.Path.DirectorySeparatorChar,
+                      OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
             throw new ModsConfigException($"{where}: {key} '{rel}' leaves {baseDir}");
 
         return full;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="full"/> is <paramref name="root"/> or beneath it,
+    /// both already full paths spelled with <paramref name="separator"/>.
+    ///
+    /// <para>
+    /// The separator and the comparison are the platform's, passed in so a fact
+    /// can hold the Windows spelling on any OS. The check was written with a
+    /// literal '/', and on Windows, where GetFullPath answers with backslashes,
+    /// it refused every mod's game_dir as leaving the game directory, so the
+    /// launcher could start nothing there.
+    /// </para>
+    /// </summary>
+    internal static bool IsWithin(string root, string full, char separator, StringComparison comparison)
+    {
+        string prefix = root.TrimEnd(separator) + separator;
+        return (full.TrimEnd(separator) + separator).StartsWith(prefix, comparison);
     }
 }
