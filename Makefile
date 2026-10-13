@@ -228,28 +228,12 @@ endef
 .DEFAULT_GOAL := help
 HOST_ROOT ?= $(abspath ../source-sdk-sharp-host)
 
-# HOST_SDK=0: build and test without the host's SDK package.
-#
-# The TF2Descent server speaks the host's SDK (src/tf2_descent/
-# Directory.Build.props pins SourceSharp.Host.Sdk 2.6.0), packed from a
-# checkout of source-sdk-sharp-host beside this one (`make host-pack`). A
-# tree with no such checkout, or one older than the pinned SDK, cannot
-# compile TF2.Descent.Server or its facts. HOST_SDK=0 builds
-# SourceSharp.NoHost.slnf instead -- SourceSharp.slnx minus exactly those two
-# projects (tools/nohost-sln keeps the filter honest) -- drops the
-# tf2_descent test leg with them, and asks the host only for the Contracts
-# package the rules module restores. Everything else builds and is tested the
-# same. CI packs both packages from the host's public main
-# (.github/actions/host-packages) and builds the whole solution.
-HOST_SDK ?= 1
-SLN := $(if $(filter 0,$(HOST_SDK)),SourceSharp.NoHost.slnf,SourceSharp.slnx)
-# buildsourcesharp builds the same solution (it reads SS_SLN), and a fact that
-# expects every project's build output reads SS_HOST_SDK (AnalyzerWiringTests).
+# The solution every build and test leg builds; buildsourcesharp reads SS_SLN.
+SLN := SourceSharp.slnx
 export SS_SLN := $(SLN)
-export SS_HOST_SDK := $(HOST_SDK)
 # What `make setup` must find in $(HOST_ROOT)/bin/nupkg, else it runs host-pack.
 HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
-                 $(if $(filter 0,$(HOST_SDK)),,$(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg)
+                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test
@@ -279,7 +263,6 @@ help:
 	@echo "  make test-full  every test leg: routine + self-tests, oracles, census (before a merge)"
 	@echo "  make check      build debug and run every test leg (make test-full)"
 	@echo "  make check-public  build debug and run the public tier: what the public inputs can be held to (CI)"
-	@echo "  ... HOST_SDK=0  any of the above without the host's SDK package (the Descent server and its facts left out)"
 	@echo "  make entity-census  plan_entity.md's §1 table, diffed against its baseline"
 	@echo "  make entity-gates   plan_entity.md's three definition-of-done gates"
 	@echo "  make entity-ratchet the 'entity' test leg: census + gates ratchet + budget"
@@ -888,7 +871,7 @@ MANAGED_TEST_LEGS = \
     'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
     'managed-server:tools/leg-floor managed-server && $(SERVER_LEG)' \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
-    $(if $(filter 0,$(HOST_SDK)),,'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)')
+    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)'
 CHECK_MANAGED ?= 1
 TEST_LEGS = \
     'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
@@ -925,7 +908,7 @@ test-full: ui
 # THE PUBLIC TIER: the legs whose result depends on this tree alone, which is
 # what a machine with only the public inputs (CI, a fresh contributor: `make
 # sdk-upstream`, no Steam, no fork) can be held to. The other legs were run
-# that way at 0805b2f (make check HOST_SDK=0, clang 22.1.8, glibc 2.39, an
+# that way at 0805b2f (make check without the host SDK package, clang 22.1.8, glibc 2.39, an
 # Intel Xeon with AVX-512, 2026-10-12) and each fails for a reason that is
 # not this tree's code:
 #   - managed-server (6 of 6,779), managed-client (24 of 2,623),
@@ -950,7 +933,7 @@ TEST_PUBLIC_LEGS = \
     'runner:tools/leg-floor runner && tools/run-test-legs --self-test && tools/leg-floor --self-test' \
     'checks-full:tools/leg-floor checks-full && $(CHECKS_TEST) full' \
     'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
-    $(if $(filter 0,$(HOST_SDK)),,'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)') \
+    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)' \
     'oracle-managed:tools/leg-floor oracle-managed && $(ORACLE_MANAGED_LEG)'
 
 test-public: ui

@@ -17,8 +17,7 @@ not yet ported.
 > and applies the patch series in `patches/source-sdk-2013/`. The tf2_descent
 > server restores the host SDK from a checkout of
 > [`source-sdk-sharp-host`](https://github.com/muflub/source-sdk-sharp-host)
-> beside this one; without one, build with `HOST_SDK=0` (see "Without the
-> host SDK").
+> beside this one, which `make setup` packs (`make host-pack`).
 
 ## Prerequisites
 
@@ -62,23 +61,6 @@ gates. Maps: `make sandbox` regenerates `game/mod_test/maps/ss_sandbox.vmf`, and
 `managed` (xUnit), `native` (gtest), `oracle` (ports checked against the
 pristine upstream Valve SDK, see below), `entity` (the entity census and
 ratchet) and `ui` (the web UI's vitest suite).
-
-### Without the host SDK
-
-The TF2Descent server restores `SourceSharp.Host.Sdk` 2.6.0, packed from a
-checkout of the [host repo](https://github.com/muflub/source-sdk-sharp-host)
-beside this one by `make setup` (`make host-pack`). A tree with no host
-checkout builds with
-
-```bash
-make sdk-upstream HOST_SDK=0    # or make setup ROOT=... HOST_SDK=0
-make check HOST_SDK=0
-```
-
-which builds `SourceSharp.NoHost.slnf` (the solution minus `TF2.Descent.Server`
-and its facts; `tools/nohost-sln` keeps the filter in step with the solution),
-drops the `tf2_descent` test leg, and asks the host only for the Contracts
-package the rules module needs. Everything else is built and tested the same.
 
 ### CI and releases
 
