@@ -909,9 +909,12 @@ test: ui
 
 # Only the managed legs (managed, managed-server, managed-client, tf2_descent):
 # the test assemblies built and run, no native build. Their CMake-graph facts
-# read farm/debug/build, so that tree must be configured (not built) first.
+# read farm/debug/build, so that tree must be configured (not built) first;
+# the launcher and mod-image facts run bin/debug/source#, so the launcher is
+# published here as make debug publishes it.
 managed-legs: ui
 	@$(TEST_BUILD)
+	@$(DOTNET) publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
 	@tools/run-test-legs $(MANAGED_TEST_LEGS)
 
 # Every leg: the routine tier and the milestone tier together.

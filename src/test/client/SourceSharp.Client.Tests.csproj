@@ -62,6 +62,7 @@
     <Compile Include="..\common\TestServices.Client.cs" Link="common\TestServices.Client.cs" />
     <Compile Include="..\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <Compile Include="..\common\VtableSlots.cs" Link="common\VtableSlots.cs" />
+    <Compile Include="..\common\ThreadPoolFloor.cs" Link="common\ThreadPoolFloor.cs" />
     <Compile Include="..\common\RecordingRagdolls.cs" Link="common\RecordingRagdolls.cs" />
     <Compile Include="..\common\ProcessWide.cs" Link="common\ProcessWide.cs" />
     <Compile Include="..\common\FakeShimRoot.cs" Link="common\FakeShimRoot.cs" />
