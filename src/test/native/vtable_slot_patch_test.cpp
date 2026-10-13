@@ -11,7 +11,12 @@
 
 #include "../game/shared/vtable_slot_patch.h"
 
-#include <sys/mman.h>
+
+#if defined( _MSC_VER )
+	#define SS_TEST_NOINLINE __declspec( noinline )
+#else
+	#define SS_TEST_NOINLINE __attribute__(( noinline ))
+#endif
 
 namespace
 {
@@ -56,12 +61,12 @@ int HookFirst( IGreeter *self, int n )
 }
 
 // Called through the base pointer, so the compiler cannot devirtualise it.
-__attribute__(( noinline )) int CallFirst( IGreeter *p, int n )
+SS_TEST_NOINLINE int CallFirst( IGreeter *p, int n )
 {
 	return p->First( n );
 }
 
-__attribute__(( noinline )) int CallSecond( IGreeter *p, int n )
+SS_TEST_NOINLINE int CallSecond( IGreeter *p, int n )
 {
 	return p->Second( n );
 }
@@ -74,7 +79,7 @@ TEST( VTableSlotPatch, TheVtableStartsReadOnly )
 	void **pVtable = *(void ***)&greeter;
 	int nProtection = VTableSlotPatch::PageProtection( pVtable );
 	ASSERT_GE( nProtection, 0 ) << "no mapping holds the vtable";
-	EXPECT_EQ( 0, nProtection & PROT_WRITE ) << "the test needs a read-only table to prove the store lifts and restores it";
+	EXPECT_EQ( 0, nProtection & SS_PAGE_WRITE ) << "the test needs a read-only table to prove the store lifts and restores it";
 }
 
 TEST( VTableSlotPatch, AnInstalledHookRunsAndForwardsToTheOriginal )

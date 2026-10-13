@@ -28,7 +28,6 @@ ss_cpptest(vtable_hook_test
 # plan_client_novalve C7: the render call recorder overwrites one engine vtable
 # slot in place for a frame (vtable_slot_patch.h, header-only).
 ss_cpptest(vtable_slot_patch_test
-    LINUX_ONLY "sets up its test pages with mmap"
     SOURCES sourcesharp/test/vtable_slot_patch_test.cpp)
 
 # C7 item 7: the draw batch asks a renderable for its handle only when it is an
@@ -60,7 +59,6 @@ ss_cpptest_engine_headers(managed_accept_test
 # -I for the ABI header: ishim_console.h names SourceSharpConsoleEntry, which
 # sourcesharp.h declares (plan_engineapi_vtables A4).
 ss_cpptest_engine_headers(vtable_index_agreement_test
-    LINUX_ONLY "pins the Itanium C++ ABI's vtable layout (two slots for a virtual destructor, overloads in declaration order), and the Microsoft ABI lays vtables out differently, and the Windows port of layout-derived tables is not done"
     INCLUDES sourcesharp/host
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
 
@@ -1611,7 +1609,6 @@ ss_cpptest(damage_attacker_test
 # ill-formed shapes are compiled separately and required to fail, each at the
 # probe rather than somewhere else. Header-only and engine-free.
 ss_cpptest(entity_funcslot_test
-    LINUX_ONLY "pins the Itanium ABI's one size for every pointer to member function, and the Microsoft ABI sizes them by inheritance model, and EntityFuncSlot's Windows behaviour is not settled"
     SOURCES sourcesharp/test/entity_funcslot_test.cpp)
 
 ss_must_not_compile(entity_funcslot_unrelated

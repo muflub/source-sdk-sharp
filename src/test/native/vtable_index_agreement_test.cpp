@@ -218,16 +218,30 @@ std::string LastFieldOf( const std::string &text, const char *structName )
 	while ( ( line = text.find( "\n    public ", line ) ) != std::string::npos && line < end )
 	{
 		// `    public delegate* unmanaged<...> Name;` -- the identifier is what
-		// sits between the last space and the semicolon.
+		// sits between the last space and the semicolon. A layout MSVC orders
+		// differently writes `    public delegate* unmanaged<...> Name => ...;`,
+		// and there it is the word before the arrow.
 		size_t semi = text.find( ';', line );
 
 		if ( semi == std::string::npos || semi > end )
 			break;
 
-		size_t space = text.rfind( ' ', semi );
+		size_t arrow = text.find( " => ", line );
 
-		if ( space != std::string::npos && space > line )
-			name = text.substr( space + 1, semi - space - 1 );
+		if ( arrow != std::string::npos && arrow < semi )
+		{
+			size_t space = text.rfind( ' ', arrow - 1 );
+
+			if ( space != std::string::npos && space > line )
+				name = text.substr( space + 1, arrow - space - 1 );
+		}
+		else
+		{
+			size_t space = text.rfind( ' ', semi );
+
+			if ( space != std::string::npos && space > line )
+				name = text.substr( space + 1, semi - space - 1 );
+		}
 
 		line += 2;
 	}
@@ -295,6 +309,129 @@ int FieldsIn( const std::string &text, const char *structName )
 	}
 
 	return fields;
+}
+
+//-----------------------------------------------------------------------------
+// THE ABI THIS BINARY WAS COMPILED FOR picks the expected number.
+//
+// The engine's Windows binaries are MSVC's, and the Microsoft C++ ABI orders
+// some tables differently: a virtual destructor takes ONE slot rather than the
+// Itanium pair, and a class's overloads are grouped and laid out in REVERSE
+// declaration order. This file is compiled by the same compiler as the shell
+// it checks (MSVC or clang-cl on Windows, both of which follow the Microsoft
+// ABI and define _MSC_VER), so `MemberOf( &I::M ).slot` answers in that ABI's
+// numbering, and each expectation says what it is under both.
+//-----------------------------------------------------------------------------
+#if defined( _MSC_VER )
+	#define SS_ABI( itanium, microsoft ) ( microsoft )
+#else
+	#define SS_ABI( itanium, microsoft ) ( itanium )
+#endif
+
+// [begin, end) of one generated struct's body, or false when it is not there.
+bool StructBody( const std::string &text, const char *structName, size_t *pBegin, size_t *pEnd )
+{
+	const std::string needle = std::string( " unsafe struct " ) + structName + "\n{";
+	const size_t at = text.find( needle );
+
+	if ( at == std::string::npos )
+		return false;
+
+	const size_t end = text.find( "\n}", at );
+
+	if ( end == std::string::npos )
+		return false;
+
+	*pBegin = at;
+	*pEnd = end;
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// The table length the generated file claims for THIS binary's ABI: its span
+// of slots, except where MSVC orders the table differently, which the struct
+// then says outright as `internal const int MicrosoftEntries = N;`. -1 for a
+// struct that is not there.
+//-----------------------------------------------------------------------------
+int EntriesIn( const std::string &text, const char *structName )
+{
+#if defined( _MSC_VER )
+	size_t begin, end;
+
+	if ( !StructBody( text, structName, &begin, &end ) )
+		return -1;
+
+	const char *const kMicrosoft = "internal const int MicrosoftEntries = ";
+	const size_t at = text.find( kMicrosoft, begin );
+
+	if ( at != std::string::npos && at < end )
+		return atoi( text.c_str() + at + strlen( kMicrosoft ) );
+#endif
+
+	return FieldsIn( text, structName );
+}
+
+//-----------------------------------------------------------------------------
+// The slot the generated file gives one named slot, for THIS binary's ABI; -1
+// when the struct or the slot is not there.
+//
+// A slot MSVC numbers differently carries `[VtableSlot(itanium, microsoft)]`
+// above its declaration; every other slot's Itanium number leads its trailing
+// comment, and is its Microsoft number too.
+//-----------------------------------------------------------------------------
+int SlotIn( const std::string &text, const char *structName, const char *field )
+{
+	size_t begin, end;
+
+	if ( !StructBody( text, structName, &begin, &end ) )
+		return -1;
+
+	size_t line = std::string::npos;
+
+	for ( const std::string &shape : { std::string( " " ) + field + ";", std::string( " " ) + field + " => " } )
+	{
+		const size_t at = text.find( shape, begin );
+
+		if ( at != std::string::npos && at < end )
+		{
+			line = text.rfind( '\n', at );
+			break;
+		}
+	}
+
+	if ( line == std::string::npos || line < begin )
+		return -1;
+
+	// Its own block: back to the blank line before it.
+	size_t block = text.rfind( "\n\n", line );
+
+	if ( block == std::string::npos || block < begin )
+		block = begin;
+
+	const char *const kSlot = "[VtableSlot(";
+	const size_t attribute = text.find( kSlot, block );
+
+	if ( attribute != std::string::npos && attribute < line )
+	{
+		const char *p = text.c_str() + attribute + strlen( kSlot );
+		const int itanium = atoi( p );
+		const char *comma = strchr( p, ',' );
+
+		if ( !comma )
+			return -1;
+
+		const int microsoft = atoi( comma + 1 );
+		(void)itanium;
+		(void)microsoft;
+		return SS_ABI( itanium, microsoft );
+	}
+
+	const size_t comment = text.find( "// ", text.find( ';', line ) );
+
+	if ( comment == std::string::npos || comment > end )
+		return -1;
+
+	return atoi( text.c_str() + comment + 3 );
 }
 
 } // namespace
@@ -446,7 +583,7 @@ TEST( VtableLayoutLength, UniformRandomStreamIsFourSlots )
 		VTableHook::MemberOf( &IUniformRandomStream::RandomFloatExp ).slot + 1;
 
 	EXPECT_EQ( 4, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "UniformRandomStreamVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "UniformRandomStreamVtbl" ) );
 }
 
 TEST( VtableLayoutLength, TheRandomStreamHasNoVirtualDestructorSoSetSeedIsSlotZero )
@@ -462,8 +599,8 @@ TEST( VtableLayoutLength, ModelInfoIsFiftyNineSlots )
 	const int compiler =
 		VTableHook::MemberOf( &IVModelInfo::UnregisterModelLoadCallback ).slot + 1;
 
-	EXPECT_EQ( 59, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ModelInfoVtbl" ) );
+	EXPECT_EQ( SS_ABI( 59, 58 ), compiler );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ModelInfoVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ModelInfoReservesTwoSlotsForItsVirtualDestructor )
@@ -472,7 +609,8 @@ TEST( VtableLayoutLength, ModelInfoReservesTwoSlotsForItsVirtualDestructor )
 	// virtual destructor, so slots 0 and 1 are the complete-object destructor
 	// (D1) and the deleting destructor (D0), and the first method is at 2. An
 	// index one too low here frees the engine's singleton.
-	EXPECT_EQ( 2, VTableHook::MemberOf( &IVModelInfo::GetModel ).slot );
+	EXPECT_EQ( SS_ABI( 2, 1 ), VTableHook::MemberOf( &IVModelInfo::GetModel ).slot );
+	EXPECT_EQ( VTableHook::MemberOf( &IVModelInfo::GetModel ).slot, SlotIn( ReadLayout(), "ModelInfoVtbl", "GetModel" ) );
 }
 
 TEST( VtableLayoutLength, BaseFileSystemIsSeventeenSlots )
@@ -480,7 +618,7 @@ TEST( VtableLayoutLength, BaseFileSystemIsSeventeenSlots )
 	const int compiler = VTableHook::MemberOf( &IBaseFileSystem::UnzipFile ).slot + 1;
 
 	EXPECT_EQ( 17, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "BaseFileSystemVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "BaseFileSystemVtbl" ) );
 }
 
 TEST( VtableLayoutLength, TheTwoSizeOverloadsAreDifferentSlotsAndTheSecondIsTheOneWithNames )
@@ -498,7 +636,11 @@ TEST( VtableLayoutLength, TheTwoSizeOverloadsAreDifferentSlotsAndTheSecondIsTheO
 			&IBaseFileSystem::Size ).slot;
 
 	EXPECT_NE( byHandle, byName );
-	EXPECT_EQ( byHandle + 1, byName );
+
+	// Declared handle first, then names: Itanium numbers them 6 and 7, and
+	// MSVC, which lays a class's overloads out in reverse, 7 and 6.
+	EXPECT_EQ( SS_ABI( 6, 7 ), byHandle );
+	EXPECT_EQ( SS_ABI( 7, 6 ), byName );
 }
 
 TEST( VtableLayoutLength, EngineClientIsOneHundredAndFortySixSlots )
@@ -514,7 +656,7 @@ TEST( VtableLayoutLength, EngineClientIsOneHundredAndFortySixSlots )
 		VTableHook::MemberOf( &IVEngineClient::SetRichPresenceConnect ).slot + 1;
 
 	EXPECT_EQ( 146, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "EngineClientVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "EngineClientVtbl" ) );
 }
 
 TEST( VtableLayoutLength, TheDerivedEngineClientKeepsTheBaseSlotsWhereTheyWere )
@@ -542,7 +684,7 @@ TEST( VtableLayoutLength, EngineServerIsOneHundredAndTwentyFourSlots )
 	const int compiler = VTableHook::MemberOf( &IVEngineServer::SetPausedForced ).slot + 1;
 
 	EXPECT_EQ( 124, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "EngineServerVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "EngineServerVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ShimRootIsThreeSlots )
@@ -554,7 +696,7 @@ TEST( VtableLayoutLength, ShimRootIsThreeSlots )
 	const int compiler = VTableHook::MemberOf( &IShimRoot::Release ).slot + 1;
 
 	EXPECT_EQ( 3, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimRootVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ShimRootVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ManagedRootIsThreeSlots )
@@ -568,7 +710,7 @@ TEST( VtableLayoutLength, ManagedRootIsThreeSlots )
 
 	EXPECT_EQ( 3, compiler );
 	EXPECT_EQ( compiler, kIManagedRootSlotCount );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ManagedRootVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ManagedRootVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ManagedRuntimeClientIsNineSlots )
@@ -586,7 +728,7 @@ TEST( VtableLayoutLength, ManagedRuntimeClientIsNineSlots )
 
 	EXPECT_EQ( 9, compiler );
 	EXPECT_EQ( compiler, kIManagedRuntimeClientSlotCount );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ManagedRuntimeClientVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ManagedRuntimeClientVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ManagedRuntimeServerIsThirtyOneSlots )
@@ -600,7 +742,7 @@ TEST( VtableLayoutLength, ManagedRuntimeServerIsThirtyOneSlots )
 
 	EXPECT_EQ( 31, compiler );   // 26 at D5, +3 at E1 (the pre-entity pair, worldspawn's keys), +1 at E11 (game description), +1 at L1 (Validate)
 	EXPECT_EQ( compiler, kIManagedRuntimeServerSlotCount );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ManagedRuntimeServerVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ManagedRuntimeServerVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ShimConsoleIsElevenSlots )
@@ -611,7 +753,7 @@ TEST( VtableLayoutLength, ShimConsoleIsElevenSlots )
 	const int compiler = VTableHook::MemberOf( &IShimConsole::ConsoleSnapshotEntry ).slot + 1;
 
 	EXPECT_EQ( 11, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimConsoleVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ShimConsoleVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ParticleLibIsFortyFiveSlots )
@@ -623,7 +765,7 @@ TEST( VtableLayoutLength, ParticleLibIsFortyFiveSlots )
 	const int compiler = VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1;
 
 	EXPECT_EQ( 45, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ParticleLibVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ParticleLibVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ShimFrameIsNineteenSlots )
@@ -646,7 +788,7 @@ TEST( VtableLayoutLength, ShimFrameIsNineteenSlots )
 	const int compiler = VTableHook::MemberOf( &IShimFrame::DeliverToSdkEntities ).slot + 1;
 
 	EXPECT_EQ( 19, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimFrameVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ShimFrameVtbl" ) );
 }
 
 TEST( VtableLayoutLength, ShimLevelIsTwentySixSlots )
@@ -666,7 +808,7 @@ TEST( VtableLayoutLength, ShimLevelIsTwentySixSlots )
 	const int compiler = VTableHook::MemberOf( &IShimLevel::SpawnWorld ).slot + 1;
 
 	EXPECT_EQ( 26, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimLevelVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ShimLevelVtbl" ) );
 }
 
 TEST( VtableLayoutLength, TheShimLevelSlotsAreInTheHeadersOwnOrder )
@@ -765,7 +907,7 @@ TEST( VtableLayoutLength, AStructTheGeneratorNoLongerEmitsReadsAsMinusOneRatherT
 	{                                                            \
 		const int compiler = VTableHook::MemberOf( expr ).slot + 1; \
 		EXPECT_EQ( expected, compiler );                         \
-		EXPECT_EQ( compiler, FieldsIn( ReadLayout(), structName ) ); \
+		EXPECT_EQ( compiler, EntriesIn( ReadLayout(), structName ) ); \
 	}
 
 // IVModelInfoClient appends ONE method to IVModelInfo, whose virtual destructor
@@ -777,7 +919,7 @@ TEST( VtableLayoutLength, AStructTheGeneratorNoLongerEmitsReadsAsMinusOneRatherT
 // FindOrLoadModel -- `&IVModelInfoClient::FindOrLoadModel` answers 40, which is
 // the base's slot and says nothing about the chain's length.
 VTABLE_LENGTH_TEST( ModelInfoClientIsSixtySlots, "ModelInfoClientVtbl",
-                    &IVModelInfoClient::OnDynamicModelsStringTableChange, 60 )
+                    &IVModelInfoClient::OnDynamicModelsStringTableChange, SS_ABI( 60, 59 ) )
 
 VTABLE_LENGTH_TEST( RenderViewIsFiftyTwoSlots, "RenderViewVtbl",
                     &IVRenderView::DrawBrushModelEx, 52 )
@@ -807,10 +949,10 @@ VTABLE_LENGTH_TEST( ModelRenderIsTwentySixSlots, "ModelRenderVtbl",
                     &IVModelRender::GetMaterialOverride, 26 )
 
 VTABLE_LENGTH_TEST( EngineVGuiIsFiveSlots, "EngineVGuiVtbl",
-                    &IEngineVGui::GetWorkshopMap, 5 )
+                    &IEngineVGui::GetWorkshopMap, SS_ABI( 5, 4 ) )
 
 VTABLE_LENGTH_TEST( SpatialPartitionIsThirtyFiveSlots, "SpatialPartitionVtbl",
-                    &ISpatialPartition::InstallQueryCallback, 35 )
+                    &ISpatialPartition::InstallQueryCallback, SS_ABI( 35, 34 ) )
 
 // IBaseInterface declares nothing but a virtual destructor, so it contributes
 // exactly the reserved PAIR and this interface's own first method is slot 2.
@@ -819,17 +961,17 @@ VTABLE_LENGTH_TEST( SpatialPartitionIsThirtyFiveSlots, "SpatialPartitionVtbl",
 // which OVERRIDES IBaseInterface's and takes the same pair rather than a second
 // one. A walk that counted both answered 16.
 VTABLE_LENGTH_TEST( GameEventManagerIsFourteenSlots, "GameEventManagerVtbl",
-                    &IGameEventManager2::UnserializeEvent, 14 )
+                    &IGameEventManager2::UnserializeEvent, SS_ABI( 14, 13 ) )
 
 VTABLE_LENGTH_TEST( NetworkStringTableContainerIsNineSlots, "NetworkStringTableContainerVtbl",
-                    &INetworkStringTableContainer::SetAllowClientSideAddString, 9 )
+                    &INetworkStringTableContainer::SetAllowClientSideAddString, SS_ABI( 9, 8 ) )
 
 // A string table, as FindTable hands it back: the first layout REACHED BY
 // POINTER rather than by factory name, so no factory hands a slot count with it
 // and this test is the count's only check. The virtual destructor takes 0 and 1;
 // SetStringChangedCallback is the last of thirteen methods.
 VTABLE_LENGTH_TEST( NetworkStringTableIsFifteenSlots, "NetworkStringTableVtbl",
-                    &INetworkStringTable::SetStringChangedCallback, 15 )
+                    &INetworkStringTable::SetStringChangedCallback, SS_ABI( 15, 14 ) )
 VTABLE_LENGTH_TEST( NetChannelInfoIsTwentySixSlots, "NetChannelInfoVtbl",
                     &INetChannelInfo::GetTimeoutSeconds, 26 )
 
@@ -837,31 +979,31 @@ VTABLE_LENGTH_TEST( NetChannelInfoIsTwentySixSlots, "NetChannelInfoVtbl",
 // environment managed creates. Each is held here, as the string table is; the
 // counts include a virtual destructor's two slots where the header declares one.
 VTABLE_LENGTH_TEST( PhysicsEnvironmentIsSixtyEightSlots, "PhysicsEnvironmentVtbl",
-                    &IPhysicsEnvironment::DebugCheckContacts, 68 )
+                    &IPhysicsEnvironment::DebugCheckContacts, SS_ABI( 68, 67 ) )
 VTABLE_LENGTH_TEST( PhysicsObjectIsEightyFourSlots, "PhysicsObjectVtbl",
-                    &IPhysicsObject::GetBuoyancyRatio, 84 )
+                    &IPhysicsObject::GetBuoyancyRatio, SS_ABI( 84, 83 ) )
 VTABLE_LENGTH_TEST( PhysicsShadowControllerIsSixteenSlots, "PhysicsShadowControllerVtbl",
-                    &IPhysicsShadowController::GetMaxSpeed, 16 )
+                    &IPhysicsShadowController::GetMaxSpeed, SS_ABI( 16, 15 ) )
 VTABLE_LENGTH_TEST( PhysicsMotionControllerIsTenSlots, "PhysicsMotionControllerVtbl",
-                    &IPhysicsMotionController::SetPriority, 10 )
+                    &IPhysicsMotionController::SetPriority, SS_ABI( 10, 9 ) )
 VTABLE_LENGTH_TEST( PhysicsFrictionSnapshotIsFifteenSlots, "PhysicsFrictionSnapshotVtbl",
-                    &IPhysicsFrictionSnapshot::GetFrictionCoefficient, 15 )
+                    &IPhysicsFrictionSnapshot::GetFrictionCoefficient, SS_ABI( 15, 14 ) )
 VTABLE_LENGTH_TEST( PhysicsCollisionDataIsThreeSlots, "PhysicsCollisionDataVtbl",
                     &IPhysicsCollisionData::GetContactSpeed, 3 )
 // plan_physics_managed B2.2: the fluid slots' controller, reached by pointer.
 VTABLE_LENGTH_TEST( PhysicsFluidControllerIsEightSlots, "PhysicsFluidControllerVtbl",
-                    &IPhysicsFluidController::GetContents, 8 )
+                    &IPhysicsFluidController::GetContents, SS_ABI( 8, 7 ) )
 // plan_physics_bones_native_zero 2.4: the managed constraint and spring
 // tables call these through the pointers the environment's creators return.
 VTABLE_LENGTH_TEST( PhysicsConstraintIsFourteenSlots, "PhysicsConstraintVtbl",
-                    &IPhysicsConstraint::OutputDebugInfo, 14 )
+                    &IPhysicsConstraint::OutputDebugInfo, SS_ABI( 14, 13 ) )
 VTABLE_LENGTH_TEST( PhysicsSpringIsEightSlots, "PhysicsSpringVtbl",
-                    &IPhysicsSpring::GetEndObject, 8 )
+                    &IPhysicsSpring::GetEndObject, SS_ABI( 8, 7 ) )
 // plan_physics_bones_native_zero 2.5: the managed player shadow calls the
 // controller the environment's CreatePlayerController returns; the player
 // holds the pointer.
 VTABLE_LENGTH_TEST( PhysicsPlayerControllerIsEighteenSlots, "PhysicsPlayerControllerVtbl",
-                    &IPhysicsPlayerController::WasFrozen, 18 )
+                    &IPhysicsPlayerController::WasFrozen, SS_ABI( 18, 17 ) )
 
 // plan_physics_managed B0b: the callbacks vphysics calls, in Valve's layout and
 // written by managed. No virtual destructor in any of them, so slot 0 is the
@@ -881,11 +1023,11 @@ VTABLE_LENGTH_TEST( MotionEventIsOneSlot, "MotionEventVtbl",
 // .phy through the key parser, keeps a model's collision set and its joints'
 // group, and answers the parser's custom keys from its own Valve-layout table.
 VTABLE_LENGTH_TEST( VPhysicsKeyParserIsElevenSlots, "VPhysicsKeyParserVtbl",
-                    &IVPhysicsKeyParser::SkipBlock, 11 )
+                    &IVPhysicsKeyParser::SkipBlock, SS_ABI( 11, 10 ) )
 VTABLE_LENGTH_TEST( PhysicsCollisionSetIsThreeSlots, "PhysicsCollisionSetVtbl",
                     &IPhysicsCollisionSet::ShouldCollide, 3 )
 VTABLE_LENGTH_TEST( PhysicsConstraintGroupIsEightSlots, "PhysicsConstraintGroupVtbl",
-                    &IPhysicsConstraintGroup::SolvePenetration, 8 )
+                    &IPhysicsConstraintGroup::SolvePenetration, SS_ABI( 8, 7 ) )
 VTABLE_LENGTH_TEST( VPhysicsKeyHandlerIsTwoSlots, "VPhysicsKeyHandlerVtbl",
                     &IVPhysicsKeyHandler::SetDefaults, 2 )
 // Client Steam (Decision 1a): one Steam callback, in Valve's layout and written
@@ -1217,20 +1359,20 @@ TEST( VtableLayoutLength, CvarIsThirtyFiveSlots )
 	const int compiler = CvarPeek::Slots();
 
 	EXPECT_EQ( 35, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "CvarVtbl" ) );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "CvarVtbl" ) );
 }
 
 VTABLE_LENGTH_TEST( PhysicsIsThirteenSlots, "PhysicsVtbl",
                     &IPhysics::DestroyAllCollisionSets, 13 )
 
 VTABLE_LENGTH_TEST( PhysicsCollisionIsFiftyThreeSlots, "PhysicsCollisionVtbl",
-                    &IPhysicsCollision::ReadStat, 53 )
+                    &IPhysicsCollision::ReadStat, SS_ABI( 53, 52 ) )
 
 VTABLE_LENGTH_TEST( PhysicsSurfacePropsIsElevenSlots, "PhysicsSurfacePropsVtbl",
-                    &IPhysicsSurfaceProps::GetPhysicsParameters, 11 )
+                    &IPhysicsSurfaceProps::GetPhysicsParameters, SS_ABI( 11, 10 ) )
 
 VTABLE_LENGTH_TEST( VoiceServerIsFiveSlots, "VoiceServerVtbl",
-                    &IVoiceServer::SetClientProximity, 5 )
+                    &IVoiceServer::SetClientProximity, SS_ABI( 5, 4 ) )
 
 VTABLE_LENGTH_TEST( ServerPluginHelpersIsThreeSlots, "ServerPluginHelpersVtbl",
                     &IServerPluginHelpers::StartQueryCvarValue, 3 )
@@ -1245,6 +1387,119 @@ VTABLE_LENGTH_TEST( UploadGameStatsIsSevenSlots, "UploadGameStatsVtbl",
 
 // plan_engineapi_vtables E: the managed-built areas tools/managed-areas generates.
 #include "managed_areas_layout.inc"
+
+//=============================================================================
+// EVERY OVERLOAD IS WHERE THE LAYOUT SAYS, ON THIS BINARY'S ABI.
+//
+// The lengths above cannot see an overload in the wrong place: swapping two
+// slots changes no count. Under Itanium an overload pair is two slots in
+// declaration order; under the Microsoft ABI the same pair is reversed, which
+// is the one rule in tools/vtable-layout's Windows numbering that moves a slot
+// without moving the length. So every overload of every generated layout is
+// asked of the compiler here, through a pointer typed to pick it, and held
+// against the slot the committed file gives it.
+//
+// Each type below is the overload's own, const included (ICvar declares four
+// const/non-const pairs with identical parameter lists).
+//=============================================================================
+namespace
+{
+	struct OverloadCase
+	{
+		const char *structName;
+		const char *field;
+		int compiler;
+	};
+
+	#define OVERLOAD( structName, field, pmfType, expr ) \
+		{ structName, field, VTableHook::MemberOf< pmfType >( expr ).slot }
+}
+
+TEST( VtableOverloadOrder, EveryOverloadIsWhereTheLayoutSaysOnThisAbi )
+{
+	const OverloadCase cases[] = {
+OVERLOAD( "ModelInfoVtbl", "GetVCollide", vcollide_t * ( IVModelInfo::* )( const model_t * ), &IVModelInfo::GetVCollide ),
+		OVERLOAD( "ModelInfoVtbl", "GetVCollide_2", vcollide_t * ( IVModelInfo::* )( int ), &IVModelInfo::GetVCollide ),
+		OVERLOAD( "ModelInfoVtbl", "FindModel", const studiohdr_t * ( IVModelInfo::* )( const studiohdr_t *, void **, const char * ) const, &IVModelInfo::FindModel ),
+		OVERLOAD( "ModelInfoVtbl", "FindModel_2", const studiohdr_t * ( IVModelInfo::* )( void * ) const, &IVModelInfo::FindModel ),
+		OVERLOAD( "BaseFileSystemVtbl", "Size", unsigned int ( IBaseFileSystem::* )( FileHandle_t ), &IBaseFileSystem::Size ),
+		OVERLOAD( "BaseFileSystemVtbl", "Size_2", unsigned int ( IBaseFileSystem::* )( const char *, const char * ), &IBaseFileSystem::Size ),
+		OVERLOAD( "ModelInfoClientVtbl", "GetVCollide", vcollide_t * ( IVModelInfo::* )( const model_t * ), &IVModelInfo::GetVCollide ),
+		OVERLOAD( "ModelInfoClientVtbl", "GetVCollide_2", vcollide_t * ( IVModelInfo::* )( int ), &IVModelInfo::GetVCollide ),
+		OVERLOAD( "ModelInfoClientVtbl", "FindModel", const studiohdr_t * ( IVModelInfo::* )( const studiohdr_t *, void **, const char * ) const, &IVModelInfo::FindModel ),
+		OVERLOAD( "ModelInfoClientVtbl", "FindModel_2", const studiohdr_t * ( IVModelInfo::* )( void * ) const, &IVModelInfo::FindModel ),
+		OVERLOAD( "RenderViewVtbl", "Push3DView", void ( IVRenderView::* )( const CViewSetup &, int, ITexture *, VPlane * ), &IVRenderView::Push3DView ),
+		OVERLOAD( "RenderViewVtbl", "Push3DView_2", void ( IVRenderView::* )( const CViewSetup &, int, ITexture *, VPlane *, ITexture * ), &IVRenderView::Push3DView ),
+		OVERLOAD( "DebugOverlayVtbl", "Refused_AddTextOverlay", void ( IVDebugOverlay::* )( const Vector &, float, const char *, ... ), &IVDebugOverlay::AddTextOverlay ),
+		OVERLOAD( "DebugOverlayVtbl", "Refused_AddTextOverlay_2", void ( IVDebugOverlay::* )( const Vector &, int, float, const char *, ... ), &IVDebugOverlay::AddTextOverlay ),
+		OVERLOAD( "DebugOverlayVtbl", "ScreenPosition", int ( IVDebugOverlay::* )( const Vector &, Vector & ), &IVDebugOverlay::ScreenPosition ),
+		OVERLOAD( "DebugOverlayVtbl", "ScreenPosition_2", int ( IVDebugOverlay::* )( float, float, Vector & ), &IVDebugOverlay::ScreenPosition ),
+		OVERLOAD( "DebugOverlayVtbl", "Refused_AddTextOverlayRGB", void ( IVDebugOverlay::* )( const Vector &, int, float, float, float, float, float, const char *, ... ), &IVDebugOverlay::AddTextOverlayRGB ),
+		OVERLOAD( "DebugOverlayVtbl", "Refused_AddTextOverlayRGB_2", void ( IVDebugOverlay::* )( const Vector &, int, float, int, int, int, int, const char *, ... ), &IVDebugOverlay::AddTextOverlayRGB ),
+		OVERLOAD( "SoundEmitterSystemVtbl", "GetWavFileForSound", const char * ( ISoundEmitterSystemBase::* )( const char *, const char * ), &ISoundEmitterSystemBase::GetWavFileForSound ),
+		OVERLOAD( "SoundEmitterSystemVtbl", "GetWavFileForSound_2", const char * ( ISoundEmitterSystemBase::* )( const char *, gender_t ), &ISoundEmitterSystemBase::GetWavFileForSound ),
+		OVERLOAD( "SoundEmitterSystemVtbl", "GenderExpandString", void ( ISoundEmitterSystemBase::* )( const char *, const char *, char *, int ), &ISoundEmitterSystemBase::GenderExpandString ),
+		OVERLOAD( "SoundEmitterSystemVtbl", "GenderExpandString_2", void ( ISoundEmitterSystemBase::* )( gender_t, const char *, char *, int ), &ISoundEmitterSystemBase::GenderExpandString ),
+		OVERLOAD( "EngineTraceVtbl", "EnumerateEntities", void ( IEngineTrace::* )( const Ray_t &, bool, IEntityEnumerator * ), &IEngineTrace::EnumerateEntities ),
+		OVERLOAD( "EngineTraceVtbl", "EnumerateEntities_2", void ( IEngineTrace::* )( const Vector &, const Vector &, IEntityEnumerator * ), &IEngineTrace::EnumerateEntities ),
+		OVERLOAD( "EngineSoundVtbl", "EmitSound", void ( IEngineSound::* )( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int ), &IEngineSound::EmitSound ),
+		OVERLOAD( "EngineSoundVtbl", "EmitSound_2", void ( IEngineSound::* )( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int ), &IEngineSound::EmitSound ),
+		OVERLOAD( "SpatialPartitionVtbl", "CreateHandle", SpatialPartitionHandle_t ( ISpatialPartition::* )( IHandleEntity * ), &ISpatialPartition::CreateHandle ),
+		OVERLOAD( "SpatialPartitionVtbl", "CreateHandle_2", SpatialPartitionHandle_t ( ISpatialPartition::* )( IHandleEntity *, SpatialPartitionListMask_t, const Vector &, const Vector & ), &ISpatialPartition::CreateHandle ),
+		OVERLOAD( "SpatialPartitionVtbl", "Remove", void ( ISpatialPartition::* )( SpatialPartitionListMask_t, SpatialPartitionHandle_t ), &ISpatialPartition::Remove ),
+		OVERLOAD( "SpatialPartitionVtbl", "Remove_2", void ( ISpatialPartition::* )( SpatialPartitionHandle_t ), &ISpatialPartition::Remove ),
+		OVERLOAD( "StaticPropMgrClientVtbl", "IsStaticProp", bool ( IStaticPropMgr::* )( IHandleEntity * ) const, &IStaticPropMgr::IsStaticProp ),
+		OVERLOAD( "StaticPropMgrClientVtbl", "Refused_IsStaticProp", bool ( IStaticPropMgr::* )( CBaseHandle ) const, &IStaticPropMgr::IsStaticProp ),
+		OVERLOAD( "StaticPropMgrServerVtbl", "IsStaticProp", bool ( IStaticPropMgr::* )( IHandleEntity * ) const, &IStaticPropMgr::IsStaticProp ),
+		OVERLOAD( "StaticPropMgrServerVtbl", "Refused_IsStaticProp", bool ( IStaticPropMgr::* )( CBaseHandle ) const, &IStaticPropMgr::IsStaticProp ),
+		OVERLOAD( "InputSystemVtbl", "GetActionSetHandle", ControllerActionSetHandle_t ( IInputSystem::* )( GameActionSet_t ), &IInputSystem::GetActionSetHandle ),
+		OVERLOAD( "InputSystemVtbl", "GetActionSetHandle_2", ControllerActionSetHandle_t ( IInputSystem::* )( const char * ), &IInputSystem::GetActionSetHandle ),
+		OVERLOAD( "InputSystemVtbl", "GetSteamControllerActionOrigin", EControllerActionOrigin ( IInputSystem::* )( const char *, GameActionSet_t ), &IInputSystem::GetSteamControllerActionOrigin ),
+		OVERLOAD( "InputSystemVtbl", "GetSteamControllerActionOrigin_2", EControllerActionOrigin ( IInputSystem::* )( const char *, ControllerActionSetHandle_t ), &IInputSystem::GetSteamControllerActionOrigin ),
+		OVERLOAD( "CvarVtbl", "FindCommandBase", ConCommandBase * ( ICvar::* )( const char * ), &ICvar::FindCommandBase ),
+		OVERLOAD( "CvarVtbl", "FindCommandBase_2", const ConCommandBase * ( ICvar::* )( const char * ) const, &ICvar::FindCommandBase ),
+		OVERLOAD( "CvarVtbl", "FindVar", ConVar * ( ICvar::* )( const char * ), &ICvar::FindVar ),
+		OVERLOAD( "CvarVtbl", "FindVar_2", const ConVar * ( ICvar::* )( const char * ) const, &ICvar::FindVar ),
+		OVERLOAD( "CvarVtbl", "FindCommand", ConCommand * ( ICvar::* )( const char * ), &ICvar::FindCommand ),
+		OVERLOAD( "CvarVtbl", "FindCommand_2", const ConCommand * ( ICvar::* )( const char * ) const, &ICvar::FindCommand ),
+		OVERLOAD( "CvarVtbl", "GetCommands", ConCommandBase * ( ICvar::* )(), &ICvar::GetCommands ),
+		OVERLOAD( "CvarVtbl", "GetCommands_2", const ConCommandBase * ( ICvar::* )() const, &ICvar::GetCommands ),
+		OVERLOAD( "CvarVtbl", "QueueMaterialThreadSetValue", void ( ICvar::* )( ConVar *, const char * ), &ICvar::QueueMaterialThreadSetValue ),
+		OVERLOAD( "CvarVtbl", "QueueMaterialThreadSetValue_2", void ( ICvar::* )( ConVar *, int ), &ICvar::QueueMaterialThreadSetValue ),
+		OVERLOAD( "CvarVtbl", "QueueMaterialThreadSetValue_3", void ( ICvar::* )( ConVar *, float ), &ICvar::QueueMaterialThreadSetValue ),
+		OVERLOAD( "PhysicsCollisionVtbl", "TraceBox", void ( IPhysicsCollision::* )( const Vector &, const Vector &, const Vector &, const Vector &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * ), &IPhysicsCollision::TraceBox ),
+		OVERLOAD( "PhysicsCollisionVtbl", "TraceBox_2", void ( IPhysicsCollision::* )( const Ray_t &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * ), &IPhysicsCollision::TraceBox ),
+		OVERLOAD( "PhysicsCollisionVtbl", "TraceBox_3", void ( IPhysicsCollision::* )( const Ray_t &, unsigned int, IConvexInfo *, const CPhysCollide *, const Vector &, const QAngle &, trace_t * ), &IPhysicsCollision::TraceBox ),
+		OVERLOAD( "SteamCallbackVtbl", "Run", void ( CCallbackBase::* )( void * ), &CCallbackBase::Run ),
+		OVERLOAD( "SteamCallbackVtbl", "Run_2", void ( CCallbackBase::* )( void *, bool, SteamAPICall_t ), &CCallbackBase::Run ),
+	};
+
+	const std::string layout = ReadLayout();
+
+	for ( const OverloadCase &c : cases )
+	{
+		EXPECT_LE( 0, c.compiler ) << c.structName << "." << c.field << " is not virtual";
+		EXPECT_EQ( c.compiler, SlotIn( layout, c.structName, c.field ) ) << c.structName << "." << c.field;
+	}
+}
+
+// THE ARM THAT SAYS THE TABLE ABOVE CAN FAIL. SlotIn answers -1 for a name the
+// layout does not have, and a pair read the wrong way round differs.
+TEST( VtableOverloadOrder, ALookupOfAMissingSlotAnswersMinusOne )
+{
+	EXPECT_EQ( -1, SlotIn( ReadLayout(), "BaseFileSystemVtbl", "NoSuchSlot" ) );
+	EXPECT_EQ( -1, SlotIn( ReadLayout(), "NoSuchVtblStructExists", "Size" ) );
+	EXPECT_NE( SlotIn( ReadLayout(), "BaseFileSystemVtbl", "Size" ),
+	           SlotIn( ReadLayout(), "BaseFileSystemVtbl", "Size_2" ) );
+}
+
+// A layout both ABIs order alike has no [VtableSlot]: its slot is the number
+// leading the trailing comment, on either.
+TEST( VtableOverloadOrder, ASlotOfALayoutBothAbisOrderAlikeIsItsDeclarationOrder )
+{
+	EXPECT_EQ( VTableHook::MemberOf( &IVEngineClient::GetProtocolVersion ).slot,
+	           SlotIn( ReadLayout(), "EngineClientVtbl", "GetProtocolVersion" ) );
+}
 
 TEST( VtableLayoutLength, EveryGeneratedStructIsCoveredByATestAbove )
 {

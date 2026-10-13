@@ -198,6 +198,13 @@ TEST( EntityFuncSlot, ForeignSignatureSurvivesTheRoundTrip )
 //    If this ever starts passing with both adjustments zero, EXPECT_NE below
 //    fails and the file stops claiming to protect anything.
 //-----------------------------------------------------------------------------
+#if !defined( _MSC_VER )
+// ITANIUM ONLY. The Microsoft ABI gives a singly-inherited class's member
+// pointer no room for a this-adjustment, so converting CSecondaryRoot's member
+// to CRoot's cannot carry the offset at all (MSVC warns C4407, and the call
+// lands on the wrong `this`). Game code never meets the case: datamap.h
+// declares CBaseEntity SINGLE_INHERITANCE and every entity derives from it
+// alone. The fact below is the one that holds there instead.
 TEST( EntityFuncSlot, ConversionCarriesAnAdjustmentAPunWouldLose )
 {
 	typedef void (CSecondaryRoot::*Own_t)( void );
@@ -228,17 +235,37 @@ TEST( EntityFuncSlot, ConversionCarriesAnAdjustmentAPunWouldLose )
 	EXPECT_NE( static_cast< void * >( pRoot ),
 	           static_cast< void * >( static_cast< CUnrelatedFirst * >( &s ) ) );
 }
+#else
+// What the Microsoft ABI makes of the root instead: a member of a singly
+// inherited class is the address alone, which is why a multiply-inherited
+// class's own member (address and adjustment) reaches the slot only by a
+// conversion, and why the root must stay singly inherited.
+TEST( EntityFuncSlot, ARootMemberIsTheAddressAlone )
+{
+	EXPECT_EQ( sizeof( void * ), sizeof( Slot_t ) );
+	EXPECT_EQ( 2 * sizeof( void * ), sizeof( void (CSecondaryRoot::*)( void ) ) );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // 3. Sizes. The static_assert inside EntityFuncSlot is the loud version of
 //    this; asserting it here as well is what makes the failure readable when a
 //    compiler sizes member pointers by inheritance model.
+//
+//    Members of the ROOT are one shape whatever their signature, on both ABIs:
+//    that is what lets a handler stand in the slot. A multiply-inherited
+//    class's own members are the same shape only under Itanium; the Microsoft
+//    ABI makes them wider, so one reaches the slot only by conversion.
 //-----------------------------------------------------------------------------
 TEST( EntityFuncSlot, SlotAndHandlerAreTheSameShape )
 {
 	EXPECT_EQ( sizeof( Slot_t ), sizeof( Base_t ) );
 	EXPECT_EQ( sizeof( Slot_t ), sizeof( Touch_t ) );
+#if defined( _MSC_VER )
+	EXPECT_LT( sizeof( Slot_t ), sizeof( void (CSecondaryRoot::*)( void ) ) );
+#else
 	EXPECT_EQ( sizeof( Slot_t ), sizeof( void (CSecondaryRoot::*)( void ) ) );
+#endif
 }
 
 
