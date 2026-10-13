@@ -259,17 +259,12 @@ public sealed unsafe class ClientInputDevices : IInputDevices
 /// The Steam Controller through libsteam_api.so's flat C API, over the
 /// ISteamController the input system holds (SteamController008, the version
 /// this SDK's header and the shipped library both are). The library is the
-/// engine's copy or none (<c>RTLD_NOLOAD</c>), as SteamUserTickets binds it.
+/// engine's copy or none (<see cref="LoadedLibrary"/>), as SteamUserTickets binds it.
 /// </summary>
 public sealed unsafe class SteamControllerFlat(ILog log)
 {
-    public const string Library = "libsteam_api.so";
+    public static string Library => LoadedLibrary.SteamApi;
 
-    private const int RTLD_NOW = 2;
-    private const int RTLD_NOLOAD = 4;
-
-    [DllImport("libdl.so.2", EntryPoint = "dlopen")]
-    private static extern IntPtr DlOpen(string file, int mode);
 
     /// <summary>ControllerDigitalActionData_t, pack(1): bState, bActive.</summary>
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -304,10 +299,10 @@ public sealed unsafe class SteamControllerFlat(ILog log)
             return _bound;
         _asked = true;
 
-        IntPtr library = DlOpen(Library, RTLD_NOW | RTLD_NOLOAD);
+        IntPtr library = LoadedLibrary.Open(Library);
         if (library == IntPtr.Zero)
         {
-            log.Msg("[SourceSharp/Client] input: " + Library + " is not loaded (RTLD_NOLOAD): no Steam Controller\n");
+            log.Msg("[SourceSharp/Client] input: " + Library + " is not loaded (" + LoadedLibrary.NoLoad + "): no Steam Controller\n");
             return false;
         }
 

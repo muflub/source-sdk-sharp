@@ -57,24 +57,19 @@ public interface ISteamClientApi
 /// <summary>
 /// <see cref="ISteamClientApi"/> through libsteam_api.so's flat C API, the way
 /// SteamUserTickets binds it: the engine's copy of the library or none
-/// (<c>RTLD_NOLOAD</c>), so it can never start a second Steam context. The
+/// (<see cref="LoadedLibrary"/>), so it can never start a second Steam context. The
 /// ISteamUser and ISteamUtils pointers are asked for on every call, since Steam
 /// hands out new ones after a reconnect (the context's accessors did the same).
 /// </summary>
 public sealed unsafe class SteamClientFlat : ISteamClientApi
 {
-    public const string Library = "libsteam_api.so";
+    public static string Library => LoadedLibrary.SteamApi;
 
     /// <summary>The accessors THIS process's libsteam_api.so (bin/linux64) exports.</summary>
     public const string UserAccessor = "SteamAPI_SteamUser_v021";
     public const string UtilsAccessor = "SteamAPI_SteamUtils_v010";
     public const string AppsAccessor = "SteamAPI_SteamApps_v008";
 
-    private const int RTLD_NOW = 2;
-    private const int RTLD_NOLOAD = 4;
-
-    [System.Runtime.InteropServices.DllImport("libdl.so.2", EntryPoint = "dlopen")]
-    private static extern IntPtr DlOpen(string file, int mode);
 
     private bool _asked;
     private bool _bound;
@@ -99,7 +94,7 @@ public sealed unsafe class SteamClientFlat : ISteamClientApi
             return _bound;
 
         _asked = true;
-        IntPtr library = DlOpen(Library, RTLD_NOW | RTLD_NOLOAD);
+        IntPtr library = LoadedLibrary.Open(Library);
         if (library == IntPtr.Zero)
             return false;
 

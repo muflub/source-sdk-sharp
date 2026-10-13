@@ -21,25 +21,31 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class SteamUserTicketsTests
 {
-    private const string Library = "libsteam_api.so";
+    private static readonly string Library = OperatingSystem.IsWindows() ? "steam_api64.dll" : "libsteam_api.so";
 
+    // Whether the library is in the process, read independently of the
+    // subject's own lookup: the kernel's map on Linux, the loader's module
+    // list on Windows.
     private static bool Mapped()
-        => File.ReadLines("/proc/self/maps").Any(l => l.EndsWith("/" + Library, StringComparison.Ordinal));
+        => OperatingSystem.IsWindows()
+            ? System.Diagnostics.Process.GetCurrentProcess().Modules.Cast<System.Diagnostics.ProcessModule>()
+                .Any(m => string.Equals(m.ModuleName, Library, StringComparison.OrdinalIgnoreCase))
+            : File.ReadLines("/proc/self/maps").Any(l => l.EndsWith("/" + Library, StringComparison.Ordinal));
 
     [Fact]
     public void ItBindsTheLoadedCopyAndNeverLoadsOne()
     {
-        string library = Path.Combine(RepoLayout.Repo("bin", "debug", "bin", "linux64"), Library);
+        string library = Path.Combine(RepoLayout.Repo("bin", "debug", "bin", OperatingSystem.IsWindows() ? "x64" : "linux64"), Library);
         Assert.True(File.Exists(library), library + " is not there: run make debug in this worktree");
         Assert.Equal(Library, SteamUserTickets.Library);
 
         // THE REFUSAL, shown first: nothing in the test process loads the
         // library, so nothing binds, and asking does not load it.
-        Assert.False(Mapped(), "something in the test process loaded libsteam_api.so first");
+        Assert.False(Mapped(), "something in the test process loaded the Steam API first");
         var unloaded = new SteamUserTickets(new RecordingLog());
         Assert.Null(unloaded.Create(90071992547409920UL, out string why));
-        Assert.Contains("RTLD_NOLOAD", why);
-        Assert.False(Mapped(), "asking for a ticket loaded libsteam_api.so");
+        Assert.Contains(LoadedLibrary.NoLoad, why);
+        Assert.False(Mapped(), "asking for a ticket loaded the Steam API");
 
         // THE POSITIVE ARM: once the process has the library, every ticket
         // export binds (SteamAPI_SteamUser_v021 and the three functions): what
