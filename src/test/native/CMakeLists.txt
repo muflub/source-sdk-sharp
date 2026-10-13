@@ -28,6 +28,7 @@ ss_cpptest(vtable_hook_test
 # plan_client_novalve C7: the render call recorder overwrites one engine vtable
 # slot in place for a frame (vtable_slot_patch.h, header-only).
 ss_cpptest(vtable_slot_patch_test
+    LINUX_ONLY "sets up its test pages with mmap"
     SOURCES sourcesharp/test/vtable_slot_patch_test.cpp)
 
 # C7 item 7: the draw batch asks a renderable for its handle only when it is an
@@ -59,6 +60,7 @@ ss_cpptest_engine_headers(managed_accept_test
 # -I for the ABI header: ishim_console.h names SourceSharpConsoleEntry, which
 # sourcesharp.h declares (plan_engineapi_vtables A4).
 ss_cpptest_engine_headers(vtable_index_agreement_test
+    LINUX_ONLY "pins the Itanium C++ ABI's vtable layout (two slots for a virtual destructor, overloads in declaration order), and the Microsoft ABI lays vtables out differently, and the Windows port of layout-derived tables is not done"
     INCLUDES sourcesharp/host
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
 
@@ -258,6 +260,7 @@ ss_cpptest(te_backend_args_test
 # /tmp/dumps/assert_*.dmp. The client compiles no stock viewport panel and links
 # no vgui_controls, read off the build graph.
 ss_cpptest(no_html_panel_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/no_html_panel_test.cpp)
 
 
@@ -397,6 +400,7 @@ ss_cpptest(animation_policy_test
 # spawning entity goes through. Two of its cases assert a file is STILL BUILT,
 # which is the unusual direction for an eviction test and is the point.
 ss_cpptest(saverestore_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/saverestore_evicted_test.cpp)
 
 # Valve's telemetry uploader is out of both builds (plan_shared.md Phase 4). The
@@ -407,6 +411,7 @@ ss_cpptest(saverestore_evicted_test
 # that left was the LAST one -- a row removed from the middle renumbers a walk
 # order client_systems_table_test.cpp pins elsewhere.
 ss_cpptest(gamestats_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/gamestats_evicted_test.cpp)
 
 # The client's team entity is out of the build (plan_entity.md Phase 5's exit
@@ -418,6 +423,7 @@ ss_cpptest(gamestats_evicted_test
 # game for the life of this build because it compared two NULLs, and which
 # nobody had written down.
 ss_cpptest(c_team_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/c_team_evicted_test.cpp)
 
 # Step 7h: cbase.h is a FORCED PRELUDE in the client project, not an include.
@@ -431,6 +437,7 @@ ss_cpptest(c_team_evicted_test
 # 102 rows written that way took c_team_evicted_test's view of the script from
 # 289 rows to 175 and failed it.
 ss_cpptest(client_pch_prelude_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_pch_prelude_test.cpp)
 
 # Step 8e-classes: the Phase 5 exit's "the class-list diff is empty" clause, and
@@ -445,6 +452,7 @@ ss_cpptest(client_pch_prelude_test
 # respects preprocessor guards -- a guard-blind reader invents a fifth orphan
 # out of c_te_effect_dispatch.cpp's `#ifndef SOURCESHARP` arm.
 ss_cpptest(orphan_clientclass_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/orphan_clientclass_test.cpp)
 
 # Step p7-exit: the stock client TUs that STAY compiled ask the slot table.
@@ -464,6 +472,7 @@ ss_cpptest(orphan_clientclass_test
 # is TheStockArmSurvivesEveryMigration, and TheGuardPassIsWhatSeparatesTheTwoArms
 # is its control.
 ss_cpptest(client_entity_resolve_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_entity_resolve_test.cpp)
 
 # The engine's OWN save headers, encoded. The codec was save_field_codec.h and is
@@ -608,6 +617,7 @@ ss_cpptest(shell_gamemovement_test
 # into the shim, so it patched nothing and the only live evidence for the three
 # move-type arms had silently stopped existing. Nothing in the tree knew.
 ss_cpptest(gamemovement_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/gamemovement_evicted_test.cpp)
 
 # The ground entity, as the one word the player's blob carries for it. The
@@ -870,6 +880,7 @@ ss_cpptest(collision_group_names_test
 # fails on any live instance. It checks its own reach first: a scanner that
 # reads nothing passes every ban it is given.
 ss_cpptest(sdk_player_cast_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/sdk_player_cast_test.cpp)
 
 # The identity every GetAbsOrigin retype rests on (plan_baseentity.md Phase 13
@@ -1232,6 +1243,7 @@ ss_cpptest_tier1(physworld_match_rule_test
 # of returning a silent NULL, and that the three readers of "can the camera see
 # the viewer's body" all ask ONE function.
 ss_cpptest(view_subject_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/view_subject_test.cpp)
 
 # The render path's own subject, and the de-entitying of the five TUs of step 7d
@@ -1293,6 +1305,7 @@ ss_cpptest(renderable_subject_test
 # touch a .vpc can move the SCC. tools/c7-leaf-cycle takes the reading; these
 # facts stop the finding rotting into a paragraph nothing checks.
 ss_cpptest(leaf_cycle_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/leaf_cycle_test.cpp)
 
 # Lane c7-proxies' source scans that outlived the material proxies (lane
@@ -1309,6 +1322,7 @@ ss_cpptest(materialproxy_subject_test
 # wiring the transport is a caller rather than a rewrite. Plus the two vpc rows,
 # asserted on BOTH sides, and the gate instrument's own accessor.
 ss_cpptest(soundscape_particle_7e_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/soundscape_particle_7e_test.cpp)
 
 # What the trail family lost when it stopped being entities (trail_lifetime.h).
@@ -1418,6 +1432,7 @@ ss_cpptest(tickbase_rule_test
 # sdk_player_cast_test.cpp, and pins the include ORDER as well -- that ordering
 # is the reason the alias lives in public/ rather than in baseentity.h.
 ss_cpptest(alias_mechanics_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/alias_mechanics_test.cpp)
 
 # sourcesharp/game/server/entity_bases.h, compiled BOTH WAYS (entity_bases_alias_test.cpp).
@@ -1456,6 +1471,7 @@ ss_cpptest_mathlib(entity_bases_alias_armed_test
 # member the flip deletes, and that the ten hand-folded ObjectCaps bitmasks are
 # arithmetically right. The compile-side evidence is src/survey_run armed.
 ss_cpptest(header_alias_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/header_alias_test.cpp)
 
 # Lane T shard T6's arms — the .cpp half of the same flip, fifteen files and
@@ -1554,6 +1570,7 @@ ss_cpptest(cpp_alias_shard_t3_test
 # are in functions that return a value, so where a guard swallows a `return` the
 # ARMED text of the function has to still contain one.
 ss_cpptest(cpp_alias_t5_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/cpp_alias_t5_test.cpp)
 # Wave 3's eight sole-blocked TUs -- step 6's close-out list names eight
 # translation units "blocked by RETYPE alone", and seven of them go green here
@@ -1594,6 +1611,7 @@ ss_cpptest(damage_attacker_test
 # ill-formed shapes are compiled separately and required to fail, each at the
 # probe rather than somewhere else. Header-only and engine-free.
 ss_cpptest(entity_funcslot_test
+    LINUX_ONLY "pins the Itanium ABI's one size for every pointer to member function, and the Microsoft ABI sizes them by inheritance model, and EntityFuncSlot's Windows behaviour is not settled"
     SOURCES sourcesharp/test/entity_funcslot_test.cpp)
 
 ss_must_not_compile(entity_funcslot_unrelated
@@ -1679,6 +1697,7 @@ ss_cpptest_mathlib(template_transform_test
 # Compiles the library itself. Links mathlib: DotProduct, LengthSqr and the
 # forward-vector-to-yaw conversion are the subject.
 ss_cpptest_mathlib(overlay_library_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     INCLUDES sourcesharp/game/shared
     SOURCES sourcesharp/test/overlay_library_test.cpp
             sourcesharp/game/shared/overlay_library.cpp)
@@ -1688,6 +1707,7 @@ ss_cpptest_mathlib(overlay_library_test
 # TEXT ONLY -- the subject is which file holds which definition and which vpcs
 # compile it, so there is nothing here to link.
 ss_cpptest(trace_filter_library_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/trace_filter_library_test.cpp)
 
 # plan_entity.md step 7f: the six symbols game/client/cdll_util.cpp still owed
@@ -1695,12 +1715,14 @@ ss_cpptest(trace_filter_library_test
 # vision-flag family moved WHOLE because its two counters are file statics.
 # TEXT ONLY, for the same reason as the trace filter library above.
 ss_cpptest(client_util_library_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_util_library_test.cpp)
 
 # plan_entity.md step 7f: six entity-free families left game/shared/util_shared.cpp
 # for the shim. The file is on BOTH link lines, so the vpc rows are asserted on
 # both -- a one-sided row gives one side two definitions and the other none.
 ss_cpptest(util_shared_library_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/util_shared_library_test.cpp)
 
 # plan_entity.md Phase 4 exit, lane p4-util: game/shared/takedamageinfo.cpp is
@@ -1709,6 +1731,7 @@ ss_cpptest(util_shared_library_test
 # because 7f measured the family move and it CONVERTED. TEXT ONLY, for the same
 # reason as the two libraries above.
 ss_cpptest(takedamageinfo_library_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/takedamageinfo_library_test.cpp)
 
 # plan_entity.md Phase 4 exit, lane p4-util: seven families of entity-free
@@ -1717,6 +1740,7 @@ ss_cpptest(takedamageinfo_library_test
 # the client vpc is asserted to have NO row -- the opposite direction from the
 # shared libraries above. TEXT ONLY.
 ss_cpptest(server_util_library_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_util_library_test.cpp)
 
 # plan_entity.md Phase 4 exit, lane p4-util: the moves that shrink SCC 11's
@@ -1724,6 +1748,7 @@ ss_cpptest(server_util_library_test
 # cross-edge, so tools/entity-census reads identically before and after; what
 # moved is what one cycle member still owed another. TEXT ONLY.
 ss_cpptest(cycle_debt_move_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/cycle_debt_move_test.cpp)
 
 # plan_entity.md Phase 4 exit, lane p4-util: the blood/tracer/decal emitters out
@@ -1731,6 +1756,7 @@ ss_cpptest(cycle_debt_move_test
 # changed is recorded in the file's banner. UTIL_BloodDrips stayed and the
 # reason is only visible from the client. TEXT ONLY.
 ss_cpptest(blood_family_move_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/blood_family_move_test.cpp)
 
 # What the map-entity-block parser answers (map_entity_block_cases.txt). The
@@ -1784,6 +1810,7 @@ ss_cpptest(mathlib_init_guard_test
 # server arm being vacuous because player_command.cpp is out of the project and
 # nothing else writes the prediction player.
 ss_cpptest(engine_core_retype_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/engine_core_retype_test.cpp)
 
 # The seventeen sound statics really did leave the class (gamesound.h) -- the
@@ -1846,6 +1873,7 @@ ss_cpptest(soundemitter_lift_test
 # `#if !defined()`, of an `#ifdef ... #else`, nested, and of an unrelated
 # conditional that must stay transparent -- and asserted to answer differently.
 ss_cpptest(laneR_sound_dead_paths_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/laneR_sound_dead_paths_test.cpp)
 
 # NOTHING SETS A PREDICTION SUPPRESS HOST (suppress_host_dead_test.cpp), which
@@ -1871,6 +1899,7 @@ ss_cpptest(laneR_sound_dead_paths_test
 # `#if !defined()`, of an unrelated conditional that must stay transparent, and
 # in a comment.
 ss_cpptest(suppress_host_dead_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/suppress_host_dead_test.cpp)
 
 # The seven physics statics really did leave the class (physicslink.h) -- the
@@ -2097,6 +2126,7 @@ ss_cpptest(removal_set_middle_test
 # parameter types, so a drifted stub still compiles and still links under
 # --gc-sections, and fails again only under GC_SECTIONS=0.
 ss_cpptest(gc_sections_link_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/gc_sections_link_test.cpp)
 
 # What a PERMANENT decal is stored on. SourceSharp_PaintDecal narrowed the
@@ -2126,6 +2156,7 @@ ss_cpptest_mathlib(permanent_decal_subject_test
 # SS_CBASEENTITY_ALIAS guard closing on the `else` whose arm CLEARS the entity
 # field, and the two measurements that refute the re-point.
 ss_cpptest(particle_dispatch_rehome_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/particle_dispatch_rehome_test.cpp)
 
 # The clientside physics-prop simulation is `-$File` out of client_csharp.vpc,
@@ -2140,6 +2171,7 @@ ss_cpptest(particle_dispatch_rehome_test
 # links only because --gc-sections drops PropBreakableCreateAll once its one
 # client caller is gone. A second caller makes that reference real.
 ss_cpptest(clientside_prop_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/clientside_prop_evicted_test.cpp)
 
 # game/server/effects.cpp is out of the server build (effects_evicted_test.cpp).
@@ -2158,6 +2190,7 @@ ss_cpptest(clientside_prop_evicted_test
 # so losing it costs no diagnostic anywhere -- it costs four game sounds, each
 # silent on its first play.
 ss_cpptest(effects_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/effects_evicted_test.cpp)
 
 # docs/physics-move-scope.md, the honest scope for plan_shim.md 4a item 1
@@ -2176,6 +2209,7 @@ ss_cpptest(effects_evicted_test
 # are not re-run here -- they need nm over 108 objects -- and the document says
 # so instead of implying they are checked.
 ss_cpptest(physics_move_scope_test
+    LINUX_ONLY "forks a child process and reads its wait status"
     SOURCES sourcesharp/test/physics_move_scope_test.cpp)
 
 # Route step 4: our own shim TUs stopped deriving from the entity
@@ -2195,6 +2229,7 @@ ss_cpptest(shim_underive_test
 # checks is a shape -- which base a class names and what a vpc lists -- and a
 # re-added base compiles perfectly.
 ss_cpptest(gamerules_interface_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/gamerules_interface_test.cpp)
 
 # The player's nine hulls are declared in SourceSharp.Shared and published into
@@ -2292,6 +2327,7 @@ ss_cpptest(gib_evicted_test
 # it unblocks. It also pins the two retired slots as refusals that SAY SO, which
 # is the one thing every other test in the tree cannot tell from a silent zero.
 ss_cpptest(effects_cluster_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/effects_cluster_test.cpp)
 
 # func_clip_vphysics is C#'s, and here is what holds it up
@@ -2352,6 +2388,7 @@ ss_cpptest(soundent_gamesystem_test
 # exclusion is asserted here, because it is the whole safety argument and it
 # lives in a file this lane does not own.
 ss_cpptest(ambient_generic_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/ambient_generic_evicted_test.cpp)
 
 # game/client/c_func_dust.cpp holds TWO unrelated things and one of them left the
@@ -2432,6 +2469,7 @@ ss_cpptest(skybox_wire_test
 # nothing calls. Give it a caller and the eviction quietly costs a lookup that
 # now answers NULL.
 ss_cpptest(client_orphan_evictions_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_orphan_evictions_test.cpp)
 
 # plan_entity.md step 4f. Two deletions of the same shape, pinned together
@@ -2459,6 +2497,7 @@ ss_cpptest(entity_base_husks_test
 # does not compile closing to the empty set, which reads exactly like "this step
 # is independent of everything else".
 ss_cpptest(component_closure_test
+    LINUX_ONLY "forks a child process and reads its wait status"
     SOURCES sourcesharp/test/component_closure_test.cpp)
 
 # The FLEX PAIR leaves the CLIENT build -- c_baseflex.cpp and
@@ -2480,6 +2519,7 @@ ss_cpptest(component_closure_test
 # LINK_ENTITY_TO_CLASS, so CreateEntityByName could never reach either class),
 # and the six convars that leave with the class that was their only subject.
 ss_cpptest(client_flex_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_flex_evicted_test.cpp)
 
 # The ENTITY BEAM leaves the CLIENT build -- game/shared/beam_shared.cpp
@@ -2500,6 +2540,7 @@ ss_cpptest(client_flex_evicted_test
 # that deleted both overloads would satisfy every absence check in the file while
 # silently stopping every beam in the game from rendering.
 ss_cpptest(client_beam_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_beam_evicted_test.cpp)
 
 # CBeam and CBaseViewModel leave the SERVER build
@@ -2518,6 +2559,7 @@ ss_cpptest(client_beam_evicted_test
 # func_clip_vphysics moved to C# and the evidence changed sides; see
 # clip_vphysics_port_test.cpp above.
 ss_cpptest(server_beam_viewmodel_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_beam_viewmodel_evicted_test.cpp)
 
 # game/client/c_rope.cpp is STILL in the client build, on purpose
@@ -2538,6 +2580,7 @@ ss_cpptest(server_beam_viewmodel_evicted_test
 # class this server really can send. A red is RE-TAKE THE VERDICT, not a
 # regression -- same standard as gib_evicted_test.cpp.
 ss_cpptest(rope_verdict_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/rope_verdict_test.cpp)
 
 # C_LocalTempEntity is DE-ENTIFIED, and the ledger had REFUSED that
@@ -2573,6 +2616,7 @@ ss_cpptest(tempent_pool_test
 # indistinguishable from one that is, because the assertion over there reads the
 # record back rather than the tempent.
 ss_cpptest(tempent_spawn_seam_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/tempent_spawn_seam_test.cpp)
 
 # The HL2 commentary model viewer and the two model panels under it are out of
@@ -2593,6 +2637,7 @@ ss_cpptest(tempent_spawn_seam_test
 # the build link, so un-excluding the three files silently reinstates a
 # C_BaseFlex vtable and 120 symbol-needs for a panel nothing can open.
 ss_cpptest(commentary_viewer_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/commentary_viewer_evicted_test.cpp)
 
 # Where the four table chains END, once CBaseEntity is IGameEntity
@@ -2634,6 +2679,7 @@ ss_cpptest_mathlib(base_table_chain_end_test
 #   would leave the managed [Fact] that reads stock's constants off disk still
 #   green and no longer a comparison.
 ss_cpptest(ragdoll_blast_seam_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/ragdoll_blast_seam_test.cpp)
 
 # plan_server_all.md Wave 0 -- the free ones (server_wave0_evicted_test.cpp).
@@ -2658,6 +2704,7 @@ ss_cpptest(ragdoll_blast_seam_test
 #   interpolatortypes.cpp until plan_client_novalve C1 evicted it for the same
 #   reason (docs/client-novalve-rulings.tsv).
 ss_cpptest(server_wave0_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_wave0_evicted_test.cpp)
 
 # plan_server_all.md Wave 1 -- the shadowed five (server_wave1_shadowed_test.cpp).
@@ -2692,6 +2739,7 @@ ss_cpptest(server_wave0_evicted_test
 # live C++ with three live consumers. "Wave done" plus a moved meter is exactly
 # how a file stops being anybody's problem, so it is written down as a test.
 ss_cpptest(server_wave1_shadowed_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_wave1_shadowed_test.cpp)
 
 # plan_server_all.md Wave 2 -- two lifts and a fold (server_wave2_lifts_test.cpp).
@@ -2719,6 +2767,7 @@ ss_cpptest(server_wave1_shadowed_test
 # of "free" means free under the collector. The next lane should not have to
 # rediscover that.
 ss_cpptest(server_wave2_lifts_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_wave2_lifts_test.cpp)
 
 # plan_side_isolation P2 -- the user-message forwarders
@@ -2736,6 +2785,7 @@ ss_cpptest(server_wave2_lifts_test
 # usermessage_ordering_guard_test's behaviours that still have a native
 # subject are carried here.
 ss_cpptest(usermessage_forwarders_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/usermessage_forwarders_test.cpp)
 
 # plan_gamedll_after.md Phase A4 subject 3 (commandclient_move_test.cpp).
@@ -2774,6 +2824,7 @@ ss_cpptest(debugoverlays_move_test
 # static-init order; and the file-scope state each class carried had to become
 # class fields, where a field that is declared and never assigned compiles.
 ss_cpptest(gameinterface_split_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/gameinterface_split_test.cpp)
 
 # plan_server_all.md, the nine zero-consumer files (server_wave3_interfaces_test.cpp).
@@ -2805,6 +2856,7 @@ ss_cpptest(gameinterface_split_test
 #   stdafx.cpp             KEPT; it creates the PCH.
 #   memoverride.cpp        not this project's line to remove.
 ss_cpptest(server_wave3_interfaces_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_wave3_interfaces_test.cpp)
 
 # plan_server_all.md Wave 8, the tiny globals (server_globals_merge_test.cpp).
@@ -2830,6 +2882,7 @@ ss_cpptest(server_wave3_interfaces_test
 # and which did not (the three server-only ones are deleted, on the same Phase 13
 # reasoning bmodels.cpp went out on).
 ss_cpptest(server_globals_merge_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_globals_merge_test.cpp)
 
 # The damage masks, ported out of CMultiplayRules (gamerules_damage_test.cpp).
@@ -2937,6 +2990,7 @@ ss_cpptest(managed_runtime_server_test
 # a gtest binary. The binary half of the first property is
 # tools/gamedll-interface-census, which reads the built server's symbol table.
 ss_cpptest(shell_gamedll_registration_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/shell_gamedll_registration_test.cpp)
 
 # THE REFUSALS AND THE COUNTER -- plan_gamedll.md Part 7 and Phase 8
@@ -3135,6 +3189,7 @@ ss_cpptest(server_systems_table_test
     SOURCES sourcesharp/test/server_systems_table_test.cpp)
 
 ss_cpptest(server_systems_underive_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_systems_underive_test.cpp)
 
 # plan_cworld_trace.md T4 -- the CLIENT's half of the same job
@@ -3184,6 +3239,7 @@ ss_cpptest(client_flip_ruling_test
 # clang: -Wno-unused-variable for Valve's public/tier1/utlblockmemory.h:350
 # (an unused local in a template gcc 10 never instantiated), on a plain -I here.
 ss_cpptest_tier1(bone_leaf_library_test
+    LINUX_ONLY "calls tier0's ThreadGetCurrentId, which the SDK's only 64-bit Windows tier0.dll (devtools/bin) does not export"
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
     INCLUDES public public/tier0 public/tier1 common sourcesharp/game/client
@@ -3209,6 +3265,7 @@ ss_cpptest_tier1(bone_leaf_library_test
 # itself is driven against a sample with guarded and unguarded needles in it, so
 # an arm that answered "inside" for everything fails.
 ss_cpptest(bone_leaf_rehome_ruling_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/bone_leaf_rehome_ruling_test.cpp)
 
 # plan_gamedll.md Phase 9 -- the sixteen TODOs, and that none lost its verdict
@@ -3295,6 +3352,7 @@ ss_cpptest(entity_visibility_test
 # spell the exact strings this test asserts are absent, in the paragraphs
 # explaining why they are absent.
 ss_cpptest(stock_serverclass_census_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/stock_serverclass_census_test.cpp)
 
 # THE MANAGED HOST IS ONE OBJECT PER PROCESS, and this is the gate on it.
@@ -3312,6 +3370,7 @@ ss_cpptest(stock_serverclass_census_test
 # reproduce a shutdown fault in a live listen server. It needs the binaries;
 # `make check` builds before it tests.
 ss_cpptest(managed_host_single_instance_test
+    LINUX_ONLY "reads libmanaged_host.so's ELF headers"
     SOURCES sourcesharp/test/managed_host_single_instance_test.cpp)
 
 # plan_gamedll_after.md Phase A3 -- the two "C" systems that became managed
@@ -3335,6 +3394,7 @@ ss_cpptest(managed_host_single_instance_test
 # file-scope state; CPropData's two halves have one owner each with the blocker
 # named at the site; and the game-file read refuses rather than truncating.
 ss_cpptest(c_systems_managed_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/c_systems_managed_test.cpp)
 # plan_gamedll_after.md Part B2 -- CWorld is a shim (world_shim_test.cpp).
 #
@@ -3486,6 +3546,7 @@ ss_cpptest(world_release_test
 # And the fourth frame point, which had NO PRODUCTION CALLER until this phase --
 # the second stage in this tree found in that state.
 ss_cpptest(soundent_managed_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/soundent_managed_test.cpp)
 
 # plan_gamedll_after.md Phase A3, the FIFTH and last "C" system --
@@ -3522,6 +3583,7 @@ ss_cpptest(standalone_system_test
 # refuse. No engine headers, no defines: everything it needs is popen and the
 # tree it is standing in.
 ss_cpptest(entity_census_test
+    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
     SOURCES sourcesharp/test/entity_census_test.cpp)
 
 # plan_shim.md §6, lane 4a. tools/shim-orphan-reach is a python script, so this
@@ -3530,6 +3592,7 @@ ss_cpptest(entity_census_test
 # drives the tool into its REFUSAL, because a tool that cannot ask the question
 # must not answer zero: an unbuilt tree otherwise reads as "delete this file".
 ss_cpptest(orphan_reach_test
+    LINUX_ONLY "forks a child process and reads its wait status"
     SOURCES sourcesharp/test/orphan_reach_test.cpp)
 
 # plan_entity.md Phase 5, the 5b split. tools/dead-conditionals is a python
@@ -3538,6 +3601,7 @@ ss_cpptest(orphan_reach_test
 # fixtures are the point: "the tree is clean" on its own is a check that cannot
 # fail. No engine headers: popen, stat and the tree it is standing in.
 ss_cpptest(dead_conditionals_test
+    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
     SOURCES sourcesharp/test/dead_conditionals_test.cpp)
 
 # plan_entity.md 0c. The size-then-fill loop behind cs_sv_crossings, with a fake
@@ -3567,6 +3631,7 @@ ss_cpptest(boundary_probe_test
 # otherwise the pass path is never executed on any tree that exists), and
 # against a fixture with two cast sites, one allowlisted and one not.
 ss_cpptest(entity_gates_test
+    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
     SOURCES sourcesharp/test/entity_gates_test.cpp)
 
 # relink_exit_contract_test STOOD HERE and went with its two subjects.
@@ -3678,6 +3743,7 @@ ss_cpptest_mathlib(engine_block_layout_test
 # and none of them can ever be linked into a gtest. Appended at the END, as the
 # lane brief directs, so a merge with a concurrent lane keeps both sides.
 ss_cpptest(entity_list_sweep_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/entity_list_sweep_test.cpp)
 
 # plan_entity.md Phase 1 step 1h -- PHYSICS GAME DATA IS THE HANDLE (§3.3).
@@ -3843,6 +3909,7 @@ ss_must_not_compile(client_slot_table_no_own_serial
 # can reach -- shell_clientdll.cpp includes cbase.h's whole world and can never
 # be linked into a gtest.
 ss_cpptest(shell_clientdll_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/shell_clientdll_test.cpp)
 
 # THE CLIENT'S REFUSAL COUNTER -- plan_entity.md 5b, and the client side of
@@ -3883,6 +3950,7 @@ ss_cpptest(shell_clientdll_refusals_test
 # deletes, and game/server/player.cpp -- the arrangement half, which cannot be
 # linked because those files include cbase.h's whole world.
 ss_cpptest(shell_entitystatics_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     INCLUDES sourcesharp/game/client
     SOURCES sourcesharp/test/shell_entitystatics_test.cpp)
 
@@ -3992,6 +4060,7 @@ ss_cpptest_engine_headers(managed_runtime_client_test
 # operator new is asserted to agree with that placement, so changing one alone
 # is red rather than a 320-byte overrun.
 ss_cpptest(standalone_client_layout_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/standalone_client_layout_test.cpp)
 
 # CLIENT INTERPOLATION IS MANAGED CODE -- plan_entity.md 6a.
@@ -4010,6 +4079,7 @@ ss_cpptest(standalone_client_layout_test
 # that is SourceSharp.Tests/InterpolationTests, replaying a recording of the C++
 # this removes against it bit for bit.
 ss_cpptest(client_interpolation_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_interpolation_test.cpp)
 
 # Where a parented child ends up (parent_compose_cases.txt). plan_entity.md step
@@ -4164,12 +4234,14 @@ ss_cpptest(ragdoll_signature_test
     SOURCES sourcesharp/test/ragdoll_signature_test.cpp)
 
 ss_cpptest(anim_cluster_ledger_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/anim_cluster_ledger_test.cpp)
 
 # The usercmd codec is C# on both sides (usercmd_codec_test.cpp): no DLL
 # compiles a usercmd.cpp, and the client's IInput codec slots cross to managed
 # (plan_server_novalve P2.2, plan_client_novalve C9).
 ss_cpptest(usercmd_codec_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/usercmd_codec_test.cpp)
 
 # plan_shim.md Phase 2d -- ANIMATION EVENTS BY NAME, NOT BY ORDINAL
@@ -4228,6 +4300,7 @@ ss_cpptest(model_descriptor_format_test
 # asserts the raw text still carries what the stripped text may not, so a
 # stripper that returned nothing fails instead of passing everything.
 ss_cpptest(tempent_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/tempent_evicted_test.cpp)
 
 # plan_entity.md Phase 7 step 7a -- FOUR STOCK EFFECT TUs LEAVE THE CLIENT
@@ -4247,6 +4320,7 @@ ss_cpptest(tempent_evicted_test
 # because a counter nobody bumps reads zero forever and tools/7a-effect-gate
 # would read that as a measured absence.
 ss_cpptest(effect_tus_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/effect_tus_evicted_test.cpp)
 
 # plan_entity.md §3.8, lane p4-physics -- IS THE PHYSICS EVENT RING'S SINK
@@ -4289,6 +4363,7 @@ ss_cpptest(client_data_walk_test
 # and playerlocaldata.cpp (moved to the shim). TEXT ONLY -- the subject is which
 # vpc compiles what, and the claim that made the eviction safe.
 ss_cpptest(server_tus_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/server_tus_evicted_test.cpp)
 
 # plan_entity.md Phase 4 EXIT. The exit's unit of work is the CYCLE in the stock
@@ -4298,9 +4373,11 @@ ss_cpptest(server_tus_evicted_test
 # and these two files pin them. TEXT ONLY: the subject is which file holds which
 # definition and which vpcs compile it, so there is nothing here to link.
 ss_cpptest(admin_command_move_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/admin_command_move_test.cpp)
 
 ss_cpptest(shared_random_move_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/shared_random_move_test.cpp)
 
 # (entity_base_cluster_test.cpp): SCC 11 cluster A -- the entity base itself,
@@ -4321,6 +4398,7 @@ ss_cpptest(entity_base_cluster_test
 # `tools/4a-owes client` reading 0 was never evidence about a ConVar.
 # ---------------------------------------------------------------------------
 ss_cpptest(client_tu_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_tu_evicted_test.cpp)
 
 
@@ -4338,6 +4416,7 @@ ss_cpptest(client_tu_evicted_test
 # concurrent lane keeps both sides.
 # ---------------------------------------------------------------------------
 ss_cpptest(map_residue_factories_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/map_residue_factories_test.cpp)
 
 # ---------------------------------------------------------------------------
@@ -4396,6 +4475,7 @@ ss_cpptest(convar_notify_test
 # sourcesharp/test/variant_convert_cases.tsv, the same table the managed
 # VariantAgreementTests reads.
 ss_cpptest(variant_convert_test
+    LINUX_ONLY "pins glibc's atoi on out-of-range input (the stock Linux behaviour), and the Windows CRT clamps differently, as stock Windows does"
     SOURCES sourcesharp/test/variant_convert_test.cpp)
 
 # THE FOUR RULINGS THE CLOSE MADE ON tools/entity-census-patterns.
@@ -4415,6 +4495,7 @@ ss_cpptest(variant_convert_test
 # row below it is a row `buildcpptests <name>` refuses to build. That is the
 # trap the refusal's own banner names, sprung on the lane that added it.
 ss_cpptest(close_rulings_test
+    LINUX_ONLY "compiles a probe with the host compiler and reads its gcc/clang diagnostics"
     SOURCES sourcesharp/test/close_rulings_test.cpp)
 
 # THE UNMATCHED-NAME REFUSAL, AND IT HAS TO BE THE LAST THING IN THIS FILE.
@@ -4526,6 +4607,7 @@ ss_cpptest(client_world_arm_test
 # APPENDED AT THE END so a second lane's test merges with keep-both.
 # ---------------------------------------------------------------------------
 ss_cpptest(pvs_notify_ruling_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/pvs_notify_ruling_test.cpp)
 
 # ---------------------------------------------------------------------------
@@ -4540,6 +4622,7 @@ ss_cpptest(pvs_notify_ruling_test
 # APPENDED AT THE END so a second lane's test merges with keep-both.
 # ---------------------------------------------------------------------------
 ss_cpptest(gamedll_convars_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/gamedll_convars_test.cpp)
 
 # ---------------------------------------------------------------------------
@@ -4613,6 +4696,7 @@ ss_cpptest(concommand_flags_ledger_test
 # APPENDED AT THE END so a second lane's test merges with keep-both.
 # ---------------------------------------------------------------------------
 ss_cpptest(shim_vpc_stock_rows_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/shim_vpc_stock_rows_test.cpp)
 
 # ---------------------------------------------------------------------------
@@ -4650,6 +4734,7 @@ ss_cpptest(virtual_terrain_set_test
 # APPENDED AT THE END so a second lane's test merges with keep-both.
 # ---------------------------------------------------------------------------
 ss_cpptest(globals_ledger_test
+    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
     SOURCES sourcesharp/test/globals_ledger_test.cpp)
 
 # The CLIENT's half of plan_globals.md step G0: docs/globals-client-ledger.tsv
@@ -4660,6 +4745,7 @@ ss_cpptest(globals_ledger_test
 # APPENDED AT THE END so a second lane's test merges with keep-both.
 # ---------------------------------------------------------------------------
 ss_cpptest(globals_client_ledger_test
+    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
     SOURCES sourcesharp/test/globals_client_ledger_test.cpp)
 
 # =============================================================================
@@ -4673,6 +4759,7 @@ ss_cpptest(globals_client_ledger_test
 # input, each of which must be an error rather than an answer.
 # ---------------------------------------------------------------------------
 ss_cpptest(cmake_graph_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/cmake_graph_test.cpp)
 
 # ---------------------------------------------------------------------------
@@ -4683,6 +4770,7 @@ ss_cpptest(cmake_graph_test
 # libprotobuf. Read off build.ninja's link edges through cmake_graph.h.
 # ---------------------------------------------------------------------------
 ss_cpptest(link_libraries_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/link_libraries_test.cpp)
 
 # The oracles: ports checked against upstream Valve code compiled from the
@@ -4700,6 +4788,7 @@ endif()
 # planted and seen, abort mode dies on both, and matching pairs (libstdc++'s own
 # growth included) raise nothing.
 ss_cpptest(alloc_check_test
+    LINUX_ONLY "runs under the allocation checker, which wraps glibc's allocator (--wrap) and resolves symbols with dlsym"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/alloc_check_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp
     INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native
@@ -4709,6 +4798,8 @@ ss_cpptest(alloc_check_test
 # The unload report runs after the DSO's static destructors, at dlclose as at
 # exit: alloc_unload_probe.so is built like server.so (alloc_check.cpp and its
 # wraps) and holds a static std::unordered_map plus one deliberate leak.
+# (Linux only, as the checker is: the probe library and the test that loads it.)
+if(SS_PLATFORM STREQUAL linux)
 add_library(ss_alloc_unload_probe SHARED
     ${PROJECT_SOURCE_DIR}/src/test/native/alloc_unload_probe/alloc_unload_probe.cpp
     ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp)
@@ -4718,11 +4809,15 @@ target_include_directories(ss_alloc_unload_probe PRIVATE ${PROJECT_SOURCE_DIR}/s
 target_link_libraries(ss_alloc_unload_probe PRIVATE ss_alloc_check_wraps dl)
 set_target_properties(ss_alloc_unload_probe PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/alloc_unload_probe)
+endif()
 ss_cpptest(alloc_check_unload_test
+    LINUX_ONLY "dlopens a .so built with the allocation checker, which wraps glibc's allocator"
     DEFINES "SS_ALLOC_UNLOAD_PROBE=\"$<TARGET_FILE:ss_alloc_unload_probe>\""
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/alloc_check_unload_test.cpp
     LIBS dl)
-add_dependencies(alloc_check_unload_test ss_alloc_unload_probe)
+if(TARGET alloc_check_unload_test)
+  add_dependencies(alloc_check_unload_test ss_alloc_unload_probe)
+endif()
 
 # server.so's R5 include set (plan_server_novalve.md 2, 3.4): the allowlisted
 # engine interface headers compile on it, and cbase.h is not reachable from it.
@@ -4785,6 +4880,7 @@ ss_cpptest_tier1(server_string_pool_test
 # gamestringpool.cpp does, under the allocation checker's wraps: whatever it
 # releases, it allocated (the P4 prerequisite: no foreign frees).
 ss_cpptest_tier1(server_string_pool_alloc_test
+    LINUX_ONLY "runs under the allocation checker, which wraps glibc's allocator (--wrap) and resolves symbols with dlsym"
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC SOURCESHARP_ALLOC_CHECK
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
     INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/server/native
@@ -4894,6 +4990,7 @@ ss_cpptest(engine_utlvector_append_test
 # sender and runs the handler that was there; the SDL watch counts quit and
 # window-close; the fatal witness writes the record file.
 ss_cpptest(exit_watch_test
+    LINUX_ONLY "forks a child process and reads its wait status"
     INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native
              ${PROJECT_SOURCE_DIR}/src/shared/native
              ${PROJECT_SOURCE_DIR}/src/host/native
@@ -4927,13 +5024,17 @@ ss_cpptest(tier0_spew_port_test
 # that library's slot, which in the game is the engine's and writes console.log.
 # fake_tier0/libtier0.so stands in for the game's (a slot and nothing else), so
 # the facts can fill the slot; the binary still links no tier0.
+# (Linux only: the stand-in is a libtier0.so the test dlopens.)
+if(SS_PLATFORM STREQUAL linux)
 add_library(ss_fake_tier0 SHARED ${PROJECT_SOURCE_DIR}/src/test/native/fake_tier0/fake_tier0.cpp)
 ss_test_compile_flags(ss_fake_tier0)
 set_target_properties(ss_fake_tier0 PROPERTIES
     OUTPUT_NAME tier0
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fake_tier0
     CXX_VISIBILITY_PRESET hidden)
+endif()
 ss_cpptest(tier0_spew_forward_test
+    LINUX_ONLY "finds libtier0.so's spew function with dlopen and dlsym"
     DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC DEBUG _DEBUG
             "SS_FAKE_TIER0=\"$<TARGET_FILE:ss_fake_tier0>\""
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
@@ -4944,7 +5045,9 @@ ss_cpptest(tier0_spew_forward_test
             ${PROJECT_SOURCE_DIR}/src/shared/native/fatal_report.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
     LIBS dl)
-add_dependencies(tier0_spew_forward_test ss_fake_tier0)
+if(TARGET tier0_spew_forward_test)
+  add_dependencies(tier0_spew_forward_test ss_fake_tier0)
+endif()
 
 # console_display_forward.cpp: the engine's console prints, forwarded to this
 # load's managed console-output area (docs/todo.md's console capture item).
@@ -4977,6 +5080,7 @@ ss_cpptest(console_line_buffer_test
 # tier0_thread_port.cpp: the thread and platform calls fork-header inlines make
 # (CThreadFastMutex, DebuggerBreak), defined in server.so (P4). Links NO tier0.
 ss_cpptest(tier0_thread_port_test
+    LINUX_ONLY "drives the POSIX thread port through pthreads"
     DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
     INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
@@ -4998,6 +5102,7 @@ ss_cpptest(ss_recipient_filter_test
 # tier0's CommandLine() (P4). Links no tier0. Built as the client's arm: the
 # Value half is client-only since the server gc cull (server.so never reads a value).
 ss_cpptest(ss_command_line_test
+    LINUX_ONLY "compares with glibc's program_invocation_name"
     DEFINES CLIENT_DLL
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/ss_command_line_test.cpp
@@ -5049,12 +5154,14 @@ ss_cpptest_engine_headers(client_recv_names_test
 # plan_client_novalve C8 (lane c6-input): the util and registry TUs that left
 # client.so with nothing to replace them, and their call sites, read from the farm.
 ss_cpptest(client_c8_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_c8_evicted_test.cpp)
 
 # plan_client_novalve C9: tier2.a is off client.so's link, and every tier2 name
 # client.so defines is one of our objects' (particles.a's imports are stubbed,
 # user ruling 2026-10-12).
 ss_cpptest(client_no_tier2_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_no_tier2_test.cpp)
 
 # client.so's CUtlMemoryPool (tier1_client.cpp, C9) over mempool_scenario.h,
@@ -5080,6 +5187,7 @@ ss_cpptest(shell_factory_client_test
 # strtools_unicode.o are not linked into client.so: each name they define that
 # client.so has is one of our objects' (keyvalues_client.cpp).
 ss_cpptest(client_tier1_members_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_tier1_members_test.cpp)
 
 # plan_client_novalve C9: tier3.a is off client.so's link too, and every tier3
@@ -5087,21 +5195,25 @@ ss_cpptest(client_tier1_members_test
 # plan_client_novalve C9: bitmap.a and vtf.a are off client.so's link, and no
 # name either defines is in client.so.
 ss_cpptest(client_no_bitmap_vtf_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_no_bitmap_vtf_test.cpp)
 
 ss_cpptest(client_no_tier3_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_no_tier3_test.cpp)
 
 # plan_particles_so.md 3.3: libss_particles.so exports only CreateInterface, no
 # import of it binds into client.so, and the tier1 names both carry are local
 # in each.
 ss_cpptest(particles_lib_isolation_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/particles_lib_isolation_test.cpp)
 
 # What the server does not need, in a client-only file beside a shared port
 # (user ruling 2026-10-12): per symbol, no server importer and no server
 # definition, and the client file still defines it.
 ss_cpptest(server_dead_split_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/server_dead_split_test.cpp)
 
 # client.so's bit-buffer members (bitbuf_client.cpp, and tier1_port.cpp's
@@ -5121,6 +5233,7 @@ ss_cpptest(bitbuf_client_test
 # wrote (keyvalues_members_oracle_test). tier1 so a member the scenario calls
 # and the port lacks pulls the archive's KeyValues.o and fails on duplicates.
 ss_cpptest_tier1(keyvalues_client_test
+    LINUX_ONLY "loads tier0 from the SDK's lib/public/linux64, and for Windows the SDK ships tier0 only as an import library"
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     # utlblockmemory.h's unused local under NDEBUG, a Valve header's.
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable

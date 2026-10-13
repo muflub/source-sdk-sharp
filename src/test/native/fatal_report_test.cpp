@@ -62,9 +62,21 @@ TEST( FatalReportDeathTest, TheExitCodeIsNegativeThreeAsTheParentSeesIt )
 
 TEST( FatalReportDeathTest, TheReportAndTheStackGoToStderr )
 {
+#ifdef _WIN32
+	// gtest on Windows matches with its simple regular expressions, which
+	// have no group or alternation to span lines, so each line is checked
+	// on its own there; the order is checked on Linux.
+	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
+	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "FATAL ASSERT: the widget broke" );
+	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
+	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "stopping here" );
+	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
+	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "stack \\(\\d+ frame" );
+#else
 	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
 	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
 	             "FATAL ASSERT: the widget broke(.|\n)*stopping here(.|\n)*stack \\([0-9]+ frame" );
+#endif
 }
 
 TEST( FatalReportDeathTest, AnErrorSaysErrorAndIsNotToldAboutAssertlog )
@@ -76,7 +88,12 @@ TEST( FatalReportDeathTest, AnErrorSaysErrorAndIsNotToldAboutAssertlog )
 
 TEST( FatalReportDeathTest, TheSameReportGoesToAssertPidTxtInTheNamedDirectory )
 {
-	const std::string dir = MakeTempDir();
+	// On Windows gtest runs a death test's child by re-running this body in a
+	// new process rather than forking at EXPECT_EXIT, so the child would make
+	// a directory of its own; it reuses the one the parent named instead (the
+	// variable is inherited). On Linux the forked child never runs this line.
+	const char *pszNamed = getenv( "SOURCESHARP_ASSERT_DIR" );
+	const std::string dir = pszNamed ? std::string( pszNamed ) : MakeTempDir();
 	ASSERT_FALSE( dir.empty() );
 	setenv( "SOURCESHARP_ASSERT_DIR", dir.c_str(), 1 );
 

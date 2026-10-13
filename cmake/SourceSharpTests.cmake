@@ -113,6 +113,13 @@ function(ss_test_compile_flags tgt)
   target_compile_options(${tgt} PRIVATE ${SS_CPPTEST_CXXFLAGS})
   if(NOT SS_IS_MSVC)
     target_link_options(${tgt} PRIVATE -pthread)
+  else()
+    # The POSIX spellings the tests use for files, directories and the
+    # environment, on the CRT (cmake/compat/windows-test): <dirent.h> and
+    # <unistd.h> stand-ins first on the include path, the rest forced in.
+    target_include_directories(${tgt} BEFORE PRIVATE ${PROJECT_SOURCE_DIR}/cmake/compat/windows-test)
+    target_compile_options(${tgt} PRIVATE
+      "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows-test/ss_posix_test_compat.h")
   endif()
   if(SS_IS_CLANG AND SS_LINKER STREQUAL "lld")
     target_link_options(${tgt} PRIVATE --ld-path=${SS_LD_PATH})
@@ -158,6 +165,12 @@ function(_ss_cpptest_platform_defines var)
   foreach(d IN LISTS ${var})
     if(d MATCHES "${SS_CPPTEST_POSIX_DEF_RE}")
       set(had_posix ON)
+    elseif(d STREQUAL "_DEBUG")
+      # A test defines _DEBUG for Valve's asserts (dbgflag.h's DBGFLAG_*).
+      # Under MSVC _DEBUG also selects the debug C++ runtime, which the
+      # release gtest library cannot link with; RELEASEASSERTS gives the same
+      # DBGFLAG_* set without it.
+      list(APPEND out RELEASEASSERTS)
     else()
       list(APPEND out "${d}")
     endif()
@@ -236,6 +249,14 @@ function(_ss_cpptest kind name)
     _ss_cpptest_linux_only(${name} "${A_LINUX_ONLY}")
     return()
   endif()
+  if(kind STREQUAL "MATHLIB" AND SS_IS_MSVC)
+    # MathLib_Init asks tier0 for GetCPUInformation, and the only 64-bit
+    # Windows tier0.dll the SDK ships (devtools/bin, built for its tools)
+    # does not export it: the loader would refuse the binary. On Linux the
+    # SDK's libtier0.so has it. The game's own tier0.dll would.
+    _ss_cpptest_linux_only(${name} "links mathlib, whose MathLib_Init needs tier0's GetCPUInformation, which the SDK's only 64-bit Windows tier0.dll (devtools/bin) does not export")
+    return()
+  endif()
   _ss_cpptest_paths(A_SOURCES)
   _ss_cpptest_paths(A_INCLUDES)
   _ss_cpptest_platform_defines(A_DEFINES)
@@ -244,6 +265,9 @@ function(_ss_cpptest kind name)
     # (-Wno-unknown-pragmas, -Wno-dangling-else, ...), which cl refuses; MSVC
     # has the game build's /wd list (SS_CPPTEST_WARN). Its own /options stay.
     list(FILTER A_OPTIONS INCLUDE REGEX "^/")
+    # And the POSIX system libraries some tests name (dl, rt, pthread, ...):
+    # the CRT and the Windows SDK hold all of it.
+    list(FILTER A_LIBS EXCLUDE REGEX "^(dl|rt|pthread|m|uuid)$")
   endif()
 
   add_executable(${name} ${A_SOURCES})
@@ -283,6 +307,14 @@ function(_ss_cpptest kind name)
   add_test(NAME ${name} COMMAND ${name})
   set_tests_properties(${name} PROPERTIES
     WORKING_DIRECTORY "${SS_SRC}" ENVIRONMENT "${env}" LABELS ${label})
+  if(SS_IS_MSVC)
+    # tier0.dll and vstdlib.dll for the tests that link their import
+    # libraries: the 64-bit pair the SDK ships beside its build tools
+    # (sdk-links/windows.txt), found first on PATH as Linux finds
+    # libtier0.so through LD_LIBRARY_PATH.
+    set_property(TEST ${name} APPEND PROPERTY ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:${SS_SRC}/devtools/bin")
+  endif()
   if(kind STREQUAL "MATHLIB")
     # THE ASSERTION THAT IS ONLY A PRINTED LINE. mathlib_base.cpp guards ~30
     # entry points with Assert( s_bMathlibInitialized ), and in these binaries

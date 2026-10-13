@@ -5,6 +5,11 @@
 # Linux one never does. tools/setup links this list on Windows only;
 # tools/sdk-census reads the Linux graph, which names none of these, so it
 # does not judge this list. A line goes when the Windows build stops using it.
+# src/devtools/bin/{tier0,vstdlib}.dll: the 64-bit DLLs the SDK ships for its
+# build tools, which the Windows native tests load as Linux's load
+# lib/public/linux64/libtier0.so (cmake/SourceSharpTests.cmake).
+src/devtools/bin/tier0.dll
+src/devtools/bin/vstdlib.dll
 src/lib/public/x64/bitmap.lib
 src/lib/public/x64/dmxloader.lib
 src/lib/public/x64/libz.lib

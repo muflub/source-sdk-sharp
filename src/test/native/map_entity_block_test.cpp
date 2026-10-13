@@ -471,7 +471,7 @@ TEST( MapEntityBlock, EveryRewriteRowIsWhatTheRealSetValueProduces )
 		const int capacity = atoi( row.At(2).c_str() );
 		std::vector< char > buf( (size_t)capacity, 0 );
 		memcpy( buf.data(), row.At(1).data(),
-		        std::min( (size_t)capacity - 1, row.At(1).size() ) );
+		        ( std::min )( (size_t)capacity - 1, row.At(1).size() ) );
 
 		CEntityMapData data( buf.data(), capacity );
 
