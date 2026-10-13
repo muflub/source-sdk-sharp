@@ -237,3 +237,6 @@ facts there).
   rather than code in the server/client shared objects (section 4).
 - 2026-10-13 (user): "start the plan for native shims" -- this plan, from
   phase 1.
+- 2026-10-13 (user), on opening phase 1's PR: "managed code should be as
+  simple as possible". The test every later phase is held to: what knowledge
+  of the C++ ABI or of native layout can still leave managed, leaves.
