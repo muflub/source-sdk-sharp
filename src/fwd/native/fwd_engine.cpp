@@ -19,20 +19,26 @@
 
 #include "engine/ivmodelinfo.h"
 
-#include <string.h>
-
 #include "fwd_engine.g.inc"
+
+// strcmp's equality, written out: the library links no runtime (NO_RUNTIME).
+static bool SameName( const char *a, const char *b )
+{
+	while ( *a && *a == *b )
+		++a, ++b;
+	return *a == *b;
+}
 
 SS_FWD_ENGINE_API const SSForwarderTable *SSFwdEngine_Table( const char *pszName )
 {
 	if ( !pszName )
-		return NULL;
+		return nullptr;
 
 	for ( const SSForwarderNamed &named : s_ForwarderTables )
 	{
-		if ( !strcmp( named.pszName, pszName ) )
+		if ( SameName( named.pszName, pszName ) )
 			return named.pTable;
 	}
 
-	return NULL;
+	return nullptr;
 }

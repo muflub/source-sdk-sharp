@@ -5272,6 +5272,18 @@ ss_cpptest(fwd_engine_isolation_test
     LINUX_ONLY "reads the Linux build's shared objects with nm and readelf"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_isolation_test.cpp)
 
+# plan_engine_forwarders.md: the built forwarder library, loaded. It links no
+# runtime (NO_RUNTIME), so nothing runs at load but the loader's relocations:
+# every slot of its table must be set without an initialiser, and on Windows
+# the DLL imports nothing. fwd_engine_test compiles the source into an
+# executable with a CRT and cannot see either.
+ss_cpptest(fwd_engine_load_test
+    DEFINES "SS_FWD_LIB=\"$<TARGET_FILE:ss_fwd_engine>\""
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_load_test.cpp
+    LIBS dl)
+add_dependencies(fwd_engine_load_test ss_fwd_engine)
+
 # The game DLLs export CreateInterface alone, read from the built files on both
 # platforms (ELF's dynamic symbols, PE's export directory): MSVC exports a
 # definition of a dllimport-declared function, and server.dll/client.dll had

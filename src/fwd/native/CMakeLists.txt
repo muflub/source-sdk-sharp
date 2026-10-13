@@ -18,8 +18,12 @@
 add_library(ss_fwd_engine SHARED)
 set_target_properties(ss_fwd_engine PROPERTIES OUTPUT_NAME ss_fwd_engine)
 # NO_WRAP: the allocator wraps are for code that allocates through the
-# engine's heap, and nothing here allocates.
-ss_sdk_target(ss_fwd_engine PROJECTDIR fwd RPATH_ORIGIN NO_WRAP
+# engine's heap, and nothing here allocates. NO_RUNTIME: nothing here calls a
+# runtime either (fwd_engine.cpp compares names itself), so the library needs
+# libc alone on Linux and nothing on Windows, where the static CRT had been
+# 104 KB of a 105 KB DLL. fwd_engine_load_test loads the built file and holds
+# both: every slot set with no CRT to run an initialiser, and no import.
+ss_sdk_target(ss_fwd_engine PROJECTDIR fwd RPATH_ORIGIN NO_WRAP NO_RUNTIME
     VERSION_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/version_script.txt)
 # ss_sdk_target drops the `lib` prefix, as Valve's game libraries have none.
 # This one is ours and keeps it outside Windows, as libss_particles.so does.
