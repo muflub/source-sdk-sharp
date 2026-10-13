@@ -154,7 +154,7 @@ public class BspTests
     {
         var source = new MapSource("/nowhere");
 
-        Assert.True(source.PathFor("dm_lockdown") == "/nowhere/dm_lockdown.bsp", "a map name is joined onto the directory");
+        Assert.True(source.PathFor("dm_lockdown") == Path.Combine("/nowhere", "dm_lockdown.bsp"), "a map name is joined onto the directory");
 
         // A map name arrives from a query string, and joining one onto a
         // directory is the classic way to end up reading a file elsewhere.

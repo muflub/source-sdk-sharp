@@ -450,8 +450,12 @@ public class ManagedVtableGeneratorTests
     private static List<string> Diagnostics(string source)
         => Drive(source).result.Diagnostics.Select(d => d.Id).ToList();
 
+    // The generator writes with AppendLine, so its lines end in the platform's
+    // newline ("\r\n" on Windows). Facts match multi-line spans with "\n", so
+    // the text is read with one line ending everywhere.
     private static string Generated(string source)
-        => string.Join("\n", Drive(source).result.GeneratedSources.Select(s => s.SourceText.ToString()));
+        => string.Join("\n", Drive(source).result.GeneratedSources.Select(s => s.SourceText.ToString()))
+            .Replace("\r\n", "\n");
 
     private static (System.Reflection.MethodInfo Build, Type Caller, object Probe) RoundTrip()
     {

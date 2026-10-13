@@ -118,11 +118,21 @@ public unsafe class ClientEntityIsValidTests : IDisposable
 
     //-------------------------------------------------------------------------
 
-    /// <summary>libc's getpagesize: ignores its arguments and answers non-zero.</summary>
-    private const string Alive = "getpagesize";
+    // TWO NATIVE FUNCTIONS THAT IGNORE THEIR ARGUMENTS, one answering non-zero
+    // and one 0, borrowed from the C library as the slot's implementation. Not
+    // [UnmanagedCallersOnly] methods: the slot is [SuppressGCTransition], and a
+    // call made that way may not enter managed code.
+    //
+    // Linux: libc's getpagesize (the page size) and sched_yield (0). Windows:
+    // the ucrt's _getmaxstdio (512 unless a process raises it) and
+    // _get_printf_count_output (0 unless a process enables %n).
+    private static readonly string Library = OperatingSystem.IsWindows() ? "ucrtbase.dll" : "libc.so.6";
 
-    /// <summary>libc's sched_yield: ignores its arguments and answers 0.</summary>
-    private const string Gone = "sched_yield";
+    /// <summary>Ignores its arguments and answers non-zero.</summary>
+    private static readonly string Alive = OperatingSystem.IsWindows() ? "_getmaxstdio" : "getpagesize";
+
+    /// <summary>Ignores its arguments and answers 0.</summary>
+    private static readonly string Gone = OperatingSystem.IsWindows() ? "_get_printf_count_output" : "sched_yield";
 
     /// <summary>Serves an entities area for <paramref name="version"/> whose EntityIsValid slot is <paramref name="answer"/>.</summary>
     private void Serve(string version, string answer) => _root.Area(version, Area(answer));
@@ -135,7 +145,7 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         var self = (nint*)Alloc(sizeof(nint));
 
         int slot = (int)Marshal.OffsetOf(vtbl, nameof(ShimEntitiesServerVtbl.EntityIsValid)) / sizeof(nint);
-        nint libc = NativeLibrary.Load("libc.so.6");
+        nint libc = NativeLibrary.Load(Library);
         table[slot] = NativeLibrary.GetExport(libc, answer);
         self[0] = (nint)table;
         return self;
