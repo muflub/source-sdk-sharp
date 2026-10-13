@@ -166,9 +166,9 @@ set(SS_CPPTEST_KEYWORDS DEFINES OPTIONS INCLUDES SOURCES LIBS)
 #
 # The sets are only known once every test is defined and nothing more is added
 # to one, so the headers are attached at the end of each directory that defines
-# tests (cmake_language DEFER). gtest.h then comes before a test's own first
-# line, which no test depends on: none defines a macro for gtest or the
-# standard library first. test_pch_test holds the sets to their flags.
+# tests (cmake_language DEFER). gtest.h then comes before a TU's own first
+# line, so only a TU that reads nothing but system headers before gtest.h gets
+# it (_ss_cpptest_pch_safe). test_pch_test holds the sets to their flags.
 #
 # Not on MSVC yet: its /Yu needs the forced /FI of the POSIX compat header and
 # the PDB the header was built with to agree across REUSE_FROM, which is its
@@ -188,11 +188,36 @@ function(_ss_cpptest_pch_record name)
   endif()
 endfunction()
 
+# <var> is ON when <src> may be compiled with gtest.h ahead of its first line:
+# it includes gtest/gtest.h itself, and every directive before that is an
+# #include <...>, a system header gtest.h reads or could. A TU that sets a macro,
+# opens a conditional or reads one of our headers first depends on what comes
+# before gtest.h and the standard library (server_string_pool_alloc_test reads
+# tier0/memdbgon.h first on purpose, and with the header the pool's strdup was
+# no longer tier0's), and so does a subject .cpp built into a test that never
+# reads gtest.h at all: those compile as they always have.
+function(_ss_cpptest_pch_safe src var)
+  set(${var} OFF PARENT_SCOPE)
+  if(NOT EXISTS "${src}")
+    return()
+  endif()
+  file(STRINGS "${src}" directives REGEX "^[ \t]*#")
+  foreach(d IN LISTS directives)
+    if(d MATCHES "^[ \t]*#[ \t]*include[ \t]*[<\"]gtest/gtest\\.h[>\"]")
+      set(${var} ON PARENT_SCOPE)
+      return()
+    elseif(NOT d MATCHES "^[ \t]*#[ \t]*include[ \t]*<")
+      return()
+    endif()
+  endforeach()
+endfunction()
+
 # At the end of the directory, when nothing more is added to a test: the tests
 # keyed by every property that reaches their compile line (what a test's own
 # CMakeLists adds after its ss_cpptest*() call included, and the libraries it
 # links, whose usage requirements do), then one header per set of two or more
-# TUs, built by the set's first test and reused by the others.
+# TUs that may read it (_ss_cpptest_pch_safe), built by the set's first test and
+# reused by the others.
 function(_ss_cpptest_pch_attach)
   get_property(targets DIRECTORY PROPERTY SS_CPPTEST_PCH_TARGETS)
   set(keys "")
@@ -211,8 +236,14 @@ function(_ss_cpptest_pch_attach)
     list(APPEND names_${hash} ${name})
     get_target_property(sources ${name} SOURCES)
     list(FILTER sources INCLUDE REGEX "\\.(cpp|cc|cxx)$")
-    list(LENGTH sources n)
-    math(EXPR tus_${hash} "${tus_${hash}} + ${n}")
+    foreach(src IN LISTS sources)
+      _ss_cpptest_pch_safe("${src}" safe)
+      if(safe)
+        math(EXPR tus_${hash} "${tus_${hash}} + 1")
+      else()
+        set_source_files_properties("${src}" PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+      endif()
+    endforeach()
   endforeach()
   foreach(hash IN LISTS keys)
     if(tus_${hash} LESS 2)

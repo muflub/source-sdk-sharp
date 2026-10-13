@@ -8,12 +8,19 @@
 // gcc refuses none: with -Winvalid-pch off it parses the header itself, and the
 // header buys nothing. So the flags are compared here, token for token, rather
 // than left to the compiler.
+//
+// The header puts gtest.h, and the standard library with it, ahead of a TU's
+// first line, so only a TU that reads nothing but system headers before
+// gtest.h may have it. Configure decides that from the files as they were; the
+// fourth fact reads them as they are now.
 
 #include "gtest/gtest.h"
 
 #include "cmake_graph.h"
 
+#include <fstream>
 #include <map>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <string>
@@ -85,13 +92,48 @@ std::vector< std::string > Flags( const std::vector< std::string > &tokens )
 	return out;
 }
 
+// A header's name, the same however a command spells its path: a reader names
+// it by its absolute path, its own build by the path under the build directory,
+// and a target's directory under CMakeFiles/ is unique to it.
+std::string HeaderKey( const std::string &strPath )
+{
+	const size_t at = strPath.rfind( "CMakeFiles/" );
+	return at == std::string::npos ? strPath : strPath.substr( at );
+}
+
+// _ss_cpptest_pch_safe's rule: the file reads gtest/gtest.h, and every
+// directive before it is an #include <...>.
+bool SystemHeadersOnlyBeforeGtest( std::istream &in )
+{
+	static const std::regex directive( "^[ \\t]*#" );
+	static const std::regex gtest( "^[ \\t]*#[ \\t]*include[ \\t]*[<\"]gtest/gtest\\.h[>\"]" );
+	static const std::regex system( "^[ \\t]*#[ \\t]*include[ \\t]*<" );
+	std::string line;
+	while ( std::getline( in, line ) )
+	{
+		if ( !std::regex_search( line, directive ) )
+			continue;
+		if ( std::regex_search( line, gtest ) )
+			return true;
+		if ( !std::regex_search( line, system ) )
+			return false;
+	}
+	return false;
+}
+
+bool SystemHeadersOnlyBeforeGtest( const std::string &strText )
+{
+	std::istringstream in( strText );
+	return SystemHeadersOnlyBeforeGtest( static_cast< std::istream & >( in ) );
+}
+
 struct Header
 {
 	std::vector< std::string > flags;     // the header's own build
 	std::vector< std::string > readers;   // the TUs that read it
 };
 
-// Each header (by its .pch path) with its build's flags and its readers.
+// Each header (by HeaderKey) with its build's flags and its readers.
 std::map< std::string, Header > Headers()
 {
 	std::map< std::string, Header > out;
@@ -100,14 +142,12 @@ std::map< std::string, Header > Headers()
 		const std::vector< std::string > tokens = Tokens( e.strCommand );
 		if ( EndsWith( e.strFile, kPchSuffix ) )
 		{
-			// Its output is relative to the build directory; the readers name
-			// it by its absolute path.
-			out[ cmake_graph::BuildDir() + "/" + e.strOutput ].flags = Flags( tokens );
+			out[ HeaderKey( e.strOutput ) ].flags = Flags( tokens );
 			continue;
 		}
 		const std::string strPch = PchRead( tokens );
 		if ( !strPch.empty() )
-			out[ strPch ].readers.push_back( e.strFile );
+			out[ HeaderKey( strPch ) ].readers.push_back( e.strFile );
 	}
 	return out;
 }
@@ -146,7 +186,7 @@ TEST( TestPch, EveryTuReadsAHeaderBuiltWithItsOwnFlags )
 		const std::string strPch = PchRead( tokens );
 		if ( strPch.empty() )
 			continue;
-		const auto h = headers.find( strPch );
+		const auto h = headers.find( HeaderKey( strPch ) );
 		ASSERT_NE( h, headers.end() ) << e.strFile << " reads " << strPch << ", which nothing builds";
 		EXPECT_EQ( h->second.flags, Flags( tokens ) ) << e.strFile << " reads " << strPch;
 	}
@@ -165,4 +205,33 @@ TEST( TestPch, TheFlagComparisonSeesAnIncludeDirectory )
 	const std::vector< std::string > reader = Flags( Tokens(
 		"clang++ -I/a -O1 -Xclang -include-pch -Xclang /h.pch -Xclang -include -Xclang /h.hxx -o x.o -c x.cpp" ) );
 	EXPECT_EQ( header, reader );
+}
+
+TEST( TestPch, EveryTuThatReadsAHeaderReadsOnlySystemHeadersBeforeGtest )
+{
+	size_t nRead = 0;
+	for ( const auto &h : Headers() )
+	{
+		for ( const std::string &strFile : h.second.readers )
+		{
+			std::ifstream in( strFile );
+			ASSERT_TRUE( in.good() ) << strFile << " is in the compile database but cannot be read";
+			nRead++;
+			EXPECT_TRUE( SystemHeadersOnlyBeforeGtest( in ) )
+				<< strFile << " reads a precompiled gtest.h but has a directive other than #include <...> before"
+				<< " its own gtest.h, or none: reconfigure, and _ss_cpptest_pch_safe leaves it out";
+		}
+	}
+	EXPECT_GT( nRead, 0u );
+}
+
+TEST( TestPch, TheRuleKeepsOnlySystemHeadersAheadOfGtest )
+{
+	// The control for the fact above, and the rule's every arm.
+	EXPECT_TRUE( SystemHeadersOnlyBeforeGtest( "// note\n#include <string>\n#include \"gtest/gtest.h\"\n#include \"x.h\"\n" ) );
+	EXPECT_TRUE( SystemHeadersOnlyBeforeGtest( "#include <gtest/gtest.h>\n" ) );
+	EXPECT_FALSE( SystemHeadersOnlyBeforeGtest( "#include \"tier0/memdbgon.h\"\n#include \"gtest/gtest.h\"\n" ) );
+	EXPECT_FALSE( SystemHeadersOnlyBeforeGtest( "#define X 1\n#include \"gtest/gtest.h\"\n" ) );
+	EXPECT_FALSE( SystemHeadersOnlyBeforeGtest( "  #ifdef X\n#include \"gtest/gtest.h\"\n#endif\n" ) );
+	EXPECT_FALSE( SystemHeadersOnlyBeforeGtest( "#include <string>\nint f();\n" ) );   // never reads gtest.h
 }
