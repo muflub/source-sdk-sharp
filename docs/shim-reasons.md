@@ -68,7 +68,7 @@ marker is the answer to "why is this native at all", not a full account.
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
 | a | a vtable the engine or VPhysics calls through | 22 | 5 | 30 |  |  |  | 60 | 35,001 |
-| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 40 | 18,658 |
+| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 40 | 18,657 |
 | c | static-init registration | 19 | 6 | 3 |  |  |  | 29 | 5,345 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 4 | 2 |  |  | 20 | 11,571 |
 | e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,112 |
@@ -76,7 +76,7 @@ marker is the answer to "why is this native at all", not a full account.
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 5 | 2 | 9 | 1 |  |  | 19 | 9,852 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 4,841 |
 | x | NO LETTER FITS | 9 | 2 |  |  | 2 |  | 19 | 4,769 |
-|  | **total** | **88** | **37** | **67** | **4** | **2** | **1** | **219** | **99,819** |
+|  | **total** | **88** | **37** | **67** | **4** | **2** | **1** | **219** | **99,818** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -179,7 +179,7 @@ Then the frame's skeleton batch (2026-10-12, plan_physics_bones_perf A2, measure
 
 Then the port's small todos (plan_physics_bones_perf lane C, 2026-10-12, re-measured by the walk on its branch rebased onto main 20450cce0): (a) 34,453 -> 34,401 is shell_standalone_player.cpp (-30: NoteTouchedPhysics and m_oldOrigin out, the touch list recorded instead; the decisions are PlayerShadowBodies'), standalone_relays.cpp (-18: the ground velocity's solver-or-member pick out, a held read in) and shell_standalone_base.cpp (-4: the asleep-twice skip out, the held velocity's two writes in); (e) 5,448 -> 5,458 is physics.cpp (+9: the owner batch holds the velocity managed hands over) and shell_worldquery.cpp (+1: the movetype word managed writes); 97,788 in the table. shell_velocity_home.h left the tree and carried no marker.
 
-Then libmathlib.a left server.so's link (2026-10-13, measured by the walk on main aeff4a2): (g) arrives with sourcesharp/game/server/mathlib_port.cpp (server, +79 lines, one file), the mathlib members server.so calls, forwarding to mathlib_port.h's inlines; 219 files, 99,819 in the table.
+Then libmathlib.a left server.so's link (2026-10-13, measured by the walk on main aeff4a2): (g) arrives with sourcesharp/game/server/mathlib_port.cpp (server, +79 lines, one file), the mathlib members server.so calls, forwarding to mathlib_port.h's inlines; 219 files, 99,819 in the table. Then (b) 18,658 -> 18,657 is shell_gamedll.cpp's MathLib_Init call, gone with the archive (-1); 99,818 in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

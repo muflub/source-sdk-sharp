@@ -211,7 +211,11 @@ TEST( SdkLibMembers, TheGameLibrariesAreAmongTheConsumers )
 	std::set< std::string > consumers( s.consumers.begin(), s.consumers.end() );
 	EXPECT_TRUE( consumers.count( "out/libss_particles.so" ) ) << "the particles library no longer links tier1/mathlib?";
 	EXPECT_TRUE( consumers.count( "out/client.so" ) );
-	EXPECT_TRUE( consumers.count( "out/server.so" ) );
+	// server.so links neither archive: tier1's members it calls are
+	// tier1_port.cpp's and mathlib's are mathlib_port.cpp's. Its absence here
+	// is that fact read off the graph; client.so and the particles library
+	// above are the controls that the reading still finds consumers.
+	EXPECT_FALSE( consumers.count( "out/server.so" ) ) << "server.so links tier1 or mathlib again";
 	for ( const std::string &e : s.errors )
 		ADD_FAILURE() << e;
 }

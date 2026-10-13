@@ -849,10 +849,14 @@ def reconcilable_config(side, prefer=None):
         sop = so_path(side, cfg)
         if not os.path.exists(sop):
             continue
-        _, archives = link_edge(bdir, side)
-        if not archives:
+        objects, archives = link_edge(bdir, side)
+        if not objects:
             continue
-        if not archives_are_current(archives, sop, built_archives(bdir)):
+        # No archive on the line (server.so since libmathlib.a left it, for
+        # mathlib_port.cpp): nothing can be newer than the .so, so the config
+        # is reconcilable. Skipping it instead left NEITHER config reconcilable
+        # and refused a measurement that had nothing to go stale.
+        if not archives or not archives_are_current(archives, sop, built_archives(bdir)):
             return cfg
     return None
 

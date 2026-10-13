@@ -1604,7 +1604,8 @@ shim_cpp_files	src/sourcesharp	219
 # RAISED 2026-10-13, 143890 -> 143904 (+14, measured by the walk): MSVC on CI: ss_platform.h includes <windows.h> with C4005 off (Valve's xboxstubs.h defines INVALID_HANDLE_VALUE first, to the same value); fatal_report.cpp calls the witness unconditionally under MSVC, where its alternate name always binds; particles_lib_client.cpp turns off C4073, which only reports what init_seg(lib) does.
 # LOWERED 2026-10-13, 143904 -> 143847 (-57, measured by the walk): the console line buffer's lock and counter words and the display forward's attach flag are std::atomic, in place of per-compiler __atomic builtins and Interlocked intrinsics; the yield is std::this_thread::yield.
 # RAISED 2026-10-13, 143847 -> 143988 (+141, measured by the walk), deliberately: mathlib_port.cpp and mathlib_port.h, the mathlib members server.so calls, so libmathlib.a leaves its link (the TU raise above says what they bind).
-shim_lines	src/sourcesharp	143988
+# LOWERED 2026-10-13, 143988 -> 143987 (-1, measured by the walk): shell_gamedll.cpp's MathLib_Init call, which went with libmathlib.a.
+shim_lines	src/sourcesharp	143987
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their
