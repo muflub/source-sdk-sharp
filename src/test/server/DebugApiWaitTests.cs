@@ -25,16 +25,21 @@ public class DebugApiWaitTests
     {
         private readonly ManualResetEventSlim _done = new(false);
         private T? _result;
+        private readonly Func<string>? _progress;
 
-        public Pending(Func<T> work)
+        /// <param name="progress">Where the work had got to, for the message when it never finishes.</param>
+        public Pending(Func<T> work, Func<string>? progress = null)
         {
+            _progress = progress;
             new Thread(() => { _result = work(); _done.Set(); }) { IsBackground = true }.Start();
         }
 
         public bool IsCompleted => _done.IsSet;
         public bool Wait(int milliseconds) => _done.Wait(milliseconds);
         public bool Wait(TimeSpan timeout) => _done.Wait(timeout);
-        public T Result => _done.Wait(TimeSpan.FromSeconds(10)) ? _result! : throw new TimeoutException("no reply");
+        public T Result => _done.Wait(TimeSpan.FromSeconds(10))
+            ? _result!
+            : throw new TimeoutException(_progress is null ? "no reply" : "no reply; the request got as far as: " + _progress());
     }
 
     private sealed class Rig : IDisposable
@@ -327,16 +332,25 @@ public class DebugApiWaitTests
     // The transport: a long request must not hold the accept loop.
     //-------------------------------------------------------------------------
 
-    private static string Ask(string socketPath, string path)
+    // stage: where the request is, for a fact's message if it never comes back
+    // (the long-request fact once timed out on a Windows runner with no more
+    // to go on than "no reply").
+    private static string Ask(string socketPath, string path, Action<string>? stage = null)
     {
         using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        stage?.Invoke("connecting");
         socket.Connect(new UnixDomainSocketEndPoint(socketPath));
+        stage?.Invoke("connected, sending");
         socket.Send(Encoding.ASCII.GetBytes($"GET {path} HTTP/1.1\r\n\r\n"));
+        stage?.Invoke("sent, 0 bytes back");
         var buffer = new byte[4096];
         var all = new StringBuilder();
         int n;
         while ((n = socket.Receive(buffer)) > 0)
+        {
             all.Append(Encoding.UTF8.GetString(buffer, 0, n));
+            stage?.Invoke($"sent, {all.Length} bytes back and no end of stream: {all}");
+        }
         return all.ToString();
     }
 
@@ -353,7 +367,9 @@ public class DebugApiWaitTests
         try
         {
             http.Start();
-            var slow = new Pending<string>(() => Ask(path, "/slow"));
+            string slowStage = "not started";
+            var slow = new Pending<string>(() => Ask(path, "/slow", s => Volatile.Write(ref slowStage, s)),
+                                           () => Volatile.Read(ref slowStage));
             Thread.Sleep(50);
 
             Assert.Contains("\"fast\":true", Ask(path, "/fast"), StringComparison.Ordinal);

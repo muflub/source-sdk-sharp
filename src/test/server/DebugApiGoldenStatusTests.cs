@@ -90,6 +90,10 @@ public class DebugApiGoldenStatusTests
             new DebugFactories(true, 28, 29, 30, 31), new DebugLogical(32, 33, 34, 35, 36, 37),
             new DebugOverlayCounts(38, 39, 40, 41, true));
 
+        // Pumped below, so the game-thread wait only has to outlast a pump
+        // thread's first turn. The live game's 500 ms did not on a loaded CI
+        // runner, and status said "ticking":false; a pump that never runs at
+        // all still fails, after the long wait.
         return DebugApiServer.ForTest(TestDebugHooks.Server(
             crossings: _crossings,
             build: _build,
@@ -97,8 +101,10 @@ public class DebugApiGoldenStatusTests
             counters: () => counters,
             game: () => new DebugGameStatus("golden_map", 42, 43, 44, 45),
             services: () => Services,
-            map: () => "golden_map"));
+            map: () => "golden_map"), PumpedWait);
     }
+
+    private static readonly TimeSpan PumpedWait = TimeSpan.FromSeconds(30);
 
     [Fact]
     public void Status_renders_exactly()
