@@ -90,7 +90,11 @@ WEBUI     := src/webui
 # tools/nogc-relink asks the same question of the normal build in a quarter of
 # a second (both .so relinked without the collector); orphan_reach_test runs it.
 GC_SECTIONS ?= 1
-BUILD_FLAGS := $(if $(filter 0,$(GC_SECTIONS)),--no-gc-sections)
+# NATIVE_TESTS=0 builds the game libraries without the native tests
+# (buildsourcesharp --no-tests: SS_BUILD_TESTS=OFF). CI's release build uses
+# it; the tests are built and run in the debug tree by make check.
+NATIVE_TESTS ?= 1
+BUILD_FLAGS := $(if $(filter 0,$(GC_SECTIONS)),--no-gc-sections) $(if $(filter 0,$(NATIVE_TESTS)),--no-tests)
 
 # The UI is TypeScript and React, so it needs Node. tools/get-node downloads a
 # pinned one into the tree rather than making it a prerequisite that will be
