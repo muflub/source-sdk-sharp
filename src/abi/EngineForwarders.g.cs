@@ -129,7 +129,7 @@ internal unsafe struct EngineClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 7 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 9 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -157,6 +157,12 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // const CSteamID * IVEngineServer::GetClientSteamIDByPlayerIndex( int )
     public delegate* unmanaged<void*, int, void*> GetClientSteamIDByPlayerIndex;
+
+    // void IVEngineServer::GetGameDir( char *, int )
+    public delegate* unmanaged<void*, byte*, int, void> GetGameDir;
+
+    // bool IVEngineServer::IsModelPrecached( char const * )
+    public delegate* unmanaged<void*, byte*, byte> IsModelPrecached;
 }
 
 /// <summary>

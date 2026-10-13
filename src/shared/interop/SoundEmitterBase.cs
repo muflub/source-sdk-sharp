@@ -19,12 +19,12 @@ public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
     public const string InterfaceVersion = "VSoundEmitter002";
 
     private readonly void* _self;
-    private readonly SoundEmitterSystemVtbl* _vtbl;
+    private readonly SoundEmitterSystemFwd* _fwd;
 
-    private SoundEmitterBase(void* self, void** table)
+    private SoundEmitterBase(void* self, SoundEmitterSystemFwd* table)
     {
         _self = self;
-        _vtbl = (SoundEmitterSystemVtbl*)table;
+        _fwd = table;
     }
 
     /// <summary>
@@ -32,8 +32,8 @@ public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
     /// (plan_abi_hotreload D8); null, with the reason, when it does not answer.
     /// </summary>
     public static IVtableSoundEmitter? Acquire(ModuleEngine engine, out string why)
-        => Vtable.TryAcquire<SoundEmitterSystemVtbl>((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, SourceSharpFactoryType.AppSystem,
-               InterfaceVersion, out void* self, out void** table, out why)
+        => Forwarders.TryAcquire<SoundEmitterSystemFwd>((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, SourceSharpFactoryType.AppSystem,
+               InterfaceVersion, out void* self, out SoundEmitterSystemFwd* table, out why)
             ? new SoundEmitterBase(self, table)
             : null;
 
@@ -42,8 +42,8 @@ public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
         byte[] bytes = Vtable.Utf8(name);
 
         fixed (byte* p = bytes)
-            return _vtbl->GetSoundIndex(_self, p);
+            return _fwd->GetSoundIndex(_self, p);
     }
 
-    public string? SoundName(int index) => Vtable.TextOf(_vtbl->GetSoundName(_self, index), 512);
+    public string? SoundName(int index) => Vtable.TextOf(_fwd->GetSoundName(_self, index), 512);
 }

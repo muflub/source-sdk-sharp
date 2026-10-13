@@ -40,23 +40,20 @@ public sealed unsafe class ShimProbeSideTests
         var bare = new EngineSide(Side.Server);
 
         using var root = new FakeShimRoot();
-        var table = stackalloc nint[1];
         var self = stackalloc nint[1];
-        self[0] = (nint)table;
-        root.Interface(EngineStringTableDirectory.ServerInterfaceVersion, self);
+        root.Interface(EngineStringTableDirectory.ServerInterfaceVersion, self)
+            .Forwarders<NetworkStringTableContainerFwd>()
+            .Forwarders<NetworkStringTableFwd>();
 
         served.Initialize();
         Assert.True(served.AttachShims(root.Bind(), out string why), why);
 
-        // The fake root answers every interface with a table longer than any
-        // layout, so the served engine's acquire is refused by the SPAN check
-        // -- which is only reached by an engine whose own root answered. The
-        // bare engine never gets that far.
-        Assert.True(EngineStringTableDirectory.AcquireServer(new ModuleEngine(served), out string servedWhy) is null
-                    && servedWhy.Contains("has 1000 vtable entries", StringComparison.Ordinal),
+        // The served engine's own root answers the container and its
+        // forwarders, so its acquire binds; the bare engine has no root, and
+        // does not borrow the first engine's.
+        Assert.True(EngineStringTableDirectory.AcquireServer(new ModuleEngine(served), out string servedWhy) is not null,
                     $"the served engine reached its own root: {servedWhy}");
-        Assert.True(EngineStringTableDirectory.AcquireServer(new ModuleEngine(bare), out string bareWhy) is null
-                    && !bareWhy.Contains("vtable entries", StringComparison.Ordinal),
+        Assert.True(EngineStringTableDirectory.AcquireServer(new ModuleEngine(bare), out string bareWhy) is null,
                     $"the other engine reached no root at all, not the first's: {bareWhy}");
     }
 
@@ -67,21 +64,19 @@ public sealed unsafe class ShimProbeSideTests
         var bare = new EngineSide(Side.Server);
 
         using var root = new FakeShimRoot();
-        var table = stackalloc nint[1];
         var self = stackalloc nint[1];
-        self[0] = (nint)table;
-        root.Interface(EngineServer.InterfaceVersion, self);
+        root.Interface(EngineServer.InterfaceVersion, self)
+            .Forwarders<EngineServerFwd>()
+            .Forwarders<NetChannelInfoFwd>();
 
         served.Initialize();
         Assert.True(served.AttachShims(root.Bind(), out string why), why);
 
-        // As above: only an engine whose own root answered reaches the span
-        // check. cs_vtable acquires this way, for the module it runs in.
-        Assert.True(EngineServer.Acquire(new ModuleEngine(served), out string servedWhy) is null
-                    && servedWhy.Contains("has 1000 vtable entries", StringComparison.Ordinal),
+        // As above: only the engine whose own root answers binds. cs_vtable
+        // acquires this way, for the module it runs in.
+        Assert.True(EngineServer.Acquire(new ModuleEngine(served), out string servedWhy) is not null,
                     $"the served engine reached its own root: {servedWhy}");
-        Assert.True(EngineServer.Acquire(new ModuleEngine(bare), out string bareWhy) is null
-                    && !bareWhy.Contains("vtable entries", StringComparison.Ordinal),
+        Assert.True(EngineServer.Acquire(new ModuleEngine(bare), out string bareWhy) is null,
                     $"the other engine reached no root at all, not the first's: {bareWhy}");
     }
 }

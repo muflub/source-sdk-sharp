@@ -141,7 +141,7 @@ static void *const s_EngineClientSlots[] = {
 static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 13 };
 
 //-----------------------------------------------------------------------------
-// EngineServer: 7 forwarder(s) over IVEngineServer.
+// EngineServer: 9 forwarder(s) over IVEngineServer.
 //-----------------------------------------------------------------------------
 // bool IVEngineServer::IsDedicatedServer( void )
 static bool SSFwd_EngineServer_IsDedicatedServer( IVEngineServer *self ) { return self->IsDedicatedServer(); }
@@ -157,6 +157,10 @@ static int SSFwd_EngineServer_GetArea( IVEngineServer *self, const Vector & a0 )
 static const char * SSFwd_EngineServer_GetMapEntitiesString( IVEngineServer *self ) { return self->GetMapEntitiesString(); }
 // const CSteamID * IVEngineServer::GetClientSteamIDByPlayerIndex( int )
 static const CSteamID * SSFwd_EngineServer_GetClientSteamIDByPlayerIndex( IVEngineServer *self, int a0 ) { return self->GetClientSteamIDByPlayerIndex( a0 ); }
+// void IVEngineServer::GetGameDir( char *, int )
+static void SSFwd_EngineServer_GetGameDir( IVEngineServer *self, char * a0, int a1 ) { self->GetGameDir( a0, a1 ); }
+// bool IVEngineServer::IsModelPrecached( char const * )
+static bool SSFwd_EngineServer_IsModelPrecached( IVEngineServer *self, char const * a0 ) { return self->IsModelPrecached( a0 ); }
 
 static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_IsDedicatedServer ),
@@ -166,9 +170,11 @@ static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_GetArea ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_GetMapEntitiesString ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_GetClientSteamIDByPlayerIndex ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_GetGameDir ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_IsModelPrecached ),
 };
 
-static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 7 };
+static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 9 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.

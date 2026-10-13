@@ -27,22 +27,27 @@ public sealed unsafe class ClientStringTables : IClientStringTables
     private const int InvalidStringIndex = 0xFFFF;
 
     private readonly void* _self;
-    private readonly NetworkStringTableContainerVtbl* _vtbl;
+    private readonly NetworkStringTableContainerFwd* _fwd;
 
-    private ClientStringTables(void* self, void** table)
+    // The forwarders of the INetworkStringTable objects FindTable answers.
+    private readonly NetworkStringTableFwd* _tables;
+
+    private ClientStringTables(void* self, NetworkStringTableContainerFwd* table, NetworkStringTableFwd* tables)
     {
         _self = self;
-        _vtbl = (NetworkStringTableContainerVtbl*)table;
+        _fwd = table;
+        _tables = tables;
     }
 
     /// <summary>The client's container through <paramref name="engine"/>'s factory, or null with the reason.</summary>
     public static IClientStringTables? Acquire(ModuleEngine engine, out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return Vtable.TryAcquire<NetworkStringTableContainerVtbl>(
+        return Forwarders.TryAcquire<NetworkStringTableContainerFwd>(
                    engine.Api.Interfaces, SourceSharpFactoryType.AppSystem, InterfaceVersion,
-                   out void* self, out void** table, out why)
-            ? new ClientStringTables(self, table)
+                   out void* self, out NetworkStringTableContainerFwd* table, out why)
+               && Forwarders.TryAcquire(engine.Api.Interfaces, out NetworkStringTableFwd* tables, out why)
+            ? new ClientStringTables(self, table, tables)
             : null;
     }
 
@@ -52,13 +57,12 @@ public sealed unsafe class ClientStringTables : IClientStringTables
         byte[] name = Vtable.Utf8(table);
         void* found;
         fixed (byte* p = name)
-            found = _vtbl->FindTable(_self, p);
+            found = _fwd->FindTable(_self, p);
         if (found == null)
             return null;
 
-        // No span check for a table FindTable returns: vtable_index_agreement_test
-        // holds NetworkStringTableVtbl to networkstringtabledefs.h at build time.
-        var vt = *(NetworkStringTableVtbl**)found;
+        // The table FindTable returns is called through its own forwarders.
+        NetworkStringTableFwd* vt = _tables;
         byte[] key = Vtable.Utf8(entry);
         int index;
         fixed (byte* p = key)

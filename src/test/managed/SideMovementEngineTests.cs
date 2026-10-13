@@ -276,7 +276,7 @@ public unsafe class SideMovementEngineTests : IDisposable
             var client = (IVtableEngineClient)typeof(EngineClient)
                 .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
                 .Single()
-                .Invoke([first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, typeof(void**))]);
+                .Invoke([first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, typeof(EngineClientFwd*))]);
 
             client.ConsolePrintAt(3, "hello");
         }

@@ -73,6 +73,28 @@ internal sealed unsafe class FakeShimRoot : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Serves a forwarder table of <typeparamref name="TFwd"/>'s length under
+    /// its own name (plan_engine_forwarders.md), the way a game DLL's internal
+    /// factory serves the forwarder libraries' tables: the table header, its
+    /// first word the slot array. The slots are null; a fact that calls one
+    /// fills it.
+    /// </summary>
+    public FakeShimRoot Forwarders<TFwd>() where TFwd : unmanaged, IForwarderTable
+        => Forwarders<TFwd>(out _);
+
+    /// <summary>The same, handing back the table for a fact to fill.</summary>
+    public FakeShimRoot Forwarders<TFwd>(out TFwd* table) where TFwd : unmanaged, IForwarderTable
+    {
+        int count = SourceSharp.Abi.Forwarders.SlotCount<TFwd>();
+        var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        header->Slots = (void**)Alloc(count);
+        header->SlotCount = count;
+        _interfaces[TFwd.TableName] = (nint)header;
+        table = (TFwd*)header->Slots;
+        return this;
+    }
+
     /// <summary>The root, bound the way LoadSideV2 binds the real one.</summary>
     /// <summary>Serves <paramref name="self"/> as the area <paramref name="version"/> through Acquire.</summary>
     public FakeShimRoot Area(string version, void* self)

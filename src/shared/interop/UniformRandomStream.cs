@@ -55,12 +55,12 @@ public sealed unsafe class UniformRandomStream : IUniformRandom
     public const string InterfaceVersion = "VEngineRandom001";
 
     private readonly void* _self;
-    private readonly UniformRandomStreamVtbl* _vtbl;
+    private readonly UniformRandomStreamFwd* _fwd;
 
-    private UniformRandomStream(void* self, void** table)
+    private UniformRandomStream(void* self, UniformRandomStreamFwd* table)
     {
         _self = self;
-        _vtbl = (UniformRandomStreamVtbl*)table;
+        _fwd = table;
     }
 
     /// <summary>
@@ -92,19 +92,19 @@ public sealed unsafe class UniformRandomStream : IUniformRandom
     /// D8): what <see cref="EngineBound"/> holds per side.
     /// </summary>
     internal static IUniformRandom? Acquire(NativeInterfaceFactory factory, out string why)
-        => Vtable.TryAcquire<UniformRandomStreamVtbl>(
+        => Forwarders.TryAcquire<UniformRandomStreamFwd>(
                factory, SourceSharpFactoryType.AppSystem,
-               InterfaceVersion, out void* self, out void** table, out why)
+               InterfaceVersion, out void* self, out UniformRandomStreamFwd* table, out why)
             ? new UniformRandomStream(self, table)
             : null;
 
     /// <inheritdoc/>
-    public float RandomFloat(float min, float max) => _vtbl->RandomFloat(_self, min, max);
+    public float RandomFloat(float min, float max) => _fwd->RandomFloat(_self, min, max);
 
     /// <inheritdoc/>
-    public int RandomInt(int min, int max) => _vtbl->RandomInt(_self, min, max);
+    public int RandomInt(int min, int max) => _fwd->RandomInt(_self, min, max);
 
     /// <inheritdoc/>
     public float RandomFloatExp(float min, float max, float exponent)
-        => _vtbl->RandomFloatExp(_self, min, max, exponent);
+        => _fwd->RandomFloatExp(_self, min, max, exponent);
 }

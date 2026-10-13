@@ -155,6 +155,8 @@ FORWARD = [
             'IsDedicatedServer', 'GetEntityCount', 'GetPlayerNetInfo',
             'GetClientConVarValue', 'GetArea', 'GetMapEntitiesString',
             'GetClientSteamIDByPlayerIndex',
+            # Passed as values to EngineServer's Fill and Ask helpers.
+            'GetGameDir', 'IsModelPrecached',
         ],
     ),
     dict(

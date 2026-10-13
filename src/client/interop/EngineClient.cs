@@ -210,17 +210,17 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
     public const string InterfaceVersion = "VEngineClient014";
 
     private readonly void* _self;
-    private readonly EngineClientVtbl* _vtbl;
+    private readonly EngineClientFwd* _fwd;
 
     // The side this was acquired on, whose slots carry the four C++ proxies
     // below (plan_abi_hotreload D8: they went through the static Engine).
     private readonly EngineSide _side;
 
-    private EngineClient(EngineSide side, void* self, void** table)
+    private EngineClient(EngineSide side, void* self, EngineClientFwd* table)
     {
         _side = side;
         _self = self;
-        _vtbl = (EngineClientVtbl*)table;
+        _fwd = table;
     }
 
     /// <summary>
@@ -233,29 +233,29 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
         ArgumentNullException.ThrowIfNull(engine);
         EngineSide side = engine.Api;
 
-        return Vtable.TryAcquire<EngineClientVtbl>(
+        return Forwarders.TryAcquire<EngineClientFwd>(
                    side.Interfaces, SourceSharpFactoryType.AppSystem,
-                   InterfaceVersion, out void* self, out void** table, out why)
+                   InterfaceVersion, out void* self, out EngineClientFwd* table, out why)
             ? new EngineClient(side, self, table)
             : null;
     }
 
     /// <inheritdoc/>
     public string? LevelName()
-        => Vtable.TextOf(_vtbl->GetLevelName(_self), Vtable.MaxPath);
+        => Vtable.TextOf(_fwd->GetLevelName(_self), Vtable.MaxPath);
 
     /// <inheritdoc/>
     public string? GameDirectory()
-        => Vtable.TextOf(_vtbl->GetGameDirectory(_self), Vtable.MaxPath);
+        => Vtable.TextOf(_fwd->GetGameDirectory(_self), Vtable.MaxPath);
 
     /// <inheritdoc/>
-    public uint ProtocolVersion() => _vtbl->GetProtocolVersion(_self);
+    public uint ProtocolVersion() => _fwd->GetProtocolVersion(_self);
 
     /// <inheritdoc/>
     public bool TryGetPlayerInfo(int entIndex, out ClientPlayerInfo info)
     {
         PlayerInfoT raw;
-        if (entIndex <= 0 || _vtbl->GetPlayerInfo(_self, entIndex, &raw) == 0)
+        if (entIndex <= 0 || _fwd->GetPlayerInfo(_self, entIndex, &raw) == 0)
         {
             info = default;
             return false;
@@ -273,7 +273,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
             throw new ArgumentException($"a Steam launch runs only `connect`, not `{connectLine}`", nameof(connectLine));
         byte[] bytes = Vtable.Utf8(connectLine);
         fixed (byte* p = bytes)
-            _vtbl->ClientCmd_Unrestricted(_self, p);
+            _fwd->ClientCmd_Unrestricted(_self, p);
     }
 
     /// <inheritdoc/>
@@ -281,7 +281,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
     {
         byte[] bytes = Vtable.Utf8($"jointeam {team}");
         fixed (byte* p = bytes)
-            _vtbl->ClientCmd(_self, p);
+            _fwd->ClientCmd(_self, p);
     }
 
     /// <inheritdoc/>
@@ -291,7 +291,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
             return;
         byte[] bytes = Vtable.Utf8(line);
         fixed (byte* p = bytes)
-            _vtbl->ClientCmd(_self, p);
+            _fwd->ClientCmd(_self, p);
     }
 
     /// <inheritdoc/>
@@ -304,7 +304,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
             _ => "spec_mode\0"u8,
         };
         fixed (byte* p = text)
-            _vtbl->ClientCmd(_self, p);
+            _fwd->ClientCmd(_self, p);
     }
 
     /// <inheritdoc/>
@@ -314,7 +314,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
             return;
         byte[] bytes = Vtable.Utf8(line);
         fixed (byte* p = bytes)
-            _vtbl->ServerCmd(_self, p, (byte)(reliable ? 1 : 0));
+            _fwd->ServerCmd(_self, p, (byte)(reliable ? 1 : 0));
     }
 
     /// <inheritdoc/>
@@ -324,7 +324,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
             return;
         byte[] bytes = Vtable.Utf8(line);
         fixed (byte* p = bytes)
-            _vtbl->ServerCmd(_self, p, 1);
+            _fwd->ServerCmd(_self, p, 1);
     }
 
     /// <summary>The one text <see cref="Reconnect"/> sends through the ClientCmd slot.</summary>
@@ -336,7 +336,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
         byte[] bytes = Vtable.Utf8(ReconnectCommand);
 
         fixed (byte* p = bytes)
-            _vtbl->ClientCmd(_self, p);
+            _fwd->ClientCmd(_self, p);
     }
 
     /// <summary>The one text <see cref="RequestManagedReload"/> sends through the ClientCmd slot.</summary>
@@ -348,7 +348,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
         byte[] bytes = Vtable.Utf8(ReloadCommand);
 
         fixed (byte* p = bytes)
-            _vtbl->ClientCmd(_self, p);
+            _fwd->ClientCmd(_self, p);
     }
 
     /// <inheritdoc/>
@@ -367,7 +367,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
         => _side.TryGetLightForPoint(_self, position, clamp, out light);
 
     /// <inheritdoc/>
-    public bool IsInGame() => _vtbl->IsInGame(_self) != 0;
+    public bool IsInGame() => _fwd->IsInGame(_self) != 0;
 
     /// <inheritdoc/>
     public bool TryLightForPointFast(in Vector position, bool clamp, out Vector light)
