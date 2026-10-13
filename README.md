@@ -96,7 +96,10 @@ full Release build, packages the release archive, and runs the tests:
   managed assemblies, the native libraries with MSVC (the `windows-release`
   preset) and the NativeAOT launcher. It packages
   `sourcesharp-<version>-win-x64.zip`, with the `.pdb` files in `-dbg.zip`,
-  and runs the managed test projects. The native gtest suite is Linux-only.
+  and runs the native gtests (ctest, `-L gtest`) and the managed test
+  projects. Native tests that read the Linux build's instruments (ELF scans,
+  the CMake graph, fork-based probes) are marked `LINUX_ONLY` in
+  `src/test/native/CMakeLists.txt`, and configure lists them with reasons.
 
 Pushing a tag attaches both platforms' archives to the GitHub release once
 both jobs are green. There is no macOS job: Valve no longer supports the

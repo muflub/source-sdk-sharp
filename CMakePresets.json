@@ -84,10 +84,10 @@
       "name": "windows",
       "hidden": true,
       "generator": "Ninja",
-      "description": "MSVC (cl on PATH from a VS 2022 developer prompt, the toolset Valve's README names) with Ninja. The farm is the same; the output goes to bin/<config>/bin/x64. No native tests: they are Linux (gtest against the Linux build's instruments).",
+      "description": "MSVC (cl on PATH from a VS 2022 developer prompt, the toolset Valve's README names) with Ninja. The farm is the same; the output goes to bin/<config>/bin/x64. The native tests build too (bin/<config>/cpptest), less the LINUX_ONLY ones, which configure lists with their reasons.",
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "cl",
-        "SS_BUILD_TESTS": "OFF"
+        "SS_BUILD_TESTS": "ON"
       }
     },
     {

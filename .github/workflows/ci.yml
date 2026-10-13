@@ -11,8 +11,9 @@ name: CI
 # shipped native libraries are built again inside Valve's sniper container
 # (make ci-build: gcc 10 and the glibc 2.31 ceiling the engine's runtime
 # has). Windows builds everything itself too, with MSVC for the native half,
-# and runs the managed test projects. The native gtest suite is Linux-only:
-# it runs against the Linux build's instruments.
+# and runs the native gtests and the managed test projects. The native tests
+# that read the Linux build's instruments (the ELF scans, the CMake graph,
+# fork-based probes) are LINUX_ONLY: configure lists them with their reasons.
 #
 # The tests gate both jobs, all of them. The few facts that cannot pass on a
 # runner (goldens recorded on the owner's machine, facts that read the fork's
@@ -223,7 +224,9 @@ jobs:
       - name: Managed assemblies (Release)
         run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Release
 
-      - name: Native libraries (cmake --preset windows-release)
+      # The libraries, and the native tests beside them (bin/release/cpptest;
+      # the LINUX_ONLY ones, an ELF scan or a fork, are listed by configure).
+      - name: Native libraries and tests (cmake --preset windows-release)
         run: |
           cmake --preset windows-release
           cmake --build --preset windows-release
@@ -259,6 +262,12 @@ jobs:
         with:
           name: sourcesharp-win-x64
           path: dist/*
+
+      # The native gtest suite, as the Linux job's native leg runs it: one
+      # ctest test per binary, run in the farm's src/. Facts that cannot pass
+      # on a runner skip (SS_SKIP_ON_CI), as on Linux.
+      - name: Test (native gtests)
+        run: ctest --test-dir farm/release/build-windows -L gtest --output-on-failure -j 4
 
       # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
       # from the built assemblies as the Makefile's legs run them.
