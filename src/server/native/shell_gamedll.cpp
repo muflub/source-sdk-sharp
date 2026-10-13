@@ -215,7 +215,6 @@ public:
         // the answer. plan_gamedll.md Part 5's last paragraph, corrected.
         g_pSharedChangeInfo = m_pEngine->GetSharedEdictChangeInfo();
 
-        MathLib_Init(2.2f, 2.2f, 0.0f, 2.0f);
         ConVar_Register(FCVAR_GAMEDLL, this);
 
         // The runtime is managed-built (plan_engineapi_vtables D5) and held by
