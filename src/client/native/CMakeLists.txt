@@ -297,6 +297,22 @@ target_include_directories(client_sourcesharp PRIVATE
 # The managed host, linked by target (ss_link_host).
 ss_link_host(client_sourcesharp)
 
+# The tier0 ports client.dll defines itself read tier0's headers with
+# STATIC_TIER0 on MSVC: the declarations are plain there, so the definitions
+# are not exported (MSVC exports a definition of a dllimport-declared function)
+# and client.dll exports CreateInterface alone (game_dll_exports_test). Every
+# other file's import binds to them through SS_BIND_IMPORT. A compile
+# definition, so it is in force before the forced memalloc header reads tier0.
+if(SS_IS_MSVC)
+  set_property(SOURCE
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/tier0_spew_client.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_client.cpp
+    TARGET_DIRECTORY client_sourcesharp
+    APPEND PROPERTY COMPILE_DEFINITIONS STATIC_TIER0)
+endif()
+
 # VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
 # refer to each other in both directions, and GNU ld (the CI link) resolves an
 # archive only against what came before it.

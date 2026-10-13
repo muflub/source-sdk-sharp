@@ -5210,6 +5210,17 @@ ss_cpptest(particles_lib_isolation_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/particles_lib_isolation_test.cpp)
 
+# The game DLLs export CreateInterface alone, read from the built files on both
+# platforms (ELF's dynamic symbols, PE's export directory): MSVC exports a
+# definition of a dllimport-declared function, and server.dll/client.dll had
+# exported tier0's ports, vstdlib's random stream and Valve's DLL_EXPORT cvar.
+ss_cpptest(game_dll_exports_test
+    DEFINES "SS_SERVER_LIB=\"$<TARGET_FILE:server_sourcesharp>\""
+            "SS_CLIENT_LIB=\"$<TARGET_FILE:client_sourcesharp>\""
+            "SS_HOST_LIB=\"$<TARGET_FILE:sourcesharp>\""
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/game_dll_exports_test.cpp)
+add_dependencies(game_dll_exports_test server_sourcesharp client_sourcesharp sourcesharp)
+
 # What the server does not need, in a client-only file beside a shared port
 # (user ruling 2026-10-12): per symbol, no server importer and no server
 # definition, and the client file still defines it.

@@ -581,7 +581,18 @@ endif()
 # functions __declspec(dllimport); tier0_thread_port.cpp and
 # tier0_spew_port.cpp define them here all the same and bind every import of
 # one to the definition (SS_BIND_IMPORT, ss_platform.h), as server.so's
-# hidden definitions bind its calls.
+# hidden definitions bind its calls. Those two files read tier0's headers with
+# STATIC_TIER0, which makes the declarations plain: MSVC exports a definition
+# of a dllimport-declared function, and server.dll exported 21 of them beside
+# CreateInterface (game_dll_exports_test). A compile definition, not a
+# #define in the file, so it is in force before any header is read.
+if(SS_IS_MSVC)
+  set_property(SOURCE
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
+    TARGET_DIRECTORY server_sourcesharp
+    APPEND PROPERTY COMPILE_DEFINITIONS STATIC_TIER0)
+endif()
 
 # VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
 # refer to each other in both directions, and GNU ld (the CI link) resolves an

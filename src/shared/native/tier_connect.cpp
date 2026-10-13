@@ -12,6 +12,16 @@
 //
 //=============================================================================//
 
+// `cvar` is ours (defined below), but Valve's headers declare it DLL_EXPORT,
+// and defining it under that declaration exports it: dllexport on Windows,
+// default visibility past client.so's version script on Linux. Nothing imports
+// it from a game DLL (the engine has its own, the particles library its copy),
+// so this file reads those headers with DLL_EXPORT a plain C declaration and
+// the game DLLs export CreateInterface alone (game_dll_exports_test).
+#include "tier0/platform.h"
+#undef DLL_EXPORT
+#define DLL_EXPORT extern "C"
+
 #include "tier_connect.h"
 
 #include "datacache/imdlcache.h"

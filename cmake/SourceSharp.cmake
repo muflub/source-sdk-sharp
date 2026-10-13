@@ -420,7 +420,9 @@ function(ss_sdk_target tgt)
     # publishing"). What is exported is what the sources mark DLL_EXPORT
     # (CreateInterface, the host's SOURCESHARP_EXPORT API): there is no
     # version script to say otherwise, and nothing else is marked.
-    target_link_options(${tgt} PRIVATE /DEBUG:FULL /ignore:4221
+    # /PDBALTPATH:%_PDB%: the DLL names its .pdb by file name alone, not the
+    # build machine's absolute path; a debugger finds it on its symbol path.
+    target_link_options(${tgt} PRIVATE /DEBUG:FULL /ignore:4221 /PDBALTPATH:%_PDB%
       $<$<BOOL:${SS_GC_SECTIONS}>:/OPT:REF>)
     # rpcrt4: UuidCreate and friends, which Valve's code calls where Linux
     # links libuuid (-luuid above).
