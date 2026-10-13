@@ -80,15 +80,46 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
           echo "SS_LABEL=$v" >> "$GITHUB_ENV"
 
-      # Everything, Release: the web UI, the managed assemblies, the launcher
-      # (NativeAOT) and the native libraries with clang 22, deployed into the
-      # game directory bin/release.
+      # The native half first, one final target per step, so a failure names
+      # its library. The configure is the one `make release` runs
+      # (tools/build/buildsourcesharp's options), so the make release below
+      # finds the native half built and does not configure it differently.
+      - name: "Native: configure (clang, release)"
+        run: tools/build/configure release -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
+      - name: "Native: server.so"
+        run: cmake --build --preset release --target server_sourcesharp
+      - name: "Native: client.so"
+        run: cmake --build --preset release --target client_sourcesharp
+      - name: "Native: libss_particles.so"
+        run: cmake --build --preset release --target ss_particles
+      - name: "Native: libmanaged_host.so"
+        run: cmake --build --preset release --target sourcesharp
+      - name: "Native: tests"
+        run: cmake --build --preset release
+
+      # The rest, Release: the web UI, the managed assemblies and the launcher
+      # (NativeAOT), deployed with the native libraries into the game
+      # directory bin/release.
       - name: Build (make release)
         run: make release
 
       # The shipped native libraries: the same CMake project inside Valve's
-      # sniper SDK container, so they run on the engine's runtime.
-      - name: Native libraries in the sniper container (make ci-build)
+      # sniper SDK container, so they run on the engine's runtime. One target
+      # per step, then the whole once, which builds nothing new and runs the
+      # GLIBC ceiling check over every output.
+      - name: "Sniper (gcc 10): server.so"
+        env: { SS_CI_RUNNER: docker }
+        run: make ci-build CONFIG=release TARGET=server_sourcesharp
+      - name: "Sniper (gcc 10): client.so"
+        env: { SS_CI_RUNNER: docker }
+        run: make ci-build CONFIG=release TARGET=client_sourcesharp
+      - name: "Sniper (gcc 10): libss_particles.so"
+        env: { SS_CI_RUNNER: docker }
+        run: make ci-build CONFIG=release TARGET=ss_particles
+      - name: "Sniper (gcc 10): libmanaged_host.so"
+        env: { SS_CI_RUNNER: docker }
+        run: make ci-build CONFIG=release TARGET=sourcesharp
+      - name: "Sniper (gcc 10): GLIBC ceiling"
         env:
           # The runner carries podman too; docker is the one whose daemon is up.
           SS_CI_RUNNER: docker
@@ -224,12 +255,22 @@ jobs:
       - name: Managed assemblies (Release)
         run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Release
 
-      # The libraries, and the native tests beside them (bin/release/cpptest;
-      # the LINUX_ONLY ones, an ELF scan or a fork, are listed by configure).
-      - name: Native libraries and tests (cmake --preset windows-release)
+      # The native half, one final target per step, so a failure names its
+      # library. -k 0: every file that fails, not only the first, in one round.
+      - name: "Native: configure (MSVC, release)"
+        run: cmake --preset windows-release
+      - name: "Native: server.dll"
+        run: cmake --build --preset windows-release --target server_sourcesharp -- -k 0
+      - name: "Native: client.dll"
+        run: cmake --build --preset windows-release --target client_sourcesharp -- -k 0
+      - name: "Native: ss_particles.dll"
+        run: cmake --build --preset windows-release --target ss_particles -- -k 0
+      - name: "Native: managed_host.dll"
+        run: cmake --build --preset windows-release --target sourcesharp -- -k 0
+      # The native tests beside them (bin/release/cpptest; the LINUX_ONLY ones,
+      # an ELF scan or a fork, are listed by configure).
+      - name: "Native: tests"
         run: |
-          cmake --preset windows-release
-          # -k 0: every file that fails, not only the first, in one round.
           cmake --build --preset windows-release -- -k 0
           ls -la bin/release/bin/x64
 

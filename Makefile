@@ -357,9 +357,12 @@ release:
 # the GLIBC ceiling check. Native only, and the one target that needs podman.
 # Release unless CONFIG is named on the command line.
 CI_CONFIG = $(if $(filter command line,$(origin CONFIG)),$(CONFIG),release)
+# TARGET=<one CMake target> builds just that library (CI builds each in its own
+# step); without it, everything, then the GLIBC gate.
+CI_TARGET = $(if $(filter command line,$(origin TARGET)),$(TARGET),)
 ci-build:
 	$(call require-setup,$(CI_CONFIG))
-	@tools/build/ci-build $(CI_CONFIG)
+	@tools/build/ci-build $(CI_CONFIG) $(CI_TARGET)
 
 #-----------------------------------------------------------------------------
 # Running.
