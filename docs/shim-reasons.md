@@ -73,10 +73,10 @@ marker is the answer to "why is this native at all", not a full account.
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 4 | 2 |  |  | 20 | 11,571 |
 | e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,112 |
 | f | a bit-level wire codec | 5 | 6 | 2 | 1 |  |  | 14 | 4,670 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 2 | 9 | 1 |  |  | 18 | 9,773 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 5 | 2 | 9 | 1 |  |  | 19 | 9,852 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 4,841 |
 | x | NO LETTER FITS | 9 | 2 |  |  | 2 |  | 19 | 4,769 |
-|  | **total** | **87** | **37** | **67** | **4** | **2** | **1** | **218** | **99,740** |
+|  | **total** | **88** | **37** | **67** | **4** | **2** | **1** | **219** | **99,819** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -178,6 +178,8 @@ Then the pooled beam renderable's handle reset (2026-10-12, measured by the walk
 Then the frame's skeleton batch (2026-10-12, plan_physics_bones_perf A2, measured by the walk on main 90f3b4296): (a) 34,393 -> 34,453 is shell_standalone_client.cpp (+60), SetupBones answering from the table managed posed at the frame's first ask (IManagedBonesClient::BoneBatch) and FrameBoneBatch asking for it; 25 of the client's 52 crossings a frame were SetupBones asks; 97,830 in the table.
 
 Then the port's small todos (plan_physics_bones_perf lane C, 2026-10-12, re-measured by the walk on its branch rebased onto main 20450cce0): (a) 34,453 -> 34,401 is shell_standalone_player.cpp (-30: NoteTouchedPhysics and m_oldOrigin out, the touch list recorded instead; the decisions are PlayerShadowBodies'), standalone_relays.cpp (-18: the ground velocity's solver-or-member pick out, a held read in) and shell_standalone_base.cpp (-4: the asleep-twice skip out, the held velocity's two writes in); (e) 5,448 -> 5,458 is physics.cpp (+9: the owner batch holds the velocity managed hands over) and shell_worldquery.cpp (+1: the movetype word managed writes); 97,788 in the table. shell_velocity_home.h left the tree and carried no marker.
+
+Then libmathlib.a left server.so's link (2026-10-13, measured by the walk on main aeff4a2): (g) arrives with sourcesharp/game/server/mathlib_port.cpp (server, +79 lines, one file), the mathlib members server.so calls, forwarding to mathlib_port.h's inlines; 219 files, 99,819 in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 
@@ -336,6 +338,7 @@ Then the port's small todos (plan_physics_bones_perf lane C, 2026-10-12, re-meas
 `sourcesharp/game/client/shell_trail_render.cpp`  
 `sourcesharp/game/client/shell_worldtext_render.cpp`  
 `sourcesharp/game/server/baseentity_statics.cpp`  
+`sourcesharp/game/server/mathlib_port.cpp`  
 `sourcesharp/game/server/precache_model.cpp`  
 `sourcesharp/game/server/shell_standalone_hierarchy.cpp`  
 `sourcesharp/game/shared/bone_library.cpp`  

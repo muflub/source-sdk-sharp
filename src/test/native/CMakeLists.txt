@@ -4913,6 +4913,23 @@ ss_cpptest(tier1_port_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/tier1_port_test.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
 
+# server.so's mathlib members (mathlib_port.cpp), linked WITHOUT libmathlib.a:
+# it builds only while the port is self-contained, and runs on Windows, where
+# no mathlib binary can. mathlib_port_stock_test holds it to stock bit for bit.
+ss_cpptest(mathlib_port_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/server/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/mathlib_port_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/mathlib_port.cpp)
+
+# The port's ss_mathlib:: inlines against the stock libmathlib.a members of the
+# same names, side by side in one binary, every output float compared by its
+# bits.
+ss_cpptest_mathlib(mathlib_port_stock_test
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native
+    SOURCES sourcesharp/test/mathlib_port_stock_test.cpp)
+
 # ---------------------------------------------------------------------------
 # A managed declaration never aliases a convar the engine defines:
 # convar_ownership.h's rule, which SourceSharp_EngineRegisterConVar applies.
