@@ -12,38 +12,31 @@ namespace SourceSharp.Abi;
 // forwarder knew which ABI it was building for, so nothing here does: there is
 // no slot number, no destructor pair, no overload order and no Windows index.
 //
-// THE ONE CHECK, AT BIND. Native serves each table with its count and a hash
-// per slot (src/fwd/native/ss_fwd.h); the generated struct carries the same
-// numbers (EngineForwarders.g.cs). Both are written from one row by
-// tools/engine-forwarders, so they differ only when the assembly and the
-// native library beside it were built from different generations, and then
-// the bind refuses, naming the slot. Nothing is checked per call.
+// THE ONE CHECK, AT BIND: A COUNT. tools/engine-forwarders only ever appends
+// a slot to a table (it refuses to move, change or drop one), so an assembly
+// built against an older table reads a prefix of a newer one. Native serves
+// each table with its count (src/fwd/native/ss_fwd.h); the bind refuses when
+// that is fewer than the generated struct's fields, which are all pointers,
+// so the struct's size is its slot count. Nothing is checked per call.
 //=============================================================================
 
 /// <summary>
-/// What a generated forwarder struct says about itself: the name native
-/// serves it under, how many slots it has and each slot's hash and name.
+/// A generated forwarder struct: the name native serves it under. Its slot
+/// count is its size, one pointer per field.
 /// </summary>
 internal interface IForwarderTable
 {
     static abstract string TableName { get; }
-
-    static abstract int SlotCount { get; }
-
-    static abstract ReadOnlySpan<uint> SlotHashes { get; }
-
-    static abstract string SlotName(int slot);
 }
 
 /// <summary>
-/// The table native serves (<c>SSForwarderTable</c>): the forwarders, their
-/// hashes and their count, in that order.
+/// The table native serves (<c>SSForwarderTable</c>): the forwarders and
+/// their count, in that order.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ForwarderTableHeader
 {
     public void** Slots;
-    public uint* SlotHashes;
     public int SlotCount;
 }
 
@@ -113,42 +106,36 @@ internal static unsafe class Forwarders
         return true;
     }
 
+    /// <summary>The number of slots <typeparamref name="TFwd"/> reads: one per field.</summary>
+    internal static int SlotCount<TFwd>()
+        where TFwd : unmanaged, IForwarderTable
+        => sizeof(TFwd) / sizeof(void*);
+
     /// <summary>
     /// The binding half of <see cref="TryAcquire{TFwd}(NativeInterfaceFactory, out TFwd*, out string)"/>, over a header in
-    /// hand: count first, then every slot's hash, then the table.
+    /// hand: native must serve at least the slots the struct reads. More is a
+    /// newer library whose extra slots are at the end, which this assembly
+    /// never reads.
     /// </summary>
     internal static bool TryBind<TFwd>(ForwarderTableHeader* header, out TFwd* table, out string why)
         where TFwd : unmanaged, IForwarderTable
     {
         table = null;
 
-        if (header == null || header->Slots == null || header->SlotHashes == null)
+        if (header == null || header->Slots == null)
         {
             why = $"\"{TFwd.TableName}\" answered with no table";
             return false;
         }
 
-        if (header->SlotCount != TFwd.SlotCount)
+        int needed = SlotCount<TFwd>();
+
+        if (header->SlotCount < needed)
         {
             why = $"native serves \"{TFwd.TableName}\" with {header->SlotCount} forwarder(s) and "
-                  + $"{typeof(TFwd).Name} declares {TFwd.SlotCount}: the assembly and the "
-                  + "forwarder library beside it were generated apart. Rebuild both "
-                  + "(tools/engine-forwarders --write regenerates the pair).";
+                  + $"{typeof(TFwd).Name} reads {needed}: the forwarder library is older than "
+                  + "this assembly. Rebuild it.";
             return false;
-        }
-
-        ReadOnlySpan<uint> expected = TFwd.SlotHashes;
-
-        for (int slot = 0; slot < expected.Length; slot++)
-        {
-            if (header->SlotHashes[slot] != expected[slot])
-            {
-                why = $"\"{TFwd.TableName}\" slot {slot} ({TFwd.SlotName(slot)}) has hash "
-                      + $"0x{header->SlotHashes[slot]:x8} in native and 0x{expected[slot]:x8} in "
-                      + $"{typeof(TFwd).Name}: its signature differs between the forwarder "
-                      + "library and this assembly. Rebuild both.";
-                return false;
-            }
         }
 
         table = (TFwd*)header->Slots;

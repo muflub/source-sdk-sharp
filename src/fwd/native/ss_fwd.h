@@ -8,13 +8,12 @@
 //   word 0   the forwarders, an array of plain function pointers in the order
 //            tools/engine-forwarders wrote them (EngineForwarders.g.cs names
 //            the same order, field by field);
-//   word 1   one hash per slot, FNV-1a 32 over the slot's C# function-pointer
-//            type, written into both files from the same row;
-//   word 2   how many slots there are.
+//   word 1   how many slots there are.
 //
 // A plain array has one layout on every ABI, so nothing here or in managed
-// knows which C++ ABI the engine was built with. Managed holds word 2 and
-// word 1 against its own SlotCount and SlotHashes before it calls anything.
+// knows which C++ ABI the engine was built with. A table's slots only ever
+// append (the generator refuses anything else), so managed checks only that
+// word 1 is at least the number of fields it was built with.
 //
 // No SDK header: this is the contract between the library, the game DLL that
 // serves its tables (SourceSharp_InternalFactory) and managed.
@@ -27,7 +26,6 @@
 struct SSForwarderTable
 {
 	void *const *ppSlots;
-	const uint32_t *pSlotHashes;
 	int32_t nSlots;
 };
 

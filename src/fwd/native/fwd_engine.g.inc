@@ -55,22 +55,7 @@ static void *const s_ModelInfoSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ModelInfo_GetCollideForVirtualTerrain ),
 };
 
-static const uint32_t s_ModelInfoHashes[] = {
-	0x5d056f2du, // GetModel
-	0x88774d41u, // GetModelIndex
-	0x052f0d6eu, // GetModelName
-	0x5d056f2du, // GetVCollide_2
-	0xd1361c78u, // GetModelBounds
-	0x1134ef71u, // GetModelFrameCount
-	0x1134ef71u, // GetModelType
-	0x052f0d6eu, // GetModelKeyValueText
-	0xc3eecddeu, // FindModel
-	0xbd9fe4c5u, // GetAnimBlock
-	0x99ce5ae6u, // GetStudiomodel
-	0x5d056f2du, // GetCollideForVirtualTerrain
-};
-
-static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, s_ModelInfoHashes, 12 };
+static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 12 };
 
 // The tables by the name managed asks for, SSFwd_<table>.
 static const SSForwarderNamed s_ForwarderTables[] = {

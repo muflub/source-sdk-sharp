@@ -3,9 +3,9 @@
 // One struct per forwarder table libss_fwd_engine serves (src/fwd/native):
 // plain function-pointer fields in the table's order, so field N is slot N
 // on every ABI. The first argument of each is the ENGINE object, not the
-// table: `_fwd->GetModel(_self, index)`. Forwarders.TryAcquire holds the
-// table's count and per-slot hashes against SlotCount and SlotHashes before
-// anything is called.
+// table: `_fwd->GetModel(_self, index)`. Slots only append, so
+// Forwarders.TryAcquire holds only that native serves at least as many
+// slots as the struct has fields.
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -20,43 +20,6 @@ internal unsafe struct ModelInfoFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ModelInfo";
-
-    /// <summary>The number of forwarders.</summary>
-    public static int SlotCount => 12;
-
-    /// <summary>Each slot's hash, FNV-1a 32 over its function-pointer type.</summary>
-    public static ReadOnlySpan<uint> SlotHashes => [
-        0x5d056f2d, // GetModel
-        0x88774d41, // GetModelIndex
-        0x052f0d6e, // GetModelName
-        0x5d056f2d, // GetVCollide_2
-        0xd1361c78, // GetModelBounds
-        0x1134ef71, // GetModelFrameCount
-        0x1134ef71, // GetModelType
-        0x052f0d6e, // GetModelKeyValueText
-        0xc3eecdde, // FindModel
-        0xbd9fe4c5, // GetAnimBlock
-        0x99ce5ae6, // GetStudiomodel
-        0x5d056f2d, // GetCollideForVirtualTerrain
-    ];
-
-    /// <summary>Each slot's field name, for a refusal to name.</summary>
-    public static string SlotName(int slot) => slot switch
-    {
-        0 => "GetModel",
-        1 => "GetModelIndex",
-        2 => "GetModelName",
-        3 => "GetVCollide_2",
-        4 => "GetModelBounds",
-        5 => "GetModelFrameCount",
-        6 => "GetModelType",
-        7 => "GetModelKeyValueText",
-        8 => "FindModel",
-        9 => "GetAnimBlock",
-        10 => "GetStudiomodel",
-        11 => "GetCollideForVirtualTerrain",
-        _ => "slot " + slot,
-    };
 
     // const model_t * IVModelInfo::GetModel( int )
     public delegate* unmanaged<void*, int, void*> GetModel;

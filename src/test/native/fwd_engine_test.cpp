@@ -134,7 +134,7 @@ const SSForwarderTable &ModelInfoTable()
 {
 	const SSForwarderTable *pTable = SSFwdEngine_Table( "SSFwd_ModelInfo" );
 	EXPECT_NE( nullptr, pTable );
-	static const SSForwarderTable s_empty = { nullptr, nullptr, 0 };
+	static const SSForwarderTable s_empty = { nullptr, 0 };
 	return pTable ? *pTable : s_empty;
 }
 
@@ -161,27 +161,21 @@ TEST( FwdEngine, TheLibraryServesTheModelInfoTableAndNothingUnderOtherNames )
 	const SSForwarderTable &table = ModelInfoTable();
 	ASSERT_EQ( (int)kModelInfoSlots, table.nSlots );
 	ASSERT_NE( nullptr, table.ppSlots );
-	ASSERT_NE( nullptr, table.pSlotHashes );
 
 	EXPECT_EQ( nullptr, SSFwdEngine_Table( "SSFwd_NoSuchTable" ) );
 	EXPECT_EQ( nullptr, SSFwdEngine_Table( "ssfwd_modelinfo" ) );   // names are exact
 	EXPECT_EQ( nullptr, SSFwdEngine_Table( nullptr ) );
 }
 
-TEST( FwdEngine, EverySlotIsAFunctionAndEverySlotHashIsDistinctFromItsNeighbourSignatures )
+TEST( FwdEngine, EverySlotIsADistinctFunction )
 {
 	const SSForwarderTable &table = ModelInfoTable();
 	for ( int i = 0; i < table.nSlots; i++ )
 	{
 		EXPECT_NE( nullptr, table.ppSlots[ i ] ) << "slot " << i;
-		EXPECT_NE( 0u, table.pSlotHashes[ i ] ) << "slot " << i;
+		for ( int j = 0; j < i; j++ )
+			EXPECT_NE( table.ppSlots[ j ], table.ppSlots[ i ] ) << "slots " << j << " and " << i;
 	}
-	// Two signatures that differ hash differently: GetModel (int -> pointer)
-	// and GetModelIndex (string -> int).
-	EXPECT_NE( table.pSlotHashes[ kGetModel ], table.pSlotHashes[ kGetModelIndex ] );
-	// And equal signatures hash equally: GetModel and GetVCollide(int) are both
-	// (self, int) -> pointer.
-	EXPECT_EQ( table.pSlotHashes[ kGetModel ], table.pSlotHashes[ kGetVCollide_2 ] );
 }
 
 TEST( FwdEngine, GetModelForwardsTheIndexAndReturnsTheModel )

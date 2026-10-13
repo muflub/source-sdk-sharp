@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using Xunit;
@@ -7,39 +8,37 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 //=============================================================================
-// plan_engine_forwarders.md: a forwarder table binds only when native's count
-// and every slot's hash are the generated struct's.
+// plan_engine_forwarders.md: a forwarder table binds when native serves at
+// least the slots the generated struct reads. Slots only append (the
+// generator refuses anything else), so a longer table is a newer library and
+// binds; a shorter one is an older library and refuses.
 //
 // The tables here are built in managed memory in SSForwarderTable's shape
-// (src/fwd/native/ss_fwd.h): a slot array, a hash array and a count. Nothing
-// is called through them; the facts are about what binds and what refuses.
+// (src/fwd/native/ss_fwd.h): a slot array and a count. Nothing is called
+// through them; the facts are about what binds and what refuses.
 //=============================================================================
 
 public sealed unsafe class ForwardersTests
 {
-    // A table in native's shape, filled from ModelInfoFwd's own numbers and
-    // then edited by the fact under test.
+    private static readonly int Count = Forwarders.SlotCount<ModelInfoFwd>();
+
+    // A table in native's shape, ModelInfoFwd's slots plus `extra` more at
+    // the end, then edited by the fact under test.
     private sealed class Served : IDisposable
     {
         public readonly ForwarderTableHeader* Header;
         public readonly void** Slots;
-        public readonly uint* Hashes;
 
-        public Served()
+        public Served(int extra = 0)
         {
-            int count = ModelInfoFwd.SlotCount;
+            int count = Count + extra;
             Slots = (void**)NativeMemory.AllocZeroed((nuint)count, (nuint)sizeof(void*));
-            Hashes = (uint*)NativeMemory.AllocZeroed((nuint)count, sizeof(uint));
             Header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
 
             for (int i = 0; i < count; i++)
-            {
                 Slots[i] = (void*)(0x1000 + i);
-                Hashes[i] = ModelInfoFwd.SlotHashes[i];
-            }
 
             Header->Slots = Slots;
-            Header->SlotHashes = Hashes;
             Header->SlotCount = count;
         }
 
@@ -67,7 +66,6 @@ public sealed unsafe class ForwardersTests
         public void Dispose()
         {
             NativeMemory.Free(Slots);
-            NativeMemory.Free(Hashes);
             NativeMemory.Free(Header);
         }
     }
@@ -84,40 +82,38 @@ public sealed unsafe class ForwardersTests
     }
 
     [Fact]
-    public void ACountThatDiffersRefusesNamingBothNumbers()
+    public void ALongerTableBindsAndTheStructReadsItsPrefix()
     {
-        using var served = new Served();
-        served.Header->SlotCount = ModelInfoFwd.SlotCount - 1;
+        // A newer library: its extra slots are at the end, past every field.
+        using var served = new Served(extra: 3);
 
-        Assert.False(Forwarders.TryBind(served.Header, out ModelInfoFwd* table, out string why));
-        Assert.True(table == null);
-        Assert.Contains($"{ModelInfoFwd.SlotCount - 1} forwarder(s)", why);
-        Assert.Contains($"declares {ModelInfoFwd.SlotCount}", why);
+        Assert.True(Forwarders.TryBind(served.Header, out ModelInfoFwd* table, out string why), why);
+        Assert.Equal((nint)served.Slots, (nint)table);
+        Assert.Equal((nint)(0x1000 + Count - 1), (nint)table->GetCollideForVirtualTerrain);
     }
 
     [Fact]
-    public void AHashThatDiffersRefusesNamingTheSlot()
+    public void AShorterTableRefusesNamingBothNumbers()
     {
+        // An older library: the struct's last field would read past its table.
         using var served = new Served();
-        int slot = Enumerable.Range(0, ModelInfoFwd.SlotCount)
-            .First(i => ModelInfoFwd.SlotName(i) == "GetVCollide_2");
-        served.Hashes[slot] ^= 1;
+        served.Header->SlotCount = Count - 1;
 
         Assert.False(Forwarders.TryBind(served.Header, out ModelInfoFwd* table, out string why));
         Assert.True(table == null);
-        Assert.Contains($"slot {slot} (GetVCollide_2)", why);
+        Assert.Contains($"{Count - 1} forwarder(s)", why);
+        Assert.Contains($"reads {Count}", why);
     }
 
     [Fact]
-    public void TheLastSlotsHashIsCheckedToo()
+    public void ATableWithNoSlotArrayRefuses()
     {
-        // The loop runs to the end: a stale last slot is a refusal, not a pass.
         using var served = new Served();
-        int last = ModelInfoFwd.SlotCount - 1;
-        served.Hashes[last] ^= 0x80000000;
+        served.Header->Slots = null;
 
-        Assert.False(Forwarders.TryBind(served.Header, out ModelInfoFwd* _, out string why));
-        Assert.Contains($"slot {last} ({ModelInfoFwd.SlotName(last)})", why);
+        Assert.False(Forwarders.TryBind(served.Header, out ModelInfoFwd* table, out string why));
+        Assert.True(table == null);
+        Assert.Contains(ModelInfoFwd.TableName, why);
     }
 
     [Fact]
@@ -150,27 +146,26 @@ public sealed unsafe class ForwardersTests
     }
 
     [Fact]
-    public void TheGeneratedStructIsOneFieldPerSlot()
+    public void TheSlotCountIsOnePointerFieldPerForwarder()
     {
-        // Field N is slot N because the struct is pointer-sized fields and
-        // nothing else; a field the count did not include would misalign
+        // The count is the struct's size, so every instance field must be a
+        // pointer: anything else would make the count wrong and misalign
         // every call after it.
-        Assert.Equal(ModelInfoFwd.SlotCount, sizeof(ModelInfoFwd) / sizeof(void*));
-        Assert.Equal(ModelInfoFwd.SlotCount, ModelInfoFwd.SlotHashes.Length);
-        var names = Enumerable.Range(0, ModelInfoFwd.SlotCount).Select(ModelInfoFwd.SlotName).ToList();
-        Assert.Equal(names.Count, names.Distinct().Count());
-        Assert.Equal("GetModel", names[0]);
+        FieldInfo[] fields = typeof(ModelInfoFwd).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.Equal(12, Count);
+        Assert.Equal(Count, fields.Length);
+        Assert.All(fields, f => Assert.True(f.FieldType.IsFunctionPointer, f.Name));
+        Assert.Equal("GetModel", fields[0].Name);
     }
 
     [Fact]
     public void FieldOrderIsTheSlotOrder()
     {
-        // The field named by SlotName(i) sits at byte 8i.
-        for (int i = 0; i < ModelInfoFwd.SlotCount; i++)
-        {
-            nint offset = Marshal.OffsetOf<ModelInfoFwd>(ModelInfoFwd.SlotName(i));
-            Assert.Equal((nint)(i * sizeof(void*)), offset);
-        }
+        // Field N, in declaration order, sits at byte 8N.
+        FieldInfo[] fields = typeof(ModelInfoFwd).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .OrderBy(f => f.MetadataToken).ToArray();
+        for (int i = 0; i < fields.Length; i++)
+            Assert.Equal((nint)(i * sizeof(void*)), Marshal.OffsetOf<ModelInfoFwd>(fields[i].Name));
     }
 
     [Fact]

@@ -93,7 +93,7 @@ public unsafe class ConvertedEntryTests
     private static void* FakeModelInfo(out void** table)
     {
         table = (void**)NativeMemory.AllocZeroed(
-            (nuint)ModelInfoFwd.SlotCount, (nuint)sizeof(void*));
+            (nuint)Forwarders.SlotCount<ModelInfoFwd>(), (nuint)sizeof(void*));
 
         table[GetModelSlot] = (delegate* unmanaged<void*, int, void*>)&GetModelAnswers;
         table[GetModelTypeSlot] = (delegate* unmanaged<void*, void*, int>)&GetModelTypeAnswers;
