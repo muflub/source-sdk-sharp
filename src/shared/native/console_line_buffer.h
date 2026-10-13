@@ -28,7 +28,7 @@ struct ConsoleLineBufferHeader
 	std::atomic< int32_t > nLock{ 0 };   // 0 free, 1 held: a copy or a swap, nothing longer
 	int32_t  nActive = 0;                // the half producers append to (0 or 1)
 	uint32_t nUsed[ 2 ] = { 0, 0 };      // bytes written into each half
-	uint32_t nHalfBytes = kConsoleLineHalfBytes;  // for the reader
+	uint32_t nHalfBytes = 0;             // kConsoleLineHalfBytes, for the reader (Publish)
 	uint32_t nReserved = 0;
 };
 
@@ -62,7 +62,8 @@ inline uint32_t ConsoleLineRecordBytes( uint32_t nLength )
 class CConsoleLineBuffer
 {
 public:
-	CConsoleLineBuffer() = default;
+	CConsoleLineBuffer() = default;  // all zero, so a global one is .bss, not 1 MiB of .data (console_line_buffer_test)
+	void Publish() { m_Header.nHalfBytes = kConsoleLineHalfBytes; }  // before the reader has the address
 	CConsoleLineBuffer( const CConsoleLineBuffer & ) = delete;
 	CConsoleLineBuffer &operator=( const CConsoleLineBuffer & ) = delete;
 
@@ -76,7 +77,7 @@ public:
 		const int nHalf = m_Header.nActive;
 		const uint32_t nUsed = m_Header.nUsed[ nHalf ];
 		const uint64_t nNeed = nLen > 0xFFFFFFF0u ? UINT64_MAX : ConsoleLineRecordBytes( (uint32_t)nLen );
-		if ( nNeed > (uint64_t)( m_Header.nHalfBytes - nUsed ) )
+		if ( nNeed > (uint64_t)( kConsoleLineHalfBytes - nUsed ) )
 		{
 			++m_Header.nOverflow;
 			Unlock();

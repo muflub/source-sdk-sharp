@@ -151,6 +151,15 @@ TEST_F( ConsoleDisplayForward, InstallHandsThisLoadTheBufferOnce )
 	EXPECT_EQ( 1, g_AreaA.m_nAttaches ) << "a print must not hand the buffer over again";
 }
 
+TEST_F( ConsoleDisplayForward, TheBufferHandedOverCarriesTheHalfSizeTheReaderReads )
+{
+	// The buffer is all zero until Attach publishes it (console_line_buffer.h):
+	// the reader takes each half's size from the header.
+	ASSERT_TRUE( ConsoleDisplay_Install( &m_Cvar ) );
+	ASSERT_NE( nullptr, g_AreaA.m_pBuffer );
+	EXPECT_EQ( kConsoleLineHalfBytes, g_AreaA.m_pBuffer->m_Header.nHalfBytes );
+}
+
 TEST_F( ConsoleDisplayForward, APrintCrossesNothing )
 {
 	// The point of the buffer: the area's per-line slot is never called.
