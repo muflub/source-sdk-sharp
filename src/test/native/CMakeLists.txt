@@ -5141,6 +5141,15 @@ ss_cpptest(ss_te_prediction_test
 ss_census(globals_client_ledger_test)
 ss_census(orphan_reach_test)
 ss_census(entity_gates_test)
+
+# tier1 and mathlib compile only the members some link pulls in
+# (cmake/sdk/tier1.cmake, mathlib.cmake): every consumer of the two archives is
+# relinked with --trace, and every member must be pulled in by one of them.
+# Census tier, because it relinks about thirty binaries.
+ss_cpptest(sdk_lib_members_test
+    LINUX_ONLY "relinks the gcc/clang build's consumers with ld's --trace and reads build.ninja"
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/sdk_lib_members_test.cpp)
+ss_census(sdk_lib_members_test)
 ss_census(globals_ledger_test)
 ss_census(component_closure_test)
 ss_census(entity_census_test)

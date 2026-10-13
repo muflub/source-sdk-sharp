@@ -179,6 +179,10 @@ jobs:
       # One target per step, so a failure names its library, then the whole
       # once, which builds nothing new and runs the GLIBC ceiling check over
       # every output.
+      - name: "Sniper (gcc 10): tier1, mathlib"
+        run: |
+          tools/build/ci-build release tier1
+          tools/build/ci-build release mathlib
       - name: "Sniper (gcc 10): libss_particles.so"
         run: tools/build/ci-build release ss_particles
       - name: "Sniper (gcc 10): libmanaged_host.so"
@@ -241,6 +245,11 @@ jobs:
       # and was never run.
       - name: "Native: configure (clang, release, no tests)"
         run: tools/build/configure release -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON -DSS_BUILD_TESTS=OFF
+      # Valve's tier1 and mathlib first, in a step of their own: the libraries
+      # below link them (particles most of all), and the first library step
+      # would otherwise carry their compile under its own name.
+      - name: "Native: tier1, mathlib"
+        run: cmake --build --preset release --target tier1 mathlib
       - name: "Native: libss_particles.so"
         run: cmake --build --preset release --target ss_particles
       - name: "Native: libmanaged_host.so"
@@ -639,6 +648,8 @@ jobs:
       # library. -k 0: every file that fails, not only the first, in one round.
       - name: "Native: configure (MSVC, release)"
         run: cmake --preset windows-release
+      - name: "Native: tier1, mathlib"
+        run: cmake --build --preset windows-release --target tier1 mathlib -- -k 0
       - name: "Native: ss_particles.dll"
         run: cmake --build --preset windows-release --target ss_particles -- -k 0
       - name: "Native: managed_host.dll"

@@ -4,66 +4,31 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 116 links here; 697 in all lists (were 708)
-#      25 src/mathlib
-#      33 src/public
+# 46 links here; 606 in all lists (were 676)
+#      12 src/mathlib
+#      11 src/public
 #       3 src/raytrace
-#      45 src/tier1
-#      10 src/utils
-src/mathlib/3dnow.cpp
+#      17 src/tier1
+#       3 src/utils
 src/mathlib/3dnow.h
-src/mathlib/IceKey.cpp
-src/mathlib/almostequal.cpp
-src/mathlib/anorms.cpp
-src/mathlib/bumpvects.cpp
 src/mathlib/color_conversion.cpp
-src/mathlib/halton.cpp
-src/mathlib/imagequant.cpp
 src/mathlib/lightdesc.cpp
 src/mathlib/mathlib_base.cpp
 src/mathlib/noisedata.h
-src/mathlib/polyhedron.cpp
 src/mathlib/powsse.cpp
-src/mathlib/quantize.cpp
 src/mathlib/randsse.cpp
-src/mathlib/simdvectormatrix.cpp
-src/mathlib/sparse_convolution_noise.cpp
-src/mathlib/spherical.cpp
 src/mathlib/sse.cpp
 src/mathlib/sse.h
 src/mathlib/sseconst.cpp
 src/mathlib/ssenoise.cpp
-src/mathlib/vector.cpp
 src/mathlib/vmatrix.cpp
 src/public/filesystem_init.h
-src/public/mathlib/IceKey.H
 src/public/mathlib/amd3dx.h
-src/public/mathlib/anorms.h
 src/public/mathlib/halton.h
-src/public/mathlib/noise.h
-src/public/mathlib/polyhedron.h
-src/public/mathlib/quantize.h
-src/public/mathlib/simdvectormatrix.h
-src/public/mathlib/spherical_geometry.h
 src/public/mathlib/ssequaternion.h
 src/public/raytrace.h
-src/public/tier1/CommandBuffer.h
 src/public/tier1/characterset.h
-src/public/tier1/checksum_sha1.h
-src/public/tier1/datamanager.h
-src/public/tier1/diff.h
-src/public/tier1/exprevaluator.h
-src/public/tier1/keyvaluesjson.h
-src/public/tier1/kvpacker.h
-src/public/tier1/lzmaDecoder.h
 src/public/tier1/memstack.h
-src/public/tier1/netadr.h
-src/public/tier1/reliabletimer.h
-src/public/tier1/snappy-sinksource.h
-src/public/tier1/snappy-stubs-public.h
-src/public/tier1/snappy.h
-src/public/tier1/sparsematrix.h
-src/public/tier1/tokenreader.h
 src/public/tier1/utlbufferutil.h
 src/public/tier1/utlcommon.h
 src/public/tier1/utlhashtable.h
@@ -72,44 +37,16 @@ src/raytrace/raytrace.cpp
 src/raytrace/trace2.cpp
 src/raytrace/trace3.cpp
 src/tier1/KeyValues.cpp
-src/tier1/NetAdr.cpp
 src/tier1/bitbuf.cpp
-src/tier1/byteswap.cpp
 src/tier1/characterset.cpp
 src/tier1/checksum_crc.cpp
-src/tier1/checksum_sha1.cpp
-src/tier1/commandbuffer.cpp
 src/tier1/convar.cpp
-src/tier1/datamanager.cpp
-src/tier1/diff.cpp
-src/tier1/exprevaluator.cpp
 src/tier1/generichash.cpp
-src/tier1/ilocalize.cpp
-src/tier1/interface.cpp
-src/tier1/keyvaluesjson.cpp
-src/tier1/kvpacker.cpp
-src/tier1/lzmaDecoder.cpp
-src/tier1/mempool.cpp
 src/tier1/memstack.cpp
-src/tier1/newbitbuf.cpp
-src/tier1/pathmatch.cpp
-src/tier1/pathmatch_casefolding.h
-src/tier1/processor_detect_linux.cpp
 src/tier1/qsort_s.cpp
-src/tier1/rangecheckedvar.cpp
-src/tier1/reliabletimer.cpp
-src/tier1/snappy-internal.h
-src/tier1/snappy-sinksource.cpp
-src/tier1/snappy-stubs-internal.cpp
-src/tier1/snappy-stubs-internal.h
-src/tier1/snappy.cpp
-src/tier1/sparsematrix.cpp
-src/tier1/splitstring.cpp
-src/tier1/stringpool.cpp
 src/tier1/strtools.cpp
 src/tier1/strtools_unicode.cpp
 src/tier1/tier1.cpp
-src/tier1/tokenreader.cpp
 src/tier1/uniqueid.cpp
 src/tier1/utlbinaryblock.cpp
 src/tier1/utlbuffer.cpp
@@ -119,10 +56,3 @@ src/tier1/utlsymbol.cpp
 src/utils/common/bsplib.h
 src/utils/common/cmdlib.h
 src/utils/common/filesystem_tools.h
-src/utils/lzma/C/7zTypes.h
-src/utils/lzma/C/7zVersion.h
-src/utils/lzma/C/Compiler.h
-src/utils/lzma/C/LzmaDec.c
-src/utils/lzma/C/LzmaDec.h
-src/utils/lzma/C/LzmaEnc.h
-src/utils/lzma/C/Precomp.h

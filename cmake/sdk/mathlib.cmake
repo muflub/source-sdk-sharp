@@ -6,33 +6,21 @@
 add_library(mathlib STATIC)
 ss_sdk_compile(mathlib PROJECTDIR mathlib)
 
+# Only the members some link pulls in (libss_particles, client.so, server.so
+# and the native tests that link mathlib); the other 13 of Valve's 22, and
+# 3dnow.cpp, were compiled in every build tree and never linked.
+# sdk_lib_members_test holds the list to that, as tier1.cmake says.
 set(mathlib_sources
-    mathlib/almostequal.cpp
-    mathlib/anorms.cpp
-    mathlib/bumpvects.cpp
     mathlib/color_conversion.cpp
-    mathlib/halton.cpp
-    mathlib/IceKey.cpp
-    mathlib/imagequant.cpp
     mathlib/lightdesc.cpp
     mathlib/mathlib_base.cpp
-    mathlib/polyhedron.cpp
     mathlib/powsse.cpp
-    mathlib/quantize.cpp
     mathlib/randsse.cpp
-    mathlib/simdvectormatrix.cpp
-    mathlib/sparse_convolution_noise.cpp
-    mathlib/spherical.cpp
     mathlib/sse.cpp
     mathlib/sseconst.cpp
     mathlib/ssenoise.cpp
-    mathlib/vector.cpp
     mathlib/vmatrix.cpp
 )
-# 3dnow.cpp is [$WINDOWS||$LINUX] in mathlib.vpc: not on macOS.
-if(NOT SS_PLATFORM STREQUAL osx)
-  list(APPEND mathlib_sources mathlib/3dnow.cpp)
-endif()
 list(TRANSFORM mathlib_sources PREPEND "${SS_SRC}/")
 target_sources(mathlib PRIVATE ${mathlib_sources})
 
