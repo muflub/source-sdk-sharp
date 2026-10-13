@@ -19,6 +19,13 @@ add_library(ss_particles SHARED)
 set_target_properties(ss_particles PROPERTIES OUTPUT_NAME ss_particles NO_SONAME ON)
 ss_sdk_target(ss_particles PROJECTDIR particles RPATH_ORIGIN
     VERSION_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/version_script.txt)
+# ss_sdk_target drops the `lib` prefix, as Valve's game libraries have none.
+# This one is ours and keeps it outside Windows: client.so dlopens
+# libss_particles.so by that name (particles_lib_client.cpp's SS_PARTICLE_LIB),
+# and Windows' client.dll loads ss_particles.dll.
+if(NOT SS_PLATFORM STREQUAL windows)
+  set_target_properties(ss_particles PROPERTIES PREFIX "lib")
+endif()
 set_property(TARGET ss_particles APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/version_script.txt)
 
 target_sources(ss_particles PRIVATE

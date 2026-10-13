@@ -107,7 +107,7 @@ jobs:
           mkdir -p out/smoke
           tar -C out/smoke -xzf "dist/sourcesharp-$SS_LABEL-linux-x64.tar.gz"
           ./out/smoke/sourcesharp/source# --help | sed -n 1p
-          for so in server.so client.so libmanaged_host.so libsteam_api.so; do
+          for so in server.so client.so libmanaged_host.so libss_particles.so libsteam_api.so; do
             test -f "out/smoke/sourcesharp/bin/linux64/$so" || { echo "::error::$so is not in the archive"; exit 1; }
           done
           test -L out/smoke/sourcesharp/mods/test/bin
