@@ -222,6 +222,15 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   11 + 3. A check that is slow and changes only with its own subject goes in
   the full tier; nothing leaves both. One `make test` per worktree at a time:
   a concurrent run makes the other's legs report `LOG LOST`.
+- **A quick local loop: `make test-fast`**, which is `make test` without the
+  slow tests that `tools/test-tiers.tsv` lists (a managed fact or native
+  binary of 2 s or more, a class whose facts add up to 20 s). `make test-slow`
+  runs them alone, so the two together are `make test`. Locally neither is a
+  gate: `make test` and `make check` run everything. CI runs each tier in jobs
+  of its own (`make managed-legs-fast|slow`, `make check NATIVE_TIER=fast`,
+  `make cpp-test-slow`), which between them run every test. Regenerate the list with
+  `tools/test-tiers measure --write`; a fast run names any test that grew past
+  the threshold.
 - Every bug fix lands with a regression test that fails before the fix.
 - **A check that cannot fail is not evidence.** More than fifty were found.
   - Break the subject and see red.

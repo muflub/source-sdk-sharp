@@ -1,0 +1,528 @@
+#!/usr/bin/env python3
+"""tools/test-tiers -- the fast and the slow tier of the managed and native tests.
+
+    tools/test-tiers measure [--write] [--trx-dir DIR] [--ctest-cost FILE]
+                                  time every managed fact and native binary and
+                                  (with --write) rewrite tools/test-tiers.tsv
+    tools/test-tiers legs fast|slow
+                                  the leg names `make test-fast` / `make
+                                  test-slow` run, one per line
+    tools/test-tiers run <leg>-fast|<leg>-slow
+                                  run one leg's tier, then report any fast test
+                                  that has grown past the threshold
+    tools/test-tiers filter <leg> fast|slow
+                                  the `dotnet test --filter` for a managed leg
+    tools/test-tiers --self-test  check this script's own logic
+
+WHAT IT IS FOR
+==============
+
+A quick loop, and CI's split. `make test-fast` is `make test` without the
+slow tier; `make test-slow` runs the slow tier alone, so the two together are
+`make test`. CI runs the two tiers in separate jobs side by side
+(.github/workflows/ci.yml), so between them every test still runs on every
+push: the split changes when a result arrives, not what is held to it.
+
+THE SLOW TIER IS MEASURED, NOT GUESSED
+======================================
+
+tools/test-tiers.tsv lists it, and `measure --write` regenerates the list from
+a timing run (every managed test assembly with a TRX log, which records each
+case's duration, and the native leg's ctest cost data). An entry is:
+
+    fact              a managed test method (a theory counts all its cases)
+                      that took THRESHOLD seconds or more
+    class             a managed test class whose methods took CLASS_TOTAL
+                      seconds or more together, even if none of them alone
+                      did: 92 one-second facts are as slow as one 92 s fact
+    gtest-binaries    a native test binary that took THRESHOLD or more
+    must-not-compile  a native must-not-compile check that did
+
+The fast tier is everything else in the same legs. A list taken on one machine
+drifts on another and as tests change, so `run` reports any fast test that took
+THRESHOLD or more in that run, naming the regeneration command. It reports
+rather than fails: a timing is a property of the machine as much as the test,
+and a loop that fails on a busy laptop is a loop nobody runs.
+
+Each tier leg goes through tools/run-test-legs with a floor from
+tools/leg-floor, like every other leg: the fast floor is the full leg's floor
+less the cases the list moved out, the slow floor one case per entry. A list
+entry that no longer names a test makes the slow leg run short, which is the
+signal to regenerate.
+"""
+
+import collections
+import glob
+import importlib.machinery
+import importlib.util
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
+LIST = 'tools/test-tiers.tsv'
+
+THRESHOLD = 2.0      # seconds: a fact or a native binary at or over this is slow
+CLASS_TOTAL = 20.0   # seconds: a class whose facts add up to this is slow whole
+
+# The managed legs and their assemblies, as the Makefile's *_LEG variables run
+# them (bin/debug, the Debug build TEST_BUILD makes).
+MANAGED = collections.OrderedDict([
+    ('managed', 'tests/SourceSharp.Shared.Tests.dll'),
+    ('managed-server', 'tests-server/SourceSharp.Server.Tests.dll'),
+    ('managed-client', 'tests-client/SourceSharp.Client.Tests.dll'),
+    ('tf2_descent', 'tf2_descent-tests/TF2.Descent.Tests.dll'),
+])
+NATIVE = 'native'
+LEGS = list(MANAGED) + [NATIVE]
+KINDS = {'fact', 'class', 'gtest-binaries', 'must-not-compile'}
+TIERS = ('fast', 'slow')
+
+Entry = collections.namedtuple('Entry', 'kind leg name seconds cases')
+
+
+class TierError(Exception):
+    """The list or a run did not answer. Never guess past it."""
+
+
+# --- the list -------------------------------------------------------------
+
+def parse(text, where=LIST):
+    """tools/test-tiers.tsv: kind<TAB>leg<TAB>name<TAB>seconds<TAB>cases."""
+    out = []
+    seen = set()
+    for i, line in enumerate(text.splitlines(), 1):
+        if not line.strip() or line.startswith('#'):
+            continue
+        parts = line.split('\t')
+        if len(parts) != 5:
+            raise TierError('%s:%d: %r is not kind<TAB>leg<TAB>name<TAB>seconds<TAB>cases'
+                            % (where, i, line))
+        kind, leg, name, secs, cases = parts
+        if kind not in KINDS:
+            raise TierError('%s:%d: kind %r is not one of %s' % (where, i, kind, ' '.join(sorted(KINDS))))
+        if leg not in LEGS:
+            raise TierError('%s:%d: leg %r is not one of %s' % (where, i, leg, ' '.join(LEGS)))
+        if (kind in ('fact', 'class')) != (leg in MANAGED):
+            raise TierError('%s:%d: a %s entry cannot be in the %s leg' % (where, i, kind, leg))
+        try:
+            secs, cases = float(secs), int(cases)
+        except ValueError:
+            raise TierError('%s:%d: seconds and cases must be numbers: %r' % (where, i, line))
+        if cases < 1:
+            raise TierError('%s:%d: %s has %d cases; an entry names at least one' % (where, i, name, cases))
+        if (leg, name) in seen:
+            raise TierError('%s:%d: %s is listed twice in %s' % (where, i, name, leg))
+        seen.add((leg, name))
+        out.append(Entry(kind, leg, name, secs, cases))
+    return out
+
+
+def load():
+    path = os.path.join(ROOT, LIST)
+    if not os.path.isfile(path):
+        raise TierError('%s is not there: tools/test-tiers measure --write' % LIST)
+    with open(path, encoding='utf-8') as f:
+        return parse(f.read())
+
+
+def entries(rows, leg):
+    return [r for r in rows if r.leg == leg]
+
+
+def render(rows, header):
+    lines = ['# %s -- the slow tier of the managed and native tests (tools/test-tiers).' % LIST,
+             '# Regenerate: tools/test-tiers measure --write. Columns:',
+             '# kind<TAB>leg<TAB>name<TAB>seconds<TAB>cases']
+    lines += ['# ' + h for h in header]
+    for r in sorted(rows, key=lambda r: (LEGS.index(r.leg), r.kind, r.name)):
+        lines.append('%s\t%s\t%s\t%.1f\t%d' % (r.kind, r.leg, r.name, r.seconds, r.cases))
+    return '\n'.join(lines) + '\n'
+
+
+# --- classifying a timing run ---------------------------------------------
+
+def method_of(test_name):
+    """A TRX testName, less a theory case's arguments: the method's full name,
+    which is what `dotnet test --filter FullyQualifiedName` matches."""
+    return test_name.split('(', 1)[0].strip()
+
+
+def classify(managed, native):
+    """managed: (leg, testName, seconds) per case; native: (unit, name,
+    seconds) per binary. The slow tier, as entries."""
+    methods = collections.defaultdict(lambda: [0.0, 0])
+    for leg, name, secs in managed:
+        m = methods[(leg, method_of(name))]
+        m[0] += secs
+        m[1] += 1
+    classes = collections.defaultdict(lambda: [0.0, 0])
+    for (leg, method), (secs, n) in methods.items():
+        c = classes[(leg, method.rsplit('.', 1)[0])]
+        c[0] += secs
+        c[1] += n
+    out = []
+    slow_classes = set()
+    for (leg, cls), (secs, n) in classes.items():
+        if secs >= CLASS_TOTAL:
+            slow_classes.add((leg, cls))
+            out.append(Entry('class', leg, cls, secs, n))
+    for (leg, method), (secs, n) in methods.items():
+        if secs >= THRESHOLD and (leg, method.rsplit('.', 1)[0]) not in slow_classes:
+            out.append(Entry('fact', leg, method, secs, n))
+    for unit, name, secs in native:
+        if secs >= THRESHOLD:
+            out.append(Entry(unit, NATIVE, name, secs, 1))
+    return out
+
+
+TRX_NS = '{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}'
+
+
+def _seconds(duration):
+    h, m, s = duration.split(':')
+    return int(h) * 3600 + int(m) * 60 + float(s)
+
+
+def read_trx(path, leg):
+    out = []
+    for r in ET.parse(path).getroot().iter(TRX_NS + 'UnitTestResult'):
+        out.append((leg, r.get('testName'), _seconds(r.get('duration') or '00:00:00')))
+    if not out:
+        raise TierError('%s holds no test results' % path)
+    return out
+
+
+def read_ctest_cost(path, roster):
+    """ctest's CTestCostData.txt (name runs average-seconds), for the binaries
+    the native leg runs (`roster`: name -> unit)."""
+    out = []
+    with open(path) as f:
+        for line in f:
+            if line.startswith('---'):
+                break   # the failed-tests section
+            parts = line.split()
+            if len(parts) == 3 and parts[0] in roster:
+                out.append((roster[parts[0]], parts[0], float(parts[2])))
+    if not out:
+        raise TierError('%s holds no cost for any native-leg binary: run the native leg first' % path)
+    return out
+
+
+def _leg_floor():
+    loader = importlib.machinery.SourceFileLoader('leg_floor', os.path.join(HERE, 'leg-floor'))
+    spec = importlib.util.spec_from_loader('leg_floor', loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
+def native_roster():
+    """name -> unit for every binary and must-not-compile check the native leg
+    runs, from the manifest tools/leg-floor reads."""
+    return {name: unit for unit, name in _leg_floor().roster_native()}
+
+
+# --- running a tier ---------------------------------------------------------
+
+def _escape(value):
+    """VSTest's filter syntax gives these characters meaning in a value."""
+    return re.sub(r'([\\()|&=!~])', r'\\\1', value)
+
+
+def filter_for(rows, leg, tier):
+    """The `dotnet test --filter` expression for one managed leg's tier, or
+    None when the leg's whole run is that tier (fast, with nothing slow)."""
+    mine = entries(rows, leg)
+    if tier == 'slow' and not mine:
+        raise TierError('the %s leg has no slow entries; there is no slow run of it' % leg)
+    if not mine:
+        return None
+    terms = []
+    for r in mine:
+        if r.kind == 'class':
+            # The class's methods: its name and a dot, so a class whose name
+            # merely starts the same is not taken with it.
+            terms.append(('FullyQualifiedName!~' if tier == 'fast' else 'FullyQualifiedName~')
+                         + _escape(r.name + '.'))
+        else:
+            terms.append(('FullyQualifiedName!=' if tier == 'fast' else 'FullyQualifiedName=')
+                         + _escape(r.name))
+    return ('&' if tier == 'fast' else '|').join(terms)
+
+
+def legs_for(rows, tier):
+    names = []
+    for leg in LEGS:
+        if tier == 'fast' or entries(rows, leg):
+            names.append('%s-%s' % (leg, tier))
+    return names
+
+
+def split_leg(name):
+    for tier in TIERS:
+        if name.endswith('-' + tier):
+            leg = name[:-len(tier) - 1]
+            if leg in LEGS:
+                return leg, tier
+    raise TierError('%r is not <leg>-fast or <leg>-slow for a leg in %s' % (name, ' '.join(LEGS)))
+
+
+def drift(rows, leg, measured):
+    """The fast tests of `leg` that took THRESHOLD or more in this run: what a
+    regeneration would move to the slow tier."""
+    listed = {r.name for r in entries(rows, leg)}
+    classes = {r.name for r in entries(rows, leg) if r.kind == 'class'}
+    if leg == NATIVE:
+        return sorted((secs, name) for _unit, name, secs in measured
+                      if name not in listed and secs >= THRESHOLD)
+    methods = collections.defaultdict(float)
+    for _leg, name, secs in measured:
+        methods[method_of(name)] += secs
+    return sorted((secs, m) for m, secs in methods.items()
+                  if m not in listed and m.rsplit('.', 1)[0] not in classes and secs >= THRESHOLD)
+
+
+def _report_drift(found, leg):
+    for secs, name in reversed(found):
+        print('[test-tiers] %s: %s took %.1f s and is in the fast tier '
+              '(tools/test-tiers measure --write moves it)' % (leg, name, secs))
+
+
+def dotnet():
+    return os.environ.get('DOTNET') or os.path.expanduser('~/.dotnet/dotnet')
+
+
+def run(leg_tier):
+    leg, tier = split_leg(leg_tier)
+    rows = load()
+    os.chdir(ROOT)
+    if leg == NATIVE:
+        roster = native_roster()
+        mine = entries(rows, NATIVE)
+        unknown = [r.name for r in mine if r.name not in roster]
+        if unknown:
+            raise TierError('%s names native tests the manifest does not: %s'
+                            % (LIST, ' '.join(unknown)))
+        tool = os.path.join(ROOT, 'farm', os.environ.get('SOURCESHARP_CONFIG', 'debug'), 'src', 'buildcpptests')
+        env = dict(os.environ)
+        if tier == 'slow':
+            rc = subprocess.call([tool] + [r.name for r in mine], env=env)
+        else:
+            env['SS_CPPTEST_EXCLUDE'] = ' '.join(r.name for r in mine)
+            rc = subprocess.call([tool], env=env)
+            cost = os.path.join(ROOT, 'farm', env.get('SOURCESHARP_CONFIG', 'debug'),
+                                'build', 'Testing', 'Temporary', 'CTestCostData.txt')
+            if rc == 0 and os.path.isfile(cost):
+                _report_drift(drift(rows, NATIVE, read_ctest_cost(cost, roster)), leg_tier)
+        return rc
+    dll = os.path.join(ROOT, 'bin', 'debug', MANAGED[leg])
+    # SS_DOTNET_TEST_ARGS: more arguments for dotnet test, split on spaces
+    # (CI's Windows jobs pass --blame-hang, which ends a hung test host).
+    cmd = [dotnet(), 'test', dll, '--nologo'] + os.environ.get('SS_DOTNET_TEST_ARGS', '').split()
+    expr = filter_for(rows, leg, tier)
+    if expr:
+        cmd += ['--filter', expr]
+    trx = None
+    if tier == 'fast':
+        trx = os.path.join(tempfile.mkdtemp(prefix='test-tiers-'), leg + '.trx')
+        cmd += ['--logger', 'trx;LogFileName=' + trx]
+    rc = subprocess.call(cmd)
+    if trx and os.path.isfile(trx):
+        _report_drift(drift(rows, leg, read_trx(trx, leg)), leg_tier)
+    return rc
+
+
+# --- measuring --------------------------------------------------------------
+
+def measure(argv):
+    write = '--write' in argv
+    trx_dir = _opt(argv, '--trx-dir')
+    cost = _opt(argv, '--ctest-cost')
+    os.chdir(ROOT)
+    if not trx_dir:
+        trx_dir = tempfile.mkdtemp(prefix='test-tiers-measure-')
+        for leg, dll in MANAGED.items():
+            subprocess.call([dotnet(), 'test', os.path.join('bin', 'debug', dll), '--nologo',
+                             '--logger', 'trx;LogFileName=' + os.path.join(trx_dir, leg + '.trx')])
+    managed = []
+    for leg, dll in MANAGED.items():
+        candidates = [os.path.join(trx_dir, leg + '.trx'),
+                      os.path.join(trx_dir, os.path.basename(dll)[:-4] + '.trx')]
+        path = next((p for p in candidates if os.path.isfile(p)), None)
+        if not path:
+            raise TierError('no TRX log for the %s leg in %s' % (leg, trx_dir))
+        managed += read_trx(path, leg)
+    if not cost:
+        config = os.environ.get('SOURCESHARP_CONFIG', 'debug')
+        subprocess.call([os.path.join('farm', config, 'src', 'buildcpptests')])
+        cost = os.path.join('farm', config, 'build', 'Testing', 'Temporary', 'CTestCostData.txt')
+    native = read_ctest_cost(cost, native_roster())
+    rows = classify(managed, native)
+    total = sum(s for _l, _n, s in managed) + sum(s for _u, _n, s in native)
+    slow = sum(r.seconds for r in rows)
+    header = ['threshold %.1f s per fact or binary, %.1f s per class; %d managed cases and %d native '
+              'tests measured, %.0f s in all, %.0f s of it in this tier'
+              % (THRESHOLD, CLASS_TOTAL, len(managed), len(native), total, slow)]
+    text = render(rows, header)
+    if write:
+        with open(os.path.join(ROOT, LIST), 'w', encoding='utf-8') as f:
+            f.write(text)
+        print('wrote %s: %d entries, %.0f of %.0f s' % (LIST, len(rows), slow, total))
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
+def _opt(argv, name):
+    if name in argv:
+        i = argv.index(name)
+        if i + 1 >= len(argv):
+            raise TierError('%s needs a value' % name)
+        return argv[i + 1]
+    return None
+
+
+# --- self-test ----------------------------------------------------------------
+
+def self_test():
+    failures = []
+    count = [0]
+
+    def ck(what, ok, detail=''):
+        count[0] += 1
+        print('  %s    %s%s' % ('ok  ' if ok else 'FAIL', what, ('   -- ' + detail) if detail else ''))
+        if not ok:
+            failures.append(what)
+
+    def refuses(fn):
+        try:
+            fn()
+        except TierError:
+            return True
+        return False
+
+    good = ('# comment\n'
+            'fact\tmanaged-server\tA.B.Slow\t3.0\t1\n'
+            'class\tmanaged-client\tA.Ui.Wide\t25.0\t9\n'
+            'must-not-compile\tnative\tbad_check\t6.1\t1\n')
+    rows = parse(good)
+    ck('a well-formed list parses, comments skipped', len(rows) == 3)
+    ck('a row with four columns is refused', refuses(lambda: parse('fact\tmanaged\tA.B\t3.0\n')))
+    ck('an unknown kind is refused', refuses(lambda: parse('test\tmanaged\tA.B\t3.0\t1\n')))
+    ck('an unknown leg is refused', refuses(lambda: parse('fact\toracle\tA.B\t3.0\t1\n')))
+    ck('a managed kind in the native leg is refused', refuses(lambda: parse('fact\tnative\tA.B\t3.0\t1\n')))
+    ck('a native kind in a managed leg is refused',
+       refuses(lambda: parse('gtest-binaries\tmanaged\tx_test\t3.0\t1\n')))
+    ck('an entry with no cases is refused', refuses(lambda: parse('fact\tmanaged\tA.B\t3.0\t0\n')))
+    ck('a name listed twice in one leg is refused',
+       refuses(lambda: parse('fact\tmanaged\tA.B\t3.0\t1\nfact\tmanaged\tA.B\t4.0\t1\n')))
+    ck('the rendered list parses back to itself', parse(render(rows, ['h'])) == sorted(
+        rows, key=lambda r: (LEGS.index(r.leg), r.kind, r.name)))
+
+    ck('a theory case is its method', method_of('A.B.C(x: 1, y: "z")') == 'A.B.C')
+    managed = [('managed', 'N.Fast.One', 0.1), ('managed', 'N.Slow.Big', 2.5),
+               ('managed', 'N.Th.Case(i: 1)', 1.2), ('managed', 'N.Th.Case(i: 2)', 1.2)]
+    managed += [('managed', 'N.Many.F%d' % i, 1.0) for i in range(21)]
+    native = [('gtest-binaries', 'quick_test', 0.2), ('must-not-compile', 'slow_check', 6.0)]
+    got = {(r.kind, r.name): r for r in classify(managed, native)}
+    ck('a fact at the threshold is slow', ('fact', 'N.Slow.Big') in got)
+    ck('a theory is slow by its cases together', ('fact', 'N.Th.Case') in got
+       and got[('fact', 'N.Th.Case')].cases == 2)
+    ck('a fast fact stays out', ('fact', 'N.Fast.One') not in got)
+    ck('a class of many fast facts is slow whole', ('class', 'N.Many') in got
+       and got[('class', 'N.Many')].cases == 21)
+    ck("a slow class's facts are not listed again", not any(k[1].startswith('N.Many.') for k in got))
+    ck('a slow native check is slow, a quick one is not',
+       ('must-not-compile', 'slow_check') in got and ('gtest-binaries', 'quick_test') not in got)
+
+    f = filter_for(rows, 'managed-server', 'fast')
+    ck('the fast filter excludes a slow fact', f == 'FullyQualifiedName!=A.B.Slow', f)
+    f = filter_for(rows, 'managed-client', 'slow')
+    ck("the slow filter takes a class's methods, dot and all", f == 'FullyQualifiedName~A.Ui.Wide.', f)
+    two = parse('fact\tmanaged\tA.B\t3\t1\nclass\tmanaged\tA.C\t30\t5\n')
+    ck('fast terms are joined by and', filter_for(two, 'managed', 'fast')
+       == 'FullyQualifiedName!=A.B&FullyQualifiedName!~A.C.')
+    ck('slow terms are joined by or', filter_for(two, 'managed', 'slow')
+       == 'FullyQualifiedName=A.B|FullyQualifiedName~A.C.')
+    ck('a leg with nothing slow runs whole in the fast tier', filter_for(rows, 'tf2_descent', 'fast') is None)
+    ck('and has no slow run', refuses(lambda: filter_for(rows, 'tf2_descent', 'slow')))
+    ck("a filter's special characters are escaped", _escape('A(b)=c') == r'A\(b\)\=c')
+
+    ck('every leg has a fast run', legs_for(rows, 'fast') == [l + '-fast' for l in LEGS])
+    ck('only legs with entries have a slow run',
+       legs_for(rows, 'slow') == ['managed-server-slow', 'managed-client-slow', 'native-slow'])
+    ck('a tier leg names its leg and tier', split_leg('managed-server-slow') == ('managed-server', 'slow'))
+    ck('a leg that is no tier is refused', refuses(lambda: split_leg('managed')))
+
+    seen = [('managed-server', 'A.B.Slow', 9.0), ('managed-server', 'A.B.New', 2.1),
+            ('managed-server', 'A.B.Ok', 0.5)]
+    ck('drift names a fast test past the threshold and no other',
+       drift(rows, 'managed-server', seen) == [(2.1, 'A.B.New')])
+    ck("drift leaves a listed class's tests alone",
+       drift(rows, 'managed-client', [('managed-client', 'A.Ui.Wide.X', 9.0)]) == [])
+    ck('native drift reads binaries',
+       drift(rows, NATIVE, [('gtest-binaries', 'grew_test', 3.0), ('must-not-compile', 'bad_check', 9.0)])
+       == [(3.0, 'grew_test')])
+
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, 'x.trx')
+        with open(p, 'w') as fh:
+            fh.write('<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results>'
+                     '<UnitTestResult testName="A.B.C" duration="00:00:02.5000000" outcome="Passed"/>'
+                     '<UnitTestResult testName="A.B.D(i: 1)" duration="00:01:00.0000000" outcome="Passed"/>'
+                     '</Results></TestRun>')
+        got = read_trx(p, 'managed')
+        ck('a TRX log reads as cases with seconds', got == [('managed', 'A.B.C', 2.5), ('managed', 'A.B.D(i: 1)', 60.0)])
+        e = os.path.join(d, 'empty.trx')
+        with open(e, 'w') as fh:
+            fh.write('<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"/>')
+        ck('a TRX log with no results is refused', refuses(lambda: read_trx(e, 'managed')))
+        c = os.path.join(d, 'cost.txt')
+        with open(c, 'w') as fh:
+            fh.write('a_test 3 2.5\nother 1 9\nb_check 10 6.0\n---\nfailed_test\n')
+        got = read_ctest_cost(c, {'a_test': 'gtest-binaries', 'b_check': 'must-not-compile'})
+        ck('ctest cost reads the native-leg binaries only',
+           got == [('gtest-binaries', 'a_test', 2.5), ('must-not-compile', 'b_check', 6.0)])
+        ck('ctest cost with none of them is refused', refuses(lambda: read_ctest_cost(c, {'zz': 'gtest-binaries'})))
+
+    try:
+        real = load()
+        ck('the real list parses', bool(real), '%d entries' % len(real))
+        roster = native_roster()
+        missing = [r.name for r in entries(real, NATIVE) if r.name not in roster]
+        ck("the real list's native entries are all in the manifest", not missing, ' '.join(missing))
+    except TierError as exc:
+        ck('the real list parses', False, str(exc))
+
+    print('%s: %d checks, %d failed' % ('test-tiers self-test', count[0], len(failures)))
+    return 1 if failures else 0
+
+
+def main(argv):
+    try:
+        if argv[:1] == ['--self-test']:
+            return self_test()
+        if argv[:1] == ['measure']:
+            return measure(argv[1:])
+        if argv[:1] == ['legs'] and len(argv) == 2 and argv[1] in TIERS:
+            print('\n'.join(legs_for(load(), argv[1])))
+            return 0
+        if argv[:1] == ['run'] and len(argv) == 2:
+            return run(argv[1])
+        if argv[:1] == ['filter'] and len(argv) == 3 and argv[2] in TIERS:
+            print(filter_for(load(), argv[1], argv[2]) or '')
+            return 0
+    except TierError as exc:
+        print('test-tiers: %s' % exc, file=sys.stderr)
+        return 2
+    print(__doc__.split('WHAT IT IS FOR')[0].strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

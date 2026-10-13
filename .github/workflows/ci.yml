@@ -4,18 +4,26 @@ name: CI
 # to main, every pull request and every tag, split into jobs that run side by
 # side, so the slowest one sets the time rather than the sum:
 #
-#   linux-managed     the managed test legs (make managed-legs)
+#   linux-managed     the managed test legs, one job per tier
+#                     (make managed-legs-fast, make managed-legs-slow)
 #   linux-check       the repo's gate, `make check` (a full debug build, which
 #                     the native tests are written against, and every test
-#                     leg but the managed ones)
+#                     leg but the managed ones; the native leg's fast tier)
+#   linux-native-slow the native leg's slow tier (make cpp-test-slow)
 #   linux-sniper      the shipped native libraries, built inside Valve's
 #                     sniper container, and the GLIBC ceiling
 #   linux             the clang Release build of the game (no native tests:
 #                     linux-check builds and runs them), packaged with
 #                     linux-sniper's libraries, which it waits for only at
 #                     the package step
-#   windows-managed   the managed test projects
+#   windows-managed   the managed test projects, one job per tier
 #   windows           the MSVC Release build, the native gtests, the package
+#
+# The tests are split in two tiers (tools/test-tiers.tsv lists the slow ones:
+# a managed fact or native test of 2 s or more, a class whose facts add up to
+# 20 s), and each tier runs in a job of its own, so the slow facts no longer
+# set the time of the jobs that run the many fast ones. Between them the jobs
+# still run every test.
 #
 # A tag also attaches both platforms' archives to the GitHub release (the
 # release job), once every job is green.
@@ -69,14 +77,20 @@ env:
   SOURCESHARP_CI: '1'
 
 jobs:
-  # The managed test legs. They read no native build output, only the CMake
-  # graph a configure writes, so the debug tree they read is configured here
-  # and not built. linux-check runs every other leg (make check
-  # CHECK_MANAGED=0).
+  # The managed test legs, one job per tier. They read no native build
+  # output, only the CMake graph a configure writes, so the debug tree they
+  # read is configured here and not built. linux-check runs every other leg
+  # (make check CHECK_MANAGED=0).
   linux-managed:
-    name: linux-x64 (managed tests)
+    name: linux-x64 (managed tests, ${{ matrix.tier }})
     runs-on: ubuntu-24.04
     timeout-minutes: 150
+    strategy:
+      # Each tier is a gate of its own: a red fast tier must not cancel the
+      # slow one, or its failures would go unseen until the next run.
+      fail-fast: false
+      matrix:
+        tier: [fast, slow]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -95,8 +109,8 @@ jobs:
 
       - name: "Managed: configure the debug tree the tests read"
         run: tools/build/configure debug -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
-      - name: "Test (managed: make managed-legs)"
-        run: make managed-legs
+      - name: "Test (managed: make managed-legs-${{ matrix.tier }})"
+        run: make managed-legs-${{ matrix.tier }}
 
       # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
       # it. A write means an output was linked where it should have been built.
@@ -113,7 +127,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-legs-linux
+          name: test-legs-linux-managed-${{ matrix.tier }}
           path: tools/.test-legs
           # The directory's name starts with a dot, which the action skips
           # unless told.
@@ -371,7 +385,8 @@ jobs:
   # The repo's gate before a merge to main, `make check`, in a job of its own
   # beside the release build: a full debug build (the build the native tests
   # are written against) and then every test leg but the managed ones, which
-  # linux-managed runs (CHECK_MANAGED=0).
+  # linux-managed runs (CHECK_MANAGED=0). Of the native leg it runs the fast
+  # tier (NATIVE_TIER=fast); linux-native-slow runs the slow one.
   # The non-CI-friendly facts skip (see the top of this file).
   linux-check:
     name: linux-x64 (make check)
@@ -390,7 +405,7 @@ jobs:
         run: make sdk-upstream
 
       - name: Test (make check, the legs linux-managed does not run)
-        run: make check CHECK_MANAGED=0
+        run: make check CHECK_MANAGED=0 NATIVE_TIER=fast
 
       # The managed facts that image the built game (tools/mod-image reads
       # bin/debug's server.so). They skip in linux-managed, which builds
@@ -426,14 +441,63 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
 
+  # The native leg's slow tier (tools/test-tiers.tsv): the must-not-compile
+  # checks, each a compile of its own, and the instruments' self-tests.
+  # buildcpptests builds only the tests it is named, so the debug tree is
+  # configured and not built, and none of linux-check's build is waited for.
+  linux-native-slow:
+    name: linux-x64 (native tests, slow)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The instruments the slow tests run ask git about the tree.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/toolchain-linux
+      # tools/setup (make sdk-upstream) packs the host's NuGet packages when
+      # they are missing, and refuses without the host checkout this clones.
+      - uses: ./.github/actions/host-packages
+
+      - name: Set up (make sdk-upstream)
+        run: make sdk-upstream
+
+      - name: "Native: configure the debug tree"
+        run: tools/build/configure debug -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
+      - name: "Test (native, slow tier: make cpp-test-slow)"
+        run: make cpp-test-slow
+
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
+
+      - name: Upload test-leg logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-legs-linux-native-slow
+          path: tools/.test-legs
+          include-hidden-files: true
+          if-no-files-found: ignore
+
   # The managed test projects, Debug as on Linux, beside the windows job rather
   # than before its native build. The same setup as windows: MSVC for the
   # NativeAOT Debug launcher LauncherTests runs, and the web UI the managed
-  # build embeds.
+  # build embeds. One job per tier, as linux-managed.
   windows-managed:
-    name: win-x64 (managed tests)
+    name: win-x64 (managed tests, ${{ matrix.tier }})
     runs-on: windows-latest
     timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: [fast, slow]
     defaults:
       run:
         shell: bash
@@ -541,21 +605,26 @@ jobs:
           env -u Platform dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
           ls -la bin/debug/source#*
 
-      # The gate: every managed test project, as the Makefile's managed legs
-      # run them (oracle-managed reads the pristine upstream clone, which
-      # only the Linux job provisions). Each project runs whatever the one
-      # before it did, and the step fails if any failed. A fact that runs
-      # past five minutes is a hang: --blame-hang ends the test host and
-      # names the facts that were running, where the step would otherwise sit
-      # silent until the job's timeout (one did, for 20 minutes, with nothing
-      # in the log; the slowest fact takes about 30 s).
-      - name: Test (managed, server, client, tf2_descent)
+      # The gate: this job's tier of every managed test project, as the
+      # Makefile's managed-legs-<tier> runs them (oracle-managed reads the
+      # pristine upstream clone, which only the Linux job provisions):
+      # tools/test-tiers names the legs and gives each its filter. Each leg
+      # runs whatever the one before it did, and the step fails if any
+      # failed. A fact that runs past five minutes is a hang: --blame-hang
+      # ends the test host and names the facts that were running, where the
+      # step would otherwise sit silent until the job's timeout (one did, for
+      # 20 minutes, with nothing in the log; the slowest fact takes about
+      # 30 s). Python writes CRLF to a pipe on Windows, hence the tr.
+      - name: "Test (managed, server, client, tf2_descent: ${{ matrix.tier }} tier)"
+        env:
+          DOTNET: dotnet
+          SS_DOTNET_TEST_ARGS: --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none
         run: |
+          legs="$(python tools/test-tiers legs ${{ matrix.tier }} | tr -d '\r' | grep -v '^native-')"
+          [[ -n "$legs" ]] || { echo "::error::tools/test-tiers named no managed legs"; exit 1; }
           rc=0
-          for dll in tests/SourceSharp.Shared.Tests.dll tests-server/SourceSharp.Server.Tests.dll \
-                     tests-client/SourceSharp.Client.Tests.dll tf2_descent-tests/TF2.Descent.Tests.dll; do
-            env -u Platform dotnet test "bin/debug/$dll" --nologo \
-              --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none || rc=1
+          for leg in $legs; do
+            env -u Platform python tools/test-tiers run "$leg" || rc=1
           done
           exit $rc
 
@@ -752,7 +821,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [linux-managed, linux-sniper, linux, linux-check, windows-managed, windows]
+    needs: [linux-managed, linux-sniper, linux, linux-check, linux-native-slow, windows-managed, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
