@@ -14,11 +14,10 @@ name: CI
 # and runs the managed test projects. The native gtest suite is Linux-only:
 # it runs against the Linux build's instruments.
 #
-# What each platform's tests gate on is the public tier (TEST_PUBLIC_LEGS in
-# the Makefile): the legs whose result depends on this tree alone. The rest
-# hold goldens recorded on one machine, facts that read the fork's comments,
-# and facts that need a Steam install; they run on every build for the
-# record, cannot fail the job, and a leg that comes good moves into the tier.
+# The tests gate both jobs, all of them. The few facts that cannot pass on a
+# runner (goldens recorded on the owner's machine, facts that read the fork's
+# edits, facts that need a Steam game install) skip there, each naming why,
+# because SOURCESHARP_CI is set below; on every other machine they run.
 #
 # No macOS: Valve no longer supports the Source SDK 2013 games on macOS, so
 # nothing would run what a macOS job built, and the launcher has no macOS
@@ -46,6 +45,13 @@ env:
   # developer's shell that builds all day, wrong for a runner, where a server
   # that outlives its step is a hung job.
   DOTNET_CLI_USE_MSBUILD_SERVER: 'false'
+  # Facts that cannot pass on a runner (goldens recorded on the owner's
+  # machine, facts that read the fork's edits, facts that need a Steam game
+  # install) skip, naming why, when this is set: [NotOnCiFact] and
+  # [NotOnCiTheory] in the managed tests, SS_SKIP_ON_CI in the native ones
+  # (src/test/common/NotOnCiFactAttribute.cs). Nothing else sets it, so
+  # everywhere else they run and fail as before.
+  SOURCESHARP_CI: '1'
 
 jobs:
   linux:
@@ -111,18 +117,12 @@ jobs:
           name: sourcesharp-linux-x64
           path: dist/*
 
-      # The gate: the public tier over the release build (the managed tests
-      # are always the Debug build, whatever CONFIG says; the Makefile builds
-      # it first).
-      - name: Test (make test-public CONFIG=release)
-        run: make test-public CONFIG=release
-
-      # Every other leg, for the record and not for the verdict (see the top
-      # of this file). Its leg summary is in the log and the logs are
-      # uploaded below.
-      - name: Every other leg (informational, make test-full CONFIG=release)
-        continue-on-error: true
-        run: make test-full CONFIG=release
+      # The gate: `make check`, the repo's own gate before a merge to main
+      # (a debug build, which the native tests are written against, then
+      # every test leg), with the non-CI-friendly facts skipping (see the top
+      # of this file).
+      - name: Test (make check)
+        run: make check
 
       # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
       # it. A write means an output was linked where it should have been built.
@@ -265,21 +265,17 @@ jobs:
       - name: Build the tests (Debug)
         run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
 
-      # The gate: the managed legs of the public tier (TEST_PUBLIC_LEGS).
-      # oracle-managed reads the pristine upstream clone, which only the
-      # Linux job provisions.
-      - name: Test (managed, tf2_descent)
-        run: |
-          env -u Platform dotnet test bin/debug/tests/SourceSharp.Shared.Tests.dll --nologo
-          env -u Platform dotnet test bin/debug/tf2_descent-tests/TF2.Descent.Tests.dll --nologo
-
-      # The server and client facts, for the record as on Linux.
-      - name: Every other managed leg (informational, server and client)
-        continue-on-error: true
+      # The gate: every managed test project, as the Makefile's managed legs
+      # run them (oracle-managed reads the pristine upstream clone, which
+      # only the Linux job provisions). Each project runs whatever the one
+      # before it did, and the step fails if any failed.
+      - name: Test (managed, server, client, tf2_descent)
         run: |
           rc=0
-          env -u Platform dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo || rc=1
-          env -u Platform dotnet test bin/debug/tests-client/SourceSharp.Client.Tests.dll --nologo || rc=1
+          for dll in tests/SourceSharp.Shared.Tests.dll tests-server/SourceSharp.Server.Tests.dll \
+                     tests-client/SourceSharp.Client.Tests.dll tf2_descent-tests/TF2.Descent.Tests.dll; do
+            env -u Platform dotnet test "bin/debug/$dll" --nologo || rc=1
+          done
           exit $rc
 
       - name: ROOT is untouched

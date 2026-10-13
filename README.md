@@ -105,16 +105,19 @@ Source SDK 2013 games on macOS, and the launcher has no macOS build. The
 prebuilt libraries for macOS, so that build links with dynamic lookup and has
 no particles library (`cmake/sdk/CMakeLists.txt`).
 
-What the tests gate on is the *public tier* of test legs (`TEST_PUBLIC_LEGS`
-in the Makefile; `make check-public` is the whole build plus that tier): the
-legs whose result depends on this tree alone. The other legs hold facts
-recorded on one machine (bit-for-bit float goldens), facts that read the
-fork's comments (which the patch series does not carry) and facts that need a
-Steam install, so off that machine they fail for reasons that are not the
-code's; the Makefile lists them with the numbers. CI still runs them after
-the gate, as a step that cannot fail the job, so the distance to a green
-`make check` on a runner is measured on every run. `make check` on a machine
-with the fork and Steam remains the gate before merging to `main`.
+The tests gate both jobs. Linux runs `make check`, the same gate as before a
+merge to `main` (a debug build, then every test leg); Windows runs every
+managed test project. A fact that cannot pass on a runner skips there and
+names why: a bit-for-bit golden recorded on the owner's machine (another CPU
+or C library differs in the last bit), a fact that reads the fork's own edits
+to Valve files (the public patch series does not carry them), or a fact that
+needs a Steam game install. Those are marked `[NotOnCiFact]` /
+`[NotOnCiTheory]` in the managed tests and `SS_SKIP_ON_CI` in the native ones
+(`src/test/common/NotOnCiFactAttribute.cs` says what may be marked), and they
+skip only when `SOURCESHARP_CI=1`, which the workflow sets. Everywhere else
+they run as before, so `make check` on a machine with the fork and Steam
+still holds them. `make check-public` (the build plus `TEST_PUBLIC_LEGS`)
+remains for a machine with only the public inputs and no CI variable.
 
 ## Layout
 

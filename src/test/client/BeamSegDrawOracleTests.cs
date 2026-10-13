@@ -82,7 +82,7 @@ public class BeamSegDrawOracleTests
         return cases;
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void EveryVertexIsTheOneStockWrote()
     {
         List<Case> cases = Golden();

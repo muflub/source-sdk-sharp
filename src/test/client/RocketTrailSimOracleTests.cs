@@ -36,7 +36,7 @@ public class RocketTrailSimOracleTests
 
     private static List<SimpleParticle> Stepped(SimpleEmitter e, int bornBefore) => e.Particles.Where(p => p.Id < bornBefore).ToList();
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void OneHundredTwentyFramesReplayBitForBit()
     {
         var frames = Stock();

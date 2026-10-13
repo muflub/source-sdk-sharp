@@ -79,6 +79,7 @@
     <Compile Include="..\common\ReloadFixtures.cs" Link="common\ReloadFixtures.cs" />
     <Compile Include="..\common\RecordingCommandLine.cs" Link="common\RecordingCommandLine.cs" />
     <Compile Include="..\common\SandboxMapFactAttribute.cs" Link="common\SandboxMapFactAttribute.cs" />
+    <Compile Include="..\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <Compile Include="..\common\RecordingBlastSweep.cs" Link="common\RecordingBlastSweep.cs" />
     <Compile Include="..\common\RecordingDecals.cs" Link="common\RecordingDecals.cs" />
     <Compile Include="..\common\DebugApiGolden.cs" Link="common\DebugApiGolden.cs" />

@@ -108,6 +108,7 @@
 //=============================================================================//
 
 #include "gtest/gtest.h"
+#include "ss_ci_skip.h"
 
 #include <sys/stat.h>
 
@@ -573,6 +574,7 @@ TEST( SurveyStubElision, TheSurveyStubAndTheClassItElidedAreBothGone )
 //-----------------------------------------------------------------------------
 TEST( SurveyStubElision, TheTailTheArmUsedToSwallowIsNowTheWholeHeader )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	ASSERT_TRUE( SrcRoot() != NULL ) << "cannot find the source tree from the cwd";
 
 	for ( size_t s = 0; s < sizeof( kSides ) / sizeof( kSides[ 0 ] ); s++ )
@@ -1016,6 +1018,7 @@ TEST( SurveyStubElisionScanner, TheTwoEntitySpellingsAreDistinct )
 // text that is in these files and in no others.
 TEST( SurveyStubElisionScanner, TheHeadersWereReallyOpened )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	ASSERT_TRUE( SrcRoot() != NULL ) << "cannot find the source tree from the cwd";
 
 	for ( size_t s = 0; s < sizeof( kSides ) / sizeof( kSides[ 0 ] ); s++ )

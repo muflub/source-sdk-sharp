@@ -159,7 +159,7 @@ public class MoverFixtureTests
     /// length, and an accurate distance answers "arrived" on a different frame.
     /// </para>
     /// </summary>
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void EveryUnblockedLinearStepMatchesTheStockStepExactly()
     {
         int checkedRows = 0;

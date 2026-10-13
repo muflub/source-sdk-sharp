@@ -4965,6 +4965,11 @@ ss_cpptest(console_display_forward_test
 # managed side drains (console-batch): order, numbering, the bound and its
 # overflow count, threaded producers, a drain that never holds a print up, and
 # the layout NativeConsoleBuffer.cs reads. Header-only, links nothing.
+# ss_ci_skip.h: the CI skip (SOURCESHARP_CI=1) the native tests use for what
+# cannot pass on CI's runners (src/test/common/NotOnCiFactAttribute.cs).
+ss_cpptest(ss_ci_skip_test
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/ss_ci_skip_test.cpp)
+
 ss_cpptest(console_line_buffer_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/console_line_buffer_test.cpp)

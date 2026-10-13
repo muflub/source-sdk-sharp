@@ -23,6 +23,7 @@
 #include "tier1/utlvector.h"
 
 #include "gtest/gtest.h"
+#include "../../native/ss_ci_skip.h"
 
 #include "engine_heap.h"
 #include "engine_utlvector.h"
@@ -127,6 +128,7 @@ TEST( EngineHeap, FreeingNullIsNothingEvenWithNoTier0 )
 
 TEST( EngineHeap, TheGamesTier0IsFoundOnceLoaded )
 {
+	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	void *h = LoadGamesTier0();
 	ASSERT_NE( nullptr, h );
 	ASSERT_TRUE( Tier0Loaded() );
@@ -139,6 +141,7 @@ TEST( EngineHeap, TheGamesTier0IsFoundOnceLoaded )
 
 TEST( EngineHeap, AVectorTheGamesTier0GrewIsReadThroughTheViewAndFreedThroughTheLookup )
 {
+	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	void *h = LoadGamesTier0();
 	ASSERT_NE( nullptr, h );
 	IMemAlloc **ppExported = (IMemAlloc **)dlsym( h, "g_pMemAlloc" );

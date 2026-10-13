@@ -18,6 +18,7 @@
 //=============================================================================//
 
 #include "gtest/gtest.h"
+#include "../../native/ss_ci_skip.h"
 
 #include "vstdlib/random.h"
 
@@ -76,6 +77,7 @@ const Vstdlib_t *Game()
 // as if seeded with 0, and so must the port's.
 TEST( VstdlibRandomOracle, AnUnseededStreamStartsWhereTheGamesDoes )
 {
+	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	REQUIRE_GAME();
 	for ( int i = 0; i < 200; ++i )
 		ASSERT_EQ( pGame->Int( 0, 1000000 ), RandomInt( 0, 1000000 ) ) << "draw " << i;
@@ -88,6 +90,7 @@ TEST( VstdlibRandomOracle, AnUnseededStreamStartsWhereTheGamesDoes )
 // seeding.
 TEST( VstdlibRandomOracle, EveryKindOfIntDrawIsTheGames )
 {
+	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	REQUIRE_GAME();
 	long nCompared = 0;
 	for ( int i = 0; i < 8000; ++i )
@@ -108,6 +111,7 @@ TEST( VstdlibRandomOracle, EveryKindOfIntDrawIsTheGames )
 
 TEST( VstdlibRandomOracle, DegenerateRangesAnswerAsTheGamesDo )
 {
+	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	REQUIRE_GAME();
 	EXPECT_EQ( pGame->Int( 5, 5 ), RandomInt( 5, 5 ) );
 	EXPECT_EQ( pGame->Int( 5, 4 ), RandomInt( 5, 4 ) );
@@ -120,6 +124,7 @@ TEST( VstdlibRandomOracle, DegenerateRangesAnswerAsTheGamesDo )
 // client makes stays in step, floats compared bit for bit.
 TEST( VstdlibRandomOracle, EverySeedGivesTheGamesSequenceOfIntsAndFloats )
 {
+	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	REQUIRE_GAME();
 	const int seeds[] = { 0, 1, 2, 42, -7, 12345, 0x1234567, INT_MAX, INT_MIN + 1, -1 };
 	long nCompared = 0;

@@ -236,7 +236,7 @@ public class SparksOracleTests
         Assert.True(fans == 3 && particles == 105, $"{fans} fans, {particles} sparks");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void Every_spark_routine_makes_stocks_emitters_and_particles()
     {
         int electric = 0, metal = 0, splash = 0, particles = 0, setups = 0;
@@ -550,7 +550,7 @@ public class SparksOracleTests
             $"{renders} renders ({tested} tested, {hiddenYoung} hidden while young), {steps} steps ({deaths} deaths, {waits} waits)");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void Every_gauss_explosion_makes_stocks_ring_and_electric_spark()
     {
         var rows = GaussRows();

@@ -302,7 +302,7 @@ public class FxOracleTests
         Assert.True(flashes == 12 && particles == 96, $"{flashes} flashes, {particles} particles");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void Every_smoke_puff_is_stocks()
     {
         var wrong = new List<string>();
@@ -322,7 +322,7 @@ public class FxOracleTests
         Assert.True(calls == 3 && puffs == 12, $"{calls} calls, {puffs} puffs");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void The_hose_gas_spurts_when_stocks_did_with_stocks_particles()
     {
         var wrong = new List<string>();

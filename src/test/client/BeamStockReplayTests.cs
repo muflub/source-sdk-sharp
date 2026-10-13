@@ -513,7 +513,7 @@ public class BeamStockReplayTests
     // The facts.
     //-------------------------------------------------------------------------
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void TheFixtureHoldsEveryDrawnShape()
     {
         Result r = Replayed.Value;
@@ -551,7 +551,7 @@ public class BeamStockReplayTests
         Assert.True(r.AnswerMismatches.Count == 0, First(r.AnswerMismatches));
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void TheManagedBeamsDrawEveryRecordedSegmentAndVertexBitForBit()
     {
         Result r = Replayed.Value;

@@ -26,6 +26,7 @@
   -->
   <ItemGroup>
     <Compile Include="..\..\common\ContractBaseline.cs" Link="Shared\ContractBaseline.cs" />
+    <Compile Include="..\..\common\NotOnCiFactAttribute.cs" Link="Shared\NotOnCiFactAttribute.cs" />
     <Compile Include="..\..\common\TestServices.cs" Link="Shared\TestServices.cs" />
     <Compile Include="..\..\common\TestServices.Server.cs" Link="Shared\TestServices.Server.cs" />
     <Compile Include="..\..\common\RecordingJointTables.cs" Link="Shared\RecordingJointTables.cs" />

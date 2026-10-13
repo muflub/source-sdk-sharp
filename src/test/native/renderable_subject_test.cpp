@@ -31,6 +31,7 @@
 //
 //=============================================================================//
 #include "gtest/gtest.h"
+#include "ss_ci_skip.h"
 
 #include <sys/stat.h>
 
@@ -332,6 +333,7 @@ TEST( Step7dSourceScan, TheCensusStillLooksForTheTypesTheFactAboveChecks )
 
 TEST( Step7dSourceScan, TheDetailSwayGuardCarriesTheFindingThatItIsNotCompiled )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// detailobjectsystem.cpp keeps one GetLocalPlayer and one CPlayerEnumerator,
 	// both inside `#if defined(DOD_DLL) || defined(CSTRIKE_DLL)`. That is
 	// allowed, and it is allowed only because the next reader is told:
@@ -443,6 +445,7 @@ TEST( Step7dNotDeleted, TheFovGapIsRecordedWhereARestorerWillFindIt )
 
 TEST( Step7dNotDeleted, TheThreeUnscaledSitesSayWhySoAReaderAtTheLineFindsIt )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// The ledger row is findable by someone looking for it. These three are for
 	// the reader who is ALREADY at the line, wondering why there is a bare
 	// constant there -- which is the reading the original fact called
