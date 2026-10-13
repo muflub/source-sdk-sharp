@@ -216,9 +216,11 @@ is asked a handful of times per model load, not per frame; the per-frame
 cost question belongs to phase 3 (vphysics), which measures the physics
 frame before and after as section 7 says.
 
-**What phase 1 still owes:** the Windows build and run of the forwarders
-(CI's windows job: `ss_fwd_engine.dll`, `fwd_engine_test`, and the managed
-facts there).
+**Windows, proven in CI at 135af5f:** `ss_fwd_engine.dll` builds and
+server.dll and client.dll link it; `fwd_engine_test` passes under MSVC (213 of
+213 native tests); the managed facts pass in both Windows tiers; and the
+sniper build's GLIBC ceiling holds for `libss_fwd_engine.so`. Phase 1 owes
+nothing further.
 
 ## 9. Done when
 
