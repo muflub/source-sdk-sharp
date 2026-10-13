@@ -21,6 +21,13 @@
 
 #include "fwd_engine.g.inc"
 
+#if defined( _MSC_VER ) && defined( SS_NO_CRT )
+// MSVC references _fltused from an object that touches floating point (the
+// SDK headers' inline math does), and the CRT defines it. This library links
+// no CRT (NO_RUNTIME), so it defines it, as code built without a CRT does.
+extern "C" int _fltused = 0;
+#endif
+
 // strcmp's equality, written out: the library links no libc (NO_RUNTIME).
 static bool SameName( const char *a, const char *b )
 {

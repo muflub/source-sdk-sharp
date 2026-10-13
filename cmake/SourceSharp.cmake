@@ -439,7 +439,11 @@ function(ss_sdk_target tgt)
     target_link_options(${tgt} PRIVATE /DEBUG:FULL /ignore:4221 /PDBALTPATH:%_PDB%
       $<$<BOOL:${SS_GC_SECTIONS}>:/OPT:REF>)
     if(A_NO_RUNTIME)
+      # SS_NO_CRT: the sources define the one symbol MSVC's code generation
+      # expects of the CRT (_fltused); a test that compiles the same source
+      # into an executable with a CRT leaves it to the CRT.
       target_compile_options(${tgt} PRIVATE /GS-)
+      target_compile_definitions(${tgt} PRIVATE SS_NO_CRT)
       target_link_options(${tgt} PRIVATE /NODEFAULTLIB /NOENTRY)
     else()
       # rpcrt4: UuidCreate and friends, which Valve's code calls where Linux
