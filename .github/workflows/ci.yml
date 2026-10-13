@@ -229,7 +229,8 @@ jobs:
       - name: Native libraries and tests (cmake --preset windows-release)
         run: |
           cmake --preset windows-release
-          cmake --build --preset windows-release
+          # -k 0: every file that fails, not only the first, in one round.
+          cmake --build --preset windows-release -- -k 0
           ls -la bin/release/bin/x64
 
       # source#, the launcher: NativeAOT for win-x64 (the csproj picks it on
