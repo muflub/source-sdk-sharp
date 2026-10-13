@@ -78,7 +78,7 @@ target_include_directories(tier1 PRIVATE
 # and utlstring.h:399 -Wstringop-truncation (ilocalize.cpp; with that one off,
 # gcc reports the same strncpy as -Wstringop-overflow instead). Valve's code; the
 # warnings depend on what the optimiser inlined, not on anything we changed.
-if(NOT SS_IS_CLANG)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_compile_options(tier1 PRIVATE -Wno-maybe-uninitialized -Wno-stringop-truncation
     -Wno-stringop-overflow)
 endif()
