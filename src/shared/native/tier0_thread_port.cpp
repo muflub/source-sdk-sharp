@@ -16,7 +16,7 @@
 //                               CStudioHdr holds two of these)
 //   Plat_IsInDebugSession       DebuggerBreak(), in _DEBUG asserts and
 //                               tslist.h's CTSQueue::ValidateQueue
-//   GetCPUInformation           libmathlib.a's MathLib_Init (the SSE/MMX paths)
+//   GetCPUInformation           client.so's libmathlib.a MathLib_Init (server.so has none)
 //
 // Defined here with hidden visibility (the version script exports
 // CreateInterface only), so server.so's calls bind to these. Each has the
@@ -188,9 +188,9 @@ bool ThreadInterlockedAssignIf128( volatile int128 *pDest, const int128 &value, 
 #endif
 
 // What the CPU supports, from CPUID. MathLib_Init (the one caller, in the
-// libmathlib.a server.so keeps) reads the instruction-set flags to choose its
-// SSE paths; the fields nothing here can measure cheaply stay at the
-// constructor's zeros, and the two strings are empty rather than NULL.
+// libmathlib.a client.so links; server.so has none) reads the instruction-set
+// flags to choose its SSE paths; the fields nothing here can measure cheaply
+// stay at the constructor's zeros, and the two strings are empty, not NULL.
 const CPUInformation *GetCPUInformation()
 {
 	static const CPUInformation s_Info = [] {
