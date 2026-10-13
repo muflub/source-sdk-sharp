@@ -227,7 +227,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     private readonly void* _props;
     private readonly PhysicsSurfacePropsVtbl* _propsVt;
     private readonly void* _modelInfo;
-    private readonly ModelInfoVtbl* _modelInfoVt;
+    private readonly ModelInfoFwd* _modelInfoFwd;
     private readonly void* _staticProps;
     private readonly StaticPropMgrServerVtbl* _staticPropsVt;
     private readonly ISolidKeyTable _keys;
@@ -244,7 +244,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     /// <param name="environment">The level's IPhysicsEnvironment, asked per call.</param>
     /// <param name="staticProps">IStaticPropMgr (the server's), or null on a side that does not make the static props' physics here.</param>
     public PhysicsWorldVPhysics(Func<nint> environment, void* collision, void** collisionVt, void* props, void** propsVt,
-                                void* modelInfo, void** modelInfoVt, void* staticProps, void** staticPropsVt,
+                                void* modelInfo, void** modelInfoFwd, void* staticProps, void** staticPropsVt,
                                 ISolidKeyTable keys)
     {
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
@@ -253,7 +253,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         _props = props;
         _propsVt = (PhysicsSurfacePropsVtbl*)propsVt;
         _modelInfo = modelInfo;
-        _modelInfoVt = (ModelInfoVtbl*)modelInfoVt;
+        _modelInfoFwd = (ModelInfoFwd*)modelInfoFwd;
         _staticProps = staticProps;
         _staticPropsVt = (StaticPropMgrServerVtbl*)staticPropsVt;
         _keys = keys ?? throw new ArgumentNullException(nameof(keys));
@@ -278,9 +278,9 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
             || !Vtable.TryAcquire<PhysicsSurfacePropsVtbl>(factory, SourceSharpFactoryType.Physics,
                                                            PhysicsSurfaceProps.InterfaceVersion,
                                                            out void* props, out void** propsVt, out why)
-            || !Vtable.TryAcquire<ModelInfoVtbl>(factory, SourceSharpFactoryType.AppSystem,
+            || !Forwarders.TryAcquire<ModelInfoFwd>(factory, SourceSharpFactoryType.AppSystem,
                                                  server ? EngineModelInfo.ServerInterfaceVersion : EngineModelInfo.ClientInterfaceVersion,
-                                                 out void* modelInfo, out void** modelInfoVt, out why)
+                                                 out void* modelInfo, out ModelInfoFwd* modelInfoFwd, out why)
             || (server && !Vtable.TryAcquire<StaticPropMgrServerVtbl>(factory, SourceSharpFactoryType.AppSystem,
                                                                       "StaticPropMgrServer002",
                                                                       out staticProps, out staticPropsVt, out why)))
@@ -288,7 +288,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
             return null;
         }
 
-        return new PhysicsWorldVPhysics(environment, collision, collisionVt, props, propsVt, modelInfo, modelInfoVt,
+        return new PhysicsWorldVPhysics(environment, collision, collisionVt, props, propsVt, modelInfo, (void**)modelInfoFwd,
                                         staticProps, staticPropsVt, keys);
     }
 
@@ -310,7 +310,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
 
     public VCollideView Collide(int modelIndex)
     {
-        byte* collide = (byte*)_modelInfoVt->GetVCollide_2(_modelInfo, modelIndex);
+        byte* collide = (byte*)_modelInfoFwd->GetVCollide_2(_modelInfo, modelIndex);
         if (collide == null)
             return default;
 
@@ -473,7 +473,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
 
     public bool SupportsVirtualMesh() => _collisionVt->SupportsVirtualMesh(_collision) != 0;
 
-    public nint VirtualTerrainCollide(int index) => (nint)_modelInfoVt->GetCollideForVirtualTerrain(_modelInfo, index);
+    public nint VirtualTerrainCollide(int index) => (nint)_modelInfoFwd->GetCollideForVirtualTerrain(_modelInfo, index);
 
     public void CreateStaticPropPhysics(nint environment)
     {

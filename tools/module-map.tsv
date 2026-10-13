@@ -36,6 +36,8 @@ src/sourcesharp/game/server	files	src/server/native
 src/sourcesharp/game/shared	files	src/shared/native
 src/sourcesharp/host	files	src/host/native
 src/sourcesharp/engineabi	files	src/engineabi/native
+# plan_engine_forwarders.md: the forwarder libraries (libss_fwd_engine)
+src/sourcesharp/fwd	files	src/fwd/native
 # Relocated Valve code, kept local by user decision 2026-09-27: the fork's
 # src/sourcesharp/{public,common}, flat in src/shared/native. One `file` row
 # each, so nothing else of src/shared/native is linked into those farm

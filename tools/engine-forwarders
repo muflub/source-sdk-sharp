@@ -1,0 +1,493 @@
+#!/usr/bin/env python3
+"""tools/engine-forwarders -- engine interfaces through generated native forwarders.
+
+    tools/engine-forwarders               regenerate and DIFF against what is committed
+    tools/engine-forwarders --write       write the generated files
+    tools/engine-forwarders --write --reorder
+                                          write them even where a table's slots
+                                          are not the committed ones plus new
+                                          ones at the end (rebuild both sides)
+    tools/engine-forwarders --self-test   check this script's own refusals
+
+    exit 0   the committed files are what the headers say
+    exit 1   they are not -- run --write and read the diff
+    exit 2   a header could not be read, or a forwarded method is not in it
+
+plan_engine_forwarders.md. Managed used to call an engine interface by indexing
+the engine object's vtable through a struct in VtableLayouts.g.cs, and so had to
+know both C++ ABIs: MSVC gives a virtual destructor one slot rather than two and
+lays each class's overloads out grouped and in reverse declaration order. A
+forwarder takes that away. For every method managed calls this writes one line
+of C++,
+
+    static const model_t *SSFwd_ModelInfo_GetModel( IVModelInfo *self, int a0 )
+        { return self->GetModel( a0 ); }
+
+and the compiler, which knows the layout of the ABI it builds for, does the
+dispatch. `self->GetModel` is still a virtual call through the engine object's
+own vtable, so whatever the engine's class overrides is what runs.
+
+ONE TABLE PER INTERFACE, IN A FIXED ORDER. The forwarders of one interface are
+an array of plain function pointers, in the order FORWARD below names them,
+served through SSForwarderTable (src/fwd/native/ss_fwd.h): the array and its
+count. A plain array has one layout on every ABI, so the C# struct generated
+beside it is a struct of plain fields, `delegate* unmanaged<...>`, and a call is
+`_fwd->GetModel(_self, index)`: the same shape as the vtable call it replaces.
+
+SLOTS ONLY EVER APPEND, SO THE CHECK AT BIND IS A COUNT. A method joins its
+table at the end of its FORWARD row, never in header order, and --write refuses
+a table whose committed slots are not, name and signature, the first slots of
+the new one. So a table only grows at its end, and an assembly built against
+an older table reads a prefix of a newer one. Forwarders.TryAcquire holds only
+that native serves at least as many slots as the struct has fields. This is
+where the guarantee lives: the check at bind has nothing to hold against a
+slot that moved, so a slot never moves. `--write --reorder` lifts the refusal
+for a deliberate break, after which only a rebuild of both sides is safe.
+
+WHAT IS FORWARDED IS WHAT MANAGED CALLS, not every slot: a method enters
+FORWARD when managed code first calls it. The names are the field names
+VtableLayouts.g.cs gives (an overload's second declaration is `Name_2`), so the
+two files can be read side by side while both exist.
+
+THE OUTPUTS
+    src/fwd/native/fwd_engine.g.inc   the forwarders and their tables, included by
+                                      src/fwd/native/fwd_engine.cpp
+    src/abi/EngineForwarders.g.cs     one struct per table: its name, its slot
+                                      hashes and names, one field per forwarder
+"""
+
+import importlib.machinery
+import importlib.util
+import os
+import re
+import sys
+
+# Run from the farm (`cd farm/<config> && tools/engine-forwarders`), as
+# tools/vtable-layout is: the headers are the farm's. The outputs are this
+# repository's own files, found through the script's real path.
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+
+def _load_vtable_layout():
+    loader = importlib.machinery.SourceFileLoader(
+        'vtable_layout', os.path.join(HERE, 'vtable-layout'))
+    spec = importlib.util.spec_from_loader('vtable_layout', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+VL = _load_vtable_layout()
+
+OUT_NATIVE = 'src/fwd/native/fwd_engine.g.inc'
+OUT_MANAGED = 'src/abi/EngineForwarders.g.cs'
+VALVE_HEADER = 'tools/valve-header.txt'
+
+# ---------------------------------------------------------------------------
+# WHAT IS FORWARDED. Keyed by the VtableLayouts.g.cs struct the interface is
+# described by (its header and chain come from tools/vtable-layout's
+# INTERFACES row); the value is the forwarder table's name, the C++ type its
+# `self` is, and the field names of the methods managed calls.
+#
+# IVModelInfo (phase 1): one table serves both VModelInfoServer004 and
+# VModelInfoClient006. The client's object is an IVModelInfoClient, which
+# derives from IVModelInfo, so an IVModelInfo * is a valid `self` for either,
+# and every method managed calls is IVModelInfo's.
+# ---------------------------------------------------------------------------
+FORWARD = [
+    dict(
+        struct='ModelInfoVtbl',
+        table='ModelInfo',
+        self_type='IVModelInfo',
+        include='engine/ivmodelinfo.h',
+        methods=[
+            'GetModel', 'GetModelIndex', 'GetModelName', 'GetVCollide_2',
+            'GetModelBounds', 'GetModelFrameCount', 'GetModelType',
+            'GetModelKeyValueText', 'FindModel', 'GetAnimBlock', 'GetStudiomodel',
+            'GetCollideForVirtualTerrain',
+        ],
+    ),
+]
+
+PREFIX = 'SSFwd_'
+
+
+class Refusal(Exception):
+    """A FORWARD row this script cannot honour; the message says why."""
+
+
+def interface_entry(struct):
+    for entry in VL.INTERFACES:
+        if entry['struct'] == struct:
+            return entry
+    raise Refusal('FORWARD names %s, which tools/vtable-layout has no INTERFACES row for'
+                  % struct)
+
+
+def slots_of(entry):
+    """{field name: (class, method, parameters, returns)} for one interface,
+    named as VtableLayouts.g.cs names its fields, in declaration order."""
+    rows, why = VL.derive_chain(VL.chain_steps(entry))
+
+    if rows is None:
+        raise Refusal('%s: %s' % (entry['struct'], why))
+
+    named = {}
+    used = {}
+
+    for cls, name, parameters, returns, _slot in rows:
+        if name == '~destructor':
+            continue
+
+        seen = used.get(name, 0) + 1
+        used[name] = seen
+        field = name if seen == 1 else '%s_%d' % (name, seen)
+        named[field] = (cls, name, parameters, returns)
+
+    return named
+
+
+def parameter_types(parameters):
+    """The header's parameter list as types, `( void )` as none."""
+    declared = parameters.strip()
+
+    if declared == 'void':
+        return []
+
+    return [part.strip() for part in declared.split(',') if part.strip()]
+
+
+def forwarders_of(row):
+    """[(field, cpp return, cpp parameter types, C# function-pointer type,
+    C++ declaration)] for one FORWARD row, in the row's order."""
+    entry = interface_entry(row['struct'])
+    named = slots_of(entry)
+
+    unknown = [m for m in row['methods'] if m not in named]
+    if unknown:
+        raise Refusal('%s forwards %s, which %s not a method of %s (the names are '
+                      'VtableLayouts.g.cs\'s fields: an overload\'s second is Name_2)'
+                      % (row['table'], ', '.join(unknown),
+                         'is' if len(unknown) == 1 else 'are', ' / '.join(entry['chain'])))
+
+    if len(set(row['methods'])) != len(row['methods']):
+        raise Refusal('%s names a method twice' % row['table'])
+
+    out = []
+
+    for field in row['methods']:
+        cls, name, parameters, returns = named[field]
+
+        try:
+            kind = VL.signature_of(returns, parameters)
+        except VL.Inexpressible as error:
+            raise Refusal('%s::%s cannot be forwarded as typed: %s' % (cls, name, error))
+
+        if name in set(entry.get('suppress', ())):
+            kind = kind.replace('delegate* unmanaged<',
+                                'delegate* unmanaged[SuppressGCTransition]<', 1)
+
+        declaration = '%s %s::%s( %s )' % (returns, cls, name, parameters or 'void')
+        out.append((field, returns, parameter_types(parameters), kind, declaration))
+
+    return out
+
+
+GENERATED = 'GENERATED by `tools/engine-forwarders --write`. DO NOT EDIT.'
+
+
+def emit_native(tables):
+    # The forwarders call Valve's methods through the SDK headers, so the file
+    # carries the attribution header (CLAUDE.md, "Valve attribution").
+    out = read(VALVE_HEADER).rstrip('\n').split('\n') + [
+        '// ' + GENERATED,
+        '//',
+        '// One forwarder per engine method managed calls, and one SSForwarderTable per',
+        '// interface (src/fwd/native/ss_fwd.h). Each forwarder is a direct call to the',
+        '// method through the engine object\'s own vtable, compiled for this ABI, so the',
+        '// slot numbering is the compiler\'s and never written here. Included by',
+        '// fwd_engine.cpp, which includes the interface headers first.',
+        '',
+    ]
+
+    for row, forwarders in tables:
+        name = row['table']
+        out.append('//-----------------------------------------------------------------------------')
+        out.append('// %s: %d forwarder(s) over %s.' % (name, len(forwarders), row['self_type']))
+        out.append('//-----------------------------------------------------------------------------')
+
+        for field, returns, types, _kind, declaration in forwarders:
+            params = ''.join(', %s a%d' % (t, i) for i, t in enumerate(types))
+            args = ', '.join('a%d' % i for i in range(len(types)))
+            call = 'self->%s( %s )' % (declaration.split('::', 1)[1].split('(', 1)[0],
+                                       args) if args else \
+                   'self->%s()' % declaration.split('::', 1)[1].split('(', 1)[0]
+            body = '%s%s;' % ('' if returns.strip() == 'void' else 'return ', call)
+            out.append('// %s' % declaration)
+            out.append('static %s %s%s_%s( %s *self%s ) { %s }'
+                       % (returns, PREFIX, name, field, row['self_type'], params, body))
+
+        out.append('')
+        out.append('static void *const s_%sSlots[] = {' % name)
+        for field, *_ in forwarders:
+            out.append('\treinterpret_cast< void * >( &%s%s_%s ),' % (PREFIX, name, field))
+        out.append('};')
+        out.append('')
+        out.append('static const SSForwarderTable s_%sTable = { s_%sSlots, %d };'
+                   % (name, name, len(forwarders)))
+        out.append('')
+
+    out.append('// The tables by the name managed asks for, SSFwd_<table>.')
+    out.append('static const SSForwarderNamed s_ForwarderTables[] = {')
+    for row, _forwarders in tables:
+        out.append('\t{ "%s%s", &s_%sTable },' % (PREFIX, row['table'], row['table']))
+    out.append('};')
+    out.append('')
+
+    return '\n'.join(out)
+
+
+def emit_managed(tables):
+    out = [
+        '// ' + GENERATED,
+        '//',
+        '// One struct per forwarder table libss_fwd_engine serves (src/fwd/native):',
+        '// plain function-pointer fields in the table\'s order, so field N is slot N',
+        '// on every ABI. The first argument of each is the ENGINE object, not the',
+        '// table: `_fwd->GetModel(_self, index)`. Slots only append, so',
+        '// Forwarders.TryAcquire holds only that native serves at least as many',
+        '// slots as the struct has fields.',
+        '',
+        'using System.Runtime.CompilerServices;',
+        'using System.Runtime.InteropServices;',
+        '',
+        'namespace SourceSharp.Abi;',
+        '',
+    ]
+
+    for row, forwarders in tables:
+        name = row['table']
+        out.append('/// <summary>')
+        out.append('/// <c>%s</c> through its forwarders (%s%s): %d slot(s).'
+                   % (row['self_type'], PREFIX, name, len(forwarders)))
+        out.append('/// </summary>')
+        out.append('[StructLayout(LayoutKind.Sequential)]')
+        out.append('internal unsafe struct %sFwd : IForwarderTable' % name)
+        out.append('{')
+        out.append('    /// <summary>The name native serves the table under.</summary>')
+        out.append('    public static string TableName => "%s%s";' % (PREFIX, name))
+
+        for field, _returns, _types, kind, declaration in forwarders:
+            out.append('')
+            out.append('    // %s' % declaration)
+            out.append('    public %s %s;' % (kind, field))
+
+        out.append('}')
+        out.append('')
+
+    return '\n'.join(out)
+
+
+STRUCT = re.compile(r'^internal unsafe struct (\w+)Fwd : IForwarderTable$')
+FIELD = re.compile(r'^    public (delegate\* .+) (\w+);$')
+
+
+def committed_slots(managed):
+    """{table: [(field, C# function-pointer type)]} as a committed
+    EngineForwarders.g.cs lists them; {} for no file."""
+    tables = {}
+    current = None
+
+    for line in (managed or '').split('\n'):
+        struct = STRUCT.match(line)
+        if struct:
+            current = tables.setdefault(struct.group(1), [])
+            continue
+        field = FIELD.match(line)
+        if field and current is not None:
+            current.append((field.group(2), field.group(1)))
+
+    return tables
+
+
+def appended_only(table, before, after):
+    """None when `after` is `before` plus slots at its end, else why not."""
+    for index, slot in enumerate(before):
+        if index >= len(after):
+            return ('%s drops slot %d (%s): a slot stays once forwarded, so an assembly '
+                    'built against it still finds it' % (table, index, slot[0]))
+        if after[index] != slot:
+            return ('%s slot %d was %s %s and would be %s %s: a slot never moves or '
+                    'changes, since the check at bind is only a count. Add the method at '
+                    'the end of its FORWARD row, or run `--write --reorder` for a '
+                    'deliberate break and rebuild both sides'
+                    % (table, index, slot[0], slot[1], after[index][0], after[index][1]))
+    return None
+
+
+def emit(previous=None, reorder=False):
+    """({path: text}, None) or (None, why). `previous` is the committed
+    {table: slots}, which every table must extend at its end unless `reorder`."""
+    try:
+        tables = [(row, forwarders_of(row)) for row in FORWARD]
+    except Refusal as error:
+        return None, str(error)
+
+    names = [row['table'] for row in FORWARD]
+    if len(set(names)) != len(names):
+        return None, 'FORWARD names a table twice'
+
+    if not reorder:
+        for row, forwarders in tables:
+            after = [(field, kind) for field, _r, _t, kind, _d in forwarders]
+            why = appended_only(row['table'], (previous or {}).get(row['table'], []), after)
+            if why:
+                return None, why
+
+    return {OUT_NATIVE: emit_native(tables), OUT_MANAGED: emit_managed(tables)}, None
+
+
+def read(relative):
+    try:
+        with open(os.path.join(REPO, relative)) as handle:
+            return handle.read()
+    except OSError:
+        return None
+
+
+def check(out=sys.stdout):
+    files, why = emit(committed_slots(read(OUT_MANAGED)))
+
+    if files is None:
+        print('!! %s' % why, file=out)
+        return 2
+
+    stale = [path for path, text in files.items() if read(path) != text]
+
+    for path in stale:
+        print('!! %s is not what the headers say. Run `tools/engine-forwarders --write` '
+              'and read the diff.' % path, file=out)
+
+    if stale:
+        return 1
+
+    for row in FORWARD:
+        print('  %-12s %2d forwarder(s) over %s' % (row['table'], len(row['methods']),
+                                                    row['self_type']), file=out)
+    return 0
+
+
+def self_test(out=sys.stdout):
+    failures = []
+
+    checks = [0]
+
+    def ok(what, condition):
+        checks[0] += 1
+        print('  %s  %s' % ('ok  ' if condition else 'FAIL', what), file=out)
+        if not condition:
+            failures.append(what)
+
+    def refuses(row):
+        try:
+            forwarders_of(row)
+        except Refusal:
+            return True
+        return False
+
+    base = dict(FORWARD[0])
+
+    ok('the committed FORWARD rows are all forwardable', emit()[0] is not None)
+    ok('a method the interface does not declare is refused',
+       refuses(dict(base, methods=['NoSuchMethodExists'])))
+    ok('a method named twice is refused',
+       refuses(dict(base, methods=['GetModel', 'GetModel'])))
+    ok('an interface tools/vtable-layout does not describe is refused',
+       refuses(dict(base, struct='NoSuchVtbl')))
+
+    rows = forwarders_of(dict(base, methods=['GetModelType', 'GetModel']))
+    ok('the table is in FORWARD order, not header order',
+       [r[0] for r in rows] == ['GetModelType', 'GetModel'])
+
+    overloads = forwarders_of(dict(base, methods=['GetVCollide', 'GetVCollide_2']))
+    ok('an overload\'s second declaration is Name_2 and takes its own parameters',
+       [r[0] for r in overloads] == ['GetVCollide', 'GetVCollide_2']
+       and overloads[0][2] != overloads[1][2])
+
+    native = emit_native([(base, rows)])
+    ok('a forwarder calls the method through self and returns its answer',
+       'return self->GetModel( a0 );' in native)
+    ok('the destructor pair is never forwarded',
+       '~' not in native and 'Destructor' not in native)
+    ok('the C++ table is the slot array and its count',
+       'static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 2 };' in native)
+
+    managed = emit_managed([(base, rows)])
+    ok('the C# struct has one plain field per forwarder, in table order',
+       managed.index(' GetModelType;') < managed.index(' GetModel;')
+       and 'VtableSlot' not in managed and 'MemberFunction' not in managed)
+
+    # Append-only, against slots read back from an emitted file.
+    committed = committed_slots(emit_managed([(base, rows)]))
+    ok('the committed slots read back by name and signature, in order',
+       committed == {'ModelInfo': [(r[0], r[3]) for r in rows]})
+
+    def extends(methods, reorder=False):
+        saved = FORWARD[:]
+        FORWARD[:] = [dict(base, methods=methods)]
+        try:
+            return emit(committed, reorder)[0] is not None
+        finally:
+            FORWARD[:] = saved
+
+    ok('a method added at the end is accepted',
+       extends(['GetModelType', 'GetModel', 'GetModelIndex']))
+    ok('a method added before the committed ones is refused',
+       not extends(['GetModelIndex', 'GetModelType', 'GetModel']))
+    ok('two committed slots swapped are refused',
+       not extends(['GetModel', 'GetModelType']))
+    ok('a committed slot dropped is refused',
+       not extends(['GetModelType']))
+    changed = dict(committed, ModelInfo=[(f, k.replace('int', 'uint', 1)) for f, k in committed['ModelInfo']])
+    FORWARD_saved = FORWARD[:]
+    FORWARD[:] = [dict(base, methods=['GetModelType', 'GetModel'])]
+    try:
+        ok('a committed slot whose signature changed is refused',
+           emit(changed)[0] is None)
+    finally:
+        FORWARD[:] = FORWARD_saved
+    ok('--reorder writes a deliberate break',
+       extends(['GetModel', 'GetModelType'], reorder=True))
+    ok('a table with nothing committed takes any order',
+       emit({})[0] is not None)
+
+    print('engine-forwarders self-test: %d checks, %d failed'
+          % (checks[0], len(failures)), file=out)
+    return 1 if failures else 0
+
+
+def main(argv):
+    if argv[1:] == ['--self-test']:
+        return self_test()
+
+    if argv[1:] in (['--write'], ['--write', '--reorder']):
+        files, why = emit(committed_slots(read(OUT_MANAGED)), reorder='--reorder' in argv)
+        if files is None:
+            print('!! %s' % why, file=sys.stderr)
+            return 2
+        for path, text in files.items():
+            with open(os.path.join(REPO, path), 'w') as handle:
+                handle.write(text)
+            print('wrote %s' % path)
+        return 0
+
+    if argv[1:]:
+        print(__doc__.split('plan_engine_forwarders.md.')[0].strip(), file=sys.stderr)
+        return 2
+
+    return check()
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

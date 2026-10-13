@@ -319,7 +319,8 @@ client_stock_tus	src/client/native/CMakeLists.txt	49
 # REBASED onto client-novalve 628901edd (2026-10-12): the C9 raises above re-measured on particles-so's 217: 217 -> 220 (keyvalues_client.cpp, tier1_client.cpp, shell_factory_client.cpp).
 # 2026-10-12, C7: shell_viewpostprocess_client.cpp (64 lines) and shell_vieweffects_client.cpp (96) went, their importers calling managed or the names' writer directly; COM_GetModDirectory went from shell_shared.cpp: shim_cpp_files 220 -> 218.
 # RAISED 2026-10-13, 218 -> 219, deliberately: sourcesharp/game/server/mathlib_port.cpp (g), the mathlib members server.so calls (AngleMatrix, AngleVectors, VectorAngles, MatrixAngles, the transforms, CalcSqrDistanceToAABB, vec3_origin), so libmathlib.a leaves server.so's link as tier1 did; held to stock bit for bit by mathlib_port_stock_test.
-shim_cpp_files	src/sourcesharp	219
+# RAISED 2026-10-13, 219 -> 220, deliberately (plan_engine_forwarders.md phase 1): sourcesharp/fwd/fwd_engine.cpp (b), libss_fwd_engine: one generated native forwarder per engine method managed calls, so managed stops indexing engine vtables and knowing either C++ ABI. It binds IVModelInfo's twelve called methods now and grows by one line per forwarded method; the vtable-reading code it replaces leaves in phase 6.
+shim_cpp_files	src/sourcesharp	220
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1605,7 +1606,11 @@ shim_cpp_files	src/sourcesharp	219
 # LOWERED 2026-10-13, 143904 -> 143847 (-57, measured by the walk): the console line buffer's lock and counter words and the display forward's attach flag are std::atomic, in place of per-compiler __atomic builtins and Interlocked intrinsics; the yield is std::this_thread::yield.
 # RAISED 2026-10-13, 143847 -> 143988 (+141, measured by the walk), deliberately: mathlib_port.cpp and mathlib_port.h, the mathlib members server.so calls, so libmathlib.a leaves its link (the TU raise above says what they bind).
 # LOWERED 2026-10-13, 143988 -> 143987 (-1, measured by the walk): shell_gamedll.cpp's MathLib_Init call, which went with libmathlib.a.
-shim_lines	src/sourcesharp	143987
+# RAISED 2026-10-13, 143987 -> 144081 (+94, measured by the walk), deliberately: fwd_engine.cpp and ss_fwd.h, the forwarder library and the table managed binds (the TU raise above says what they bind).
+# RAISED 2026-10-13, 144081 -> 144107 (+26, measured by the walk), deliberately: ss_fwd.h's SSFwdEngine_Serve and shell_internalfactory.cpp calling it, so both game DLLs serve the forwarder tables.
+# RAISED 2026-10-13, 144107 -> 144111 (+4, measured by the walk), deliberately: fwd_engine.cpp compares table names itself (SameName) in place of libc's strcmp, so libss_fwd_engine links no runtime (NO_RUNTIME): no libc on Linux, no CRT and no import on Windows, where the static CRT had been 104 KB of the 105 KB DLL. fwd_engine.cpp +6, net of ss_fwd.h's -2 for the slot hashes it no longer declares.
+# RAISED 2026-10-13, 144111 -> 144118 (+7, measured by the walk), deliberately: fwd_engine.cpp defines _fltused under SS_NO_CRT, the one symbol MSVC's code generation expects of the CRT, which the CRT-free ss_fwd_engine.dll does not link (LNK2001 in CI without it).
+shim_lines	src/sourcesharp	144118
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

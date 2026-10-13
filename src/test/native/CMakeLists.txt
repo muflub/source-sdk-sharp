@@ -66,6 +66,18 @@ ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
     INCLUDES sourcesharp/host
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
 
+# plan_engine_forwarders.md: each slot of libss_fwd_engine's tables reaches the
+# method it names, with its arguments, against a fake engine object whose
+# recorders sit at the compiler's own slots. fwd_engine.cpp is compiled in
+# rather than the library linked, so the binary runs on Windows with no DLL
+# search path to set up; SS_FWD_ENGINE_BUILD makes its export a definition
+# here. OPTIMIZED: its subject is what the compiler does with the dispatch.
+ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
+    DEFINES SS_FWD_ENGINE_BUILD
+    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_engine.cpp)
+
 # The CLOSED SET of acquisition failure reasons, walked rather than sampled --
 # plan_native_api.md Part 3b and Part 5c. The contract says four literals, all
 # ASCII, none of them a format string, and that is a claim about every member:
@@ -5252,6 +5264,25 @@ ss_cpptest(client_no_tier3_test
 ss_cpptest(particles_lib_isolation_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/particles_lib_isolation_test.cpp)
+
+# plan_engine_forwarders.md: libss_fwd_engine.so exports SSFwdEngine_Table
+# alone and links no SDK library; server.so and client.so need it by SONAME
+# and import that function. Read off the built files with nm and readelf.
+ss_cpptest(fwd_engine_isolation_test
+    LINUX_ONLY "reads the Linux build's shared objects with nm and readelf"
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_isolation_test.cpp)
+
+# plan_engine_forwarders.md: the built forwarder library, loaded. It links no
+# runtime (NO_RUNTIME), so nothing runs at load but the loader's relocations:
+# every slot of its table must be set without an initialiser, and on Windows
+# the DLL imports nothing. fwd_engine_test compiles the source into an
+# executable with a CRT and cannot see either.
+ss_cpptest(fwd_engine_load_test
+    DEFINES "SS_FWD_LIB=\"$<TARGET_FILE:ss_fwd_engine>\""
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_load_test.cpp
+    LIBS dl)
+add_dependencies(fwd_engine_load_test ss_fwd_engine)
 
 # The game DLLs export CreateInterface alone, read from the built files on both
 # platforms (ELF's dynamic symbols, PE's export directory): MSVC exports a

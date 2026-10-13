@@ -1,7 +1,8 @@
 # plan_engine_forwarders.md: engine interfaces through generated native forwarders
 
-Status: PLAN ONLY, not started (user ruling 2026-10-13: "make it a plan but
-dont implement it, get the current method working first").
+Status: phase 1 (the IVModelInfo spike) under way on branch
+`claude/engine-forwarders`, started 2026-10-13 at main 25e9c07 once phase 0
+held: the current method green on Linux and Windows CI.
 
 ## 1. Why
 
@@ -99,10 +100,11 @@ DLLs out of it entirely; the first keeps one route for every native interface.
 
 ## 5. The checks
 
-- Count and hash at bind, as managed-built tables already do: the generator
-  writes a per-slot hash (FNV-1a over the forwarder's signature, as
-  `[SlotHash]`) into both the C++ table and the C# struct, and the bind refuses
-  on any difference, naming the slot.
+- A count at bind, and append-only slots at generation (ruled 2026-10-13,
+  section 10): the generator only ever appends a slot to a table and refuses
+  to move, change or drop one, so the bind refuses only when native serves
+  fewer slots than the C# struct has fields. A per-slot hash was built in
+  phase 1 and removed (section 8a).
 - Each library's export set pinned by a native test (CreateInterface only).
 - `vtable_index_agreement_test` shrinks to what still reads a vtable by layout
   (the shim areas, the managed-built areas, and whatever section 6 leaves).
@@ -145,7 +147,7 @@ uniformity only. Decide in phase 5.
 1. **Spike, one interface end to end**: `IVModelInfo` (a destructor and two
    overload pairs, so both MSVC rules are exercised). Generator emits its
    forwarders and C# struct; `libss_fwd_engine` builds on both platforms;
-   managed binds with the count/hash check; the managed facts pass on both.
+   managed binds with the count check; the managed facts pass on both.
    Settle the library split and who loads them (section 4). Measure one hot
    call against the direct-vtable path.
 2. **The factory interfaces**: every called-by-managed engine interface moves;
@@ -162,11 +164,80 @@ uniformity only. Decide in phase 5.
 
 Each phase lands green on both CI jobs before the next starts.
 
+## 8a. Phase 1, as built (2026-10-13, branch claude/engine-forwarders)
+
+What the spike settled, so later phases follow it rather than re-deciding:
+
+- **The generator** is `tools/engine-forwarders`, beside `tools/vtable-layout`
+  and reusing its header walk (`derive_chain`, `signature_of`).
+  It runs from the farm, as vtable-layout does, and writes
+  `src/fwd/native/fwd_engine.g.inc` and `src/abi/EngineForwarders.g.cs`.
+  `FORWARD` lists, per interface, the methods managed calls by the field
+  names `VtableLayouts.g.cs` gives them (an overload's second is `Name_2`);
+  the table is in the list's order, and a method joins at the end of it.
+  `--write` refuses a table whose committed slots (name and C# signature,
+  read back from the committed `EngineForwarders.g.cs`) are not the first
+  slots of the new one; `--write --reorder` is the deliberate break, after
+  which only a rebuild of both sides is safe.
+  A routine row in `tools/checks.tsv` runs its self-test and its staleness
+  check.
+- **The table** is a plain struct, not a C++ vtable: `SSForwarderTable`
+  (`src/fwd/native/ss_fwd.h`) is the slot array and the count. Its first
+  word is the slot array, so the internal factory can hand
+  it out as an object like any other. The forwarders take the ENGINE object
+  first; managed calls `_fwd->GetModel(_self, index)`.
+- **The library** is `libss_fwd_engine.so` / `ss_fwd_engine.dll` in
+  `src/fwd/native` (mapped into the farm as `sourcesharp/fwd`, shim letter
+  b). It links no SDK library. **It exports `SSFwdEngine_Table`, not
+  `CreateInterface`** (section 4 said CreateInterface): the game DLLs export
+  CreateInterface themselves, and a second one in a library they need would
+  be one more symbol for the engine's lookup to resolve against.
+- **Who loads it (section 4's open question): the game DLLs.** server.so
+  and client.so link it as client.so links libss_particles (DT_NEEDED,
+  RUNPATH $ORIGIN; the import library on Windows), and
+  `SourceSharp_InternalFactory` serves every `SSFwd_<table>` name through
+  `SSFwdEngine_Serve`. Managed has no path to a native library of its own
+  (it never loads one; only the launcher builds a `bin/<platform>` path), so
+  this is the route that already works, on both sides, unchanged.
+- **The engine object** is still acquired from the engine's factory by
+  version string, but as a pointer only: its vtable length is not held
+  against anything, because managed never indexes it. The object is asked
+  for before the table, so a side that does not serve the name says so by
+  that name.
+- **The check at bind is a count** (`Forwarders.TryBind`): native must serve
+  at least `sizeof(TFwd) / sizeof(void*)` slots, the struct being pointer
+  fields only. More is a newer library whose extra slots this assembly never
+  reads. Phase 1 first shipped a per-slot FNV-1a hash as well, held at bind;
+  it was removed (ruling below), because with append-only slots a hash could
+  only catch a pair the generator already refuses to write, and it cost a
+  hash array on both sides, a span and a name table in every generated
+  struct, and a loop in managed.
+
+**The measurement** (one hot call, from managed, the path the game takes):
+`GetModelType` through the engine object's vtable slot against through its
+forwarder, 50M calls a round, 5 rounds, release build of the scratch
+harness, on the 4-core Xeon @ 2.10 GHz this ran on:
+
+| | vtable | forwarder | difference |
+|---|---|---|---|
+| ns per call, 5 rounds | 2.18 - 2.72 | 2.91 - 3.28 | +0.49 to +1.05 |
+
+So about +0.5 to +1 ns a call: one extra direct call and return. IVModelInfo
+is asked a handful of times per model load, not per frame; the per-frame
+cost question belongs to phase 3 (vphysics), which measures the physics
+frame before and after as section 7 says.
+
+**Windows, proven in CI at 135af5f:** `ss_fwd_engine.dll` builds and
+server.dll and client.dll link it; `fwd_engine_test` passes under MSVC (213 of
+213 native tests); the managed facts pass in both Windows tiers; and the
+sniper build's GLIBC ceiling holds for `libss_fwd_engine.so`. Phase 1 owes
+nothing further.
+
 ## 9. Done when
 
 - No managed code reads an engine object's vptr or knows which ABI it runs on.
 - Every engine call managed makes goes through a generated forwarder, checked
-  by count and hash at bind.
+  by count at bind over append-only tables.
 - The forwarder libraries ship in both archives, each export set pinned.
 - The physics frame and live-gate stages are within budget, with the numbers
   recorded here.
@@ -177,3 +248,15 @@ Each phase lands green on both CI jobs before the next starts.
   current (property) method working first.
 - 2026-10-13 (user): consider native interop libraries per interface type
   rather than code in the server/client shared objects (section 4).
+- 2026-10-13 (user): "start the plan for native shims" -- this plan, from
+  phase 1.
+- 2026-10-13 (user), on opening phase 1's PR: "managed code should be as
+  simple as possible". The test every later phase is held to: what knowledge
+  of the C++ ABI or of native layout can still leave managed, leaves.
+- 2026-10-13 (user), on the bind check: with native very static, drop the
+  per-slot hash check and keep the count, accepting a native table at least
+  as long as managed's. Made sound by ordering slots append-only in the
+  generator (a method joins at the end of its FORWARD row, never at its
+  header position) and refusing at `--write` any table that does not extend
+  the committed one. The slot count is the struct's size, not a generated
+  member.

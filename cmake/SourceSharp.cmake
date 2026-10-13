@@ -393,15 +393,29 @@ function(ss_sdk_compile tgt)
   set_target_properties(${tgt} PROPERTIES DEFINE_SYMBOL "")
 endfunction()
 
-# ss_sdk_target(<target> PROJECTDIR <farm-relative dir> [RPATH_ORIGIN] [NO_WRAP])
+# ss_sdk_target(<target> PROJECTDIR <farm-relative dir> [RPATH_ORIGIN] [NO_WRAP]
+#               [NO_RUNTIME])
 #
 # ss_sdk_compile plus the VPC build's shared-library link line and the deploy
 # into the game directory. NO_WRAP leaves out tier0's file-system wrappers, for
 # a target that links no tier0 (the host, and server.so since
 # plan_server_novalve.md P4): with them, every opendir it calls is an import
 # from tier0.
+#
+# NO_RUNTIME, for a library that calls nothing (libss_fwd_engine): no C
+# runtime, no C++ runtime and none of the system libraries the VPC line
+# names, so it needs no other library at all. On Linux, -nostdlib: no libc,
+# no libgcc and no crt start files, whose only work is running global
+# constructors and destructors (with libc's __cxa_finalize) for a library
+# that has none; -fno-stack-protector, as some distributions' gcc turns it on
+# and its check is libc's. On Windows, /NODEFAULTLIB, /NOENTRY (no DllMain)
+# and /GS- (the security cookie is the CRT's). On both, nothing runs at load
+# but the loader's relocations, so the library may hold no dynamic
+# initialiser, and --no-undefined (on Windows, any unresolved symbol) still
+# fails the link on anything it would call. The static CRT had been most of
+# such a DLL: 104 KB of 105 for the forwarders.
 function(ss_sdk_target tgt)
-  cmake_parse_arguments(A "RPATH_ORIGIN;NO_WRAP" "PROJECTDIR;VERSION_SCRIPT" "" ${ARGN})
+  cmake_parse_arguments(A "RPATH_ORIGIN;NO_WRAP;NO_RUNTIME" "PROJECTDIR;VERSION_SCRIPT" "" ${ARGN})
   # VERSION_SCRIPT: the export list. Valve's devtools script (global: *) unless
   # the target names its own -- server.so's exports CreateInterface only.
   if(NOT A_VERSION_SCRIPT)
@@ -424,9 +438,18 @@ function(ss_sdk_target tgt)
     # build machine's absolute path; a debugger finds it on its symbol path.
     target_link_options(${tgt} PRIVATE /DEBUG:FULL /ignore:4221 /PDBALTPATH:%_PDB%
       $<$<BOOL:${SS_GC_SECTIONS}>:/OPT:REF>)
-    # rpcrt4: UuidCreate and friends, which Valve's code calls where Linux
-    # links libuuid (-luuid above).
-    target_link_libraries(${tgt} PRIVATE shell32 user32 advapi32 gdi32 comdlg32 ole32 rpcrt4)
+    if(A_NO_RUNTIME)
+      # SS_NO_CRT: the sources define the one symbol MSVC's code generation
+      # expects of the CRT (_fltused); a test that compiles the same source
+      # into an executable with a CRT leaves it to the CRT.
+      target_compile_options(${tgt} PRIVATE /GS-)
+      target_compile_definitions(${tgt} PRIVATE SS_NO_CRT)
+      target_link_options(${tgt} PRIVATE /NODEFAULTLIB /NOENTRY)
+    else()
+      # rpcrt4: UuidCreate and friends, which Valve's code calls where Linux
+      # links libuuid (-luuid above).
+      target_link_libraries(${tgt} PRIVATE shell32 user32 advapi32 gdi32 comdlg32 ole32 rpcrt4)
+    endif()
   elseif(SS_PLATFORM STREQUAL osx)
     # Apple's ld: -dead_strip is --gc-sections. No version script (the
     # symbols' own visibility decides: hidden by default, DLL_EXPORT for
@@ -453,7 +476,7 @@ function(ss_sdk_target tgt)
       ${SS_OPT_${SS_CONFIG}}
       -Wl,--build-id -Wl,-z,noexecstack
       $<$<BOOL:${SS_GC_SECTIONS}>:-Wl,--gc-sections>
-      -Wl,--no-undefined ${wraps} -static-libgcc
+      -Wl,--no-undefined ${wraps} $<$<NOT:$<BOOL:${A_NO_RUNTIME}>>:-static-libgcc>
       -Wl,--version-script=${A_VERSION_SCRIPT}
       $<$<BOOL:${SS_COVERAGE}>:--coverage>)
     if(SS_IS_CLANG AND SS_LINKER STREQUAL "lld")
@@ -467,7 +490,16 @@ function(ss_sdk_target tgt)
       set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS
         ${PROJECT_SOURCE_DIR}/cmake/version_script_lld.txt)
     endif()
-    target_link_libraries(${tgt} PRIVATE m dl pthread uuid)
+    if(A_NO_RUNTIME)
+      # Not under --coverage, whose counters need libgcov and libc: a
+      # coverage build links the defaults. -static-libgcc is left off above:
+      # with no libgcc there is no form of it to choose, and clang warns
+      # that it is unused.
+      target_compile_options(${tgt} PRIVATE -fno-stack-protector)
+      target_link_options(${tgt} PRIVATE $<$<NOT:$<BOOL:${SS_COVERAGE}>>:-nostdlib>)
+    else()
+      target_link_libraries(${tgt} PRIVATE m dl pthread uuid)
+    endif()
     set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS
       ${SS_SRC}/devtools/version_script.linux.txt)
 

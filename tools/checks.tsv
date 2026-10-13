@@ -7,6 +7,7 @@
 # dangerous result for a scan is a clean report from a scan that stopped working.
 entrypoint-decls	routine	tools/entrypoint-decls --self-test && cd farm/$SOURCESHARP_CONFIG && tools/entrypoint-decls
 vtable-layout	routine	cd farm/$SOURCESHARP_CONFIG && tools/vtable-layout --self-test && tools/vtable-layout
+engine-forwarders	routine	cd farm/$SOURCESHARP_CONFIG && tools/engine-forwarders --self-test && tools/engine-forwarders
 shim-areas	routine	tools/shim-areas --self-test && tools/shim-areas
 shim-vtable-order	routine	tools/shim-areas --vtable-order
 managed-areas	routine	tools/managed-areas --self-test && tools/managed-areas
