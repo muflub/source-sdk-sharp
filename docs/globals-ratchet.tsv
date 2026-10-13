@@ -276,7 +276,11 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 #   and the sourcesharp_solidity_before_physics ref left shell_standalone_base.cpp with the function).
 # LOWERED 2026-10-12, 384 -> 383: vstdlib_random_port.cpp left server.so for src/client/native (its s_Stream; lane input, C9 tier0/vstdlib pure move).
 # LOWERED 2026-10-12, 383 -> 382: g_pProcessUtils left tier_connect.cpp (no importer on either link; lane input, C9 tier1).
-globals_link_level	src/game/server	356
+# RAISED 2026-10-13, 356 -> 357: console_display_forward.cpp's line buffer is its own global, g_LineBuffer, beside
+#   g_Forwarder. As the forwarder's member it made the forwarder constant-initialised once the header had a
+#   non-zero default, and the compiler wrote the 1 MiB buffer into every DLL's .data (release server.so 1692 KB);
+#   apart and all zero it is .bss (server.so 668 KB). One more piece of state for 1 MiB off each DLL file.
+globals_link_level	src/game/server	357
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
