@@ -84,7 +84,10 @@ package the rules module needs. Everything else is built and tested the same.
 
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request
 and every tag, with one job per platform the game ships on. Each job does a
-full Release build, packages the release archive, and runs the tests:
+full Release build, packages the release archive, and runs the tests. A third
+job, `linux-check`, runs beside them: `make check CHECK_MANAGED=0`, the full
+debug build and every test leg the Linux job does not run, so the release
+build does not wait for it:
 
 - **Linux** is set up with `make sdk-upstream` and built with `make release`
   (clang), which the tests run against. The shipped native libraries are
@@ -107,7 +110,7 @@ files (`bin/managed`), which the game archive leaves out, all but the
 Every run uploads each platform's game archive and its `-dbg` archive as two
 artifacts (`sourcesharp-<platform>` and `sourcesharp-<platform>-dbg`).
 Pushing a tag attaches both platforms' archives to the GitHub release once
-both jobs are green. There is no macOS job: Valve no longer supports the
+all three jobs are green. There is no macOS job: Valve no longer supports the
 Source SDK 2013 games on macOS, and the launcher has no macOS build. The
 `osx-*` CMake presets remain for the native libraries alone; Valve ships no
 prebuilt libraries for macOS, so that build links with dynamic lookup and has
@@ -115,9 +118,12 @@ no particles library (`cmake/sdk/CMakeLists.txt`).
 
 The tests gate both jobs, and the managed tests run first, right after the
 managed build and before anything native is compiled (they read only the
-CMake graph a configure writes). Linux runs them as `make managed-legs`, then
-`make check CHECK_MANAGED=0`, the gate before a merge to `main` less the legs
-already run; Windows runs every managed test project, then the native gtests. A fact that cannot pass on a runner skips there and
+CMake graph a configure writes). Linux runs them as `make managed-legs`, and
+`linux-check` runs `make check CHECK_MANAGED=0`, the gate before a merge to
+`main` less those legs, then the five managed facts that image the debug
+build (`[LinuxDebugBuildFact]`, which skip in the earlier step); Windows runs
+every managed test project, then the native gtests. A fact that cannot pass
+on a runner skips there and
 names why: a bit-for-bit golden recorded on the owner's machine (another CPU
 or C library differs in the last bit), a fact that reads the fork's own edits
 to Valve files (the public patch series does not carry them), or a fact that
