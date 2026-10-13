@@ -8,7 +8,7 @@ namespace SourceSharp.Client.Interop;
 /// Phase 3): every call a direct call through a generated vtable --
 /// <see cref="PhysicsEnvironmentVtbl"/>, <see cref="PhysicsObjectVtbl"/>,
 /// <see cref="PhysicsCollisionVtbl"/>, <see cref="PhysicsVtbl"/>,
-/// <see cref="PhysicsSurfacePropsVtbl"/>, <see cref="ModelInfoVtbl"/> and the
+/// <see cref="PhysicsSurfacePropsVtbl"/>, IVModelInfo's forwarders (<see cref="ModelInfoFwd"/>) and the
 /// four the ragdoll's rows added. Holds the factory interfaces it acquired, the
 /// two key-handler tables managed built, and one native string; the bodies'
 /// pointers are its caller's.
@@ -23,7 +23,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     private readonly void* _props;
     private readonly PhysicsSurfacePropsVtbl* _propsVt;
     private readonly void* _modelInfo;
-    private readonly ModelInfoVtbl* _modelInfoVt;
+    private readonly ModelInfoFwd* _modelInfoFwd;
 
     // "DEFAULT", the name g_PhysDefaultObjectParams carries. A solid's name is
     // always replaced by the model's before an object is made, so vphysics
@@ -41,7 +41,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     public RagdollKeyHandlerBinding? Keys => _keys;
 
     private RagdollVPhysics(IClientPhysicsEngine environment, void* physics, void** physicsVt, void* collision,
-                            void** collisionVt, void* props, void** propsVt, void* modelInfo, void** modelInfoVt)
+                            void** collisionVt, void* props, void** propsVt, void* modelInfo, void** modelInfoFwd)
     {
         _environment = environment;
         _physics = physics;
@@ -51,7 +51,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         _props = props;
         _propsVt = (PhysicsSurfacePropsVtbl*)propsVt;
         _modelInfo = modelInfo;
-        _modelInfoVt = (ModelInfoVtbl*)modelInfoVt;
+        _modelInfoFwd = (ModelInfoFwd*)modelInfoFwd;
 
         _defaultName = (byte*)NativeMemory.AllocZeroed(8);
         "DEFAULT"u8.CopyTo(new Span<byte>(_defaultName, 8));
@@ -69,15 +69,15 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
             || !Vtable.TryAcquire<PhysicsSurfacePropsVtbl>(factory, SourceSharpFactoryType.Physics,
                                                            PhysicsSurfaceProps.InterfaceVersion,
                                                            out void* props, out void** propsVt, out why)
-            || !Vtable.TryAcquire<ModelInfoVtbl>(factory, SourceSharpFactoryType.AppSystem,
+            || !Forwarders.TryAcquire<ModelInfoFwd>(factory, SourceSharpFactoryType.AppSystem,
                                                  EngineModelInfo.ClientInterfaceVersion,
-                                                 out void* modelInfo, out void** modelInfoVt, out why))
+                                                 out void* modelInfo, out ModelInfoFwd* modelInfoFwd, out why))
         {
             return null;
         }
 
         return new RagdollVPhysics(environment, physics, physicsVt, collision, collisionVt, props, propsVt,
-                                   modelInfo, modelInfoVt);
+                                   modelInfo, (void**)modelInfoFwd);
     }
 
     /// <summary>
@@ -124,7 +124,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         if (modelIndex <= 0)
             return default;
 
-        byte* collide = (byte*)_modelInfoVt->GetVCollide_2(_modelInfo, modelIndex);
+        byte* collide = (byte*)_modelInfoFwd->GetVCollide_2(_modelInfo, modelIndex);
 
         if (collide == null)
             return default;
@@ -147,13 +147,13 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         mins = Vector.Zero;
         maxs = Vector.Zero;
 
-        void* model = modelIndex > 0 ? _modelInfoVt->GetModel(_modelInfo, modelIndex) : null;
+        void* model = modelIndex > 0 ? _modelInfoFwd->GetModel(_modelInfo, modelIndex) : null;
 
         if (model == null)
             return false;
 
         Vector lo, hi;
-        _modelInfoVt->GetModelBounds(_modelInfo, model, &lo, &hi);
+        _modelInfoFwd->GetModelBounds(_modelInfo, model, &lo, &hi);
         mins = lo;
         maxs = hi;
         return true;

@@ -148,12 +148,17 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
     public const string ClientInterfaceVersion = "VModelInfoClient006";
 
     private readonly void* _self;
-    private readonly ModelInfoVtbl* _vtbl;
 
-    private EngineModelInfo(void* self, void** table)
+    // THE FORWARDERS, NOT THE VTABLE (plan_engine_forwarders.md). Each slot is
+    // a native function that calls one IVModelInfo method through _self's own
+    // vtable, compiled for the ABI the engine was built with, so nothing here
+    // knows a slot number, the destructor pair or MSVC's overload order.
+    private readonly ModelInfoFwd* _fwd;
+
+    private EngineModelInfo(void* self, void** forwarders)
     {
         _self = self;
-        _vtbl = (ModelInfoVtbl*)table;
+        _fwd = (ModelInfoFwd*)forwarders;
     }
 
     /// <summary>
@@ -181,14 +186,14 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
     /// </summary>
     internal static IVtableModelInfo? Acquire(
         NativeInterfaceFactory factory, out string why, string interfaceVersion)
-        => Vtable.TryAcquire<ModelInfoVtbl>(
+        => Forwarders.TryAcquire(
                factory, SourceSharpFactoryType.AppSystem,
-               interfaceVersion, out void* self, out void** table, out why)
-            ? new EngineModelInfo(self, table)
+               interfaceVersion, out void* self, out ModelInfoFwd* forwarders, out why)
+            ? new EngineModelInfo(self, (void**)forwarders)
             : null;
 
     /// <inheritdoc/>
-    public nint Model(int modelIndex) => (nint)_vtbl->GetModel(_self, modelIndex);
+    public nint Model(int modelIndex) => (nint)_fwd->GetModel(_self, modelIndex);
 
     /// <inheritdoc/>
     public int ModelIndex(string name)
@@ -196,22 +201,22 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
         byte[] bytes = Vtable.Utf8(name);
 
         fixed (byte* p = bytes)
-            return _vtbl->GetModelIndex(_self, p);
+            return _fwd->GetModelIndex(_self, p);
     }
 
     /// <inheritdoc/>
     public string? ModelName(nint model)
-        => Vtable.TextOf(_vtbl->GetModelName(_self, (void*)model), Vtable.MaxModelPath);
+        => Vtable.TextOf(_fwd->GetModelName(_self, (void*)model), Vtable.MaxModelPath);
 
     /// <inheritdoc/>
-    public ModelType ModelTypeOf(nint model) => Kind(_vtbl->GetModelType(_self, (void*)model));
+    public ModelType ModelTypeOf(nint model) => Kind(_fwd->GetModelType(_self, (void*)model));
 
     // Studio $keyvalues are a few hundred bytes; the bound only stops a missing
     // terminator from walking off the end.
     private const int MaxKeyValueText = 1 << 20;
 
     public string? KeyValueText(nint model)
-        => model == 0 ? null : Vtable.TextOf(_vtbl->GetModelKeyValueText(_self, (void*)model), MaxKeyValueText);
+        => model == 0 ? null : Vtable.TextOf(_fwd->GetModelKeyValueText(_self, (void*)model), MaxKeyValueText);
 
     // A .phy's keyvalue text is a few kilobytes for a ragdoll with every
     // constraint; the bound only stops a missing terminator from walking off.
@@ -223,7 +228,7 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
         if (modelIndex < 0)
             return null;
 
-        var collide = (VCollideLayout*)_vtbl->GetVCollide_2(_self, modelIndex);
+        var collide = (VCollideLayout*)_fwd->GetVCollide_2(_self, modelIndex);
 
         return collide == null || collide->KeyValues == null
             ? null
@@ -236,9 +241,9 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
         if (modelIndex <= 0)
             return -1;
 
-        void* model = _vtbl->GetModel(_self, modelIndex);
+        void* model = _fwd->GetModel(_self, modelIndex);
 
-        return model == null ? -1 : _vtbl->GetModelFrameCount(_self, model);
+        return model == null ? -1 : _fwd->GetModelFrameCount(_self, model);
     }
 
     /// <inheritdoc/>
@@ -247,9 +252,9 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
         if (modelIndex <= 0)
             return ModelType.Bad;
 
-        void* model = _vtbl->GetModel(_self, modelIndex);
+        void* model = _fwd->GetModel(_self, modelIndex);
 
-        return model == null ? ModelType.Bad : Kind(_vtbl->GetModelType(_self, model));
+        return model == null ? ModelType.Bad : Kind(_fwd->GetModelType(_self, model));
     }
 
     //-------------------------------------------------------------------------
@@ -270,12 +275,12 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
         if (modelIndex <= 0)
             return null;
 
-        void* model = _vtbl->GetModel(_self, modelIndex);
+        void* model = _fwd->GetModel(_self, modelIndex);
 
-        if (model == null || Kind(_vtbl->GetModelType(_self, model)) != ModelType.Studio)
+        if (model == null || Kind(_fwd->GetModelType(_self, model)) != ModelType.Studio)
             return null;
 
-        byte* header = (byte*)_vtbl->GetStudiomodel(_self, model);
+        byte* header = (byte*)_fwd->GetStudiomodel(_self, model);
 
         if (header == null || includeName is null)
             return header;
@@ -288,7 +293,7 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
         byte[] name = Vtable.Utf8(includeName);
 
         fixed (byte* pName = name)
-            return (byte*)_vtbl->FindModel(_self, header, &cache, pName);
+            return (byte*)_fwd->FindModel(_self, header, &cache, pName);
     }
 
     /// <inheritdoc/>
@@ -328,7 +333,7 @@ public sealed unsafe class EngineModelInfo : IVtableModelInfo
         if (start < 0 || end <= start || end - start > MaxAnimBlockBytes)
             return null;
 
-        byte* data = _vtbl->GetAnimBlock(_self, header, block);
+        byte* data = _fwd->GetAnimBlock(_self, header, block);
 
         return data == null ? null : new ReadOnlySpan<byte>(data, end - start).ToArray();
     }

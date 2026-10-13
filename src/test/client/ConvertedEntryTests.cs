@@ -36,8 +36,10 @@ public unsafe class ConvertedEntryTests
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// Which slot a generated layout puts a method in, read from the struct
-    /// itself.
+    /// Which slot a generated table puts a method in, read from the struct
+    /// itself. IVModelInfo is called through its forwarders
+    /// (plan_engine_forwarders.md), so the table EngineModelInfo reads is
+    /// <see cref="ModelInfoFwd"/>: plain fields, field N at slot N on every ABI.
     ///
     /// <para>
     /// <b>DERIVED, NOT TYPED, and the first draft of this file typed them.</b>
@@ -60,10 +62,13 @@ public unsafe class ConvertedEntryTests
     private static int SlotOf<TVtbl>(string field) where TVtbl : unmanaged
         => VtableSlots.Of<TVtbl>(field);
 
-    private static readonly int GetModelSlot = SlotOf<ModelInfoVtbl>("GetModel");
-    private static readonly int GetModelTypeSlot = SlotOf<ModelInfoVtbl>("GetModelType");
-    private static readonly int GetModelFrameCountSlot =
-        SlotOf<ModelInfoVtbl>("GetModelFrameCount");
+    // A forwarder's slot: its field's offset in the generated struct.
+    private static int ForwarderSlotOf(string field)
+        => (int)(Marshal.OffsetOf<ModelInfoFwd>(field) / sizeof(void*));
+
+    private static readonly int GetModelSlot = ForwarderSlotOf("GetModel");
+    private static readonly int GetModelTypeSlot = ForwarderSlotOf("GetModelType");
+    private static readonly int GetModelFrameCountSlot = ForwarderSlotOf("GetModelFrameCount");
 
     private static nint s_ModelForIndex;
 
@@ -88,7 +93,7 @@ public unsafe class ConvertedEntryTests
     private static void* FakeModelInfo(out void** table)
     {
         table = (void**)NativeMemory.AllocZeroed(
-            (nuint)Vtable.SlotsIn<ModelInfoVtbl>(), (nuint)sizeof(void*));
+            (nuint)ModelInfoFwd.SlotCount, (nuint)sizeof(void*));
 
         table[GetModelSlot] = (delegate* unmanaged<void*, int, void*>)&GetModelAnswers;
         table[GetModelTypeSlot] = (delegate* unmanaged<void*, void*, int>)&GetModelTypeAnswers;

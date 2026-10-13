@@ -43,14 +43,25 @@ public sealed unsafe class ForwardersTests
             Header->SlotCount = count;
         }
 
-        // The factory seam: serves the header under ModelInfoFwd's name only.
+        // A stand-in engine object: the forwarders are never called here, so
+        // nothing reads through it.
+        public static readonly nint EngineObject = 0x5150;
+
+        public bool ServesTable = true;
+        public bool ServesObject = true;
+
+        // The factory seam: the header under ModelInfoFwd's name from the
+        // internal factory, and the engine object under the server's model
+        // info name from the app-system one.
         public void* Acquire(SourceSharpFactoryType type, byte* version, int* entries, byte* error, int errorBytes)
         {
-            bool mine = type == SourceSharpFactoryType.Internal
-                        && Vtable.TextOf(version, 64) == ModelInfoFwd.TableName;
+            string name = Vtable.TextOf(version, 64) ?? string.Empty;
+            bool table = ServesTable && type == SourceSharpFactoryType.Internal && name == ModelInfoFwd.TableName;
+            bool engine = ServesObject && type == SourceSharpFactoryType.AppSystem
+                          && name == EngineModelInfo.ServerInterfaceVersion;
             if (entries != null)
-                *entries = mine ? Header->SlotCount : 0;
-            return mine ? Header : null;
+                *entries = table ? Header->SlotCount : engine ? 59 : 0;
+            return table ? Header : engine ? (void*)EngineObject : null;
         }
 
         public void Dispose()
@@ -160,5 +171,44 @@ public sealed unsafe class ForwardersTests
             nint offset = Marshal.OffsetOf<ModelInfoFwd>(ModelInfoFwd.SlotName(i));
             Assert.Equal((nint)(i * sizeof(void*)), offset);
         }
+    }
+
+    [Fact]
+    public void AnEngineInterfaceBindsItsObjectAndItsForwarders()
+    {
+        using var served = new Served();
+        var factory = new NativeInterfaceFactory(served.Acquire);
+
+        Assert.True(Forwarders.TryAcquire(
+            factory, SourceSharpFactoryType.AppSystem, EngineModelInfo.ServerInterfaceVersion,
+            out void* self, out ModelInfoFwd* table, out string why), why);
+        Assert.Equal(Served.EngineObject, (nint)self);
+        Assert.Equal((nint)served.Slots, (nint)table);
+    }
+
+    [Fact]
+    public void AnUnservedEngineObjectRefusesByItsOwnName()
+    {
+        using var served = new Served { ServesObject = false };
+        var factory = new NativeInterfaceFactory(served.Acquire);
+
+        Assert.False(Forwarders.TryAcquire(
+            factory, SourceSharpFactoryType.AppSystem, EngineModelInfo.ServerInterfaceVersion,
+            out void* self, out ModelInfoFwd* table, out string why));
+        Assert.True(self == null && table == null);
+        Assert.Contains(EngineModelInfo.ServerInterfaceVersion, why);
+    }
+
+    [Fact]
+    public void AnUnservedForwarderTableRefusesEvenWithTheObjectInHand()
+    {
+        using var served = new Served { ServesTable = false };
+        var factory = new NativeInterfaceFactory(served.Acquire);
+
+        Assert.False(Forwarders.TryAcquire(
+            factory, SourceSharpFactoryType.AppSystem, EngineModelInfo.ServerInterfaceVersion,
+            out void* self, out ModelInfoFwd* table, out string why));
+        Assert.True(self == null && table == null);
+        Assert.Contains(ModelInfoFwd.TableName, why);
     }
 }

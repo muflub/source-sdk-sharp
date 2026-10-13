@@ -71,7 +71,50 @@ internal static unsafe class Forwarders
     }
 
     /// <summary>
-    /// The binding half of <see cref="TryAcquire{TFwd}"/>, over a header in
+    /// An engine object and <typeparamref name="TFwd"/>, the forwarders that
+    /// call it: what a binding over an engine interface holds. The object is
+    /// asked for first, so a side that does not serve the version string says
+    /// so by that name (which is what EngineBoundTests holds each side to);
+    /// asking has no effect on the engine, so the order costs nothing.
+    ///
+    /// <para>
+    /// <b>The object is taken as a pointer, and nothing is read through it.</b>
+    /// Native still answers its vtable length for the version string, and that
+    /// number is not held against anything here: no slot of the object's
+    /// vtable is ever indexed from managed, so its length is not this side's
+    /// to check. A forwarder that called a method the object's class lacks is
+    /// a compile error in the forwarder library, against the same header.
+    /// </para>
+    /// </summary>
+    /// <param name="factory">The asking side's interface factory.</param>
+    /// <param name="factoryType">Which of native's factories serves the object.</param>
+    /// <param name="interfaceVersion">The object's factory name.</param>
+    /// <param name="self">The engine object, on success.</param>
+    /// <param name="table">Its forwarders, on success.</param>
+    /// <param name="why">One line saying what failed. Empty on success.</param>
+    internal static bool TryAcquire<TFwd>(
+        NativeInterfaceFactory factory, SourceSharpFactoryType factoryType, string interfaceVersion,
+        out void* self, out TFwd* table, out string why)
+        where TFwd : unmanaged, IForwarderTable
+    {
+        self = null;
+        table = null;
+
+        if (!factory.TryCreate(factoryType, interfaceVersion, out nint answer, out _, out string? error))
+        {
+            why = error!;
+            return false;
+        }
+
+        if (!TryAcquire(factory, out table, out why))
+            return false;
+
+        self = (void*)answer;
+        return true;
+    }
+
+    /// <summary>
+    /// The binding half of <see cref="TryAcquire{TFwd}(NativeInterfaceFactory, out TFwd*, out string)"/>, over a header in
     /// hand: count first, then every slot's hash, then the table.
     /// </summary>
     internal static bool TryBind<TFwd>(ForwarderTableHeader* header, out TFwd* table, out string why)
