@@ -108,9 +108,11 @@ Source SDK 2013 games on macOS, and the launcher has no macOS build. The
 prebuilt libraries for macOS, so that build links with dynamic lookup and has
 no particles library (`cmake/sdk/CMakeLists.txt`).
 
-The tests gate both jobs. Linux runs `make check`, the same gate as before a
-merge to `main` (a debug build, then every test leg); Windows runs every
-managed test project. A fact that cannot pass on a runner skips there and
+The tests gate both jobs, and the managed tests run first, right after the
+managed build and before anything native is compiled (they read only the
+CMake graph a configure writes). Linux runs them as `make managed-legs`, then
+`make check CHECK_MANAGED=0`, the gate before a merge to `main` less the legs
+already run; Windows runs every managed test project, then the native gtests. A fact that cannot pass on a runner skips there and
 names why: a bit-for-bit golden recorded on the owner's machine (another CPU
 or C library differs in the last bit), a fact that reads the fork's own edits
 to Valve files (the public patch series does not carry them), or a fact that

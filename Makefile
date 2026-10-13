@@ -252,7 +252,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
                  $(if $(filter 0,$(HOST_SDK)),,$(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg)
 
 PHONY_LOADPROF := loadprof loadprof-probe
-PHONY_TESTS := managed-test descent-test
+PHONY_TESTS := managed-test managed-legs descent-test
 .PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \
         ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
         entity-census entity-gates entity-ratchet \
@@ -881,12 +881,18 @@ UI_TEST      := echo "==> type-checking and testing the web UI" && \
 # 70% of the native leg's CPU; ss_census() in src/test/native/CMakeLists.txt).
 # Legs in one group run in this order, so census follows native and entity
 # in the ninja group.
-TEST_LEGS = \
-    'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
+# The managed legs read no native build output, only the CMake graph a
+# configure writes, so CI runs them on their own (`make managed-legs`) before
+# it compiles anything native, and then `make check CHECK_MANAGED=0`.
+MANAGED_TEST_LEGS = \
     'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
     'managed-server:tools/leg-floor managed-server && $(SERVER_LEG)' \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
-    $(if $(filter 0,$(HOST_SDK)),,'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)') \
+    $(if $(filter 0,$(HOST_SDK)),,'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)')
+CHECK_MANAGED ?= 1
+TEST_LEGS = \
+    'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
+    $(if $(filter 0,$(CHECK_MANAGED)),,$(MANAGED_TEST_LEGS)) \
     'native@ninja:tools/leg-floor native && $(CPP_TEST)' \
     'entity@ninja:tools/leg-floor entity && $(ENTITY_TEST)' \
     'ui:tools/leg-floor ui && $(UI_TEST)'
@@ -900,6 +906,13 @@ TEST_FULL_LEGS = \
 test: ui
 	@$(TEST_BUILD)
 	@tools/run-test-legs $(TEST_LEGS)
+
+# Only the managed legs (managed, managed-server, managed-client, tf2_descent):
+# the test assemblies built and run, no native build. Their CMake-graph facts
+# read farm/debug/build, so that tree must be configured (not built) first.
+managed-legs: ui
+	@$(TEST_BUILD)
+	@tools/run-test-legs $(MANAGED_TEST_LEGS)
 
 # Every leg: the routine tier and the milestone tier together.
 test-full: ui

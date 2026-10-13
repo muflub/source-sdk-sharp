@@ -80,7 +80,16 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
           echo "SS_LABEL=$v" >> "$GITHUB_ENV"
 
-      # The native half first, one final target per step, so a failure names
+      # The managed tests first, before anything native is compiled: they read
+      # no native build output, only the CMake graph a configure writes, so
+      # the debug tree they read is configured here and not built. make check
+      # at the end runs every other leg (CHECK_MANAGED=0).
+      - name: "Managed: configure the debug tree the tests read"
+        run: tools/build/configure debug -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
+      - name: "Test (managed: make managed-legs)"
+        run: make managed-legs
+
+      # The native half, one final target per step, so a failure names
       # its library. The configure is the one `make release` runs
       # (tools/build/buildsourcesharp's options), so the make release below
       # finds the native half built and does not configure it differently.
@@ -153,8 +162,8 @@ jobs:
       # (a debug build, which the native tests are written against, then
       # every test leg), with the non-CI-friendly facts skipping (see the top
       # of this file).
-      - name: Test (make check)
-        run: make check
+      - name: Test (make check, the legs not run above)
+        run: make check CHECK_MANAGED=0
 
       # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
       # it. A write means an output was linked where it should have been built.
@@ -255,6 +264,24 @@ jobs:
       - name: Managed assemblies (Release)
         run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Release
 
+      # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
+      # from the built assemblies as the Makefile's legs run them.
+      - name: Build the tests (Debug)
+        run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
+
+      # The gate: every managed test project, as the Makefile's managed legs
+      # run them (oracle-managed reads the pristine upstream clone, which
+      # only the Linux job provisions). Each project runs whatever the one
+      # before it did, and the step fails if any failed.
+      - name: Test (managed, server, client, tf2_descent)
+        run: |
+          rc=0
+          for dll in tests/SourceSharp.Shared.Tests.dll tests-server/SourceSharp.Server.Tests.dll \
+                     tests-client/SourceSharp.Client.Tests.dll tf2_descent-tests/TF2.Descent.Tests.dll; do
+            env -u Platform dotnet test "bin/debug/$dll" --nologo || rc=1
+          done
+          exit $rc
+
       # The native half, one final target per step, so a failure names its
       # library. -k 0: every file that fails, not only the first, in one round.
       - name: "Native: configure (MSVC, release)"
@@ -310,24 +337,6 @@ jobs:
       # on a runner skip (SS_SKIP_ON_CI), as on Linux.
       - name: Test (native gtests)
         run: ctest --test-dir farm/release/build-windows -L gtest --output-on-failure -j 4
-
-      # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
-      # from the built assemblies as the Makefile's legs run them.
-      - name: Build the tests (Debug)
-        run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
-
-      # The gate: every managed test project, as the Makefile's managed legs
-      # run them (oracle-managed reads the pristine upstream clone, which
-      # only the Linux job provisions). Each project runs whatever the one
-      # before it did, and the step fails if any failed.
-      - name: Test (managed, server, client, tf2_descent)
-        run: |
-          rc=0
-          for dll in tests/SourceSharp.Shared.Tests.dll tests-server/SourceSharp.Server.Tests.dll \
-                     tests-client/SourceSharp.Client.Tests.dll tf2_descent-tests/TF2.Descent.Tests.dll; do
-            env -u Platform dotnet test "bin/debug/$dll" --nologo || rc=1
-          done
-          exit $rc
 
       - name: ROOT is untouched
         run: |
