@@ -165,6 +165,18 @@ jobs:
       - name: Test (make check, the legs not run above)
         run: make check CHECK_MANAGED=0
 
+      # The managed facts that image the built game (tools/mod-image reads
+      # bin/debug's server.so). They skipped in the managed step above, which
+      # runs before any native build (LinuxDebugBuildFactAttribute); make check
+      # has built debug now, so they run here against it.
+      - name: Test (managed facts that read the native build)
+        # A filter that matched nothing would pass, so the step also fails
+        # unless every one of the five ran and none skipped.
+        run: |
+          set -o pipefail
+          $HOME/.dotnet/dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo --filter "Needs=DebugBuild" | tee needs-build.log
+          grep -E 'Passed: +5, Skipped: +0, Total: +5' needs-build.log
+
       # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
       # it. A write means an output was linked where it should have been built.
       - name: ROOT is untouched

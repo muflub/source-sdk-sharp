@@ -74,3 +74,57 @@ public sealed class LinuxOnlyTheoryAttribute : TheoryAttribute
     /// <summary>Why the theory has no subject off Linux.</summary>
     public string Reason { get; }
 }
+
+/// <summary>
+/// A Linux-only fact (<see cref="LinuxOnly"/>) that also reads the debug
+/// build's native output: <c>bin/debug/bin/linux64/server.so</c> and the game
+/// directory around it.
+///
+/// <para>
+/// CI runs the managed legs BEFORE the native build (user ruling 2026-10-13:
+/// "run managed tests after the managed build (before native build)"), so in
+/// that step the output is not there yet. Under CI, and only while it is
+/// absent, the fact skips, saying so; the workflow's later step "Test (managed
+/// facts that read the native build)" runs the facts carrying
+/// <see cref="Trait"/> again once <c>make check</c> has built debug. Anywhere
+/// else a missing build stays a failure: the fact's own message says to build.
+/// </para>
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+public sealed class LinuxDebugBuildFactAttribute : FactAttribute
+{
+    /// <summary>The trait the later CI step filters on: <c>Needs=DebugBuild</c>.</summary>
+    public const string Trait = "Needs";
+
+    /// <summary>The trait's value.</summary>
+    public const string TraitValue = "DebugBuild";
+
+    /// <summary>The file whose absence means the native build has not run.</summary>
+    public static string Witness => RepoLayout.Repo("bin", "debug", "bin", "linux64", "server.so");
+
+    /// <summary>Skips off Linux, and on CI before the native build.</summary>
+    public LinuxDebugBuildFactAttribute(string reason)
+        : this(reason, OperatingSystem.IsLinux(),
+               NotOnCi.IsCi(Environment.GetEnvironmentVariable(NotOnCi.Variable)),
+               () => File.Exists(Witness))
+    {
+    }
+
+    /// <summary>Every input injectable, so each branch is testable.</summary>
+    internal LinuxDebugBuildFactAttribute(string reason, bool onLinux, bool onCi, Func<bool> built)
+    {
+        Reason = reason;
+        if (!onLinux)
+            Skip = LinuxOnly.SkipText(reason);
+        else if (onCi && !built())
+            Skip = BeforeTheBuild;
+    }
+
+    /// <summary>The skip text on CI before the native build.</summary>
+    public const string BeforeTheBuild =
+        "not built yet: CI runs the managed legs before the native build; " +
+        "the step \"Test (managed facts that read the native build)\" runs this after make check";
+
+    /// <summary>Why the fact has no subject off Linux.</summary>
+    public string Reason { get; }
+}

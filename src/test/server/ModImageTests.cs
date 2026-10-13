@@ -68,6 +68,7 @@ internal sealed class PlantedGame : IDisposable
 /// (plan_host_sdk §2.5; the host's docs/mod-image.md).
 /// </summary>
 [System.Runtime.Versioning.SupportedOSPlatform("linux")]   // file modes: the tool and the pods are Linux
+[Trait(LinuxDebugBuildFactAttribute.Trait, LinuxDebugBuildFactAttribute.TraitValue)]
 public sealed class ModImageTests
 {
     private static (int Exit, string Output) DryRun(PlantedGame game, params string[] extra)
@@ -85,7 +86,7 @@ public sealed class ModImageTests
         return (p.ExitCode, output);
     }
 
-    [LinuxOnlyFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
+    [LinuxDebugBuildFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
     public void The_image_carries_the_mod_its_resolved_settings_and_the_core_and_nothing_mounted()
     {
         using var game = new PlantedGame();
@@ -121,7 +122,7 @@ public sealed class ModImageTests
         check(game);
     }
 
-    [LinuxOnlyFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
+    [LinuxDebugBuildFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
     public void What_a_game_run_leaves_in_the_mod_directory_is_not_in_the_image()
     {
         WithRunLeftovers(game =>
@@ -136,7 +137,7 @@ public sealed class ModImageTests
         });
     }
 
-    [LinuxOnlyFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
+    [LinuxDebugBuildFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
     public void The_images_cfg_is_the_repos_seed_not_the_engines_rewrite()
     {
         WithRunLeftovers(game =>
@@ -150,7 +151,7 @@ public sealed class ModImageTests
         });
     }
 
-    [LinuxOnlyFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
+    [LinuxDebugBuildFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
     public void A_directory_a_non_root_game_cannot_enter_is_refused()
     {
         using var game = new PlantedGame();
@@ -164,7 +165,7 @@ public sealed class ModImageTests
         Assert.Contains("game/mods/tf2_descent/maps/locked", output);
     }
 
-    [LinuxOnlyFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
+    [LinuxDebugBuildFact("runs tools/mod-image, a bash script that lays out the Linux pod image, and sets Unix file modes")]
     public void An_unknown_mod_is_refused()
     {
         using var game = new PlantedGame();
