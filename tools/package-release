@@ -74,6 +74,12 @@ PLATFORMS = {
 # Files the engine writes while it runs; never part of a release.
 DROPPINGS = ("steam_appid.txt",)
 DROPPING_SUFFIXES = (".log",)
+# What of bin/<config> is the game directory, besides the launcher. The rest
+# of it is build output that lands there too (the test assemblies, the native
+# test binaries in cpptest/, analyzers, generators, mapgen, tools, the
+# launcher's intermediate tree) and content/, a link to an installed TF2's
+# files: none of it ships.
+GAME_TOP = ("mods.yaml", "mods", "bin")
 
 
 def current_platform():
@@ -152,7 +158,7 @@ def stage(game, native, work, plat):
     top = os.path.join(work, TOP)
     os.makedirs(top)
     for name in sorted(os.listdir(game)):
-        if is_dropping(name):
+        if is_dropping(name) or name not in GAME_TOP + (plat["launcher"],):
             continue
         s = os.path.join(game, name)
         d = os.path.join(top, name)
@@ -299,6 +305,12 @@ def self_test():
         touch(os.path.join(mod, "cfg", "settings.scr"), b"seed")
         touch(os.path.join(mod, "console.log"), b"engine wrote this")
         touch(os.path.join(game, "steam_appid.txt"), b"243750")
+        # Build output that lands in the game directory and must not ship.
+        for junk in ("tests/SourceSharp.Shared.Tests.dll", "cpptest/vtable_hook_test",
+                     "analyzers/SourceSharp.Analyzers.dll", "mapgen/mapgen.dll",
+                     "launcher/publish/source#", "tools/x.dll"):
+            touch(os.path.join(game, junk), b"build output")
+        os.symlink(os.path.join(repo, "game"), os.path.join(game, "content"))
         native = os.path.join(repo, "bin", "ci-release", plat["bindir"])
         for so in plat["native"]:
             touch(os.path.join(native, so), b"ci build of " + so.encode())
@@ -352,6 +364,9 @@ def self_test():
            and f"{TOP}/bin/dotnet/host/fxr/10.0.0/libhostfxr.so" in m)
     expect("the engine's droppings are left out",
            f"{TOP}/mods/test/console.log" not in m and f"{TOP}/steam_appid.txt" not in m)
+    expect("build output and content/ beside the game directory do not ship",
+           not any(n.split("/")[1] in ("tests", "cpptest", "analyzers", "mapgen", "launcher", "tools", "content")
+                   for n in m if n.count("/") >= 1))
     expect("nothing in the archive is an absolute link",
            not any(mm.issym() and os.path.isabs(mm.linkname) for mm in m.values()))
     s = members(symbols)
