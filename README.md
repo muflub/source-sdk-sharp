@@ -95,12 +95,17 @@ full Release build, packages the release archive, and runs the tests:
 - **Windows** builds everything itself from the same farm: the web UI, the
   managed assemblies, the native libraries with MSVC (the `windows-release`
   preset) and the NativeAOT launcher. It packages
-  `sourcesharp-<version>-win-x64.zip`, with the `.pdb` files in `-dbg.zip`,
-  and runs the native gtests (ctest, `-L gtest`) and the managed test
+  `sourcesharp-<version>-win-x64.zip`, with the native `.pdb` files in
+  `-dbg.zip`, and runs the native gtests (ctest, `-L gtest`) and the managed test
   projects. Native tests that read the Linux build's instruments (ELF scans,
   the CMake graph, fork-based probes) are marked `LINUX_ONLY` in
   `src/test/native/CMakeLists.txt`, and configure lists them with reasons.
 
+Each `-dbg` archive also holds the managed assemblies' `.pdb` and `.json`
+files (`bin/managed`), which the game archive leaves out, all but the
+`SourceSharp.Bootstrap.runtimeconfig.json` the host starts the runtime from.
+Every run uploads each platform's game archive and its `-dbg` archive as two
+artifacts (`sourcesharp-<platform>` and `sourcesharp-<platform>-dbg`).
 Pushing a tag attaches both platforms' archives to the GitHub release once
 both jobs are green. There is no macOS job: Valve no longer supports the
 Source SDK 2013 games on macOS, and the launcher has no macOS build. The

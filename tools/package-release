@@ -8,9 +8,17 @@
 
 Writes dist/sourcesharp-<label>-<platform>.tar.gz (a .zip for win-x64),
 holding bin/<config> as a plain directory tree named sourcesharp/ that runs
-from wherever it is unpacked, and dist/sourcesharp-<label>-<platform>-dbg.*
-with the split debug info (<name>.dbg on Linux, the .pdb files on Windows)
-when the native build made any.
+from wherever it is unpacked, and dist/sourcesharp-<label>-<platform>-dbg.*,
+the symbols archive: the native build's split debug info (<name>.dbg on
+Linux, the .pdb files on Windows) and the managed assemblies' .pdb and .json
+files (bin/managed), at the paths the game directory has them. The game
+archive leaves all of those out but one: SourceSharp.Bootstrap.runtimeconfig.json,
+which the native host hands hostfxr to start the runtime and without which
+the game does not start (src/host/native/sourcesharp.cpp). The .deps.json
+files are not read at run time: hostfxr_initialize_for_runtime_config reads
+only the frameworks' own, and a component with none resolves its assemblies
+from its directory, which bin/managed is. The symbols archive is always
+written: the runtimeconfig it carries is required.
 
 bin/<config> is not that tree: tools/setup composes it from LINKS. The mod's
 content, mods.yaml and the Steam API library are absolute symlinks into this
@@ -52,6 +60,18 @@ import zipfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOP = "sourcesharp"
+
+# The managed files the symbols archive carries beside the native debug info:
+# the portable PDBs and the .deps.json / .runtimeconfig.json files. The game
+# archive leaves them out, except the runtime configs (MANAGED_KEPT), which the
+# host starts the runtime from.
+MANAGED_SYMBOLS = (".pdb", ".json")
+MANAGED_KEPT = (".runtimeconfig.json",)
+
+
+def leaves_game_archive(name):
+    """Whether a file under bin/managed ships only in the symbols archive."""
+    return name.endswith(MANAGED_SYMBOLS) and not name.endswith(MANAGED_KEPT)
 
 # What a release archive of each platform holds, as Valve's layout and this
 # build name things. `steam` is None where Valve ships no Steam API library
@@ -131,19 +151,22 @@ def stage_entry(s, d, links):
         shutil.copy2(s, d)
 
 
-def require_dir_with_files(path, what):
+def require_dir_with_files(path, what, suffix=""):
     if not os.path.isdir(path) or not any(
-            os.path.isfile(os.path.join(path, f)) for f in os.listdir(path)):
+            os.path.isfile(os.path.join(path, f)) and f.endswith(suffix) for f in os.listdir(path)):
         raise PackageError(f"{what} is missing or empty: {path}")
 
 
 def stage(game, native, work, plat):
-    """Compose work/sourcesharp from the game directory; returns the list of
-    debug-info files (absolute paths) that go to the symbols archive."""
+    """Compose work/sourcesharp from the game directory; returns the files that
+    go to the symbols archive, as (absolute path, path in the archive)."""
     launcher = os.path.join(game, plat["launcher"])
     if not os.path.isfile(launcher) or (plat["launcher"] == "source#" and not os.access(launcher, os.X_OK)):
         raise PackageError(f"no launcher at {launcher}: publish src/launcher first")
-    require_dir_with_files(os.path.join(game, "bin", "managed"), "the managed assemblies")
+    require_dir_with_files(os.path.join(game, "bin", "managed"), "the managed assemblies", ".dll")
+    for config in ("SourceSharp.Bootstrap.runtimeconfig.json",):
+        if not os.path.isfile(os.path.join(game, "bin", "managed", config)):
+            raise PackageError(f"no {config} in {game}/bin/managed: the host cannot start the runtime without it")
     if not os.path.isdir(os.path.join(game, "bin", "dotnet", "host", "fxr")):
         raise PackageError(f"no bundled .NET runtime under {game}/bin/dotnet (tools/setup provisions it)")
     bindir = os.path.join(game, "bin", plat["bindir"])
@@ -175,9 +198,18 @@ def stage(game, native, work, plat):
             if os.path.isdir(mod_bin):
                 shutil.rmtree(mod_bin)
                 shutil.copytree(os.path.join(top, "bin"), mod_bin, symlinks=True)
-    if plat["debug"] is None:
-        return []
-    return sorted(os.path.join(native, f) for f in os.listdir(native) if f.endswith(plat["debug"]))
+    symbols = []
+    if plat["debug"] is not None:
+        symbols += [(os.path.join(native, f), f"{TOP}/bin/{plat['bindir']}/{f}")
+                    for f in sorted(os.listdir(native)) if f.endswith(plat["debug"])]
+    managed = os.path.join(game, "bin", "managed")
+    for d, dirs, files in os.walk(managed):
+        dirs.sort()
+        for f in sorted(files):
+            if f.endswith(MANAGED_SYMBOLS):
+                full = os.path.join(d, f)
+                symbols.append((full, f"{TOP}/bin/managed/{os.path.relpath(full, managed).replace(os.sep, '/')}"))
+    return symbols
 
 
 def stage_bin(src, native, dst, plat):
@@ -187,6 +219,12 @@ def stage_bin(src, native, dst, plat):
         d = os.path.join(dst, name)
         if name != plat["bindir"]:
             stage_entry(s, d, plat["links"])
+            if name == "managed":
+                # The .pdb and .deps.json files go to the symbols archive only.
+                for root, _, files in os.walk(d):
+                    for f in files:
+                        if leaves_game_archive(f):
+                            os.remove(os.path.join(root, f))
             continue
         # The shipped libraries come from --native; the rest of the game
         # directory's platform bin (the Steam library's link, the
@@ -215,15 +253,15 @@ def write_archive(path, kind, root, arcname):
         tar.add(root, arcname=arcname)
 
 
-def write_dbg_archive(path, kind, dbg, bindir):
+def write_dbg_archive(path, kind, symbols):
     if kind == "zip":
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-            for f in dbg:
-                z.write(f, f"{TOP}/bin/{bindir}/{os.path.basename(f)}")
+            for f, arcname in symbols:
+                z.write(f, arcname)
         return
     with tarfile.open(path, "w:gz") as tar:
-        for f in dbg:
-            tar.add(f, arcname=f"{TOP}/bin/{bindir}/{os.path.basename(f)}")
+        for f, arcname in symbols:
+            tar.add(f, arcname=arcname)
 
 
 def package(repo, config, label, out, native=None, platform=None, log=print):
@@ -244,14 +282,11 @@ def package(repo, config, label, out, native=None, platform=None, log=print):
         write_archive(main, plat["archive"], os.path.join(work, TOP), TOP)
         files = sum(len(fs) for _, _, fs in os.walk(os.path.join(work, TOP)))
     log(f"{os.path.relpath(main)}: {files} entries, {os.path.getsize(main) // 1024} KB")
-    if dbg:
-        write_dbg_archive(symbols, plat["archive"], dbg, plat["bindir"])
-        log(f"{os.path.relpath(symbols)}: {len(dbg)} {plat['debug']}, {os.path.getsize(symbols) // 1024} KB")
-    else:
-        if os.path.exists(symbols):
-            os.remove(symbols)
-        log("no split debug info beside the native libraries; no symbols archive")
-    return main, (symbols if dbg else None)
+    write_dbg_archive(symbols, plat["archive"], dbg)
+    native_n = sum(1 for _, a in dbg if not a.startswith(f"{TOP}/bin/managed/"))
+    log(f"{os.path.relpath(symbols)}: {native_n} native debug files, {len(dbg) - native_n} managed .pdb/.json, "
+        f"{os.path.getsize(symbols) // 1024} KB")
+    return main, symbols
 
 
 # --- self-test -----------------------------------------------------------------
@@ -286,6 +321,9 @@ def self_test():
         touch(os.path.join(game, plat["launcher"]), b"#!/bin/sh\n", 0o755)
         os.symlink(os.path.join(repo, "game", "mods.yaml"), os.path.join(game, "mods.yaml"))
         touch(os.path.join(game, "bin", "managed", "SourceSharp.Server.dll"), b"MZ")
+        touch(os.path.join(game, "bin", "managed", "SourceSharp.Server.pdb"), b"BSJB")
+        touch(os.path.join(game, "bin", "managed", "SourceSharp.Server.deps.json"), b"{}")
+        touch(os.path.join(game, "bin", "managed", "SourceSharp.Bootstrap.runtimeconfig.json"), b"{}")
         touch(os.path.join(game, "bin", "dotnet", "host", "fxr", "10.0.0", "libhostfxr.so"), b"ELF")
         touch(os.path.join(game, "bin", "dotnet", "shared", "Microsoft.NETCore.App", "10.0.0", "x.dll"))
         bindir = os.path.join(game, "bin", plat["bindir"])
@@ -333,6 +371,9 @@ def self_test():
         with tarfile.open(path) as tar:
             return tar.extractfile(name).read()
 
+    MANAGED = {f"{TOP}/bin/managed/SourceSharp.Server.pdb", f"{TOP}/bin/managed/SourceSharp.Server.deps.json",
+               f"{TOP}/bin/managed/SourceSharp.Bootstrap.runtimeconfig.json"}
+
     # --- linux-x64: the layout the game directory has, links and all --------
     repo, native = fixture()
     out = os.path.join(repo, "dist")
@@ -370,16 +411,23 @@ def self_test():
     expect("nothing in the archive is an absolute link",
            not any(mm.issym() and os.path.isabs(mm.linkname) for mm in m.values()))
     s = members(symbols)
-    expect("linux: the symbols archive holds every .dbg beside the native libraries",
-           set(s) == {f"{TOP}/bin/linux64/{so}.dbg" for so in PLATFORMS["linux-x64"]["native"]})
+    expect("linux: the symbols archive holds every .dbg beside the native libraries and the managed .pdb/.json",
+           set(s) == {f"{TOP}/bin/linux64/{so}.dbg" for so in PLATFORMS["linux-x64"]["native"]} | MANAGED)
+    expect("the managed .pdb and .deps.json files are not in the game archive",
+           not any(n.startswith(f"{TOP}/bin/managed/") and (n.endswith(".pdb") or n.endswith(".deps.json")) for n in m))
+    expect("the runtimeconfig the host starts the runtime from stays in the game archive",
+           f"{TOP}/bin/managed/SourceSharp.Bootstrap.runtimeconfig.json" in m
+           and f"{TOP}/bin/managed/SourceSharp.Server.dll" in m)
+    expect("the symbols archive carries the managed files' own bytes",
+           content(symbols, f"{TOP}/bin/managed/SourceSharp.Server.pdb") == b"BSJB")
 
     # Without --native the game directory's own libraries are what ship.
     repo2, _ = fixture()
     for so in PLATFORMS["linux-x64"]["native"]:
         touch(os.path.join(repo2, "bin", "release", "bin", "linux64", so), b"host")
     main2, symbols2 = package(repo2, "release", "t", os.path.join(repo2, "dist"), None, "linux-x64", log=lambda _: None)
-    expect("without --native, bin/linux64's own libraries ship and there is no symbols archive",
-           content(main2, f"{TOP}/bin/linux64/server.so") == b"host" and symbols2 is None)
+    expect("without --native, bin/linux64's own libraries ship and the symbols archive is the managed files alone",
+           content(main2, f"{TOP}/bin/linux64/server.so") == b"host" and set(members(symbols2)) == MANAGED)
 
     # --- win-x64: a zip, no links, the mod's bin a real copy, .pdb apart -----
     repo, native = fixture("win-x64")
@@ -396,9 +444,12 @@ def self_test():
            content(main, f"{TOP}/mods/test/bin/x64/server.dll") == b"ci build of server.dll"
            and f"{TOP}/mods/test/bin/managed/SourceSharp.Server.dll" in m
            and f"{TOP}/mods/test/bin/dotnet/host/fxr/10.0.0/libhostfxr.so" in m)
-    expect("windows: no .pdb in the game archive, every .pdb in the symbols zip",
-           not any(n.endswith(".pdb") for n in m)
-           and set(members(symbols)) == {f"{TOP}/bin/x64/{os.path.splitext(so)[0]}.pdb" for so in PLATFORMS["win-x64"]["native"]})
+    expect("windows: no .pdb or .deps.json anywhere in the game zip, mods/test/bin's copy included",
+           not any(n.endswith(".pdb") or n.endswith(".deps.json") for n in m)
+           and f"{TOP}/mods/test/bin/managed/SourceSharp.Bootstrap.runtimeconfig.json" in m)
+    expect("windows: every native .pdb and the managed .pdb/.json are in the symbols zip",
+           set(members(symbols)) == {f"{TOP}/bin/x64/{os.path.splitext(so)[0]}.pdb"
+                                     for so in PLATFORMS["win-x64"]["native"]} | MANAGED)
     expect("windows: the mod's content ships as files",
            content(main, f"{TOP}/mods/test/gameinfo.txt") == b"GameInfo\n")
 
@@ -408,7 +459,9 @@ def self_test():
     m = members(main)
     expect("macos: the dylibs ship under bin/osx64 with no Steam library required",
            all(f"{TOP}/bin/osx64/{so}" in m for so in PLATFORMS["osx-x64"]["native"])
-           and not any("steam_api" in n for n in m) and symbols is None)
+           and not any("steam_api" in n for n in m))
+    expect("macos: no native debug info to split, so the symbols archive is the managed files alone",
+           set(members(symbols)) == MANAGED)
     expect("macos: mods/test/bin stays a relative link",
            m[f"{TOP}/mods/test/bin"].issym() and m[f"{TOP}/mods/test/bin"].linkname == "../../bin")
 
@@ -437,9 +490,13 @@ def self_test():
             "libsteam_api.so")
     refuses("windows: a missing ss_particles.dll is refused naming it",
             lambda r, n: os.remove(os.path.join(n, "ss_particles.dll")), "ss_particles.dll", "win-x64")
-    refuses("an empty managed directory is refused",
+    refuses("a managed directory with no assembly is refused (its .pdb and .json are not assemblies)",
             lambda r, n: os.remove(os.path.join(r, "bin", "release", "bin", "managed", "SourceSharp.Server.dll")),
             "managed")
+    refuses("a managed directory without the bootstrap runtimeconfig is refused",
+            lambda r, n: os.remove(os.path.join(r, "bin", "release", "bin", "managed",
+                                                "SourceSharp.Bootstrap.runtimeconfig.json")),
+            "runtimeconfig")
     refuses("a missing bundled runtime is refused",
             lambda r, n: shutil.rmtree(os.path.join(r, "bin", "release", "bin", "dotnet")), "runtime")
     refuses("a dangling content link is refused",

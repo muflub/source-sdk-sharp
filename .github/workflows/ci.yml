@@ -156,11 +156,26 @@ jobs:
           done
           test -L "$smoke/sourcesharp/mods/test/bin"
           test -f "$smoke/sourcesharp/bin/managed/SourceSharp.Server.dll"
+          # The host starts the runtime from this; the .pdb and .deps.json
+          # files are in the symbols archive only.
+          test -f "$smoke/sourcesharp/bin/managed/SourceSharp.Bootstrap.runtimeconfig.json"
+          if find "$smoke/sourcesharp/bin/managed" -name '*.pdb' -o -name '*.deps.json' | grep -q .; then
+            echo "::error::managed .pdb/.deps.json files are in the game archive"; exit 1
+          fi
 
+      # Two artifacts: the game, and its symbols (the native debug info and
+      # the managed .pdb/.json files, tools/package-release).
       - uses: actions/upload-artifact@v7
         with:
           name: sourcesharp-linux-x64
-          path: dist/*
+          path: dist/sourcesharp-${{ env.SS_LABEL }}-linux-x64.tar.gz
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sourcesharp-linux-x64-dbg
+          path: dist/sourcesharp-${{ env.SS_LABEL }}-linux-x64-dbg.tar.gz
+          if-no-files-found: error
 
       # The gate: `make check`, the repo's own gate before a merge to main
       # (a debug build, which the native tests are written against, then
@@ -375,10 +390,19 @@ jobs:
           python tools/package-release --config release --platform win-x64 --label "$SS_LABEL" --out dist
           ls -la dist
 
+      # Two artifacts: the game, and its symbols (the native debug info and
+      # the managed .pdb/.json files, tools/package-release).
       - uses: actions/upload-artifact@v7
         with:
           name: sourcesharp-win-x64
-          path: dist/*
+          path: dist/sourcesharp-${{ env.SS_LABEL }}-win-x64.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sourcesharp-win-x64-dbg
+          path: dist/sourcesharp-${{ env.SS_LABEL }}-win-x64-dbg.zip
+          if-no-files-found: error
 
       # The native gtest suite, as the Linux job's native leg runs it: one
       # ctest test per binary, run in the farm's src/. Facts that cannot pass
