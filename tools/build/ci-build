@@ -7,8 +7,8 @@
 #   tools/build/ci-build [release|debug] [target]
 #                                   (make ci-build [CONFIG=...] [TARGET=...])
 #
-# With a target (server_sourcesharp, client_sourcesharp, ss_particles,
-# sourcesharp), only that one is built and the GLIBC gate is left to the run
+# With a target (ss_particles, sourcesharp, server_sourcesharp,
+# client_sourcesharp), only that one is built and the GLIBC gate is left to the run
 # without one, which builds whatever is left and measures every output: CI
 # builds each library in its own step, then runs the whole once.
 #
