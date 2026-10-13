@@ -354,6 +354,16 @@ def platform_name():
     return "linux"
 
 
+def game_dir_key(game_dir):
+    """A mod's game_dir as plan keys spell it: forward slashes, normalised.
+    os.path.normpath turns `mods/test` into `mods\\test` on Windows, every key
+    built from it then mixed both separators (`mods\\test/maps/x.bsp`), and the
+    stale-link sweep, which compares forward-slashed keys, deleted every link
+    of the mod's content it had just made: a Windows farm whose
+    game/mod_sharp/maps held no map."""
+    return posixpath.normpath(game_dir.replace("\\", "/"))
+
+
 def plan_bin(repo, root, cfg, mods, tf2=None, platform=None):
     """bin/<cfg>-relative path -> link target (None means a real directory)."""
     bindir, steam, alias = PLATFORM_BIN[platform or platform_name()]
@@ -372,8 +382,8 @@ def plan_bin(repo, root, cfg, mods, tf2=None, platform=None):
     if tf2:
         out["content"] = tf2
     for mod_id, game_dir, content in mods:
-        gd = os.path.normpath(game_dir)
-        if gd.startswith("..") or os.path.isabs(gd):
+        gd = game_dir_key(game_dir)
+        if gd.startswith("..") or posixpath.isabs(gd) or os.path.isabs(game_dir):
             raise SetupError(f"mods.yaml: {mod_id}: game_dir escapes the "
                              f"game directory: {game_dir}")
         out[gd] = None
@@ -925,6 +935,14 @@ def self_test():
         expect("a farm key is forward-slashed under Windows path rules too",
                lambda: None if ok else (_ for _ in ()).throw(
                    SetupError("a farm key kept the platform's separator")), None)
+        # So is a mod's game_dir, whatever separator mods.yaml or the
+        # platform's normpath used.
+        ok = (game_dir_key("mods/test") == "mods/test"
+              and game_dir_key("mods\\test") == "mods/test"
+              and game_dir_key("./mods//test/") == "mods/test")
+        expect("a game_dir key is forward-slashed and normalised",
+               lambda: None if ok else (_ for _ in ()).throw(
+                   SetupError("a game_dir key kept a backslash or a redundant part")), None)
         # The Windows list: read on Windows only, and required there.
         ok = (load_manifest(repo, "linux") == load_manifest(repo, "osx")
               and "src/public/const.h" in load_manifest(repo, "linux"))
