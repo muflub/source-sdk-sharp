@@ -439,8 +439,19 @@ TEST( GlobalsLedger, TheGateFailsWhenTheLedgerIsMissingARow )
 		if ( i != iLastData )
 			szBody += lines[ i ] + "\n";
 
-	const std::string szTmp =
-		std::string( pszRoot ) + "/tools/.globals-ledger-control.tsv";
+	// The copy lives in a private temp directory, never in the tree:
+	// tools/valve-text-audit reads every untracked file in the tree, and a copy
+	// written under tools/ was listed by it, deleted here, then read there (a
+	// FileNotFoundError in make check on CI, 2026-10-13), as the client twin
+	// found on 2026-10-04. The gate takes --ledger as a path, so an absolute
+	// one works.
+	const char *pszTmpRoot = getenv( "TMPDIR" );
+	std::string szDir = std::string( pszTmpRoot && *pszTmpRoot ? pszTmpRoot : "/tmp" )
+		+ "/globals-ledger.XXXXXX";
+	std::vector< char > dir( szDir.begin(), szDir.end() );
+	dir.push_back( '\0' );
+	ASSERT_TRUE( mkdtemp( dir.data() ) != NULL ) << "cannot make a temp directory under " << szDir;
+	const std::string szTmp = std::string( dir.data() ) + "/globals-ledger-control.tsv";
 	{
 		std::ofstream f( szTmp.c_str(), std::ios::binary );
 		ASSERT_TRUE( f.good() ) << "cannot write the control ledger " << szTmp;
@@ -448,9 +459,9 @@ TEST( GlobalsLedger, TheGateFailsWhenTheLedgerIsMissingARow )
 	}
 
 	const Run_t run = RunAtRoot(
-		"python3 tools/globals-census gate "
-		"--ledger tools/.globals-ledger-control.tsv" );
+		std::string( "python3 tools/globals-census gate --ledger " ) + szTmp );
 	unlink( szTmp.c_str() );
+	rmdir( dir.data() );
 
 	EXPECT_NE( run.m_nExit, 0 )
 		<< "the gate PASSED against a ledger with a row deliberately removed. "
