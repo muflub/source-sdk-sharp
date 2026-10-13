@@ -17,17 +17,21 @@
 # invocation, in the script's order, with the script's comments kept above the
 # call they explained (they still say "build_and_run" where the call is now
 # ss_cpptest). Append new tests at the end.
+#
+# Tests build at -O0. OPTIMIZED builds one at -O1, as the game is built: for a
+# test whose subject is what the compiler does to native code (vtable slots,
+# pointers to member functions), not for one that checks logic.
 
 include(${PROJECT_SOURCE_DIR}/cmake/SourceSharpTests.cmake)
 
 # file-open recorder, which had no reader; MemberOf is a header-inline template,
 # so the header alone is the whole subject.
-ss_cpptest(vtable_hook_test
+ss_cpptest(vtable_hook_test OPTIMIZED
     SOURCES sourcesharp/test/vtable_hook_test.cpp)
 
 # plan_client_novalve C7: the render call recorder overwrites one engine vtable
 # slot in place for a frame (vtable_slot_patch.h, header-only).
-ss_cpptest(vtable_slot_patch_test
+ss_cpptest(vtable_slot_patch_test OPTIMIZED
     SOURCES sourcesharp/test/vtable_slot_patch_test.cpp)
 
 # C7 item 7: the draw batch asks a renderable for its handle only when it is an
@@ -58,7 +62,7 @@ ss_cpptest_engine_headers(managed_accept_test
 # vtable_hook.cpp, which no longer exists.
 # -I for the ABI header: ishim_console.h names SourceSharpConsoleEntry, which
 # sourcesharp.h declares (plan_engineapi_vtables A4).
-ss_cpptest_engine_headers(vtable_index_agreement_test
+ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
     INCLUDES sourcesharp/host
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
 
@@ -1611,7 +1615,7 @@ ss_cpptest(damage_attacker_test
 # is genuinely loud, and THAT cannot be asserted from inside a test, so the four
 # ill-formed shapes are compiled separately and required to fail, each at the
 # probe rather than somewhere else. Header-only and engine-free.
-ss_cpptest(entity_funcslot_test
+ss_cpptest(entity_funcslot_test OPTIMIZED
     SOURCES sourcesharp/test/entity_funcslot_test.cpp)
 
 ss_must_not_compile(entity_funcslot_unrelated

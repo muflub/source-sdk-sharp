@@ -116,7 +116,9 @@ struct HasObjectCaps
 	static auto Probe( int ) -> decltype( ( (U *)0 )->ObjectCaps(), char() );
 	template < typename U >
 	static long Probe( ... );
-	static const bool value = sizeof( Probe< T >( 0 ) ) == sizeof( char );
+	// constexpr, so inline (C++17): EXPECT_TRUE takes it by reference, and a
+	// static const member a reference binds to needs a definition at -O0.
+	static constexpr bool value = sizeof( Probe< T >( 0 ) ) == sizeof( char );
 };
 
 //-----------------------------------------------------------------------------
