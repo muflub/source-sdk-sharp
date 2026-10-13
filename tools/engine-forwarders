@@ -80,15 +80,41 @@ def _load_vtable_layout():
 
 VL = _load_vtable_layout()
 
-OUT_NATIVE = 'src/fwd/native/fwd_engine.g.inc'
-OUT_MANAGED = 'src/abi/EngineForwarders.g.cs'
 VALVE_HEADER = 'tools/valve-header.txt'
 
 # ---------------------------------------------------------------------------
+# ONE LIBRARY PER FAMILY (plan_engine_forwarders.md section 4). Each has its
+# own generated C++ (included by src/fwd/native/fwd_<name>.cpp, the library's
+# one translation unit) and its own C# file. A FORWARD row names its family.
+# ---------------------------------------------------------------------------
+LIBRARIES = {
+    'engine': dict(native='src/fwd/native/fwd_engine.g.inc',
+                   managed='src/abi/EngineForwarders.g.cs',
+                   binary='libss_fwd_engine', what='the engine\'s interfaces'),
+    'vphysics': dict(native='src/fwd/native/fwd_vphysics.g.inc',
+                     managed='src/abi/VPhysicsForwarders.g.cs',
+                     binary='libss_fwd_vphysics', what='vphysics\' interfaces and objects'),
+}
+
+# ---------------------------------------------------------------------------
 # WHAT IS FORWARDED. Keyed by the VtableLayouts.g.cs struct the interface is
-# described by (its header and chain come from tools/vtable-layout's
-# INTERFACES row); the value is the forwarder table's name, the C++ type its
-# `self` is, and the field names of the methods managed calls.
+# described by: its header and chain come from tools/vtable-layout's
+# INTERFACES row, so the table's name (the struct's, less `Vtbl`), the C++
+# type its `self` is (the chain's last class) and the header the forwarders
+# include (the row's, under src/public) are derived, and a row names only its
+# family and the field names of the methods managed calls. `self_type` and
+# `include` override the derivation where it would be wrong.
+#
+# `conditional` names a method the header declares inside `#if defined( X )`
+# and the shipped engine has on some platforms only: its slot is the
+# forwarder where X is defined and NULL where it is not, so the table has one
+# layout everywhere and managed sees the method's absence rather than a
+# neighbour's slot. Native does not invent an answer for a method that is not
+# there.
+#
+# A ROW'S METHODS ARE ITS SLOTS, IN ORDER, AND ONLY EVER GROW AT THE END: a
+# method managed starts calling is appended to its row, never inserted at its
+# header position (see `appended_only`).
 #
 # IVModelInfo (phase 1): one table serves both VModelInfoServer004 and
 # VModelInfoClient006. The client's object is an IVModelInfoClient, which
@@ -98,14 +124,230 @@ VALVE_HEADER = 'tools/valve-header.txt'
 FORWARD = [
     dict(
         struct='ModelInfoVtbl',
-        table='ModelInfo',
-        self_type='IVModelInfo',
-        include='engine/ivmodelinfo.h',
         methods=[
             'GetModel', 'GetModelIndex', 'GetModelName', 'GetVCollide_2',
             'GetModelBounds', 'GetModelFrameCount', 'GetModelType',
             'GetModelKeyValueText', 'FindModel', 'GetAnimBlock', 'GetStudiomodel',
             'GetCollideForVirtualTerrain',
+        ],
+    ),
+    dict(
+        struct='BaseFileSystemVtbl',
+        methods=[
+            'Size_2', 'FileExists', 'GetFileTime',
+        ],
+    ),
+    dict(
+        struct='EngineClientVtbl',
+        # cdll_int.h declares GetMouseDelta under `#if defined( USE_SDL )`: the
+        # Linux engine is built with SDL, Valve's Windows engine without it
+        # (src/shared/native/shell_vtable_interfaces.cpp says the same).
+        conditional={'GetMouseDelta': 'USE_SDL'},
+        methods=[
+            'GetScreenSize', 'ServerCmd', 'ClientCmd', 'GetPlayerInfo', 'GetViewAngles',
+            'SetViewAngles', 'IsInGame', 'GetGameDirectory', 'GetLevelName', 'IsPaused',
+            'ClientCmd_Unrestricted', 'GetMouseDelta', 'GetProtocolVersion',
+        ],
+    ),
+    dict(
+        struct='EngineServerVtbl',
+        methods=[
+            'IsDedicatedServer', 'GetEntityCount', 'GetPlayerNetInfo',
+            'GetClientConVarValue', 'GetArea', 'GetMapEntitiesString',
+            'GetClientSteamIDByPlayerIndex',
+        ],
+    ),
+    dict(
+        struct='UniformRandomStreamVtbl',
+        methods=[
+            'RandomFloat', 'RandomInt', 'RandomFloatExp',
+        ],
+    ),
+    dict(
+        struct='InputSystemVtbl',
+        methods=[
+            'IsButtonDown', 'GetAnalogValue', 'GetJoystickCount', 'SetRumble',
+            'StopRumble', 'ButtonCodeToString', 'GetRawMouseAccumulators',
+            'SteamControllerInterface', 'IsSteamControllerActive',
+            'ActivateSteamControllerActionSetForSlot',
+        ],
+    ),
+    dict(
+        struct='NetChannelInfoVtbl',
+        methods=[
+            'GetAddress', 'GetAvgLatency',
+        ],
+    ),
+    dict(
+        struct='NetworkStringTableContainerVtbl',
+        methods=[
+            'FindTable',
+        ],
+    ),
+    dict(
+        struct='NetworkStringTableVtbl',
+        methods=[
+            'GetTableName', 'AddString', 'GetString', 'GetStringUserData',
+            'FindStringIndex',
+        ],
+    ),
+    dict(
+        struct='SoundEmitterSystemVtbl',
+        methods=[
+            'GetSoundIndex', 'GetSoundName',
+        ],
+    ),
+    dict(
+        struct='StaticPropMgrServerVtbl',
+        methods=[
+            'CreateVPhysicsRepresentations',
+        ],
+    ),
+    dict(
+        struct='PhysicsVtbl',
+        library='vphysics',
+        methods=[
+            'FindOrCreateCollisionSet', 'FindCollisionSet',
+        ],
+    ),
+    dict(
+        struct='PhysicsCollisionVtbl',
+        library='vphysics',
+        methods=[
+            'CollideGetExtent', 'CollideGetAABB', 'BBoxToCollide',
+            'VPhysicsKeyParserCreate', 'VPhysicsKeyParserDestroy',
+            'SupportsVirtualMesh',
+        ],
+    ),
+    dict(
+        struct='PhysicsSurfacePropsVtbl',
+        library='vphysics',
+        methods=[
+            'ParseSurfaceData', 'SurfacePropCount', 'GetSurfaceIndex', 'GetSurfaceData',
+            'GetString', 'GetPropName', 'SetWorldMaterialIndexTable',
+        ],
+    ),
+    dict(
+        struct='PhysicsEnvironmentVtbl',
+        library='vphysics',
+        methods=[
+            'GetGravity', 'SetAirDensity', 'GetAirDensity', 'CreatePolyObject',
+            'CreatePolyObjectStatic', 'DestroyObject', 'CreateFluidController',
+            'CreateSpring', 'DestroySpring', 'CreateRagdollConstraint',
+            'CreateHingeConstraint', 'CreateFixedConstraint', 'CreateSlidingConstraint',
+            'CreateBallsocketConstraint', 'CreatePulleyConstraint',
+            'CreateLengthConstraint', 'DestroyConstraint', 'CreateConstraintGroup',
+            'DestroyConstraintGroup', 'CreatePlayerController',
+            'DestroyPlayerController', 'CreateMotionController',
+            'DestroyMotionController', 'SetCollisionSolver', 'Simulate',
+            'GetSimulationTimestep', 'ResetSimulationClock', 'SetCollisionEventHandler',
+            'SetObjectEventHandler', 'SetConstraintEventHandler',
+            'GetActiveObjectCount', 'GetActiveObjects', 'GetObjectList',
+            'DebugCheckContacts',
+        ],
+    ),
+    dict(
+        struct='PhysicsObjectVtbl',
+        library='vphysics',
+        methods=[
+            'IsStatic', 'IsAsleep', 'IsTrigger', 'IsCollisionEnabled', 'IsMoveable',
+            'EnableCollisions', 'EnableGravity', 'EnableMotion', 'SetGameData',
+            'GetGameData', 'SetGameFlags', 'GetGameFlags', 'SetGameIndex',
+            'SetCallbackFlags', 'GetCallbackFlags', 'Wake', 'Sleep',
+            'RecheckCollisionFilter', 'RecheckContactPoints', 'SetMass', 'GetMass',
+            'GetInertia', 'GetMaterialIndex', 'GetContents', 'SetContents',
+            'GetSphereRadius', 'SetPosition', 'SetPositionMatrix', 'GetPosition',
+            'GetPositionMatrix', 'SetVelocity', 'GetVelocity', 'AddVelocity',
+            'GetVelocityAtPoint', 'LocalToWorld', 'WorldToLocal', 'LocalToWorldVector',
+            'WorldToLocalVector', 'ApplyForceCenter', 'ApplyForceOffset',
+            'ApplyTorqueCenter', 'CalculateVelocityOffset', 'CalculateLinearDrag',
+            'CalculateAngularDrag', 'GetContactPoint', 'GetShadowPosition',
+            'GetShadowController', 'RemoveShadowController', 'GetCollide', 'GetName',
+            'BecomeTrigger', 'RemoveTrigger', 'CreateFrictionSnapshot',
+            'DestroyFrictionSnapshot',
+        ],
+    ),
+    dict(
+        struct='PhysicsShadowControllerVtbl',
+        library='vphysics',
+        methods=[
+            'IsPhysicallyControlled', 'GetLastImpulse',
+        ],
+    ),
+    dict(
+        struct='PhysicsMotionControllerVtbl',
+        library='vphysics',
+        methods=[
+            'AttachObject', 'DetachObject', 'WakeObjects',
+        ],
+    ),
+    dict(
+        struct='PhysicsPlayerControllerVtbl',
+        library='vphysics',
+        methods=[
+            'Update', 'IsInContact', 'SetObject', 'GetShadowPosition', 'StepUp', 'Jump',
+            'GetShadowVelocity', 'GetLastImpulse', 'SetPushMassLimit',
+            'SetPushSpeedLimit', 'WasFrozen',
+        ],
+    ),
+    dict(
+        struct='PhysicsFrictionSnapshotVtbl',
+        library='vphysics',
+        methods=[
+            'IsValid', 'GetObject', 'GetContactPoint', 'GetSurfaceNormal',
+            'GetNormalForce', 'RecomputeFriction', 'ClearFrictionForce',
+            'NextFrictionData',
+        ],
+    ),
+    dict(
+        struct='PhysicsFluidControllerVtbl',
+        library='vphysics',
+        methods=[
+            'GetGameData', 'GetSurfacePlane', 'GetDensity',
+        ],
+    ),
+    dict(
+        struct='PhysicsConstraintVtbl',
+        library='vphysics',
+        methods=[
+            'Deactivate', 'GetReferenceObject', 'GetAttachedObject', 'SetLinearMotor',
+            'SetAngularMotor',
+        ],
+    ),
+    dict(
+        struct='PhysicsConstraintGroupVtbl',
+        library='vphysics',
+        methods=[
+            'Activate', 'IsInErrorState', 'ClearErrorState',
+        ],
+    ),
+    dict(
+        struct='PhysicsSpringVtbl',
+        library='vphysics',
+        methods=[
+            'SetSpringConstant', 'SetSpringDamping', 'SetSpringLength',
+        ],
+    ),
+    dict(
+        struct='PhysicsCollisionSetVtbl',
+        library='vphysics',
+        methods=[
+            'EnableCollisions', 'DisableCollisions',
+        ],
+    ),
+    dict(
+        struct='PhysicsCollisionDataVtbl',
+        library='vphysics',
+        methods=[
+            'GetSurfaceNormal', 'GetContactPoint',
+        ],
+    ),
+    dict(
+        struct='VPhysicsKeyParserVtbl',
+        library='vphysics',
+        methods=[
+            'GetCurrentBlockName', 'Finished', 'ParseSolid', 'ParseFluid',
+            'ParseRagdollConstraint', 'ParseSurfaceTable', 'ParseCustom', 'SkipBlock',
         ],
     ),
 ]
@@ -123,6 +365,24 @@ def interface_entry(struct):
             return entry
     raise Refusal('FORWARD names %s, which tools/vtable-layout has no INTERFACES row for'
                   % struct)
+
+
+def resolved(row):
+    """The row with its derived fields filled in: table, self_type, include,
+    library."""
+    entry = interface_entry(row['struct'])
+    out = dict(row)
+    out.setdefault('table', row['struct'][:-len('Vtbl')] if row['struct'].endswith('Vtbl')
+                   else row['struct'])
+    out.setdefault('self_type', entry['chain'][-1])
+    header = entry['header']
+    out.setdefault('include', header[len('src/public/'):] if header.startswith('src/public/')
+                   else header[len('src/'):])
+    out.setdefault('library', 'engine')
+    if out['library'] not in LIBRARIES:
+        raise Refusal('%s names library %s, which LIBRARIES does not hold'
+                      % (row['struct'], out['library']))
+    return out
 
 
 def slots_of(entry):
@@ -161,6 +421,7 @@ def parameter_types(parameters):
 def forwarders_of(row):
     """[(field, cpp return, cpp parameter types, C# function-pointer type,
     C++ declaration)] for one FORWARD row, in the row's order."""
+    row = resolved(row)
     entry = interface_entry(row['struct'])
     named = slots_of(entry)
 
@@ -197,19 +458,23 @@ def forwarders_of(row):
 GENERATED = 'GENERATED by `tools/engine-forwarders --write`. DO NOT EDIT.'
 
 
-def emit_native(tables):
+def emit_native(tables, library='engine'):
     # The forwarders call Valve's methods through the SDK headers, so the file
     # carries the attribution header (CLAUDE.md, "Valve attribution").
     out = read(VALVE_HEADER).rstrip('\n').split('\n') + [
         '// ' + GENERATED,
         '//',
-        '// One forwarder per engine method managed calls, and one SSForwarderTable per',
-        '// interface (src/fwd/native/ss_fwd.h). Each forwarder is a direct call to the',
-        '// method through the engine object\'s own vtable, compiled for this ABI, so the',
+        '// %s: one forwarder per method managed calls, and one SSForwarderTable' % LIBRARIES[library]['binary'],
+        '// per interface (src/fwd/native/ss_fwd.h). Each forwarder is a direct call to the',
+        '// method through the object\'s own vtable, compiled for this ABI, so the',
         '// slot numbering is the compiler\'s and never written here. Included by',
-        '// fwd_engine.cpp, which includes the interface headers first.',
+        '// fwd_%s.cpp.' % library,
         '',
     ]
+
+    for include in sorted(set(row['include'] for row, _forwarders in tables)):
+        out.append('#include "%s"' % include)
+    out.append('')
 
     for row, forwarders in tables:
         name = row['table']
@@ -224,14 +489,26 @@ def emit_native(tables):
                                        args) if args else \
                    'self->%s()' % declaration.split('::', 1)[1].split('(', 1)[0]
             body = '%s%s;' % ('' if returns.strip() == 'void' else 'return ', call)
+            condition = row.get('conditional', {}).get(field)
             out.append('// %s' % declaration)
+            if condition:
+                out.append('#if defined( %s )' % condition)
             out.append('static %s %s%s_%s( %s *self%s ) { %s }'
                        % (returns, PREFIX, name, field, row['self_type'], params, body))
+            if condition:
+                out.append('#endif')
 
         out.append('')
         out.append('static void *const s_%sSlots[] = {' % name)
         for field, *_ in forwarders:
+            condition = row.get('conditional', {}).get(field)
+            if condition:
+                out.append('#if defined( %s )' % condition)
             out.append('\treinterpret_cast< void * >( &%s%s_%s ),' % (PREFIX, name, field))
+            if condition:
+                out.append('#else')
+                out.append('\tnullptr, // the engine is built without %s and has no %s' % (condition, field))
+                out.append('#endif')
         out.append('};')
         out.append('')
         out.append('static const SSForwarderTable s_%sTable = { s_%sSlots, %d };'
@@ -248,13 +525,13 @@ def emit_native(tables):
     return '\n'.join(out)
 
 
-def emit_managed(tables):
+def emit_managed(tables, library='engine'):
     out = [
         '// ' + GENERATED,
         '//',
-        '// One struct per forwarder table libss_fwd_engine serves (src/fwd/native):',
+        '// One struct per forwarder table %s serves (src/fwd/native):' % LIBRARIES[library]['binary'],
         '// plain function-pointer fields in the table\'s order, so field N is slot N',
-        '// on every ABI. The first argument of each is the ENGINE object, not the',
+        '// on every ABI. The first argument of each is the OBJECT, not the',
         '// table: `_fwd->GetModel(_self, index)`. Slots only append, so',
         '// Forwarders.TryAcquire holds only that native serves at least as many',
         '// slots as the struct has fields.',
@@ -281,6 +558,10 @@ def emit_managed(tables):
         for field, _returns, _types, kind, declaration in forwarders:
             out.append('')
             out.append('    // %s' % declaration)
+            condition = row.get('conditional', {}).get(field)
+            if condition:
+                out.append('    // NULL where the engine is built without %s: the method does not' % condition)
+                out.append('    // exist there, so a caller checks the slot before calling it.')
             out.append('    public %s %s;' % (kind, field))
 
         out.append('}')
@@ -294,12 +575,14 @@ FIELD = re.compile(r'^    public (delegate\* .+) (\w+);$')
 
 
 def committed_slots(managed):
-    """{table: [(field, C# function-pointer type)]} as a committed
-    EngineForwarders.g.cs lists them; {} for no file."""
+    """{table: [(field, C# function-pointer type)]} as committed C# files list
+    them; {} for none. `managed` is one file's text, or a list of them."""
     tables = {}
     current = None
 
-    for line in (managed or '').split('\n'):
+    texts = managed if isinstance(managed, list) else [managed]
+
+    for line in '\n'.join(text or '' for text in texts).split('\n'):
         struct = STRUCT.match(line)
         if struct:
             current = tables.setdefault(struct.group(1), [])
@@ -330,11 +613,12 @@ def emit(previous=None, reorder=False):
     """({path: text}, None) or (None, why). `previous` is the committed
     {table: slots}, which every table must extend at its end unless `reorder`."""
     try:
-        tables = [(row, forwarders_of(row)) for row in FORWARD]
+        rows = [resolved(row) for row in FORWARD]
+        tables = [(row, forwarders_of(row)) for row in rows]
     except Refusal as error:
         return None, str(error)
 
-    names = [row['table'] for row in FORWARD]
+    names = [row['table'] for row in rows]
     if len(set(names)) != len(names):
         return None, 'FORWARD names a table twice'
 
@@ -345,7 +629,17 @@ def emit(previous=None, reorder=False):
             if why:
                 return None, why
 
-    return {OUT_NATIVE: emit_native(tables), OUT_MANAGED: emit_managed(tables)}, None
+    files = {}
+    for library, paths in LIBRARIES.items():
+        mine = [(row, forwarders) for row, forwarders in tables if row['library'] == library]
+        files[paths['native']] = emit_native(mine, library)
+        files[paths['managed']] = emit_managed(mine, library)
+    return files, None
+
+
+def committed():
+    """The committed slots of every library's C# file."""
+    return committed_slots([read(paths['managed']) for paths in LIBRARIES.values()])
 
 
 def read(relative):
@@ -357,7 +651,7 @@ def read(relative):
 
 
 def check(out=sys.stdout):
-    files, why = emit(committed_slots(read(OUT_MANAGED)))
+    files, why = emit(committed())
 
     if files is None:
         print('!! %s' % why, file=out)
@@ -372,9 +666,9 @@ def check(out=sys.stdout):
     if stale:
         return 1
 
-    for row in FORWARD:
-        print('  %-12s %2d forwarder(s) over %s' % (row['table'], len(row['methods']),
-                                                    row['self_type']), file=out)
+    for row in (resolved(row) for row in FORWARD):
+        print('  %-28s %3d forwarder(s) over %s (%s)'
+              % (row['table'], len(row['methods']), row['self_type'], row['library']), file=out)
     return 0
 
 
@@ -396,7 +690,7 @@ def self_test(out=sys.stdout):
             return True
         return False
 
-    base = dict(FORWARD[0])
+    base = resolved(FORWARD[0])
 
     ok('the committed FORWARD rows are all forwardable', emit()[0] is not None)
     ok('a method the interface does not declare is refused',
@@ -422,6 +716,12 @@ def self_test(out=sys.stdout):
        '~' not in native and 'Destructor' not in native)
     ok('the C++ table is the slot array and its count',
        'static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 2 };' in native)
+
+    gated = emit_native([(dict(base, conditional={'GetModelType': 'SOME_FLAG'}), rows)])
+    ok('a conditional method is compiled under its #if and is a NULL slot without it',
+       '#if defined( SOME_FLAG )\nstatic int SSFwd_ModelInfo_GetModelType(' in gated
+       and '#else\n\tnullptr, // the engine is built without SOME_FLAG and has no GetModelType\n#endif' in gated
+       and gated.count('#if defined( SOME_FLAG )') == 2)
 
     managed = emit_managed([(base, rows)])
     ok('the C# struct has one plain field per forwarder, in table order',
@@ -472,7 +772,7 @@ def main(argv):
         return self_test()
 
     if argv[1:] in (['--write'], ['--write', '--reorder']):
-        files, why = emit(committed_slots(read(OUT_MANAGED)), reorder='--reorder' in argv)
+        files, why = emit(committed(), reorder='--reorder' in argv)
         if files is None:
             print('!! %s' % why, file=sys.stderr)
             return 2
