@@ -200,8 +200,11 @@ target_include_directories(ss_cpptest_dtobjs PRIVATE ${SS_SRC} ${SS_SRC}/sources
 # used only under _DEBUG.
 # Built as the client's arm: dt_recv.cpp's RecvPropArray3 names AllocateStringHelper,
 # client-only since the server gc cull; the server arm is a subset of it.
+# The flag is gcc's and clang's; cl stops at it (D8021), and needs nothing in
+# its place, since /W3 does not warn on an unused file static.
 set_source_files_properties(${SS_SRC}/sourcesharp/public/dt_utlvector_common.cpp
-    PROPERTIES COMPILE_OPTIONS -Wno-unused-variable COMPILE_DEFINITIONS CLIENT_DLL)
+    PROPERTIES COMPILE_OPTIONS "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-unused-variable>"
+               COMPILE_DEFINITIONS CLIENT_DLL)
 
 ss_cpptest_mathlib(payload_recv_test
     SOURCES sourcesharp/test/payload_recv_test.cpp
