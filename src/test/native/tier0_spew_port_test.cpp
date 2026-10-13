@@ -117,7 +117,7 @@ TEST_F( Tier0SpewPort, TheSpewSlotIsThisDllsOwnAndNullRestoresTheConsole )
 	EXPECT_NE( nullptr, GetSpewOutputFunc() );
 
 	SpewOutputFunc( Hook );
-	EXPECT_EQ( Hook, GetSpewOutputFunc() );
+	EXPECT_EQ( &Hook, GetSpewOutputFunc() );
 	Msg( "hooked\n" );
 	ASSERT_EQ( 1u, g_Hooked.size() );
 	EXPECT_EQ( SPEW_MESSAGE, g_Hooked[0].type );

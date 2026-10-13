@@ -32,7 +32,13 @@
 	#ifndef NOMINMAX
 		#define NOMINMAX
 	#endif
+	// Valve's xboxstubs.h defines INVALID_HANDLE_VALUE, to the value
+	// <windows.h> gives it, when a Valve header that includes it comes first;
+	// C4005 would call the second definition an error under /WX.
+	#pragma warning( push )
+	#pragma warning( disable : 4005 )
 	#include <windows.h>
+	#pragma warning( pop )
 	#include <intrin.h>
 	#include <process.h>
 	#include <direct.h>

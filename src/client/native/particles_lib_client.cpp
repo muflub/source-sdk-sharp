@@ -71,6 +71,8 @@ ISSParticleLib *Lib()
 // static initialiser in the DLL -- the same ordering guarantee.
 #if defined( _MSC_VER )
 void LoadParticleLib();
+// C4073 says only that this is what init_seg(lib) does.
+#pragma warning( disable : 4073 )
 #pragma init_seg( lib )
 static const int s_nParticleLibLoaded = ( LoadParticleLib(), 0 );
 void LoadParticleLib()

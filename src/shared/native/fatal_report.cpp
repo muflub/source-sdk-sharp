@@ -129,8 +129,14 @@ void SourceSharp_FatalReport( const char *pKind, const char *pMsg )
 	fflush( stderr );
 	SourceSharp_WriteReport( ss_fileno( stderr ), pKind, pMsg, true );
 
+#if defined( _MSC_VER )
+	// The alternate name above always binds (to the no-op when nothing else
+	// defines the witness), so there is no null to test.
+	SourceSharp_FatalWitness( pKind, pMsg );
+#else
 	if ( SourceSharp_FatalWitness )
 		SourceSharp_FatalWitness( pKind, pMsg );
+#endif
 
 	const char *pszDir = getenv( "SOURCESHARP_ASSERT_DIR" );
 	if ( pszDir && pszDir[0] )
