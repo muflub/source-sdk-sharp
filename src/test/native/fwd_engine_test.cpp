@@ -290,3 +290,25 @@ TEST( FwdEngine, GetCollideForVirtualTerrainForwardsTheIndex )
 	EXPECT_STREQ( "GetCollideForVirtualTerrain", g_seen.pszMethod );
 	EXPECT_EQ( 12, g_seen.args[ 0 ] );
 }
+
+TEST( FwdEngine, TheInternalFactoryServesATableAsItsSlotArrayWithItsCount )
+{
+	// SSFwdEngine_Serve is what both game DLLs' internal factory answers with:
+	// the object's first word must be the slot array (managed reads the table
+	// through it) and the count the table's own.
+	int32_t nEntries = -1;
+	void *pServed = SSFwdEngine_Serve( "SSFwd_ModelInfo", &nEntries );
+	ASSERT_NE( nullptr, pServed );
+	EXPECT_EQ( (int32_t)kModelInfoSlots, nEntries );
+	EXPECT_EQ( ModelInfoTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
+}
+
+TEST( FwdEngine, TheInternalFactoryLeavesTheCountAloneForANameItDoesNotServe )
+{
+	int32_t nEntries = -1;
+	EXPECT_EQ( nullptr, SSFwdEngine_Serve( "VModelInfoServer004", &nEntries ) );
+	EXPECT_EQ( -1, nEntries );
+	// And a caller that wants no count may pass none.
+	EXPECT_NE( nullptr, SSFwdEngine_Serve( "SSFwd_ModelInfo", nullptr ) );
+}
+

@@ -1607,7 +1607,8 @@ shim_cpp_files	src/sourcesharp	220
 # RAISED 2026-10-13, 143847 -> 143988 (+141, measured by the walk), deliberately: mathlib_port.cpp and mathlib_port.h, the mathlib members server.so calls, so libmathlib.a leaves its link (the TU raise above says what they bind).
 # LOWERED 2026-10-13, 143988 -> 143987 (-1, measured by the walk): shell_gamedll.cpp's MathLib_Init call, which went with libmathlib.a.
 # RAISED 2026-10-13, 143987 -> 144081 (+94, measured by the walk), deliberately: fwd_engine.cpp and ss_fwd.h, the forwarder library and the table managed binds (the TU raise above says what they bind).
-shim_lines	src/sourcesharp	144081
+# RAISED 2026-10-13, 144081 -> 144107 (+26, measured by the walk), deliberately: ss_fwd.h's SSFwdEngine_Serve and shell_internalfactory.cpp calling it, so both game DLLs serve the forwarder tables.
+shim_lines	src/sourcesharp	144107
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

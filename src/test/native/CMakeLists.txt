@@ -5265,6 +5265,13 @@ ss_cpptest(particles_lib_isolation_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/particles_lib_isolation_test.cpp)
 
+# plan_engine_forwarders.md: libss_fwd_engine.so exports SSFwdEngine_Table
+# alone and links no SDK library; server.so and client.so need it by SONAME
+# and import that function. Read off the built files with nm and readelf.
+ss_cpptest(fwd_engine_isolation_test
+    LINUX_ONLY "reads the Linux build's shared objects with nm and readelf"
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_isolation_test.cpp)
+
 # The game DLLs export CreateInterface alone, read from the built files on both
 # platforms (ELF's dynamic symbols, PE's export directory): MSVC exports a
 # definition of a dllimport-declared function, and server.dll/client.dll had

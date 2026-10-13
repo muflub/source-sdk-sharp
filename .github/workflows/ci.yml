@@ -200,6 +200,8 @@ jobs:
           tools/build/ci-build release mathlib
       - name: "Sniper (gcc 10): libss_particles.so"
         run: tools/build/ci-build release ss_particles
+      - name: "Sniper (gcc 10): libss_fwd_engine.so"
+        run: tools/build/ci-build release ss_fwd_engine
       - name: "Sniper (gcc 10): libmanaged_host.so"
         run: tools/build/ci-build release sourcesharp
       - name: "Sniper (gcc 10): server.so"
@@ -272,6 +274,8 @@ jobs:
         run: cmake --build --preset release --target tier1 mathlib
       - name: "Native: libss_particles.so"
         run: cmake --build --preset release --target ss_particles
+      - name: "Native: libss_fwd_engine.so"
+        run: cmake --build --preset release --target ss_fwd_engine
       - name: "Native: libmanaged_host.so"
         run: cmake --build --preset release --target sourcesharp
       - name: "Native: server.so"
@@ -345,7 +349,7 @@ jobs:
           mkdir -p "$smoke"
           tar -C "$smoke" -xzf "dist/sourcesharp-$SS_LABEL-linux-x64.tar.gz"
           "$smoke/sourcesharp/source#" --help | sed -n 1p
-          for so in server.so client.so libmanaged_host.so libss_particles.so libsteam_api.so; do
+          for so in server.so client.so libmanaged_host.so libss_particles.so libss_fwd_engine.so libsteam_api.so; do
             test -f "$smoke/sourcesharp/bin/linux64/$so" || { echo "::error::$so is not in the archive"; exit 1; }
           done
           test -L "$smoke/sourcesharp/mods/test/bin"
@@ -751,6 +755,8 @@ jobs:
         run: cmake --build --preset windows-release --target tier1 mathlib -- -k 0
       - name: "Native: ss_particles.dll"
         run: cmake --build --preset windows-release --target ss_particles -- -k 0
+      - name: "Native: ss_fwd_engine.dll"
+        run: cmake --build --preset windows-release --target ss_fwd_engine -- -k 0
       - name: "Native: managed_host.dll"
         run: cmake --build --preset windows-release --target sourcesharp -- -k 0
       - name: "Native: server.dll"

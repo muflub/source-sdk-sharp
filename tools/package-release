@@ -81,13 +81,15 @@ def leaves_game_archive(name):
 # build splits none (macOS keeps it in the objects).
 PLATFORMS = {
     "linux-x64": dict(bindir="linux64", launcher="source#", steam="libsteam_api.so",
-                      native=("server.so", "client.so", "libmanaged_host.so", "libss_particles.so"),
+                      native=("server.so", "client.so", "libmanaged_host.so", "libss_particles.so",
+                              "libss_fwd_engine.so"),
                       debug=".dbg", archive="tar", links="keep"),
     "win-x64": dict(bindir="x64", launcher="source#.exe", steam="steam_api64.dll",
-                    native=("server.dll", "client.dll", "managed_host.dll", "ss_particles.dll"),
+                    native=("server.dll", "client.dll", "managed_host.dll", "ss_particles.dll",
+                            "ss_fwd_engine.dll"),
                     debug=".pdb", archive="zip", links="copy"),
     "osx-x64": dict(bindir="osx64", launcher="source#", steam=None,
-                    native=("server.dylib", "client.dylib", "libmanaged_host.dylib"),
+                    native=("server.dylib", "client.dylib", "libmanaged_host.dylib", "libss_fwd_engine.dylib"),
                     debug=None, archive="tar", links="keep"),
 }
 

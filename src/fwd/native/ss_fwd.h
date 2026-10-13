@@ -53,4 +53,21 @@ struct SSForwarderNamed
 // the library: nothing is allocated, so nothing is released.
 SS_FWD_ENGINE_API const SSForwarderTable *SSFwdEngine_Table( const char *pszName );
 
+// What a game DLL's internal factory answers for a name (SourceSharp_
+// InternalFactory): the table, as the object managed binds (its first word is
+// the slot array), with its count in *pnEntries; NULL, and *pnEntries left
+// alone, for a name the library does not serve.
+inline void *SSFwdEngine_Serve( const char *pszName, int32_t *pnEntries )
+{
+	const SSForwarderTable *pTable = SSFwdEngine_Table( pszName );
+
+	if ( !pTable )
+		return nullptr;
+
+	if ( pnEntries )
+		*pnEntries = pTable->nSlots;
+
+	return const_cast< SSForwarderTable * >( pTable );
+}
+
 #endif // SS_FWD_H
