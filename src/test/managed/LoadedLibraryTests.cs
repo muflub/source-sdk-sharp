@@ -55,4 +55,23 @@ public class LoadedLibraryTests
     private static bool InProcess(string file)
         => Process.GetCurrentProcess().Modules.Cast<ProcessModule>()
             .Any(m => string.Equals(m.ModuleName, file, StringComparison.OrdinalIgnoreCase));
+
+    [Fact]
+    public void EachPlatformAsksForTheAccessorVersionsItsShippedSteamApiExports()
+    {
+        // libsteam_api.so (bin/linux64) exports v021/v014 and no other;
+        // steam_api64.dll (bin/x64) is a newer build: v023/v015.
+        Assert.Equal("SteamAPI_SteamUser_v021", SteamApiExports.UserAccessorFor(windows: false));
+        Assert.Equal("SteamAPI_SteamUser_v023", SteamApiExports.UserAccessorFor(windows: true));
+        Assert.Equal("SteamAPI_SteamGameServer_v014", SteamApiExports.GameServerAccessorFor(windows: false));
+        Assert.Equal("SteamAPI_SteamGameServer_v015", SteamApiExports.GameServerAccessorFor(windows: true));
+    }
+
+    [Fact]
+    public void ThisProcessAsksForItsOwnPlatformsAccessors()
+    {
+        bool windows = OperatingSystem.IsWindows();
+        Assert.Equal(SteamApiExports.UserAccessorFor(windows), SteamApiExports.UserAccessor);
+        Assert.Equal(SteamApiExports.GameServerAccessorFor(windows), SteamApiExports.GameServerAccessor);
+    }
 }

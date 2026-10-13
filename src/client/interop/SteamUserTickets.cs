@@ -13,8 +13,8 @@ public sealed unsafe class SteamUserTickets(ILog log) : ISteamAuthTickets
 {
     public static string Library => LoadedLibrary.SteamApi;
 
-    /// <summary>The ISteamUser accessor THIS libsteam_api.so exports (it has no other).</summary>
-    public const string AccessorExport = "SteamAPI_SteamUser_v021";
+    /// <summary>The ISteamUser accessor this platform's Steam API exports (it has no other): <see cref="SteamApiExports"/>.</summary>
+    public static string AccessorExport => SteamApiExports.UserAccessor;
 
     /// <summary>Steam's advice for the buffer: a ticket is well under it.</summary>
     public const int MaxTicket = 1024;

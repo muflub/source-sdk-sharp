@@ -58,12 +58,13 @@ public sealed unsafe class SteamGameServerFlat : ISteamGameServer
 {
     public static string Library => LoadedLibrary.SteamApi;
 
-    // SteamGameServer014: the version THIS libsteam_api.so's flat API is built
-    // for -- it exports SteamAPI_SteamGameServer_v014 and no other. The SDK's
-    // isteamgameserver.h names 015, which the native context asked the Steam
-    // client for; the client serves both, and the flat functions below take
-    // the 014 pointer their own accessor returns, so the pair is consistent.
-    public const string AccessorExport = "SteamAPI_SteamGameServer_v014";
+    // The version THIS platform's Steam API flat build exports and no other:
+    // 014 in Linux's libsteam_api.so, 015 in Windows' steam_api64.dll
+    // (SteamApiExports). The SDK's isteamgameserver.h names 015, which the
+    // native context asked the Steam client for; the client serves both, and
+    // the flat functions below take the pointer their own accessor returns,
+    // so the pair is consistent.
+    public static string AccessorExport => SteamApiExports.GameServerAccessor;
 
     private readonly ISteamLibrary _loader;
 

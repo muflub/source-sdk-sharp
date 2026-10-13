@@ -48,7 +48,7 @@ public class SteamUserTicketsTests
         Assert.False(Mapped(), "asking for a ticket loaded the Steam API");
 
         // THE POSITIVE ARM: once the process has the library, every ticket
-        // export binds (SteamAPI_SteamUser_v021 and the three functions): what
+        // export binds (the platform's SteamUser accessor and the three functions): what
         // is left is that this process never initialised Steam.
         NativeLibrary.Load(library);
         var bound = new SteamUserTickets(new RecordingLog());

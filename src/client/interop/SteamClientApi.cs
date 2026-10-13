@@ -65,8 +65,8 @@ public sealed unsafe class SteamClientFlat : ISteamClientApi
 {
     public static string Library => LoadedLibrary.SteamApi;
 
-    /// <summary>The accessors THIS process's libsteam_api.so (bin/linux64) exports.</summary>
-    public const string UserAccessor = "SteamAPI_SteamUser_v021";
+    /// <summary>The accessors this platform's Steam API exports (<see cref="SteamApiExports"/>: ISteamUser's version differs).</summary>
+    public static string UserAccessor => SteamApiExports.UserAccessor;
     public const string UtilsAccessor = "SteamAPI_SteamUtils_v010";
     public const string AppsAccessor = "SteamAPI_SteamApps_v008";
 

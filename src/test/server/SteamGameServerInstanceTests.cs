@@ -47,7 +47,7 @@ public unsafe class SteamGameServerInstanceTests
         {
             address = !exports ? IntPtr.Zero : name switch
             {
-                SteamGameServerFlat.AccessorExport => (IntPtr)(delegate* unmanaged<nint>)&Accessor,
+                _ when name == SteamGameServerFlat.AccessorExport => (IntPtr)(delegate* unmanaged<nint>)&Accessor,
                 "SteamAPI_ISteamGameServer_BLoggedOn" => (IntPtr)(delegate* unmanaged<nint, byte>)&LoggedOnExport,
                 "SteamAPI_ISteamGameServer_GetGameplayStats" => (IntPtr)(delegate* unmanaged<nint, void>)&StatsExport,
                 _ => IntPtr.Zero,
