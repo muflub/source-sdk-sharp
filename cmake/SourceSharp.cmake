@@ -402,14 +402,18 @@ endfunction()
 # plan_server_novalve.md P4): with them, every opendir it calls is an import
 # from tier0.
 #
-# NO_RUNTIME, for a library that calls nothing (libss_fwd_engine): no C++
-# runtime and none of the system libraries the VPC line names. On Linux it
-# needs libc alone (-nodefaultlibs, then -lc; --no-undefined still fails the
-# link on anything else it would need). On Windows it links no CRT at all:
-# /NODEFAULTLIB, /NOENTRY (no DllMain, so nothing runs at load but the
-# loader's relocations: the library may hold no dynamic initialiser) and /GS-
-# (the security cookie is the CRT's). The static CRT is most of such a DLL:
-# 104 KB of 105 for the forwarders.
+# NO_RUNTIME, for a library that calls nothing (libss_fwd_engine): no C
+# runtime, no C++ runtime and none of the system libraries the VPC line
+# names, so it needs no other library at all. On Linux, -nostdlib: no libc,
+# no libgcc and no crt start files, whose only work is running global
+# constructors and destructors (with libc's __cxa_finalize) for a library
+# that has none; -fno-stack-protector, as some distributions' gcc turns it on
+# and its check is libc's. On Windows, /NODEFAULTLIB, /NOENTRY (no DllMain)
+# and /GS- (the security cookie is the CRT's). On both, nothing runs at load
+# but the loader's relocations, so the library may hold no dynamic
+# initialiser, and --no-undefined (on Windows, any unresolved symbol) still
+# fails the link on anything it would call. The static CRT had been most of
+# such a DLL: 104 KB of 105 for the forwarders.
 function(ss_sdk_target tgt)
   cmake_parse_arguments(A "RPATH_ORIGIN;NO_WRAP;NO_RUNTIME" "PROJECTDIR;VERSION_SCRIPT" "" ${ARGN})
   # VERSION_SCRIPT: the export list. Valve's devtools script (global: *) unless
@@ -483,11 +487,12 @@ function(ss_sdk_target tgt)
         ${PROJECT_SOURCE_DIR}/cmake/version_script_lld.txt)
     endif()
     if(A_NO_RUNTIME)
-      # Not under --coverage, whose libgcov the driver adds with the defaults.
-      # -static-libgcc is left off above: with no default libraries there is no
-      # libgcc to choose a form of, and clang warns that it is unused.
-      target_link_options(${tgt} PRIVATE $<$<NOT:$<BOOL:${SS_COVERAGE}>>:-nodefaultlibs>)
-      target_link_libraries(${tgt} PRIVATE c)
+      # Not under --coverage, whose counters need libgcov and libc: a
+      # coverage build links the defaults. -static-libgcc is left off above:
+      # with no libgcc there is no form of it to choose, and clang warns
+      # that it is unused.
+      target_compile_options(${tgt} PRIVATE -fno-stack-protector)
+      target_link_options(${tgt} PRIVATE $<$<NOT:$<BOOL:${SS_COVERAGE}>>:-nostdlib>)
     else()
       target_link_libraries(${tgt} PRIVATE m dl pthread uuid)
     endif()

@@ -1,9 +1,9 @@
 //========= SourceSharp — libss_fwd_engine.so, as the build links it =========//
 //
 // plan_engine_forwarders.md. The forwarder library exports its one function
-// and nothing else, needs libc alone (its forwarders are handed the engine
-// object, so there is nothing to connect to, and it links no runtime: NO_RUNTIME
-// in src/fwd/native/CMakeLists.txt), and both game DLLs need
+// and nothing else, needs no other library, libc included (its forwarders are
+// handed the engine object, so there is nothing to connect to, and it links no
+// runtime: NO_RUNTIME in src/fwd/native/CMakeLists.txt), and both game DLLs need
 // it by its SONAME, resolved beside them through RUNPATH $ORIGIN, and import
 // SSFwdEngine_Table rather than carrying a copy of their own. Read off the
 // built files with nm and readelf, as particles_lib_isolation_test reads
@@ -72,14 +72,16 @@ TEST( FwdEngineIsolation, TheLibraryExportsItsTableFunctionAndNothingElse )
 	EXPECT_EQ( std::set< std::string >{ "SSFwdEngine_Table" }, exports );
 }
 
-TEST( FwdEngineIsolation, TheLibraryNeedsLibcAndNothingElse )
+TEST( FwdEngineIsolation, TheLibraryNeedsNoOtherLibraryAndImportsNoSymbol )
 {
-	// NO_RUNTIME: no SDK library, and no C++ runtime or system library either
-	// (libstdc++, libm, libuuid were inherited from the VPC link line).
+	// NO_RUNTIME: no SDK library, no C++ runtime, no libc and no system
+	// library (libstdc++, libm, libuuid and libc came with the VPC link line),
+	// and nothing left to resolve: not even the crt start files' weak
+	// references to libc's __cxa_finalize.
 	// ::Run: inside a TEST body, Run alone is gtest's Test::Run.
 	const std::string lib = ::Run( "readelf -d " + Lib() );
-	ASSERT_NE( std::string::npos, lib.find( "(NEEDED)" ) ) << "readelf read libss_fwd_engine.so as empty";
-	EXPECT_NE( std::string::npos, lib.find( "Library soname: [libss_fwd_engine.so]" ) );
+	ASSERT_NE( std::string::npos, lib.find( "Library soname: [libss_fwd_engine.so]" ) )
+	    << "readelf read libss_fwd_engine.so as having no dynamic section";
 
 	std::set< std::string > needed;
 	const std::string marker = "Shared library: [";
@@ -88,7 +90,9 @@ TEST( FwdEngineIsolation, TheLibraryNeedsLibcAndNothingElse )
 		const size_t start = at + marker.size();
 		needed.insert( lib.substr( start, lib.find( ']', start ) - start ) );
 	}
-	EXPECT_EQ( std::set< std::string >{ "libc.so.6" }, needed );
+	EXPECT_EQ( std::set< std::string >{}, needed );
+
+	EXPECT_EQ( std::set< std::string >{}, Names( "-D --undefined-only " + Lib(), "Uwv" ) );
 }
 
 TEST( FwdEngineIsolation, BothGameLibrariesNeedItByItsSonameAndImportItsTableFunction )

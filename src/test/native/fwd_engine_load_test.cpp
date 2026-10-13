@@ -1,8 +1,8 @@
 //========= SourceSharp — libss_fwd_engine, loaded as the game loads it =========//
 //
 // plan_engine_forwarders.md. The forwarder library links no runtime
-// (NO_RUNTIME in src/fwd/native/CMakeLists.txt): libc alone on Linux, nothing
-// at all on Windows, where it has no CRT and no entry point. So nothing runs
+// (NO_RUNTIME in src/fwd/native/CMakeLists.txt): no libc and no crt start
+// files on Linux, no CRT and no entry point on Windows. So nothing runs
 // when it loads but the loader's relocations, and a table the compiler chose
 // to fill in a dynamic initialiser would load as nulls. fwd_engine_test cannot
 // see that: it compiles fwd_engine.cpp into an executable that has a CRT.

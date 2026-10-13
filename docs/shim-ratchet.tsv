@@ -1608,7 +1608,7 @@ shim_cpp_files	src/sourcesharp	220
 # LOWERED 2026-10-13, 143988 -> 143987 (-1, measured by the walk): shell_gamedll.cpp's MathLib_Init call, which went with libmathlib.a.
 # RAISED 2026-10-13, 143987 -> 144081 (+94, measured by the walk), deliberately: fwd_engine.cpp and ss_fwd.h, the forwarder library and the table managed binds (the TU raise above says what they bind).
 # RAISED 2026-10-13, 144081 -> 144107 (+26, measured by the walk), deliberately: ss_fwd.h's SSFwdEngine_Serve and shell_internalfactory.cpp calling it, so both game DLLs serve the forwarder tables.
-# RAISED 2026-10-13, 144107 -> 144111 (+4, measured by the walk), deliberately: fwd_engine.cpp compares table names itself (SameName) in place of libc's strcmp, so libss_fwd_engine links no runtime (NO_RUNTIME): libc alone on Linux, no CRT and no import on Windows, where the static CRT had been 104 KB of the 105 KB DLL. fwd_engine.cpp +6, net of ss_fwd.h's -2 for the slot hashes it no longer declares.
+# RAISED 2026-10-13, 144107 -> 144111 (+4, measured by the walk), deliberately: fwd_engine.cpp compares table names itself (SameName) in place of libc's strcmp, so libss_fwd_engine links no runtime (NO_RUNTIME): no libc on Linux, no CRT and no import on Windows, where the static CRT had been 104 KB of the 105 KB DLL. fwd_engine.cpp +6, net of ss_fwd.h's -2 for the slot hashes it no longer declares.
 shim_lines	src/sourcesharp	144111
 #
 # ---------------------------------------------------------------------------

@@ -21,7 +21,7 @@
 
 #include "fwd_engine.g.inc"
 
-// strcmp's equality, written out: the library links no runtime (NO_RUNTIME).
+// strcmp's equality, written out: the library links no libc (NO_RUNTIME).
 static bool SameName( const char *a, const char *b )
 {
 	while ( *a && *a == *b )
