@@ -32,7 +32,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+// memalloc.h itself defines MemAlloc_GetDebugInfoSize and its three
+// siblings twice for this case (once in the arm for a module without its
+// POSIX inlines, once in the NO_MALLOC_OVERRIDE arm, which Valve never
+// combined on Windows): C4005, an error under /WX. The second definitions,
+// the NO_MALLOC_OVERRIDE ones, are what this module wants, and they win.
+#ifdef _MSC_VER
+#pragma warning( push )
+#pragma warning( disable : 4005 )
+#endif
 #include "tier0/memalloc.h"
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif
 
 inline void MemAlloc_CheckAlloc( void *ptr, size_t nSize )
 {
