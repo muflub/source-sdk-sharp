@@ -12,7 +12,8 @@ name: CI
 #                     sniper container, and the GLIBC ceiling
 #   linux             the clang Release build of the game (no native tests:
 #                     linux-check builds and runs them), packaged with
-#                     linux-sniper's libraries
+#                     linux-sniper's libraries, which it waits for only at
+#                     the package step
 #   windows-managed   the managed test projects
 #   windows           the MSVC Release build, the native gtests, the package
 #
@@ -212,13 +213,18 @@ jobs:
           fi
 
   # The clang Release build of the whole game, and the archive: the game
-  # directory bin/release with linux-sniper's libraries in it. Waits for
-  # linux-sniper, which is the shorter of the two.
+  # directory bin/release with linux-sniper's libraries in it. It runs beside
+  # linux-sniper rather than after it, and waits for the libraries only at the
+  # package step, by which time linux-sniper (the shorter job) has usually
+  # uploaded them.
   linux:
     name: linux-x64 (build, package)
-    needs: linux-sniper
     runs-on: ubuntu-24.04
     timeout-minutes: 150
+    permissions:
+      contents: read
+      # The wait below reads this run's artifacts and jobs.
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -275,6 +281,30 @@ jobs:
           if [[ -d bin/release/cpptest ]] && ls bin/release/cpptest | grep -q .; then
             echo "::error::bin/release/cpptest holds test binaries"; exit 1
           fi
+
+      # No `needs:` on linux-sniper, so the two jobs run side by side: the
+      # libraries are waited for here, where they are first read. An artifact
+      # is listed on the run as soon as its job uploads it. If linux-sniper ends
+      # without uploading (it failed, or was cancelled), this fails at once
+      # rather than at the timeout.
+      - name: Wait for linux-sniper's libraries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          api="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          for (( waited = 0; waited <= 900; waited += 5 )); do
+            if gh api "$api/artifacts" --jq '.artifacts[].name' | grep -qx native-linux-x64-sniper; then
+              echo "waited ${waited}s for linux-sniper"; exit 0
+            fi
+            state="$(gh api "$api/jobs?filter=latest" \
+              --jq '.jobs[] | select(.name == "linux-x64 (sniper build)") | .status + " " + (.conclusion // "")')"
+            case "$state" in
+              "completed success"*) ;;   # done; the artifact listing can lag a moment
+              completed*) echo "::error::linux-sniper ended ($state) without uploading its libraries"; exit 1 ;;
+            esac
+            sleep 5
+          done
+          echo "::error::linux-sniper's libraries did not appear in 15 minutes"; exit 1
 
       - uses: actions/download-artifact@v8
         with:
