@@ -677,6 +677,13 @@ int SourceSharp_StandaloneMinBlobBytes()
 	return SourceSharp_TierBytes( SourceSharp_StandaloneMinTier() );
 }
 
+#if defined( _MSC_VER )
+// 'this' in the initialiser list below is deliberate. The build disables C4355
+// (/wd4355, as Valve's VPC does), but tier1/convar.h ends with
+// `#pragma warning( default : 4355 )`, which turns it back on for the rest of
+// any file that includes it.
+#pragma warning( disable : 4355 )
+#endif
 CStandaloneEntity::CStandaloneEntity()
 	  // FIRST, and the header declares it first for the same reason: a member
 	  // initialiser runs in DECLARATION order rather than in the order it is

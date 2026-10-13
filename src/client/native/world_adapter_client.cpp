@@ -360,6 +360,14 @@ float C_World::GetMaxPropScreenSpaceWidth()
 }
 
 
+#if defined( _MSC_VER )
+// 'this' in the initialiser list below is deliberate. The build disables C4355
+// (/wd4355, as Valve's VPC does), but tier1/convar.h ends with
+// `#pragma warning( default : 4355 )`, which turns it back on for the rest of
+// any file that includes it.
+#pragma warning( disable : 4355 )
+#endif
+
 //-----------------------------------------------------------------------------
 // m_Collideable IS NAMED IN THE INITIALISER LIST, which is what makes its owner
 // pointer valid before the body runs — the same reason the server's CWorld
