@@ -378,13 +378,18 @@ jobs:
       # The gate: every managed test project, as the Makefile's managed legs
       # run them (oracle-managed reads the pristine upstream clone, which
       # only the Linux job provisions). Each project runs whatever the one
-      # before it did, and the step fails if any failed.
+      # before it did, and the step fails if any failed. A fact that runs
+      # past five minutes is a hang: --blame-hang ends the test host and
+      # names the facts that were running, where the step would otherwise sit
+      # silent until the job's timeout (one did, for 20 minutes, with nothing
+      # in the log; the slowest fact takes about 30 s).
       - name: Test (managed, server, client, tf2_descent)
         run: |
           rc=0
           for dll in tests/SourceSharp.Shared.Tests.dll tests-server/SourceSharp.Server.Tests.dll \
                      tests-client/SourceSharp.Client.Tests.dll tf2_descent-tests/TF2.Descent.Tests.dll; do
-            env -u Platform dotnet test "bin/debug/$dll" --nologo || rc=1
+            env -u Platform dotnet test "bin/debug/$dll" --nologo \
+              --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none || rc=1
           done
           exit $rc
 
