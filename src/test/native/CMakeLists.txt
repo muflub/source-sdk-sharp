@@ -5140,3 +5140,7 @@ ss_cpptest(ss_bitblock_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/ss_bitblock_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/bitbuf_client.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
+
+# What this platform does not build (LINUX_ONLY, and must-not-compile under
+# MSVC), listed at configure time with each reason.
+ss_cpptest_report_linux_only()

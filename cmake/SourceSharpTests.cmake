@@ -43,7 +43,7 @@ if(SS_TEST_TREE STREQUAL "oracle")
 else()
   set(SS_CPPTEST_DIR "${SS_BIN}/cpptest")
 endif()
-set(SS_CPPTEST_LIBDIR "${SS_SRC}/lib/public/linux64")
+set(SS_CPPTEST_LIBDIR "${SS_SRC}/lib/public/${SS_PLATFORM_BINDIR}")
 
 # --- googletest -------------------------------------------------------------------
 #
@@ -96,6 +96,14 @@ endforeach()
 set(SS_CPPTEST_WARN -Wall -Wno-unused-parameter -Werror=format
   -Werror=delete-non-virtual-dtor -Werror)
 set(SS_CPPTEST_CXXFLAGS -g -O1 -pthread ${SS_CPPTEST_WARN})
+if(SS_IS_MSVC)
+  # The Windows column: the game build's MSVC warning set (/W3 /WX and the
+  # VPC /wd list, cmake/SourceSharp.cmake), /O1 for the reason -O1 is above,
+  # and /EHsc: the game is built without exceptions, but a test is not
+  # shipped, and gtest and the standard library want them.
+  set(SS_CPPTEST_WARN ${SS_WARN_MSVC})
+  set(SS_CPPTEST_CXXFLAGS /Zi /O1 /EHsc ${SS_CPPTEST_WARN})
+endif()
 
 # ss_test_compile_flags(<target>): the compile and link line every test shares.
 function(ss_test_compile_flags tgt)
@@ -103,7 +111,9 @@ function(ss_test_compile_flags tgt)
     CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF
     RUNTIME_OUTPUT_DIRECTORY "${SS_CPPTEST_DIR}")
   target_compile_options(${tgt} PRIVATE ${SS_CPPTEST_CXXFLAGS})
-  target_link_options(${tgt} PRIVATE -pthread)
+  if(NOT SS_IS_MSVC)
+    target_link_options(${tgt} PRIVATE -pthread)
+  endif()
   if(SS_IS_CLANG AND SS_LINKER STREQUAL "lld")
     target_link_options(${tgt} PRIVATE --ld-path=${SS_LD_PATH})
   endif()
@@ -118,14 +128,65 @@ endfunction()
 # (platform.h's dangling else in DECLARE_ALIGNED_BYTE_ARRAY, the MSVC pragmas)
 # is Valve's to own. Every warning stays live on the test's own sources.
 function(ss_test_engine_flags tgt)
-  target_compile_options(${tgt} PRIVATE -m64)
-  target_compile_definitions(${tgt} PRIVATE
-    POSIX _POSIX LINUX _LINUX GNUC NDEBUG PLATFORM_64BITS)
+  if(SS_IS_MSVC)
+    target_compile_definitions(${tgt} PRIVATE ${SS_CPPTEST_WINDOWS_DEFS} NDEBUG PLATFORM_64BITS)
+  else()
+    target_compile_options(${tgt} PRIVATE -m64)
+    target_compile_definitions(${tgt} PRIVATE
+      POSIX _POSIX LINUX _LINUX GNUC NDEBUG PLATFORM_64BITS)
+  endif()
   target_include_directories(${tgt} SYSTEM PRIVATE
     ${SS_SRC}/public ${SS_SRC}/public/tier0 ${SS_SRC}/public/tier1 ${SS_SRC}/common)
 endfunction()
 
 set(SS_CPPTEST_KEYWORDS DEFINES OPTIONS INCLUDES SOURCES LIBS)
+
+# THE TESTS NAME LINUX'S DEFINES, and on Windows they are translated here,
+# once, rather than in each of ~300 calls: the POSIX platform names a test
+# passes for Valve's headers (POSIX, LINUX, GNUC, COMPILER_GCC and their
+# spellings) become the Windows set, so platform.h takes its Windows arm with
+# the compiler that is really compiling it. Every other define a test passes
+# is kept as it is.
+set(SS_CPPTEST_WINDOWS_DEFS WIN32 _WIN32 WIN64 _WIN64 COMPILER_MSVC COMPILER_MSVC64)
+set(SS_CPPTEST_POSIX_DEF_RE "^(POSIX|_POSIX|LINUX|_LINUX|LINUX64|GNUC|COMPILER_GCC|_LINUXSTEAMRT64|LINUXSTEAMRT64)(=.*)?$")
+function(_ss_cpptest_platform_defines var)
+  if(NOT SS_IS_MSVC)
+    return()
+  endif()
+  set(out "")
+  set(had_posix OFF)
+  foreach(d IN LISTS ${var})
+    if(d MATCHES "${SS_CPPTEST_POSIX_DEF_RE}")
+      set(had_posix ON)
+    else()
+      list(APPEND out "${d}")
+    endif()
+  endforeach()
+  if(had_posix)
+    list(APPEND out ${SS_CPPTEST_WINDOWS_DEFS})
+  endif()
+  set(${var} "${out}" PARENT_SCOPE)
+endfunction()
+
+# LINUX_ONLY <reason>: a test whose subject exists only on Linux (an ELF
+# scan with nm or readelf, /proc, the Linux build's graph, a .so it dlopens)
+# is not built on another platform, and the reason is listed at configure
+# time (ss_cpptest_report_linux_only) rather than the test failing there for
+# a reason that is not about the code.
+function(_ss_cpptest_linux_only name reason)
+  set_property(GLOBAL APPEND PROPERTY SS_CPPTEST_LINUX_ONLY "${name}: ${reason}")
+endfunction()
+
+function(ss_cpptest_report_linux_only)
+  get_property(rows GLOBAL PROPERTY SS_CPPTEST_LINUX_ONLY)
+  list(LENGTH rows n)
+  if(n GREATER 0)
+    message(STATUS "native tests not built on ${SS_PLATFORM} (LINUX_ONLY): ${n}")
+    foreach(r IN LISTS rows)
+      message(STATUS "  ${r}")
+    endforeach()
+  endif()
+endfunction()
 
 # Farm-relative paths (".", "public/tier0", "sourcesharp/test/x.cpp") made
 # absolute under SS_SRC, in place.
@@ -164,15 +225,26 @@ add_custom_target(ss_oracle_tests)
 # _ss_cpptest(<kind> <name> [DEFINES ...] [OPTIONS ...] [INCLUDES ...]
 #             SOURCES ... [LIBS ...])
 function(_ss_cpptest kind name)
-  cmake_parse_arguments(A "" "" "${SS_CPPTEST_KEYWORDS}" ${ARGN})
+  cmake_parse_arguments(A "" "LINUX_ONLY" "${SS_CPPTEST_KEYWORDS}" ${ARGN})
   if(A_UNPARSED_ARGUMENTS OR NOT A_SOURCES)
     message(FATAL_ERROR "ss_cpptest ${name}: SOURCES required; unparsed: ${A_UNPARSED_ARGUMENTS}")
   endif()
   if(TARGET ${name})
     message(FATAL_ERROR "ss_cpptest ${name}: named twice")
   endif()
+  if(A_LINUX_ONLY AND NOT SS_PLATFORM STREQUAL linux)
+    _ss_cpptest_linux_only(${name} "${A_LINUX_ONLY}")
+    return()
+  endif()
   _ss_cpptest_paths(A_SOURCES)
   _ss_cpptest_paths(A_INCLUDES)
+  _ss_cpptest_platform_defines(A_DEFINES)
+  if(SS_IS_MSVC)
+    # The OPTIONS the tests pass are gcc's and clang's warning switches
+    # (-Wno-unknown-pragmas, -Wno-dangling-else, ...), which cl refuses; MSVC
+    # has the game build's /wd list (SS_CPPTEST_WARN). Its own /options stay.
+    list(FILTER A_OPTIONS INCLUDE REGEX "^/")
+  endif()
 
   add_executable(${name} ${A_SOURCES})
   ss_test_compile_flags(${name})
@@ -259,6 +331,10 @@ function(ss_must_not_compile name)
   if(TARGET ${name} OR TEST ${name})
     message(FATAL_ERROR "ss_must_not_compile ${name}: named twice")
   endif()
+  if(SS_IS_MSVC)
+    _ss_cpptest_linux_only(${name} "a must-not-compile check: it runs the compiler with gcc's and clang's flags and EXPECTs their error wording")
+    return()
+  endif()
   _ss_cpptest_paths(A_SOURCES)
   _ss_cpptest_paths(A_INCLUDES)
   list(TRANSFORM A_DEFINES PREPEND "-D")
@@ -299,6 +375,10 @@ endfunction()
 # calls to split the native and census legs' rosters. Call it after the test
 # is defined.
 function(ss_census name)
+  get_property(linux_only GLOBAL PROPERTY SS_CPPTEST_LINUX_ONLY)
+  if(linux_only MATCHES "(^|;)${name}: ")
+    return()  # not built on this platform (LINUX_ONLY)
+  endif()
   if(NOT TEST ${name})
     message(FATAL_ERROR "ss_census ${name}: no such test (call it after its ss_cpptest*())")
   endif()
