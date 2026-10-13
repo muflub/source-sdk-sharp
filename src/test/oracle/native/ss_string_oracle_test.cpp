@@ -729,3 +729,72 @@ TEST( SsStringOracle, UTF32ToUTF8IsQUTF32ToUTF8 )
 	EXPECT_GT( invalid, 100 );
 	EXPECT_EQ( 0, ss::UTF32ToUTF8( NULL, NULL, 0 ) );
 }
+
+// ss::UTF16ToUTF8 against pristine Q_UTF16ToUTF8 under its default policy
+// (what ILocalize::ConvertUnicodeToANSI calls on Windows): valid units, every
+// surrogate boundary, pairs whose code point is valid and pairs whose is not
+// (U+1FFFE), halves unpaired at either end and in either order, into buffers
+// too small for the whole string, and the NULL-destination length form.
+TEST( SsStringOracle, UTF16ToUTF8IsQUTF16ToUTF8 )
+{
+	const uint16_t kEdges[] = { 1, 0x41, 0x7F, 0x80, 0x7FF, 0x800, 0xD7FF, 0xD800, 0xDBFF, 0xDC00, 0xDFFF, 0xE000,
+	                            0xFDCF, 0xFDD0, 0xFDEF, 0xFDF0, 0xFFFD, 0xFFFE, 0xFFFF };
+	const int nEdges = (int)( sizeof( kEdges ) / sizeof( kEdges[0] ) );
+	int n = 0, pairs = 0, unpaired = 0;
+	for ( int round = 0; round < kRandomRounds; ++round )
+	{
+		uint16_t src[48];
+		int len = 0;
+		const int nChars = Pick( 0, 20 );
+		for ( int i = 0; i < nChars; ++i )
+		{
+			const int kind = Pick( 0, 4 );
+			if ( kind == 0 )
+			{
+				// A pair: any code point past the BMP, U+1FFFE among them.
+				const uint32_t v = Pick( 0, 4 ) ? (uint32_t)Pick( 0x10000, 0x10FFFF ) : 0x1FFFEu;
+				src[len++] = (uint16_t)( 0xD800u + ( ( v - 0x10000u ) >> 10 ) );
+				src[len++] = (uint16_t)( 0xDC00u + ( ( v - 0x10000u ) & 0x3FFu ) );
+				++pairs;
+			}
+			else
+			{
+				src[len++] = Pick( 0, 1 ) ? kEdges[Pick( 0, nEdges - 1 )] : (uint16_t)Pick( 1, 0xFFFF );
+			}
+		}
+		src[len] = 0;
+		for ( int i = 0; i < len; ++i )
+			unpaired += ( src[i] - 0xD800u ) < 0x800u;
+
+		const int size = Pick( 0, 3 ) ? Pick( 0, 100 ) : Pick( 0, 8 );
+		char valve[128], ours[128];
+		std::memset( valve, '#', sizeof( valve ) );
+		std::memset( ours, '#', sizeof( ours ) );
+		const int rv = Q_UTF16ToUTF8( (const uchar16 *)src, valve, size );
+		const int ro = ss::UTF16ToUTF8( src, ours, size );
+		ASSERT_EQ( rv, ro ) << "round " << round << " size " << size;
+		ASSERT_EQ( 0, std::memcmp( valve, ours, sizeof( valve ) ) ) << "round " << round << " size " << size;
+		ASSERT_EQ( Q_UTF16ToUTF8( (const uchar16 *)src, NULL, 0 ), ss::UTF16ToUTF8( src, NULL, 0 ) ) << "round " << round;
+		++n;
+	}
+	EXPECT_EQ( n, kRandomRounds );
+	EXPECT_GT( pairs, 100 );
+	EXPECT_GT( unpaired, 100 );
+	EXPECT_EQ( 0, ss::UTF16ToUTF8( NULL, NULL, 0 ) );
+}
+
+// WideToUTF8 is the converter for this platform's wchar_t: here, the one its
+// width names, byte for byte on a string with a character past the BMP.
+TEST( SsStringOracle, WideToUTF8ConvertsThisPlatformsWchar )
+{
+	const wchar_t *pWide = L"A\u00e9\U0001F600";
+	char wide[32], direct[32];
+	std::memset( wide, '#', sizeof( wide ) );
+	std::memset( direct, '#', sizeof( direct ) );
+	const int rw = ss::WideToUTF8( pWide, wide, sizeof( wide ) );
+	const int rd = sizeof( wchar_t ) == 4 ? ss::UTF32ToUTF8( (const uint32_t *)pWide, direct, sizeof( direct ) )
+	                                      : ss::UTF16ToUTF8( (const uint16_t *)pWide, direct, sizeof( direct ) );
+	EXPECT_EQ( rd, rw );
+	EXPECT_EQ( 0, std::memcmp( wide, direct, sizeof( wide ) ) );
+	EXPECT_STREQ( "A\xc3\xa9\xf0\x9f\x98\x80", wide );
+}
