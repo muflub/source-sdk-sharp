@@ -16,6 +16,9 @@
 #include "gtest/gtest.h"
 #include "../game/shared/entity_slots.h"
 
+#include <new>
+#include <vector>
+
 namespace
 {
 
@@ -400,6 +403,34 @@ TEST( EntitySlots, ResetClosesEverything )
 	EXPECT_EQ( 0, slots.ActiveCount() );
 	EXPECT_FALSE( slots.IsDirty( 1 ) );
 	EXPECT_EQ( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt( 1 ) );
+}
+
+//-----------------------------------------------------------------------------
+// The server's block is a static, and static storage is zero before its
+// constructor runs. A constructor that leaves every byte zero lets the compiler
+// emit the 160 KB object as .bss; one that writes anything else (the -1 that
+// used to mean "not in the active list") made MSVC emit all of it as
+// initialised data in server.dll. So: built over zeroed storage, as the static
+// is, it leaves zero bytes, and a slot opened and closed again reads as never
+// opened.
+//-----------------------------------------------------------------------------
+TEST( EntitySlots, ConstructionLeavesEveryByteZero )
+{
+	std::vector< unsigned char > storage( sizeof( CSourceSharpEntitySlots ), 0 );
+	CSourceSharpEntitySlots *pSlots = new ( storage.data() ) CSourceSharpEntitySlots;
+	size_t nNonZero = 0;
+	for ( unsigned char b : storage )
+		nNonZero += b != 0;
+	EXPECT_EQ( 0u, nNonZero ) << "of " << storage.size() << " bytes";
+
+	EXPECT_FALSE( pSlots->IsOpen( 0 ) );
+	EXPECT_FALSE( pSlots->IsOpen( SOURCESHARP_MAX_ENTITY_SLOTS - 1 ) );
+	ASSERT_TRUE( pSlots->Open( 0, HandleFor( 0 ), NULL ) );
+	EXPECT_TRUE( pSlots->IsOpen( 0 ) );
+	pSlots->Close( 0 );
+	EXPECT_FALSE( pSlots->IsOpen( 0 ) );
+	EXPECT_EQ( 0, pSlots->ActiveCount() );
+	pSlots->~CSourceSharpEntitySlots();
 }
 
 //-----------------------------------------------------------------------------

@@ -10,6 +10,13 @@
 // server.dll exported 21 tier0 ports beside CreateInterface, client.dll those
 // and vstdlib's random stream; both exported Valve's DLL_EXPORT `cvar` (as
 // client.so did on Linux).
+//
+// And each holds little initialised data. A static the compiler can evaluate
+// is emitted as the bytes it holds: a 1 MiB console buffer with one non-zero
+// header field, and the entity slot block whose "not in the list" was -1, each
+// put the whole object into server.dll's .data (MSVC folds a constructor it can
+// evaluate; on Linux both were .bss). Zero bytes cost nothing on disk, and what
+// is not zero is paid for in every copy of the file.
 
 #include "gtest/gtest.h"
 
@@ -119,6 +126,54 @@ std::set< std::string > ElfExports( const std::vector< unsigned char > &b )
 	return names;
 }
 
+// The bytes the file holds for its .data section: the PE section's raw size
+// (its zero tail, .bss, takes none), or the ELF section's size. -1 when there
+// is no such section, which no game DLL lacks.
+int64_t DataBytes( const std::vector< unsigned char > &b )
+{
+	if ( b.size() > 4 && b[ 0 ] == 0x7f && b[ 1 ] == 'E' && b[ 2 ] == 'L' && b[ 3 ] == 'F' )
+	{
+		uint64_t shoff = 0;
+		uint16_t shentsize = 0, shnum = 0, shstrndx = 0;
+		if ( !At( b, 0x28, shoff ) || !At( b, 0x3a, shentsize ) || !At( b, 0x3c, shnum ) || !At( b, 0x3e, shstrndx ) )
+			return -1;
+		uint64_t strOff = 0;
+		At( b, shoff + (uint64_t)shentsize * shstrndx + 24, strOff );
+		for ( uint16_t i = 0; i < shnum; i++ )
+		{
+			const uint64_t sh = shoff + (uint64_t)shentsize * i;
+			uint32_t name = 0;
+			uint64_t size = 0;
+			At( b, sh, name ); At( b, sh + 32, size );
+			if ( CString( b, strOff + name ) == ".data" )
+				return (int64_t)size;
+		}
+		return -1;
+	}
+	uint32_t pe = 0;
+	uint16_t nSections = 0, nOptional = 0;
+	if ( b.size() < 2 || b[ 0 ] != 'M' || b[ 1 ] != 'Z' || !At( b, 0x3c, pe ) || !At( b, pe + 6, nSections ) || !At( b, pe + 20, nOptional ) )
+		return -1;
+	const uint64_t sections = pe + 24 + nOptional;
+	for ( uint16_t i = 0; i < nSections; i++ )
+	{
+		const uint64_t s = sections + 40ull * i;
+		char name[ 9 ] = {};
+		if ( s + 8 > b.size() )
+			return -1;
+		memcpy( name, b.data() + s, 8 );
+		uint32_t rawSize = 0;
+		At( b, s + 16, rawSize );
+		if ( std::string( name ) == ".data" )
+			return rawSize;
+	}
+	return -1;
+}
+
+// What a game DLL may hold as initialised data. server.so held 26 KB, server.dll
+// 237 KB before the slot block and the element names left it (2026-10-13).
+const int64_t kDataCeiling = 64 * 1024;
+
 std::set< std::string > Exports( const char *pszPath )
 {
 	const std::vector< unsigned char > b = ReadAll( pszPath );
@@ -149,4 +204,25 @@ TEST( GameDllExports, TheServerExportsCreateInterfaceAlone )
 TEST( GameDllExports, TheClientExportsCreateInterfaceAlone )
 {
 	EXPECT_EQ( std::set< std::string >{ "CreateInterface" }, Exports( SS_CLIENT_LIB ) ) << SS_CLIENT_LIB;
+}
+
+TEST( GameDllExports, TheReaderSeesADataSection )
+{
+	// The control for the two facts below: the host has a .data section, so a
+	// reader that found none (-1) or read nothing (0) is caught here first.
+	EXPECT_GT( DataBytes( ReadAll( SS_HOST_LIB ) ), 0 ) << SS_HOST_LIB;
+}
+
+TEST( GameDllExports, TheServerHoldsLittleInitialisedData )
+{
+	const int64_t n = DataBytes( ReadAll( SS_SERVER_LIB ) );
+	EXPECT_GT( n, 0 ) << SS_SERVER_LIB;
+	EXPECT_LE( n, kDataCeiling ) << SS_SERVER_LIB << ": a large static is no longer all zero bytes";
+}
+
+TEST( GameDllExports, TheClientHoldsLittleInitialisedData )
+{
+	const int64_t n = DataBytes( ReadAll( SS_CLIENT_LIB ) );
+	EXPECT_GT( n, 0 ) << SS_CLIENT_LIB;
+	EXPECT_LE( n, kDataCeiling ) << SS_CLIENT_LIB << ": a large static is no longer all zero bytes";
 }

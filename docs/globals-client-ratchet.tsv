@@ -302,7 +302,8 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 # 2026-10-12, lane c6-input: vgui_consolepanel.cpp left client.so (C9): link_level 799 -> 797, unruled 752 -> 751, objects_with_static_init 132 -> 131 (make globals-client-ledger, gate PASS).
 # 2026-10-12, lane c6-input: colorcorrectionmgr.cpp left client.so (C9): link_level 797 -> 796, unruled 751 -> 750, objects_with_static_init 131 -> 130 (make globals-client-ledger, gate PASS).
 # 2026-10-12, C7: shell_viewpostprocess_client.cpp, shell_vieweffects_client.cpp and COM_GetModDirectory went (their importers call managed or the names' writer): link 796 -> 792 (make globals-client-census).
-client_globals_link_level	src/game/client	792
+# 2026-10-13: s_DTElementNames became a constexpr table of characters, no longer state: link 792 -> 791 (tools/globals-census gate --side client).
+client_globals_link_level	src/game/client	791
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit

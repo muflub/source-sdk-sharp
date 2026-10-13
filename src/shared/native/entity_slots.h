@@ -98,9 +98,7 @@ public:
 	{
 		memset( m_Slots, 0, sizeof( m_Slots ) );
 		memset( m_Handles, 0, sizeof( m_Handles ) );
-
-		for ( int i = 0; i < SOURCESHARP_MAX_ENTITY_SLOTS; ++i )
-			m_Where[i] = -1;
+		memset( m_WhereOne, 0, sizeof( m_WhereOne ) );
 
 		m_nActive     = 0;
 		m_nNextSerial = SOURCESHARP_SLOT_SERIAL_NONE;
@@ -160,7 +158,7 @@ public:
 		// Already open FOR THIS ENTITY: hand back what it already has. Counted
 		// as an open, because it is one — the counter is how many binds native
 		// served, not how many serials it burned.
-		if ( m_Where[nEntry] >= 0 && m_Handles[nEntry] == hEntity )
+		if ( m_WhereOne[nEntry] && m_Handles[nEntry] == hEntity )
 		{
 			++m_nOpens;
 
@@ -170,10 +168,10 @@ public:
 			return true;
 		}
 
-		if ( m_Where[nEntry] < 0 )
+		if ( !m_WhereOne[nEntry] )
 		{
-			m_Where[nEntry] = m_nActive;
 			m_Active[m_nActive++] = nEntry;
+			m_WhereOne[nEntry] = m_nActive;
 		}
 
 		m_Slots[nEntry].nSerial = NextSerial();
@@ -199,15 +197,15 @@ public:
 	//-------------------------------------------------------------------------
 	void Close( int nEntry )
 	{
-		if ( !IsEntry( nEntry ) || m_Where[nEntry] < 0 )
+		if ( !IsEntry( nEntry ) || !m_WhereOne[nEntry] )
 			return;
 
-		const int nAt = m_Where[nEntry];
+		const int nAt = m_WhereOne[nEntry] - 1;
 		const int nTail = m_Active[--m_nActive];
 
-		m_Active[nAt]   = nTail;
-		m_Where[nTail]  = nAt;
-		m_Where[nEntry] = -1;
+		m_Active[nAt]      = nTail;
+		m_WhereOne[nTail]  = nAt + 1;
+		m_WhereOne[nEntry] = 0;
 
 		m_Slots[nEntry].nSerial = SOURCESHARP_SLOT_SERIAL_NONE;
 		m_Slots[nEntry].nDirty  = 0;
@@ -251,7 +249,7 @@ public:
 
 	bool IsOpen( int nEntry ) const
 	{
-		return IsEntry( nEntry ) && m_Where[nEntry] >= 0;
+		return IsEntry( nEntry ) && m_WhereOne[nEntry] != 0;
 	}
 
 	uint32_t SerialAt( int nEntry ) const
@@ -326,7 +324,12 @@ private:
 	uint32_t                m_Handles[SOURCESHARP_MAX_ENTITY_SLOTS];
 
 	int      m_Active[SOURCESHARP_MAX_ENTITY_SLOTS];
-	int      m_Where[SOURCESHARP_MAX_ENTITY_SLOTS];
+	// Where an entry sits in m_Active, PLUS ONE: zero is "not in the list".
+	// So a block nothing has opened is all zero bytes, and the server's static
+	// one is .bss. Stored as the plain index with -1 for "not in the list",
+	// Reset's fill made MSVC emit the whole 160 KB block as initialised data
+	// in server.dll (entity_slots_test, game_dll_exports_test).
+	int      m_WhereOne[SOURCESHARP_MAX_ENTITY_SLOTS];
 	int      m_nActive;
 
 	uint32_t m_nNextSerial;
