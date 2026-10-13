@@ -241,7 +241,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \
         ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
         entity-census entity-gates entity-ratchet \
         globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
@@ -903,6 +903,34 @@ managed-legs: ui
 	@$(TEST_BUILD)
 	@$(DOTNET) publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
 	@tools/run-test-legs $(MANAGED_TEST_LEGS)
+
+# A QUICK LOCAL LOOP: `make test` without its slow tests, and the slow tests
+# alone (tools/test-tiers; tools/test-tiers.tsv lists the slow tier, measured:
+# a managed fact or native binary of 2 s or more, or a class whose facts add up
+# to 20 s). The two together run what `make test` runs. Neither is a gate --
+# `make test`, `make check` and CI still run every leg whole. Each tier leg has
+# its own floor (tools/leg-floor <leg>-fast / <leg>-slow), and a fast run names
+# any fast test that has grown past the threshold. Regenerate the list with
+# `tools/test-tiers measure --write` after `make debug`.
+TIER_LEG = '$(if $(filter native-%,$(1)),$(1)@ninja,$(1)):tools/leg-floor $(1) && tools/test-tiers run $(1)'
+TEST_FAST_LEGS = \
+    'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
+    $(foreach l,$(shell tools/test-tiers legs fast),$(call TIER_LEG,$(l))) \
+    'entity@ninja:tools/leg-floor entity && $(ENTITY_TEST)' \
+    'ui:tools/leg-floor ui && $(UI_TEST)'
+TEST_SLOW_LEGS = $(foreach l,$(shell tools/test-tiers legs slow),$(call TIER_LEG,$(l)))
+
+# The list is read before the legs are: a list that does not parse would leave
+# $(shell ...) empty, and the run would drop the managed and native legs.
+test-fast: ui
+	@tools/test-tiers legs fast > /dev/null
+	@$(TEST_BUILD)
+	@tools/run-test-legs $(TEST_FAST_LEGS)
+
+test-slow: ui
+	@tools/test-tiers legs slow > /dev/null
+	@$(TEST_BUILD)
+	@tools/run-test-legs $(TEST_SLOW_LEGS)
 
 # Every leg: the routine tier and the milestone tier together.
 test-full: ui

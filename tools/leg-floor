@@ -608,6 +608,88 @@ LEGS = {
     'ui': floor_ui,
 }
 
+# THE FAST AND SLOW TIERS (make test-fast / make test-slow; tools/test-tiers).
+# Each managed leg and the native leg has a -fast variant, which runs the leg
+# less the slow tier tools/test-tiers.tsv lists, and a -slow variant for every
+# leg the list names something in, which runs exactly that. The fast floor is
+# the full leg's less the cases the list moved out; the slow floor is one case
+# per entry, so a stale entry that names nothing makes its leg run short.
+# Neither is a gate: `make test` still runs every leg whole.
+def _test_tiers():
+    import importlib.machinery
+    import importlib.util
+    loader = importlib.machinery.SourceFileLoader(
+        'test_tiers', os.path.join(HERE, 'test-tiers'))
+    spec = importlib.util.spec_from_loader('test_tiers', loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
+def _tier_rows(leg):
+    tiers = _test_tiers()
+    try:
+        return tiers, tiers.entries(tiers.load(), leg)
+    except tiers.TierError as exc:
+        raise CannotDerive(str(exc))
+
+
+def _managed_tier(leg, tier):
+    tiers, rows = _tier_rows(leg)
+    (unit, _op, n, how), = LEGS[leg]()
+    if tier == 'fast':
+        cut = sum(r.cases for r in rows)
+        return [(unit, '>=', _nonzero(tiers.LIST, '%s-fast cases' % leg, n - cut),
+                 '%s, less %d cases in %d slow entries' % (how, cut, len(rows)))]
+    return [(unit, '>=', _nonzero(tiers.LIST, '%s slow entries' % leg, len(rows)),
+             'one case per entry in %s' % tiers.LIST)]
+
+
+def _native_tier_roster(tier):
+    tiers, rows = _tier_rows('native')
+    slow = {r.name for r in rows}
+    full = roster_native()
+    unknown = sorted(slow - {name for _unit, name in full})
+    if unknown:
+        raise CannotDerive('%s names native tests the manifest does not: %s'
+                           % (tiers.LIST, ' '.join(unknown)))
+    return [(u, name) for u, name in full if (name in slow) == (tier == 'slow')]
+
+
+def _native_tier(tier):
+    names = _native_tier_roster(tier)
+    out = []
+    for unit in ('gtest-binaries', 'must-not-compile'):
+        n = sum(1 for u, _name in names if u == unit)
+        if n or tier == 'fast':
+            out.append((unit, '==', _nonzero(NATIVE_MANIFEST, 'native-%s %s' % (tier, unit), n),
+                        '%d of the native leg\'s %s, by tools/test-tiers.tsv' % (n, unit)))
+    if not out:
+        raise CannotDerive('the native leg has no %s tests' % tier)
+    return out
+
+
+def _register_tiers():
+    """-fast for every tiered leg; -slow for those the list names something
+    in. A list that does not parse registers the -fast legs anyway, which then
+    refuse with the reason."""
+    managed = ('managed', 'managed-server', 'managed-client', 'tf2_descent')
+    try:
+        tiers = _test_tiers()
+        rows = tiers.load()
+    except Exception:
+        rows = None
+    for leg in managed:
+        LEGS[leg + '-fast'] = (lambda leg=leg: _managed_tier(leg, 'fast'))
+        if rows and any(r.leg == leg for r in rows):
+            LEGS[leg + '-slow'] = (lambda leg=leg: _managed_tier(leg, 'slow'))
+    LEGS['native-fast'] = lambda: _native_tier('fast')
+    ROSTERS['native-fast'] = lambda: _native_tier_roster('fast')
+    if rows and any(r.leg == 'native' for r in rows):
+        LEGS['native-slow'] = lambda: _native_tier('slow')
+        ROSTERS['native-slow'] = lambda: _native_tier_roster('slow')
+
+
 # Legs whose units are NAMED things rather than a population. Only the native
 # leg has one today: it is the only leg whose manifest is a list of names the
 # log prints back. tools/run-test-legs refuses a roster on any unit it has no
@@ -618,6 +700,7 @@ ROSTERS = {
     'oracle': roster_oracle,
     'oracle-native': roster_oracle,
 }
+_register_tiers()
 
 
 def declare(leg, explain=False, out=None):
@@ -1043,7 +1126,11 @@ def self_test():
         try:
             rows = LEGS[leg]()
             ns = ', '.join('%s %s %d' % (u, o, n) for u, o, n, _h in rows)
-            ok = bool(rows) and all(n >= 2 for _u, _o, n, _h in rows)
+            # A tier leg's floors come from a measured list, where one binary
+            # on one side of the line is a real answer; every other floor of 1
+            # is the slack this test exists to catch.
+            least = 1 if leg.endswith(('-fast', '-slow')) else 2
+            ok = bool(rows) and all(n >= least for _u, _o, n, _h in rows)
         except CannotDerive as exc:
             ns, ok = str(exc), False
         ck('the REAL tree sizes the %s leg' % leg, ok, ns)

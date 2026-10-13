@@ -123,6 +123,25 @@ else
     targets=( ss_cpptests )
 fi
 
+# SS_CPPTEST_EXCLUDE: names (space-separated) a whole-suite run leaves out --
+# the fast tier, tools/test-tiers. Each must be a test ctest knows, for the
+# reason a named run refuses an unknown name: an exclusion that matches
+# nothing excludes nothing and says nothing.
+exclude=""
+if [ -n "${SS_CPPTEST_EXCLUDE:-}" ]; then
+    if [ $# -gt 0 ]; then
+        echo "!! SS_CPPTEST_EXCLUDE leaves tests out of a whole-suite run; it cannot be combined with test names."
+        exit 1
+    fi
+    for n in $SS_CPPTEST_EXCLUDE; do
+        if [ -z "$(printf '%s\n' "$roster" | awk -v n="$n" '$1 == n { print $2 }')" ]; then
+            echo "!! SS_CPPTEST_EXCLUDE names $n, which is no test here. Nothing was built and nothing was run."
+            exit 1
+        fi
+        exclude="$exclude${exclude:+|}$n"
+    done
+fi
+
 if [ ${#targets[@]} -gt 0 ]; then
     echo "-- building ${targets[*]}"
     if ! cmake --build --preset "$preset" --target "${targets[@]}"; then
@@ -133,6 +152,7 @@ fi
 
 args=( --preset "$preset" -V --no-tests=error -j "$(nproc)" )
 [ -n "$regex" ] && args+=( -R "$regex" )
+[ -n "$exclude" ] && args+=( -E "^($exclude)\$" )
 # By name, a census test runs from either suite; otherwise each suite runs its
 # own label and the native leg leaves the census tier to --census.
 if [ "$suite" = oracle ]; then args+=( -L '^oracle$' )
