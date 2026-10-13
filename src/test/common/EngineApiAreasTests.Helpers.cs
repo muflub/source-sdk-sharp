@@ -47,7 +47,10 @@ public partial class EngineApiAreasTests
                  .Select(LayoutField).FirstOrDefault();
 
     /// <summary>Whether a layout field carries [SuppressGCTransition].</summary>
-    internal static bool IsSuppressed(FieldInfo f)
-        => f.GetModifiedFieldType() is { IsFunctionPointer: true } t
-        && t.GetFunctionPointerCallingConventions().Any(c => c.Name == "CallConvSuppressGCTransition");
+    internal static bool IsSuppressed(FieldInfo f) => IsSuppressed(f.GetModifiedFieldType());
+
+    /// <summary>The same, for a slot's modified type (a field's or a property's).</summary>
+    internal static bool IsSuppressed(Type modified)
+        => modified is { IsFunctionPointer: true }
+        && modified.GetFunctionPointerCallingConventions().Any(c => c.Name == "CallConvSuppressGCTransition");
 }

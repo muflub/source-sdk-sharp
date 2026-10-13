@@ -47,11 +47,13 @@ public class VPhysicsSuppressionTests
                         && t.Name.StartsWith("Physics", StringComparison.Ordinal)
                         && t.Name.EndsWith("Vtbl", StringComparison.Ordinal));
 
+    // Fields or properties: a layout MSVC orders differently (every vphysics
+    // object with a virtual destructor) reads its slots through properties.
     private static List<string> Suppressed(Type layout)
-        => layout.GetFields(BindingFlags.Public | BindingFlags.Instance)
-                 .Where(EngineApiAreasTests.IsSuppressed)
-                 .Select(f => f.Name)
-                 .ToList();
+        => VtableSlots.All(layout)
+                      .Where(s => EngineApiAreasTests.IsSuppressed(s.Type))
+                      .Select(s => s.Name)
+                      .ToList();
 
     [Fact]
     public void The_vphysics_layouts_are_found()
@@ -88,10 +90,10 @@ public class VPhysicsSuppressionTests
         // The rule's positive arm: the unsuppressed setters and the recheck are
         // fields it would refuse, so a pass above is not a pattern matching nothing.
         Type layout = VPhysicsLayouts().Single(t => t.Name == "PhysicsObjectVtbl");
-        var named = layout.GetFields(BindingFlags.Public | BindingFlags.Instance)
-                          .Select(f => f.Name)
-                          .Where(n => Mutating.IsMatch(n))
-                          .ToList();
+        var named = VtableSlots.All(layout)
+                               .Select(s => s.Name)
+                               .Where(n => Mutating.IsMatch(n))
+                               .ToList();
 
         Assert.Contains("RecheckCollisionFilter", named);
         Assert.Contains("Wake", named);
