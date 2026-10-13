@@ -267,6 +267,13 @@ target_compile_definitions(client_sourcesharp PRIVATE
     # and after this switch (live, see the commit).
     NO_MALLOC_OVERRIDE
 )
+# On Windows memalloc.h's arm for such a module is empty (Valve never built
+# Windows without tier0's allocator): cmake/compat/windows supplies the
+# MemAlloc_* set POSIX gets, on the CRT, forced in ahead of every source.
+if(SS_PLATFORM STREQUAL windows)
+  target_compile_options(client_sourcesharp PRIVATE
+    "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
+endif()
 
 target_include_directories(client_sourcesharp PRIVATE
     ${PROJECT_SOURCE_DIR}/src/client/native

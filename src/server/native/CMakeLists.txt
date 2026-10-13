@@ -205,6 +205,13 @@ target_compile_definitions(server_sourcesharp PRIVATE
     # either way.
     NO_MALLOC_OVERRIDE
 )
+# On Windows memalloc.h's arm for such a module is empty (Valve never built
+# Windows without tier0's allocator): cmake/compat/windows supplies the
+# MemAlloc_* set POSIX gets, on the CRT, forced in ahead of every source.
+if(SS_PLATFORM STREQUAL windows)
+  target_compile_options(server_sourcesharp PRIVATE
+    "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
+endif()
 
 # THE INCLUDE SETS -- plan_server_novalve.md 3.4 (amended in P1: per source,
 # not an object library, so this target keeps its one source list, which
@@ -572,14 +579,11 @@ if(NOT SS_IS_MSVC)
     $<$<BOOL:${SS_IS_CLANG}>:--system-header-prefix=tier1/utlblockmemory.h>)
 endif()
 
-# server.dll links no tier0 either (P4), and on Windows that needs saying to
-# the headers: without STATIC_TIER0, PLATFORM_INTERFACE and DBG_INTERFACE are
-# __declspec(dllimport), and a function so declared cannot be defined here
-# (C2491) -- which is exactly what tier0_thread_port.cpp and tier0_spew_port.cpp
-# do. STATIC_TIER0 makes them plain `extern` declarations, as on Linux.
-if(SS_PLATFORM STREQUAL windows)
-  target_compile_definitions(server_sourcesharp PRIVATE STATIC_TIER0)
-endif()
+# server.dll links no tier0 either (P4). The headers declare tier0's
+# functions __declspec(dllimport); tier0_thread_port.cpp and
+# tier0_spew_port.cpp define them here all the same and bind every import of
+# one to the definition (SS_BIND_IMPORT, ss_platform.h), as server.so's
+# hidden definitions bind its calls.
 
 # VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
 # refer to each other in both directions, and GNU ld (the CI link) resolves an

@@ -113,10 +113,11 @@ def read_lines(path):
 # which list a file belongs in, and --write regenerates them). The farm links
 # the union; a path in two lists is refused like a path listed twice.
 LINK_LISTS = ("client", "server", "shared", "libs", "tests")
-# And per platform, the prebuilt libraries Valve ships for a platform whose
-# build is not the graph tools/sdk-census reads (the Linux one): on Windows,
-# sdk-links/windows.txt, the .lib files cmake/sdk/CMakeLists.txt imports.
-# Linked only on that platform, so a Linux farm is what it was.
+# And per platform, the Valve files only that platform's build uses, which
+# the graph tools/sdk-census reads (the Linux one) never names: on Windows,
+# sdk-links/windows.txt (the .lib files cmake/sdk/CMakeLists.txt imports, and
+# the sources and headers only the Windows compile reads). Linked only on
+# that platform, so a Linux farm is what it was.
 PLATFORM_LINK_LISTS = {"windows": ("windows",)}
 
 

@@ -422,7 +422,9 @@ function(ss_sdk_target tgt)
     # version script to say otherwise, and nothing else is marked.
     target_link_options(${tgt} PRIVATE /DEBUG:FULL /ignore:4221
       $<$<BOOL:${SS_GC_SECTIONS}>:/OPT:REF>)
-    target_link_libraries(${tgt} PRIVATE shell32 user32 advapi32 gdi32 comdlg32 ole32)
+    # rpcrt4: UuidCreate and friends, which Valve's code calls where Linux
+    # links libuuid (-luuid above).
+    target_link_libraries(${tgt} PRIVATE shell32 user32 advapi32 gdi32 comdlg32 ole32 rpcrt4)
   elseif(SS_PLATFORM STREQUAL osx)
     # Apple's ld: -dead_strip is --gc-sections. No version script (the
     # symbols' own visibility decides: hidden by default, DLL_EXPORT for

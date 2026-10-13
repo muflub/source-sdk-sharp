@@ -1,9 +1,10 @@
-# sdk-links/windows.txt: Valve's Windows prebuilt libraries, which
-# cmake/sdk/CMakeLists.txt imports for the Windows build: the static
-# archives, the import libraries of tier0.dll, vstdlib.dll and
-# steam_api64.dll, and zlib. tools/setup links this list on Windows only;
-# tools/sdk-census reads the Linux graph, which never names these, so it does
-# not judge this list. A line goes when cmake/sdk stops importing the library.
+# sdk-links/windows.txt: the Valve files only the Windows build uses: the
+# prebuilt libraries cmake/sdk/CMakeLists.txt imports (the static archives,
+# the import libraries of tier0.dll, vstdlib.dll and steam_api64.dll, and
+# zlib), and the sources and headers the Windows compile reads that the
+# Linux one never does. tools/setup links this list on Windows only;
+# tools/sdk-census reads the Linux graph, which names none of these, so it
+# does not judge this list. A line goes when the Windows build stops using it.
 src/lib/public/x64/bitmap.lib
 src/lib/public/x64/dmxloader.lib
 src/lib/public/x64/libz.lib
@@ -14,3 +15,5 @@ src/lib/public/x64/tier2.lib
 src/lib/public/x64/tier3.lib
 src/lib/public/x64/vstdlib.lib
 src/lib/public/x64/vtf.lib
+src/public/winlite.h
+src/tier1/processor_detect.cpp

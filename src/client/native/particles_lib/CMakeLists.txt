@@ -50,6 +50,11 @@ target_compile_definitions(ss_particles PRIVATE
     # and dmxloader.a were compiled without it and call g_pMemAlloc themselves.
     NO_MALLOC_OVERRIDE
 )
+# The C allocator on Windows too, as client.dll (src/client/native).
+if(SS_PLATFORM STREQUAL windows)
+  target_compile_options(ss_particles PRIVATE
+    "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
+endif()
 
 if(SS_ALLOC_CHECK)
   target_sources(ss_particles PRIVATE ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp)
