@@ -8,6 +8,8 @@
 7	BOUNDARY	void ParticleLib_Counters( SSParticleLibCounters_t *pOut )
 1	BOUNDARY	void *CParticleCollection::operator new( size_t nSize )
 1	BOUNDARY	void CParticleCollection::operator delete( void *pData )
+1	UNRULED	extern "" CParticleCollection *SSParticleLib_CollectionCtor( CParticleCollection *p )
+1	UNRULED	extern "" void SSParticleLib_CollectionDtor( CParticleCollection *p )
 1	BOUNDARY	extern "" void SSParticleLib_CollectionC2( CParticleCollection *p )
 1	BOUNDARY	extern "" void SSParticleLib_CollectionD2( CParticleCollection *p )
 1	BOUNDARY	bool CParticleCollection::Init( CParticleSystemDefinition *pDef )

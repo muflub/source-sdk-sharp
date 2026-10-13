@@ -677,14 +677,11 @@ public:
 		{
 			EmitCloseCaption( filter, entindex, params, ep );
 		}
-#if defined( WIN32 )
-		// NVNT notify the haptics system of this sound. The `&& !defined(_X360)`
-		// half of stock's guard is gone: that hardware is not a target of this
-		// tree and a shim file may not carry a conditional the build can never
-		// satisfy. WIN32 stays -- it is the allowlisted portability guard, and
-		// a Windows configuration of this same tree really does take this arm.
-		HapticProcessSound(ep.m_pSoundName, entindex);
-#endif
+		// Stock told the Novint haptics system of the sound here on Windows
+		// (HapticProcessSound). It is not called on any platform: the server's
+		// stock definition is empty, and the client's drives the haptics
+		// device library, which no SourceSharp build ships (Linux never had
+		// it). Windows behaves as Linux always has.
 	}
 
 	void EmitSound( IRecipientFilter& filter, int entindex, const GameSoundParams_t & ep )

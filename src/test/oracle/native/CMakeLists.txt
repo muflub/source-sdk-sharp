@@ -250,7 +250,8 @@ endif()
 ss_cpptest(vstdlib_random_oracle_test
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0
+    # src/shared/native for ss_platform.h (SS_BIND_IMPORT; system headers only).
+    INCLUDES ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/vstdlib_random_oracle_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/vstdlib_random_port.cpp
     LIBS dl)

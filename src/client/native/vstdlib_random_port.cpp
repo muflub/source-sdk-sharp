@@ -27,6 +27,12 @@
 
 #include <math.h>
 #include <mutex>
+#include "ss_platform.h"	// SS_BIND_IMPORT
+#ifdef _MSC_VER
+// This file defines functions the engine DLLs' headers declare dllimport
+// (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.
+#pragma warning( disable : 4273 )
+#endif
 
 namespace
 {
@@ -142,3 +148,9 @@ int RandomInt( int iMinVal, int iMaxVal )
 {
 	return s_Stream.Pick( iMinVal, iMaxVal );
 }
+
+// Every call in this module of the functions above, made through the
+// import pointer, reaches these definitions (ss_platform.h).
+SS_BIND_IMPORT( RandomSeed )
+SS_BIND_IMPORT( RandomFloat )
+SS_BIND_IMPORT( RandomInt )

@@ -1067,9 +1067,14 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	SourceSharp_InstallMapMaterialReload( filesystem, materials );
 
 	// plan_map_load P6: the window pump (see m_pfnPumpEvents). RTLD_NOLOAD: the
-	// launcher's copy or nothing; this never loads a second SDL.
+	// launcher's copy or nothing; this never loads a second SDL. Valve's
+	// Windows engine has no SDL (its window is Win32's), so there is no pump
+	// to find there and the window is pumped between frames, as it is here
+	// when no SDL is loaded.
+#ifndef _WIN32
 	if ( void *hSDL = dlopen( "libSDL2-2.0.so.0", RTLD_NOW | RTLD_NOLOAD ) )
 		m_pfnPumpEvents = (void ( * )())dlsym( hSDL, "SDL_PumpEvents" );
+#endif
 	Msg( "[SourceSharp] load pump: %s\n", m_pfnPumpEvents ? "SDL_PumpEvents" : "none (the window is pumped only between frames)" );
 
 
@@ -1184,10 +1189,10 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 
 	SourceSharp_InitBoneSetupThreadPool();
 
-#if defined( WIN32 )
-	// NVNT connect haptics sytem
-	ConnectHaptics(appSystemFactory);
-#endif
+	// Stock connected the Novint haptics system here on Windows
+	// (ConnectHaptics). No SourceSharp build ships the haptics device library
+	// (Linux never had it), so no platform connects it: Windows behaves as
+	// Linux always has, and sound_emitter.cpp notifies no haptics either.
 
 	// RegisterSecureLaunchProcessFunc( &UnsafeCmdLineProcessor ) is MANAGED
 	// now: SecureLaunch (src/client/managed/Steam) takes the URL launch and the
@@ -1313,10 +1318,7 @@ void CShellClientDLL::Shutdown( void )
 
 	gameeventmanager = NULL;
 
-#if defined( WIN32 )
-	// NVNT Disconnect haptics system
-	DisconnectHaptics();
-#endif
+	// No haptics to disconnect (see Init).
 }
 
 

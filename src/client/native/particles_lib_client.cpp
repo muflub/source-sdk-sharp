@@ -143,10 +143,21 @@ void CParticleCollection::operator delete( void *pData ) { Lib()->CollectionDele
 // are plain functions under the mangled names. Written as C++ members, the
 // compiler would construct and destroy every member around the forward too,
 // and the library's real constructor and destructor run them already.
+#if defined( _MSC_VER )
+// MSVC has no asm labels, and its names for the two are ??0 / ??1: the
+// linker takes each from the plain function when nothing else defines it
+// (/alternatename). An MSVC constructor hands back `this`, which callers may
+// use, so this one returns it.
+extern "C" CParticleCollection *SSParticleLib_CollectionCtor( CParticleCollection *p ) { Lib()->CollectionConstruct( p ); return p; }
+extern "C" void SSParticleLib_CollectionDtor( CParticleCollection *p ) { Lib()->CollectionDestruct( p ); }
+#pragma comment( linker, "/alternatename:??0CParticleCollection@@IEAA@XZ=SSParticleLib_CollectionCtor" )
+#pragma comment( linker, "/alternatename:??1CParticleCollection@@QEAA@XZ=SSParticleLib_CollectionDtor" )
+#else
 extern "C" void SSParticleLib_CollectionC2( CParticleCollection *p ) __asm__( "_ZN19CParticleCollectionC2Ev" );
 extern "C" void SSParticleLib_CollectionD2( CParticleCollection *p ) __asm__( "_ZN19CParticleCollectionD2Ev" );
 extern "C" void SSParticleLib_CollectionC2( CParticleCollection *p ) { Lib()->CollectionConstruct( p ); }
 extern "C" void SSParticleLib_CollectionD2( CParticleCollection *p ) { Lib()->CollectionDestruct( p ); }
+#endif
 bool CParticleCollection::Init( CParticleSystemDefinition *pDef ) { return Lib()->CollectionInitDef( this, pDef ); }
 bool CParticleCollection::Init( const char *pszName ) { return Lib()->CollectionInitName( this, pszName ); }
 void CParticleCollection::BloatBoundsUsingControlPoint() { Lib()->CollectionBloatBoundsUsingControlPoint( this ); }

@@ -30,6 +30,27 @@
 #include "console_display_forward.h"
 #include "console_line_buffer.h"
 
+// The attach flag's two operations, spelled per compiler as
+// console_line_buffer.h spells its lock word's (no __atomic under MSVC).
+static inline bool AttachFlagExchange( bool *pFlag, bool bValue )
+{
+#ifdef _MSC_VER
+	return _InterlockedExchange8( (volatile char *)pFlag, (char)bValue ) != 0;
+#else
+	return __atomic_exchange_n( pFlag, bValue, __ATOMIC_ACQ_REL );
+#endif
+}
+
+static inline void AttachFlagStoreRelease( bool *pFlag, bool bValue )
+{
+#ifdef _MSC_VER
+	_ReadWriteBarrier();
+	*(volatile bool *)pFlag = bValue;
+#else
+	__atomic_store_n( pFlag, bValue, __ATOMIC_RELEASE );
+#endif
+}
+
 namespace
 {
 
@@ -48,7 +69,7 @@ public:
 
 	/// Hands the buffer to this load's area, once per install; false outside a load.
 	bool Attach();
-	void Detach() { __atomic_store_n( &m_bAttached, false, __ATOMIC_RELEASE ); }
+	void Detach() { AttachFlagStoreRelease( &m_bAttached, false ); }
 
 private:
 	void Forward( const char *pText, int nWarning );
@@ -103,7 +124,7 @@ bool CConsoleDisplayForward::Attach()
 	{
 		return false;
 	}
-	if ( !__atomic_exchange_n( &m_bAttached, true, __ATOMIC_ACQ_REL ) )
+	if ( !AttachFlagExchange( &m_bAttached, true ) )
 	{
 #ifdef CLIENT_DLL
 		pArea->ClientConsoleBufferAttach( &m_Buffer );

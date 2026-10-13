@@ -19,6 +19,12 @@
 //=============================================================================//
 
 #include "tier0/threadtools.h"
+#include "ss_platform.h"	// SS_BIND_IMPORT
+#ifdef _MSC_VER
+// This file defines functions the engine DLLs' headers declare dllimport
+// (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.
+#pragma warning( disable : 4273 )
+#endif
 
 namespace
 {
@@ -29,3 +35,7 @@ bool ThreadInMainThread()
 {
 	return ThreadGetCurrentId() == s_MainThread;
 }
+
+// Every call in this module of the functions above, made through the
+// import pointer, reaches these definitions (ss_platform.h).
+SS_BIND_IMPORT( ThreadInMainThread )

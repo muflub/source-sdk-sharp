@@ -551,9 +551,9 @@ static bool SourceSharp_AssertStackWriting()
 static void SourceSharp_AssertStackSetWriting( bool bWriting )
 {
 	if ( bWriting )
-		setenv( SOURCESHARP_ASSERTSTACK_WRITING, "1", 1 );
+		SS_SetEnv( SOURCESHARP_ASSERTSTACK_WRITING, "1", 1 );
 	else
-		unsetenv( SOURCESHARP_ASSERTSTACK_WRITING );
+		SS_UnsetEnv( SOURCESHARP_ASSERTSTACK_WRITING );
 }
 
 //-----------------------------------------------------------------------------
@@ -574,7 +574,7 @@ static bool SourceSharp_ClaimEcho()
 	if ( getenv( "SOURCESHARP_ECHO_CLAIMED" ) != NULL )
 		return false;
 
-	setenv( "SOURCESHARP_ECHO_CLAIMED", "1", 0 );
+	SS_SetEnv( "SOURCESHARP_ECHO_CLAIMED", "1", 0 );
 	return true;
 }
 
@@ -773,7 +773,7 @@ static void SourceSharp_AssertStackPublish( const char *pchName, long long llVal
 {
 	char szValue[ 32 ];
 	snprintf( szValue, sizeof( szValue ), "%lld", llValue );
-	setenv( pchName, szValue, 1 );
+	SS_SetEnv( pchName, szValue, 1 );
 }
 
 static long long SourceSharp_AssertStackRead( const char *pchName )
@@ -1014,7 +1014,7 @@ static void SourceSharp_InstallAssertStacks()
 	if ( getenv( "SOURCESHARP_ASSERTSTACK_CLAIMED" ) != NULL )
 		return;
 
-	setenv( "SOURCESHARP_ASSERTSTACK_CLAIMED", "1", 0 );
+	SS_SetEnv( "SOURCESHARP_ASSERTSTACK_CLAIMED", "1", 0 );
 
 	SourceSharpAssertStack_Reset( &g_AssertStackSeen );
 	g_bAssertStacks = true;

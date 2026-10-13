@@ -127,6 +127,31 @@ static SourceSharpCaller SS_DescribeCaller( const void *pReturnAddress )
 
 #define SS_CALLER()	SS_DescribeCaller( SS_RETURN_ADDRESS() )
 
+// hostfxr's strings are char_t: char on Linux and macOS, wchar_t on Windows,
+// where the runtime takes UTF-16 paths and names. This host builds them as
+// UTF-8; SS_HostString converts at the call, a temporary that lives to the
+// end of the full expression the call is in. Longer than the buffer is
+// empty, which hostfxr then refuses with its own error code.
+#ifdef _WIN32
+struct SS_HostString
+{
+	wchar_t sz[1024];
+	explicit SS_HostString( const char *pUtf8 )
+	{
+		if ( !MultiByteToWideChar( CP_UTF8, 0, pUtf8, -1, sz, (int)( sizeof( sz ) / sizeof( sz[0] ) ) ) )
+			sz[0] = L'\0';
+	}
+	const char_t *c_str() const { return sz; }
+};
+#else
+struct SS_HostString
+{
+	const char *p;
+	explicit SS_HostString( const char *pUtf8 ) : p( pUtf8 ) {}
+	const char_t *c_str() const { return p; }
+};
+#endif
+
 //-----------------------------------------------------------------------------
 // THE LOGGER IS A TWO-DEEP STACK, AND IT HAS TO BE.
 //
@@ -512,7 +537,7 @@ int SourceSharp_Acquire( const char *pModBinDir )
 
 	SS_Log( "  runtimeconfig: %s", szRuntimeConfig );
 
-	int rc = g_State.pfnInit( szRuntimeConfig, NULL, &g_State.hContext );
+	int rc = g_State.pfnInit( SS_HostString( szRuntimeConfig ).c_str(), NULL, &g_State.hContext );
 	SS_Log( "  hostfxr_initialize_for_runtime_config -> 0x%x (%s)", rc, HostFxrResultName( rc ) );
 
 	// Success(0), Success_HostAlreadyInitialized(1) and
@@ -563,7 +588,9 @@ int SourceSharp_Acquire( const char *pModBinDir )
 		{
 			char szMethod[64];
 			snprintf( szMethod, sizeof( szMethod ), "%s%s", entry.pVerb, pSide->pSuffix );
-			rc = g_State.pfnLoadAssemblyAndGetFn( szBootstrapDll, pSide->pType, szMethod,
+			rc = g_State.pfnLoadAssemblyAndGetFn( SS_HostString( szBootstrapDll ).c_str(),
+			                                      SS_HostString( pSide->pType ).c_str(),
+			                                      SS_HostString( szMethod ).c_str(),
 			                                      UNMANAGEDCALLERSONLY_METHOD, NULL, entry.ppFn );
 			if ( rc != 0 || !*entry.ppFn )
 			{

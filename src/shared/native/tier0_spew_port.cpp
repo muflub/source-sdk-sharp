@@ -50,6 +50,12 @@
 #include "fatal_report.h"
 #include "loaded_symbol.h"
 #include "tier0_spew_port.h"
+#include "ss_platform.h"	// SS_BIND_IMPORT
+#ifdef _MSC_VER
+// This file defines functions the engine DLLs' headers declare dllimport
+// (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.
+#pragma warning( disable : 4273 )
+#endif
 
 #include <atomic>
 #include <mutex>
@@ -309,6 +315,12 @@ void DevMsg( int level, const tchar *pMsg, ... )
 	va_end( args );
 }
 
+// client.dll on Windows leaves the C++-linkage overloads to tier0.dll: their
+// import names are mangled, so SS_BIND_IMPORT cannot bind them, and the
+// import library's member for one (pulled in by every other call of it)
+// would collide with a definition here. tier0's own versions behave the same.
+// server.dll links no tier0 and keeps them, bound by the linker (LNK4217).
+#if !( defined( _WIN32 ) && defined( CLIENT_DLL ) )
 void DevMsg( const tchar *pMsg, ... )
 {
 	if ( !DeveloperAt( 1 ) )
@@ -328,6 +340,7 @@ void DevWarning( const tchar *pMsg, ... )
 	SpewV( SPEW_WARNING, pMsg, args );
 	va_end( args );
 }
+#endif
 
 //-----------------------------------------------------------------------------
 // Error: said, then the process ends -- the user's fatal report.
@@ -354,3 +367,20 @@ void MemAllocOOMError( size_t nSize )
 {
 	Error( "out of memory: an allocation of %zu bytes failed\n", nSize );
 }
+
+// Every call in this module of the functions above, made through the
+// import pointer, reaches these definitions (ss_platform.h).
+SS_BIND_IMPORT( Msg )
+SS_BIND_IMPORT( Warning )
+SS_BIND_IMPORT( Error )
+SS_BIND_IMPORT( _SpewInfo )
+SS_BIND_IMPORT( _SpewMessage )
+SS_BIND_IMPORT( SpewOutputFunc )
+SS_BIND_IMPORT( GetSpewOutputFunc )
+SS_BIND_IMPORT( ShouldUseNewAssertDialog )
+SS_BIND_IMPORT( HushAsserts )
+SS_BIND_IMPORT( DoNewAssertDialog )
+SS_BIND_IMPORT( SetAssertFailedNotifyFunc )
+SS_BIND_IMPORT( CallAssertFailedNotifyFunc )
+SS_BIND_IMPORT( MemAllocOOMError )
+SS_BIND_IMPORT_AS( DevMsg, void ( * )( int, const tchar *, ... ) )

@@ -13,7 +13,55 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <sched.h>
+#ifdef _MSC_VER
+	#include <intrin.h>
+	extern "C" __declspec( dllimport ) int __stdcall SwitchToThread( void );
+#else
+	#include <sched.h>
+#endif
+
+// The lock word's operations: gcc's __atomic builtins on the GNU compilers,
+// the Interlocked intrinsics under MSVC, which has no __atomic. clang-cl
+// takes both, and gets the MSVC spelling (keyed on _MSC_VER), so a clang-cl
+// build compiles the Windows path. On x64 an MSVC volatile store is a
+// release and an Interlocked exchange a full barrier, at least what the
+// lock needs.
+static inline int32_t ConsoleLockExchangeAcquire( int32_t *pWord, int32_t nValue )
+{
+#ifdef _MSC_VER
+	return (int32_t)_InterlockedExchange( (volatile long *)pWord, (long)nValue );
+#else
+	return __atomic_exchange_n( pWord, nValue, __ATOMIC_ACQUIRE );
+#endif
+}
+
+static inline int32_t ConsoleLockLoadRelaxed( const int32_t *pWord )
+{
+#ifdef _MSC_VER
+	return *(const volatile int32_t *)pWord;
+#else
+	return __atomic_load_n( pWord, __ATOMIC_RELAXED );
+#endif
+}
+
+static inline void ConsoleLockStoreRelease( int32_t *pWord, int32_t nValue )
+{
+#ifdef _MSC_VER
+	_ReadWriteBarrier();
+	*(volatile int32_t *)pWord = nValue;
+#else
+	__atomic_store_n( pWord, nValue, __ATOMIC_RELEASE );
+#endif
+}
+
+static inline void ConsoleLockYield()
+{
+#ifdef _MSC_VER
+	SwitchToThread();
+#else
+	sched_yield();
+#endif
+}
 
 /// Bytes in each of the two halves: 2 x 512 KiB = 1 MiB per side.
 static const uint32_t kConsoleLineHalfBytes = 512u * 1024u;
@@ -81,17 +129,17 @@ public:
 
 	void Lock()
 	{
-		for ( int nSpins = 0; __atomic_exchange_n( &m_Header.nLock, 1, __ATOMIC_ACQUIRE ) != 0; )
+		for ( int nSpins = 0; ConsoleLockExchangeAcquire( &m_Header.nLock, 1 ) != 0; )
 		{
-			while ( __atomic_load_n( &m_Header.nLock, __ATOMIC_RELAXED ) != 0 )
+			while ( ConsoleLockLoadRelaxed( &m_Header.nLock ) != 0 )
 			{
 				if ( ++nSpins > 64 )
-					sched_yield();
+					ConsoleLockYield();
 			}
 		}
 	}
 
-	void Unlock() { __atomic_store_n( &m_Header.nLock, 0, __ATOMIC_RELEASE ); }
+	void Unlock() { ConsoleLockStoreRelease( &m_Header.nLock, 0 ); }
 
 	uint8_t *Half( int nHalf ) { return m_Halves + (size_t)nHalf * kConsoleLineHalfBytes; }
 

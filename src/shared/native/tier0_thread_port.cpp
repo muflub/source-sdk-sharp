@@ -28,6 +28,12 @@
 
 #include "tier0/platform.h"
 #include "tier0/threadtools.h"
+#include "ss_platform.h"	// SS_BIND_IMPORT
+#ifdef _MSC_VER
+// This file defines functions the engine DLLs' headers declare dllimport
+// (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.
+#pragma warning( disable : 4273 )
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +72,13 @@ ThreadId_t ThreadGetCurrentId()
 // The contended path, entered after one failed TryLockInline and a pause:
 // spin a while, then give the CPU away -- for nSpinSleepTime ms when asked,
 // else a yield -- and spin again.
+//
+// client.dll on Windows leaves the C++-linkage members to tier0.dll: their
+// import names are mangled, so SS_BIND_IMPORT cannot bind them, and the
+// import library's member for one (pulled in by every other call of it)
+// would collide with a definition here. tier0's own versions behave the same.
+// server.dll links no tier0 and keeps them, bound by the linker (LNK4217).
+#if !( defined( _WIN32 ) && defined( CLIENT_DLL ) )
 void CThreadFastMutex::Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile
 {
 	enum { kSpinsBeforeYield = 1000 };
@@ -91,6 +104,7 @@ void CThreadFastMutex::Lock( const ThreadId_t threadId, unsigned nSpinSleepTime 
 #endif
 	}
 }
+#endif
 
 // A tracer is attached when /proc/self/status says "TracerPid:" is not 0
 // (Linux), when the kernel's process entry carries P_TRACED (macOS), or when
@@ -157,6 +171,20 @@ static long OnlineProcessors()
 #endif
 }
 
+#if defined( _WIN64 )
+// threadtools.h's 16-byte compare-and-swap, declared only for 64-bit Windows
+// (CTSList's head on Windows): CMPXCHG16B through MSVC's intrinsic. True when
+// *pDest held comperand and now holds value.
+bool ThreadInterlockedAssignIf128( volatile int128 *pDest, const int128 &value, const int128 &comperand )
+{
+	__int64 comparand[2];
+	memcpy( comparand, &comperand, sizeof( comparand ) );
+	__int64 exchange[2];
+	memcpy( exchange, &value, sizeof( exchange ) );
+	return _InterlockedCompareExchange128( (volatile __int64 *)pDest, exchange[1], exchange[0], comparand ) != 0;
+}
+#endif
+
 // What the CPU supports, from CPUID. MathLib_Init (the one caller, in the
 // libmathlib.a server.so keeps) reads the instruction-set flags to choose its
 // SSE paths; the fields nothing here can measure cheaply stay at the
@@ -200,3 +228,12 @@ const CPUInformation *GetCPUInformation()
 	}();
 	return &s_Info;
 }
+
+// Every call in this module of the functions above, made through the
+// import pointer, reaches these definitions (ss_platform.h).
+SS_BIND_IMPORT( ThreadGetCurrentId )
+SS_BIND_IMPORT( Plat_IsInDebugSession )
+SS_BIND_IMPORT( GetCPUInformation )
+#if defined( _WIN64 )
+SS_BIND_IMPORT( ThreadInterlockedAssignIf128 )
+#endif

@@ -20,6 +20,7 @@
 #endif
 
 #include <stddef.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -35,6 +36,26 @@
 	#include <intrin.h>
 	#include <process.h>
 	#include <direct.h>
+	// <windows.h> turns these into macros for their ...A/...W functions, and
+	// the engine's interfaces and ours have methods of the same names
+	// (IServerNetworkable::GetClassName, SendTable::GetProp,
+	// IGameEventManager2::CreateEvent, ...): left defined, every later
+	// declaration and call of one is renamed and stops matching. This header
+	// is included by headers, so it must not leak them. Win32 code here and
+	// in the .cpp files names the explicit ...A functions it calls.
+	#undef GetClassName
+	#undef GetProp
+	#undef SetProp
+	#undef GetObject
+	#undef CreateEvent
+	#undef GetCurrentTime
+	#undef PostMessage
+	#undef SendMessage
+	#undef CreateFont
+	#undef DrawText
+	#undef GetMessage
+	#undef CopyFile
+	#undef DeleteFile
 #else
 	#include <dlfcn.h>
 	#include <execinfo.h>
@@ -278,6 +299,51 @@ inline int SS_GetPid()
 	return (int)getpid();
 #endif
 }
+
+// setenv(name, value, overwrite) and unsetenv. The CRT's environment on
+// Windows (_putenv_s, which getenv reads), where a variable set to the
+// empty string is removed: that is how unsetenv is spelled there.
+inline int SS_SetEnv( const char *pszName, const char *pszValue, int bOverwrite )
+{
+#ifdef _WIN32
+	if ( !bOverwrite && getenv( pszName ) )
+		return 0;
+	return _putenv_s( pszName, pszValue ) == 0 ? 0 : -1;
+#else
+	return setenv( pszName, pszValue, bOverwrite );
+#endif
+}
+
+inline int SS_UnsetEnv( const char *pszName )
+{
+#ifdef _WIN32
+	return _putenv_s( pszName, "" ) == 0 ? 0 : -1;
+#else
+	return unsetenv( pszName );
+#endif
+}
+
+// SS_BIND_IMPORT(name): this module defines a function the engine's own DLL
+// headers declare extern "C" __declspec(dllimport) (tier0's spew and thread
+// entry points, vstdlib's random stream), and every call of it in this
+// module, which the compiler made through the import pointer __imp_<name>,
+// is to reach that definition. On Linux the definitions are hidden and the
+// module's calls bind to them by themselves. On Windows the import pointer is
+// defined here, so the linker never takes it from tier0.lib or vstdlib.lib.
+// After the definition, at file scope, in a file that also disables C4273
+// (a definition of a dllimport-declared function). C linkage only: an
+// overload with C++ linkage has a mangled import name and binds the way the
+// linker binds it (to the DLL's export, or to the local definition with
+// LNK4217 when nothing imports it).
+#ifdef _WIN32
+	#define SS_BIND_IMPORT( name ) extern "C" const void *const __imp_##name = (const void *)&name;
+	// The same for an overloaded name: Type is the C-linkage overload's
+	// function-pointer type, which picks it.
+	#define SS_BIND_IMPORT_AS( name, Type ) extern "C" const void *const __imp_##name = (const void *)static_cast< Type >( &name );
+#else
+	#define SS_BIND_IMPORT( name )
+	#define SS_BIND_IMPORT_AS( name, Type )
+#endif
 
 inline char *SS_GetCwd( char *pOut, size_t nOut )
 {
