@@ -142,16 +142,20 @@ jobs:
 
       # The archive unpacks to a game directory whose launcher runs on its
       # own: --help needs no engine and no Steam.
+      # Unpacked outside the checkout: make check below audits the tree for
+      # copied text and binaries (tools/valve-text-audit), and an unpacked
+      # archive in it (the bundled .NET runtime, its notices) is a finding.
       - name: Smoke
         run: |
-          mkdir -p out/smoke
-          tar -C out/smoke -xzf "dist/sourcesharp-$SS_LABEL-linux-x64.tar.gz"
-          ./out/smoke/sourcesharp/source# --help | sed -n 1p
+          smoke="$RUNNER_TEMP/smoke"
+          mkdir -p "$smoke"
+          tar -C "$smoke" -xzf "dist/sourcesharp-$SS_LABEL-linux-x64.tar.gz"
+          "$smoke/sourcesharp/source#" --help | sed -n 1p
           for so in server.so client.so libmanaged_host.so libss_particles.so libsteam_api.so; do
-            test -f "out/smoke/sourcesharp/bin/linux64/$so" || { echo "::error::$so is not in the archive"; exit 1; }
+            test -f "$smoke/sourcesharp/bin/linux64/$so" || { echo "::error::$so is not in the archive"; exit 1; }
           done
-          test -L out/smoke/sourcesharp/mods/test/bin
-          test -f out/smoke/sourcesharp/bin/managed/SourceSharp.Server.dll
+          test -L "$smoke/sourcesharp/mods/test/bin"
+          test -f "$smoke/sourcesharp/bin/managed/SourceSharp.Server.dll"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -174,8 +178,8 @@ jobs:
         # unless every one of the five ran and none skipped.
         run: |
           set -o pipefail
-          $HOME/.dotnet/dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo --filter "Needs=DebugBuild" | tee needs-build.log
-          grep -E 'Passed: +5, Skipped: +0, Total: +5' needs-build.log
+          $HOME/.dotnet/dotnet test bin/debug/tests-server/SourceSharp.Server.Tests.dll --nologo --filter "Needs=DebugBuild" | tee "$RUNNER_TEMP/needs-build.log"
+          grep -E 'Passed: +5, Skipped: +0, Total: +5' "$RUNNER_TEMP/needs-build.log"
 
       # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
       # it. A write means an output was linked where it should have been built.
