@@ -456,6 +456,9 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/toolchain-linux
+      # tools/setup (make sdk-upstream) packs the host's NuGet packages when
+      # they are missing, and refuses without the host checkout this clones.
+      - uses: ./.github/actions/host-packages
 
       - name: Set up (make sdk-upstream)
         run: make sdk-upstream
