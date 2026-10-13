@@ -26,7 +26,7 @@ public class RagdollEvictionTests
 
     // ---- game/client/ragdoll.cpp ---------------------------------------------------
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void StocksRagdollCppLeftTheClient()
     {
         Assert.False(Lists(CMakeGraph.Client, "ragdoll.cpp"));
@@ -46,7 +46,7 @@ public class RagdollEvictionTests
 
     // ---- src/shared/native/ragdoll_shared.cpp --------------------------------------
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void RagdollSharedCppLeftTheClientAndTheRepository()
     {
         Assert.False(Lists(CMakeGraph.Client, "ragdoll_shared.cpp"));
@@ -76,7 +76,7 @@ public class RagdollEvictionTests
 
     // ---- src/shared/native/bone_setup.cpp ------------------------------------------
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BoneSetupLeftTheClientAndTheRepository()
     {
         Assert.False(Lists(CMakeGraph.Client, "bone_setup.cpp"));

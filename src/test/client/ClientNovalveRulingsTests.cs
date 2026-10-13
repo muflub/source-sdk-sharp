@@ -78,7 +78,7 @@ public class ClientNovalveRulingsTests
         }
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void NoDeleteRowsTuIsCompiledIntoClientSo()
     {
         // Proof of read: the graph lists the client's own DLL entry point.
@@ -91,7 +91,7 @@ public class ClientNovalveRulingsTests
             Assert.False(CMakeGraph.Compiles(CMakeGraph.Client, r.Tu), $"{r.Tu} is ruled delete and is still compiled into client.so");
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void EveryPortOrLiveRowsTuIsStillCompiled()
     {
         List<Row> kept = Rows().Where(r => r.Verdict is "port" or "live").ToList();
@@ -101,7 +101,7 @@ public class ClientNovalveRulingsTests
                 $"{r.Tu} is ruled {r.Verdict} ({r.Phase}) but has left client.so: a port goes only after the managed fact it names exists");
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void EveryPortedRowsTuHasLeft()
     {
         // A row moves from port/live to ported in the commit that evicts the TU

@@ -534,7 +534,7 @@ public class BeamStockReplayTests
         Assert.True(r.CreationMismatches.Count == 0, First(r.CreationMismatches));
     }
 
-    [Fact]
+    [LinuxOnlyFact("a golden recorded bit for bit against glibc's libm; the Windows C runtime rounds the last bit of sin, cos and pow differently")]
     public void TheManagedBeamsReproduceEveryRecordedStateBitForBit()
     {
         Result r = Replayed.Value;

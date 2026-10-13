@@ -232,7 +232,7 @@ public class TempEntEffectDataTests
     /// rather than the target's list or one command: a define added anywhere in
     /// the build, per target or per source, decides these two props.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void NeitherHl2NorTfIsDefinedInThisBuild()
     {
         // THE BUILD'S OWN COMMANDS AND NOT EVERY BUILD SCRIPT IN THE TREE. The

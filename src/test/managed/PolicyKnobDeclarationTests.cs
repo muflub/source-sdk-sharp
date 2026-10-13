@@ -405,7 +405,7 @@ public class PolicyKnobDeclarationTests
     /// server project, the link needs native objects again and the two moves
     /// below have to be reconsidered rather than silently breaking the build.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BaseentityCppIsNotInTheServerProject()
     {
         // server_sourcesharp's compiled sources (compile_commands.json, checked

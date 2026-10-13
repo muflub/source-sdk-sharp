@@ -88,7 +88,7 @@ public class MultiplayerConVarTests
     /// ...and the .cpp really is out of the SERVER build, which is what makes
     /// all of the above necessary rather than duplicative.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheServerNoLongerCompilesTheCppThatDeclaredThem()
     {
         // server_sourcesharp's compiled sources (compile_commands.json, checked
@@ -101,7 +101,7 @@ public class MultiplayerConVarTests
         Assert.DoesNotContain(server, s => s.Contains("multiplay_gamerules.cpp", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheClientNoLongerCompilesTheCppEither()
     {
         // client_sourcesharp's compiled sources: compile_commands.json, which

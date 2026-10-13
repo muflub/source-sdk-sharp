@@ -272,7 +272,7 @@ public class UserMessageHookParityTests
     // The parity check itself.
     // ------------------------------------------------------------------
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheClientBuildHooksAndRegistersNoUserMessageNatively()
     {
         // client_sourcesharp's compiled sources, farm-relative

@@ -10,7 +10,7 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class CMakeGraphTests
 {
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void EachGameTargetCompilesItsOwnShimAndNotTheOtherSidesOne()
     {
         Assert.True(CMakeGraph.Compiles(CMakeGraph.Server, "sourcesharp/game/server/shell_gamedll.cpp"));
@@ -20,7 +20,7 @@ public class CMakeGraphTests
         Assert.False(CMakeGraph.Compiles(CMakeGraph.Client, "sourcesharp/game/server/shell_gamedll.cpp"));
     }
 
-    [Theory]
+    [LinuxOnlyTheory("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     [InlineData(CMakeGraph.Server, "out/server.so")]
     [InlineData(CMakeGraph.Client, "out/client.so")]
     [InlineData(CMakeGraph.Host, "out/libmanaged_host.so")]
@@ -32,7 +32,7 @@ public class CMakeGraphTests
         Assert.All(edge.Objects, o => Assert.Contains($"CMakeFiles/{target}.dir/", o, StringComparison.Ordinal));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheGameDllsLinkTheHost()
     {
         Assert.Contains("-lmanaged_host", CMakeGraph.LinkLibraries(CMakeGraph.Server));
@@ -40,7 +40,7 @@ public class CMakeGraphTests
         Assert.DoesNotContain("-lmanaged_host", CMakeGraph.LinkLibraries(CMakeGraph.Host));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheServerIsCompiledWithItsOwnDefinitions()
     {
         Assert.Contains("GAME_DLL", CMakeGraph.CompileDefinitions(CMakeGraph.Server));
@@ -69,7 +69,7 @@ public class CMakeGraphTests
     //
     // The repo-side names are built rather than spelled: they are paths of
     // THIS repo, which SourceFileNamesExistTests (a farm scan) cannot resolve.
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void ALocalPathMapsBackToItsFarmSpelling()
     {
         static string Local(string module, string file) => $"src/{module}/native/{file}";
@@ -125,7 +125,7 @@ public class CMakeGraphFixtureTests
             Assert.Throws<InvalidOperationException>(() => build.CompileCommands());
         });
 
-    [Fact]
+    [LinuxOnlyFact("tests the reader of the Linux build's CMake graph on a gcc/clang-style compile database it writes, with the forward-slashed farm paths that reader models")]
     public void AStaleDatabaseIsAnErrorNotAnAnswer() =>
         WithBuildDir((dir, build) =>
         {
@@ -153,7 +153,7 @@ public class CMakeGraphFixtureTests
     /// reads compiles all of them when it is a debug build and none of them
     /// when it is a release one.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheDebugOnlySourcesAreCompiledInExactlyTheDebugBuild()
     {
         var debug = CMakeGraph.DebugListedSources(CMakeGraph.Server);

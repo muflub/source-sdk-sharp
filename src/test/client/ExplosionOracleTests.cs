@@ -339,7 +339,7 @@ public class ExplosionOracleTests
         Assert.True(steps >= 3000 && floored >= 300, $"{steps} steps ({floored} held at the speed floor)");
     }
 
-    [Fact]
+    [LinuxOnlyFact("a golden recorded bit for bit against glibc's libm; the Windows C runtime rounds the last bit of sin, cos and pow differently")]
     public void Every_smoke_draw_fades_as_stocks()
     {
         int draws = 0;
