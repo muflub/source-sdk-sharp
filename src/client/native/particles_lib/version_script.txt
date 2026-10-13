@@ -1,11 +1,11 @@
-/* libss_particles.so's export list (plan_particles_so.md): client.so dlopens the
-   library and asks its CreateInterface for ISSParticleLib; nothing else is looked
-   up in it. Everything else -- particles.a, dmxloader.a and their tier1/mathlib
+/* libss_particles.so's export list (plan_particles_so.md): client.so links the
+   library and calls SSParticleLib_Interface for ISSParticleLib; nothing else is
+   looked up in it. Everything else -- particles.a, dmxloader.a and their tier1/mathlib
    copies -- stays local, so none of it can interpose on, or be interposed by,
    client.so's identically named ports or the engine's libraries. */
 {
   global:
-    CreateInterface;
+    SSParticleLib_Interface;
   local:
     *;
 };

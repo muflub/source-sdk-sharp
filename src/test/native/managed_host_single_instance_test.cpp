@@ -501,7 +501,9 @@ TEST( ManagedHostSingleInstance, NeitherGameProjectLinksTheHostStatically )
 		for ( size_t k = 0; k < libs.size(); k++ )
 			EXPECT_EQ( libs[ k ].find( "libsourcesharp.a" ), std::string::npos )
 				<< kGame[ i ] << " links the host as a static lib again: " << libs[ k ];
-		EXPECT_TRUE( LinksToken( kGame[ i ], "-lmanaged_host" ) )
+		// By target (ss_link_host): the shared object itself, whose SONAME is
+		// what DT_NEEDED records (it was -L/-l while the host had no SONAME).
+		EXPECT_TRUE( LinksToken( kGame[ i ], "out/libmanaged_host.so" ) )
 			<< kGame[ i ] << " no longer links libmanaged_host.so.";
 	}
 }
@@ -515,7 +517,7 @@ TEST( ManagedHostSingleInstance, BothGameProjectsKeepTheOriginRunpath )
 	for ( size_t i = 0; i < 2; i++ )
 	{
 		const std::string text = LinkText( kGame[ i ] );
-		ASSERT_NE( text.find( "-lmanaged_host" ), std::string::npos )
+		ASSERT_NE( text.find( "out/libmanaged_host.so" ), std::string::npos )
 			<< kGame[ i ] << "'s link line read as something else";
 		EXPECT_NE( text.find( "-Wl,-rpath,\"\\$$ORIGIN\"" ), std::string::npos )
 			<< kGame[ i ] << " has lost its $ORIGIN runpath:\n" << text;

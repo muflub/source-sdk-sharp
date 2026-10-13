@@ -4,7 +4,9 @@
 # hand-owned since.
 
 add_library(sourcesharp SHARED)
-set_target_properties(sourcesharp PROPERTIES OUTPUT_NAME managed_host NO_SONAME ON)
+# A SONAME (its file name), so the game libraries link it by target and
+# DT_NEEDED records libmanaged_host.so, not the build directory's path.
+set_target_properties(sourcesharp PROPERTIES OUTPUT_NAME managed_host)
 ss_sdk_target(sourcesharp PROJECTDIR sourcesharp NO_WRAP)
 # libmanaged_host.so / libmanaged_host.dylib / managed_host.dll: the lib prefix
 # the game libraries do without (ss_sdk_target), on the platforms that use one.

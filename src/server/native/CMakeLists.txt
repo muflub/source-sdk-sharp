@@ -540,9 +540,7 @@ foreach(src IN LISTS server_sourcesharp_sources)
   endif()
 endforeach()
 
-# The managed host: by -L/-l on Linux (libmanaged_host.so has no SONAME, so a
-# link by path would record the build directory in DT_NEEDED), by target on
-# the others (ss_link_host).
+# The managed host, linked by target (ss_link_host).
 ss_link_host(server_sourcesharp)
 
 # IDENTICAL CODE FOLDING, release only (2026-10-01). lld merges functions whose

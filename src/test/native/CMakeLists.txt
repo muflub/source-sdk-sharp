@@ -5202,9 +5202,10 @@ ss_cpptest(client_no_tier3_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_no_tier3_test.cpp)
 
-# plan_particles_so.md 3.3: libss_particles.so exports only CreateInterface, no
-# import of it binds into client.so, and the tier1 names both carry are local
-# in each.
+# plan_particles_so.md 3.3: libss_particles.so exports only
+# SSParticleLib_Interface, client.so needs it (and the managed host) by SONAME,
+# no import of it binds into client.so, and the tier1 names both carry are
+# local in each.
 ss_cpptest(particles_lib_isolation_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/particles_lib_isolation_test.cpp)

@@ -35,9 +35,10 @@ public class CMakeGraphTests
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheGameDllsLinkTheHost()
     {
-        Assert.Contains("-lmanaged_host", CMakeGraph.LinkLibraries(CMakeGraph.Server));
-        Assert.Contains("-lmanaged_host", CMakeGraph.LinkLibraries(CMakeGraph.Client));
-        Assert.DoesNotContain("-lmanaged_host", CMakeGraph.LinkLibraries(CMakeGraph.Host));
+        // By target (ss_link_host): the shared object, whose SONAME DT_NEEDED records.
+        Assert.Contains("out/libmanaged_host.so", CMakeGraph.LinkLibraries(CMakeGraph.Server));
+        Assert.Contains("out/libmanaged_host.so", CMakeGraph.LinkLibraries(CMakeGraph.Client));
+        Assert.DoesNotContain("out/libmanaged_host.so", CMakeGraph.LinkLibraries(CMakeGraph.Host));
     }
 
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]

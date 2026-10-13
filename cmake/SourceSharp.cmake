@@ -535,18 +535,12 @@ endfunction()
 
 # ss_link_host(<target>)
 #
-# The managed host, which both game libraries link. On Linux by -L/-l rather
-# than by the target: libmanaged_host.so has no SONAME, so a link by path
-# would record the build directory in DT_NEEDED. link.exe takes the import
-# library and Apple's ld the install name (@rpath/libmanaged_host.dylib), so
-# there the target itself is right.
+# The managed host, which both game libraries link, by target on every
+# platform: DT_NEEDED records libmanaged_host.so's SONAME (it has one, its file
+# name, for this), link.exe takes the import library, and Apple's ld the
+# install name (@rpath/libmanaged_host.dylib). All of them sit in the same bin
+# directory in the game, where the DLLs' RUNPATH $ORIGIN (or the launcher's
+# PATH on Windows) finds them.
 function(ss_link_host tgt)
-  add_dependencies(${tgt} sourcesharp)
-  if(SS_PLATFORM STREQUAL linux)
-    target_link_options(${tgt} PRIVATE -L$<TARGET_FILE_DIR:sourcesharp>)
-    target_link_libraries(${tgt} PRIVATE managed_host)
-    set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS $<TARGET_FILE:sourcesharp>)
-  else()
-    target_link_libraries(${tgt} PRIVATE sourcesharp)
-  endif()
+  target_link_libraries(${tgt} PRIVATE sourcesharp)
 endfunction()

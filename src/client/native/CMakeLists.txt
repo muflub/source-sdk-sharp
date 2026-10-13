@@ -294,9 +294,7 @@ target_include_directories(client_sourcesharp PRIVATE
     ${SS_SRC}/vgui2/include
 )
 
-# The managed host: by -L/-l on Linux (libmanaged_host.so has no SONAME, so a
-# link by path would record the build directory in DT_NEEDED), by target on
-# the others (ss_link_host).
+# The managed host, linked by target (ss_link_host).
 ss_link_host(client_sourcesharp)
 
 # VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
@@ -304,14 +302,16 @@ ss_link_host(client_sourcesharp)
 # archive only against what came before it.
 #
 # particles.a and dmxloader.a are libss_particles.so's (plan_particles_so.md,
-# particles_lib/): client.so dlopens it, and particles_lib_client.cpp defines
+# particles_lib/): client.so links it, and particles_lib_client.cpp defines
 # the names client.so's objects take from particles.a as forwards to it.
 target_include_directories(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/src/client/native/particles_lib/include)
-# No libss_particles on macOS (particles_lib/CMakeLists.txt): the client builds
-# and links there (the loader fails at run time, as it would with the library
-# missing beside it); the dependency exists where the library does.
+# Linked like any library: SSParticleLib_Interface resolves when client.so loads
+# (DT_NEEDED on libss_particles.so's SONAME, beside client.so by its RUNPATH
+# $ORIGIN; ss_particles.lib on Windows). No libss_particles on macOS
+# (particles_lib/CMakeLists.txt): the client links there with dynamic lookup,
+# and the call fails at run time, as it would with the library missing.
 if(TARGET ss_particles)
-  add_dependencies(client_sourcesharp ss_particles)
+  target_link_libraries(client_sourcesharp PRIVATE ss_particles)
 endif()
 # rt and dl are glibc's; zlib is the system's on Linux and macOS and Valve's
 # libz.lib on Windows (cmake/sdk).

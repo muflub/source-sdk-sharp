@@ -15,10 +15,12 @@
 // CNewParticleEffect still derives from CParticleCollection: client.so lays the
 // object out from the same header and the library runs its members.
 //
-// The library is dlopened RTLD_LOCAL from beside client.so (the client's
-// RUNPATH is $ORIGIN) when client.so loads, so g_pParticleSystemMgr is set
-// before any client code runs; Connect, from tier_connect.cpp's tier2
-// lookups in CHLClient::Init, hands it the engine's factory.
+// client.so links the library like any other (DT_NEEDED on its SONAME, found
+// beside client.so by its RUNPATH $ORIGIN; the import library on Windows), so
+// SSParticleLib_Interface resolves when client.so loads. Connect, from
+// tier_connect.cpp's tier2 lookups in CHLClient::Init, hands the library the
+// engine's factory and sets g_pParticleSystemMgr, before CParticleMgr::Init
+// (particlemgr.cpp) first reads it.
 //=============================================================================//
 
 #include "tier0/dbg.h"
@@ -26,15 +28,6 @@
 #include "ss_particles/iparticlelib.h"
 #include "particles_lib_client.h"
 #include "vtable_hook.h"
-
-#if defined( _WIN32 )
-	#ifndef WIN32_LEAN_AND_MEAN
-		#define WIN32_LEAN_AND_MEAN
-	#endif
-	#include <windows.h>
-#else
-	#include <dlfcn.h>
-#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -44,79 +37,23 @@ CParticleSystemMgr *g_pParticleSystemMgr = NULL;
 namespace
 {
 
-// The library's one object. Set once, when client.so loads, and never again:
-// the library is never unloaded (nothing dlcloses it), so neither the handle
-// nor anything else about the load needs keeping.
-ISSParticleLib *g_pLib = NULL;
-
+// The library's one object, from its one export.
 ISSParticleLib *Lib()
 {
-	return g_pLib;
-}
-
-// The library's file name beside client.so, as the platform spells it.
-#if defined( _WIN32 )
-	#define SS_PARTICLE_LIB "ss_particles.dll"
-#elif defined( __APPLE__ )
-	#define SS_PARTICLE_LIB "libss_particles.dylib"
-#else
-	#define SS_PARTICLE_LIB "libss_particles.so"
-#endif
-
-// Runs when client.so is loaded, before any client code can name a particle
-// function, so g_pParticleSystemMgr is set by the time anything reads it.
-// GCC and clang run a constructor function at load; MSVC has no such
-// attribute, so there it is a dynamic initialiser placed in the library
-// segment (#pragma init_seg(lib)), which runs before every user-segment
-// static initialiser in the DLL -- the same ordering guarantee.
-#if defined( _MSC_VER )
-void LoadParticleLib();
-// C4073 says only that this is what init_seg(lib) does.
-#pragma warning( disable : 4073 )
-#pragma init_seg( lib )
-static const int s_nParticleLibLoaded = ( LoadParticleLib(), 0 );
-void LoadParticleLib()
-#else
-__attribute__( ( constructor ) ) void LoadParticleLib()
-#endif
-{
-#if defined( _WIN32 )
-	HMODULE hLib = ::LoadLibraryA( SS_PARTICLE_LIB );
-	if ( !hLib )
-	{
-		Error( "[SourceSharp] " SS_PARTICLE_LIB " did not load: error %lu\n", (unsigned long)::GetLastError() );
-		return;
-	}
-	CreateInterfaceFn factory = (CreateInterfaceFn)::GetProcAddress( hLib, "CreateInterface" );
-#else
-	void *hLib = dlopen( SS_PARTICLE_LIB, RTLD_NOW | RTLD_LOCAL );
-	if ( !hLib )
-	{
-		Error( "[SourceSharp] " SS_PARTICLE_LIB " did not load: %s\n", dlerror() );
-		return;
-	}
-	CreateInterfaceFn factory = (CreateInterfaceFn)dlsym( hLib, "CreateInterface" );
-#endif
-	g_pLib = factory ? (ISSParticleLib *)factory( SS_PARTICLE_LIB_INTERFACE_VERSION, NULL ) : NULL;
-	if ( !g_pLib )
-	{
-		Error( "[SourceSharp] " SS_PARTICLE_LIB " has no %s\n", SS_PARTICLE_LIB_INTERFACE_VERSION );
-		return;
-	}
-	g_pParticleSystemMgr = g_pLib->Mgr();
+	return SSParticleLib_Interface();
 }
 
 } // namespace
 
 bool ParticleLib_Connect( CreateInterfaceFn appSystemFactory )
 {
-	return g_pLib && g_pLib->Connect( appSystemFactory );
+	g_pParticleSystemMgr = Lib()->Mgr();
+	return Lib()->Connect( appSystemFactory );
 }
 
 void ParticleLib_Disconnect()
 {
-	if ( g_pLib )
-		g_pLib->Disconnect();
+	Lib()->Disconnect();
 }
 
 // MgrUncacheAllParticleSystems is the LAST declaration in ISSParticleLib (the
@@ -125,16 +62,13 @@ void ParticleLib_Disconnect()
 void *ParticleLib_Acquire( int32_t *pnEntries )
 {
 	if ( pnEntries )
-		*pnEntries = g_pLib ? VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1 : 0;
-	return g_pLib;
+		*pnEntries = VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1;
+	return Lib();
 }
 
 void ParticleLib_Counters( SSParticleLibCounters_t *pOut )
 {
-	if ( g_pLib )
-		g_pLib->Counters( pOut );
-	else
-		memset( pOut, 0, sizeof( *pOut ) );
+	Lib()->Counters( pOut );
 }
 
 // CParticleCollection ---------------------------------------------------------

@@ -2,10 +2,12 @@
 # object (plan_particles_so.md; SPIKE, section 5).
 #
 # It links the two prebuilt archives, the tier1 and mathlib members they import
-# and its own copy of the tier2 stand-ins, and exports only CreateInterface
-# (version_script.txt), which hands out ISSParticleLib. Every copy inside is
-# local, so the library's tier1 and client.so's tier1 ports never meet.
-# client.so dlopens it from beside itself (particles_lib_client.cpp).
+# and its own copy of the tier2 stand-ins, and exports only
+# SSParticleLib_Interface (version_script.txt), which hands out ISSParticleLib.
+# Every copy inside is local, so the library's tier1 and client.so's tier1 ports
+# never meet. client.so links it like any library (src/client/native's
+# CMakeLists): on Linux DT_NEEDED names its SONAME, libss_particles.so, found
+# beside client.so through its RUNPATH $ORIGIN; on Windows the import library.
 
 # Not on macOS: it links particles.a and dmxloader.a, prebuilt archives Valve
 # ships for Linux and Windows only (cmake/sdk/CMakeLists.txt), and their
@@ -16,13 +18,15 @@ if(SS_PLATFORM STREQUAL osx)
 endif()
 
 add_library(ss_particles SHARED)
-set_target_properties(ss_particles PROPERTIES OUTPUT_NAME ss_particles NO_SONAME ON)
+# A SONAME (its file name), so the client's link records that in DT_NEEDED
+# and not the build directory's path.
+set_target_properties(ss_particles PROPERTIES OUTPUT_NAME ss_particles)
 ss_sdk_target(ss_particles PROJECTDIR particles RPATH_ORIGIN
     VERSION_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/version_script.txt)
 # ss_sdk_target drops the `lib` prefix, as Valve's game libraries have none.
-# This one is ours and keeps it outside Windows: client.so dlopens
-# libss_particles.so by that name (particles_lib_client.cpp's SS_PARTICLE_LIB),
-# and Windows' client.dll loads ss_particles.dll.
+# This one is ours and keeps it outside Windows: libss_particles.so is the name
+# client.so's DT_NEEDED carries (and the release archive ships), ss_particles.dll
+# client.dll's import.
 if(NOT SS_PLATFORM STREQUAL windows)
   set_target_properties(ss_particles PROPERTIES PREFIX "lib")
 endif()
@@ -50,6 +54,9 @@ target_include_directories(ss_particles PRIVATE
 
 target_compile_definitions(ss_particles PRIVATE
     DLLNAME=ss_particles
+    # SSParticleLib_Interface is exported here and imported by client.so
+    # (ss_particles/iparticlelib.h).
+    SS_PARTICLELIB_BUILD
     NO_STRING_T
     VECTOR
     SOURCESHARP

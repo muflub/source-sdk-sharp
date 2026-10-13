@@ -4,7 +4,8 @@
 // its ports of the same names. Neither may interpose on the other. Held on the
 // built binaries, by nm:
 //
-//   - the library's dynamic table exports CreateInterface and nothing else;
+//   - the library's dynamic table exports SSParticleLib_Interface and nothing
+//     else, and client.so links it like any library: DT_NEEDED on its SONAME;
 //   - none of the library's dynamic imports is something client.so exports
 //     (so no import of the library can bind into client.so);
 //   - names both carry are defined LOCALLY in each (each resolves its own);
@@ -64,13 +65,36 @@ std::string Lib() { return "'" + cmake_graph::BuildDir() + "/out/libss_particles
 std::string Client() { return "'" + cmake_graph::BuildDir() + "/out/client.so'"; }
 } // namespace
 
-TEST( ParticlesLibIsolation, TheLibraryExportsCreateInterfaceAndNothingElse )
+TEST( ParticlesLibIsolation, TheLibraryExportsItsInterfaceFunctionAndNothingElse )
 {
 	// Proof of read: the library's whole table is large and mostly local.
 	ASSERT_GT( Names( Lib(), "t" ).size(), 1000u ) << "libss_particles.so read as nearly empty";
 
+	// Not CreateInterface: client.so exports one of its own, so it could not
+	// name the library's.
 	const std::set< std::string > exports = Names( "-D --defined-only " + Lib(), "TDBRVWiu" );
-	EXPECT_EQ( std::set< std::string >{ "CreateInterface" }, exports );
+	EXPECT_EQ( std::set< std::string >{ "SSParticleLib_Interface" }, exports );
+}
+
+// LINKED, NOT LOADED BY HAND (review, 2026-10-13): client.so names the library
+// in DT_NEEDED by its SONAME, and the managed host by its own, never by a
+// build-directory path, so both resolve beside client.so through RUNPATH
+// $ORIGIN in the game's bin directory.
+TEST( ParticlesLibIsolation, ClientSoNeedsBothLibrariesByTheirSonames )
+{
+	// ::Run: inside a TEST body, Run alone is gtest's Test::Run.
+	const std::string lib = ::Run( "readelf -d " + Lib() );
+	const std::string host = ::Run( "readelf -d '" + cmake_graph::BuildDir() + "/out/libmanaged_host.so'" );
+	const std::string client = ::Run( "readelf -d " + Client() );
+	ASSERT_NE( std::string::npos, client.find( "(NEEDED)" ) ) << "readelf read client.so as empty";
+
+	EXPECT_NE( std::string::npos, lib.find( "Library soname: [libss_particles.so]" ) );
+	EXPECT_NE( std::string::npos, host.find( "Library soname: [libmanaged_host.so]" ) );
+	EXPECT_NE( std::string::npos, client.find( "Shared library: [libss_particles.so]" ) );
+	EXPECT_NE( std::string::npos, client.find( "Shared library: [libmanaged_host.so]" ) );
+	EXPECT_NE( std::string::npos, client.find( "Library runpath: [$ORIGIN]" ) );
+	// Nothing names the build tree: a link by path would put it in DT_NEEDED.
+	EXPECT_EQ( std::string::npos, client.find( cmake_graph::BuildDir() ) );
 }
 
 TEST( ParticlesLibIsolation, NoImportOfTheLibraryIsAnExportOfClientSo )

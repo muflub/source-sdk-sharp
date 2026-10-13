@@ -3,7 +3,6 @@
 bool ParticleLib_Connect( CreateInterfaceFn appSystemFactory )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 ParticleLib_Disconnect	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 ParticleLib_Counters	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
-LoadParticleLib()	BOUNDARY	dlopens libss_particles.so when client.so loads and asks its CreateInterface for ISSParticleLib (plan_particles_so.md)
 ISSParticleLib *Lib()	SLOT-HELP	the library's object, for the forwards beside it
 void *CParticleCollection::operator new( size_t nSize )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void CParticleCollection::operator delete( void *pData )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
