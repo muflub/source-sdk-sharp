@@ -278,8 +278,13 @@ jobs:
 
       # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
       # from the built assemblies as the Makefile's legs run them.
+      # And the Debug launcher, as the Makefile's managed-legs publishes it:
+      # LauncherTests runs the real bin/debug/source#.exe.
       - name: Build the tests (Debug)
-        run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
+        run: |
+          env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
+          env -u Platform dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
+          ls -la bin/debug/source#*
 
       # The gate: every managed test project, as the Makefile's managed legs
       # run them (oracle-managed reads the pristine upstream clone, which

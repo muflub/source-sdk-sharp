@@ -532,6 +532,18 @@ internal sealed class Launcher(
         }
     }
 
+    /// <summary>
+    /// The directory of the launcher binary itself, whatever link it was
+    /// started through: <paramref name="processPath"/>'s final target's
+    /// directory. Linux hands the launcher an already resolved path; Windows
+    /// hands it the link's, and the game directory is the binary's.
+    /// </summary>
+    internal static string LauncherDirectory(string processPath)
+    {
+        string binary = new FileInfo(processPath).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? processPath;
+        return Path.GetDirectoryName(binary) ?? throw new InvalidOperationException($"{processPath} has no directory");
+    }
+
     /// <summary>Names the directory instances are made in, instead of <see cref="InstanceBase"/>'s default.</summary>
     public const string InstanceRootVariable = "SOURCESHARP_INSTANCE_ROOT";
 
@@ -597,10 +609,20 @@ internal sealed class Launcher(
     /// Whether a process with that id is running: /proc/&lt;pid&gt; where
     /// there is a /proc (the reading the sweep was written with), else the
     /// process table.
+    ///
+    /// <para>
+    /// "Where there is a /proc" is the host's, not only the platform's: a
+    /// launcher pinned to the Linux platform on a host without /proc (the
+    /// facts run that way on Windows) read every pid as gone, and swept the
+    /// instance of a launcher that was still running.
+    /// </para>
     /// </summary>
-    internal bool ProcessIsRunning(int pid)
+    internal bool ProcessIsRunning(int pid) => IsRunning(pid, Platform.HasProcFs && Directory.Exists("/proc"));
+
+    /// <summary>The two readings of <see cref="ProcessIsRunning"/>, each testable on any host that has it.</summary>
+    internal static bool IsRunning(int pid, bool readProc)
     {
-        if (Platform.HasProcFs)
+        if (readProc)
             return Directory.Exists($"/proc/{pid}");
         try
         {
