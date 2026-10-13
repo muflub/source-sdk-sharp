@@ -52,6 +52,7 @@
 //
 //=============================================================================//
 #include <gtest/gtest.h>
+#include "ss_ci_skip.h"
 
 #include <fstream>
 #include <sstream>
@@ -381,6 +382,7 @@ TEST( Section6Rulings, TheStripRemovesCommentsAndKeepsCode )
 
 TEST( Section6Rulings, BothRuledFilesReallyCarryTheirHeaders )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// The positive control for every absence below: a fact that cannot open a
 	// file reads as "the token is not there", which is how an absence check
 	// passes over a path that has moved.

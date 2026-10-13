@@ -656,7 +656,7 @@ public class MovementTests
     /// managed loop against the answers the engine gave the C++, must produce
     /// the state the C++ produced — bit for bit.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void TheManagedLoopReproducesEveryRecordedCommand()
     {
         StockRecording rec = LoadRecording();
@@ -910,7 +910,7 @@ public class MovementTests
     /// the acceleration is against the UNCAPPED wish (1200, not 960), so
     /// 5 * (1/16) * 1200 = 375 and friction leaves 281.25.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void ARoamingObserverWithoutSpecNoClipDoesAClippedFreeRoam()
     {
         MoveConstants c = MoveConstants.Stock;
@@ -1059,7 +1059,7 @@ public class MovementTests
     /// add speed of 10 and friction leaves 7.5. Without the clamp the same
     /// command accelerates against 400.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void TheClippedRoamClampsTheWishSpeedToServerMaxVelocity()
     {
         MoveConstants c = MoveConstants.Stock;
@@ -1198,7 +1198,7 @@ public class MovementTests
     /// <c>sv_accelerate</c>: 10 * (1/16) * 320 = 200, capped by the add speed
     /// of 320 — no, 200 is below it, so the velocity is 200 along the view.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void AFlyingPlayerWithForwardInputAcceleratesAtServerAccelerate()
     {
         var world = new ScriptedWorld();

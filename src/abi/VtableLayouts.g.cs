@@ -44,6 +44,19 @@
 // it to sizeof(TVtbl) / sizeof(void *). Equal, construct; not equal, refuse
 // naming both numbers. That is the whole of it, it runs once per acquire, and
 // what it catches is THIS FILE GOING STALE against the headers.
+//
+// ON WINDOWS THE ENGINE IS MSVC'S, and the Microsoft C++ ABI orders some tables
+// differently: a virtual destructor takes ONE slot, and each class's overloads
+// are grouped by name and laid out in REVERSE declaration order. A layout MSVC
+// orders the Itanium way is emitted as above. One it does not is the same
+// span of pointers read through properties, each picking its Windows index
+// on Windows (`[VtableSlot(itanium, microsoft)]` says both), and its
+// `MicrosoftEntries` is the count native reports there; VtableAbi answers
+// that count for any layout. A managed-written table MSVC orders differently
+// keeps its fields, and ManagedVtableGenerator writes each thunk at the index
+// for the ABI it runs on. A slot returning a class by value is
+// [MemberFunction], because MSVC passes a member function's return buffer
+// after `this`.
 
 using System.Runtime.InteropServices;
 
@@ -94,31 +107,60 @@ internal unsafe struct UniformRandomStreamVtbl
 /// The destructor pair is slots 0 and 1 and the first method is at 2. An
 /// index one too low near the top of this table frees the engine's singleton.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two and overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 58 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ModelInfoVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 58;
+
+    private fixed long _slots[59];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, int, void*> GetModel;               // 2   const model_t * IVModelInfo::GetModel( int )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, int, void*> GetModel => (delegate* unmanaged<void*, int, void*>)At(2, 1); // 2   ms 1   const model_t * IVModelInfo::GetModel( int )
 
-    public delegate* unmanaged<void*, byte*, int> GetModelIndex;          // 3   int IVModelInfo::GetModelIndex( const char * )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, byte*, int> GetModelIndex => (delegate* unmanaged<void*, byte*, int>)At(3, 2); // 3   ms 2   int IVModelInfo::GetModelIndex( const char * )
 
-    public delegate* unmanaged<void*, void*, byte*> GetModelName;         // 4   const char * IVModelInfo::GetModelName( const model_t * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, byte*> GetModelName => (delegate* unmanaged<void*, void*, byte*>)At(4, 3); // 4   ms 3   const char * IVModelInfo::GetModelName( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*> GetVCollide;          // 5   vcollide_t * IVModelInfo::GetVCollide( const model_t * )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, void*, void*> GetVCollide => (delegate* unmanaged<void*, void*, void*>)At(5, 5); // 5   ms 5   vcollide_t * IVModelInfo::GetVCollide( const model_t * )
 
-    public delegate* unmanaged<void*, int, void*> GetVCollide_2;          // 6   vcollide_t * IVModelInfo::GetVCollide( int )
+    [VtableSlot(6, 4)]
+    public delegate* unmanaged<void*, int, void*> GetVCollide_2 => (delegate* unmanaged<void*, int, void*>)At(6, 4); // 6   ms 4   vcollide_t * IVModelInfo::GetVCollide( int )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelBounds; // 7   void IVModelInfo::GetModelBounds( const model_t *, Vector &, Vector & )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelBounds => (delegate* unmanaged<void*, void*, void*, void*, void>)At(7, 6); // 7   ms 6   void IVModelInfo::GetModelBounds( const model_t *, Vector &, Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelRenderBounds; // 8   void IVModelInfo::GetModelRenderBounds( const model_t *, Vector &, Vector & )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelRenderBounds => (delegate* unmanaged<void*, void*, void*, void*, void>)At(8, 7); // 8   ms 7   void IVModelInfo::GetModelRenderBounds( const model_t *, Vector &, Vector & )
 
     // NOT EXPOSED (policy, not verification) --
     // its answer has exactly one other source in this process and that source is the ABI path
@@ -128,105 +170,155 @@ internal unsafe struct ModelInfoVtbl
     // to catch. Nothing else in the process knows how many frames a model has: the count lives
     // on the loaded model and there is no second door into it. Bound the day one appears, and
     // not before.
-    public delegate* unmanaged<void*, void*, int> GetModelFrameCount;     // 9   int IVModelInfo::GetModelFrameCount( const model_t * )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void*, int> GetModelFrameCount => (delegate* unmanaged<void*, void*, int>)At(9, 8); // 9   ms 8   int IVModelInfo::GetModelFrameCount( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetModelType;           // 10  int IVModelInfo::GetModelType( const model_t * )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, int> GetModelType => (delegate* unmanaged<void*, void*, int>)At(10, 9); // 10  ms 9   int IVModelInfo::GetModelType( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*> GetModelExtraData;    // 11  void * IVModelInfo::GetModelExtraData( const model_t * )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void*, void*> GetModelExtraData => (delegate* unmanaged<void*, void*, void*>)At(11, 10); // 11  ms 10  void * IVModelInfo::GetModelExtraData( const model_t * )
 
-    public delegate* unmanaged<void*, void*, byte> ModelHasMaterialProxy; // 12  bool IVModelInfo::ModelHasMaterialProxy( const model_t * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, byte> ModelHasMaterialProxy => (delegate* unmanaged<void*, void*, byte>)At(12, 11); // 12  ms 11  bool IVModelInfo::ModelHasMaterialProxy( const model_t * )
 
-    public delegate* unmanaged<void*, void*, byte> IsTranslucent;         // 13  bool IVModelInfo::IsTranslucent( model_t const * )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void*, byte> IsTranslucent => (delegate* unmanaged<void*, void*, byte>)At(13, 12); // 13  ms 12  bool IVModelInfo::IsTranslucent( model_t const * )
 
-    public delegate* unmanaged<void*, void*, byte> IsTranslucentTwoPass;  // 14  bool IVModelInfo::IsTranslucentTwoPass( const model_t * )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, void*, byte> IsTranslucentTwoPass => (delegate* unmanaged<void*, void*, byte>)At(14, 13); // 14  ms 13  bool IVModelInfo::IsTranslucentTwoPass( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int, int, void*, float, void> RecomputeTranslucency; // 15  void IVModelInfo::RecomputeTranslucency( const model_t *, int, int, void *, float )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, void*, int, int, void*, float, void> RecomputeTranslucency => (delegate* unmanaged<void*, void*, int, int, void*, float, void>)At(15, 14); // 15  ms 14  void IVModelInfo::RecomputeTranslucency( const model_t *, int, int, void *, float )
 
-    public delegate* unmanaged<void*, void*, int> GetModelMaterialCount;  // 16  int IVModelInfo::GetModelMaterialCount( const model_t * )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, void*, int> GetModelMaterialCount => (delegate* unmanaged<void*, void*, int>)At(16, 15); // 16  ms 15  int IVModelInfo::GetModelMaterialCount( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int, void*, void> GetModelMaterials; // 17  void IVModelInfo::GetModelMaterials( const model_t *, int, IMaterial * * )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, void*, int, void*, void> GetModelMaterials => (delegate* unmanaged<void*, void*, int, void*, void>)At(17, 16); // 17  ms 16  void IVModelInfo::GetModelMaterials( const model_t *, int, IMaterial * * )
 
-    public delegate* unmanaged<void*, void*, byte> IsModelVertexLit;      // 18  bool IVModelInfo::IsModelVertexLit( const model_t * )
+    [VtableSlot(18, 17)]
+    public delegate* unmanaged<void*, void*, byte> IsModelVertexLit => (delegate* unmanaged<void*, void*, byte>)At(18, 17); // 18  ms 17  bool IVModelInfo::IsModelVertexLit( const model_t * )
 
-    public delegate* unmanaged<void*, void*, byte*> GetModelKeyValueText; // 19  const char * IVModelInfo::GetModelKeyValueText( const model_t * )
+    [VtableSlot(19, 18)]
+    public delegate* unmanaged<void*, void*, byte*> GetModelKeyValueText => (delegate* unmanaged<void*, void*, byte*>)At(19, 18); // 19  ms 18  const char * IVModelInfo::GetModelKeyValueText( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*, byte> GetModelKeyValue; // 20  bool IVModelInfo::GetModelKeyValue( const model_t *, CUtlBuffer & )
+    [VtableSlot(20, 19)]
+    public delegate* unmanaged<void*, void*, void*, byte> GetModelKeyValue => (delegate* unmanaged<void*, void*, void*, byte>)At(20, 19); // 20  ms 19  bool IVModelInfo::GetModelKeyValue( const model_t *, CUtlBuffer & )
 
-    public delegate* unmanaged<void*, void*, float> GetModelRadius;       // 21  float IVModelInfo::GetModelRadius( const model_t * )
+    [VtableSlot(21, 20)]
+    public delegate* unmanaged<void*, void*, float> GetModelRadius => (delegate* unmanaged<void*, void*, float>)At(21, 20); // 21  ms 20  float IVModelInfo::GetModelRadius( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*, byte*, void*> FindModel; // 22  const studiohdr_t * IVModelInfo::FindModel( const studiohdr_t *, void * *, const char * )
+    [VtableSlot(22, 22)]
+    public delegate* unmanaged<void*, void*, void*, byte*, void*> FindModel => (delegate* unmanaged<void*, void*, void*, byte*, void*>)At(22, 22); // 22  ms 22  const studiohdr_t * IVModelInfo::FindModel( const studiohdr_t *, void * *, const char * )
 
-    public delegate* unmanaged<void*, void*, void*> FindModel_2;          // 23  const studiohdr_t * IVModelInfo::FindModel( void * )
+    [VtableSlot(23, 21)]
+    public delegate* unmanaged<void*, void*, void*> FindModel_2 => (delegate* unmanaged<void*, void*, void*>)At(23, 21); // 23  ms 21  const studiohdr_t * IVModelInfo::FindModel( void * )
 
-    public delegate* unmanaged<void*, void*, void*> GetVirtualModel;      // 24  virtualmodel_t * IVModelInfo::GetVirtualModel( const studiohdr_t * )
+    [VtableSlot(24, 23)]
+    public delegate* unmanaged<void*, void*, void*> GetVirtualModel => (delegate* unmanaged<void*, void*, void*>)At(24, 23); // 24  ms 23  virtualmodel_t * IVModelInfo::GetVirtualModel( const studiohdr_t * )
 
-    public delegate* unmanaged<void*, void*, int, byte*> GetAnimBlock;    // 25  byte * IVModelInfo::GetAnimBlock( const studiohdr_t *, int )
+    [VtableSlot(25, 24)]
+    public delegate* unmanaged<void*, void*, int, byte*> GetAnimBlock => (delegate* unmanaged<void*, void*, int, byte*>)At(25, 24); // 25  ms 24  byte * IVModelInfo::GetAnimBlock( const studiohdr_t *, int )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void> GetModelMaterialColorAndLighting; // 26  void IVModelInfo::GetModelMaterialColorAndLighting( const model_t *, Vector const &, QAngle const &, trace_t *, Vector &, Vector & )
+    [VtableSlot(26, 25)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void> GetModelMaterialColorAndLighting => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void>)At(26, 25); // 26  ms 25  void IVModelInfo::GetModelMaterialColorAndLighting( const model_t *, Vector const &, QAngle const &, trace_t *, Vector &, Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetIlluminationPoint; // 27  void IVModelInfo::GetIlluminationPoint( const model_t *, IClientRenderable *, Vector const &, QAngle const &, Vector * )
+    [VtableSlot(27, 26)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetIlluminationPoint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void>)At(27, 26); // 27  ms 26  void IVModelInfo::GetIlluminationPoint( const model_t *, IClientRenderable *, Vector const &, QAngle const &, Vector * )
 
-    public delegate* unmanaged<void*, int, int> GetModelContents;         // 28  int IVModelInfo::GetModelContents( int )
+    [VtableSlot(28, 27)]
+    public delegate* unmanaged<void*, int, int> GetModelContents => (delegate* unmanaged<void*, int, int>)At(28, 27); // 28  ms 27  int IVModelInfo::GetModelContents( int )
 
-    public delegate* unmanaged<void*, void*, void*> GetStudiomodel;       // 29  studiohdr_t * IVModelInfo::GetStudiomodel( const model_t * )
+    [VtableSlot(29, 28)]
+    public delegate* unmanaged<void*, void*, void*> GetStudiomodel => (delegate* unmanaged<void*, void*, void*>)At(29, 28); // 29  ms 28  studiohdr_t * IVModelInfo::GetStudiomodel( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetModelSpriteWidth;    // 30  int IVModelInfo::GetModelSpriteWidth( const model_t * )
+    [VtableSlot(30, 29)]
+    public delegate* unmanaged<void*, void*, int> GetModelSpriteWidth => (delegate* unmanaged<void*, void*, int>)At(30, 29); // 30  ms 29  int IVModelInfo::GetModelSpriteWidth( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetModelSpriteHeight;   // 31  int IVModelInfo::GetModelSpriteHeight( const model_t * )
+    [VtableSlot(31, 30)]
+    public delegate* unmanaged<void*, void*, int> GetModelSpriteHeight => (delegate* unmanaged<void*, void*, int>)At(31, 30); // 31  ms 30  int IVModelInfo::GetModelSpriteHeight( const model_t * )
 
-    public delegate* unmanaged<void*, float, float, void> SetLevelScreenFadeRange; // 32  void IVModelInfo::SetLevelScreenFadeRange( float, float )
+    [VtableSlot(32, 31)]
+    public delegate* unmanaged<void*, float, float, void> SetLevelScreenFadeRange => (delegate* unmanaged<void*, float, float, void>)At(32, 31); // 32  ms 31  void IVModelInfo::SetLevelScreenFadeRange( float, float )
 
-    public delegate* unmanaged<void*, void*, void*, void> GetLevelScreenFadeRange; // 33  void IVModelInfo::GetLevelScreenFadeRange( float *, float * )
+    [VtableSlot(33, 32)]
+    public delegate* unmanaged<void*, void*, void*, void> GetLevelScreenFadeRange => (delegate* unmanaged<void*, void*, void*, void>)At(33, 32); // 33  ms 32  void IVModelInfo::GetLevelScreenFadeRange( float *, float * )
 
-    public delegate* unmanaged<void*, float, float, void> SetViewScreenFadeRange; // 34  void IVModelInfo::SetViewScreenFadeRange( float, float )
+    [VtableSlot(34, 33)]
+    public delegate* unmanaged<void*, float, float, void> SetViewScreenFadeRange => (delegate* unmanaged<void*, float, float, void>)At(34, 33); // 34  ms 33  void IVModelInfo::SetViewScreenFadeRange( float, float )
 
-    public delegate* unmanaged<void*, void*, float, float, byte> ComputeLevelScreenFade; // 35  unsigned char IVModelInfo::ComputeLevelScreenFade( const Vector &, float, float )
+    [VtableSlot(35, 34)]
+    public delegate* unmanaged<void*, void*, float, float, byte> ComputeLevelScreenFade => (delegate* unmanaged<void*, void*, float, float, byte>)At(35, 34); // 35  ms 34  unsigned char IVModelInfo::ComputeLevelScreenFade( const Vector &, float, float )
 
-    public delegate* unmanaged<void*, void*, float, float, byte> ComputeViewScreenFade; // 36  unsigned char IVModelInfo::ComputeViewScreenFade( const Vector &, float, float )
+    [VtableSlot(36, 35)]
+    public delegate* unmanaged<void*, void*, float, float, byte> ComputeViewScreenFade => (delegate* unmanaged<void*, void*, float, float, byte>)At(36, 35); // 36  ms 35  unsigned char IVModelInfo::ComputeViewScreenFade( const Vector &, float, float )
 
-    public delegate* unmanaged<void*, void*, void*, int> GetAutoplayList; // 37  int IVModelInfo::GetAutoplayList( const studiohdr_t *, unsigned short * * )
+    [VtableSlot(37, 36)]
+    public delegate* unmanaged<void*, void*, void*, int> GetAutoplayList => (delegate* unmanaged<void*, void*, void*, int>)At(37, 36); // 37  ms 36  int IVModelInfo::GetAutoplayList( const studiohdr_t *, unsigned short * * )
 
-    public delegate* unmanaged<void*, int, void*> GetCollideForVirtualTerrain; // 38  CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
+    [VtableSlot(38, 37)]
+    public delegate* unmanaged<void*, int, void*> GetCollideForVirtualTerrain => (delegate* unmanaged<void*, int, void*>)At(38, 37); // 38  ms 37  CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
 
-    public delegate* unmanaged<void*, void*, int, int, void*, byte> IsUsingFBTexture; // 39  bool IVModelInfo::IsUsingFBTexture( const model_t *, int, int, void * )
+    [VtableSlot(39, 38)]
+    public delegate* unmanaged<void*, void*, int, int, void*, byte> IsUsingFBTexture => (delegate* unmanaged<void*, void*, int, int, void*, byte>)At(39, 38); // 39  ms 38  bool IVModelInfo::IsUsingFBTexture( const model_t *, int, int, void * )
 
-    public delegate* unmanaged<void*, byte*, void*> FindOrLoadModel;      // 40  const model_t * IVModelInfo::FindOrLoadModel( const char * )
+    [VtableSlot(40, 39)]
+    public delegate* unmanaged<void*, byte*, void*> FindOrLoadModel => (delegate* unmanaged<void*, byte*, void*>)At(40, 39); // 40  ms 39  const model_t * IVModelInfo::FindOrLoadModel( const char * )
 
-    public delegate* unmanaged<void*, void> InitDynamicModels;            // 41  void IVModelInfo::InitDynamicModels( void )
+    [VtableSlot(41, 40)]
+    public delegate* unmanaged<void*, void> InitDynamicModels => (delegate* unmanaged<void*, void>)At(41, 40); // 41  ms 40  void IVModelInfo::InitDynamicModels( void )
 
-    public delegate* unmanaged<void*, void> ShutdownDynamicModels;        // 42  void IVModelInfo::ShutdownDynamicModels( void )
+    [VtableSlot(42, 41)]
+    public delegate* unmanaged<void*, void> ShutdownDynamicModels => (delegate* unmanaged<void*, void>)At(42, 41); // 42  ms 41  void IVModelInfo::ShutdownDynamicModels( void )
 
-    public delegate* unmanaged<void*, byte*, int, void> AddDynamicModel;  // 43  void IVModelInfo::AddDynamicModel( const char *, int )
+    [VtableSlot(43, 42)]
+    public delegate* unmanaged<void*, byte*, int, void> AddDynamicModel => (delegate* unmanaged<void*, byte*, int, void>)At(43, 42); // 43  ms 42  void IVModelInfo::AddDynamicModel( const char *, int )
 
-    public delegate* unmanaged<void*, int, void> ReferenceModel;          // 44  void IVModelInfo::ReferenceModel( int )
+    [VtableSlot(44, 43)]
+    public delegate* unmanaged<void*, int, void> ReferenceModel => (delegate* unmanaged<void*, int, void>)At(44, 43); // 44  ms 43  void IVModelInfo::ReferenceModel( int )
 
-    public delegate* unmanaged<void*, int, void> UnreferenceModel;        // 45  void IVModelInfo::UnreferenceModel( int )
+    [VtableSlot(45, 44)]
+    public delegate* unmanaged<void*, int, void> UnreferenceModel => (delegate* unmanaged<void*, int, void>)At(45, 44); // 45  ms 44  void IVModelInfo::UnreferenceModel( int )
 
-    public delegate* unmanaged<void*, byte, void> CleanupDynamicModels;   // 46  void IVModelInfo::CleanupDynamicModels( bool )
+    [VtableSlot(46, 45)]
+    public delegate* unmanaged<void*, byte, void> CleanupDynamicModels => (delegate* unmanaged<void*, byte, void>)At(46, 45); // 46  ms 45  void IVModelInfo::CleanupDynamicModels( bool )
 
-    public delegate* unmanaged<void*, void*, ushort> GetCacheHandle;      // 47  MDLHandle_t IVModelInfo::GetCacheHandle( const model_t * )
+    [VtableSlot(47, 46)]
+    public delegate* unmanaged<void*, void*, ushort> GetCacheHandle => (delegate* unmanaged<void*, void*, ushort>)At(47, 46); // 47  ms 46  MDLHandle_t IVModelInfo::GetCacheHandle( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetBrushModelPlaneCount; // 48  int IVModelInfo::GetBrushModelPlaneCount( const model_t * )
+    [VtableSlot(48, 47)]
+    public delegate* unmanaged<void*, void*, int> GetBrushModelPlaneCount => (delegate* unmanaged<void*, void*, int>)At(48, 47); // 48  ms 47  int IVModelInfo::GetBrushModelPlaneCount( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void> GetBrushModelPlane; // 49  void IVModelInfo::GetBrushModelPlane( const model_t *, int, cplane_t &, Vector * )
+    [VtableSlot(49, 48)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void> GetBrushModelPlane => (delegate* unmanaged<void*, void*, int, void*, void*, void>)At(49, 48); // 49  ms 48  void IVModelInfo::GetBrushModelPlane( const model_t *, int, cplane_t &, Vector * )
 
-    public delegate* unmanaged<void*, int, int> GetSurfacepropsForVirtualTerrain; // 50  int IVModelInfo::GetSurfacepropsForVirtualTerrain( int )
+    [VtableSlot(50, 49)]
+    public delegate* unmanaged<void*, int, int> GetSurfacepropsForVirtualTerrain => (delegate* unmanaged<void*, int, int>)At(50, 49); // 50  ms 49  int IVModelInfo::GetSurfacepropsForVirtualTerrain( int )
 
-    public delegate* unmanaged<void*, void> OnLevelChange;                // 51  void IVModelInfo::OnLevelChange( void )
+    [VtableSlot(51, 50)]
+    public delegate* unmanaged<void*, void> OnLevelChange => (delegate* unmanaged<void*, void>)At(51, 50); // 51  ms 50  void IVModelInfo::OnLevelChange( void )
 
-    public delegate* unmanaged<void*, byte*, int> GetModelClientSideIndex; // 52  int IVModelInfo::GetModelClientSideIndex( const char * )
+    [VtableSlot(52, 51)]
+    public delegate* unmanaged<void*, byte*, int> GetModelClientSideIndex => (delegate* unmanaged<void*, byte*, int>)At(52, 51); // 52  ms 51  int IVModelInfo::GetModelClientSideIndex( const char * )
 
-    public delegate* unmanaged<void*, byte*, byte, int> RegisterDynamicModel; // 53  int IVModelInfo::RegisterDynamicModel( const char *, bool )
+    [VtableSlot(53, 52)]
+    public delegate* unmanaged<void*, byte*, byte, int> RegisterDynamicModel => (delegate* unmanaged<void*, byte*, byte, int>)At(53, 52); // 53  ms 52  int IVModelInfo::RegisterDynamicModel( const char *, bool )
 
-    public delegate* unmanaged<void*, int, byte> IsDynamicModelLoading;   // 54  bool IVModelInfo::IsDynamicModelLoading( int )
+    [VtableSlot(54, 53)]
+    public delegate* unmanaged<void*, int, byte> IsDynamicModelLoading => (delegate* unmanaged<void*, int, byte>)At(54, 53); // 54  ms 53  bool IVModelInfo::IsDynamicModelLoading( int )
 
-    public delegate* unmanaged<void*, int, void> AddRefDynamicModel;      // 55  void IVModelInfo::AddRefDynamicModel( int )
+    [VtableSlot(55, 54)]
+    public delegate* unmanaged<void*, int, void> AddRefDynamicModel => (delegate* unmanaged<void*, int, void>)At(55, 54); // 55  ms 54  void IVModelInfo::AddRefDynamicModel( int )
 
-    public delegate* unmanaged<void*, int, void> ReleaseDynamicModel;     // 56  void IVModelInfo::ReleaseDynamicModel( int )
+    [VtableSlot(56, 55)]
+    public delegate* unmanaged<void*, int, void> ReleaseDynamicModel => (delegate* unmanaged<void*, int, void>)At(56, 55); // 56  ms 55  void IVModelInfo::ReleaseDynamicModel( int )
 
-    public delegate* unmanaged<void*, int, void*, byte, byte> RegisterModelLoadCallback; // 57  bool IVModelInfo::RegisterModelLoadCallback( int, IModelLoadCallback *, bool )
+    [VtableSlot(57, 56)]
+    public delegate* unmanaged<void*, int, void*, byte, byte> RegisterModelLoadCallback => (delegate* unmanaged<void*, int, void*, byte, byte>)At(57, 56); // 57  ms 56  bool IVModelInfo::RegisterModelLoadCallback( int, IModelLoadCallback *, bool )
 
-    public delegate* unmanaged<void*, int, void*, void> UnregisterModelLoadCallback; // 58  void IVModelInfo::UnregisterModelLoadCallback( int, IModelLoadCallback * )
+    [VtableSlot(58, 57)]
+    public delegate* unmanaged<void*, int, void*, void> UnregisterModelLoadCallback => (delegate* unmanaged<void*, int, void*, void>)At(58, 57); // 58  ms 57  void IVModelInfo::UnregisterModelLoadCallback( int, IModelLoadCallback * )
 }
 
 /// <summary>
@@ -245,74 +337,106 @@ internal unsafe struct ModelInfoVtbl
 /// and adding 8 would arrive at the same address by arithmetic instead of by
 /// name.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 17 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct BaseFileSystemVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 17;
+
+    private fixed long _slots[17];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
     // NOT EXPOSED (policy, not verification) --
     // slot 0, so its only neighbour is Write. A control that writes through a file handle to
     // prove an index is not one worth running, and no other slot takes ( void *, int,
     // FileHandle_t ).
-    public delegate* unmanaged<void*, void*, int, void*, int> Read;       // 0   int IBaseFileSystem::Read( void *, int, FileHandle_t )
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, int, void*, int> Read => (delegate* unmanaged<void*, void*, int, void*, int>)At(0, 0); // 0   ms 0   int IBaseFileSystem::Read( void *, int, FileHandle_t )
 
     // NOT EXPOSED (policy, not verification) --
     // not read-only; nothing on this boundary needs it.
-    public delegate* unmanaged<void*, void*, int, void*, int> Write;      // 1   int IBaseFileSystem::Write( void const *, int, FileHandle_t )
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void*, int, void*, int> Write => (delegate* unmanaged<void*, void*, int, void*, int>)At(1, 1); // 1   ms 1   int IBaseFileSystem::Write( void const *, int, FileHandle_t )
 
     // NOT EXPOSED (policy, not verification) --
     // neighbours are Write and Close, and Close takes a FileHandle_t -- handing it the
     // filename deletes a CFileHandle that is a string. No adjacent slot is callable and the
     // handle it returns is not a value known another way.
-    public delegate* unmanaged<void*, byte*, byte*, byte*, void*> Open;   // 2   FileHandle_t IBaseFileSystem::Open( const char *, const char *, const char * )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, byte*, byte*, byte*, void*> Open => (delegate* unmanaged<void*, byte*, byte*, byte*, void*>)At(2, 2); // 2   ms 2   FileHandle_t IBaseFileSystem::Open( const char *, const char *, const char * )
 
     // NOT EXPOSED (policy, not verification) --
     // returns void, so its only observable is its effect. Refused on the ground
     // IUniformRandomStream::SetSeed was refused on.
-    public delegate* unmanaged<void*, void*, void> Close;                 // 3   void IBaseFileSystem::Close( FileHandle_t )
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, void*, void> Close => (delegate* unmanaged<void*, void*, void>)At(3, 3); // 3   ms 3   void IBaseFileSystem::Close( FileHandle_t )
 
     // NOT EXPOSED (policy, not verification) --
     // takes a FileHandle_t, which only the refused Open can produce.
-    public delegate* unmanaged<void*, void*, int, int, void> Seek;        // 4   void IBaseFileSystem::Seek( FileHandle_t, int, FileSystemSeek_t )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, void*, int, int, void> Seek => (delegate* unmanaged<void*, void*, int, int, void>)At(4, 4); // 4   ms 4   void IBaseFileSystem::Seek( FileHandle_t, int, FileSystemSeek_t )
 
     // NOT EXPOSED (policy, not verification) --
     // takes a FileHandle_t, which only the refused Open can produce.
-    public delegate* unmanaged<void*, void*, uint> Tell;                  // 5   unsigned int IBaseFileSystem::Tell( FileHandle_t )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, void*, uint> Tell => (delegate* unmanaged<void*, void*, uint>)At(5, 5); // 5   ms 5   unsigned int IBaseFileSystem::Tell( FileHandle_t )
 
-    public delegate* unmanaged<void*, void*, uint> Size;                  // 6   unsigned int IBaseFileSystem::Size( FileHandle_t )
+    [VtableSlot(6, 7)]
+    public delegate* unmanaged<void*, void*, uint> Size => (delegate* unmanaged<void*, void*, uint>)At(6, 7); // 6   ms 7   unsigned int IBaseFileSystem::Size( FileHandle_t )
 
-    public delegate* unmanaged<void*, byte*, byte*, uint> Size_2;         // 7   unsigned int IBaseFileSystem::Size( const char *, const char * )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, byte*, byte*, uint> Size_2 => (delegate* unmanaged<void*, byte*, byte*, uint>)At(7, 6); // 7   ms 6   unsigned int IBaseFileSystem::Size( const char *, const char * )
 
     // NOT EXPOSED (policy, not verification) --
     // takes a FileHandle_t, which only the refused Open can produce.
-    public delegate* unmanaged<void*, void*, void> Flush;                 // 8   void IBaseFileSystem::Flush( FileHandle_t )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, void*, void> Flush => (delegate* unmanaged<void*, void*, void>)At(8, 8); // 8   ms 8   void IBaseFileSystem::Flush( FileHandle_t )
 
     // NOT EXPOSED (policy, not verification) --
     // loads a file into a cache. A control with a side effect is not a control.
-    public delegate* unmanaged<void*, byte*, byte*, byte> Precache;       // 9   bool IBaseFileSystem::Precache( const char *, const char * )
+    [VtableSlot(9, 9)]
+    public delegate* unmanaged<void*, byte*, byte*, byte> Precache => (delegate* unmanaged<void*, byte*, byte*, byte>)At(9, 9); // 9   ms 9   bool IBaseFileSystem::Precache( const char *, const char * )
 
-    public delegate* unmanaged<void*, byte*, byte*, byte> FileExists;     // 10  bool IBaseFileSystem::FileExists( const char *, const char * )
+    [VtableSlot(10, 10)]
+    public delegate* unmanaged<void*, byte*, byte*, byte> FileExists => (delegate* unmanaged<void*, byte*, byte*, byte>)At(10, 10); // 10  ms 10  bool IBaseFileSystem::FileExists( const char *, const char * )
 
     // NOT EXPOSED (policy, not verification) --
     // as FileExists, and nothing on this boundary calls it.
-    public delegate* unmanaged<void*, byte*, byte*, byte> IsFileWritable; // 11  bool IBaseFileSystem::IsFileWritable( char const *, const char * )
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, byte*, byte*, byte> IsFileWritable => (delegate* unmanaged<void*, byte*, byte*, byte>)At(11, 11); // 11  ms 11  bool IBaseFileSystem::IsFileWritable( char const *, const char * )
 
     // NOT EXPOSED (policy, not verification) --
     // not read-only.
-    public delegate* unmanaged<void*, byte*, byte, byte*, byte> SetFileWritable; // 12  bool IBaseFileSystem::SetFileWritable( char const *, bool, const char * )
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, byte*, byte, byte*, byte> SetFileWritable => (delegate* unmanaged<void*, byte*, byte, byte*, byte>)At(12, 12); // 12  ms 12  bool IBaseFileSystem::SetFileWritable( char const *, bool, const char * )
 
-    public delegate* unmanaged<void*, byte*, byte*, long> GetFileTime;    // 13  long IBaseFileSystem::GetFileTime( const char *, const char * )
+    [VtableSlot(13, 13)]
+    public delegate* unmanaged<void*, byte*, byte*, long> GetFileTime => (delegate* unmanaged<void*, byte*, byte*, long>)At(13, 13); // 13  ms 13  long IBaseFileSystem::GetFileTime( const char *, const char * )
 
     // NOT EXPOSED (policy, not verification) --
     // takes CUtlBuffer &, which is a C++ object this side cannot construct.
-    public delegate* unmanaged<void*, byte*, byte*, void*, int, int, void*, byte> ReadFile; // 14  bool IBaseFileSystem::ReadFile( const char *, const char *, CUtlBuffer &, int, int, FSAllocFunc_t )
+    [VtableSlot(14, 14)]
+    public delegate* unmanaged<void*, byte*, byte*, void*, int, int, void*, byte> ReadFile => (delegate* unmanaged<void*, byte*, byte*, void*, int, int, void*, byte>)At(14, 14); // 14  ms 14  bool IBaseFileSystem::ReadFile( const char *, const char *, CUtlBuffer &, int, int, FSAllocFunc_t )
 
     // NOT EXPOSED (policy, not verification) --
     // not read-only, and takes CUtlBuffer &.
-    public delegate* unmanaged<void*, byte*, byte*, void*, byte> WriteFile; // 15  bool IBaseFileSystem::WriteFile( const char *, const char *, CUtlBuffer & )
+    [VtableSlot(15, 15)]
+    public delegate* unmanaged<void*, byte*, byte*, void*, byte> WriteFile => (delegate* unmanaged<void*, byte*, byte*, void*, byte>)At(15, 15); // 15  ms 15  bool IBaseFileSystem::WriteFile( const char *, const char *, CUtlBuffer & )
 
     // NOT EXPOSED (policy, not verification) --
     // not read-only.
-    public delegate* unmanaged<void*, byte*, byte*, byte*, byte> UnzipFile; // 16  bool IBaseFileSystem::UnzipFile( const char *, const char *, const char * )
+    [VtableSlot(16, 16)]
+    public delegate* unmanaged<void*, byte*, byte*, byte*, byte> UnzipFile => (delegate* unmanaged<void*, byte*, byte*, byte*, byte>)At(16, 16); // 16  ms 16  bool IBaseFileSystem::UnzipFile( const char *, const char *, const char * )
 }
 
 /// <summary>
@@ -338,7 +462,7 @@ internal unsafe struct EngineClientVtbl
 {
     public delegate* unmanaged<void*, void*, void*, float, byte, void*, int, int> GetIntersectingSurfaces; // 0   int IVEngineClient013::GetIntersectingSurfaces( const model_t *, const Vector &, const float, const bool, SurfInfo *, const int )
 
-    public delegate* unmanaged<void*, void*, byte, Vector> GetLightForPoint; // 1   Vector IVEngineClient013::GetLightForPoint( const Vector &, bool )
+    public delegate* unmanaged[MemberFunction]<void*, void*, byte, Vector> GetLightForPoint; // 1   Vector IVEngineClient013::GetLightForPoint( const Vector &, bool )
 
     public delegate* unmanaged<void*, void*, void*, void*, void*, void*> TraceLineMaterialAndLighting; // 2   IMaterial * IVEngineClient013::TraceLineMaterialAndLighting( const Vector &, const Vector &, Vector &, Vector & )
 
@@ -681,7 +805,7 @@ internal unsafe struct EngineClientVtbl
     // corroboration of the resolved numbering instead.
     public delegate* unmanaged<void*, int> GetAppID;                      // 104 int IVEngineClient013::GetAppID( void )
 
-    public delegate* unmanaged<void*, void*, byte, Vector> GetLightForPointFast; // 105 Vector IVEngineClient013::GetLightForPointFast( const Vector &, bool )
+    public delegate* unmanaged[MemberFunction]<void*, void*, byte, Vector> GetLightForPointFast; // 105 Vector IVEngineClient013::GetLightForPointFast( const Vector &, bool )
 
     // NOT EXPOSED (policy, not verification) --
     // slot 106 and 26 compiled call sites, the heaviest method on this interface that is not
@@ -1190,31 +1314,60 @@ internal unsafe struct EngineServerVtbl
 /// spelling, and the client class continues the base's numbering rather than
 /// restarting it.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two and overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 59 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ModelInfoClientVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 59;
+
+    private fixed long _slots[60];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, int, void*> GetModel;               // 2   const model_t * IVModelInfo::GetModel( int )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, int, void*> GetModel => (delegate* unmanaged<void*, int, void*>)At(2, 1); // 2   ms 1   const model_t * IVModelInfo::GetModel( int )
 
-    public delegate* unmanaged<void*, byte*, int> GetModelIndex;          // 3   int IVModelInfo::GetModelIndex( const char * )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, byte*, int> GetModelIndex => (delegate* unmanaged<void*, byte*, int>)At(3, 2); // 3   ms 2   int IVModelInfo::GetModelIndex( const char * )
 
-    public delegate* unmanaged<void*, void*, byte*> GetModelName;         // 4   const char * IVModelInfo::GetModelName( const model_t * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, byte*> GetModelName => (delegate* unmanaged<void*, void*, byte*>)At(4, 3); // 4   ms 3   const char * IVModelInfo::GetModelName( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*> GetVCollide;          // 5   vcollide_t * IVModelInfo::GetVCollide( const model_t * )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, void*, void*> GetVCollide => (delegate* unmanaged<void*, void*, void*>)At(5, 5); // 5   ms 5   vcollide_t * IVModelInfo::GetVCollide( const model_t * )
 
-    public delegate* unmanaged<void*, int, void*> GetVCollide_2;          // 6   vcollide_t * IVModelInfo::GetVCollide( int )
+    [VtableSlot(6, 4)]
+    public delegate* unmanaged<void*, int, void*> GetVCollide_2 => (delegate* unmanaged<void*, int, void*>)At(6, 4); // 6   ms 4   vcollide_t * IVModelInfo::GetVCollide( int )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelBounds; // 7   void IVModelInfo::GetModelBounds( const model_t *, Vector &, Vector & )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelBounds => (delegate* unmanaged<void*, void*, void*, void*, void>)At(7, 6); // 7   ms 6   void IVModelInfo::GetModelBounds( const model_t *, Vector &, Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelRenderBounds; // 8   void IVModelInfo::GetModelRenderBounds( const model_t *, Vector &, Vector & )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> GetModelRenderBounds => (delegate* unmanaged<void*, void*, void*, void*, void>)At(8, 7); // 8   ms 7   void IVModelInfo::GetModelRenderBounds( const model_t *, Vector &, Vector & )
 
     // NOT EXPOSED (policy, not verification) --
     // its answer has exactly one other source in this process and that source is the ABI path
@@ -1224,107 +1377,158 @@ internal unsafe struct ModelInfoClientVtbl
     // to catch. Nothing else in the process knows how many frames a model has: the count lives
     // on the loaded model and there is no second door into it. Bound the day one appears, and
     // not before.
-    public delegate* unmanaged<void*, void*, int> GetModelFrameCount;     // 9   int IVModelInfo::GetModelFrameCount( const model_t * )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void*, int> GetModelFrameCount => (delegate* unmanaged<void*, void*, int>)At(9, 8); // 9   ms 8   int IVModelInfo::GetModelFrameCount( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetModelType;           // 10  int IVModelInfo::GetModelType( const model_t * )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, int> GetModelType => (delegate* unmanaged<void*, void*, int>)At(10, 9); // 10  ms 9   int IVModelInfo::GetModelType( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*> GetModelExtraData;    // 11  void * IVModelInfo::GetModelExtraData( const model_t * )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void*, void*> GetModelExtraData => (delegate* unmanaged<void*, void*, void*>)At(11, 10); // 11  ms 10  void * IVModelInfo::GetModelExtraData( const model_t * )
 
-    public delegate* unmanaged<void*, void*, byte> ModelHasMaterialProxy; // 12  bool IVModelInfo::ModelHasMaterialProxy( const model_t * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, byte> ModelHasMaterialProxy => (delegate* unmanaged<void*, void*, byte>)At(12, 11); // 12  ms 11  bool IVModelInfo::ModelHasMaterialProxy( const model_t * )
 
-    public delegate* unmanaged<void*, void*, byte> IsTranslucent;         // 13  bool IVModelInfo::IsTranslucent( model_t const * )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void*, byte> IsTranslucent => (delegate* unmanaged<void*, void*, byte>)At(13, 12); // 13  ms 12  bool IVModelInfo::IsTranslucent( model_t const * )
 
-    public delegate* unmanaged<void*, void*, byte> IsTranslucentTwoPass;  // 14  bool IVModelInfo::IsTranslucentTwoPass( const model_t * )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, void*, byte> IsTranslucentTwoPass => (delegate* unmanaged<void*, void*, byte>)At(14, 13); // 14  ms 13  bool IVModelInfo::IsTranslucentTwoPass( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int, int, void*, float, void> RecomputeTranslucency; // 15  void IVModelInfo::RecomputeTranslucency( const model_t *, int, int, void *, float )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, void*, int, int, void*, float, void> RecomputeTranslucency => (delegate* unmanaged<void*, void*, int, int, void*, float, void>)At(15, 14); // 15  ms 14  void IVModelInfo::RecomputeTranslucency( const model_t *, int, int, void *, float )
 
-    public delegate* unmanaged<void*, void*, int> GetModelMaterialCount;  // 16  int IVModelInfo::GetModelMaterialCount( const model_t * )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, void*, int> GetModelMaterialCount => (delegate* unmanaged<void*, void*, int>)At(16, 15); // 16  ms 15  int IVModelInfo::GetModelMaterialCount( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int, void*, void> GetModelMaterials; // 17  void IVModelInfo::GetModelMaterials( const model_t *, int, IMaterial * * )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, void*, int, void*, void> GetModelMaterials => (delegate* unmanaged<void*, void*, int, void*, void>)At(17, 16); // 17  ms 16  void IVModelInfo::GetModelMaterials( const model_t *, int, IMaterial * * )
 
-    public delegate* unmanaged<void*, void*, byte> IsModelVertexLit;      // 18  bool IVModelInfo::IsModelVertexLit( const model_t * )
+    [VtableSlot(18, 17)]
+    public delegate* unmanaged<void*, void*, byte> IsModelVertexLit => (delegate* unmanaged<void*, void*, byte>)At(18, 17); // 18  ms 17  bool IVModelInfo::IsModelVertexLit( const model_t * )
 
-    public delegate* unmanaged<void*, void*, byte*> GetModelKeyValueText; // 19  const char * IVModelInfo::GetModelKeyValueText( const model_t * )
+    [VtableSlot(19, 18)]
+    public delegate* unmanaged<void*, void*, byte*> GetModelKeyValueText => (delegate* unmanaged<void*, void*, byte*>)At(19, 18); // 19  ms 18  const char * IVModelInfo::GetModelKeyValueText( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*, byte> GetModelKeyValue; // 20  bool IVModelInfo::GetModelKeyValue( const model_t *, CUtlBuffer & )
+    [VtableSlot(20, 19)]
+    public delegate* unmanaged<void*, void*, void*, byte> GetModelKeyValue => (delegate* unmanaged<void*, void*, void*, byte>)At(20, 19); // 20  ms 19  bool IVModelInfo::GetModelKeyValue( const model_t *, CUtlBuffer & )
 
-    public delegate* unmanaged<void*, void*, float> GetModelRadius;       // 21  float IVModelInfo::GetModelRadius( const model_t * )
+    [VtableSlot(21, 20)]
+    public delegate* unmanaged<void*, void*, float> GetModelRadius => (delegate* unmanaged<void*, void*, float>)At(21, 20); // 21  ms 20  float IVModelInfo::GetModelRadius( const model_t * )
 
-    public delegate* unmanaged<void*, void*, void*, byte*, void*> FindModel; // 22  const studiohdr_t * IVModelInfo::FindModel( const studiohdr_t *, void * *, const char * )
+    [VtableSlot(22, 22)]
+    public delegate* unmanaged<void*, void*, void*, byte*, void*> FindModel => (delegate* unmanaged<void*, void*, void*, byte*, void*>)At(22, 22); // 22  ms 22  const studiohdr_t * IVModelInfo::FindModel( const studiohdr_t *, void * *, const char * )
 
-    public delegate* unmanaged<void*, void*, void*> FindModel_2;          // 23  const studiohdr_t * IVModelInfo::FindModel( void * )
+    [VtableSlot(23, 21)]
+    public delegate* unmanaged<void*, void*, void*> FindModel_2 => (delegate* unmanaged<void*, void*, void*>)At(23, 21); // 23  ms 21  const studiohdr_t * IVModelInfo::FindModel( void * )
 
-    public delegate* unmanaged<void*, void*, void*> GetVirtualModel;      // 24  virtualmodel_t * IVModelInfo::GetVirtualModel( const studiohdr_t * )
+    [VtableSlot(24, 23)]
+    public delegate* unmanaged<void*, void*, void*> GetVirtualModel => (delegate* unmanaged<void*, void*, void*>)At(24, 23); // 24  ms 23  virtualmodel_t * IVModelInfo::GetVirtualModel( const studiohdr_t * )
 
-    public delegate* unmanaged<void*, void*, int, byte*> GetAnimBlock;    // 25  byte * IVModelInfo::GetAnimBlock( const studiohdr_t *, int )
+    [VtableSlot(25, 24)]
+    public delegate* unmanaged<void*, void*, int, byte*> GetAnimBlock => (delegate* unmanaged<void*, void*, int, byte*>)At(25, 24); // 25  ms 24  byte * IVModelInfo::GetAnimBlock( const studiohdr_t *, int )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void> GetModelMaterialColorAndLighting; // 26  void IVModelInfo::GetModelMaterialColorAndLighting( const model_t *, Vector const &, QAngle const &, trace_t *, Vector &, Vector & )
+    [VtableSlot(26, 25)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void> GetModelMaterialColorAndLighting => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void>)At(26, 25); // 26  ms 25  void IVModelInfo::GetModelMaterialColorAndLighting( const model_t *, Vector const &, QAngle const &, trace_t *, Vector &, Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetIlluminationPoint; // 27  void IVModelInfo::GetIlluminationPoint( const model_t *, IClientRenderable *, Vector const &, QAngle const &, Vector * )
+    [VtableSlot(27, 26)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetIlluminationPoint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void>)At(27, 26); // 27  ms 26  void IVModelInfo::GetIlluminationPoint( const model_t *, IClientRenderable *, Vector const &, QAngle const &, Vector * )
 
-    public delegate* unmanaged<void*, int, int> GetModelContents;         // 28  int IVModelInfo::GetModelContents( int )
+    [VtableSlot(28, 27)]
+    public delegate* unmanaged<void*, int, int> GetModelContents => (delegate* unmanaged<void*, int, int>)At(28, 27); // 28  ms 27  int IVModelInfo::GetModelContents( int )
 
-    public delegate* unmanaged<void*, void*, void*> GetStudiomodel;       // 29  studiohdr_t * IVModelInfo::GetStudiomodel( const model_t * )
+    [VtableSlot(29, 28)]
+    public delegate* unmanaged<void*, void*, void*> GetStudiomodel => (delegate* unmanaged<void*, void*, void*>)At(29, 28); // 29  ms 28  studiohdr_t * IVModelInfo::GetStudiomodel( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetModelSpriteWidth;    // 30  int IVModelInfo::GetModelSpriteWidth( const model_t * )
+    [VtableSlot(30, 29)]
+    public delegate* unmanaged<void*, void*, int> GetModelSpriteWidth => (delegate* unmanaged<void*, void*, int>)At(30, 29); // 30  ms 29  int IVModelInfo::GetModelSpriteWidth( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetModelSpriteHeight;   // 31  int IVModelInfo::GetModelSpriteHeight( const model_t * )
+    [VtableSlot(31, 30)]
+    public delegate* unmanaged<void*, void*, int> GetModelSpriteHeight => (delegate* unmanaged<void*, void*, int>)At(31, 30); // 31  ms 30  int IVModelInfo::GetModelSpriteHeight( const model_t * )
 
-    public delegate* unmanaged<void*, float, float, void> SetLevelScreenFadeRange; // 32  void IVModelInfo::SetLevelScreenFadeRange( float, float )
+    [VtableSlot(32, 31)]
+    public delegate* unmanaged<void*, float, float, void> SetLevelScreenFadeRange => (delegate* unmanaged<void*, float, float, void>)At(32, 31); // 32  ms 31  void IVModelInfo::SetLevelScreenFadeRange( float, float )
 
-    public delegate* unmanaged<void*, void*, void*, void> GetLevelScreenFadeRange; // 33  void IVModelInfo::GetLevelScreenFadeRange( float *, float * )
+    [VtableSlot(33, 32)]
+    public delegate* unmanaged<void*, void*, void*, void> GetLevelScreenFadeRange => (delegate* unmanaged<void*, void*, void*, void>)At(33, 32); // 33  ms 32  void IVModelInfo::GetLevelScreenFadeRange( float *, float * )
 
-    public delegate* unmanaged<void*, float, float, void> SetViewScreenFadeRange; // 34  void IVModelInfo::SetViewScreenFadeRange( float, float )
+    [VtableSlot(34, 33)]
+    public delegate* unmanaged<void*, float, float, void> SetViewScreenFadeRange => (delegate* unmanaged<void*, float, float, void>)At(34, 33); // 34  ms 33  void IVModelInfo::SetViewScreenFadeRange( float, float )
 
-    public delegate* unmanaged<void*, void*, float, float, byte> ComputeLevelScreenFade; // 35  unsigned char IVModelInfo::ComputeLevelScreenFade( const Vector &, float, float )
+    [VtableSlot(35, 34)]
+    public delegate* unmanaged<void*, void*, float, float, byte> ComputeLevelScreenFade => (delegate* unmanaged<void*, void*, float, float, byte>)At(35, 34); // 35  ms 34  unsigned char IVModelInfo::ComputeLevelScreenFade( const Vector &, float, float )
 
-    public delegate* unmanaged<void*, void*, float, float, byte> ComputeViewScreenFade; // 36  unsigned char IVModelInfo::ComputeViewScreenFade( const Vector &, float, float )
+    [VtableSlot(36, 35)]
+    public delegate* unmanaged<void*, void*, float, float, byte> ComputeViewScreenFade => (delegate* unmanaged<void*, void*, float, float, byte>)At(36, 35); // 36  ms 35  unsigned char IVModelInfo::ComputeViewScreenFade( const Vector &, float, float )
 
-    public delegate* unmanaged<void*, void*, void*, int> GetAutoplayList; // 37  int IVModelInfo::GetAutoplayList( const studiohdr_t *, unsigned short * * )
+    [VtableSlot(37, 36)]
+    public delegate* unmanaged<void*, void*, void*, int> GetAutoplayList => (delegate* unmanaged<void*, void*, void*, int>)At(37, 36); // 37  ms 36  int IVModelInfo::GetAutoplayList( const studiohdr_t *, unsigned short * * )
 
-    public delegate* unmanaged<void*, int, void*> GetCollideForVirtualTerrain; // 38  CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
+    [VtableSlot(38, 37)]
+    public delegate* unmanaged<void*, int, void*> GetCollideForVirtualTerrain => (delegate* unmanaged<void*, int, void*>)At(38, 37); // 38  ms 37  CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
 
-    public delegate* unmanaged<void*, void*, int, int, void*, byte> IsUsingFBTexture; // 39  bool IVModelInfo::IsUsingFBTexture( const model_t *, int, int, void * )
+    [VtableSlot(39, 38)]
+    public delegate* unmanaged<void*, void*, int, int, void*, byte> IsUsingFBTexture => (delegate* unmanaged<void*, void*, int, int, void*, byte>)At(39, 38); // 39  ms 38  bool IVModelInfo::IsUsingFBTexture( const model_t *, int, int, void * )
 
-    public delegate* unmanaged<void*, byte*, void*> FindOrLoadModel;      // 40  const model_t * IVModelInfo::FindOrLoadModel( const char * )
+    [VtableSlot(40, 39)]
+    public delegate* unmanaged<void*, byte*, void*> FindOrLoadModel => (delegate* unmanaged<void*, byte*, void*>)At(40, 39); // 40  ms 39  const model_t * IVModelInfo::FindOrLoadModel( const char * )
 
-    public delegate* unmanaged<void*, void> InitDynamicModels;            // 41  void IVModelInfo::InitDynamicModels( void )
+    [VtableSlot(41, 40)]
+    public delegate* unmanaged<void*, void> InitDynamicModels => (delegate* unmanaged<void*, void>)At(41, 40); // 41  ms 40  void IVModelInfo::InitDynamicModels( void )
 
-    public delegate* unmanaged<void*, void> ShutdownDynamicModels;        // 42  void IVModelInfo::ShutdownDynamicModels( void )
+    [VtableSlot(42, 41)]
+    public delegate* unmanaged<void*, void> ShutdownDynamicModels => (delegate* unmanaged<void*, void>)At(42, 41); // 42  ms 41  void IVModelInfo::ShutdownDynamicModels( void )
 
-    public delegate* unmanaged<void*, byte*, int, void> AddDynamicModel;  // 43  void IVModelInfo::AddDynamicModel( const char *, int )
+    [VtableSlot(43, 42)]
+    public delegate* unmanaged<void*, byte*, int, void> AddDynamicModel => (delegate* unmanaged<void*, byte*, int, void>)At(43, 42); // 43  ms 42  void IVModelInfo::AddDynamicModel( const char *, int )
 
-    public delegate* unmanaged<void*, int, void> ReferenceModel;          // 44  void IVModelInfo::ReferenceModel( int )
+    [VtableSlot(44, 43)]
+    public delegate* unmanaged<void*, int, void> ReferenceModel => (delegate* unmanaged<void*, int, void>)At(44, 43); // 44  ms 43  void IVModelInfo::ReferenceModel( int )
 
-    public delegate* unmanaged<void*, int, void> UnreferenceModel;        // 45  void IVModelInfo::UnreferenceModel( int )
+    [VtableSlot(45, 44)]
+    public delegate* unmanaged<void*, int, void> UnreferenceModel => (delegate* unmanaged<void*, int, void>)At(45, 44); // 45  ms 44  void IVModelInfo::UnreferenceModel( int )
 
-    public delegate* unmanaged<void*, byte, void> CleanupDynamicModels;   // 46  void IVModelInfo::CleanupDynamicModels( bool )
+    [VtableSlot(46, 45)]
+    public delegate* unmanaged<void*, byte, void> CleanupDynamicModels => (delegate* unmanaged<void*, byte, void>)At(46, 45); // 46  ms 45  void IVModelInfo::CleanupDynamicModels( bool )
 
-    public delegate* unmanaged<void*, void*, ushort> GetCacheHandle;      // 47  MDLHandle_t IVModelInfo::GetCacheHandle( const model_t * )
+    [VtableSlot(47, 46)]
+    public delegate* unmanaged<void*, void*, ushort> GetCacheHandle => (delegate* unmanaged<void*, void*, ushort>)At(47, 46); // 47  ms 46  MDLHandle_t IVModelInfo::GetCacheHandle( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int> GetBrushModelPlaneCount; // 48  int IVModelInfo::GetBrushModelPlaneCount( const model_t * )
+    [VtableSlot(48, 47)]
+    public delegate* unmanaged<void*, void*, int> GetBrushModelPlaneCount => (delegate* unmanaged<void*, void*, int>)At(48, 47); // 48  ms 47  int IVModelInfo::GetBrushModelPlaneCount( const model_t * )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void> GetBrushModelPlane; // 49  void IVModelInfo::GetBrushModelPlane( const model_t *, int, cplane_t &, Vector * )
+    [VtableSlot(49, 48)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void> GetBrushModelPlane => (delegate* unmanaged<void*, void*, int, void*, void*, void>)At(49, 48); // 49  ms 48  void IVModelInfo::GetBrushModelPlane( const model_t *, int, cplane_t &, Vector * )
 
-    public delegate* unmanaged<void*, int, int> GetSurfacepropsForVirtualTerrain; // 50  int IVModelInfo::GetSurfacepropsForVirtualTerrain( int )
+    [VtableSlot(50, 49)]
+    public delegate* unmanaged<void*, int, int> GetSurfacepropsForVirtualTerrain => (delegate* unmanaged<void*, int, int>)At(50, 49); // 50  ms 49  int IVModelInfo::GetSurfacepropsForVirtualTerrain( int )
 
-    public delegate* unmanaged<void*, void> OnLevelChange;                // 51  void IVModelInfo::OnLevelChange( void )
+    [VtableSlot(51, 50)]
+    public delegate* unmanaged<void*, void> OnLevelChange => (delegate* unmanaged<void*, void>)At(51, 50); // 51  ms 50  void IVModelInfo::OnLevelChange( void )
 
-    public delegate* unmanaged<void*, byte*, int> GetModelClientSideIndex; // 52  int IVModelInfo::GetModelClientSideIndex( const char * )
+    [VtableSlot(52, 51)]
+    public delegate* unmanaged<void*, byte*, int> GetModelClientSideIndex => (delegate* unmanaged<void*, byte*, int>)At(52, 51); // 52  ms 51  int IVModelInfo::GetModelClientSideIndex( const char * )
 
-    public delegate* unmanaged<void*, byte*, byte, int> RegisterDynamicModel; // 53  int IVModelInfo::RegisterDynamicModel( const char *, bool )
+    [VtableSlot(53, 52)]
+    public delegate* unmanaged<void*, byte*, byte, int> RegisterDynamicModel => (delegate* unmanaged<void*, byte*, byte, int>)At(53, 52); // 53  ms 52  int IVModelInfo::RegisterDynamicModel( const char *, bool )
 
-    public delegate* unmanaged<void*, int, byte> IsDynamicModelLoading;   // 54  bool IVModelInfo::IsDynamicModelLoading( int )
+    [VtableSlot(54, 53)]
+    public delegate* unmanaged<void*, int, byte> IsDynamicModelLoading => (delegate* unmanaged<void*, int, byte>)At(54, 53); // 54  ms 53  bool IVModelInfo::IsDynamicModelLoading( int )
 
-    public delegate* unmanaged<void*, int, void> AddRefDynamicModel;      // 55  void IVModelInfo::AddRefDynamicModel( int )
+    [VtableSlot(55, 54)]
+    public delegate* unmanaged<void*, int, void> AddRefDynamicModel => (delegate* unmanaged<void*, int, void>)At(55, 54); // 55  ms 54  void IVModelInfo::AddRefDynamicModel( int )
 
-    public delegate* unmanaged<void*, int, void> ReleaseDynamicModel;     // 56  void IVModelInfo::ReleaseDynamicModel( int )
+    [VtableSlot(56, 55)]
+    public delegate* unmanaged<void*, int, void> ReleaseDynamicModel => (delegate* unmanaged<void*, int, void>)At(56, 55); // 56  ms 55  void IVModelInfo::ReleaseDynamicModel( int )
 
-    public delegate* unmanaged<void*, int, void*, byte, byte> RegisterModelLoadCallback; // 57  bool IVModelInfo::RegisterModelLoadCallback( int, IModelLoadCallback *, bool )
+    [VtableSlot(57, 56)]
+    public delegate* unmanaged<void*, int, void*, byte, byte> RegisterModelLoadCallback => (delegate* unmanaged<void*, int, void*, byte, byte>)At(57, 56); // 57  ms 56  bool IVModelInfo::RegisterModelLoadCallback( int, IModelLoadCallback *, bool )
 
-    public delegate* unmanaged<void*, int, void*, void> UnregisterModelLoadCallback; // 58  void IVModelInfo::UnregisterModelLoadCallback( int, IModelLoadCallback * )
+    [VtableSlot(58, 57)]
+    public delegate* unmanaged<void*, int, void*, void> UnregisterModelLoadCallback => (delegate* unmanaged<void*, int, void*, void>)At(58, 57); // 58  ms 57  void IVModelInfo::UnregisterModelLoadCallback( int, IModelLoadCallback * )
 
-    public delegate* unmanaged<void*, int, byte*, void*, void> OnDynamicModelsStringTableChange; // 59  void IVModelInfoClient::OnDynamicModelsStringTableChange( int, const char *, const void * )
+    [VtableSlot(59, 58)]
+    public delegate* unmanaged<void*, int, byte*, void*, void> OnDynamicModelsStringTableChange => (delegate* unmanaged<void*, int, byte*, void*, void>)At(59, 58); // 59  ms 58  void IVModelInfoClient::OnDynamicModelsStringTableChange( int, const char *, const void * )
 }
 
 /// <summary>
@@ -1339,115 +1543,182 @@ internal unsafe struct ModelInfoClientVtbl
 /// <para>
 /// 126 compiled call sites.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 52 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct RenderViewVtbl
 {
-    public delegate* unmanaged<void*, void*, void*, void*, void*, byte, void> DrawBrushModel; // 0   void IVRenderView::DrawBrushModel( IClientEntity *, model_t *, const Vector &, const QAngle &, bool )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 52;
 
-    public delegate* unmanaged<void*, void*, void*, void> DrawIdentityBrushModel; // 1   void IVRenderView::DrawIdentityBrushModel( IWorldRenderList *, model_t * )
+    private fixed long _slots[52];
 
-    public delegate* unmanaged<void*, void*, void> TouchLight;            // 2   void IVRenderView::TouchLight( struct dlight_t * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
 
-    public delegate* unmanaged<void*, void> Draw3DDebugOverlays;          // 3   void IVRenderView::Draw3DDebugOverlays( void )
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, byte, void> DrawBrushModel => (delegate* unmanaged<void*, void*, void*, void*, void*, byte, void>)At(0, 0); // 0   ms 0   void IVRenderView::DrawBrushModel( IClientEntity *, model_t *, const Vector &, const QAngle &, bool )
 
-    public delegate* unmanaged<void*, float, void> SetBlend;              // 4   void IVRenderView::SetBlend( float )
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void*, void*, void> DrawIdentityBrushModel => (delegate* unmanaged<void*, void*, void*, void>)At(1, 1); // 1   ms 1   void IVRenderView::DrawIdentityBrushModel( IWorldRenderList *, model_t * )
 
-    public delegate* unmanaged<void*, float> GetBlend;                    // 5   float IVRenderView::GetBlend( void )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, void*, void> TouchLight => (delegate* unmanaged<void*, void*, void>)At(2, 2); // 2   ms 2   void IVRenderView::TouchLight( struct dlight_t * )
 
-    public delegate* unmanaged<void*, void*, void> SetColorModulation;    // 6   void IVRenderView::SetColorModulation( float const * )
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, void> Draw3DDebugOverlays => (delegate* unmanaged<void*, void>)At(3, 3); // 3   ms 3   void IVRenderView::Draw3DDebugOverlays( void )
 
-    public delegate* unmanaged<void*, void*, void> GetColorModulation;    // 7   void IVRenderView::GetColorModulation( float * )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, float, void> SetBlend => (delegate* unmanaged<void*, float, void>)At(4, 4); // 4   ms 4   void IVRenderView::SetBlend( float )
 
-    public delegate* unmanaged<void*, void> SceneBegin;                   // 8   void IVRenderView::SceneBegin( void )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, float> GetBlend => (delegate* unmanaged<void*, float>)At(5, 5); // 5   ms 5   float IVRenderView::GetBlend( void )
 
-    public delegate* unmanaged<void*, void> SceneEnd;                     // 9   void IVRenderView::SceneEnd( void )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void*, void> SetColorModulation => (delegate* unmanaged<void*, void*, void>)At(6, 6); // 6   ms 6   void IVRenderView::SetColorModulation( float const * )
 
-    public delegate* unmanaged<void*, void*, void*, void> GetVisibleFogVolume; // 10  void IVRenderView::GetVisibleFogVolume( const Vector &, VisibleFogVolumeInfo_t * )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, void*, void> GetColorModulation => (delegate* unmanaged<void*, void*, void>)At(7, 7); // 7   ms 7   void IVRenderView::GetColorModulation( float * )
 
-    public delegate* unmanaged<void*, void*> CreateWorldList;             // 11  IWorldRenderList * IVRenderView::CreateWorldList( void )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, void> SceneBegin => (delegate* unmanaged<void*, void>)At(8, 8); // 8   ms 8   void IVRenderView::SceneBegin( void )
 
-    public delegate* unmanaged<void*, void*, void*, int, void*, byte, void*, void> BuildWorldLists; // 12  void IVRenderView::BuildWorldLists( IWorldRenderList *, WorldListInfo_t *, int, const VisOverrideData_t *, bool, float * )
+    [VtableSlot(9, 9)]
+    public delegate* unmanaged<void*, void> SceneEnd => (delegate* unmanaged<void*, void>)At(9, 9); // 9   ms 9   void IVRenderView::SceneEnd( void )
 
-    public delegate* unmanaged<void*, void*, ulong, float, void> DrawWorldLists; // 13  void IVRenderView::DrawWorldLists( IWorldRenderList *, unsigned long, float )
+    [VtableSlot(10, 10)]
+    public delegate* unmanaged<void*, void*, void*, void> GetVisibleFogVolume => (delegate* unmanaged<void*, void*, void*, void>)At(10, 10); // 10  ms 10  void IVRenderView::GetVisibleFogVolume( const Vector &, VisibleFogVolumeInfo_t * )
 
-    public delegate* unmanaged<void*, byte, void> DrawTopView;            // 14  void IVRenderView::DrawTopView( bool )
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, void*> CreateWorldList => (delegate* unmanaged<void*, void*>)At(11, 11); // 11  ms 11  IWorldRenderList * IVRenderView::CreateWorldList( void )
 
-    public delegate* unmanaged<void*, void*, void*, void> TopViewBounds;  // 15  void IVRenderView::TopViewBounds( Vector2D const &, Vector2D const & )
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, void*, void*, int, void*, byte, void*, void> BuildWorldLists => (delegate* unmanaged<void*, void*, void*, int, void*, byte, void*, void>)At(12, 12); // 12  ms 12  void IVRenderView::BuildWorldLists( IWorldRenderList *, WorldListInfo_t *, int, const VisOverrideData_t *, bool, float * )
 
-    public delegate* unmanaged<void*, void> DrawLights;                   // 16  void IVRenderView::DrawLights( void )
+    [VtableSlot(13, 13)]
+    public delegate* unmanaged<void*, void*, ulong, float, void> DrawWorldLists => (delegate* unmanaged<void*, void*, ulong, float, void>)At(13, 13); // 13  ms 13  void IVRenderView::DrawWorldLists( IWorldRenderList *, unsigned long, float )
 
-    public delegate* unmanaged<void*, void> DrawMaskEntities;             // 17  void IVRenderView::DrawMaskEntities( void )
+    [VtableSlot(14, 14)]
+    public delegate* unmanaged<void*, byte, void> DrawTopView => (delegate* unmanaged<void*, byte, void>)At(14, 14); // 14  ms 14  void IVRenderView::DrawTopView( bool )
 
-    public delegate* unmanaged<void*, void*, int, ulong, byte, void> DrawTranslucentSurfaces; // 18  void IVRenderView::DrawTranslucentSurfaces( IWorldRenderList *, int, unsigned long, bool )
+    [VtableSlot(15, 15)]
+    public delegate* unmanaged<void*, void*, void*, void> TopViewBounds => (delegate* unmanaged<void*, void*, void*, void>)At(15, 15); // 15  ms 15  void IVRenderView::TopViewBounds( Vector2D const &, Vector2D const & )
 
-    public delegate* unmanaged<void*, void> DrawLineFile;                 // 19  void IVRenderView::DrawLineFile( void )
+    [VtableSlot(16, 16)]
+    public delegate* unmanaged<void*, void> DrawLights => (delegate* unmanaged<void*, void>)At(16, 16); // 16  ms 16  void IVRenderView::DrawLights( void )
 
-    public delegate* unmanaged<void*, void*, int, void> DrawLightmaps;    // 20  void IVRenderView::DrawLightmaps( IWorldRenderList *, int )
+    [VtableSlot(17, 17)]
+    public delegate* unmanaged<void*, void> DrawMaskEntities => (delegate* unmanaged<void*, void>)At(17, 17); // 17  ms 17  void IVRenderView::DrawMaskEntities( void )
 
-    public delegate* unmanaged<void*, byte, int, void*, void> ViewSetupVis; // 21  void IVRenderView::ViewSetupVis( bool, int, const Vector origin[] )
+    [VtableSlot(18, 18)]
+    public delegate* unmanaged<void*, void*, int, ulong, byte, void> DrawTranslucentSurfaces => (delegate* unmanaged<void*, void*, int, ulong, byte, void>)At(18, 18); // 18  ms 18  void IVRenderView::DrawTranslucentSurfaces( IWorldRenderList *, int, unsigned long, bool )
 
-    public delegate* unmanaged<void*, void*, int, byte> AreAnyLeavesVisible; // 22  bool IVRenderView::AreAnyLeavesVisible( int *, int )
+    [VtableSlot(19, 19)]
+    public delegate* unmanaged<void*, void> DrawLineFile => (delegate* unmanaged<void*, void>)At(19, 19); // 19  ms 19  void IVRenderView::DrawLineFile( void )
 
-    public delegate* unmanaged<void*, void> VguiPaint;                    // 23  void IVRenderView::VguiPaint( void )
+    [VtableSlot(20, 20)]
+    public delegate* unmanaged<void*, void*, int, void> DrawLightmaps => (delegate* unmanaged<void*, void*, int, void>)At(20, 20); // 20  ms 20  void IVRenderView::DrawLightmaps( IWorldRenderList *, int )
 
-    public delegate* unmanaged<void*, byte*, void*, void> ViewDrawFade;   // 24  void IVRenderView::ViewDrawFade( byte *, IMaterial * )
+    [VtableSlot(21, 21)]
+    public delegate* unmanaged<void*, byte, int, void*, void> ViewSetupVis => (delegate* unmanaged<void*, byte, int, void*, void>)At(21, 21); // 21  ms 21  void IVRenderView::ViewSetupVis( bool, int, const Vector origin[] )
 
-    public delegate* unmanaged<void*, float, float, float, void> OLD_SetProjectionMatrix; // 25  void IVRenderView::OLD_SetProjectionMatrix( float, float, float )
+    [VtableSlot(22, 22)]
+    public delegate* unmanaged<void*, void*, int, byte> AreAnyLeavesVisible => (delegate* unmanaged<void*, void*, int, byte>)At(22, 22); // 22  ms 22  bool IVRenderView::AreAnyLeavesVisible( int *, int )
+
+    [VtableSlot(23, 23)]
+    public delegate* unmanaged<void*, void> VguiPaint => (delegate* unmanaged<void*, void>)At(23, 23); // 23  ms 23  void IVRenderView::VguiPaint( void )
+
+    [VtableSlot(24, 24)]
+    public delegate* unmanaged<void*, byte*, void*, void> ViewDrawFade => (delegate* unmanaged<void*, byte*, void*, void>)At(24, 24); // 24  ms 24  void IVRenderView::ViewDrawFade( byte *, IMaterial * )
+
+    [VtableSlot(25, 25)]
+    public delegate* unmanaged<void*, float, float, float, void> OLD_SetProjectionMatrix => (delegate* unmanaged<void*, float, float, float, void>)At(25, 25); // 25  ms 25  void IVRenderView::OLD_SetProjectionMatrix( float, float, float )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: colorVec is a class type by value.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_GetLightAtPoint;                                  // 26  colorVec IVRenderView::GetLightAtPoint( Vector & )
+    [VtableSlot(26, 26)]
+    public nint Refused_GetLightAtPoint => (nint)At(26, 26); // 26  ms 26  colorVec IVRenderView::GetLightAtPoint( Vector & )
 
-    public delegate* unmanaged<void*, int> GetViewEntity;                 // 27  int IVRenderView::GetViewEntity( void )
+    [VtableSlot(27, 27)]
+    public delegate* unmanaged<void*, int> GetViewEntity => (delegate* unmanaged<void*, int>)At(27, 27); // 27  ms 27  int IVRenderView::GetViewEntity( void )
 
-    public delegate* unmanaged<void*, float> GetFieldOfView;              // 28  float IVRenderView::GetFieldOfView( void )
+    [VtableSlot(28, 28)]
+    public delegate* unmanaged<void*, float> GetFieldOfView => (delegate* unmanaged<void*, float>)At(28, 28); // 28  ms 28  float IVRenderView::GetFieldOfView( void )
 
-    public delegate* unmanaged<void*, void*> GetAreaBits;                 // 29  unsigned char * * IVRenderView::GetAreaBits( void )
+    [VtableSlot(29, 29)]
+    public delegate* unmanaged<void*, void*> GetAreaBits => (delegate* unmanaged<void*, void*>)At(29, 29); // 29  ms 29  unsigned char * * IVRenderView::GetAreaBits( void )
 
-    public delegate* unmanaged<void*, int, byte, void> SetFogVolumeState; // 30  void IVRenderView::SetFogVolumeState( int, bool )
+    [VtableSlot(30, 30)]
+    public delegate* unmanaged<void*, int, byte, void> SetFogVolumeState => (delegate* unmanaged<void*, int, byte, void>)At(30, 30); // 30  ms 30  void IVRenderView::SetFogVolumeState( int, bool )
 
-    public delegate* unmanaged<void*, void*, void> InstallBrushSurfaceRenderer; // 31  void IVRenderView::InstallBrushSurfaceRenderer( IBrushRenderer * )
+    [VtableSlot(31, 31)]
+    public delegate* unmanaged<void*, void*, void> InstallBrushSurfaceRenderer => (delegate* unmanaged<void*, void*, void>)At(31, 31); // 31  ms 31  void IVRenderView::InstallBrushSurfaceRenderer( IBrushRenderer * )
 
-    public delegate* unmanaged<void*, void*, void> DrawBrushModelShadow;  // 32  void IVRenderView::DrawBrushModelShadow( IClientRenderable * )
+    [VtableSlot(32, 32)]
+    public delegate* unmanaged<void*, void*, void> DrawBrushModelShadow => (delegate* unmanaged<void*, void*, void>)At(32, 32); // 32  ms 32  void IVRenderView::DrawBrushModelShadow( IClientRenderable * )
 
-    public delegate* unmanaged<void*, void*, int, ulong, byte> LeafContainsTranslucentSurfaces; // 33  bool IVRenderView::LeafContainsTranslucentSurfaces( IWorldRenderList *, int, unsigned long )
+    [VtableSlot(33, 33)]
+    public delegate* unmanaged<void*, void*, int, ulong, byte> LeafContainsTranslucentSurfaces => (delegate* unmanaged<void*, void*, int, ulong, byte>)At(33, 33); // 33  ms 33  bool IVRenderView::LeafContainsTranslucentSurfaces( IWorldRenderList *, int, unsigned long )
 
-    public delegate* unmanaged<void*, void*, void*, int, byte> DoesBoxIntersectWaterVolume; // 34  bool IVRenderView::DoesBoxIntersectWaterVolume( const Vector &, const Vector &, int )
+    [VtableSlot(34, 34)]
+    public delegate* unmanaged<void*, void*, void*, int, byte> DoesBoxIntersectWaterVolume => (delegate* unmanaged<void*, void*, void*, int, byte>)At(34, 34); // 34  ms 34  bool IVRenderView::DoesBoxIntersectWaterVolume( const Vector &, const Vector &, int )
 
-    public delegate* unmanaged<void*, void*, void*, void> SetAreaState;   // 35  void IVRenderView::SetAreaState( unsigned char chAreaBits[MAX_AREA_STATE_BYTES], unsigned char chAreaPortalBits[MAX_AREA_PORTAL_STATE_BYTES] )
+    [VtableSlot(35, 35)]
+    public delegate* unmanaged<void*, void*, void*, void> SetAreaState => (delegate* unmanaged<void*, void*, void*, void>)At(35, 35); // 35  ms 35  void IVRenderView::SetAreaState( unsigned char chAreaBits[MAX_AREA_STATE_BYTES], unsigned char chAreaPortalBits[MAX_AREA_PORTAL_STATE_BYTES] )
 
-    public delegate* unmanaged<void*, int, void> VGui_Paint;              // 36  void IVRenderView::VGui_Paint( int )
+    [VtableSlot(36, 36)]
+    public delegate* unmanaged<void*, int, void> VGui_Paint => (delegate* unmanaged<void*, int, void>)At(36, 36); // 36  ms 36  void IVRenderView::VGui_Paint( int )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void> Push3DView; // 37  void IVRenderView::Push3DView( const CViewSetup &, int, ITexture *, Frustum )
+    [VtableSlot(37, 38)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void> Push3DView => (delegate* unmanaged<void*, void*, int, void*, void*, void>)At(37, 38); // 37  ms 38  void IVRenderView::Push3DView( const CViewSetup &, int, ITexture *, Frustum )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void> Push2DView; // 38  void IVRenderView::Push2DView( const CViewSetup &, int, ITexture *, Frustum )
+    [VtableSlot(38, 39)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void> Push2DView => (delegate* unmanaged<void*, void*, int, void*, void*, void>)At(38, 39); // 38  ms 39  void IVRenderView::Push2DView( const CViewSetup &, int, ITexture *, Frustum )
 
-    public delegate* unmanaged<void*, void*, void> PopView;               // 39  void IVRenderView::PopView( Frustum )
+    [VtableSlot(39, 40)]
+    public delegate* unmanaged<void*, void*, void> PopView => (delegate* unmanaged<void*, void*, void>)At(39, 40); // 39  ms 40  void IVRenderView::PopView( Frustum )
 
-    public delegate* unmanaged<void*, void*, void*, void> SetMainView;    // 40  void IVRenderView::SetMainView( const Vector &, const QAngle & )
+    [VtableSlot(40, 41)]
+    public delegate* unmanaged<void*, void*, void*, void> SetMainView => (delegate* unmanaged<void*, void*, void*, void>)At(40, 41); // 40  ms 41  void IVRenderView::SetMainView( const Vector &, const QAngle & )
 
-    public delegate* unmanaged<void*, byte, int, void*, void*, void> ViewSetupVisEx; // 41  void IVRenderView::ViewSetupVisEx( bool, int, const Vector origin[], unsigned int & )
+    [VtableSlot(41, 42)]
+    public delegate* unmanaged<void*, byte, int, void*, void*, void> ViewSetupVisEx => (delegate* unmanaged<void*, byte, int, void*, void*, void>)At(41, 42); // 41  ms 42  void IVRenderView::ViewSetupVisEx( bool, int, const Vector origin[], unsigned int & )
 
-    public delegate* unmanaged<void*, void*, void> OverrideViewFrustum;   // 42  void IVRenderView::OverrideViewFrustum( Frustum )
+    [VtableSlot(42, 43)]
+    public delegate* unmanaged<void*, void*, void> OverrideViewFrustum => (delegate* unmanaged<void*, void*, void>)At(42, 43); // 42  ms 43  void IVRenderView::OverrideViewFrustum( Frustum )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, int, void> DrawBrushModelShadowDepth; // 43  void IVRenderView::DrawBrushModelShadowDepth( IClientEntity *, model_t *, const Vector &, const QAngle &, ERenderDepthMode )
+    [VtableSlot(43, 44)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int, void> DrawBrushModelShadowDepth => (delegate* unmanaged<void*, void*, void*, void*, void*, int, void>)At(43, 44); // 43  ms 44  void IVRenderView::DrawBrushModelShadowDepth( IClientEntity *, model_t *, const Vector &, const QAngle &, ERenderDepthMode )
 
-    public delegate* unmanaged<void*, void*, void*, void> UpdateBrushModelLightmap; // 44  void IVRenderView::UpdateBrushModelLightmap( model_t *, IClientRenderable * )
+    [VtableSlot(44, 45)]
+    public delegate* unmanaged<void*, void*, void*, void> UpdateBrushModelLightmap => (delegate* unmanaged<void*, void*, void*, void>)At(44, 45); // 44  ms 45  void IVRenderView::UpdateBrushModelLightmap( model_t *, IClientRenderable * )
 
-    public delegate* unmanaged<void*, void> BeginUpdateLightmaps;         // 45  void IVRenderView::BeginUpdateLightmaps( void )
+    [VtableSlot(45, 46)]
+    public delegate* unmanaged<void*, void> BeginUpdateLightmaps => (delegate* unmanaged<void*, void>)At(45, 46); // 45  ms 46  void IVRenderView::BeginUpdateLightmaps( void )
 
-    public delegate* unmanaged<void*, void> EndUpdateLightmaps;           // 46  void IVRenderView::EndUpdateLightmaps( void )
+    [VtableSlot(46, 47)]
+    public delegate* unmanaged<void*, void> EndUpdateLightmaps => (delegate* unmanaged<void*, void>)At(46, 47); // 46  ms 47  void IVRenderView::EndUpdateLightmaps( void )
 
-    public delegate* unmanaged<void*, float, float, float, float, float, float, float, float, void> OLD_SetOffCenterProjectionMatrix; // 47  void IVRenderView::OLD_SetOffCenterProjectionMatrix( float, float, float, float, float, float, float, float )
+    [VtableSlot(47, 48)]
+    public delegate* unmanaged<void*, float, float, float, float, float, float, float, float, void> OLD_SetOffCenterProjectionMatrix => (delegate* unmanaged<void*, float, float, float, float, float, float, float, float, void>)At(47, 48); // 47  ms 48  void IVRenderView::OLD_SetOffCenterProjectionMatrix( float, float, float, float, float, float, float, float )
 
-    public delegate* unmanaged<void*, float, float, float, float, float, float, void> OLD_SetProjectionMatrixOrtho; // 48  void IVRenderView::OLD_SetProjectionMatrixOrtho( float, float, float, float, float, float )
+    [VtableSlot(48, 49)]
+    public delegate* unmanaged<void*, float, float, float, float, float, float, void> OLD_SetProjectionMatrixOrtho => (delegate* unmanaged<void*, float, float, float, float, float, float, void>)At(48, 49); // 48  ms 49  void IVRenderView::OLD_SetProjectionMatrixOrtho( float, float, float, float, float, float )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void*, void> Push3DView_2; // 49  void IVRenderView::Push3DView( const CViewSetup &, int, ITexture *, Frustum, ITexture * )
+    [VtableSlot(49, 37)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void*, void> Push3DView_2 => (delegate* unmanaged<void*, void*, int, void*, void*, void*, void>)At(49, 37); // 49  ms 37  void IVRenderView::Push3DView( const CViewSetup &, int, ITexture *, Frustum, ITexture * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetMatricesForView; // 50  void IVRenderView::GetMatricesForView( const CViewSetup &, VMatrix *, VMatrix *, VMatrix *, VMatrix * )
+    [VtableSlot(50, 50)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetMatricesForView => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void>)At(50, 50); // 50  ms 50  void IVRenderView::GetMatricesForView( const CViewSetup &, VMatrix *, VMatrix *, VMatrix *, VMatrix * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, int, void> DrawBrushModelEx; // 51  void IVRenderView::DrawBrushModelEx( IClientEntity *, model_t *, const Vector &, const QAngle &, DrawBrushModelMode_t )
+    [VtableSlot(51, 51)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int, void> DrawBrushModelEx => (delegate* unmanaged<void*, void*, void*, void*, void*, int, void>)At(51, 51); // 51  ms 51  void IVRenderView::DrawBrushModelEx( IClientEntity *, model_t *, const Vector &, const QAngle &, DrawBrushModelMode_t )
 }
 
 /// <summary>
@@ -1463,59 +1734,94 @@ internal unsafe struct RenderViewVtbl
 /// 81 compiled call sites, and BOTH sides resolve it under the same version
 /// string.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 20 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct DebugOverlayVtbl
 {
-    // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
-    // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_AddEntityTextOverlay;                            // 0   void IVDebugOverlay::AddEntityTextOverlay( int, int, float, int, int, int, int, PRINTF_FORMAT_STRING const char *, ... )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 20;
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, int, int, int, int, float, void> AddBoxOverlay; // 1   void IVDebugOverlay::AddBoxOverlay( const Vector &, const Vector &, const Vector &, QAngle const &, int, int, int, int, float )
+    private fixed long _slots[20];
 
-    public delegate* unmanaged<void*, void*, void*, void*, int, int, int, int, byte, float, void> AddTriangleOverlay; // 2   void IVDebugOverlay::AddTriangleOverlay( const Vector &, const Vector &, const Vector &, int, int, int, int, bool, float )
-
-    public delegate* unmanaged<void*, void*, void*, int, int, int, byte, float, void> AddLineOverlay; // 3   void IVDebugOverlay::AddLineOverlay( const Vector &, const Vector &, int, int, int, bool, float )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_AddTextOverlay;                                  // 4   void IVDebugOverlay::AddTextOverlay( const Vector &, float, PRINTF_FORMAT_STRING const char *, ... )
+    [VtableSlot(0, 0)]
+    public nint Refused_AddEntityTextOverlay => (nint)At(0, 0); // 0   ms 0   void IVDebugOverlay::AddEntityTextOverlay( int, int, float, int, int, int, int, PRINTF_FORMAT_STRING const char *, ... )
+
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int, int, int, int, float, void> AddBoxOverlay => (delegate* unmanaged<void*, void*, void*, void*, void*, int, int, int, int, float, void>)At(1, 1); // 1   ms 1   void IVDebugOverlay::AddBoxOverlay( const Vector &, const Vector &, const Vector &, QAngle const &, int, int, int, int, float )
+
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, void*, void*, void*, int, int, int, int, byte, float, void> AddTriangleOverlay => (delegate* unmanaged<void*, void*, void*, void*, int, int, int, int, byte, float, void>)At(2, 2); // 2   ms 2   void IVDebugOverlay::AddTriangleOverlay( const Vector &, const Vector &, const Vector &, int, int, int, int, bool, float )
+
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, void*, void*, int, int, int, byte, float, void> AddLineOverlay => (delegate* unmanaged<void*, void*, void*, int, int, int, byte, float, void>)At(3, 3); // 3   ms 3   void IVDebugOverlay::AddLineOverlay( const Vector &, const Vector &, int, int, int, bool, float )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_AddTextOverlay_2;                                // 5   void IVDebugOverlay::AddTextOverlay( const Vector &, int, float, PRINTF_FORMAT_STRING const char *, ... )
-
-    public delegate* unmanaged<void*, float, float, float, int, int, int, int, byte*, void> AddScreenTextOverlay; // 6   void IVDebugOverlay::AddScreenTextOverlay( float, float, float, int, int, int, int, const char * )
-
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, int, int, int, int, float, void> AddSweptBoxOverlay; // 7   void IVDebugOverlay::AddSweptBoxOverlay( const Vector &, const Vector &, const Vector &, const Vector &, const QAngle &, int, int, int, int, float )
-
-    public delegate* unmanaged<void*, void*, void> AddGridOverlay;       // 8   void IVDebugOverlay::AddGridOverlay( const Vector & )
-
-    public delegate* unmanaged<void*, void*, void*, int> ScreenPosition; // 9   int IVDebugOverlay::ScreenPosition( const Vector &, Vector & )
-
-    public delegate* unmanaged<void*, float, float, void*, int> ScreenPosition_2; // 10  int IVDebugOverlay::ScreenPosition( float, float, Vector & )
-
-    public delegate* unmanaged<void*, void*> GetFirst;                   // 11  OverlayText_t * IVDebugOverlay::GetFirst( void )
-
-    public delegate* unmanaged<void*, void*, void*> GetNext;             // 12  OverlayText_t * IVDebugOverlay::GetNext( OverlayText_t * )
-
-    public delegate* unmanaged<void*, void> ClearDeadOverlays;           // 13  void IVDebugOverlay::ClearDeadOverlays( void )
-
-    public delegate* unmanaged<void*, void> ClearAllOverlays;            // 14  void IVDebugOverlay::ClearAllOverlays( void )
+    [VtableSlot(4, 5)]
+    public nint Refused_AddTextOverlay => (nint)At(4, 5); // 4   ms 5   void IVDebugOverlay::AddTextOverlay( const Vector &, float, PRINTF_FORMAT_STRING const char *, ... )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_AddTextOverlayRGB;                               // 15  void IVDebugOverlay::AddTextOverlayRGB( const Vector &, int, float, float, float, float, float, PRINTF_FORMAT_STRING const char *, ... )
+    [VtableSlot(5, 4)]
+    public nint Refused_AddTextOverlay_2 => (nint)At(5, 4); // 5   ms 4   void IVDebugOverlay::AddTextOverlay( const Vector &, int, float, PRINTF_FORMAT_STRING const char *, ... )
+
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, float, float, float, int, int, int, int, byte*, void> AddScreenTextOverlay => (delegate* unmanaged<void*, float, float, float, int, int, int, int, byte*, void>)At(6, 6); // 6   ms 6   void IVDebugOverlay::AddScreenTextOverlay( float, float, float, int, int, int, int, const char * )
+
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, int, int, int, int, float, void> AddSweptBoxOverlay => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, int, int, int, int, float, void>)At(7, 7); // 7   ms 7   void IVDebugOverlay::AddSweptBoxOverlay( const Vector &, const Vector &, const Vector &, const Vector &, const QAngle &, int, int, int, int, float )
+
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, void*, void> AddGridOverlay => (delegate* unmanaged<void*, void*, void>)At(8, 8); // 8   ms 8   void IVDebugOverlay::AddGridOverlay( const Vector & )
+
+    [VtableSlot(9, 10)]
+    public delegate* unmanaged<void*, void*, void*, int> ScreenPosition => (delegate* unmanaged<void*, void*, void*, int>)At(9, 10); // 9   ms 10  int IVDebugOverlay::ScreenPosition( const Vector &, Vector & )
+
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, float, float, void*, int> ScreenPosition_2 => (delegate* unmanaged<void*, float, float, void*, int>)At(10, 9); // 10  ms 9   int IVDebugOverlay::ScreenPosition( float, float, Vector & )
+
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, void*> GetFirst => (delegate* unmanaged<void*, void*>)At(11, 11); // 11  ms 11  OverlayText_t * IVDebugOverlay::GetFirst( void )
+
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, void*, void*> GetNext => (delegate* unmanaged<void*, void*, void*>)At(12, 12); // 12  ms 12  OverlayText_t * IVDebugOverlay::GetNext( OverlayText_t * )
+
+    [VtableSlot(13, 13)]
+    public delegate* unmanaged<void*, void> ClearDeadOverlays => (delegate* unmanaged<void*, void>)At(13, 13); // 13  ms 13  void IVDebugOverlay::ClearDeadOverlays( void )
+
+    [VtableSlot(14, 14)]
+    public delegate* unmanaged<void*, void> ClearAllOverlays => (delegate* unmanaged<void*, void>)At(14, 14); // 14  ms 14  void IVDebugOverlay::ClearAllOverlays( void )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_AddTextOverlayRGB_2;                             // 16  void IVDebugOverlay::AddTextOverlayRGB( const Vector &, int, float, int, int, int, int, PRINTF_FORMAT_STRING const char *, ... )
+    [VtableSlot(15, 16)]
+    public nint Refused_AddTextOverlayRGB => (nint)At(15, 16); // 15  ms 16  void IVDebugOverlay::AddTextOverlayRGB( const Vector &, int, float, float, float, float, float, PRINTF_FORMAT_STRING const char *, ... )
 
-    public delegate* unmanaged<void*, void*, void*, int, int, int, int, byte, float, void> AddLineOverlayAlpha; // 17  void IVDebugOverlay::AddLineOverlayAlpha( const Vector &, const Vector &, int, int, int, int, bool, float )
+    // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
+    // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
+    [VtableSlot(16, 15)]
+    public nint Refused_AddTextOverlayRGB_2 => (nint)At(16, 15); // 16  ms 15  void IVDebugOverlay::AddTextOverlayRGB( const Vector &, int, float, int, int, int, int, PRINTF_FORMAT_STRING const char *, ... )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, float, void> AddBoxOverlay2; // 18  void IVDebugOverlay::AddBoxOverlay2( const Vector &, const Vector &, const Vector &, QAngle const &, const Color &, const Color &, float )
+    [VtableSlot(17, 17)]
+    public delegate* unmanaged<void*, void*, void*, int, int, int, int, byte, float, void> AddLineOverlayAlpha => (delegate* unmanaged<void*, void*, void*, int, int, int, int, byte, float, void>)At(17, 17); // 17  ms 17  void IVDebugOverlay::AddLineOverlayAlpha( const Vector &, const Vector &, int, int, int, int, bool, float )
 
-    public delegate* unmanaged<void*, float, float, int, float, int, int, int, int, byte*, void> AddScreenTextOverlay2; // 19  void IVDebugOverlay::AddScreenTextOverlay2( float, float, int, float, int, int, int, int, const char * )
+    [VtableSlot(18, 18)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, float, void> AddBoxOverlay2 => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, float, void>)At(18, 18); // 18  ms 18  void IVDebugOverlay::AddBoxOverlay2( const Vector &, const Vector &, const Vector &, QAngle const &, const Color &, const Color &, float )
+
+    [VtableSlot(19, 19)]
+    public delegate* unmanaged<void*, float, float, int, float, int, int, int, int, byte*, void> AddScreenTextOverlay2 => (delegate* unmanaged<void*, float, float, int, float, int, int, int, int, byte*, void>)At(19, 19); // 19  ms 19  void IVDebugOverlay::AddScreenTextOverlay2( float, float, int, float, int, int, int, int, const char * )
 }
 
 /// <summary>
@@ -1533,101 +1839,161 @@ internal unsafe struct DebugOverlayVtbl
 /// first method is at slot 5 and a struct walked from its own header alone
 /// would number every one of them five too low.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 45 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct SoundEmitterSystemVtbl
 {
-    public delegate* unmanaged<void*, void*, byte> Connect;               // 0   bool IAppSystem::Connect( CreateInterfaceFn )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 45;
 
-    public delegate* unmanaged<void*, void> Disconnect;                   // 1   void IAppSystem::Disconnect( void )
+    private fixed long _slots[45];
 
-    public delegate* unmanaged<void*, byte*, void*> QueryInterface;       // 2   void * IAppSystem::QueryInterface( const char * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
 
-    public delegate* unmanaged<void*, int> Init;                          // 3   InitReturnVal_t IAppSystem::Init( void )
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, byte> Connect => (delegate* unmanaged<void*, void*, byte>)At(0, 0); // 0   ms 0   bool IAppSystem::Connect( CreateInterfaceFn )
 
-    public delegate* unmanaged<void*, void> Shutdown;                     // 4   void IAppSystem::Shutdown( void )
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void> Disconnect => (delegate* unmanaged<void*, void>)At(1, 1); // 1   ms 1   void IAppSystem::Disconnect( void )
 
-    public delegate* unmanaged<void*, byte> ModInit;                      // 5   bool ISoundEmitterSystemBase::ModInit( void )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, byte*, void*> QueryInterface => (delegate* unmanaged<void*, byte*, void*>)At(2, 2); // 2   ms 2   void * IAppSystem::QueryInterface( const char * )
 
-    public delegate* unmanaged<void*, void> ModShutdown;                  // 6   void ISoundEmitterSystemBase::ModShutdown( void )
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, int> Init => (delegate* unmanaged<void*, int>)At(3, 3); // 3   ms 3   InitReturnVal_t IAppSystem::Init( void )
 
-    public delegate* unmanaged<void*, byte*, int> GetSoundIndex;          // 7   int ISoundEmitterSystemBase::GetSoundIndex( const char * )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, void> Shutdown => (delegate* unmanaged<void*, void>)At(4, 4); // 4   ms 4   void IAppSystem::Shutdown( void )
 
-    public delegate* unmanaged<void*, int, byte> IsValidIndex;            // 8   bool ISoundEmitterSystemBase::IsValidIndex( int )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, byte> ModInit => (delegate* unmanaged<void*, byte>)At(5, 5); // 5   ms 5   bool ISoundEmitterSystemBase::ModInit( void )
 
-    public delegate* unmanaged<void*, int> GetSoundCount;                 // 9   int ISoundEmitterSystemBase::GetSoundCount( void )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void> ModShutdown => (delegate* unmanaged<void*, void>)At(6, 6); // 6   ms 6   void ISoundEmitterSystemBase::ModShutdown( void )
 
-    public delegate* unmanaged<void*, int, byte*> GetSoundName;           // 10  const char * ISoundEmitterSystemBase::GetSoundName( int )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, byte*, int> GetSoundIndex => (delegate* unmanaged<void*, byte*, int>)At(7, 7); // 7   ms 7   int ISoundEmitterSystemBase::GetSoundIndex( const char * )
 
-    public delegate* unmanaged<void*, byte*, void*, int, byte, byte> GetParametersForSound; // 11  bool ISoundEmitterSystemBase::GetParametersForSound( const char *, CSoundParameters &, gender_t, bool )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, int, byte> IsValidIndex => (delegate* unmanaged<void*, int, byte>)At(8, 8); // 8   ms 8   bool ISoundEmitterSystemBase::IsValidIndex( int )
 
-    public delegate* unmanaged<void*, void*, byte*> GetWaveName;          // 12  const char * ISoundEmitterSystemBase::GetWaveName( CUtlSymbol & )
+    [VtableSlot(9, 9)]
+    public delegate* unmanaged<void*, int> GetSoundCount => (delegate* unmanaged<void*, int>)At(9, 9); // 9   ms 9   int ISoundEmitterSystemBase::GetSoundCount( void )
+
+    [VtableSlot(10, 10)]
+    public delegate* unmanaged<void*, int, byte*> GetSoundName => (delegate* unmanaged<void*, int, byte*>)At(10, 10); // 10  ms 10  const char * ISoundEmitterSystemBase::GetSoundName( int )
+
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, byte*, void*, int, byte, byte> GetParametersForSound => (delegate* unmanaged<void*, byte*, void*, int, byte, byte>)At(11, 11); // 11  ms 11  bool ISoundEmitterSystemBase::GetParametersForSound( const char *, CSoundParameters &, gender_t, bool )
+
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, void*, byte*> GetWaveName => (delegate* unmanaged<void*, void*, byte*>)At(12, 12); // 12  ms 12  const char * ISoundEmitterSystemBase::GetWaveName( CUtlSymbol & )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: CUtlSymbol is a class type by value.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_AddWaveName;                                      // 13  CUtlSymbol ISoundEmitterSystemBase::AddWaveName( const char * )
+    [VtableSlot(13, 13)]
+    public nint Refused_AddWaveName => (nint)At(13, 13); // 13  ms 13  CUtlSymbol ISoundEmitterSystemBase::AddWaveName( const char * )
 
-    public delegate* unmanaged<void*, byte*, int> LookupSoundLevel;       // 14  soundlevel_t ISoundEmitterSystemBase::LookupSoundLevel( const char * )
+    [VtableSlot(14, 14)]
+    public delegate* unmanaged<void*, byte*, int> LookupSoundLevel => (delegate* unmanaged<void*, byte*, int>)At(14, 14); // 14  ms 14  soundlevel_t ISoundEmitterSystemBase::LookupSoundLevel( const char * )
 
-    public delegate* unmanaged<void*, byte*, byte*, byte*> GetWavFileForSound; // 15  const char * ISoundEmitterSystemBase::GetWavFileForSound( const char *, char const * )
+    [VtableSlot(15, 16)]
+    public delegate* unmanaged<void*, byte*, byte*, byte*> GetWavFileForSound => (delegate* unmanaged<void*, byte*, byte*, byte*>)At(15, 16); // 15  ms 16  const char * ISoundEmitterSystemBase::GetWavFileForSound( const char *, char const * )
 
-    public delegate* unmanaged<void*, byte*, int, byte*> GetWavFileForSound_2; // 16  const char * ISoundEmitterSystemBase::GetWavFileForSound( const char *, gender_t )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, byte*, int, byte*> GetWavFileForSound_2 => (delegate* unmanaged<void*, byte*, int, byte*>)At(16, 15); // 16  ms 15  const char * ISoundEmitterSystemBase::GetWavFileForSound( const char *, gender_t )
 
-    public delegate* unmanaged<void*, byte, int> CheckForMissingWavFiles; // 17  int ISoundEmitterSystemBase::CheckForMissingWavFiles( bool )
+    [VtableSlot(17, 17)]
+    public delegate* unmanaged<void*, byte, int> CheckForMissingWavFiles => (delegate* unmanaged<void*, byte, int>)At(17, 17); // 17  ms 17  int ISoundEmitterSystemBase::CheckForMissingWavFiles( bool )
 
-    public delegate* unmanaged<void*, int, byte*> GetSourceFileForSound;  // 18  const char * ISoundEmitterSystemBase::GetSourceFileForSound( int )
+    [VtableSlot(18, 18)]
+    public delegate* unmanaged<void*, int, byte*> GetSourceFileForSound => (delegate* unmanaged<void*, int, byte*>)At(18, 18); // 18  ms 18  const char * ISoundEmitterSystemBase::GetSourceFileForSound( int )
 
-    public delegate* unmanaged<void*, int> First;                         // 19  int ISoundEmitterSystemBase::First( void )
+    [VtableSlot(19, 19)]
+    public delegate* unmanaged<void*, int> First => (delegate* unmanaged<void*, int>)At(19, 19); // 19  ms 19  int ISoundEmitterSystemBase::First( void )
 
-    public delegate* unmanaged<void*, int, int> Next;                     // 20  int ISoundEmitterSystemBase::Next( int )
+    [VtableSlot(20, 20)]
+    public delegate* unmanaged<void*, int, int> Next => (delegate* unmanaged<void*, int, int>)At(20, 20); // 20  ms 20  int ISoundEmitterSystemBase::Next( int )
 
-    public delegate* unmanaged<void*, int> InvalidIndex;                  // 21  int ISoundEmitterSystemBase::InvalidIndex( void )
+    [VtableSlot(21, 21)]
+    public delegate* unmanaged<void*, int> InvalidIndex => (delegate* unmanaged<void*, int>)At(21, 21); // 21  ms 21  int ISoundEmitterSystemBase::InvalidIndex( void )
 
-    public delegate* unmanaged<void*, int, void*> InternalGetParametersForSound; // 22  CSoundParametersInternal * ISoundEmitterSystemBase::InternalGetParametersForSound( int )
+    [VtableSlot(22, 22)]
+    public delegate* unmanaged<void*, int, void*> InternalGetParametersForSound => (delegate* unmanaged<void*, int, void*>)At(22, 22); // 22  ms 22  CSoundParametersInternal * ISoundEmitterSystemBase::InternalGetParametersForSound( int )
 
-    public delegate* unmanaged<void*, byte*, byte*, void*, byte> AddSound; // 23  bool ISoundEmitterSystemBase::AddSound( const char *, const char *, const CSoundParametersInternal & )
+    [VtableSlot(23, 23)]
+    public delegate* unmanaged<void*, byte*, byte*, void*, byte> AddSound => (delegate* unmanaged<void*, byte*, byte*, void*, byte>)At(23, 23); // 23  ms 23  bool ISoundEmitterSystemBase::AddSound( const char *, const char *, const CSoundParametersInternal & )
 
-    public delegate* unmanaged<void*, byte*, void> RemoveSound;           // 24  void ISoundEmitterSystemBase::RemoveSound( const char * )
+    [VtableSlot(24, 24)]
+    public delegate* unmanaged<void*, byte*, void> RemoveSound => (delegate* unmanaged<void*, byte*, void>)At(24, 24); // 24  ms 24  void ISoundEmitterSystemBase::RemoveSound( const char * )
 
-    public delegate* unmanaged<void*, byte*, byte*, void> MoveSound;      // 25  void ISoundEmitterSystemBase::MoveSound( const char *, const char * )
+    [VtableSlot(25, 25)]
+    public delegate* unmanaged<void*, byte*, byte*, void> MoveSound => (delegate* unmanaged<void*, byte*, byte*, void>)At(25, 25); // 25  ms 25  void ISoundEmitterSystemBase::MoveSound( const char *, const char * )
 
-    public delegate* unmanaged<void*, byte*, byte*, void> RenameSound;    // 26  void ISoundEmitterSystemBase::RenameSound( const char *, const char * )
+    [VtableSlot(26, 26)]
+    public delegate* unmanaged<void*, byte*, byte*, void> RenameSound => (delegate* unmanaged<void*, byte*, byte*, void>)At(26, 26); // 26  ms 26  void ISoundEmitterSystemBase::RenameSound( const char *, const char * )
 
-    public delegate* unmanaged<void*, byte*, void*, void> UpdateSoundParameters; // 27  void ISoundEmitterSystemBase::UpdateSoundParameters( const char *, const CSoundParametersInternal & )
+    [VtableSlot(27, 27)]
+    public delegate* unmanaged<void*, byte*, void*, void> UpdateSoundParameters => (delegate* unmanaged<void*, byte*, void*, void>)At(27, 27); // 27  ms 27  void ISoundEmitterSystemBase::UpdateSoundParameters( const char *, const CSoundParametersInternal & )
 
-    public delegate* unmanaged<void*, int> GetNumSoundScripts;            // 28  int ISoundEmitterSystemBase::GetNumSoundScripts( void )
+    [VtableSlot(28, 28)]
+    public delegate* unmanaged<void*, int> GetNumSoundScripts => (delegate* unmanaged<void*, int>)At(28, 28); // 28  ms 28  int ISoundEmitterSystemBase::GetNumSoundScripts( void )
 
-    public delegate* unmanaged<void*, int, byte*> GetSoundScriptName;     // 29  char const * ISoundEmitterSystemBase::GetSoundScriptName( int )
+    [VtableSlot(29, 29)]
+    public delegate* unmanaged<void*, int, byte*> GetSoundScriptName => (delegate* unmanaged<void*, int, byte*>)At(29, 29); // 29  ms 29  char const * ISoundEmitterSystemBase::GetSoundScriptName( int )
 
-    public delegate* unmanaged<void*, int, byte> IsSoundScriptDirty;      // 30  bool ISoundEmitterSystemBase::IsSoundScriptDirty( int )
+    [VtableSlot(30, 30)]
+    public delegate* unmanaged<void*, int, byte> IsSoundScriptDirty => (delegate* unmanaged<void*, int, byte>)At(30, 30); // 30  ms 30  bool ISoundEmitterSystemBase::IsSoundScriptDirty( int )
 
-    public delegate* unmanaged<void*, byte*, int> FindSoundScript;        // 31  int ISoundEmitterSystemBase::FindSoundScript( const char * )
+    [VtableSlot(31, 31)]
+    public delegate* unmanaged<void*, byte*, int> FindSoundScript => (delegate* unmanaged<void*, byte*, int>)At(31, 31); // 31  ms 31  int ISoundEmitterSystemBase::FindSoundScript( const char * )
 
-    public delegate* unmanaged<void*, int, void> SaveChangesToSoundScript; // 32  void ISoundEmitterSystemBase::SaveChangesToSoundScript( int )
+    [VtableSlot(32, 32)]
+    public delegate* unmanaged<void*, int, void> SaveChangesToSoundScript => (delegate* unmanaged<void*, int, void>)At(32, 32); // 32  ms 32  void ISoundEmitterSystemBase::SaveChangesToSoundScript( int )
 
-    public delegate* unmanaged<void*, void*, byte*, void> ExpandSoundNameMacros; // 33  void ISoundEmitterSystemBase::ExpandSoundNameMacros( CSoundParametersInternal &, char const * )
+    [VtableSlot(33, 33)]
+    public delegate* unmanaged<void*, void*, byte*, void> ExpandSoundNameMacros => (delegate* unmanaged<void*, void*, byte*, void>)At(33, 33); // 33  ms 33  void ISoundEmitterSystemBase::ExpandSoundNameMacros( CSoundParametersInternal &, char const * )
 
-    public delegate* unmanaged<void*, byte*, int> GetActorGender;         // 34  gender_t ISoundEmitterSystemBase::GetActorGender( char const * )
+    [VtableSlot(34, 34)]
+    public delegate* unmanaged<void*, byte*, int> GetActorGender => (delegate* unmanaged<void*, byte*, int>)At(34, 34); // 34  ms 34  gender_t ISoundEmitterSystemBase::GetActorGender( char const * )
 
-    public delegate* unmanaged<void*, byte*, byte*, byte*, int, void> GenderExpandString; // 35  void ISoundEmitterSystemBase::GenderExpandString( char const *, char const *, char *, int )
+    [VtableSlot(35, 36)]
+    public delegate* unmanaged<void*, byte*, byte*, byte*, int, void> GenderExpandString => (delegate* unmanaged<void*, byte*, byte*, byte*, int, void>)At(35, 36); // 35  ms 36  void ISoundEmitterSystemBase::GenderExpandString( char const *, char const *, char *, int )
 
-    public delegate* unmanaged<void*, int, byte*, byte*, int, void> GenderExpandString_2; // 36  void ISoundEmitterSystemBase::GenderExpandString( gender_t, char const *, char *, int )
+    [VtableSlot(36, 35)]
+    public delegate* unmanaged<void*, int, byte*, byte*, int, void> GenderExpandString_2 => (delegate* unmanaged<void*, int, byte*, byte*, int, void>)At(36, 35); // 36  ms 35  void ISoundEmitterSystemBase::GenderExpandString( gender_t, char const *, char *, int )
 
-    public delegate* unmanaged<void*, byte*, byte> IsUsingGenderToken;    // 37  bool ISoundEmitterSystemBase::IsUsingGenderToken( char const * )
+    [VtableSlot(37, 37)]
+    public delegate* unmanaged<void*, byte*, byte> IsUsingGenderToken => (delegate* unmanaged<void*, byte*, byte>)At(37, 37); // 37  ms 37  bool ISoundEmitterSystemBase::IsUsingGenderToken( char const * )
 
-    public delegate* unmanaged<void*, uint> GetManifestFileTimeChecksum;  // 38  unsigned int ISoundEmitterSystemBase::GetManifestFileTimeChecksum( void )
+    [VtableSlot(38, 38)]
+    public delegate* unmanaged<void*, uint> GetManifestFileTimeChecksum => (delegate* unmanaged<void*, uint>)At(38, 38); // 38  ms 38  unsigned int ISoundEmitterSystemBase::GetManifestFileTimeChecksum( void )
 
-    public delegate* unmanaged<void*, byte*, byte, void> AddSoundOverrides; // 39  void ISoundEmitterSystemBase::AddSoundOverrides( char const *, bool )
+    [VtableSlot(39, 39)]
+    public delegate* unmanaged<void*, byte*, byte, void> AddSoundOverrides => (delegate* unmanaged<void*, byte*, byte, void>)At(39, 39); // 39  ms 39  void ISoundEmitterSystemBase::AddSoundOverrides( char const *, bool )
 
-    public delegate* unmanaged<void*, void> ClearSoundOverrides;          // 40  void ISoundEmitterSystemBase::ClearSoundOverrides( void )
+    [VtableSlot(40, 40)]
+    public delegate* unmanaged<void*, void> ClearSoundOverrides => (delegate* unmanaged<void*, void>)At(40, 40); // 40  ms 40  void ISoundEmitterSystemBase::ClearSoundOverrides( void )
 
-    public delegate* unmanaged<void*, byte*, void*, void*, int, byte, byte> GetParametersForSoundEx; // 41  bool ISoundEmitterSystemBase::GetParametersForSoundEx( const char *, HSOUNDSCRIPTHANDLE &, CSoundParameters &, gender_t, bool )
+    [VtableSlot(41, 41)]
+    public delegate* unmanaged<void*, byte*, void*, void*, int, byte, byte> GetParametersForSoundEx => (delegate* unmanaged<void*, byte*, void*, void*, int, byte, byte>)At(41, 41); // 41  ms 41  bool ISoundEmitterSystemBase::GetParametersForSoundEx( const char *, HSOUNDSCRIPTHANDLE &, CSoundParameters &, gender_t, bool )
 
-    public delegate* unmanaged<void*, byte*, void*, int> LookupSoundLevelByHandle; // 42  soundlevel_t ISoundEmitterSystemBase::LookupSoundLevelByHandle( char const *, HSOUNDSCRIPTHANDLE & )
+    [VtableSlot(42, 42)]
+    public delegate* unmanaged<void*, byte*, void*, int> LookupSoundLevelByHandle => (delegate* unmanaged<void*, byte*, void*, int>)At(42, 42); // 42  ms 42  soundlevel_t ISoundEmitterSystemBase::LookupSoundLevelByHandle( char const *, HSOUNDSCRIPTHANDLE & )
 
-    public delegate* unmanaged<void*, void*, void> ReloadSoundEntriesInList; // 43  void ISoundEmitterSystemBase::ReloadSoundEntriesInList( IFileList * )
+    [VtableSlot(43, 43)]
+    public delegate* unmanaged<void*, void*, void> ReloadSoundEntriesInList => (delegate* unmanaged<void*, void*, void>)At(43, 43); // 43  ms 43  void ISoundEmitterSystemBase::ReloadSoundEntriesInList( IFileList * )
 
-    public delegate* unmanaged<void*, void> Flush;                        // 44  void ISoundEmitterSystemBase::Flush( void )
+    [VtableSlot(44, 44)]
+    public delegate* unmanaged<void*, void> Flush => (delegate* unmanaged<void*, void>)At(44, 44); // 44  ms 44  void ISoundEmitterSystemBase::Flush( void )
 }
 
 /// <summary>
@@ -1709,45 +2075,78 @@ internal unsafe struct ShadowMgrVtbl
 /// client traces against its own copy of the world and the server against
 /// its. One layout serves both.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 18 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineTraceVtbl
 {
-    public delegate* unmanaged<void*, void*, void*, int> GetPointContents; // 0   int IEngineTrace::GetPointContents( const Vector &, IHandleEntity * * )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 18;
 
-    public delegate* unmanaged<void*, void*, void*, int> GetPointContents_Collideable; // 1   int IEngineTrace::GetPointContents_Collideable( ICollideable *, const Vector & )
+    private fixed long _slots[18];
 
-    public delegate* unmanaged<void*, void*, uint, void*, void*, void> ClipRayToEntity; // 2   void IEngineTrace::ClipRayToEntity( const Ray_t &, unsigned int, IHandleEntity *, trace_t * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
 
-    public delegate* unmanaged<void*, void*, uint, void*, void*, void> ClipRayToCollideable; // 3   void IEngineTrace::ClipRayToCollideable( const Ray_t &, unsigned int, ICollideable *, trace_t * )
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, void*, int> GetPointContents => (delegate* unmanaged<void*, void*, void*, int>)At(0, 0); // 0   ms 0   int IEngineTrace::GetPointContents( const Vector &, IHandleEntity * * )
 
-    public delegate* unmanaged<void*, void*, uint, void*, void*, void> TraceRay; // 4   void IEngineTrace::TraceRay( const Ray_t &, unsigned int, ITraceFilter *, trace_t * )
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void*, void*, int> GetPointContents_Collideable => (delegate* unmanaged<void*, void*, void*, int>)At(1, 1); // 1   ms 1   int IEngineTrace::GetPointContents_Collideable( ICollideable *, const Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void> SetupLeafAndEntityListRay; // 5   void IEngineTrace::SetupLeafAndEntityListRay( const Ray_t &, CTraceListData & )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, void*, uint, void*, void*, void> ClipRayToEntity => (delegate* unmanaged<void*, void*, uint, void*, void*, void>)At(2, 2); // 2   ms 2   void IEngineTrace::ClipRayToEntity( const Ray_t &, unsigned int, IHandleEntity *, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> SetupLeafAndEntityListBox; // 6   void IEngineTrace::SetupLeafAndEntityListBox( const Vector &, const Vector &, CTraceListData & )
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, void*, uint, void*, void*, void> ClipRayToCollideable => (delegate* unmanaged<void*, void*, uint, void*, void*, void>)At(3, 3); // 3   ms 3   void IEngineTrace::ClipRayToCollideable( const Ray_t &, unsigned int, ICollideable *, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*, uint, void*, void*, void> TraceRayAgainstLeafAndEntityList; // 7   void IEngineTrace::TraceRayAgainstLeafAndEntityList( const Ray_t &, CTraceListData &, unsigned int, ITraceFilter *, trace_t * )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, void*, uint, void*, void*, void> TraceRay => (delegate* unmanaged<void*, void*, uint, void*, void*, void>)At(4, 4); // 4   ms 4   void IEngineTrace::TraceRay( const Ray_t &, unsigned int, ITraceFilter *, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, uint, void*, void*, void> SweepCollideable; // 8   void IEngineTrace::SweepCollideable( ICollideable *, const Vector &, const Vector &, const QAngle &, unsigned int, ITraceFilter *, trace_t * )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, void*, void*, void> SetupLeafAndEntityListRay => (delegate* unmanaged<void*, void*, void*, void>)At(5, 5); // 5   ms 5   void IEngineTrace::SetupLeafAndEntityListRay( const Ray_t &, CTraceListData & )
 
-    public delegate* unmanaged<void*, void*, byte, void*, void> EnumerateEntities; // 9   void IEngineTrace::EnumerateEntities( const Ray_t &, bool, IEntityEnumerator * )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> SetupLeafAndEntityListBox => (delegate* unmanaged<void*, void*, void*, void*, void>)At(6, 6); // 6   ms 6   void IEngineTrace::SetupLeafAndEntityListBox( const Vector &, const Vector &, CTraceListData & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> EnumerateEntities_2; // 10  void IEngineTrace::EnumerateEntities( const Vector &, const Vector &, IEntityEnumerator * )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, void*, void*, uint, void*, void*, void> TraceRayAgainstLeafAndEntityList => (delegate* unmanaged<void*, void*, void*, uint, void*, void*, void>)At(7, 7); // 7   ms 7   void IEngineTrace::TraceRayAgainstLeafAndEntityList( const Ray_t &, CTraceListData &, unsigned int, ITraceFilter *, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*> GetCollideable;       // 11  ICollideable * IEngineTrace::GetCollideable( IHandleEntity * )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, uint, void*, void*, void> SweepCollideable => (delegate* unmanaged<void*, void*, void*, void*, void*, uint, void*, void*, void>)At(8, 8); // 8   ms 8   void IEngineTrace::SweepCollideable( ICollideable *, const Vector &, const Vector &, const QAngle &, unsigned int, ITraceFilter *, trace_t * )
 
-    public delegate* unmanaged<void*, int, byte, int> GetStatByIndex;     // 12  int IEngineTrace::GetStatByIndex( int, bool )
+    [VtableSlot(9, 10)]
+    public delegate* unmanaged<void*, void*, byte, void*, void> EnumerateEntities => (delegate* unmanaged<void*, void*, byte, void*, void>)At(9, 10); // 9   ms 10  void IEngineTrace::EnumerateEntities( const Ray_t &, bool, IEntityEnumerator * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, int, void> GetBrushesInAABB; // 13  void IEngineTrace::GetBrushesInAABB( const Vector &, const Vector &, CUtlVector<int> *, int )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> EnumerateEntities_2 => (delegate* unmanaged<void*, void*, void*, void*, void>)At(10, 9); // 10  ms 9   void IEngineTrace::EnumerateEntities( const Vector &, const Vector &, IEntityEnumerator * )
 
-    public delegate* unmanaged<void*, void*, void*, void*> GetCollidableFromDisplacementsInAABB; // 14  CPhysCollide * IEngineTrace::GetCollidableFromDisplacementsInAABB( const Vector &, const Vector & )
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, void*, void*> GetCollideable => (delegate* unmanaged<void*, void*, void*>)At(11, 11); // 11  ms 11  ICollideable * IEngineTrace::GetCollideable( IHandleEntity * )
 
-    public delegate* unmanaged<void*, int, void*, void*, byte> GetBrushInfo; // 15  bool IEngineTrace::GetBrushInfo( int, CUtlVector<Vector4D> *, int * )
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, int, byte, int> GetStatByIndex => (delegate* unmanaged<void*, int, byte, int>)At(12, 12); // 12  ms 12  int IEngineTrace::GetStatByIndex( int, bool )
 
-    public delegate* unmanaged<void*, void*, byte> PointOutsideWorld;     // 16  bool IEngineTrace::PointOutsideWorld( const Vector & )
+    [VtableSlot(13, 13)]
+    public delegate* unmanaged<void*, void*, void*, void*, int, void> GetBrushesInAABB => (delegate* unmanaged<void*, void*, void*, void*, int, void>)At(13, 13); // 13  ms 13  void IEngineTrace::GetBrushesInAABB( const Vector &, const Vector &, CUtlVector<int> *, int )
 
-    public delegate* unmanaged<void*, void*, int> GetLeafContainingPoint; // 17  int IEngineTrace::GetLeafContainingPoint( const Vector & )
+    [VtableSlot(14, 14)]
+    public delegate* unmanaged<void*, void*, void*, void*> GetCollidableFromDisplacementsInAABB => (delegate* unmanaged<void*, void*, void*, void*>)At(14, 14); // 14  ms 14  CPhysCollide * IEngineTrace::GetCollidableFromDisplacementsInAABB( const Vector &, const Vector & )
+
+    [VtableSlot(15, 15)]
+    public delegate* unmanaged<void*, int, void*, void*, byte> GetBrushInfo => (delegate* unmanaged<void*, int, void*, void*, byte>)At(15, 15); // 15  ms 15  bool IEngineTrace::GetBrushInfo( int, CUtlVector<Vector4D> *, int * )
+
+    [VtableSlot(16, 16)]
+    public delegate* unmanaged<void*, void*, byte> PointOutsideWorld => (delegate* unmanaged<void*, void*, byte>)At(16, 16); // 16  ms 16  bool IEngineTrace::PointOutsideWorld( const Vector & )
+
+    [VtableSlot(17, 17)]
+    public delegate* unmanaged<void*, void*, int> GetLeafContainingPoint => (delegate* unmanaged<void*, void*, int>)At(17, 17); // 17  ms 17  int IEngineTrace::GetLeafContainingPoint( const Vector & )
 }
 
 /// <summary>
@@ -1763,59 +2162,99 @@ internal unsafe struct EngineTraceVtbl
 /// 30 compiled call sites. <c>IEngineSoundClient003</c> and
 /// <c>IEngineSoundServer003</c>, as <c>IEngineTrace</c> above.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 25 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineSoundVtbl
 {
-    public delegate* unmanaged<void*, byte*, byte, byte, byte> PrecacheSound; // 0   bool IEngineSound::PrecacheSound( const char *, bool, bool )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 25;
 
-    public delegate* unmanaged<void*, byte*, byte> IsSoundPrecached;      // 1   bool IEngineSound::IsSoundPrecached( const char * )
+    private fixed long _slots[25];
 
-    public delegate* unmanaged<void*, byte*, void> PrefetchSound;         // 2   void IEngineSound::PrefetchSound( const char * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
 
-    public delegate* unmanaged<void*, byte*, float> GetSoundDuration;     // 3   float IEngineSound::GetSoundDuration( const char * )
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, byte*, byte, byte, byte> PrecacheSound => (delegate* unmanaged<void*, byte*, byte, byte, byte>)At(0, 0); // 0   ms 0   bool IEngineSound::PrecacheSound( const char *, bool, bool )
 
-    public delegate* unmanaged<void*, void*, int, int, byte*, float, float, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound; // 4   void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, byte*, byte> IsSoundPrecached => (delegate* unmanaged<void*, byte*, byte>)At(1, 1); // 1   ms 1   bool IEngineSound::IsSoundPrecached( const char * )
 
-    public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound_2; // 5   void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, byte*, void> PrefetchSound => (delegate* unmanaged<void*, byte*, void>)At(2, 2); // 2   ms 2   void IEngineSound::PrefetchSound( const char * )
 
-    public delegate* unmanaged<void*, void*, int, int, int, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSentenceByIndex; // 6   void IEngineSound::EmitSentenceByIndex( IRecipientFilter &, int, int, int, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, byte*, float> GetSoundDuration => (delegate* unmanaged<void*, byte*, float>)At(3, 3); // 3   ms 3   float IEngineSound::GetSoundDuration( const char * )
 
-    public delegate* unmanaged<void*, int, int, byte*, void> StopSound;   // 7   void IEngineSound::StopSound( int, int, const char * )
+    [VtableSlot(4, 5)]
+    public delegate* unmanaged<void*, void*, int, int, byte*, float, float, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound => (delegate* unmanaged<void*, void*, int, int, byte*, float, float, int, int, int, void*, void*, void*, byte, float, int, void>)At(4, 5); // 4   ms 5   void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
 
-    public delegate* unmanaged<void*, byte, void> StopAllSounds;          // 8   void IEngineSound::StopAllSounds( bool )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound_2 => (delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, void*, void*, byte, float, int, void>)At(5, 4); // 5   ms 4   void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
 
-    public delegate* unmanaged<void*, void*, int, void> SetRoomType;      // 9   void IEngineSound::SetRoomType( IRecipientFilter &, int )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void*, int, int, int, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSentenceByIndex => (delegate* unmanaged<void*, void*, int, int, int, float, int, int, int, int, void*, void*, void*, byte, float, int, void>)At(6, 6); // 6   ms 6   void IEngineSound::EmitSentenceByIndex( IRecipientFilter &, int, int, int, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
 
-    public delegate* unmanaged<void*, void*, int, byte, void> SetPlayerDSP; // 10  void IEngineSound::SetPlayerDSP( IRecipientFilter &, int, bool )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, int, int, byte*, void> StopSound => (delegate* unmanaged<void*, int, int, byte*, void>)At(7, 7); // 7   ms 7   void IEngineSound::StopSound( int, int, const char * )
 
-    public delegate* unmanaged<void*, byte*, float, int, int, float, void> EmitAmbientSound; // 11  void IEngineSound::EmitAmbientSound( const char *, float, int, int, float )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, byte, void> StopAllSounds => (delegate* unmanaged<void*, byte, void>)At(8, 8); // 8   ms 8   void IEngineSound::StopAllSounds( bool )
 
-    public delegate* unmanaged<void*, int, float, float> GetDistGainFromSoundLevel; // 12  float IEngineSound::GetDistGainFromSoundLevel( soundlevel_t, float )
+    [VtableSlot(9, 9)]
+    public delegate* unmanaged<void*, void*, int, void> SetRoomType => (delegate* unmanaged<void*, void*, int, void>)At(9, 9); // 9   ms 9   void IEngineSound::SetRoomType( IRecipientFilter &, int )
 
-    public delegate* unmanaged<void*, int> GetGuidForLastSoundEmitted;    // 13  int IEngineSound::GetGuidForLastSoundEmitted( void )
+    [VtableSlot(10, 10)]
+    public delegate* unmanaged<void*, void*, int, byte, void> SetPlayerDSP => (delegate* unmanaged<void*, void*, int, byte, void>)At(10, 10); // 10  ms 10  void IEngineSound::SetPlayerDSP( IRecipientFilter &, int, bool )
 
-    public delegate* unmanaged<void*, int, byte> IsSoundStillPlaying;     // 14  bool IEngineSound::IsSoundStillPlaying( int )
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, byte*, float, int, int, float, void> EmitAmbientSound => (delegate* unmanaged<void*, byte*, float, int, int, float, void>)At(11, 11); // 11  ms 11  void IEngineSound::EmitAmbientSound( const char *, float, int, int, float )
 
-    public delegate* unmanaged<void*, int, void> StopSoundByGuid;         // 15  void IEngineSound::StopSoundByGuid( int )
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, int, float, float> GetDistGainFromSoundLevel => (delegate* unmanaged<void*, int, float, float>)At(12, 12); // 12  ms 12  float IEngineSound::GetDistGainFromSoundLevel( soundlevel_t, float )
 
-    public delegate* unmanaged<void*, int, float, void> SetVolumeByGuid;  // 16  void IEngineSound::SetVolumeByGuid( int, float )
+    [VtableSlot(13, 13)]
+    public delegate* unmanaged<void*, int> GetGuidForLastSoundEmitted => (delegate* unmanaged<void*, int>)At(13, 13); // 13  ms 13  int IEngineSound::GetGuidForLastSoundEmitted( void )
 
-    public delegate* unmanaged<void*, void*, void> GetActiveSounds;       // 17  void IEngineSound::GetActiveSounds( CUtlVector< SndInfo_t > & )
+    [VtableSlot(14, 14)]
+    public delegate* unmanaged<void*, int, byte> IsSoundStillPlaying => (delegate* unmanaged<void*, int, byte>)At(14, 14); // 14  ms 14  bool IEngineSound::IsSoundStillPlaying( int )
 
-    public delegate* unmanaged<void*, byte*, void> PrecacheSentenceGroup; // 18  void IEngineSound::PrecacheSentenceGroup( const char * )
+    [VtableSlot(15, 15)]
+    public delegate* unmanaged<void*, int, void> StopSoundByGuid => (delegate* unmanaged<void*, int, void>)At(15, 15); // 15  ms 15  void IEngineSound::StopSoundByGuid( int )
 
-    public delegate* unmanaged<void*, void> NotifyBeginMoviePlayback;     // 19  void IEngineSound::NotifyBeginMoviePlayback( void )
+    [VtableSlot(16, 16)]
+    public delegate* unmanaged<void*, int, float, void> SetVolumeByGuid => (delegate* unmanaged<void*, int, float, void>)At(16, 16); // 16  ms 16  void IEngineSound::SetVolumeByGuid( int, float )
 
-    public delegate* unmanaged<void*, void> NotifyEndMoviePlayback;       // 20  void IEngineSound::NotifyEndMoviePlayback( void )
+    [VtableSlot(17, 17)]
+    public delegate* unmanaged<void*, void*, void> GetActiveSounds => (delegate* unmanaged<void*, void*, void>)At(17, 17); // 17  ms 17  void IEngineSound::GetActiveSounds( CUtlVector< SndInfo_t > & )
 
-    public delegate* unmanaged<void*, uint, uint, uint, void*> CreateOutputStream; // 21  IAudioOutputStream * IEngineSound::CreateOutputStream( uint, uint, uint )
+    [VtableSlot(18, 18)]
+    public delegate* unmanaged<void*, byte*, void> PrecacheSentenceGroup => (delegate* unmanaged<void*, byte*, void>)At(18, 18); // 18  ms 18  void IEngineSound::PrecacheSentenceGroup( const char * )
 
-    public delegate* unmanaged<void*, void*, void> DestroyOutputStream;   // 22  void IEngineSound::DestroyOutputStream( IAudioOutputStream * )
+    [VtableSlot(19, 19)]
+    public delegate* unmanaged<void*, void> NotifyBeginMoviePlayback => (delegate* unmanaged<void*, void>)At(19, 19); // 19  ms 19  void IEngineSound::NotifyBeginMoviePlayback( void )
 
-    public delegate* unmanaged<void*, void*, void> ManualUpdate;          // 23  void IEngineSound::ManualUpdate( const AudioState_t * )
+    [VtableSlot(20, 20)]
+    public delegate* unmanaged<void*, void> NotifyEndMoviePlayback => (delegate* unmanaged<void*, void>)At(20, 20); // 20  ms 20  void IEngineSound::NotifyEndMoviePlayback( void )
 
-    public delegate* unmanaged<void*, void> ExtraUpdate;                  // 24  void IEngineSound::ExtraUpdate( void )
+    [VtableSlot(21, 21)]
+    public delegate* unmanaged<void*, uint, uint, uint, void*> CreateOutputStream => (delegate* unmanaged<void*, uint, uint, uint, void*>)At(21, 21); // 21  ms 21  IAudioOutputStream * IEngineSound::CreateOutputStream( uint, uint, uint )
+
+    [VtableSlot(22, 22)]
+    public delegate* unmanaged<void*, void*, void> DestroyOutputStream => (delegate* unmanaged<void*, void*, void>)At(22, 22); // 22  ms 22  void IEngineSound::DestroyOutputStream( IAudioOutputStream * )
+
+    [VtableSlot(23, 23)]
+    public delegate* unmanaged<void*, void*, void> ManualUpdate => (delegate* unmanaged<void*, void*, void>)At(23, 23); // 23  ms 23  void IEngineSound::ManualUpdate( const AudioState_t * )
+
+    [VtableSlot(24, 24)]
+    public delegate* unmanaged<void*, void> ExtraUpdate => (delegate* unmanaged<void*, void>)At(24, 24); // 24  ms 24  void IEngineSound::ExtraUpdate( void )
 }
 
 /// <summary>
@@ -1938,23 +2377,48 @@ internal unsafe struct ModelRenderVtbl
 /// The plan's Phase 3 partner. Its own demand was re-derived from 112 to 27
 /// by the same census that took IGameEventManager2 from 538 to 25.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 4 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineVGuiVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 4;
+
+    private fixed long _slots[5];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                             // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                             // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, int, nuint> GetPanel;              // 2   vgui::VPANEL IEngineVGui::GetPanel( VGuiPanel_t )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, int, nuint> GetPanel => (delegate* unmanaged<void*, int, nuint>)At(2, 1); // 2   ms 1   vgui::VPANEL IEngineVGui::GetPanel( VGuiPanel_t )
 
-    public delegate* unmanaged<void*, byte> IsGameUIVisible;             // 3   bool IEngineVGui::IsGameUIVisible( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, byte> IsGameUIVisible => (delegate* unmanaged<void*, byte>)At(3, 2); // 3   ms 2   bool IEngineVGui::IsGameUIVisible( void )
 
-    public delegate* unmanaged<void*, uint, void*, byte> GetWorkshopMap; // 4   bool IEngineVGui::GetWorkshopMap( uint32, WorkshopMapDesc_t * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, uint, void*, byte> GetWorkshopMap => (delegate* unmanaged<void*, uint, void*, byte>)At(4, 3); // 4   ms 3   bool IEngineVGui::GetWorkshopMap( uint32, WorkshopMapDesc_t * )
 }
 
 /// <summary>
@@ -1969,83 +2433,138 @@ internal unsafe struct EngineVGuiVtbl
 /// <para>
 /// 26 compiled call sites.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two and overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 34 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct SpatialPartitionVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 34;
+
+    private fixed long _slots[35];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                             // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                             // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, ushort> CreateHandle;       // 2   SpatialPartitionHandle_t ISpatialPartition::CreateHandle( IHandleEntity * )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, void*, ushort> CreateHandle => (delegate* unmanaged<void*, void*, ushort>)At(2, 2); // 2   ms 2   SpatialPartitionHandle_t ISpatialPartition::CreateHandle( IHandleEntity * )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, ushort> CreateHandle_2; // 3   SpatialPartitionHandle_t ISpatialPartition::CreateHandle( IHandleEntity *, SpatialPartitionListMask_t, const Vector &, const Vector & )
+    [VtableSlot(3, 1)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, ushort> CreateHandle_2 => (delegate* unmanaged<void*, void*, int, void*, void*, ushort>)At(3, 1); // 3   ms 1   SpatialPartitionHandle_t ISpatialPartition::CreateHandle( IHandleEntity *, SpatialPartitionListMask_t, const Vector &, const Vector & )
 
-    public delegate* unmanaged<void*, ushort, void> DestroyHandle;       // 4   void ISpatialPartition::DestroyHandle( SpatialPartitionHandle_t )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, ushort, void> DestroyHandle => (delegate* unmanaged<void*, ushort, void>)At(4, 3); // 4   ms 3   void ISpatialPartition::DestroyHandle( SpatialPartitionHandle_t )
 
-    public delegate* unmanaged<void*, int, ushort, void> Insert;         // 5   void ISpatialPartition::Insert( SpatialPartitionListMask_t, SpatialPartitionHandle_t )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, int, ushort, void> Insert => (delegate* unmanaged<void*, int, ushort, void>)At(5, 4); // 5   ms 4   void ISpatialPartition::Insert( SpatialPartitionListMask_t, SpatialPartitionHandle_t )
 
-    public delegate* unmanaged<void*, int, ushort, void> Remove;         // 6   void ISpatialPartition::Remove( SpatialPartitionListMask_t, SpatialPartitionHandle_t )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, int, ushort, void> Remove => (delegate* unmanaged<void*, int, ushort, void>)At(6, 6); // 6   ms 6   void ISpatialPartition::Remove( SpatialPartitionListMask_t, SpatialPartitionHandle_t )
 
-    public delegate* unmanaged<void*, int, int, ushort, void> RemoveAndInsert; // 7   void ISpatialPartition::RemoveAndInsert( SpatialPartitionListMask_t, SpatialPartitionListMask_t, SpatialPartitionHandle_t )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, int, int, ushort, void> RemoveAndInsert => (delegate* unmanaged<void*, int, int, ushort, void>)At(7, 7); // 7   ms 7   void ISpatialPartition::RemoveAndInsert( SpatialPartitionListMask_t, SpatialPartitionListMask_t, SpatialPartitionHandle_t )
 
-    public delegate* unmanaged<void*, ushort, void> Remove_2;            // 8   void ISpatialPartition::Remove( SpatialPartitionHandle_t )
+    [VtableSlot(8, 5)]
+    public delegate* unmanaged<void*, ushort, void> Remove_2 => (delegate* unmanaged<void*, ushort, void>)At(8, 5); // 8   ms 5   void ISpatialPartition::Remove( SpatialPartitionHandle_t )
 
-    public delegate* unmanaged<void*, ushort, void*, void*, void> ElementMoved; // 9   void ISpatialPartition::ElementMoved( SpatialPartitionHandle_t, const Vector &, const Vector & )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, ushort, void*, void*, void> ElementMoved => (delegate* unmanaged<void*, ushort, void*, void*, void>)At(9, 8); // 9   ms 8   void ISpatialPartition::ElementMoved( SpatialPartitionHandle_t, const Vector &, const Vector & )
 
-    public delegate* unmanaged<void*, ushort, int> HideElement;          // 10  SpatialTempHandle_t ISpatialPartition::HideElement( SpatialPartitionHandle_t )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, ushort, int> HideElement => (delegate* unmanaged<void*, ushort, int>)At(10, 9); // 10  ms 9   SpatialTempHandle_t ISpatialPartition::HideElement( SpatialPartitionHandle_t )
 
-    public delegate* unmanaged<void*, ushort, int, void> UnhideElement;  // 11  void ISpatialPartition::UnhideElement( SpatialPartitionHandle_t, SpatialTempHandle_t )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, ushort, int, void> UnhideElement => (delegate* unmanaged<void*, ushort, int, void>)At(11, 10); // 11  ms 10  void ISpatialPartition::UnhideElement( SpatialPartitionHandle_t, SpatialTempHandle_t )
 
-    public delegate* unmanaged<void*, void*, void> InstallQueryCallback_V1; // 12  void ISpatialPartition::InstallQueryCallback_V1( IPartitionQueryCallback * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, void> InstallQueryCallback_V1 => (delegate* unmanaged<void*, void*, void>)At(12, 11); // 12  ms 11  void ISpatialPartition::InstallQueryCallback_V1( IPartitionQueryCallback * )
 
-    public delegate* unmanaged<void*, void*, void> RemoveQueryCallback;  // 13  void ISpatialPartition::RemoveQueryCallback( IPartitionQueryCallback * )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void*, void> RemoveQueryCallback => (delegate* unmanaged<void*, void*, void>)At(13, 12); // 13  ms 12  void ISpatialPartition::RemoveQueryCallback( IPartitionQueryCallback * )
 
-    public delegate* unmanaged<void*, int, void*, void*, byte, void*, void> EnumerateElementsInBox; // 14  void ISpatialPartition::EnumerateElementsInBox( SpatialPartitionListMask_t, const Vector &, const Vector &, bool, IPartitionEnumerator * )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, int, void*, void*, byte, void*, void> EnumerateElementsInBox => (delegate* unmanaged<void*, int, void*, void*, byte, void*, void>)At(14, 13); // 14  ms 13  void ISpatialPartition::EnumerateElementsInBox( SpatialPartitionListMask_t, const Vector &, const Vector &, bool, IPartitionEnumerator * )
 
-    public delegate* unmanaged<void*, int, void*, float, byte, void*, void> EnumerateElementsInSphere; // 15  void ISpatialPartition::EnumerateElementsInSphere( SpatialPartitionListMask_t, const Vector &, float, bool, IPartitionEnumerator * )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, int, void*, float, byte, void*, void> EnumerateElementsInSphere => (delegate* unmanaged<void*, int, void*, float, byte, void*, void>)At(15, 14); // 15  ms 14  void ISpatialPartition::EnumerateElementsInSphere( SpatialPartitionListMask_t, const Vector &, float, bool, IPartitionEnumerator * )
 
-    public delegate* unmanaged<void*, int, void*, byte, void*, void> EnumerateElementsAlongRay; // 16  void ISpatialPartition::EnumerateElementsAlongRay( SpatialPartitionListMask_t, const Ray_t &, bool, IPartitionEnumerator * )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, int, void*, byte, void*, void> EnumerateElementsAlongRay => (delegate* unmanaged<void*, int, void*, byte, void*, void>)At(16, 15); // 16  ms 15  void ISpatialPartition::EnumerateElementsAlongRay( SpatialPartitionListMask_t, const Ray_t &, bool, IPartitionEnumerator * )
 
-    public delegate* unmanaged<void*, int, void*, byte, void*, void> EnumerateElementsAtPoint; // 17  void ISpatialPartition::EnumerateElementsAtPoint( SpatialPartitionListMask_t, const Vector &, bool, IPartitionEnumerator * )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, int, void*, byte, void*, void> EnumerateElementsAtPoint => (delegate* unmanaged<void*, int, void*, byte, void*, void>)At(17, 16); // 17  ms 16  void ISpatialPartition::EnumerateElementsAtPoint( SpatialPartitionListMask_t, const Vector &, bool, IPartitionEnumerator * )
 
-    public delegate* unmanaged<void*, int, byte, void> SuppressLists;    // 18  void ISpatialPartition::SuppressLists( SpatialPartitionListMask_t, bool )
+    [VtableSlot(18, 17)]
+    public delegate* unmanaged<void*, int, byte, void> SuppressLists => (delegate* unmanaged<void*, int, byte, void>)At(18, 17); // 18  ms 17  void ISpatialPartition::SuppressLists( SpatialPartitionListMask_t, bool )
 
-    public delegate* unmanaged<void*, int> GetSuppressedLists;           // 19  SpatialPartitionListMask_t ISpatialPartition::GetSuppressedLists( void )
+    [VtableSlot(19, 18)]
+    public delegate* unmanaged<void*, int> GetSuppressedLists => (delegate* unmanaged<void*, int>)At(19, 18); // 19  ms 18  SpatialPartitionListMask_t ISpatialPartition::GetSuppressedLists( void )
 
-    public delegate* unmanaged<void*, float, void> RenderAllObjectsInTree; // 20  void ISpatialPartition::RenderAllObjectsInTree( float )
+    [VtableSlot(20, 19)]
+    public delegate* unmanaged<void*, float, void> RenderAllObjectsInTree => (delegate* unmanaged<void*, float, void>)At(20, 19); // 20  ms 19  void ISpatialPartition::RenderAllObjectsInTree( float )
 
-    public delegate* unmanaged<void*, void*, void*, float, void> RenderObjectsInPlayerLeafs; // 21  void ISpatialPartition::RenderObjectsInPlayerLeafs( const Vector &, const Vector &, float )
+    [VtableSlot(21, 20)]
+    public delegate* unmanaged<void*, void*, void*, float, void> RenderObjectsInPlayerLeafs => (delegate* unmanaged<void*, void*, void*, float, void>)At(21, 20); // 21  ms 20  void ISpatialPartition::RenderObjectsInPlayerLeafs( const Vector &, const Vector &, float )
 
-    public delegate* unmanaged<void*, float, void> RenderLeafsForRayTraceStart; // 22  void ISpatialPartition::RenderLeafsForRayTraceStart( float )
+    [VtableSlot(22, 21)]
+    public delegate* unmanaged<void*, float, void> RenderLeafsForRayTraceStart => (delegate* unmanaged<void*, float, void>)At(22, 21); // 22  ms 21  void ISpatialPartition::RenderLeafsForRayTraceStart( float )
 
-    public delegate* unmanaged<void*, void> RenderLeafsForRayTraceEnd;   // 23  void ISpatialPartition::RenderLeafsForRayTraceEnd( void )
+    [VtableSlot(23, 22)]
+    public delegate* unmanaged<void*, void> RenderLeafsForRayTraceEnd => (delegate* unmanaged<void*, void>)At(23, 22); // 23  ms 22  void ISpatialPartition::RenderLeafsForRayTraceEnd( void )
 
-    public delegate* unmanaged<void*, float, void> RenderLeafsForHullTraceStart; // 24  void ISpatialPartition::RenderLeafsForHullTraceStart( float )
+    [VtableSlot(24, 23)]
+    public delegate* unmanaged<void*, float, void> RenderLeafsForHullTraceStart => (delegate* unmanaged<void*, float, void>)At(24, 23); // 24  ms 23  void ISpatialPartition::RenderLeafsForHullTraceStart( float )
 
-    public delegate* unmanaged<void*, void> RenderLeafsForHullTraceEnd;  // 25  void ISpatialPartition::RenderLeafsForHullTraceEnd( void )
+    [VtableSlot(25, 24)]
+    public delegate* unmanaged<void*, void> RenderLeafsForHullTraceEnd => (delegate* unmanaged<void*, void>)At(25, 24); // 25  ms 24  void ISpatialPartition::RenderLeafsForHullTraceEnd( void )
 
-    public delegate* unmanaged<void*, float, void> RenderLeafsForBoxStart; // 26  void ISpatialPartition::RenderLeafsForBoxStart( float )
+    [VtableSlot(26, 25)]
+    public delegate* unmanaged<void*, float, void> RenderLeafsForBoxStart => (delegate* unmanaged<void*, float, void>)At(26, 25); // 26  ms 25  void ISpatialPartition::RenderLeafsForBoxStart( float )
 
-    public delegate* unmanaged<void*, void> RenderLeafsForBoxEnd;        // 27  void ISpatialPartition::RenderLeafsForBoxEnd( void )
+    [VtableSlot(27, 26)]
+    public delegate* unmanaged<void*, void> RenderLeafsForBoxEnd => (delegate* unmanaged<void*, void>)At(27, 26); // 27  ms 26  void ISpatialPartition::RenderLeafsForBoxEnd( void )
 
-    public delegate* unmanaged<void*, float, void> RenderLeafsForSphereStart; // 28  void ISpatialPartition::RenderLeafsForSphereStart( float )
+    [VtableSlot(28, 27)]
+    public delegate* unmanaged<void*, float, void> RenderLeafsForSphereStart => (delegate* unmanaged<void*, float, void>)At(28, 27); // 28  ms 27  void ISpatialPartition::RenderLeafsForSphereStart( float )
 
-    public delegate* unmanaged<void*, void> RenderLeafsForSphereEnd;     // 29  void ISpatialPartition::RenderLeafsForSphereEnd( void )
+    [VtableSlot(29, 28)]
+    public delegate* unmanaged<void*, void> RenderLeafsForSphereEnd => (delegate* unmanaged<void*, void>)At(29, 28); // 29  ms 28  void ISpatialPartition::RenderLeafsForSphereEnd( void )
 
-    public delegate* unmanaged<void*, void*, void*, float, void> RenderObjectsInBox; // 30  void ISpatialPartition::RenderObjectsInBox( const Vector &, const Vector &, float )
+    [VtableSlot(30, 29)]
+    public delegate* unmanaged<void*, void*, void*, float, void> RenderObjectsInBox => (delegate* unmanaged<void*, void*, void*, float, void>)At(30, 29); // 30  ms 29  void ISpatialPartition::RenderObjectsInBox( const Vector &, const Vector &, float )
 
-    public delegate* unmanaged<void*, void*, float, float, void> RenderObjectsInSphere; // 31  void ISpatialPartition::RenderObjectsInSphere( const Vector &, float, float )
+    [VtableSlot(31, 30)]
+    public delegate* unmanaged<void*, void*, float, float, void> RenderObjectsInSphere => (delegate* unmanaged<void*, void*, float, float, void>)At(31, 30); // 31  ms 30  void ISpatialPartition::RenderObjectsInSphere( const Vector &, float, float )
 
-    public delegate* unmanaged<void*, void*, float, void> RenderObjectsAlongRay; // 32  void ISpatialPartition::RenderObjectsAlongRay( const Ray_t &, float )
+    [VtableSlot(32, 31)]
+    public delegate* unmanaged<void*, void*, float, void> RenderObjectsAlongRay => (delegate* unmanaged<void*, void*, float, void>)At(32, 31); // 32  ms 31  void ISpatialPartition::RenderObjectsAlongRay( const Ray_t &, float )
 
-    public delegate* unmanaged<void*, byte*, void> ReportStats;          // 33  void ISpatialPartition::ReportStats( const char * )
+    [VtableSlot(33, 32)]
+    public delegate* unmanaged<void*, byte*, void> ReportStats => (delegate* unmanaged<void*, byte*, void>)At(33, 32); // 33  ms 32  void ISpatialPartition::ReportStats( const char * )
 
-    public delegate* unmanaged<void*, void*, void> InstallQueryCallback; // 34  void ISpatialPartition::InstallQueryCallback( IPartitionQueryCallback * )
+    [VtableSlot(34, 33)]
+    public delegate* unmanaged<void*, void*, void> InstallQueryCallback => (delegate* unmanaged<void*, void*, void>)At(34, 33); // 34  ms 33  void ISpatialPartition::InstallQueryCallback( IPartitionQueryCallback * )
 }
 
 /// <summary>
@@ -2063,41 +2582,75 @@ internal unsafe struct SpatialPartitionVtbl
 /// but a virtual destructor, so it contributes exactly the reserved PAIR and
 /// this interface's own first method is slot 2.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 13 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct GameEventManagerVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 13;
+
+    private fixed long _slots[14];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, byte*, int> LoadEventsFromFile;     // 2   int IGameEventManager2::LoadEventsFromFile( const char * )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, byte*, int> LoadEventsFromFile => (delegate* unmanaged<void*, byte*, int>)At(2, 1); // 2   ms 1   int IGameEventManager2::LoadEventsFromFile( const char * )
 
-    public delegate* unmanaged<void*, void> Reset;                        // 3   void IGameEventManager2::Reset( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void> Reset => (delegate* unmanaged<void*, void>)At(3, 2); // 3   ms 2   void IGameEventManager2::Reset( void )
 
-    public delegate* unmanaged<void*, void*, byte*, byte, byte> AddListener; // 4   bool IGameEventManager2::AddListener( IGameEventListener2 *, const char *, bool )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, byte*, byte, byte> AddListener => (delegate* unmanaged<void*, void*, byte*, byte, byte>)At(4, 3); // 4   ms 3   bool IGameEventManager2::AddListener( IGameEventListener2 *, const char *, bool )
 
-    public delegate* unmanaged<void*, void*, byte*, byte> FindListener;   // 5   bool IGameEventManager2::FindListener( IGameEventListener2 *, const char * )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, byte*, byte> FindListener => (delegate* unmanaged<void*, void*, byte*, byte>)At(5, 4); // 5   ms 4   bool IGameEventManager2::FindListener( IGameEventListener2 *, const char * )
 
-    public delegate* unmanaged<void*, void*, void> RemoveListener;        // 6   void IGameEventManager2::RemoveListener( IGameEventListener2 * )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*, void> RemoveListener => (delegate* unmanaged<void*, void*, void>)At(6, 5); // 6   ms 5   void IGameEventManager2::RemoveListener( IGameEventListener2 * )
 
-    public delegate* unmanaged<void*, byte*, byte, void*> CreateEvent;    // 7   IGameEvent * IGameEventManager2::CreateEvent( const char *, bool )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, byte*, byte, void*> CreateEvent => (delegate* unmanaged<void*, byte*, byte, void*>)At(7, 6); // 7   ms 6   IGameEvent * IGameEventManager2::CreateEvent( const char *, bool )
 
-    public delegate* unmanaged<void*, void*, byte, byte> FireEvent;       // 8   bool IGameEventManager2::FireEvent( IGameEvent *, bool )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void*, byte, byte> FireEvent => (delegate* unmanaged<void*, void*, byte, byte>)At(8, 7); // 8   ms 7   bool IGameEventManager2::FireEvent( IGameEvent *, bool )
 
-    public delegate* unmanaged<void*, void*, byte> FireEventClientSide;   // 9   bool IGameEventManager2::FireEventClientSide( IGameEvent * )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void*, byte> FireEventClientSide => (delegate* unmanaged<void*, void*, byte>)At(9, 8); // 9   ms 8   bool IGameEventManager2::FireEventClientSide( IGameEvent * )
 
-    public delegate* unmanaged<void*, void*, void*> DuplicateEvent;       // 10  IGameEvent * IGameEventManager2::DuplicateEvent( IGameEvent * )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, void*> DuplicateEvent => (delegate* unmanaged<void*, void*, void*>)At(10, 9); // 10  ms 9   IGameEvent * IGameEventManager2::DuplicateEvent( IGameEvent * )
 
-    public delegate* unmanaged<void*, void*, void> FreeEvent;             // 11  void IGameEventManager2::FreeEvent( IGameEvent * )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void*, void> FreeEvent => (delegate* unmanaged<void*, void*, void>)At(11, 10); // 11  ms 10  void IGameEventManager2::FreeEvent( IGameEvent * )
 
-    public delegate* unmanaged<void*, void*, void*, byte> SerializeEvent; // 12  bool IGameEventManager2::SerializeEvent( IGameEvent *, bf_write * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, void*, byte> SerializeEvent => (delegate* unmanaged<void*, void*, void*, byte>)At(12, 11); // 12  ms 11  bool IGameEventManager2::SerializeEvent( IGameEvent *, bf_write * )
 
-    public delegate* unmanaged<void*, void*, void*> UnserializeEvent;     // 13  IGameEvent * IGameEventManager2::UnserializeEvent( bf_read * )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void*, void*> UnserializeEvent => (delegate* unmanaged<void*, void*, void*>)At(13, 12); // 13  ms 12  IGameEvent * IGameEventManager2::UnserializeEvent( bf_read * )
 }
 
 /// <summary>
@@ -2113,31 +2666,60 @@ internal unsafe struct GameEventManagerVtbl
 /// 12 compiled call sites. <c>VEngineClientStringTable001</c> and
 /// <c>VEngineServerStringTable001</c>.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 8 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct NetworkStringTableContainerVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 8;
+
+    private fixed long _slots[9];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                   // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                   // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, byte*, int, int, int, void*> CreateStringTable; // 2   INetworkStringTable * INetworkStringTableContainer::CreateStringTable( const char *, int, int, int )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, byte*, int, int, int, void*> CreateStringTable => (delegate* unmanaged<void*, byte*, int, int, int, void*>)At(2, 1); // 2   ms 1   INetworkStringTable * INetworkStringTableContainer::CreateStringTable( const char *, int, int, int )
 
-    public delegate* unmanaged<void*, void> RemoveAllTables;   // 3   void INetworkStringTableContainer::RemoveAllTables( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void> RemoveAllTables => (delegate* unmanaged<void*, void>)At(3, 2); // 3   ms 2   void INetworkStringTableContainer::RemoveAllTables( void )
 
-    public delegate* unmanaged<void*, byte*, void*> FindTable; // 4   INetworkStringTable * INetworkStringTableContainer::FindTable( const char * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, byte*, void*> FindTable => (delegate* unmanaged<void*, byte*, void*>)At(4, 3); // 4   ms 3   INetworkStringTable * INetworkStringTableContainer::FindTable( const char * )
 
-    public delegate* unmanaged<void*, int, void*> GetTable;    // 5   INetworkStringTable * INetworkStringTableContainer::GetTable( TABLEID )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, int, void*> GetTable => (delegate* unmanaged<void*, int, void*>)At(5, 4); // 5   ms 4   INetworkStringTable * INetworkStringTableContainer::GetTable( TABLEID )
 
-    public delegate* unmanaged<void*, int> GetNumTables;       // 6   int INetworkStringTableContainer::GetNumTables( void )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, int> GetNumTables => (delegate* unmanaged<void*, int>)At(6, 5); // 6   ms 5   int INetworkStringTableContainer::GetNumTables( void )
 
-    public delegate* unmanaged<void*, byte*, int, int, int, byte, void*> CreateStringTableEx; // 7   INetworkStringTable * INetworkStringTableContainer::CreateStringTableEx( const char *, int, int, int, bool )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, byte*, int, int, int, byte, void*> CreateStringTableEx => (delegate* unmanaged<void*, byte*, int, int, int, byte, void*>)At(7, 6); // 7   ms 6   INetworkStringTable * INetworkStringTableContainer::CreateStringTableEx( const char *, int, int, int, bool )
 
-    public delegate* unmanaged<void*, void*, byte, void> SetAllowClientSideAddString; // 8   void INetworkStringTableContainer::SetAllowClientSideAddString( INetworkStringTable *, bool )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void*, byte, void> SetAllowClientSideAddString => (delegate* unmanaged<void*, void*, byte, void>)At(8, 7); // 8   ms 7   void INetworkStringTableContainer::SetAllowClientSideAddString( INetworkStringTable *, bool )
 }
 
 /// <summary>
@@ -2152,43 +2734,73 @@ internal unsafe struct NetworkStringTableContainerVtbl
 /// <para>
 /// 12 compiled call sites.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 15 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct StaticPropMgrClientVtbl
 {
-    public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations; // 0   void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 15;
 
-    public delegate* unmanaged<void*, void*, int, void*, void> TraceRayAgainstStaticProp; // 1   void IStaticPropMgr::TraceRayAgainstStaticProp( const Ray_t &, int, trace_t & )
+    private fixed long _slots[15];
 
-    public delegate* unmanaged<void*, void*, byte> IsStaticProp;        // 2   bool IStaticPropMgr::IsStaticProp( IHandleEntity * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations => (delegate* unmanaged<void*, void*, void*, void*, void>)At(0, 0); // 0   ms 0   void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
+
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void*, int, void*, void> TraceRayAgainstStaticProp => (delegate* unmanaged<void*, void*, int, void*, void>)At(1, 1); // 1   ms 1   void IStaticPropMgr::TraceRayAgainstStaticProp( const Ray_t &, int, trace_t & )
+
+    [VtableSlot(2, 3)]
+    public delegate* unmanaged<void*, void*, byte> IsStaticProp => (delegate* unmanaged<void*, void*, byte>)At(2, 3); // 2   ms 3   bool IStaticPropMgr::IsStaticProp( IHandleEntity * )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: CBaseHandle is a class type by value.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_IsStaticProp;                                   // 3   bool IStaticPropMgr::IsStaticProp( CBaseHandle )
+    [VtableSlot(3, 2)]
+    public nint Refused_IsStaticProp => (nint)At(3, 2); // 3   ms 2   bool IStaticPropMgr::IsStaticProp( CBaseHandle )
 
-    public delegate* unmanaged<void*, int, void*> GetStaticPropByIndex; // 4   ICollideable * IStaticPropMgr::GetStaticPropByIndex( int )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, int, void*> GetStaticPropByIndex => (delegate* unmanaged<void*, int, void*>)At(4, 4); // 4   ms 4   ICollideable * IStaticPropMgr::GetStaticPropByIndex( int )
 
-    public delegate* unmanaged<void*, void*, float, void> ComputePropOpacity; // 5   void IStaticPropMgrClient::ComputePropOpacity( const Vector &, float )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, void*, float, void> ComputePropOpacity => (delegate* unmanaged<void*, void*, float, void>)At(5, 5); // 5   ms 5   void IStaticPropMgrClient::ComputePropOpacity( const Vector &, float )
 
-    public delegate* unmanaged<void*, void*, void*, int, int, byte, void*, void> AddDecalToStaticProp; // 6   void IStaticPropMgrClient::AddDecalToStaticProp( const Vector &, const Vector &, int, int, bool, trace_t & )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void*, void*, int, int, byte, void*, void> AddDecalToStaticProp => (delegate* unmanaged<void*, void*, void*, int, int, byte, void*, void>)At(6, 6); // 6   ms 6   void IStaticPropMgrClient::AddDecalToStaticProp( const Vector &, const Vector &, int, int, bool, trace_t & )
 
-    public delegate* unmanaged<void*, ushort, void*, void> AddShadowToStaticProp; // 7   void IStaticPropMgrClient::AddShadowToStaticProp( unsigned short, IClientRenderable * )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, ushort, void*, void> AddShadowToStaticProp => (delegate* unmanaged<void*, ushort, void*, void>)At(7, 7); // 7   ms 7   void IStaticPropMgrClient::AddShadowToStaticProp( unsigned short, IClientRenderable * )
 
-    public delegate* unmanaged<void*, void*, void> RemoveAllShadowsFromStaticProp; // 8   void IStaticPropMgrClient::RemoveAllShadowsFromStaticProp( IClientRenderable * )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, void*, void> RemoveAllShadowsFromStaticProp => (delegate* unmanaged<void*, void*, void>)At(8, 8); // 8   ms 8   void IStaticPropMgrClient::RemoveAllShadowsFromStaticProp( IClientRenderable * )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void> GetStaticPropMaterialColorAndLighting; // 9   void IStaticPropMgrClient::GetStaticPropMaterialColorAndLighting( trace_t *, int, Vector &, Vector & )
+    [VtableSlot(9, 9)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void> GetStaticPropMaterialColorAndLighting => (delegate* unmanaged<void*, void*, int, void*, void*, void>)At(9, 9); // 9   ms 9   void IStaticPropMgrClient::GetStaticPropMaterialColorAndLighting( trace_t *, int, Vector &, Vector & )
 
-    public delegate* unmanaged<void*, void*, void> GetAllStaticProps;   // 10  void IStaticPropMgrClient::GetAllStaticProps( CUtlVector<ICollideable * > * )
+    [VtableSlot(10, 10)]
+    public delegate* unmanaged<void*, void*, void> GetAllStaticProps => (delegate* unmanaged<void*, void*, void>)At(10, 10); // 10  ms 10  void IStaticPropMgrClient::GetAllStaticProps( CUtlVector<ICollideable * > * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> GetAllStaticPropsInAABB; // 11  void IStaticPropMgrClient::GetAllStaticPropsInAABB( const Vector &, const Vector &, CUtlVector<ICollideable * > * )
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> GetAllStaticPropsInAABB => (delegate* unmanaged<void*, void*, void*, void*, void>)At(11, 11); // 11  ms 11  void IStaticPropMgrClient::GetAllStaticPropsInAABB( const Vector &, const Vector &, CUtlVector<ICollideable * > * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetAllStaticPropsInOBB; // 12  void IStaticPropMgrClient::GetAllStaticPropsInOBB( const Vector &, const Vector &, const Vector &, const Vector &, CUtlVector<ICollideable * > * )
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetAllStaticPropsInOBB => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void>)At(12, 12); // 12  ms 12  void IStaticPropMgrClient::GetAllStaticPropsInOBB( const Vector &, const Vector &, const Vector &, const Vector &, CUtlVector<ICollideable * > * )
 
-    public delegate* unmanaged<void*, void*, int, byte, byte, void> DrawStaticProps; // 13  void IStaticPropMgrClient::DrawStaticProps( IClientRenderable * *, int, bool, bool )
+    [VtableSlot(13, 13)]
+    public delegate* unmanaged<void*, void*, int, byte, byte, void> DrawStaticProps => (delegate* unmanaged<void*, void*, int, byte, byte, void>)At(13, 13); // 13  ms 13  void IStaticPropMgrClient::DrawStaticProps( IClientRenderable * *, int, bool, bool )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: Color is a class type by value.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_AddColorDecalToStaticProp;                      // 14  void IStaticPropMgrClient::AddColorDecalToStaticProp( Vector const &, Vector const &, int, int, bool, trace_t &, bool, Color )
+    [VtableSlot(14, 14)]
+    public nint Refused_AddColorDecalToStaticProp => (nint)At(14, 14); // 14  ms 14  void IStaticPropMgrClient::AddColorDecalToStaticProp( Vector const &, Vector const &, int, int, bool, trace_t &, bool, Color )
 }
 
 /// <summary>
@@ -2205,27 +2817,50 @@ internal unsafe struct StaticPropMgrClientVtbl
 /// prefix is IStaticPropMgr's and the tails are different lengths, so one
 /// struct could not serve both.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 8 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct StaticPropMgrServerVtbl
 {
-    public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations; // 0   void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 8;
 
-    public delegate* unmanaged<void*, void*, int, void*, void> TraceRayAgainstStaticProp; // 1   void IStaticPropMgr::TraceRayAgainstStaticProp( const Ray_t &, int, trace_t & )
+    private fixed long _slots[8];
 
-    public delegate* unmanaged<void*, void*, byte> IsStaticProp;        // 2   bool IStaticPropMgr::IsStaticProp( IHandleEntity * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations => (delegate* unmanaged<void*, void*, void*, void*, void>)At(0, 0); // 0   ms 0   void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
+
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void*, int, void*, void> TraceRayAgainstStaticProp => (delegate* unmanaged<void*, void*, int, void*, void>)At(1, 1); // 1   ms 1   void IStaticPropMgr::TraceRayAgainstStaticProp( const Ray_t &, int, trace_t & )
+
+    [VtableSlot(2, 3)]
+    public delegate* unmanaged<void*, void*, byte> IsStaticProp => (delegate* unmanaged<void*, void*, byte>)At(2, 3); // 2   ms 3   bool IStaticPropMgr::IsStaticProp( IHandleEntity * )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: CBaseHandle is a class type by value.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_IsStaticProp;                                   // 3   bool IStaticPropMgr::IsStaticProp( CBaseHandle )
+    [VtableSlot(3, 2)]
+    public nint Refused_IsStaticProp => (nint)At(3, 2); // 3   ms 2   bool IStaticPropMgr::IsStaticProp( CBaseHandle )
 
-    public delegate* unmanaged<void*, int, void*> GetStaticPropByIndex; // 4   ICollideable * IStaticPropMgr::GetStaticPropByIndex( int )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, int, void*> GetStaticPropByIndex => (delegate* unmanaged<void*, int, void*>)At(4, 4); // 4   ms 4   ICollideable * IStaticPropMgr::GetStaticPropByIndex( int )
 
-    public delegate* unmanaged<void*, void*, void> GetAllStaticProps;   // 5   void IStaticPropMgrServer::GetAllStaticProps( CUtlVector<ICollideable * > * )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, void*, void> GetAllStaticProps => (delegate* unmanaged<void*, void*, void>)At(5, 5); // 5   ms 5   void IStaticPropMgrServer::GetAllStaticProps( CUtlVector<ICollideable * > * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void> GetAllStaticPropsInAABB; // 6   void IStaticPropMgrServer::GetAllStaticPropsInAABB( const Vector &, const Vector &, CUtlVector<ICollideable * > * )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> GetAllStaticPropsInAABB => (delegate* unmanaged<void*, void*, void*, void*, void>)At(6, 6); // 6   ms 6   void IStaticPropMgrServer::GetAllStaticPropsInAABB( const Vector &, const Vector &, CUtlVector<ICollideable * > * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetAllStaticPropsInOBB; // 7   void IStaticPropMgrServer::GetAllStaticPropsInOBB( const Vector &, const Vector &, const Vector &, const Vector &, CUtlVector<ICollideable * > * )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> GetAllStaticPropsInOBB => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void>)At(7, 7); // 7   ms 7   void IStaticPropMgrServer::GetAllStaticPropsInOBB( const Vector &, const Vector &, const Vector &, const Vector &, CUtlVector<ICollideable * > * )
 }
 
 /// <summary>
@@ -2241,119 +2876,189 @@ internal unsafe struct StaticPropMgrServerVtbl
 /// 8 compiled call sites of 53 declared methods -- the sparsest ratio on the
 /// boundary.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 55 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct InputSystemVtbl
 {
-    public delegate* unmanaged<void*, void*, byte> Connect;               // 0   bool IAppSystem::Connect( CreateInterfaceFn )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 55;
 
-    public delegate* unmanaged<void*, void> Disconnect;                   // 1   void IAppSystem::Disconnect( void )
+    private fixed long _slots[55];
 
-    public delegate* unmanaged<void*, byte*, void*> QueryInterface;       // 2   void * IAppSystem::QueryInterface( const char * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
 
-    public delegate* unmanaged<void*, int> Init;                          // 3   InitReturnVal_t IAppSystem::Init( void )
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, byte> Connect => (delegate* unmanaged<void*, void*, byte>)At(0, 0); // 0   ms 0   bool IAppSystem::Connect( CreateInterfaceFn )
 
-    public delegate* unmanaged<void*, void> Shutdown;                     // 4   void IAppSystem::Shutdown( void )
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void> Disconnect => (delegate* unmanaged<void*, void>)At(1, 1); // 1   ms 1   void IAppSystem::Disconnect( void )
 
-    public delegate* unmanaged<void*, void*, void> AttachToWindow;        // 5   void IInputSystem::AttachToWindow( void * )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, byte*, void*> QueryInterface => (delegate* unmanaged<void*, byte*, void*>)At(2, 2); // 2   ms 2   void * IAppSystem::QueryInterface( const char * )
 
-    public delegate* unmanaged<void*, void> DetachFromWindow;             // 6   void IInputSystem::DetachFromWindow( void )
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, int> Init => (delegate* unmanaged<void*, int>)At(3, 3); // 3   ms 3   InitReturnVal_t IAppSystem::Init( void )
 
-    public delegate* unmanaged<void*, byte, void> EnableInput;            // 7   void IInputSystem::EnableInput( bool )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, void> Shutdown => (delegate* unmanaged<void*, void>)At(4, 4); // 4   ms 4   void IAppSystem::Shutdown( void )
 
-    public delegate* unmanaged<void*, byte, void> EnableMessagePump;      // 8   void IInputSystem::EnableMessagePump( bool )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, void*, void> AttachToWindow => (delegate* unmanaged<void*, void*, void>)At(5, 5); // 5   ms 5   void IInputSystem::AttachToWindow( void * )
 
-    public delegate* unmanaged<void*, void> PollInputState;               // 9   void IInputSystem::PollInputState( void )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void> DetachFromWindow => (delegate* unmanaged<void*, void>)At(6, 6); // 6   ms 6   void IInputSystem::DetachFromWindow( void )
 
-    public delegate* unmanaged<void*, int> GetPollTick;                   // 10  int IInputSystem::GetPollTick( void )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, byte, void> EnableInput => (delegate* unmanaged<void*, byte, void>)At(7, 7); // 7   ms 7   void IInputSystem::EnableInput( bool )
 
-    public delegate* unmanaged<void*, int, byte> IsButtonDown;            // 11  bool IInputSystem::IsButtonDown( ButtonCode_t )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, byte, void> EnableMessagePump => (delegate* unmanaged<void*, byte, void>)At(8, 8); // 8   ms 8   void IInputSystem::EnableMessagePump( bool )
 
-    public delegate* unmanaged<void*, int, int> GetButtonPressedTick;     // 12  int IInputSystem::GetButtonPressedTick( ButtonCode_t )
+    [VtableSlot(9, 9)]
+    public delegate* unmanaged<void*, void> PollInputState => (delegate* unmanaged<void*, void>)At(9, 9); // 9   ms 9   void IInputSystem::PollInputState( void )
 
-    public delegate* unmanaged<void*, int, int> GetButtonReleasedTick;    // 13  int IInputSystem::GetButtonReleasedTick( ButtonCode_t )
+    [VtableSlot(10, 10)]
+    public delegate* unmanaged<void*, int> GetPollTick => (delegate* unmanaged<void*, int>)At(10, 10); // 10  ms 10  int IInputSystem::GetPollTick( void )
 
-    public delegate* unmanaged<void*, int, int> GetAnalogValue;           // 14  int IInputSystem::GetAnalogValue( AnalogCode_t )
+    [VtableSlot(11, 11)]
+    public delegate* unmanaged<void*, int, byte> IsButtonDown => (delegate* unmanaged<void*, int, byte>)At(11, 11); // 11  ms 11  bool IInputSystem::IsButtonDown( ButtonCode_t )
 
-    public delegate* unmanaged<void*, int, int> GetAnalogDelta;           // 15  int IInputSystem::GetAnalogDelta( AnalogCode_t )
+    [VtableSlot(12, 12)]
+    public delegate* unmanaged<void*, int, int> GetButtonPressedTick => (delegate* unmanaged<void*, int, int>)At(12, 12); // 12  ms 12  int IInputSystem::GetButtonPressedTick( ButtonCode_t )
 
-    public delegate* unmanaged<void*, int> GetEventCount;                 // 16  int IInputSystem::GetEventCount( void )
+    [VtableSlot(13, 13)]
+    public delegate* unmanaged<void*, int, int> GetButtonReleasedTick => (delegate* unmanaged<void*, int, int>)At(13, 13); // 13  ms 13  int IInputSystem::GetButtonReleasedTick( ButtonCode_t )
 
-    public delegate* unmanaged<void*, void*> GetEventData;                // 17  const InputEvent_t * IInputSystem::GetEventData( void )
+    [VtableSlot(14, 14)]
+    public delegate* unmanaged<void*, int, int> GetAnalogValue => (delegate* unmanaged<void*, int, int>)At(14, 14); // 14  ms 14  int IInputSystem::GetAnalogValue( AnalogCode_t )
 
-    public delegate* unmanaged<void*, void*, void> PostUserEvent;         // 18  void IInputSystem::PostUserEvent( const InputEvent_t & )
+    [VtableSlot(15, 15)]
+    public delegate* unmanaged<void*, int, int> GetAnalogDelta => (delegate* unmanaged<void*, int, int>)At(15, 15); // 15  ms 15  int IInputSystem::GetAnalogDelta( AnalogCode_t )
 
-    public delegate* unmanaged<void*, int> GetJoystickCount;              // 19  int IInputSystem::GetJoystickCount( void )
+    [VtableSlot(16, 16)]
+    public delegate* unmanaged<void*, int> GetEventCount => (delegate* unmanaged<void*, int>)At(16, 16); // 16  ms 16  int IInputSystem::GetEventCount( void )
 
-    public delegate* unmanaged<void*, int, byte, void> EnableJoystickInput; // 20  void IInputSystem::EnableJoystickInput( int, bool )
+    [VtableSlot(17, 17)]
+    public delegate* unmanaged<void*, void*> GetEventData => (delegate* unmanaged<void*, void*>)At(17, 17); // 17  ms 17  const InputEvent_t * IInputSystem::GetEventData( void )
 
-    public delegate* unmanaged<void*, int, byte, void> EnableJoystickDiagonalPOV; // 21  void IInputSystem::EnableJoystickDiagonalPOV( int, bool )
+    [VtableSlot(18, 18)]
+    public delegate* unmanaged<void*, void*, void> PostUserEvent => (delegate* unmanaged<void*, void*, void>)At(18, 18); // 18  ms 18  void IInputSystem::PostUserEvent( const InputEvent_t & )
 
-    public delegate* unmanaged<void*, void> SampleDevices;                // 22  void IInputSystem::SampleDevices( void )
+    [VtableSlot(19, 19)]
+    public delegate* unmanaged<void*, int> GetJoystickCount => (delegate* unmanaged<void*, int>)At(19, 19); // 19  ms 19  int IInputSystem::GetJoystickCount( void )
 
-    public delegate* unmanaged<void*, float, float, int, void> SetRumble; // 23  void IInputSystem::SetRumble( float, float, int )
+    [VtableSlot(20, 20)]
+    public delegate* unmanaged<void*, int, byte, void> EnableJoystickInput => (delegate* unmanaged<void*, int, byte, void>)At(20, 20); // 20  ms 20  void IInputSystem::EnableJoystickInput( int, bool )
 
-    public delegate* unmanaged<void*, void> StopRumble;                   // 24  void IInputSystem::StopRumble( void )
+    [VtableSlot(21, 21)]
+    public delegate* unmanaged<void*, int, byte, void> EnableJoystickDiagonalPOV => (delegate* unmanaged<void*, int, byte, void>)At(21, 21); // 21  ms 21  void IInputSystem::EnableJoystickDiagonalPOV( int, bool )
 
-    public delegate* unmanaged<void*, void> ResetInputState;              // 25  void IInputSystem::ResetInputState( void )
+    [VtableSlot(22, 22)]
+    public delegate* unmanaged<void*, void> SampleDevices => (delegate* unmanaged<void*, void>)At(22, 22); // 22  ms 22  void IInputSystem::SampleDevices( void )
 
-    public delegate* unmanaged<void*, int, void> SetPrimaryUserId;        // 26  void IInputSystem::SetPrimaryUserId( int )
+    [VtableSlot(23, 23)]
+    public delegate* unmanaged<void*, float, float, int, void> SetRumble => (delegate* unmanaged<void*, float, float, int, void>)At(23, 23); // 23  ms 23  void IInputSystem::SetRumble( float, float, int )
 
-    public delegate* unmanaged<void*, int, byte*> ButtonCodeToString;     // 27  const char * IInputSystem::ButtonCodeToString( ButtonCode_t )
+    [VtableSlot(24, 24)]
+    public delegate* unmanaged<void*, void> StopRumble => (delegate* unmanaged<void*, void>)At(24, 24); // 24  ms 24  void IInputSystem::StopRumble( void )
 
-    public delegate* unmanaged<void*, int, byte*> AnalogCodeToString;     // 28  const char * IInputSystem::AnalogCodeToString( AnalogCode_t )
+    [VtableSlot(25, 25)]
+    public delegate* unmanaged<void*, void> ResetInputState => (delegate* unmanaged<void*, void>)At(25, 25); // 25  ms 25  void IInputSystem::ResetInputState( void )
 
-    public delegate* unmanaged<void*, byte*, int> StringToButtonCode;     // 29  ButtonCode_t IInputSystem::StringToButtonCode( const char * )
+    [VtableSlot(26, 26)]
+    public delegate* unmanaged<void*, int, void> SetPrimaryUserId => (delegate* unmanaged<void*, int, void>)At(26, 26); // 26  ms 26  void IInputSystem::SetPrimaryUserId( int )
 
-    public delegate* unmanaged<void*, byte*, int> StringToAnalogCode;     // 30  AnalogCode_t IInputSystem::StringToAnalogCode( const char * )
+    [VtableSlot(27, 27)]
+    public delegate* unmanaged<void*, int, byte*> ButtonCodeToString => (delegate* unmanaged<void*, int, byte*>)At(27, 27); // 27  ms 27  const char * IInputSystem::ButtonCodeToString( ButtonCode_t )
 
-    public delegate* unmanaged<void*, int, void> SleepUntilInput;         // 31  void IInputSystem::SleepUntilInput( int )
+    [VtableSlot(28, 28)]
+    public delegate* unmanaged<void*, int, byte*> AnalogCodeToString => (delegate* unmanaged<void*, int, byte*>)At(28, 28); // 28  ms 28  const char * IInputSystem::AnalogCodeToString( AnalogCode_t )
 
-    public delegate* unmanaged<void*, int, int> VirtualKeyToButtonCode;   // 32  ButtonCode_t IInputSystem::VirtualKeyToButtonCode( int )
+    [VtableSlot(29, 29)]
+    public delegate* unmanaged<void*, byte*, int> StringToButtonCode => (delegate* unmanaged<void*, byte*, int>)At(29, 29); // 29  ms 29  ButtonCode_t IInputSystem::StringToButtonCode( const char * )
 
-    public delegate* unmanaged<void*, int, int> ButtonCodeToVirtualKey;   // 33  int IInputSystem::ButtonCodeToVirtualKey( ButtonCode_t )
+    [VtableSlot(30, 30)]
+    public delegate* unmanaged<void*, byte*, int> StringToAnalogCode => (delegate* unmanaged<void*, byte*, int>)At(30, 30); // 30  ms 30  AnalogCode_t IInputSystem::StringToAnalogCode( const char * )
 
-    public delegate* unmanaged<void*, int, int> ScanCodeToButtonCode;     // 34  ButtonCode_t IInputSystem::ScanCodeToButtonCode( int )
+    [VtableSlot(31, 31)]
+    public delegate* unmanaged<void*, int, void> SleepUntilInput => (delegate* unmanaged<void*, int, void>)At(31, 31); // 31  ms 31  void IInputSystem::SleepUntilInput( int )
 
-    public delegate* unmanaged<void*, int> GetPollCount;                  // 35  int IInputSystem::GetPollCount( void )
+    [VtableSlot(32, 32)]
+    public delegate* unmanaged<void*, int, int> VirtualKeyToButtonCode => (delegate* unmanaged<void*, int, int>)At(32, 32); // 32  ms 32  ButtonCode_t IInputSystem::VirtualKeyToButtonCode( int )
 
-    public delegate* unmanaged<void*, int, int, void> SetCursorPosition;  // 36  void IInputSystem::SetCursorPosition( int, int )
+    [VtableSlot(33, 33)]
+    public delegate* unmanaged<void*, int, int> ButtonCodeToVirtualKey => (delegate* unmanaged<void*, int, int>)At(33, 33); // 33  ms 33  int IInputSystem::ButtonCodeToVirtualKey( ButtonCode_t )
 
-    public delegate* unmanaged<void*, void*> GetHapticsInterfaceAddress;  // 37  void * IInputSystem::GetHapticsInterfaceAddress( void )
+    [VtableSlot(34, 34)]
+    public delegate* unmanaged<void*, int, int> ScanCodeToButtonCode => (delegate* unmanaged<void*, int, int>)At(34, 34); // 34  ms 34  ButtonCode_t IInputSystem::ScanCodeToButtonCode( int )
 
-    public delegate* unmanaged<void*, byte, void> SetNovintPure;          // 38  void IInputSystem::SetNovintPure( bool )
+    [VtableSlot(35, 35)]
+    public delegate* unmanaged<void*, int> GetPollCount => (delegate* unmanaged<void*, int>)At(35, 35); // 35  ms 35  int IInputSystem::GetPollCount( void )
 
-    public delegate* unmanaged<void*, void*, void*, byte> GetRawMouseAccumulators; // 39  bool IInputSystem::GetRawMouseAccumulators( int &, int & )
+    [VtableSlot(36, 36)]
+    public delegate* unmanaged<void*, int, int, void> SetCursorPosition => (delegate* unmanaged<void*, int, int, void>)At(36, 36); // 36  ms 36  void IInputSystem::SetCursorPosition( int, int )
 
-    public delegate* unmanaged<void*, byte, void> SetConsoleTextMode;     // 40  void IInputSystem::SetConsoleTextMode( bool )
+    [VtableSlot(37, 37)]
+    public delegate* unmanaged<void*, void*> GetHapticsInterfaceAddress => (delegate* unmanaged<void*, void*>)At(37, 37); // 37  ms 37  void * IInputSystem::GetHapticsInterfaceAddress( void )
 
-    public delegate* unmanaged<void*, void*> SteamControllerInterface;    // 41  ISteamController * IInputSystem::SteamControllerInterface( void )
+    [VtableSlot(38, 38)]
+    public delegate* unmanaged<void*, byte, void> SetNovintPure => (delegate* unmanaged<void*, byte, void>)At(38, 38); // 38  ms 38  void IInputSystem::SetNovintPure( bool )
 
-    public delegate* unmanaged<void*, uint> GetNumSteamControllersConnected; // 42  uint32 IInputSystem::GetNumSteamControllersConnected( void )
+    [VtableSlot(39, 39)]
+    public delegate* unmanaged<void*, void*, void*, byte> GetRawMouseAccumulators => (delegate* unmanaged<void*, void*, void*, byte>)At(39, 39); // 39  ms 39  bool IInputSystem::GetRawMouseAccumulators( int &, int & )
 
-    public delegate* unmanaged<void*, byte> IsSteamControllerActive;      // 43  bool IInputSystem::IsSteamControllerActive( void )
+    [VtableSlot(40, 40)]
+    public delegate* unmanaged<void*, byte, void> SetConsoleTextMode => (delegate* unmanaged<void*, byte, void>)At(40, 40); // 40  ms 40  void IInputSystem::SetConsoleTextMode( bool )
 
-    public delegate* unmanaged<void*, byte> IsSteamControllerConnected;   // 44  bool IInputSystem::IsSteamControllerConnected( void )
+    [VtableSlot(41, 41)]
+    public delegate* unmanaged<void*, void*> SteamControllerInterface => (delegate* unmanaged<void*, void*>)At(41, 41); // 41  ms 41  ISteamController * IInputSystem::SteamControllerInterface( void )
 
-    public delegate* unmanaged<void*, int, int> GetSteamControllerIndexForSlot; // 45  int IInputSystem::GetSteamControllerIndexForSlot( int )
+    [VtableSlot(42, 42)]
+    public delegate* unmanaged<void*, uint> GetNumSteamControllersConnected => (delegate* unmanaged<void*, uint>)At(42, 42); // 42  ms 42  uint32 IInputSystem::GetNumSteamControllersConnected( void )
 
-    public delegate* unmanaged<void*, int, void*, void*, byte> GetRadialMenuStickValues; // 46  bool IInputSystem::GetRadialMenuStickValues( int, float &, float & )
+    [VtableSlot(43, 43)]
+    public delegate* unmanaged<void*, byte> IsSteamControllerActive => (delegate* unmanaged<void*, byte>)At(43, 43); // 43  ms 43  bool IInputSystem::IsSteamControllerActive( void )
 
-    public delegate* unmanaged<void*, ulong, int, void> ActivateSteamControllerActionSetForSlot; // 47  void IInputSystem::ActivateSteamControllerActionSetForSlot( uint64, GameActionSet_t )
+    [VtableSlot(44, 44)]
+    public delegate* unmanaged<void*, byte> IsSteamControllerConnected => (delegate* unmanaged<void*, byte>)At(44, 44); // 44  ms 44  bool IInputSystem::IsSteamControllerConnected( void )
 
-    public delegate* unmanaged<void*, int, ulong> GetActionSetHandle;     // 48  ControllerActionSetHandle_t IInputSystem::GetActionSetHandle( GameActionSet_t )
+    [VtableSlot(45, 45)]
+    public delegate* unmanaged<void*, int, int> GetSteamControllerIndexForSlot => (delegate* unmanaged<void*, int, int>)At(45, 45); // 45  ms 45  int IInputSystem::GetSteamControllerIndexForSlot( int )
 
-    public delegate* unmanaged<void*, byte*, ulong> GetActionSetHandle_2; // 49  ControllerActionSetHandle_t IInputSystem::GetActionSetHandle( const char * )
+    [VtableSlot(46, 46)]
+    public delegate* unmanaged<void*, int, void*, void*, byte> GetRadialMenuStickValues => (delegate* unmanaged<void*, int, void*, void*, byte>)At(46, 46); // 46  ms 46  bool IInputSystem::GetRadialMenuStickValues( int, float &, float & )
 
-    public delegate* unmanaged<void*, byte*, int, int> GetSteamControllerActionOrigin; // 50  EControllerActionOrigin IInputSystem::GetSteamControllerActionOrigin( const char *, GameActionSet_t )
+    [VtableSlot(47, 47)]
+    public delegate* unmanaged<void*, ulong, int, void> ActivateSteamControllerActionSetForSlot => (delegate* unmanaged<void*, ulong, int, void>)At(47, 47); // 47  ms 47  void IInputSystem::ActivateSteamControllerActionSetForSlot( uint64, GameActionSet_t )
 
-    public delegate* unmanaged<void*, byte*, ulong, int> GetSteamControllerActionOrigin_2; // 51  EControllerActionOrigin IInputSystem::GetSteamControllerActionOrigin( const char *, ControllerActionSetHandle_t )
+    [VtableSlot(48, 49)]
+    public delegate* unmanaged<void*, int, ulong> GetActionSetHandle => (delegate* unmanaged<void*, int, ulong>)At(48, 49); // 48  ms 49  ControllerActionSetHandle_t IInputSystem::GetActionSetHandle( GameActionSet_t )
 
-    public delegate* unmanaged<void*, int, void*> GetSteamControllerFontCharacterForActionOrigin; // 52  const wchar_t * IInputSystem::GetSteamControllerFontCharacterForActionOrigin( EControllerActionOrigin )
+    [VtableSlot(49, 48)]
+    public delegate* unmanaged<void*, byte*, ulong> GetActionSetHandle_2 => (delegate* unmanaged<void*, byte*, ulong>)At(49, 48); // 49  ms 48  ControllerActionSetHandle_t IInputSystem::GetActionSetHandle( const char * )
 
-    public delegate* unmanaged<void*, int, void*> GetSteamControllerDescriptionForActionOrigin; // 53  const wchar_t * IInputSystem::GetSteamControllerDescriptionForActionOrigin( EControllerActionOrigin )
+    [VtableSlot(50, 51)]
+    public delegate* unmanaged<void*, byte*, int, int> GetSteamControllerActionOrigin => (delegate* unmanaged<void*, byte*, int, int>)At(50, 51); // 50  ms 51  EControllerActionOrigin IInputSystem::GetSteamControllerActionOrigin( const char *, GameActionSet_t )
 
-    public delegate* unmanaged<void*, byte, void> SetSkipControllerInitialization; // 54  void IInputSystem::SetSkipControllerInitialization( bool )
+    [VtableSlot(51, 50)]
+    public delegate* unmanaged<void*, byte*, ulong, int> GetSteamControllerActionOrigin_2 => (delegate* unmanaged<void*, byte*, ulong, int>)At(51, 50); // 51  ms 50  EControllerActionOrigin IInputSystem::GetSteamControllerActionOrigin( const char *, ControllerActionSetHandle_t )
+
+    [VtableSlot(52, 52)]
+    public delegate* unmanaged<void*, int, void*> GetSteamControllerFontCharacterForActionOrigin => (delegate* unmanaged<void*, int, void*>)At(52, 52); // 52  ms 52  const wchar_t * IInputSystem::GetSteamControllerFontCharacterForActionOrigin( EControllerActionOrigin )
+
+    [VtableSlot(53, 53)]
+    public delegate* unmanaged<void*, int, void*> GetSteamControllerDescriptionForActionOrigin => (delegate* unmanaged<void*, int, void*>)At(53, 53); // 53  ms 53  const wchar_t * IInputSystem::GetSteamControllerDescriptionForActionOrigin( EControllerActionOrigin )
+
+    [VtableSlot(54, 54)]
+    public delegate* unmanaged<void*, byte, void> SetSkipControllerInitialization => (delegate* unmanaged<void*, byte, void>)At(54, 54); // 54  ms 54  void IInputSystem::SetSkipControllerInitialization( bool )
 }
 
 /// <summary>
@@ -2493,85 +3198,135 @@ internal unsafe struct SceneFileCacheVtbl
 /// it, and the flat ABI already carries the convar operations managed code
 /// performs.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 35 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct CvarVtbl
 {
-    public delegate* unmanaged<void*, void*, byte> Connect;              // 0   bool IAppSystem::Connect( CreateInterfaceFn )
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 35;
 
-    public delegate* unmanaged<void*, void> Disconnect;                  // 1   void IAppSystem::Disconnect( void )
+    private fixed long _slots[35];
 
-    public delegate* unmanaged<void*, byte*, void*> QueryInterface;      // 2   void * IAppSystem::QueryInterface( const char * )
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
 
-    public delegate* unmanaged<void*, int> Init;                         // 3   InitReturnVal_t IAppSystem::Init( void )
+    [VtableSlot(0, 0)]
+    public delegate* unmanaged<void*, void*, byte> Connect => (delegate* unmanaged<void*, void*, byte>)At(0, 0); // 0   ms 0   bool IAppSystem::Connect( CreateInterfaceFn )
 
-    public delegate* unmanaged<void*, void> Shutdown;                    // 4   void IAppSystem::Shutdown( void )
+    [VtableSlot(1, 1)]
+    public delegate* unmanaged<void*, void> Disconnect => (delegate* unmanaged<void*, void>)At(1, 1); // 1   ms 1   void IAppSystem::Disconnect( void )
 
-    public delegate* unmanaged<void*, int> AllocateDLLIdentifier;        // 5   CVarDLLIdentifier_t ICvar::AllocateDLLIdentifier( void )
+    [VtableSlot(2, 2)]
+    public delegate* unmanaged<void*, byte*, void*> QueryInterface => (delegate* unmanaged<void*, byte*, void*>)At(2, 2); // 2   ms 2   void * IAppSystem::QueryInterface( const char * )
 
-    public delegate* unmanaged<void*, void*, void> RegisterConCommand;   // 6   void ICvar::RegisterConCommand( ConCommandBase * )
+    [VtableSlot(3, 3)]
+    public delegate* unmanaged<void*, int> Init => (delegate* unmanaged<void*, int>)At(3, 3); // 3   ms 3   InitReturnVal_t IAppSystem::Init( void )
 
-    public delegate* unmanaged<void*, void*, void> UnregisterConCommand; // 7   void ICvar::UnregisterConCommand( ConCommandBase * )
+    [VtableSlot(4, 4)]
+    public delegate* unmanaged<void*, void> Shutdown => (delegate* unmanaged<void*, void>)At(4, 4); // 4   ms 4   void IAppSystem::Shutdown( void )
 
-    public delegate* unmanaged<void*, int, void> UnregisterConCommands;  // 8   void ICvar::UnregisterConCommands( CVarDLLIdentifier_t )
+    [VtableSlot(5, 5)]
+    public delegate* unmanaged<void*, int> AllocateDLLIdentifier => (delegate* unmanaged<void*, int>)At(5, 5); // 5   ms 5   CVarDLLIdentifier_t ICvar::AllocateDLLIdentifier( void )
 
-    public delegate* unmanaged<void*, byte*, byte*> GetCommandLineValue; // 9   const char * ICvar::GetCommandLineValue( const char * )
+    [VtableSlot(6, 6)]
+    public delegate* unmanaged<void*, void*, void> RegisterConCommand => (delegate* unmanaged<void*, void*, void>)At(6, 6); // 6   ms 6   void ICvar::RegisterConCommand( ConCommandBase * )
 
-    public delegate* unmanaged<void*, byte*, void*> FindCommandBase;     // 10  ConCommandBase * ICvar::FindCommandBase( const char * )
+    [VtableSlot(7, 7)]
+    public delegate* unmanaged<void*, void*, void> UnregisterConCommand => (delegate* unmanaged<void*, void*, void>)At(7, 7); // 7   ms 7   void ICvar::UnregisterConCommand( ConCommandBase * )
 
-    public delegate* unmanaged<void*, byte*, void*> FindCommandBase_2;   // 11  const ConCommandBase * ICvar::FindCommandBase( const char * )
+    [VtableSlot(8, 8)]
+    public delegate* unmanaged<void*, int, void> UnregisterConCommands => (delegate* unmanaged<void*, int, void>)At(8, 8); // 8   ms 8   void ICvar::UnregisterConCommands( CVarDLLIdentifier_t )
 
-    public delegate* unmanaged<void*, byte*, void*> FindVar;             // 12  ConVar * ICvar::FindVar( const char * )
+    [VtableSlot(9, 9)]
+    public delegate* unmanaged<void*, byte*, byte*> GetCommandLineValue => (delegate* unmanaged<void*, byte*, byte*>)At(9, 9); // 9   ms 9   const char * ICvar::GetCommandLineValue( const char * )
 
-    public delegate* unmanaged<void*, byte*, void*> FindVar_2;           // 13  const ConVar * ICvar::FindVar( const char * )
+    [VtableSlot(10, 11)]
+    public delegate* unmanaged<void*, byte*, void*> FindCommandBase => (delegate* unmanaged<void*, byte*, void*>)At(10, 11); // 10  ms 11  ConCommandBase * ICvar::FindCommandBase( const char * )
 
-    public delegate* unmanaged<void*, byte*, void*> FindCommand;         // 14  ConCommand * ICvar::FindCommand( const char * )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, byte*, void*> FindCommandBase_2 => (delegate* unmanaged<void*, byte*, void*>)At(11, 10); // 11  ms 10  const ConCommandBase * ICvar::FindCommandBase( const char * )
 
-    public delegate* unmanaged<void*, byte*, void*> FindCommand_2;       // 15  const ConCommand * ICvar::FindCommand( const char * )
+    [VtableSlot(12, 13)]
+    public delegate* unmanaged<void*, byte*, void*> FindVar => (delegate* unmanaged<void*, byte*, void*>)At(12, 13); // 12  ms 13  ConVar * ICvar::FindVar( const char * )
 
-    public delegate* unmanaged<void*, void*> GetCommands;                // 16  ConCommandBase * ICvar::GetCommands( void )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, byte*, void*> FindVar_2 => (delegate* unmanaged<void*, byte*, void*>)At(13, 12); // 13  ms 12  const ConVar * ICvar::FindVar( const char * )
 
-    public delegate* unmanaged<void*, void*> GetCommands_2;              // 17  const ConCommandBase * ICvar::GetCommands( void )
+    [VtableSlot(14, 15)]
+    public delegate* unmanaged<void*, byte*, void*> FindCommand => (delegate* unmanaged<void*, byte*, void*>)At(14, 15); // 14  ms 15  ConCommand * ICvar::FindCommand( const char * )
 
-    public delegate* unmanaged<void*, void*, void> InstallGlobalChangeCallback; // 18  void ICvar::InstallGlobalChangeCallback( FnChangeCallback_t )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, byte*, void*> FindCommand_2 => (delegate* unmanaged<void*, byte*, void*>)At(15, 14); // 15  ms 14  const ConCommand * ICvar::FindCommand( const char * )
 
-    public delegate* unmanaged<void*, void*, void> RemoveGlobalChangeCallback; // 19  void ICvar::RemoveGlobalChangeCallback( FnChangeCallback_t )
+    [VtableSlot(16, 17)]
+    public delegate* unmanaged<void*, void*> GetCommands => (delegate* unmanaged<void*, void*>)At(16, 17); // 16  ms 17  ConCommandBase * ICvar::GetCommands( void )
 
-    public delegate* unmanaged<void*, void*, byte*, float, void> CallGlobalChangeCallbacks; // 20  void ICvar::CallGlobalChangeCallbacks( ConVar *, const char *, float )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, void*> GetCommands_2 => (delegate* unmanaged<void*, void*>)At(17, 16); // 17  ms 16  const ConCommandBase * ICvar::GetCommands( void )
 
-    public delegate* unmanaged<void*, void*, void> InstallConsoleDisplayFunc; // 21  void ICvar::InstallConsoleDisplayFunc( IConsoleDisplayFunc * )
+    [VtableSlot(18, 18)]
+    public delegate* unmanaged<void*, void*, void> InstallGlobalChangeCallback => (delegate* unmanaged<void*, void*, void>)At(18, 18); // 18  ms 18  void ICvar::InstallGlobalChangeCallback( FnChangeCallback_t )
 
-    public delegate* unmanaged<void*, void*, void> RemoveConsoleDisplayFunc; // 22  void ICvar::RemoveConsoleDisplayFunc( IConsoleDisplayFunc * )
+    [VtableSlot(19, 19)]
+    public delegate* unmanaged<void*, void*, void> RemoveGlobalChangeCallback => (delegate* unmanaged<void*, void*, void>)At(19, 19); // 19  ms 19  void ICvar::RemoveGlobalChangeCallback( FnChangeCallback_t )
+
+    [VtableSlot(20, 20)]
+    public delegate* unmanaged<void*, void*, byte*, float, void> CallGlobalChangeCallbacks => (delegate* unmanaged<void*, void*, byte*, float, void>)At(20, 20); // 20  ms 20  void ICvar::CallGlobalChangeCallbacks( ConVar *, const char *, float )
+
+    [VtableSlot(21, 21)]
+    public delegate* unmanaged<void*, void*, void> InstallConsoleDisplayFunc => (delegate* unmanaged<void*, void*, void>)At(21, 21); // 21  ms 21  void ICvar::InstallConsoleDisplayFunc( IConsoleDisplayFunc * )
+
+    [VtableSlot(22, 22)]
+    public delegate* unmanaged<void*, void*, void> RemoveConsoleDisplayFunc => (delegate* unmanaged<void*, void*, void>)At(22, 22); // 22  ms 22  void ICvar::RemoveConsoleDisplayFunc( IConsoleDisplayFunc * )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_ConsoleColorPrintf;                              // 23  void ICvar::ConsoleColorPrintf( const Color &, PRINTF_FORMAT_STRING const char *, ... )
+    [VtableSlot(23, 23)]
+    public nint Refused_ConsoleColorPrintf => (nint)At(23, 23); // 23  ms 23  void ICvar::ConsoleColorPrintf( const Color &, PRINTF_FORMAT_STRING const char *, ... )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_ConsolePrintf;                                   // 24  void ICvar::ConsolePrintf( PRINTF_FORMAT_STRING const char *, ... )
+    [VtableSlot(24, 24)]
+    public nint Refused_ConsolePrintf => (nint)At(24, 24); // 24  ms 24  void ICvar::ConsolePrintf( PRINTF_FORMAT_STRING const char *, ... )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: varargs.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_ConsoleDPrintf;                                  // 25  void ICvar::ConsoleDPrintf( PRINTF_FORMAT_STRING const char *, ... )
+    [VtableSlot(25, 25)]
+    public nint Refused_ConsoleDPrintf => (nint)At(25, 25); // 25  ms 25  void ICvar::ConsoleDPrintf( PRINTF_FORMAT_STRING const char *, ... )
 
-    public delegate* unmanaged<void*, int, void> RevertFlaggedConVars;   // 26  void ICvar::RevertFlaggedConVars( int )
+    [VtableSlot(26, 26)]
+    public delegate* unmanaged<void*, int, void> RevertFlaggedConVars => (delegate* unmanaged<void*, int, void>)At(26, 26); // 26  ms 26  void ICvar::RevertFlaggedConVars( int )
 
-    public delegate* unmanaged<void*, void*, void> InstallCVarQuery;     // 27  void ICvar::InstallCVarQuery( ICvarQuery * )
+    [VtableSlot(27, 27)]
+    public delegate* unmanaged<void*, void*, void> InstallCVarQuery => (delegate* unmanaged<void*, void*, void>)At(27, 27); // 27  ms 27  void ICvar::InstallCVarQuery( ICvarQuery * )
 
-    public delegate* unmanaged<void*, byte> IsMaterialThreadSetAllowed;  // 28  bool ICvar::IsMaterialThreadSetAllowed( void )
+    [VtableSlot(28, 28)]
+    public delegate* unmanaged<void*, byte> IsMaterialThreadSetAllowed => (delegate* unmanaged<void*, byte>)At(28, 28); // 28  ms 28  bool ICvar::IsMaterialThreadSetAllowed( void )
 
-    public delegate* unmanaged<void*, void*, byte*, void> QueueMaterialThreadSetValue; // 29  void ICvar::QueueMaterialThreadSetValue( ConVar *, const char * )
+    [VtableSlot(29, 31)]
+    public delegate* unmanaged<void*, void*, byte*, void> QueueMaterialThreadSetValue => (delegate* unmanaged<void*, void*, byte*, void>)At(29, 31); // 29  ms 31  void ICvar::QueueMaterialThreadSetValue( ConVar *, const char * )
 
-    public delegate* unmanaged<void*, void*, int, void> QueueMaterialThreadSetValue_2; // 30  void ICvar::QueueMaterialThreadSetValue( ConVar *, int )
+    [VtableSlot(30, 30)]
+    public delegate* unmanaged<void*, void*, int, void> QueueMaterialThreadSetValue_2 => (delegate* unmanaged<void*, void*, int, void>)At(30, 30); // 30  ms 30  void ICvar::QueueMaterialThreadSetValue( ConVar *, int )
 
-    public delegate* unmanaged<void*, void*, float, void> QueueMaterialThreadSetValue_3; // 31  void ICvar::QueueMaterialThreadSetValue( ConVar *, float )
+    [VtableSlot(31, 29)]
+    public delegate* unmanaged<void*, void*, float, void> QueueMaterialThreadSetValue_3 => (delegate* unmanaged<void*, void*, float, void>)At(31, 29); // 31  ms 29  void ICvar::QueueMaterialThreadSetValue( ConVar *, float )
 
-    public delegate* unmanaged<void*, byte> HasQueuedMaterialThreadConVarSets; // 32  bool ICvar::HasQueuedMaterialThreadConVarSets( void )
+    [VtableSlot(32, 32)]
+    public delegate* unmanaged<void*, byte> HasQueuedMaterialThreadConVarSets => (delegate* unmanaged<void*, byte>)At(32, 32); // 32  ms 32  bool ICvar::HasQueuedMaterialThreadConVarSets( void )
 
-    public delegate* unmanaged<void*, int> ProcessQueuedMaterialThreadConVarSets; // 33  int ICvar::ProcessQueuedMaterialThreadConVarSets( void )
+    [VtableSlot(33, 33)]
+    public delegate* unmanaged<void*, int> ProcessQueuedMaterialThreadConVarSets => (delegate* unmanaged<void*, int>)At(33, 33); // 33  ms 33  int ICvar::ProcessQueuedMaterialThreadConVarSets( void )
 
-    public delegate* unmanaged<void*, void*> FactoryInternalIterator;    // 34  ICVarIteratorInternal * ICvar::FactoryInternalIterator( void )
+    [VtableSlot(34, 34)]
+    public delegate* unmanaged<void*, void*> FactoryInternalIterator => (delegate* unmanaged<void*, void*>)At(34, 34); // 34  ms 34  ICVarIteratorInternal * ICvar::FactoryInternalIterator( void )
 }
 
 /// <summary>
@@ -2629,119 +3384,192 @@ internal unsafe struct PhysicsVtbl
 /// <para>
 /// PINNED, as <c>IPhysics</c> above.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two and overloads grouped and reversed), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 52 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsCollisionVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 52;
+
+    private fixed long _slots[53];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, int, void*> ConvexFromVerts; // 2   CPhysConvex * IPhysicsCollision::ConvexFromVerts( Vector * *, int )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void*, int, void*> ConvexFromVerts => (delegate* unmanaged<void*, void*, int, void*>)At(2, 1); // 2   ms 1   CPhysConvex * IPhysicsCollision::ConvexFromVerts( Vector * *, int )
 
-    public delegate* unmanaged<void*, void*, int, float, void*> ConvexFromPlanes; // 3   CPhysConvex * IPhysicsCollision::ConvexFromPlanes( float *, int, float )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void*, int, float, void*> ConvexFromPlanes => (delegate* unmanaged<void*, void*, int, float, void*>)At(3, 2); // 3   ms 2   CPhysConvex * IPhysicsCollision::ConvexFromPlanes( float *, int, float )
 
-    public delegate* unmanaged<void*, void*, float> ConvexVolume;         // 4   float IPhysicsCollision::ConvexVolume( CPhysConvex * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, float> ConvexVolume => (delegate* unmanaged<void*, void*, float>)At(4, 3); // 4   ms 3   float IPhysicsCollision::ConvexVolume( CPhysConvex * )
 
-    public delegate* unmanaged<void*, void*, float> ConvexSurfaceArea;    // 5   float IPhysicsCollision::ConvexSurfaceArea( CPhysConvex * )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, float> ConvexSurfaceArea => (delegate* unmanaged<void*, void*, float>)At(5, 4); // 5   ms 4   float IPhysicsCollision::ConvexSurfaceArea( CPhysConvex * )
 
-    public delegate* unmanaged<void*, void*, uint, void> SetConvexGameData; // 6   void IPhysicsCollision::SetConvexGameData( CPhysConvex *, unsigned int )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*, uint, void> SetConvexGameData => (delegate* unmanaged<void*, void*, uint, void>)At(6, 5); // 6   ms 5   void IPhysicsCollision::SetConvexGameData( CPhysConvex *, unsigned int )
 
-    public delegate* unmanaged<void*, void*, void> ConvexFree;            // 7   void IPhysicsCollision::ConvexFree( CPhysConvex * )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*, void> ConvexFree => (delegate* unmanaged<void*, void*, void>)At(7, 6); // 7   ms 6   void IPhysicsCollision::ConvexFree( CPhysConvex * )
 
-    public delegate* unmanaged<void*, void*, void*, void*> BBoxToConvex;  // 8   CPhysConvex * IPhysicsCollision::BBoxToConvex( const Vector &, const Vector & )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void*, void*, void*> BBoxToConvex => (delegate* unmanaged<void*, void*, void*, void*>)At(8, 7); // 8   ms 7   CPhysConvex * IPhysicsCollision::BBoxToConvex( const Vector &, const Vector & )
 
-    public delegate* unmanaged<void*, void*, void*> ConvexFromConvexPolyhedron; // 9   CPhysConvex * IPhysicsCollision::ConvexFromConvexPolyhedron( const CPolyhedron & )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void*, void*> ConvexFromConvexPolyhedron => (delegate* unmanaged<void*, void*, void*>)At(9, 8); // 9   ms 8   CPhysConvex * IPhysicsCollision::ConvexFromConvexPolyhedron( const CPolyhedron & )
 
-    public delegate* unmanaged<void*, void*, void*, int, void*, void> ConvexesFromConvexPolygon; // 10  void IPhysicsCollision::ConvexesFromConvexPolygon( const Vector &, const Vector *, int, CPhysConvex * * )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, void*, int, void*, void> ConvexesFromConvexPolygon => (delegate* unmanaged<void*, void*, void*, int, void*, void>)At(10, 9); // 10  ms 9   void IPhysicsCollision::ConvexesFromConvexPolygon( const Vector &, const Vector *, int, CPhysConvex * * )
 
-    public delegate* unmanaged<void*, void*> PolysoupCreate;              // 11  CPhysPolysoup * IPhysicsCollision::PolysoupCreate( void )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void*> PolysoupCreate => (delegate* unmanaged<void*, void*>)At(11, 10); // 11  ms 10  CPhysPolysoup * IPhysicsCollision::PolysoupCreate( void )
 
-    public delegate* unmanaged<void*, void*, void> PolysoupDestroy;       // 12  void IPhysicsCollision::PolysoupDestroy( CPhysPolysoup * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, void> PolysoupDestroy => (delegate* unmanaged<void*, void*, void>)At(12, 11); // 12  ms 11  void IPhysicsCollision::PolysoupDestroy( CPhysPolysoup * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, int, void> PolysoupAddTriangle; // 13  void IPhysicsCollision::PolysoupAddTriangle( CPhysPolysoup *, const Vector &, const Vector &, const Vector &, int )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int, void> PolysoupAddTriangle => (delegate* unmanaged<void*, void*, void*, void*, void*, int, void>)At(13, 12); // 13  ms 12  void IPhysicsCollision::PolysoupAddTriangle( CPhysPolysoup *, const Vector &, const Vector &, const Vector &, int )
 
-    public delegate* unmanaged<void*, void*, byte, void*> ConvertPolysoupToCollide; // 14  CPhysCollide * IPhysicsCollision::ConvertPolysoupToCollide( CPhysPolysoup *, bool )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, void*, byte, void*> ConvertPolysoupToCollide => (delegate* unmanaged<void*, void*, byte, void*>)At(14, 13); // 14  ms 13  CPhysCollide * IPhysicsCollision::ConvertPolysoupToCollide( CPhysPolysoup *, bool )
 
-    public delegate* unmanaged<void*, void*, int, void*> ConvertConvexToCollide; // 15  CPhysCollide * IPhysicsCollision::ConvertConvexToCollide( CPhysConvex * *, int )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, void*, int, void*> ConvertConvexToCollide => (delegate* unmanaged<void*, void*, int, void*>)At(15, 14); // 15  ms 14  CPhysCollide * IPhysicsCollision::ConvertConvexToCollide( CPhysConvex * *, int )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*> ConvertConvexToCollideParams; // 16  CPhysCollide * IPhysicsCollision::ConvertConvexToCollideParams( CPhysConvex * *, int, const convertconvexparams_t & )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, void*, int, void*, void*> ConvertConvexToCollideParams => (delegate* unmanaged<void*, void*, int, void*, void*>)At(16, 15); // 16  ms 15  CPhysCollide * IPhysicsCollision::ConvertConvexToCollideParams( CPhysConvex * *, int, const convertconvexparams_t & )
 
-    public delegate* unmanaged<void*, void*, void> DestroyCollide;        // 17  void IPhysicsCollision::DestroyCollide( CPhysCollide * )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, void*, void> DestroyCollide => (delegate* unmanaged<void*, void*, void>)At(17, 16); // 17  ms 16  void IPhysicsCollision::DestroyCollide( CPhysCollide * )
 
-    public delegate* unmanaged<void*, void*, int> CollideSize;            // 18  int IPhysicsCollision::CollideSize( CPhysCollide * )
+    [VtableSlot(18, 17)]
+    public delegate* unmanaged<void*, void*, int> CollideSize => (delegate* unmanaged<void*, void*, int>)At(18, 17); // 18  ms 17  int IPhysicsCollision::CollideSize( CPhysCollide * )
 
-    public delegate* unmanaged<void*, byte*, void*, byte, int> CollideWrite; // 19  int IPhysicsCollision::CollideWrite( char *, CPhysCollide *, bool )
+    [VtableSlot(19, 18)]
+    public delegate* unmanaged<void*, byte*, void*, byte, int> CollideWrite => (delegate* unmanaged<void*, byte*, void*, byte, int>)At(19, 18); // 19  ms 18  int IPhysicsCollision::CollideWrite( char *, CPhysCollide *, bool )
 
-    public delegate* unmanaged<void*, byte*, int, int, void*> UnserializeCollide; // 20  CPhysCollide * IPhysicsCollision::UnserializeCollide( char *, int, int )
+    [VtableSlot(20, 19)]
+    public delegate* unmanaged<void*, byte*, int, int, void*> UnserializeCollide => (delegate* unmanaged<void*, byte*, int, int, void*>)At(20, 19); // 20  ms 19  CPhysCollide * IPhysicsCollision::UnserializeCollide( char *, int, int )
 
-    public delegate* unmanaged<void*, void*, float> CollideVolume;        // 21  float IPhysicsCollision::CollideVolume( CPhysCollide * )
+    [VtableSlot(21, 20)]
+    public delegate* unmanaged<void*, void*, float> CollideVolume => (delegate* unmanaged<void*, void*, float>)At(21, 20); // 21  ms 20  float IPhysicsCollision::CollideVolume( CPhysCollide * )
 
-    public delegate* unmanaged<void*, void*, float> CollideSurfaceArea;   // 22  float IPhysicsCollision::CollideSurfaceArea( CPhysCollide * )
+    [VtableSlot(22, 21)]
+    public delegate* unmanaged<void*, void*, float> CollideSurfaceArea => (delegate* unmanaged<void*, void*, float>)At(22, 21); // 22  ms 21  float IPhysicsCollision::CollideSurfaceArea( CPhysCollide * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, Vector> CollideGetExtent; // 23  Vector IPhysicsCollision::CollideGetExtent( const CPhysCollide *, const Vector &, const QAngle &, const Vector & )
+    [VtableSlot(23, 22)]
+    public delegate* unmanaged[MemberFunction]<void*, void*, void*, void*, void*, Vector> CollideGetExtent => (delegate* unmanaged[MemberFunction]<void*, void*, void*, void*, void*, Vector>)At(23, 22); // 23  ms 22  Vector IPhysicsCollision::CollideGetExtent( const CPhysCollide *, const Vector &, const QAngle &, const Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> CollideGetAABB; // 24  void IPhysicsCollision::CollideGetAABB( Vector *, Vector *, const CPhysCollide *, const Vector &, const QAngle & )
+    [VtableSlot(24, 23)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> CollideGetAABB => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void>)At(24, 23); // 24  ms 23  void IPhysicsCollision::CollideGetAABB( Vector *, Vector *, const CPhysCollide *, const Vector &, const QAngle & )
 
-    public delegate* unmanaged<void*, void*, void*, void> CollideGetMassCenter; // 25  void IPhysicsCollision::CollideGetMassCenter( CPhysCollide *, Vector * )
+    [VtableSlot(25, 24)]
+    public delegate* unmanaged<void*, void*, void*, void> CollideGetMassCenter => (delegate* unmanaged<void*, void*, void*, void>)At(25, 24); // 25  ms 24  void IPhysicsCollision::CollideGetMassCenter( CPhysCollide *, Vector * )
 
-    public delegate* unmanaged<void*, void*, void*, void> CollideSetMassCenter; // 26  void IPhysicsCollision::CollideSetMassCenter( CPhysCollide *, const Vector & )
+    [VtableSlot(26, 25)]
+    public delegate* unmanaged<void*, void*, void*, void> CollideSetMassCenter => (delegate* unmanaged<void*, void*, void*, void>)At(26, 25); // 26  ms 25  void IPhysicsCollision::CollideSetMassCenter( CPhysCollide *, const Vector & )
 
-    public delegate* unmanaged<void*, void*, Vector> CollideGetOrthographicAreas; // 27  Vector IPhysicsCollision::CollideGetOrthographicAreas( const CPhysCollide * )
+    [VtableSlot(27, 26)]
+    public delegate* unmanaged[MemberFunction]<void*, void*, Vector> CollideGetOrthographicAreas => (delegate* unmanaged[MemberFunction]<void*, void*, Vector>)At(27, 26); // 27  ms 26  Vector IPhysicsCollision::CollideGetOrthographicAreas( const CPhysCollide * )
 
-    public delegate* unmanaged<void*, void*, void*, void> CollideSetOrthographicAreas; // 28  void IPhysicsCollision::CollideSetOrthographicAreas( CPhysCollide *, const Vector & )
+    [VtableSlot(28, 27)]
+    public delegate* unmanaged<void*, void*, void*, void> CollideSetOrthographicAreas => (delegate* unmanaged<void*, void*, void*, void>)At(28, 27); // 28  ms 27  void IPhysicsCollision::CollideSetOrthographicAreas( CPhysCollide *, const Vector & )
 
-    public delegate* unmanaged<void*, void*, int> CollideIndex;           // 29  int IPhysicsCollision::CollideIndex( const CPhysCollide * )
+    [VtableSlot(29, 28)]
+    public delegate* unmanaged<void*, void*, int> CollideIndex => (delegate* unmanaged<void*, void*, int>)At(29, 28); // 29  ms 28  int IPhysicsCollision::CollideIndex( const CPhysCollide * )
 
-    public delegate* unmanaged<void*, void*, void*, void*> BBoxToCollide; // 30  CPhysCollide * IPhysicsCollision::BBoxToCollide( const Vector &, const Vector & )
+    [VtableSlot(30, 29)]
+    public delegate* unmanaged<void*, void*, void*, void*> BBoxToCollide => (delegate* unmanaged<void*, void*, void*, void*>)At(30, 29); // 30  ms 29  CPhysCollide * IPhysicsCollision::BBoxToCollide( const Vector &, const Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, int, int> GetConvexesUsedInCollideable; // 31  int IPhysicsCollision::GetConvexesUsedInCollideable( const CPhysCollide *, CPhysConvex * *, int )
+    [VtableSlot(31, 30)]
+    public delegate* unmanaged<void*, void*, void*, int, int> GetConvexesUsedInCollideable => (delegate* unmanaged<void*, void*, void*, int, int>)At(31, 30); // 31  ms 30  int IPhysicsCollision::GetConvexesUsedInCollideable( const CPhysCollide *, CPhysConvex * *, int )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void*, void*, void> TraceBox; // 32  void IPhysicsCollision::TraceBox( const Vector &, const Vector &, const Vector &, const Vector &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
+    [VtableSlot(32, 33)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void*, void*, void> TraceBox => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void*, void*, void>)At(32, 33); // 32  ms 33  void IPhysicsCollision::TraceBox( const Vector &, const Vector &, const Vector &, const Vector &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> TraceBox_2; // 33  void IPhysicsCollision::TraceBox( const Ray_t &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
+    [VtableSlot(33, 32)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> TraceBox_2 => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void>)At(33, 32); // 33  ms 32  void IPhysicsCollision::TraceBox( const Ray_t &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
 
-    public delegate* unmanaged<void*, void*, uint, void*, void*, void*, void*, void*, void> TraceBox_3; // 34  void IPhysicsCollision::TraceBox( const Ray_t &, unsigned int, IConvexInfo *, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
+    [VtableSlot(34, 31)]
+    public delegate* unmanaged<void*, void*, uint, void*, void*, void*, void*, void*, void> TraceBox_3 => (delegate* unmanaged<void*, void*, uint, void*, void*, void*, void*, void*, void>)At(34, 31); // 34  ms 31  void IPhysicsCollision::TraceBox( const Ray_t &, unsigned int, IConvexInfo *, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void*, void*, void> TraceCollide; // 35  void IPhysicsCollision::TraceCollide( const Vector &, const Vector &, const CPhysCollide *, const QAngle &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
+    [VtableSlot(35, 34)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void*, void*, void> TraceCollide => (delegate* unmanaged<void*, void*, void*, void*, void*, void*, void*, void*, void*, void>)At(35, 34); // 35  ms 34  void IPhysicsCollision::TraceCollide( const Vector &, const Vector &, const CPhysCollide *, const QAngle &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, byte> IsBoxIntersectingCone; // 36  bool IPhysicsCollision::IsBoxIntersectingCone( const Vector &, const Vector &, const truncatedcone_t & )
+    [VtableSlot(36, 35)]
+    public delegate* unmanaged<void*, void*, void*, void*, byte> IsBoxIntersectingCone => (delegate* unmanaged<void*, void*, void*, void*, byte>)At(36, 35); // 36  ms 35  bool IPhysicsCollision::IsBoxIntersectingCone( const Vector &, const Vector &, const truncatedcone_t & )
 
-    public delegate* unmanaged<void*, void*, int, byte*, int, byte, void> VCollideLoad; // 37  void IPhysicsCollision::VCollideLoad( vcollide_t *, int, const char *, int, bool )
+    [VtableSlot(37, 36)]
+    public delegate* unmanaged<void*, void*, int, byte*, int, byte, void> VCollideLoad => (delegate* unmanaged<void*, void*, int, byte*, int, byte, void>)At(37, 36); // 37  ms 36  void IPhysicsCollision::VCollideLoad( vcollide_t *, int, const char *, int, bool )
 
-    public delegate* unmanaged<void*, void*, void> VCollideUnload;        // 38  void IPhysicsCollision::VCollideUnload( vcollide_t * )
+    [VtableSlot(38, 37)]
+    public delegate* unmanaged<void*, void*, void> VCollideUnload => (delegate* unmanaged<void*, void*, void>)At(38, 37); // 38  ms 37  void IPhysicsCollision::VCollideUnload( vcollide_t * )
 
-    public delegate* unmanaged<void*, byte*, void*> VPhysicsKeyParserCreate; // 39  IVPhysicsKeyParser * IPhysicsCollision::VPhysicsKeyParserCreate( const char * )
+    [VtableSlot(39, 38)]
+    public delegate* unmanaged<void*, byte*, void*> VPhysicsKeyParserCreate => (delegate* unmanaged<void*, byte*, void*>)At(39, 38); // 39  ms 38  IVPhysicsKeyParser * IPhysicsCollision::VPhysicsKeyParserCreate( const char * )
 
-    public delegate* unmanaged<void*, void*, void> VPhysicsKeyParserDestroy; // 40  void IPhysicsCollision::VPhysicsKeyParserDestroy( IVPhysicsKeyParser * )
+    [VtableSlot(40, 39)]
+    public delegate* unmanaged<void*, void*, void> VPhysicsKeyParserDestroy => (delegate* unmanaged<void*, void*, void>)At(40, 39); // 40  ms 39  void IPhysicsCollision::VPhysicsKeyParserDestroy( IVPhysicsKeyParser * )
 
-    public delegate* unmanaged<void*, void*, void*, int> CreateDebugMesh; // 41  int IPhysicsCollision::CreateDebugMesh( CPhysCollide const *, Vector * * )
+    [VtableSlot(41, 40)]
+    public delegate* unmanaged<void*, void*, void*, int> CreateDebugMesh => (delegate* unmanaged<void*, void*, void*, int>)At(41, 40); // 41  ms 40  int IPhysicsCollision::CreateDebugMesh( CPhysCollide const *, Vector * * )
 
-    public delegate* unmanaged<void*, int, void*, void> DestroyDebugMesh; // 42  void IPhysicsCollision::DestroyDebugMesh( int, Vector * )
+    [VtableSlot(42, 41)]
+    public delegate* unmanaged<void*, int, void*, void> DestroyDebugMesh => (delegate* unmanaged<void*, int, void*, void>)At(42, 41); // 42  ms 41  void IPhysicsCollision::DestroyDebugMesh( int, Vector * )
 
-    public delegate* unmanaged<void*, void*, void*> CreateQueryModel;     // 43  ICollisionQuery * IPhysicsCollision::CreateQueryModel( CPhysCollide * )
+    [VtableSlot(43, 42)]
+    public delegate* unmanaged<void*, void*, void*> CreateQueryModel => (delegate* unmanaged<void*, void*, void*>)At(43, 42); // 43  ms 42  ICollisionQuery * IPhysicsCollision::CreateQueryModel( CPhysCollide * )
 
-    public delegate* unmanaged<void*, void*, void> DestroyQueryModel;     // 44  void IPhysicsCollision::DestroyQueryModel( ICollisionQuery * )
+    [VtableSlot(44, 43)]
+    public delegate* unmanaged<void*, void*, void> DestroyQueryModel => (delegate* unmanaged<void*, void*, void>)At(44, 43); // 44  ms 43  void IPhysicsCollision::DestroyQueryModel( ICollisionQuery * )
 
-    public delegate* unmanaged<void*, void*> ThreadContextCreate;         // 45  IPhysicsCollision * IPhysicsCollision::ThreadContextCreate( void )
+    [VtableSlot(45, 44)]
+    public delegate* unmanaged<void*, void*> ThreadContextCreate => (delegate* unmanaged<void*, void*>)At(45, 44); // 45  ms 44  IPhysicsCollision * IPhysicsCollision::ThreadContextCreate( void )
 
-    public delegate* unmanaged<void*, void*, void> ThreadContextDestroy;  // 46  void IPhysicsCollision::ThreadContextDestroy( IPhysicsCollision * )
+    [VtableSlot(46, 45)]
+    public delegate* unmanaged<void*, void*, void> ThreadContextDestroy => (delegate* unmanaged<void*, void*, void>)At(46, 45); // 46  ms 45  void IPhysicsCollision::ThreadContextDestroy( IPhysicsCollision * )
 
-    public delegate* unmanaged<void*, void*, void*> CreateVirtualMesh;    // 47  CPhysCollide * IPhysicsCollision::CreateVirtualMesh( const virtualmeshparams_t & )
+    [VtableSlot(47, 46)]
+    public delegate* unmanaged<void*, void*, void*> CreateVirtualMesh => (delegate* unmanaged<void*, void*, void*>)At(47, 46); // 47  ms 46  CPhysCollide * IPhysicsCollision::CreateVirtualMesh( const virtualmeshparams_t & )
 
-    public delegate* unmanaged<void*, byte> SupportsVirtualMesh;          // 48  bool IPhysicsCollision::SupportsVirtualMesh( void )
+    [VtableSlot(48, 47)]
+    public delegate* unmanaged<void*, byte> SupportsVirtualMesh => (delegate* unmanaged<void*, byte>)At(48, 47); // 48  ms 47  bool IPhysicsCollision::SupportsVirtualMesh( void )
 
-    public delegate* unmanaged<void*, void*, void*, byte> GetBBoxCacheSize; // 49  bool IPhysicsCollision::GetBBoxCacheSize( int *, int * )
+    [VtableSlot(49, 48)]
+    public delegate* unmanaged<void*, void*, void*, byte> GetBBoxCacheSize => (delegate* unmanaged<void*, void*, void*, byte>)At(49, 48); // 49  ms 48  bool IPhysicsCollision::GetBBoxCacheSize( int *, int * )
 
-    public delegate* unmanaged<void*, void*, byte, void*> PolyhedronFromConvex; // 50  CPolyhedron * IPhysicsCollision::PolyhedronFromConvex( CPhysConvex * const, bool )
+    [VtableSlot(50, 49)]
+    public delegate* unmanaged<void*, void*, byte, void*> PolyhedronFromConvex => (delegate* unmanaged<void*, void*, byte, void*>)At(50, 49); // 50  ms 49  CPolyhedron * IPhysicsCollision::PolyhedronFromConvex( CPhysConvex * const, bool )
 
-    public delegate* unmanaged<void*, void*, void> OutputDebugInfo;       // 51  void IPhysicsCollision::OutputDebugInfo( const CPhysCollide * )
+    [VtableSlot(51, 50)]
+    public delegate* unmanaged<void*, void*, void> OutputDebugInfo => (delegate* unmanaged<void*, void*, void>)At(51, 50); // 51  ms 50  void IPhysicsCollision::OutputDebugInfo( const CPhysCollide * )
 
-    public delegate* unmanaged<void*, int, uint> ReadStat;                // 52  unsigned int IPhysicsCollision::ReadStat( int )
+    [VtableSlot(52, 51)]
+    public delegate* unmanaged<void*, int, uint> ReadStat => (delegate* unmanaged<void*, int, uint>)At(52, 51); // 52  ms 51  unsigned int IPhysicsCollision::ReadStat( int )
 }
 
 /// <summary>
@@ -2756,35 +3584,66 @@ internal unsafe struct PhysicsCollisionVtbl
 /// <para>
 /// PINNED, as <c>IPhysics</c> above.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 10 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsSurfacePropsVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 10;
+
+    private fixed long _slots[11];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                       // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                       // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, byte*, byte*, int> ParseSurfaceData; // 2   int IPhysicsSurfaceProps::ParseSurfaceData( const char *, const char * )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, byte*, byte*, int> ParseSurfaceData => (delegate* unmanaged<void*, byte*, byte*, int>)At(2, 1); // 2   ms 1   int IPhysicsSurfaceProps::ParseSurfaceData( const char *, const char * )
 
-    public delegate* unmanaged<void*, int> SurfacePropCount;       // 3   int IPhysicsSurfaceProps::SurfacePropCount( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, int> SurfacePropCount => (delegate* unmanaged<void*, int>)At(3, 2); // 3   ms 2   int IPhysicsSurfaceProps::SurfacePropCount( void )
 
-    public delegate* unmanaged<void*, byte*, int> GetSurfaceIndex; // 4   int IPhysicsSurfaceProps::GetSurfaceIndex( const char * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, byte*, int> GetSurfaceIndex => (delegate* unmanaged<void*, byte*, int>)At(4, 3); // 4   ms 3   int IPhysicsSurfaceProps::GetSurfaceIndex( const char * )
 
-    public delegate* unmanaged<void*, int, void*, void*, void*, void*, void> GetPhysicsProperties; // 5   void IPhysicsSurfaceProps::GetPhysicsProperties( int, float *, float *, float *, float * )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, int, void*, void*, void*, void*, void> GetPhysicsProperties => (delegate* unmanaged<void*, int, void*, void*, void*, void*, void>)At(5, 4); // 5   ms 4   void IPhysicsSurfaceProps::GetPhysicsProperties( int, float *, float *, float *, float * )
 
-    public delegate* unmanaged<void*, int, void*> GetSurfaceData;  // 6   surfacedata_t * IPhysicsSurfaceProps::GetSurfaceData( int )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, int, void*> GetSurfaceData => (delegate* unmanaged<void*, int, void*>)At(6, 5); // 6   ms 5   surfacedata_t * IPhysicsSurfaceProps::GetSurfaceData( int )
 
-    public delegate* unmanaged<void*, ushort, byte*> GetString;    // 7   const char * IPhysicsSurfaceProps::GetString( unsigned short )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, ushort, byte*> GetString => (delegate* unmanaged<void*, ushort, byte*>)At(7, 6); // 7   ms 6   const char * IPhysicsSurfaceProps::GetString( unsigned short )
 
-    public delegate* unmanaged<void*, int, byte*> GetPropName;     // 8   const char * IPhysicsSurfaceProps::GetPropName( int )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, int, byte*> GetPropName => (delegate* unmanaged<void*, int, byte*>)At(8, 7); // 8   ms 7   const char * IPhysicsSurfaceProps::GetPropName( int )
 
-    public delegate* unmanaged<void*, void*, int, void> SetWorldMaterialIndexTable; // 9   void IPhysicsSurfaceProps::SetWorldMaterialIndexTable( int *, int )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void*, int, void> SetWorldMaterialIndexTable => (delegate* unmanaged<void*, void*, int, void>)At(9, 8); // 9   ms 8   void IPhysicsSurfaceProps::SetWorldMaterialIndexTable( int *, int )
 
-    public delegate* unmanaged<void*, int, void*, void> GetPhysicsParameters; // 10  void IPhysicsSurfaceProps::GetPhysicsParameters( int, surfacephysicsparams_t * )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, int, void*, void> GetPhysicsParameters => (delegate* unmanaged<void*, int, void*, void>)At(10, 9); // 10  ms 9   void IPhysicsSurfaceProps::GetPhysicsParameters( int, surfacephysicsparams_t * )
 }
 
 /// <summary>
@@ -2799,23 +3658,48 @@ internal unsafe struct PhysicsSurfacePropsVtbl
 /// <para>
 /// Server only.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 4 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct VoiceServerVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 4;
+
+    private fixed long _slots[5];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, int, int, byte> GetClientListening; // 2   bool IVoiceServer::GetClientListening( int, int )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, int, int, byte> GetClientListening => (delegate* unmanaged<void*, int, int, byte>)At(2, 1); // 2   ms 1   bool IVoiceServer::GetClientListening( int, int )
 
-    public delegate* unmanaged<void*, int, int, byte, byte> SetClientListening; // 3   bool IVoiceServer::SetClientListening( int, int, bool )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, int, int, byte, byte> SetClientListening => (delegate* unmanaged<void*, int, int, byte, byte>)At(3, 2); // 3   ms 2   bool IVoiceServer::SetClientListening( int, int, bool )
 
-    public delegate* unmanaged<void*, int, int, byte, byte> SetClientProximity; // 4   bool IVoiceServer::SetClientProximity( int, int, bool )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, int, int, byte, byte> SetClientProximity => (delegate* unmanaged<void*, int, int, byte, byte>)At(4, 3); // 4   ms 3   bool IVoiceServer::SetClientProximity( int, int, bool )
 }
 
 /// <summary>
@@ -3486,45 +4370,80 @@ internal unsafe struct NetChannelInfoVtbl
 /// takes slots 0 and 1. The message of the day is the first caller: AddString
 /// with user data on the InfoPanel table.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 14 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct NetworkStringTableVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 14;
+
+    private fixed long _slots[15];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                       // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                       // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, byte*> GetTableName;         // 2   const char * INetworkStringTable::GetTableName( void )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, byte*> GetTableName => (delegate* unmanaged<void*, byte*>)At(2, 1); // 2   ms 1   const char * INetworkStringTable::GetTableName( void )
 
-    public delegate* unmanaged<void*, int> GetTableId;             // 3   TABLEID INetworkStringTable::GetTableId( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, int> GetTableId => (delegate* unmanaged<void*, int>)At(3, 2); // 3   ms 2   TABLEID INetworkStringTable::GetTableId( void )
 
-    public delegate* unmanaged<void*, int> GetNumStrings;          // 4   int INetworkStringTable::GetNumStrings( void )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, int> GetNumStrings => (delegate* unmanaged<void*, int>)At(4, 3); // 4   ms 3   int INetworkStringTable::GetNumStrings( void )
 
-    public delegate* unmanaged<void*, int> GetMaxStrings;          // 5   int INetworkStringTable::GetMaxStrings( void )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, int> GetMaxStrings => (delegate* unmanaged<void*, int>)At(5, 4); // 5   ms 4   int INetworkStringTable::GetMaxStrings( void )
 
-    public delegate* unmanaged<void*, int> GetEntryBits;           // 6   int INetworkStringTable::GetEntryBits( void )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, int> GetEntryBits => (delegate* unmanaged<void*, int>)At(6, 5); // 6   ms 5   int INetworkStringTable::GetEntryBits( void )
 
-    public delegate* unmanaged<void*, int, void> SetTick;          // 7   void INetworkStringTable::SetTick( int )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, int, void> SetTick => (delegate* unmanaged<void*, int, void>)At(7, 6); // 7   ms 6   void INetworkStringTable::SetTick( int )
 
-    public delegate* unmanaged<void*, int, byte> ChangedSinceTick; // 8   bool INetworkStringTable::ChangedSinceTick( int )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, int, byte> ChangedSinceTick => (delegate* unmanaged<void*, int, byte>)At(8, 7); // 8   ms 7   bool INetworkStringTable::ChangedSinceTick( int )
 
-    public delegate* unmanaged<void*, byte, byte*, int, void*, int> AddString; // 9   int INetworkStringTable::AddString( bool, const char *, int, const void * )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, byte, byte*, int, void*, int> AddString => (delegate* unmanaged<void*, byte, byte*, int, void*, int>)At(9, 8); // 9   ms 8   int INetworkStringTable::AddString( bool, const char *, int, const void * )
 
-    public delegate* unmanaged<void*, int, byte*> GetString;       // 10  const char * INetworkStringTable::GetString( int )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, int, byte*> GetString => (delegate* unmanaged<void*, int, byte*>)At(10, 9); // 10  ms 9   const char * INetworkStringTable::GetString( int )
 
-    public delegate* unmanaged<void*, int, int, void*, void> SetStringUserData; // 11  void INetworkStringTable::SetStringUserData( int, int, const void * )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, int, int, void*, void> SetStringUserData => (delegate* unmanaged<void*, int, int, void*, void>)At(11, 10); // 11  ms 10  void INetworkStringTable::SetStringUserData( int, int, const void * )
 
-    public delegate* unmanaged<void*, int, void*, void*> GetStringUserData; // 12  const void * INetworkStringTable::GetStringUserData( int, int * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, int, void*, void*> GetStringUserData => (delegate* unmanaged<void*, int, void*, void*>)At(12, 11); // 12  ms 11  const void * INetworkStringTable::GetStringUserData( int, int * )
 
-    public delegate* unmanaged<void*, byte*, int> FindStringIndex; // 13  int INetworkStringTable::FindStringIndex( char const * )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, byte*, int> FindStringIndex => (delegate* unmanaged<void*, byte*, int>)At(13, 12); // 13  ms 12  int INetworkStringTable::FindStringIndex( char const * )
 
     // REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: pfnStringChanged is a class type by value.
     // No C++ proxy, because this interface is LAYOUT ONLY: nothing exposes it, so there is nothing for a proxy to serve.
-    public nint Refused_SetStringChangedCallback;                  // 14  void INetworkStringTable::SetStringChangedCallback( void *, pfnStringChanged )
+    [VtableSlot(14, 13)]
+    public nint Refused_SetStringChangedCallback => (nint)At(14, 13); // 14  ms 13  void INetworkStringTable::SetStringChangedCallback( void *, pfnStringChanged )
 }
 
 /// <summary>
@@ -3541,149 +4460,237 @@ internal unsafe struct NetworkStringTableVtbl
 /// vtable_index_agreement_test holds it to the header (plan_physics_managed
 /// B0).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 67 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsEnvironmentVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 67;
+
+    private fixed long _slots[68];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, void> SetDebugOverlay;       // 2   void IPhysicsEnvironment::SetDebugOverlay( CreateInterfaceFn )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void*, void> SetDebugOverlay => (delegate* unmanaged<void*, void*, void>)At(2, 1); // 2   ms 1   void IPhysicsEnvironment::SetDebugOverlay( CreateInterfaceFn )
 
-    public delegate* unmanaged<void*, void*> GetDebugOverlay;             // 3   IVPhysicsDebugOverlay * IPhysicsEnvironment::GetDebugOverlay( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void*> GetDebugOverlay => (delegate* unmanaged<void*, void*>)At(3, 2); // 3   ms 2   IVPhysicsDebugOverlay * IPhysicsEnvironment::GetDebugOverlay( void )
 
-    public delegate* unmanaged<void*, void*, void> SetGravity;            // 4   void IPhysicsEnvironment::SetGravity( const Vector & )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, void> SetGravity => (delegate* unmanaged<void*, void*, void>)At(4, 3); // 4   ms 3   void IPhysicsEnvironment::SetGravity( const Vector & )
 
-    public delegate* unmanaged<void*, void*, void> GetGravity;            // 5   void IPhysicsEnvironment::GetGravity( Vector * )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, void> GetGravity => (delegate* unmanaged<void*, void*, void>)At(5, 4); // 5   ms 4   void IPhysicsEnvironment::GetGravity( Vector * )
 
-    public delegate* unmanaged<void*, float, void> SetAirDensity;         // 6   void IPhysicsEnvironment::SetAirDensity( float )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, float, void> SetAirDensity => (delegate* unmanaged<void*, float, void>)At(6, 5); // 6   ms 5   void IPhysicsEnvironment::SetAirDensity( float )
 
-    public delegate* unmanaged<void*, float> GetAirDensity;               // 7   float IPhysicsEnvironment::GetAirDensity( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, float> GetAirDensity => (delegate* unmanaged<void*, float>)At(7, 6); // 7   ms 6   float IPhysicsEnvironment::GetAirDensity( void )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void*, void*> CreatePolyObject; // 8   IPhysicsObject * IPhysicsEnvironment::CreatePolyObject( const CPhysCollide *, int, const Vector &, const QAngle &, objectparams_t * )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void*, void*> CreatePolyObject => (delegate* unmanaged<void*, void*, int, void*, void*, void*, void*>)At(8, 7); // 8   ms 7   IPhysicsObject * IPhysicsEnvironment::CreatePolyObject( const CPhysCollide *, int, const Vector &, const QAngle &, objectparams_t * )
 
-    public delegate* unmanaged<void*, void*, int, void*, void*, void*, void*> CreatePolyObjectStatic; // 9   IPhysicsObject * IPhysicsEnvironment::CreatePolyObjectStatic( const CPhysCollide *, int, const Vector &, const QAngle &, objectparams_t * )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, void*, void*> CreatePolyObjectStatic => (delegate* unmanaged<void*, void*, int, void*, void*, void*, void*>)At(9, 8); // 9   ms 8   IPhysicsObject * IPhysicsEnvironment::CreatePolyObjectStatic( const CPhysCollide *, int, const Vector &, const QAngle &, objectparams_t * )
 
-    public delegate* unmanaged<void*, float, int, void*, void*, void*, byte, void*> CreateSphereObject; // 10  IPhysicsObject * IPhysicsEnvironment::CreateSphereObject( float, int, const Vector &, const QAngle &, objectparams_t *, bool )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, float, int, void*, void*, void*, byte, void*> CreateSphereObject => (delegate* unmanaged<void*, float, int, void*, void*, void*, byte, void*>)At(10, 9); // 10  ms 9   IPhysicsObject * IPhysicsEnvironment::CreateSphereObject( float, int, const Vector &, const QAngle &, objectparams_t *, bool )
 
-    public delegate* unmanaged<void*, void*, void> DestroyObject;         // 11  void IPhysicsEnvironment::DestroyObject( IPhysicsObject * )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void*, void> DestroyObject => (delegate* unmanaged<void*, void*, void>)At(11, 10); // 11  ms 10  void IPhysicsEnvironment::DestroyObject( IPhysicsObject * )
 
-    public delegate* unmanaged<void*, void*, void*, void*> CreateFluidController; // 12  IPhysicsFluidController * IPhysicsEnvironment::CreateFluidController( IPhysicsObject *, fluidparams_t * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, void*, void*> CreateFluidController => (delegate* unmanaged<void*, void*, void*, void*>)At(12, 11); // 12  ms 11  IPhysicsFluidController * IPhysicsEnvironment::CreateFluidController( IPhysicsObject *, fluidparams_t * )
 
-    public delegate* unmanaged<void*, void*, void> DestroyFluidController; // 13  void IPhysicsEnvironment::DestroyFluidController( IPhysicsFluidController * )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void*, void> DestroyFluidController => (delegate* unmanaged<void*, void*, void>)At(13, 12); // 13  ms 12  void IPhysicsEnvironment::DestroyFluidController( IPhysicsFluidController * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*> CreateSpring; // 14  IPhysicsSpring * IPhysicsEnvironment::CreateSpring( IPhysicsObject *, IPhysicsObject *, springparams_t * )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*> CreateSpring => (delegate* unmanaged<void*, void*, void*, void*, void*>)At(14, 13); // 14  ms 13  IPhysicsSpring * IPhysicsEnvironment::CreateSpring( IPhysicsObject *, IPhysicsObject *, springparams_t * )
 
-    public delegate* unmanaged<void*, void*, void> DestroySpring;         // 15  void IPhysicsEnvironment::DestroySpring( IPhysicsSpring * )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, void*, void> DestroySpring => (delegate* unmanaged<void*, void*, void>)At(15, 14); // 15  ms 14  void IPhysicsEnvironment::DestroySpring( IPhysicsSpring * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateRagdollConstraint; // 16  IPhysicsConstraint * IPhysicsEnvironment::CreateRagdollConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_ragdollparams_t & )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateRagdollConstraint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*>)At(16, 15); // 16  ms 15  IPhysicsConstraint * IPhysicsEnvironment::CreateRagdollConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_ragdollparams_t & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateHingeConstraint; // 17  IPhysicsConstraint * IPhysicsEnvironment::CreateHingeConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_hingeparams_t & )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateHingeConstraint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*>)At(17, 16); // 17  ms 16  IPhysicsConstraint * IPhysicsEnvironment::CreateHingeConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_hingeparams_t & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateFixedConstraint; // 18  IPhysicsConstraint * IPhysicsEnvironment::CreateFixedConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_fixedparams_t & )
+    [VtableSlot(18, 17)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateFixedConstraint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*>)At(18, 17); // 18  ms 17  IPhysicsConstraint * IPhysicsEnvironment::CreateFixedConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_fixedparams_t & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateSlidingConstraint; // 19  IPhysicsConstraint * IPhysicsEnvironment::CreateSlidingConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_slidingparams_t & )
+    [VtableSlot(19, 18)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateSlidingConstraint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*>)At(19, 18); // 19  ms 18  IPhysicsConstraint * IPhysicsEnvironment::CreateSlidingConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_slidingparams_t & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateBallsocketConstraint; // 20  IPhysicsConstraint * IPhysicsEnvironment::CreateBallsocketConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_ballsocketparams_t & )
+    [VtableSlot(20, 19)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateBallsocketConstraint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*>)At(20, 19); // 20  ms 19  IPhysicsConstraint * IPhysicsEnvironment::CreateBallsocketConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_ballsocketparams_t & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreatePulleyConstraint; // 21  IPhysicsConstraint * IPhysicsEnvironment::CreatePulleyConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_pulleyparams_t & )
+    [VtableSlot(21, 20)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreatePulleyConstraint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*>)At(21, 20); // 21  ms 20  IPhysicsConstraint * IPhysicsEnvironment::CreatePulleyConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_pulleyparams_t & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateLengthConstraint; // 22  IPhysicsConstraint * IPhysicsEnvironment::CreateLengthConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_lengthparams_t & )
+    [VtableSlot(22, 21)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void*> CreateLengthConstraint => (delegate* unmanaged<void*, void*, void*, void*, void*, void*>)At(22, 21); // 22  ms 21  IPhysicsConstraint * IPhysicsEnvironment::CreateLengthConstraint( IPhysicsObject *, IPhysicsObject *, IPhysicsConstraintGroup *, const constraint_lengthparams_t & )
 
-    public delegate* unmanaged<void*, void*, void> DestroyConstraint;     // 23  void IPhysicsEnvironment::DestroyConstraint( IPhysicsConstraint * )
+    [VtableSlot(23, 22)]
+    public delegate* unmanaged<void*, void*, void> DestroyConstraint => (delegate* unmanaged<void*, void*, void>)At(23, 22); // 23  ms 22  void IPhysicsEnvironment::DestroyConstraint( IPhysicsConstraint * )
 
-    public delegate* unmanaged<void*, void*, void*> CreateConstraintGroup; // 24  IPhysicsConstraintGroup * IPhysicsEnvironment::CreateConstraintGroup( const constraint_groupparams_t & )
+    [VtableSlot(24, 23)]
+    public delegate* unmanaged<void*, void*, void*> CreateConstraintGroup => (delegate* unmanaged<void*, void*, void*>)At(24, 23); // 24  ms 23  IPhysicsConstraintGroup * IPhysicsEnvironment::CreateConstraintGroup( const constraint_groupparams_t & )
 
-    public delegate* unmanaged<void*, void*, void> DestroyConstraintGroup; // 25  void IPhysicsEnvironment::DestroyConstraintGroup( IPhysicsConstraintGroup * )
+    [VtableSlot(25, 24)]
+    public delegate* unmanaged<void*, void*, void> DestroyConstraintGroup => (delegate* unmanaged<void*, void*, void>)At(25, 24); // 25  ms 24  void IPhysicsEnvironment::DestroyConstraintGroup( IPhysicsConstraintGroup * )
 
-    public delegate* unmanaged<void*, void*, byte, byte, void*> CreateShadowController; // 26  IPhysicsShadowController * IPhysicsEnvironment::CreateShadowController( IPhysicsObject *, bool, bool )
+    [VtableSlot(26, 25)]
+    public delegate* unmanaged<void*, void*, byte, byte, void*> CreateShadowController => (delegate* unmanaged<void*, void*, byte, byte, void*>)At(26, 25); // 26  ms 25  IPhysicsShadowController * IPhysicsEnvironment::CreateShadowController( IPhysicsObject *, bool, bool )
 
-    public delegate* unmanaged<void*, void*, void> DestroyShadowController; // 27  void IPhysicsEnvironment::DestroyShadowController( IPhysicsShadowController * )
+    [VtableSlot(27, 26)]
+    public delegate* unmanaged<void*, void*, void> DestroyShadowController => (delegate* unmanaged<void*, void*, void>)At(27, 26); // 27  ms 26  void IPhysicsEnvironment::DestroyShadowController( IPhysicsShadowController * )
 
-    public delegate* unmanaged<void*, void*, void*> CreatePlayerController; // 28  IPhysicsPlayerController * IPhysicsEnvironment::CreatePlayerController( IPhysicsObject * )
+    [VtableSlot(28, 27)]
+    public delegate* unmanaged<void*, void*, void*> CreatePlayerController => (delegate* unmanaged<void*, void*, void*>)At(28, 27); // 28  ms 27  IPhysicsPlayerController * IPhysicsEnvironment::CreatePlayerController( IPhysicsObject * )
 
-    public delegate* unmanaged<void*, void*, void> DestroyPlayerController; // 29  void IPhysicsEnvironment::DestroyPlayerController( IPhysicsPlayerController * )
+    [VtableSlot(29, 28)]
+    public delegate* unmanaged<void*, void*, void> DestroyPlayerController => (delegate* unmanaged<void*, void*, void>)At(29, 28); // 29  ms 28  void IPhysicsEnvironment::DestroyPlayerController( IPhysicsPlayerController * )
 
-    public delegate* unmanaged<void*, void*, void*> CreateMotionController; // 30  IPhysicsMotionController * IPhysicsEnvironment::CreateMotionController( IMotionEvent * )
+    [VtableSlot(30, 29)]
+    public delegate* unmanaged<void*, void*, void*> CreateMotionController => (delegate* unmanaged<void*, void*, void*>)At(30, 29); // 30  ms 29  IPhysicsMotionController * IPhysicsEnvironment::CreateMotionController( IMotionEvent * )
 
-    public delegate* unmanaged<void*, void*, void> DestroyMotionController; // 31  void IPhysicsEnvironment::DestroyMotionController( IPhysicsMotionController * )
+    [VtableSlot(31, 30)]
+    public delegate* unmanaged<void*, void*, void> DestroyMotionController => (delegate* unmanaged<void*, void*, void>)At(31, 30); // 31  ms 30  void IPhysicsEnvironment::DestroyMotionController( IPhysicsMotionController * )
 
-    public delegate* unmanaged<void*, void*, void*, uint, void*, void*> CreateVehicleController; // 32  IPhysicsVehicleController * IPhysicsEnvironment::CreateVehicleController( IPhysicsObject *, const vehicleparams_t &, unsigned int, IPhysicsGameTrace * )
+    [VtableSlot(32, 31)]
+    public delegate* unmanaged<void*, void*, void*, uint, void*, void*> CreateVehicleController => (delegate* unmanaged<void*, void*, void*, uint, void*, void*>)At(32, 31); // 32  ms 31  IPhysicsVehicleController * IPhysicsEnvironment::CreateVehicleController( IPhysicsObject *, const vehicleparams_t &, unsigned int, IPhysicsGameTrace * )
 
-    public delegate* unmanaged<void*, void*, void> DestroyVehicleController; // 33  void IPhysicsEnvironment::DestroyVehicleController( IPhysicsVehicleController * )
+    [VtableSlot(33, 32)]
+    public delegate* unmanaged<void*, void*, void> DestroyVehicleController => (delegate* unmanaged<void*, void*, void>)At(33, 32); // 33  ms 32  void IPhysicsEnvironment::DestroyVehicleController( IPhysicsVehicleController * )
 
-    public delegate* unmanaged<void*, void*, void> SetCollisionSolver;    // 34  void IPhysicsEnvironment::SetCollisionSolver( IPhysicsCollisionSolver * )
+    [VtableSlot(34, 33)]
+    public delegate* unmanaged<void*, void*, void> SetCollisionSolver => (delegate* unmanaged<void*, void*, void>)At(34, 33); // 34  ms 33  void IPhysicsEnvironment::SetCollisionSolver( IPhysicsCollisionSolver * )
 
-    public delegate* unmanaged<void*, float, void> Simulate;              // 35  void IPhysicsEnvironment::Simulate( float )
+    [VtableSlot(35, 34)]
+    public delegate* unmanaged<void*, float, void> Simulate => (delegate* unmanaged<void*, float, void>)At(35, 34); // 35  ms 34  void IPhysicsEnvironment::Simulate( float )
 
-    public delegate* unmanaged<void*, byte> IsInSimulation;               // 36  bool IPhysicsEnvironment::IsInSimulation( void )
+    [VtableSlot(36, 35)]
+    public delegate* unmanaged<void*, byte> IsInSimulation => (delegate* unmanaged<void*, byte>)At(36, 35); // 36  ms 35  bool IPhysicsEnvironment::IsInSimulation( void )
 
-    public delegate* unmanaged<void*, float> GetSimulationTimestep;       // 37  float IPhysicsEnvironment::GetSimulationTimestep( void )
+    [VtableSlot(37, 36)]
+    public delegate* unmanaged<void*, float> GetSimulationTimestep => (delegate* unmanaged<void*, float>)At(37, 36); // 37  ms 36  float IPhysicsEnvironment::GetSimulationTimestep( void )
 
-    public delegate* unmanaged<void*, float, void> SetSimulationTimestep; // 38  void IPhysicsEnvironment::SetSimulationTimestep( float )
+    [VtableSlot(38, 37)]
+    public delegate* unmanaged<void*, float, void> SetSimulationTimestep => (delegate* unmanaged<void*, float, void>)At(38, 37); // 38  ms 37  void IPhysicsEnvironment::SetSimulationTimestep( float )
 
-    public delegate* unmanaged<void*, float> GetSimulationTime;           // 39  float IPhysicsEnvironment::GetSimulationTime( void )
+    [VtableSlot(39, 38)]
+    public delegate* unmanaged<void*, float> GetSimulationTime => (delegate* unmanaged<void*, float>)At(39, 38); // 39  ms 38  float IPhysicsEnvironment::GetSimulationTime( void )
 
-    public delegate* unmanaged<void*, void> ResetSimulationClock;         // 40  void IPhysicsEnvironment::ResetSimulationClock( void )
+    [VtableSlot(40, 39)]
+    public delegate* unmanaged<void*, void> ResetSimulationClock => (delegate* unmanaged<void*, void>)At(40, 39); // 40  ms 39  void IPhysicsEnvironment::ResetSimulationClock( void )
 
-    public delegate* unmanaged<void*, float> GetNextFrameTime;            // 41  float IPhysicsEnvironment::GetNextFrameTime( void )
+    [VtableSlot(41, 40)]
+    public delegate* unmanaged<void*, float> GetNextFrameTime => (delegate* unmanaged<void*, float>)At(41, 40); // 41  ms 40  float IPhysicsEnvironment::GetNextFrameTime( void )
 
-    public delegate* unmanaged<void*, void*, void> SetCollisionEventHandler; // 42  void IPhysicsEnvironment::SetCollisionEventHandler( IPhysicsCollisionEvent * )
+    [VtableSlot(42, 41)]
+    public delegate* unmanaged<void*, void*, void> SetCollisionEventHandler => (delegate* unmanaged<void*, void*, void>)At(42, 41); // 42  ms 41  void IPhysicsEnvironment::SetCollisionEventHandler( IPhysicsCollisionEvent * )
 
-    public delegate* unmanaged<void*, void*, void> SetObjectEventHandler; // 43  void IPhysicsEnvironment::SetObjectEventHandler( IPhysicsObjectEvent * )
+    [VtableSlot(43, 42)]
+    public delegate* unmanaged<void*, void*, void> SetObjectEventHandler => (delegate* unmanaged<void*, void*, void>)At(43, 42); // 43  ms 42  void IPhysicsEnvironment::SetObjectEventHandler( IPhysicsObjectEvent * )
 
-    public delegate* unmanaged<void*, void*, void> SetConstraintEventHandler; // 44  void IPhysicsEnvironment::SetConstraintEventHandler( IPhysicsConstraintEvent * )
+    [VtableSlot(44, 43)]
+    public delegate* unmanaged<void*, void*, void> SetConstraintEventHandler => (delegate* unmanaged<void*, void*, void>)At(44, 43); // 44  ms 43  void IPhysicsEnvironment::SetConstraintEventHandler( IPhysicsConstraintEvent * )
 
-    public delegate* unmanaged<void*, byte, void> SetQuickDelete;         // 45  void IPhysicsEnvironment::SetQuickDelete( bool )
+    [VtableSlot(45, 44)]
+    public delegate* unmanaged<void*, byte, void> SetQuickDelete => (delegate* unmanaged<void*, byte, void>)At(45, 44); // 45  ms 44  void IPhysicsEnvironment::SetQuickDelete( bool )
 
-    public delegate* unmanaged<void*, int> GetActiveObjectCount;          // 46  int IPhysicsEnvironment::GetActiveObjectCount( void )
+    [VtableSlot(46, 45)]
+    public delegate* unmanaged<void*, int> GetActiveObjectCount => (delegate* unmanaged<void*, int>)At(46, 45); // 46  ms 45  int IPhysicsEnvironment::GetActiveObjectCount( void )
 
-    public delegate* unmanaged<void*, void*, void> GetActiveObjects;      // 47  void IPhysicsEnvironment::GetActiveObjects( IPhysicsObject * * )
+    [VtableSlot(47, 46)]
+    public delegate* unmanaged<void*, void*, void> GetActiveObjects => (delegate* unmanaged<void*, void*, void>)At(47, 46); // 47  ms 46  void IPhysicsEnvironment::GetActiveObjects( IPhysicsObject * * )
 
-    public delegate* unmanaged<void*, void*, void*> GetObjectList;        // 48  const IPhysicsObject * * IPhysicsEnvironment::GetObjectList( int * )
+    [VtableSlot(48, 47)]
+    public delegate* unmanaged<void*, void*, void*> GetObjectList => (delegate* unmanaged<void*, void*, void*>)At(48, 47); // 48  ms 47  const IPhysicsObject * * IPhysicsEnvironment::GetObjectList( int * )
 
-    public delegate* unmanaged<void*, void*, void*, byte> TransferObject; // 49  bool IPhysicsEnvironment::TransferObject( IPhysicsObject *, IPhysicsEnvironment * )
+    [VtableSlot(49, 48)]
+    public delegate* unmanaged<void*, void*, void*, byte> TransferObject => (delegate* unmanaged<void*, void*, void*, byte>)At(49, 48); // 49  ms 48  bool IPhysicsEnvironment::TransferObject( IPhysicsObject *, IPhysicsEnvironment * )
 
-    public delegate* unmanaged<void*, void> CleanupDeleteList;            // 50  void IPhysicsEnvironment::CleanupDeleteList( void )
+    [VtableSlot(50, 49)]
+    public delegate* unmanaged<void*, void> CleanupDeleteList => (delegate* unmanaged<void*, void>)At(50, 49); // 50  ms 49  void IPhysicsEnvironment::CleanupDeleteList( void )
 
-    public delegate* unmanaged<void*, byte, void> EnableDeleteQueue;      // 51  void IPhysicsEnvironment::EnableDeleteQueue( bool )
+    [VtableSlot(51, 50)]
+    public delegate* unmanaged<void*, byte, void> EnableDeleteQueue => (delegate* unmanaged<void*, byte, void>)At(51, 50); // 51  ms 50  void IPhysicsEnvironment::EnableDeleteQueue( bool )
 
-    public delegate* unmanaged<void*, void*, byte> Save;                  // 52  bool IPhysicsEnvironment::Save( const physsaveparams_t & )
+    [VtableSlot(52, 51)]
+    public delegate* unmanaged<void*, void*, byte> Save => (delegate* unmanaged<void*, void*, byte>)At(52, 51); // 52  ms 51  bool IPhysicsEnvironment::Save( const physsaveparams_t & )
 
-    public delegate* unmanaged<void*, void*, void> PreRestore;            // 53  void IPhysicsEnvironment::PreRestore( const physprerestoreparams_t & )
+    [VtableSlot(53, 52)]
+    public delegate* unmanaged<void*, void*, void> PreRestore => (delegate* unmanaged<void*, void*, void>)At(53, 52); // 53  ms 52  void IPhysicsEnvironment::PreRestore( const physprerestoreparams_t & )
 
-    public delegate* unmanaged<void*, void*, byte> Restore;               // 54  bool IPhysicsEnvironment::Restore( const physrestoreparams_t & )
+    [VtableSlot(54, 53)]
+    public delegate* unmanaged<void*, void*, byte> Restore => (delegate* unmanaged<void*, void*, byte>)At(54, 53); // 54  ms 53  bool IPhysicsEnvironment::Restore( const physrestoreparams_t & )
 
-    public delegate* unmanaged<void*, void> PostRestore;                  // 55  void IPhysicsEnvironment::PostRestore( void )
+    [VtableSlot(55, 54)]
+    public delegate* unmanaged<void*, void> PostRestore => (delegate* unmanaged<void*, void>)At(55, 54); // 55  ms 54  void IPhysicsEnvironment::PostRestore( void )
 
-    public delegate* unmanaged<void*, void*, byte> IsCollisionModelUsed;  // 56  bool IPhysicsEnvironment::IsCollisionModelUsed( CPhysCollide * )
+    [VtableSlot(56, 55)]
+    public delegate* unmanaged<void*, void*, byte> IsCollisionModelUsed => (delegate* unmanaged<void*, void*, byte>)At(56, 55); // 56  ms 55  bool IPhysicsEnvironment::IsCollisionModelUsed( CPhysCollide * )
 
-    public delegate* unmanaged<void*, void*, uint, void*, void*, void> TraceRay; // 57  void IPhysicsEnvironment::TraceRay( const Ray_t &, unsigned int, IPhysicsTraceFilter *, trace_t * )
+    [VtableSlot(57, 56)]
+    public delegate* unmanaged<void*, void*, uint, void*, void*, void> TraceRay => (delegate* unmanaged<void*, void*, uint, void*, void*, void>)At(57, 56); // 57  ms 56  void IPhysicsEnvironment::TraceRay( const Ray_t &, unsigned int, IPhysicsTraceFilter *, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, uint, void*, void*, void> SweepCollideable; // 58  void IPhysicsEnvironment::SweepCollideable( const CPhysCollide *, const Vector &, const Vector &, const QAngle &, unsigned int, IPhysicsTraceFilter *, trace_t * )
+    [VtableSlot(58, 57)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, uint, void*, void*, void> SweepCollideable => (delegate* unmanaged<void*, void*, void*, void*, void*, uint, void*, void*, void>)At(58, 57); // 58  ms 57  void IPhysicsEnvironment::SweepCollideable( const CPhysCollide *, const Vector &, const Vector &, const QAngle &, unsigned int, IPhysicsTraceFilter *, trace_t * )
 
-    public delegate* unmanaged<void*, void*, void> GetPerformanceSettings; // 59  void IPhysicsEnvironment::GetPerformanceSettings( physics_performanceparams_t * )
+    [VtableSlot(59, 58)]
+    public delegate* unmanaged<void*, void*, void> GetPerformanceSettings => (delegate* unmanaged<void*, void*, void>)At(59, 58); // 59  ms 58  void IPhysicsEnvironment::GetPerformanceSettings( physics_performanceparams_t * )
 
-    public delegate* unmanaged<void*, void*, void> SetPerformanceSettings; // 60  void IPhysicsEnvironment::SetPerformanceSettings( const physics_performanceparams_t * )
+    [VtableSlot(60, 59)]
+    public delegate* unmanaged<void*, void*, void> SetPerformanceSettings => (delegate* unmanaged<void*, void*, void>)At(60, 59); // 60  ms 59  void IPhysicsEnvironment::SetPerformanceSettings( const physics_performanceparams_t * )
 
-    public delegate* unmanaged<void*, void*, void> ReadStats;             // 61  void IPhysicsEnvironment::ReadStats( physics_stats_t * )
+    [VtableSlot(61, 60)]
+    public delegate* unmanaged<void*, void*, void> ReadStats => (delegate* unmanaged<void*, void*, void>)At(61, 60); // 61  ms 60  void IPhysicsEnvironment::ReadStats( physics_stats_t * )
 
-    public delegate* unmanaged<void*, void> ClearStats;                   // 62  void IPhysicsEnvironment::ClearStats( void )
+    [VtableSlot(62, 61)]
+    public delegate* unmanaged<void*, void> ClearStats => (delegate* unmanaged<void*, void>)At(62, 61); // 62  ms 61  void IPhysicsEnvironment::ClearStats( void )
 
-    public delegate* unmanaged<void*, void*, uint> GetObjectSerializeSize; // 63  unsigned int IPhysicsEnvironment::GetObjectSerializeSize( IPhysicsObject * )
+    [VtableSlot(63, 62)]
+    public delegate* unmanaged<void*, void*, uint> GetObjectSerializeSize => (delegate* unmanaged<void*, void*, uint>)At(63, 62); // 63  ms 62  unsigned int IPhysicsEnvironment::GetObjectSerializeSize( IPhysicsObject * )
 
-    public delegate* unmanaged<void*, void*, byte*, uint, void> SerializeObjectToBuffer; // 64  void IPhysicsEnvironment::SerializeObjectToBuffer( IPhysicsObject *, unsigned char *, unsigned int )
+    [VtableSlot(64, 63)]
+    public delegate* unmanaged<void*, void*, byte*, uint, void> SerializeObjectToBuffer => (delegate* unmanaged<void*, void*, byte*, uint, void>)At(64, 63); // 64  ms 63  void IPhysicsEnvironment::SerializeObjectToBuffer( IPhysicsObject *, unsigned char *, unsigned int )
 
-    public delegate* unmanaged<void*, void*, byte*, uint, byte, void*> UnserializeObjectFromBuffer; // 65  IPhysicsObject * IPhysicsEnvironment::UnserializeObjectFromBuffer( void *, unsigned char *, unsigned int, bool )
+    [VtableSlot(65, 64)]
+    public delegate* unmanaged<void*, void*, byte*, uint, byte, void*> UnserializeObjectFromBuffer => (delegate* unmanaged<void*, void*, byte*, uint, byte, void*>)At(65, 64); // 65  ms 64  IPhysicsObject * IPhysicsEnvironment::UnserializeObjectFromBuffer( void *, unsigned char *, unsigned int, bool )
 
-    public delegate* unmanaged<void*, byte, void> EnableConstraintNotify; // 66  void IPhysicsEnvironment::EnableConstraintNotify( bool )
+    [VtableSlot(66, 65)]
+    public delegate* unmanaged<void*, byte, void> EnableConstraintNotify => (delegate* unmanaged<void*, byte, void>)At(66, 65); // 66  ms 65  void IPhysicsEnvironment::EnableConstraintNotify( bool )
 
-    public delegate* unmanaged<void*, void> DebugCheckContacts;           // 67  void IPhysicsEnvironment::DebugCheckContacts( void )
+    [VtableSlot(67, 66)]
+    public delegate* unmanaged<void*, void> DebugCheckContacts => (delegate* unmanaged<void*, void>)At(67, 66); // 67  ms 66  void IPhysicsEnvironment::DebugCheckContacts( void )
 }
 
 /// <summary>
@@ -3700,181 +4707,285 @@ internal unsafe struct PhysicsEnvironmentVtbl
 /// vtable_index_agreement_test holds it to the header (plan_physics_managed
 /// B0).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 83 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsObjectVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 83;
+
+    private fixed long _slots[84];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsStatic; // 2   bool IPhysicsObject::IsStatic( void )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsStatic => (delegate* unmanaged[SuppressGCTransition]<void*, byte>)At(2, 1); // 2   ms 1   bool IPhysicsObject::IsStatic( void )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsAsleep; // 3   bool IPhysicsObject::IsAsleep( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsAsleep => (delegate* unmanaged[SuppressGCTransition]<void*, byte>)At(3, 2); // 3   ms 2   bool IPhysicsObject::IsAsleep( void )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsTrigger; // 4   bool IPhysicsObject::IsTrigger( void )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsTrigger => (delegate* unmanaged[SuppressGCTransition]<void*, byte>)At(4, 3); // 4   ms 3   bool IPhysicsObject::IsTrigger( void )
 
-    public delegate* unmanaged<void*, byte> IsFluid;                      // 5   bool IPhysicsObject::IsFluid( void )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, byte> IsFluid => (delegate* unmanaged<void*, byte>)At(5, 4); // 5   ms 4   bool IPhysicsObject::IsFluid( void )
 
-    public delegate* unmanaged<void*, byte> IsHinged;                     // 6   bool IPhysicsObject::IsHinged( void )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, byte> IsHinged => (delegate* unmanaged<void*, byte>)At(6, 5); // 6   ms 5   bool IPhysicsObject::IsHinged( void )
 
-    public delegate* unmanaged<void*, byte> IsCollisionEnabled;           // 7   bool IPhysicsObject::IsCollisionEnabled( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, byte> IsCollisionEnabled => (delegate* unmanaged<void*, byte>)At(7, 6); // 7   ms 6   bool IPhysicsObject::IsCollisionEnabled( void )
 
-    public delegate* unmanaged<void*, byte> IsGravityEnabled;             // 8   bool IPhysicsObject::IsGravityEnabled( void )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, byte> IsGravityEnabled => (delegate* unmanaged<void*, byte>)At(8, 7); // 8   ms 7   bool IPhysicsObject::IsGravityEnabled( void )
 
-    public delegate* unmanaged<void*, byte> IsDragEnabled;                // 9   bool IPhysicsObject::IsDragEnabled( void )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, byte> IsDragEnabled => (delegate* unmanaged<void*, byte>)At(9, 8); // 9   ms 8   bool IPhysicsObject::IsDragEnabled( void )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsMotionEnabled; // 10  bool IPhysicsObject::IsMotionEnabled( void )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsMotionEnabled => (delegate* unmanaged[SuppressGCTransition]<void*, byte>)At(10, 9); // 10  ms 9   bool IPhysicsObject::IsMotionEnabled( void )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsMoveable; // 11  bool IPhysicsObject::IsMoveable( void )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsMoveable => (delegate* unmanaged[SuppressGCTransition]<void*, byte>)At(11, 10); // 11  ms 10  bool IPhysicsObject::IsMoveable( void )
 
-    public delegate* unmanaged<void*, byte, byte> IsAttachedToConstraint; // 12  bool IPhysicsObject::IsAttachedToConstraint( bool )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, byte, byte> IsAttachedToConstraint => (delegate* unmanaged<void*, byte, byte>)At(12, 11); // 12  ms 11  bool IPhysicsObject::IsAttachedToConstraint( bool )
 
-    public delegate* unmanaged<void*, byte, void> EnableCollisions;       // 13  void IPhysicsObject::EnableCollisions( bool )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, byte, void> EnableCollisions => (delegate* unmanaged<void*, byte, void>)At(13, 12); // 13  ms 12  void IPhysicsObject::EnableCollisions( bool )
 
-    public delegate* unmanaged<void*, byte, void> EnableGravity;          // 14  void IPhysicsObject::EnableGravity( bool )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, byte, void> EnableGravity => (delegate* unmanaged<void*, byte, void>)At(14, 13); // 14  ms 13  void IPhysicsObject::EnableGravity( bool )
 
-    public delegate* unmanaged<void*, byte, void> EnableDrag;             // 15  void IPhysicsObject::EnableDrag( bool )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, byte, void> EnableDrag => (delegate* unmanaged<void*, byte, void>)At(15, 14); // 15  ms 14  void IPhysicsObject::EnableDrag( bool )
 
-    public delegate* unmanaged<void*, byte, void> EnableMotion;           // 16  void IPhysicsObject::EnableMotion( bool )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, byte, void> EnableMotion => (delegate* unmanaged<void*, byte, void>)At(16, 15); // 16  ms 15  void IPhysicsObject::EnableMotion( bool )
 
-    public delegate* unmanaged<void*, void*, void> SetGameData;           // 17  void IPhysicsObject::SetGameData( void * )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, void*, void> SetGameData => (delegate* unmanaged<void*, void*, void>)At(17, 16); // 17  ms 16  void IPhysicsObject::SetGameData( void * )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*> GetGameData; // 18  void * IPhysicsObject::GetGameData( void )
+    [VtableSlot(18, 17)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*> GetGameData => (delegate* unmanaged[SuppressGCTransition]<void*, void*>)At(18, 17); // 18  ms 17  void * IPhysicsObject::GetGameData( void )
 
-    public delegate* unmanaged<void*, ushort, void> SetGameFlags;         // 19  void IPhysicsObject::SetGameFlags( unsigned short )
+    [VtableSlot(19, 18)]
+    public delegate* unmanaged<void*, ushort, void> SetGameFlags => (delegate* unmanaged<void*, ushort, void>)At(19, 18); // 19  ms 18  void IPhysicsObject::SetGameFlags( unsigned short )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, ushort> GetGameFlags; // 20  unsigned short IPhysicsObject::GetGameFlags( void )
+    [VtableSlot(20, 19)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, ushort> GetGameFlags => (delegate* unmanaged[SuppressGCTransition]<void*, ushort>)At(20, 19); // 20  ms 19  unsigned short IPhysicsObject::GetGameFlags( void )
 
-    public delegate* unmanaged<void*, ushort, void> SetGameIndex;         // 21  void IPhysicsObject::SetGameIndex( unsigned short )
+    [VtableSlot(21, 20)]
+    public delegate* unmanaged<void*, ushort, void> SetGameIndex => (delegate* unmanaged<void*, ushort, void>)At(21, 20); // 21  ms 20  void IPhysicsObject::SetGameIndex( unsigned short )
 
-    public delegate* unmanaged<void*, ushort> GetGameIndex;               // 22  unsigned short IPhysicsObject::GetGameIndex( void )
+    [VtableSlot(22, 21)]
+    public delegate* unmanaged<void*, ushort> GetGameIndex => (delegate* unmanaged<void*, ushort>)At(22, 21); // 22  ms 21  unsigned short IPhysicsObject::GetGameIndex( void )
 
-    public delegate* unmanaged<void*, ushort, void> SetCallbackFlags;     // 23  void IPhysicsObject::SetCallbackFlags( unsigned short )
+    [VtableSlot(23, 22)]
+    public delegate* unmanaged<void*, ushort, void> SetCallbackFlags => (delegate* unmanaged<void*, ushort, void>)At(23, 22); // 23  ms 22  void IPhysicsObject::SetCallbackFlags( unsigned short )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, ushort> GetCallbackFlags; // 24  unsigned short IPhysicsObject::GetCallbackFlags( void )
+    [VtableSlot(24, 23)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, ushort> GetCallbackFlags => (delegate* unmanaged[SuppressGCTransition]<void*, ushort>)At(24, 23); // 24  ms 23  unsigned short IPhysicsObject::GetCallbackFlags( void )
 
-    public delegate* unmanaged<void*, void> Wake;                         // 25  void IPhysicsObject::Wake( void )
+    [VtableSlot(25, 24)]
+    public delegate* unmanaged<void*, void> Wake => (delegate* unmanaged<void*, void>)At(25, 24); // 25  ms 24  void IPhysicsObject::Wake( void )
 
-    public delegate* unmanaged<void*, void> Sleep;                        // 26  void IPhysicsObject::Sleep( void )
+    [VtableSlot(26, 25)]
+    public delegate* unmanaged<void*, void> Sleep => (delegate* unmanaged<void*, void>)At(26, 25); // 26  ms 25  void IPhysicsObject::Sleep( void )
 
-    public delegate* unmanaged<void*, void> RecheckCollisionFilter;       // 27  void IPhysicsObject::RecheckCollisionFilter( void )
+    [VtableSlot(27, 26)]
+    public delegate* unmanaged<void*, void> RecheckCollisionFilter => (delegate* unmanaged<void*, void>)At(27, 26); // 27  ms 26  void IPhysicsObject::RecheckCollisionFilter( void )
 
-    public delegate* unmanaged<void*, void> RecheckContactPoints;         // 28  void IPhysicsObject::RecheckContactPoints( void )
+    [VtableSlot(28, 27)]
+    public delegate* unmanaged<void*, void> RecheckContactPoints => (delegate* unmanaged<void*, void>)At(28, 27); // 28  ms 27  void IPhysicsObject::RecheckContactPoints( void )
 
-    public delegate* unmanaged<void*, float, void> SetMass;               // 29  void IPhysicsObject::SetMass( float )
+    [VtableSlot(29, 28)]
+    public delegate* unmanaged<void*, float, void> SetMass => (delegate* unmanaged<void*, float, void>)At(29, 28); // 29  ms 28  void IPhysicsObject::SetMass( float )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, float> GetMass; // 30  float IPhysicsObject::GetMass( void )
+    [VtableSlot(30, 29)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, float> GetMass => (delegate* unmanaged[SuppressGCTransition]<void*, float>)At(30, 29); // 30  ms 29  float IPhysicsObject::GetMass( void )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, float> GetInvMass; // 31  float IPhysicsObject::GetInvMass( void )
+    [VtableSlot(31, 30)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, float> GetInvMass => (delegate* unmanaged[SuppressGCTransition]<void*, float>)At(31, 30); // 31  ms 30  float IPhysicsObject::GetInvMass( void )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, Vector> GetInertia; // 32  Vector IPhysicsObject::GetInertia( void )
+    [VtableSlot(32, 31)]
+    public delegate* unmanaged[SuppressGCTransition, MemberFunction]<void*, Vector> GetInertia => (delegate* unmanaged[SuppressGCTransition, MemberFunction]<void*, Vector>)At(32, 31); // 32  ms 31  Vector IPhysicsObject::GetInertia( void )
 
-    public delegate* unmanaged<void*, Vector> GetInvInertia;              // 33  Vector IPhysicsObject::GetInvInertia( void )
+    [VtableSlot(33, 32)]
+    public delegate* unmanaged[MemberFunction]<void*, Vector> GetInvInertia => (delegate* unmanaged[MemberFunction]<void*, Vector>)At(33, 32); // 33  ms 32  Vector IPhysicsObject::GetInvInertia( void )
 
-    public delegate* unmanaged<void*, void*, void> SetInertia;            // 34  void IPhysicsObject::SetInertia( const Vector & )
+    [VtableSlot(34, 33)]
+    public delegate* unmanaged<void*, void*, void> SetInertia => (delegate* unmanaged<void*, void*, void>)At(34, 33); // 34  ms 33  void IPhysicsObject::SetInertia( const Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void> SetDamping;     // 35  void IPhysicsObject::SetDamping( const float *, const float * )
+    [VtableSlot(35, 34)]
+    public delegate* unmanaged<void*, void*, void*, void> SetDamping => (delegate* unmanaged<void*, void*, void*, void>)At(35, 34); // 35  ms 34  void IPhysicsObject::SetDamping( const float *, const float * )
 
-    public delegate* unmanaged<void*, void*, void*, void> GetDamping;     // 36  void IPhysicsObject::GetDamping( float *, float * )
+    [VtableSlot(36, 35)]
+    public delegate* unmanaged<void*, void*, void*, void> GetDamping => (delegate* unmanaged<void*, void*, void*, void>)At(36, 35); // 36  ms 35  void IPhysicsObject::GetDamping( float *, float * )
 
-    public delegate* unmanaged<void*, void*, void*, void> SetDragCoefficient; // 37  void IPhysicsObject::SetDragCoefficient( float *, float * )
+    [VtableSlot(37, 36)]
+    public delegate* unmanaged<void*, void*, void*, void> SetDragCoefficient => (delegate* unmanaged<void*, void*, void*, void>)At(37, 36); // 37  ms 36  void IPhysicsObject::SetDragCoefficient( float *, float * )
 
-    public delegate* unmanaged<void*, float, void> SetBuoyancyRatio;      // 38  void IPhysicsObject::SetBuoyancyRatio( float )
+    [VtableSlot(38, 37)]
+    public delegate* unmanaged<void*, float, void> SetBuoyancyRatio => (delegate* unmanaged<void*, float, void>)At(38, 37); // 38  ms 37  void IPhysicsObject::SetBuoyancyRatio( float )
 
-    public delegate* unmanaged<void*, int> GetMaterialIndex;              // 39  int IPhysicsObject::GetMaterialIndex( void )
+    [VtableSlot(39, 38)]
+    public delegate* unmanaged<void*, int> GetMaterialIndex => (delegate* unmanaged<void*, int>)At(39, 38); // 39  ms 38  int IPhysicsObject::GetMaterialIndex( void )
 
-    public delegate* unmanaged<void*, int, void> SetMaterialIndex;        // 40  void IPhysicsObject::SetMaterialIndex( int )
+    [VtableSlot(40, 39)]
+    public delegate* unmanaged<void*, int, void> SetMaterialIndex => (delegate* unmanaged<void*, int, void>)At(40, 39); // 40  ms 39  void IPhysicsObject::SetMaterialIndex( int )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, uint> GetContents; // 41  unsigned int IPhysicsObject::GetContents( void )
+    [VtableSlot(41, 40)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, uint> GetContents => (delegate* unmanaged[SuppressGCTransition]<void*, uint>)At(41, 40); // 41  ms 40  unsigned int IPhysicsObject::GetContents( void )
 
-    public delegate* unmanaged<void*, uint, void> SetContents;            // 42  void IPhysicsObject::SetContents( unsigned int )
+    [VtableSlot(42, 41)]
+    public delegate* unmanaged<void*, uint, void> SetContents => (delegate* unmanaged<void*, uint, void>)At(42, 41); // 42  ms 41  void IPhysicsObject::SetContents( unsigned int )
 
-    public delegate* unmanaged<void*, float> GetSphereRadius;             // 43  float IPhysicsObject::GetSphereRadius( void )
+    [VtableSlot(43, 42)]
+    public delegate* unmanaged<void*, float> GetSphereRadius => (delegate* unmanaged<void*, float>)At(43, 42); // 43  ms 42  float IPhysicsObject::GetSphereRadius( void )
 
-    public delegate* unmanaged<void*, float> GetEnergy;                   // 44  float IPhysicsObject::GetEnergy( void )
+    [VtableSlot(44, 43)]
+    public delegate* unmanaged<void*, float> GetEnergy => (delegate* unmanaged<void*, float>)At(44, 43); // 44  ms 43  float IPhysicsObject::GetEnergy( void )
 
-    public delegate* unmanaged<void*, Vector> GetMassCenterLocalSpace;    // 45  Vector IPhysicsObject::GetMassCenterLocalSpace( void )
+    [VtableSlot(45, 44)]
+    public delegate* unmanaged[MemberFunction]<void*, Vector> GetMassCenterLocalSpace => (delegate* unmanaged[MemberFunction]<void*, Vector>)At(45, 44); // 45  ms 44  Vector IPhysicsObject::GetMassCenterLocalSpace( void )
 
-    public delegate* unmanaged<void*, void*, void*, byte, void> SetPosition; // 46  void IPhysicsObject::SetPosition( const Vector &, const QAngle &, bool )
+    [VtableSlot(46, 45)]
+    public delegate* unmanaged<void*, void*, void*, byte, void> SetPosition => (delegate* unmanaged<void*, void*, void*, byte, void>)At(46, 45); // 46  ms 45  void IPhysicsObject::SetPosition( const Vector &, const QAngle &, bool )
 
-    public delegate* unmanaged<void*, void*, byte, void> SetPositionMatrix; // 47  void IPhysicsObject::SetPositionMatrix( const matrix3x4_t &, bool )
+    [VtableSlot(47, 46)]
+    public delegate* unmanaged<void*, void*, byte, void> SetPositionMatrix => (delegate* unmanaged<void*, void*, byte, void>)At(47, 46); // 47  ms 46  void IPhysicsObject::SetPositionMatrix( const matrix3x4_t &, bool )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> GetPosition; // 48  void IPhysicsObject::GetPosition( Vector *, QAngle * )
+    [VtableSlot(48, 47)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> GetPosition => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void>)At(48, 47); // 48  ms 47  void IPhysicsObject::GetPosition( Vector *, QAngle * )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void> GetPositionMatrix; // 49  void IPhysicsObject::GetPositionMatrix( matrix3x4_t * )
+    [VtableSlot(49, 48)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void> GetPositionMatrix => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void>)At(49, 48); // 49  ms 48  void IPhysicsObject::GetPositionMatrix( matrix3x4_t * )
 
-    public delegate* unmanaged<void*, void*, void*, void> SetVelocity;    // 50  void IPhysicsObject::SetVelocity( const Vector *, const AngularImpulse * )
+    [VtableSlot(50, 49)]
+    public delegate* unmanaged<void*, void*, void*, void> SetVelocity => (delegate* unmanaged<void*, void*, void*, void>)At(50, 49); // 50  ms 49  void IPhysicsObject::SetVelocity( const Vector *, const AngularImpulse * )
 
-    public delegate* unmanaged<void*, void*, void*, void> SetVelocityInstantaneous; // 51  void IPhysicsObject::SetVelocityInstantaneous( const Vector *, const AngularImpulse * )
+    [VtableSlot(51, 50)]
+    public delegate* unmanaged<void*, void*, void*, void> SetVelocityInstantaneous => (delegate* unmanaged<void*, void*, void*, void>)At(51, 50); // 51  ms 50  void IPhysicsObject::SetVelocityInstantaneous( const Vector *, const AngularImpulse * )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> GetVelocity; // 52  void IPhysicsObject::GetVelocity( Vector *, AngularImpulse * )
+    [VtableSlot(52, 51)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> GetVelocity => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void>)At(52, 51); // 52  ms 51  void IPhysicsObject::GetVelocity( Vector *, AngularImpulse * )
 
-    public delegate* unmanaged<void*, void*, void*, void> AddVelocity;    // 53  void IPhysicsObject::AddVelocity( const Vector *, const AngularImpulse * )
+    [VtableSlot(53, 52)]
+    public delegate* unmanaged<void*, void*, void*, void> AddVelocity => (delegate* unmanaged<void*, void*, void*, void>)At(53, 52); // 53  ms 52  void IPhysicsObject::AddVelocity( const Vector *, const AngularImpulse * )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> GetVelocityAtPoint; // 54  void IPhysicsObject::GetVelocityAtPoint( const Vector &, Vector * )
+    [VtableSlot(54, 53)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> GetVelocityAtPoint => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void>)At(54, 53); // 54  ms 53  void IPhysicsObject::GetVelocityAtPoint( const Vector &, Vector * )
 
-    public delegate* unmanaged<void*, void*, void*, void> GetImplicitVelocity; // 55  void IPhysicsObject::GetImplicitVelocity( Vector *, AngularImpulse * )
+    [VtableSlot(55, 54)]
+    public delegate* unmanaged<void*, void*, void*, void> GetImplicitVelocity => (delegate* unmanaged<void*, void*, void*, void>)At(55, 54); // 55  ms 54  void IPhysicsObject::GetImplicitVelocity( Vector *, AngularImpulse * )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> LocalToWorld; // 56  void IPhysicsObject::LocalToWorld( Vector *, const Vector & )
+    [VtableSlot(56, 55)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> LocalToWorld => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void>)At(56, 55); // 56  ms 55  void IPhysicsObject::LocalToWorld( Vector *, const Vector & )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> WorldToLocal; // 57  void IPhysicsObject::WorldToLocal( Vector *, const Vector & )
+    [VtableSlot(57, 56)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> WorldToLocal => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void>)At(57, 56); // 57  ms 56  void IPhysicsObject::WorldToLocal( Vector *, const Vector & )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> LocalToWorldVector; // 58  void IPhysicsObject::LocalToWorldVector( Vector *, const Vector & )
+    [VtableSlot(58, 57)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> LocalToWorldVector => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void>)At(58, 57); // 58  ms 57  void IPhysicsObject::LocalToWorldVector( Vector *, const Vector & )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> WorldToLocalVector; // 59  void IPhysicsObject::WorldToLocalVector( Vector *, const Vector & )
+    [VtableSlot(59, 58)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void> WorldToLocalVector => (delegate* unmanaged[SuppressGCTransition]<void*, void*, void*, void>)At(59, 58); // 59  ms 58  void IPhysicsObject::WorldToLocalVector( Vector *, const Vector & )
 
-    public delegate* unmanaged<void*, void*, void> ApplyForceCenter;      // 60  void IPhysicsObject::ApplyForceCenter( const Vector & )
+    [VtableSlot(60, 59)]
+    public delegate* unmanaged<void*, void*, void> ApplyForceCenter => (delegate* unmanaged<void*, void*, void>)At(60, 59); // 60  ms 59  void IPhysicsObject::ApplyForceCenter( const Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, void> ApplyForceOffset; // 61  void IPhysicsObject::ApplyForceOffset( const Vector &, const Vector & )
+    [VtableSlot(61, 60)]
+    public delegate* unmanaged<void*, void*, void*, void> ApplyForceOffset => (delegate* unmanaged<void*, void*, void*, void>)At(61, 60); // 61  ms 60  void IPhysicsObject::ApplyForceOffset( const Vector &, const Vector & )
 
-    public delegate* unmanaged<void*, void*, void> ApplyTorqueCenter;     // 62  void IPhysicsObject::ApplyTorqueCenter( const AngularImpulse & )
+    [VtableSlot(62, 61)]
+    public delegate* unmanaged<void*, void*, void> ApplyTorqueCenter => (delegate* unmanaged<void*, void*, void>)At(62, 61); // 62  ms 61  void IPhysicsObject::ApplyTorqueCenter( const AngularImpulse & )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void> CalculateForceOffset; // 63  void IPhysicsObject::CalculateForceOffset( const Vector &, const Vector &, Vector *, AngularImpulse * )
+    [VtableSlot(63, 62)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void> CalculateForceOffset => (delegate* unmanaged<void*, void*, void*, void*, void*, void>)At(63, 62); // 63  ms 62  void IPhysicsObject::CalculateForceOffset( const Vector &, const Vector &, Vector *, AngularImpulse * )
 
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void> CalculateVelocityOffset; // 64  void IPhysicsObject::CalculateVelocityOffset( const Vector &, const Vector &, Vector *, AngularImpulse * )
+    [VtableSlot(64, 63)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, void> CalculateVelocityOffset => (delegate* unmanaged<void*, void*, void*, void*, void*, void>)At(64, 63); // 64  ms 63  void IPhysicsObject::CalculateVelocityOffset( const Vector &, const Vector &, Vector *, AngularImpulse * )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, float> CalculateLinearDrag; // 65  float IPhysicsObject::CalculateLinearDrag( const Vector & )
+    [VtableSlot(65, 64)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, float> CalculateLinearDrag => (delegate* unmanaged[SuppressGCTransition]<void*, void*, float>)At(65, 64); // 65  ms 64  float IPhysicsObject::CalculateLinearDrag( const Vector & )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*, float> CalculateAngularDrag; // 66  float IPhysicsObject::CalculateAngularDrag( const Vector & )
+    [VtableSlot(66, 65)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*, float> CalculateAngularDrag => (delegate* unmanaged[SuppressGCTransition]<void*, void*, float>)At(66, 65); // 66  ms 65  float IPhysicsObject::CalculateAngularDrag( const Vector & )
 
-    public delegate* unmanaged<void*, void*, void*, byte> GetContactPoint; // 67  bool IPhysicsObject::GetContactPoint( Vector *, IPhysicsObject * * )
+    [VtableSlot(67, 66)]
+    public delegate* unmanaged<void*, void*, void*, byte> GetContactPoint => (delegate* unmanaged<void*, void*, void*, byte>)At(67, 66); // 67  ms 66  bool IPhysicsObject::GetContactPoint( Vector *, IPhysicsObject * * )
 
-    public delegate* unmanaged<void*, float, float, byte, byte, void> SetShadow; // 68  void IPhysicsObject::SetShadow( float, float, bool, bool )
+    [VtableSlot(68, 67)]
+    public delegate* unmanaged<void*, float, float, byte, byte, void> SetShadow => (delegate* unmanaged<void*, float, float, byte, byte, void>)At(68, 67); // 68  ms 67  void IPhysicsObject::SetShadow( float, float, bool, bool )
 
-    public delegate* unmanaged<void*, void*, void*, byte, float, void> UpdateShadow; // 69  void IPhysicsObject::UpdateShadow( const Vector &, const QAngle &, bool, float )
+    [VtableSlot(69, 68)]
+    public delegate* unmanaged<void*, void*, void*, byte, float, void> UpdateShadow => (delegate* unmanaged<void*, void*, void*, byte, float, void>)At(69, 68); // 69  ms 68  void IPhysicsObject::UpdateShadow( const Vector &, const QAngle &, bool, float )
 
-    public delegate* unmanaged<void*, void*, void*, int> GetShadowPosition; // 70  int IPhysicsObject::GetShadowPosition( Vector *, QAngle * )
+    [VtableSlot(70, 69)]
+    public delegate* unmanaged<void*, void*, void*, int> GetShadowPosition => (delegate* unmanaged<void*, void*, void*, int>)At(70, 69); // 70  ms 69  int IPhysicsObject::GetShadowPosition( Vector *, QAngle * )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*> GetShadowController; // 71  IPhysicsShadowController * IPhysicsObject::GetShadowController( void )
+    [VtableSlot(71, 70)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*> GetShadowController => (delegate* unmanaged[SuppressGCTransition]<void*, void*>)At(71, 70); // 71  ms 70  IPhysicsShadowController * IPhysicsObject::GetShadowController( void )
 
-    public delegate* unmanaged<void*, void> RemoveShadowController;       // 72  void IPhysicsObject::RemoveShadowController( void )
+    [VtableSlot(72, 71)]
+    public delegate* unmanaged<void*, void> RemoveShadowController => (delegate* unmanaged<void*, void>)At(72, 71); // 72  ms 71  void IPhysicsObject::RemoveShadowController( void )
 
-    public delegate* unmanaged<void*, void*, float, float, float> ComputeShadowControl; // 73  float IPhysicsObject::ComputeShadowControl( const hlshadowcontrol_params_t &, float, float )
+    [VtableSlot(73, 72)]
+    public delegate* unmanaged<void*, void*, float, float, float> ComputeShadowControl => (delegate* unmanaged<void*, void*, float, float, float>)At(73, 72); // 73  ms 72  float IPhysicsObject::ComputeShadowControl( const hlshadowcontrol_params_t &, float, float )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, void*> GetCollide; // 74  const CPhysCollide * IPhysicsObject::GetCollide( void )
+    [VtableSlot(74, 73)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, void*> GetCollide => (delegate* unmanaged[SuppressGCTransition]<void*, void*>)At(74, 73); // 74  ms 73  const CPhysCollide * IPhysicsObject::GetCollide( void )
 
-    public delegate* unmanaged<void*, byte*> GetName;                     // 75  const char * IPhysicsObject::GetName( void )
+    [VtableSlot(75, 74)]
+    public delegate* unmanaged<void*, byte*> GetName => (delegate* unmanaged<void*, byte*>)At(75, 74); // 75  ms 74  const char * IPhysicsObject::GetName( void )
 
-    public delegate* unmanaged<void*, void> BecomeTrigger;                // 76  void IPhysicsObject::BecomeTrigger( void )
+    [VtableSlot(76, 75)]
+    public delegate* unmanaged<void*, void> BecomeTrigger => (delegate* unmanaged<void*, void>)At(76, 75); // 76  ms 75  void IPhysicsObject::BecomeTrigger( void )
 
-    public delegate* unmanaged<void*, void> RemoveTrigger;                // 77  void IPhysicsObject::RemoveTrigger( void )
+    [VtableSlot(77, 76)]
+    public delegate* unmanaged<void*, void> RemoveTrigger => (delegate* unmanaged<void*, void>)At(77, 76); // 77  ms 76  void IPhysicsObject::RemoveTrigger( void )
 
-    public delegate* unmanaged<void*, int, void> BecomeHinged;            // 78  void IPhysicsObject::BecomeHinged( int )
+    [VtableSlot(78, 77)]
+    public delegate* unmanaged<void*, int, void> BecomeHinged => (delegate* unmanaged<void*, int, void>)At(78, 77); // 78  ms 77  void IPhysicsObject::BecomeHinged( int )
 
-    public delegate* unmanaged<void*, void> RemoveHinged;                 // 79  void IPhysicsObject::RemoveHinged( void )
+    [VtableSlot(79, 78)]
+    public delegate* unmanaged<void*, void> RemoveHinged => (delegate* unmanaged<void*, void>)At(79, 78); // 79  ms 78  void IPhysicsObject::RemoveHinged( void )
 
-    public delegate* unmanaged<void*, void*> CreateFrictionSnapshot;      // 80  IPhysicsFrictionSnapshot * IPhysicsObject::CreateFrictionSnapshot( void )
+    [VtableSlot(80, 79)]
+    public delegate* unmanaged<void*, void*> CreateFrictionSnapshot => (delegate* unmanaged<void*, void*>)At(80, 79); // 80  ms 79  IPhysicsFrictionSnapshot * IPhysicsObject::CreateFrictionSnapshot( void )
 
-    public delegate* unmanaged<void*, void*, void> DestroyFrictionSnapshot; // 81  void IPhysicsObject::DestroyFrictionSnapshot( IPhysicsFrictionSnapshot * )
+    [VtableSlot(81, 80)]
+    public delegate* unmanaged<void*, void*, void> DestroyFrictionSnapshot => (delegate* unmanaged<void*, void*, void>)At(81, 80); // 81  ms 80  void IPhysicsObject::DestroyFrictionSnapshot( IPhysicsFrictionSnapshot * )
 
-    public delegate* unmanaged<void*, void> OutputDebugInfo;              // 82  void IPhysicsObject::OutputDebugInfo( void )
+    [VtableSlot(82, 81)]
+    public delegate* unmanaged<void*, void> OutputDebugInfo => (delegate* unmanaged<void*, void>)At(82, 81); // 82  ms 81  void IPhysicsObject::OutputDebugInfo( void )
 
-    public delegate* unmanaged<void*, float> GetBuoyancyRatio;            // 83  float IPhysicsObject::GetBuoyancyRatio( void )
+    [VtableSlot(83, 82)]
+    public delegate* unmanaged<void*, float> GetBuoyancyRatio => (delegate* unmanaged<void*, float>)At(83, 82); // 83  ms 82  float IPhysicsObject::GetBuoyancyRatio( void )
 }
 
 /// <summary>
@@ -3891,45 +5002,81 @@ internal unsafe struct PhysicsObjectVtbl
 /// vtable_index_agreement_test holds it to the header (plan_physics_managed
 /// B0).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 15 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsShadowControllerVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 15;
+
+    private fixed long _slots[16];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                             // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                             // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, void*, float, void> Update; // 2   void IPhysicsShadowController::Update( const Vector &, const QAngle &, float )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void*, void*, float, void> Update => (delegate* unmanaged<void*, void*, void*, float, void>)At(2, 1); // 2   ms 1   void IPhysicsShadowController::Update( const Vector &, const QAngle &, float )
 
-    public delegate* unmanaged<void*, float, float, void> MaxSpeed;      // 3   void IPhysicsShadowController::MaxSpeed( float, float )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, float, float, void> MaxSpeed => (delegate* unmanaged<void*, float, float, void>)At(3, 2); // 3   ms 2   void IPhysicsShadowController::MaxSpeed( float, float )
 
-    public delegate* unmanaged<void*, float, void> StepUp;               // 4   void IPhysicsShadowController::StepUp( float )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, float, void> StepUp => (delegate* unmanaged<void*, float, void>)At(4, 3); // 4   ms 3   void IPhysicsShadowController::StepUp( float )
 
-    public delegate* unmanaged<void*, float, void> SetTeleportDistance;  // 5   void IPhysicsShadowController::SetTeleportDistance( float )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, float, void> SetTeleportDistance => (delegate* unmanaged<void*, float, void>)At(5, 4); // 5   ms 4   void IPhysicsShadowController::SetTeleportDistance( float )
 
-    public delegate* unmanaged<void*, byte> AllowsTranslation;           // 6   bool IPhysicsShadowController::AllowsTranslation( void )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, byte> AllowsTranslation => (delegate* unmanaged<void*, byte>)At(6, 5); // 6   ms 5   bool IPhysicsShadowController::AllowsTranslation( void )
 
-    public delegate* unmanaged<void*, byte> AllowsRotation;              // 7   bool IPhysicsShadowController::AllowsRotation( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, byte> AllowsRotation => (delegate* unmanaged<void*, byte>)At(7, 6); // 7   ms 6   bool IPhysicsShadowController::AllowsRotation( void )
 
-    public delegate* unmanaged<void*, byte, void> SetPhysicallyControlled; // 8   void IPhysicsShadowController::SetPhysicallyControlled( bool )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, byte, void> SetPhysicallyControlled => (delegate* unmanaged<void*, byte, void>)At(8, 7); // 8   ms 7   void IPhysicsShadowController::SetPhysicallyControlled( bool )
 
-    public delegate* unmanaged<void*, byte> IsPhysicallyControlled;      // 9   bool IPhysicsShadowController::IsPhysicallyControlled( void )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, byte> IsPhysicallyControlled => (delegate* unmanaged<void*, byte>)At(9, 8); // 9   ms 8   bool IPhysicsShadowController::IsPhysicallyControlled( void )
 
-    public delegate* unmanaged<void*, void*, void> GetLastImpulse;       // 10  void IPhysicsShadowController::GetLastImpulse( Vector * )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, void> GetLastImpulse => (delegate* unmanaged<void*, void*, void>)At(10, 9); // 10  ms 9   void IPhysicsShadowController::GetLastImpulse( Vector * )
 
-    public delegate* unmanaged<void*, byte, void> UseShadowMaterial;     // 11  void IPhysicsShadowController::UseShadowMaterial( bool )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, byte, void> UseShadowMaterial => (delegate* unmanaged<void*, byte, void>)At(11, 10); // 11  ms 10  void IPhysicsShadowController::UseShadowMaterial( bool )
 
-    public delegate* unmanaged<void*, int, void> ObjectMaterialChanged;  // 12  void IPhysicsShadowController::ObjectMaterialChanged( int )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, int, void> ObjectMaterialChanged => (delegate* unmanaged<void*, int, void>)At(12, 11); // 12  ms 11  void IPhysicsShadowController::ObjectMaterialChanged( int )
 
-    public delegate* unmanaged<void*, void*, void*, float> GetTargetPosition; // 13  float IPhysicsShadowController::GetTargetPosition( Vector *, QAngle * )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void*, void*, float> GetTargetPosition => (delegate* unmanaged<void*, void*, void*, float>)At(13, 12); // 13  ms 12  float IPhysicsShadowController::GetTargetPosition( Vector *, QAngle * )
 
-    public delegate* unmanaged<void*, float> GetTeleportDistance;        // 14  float IPhysicsShadowController::GetTeleportDistance( void )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, float> GetTeleportDistance => (delegate* unmanaged<void*, float>)At(14, 13); // 14  ms 13  float IPhysicsShadowController::GetTeleportDistance( void )
 
-    public delegate* unmanaged<void*, void*, void*, void> GetMaxSpeed;   // 15  void IPhysicsShadowController::GetMaxSpeed( float *, float * )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, void*, void*, void> GetMaxSpeed => (delegate* unmanaged<void*, void*, void*, void>)At(15, 14); // 15  ms 14  void IPhysicsShadowController::GetMaxSpeed( float *, float * )
 }
 
 /// <summary>
@@ -3946,33 +5093,63 @@ internal unsafe struct PhysicsShadowControllerVtbl
 /// vtable_index_agreement_test holds it to the header (plan_physics_managed
 /// B0).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 9 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsMotionControllerVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 9;
+
+    private fixed long _slots[10];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                           // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                           // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, void> SetEventHandler;    // 2   void IPhysicsMotionController::SetEventHandler( IMotionEvent * )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void*, void> SetEventHandler => (delegate* unmanaged<void*, void*, void>)At(2, 1); // 2   ms 1   void IPhysicsMotionController::SetEventHandler( IMotionEvent * )
 
-    public delegate* unmanaged<void*, void*, byte, void> AttachObject; // 3   void IPhysicsMotionController::AttachObject( IPhysicsObject *, bool )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void*, byte, void> AttachObject => (delegate* unmanaged<void*, void*, byte, void>)At(3, 2); // 3   ms 2   void IPhysicsMotionController::AttachObject( IPhysicsObject *, bool )
 
-    public delegate* unmanaged<void*, void*, void> DetachObject;       // 4   void IPhysicsMotionController::DetachObject( IPhysicsObject * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, void> DetachObject => (delegate* unmanaged<void*, void*, void>)At(4, 3); // 4   ms 3   void IPhysicsMotionController::DetachObject( IPhysicsObject * )
 
-    public delegate* unmanaged<void*, int> CountObjects;               // 5   int IPhysicsMotionController::CountObjects( void )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, int> CountObjects => (delegate* unmanaged<void*, int>)At(5, 4); // 5   ms 4   int IPhysicsMotionController::CountObjects( void )
 
-    public delegate* unmanaged<void*, void*, void> GetObjects;         // 6   void IPhysicsMotionController::GetObjects( IPhysicsObject * * )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*, void> GetObjects => (delegate* unmanaged<void*, void*, void>)At(6, 5); // 6   ms 5   void IPhysicsMotionController::GetObjects( IPhysicsObject * * )
 
-    public delegate* unmanaged<void*, void> ClearObjects;              // 7   void IPhysicsMotionController::ClearObjects( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void> ClearObjects => (delegate* unmanaged<void*, void>)At(7, 6); // 7   ms 6   void IPhysicsMotionController::ClearObjects( void )
 
-    public delegate* unmanaged<void*, void> WakeObjects;               // 8   void IPhysicsMotionController::WakeObjects( void )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void> WakeObjects => (delegate* unmanaged<void*, void>)At(8, 7); // 8   ms 7   void IPhysicsMotionController::WakeObjects( void )
 
-    public delegate* unmanaged<void*, int, void> SetPriority;          // 9   void IPhysicsMotionController::SetPriority( priority_t )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, int, void> SetPriority => (delegate* unmanaged<void*, int, void>)At(9, 8); // 9   ms 8   void IPhysicsMotionController::SetPriority( priority_t )
 }
 
 /// <summary>
@@ -3989,43 +5166,78 @@ internal unsafe struct PhysicsMotionControllerVtbl
 /// vtable_index_agreement_test holds it to the header (plan_physics_managed
 /// B0).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 14 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsFrictionSnapshotVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 14;
+
+    private fixed long _slots[15];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                         // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                         // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, byte> IsValid;                 // 2   bool IPhysicsFrictionSnapshot::IsValid( void )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, byte> IsValid => (delegate* unmanaged<void*, byte>)At(2, 1); // 2   ms 1   bool IPhysicsFrictionSnapshot::IsValid( void )
 
-    public delegate* unmanaged<void*, int, void*> GetObject;         // 3   IPhysicsObject * IPhysicsFrictionSnapshot::GetObject( int )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, int, void*> GetObject => (delegate* unmanaged<void*, int, void*>)At(3, 2); // 3   ms 2   IPhysicsObject * IPhysicsFrictionSnapshot::GetObject( int )
 
-    public delegate* unmanaged<void*, int, int> GetMaterial;         // 4   int IPhysicsFrictionSnapshot::GetMaterial( int )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, int, int> GetMaterial => (delegate* unmanaged<void*, int, int>)At(4, 3); // 4   ms 3   int IPhysicsFrictionSnapshot::GetMaterial( int )
 
-    public delegate* unmanaged<void*, void*, void> GetContactPoint;  // 5   void IPhysicsFrictionSnapshot::GetContactPoint( Vector & )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, void> GetContactPoint => (delegate* unmanaged<void*, void*, void>)At(5, 4); // 5   ms 4   void IPhysicsFrictionSnapshot::GetContactPoint( Vector & )
 
-    public delegate* unmanaged<void*, void*, void> GetSurfaceNormal; // 6   void IPhysicsFrictionSnapshot::GetSurfaceNormal( Vector & )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*, void> GetSurfaceNormal => (delegate* unmanaged<void*, void*, void>)At(6, 5); // 6   ms 5   void IPhysicsFrictionSnapshot::GetSurfaceNormal( Vector & )
 
-    public delegate* unmanaged<void*, float> GetNormalForce;         // 7   float IPhysicsFrictionSnapshot::GetNormalForce( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, float> GetNormalForce => (delegate* unmanaged<void*, float>)At(7, 6); // 7   ms 6   float IPhysicsFrictionSnapshot::GetNormalForce( void )
 
-    public delegate* unmanaged<void*, float> GetEnergyAbsorbed;      // 8   float IPhysicsFrictionSnapshot::GetEnergyAbsorbed( void )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, float> GetEnergyAbsorbed => (delegate* unmanaged<void*, float>)At(8, 7); // 8   ms 7   float IPhysicsFrictionSnapshot::GetEnergyAbsorbed( void )
 
-    public delegate* unmanaged<void*, void> RecomputeFriction;       // 9   void IPhysicsFrictionSnapshot::RecomputeFriction( void )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void> RecomputeFriction => (delegate* unmanaged<void*, void>)At(9, 8); // 9   ms 8   void IPhysicsFrictionSnapshot::RecomputeFriction( void )
 
-    public delegate* unmanaged<void*, void> ClearFrictionForce;      // 10  void IPhysicsFrictionSnapshot::ClearFrictionForce( void )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void> ClearFrictionForce => (delegate* unmanaged<void*, void>)At(10, 9); // 10  ms 9   void IPhysicsFrictionSnapshot::ClearFrictionForce( void )
 
-    public delegate* unmanaged<void*, void> MarkContactForDelete;    // 11  void IPhysicsFrictionSnapshot::MarkContactForDelete( void )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void> MarkContactForDelete => (delegate* unmanaged<void*, void>)At(11, 10); // 11  ms 10  void IPhysicsFrictionSnapshot::MarkContactForDelete( void )
 
-    public delegate* unmanaged<void*, byte, void> DeleteAllMarkedContacts; // 12  void IPhysicsFrictionSnapshot::DeleteAllMarkedContacts( bool )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, byte, void> DeleteAllMarkedContacts => (delegate* unmanaged<void*, byte, void>)At(12, 11); // 12  ms 11  void IPhysicsFrictionSnapshot::DeleteAllMarkedContacts( bool )
 
-    public delegate* unmanaged<void*, void> NextFrictionData;        // 13  void IPhysicsFrictionSnapshot::NextFrictionData( void )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void> NextFrictionData => (delegate* unmanaged<void*, void>)At(13, 12); // 13  ms 12  void IPhysicsFrictionSnapshot::NextFrictionData( void )
 
-    public delegate* unmanaged<void*, float> GetFrictionCoefficient; // 14  float IPhysicsFrictionSnapshot::GetFrictionCoefficient( void )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, float> GetFrictionCoefficient => (delegate* unmanaged<void*, float>)At(14, 13); // 14  ms 13  float IPhysicsFrictionSnapshot::GetFrictionCoefficient( void )
 }
 
 /// <summary>
@@ -4042,29 +5254,57 @@ internal unsafe struct PhysicsFrictionSnapshotVtbl
 /// vtable_index_agreement_test holds it to the header (plan_physics_managed
 /// B2.2, the fluid slots).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 7 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsFluidControllerVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 7;
+
+    private fixed long _slots[8];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                        // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                        // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, void> SetGameData;     // 2   void IPhysicsFluidController::SetGameData( void * )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void*, void> SetGameData => (delegate* unmanaged<void*, void*, void>)At(2, 1); // 2   ms 1   void IPhysicsFluidController::SetGameData( void * )
 
-    public delegate* unmanaged<void*, void*> GetGameData;           // 3   void * IPhysicsFluidController::GetGameData( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void*> GetGameData => (delegate* unmanaged<void*, void*>)At(3, 2); // 3   ms 2   void * IPhysicsFluidController::GetGameData( void )
 
-    public delegate* unmanaged<void*, void*, void*, void> GetSurfacePlane; // 4   void IPhysicsFluidController::GetSurfacePlane( Vector *, float * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, void*, void> GetSurfacePlane => (delegate* unmanaged<void*, void*, void*, void>)At(4, 3); // 4   ms 3   void IPhysicsFluidController::GetSurfacePlane( Vector *, float * )
 
-    public delegate* unmanaged<void*, float> GetDensity;            // 5   float IPhysicsFluidController::GetDensity( void )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, float> GetDensity => (delegate* unmanaged<void*, float>)At(5, 4); // 5   ms 4   float IPhysicsFluidController::GetDensity( void )
 
-    public delegate* unmanaged<void*, void> WakeAllSleepingObjects; // 6   void IPhysicsFluidController::WakeAllSleepingObjects( void )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void> WakeAllSleepingObjects => (delegate* unmanaged<void*, void>)At(6, 5); // 6   ms 5   void IPhysicsFluidController::WakeAllSleepingObjects( void )
 
-    public delegate* unmanaged<void*, int> GetContents;             // 7   int IPhysicsFluidController::GetContents( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, int> GetContents => (delegate* unmanaged<void*, int>)At(7, 6); // 7   ms 6   int IPhysicsFluidController::GetContents( void )
 }
 
 /// <summary>
@@ -4081,41 +5321,75 @@ internal unsafe struct PhysicsFluidControllerVtbl
 /// vtable_index_agreement_test holds it to the header
 /// (plan_physics_bones_native_zero 2.4, the managed constraint table).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 13 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsConstraintVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 13;
+
+    private fixed long _slots[14];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                              // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                              // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void> Activate;                     // 2   void IPhysicsConstraint::Activate( void )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void> Activate => (delegate* unmanaged<void*, void>)At(2, 1); // 2   ms 1   void IPhysicsConstraint::Activate( void )
 
-    public delegate* unmanaged<void*, void> Deactivate;                   // 3   void IPhysicsConstraint::Deactivate( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void> Deactivate => (delegate* unmanaged<void*, void>)At(3, 2); // 3   ms 2   void IPhysicsConstraint::Deactivate( void )
 
-    public delegate* unmanaged<void*, void*, void> SetGameData;           // 4   void IPhysicsConstraint::SetGameData( void * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, void> SetGameData => (delegate* unmanaged<void*, void*, void>)At(4, 3); // 4   ms 3   void IPhysicsConstraint::SetGameData( void * )
 
-    public delegate* unmanaged<void*, void*> GetGameData;                 // 5   void * IPhysicsConstraint::GetGameData( void )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*> GetGameData => (delegate* unmanaged<void*, void*>)At(5, 4); // 5   ms 4   void * IPhysicsConstraint::GetGameData( void )
 
-    public delegate* unmanaged<void*, void*> GetReferenceObject;          // 6   IPhysicsObject * IPhysicsConstraint::GetReferenceObject( void )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*> GetReferenceObject => (delegate* unmanaged<void*, void*>)At(6, 5); // 6   ms 5   IPhysicsObject * IPhysicsConstraint::GetReferenceObject( void )
 
-    public delegate* unmanaged<void*, void*> GetAttachedObject;           // 7   IPhysicsObject * IPhysicsConstraint::GetAttachedObject( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*> GetAttachedObject => (delegate* unmanaged<void*, void*>)At(7, 6); // 7   ms 6   IPhysicsObject * IPhysicsConstraint::GetAttachedObject( void )
 
-    public delegate* unmanaged<void*, float, float, void> SetLinearMotor; // 8   void IPhysicsConstraint::SetLinearMotor( float, float )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, float, float, void> SetLinearMotor => (delegate* unmanaged<void*, float, float, void>)At(8, 7); // 8   ms 7   void IPhysicsConstraint::SetLinearMotor( float, float )
 
-    public delegate* unmanaged<void*, float, float, void> SetAngularMotor; // 9   void IPhysicsConstraint::SetAngularMotor( float, float )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, float, float, void> SetAngularMotor => (delegate* unmanaged<void*, float, float, void>)At(9, 8); // 9   ms 8   void IPhysicsConstraint::SetAngularMotor( float, float )
 
-    public delegate* unmanaged<void*, void*, void*, void> UpdateRagdollTransforms; // 10  void IPhysicsConstraint::UpdateRagdollTransforms( const matrix3x4_t &, const matrix3x4_t & )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, void*, void> UpdateRagdollTransforms => (delegate* unmanaged<void*, void*, void*, void>)At(10, 9); // 10  ms 9   void IPhysicsConstraint::UpdateRagdollTransforms( const matrix3x4_t &, const matrix3x4_t & )
 
-    public delegate* unmanaged<void*, void*, void*, byte> GetConstraintTransform; // 11  bool IPhysicsConstraint::GetConstraintTransform( matrix3x4_t *, matrix3x4_t * )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void*, void*, byte> GetConstraintTransform => (delegate* unmanaged<void*, void*, void*, byte>)At(11, 10); // 11  ms 10  bool IPhysicsConstraint::GetConstraintTransform( matrix3x4_t *, matrix3x4_t * )
 
-    public delegate* unmanaged<void*, void*, byte> GetConstraintParams;   // 12  bool IPhysicsConstraint::GetConstraintParams( constraint_breakableparams_t * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, byte> GetConstraintParams => (delegate* unmanaged<void*, void*, byte>)At(12, 11); // 12  ms 11  bool IPhysicsConstraint::GetConstraintParams( constraint_breakableparams_t * )
 
-    public delegate* unmanaged<void*, void> OutputDebugInfo;              // 13  void IPhysicsConstraint::OutputDebugInfo( void )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, void> OutputDebugInfo => (delegate* unmanaged<void*, void>)At(13, 12); // 13  ms 12  void IPhysicsConstraint::OutputDebugInfo( void )
 }
 
 /// <summary>
@@ -4132,29 +5406,57 @@ internal unsafe struct PhysicsConstraintVtbl
 /// vtable_index_agreement_test holds it to the header
 /// (plan_physics_bones_native_zero 2.4, the managed spring table).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 7 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsSpringVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 7;
+
+    private fixed long _slots[8];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                            // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                            // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, void*, void> GetEndpoints; // 2   void IPhysicsSpring::GetEndpoints( Vector *, Vector * )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void*, void*, void> GetEndpoints => (delegate* unmanaged<void*, void*, void*, void>)At(2, 1); // 2   ms 1   void IPhysicsSpring::GetEndpoints( Vector *, Vector * )
 
-    public delegate* unmanaged<void*, float, void> SetSpringConstant;   // 3   void IPhysicsSpring::SetSpringConstant( float )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, float, void> SetSpringConstant => (delegate* unmanaged<void*, float, void>)At(3, 2); // 3   ms 2   void IPhysicsSpring::SetSpringConstant( float )
 
-    public delegate* unmanaged<void*, float, void> SetSpringDamping;    // 4   void IPhysicsSpring::SetSpringDamping( float )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, float, void> SetSpringDamping => (delegate* unmanaged<void*, float, void>)At(4, 3); // 4   ms 3   void IPhysicsSpring::SetSpringDamping( float )
 
-    public delegate* unmanaged<void*, float, void> SetSpringLength;     // 5   void IPhysicsSpring::SetSpringLength( float )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, float, void> SetSpringLength => (delegate* unmanaged<void*, float, void>)At(5, 4); // 5   ms 4   void IPhysicsSpring::SetSpringLength( float )
 
-    public delegate* unmanaged<void*, void*> GetStartObject;            // 6   IPhysicsObject * IPhysicsSpring::GetStartObject( void )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*> GetStartObject => (delegate* unmanaged<void*, void*>)At(6, 5); // 6   ms 5   IPhysicsObject * IPhysicsSpring::GetStartObject( void )
 
-    public delegate* unmanaged<void*, void*> GetEndObject;              // 7   IPhysicsObject * IPhysicsSpring::GetEndObject( void )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*> GetEndObject => (delegate* unmanaged<void*, void*>)At(7, 6); // 7   ms 6   IPhysicsObject * IPhysicsSpring::GetEndObject( void )
 }
 
 /// <summary>
@@ -4172,49 +5474,87 @@ internal unsafe struct PhysicsSpringVtbl
 /// (plan_physics_bones_native_zero 2.5, the managed player shadow). Native
 /// holds the pointer on the player; managed calls it.
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 17 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsPlayerControllerVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 17;
+
+    private fixed long _slots[18];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                          // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                          // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void*, void*, float, byte, void*, void> Update; // 2   void IPhysicsPlayerController::Update( const Vector &, const Vector &, float, bool, IPhysicsObject * )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void*, void*, float, byte, void*, void> Update => (delegate* unmanaged<void*, void*, void*, float, byte, void*, void>)At(2, 1); // 2   ms 1   void IPhysicsPlayerController::Update( const Vector &, const Vector &, float, bool, IPhysicsObject * )
 
-    public delegate* unmanaged<void*, void*, void> SetEventHandler;   // 3   void IPhysicsPlayerController::SetEventHandler( IPhysicsPlayerControllerEvent * )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, void*, void> SetEventHandler => (delegate* unmanaged<void*, void*, void>)At(3, 2); // 3   ms 2   void IPhysicsPlayerController::SetEventHandler( IPhysicsPlayerControllerEvent * )
 
-    public delegate* unmanaged<void*, byte> IsInContact;              // 4   bool IPhysicsPlayerController::IsInContact( void )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, byte> IsInContact => (delegate* unmanaged<void*, byte>)At(4, 3); // 4   ms 3   bool IPhysicsPlayerController::IsInContact( void )
 
-    public delegate* unmanaged<void*, void*, void> MaxSpeed;          // 5   void IPhysicsPlayerController::MaxSpeed( const Vector & )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, void> MaxSpeed => (delegate* unmanaged<void*, void*, void>)At(5, 4); // 5   ms 4   void IPhysicsPlayerController::MaxSpeed( const Vector & )
 
-    public delegate* unmanaged<void*, void*, void> SetObject;         // 6   void IPhysicsPlayerController::SetObject( IPhysicsObject * )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*, void> SetObject => (delegate* unmanaged<void*, void*, void>)At(6, 5); // 6   ms 5   void IPhysicsPlayerController::SetObject( IPhysicsObject * )
 
-    public delegate* unmanaged<void*, void*, void*, int> GetShadowPosition; // 7   int IPhysicsPlayerController::GetShadowPosition( Vector *, QAngle * )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*, void*, int> GetShadowPosition => (delegate* unmanaged<void*, void*, void*, int>)At(7, 6); // 7   ms 6   int IPhysicsPlayerController::GetShadowPosition( Vector *, QAngle * )
 
-    public delegate* unmanaged<void*, float, void> StepUp;            // 8   void IPhysicsPlayerController::StepUp( float )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, float, void> StepUp => (delegate* unmanaged<void*, float, void>)At(8, 7); // 8   ms 7   void IPhysicsPlayerController::StepUp( float )
 
-    public delegate* unmanaged<void*, void> Jump;                     // 9   void IPhysicsPlayerController::Jump( void )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void> Jump => (delegate* unmanaged<void*, void>)At(9, 8); // 9   ms 8   void IPhysicsPlayerController::Jump( void )
 
-    public delegate* unmanaged<void*, void*, void> GetShadowVelocity; // 10  void IPhysicsPlayerController::GetShadowVelocity( Vector * )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void*, void> GetShadowVelocity => (delegate* unmanaged<void*, void*, void>)At(10, 9); // 10  ms 9   void IPhysicsPlayerController::GetShadowVelocity( Vector * )
 
-    public delegate* unmanaged<void*, void*> GetObject;               // 11  IPhysicsObject * IPhysicsPlayerController::GetObject( void )
+    [VtableSlot(11, 10)]
+    public delegate* unmanaged<void*, void*> GetObject => (delegate* unmanaged<void*, void*>)At(11, 10); // 11  ms 10  IPhysicsObject * IPhysicsPlayerController::GetObject( void )
 
-    public delegate* unmanaged<void*, void*, void> GetLastImpulse;    // 12  void IPhysicsPlayerController::GetLastImpulse( Vector * )
+    [VtableSlot(12, 11)]
+    public delegate* unmanaged<void*, void*, void> GetLastImpulse => (delegate* unmanaged<void*, void*, void>)At(12, 11); // 12  ms 11  void IPhysicsPlayerController::GetLastImpulse( Vector * )
 
-    public delegate* unmanaged<void*, float, void> SetPushMassLimit;  // 13  void IPhysicsPlayerController::SetPushMassLimit( float )
+    [VtableSlot(13, 12)]
+    public delegate* unmanaged<void*, float, void> SetPushMassLimit => (delegate* unmanaged<void*, float, void>)At(13, 12); // 13  ms 12  void IPhysicsPlayerController::SetPushMassLimit( float )
 
-    public delegate* unmanaged<void*, float, void> SetPushSpeedLimit; // 14  void IPhysicsPlayerController::SetPushSpeedLimit( float )
+    [VtableSlot(14, 13)]
+    public delegate* unmanaged<void*, float, void> SetPushSpeedLimit => (delegate* unmanaged<void*, float, void>)At(14, 13); // 14  ms 13  void IPhysicsPlayerController::SetPushSpeedLimit( float )
 
-    public delegate* unmanaged<void*, float> GetPushMassLimit;        // 15  float IPhysicsPlayerController::GetPushMassLimit( void )
+    [VtableSlot(15, 14)]
+    public delegate* unmanaged<void*, float> GetPushMassLimit => (delegate* unmanaged<void*, float>)At(15, 14); // 15  ms 14  float IPhysicsPlayerController::GetPushMassLimit( void )
 
-    public delegate* unmanaged<void*, float> GetPushSpeedLimit;       // 16  float IPhysicsPlayerController::GetPushSpeedLimit( void )
+    [VtableSlot(16, 15)]
+    public delegate* unmanaged<void*, float> GetPushSpeedLimit => (delegate* unmanaged<void*, float>)At(16, 15); // 16  ms 15  float IPhysicsPlayerController::GetPushSpeedLimit( void )
 
-    public delegate* unmanaged<void*, byte> WasFrozen;                // 17  bool IPhysicsPlayerController::WasFrozen( void )
+    [VtableSlot(17, 16)]
+    public delegate* unmanaged<void*, byte> WasFrozen => (delegate* unmanaged<void*, byte>)At(17, 16); // 17  ms 16  bool IPhysicsPlayerController::WasFrozen( void )
 }
 
 /// <summary>
@@ -4350,6 +5690,13 @@ public unsafe struct PhysicsCollisionEventVtbl
 /// </para>
 ///
 /// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY: it reverses the overloads. Each
+/// field's <c>[VtableSlot]</c> carries its index under both ABIs, and
+/// <c>ManagedVtableGenerator</c> writes the thunk at the one for the ABI it
+/// runs on.
+/// </para>
+///
+/// <para>
 /// VALVE'S LAYOUT, WRITTEN BY MANAGED. The caller holds an
 /// <c>CCallbackBase *</c> and calls these slots in Valve's order;
 /// <c>ManagedVtableGenerator</c> fills every one. There is no Release or
@@ -4360,12 +5707,15 @@ public unsafe struct PhysicsCollisionEventVtbl
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct SteamCallbackVtbl
 {
+    [VtableSlot(0, 1)]
     [SlotHash(0xde3e0200)]
     public delegate* unmanaged<void*, void*, void> Run;                // 0   void CCallbackBase::Run( void * )
 
+    [VtableSlot(1, 0)]
     [SlotHash(0x3bc5aedf)]
     public delegate* unmanaged<void*, void*, byte, ulong, void> Run_2; // 1   void CCallbackBase::Run( void *, bool, SteamAPICall_t )
 
+    [VtableSlot(2, 2)]
     [SlotHash(0x9d8d9245)]
     public delegate* unmanaged<void*, int> GetCallbackSizeBytes;       // 2   int CCallbackBase::GetCallbackSizeBytes( void )
 }
@@ -4456,35 +5806,66 @@ public unsafe struct PhysicsConstraintEventVtbl
 /// vtable_index_agreement_test holds it to the header
 /// (plan_physics_bones_native_zero Phase 3, the managed ragdoll builder).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 10 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct VPhysicsKeyParserVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 10;
+
+    private fixed long _slots[11];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                            // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                            // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, byte*> GetCurrentBlockName;       // 2   const char * IVPhysicsKeyParser::GetCurrentBlockName( void )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, byte*> GetCurrentBlockName => (delegate* unmanaged<void*, byte*>)At(2, 1); // 2   ms 1   const char * IVPhysicsKeyParser::GetCurrentBlockName( void )
 
-    public delegate* unmanaged<void*, byte> Finished;                   // 3   bool IVPhysicsKeyParser::Finished( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged<void*, byte> Finished => (delegate* unmanaged<void*, byte>)At(3, 2); // 3   ms 2   bool IVPhysicsKeyParser::Finished( void )
 
-    public delegate* unmanaged<void*, void*, void*, void> ParseSolid;   // 4   void IVPhysicsKeyParser::ParseSolid( solid_t *, IVPhysicsKeyHandler * )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void*, void*, void> ParseSolid => (delegate* unmanaged<void*, void*, void*, void>)At(4, 3); // 4   ms 3   void IVPhysicsKeyParser::ParseSolid( solid_t *, IVPhysicsKeyHandler * )
 
-    public delegate* unmanaged<void*, void*, void*, void> ParseFluid;   // 5   void IVPhysicsKeyParser::ParseFluid( fluid_t *, IVPhysicsKeyHandler * )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, void*, void> ParseFluid => (delegate* unmanaged<void*, void*, void*, void>)At(5, 4); // 5   ms 4   void IVPhysicsKeyParser::ParseFluid( fluid_t *, IVPhysicsKeyHandler * )
 
-    public delegate* unmanaged<void*, void*, void*, void> ParseRagdollConstraint; // 6   void IVPhysicsKeyParser::ParseRagdollConstraint( constraint_ragdollparams_t *, IVPhysicsKeyHandler * )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*, void*, void> ParseRagdollConstraint => (delegate* unmanaged<void*, void*, void*, void>)At(6, 5); // 6   ms 5   void IVPhysicsKeyParser::ParseRagdollConstraint( constraint_ragdollparams_t *, IVPhysicsKeyHandler * )
 
-    public delegate* unmanaged<void*, void*, void*, void> ParseSurfaceTable; // 7   void IVPhysicsKeyParser::ParseSurfaceTable( int *, IVPhysicsKeyHandler * )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*, void*, void> ParseSurfaceTable => (delegate* unmanaged<void*, void*, void*, void>)At(7, 6); // 7   ms 6   void IVPhysicsKeyParser::ParseSurfaceTable( int *, IVPhysicsKeyHandler * )
 
-    public delegate* unmanaged<void*, void*, void*, void> ParseCustom;  // 8   void IVPhysicsKeyParser::ParseCustom( void *, IVPhysicsKeyHandler * )
+    [VtableSlot(8, 7)]
+    public delegate* unmanaged<void*, void*, void*, void> ParseCustom => (delegate* unmanaged<void*, void*, void*, void>)At(8, 7); // 8   ms 7   void IVPhysicsKeyParser::ParseCustom( void *, IVPhysicsKeyHandler * )
 
-    public delegate* unmanaged<void*, void*, void*, void> ParseVehicle; // 9   void IVPhysicsKeyParser::ParseVehicle( vehicleparams_t *, IVPhysicsKeyHandler * )
+    [VtableSlot(9, 8)]
+    public delegate* unmanaged<void*, void*, void*, void> ParseVehicle => (delegate* unmanaged<void*, void*, void*, void>)At(9, 8); // 9   ms 8   void IVPhysicsKeyParser::ParseVehicle( vehicleparams_t *, IVPhysicsKeyHandler * )
 
-    public delegate* unmanaged<void*, void> SkipBlock;                  // 10  void IVPhysicsKeyParser::SkipBlock( void )
+    [VtableSlot(10, 9)]
+    public delegate* unmanaged<void*, void> SkipBlock => (delegate* unmanaged<void*, void>)At(10, 9); // 10  ms 9   void IVPhysicsKeyParser::SkipBlock( void )
 }
 
 /// <summary>
@@ -4527,29 +5908,57 @@ internal unsafe struct PhysicsCollisionSetVtbl
 /// vtable_index_agreement_test holds it to the header
 /// (plan_physics_bones_native_zero Phase 3, the managed ragdoll builder).
 /// </para>
+///
+/// <para>
+/// MSVC ORDERS THIS TABLE DIFFERENTLY (one destructor slot, not two), so the slots are properties
+/// over the table that read each one at its Windows index on Windows and
+/// at its declaration-order index elsewhere. 7 slot(s) on Windows, which
+/// is the count native reports there.
+/// </para>
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsConstraintGroupVtbl
 {
+    /// <summary>The table's length under the Microsoft ABI: what native reports on Windows.</summary>
+    internal const int MicrosoftEntries = 7;
+
+    private fixed long _slots[8];
+
+    private readonly long At(int itanium, int microsoft)
+        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];
+
+    // The deleting destructor's Itanium slot has no Microsoft counterpart:
+    // MSVC's one destructor slot is Destructor1's.
+    private readonly long ItaniumOnly(int itanium)
+        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];
+
     // Complete Object Destructor (D1): destroys the object's members and subobjects, but does
     // not free the memory. Used for objects on the stack, member variables, or elements in an array.
-    public nint Destructor1;                                       // 0   destructor 1 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(0, 0)]
+    public nint Destructor1 => (nint)At(0, 0); // 0   ms 0   destructor 1 -- reserved, never bound, and it must never be called from managed
 
     // Deleting Destructor (D0): calls the complete object destructor (D1) and then automatically
     // invokes operator delete to free the dynamic memory. Used when you explicitly call delete ptr.
-    public nint Destructor2;                                       // 1   destructor 2 -- reserved, never bound, and it must never be called from managed
+    [VtableSlot(1, -1)]
+    public nint Destructor2 => (nint)ItaniumOnly(1); // 1   ms --  destructor 2 -- reserved, never bound, and it must never be called from managed
 
-    public delegate* unmanaged<void*, void> Activate;              // 2   void IPhysicsConstraintGroup::Activate( void )
+    [VtableSlot(2, 1)]
+    public delegate* unmanaged<void*, void> Activate => (delegate* unmanaged<void*, void>)At(2, 1); // 2   ms 1   void IPhysicsConstraintGroup::Activate( void )
 
-    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsInErrorState; // 3   bool IPhysicsConstraintGroup::IsInErrorState( void )
+    [VtableSlot(3, 2)]
+    public delegate* unmanaged[SuppressGCTransition]<void*, byte> IsInErrorState => (delegate* unmanaged[SuppressGCTransition]<void*, byte>)At(3, 2); // 3   ms 2   bool IPhysicsConstraintGroup::IsInErrorState( void )
 
-    public delegate* unmanaged<void*, void> ClearErrorState;       // 4   void IPhysicsConstraintGroup::ClearErrorState( void )
+    [VtableSlot(4, 3)]
+    public delegate* unmanaged<void*, void> ClearErrorState => (delegate* unmanaged<void*, void>)At(4, 3); // 4   ms 3   void IPhysicsConstraintGroup::ClearErrorState( void )
 
-    public delegate* unmanaged<void*, void*, void> GetErrorParams; // 5   void IPhysicsConstraintGroup::GetErrorParams( constraint_groupparams_t * )
+    [VtableSlot(5, 4)]
+    public delegate* unmanaged<void*, void*, void> GetErrorParams => (delegate* unmanaged<void*, void*, void>)At(5, 4); // 5   ms 4   void IPhysicsConstraintGroup::GetErrorParams( constraint_groupparams_t * )
 
-    public delegate* unmanaged<void*, void*, void> SetErrorParams; // 6   void IPhysicsConstraintGroup::SetErrorParams( const constraint_groupparams_t & )
+    [VtableSlot(6, 5)]
+    public delegate* unmanaged<void*, void*, void> SetErrorParams => (delegate* unmanaged<void*, void*, void>)At(6, 5); // 6   ms 5   void IPhysicsConstraintGroup::SetErrorParams( const constraint_groupparams_t & )
 
-    public delegate* unmanaged<void*, void*, void*, void> SolvePenetration; // 7   void IPhysicsConstraintGroup::SolvePenetration( IPhysicsObject *, IPhysicsObject * )
+    [VtableSlot(7, 6)]
+    public delegate* unmanaged<void*, void*, void*, void> SolvePenetration => (delegate* unmanaged<void*, void*, void*, void>)At(7, 6); // 7   ms 6   void IPhysicsConstraintGroup::SolvePenetration( IPhysicsObject *, IPhysicsObject * )
 }
 
 /// <summary>
@@ -8993,4 +10402,52 @@ public unsafe struct ManagedPhysicsClientVtbl
 
     [SlotHash(0xde3e0200)]
     public delegate* unmanaged<void*, void*, void> SolidDefaults; // 6   void IManagedPhysicsClient::SolidDefaults( void * )
+}
+
+/// <summary>
+/// The vtable length native reports on Windows, where the engine is MSVC's
+/// and a virtual destructor takes one slot rather than two.
+/// </summary>
+internal static unsafe class VtableAbi
+{
+    /// <summary>
+    /// <typeparamref name="TVtbl"/>'s length under the Microsoft ABI: its
+    /// <c>MicrosoftEntries</c> where MSVC orders it differently, its span
+    /// otherwise.
+    /// </summary>
+    public static int MicrosoftEntries<TVtbl>() where TVtbl : unmanaged
+    {
+        if (typeof(TVtbl) == typeof(ModelInfoVtbl)) return ModelInfoVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(BaseFileSystemVtbl)) return BaseFileSystemVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(ModelInfoClientVtbl)) return ModelInfoClientVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(RenderViewVtbl)) return RenderViewVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(DebugOverlayVtbl)) return DebugOverlayVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(SoundEmitterSystemVtbl)) return SoundEmitterSystemVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(EngineTraceVtbl)) return EngineTraceVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(EngineSoundVtbl)) return EngineSoundVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(EngineVGuiVtbl)) return EngineVGuiVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(SpatialPartitionVtbl)) return SpatialPartitionVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(GameEventManagerVtbl)) return GameEventManagerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(NetworkStringTableContainerVtbl)) return NetworkStringTableContainerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(StaticPropMgrClientVtbl)) return StaticPropMgrClientVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(StaticPropMgrServerVtbl)) return StaticPropMgrServerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(InputSystemVtbl)) return InputSystemVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(CvarVtbl)) return CvarVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsCollisionVtbl)) return PhysicsCollisionVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsSurfacePropsVtbl)) return PhysicsSurfacePropsVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(VoiceServerVtbl)) return VoiceServerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(NetworkStringTableVtbl)) return NetworkStringTableVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsEnvironmentVtbl)) return PhysicsEnvironmentVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsObjectVtbl)) return PhysicsObjectVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsShadowControllerVtbl)) return PhysicsShadowControllerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsMotionControllerVtbl)) return PhysicsMotionControllerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsFrictionSnapshotVtbl)) return PhysicsFrictionSnapshotVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsFluidControllerVtbl)) return PhysicsFluidControllerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsConstraintVtbl)) return PhysicsConstraintVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsSpringVtbl)) return PhysicsSpringVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsPlayerControllerVtbl)) return PhysicsPlayerControllerVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(VPhysicsKeyParserVtbl)) return VPhysicsKeyParserVtbl.MicrosoftEntries;
+        if (typeof(TVtbl) == typeof(PhysicsConstraintGroupVtbl)) return PhysicsConstraintGroupVtbl.MicrosoftEntries;
+        return sizeof(TVtbl) / sizeof(void*);
+    }
 }

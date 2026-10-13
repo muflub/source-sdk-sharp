@@ -23,10 +23,26 @@
 // the table up again. Defined with hidden visibility, as the tier0 ports are.
 //=============================================================================//
 
+// vstdlib.h declares these VSTDLIB_INTERFACE, dllimport on Windows, and MSVC
+// exports a definition of a dllimport function from the DLL that holds it. Read
+// as plain C declarations here, so client.dll exports none of them
+// (game_dll_exports_test); every other file's import binds to these through
+// SS_BIND_IMPORT below.
+#include "vstdlib/vstdlib.h"
+#if defined( _MSC_VER )
+	#undef VSTDLIB_INTERFACE
+	#define VSTDLIB_INTERFACE extern "C"
+#endif
 #include "vstdlib/random.h"
 
 #include <math.h>
 #include <mutex>
+#include "ss_platform.h"	// SS_BIND_IMPORT
+#ifdef _MSC_VER
+// This file defines functions the engine DLLs' headers declare dllimport
+// (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.
+#pragma warning( disable : 4273 )
+#endif
 
 namespace
 {
@@ -142,3 +158,9 @@ int RandomInt( int iMinVal, int iMaxVal )
 {
 	return s_Stream.Pick( iMinVal, iMaxVal );
 }
+
+// Every call in this module of the functions above, made through the
+// import pointer, reaches these definitions (ss_platform.h).
+SS_BIND_IMPORT( RandomSeed )
+SS_BIND_IMPORT( RandomFloat )
+SS_BIND_IMPORT( RandomInt )

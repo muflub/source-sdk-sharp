@@ -226,7 +226,7 @@ public sealed class HostingServicesTests
         Assert.Null(ProcBoundPort.Choose([], requested: 27015, others: []));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads /proc, which only Linux has")]
     public void The_proc_reader_finds_a_real_udp_socket_this_process_bound()
     {
         // Against the kernel, not a fixture: bind a socket and look for it.

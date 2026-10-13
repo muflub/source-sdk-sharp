@@ -360,6 +360,14 @@ float C_World::GetMaxPropScreenSpaceWidth()
 }
 
 
+#if defined( _MSC_VER )
+// 'this' in the initialiser list below is deliberate. The build disables C4355
+// (/wd4355, as Valve's VPC does), but tier1/convar.h ends with
+// `#pragma warning( default : 4355 )`, which turns it back on for the rest of
+// any file that includes it.
+#pragma warning( disable : 4355 )
+#endif
+
 //-----------------------------------------------------------------------------
 // m_Collideable IS NAMED IN THE INITIALISER LIST, which is what makes its owner
 // pointer valid before the body runs — the same reason the server's CWorld
@@ -807,6 +815,21 @@ void C_World::Precache( void )
 	if (haptics)
 		haptics->WorldPrecache();
 }
+
+#if defined( WIN32 )
+// What stock's ConnectHaptics and DisconnectHaptics (called from
+// shell_clientdll.cpp's Init and Shutdown) come to in this build: stock loads
+// the Novint device library (haptics.dll), which the SDK's bin/x64 does not
+// ship, and without it falls back to a stub that does nothing. haptics stays
+// NULL, as it is on Linux, and the precache above checks for that.
+void ConnectHaptics( CreateInterfaceFn )
+{
+}
+
+void DisconnectHaptics()
+{
+}
+#endif
 
 void C_World::Spawn( void )
 {

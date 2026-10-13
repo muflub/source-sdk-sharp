@@ -512,6 +512,13 @@ static const CNativeCommandBody *NativeBodyFor( const char *pName )
 #endif
 }
 
+#if defined( _MSC_VER )
+// 'this' in the initialiser list below is deliberate. The build disables C4355
+// (/wd4355, as Valve's VPC does), but tier1/convar.h ends with
+// `#pragma warning( default : 4355 )`, which turns it back on for the rest of
+// any file that includes it.
+#pragma warning( disable : 4355 )
+#endif
 class CSourceSharpCommand final : public ICommandCallback
 {
 public:

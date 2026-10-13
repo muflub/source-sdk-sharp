@@ -173,7 +173,7 @@ public class Simple3DOracleTests
             $"{steps} steps ({removed} deaths, {settled} struck, {traced} traced, {unknown} of an unknown setup)");
     }
 
-    [Fact]
+    [LinuxOnlyFact("a golden recorded bit for bit against glibc's libm; the Windows C runtime rounds the last bit of sin, cos and pow differently")]
     public void Every_recorded_draw_is_reproduced_in_its_view()
     {
         int draws = 0, back = 0, fading = 0;

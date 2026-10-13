@@ -262,7 +262,7 @@ public class MuzzleFlashTests
         Assert.True(rows.Count(r => r[0] == "tmf-vrand") > 0, "Vector::Random was drawn");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void EveryRecordedFlashIsDrawnAsStockDrewIt()
     {
         List<string[]> rows = Recorded();

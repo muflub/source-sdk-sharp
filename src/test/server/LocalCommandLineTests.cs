@@ -144,7 +144,7 @@ public class LocalCommandLineTests
     /// the list rather than an agreement.
     /// </para>
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads /proc, which only Linux has")]
     public void TheProcessLineIsTheKernelsCopyAndNotTheRuntimesIdeaOfIt()
     {
         // NOT OPTIONAL, so this fails rather than skipping. /proc/self/cmdline

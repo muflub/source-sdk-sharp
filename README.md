@@ -11,12 +11,13 @@ of the Valve SDK fork, [`source-sdk-2013`](../source-sdk-2013), which keeps
 Valve's files, SourceSharp's edits to them, and Valve code that was relocated but
 not yet ported.
 
-> **Not yet public: the build needs a Valve SDK checkout.** The fork and
-> tf2_descent's host SDK (`source-sdk-sharp-host`) are not published yet. Use
+> **The build needs a Valve SDK checkout.** The fork is not published; use
 > the `make sdk-upstream` route (see "Two ways to get ROOT"): it clones Valve's
 > public [source-sdk-2013](https://github.com/ValveSoftware/source-sdk-2013)
 > and applies the patch series in `patches/source-sdk-2013/`. The tf2_descent
-> mod cannot be built without the host SDK.
+> server restores the host SDK from a checkout of
+> [`source-sdk-sharp-host`](https://github.com/muflub/source-sdk-sharp-host)
+> beside this one, which `make setup` packs (`make host-pack`).
 
 ## Prerequisites
 
@@ -60,6 +61,61 @@ gates. Maps: `make sandbox` regenerates `game/mod_test/maps/ss_sandbox.vmf`, and
 `managed` (xUnit), `native` (gtest), `oracle` (ports checked against the
 pristine upstream Valve SDK, see below), `entity` (the entity census and
 ratchet) and `ui` (the web UI's vitest suite).
+
+### CI and releases
+
+`.github/workflows/ci.yml` runs on every push to `main`, every pull request
+and every tag, with one job per platform the game ships on. Each job does a
+full Release build, packages the release archive, and runs the tests. A third
+job, `linux-check`, runs beside them: `make check CHECK_MANAGED=0`, the full
+debug build and every test leg the Linux job does not run, so the release
+build does not wait for it:
+
+- **Linux** is set up with `make sdk-upstream` and built with `make release`
+  (clang), which the tests run against. The shipped native libraries are
+  built again inside Valve's sniper container (`make ci-build`: gcc 10 and
+  the engine runtime's glibc ceiling). `tools/package-release` makes
+  `sourcesharp-<version>-linux-x64.tar.gz`, with the split debug info beside
+  it in `-dbg.tar.gz`.
+- **Windows** builds everything itself from the same farm: the web UI, the
+  managed assemblies, the native libraries with MSVC (the `windows-release`
+  preset) and the NativeAOT launcher. It packages
+  `sourcesharp-<version>-win-x64.zip`, with the native `.pdb` files in
+  `-dbg.zip`, and runs the native gtests (ctest, `-L gtest`) and the managed test
+  projects. Native tests that read the Linux build's instruments (ELF scans,
+  the CMake graph, fork-based probes) are marked `LINUX_ONLY` in
+  `src/test/native/CMakeLists.txt`, and configure lists them with reasons.
+
+Each `-dbg` archive also holds the managed assemblies' `.pdb` and `.json`
+files (`bin/managed`), which the game archive leaves out, all but the
+`SourceSharp.Bootstrap.runtimeconfig.json` the host starts the runtime from.
+Every run uploads each platform's game archive and its `-dbg` archive as two
+artifacts (`sourcesharp-<platform>` and `sourcesharp-<platform>-dbg`).
+Pushing a tag attaches both platforms' archives to the GitHub release once
+all three jobs are green. There is no macOS job: Valve no longer supports the
+Source SDK 2013 games on macOS, and the launcher has no macOS build. The
+`osx-*` CMake presets remain for the native libraries alone; Valve ships no
+prebuilt libraries for macOS, so that build links with dynamic lookup and has
+no particles library (`cmake/sdk/CMakeLists.txt`).
+
+The tests gate both jobs, and the managed tests run first, right after the
+managed build and before anything native is compiled (they read only the
+CMake graph a configure writes). Linux runs them as `make managed-legs`, and
+`linux-check` runs `make check CHECK_MANAGED=0`, the gate before a merge to
+`main` less those legs, then the five managed facts that image the debug
+build (`[LinuxDebugBuildFact]`, which skip in the earlier step); Windows runs
+every managed test project, then the native gtests. A fact that cannot pass
+on a runner skips there and
+names why: a bit-for-bit golden recorded on the owner's machine (another CPU
+or C library differs in the last bit), a fact that reads the fork's own edits
+to Valve files (the public patch series does not carry them), or a fact that
+needs a Steam game install. Those are marked `[NotOnCiFact]` /
+`[NotOnCiTheory]` in the managed tests and `SS_SKIP_ON_CI` in the native ones
+(`src/test/common/NotOnCiFactAttribute.cs` says what may be marked), and they
+skip only when `SOURCESHARP_CI=1`, which the workflow sets. Everywhere else
+they run as before, so `make check` on a machine with the fork and Steam
+still holds them. `make check-public` (the build plus `TEST_PUBLIC_LEGS`)
+remains for a machine with only the public inputs and no CI variable.
 
 ## Layout
 

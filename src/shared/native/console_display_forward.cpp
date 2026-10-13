@@ -48,15 +48,12 @@ public:
 
 	/// Hands the buffer to this load's area, once per install; false outside a load.
 	bool Attach();
-	void Detach() { __atomic_store_n( &m_bAttached, false, __ATOMIC_RELEASE ); }
+	void Detach() { m_bAttached.store( false, std::memory_order_release ); }
 
 private:
 	void Forward( const char *pText, int nWarning );
 
-	// The lines, and their one sequence, outlive a managed reload: the
-	// forwarder is this DLL's, not the load's. 1 MiB (2 x 512 KiB halves).
-	CConsoleLineBuffer m_Buffer;
-	bool m_bAttached = false;
+	std::atomic< bool > m_bAttached{ false };
 
 	// Every spew reaches ColorPrint, a Msg too (the engine's spew handler); its colour is the
 	// spew type's: warning (255,90,90), assert (255,20,20), error (20,70,255). Read back, not decided.
@@ -67,6 +64,7 @@ private:
 	}
 };
 
+CConsoleLineBuffer g_LineBuffer;  // the lines outlive a reload; not a member: the forwarder's vtable would put 1 MiB in .data
 CConsoleDisplayForward g_Forwarder;
 ICvar *g_pInstalledCvar = NULL;
 
@@ -89,7 +87,7 @@ void CConsoleDisplayForward::Forward( const char *pText, int nWarning )
 	{
 		return;
 	}
-	m_Buffer.Append( pText, nWarning );
+	g_LineBuffer.Append( pText, nWarning );
 }
 
 bool CConsoleDisplayForward::Attach()
@@ -103,12 +101,13 @@ bool CConsoleDisplayForward::Attach()
 	{
 		return false;
 	}
-	if ( !__atomic_exchange_n( &m_bAttached, true, __ATOMIC_ACQ_REL ) )
+	if ( !m_bAttached.exchange( true, std::memory_order_acq_rel ) )
 	{
+		g_LineBuffer.Publish();
 #ifdef CLIENT_DLL
-		pArea->ClientConsoleBufferAttach( &m_Buffer );
+		pArea->ClientConsoleBufferAttach( &g_LineBuffer );
 #else
-		pArea->ConsoleBufferAttach( &m_Buffer );
+		pArea->ConsoleBufferAttach( &g_LineBuffer );
 #endif
 	}
 	return true;

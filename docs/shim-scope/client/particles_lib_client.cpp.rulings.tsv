@@ -3,7 +3,6 @@
 bool ParticleLib_Connect( CreateInterfaceFn appSystemFactory )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 ParticleLib_Disconnect	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 ParticleLib_Counters	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
-LoadParticleLib()	BOUNDARY	dlopens libss_particles.so when client.so loads and asks its CreateInterface for ISSParticleLib (plan_particles_so.md)
 ISSParticleLib *Lib()	SLOT-HELP	the library's object, for the forwards beside it
 void *CParticleCollection::operator new( size_t nSize )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void CParticleCollection::operator delete( void *pData )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
@@ -47,3 +46,5 @@ void CParticleSystemMgr::SetLastSimulationTime( float flTime )	BOUNDARY	a pass-t
 void CParticleSystemMgr::ShouldLoadSheets( bool bLoadSheets )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void CParticleSystemMgr::UncacheAllParticleSystems()	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void *ParticleLib_Acquire( int32_t *pnEntries )	BOUNDARY	the internal factory's row for SSParticleLib001: the library's object and the slot count managed checks its generated layout against (plan_particles_so.md)
+SSParticleLib_CollectionCtor	BOUNDARY	the MSVC spelling of SSParticleLib_CollectionC2 (bound to CParticleCollection's ??0 by /alternatename): a pass-through onto ss_particles.dll's ISSParticleLib, returning this as an MSVC constructor does
+SSParticleLib_CollectionDtor	BOUNDARY	the MSVC spelling of SSParticleLib_CollectionD2 (bound to CParticleCollection's ??1 by /alternatename): a pass-through onto ss_particles.dll's ISSParticleLib

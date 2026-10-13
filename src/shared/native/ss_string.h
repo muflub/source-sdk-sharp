@@ -63,7 +63,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <unistd.h>	// getcwd, for MakeAbsolutePath
+#include "ss_platform.h"	// SS_GetCwd, for MakeAbsolutePath
 
 #if defined( __GNUC__ ) || defined( __clang__ )
 #define SS_STRING_PRINTF( fmt, args ) __attribute__( ( format( printf, fmt, args ) ) )
@@ -868,7 +868,7 @@ inline bool MakeAbsolutePath( char *out, int outLen, const char *path, const cha
 		}
 		else
 		{
-			if ( !getcwd( out, (size_t)outLen ) )
+			if ( !SS_GetCwd( out, (size_t)outLen ) )
 				return false;
 			if ( startDir )
 			{
@@ -885,62 +885,118 @@ inline bool MakeAbsolutePath( char *out, int outLen, const char *path, const cha
 }
 
 //-----------------------------------------------------------------------------
-// Q_UTF32ToUTF8 (strtools_unicode.cpp) under its default policy, REPLACE: a
-// UTF-32 C string as UTF-8 into dst, each invalid code point (past 0x10FFFF,
-// a surrogate half, a U+xxFFFE/xxFFFF, U+FDD0..FDEF) written as '?', stopping
-// before a character that would not fit with the NUL. Answers the bytes
-// written plus the NUL; 0 for no input or no room. With no dst, the bytes the
-// whole string needs, NUL included.
+// The UTF-8 side of strtools_unicode.cpp's conversions under their default
+// policy, REPLACE: one encoder over a per-encoding decoder, as Valve's
+// Q_UnicodeConvertT is. A decoder reads the code point at src (an invalid one
+// as '?') and answers how many units it took. The encoder writes each code
+// point as UTF-8 into dst, stopping before a character that would not fit
+// with the NUL. Answers the bytes written plus the NUL; 0 for no input or no
+// room. With no dst, the bytes the whole string needs, NUL included.
 //-----------------------------------------------------------------------------
-inline int UTF32ToUTF8( const uint32_t *src, char *dst, int dstSize )
+namespace utf8detail
 {
-	if ( !src )
-		return 0;
-	auto valid = []( uint32_t u ) {
-		return u < 0x110000u && ( u - 0xD800u ) > 0x7FFu && ( u & 0xFFFFu ) < 0xFFFEu && ( u - 0xFDD0u ) > 0x1Fu;
-	};
-	auto length = []( uint32_t u ) { return u <= 0x7F ? 1 : u <= 0x7FF ? 2 : u <= 0xFFFF ? 3 : 4; };
-	int nOut = 0;
-	if ( !dst )
+	// Q_IsValidUChar32: in range, not a surrogate half, not a U+xxFFFE/xxFFFF,
+	// not U+FDD0..FDEF.
+	inline bool ValidUChar32( uint32_t u )
 	{
-		for ( ; *src; ++src )
-			nOut += length( valid( *src ) ? *src : '?' );
+		return u < 0x110000u && ( u - 0xD800u ) > 0x7FFu && ( u & 0xFFFFu ) < 0xFFFEu && ( u - 0xFDD0u ) > 0x1Fu;
+	}
+
+	template < typename Unit, typename Decode >
+	inline int ToUTF8( const Unit *src, char *dst, int dstSize, Decode decode )
+	{
+		if ( !src )
+			return 0;
+		auto length = []( uint32_t u ) { return u <= 0x7F ? 1 : u <= 0x7FF ? 2 : u <= 0xFFFF ? 3 : 4; };
+		int nOut = 0;
+		uint32_t u;
+		if ( !dst )
+		{
+			while ( *src )
+			{
+				src += decode( src, u );
+				nOut += length( u );
+			}
+			return nOut + 1;
+		}
+		if ( dstSize <= 0 )
+			return 0;
+		const int nMaxOut = dstSize - 1;
+		while ( *src )
+		{
+			src += decode( src, u );
+			const int n = length( u );
+			if ( nOut + n > nMaxOut )
+				break;
+			unsigned char *p = (unsigned char *)dst + nOut;
+			if ( n == 1 )
+				p[0] = (unsigned char)u;
+			else if ( n == 2 )
+			{
+				p[0] = (unsigned char)( u >> 6 ) | 0xC0;
+				p[1] = (unsigned char)( u & 0x3F ) | 0x80;
+			}
+			else if ( n == 3 )
+			{
+				p[0] = (unsigned char)( u >> 12 ) | 0xE0;
+				p[1] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
+				p[2] = (unsigned char)( u & 0x3F ) | 0x80;
+			}
+			else
+			{
+				p[0] = (unsigned char)( ( u >> 18 ) & 0x07 ) | 0xF0;
+				p[1] = (unsigned char)( ( u >> 12 ) & 0x3F ) | 0x80;
+				p[2] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
+				p[3] = (unsigned char)( u & 0x3F ) | 0x80;
+			}
+			nOut += n;
+		}
+		dst[nOut] = '\0';
 		return nOut + 1;
 	}
-	if ( dstSize <= 0 )
-		return 0;
-	const int nMaxOut = dstSize - 1;
-	for ( ; *src; ++src )
-	{
-		const uint32_t u = valid( *src ) ? *src : '?';
-		const int n = length( u );
-		if ( nOut + n > nMaxOut )
-			break;
-		unsigned char *p = (unsigned char *)dst + nOut;
-		if ( n == 1 )
-			p[0] = (unsigned char)u;
-		else if ( n == 2 )
+}
+
+// Q_UTF32ToUTF8: one unit per code point.
+inline int UTF32ToUTF8( const uint32_t *src, char *dst, int dstSize )
+{
+	return utf8detail::ToUTF8( src, dst, dstSize, []( const uint32_t *s, uint32_t &u ) {
+		u = utf8detail::ValidUChar32( *s ) ? *s : '?';
+		return 1;
+	} );
+}
+
+// Q_UTF16ToUTF8 (Q_UTF16ToUChar32's decode): a valid unit is itself; a high
+// surrogate followed by a low one is the pair's code point, '?' when that is
+// not valid, two units either way; anything else (an unpaired surrogate) is
+// '?' for one unit.
+inline int UTF16ToUTF8( const uint16_t *src, char *dst, int dstSize )
+{
+	return utf8detail::ToUTF8( src, dst, dstSize, []( const uint16_t *s, uint32_t &u ) {
+		if ( utf8detail::ValidUChar32( s[0] ) )
 		{
-			p[0] = (unsigned char)( u >> 6 ) | 0xC0;
-			p[1] = (unsigned char)( u & 0x3F ) | 0x80;
+			u = s[0];
+			return 1;
 		}
-		else if ( n == 3 )
+		if ( ( s[0] - 0xD800u ) < 0x400u && ( s[1] - 0xDC00u ) < 0x400u )
 		{
-			p[0] = (unsigned char)( u >> 12 ) | 0xE0;
-			p[1] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
-			p[2] = (unsigned char)( u & 0x3F ) | 0x80;
+			const uint32_t v = 0x010000u + ( ( s[0] - 0xD800u ) << 10 ) + ( s[1] - 0xDC00u );
+			u = utf8detail::ValidUChar32( v ) ? v : '?';
+			return 2;
 		}
-		else
-		{
-			p[0] = (unsigned char)( ( u >> 18 ) & 0x07 ) | 0xF0;
-			p[1] = (unsigned char)( ( u >> 12 ) & 0x3F ) | 0x80;
-			p[2] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
-			p[3] = (unsigned char)( u & 0x3F ) | 0x80;
-		}
-		nOut += n;
-	}
-	dst[nOut] = 0;
-	return nOut + 1;
+		u = '?';
+		return 1;
+	} );
+}
+
+// A wchar_t string as UTF-8, the way the platform's ILocalize does it: wchar_t
+// is UTF-32 on Linux and macOS (Q_UTF32ToUTF8) and UTF-16 on Windows
+// (Q_UTF16ToUTF8).
+inline int WideToUTF8( const wchar_t *src, char *dst, int dstSize )
+{
+	if constexpr ( sizeof( wchar_t ) == sizeof( uint32_t ) )
+		return UTF32ToUTF8( (const uint32_t *)src, dst, dstSize );
+	else
+		return UTF16ToUTF8( (const uint16_t *)src, dst, dstSize );
 }
 
 } // namespace ss

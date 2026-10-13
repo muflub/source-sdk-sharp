@@ -15,24 +15,28 @@ public sealed class DebugApiModLayoutTests : IDisposable
 {
     private readonly string _mod = Directory.CreateTempSubdirectory("ss-mod-").FullName;
 
+    // The layout answers in the platform's separator (Path.GetDirectoryName),
+    // so the paths it is handed and the ones expected are spelled in it too.
+    private static string Native(string unix) => unix.Replace('/', Path.DirectorySeparatorChar);
+
     public void Dispose() => Directory.Delete(_mod, recursive: true);
 
     [Fact]
     public void The_engines_game_directory_is_the_mod()
-        => Assert.Equal(_mod, new ModLayout(() => "/game/bin/debug/bin/managed", () => _mod).ModDirectory);
+        => Assert.Equal(_mod, new ModLayout(() => Native("/game/bin/debug/bin/managed"), () => _mod).ModDirectory);
 
     [Fact]
     public void Without_a_game_directory_it_is_two_above_the_managed_one()
-        => Assert.Equal("/game/bin/debug", new ModLayout(() => "/game/bin/debug/bin/managed", () => "").ModDirectory);
+        => Assert.Equal(Native("/game/bin/debug"), new ModLayout(() => Native("/game/bin/debug/bin/managed"), () => "").ModDirectory);
 
     [Fact]
     public void A_game_directory_that_does_not_exist_is_not_believed()
-        => Assert.Equal("/game/bin/debug",
-                        new ModLayout(() => "/game/bin/debug/bin/managed", () => _mod + "/missing").ModDirectory);
+        => Assert.Equal(Native("/game/bin/debug"),
+                        new ModLayout(() => Native("/game/bin/debug/bin/managed"), () => _mod + "/missing").ModDirectory);
 
     [Fact]
     public void A_relative_game_directory_is_not_believed()
-        => Assert.Equal("/game/bin/debug", new ModLayout(() => "/game/bin/debug/bin/managed", () => "mods/test").ModDirectory);
+        => Assert.Equal(Native("/game/bin/debug"), new ModLayout(() => Native("/game/bin/debug/bin/managed"), () => "mods/test").ModDirectory);
 
     //-------------------------------------------------------------------------
     // The maps directory with SOURCESHARP_MAPS unset: the mod's maps, from

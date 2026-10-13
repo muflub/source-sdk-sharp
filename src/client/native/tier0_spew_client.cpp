@@ -17,6 +17,12 @@
 
 #include "tier0/dbg.h"
 #include "tier0_spew_port.h"
+#include "ss_platform.h"	// SS_BIND_IMPORT
+#ifdef _MSC_VER
+// This file defines functions the engine DLLs' headers declare dllimport
+// (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.
+#pragma warning( disable : 4273 )
+#endif
 
 void DevWarning( int level, const tchar *pMsg, ... )
 {
@@ -25,3 +31,7 @@ void DevWarning( int level, const tchar *pMsg, ... )
 	Tier0_DevSpewV( level, SPEW_WARNING, pMsg, args );
 	va_end( args );
 }
+
+// Every call in this module of the functions above, made through the
+// import pointer, reaches these definitions (ss_platform.h).
+SS_BIND_IMPORT_AS( DevWarning, void ( * )( int, const tchar *, ... ) )

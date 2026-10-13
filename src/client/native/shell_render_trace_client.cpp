@@ -56,7 +56,7 @@
 #include "view_shared.h"
 #include "iclientshadowmgr.h"
 
-#include <dlfcn.h>
+#include "ss_platform.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -73,7 +73,7 @@ namespace
 bool              g_bActive = false;
 CUtlVector<char>  g_Text;
 CUtlVector<const void *> g_WorldLists;	// a world list's ordinal is its index here
-void             *g_pClientBase = NULL;
+const void       *g_pClientBase = NULL;
 
 // Inside the shadow manager's own frame work (its render-to-texture refresh,
 // which redraws only the shadows that went dirty, so it differs frame to
@@ -110,11 +110,11 @@ bool FromClient( const void *pReturn )
 {
 	if ( !g_bActive )
 		return false;
-	Dl_info info;
-	return dladdr( pReturn, &info ) && info.dli_fbase == g_pClientBase;
+	SSModuleInfo info;
+	return SS_ModuleOfAddress( pReturn, &info ) && info.pBase == g_pClientBase;
 }
 
-#define SS_FROM_CLIENT() FromClient( __builtin_return_address( 0 ) )
+#define SS_FROM_CLIENT() FromClient( SS_RETURN_ADDRESS() )
 
 const char *TextureName( ITexture *pTexture )
 {
@@ -1110,10 +1110,10 @@ bool RenderTrace::Begin()
 
 	if ( !g_pClientBase )
 	{
-		Dl_info info;
-		if ( !dladdr( (void *)&RenderTrace::Begin, &info ) )
+		SSModuleInfo info;
+		if ( !SS_ModuleOfAddress( (void *)&RenderTrace::Begin, &info ) )
 			return false;
-		g_pClientBase = info.dli_fbase;
+		g_pClientBase = info.pBase;
 	}
 
 	g_Text.RemoveAll();

@@ -23,7 +23,7 @@ public class PhysicsSharedEvictionTests
 
     // ---- server.so -----------------------------------------------------------------
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void PhysicsSharedLeftTheServer()
     {
         Assert.False(Lists(CMakeGraph.Server, "physics_shared.cpp"));
@@ -69,7 +69,7 @@ public class PhysicsSharedEvictionTests
 
     // ---- client.so and the repository ----------------------------------------------
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void PhysicsSharedLeftTheClientAndTheRepository()
     {
         Assert.False(Lists(CMakeGraph.Client, "physics_shared.cpp"));
@@ -77,7 +77,7 @@ public class PhysicsSharedEvictionTests
         Assert.DoesNotContain("physics_shared.cpp", Code("src", "client", "native", "CMakeLists.txt").Replace("# physics_shared.cpp left", ""));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheClientRemnantForwardsEveryDecisionToManaged()
     {
         // What fork game/client/physics.cpp links stays, and each decision in

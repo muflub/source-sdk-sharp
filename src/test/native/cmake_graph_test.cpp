@@ -77,8 +77,8 @@ TEST( CMakeGraphReal, TheGameDllsLinkTheHost )
 {
 	const std::vector< std::string > server = LinkLibraries( kServer );
 	const std::vector< std::string > client = LinkLibraries( kClient );
-	EXPECT_NE( std::find( server.begin(), server.end(), "-lmanaged_host" ), server.end() );
-	EXPECT_NE( std::find( client.begin(), client.end(), "-lmanaged_host" ), client.end() );
+	EXPECT_NE( std::find( server.begin(), server.end(), "out/libmanaged_host.so" ), server.end() );
+	EXPECT_NE( std::find( client.begin(), client.end(), "out/libmanaged_host.so" ), client.end() );
 	EXPECT_EQ( Link( kServer ).strOutput, "out/server.so" );
 	EXPECT_EQ( Link( kClient ).strOutput, "out/client.so" );
 	EXPECT_EQ( Link( kHost ).strOutput, "out/libmanaged_host.so" );

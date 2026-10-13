@@ -67,7 +67,7 @@ public class UiGoldenTests
     /// <summary>At most this share of pixels may differ by more than the tolerance.</summary>
     private const double MaxDiffering = 0.002;
 
-    [Theory]
+    [LinuxOnlyTheory("pixel goldens recorded with the Linux libSkiaSharp; the Windows build rasterises glyph edges differently (0.4-1.9% of pixels past tolerance)")]
     [MemberData(nameof(Exemplars))]
     public void The_pixels_are_their_golden(string group, string slug)
     {

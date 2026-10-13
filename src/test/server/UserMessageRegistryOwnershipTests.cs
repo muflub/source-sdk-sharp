@@ -34,7 +34,7 @@ public class UserMessageRegistryOwnershipTests
     private static IReadOnlySet<string> Client => CMakeGraph.CompiledSources(CMakeGraph.Client);
     private static IReadOnlySet<string> Server => CMakeGraph.CompiledSources(CMakeGraph.Server);
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheClientCompilesNoNativeUserMessageList()
     {
         var built = Client;
@@ -48,7 +48,7 @@ public class UserMessageRegistryOwnershipTests
             Assert.DoesNotContain(built, f => f.EndsWith("/" + file, StringComparison.Ordinal));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheServerCompilesNoNativeUserMessageList()
     {
         var built = Server;
@@ -60,7 +60,7 @@ public class UserMessageRegistryOwnershipTests
             Assert.DoesNotContain(built, f => f.EndsWith("/" + file, StringComparison.Ordinal));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void NeitherSideStillCompilesAStockPerGameMessageList()
     {
         // hl2_usermessages.cpp and tf_usermessages.cpp are the two files that

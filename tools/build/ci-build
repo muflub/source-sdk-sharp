@@ -4,7 +4,13 @@
 # Valve's steamrt sniper SDK image, which gives the shipped binaries sniper's
 # glibc 2.31 floor. The only target that needs podman (or docker).
 #
-#   tools/build/ci-build [release|debug]      (make ci-build [CONFIG=...])
+#   tools/build/ci-build [release|debug] [target]
+#                                   (make ci-build [CONFIG=...] [TARGET=...])
+#
+# With a target (ss_particles, sourcesharp, server_sourcesharp,
+# client_sourcesharp), only that one is built and the GLIBC gate is left to the run
+# without one, which builds whatever is left and measures every output: CI
+# builds each library in its own step, then runs the whole once.
 #
 # The repo and ROOT (the fork, read-only) are mounted at their host paths, so
 # the farm's absolute links resolve inside the container unchanged. The preset
@@ -17,7 +23,8 @@
 set -euo pipefail
 
 CONFIG="${1:-release}"
-case "$CONFIG" in debug|release) ;; *) echo "usage: $0 [release|debug]"; exit 1 ;; esac
+TARGET="${2:-}"
+case "$CONFIG" in debug|release) ;; *) echo "usage: $0 [release|debug] [target]"; exit 1 ;; esac
 
 REPO="$(cd -- "$(dirname -- "$(readlink -f -- "$0")")/../.." && pwd -P)"
 IMAGE="${SS_CI_IMAGE:-registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest}"
@@ -30,7 +37,9 @@ if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
         echo "error: no ROOT recorded; run: make setup ROOT=../source-sdk-2013"
         exit 1
     fi
-    runner="$(command -v podman || command -v docker || true)"
+    # podman first; SS_CI_RUNNER names one outright (GitHub's runners carry
+    # both, and the workflow picks docker, the one whose daemon is up).
+    runner="${SS_CI_RUNNER:-$(command -v podman || command -v docker || true)}"
     if [[ -z "$runner" ]]; then
         echo "error: ci-build needs podman (sudo apt install podman) or docker"
         exit 1
@@ -40,17 +49,32 @@ if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
     if [[ "${XDG_DATA_HOME:-}" == */snap/* ]]; then
         export XDG_DATA_HOME="$HOME/.local/share"
     fi
-    echo "==> ci-build $CONFIG in $IMAGE"
-    exec "$runner" run --rm -i --userns=keep-id \
+    # The build runs as this user either way, so what it writes under the
+    # mounted repo is ours. Rootless podman does that with keep-id; docker
+    # has no keep-id, so it is told the uid:gid, and a HOME that exists
+    # for a user the image's passwd does not know.
+    if [[ "$(basename -- "$runner")" == podman ]]; then
+        as_user=(--userns=keep-id)
+    else
+        as_user=(--user "$(id -u):$(id -g)" --env HOME=/tmp)
+    fi
+    echo "==> ci-build $CONFIG${TARGET:+ ($TARGET)} in $IMAGE ($(basename -- "$runner"))"
+    exec "$runner" run --rm -i "${as_user[@]}" \
         --env SS_IN_CI_CONTAINER=1 \
         --mount type=bind,source="$REPO",target="$REPO" \
         --mount type=bind,source="$ROOT",target="$ROOT",ro \
         --workdir "$REPO" \
-        "$IMAGE" "$REPO/tools/build/ci-build" "$CONFIG"
+        "$IMAGE" "$REPO/tools/build/ci-build" "$CONFIG" $TARGET
 fi
 
 cd "$REPO"
 cmake --preset "ci-$CONFIG" > /dev/null
+
+if [[ -n "$TARGET" ]]; then
+    cmake --build --preset "ci-$CONFIG" --target "$TARGET"
+    exit 0
+fi
+
 cmake --build --preset "ci-$CONFIG"
 
 echo "==> GLIBC ceiling: no symbol version newer than GLIBC_$GLIBC_CEILING"

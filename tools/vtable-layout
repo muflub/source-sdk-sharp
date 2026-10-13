@@ -108,6 +108,28 @@ for IVModelInfo:
 
 They are commented "destructor 1" and "destructor 2", are never bound, and must
 never be called from managed: slot 1 would free the engine's singleton.
+
+WINDOWS: THE MICROSOFT ABI'S ORDER
+==================================
+
+The engine's Windows binaries are MSVC's, and MSVC numbers some tables
+differently: a virtual destructor takes ONE slot, and each class's overloads
+are grouped by name and laid out in REVERSE declaration order
+(`microsoft_slots`). 32 of the layouts differ. A called-by-managed one is
+emitted as the same span of pointers read through properties, each picking
+its Windows index on Windows and its declaration-order index elsewhere, with
+`[VtableSlot(itanium, microsoft)]` saying both and `MicrosoftEntries` the
+count native reports there (VtableAbi answers it generically). The one
+managed-written layout that differs, CCallbackBase, keeps its fields; their
+`[VtableSlot]` tells ManagedVtableGenerator where to write each thunk.
+
+The rules were checked against clang-cl's Microsoft-ABI vftable dumps for
+every interface here, and vtable_index_agreement_test holds the numbers to
+the compiler on the Windows build: every length, and every overload.
+
+A slot returning a class by value is `[MemberFunction]`: MSVC passes a member
+function's return buffer after `this`, a free function's before its first
+argument, and the runtime needs to be told which.
 """
 
 import argparse
@@ -1863,6 +1885,98 @@ def derive_chain(steps, chain=None):
     return rows, overrides
 
 
+def microsoft_slots(steps, chain=None):
+    """({Itanium slot: Microsoft slot}, Microsoft table length) for one chain,
+    or (None, why).
+
+    THE SAME DECLARATIONS, NUMBERED THE WAY MSVC NUMBERS THEM. The engine's
+    Windows binaries are MSVC's, and the Microsoft C++ ABI orders a vftable by
+    two rules the Itanium ABI does not have:
+
+      * A VIRTUAL DESTRUCTOR TAKES ONE SLOT, the scalar deleting destructor,
+        where Itanium takes the D1/D0 pair. Its key is the destructor slot's
+        first Itanium number; the second has no Microsoft counterpart.
+
+      * OVERLOADS ARE GROUPED. Each class's NEW virtuals (an override keeps
+        its base's slot, exactly as in derive_chain) are laid out one group
+        per name, the groups in the order each name is first declared in that
+        class, and within a group IN REVERSE DECLARATION ORDER. So
+        IBaseFileSystem's `Size( FileHandle_t )`, declared first, comes after
+        `Size( const char *, const char * )`, and ICvar's const/non-const pairs
+        swap.
+
+    A class's base comes first and keeps its slots, as under Itanium, so a
+    chain is numbered class by class.
+
+    NOT TRUSTED FROM THIS PROSE. The rules were held against clang-cl's own
+    Microsoft-ABI vftable dumps (-fdump-vtable-layouts) for every interface
+    this file emits, and vtable_index_agreement_test holds the generated
+    numbers against MSVC's `&Interface::Method` on the Windows build.
+    """
+    if chain is not None:
+        steps = [(steps, cls) for cls in chain]
+        read_text = lambda h: h
+    else:
+        read_text = read
+
+    at = {}        # (method, parameters) -> (declaring class, Itanium slot)
+    mapping = {}
+    itanium = 0
+    microsoft = 0
+
+    for header, cls in steps:
+        text = read_text(header)
+
+        if text is None:
+            return None, '%s is missing' % header
+
+        declared, why = derive_from_header(text, cls)
+
+        if declared is None:
+            return None, '%s: %s' % (header, why)
+
+        new, names = [], []
+
+        for name, parameters, _returns, _local in declared:
+            if name not in names:
+                names.append(name)
+
+            key = ('~destructor', '') if name == '~destructor' else (name, parameters)
+            prior = at.get(key)
+
+            if prior is not None and prior[0] != cls:
+                continue
+
+            at[key] = (cls, itanium)
+            new.append((name, itanium))
+            itanium += 2 if name == '~destructor' else 1
+
+        for name in names:
+            for _name, slot in reversed([row for row in new if row[0] == name]):
+                mapping[slot] = microsoft
+                microsoft += 1
+
+    return mapping, microsoft
+
+
+def is_microsoft_identity(mapping, microsoft, itanium):
+    """True when MSVC lays this table out exactly as Itanium does."""
+    return microsoft == itanium and all(k == v for k, v in mapping.items())
+
+
+def microsoft_causes(mapping, microsoft, itanium):
+    """Why MSVC's order differs, in words, for a struct's summary."""
+    causes = []
+
+    if microsoft != itanium:
+        causes.append('one destructor slot, not two')
+
+    if sorted(mapping, key=mapping.get) != sorted(mapping):
+        causes.append('overloads grouped and reversed')
+
+    return ' and '.join(causes)
+
+
 # ---------------------------------------------------------------------------
 # POLICY. Not verification: see the file's own header.
 # ---------------------------------------------------------------------------
@@ -1911,6 +2025,34 @@ def wrap_comment(text, width=88):
         lines.append(current)
 
     return lines
+
+
+# The C# return types that are not a class: what a slot returning one of these
+# returns in a register on both ABIs.
+SCALAR_RETURNS = frozenset((
+    'void', 'byte', 'sbyte', 'short', 'ushort', 'int', 'uint', 'long', 'ulong',
+    'nint', 'nuint', 'float', 'double', 'bool', 'char'))
+
+
+def returned_type(kind):
+    """The C# return type a `delegate* unmanaged...<..., R>` names."""
+    inner = kind[kind.index('<') + 1:kind.rindex('>')]
+    return inner.rsplit(',', 1)[-1].strip()
+
+
+def returns_by_value_class(kind):
+    returned = returned_type(kind)
+    return returned not in SCALAR_RETURNS and not returned.endswith('*')
+
+
+def with_convention(kind, convention):
+    """`kind` with one more calling-convention modifier."""
+    head, rest = kind.split('<', 1)
+
+    if head.endswith(']'):
+        return '%s, %s]<%s' % (head[:-1], convention, rest)
+
+    return '%s[%s]<%s' % (head, convention, rest)
 
 
 def fields_for(entry, policy):
@@ -2036,6 +2178,15 @@ def fields_for(entry, policy):
                                 'delegate* unmanaged[SuppressGCTransition]<', 1)
             suppressed.add(name)
 
+        # A CLASS RETURNED BY VALUE IS A MEMBER FUNCTION'S RETURN, and on
+        # Windows that is not a free function's. MSVC returns every class type
+        # from a member function through a hidden buffer passed AFTER `this`;
+        # a free function returns a 12-byte Vector through a buffer passed
+        # BEFORE its first argument. [MemberFunction] tells the runtime which,
+        # and changes nothing on Linux, where the two conventions are one.
+        if kind is not None and returns_by_value_class(kind):
+            kind = with_convention(kind, 'MemberFunction')
+
         field = name if kind is not None else 'Refused_' + name
 
         seen = used.get(field, 0) + 1
@@ -2107,6 +2258,19 @@ def emit():
         '// it to sizeof(TVtbl) / sizeof(void *). Equal, construct; not equal, refuse',
         '// naming both numbers. That is the whole of it, it runs once per acquire, and',
         '// what it catches is THIS FILE GOING STALE against the headers.',
+        '//',
+        '// ON WINDOWS THE ENGINE IS MSVC\'S, and the Microsoft C++ ABI orders some tables',
+        '// differently: a virtual destructor takes ONE slot, and each class\'s overloads',
+        '// are grouped by name and laid out in REVERSE declaration order. A layout MSVC',
+        '// orders the Itanium way is emitted as above. One it does not is the same',
+        '// span of pointers read through properties, each picking its Windows index',
+        '// on Windows (`[VtableSlot(itanium, microsoft)]` says both), and its',
+        '// `MicrosoftEntries` is the count native reports there; VtableAbi answers',
+        '// that count for any layout. A managed-written table MSVC orders differently',
+        '// keeps its fields, and ManagedVtableGenerator writes each thunk at the index',
+        '// for the ABI it runs on. A slot returning a class by value is',
+        '// [MemberFunction], because MSVC passes a member function\'s return buffer',
+        '// after `this`.',
         '',
         'using System.Runtime.InteropServices;',
         '',
@@ -2124,6 +2288,23 @@ def emit():
         if span != len(fields):
             return None, ('%s emits %d field(s) for a %d slot table'
                           % (entry['struct'], len(fields), span))
+
+        mapping, microsoft = microsoft_slots(chain_steps(entry))
+
+        if mapping is None:
+            return None, microsoft
+
+        reordered = not is_microsoft_identity(mapping, microsoft, span)
+
+        # A MANAGED-WRITTEN TABLE MAY DIFFER ONLY BY ITS OVERLOADS. A virtual
+        # destructor is refused there already (managed_implementation_refusals),
+        # and our own interfaces refuse overloads (SSVT006), so what can reach
+        # this is a Valve layout whose overloads MSVC reverses: CCallbackBase's
+        # two Run.
+        if reordered and kind_of(entry) in MANAGED_WRITTEN and (
+                kind_of(entry) != VALVE_BY_MANAGED or microsoft != span):
+            return None, ('%s is %s and MSVC lays it out differently by more than '
+                          'its overloads' % (entry['struct'], kind_of(entry)))
 
         out += [
             '',
@@ -2146,6 +2327,28 @@ def emit():
         ] + ['/// %s' % line for line in wrap_comment(entry['note'], 74)] + [
             '/// </para>',
         ]
+
+        if reordered and kind_of(entry) in MANAGED_WRITTEN:
+            out += [
+                '///',
+                '/// <para>',
+                '/// MSVC ORDERS THIS TABLE DIFFERENTLY: it reverses the overloads. Each',
+                '/// field\'s <c>[VtableSlot]</c> carries its index under both ABIs, and',
+                '/// <c>ManagedVtableGenerator</c> writes the thunk at the one for the ABI it',
+                '/// runs on.',
+                '/// </para>',
+            ]
+        elif reordered:
+            out += [
+                '///',
+                '/// <para>',
+                '/// MSVC ORDERS THIS TABLE DIFFERENTLY (%s), so the slots are properties'
+                % microsoft_causes(mapping, microsoft, span),
+                '/// over the table that read each one at its Windows index on Windows and',
+                '/// at its declaration-order index elsewhere. %d slot(s) on Windows, which' % microsoft,
+                '/// is the count native reports there.',
+                '/// </para>',
+            ]
 
         if kind_of(entry) == IMPLEMENTED_BY_MANAGED:
             out += [
@@ -2195,6 +2398,11 @@ def emit():
         # every one of 146 trailing comments off the right of the screen.
         width = max([len(d) for _s, d, _c in fields if len(d) <= ALIGN] or [ALIGN])
 
+        if reordered and kind_of(entry) not in MANAGED_WRITTEN:
+            out += property_body(fields, mapping, microsoft, span)
+            out.append('}')
+            continue
+
         for index, (slot, declaration, comment) in enumerate(fields):
             if index:
                 out.append('')
@@ -2211,6 +2419,9 @@ def emit():
             # into the C++ header native checks with, and ManagedVtableGenerator
             # reads it off the field to answer Validate, so the two sides can only
             # disagree when they were built from different headers.
+            if reordered:
+                out.append('    [VtableSlot(%d, %d)]' % (slot, mapping[slot]))
+
             if kind_of(entry) in MANAGED_WRITTEN:
                 out.append('    [SlotHash(0x%08x)]' % slot_hash(declaration))
 
@@ -2219,9 +2430,113 @@ def emit():
 
         out.append('}')
 
+    out += microsoft_entries_class()
     out.append('')
 
     return '\n'.join(out), None
+
+
+def property_body(fields, mapping, microsoft, span):
+    """The body of a layout whose slots MSVC orders differently.
+
+    THE SAME TABLE, READ THROUGH AN INDEX THAT DEPENDS ON THE ABI. The struct is
+    still exactly `span` pointers long, so sizeof and every Itanium offset are
+    what they were; each slot is a property whose getter reads the Windows
+    index on Windows and the declaration-order index elsewhere.
+    `OperatingSystem.IsWindows()` is a JIT-time constant, so the getter
+    compiles to the load a field would have been, and a call site is
+    unchanged: `_vtbl->GetModel(_self)` invokes the function pointer the
+    property returns.
+
+    Each line still starts `    public ` and ends `Name => ...;` with the
+    Itanium slot first in its trailing comment, which is what
+    vtable_index_agreement_test reads.
+    """
+    has_second_destructor = any(d == 'nint Destructor2;' for _s, d, _c in fields)
+
+    out = [
+        '    /// <summary>The table\'s length under the Microsoft ABI: what native reports on Windows.</summary>',
+        '    internal const int MicrosoftEntries = %d;' % microsoft,
+        '',
+        '    private fixed long _slots[%d];' % span,
+        '',
+        '    private readonly long At(int itanium, int microsoft)',
+        '        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];',
+    ]
+
+    if has_second_destructor:
+        out += [
+            '',
+            '    // The deleting destructor\'s Itanium slot has no Microsoft counterpart:',
+            '    // MSVC\'s one destructor slot is Destructor1\'s.',
+            '    private readonly long ItaniumOnly(int itanium)',
+            '        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];',
+        ]
+
+    for slot, declaration, comment in fields:
+        out.append('')
+
+        for line in comment[1:]:
+            out.append('    // %s' % line)
+
+        cut = declaration.rindex(' ')
+        kind, name = declaration[:cut], declaration[cut + 1:-1]
+        ms = mapping.get(slot)
+
+        if ms is None:
+            out.append('    [VtableSlot(%d, -1)]' % slot)
+            out.append('    public %s %s => (%s)ItaniumOnly(%d); // %-3d ms --  %s'
+                       % (kind, name, kind, slot, slot, comment[0]))
+        else:
+            out.append('    [VtableSlot(%d, %d)]' % (slot, ms))
+            out.append('    public %s %s => (%s)At(%d, %d); // %-3d ms %-3d %s'
+                       % (kind, name, kind, slot, ms, slot, ms, comment[0]))
+
+    return out
+
+
+def microsoft_entries_class():
+    """VtableAbi: the count native reports on Windows, per layout.
+
+    A GENERIC LOOKUP RATHER THAN A MEMBER ON EVERY STRUCT, so the 127 layouts
+    MSVC orders the Itanium way are untouched: for them the Windows count is
+    the struct's own span. `typeof(TVtbl) == typeof(X)` is folded by the JIT
+    for each struct instantiation, so the chain costs nothing at run time.
+    """
+    reordered = []
+
+    for entry in INTERFACES:
+        fields, _why = fields_for(entry, load_policy())
+        mapping, microsoft = microsoft_slots(chain_steps(entry))
+        span = len(fields)
+
+        if not is_microsoft_identity(mapping, microsoft, span) and \
+                kind_of(entry) not in MANAGED_WRITTEN:
+            reordered.append(entry['struct'])
+
+    return [
+        '',
+        '/// <summary>',
+        '/// The vtable length native reports on Windows, where the engine is MSVC\'s',
+        '/// and a virtual destructor takes one slot rather than two.',
+        '/// </summary>',
+        'internal static unsafe class VtableAbi',
+        '{',
+        '    /// <summary>',
+        '    /// <typeparamref name="TVtbl"/>\'s length under the Microsoft ABI: its',
+        '    /// <c>MicrosoftEntries</c> where MSVC orders it differently, its span',
+        '    /// otherwise.',
+        '    /// </summary>',
+        '    public static int MicrosoftEntries<TVtbl>() where TVtbl : unmanaged',
+        '    {',
+    ] + [
+        '        if (typeof(TVtbl) == typeof(%s)) return %s.MicrosoftEntries;' % (s, s)
+        for s in reordered
+    ] + [
+        '        return sizeof(TVtbl) / sizeof(void*);',
+        '    }',
+        '}',
+    ]
 
 
 def check(out=sys.stdout):
@@ -2462,8 +2777,8 @@ def self_test(out=sys.stdout):
            'it may be',
            body.count('public nint ') == 62
            and body.count('Refused_') == 20
-           and body.count('nint Destructor1;') == 21
-           and body.count('nint Destructor2;') == 21)
+           and len(re.findall(r'nint Destructor1(?:;| => )', body)) == 21
+           and len(re.findall(r'nint Destructor2(?:;| => )', body)) == 21)
 
     expect('an OVERRIDE takes the base\'s slot rather than appending one -- '
            'IGameEventManager2 re-declares IBaseInterface\'s virtual destructor '
@@ -2500,8 +2815,10 @@ def self_test(out=sys.stdout):
         'GetMapEntitiesString': 'delegate* unmanaged<void*, byte*>',
     }
 
+    # A field (`Name;`) or, where MSVC orders the table differently, a
+    # property (`Name => ...`): the declared type is the same either way.
     emitted = dict((m.group(2), m.group(1)) for m in re.finditer(
-        r'public (delegate\* unmanaged<[^>]*>|nint) (\w+);', body))
+        r'public (delegate\* unmanaged<[^>]*>|nint) (\w+)(?:;| => )', body))
 
     agreed = [name for name, kind in was_hand_typed.items() if emitted.get(name) == kind]
 
@@ -2552,7 +2869,110 @@ def self_test(out=sys.stdout):
     # -- the overload rule ---------------------------------------------------
     expect('IBaseFileSystem::Size is emitted TWICE and the second is Size_2 -- a '
            'name-keyed table would hand a filename to the FileHandle_t overload',
-           'Size;' in (generated or '') and 'Size_2;' in (generated or ''))
+           ' Size => ' in (generated or '') and ' Size_2 => ' in (generated or ''))
+
+    # -- the Microsoft ABI's numbering ---------------------------------------
+    #
+    # The rules microsoft_slots applies, each on a probe class whose answer is
+    # worked out by hand here, then on the two real interfaces the managed
+    # facts name.
+    probe = """
+        class IMsProbe
+        {
+        public:
+            virtual void Alpha( int a ) = 0;
+            virtual void Beta( void ) = 0;
+            virtual void Alpha( float f ) = 0;
+            virtual void Gamma( void ) = 0;
+            virtual void Alpha( char *p ) = 0;
+        };
+        class IMsDerived : public IMsProbe
+        {
+        public:
+            virtual ~IMsDerived() {}
+            virtual void Beta( void ) = 0;
+            virtual void Delta( int a ) = 0;
+            virtual void Delta( void ) = 0;
+        };
+    """
+    ms, ms_len = microsoft_slots(probe, ['IMsProbe'])
+    expect('MSVC groups a class\'s overloads at the first declaration of the name and '
+           'reverses them: Alpha(char*), Alpha(float), Alpha(int), Beta, Gamma',
+           ms == {4: 0, 2: 1, 0: 2, 1: 3, 3: 4} and ms_len == 5)
+
+    ms, ms_len = microsoft_slots(probe, ['IMsProbe', 'IMsDerived'])
+    expect('a derived class numbers its OWN new virtuals after the base\'s, an '
+           'override keeps the base slot, and its destructor takes ONE slot: '
+           'Itanium 5,6 (the pair) -> 5; Delta(int) 7 -> 7, Delta() 8 -> 6',
+           ms_len == 8 and ms.get(5) == 5 and 6 not in ms
+           and ms.get(7) == 7 and ms.get(8) == 6 and ms.get(1) == 3)
+    expect('a table MSVC orders the Itanium way is recognised as such, and one it '
+           'does not is not',
+           is_microsoft_identity({0: 0, 1: 1}, 2, 2)
+           and not is_microsoft_identity({0: 0, 2: 1}, 2, 3)
+           and not is_microsoft_identity({0: 1, 1: 0}, 2, 2))
+
+    fs, fs_len = microsoft_slots(chain_steps(
+        [e for e in INTERFACES if e['struct'] == 'BaseFileSystemVtbl'][0]))
+    expect('IBaseFileSystem: the two Size overloads swap (6 -> 7, 7 -> 6) and the '
+           'length stays 17', fs.get(6) == 7 and fs.get(7) == 6 and fs_len == 17)
+    mi, mi_len = microsoft_slots(chain_steps(
+        [e for e in INTERFACES if e['struct'] == 'ModelInfoVtbl'][0]))
+    expect('IVModelInfo: the destructor is slot 0, GetModel 1 and the length 58',
+           mi.get(0) == 0 and 1 not in mi and mi.get(2) == 1 and mi_len == 58)
+
+    # -- what the Microsoft numbering emits ----------------------------------
+    def struct_body(name):
+        at = (generated or '').find(' unsafe struct %s\n{' % name)
+        return (generated or '')[at:(generated or '').find('\n}', at)] if at >= 0 else ''
+
+    model_body = struct_body('ModelInfoVtbl')
+    expect('a layout MSVC orders differently says its Windows length and reads every '
+           'slot through At(itanium, microsoft)',
+           'internal const int MicrosoftEntries = 58;' in model_body
+           and 'GetModel => (delegate* unmanaged<void*, int, void*>)At(2, 1);' in model_body
+           and '[VtableSlot(2, 1)]' in model_body)
+    expect('its deleting destructor has no Windows slot', 'Destructor2 => (nint)ItaniumOnly(1);' in model_body)
+    random_body = struct_body('UniformRandomStreamVtbl')
+    expect('a layout both ABIs order alike is left exactly as it was: fields, no '
+           'MicrosoftEntries, no [VtableSlot]',
+           random_body and 'MicrosoftEntries' not in random_body
+           and '[VtableSlot' not in random_body and ' SetSeed;' in random_body)
+    steam_body = struct_body('SteamCallbackVtbl')
+    expect('a managed-written layout MSVC reverses keeps its FIELDS and carries each '
+           'one\'s Windows slot for ManagedVtableGenerator',
+           '[VtableSlot(0, 1)]' in steam_body and '[VtableSlot(1, 0)]' in steam_body
+           and ' Run;' in steam_body and ' Run_2;' in steam_body
+           and 'MicrosoftEntries' not in steam_body)
+    expect('VtableAbi answers the Windows length of every layout MSVC orders '
+           'differently, and only those',
+           'if (typeof(TVtbl) == typeof(ModelInfoVtbl)) return ModelInfoVtbl.MicrosoftEntries;'
+           in (generated or '')
+           and 'typeof(UniformRandomStreamVtbl)' not in (generated or '')
+           and 'typeof(SteamCallbackVtbl)' not in (generated or ''))
+
+    mw_dtor = microsoft_slots("""
+        class IManagedDtorProbe { public: virtual ~IManagedDtorProbe() {} virtual void A() = 0; };
+    """, ['IManagedDtorProbe'])
+    expect('a destructor is the reorder a managed-written table may not have: its '
+           'Windows length is one short of its span', mw_dtor[1] == 2)
+
+    # -- a class returned by value -------------------------------------------
+    expect('a slot returning a class by value is [MemberFunction] (MSVC passes the '
+           'return buffer after `this`); one returning a scalar is not',
+           'unmanaged[SuppressGCTransition, MemberFunction]<void*, Vector> GetInertia' in (generated or '')
+           and 'unmanaged[MemberFunction]<void*, Vector> GetInvInertia' in (generated or '')
+           and 'MemberFunction]<void*, float> GetMass' not in (generated or ''))
+    expect('the convention is added beside one already there, or on its own',
+           with_convention('delegate* unmanaged<void*, Vector>', 'MemberFunction')
+               == 'delegate* unmanaged[MemberFunction]<void*, Vector>'
+           and with_convention('delegate* unmanaged[SuppressGCTransition]<void*, Vector>', 'MemberFunction')
+               == 'delegate* unmanaged[SuppressGCTransition, MemberFunction]<void*, Vector>')
+    expect('a pointer or a scalar return is not a class by value',
+           not returns_by_value_class('delegate* unmanaged<void*, void*>')
+           and not returns_by_value_class('delegate* unmanaged<void*, uint>')
+           and not returns_by_value_class('delegate* unmanaged<byte*>')
+           and returns_by_value_class('delegate* unmanaged<void*, Vector>'))
 
     # -- a policy key that names nothing -------------------------------------
     saved = dict(load_policy.__globals__)

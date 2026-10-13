@@ -84,7 +84,7 @@ public class TempEntBaseTableTests
     /// table is the one in the process.
     /// </para>
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheClientCompilesNoStockBaseTempEntityTu()
     {
         Assert.DoesNotContain(CMakeGraph.CompiledSources(CMakeGraph.Client),
@@ -92,7 +92,7 @@ public class TempEntBaseTableTests
     }
 
     /// <summary>The SERVER half of the same pair, which has been true for longer.</summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheServerCompilesNoStockBaseTempEntityTu()
     {
         Assert.DoesNotContain(CMakeGraph.CompiledSources(CMakeGraph.Server),
@@ -105,7 +105,7 @@ public class TempEntBaseTableTests
     /// list to look in. (CMakeGraph also throws on a missing, empty or stale
     /// build.)
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BothSourceListsWereActuallyRead()
     {
         var client = CMakeGraph.CompiledSources(CMakeGraph.Client);

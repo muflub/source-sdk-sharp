@@ -55,12 +55,12 @@ inline std::vector<ConsoleLineDrained> ConsoleLineParse( const ConsoleLineTaken 
 
 inline uint32_t ConsoleLineSequence( const CConsoleLineBuffer &buffer )
 {
-	return __atomic_load_n( &buffer.m_Header.nSeq, __ATOMIC_ACQUIRE );
+	return buffer.m_Header.nSeq.load( std::memory_order_acquire );
 }
 
 inline bool ConsoleLineLocked( const CConsoleLineBuffer &buffer )
 {
-	return __atomic_load_n( &buffer.m_Header.nLock, __ATOMIC_ACQUIRE ) != 0;
+	return buffer.m_Header.nLock.load( std::memory_order_acquire ) != 0;
 }
 
 #endif // SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H

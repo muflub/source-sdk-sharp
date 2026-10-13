@@ -55,8 +55,10 @@ public unsafe class ConvertedEntryTests
     /// <c>vtable_index_agreement_test.cpp</c>, natively, on the committed file.
     /// </para>
     /// </summary>
-    private static int SlotOf<TVtbl>(string field)
-        => (int)Marshal.OffsetOf(typeof(TVtbl), field) / sizeof(void*);
+    // The index the layout reads in this process: a field's offset, or a
+    // property's [VtableSlot] on Windows for a layout MSVC orders differently.
+    private static int SlotOf<TVtbl>(string field) where TVtbl : unmanaged
+        => VtableSlots.Of<TVtbl>(field);
 
     private static readonly int GetModelSlot = SlotOf<ModelInfoVtbl>("GetModel");
     private static readonly int GetModelTypeSlot = SlotOf<ModelInfoVtbl>("GetModelType");

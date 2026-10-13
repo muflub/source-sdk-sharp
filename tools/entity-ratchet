@@ -533,7 +533,27 @@ def budget_checks(budget, stages, consts):
 # ---------------------------------------------------------------------------
 # The census: run as-is. It is already a diff against a committed baseline.
 # ---------------------------------------------------------------------------
-def census_check():
+
+# THE ONE PART OF THE CENSUS CI CANNOT REPRODUCE. The baseline is taken on the
+# fork, and its "... their lines" rows count the text of the stock (Valve)
+# TUs, which carry the fork's edits. CI sets ROOT up from the public patch
+# series (make sdk-upstream), which does not carry all of them, so on a runner
+# those rows read fewer lines while every other row agrees. With SOURCESHARP_CI
+# set (the workflow sets it; nothing else does), drift confined to those rows
+# is reported and passed; drift in any other row still fails. The same rule as
+# [NotOnCiFact] and SS_SKIP_ON_CI, and the same variable, read the same way.
+def on_ci(environ=None):
+    return (environ if environ is not None else os.environ).get('SOURCESHARP_CI') == '1'
+
+
+def only_stock_line_counts_moved(detail):
+    """True when every changed row of a census diff is a "... their lines" row."""
+    changed = [line for line in detail
+               if line[:1] in ('-', '+') and not line.startswith(('---', '+++'))]
+    return bool(changed) and all('... their lines' in line for line in changed)
+
+
+def census_check(environ=None):
     cmd = [os.path.join(ROOT, CENSUS)]
     try:
         proc = subprocess.run(cmd, cwd=FARM, stdout=subprocess.PIPE,
@@ -548,6 +568,12 @@ def census_check():
         return [('census agrees with docs/entity-census.txt', True,
                  proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else 'exit 0')]
     detail = (proc.stdout + proc.stderr).strip().splitlines()
+    if on_ci(environ) and only_stock_line_counts_moved(detail):
+        return [('census agrees with docs/entity-census.txt', True,
+                 'SKIPPED ON CI (SOURCESHARP_CI): only the stock TUs\' line counts '
+                 'moved, and they count the fork\'s edits to Valve files, which the '
+                 'public patch series CI sets up from does not carry; every other row '
+                 'was compared')]
     if len(detail) > 30:
         detail = detail[:30] + ['... %d more lines; run `make entity-census`'
                                 % (len(detail) - 30)]
@@ -693,6 +719,23 @@ def self_test():
         return False
 
     print('==> tools/entity-ratchet self-test')
+
+    # -- the CI rule for the census's fork-text rows -------------------------
+    LINES_ONLY = ['--- docs/entity-census.txt', '+++ (measured now)', '@@ -9,9 +9,9 @@',
+                  ' stock TUs that use an entity type but define none    0     4',
+                  '-  ... their lines                                    0  5634',
+                  '+  ... their lines                                    0  5082']
+    ck('a diff whose only changed rows are stock line counts is recognised',
+       only_stock_line_counts_moved(LINES_ONLY))
+    ck('one that also moves a count row is not -- that drift still fails on CI',
+       not only_stock_line_counts_moved(LINES_ONLY + [
+           '-CBaseEntity:: / C_BaseEntity:: members in the DLL   0     0',
+           '+CBaseEntity:: / C_BaseEntity:: members in the DLL   0     3']))
+    ck('a diff with no changed row is not (nothing moved means nothing to pass)',
+       not only_stock_line_counts_moved(LINES_ONLY[:4]))
+    ck('CI is SOURCESHARP_CI=1 and nothing else',
+       on_ci({'SOURCESHARP_CI': '1'}) and not on_ci({'SOURCESHARP_CI': '0'})
+       and not on_ci({}))
 
     # -- the gate row parser -------------------------------------------------
     GOOD = ('1\tgate\tmembers\t10\t20\tFAIL\n'

@@ -205,6 +205,13 @@ target_compile_definitions(server_sourcesharp PRIVATE
     # either way.
     NO_MALLOC_OVERRIDE
 )
+# On Windows memalloc.h's arm for such a module is empty (Valve never built
+# Windows without tier0's allocator): cmake/compat/windows supplies the
+# MemAlloc_* set POSIX gets, on the CRT, forced in ahead of every source.
+if(SS_PLATFORM STREQUAL windows)
+  target_compile_options(server_sourcesharp PRIVATE
+    "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
+endif()
 
 # THE INCLUDE SETS -- plan_server_novalve.md 3.4 (amended in P1: per source,
 # not an object library, so this target keeps its one source list, which
@@ -533,10 +540,8 @@ foreach(src IN LISTS server_sourcesharp_sources)
   endif()
 endforeach()
 
-# libmanaged_host.so has no SONAME, so it is named with -L/-l (as VPC did): by
-# path, DT_NEEDED would record the build directory.
-add_dependencies(server_sourcesharp sourcesharp)
-target_link_options(server_sourcesharp PRIVATE -L$<TARGET_FILE_DIR:sourcesharp>)
+# The managed host, linked by target (ss_link_host).
+ss_link_host(server_sourcesharp)
 
 # IDENTICAL CODE FOLDING, release only (2026-10-01). lld merges functions whose
 # code is byte-identical; `safe` never merges one whose address is taken (clang
@@ -544,7 +549,7 @@ target_link_options(server_sourcesharp PRIVATE -L$<TARGET_FILE_DIR:sourcesharp>)
 # pointers. Measured on release server.so: .text 659,853 -> 635,173 (-3.7%);
 # `all` folds only 328 bytes more. Debug keeps one symbol per function for the
 # nm/globals instruments. GNU ld (SS_LINKER=bfd, the CI image) has no --icf.
-if(SS_CONFIG STREQUAL "release" AND SS_IS_CLANG AND SS_LINKER STREQUAL "lld")
+if(SS_CONFIG STREQUAL "release" AND SS_PLATFORM STREQUAL linux AND SS_IS_CLANG AND SS_LINKER STREQUAL "lld")
   target_link_options(server_sourcesharp PRIVATE -Wl,--icf=safe)
 endif()
 
@@ -556,7 +561,7 @@ endif()
 # identity virtual to ask instead. The cost: a new dynamic_cast or typeid
 # outside an Assert compiles in debug and fails only in `make release`.
 if(SS_CONFIG STREQUAL "release")
-  target_compile_options(server_sourcesharp PRIVATE -fno-rtti)
+  target_compile_options(server_sourcesharp PRIVATE $<IF:$<BOOL:${SS_IS_MSVC}>,/GR-,-fno-rtti>)
 endif()
 
 # UNUSED FUNCTIONS AND VARIABLES ARE ERRORS IN server.so (2026-10-01). The
@@ -567,18 +572,35 @@ endif()
 # unused local in a template every CUtlVector user instantiates, 85 TUs);
 # --system-header-prefix treats that one header as a system header rather than
 # editing it. gcc has no such flag, so the CI build takes the warnings alone.
-target_compile_options(server_sourcesharp PRIVATE -Wunused-function -Wunused-variable
-  $<$<BOOL:${SS_IS_CLANG}>:--system-header-prefix=tier1/utlblockmemory.h>)
-target_link_libraries(server_sourcesharp PRIVATE managed_host)
-set_property(TARGET server_sourcesharp APPEND PROPERTY LINK_DEPENDS $<TARGET_FILE:sourcesharp>)
+if(NOT SS_IS_MSVC)
+  target_compile_options(server_sourcesharp PRIVATE -Wunused-function -Wunused-variable
+    $<$<BOOL:${SS_IS_CLANG}>:--system-header-prefix=tier1/utlblockmemory.h>)
+endif()
+
+# server.dll links no tier0 either (P4). The headers declare tier0's
+# functions __declspec(dllimport); tier0_thread_port.cpp and
+# tier0_spew_port.cpp define them here all the same and bind every import of
+# one to the definition (SS_BIND_IMPORT, ss_platform.h), as server.so's
+# hidden definitions bind its calls. Those two files read tier0's headers with
+# STATIC_TIER0, which makes the declarations plain: MSVC exports a definition
+# of a dllimport-declared function, and server.dll exported 21 of them beside
+# CreateInterface (game_dll_exports_test). A compile definition, not a
+# #define in the file, so it is in force before any header is read.
+if(SS_IS_MSVC)
+  set_property(SOURCE
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
+    TARGET_DIRECTORY server_sourcesharp
+    APPEND PROPERTY COMPILE_DEFINITIONS STATIC_TIER0)
+endif()
 
 # VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
 # refer to each other in both directions, and GNU ld (the CI link) resolves an
 # archive only against what came before it.
-target_link_libraries(server_sourcesharp PRIVATE
-    dl
-    "$<LINK_GROUP:RESCAN,mathlib>"
-)
+if(SS_PLATFORM STREQUAL linux)
+  target_link_libraries(server_sourcesharp PRIVATE dl)
+endif()
+ss_link_group(server_sourcesharp mathlib)
 
 # physics.cpp (relocated Valve code) destroys vehicle_gear_t and
 # vehicle_crashsound_t -- classes with virtual functions and no virtual

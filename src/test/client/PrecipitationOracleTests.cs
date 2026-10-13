@@ -170,7 +170,7 @@ public class PrecipitationOracleTests
 
     private static string Floats(float[] a) => string.Join(" ", a.Select(Show));
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void TheManagedWeatherReplaysStockBitExact()
     {
         var rows = Stock();

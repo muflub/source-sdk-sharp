@@ -198,7 +198,7 @@ public class ExplosionOracleTests
                && unit.Any(x => x[0] == "xsp") ? ExplosionKind.MegaBomb : ExplosionKind.Base;
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void Every_explosion_makes_stocks_force_core_debris_and_water()
     {
         int explosions = 0, simple = 0, trails = 0, flecks = 0, water = 0;
@@ -302,7 +302,7 @@ public class ExplosionOracleTests
             $"{explosions} explosions ({water} water), {simple} simple particles, {trails} trail particles, {flecks} flecks");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void Every_smoke_step_is_reproduced()
     {
         var rows = s_rows.Value;
@@ -339,7 +339,7 @@ public class ExplosionOracleTests
         Assert.True(steps >= 3000 && floored >= 300, $"{steps} steps ({floored} held at the speed floor)");
     }
 
-    [Fact]
+    [LinuxOnlyFact("a golden recorded bit for bit against glibc's libm; the Windows C runtime rounds the last bit of sin, cos and pow differently")]
     public void Every_smoke_draw_fades_as_stocks()
     {
         int draws = 0;

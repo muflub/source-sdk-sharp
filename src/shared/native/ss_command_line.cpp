@@ -3,25 +3,56 @@
 //=============================================================================//
 
 #include "ss_command_line.h"
+#include "ss_platform.h"
 
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
-#include <unistd.h>
 
 #include <string>
+
+#if defined( _WIN32 )
+	#include <shellapi.h>
+#elif !defined( __APPLE__ )
+	#include <fcntl.h>
+#endif
 
 namespace ss
 {
 
 namespace
 {
-// /proc/self/cmdline, whole, then the launcher's SOURCESHARP_ARGS. Empty when
-// neither can be read.
+// The process's own argv as one NUL-separated block: /proc/self/cmdline,
+// whole, on Linux; dyld's copy of argv on macOS; the command line the
+// process was created with, split the way the CRT splits it, on Windows.
+// Then the launcher's SOURCESHARP_ARGS. Empty when neither can be read.
 std::string ReadCmdline()
 {
 	std::string args;
+#if defined( _WIN32 )
+	int nArgs = 0;
+	LPWSTR *ppArgs = ::CommandLineToArgvW( ::GetCommandLineW(), &nArgs );
+	if ( ppArgs )
+	{
+		for ( int i = 0; i < nArgs; ++i )
+		{
+			const int n = ::WideCharToMultiByte( CP_UTF8, 0, ppArgs[ i ], -1, NULL, 0, NULL, NULL );
+			if ( n <= 0 )
+				continue;
+			std::string arg( (size_t)n, '\0' );
+			::WideCharToMultiByte( CP_UTF8, 0, ppArgs[ i ], -1, &arg[ 0 ], n, NULL, NULL );
+			args += arg;   // n counts the terminator, so the NUL comes with it
+		}
+		::LocalFree( ppArgs );
+	}
+#elif defined( __APPLE__ )
+	const int nArgs = *_NSGetArgc();
+	char **ppArgs = *_NSGetArgv();
+	for ( int i = 0; ppArgs && i < nArgs; ++i )
+	{
+		args += ppArgs[ i ] ? ppArgs[ i ] : "";
+		args += '\0';
+	}
+#else
 	const int fd = open( "/proc/self/cmdline", O_RDONLY | O_CLOEXEC );
 	if ( fd < 0 )
 		return LaunchArgsBlock( getenv( kLaunchArgsVariable ) );
@@ -31,6 +62,7 @@ std::string ReadCmdline()
 	while ( ( n = read( fd, buf, sizeof( buf ) ) ) > 0 )
 		args.append( buf, (size_t)n );
 	close( fd );
+#endif
 	return args + LaunchArgsBlock( getenv( kLaunchArgsVariable ) );
 }
 
@@ -48,7 +80,7 @@ const char *FindArg( const char *pArgs, size_t nLen, const char *pParam )
 
 	for ( const char *pArg = nLen ? pArgs : nullptr; pArg; pArg = NextArg( pArgs, nLen, pArg ) )
 	{
-		if ( strcasecmp( pArg, pParam ) == 0 )
+		if ( ss_strcasecmp( pArg, pParam ) == 0 )
 			return pArg;
 	}
 	return nullptr;

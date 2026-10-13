@@ -15,10 +15,12 @@
 // CNewParticleEffect still derives from CParticleCollection: client.so lays the
 // object out from the same header and the library runs its members.
 //
-// The library is dlopened RTLD_LOCAL from beside client.so (the client's
-// RUNPATH is $ORIGIN) when client.so loads, so g_pParticleSystemMgr is set
-// before any client code runs; Connect, from tier_connect.cpp's tier2
-// lookups in CHLClient::Init, hands it the engine's factory.
+// client.so links the library like any other (DT_NEEDED on its SONAME, found
+// beside client.so by its RUNPATH $ORIGIN; the import library on Windows), so
+// SSParticleLib_Interface resolves when client.so loads. Connect, from
+// tier_connect.cpp's tier2 lookups in CHLClient::Init, hands the library the
+// engine's factory and sets g_pParticleSystemMgr, before CParticleMgr::Init
+// (particlemgr.cpp) first reads it.
 //=============================================================================//
 
 #include "tier0/dbg.h"
@@ -26,8 +28,6 @@
 #include "ss_particles/iparticlelib.h"
 #include "particles_lib_client.h"
 #include "vtable_hook.h"
-
-#include <dlfcn.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -37,47 +37,23 @@ CParticleSystemMgr *g_pParticleSystemMgr = NULL;
 namespace
 {
 
-// The library's one object. Set once, when client.so loads, and never again:
-// the library is never unloaded (nothing dlcloses it), so neither the handle
-// nor anything else about the load needs keeping.
-ISSParticleLib *g_pLib = NULL;
-
+// The library's one object, from its one export.
 ISSParticleLib *Lib()
 {
-	return g_pLib;
-}
-
-// Runs when client.so is loaded, before any client code can name a particle
-// function, so g_pParticleSystemMgr is set by the time anything reads it.
-__attribute__( ( constructor ) ) void LoadParticleLib()
-{
-	void *hLib = dlopen( "libss_particles.so", RTLD_NOW | RTLD_LOCAL );
-	if ( !hLib )
-	{
-		Error( "[SourceSharp] libss_particles.so did not load: %s\n", dlerror() );
-		return;
-	}
-	CreateInterfaceFn factory = (CreateInterfaceFn)dlsym( hLib, "CreateInterface" );
-	g_pLib = factory ? (ISSParticleLib *)factory( SS_PARTICLE_LIB_INTERFACE_VERSION, NULL ) : NULL;
-	if ( !g_pLib )
-	{
-		Error( "[SourceSharp] libss_particles.so has no %s\n", SS_PARTICLE_LIB_INTERFACE_VERSION );
-		return;
-	}
-	g_pParticleSystemMgr = g_pLib->Mgr();
+	return SSParticleLib_Interface();
 }
 
 } // namespace
 
 bool ParticleLib_Connect( CreateInterfaceFn appSystemFactory )
 {
-	return g_pLib && g_pLib->Connect( appSystemFactory );
+	g_pParticleSystemMgr = Lib()->Mgr();
+	return Lib()->Connect( appSystemFactory );
 }
 
 void ParticleLib_Disconnect()
 {
-	if ( g_pLib )
-		g_pLib->Disconnect();
+	Lib()->Disconnect();
 }
 
 // MgrUncacheAllParticleSystems is the LAST declaration in ISSParticleLib (the
@@ -86,16 +62,13 @@ void ParticleLib_Disconnect()
 void *ParticleLib_Acquire( int32_t *pnEntries )
 {
 	if ( pnEntries )
-		*pnEntries = g_pLib ? VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1 : 0;
-	return g_pLib;
+		*pnEntries = VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1;
+	return Lib();
 }
 
 void ParticleLib_Counters( SSParticleLibCounters_t *pOut )
 {
-	if ( g_pLib )
-		g_pLib->Counters( pOut );
-	else
-		memset( pOut, 0, sizeof( *pOut ) );
+	Lib()->Counters( pOut );
 }
 
 // CParticleCollection ---------------------------------------------------------
@@ -106,10 +79,21 @@ void CParticleCollection::operator delete( void *pData ) { Lib()->CollectionDele
 // are plain functions under the mangled names. Written as C++ members, the
 // compiler would construct and destroy every member around the forward too,
 // and the library's real constructor and destructor run them already.
+#if defined( _MSC_VER )
+// MSVC has no asm labels, and its names for the two are ??0 / ??1: the
+// linker takes each from the plain function when nothing else defines it
+// (/alternatename). An MSVC constructor hands back `this`, which callers may
+// use, so this one returns it.
+extern "C" CParticleCollection *SSParticleLib_CollectionCtor( CParticleCollection *p ) { Lib()->CollectionConstruct( p ); return p; }
+extern "C" void SSParticleLib_CollectionDtor( CParticleCollection *p ) { Lib()->CollectionDestruct( p ); }
+#pragma comment( linker, "/alternatename:??0CParticleCollection@@IEAA@XZ=SSParticleLib_CollectionCtor" )
+#pragma comment( linker, "/alternatename:??1CParticleCollection@@QEAA@XZ=SSParticleLib_CollectionDtor" )
+#else
 extern "C" void SSParticleLib_CollectionC2( CParticleCollection *p ) __asm__( "_ZN19CParticleCollectionC2Ev" );
 extern "C" void SSParticleLib_CollectionD2( CParticleCollection *p ) __asm__( "_ZN19CParticleCollectionD2Ev" );
 extern "C" void SSParticleLib_CollectionC2( CParticleCollection *p ) { Lib()->CollectionConstruct( p ); }
 extern "C" void SSParticleLib_CollectionD2( CParticleCollection *p ) { Lib()->CollectionDestruct( p ); }
+#endif
 bool CParticleCollection::Init( CParticleSystemDefinition *pDef ) { return Lib()->CollectionInitDef( this, pDef ); }
 bool CParticleCollection::Init( const char *pszName ) { return Lib()->CollectionInitName( this, pszName ); }
 void CParticleCollection::BloatBoundsUsingControlPoint() { Lib()->CollectionBloatBoundsUsingControlPoint( this ); }

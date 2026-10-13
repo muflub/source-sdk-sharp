@@ -124,14 +124,14 @@ public class ViewEffectsTests
         return new Tally(frames, draws, shaking, fading, shakes, fades);
     }
 
-    [Fact]
+    [LinuxOnlyFact("a golden recorded bit for bit against glibc's libm; the Windows C runtime rounds the last bit of sin, cos and pow differently")]
     public void EachShakeAndFadeFrameIsStocksToTheBit()
     {
         Tally t = Replay();
         Assert.True(t.Frames > 400, $"{t.Frames} frames");
     }
 
-    [Fact]
+    [LinuxOnlyFact("a golden recorded bit for bit against glibc's libm; the Windows C runtime rounds the last bit of sin, cos and pow differently")]
     public void TheRecordingShakesFadesAndRetunesAShake()
     {
         Tally t = Replay();

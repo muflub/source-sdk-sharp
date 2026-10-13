@@ -67,7 +67,7 @@ public sealed class NotShippedTests
     private static bool Compiles(IReadOnlySet<string> sources, string suffix) =>
         sources.Any(p => p.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheThirteenNotShippedFilesAreOutOfTheClientBuild()
     {
         var client = CMakeGraph.CompiledSources(CMakeGraph.Client);
@@ -112,7 +112,7 @@ public sealed class NotShippedTests
         }
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheRootIsThisTreeAndNotWhicheverAncestorHasASrcDirectory()
     {
         // The mutation check for the fact above: the root must be the tree that
@@ -127,7 +127,7 @@ public sealed class NotShippedTests
         Assert.True(File.Exists(Path.Combine(root, "src", "game", "client", "entity_client_tools.cpp")));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheServerBuildNeverHadThemAndStillDoesNot()
     {
         // The control. Step 7g touched the client project only, so a server
@@ -141,7 +141,7 @@ public sealed class NotShippedTests
             Assert.False(Compiles(server, evicted), evicted + " is compiled into server_sourcesharp");
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheToolBridgeStaysInTheBuildAsARefusalStub()
     {
         // NOT evicted, and the exception is the point of the step's own wording

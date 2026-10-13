@@ -6,12 +6,16 @@ namespace SourceSharp.Abi;
 //=============================================================================
 // CALLING AN ENGINE INTERFACE FROM C# WITH NO C++ IN BETWEEN.
 //
-// Three facts about the Itanium C++ ABI and nothing else:
+// Three facts that hold under the Itanium C++ ABI (Linux) and the Microsoft
+// one (Windows) alike:
 //
 //   * an object's first word is its vtable pointer;
 //   * a vtable entry is a function pointer;
-//   * `this` is the first SysV argument -- which is exactly what
-//     `delegate* unmanaged<void*, ...>` puts there.
+//   * `this` is the first argument (SysV's rdi, Windows x64's rcx) -- which is
+//     exactly what `delegate* unmanaged<void*, ...>` puts there.
+//
+// What differs is the ORDER of some tables, and VtableLayouts.g.cs carries
+// both: see its header and VtableAbi.
 //
 // So a bound call is `_vtbl->GetLevelName(_self)`. The field's POSITION in the
 // generated struct is the slot number, no index is written at any call site,
@@ -135,6 +139,18 @@ public static unsafe class Vtable
         => sizeof(TVtbl) / sizeof(void*);
 
     /// <summary>
+    /// The table length native reports for <typeparamref name="TVtbl"/> in THIS
+    /// process: the struct's span where the engine is built to the Itanium ABI,
+    /// and the Microsoft ABI's length on Windows, where MSVC gives a virtual
+    /// destructor one slot rather than two (<see cref="VtableAbi"/>). Native
+    /// takes its count as <c>MemberOf( &amp;I::LastMethod ).slot + 1</c> from
+    /// the compiler it was built with, so the two ABIs answer differently for
+    /// the same header, and each is held against its own number.
+    /// </summary>
+    public static int EntriesFor<TVtbl>() where TVtbl : unmanaged
+        => OperatingSystem.IsWindows() ? VtableAbi.MicrosoftEntries<TVtbl>() : SlotsIn<TVtbl>();
+
+    /// <summary>
     /// Ask native for an interface by version string and hold its table length
     /// against <typeparamref name="TVtbl"/>.
     ///
@@ -183,7 +199,7 @@ public static unsafe class Vtable
         // THE CHECK. Both numbers are named, because "the layout is wrong" is
         // not something anybody can act on and "the header says 146, the struct
         // says 145" points straight at a stale VtableLayouts.g.cs.
-        int declared = SlotsIn<TVtbl>();
+        int declared = EntriesFor<TVtbl>();
 
         if (entries != declared)
         {
@@ -262,7 +278,7 @@ public static unsafe class Vtable
             return false;
         }
 
-        int declared = SlotsIn<TVtbl>();
+        int declared = EntriesFor<TVtbl>();
 
         if (declared > entries)
         {

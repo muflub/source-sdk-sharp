@@ -22,6 +22,7 @@
 //
 //=============================================================================//
 #include <gtest/gtest.h>
+#include "ss_ci_skip.h"
 
 #include <fstream>
 #include <cstdio>
@@ -909,6 +910,7 @@ TEST( PhysicsMoveScope, TheScopeStillRefusesToGiveANumberForWhatMoves )
 
 TEST( PhysicsMoveScope, ThePhysModelCreateFamilyIsStillGoneFromTheHeader )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	const std::string hdr = Strip( ReadRel( "game/shared/physics_shared.h" ) );
 	ASSERT_FALSE( hdr.empty() ) << "cannot read game/shared/physics_shared.h";
 

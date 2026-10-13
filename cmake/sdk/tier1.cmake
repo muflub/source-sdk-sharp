@@ -28,9 +28,6 @@ set(tier1_sources
     tier1/memstack.cpp
     tier1/NetAdr.cpp
     tier1/newbitbuf.cpp
-    tier1/pathmatch.cpp
-    tier1/processor_detect_linux.cpp
-    tier1/qsort_s.cpp
     tier1/rangecheckedvar.cpp
     tier1/reliabletimer.cpp
     tier1/snappy-sinksource.cpp
@@ -51,6 +48,18 @@ set(tier1_sources
     tier1/utlsymbol.cpp
     utils/lzma/C/LzmaDec.c
 )
+# The platform members, as tier1.vpc conditions them: processor_detect.cpp
+# [$WINDOWS] or processor_detect_linux.cpp [$POSIX] (CPUID through the
+# compiler's intrinsics or inline asm); pathmatch.cpp [$LINUXALL], the
+# case-insensitive path fixups a case-sensitive file system needs; qsort_s.cpp
+# [$LINUXALL], the CRT already having one on Windows and macOS taking its own.
+if(SS_PLATFORM STREQUAL windows)
+  list(APPEND tier1_sources tier1/processor_detect.cpp)
+elseif(SS_PLATFORM STREQUAL osx)
+  list(APPEND tier1_sources tier1/processor_detect_linux.cpp)
+else()
+  list(APPEND tier1_sources tier1/pathmatch.cpp tier1/processor_detect_linux.cpp tier1/qsort_s.cpp)
+endif()
 list(TRANSFORM tier1_sources PREPEND "${SS_SRC}/")
 target_sources(tier1 PRIVATE ${tier1_sources})
 
@@ -69,7 +78,7 @@ target_include_directories(tier1 PRIVATE
 # and utlstring.h:399 -Wstringop-truncation (ilocalize.cpp; with that one off,
 # gcc reports the same strncpy as -Wstringop-overflow instead). Valve's code; the
 # warnings depend on what the optimiser inlined, not on anything we changed.
-if(NOT SS_IS_CLANG)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_compile_options(tier1 PRIVATE -Wno-maybe-uninitialized -Wno-stringop-truncation
     -Wno-stringop-overflow)
 endif()

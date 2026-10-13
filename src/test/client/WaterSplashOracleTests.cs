@@ -116,7 +116,7 @@ public class WaterSplashOracleTests
         Assert.True(n >= 30, $"{n} lightings");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void Every_gunshot_splash_makes_stocks_drops_and_gout()
     {
         var rows = s_rows.Value;

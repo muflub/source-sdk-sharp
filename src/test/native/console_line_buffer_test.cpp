@@ -8,6 +8,8 @@
 #include "console_line_buffer_drain.h"
 
 #include <atomic>
+#include <cstring>
+#include <new>
 #include <chrono>
 #include <map>
 #include <memory>
@@ -216,6 +218,41 @@ TEST( ConsoleLineBuffer, AHeldLockHoldsAPrintOnlyUntilItIsReleased )
 
 // The managed reader (NativeConsoleBuffer.cs) reads these offsets;
 // NativeConsoleBufferTests pins the same literals on its side.
+// THE HEADER IS ALL ZERO WHEN CONSTRUCTED. A non-zero default there made the
+// forwarder's global constant-initialized, and the compiler wrote the whole
+// 1 MiB buffer into every DLL's initialized data: server.dll came out nearly
+// as large as client.dll. Built over 0xAB bytes, so a field the constructor
+// leaves alone reads non-zero too.
+TEST( ConsoleLineBuffer, ConstructionLeavesEveryHeaderByteZero )
+{
+	alignas( CConsoleLineBuffer ) static unsigned char s_Storage[ sizeof( CConsoleLineBuffer ) ];
+	memset( s_Storage, 0xAB, sizeof( s_Storage ) );
+	CConsoleLineBuffer *pBuffer = new ( s_Storage ) CConsoleLineBuffer;
+
+	const unsigned char *pHeader = reinterpret_cast<const unsigned char *>( &pBuffer->m_Header );
+	for ( size_t i = 0; i < sizeof( ConsoleLineBufferHeader ); ++i )
+		EXPECT_EQ( 0, pHeader[ i ] ) << "header byte " << i << " is not zero after construction";
+	pBuffer->~CConsoleLineBuffer();
+}
+
+TEST( ConsoleLineBuffer, PublishFillsInTheHalfSizeTheReaderReads )
+{
+	auto pBuffer = Fresh();
+	EXPECT_EQ( 0u, pBuffer->m_Header.nHalfBytes );
+	pBuffer->Publish();
+	EXPECT_EQ( kConsoleLineHalfBytes, pBuffer->m_Header.nHalfBytes );
+}
+
+TEST( ConsoleLineBuffer, ALinePrintedBeforePublishStillFits )
+{
+	// The writer bounds by the constant, never by the header field it has not
+	// published yet: a print before attach is buffered, not counted lost.
+	auto pBuffer = Fresh();
+	EXPECT_TRUE( pBuffer->Append( "early\n", 0 ) );
+	EXPECT_EQ( 0u, pBuffer->m_Header.nOverflow );
+	EXPECT_EQ( 1u, Drain( *pBuffer ).size() );
+}
+
 TEST( ConsoleLineBuffer, LayoutIsTheOneTheManagedReaderReads )
 {
 	EXPECT_EQ( 0u, (unsigned)offsetof( ConsoleLineBufferHeader, nSeq ) );

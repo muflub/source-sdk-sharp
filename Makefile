@@ -228,9 +228,16 @@ endef
 .DEFAULT_GOAL := help
 HOST_ROOT ?= $(abspath ../source-sdk-sharp-host)
 
+# The solution every build and test leg builds; buildsourcesharp reads SS_SLN.
+SLN := SourceSharp.slnx
+export SS_SLN := $(SLN)
+# What `make setup` must find in $(HOST_ROOT)/bin/nupkg, else it runs host-pack.
+HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
+                 $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg
+
 PHONY_LOADPROF := loadprof loadprof-probe
-PHONY_TESTS := managed-test descent-test
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-full cpp-test census-test oracle-test check clean clean-sockets \
+PHONY_TESTS := managed-test managed-legs descent-test
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \
         ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
         entity-census entity-gates entity-ratchet \
         globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
@@ -255,6 +262,7 @@ help:
 	@echo "  make test       the routine test tier (per commit); each leg reported separately"
 	@echo "  make test-full  every test leg: routine + self-tests, oracles, census (before a merge)"
 	@echo "  make check      build debug and run every test leg (make test-full)"
+	@echo "  make check-public  build debug and run the public tier: what the public inputs can be held to (CI)"
 	@echo "  make entity-census  plan_entity.md's §1 table, diffed against its baseline"
 	@echo "  make entity-gates   plan_entity.md's three definition-of-done gates"
 	@echo "  make entity-ratchet the 'entity' test leg: census + gates ratchet + budget"
@@ -300,7 +308,7 @@ host-pack:
 # missing, and fails (naming HOST_ROOT) when there is no host checkout.
 setup:
 	@tools/setup $(if $(ROOT),--root $(ROOT)) $(if $(VALVE_SDK),--valve-sdk $(VALVE_SDK)) $(SETUP_ARGS)
-	@if ! ls $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg >/dev/null 2>&1; then \
+	@if ! ls $(HOST_PACKAGES) >/dev/null 2>&1; then \
 	    echo "setup: the host packages are missing; building them (make host-pack)"; $(MAKE) --no-print-directory host-pack; fi
 
 # ROOT from stock upstream instead of the fork: clone Valve's
@@ -332,9 +340,12 @@ release:
 # the GLIBC ceiling check. Native only, and the one target that needs podman.
 # Release unless CONFIG is named on the command line.
 CI_CONFIG = $(if $(filter command line,$(origin CONFIG)),$(CONFIG),release)
+# TARGET=<one CMake target> builds just that library (CI builds each in its own
+# step); without it, everything, then the GLIBC gate.
+CI_TARGET = $(if $(filter command line,$(origin TARGET)),$(TARGET),)
 ci-build:
 	$(call require-setup,$(CI_CONFIG))
-	@tools/build/ci-build $(CI_CONFIG)
+	@tools/build/ci-build $(CI_CONFIG) $(CI_TARGET)
 
 #-----------------------------------------------------------------------------
 # Running.
@@ -734,7 +745,7 @@ ORACLE_NATIVE_TEST  = $(FARM)/src/buildcpptests --oracle
 # the assemblies: no MSBuild in any leg, so they run at once. The managed
 # tests are always the Debug build, whatever CONFIG says, as before. The
 # standalone targets (managed-test, descent-test, oracle-test) still build.
-TEST_BUILD    = $(DOTNET) build SourceSharp.slnx -v q --nologo -c Debug
+TEST_BUILD    = $(DOTNET) build $(SLN) -v q --nologo -c Debug
 TEST_DLLS    := $(CURDIR)/bin/debug
 MANAGED_LEG   = $(DOTNET) test $(TEST_DLLS)/tests/SourceSharp.Shared.Tests.dll --nologo
 SERVER_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-server/SourceSharp.Server.Tests.dll --nologo
@@ -853,12 +864,18 @@ UI_TEST      := echo "==> type-checking and testing the web UI" && \
 # 70% of the native leg's CPU; ss_census() in src/test/native/CMakeLists.txt).
 # Legs in one group run in this order, so census follows native and entity
 # in the ninja group.
-TEST_LEGS = \
-    'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
+# The managed legs read no native build output, only the CMake graph a
+# configure writes, so CI runs them on their own (`make managed-legs`) before
+# it compiles anything native, and then `make check CHECK_MANAGED=0`.
+MANAGED_TEST_LEGS = \
     'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
     'managed-server:tools/leg-floor managed-server && $(SERVER_LEG)' \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
-    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)' \
+    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)'
+CHECK_MANAGED ?= 1
+TEST_LEGS = \
+    'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
+    $(if $(filter 0,$(CHECK_MANAGED)),,$(MANAGED_TEST_LEGS)) \
     'native@ninja:tools/leg-floor native && $(CPP_TEST)' \
     'entity@ninja:tools/leg-floor entity && $(ENTITY_TEST)' \
     'ui:tools/leg-floor ui && $(UI_TEST)'
@@ -873,10 +890,55 @@ test: ui
 	@$(TEST_BUILD)
 	@tools/run-test-legs $(TEST_LEGS)
 
+# Only the managed legs (managed, managed-server, managed-client, tf2_descent):
+# the test assemblies built and run, no native build. Their CMake-graph facts
+# read farm/debug/build, so that tree must be configured (not built) first;
+# the launcher and mod-image facts run bin/debug/source#, so the launcher is
+# published here as make debug publishes it.
+managed-legs: ui
+	@$(TEST_BUILD)
+	@$(DOTNET) publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
+	@tools/run-test-legs $(MANAGED_TEST_LEGS)
+
 # Every leg: the routine tier and the milestone tier together.
 test-full: ui
 	@$(TEST_BUILD)
 	@tools/run-test-legs $(TEST_LEGS) $(TEST_FULL_LEGS)
+
+# THE PUBLIC TIER: the legs whose result depends on this tree alone, which is
+# what a machine with only the public inputs (CI, a fresh contributor: `make
+# sdk-upstream`, no Steam, no fork) can be held to. The other legs were run
+# that way at 0805b2f (make check without the host SDK package, clang 22.1.8, glibc 2.39, an
+# Intel Xeon with AVX-512, 2026-10-12) and each fails for a reason that is
+# not this tree's code:
+#   - managed-server (6 of 6,779), managed-client (24 of 2,623),
+#     oracle-native (beamsegdraw): bit-for-bit goldens recorded on one
+#     machine; this one's stock C++ and .NET arithmetic differ in the last
+#     bit (7.5 vs 7.499999, -3.76478958 vs -3.76478934).
+#   - native (8 binaries of 314), census, entity, oracle-managed: facts that
+#     read the fork's edits to Valve files, which the patch series carries
+#     without comments (the markers they look for), or line counts of them.
+#   - managed-server (TF2DescentTownTests), oracle-native (engine_heap): a
+#     Team Fortress 2 or Source SDK Base install, which a runner has not.
+# `make check-public` is `make check` over this tier. It is a FLOOR, not the
+# gate: `make check` on a machine with the fork and Steam stays the gate, and
+# a leg joins this tier when it passes on the public inputs, never by being
+# made unable to fail. managed, tf2_descent and oracle-managed joined it
+# 2026-10-12: CI's ubuntu-24.04 runner passed all three on the public inputs
+# at 1f22fed (2111, 172 and 175 tests, 0 failed), with the host packages
+# packed from the public host repo.
+TEST_PUBLIC_LEGS = \
+    'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
+    'ui:tools/leg-floor ui && $(UI_TEST)' \
+    'runner:tools/leg-floor runner && tools/run-test-legs --self-test && tools/leg-floor --self-test' \
+    'checks-full:tools/leg-floor checks-full && $(CHECKS_TEST) full' \
+    'managed:tools/leg-floor managed && $(MANAGED_LEG)' \
+    'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)' \
+    'oracle-managed:tools/leg-floor oracle-managed && $(ORACLE_MANAGED_LEG)'
+
+test-public: ui
+	@$(TEST_BUILD)
+	@tools/run-test-legs $(TEST_PUBLIC_LEGS)
 
 # The native tests alone: configure the preset, build the test targets, run
 # ctest (tools/build/buildcpptests). `farm/<config>/src/buildcpptests NAME` runs one.
@@ -1070,6 +1132,10 @@ ui-watch: node
 # So the split stands: `check` is the hermetic gate, and lane U's measured half
 # is settled by whoever re-measures its ledger, with `--remeasure` and a diff.
 check: debug test-full
+
+# The public tier's gate: the whole build, then the legs the public inputs
+# can be held to (TEST_PUBLIC_LEGS says which, and why the rest are not).
+check-public: debug test-public
 
 # The LIVE half of the gate, and the second map load is the point of it.
 #

@@ -4,8 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-// The one interface libss_particles.so exports (plan_particles_so.md). client.so's
-// forwards call it, and managed binds the same object through the client's
+// The one interface libss_particles.so exports, through SSParticleLib_Interface
+// below (plan_particles_so.md). client.so's forwards call it, and managed binds the same object through the client's
 // internal factory (shell_internalfactory.cpp) with the layout tools/vtable-layout
 // generates from this header (ParticleLibVtbl). APPEND-ONLY BY RULE: new methods
 // at the end, nothing inserted or reordered; MgrUncacheAllParticleSystems is the
@@ -104,5 +104,16 @@ public:
 	virtual void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) = 0;
 	virtual void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) = 0;
 };
+
+// The library's one export. client.so links the library (DT_NEEDED on its
+// SONAME; the import library on Windows), so this resolves when client.so loads.
+// Exported where the library is built (SS_PARTICLELIB_BUILD, its CMakeLists),
+// a plain C declaration everywhere else.
+#if defined( SS_PARTICLELIB_BUILD )
+	#define SS_PARTICLELIB_API DLL_EXPORT
+#else
+	#define SS_PARTICLELIB_API extern "C"
+#endif
+SS_PARTICLELIB_API ISSParticleLib *SSParticleLib_Interface();
 
 #endif // SS_PARTICLES_IPARTICLELIB_H

@@ -11,7 +11,7 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class ClientTempEntDefinesTests
 {
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheClientIsNotTheHl1CsOrSdkClient()
     {
         IReadOnlySet<string> defines = CMakeGraph.CompileDefinitions(CMakeGraph.Client);

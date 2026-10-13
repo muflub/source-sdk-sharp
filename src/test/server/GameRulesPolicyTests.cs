@@ -315,7 +315,7 @@ public class SkillLevelTests
     /// work this now hands on, with the obstacle to it gone.
     /// </para>
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheClientNoLongerCompilesTheStockFileThatBlockedTheMove()
     {
         // Read off the CMake build: client_sourcesharp's compiled sources
@@ -342,7 +342,7 @@ public class SkillLevelTests
             "client_sourcesharp (src/client/native/CMakeLists.txt) compiles stock game/shared/gamerules.cpp again");
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void NoCompiledTranslationUnitReadsTheNativeSkill()
     {
         // The other half of the finding, and it stands whatever happens to the

@@ -1,0 +1,42 @@
+name: Linux toolchain
+description: >-
+  What a Linux build of SourceSharp needs on a GitHub runner: clang 22 and
+  lld 22 from apt.llvm.org (the host presets name them), cmake and ninja,
+  zlib's headers (the NativeAOT launcher), libuuid's (every game library
+  links -luuid, as VPC's link rule did), PyYAML (tools/setup reads
+  mods.yaml), and the .NET 10 SDK at ~/.dotnet, which is where the Makefile
+  and tools/setup look (README, "Prerequisites").
+
+# The LLVM apt source is added by hand rather than through llvm.sh, whose
+# add-apt-repository step needs python3-apt and has failed for want of it.
+# The 10.0.1xx band is the host repo's global.json pin (latestPatch); this
+# repo takes any .NET 10 SDK.
+
+runs:
+  using: composite
+  steps:
+    - name: apt
+      shell: bash
+      run: |
+        set -euo pipefail
+        codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+        curl -sS https://apt.llvm.org/llvm-snapshot.gpg.key \
+          | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
+        echo "deb https://apt.llvm.org/$codename/ llvm-toolchain-$codename-22 main" \
+          | sudo tee /etc/apt/sources.list.d/llvm-22.list > /dev/null
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends \
+          cmake ninja-build clang-22 lld-22 zlib1g-dev uuid-dev python3-yaml
+        clang++-22 --version | sed -n 1p
+        ld.lld-22 --version | sed -n 1p
+        cmake --version | sed -n 1p
+
+    - name: .NET SDK in ~/.dotnet
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+        bash /tmp/dotnet-install.sh --channel 10.0.1xx --install-dir "$HOME/.dotnet"
+        echo "$HOME/.dotnet" >> "$GITHUB_PATH"
+        echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
+        "$HOME/.dotnet/dotnet" --version

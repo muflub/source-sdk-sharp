@@ -4,7 +4,7 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// How <see cref="SteamGameServerFlat"/> finds the engine's libsteam_api.so and
-/// its exports: dlopen with RTLD_NOLOAD and dlsym in the game, a fake in a test.
+/// its exports: the loaded copy or none (<see cref="LoadedLibrary"/>) in the game, a fake in a test.
 /// </summary>
 public interface ISteamLibrary
 {
@@ -15,16 +15,10 @@ public interface ISteamLibrary
     bool TryGetExport(IntPtr library, string name, out IntPtr address);
 }
 
-/// <summary>The process's own loader: dlopen(RTLD_NOW | RTLD_NOLOAD) and dlsym.</summary>
+/// <summary>The process's own loader: the loaded copy or none (<see cref="LoadedLibrary"/>), and its exports.</summary>
 internal sealed class LoadedSteamLibrary : ISteamLibrary
 {
-    private const int RTLD_NOW = 2;
-    private const int RTLD_NOLOAD = 4;
-
-    [DllImport("libdl.so.2", EntryPoint = "dlopen")]
-    private static extern IntPtr DlOpen(string file, int mode);
-
-    public IntPtr OpenLoaded(string file) => DlOpen(file, RTLD_NOW | RTLD_NOLOAD);
+    public IntPtr OpenLoaded(string file) => LoadedLibrary.Open(file);
 
     public bool TryGetExport(IntPtr library, string name, out IntPtr address)
         => NativeLibrary.TryGetExport(library, name, out address);
@@ -38,7 +32,7 @@ internal sealed class LoadedSteamLibrary : ISteamLibrary
 ///
 /// <para>
 /// <b>THE ENGINE'S COPY, OR NONE.</b> The library is opened with
-/// <c>RTLD_NOLOAD</c>: it answers the copy the engine already loaded, and
+/// <see cref="LoadedLibrary"/>: it answers the copy the engine already loaded, and
 /// nothing when there is none. It can never load a second copy, which would be
 /// a second Steam context talking to nobody. The launcher loads the same file
 /// by path before the engine does, so on this build there is exactly one.
@@ -62,14 +56,15 @@ internal sealed class LoadedSteamLibrary : ISteamLibrary
 /// </summary>
 public sealed unsafe class SteamGameServerFlat : ISteamGameServer
 {
-    public const string Library = "libsteam_api.so";
+    public static string Library => LoadedLibrary.SteamApi;
 
-    // SteamGameServer014: the version THIS libsteam_api.so's flat API is built
-    // for -- it exports SteamAPI_SteamGameServer_v014 and no other. The SDK's
-    // isteamgameserver.h names 015, which the native context asked the Steam
-    // client for; the client serves both, and the flat functions below take
-    // the 014 pointer their own accessor returns, so the pair is consistent.
-    public const string AccessorExport = "SteamAPI_SteamGameServer_v014";
+    // The version THIS platform's Steam API flat build exports and no other:
+    // 014 in Linux's libsteam_api.so, 015 in Windows' steam_api64.dll
+    // (SteamApiExports). The SDK's isteamgameserver.h names 015, which the
+    // native context asked the Steam client for; the client serves both, and
+    // the flat functions below take the pointer their own accessor returns,
+    // so the pair is consistent.
+    public static string AccessorExport => SteamApiExports.GameServerAccessor;
 
     private readonly ISteamLibrary _loader;
 
@@ -96,7 +91,7 @@ public sealed unsafe class SteamGameServerFlat : ISteamGameServer
     /// <inheritdoc/>
     public string WhyUnbound { get; private set; } = "not asked yet";
 
-    /// <summary>The engine's libsteam_api.so handle, or zero. The instance the engine uses: RTLD_NOLOAD.</summary>
+    /// <summary>The engine's libsteam_api.so handle, or zero. The instance the engine uses (<see cref="LoadedLibrary"/>).</summary>
     public IntPtr LibraryHandle => Bind() ? _library : IntPtr.Zero;
 
     private bool Bind()
@@ -107,7 +102,7 @@ public sealed unsafe class SteamGameServerFlat : ISteamGameServer
         _library = _loader.OpenLoaded(Library);
         if (_library == IntPtr.Zero)
         {
-            WhyUnbound = Library + " is not loaded in this process (RTLD_NOLOAD); no Steam game server";
+            WhyUnbound = Library + " is not loaded in this process (" + LoadedLibrary.NoLoad + "); no Steam game server";
             return false;
         }
 

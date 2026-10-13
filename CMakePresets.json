@@ -79,6 +79,62 @@
       "cacheVariables": {
         "SS_TEST_TREE": "oracle"
       }
+    },
+    {
+      "name": "windows",
+      "hidden": true,
+      "generator": "Ninja",
+      "description": "MSVC (cl on PATH from a VS 2022 developer prompt, the toolset Valve's README names) with Ninja. The farm is the same; the output goes to bin/<config>/bin/x64. The native tests build too (bin/<config>/cpptest), less the LINUX_ONLY ones, which configure lists with their reasons.",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "cl",
+        "SS_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "windows-debug",
+      "inherits": "windows",
+      "displayName": "windows-debug: MSVC + Ninja",
+      "binaryDir": "${sourceDir}/farm/debug/build-windows",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "windows-release",
+      "inherits": "windows",
+      "displayName": "windows-release: MSVC + Ninja",
+      "binaryDir": "${sourceDir}/farm/release/build-windows",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "osx",
+      "hidden": true,
+      "generator": "Ninja",
+      "description": "Apple clang with Ninja, building the x86_64 slice whatever the machine is (the engine is x86-64 only). Output to bin/<config>/bin/osx64. Valve ships no macOS prebuilts, so the game libraries link with -undefined dynamic_lookup and libss_particles is not built (cmake/sdk/CMakeLists.txt).",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "SS_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "osx-debug",
+      "inherits": "osx",
+      "displayName": "osx-debug: Apple clang + Ninja, x86_64",
+      "binaryDir": "${sourceDir}/farm/debug/build-osx",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "osx-release",
+      "inherits": "osx",
+      "displayName": "osx-release: Apple clang + Ninja, x86_64",
+      "binaryDir": "${sourceDir}/farm/release/build-osx",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -105,6 +161,22 @@
     {
       "name": "oracle-release",
       "configurePreset": "oracle-release"
+    },
+    {
+      "name": "windows-debug",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "windows-release",
+      "configurePreset": "windows-release"
+    },
+    {
+      "name": "osx-debug",
+      "configurePreset": "osx-debug"
+    },
+    {
+      "name": "osx-release",
+      "configurePreset": "osx-release"
     }
   ],
   "testPresets": [

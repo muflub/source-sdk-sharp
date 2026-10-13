@@ -1,0 +1,59 @@
+name: Host packages
+description: >-
+  Clone source-sdk-sharp-host beside this checkout and pack the NuGet packages
+  the TF2Descent projects restore (SourceSharp.Host.Contracts for the rules
+  module, SourceSharp.Host.Sdk for the server), where
+  src/tf2_descent/Directory.Build.props looks for them.
+
+# The host's own `make setup` writes roots.props (where the map tools are)
+# and restores its whole solution; this does the first by hand and skips the
+# second, since packing the two packages restores only what they need. The
+# map tools clone keeps roots.props truthful; nothing here builds against it.
+# The versions are the projects' own (<Version> in each csproj, which the
+# host's facts hold equal to HostSdk.Version and HostContract.Version); the
+# check at the end is that they are the ones this tree pins.
+#
+# Everything is bash so the one action serves Linux, Windows and macOS. The
+# `dotnet` on PATH is used: the Linux jobs put ~/.dotnet there, the others
+# actions/setup-dotnet.
+
+inputs:
+  host-ref:
+    description: The source-sdk-sharp-host branch or tag to pack.
+    required: false
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Clone the host and the map tools beside this checkout
+      shell: bash
+      run: |
+        set -euo pipefail
+        ws="$(cygpath -u "$GITHUB_WORKSPACE" 2> /dev/null || echo "$GITHUB_WORKSPACE")"
+        beside="$(cd "$ws/.." && pwd)"
+        git clone -q --depth 1 --branch "${{ inputs.host-ref }}" \
+          https://github.com/muflub/source-sdk-sharp-host "$beside/source-sdk-sharp-host"
+        git clone -q --depth 1 \
+          https://github.com/muflub/source-sdk-sharp-map-tools "$beside/source-sdk-map-tools"
+        echo "host: $(git -C "$beside/source-sdk-sharp-host" log --oneline -1)"
+        printf '<Project>\n  <PropertyGroup>\n    <MapToolsRoot>%s/</MapToolsRoot>\n  </PropertyGroup>\n</Project>\n' \
+          "$beside/source-sdk-map-tools" > "$beside/source-sdk-sharp-host/roots.props"
+
+    - name: Pack SourceSharp.Host.Contracts and SourceSharp.Host.Sdk
+      shell: bash
+      run: |
+        set -euo pipefail
+        ws="$(cygpath -u "$GITHUB_WORKSPACE" 2> /dev/null || echo "$GITHUB_WORKSPACE")"
+        host="$(cd "$ws/.." && pwd)/source-sdk-sharp-host"
+        props="$ws/src/tf2_descent/Directory.Build.props"
+        contracts="$(sed -n 's:.*<HostContractsVersion>\(.*\)</HostContractsVersion>.*:\1:p' "$props")"
+        sdk="$(sed -n 's:.*<HostSdkVersion>\(.*\)</HostSdkVersion>.*:\1:p' "$props")"
+        [[ -n "$contracts" && -n "$sdk" ]] || { echo "::error::no HostContractsVersion / HostSdkVersion in $props"; exit 1; }
+        dotnet pack "$host/src/Host.Contracts/Host.Contracts.csproj" -c Release -o "$host/bin/nupkg" --nologo -v q
+        dotnet pack "$host/src/Host.Sdk/Host.Sdk.csproj" -c Release -o "$host/bin/nupkg" --nologo -v q
+        ls -la "$host/bin/nupkg"
+        for want in "SourceSharp.Host.Contracts.$contracts" "SourceSharp.Host.Sdk.$sdk"; do
+          test -f "$host/bin/nupkg/$want.nupkg" \
+            || { echo "::error::the host packs no $want.nupkg: this tree pins a version the host at ${{ inputs.host-ref }} does not build"; exit 1; }
+        done

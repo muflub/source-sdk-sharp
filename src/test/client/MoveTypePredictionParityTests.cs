@@ -128,7 +128,7 @@ public class MoveTypePredictionParityTests
     /// parsed <c>$File</c> rows of the two vpcs.
     /// </para>
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void NoCompiledSourceSetsAnyOfTheThreeMoveTypesOnAPlayer()
     {
         string root = RepoLayout.SdkTree;
@@ -161,7 +161,7 @@ public class MoveTypePredictionParityTests
     /// silently read nothing would be caught here rather than reported as a
     /// clean bill above.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheSameScanDoesFindTheMoveTypesThisBuildDoesSet()
     {
         string root = RepoLayout.SdkTree;

@@ -50,3 +50,4 @@ CollectionAccess *Access( CParticleCollection *p )	SLOT-HELP	reaches CParticleCo
 [CSSParticleLib] void MgrSetLastSimulationTime( CParticleSystemMgr *p, float flTime ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
 [CSSParticleLib] void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
 [CSSParticleLib] void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
+SSParticleLib_Interface	LIVE-API	the library's one export: client.so imports it (nm -D -u client.so: U SSParticleLib_Interface) and takes ISSParticleLib from it, linked by SONAME rather than looked up at load

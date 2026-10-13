@@ -86,7 +86,7 @@ public class ServedInterfaceTests
         return words;
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void The_client_serves_its_own_string_table_container_and_not_the_servers()
     {
         string served = ServedBy("client_sourcesharp");
@@ -95,7 +95,7 @@ public class ServedInterfaceTests
         Assert.DoesNotContain("\"VEngineServerStringTable001\"", served);
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void The_client_serves_its_vphysics_for_the_managed_ragdolls()
     {
         string served = ServedBy("client_sourcesharp");
@@ -104,7 +104,7 @@ public class ServedInterfaceTests
         Assert.Contains("\"VPhysicsCollision007\"", served);
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void The_server_serves_the_surface_table_and_not_the_clients_vphysics()
     {
         string served = ServedBy("server_sourcesharp");
@@ -112,7 +112,7 @@ public class ServedInterfaceTests
         Assert.DoesNotContain("\"VPhysics031\"", served);
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void The_server_serves_its_own_string_table_container_and_not_the_clients()
     {
         string served = ServedBy("server_sourcesharp");
@@ -128,7 +128,7 @@ public class ServedInterfaceTests
     /// (plan_physics_bones_native_zero 2.5) then builds no body at all -- a
     /// push that moves nothing, with no error anywhere but one warning line.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void The_server_serves_every_physics_table_its_managed_side_acquires()
     {
         string served = ServedBy("server_sourcesharp");
@@ -147,14 +147,14 @@ public class ServedInterfaceTests
     /// writes each script's index from the sound emitter's table; a name the
     /// client does not serve leaves every handle invalid.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void Both_sides_serve_the_sound_emitter()
     {
         Assert.Contains($"\"{SourceSharp.Abi.SoundEmitterBase.InterfaceVersion}\"", ServedBy("client_sourcesharp"));
         Assert.Contains($"\"{SourceSharp.Abi.SoundEmitterBase.InterfaceVersion}\"", ServedBy("server_sourcesharp"));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void The_server_serves_the_static_prop_manager_for_the_world_build()
     {
         Assert.Contains("\"StaticPropMgrServer002\"", ServedBy("server_sourcesharp"));

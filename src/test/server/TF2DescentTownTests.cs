@@ -99,7 +99,7 @@ public sealed class TF2DescentTownTests
         return files;
     }
 
-    [Fact]
+    [NotOnCiFact("needs a Team Fortress 2 install for its content, which a runner has not")]
     public void Every_material_and_model_the_town_names_is_in_the_mounted_tf2_content()
     {
         string tf = Path.Combine(RepoLayout.Repo("bin", "debug", "content"), "tf");
@@ -120,7 +120,7 @@ public sealed class TF2DescentTownTests
         Assert.Empty(missing);
     }
 
-    [Fact]
+    [NotOnCiFact("needs a Team Fortress 2 install for its content, which a runner has not")]
     public void The_content_check_sees_a_missing_entry()
     {
         // Fail-first arm: a palette entry that is not in TF2 must be reported

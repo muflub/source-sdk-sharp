@@ -40,6 +40,7 @@
 //=============================================================================//
 
 #include "gtest/gtest.h"
+#include "ss_ci_skip.h"
 
 #include <dirent.h>
 
@@ -279,6 +280,7 @@ TEST( T1Guards, ServerNetworkPropertyIsGoneAndTheTransmitStepNamesItNowhere )
 //-----------------------------------------------------------------------------
 TEST( T1Guards, TheTwoPhysicsFilesStillCarryTheirArms )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	const std::string server = CodeOf( "sourcesharp/game/server/physics.cpp" );
 	const std::string client = CodeOf( "game/client/physics.cpp" );
 

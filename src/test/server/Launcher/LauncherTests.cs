@@ -380,12 +380,29 @@ public sealed class LauncherTests : IDisposable
         Assert.StartsWith("The game stopped on a fatal error.", Assert.Single(_box.Shown));
     }
 
+    // The runner hands the child exactly the environment it is given, and
+    // PowerShell does not start without the system's (SystemRoot, TEMP, ...).
+    private static Dictionary<string, string> WindowsEnvironmentWith(string name, string value)
+    {
+        var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
+            env[(string)e.Key] = (string?)e.Value ?? "";
+        env[name] = value;
+        return env;
+    }
+
     [Fact]
     public void TheRealRunnerReportsTheChildsPidAndItsFatalCode()
     {
-        // sh -c is the child itself, so its $$ is the pid the game's report is named by.
-        var env = new Dictionary<string, string> { ["DIR"] = _root, ["PATH"] = "/usr/bin:/bin" };
-        GameExit exit = new ProcessRunner().Run("/bin/sh", ["-c", "echo r > \"$DIR/assert-$$.txt\"; exit 253"], env, _root);
+        // The shell is the child itself, so its own pid ($$, $PID) is the pid
+        // the game's report is named by. Windows has no /bin/sh; PowerShell
+        // is on every Windows host and can name its own pid, which cmd cannot.
+        GameExit exit = OperatingSystem.IsWindows()
+            ? new ProcessRunner().Run(Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"),
+                ["-NoProfile", "-Command", "Set-Content -Path (Join-Path $env:DIR \"assert-$PID.txt\") -Value r; exit 253"],
+                WindowsEnvironmentWith("DIR", _root), _root)
+            : new ProcessRunner().Run("/bin/sh", ["-c", "echo r > \"$DIR/assert-$$.txt\"; exit 253"],
+                new Dictionary<string, string> { ["DIR"] = _root, ["PATH"] = "/usr/bin:/bin" }, _root);
         Assert.Equal(Launcher.Launcher.FatalExitCode, exit.Code);
         Assert.True(File.Exists(Path.Combine(_root, $"assert-{exit.Pid}.txt")), $"no assert-{exit.Pid}.txt");
     }
@@ -506,9 +523,12 @@ public sealed class LauncherTests : IDisposable
         // readlink and dlopen'd from a directory that never existed). Run the
         // real source# through a symlink from an unrelated cwd: it must still
         // name the mods.yaml beside the binary, not beside the link or the cwd.
-        string exe = RepoLayout.Repo("bin", RepoLayout.Config, "source#");
+        // Windows names the binary source#.exe, and starts a file by a name
+        // without an extension only as name.exe, so the link carries it too.
+        string ext = OperatingSystem.IsWindows() ? ".exe" : "";
+        string exe = RepoLayout.Repo("bin", RepoLayout.Config, "source#" + ext);
         Assert.True(File.Exists(exe), $"{exe} is not built: make {RepoLayout.Config}");
-        string link = Path.Combine(_root, "elsewhere", "launch");
+        string link = Path.Combine(_root, "elsewhere", "launch" + ext);
         Directory.CreateDirectory(Path.GetDirectoryName(link)!);
         File.CreateSymbolicLink(link, exe);
 
@@ -692,10 +712,50 @@ public sealed class LauncherTests : IDisposable
     }
 
     [Fact]
+    public void The_launcher_directory_is_the_binarys_whatever_link_started_it()
+    {
+        string binDir = Path.Combine(_root, "bin");
+        Directory.CreateDirectory(binDir);
+        string binary = Path.Combine(binDir, "source#");
+        File.WriteAllText(binary, "");
+        string link = Path.Combine(_root, "elsewhere", "launch");
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        File.CreateSymbolicLink(link, binary);
+
+        Assert.Equal(binDir, Launcher.Launcher.LauncherDirectory(link));
+        Assert.Equal(binDir, Launcher.Launcher.LauncherDirectory(binary));
+    }
+
+    [Fact]
+    public void A_launcher_pinned_to_linux_still_sees_a_live_pid_on_any_host()
+    {
+        // The Linux platform reads /proc; on a host without one (Windows) it
+        // must fall back to the process table rather than read every pid gone.
+        var launcher = new Launcher.Launcher(Found(), new FakeRunner(0), _rlimit, _box, _out, _err);
+        Assert.True(launcher.ProcessIsRunning(Environment.ProcessId));
+        Assert.False(launcher.ProcessIsRunning(int.MaxValue));
+    }
+
+    [Fact]
+    public void The_process_table_reading_sees_this_process_and_not_a_free_pid()
+    {
+        Assert.True(Launcher.Launcher.IsRunning(Environment.ProcessId, readProc: false));
+        Assert.False(Launcher.Launcher.IsRunning(int.MaxValue, readProc: false));
+    }
+
+    [LinuxOnlyFact("reads /proc, which only Linux has")]
+    public void The_proc_reading_sees_this_process_and_not_a_free_pid()
+    {
+        Assert.True(Launcher.Launcher.IsRunning(Environment.ProcessId, readProc: true));
+        Assert.False(Launcher.Launcher.IsRunning(int.MaxValue, readProc: true));
+    }
+
+    [Fact]
     public void The_instance_root_variable_overrides_the_default()
     {
         var env = new Dictionary<string, string> { [Launcher.Launcher.InstanceRootVariable] = "/x/y" };
-        Assert.Equal("/x/y", Launcher.Launcher.InstanceBase(env));
+        // Canonicalised: unchanged on Linux, drive-rooted on Windows.
+        Assert.Equal(Path.GetFullPath("/x/y"), Launcher.Launcher.InstanceBase(env));
     }
 
     [Fact]
@@ -736,8 +796,10 @@ public sealed class LauncherTests : IDisposable
     public void The_instance_of_a_live_launcher_is_never_swept()
     {
         SeedSharedMod();
-        // pid 1 is always alive.
-        string live = Path.Combine(InstanceRoot, "1", "test");
+        // This test process is alive on every host (pid 1 is not a process on
+        // Windows). The sweep runs before the launcher picks its own name, so a
+        // sweep that misread this pid would remove the directory first.
+        string live = Path.Combine(InstanceRoot, Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture), "test");
         Directory.CreateDirectory(live);
         Run(Found(), new FakeRunner(0), TmpEnv(), "-instance");
         Assert.True(Directory.Exists(live));

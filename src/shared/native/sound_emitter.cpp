@@ -107,6 +107,17 @@ static void KeepEngineOrigins( const ss::EngineFilledUtlVector< Vector > &origin
 // NVNT haptic utils
 #include "haptics/haptic_utils.h"
 
+#if defined( WIN32 )
+// What stock's HapticProcessSound does in this build: the server's stock body
+// is empty, and the client's passes the sound to the Novint device through
+// haptics.dll, which the SDK's bin/x64 does not ship (with no device stock
+// runs a stub that does nothing, and Linux never had one). So nothing, on
+// both sides; the call site above is stock's.
+void HapticProcessSound( const char *, int )
+{
+}
+#endif
+
 #ifdef CLIENT_DLL
 #include <vgui_controls/Controls.h>
 #include <vgui/IVGui.h>

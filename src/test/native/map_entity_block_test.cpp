@@ -216,7 +216,18 @@ bool Emitting()
 std::string TokenStream( const std::string &block )
 {
 	char token[MAPKEY_MAXLENGTH];
-	const char *at = block.c_str();
+
+	// A quoted token that meets the terminator instead of its closing quote
+	// returns a pointer ONE PAST the terminator, and the next call reads that
+	// byte (the unterminated-quote row). Past a std::string's terminator is not
+	// the string's memory: Linux's heap happened to hold a zero there, Windows'
+	// held the start of another row's text ("no closing quote~_relay\"~}").
+	// A second terminator makes that byte the end of the data on every
+	// platform, which is what the row records.
+	std::vector<char> data( block.begin(), block.end() );
+	data.push_back( '\0' );
+	data.push_back( '\0' );
+	const char *at = data.data();
 	std::string out;
 	int guard = 0;
 
@@ -471,7 +482,7 @@ TEST( MapEntityBlock, EveryRewriteRowIsWhatTheRealSetValueProduces )
 		const int capacity = atoi( row.At(2).c_str() );
 		std::vector< char > buf( (size_t)capacity, 0 );
 		memcpy( buf.data(), row.At(1).data(),
-		        std::min( (size_t)capacity - 1, row.At(1).size() ) );
+		        ( std::min )( (size_t)capacity - 1, row.At(1).size() ) );
 
 		CEntityMapData data( buf.data(), capacity );
 

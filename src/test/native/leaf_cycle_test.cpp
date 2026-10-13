@@ -52,6 +52,7 @@
 //
 //=============================================================================//
 #include "gtest/gtest.h"
+#include "ss_ci_skip.h"
 #include "cmake_graph.h"
 
 #include <sys/stat.h>
@@ -446,6 +447,7 @@ const char *kShadowMgr = "game/client/clientshadowmgr.cpp";
 
 TEST( ShadowMgrDeEntitied, ItNamesCBaseEntityOnlyInTheFlashlightTargetGuards )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// plan_entity.md 3.9 gives this file the leaf system's sentence. Three of
 	// its five guarded regions moved to the shim; the two that stayed were the
 	// flashlight-target walk and IsFlashlightTarget, whose bodies call

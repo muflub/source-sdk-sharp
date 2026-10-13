@@ -33,6 +33,7 @@
 //=============================================================================//
 
 #include "gtest/gtest.h"
+#include "ss_ci_skip.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -502,6 +503,7 @@ TEST( EntityCensus, TheBaselineCarriesBothReadingsOfTheEntityListCount )
 
 TEST( EntityCensus, TheTreeAgreesWithTheCommittedBaseline )
 {
+	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// The baseline is the DEBUG build's (-O2 inlines cross-edges away), so a
 	// release run measures farm/debug too -- the VPC-era tool read
 	// sdk_csharp_debug.ninja whatever the farm. RunAtRoot runs at

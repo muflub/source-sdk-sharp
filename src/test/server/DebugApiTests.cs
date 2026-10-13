@@ -705,7 +705,7 @@ public class DebugApiTests
     public void SocketNaming()
     {
         var paths = DebugApiServer.ForTest(TestDebugHooks.Server());
-        Assert.True(paths.SocketPathFor(1234).EndsWith("/1234.sock"), "a socket is named for its process");
+        Assert.True(paths.SocketPathFor(1234).EndsWith(Path.DirectorySeparatorChar + "1234.sock"), "a socket is named for its process");
 
         Assert.True(paths.SocketPathFor(1) != paths.SocketPathFor(2), "different processes get different sockets");
     }
@@ -994,8 +994,8 @@ public class DebugApiTests
         string a = DebugApiServer.ForTest(TestDebugHooks.Server(), Env("DEBUG_API_DIR", "/tmp/ss-debug-api-a")).SocketPathFor(4242);
         string b = DebugApiServer.ForTest(TestDebugHooks.Server(), Env("DEBUG_API_DIR", "/tmp/ss-debug-api-b")).SocketPathFor(4242);
         Assert.NotEqual(a, b);
-        Assert.Equal("/tmp/ss-debug-api-a/4242.sock", a);
-        Assert.Equal("/tmp/ss-debug-api-b/4242.sock", b);
+        Assert.Equal(Path.Combine("/tmp/ss-debug-api-a", "4242.sock"), a);
+        Assert.Equal(Path.Combine("/tmp/ss-debug-api-b", "4242.sock"), b);
     }
 
     [Fact]
@@ -1006,8 +1006,8 @@ public class DebugApiTests
         // in one process, handed two directories, each keep their own.
         var first = DebugApiServer.ForTest(TestDebugHooks.Server(), Env("DEBUG_API_DIR", "/tmp/ss-debug-api-first"));
         var second = DebugApiServer.ForTest(TestDebugHooks.Server(), Env("DEBUG_API_DIR", "/tmp/ss-debug-api-second"));
-        Assert.Equal("/tmp/ss-debug-api-first/1.sock", first.SocketPathFor(1));
-        Assert.Equal("/tmp/ss-debug-api-second/1.sock", second.SocketPathFor(1));
+        Assert.Equal(Path.Combine("/tmp/ss-debug-api-first", "1.sock"), first.SocketPathFor(1));
+        Assert.Equal(Path.Combine("/tmp/ss-debug-api-second", "1.sock"), second.SocketPathFor(1));
     }
 
     [Fact]

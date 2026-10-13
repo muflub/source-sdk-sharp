@@ -50,3 +50,4 @@
 1	BOUNDARY	[CSSParticleLib] void MgrSetLastSimulationTime( CParticleSystemMgr *p, float flTime ) override
 1	BOUNDARY	[CSSParticleLib] void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) override
 1	BOUNDARY	[CSSParticleLib] void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) override
+4	LIVE-API	SS_PARTICLELIB_API ISSParticleLib *SSParticleLib_Interface()

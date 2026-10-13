@@ -5,16 +5,16 @@ namespace SourceSharp.Abi;
 /// <summary>
 /// <see cref="ISteamAuthTickets"/> through libsteam_api.so's flat C API, the
 /// way SteamGameServerFlat reaches the game server: the engine's copy of the
-/// library or none (<c>RTLD_NOLOAD</c>), so it can never start a second Steam
+/// library or none (<see cref="LoadedLibrary"/>), so it can never start a second Steam
 /// context. Bound on first use; the ISteamUser pointer is asked for on every
 /// call, since Steam hands out a new one after a reconnect.
 /// </summary>
 public sealed unsafe class SteamUserTickets(ILog log) : ISteamAuthTickets
 {
-    public const string Library = "libsteam_api.so";
+    public static string Library => LoadedLibrary.SteamApi;
 
-    /// <summary>The ISteamUser accessor THIS libsteam_api.so exports (it has no other).</summary>
-    public const string AccessorExport = "SteamAPI_SteamUser_v021";
+    /// <summary>The ISteamUser accessor this platform's Steam API exports (it has no other): <see cref="SteamApiExports"/>.</summary>
+    public static string AccessorExport => SteamApiExports.UserAccessor;
 
     /// <summary>Steam's advice for the buffer: a ticket is well under it.</summary>
     public const int MaxTicket = 1024;
@@ -22,11 +22,6 @@ public sealed unsafe class SteamUserTickets(ILog log) : ISteamAuthTickets
     // sizeof(SteamNetworkingIdentity): m_eType, m_cbSize, then a 128-byte union.
     private const int IdentitySize = 136;
 
-    private const int RTLD_NOW = 2;
-    private const int RTLD_NOLOAD = 4;
-
-    [DllImport("libdl.so.2", EntryPoint = "dlopen")]
-    private static extern IntPtr DlOpen(string file, int mode);
 
     private bool _bound;
     private delegate* unmanaged<IntPtr> _user;
@@ -40,10 +35,10 @@ public sealed unsafe class SteamUserTickets(ILog log) : ISteamAuthTickets
         if (_bound)
             return true;
 
-        IntPtr library = DlOpen(Library, RTLD_NOW | RTLD_NOLOAD);
+        IntPtr library = LoadedLibrary.Open(Library);
         if (library == IntPtr.Zero)
         {
-            _whyUnbound = Library + " is not loaded in this process (RTLD_NOLOAD): no Steam";
+            _whyUnbound = Library + " is not loaded in this process (" + LoadedLibrary.NoLoad + "): no Steam";
             return false;
         }
 

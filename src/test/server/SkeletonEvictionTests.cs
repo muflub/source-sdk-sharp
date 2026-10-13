@@ -28,7 +28,7 @@ public class SkeletonEvictionTests
     private static bool Lists(string target, string file) =>
         CMakeGraph.ListedSources(target).Any(s => s.EndsWith("/" + file, System.StringComparison.Ordinal));
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BoneLibraryLeftTheServer()
     {
         Assert.False(Lists(CMakeGraph.Server, "bone_library.cpp"));
@@ -36,7 +36,7 @@ public class SkeletonEvictionTests
                               s => s.EndsWith("/bone_library.cpp", System.StringComparison.Ordinal));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BoneSetupLeftTheServer()
     {
         Assert.False(Lists(CMakeGraph.Server, "bone_setup.cpp"));
@@ -44,7 +44,7 @@ public class SkeletonEvictionTests
                               s => s.EndsWith("/bone_setup.cpp", System.StringComparison.Ordinal));
     }
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BoneLibraryLeftTheClient()
     {
         Assert.False(Lists(CMakeGraph.Client, "bone_library.cpp"));
@@ -65,7 +65,7 @@ public class SkeletonEvictionTests
     /// (2026-10-12): model_descriptor.cpp, its only caller, writes no duration
     /// any more (descriptor format v3).
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void SequenceTimingLeftBothSidesAndTheRepository()
     {
         foreach (string target in new[] { CMakeGraph.Server, CMakeGraph.Client })
@@ -84,7 +84,7 @@ public class SkeletonEvictionTests
     /// descriptors the managed sequence timing that replaced the native
     /// durations.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void BothSidesKeepTheDescriptorAndTimeItsSequencesInManagedCode()
     {
         Assert.True(Lists(CMakeGraph.Client, "model_descriptor.cpp"));

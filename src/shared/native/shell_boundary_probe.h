@@ -50,9 +50,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef _WIN32
-#include <dlfcn.h>
-#endif
+#include "ss_platform.h"
 
 //-----------------------------------------------------------------------------
 // Every probed method, in vtable order per interface.
@@ -300,21 +298,17 @@ public:
 		if ( nBufLen <= 0 )
 			return;
 
-#ifndef _WIN32
-		Dl_info info;
-		memset( &info, 0, sizeof( info ) );
-		if ( pAddr && dladdr( pAddr, &info ) && info.dli_fname && info.dli_fbase )
+		SSModuleInfo info;
+		if ( SS_ModuleOfAddress( pAddr, &info ) && info.szPath[ 0 ] )
 		{
-			const char *pszName = strrchr( info.dli_fname, '/' );
-			pszName = pszName ? pszName + 1 : info.dli_fname;
+			const char *pszName = SS_ModuleBaseName( info.szPath );
 
 			const unsigned long long nOffset =
-				(unsigned long long)( (const char *)pAddr - (const char *)info.dli_fbase );
+				(unsigned long long)( (const char *)pAddr - (const char *)info.pBase );
 
 			snprintf( pBuf, (size_t)nBufLen, "%s+0x%llx", pszName, nOffset );
 			return;
 		}
-#endif
 		snprintf( pBuf, (size_t)nBufLen, "%p", pAddr );
 	}
 
@@ -395,7 +389,7 @@ inline CBoundaryProbe &BoundaryProbes()
 
 // The caller's return address, which is the engine instruction after the call.
 #if defined( __GNUC__ ) || defined( __clang__ )
-#define SS_BOUNDARY_CALLER()	( __builtin_return_address( 0 ) )
+#define SS_BOUNDARY_CALLER()	( SS_RETURN_ADDRESS() )
 #else
 #define SS_BOUNDARY_CALLER()	( (const void *)0 )
 #endif

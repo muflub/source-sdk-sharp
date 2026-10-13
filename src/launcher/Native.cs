@@ -127,7 +127,11 @@ internal sealed class ProcessRunner : IProcessRunner
     }
 }
 
-/// <summary>`ulimit -n N`: both soft and hard, as bash's ulimit sets them.</summary>
+/// <summary>
+/// `ulimit -n N`: both soft and hard, as bash's ulimit sets them. POSIX only:
+/// Windows has no per-process file-descriptor limit to raise (the CRT's
+/// handle table grows on its own), so there it is a no-op that succeeds.
+/// </summary>
 internal sealed partial class Rlimit : IRlimit
 {
     private const int RLIMIT_NOFILE = 7;
@@ -144,6 +148,8 @@ internal sealed partial class Rlimit : IRlimit
 
     public string? SetNoFile(int limit)
     {
+        if (OperatingSystem.IsWindows())
+            return null;
         var r = new RLimit { Cur = (ulong)limit, Max = (ulong)limit };
         return setrlimit(RLIMIT_NOFILE, in r) == 0
             ? null
@@ -153,18 +159,30 @@ internal sealed partial class Rlimit : IRlimit
 
 /// <summary>
 /// SDL_ShowSimpleMessageBox from the engine install's libSDL2 (or the
-/// system's), as the native launcher's MessageBox macro was.
+/// system's), as the native launcher's MessageBox macro was. On Windows the
+/// system's own MessageBox: the engine's SDL2.dll is not always beside it
+/// there, and user32 always is.
 /// </summary>
-internal sealed unsafe class SdlMessageBox : IMessageBox
+internal sealed unsafe partial class SdlMessageBox : IMessageBox
 {
     private const uint SDL_MESSAGEBOX_ERROR = 0x10;
+    private const uint MB_OK = 0x0;
+    private const uint MB_ICONERROR = 0x10;
+
+    [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 
     public bool Show(string title, string text, string? engineInstallDir)
     {
+        if (OperatingSystem.IsWindows())
+            return MessageBoxW(IntPtr.Zero, text, title, MB_OK | MB_ICONERROR) != 0;
+
+        // The engine's own SDL2; else the system's.
+        const string sdl = "libSDL2-2.0.so.0";
         IntPtr lib = IntPtr.Zero;
         if (engineInstallDir is not null)
-            NativeLibrary.TryLoad(Path.Combine(engineInstallDir, "bin", "linux64", "libSDL2-2.0.so.0"), out lib);
-        if (lib == IntPtr.Zero && !NativeLibrary.TryLoad("libSDL2-2.0.so.0", out lib))
+            NativeLibrary.TryLoad(Path.Combine(engineInstallDir, "bin", "linux64", sdl), out lib);
+        if (lib == IntPtr.Zero && !NativeLibrary.TryLoad(sdl, out lib))
             return false;
 
         try

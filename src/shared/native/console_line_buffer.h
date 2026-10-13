@@ -13,7 +13,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <sched.h>
+#include <atomic>
+#include <thread>
+#include <type_traits>
 
 /// Bytes in each of the two halves: 2 x 512 KiB = 1 MiB per side.
 static const uint32_t kConsoleLineHalfBytes = 512u * 1024u;
@@ -21,14 +23,27 @@ static const uint32_t kConsoleLineHalfBytes = 512u * 1024u;
 /// At offset 0 of the buffer; the halves follow it at offset 32.
 struct ConsoleLineBufferHeader
 {
-	uint32_t nSeq;        // the last number taken; the next line takes nSeq + 1
-	uint32_t nOverflow;   // lines that did not fit since the last swap
-	int32_t  nLock;       // 0 free, 1 held: a copy or a swap, nothing longer
-	int32_t  nActive;     // the half producers append to (0 or 1)
-	uint32_t nUsed[ 2 ];  // bytes written into each half
-	uint32_t nHalfBytes;  // kConsoleLineHalfBytes, for the reader
-	uint32_t nReserved;
+	std::atomic< uint32_t > nSeq{ 0 };  // the last number taken; the next line takes nSeq + 1
+	uint32_t nOverflow = 0;              // lines that did not fit since the last swap
+	std::atomic< int32_t > nLock{ 0 };   // 0 free, 1 held: a copy or a swap, nothing longer
+	int32_t  nActive = 0;                // the half producers append to (0 or 1)
+	uint32_t nUsed[ 2 ] = { 0, 0 };      // bytes written into each half
+	uint32_t nHalfBytes = 0;             // kConsoleLineHalfBytes, for the reader (Publish)
+	uint32_t nReserved = 0;
 };
+
+// THE TWO ATOMIC WORDS ARE SHARED WITH MANAGED, which takes the lock with
+// Interlocked.CompareExchange on the same four bytes (NativeConsoleBuffer.cs)
+// and reads the counter at offset 0. So each must be exactly the plain word it
+// wraps -- lock-free (and so address-free, which is what lets another
+// language's atomic operate on it), four bytes, at the offsets the managed
+// layout names -- and the header must stay standard-layout for offsetof.
+static_assert( std::atomic< uint32_t >::is_always_lock_free && sizeof( std::atomic< uint32_t > ) == 4,
+	"the line counter is read by managed as a plain uint32" );
+static_assert( std::atomic< int32_t >::is_always_lock_free && sizeof( std::atomic< int32_t > ) == 4,
+	"the lock word is taken by managed with Interlocked on a plain int32" );
+static_assert( std::is_standard_layout< ConsoleLineBufferHeader >::value,
+	"the header is an ABI: managed reads it at fixed offsets" );
 
 /// One line in a half: this, then nLength bytes of UTF-8 (no NUL), then
 /// padding to the next multiple of 4.
@@ -47,11 +62,8 @@ inline uint32_t ConsoleLineRecordBytes( uint32_t nLength )
 class CConsoleLineBuffer
 {
 public:
-	CConsoleLineBuffer()
-	{
-		memset( &m_Header, 0, sizeof( m_Header ) );
-		m_Header.nHalfBytes = kConsoleLineHalfBytes;
-	}
+	CConsoleLineBuffer() = default;  // all zero, so a global one is .bss, not 1 MiB of .data (console_line_buffer_test)
+	void Publish() { m_Header.nHalfBytes = kConsoleLineHalfBytes; }  // before the reader has the address
 	CConsoleLineBuffer( const CConsoleLineBuffer & ) = delete;
 	CConsoleLineBuffer &operator=( const CConsoleLineBuffer & ) = delete;
 
@@ -60,11 +72,12 @@ public:
 	{
 		const size_t nLen = strlen( pText );
 		Lock();
-		const uint32_t nSeq = ++m_Header.nSeq;
+		// Under the lock, so the increment need order nothing by itself.
+		const uint32_t nSeq = m_Header.nSeq.fetch_add( 1, std::memory_order_relaxed ) + 1;
 		const int nHalf = m_Header.nActive;
 		const uint32_t nUsed = m_Header.nUsed[ nHalf ];
 		const uint64_t nNeed = nLen > 0xFFFFFFF0u ? UINT64_MAX : ConsoleLineRecordBytes( (uint32_t)nLen );
-		if ( nNeed > (uint64_t)( m_Header.nHalfBytes - nUsed ) )
+		if ( nNeed > (uint64_t)( kConsoleLineHalfBytes - nUsed ) )
 		{
 			++m_Header.nOverflow;
 			Unlock();
@@ -81,17 +94,17 @@ public:
 
 	void Lock()
 	{
-		for ( int nSpins = 0; __atomic_exchange_n( &m_Header.nLock, 1, __ATOMIC_ACQUIRE ) != 0; )
+		for ( int nSpins = 0; m_Header.nLock.exchange( 1, std::memory_order_acquire ) != 0; )
 		{
-			while ( __atomic_load_n( &m_Header.nLock, __ATOMIC_RELAXED ) != 0 )
+			while ( m_Header.nLock.load( std::memory_order_relaxed ) != 0 )
 			{
 				if ( ++nSpins > 64 )
-					sched_yield();
+					std::this_thread::yield();
 			}
 		}
 	}
 
-	void Unlock() { __atomic_store_n( &m_Header.nLock, 0, __ATOMIC_RELEASE ); }
+	void Unlock() { m_Header.nLock.store( 0, std::memory_order_release ); }
 
 	uint8_t *Half( int nHalf ) { return m_Halves + (size_t)nHalf * kConsoleLineHalfBytes; }
 

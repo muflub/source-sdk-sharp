@@ -15,9 +15,11 @@
 // tier1's class and its members are kept to tier1's behaviour. The TEXT
 // load is managed's (KeyValuesLoad); nothing here parses.
 //
-// ILocalize::ConvertUnicodeToANSI is, on POSIX, Q_UTF32ToUTF8 under its
-// default policy; ss_string.h's UTF32ToUTF8 is held to pristine
-// strtools_unicode.cpp by ss_string_oracle_test.
+// ILocalize::ConvertUnicodeToANSI is Q_UTF32ToUTF8 under its default policy
+// on POSIX, where wchar_t is UTF-32, and Q_UTF16ToUTF8 on Windows, where it
+// is UTF-16; ss_string.h's WideToUTF8 picks by wchar_t's size, and both
+// converters are held to pristine strtools_unicode.cpp by
+// ss_string_oracle_test.
 //
 // WHERE ITS MEMORY COMES FROM. A key is made and freed by vstdlib's
 // KeyValuesSystem (AllocKeyValuesMemory / FreeKeyValuesMemory), as tier1's
@@ -53,8 +55,7 @@
 
 int ILocalize::ConvertUnicodeToANSI( const wchar_t *unicode, char *ansi, int ansiBufferSize )
 {
-	static_assert( sizeof( wchar_t ) == sizeof( uint32_t ), "wchar_t is UTF-32 on this platform" );
-	return ss::UTF32ToUTF8( (const uint32_t *)unicode, ansi, ansiBufferSize );
+	return ss::WideToUTF8( unicode, ansi, ansiBufferSize );
 }
 
 //=============================================================================
@@ -329,7 +330,7 @@ const char *KeyValues::GetString( const char *keyName, const char *defaultValue 
 	case TYPE_WSTRING:
 	{
 		char wideBuf[512];
-		if ( !ss::UTF32ToUTF8( (const uint32_t *)dat->m_wsValue, wideBuf, sizeof( wideBuf ) ) )
+		if ( !ss::WideToUTF8( dat->m_wsValue, wideBuf, sizeof( wideBuf ) ) )
 			return defaultValue;
 		SetString( keyName, wideBuf );
 		break;

@@ -1067,9 +1067,14 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	SourceSharp_InstallMapMaterialReload( filesystem, materials );
 
 	// plan_map_load P6: the window pump (see m_pfnPumpEvents). RTLD_NOLOAD: the
-	// launcher's copy or nothing; this never loads a second SDL.
+	// launcher's copy or nothing; this never loads a second SDL. Valve's
+	// Windows engine has no SDL (its window is Win32's), so there is no pump
+	// to find there and the window is pumped between frames, as it is here
+	// when no SDL is loaded.
+#ifndef _WIN32
 	if ( void *hSDL = dlopen( "libSDL2-2.0.so.0", RTLD_NOW | RTLD_NOLOAD ) )
 		m_pfnPumpEvents = (void ( * )())dlsym( hSDL, "SDL_PumpEvents" );
+#endif
 	Msg( "[SourceSharp] load pump: %s\n", m_pfnPumpEvents ? "SDL_PumpEvents" : "none (the window is pumped only between frames)" );
 
 

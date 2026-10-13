@@ -7,12 +7,16 @@
 //========= SourceSharp — libss_particles.so's one export (plan_particles_so.md spike)
 // SS_REASON b  an interface resolved by name at load
 //
-// client.so asks the library's CreateInterface for ISSParticleLib by name.
+// client.so links the library like any other (DT_NEEDED on its SONAME, the
+// import library on Windows) and takes ISSParticleLib from its one export,
+// SSParticleLib_Interface. Not CreateInterface: client.so exports one of its
+// own, so it could not name the library's.
 //
 // The library statically holds particles.a, dmxloader.a and the tier1 and
 // mathlib members they import, all local (version_script.txt exports only
-// CreateInterface). Each slot of ISSParticleLib runs the particles.a member
-// the client named before the split; the client's thunks pass `this` through.
+// SSParticleLib_Interface). Each slot of ISSParticleLib runs the particles.a
+// member the client named before the split; the client's thunks pass `this`
+// through.
 //=============================================================================//
 
 #include "ss_particles/iparticlelib.h"
@@ -171,4 +175,7 @@ CSSParticleLib s_SSParticleLib;
 
 } // namespace
 
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CSSParticleLib, ISSParticleLib, SS_PARTICLE_LIB_INTERFACE_VERSION, s_SSParticleLib );
+SS_PARTICLELIB_API ISSParticleLib *SSParticleLib_Interface()
+{
+	return &s_SSParticleLib;
+}

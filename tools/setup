@@ -58,6 +58,7 @@ refuses to build a farm that breaks one:
 
 import argparse
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -112,16 +113,23 @@ def read_lines(path):
 # which list a file belongs in, and --write regenerates them). The farm links
 # the union; a path in two lists is refused like a path listed twice.
 LINK_LISTS = ("client", "server", "shared", "libs", "tests")
+# And per platform, the Valve files only that platform's build uses, which
+# the graph tools/sdk-census reads (the Linux one) never names: on Windows,
+# sdk-links/windows.txt (the .lib files cmake/sdk/CMakeLists.txt imports, and
+# the sources and headers only the Windows compile reads). Linked only on
+# that platform, so a Linux farm is what it was.
+PLATFORM_LINK_LISTS = {"windows": ("windows",)}
 
 
-def load_manifest(repo):
+def load_manifest(repo, platform=None):
+    names = LINK_LISTS + PLATFORM_LINK_LISTS.get(platform or platform_name(), ())
     out = []
-    for name in LINK_LISTS:
+    for name in names:
         path = os.path.join(repo, "sdk-links", name + ".txt")
         if not os.path.exists(path):
             raise SetupError(f"sdk-links/{name}.txt is missing (the farm "
                              "links the union of "
-                             + ", ".join(f"{n}.txt" for n in LINK_LISTS)
+                             + ", ".join(f"{n}.txt" for n in names)
                              + ")")
         out += [ln.strip() for ln in read_lines(path)]
     return out
@@ -202,6 +210,15 @@ def load_mods(repo, path=None):
 
 # --- the plan: what the farm should hold --------------------------------------
 
+def farm_key(full, base, pathmod=os.path):
+    """`full` relative to `base`, spelled the plan's way: forward slashes, as
+    every plan key and sdk-links line is written. On Windows relpath answers
+    with backslashes, and a key spelled that way matches nothing in the plan:
+    the stale-link sweep then took every link it had just made for stale and
+    deleted it, leaving a farm with no files in it."""
+    return pathmod.relpath(full, base).replace(pathmod.sep, "/")
+
+
 def repo_files(repo, rel):
     base = os.path.join(repo, rel)
     out = []
@@ -210,7 +227,7 @@ def repo_files(repo, rel):
                                                        "bin", "__pycache__"))
         for f in sorted(files):
             full = os.path.join(d, f)
-            out.append(os.path.relpath(full, base))
+            out.append(farm_key(full, base))
     return out
 
 
@@ -315,27 +332,58 @@ def find_tf2():
     return None
 
 
-def plan_bin(repo, root, cfg, mods, tf2=None):
+# Where the engine loads game libraries from, and the Steam API library Valve
+# ships for it, per platform (the layout of Valve's game/bin): linux64 with
+# libsteam_api.so, x64 with steam_api64.dll, and osx64, for which Valve ships
+# nothing (cmake/sdk/CMakeLists.txt). The dedicated engine on Linux loads the
+# game DLL as server_srv.so, the client and listen server as server.so: one
+# library, two names (plan_host_sdk §2.5; H0a found a dedicated run calling
+# address 0 without it). Windows' srcds loads server.dll under its own name.
+PLATFORM_BIN = {
+    "linux": ("linux64", "libsteam_api.so", "server_srv.so"),
+    "windows": ("x64", "steam_api64.dll", None),
+    "osx": ("osx64", None, None),
+}
+
+
+def platform_name():
+    if sys.platform.startswith("win"):
+        return "windows"
+    if sys.platform == "darwin":
+        return "osx"
+    return "linux"
+
+
+def game_dir_key(game_dir):
+    """A mod's game_dir as plan keys spell it: forward slashes, normalised.
+    os.path.normpath turns `mods/test` into `mods\\test` on Windows, every key
+    built from it then mixed both separators (`mods\\test/maps/x.bsp`), and the
+    stale-link sweep, which compares forward-slashed keys, deleted every link
+    of the mod's content it had just made: a Windows farm whose
+    game/mod_sharp/maps held no map."""
+    return posixpath.normpath(game_dir.replace("\\", "/"))
+
+
+def plan_bin(repo, root, cfg, mods, tf2=None, platform=None):
     """bin/<cfg>-relative path -> link target (None means a real directory)."""
+    bindir, steam, alias = PLATFORM_BIN[platform or platform_name()]
     out = {
         "bin": None,
-        "bin/linux64": None,
+        "bin/" + bindir: None,
         "bin/managed": None,
-        "bin/linux64/libsteam_api.so": os.path.join(
-            root, "game/bin/linux64/libsteam_api.so"),
-        # The dedicated engine loads the game DLL as server_srv.so, the
-        # client and listen server as server.so: one library, two names
-        # (plan_host_sdk §2.5; H0a found a dedicated run calling address 0
-        # without it).
-        "bin/linux64/server_srv.so": ("rel", "server.so"),
         "mods.yaml": os.path.join(repo, "game", "mods.yaml"),
         "mods": None,
     }
+    if steam:
+        out["bin/%s/%s" % (bindir, steam)] = os.path.join(
+            root, "game/bin", bindir, steam)
+    if alias:
+        out["bin/%s/%s" % (bindir, alias)] = ("rel", "server.so")
     if tf2:
         out["content"] = tf2
     for mod_id, game_dir, content in mods:
-        gd = os.path.normpath(game_dir)
-        if gd.startswith("..") or os.path.isabs(gd):
+        gd = game_dir_key(game_dir)
+        if gd.startswith("..") or posixpath.isabs(gd) or os.path.isabs(game_dir):
             raise SetupError(f"mods.yaml: {mod_id}: game_dir escapes the "
                              f"game directory: {game_dir}")
         out[gd] = None
@@ -353,7 +401,16 @@ def plan_bin(repo, root, cfg, mods, tf2=None):
 # --- applying a plan ------------------------------------------------------------
 
 def link_ok(path, target):
-    return os.path.islink(path) and os.readlink(path) == target
+    return os.path.islink(path) and read_link(path) == target
+
+
+def read_link(path):
+    """os.readlink, minus the \\?\\ prefix Windows puts on an absolute
+    target, so a link made from `target` reads back as `target`."""
+    t = os.readlink(path)
+    if t.startswith("\\\\?\\"):
+        t = t[4:]
+    return t
 
 
 def clear_linked_parents(base, rel, links, check, report):
@@ -406,6 +463,9 @@ def apply_links(base, links, check, report, managed_prefixes=None):
             continue
         if isinstance(target, tuple):
             target = target[1]
+        # The platform's separators: Windows resolves a link whose target
+        # is written with forward slashes to nothing. A no-op elsewhere.
+        target = os.path.normpath(target)
         if link_ok(path, target):
             continue
         changes += 1
@@ -424,7 +484,14 @@ def apply_links(base, links, check, report, managed_prefixes=None):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.islink(path):
             os.unlink(path)
-        os.symlink(target, path)
+        # Windows tells a directory link from a file link at creation (a
+        # file link at a directory opens as neither); the other platforms
+        # ignore the flag. A relative target is relative to the link's own
+        # directory, not to the cwd this runs from.
+        resolved = target if os.path.isabs(target) else os.path.join(
+            os.path.dirname(path), target)
+        os.symlink(target, path,
+                   target_is_directory=os.path.isdir(resolved))
 
     # Stale links.
     want = set(links)
@@ -435,7 +502,7 @@ def apply_links(base, links, check, report, managed_prefixes=None):
                 continue
             if name in dirs:
                 dirs.remove(name)  # never descend through a link
-            rel = os.path.relpath(full, base)
+            rel = farm_key(full, base)
             if rel in want:
                 continue
             if managed_prefixes is not None and not any(
@@ -462,15 +529,22 @@ def newest_runtime(dotnet_root, major="10."):
                                   for x in re.split(r"[.-]", v)])
 
 
-def provision_dotnet(dest, check, report):
-    """The bundled runtime: host/fxr and one Microsoft.NETCore.App."""
-    src = os.path.expanduser("~/.dotnet")
+# The host's entry library in a .NET install, per platform: what the managed
+# host dlopens (src/host/native/sourcesharp.cpp, FindBundledHostFxr).
+HOSTFXR = {"linux": "libhostfxr.so", "windows": "hostfxr.dll",
+           "osx": "libhostfxr.dylib"}
+
+
+def provision_dotnet(dest, check, report, dotnet_root=None):
+    """The bundled runtime: host/fxr and one Microsoft.NETCore.App, copied
+    from ~/.dotnet (or dotnet_root: where a runner's SDK is)."""
+    src = os.path.expanduser(dotnet_root or "~/.dotnet")
     ver = newest_runtime(src)
     if ver is None:
-        raise SetupError("no .NET 10 runtime under ~/.dotnet (never use "
+        raise SetupError(f"no .NET 10 runtime under {src} (never use "
                          "/usr/bin/dotnet: the Ubuntu package miscompiles)")
     have = os.path.join(dest, "shared", "Microsoft.NETCore.App", ver)
-    fxr = os.path.join(dest, "host", "fxr", ver, "libhostfxr.so")
+    fxr = os.path.join(dest, "host", "fxr", ver, HOSTFXR[platform_name()])
     if os.path.isdir(have) and os.path.isfile(fxr):
         return 0
     report(f"provision .NET runtime {ver} into {dest}")
@@ -663,6 +737,7 @@ def provision_valve(repo, root, valve, check, report, url=VALVE_URL):
 # --- main -----------------------------------------------------------------------
 
 def run(repo, root, configs, check=False, accept=False, provision=True,
+        dotnet_root=None, runtime_only=False,
         out=print, verbose=False, valve=None, valve_url=VALVE_URL,
         repin=False):
     changes = 0
@@ -695,21 +770,25 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
             os.path.isdir(farm) or check) else 0
         game = os.path.join(repo, "bin", cfg)
         bplan = plan_bin(repo, root, cfg, mods, tf2)
-        managed = ["bin/linux64/libsteam_api.so", "mods.yaml"] + [
-            os.path.normpath(m[1]) for m in mods] + (["content"] if tf2 else [])
+        bindir, steam, _ = PLATFORM_BIN[platform_name()]
+        managed = ["mods.yaml"] + [
+            posixpath.normpath(m[1]) for m in mods] + (["content"] if tf2 else [])
+        if steam:
+            managed.insert(0, "bin/%s/%s" % (bindir, steam))
         if not check:
             os.makedirs(game, exist_ok=True)
         if os.path.isdir(game) or check:
             changes += apply_links(game, bplan, check, report,
                                    managed_prefixes=managed)
-        if provision:
+        if provision or runtime_only:
             changes += provision_dotnet(os.path.join(game, "bin", "dotnet"),
-                                        check, report)
+                                        check, report, dotnet_root)
+        if provision:
             for m in mods:
                 changes += provision_cfg(repo, m[2], os.path.join(
                     game, os.path.normpath(m[1])), check, report)
         out(f"{cfg}: {shown[0]} changes; {len(links)} farm links "
-            f"({sum(1 for p in links if links[p].startswith(root + '/'))} "
+            f"({sum(1 for p in links if os.path.normpath(links[p]).startswith(os.path.normpath(root) + os.sep))} "
             f"from ROOT)")
     if valve is not None:
         changes += provision_valve(repo, root, valve, check, report,
@@ -814,6 +893,9 @@ def self_test():
               == f"{repo}/src/server/native/sdk/game/server/entity_funcs.h"
               and os.path.islink(f"{repo}/bin/debug/mods/test/bin")
               and os.readlink(f"{repo}/bin/debug/mods/test/bin") == "../../bin"
+              # Through the relative link: a Windows file link at a
+              # directory (the target judged from the wrong cwd) is not one.
+              and os.path.isdir(f"{repo}/bin/debug/mods/test/bin")
               and not os.path.islink(f"{farm}/src/sourcesharp/game/server"))
         bad += not ok
         print(f"{'ok ' if ok else 'BAD'} links land where the plan says")
@@ -844,6 +926,39 @@ def self_test():
             links(text)
             expect(name, go, err)
         links()
+        # Farm keys are forward-slashed on every platform (ntpath is
+        # Windows' os.path, importable anywhere).
+        import ntpath
+        ok = (farm_key(r"C:\r\farm\src\public\x.h", r"C:\r\farm", ntpath)
+              == "src/public/x.h"
+              and farm_key("/r/farm/src/public/x.h", "/r/farm") == "src/public/x.h")
+        expect("a farm key is forward-slashed under Windows path rules too",
+               lambda: None if ok else (_ for _ in ()).throw(
+                   SetupError("a farm key kept the platform's separator")), None)
+        # So is a mod's game_dir, whatever separator mods.yaml or the
+        # platform's normpath used.
+        ok = (game_dir_key("mods/test") == "mods/test"
+              and game_dir_key("mods\\test") == "mods/test"
+              and game_dir_key("./mods//test/") == "mods/test")
+        expect("a game_dir key is forward-slashed and normalised",
+               lambda: None if ok else (_ for _ in ()).throw(
+                   SetupError("a game_dir key kept a backslash or a redundant part")), None)
+        # The Windows list: read on Windows only, and required there.
+        ok = (load_manifest(repo, "linux") == load_manifest(repo, "osx")
+              and "src/public/const.h" in load_manifest(repo, "linux"))
+        expect("the windows list is not wanted off Windows",
+               lambda: None if ok else (_ for _ in ()).throw(
+                   SetupError("a non-Windows manifest changed")), None)
+        expect("on Windows a missing windows list is refused",
+               lambda: load_manifest(repo, "windows"),
+               "sdk-links/windows.txt is missing")
+        w(f"{repo}/sdk-links/windows.txt", "# a list\nsrc/lib/public/x64/tier0.lib\n")
+        ok = (load_manifest(repo, "windows")
+              == load_manifest(repo, "linux") + ["src/lib/public/x64/tier0.lib"])
+        expect("on Windows the windows list joins the union",
+               lambda: None if ok else (_ for _ in ()).throw(
+                   SetupError("the windows list was not read")), None)
+        os.unlink(f"{repo}/sdk-links/windows.txt")
         os.unlink(f"{repo}/sdk-links/libs.txt")
         expect("a missing list is refused, not read as empty", go,
                "sdk-links/libs.txt is missing")
@@ -1089,6 +1204,17 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--config", choices=CONFIGS)
     ap.add_argument("--no-provision", action="store_true")
+    ap.add_argument("--provision-runtime", action="store_true",
+                    help="with --no-provision: still bundle the .NET runtime "
+                         "into bin/<config>/bin/dotnet (a release archive "
+                         "ships it; Node and the cfg seeds it does not need)")
+    ap.add_argument("--dotnet-root", metavar="DIR",
+                    help="the .NET install the bundled runtime is copied "
+                         "from (default ~/.dotnet; a runner's is elsewhere)")
+    ap.add_argument("--no-valve-sdk", action="store_true",
+                    help="do not clone or check the pristine Valve SDK the "
+                         "oracle tests read (a native-only build, as CI's "
+                         "Windows and macOS jobs make, has no oracle leg)")
     ap.add_argument("--valve-sdk", help="the pristine Valve SDK clone "
                     "(default: remembered, else ../source-sdk-2013-valve)")
     ap.add_argument("--verbose", "-v", action="store_true")
@@ -1122,7 +1248,10 @@ def main():
         changes = run(repo, root, [a.config] if a.config else CONFIGS,
                       check=a.check, accept=a.accept_root,
                       provision=not a.no_provision, verbose=a.verbose,
-                      valve=valve, repin=a.repin_root)
+                      dotnet_root=a.dotnet_root,
+                      runtime_only=a.provision_runtime,
+                      valve=None if a.no_valve_sdk else valve,
+                      repin=a.repin_root)
     except SetupError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -1135,7 +1264,7 @@ def main():
     if a.root:
         with open(local, "w") as f:
             f.write(root + "\n")
-    if not a.check:
+    if not a.check and not a.no_valve_sdk:
         # Where the pristine clone is, for the tests (RepoLayout.ValveSdk /
         # the oracle CMake) and for the next setup.
         with open(os.path.join(repo, "valve-sdk.lock.local"), "w") as f:

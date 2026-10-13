@@ -97,8 +97,9 @@ fi
 
 ( cd sourcesharp/webui && npm run build --silent -- $([[ $MODE == debug ]] && echo --dev) )
 
+# SS_SLN is the solution the Makefile names (SourceSharp.slnx).
 echo "==> building managed assemblies ($MODE)"
-"$DOTNET" build "$SS_REPO/SourceSharp.slnx" -v q --nologo \
+"$DOTNET" build "$SS_REPO/${SS_SLN:-SourceSharp.slnx}" -v q --nologo \
     -c "$([[ $MODE == debug ]] && echo Debug || echo Release)"
 
 # The launcher is NativeAOT, which `dotnet build` does not produce; publish

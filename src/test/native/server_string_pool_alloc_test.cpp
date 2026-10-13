@@ -16,6 +16,7 @@
 #include "tier0/memdbgon.h"
 
 #include "gtest/gtest.h"
+#include "ss_ci_skip.h"
 
 #include "alloc_check.h"
 #include "server_string_pool.h"
@@ -40,6 +41,7 @@ const char *const kNames[] = {
 
 TEST( ServerStringPoolAlloc, UnderMemdbgonEveryReleaseIsOfABlockThePoolAllocated )
 {
+	SS_SKIP_ON_CI( "built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
 	Delta d;
 	{
 		CServerStringPool pool;
@@ -56,6 +58,7 @@ TEST( ServerStringPoolAlloc, UnderMemdbgonEveryReleaseIsOfABlockThePoolAllocated
 
 TEST( ServerStringPoolAlloc, TheDestructorReleasesWhatFreeAllWouldHave )
 {
+	SS_SKIP_ON_CI( "built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
 	Delta d;
 	{
 		CServerStringPool pool;

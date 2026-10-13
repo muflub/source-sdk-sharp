@@ -209,9 +209,16 @@ public:
 
 private:
 	// Held for the engine, which reads them; server.so writes no entity table.
-	[[maybe_unused]] int tableCount;                 // entries in pTable
-	[[maybe_unused]] entitytable_t *pTable;          // one per entity
-	[[maybe_unused]] IGameEntity *m_pCurrentEntity;  // the entity being saved, during its save only
+	// [[maybe_unused]] on clang only: gcc 10 (CI) ignores it on a member, warning.
+#if defined( __clang__ )
+#define SS_HELD [[maybe_unused]]
+#else
+#define SS_HELD
+#endif
+	SS_HELD int tableCount;                 // entries in pTable
+	SS_HELD entitytable_t *pTable;          // one per entity
+	SS_HELD IGameEntity *m_pCurrentEntity;  // the entity being saved, during its save only
+#undef SS_HELD
 	// Upstream's CUtlHash< CHashElement, ... >: the engine's PurgeEntityHash is
 	// the only touch it gets on server.so's block, and a zeroed one is empty.
 	alignas( 8 ) unsigned char m_EntityToIndex[ 40 ];

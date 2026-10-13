@@ -16,7 +16,7 @@ public class GameVarsBuildTests
     // The trap that made this port necessary at all.
     // ------------------------------------------------------------------
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheServerNoLongerCompilesTheCppItselfSoBothWouldBeADuplicate()
     {
         // server_sourcesharp's compiled sources (compile_commands.json, checked

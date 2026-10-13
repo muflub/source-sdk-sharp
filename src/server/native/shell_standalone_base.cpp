@@ -20,6 +20,7 @@
 //=============================================================================//
 
 #include "ss_util.h"   // engine, and eiface.h / edict.h / gametrace.h
+#include "ss_platform.h"   // SS_RETURN_ADDRESS
 #include "shell_standalone.h"
 #include "standalone_collision_rules.h"
 #include "standalone_netserial.h"
@@ -175,7 +176,7 @@ SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity )
 			// sharpen it would be the wrong trade. The immediate return address
 			// still names the route; two routes sharing one immediate caller
 			// merge, which is stated in shell_scripted.cpp.
-			SourceSharp_NoteInvisibleRangeReach( __builtin_return_address( 0 ) );
+			SourceSharp_NoteInvisibleRangeReach( SS_RETURN_ADDRESS() );
 
 		return ent;
 	}
@@ -676,6 +677,13 @@ int SourceSharp_StandaloneMinBlobBytes()
 	return SourceSharp_TierBytes( SourceSharp_StandaloneMinTier() );
 }
 
+#if defined( _MSC_VER )
+// 'this' in the initialiser list below is deliberate. The build disables C4355
+// (/wd4355, as Valve's VPC does), but tier1/convar.h ends with
+// `#pragma warning( default : 4355 )`, which turns it back on for the rest of
+// any file that includes it.
+#pragma warning( disable : 4355 )
+#endif
 CStandaloneEntity::CStandaloneEntity()
 	  // FIRST, and the header declares it first for the same reason: a member
 	  // initialiser runs in DECLARATION order rather than in the order it is

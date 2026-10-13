@@ -33,7 +33,9 @@ if(NOT TARGET ss_alloc_check_wraps)
   target_link_options(ss_alloc_check_wraps INTERFACE ${_wraps})
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+# Linux only: -Wl,--wrap is GNU ld's (and lld's), and the symbols below are
+# glibc's and the Itanium ABI's; link.exe and Apple's ld have no such hook.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND SS_PLATFORM STREQUAL linux)
   set(_ss_alloc_check_default ON)
 else()
   set(_ss_alloc_check_default OFF)

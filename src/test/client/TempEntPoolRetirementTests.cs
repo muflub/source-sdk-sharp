@@ -94,7 +94,8 @@ public unsafe class TempEntPoolRetirementTests
             string ext = Path.GetExtension(file);
             if (ext is not (".cs" or ".cpp" or ".h" or ".hpp" or ".inc"))
                 continue;
-            string rel = Path.GetRelativePath(root, file);
+            // Spelled with '/' on every platform: the filters and Code() split on it.
+            string rel = Path.GetRelativePath(root, file).Replace('\\', '/');
             if (rel.StartsWith("src/test", StringComparison.Ordinal)
                 || rel.Contains("/obj/", StringComparison.Ordinal)
                 || rel.Contains("/bin/", StringComparison.Ordinal))
@@ -121,7 +122,7 @@ public unsafe class TempEntPoolRetirementTests
     /// (a census run before any build proves nothing); its positive arm is a
     /// pool thunk the same graph DOES compile.
     /// </summary>
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void TheForkStockTempentsTusCompileIntoNoTarget()
     {
         string ninja = RepoLayout.Sdk("build", "build.ninja");

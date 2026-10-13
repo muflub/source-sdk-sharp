@@ -9,7 +9,42 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class ModsConfigTests
 {
+    // ---- the containment rule, under both platforms' spellings ----------
+    //
+    // ModsConfig.Inside refused every mod on Windows: it compared with a literal
+    // '/', and GetFullPath answers with backslashes there. IsWithin takes the
+    // separator and the comparison, so the Windows case is held here on any OS.
+
+    [Fact]
+    public void A_path_under_the_root_is_within_it_with_forward_slashes()
+        => Assert.True(ModsConfig.IsWithin("/games/sharp", "/games/sharp/mods/test", '/', StringComparison.Ordinal));
+
+    [Fact]
+    public void A_path_under_the_root_is_within_it_with_backslashes()
+        => Assert.True(ModsConfig.IsWithin(@"D:\a\game", @"D:\a\game\mods\test", '\\', StringComparison.OrdinalIgnoreCase));
+
+    [Fact]
+    public void The_root_itself_is_within_it()
+        => Assert.True(ModsConfig.IsWithin(@"D:\a\game\", @"D:\a\game", '\\', StringComparison.OrdinalIgnoreCase));
+
+    [Fact]
+    public void A_sibling_sharing_the_roots_prefix_is_not_within_it()
+        => Assert.False(ModsConfig.IsWithin(@"D:\a\game", @"D:\a\gameplay\mods", '\\', StringComparison.OrdinalIgnoreCase));
+
+    [Fact]
+    public void A_parent_of_the_root_is_not_within_it()
+        => Assert.False(ModsConfig.IsWithin("/games/sharp", "/games", '/', StringComparison.Ordinal));
+
+    [Fact]
+    public void Windows_drive_letter_case_does_not_matter()
+        => Assert.True(ModsConfig.IsWithin(@"d:\a\game", @"D:\A\Game\mods", '\\', StringComparison.OrdinalIgnoreCase));
+
     private const string Path = "/games/sharp/bin/debug/mods.yaml";
+
+    // The config canonicalises every directory with GetFullPath, so an
+    // expectation written as a Unix path is read the same way: unchanged on
+    // Linux, drive-rooted and backslashed on Windows.
+    private static string Full(string unix) => System.IO.Path.GetFullPath(unix);
 
     private const string Minimal = """
         default_mod: test
@@ -30,14 +65,14 @@ public class ModsConfigTests
     [Fact]
     public void GameDirIsResolvedAgainstTheFilesDirectory()
     {
-        Assert.Equal("/games/sharp/bin/debug/mods/test", ModsConfig.Parse(Minimal, Path).Select(null).GameDir);
+        Assert.Equal(Full("/games/sharp/bin/debug/mods/test"), ModsConfig.Parse(Minimal, Path).Select(null).GameDir);
     }
 
     [Fact]
     public void A_game_running_in_an_instance_dir_has_that_GameDir()
     {
         var mod = ModsConfig.Parse(Minimal, Path).Select(null).RunningIn("/tmp/x/sourcesharp-instance-1/test");
-        Assert.Equal("/tmp/x/sourcesharp-instance-1/test", mod.GameDir);
+        Assert.Equal(Full("/tmp/x/sourcesharp-instance-1/test"), mod.GameDir);
     }
 
     [Fact]
@@ -58,7 +93,7 @@ public class ModsConfigTests
     [Fact]
     public void ManagedDirDefaultsToTheGameDirsBinManaged()
     {
-        Assert.Equal("/games/sharp/bin/debug/mods/test/bin/managed",
+        Assert.Equal(Full("/games/sharp/bin/debug/mods/test/bin/managed"),
             ModsConfig.Parse(Minimal, Path).Select(null).ManagedDir);
     }
 
@@ -266,7 +301,7 @@ public class ModsConfigTests
         var a = ModsConfig.Parse(WithDefaults, Path).Select("a");
 
         Assert.Equal("a game", a.Title);
-        Assert.Equal("/games/sharp/bin/debug/mods/a", a.GameDir);
+        Assert.Equal(Full("/games/sharp/bin/debug/mods/a"), a.GameDir);
         Assert.Equal("game/mod_a", a.Content);
         Assert.Equal(["Core.Server"], a.ServerAssemblies);
         Assert.Equal(1000, a.Client.FdLimit);
@@ -338,7 +373,7 @@ public class ModsConfigTests
         string dir = System.IO.Path.GetDirectoryName(RepoLayout.Repo("game", "mods.yaml"))!;
 
         Assert.Equal("SourceSharp test mod", test.Title);
-        Assert.Equal(System.IO.Path.Combine(dir, "mods/test"), test.GameDir);
+        Assert.Equal(Full(System.IO.Path.Combine(dir, "mods/test")), test.GameDir);
         Assert.Equal("game/mod_test", test.Content);
         Assert.Equal(243750u, test.SteamAppId);
         Assert.Equal((243750u, "hl2_linux64", 42, 2048), (test.Client.AppId, test.Client.Exe, test.Client.RestartExitCode, test.Client.FdLimit));
@@ -348,7 +383,7 @@ public class ModsConfigTests
         Assert.Empty(test.Client.Env);
         Assert.Equal(["SourceSharp.Server"], test.ServerAssemblies);
         Assert.Equal(["SourceSharp.Client"], test.ClientAssemblies);
-        Assert.Equal(System.IO.Path.Combine(dir, "mods/test/bin/managed"), test.ManagedDir);
+        Assert.Equal(Full(System.IO.Path.Combine(dir, "mods/test/bin/managed")), test.ManagedDir);
     }
 
     [Fact]

@@ -48,7 +48,7 @@ public class TeParticleWiringTests
         Assert.True(sheet.Finished, "every drop dies within its three seconds");
     }
 
-    [Fact]
+    [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void ALineIsADotEveryThreeUnits()
     // Eleven dots over thirty units, not ten: VectorNormalize's reciprocal square root answers the length
     // a hair over 30 (stock's, held by TeParticleOracleTests), so the countdown

@@ -2,11 +2,13 @@ using System.Collections;
 using SourceSharp.Launcher;
 
 // source#. Its directory is the game directory, bin/<config>: mods.yaml and
-// bin/linux64/libsteam_api.so are found beside it. Environment.ProcessPath is
-// the resolved /proc/self/exe, exact whatever the stack holds (the native
-// launcher's unterminated readlink was the bug exepath.h existed to fix).
-string launcherDir = Path.GetDirectoryName(Environment.ProcessPath)
-    ?? throw new InvalidOperationException("no process path");
+// bin/linux64/libsteam_api.so are found beside it. On Linux
+// Environment.ProcessPath is the resolved /proc/self/exe, exact whatever the
+// stack holds (the native launcher's unterminated readlink was the bug
+// exepath.h existed to fix); on Windows it is the path the process was started
+// by, so Launcher.LauncherDirectory resolves a link to the binary itself.
+string launcherDir = Launcher.LauncherDirectory(Environment.ProcessPath
+    ?? throw new InvalidOperationException("no process path"));
 
 var env = new Dictionary<string, string>(StringComparer.Ordinal);
 foreach (DictionaryEntry e in Environment.GetEnvironmentVariables())
@@ -14,5 +16,5 @@ foreach (DictionaryEntry e in Environment.GetEnvironmentVariables())
 
 var launcher = new Launcher(
     new NativeSteam(), new ProcessRunner(), new Rlimit(), new SdlMessageBox(),
-    Console.Out, Console.Error);
+    Console.Out, Console.Error, LauncherPlatform.Current);
 return launcher.Run(args, launcherDir, env);

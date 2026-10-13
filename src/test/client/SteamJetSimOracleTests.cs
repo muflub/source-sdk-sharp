@@ -136,7 +136,7 @@ public class SteamJetSimOracleTests
     private static string Row(IEnumerable<float> values, params string[] tail)
         => string.Join(",", values.Select(v => Bits(v).ToString("x8", CultureInfo.InvariantCulture)).Concat(tail));
 
-    [Fact]
+    [LinuxOnlyFact("a golden recorded bit for bit against glibc's libm; the Windows C runtime rounds the last bit of sin, cos and pow differently")]
     public void OneHundredTwentyFramesReplayBitForBit()
     {
         var (startLights, frames) = Stock();

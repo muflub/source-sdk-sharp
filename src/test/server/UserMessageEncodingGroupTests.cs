@@ -79,7 +79,7 @@ public class UserMessageEncodingGroupTests
     /// </summary>
     private static readonly string[] StillNativeToo = [];
 
-    [Fact]
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void NoMessageWithAGeneratedPackerHasANativeReaderOrSender()
     {
         var owned = NativelyOwned();

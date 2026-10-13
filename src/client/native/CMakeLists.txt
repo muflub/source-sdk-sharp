@@ -267,6 +267,13 @@ target_compile_definitions(client_sourcesharp PRIVATE
     # and after this switch (live, see the commit).
     NO_MALLOC_OVERRIDE
 )
+# On Windows memalloc.h's arm for such a module is empty (Valve never built
+# Windows without tier0's allocator): cmake/compat/windows supplies the
+# MemAlloc_* set POSIX gets, on the CRT, forced in ahead of every source.
+if(SS_PLATFORM STREQUAL windows)
+  target_compile_options(client_sourcesharp PRIVATE
+    "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
+endif()
 
 target_include_directories(client_sourcesharp PRIVATE
     ${PROJECT_SOURCE_DIR}/src/client/native
@@ -287,25 +294,48 @@ target_include_directories(client_sourcesharp PRIVATE
     ${SS_SRC}/vgui2/include
 )
 
-# libmanaged_host.so has no SONAME, so it is named with -L/-l (as VPC did): by
-# path, DT_NEEDED would record the build directory.
-add_dependencies(client_sourcesharp sourcesharp)
-target_link_options(client_sourcesharp PRIVATE -L$<TARGET_FILE_DIR:sourcesharp>)
-target_link_libraries(client_sourcesharp PRIVATE managed_host)
-set_property(TARGET client_sourcesharp APPEND PROPERTY LINK_DEPENDS $<TARGET_FILE:sourcesharp>)
+# The managed host, linked by target (ss_link_host).
+ss_link_host(client_sourcesharp)
+
+# The tier0 ports client.dll defines itself read tier0's headers with
+# STATIC_TIER0 on MSVC: the declarations are plain there, so the definitions
+# are not exported (MSVC exports a definition of a dllimport-declared function)
+# and client.dll exports CreateInterface alone (game_dll_exports_test). Every
+# other file's import binds to them through SS_BIND_IMPORT. A compile
+# definition, so it is in force before the forced memalloc header reads tier0.
+if(SS_IS_MSVC)
+  set_property(SOURCE
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
+      ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/tier0_spew_client.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_client.cpp
+    TARGET_DIRECTORY client_sourcesharp
+    APPEND PROPERTY COMPILE_DEFINITIONS STATIC_TIER0)
+endif()
 
 # VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
 # refer to each other in both directions, and GNU ld (the CI link) resolves an
 # archive only against what came before it.
 #
 # particles.a and dmxloader.a are libss_particles.so's (plan_particles_so.md,
-# particles_lib/): client.so dlopens it, and particles_lib_client.cpp defines
+# particles_lib/): client.so links it, and particles_lib_client.cpp defines
 # the names client.so's objects take from particles.a as forwards to it.
 target_include_directories(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/src/client/native/particles_lib/include)
-add_dependencies(client_sourcesharp ss_particles)
-target_link_libraries(client_sourcesharp PRIVATE
-    rt
-    z
-    dl
-    "$<LINK_GROUP:RESCAN,sdk::tier0,tier1,sdk::vstdlib,mathlib>"
-)
+# Linked like any library: SSParticleLib_Interface resolves when client.so loads
+# (DT_NEEDED on libss_particles.so's SONAME, beside client.so by its RUNPATH
+# $ORIGIN; ss_particles.lib on Windows). No libss_particles on macOS
+# (particles_lib/CMakeLists.txt): the client links there with dynamic lookup,
+# and the call fails at run time, as it would with the library missing.
+if(TARGET ss_particles)
+  target_link_libraries(client_sourcesharp PRIVATE ss_particles)
+endif()
+# rt and dl are glibc's; zlib is the system's on Linux and macOS and Valve's
+# libz.lib on Windows (cmake/sdk).
+if(SS_PLATFORM STREQUAL linux)
+  target_link_libraries(client_sourcesharp PRIVATE rt z dl)
+elseif(SS_PLATFORM STREQUAL windows)
+  target_link_libraries(client_sourcesharp PRIVATE sdk::z)
+else()
+  target_link_libraries(client_sourcesharp PRIVATE z)
+endif()
+ss_link_group(client_sourcesharp sdk::tier0 tier1 sdk::vstdlib mathlib)
