@@ -1,7 +1,8 @@
 # plan_engine_forwarders.md: engine interfaces through generated native forwarders
 
-Status: PLAN ONLY, not started (user ruling 2026-10-13: "make it a plan but
-dont implement it, get the current method working first").
+Status: phase 1 (the IVModelInfo spike) under way on branch
+`claude/engine-forwarders`, started 2026-10-13 at main 25e9c07 once phase 0
+held: the current method green on Linux and Windows CI.
 
 ## 1. Why
 
@@ -177,3 +178,5 @@ Each phase lands green on both CI jobs before the next starts.
   current (property) method working first.
 - 2026-10-13 (user): consider native interop libraries per interface type
   rather than code in the server/client shared objects (section 4).
+- 2026-10-13 (user): "start the plan for native shims" -- this plan, from
+  phase 1.

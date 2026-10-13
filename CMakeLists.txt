@@ -23,6 +23,7 @@ add_subdirectory(cmake/sdk)
 add_subdirectory(src/host/native)
 add_subdirectory(src/server/native)
 add_subdirectory(src/client/native/particles_lib)
+add_subdirectory(src/fwd/native)
 add_subdirectory(src/client/native)
 
 # The native gtests and must-not-compile checks (cmake/SourceSharpTests.cmake):

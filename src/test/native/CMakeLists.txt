@@ -66,6 +66,18 @@ ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
     INCLUDES sourcesharp/host
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
 
+# plan_engine_forwarders.md: each slot of libss_fwd_engine's tables reaches the
+# method it names, with its arguments, against a fake engine object whose
+# recorders sit at the compiler's own slots. fwd_engine.cpp is compiled in
+# rather than the library linked, so the binary runs on Windows with no DLL
+# search path to set up; SS_FWD_ENGINE_BUILD makes its export a definition
+# here. OPTIMIZED: its subject is what the compiler does with the dispatch.
+ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
+    DEFINES SS_FWD_ENGINE_BUILD
+    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_engine.cpp)
+
 # The CLOSED SET of acquisition failure reasons, walked rather than sampled --
 # plan_native_api.md Part 3b and Part 5c. The contract says four literals, all
 # ASCII, none of them a format string, and that is a claim about every member:
