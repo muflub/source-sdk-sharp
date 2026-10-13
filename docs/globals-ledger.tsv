@@ -438,6 +438,7 @@ collisionutils.o	_ZL12s_ExtIndices	s_ExtIndices	sourcesharp/public/collisionutil
 collisionutils.o	_ZL12s_MatIndices	s_MatIndices	sourcesharp/public/collisionutils.cpp	LOCAL	data	file-or-global	24	UNRULED		
 	g_StandardSendProxies	g_StandardSendProxies	sourcesharp/public/dt_send.cpp	GLOBAL	bss	file-or-global	88	UNRULED		
 dt_send.o	_ZL30s_pNonModifiedPointerProxyHead	s_pNonModifiedPointerProxyHead	sourcesharp/public/dt_send.cpp	LOCAL	bss	file-or-global	8	FLOOR		static-init registration named in plan_globals.md 2
+dt_utlvector_common.o	_ZL16s_DTElementNames	s_DTElementNames	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	10240	UNRULED		
 studio.o	_ZZN10CStudioHdr14GroupStudioHdrEiE14__executeCount	CStudioHdr::GroupStudioHdr(int)::__executeCount	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	4	UNRULED		
 studio.o	_ZZN10CStudioHdr14GroupStudioHdrEiE14__executeCount_0	CStudioHdr::GroupStudioHdr(int)::__executeCount	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	4	UNRULED		
 studio.o	_ZZN10CStudioHdr8pSeqdescEiE9s_nil_seq	CStudioHdr::pSeqdesc(int)::s_nil_seq	sourcesharp/public/studio.cpp	LOCAL	bss	function-local	212	UNRULED		

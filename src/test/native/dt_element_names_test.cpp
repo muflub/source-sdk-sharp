@@ -2,10 +2,11 @@
 // a network array is given. The engine matches a send table to its receive
 // table by these names, so they are the wire contract: "000" to "999", then
 // "1000" to "2047", exactly as the 2048-entry table of literals the function
-// used to index spelled them. The table is now built by the compiler, as
-// read-only characters rather than 16 KB of pointers.
+// used to index spelled them. Each name is now written into a zeroed table the
+// first time it is asked for, rather than held as 16 KB of pointers.
 
 #include "gtest/gtest.h"
+#include "mathlib_test_env.h"	// a mathlib binary initialises mathlib (mathlib_init_guard_test)
 
 #include <cstdio>
 #include <cstring>

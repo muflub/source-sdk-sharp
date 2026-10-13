@@ -211,9 +211,9 @@ ss_cpptest_mathlib(payload_recv_test
     LIBS ss_cpptest_dtobjs)
 
 # The network array element names, "000" to "2047": the wire contract the send
-# and receive tables match on, now a table the compiler builds.
+# and receive tables match on, each written the first time it is asked for.
 ss_cpptest_mathlib(dt_element_names_test
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/dt_element_names_test.cpp
+    SOURCES sourcesharp/test/dt_element_names_test.cpp
     LIBS ss_cpptest_dtobjs)
 
 # The temp entity description (plan_tmp.md Part 9, gate 2). Widths, blob offsets
