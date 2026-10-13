@@ -17,10 +17,11 @@
 WHAT IT IS FOR
 ==============
 
-A quick local loop. `make test-fast` is `make test` without the slow tier;
-`make test-slow` runs the slow tier alone, so the two together are `make
-test`. `make test` (and `make check`, and CI) still run everything: neither
-tier is a gate, and nothing here changes what CI holds the tree to.
+A quick loop, and CI's split. `make test-fast` is `make test` without the
+slow tier; `make test-slow` runs the slow tier alone, so the two together are
+`make test`. CI runs the two tiers in separate jobs side by side
+(.github/workflows/ci.yml), so between them every test still runs on every
+push: the split changes when a result arrives, not what is held to it.
 
 THE SLOW TIER IS MEASURED, NOT GUESSED
 ======================================
@@ -320,7 +321,9 @@ def run(leg_tier):
                 _report_drift(drift(rows, NATIVE, read_ctest_cost(cost, roster)), leg_tier)
         return rc
     dll = os.path.join(ROOT, 'bin', 'debug', MANAGED[leg])
-    cmd = [dotnet(), 'test', dll, '--nologo']
+    # SS_DOTNET_TEST_ARGS: more arguments for dotnet test, split on spaces
+    # (CI's Windows jobs pass --blame-hang, which ends a hung test host).
+    cmd = [dotnet(), 'test', dll, '--nologo'] + os.environ.get('SS_DOTNET_TEST_ARGS', '').split()
     expr = filter_for(rows, leg, tier)
     if expr:
         cmd += ['--filter', expr]
