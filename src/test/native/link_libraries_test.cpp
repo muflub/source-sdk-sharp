@@ -89,11 +89,21 @@ TEST( LinkLibraries, TheMatcherReadsEachSpellingOfALibrary )
 
 TEST( LinkLibraries, TheMatcherFindsALibraryThatIsDefinitelyThere )
 {
-	// The positive control: without it every absence below is free. mathlib is
-	// the one Valve library both still link (the server dropped tier0 in P4.8).
-	for ( size_t t = 0; t < 2; t++ )
-		EXPECT_TRUE( Links( kTargets[ t ], "mathlib" ) ) << kTargets[ t ];
+	// The positive control: without it every absence below is free. The client
+	// still links mathlib and tier0; the server links no Valve library at all
+	// now, and libdl is the one library its line names on every Linux build.
+	EXPECT_TRUE( Links( kTargets[ 1 ], "mathlib" ) ) << kTargets[ 1 ];
 	EXPECT_TRUE( Links( kTargets[ 1 ], "tier0" ) ) << kTargets[ 1 ];
+	EXPECT_TRUE( Links( kTargets[ 0 ], "dl" ) ) << kTargets[ 0 ];
+}
+
+TEST( LinkLibraries, TheServerLinksNoMathlib )
+{
+	// server.so's mathlib members are mathlib_port.cpp's (held to stock by
+	// mathlib_port_stock_test); the archive is off its line. The client keeps it.
+	ASSERT_STREQ( "server_sourcesharp", kTargets[ 0 ] );
+	EXPECT_FALSE( Links( kTargets[ 0 ], "mathlib" ) ) << "server.so links libmathlib.a again";
+	EXPECT_TRUE( Links( kTargets[ 1 ], "mathlib" ) ) << "client.so stopped linking mathlib: the control is gone";
 }
 
 TEST( LinkLibraries, TheServerLinksNoTierLibrary )

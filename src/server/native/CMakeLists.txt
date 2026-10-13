@@ -21,6 +21,7 @@ set(server_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mathlib_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_factory.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier_connect.cpp
@@ -268,6 +269,7 @@ set(server_novalve_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mathlib_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_factory.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier_connect.cpp
@@ -594,13 +596,11 @@ if(SS_IS_MSVC)
     APPEND PROPERTY COMPILE_DEFINITIONS STATIC_TIER0)
 endif()
 
-# VPC linked the Valve libraries inside -Wl,--start-group ... --end-group: they
-# refer to each other in both directions, and GNU ld (the CI link) resolves an
-# archive only against what came before it.
+# No Valve library is left on server.so's link: the mathlib members it calls are
+# mathlib_port.cpp's, as tier1's are tier1_port.cpp's.
 if(SS_PLATFORM STREQUAL linux)
   target_link_libraries(server_sourcesharp PRIVATE dl)
 endif()
-ss_link_group(server_sourcesharp mathlib)
 
 # physics.cpp (relocated Valve code) destroys vehicle_gear_t and
 # vehicle_crashsound_t -- classes with virtual functions and no virtual

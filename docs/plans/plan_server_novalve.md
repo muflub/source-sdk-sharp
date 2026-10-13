@@ -13,7 +13,8 @@ Measured at this repo's `53dd88a` against the fork at `0c627ba61`, debug config
   and their include closure (§2.1);
 - **does not link** tier0, tier1, vstdlib, tier2, tier3, particles or
   dmxloader;
-- **keeps linking** `libmathlib.a` only;
+- **keeps linking** `libmathlib.a` only; *superseded 2026-10-13 (§6): server.so links no
+  Valve library, the mathlib members it calls being `mathlib_port.cpp`'s;*
 - **moves Steam to managed**: C# calls `libsteam_api.so`'s flat API itself,
   and server.so neither links it nor includes a `steam/` header (§3.5);
 - **drops VScript** entirely;
@@ -533,6 +534,12 @@ quoting each number with its commit.
 ---
 
 ## 6. Rulings and remaining decisions
+
+Ruled by the user on 2026-10-13, superseding the first ruling below:
+- Drop `libmathlib.a` from server.so too: "ports the needed math logic into server to skip
+  linking it". The twelve functions and two constants server.so's objects call are
+  `src/server/native/mathlib_port.{h,cpp}`, held to stock bit for bit by
+  `mathlib_port_stock_test`; DLLInit no longer calls `MathLib_Init`. client.so keeps the archive.
 
 Ruled by the user on 2026-09-28:
 - Keep `libmathlib.a`.

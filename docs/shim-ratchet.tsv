@@ -318,7 +318,8 @@ client_stock_tus	src/client/native/CMakeLists.txt	49
 # RAISED 2026-10-12, 217 -> 218: shell_factory_client.cpp (b), InterfaceReg and CreateInterface, so interface.o leaves the client's link (C9).
 # REBASED onto client-novalve 628901edd (2026-10-12): the C9 raises above re-measured on particles-so's 217: 217 -> 220 (keyvalues_client.cpp, tier1_client.cpp, shell_factory_client.cpp).
 # 2026-10-12, C7: shell_viewpostprocess_client.cpp (64 lines) and shell_vieweffects_client.cpp (96) went, their importers calling managed or the names' writer directly; COM_GetModDirectory went from shell_shared.cpp: shim_cpp_files 220 -> 218.
-shim_cpp_files	src/sourcesharp	218
+# RAISED 2026-10-13, 218 -> 219, deliberately: sourcesharp/game/server/mathlib_port.cpp (g), the mathlib members server.so calls (AngleMatrix, AngleVectors, VectorAngles, MatrixAngles, the transforms, CalcSqrDistanceToAABB, vec3_origin), so libmathlib.a leaves server.so's link as tier1 did; held to stock bit for bit by mathlib_port_stock_test.
+shim_cpp_files	src/sourcesharp	219
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1602,7 +1603,9 @@ shim_cpp_files	src/sourcesharp	218
 # RAISED 2026-10-13, 143860 -> 143890 (+30, measured by the walk): MSVC's C4355 ('this' in an initialiser list) disabled at the four constructors that pass this on purpose (CWorld, C_World, CStandaloneEntity, CSourceSharpCommand): tier1/convar.h ends with `#pragma warning( default : 4355 )`, which undoes the build's /wd4355 for the rest of every file that includes it.
 # RAISED 2026-10-13, 143890 -> 143904 (+14, measured by the walk): MSVC on CI: ss_platform.h includes <windows.h> with C4005 off (Valve's xboxstubs.h defines INVALID_HANDLE_VALUE first, to the same value); fatal_report.cpp calls the witness unconditionally under MSVC, where its alternate name always binds; particles_lib_client.cpp turns off C4073, which only reports what init_seg(lib) does.
 # LOWERED 2026-10-13, 143904 -> 143847 (-57, measured by the walk): the console line buffer's lock and counter words and the display forward's attach flag are std::atomic, in place of per-compiler __atomic builtins and Interlocked intrinsics; the yield is std::this_thread::yield.
-shim_lines	src/sourcesharp	143847
+# RAISED 2026-10-13, 143847 -> 143988 (+141, measured by the walk), deliberately: mathlib_port.cpp and mathlib_port.h, the mathlib members server.so calls, so libmathlib.a leaves its link (the TU raise above says what they bind).
+# LOWERED 2026-10-13, 143988 -> 143987 (-1, measured by the walk): shell_gamedll.cpp's MathLib_Init call, which went with libmathlib.a.
+shim_lines	src/sourcesharp	143987
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their
