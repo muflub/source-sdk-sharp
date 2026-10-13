@@ -72,11 +72,11 @@ marker is the answer to "why is this native at all", not a full account.
 | c | static-init registration | 19 | 6 | 3 |  |  |  | 29 | 5,345 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 4 | 2 |  |  | 20 | 11,571 |
 | e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,112 |
-| f | a bit-level wire codec | 5 | 6 | 2 | 1 |  |  | 14 | 4,858 |
+| f | a bit-level wire codec | 5 | 6 | 2 | 1 |  |  | 14 | 4,670 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 2 | 9 | 1 |  |  | 18 | 9,773 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 4,841 |
 | x | NO LETTER FITS | 9 | 2 |  |  | 2 |  | 19 | 4,769 |
-|  | **total** | **87** | **37** | **67** | **4** | **2** | **1** | **218** | **99,928** |
+|  | **total** | **87** | **37** | **67** | **4** | **2** | **1** | **218** | **99,740** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
