@@ -1597,7 +1597,8 @@ shim_cpp_files	src/sourcesharp	218
 # RAISED 2026-10-12, 142747 -> 143348 (+601, measured by the walk): the Windows and macOS ports of the native shims (ss_platform.h, the one place module lookup, backtraces, page protection, pid and cwd are spelled per platform; fatal_report, exit_watch, tier0_thread_port, ss_command_line, loaded_symbol and the diagnostics taking their Win32 and Mach arms).
 # RAISED 2026-10-12, 143348 -> 143358 (+10, measured by the walk): gcc 10 in Valve's sniper container (CI's Linux release build): saverestore.h's [[maybe_unused]] members behind a clang-only macro (gcc 10 warns it ignores the attribute on a member), and two static asserts comparing enumerators of different enums as ints (-Wenum-compare).
 # RAISED 2026-10-13, 143358 -> 143692 (+334, measured by the walk): the Windows native build, compiled and linked (clang-cl with the MSVC SDK, locally): the windows.h name macros undone and the environment helpers and SS_BIND_IMPORT in ss_platform.h; the console lock and attach flag on MSVC intrinsics; the host's UTF-16 hostfxr strings; ss_string.h's UTF-16 converter for Windows' wchar_t (oracle-checked); the 128-bit CAS and the import bindings in the tier0/vstdlib ports; the particle collection's MSVC-named forwarders.
-shim_lines	src/sourcesharp	143692
+# RAISED 2026-10-13, 143692 -> 143726 (+34, measured by the walk): the haptics calls back at their stock WIN32-guarded sites (dead_conditionals_test pins them as Windows portability), with Windows definitions that do what stock does without the Novint device library: nothing (sound_emitter.cpp, world_adapter_client.cpp).
+shim_lines	src/sourcesharp	143726
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

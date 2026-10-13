@@ -1189,10 +1189,10 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 
 	SourceSharp_InitBoneSetupThreadPool();
 
-	// Stock connected the Novint haptics system here on Windows
-	// (ConnectHaptics). No SourceSharp build ships the haptics device library
-	// (Linux never had it), so no platform connects it: Windows behaves as
-	// Linux always has, and sound_emitter.cpp notifies no haptics either.
+#if defined( WIN32 )
+	// NVNT connect haptics sytem
+	ConnectHaptics(appSystemFactory);
+#endif
 
 	// RegisterSecureLaunchProcessFunc( &UnsafeCmdLineProcessor ) is MANAGED
 	// now: SecureLaunch (src/client/managed/Steam) takes the URL launch and the
@@ -1318,7 +1318,10 @@ void CShellClientDLL::Shutdown( void )
 
 	gameeventmanager = NULL;
 
-	// No haptics to disconnect (see Init).
+#if defined( WIN32 )
+	// NVNT Disconnect haptics system
+	DisconnectHaptics();
+#endif
 }
 
 

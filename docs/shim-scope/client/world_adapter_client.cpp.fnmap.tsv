@@ -48,6 +48,8 @@
 3	UNRULED	void C_World::RegisterSharedActivities( void )
 11	UNRULED	void W_Precache(void)
 7	UNRULED	void C_World::Precache( void )
+3	UNRULED	void ConnectHaptics( CreateInterfaceFn )
+3	UNRULED	void DisconnectHaptics()
 4	UNRULED	void C_World::Spawn( void )
 5	UNRULED	C_World *GetClientWorldEntity()
 7	UNRULED	bool SourceSharp_ClientWorldLevelShutdown( void )

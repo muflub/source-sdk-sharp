@@ -107,6 +107,17 @@ static void KeepEngineOrigins( const ss::EngineFilledUtlVector< Vector > &origin
 // NVNT haptic utils
 #include "haptics/haptic_utils.h"
 
+#if defined( WIN32 )
+// What stock's HapticProcessSound does in this build: the server's stock body
+// is empty, and the client's passes the sound to the Novint device through
+// haptics.dll, which the SDK's bin/x64 does not ship (with no device stock
+// runs a stub that does nothing, and Linux never had one). So nothing, on
+// both sides; the call site above is stock's.
+void HapticProcessSound( const char *, int )
+{
+}
+#endif
+
 #ifdef CLIENT_DLL
 #include <vgui_controls/Controls.h>
 #include <vgui/IVGui.h>
@@ -677,11 +688,14 @@ public:
 		{
 			EmitCloseCaption( filter, entindex, params, ep );
 		}
-		// Stock told the Novint haptics system of the sound here on Windows
-		// (HapticProcessSound). It is not called on any platform: the server's
-		// stock definition is empty, and the client's drives the haptics
-		// device library, which no SourceSharp build ships (Linux never had
-		// it). Windows behaves as Linux always has.
+#if defined( WIN32 )
+		// NVNT notify the haptics system of this sound. The `&& !defined(_X360)`
+		// half of stock's guard is gone: that hardware is not a target of this
+		// tree and a shim file may not carry a conditional the build can never
+		// satisfy. WIN32 stays -- it is the allowlisted portability guard, and
+		// a Windows configuration of this same tree really does take this arm.
+		HapticProcessSound(ep.m_pSoundName, entindex);
+#endif
 	}
 
 	void EmitSound( IRecipientFilter& filter, int entindex, const GameSoundParams_t & ep )

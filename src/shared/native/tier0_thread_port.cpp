@@ -171,8 +171,10 @@ static long OnlineProcessors()
 #endif
 }
 
-#if defined( _WIN64 )
+#if defined( _WIN32 )
 // threadtools.h's 16-byte compare-and-swap, declared only for 64-bit Windows
+// (_WIN64; this tree builds x64 only, so _WIN32 is the same test here, and
+// the spelling tools/dead-conditionals-ledger allows)
 // (CTSList's head on Windows): CMPXCHG16B through MSVC's intrinsic. True when
 // *pDest held comperand and now holds value.
 bool ThreadInterlockedAssignIf128( volatile int128 *pDest, const int128 &value, const int128 &comperand )
@@ -234,6 +236,6 @@ const CPUInformation *GetCPUInformation()
 SS_BIND_IMPORT( ThreadGetCurrentId )
 SS_BIND_IMPORT( Plat_IsInDebugSession )
 SS_BIND_IMPORT( GetCPUInformation )
-#if defined( _WIN64 )
+#if defined( _WIN32 )
 SS_BIND_IMPORT( ThreadInterlockedAssignIf128 )
 #endif

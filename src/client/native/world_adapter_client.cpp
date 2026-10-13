@@ -808,6 +808,21 @@ void C_World::Precache( void )
 		haptics->WorldPrecache();
 }
 
+#if defined( WIN32 )
+// What stock's ConnectHaptics and DisconnectHaptics (called from
+// shell_clientdll.cpp's Init and Shutdown) come to in this build: stock loads
+// the Novint device library (haptics.dll), which the SDK's bin/x64 does not
+// ship, and without it falls back to a stub that does nothing. haptics stays
+// NULL, as it is on Linux, and the precache above checks for that.
+void ConnectHaptics( CreateInterfaceFn )
+{
+}
+
+void DisconnectHaptics()
+{
+}
+#endif
+
 void C_World::Spawn( void )
 {
 	Precache();
