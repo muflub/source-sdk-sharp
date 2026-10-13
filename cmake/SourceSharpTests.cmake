@@ -87,30 +87,43 @@ endforeach()
 # buildcpptests' CXXFLAGS:
 #   -std=c++17 -g -O1 -pthread -Wall -Wno-unused-parameter
 #   -Werror=format -Werror=delete-non-virtual-dtor -Werror
-# -O1 rather than -O0: the vtable tests are about what the compiler does with
-# pointers to member functions, and an unoptimised build is not the build the
-# game ships. The two -Werror promotions are the game build's (undefined
-# behaviour, not style).
+# The optimisation level is chosen per test (SS_CPPTEST_OPT). Most tests check
+# logic, and -O0 compiles them in about half the time -O1 took; a test whose
+# subject is what the compiler does to native code (the vtable tests, pointers
+# to member functions: an unoptimised build is not the build the game ships)
+# says OPTIMIZED and keeps -O1. The two -Werror promotions are the game build's
+# (undefined behaviour, not style).
 # -Werror for the reason cmake/SourceSharp.cmake gives: a warning ninja printed
 # once and then kept the object for is a warning nobody sees again.
 set(SS_CPPTEST_WARN -Wall -Wno-unused-parameter -Werror=format
   -Werror=delete-non-virtual-dtor -Werror)
-set(SS_CPPTEST_CXXFLAGS -g -O1 -pthread ${SS_CPPTEST_WARN})
+set(SS_CPPTEST_CXXFLAGS -g -pthread ${SS_CPPTEST_WARN})
+set(SS_CPPTEST_OPT -O0)
+set(SS_CPPTEST_OPT_OPTIMIZED -O1)
 if(SS_IS_MSVC)
   # The Windows column: the game build's MSVC warning set (/W3 /WX and the
-  # VPC /wd list, cmake/SourceSharp.cmake), /O1 for the reason -O1 is above,
-  # and /EHsc: the game is built without exceptions, but a test is not
-  # shipped, and gtest and the standard library want them.
+  # VPC /wd list, cmake/SourceSharp.cmake), /Od and /O1 for the reasons -O0
+  # and -O1 are above, and /EHsc: the game is built without exceptions, but a
+  # test is not shipped, and gtest and the standard library want them.
   set(SS_CPPTEST_WARN ${SS_WARN_MSVC})
-  set(SS_CPPTEST_CXXFLAGS /Zi /O1 /EHsc ${SS_CPPTEST_WARN})
+  set(SS_CPPTEST_CXXFLAGS /Zi /EHsc ${SS_CPPTEST_WARN})
+  set(SS_CPPTEST_OPT /Od)
+  set(SS_CPPTEST_OPT_OPTIMIZED /O1)
 endif()
 
-# ss_test_compile_flags(<target>): the compile and link line every test shares.
+# ss_test_compile_flags(<target> [OPTIMIZED]): the compile and link line every
+# test shares, at -O0, or at -O1 with OPTIMIZED.
 function(ss_test_compile_flags tgt)
+  cmake_parse_arguments(F "OPTIMIZED" "" "" ${ARGN})
   set_target_properties(${tgt} PROPERTIES
     CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF
     RUNTIME_OUTPUT_DIRECTORY "${SS_CPPTEST_DIR}")
-  target_compile_options(${tgt} PRIVATE ${SS_CPPTEST_CXXFLAGS})
+  if(F_OPTIMIZED)
+    set(opt ${SS_CPPTEST_OPT_OPTIMIZED})
+  else()
+    set(opt ${SS_CPPTEST_OPT})
+  endif()
+  target_compile_options(${tgt} PRIVATE ${SS_CPPTEST_CXXFLAGS} ${opt})
   if(NOT SS_IS_MSVC)
     target_link_options(${tgt} PRIVATE -pthread)
   else()
@@ -345,10 +358,12 @@ add_custom_target(ss_cpptests)
 # here and labels them `oracle` instead of `gtest`.
 add_custom_target(ss_oracle_tests)
 
-# _ss_cpptest(<kind> <name> [DEFINES ...] [OPTIONS ...] [INCLUDES ...]
+# _ss_cpptest(<kind> <name> [OPTIMIZED] [DEFINES ...] [OPTIONS ...] [INCLUDES ...]
 #             SOURCES ... [LIBS ...])
+# OPTIMIZED: built at -O1 rather than -O0, for a test whose subject is the
+# compiled code itself (see SS_CPPTEST_OPT).
 function(_ss_cpptest kind name)
-  cmake_parse_arguments(A "" "LINUX_ONLY" "${SS_CPPTEST_KEYWORDS}" ${ARGN})
+  cmake_parse_arguments(A "OPTIMIZED" "LINUX_ONLY" "${SS_CPPTEST_KEYWORDS}" ${ARGN})
   if(A_UNPARSED_ARGUMENTS OR NOT A_SOURCES)
     message(FATAL_ERROR "ss_cpptest ${name}: SOURCES required; unparsed: ${A_UNPARSED_ARGUMENTS}")
   endif()
@@ -381,7 +396,11 @@ function(_ss_cpptest kind name)
   endif()
 
   add_executable(${name} ${A_SOURCES})
-  ss_test_compile_flags(${name})
+  if(A_OPTIMIZED)
+    ss_test_compile_flags(${name} OPTIMIZED)
+  else()
+    ss_test_compile_flags(${name})
+  endif()
   if(kind STREQUAL "MATHLIB" OR kind STREQUAL "ENGINE_HEADERS")
     ss_test_engine_flags(${name})
   endif()
@@ -484,7 +503,7 @@ function(ss_must_not_compile name)
   list(TRANSFORM A_INCLUDES PREPEND "-I")
 
   # buildcpptests' line: g++ $CXXFLAGS -I$GTEST/include -I$GTEST -fsyntax-only "$@"
-  set(args -std=c++17 ${SS_CPPTEST_CXXFLAGS} -I${SS_GTEST_INCLUDE} -fsyntax-only
+  set(args -std=c++17 ${SS_CPPTEST_CXXFLAGS} ${SS_CPPTEST_OPT} -I${SS_GTEST_INCLUDE} -fsyntax-only
     ${A_DEFINES} ${A_OPTIONS} ${A_INCLUDES} ${A_SOURCES})
   set(rsp "")
   foreach(a IN LISTS args)

@@ -18,10 +18,29 @@
 #include "fatal_report.h"
 #include "recording_cvar.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
+#include "ss_platform.h"	// SS_BIND_IMPORT
+
 ICvar *g_pCVar = nullptr;
+
+#ifdef _MSC_VER
+// MSVC at /Od keeps the dead `if ( _bFatal )` arm of every Assert (dbg.h's
+// _AssertMsg), and with it a reference to _ExitOnFatalAssert; clang drops a
+// constant-false branch even at -O0, and /O1 dropped it too. The port defines
+// no _ExitOnFatalAssert -- nothing in the game DLLs asserts fatally -- and this
+// binary links no tier0, so it is defined here as tier0's is: report, then exit.
+#pragma warning( disable : 4273 )	// defining what dbg.h declares dllimport
+void _ExitOnFatalAssert( const tchar *pFile, int line )
+{
+	fprintf( stderr, "Fatal assert failed: %s, line %d.  Application exiting.\n", pFile, line );
+	exit( EXIT_FAILURE );
+}
+SS_BIND_IMPORT( _ExitOnFatalAssert )
+#endif
 
 namespace
 {

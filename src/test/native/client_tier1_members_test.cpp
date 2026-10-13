@@ -10,7 +10,11 @@
 // and generichash.cpp.o when the client's game string pool took the server's
 // storage (server_string_pool.h); utlstring.cpp.o when particle_manifest.cpp's
 // file list became a std::vector.
-// tier1.a stays on the line for its other members. The fact, per member:
+// tier1.a stays on the line for its other members. Since cmake/sdk/tier1.cmake
+// builds only the members some link pulls in (sdk_lib_members_test), five of
+// these are not in the archive at all, which is the stronger answer: a member
+// that is not built cannot be linked. For those the proof below still holds
+// client.so's copy of the name to our objects. The fact, per member:
 // every name it defines that client.so also defines comes from one of our
 // link-edge objects, so the archive's copy was not linked. A proof of read
 // requires names to be shared at all.
@@ -76,7 +80,7 @@ TEST( ClientTier1Members, TheLeftMembersNamesAreOurs )
 {
 	const std::string strBuild = cmake_graph::BuildDir();
 	const auto archive = Defined( "'" + strBuild + "/lib/libtier1.a'", "TDBR" );
-	ASSERT_GT( archive.size(), 20u ) << "libtier1.a read as nearly empty";
+	ASSERT_GT( archive.size(), 12u ) << "libtier1.a read as nearly empty";   // 17 members since tier1.cmake builds only the linked ones
 
 	std::string objs;
 	size_t nObjects = 0;
@@ -110,10 +114,18 @@ TEST( ClientTier1Members, TheLeftMembersNamesAreOurs )
 		{ "generichash.cpp.o", 0, NULL },
 		{ "utlstring.cpp.o", 0, NULL },
 	};
+	size_t nPresent = 0;
 	for ( const auto &m : kMembers )
 	{
+		if ( m.pszProof )
+		{
+			EXPECT_TRUE( inSo.count( m.pszProof ) ) << m.pszProof;
+			EXPECT_TRUE( ours.count( m.pszProof ) ) << m.pszProof;
+		}
 		auto it = archive.find( m.pszMember );
-		ASSERT_TRUE( it != archive.end() ) << "libtier1.a has no " << m.pszMember;
+		if ( it == archive.end() )
+			continue;   // not built (tier1.cmake), so not linked
+		nPresent++;
 		ASSERT_GT( it->second.size(), 3u ) << m.pszMember << " read as nearly empty";
 		int nShared = 0;
 		for ( const std::string &name : it->second )
@@ -124,10 +136,9 @@ TEST( ClientTier1Members, TheLeftMembersNamesAreOurs )
 			EXPECT_TRUE( ours.count( name ) ) << name << " is in client.so and only " << m.pszMember << " defines it";
 		}
 		EXPECT_GE( nShared, m.nMinShared ) << m.pszMember;
-		if ( m.pszProof )
-		{
-			EXPECT_TRUE( inSo.count( m.pszProof ) ) << m.pszProof;
-			EXPECT_TRUE( ours.count( m.pszProof ) ) << m.pszProof;
-		}
 	}
+	// KeyValues.cpp.o, strtools_unicode, checksum_crc, generichash and
+	// utlstring stay in the archive (libss_particles links them), so the
+	// per-member read above still runs: none of them would leave it blind.
+	EXPECT_GE( nPresent, 5u ) << "too few of the members are in libtier1.a for the read to mean anything";
 }

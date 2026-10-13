@@ -1,25 +1,35 @@
 name: CI
 
-# One job per platform the game ships on, with the same shape on both: a full
-# Release build, the tests, and the release archive, on every push to main,
-# every pull request and every tag. Beside them, linux-check runs the repo's
-# own gate, `make check` (a full debug build, which the native tests are
-# written against, and every test leg the platform jobs do not run), so the
-# Linux release build does not wait for it. A tag also attaches both
-# platforms' archives to the GitHub release (the release job), once all
-# three jobs are green.
+# Each platform the game ships on is built, tested and packaged on every push
+# to main, every pull request and every tag, split into jobs that run side by
+# side, so the slowest one sets the time rather than the sum:
+#
+#   linux-managed     the managed test legs (make managed-legs)
+#   linux-check       the repo's gate, `make check` (a full debug build, which
+#                     the native tests are written against, and every test
+#                     leg but the managed ones)
+#   linux-sniper      the shipped native libraries, built inside Valve's
+#                     sniper container, and the GLIBC ceiling
+#   linux             the clang Release build of the game (no native tests:
+#                     linux-check builds and runs them), packaged with
+#                     linux-sniper's libraries, which it waits for only at
+#                     the package step
+#   windows-managed   the managed test projects
+#   windows           the MSVC Release build, the native gtests, the package
+#
+# A tag also attaches both platforms' archives to the GitHub release (the
+# release job), once every job is green.
 #
 # Linux is set up the public way (`make sdk-upstream`: stock Valve
-# source-sdk-2013 plus patches/source-sdk-2013/). `make release` builds
-# everything with clang, and that build is what the tests run against; the
-# shipped native libraries are built again inside Valve's sniper container
-# (make ci-build: gcc 10 and the glibc 2.31 ceiling the engine's runtime
-# has). Windows builds everything itself too, with MSVC for the native half,
-# and runs the native gtests and the managed test projects. The native tests
-# that read the Linux build's instruments (the ELF scans, the CMake graph,
-# fork-based probes) are LINUX_ONLY: configure lists them with their reasons.
+# source-sdk-2013 plus patches/source-sdk-2013/). The shipped native libraries
+# are the sniper container's (gcc 10 and the glibc 2.31 ceiling the engine's
+# runtime has); clang builds them too, in Release (linux) and debug
+# (linux-check), and that is what the tests run against. Windows builds
+# everything itself, with MSVC for the native half. The native tests that read
+# the Linux build's instruments (the ELF scans, the CMake graph, fork-based
+# probes) are LINUX_ONLY: configure lists them with their reasons.
 #
-# The tests gate both jobs, all of them. The few facts that cannot pass on a
+# The tests gate every job, all of them. The few facts that cannot pass on a
 # runner (goldens recorded on the owner's machine, facts that read the fork's
 # edits, facts that need a Steam game install) skip there, each naming why,
 # because SOURCESHARP_CI is set below; on every other machine they run.
@@ -59,8 +69,12 @@ env:
   SOURCESHARP_CI: '1'
 
 jobs:
-  linux:
-    name: linux-x64 (build, test, package)
+  # The managed test legs. They read no native build output, only the CMake
+  # graph a configure writes, so the debug tree they read is configured here
+  # and not built. linux-check runs every other leg (make check
+  # CHECK_MANAGED=0).
+  linux-managed:
+    name: linux-x64 (managed tests)
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
@@ -79,26 +93,169 @@ jobs:
       - name: Set up (make sdk-upstream)
         run: make sdk-upstream
 
-      - name: Label
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
-          echo "SS_LABEL=$v" >> "$GITHUB_ENV"
-
-      # The managed tests first, before anything native is compiled: they read
-      # no native build output, only the CMake graph a configure writes, so
-      # the debug tree they read is configured here and not built. The
-      # linux-check job runs every other leg (make check CHECK_MANAGED=0).
       - name: "Managed: configure the debug tree the tests read"
         run: tools/build/configure debug -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
       - name: "Test (managed: make managed-legs)"
         run: make managed-legs
 
-      # The native half, one final target per step, so a failure names
-      # its library. The configure is the one `make release` runs
+      # Rule 6 of the farm (tools/setup): a build reads ROOT and never writes
+      # it. A write means an output was linked where it should have been built.
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
+
+      - name: Upload test-leg logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-legs-linux
+          path: tools/.test-legs
+          # The directory's name starts with a dot, which the action skips
+          # unless told.
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  # The shipped native libraries: the same CMake project inside Valve's sniper
+  # SDK container, so they run on the engine's runtime (tools/build/ci-build).
+  # Nothing here needs clang, .NET or the host packages: only the farm, which
+  # tools/setup composes, and the image. The image is the slow part (about a
+  # minute to pull), so its pull starts first and runs while the job sets up.
+  linux-sniper:
+    name: linux-x64 (sniper build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      # Read by tools/build/ci-build too, so the image prefetched is the one
+      # the build runs.
+      SS_CI_IMAGE: registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest
+      # The runner carries podman too; docker is the one whose daemon is up.
+      SS_CI_RUNNER: docker
+    steps:
+      # In the background, so the clone and the setup below run meanwhile; the
+      # build waits for it in "The sniper image". A process a step leaves
+      # running carries on into the later steps of the job.
+      - name: Prefetch the sniper image
+        run: |
+          nohup bash -c 'docker pull -q "$SS_CI_IMAGE" > "$RUNNER_TEMP/sniper-pull.log" 2>&1; echo $? > "$RUNNER_TEMP/sniper-pull.rc"' > /dev/null 2>&1 &
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: PyYAML (tools/setup reads mods.yaml)
+        run: python -m pip install --quiet pyyaml
+
+      # The farm the container builds from, as the Windows job composes its
+      # own: no bundled .NET, no Linux Node, no oracle clone (--no-provision
+      # --no-valve-sdk), none of which a native build reads.
+      - name: Set up (tools/sdk-upstream, tools/setup)
+        run: |
+          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
+          python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --no-valve-sdk
+
+      - name: The sniper image
+        run: |
+          waited=0
+          until [[ -f "$RUNNER_TEMP/sniper-pull.rc" ]]; do
+            sleep 2; waited=$((waited + 2))
+            if (( waited > 900 )); then echo "::error::the prefetch is still pulling after 15 minutes"; exit 1; fi
+          done
+          cat "$RUNNER_TEMP/sniper-pull.log"
+          rc="$(cat "$RUNNER_TEMP/sniper-pull.rc")"
+          if [[ "$rc" != 0 ]]; then
+            echo "::warning::the prefetch failed ($rc); pulling again"
+            docker pull "$SS_CI_IMAGE"
+          fi
+          echo "waited ${waited}s for the prefetch"
+          docker image inspect --format '{{.Id}} {{.Created}}' "$SS_CI_IMAGE"
+
+      # One target per step, so a failure names its library, then the whole
+      # once, which builds nothing new and runs the GLIBC ceiling check over
+      # every output.
+      - name: "Sniper (gcc 10): tier1, mathlib"
+        run: |
+          tools/build/ci-build release tier1
+          tools/build/ci-build release mathlib
+      - name: "Sniper (gcc 10): libss_particles.so"
+        run: tools/build/ci-build release ss_particles
+      - name: "Sniper (gcc 10): libmanaged_host.so"
+        run: tools/build/ci-build release sourcesharp
+      - name: "Sniper (gcc 10): server.so"
+        run: tools/build/ci-build release server_sourcesharp
+      - name: "Sniper (gcc 10): client.so"
+        run: tools/build/ci-build release client_sourcesharp
+      - name: "Sniper (gcc 10): GLIBC ceiling"
+        run: tools/build/ci-build release
+
+      # For the linux job's package: the libraries and their split debug info.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-linux-x64-sniper
+          path: bin/ci-release/linux64
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
+
+  # The clang Release build of the whole game, and the archive: the game
+  # directory bin/release with linux-sniper's libraries in it. It runs beside
+  # linux-sniper rather than after it, and waits for the libraries only at the
+  # package step, by which time linux-sniper (the shorter job) has usually
+  # uploaded them.
+  linux:
+    name: linux-x64 (build, package)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      # The wait below reads this run's artifacts and jobs.
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The build stamp and the Valve-text audit ask git about the tree.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/toolchain-linux
+      - uses: ./.github/actions/host-packages
+
+      - name: Set up (make sdk-upstream)
+        run: make sdk-upstream
+
+      - name: Label
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then v="$GITHUB_REF_NAME"; else v="${GITHUB_SHA::7}"; fi
+          echo "SS_LABEL=$v" >> "$GITHUB_ENV"
+
+      # The native half, one final target per step, so a failure names its
+      # library. The configure is the one `make release NATIVE_TESTS=0` runs
       # (tools/build/buildsourcesharp's options), so the make release below
       # finds the native half built and does not configure it differently.
-      - name: "Native: configure (clang, release)"
-        run: tools/build/configure release -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON
+      # No native tests (SS_BUILD_TESTS=OFF): linux-check builds and runs them
+      # in the debug tree, and this tree's copy took six minutes to compile
+      # and was never run.
+      - name: "Native: configure (clang, release, no tests)"
+        run: tools/build/configure release -DSS_GC_SECTIONS=ON -DSS_COVERAGE=OFF -DSS_SPLIT_DEBUG=ON -DSS_BUILD_TESTS=OFF
+      # Valve's tier1 and mathlib first, in a step of their own: the libraries
+      # below link them (particles most of all), and the first library step
+      # would otherwise carry their compile under its own name.
+      - name: "Native: tier1, mathlib"
+        run: cmake --build --preset release --target tier1 mathlib
       - name: "Native: libss_particles.so"
         run: cmake --build --preset release --target ss_particles
       - name: "Native: libmanaged_host.so"
@@ -107,39 +264,58 @@ jobs:
         run: cmake --build --preset release --target server_sourcesharp
       - name: "Native: client.so"
         run: cmake --build --preset release --target client_sourcesharp
-      - name: "Native: tests"
-        run: cmake --build --preset release
 
       # The rest, Release: the web UI, the managed assemblies and the launcher
       # (NativeAOT), deployed with the native libraries into the game
       # directory bin/release.
-      - name: Build (make release)
-        run: make release
+      - name: Build (make release NATIVE_TESTS=0)
+        run: make release NATIVE_TESTS=0
 
-      # The shipped native libraries: the same CMake project inside Valve's
-      # sniper SDK container, so they run on the engine's runtime. One target
-      # per step, then the whole once, which builds nothing new and runs the
-      # GLIBC ceiling check over every output.
-      - name: "Sniper (gcc 10): libss_particles.so"
-        env: { SS_CI_RUNNER: docker }
-        run: make ci-build CONFIG=release TARGET=ss_particles
-      - name: "Sniper (gcc 10): libmanaged_host.so"
-        env: { SS_CI_RUNNER: docker }
-        run: make ci-build CONFIG=release TARGET=sourcesharp
-      - name: "Sniper (gcc 10): server.so"
-        env: { SS_CI_RUNNER: docker }
-        run: make ci-build CONFIG=release TARGET=server_sourcesharp
-      - name: "Sniper (gcc 10): client.so"
-        env: { SS_CI_RUNNER: docker }
-        run: make ci-build CONFIG=release TARGET=client_sourcesharp
-      - name: "Sniper (gcc 10): GLIBC ceiling"
+      # NATIVE_TESTS=0 reached the configure: the tree registers no test and
+      # built no test binary. A build that quietly put the tests back would
+      # cost the six minutes this job no longer spends.
+      - name: The release tree holds no native tests
+        run: |
+          grep -q '^SS_BUILD_TESTS:BOOL=OFF$' farm/release/build/CMakeCache.txt \
+            || { echo "::error::farm/release/build is configured with the native tests"; exit 1; }
+          if [[ -d bin/release/cpptest ]] && ls bin/release/cpptest | grep -q .; then
+            echo "::error::bin/release/cpptest holds test binaries"; exit 1
+          fi
+
+      # No `needs:` on linux-sniper, so the two jobs run side by side: the
+      # libraries are waited for here, where they are first read. An artifact
+      # is listed on the run as soon as its job uploads it. If linux-sniper ends
+      # without uploading (it failed, or was cancelled), this fails at once
+      # rather than at the timeout.
+      - name: Wait for linux-sniper's libraries
         env:
-          # The runner carries podman too; docker is the one whose daemon is up.
-          SS_CI_RUNNER: docker
-        run: make ci-build CONFIG=release
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          api="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          for (( waited = 0; waited <= 900; waited += 5 )); do
+            if gh api "$api/artifacts" --jq '.artifacts[].name' | grep -qx native-linux-x64-sniper; then
+              echo "waited ${waited}s for linux-sniper"; exit 0
+            fi
+            state="$(gh api "$api/jobs?filter=latest" \
+              --jq '.jobs[] | select(.name == "linux-x64 (sniper build)") | .status + " " + (.conclusion // "")')"
+            case "$state" in
+              "completed success"*) ;;   # done; the artifact listing can lag a moment
+              completed*) echo "::error::linux-sniper ended ($state) without uploading its libraries"; exit 1 ;;
+            esac
+            sleep 5
+          done
+          echo "::error::linux-sniper's libraries did not appear in 15 minutes"; exit 1
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-linux-x64-sniper
+          path: bin/ci-release/linux64
+
+      # An artifact does not keep file modes; the libraries ship executable,
+      # as the container built them.
       - name: Package
         run: |
+          chmod 0755 bin/ci-release/linux64/*.so
           tools/package-release --config release --label "$SS_LABEL" \
             --native bin/ci-release/linux64 --out dist
           ls -la dist
@@ -192,21 +368,10 @@ jobs:
             exit 1
           fi
 
-      - name: Upload test-leg logs
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-legs-linux
-          path: tools/.test-legs
-          # The directory's name starts with a dot, which the action skips
-          # unless told.
-          include-hidden-files: true
-          if-no-files-found: ignore
-
   # The repo's gate before a merge to main, `make check`, in a job of its own
   # beside the release build: a full debug build (the build the native tests
   # are written against) and then every test leg but the managed ones, which
-  # the linux job runs before it compiles anything native (CHECK_MANAGED=0).
+  # linux-managed runs (CHECK_MANAGED=0).
   # The non-CI-friendly facts skip (see the top of this file).
   linux-check:
     name: linux-x64 (make check)
@@ -224,12 +389,12 @@ jobs:
       - name: Set up (make sdk-upstream)
         run: make sdk-upstream
 
-      - name: Test (make check, the legs the linux job does not run)
+      - name: Test (make check, the legs linux-managed does not run)
         run: make check CHECK_MANAGED=0
 
       # The managed facts that image the built game (tools/mod-image reads
-      # bin/debug's server.so). They skip in the linux job's managed step,
-      # which runs before any native build (LinuxDebugBuildFactAttribute);
+      # bin/debug's server.so). They skip in linux-managed, which builds
+      # nothing native (LinuxDebugBuildFactAttribute);
       # make check has built debug here, so they run against it.
       - name: Test (managed facts that read the native build)
         # A filter that matched nothing would pass, so the step also fails
@@ -261,8 +426,152 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
 
+  # The managed test projects, Debug as on Linux, beside the windows job rather
+  # than before its native build. The same setup as windows: MSVC for the
+  # NativeAOT Debug launcher LauncherTests runs, and the web UI the managed
+  # build embeds.
+  windows-managed:
+    name: win-x64 (managed tests)
+    runs-on: windows-latest
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The tree's files are LF and some facts read them byte for byte; the
+      # runner's git would check them out CRLF.
+      - name: Check out with LF line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Tools (PyYAML for tools/setup, Ninja for the build)
+        run: python -m pip install --quiet pyyaml ninja
+
+      # cl, link and the Windows SDK on PATH, as a VS 2022 x64 developer
+      # prompt would have them (the presets name `cl`): vcvars64.bat from the
+      # newest Visual Studio with the x64 C++ tools, found by vswhere, and
+      # every variable it sets or changes carried into the later steps. A
+      # step of our own rather than ilammy/msvc-dev-cmd, a Node 20 action
+      # the runners now force onto Node 24 with a deprecation warning.
+      # vcvars also sets Platform=x64, which MSBuild takes as the solution
+      # platform (SourceSharp.slnx has only Any CPU), so every dotnet command
+      # below runs under `env -u Platform`.
+      - name: MSVC environment (vcvars64)
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { Write-Error 'no Visual Studio with the x64 C++ tools'; exit 1 }
+          $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'
+          $lines = cmd /c "`"$vcvars`" >nul && set"
+          if ($LASTEXITCODE -ne 0) { Write-Error "$vcvars failed ($LASTEXITCODE)"; exit 1 }
+          $changed = 0
+          foreach ($line in $lines) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              $name, $value = $Matches[1], $Matches[2]
+              if ($name -ieq 'Path') { $name = 'PATH' }   # cmd spells it Path
+              if ([Environment]::GetEnvironmentVariable($name) -ne $value) {
+                "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+                $changed++
+              }
+            }
+          }
+          Write-Output "vcvars64 from $vs`: $changed variables set"
+          if ($changed -eq 0) { Write-Error 'vcvars64 changed nothing'; exit 1 }
+
+      # What the step above left: the compiler the presets name.
+      - name: MSVC environment resolves cl
+        run: which cl
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # The pinned Node tools/get-node fetches on Linux (VERSION there).
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.19.0
+
+      - uses: ./.github/actions/host-packages
+
+      # tools/sdk-upstream and tools/setup are Python and run anywhere git and
+      # symlinks do. --no-provision --no-valve-sdk: no bundled .NET yet (it is
+      # bundled from setup-dotnet's below), no Linux Node and no oracle clone.
+      # Both configurations: the build is Release, the tests read Debug's.
+      - name: Set up (tools/sdk-upstream, tools/setup)
+        run: |
+          python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
+          for cfg in release debug; do
+            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --no-valve-sdk
+          done
+
+      # What the farm's links came out as on this platform: a Windows link
+      # answers differently to each of these when it was made wrong.
+      - name: The farm's links resolve
+        run: |
+          python - <<'EOF'
+          import os
+          for p in ("farm/release/src/public/tier0/platform.h", "farm/release/src/sourcesharp/game/shared/ss_platform.h", "farm/release/src/buildsourcesharp", "farm/release/game/mod_sharp/maps", "farm/release/game/mod_sharp/maps/dm_lockdown.bsp"):
+              t = os.readlink(p) if os.path.islink(p) else None
+              print(f"{p}: lexists={os.path.lexists(p)} islink={os.path.islink(p)} exists={os.path.exists(p)} target={t!r} target_exists={os.path.exists(t) if t else None}")
+          EOF
+          ls -la farm/release/src/public/tier0 | head -n 5
+
+      # What `make ui CONFIG=release` does, with setup-node's npm.
+      - name: Web UI
+        working-directory: src/webui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build --silent
+
+      # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
+      # from the built assemblies as the Makefile's legs run them.
+      # And the Debug launcher, as the Makefile's managed-legs publishes it:
+      # LauncherTests runs the real bin/debug/source#.exe.
+      - name: Build the tests (Debug)
+        run: |
+          env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
+          env -u Platform dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
+          ls -la bin/debug/source#*
+
+      # The gate: every managed test project, as the Makefile's managed legs
+      # run them (oracle-managed reads the pristine upstream clone, which
+      # only the Linux job provisions). Each project runs whatever the one
+      # before it did, and the step fails if any failed. A fact that runs
+      # past five minutes is a hang: --blame-hang ends the test host and
+      # names the facts that were running, where the step would otherwise sit
+      # silent until the job's timeout (one did, for 20 minutes, with nothing
+      # in the log; the slowest fact takes about 30 s).
+      - name: Test (managed, server, client, tf2_descent)
+        run: |
+          rc=0
+          for dll in tests/SourceSharp.Shared.Tests.dll tests-server/SourceSharp.Server.Tests.dll \
+                     tests-client/SourceSharp.Client.Tests.dll tf2_descent-tests/TF2.Descent.Tests.dll; do
+            env -u Platform dotnet test "bin/debug/$dll" --nologo \
+              --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none || rc=1
+          done
+          exit $rc
+
+      - name: ROOT is untouched
+        run: |
+          status="$(git -C ../source-sdk-2013-upstream status --porcelain)"
+          if [[ -n "$status" ]]; then
+            echo "::error::the build wrote into ROOT:"
+            echo "$status"
+            exit 1
+          fi
+
+  # The MSVC Release build of the whole game, the native gtests and the
+  # archive. The managed tests are windows-managed's, side by side with this.
   windows:
-    name: win-x64 (build, test, package)
+    name: win-x64 (build, native tests, package)
     runs-on: windows-latest
     timeout-minutes: 150
     defaults:
@@ -365,38 +674,12 @@ jobs:
       - name: Managed assemblies (Release)
         run: env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Release
 
-      # The managed tests, Debug as on Linux (TEST_BUILD in the Makefile),
-      # from the built assemblies as the Makefile's legs run them.
-      # And the Debug launcher, as the Makefile's managed-legs publishes it:
-      # LauncherTests runs the real bin/debug/source#.exe.
-      - name: Build the tests (Debug)
-        run: |
-          env -u Platform dotnet build SourceSharp.slnx -v q --nologo -c Debug
-          env -u Platform dotnet publish src/launcher/SourceSharp.Launcher.csproj -v q --nologo -c Debug
-          ls -la bin/debug/source#*
-
-      # The gate: every managed test project, as the Makefile's managed legs
-      # run them (oracle-managed reads the pristine upstream clone, which
-      # only the Linux job provisions). Each project runs whatever the one
-      # before it did, and the step fails if any failed. A fact that runs
-      # past five minutes is a hang: --blame-hang ends the test host and
-      # names the facts that were running, where the step would otherwise sit
-      # silent until the job's timeout (one did, for 20 minutes, with nothing
-      # in the log; the slowest fact takes about 30 s).
-      - name: Test (managed, server, client, tf2_descent)
-        run: |
-          rc=0
-          for dll in tests/SourceSharp.Shared.Tests.dll tests-server/SourceSharp.Server.Tests.dll \
-                     tests-client/SourceSharp.Client.Tests.dll tf2_descent-tests/TF2.Descent.Tests.dll; do
-            env -u Platform dotnet test "bin/debug/$dll" --nologo \
-              --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none || rc=1
-          done
-          exit $rc
-
       # The native half, one final target per step, so a failure names its
       # library. -k 0: every file that fails, not only the first, in one round.
       - name: "Native: configure (MSVC, release)"
         run: cmake --preset windows-release
+      - name: "Native: tier1, mathlib"
+        run: cmake --build --preset windows-release --target tier1 mathlib -- -k 0
       - name: "Native: ss_particles.dll"
         run: cmake --build --preset windows-release --target ss_particles -- -k 0
       - name: "Native: managed_host.dll"
@@ -469,7 +752,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [linux, linux-check, windows]
+    needs: [linux-managed, linux-sniper, linux, linux-check, windows-managed, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write

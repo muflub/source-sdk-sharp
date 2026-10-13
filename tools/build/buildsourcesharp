@@ -3,7 +3,7 @@
 # Builds the SourceSharp mod: the web UI, the managed C#, the source# launcher,
 # then the native C++ with CMake + Ninja on the host (clang 22 + lld).
 #
-# Usage: farm/<config>/src/buildsourcesharp [debug|release] [--test] [--no-strip] [--no-gc-sections] [--coverage]
+# Usage: farm/<config>/src/buildsourcesharp [debug|release] [--test] [--no-strip] [--no-gc-sections] [--coverage] [--no-tests]
 #
 # Runs from a farm (tools/setup): farm/<config>/src is the old checkout's src/
 # as a tree of links. The configuration defaults to the farm's own, and naming
@@ -20,6 +20,11 @@
 # reach check (G2), which convicts a TRUE-DEAD row if its region executed.
 # It forces debug, because -O2 line attribution is lossy enough to convict an
 # innocent row, and the .gcda only reads back against -O0 objects.
+#
+# --no-tests configures the native tree without its tests (SS_BUILD_TESTS=OFF),
+# so the build is the game libraries alone. CI's release build passes it: the
+# native tests are built and run in the debug tree (make check), and the
+# release tree's copy of them was compiled and never run.
 #
 set -euo pipefail
 
@@ -42,6 +47,7 @@ RUN_TEST=0
 NO_STRIP=0
 NO_GC_SECTIONS=0
 COVERAGE=0
+NO_TESTS=0
 for arg in "$@"; do
     case "$arg" in
         debug|release) MODE="$arg" ;;
@@ -49,7 +55,8 @@ for arg in "$@"; do
         --no-strip) NO_STRIP=1 ;;
         --no-gc-sections) NO_GC_SECTIONS=1 ;;
         --coverage) COVERAGE=1 ;;
-        *) echo "usage: $0 [debug|release] [--test] [--no-strip] [--no-gc-sections] [--coverage]"; exit 1 ;;
+        --no-tests) NO_TESTS=1 ;;
+        *) echo "usage: $0 [debug|release] [--test] [--no-strip] [--no-gc-sections] [--coverage] [--no-tests]"; exit 1 ;;
     esac
 done
 
@@ -121,6 +128,7 @@ cmake_opts=(
     -DSS_GC_SECTIONS=$([[ $NO_GC_SECTIONS -eq 1 ]] && echo OFF || echo ON)
     -DSS_COVERAGE=$([[ $COVERAGE -eq 1 ]] && echo ON || echo OFF)
     -DSS_SPLIT_DEBUG=$([[ $NO_STRIP -eq 1 ]] && echo OFF || echo ON)
+    -DSS_BUILD_TESTS=$([[ $NO_TESTS -eq 1 ]] && echo OFF || echo ON)
 )
 if [[ $NO_GC_SECTIONS -eq 1 ]]; then
     echo "==> link-time dead code removal is OFF for this build"
