@@ -30,3 +30,4 @@ ui-preview	routine	tools/ui-preview --self-test
 ui-lint	routine	tools/ui-lint --self-test
 sdk-upstream	routine	tools/sdk-upstream --self-test
 package-release	routine	tools/package-release --self-test
+test-tiers	routine	tools/test-tiers --self-test
