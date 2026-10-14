@@ -149,7 +149,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                          _services.Require<IGameClock>(),
                                                          () => (gravity ??= _convars.Get<SvGravityConVar>())?.Value ?? 800f);
             var jointTable = new PhysicsJointTable();
-            var vphysicsJoints = new VPhysicsJoints();
+            var vphysicsJoints = new VPhysicsJoints(_engine.VPhysics);
             _physicsConstraints = new PhysicsConstraints(jointTable, vphysicsJoints, jointWorld, Log,
                                                          ev => _physicsRouter?.Post(ev));
             _physicsMotion = new PhysicsMotionControllers(jointTable, vphysicsJoints, jointWorld, Log);
@@ -1293,7 +1293,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // 2.3): CPhysicsHook's batch, managed, played at OnPreClientUpdate.
         // Before any map entity too: a breaking prop queues into it.
         var physicsSounds = new PhysicsSoundBatch(new EnginePhysicsSoundWorld(
-            _services.Require<IEngineEntityPhysics>(), _services.Require<IEngineEntities>(), new VPhysicsInspect(),
+            _services.Require<IEngineEntityPhysics>(), _services.Require<IEngineEntities>(), new VPhysicsInspect(_engine.VPhysics),
             _surfaceProps as IVPhysicsSurfaceSounds, _services.Require<IEngineSound>()));
         _services.AddInstance(physicsSounds);
         // Which entities touch fluid (I2): the props and the player read it.
@@ -1321,7 +1321,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         if (_surfaceProps is null)
             Log.Warning("[SourceSharp/Server] no VPhysics surface table: player shadows use surfaceprop 0\n");
         var shadowBodies = PlayerShadowBodies.ForEngine(
-            _engine, new VPhysicsShadowCalls(physicsCollision, _surfaceProps),
+            _engine, new VPhysicsShadowCalls(physicsCollision, _surfaceProps, _engine.VPhysics),
             () => _playerShadow?.Value ?? true, text => Log.Warning(text));
         _services.AddInstance(shadowBodies);
         _services.AddInstance<IPlayerShadows>(shadowBodies);
@@ -1340,7 +1340,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // vphysics' IPhysicsCollisionSolver answered by managed
         // (plan_physics_bones_native_zero 2.1), and the entity pairs the game
         // disabled, which its ShouldCollide reads.
-        var solverObjects = new VPhysicsSolverObjects();
+        var solverObjects = new VPhysicsSolverObjects(_engine.VPhysics);
         var solverWorld = new EnginePhysicsSolverWorld(_services.Require<IEngineEntities>(),
                                                        _services.Require<IEngineNetworking>(),
                                                        _services.Require<IEngineEntityPhysics>());
@@ -1354,7 +1354,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_physicsSolver);
         // The physics diagnostics' reads (plan_physics_bones_native_zero 2.3):
         // the SS-PHYSWORLD report, physics_budget and air_density, managed.
-        var inspect = new VPhysicsInspect();
+        var inspect = new VPhysicsInspect(_engine.VPhysics);
         _services.AddInstance<IVPhysicsInspect>(inspect);
         {
             var diagnostics = _services.Require<IEngineDiagnostics>();
@@ -1373,7 +1373,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         }
         // Stuck debris pulled apart (A9): stock's CPhysicsEntitySolver.
         var solver = new PhysicsEntitySolver(new EngineEntitySolverWorld(
-            _services.Require<IEngineEntityPhysics>(), _services.Require<IEngineEntities>(), new VPhysicsObjects(), pairs),
+            _services.Require<IEngineEntityPhysics>(), _services.Require<IEngineEntities>(), new VPhysicsObjects(_engine.VPhysics), pairs),
             _services.Require<IGameClock>());
         _services.AddInstance(solver);
         _physicsRouter = new PhysicsEventRouter(_entities, impacts, fluid, friction, shadows,
@@ -1534,14 +1534,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // vphysics' callbacks on managed's own tables (plan_physics_managed B2):
         // a lifecycle participant, so it is registered before the driver below.
-        _physicsCallbacks = new PhysicsCallbacks(_services.Require<IEngineEntityPhysics>(), new VPhysicsEnvironment());
+        _physicsCallbacks = new PhysicsCallbacks(_services.Require<IEngineEntityPhysics>(), new VPhysicsEnvironment(_engine.VPhysics));
         _services.AddInstance(_physicsCallbacks);
         // The physics frame (plan_physics_bones_native_zero 2.3): whether and
         // how long to step, and what the step tells the game, decided here;
         // CPhysicsHook forwards its FrameUpdatePostEntityThink. A lifecycle
         // participant, so registered before the driver below.
         {
-            var frameCalls = new VPhysicsFrameCalls();
+            var frameCalls = new VPhysicsFrameCalls(_engine.VPhysics);
             var speeds = _convars.Get<PhysSpeedsConVar>()
                 ?? throw new InvalidOperationException("phys_speeds is not registered");
             var timescale = _convars.Get<PhysTimescaleConVar>()
@@ -2698,13 +2698,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _managedRoot = new ManagedRoot(_bindings
             ?? throw new InvalidOperationException("the managed root was asked for before Initialize"), vtables).Bind();
 
-        var objects = new VPhysicsObjects();
+        var objects = new VPhysicsObjects(_engine.VPhysics);
         _physicsObjectEvents = PhysicsObjectEventBinding.Create(vtables,
             new PhysicsObjectEventBinding(_engine.Crossings, objects.GameData, ev => _physicsRouter?.Post(ev)));
         // IPhysicsCollisionEvent (B2.2, 2.1, 2.3): every slot managed.
         {
             var entityPhysics = _services.Require<IEngineEntityPhysics>();
-            _physicsFluidEvents = new PhysicsFluidEvents(objects, new VPhysicsFluids(), new VPhysicsEnvironment(),
+            _physicsFluidEvents = new PhysicsFluidEvents(objects, new VPhysicsFluids(_engine.VPhysics), new VPhysicsEnvironment(_engine.VPhysics),
                 _services.Require<IEngineEntityPhysics>(), _services.Require<ITempEnts>(),
                 _services.Require<IEngineWorldQuery>(), _services.Require<IEngineHost>(),
                 _services.Require<IGameClock>(), ev => _physicsRouter?.Post(ev));
@@ -2769,7 +2769,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
                 // An entity's physics object (InitPhysics to managed): made
                 // here over the same model reads, held by the shell.
-                _entityPhysicsCalls = new VPhysicsEntityCalls();
+                _entityPhysicsCalls = new VPhysicsEntityCalls(_engine.VPhysics);
                 var solidityFirst = _convars.Get<SolidityBeforePhysicsConVar>();
                 _entityPhysics = new EntityPhysicsCreation(_physicsWorldVPhysics, _entityPhysicsCalls,
                     new EngineEntityPhysicsHost(_services.Require<IEngineEntities>(), entityPhysics,

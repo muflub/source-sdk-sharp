@@ -21,7 +21,7 @@ public sealed unsafe class ClientInputHost : IInputHost
     private readonly Func<IVtableEngineClient?> _engineClient;
     private readonly NativeInterfaceFactory _interfaces;
     private void* _self;
-    private EngineClientVtbl* _vtbl;
+    private EngineClientFwd* _fwd;
     private bool _asked;
 
     internal ClientInputHost(ModuleEngine engine, IEngineConsole console)
@@ -40,14 +40,14 @@ public sealed unsafe class ClientInputHost : IInputHost
         if (!_asked)
         {
             _asked = true;
-            if (Vtable.TryAcquire<EngineClientVtbl>(_interfaces, SourceSharpFactoryType.AppSystem,
-                                                    EngineClient.InterfaceVersion, out void* self, out void** table, out _))
+            if (Forwarders.TryAcquire<EngineClientFwd>(_interfaces, SourceSharpFactoryType.AppSystem,
+                                                    EngineClient.InterfaceVersion, out void* self, out EngineClientFwd* table, out _))
             {
                 _self = self;
-                _vtbl = (EngineClientVtbl*)table;
+                _fwd = table;
             }
         }
-        return _vtbl != null;
+        return _fwd != null;
     }
 
     public InputAngles GetViewAngles()
@@ -55,7 +55,7 @@ public sealed unsafe class ClientInputHost : IInputHost
         if (!Bound())
             return default;
         float* a = stackalloc float[3];
-        _vtbl->GetViewAngles(_self, a);
+        _fwd->GetViewAngles(_self, a);
         return new InputAngles(a[0], a[1], a[2]);
     }
 
@@ -64,25 +64,27 @@ public sealed unsafe class ClientInputHost : IInputHost
         if (!Bound())
             return;
         float* a = stackalloc float[3] { angles.Pitch, angles.Yaw, angles.Roll };
-        _vtbl->SetViewAngles(_self, a);
+        _fwd->SetViewAngles(_self, a);
     }
 
     public void GetScreenSize(out int width, out int height)
     {
         int w = 0, h = 0;
         if (Bound())
-            _vtbl->GetScreenSize(_self, &w, &h);
+            _fwd->GetScreenSize(_self, &w, &h);
         width = w;
         height = h;
     }
 
-    public bool IsPaused => Bound() && _vtbl->IsPaused(_self) != 0;
+    public bool IsPaused => Bound() && _fwd->IsPaused(_self) != 0;
 
     public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)
     {
         int dx = 0, dy = 0;
-        if (Bound())
-            _vtbl->GetMouseDelta(_self, &dx, &dy, (byte)(ignoreNextMouseDelta ? 1 : 0));
+        // NULL where the engine is built without SDL (Valve's Windows engine
+        // has no GetMouseDelta): then there is no delta to read.
+        if (Bound() && _fwd->GetMouseDelta != null)
+            _fwd->GetMouseDelta(_self, &dx, &dy, (byte)(ignoreNextMouseDelta ? 1 : 0));
         x = dx;
         y = dy;
     }
@@ -93,7 +95,7 @@ public sealed unsafe class ClientInputHost : IInputHost
             return;
         byte[] bytes = Vtable.Utf8(command);
         fixed (byte* p = bytes)
-            _vtbl->ClientCmd_Unrestricted(_self, p);
+            _fwd->ClientCmd_Unrestricted(_self, p);
     }
 
     public string? EngineConVar(string name) => _console.FindConVarValue(name);
@@ -179,7 +181,7 @@ public sealed unsafe class ClientInputDevices : IInputDevices
     private readonly NativeInterfaceFactory _interfaces;
     private readonly SteamControllerFlat _flat;
     private void* _self;
-    private InputSystemVtbl* _vtbl;
+    private InputSystemFwd* _fwd;
     private bool _asked;
 
     internal ClientInputDevices(ModuleEngine engine, ILog log)
@@ -196,30 +198,30 @@ public sealed unsafe class ClientInputDevices : IInputDevices
         if (!_asked)
         {
             _asked = true;
-            if (Vtable.TryAcquire<InputSystemVtbl>(_interfaces, SourceSharpFactoryType.AppSystem,
-                                                   InterfaceVersion, out void* self, out void** table, out _))
+            if (Forwarders.TryAcquire<InputSystemFwd>(_interfaces, SourceSharpFactoryType.AppSystem,
+                                                   InterfaceVersion, out void* self, out InputSystemFwd* table, out _))
             {
                 _self = self;
-                _vtbl = (InputSystemVtbl*)table;
+                _fwd = table;
             }
         }
-        return _vtbl != null;
+        return _fwd != null;
     }
 
     public bool GetRawMouseAccumulators(out int x, out int y)
     {
         int ax = 0, ay = 0;
-        bool ok = Bound() && _vtbl->GetRawMouseAccumulators(_self, &ax, &ay) != 0;
+        bool ok = Bound() && _fwd->GetRawMouseAccumulators(_self, &ax, &ay) != 0;
         x = ax;
         y = ay;
         return ok;
     }
 
-    public int GetAnalogValue(int analogCode) => Bound() ? _vtbl->GetAnalogValue(_self, analogCode) : 0;
+    public int GetAnalogValue(int analogCode) => Bound() ? _fwd->GetAnalogValue(_self, analogCode) : 0;
 
-    public int JoystickCount => Bound() ? _vtbl->GetJoystickCount(_self) : 0;
+    public int JoystickCount => Bound() ? _fwd->GetJoystickCount(_self) : 0;
 
-    public bool IsButtonDown(int buttonCode) => Bound() && _vtbl->IsButtonDown(_self, buttonCode) != 0;
+    public bool IsButtonDown(int buttonCode) => Bound() && _fwd->IsButtonDown(_self, buttonCode) != 0;
 
     public ISteamControllerApi? SteamController
     {
@@ -227,31 +229,31 @@ public sealed unsafe class ClientInputDevices : IInputDevices
         {
             if (!Bound())
                 return null;
-            nint controller = (nint)_vtbl->SteamControllerInterface(_self);
+            nint controller = (nint)_fwd->SteamControllerInterface(_self);
             return controller == 0 ? null : _flat.Over(controller);
         }
     }
 
-    public bool IsSteamControllerActive => Bound() && _vtbl->IsSteamControllerActive(_self) != 0;
+    public bool IsSteamControllerActive => Bound() && _fwd->IsSteamControllerActive(_self) != 0;
 
     public void ActivateSteamControllerActionSet(int actionSet)
     {
         // IInputSystem::ActivateSteamControllerActionSet, the header's inline
         // helper: every slot.
         if (Bound())
-            _vtbl->ActivateSteamControllerActionSetForSlot(_self, 0xffffffffffffffff, actionSet);
+            _fwd->ActivateSteamControllerActionSetForSlot(_self, 0xffffffffffffffff, actionSet);
     }
 
     public void SetRumble(float left, float right)
     {
         if (Bound())
-            _vtbl->SetRumble(_self, left, right, InvalidUserId);
+            _fwd->SetRumble(_self, left, right, InvalidUserId);
     }
 
     public void StopRumble()
     {
         if (Bound())
-            _vtbl->StopRumble(_self);
+            _fwd->StopRumble(_self);
     }
 }
 

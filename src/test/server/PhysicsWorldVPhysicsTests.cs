@@ -69,7 +69,7 @@ public unsafe class PhysicsWorldVPhysicsTests
     [Fact]
     public void ResetSolidZeroesItAndGivesItTheDefaults()
     {
-        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, null, new Keys(0x77));
+        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, null, new Keys(0x77), TestVPhysics.None());
         byte* solid = (byte*)NativeMemory.Alloc(SolidLayout.Size);
 
         try
@@ -97,7 +97,7 @@ public unsafe class PhysicsWorldVPhysicsTests
     [Fact]
     public void NativeTextIsOneCopyPerName()
     {
-        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, null, new Keys(0));
+        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, null, new Keys(0), TestVPhysics.None());
 
         nint world = adapter.NativeText("world");
 

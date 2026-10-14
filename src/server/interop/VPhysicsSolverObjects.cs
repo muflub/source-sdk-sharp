@@ -11,8 +11,8 @@ public readonly record struct SnapshotContact(nint Other, float NormalForce, Vec
 
 /// <summary>
 /// What managed's <c>IPhysicsCollisionSolver</c> asks of vphysics' own
-/// <c>IPhysicsObject</c>s, through the generated <see cref="PhysicsObjectVtbl"/>
-/// and <see cref="PhysicsFrictionSnapshotVtbl"/> (plan_physics_bones_native_zero
+/// <c>IPhysicsObject</c>s, through the generated <see cref="PhysicsObjectFwd"/>
+/// and <see cref="PhysicsFrictionSnapshotFwd"/> (plan_physics_bones_native_zero
 /// 2.1). Every call on 0 is a no-op answering zero, as stock's NULL checks are.
 /// </summary>
 public interface IVPhysicsSolverObjects
@@ -71,7 +71,13 @@ public interface IVPhysicsSolverObjects
 /// <summary>The real objects, by their generated vtables. Holds nothing.</summary>
 public sealed unsafe class VPhysicsSolverObjects : IVPhysicsSolverObjects
 {
-    private static PhysicsObjectVtbl* Vt(nint o) => *(PhysicsObjectVtbl**)o;
+    private readonly VPhysicsTables _vphysics;
+
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsSolverObjects(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+
+    private PhysicsObjectFwd* Vt(nint o) => _vphysics.PhysicsObject;
 
     public nint GameData(nint o) => o == 0 ? 0 : (nint)Vt(o)->GetGameData((void*)o);
 
@@ -124,7 +130,7 @@ public sealed unsafe class VPhysicsSolverObjects : IVPhysicsSolverObjects
         if (snapshot == null)
             return;
 
-        var snap = *(PhysicsFrictionSnapshotVtbl**)snapshot;
+        var snap = _vphysics.PhysicsFrictionSnapshot;
         while (snap->IsValid(snapshot) != 0)
         {
             snap->ClearFrictionForce(snapshot);
@@ -145,7 +151,7 @@ public sealed unsafe class VPhysicsSolverObjects : IVPhysicsSolverObjects
         if (snapshot == null)
             return 0;
 
-        var snap = *(PhysicsFrictionSnapshotVtbl**)snapshot;
+        var snap = _vphysics.PhysicsFrictionSnapshot;
         int count = 0;
         while (snap->IsValid(snapshot) != 0)
         {

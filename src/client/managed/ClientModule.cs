@@ -1402,7 +1402,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // own collision-event table (lane c6-input).
         _impactSounds = new Physics.ClientImpactSounds(_services.Require<IClientImpactSoundWorld>());
         var physicsEngine = _services.Require<IClientPhysicsEngine>();
-        _physicsCallbacks = new Physics.ClientPhysicsCallbacks(physicsEngine.Environment, new VPhysicsEnvironment(),
+        _physicsCallbacks = new Physics.ClientPhysicsCallbacks(physicsEngine.Environment, new VPhysicsEnvironment(_engine.VPhysics),
                                                                physicsEngine.SetCollisionSolver);
         _collisionSolver = new Physics.ClientCollisionSolver(
             new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>()));
@@ -1416,7 +1416,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             Log.Warning($"[SourceSharp/Client] physics: no engine random stream ({whyNoSplashRandom}); no splash\n");
         _fluidEvents = new Physics.ClientFluidEvents(
             new Physics.ClientFluidWorld(_services.Require<IClientSplashCarryOut>(), _services.Require<IClientPhysicsObjectReads>(),
-                                         new VPhysicsObjects(), new VPhysicsFluids(), _services.Require<IEngineEntities>()),
+                                         new VPhysicsObjects(_engine.VPhysics), new VPhysicsFluids(_engine.VPhysics), _services.Require<IEngineEntities>()),
             splashRandom, () => _clock.Now);
         _services.AddInstance(_fluidEvents);
 
@@ -1425,7 +1425,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _frictionSounds = new FrictionSounds(_services.Require<IEngineSound>(), _sounds,
                                              new EnginePhysicsSurfaceTable(_services.Require<PhysicsSurfaces>()),
                                              new Physics.ClientFrictionEffects(() => _clientEffects));
-        _friction = new Physics.ClientFriction(new VPhysicsObjects(), new Physics.FrictionSoundsScrapes(_frictionSounds),
+        _friction = new Physics.ClientFriction(new VPhysicsObjects(_engine.VPhysics), new Physics.FrictionSoundsScrapes(_frictionSounds),
                                                () => _clock.Now);
         _services.AddInstance(_frictionSounds);
 
@@ -2287,7 +2287,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _physicsCollisionEvents = ClientPhysicsCollisionEventBinding.Create(vtables,
                 new ClientPhysicsCollisionEventBinding(_engine.Crossings, nativeCollisionEvents, impacts,
                                                        _fluidEvents ?? throw new InvalidOperationException("the fluid slots were built before the fluid entries"),
-                                                       _friction ?? throw new InvalidOperationException("the friction slot was built before the scrapes")));
+                                                       _friction ?? throw new InvalidOperationException("the friction slot was built before the scrapes"),
+                                                       _engine.VPhysics));
             callbacks.CollisionEvents = _physicsCollisionEvents.Address;
         }
 

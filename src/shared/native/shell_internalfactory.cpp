@@ -46,7 +46,7 @@
 #include "shell_shim_console.h"
 #include "shell_shim_areas.h"
 #include "vtable_hook.h"
-#include "ss_fwd.h"                   // SSFwdEngine_Table (plan_engine_forwarders.md)
+#include "ss_fwd.h"                   // SSFwd_Serve (plan_engine_forwarders.md)
 #include "imanaged_root.h"
 #include "managed_accept.h"
 #ifndef CLIENT_DLL
@@ -97,12 +97,12 @@ void *SourceSharp_InternalFactory( const char *pszName, int32_t *pnEntries )
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
 		return ShimConsole_Acquire( pnEntries );
 
-	// plan_engine_forwarders.md: libss_fwd_engine's tables, by the name managed
-	// asks for (SSFwd_<table>). Both sides serve every table: a forwarder is
-	// handed the engine object it calls, so it belongs to neither side. The
-	// count is the table's own; managed holds it and every slot's hash against
-	// its generated struct (Forwarders.TryBind).
-	if ( void *pTable = SSFwdEngine_Serve( pszName, pnEntries ) )
+	// plan_engine_forwarders.md: the forwarder libraries' tables, by the name
+	// managed asks for (SSFwd_<table>). Both sides serve every table: a
+	// forwarder is handed the object it calls, so it belongs to neither side.
+	// The count is the table's own; managed holds it against its generated
+	// struct (Forwarders.TryBind).
+	if ( void *pTable = SSFwd_Serve( pszName, pnEntries ) )
 		return pTable;
 
 #ifndef CLIENT_DLL

@@ -34,12 +34,12 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
     public const string InterfaceVersion = "VPhysicsSurfaceProps001";
 
     private readonly void* _self;
-    private readonly PhysicsSurfacePropsVtbl* _vtbl;
+    private readonly PhysicsSurfacePropsFwd* _fwd;
 
-    private PhysicsSurfaceProps(void* self, void** table)
+    private PhysicsSurfaceProps(void* self, PhysicsSurfacePropsFwd* table)
     {
         _self = self;
-        _vtbl = (PhysicsSurfacePropsVtbl*)table;
+        _fwd = table;
     }
 
     /// <summary>
@@ -48,9 +48,9 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
     /// not answer.
     /// </summary>
     public static IVtablePhysicsSurfaceProps? Acquire(ModuleEngine engine, out string why)
-        => Vtable.TryAcquire<PhysicsSurfacePropsVtbl>(
+        => Forwarders.TryAcquire<PhysicsSurfacePropsFwd>(
                (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
-               SourceSharpFactoryType.Physics, InterfaceVersion, out void* self, out void** table, out why)
+               SourceSharpFactoryType.Physics, InterfaceVersion, out void* self, out PhysicsSurfacePropsFwd* table, out why)
             ? new PhysicsSurfaceProps(self, table)
             : null;
 
@@ -61,16 +61,16 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
 
         fixed (byte* pName = name)
         fixed (byte* pBody = body)
-            return _vtbl->ParseSurfaceData(_self, pName, pBody);
+            return _fwd->ParseSurfaceData(_self, pName, pBody);
     }
 
-    public int SurfacePropCount() => _vtbl->SurfacePropCount(_self);
+    public int SurfacePropCount() => _fwd->SurfacePropCount(_self);
 
-    public string? PropName(int index) => Vtable.TextOf(_vtbl->GetPropName(_self, index), 128);
+    public string? PropName(int index) => Vtable.TextOf(_fwd->GetPropName(_self, index), 128);
 
     public SurfaceImpactSounds? Sounds(int surfaceProps)
     {
-        var data = (VPhysicsSurfaceData*)_vtbl->GetSurfaceData(_self, surfaceProps);
+        var data = (VPhysicsSurfaceData*)_fwd->GetSurfaceData(_self, surfaceProps);
         if (data == null)
             return null;
 
@@ -80,13 +80,13 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
 
     // A string index: 0 is "no sound" (stock tests the index, not the text).
     private string? Name(ushort index)
-        => index == 0 ? null : Vtable.TextOf(_vtbl->GetString(_self, index), MaxSoundName);
+        => index == 0 ? null : Vtable.TextOf(_fwd->GetString(_self, index), MaxSoundName);
 
     public int SurfaceIndex(string name)
     {
         byte[] bytes = Vtable.Utf8(name);
 
         fixed (byte* p = bytes)
-            return _vtbl->GetSurfaceIndex(_self, p);
+            return _fwd->GetSurfaceIndex(_self, p);
     }
 }

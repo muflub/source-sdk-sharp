@@ -84,7 +84,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
 {
     private const int MaxName = 128;
 
-    private readonly VPhysicsObjects _objects = new();
+    private readonly VPhysicsObjects _objects = new(api.VPhysics);
 
     public nint Environment() => api.ClientAttached ? (nint)api.ClientShims.PhysicsClientEnvironment() : 0;
 
@@ -95,7 +95,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
         if (environment == 0)
             return;
 
-        var vtbl = *(PhysicsEnvironmentVtbl**)environment;
+        var vtbl = api.VPhysics.PhysicsEnvironment;
         vtbl->SetCollisionSolver((void*)environment, (void*)solver);
     }
 
@@ -106,7 +106,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
         if (physicsObject == 0)
             return 0;
 
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = api.VPhysics.PhysicsObject;
         return vtbl->GetContents((void*)physicsObject);
     }
 
@@ -115,7 +115,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
         if (physicsObject == 0)
             return false;
 
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = api.VPhysics.PhysicsObject;
         return vtbl->GetShadowController((void*)physicsObject) != null;
     }
 
@@ -129,7 +129,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
             return Vector.Zero;
 
         Vector position;
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = api.VPhysics.PhysicsObject;
         vtbl->GetPosition((void*)physicsObject, &position, null);
         return position;
     }
@@ -167,7 +167,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
             return Vector.Zero;
 
         Vector velocity;
-        var vtbl = *(PhysicsObjectVtbl**)physicsObject;
+        var vtbl = api.VPhysics.PhysicsObject;
         vtbl->GetVelocity((void*)physicsObject, &velocity, null);
         return velocity;
     }

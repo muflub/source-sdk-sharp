@@ -9,7 +9,7 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// The vphysics calls an entity's one-object physics API makes, each through
-/// the object's generated <see cref="PhysicsObjectVtbl"/>. The pointer is never
+/// the object's generated <see cref="PhysicsObjectFwd"/>. The pointer is never
 /// 0 here: <see cref="EntityPhysicsMotion"/> asks only when there is an object.
 /// Angular velocities are in the OBJECT's own axes, as vphysics keeps them.
 /// </summary>
@@ -309,7 +309,13 @@ public sealed class EntityPhysicsMotion(IEntityPhysicsMotionHost host, IVPhysics
 /// <summary>The real vphysics, by the generated vtable. Holds nothing.</summary>
 public sealed unsafe class VPhysicsMotionCalls : IVPhysicsMotionCalls
 {
-    private static PhysicsObjectVtbl* Obj(nint o) => *(PhysicsObjectVtbl**)o;
+    private readonly VPhysicsTables _vphysics;
+
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsMotionCalls(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+
+    private PhysicsObjectFwd* Obj(nint o) => _vphysics.PhysicsObject;
 
     public float Mass(nint o) => Obj(o)->GetMass((void*)o);
 

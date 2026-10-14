@@ -137,7 +137,7 @@ public static partial class TestServices
         var pairs = new SourceSharp.Server.EntityPairCollisions(solverWorld, new FakeSolverObjects());
         services.AddInstance(pairs);
         services.AddInstance(new SourceSharp.Server.PhysicsEntitySolver(
-            new SourceSharp.Server.EngineEntitySolverWorld(engine, engine, new SourceSharp.Abi.VPhysicsObjects(), pairs), engine));
+            new SourceSharp.Server.EngineEntitySolverWorld(engine, engine, new SourceSharp.Abi.VPhysicsObjects(TestVPhysics.None()), pairs), engine));
 
         // The decal system, for the same reason: what an explosion painted is
         // a group name asked for and an index arranged. Reachable with

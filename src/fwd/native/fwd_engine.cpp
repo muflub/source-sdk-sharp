@@ -8,44 +8,21 @@
 // SS_REASON b  an interface resolved by name at load
 //
 // plan_engine_forwarders.md. The forwarders and their tables are generated
-// (fwd_engine.g.inc, by tools/engine-forwarders); this file includes the
-// interface headers they need and answers the library's one export.
+// (fwd_engine.g.inc, by tools/engine-forwarders, with the interface headers
+// they need); this file answers the library's one export.
 //
 // The library holds no state and connects to nothing: every forwarder is
 // handed the engine object it calls through, and the tables are constant data.
 // So it needs the SDK headers to compile and no SDK library to link.
 //=============================================================================//
+#include "ss_fwd_sdk.h"
 #include "ss_fwd.h"
 
-#include "engine/ivmodelinfo.h"
-
+// The interface headers the forwarders call through are the generated file's
+// own includes.
 #include "fwd_engine.g.inc"
-
-#if defined( _MSC_VER ) && defined( SS_NO_CRT )
-// MSVC references _fltused from an object that touches floating point (the
-// SDK headers' inline math does), and the CRT defines it. This library links
-// no CRT (NO_RUNTIME), so it defines it, as code built without a CRT does.
-extern "C" int _fltused = 0;
-#endif
-
-// strcmp's equality, written out: the library links no libc (NO_RUNTIME).
-static bool SameName( const char *a, const char *b )
-{
-	while ( *a && *a == *b )
-		++a, ++b;
-	return *a == *b;
-}
 
 SS_FWD_ENGINE_API const SSForwarderTable *SSFwdEngine_Table( const char *pszName )
 {
-	if ( !pszName )
-		return nullptr;
-
-	for ( const SSForwarderNamed &named : s_ForwarderTables )
-	{
-		if ( SameName( named.pszName, pszName ) )
-			return named.pTable;
-	}
-
-	return nullptr;
+	return SSFwd_Find( s_ForwarderTables, pszName );
 }

@@ -32,7 +32,7 @@ using System.Runtime.CompilerServices;
 
 // Lane side-audit-2 (2026-10-02): EngineClient moved from Shared.Interop to
 // Client.Interop, because IVEngineClient exists only on the client, and reads
-// the internal generated EngineClientVtbl and the side's proxy api.
+// the internal generated EngineClientFwd and the side's proxy api.
 [assembly: InternalsVisibleTo("SourceSharp.Client.Interop")]
 
 // plan_abi_hotreload Phase 1, run 2: RecordingEngine moved to the test-only

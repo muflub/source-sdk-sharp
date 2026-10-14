@@ -72,6 +72,7 @@ TextMessage.cs	plumbing	a: named by ShimAreas.g.cs	-
 ThirdPersonCameraBlob.cs	plumbing	b: blittable SourceSharpThirdPerson* blob	-
 Transform.cs	plumbing	b: blittable 3x4 matrix: EngineBlockHead.WorldTransform's type, mapped to matrix3x4_t in the engine block's native layout	-
 UserCmd.cs	plumbing	a: named by ShimAreas.g.cs	-
+VPhysicsForwarders.g.cs	plumbing	a: the generated boundary	-
 ViewTargetSetup.cs	plumbing	a: named by ShimAreas.g.cs	-
 Vtable.cs	plumbing	a: named by ShimRoot.cs	-
 VtableLayouts.g.cs	plumbing	a: the generated boundary	-
