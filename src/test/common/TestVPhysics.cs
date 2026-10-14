@@ -8,7 +8,7 @@ namespace SourceSharp.Tests;
 /// that builds one either fills the tables it calls or, when it never reaches
 /// a vphysics object, hands it tables that are all null.
 /// </summary>
-internal static unsafe class TestVPhysics
+internal static class TestVPhysics
 {
     /// <summary>
     /// Every table null: for a fact whose subject never calls a vphysics
