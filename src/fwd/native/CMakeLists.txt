@@ -61,6 +61,16 @@ function(ss_fwd_library family)
       SOURCESHARP
       NO_MALLOC_OVERRIDE
   )
+  # NO_MALLOC_OVERRIDE on Windows is a combination Valve never built:
+  # memalloc.h defines its debug-info macros twice for it (C4005, an error
+  # under /WX) and memdbgon.h names a memalign the CRT lacks. The compat header
+  # server.dll and client.dll force in for the same reason settles both. Its
+  # allocator inlines are never called by a forwarder, so none is emitted and
+  # the library still imports nothing.
+  if(SS_PLATFORM STREQUAL windows)
+    target_compile_options(${tgt} PRIVATE
+        "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
+  endif()
 
   # The consumers: the header (ss_fwd.h) and the import side of its macros.
   target_include_directories(${tgt} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
