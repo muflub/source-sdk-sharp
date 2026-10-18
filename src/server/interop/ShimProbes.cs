@@ -12,7 +12,7 @@ namespace SourceSharp.Abi;
 //
 // docs/vtable-binding.md §1a is emphatic that TYPING IS NOT BINDING and that
 // the generated layout structs are `internal`. A probe that reached into
-// ShimFrameVtbl from SourceSharp.Server would need two things this port has
+// ShimFrameFwd from SourceSharp.Server would need two things this port has
 // deliberately withheld: that assembly compiled `/unsafe`, and
 // InternalsVisibleTo pointed at it -- which would hand game code the god-class
 // and every layout along with the one struct it wanted. The area facades are
@@ -27,7 +27,7 @@ namespace SourceSharp.Abi;
 // naming once here rather than rediscovering per area.
 //
 // IEngineFrame.TickCount reads the engine's own CGlobalVars when that pointer
-// is bound and only falls back to the vtable when it is not -- so on a live
+// is bound and only falls back to the shim when it is not -- so on a live
 // server, calling the facade never touches the binding at all and a probe
 // built on it would print a correct number with the slot completely unbound.
 // The probes below call the SLOT, and print an independent answer beside it.
@@ -104,12 +104,10 @@ public static unsafe class ShimProbes
     {
         ArgumentNullException.ThrowIfNull(engine);
 
-        if (!Vtable.TryAcquireShim<ShimFrameVtbl>(
-                engine.Api.Interfaces, EngineFrame.InterfaceVersion,
-                out void* self, out void** table, out string why))
+        if (!Forwarders.TryAcquire(
+                engine.Api.Interfaces, SourceSharpFactoryType.Internal, EngineFrame.InterfaceVersion,
+                out void* self, out ShimFrameFwd* vtbl, out string why))
             return $"IShimFrame: REFUSED — {why}";
-
-        var vtbl = (ShimFrameVtbl*)table;
 
         int throughTheShim = vtbl->TickCount(self);
         float frameTime = vtbl->GetFrameTime(self);

@@ -154,6 +154,25 @@ Shim calls are per frame and per entity, so phase 1 re-measures a hot one
 (IShimFrame's TickCount) the same way, before and after, and records the
 numbers here.
 
+## 6a. Phase 1, as built (2026-10-18)
+
+- tools/engine-forwarders takes `every=True` rows: every slot of the
+  interface, in the header's order, under the same append-only refusal. The
+  ShimFrame row is `both`, because EngineFrame compiles into both sides; only
+  the server serves the object, so the client's acquire fails on the object's
+  name first, as before.
+- The forwarder libraries include `${SS_SRC}`, so the generated file names our
+  headers by their farm path (`sourcesharp/game/server/ishim_frame.h`).
+- EngineFrame, EngineSide's globals cross-check and ShimProbes.Frame call
+  through `ShimFrameFwd`; ShimFrameTests drive a forwarder table and the
+  count check; fwd_shim_test calls each slot of the built table on a recording
+  IShimFrame (a swapped pair of slots turns it red).
+- **The measurement** (scratch harness, clang -O2, the call through a
+  function pointer the optimiser cannot see through, 50M calls a round, 5
+  rounds, the 4-core Xeon @ 2.10 GHz): through the object's vtable slot
+  1.78 - 2.23 ns, through the forwarder 2.14 - 2.27 ns, so +0 to +0.45 ns a
+  call. The managed transition both share is not in either number.
+
 ## 7. Decisions
 
 - 2026-10-18 (user, relayed by a peer session): every native<->managed call

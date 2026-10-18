@@ -49,8 +49,12 @@ function(ss_fwd_library side)
 
   target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_${side}.cpp)
 
+  # ${SS_SRC} itself for our own interfaces (plan_forwarders_everywhere.md),
+  # which the generated file includes by their farm path,
+  # "sourcesharp/game/<side>/ishim_*.h".
   target_include_directories(${tgt} PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}
+      ${SS_SRC}
       ${SS_SRC}/common
       ${SS_SRC}/public
       ${SS_SRC}/public/tier0

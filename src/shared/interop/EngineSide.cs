@@ -508,7 +508,7 @@ internal sealed unsafe partial class EngineSide
         // them did not go anywhere -- shell_frame.cpp still reads
         // gpGlobals->tickcount and ->frametime -- and IShimFrame reaches exactly
         // those, so the comparison is against the same two loads it always was,
-        // through a vtable instead of through two fields.
+        // through its forwarders instead of through two fields.
         //
         // The whole point of this check is that the two answers come from two
         // ROUTES: the mirror reads the engine's struct at offsets this port
@@ -520,11 +520,10 @@ internal sealed unsafe partial class EngineSide
         // The client does not serve SourceSharpFrame001, so it takes the
         // no-slot arm and says so -- which is what that arm has always been
         // for.
-        if (Vtable.TryAcquireShim<ShimFrameVtbl>(
-                Interfaces, "SourceSharpFrame001", out void* frameSelf, out void** frameTable, out _))
+        if (Forwarders.TryAcquire(
+                Interfaces, SourceSharpFactoryType.Internal, "SourceSharpFrame001",
+                out void* frameSelf, out ShimFrameFwd* frame, out _))
         {
-            var frame = (ShimFrameVtbl*)frameTable;
-
             int shimTick = frame->TickCount(frameSelf);
             float shimFrameTime = frame->GetFrameTime(frameSelf);
 
