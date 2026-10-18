@@ -325,3 +325,13 @@ TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsLibrarysTablesToo )
 	EXPECT_EQ( nullptr, SSFwdVPhysics_Table( "SSFwd_ModelInfo" ) );
 }
 
+TEST( FwdEngine, AGameDllThatDoesNotLinkTheSteamLibraryDoesNotServeItsTable )
+{
+	// The server's case: it links no libss_fwd_steam, so SS_FWD_SERVES_STEAM
+	// is not defined and the serve helper never asks for the Steam table
+	// (fwd_steam_test is the client's case, which does).
+	int32_t nEntries = -1;
+	EXPECT_EQ( nullptr, SSFwd_Serve( "SSFwd_SteamCallback", &nEntries ) );
+	EXPECT_EQ( -1, nEntries );
+}
+

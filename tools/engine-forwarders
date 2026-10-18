@@ -49,11 +49,16 @@ FORWARD when managed code first calls it. The names are the field names
 VtableLayouts.g.cs gives (an overload's second declaration is `Name_2`), so the
 two files can be read side by side while both exist.
 
-THE OUTPUTS
-    src/fwd/native/fwd_engine.g.inc   the forwarders and their tables, included by
-                                      src/fwd/native/fwd_engine.cpp
-    src/abi/EngineForwarders.g.cs     one struct per table: its name, its slot
-                                      hashes and names, one field per forwarder
+HAND-WRITTEN TABLES (HAND below) are the same tables over functions that are
+not one interface's methods, written in the library's own source: the Steam
+callback's (plan section 6). The generator lays out their table and C# struct
+from the row's signatures, under the same append-only rule.
+
+THE OUTPUTS, per library (LIBRARIES below)
+    src/fwd/native/fwd_<library>.g.inc  the forwarders and their tables, included by
+                                        src/fwd/native/fwd_<library>.cpp
+    src/abi/<Library>Forwarders.g.cs    one struct per table: its name and one
+                                        field per slot
 """
 
 import importlib.machinery
@@ -94,6 +99,9 @@ LIBRARIES = {
     'vphysics': dict(native='src/fwd/native/fwd_vphysics.g.inc',
                      managed='src/abi/VPhysicsForwarders.g.cs',
                      binary='libss_fwd_vphysics', what='vphysics\' interfaces and objects'),
+    'steam': dict(native='src/fwd/native/fwd_steam.g.inc',
+                  managed='src/abi/SteamForwarders.g.cs',
+                  binary='libss_fwd_steam', what='a Steam callback, built natively'),
 }
 
 # ---------------------------------------------------------------------------
@@ -365,6 +373,38 @@ FORWARD = [
     ),
 ]
 
+# ---------------------------------------------------------------------------
+# HAND-WRITTEN TABLES: a table whose functions are not calls to one
+# interface's methods. The library's source (fwd_<library>.cpp) defines each
+# function under the name the generator gives a slot, SSFwd_<table>_<slot>,
+# before it includes the generated file; a row names the table, its library,
+# and each slot's C++ return and parameter types, in slot order. The generator
+# writes the slot array, the table and the C# struct from them, and holds them
+# to the same append-only rule as FORWARD's. A slot's C# type is its
+# signature with no `self`: a hand function's first parameter is an ordinary
+# one.
+#
+# SteamCallback (plan section 6): the object Steam registers is built here,
+# deriving CCallbackBase, so the order of its two Run overloads is the
+# compiler's and managed writes only IManagedSteamCallback, one slot. Managed
+# allocates SizeOf bytes (the library has no heap), Construct builds the
+# callback in them over its managed side, and IsRegistered and CallbackId read
+# what Steam keeps in it.
+# ---------------------------------------------------------------------------
+HAND = [
+    dict(
+        table='SteamCallback',
+        library='steam',
+        self_type='CCallbackBase',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('Construct', 'CCallbackBase *', 'void *, IManagedSteamCallback *, int'),
+            ('IsRegistered', 'bool', 'CCallbackBase *'),
+            ('CallbackId', 'int', 'CCallbackBase *'),
+        ],
+    ),
+]
+
 PREFIX = 'SSFwd_'
 
 
@@ -468,34 +508,82 @@ def forwarders_of(row):
     return out
 
 
+def hand_forwarders(row):
+    """forwarders_of's tuples for one HAND row, in its order: the C# type is
+    the signature without the `self` a method's has."""
+    if row.get('library') not in LIBRARIES:
+        raise Refusal('%s names library %s, which LIBRARIES does not hold'
+                      % (row['table'], row.get('library')))
+
+    fields = [field for field, _returns, _parameters in row['slots']]
+    if len(set(fields)) != len(fields):
+        raise Refusal('%s names a slot twice' % row['table'])
+
+    out = []
+
+    for field, returns, parameters in row['slots']:
+        try:
+            kind = VL.signature_of(returns, parameters or 'void')
+        except VL.Inexpressible as error:
+            raise Refusal('%s.%s cannot be laid out as typed: %s' % (row['table'], field, error))
+
+        # signature_of answers a method's, whose first argument is the object.
+        kind = kind.replace('delegate* unmanaged<void*, ', 'delegate* unmanaged<', 1)
+        declaration = '%s %s%s_%s( %s )' % (returns, PREFIX, row['table'], field, parameters or 'void')
+        out.append((field, returns, parameter_types(parameters or 'void'), kind, declaration))
+
+    return out
+
+
+def all_tables():
+    """[(row, forwarders)] for every FORWARD and HAND row, FORWARD's first."""
+    tables = [(row, forwarders_of(row)) for row in (resolved(row) for row in FORWARD)]
+    tables += [(dict(row, hand=True), hand_forwarders(row)) for row in HAND]
+    return tables
+
+
 GENERATED = 'GENERATED by `tools/engine-forwarders --write`. DO NOT EDIT.'
 
 
 def emit_native(tables, library='engine'):
     # The forwarders call Valve's methods through the SDK headers, so the file
     # carries the attribution header (CLAUDE.md, "Valve attribution").
-    out = read(VALVE_HEADER).rstrip('\n').split('\n') + [
-        '// ' + GENERATED,
-        '//',
-        '// %s: one forwarder per method managed calls, and one SSForwarderTable' % LIBRARIES[library]['binary'],
-        '// per interface (src/fwd/native/ss_fwd.h). Each forwarder is a direct call to the',
-        '// method through the object\'s own vtable, compiled for this ABI, so the',
-        '// slot numbering is the compiler\'s and never written here. Included by',
-        '// fwd_%s.cpp.' % library,
-        '',
-    ]
+    if tables and all(row.get('hand') for row, _forwarders in tables):
+        about = [
+            '// %s: the SSForwarderTable (src/fwd/native/ss_fwd.h) of the functions' % LIBRARIES[library]['binary'],
+            '// fwd_%s.cpp writes by hand, in the order tools/engine-forwarders\' HAND' % library,
+            '// row names them. Included by fwd_%s.cpp, after them.' % library,
+        ]
+    else:
+        about = [
+            '// %s: one forwarder per method managed calls, and one SSForwarderTable' % LIBRARIES[library]['binary'],
+            '// per interface (src/fwd/native/ss_fwd.h). Each forwarder is a direct call to the',
+            '// method through the object\'s own vtable, compiled for this ABI, so the',
+            '// slot numbering is the compiler\'s and never written here. Included by',
+            '// fwd_%s.cpp.' % library,
+        ]
+    out = read(VALVE_HEADER).rstrip('\n').split('\n') + ['// ' + GENERATED, '//'] + about + ['']
 
-    for include in sorted(set(row['include'] for row, _forwarders in tables)):
+    includes = sorted(set(row['include'] for row, _forwarders in tables if not row.get('hand')))
+    for include in includes:
         out.append('#include "%s"' % include)
-    out.append('')
+    if includes:
+        out.append('')
 
     for row, forwarders in tables:
         name = row['table']
         out.append('//-----------------------------------------------------------------------------')
-        out.append('// %s: %d forwarder(s) over %s.' % (name, len(forwarders), row['self_type']))
-        out.append('//-----------------------------------------------------------------------------')
+        if row.get('hand'):
+            out.append('// %s: %d function(s) over %s, written in fwd_%s.cpp.'
+                       % (name, len(forwarders), row['self_type'], library))
+            out.append('//-----------------------------------------------------------------------------')
+            for _field, _returns, _types, _kind, declaration in forwarders:
+                out.append('// %s' % declaration)
+        else:
+            out.append('// %s: %d forwarder(s) over %s.' % (name, len(forwarders), row['self_type']))
+            out.append('//-----------------------------------------------------------------------------')
 
-        for field, returns, types, _kind, declaration in forwarders:
+        for field, returns, types, _kind, declaration in ([] if row.get('hand') else forwarders):
             params = ''.join(', %s a%d' % (t, i) for i, t in enumerate(types))
             args = ', '.join('a%d' % i for i in range(len(types)))
             call = 'self->%s( %s )' % (declaration.split('::', 1)[1].split('(', 1)[0],
@@ -544,7 +632,7 @@ def emit_managed(tables, library='engine'):
         '//',
         '// One struct per forwarder table %s serves (src/fwd/native):' % LIBRARIES[library]['binary'],
         '// plain function-pointer fields in the table\'s order, so field N is slot N',
-        '// on every ABI. The first argument of each is the OBJECT, not the',
+        '// on every ABI. The first argument of a forwarder is the OBJECT, not the',
         '// table: `_fwd->GetModel(_self, index)`. Slots only append, so',
         '// Forwarders.TryAcquire holds only that native serves at least as many',
         '// slots as the struct has fields.',
@@ -559,8 +647,13 @@ def emit_managed(tables, library='engine'):
     for row, forwarders in tables:
         name = row['table']
         out.append('/// <summary>')
-        out.append('/// <c>%s</c> through its forwarders (%s%s): %d slot(s).'
-                   % (row['self_type'], PREFIX, name, len(forwarders)))
+        if row.get('hand'):
+            out.append('/// <c>%s</c>\'s functions (%s%s): %d slot(s), none of them a method,'
+                       % (row['self_type'], PREFIX, name, len(forwarders)))
+            out.append('/// so the first argument is the first parameter.')
+        else:
+            out.append('/// <c>%s</c> through its forwarders (%s%s): %d slot(s).'
+                       % (row['self_type'], PREFIX, name, len(forwarders)))
         out.append('/// </summary>')
         out.append('[StructLayout(LayoutKind.Sequential)]')
         out.append('internal unsafe struct %sFwd : IForwarderTable' % name)
@@ -626,12 +719,11 @@ def emit(previous=None, reorder=False):
     """({path: text}, None) or (None, why). `previous` is the committed
     {table: slots}, which every table must extend at its end unless `reorder`."""
     try:
-        rows = [resolved(row) for row in FORWARD]
-        tables = [(row, forwarders_of(row)) for row in rows]
+        tables = all_tables()
     except Refusal as error:
         return None, str(error)
 
-    names = [row['table'] for row in rows]
+    names = [row['table'] for row, _forwarders in tables]
     if len(set(names)) != len(names):
         return None, 'FORWARD names a table twice'
 
@@ -682,6 +774,9 @@ def check(out=sys.stdout):
     for row in (resolved(row) for row in FORWARD):
         print('  %-28s %3d forwarder(s) over %s (%s)'
               % (row['table'], len(row['methods']), row['self_type'], row['library']), file=out)
+    for row in HAND:
+        print('  %-28s %3d function(s) over %s (%s, written by hand)'
+              % (row['table'], len(row['slots']), row['self_type'], row['library']), file=out)
     return 0
 
 
@@ -774,6 +869,38 @@ def self_test(out=sys.stdout):
        extends(['GetModel', 'GetModelType'], reorder=True))
     ok('a table with nothing committed takes any order',
        emit({})[0] is not None)
+
+    # Hand-written tables.
+    hand = dict(table='Hand', library='steam', self_type='Thing',
+                slots=[('Count', 'int', ''), ('Make', 'Thing *', 'void *, int')])
+    hand_rows = hand_forwarders(hand)
+    ok('a hand slot\'s C# type has no self: its first argument is its first parameter',
+       [r[3] for r in hand_rows] == ['delegate* unmanaged<int>',
+                                     'delegate* unmanaged<void*, int, void*>'])
+    hand_native = emit_native([(dict(hand, hand=True), hand_rows)], 'steam')
+    ok('a hand table lays out the library\'s own functions and writes no body',
+       '\treinterpret_cast< void * >( &SSFwd_Hand_Make ),' in hand_native
+       and '{ return' not in hand_native and '#include' not in hand_native
+       and 'static const SSForwarderTable s_HandTable = { s_HandSlots, 2 };' in hand_native)
+
+    def hand_refused(row):
+        try:
+            hand_forwarders(row)
+        except Refusal:
+            return True
+        return False
+
+    ok('a hand slot named twice is refused',
+       hand_refused(dict(hand, slots=[('Count', 'int', ''), ('Count', 'int', '')])))
+    ok('a hand row naming no library is refused', hand_refused(dict(hand, library='nowhere')))
+
+    saved_hand = HAND[:]
+    HAND[:] = [dict(hand, slots=list(reversed(hand['slots'])))]
+    try:
+        ok('a hand table is held to the append-only rule too',
+           emit(committed_slots(emit_managed([(dict(hand, hand=True), hand_rows)], 'steam')))[0] is None)
+    finally:
+        HAND[:] = saved_hand
 
     print('engine-forwarders self-test: %d checks, %d failed'
           % (checks[0], len(failures)), file=out)

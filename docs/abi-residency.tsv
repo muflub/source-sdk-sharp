@@ -60,6 +60,7 @@ ShimRoot.cs	plumbing	a: named by ShimAreas.g.cs	-
 Side.cs	plumbing	d: side enum of the module contract	-
 SideState.cs	plumbing	c: state that outlives the collectible context: the side's registry and counters, held by the Bootstrap as one opaque handle per game instance (statics to zero)	-
 SkyboxParams.cs	plumbing	a: named by ShimAreas.g.cs	-
+SteamForwarders.g.cs	plumbing	a: the generated boundary	-
 TeForward.cs	plumbing	b: value contract: one value per shell_te_forwards entry point (tempent_forwards.h)	-
 TempEntFlags.cs	plumbing	a: named by TempEntSpawn.Prepared.cs	-
 TempEntLife.cs	plumbing	a: named by ShimAreas.g.cs	-

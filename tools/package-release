@@ -82,15 +82,15 @@ def leaves_game_archive(name):
 PLATFORMS = {
     "linux-x64": dict(bindir="linux64", launcher="source#", steam="libsteam_api.so",
                       native=("server.so", "client.so", "libmanaged_host.so", "libss_particles.so",
-                              "libss_fwd_engine.so", "libss_fwd_vphysics.so"),
+                              "libss_fwd_engine.so", "libss_fwd_vphysics.so", "libss_fwd_steam.so"),
                       debug=".dbg", archive="tar", links="keep"),
     "win-x64": dict(bindir="x64", launcher="source#.exe", steam="steam_api64.dll",
                     native=("server.dll", "client.dll", "managed_host.dll", "ss_particles.dll",
-                            "ss_fwd_engine.dll", "ss_fwd_vphysics.dll"),
+                            "ss_fwd_engine.dll", "ss_fwd_vphysics.dll", "ss_fwd_steam.dll"),
                     debug=".pdb", archive="zip", links="copy"),
     "osx-x64": dict(bindir="osx64", launcher="source#", steam=None,
                     native=("server.dylib", "client.dylib", "libmanaged_host.dylib", "libss_fwd_engine.dylib",
-                            "libss_fwd_vphysics.dylib"),
+                            "libss_fwd_vphysics.dylib", "libss_fwd_steam.dylib"),
                     debug=None, archive="tar", links="keep"),
 }
 
