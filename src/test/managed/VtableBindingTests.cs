@@ -17,17 +17,16 @@ namespace SourceSharp.Tests;
 // stable and the version string is the contract, so none of that was answering
 // a question anybody had.
 //
-// Three things remain testable and all three are here:
+// Two things remain testable and both are here (the engine's interfaces are
+// called through their forwarders now, plan_engine_forwarders.md, so the
+// managed layouts of the engine's own tables, and their per-ABI slot numbers,
+// went with phase 6; fwd_engine_test holds each forwarder to its method):
 //
 //   1. THE MECHANISM. A struct field's POSITION is the slot number, and a call
-//      through it reaches the function in that slot. Tested against a vtable
+//      through it reaches the function in that slot. Tested against a table
 //      this file builds, so it needs no engine.
 //
-//   2. THE ONE CHECK. sizeof(TVtbl) / sizeof(void*) is what native's
-//      precompiled count is held against, so each struct's span is pinned to
-//      the number the headers give.
-//
-//   3. POLICY, WHICH IS NOW EXPRESSED ONLY BY ABSENCE. There is no table saying
+//   2. POLICY, WHICH IS NOW EXPRESSED ONLY BY ABSENCE. There is no table saying
 //      ClientCmd_Unrestricted must not be called; there is simply no method for
 //      it. That is only a real rule if something notices when a method appears,
 //      which is what the surface tests below do. (Running a console command at
@@ -157,162 +156,6 @@ public unsafe class VtableBindingTests
     }
 
     //-------------------------------------------------------------------------
-    // 2. THE ONE CHECK'S MANAGED HALF.
-    //
-    // Each of these numbers is what native's precompiled count -- taken from
-    // the compiler by VTableHook::MemberOf( &I::Last ).slot + 1 -- is held
-    // against at acquire. They are pinned HERE as well so a regenerated layout
-    // that changed a length is red in the managed suite too, not only in the
-    // gtest.
-    //-------------------------------------------------------------------------
-    // Vtable.SlotsIn is the very expression TryAcquire compares against native's
-    // count, so it is what these call -- a second measurement written here would
-    // be testing something the binding does not use.
-
-    [Fact]
-    public void TheRandomStreamSpansFourSlots()
-        => Assert.Equal(4, Vtable.SlotsIn<UniformRandomStreamVtbl>());
-
-    [Fact]
-    public void ModelInfoSpansFiftyNineSlots()
-        // 59 and not 57: the virtual destructor reserves slots 0 and 1.
-        => Assert.Equal(59, Vtable.SlotsIn<ModelInfoVtbl>());
-
-    [Fact]
-    public void TheBaseFileSystemSpansSeventeenSlots()
-        => Assert.Equal(17, Vtable.SlotsIn<BaseFileSystemVtbl>());
-
-    [Fact]
-    public void TheEngineClientSpansOneHundredAndFortySixSlots()
-        // 146 is the both-conditionals-in answer, which is how the shipped
-        // engine is built. 145 would mean cdll_int.h had been read with USE_SDL
-        // or NO_VOICE the other way round.
-        => Assert.Equal(146, Vtable.SlotsIn<EngineClientVtbl>());
-
-    [Fact]
-    public void TheEngineServerSpansOneHundredAndTwentyFourSlots()
-        => Assert.Equal(124, Vtable.SlotsIn<EngineServerVtbl>());
-
-    [Fact]
-    public void ASpanIsTheFIELDCountAndNotAByteCount()
-    {
-        // THE ARM THAT SAYS THE DIVISION HAPPENS. sizeof(UniformRandomStreamVtbl)
-        // is 32 and the span is 4; a SlotsIn that forgot to divide would answer
-        // 32, and every acquire would refuse against native's 4.
-        Assert.Equal(32, sizeof(UniformRandomStreamVtbl));
-        Assert.Equal(sizeof(UniformRandomStreamVtbl) / sizeof(void*),
-                     Vtable.SlotsIn<UniformRandomStreamVtbl>());
-    }
-
-    [Fact]
-    public void TheDestructorPairOccupiesTheFirstTwoModelInfoSlots()
-    {
-        // GetModel is the first REAL method and it is at slot 2 under Itanium,
-        // not slot 0 -- which is the whole reason the pair is emitted. An index
-        // one too low here reaches the deleting destructor and frees the
-        // engine's singleton. MSVC gives the destructor ONE slot, so there
-        // GetModel is slot 1 and the second destructor slot does not exist.
-        Assert.Equal((0, 0), VtableSlots.BothOf(typeof(ModelInfoVtbl), "Destructor1"));
-        Assert.Equal((1, -1), VtableSlots.BothOf(typeof(ModelInfoVtbl), "Destructor2"));
-        Assert.Equal((2, 1), VtableSlots.BothOf(typeof(ModelInfoVtbl), "GetModel"));
-    }
-
-    [Fact]
-    public void TheSecondSizeOverloadIsTheOneTheFilesystemBindsTo()
-    {
-        // IBaseFileSystem declares Size twice -- Size( FileHandle_t ) at slot 6
-        // and Size( const char *, const char * ) at slot 7. EngineBaseFileSystem
-        // calls Size_2. A table keyed by NAME would have bound slot 6 and handed
-        // a filename to a method expecting a file handle. MSVC reverses an
-        // overload pair, so on Windows the two swap.
-        Assert.Equal((6, 7), VtableSlots.BothOf(typeof(BaseFileSystemVtbl), "Size"));
-        Assert.Equal((7, 6), VtableSlots.BothOf(typeof(BaseFileSystemVtbl), "Size_2"));
-    }
-
-    // ---- The Microsoft ABI's count --------------------------------------
-    //
-    // Native takes each count from the compiler it was built with, so on
-    // Windows it reports MSVC's length: one slot fewer for a virtual
-    // destructor. TryAcquire holds it against EntriesFor, not SlotsIn.
-
-    [Fact]
-    public void ModelInfoIsFiftyEightSlotsUnderTheMicrosoftAbi()
-        => Assert.Equal(58, VtableAbi.MicrosoftEntries<ModelInfoVtbl>());
-
-    [Fact]
-    public void ALayoutBothAbisOrderAlikeHasTheSameCountUnderBoth()
-        => Assert.Equal(Vtable.SlotsIn<EngineClientVtbl>(), VtableAbi.MicrosoftEntries<EngineClientVtbl>());
-
-    [Fact]
-    public void AnOverloadOnlyReorderKeepsTheCount()
-        // MSVC swaps the two Size overloads and moves nothing else in or out.
-        => Assert.Equal(17, VtableAbi.MicrosoftEntries<BaseFileSystemVtbl>());
-
-    [Fact]
-    public void TheCountAcquireChecksIsTheOneForThisProcesssAbi()
-        => Assert.Equal(OperatingSystem.IsWindows() ? 58 : 59, Vtable.EntriesFor<ModelInfoVtbl>());
-
-    // ---- A property reads the slot for this process's ABI ---------------
-
-    [Fact]
-    public void AReorderedLayoutsPropertyReadsTheSlotItsAttributeNamesForThisProcess()
-    {
-        // A table whose entry N is N + 100: whatever a property returns says
-        // which index it read.
-        nint* table = stackalloc nint[Vtable.SlotsIn<BaseFileSystemVtbl>()];
-        for (int i = 0; i < Vtable.SlotsIn<BaseFileSystemVtbl>(); i++)
-            table[i] = 100 + i;
-
-        var vtbl = (BaseFileSystemVtbl*)table;
-
-        Assert.Equal(100 + VtableSlots.Of<BaseFileSystemVtbl>("Size"), (nint)vtbl->Size);
-        Assert.Equal(100 + VtableSlots.Of<BaseFileSystemVtbl>("Size_2"), (nint)vtbl->Size_2);
-        Assert.Equal(OperatingSystem.IsWindows() ? 107 : 106, (nint)vtbl->Size);
-        Assert.Equal(OperatingSystem.IsWindows() ? 106 : 107, (nint)vtbl->Size_2);
-    }
-
-    [Fact]
-    public void TheMissingSecondDestructorReadsAsNullOnWindowsAndItsSlotElsewhere()
-    {
-        nint* table = stackalloc nint[Vtable.SlotsIn<ModelInfoVtbl>()];
-        for (int i = 0; i < Vtable.SlotsIn<ModelInfoVtbl>(); i++)
-            table[i] = 100 + i;
-
-        var vtbl = (ModelInfoVtbl*)table;
-
-        Assert.Equal(100, vtbl->Destructor1);
-        Assert.Equal(OperatingSystem.IsWindows() ? 0 : 101, vtbl->Destructor2);
-        Assert.Equal(OperatingSystem.IsWindows() ? 101 : 102, (nint)vtbl->GetModel);
-    }
-
-    // ---- A class returned by value is a member function's return --------
-
-    [Fact]
-    public void ASlotReturningAVectorByValueIsAMemberFunction()
-    {
-        // MSVC passes a member function's return buffer after `this`; without
-        // [MemberFunction] the runtime would pass it first, as for a free
-        // function, and every Vector slot would misread its object on Windows.
-        Type inertia = VtableSlots.All(typeof(PhysicsObjectVtbl)).Single(s => s.Name == "GetInertia").Type;
-
-        Assert.Contains(inertia.GetFunctionPointerCallingConventions(), c => c.Name == "CallConvMemberFunction");
-    }
-
-    [Fact]
-    public void AScalarReturningSlotIsNotAMemberFunction()
-    {
-        Type mass = VtableSlots.All(typeof(PhysicsObjectVtbl)).Single(s => s.Name == "GetMass").Type;
-
-        Assert.DoesNotContain(mass.GetFunctionPointerCallingConventions(), c => c.Name == "CallConvMemberFunction");
-    }
-
-    [Fact]
-    public void TheDerivedEngineClientMethodsContinueTheBasesNumbering()
-        // IVEngineClient derives from IVEngineClient013 by single inheritance,
-        // so GetProtocolVersion is slot 138 rather than slot 0.
-        => Assert.Equal(138 * 8, (int)Marshal.OffsetOf<EngineClientVtbl>("GetProtocolVersion"));
-
-    //-------------------------------------------------------------------------
     // ACQUIRE REFUSES WITH A REASON when there is no native half, which in a
     // test process is always. The reason matters: "could not acquire" tells a
     // caller nothing, and the two failures — no such interface, and a length
@@ -371,7 +214,7 @@ public unsafe class VtableBindingTests
     private static ModuleEngine Unattached() => new(new EngineSide(Side.Server));
 
     //-------------------------------------------------------------------------
-    // 3. POLICY, EXPRESSED ONLY BY ABSENCE.
+    // 2. POLICY, EXPRESSED ONLY BY ABSENCE.
     //
     // There is no refusal table any more. A method that must not be callable is
     // one that is not written, and these are what make that a rule rather than

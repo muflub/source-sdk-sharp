@@ -7,20 +7,23 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// [SuppressGCTransition] on vphysics' own vtables (plan_physics_bones_perf
-/// B2). SuppressionAuditTests reads the native body of every suppressed shim
-/// slot; vphysics' bodies are Valve's, outside this tree, so these slots are
-/// held to a reviewed list instead, each checked against vphysics.so's
-/// behaviour to be a member or IVP-core read that returns.
-/// A slot added to the generator's suppress list without review, or any
-/// suppressed slot whose name says it changes something, goes red here.
+/// [SuppressGCTransition] on vphysics' calls (plan_physics_bones_perf B2),
+/// which go through their forwarders (plan_engine_forwarders.md): the
+/// suppression is on the forwarder table's field. SuppressionAuditTests reads
+/// the native body of every suppressed shim slot; vphysics' bodies are
+/// Valve's, outside this tree, so these methods are held to a reviewed list
+/// instead, each checked against vphysics.so's behaviour to be a member or
+/// IVP-core read that returns. A table suppresses exactly the reviewed methods
+/// it forwards. A method added to the generator's suppress list without
+/// review, or any suppressed one whose name says it changes something, goes
+/// red here.
 /// </summary>
 public class VPhysicsSuppressionTests
 {
-    /// <summary>The reviewed slots, by layout struct.</summary>
+    /// <summary>The reviewed methods, by forwarder table.</summary>
     private static readonly Dictionary<string, string[]> Reviewed = new()
     {
-        ["PhysicsObjectVtbl"] =
+        ["PhysicsObjectFwd"] =
         [
             "IsStatic", "IsAsleep", "IsTrigger", "IsMotionEnabled", "IsMoveable",
             "GetGameData", "GetGameFlags", "GetCallbackFlags", "GetContents",
@@ -29,7 +32,7 @@ public class VPhysicsSuppressionTests
             "LocalToWorld", "WorldToLocal", "LocalToWorldVector", "WorldToLocalVector",
             "CalculateLinearDrag", "CalculateAngularDrag",
         ],
-        ["PhysicsConstraintGroupVtbl"] = ["IsInErrorState"],
+        ["PhysicsConstraintGroupFwd"] = ["IsInErrorState"],
     };
 
     /// <summary>
@@ -41,26 +44,26 @@ public class VPhysicsSuppressionTests
         @"^(Set|Enable|Wake|Sleep|Recheck|Apply|Add|Create|Destroy|Become|Remove|Update|Teleport|Clear|Activate|Simulate|Release|Attach|Detach|Mark|Delete|Recompute|Next|Outward|Bounce)",
         RegexOptions.Compiled);
 
+    // The vphysics forwarder tables both sides call (SharedForwarders.g.cs).
     private static IEnumerable<Type> VPhysicsLayouts()
         => typeof(Crossings).Assembly.GetTypes()
                .Where(t => t.IsValueType && t.Namespace == "SourceSharp.Abi"
                         && t.Name.StartsWith("Physics", StringComparison.Ordinal)
-                        && t.Name.EndsWith("Vtbl", StringComparison.Ordinal));
+                        && t.Name.EndsWith("Fwd", StringComparison.Ordinal));
 
-    // Fields or properties: a layout MSVC orders differently (every vphysics
-    // object with a virtual destructor) reads its slots through properties.
-    private static List<string> Suppressed(Type layout)
-        => VtableSlots.All(layout)
-                      .Where(s => EngineApiAreasTests.IsSuppressed(s.Type))
-                      .Select(s => s.Name)
-                      .ToList();
+    private static IEnumerable<(string Name, Type Type)> Slots(Type table)
+        => table.GetFields(BindingFlags.Public | BindingFlags.Instance)
+                .Select(f => (f.Name, f.GetModifiedFieldType()));
+
+    private static List<string> Suppressed(Type table)
+        => Slots(table).Where(s => EngineApiAreasTests.IsSuppressed(s.Type)).Select(s => s.Name).ToList();
 
     [Fact]
     public void The_vphysics_layouts_are_found()
     {
         var names = VPhysicsLayouts().Select(t => t.Name).ToList();
-        Assert.True(names.Contains("PhysicsObjectVtbl") && names.Contains("PhysicsConstraintGroupVtbl"),
-                    $"the vphysics layouts are found ({string.Join(", ", names)})");
+        Assert.True(names.Contains("PhysicsObjectFwd") && names.Contains("PhysicsConstraintGroupFwd"),
+                    $"the vphysics forwarder tables are found ({string.Join(", ", names)})");
     }
 
     [Fact]
@@ -68,7 +71,10 @@ public class VPhysicsSuppressionTests
     {
         foreach (Type layout in VPhysicsLayouts())
         {
-            string[] expected = Reviewed.TryGetValue(layout.Name, out string[]? r) ? r : [];
+            // The reviewed methods this table forwards: a reviewed method
+            // managed does not call has no slot to suppress.
+            var forwarded = Slots(layout).Select(s => s.Name).ToHashSet(StringComparer.Ordinal);
+            string[] expected = Reviewed.TryGetValue(layout.Name, out string[]? r) ? r.Where(forwarded.Contains).ToArray() : [];
             Assert.Equal(expected.OrderBy(s => s, StringComparer.Ordinal),
                          Suppressed(layout).OrderBy(s => s, StringComparer.Ordinal));
         }
@@ -89,11 +95,11 @@ public class VPhysicsSuppressionTests
     {
         // The rule's positive arm: the unsuppressed setters and the recheck are
         // fields it would refuse, so a pass above is not a pattern matching nothing.
-        Type layout = VPhysicsLayouts().Single(t => t.Name == "PhysicsObjectVtbl");
-        var named = VtableSlots.All(layout)
-                               .Select(s => s.Name)
-                               .Where(n => Mutating.IsMatch(n))
-                               .ToList();
+        Type layout = VPhysicsLayouts().Single(t => t.Name == "PhysicsObjectFwd");
+        var named = Slots(layout)
+                    .Select(s => s.Name)
+                    .Where(n => Mutating.IsMatch(n))
+                    .ToList();
 
         Assert.Contains("RecheckCollisionFilter", named);
         Assert.Contains("Wake", named);

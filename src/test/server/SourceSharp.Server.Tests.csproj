@@ -82,7 +82,6 @@
     <Compile Include="..\common\SandboxMapFactAttribute.cs" Link="common\SandboxMapFactAttribute.cs" />
     <Compile Include="..\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <Compile Include="..\common\LinuxOnlyFactAttribute.cs" Link="common\LinuxOnlyFactAttribute.cs" />
-    <Compile Include="..\common\VtableSlots.cs" Link="common\VtableSlots.cs" />
     <Compile Include="..\common\ThreadPoolFloor.cs" Link="common\ThreadPoolFloor.cs" />
     <Compile Include="..\common\RecordingBlastSweep.cs" Link="common\RecordingBlastSweep.cs" />
     <Compile Include="..\common\RecordingDecals.cs" Link="common\RecordingDecals.cs" />

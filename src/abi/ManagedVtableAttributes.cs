@@ -64,34 +64,6 @@ public sealed class SlotHashAttribute(uint hash) : Attribute
 }
 
 /// <summary>
-/// On a slot of a generated layout whose Microsoft-ABI order is not its
-/// Itanium order (tools/vtable-layout): the slot's index under each ABI.
-///
-/// <para>
-/// The engine's Windows binaries are MSVC's, and MSVC gives a virtual
-/// destructor one slot rather than two and lays overloads out grouped and in
-/// reverse declaration order. A called-by-managed slot is a property that
-/// reads <see cref="Microsoft"/> on Windows and <see cref="Itanium"/>
-/// elsewhere; on a managed-written field, ManagedVtableGenerator writes the
-/// thunk at the index for the ABI it runs on. Tests read it to find a slot
-/// without knowing which form the layout took.
-/// </para>
-/// </summary>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = false)]
-public sealed class VtableSlotAttribute(int itanium, int microsoft) : Attribute
-{
-    /// <summary>The slot under the Itanium ABI: the header's declaration order.</summary>
-    public int Itanium { get; } = itanium;
-
-    /// <summary>The slot under the Microsoft ABI, or -1 where it has none (a destructor's second slot).</summary>
-    public int Microsoft { get; } = microsoft;
-
-    /// <summary>The index for the ABI this process's engine was built with.</summary>
-    public int ForThisProcess => OperatingSystem.IsWindows() ? Microsoft : Itanium;
-}
-
-
-/// <summary>
 /// On an assembly, one per managed-built contract it implements: the native
 /// interface name and its per-slot hashes, written by ManagedVtableGenerator
 /// (plan_managed_vtable_reload.md L5). A reload reads these from the new

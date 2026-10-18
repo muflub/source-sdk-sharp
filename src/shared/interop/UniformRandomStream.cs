@@ -67,10 +67,10 @@ public sealed unsafe class UniformRandomStream : IUniformRandom
     /// The engine's stream, or null with the reason.
     ///
     /// <para>
-    /// The whole of the acquire is <see cref="Vtable.TryAcquire{TVtbl}"/>:
-    /// native answers for the version string and says how long the table is,
-    /// and that number has to be this struct's field count. There is nothing
-    /// else to check and nothing at all per call.
+    /// The whole of the acquire is <see cref="Forwarders"/>' TryAcquire:
+    /// native answers for the version string, and its forwarder table must
+    /// hold at least the slots the struct reads. There is nothing else to check
+    /// and nothing at all per call.
     /// </para>
     ///
     /// <para>

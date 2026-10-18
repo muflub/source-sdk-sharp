@@ -341,75 +341,20 @@ public class ManagedVtableGeneratorTests
         Assert.True(vtable.Released);
     }
 
-    // ---- A layout MSVC orders differently ----------------------------------
+    // ---- Every thunk at its field's index ------------------------------------
     //
-    // tools/vtable-layout writes [VtableSlot(itanium, microsoft)] on every field
-    // of a managed-written layout whose Microsoft-ABI order is not its field
-    // order (CCallbackBase's two Run, which MSVC reverses). Here the two slots
-    // swap the same way.
-
-    private static string Reversed(string source) => source
-        .Replace("[SlotHash(0x00000020)]", "[VtableSlot(0, 1)]\n    [SlotHash(0x00000020)]")
-        .Replace("[SlotHash(0x00000021)]", "[VtableSlot(1, 0)]\n    [SlotHash(0x00000021)]");
+    // tools/vtable-layout emits no table MSVC orders differently, so a slot's
+    // index is its field position on both ABIs.
 
     [Fact]
-    public void AReorderedLayoutWritesEachThunkAtItsIndexForTheAbiItRunsOn()
-    {
-        string written = Generated(Reversed(ValveLayout + ValveContract));
-
-        Assert.Contains("slots[global::System.OperatingSystem.IsWindows() ? 1 : 0] = ", written);
-        Assert.Contains("slots[global::System.OperatingSystem.IsWindows() ? 0 : 1] = ", written);
-    }
-
-    [Fact]
-    public void ALayoutInFieldOrderWritesPlainIndices()
+    public void ALayoutWritesEachThunkAtItsFieldIndex()
     {
         string written = Generated(ValveLayout + ValveContract);
+        string[] lines = written.Split('\n').Select(l => l.Trim()).ToArray();
 
-        Assert.Contains("slots[0] = ", written);
-        Assert.Contains("slots[1] = ", written);
+        Assert.Single(lines, l => l.StartsWith("slots[0] = ", StringComparison.Ordinal) && l.EndsWith("&ObjectWake;", StringComparison.Ordinal));
+        Assert.Single(lines, l => l.StartsWith("slots[1] = ", StringComparison.Ordinal) && l.EndsWith("&ObjectSleep;", StringComparison.Ordinal));
         Assert.DoesNotContain("IsWindows", written);
-    }
-
-    [Fact]
-    public void ASlotWhoseTwoIndicesAgreeIsWrittenPlain()
-    {
-        string written = Generated((ValveLayout + ValveContract)
-            .Replace("[SlotHash(0x00000020)]", "[VtableSlot(0, 0)]\n    [SlotHash(0x00000020)]"));
-
-        Assert.Contains("slots[0] = ", written);
-        Assert.DoesNotContain("IsWindows", written);
-    }
-
-    // The call lands on the right method through the slot THIS process's ABI
-    // numbers it with: ObjectWake is slot 0 under Itanium and slot 1 under
-    // the Microsoft ABI.
-    [Fact]
-    public unsafe void ACallThroughAReorderedTableLandsOnTheMethodAtThisAbisIndex()
-    {
-        int wake = OperatingSystem.IsWindows() ? 1 : 0;
-        Assert.Single(ValveImplementation.Split("Slot(self, 0)").Skip(1));
-        Assert.Single(ValveImplementation.Split("Slot(self, 1)").Skip(1));
-        string implementation = ValveImplementation
-            .Replace("Slot(self, 0)", "Slot(self, WAKE)")
-            .Replace("Slot(self, 1)", "Slot(self, SLEEP)")
-            .Replace("WAKE", wake.ToString())
-            .Replace("SLEEP", (1 - wake).ToString());
-        var (compilation, _) = Drive(Reversed(ValveLayout + ValveContract) + implementation);
-        using var stream = new MemoryStream();
-        var emitted = compilation.Emit(stream);
-        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics
-            .Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString())));
-
-        var assembly = System.Reflection.Assembly.Load(stream.ToArray());
-        Type caller = assembly.GetType("ValveCaller")!;
-        object probe = Activator.CreateInstance(assembly.GetType("WakeProbe")!)!;
-        var vtable = (ManagedVtable)caller.GetMethod("Build")!.Invoke(null, [probe])!;
-
-        caller.GetMethod("Wake")!.Invoke(null, [(nint)vtable.Pointer, (nint)0x2468]);
-        Assert.Equal((nint)0x2468, (nint)probe.GetType().GetField("Woken")!.GetValue(probe)!);
-        Assert.Equal(10, (int)caller.GetMethod("Sleep")!.Invoke(null, [(nint)vtable.Pointer, (nint)9])!);
-        Assert.True(vtable.Release());
     }
 
     // A Valve class with data after its vptr (CCallbackBase): the layout's
