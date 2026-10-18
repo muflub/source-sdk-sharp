@@ -49,11 +49,25 @@ FORWARD when managed code first calls it. The names are the field names
 VtableLayouts.g.cs gives (an overload's second declaration is `Name_2`), so the
 two files can be read side by side while both exist.
 
+HAND-WRITTEN TABLES (HAND below) are the same tables over functions that are
+not one interface's methods, written in the library's own source: the Steam
+callback's (plan section 6). The generator lays out their table and C# struct
+from the row's signatures, under the same append-only rule.
+
+ONE LIBRARY PER SIDE (ruled 2026-10-18). libss_fwd_server serves the tables
+server.so's managed code can reach, libss_fwd_client the client's, and each
+game DLL links its own. A row's `side` is where its users compile: a table
+referenced from Shared.Interop, or from both sides, is `both` and is in both
+libraries; one referenced from one side's projects only is that side's. The
+check holds every row's side to the tree (`side_audit`).
+
 THE OUTPUTS
-    src/fwd/native/fwd_engine.g.inc   the forwarders and their tables, included by
-                                      src/fwd/native/fwd_engine.cpp
-    src/abi/EngineForwarders.g.cs     one struct per table: its name, its slot
-                                      hashes and names, one field per forwarder
+    src/fwd/native/fwd_server.g.inc            the server library's forwarders and
+    src/fwd/native/fwd_client.g.inc            tables, the client's: included by
+                                               src/fwd/native/fwd_<side>.cpp
+    src/abi/SharedForwarders.g.cs              one struct per `both` table (Abi)
+    src/server/interop/ServerForwarders.g.cs   one per server table (Server.Interop)
+    src/client/interop/ClientForwarders.g.cs   one per client table (Client.Interop)
 """
 
 import importlib.machinery
@@ -83,17 +97,35 @@ VL = _load_vtable_layout()
 VALVE_HEADER = 'tools/valve-header.txt'
 
 # ---------------------------------------------------------------------------
-# ONE LIBRARY PER FAMILY (plan_engine_forwarders.md section 4). Each has its
-# own generated C++ (included by src/fwd/native/fwd_<name>.cpp, the library's
-# one translation unit) and its own C# file. A FORWARD row names its family.
+# ONE LIBRARY PER SIDE (plan_engine_forwarders.md section 10, 2026-10-18).
+# Each has its own generated C++, included by src/fwd/native/fwd_<side>.cpp;
+# the C# structs go where their users compile (SIDE_FILES). A row names its
+# side; `both` rows are in both libraries and in Abi.
 # ---------------------------------------------------------------------------
 LIBRARIES = {
-    'engine': dict(native='src/fwd/native/fwd_engine.g.inc',
-                   managed='src/abi/EngineForwarders.g.cs',
-                   binary='libss_fwd_engine', what='the engine\'s interfaces'),
-    'vphysics': dict(native='src/fwd/native/fwd_vphysics.g.inc',
-                     managed='src/abi/VPhysicsForwarders.g.cs',
-                     binary='libss_fwd_vphysics', what='vphysics\' interfaces and objects'),
+    'server': dict(native='src/fwd/native/fwd_server.g.inc',
+                   binary='libss_fwd_server', what='the server\'s'),
+    'client': dict(native='src/fwd/native/fwd_client.g.inc',
+                   binary='libss_fwd_client', what='the client\'s'),
+}
+
+SIDES = ('both', 'server', 'client')
+
+SIDE_FILES = {
+    'both': dict(managed='src/abi/SharedForwarders.g.cs',
+                 where='Abi, for the tables both sides call'),
+    'server': dict(managed='src/server/interop/ServerForwarders.g.cs',
+                   where='Server.Interop, for the tables only the server calls'),
+    'client': dict(managed='src/client/interop/ClientForwarders.g.cs',
+                   where='Client.Interop, for the tables only the client calls'),
+}
+
+# Where each side's managed code compiles, for side_audit: Shared.Interop and
+# the shared source compile into both sides.
+SIDE_ROOTS = {
+    'server': ('src/server',),
+    'client': ('src/client',),
+    'both': ('src/shared',),
 }
 
 # ---------------------------------------------------------------------------
@@ -139,6 +171,7 @@ FORWARD = [
     ),
     dict(
         struct='EngineClientVtbl',
+        side='client',
         # cdll_int.h declares GetMouseDelta under `#if defined( USE_SDL )`: the
         # Linux engine is built with SDL, Valve's Windows engine without it
         # (src/shared/native/shell_vtable_interfaces.cpp says the same).
@@ -151,6 +184,7 @@ FORWARD = [
     ),
     dict(
         struct='EngineServerVtbl',
+        side='server',
         methods=[
             'IsDedicatedServer', 'GetEntityCount', 'GetPlayerNetInfo',
             'GetClientConVarValue', 'GetArea', 'GetMapEntitiesString',
@@ -167,6 +201,7 @@ FORWARD = [
     ),
     dict(
         struct='InputSystemVtbl',
+        side='client',
         methods=[
             'IsButtonDown', 'GetAnalogValue', 'GetJoystickCount', 'SetRumble',
             'StopRumble', 'ButtonCodeToString', 'GetRawMouseAccumulators',
@@ -176,6 +211,7 @@ FORWARD = [
     ),
     dict(
         struct='NetChannelInfoVtbl',
+        side='server',
         methods=[
             'GetAddress', 'GetAvgLatency',
         ],
@@ -201,20 +237,20 @@ FORWARD = [
     ),
     dict(
         struct='StaticPropMgrServerVtbl',
+        side='server',
         methods=[
             'CreateVPhysicsRepresentations',
         ],
     ),
     dict(
         struct='PhysicsVtbl',
-        library='vphysics',
+        side='client',
         methods=[
             'FindOrCreateCollisionSet', 'FindCollisionSet',
         ],
     ),
     dict(
         struct='PhysicsCollisionVtbl',
-        library='vphysics',
         methods=[
             'CollideGetExtent', 'CollideGetAABB', 'BBoxToCollide',
             'VPhysicsKeyParserCreate', 'VPhysicsKeyParserDestroy',
@@ -223,7 +259,6 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsSurfacePropsVtbl',
-        library='vphysics',
         methods=[
             'ParseSurfaceData', 'SurfacePropCount', 'GetSurfaceIndex', 'GetSurfaceData',
             'GetString', 'GetPropName', 'SetWorldMaterialIndexTable',
@@ -231,7 +266,6 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsEnvironmentVtbl',
-        library='vphysics',
         methods=[
             'GetGravity', 'SetAirDensity', 'GetAirDensity', 'CreatePolyObject',
             'CreatePolyObjectStatic', 'DestroyObject', 'CreateFluidController',
@@ -250,7 +284,6 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsObjectVtbl',
-        library='vphysics',
         methods=[
             'IsStatic', 'IsAsleep', 'IsTrigger', 'IsCollisionEnabled', 'IsMoveable',
             'EnableCollisions', 'EnableGravity', 'EnableMotion', 'SetGameData',
@@ -271,21 +304,18 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsShadowControllerVtbl',
-        library='vphysics',
         methods=[
             'IsPhysicallyControlled', 'GetLastImpulse',
         ],
     ),
     dict(
         struct='PhysicsMotionControllerVtbl',
-        library='vphysics',
         methods=[
             'AttachObject', 'DetachObject', 'WakeObjects',
         ],
     ),
     dict(
         struct='PhysicsPlayerControllerVtbl',
-        library='vphysics',
         methods=[
             'Update', 'IsInContact', 'SetObject', 'GetShadowPosition', 'StepUp', 'Jump',
             'GetShadowVelocity', 'GetLastImpulse', 'SetPushMassLimit',
@@ -294,7 +324,6 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsFrictionSnapshotVtbl',
-        library='vphysics',
         methods=[
             'IsValid', 'GetObject', 'GetContactPoint', 'GetSurfaceNormal',
             'GetNormalForce', 'RecomputeFriction', 'ClearFrictionForce',
@@ -303,14 +332,12 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsFluidControllerVtbl',
-        library='vphysics',
         methods=[
             'GetGameData', 'GetSurfacePlane', 'GetDensity',
         ],
     ),
     dict(
         struct='PhysicsConstraintVtbl',
-        library='vphysics',
         methods=[
             'Deactivate', 'GetReferenceObject', 'GetAttachedObject', 'SetLinearMotor',
             'SetAngularMotor',
@@ -318,35 +345,30 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsConstraintGroupVtbl',
-        library='vphysics',
         methods=[
             'Activate', 'IsInErrorState', 'ClearErrorState',
         ],
     ),
     dict(
         struct='PhysicsSpringVtbl',
-        library='vphysics',
         methods=[
             'SetSpringConstant', 'SetSpringDamping', 'SetSpringLength',
         ],
     ),
     dict(
         struct='PhysicsCollisionSetVtbl',
-        library='vphysics',
         methods=[
             'EnableCollisions', 'DisableCollisions',
         ],
     ),
     dict(
         struct='PhysicsCollisionDataVtbl',
-        library='vphysics',
         methods=[
             'GetSurfaceNormal', 'GetContactPoint',
         ],
     ),
     dict(
         struct='VPhysicsKeyParserVtbl',
-        library='vphysics',
         methods=[
             'GetCurrentBlockName', 'Finished', 'ParseSolid', 'ParseFluid',
             'ParseRagdollConstraint', 'ParseSurfaceTable', 'ParseCustom', 'SkipBlock',
@@ -354,13 +376,45 @@ FORWARD = [
     ),
     dict(
         struct='PhysicsCollisionEventVtbl',
-        library='vphysics',
         # The client's own C++ handler (game/client/physics.cpp's g_Collisions),
         # which ClientPhysicsCollisionEventBinding forwards the slots it does
         # not take over to.
         methods=[
             'PreCollision', 'StartTouch', 'EndTouch', 'PostSimulationFrame',
             'ObjectEnterTrigger', 'ObjectLeaveTrigger',
+        ],
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# HAND-WRITTEN TABLES: a table whose functions are not calls to one
+# interface's methods. A source of the library defines each function under
+# the name the generator gives a slot, SSFwd_<table>_<slot>, declared in the
+# row's `include`; a row names the table, its side, that header, and each
+# slot's C++ return and parameter types, in slot order. The generator
+# writes the slot array, the table and the C# struct from them, and holds them
+# to the same append-only rule as FORWARD's. A slot's C# type is its
+# signature with no `self`: a hand function's first parameter is an ordinary
+# one.
+#
+# SteamCallback (plan section 6): the object Steam registers is built here,
+# deriving CCallbackBase, so the order of its two Run overloads is the
+# compiler's and managed writes only IManagedSteamCallback, one slot. Managed
+# allocates SizeOf bytes (the library has no heap), Construct builds the
+# callback in them over its managed side, and IsRegistered and CallbackId read
+# what Steam keeps in it.
+# ---------------------------------------------------------------------------
+HAND = [
+    dict(
+        table='SteamCallback',
+        side='client',
+        self_type='CCallbackBase',
+        include='fwd_steam.h',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('Construct', 'CCallbackBase *', 'void *, IManagedSteamCallback *, int'),
+            ('IsRegistered', 'bool', 'CCallbackBase *'),
+            ('CallbackId', 'int', 'CCallbackBase *'),
         ],
     ),
 ]
@@ -382,7 +436,7 @@ def interface_entry(struct):
 
 def resolved(row):
     """The row with its derived fields filled in: table, self_type, include,
-    library."""
+    side."""
     entry = interface_entry(row['struct'])
     out = dict(row)
     out.setdefault('table', row['struct'][:-len('Vtbl')] if row['struct'].endswith('Vtbl')
@@ -391,10 +445,10 @@ def resolved(row):
     header = entry['header']
     out.setdefault('include', header[len('src/public/'):] if header.startswith('src/public/')
                    else header[len('src/'):])
-    out.setdefault('library', 'engine')
-    if out['library'] not in LIBRARIES:
-        raise Refusal('%s names library %s, which LIBRARIES does not hold'
-                      % (row['struct'], out['library']))
+    out.setdefault('side', 'both')
+    if out['side'] not in SIDES:
+        raise Refusal('%s names side %s; the sides are %s'
+                      % (row['struct'], out['side'], ', '.join(SIDES)))
     return out
 
 
@@ -468,34 +522,84 @@ def forwarders_of(row):
     return out
 
 
+def hand_forwarders(row):
+    """forwarders_of's tuples for one HAND row, in its order: the C# type is
+    the signature without the `self` a method's has."""
+    if row.get('side', 'both') not in SIDES:
+        raise Refusal('%s names side %s; the sides are %s'
+                      % (row['table'], row.get('side'), ', '.join(SIDES)))
+
+    fields = [field for field, _returns, _parameters in row['slots']]
+    if len(set(fields)) != len(fields):
+        raise Refusal('%s names a slot twice' % row['table'])
+
+    out = []
+
+    for field, returns, parameters in row['slots']:
+        try:
+            kind = VL.signature_of(returns, parameters or 'void')
+        except VL.Inexpressible as error:
+            raise Refusal('%s.%s cannot be laid out as typed: %s' % (row['table'], field, error))
+
+        # signature_of answers a method's, whose first argument is the object.
+        kind = kind.replace('delegate* unmanaged<void*, ', 'delegate* unmanaged<', 1)
+        declaration = '%s %s%s_%s( %s )' % (returns, PREFIX, row['table'], field, parameters or 'void')
+        out.append((field, returns, parameter_types(parameters or 'void'), kind, declaration))
+
+    return out
+
+
+def all_tables():
+    """[(row, forwarders)] for every FORWARD and HAND row, FORWARD's first."""
+    tables = [(row, forwarders_of(row)) for row in (resolved(row) for row in FORWARD)]
+    tables += [(dict(row, hand=True, side=row.get('side', 'both')), hand_forwarders(row))
+               for row in HAND]
+    return tables
+
+
 GENERATED = 'GENERATED by `tools/engine-forwarders --write`. DO NOT EDIT.'
 
 
-def emit_native(tables, library='engine'):
+def emit_native(tables, library='server'):
     # The forwarders call Valve's methods through the SDK headers, so the file
     # carries the attribution header (CLAUDE.md, "Valve attribution").
-    out = read(VALVE_HEADER).rstrip('\n').split('\n') + [
-        '// ' + GENERATED,
-        '//',
-        '// %s: one forwarder per method managed calls, and one SSForwarderTable' % LIBRARIES[library]['binary'],
-        '// per interface (src/fwd/native/ss_fwd.h). Each forwarder is a direct call to the',
-        '// method through the object\'s own vtable, compiled for this ABI, so the',
-        '// slot numbering is the compiler\'s and never written here. Included by',
-        '// fwd_%s.cpp.' % library,
-        '',
-    ]
+    if tables and all(row.get('hand') for row, _forwarders in tables):
+        about = [
+            '// %s: the SSForwarderTable (src/fwd/native/ss_fwd.h) of the functions' % LIBRARIES[library]['binary'],
+            '// fwd_%s.cpp writes by hand, in the order tools/engine-forwarders\' HAND' % library,
+            '// row names them. Included by fwd_%s.cpp, after them.' % library,
+        ]
+    else:
+        about = [
+            '// %s: one forwarder per method %s managed code calls, and one' % (LIBRARIES[library]['binary'], LIBRARIES[library]['what']),
+            '// SSForwarderTable per interface (src/fwd/native/ss_fwd.h). Each forwarder is a',
+            '// direct call to the method through the object\'s own vtable, compiled for',
+            '// this ABI, so the slot numbering is the compiler\'s and never written here.',
+            '// A HAND table lays out functions another source of the library writes.',
+            '// Included by fwd_%s.cpp.' % library,
+        ]
+    out = read(VALVE_HEADER).rstrip('\n').split('\n') + ['// ' + GENERATED, '//'] + about + ['']
 
-    for include in sorted(set(row['include'] for row, _forwarders in tables)):
+    includes = sorted(set(row['include'] for row, _forwarders in tables if row.get('include')))
+    for include in includes:
         out.append('#include "%s"' % include)
-    out.append('')
+    if includes:
+        out.append('')
 
     for row, forwarders in tables:
         name = row['table']
         out.append('//-----------------------------------------------------------------------------')
-        out.append('// %s: %d forwarder(s) over %s.' % (name, len(forwarders), row['self_type']))
-        out.append('//-----------------------------------------------------------------------------')
+        if row.get('hand'):
+            out.append('// %s: %d function(s) over %s, declared in %s.'
+                       % (name, len(forwarders), row['self_type'], row.get('include', 'the library')))
+            out.append('//-----------------------------------------------------------------------------')
+            for _field, _returns, _types, _kind, declaration in forwarders:
+                out.append('// %s' % declaration)
+        else:
+            out.append('// %s: %d forwarder(s) over %s.' % (name, len(forwarders), row['self_type']))
+            out.append('//-----------------------------------------------------------------------------')
 
-        for field, returns, types, _kind, declaration in forwarders:
+        for field, returns, types, _kind, declaration in ([] if row.get('hand') else forwarders):
             params = ''.join(', %s a%d' % (t, i) for i, t in enumerate(types))
             args = ', '.join('a%d' % i for i in range(len(types)))
             call = 'self->%s( %s )' % (declaration.split('::', 1)[1].split('(', 1)[0],
@@ -538,13 +642,13 @@ def emit_native(tables, library='engine'):
     return '\n'.join(out)
 
 
-def emit_managed(tables, library='engine'):
+def emit_managed(tables, side='both'):
     out = [
         '// ' + GENERATED,
         '//',
-        '// One struct per forwarder table %s serves (src/fwd/native):' % LIBRARIES[library]['binary'],
+        '// One struct per forwarder table (src/fwd/native) in %s:' % SIDE_FILES[side]['where'],
         '// plain function-pointer fields in the table\'s order, so field N is slot N',
-        '// on every ABI. The first argument of each is the OBJECT, not the',
+        '// on every ABI. The first argument of a forwarder is the OBJECT, not the',
         '// table: `_fwd->GetModel(_self, index)`. Slots only append, so',
         '// Forwarders.TryAcquire holds only that native serves at least as many',
         '// slots as the struct has fields.',
@@ -559,8 +663,13 @@ def emit_managed(tables, library='engine'):
     for row, forwarders in tables:
         name = row['table']
         out.append('/// <summary>')
-        out.append('/// <c>%s</c> through its forwarders (%s%s): %d slot(s).'
-                   % (row['self_type'], PREFIX, name, len(forwarders)))
+        if row.get('hand'):
+            out.append('/// <c>%s</c>\'s functions (%s%s): %d slot(s), none of them a method,'
+                       % (row['self_type'], PREFIX, name, len(forwarders)))
+            out.append('/// so the first argument is the first parameter.')
+        else:
+            out.append('/// <c>%s</c> through its forwarders (%s%s): %d slot(s).'
+                       % (row['self_type'], PREFIX, name, len(forwarders)))
         out.append('/// </summary>')
         out.append('[StructLayout(LayoutKind.Sequential)]')
         out.append('internal unsafe struct %sFwd : IForwarderTable' % name)
@@ -626,12 +735,11 @@ def emit(previous=None, reorder=False):
     """({path: text}, None) or (None, why). `previous` is the committed
     {table: slots}, which every table must extend at its end unless `reorder`."""
     try:
-        rows = [resolved(row) for row in FORWARD]
-        tables = [(row, forwarders_of(row)) for row in rows]
+        tables = all_tables()
     except Refusal as error:
         return None, str(error)
 
-    names = [row['table'] for row in rows]
+    names = [row['table'] for row, _forwarders in tables]
     if len(set(names)) != len(names):
         return None, 'FORWARD names a table twice'
 
@@ -644,15 +752,55 @@ def emit(previous=None, reorder=False):
 
     files = {}
     for library, paths in LIBRARIES.items():
-        mine = [(row, forwarders) for row, forwarders in tables if row['library'] == library]
+        mine = [(row, forwarders) for row, forwarders in tables if row['side'] in ('both', library)]
         files[paths['native']] = emit_native(mine, library)
-        files[paths['managed']] = emit_managed(mine, library)
+    for side, paths in SIDE_FILES.items():
+        mine = [(row, forwarders) for row, forwarders in tables if row['side'] == side]
+        files[paths['managed']] = emit_managed(mine, side)
     return files, None
 
 
 def committed():
-    """The committed slots of every library's C# file."""
-    return committed_slots([read(paths['managed']) for paths in LIBRARIES.values()])
+    """The committed slots of every side's C# file."""
+    return committed_slots([read(paths['managed']) for paths in SIDE_FILES.values()])
+
+
+def derived_side(found):
+    """The side a table belongs to, from the side roots that reference it:
+    `both` when shared code or both sides do; None when nothing does."""
+    if 'both' in found or {'server', 'client'} <= set(found):
+        return 'both'
+    if 'server' in found:
+        return 'server'
+    if 'client' in found:
+        return 'client'
+    return None
+
+
+def side_audit(tables, sources=None):
+    """[why] for every row whose side is not where its struct is referenced.
+    `sources` is {side root: [file text]}, read from the tree when None; the
+    generated forwarder files themselves are not users."""
+    if sources is None:
+        sources = {}
+        for side, roots in SIDE_ROOTS.items():
+            texts = sources.setdefault(side, [])
+            for root in roots:
+                for folder, _dirs, files in os.walk(os.path.join(REPO, root)):
+                    for name in files:
+                        if name.endswith('.cs') and not name.endswith('Forwarders.g.cs'):
+                            texts.append(read(os.path.relpath(os.path.join(folder, name), REPO)) or '')
+
+    problems = []
+    for row, _forwarders in tables:
+        word = re.compile(r'\b%sFwd\b' % re.escape(row['table']))
+        found = [side for side, texts in sources.items() if any(word.search(t) for t in texts)]
+        want = derived_side(found)
+        if want is not None and want != row['side']:
+            problems.append('%s is side %s, but %sFwd is referenced from %s, so its side is %s'
+                            % (row['table'], row['side'], row['table'],
+                               ', '.join(SIDE_ROOTS[f][0] for f in sorted(found)), want))
+    return problems
 
 
 def read(relative):
@@ -679,9 +827,18 @@ def check(out=sys.stdout):
     if stale:
         return 1
 
+    problems = side_audit(all_tables())
+    for why in problems:
+        print('!! %s. Set the row\'s side to where its users compile.' % why, file=out)
+    if problems:
+        return 2
+
     for row in (resolved(row) for row in FORWARD):
         print('  %-28s %3d forwarder(s) over %s (%s)'
-              % (row['table'], len(row['methods']), row['self_type'], row['library']), file=out)
+              % (row['table'], len(row['methods']), row['self_type'], row['side']), file=out)
+    for row in HAND:
+        print('  %-28s %3d function(s) over %s (%s, written by hand)'
+              % (row['table'], len(row['slots']), row['self_type'], row.get('side', 'both')), file=out)
     return 0
 
 
@@ -774,6 +931,62 @@ def self_test(out=sys.stdout):
        extends(['GetModel', 'GetModelType'], reorder=True))
     ok('a table with nothing committed takes any order',
        emit({})[0] is not None)
+
+    # Hand-written tables.
+    hand = dict(table='Hand', side='client', self_type='Thing',
+                slots=[('Count', 'int', ''), ('Make', 'Thing *', 'void *, int')])
+    hand_rows = hand_forwarders(hand)
+    ok('a hand slot\'s C# type has no self: its first argument is its first parameter',
+       [r[3] for r in hand_rows] == ['delegate* unmanaged<int>',
+                                     'delegate* unmanaged<void*, int, void*>'])
+    hand_native = emit_native([(dict(hand, hand=True), hand_rows)], 'client')
+    ok('a hand table lays out the library\'s own functions and writes no body',
+       '\treinterpret_cast< void * >( &SSFwd_Hand_Make ),' in hand_native
+       and '{ return' not in hand_native and '#include' not in hand_native
+       and 'static const SSForwarderTable s_HandTable = { s_HandSlots, 2 };' in hand_native)
+
+    def hand_refused(row):
+        try:
+            hand_forwarders(row)
+        except Refusal:
+            return True
+        return False
+
+    ok('a hand slot named twice is refused',
+       hand_refused(dict(hand, slots=[('Count', 'int', ''), ('Count', 'int', '')])))
+    ok('a hand row naming no side is refused', hand_refused(dict(hand, side='nowhere')))
+
+    saved_hand = HAND[:]
+    HAND[:] = [dict(hand, slots=list(reversed(hand['slots'])))]
+    try:
+        ok('a hand table is held to the append-only rule too',
+           emit(committed_slots(emit_managed([(dict(hand, hand=True), hand_rows)], 'client')))[0] is None)
+    finally:
+        HAND[:] = saved_hand
+
+    # Sides.
+    ok('a table both sides, or shared code, reference is both',
+       derived_side(['server', 'client']) == 'both' and derived_side(['both']) == 'both'
+       and derived_side(['client', 'both']) == 'both')
+    ok('a table one side alone references is that side\'s, and one nothing references has none',
+       derived_side(['server']) == 'server' and derived_side(['client']) == 'client'
+       and derived_side([]) is None)
+    probe = [(dict(base, side='client'), rows)]
+    ok('the audit refuses a client row the server references, naming the table',
+       any(why.startswith('ModelInfo is side client')
+           for why in side_audit(probe, {'server': ['ModelInfoFwd* t;'], 'client': [], 'both': []})))
+    ok('the audit accepts a row on the side its users compile, and ignores a longer name',
+       side_audit(probe, {'server': ['XModelInfoFwd y;'], 'client': ['ModelInfoFwd* t;'], 'both': []}) == [])
+    native_sides = emit()[0] or {}
+    ok('a both table is in both libraries and a client table in the client\'s alone',
+       '"SSFwd_ModelInfo"' in native_sides.get(LIBRARIES['server']['native'], '')
+       and '"SSFwd_ModelInfo"' in native_sides.get(LIBRARIES['client']['native'], '')
+       and '"SSFwd_EngineClient"' in native_sides.get(LIBRARIES['client']['native'], '')
+       and '"SSFwd_EngineClient"' not in native_sides.get(LIBRARIES['server']['native'], ''))
+    ok('a client table\'s struct is in Client.Interop\'s file and a both table\'s in Abi\'s',
+       'struct EngineClientFwd' in native_sides.get(SIDE_FILES['client']['managed'], '')
+       and 'struct EngineClientFwd' not in native_sides.get(SIDE_FILES['both']['managed'], '')
+       and 'struct ModelInfoFwd' in native_sides.get(SIDE_FILES['both']['managed'], ''))
 
     print('engine-forwarders self-test: %d checks, %d failed'
           % (checks[0], len(failures)), file=out)

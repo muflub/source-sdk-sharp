@@ -1,13 +1,13 @@
 //========= SourceSharp — the forwarder libraries, as the build links them ====//
 //
-// plan_engine_forwarders.md. Each forwarder library (libss_fwd_engine.so,
-// libss_fwd_vphysics.so) exports its one function and nothing else, needs no
-// other library, libc included (its forwarders are handed the object, so there
+// plan_engine_forwarders.md. Each forwarder library (libss_fwd_server.so,
+// libss_fwd_client.so) exports its one function and nothing else, needs no
+// other library, libc included (its functions are handed the object, so there
 // is nothing to connect to, and it links no runtime: NO_RUNTIME in
-// src/fwd/native/CMakeLists.txt), and both game DLLs need it by its SONAME,
-// resolved beside them through RUNPATH $ORIGIN, and import its export rather
-// than carrying a copy of their own. Read off the
-// built files with nm and readelf, as particles_lib_isolation_test reads
+// src/fwd/native/CMakeLists.txt), and its own side's game DLL needs it by its
+// SONAME, resolved beside it through RUNPATH $ORIGIN, and imports its export
+// rather than carrying a copy of its own; the other side's DLL needs it not
+// at all (ruled 2026-10-18: one library per side). Read off the built files with nm and readelf, as particles_lib_isolation_test reads
 // libss_particles.so.
 //=============================================================================//
 
@@ -62,16 +62,18 @@ std::set< std::string > Names( const std::string &strArgs, const std::string &st
 
 std::string Out( const std::string &strFile ) { return "'" + cmake_graph::BuildDir() + "/out/" + strFile + "'"; }
 
-// Each library: its file, and the one function it exports.
+// Each library: its file, the one function it exports, and the game DLL
+// that links it.
 struct Library
 {
 	const char *pszFile;
 	const char *pszExport;
+	const char *pszDll;
 };
 
 constexpr Library kLibraries[] = {
-	{ "libss_fwd_engine.so", "SSFwdEngine_Table" },
-	{ "libss_fwd_vphysics.so", "SSFwdVPhysics_Table" },
+	{ "libss_fwd_server.so", "SSFwdServer_Table", "server.so" },
+	{ "libss_fwd_client.so", "SSFwdClient_Table", "client.so" },
 };
 } // namespace
 
@@ -79,7 +81,7 @@ TEST( FwdLibrariesIsolation, EachLibraryExportsItsTableFunctionAndNothingElse )
 {
 	for ( const Library &lib : kLibraries )
 	{
-		// Proof of read: the library defines its forwarders locally.
+		// Proof of read: the library defines its functions locally.
 		ASSERT_GE( Names( Out( lib.pszFile ), "t" ).size(), 10u ) << lib.pszFile << " read as nearly empty";
 
 		const std::set< std::string > exports = Names( "-D --defined-only " + Out( lib.pszFile ), "TDBRVWiu" );
@@ -114,7 +116,7 @@ TEST( FwdLibrariesIsolation, EachLibraryNeedsNoOtherLibraryAndImportsNoSymbol )
 	}
 }
 
-TEST( FwdLibrariesIsolation, BothGameLibrariesNeedEachByItsSonameAndImportItsTableFunction )
+TEST( FwdLibrariesIsolation, EachGameLibraryNeedsItsOwnSidesLibraryAloneAndImportsItsTableFunction )
 {
 	for ( const char *pszDll : { "server.so", "client.so" } )
 	{
@@ -129,8 +131,17 @@ TEST( FwdLibrariesIsolation, BothGameLibrariesNeedEachByItsSonameAndImportItsTab
 
 		for ( const Library &lib : kLibraries )
 		{
-			EXPECT_NE( std::string::npos, dynamic.find( std::string( "Shared library: [" ) + lib.pszFile + "]" ) )
-			    << pszDll << " does not need " << lib.pszFile;
+			const bool bNeeded = dynamic.find( std::string( "Shared library: [" ) + lib.pszFile + "]" ) != std::string::npos;
+
+			if ( std::string( pszDll ) != lib.pszDll )
+			{
+				// The other side's library: neither needed nor imported.
+				EXPECT_FALSE( bNeeded ) << pszDll << " needs " << lib.pszFile;
+				EXPECT_FALSE( imports.count( lib.pszExport ) ) << pszDll << " imports " << lib.pszExport;
+				continue;
+			}
+
+			EXPECT_TRUE( bNeeded ) << pszDll << " does not need " << lib.pszFile;
 
 			// Imported, never a copy of its own: the tables are the library's.
 			EXPECT_TRUE( imports.count( lib.pszExport ) ) << pszDll << " does not import " << lib.pszExport;

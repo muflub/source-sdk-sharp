@@ -19,14 +19,13 @@ DynamicLight.cs	plumbing	a: named by ShimAreas.g.cs	-
 EffectData.cs	plumbing	a: named by ShimAreas.g.cs	-
 EngineBlock.cs	plumbing	b: engine block layout; native EngineBlock_t is generated from it	-
 EngineBlockFingerprint.cs	plumbing	b: fingerprint of the engine block layout (boundary drift check)	-
-EngineForwarders.g.cs	plumbing	a: the generated boundary	-
 EngineLimits.cs	plumbing	b: value contract: MAX_PLAYERS and MAX_EDICTS the engine is built around (split out of Log.cs)	-
 Entity.cs	plumbing	a: named by VtableLayouts.g.cs	-
 EntityOp.cs	plumbing	b: entity-op numbers native passes to Crossings.CountEntityOp, which keys its counters by them (Enum.GetNames, Read(EntityOp))	-
 EntitySlot.cs	plumbing	a: named by ShimAreas.g.cs	-
 EventIdStamps.cs	plumbing	c: CEventAction::s_iNextIDStamp: restored connections keep their stamps across a managed reload, so the counter must too (P1 run 3 lifetime ruling b)	-
 FogParams.cs	plumbing	a: named by ShimAreas.g.cs	-
-Forwarders.cs	plumbing	a: named by EngineForwarders.g.cs	-
+Forwarders.cs	plumbing	a: named by SharedForwarders.g.cs	-
 GitProvenance.cs	plumbing	e: build provenance the Bootstrap reads (loader infra; folds into Bootstrap after SE2)	-
 Globals.cs	plumbing	b: CGlobalVarsRaw layout mirror + its pointer reader	-
 ILog.cs	plumbing	e: the log contract each composition registers over its own console (statics to zero; the static Log is gone)	-
@@ -54,6 +53,7 @@ ReloadSections.cs	plumbing	c: the reload carrier's per-side section interface (I
 ReloadStore.cs	plumbing	c: the reload carrier: BCL-typed bytes per side that must outlive the collectible context (D6)	-
 ShadowCast.cs	plumbing	b: value contract: ShadowType_t (+-1)	-
 ShadowCastChoice.cs	plumbing	b: value contract: StandaloneShadowChoice_t	-
+SharedForwarders.g.cs	plumbing	a: the generated boundary	-
 ShimAreas.g.cs	plumbing	a: the generated boundary	-
 ShimConsole.cs	plumbing	d: first area through the root; the Log fallback before a side composes	-
 ShimRoot.cs	plumbing	a: named by ShimAreas.g.cs	-
@@ -72,7 +72,6 @@ TextMessage.cs	plumbing	a: named by ShimAreas.g.cs	-
 ThirdPersonCameraBlob.cs	plumbing	b: blittable SourceSharpThirdPerson* blob	-
 Transform.cs	plumbing	b: blittable 3x4 matrix: EngineBlockHead.WorldTransform's type, mapped to matrix3x4_t in the engine block's native layout	-
 UserCmd.cs	plumbing	a: named by ShimAreas.g.cs	-
-VPhysicsForwarders.g.cs	plumbing	a: the generated boundary	-
 ViewTargetSetup.cs	plumbing	a: named by ShimAreas.g.cs	-
 Vtable.cs	plumbing	a: named by ShimRoot.cs	-
 VtableLayouts.g.cs	plumbing	a: the generated boundary	-

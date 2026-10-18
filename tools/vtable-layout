@@ -939,18 +939,20 @@ INTERFACES = [
              'vtable_index_agreement_test holds the count to the header.',
     ),
     dict(
-        struct='SteamCallbackVtbl',
-        kind=VALVE_BY_MANAGED,
-        header='src/public/steam/steam_api_common.h',
-        chain=['CCallbackBase'],
-        reserved_words=1,
-        reached_by='<c>SteamAPI_RegisterCallback</c>',
-        summary='<c>CCallbackBase</c>, one Steam callback: the client\'s logon state, URL launch and rich-presence join.',
-        note='VALVE LAYOUT, WRITTEN BY MANAGED, WITH DATA: CCallbackBase keeps '
-             'm_nCallbackFlags and m_iCallback after its vptr, and '
-             'SteamAPI_RegisterCallback writes both, so the block reserves one word '
-             'for them (reserved_words; a parity fact holds it to sizeof). No '
-             'virtual destructor ("we export this binary interface across dll\'s").',
+        struct='ManagedSteamCallbackVtbl',
+        shim=True,
+        kind=IMPLEMENTED_BY_MANAGED,
+        header='src/sourcesharp/fwd/imanaged_steam_callback.h',
+        chain=['IManagedObject', 'IManagedSteamCallback'],
+        chain_headers={'IManagedObject': MANAGED_CORE},
+        reached_by='<c>SSFwd_SteamCallback</c>\'s <c>Construct</c> (libss_fwd_client)',
+        summary='<c>IManagedSteamCallback</c>, one Steam callback\'s managed side: the client\'s '
+                'logon state, URL launch and rich-presence join.',
+        note='OURS, and managed writes it (plan_engine_forwarders.md phase 5): libss_fwd_client '
+             'builds the CCallbackBase Steam registers, so the compiler orders its two Run '
+             'overloads, and both call this one slot. NO VIRTUAL DESTRUCTOR, Release at slot 0 '
+             'and Validate at 1; native calls neither, and managed releases the block once '
+             'Steam has let go of the callback that holds it.',
     ),
     dict(
         struct='PhysicsCollisionSolverVtbl',
@@ -2938,18 +2940,25 @@ def self_test(out=sys.stdout):
            'MicrosoftEntries, no [VtableSlot]',
            random_body and 'MicrosoftEntries' not in random_body
            and '[VtableSlot' not in random_body and ' SetSeed;' in random_body)
-    steam_body = struct_body('SteamCallbackVtbl')
-    expect('a managed-written layout MSVC reverses keeps its FIELDS and carries each '
-           'one\'s Windows slot for ManagedVtableGenerator',
-           '[VtableSlot(0, 1)]' in steam_body and '[VtableSlot(1, 0)]' in steam_body
-           and ' Run;' in steam_body and ' Run_2;' in steam_body
-           and 'MicrosoftEntries' not in steam_body)
+    # Every managed-written layout is ordered alike on both ABIs: the Steam
+    # callback, the last one MSVC reversed (CCallbackBase's two Run
+    # overloads), is built natively by libss_fwd_client, and managed writes
+    # only IManagedSteamCallback's one slot (plan_engine_forwarders.md phase 5).
+    managed_written = [e['struct'] for e in INTERFACES if kind_of(e) in MANAGED_WRITTEN]
+    expect('no managed-written layout carries a Windows slot: managed writes '
+           'every table in one order, whichever ABI calls it',
+           managed_written and all(struct_body(name) and '[VtableSlot' not in struct_body(name)
+                                   for name in managed_written))
+    expect('the Steam callback\'s managed side is one Run and no overload',
+           ' Run;' in struct_body('ManagedSteamCallbackVtbl')
+           and ' Run_2;' not in struct_body('ManagedSteamCallbackVtbl')
+           and not struct_body('SteamCallbackVtbl'))
     expect('VtableAbi answers the Windows length of every layout MSVC orders '
            'differently, and only those',
            'if (typeof(TVtbl) == typeof(ModelInfoVtbl)) return ModelInfoVtbl.MicrosoftEntries;'
            in (generated or '')
            and 'typeof(UniformRandomStreamVtbl)' not in (generated or '')
-           and 'typeof(SteamCallbackVtbl)' not in (generated or ''))
+           and 'typeof(ManagedSteamCallbackVtbl)' not in (generated or ''))
 
     mw_dtor = microsoft_slots("""
         class IManagedDtorProbe { public: virtual ~IManagedDtorProbe() {} virtual void A() = 0; };

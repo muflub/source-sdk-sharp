@@ -2750,8 +2750,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                        System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi("DEFAULT"));
             _solidKeys = SolidKeyHandlerBinding.Create(vtables, solidKeys);
             var entityPhysics = _services.Require<IEngineEntityPhysics>();
-            _physicsWorldVPhysics = PhysicsWorldVPhysics.Acquire(_engine, entityPhysics.EnvironmentPointer, server: true,
-                                                                 solidKeys, out string worldWhy);
+            IStaticPropPhysics? staticProps = StaticPropMgrServer.Acquire(_engine, out string worldWhy);
+            _physicsWorldVPhysics = staticProps is null
+                ? null
+                : PhysicsWorldVPhysics.Acquire(_engine, entityPhysics.EnvironmentPointer, staticProps,
+                                               solidKeys, out worldWhy);
             if (_physicsWorldVPhysics is null)
             {
                 Log.Warning($"[SourceSharp/Server] no world physics build: {worldWhy}\n");

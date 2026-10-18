@@ -5673,51 +5673,42 @@ public unsafe struct PhysicsCollisionEventVtbl
 }
 
 /// <summary>
-/// <c>CCallbackBase</c>, one Steam callback: the client's logon state, URL launch and rich-presence join.
+/// <c>IManagedSteamCallback</c>, one Steam callback's managed side: the client's logon state, URL launch and rich-presence join.
 ///
 /// <para>
-/// 3 slot(s), walked from <c>src/public/steam/steam_api_common.h</c>. <c>sizeof</c> divided by the pointer
-/// size is that number. Reached through <c>SteamAPI_RegisterCallback</c>, so no factory hands a count
+/// 3 slot(s), walked from <c>src/sourcesharp/fwd/imanaged_steam_callback.h</c>. <c>sizeof</c> divided by the pointer
+/// size is that number. Reached through <c>SSFwd_SteamCallback</c>'s <c>Construct</c> (libss_fwd_client), so no factory hands a count
 /// with the pointer: vtable_index_agreement_test holds the header against it.
 /// </para>
 ///
 /// <para>
-/// VALVE LAYOUT, WRITTEN BY MANAGED, WITH DATA: CCallbackBase keeps
-/// m_nCallbackFlags and m_iCallback after its vptr, and
-/// SteamAPI_RegisterCallback writes both, so the block reserves one word for
-/// them (reserved_words; a parity fact holds it to sizeof). No virtual
-/// destructor ("we export this binary interface across dll's").
+/// OURS, and managed writes it (plan_engine_forwarders.md phase 5):
+/// libss_fwd_client builds the CCallbackBase Steam registers, so the compiler
+/// orders its two Run overloads, and both call this one slot. NO VIRTUAL
+/// DESTRUCTOR, Release at slot 0 and Validate at 1; native calls neither, and
+/// managed releases the block once Steam has let go of the callback that
+/// holds it.
 /// </para>
 ///
 /// <para>
-/// MSVC ORDERS THIS TABLE DIFFERENTLY: it reverses the overloads. Each
-/// field's <c>[VtableSlot]</c> carries its index under both ABIs, and
-/// <c>ManagedVtableGenerator</c> writes the thunk at the one for the ABI it
-/// runs on.
-/// </para>
-///
-/// <para>
-/// VALVE'S LAYOUT, WRITTEN BY MANAGED. The caller holds an
-/// <c>CCallbackBase *</c> and calls these slots in Valve's order;
-/// <c>ManagedVtableGenerator</c> fills every one. There is no Release or
-/// Validate: managed frees the block when the holder is done with it.
+/// IMPLEMENTED BY MANAGED. Native calls this table and managed writes it:
+/// <c>ManagedVtableGenerator</c> fills every field with a generated thunk
+/// and hands native the block and this struct's slot count, which native
+/// holds against <c>VTableHook::MemberOf( &amp;IManagedSteamCallback::Release ).slot + 1</c>.
 /// </para>
 /// </summary>
-[ImplementedByManaged("CCallbackBase", ValveLayout = true, ReservedWords = 1)]
+[ImplementedByManaged("IManagedSteamCallback")]
 [StructLayout(LayoutKind.Sequential)]
-public unsafe struct SteamCallbackVtbl
+public unsafe struct ManagedSteamCallbackVtbl
 {
-    [VtableSlot(0, 1)]
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;             // 0   void IManagedObject::Release( void )
+
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate; // 1   int32_t IManagedObject::Validate( const uint32_t *, int32_t )
+
     [SlotHash(0xde3e0200)]
-    public delegate* unmanaged<void*, void*, void> Run;                // 0   void CCallbackBase::Run( void * )
-
-    [VtableSlot(1, 0)]
-    [SlotHash(0x3bc5aedf)]
-    public delegate* unmanaged<void*, void*, byte, ulong, void> Run_2; // 1   void CCallbackBase::Run( void *, bool, SteamAPICall_t )
-
-    [VtableSlot(2, 2)]
-    [SlotHash(0x9d8d9245)]
-    public delegate* unmanaged<void*, int> GetCallbackSizeBytes;       // 2   int CCallbackBase::GetCallbackSizeBytes( void )
+    public delegate* unmanaged<void*, void*, void> Run;          // 2   void IManagedSteamCallback::Run( void * )
 }
 
 /// <summary>

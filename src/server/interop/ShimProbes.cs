@@ -68,9 +68,12 @@ public static unsafe class ShimProbes
     {
         ArgumentNullException.ThrowIfNull(engine);
 
-        return Forwarders.TryAcquire<EngineClientFwd>(
-                   engine.Api.Interfaces, SourceSharpFactoryType.AppSystem,
-                   EngineClientInterfaceVersion, out _, out _, out string why)
+        // The interface alone, not its forwarder table: the table is the
+        // client's (Client.Interop, libss_fwd_client), and the question is
+        // whether the server's engine answers the version string at all.
+        return engine.Api.Interfaces.TryCreate(
+                   SourceSharpFactoryType.AppSystem, EngineClientInterfaceVersion,
+                   out _, out _, out string? why)
             ? "IVEngineClient: SERVED on the server, which serves no such interface"
             : $"IVEngineClient: REFUSED — {why}";
     }

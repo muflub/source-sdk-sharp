@@ -329,9 +329,10 @@ target_include_directories(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/src/
 if(TARGET ss_particles)
   target_link_libraries(client_sourcesharp PRIVATE ss_particles)
 endif()
-# plan_engine_forwarders.md: the forwarder libraries' tables, served by the
-# internal factory as on the server, and linked the same way.
-target_link_libraries(client_sourcesharp PRIVATE ss_fwd_engine ss_fwd_vphysics)
+# plan_engine_forwarders.md: the client's forwarder library (libss_fwd_client,
+# with the Steam callback), whose tables the internal factory serves as the
+# server's does, linked the same way.
+target_link_libraries(client_sourcesharp PRIVATE ss_fwd_client)
 # rt and dl are glibc's; zlib is the system's on Linux and macOS and Valve's
 # libz.lib on Windows (cmake/sdk).
 if(SS_PLATFORM STREQUAL linux)

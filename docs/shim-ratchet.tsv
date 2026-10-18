@@ -321,7 +321,8 @@ client_stock_tus	src/client/native/CMakeLists.txt	49
 # RAISED 2026-10-13, 218 -> 219, deliberately: sourcesharp/game/server/mathlib_port.cpp (g), the mathlib members server.so calls (AngleMatrix, AngleVectors, VectorAngles, MatrixAngles, the transforms, CalcSqrDistanceToAABB, vec3_origin), so libmathlib.a leaves server.so's link as tier1 did; held to stock bit for bit by mathlib_port_stock_test.
 # RAISED 2026-10-13, 219 -> 220, deliberately (plan_engine_forwarders.md phase 1): sourcesharp/fwd/fwd_engine.cpp (b), libss_fwd_engine: one generated native forwarder per engine method managed calls, so managed stops indexing engine vtables and knowing either C++ ABI. It binds IVModelInfo's twelve called methods now and grows by one line per forwarded method; the vtable-reading code it replaces leaves in phase 6.
 # RAISED 2026-10-13, 220 -> 221, deliberately (plan_engine_forwarders.md phases 2-4): sourcesharp/fwd/fwd_vphysics.cpp (b), libss_fwd_vphysics, which forwards each vphysics method managed calls through the object's own vtable, so managed reads no vphysics vptr.
-shim_cpp_files	src/sourcesharp	221
+# RAISED 2026-10-18, 221 -> 222, deliberately (plan_engine_forwarders.md phase 5): sourcesharp/fwd/fwd_steam.cpp (b), libss_fwd_steam, which builds the CCallbackBase Steam registers, so the compiler orders its two Run overloads and managed writes only IManagedSteamCallback's one slot rather than a Valve layout whose overload order differs between the ABIs.
+shim_cpp_files	src/sourcesharp	222
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1612,7 +1613,9 @@ shim_cpp_files	src/sourcesharp	221
 # RAISED 2026-10-13, 144107 -> 144111 (+4, measured by the walk), deliberately: fwd_engine.cpp compares table names itself (SameName) in place of libc's strcmp, so libss_fwd_engine links no runtime (NO_RUNTIME): no libc on Linux, no CRT and no import on Windows, where the static CRT had been 104 KB of the 105 KB DLL. fwd_engine.cpp +6, net of ss_fwd.h's -2 for the slot hashes it no longer declares.
 # RAISED 2026-10-13, 144111 -> 144118 (+7, measured by the walk), deliberately: fwd_engine.cpp defines _fltused under SS_NO_CRT, the one symbol MSVC's code generation expects of the CRT, which the CRT-free ss_fwd_engine.dll does not link (LNK2001 in CI without it).
 # RAISED 2026-10-13, 144118 -> 144203 (+85, measured by the walk), deliberately: libss_fwd_vphysics (fwd_vphysics.cpp), ss_fwd.h's lookup and serve for both libraries, and ss_fwd_sdk.h, which turns the SDK headers' asserts off so a library that links no runtime can include them.
-shim_lines	src/sourcesharp	144203
+# RAISED 2026-10-18, 144203 -> 144391 (+188, measured by the walk), deliberately: fwd_steam.cpp (+131) and imanaged_steam_callback.h (+38), the Steam callback built natively over its managed side, and ss_fwd.h (+19), the Steam library's export and the client serving it (the TU raise above says what they bind).
+# RAISED 2026-10-18, 144391 -> 144424 (+33, measured by the walk), deliberately: one forwarder library per side (plan_engine_forwarders.md, ruled 2026-10-18). fwd_server.cpp and fwd_client.cpp replace fwd_engine.cpp and fwd_vphysics.cpp (+4, +5); fwd_steam.h (+35) declares the Steam callback's functions, now a second source of the client's library (fwd_steam.cpp -5); ss_fwd.h -7 (one export per side, the serve helper asking its own side's) and ss_fwd_sdk.h +1. The TU count stays 222.
+shim_lines	src/sourcesharp	144424
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

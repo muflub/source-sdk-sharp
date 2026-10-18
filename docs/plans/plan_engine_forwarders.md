@@ -278,6 +278,44 @@ callbacks managed implements (collision event, object event, constraint
 event, collision solver, motion event, key handler) lay out the same on both
 ABIs and need nothing.
 
+## 8c. Phase 5 and one library per side, as built (2026-10-18, branch claude/engine-forwarders-steam)
+
+- **The Steam callback is built natively.** `fwd_steam.cpp` defines
+  SSSteamCallback, deriving CCallbackBase, so the compiler orders its two
+  `Run` overloads. Both call one managed-built object, IManagedSteamCallback
+  (`imanaged_steam_callback.h`: Release, Validate, Run), whose layout is ours
+  and the same on both ABIs (ManagedSteamCallbackVtbl, implemented by
+  managed). GetCallbackSizeBytes is answered natively, and IsRegistered and
+  CallbackId read what Steam writes, so managed reads no CCallbackBase member.
+  The library has no heap: managed allocates `SizeOf` bytes and `Construct`
+  builds the callback in them. The file is built without RTTI (a type_info's
+  vtable is the C++ runtime's) and defines the runtime's pure-virtual handler,
+  which CCallbackBase's own vtable names.
+- **HAND tables.** `tools/engine-forwarders` lays out a table over functions a
+  library source writes (HAND), from the row's signatures and under the same
+  append-only rule; SteamCallback is one.
+- **One library per side** (ruled 2026-10-18). `libss_fwd_server` and
+  `libss_fwd_client` replace the engine, vphysics and Steam libraries; each
+  game DLL links its own, and linking it defines `SS_FWD_SERVES_<SIDE>` for
+  `SSFwd_Serve`. A row's `side` is where its users compile, and the check
+  (`side_audit`) holds it to the tree. The client's own tables are
+  EngineClient, InputSystem, IPhysics and SteamCallback; the server's are
+  EngineServer, NetChannelInfo and StaticPropMgrServer.
+- **The server's wrappers moved to Server.Interop** (user, 2026-10-18: "move
+  server only to server interop"). `EngineServer` (IVEngineServer and the
+  INetChannelInfo objects it answers) and `StaticPropMgrServer` are
+  Server.Interop's; what the shared code asks of them stays shared, as
+  interfaces that name no forwarder: `IVtableEngineServer`, which the shared
+  bindings reach through the side's bound slot, and `IStaticPropPhysics`,
+  which the server hands the world physics build. The bound slot holds no
+  acquirer until the server's entry installs one (`EngineServerBinding.Bind`,
+  through `SideLoad.Load`'s bind, run as the side's engine is made); the
+  client's never does, so asking there fails by name, as asking the client's
+  engine always did.
+- **The vphysics callbacks stay managed-written.** They lay out the same on
+  both ABIs (no overloads, no destructor), so building them natively would be
+  for uniformity only.
+
 ## 9. Done when
 
 - No managed code reads an engine object's vptr or knows which ABI it runs on.
@@ -307,3 +345,16 @@ ABIs and need nothing.
   header position) and refusing at `--write` any table that does not extend
   the committed one. The slot count is the struct's size, not a generated
   member.
+- 2026-10-18 (user), during phase 5: "you should split client and server fwd
+  assemblies", then, of the options put to them, "Native libs and C#
+  structs". One forwarder library per side, libss_fwd_server and
+  libss_fwd_client (the Steam callback folds into the client's), each
+  linked by its own game DLL alone; the generated C# structs split the same
+  way, the server's in Server.Interop, the client's in Client.Interop and
+  the tables both sides call in Abi. A table's side is where its users
+  compile: referenced from Shared.Interop or from both sides, it is both;
+  from one side's projects only, it is that side's. tools/engine-forwarders
+  holds each row's side to the tree.
+- 2026-10-18 (user), on the split: "move server only to server interop" --
+  IVEngineServer's and the static prop manager's wrappers to Server.Interop,
+  so their tables are the server's alone (section 8c).

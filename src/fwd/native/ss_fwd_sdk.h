@@ -6,9 +6,10 @@
 //=============================================================================//
 //========= SourceSharp — the SDK headers, as a forwarder library sees them =====//
 //
-// plan_engine_forwarders.md. Included FIRST by each forwarder library's one
-// translation unit (fwd_engine.cpp, fwd_vphysics.cpp), before any interface
-// header, and only there: it defines _fltused for the CRT-free Windows build.
+// plan_engine_forwarders.md. Included FIRST by each forwarder library's
+// translation units (fwd_server.cpp, fwd_client.cpp, fwd_steam.cpp), before any
+// interface header, and only there: it defines _fltused for the CRT-free
+// Windows build.
 //
 // THE ASSERT MACHINERY IS SWITCHED OFF HERE. A forwarder library links no
 // runtime (NO_RUNTIME): no tier0, no libc, no CRT. Its own code is one call per

@@ -38,6 +38,33 @@ public unsafe class SideStateTests
         return rc;
     }
 
+    [Fact]
+    public void TheEntrysBindRunsOnTheSidesEngineBeforeTheLoadGoesOn()
+    {
+        // What only one side's assembly can bind (the server's IVEngineServer):
+        // the entry hands it in and it runs once, on this load's engine, even
+        // when the load is then refused for want of a shim root.
+        byte[] facts = Facts();
+        void* root = null;
+        nint state = 0, session = 0;
+        var bound = new List<Side>();
+        try
+        {
+            int rc;
+            fixed (byte* pFacts = facts)
+                rc = SideLoad.Load(Side.Server, CrossingOp.LoadServer, null, 0, &root, &state, &session, pFacts,
+                                   engine => bound.Add(engine.Side));
+
+            Assert.Equal(-4, rc);
+            Assert.Equal(new[] { Side.Server }, bound);
+            Assert.Equal(0, SideLoad.Unload(CrossingOp.UnloadServer, session));
+        }
+        finally
+        {
+            Free(state);
+        }
+    }
+
     private static SideState StateOf(nint handle) => (SideState)GCHandle.FromIntPtr(handle).Target!;
 
     [Fact]

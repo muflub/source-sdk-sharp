@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 
 using Xunit;
@@ -5,14 +6,75 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// The Steam callbacks' blocks (client Steam, Decision 1a), driven the way
-/// Steam drives a CCallbackBase: SteamAPI_RegisterCallback writes the flags and
-/// id into the word after the vptr, SteamAPI_RunCallbacks calls slot 0 with the
-/// payload, and SteamAPI_UnregisterCallback clears the registered flag.
+/// The Steam callbacks (client Steam, Decision 1a; plan_engine_forwarders.md
+/// phase 5). libss_fwd_client builds each CCallbackBase Steam registers over a
+/// managed block, and these facts hold what managed does with it: acquire the
+/// library's table, build one callback per registration over its own block,
+/// hand Steam that callback, and on Dispose unregister what Steam still holds,
+/// free the callback's memory and release the block.
+///
+/// <para>
+/// THE LIBRARY IS A FAKE HERE, and models the native callback only as far as
+/// managed can see it: the managed block it calls, the payload size, and the
+/// flags and id Steam writes into it. How the real one orders CCallbackBase's
+/// overloads and answers Steam is fwd_steam_test's.
+/// </para>
 /// </summary>
 public unsafe class SteamCallbacksTests
 {
-    /// <summary>What libsteam_api does to a CCallbackBase, against the block's own bytes.</summary>
+    /// <summary>
+    /// libss_fwd_client's callback table over a fake callback: word 0 the managed block
+    /// it calls, the int at 8 the payload size, the flags Steam writes at 16
+    /// and the id at 20.
+    /// </summary>
+    internal static class FakeSteamLibrary
+    {
+        public const int CallbackBytes = 24;
+
+        [UnmanagedCallersOnly]
+        private static int SizeOf() => CallbackBytes;
+
+        [UnmanagedCallersOnly]
+        private static void* Construct(void* memory, void* target, int payloadBytes)
+        {
+            if (memory == null || target == null)
+                return null;
+            ((nint*)memory)[0] = (nint)target;
+            ((int*)memory)[2] = payloadBytes;
+            ((int*)memory)[4] = 0;
+            ((int*)memory)[5] = 0;
+            return memory;
+        }
+
+        [UnmanagedCallersOnly]
+        private static void* Refuse(void* memory, void* target, int payloadBytes) => null;
+
+        [UnmanagedCallersOnly]
+        private static byte IsRegistered(void* callback)
+            => callback != null && (((byte*)callback)[16] & 1) != 0 ? (byte)1 : (byte)0;
+
+        [UnmanagedCallersOnly]
+        private static int CallbackId(void* callback) => callback == null ? 0 : ((int*)callback)[5];
+
+        /// <summary>Fills <paramref name="fwd"/>; with <paramref name="builds"/> false, Construct builds nothing.</summary>
+        public static void Fill(SteamCallbackFwd* fwd, bool builds = true)
+        {
+            fwd->SizeOf = &SizeOf;
+            fwd->Construct = builds
+                ? (delegate* unmanaged<void*, void*, int, void*>)&Construct
+                : &Refuse;
+            fwd->IsRegistered = &IsRegistered;
+            fwd->CallbackId = &CallbackId;
+        }
+
+        /// <summary>The managed block the callback was built over.</summary>
+        public static nint TargetOf(nint callback) => ((nint*)callback)[0];
+
+        /// <summary>The payload size the callback was built with.</summary>
+        public static int PayloadBytesOf(nint callback) => ((int*)callback)[2];
+    }
+
+    /// <summary>What libsteam_api does to a callback, against the fake callback's bytes.</summary>
     internal sealed class SteamDouble : ISteamClientApi
     {
         public readonly List<(nint Callback, int Id)> Registered = new();
@@ -35,14 +97,14 @@ public unsafe class SteamCallbacksTests
         public void RegisterCallback(nint callback, int callbackId)
         {
             Registered.Add((callback, callbackId));
-            ((byte*)callback)[8] |= SteamCallbacks.RegisteredFlag;   // m_nCallbackFlags
-            *(int*)((byte*)callback + 12) = callbackId;              // m_iCallback
+            ((byte*)callback)[16] |= 1;            // the registered flag
+            ((int*)callback)[5] = callbackId;      // the id
         }
 
         public void UnregisterCallback(nint callback)
         {
             Unregistered.Add(callback);
-            ((byte*)callback)[8] &= unchecked((byte)~SteamCallbacks.RegisteredFlag);
+            ((byte*)callback)[16] &= unchecked((byte)~1);
         }
 
         public string? LaunchCommandLine(out int bytes)
@@ -51,23 +113,18 @@ public unsafe class SteamCallbacksTests
             return LaunchLine;
         }
 
-        /// <summary>SteamAPI_RunCallbacks dispatching one callback: slot 0 with the payload.</summary>
+        /// <summary>
+        /// SteamAPI_RunCallbacks dispatching one callback, as the native one
+        /// runs it: its managed block's Run (IManagedSteamCallback slot 2)
+        /// with the payload.
+        /// </summary>
         public static void Run(nint callback, byte[] payload)
         {
-            var run = (delegate* unmanaged<void*, void*, void>)((nint*)((nint*)callback)[0])[0];
+            void* block = (void*)FakeSteamLibrary.TargetOf(callback);
+            var run = (delegate* unmanaged<void*, void*, void>)(*(nint**)block)[2];
             fixed (byte* p = payload)
-                run((void*)callback, p);
+                run(block, p);
         }
-
-        public static void RunResult(nint callback, byte[] payload)
-        {
-            var run = (delegate* unmanaged<void*, void*, byte, ulong, void>)((nint*)((nint*)callback)[0])[1];
-            fixed (byte* p = payload)
-                run((void*)callback, p, 0, 99);
-        }
-
-        public static int SizeOf(nint callback)
-            => ((delegate* unmanaged<void*, int>)((nint*)((nint*)callback)[0])[2])((void*)callback);
     }
 
     private sealed class Log : ILog
@@ -77,150 +134,183 @@ public unsafe class SteamCallbacksTests
         public void Warning(string m) => Lines.Add(m);
     }
 
-    [Fact]
-    public void RegisteringHandsSteamTheBlockAndTheIdItWritesBack()
+    /// <summary>The callbacks over a client engine whose root serves the fake library.</summary>
+    internal sealed class Fixture : IDisposable
     {
-        using var vtables = new ManagedVtables();
-        var steam = new SteamDouble();
-        using var callbacks = new SteamCallbacks(vtables, steam, new Log());
+        private readonly FakeShimRoot _root = new();
 
-        Assert.True(callbacks.Register("connected", 101, 1, _ => { }));
+        public readonly ManagedVtables Vtables = new();
+        public readonly SteamDouble Steam = new();
+        public readonly SteamCallbacks Callbacks;
 
-        var block = callbacks.BlockOf("connected")!;
-        Assert.Equal(new[] { (block.Address, 101) }, steam.Registered);
-        Assert.Equal(101, SteamCallbacks.CallbackIdOf(block));
-        Assert.Equal(SteamCallbacks.RegisteredFlag, SteamCallbacks.FlagsOf(block));
-        Assert.Equal(1, block.ReservedWords);
+        public Fixture(bool builds = true, SteamDouble? steam = null, ILog? log = null)
+        {
+            Steam = steam ?? Steam;
+            _root.Forwarders(out SteamCallbackFwd* fwd);
+            FakeSteamLibrary.Fill(fwd, builds);
+
+            var side = new EngineSide(Side.Client);
+            side.Initialize();
+            Assert.True(side.AttachShims(_root.Bind(), out string attach), attach);
+
+            Callbacks = SteamCallbacks.Acquire(new ModuleEngine(side), Vtables, Steam, log ?? new Log(), out string why)
+                ?? throw new InvalidOperationException(why);
+        }
+
+        public void Dispose()
+        {
+            Callbacks.Dispose();
+            Vtables.Dispose();
+            _root.Dispose();
+        }
+    }
+
+    [Fact]
+    public void RegisteringHandsSteamTheNativeCallbackAndTheIdItWritesBack()
+    {
+        using var f = new Fixture();
+
+        Assert.True(f.Callbacks.Register("connected", 101, 1, _ => { }));
+
+        nint callback = f.Callbacks.CallbackOf("connected");
+        Assert.NotEqual(0, callback);
+        Assert.Equal(new[] { (callback, 101) }, f.Steam.Registered);
+    }
+
+    [Fact]
+    public void TheNativeCallbackIsBuiltOverItsOwnBlockWithThePayloadSize()
+    {
+        using var f = new Fixture();
+        f.Callbacks.Register("join", 337, 264, _ => { });
+
+        nint callback = f.Callbacks.CallbackOf("join");
+        Assert.Equal(f.Callbacks.BlockOf("join")!.Address, FakeSteamLibrary.TargetOf(callback));
+        Assert.Equal(264, FakeSteamLibrary.PayloadBytesOf(callback));
+        Assert.Equal(0, f.Callbacks.BlockOf("join")!.ReservedWords);   // the block carries no CCallbackBase data
     }
 
     [Fact]
     public void SteamsRunHandsTheHandlerThePayloadBytes()
     {
-        using var vtables = new ManagedVtables();
-        var steam = new SteamDouble();
-        using var callbacks = new SteamCallbacks(vtables, steam, new Log());
+        using var f = new Fixture();
         byte[]? seen = null;
-        callbacks.Register("failure", 102, 8, payload => seen = payload.ToArray());
+        f.Callbacks.Register("failure", 102, 8, payload => seen = payload.ToArray());
 
-        SteamDouble.Run(callbacks.BlockOf("failure")!.Address, [5, 0, 0, 0, 1, 0, 0, 0]);
+        SteamDouble.Run(f.Callbacks.CallbackOf("failure"), [5, 0, 0, 0, 1, 0, 0, 0]);
 
         Assert.Equal(new byte[] { 5, 0, 0, 0, 1, 0, 0, 0 }, seen);
     }
 
     [Fact]
-    public void TheCallResultOverloadRunsTheSameHandler()
-    {
-        using var vtables = new ManagedVtables();
-        var steam = new SteamDouble();
-        using var callbacks = new SteamCallbacks(vtables, steam, new Log());
-        int runs = 0;
-        callbacks.Register("disconnected", 103, 4, _ => runs++);
-
-        SteamDouble.RunResult(callbacks.BlockOf("disconnected")!.Address, [0, 0, 0, 0]);
-
-        Assert.Equal(1, runs);
-    }
-
-    [Fact]
-    public void TheSizeSlotAnswersThePayloadSize()
-    {
-        using var vtables = new ManagedVtables();
-        using var callbacks = new SteamCallbacks(vtables, new SteamDouble(), new Log());
-        callbacks.Register("join", 337, 264, _ => { });
-
-        Assert.Equal(264, SteamDouble.SizeOf(callbacks.BlockOf("join")!.Address));
-    }
-
-    [Fact]
     public void EachCallbackIsItsOwnBlock()
     {
-        using var vtables = new ManagedVtables();
-        using var callbacks = new SteamCallbacks(vtables, new SteamDouble(), new Log());
+        using var f = new Fixture();
         var hits = new List<string>();
-        callbacks.Register("a", 101, 1, _ => hits.Add("a"));
-        callbacks.Register("b", 103, 4, _ => hits.Add("b"));
+        f.Callbacks.Register("a", 101, 1, _ => hits.Add("a"));
+        f.Callbacks.Register("b", 103, 4, _ => hits.Add("b"));
 
-        SteamDouble.Run(callbacks.BlockOf("b")!.Address, [0, 0, 0, 0]);
-        SteamDouble.Run(callbacks.BlockOf("a")!.Address, [0]);
+        SteamDouble.Run(f.Callbacks.CallbackOf("b"), [0, 0, 0, 0]);
+        SteamDouble.Run(f.Callbacks.CallbackOf("a"), [0]);
 
         Assert.Equal(new[] { "b", "a" }, hits);
-        Assert.Equal(2, vtables.Live);
+        Assert.NotEqual(f.Callbacks.CallbackOf("a"), f.Callbacks.CallbackOf("b"));
+        Assert.Equal(2, f.Vtables.Live);
     }
 
     [Fact]
     public void ACallbackIdIsRegisteredOnce()
     {
-        using var vtables = new ManagedVtables();
-        var steam = new SteamDouble();
-        using var callbacks = new SteamCallbacks(vtables, steam, new Log());
+        using var f = new Fixture();
 
-        Assert.True(callbacks.Register("a", 101, 1, _ => { }));
-        Assert.False(callbacks.Register("b", 101, 1, _ => { }));
+        Assert.True(f.Callbacks.Register("a", 101, 1, _ => { }));
+        Assert.False(f.Callbacks.Register("b", 101, 1, _ => { }));
 
-        Assert.Single(steam.Registered);
-        Assert.Equal(1, vtables.Live);
+        Assert.Single(f.Steam.Registered);
+        Assert.Equal(1, f.Vtables.Live);
     }
 
     [Fact]
     public void NoSteamInTheProcessRegistersNothing()
     {
-        using var vtables = new ManagedVtables();
-        var steam = new SteamDouble { Present = false };
-        using var callbacks = new SteamCallbacks(vtables, steam, new Log());
+        using var f = new Fixture(steam: new SteamDouble { Present = false });
 
-        Assert.False(callbacks.Register("a", 101, 1, _ => { }));
+        Assert.False(f.Callbacks.Register("a", 101, 1, _ => { }));
 
-        Assert.Empty(steam.Registered);
-        Assert.Equal(0, vtables.Live);
+        Assert.Empty(f.Steam.Registered);
+        Assert.Equal(0, f.Vtables.Live);
+    }
+
+    [Fact]
+    public void ACallbackTheLibraryDoesNotBuildIsNotRegisteredAndLeavesNoBlock()
+    {
+        var log = new Log();
+        using var f = new Fixture(builds: false, log: log);
+
+        Assert.False(f.Callbacks.Register("a", 101, 1, _ => { }));
+
+        Assert.Empty(f.Steam.Registered);
+        Assert.Empty(f.Callbacks.Registered);
+        Assert.Equal(0, f.Vtables.Live);
+        Assert.Equal(1, f.Vtables.Freed);   // the control: a block was made, then released
+        Assert.Contains(log.Lines, l => l.Contains("a: the native callback was not built"));
     }
 
     [Fact]
     public void DisposeUnregistersWhatSteamHoldsAndFreesEveryBlock()
     {
-        using var vtables = new ManagedVtables();
-        var steam = new SteamDouble();
-        var callbacks = new SteamCallbacks(vtables, steam, new Log());
-        callbacks.Register("a", 101, 1, _ => { });
-        callbacks.Register("b", 103, 4, _ => { });
-        nint a = callbacks.BlockOf("a")!.Address, b = callbacks.BlockOf("b")!.Address;
-        Assert.Equal(2, vtables.Live);   // the control
+        using var f = new Fixture();
+        f.Callbacks.Register("a", 101, 1, _ => { });
+        f.Callbacks.Register("b", 103, 4, _ => { });
+        nint a = f.Callbacks.CallbackOf("a"), b = f.Callbacks.CallbackOf("b");
+        Assert.Equal(2, f.Vtables.Live);   // the control
 
-        callbacks.Dispose();
+        f.Callbacks.Dispose();
 
-        Assert.Equal(new[] { a, b }, steam.Unregistered.OrderBy(x => x == a ? 0 : 1));
-        Assert.Equal(0, vtables.Live);
-        Assert.Equal(2, vtables.Freed);
-        Assert.Empty(callbacks.Registered);
+        Assert.Equal(new[] { a, b }, f.Steam.Unregistered.OrderBy(x => x == a ? 0 : 1));
+        Assert.Equal(0, f.Vtables.Live);
+        Assert.Equal(2, f.Vtables.Freed);
+        Assert.Empty(f.Callbacks.Registered);
     }
 
     [Fact]
-    public void ABlockSteamNeverRegisteredIsFreedWithoutAnUnregister()
+    public void ACallbackSteamNoLongerHoldsIsFreedWithoutAnUnregister()
     {
-        using var vtables = new ManagedVtables();
-        var steam = new SteamDouble();
-        var callbacks = new SteamCallbacks(vtables, steam, new Log());
-        callbacks.Register("a", 101, 1, _ => { });
-        steam.UnregisterCallback(callbacks.BlockOf("a")!.Address);   // Steam dropped it already
-        steam.Unregistered.Clear();
+        using var f = new Fixture();
+        f.Callbacks.Register("a", 101, 1, _ => { });
+        f.Steam.UnregisterCallback(f.Callbacks.CallbackOf("a"));   // Steam dropped it already
+        f.Steam.Unregistered.Clear();
 
-        callbacks.Dispose();
+        f.Callbacks.Dispose();
 
-        Assert.Empty(steam.Unregistered);
-        Assert.Equal(0, vtables.Live);
+        Assert.Empty(f.Steam.Unregistered);
+        Assert.Equal(0, f.Vtables.Live);
     }
 
     [Fact]
     public void AfterDisposeTheRegistryHasNothingToDetachForAReload()
     {
+        using var f = new Fixture();
+        f.Callbacks.Register("a", 101, 1, _ => { });
+        f.Callbacks.Dispose();
+
+        Assert.Equal(0, f.Vtables.Detach());
+
+        // The next load registers afresh, on a new block and a new callback.
+        Assert.True(f.Callbacks.Register("a", 101, 1, _ => { }));
+    }
+
+    [Fact]
+    public void NoCallbacksWhereTheFactoryServesNoCallbackTable()
+    {
+        using var root = new FakeShimRoot();   // serves no SSFwd_SteamCallback
+        var side = new EngineSide(Side.Client);
+        side.Initialize();
+        Assert.True(side.AttachShims(root.Bind(), out string attach), attach);
         using var vtables = new ManagedVtables();
-        var callbacks = new SteamCallbacks(vtables, new SteamDouble(), new Log());
-        callbacks.Register("a", 101, 1, _ => { });
-        callbacks.Dispose();
 
-        Assert.Equal(0, vtables.Detach());
+        SteamCallbacks? callbacks = SteamCallbacks.Acquire(new ModuleEngine(side), vtables, new SteamDouble(), new Log(), out string why);
 
-        // The next load registers afresh, on a new block.
-        using var next = new SteamCallbacks(vtables, new SteamDouble(), new Log());
-        Assert.True(next.Register("a", 101, 1, _ => { }));
+        Assert.Null(callbacks);
+        Assert.Contains("SSFwd_SteamCallback", why);
     }
 }

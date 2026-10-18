@@ -1,36 +1,38 @@
-# The forwarder libraries (plan_engine_forwarders.md), one per family:
+# The forwarder libraries (plan_engine_forwarders.md), one per side (ruled
+# 2026-10-18):
 #
-#   libss_fwd_engine.so   / ss_fwd_engine.dll     the engine's interfaces
-#   libss_fwd_vphysics.so / ss_fwd_vphysics.dll   vphysics' interfaces and objects
+#   libss_fwd_server.so / ss_fwd_server.dll   what server.so's managed code calls
+#   libss_fwd_client.so / ss_fwd_client.dll   what client.so's managed code calls,
+#                                             with the Steam callback (fwd_steam.cpp)
 #
-# One generated function per method managed calls (fwd_<family>.g.inc, from
-# tools/engine-forwarders), each a direct call through the object's own
-# vtable, so the slot numbering is this compiler's. A library needs the SDK
-# headers to compile and links no SDK library: the forwarders are handed the
-# object they call through, and the tables are constant data. Each exports
-# only SSFwd<Family>_Table (version_script_<family>.txt; DLL_EXPORT on
-# Windows).
+# One generated function per method a side's managed code calls
+# (fwd_<side>.g.inc, from tools/engine-forwarders), each a direct call through
+# the object's own vtable, so the slot numbering is this compiler's. The tables
+# both sides call are generated into both. A library needs the SDK headers to
+# compile and links no SDK library: the forwarders are handed the object they
+# call through, and the tables are constant data. Each exports only
+# SSFwd<Side>_Table (version_script_<side>.txt; DLL_EXPORT on Windows).
 #
-# server.so and client.so link them like any library and serve their tables
-# through their internal factory (SourceSharp_InternalFactory, SSFwd_Serve):
-# on Linux DT_NEEDED names each SONAME, found beside them through RUNPATH
-# $ORIGIN; on Windows the import libraries. Managed reaches a table the way it
-# reaches every native interface, through the shim root's AcquireInterface,
-# and never loads a library itself.
+# Each game DLL links its own side's library like any library and serves its
+# tables through its internal factory (SourceSharp_InternalFactory,
+# SSFwd_Serve): on Linux DT_NEEDED names the SONAME, found beside it through
+# RUNPATH $ORIGIN; on Windows the import library. Managed reaches a table the
+# way it reaches every native interface, through the shim root's
+# AcquireInterface, and never loads a library itself.
 
-# ss_fwd_library(<family> <Export>): the library ss_fwd_<family> from
-# fwd_<family>.cpp, exporting <Export>, defining SS_FWD_<FAMILY>_BUILD for
-# ss_fwd.h's import/export macro.
-function(ss_fwd_library family)
-  set(tgt ss_fwd_${family})
-  string(TOUPPER ${family} FAMILY)
-  set(script ${CMAKE_CURRENT_SOURCE_DIR}/version_script_${family}.txt)
+# ss_fwd_library(<side>): the library ss_fwd_<side> from fwd_<side>.cpp,
+# defining SS_FWD_<SIDE>_BUILD for ss_fwd.h's import/export macro, and for its
+# consumers SS_FWD_SERVES_<SIDE>, so the DLL that links it serves its tables.
+function(ss_fwd_library side)
+  set(tgt ss_fwd_${side})
+  string(TOUPPER ${side} SIDE)
+  set(script ${CMAKE_CURRENT_SOURCE_DIR}/version_script_${side}.txt)
 
   add_library(${tgt} SHARED)
   set_target_properties(${tgt} PROPERTIES OUTPUT_NAME ${tgt})
   # NO_WRAP: the allocator wraps are for code that allocates through the
   # engine's heap, and nothing here allocates. NO_RUNTIME: nothing here calls
-  # a runtime either (fwd_<family>.cpp compares names itself, and ss_fwd_sdk.h
+  # a runtime either (ss_fwd.h compares names itself, and ss_fwd_sdk.h
   # turns the headers' asserts off), so the library needs no other library on
   # either platform: not libc on Linux, no CRT on Windows, where the static
   # CRT had been 104 KB of a 105 KB DLL. fwd_libraries_load_test loads each
@@ -45,7 +47,7 @@ function(ss_fwd_library family)
   endif()
   set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS ${script})
 
-  target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_${family}.cpp)
+  target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_${side}.cpp)
 
   target_include_directories(${tgt} PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}
@@ -57,7 +59,7 @@ function(ss_fwd_library family)
 
   target_compile_definitions(${tgt} PRIVATE
       DLLNAME=${tgt}
-      SS_FWD_${FAMILY}_BUILD
+      SS_FWD_${SIDE}_BUILD
       SOURCESHARP
       NO_MALLOC_OVERRIDE
   )
@@ -72,9 +74,26 @@ function(ss_fwd_library family)
         "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
   endif()
 
-  # The consumers: the header (ss_fwd.h) and the import side of its macros.
+  # The consumers: the header (ss_fwd.h), the import side of its macros, and
+  # the serve helper's choice of library.
   target_include_directories(${tgt} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+  target_compile_definitions(${tgt} INTERFACE SS_FWD_SERVES_${SIDE})
 endfunction()
 
-ss_fwd_library(engine)
-ss_fwd_library(vphysics)
+ss_fwd_library(server)
+ss_fwd_library(client)
+
+# The client's library also builds the Steam callback (fwd_steam.cpp), a
+# class with virtuals (SSSteamCallback, deriving CCallbackBase). With RTTI its
+# vtable would point at a type_info, whose own vtable is the C++ runtime's,
+# which the library does not link (NO_RUNTIME). Nothing casts a callback or
+# asks its type -- Steam calls its three virtuals and no more -- so that file
+# is built without RTTI; the forwarders keep the tree's default. Its target
+# interface, IManagedSteamCallback, derives IManagedObject (imanaged_core.h).
+target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp)
+if(SS_IS_MSVC)
+  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp PROPERTIES COMPILE_OPTIONS /GR-)
+else()
+  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp PROPERTIES COMPILE_OPTIONS -fno-rtti)
+endif()
+target_include_directories(ss_fwd_client PRIVATE ${SS_SRC}/sourcesharp/game/shared)

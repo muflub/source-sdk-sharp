@@ -5,8 +5,8 @@
 // files on Linux, no CRT and no entry point on Windows. So nothing runs
 // when it loads but the loader's relocations, and a table the compiler chose
 // to fill in a dynamic initialiser would load as nulls. fwd_engine_test cannot
-// see that: it compiles fwd_engine.cpp into an executable that has a CRT.
-// This loads each built library itself (libss_fwd_engine, libss_fwd_vphysics)
+// see that: it compiles fwd_server.cpp into an executable that has a CRT.
+// This loads each built library itself (libss_fwd_server, libss_fwd_client)
 // and reads its tables, on both platforms, and on Windows reads each file's
 // import directory: the DLL imports nothing.
 //=============================================================================//
@@ -33,7 +33,7 @@ namespace
 using TableFn = const SSForwarderTable *( * )( const char * );
 
 // Each library: its built file, its one export, a table it serves and a table
-// the OTHER library serves (which it must not).
+// only the other side calls (which it must not serve).
 struct Library
 {
 	const char *pszPath;
@@ -43,8 +43,8 @@ struct Library
 };
 
 constexpr Library kLibraries[] = {
-	{ SS_FWD_ENGINE_LIB, "SSFwdEngine_Table", "SSFwd_ModelInfo", "SSFwd_PhysicsObject" },
-	{ SS_FWD_VPHYSICS_LIB, "SSFwdVPhysics_Table", "SSFwd_PhysicsObject", "SSFwd_ModelInfo" },
+	{ SS_FWD_SERVER_LIB, "SSFwdServer_Table", "SSFwd_ModelInfo", "SSFwd_SteamCallback" },
+	{ SS_FWD_CLIENT_LIB, "SSFwdClient_Table", "SSFwd_SteamCallback", "SSFwd_EngineServer" },
 };
 
 // The library's one export, from the built file; null with a message if the
@@ -133,8 +133,9 @@ TEST( FwdLibrariesLoad, EachBuiltLibraryMatchesNamesExactlyAndServesOnlyItsOwn )
 		EXPECT_EQ( nullptr, table( "" ) );
 		EXPECT_EQ( nullptr, table( nullptr ) );
 
-		// The other family's table is the other library's to serve.
-		EXPECT_EQ( nullptr, table( lib.pszOthersTable ) ) << lib.pszPath << " serves " << lib.pszOthersTable;
+		// A table only the other side calls is the other library's to serve.
+		if ( lib.pszOthersTable )
+			EXPECT_EQ( nullptr, table( lib.pszOthersTable ) ) << lib.pszPath << " serves " << lib.pszOthersTable;
 	}
 }
 

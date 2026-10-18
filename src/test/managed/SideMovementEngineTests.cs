@@ -273,10 +273,13 @@ public unsafe class SideMovementEngineTests : IDisposable
         void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
         try
         {
-            var client = (IVtableEngineClient)typeof(EngineClient)
+            // The table's type is Client.Interop's own (ClientForwarders.g.cs),
+            // so it is named through the constructor rather than here.
+            var ctor = typeof(EngineClient)
                 .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Single()
-                .Invoke([first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, typeof(EngineClientFwd*))]);
+                .Single();
+            var client = (IVtableEngineClient)ctor.Invoke(
+                [first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, ctor.GetParameters()[2].ParameterType)]);
 
             client.ConsolePrintAt(3, "hello");
         }

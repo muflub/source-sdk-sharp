@@ -601,12 +601,11 @@ endif()
 if(SS_PLATFORM STREQUAL linux)
   target_link_libraries(server_sourcesharp PRIVATE dl)
 endif()
-# plan_engine_forwarders.md: the forwarder libraries' tables (libss_fwd_engine,
-# libss_fwd_vphysics), which the internal factory serves
-# (shell_internalfactory.cpp). Linked as client.so links libss_particles:
-# DT_NEEDED on each SONAME, found beside server.so by RUNPATH $ORIGIN; the
-# import libraries on Windows.
-target_link_libraries(server_sourcesharp PRIVATE ss_fwd_engine ss_fwd_vphysics)
+# plan_engine_forwarders.md: the server's forwarder library (libss_fwd_server),
+# whose tables the internal factory serves (shell_internalfactory.cpp). Linked
+# as client.so links libss_particles: DT_NEEDED on its SONAME, found beside
+# server.so by RUNPATH $ORIGIN; the import library on Windows.
+target_link_libraries(server_sourcesharp PRIVATE ss_fwd_server)
 
 # physics.cpp (relocated Valve code) destroys vehicle_gear_t and
 # vehicle_crashsound_t -- classes with virtual functions and no virtual

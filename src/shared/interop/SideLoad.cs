@@ -57,6 +57,15 @@ public static unsafe class SideLoad
     /// </summary>
     public static int Load(Side side, CrossingOp op, void* pShimRoot, int shimRootEntries, void** ppManagedRoot,
                            nint* pVtables, nint* pSession, byte* pFacts)
+        => Load(side, op, pShimRoot, shimRootEntries, ppManagedRoot, pVtables, pSession, pFacts, bindSide: null);
+
+    /// <summary>
+    /// The same, with <paramref name="bindSide"/> run on the side's engine as
+    /// soon as it exists: what only one side's assembly can bind (the server's
+    /// IVEngineServer, whose wrapper is Server.Interop's).
+    /// </summary>
+    internal static int Load(Side side, CrossingOp op, void* pShimRoot, int shimRootEntries, void** ppManagedRoot,
+                             nint* pVtables, nint* pSession, byte* pFacts, Action<EngineSide>? bindSide)
     {
         // statics to zero: the side's state, which outlives every load, held by
         // the Bootstrap as the one opaque handle it has always kept for the
@@ -94,6 +103,11 @@ public static unsafe class SideLoad
 
         try
         {
+            // What only one side's assembly can bind (the server's IVEngineServer,
+            // whose wrapper is Server.Interop's): handed in by that side's entry,
+            // before anything below can ask for it.
+            bindSide?.Invoke(engine);
+
             if (ppManagedRoot != null)
                 *ppManagedRoot = null;
 

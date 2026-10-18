@@ -110,6 +110,53 @@ public class EngineBoundTests
     }
 
     [Fact]
+    public void ASideNobodyBoundAnswersIVEngineServerByNameNotWithAZero()
+    {
+        // IVEngineServer's wrapper is Server.Interop's (one forwarder library
+        // per side), so the shared slot holds no acquirer until the server's
+        // entry installs one; the client's never does.
+        string why = Assert.Throws<InterfaceAcquisitionException>(
+            () => EngineBound.Server(new EngineSide(Side.Client))).Message;
+
+        Assert.Contains("VEngineServer023", why);
+        Assert.Contains("binds no IVEngineServer", why);
+    }
+
+    [Fact]
+    public void TheServerBindingAsksIVEngineServerThroughTheSidesOwnFactory()
+    {
+        var side = new EngineSide(Side.Server);
+        EngineServerBinding.Bind(side);
+
+        // No native half in a test process: the acquire fails, but in the
+        // factory, asking for the server's version string -- not in the
+        // unbound slot.
+        string why = Assert.Throws<InterfaceAcquisitionException>(() => EngineBound.Server(side)).Message;
+
+        Assert.Contains("VEngineServer023", why);
+        Assert.DoesNotContain("binds no IVEngineServer", why);
+    }
+
+    [Fact]
+    public void UseServerInstallsTheAcquirerTheSideAsksThrough()
+    {
+        var side = new EngineSide(Side.Server);
+        var asked = new List<(NativeInterfaceFactory Factory, Side Side)>();
+
+        side.Bound.UseServer((NativeInterfaceFactory factory, Side s, out string why) =>
+        {
+            asked.Add((factory, s));
+            why = "the installed acquirer answered";
+            return null;
+        });
+
+        string message = Assert.Throws<InterfaceAcquisitionException>(() => EngineBound.Server(side)).Message;
+
+        Assert.Contains("the installed acquirer answered", message);
+        Assert.Equal(new[] { (side.Interfaces, Side.Server) }, asked);
+    }
+
+    [Fact]
     public void EveryEngineHoldsItsOwnBoundSet()
     {
         // The set's whole shape: one per engine. A future edit that hoisted it
