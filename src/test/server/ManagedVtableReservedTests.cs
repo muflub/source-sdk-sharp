@@ -176,22 +176,28 @@ public unsafe partial class ManagedVtableTests
                .Select(x => (x.t, x.Item2!));
 
     [Fact]
-    public void OnlyAValveLayoutReservesWords()
+    public void NoGeneratedLayoutReservesWords()
     {
-        var reserving = ManagedWrittenLayouts().Where(x => x.Attribute.ReservedWords != 0).ToList();
+        // The one that did was CCallbackBase's (flags and callback id after
+        // the vptr). libss_fwd_steam builds that object now
+        // (plan_engine_forwarders.md phase 5), and managed writes only its
+        // managed side, which carries no data. The machinery above stays
+        // until nothing names it.
+        var layouts = ManagedWrittenLayouts().ToList();
 
-        Assert.NotEmpty(reserving);   // the stimulus: CCallbackBase's row reaches the generated file
-        Assert.All(reserving, x => Assert.True(x.Attribute.ValveLayout,
-            $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s) and is not a Valve layout"));
+        Assert.NotEmpty(layouts);   // the stimulus: the managed-written layouts are read
+        Assert.All(layouts, x => Assert.True(x.Attribute.ReservedWords == 0,
+            $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s)"));
     }
 
     [Fact]
-    public void TheSteamCallbackLayoutReservesCCallbackBasesOneWord()
+    public void TheSteamCallbacksManagedSideIsOurLayoutWithOneRun()
     {
-        var steam = ManagedWrittenLayouts().Single(x => x.Attribute.NativeClass == "CCallbackBase");
+        var steam = ManagedWrittenLayouts().Single(x => x.Attribute.NativeClass == "IManagedSteamCallback");
 
-        Assert.Equal("SteamCallbackVtbl", steam.Layout.Name);
-        Assert.Equal(1, steam.Attribute.ReservedWords);   // m_nCallbackFlags@8, m_iCallback@12; the gtest holds it to sizeof
-        Assert.Equal(3, steam.Layout.GetFields().Length);
+        Assert.Equal("ManagedSteamCallbackVtbl", steam.Layout.Name);
+        Assert.False(steam.Attribute.ValveLayout);
+        Assert.Equal(new[] { "Release", "Validate", "Run" }, steam.Layout.GetFields().Select(f => f.Name));
+        Assert.DoesNotContain(ManagedWrittenLayouts(), x => x.Attribute.NativeClass == "CCallbackBase");
     }
 }
