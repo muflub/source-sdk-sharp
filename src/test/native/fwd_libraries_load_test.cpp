@@ -6,8 +6,8 @@
 // when it loads but the loader's relocations, and a table the compiler chose
 // to fill in a dynamic initialiser would load as nulls. fwd_engine_test cannot
 // see that: it compiles fwd_engine.cpp into an executable that has a CRT.
-// This loads each built library itself (libss_fwd_engine, libss_fwd_vphysics)
-// and reads its tables, on both platforms, and on Windows reads each file's
+// This loads each built library itself (libss_fwd_engine, libss_fwd_vphysics,
+// libss_fwd_steam) and reads its tables, on both platforms, and on Windows reads each file's
 // import directory: the DLL imports nothing.
 //=============================================================================//
 
@@ -33,7 +33,7 @@ namespace
 using TableFn = const SSForwarderTable *( * )( const char * );
 
 // Each library: its built file, its one export, a table it serves and a table
-// the OTHER library serves (which it must not).
+// ANOTHER library serves (which it must not).
 struct Library
 {
 	const char *pszPath;
@@ -45,6 +45,7 @@ struct Library
 constexpr Library kLibraries[] = {
 	{ SS_FWD_ENGINE_LIB, "SSFwdEngine_Table", "SSFwd_ModelInfo", "SSFwd_PhysicsObject" },
 	{ SS_FWD_VPHYSICS_LIB, "SSFwdVPhysics_Table", "SSFwd_PhysicsObject", "SSFwd_ModelInfo" },
+	{ SS_FWD_STEAM_LIB, "SSFwdSteam_Table", "SSFwd_SteamCallback", "SSFwd_ModelInfo" },
 };
 
 // The library's one export, from the built file; null with a message if the
@@ -133,7 +134,7 @@ TEST( FwdLibrariesLoad, EachBuiltLibraryMatchesNamesExactlyAndServesOnlyItsOwn )
 		EXPECT_EQ( nullptr, table( "" ) );
 		EXPECT_EQ( nullptr, table( nullptr ) );
 
-		// The other family's table is the other library's to serve.
+		// Another family's table is another library's to serve.
 		EXPECT_EQ( nullptr, table( lib.pszOthersTable ) ) << lib.pszPath << " serves " << lib.pszOthersTable;
 	}
 }

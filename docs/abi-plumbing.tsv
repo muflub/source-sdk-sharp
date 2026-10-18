@@ -1,5 +1,5 @@
 # plan_abi_hotreload §2 / §5 row 12: the files of SourceSharp.Abi that are binding plumbing, with the rule that keeps each.
-# a = the generated boundary (VtableLayouts.g.cs, ShimAreas.g.cs, EngineForwarders.g.cs, VPhysicsForwarders.g.cs) and what it names: derived by the census, never listed here.
+# a = the generated boundary (VtableLayouts.g.cs, ShimAreas.g.cs, EngineForwarders.g.cs, VPhysicsForwarders.g.cs, SteamForwarders.g.cs) and what it names: derived by the census, never listed here.
 # b = value contract (blittable mirror, or numbers native interprets); c = state that must outlive the collectible context;
 # d = the side-loading contract or the binding machinery; e = the Log sink or loader infrastructure; x = a delete target, not a seed.
 # The census (src/test/managed/AbiResidency.cs) seeds from these rows plus rule a, keeps whatever they name, and moves the rest.

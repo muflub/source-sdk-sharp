@@ -2,7 +2,7 @@
 //
 // One struct per forwarder table libss_fwd_vphysics serves (src/fwd/native):
 // plain function-pointer fields in the table's order, so field N is slot N
-// on every ABI. The first argument of each is the OBJECT, not the
+// on every ABI. The first argument of a forwarder is the OBJECT, not the
 // table: `_fwd->GetModel(_self, index)`. Slots only append, so
 // Forwarders.TryAcquire holds only that native serves at least as many
 // slots as the struct has fields.

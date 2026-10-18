@@ -41,7 +41,7 @@ internal static class AbiResidency
     public sealed record Ruling(string File, string Kind, string Why, string Destination);
 
     /// <summary>The generated boundary: rule a's seeds.</summary>
-    private static readonly string[] GeneratedBoundary = { "VtableLayouts.g.cs", "ShimAreas.g.cs", "EngineForwarders.g.cs", "VPhysicsForwarders.g.cs" };
+    private static readonly string[] GeneratedBoundary = { "VtableLayouts.g.cs", "ShimAreas.g.cs", "EngineForwarders.g.cs", "VPhysicsForwarders.g.cs", "SteamForwarders.g.cs" };
 
     /// <summary>
     /// The destinations, most specific first, each with the assemblies that can

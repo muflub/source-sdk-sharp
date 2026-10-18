@@ -1,0 +1,8 @@
+/* libss_fwd_steam.so exports its one function, and nothing it was linked
+   with: the callback's functions and their table are reached only through it. */
+{
+	global:
+		SSFwdSteam_Table;
+	local:
+		*;
+};

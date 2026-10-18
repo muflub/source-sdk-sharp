@@ -2,6 +2,8 @@
 #
 #   libss_fwd_engine.so   / ss_fwd_engine.dll     the engine's interfaces
 #   libss_fwd_vphysics.so / ss_fwd_vphysics.dll   vphysics' interfaces and objects
+#   libss_fwd_steam.so    / ss_fwd_steam.dll      a Steam callback, built natively
+#                                                 (fwd_steam.cpp, by hand)
 #
 # One generated function per method managed calls (fwd_<family>.g.inc, from
 # tools/engine-forwarders), each a direct call through the object's own
@@ -78,3 +80,20 @@ endfunction()
 
 ss_fwd_library(engine)
 ss_fwd_library(vphysics)
+ss_fwd_library(steam)
+
+# The Steam library defines a class with virtuals (SSSteamCallback, deriving
+# CCallbackBase). With RTTI its vtable would point at a type_info, whose own
+# vtable is the C++ runtime's, which the library does not link (NO_RUNTIME).
+# Nothing casts a callback or asks its type -- Steam calls its three virtuals
+# and no more -- so it is built without RTTI. Its target interface,
+# IManagedSteamCallback, derives IManagedObject (imanaged_core.h).
+if(SS_IS_MSVC)
+  target_compile_options(ss_fwd_steam PRIVATE /GR-)
+else()
+  target_compile_options(ss_fwd_steam PRIVATE -fno-rtti)
+endif()
+target_include_directories(ss_fwd_steam PRIVATE ${SS_SRC}/sourcesharp/game/shared)
+# A game DLL that links the library serves its table (ss_fwd.h's SSFwd_Serve):
+# the client, which registers the Steam callbacks.
+target_compile_definitions(ss_fwd_steam INTERFACE SS_FWD_SERVES_STEAM)
