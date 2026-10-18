@@ -780,3 +780,70 @@ internal unsafe struct PhysicsCollisionEventFwd : IForwarderTable
     // void IPhysicsCollisionEvent::ObjectLeaveTrigger( IPhysicsObject *, IPhysicsObject * )
     public delegate* unmanaged<void*, void*, void*, void> ObjectLeaveTrigger;
 }
+
+/// <summary>
+/// <c>IShimFrame</c> through its forwarders (SSFwd_ShimFrame): 19 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ShimFrameFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_ShimFrame";
+
+    // int32_t IShimFrame::IsSimulatingOnAlternateTicks( void )
+    public delegate* unmanaged<void*, int> IsSimulatingOnAlternateTicks;
+
+    // int32_t IShimFrame::TickCount( void )
+    public delegate* unmanaged<void*, int> TickCount;
+
+    // float IShimFrame::GetFrameTime( void )
+    public delegate* unmanaged<void*, float> GetFrameTime;
+
+    // void IShimFrame::SetFrameTime( float )
+    public delegate* unmanaged<void*, float, void> SetFrameTime;
+
+    // void IShimFrame::SetServerCurTime( void )
+    public delegate* unmanaged<void*, void> SetServerCurTime;
+
+    // void IShimFrame::ServerSystemsPreThink( void )
+    public delegate* unmanaged<void*, void> ServerSystemsPreThink;
+
+    // void IShimFrame::PhysicsRunThinkFunctions( int32_t )
+    public delegate* unmanaged<void*, int, void> PhysicsRunThinkFunctions;
+
+    // void IShimFrame::ServerSystemsPostThink( void )
+    public delegate* unmanaged<void*, void> ServerSystemsPostThink;
+
+    // void IShimFrame::ServiceEventQueue( void )
+    public delegate* unmanaged<void*, void> ServiceEventQueue;
+
+    // void IShimFrame::UpdateAllClientData( void )
+    public delegate* unmanaged<void*, void> UpdateAllClientData;
+
+    // void IShimFrame::EndGameFrame( void )
+    public delegate* unmanaged<void*, void> EndGameFrame;
+
+    // void IShimFrame::FireNetworkPropertyEvents( void )
+    public delegate* unmanaged<void*, void> FireNetworkPropertyEvents;
+
+    // void IShimFrame::GamestatsUpdateConnection( void )
+    public delegate* unmanaged<void*, void> GamestatsUpdateConnection;
+
+    // void IShimFrame::DrawAllDebugOverlays( void )
+    public delegate* unmanaged<void*, void> DrawAllDebugOverlays;
+
+    // void IShimFrame::ServerSystemsPreClientUpdate( void )
+    public delegate* unmanaged<void*, void> ServerSystemsPreClientUpdate;
+
+    // void IShimFrame::StandalonePlayerCommands( void )
+    public delegate* unmanaged<void*, void> StandalonePlayerCommands;
+
+    // void IShimFrame::StandaloneUpdate( void )
+    public delegate* unmanaged<void*, void> StandaloneUpdate;
+
+    // void IShimFrame::StandaloneFinish( void )
+    public delegate* unmanaged<void*, void> StandaloneFinish;
+
+    // int32_t IShimFrame::DeliverToSdkEntities( const char *, const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, byte*, int> DeliverToSdkEntities;
+}

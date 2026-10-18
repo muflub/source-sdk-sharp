@@ -93,6 +93,15 @@ ss_cpptest_engine_headers(fwd_steam_test
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp)
 
+# plan_forwarders_everywhere.md phase 1: the shim layer's own interfaces
+# through the same forwarder tables, each slot holding what reached a
+# recording IShimFrame. The server's library is compiled in, as above.
+ss_cpptest_engine_headers(fwd_shim_test
+    DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
+    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_shim_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp)
+
 # The CLOSED SET of acquisition failure reasons, walked rather than sampled --
 # plan_native_api.md Part 3b and Part 5c. The contract says four literals, all
 # ASCII, none of them a format string, and that is a claim about every member:

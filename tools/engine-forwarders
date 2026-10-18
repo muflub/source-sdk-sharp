@@ -144,6 +144,11 @@ SIDE_ROOTS = {
 # neighbour's slot. Native does not invent an answer for a method that is not
 # there.
 #
+# `every=True` FORWARDS EVERY SLOT, in the header's declaration order, and
+# names no methods: the row of one of OUR interfaces, which exists for managed
+# to call (plan_forwarders_everywhere.md), whose header only ever appends. Its
+# table grows when the header does, under the same append-only refusal.
+#
 # A ROW'S METHODS ARE ITS SLOTS, IN ORDER, AND ONLY EVER GROW AT THE END: a
 # method managed starts calling is appended to its row, never inserted at its
 # header position (see `appended_only`).
@@ -384,6 +389,14 @@ FORWARD = [
             'ObjectEnterTrigger', 'ObjectLeaveTrigger',
         ],
     ),
+    # plan_forwarders_everywhere.md phase 1: the shim layer's own frame
+    # steps (ishim_frame.h), which native implements (CShimFrame) and managed
+    # calls every slot of. Only the server serves the object; the table is
+    # both because EngineFrame, its user, compiles into both sides.
+    dict(
+        struct='ShimFrameVtbl',
+        every=True,
+    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -449,6 +462,12 @@ def resolved(row):
     if out['side'] not in SIDES:
         raise Refusal('%s names side %s; the sides are %s'
                       % (row['struct'], out['side'], ', '.join(SIDES)))
+    if row.get('every') and not row.get('resolved'):
+        if 'methods' in row:
+            raise Refusal('%s says every=True and names methods: an every row forwards '
+                          'each slot in the header\'s order, so it names none' % row['struct'])
+        out['methods'] = list(slots_of(entry))
+    out['resolved'] = True
     return out
 
 
@@ -869,6 +888,18 @@ def self_test(out=sys.stdout):
        refuses(dict(base, methods=['GetModel', 'GetModel'])))
     ok('an interface tools/vtable-layout does not describe is refused',
        refuses(dict(base, struct='NoSuchVtbl')))
+
+    every_row = resolved(dict(struct='ShimFrameVtbl', every=True))
+    every_names = list(slots_of(interface_entry('ShimFrameVtbl')))
+    ok('an every row forwards each slot, in the header\'s order',
+       every_row['methods'] == every_names and len(every_names) > 1
+       and every_names[0] == 'IsSimulatingOnAlternateTicks')
+    try:
+        resolved(dict(struct='ShimFrameVtbl', every=True, methods=['TickCount']))
+        every_refused = False
+    except Refusal:
+        every_refused = True
+    ok('an every row that also names methods is refused', every_refused)
 
     rows = forwarders_of(dict(base, methods=['GetModelType', 'GetModel']))
     ok('the table is in FORWARD order, not header order',

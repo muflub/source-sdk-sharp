@@ -20,6 +20,7 @@
 #include "filesystem.h"
 #include "inetchannelinfo.h"
 #include "networkstringtabledefs.h"
+#include "sourcesharp/game/server/ishim_frame.h"
 #include "vcollide_parse.h"
 #include "vphysics/collision_set.h"
 #include "vphysics/constraints.h"
@@ -838,6 +839,72 @@ static void *const s_PhysicsCollisionEventSlots[] = {
 
 static const SSForwarderTable s_PhysicsCollisionEventTable = { s_PhysicsCollisionEventSlots, 6 };
 
+//-----------------------------------------------------------------------------
+// ShimFrame: 19 forwarder(s) over IShimFrame.
+//-----------------------------------------------------------------------------
+// int32_t IShimFrame::IsSimulatingOnAlternateTicks( void )
+static int32_t SSFwd_ShimFrame_IsSimulatingOnAlternateTicks( IShimFrame *self ) { return self->IsSimulatingOnAlternateTicks(); }
+// int32_t IShimFrame::TickCount( void )
+static int32_t SSFwd_ShimFrame_TickCount( IShimFrame *self ) { return self->TickCount(); }
+// float IShimFrame::GetFrameTime( void )
+static float SSFwd_ShimFrame_GetFrameTime( IShimFrame *self ) { return self->GetFrameTime(); }
+// void IShimFrame::SetFrameTime( float )
+static void SSFwd_ShimFrame_SetFrameTime( IShimFrame *self, float a0 ) { self->SetFrameTime( a0 ); }
+// void IShimFrame::SetServerCurTime( void )
+static void SSFwd_ShimFrame_SetServerCurTime( IShimFrame *self ) { self->SetServerCurTime(); }
+// void IShimFrame::ServerSystemsPreThink( void )
+static void SSFwd_ShimFrame_ServerSystemsPreThink( IShimFrame *self ) { self->ServerSystemsPreThink(); }
+// void IShimFrame::PhysicsRunThinkFunctions( int32_t )
+static void SSFwd_ShimFrame_PhysicsRunThinkFunctions( IShimFrame *self, int32_t a0 ) { self->PhysicsRunThinkFunctions( a0 ); }
+// void IShimFrame::ServerSystemsPostThink( void )
+static void SSFwd_ShimFrame_ServerSystemsPostThink( IShimFrame *self ) { self->ServerSystemsPostThink(); }
+// void IShimFrame::ServiceEventQueue( void )
+static void SSFwd_ShimFrame_ServiceEventQueue( IShimFrame *self ) { self->ServiceEventQueue(); }
+// void IShimFrame::UpdateAllClientData( void )
+static void SSFwd_ShimFrame_UpdateAllClientData( IShimFrame *self ) { self->UpdateAllClientData(); }
+// void IShimFrame::EndGameFrame( void )
+static void SSFwd_ShimFrame_EndGameFrame( IShimFrame *self ) { self->EndGameFrame(); }
+// void IShimFrame::FireNetworkPropertyEvents( void )
+static void SSFwd_ShimFrame_FireNetworkPropertyEvents( IShimFrame *self ) { self->FireNetworkPropertyEvents(); }
+// void IShimFrame::GamestatsUpdateConnection( void )
+static void SSFwd_ShimFrame_GamestatsUpdateConnection( IShimFrame *self ) { self->GamestatsUpdateConnection(); }
+// void IShimFrame::DrawAllDebugOverlays( void )
+static void SSFwd_ShimFrame_DrawAllDebugOverlays( IShimFrame *self ) { self->DrawAllDebugOverlays(); }
+// void IShimFrame::ServerSystemsPreClientUpdate( void )
+static void SSFwd_ShimFrame_ServerSystemsPreClientUpdate( IShimFrame *self ) { self->ServerSystemsPreClientUpdate(); }
+// void IShimFrame::StandalonePlayerCommands( void )
+static void SSFwd_ShimFrame_StandalonePlayerCommands( IShimFrame *self ) { self->StandalonePlayerCommands(); }
+// void IShimFrame::StandaloneUpdate( void )
+static void SSFwd_ShimFrame_StandaloneUpdate( IShimFrame *self ) { self->StandaloneUpdate(); }
+// void IShimFrame::StandaloneFinish( void )
+static void SSFwd_ShimFrame_StandaloneFinish( IShimFrame *self ) { self->StandaloneFinish(); }
+// int32_t IShimFrame::DeliverToSdkEntities( const char *, const char *, const char * )
+static int32_t SSFwd_ShimFrame_DeliverToSdkEntities( IShimFrame *self, const char * a0, const char * a1, const char * a2 ) { return self->DeliverToSdkEntities( a0, a1, a2 ); }
+
+static void *const s_ShimFrameSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_IsSimulatingOnAlternateTicks ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_TickCount ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_GetFrameTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetFrameTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetServerCurTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPreThink ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_PhysicsRunThinkFunctions ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPostThink ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServiceEventQueue ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_UpdateAllClientData ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_EndGameFrame ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_FireNetworkPropertyEvents ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_GamestatsUpdateConnection ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_DrawAllDebugOverlays ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPreClientUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandalonePlayerCommands ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneFinish ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_DeliverToSdkEntities ),
+};
+
+static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 19 };
+
 // The tables by the name managed asks for, SSFwd_<table>.
 static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ModelInfo", &s_ModelInfoTable },
@@ -865,4 +932,5 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_PhysicsCollisionData", &s_PhysicsCollisionDataTable },
 	{ "SSFwd_VPhysicsKeyParser", &s_VPhysicsKeyParserTable },
 	{ "SSFwd_PhysicsCollisionEvent", &s_PhysicsCollisionEventTable },
+	{ "SSFwd_ShimFrame", &s_ShimFrameTable },
 };
