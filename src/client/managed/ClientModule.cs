@@ -2359,8 +2359,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             return;
         }
 
+        _steamCallbacks = SteamCallbacks.Acquire(_engine, vtables, steam, Log, out why);
+        if (_steamCallbacks is null)
+        {
+            Log.Warning($"[SourceSharp/Steam] no Steam callbacks: the callback table is not served ({why})\n");
+            return;
+        }
+
         IEngineConsole console = _services.Require<IEngineConsole>();
-        _steamCallbacks = new SteamCallbacks(vtables, steam, Log);
         new Steam.ClientSteamCallbacks(_steamCallbacks, _steamContext,
             new Steam.SecureLaunch(steam, commands, Log,
                 () => int.TryParse(console.FindConVarValue("developer"), out int level) ? level : 0)).RegisterAll();

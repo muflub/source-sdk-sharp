@@ -127,6 +127,7 @@
 #include "../game/shared/imanaged_areas.h"
 #include "../game/shared/imanaged_areas_client.h"
 #include "../game/shared/sourcesharp_gamesystem.h"   // IManagedRuntimeServer
+#include "../fwd/imanaged_steam_callback.h"        // IManagedSteamCallback (libss_fwd_steam)
 
 #include "../game/shared/vtable_hook.h"
 
@@ -1030,51 +1031,19 @@ VTABLE_LENGTH_TEST( PhysicsConstraintGroupIsEightSlots, "PhysicsConstraintGroupV
                     &IPhysicsConstraintGroup::SolvePenetration, SS_ABI( 8, 7 ) )
 VTABLE_LENGTH_TEST( VPhysicsKeyHandlerIsTwoSlots, "VPhysicsKeyHandlerVtbl",
                     &IVPhysicsKeyHandler::SetDefaults, 2 )
-// Client Steam (Decision 1a): one Steam callback, in Valve's layout and written
-// by managed. Unlike the vphysics callbacks it has DATA after its vptr, which
-// SteamAPI_RegisterCallback writes, so managed's block reserves words for it.
-VTABLE_LENGTH_TEST( SteamCallbackIsThreeSlots, "SteamCallbackVtbl",
-                    &CCallbackBase::GetCallbackSizeBytes, 3 )
-
-namespace
+// Client Steam (Decision 1a; plan_engine_forwarders.md phase 5): libss_fwd_steam
+// builds the CCallbackBase Steam registers, and managed writes only its
+// managed side, IManagedSteamCallback: Release (0), Validate (1), Run. Ours,
+// so one order on every ABI, with no data after the vptr.
+TEST( VtableLayoutLength, ManagedSteamCallbackIsThreeSlots )
 {
-	// Reads the protected members' offsets from a derived class, which may
-	// name them; offsetof on a class with a vptr is only conditionally supported.
-	class CallbackBaseProbe final : public CCallbackBase
-	{
-	public:
-		void Run( void * ) override {}
-		void Run( void *, bool, SteamAPICall_t ) override {}
-		int GetCallbackSizeBytes() override { return 0; }
+	EXPECT_EQ( 0, VTableHook::MemberOf( &IManagedSteamCallback::Release ).slot );
+	EXPECT_EQ( 1, VTableHook::MemberOf( &IManagedSteamCallback::Validate ).slot );
+	const int compiler = VTableHook::MemberOf( &IManagedSteamCallback::Run ).slot + 1;
 
-		size_t FlagsAt() const { return size_t( reinterpret_cast<const char *>( &m_nCallbackFlags ) - reinterpret_cast<const char *>( this ) ); }
-		size_t CallbackAt() const { return size_t( reinterpret_cast<const char *>( &m_iCallback ) - reinterpret_cast<const char *>( this ) ); }
-	};
-
-	// The N of the layout's `ReservedWords = N`, or -1 when the attribute is
-	// not on the struct's own line before it.
-	int ReservedWordsOf( const std::string &layout, const std::string &nativeClass )
-	{
-		const std::string head = "[ImplementedByManaged(\"" + nativeClass + "\", ValveLayout = true, ReservedWords = ";
-		const size_t at = layout.find( head );
-		if ( at == std::string::npos )
-			return -1;
-		return atoi( layout.c_str() + at + head.size() );
-	}
-}
-
-// What the block reserves is what the class keeps after its vptr: the flags
-// at 8 and the callback id at 12, one word, which Steam writes when it
-// registers the callback. A block reserving less would hand Steam our header.
-TEST( SteamCallbackLayout, ReservedWordsAreTheMembersAfterTheVptr )
-{
-	CallbackBaseProbe probe;
-	EXPECT_EQ( 8u, probe.FlagsAt() );
-	EXPECT_EQ( 12u, probe.CallbackAt() );
-	EXPECT_EQ( 16u, sizeof( CCallbackBase ) );
-
-	const int reserved = ReservedWordsOf( ReadLayout(), "CCallbackBase" );
-	EXPECT_EQ( int( ( sizeof( CCallbackBase ) - sizeof( void * ) ) / sizeof( void * ) ), reserved );
+	EXPECT_EQ( 3, compiler );
+	EXPECT_EQ( compiler, EntriesIn( ReadLayout(), "ManagedSteamCallbackVtbl" ) );
+	EXPECT_EQ( sizeof( void * ), sizeof( IManagedSteamCallback ) );   // the vptr and nothing after it
 }
 
 // The five callbacks managed registers (ClientSteamCallbacks.cs): each id and
@@ -1470,8 +1439,6 @@ OVERLOAD( "ModelInfoVtbl", "GetVCollide", vcollide_t * ( IVModelInfo::* )( const
 		OVERLOAD( "PhysicsCollisionVtbl", "TraceBox", void ( IPhysicsCollision::* )( const Vector &, const Vector &, const Vector &, const Vector &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * ), &IPhysicsCollision::TraceBox ),
 		OVERLOAD( "PhysicsCollisionVtbl", "TraceBox_2", void ( IPhysicsCollision::* )( const Ray_t &, const CPhysCollide *, const Vector &, const QAngle &, trace_t * ), &IPhysicsCollision::TraceBox ),
 		OVERLOAD( "PhysicsCollisionVtbl", "TraceBox_3", void ( IPhysicsCollision::* )( const Ray_t &, unsigned int, IConvexInfo *, const CPhysCollide *, const Vector &, const QAngle &, trace_t * ), &IPhysicsCollision::TraceBox ),
-		OVERLOAD( "SteamCallbackVtbl", "Run", void ( CCallbackBase::* )( void * ), &CCallbackBase::Run ),
-		OVERLOAD( "SteamCallbackVtbl", "Run_2", void ( CCallbackBase::* )( void *, bool, SteamAPICall_t ), &CCallbackBase::Run ),
 	};
 
 	const std::string layout = ReadLayout();
@@ -1525,7 +1492,7 @@ TEST( VtableLayoutLength, EveryGeneratedStructIsCoveredByATestAbove )
 		"PhysicsConstraintEventVtbl", "MotionEventVtbl",
 		"VPhysicsKeyParserVtbl", "PhysicsCollisionSetVtbl", "PhysicsConstraintGroupVtbl",
 		"VPhysicsKeyHandlerVtbl",
-		"SteamCallbackVtbl",
+		"ManagedSteamCallbackVtbl",
 		"VoiceServerVtbl", "ServerPluginHelpersVtbl", "UploadGameStatsVtbl",
 
 		// The shim layer. Walked and checked exactly like the engine's, which

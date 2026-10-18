@@ -63,7 +63,7 @@ ss_cpptest_engine_headers(managed_accept_test
 # -I for the ABI header: ishim_console.h names SourceSharpConsoleEntry, which
 # sourcesharp.h declares (plan_engineapi_vtables A4).
 ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
-    INCLUDES sourcesharp/host
+    INCLUDES sourcesharp/host sourcesharp/game/shared
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
 
 # plan_engine_forwarders.md: each slot of libss_fwd_engine's tables reaches the

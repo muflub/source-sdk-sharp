@@ -31,27 +31,25 @@ public class ClientSteamCallbacksTests
 
     private sealed class Rig : IDisposable
     {
-        public readonly ManagedVtables Vtables = new();
-        public readonly SteamCallbacksTests.SteamDouble Steam = new();
+        private readonly SteamCallbacksTests.Fixture _fixture;
+
         public readonly Log Log = new();
         public readonly Commands Commands = new();
-        public readonly SteamCallbacks Callbacks;
         public readonly ClientSteamContext Context;
 
         public Rig()
         {
-            Callbacks = new SteamCallbacks(Vtables, Steam, Log);
+            _fixture = new SteamCallbacksTests.Fixture(log: Log);
             Context = new ClientSteamContext(Steam, Log);
             new ClientSteamCallbacks(Callbacks, Context, new SecureLaunch(Steam, Commands, Log, () => 1)).RegisterAll();
         }
 
-        public void Run(string name, byte[] payload) => SteamCallbacksTests.SteamDouble.Run(Callbacks.BlockOf(name)!.Address, payload);
+        public SteamCallbacksTests.SteamDouble Steam => _fixture.Steam;
+        public SteamCallbacks Callbacks => _fixture.Callbacks;
 
-        public void Dispose()
-        {
-            Callbacks.Dispose();
-            Vtables.Dispose();
-        }
+        public void Run(string name, byte[] payload) => SteamCallbacksTests.SteamDouble.Run(Callbacks.CallbackOf(name), payload);
+
+        public void Dispose() => _fixture.Dispose();
     }
 
     [Fact]
@@ -72,7 +70,8 @@ public class ClientSteamCallbacksTests
     {
         using var rig = new Rig();
 
-        Assert.Equal(bytes, SteamCallbacksTests.SteamDouble.SizeOf(rig.Callbacks.BlockOf(name)!.Address));
+        // The size the native callback answers Steam with (GetCallbackSizeBytes).
+        Assert.Equal(bytes, SteamCallbacksTests.FakeSteamLibrary.PayloadBytesOf(rig.Callbacks.CallbackOf(name)));
     }
 
     [Theory]
