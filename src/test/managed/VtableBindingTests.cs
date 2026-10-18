@@ -58,7 +58,7 @@ public unsafe class VtableBindingTests
         return (IUniformRandom)ctor.Invoke(new object?[]
         {
             Pointer.Box(self, typeof(void*)),
-            Pointer.Box(table, typeof(void**)),
+            Pointer.Box(table, typeof(UniformRandomStreamFwd*)),
         });
     }
 
@@ -71,17 +71,24 @@ public unsafe class VtableBindingTests
     [UnmanagedCallersOnly]
     private static int SlotTwoAnswers(void* self, int min, int max) => min + max;
 
+    // The forwarder slot of a field of UniformRandomStreamFwd: its offset.
+    private static int Slot(string field)
+        => (int)(Marshal.OffsetOf<UniformRandomStreamFwd>(field) / sizeof(void*));
+
     /// <summary>
-    /// An object whose first word points at a four-entry table, with a distinct
-    /// function in slots 0, 1 and 2.
+    /// An object and a forwarder table the size of UniformRandomStreamFwd, with
+    /// a distinct function in each slot: RandomFloat's answers 111, RandomInt's
+    /// sums its arguments, and RandomFloatExp's slot holds a function of
+    /// RandomFloat's own shape that answers 999, for the fact that swaps them.
     /// </summary>
     private static void* FakeStream(out void** table)
     {
-        table = (void**)NativeMemory.AllocZeroed(4, (nuint)sizeof(void*));
+        table = (void**)NativeMemory.AllocZeroed(
+            (nuint)Forwarders.SlotCount<UniformRandomStreamFwd>(), (nuint)sizeof(void*));
 
-        table[0] = (delegate* unmanaged<void*, float, float, float>)&SlotZeroAnswers;
-        table[1] = (delegate* unmanaged<void*, float, float, float>)&SlotOneAnswers;
-        table[2] = (delegate* unmanaged<void*, int, int, int>)&SlotTwoAnswers;
+        table[Slot("RandomFloatExp")] = (delegate* unmanaged<void*, float, float, float>)&SlotZeroAnswers;
+        table[Slot("RandomFloat")] = (delegate* unmanaged<void*, float, float, float>)&SlotOneAnswers;
+        table[Slot("RandomInt")] = (delegate* unmanaged<void*, int, int, int>)&SlotTwoAnswers;
 
         void** self = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
         *self = table;
@@ -106,9 +113,7 @@ public unsafe class VtableBindingTests
         void* self = FakeStream(out void** table);
         IUniformRandom stream = NewStream(self, table);
 
-        // RandomFloat is the SECOND field of UniformRandomStreamVtbl, because
-        // SetSeed is the first — which is the header's order. 111 is slot 1's
-        // answer and 999 is slot 0's.
+        // 111 is the RandomFloat slot's answer and 999 the one beside it.
         Assert.Equal(111f, stream.RandomFloat(0f, 1f));
 
         NativeMemory.Free(table);
@@ -126,9 +131,9 @@ public unsafe class VtableBindingTests
         // the binding is keyed on a name, only on where the field sits.
         // Written out rather than as a tuple swap: `void*` may not be a type
         // argument, and a tuple is generic.
-        void* first = table[0];
-        table[0] = table[1];
-        table[1] = first;
+        void* first = table[Slot("RandomFloat")];
+        table[Slot("RandomFloat")] = table[Slot("RandomFloatExp")];
+        table[Slot("RandomFloatExp")] = first;
 
         Assert.Equal(999f, stream.RandomFloat(0f, 1f));
 
@@ -142,8 +147,9 @@ public unsafe class VtableBindingTests
         void* self = FakeStream(out void** table);
         IUniformRandom stream = NewStream(self, table);
 
-        // Slot 2 takes two ints and returns their sum, so this also says the
-        // arguments arrive: a call landing on slot 1 would answer 111.
+        // RandomInt's slot takes two ints and returns their sum, so this also
+        // says the arguments arrive: a call landing on RandomFloat's would
+        // answer 111.
         Assert.Equal(7, stream.RandomInt(3, 4));
 
         NativeMemory.Free(table);

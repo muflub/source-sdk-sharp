@@ -67,6 +67,7 @@
     <Compile Include="..\common\RecordingRagdolls.cs" Link="common\RecordingRagdolls.cs" />
     <Compile Include="..\common\ProcessWide.cs" Link="common\ProcessWide.cs" />
     <Compile Include="..\common\FakeShimRoot.cs" Link="common\FakeShimRoot.cs" />
+    <Compile Include="..\common\TestVPhysics.cs" Link="common\TestVPhysics.cs" />
     <Compile Include="..\common\TestConsoleBuffer.cs" Link="common\TestConsoleBuffer.cs" />
     <Compile Include="..\common\AssemblyInfo.cs" Link="common\AssemblyInfo.cs" />
     <Compile Include="..\common\EntityInjectionClientFixtures.cs" Link="common\EntityInjectionClientFixtures.cs" />

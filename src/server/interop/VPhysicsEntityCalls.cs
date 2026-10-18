@@ -15,8 +15,8 @@ public readonly record struct EntitySolid(int Index, string SurfaceProp, ObjectP
 /// <summary>
 /// Every vphysics call an entity's physics init makes beyond the world
 /// build's (plan_physics_bones_native_zero, InitPhysics to managed): each a
-/// direct call through a generated vtable -- <see cref="PhysicsEnvironmentVtbl"/>,
-/// <see cref="PhysicsObjectVtbl"/>. A 0 pointer is a no-op answering zero, as
+/// call through its generated forwarders -- <see cref="PhysicsEnvironmentFwd"/>,
+/// <see cref="PhysicsObjectFwd"/>. A 0 pointer is a no-op answering zero, as
 /// stock's NULL checks are.
 /// </summary>
 public interface IVPhysicsEntityCalls
@@ -73,11 +73,17 @@ public interface IVPhysicsEntityCalls
 /// <summary>The real vphysics. Holds one scratch <c>solid_t</c>, freed on dispose.</summary>
 public sealed unsafe class VPhysicsEntityCalls : IVPhysicsEntityCalls, IDisposable
 {
+    private readonly VPhysicsTables _vphysics;
+
+    /// <summary>Over <paramref name="vphysics"/>, its side's vphysics forwarder tables.</summary>
+    public VPhysicsEntityCalls(VPhysicsTables vphysics)
+        => _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
+
     private byte* _solid = (byte*)NativeMemory.AllocZeroed(SolidLayout.Size);
 
-    private static PhysicsEnvironmentVtbl* Env(nint e) => *(PhysicsEnvironmentVtbl**)e;
+    private PhysicsEnvironmentFwd* Env(nint e) => _vphysics.PhysicsEnvironment;
 
-    private static PhysicsObjectVtbl* Obj(nint o) => *(PhysicsObjectVtbl**)o;
+    private PhysicsObjectFwd* Obj(nint o) => _vphysics.PhysicsObject;
 
     public nint ScratchSolid => (nint)_solid;
 

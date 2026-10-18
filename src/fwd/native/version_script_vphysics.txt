@@ -1,0 +1,8 @@
+/* libss_fwd_vphysics.so exports its one function, and nothing it was linked
+   with: the forwarders and their tables are reached only through it. */
+{
+	global:
+		SSFwdVPhysics_Table;
+	local:
+		*;
+};

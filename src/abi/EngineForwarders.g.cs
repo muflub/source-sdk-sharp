@@ -2,7 +2,7 @@
 //
 // One struct per forwarder table libss_fwd_engine serves (src/fwd/native):
 // plain function-pointer fields in the table's order, so field N is slot N
-// on every ABI. The first argument of each is the ENGINE object, not the
+// on every ABI. The first argument of each is the OBJECT, not the
 // table: `_fwd->GetModel(_self, index)`. Slots only append, so
 // Forwarders.TryAcquire holds only that native serves at least as many
 // slots as the struct has fields.
@@ -56,4 +56,253 @@ internal unsafe struct ModelInfoFwd : IForwarderTable
 
     // CPhysCollide * IVModelInfo::GetCollideForVirtualTerrain( int )
     public delegate* unmanaged<void*, int, void*> GetCollideForVirtualTerrain;
+}
+
+/// <summary>
+/// <c>IBaseFileSystem</c> through its forwarders (SSFwd_BaseFileSystem): 3 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct BaseFileSystemFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_BaseFileSystem";
+
+    // unsigned int IBaseFileSystem::Size( const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, uint> Size_2;
+
+    // bool IBaseFileSystem::FileExists( const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, byte> FileExists;
+
+    // long IBaseFileSystem::GetFileTime( const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, long> GetFileTime;
+}
+
+/// <summary>
+/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 13 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct EngineClientFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_EngineClient";
+
+    // void IVEngineClient013::GetScreenSize( int &, int & )
+    public delegate* unmanaged<void*, void*, void*, void> GetScreenSize;
+
+    // void IVEngineClient013::ServerCmd( const char *, bool )
+    public delegate* unmanaged<void*, byte*, byte, void> ServerCmd;
+
+    // void IVEngineClient013::ClientCmd( const char * )
+    public delegate* unmanaged<void*, byte*, void> ClientCmd;
+
+    // bool IVEngineClient013::GetPlayerInfo( int, player_info_t * )
+    public delegate* unmanaged<void*, int, void*, byte> GetPlayerInfo;
+
+    // void IVEngineClient013::GetViewAngles( QAngle & )
+    public delegate* unmanaged<void*, void*, void> GetViewAngles;
+
+    // void IVEngineClient013::SetViewAngles( QAngle & )
+    public delegate* unmanaged<void*, void*, void> SetViewAngles;
+
+    // bool IVEngineClient013::IsInGame( void )
+    public delegate* unmanaged<void*, byte> IsInGame;
+
+    // const char * IVEngineClient013::GetGameDirectory( void )
+    public delegate* unmanaged<void*, byte*> GetGameDirectory;
+
+    // char const * IVEngineClient013::GetLevelName( void )
+    public delegate* unmanaged<void*, byte*> GetLevelName;
+
+    // bool IVEngineClient013::IsPaused( void )
+    public delegate* unmanaged<void*, byte> IsPaused;
+
+    // void IVEngineClient013::ClientCmd_Unrestricted( const char * )
+    public delegate* unmanaged<void*, byte*, void> ClientCmd_Unrestricted;
+
+    // void IVEngineClient013::GetMouseDelta( int &, int &, bool )
+    // NULL where the engine is built without USE_SDL: the method does not
+    // exist there, so a caller checks the slot before calling it.
+    public delegate* unmanaged<void*, void*, void*, byte, void> GetMouseDelta;
+
+    // uint IVEngineClient::GetProtocolVersion( void )
+    public delegate* unmanaged<void*, uint> GetProtocolVersion;
+}
+
+/// <summary>
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 9 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct EngineServerFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_EngineServer";
+
+    // bool IVEngineServer::IsDedicatedServer( void )
+    public delegate* unmanaged<void*, byte> IsDedicatedServer;
+
+    // int IVEngineServer::GetEntityCount( void )
+    public delegate* unmanaged<void*, int> GetEntityCount;
+
+    // INetChannelInfo * IVEngineServer::GetPlayerNetInfo( int )
+    public delegate* unmanaged<void*, int, void*> GetPlayerNetInfo;
+
+    // const char * IVEngineServer::GetClientConVarValue( int, const char * )
+    public delegate* unmanaged<void*, int, byte*, byte*> GetClientConVarValue;
+
+    // int IVEngineServer::GetArea( const Vector & )
+    public delegate* unmanaged<void*, void*, int> GetArea;
+
+    // const char * IVEngineServer::GetMapEntitiesString( void )
+    public delegate* unmanaged<void*, byte*> GetMapEntitiesString;
+
+    // const CSteamID * IVEngineServer::GetClientSteamIDByPlayerIndex( int )
+    public delegate* unmanaged<void*, int, void*> GetClientSteamIDByPlayerIndex;
+
+    // void IVEngineServer::GetGameDir( char *, int )
+    public delegate* unmanaged<void*, byte*, int, void> GetGameDir;
+
+    // bool IVEngineServer::IsModelPrecached( char const * )
+    public delegate* unmanaged<void*, byte*, byte> IsModelPrecached;
+}
+
+/// <summary>
+/// <c>IUniformRandomStream</c> through its forwarders (SSFwd_UniformRandomStream): 3 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct UniformRandomStreamFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_UniformRandomStream";
+
+    // float IUniformRandomStream::RandomFloat( float, float )
+    public delegate* unmanaged<void*, float, float, float> RandomFloat;
+
+    // int IUniformRandomStream::RandomInt( int, int )
+    public delegate* unmanaged<void*, int, int, int> RandomInt;
+
+    // float IUniformRandomStream::RandomFloatExp( float, float, float )
+    public delegate* unmanaged<void*, float, float, float, float> RandomFloatExp;
+}
+
+/// <summary>
+/// <c>IInputSystem</c> through its forwarders (SSFwd_InputSystem): 10 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct InputSystemFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_InputSystem";
+
+    // bool IInputSystem::IsButtonDown( ButtonCode_t )
+    public delegate* unmanaged<void*, int, byte> IsButtonDown;
+
+    // int IInputSystem::GetAnalogValue( AnalogCode_t )
+    public delegate* unmanaged<void*, int, int> GetAnalogValue;
+
+    // int IInputSystem::GetJoystickCount( void )
+    public delegate* unmanaged<void*, int> GetJoystickCount;
+
+    // void IInputSystem::SetRumble( float, float, int )
+    public delegate* unmanaged<void*, float, float, int, void> SetRumble;
+
+    // void IInputSystem::StopRumble( void )
+    public delegate* unmanaged<void*, void> StopRumble;
+
+    // const char * IInputSystem::ButtonCodeToString( ButtonCode_t )
+    public delegate* unmanaged<void*, int, byte*> ButtonCodeToString;
+
+    // bool IInputSystem::GetRawMouseAccumulators( int &, int & )
+    public delegate* unmanaged<void*, void*, void*, byte> GetRawMouseAccumulators;
+
+    // ISteamController * IInputSystem::SteamControllerInterface( void )
+    public delegate* unmanaged<void*, void*> SteamControllerInterface;
+
+    // bool IInputSystem::IsSteamControllerActive( void )
+    public delegate* unmanaged<void*, byte> IsSteamControllerActive;
+
+    // void IInputSystem::ActivateSteamControllerActionSetForSlot( uint64, GameActionSet_t )
+    public delegate* unmanaged<void*, ulong, int, void> ActivateSteamControllerActionSetForSlot;
+}
+
+/// <summary>
+/// <c>INetChannelInfo</c> through its forwarders (SSFwd_NetChannelInfo): 2 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct NetChannelInfoFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_NetChannelInfo";
+
+    // const char * INetChannelInfo::GetAddress( void )
+    public delegate* unmanaged<void*, byte*> GetAddress;
+
+    // float INetChannelInfo::GetAvgLatency( int )
+    public delegate* unmanaged<void*, int, float> GetAvgLatency;
+}
+
+/// <summary>
+/// <c>INetworkStringTableContainer</c> through its forwarders (SSFwd_NetworkStringTableContainer): 1 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct NetworkStringTableContainerFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_NetworkStringTableContainer";
+
+    // INetworkStringTable * INetworkStringTableContainer::FindTable( const char * )
+    public delegate* unmanaged<void*, byte*, void*> FindTable;
+}
+
+/// <summary>
+/// <c>INetworkStringTable</c> through its forwarders (SSFwd_NetworkStringTable): 5 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct NetworkStringTableFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_NetworkStringTable";
+
+    // const char * INetworkStringTable::GetTableName( void )
+    public delegate* unmanaged<void*, byte*> GetTableName;
+
+    // int INetworkStringTable::AddString( bool, const char *, int, const void * )
+    public delegate* unmanaged<void*, byte, byte*, int, void*, int> AddString;
+
+    // const char * INetworkStringTable::GetString( int )
+    public delegate* unmanaged<void*, int, byte*> GetString;
+
+    // const void * INetworkStringTable::GetStringUserData( int, int * )
+    public delegate* unmanaged<void*, int, void*, void*> GetStringUserData;
+
+    // int INetworkStringTable::FindStringIndex( char const * )
+    public delegate* unmanaged<void*, byte*, int> FindStringIndex;
+}
+
+/// <summary>
+/// <c>ISoundEmitterSystemBase</c> through its forwarders (SSFwd_SoundEmitterSystem): 2 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct SoundEmitterSystemFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_SoundEmitterSystem";
+
+    // int ISoundEmitterSystemBase::GetSoundIndex( const char * )
+    public delegate* unmanaged<void*, byte*, int> GetSoundIndex;
+
+    // const char * ISoundEmitterSystemBase::GetSoundName( int )
+    public delegate* unmanaged<void*, int, byte*> GetSoundName;
+}
+
+/// <summary>
+/// <c>IStaticPropMgrServer</c> through its forwarders (SSFwd_StaticPropMgrServer): 1 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct StaticPropMgrServerFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_StaticPropMgrServer";
+
+    // void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations;
 }

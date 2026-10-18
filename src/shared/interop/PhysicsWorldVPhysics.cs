@@ -223,14 +223,15 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
 
     private readonly Func<nint> _environment;
     private readonly void* _collision;
-    private readonly PhysicsCollisionVtbl* _collisionVt;
+    private readonly PhysicsCollisionFwd* _collisionFwd;
     private readonly void* _props;
-    private readonly PhysicsSurfacePropsVtbl* _propsVt;
+    private readonly PhysicsSurfacePropsFwd* _propsFwd;
     private readonly void* _modelInfo;
     private readonly ModelInfoFwd* _modelInfoFwd;
     private readonly void* _staticProps;
-    private readonly StaticPropMgrServerVtbl* _staticPropsVt;
+    private readonly StaticPropMgrServerFwd* _staticPropsFwd;
     private readonly ISolidKeyTable _keys;
+    private readonly VPhysicsTables _vphysics;
 
     // A name vphysics is handed may be kept as the object's name for the
     // object's life, which can outlive this load (a hot reload keeps the
@@ -243,20 +244,24 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
 
     /// <param name="environment">The level's IPhysicsEnvironment, asked per call.</param>
     /// <param name="staticProps">IStaticPropMgr (the server's), or null on a side that does not make the static props' physics here.</param>
-    public PhysicsWorldVPhysics(Func<nint> environment, void* collision, void** collisionVt, void* props, void** propsVt,
-                                void* modelInfo, void** modelInfoFwd, void* staticProps, void** staticPropsVt,
-                                ISolidKeyTable keys)
+    /// <param name="collisionFwd">IPhysicsCollision's forwarders (<c>PhysicsCollisionFwd</c>); the other
+    /// <c>*Fwd</c> parameters likewise. Untyped because the forwarder structs are internal.</param>
+    /// <param name="vphysics">The side's vphysics forwarder tables, for the objects this calls.</param>
+    public PhysicsWorldVPhysics(Func<nint> environment, void* collision, void** collisionFwd, void* props, void** propsFwd,
+                                void* modelInfo, void** modelInfoFwd, void* staticProps, void** staticPropsFwd,
+                                ISolidKeyTable keys, VPhysicsTables vphysics)
     {
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _collision = collision;
-        _collisionVt = (PhysicsCollisionVtbl*)collisionVt;
+        _collisionFwd = (PhysicsCollisionFwd*)collisionFwd;
         _props = props;
-        _propsVt = (PhysicsSurfacePropsVtbl*)propsVt;
+        _propsFwd = (PhysicsSurfacePropsFwd*)propsFwd;
         _modelInfo = modelInfo;
         _modelInfoFwd = (ModelInfoFwd*)modelInfoFwd;
         _staticProps = staticProps;
-        _staticPropsVt = (StaticPropMgrServerVtbl*)staticPropsVt;
+        _staticPropsFwd = (StaticPropMgrServerFwd*)staticPropsFwd;
         _keys = keys ?? throw new ArgumentNullException(nameof(keys));
+        _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
         _solid = (byte*)NativeMemory.AllocZeroed(SolidLayout.Size);
         _fluid = (byte*)NativeMemory.AllocZeroed(FluidLayout.Size);
     }
@@ -271,25 +276,26 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     {
         NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces;
         void* staticProps = null;
-        void** staticPropsVt = null;
+        StaticPropMgrServerFwd* staticPropsFwd = null;
 
-        if (!Vtable.TryAcquire<PhysicsCollisionVtbl>(factory, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
-                                                     out void* collision, out void** collisionVt, out why)
-            || !Vtable.TryAcquire<PhysicsSurfacePropsVtbl>(factory, SourceSharpFactoryType.Physics,
-                                                           PhysicsSurfaceProps.InterfaceVersion,
-                                                           out void* props, out void** propsVt, out why)
+        if (!Forwarders.TryAcquire<PhysicsCollisionFwd>(factory, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
+                                                        out void* collision, out PhysicsCollisionFwd* collisionFwd, out why)
+            || !Forwarders.TryAcquire<PhysicsSurfacePropsFwd>(factory, SourceSharpFactoryType.Physics,
+                                                              PhysicsSurfaceProps.InterfaceVersion,
+                                                              out void* props, out PhysicsSurfacePropsFwd* propsFwd, out why)
             || !Forwarders.TryAcquire<ModelInfoFwd>(factory, SourceSharpFactoryType.AppSystem,
                                                  server ? EngineModelInfo.ServerInterfaceVersion : EngineModelInfo.ClientInterfaceVersion,
                                                  out void* modelInfo, out ModelInfoFwd* modelInfoFwd, out why)
-            || (server && !Vtable.TryAcquire<StaticPropMgrServerVtbl>(factory, SourceSharpFactoryType.AppSystem,
-                                                                      "StaticPropMgrServer002",
-                                                                      out staticProps, out staticPropsVt, out why)))
+            || (server && !Forwarders.TryAcquire<StaticPropMgrServerFwd>(factory, SourceSharpFactoryType.AppSystem,
+                                                                         "StaticPropMgrServer002",
+                                                                         out staticProps, out staticPropsFwd, out why)))
         {
             return null;
         }
 
-        return new PhysicsWorldVPhysics(environment, collision, collisionVt, props, propsVt, modelInfo, (void**)modelInfoFwd,
-                                        staticProps, staticPropsVt, keys);
+        return new PhysicsWorldVPhysics(environment, collision, (void**)collisionFwd, props, (void**)propsFwd,
+                                        modelInfo, (void**)modelInfoFwd, staticProps, (void**)staticPropsFwd, keys,
+                                        engine.Api.VPhysics);
     }
 
     public void Dispose()
@@ -300,11 +306,11 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         _fluid = null;
     }
 
-    private static PhysicsEnvironmentVtbl* Env(nint environment) => *(PhysicsEnvironmentVtbl**)environment;
+    private PhysicsEnvironmentFwd* Env(nint environment) => _vphysics.PhysicsEnvironment;
 
-    private static PhysicsObjectVtbl* Obj(nint physicsObject) => *(PhysicsObjectVtbl**)physicsObject;
+    private PhysicsObjectFwd* Obj(nint physicsObject) => _vphysics.PhysicsObject;
 
-    private static VPhysicsKeyParserVtbl* Parser(nint parser) => *(VPhysicsKeyParserVtbl**)parser;
+    private VPhysicsKeyParserFwd* Parser(nint parser) => _vphysics.VPhysicsKeyParser;
 
     public nint Environment() => _environment();
 
@@ -332,7 +338,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         byte[] bytes = Vtable.Utf8(name);
 
         fixed (byte* p = bytes)
-            return _propsVt->GetSurfaceIndex(_props, p);
+            return _propsFwd->GetSurfaceIndex(_props, p);
     }
 
     public nint NativeText(string text)
@@ -364,7 +370,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         if (physicsObject == 0)
             return;
 
-        PhysicsObjectVtbl* vt = Obj(physicsObject);
+        PhysicsObjectFwd* vt = Obj(physicsObject);
         vt->SetCallbackFlags((void*)physicsObject, (ushort)(vt->GetCallbackFlags((void*)physicsObject) | CallbackNeverDeleted));
     }
 
@@ -384,12 +390,12 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         return (nint)Env(environment)->CreateFluidController((void*)environment, (void*)waterObject, _fluid + FluidLayout.Params);
     }
 
-    public nint KeyParserCreate(nint keyValues) => (nint)_collisionVt->VPhysicsKeyParserCreate(_collision, (byte*)keyValues);
+    public nint KeyParserCreate(nint keyValues) => (nint)_collisionFwd->VPhysicsKeyParserCreate(_collision, (byte*)keyValues);
 
     public void KeyParserDestroy(nint parser)
     {
         if (parser != 0)
-            _collisionVt->VPhysicsKeyParserDestroy(_collision, (void*)parser);
+            _collisionFwd->VPhysicsKeyParserDestroy(_collision, (void*)parser);
     }
 
     public bool Finished(nint parser) => parser == 0 || Parser(parser)->Finished((void*)parser) != 0;
@@ -466,12 +472,12 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     public void SetWorldMaterialIndexTable(ReadOnlySpan<int> table)
     {
         fixed (int* p = table)
-            _propsVt->SetWorldMaterialIndexTable(_props, p, table.Length);
+            _propsFwd->SetWorldMaterialIndexTable(_props, p, table.Length);
     }
 
     public void SkipBlock(nint parser) => Parser(parser)->SkipBlock((void*)parser);
 
-    public bool SupportsVirtualMesh() => _collisionVt->SupportsVirtualMesh(_collision) != 0;
+    public bool SupportsVirtualMesh() => _collisionFwd->SupportsVirtualMesh(_collision) != 0;
 
     public nint VirtualTerrainCollide(int index) => (nint)_modelInfoFwd->GetCollideForVirtualTerrain(_modelInfo, index);
 
@@ -483,7 +489,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         _keys.SolidInFlight = true;
         try
         {
-            _staticPropsVt->CreateVPhysicsRepresentations(_staticProps, (void*)environment, (void*)_keys.Table, null);
+            _staticPropsFwd->CreateVPhysicsRepresentations(_staticProps, (void*)environment, (void*)_keys.Table, null);
         }
         finally
         {
@@ -493,11 +499,11 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
 
     // ---- the surface sounds ---------------------------------------------------
 
-    public int Count() => _propsVt->SurfacePropCount(_props);
+    public int Count() => _propsFwd->SurfacePropCount(_props);
 
     public bool SoundNames(int surface, Span<ushort> names)
     {
-        byte* data = (byte*)_propsVt->GetSurfaceData(_props, surface);
+        byte* data = (byte*)_propsFwd->GetSurfaceData(_props, surface);
         if (data == null)
             return false;
 
@@ -506,11 +512,11 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     }
 
     // A soundscript name is a short token.
-    public string? Text(ushort index) => Vtable.TextOf(_propsVt->GetString(_props, index), 128);
+    public string? Text(ushort index) => Vtable.TextOf(_propsFwd->GetString(_props, index), 128);
 
     public void WriteHandles(int surface, ReadOnlySpan<short> handles)
     {
-        byte* data = (byte*)_propsVt->GetSurfaceData(_props, surface);
+        byte* data = (byte*)_propsFwd->GetSurfaceData(_props, surface);
         if (data != null)
             handles.CopyTo(new Span<short>(data + SurfaceDataLayout.SoundHandles, handles.Length));
     }

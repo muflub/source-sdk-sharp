@@ -65,6 +65,7 @@
     <Compile Include="..\common\AbiParityTests.Helpers.cs" Link="common\AbiParityTests.Helpers.cs" />
     <Compile Include="..\common\AnimListSources.cs" Link="common\AnimListSources.cs" />
     <Compile Include="..\common\FakeShimRoot.cs" Link="common\FakeShimRoot.cs" />
+    <Compile Include="..\common\TestVPhysics.cs" Link="common\TestVPhysics.cs" />
     <Compile Include="..\common\ScriptedVarInventory.cs" Link="common\ScriptedVarInventory.cs" />
     <Compile Include="..\common\StaticStateWaivers.cs" Link="common\StaticStateWaivers.cs" />
     <Compile Include="..\common\TestMapSpawner.cs" Link="common\TestMapSpawner.cs" />

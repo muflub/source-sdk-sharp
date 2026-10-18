@@ -100,12 +100,12 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
     public const string InterfaceVersion = "VBaseFileSystem011";
 
     private readonly void* _self;
-    private readonly BaseFileSystemVtbl* _vtbl;
+    private readonly BaseFileSystemFwd* _fwd;
 
-    private EngineBaseFileSystem(void* self, void** table)
+    private EngineBaseFileSystem(void* self, BaseFileSystemFwd* table)
     {
         _self = self;
-        _vtbl = (BaseFileSystemVtbl*)table;
+        _fwd = table;
     }
 
     /// <summary>
@@ -132,9 +132,9 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
     /// D8): what <see cref="EngineBound"/> holds per side.
     /// </summary>
     internal static IVtableBaseFileSystem? Acquire(NativeInterfaceFactory factory, out string why)
-        => Vtable.TryAcquire<BaseFileSystemVtbl>(
+        => Forwarders.TryAcquire<BaseFileSystemFwd>(
                factory, SourceSharpFactoryType.FileSystem,
-               InterfaceVersion, out void* self, out void** table, out why)
+               InterfaceVersion, out void* self, out BaseFileSystemFwd* table, out why)
             ? new EngineBaseFileSystem(self, table)
             : null;
 
@@ -146,7 +146,7 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
 
         fixed (byte* n = name)
         fixed (byte* p = path)
-            return _vtbl->FileExists(_self, n, p) != 0;
+            return _fwd->FileExists(_self, n, p) != 0;
     }
 
     /// <inheritdoc/>
@@ -158,7 +158,7 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
         // Size_2 AND NOT Size. The first overload takes a FileHandle_t.
         fixed (byte* n = name)
         fixed (byte* p = path)
-            return _vtbl->Size_2(_self, n, p);
+            return _fwd->Size_2(_self, n, p);
     }
 
     /// <inheritdoc/>
@@ -169,6 +169,6 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
 
         fixed (byte* n = name)
         fixed (byte* p = path)
-            return _vtbl->GetFileTime(_self, n, p);
+            return _fwd->GetFileTime(_self, n, p);
     }
 }

@@ -32,8 +32,8 @@ public struct VPhysicsObjectParams
 /// <summary>
 /// Every vphysics call the managed player shadow makes (plan_physics_bones_native_zero
 /// 2.5), each a direct call through a generated vtable --
-/// <see cref="PhysicsEnvironmentVtbl"/>, <see cref="PhysicsObjectVtbl"/>,
-/// <see cref="PhysicsPlayerControllerVtbl"/> -- or through the collision and
+/// <see cref="PhysicsEnvironmentFwd"/>, <see cref="PhysicsObjectFwd"/>,
+/// <see cref="PhysicsPlayerControllerFwd"/> -- or through the collision and
 /// surface tables. A 0 pointer is a no-op answering zero, as stock's NULL
 /// checks are.
 /// </summary>
@@ -110,14 +110,17 @@ public interface IVPhysicsShadowCalls
 }
 
 /// <summary>The real vphysics. Holds only the two factory tables.</summary>
-public sealed unsafe class VPhysicsShadowCalls(IVPhysicsCollision? collision, IVtablePhysicsSurfaceProps? surfaces)
+public sealed unsafe class VPhysicsShadowCalls(IVPhysicsCollision? collision, IVtablePhysicsSurfaceProps? surfaces,
+                                               VPhysicsTables vphysics)
     : IVPhysicsShadowCalls
 {
-    private static PhysicsEnvironmentVtbl* Env(nint e) => *(PhysicsEnvironmentVtbl**)e;
+    private readonly VPhysicsTables _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
 
-    private static PhysicsObjectVtbl* Obj(nint o) => *(PhysicsObjectVtbl**)o;
+    private PhysicsEnvironmentFwd* Env(nint e) => _vphysics.PhysicsEnvironment;
 
-    private static PhysicsPlayerControllerVtbl* Ctl(nint c) => *(PhysicsPlayerControllerVtbl**)c;
+    private PhysicsObjectFwd* Obj(nint o) => _vphysics.PhysicsObject;
+
+    private PhysicsPlayerControllerFwd* Ctl(nint c) => _vphysics.PhysicsPlayerController;
 
     public nint BoxCollide(Vector mins, Vector maxs) => collision?.BoxCollide(mins, maxs) ?? 0;
 

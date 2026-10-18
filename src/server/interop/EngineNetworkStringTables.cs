@@ -52,13 +52,18 @@ public sealed unsafe class EngineStringTableDirectory : INetworkStringTableDirec
     public const string ServerInterfaceVersion = "VEngineServerStringTable001";
 
     private readonly void* _self;
-    private readonly NetworkStringTableContainerVtbl* _vtbl;
+    private readonly NetworkStringTableContainerFwd* _fwd;
+
+    // The forwarders of the INetworkStringTable objects FindTable answers.
+    private readonly NetworkStringTableFwd* _tables;
     private readonly bool _isServer;
 
-    private EngineStringTableDirectory(void* self, void** table, bool isServer)
+    private EngineStringTableDirectory(void* self, NetworkStringTableContainerFwd* table,
+                                       NetworkStringTableFwd* tables, bool isServer)
     {
         _self = self;
-        _vtbl = (NetworkStringTableContainerVtbl*)table;
+        _fwd = table;
+        _tables = tables;
         _isServer = isServer;
     }
 
@@ -67,10 +72,11 @@ public sealed unsafe class EngineStringTableDirectory : INetworkStringTableDirec
     /// (plan_abi_hotreload D8), or null with the reason.
     /// </summary>
     public static INetworkStringTableDirectory? AcquireServer(ModuleEngine engine, out string why)
-        => Vtable.TryAcquire<NetworkStringTableContainerVtbl>(
+        => Forwarders.TryAcquire<NetworkStringTableContainerFwd>(
                (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces,
-               SourceSharpFactoryType.AppSystem, ServerInterfaceVersion, out void* self, out void** table, out why)
-            ? new EngineStringTableDirectory(self, table, isServer: true)
+               SourceSharpFactoryType.AppSystem, ServerInterfaceVersion, out void* self, out NetworkStringTableContainerFwd* table, out why)
+           && Forwarders.TryAcquire(engine.Api.Interfaces, out NetworkStringTableFwd* tables, out why)
+            ? new EngineStringTableDirectory(self, table, tables, isServer: true)
             : null;
 
     /// <inheritdoc/>
@@ -80,9 +86,9 @@ public sealed unsafe class EngineStringTableDirectory : INetworkStringTableDirec
         void* found;
 
         fixed (byte* p = bytes)
-            found = _vtbl->FindTable(_self, p);
+            found = _fwd->FindTable(_self, p);
 
-        return found == null ? null : new EngineNetworkStringTable(found, _isServer);
+        return found == null ? null : new EngineNetworkStringTable(found, _tables, _isServer);
     }
 }
 
@@ -90,12 +96,9 @@ public sealed unsafe class EngineStringTableDirectory : INetworkStringTableDirec
 /// One engine string table, reached through <c>FindTable</c>.
 ///
 /// <para>
-/// <b>NO SPAN CHECK, AND WHY THAT IS SAFE.</b> A factory hands a slot count with
-/// the pointer and <see cref="Vtable.TryAcquire{TVtbl}(NativeInterfaceFactory, SourceSharpFactoryType, string, out void*, out void**, out string)"/>
-/// holds the layout to it. A pointer FindTable returns comes with no count, so
-/// the same guarantee is vtable_index_agreement_test's: it holds
-/// <see cref="NetworkStringTableVtbl"/> to <c>networkstringtabledefs.h</c>,
-/// slot for slot, at build time.
+/// Called through <see cref="NetworkStringTableFwd"/>, the forwarders the
+/// directory acquired with its container: the table object is handed to them,
+/// and its vtable is the compiler's business, not this class's.
 /// </para>
 /// </summary>
 internal sealed unsafe class EngineNetworkStringTable : INetworkStringTableRef
@@ -103,18 +106,18 @@ internal sealed unsafe class EngineNetworkStringTable : INetworkStringTableRef
     private const int MaxTableName = 64;
 
     private readonly void* _self;
-    private readonly NetworkStringTableVtbl* _vtbl;
+    private readonly NetworkStringTableFwd* _fwd;
     private readonly bool _isServer;
 
-    internal EngineNetworkStringTable(void* self, bool isServer)
+    internal EngineNetworkStringTable(void* self, NetworkStringTableFwd* fwd, bool isServer)
     {
         _self = self;
-        _vtbl = *(NetworkStringTableVtbl**)self;
+        _fwd = fwd;
         _isServer = isServer;
     }
 
     /// <inheritdoc/>
-    public string Name => Vtable.TextOf(_vtbl->GetTableName(_self), MaxTableName) ?? string.Empty;
+    public string Name => Vtable.TextOf(_fwd->GetTableName(_self), MaxTableName) ?? string.Empty;
 
     /// <inheritdoc/>
     public int AddString(string value, ReadOnlySpan<byte> userData)
@@ -123,7 +126,7 @@ internal sealed unsafe class EngineNetworkStringTable : INetworkStringTableRef
 
         fixed (byte* p = text)
         fixed (byte* data = userData)
-            return _vtbl->AddString(_self, (byte)(_isServer ? 1 : 0), p, userData.Length,
+            return _fwd->AddString(_self, (byte)(_isServer ? 1 : 0), p, userData.Length,
                                     userData.Length == 0 ? null : data);
     }
 
@@ -133,6 +136,6 @@ internal sealed unsafe class EngineNetworkStringTable : INetworkStringTableRef
         byte[] text = Vtable.Utf8(value);
 
         fixed (byte* p = text)
-            return _vtbl->FindStringIndex(_self, p);
+            return _fwd->FindStringIndex(_self, p);
     }
 }

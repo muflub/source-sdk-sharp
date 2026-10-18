@@ -1,8 +1,8 @@
 # plan_engine_forwarders.md: engine interfaces through generated native forwarders
 
-Status: phase 1 (the IVModelInfo spike) under way on branch
-`claude/engine-forwarders`, started 2026-10-13 at main 25e9c07 once phase 0
-held: the current method green on Linux and Windows CI.
+Status: phase 1 merged (#7). Phases 2-4 built on branch
+`claude/engine-forwarders-all` from main 7a3b12f (section 8b); phases 5-6
+not started.
 
 ## 1. Why
 
@@ -233,6 +233,51 @@ server.dll and client.dll link it; `fwd_engine_test` passes under MSVC (213 of
 sniper build's GLIBC ceiling holds for `libss_fwd_engine.so`. Phase 1 owes
 nothing further.
 
+## 8b. Phases 2-4, as built (2026-10-13, branch claude/engine-forwarders-all)
+
+Every engine-built interface managed calls now goes through forwarders, and
+no managed code reads an engine or vphysics object's vptr (the reads left are
+our own shim areas', whose shape is fixed by us on both ABIs).
+
+- **Rows.** `FORWARD` names a family and the methods; the table name, the
+  C++ self type and the header come from vtable-layout's INTERFACES row. 28
+  tables, 202 forwarders at the time of writing. A method only some engine
+  builds declare is `conditional`: `IVEngineClient::GetMouseDelta` exists
+  under `USE_SDL`, which Valve's Windows engine is built without, so its
+  slot is NULL there and `ClientInputHost` answers no delta. (Managed read
+  slot 127 on Windows before, which there is another method.)
+- **Two libraries** (section 4's families): `libss_fwd_engine` (filesystem,
+  engine client and server, random stream, input system, string tables,
+  net channel info, sound emitter, static props, model info) and
+  `libss_fwd_vphysics` (IPhysics, collision, surface props, and every
+  vphysics object family, plus the client's native collision-event
+  handler that ClientPhysicsCollisionEventBinding forwards to). Same CMake
+  function, same NO_RUNTIME link, both served by `SSFwd_Serve`.
+  `ss_fwd_sdk.h` turns tier0's asserts off in the libraries' translation
+  units: the headers' inline code (mathlib/vector2d.h's constants) asserts
+  through tier0 in a debug build, which a runtime-free library cannot link.
+- **Factory interfaces** are held as (object, table) by their services,
+  exactly as phase 1's model info; a per-object table an interface answers
+  (INetChannelInfo, INetworkStringTable) is acquired with it.
+- **vphysics objects** are called through `VPhysicsTables`, one per side
+  (EngineSide.VPhysics, ModuleEngine.VPhysics, registered in the side's
+  services), bound together on first use. Every vphysics service takes it
+  in its constructor. The change at each of the 60-odd sites was the one
+  expression that read the vptr: `*(PhysicsObjectVtbl**)obj` became
+  `tables.PhysicsObject`.
+- **The scan that seeded the rows missed methods passed as values**
+  (EngineServer's GetGameDir, IsModelPrecached); the compiler did not, and
+  they were appended, as the append-only rule says.
+
+**What is left:** phase 5 (the Steam callback, whose two `Run` overloads
+managed still orders per ABI through `[ManagedVtable(typeof(SteamCallbackVtbl))]`)
+and phase 6 (deleting what nothing reads: the engine-built structs in
+VtableLayouts.g.cs, the property form, `[VtableSlot]`, `VtableAbi`,
+`MicrosoftEntries`, `Vtable.EntriesFor`, `[MemberFunction]`). The vphysics
+callbacks managed implements (collision event, object event, constraint
+event, collision solver, motion event, key handler) lay out the same on both
+ABIs and need nothing.
+
 ## 9. Done when
 
 - No managed code reads an engine object's vptr or knows which ABI it runs on.
@@ -253,6 +298,8 @@ nothing further.
 - 2026-10-13 (user), on opening phase 1's PR: "managed code should be as
   simple as possible". The test every later phase is held to: what knowledge
   of the C++ ABI or of native layout can still leave managed, leaves.
+- 2026-10-13 (user), after phase 1 merged: "Apply for all interfaces" --
+  phases 2 onward, every interface managed calls (section 8b).
 - 2026-10-13 (user), on the bind check: with native very static, drop the
   per-slot hash check and keep the count, accepting a native table at least
   as long as managed's. Made sound by ordering slots append-only in the

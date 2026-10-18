@@ -107,6 +107,13 @@ public sealed class ModuleEngine
     /// </summary>
     public ModelDescriptors Models => Api.Models;
 
+    /// <summary>
+    /// This side's vphysics forwarder tables (plan_engine_forwarders.md): what a
+    /// vphysics service is built over, so it calls objects through their
+    /// forwarders rather than reading their vptrs. Bound on first use.
+    /// </summary>
+    public VPhysicsTables VPhysics => Api.VPhysics;
+
     /// <summary>This engine's break-piece lists, cleared with <see cref="Models"/>.</summary>
     public BreakModels Breaks => Api.Breaks;
 

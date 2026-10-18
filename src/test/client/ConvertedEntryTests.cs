@@ -37,9 +37,9 @@ public unsafe class ConvertedEntryTests
 
     /// <summary>
     /// Which slot a generated table puts a method in, read from the struct
-    /// itself. IVModelInfo is called through its forwarders
-    /// (plan_engine_forwarders.md), so the table EngineModelInfo reads is
-    /// <see cref="ModelInfoFwd"/>: plain fields, field N at slot N on every ABI.
+    /// itself. Every engine interface is called through its forwarders
+    /// (plan_engine_forwarders.md), so the table an impl reads is its
+    /// <c>*Fwd</c> struct: plain fields, field N at slot N on every ABI.
     ///
     /// <para>
     /// <b>DERIVED, NOT TYPED, and the first draft of this file typed them.</b>
@@ -54,21 +54,21 @@ public unsafe class ConvertedEntryTests
     /// It is NOT a second source for the slot, and does not pretend to be: the
     /// struct is the thing under test on the production side too. What holds
     /// the struct against the compiler is
-    /// <c>vtable_index_agreement_test.cpp</c>, natively, on the committed file.
+    /// <c>fwd_engine_test.cpp</c>, natively: each forwarder reaches the method
+    /// it names through the compiler's own slot.
     /// </para>
     /// </summary>
-    // The index the layout reads in this process: a field's offset, or a
-    // property's [VtableSlot] on Windows for a layout MSVC orders differently.
-    private static int SlotOf<TVtbl>(string field) where TVtbl : unmanaged
-        => VtableSlots.Of<TVtbl>(field);
-
     // A forwarder's slot: its field's offset in the generated struct.
-    private static int ForwarderSlotOf(string field)
-        => (int)(Marshal.OffsetOf<ModelInfoFwd>(field) / sizeof(void*));
+    private static int ForwarderSlotOf<TFwd>(string field) where TFwd : unmanaged
+        => (int)(Marshal.OffsetOf<TFwd>(field) / sizeof(void*));
 
-    private static readonly int GetModelSlot = ForwarderSlotOf("GetModel");
-    private static readonly int GetModelTypeSlot = ForwarderSlotOf("GetModelType");
-    private static readonly int GetModelFrameCountSlot = ForwarderSlotOf("GetModelFrameCount");
+    // A zeroed forwarder table the size of TFwd, for a fact to fill.
+    private static void** ForwarderTable<TFwd>() where TFwd : unmanaged, IForwarderTable
+        => (void**)NativeMemory.AllocZeroed((nuint)Forwarders.SlotCount<TFwd>(), (nuint)sizeof(void*));
+
+    private static readonly int GetModelSlot = ForwarderSlotOf<ModelInfoFwd>("GetModel");
+    private static readonly int GetModelTypeSlot = ForwarderSlotOf<ModelInfoFwd>("GetModelType");
+    private static readonly int GetModelFrameCountSlot = ForwarderSlotOf<ModelInfoFwd>("GetModelFrameCount");
 
     private static nint s_ModelForIndex;
 
@@ -92,8 +92,7 @@ public unsafe class ConvertedEntryTests
 
     private static void* FakeModelInfo(out void** table)
     {
-        table = (void**)NativeMemory.AllocZeroed(
-            (nuint)Forwarders.SlotCount<ModelInfoFwd>(), (nuint)sizeof(void*));
+        table = ForwarderTable<ModelInfoFwd>();
 
         table[GetModelSlot] = (delegate* unmanaged<void*, int, void*>)&GetModelAnswers;
         table[GetModelTypeSlot] = (delegate* unmanaged<void*, void*, int>)&GetModelTypeAnswers;
@@ -115,17 +114,22 @@ public unsafe class ConvertedEntryTests
     /// nothing else — so this is reflection, which is a thing only a test may
     /// do.
     /// </summary>
-    private static object NewImpl(Type impl, void* self, void** table)
+    private static object NewImpl(Type impl, void* self, void** table, params nint[] moreTables)
     {
         ConstructorInfo ctor = impl
             .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
             .Single();
+        ParameterInfo[] parameters = ctor.GetParameters();
 
-        return ctor.Invoke(new object?[]
-        {
-            Pointer.Box(self, typeof(void*)),
-            Pointer.Box(table, typeof(void**)),
-        });
+        // Each pointer boxed as the parameter it is passed for: the object,
+        // then its forwarders, then any other forwarder table the impl holds.
+        var args = new object?[parameters.Length];
+        args[0] = Pointer.Box(self, parameters[0].ParameterType);
+        args[1] = Pointer.Box(table, parameters[1].ParameterType);
+        for (int i = 0; i < moreTables.Length; i++)
+            args[2 + i] = Pointer.Box((void*)moreTables[i], parameters[2 + i].ParameterType);
+
+        return ctor.Invoke(args);
     }
 
     [Fact]
@@ -223,9 +227,9 @@ public unsafe class ConvertedEntryTests
     //-------------------------------------------------------------------------
 
     private static readonly int IsDedicatedServerSlot =
-        SlotOf<EngineServerVtbl>("IsDedicatedServer");
-    private static readonly int GetEntityCountSlot = SlotOf<EngineServerVtbl>("GetEntityCount");
-    private static readonly int GetAreaSlot = SlotOf<EngineServerVtbl>("GetArea");
+        ForwarderSlotOf<EngineServerFwd>("IsDedicatedServer");
+    private static readonly int GetEntityCountSlot = ForwarderSlotOf<EngineServerFwd>("GetEntityCount");
+    private static readonly int GetAreaSlot = ForwarderSlotOf<EngineServerFwd>("GetArea");
 
     private static float s_AreaSawX;
 
@@ -242,16 +246,17 @@ public unsafe class ConvertedEntryTests
         return 255;
     }
 
-    private static readonly int GetClientSteamIdSlot = SlotOf<EngineServerVtbl>("GetClientSteamIDByPlayerIndex");
-    private static readonly int GetPlayerNetInfoSlot = SlotOf<EngineServerVtbl>("GetPlayerNetInfo");
-    private static readonly int GetAddressSlot = SlotOf<NetChannelInfoVtbl>("GetAddress");
+    private static readonly int GetClientSteamIdSlot = ForwarderSlotOf<EngineServerFwd>("GetClientSteamIDByPlayerIndex");
+    private static readonly int GetPlayerNetInfoSlot = ForwarderSlotOf<EngineServerFwd>("GetPlayerNetInfo");
+    private static readonly int GetAddressSlot = ForwarderSlotOf<NetChannelInfoFwd>("GetAddress");
 
     // Slot 3 holds a client: its SteamID and a network channel. Every other
     // slot is empty, and the engine answers null for it.
     private const int OccupiedSlot = 3;
     private static readonly ulong* s_SteamId = (ulong*)NativeMemory.AllocZeroed(1, sizeof(ulong));
     private static readonly byte* s_Address = Utf8Z("203.0.113.7:27005");
-    private static readonly void** s_Channel = Channel();
+    private static readonly void** s_Channel = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
+    private static readonly void** s_ChannelForwarders = ChannelTable();
 
     private static byte* Utf8Z(string text)
     {
@@ -261,18 +266,13 @@ public unsafe class ConvertedEntryTests
         return p;
     }
 
+    // The INetChannelInfo forwarders: the channel object itself is only an
+    // address, handed to them as `self`.
     private static void** ChannelTable()
     {
-        var t = (void**)NativeMemory.AllocZeroed((nuint)Vtable.SlotsIn<NetChannelInfoVtbl>(), (nuint)sizeof(void*));
+        var t = ForwarderTable<NetChannelInfoFwd>();
         t[GetAddressSlot] = (delegate* unmanaged<void*, byte*>)&GetAddressAnswers;
         return t;
-    }
-
-    private static void** Channel()
-    {
-        var c = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-        *c = ChannelTable();
-        return c;
     }
 
     [UnmanagedCallersOnly]
@@ -286,8 +286,7 @@ public unsafe class ConvertedEntryTests
 
     private static void* FakeEngineServer(out void** table)
     {
-        table = (void**)NativeMemory.AllocZeroed(
-            (nuint)Vtable.SlotsIn<EngineServerVtbl>(), (nuint)sizeof(void*));
+        table = ForwarderTable<EngineServerFwd>();
 
         table[IsDedicatedServerSlot] = (delegate* unmanaged<void*, byte>)&IsDedicatedServerAnswers;
         table[GetEntityCountSlot] = (delegate* unmanaged<void*, int>)&GetEntityCountAnswers;
@@ -302,7 +301,7 @@ public unsafe class ConvertedEntryTests
     }
 
     private static IVtableEngineServer ServerOver(void* self, void** table)
-        => (IVtableEngineServer)NewImpl(typeof(EngineServer), self, table);
+        => (IVtableEngineServer)NewImpl(typeof(EngineServer), self, table, (nint)s_ChannelForwarders);
 
     [Fact]
     public void ClientSteamIdReadsTheCSteamIdAsOneWordAndZeroForAnEmptySlot()
@@ -336,7 +335,7 @@ public unsafe class ConvertedEntryTests
     // (plan_host_sdk: a server-asked reconnect).
     //-------------------------------------------------------------------------
 
-    private static readonly int ClientCmdSlot = SlotOf<EngineClientVtbl>("ClientCmd");
+    private static readonly int ClientCmdSlot = ForwarderSlotOf<EngineClientFwd>("ClientCmd");
     private static string? s_ClientCmdSaw;
 
     [UnmanagedCallersOnly]
@@ -344,9 +343,9 @@ public unsafe class ConvertedEntryTests
         s_ClientCmdSaw = Marshal.PtrToStringUTF8((IntPtr)command);
 
     [Fact]
-    public void ReconnectSendsExactlyRetryThroughSlotSeven()
+    public void ReconnectSendsExactlyRetryThroughClientCmd()
     {
-        var table = (void**)NativeMemory.AllocZeroed((nuint)Vtable.SlotsIn<EngineClientVtbl>(), (nuint)sizeof(void*));
+        var table = ForwarderTable<EngineClientFwd>();
         table[ClientCmdSlot] = (delegate* unmanaged<void*, byte*, void>)&ClientCmdRecords;
         void** self = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
         *self = table;
@@ -355,10 +354,9 @@ public unsafe class ConvertedEntryTests
         var client = (IVtableEngineClient)typeof(EngineClient)
             .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
             .Single()
-            .Invoke([new EngineSide(Side.Client), Pointer.Box(self, typeof(void*)), Pointer.Box(table, typeof(void**))]);
+            .Invoke([new EngineSide(Side.Client), Pointer.Box(self, typeof(void*)), Pointer.Box(table, typeof(EngineClientFwd*))]);
         client.Reconnect();
 
-        Assert.Equal(7, ClientCmdSlot);
         Assert.Equal("retry", s_ClientCmdSaw);
 
         NativeMemory.Free(table);
@@ -366,7 +364,7 @@ public unsafe class ConvertedEntryTests
     }
 
     [Fact]
-    public void IsDedicatedServerReadsSlotTwoAsABooleanByte()
+    public void IsDedicatedServerReadsTheEnginesBooleanByte()
     {
         void* self = FakeEngineServer(out void** table);
 
@@ -377,7 +375,7 @@ public unsafe class ConvertedEntryTests
     }
 
     [Fact]
-    public void EntityCountReadsSlotSeventeen()
+    public void EntityCountReadsTheEnginesEntityCount()
     {
         void* self = FakeEngineServer(out void** table);
 
@@ -415,13 +413,13 @@ public unsafe class ConvertedEntryTests
     // calls the instructive one.
     //-------------------------------------------------------------------------
 
-    private static readonly int FileExistsSlot = SlotOf<BaseFileSystemVtbl>("FileExists");
+    private static readonly int FileExistsSlot = ForwarderSlotOf<BaseFileSystemFwd>("FileExists");
 
     // Size_2 AND NOT Size. IBaseFileSystem declares Size twice -- once taking a
     // FileHandle_t and once taking a filename -- and the generated struct
     // spells the second one Size_2, in that order. A name-keyed table would
     // hand a filename to the handle overload.
-    private static readonly int SizeByNameSlot = SlotOf<BaseFileSystemVtbl>("Size_2");
+    private static readonly int SizeByNameSlot = ForwarderSlotOf<BaseFileSystemFwd>("Size_2");
 
     private static byte s_Exists;
 
@@ -433,8 +431,7 @@ public unsafe class ConvertedEntryTests
 
     private static void* FakeFileSystem(out void** table)
     {
-        table = (void**)NativeMemory.AllocZeroed(
-            (nuint)Vtable.SlotsIn<BaseFileSystemVtbl>(), (nuint)sizeof(void*));
+        table = ForwarderTable<BaseFileSystemFwd>();
 
         table[FileExistsSlot] = (delegate* unmanaged<void*, byte*, byte*, byte>)&FileExistsAnswers;
         table[SizeByNameSlot] = (delegate* unmanaged<void*, byte*, byte*, uint>)&SizeByNameAnswers;
@@ -449,7 +446,7 @@ public unsafe class ConvertedEntryTests
         => (IVtableBaseFileSystem)NewImpl(typeof(EngineBaseFileSystem), self, table);
 
     [Fact]
-    public void FileExistsReadsSlotTenAndNotTheSizeSlotBesideIt()
+    public void FileExistsCallsFileExistsAndNotTheSizeForwarder()
     {
         s_Exists = 1;
 

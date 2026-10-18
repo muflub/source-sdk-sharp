@@ -5,11 +5,10 @@ namespace SourceSharp.Client.Interop;
 
 /// <summary>
 /// <see cref="IRagdollVPhysics"/> over the real engine (plan_physics_bones_native_zero
-/// Phase 3): every call a direct call through a generated vtable --
-/// <see cref="PhysicsEnvironmentVtbl"/>, <see cref="PhysicsObjectVtbl"/>,
-/// <see cref="PhysicsCollisionVtbl"/>, <see cref="PhysicsVtbl"/>,
-/// <see cref="PhysicsSurfacePropsVtbl"/>, IVModelInfo's forwarders (<see cref="ModelInfoFwd"/>) and the
-/// four the ragdoll's rows added. Holds the factory interfaces it acquired, the
+/// Phase 3): every call through the generated forwarders
+/// (plan_engine_forwarders.md) -- IPhysics', IPhysicsCollision's and
+/// IPhysicsSurfaceProps' own, IVModelInfo's (<see cref="ModelInfoFwd"/>) and,
+/// for the objects, the side's <see cref="VPhysicsTables"/>. Holds the factory interfaces it acquired, the
 /// two key-handler tables managed built, and one native string; the bodies'
 /// pointers are its caller's.
 /// </summary>
@@ -17,13 +16,14 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
 {
     private readonly IClientPhysicsEngine _environment;
     private readonly void* _physics;
-    private readonly PhysicsVtbl* _physicsVt;
+    private readonly PhysicsFwd* _physicsFwd;
     private readonly void* _collision;
-    private readonly PhysicsCollisionVtbl* _collisionVt;
+    private readonly PhysicsCollisionFwd* _collisionFwd;
     private readonly void* _props;
-    private readonly PhysicsSurfacePropsVtbl* _propsVt;
+    private readonly PhysicsSurfacePropsFwd* _propsFwd;
     private readonly void* _modelInfo;
     private readonly ModelInfoFwd* _modelInfoFwd;
+    private readonly VPhysicsTables _vphysics;
 
     // "DEFAULT", the name g_PhysDefaultObjectParams carries. A solid's name is
     // always replaced by the model's before an object is made, so vphysics
@@ -40,18 +40,20 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     /// </summary>
     public RagdollKeyHandlerBinding? Keys => _keys;
 
-    private RagdollVPhysics(IClientPhysicsEngine environment, void* physics, void** physicsVt, void* collision,
-                            void** collisionVt, void* props, void** propsVt, void* modelInfo, void** modelInfoFwd)
+    private RagdollVPhysics(IClientPhysicsEngine environment, void* physics, PhysicsFwd* physicsFwd, void* collision,
+                            PhysicsCollisionFwd* collisionFwd, void* props, PhysicsSurfacePropsFwd* propsFwd,
+                            void* modelInfo, ModelInfoFwd* modelInfoFwd, VPhysicsTables vphysics)
     {
         _environment = environment;
         _physics = physics;
-        _physicsVt = (PhysicsVtbl*)physicsVt;
+        _physicsFwd = physicsFwd;
         _collision = collision;
-        _collisionVt = (PhysicsCollisionVtbl*)collisionVt;
+        _collisionFwd = collisionFwd;
         _props = props;
-        _propsVt = (PhysicsSurfacePropsVtbl*)propsVt;
+        _propsFwd = propsFwd;
         _modelInfo = modelInfo;
-        _modelInfoFwd = (ModelInfoFwd*)modelInfoFwd;
+        _modelInfoFwd = modelInfoFwd;
+        _vphysics = vphysics;
 
         _defaultName = (byte*)NativeMemory.AllocZeroed(8);
         "DEFAULT"u8.CopyTo(new Span<byte>(_defaultName, 8));
@@ -62,13 +64,13 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     {
         NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces;
 
-        if (!Vtable.TryAcquire<PhysicsVtbl>(factory, SourceSharpFactoryType.Physics, "VPhysics031",
-                                            out void* physics, out void** physicsVt, out why)
-            || !Vtable.TryAcquire<PhysicsCollisionVtbl>(factory, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
-                                                        out void* collision, out void** collisionVt, out why)
-            || !Vtable.TryAcquire<PhysicsSurfacePropsVtbl>(factory, SourceSharpFactoryType.Physics,
-                                                           PhysicsSurfaceProps.InterfaceVersion,
-                                                           out void* props, out void** propsVt, out why)
+        if (!Forwarders.TryAcquire<PhysicsFwd>(factory, SourceSharpFactoryType.Physics, "VPhysics031",
+                                               out void* physics, out PhysicsFwd* physicsFwd, out why)
+            || !Forwarders.TryAcquire<PhysicsCollisionFwd>(factory, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
+                                                           out void* collision, out PhysicsCollisionFwd* collisionFwd, out why)
+            || !Forwarders.TryAcquire<PhysicsSurfacePropsFwd>(factory, SourceSharpFactoryType.Physics,
+                                                              PhysicsSurfaceProps.InterfaceVersion,
+                                                              out void* props, out PhysicsSurfacePropsFwd* propsFwd, out why)
             || !Forwarders.TryAcquire<ModelInfoFwd>(factory, SourceSharpFactoryType.AppSystem,
                                                  EngineModelInfo.ClientInterfaceVersion,
                                                  out void* modelInfo, out ModelInfoFwd* modelInfoFwd, out why))
@@ -76,8 +78,8 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
             return null;
         }
 
-        return new RagdollVPhysics(environment, physics, physicsVt, collision, collisionVt, props, propsVt,
-                                   modelInfo, (void**)modelInfoFwd);
+        return new RagdollVPhysics(environment, physics, physicsFwd, collision, collisionFwd, props, propsFwd,
+                                   modelInfo, modelInfoFwd, engine.Api.VPhysics);
     }
 
     /// <summary>
@@ -101,17 +103,17 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         }
     }
 
-    private static PhysicsEnvironmentVtbl* Env(nint environment) => *(PhysicsEnvironmentVtbl**)environment;
+    private PhysicsEnvironmentFwd* Env(nint environment) => _vphysics.PhysicsEnvironment;
 
-    private static PhysicsObjectVtbl* Obj(nint physicsObject) => *(PhysicsObjectVtbl**)physicsObject;
+    private PhysicsObjectFwd* Obj(nint physicsObject) => _vphysics.PhysicsObject;
 
-    private static VPhysicsKeyParserVtbl* Parser(nint parser) => *(VPhysicsKeyParserVtbl**)parser;
+    private VPhysicsKeyParserFwd* Parser(nint parser) => _vphysics.VPhysicsKeyParser;
 
-    private static PhysicsCollisionSetVtbl* Set(nint set) => *(PhysicsCollisionSetVtbl**)set;
+    private PhysicsCollisionSetFwd* Set(nint set) => _vphysics.PhysicsCollisionSet;
 
-    private static PhysicsConstraintGroupVtbl* Group(nint group) => *(PhysicsConstraintGroupVtbl**)group;
+    private PhysicsConstraintGroupFwd* Group(nint group) => _vphysics.PhysicsConstraintGroup;
 
-    private static PhysicsFrictionSnapshotVtbl* Snapshot(nint snapshot) => *(PhysicsFrictionSnapshotVtbl**)snapshot;
+    private PhysicsFrictionSnapshotFwd* Snapshot(nint snapshot) => _vphysics.PhysicsFrictionSnapshot;
 
     // ---- the level -----------------------------------------------------------
 
@@ -164,18 +166,18 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         byte[] bytes = Vtable.Utf8(name);
 
         fixed (byte* p = bytes)
-            return _propsVt->GetSurfaceIndex(_props, p);
+            return _propsFwd->GetSurfaceIndex(_props, p);
     }
 
     // ---- the key parser ------------------------------------------------------
 
     public nint KeyParserCreate(nint keyValues)
-        => keyValues == 0 ? 0 : (nint)_collisionVt->VPhysicsKeyParserCreate(_collision, (byte*)keyValues);
+        => keyValues == 0 ? 0 : (nint)_collisionFwd->VPhysicsKeyParserCreate(_collision, (byte*)keyValues);
 
     public void KeyParserDestroy(nint parser)
     {
         if (parser != 0)
-            _collisionVt->VPhysicsKeyParserDestroy(_collision, (void*)parser);
+            _collisionFwd->VPhysicsKeyParserDestroy(_collision, (void*)parser);
     }
 
     public bool Finished(nint parser) => parser == 0 || Parser(parser)->Finished((void*)parser) != 0;
@@ -253,10 +255,10 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
 
     // ---- collision sets ------------------------------------------------------
 
-    public nint FindCollisionSet(int modelIndex) => (nint)_physicsVt->FindCollisionSet(_physics, unchecked((uint)modelIndex));
+    public nint FindCollisionSet(int modelIndex) => (nint)_physicsFwd->FindCollisionSet(_physics, unchecked((uint)modelIndex));
 
     public nint FindOrCreateCollisionSet(int modelIndex, int maxElementCount)
-        => (nint)_physicsVt->FindOrCreateCollisionSet(_physics, unchecked((uint)modelIndex), maxElementCount);
+        => (nint)_physicsFwd->FindOrCreateCollisionSet(_physics, unchecked((uint)modelIndex), maxElementCount);
 
     public void EnableCollisions(nint collisionSet, int index0, int index1)
     {
@@ -532,7 +534,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
         Vector mins = Vector.Zero, maxs = Vector.Zero;
 
         if (collide != 0)
-            _collisionVt->CollideGetAABB(_collision, &mins, &maxs, (void*)collide, &origin, &angles);
+            _collisionFwd->CollideGetAABB(_collision, &mins, &maxs, (void*)collide, &origin, &angles);
 
         return (mins, maxs);
     }

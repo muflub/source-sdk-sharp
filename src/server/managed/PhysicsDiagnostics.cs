@@ -182,7 +182,8 @@ public sealed class PhysWorldReportCommand(PhysWorldReport report) : IConCommand
 [ConCommand("physics_budget", Help = "Times the cost of each active object")]
 public sealed class PhysicsBudgetCommand(PhysicsSolver solver, IVPhysicsInspect inspect, IEngineEntityPhysics physics,
                                          IEngineEntities entities, IEnginePlayers players, IEngineHost host,
-                                         IEngineEnvironment environment, IEngineConsole console) : IConCommand
+                                         IEngineEnvironment environment, IEngineConsole console,
+                                         VPhysicsTables vphysics) : IConCommand
 {
     public void Execute(string args)
     {
@@ -194,7 +195,7 @@ public sealed class PhysicsBudgetCommand(PhysicsSolver solver, IVPhysicsInspect 
             return;
 
         nint world = physics.WorldObject();
-        var objects = new VPhysicsSolverObjects();
+        var objects = new VPhysicsSolverObjects(vphysics);
         var clock = Stopwatch.StartNew();
 
         uint? OwnerKey(nint o)

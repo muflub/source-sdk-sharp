@@ -163,12 +163,16 @@ public sealed unsafe class EngineServer : IVtableEngineServer
     public const string InterfaceVersion = "VEngineServer023";
 
     private readonly void* _self;
-    private readonly EngineServerVtbl* _vtbl;
+    private readonly EngineServerFwd* _fwd;
 
-    private EngineServer(void* self, void** table)
+    // The forwarders of the INetChannelInfo objects GetPlayerNetInfo answers.
+    private readonly NetChannelInfoFwd* _netInfo;
+
+    private EngineServer(void* self, EngineServerFwd* table, NetChannelInfoFwd* netInfo)
     {
         _self = self;
-        _vtbl = (EngineServerVtbl*)table;
+        _fwd = table;
+        _netInfo = netInfo;
     }
 
     /// <summary>
@@ -189,62 +193,61 @@ public sealed unsafe class EngineServer : IVtableEngineServer
     /// D8): what <see cref="EngineBound"/> holds per side.
     /// </summary>
     internal static IVtableEngineServer? Acquire(NativeInterfaceFactory factory, out string why)
-        => Vtable.TryAcquire<EngineServerVtbl>(
+        => Forwarders.TryAcquire<EngineServerFwd>(
                factory, SourceSharpFactoryType.AppSystem,
-               InterfaceVersion, out void* self, out void** table, out why)
-            ? new EngineServer(self, table)
+               InterfaceVersion, out void* self, out EngineServerFwd* table, out why)
+           && Forwarders.TryAcquire(factory, out NetChannelInfoFwd* netInfo, out why)
+            ? new EngineServer(self, table, netInfo)
             : null;
 
     /// <inheritdoc/>
-    public string? GameDir() => Fill(_vtbl->GetGameDir, _self, Vtable.MaxPath);
+    public string? GameDir() => Fill(_fwd->GetGameDir, _self, Vtable.MaxPath);
 
     /// <inheritdoc/>
     public string? MapEntitiesString()
-        => Vtable.TextOf(_vtbl->GetMapEntitiesString(_self), Vtable.MaxEntityString);
+        => Vtable.TextOf(_fwd->GetMapEntitiesString(_self), Vtable.MaxEntityString);
 
     /// <inheritdoc/>
-    public bool IsModelPrecached(string path) => Ask(_vtbl->IsModelPrecached, _self, path);
+    public bool IsModelPrecached(string path) => Ask(_fwd->IsModelPrecached, _self, path);
 
     /// <inheritdoc/>
-    public bool IsDedicatedServer() => _vtbl->IsDedicatedServer(_self) != 0;
+    public bool IsDedicatedServer() => _fwd->IsDedicatedServer(_self) != 0;
 
     /// <inheritdoc/>
-    public int EntityCount() => _vtbl->GetEntityCount(_self);
+    public int EntityCount() => _fwd->GetEntityCount(_self);
 
     /// <inheritdoc/>
     public ulong ClientSteamId(int entIndex)
     {
         // A CSteamID is one 64-bit word (its bitfields are a union with
         // m_unAll64Bits), so the pointer reads as the SteamID64 itself.
-        void* steamId = _vtbl->GetClientSteamIDByPlayerIndex(_self, entIndex);
+        void* steamId = _fwd->GetClientSteamIDByPlayerIndex(_self, entIndex);
         return steamId is null ? 0 : *(ulong*)steamId;
     }
 
     public string? ClientAddress(int entIndex)
     {
-        void* channel = _vtbl->GetPlayerNetInfo(_self, entIndex);
+        void* channel = _fwd->GetPlayerNetInfo(_self, entIndex);
         if (channel is null)
             return null;
 
-        var info = *(NetChannelInfoVtbl**)channel;
-        return Vtable.TextOf(info->GetAddress(channel), MaxAddress);
+        return Vtable.TextOf(_netInfo->GetAddress(channel), MaxAddress);
     }
 
     public float? ClientAvgLatency(int entIndex)
     {
-        void* channel = _vtbl->GetPlayerNetInfo(_self, entIndex);
+        void* channel = _fwd->GetPlayerNetInfo(_self, entIndex);
         if (channel is null)
             return null;
 
-        var info = *(NetChannelInfoVtbl**)channel;
-        return info->GetAvgLatency(channel, 0);   // FLOW_OUTGOING
+        return _netInfo->GetAvgLatency(channel, 0);   // FLOW_OUTGOING
     }
 
     public string? ClientConVarValue(int entIndex, string name)
     {
         byte[] bytes = Vtable.Utf8(name);
         fixed (byte* p = bytes)
-            return Vtable.TextOf(_vtbl->GetClientConVarValue(_self, entIndex, p), MaxConVarValue);
+            return Vtable.TextOf(_fwd->GetClientConVarValue(_self, entIndex, p), MaxConVarValue);
     }
 
     private const int MaxConVarValue = 256;
@@ -260,7 +263,7 @@ public sealed unsafe class EngineServer : IVtableEngineServer
         // during the call and does not keep them.
         Vector local = origin;
 
-        return _vtbl->GetArea(_self, &local);
+        return _fwd->GetArea(_self, &local);
     }
 
     //-------------------------------------------------------------------------

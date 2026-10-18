@@ -287,11 +287,11 @@ TEST( FwdEngine, GetCollideForVirtualTerrainForwardsTheIndex )
 
 TEST( FwdEngine, TheInternalFactoryServesATableAsItsSlotArrayWithItsCount )
 {
-	// SSFwdEngine_Serve is what both game DLLs' internal factory answers with:
+	// SSFwd_Serve is what both game DLLs' internal factory answers with:
 	// the object's first word must be the slot array (managed reads the table
 	// through it) and the count the table's own.
 	int32_t nEntries = -1;
-	void *pServed = SSFwdEngine_Serve( "SSFwd_ModelInfo", &nEntries );
+	void *pServed = SSFwd_Serve( "SSFwd_ModelInfo", &nEntries );
 	ASSERT_NE( nullptr, pServed );
 	EXPECT_EQ( (int32_t)kModelInfoSlots, nEntries );
 	EXPECT_EQ( ModelInfoTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
@@ -300,9 +300,28 @@ TEST( FwdEngine, TheInternalFactoryServesATableAsItsSlotArrayWithItsCount )
 TEST( FwdEngine, TheInternalFactoryLeavesTheCountAloneForANameItDoesNotServe )
 {
 	int32_t nEntries = -1;
-	EXPECT_EQ( nullptr, SSFwdEngine_Serve( "VModelInfoServer004", &nEntries ) );
+	EXPECT_EQ( nullptr, SSFwd_Serve( "VModelInfoServer004", &nEntries ) );
 	EXPECT_EQ( -1, nEntries );
 	// And a caller that wants no count may pass none.
-	EXPECT_NE( nullptr, SSFwdEngine_Serve( "SSFwd_ModelInfo", nullptr ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo", nullptr ) );
+}
+
+TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsLibrarysTablesToo )
+{
+	// The serve helper asks both libraries: a vphysics table comes back as
+	// its own slot array and count, exactly as libss_fwd_vphysics serves it.
+	const SSForwarderTable *pTable = SSFwdVPhysics_Table( "SSFwd_PhysicsObject" );
+	ASSERT_NE( nullptr, pTable );
+	ASSERT_GT( pTable->nSlots, 1 );
+
+	int32_t nEntries = -1;
+	void *pServed = SSFwd_Serve( "SSFwd_PhysicsObject", &nEntries );
+	ASSERT_NE( nullptr, pServed );
+	EXPECT_EQ( pTable->nSlots, nEntries );
+	EXPECT_EQ( pTable->ppSlots, *static_cast< void *const *const * >( pServed ) );
+
+	// And each library serves only its own family.
+	EXPECT_EQ( nullptr, SSFwdEngine_Table( "SSFwd_PhysicsObject" ) );
+	EXPECT_EQ( nullptr, SSFwdVPhysics_Table( "SSFwd_ModelInfo" ) );
 }
 

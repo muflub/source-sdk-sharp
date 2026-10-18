@@ -11,7 +11,7 @@ public interface IVtableInputSystem
 }
 
 /// <summary>
-/// IInputSystem through its vtable (InputSystemVtbl, generated): only
+/// IInputSystem through its forwarders (InputSystemFwd, generated): only
 /// ButtonCodeToString is reached. The client's appSystemFactory answers
 /// InputSystemVersion001; the server has no input system.
 /// </summary>
@@ -24,21 +24,21 @@ public sealed unsafe class InputSystem : IVtableInputSystem
     private const int MouseLast = 113, MaxName = 64;
 
     private readonly void* _self;
-    private readonly InputSystemVtbl* _vtbl;
+    private readonly InputSystemFwd* _fwd;
 
-    private InputSystem(void* self, void** table)
+    private InputSystem(void* self, InputSystemFwd* table)
     {
         _self = self;
-        _vtbl = (InputSystemVtbl*)table;
+        _fwd = table;
     }
 
     /// <summary>The input system, or null with the reason, acquired through <paramref name="engine"/>'s factory.</summary>
     public static IVtableInputSystem? Acquire(ModuleEngine engine, out string why)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return Vtable.TryAcquire<InputSystemVtbl>(
+        return Forwarders.TryAcquire<InputSystemFwd>(
                    engine.Api.Interfaces, SourceSharpFactoryType.AppSystem,
-                   InterfaceVersion, out void* self, out void** table, out why)
+                   InterfaceVersion, out void* self, out InputSystemFwd* table, out why)
             ? new InputSystem(self, table)
             : null;
     }
@@ -46,6 +46,6 @@ public sealed unsafe class InputSystem : IVtableInputSystem
     /// <inheritdoc/>
     public string? ButtonName(int buttonCode)
         => buttonCode is > 0 and <= MouseLast
-            ? Vtable.TextOf(_vtbl->ButtonCodeToString(_self, buttonCode), MaxName) is { Length: > 0 } name ? name : null
+            ? Vtable.TextOf(_fwd->ButtonCodeToString(_self, buttonCode), MaxName) is { Length: > 0 } name ? name : null
             : null;
 }

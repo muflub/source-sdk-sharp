@@ -82,6 +82,11 @@ public static partial class EngineServices
         services.AddInstance(side.Log);
         services.AddInstance(side.Lines);
 
+        // AND THE SIDE'S VPHYSICS FORWARDER TABLES (plan_engine_forwarders.md),
+        // which a vphysics service or command is built over. Bound on first use,
+        // so registering them asks the engine nothing.
+        services.AddInstance(side.VPhysics);
+
         return count;
     }
 

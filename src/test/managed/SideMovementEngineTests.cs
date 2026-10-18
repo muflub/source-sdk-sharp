@@ -99,7 +99,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     // The shadow's bodies over one side (plan_physics_bones_native_zero 2.5).
     // No vphysics table at all: the facts slot answers 0, so nothing past it runs.
     private static PlayerShadowBodies BodiesOver(EngineSide side)
-        => PlayerShadowBodies.ForEngine(new ModuleEngine(side), new VPhysicsShadowCalls(null, null), () => true, _ => { });
+        => PlayerShadowBodies.ForEngine(new ModuleEngine(side), new VPhysicsShadowCalls(null, null, TestVPhysics.None()), () => true, _ => { });
 
     [Fact]
     public void ThePlayerShadowProbesTheSideItsBodiesWereBuiltOver()
@@ -276,7 +276,7 @@ public unsafe class SideMovementEngineTests : IDisposable
             var client = (IVtableEngineClient)typeof(EngineClient)
                 .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
                 .Single()
-                .Invoke([first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, typeof(void**))]);
+                .Invoke([first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, typeof(EngineClientFwd*))]);
 
             client.ConsolePrintAt(3, "hello");
         }

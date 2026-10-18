@@ -68,7 +68,7 @@ public static unsafe class ShimProbes
     {
         ArgumentNullException.ThrowIfNull(engine);
 
-        return Vtable.TryAcquire<EngineClientVtbl>(
+        return Forwarders.TryAcquire<EngineClientFwd>(
                    engine.Api.Interfaces, SourceSharpFactoryType.AppSystem,
                    EngineClientInterfaceVersion, out _, out _, out string why)
             ? "IVEngineClient: SERVED on the server, which serves no such interface"

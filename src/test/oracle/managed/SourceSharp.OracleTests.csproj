@@ -29,6 +29,7 @@
     <Compile Include="..\..\common\NotOnCiFactAttribute.cs" Link="Shared\NotOnCiFactAttribute.cs" />
     <Compile Include="..\..\common\TestServices.cs" Link="Shared\TestServices.cs" />
     <Compile Include="..\..\common\TestServices.Server.cs" Link="Shared\TestServices.Server.cs" />
+    <Compile Include="..\..\common\TestVPhysics.cs" Link="Shared\TestVPhysics.cs" />
     <Compile Include="..\..\common\RecordingJointTables.cs" Link="Shared\RecordingJointTables.cs" />
     <Compile Include="..\..\common\RecordingBlastSweep.cs" Link="Shared\RecordingBlastSweep.cs" />
     <Compile Include="..\..\common\RecordingDecals.cs" Link="Shared\RecordingDecals.cs" />
