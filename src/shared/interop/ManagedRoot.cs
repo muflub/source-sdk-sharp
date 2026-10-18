@@ -9,7 +9,7 @@ namespace SourceSharp.Shared.Interop;
 /// plan_engineapi_vtables D4: every other managed-built interface native calls
 /// is acquired from it by name.
 /// </summary>
-[ManagedVtable(typeof(ManagedRootVtbl))]
+[ManagedVtable(typeof(ManagedRootTable))]
 public unsafe interface IManagedRoot
 {
     /// <summary>

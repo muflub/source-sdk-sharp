@@ -82,22 +82,33 @@ bool IsRegistered( CCallbackBase *pCallback ) { return Slot< bool ( * )( CCallba
 
 int CallbackId( CCallbackBase *pCallback ) { return Slot< int ( * )( CCallbackBase * ) >( kCallbackId )( pCallback ); }
 
-// The managed side: counts its runs and keeps the last payload.
+// The managed side: counts its runs and keeps the last payload. Managed builds
+// this object as a block whose first word is its table (plan_forwarders_
+// everywhere.md phase 4); here the table is three static functions, each
+// handed the object.
 class RecordingTarget final : public IManagedSteamCallback
 {
 public:
-	void Release() override { ++nReleases; }
-	int32_t Validate( const uint32_t *, int32_t ) override { return 0; }
-	void Run( void *pvParam ) override
-	{
-		++nRuns;
-		pLast = pvParam;
-	}
+	RecordingTarget() : IManagedSteamCallback( &kTable ) {}
 
 	int nRuns = 0;
 	int nReleases = 0;
 	void *pLast = nullptr;
+
+private:
+	static RecordingTarget *Of( void *self ) { return static_cast< RecordingTarget * >( self ); }
+	static void Released( IManagedObject *self ) { ++Of( self )->nReleases; }
+	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return 0; }
+	static void Ran( IManagedSteamCallback *self, void *pvParam )
+	{
+		++Of( self )->nRuns;
+		Of( self )->pLast = pvParam;
+	}
+
+	static const SSManagedSteamCallbackTable kTable;
 };
+
+const SSManagedSteamCallbackTable RecordingTarget::kTable = { &Released, &Validated, &Ran };
 
 // Memory as managed allocates it: SizeOf bytes, pointer-aligned. Generous, so
 // a SizeOf that answered too little shows as a mismatch, not a corruption.

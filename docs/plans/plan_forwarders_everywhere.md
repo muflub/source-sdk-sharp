@@ -209,6 +209,32 @@ numbers here.
 - Proofs: without the count check, ShimRootTests' short-table fact is red;
   fwd_shim_test calls each slot of SSFwd_ShimRoot on a recording IShimRoot.
 
+## 6d. Phase 4, as built (2026-10-18)
+
+- tools/managed-areas writes both sides of every managed-built table from
+  docs/managed-interfaces.tsv, in one pass. Native: per interface a C struct
+  (`SSManagedFooTable`, Release and Validate first, each handed the base), a
+  class with no virtual whose inline methods call it, the object first, and a
+  static_assert of the struct's size. IManagedObject holds the one data member,
+  the table pointer at word 0 of the block managed builds. C#: one struct per
+  table (`ManagedFooTable`, with `[SlotHash]`), in the assembly whose code
+  builds it (user, 2026-10-18: "can ManagedTables.g.cs be split by
+  server/client in their own interop modules?"): the root's in Shared.Interop
+  (SharedManagedTables.g.cs: its ManagedRoot builds it for both sides, and the
+  Abi holds plumbing only, as the residency census says), the server's runtime
+  and areas in Server.Interop
+  (ServerManagedTables.g.cs), the client's runtime, areas and Steam callback in
+  Client.Interop (ClientManagedTables.g.cs). Types and hashes come from
+  tools/vtable-layout's signature_of and slot_hash; all 48 tables kept their
+  fields' types and every hash, checked against the structs they replace.
+- IManagedSteamCallback joined the TSV; its header (src/fwd/native) is
+  generated now. tools/vtable-layout describes no managed-built table, and
+  managed_areas_layout.inc and the agreement test's managed arms went.
+- Native fakes in five test files build tables; managed_accept_test holds a
+  wrapper's dispatch (each method its own slot, the object and its arguments
+  in order: swapping two arguments in the generated forwarder turns it red).
+- The shim ratchet rose by the 1049 generated lines (docs/shim-ratchet.tsv).
+
 ## 7. Decisions
 
 - 2026-10-18 (user, relayed by a peer session): every native<->managed call

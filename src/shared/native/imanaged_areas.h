@@ -9,8 +9,9 @@
 //
 // plan_engineapi_vtables.md Phase E: the server's managed-built areas
 // (docs/managed-interfaces.tsv). IMPLEMENTED BY MANAGED --
-// ManagedVtableGenerator writes each table from SourceSharp.Server -- so no
-// virtual destructor; Release is slot 0 and Validate slot 1, and native takes
+// ManagedVtableGenerator writes each table from SourceSharp.Server, and native
+// calls it through the C struct beside each class (plan_forwarders_everywhere.md
+// phase 4); Release is slot 0 and Validate slot 1, and native takes
 // an area only when Validate matches its k<I>SlotHashes (managed_accept.h).
 // Each is acquired again on every load and released before every unload,
 // so native keeps no pointer and calls through the accessor.
@@ -26,64 +27,148 @@
 
 #ifndef CLIENT_DLL
 
-abstract_class IManagedPhysicsFrame : public IManagedObject
+class IManagedPhysicsFrame;
+
+// The table managed writes for IManagedPhysicsFrame: Release, Validate, then the TSV's order.
+struct SSManagedPhysicsFrameTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *Frame )( IManagedPhysicsFrame *self );
+	void * ( *CreateWorld )( IManagedPhysicsFrame *self );
+	int32_t ( *PrecacheSurfaceSounds )( IManagedPhysicsFrame *self );
+};
+
+class IManagedPhysicsFrame : public IManagedObject
 {
 public:
-	virtual void Frame() = 0;
-	virtual void *CreateWorld() = 0;
-	virtual int32_t PrecacheSurfaceSounds() = 0;
+	explicit IManagedPhysicsFrame( const SSManagedPhysicsFrameTable *pTable ) : IManagedObject( pTable ) {}
+
+	void Frame() { Table()->Frame( this ); }
+	void *CreateWorld() { return Table()->CreateWorld( this ); }
+	int32_t PrecacheSurfaceSounds() { return Table()->PrecacheSurfaceSounds( this ); }
+
+private:
+	const SSManagedPhysicsFrameTable *Table() const { return static_cast< const SSManagedPhysicsFrameTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedPhysicsFrameSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x07e0f4c4, 0xe13ef122, 0x9d8d9245,
 };
 static const int32_t kIManagedPhysicsFrameSlotCount = 5;
+static_assert( sizeof( SSManagedPhysicsFrameTable ) == 5 * sizeof( void * ), "SSManagedPhysicsFrameTable is one pointer per slot" );
 
-abstract_class IManagedResources : public IManagedObject
+class IManagedResources;
+
+// The table managed writes for IManagedResources: Release, Validate, then the TSV's order.
+struct SSManagedResourcesTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *ServerDecalIndexForName )( IManagedResources *self, const char *pszName );
+	int32_t ( *ServerDecalNameForIndex )( IManagedResources *self, int32_t nIndex, char *pOut, int32_t nOutSize );
+	int32_t ( *ServerDecalTranslateForGameMaterial )( IManagedResources *self, const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize );
+	int32_t ( *ServerPropDataRandomChunkModel )( IManagedResources *self, const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize );
+	void ( *ModelPrecacheComponents )( IManagedResources *self, const char *pszModelName );
+};
+
+class IManagedResources : public IManagedObject
 {
 public:
-	virtual int32_t ServerDecalIndexForName( const char *pszName ) = 0;
-	virtual int32_t ServerDecalNameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize ) = 0;
-	virtual int32_t ServerDecalTranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize ) = 0;
-	virtual int32_t ServerPropDataRandomChunkModel( const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize ) = 0;
-	virtual void ModelPrecacheComponents( const char *pszModelName ) = 0;
+	explicit IManagedResources( const SSManagedResourcesTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t ServerDecalIndexForName( const char *pszName ) { return Table()->ServerDecalIndexForName( this, pszName ); }
+	int32_t ServerDecalNameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize ) { return Table()->ServerDecalNameForIndex( this, nIndex, pOut, nOutSize ); }
+	int32_t ServerDecalTranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize ) { return Table()->ServerDecalTranslateForGameMaterial( this, pszDecalName, nGameMaterial, pOut, nOutSize ); }
+	int32_t ServerPropDataRandomChunkModel( const char *pszSection, int32_t nMaxSize, char *pOut, int32_t nOutSize ) { return Table()->ServerPropDataRandomChunkModel( this, pszSection, nMaxSize, pOut, nOutSize ); }
+	void ModelPrecacheComponents( const char *pszModelName ) { Table()->ModelPrecacheComponents( this, pszModelName ); }
+
+private:
+	const SSManagedResourcesTable *Table() const { return static_cast< const SSManagedResourcesTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedResourcesSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x88774d41, 0xc7f046a5, 0x256306e9, 0x256306e9, 0x3aa7ebf0,
 };
 static const int32_t kIManagedResourcesSlotCount = 7;
+static_assert( sizeof( SSManagedResourcesTable ) == 7 * sizeof( void * ), "SSManagedResourcesTable is one pointer per slot" );
 
-abstract_class IManagedSaveRestore : public IManagedObject
+class IManagedSaveRestore;
+
+// The table managed writes for IManagedSaveRestore: Release, Validate, then the TSV's order.
+struct SSManagedSaveRestoreTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *ReloadSave )( IManagedSaveRestore *self );
+	int32_t ( *ReloadRestore )( IManagedSaveRestore *self );
+	int32_t ( *SaveCollectEntities )( IManagedSaveRestore *self, char *pBuffer, int32_t nBytes );
+	int32_t ( *SaveRestoreEntities )( IManagedSaveRestore *self, const char *pBuffer, int32_t nBytes );
+};
+
+class IManagedSaveRestore : public IManagedObject
 {
 public:
-	virtual int32_t ReloadSave() = 0;
-	virtual int32_t ReloadRestore() = 0;
-	virtual int32_t SaveCollectEntities( char *pBuffer, int32_t nBytes ) = 0;
-	virtual int32_t SaveRestoreEntities( const char *pBuffer, int32_t nBytes ) = 0;
+	explicit IManagedSaveRestore( const SSManagedSaveRestoreTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t ReloadSave() { return Table()->ReloadSave( this ); }
+	int32_t ReloadRestore() { return Table()->ReloadRestore( this ); }
+	int32_t SaveCollectEntities( char *pBuffer, int32_t nBytes ) { return Table()->SaveCollectEntities( this, pBuffer, nBytes ); }
+	int32_t SaveRestoreEntities( const char *pBuffer, int32_t nBytes ) { return Table()->SaveRestoreEntities( this, pBuffer, nBytes ); }
+
+private:
+	const SSManagedSaveRestoreTable *Table() const { return static_cast< const SSManagedSaveRestoreTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSaveRestoreSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0x3169518e, 0x3169518e,
 };
 static const int32_t kIManagedSaveRestoreSlotCount = 6;
+static_assert( sizeof( SSManagedSaveRestoreTable ) == 6 * sizeof( void * ), "SSManagedSaveRestoreTable is one pointer per slot" );
 
-abstract_class IManagedSoundController : public IManagedObject
+class IManagedSoundController;
+
+// The table managed writes for IManagedSoundController: Release, Validate, then the TSV's order.
+struct SSManagedSoundControllerTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ServerSoundControllerCreate )( IManagedSoundController *self, int32_t hPatch );
+	void ( *ServerSoundControllerDestroy )( IManagedSoundController *self, int32_t hPatch );
+	void ( *ServerSoundControllerPlay )( IManagedSoundController *self, int32_t hPatch, float flVolume, float flPitch, float flStartTime );
+	float ( *ServerSoundControllerPlayEnvelope )( IManagedSoundController *self, int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints );
+	void ( *ServerSoundControllerChangePitch )( IManagedSoundController *self, int32_t hPatch, float flTarget, float flDeltaTime );
+	void ( *ServerSoundControllerChangeVolume )( IManagedSoundController *self, int32_t hPatch, float flTarget, float flDeltaTime );
+	float ( *ServerSoundControllerGetPitch )( IManagedSoundController *self, int32_t hPatch );
+	float ( *ServerSoundControllerGetVolume )( IManagedSoundController *self, int32_t hPatch );
+	void ( *ServerSoundControllerFadeOut )( IManagedSoundController *self, int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout );
+	void ( *ServerSoundControllerCommandAdd )( IManagedSoundController *self, int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue );
+	void ( *ServerSoundControllerCommandClear )( IManagedSoundController *self, int32_t hPatch );
+	void ( *ServerSoundControllerReset )( IManagedSoundController *self );
+	void ( *ServerSoundControllerShutdown )( IManagedSoundController *self, int32_t hPatch );
+};
+
+class IManagedSoundController : public IManagedObject
 {
 public:
-	virtual void ServerSoundControllerCreate( int32_t hPatch ) = 0;
-	virtual void ServerSoundControllerDestroy( int32_t hPatch ) = 0;
-	virtual void ServerSoundControllerPlay( int32_t hPatch, float flVolume, float flPitch, float flStartTime ) = 0;
-	virtual float ServerSoundControllerPlayEnvelope( int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints ) = 0;
-	virtual void ServerSoundControllerChangePitch( int32_t hPatch, float flTarget, float flDeltaTime ) = 0;
-	virtual void ServerSoundControllerChangeVolume( int32_t hPatch, float flTarget, float flDeltaTime ) = 0;
-	virtual float ServerSoundControllerGetPitch( int32_t hPatch ) = 0;
-	virtual float ServerSoundControllerGetVolume( int32_t hPatch ) = 0;
-	virtual void ServerSoundControllerFadeOut( int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout ) = 0;
-	virtual void ServerSoundControllerCommandAdd( int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue ) = 0;
-	virtual void ServerSoundControllerCommandClear( int32_t hPatch ) = 0;
-	virtual void ServerSoundControllerReset() = 0;
-	virtual void ServerSoundControllerShutdown( int32_t hPatch ) = 0;
+	explicit IManagedSoundController( const SSManagedSoundControllerTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ServerSoundControllerCreate( int32_t hPatch ) { Table()->ServerSoundControllerCreate( this, hPatch ); }
+	void ServerSoundControllerDestroy( int32_t hPatch ) { Table()->ServerSoundControllerDestroy( this, hPatch ); }
+	void ServerSoundControllerPlay( int32_t hPatch, float flVolume, float flPitch, float flStartTime ) { Table()->ServerSoundControllerPlay( this, hPatch, flVolume, flPitch, flStartTime ); }
+	float ServerSoundControllerPlayEnvelope( int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints ) { return Table()->ServerSoundControllerPlayEnvelope( this, hPatch, nCommand, pPoints, nPoints ); }
+	void ServerSoundControllerChangePitch( int32_t hPatch, float flTarget, float flDeltaTime ) { Table()->ServerSoundControllerChangePitch( this, hPatch, flTarget, flDeltaTime ); }
+	void ServerSoundControllerChangeVolume( int32_t hPatch, float flTarget, float flDeltaTime ) { Table()->ServerSoundControllerChangeVolume( this, hPatch, flTarget, flDeltaTime ); }
+	float ServerSoundControllerGetPitch( int32_t hPatch ) { return Table()->ServerSoundControllerGetPitch( this, hPatch ); }
+	float ServerSoundControllerGetVolume( int32_t hPatch ) { return Table()->ServerSoundControllerGetVolume( this, hPatch ); }
+	void ServerSoundControllerFadeOut( int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout ) { Table()->ServerSoundControllerFadeOut( this, hPatch, flDeltaTime, bDestroyOnFadeout ); }
+	void ServerSoundControllerCommandAdd( int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue ) { Table()->ServerSoundControllerCommandAdd( this, hPatch, flExecuteDeltaTime, nCommand, flCommandTime, flValue ); }
+	void ServerSoundControllerCommandClear( int32_t hPatch ) { Table()->ServerSoundControllerCommandClear( this, hPatch ); }
+	void ServerSoundControllerReset() { Table()->ServerSoundControllerReset( this ); }
+	void ServerSoundControllerShutdown( int32_t hPatch ) { Table()->ServerSoundControllerShutdown( this, hPatch ); }
+
+private:
+	const SSManagedSoundControllerTable *Table() const { return static_cast< const SSManagedSoundControllerTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSoundControllerSlotHashes[] = {
@@ -91,35 +176,80 @@ static const uint32_t kIManagedSoundControllerSlotHashes[] = {
 	0x3059985f, 0x3059985f, 0xfaaa3db2, 0x26ec0fb6, 0xc83e311d, 0x07e0f4c4, 0xc83e311d,
 };
 static const int32_t kIManagedSoundControllerSlotCount = 15;
+static_assert( sizeof( SSManagedSoundControllerTable ) == 15 * sizeof( void * ), "SSManagedSoundControllerTable is one pointer per slot" );
 
-abstract_class IManagedSoundEnt : public IManagedObject
+class IManagedSoundEnt;
+
+// The table managed writes for IManagedSoundEnt: Release, Validate, then the TSV's order.
+struct SSManagedSoundEntTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ServerSoundEntInit )( IManagedSoundEnt *self, int32_t nMaxClients, float flCurTime );
+	void ( *ServerSoundEntShutdown )( IManagedSoundEnt *self );
+	void ( *ServerSoundEntInsert )( IManagedSoundEnt *self, int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget );
+	void ( *ServerSoundEntResetClientSound )( IManagedSoundEnt *self, int32_t nIndex );
+};
+
+class IManagedSoundEnt : public IManagedObject
 {
 public:
-	virtual void ServerSoundEntInit( int32_t nMaxClients, float flCurTime ) = 0;
-	virtual void ServerSoundEntShutdown() = 0;
-	virtual void ServerSoundEntInsert( int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget ) = 0;
-	virtual void ServerSoundEntResetClientSound( int32_t nIndex ) = 0;
+	explicit IManagedSoundEnt( const SSManagedSoundEntTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ServerSoundEntInit( int32_t nMaxClients, float flCurTime ) { Table()->ServerSoundEntInit( this, nMaxClients, flCurTime ); }
+	void ServerSoundEntShutdown() { Table()->ServerSoundEntShutdown( this ); }
+	void ServerSoundEntInsert( int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget ) { Table()->ServerSoundEntInsert( this, nType, pXYZ, nVolume, flDuration, hOwner, nChannel, hTarget ); }
+	void ServerSoundEntResetClientSound( int32_t nIndex ) { Table()->ServerSoundEntResetClientSound( this, nIndex ); }
+
+private:
+	const SSManagedSoundEntTable *Table() const { return static_cast< const SSManagedSoundEntTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSoundEntSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x7579bac3, 0x07e0f4c4, 0xcf29a9c5, 0xc83e311d,
 };
 static const int32_t kIManagedSoundEntSlotCount = 6;
+static_assert( sizeof( SSManagedSoundEntTable ) == 6 * sizeof( void * ), "SSManagedSoundEntTable is one pointer per slot" );
 
-abstract_class IManagedHierarchy : public IManagedObject
+class IManagedHierarchy;
+
+// The table managed writes for IManagedHierarchy: Release, Validate, then the TSV's order.
+struct SSManagedHierarchyTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *HierarchyParentMoved )( IManagedHierarchy *self, uint32_t hParent );
+	void ( *HierarchyChildMoved )( IManagedHierarchy *self, uint32_t hChild );
+	int32_t ( *HierarchySetParent )( IManagedHierarchy *self, uint32_t hChild, uint32_t hParent, int32_t nParentAttachment );
+	int32_t ( *HierarchyGetParentAttachment )( IManagedHierarchy *self, uint32_t hChild );
+	void ( *HierarchySetParentName )( IManagedHierarchy *self, uint32_t hChild, const char *pParentName );
+	void ( *HierarchySetParentAttachmentName )( IManagedHierarchy *self, uint32_t hChild, const char *pAttachmentName );
+	int32_t ( *HierarchyEntityRemoved )( IManagedHierarchy *self, uint32_t hEntity );
+	int32_t ( *HierarchyResolveParentNames )( IManagedHierarchy *self );
+	int32_t ( *HierarchyToLocal )( IManagedHierarchy *self, uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR );
+	int32_t ( *HierarchyToWorld )( IManagedHierarchy *self, uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR );
+	void ( *HierarchySetLocal )( IManagedHierarchy *self, uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR );
+};
+
+class IManagedHierarchy : public IManagedObject
 {
 public:
-	virtual void HierarchyParentMoved( uint32_t hParent ) = 0;
-	virtual void HierarchyChildMoved( uint32_t hChild ) = 0;
-	virtual int32_t HierarchySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment ) = 0;
-	virtual int32_t HierarchyGetParentAttachment( uint32_t hChild ) = 0;
-	virtual void HierarchySetParentName( uint32_t hChild, const char *pParentName ) = 0;
-	virtual void HierarchySetParentAttachmentName( uint32_t hChild, const char *pAttachmentName ) = 0;
-	virtual int32_t HierarchyEntityRemoved( uint32_t hEntity ) = 0;
-	virtual int32_t HierarchyResolveParentNames() = 0;
-	virtual int32_t HierarchyToLocal( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) = 0;
-	virtual int32_t HierarchyToWorld( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) = 0;
-	virtual void HierarchySetLocal( uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR ) = 0;
+	explicit IManagedHierarchy( const SSManagedHierarchyTable *pTable ) : IManagedObject( pTable ) {}
+
+	void HierarchyParentMoved( uint32_t hParent ) { Table()->HierarchyParentMoved( this, hParent ); }
+	void HierarchyChildMoved( uint32_t hChild ) { Table()->HierarchyChildMoved( this, hChild ); }
+	int32_t HierarchySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment ) { return Table()->HierarchySetParent( this, hChild, hParent, nParentAttachment ); }
+	int32_t HierarchyGetParentAttachment( uint32_t hChild ) { return Table()->HierarchyGetParentAttachment( this, hChild ); }
+	void HierarchySetParentName( uint32_t hChild, const char *pParentName ) { Table()->HierarchySetParentName( this, hChild, pParentName ); }
+	void HierarchySetParentAttachmentName( uint32_t hChild, const char *pAttachmentName ) { Table()->HierarchySetParentAttachmentName( this, hChild, pAttachmentName ); }
+	int32_t HierarchyEntityRemoved( uint32_t hEntity ) { return Table()->HierarchyEntityRemoved( this, hEntity ); }
+	int32_t HierarchyResolveParentNames() { return Table()->HierarchyResolveParentNames( this ); }
+	int32_t HierarchyToLocal( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) { return Table()->HierarchyToLocal( this, hChild, pOriginXYZ, pAnglesPYR ); }
+	int32_t HierarchyToWorld( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) { return Table()->HierarchyToWorld( this, hChild, pOriginXYZ, pAnglesPYR ); }
+	void HierarchySetLocal( uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR ) { Table()->HierarchySetLocal( this, hChild, pOriginXYZ, pAnglesPYR ); }
+
+private:
+	const SSManagedHierarchyTable *Table() const { return static_cast< const SSManagedHierarchyTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedHierarchySlotHashes[] = {
@@ -127,18 +257,41 @@ static const uint32_t kIManagedHierarchySlotHashes[] = {
 	0xe0e1e121, 0x9d8d9245, 0x8ff15189, 0x8ff15189, 0x542fda88,
 };
 static const int32_t kIManagedHierarchySlotCount = 13;
+static_assert( sizeof( SSManagedHierarchyTable ) == 13 * sizeof( void * ), "SSManagedHierarchyTable is one pointer per slot" );
 
-abstract_class IManagedEntities : public IManagedObject
+class IManagedEntities;
+
+// The table managed writes for IManagedEntities: Release, Validate, then the TSV's order.
+struct SSManagedEntitiesTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *Dispatch )( IManagedEntities *self, uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs );
+	int32_t ( *EntityRemoveRequested )( IManagedEntities *self, uint32_t hEntity );
+	void ( *OnEntityIgnite )( IManagedEntities *self, uint32_t hEntity, float flLifetime, float flSize );
+	void ( *OnFireAddHeatInRadius )( IManagedEntities *self, const float *pOriginXYZ, float flRadius, float flHeat );
+	int32_t ( *OnRagdollMagnetForce )( IManagedEntities *self, uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ );
+	int32_t ( *ShellLessFindByName )( IManagedEntities *self, const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax );
+	int32_t ( *ShellLessFindByClassname )( IManagedEntities *self, const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax );
+	int32_t ( *TemplatesAddNamed )( IManagedEntities *self, const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen );
+};
+
+class IManagedEntities : public IManagedObject
 {
 public:
-	virtual int32_t Dispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs ) = 0;
-	virtual int32_t EntityRemoveRequested( uint32_t hEntity ) = 0;
-	virtual void OnEntityIgnite( uint32_t hEntity, float flLifetime, float flSize ) = 0;
-	virtual void OnFireAddHeatInRadius( const float *pOriginXYZ, float flRadius, float flHeat ) = 0;
-	virtual int32_t OnRagdollMagnetForce( uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ ) = 0;
-	virtual int32_t ShellLessFindByName( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax ) = 0;
-	virtual int32_t ShellLessFindByClassname( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax ) = 0;
-	virtual int32_t TemplatesAddNamed( const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen ) = 0;
+	explicit IManagedEntities( const SSManagedEntitiesTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t Dispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs ) { return Table()->Dispatch( this, hEntity, nOp, pArgs ); }
+	int32_t EntityRemoveRequested( uint32_t hEntity ) { return Table()->EntityRemoveRequested( this, hEntity ); }
+	void OnEntityIgnite( uint32_t hEntity, float flLifetime, float flSize ) { Table()->OnEntityIgnite( this, hEntity, flLifetime, flSize ); }
+	void OnFireAddHeatInRadius( const float *pOriginXYZ, float flRadius, float flHeat ) { Table()->OnFireAddHeatInRadius( this, pOriginXYZ, flRadius, flHeat ); }
+	int32_t OnRagdollMagnetForce( uint32_t hVictim, const float *pCenterXYZ, float *pOutForceXYZ ) { return Table()->OnRagdollMagnetForce( this, hVictim, pCenterXYZ, pOutForceXYZ ); }
+	int32_t ShellLessFindByName( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax ) { return Table()->ShellLessFindByName( this, pQuery, pOutHandles, nOutMax ); }
+	int32_t ShellLessFindByClassname( const char *pQuery, uint32_t *pOutHandles, int32_t nOutMax ) { return Table()->ShellLessFindByClassname( this, pQuery, pOutHandles, nOutMax ); }
+	int32_t TemplatesAddNamed( const char *pszName, const char *pszClassname, const char *pszMapData, int32_t nLen ) { return Table()->TemplatesAddNamed( this, pszName, pszClassname, pszMapData, nLen ); }
+
+private:
+	const SSManagedEntitiesTable *Table() const { return static_cast< const SSManagedEntitiesTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedEntitiesSlotHashes[] = {
@@ -146,25 +299,55 @@ static const uint32_t kIManagedEntitiesSlotHashes[] = {
 	0x491c72c2, 0x994fbbfe,
 };
 static const int32_t kIManagedEntitiesSlotCount = 10;
+static_assert( sizeof( SSManagedEntitiesTable ) == 10 * sizeof( void * ), "SSManagedEntitiesTable is one pointer per slot" );
 
-abstract_class IManagedClients : public IManagedObject
+class IManagedClients;
+
+// The table managed writes for IManagedClients: Release, Validate, then the TSV's order.
+struct SSManagedClientsTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *OnClientConnect )( IManagedClients *self, const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize );
+	void ( *OnClientPutInServer )( IManagedClients *self, int32_t nEntIndex, const char *pPlayerName );
+	void ( *OnClientActive )( IManagedClients *self, int32_t nEntIndex, int32_t bLoadGame );
+	void ( *OnClientGamePrecache )( IManagedClients *self );
+	void ( *OnRespawn )( IManagedClients *self, int32_t nEntIndex, int32_t bCopyCorpse );
+	void ( *OnPlayerSpawn )( IManagedClients *self, uint32_t hPlayer );
+	void ( *OnPlayerSpawned )( IManagedClients *self, uint32_t hPlayer );
+	void ( *OnPlayerKilled )( IManagedClients *self, uint32_t hPlayer, uint32_t hAttacker );
+	uint32_t ( *OnSelectSpawnPoint )( IManagedClients *self, uint32_t hPlayer );
+	int32_t ( *GetPlayerRelationship )( IManagedClients *self, uint32_t hPlayer, uint32_t hTarget );
+	int32_t ( *ServerSkyboxAreaForClient )( IManagedClients *self, int32_t iClientEdict, int32_t *pOutArea );
+	int32_t ( *ServerEarPositionForClient )( IManagedClients *self, int32_t iClientEdict, float *pOutXYZ );
+	int32_t ( *OnClientNetMessage )( IManagedClients *self, int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen );
+	int32_t ( *OnClientSettingsChanged )( IManagedClients *self, int32_t nEntIndex );
+	int32_t ( *ServerTransmitAlwaysForClient )( IManagedClients *self, int32_t iClientEdict );
+};
+
+class IManagedClients : public IManagedObject
 {
 public:
-	virtual int32_t OnClientConnect( const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize ) = 0;
-	virtual void OnClientPutInServer( int32_t nEntIndex, const char *pPlayerName ) = 0;
-	virtual void OnClientActive( int32_t nEntIndex, int32_t bLoadGame ) = 0;
-	virtual void OnClientGamePrecache() = 0;
-	virtual void OnRespawn( int32_t nEntIndex, int32_t bCopyCorpse ) = 0;
-	virtual void OnPlayerSpawn( uint32_t hPlayer ) = 0;
-	virtual void OnPlayerSpawned( uint32_t hPlayer ) = 0;
-	virtual void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker ) = 0;
-	virtual uint32_t OnSelectSpawnPoint( uint32_t hPlayer ) = 0;
-	virtual int32_t GetPlayerRelationship( uint32_t hPlayer, uint32_t hTarget ) = 0;
-	virtual int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea ) = 0;
-	virtual int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ ) = 0;
-	virtual int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen ) = 0;
-	virtual int32_t OnClientSettingsChanged( int32_t nEntIndex ) = 0;
-	virtual int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict ) = 0;
+	explicit IManagedClients( const SSManagedClientsTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t OnClientConnect( const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize ) { return Table()->OnClientConnect( this, pName, pAddress, pReject, nRejectSize ); }
+	void OnClientPutInServer( int32_t nEntIndex, const char *pPlayerName ) { Table()->OnClientPutInServer( this, nEntIndex, pPlayerName ); }
+	void OnClientActive( int32_t nEntIndex, int32_t bLoadGame ) { Table()->OnClientActive( this, nEntIndex, bLoadGame ); }
+	void OnClientGamePrecache() { Table()->OnClientGamePrecache( this ); }
+	void OnRespawn( int32_t nEntIndex, int32_t bCopyCorpse ) { Table()->OnRespawn( this, nEntIndex, bCopyCorpse ); }
+	void OnPlayerSpawn( uint32_t hPlayer ) { Table()->OnPlayerSpawn( this, hPlayer ); }
+	void OnPlayerSpawned( uint32_t hPlayer ) { Table()->OnPlayerSpawned( this, hPlayer ); }
+	void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker ) { Table()->OnPlayerKilled( this, hPlayer, hAttacker ); }
+	uint32_t OnSelectSpawnPoint( uint32_t hPlayer ) { return Table()->OnSelectSpawnPoint( this, hPlayer ); }
+	int32_t GetPlayerRelationship( uint32_t hPlayer, uint32_t hTarget ) { return Table()->GetPlayerRelationship( this, hPlayer, hTarget ); }
+	int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea ) { return Table()->ServerSkyboxAreaForClient( this, iClientEdict, pOutArea ); }
+	int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ ) { return Table()->ServerEarPositionForClient( this, iClientEdict, pOutXYZ ); }
+	int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen ) { return Table()->OnClientNetMessage( this, nEntIndex, pKey, pData, nLen ); }
+	int32_t OnClientSettingsChanged( int32_t nEntIndex ) { return Table()->OnClientSettingsChanged( this, nEntIndex ); }
+	int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict ) { return Table()->ServerTransmitAlwaysForClient( this, iClientEdict ); }
+
+private:
+	const SSManagedClientsTable *Table() const { return static_cast< const SSManagedClientsTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedClientsSlotHashes[] = {
@@ -173,129 +356,303 @@ static const uint32_t kIManagedClientsSlotHashes[] = {
 	0xa45f061a,
 };
 static const int32_t kIManagedClientsSlotCount = 17;
+static_assert( sizeof( SSManagedClientsTable ) == 17 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
 
-abstract_class IManagedEvents : public IManagedObject
+class IManagedEvents;
+
+// The table managed writes for IManagedEvents: Release, Validate, then the TSV's order.
+struct SSManagedEventsTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *OnGameEvent )( IManagedEvents *self, const char *pEventName, void *hEvent );
+};
+
+class IManagedEvents : public IManagedObject
 {
 public:
-	virtual void OnGameEvent( const char *pEventName, void *hEvent ) = 0;
+	explicit IManagedEvents( const SSManagedEventsTable *pTable ) : IManagedObject( pTable ) {}
+
+	void OnGameEvent( const char *pEventName, void *hEvent ) { Table()->OnGameEvent( this, pEventName, hEvent ); }
+
+private:
+	const SSManagedEventsTable *Table() const { return static_cast< const SSManagedEventsTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedEventsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xacb4e74c,
 };
 static const int32_t kIManagedEventsSlotCount = 3;
+static_assert( sizeof( SSManagedEventsTable ) == 3 * sizeof( void * ), "SSManagedEventsTable is one pointer per slot" );
 
-abstract_class IManagedUserMessages : public IManagedObject
+class IManagedUserMessages;
+
+// The table managed writes for IManagedUserMessages: Release, Validate, then the TSV's order.
+struct SSManagedUserMessagesTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	bool ( *GetUserMessageInfo )( IManagedUserMessages *self, int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize );
+	bool ( *CloseCaptionsWanted )( IManagedUserMessages *self );
+	void ( *EmitCloseCaption )( IManagedUserMessages *self, const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender );
+};
+
+class IManagedUserMessages : public IManagedObject
 {
 public:
-	virtual bool GetUserMessageInfo( int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize ) = 0;
-	virtual bool CloseCaptionsWanted() = 0;
-	virtual void EmitCloseCaption( const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender ) = 0;
+	explicit IManagedUserMessages( const SSManagedUserMessagesTable *pTable ) : IManagedObject( pTable ) {}
+
+	bool GetUserMessageInfo( int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize ) { return Table()->GetUserMessageInfo( this, nIndex, pName, nMaxName, pSize ); }
+	bool CloseCaptionsWanted() { return Table()->CloseCaptionsWanted( this ); }
+	void EmitCloseCaption( const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender ) { Table()->EmitCloseCaption( this, pSlots, nSlots, bReliable, pToken, flDuration, bFromPlayer, bWarnIfMissing, nGender ); }
+
+private:
+	const SSManagedUserMessagesTable *Table() const { return static_cast< const SSManagedUserMessagesTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedUserMessagesSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xdd84ebe8, 0xbe023354, 0x60c53dcb,
 };
 static const int32_t kIManagedUserMessagesSlotCount = 5;
+static_assert( sizeof( SSManagedUserMessagesTable ) == 5 * sizeof( void * ), "SSManagedUserMessagesTable is one pointer per slot" );
 
-abstract_class IManagedTempEnts : public IManagedObject
+class IManagedTempEnts;
+
+// The table managed writes for IManagedTempEnts: Release, Validate, then the TSV's order.
+struct SSManagedTempEntsTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *OnNativeTempEntity )( IManagedTempEnts *self, int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut );
+};
+
+class IManagedTempEnts : public IManagedObject
 {
 public:
-	virtual int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut ) = 0;
+	explicit IManagedTempEnts( const SSManagedTempEntsTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut ) { return Table()->OnNativeTempEntity( this, nId, pFloats, nFloats, pInts, nInts, pBlobOut, nBlobMax, pClassOut ); }
+
+private:
+	const SSManagedTempEntsTable *Table() const { return static_cast< const SSManagedTempEntsTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedTempEntsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x4febfaf5,
 };
 static const int32_t kIManagedTempEntsSlotCount = 3;
+static_assert( sizeof( SSManagedTempEntsTable ) == 3 * sizeof( void * ), "SSManagedTempEntsTable is one pointer per slot" );
 
-abstract_class IManagedDiagnostics : public IManagedObject
+class IManagedDiagnostics;
+
+// The table managed writes for IManagedDiagnostics: Release, Validate, then the TSV's order.
+struct SSManagedDiagnosticsTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *CrossingsReport )( IManagedDiagnostics *self, char *pBuffer, int32_t nBytes, int32_t bReset );
+};
+
+class IManagedDiagnostics : public IManagedObject
 {
 public:
-	virtual int32_t CrossingsReport( char *pBuffer, int32_t nBytes, int32_t bReset ) = 0;
+	explicit IManagedDiagnostics( const SSManagedDiagnosticsTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t CrossingsReport( char *pBuffer, int32_t nBytes, int32_t bReset ) { return Table()->CrossingsReport( this, pBuffer, nBytes, bReset ); }
+
+private:
+	const SSManagedDiagnosticsTable *Table() const { return static_cast< const SSManagedDiagnosticsTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedDiagnosticsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xd64a23a5,
 };
 static const int32_t kIManagedDiagnosticsSlotCount = 3;
+static_assert( sizeof( SSManagedDiagnosticsTable ) == 3 * sizeof( void * ), "SSManagedDiagnosticsTable is one pointer per slot" );
 
-abstract_class IManagedCommands : public IManagedObject
+class IManagedCommands;
+
+// The table managed writes for IManagedCommands: Release, Validate, then the TSV's order.
+struct SSManagedCommandsTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ConCommandDispatch )( IManagedCommands *self, int32_t nCommandId, const char *pArgs );
+	void ( *ConVarChanged )( IManagedCommands *self, int32_t nConVarId, const char *pNewValue, const char *pOldValue );
+	int32_t ( *OnClientCommand )( IManagedCommands *self, uint32_t hPlayer, const char *pCommand );
+};
+
+class IManagedCommands : public IManagedObject
 {
 public:
-	virtual void ConCommandDispatch( int32_t nCommandId, const char *pArgs ) = 0;
-	virtual void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue ) = 0;
-	virtual int32_t OnClientCommand( uint32_t hPlayer, const char *pCommand ) = 0;
+	explicit IManagedCommands( const SSManagedCommandsTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ConCommandDispatch( int32_t nCommandId, const char *pArgs ) { Table()->ConCommandDispatch( this, nCommandId, pArgs ); }
+	void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue ) { Table()->ConVarChanged( this, nConVarId, pNewValue, pOldValue ); }
+	int32_t OnClientCommand( uint32_t hPlayer, const char *pCommand ) { return Table()->OnClientCommand( this, hPlayer, pCommand ); }
+
+private:
+	const SSManagedCommandsTable *Table() const { return static_cast< const SSManagedCommandsTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedCommandsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xeed27821, 0x3d217e2d, 0xff2dadb5,
 };
 static const int32_t kIManagedCommandsSlotCount = 5;
+static_assert( sizeof( SSManagedCommandsTable ) == 5 * sizeof( void * ), "SSManagedCommandsTable is one pointer per slot" );
 
-abstract_class IManagedNetState : public IManagedObject
+class IManagedNetState;
+
+// The table managed writes for IManagedNetState: Release, Validate, then the TSV's order.
+struct SSManagedNetStateTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *NetStateFieldOffset )( IManagedNetState *self, const char *pClassName, const char *pFieldName );
+	int32_t ( *NetStateFieldBits )( IManagedNetState *self, const char *pClassName, const char *pFieldName );
+};
+
+class IManagedNetState : public IManagedObject
 {
 public:
-	virtual int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName ) = 0;
-	virtual int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName ) = 0;
+	explicit IManagedNetState( const SSManagedNetStateTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldOffset( this, pClassName, pFieldName ); }
+	int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldBits( this, pClassName, pFieldName ); }
+
+private:
+	const SSManagedNetStateTable *Table() const { return static_cast< const SSManagedNetStateTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedNetStateSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xbddf45d5, 0xbddf45d5,
 };
 static const int32_t kIManagedNetStateSlotCount = 4;
+static_assert( sizeof( SSManagedNetStateTable ) == 4 * sizeof( void * ), "SSManagedNetStateTable is one pointer per slot" );
 
-abstract_class IManagedPlayerCommands : public IManagedObject
+class IManagedPlayerCommands;
+
+// The table managed writes for IManagedPlayerCommands: Release, Validate, then the TSV's order.
+struct SSManagedPlayerCommandsTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *MoveProcessMovement )( IManagedPlayerCommands *self, SourceSharpMoveState *pState );
+	int32_t ( *PlayerRunCommands )( IManagedPlayerCommands *self, uint32_t hPlayer, int32_t nCount );
+	int32_t ( *PlayerDecodeCommands )( IManagedPlayerCommands *self, uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead );
+	void ( *OnPlayerSurfaceChanged )( IManagedPlayerCommands *self, uint32_t hPlayer, int32_t nGameMaterial );
+};
+
+class IManagedPlayerCommands : public IManagedObject
 {
 public:
-	virtual int32_t MoveProcessMovement( SourceSharpMoveState *pState ) = 0;
-	virtual int32_t PlayerRunCommands( uint32_t hPlayer, int32_t nCount ) = 0;
-	virtual int32_t PlayerDecodeCommands( uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead ) = 0;
-	virtual void OnPlayerSurfaceChanged( uint32_t hPlayer, int32_t nGameMaterial ) = 0;
+	explicit IManagedPlayerCommands( const SSManagedPlayerCommandsTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t MoveProcessMovement( SourceSharpMoveState *pState ) { return Table()->MoveProcessMovement( this, pState ); }
+	int32_t PlayerRunCommands( uint32_t hPlayer, int32_t nCount ) { return Table()->PlayerRunCommands( this, hPlayer, nCount ); }
+	int32_t PlayerDecodeCommands( uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead ) { return Table()->PlayerDecodeCommands( this, hPlayer, pData, nStartBit, nDataBits, nNumCmds, nTotalCmds, nDroppedPackets, bQueue, pOut, nOutMax, pBitsRead ); }
+	void OnPlayerSurfaceChanged( uint32_t hPlayer, int32_t nGameMaterial ) { Table()->OnPlayerSurfaceChanged( this, hPlayer, nGameMaterial ); }
+
+private:
+	const SSManagedPlayerCommandsTable *Table() const { return static_cast< const SSManagedPlayerCommandsTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedPlayerCommandsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x1134ef71, 0xbabc0fee, 0x889faf12, 0x8d177001,
 };
 static const int32_t kIManagedPlayerCommandsSlotCount = 6;
+static_assert( sizeof( SSManagedPlayerCommandsTable ) == 6 * sizeof( void * ), "SSManagedPlayerCommandsTable is one pointer per slot" );
 
-abstract_class IManagedFrame : public IManagedObject
+class IManagedFrame;
+
+// The table managed writes for IManagedFrame: Release, Validate, then the TSV's order.
+struct SSManagedFrameTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *Frame )( IManagedFrame *self, float flFrameTime );
+	void ( *FramePreThink )( IManagedFrame *self, float flFrameTime );
+	void ( *FramePostThink )( IManagedFrame *self, float flFrameTime );
+	void ( *LevelInit )( IManagedFrame *self, const char *pMapName );
+	void ( *LevelShutdown )( IManagedFrame *self );
+};
+
+class IManagedFrame : public IManagedObject
 {
 public:
-	virtual void Frame( float flFrameTime ) = 0;
-	virtual void FramePreThink( float flFrameTime ) = 0;
-	virtual void FramePostThink( float flFrameTime ) = 0;
-	virtual void LevelInit( const char *pMapName ) = 0;
-	virtual void LevelShutdown() = 0;
+	explicit IManagedFrame( const SSManagedFrameTable *pTable ) : IManagedObject( pTable ) {}
+
+	void Frame( float flFrameTime ) { Table()->Frame( this, flFrameTime ); }
+	void FramePreThink( float flFrameTime ) { Table()->FramePreThink( this, flFrameTime ); }
+	void FramePostThink( float flFrameTime ) { Table()->FramePostThink( this, flFrameTime ); }
+	void LevelInit( const char *pMapName ) { Table()->LevelInit( this, pMapName ); }
+	void LevelShutdown() { Table()->LevelShutdown( this ); }
+
+private:
+	const SSManagedFrameTable *Table() const { return static_cast< const SSManagedFrameTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedFrameSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xb86ff9be, 0xb86ff9be, 0xb86ff9be, 0x3aa7ebf0, 0x07e0f4c4,
 };
 static const int32_t kIManagedFrameSlotCount = 7;
+static_assert( sizeof( SSManagedFrameTable ) == 7 * sizeof( void * ), "SSManagedFrameTable is one pointer per slot" );
 
-abstract_class IManagedConsoleOutput : public IManagedObject
+class IManagedConsoleOutput;
+
+// The table managed writes for IManagedConsoleOutput: Release, Validate, then the TSV's order.
+struct SSManagedConsoleOutputTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ConsoleLine )( IManagedConsoleOutput *self, const char *pText, int32_t nWarning );
+	void ( *ConsoleBufferAttach )( IManagedConsoleOutput *self, void *pBuffer );
+};
+
+class IManagedConsoleOutput : public IManagedObject
 {
 public:
-	virtual void ConsoleLine( const char *pText, int32_t nWarning ) = 0;
-	virtual void ConsoleBufferAttach( void *pBuffer ) = 0;
+	explicit IManagedConsoleOutput( const SSManagedConsoleOutputTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ConsoleLine( const char *pText, int32_t nWarning ) { Table()->ConsoleLine( this, pText, nWarning ); }
+	void ConsoleBufferAttach( void *pBuffer ) { Table()->ConsoleBufferAttach( this, pBuffer ); }
+
+private:
+	const SSManagedConsoleOutputTable *Table() const { return static_cast< const SSManagedConsoleOutputTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedConsoleOutputSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x3e98ef21, 0xde3e0200,
 };
 static const int32_t kIManagedConsoleOutputSlotCount = 4;
+static_assert( sizeof( SSManagedConsoleOutputTable ) == 4 * sizeof( void * ), "SSManagedConsoleOutputTable is one pointer per slot" );
 
-abstract_class IManagedBones : public IManagedObject
+class IManagedBones;
+
+// The table managed writes for IManagedBones: Release, Validate, then the TSV's order.
+struct SSManagedBonesTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *TestHitboxes )( IManagedBones *self, uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts );
+};
+
+class IManagedBones : public IManagedObject
 {
 public:
-	virtual int32_t TestHitboxes( uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts ) = 0;
+	explicit IManagedBones( const SSManagedBonesTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t TestHitboxes( uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts ) { return Table()->TestHitboxes( this, hEntity, pBlock, pRay, nContentsMask, pTraceFloats, pTraceInts ); }
+
+private:
+	const SSManagedBonesTable *Table() const { return static_cast< const SSManagedBonesTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedBonesSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x43ac8bd6,
 };
 static const int32_t kIManagedBonesSlotCount = 3;
+static_assert( sizeof( SSManagedBonesTable ) == 3 * sizeof( void * ), "SSManagedBonesTable is one pointer per slot" );
 
 IManagedPhysicsFrame *ManagedPhysicsFrame();   // this load's area, or NULL outside a load
 IManagedResources *ManagedResources();   // this load's area, or NULL outside a load

@@ -39,7 +39,7 @@ public unsafe class ManagedRootTests
     // The root's layout hashes as the generated layout carries them: native
     // compiles the same numbers into kIManagedRootSlotHashes.
     private static uint[] RootHashes()
-        => typeof(ManagedRootVtbl).GetFields()
+        => typeof(ManagedRootTable).GetFields()
                .Select(f => ((SlotHashAttribute)f.GetCustomAttributes(typeof(SlotHashAttribute), false).Single()).Hash)
                .ToArray();
 

@@ -700,50 +700,6 @@ INTERFACES = [
              'refuses a root whose count differs from this struct\'s.',
     ),
     dict(
-        struct='ManagedRootVtbl',
-        shim=True,
-        kind=IMPLEMENTED_BY_MANAGED,
-        header='src/sourcesharp/game/shared/imanaged_core.h',
-        chain=['IManagedObject', 'IManagedRoot'],
-        reached_by='LoadSideV2\'s ppManagedRoot',
-        summary='<c>IManagedRoot</c>, the one managed-built object LoadSideV2 hands '
-                'native; every other managed-built interface is acquired from it by '
-                'name (plan_engineapi_vtables D4).',
-        note='OURS, and the mirror of IShimRoot: managed writes this table and '
-             'native calls it. NO VIRTUAL DESTRUCTOR. Release is slot 0 and Validate '
-             'slot 1: native accepts the object only when Validate matches its '
-             'compiled slot hashes (managed_accept.h).',
-    ),
-    dict(
-        struct='ManagedRuntimeServerVtbl',
-        shim=True,
-        kind=IMPLEMENTED_BY_MANAGED,
-        header='src/sourcesharp/game/shared/imanaged_runtime.h',
-        chain=['IManagedObject', 'IManagedRuntimeServer'],
-        chain_headers={'IManagedObject': MANAGED_CORE},
-        reached_by='IManagedRoot::Acquire( "IManagedRuntimeServer" )',
-        summary='<c>IManagedRuntimeServer</c>, the shell game DLL\'s calls into the mod: '
-                'lifetime, map loads, frames and the listing answers '
-                '(plan_engineapi_vtables D5).',
-        note='Managed writes this table (ServerRuntimeBinding) and the shell calls '
-             'it through ManagedRuntimeServer(), acquired again on every load. NO '
-             'VIRTUAL DESTRUCTOR, Release at slot 0 and Validate at 1; the map loads take the flat '
-             'SourceSharpMapLoad by pointer, and the stop is not a slot.',
-    ),
-    dict(
-        struct='ManagedRuntimeClientVtbl',
-        shim=True,
-        kind=IMPLEMENTED_BY_MANAGED,
-        header='src/sourcesharp/game/shared/imanaged_runtime_client.h',
-        chain=['IManagedObject', 'IManagedRuntimeClient'],
-        chain_headers={'IManagedObject': MANAGED_CORE},
-        reached_by='IManagedRoot::Acquire( "IManagedRuntimeClient" )',
-        summary='<c>IManagedRuntimeClient</c>, the shell client DLL\'s calls into the mod: '
-                'its frame, stages and level lifetime (plan_client_vtables CD).',
-        note='Managed writes this table (ClientRuntimeBinding) and the client holds it on '
-             'CShellClientDLL. NO VIRTUAL DESTRUCTOR, Release at slot 0 and Validate at 1.',
-    ),
-    dict(
         struct='ShimConsoleVtbl',
         exposed=True,
         shim=True,
@@ -937,22 +893,6 @@ INTERFACES = [
              'vtable_index_agreement_test holds the count to the header.',
     ),
     dict(
-        struct='ManagedSteamCallbackVtbl',
-        shim=True,
-        kind=IMPLEMENTED_BY_MANAGED,
-        header='src/sourcesharp/fwd/imanaged_steam_callback.h',
-        chain=['IManagedObject', 'IManagedSteamCallback'],
-        chain_headers={'IManagedObject': MANAGED_CORE},
-        reached_by='<c>SSFwd_SteamCallback</c>\'s <c>Construct</c> (libss_fwd_client)',
-        summary='<c>IManagedSteamCallback</c>, one Steam callback\'s managed side: the client\'s '
-                'logon state, URL launch and rich-presence join.',
-        note='OURS, and managed writes it (plan_engine_forwarders.md phase 5): libss_fwd_client '
-             'builds the CCallbackBase Steam registers, so the compiler orders its two Run '
-             'overloads, and both call this one slot. NO VIRTUAL DESTRUCTOR, Release at slot 0 '
-             'and Validate at 1; native calls neither, and managed releases the block once '
-             'Steam has let go of the callback that holds it.',
-    ),
-    dict(
         struct='PhysicsCollisionSolverVtbl',
         kind=VALVE_BY_MANAGED,
         header='src/public/vphysics_interface.h',
@@ -1135,49 +1075,10 @@ def shim_area_rows(path='docs/engineapi-areas.tsv'):
 INTERFACES += shim_area_rows()
 
 
-def managed_area_rows(spec='docs/managed-interfaces.tsv'):
-    """plan_engineapi_vtables E: one implemented-by-managed row per managed-built
-    area tools/managed-areas generates (imanaged_areas.h), in the order the spec
-    (plan_managed_vtable_reload.md L0) first names each interface."""
-    if not os.path.exists(spec):
-        return []
-    live = []
-    with open(spec) as f:
-        for line in f:
-            if not line.strip() or line.lstrip().startswith('#') or line.startswith('interface\t'):
-                continue
-            iface = line.split('\t', 1)[0].strip()
-            # The root and the runtime are in the spec too (L0b) but are not
-            # areas: their rows are the two explicit ones above, walked from
-            # imanaged_core.h.
-            if iface in ('IManagedRoot', 'IManagedRuntimeServer', 'IManagedRuntimeClient'):
-                continue
-            if iface not in live:
-                live.append(iface)
-
-    rows = []
-    for i in live:
-        name = i[len('IManaged'):]
-        client = i.endswith('Client')   # plan_client_vtables CD: the client's areas
-        rows.append(dict(
-            struct='Managed%sVtbl' % name,
-            shim=True,
-            kind=IMPLEMENTED_BY_MANAGED,
-            header='src/sourcesharp/game/shared/imanaged_areas_client.h' if client
-                   else 'src/sourcesharp/game/shared/imanaged_areas.h',
-            chain=['IManagedObject', i],
-            chain_headers={'IManagedObject': MANAGED_CORE},
-            reached_by='IManagedRoot::Acquire( "%s" )' % i,
-            summary='<c>%s</c>, generated by <c>tools/managed-areas</c> from '
-                    '<c>docs/managed-interfaces.tsv</c>.' % i,
-            note='OURS and GENERATED, and managed writes it: the server\'s ManagedApi '
-                 'slots of this family, one method per slot, named after the slot, '
-                 'after Release (slot 0) and Validate (slot 1).',
-        ))
-    return rows
-
-
-INTERFACES += managed_area_rows()
+# plan_forwarders_everywhere.md phase 4: the managed-built tables are no longer
+# walked from a C++ class. tools/managed-areas writes both sides of each from
+# docs/managed-interfaces.tsv (the C struct native calls through and
+# ManagedTables.g.cs), so no row here describes one.
 
 
 # ---------------------------------------------------------------------------
@@ -2692,14 +2593,15 @@ def self_test(out=sys.stdout):
     expect('an emitted table MSVC orders differently is refused, naming the struct',
            refused is None and 'BaseFileSystemVtbl is laid out differently by MSVC' in (refused_why or ''))
 
-    # Every managed-written layout is ordered alike on both ABIs: the Steam
-    # callback, the last one MSVC reversed (CCallbackBase's two Run
-    # overloads), is built natively by libss_fwd_client, and managed writes
-    # only IManagedSteamCallback's one slot (plan_engine_forwarders.md phase 5).
-    expect('the Steam callback\'s managed side is one Run and no overload',
-           ' Run;' in struct_text('ManagedSteamCallbackVtbl')
-           and ' Run_2;' not in struct_text('ManagedSteamCallbackVtbl')
-           and not struct_text('SteamCallbackVtbl'))
+    # The Steam callback, the last layout MSVC reversed (CCallbackBase's two Run
+    # overloads), is built natively by libss_fwd_client (plan_engine_forwarders.md
+    # phase 5), and its managed side is a table tools/managed-areas writes from
+    # docs/managed-interfaces.tsv (plan_forwarders_everywhere.md phase 4): no
+    # struct here describes either, and no managed-built table at all.
+    expect('no Steam callback layout and no managed-built table is written here',
+           not struct_text('SteamCallbackVtbl') and not struct_text('ManagedSteamCallbackVtbl')
+           and not struct_text('ManagedRootVtbl') and not any(
+               kind_of(e) == IMPLEMENTED_BY_MANAGED for e in INTERFACES))
 
     by_value_row = dict([e for e in INTERFACES if e['struct'] == 'PhysicsObjectVtbl'][0], shim=True)
     by_value_fields, by_value_why = fields_for(by_value_row, load_policy())

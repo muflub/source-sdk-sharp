@@ -16,41 +16,63 @@ signatures in sourcesharp.h, grouped by docs/engineapi-areas.tsv and listed by
 docs/managedapi-switched.txt; E-last deletes those signatures, so the
 interfaces are declared here instead. From the spec this writes:
 
-  src/shared/native/imanaged_areas.h      the C++ abstract classes native calls:
-                                          one method per slot, named after the
-                                          slot, Release first (slot 0) and Validate second (slot 1), no destructor --
-                                          tools/vtable-layout's
-                                          implemented-by-managed kind -- and the
+  src/shared/native/imanaged_areas.h      per interface, the C struct of the table
+                                          managed writes (Release, Validate, then
+                                          the TSV's slots) and a class with NO
+                                          VIRTUAL whose inline methods call it,
+                                          the object first; k<I>SlotHashes; the
                                           accessor native calls each through
+                                          (plan_forwarders_everywhere.md phase 4)
+  src/shared/native/imanaged_core.h, imanaged_runtime*.h, and
+  src/fwd/native/imanaged_steam_callback.h   the same, for the root, the
+                                          runtimes and the Steam callback's
+                                          managed side, which are not areas
   src/shared/native/shell_managed_areas.h CManagedAreas, the pointers the shim
                                           root holds by value
   src/shared/native/shell_managed_areas.inc  acquiring each from the managed
-                                          root at its compiler's count
-                                          (managed_accept.h), releasing each, and
+                                          root (accepted through its Validate,
+                                          managed_accept.h), releasing each, and
                                           the accessors; included by
                                           shell_internalfactory.cpp
-  src/test/native/managed_areas_layout.inc   one length test per area
-  src/server/managed/ManagedAreas.g.cs    the C# contracts ManagedVtableGenerator
-                                          builds the tables from, typed from the
-                                          generated layouts (VtableLayouts.g.cs)
-                                          so they match them exactly
+  src/shared/interop/SharedManagedTables.g.cs, src/server/interop/ServerManagedTables.g.cs,
+  src/client/interop/ClientManagedTables.g.cs   each table as C#, with each
+                                          slot's hash, in the assembly whose code
+                                          builds it
+  src/{server,client}/interop/ManagedAreas.g.cs   the C# contracts
+                                          ManagedVtableGenerator builds the tables
+                                          from, typed from those structs
 
-TWO PASSES when an area is added: --write (the header), tools/vtable-layout
---write (its layout), --write again (the contract, read from the layout).
-
-IManagedRuntimeServer is hand-declared (sourcesharp_gamesystem.h, D5) and is
-not generated here.
+ONE PASS: the C side, the C# side and the hashes all come from the TSV here,
+typed and hashed with tools/vtable-layout's signature_of and slot_hash, so
+nothing is read back from a generated file.
 """
 
 import csv
+import importlib.machinery
+import importlib.util
 import os
 import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
+
+def _load_vtable_layout():
+    """tools/vtable-layout as a module, for its C# typing of a C signature
+    (signature_of) and its slot hash (slot_hash): one definition of each, so a
+    table this writes types and hashes its slots exactly as every other
+    generated table does."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    loader = importlib.machinery.SourceFileLoader('vtable_layout', os.path.join(here, 'vtable-layout'))
+    spec_ = importlib.util.spec_from_loader('vtable_layout', loader)
+    module = importlib.util.module_from_spec(spec_)
+    loader.exec_module(module)
+    return module
+
+
+VL = _load_vtable_layout()
+
 SPEC = 'docs/managed-interfaces.tsv'
-LAYOUTS = 'src/abi/VtableLayouts.g.cs'
 VALVE = 'tools/valve-header.txt'
 
 OUT_IFACE = 'src/shared/native/imanaged_areas.h'
@@ -58,7 +80,20 @@ OUT_CORE = 'src/shared/native/imanaged_core.h'
 OUT_RUNTIME = 'src/shared/native/imanaged_runtime.h'
 OUT_HOLDER = 'src/shared/native/shell_managed_areas.h'
 OUT_IMPL = 'src/shared/native/shell_managed_areas.inc'
-OUT_TEST = 'src/test/native/managed_areas_layout.inc'
+# Every table managed writes, as C#, in the assembly whose code builds it, as
+# tools/engine-forwarders places its structs: the root's in Shared.Interop (its
+# ManagedRoot builds it, for both sides; the Abi holds plumbing only), the
+# server's runtime and areas in Server.Interop, the client's runtime, areas and
+# Steam callback in Client.Interop.
+OUT_TABLES = 'src/shared/interop/SharedManagedTables.g.cs'
+OUT_TABLES_SERVER = 'src/server/interop/ServerManagedTables.g.cs'
+OUT_TABLES_CLIENT = 'src/client/interop/ClientManagedTables.g.cs'
+TABLE_FILES = {
+    OUT_TABLES: 'SourceSharp.Shared.Interop, for the table both sides build (the root)',
+    OUT_TABLES_SERVER: 'SourceSharp.Server.Interop, for the server\'s runtime and areas',
+    OUT_TABLES_CLIENT: 'SourceSharp.Client.Interop, for the client\'s runtime, areas and Steam callback',
+}
+OUT_STEAM = 'src/fwd/native/imanaged_steam_callback.h'   # libss_fwd_client's callback's managed side
 OUT_MANAGED = 'src/server/interop/ManagedAreas.g.cs'   # SourceSharp.Server.Interop (SI)
 
 # plan_client_vtables CD: the client's side. Its areas are the spec's
@@ -83,7 +118,12 @@ OUT_MANAGED_CLIENT = 'src/client/interop/ManagedAreas.g.cs'   # SourceSharp.Clie
 # and their C# contracts (IManagedRoot in ManagedRoot.cs, IServerRuntime in
 # ServerRuntimeBinding.cs) are held to their layouts by ManagedVtableGenerator.
 # The value says whether the declaration is the server's only.
-CORE = {'IManagedRoot': False, 'IManagedRuntimeServer': True, 'IManagedRuntimeClient': False}
+#
+# IManagedSteamCallback is not an area either: libss_fwd_client's Steam
+# callback holds one (plan_engine_forwarders.md section 6), and its header is
+# the forwarder library's (OUT_STEAM).
+CORE = {'IManagedRoot': False, 'IManagedRuntimeServer': True, 'IManagedRuntimeClient': False,
+        'IManagedSteamCallback': False}
 
 
 def is_client(iface):
@@ -157,14 +197,6 @@ def core():
     return found
 
 
-def method_lines(ss):
-    """`virtual void *Acquire(...)`: a pointer return binds to the name, as written by hand."""
-    def head(ret, s):
-        return '%s%s%s' % (ret, '' if ret.endswith('*') else ' ', s)
-    return ['\tvirtual %s( %s ) = 0;' % (head(ret, s), params) if params
-            else '\tvirtual %s() = 0;' % head(ret, s) for s, ret, params in ss]
-
-
 def layout_fields(layouts_text, struct):
     """[(slot, [C# parameter types after self], C# return)] of a generated layout, or None."""
     m = re.search(r' unsafe struct %s\n\{(.*?)\n\}' % re.escape(struct), layouts_text, re.S)
@@ -179,41 +211,114 @@ def layout_fields(layouts_text, struct):
 
 VALIDATE = 'int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )'
 
+# Every table starts with these two (plan_managed_vtable_reload.md L1b):
+# Release frees the block, Validate answers whether its slots are the ones
+# native was generated with.
+OBJECT_SLOTS = [('Release', 'void', ''),
+                ('Validate', 'int32_t', 'const uint32_t *pSlotHashes, int32_t nSlots')]
+
+
+def table_slots(ss):
+    """[(name, C return, C parameters, C# function-pointer type, hash)] for one
+    managed-built table, Release and Validate first, then the TSV's methods in
+    order. The C# type is a method's (`self` first), and the hash is FNV-1a over
+    it (tools/vtable-layout's slot_hash), which native checks Validate against."""
+    out = []
+    for name, ret, params in OBJECT_SLOTS + list(ss):
+        kind = VL.signature_of(ret, VL.normalise_signature(params) or 'void')
+        out.append((name, ret, params, kind, VL.slot_hash('%s %s;' % (kind, name))))
+    return out
+
+
+def table_name(iface):
+    """The C struct of the table managed writes for an interface: SSManagedFooTable."""
+    return 'SS%sTable' % iface[1:]
+
+
+def named_parameters(params):
+    """[(declaration with a name, name)] for a TSV parameter list: a parameter
+    the TSV gives no name is named a<N>, so the forwarder can pass it on."""
+    out = []
+    for n, part in enumerate(p.strip() for p in params.split(',') if p.strip()):
+        bare = VL.normalise_parameter(part)
+        if bare == ' '.join(re.sub(r'([*&])', r' \1 ', part).split()):
+            part, name = '%s a%d' % (part, n), 'a%d' % n
+        else:
+            name = re.findall(r'[A-Za-z_]\w*', part)[-1]
+        out.append((part, name))
+    return out
+
 
 def object_lines():
-    """IManagedObject: the two slots every managed-built interface starts with
-    (L1). Each interface derives from it (L1b), and single inheritance keeps
-    them at slots 0 and 1 of the one vtable, so native can hold, accept and
-    release any area through the base."""
-    return ['// plan_managed_vtable_reload.md L1b: the base of every managed-built interface.',
-            '// Single inheritance puts Release at slot 0 and Validate at slot 1 of the',
-            '// derived interface\'s one vtable; there is no second vtable pointer.',
-            'abstract_class IManagedObject', '{', 'public:',
-            '\tvirtual void Release() = 0;', '\tvirtual %s = 0;' % VALIDATE, '};', '']
+    """IManagedObject: the two slots every table managed writes starts with
+    (plan_managed_vtable_reload.md L1b), and the one data member, word 0 of the
+    block, which points at the table. NO VIRTUAL ANYWHERE
+    (plan_forwarders_everywhere.md phase 4): native calls a managed-built object
+    through the table managed wrote, in the order docs/managed-interfaces.tsv
+    gives, never through a C++ vtable whose order would be the compiler's."""
+    return ['// plan_managed_vtable_reload.md L1b, plan_forwarders_everywhere.md phase 4:',
+            '// the base of every managed-built interface. Word 0 of the block managed',
+            '// builds points at the table it wrote; every table starts with Release and',
+            '// Validate, each handed the object.',
+            'class IManagedObject;', '',
+            'struct SSManagedObjectTable', '{',
+            '\tvoid ( *Release )( IManagedObject *self );',
+            '\tint32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );',
+            '};', '',
+            'class IManagedObject', '{', 'public:',
+            '\t// Native never builds one: managed does. A native test that fakes one',
+            '\t// hands its own table here.',
+            '\texplicit IManagedObject( const void *pTable ) : m_pTable( pTable ) {}', '',
+            '\tvoid Release() { Object()->Release( this ); }',
+            '\tint32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) '
+            '{ return Object()->Validate( this, pSlotHashes, nSlots ); }', '',
+            'protected:',
+            '\tconst void *m_pTable;', '',
+            'private:',
+            '\tconst SSManagedObjectTable *Object() const '
+            '{ return static_cast< const SSManagedObjectTable * >( m_pTable ); }',
+            '};', '']
 
 
-def interface_open(iface):
-    return ['abstract_class %s : public IManagedObject' % iface, '{', 'public:']
+def interface_lines(iface, ss):
+    """One managed-built interface: its table, then a class with no virtual whose
+    inline methods are this direction's forwarders, each calling its slot of the
+    table managed wrote with the object first."""
+    t = table_name(iface)
+    out = ['class %s;' % iface, '',
+           '// The table managed writes for %s: Release, Validate, then the TSV\'s order.' % iface,
+           'struct %s' % t, '{',
+           '\tvoid ( *Release )( IManagedObject *self );',
+           '\tint32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );']
+    for name, ret, params in ss:
+        decl = ''.join(', %s' % d for d, _n in named_parameters(params))
+        out.append('\t%s ( *%s )( %s *self%s );' % (ret, name, iface, decl))
+    out += ['};', '',
+            'class %s : public IManagedObject' % iface, '{', 'public:',
+            '\texplicit %s( const %s *pTable ) : IManagedObject( pTable ) {}' % (iface, t), '']
+    for name, ret, params in ss:
+        named = named_parameters(params)
+        decl = ', '.join(d for d, _n in named)
+        args = ''.join(', %s' % n for _d, n in named)
+        head = '%s%s%s' % (ret, '' if ret.endswith('*') else ' ', name)
+        out.append('\t%s(%s) { %sTable()->%s( this%s ); }'
+                   % (head, ' %s ' % decl if decl else '', '' if ret == 'void' else 'return ', name, args))
+    out += ['', 'private:',
+            '\tconst %s *Table() const { return static_cast< const %s * >( m_pTable ); }' % (t, t),
+            '};', '']
+    return out
 
 
-def slot_hashes(layouts_text, struct):
-    """Each slot's hash, in slot order, as tools/vtable-layout wrote it on the
-    field ([SlotHash(0x...)]) -- the one place it is computed. None while there
-    is no layout."""
-    m = re.search(r' unsafe struct %s\n\{(.*?)\n\}' % re.escape(struct), layouts_text, re.S)
-    if not m:
-        return None
-    return [int(h, 16) for h in re.findall(r'\[SlotHash\(0x([0-9a-f]{8})\)\]', m.group(1))] or None
-
-
-def hash_lines(iface, hashes):
-    """k<I>SlotHashes and k<I>SlotCount, or a note until the layout exists."""
-    if hashes is None:
-        return ['// k%sSlotHashes: no layout yet -- run tools/vtable-layout --write, then this again.' % iface, '']
+def hash_lines(iface, ss):
+    """k<I>SlotHashes and k<I>SlotCount, from the TSV (table_slots), and the
+    compiler's check that the table struct is one pointer per slot."""
+    hashes = [h for *_x, h in table_slots(ss)]
     return ['static const uint32_t k%sSlotHashes[] = {' % iface] + \
            ['\t' + ' '.join('0x%08x,' % h for h in hashes[i:i + 8])
             for i in range(0, len(hashes), 8)] + \
-           ['};', 'static const int32_t k%sSlotCount = %d;' % (iface, len(hashes)), '']
+           ['};', 'static const int32_t k%sSlotCount = %d;' % (iface, len(hashes)),
+            'static_assert( sizeof( %s ) == %d * sizeof( void * ), "%s is one pointer per slot" );'
+            % (table_name(iface), len(hashes), table_name(iface)), '']
 
 
 def split_top(s):
@@ -245,21 +350,65 @@ def factory_lines(areas):
     return m + ['}', '']
 
 
+def csharp_table_name(iface):
+    """The C# struct of an interface's table: ManagedFooTable."""
+    return '%sTable' % iface[1:]
+
+
+def table_file(iface):
+    """Which C# file an interface's table goes in (TABLE_FILES)."""
+    if iface == 'IManagedRoot':
+        return OUT_TABLES
+    if is_client(iface) or iface == 'IManagedSteamCallback':
+        return OUT_TABLES_CLIENT
+    return OUT_TABLES_SERVER
+
+
+def managed_tables(interfaces, path=OUT_TABLES):
+    """One C# file of tables: one public struct per table managed writes, one
+    function-pointer field per slot in the TSV's order, each with its hash."""
+    out = [GENERATED, '//',
+           '// The tables managed writes and native calls, in %s' % TABLE_FILES[path],
+           '// (plan_forwarders_everywhere.md phase 4): Release, Validate, then each interface\'s methods in',
+           '// docs/managed-interfaces.tsv\'s order. ManagedVtableGenerator fills each field',
+           '// with a thunk and answers Validate from its [SlotHash], FNV-1a over the field\'s',
+           '// type, which native checks against the same hashes in the C++ header',
+           '// tools/managed-areas writes beside the table\'s struct. Native calls a slot',
+           '// through that struct, never through a C++ vtable, so the order is the TSV\'s on',
+           '// every ABI.', '',
+           'using System.Runtime.InteropServices;', '',
+           'namespace SourceSharp.Abi;']
+    for iface, ss in interfaces:
+        out += ['',
+                '/// <summary>The table managed writes for <c>%s</c> (<c>%s</c> native-side).</summary>'
+                % (iface, table_name(iface)),
+                '[ImplementedByManaged("%s")]' % iface,
+                '[StructLayout(LayoutKind.Sequential)]',
+                'public unsafe struct %s' % csharp_table_name(iface), '{']
+        for n, (name, ret, params, kind, h) in enumerate(table_slots(ss)):
+            if n:
+                out.append('')
+            out.append('    // %d: %s %s( %s )' % (n, ret, name, params or 'void'))
+            out.append('    [SlotHash(0x%08x)]' % h)
+            out.append('    public %s %s;' % (kind, name))
+        out.append('}')
+    return '\n'.join(out + [''])
+
+
 def generate():
     areas = model()
     valve = read(VALVE).rstrip('\n')
 
     # ---- the root and the runtime ---------------------------------------------
-    def core_header(guard, purpose, includes, iface, ss, server_only):
+    def core_header(guard, purpose, includes, iface, ss, server_only, with_object=False):
         out = [valve, '', GENERATED, '//'] + ['// ' + l if l else '//' for l in purpose] + \
               ['', '#ifndef %s' % guard, '#define %s' % guard, '#pragma once', ''] + \
               ['#include %s' % inc for inc in includes] + ['']
         if server_only:
             out += ['#ifndef CLIENT_DLL', '']
-        if not server_only:
+        if with_object:
             out += object_lines()
-        out += interface_open(iface) + method_lines(ss) + \
-               ['};', ''] + hash_lines(iface, slot_hashes(read(LAYOUTS), 'Managed%sVtbl' % short(iface)))
+        out += interface_lines(iface, ss) + hash_lines(iface, ss)
         if server_only:
             out += ['#endif // !CLIENT_DLL', '']
         return out + ['#endif // %s' % guard, '']
@@ -268,34 +417,42 @@ def generate():
     k = core_header('IMANAGED_CORE_H',
                     ['plan_managed_vtable_reload.md L0b: IManagedObject, the base every',
                      'managed-built interface derives from, and IManagedRoot, the one object',
-                     'LoadSideV2 hands native (both sides). IMPLEMENTED BY MANAGED, so no virtual',
-                     'destructor: Release is at slot 0 and Validate at slot 1.'],
-                    ['<stdint.h>', '"tier0/platform.h"'], 'IManagedRoot', cores['IManagedRoot'], False)
+                     'LoadSideV2 hands native (both sides). IMPLEMENTED BY MANAGED: native calls',
+                     'each through the table managed wrote, Release at slot 0 and Validate at 1.'],
+                    ['<stdint.h>', '"tier0/platform.h"'], 'IManagedRoot', cores['IManagedRoot'], False,
+                    with_object=True)
     r = core_header('IMANAGED_RUNTIME_H',
                     ['plan_managed_vtable_reload.md L0b: IManagedRuntimeServer, the shell game DLL\'s',
-                     'calls into the mod (the server). IMPLEMENTED BY MANAGED, so no virtual',
-                     'destructor: Release is at slot 0 and Validate at 1; the map loads take the ABI\'s flat',
+                     'calls into the mod (the server). IMPLEMENTED BY MANAGED, through its table:',
+                     'Release is at slot 0 and Validate at 1; the map loads take the ABI\'s flat',
                      'SourceSharpMapLoad by pointer, and the stop is not a slot (DLLShutdown',
                      'unloads the managed side itself).'],
                     ['<stdint.h>', '"tier0/platform.h"', '"sourcesharp.h"', '"imanaged_core.h"'],
                     'IManagedRuntimeServer', cores['IManagedRuntimeServer'], True)
+    st = core_header('IMANAGED_STEAM_CALLBACK_H',
+                     ['plan_engine_forwarders.md section 6: one Steam callback\'s managed side.',
+                      'libss_fwd_client builds the CCallbackBase Steam calls (fwd_steam.cpp), and its',
+                      'overrides call this, through the table managed wrote: Release (0) and Validate',
+                      '(1), which native never calls (managed releases the block after Steam has',
+                      'let go), and Run, for both of CCallbackBase\'s Run overloads.'],
+                     ['<stdint.h>', '"tier0/platform.h"', '"imanaged_core.h"'],
+                     'IManagedSteamCallback', cores['IManagedSteamCallback'], False)
 
     # ---- the interfaces ------------------------------------------------------
     h = [valve, '', GENERATED, '//',
          '// plan_engineapi_vtables.md Phase E: the server\'s managed-built areas',
          '// (docs/managed-interfaces.tsv). IMPLEMENTED BY MANAGED --',
-         '// ManagedVtableGenerator writes each table from SourceSharp.Server -- so no',
-         '// virtual destructor; Release is slot 0 and Validate slot 1, and native takes',
+         '// ManagedVtableGenerator writes each table from SourceSharp.Server, and native',
+         '// calls it through the C struct beside each class (plan_forwarders_everywhere.md',
+         '// phase 4); Release is slot 0 and Validate slot 1, and native takes',
          '// an area only when Validate matches its k<I>SlotHashes (managed_accept.h).',
          '// Each is acquired again on every load and released before every unload,',
          '// so native keeps no pointer and calls through the accessor.',
          '', '#ifndef IMANAGED_AREAS_H', '#define IMANAGED_AREAS_H', '#pragma once', '',
          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
          '#include "imanaged_core.h"', '', '#ifndef CLIENT_DLL', '']
-    layouts = read(LAYOUTS)
     for i, ss in areas:
-        h += interface_open(i) + method_lines(ss) + ['};', '']
-        h += hash_lines(i, slot_hashes(layouts, 'Managed%sVtbl' % short(i)))
+        h += interface_lines(i, ss) + hash_lines(i, ss)
     for i, _ss in areas:
         h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
     h += ['', '#endif // !CLIENT_DLL', '', '#endif // IMANAGED_AREAS_H', '']
@@ -370,39 +527,23 @@ def generate():
                '\treturn ShellGameDll_Managed().m_Areas.m_p%s;' % short(i), '}', '']
     im += ['#endif // !CLIENT_DLL', '']
 
-    # ---- the length tests ----------------------------------------------------
-    # Both sides' areas (plan_client_vtables CE2): the client's declarations are
-    # unguarded so this test sees them, and every generated layout needs a test.
-    tested = areas + client_model()
-    t = [GENERATED, '//',
-         '// Included by vtable_index_agreement_test.cpp: the compiler\'s count for each',
-         '// managed-built area, held to its generated layout.', '']
-    for i, ss in tested:
-        n = len(ss) + 2   # Release (slot 0) and Validate (slot 1) first
-        t += ['TEST( VtableLayoutLength, Managed%sIs%dSlots )' % (short(i), n), '{',
-              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, ss[-1][0]),
-              '\tEXPECT_EQ( %d, compiler );' % n,
-              '\tEXPECT_EQ( 0, VTableHook::MemberOf( &%s::Release ).slot );' % i,
-              '\tEXPECT_EQ( 1, VTableHook::MemberOf( &%s::Validate ).slot );' % i,
-              '\tEXPECT_EQ( compiler, k%sSlotCount );' % i,
-              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Managed%sVtbl" ) );' % short(i), '}', '']
-    t += ['const char *kManagedAreasCovered[] = {']
-    t += ['\t"Managed%sVtbl",' % short(i) for i, _ss in tested] or ['\t"ManagedRootVtbl",   // none generated yet; the root stands in']
-    t += ['};', '', 'const int kManagedAreasGenerated = %d;' % len(tested), '']
+    # ---- the C# tables -------------------------------------------------------
+    # Every table managed writes, from the same rows: what ManagedVtableGenerator
+    # fills (each slot a thunk) and answers Validate from (each [SlotHash]).
+    table_texts = {path: managed_tables([a for a in spec() if table_file(a[0]) == path], path)
+                   for path in TABLE_FILES}
+    tables = '\n'.join(table_texts.values())   # every struct, for typing the contracts
 
     # ---- the managed contracts -----------------------------------------------
-    layouts = read(LAYOUTS)
     m = [GENERATED, '//',
          '// The contracts ManagedVtableGenerator builds each managed-built area from,',
-         '// typed from its generated layout so a contract speaks its slots\' exact types.',
+         '// typed from its generated table (ManagedTables.g.cs) so a contract speaks its',
+         '// slots\' exact types.',
          '// A binding implements one and is registered with ManagedBindings by name.',
          '', 'using SourceSharp.Abi;', '', 'namespace SourceSharp.Server.Interop;', '']
     for i, ss in areas:
-        fields = layout_fields(layouts, 'Managed%sVtbl' % short(i))
-        if fields is None:
-            m += ['// %s: no layout yet -- run tools/vtable-layout --write, then this again.' % i, '']
-            continue
-        m += ['[ManagedVtable(typeof(Managed%sVtbl))]' % short(i),
+        fields = layout_fields(tables, csharp_table_name(i))
+        m += ['[ManagedVtable(typeof(%s))]' % csharp_table_name(i),
               'public unsafe interface %s' % i, '{']
         for name, ptypes, ret in fields:
             if name in ('Release', 'Validate'):
@@ -411,13 +552,15 @@ def generate():
         m += ['}', '']
     m += factory_lines(areas)
 
-    out = {OUT_CORE: '\n'.join(k), OUT_RUNTIME: '\n'.join(r), OUT_IFACE: '\n'.join(h), OUT_HOLDER: '\n'.join(c), OUT_IMPL: '\n'.join(im),
-           OUT_TEST: '\n'.join(t), OUT_MANAGED: '\n'.join(m)}
-    out.update(client_outputs(valve, cores, layouts))
+    out = {OUT_CORE: '\n'.join(k), OUT_RUNTIME: '\n'.join(r), OUT_STEAM: '\n'.join(st),
+           OUT_IFACE: '\n'.join(h), OUT_HOLDER: '\n'.join(c), OUT_IMPL: '\n'.join(im),
+           OUT_MANAGED: '\n'.join(m)}
+    out.update(table_texts)
+    out.update(client_outputs(valve, cores, tables))
     return out
 
 
-def client_outputs(valve, cores, layouts):
+def client_outputs(valve, cores, tables):
     """plan_client_vtables CD: the client's runtime, areas, holder, bodies and
     contracts, in files of their own (the server's are unchanged)."""
     areas = client_model()
@@ -425,13 +568,13 @@ def client_outputs(valve, cores, layouts):
     # ---- the runtime: declared unguarded, like the root ------------------------
     rc = [valve, '', GENERATED, '//',
           '// plan_client_vtables CD: IManagedRuntimeClient, the shell client DLL\'s calls into',
-          '// the mod. IMPLEMENTED BY MANAGED, so no virtual destructor: Release is at slot 0',
+          '// the mod. IMPLEMENTED BY MANAGED, called through its table: Release is at slot 0',
           '// and Validate at 1 (IManagedObject). Declared on both sides so native tests see it;',
           '// only the client holds one (shell_managed_areas_client.h).', '',
           '#ifndef IMANAGED_RUNTIME_CLIENT_H', '#define IMANAGED_RUNTIME_CLIENT_H', '#pragma once', '',
           '#include <stdint.h>', '#include "tier0/platform.h"', '#include "imanaged_core.h"', '']
-    rc += interface_open('IManagedRuntimeClient') + method_lines(cores['IManagedRuntimeClient']) + ['};', '']
-    rc += hash_lines('IManagedRuntimeClient', slot_hashes(layouts, 'ManagedRuntimeClientVtbl'))
+    rc += interface_lines('IManagedRuntimeClient', cores['IManagedRuntimeClient'])
+    rc += hash_lines('IManagedRuntimeClient', cores['IManagedRuntimeClient'])
     rc += ['#endif // IMANAGED_RUNTIME_CLIENT_H', '']
 
     # ---- the areas -------------------------------------------------------------
@@ -444,8 +587,7 @@ def client_outputs(valve, cores, layouts):
          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
          '#include "imanaged_core.h"', '']
     for i, ss in areas:
-        h += interface_open(i) + method_lines(ss) + ['};', '']
-        h += hash_lines(i, slot_hashes(layouts, 'Managed%sVtbl' % short(i)))
+        h += interface_lines(i, ss) + hash_lines(i, ss)
     h += ['#ifdef CLIENT_DLL', '']
     for i, _ss in areas:
         h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
@@ -508,14 +650,11 @@ def client_outputs(valve, cores, layouts):
     # ---- the managed contracts ----------------------------------------------------
     m = [GENERATED, '//',
          '// The contracts ManagedVtableGenerator builds each of the client\'s managed-built',
-         '// areas from (plan_client_vtables CE), typed from its generated layout.',
+         '// areas from (plan_client_vtables CE), typed from its generated table.',
          '', 'using SourceSharp.Abi;', '', 'namespace SourceSharp.Client.Interop;', '']
     for i, ss in areas:
-        fields = layout_fields(layouts, 'Managed%sVtbl' % short(i))
-        if fields is None:
-            m += ['// %s: no layout yet -- run tools/vtable-layout --write, then this again.' % i, '']
-            continue
-        m += ['[ManagedVtable(typeof(Managed%sVtbl))]' % short(i), 'public unsafe interface %s' % i, '{']
+        fields = layout_fields(tables, csharp_table_name(i))
+        m += ['[ManagedVtable(typeof(%s))]' % csharp_table_name(i), 'public unsafe interface %s' % i, '{']
         for name, ptypes, ret in fields:
             if name in ('Release', 'Validate'):
                 continue
@@ -565,12 +704,44 @@ def self_test():
         out = generate()
     finally:
         globals()['spec'] = real
-    sound_ent = out[OUT_IFACE][out[OUT_IFACE].index('abstract_class IManagedSoundEnt'):]
+    iface = out[OUT_IFACE]
+    sound_ent = iface[iface.index('class IManagedSoundEnt : public IManagedObject'):]
     sound_ent = sound_ent[:sound_ent.index('};')]
+    table = iface[iface.index('struct SSManagedSoundEntTable'):]
+    table = table[:table.index('};')]
     expect('an interface derives from IManagedObject, which holds Release (slot 0) and Validate (slot 1)',
-           sound_ent.startswith('abstract_class IManagedSoundEnt : public IManagedObject\n{\npublic:\n'))
+           sound_ent.startswith('class IManagedSoundEnt : public IManagedObject\n{\npublic:\n'))
     expect('an interface does not redeclare the base\'s two slots',
            'Release' not in sound_ent and 'Validate' not in sound_ent)
+    # plan_forwarders_everywhere.md phase 4: no virtual anywhere. Native calls
+    # each slot of the table managed wrote, in the TSV's order, the object first.
+    expect('no interface declares a virtual: native calls the table, never a C++ vtable',
+           'virtual' not in iface and 'abstract_class' not in iface
+           and 'virtual' not in out[OUT_CORE] + out[OUT_RUNTIME] + out[OUT_STEAM])
+    expect('a table starts with Release and Validate, each handed the base, then the TSV\'s slots',
+           table.index('( *Release )( IManagedObject *self )')
+           < table.index('( *Validate )( IManagedObject *self,')
+           < table.index('( *ServerSoundEntInit )( IManagedSoundEnt *self, int32_t nMaxClients, float flCurTime )')
+           < table.index('( *ServerSoundEntShutdown )( IManagedSoundEnt *self )'))
+    expect('a method calls its slot of the table with the object first and its arguments in order',
+           '\tvoid ServerSoundEntInit( int32_t nMaxClients, float flCurTime ) '
+           '{ Table()->ServerSoundEntInit( this, nMaxClients, flCurTime ); }' in sound_ent)
+    expect('a returning method returns its slot\'s answer, and a parameter the TSV leaves unnamed is named',
+           named_parameters('int32_t, const char *pName') == [('int32_t a0', 'a0'), ('const char *pName', 'pName')])
+    expect('the table struct is held to one pointer per slot by the compiler',
+           'static_assert( sizeof( SSManagedSoundEntTable ) == 6 * sizeof( void * )' in iface)
+    tables = out[OUT_TABLES_SERVER]
+    expect('each table is in the assembly that builds it: the root in Shared.Interop, a server area in '
+           'Server.Interop, a client area and the Steam callback in Client.Interop',
+           'struct ManagedRootTable' in out[OUT_TABLES] and 'struct ManagedSoundEntTable' not in out[OUT_TABLES]
+           and table_file('IManagedRuntimeServer') == OUT_TABLES_SERVER
+           and table_file('IManagedSteamCallback') == OUT_TABLES_CLIENT
+           and table_file('IManagedHudClient') == OUT_TABLES_CLIENT)
+    expect('the C# table carries the same order and each slot\'s hash, as ManagedVtableGenerator reads it',
+           '[ImplementedByManaged("IManagedSoundEnt")]' in tables
+           and 'public unsafe struct ManagedSoundEntTable' in tables
+           and tables.index('public delegate* unmanaged<void*, void> Release;')
+           < tables.index(' ServerSoundEntInit;'))
     expect('the areas header sees the base it derives from',
            '#include "imanaged_core.h"' in out[OUT_IFACE])
     expect('its compiled slot hashes and count are emitted, one per slot',
@@ -605,12 +776,12 @@ def self_test():
 
     out = generate()
     expect('the root and the runtime are declared in their own headers, not as areas',
-           'abstract_class IManagedRoot' in out[OUT_CORE]
-           and 'abstract_class IManagedRuntimeServer' in out[OUT_RUNTIME]
+           'class IManagedRoot : public IManagedObject' in out[OUT_CORE]
+           and 'class IManagedRuntimeServer : public IManagedObject' in out[OUT_RUNTIME]
            and 'IManagedRuntimeServer' not in out[OUT_IFACE]
            and 'IManagedRoot\n' not in out[OUT_IFACE])
     expect('the runtime is the server\'s only and takes the ABI header; the root is neither',
-           out[OUT_RUNTIME].index('#ifndef CLIENT_DLL') < out[OUT_RUNTIME].index('abstract_class IManagedRuntimeServer')
+           out[OUT_RUNTIME].index('#ifndef CLIENT_DLL') < out[OUT_RUNTIME].index('class IManagedRuntimeServer : public')
            and '"sourcesharp.h"' in out[OUT_RUNTIME]
            and 'CLIENT_DLL' not in out[OUT_CORE] and 'sourcesharp.h' not in out[OUT_CORE])
     try:
@@ -624,7 +795,7 @@ def self_test():
     expect('a spec without the root is refused, not generated without it', refused)
     # plan_client_vtables CD: the client's side, in files of its own.
     expect('the client runtime is declared unguarded beside its hashes',
-           'abstract_class IManagedRuntimeClient : public IManagedObject' in out[OUT_RUNTIME_CLIENT]
+           'class IManagedRuntimeClient : public IManagedObject' in out[OUT_RUNTIME_CLIENT]
            and 'kIManagedRuntimeClientSlotCount' in out[OUT_RUNTIME_CLIENT]
            and 'CLIENT_DLL' not in out[OUT_RUNTIME_CLIENT])
     expect('the client holder is the client DLL object\'s, client-only',

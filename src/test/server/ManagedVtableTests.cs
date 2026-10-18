@@ -331,7 +331,11 @@ public unsafe partial class ManagedVtableTests
     [Fact]
     public void TheTrapTableCoversEveryManagedBuiltLayout()
     {
-        var widest = typeof(ManagedRootVtbl).Assembly.GetTypes()
+        // The Abi's Valve layouts, the root's (Shared.Interop) and the server's
+        // (Server.Interop); the client's are held by ClientManagedTablesTests,
+        // in the project that sees them.
+        var widest = new[] { typeof(ManagedVtable).Assembly, typeof(ManagedRootTable).Assembly, typeof(ManagedRuntimeServerTable).Assembly }
+            .SelectMany(a => a.GetTypes())
             .Where(t => t.GetCustomAttributes(typeof(ImplementedByManagedAttribute), false).Length > 0)
             .Select(t => (t.Name, Slots: t.GetFields().Length))
             .ToList();
@@ -431,17 +435,17 @@ public unsafe partial class ManagedVtableTests
         var hashes = ManagedVtableHashFiles.Read(dir, ["SourceSharp.Server"]);
 
         // The root comes from SourceSharp.Shared, reached through the server's references.
-        Assert.Equal(LayoutHashes(typeof(ManagedRootVtbl)), hashes["IManagedRoot"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedRuntimeServerVtbl)), hashes["IManagedRuntimeServer"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedFrameVtbl)), hashes["IManagedFrame"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedRootTable)), hashes["IManagedRoot"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedRuntimeServerTable)), hashes["IManagedRuntimeServer"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedFrameTable)), hashes["IManagedFrame"]);
         // vphysics' IPhysicsObjectEvent, Valve's layout written by managed
         // (plan_physics_managed B2.1): its two slots' hashes ride along too.
         Assert.Equal(LayoutHashes(typeof(PhysicsObjectEventVtbl)), hashes["IPhysicsObjectEvent"]);
         Assert.Equal(LayoutHashes(typeof(PhysicsCollisionEventVtbl)), hashes["IPhysicsCollisionEvent"]);
         Assert.Equal(LayoutHashes(typeof(PhysicsCollisionSolverVtbl)), hashes["IPhysicsCollisionSolver"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedBonesVtbl)), hashes["IManagedBones"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedBonesTable)), hashes["IManagedBones"]);
         Assert.Equal(LayoutHashes(typeof(PhysicsConstraintEventVtbl)), hashes["IPhysicsConstraintEvent"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedBonesVtbl)), hashes["IManagedBones"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedBonesTable)), hashes["IManagedBones"]);
         Assert.Equal(LayoutHashes(typeof(PhysicsConstraintEventVtbl)), hashes["IPhysicsConstraintEvent"]);
         Assert.Equal(LayoutHashes(typeof(MotionEventVtbl)), hashes["IMotionEvent"]);
         // The server's solid key table (stock's g_SolidSetup, 2.6): the

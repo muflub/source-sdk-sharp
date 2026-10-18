@@ -11,7 +11,7 @@ namespace SourceSharp.Server.Interop;
 /// native table carries. <c>bool</c> is <c>byte</c>; a map load is the ABI's
 /// flat <c>SourceSharpMapLoad</c> by pointer.
 /// </summary>
-[ManagedVtable(typeof(ManagedRuntimeServerVtbl))]
+[ManagedVtable(typeof(ManagedRuntimeServerTable))]
 public unsafe interface IServerRuntime
 {
     byte OnSystemStart();

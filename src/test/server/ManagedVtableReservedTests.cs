@@ -168,8 +168,14 @@ public unsafe partial class ManagedVtableTests
 
     // ---- the layouts: what reserves words, and how many --------------------
 
+    // The root's table is Shared.Interop's, the server's runtime and areas are
+    // Server.Interop's (tools/managed-areas writes each table into the assembly
+    // that builds it), and the Valve layouts are still the Abi's. The client's
+    // are ClientManagedTablesTests'.
     private static IEnumerable<(Type Layout, ImplementedByManagedAttribute Attribute)> ManagedWrittenLayouts()
-        => typeof(ManagedVtable).Assembly.GetTypes()
+        => new[] { typeof(ManagedVtable).Assembly, typeof(ManagedRootTable).Assembly,
+                   typeof(SourceSharp.Server.Interop.ServerRuntimeBinding).Assembly }
+               .SelectMany(a => a.GetTypes())
                .Select(t => (t, t.GetCustomAttributes(typeof(ImplementedByManagedAttribute), false)
                                  .Cast<ImplementedByManagedAttribute>().SingleOrDefault()))
                .Where(x => x.Item2 is not null)
@@ -191,13 +197,17 @@ public unsafe partial class ManagedVtableTests
     }
 
     [Fact]
-    public void TheSteamCallbacksManagedSideIsOurLayoutWithOneRun()
+    public void EachSidesTablesAreInItsOwnInterop()
     {
-        var steam = ManagedWrittenLayouts().Single(x => x.Attribute.NativeClass == "IManagedSteamCallback");
+        // The root's table is the one both sides build, so Shared.Interop's
+        // (its ManagedRoot builds it); every other table is the side's whose
+        // code builds it. None is the Abi's, which holds plumbing only.
+        bool IsTable(Type t) => t.GetCustomAttributes(typeof(ImplementedByManagedAttribute), false).Length > 0
+                                && t.Name.EndsWith("Table", StringComparison.Ordinal);
 
-        Assert.Equal("ManagedSteamCallbackVtbl", steam.Layout.Name);
-        Assert.False(steam.Attribute.ValveLayout);
-        Assert.Equal(new[] { "Release", "Validate", "Run" }, steam.Layout.GetFields().Select(f => f.Name));
-        Assert.DoesNotContain(ManagedWrittenLayouts(), x => x.Attribute.NativeClass == "CCallbackBase");
+        Assert.DoesNotContain(typeof(ManagedVtable).Assembly.GetTypes(), IsTable);
+        Assert.Equal(typeof(SourceSharp.Shared.Interop.ManagedRoot).Assembly, typeof(ManagedRootTable).Assembly);
+        Assert.Contains(ManagedWrittenLayouts(), x => x.Layout.Name == "ManagedRuntimeServerTable"
+                                                       && x.Layout.Assembly == typeof(SourceSharp.Server.Interop.ServerRuntimeBinding).Assembly);
     }
 }

@@ -11,7 +11,7 @@ namespace SourceSharp.Client.Interop;
 /// slots are generated from docs/managed-interfaces.tsv; this contract is held
 /// to their layout by ManagedVtableGenerator, as IServerRuntime is.
 /// </summary>
-[ManagedVtable(typeof(ManagedRuntimeClientVtbl))]
+[ManagedVtable(typeof(ManagedRuntimeClientTable))]
 public unsafe interface IClientRuntime
 {
     void Frame(float frameTime);
