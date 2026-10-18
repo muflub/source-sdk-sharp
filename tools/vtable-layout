@@ -109,27 +109,25 @@ for IVModelInfo:
 They are commented "destructor 1" and "destructor 2", are never bound, and must
 never be called from managed: slot 1 would free the engine's singleton.
 
-WINDOWS: THE MICROSOFT ABI'S ORDER
-==================================
+WINDOWS: ONE ORDER OR NONE
+==========================
 
 The engine's Windows binaries are MSVC's, and MSVC numbers some tables
 differently: a virtual destructor takes ONE slot, and each class's overloads
 are grouped by name and laid out in REVERSE declaration order
-(`microsoft_slots`). 32 of the layouts differ. A called-by-managed one is
-emitted as the same span of pointers read through properties, each picking
-its Windows index on Windows and its declaration-order index elsewhere, with
-`[VtableSlot(itanium, microsoft)]` saying both and `MicrosoftEntries` the
-count native reports there (VtableAbi answers it generically). The one
-managed-written layout that differs, CCallbackBase, keeps its fields; their
-`[VtableSlot]` tells ManagedVtableGenerator where to write each thunk.
+(`microsoft_slots`). Managed calls every engine and vphysics table through the
+generated forwarders (tools/engine-forwarders), which native compiles as
+ordinary virtual calls, so those rows are not emitted: they stay here only so
+the forwarder generator can read their signatures.
 
-The rules were checked against clang-cl's Microsoft-ABI vftable dumps for
-every interface here, and vtable_index_agreement_test holds the numbers to
-the compiler on the Windows build: every length, and every overload.
-
-A slot returning a class by value is `[MemberFunction]`: MSVC passes a member
-function's return buffer after `this`, a free function's before its first
-argument, and the runtime needs to be told which.
+What IS emitted (`emitted`: a shim row, or a table managed writes) must have
+one order on both ABIs, its field order, and the generator refuses one MSVC
+orders differently rather than describe both. The Steam callback was the one
+such table, and libss_fwd_client now builds it natively. A slot returning a
+class by value is refused too: MSVC passes a member function's return buffer
+after `this` and a free function's before its first argument, which a
+function pointer read by layout cannot say. vtable_index_agreement_test holds
+every emitted length to the compiler, on each platform's build.
 """
 
 import argparse
@@ -2047,16 +2045,6 @@ def returns_by_value_class(kind):
     return returned not in SCALAR_RETURNS and not returned.endswith('*')
 
 
-def with_convention(kind, convention):
-    """`kind` with one more calling-convention modifier."""
-    head, rest = kind.split('<', 1)
-
-    if head.endswith(']'):
-        return '%s, %s]<%s' % (head[:-1], convention, rest)
-
-    return '%s[%s]<%s' % (head, convention, rest)
-
-
 def fields_for(entry, policy):
     """([(slot, declaration, comment lines)], None) for one interface, or (None, why)."""
     rows, why = derive_chain(chain_steps(entry))
@@ -2181,13 +2169,16 @@ def fields_for(entry, policy):
             suppressed.add(name)
 
         # A CLASS RETURNED BY VALUE IS A MEMBER FUNCTION'S RETURN, and on
-        # Windows that is not a free function's. MSVC returns every class type
-        # from a member function through a hidden buffer passed AFTER `this`;
-        # a free function returns a 12-byte Vector through a buffer passed
-        # BEFORE its first argument. [MemberFunction] tells the runtime which,
-        # and changes nothing on Linux, where the two conventions are one.
-        if kind is not None and returns_by_value_class(kind):
-            kind = with_convention(kind, 'MemberFunction')
+        # Windows that is not a free function's: MSVC returns every class type
+        # from a member function through a hidden buffer passed AFTER `this`.
+        # No table managed reads or writes by layout may have one. An engine
+        # method that does (IPhysicsObject::GetInertia) is called through its
+        # forwarder, a free function, whose return is the ordinary one; the
+        # engine rows are walked here only for that forwarder's signature.
+        if kind is not None and returns_by_value_class(kind) and emitted(entry):
+            return None, ('%s::%s returns a class by value, which a table managed '
+                          'reads by layout cannot spell on Windows: call it through '
+                          'a forwarder' % (cls, name))
 
         field = name if kind is not None else 'Refused_' + name
 
@@ -2208,6 +2199,16 @@ def fields_for(entry, policy):
     return fields, None
 
 
+def emitted(entry):
+    """Whether a row's C# struct is written: our own tables (the shim areas,
+    the particle library, the managed-built objects) and the Valve layouts
+    managed writes. An engine-built table is called through its forwarders
+    (plan_engine_forwarders.md): tools/engine-forwarders derives each
+    forwarder's signature from its row here, and nothing in managed reads a
+    layout of it, so none is written."""
+    return bool(entry.get('shim')) or kind_of(entry) in MANAGED_WRITTEN
+
+
 def emit():
     """(the generated C# file as text, None), or (None, why)."""
     policy = load_policy()
@@ -2216,63 +2217,27 @@ def emit():
     out = [
         '// GENERATED by `tools/vtable-layout --write`. DO NOT EDIT.',
         '//',
-        '// One [StructLayout(LayoutKind.Sequential)] struct per interface, with one',
-        '// pointer-sized field per vtable slot IN THE HEADER\'S OWN DECLARATION ORDER --',
-        '// so field N sits at byte 8N and THE FIELD\'S POSITION IS THE SLOT NUMBER. A',
-        '// call is `_vtbl->GetLevelName(_self)`: no index is written at the call site,',
-        '// none is looked up at run time, and nothing happens per call.',
+        '// One [StructLayout(LayoutKind.Sequential)] struct per table managed reads or',
+        '// writes by layout: the shim areas, the particle library and the managed-built',
+        '// objects -- tables THIS TREE declares and compiles, and the few Valve callback',
+        '// interfaces managed implements. One pointer-sized field per slot IN THE',
+        '// HEADER\'S OWN DECLARATION ORDER, so field N sits at byte 8N and THE FIELD\'S',
+        '// POSITION IS THE SLOT NUMBER: `_vtbl->Frame(_self)`, no index at the call site.',
         '//',
         '// The order is not typed here by hand. It comes from the header walk in',
         '// `tools/vtable-layout`, which regenerates this file and diffs it against what',
         '// is committed -- so the layout cannot drift from the header silently.',
         '//',
-        '// EVERY SLOT IS TYPED. The struct describes the ABI and nothing else: what the',
-        '// engine\'s calling convention is for that method, derived from the header\'s',
-        '// parameter list and its return type. There is no `NotBound_`.',
+        '// EVERY TABLE HERE IS ORDERED ALIKE ON BOTH ABIs: our interfaces declare no',
+        '// virtual destructor and no overload, and the generator refuses any table MSVC',
+        '// orders differently. The ENGINE\'S OWN TABLES, which it does reorder, have no',
+        '// struct here at all: managed calls them through generated native forwarders',
+        '// (tools/engine-forwarders, plan_engine_forwarders.md), and their rows in',
+        '// tools/vtable-layout remain only for the forwarders\' signatures.',
         '//',
-        '// WHAT THE STRUCT DOES NOT DECIDE IS WHAT MAY BE CALLED. That is the impl',
-        '// class\'s job, and it decides it by what it EXPOSES -- a method with a side',
-        '// effect, or one nothing else in the process can corroborate, simply has no',
-        '// one-line delegation reaching its field. Those reasons are policy, they are',
-        '// carried in tools/vtable-policy.json, and each is copied onto the field it',
-        '// names as "NOT EXPOSED (policy, not verification)". The struct still types the',
-        '// slot, because the ABI is what it is whatever anybody decides.',
-        '//',
-        '// `Refused_` MEANS ONE THING AND IT IS NOT A JUDGEMENT: managed cannot express',
-        '// the call. Varargs cannot be issued through a fixed indirect signature, and a',
-        '// class returned BY VALUE is passed under rules `delegate* unmanaged<...>`',
-        '// cannot spell. Four slots, all on IVEngineClient013, and each names the C++',
-        '// proxy that takes marshalable parameters instead.',
-        '//',
-        '// A VIRTUAL DESTRUCTOR RESERVES THE FIRST TWO SLOTS of any interface that has',
-        '// one, and they are emitted uniformly rather than as a special case:',
-        '//',
-        '//   Complete Object Destructor (D1): destroys the object\'s members and',
-        '//   subobjects, but does not free the memory. Used for objects on the stack,',
-        '//   member variables, or elements in an array.',
-        '//',
-        '//   Deleting Destructor (D0): calls the complete object destructor (D1) and',
-        '//   then automatically invokes operator delete to free the dynamic memory.',
-        '//   Used when you explicitly call delete ptr.',
-        '//',
-        '// THE ONE CHECK. `SourceSharp_AcquireInterface` hands managed the interface',
-        '// pointer AND a count native took from the compiler, and VtableFactory compares',
-        '// it to sizeof(TVtbl) / sizeof(void *). Equal, construct; not equal, refuse',
-        '// naming both numbers. That is the whole of it, it runs once per acquire, and',
-        '// what it catches is THIS FILE GOING STALE against the headers.',
-        '//',
-        '// ON WINDOWS THE ENGINE IS MSVC\'S, and the Microsoft C++ ABI orders some tables',
-        '// differently: a virtual destructor takes ONE slot, and each class\'s overloads',
-        '// are grouped by name and laid out in REVERSE declaration order. A layout MSVC',
-        '// orders the Itanium way is emitted as above. One it does not is the same',
-        '// span of pointers read through properties, each picking its Windows index',
-        '// on Windows (`[VtableSlot(itanium, microsoft)]` says both), and its',
-        '// `MicrosoftEntries` is the count native reports there; VtableAbi answers',
-        '// that count for any layout. A managed-written table MSVC orders differently',
-        '// keeps its fields, and ManagedVtableGenerator writes each thunk at the index',
-        '// for the ABI it runs on. A slot returning a class by value is',
-        '// [MemberFunction], because MSVC passes a member function\'s return buffer',
-        '// after `this`.',
+        '// A shim acquire holds native\'s count against sizeof(TVtbl) / sizeof(void *)',
+        '// (Vtable.TryAcquireShim); a managed-built table carries each slot\'s hash,',
+        '// which native validates.',
         '',
         'using System.Runtime.InteropServices;',
         '',
@@ -2280,6 +2245,9 @@ def emit():
     ]
 
     for entry in INTERFACES:
+        if not emitted(entry):
+            continue
+
         fields, why = fields_for(entry, load_policy())
 
         if fields is None:
@@ -2296,17 +2264,17 @@ def emit():
         if mapping is None:
             return None, microsoft
 
-        reordered = not is_microsoft_identity(mapping, microsoft, span)
-
-        # A MANAGED-WRITTEN TABLE MAY DIFFER ONLY BY ITS OVERLOADS. A virtual
-        # destructor is refused there already (managed_implementation_refusals),
-        # and our own interfaces refuse overloads (SSVT006), so what can reach
-        # this is a Valve layout whose overloads MSVC reverses: CCallbackBase's
-        # two Run.
-        if reordered and kind_of(entry) in MANAGED_WRITTEN and (
-                kind_of(entry) != VALVE_BY_MANAGED or microsoft != span):
-            return None, ('%s is %s and MSVC lays it out differently by more than '
-                          'its overloads' % (entry['struct'], kind_of(entry)))
+        # EVERY EMITTED TABLE IS ORDERED ALIKE ON BOTH ABIs. Our own interfaces
+        # declare no virtual destructor and no overload, and a Valve layout
+        # managed writes is refused one; so a table MSVC orders differently
+        # cannot be written or read from managed in one order, and is refused
+        # here. The engine's own tables, which MSVC does reorder, are called
+        # through their forwarders and emit nothing (plan_engine_forwarders.md).
+        if not is_microsoft_identity(mapping, microsoft, span):
+            return None, ('%s is laid out differently by MSVC (%s), so no one managed '
+                          'order serves both ABIs: build it natively, as the Steam '
+                          'callback is (libss_fwd_client), or call it through forwarders'
+                          % (entry['struct'], microsoft_causes(mapping, microsoft, span)))
 
         out += [
             '',
@@ -2329,28 +2297,6 @@ def emit():
         ] + ['/// %s' % line for line in wrap_comment(entry['note'], 74)] + [
             '/// </para>',
         ]
-
-        if reordered and kind_of(entry) in MANAGED_WRITTEN:
-            out += [
-                '///',
-                '/// <para>',
-                '/// MSVC ORDERS THIS TABLE DIFFERENTLY: it reverses the overloads. Each',
-                '/// field\'s <c>[VtableSlot]</c> carries its index under both ABIs, and',
-                '/// <c>ManagedVtableGenerator</c> writes the thunk at the one for the ABI it',
-                '/// runs on.',
-                '/// </para>',
-            ]
-        elif reordered:
-            out += [
-                '///',
-                '/// <para>',
-                '/// MSVC ORDERS THIS TABLE DIFFERENTLY (%s), so the slots are properties'
-                % microsoft_causes(mapping, microsoft, span),
-                '/// over the table that read each one at its Windows index on Windows and',
-                '/// at its declaration-order index elsewhere. %d slot(s) on Windows, which' % microsoft,
-                '/// is the count native reports there.',
-                '/// </para>',
-            ]
 
         if kind_of(entry) == IMPLEMENTED_BY_MANAGED:
             out += [
@@ -2400,11 +2346,6 @@ def emit():
         # every one of 146 trailing comments off the right of the screen.
         width = max([len(d) for _s, d, _c in fields if len(d) <= ALIGN] or [ALIGN])
 
-        if reordered and kind_of(entry) not in MANAGED_WRITTEN:
-            out += property_body(fields, mapping, microsoft, span)
-            out.append('}')
-            continue
-
         for index, (slot, declaration, comment) in enumerate(fields):
             if index:
                 out.append('')
@@ -2421,9 +2362,6 @@ def emit():
             # into the C++ header native checks with, and ManagedVtableGenerator
             # reads it off the field to answer Validate, so the two sides can only
             # disagree when they were built from different headers.
-            if reordered:
-                out.append('    [VtableSlot(%d, %d)]' % (slot, mapping[slot]))
-
             if kind_of(entry) in MANAGED_WRITTEN:
                 out.append('    [SlotHash(0x%08x)]' % slot_hash(declaration))
 
@@ -2432,113 +2370,9 @@ def emit():
 
         out.append('}')
 
-    out += microsoft_entries_class()
     out.append('')
 
     return '\n'.join(out), None
-
-
-def property_body(fields, mapping, microsoft, span):
-    """The body of a layout whose slots MSVC orders differently.
-
-    THE SAME TABLE, READ THROUGH AN INDEX THAT DEPENDS ON THE ABI. The struct is
-    still exactly `span` pointers long, so sizeof and every Itanium offset are
-    what they were; each slot is a property whose getter reads the Windows
-    index on Windows and the declaration-order index elsewhere.
-    `OperatingSystem.IsWindows()` is a JIT-time constant, so the getter
-    compiles to the load a field would have been, and a call site is
-    unchanged: `_vtbl->GetModel(_self)` invokes the function pointer the
-    property returns.
-
-    Each line still starts `    public ` and ends `Name => ...;` with the
-    Itanium slot first in its trailing comment, which is what
-    vtable_index_agreement_test reads.
-    """
-    has_second_destructor = any(d == 'nint Destructor2;' for _s, d, _c in fields)
-
-    out = [
-        '    /// <summary>The table\'s length under the Microsoft ABI: what native reports on Windows.</summary>',
-        '    internal const int MicrosoftEntries = %d;' % microsoft,
-        '',
-        '    private fixed long _slots[%d];' % span,
-        '',
-        '    private readonly long At(int itanium, int microsoft)',
-        '        => _slots[global::System.OperatingSystem.IsWindows() ? microsoft : itanium];',
-    ]
-
-    if has_second_destructor:
-        out += [
-            '',
-            '    // The deleting destructor\'s Itanium slot has no Microsoft counterpart:',
-            '    // MSVC\'s one destructor slot is Destructor1\'s.',
-            '    private readonly long ItaniumOnly(int itanium)',
-            '        => global::System.OperatingSystem.IsWindows() ? 0 : _slots[itanium];',
-        ]
-
-    for slot, declaration, comment in fields:
-        out.append('')
-
-        for line in comment[1:]:
-            out.append('    // %s' % line)
-
-        cut = declaration.rindex(' ')
-        kind, name = declaration[:cut], declaration[cut + 1:-1]
-        ms = mapping.get(slot)
-
-        if ms is None:
-            out.append('    [VtableSlot(%d, -1)]' % slot)
-            out.append('    public %s %s => (%s)ItaniumOnly(%d); // %-3d ms --  %s'
-                       % (kind, name, kind, slot, slot, comment[0]))
-        else:
-            out.append('    [VtableSlot(%d, %d)]' % (slot, ms))
-            out.append('    public %s %s => (%s)At(%d, %d); // %-3d ms %-3d %s'
-                       % (kind, name, kind, slot, ms, slot, ms, comment[0]))
-
-    return out
-
-
-def microsoft_entries_class():
-    """VtableAbi: the count native reports on Windows, per layout.
-
-    A GENERIC LOOKUP RATHER THAN A MEMBER ON EVERY STRUCT, so the 127 layouts
-    MSVC orders the Itanium way are untouched: for them the Windows count is
-    the struct's own span. `typeof(TVtbl) == typeof(X)` is folded by the JIT
-    for each struct instantiation, so the chain costs nothing at run time.
-    """
-    reordered = []
-
-    for entry in INTERFACES:
-        fields, _why = fields_for(entry, load_policy())
-        mapping, microsoft = microsoft_slots(chain_steps(entry))
-        span = len(fields)
-
-        if not is_microsoft_identity(mapping, microsoft, span) and \
-                kind_of(entry) not in MANAGED_WRITTEN:
-            reordered.append(entry['struct'])
-
-    return [
-        '',
-        '/// <summary>',
-        '/// The vtable length native reports on Windows, where the engine is MSVC\'s',
-        '/// and a virtual destructor takes one slot rather than two.',
-        '/// </summary>',
-        'internal static unsafe class VtableAbi',
-        '{',
-        '    /// <summary>',
-        '    /// <typeparamref name="TVtbl"/>\'s length under the Microsoft ABI: its',
-        '    /// <c>MicrosoftEntries</c> where MSVC orders it differently, its span',
-        '    /// otherwise.',
-        '    /// </summary>',
-        '    public static int MicrosoftEntries<TVtbl>() where TVtbl : unmanaged',
-        '    {',
-    ] + [
-        '        if (typeof(TVtbl) == typeof(%s)) return %s.MicrosoftEntries;' % (s, s)
-        for s in reordered
-    ] + [
-        '        return sizeof(TVtbl) / sizeof(void*);',
-        '    }',
-        '}',
-    ]
 
 
 def check(out=sys.stdout):
@@ -2668,68 +2502,62 @@ def self_test(out=sys.stdout):
     body = re.sub(r'(?m)^//.*$', '', generated or '')
 
     def struct_text(name):
-        """One generated struct's body, so an arm about the EXPOSED five is not
-        diluted by the twenty-six layout-only ones beside them."""
+        """One generated struct's body, or '' for a row the file does not hold."""
         head = ' unsafe struct %s\n{' % name   # internal, or public when managed writes it
-        at = body.index(head)
-        return body[at:body.index('\n}', at)]
+        at = body.find(head)
+        return body[at:body.index('\n}', at)] if at >= 0 else ''
 
-    # THE ENGINE'S EXPOSED FIVE, WITHOUT THE SHIM ONES BESIDE THEM. The arms
-    # below are about what the engine's calling convention can and cannot
-    # express, and every shim interface is expressible BY CONSTRUCTION -- its
-    # signatures are copied from flat ABI fields, which are already C function
-    # pointers, so regrouping them as vtable methods cannot manufacture an
-    # inexpressible one. Folding them in would dilute a claim about the engine
-    # with a set that can never falsify it.
-    exposed = ''.join(struct_text(e['struct']) for e in INTERFACES
-                      if e.get('exposed') and not e.get('shim'))
+    def derived(struct):
+        """{field: type} as the header walk derives a row, emitted or not: what
+        tools/engine-forwarders reads for an engine table."""
+        entry = [e for e in INTERFACES if e['struct'] == struct][0]
+        fields, _why = fields_for(entry, load_policy())
+        found = {}
+        for _slot, declaration, _comment in fields or []:
+            cut = declaration.rindex(' ')
+            found[declaration[cut + 1:-1]] = declaration[:cut]
+        return found
 
     shim = ''.join(struct_text(e['struct']) for e in INTERFACES if e.get('shim'))
 
     expect('NO field is called NotBound_ anything -- 259 of the old file\'s 350 were',
            'NotBound_' not in body)
 
-    # -- the five with an impl class ----------------------------------------
-    # 341 / 9 / 7 / 4 until Vector returns were spelled (2026-10-12):
-    # GetLightForPoint and GetLightForPointFast are typed now and lost their
-    # PROXIES rows.
-    expect('across the five EXPOSED ENGINE interfaces, every field is a real '
-           'delegate* except seven',
-           exposed.count('public delegate* unmanaged') == 343)
-    expect('the seven are the destructor pair and five the calling convention '
-           'cannot express -- nothing else is left untyped',
-           exposed.count('public nint ') == 7)
-    expect('two of the five name a C++ proxy',
-           len(PROXIES) == 2 and exposed.count('Refused_') == 5)
-    expect('Con_NPrintf is one of them', 'nint Refused_Con_NPrintf;' in exposed)
-    expect('GetLightForPoint is NOT: a Vector return is spelled',
-           'Refused_GetLightForPoint' not in exposed
-           and 'GetLightForPoint;' in exposed)
-    expect('IVEngineServer::ClientCommand is refused with NO proxy -- policy already '
-           'exposes nothing there, so a proxy would be dead code',
-           'nint Refused_ClientCommand;' in exposed
-           and ('IVEngineServer', 'ClientCommand') not in PROXIES)
+    # -- what the file holds now (plan_engine_forwarders.md phase 6) ----------
+    #
+    # The engine's own tables are called through their forwarders, so the file
+    # holds a struct for every row managed still reads or writes -- the shim
+    # areas, the particle library and the managed-built objects -- and none
+    # for an engine-built row, whose row stays for tools/engine-forwarders.
+    engine_rows = [e for e in INTERFACES if not emitted(e)]
+    expect('an engine-built row emits no struct (%d of them: ModelInfoVtbl, '
+           'EngineClientVtbl, PhysicsObjectVtbl ...)' % len(engine_rows),
+           engine_rows and all(not struct_text(e['struct']) for e in engine_rows)
+           and {'ModelInfoVtbl', 'EngineClientVtbl', 'PhysicsObjectVtbl'}
+               <= set(e['struct'] for e in engine_rows))
+    expect('every row managed reads or writes is emitted, exactly once each (%d)'
+           % (len(INTERFACES) - len(engine_rows)),
+           body.count(' unsafe struct ') == len(INTERFACES) - len(engine_rows)
+           and all(struct_text(e['struct']) for e in INTERFACES if emitted(e)))
+    expect('nothing in the file is ordered per ABI any more: no [VtableSlot], no '
+           'MicrosoftEntries, no VtableAbi, no property form',
+           '[VtableSlot' not in body and 'MicrosoftEntries' not in body
+           and 'VtableAbi' not in body and ' => (' not in body and 'ItaniumOnly' not in body)
 
     # -- the shim layer ------------------------------------------------------
     #
-    # EVERY SHIM SLOT IS TYPED, AND THIS IS NOT THE SAME CLAIM AS THE ONE ABOVE.
-    # `Refused_` means "managed cannot express this call", and for OUR OWN
-    # headers that category cannot arise: every signature is copied from a flat
-    # ABI field, every flat ABI field is already a C-ABI function pointer, so
-    # there is nothing to refuse. A `nint` appearing in a shim struct means
-    # somebody wrote a by-value class or a varargs into a header this tree owns
-    # -- which ishim_frame.h's own rule forbids -- and this arm is where that
-    # shows up rather than at a call site.
+    # EVERY SHIM SLOT IS TYPED. `Refused_` means "managed cannot express this
+    # call", and for OUR OWN headers that category cannot arise: every
+    # signature is copied from a flat ABI field, every flat ABI field is
+    # already a C-ABI function pointer, so there is nothing to refuse. A `nint`
+    # appearing in a shim struct means somebody wrote a by-value class or a
+    # varargs into a header this tree owns -- which ishim_frame.h's own rule
+    # forbids -- and this arm is where that shows up rather than at a call site.
     expect('no shim slot is untyped: our own headers cannot produce a refusal',
            'nint ' not in shim and 'Refused_' not in shim)
-    # THE SHIM LAYER'S SIZE IS DERIVED, and it has to be: it grows by one area
-    # per wave, and a hand-kept literal here would make every wave read as a
-    # defect -- which is what happened to the policy-reason count one commit
-    # ago and to the coverage floor in sdk_player_cast_test.cpp before that.
-    #
-    # What is worth pinning is the RELATION, not the number: a shim struct is
-    # exactly as long as its class and has NO destructor pair in front of it,
-    # so the total is the sum of the per-interface spans and nothing else.
+    # THE SHIM LAYER'S SIZE IS DERIVED: a shim struct is exactly as long as its
+    # class and has NO destructor pair in front of it, so the total is the sum
+    # of the per-interface spans and nothing else.
     shim_spans = [len(fields_for(e, load_policy())[0])
                   for e in INTERFACES if e.get('shim')]
 
@@ -2739,145 +2567,73 @@ def self_test(out=sys.stdout):
            shim.count('public delegate* unmanaged') == sum(shim_spans)
            and 'Destructor1' not in shim)
 
-    # -- the whole set -------------------------------------------------------
-    #
-    # THESE THREE NUMBERS MOVE, and they are written down anyway. A layout costs
-    # nothing to have, so the resolved set grows whenever the mod resolves
-    # another interface and whenever an area moves to the shim layer -- and the
-    # arm is not "the number is 32", it is "the number is what the INTERFACES
-    # table says", checked from two directions so a struct that failed to emit
-    # is caught rather than absorbed.
-    expect('every interface the mod resolves has a layout, and the file holds '
-           'exactly one struct per row of INTERFACES (%d)' % len(INTERFACES),
-           body.count(' unsafe struct ') == len(INTERFACES))
+    # -- the whole file --------------------------------------------------------
+    total = sum(len(fields_for(e, load_policy())[0]) for e in INTERFACES if emitted(e))
+    expect('all %d slots in the file are a real delegate*: no refusal and no '
+           'destructor pair, since every emitted table is ours or managed-written'
+           % total,
+           body.count('public delegate* unmanaged') == total and 'public nint ' not in body)
 
-    # THE SAME DERIVATION, over every interface rather than the shim ones: the
-    # typed fields are the total span minus the refusals and the destructor
-    # pairs, and each of those three is counted from the emitter's own output.
-    total = sum(len(fields_for(e, load_policy())[0]) for e in INTERFACES)
-
-    expect('%d of the %d slots across all of them are a real delegate*, and the '
-           'rest are refusals and destructor pairs'
-           % (total - body.count('public nint '), total),
-           body.count('public delegate* unmanaged') + body.count('public nint ')
-           == total)
-    # 41/23/9 until INetworkStringTable (the message of the day's row) added a
-    # destructor pair and one refusal, SetStringChangedCallback. 44/24/10 until
-    # plan_physics_managed B0's six vphysics rows: five destructor pairs
-    # (environment, object, shadow and motion controllers, friction snapshot)
-    # and four refusals (three Vector returns by value, one priority_t); B0b
-    # mapped priority_t, so 57/27. 59/27 since B2.2's IPhysicsFluidController
-    # row added one destructor pair and no refusal. 63/27 since 2.4's
-    # IPhysicsConstraint and IPhysicsSpring rows: two pairs, no refusal.
-    # 65/27 since 2.5's IPhysicsPlayerController row: one pair, no refusal.
-    # 69/27 since Phase 3's IVPhysicsKeyParser and IPhysicsConstraintGroup
-    # rows (IPhysicsCollisionSet's destructor is not virtual): two pairs.
-    # 62/20 since the seven Vector returns were spelled (2026-10-12).
-    expect('and the 62 that are not are 20 refusals plus 42 destructor slots -- '
-           'TWENTY-ONE interfaces declare a virtual destructor, and a pair is '
-           'what a `nint` may be, along with a call managed cannot spell, and all '
-           'it may be',
-           body.count('public nint ') == 62
-           and body.count('Refused_') == 20
-           and len(re.findall(r'nint Destructor1(?:;| => )', body)) == 21
-           and len(re.findall(r'nint Destructor2(?:;| => )', body)) == 21)
-
+    # -- the derivation, which the forwarders still read -----------------------
     expect('an OVERRIDE takes the base\'s slot rather than appending one -- '
            'IGameEventManager2 re-declares IBaseInterface\'s virtual destructor '
            'and the chain is 14 slots, not 16',
            len(derive_chain(chain_steps(
                [e for e in INTERFACES if e['struct'] == 'GameEventManagerVtbl'][0]))[0]) == 13)
 
-    # -- the derivation against the table it replaced -------------------------
-    #
     # THE OLD TOOL CARRIED FIFTEEN HAND-CURATED TYPES, written by eye one at a
-    # time and deleted with the rest of the ledger. Re-derived from the headers
-    # by the mapper above, FOURTEEN come out identical -- which is what says the
-    # derivation reproduces judgement rather than replacing it with something
-    # that merely compiles.
-    #
-    # The fifteenth is a CORRECTION and is recorded as one: cdll_int.h declares
-    # `uint GetProtocolVersion()` and the hand-typed row said `int`. Same width,
-    # same register, so nothing was ever wrong at run time -- and nothing had
-    # read the return type, which is exactly why it drifted.
+    # time. Re-derived from the headers, FOURTEEN come out identical -- which
+    # is what says the derivation reproduces judgement rather than replacing it
+    # with something that merely compiles. The fifteenth is a CORRECTION:
+    # cdll_int.h declares `uint GetProtocolVersion()` and the hand-typed row
+    # said `int`.
     was_hand_typed = {
-        'RandomFloat':      'delegate* unmanaged<void*, float, float, float>',
-        'RandomInt':        'delegate* unmanaged<void*, int, int, int>',
-        'RandomFloatExp':   'delegate* unmanaged<void*, float, float, float, float>',
-        'GetModel':         'delegate* unmanaged<void*, int, void*>',
-        'GetModelIndex':    'delegate* unmanaged<void*, byte*, int>',
-        'GetModelName':     'delegate* unmanaged<void*, void*, byte*>',
-        'GetModelType':     'delegate* unmanaged<void*, void*, int>',
-        'Size_2':           'delegate* unmanaged<void*, byte*, byte*, uint>',
-        'GetFileTime':      'delegate* unmanaged<void*, byte*, byte*, long>',
-        'GetGameDirectory': 'delegate* unmanaged<void*, byte*>',
-        'GetLevelName':     'delegate* unmanaged<void*, byte*>',
-        'IsModelPrecached': 'delegate* unmanaged<void*, byte*, byte>',
-        'GetGameDir':       'delegate* unmanaged<void*, byte*, int, void>',
-        'GetMapEntitiesString': 'delegate* unmanaged<void*, byte*>',
+        'UniformRandomStreamVtbl': {
+            'RandomFloat':      'delegate* unmanaged<void*, float, float, float>',
+            'RandomInt':        'delegate* unmanaged<void*, int, int, int>',
+            'RandomFloatExp':   'delegate* unmanaged<void*, float, float, float, float>',
+        },
+        'ModelInfoVtbl': {
+            'GetModel':         'delegate* unmanaged<void*, int, void*>',
+            'GetModelIndex':    'delegate* unmanaged<void*, byte*, int>',
+            'GetModelName':     'delegate* unmanaged<void*, void*, byte*>',
+            'GetModelType':     'delegate* unmanaged<void*, void*, int>',
+        },
+        'BaseFileSystemVtbl': {
+            'Size_2':           'delegate* unmanaged<void*, byte*, byte*, uint>',
+            'GetFileTime':      'delegate* unmanaged<void*, byte*, byte*, long>',
+        },
+        'EngineClientVtbl': {
+            'GetGameDirectory': 'delegate* unmanaged<void*, byte*>',
+            'GetLevelName':     'delegate* unmanaged<void*, byte*>',
+        },
+        'EngineServerVtbl': {
+            'IsModelPrecached': 'delegate* unmanaged<void*, byte*, byte>',
+            'GetGameDir':       'delegate* unmanaged<void*, byte*, int, void>',
+            'GetMapEntitiesString': 'delegate* unmanaged<void*, byte*>',
+        },
     }
-
-    # A field (`Name;`) or, where MSVC orders the table differently, a
-    # property (`Name => ...`): the declared type is the same either way.
-    emitted = dict((m.group(2), m.group(1)) for m in re.finditer(
-        r'public (delegate\* unmanaged<[^>]*>|nint) (\w+)(?:;| => )', body))
-
-    agreed = [name for name, kind in was_hand_typed.items() if emitted.get(name) == kind]
-
+    agreed = [name for struct, rows in was_hand_typed.items()
+              for name, kind in rows.items() if derived(struct).get(name) == kind]
     expect('all fourteen types the deleted ledger hand-wrote are re-derived '
            'identically from the headers',
-           len(agreed) == len(was_hand_typed))
+           len(agreed) == sum(len(rows) for rows in was_hand_typed.values()))
     expect('and the fifteenth is corrected: cdll_int.h says GetProtocolVersion '
            'returns uint, where the hand-typed row said int',
-           emitted.get('GetProtocolVersion') == 'delegate* unmanaged<void*, uint>')
+           derived('EngineClientVtbl').get('GetProtocolVersion') == 'delegate* unmanaged<void*, uint>')
 
-    # -- ( void ) is not a parameter -----------------------------------------
     expect('`GetLevelName( void )` takes NO parameter -- reading the `void` as one '
            'gives an arity that does not match the ABI',
            signature_of('const char *', 'void') == 'delegate* unmanaged<void*, byte*>')
-    expect('the destructor pair is commented "destructor 1" and "destructor 2"',
-           'destructor 1 --' in (generated or '') and 'destructor 2 --' in (generated or ''))
-    expect('the D1/D0 explanation is at the type',
-           'Complete Object Destructor (D1)' in (generated or '')
-           and 'Deleting Destructor (D0)' in (generated or ''))
-    # EVERY POLICY REASON IS CARRIED, AND THE NUMBER IS DERIVED RATHER THAN
-    # TYPED. It was written down as 73/74/75 and went red the first time a
-    # refusal was LIFTED -- plan_native_api.md Phase 3 exposed four methods on
-    # IVEngineServer and one on IBaseFileSystem, and a hand-kept literal makes
-    # that read as a defect instead of as the work.
-    #
-    # The +1 is IVModelInfo's: its one reason lands on the CLIENT spelling of
-    # that interface as well as the server's, because both structs are walked
-    # from the same class. The count is taken over the FIELDS rather than over
-    # the file, because the preamble says the phrase too and matching it there
-    # would pass for free.
-    reasons = sum(len(v) for k, v in load_policy().items() if k != '_comment')
-    modelinfo = len(load_policy().get('IVModelInfo', {}))
-
-    expect('every policy reason is carried onto the field it names -- %d reasons, '
-           '%d annotations, the difference being IVModelInfo\'s, which land on the '
-           'client spelling of that interface as well as the server\'s'
-           % (reasons, reasons + modelinfo),
-           body.count('NOT EXPOSED (policy, not verification)') == reasons + modelinfo
-           and generated.count('NOT EXPOSED (policy, not verification)')
-               == reasons + modelinfo + 1)
-    expect('ClientCmd_Unrestricted keeps its reason -- it runs a console command '
-           'and must not become callable from managed',
-           'ClientCmd_Unrestricted' in body)
-    expect('a reason is filed under the class that DECLARES the method: '
-           'IsWindowedMode is IVEngineClient\'s, not IVEngineClient013\'s',
-           'IsWindowedMode' in load_policy().get('IVEngineClient', {}))
-
-    # -- the overload rule ---------------------------------------------------
-    expect('IBaseFileSystem::Size is emitted TWICE and the second is Size_2 -- a '
+    expect('IBaseFileSystem::Size is derived TWICE and the second is Size_2 -- a '
            'name-keyed table would hand a filename to the FileHandle_t overload',
-           ' Size => ' in (generated or '') and ' Size_2 => ' in (generated or ''))
+           'Size' in derived('BaseFileSystemVtbl') and 'Size_2' in derived('BaseFileSystemVtbl'))
 
     # -- the Microsoft ABI's numbering ---------------------------------------
     #
-    # The rules microsoft_slots applies, each on a probe class whose answer is
-    # worked out by hand here, then on the two real interfaces the managed
-    # facts name.
+    # Read now only to REFUSE an emitted table MSVC orders differently. The
+    # rules microsoft_slots applies, each on a probe class whose answer is
+    # worked out by hand here, then on two real interfaces.
     probe = """
         class IMsProbe
         {
@@ -2923,65 +2679,46 @@ def self_test(out=sys.stdout):
     expect('IVModelInfo: the destructor is slot 0, GetModel 1 and the length 58',
            mi.get(0) == 0 and 1 not in mi and mi.get(2) == 1 and mi_len == 58)
 
-    # -- what the Microsoft numbering emits ----------------------------------
-    def struct_body(name):
-        at = (generated or '').find(' unsafe struct %s\n{' % name)
-        return (generated or '')[at:(generated or '').find('\n}', at)] if at >= 0 else ''
+    # An emitted row MSVC reorders is refused, and the refusal says why. Probed
+    # by emitting an engine row as if it were ours: BaseFileSystemVtbl's Size
+    # overloads swap under MSVC.
+    saved_rows = INTERFACES[:]
+    try:
+        reorder = dict([e for e in INTERFACES if e['struct'] == 'BaseFileSystemVtbl'][0], shim=True)
+        INTERFACES[:] = [reorder]
+        refused, refused_why = emit()
+    finally:
+        INTERFACES[:] = saved_rows
+    expect('an emitted table MSVC orders differently is refused, naming the struct',
+           refused is None and 'BaseFileSystemVtbl is laid out differently by MSVC' in (refused_why or ''))
 
-    model_body = struct_body('ModelInfoVtbl')
-    expect('a layout MSVC orders differently says its Windows length and reads every '
-           'slot through At(itanium, microsoft)',
-           'internal const int MicrosoftEntries = 58;' in model_body
-           and 'GetModel => (delegate* unmanaged<void*, int, void*>)At(2, 1);' in model_body
-           and '[VtableSlot(2, 1)]' in model_body)
-    expect('its deleting destructor has no Windows slot', 'Destructor2 => (nint)ItaniumOnly(1);' in model_body)
-    random_body = struct_body('UniformRandomStreamVtbl')
-    expect('a layout both ABIs order alike is left exactly as it was: fields, no '
-           'MicrosoftEntries, no [VtableSlot]',
-           random_body and 'MicrosoftEntries' not in random_body
-           and '[VtableSlot' not in random_body and ' SetSeed;' in random_body)
     # Every managed-written layout is ordered alike on both ABIs: the Steam
     # callback, the last one MSVC reversed (CCallbackBase's two Run
     # overloads), is built natively by libss_fwd_client, and managed writes
     # only IManagedSteamCallback's one slot (plan_engine_forwarders.md phase 5).
-    managed_written = [e['struct'] for e in INTERFACES if kind_of(e) in MANAGED_WRITTEN]
-    expect('no managed-written layout carries a Windows slot: managed writes '
-           'every table in one order, whichever ABI calls it',
-           managed_written and all(struct_body(name) and '[VtableSlot' not in struct_body(name)
-                                   for name in managed_written))
     expect('the Steam callback\'s managed side is one Run and no overload',
-           ' Run;' in struct_body('ManagedSteamCallbackVtbl')
-           and ' Run_2;' not in struct_body('ManagedSteamCallbackVtbl')
-           and not struct_body('SteamCallbackVtbl'))
-    expect('VtableAbi answers the Windows length of every layout MSVC orders '
-           'differently, and only those',
-           'if (typeof(TVtbl) == typeof(ModelInfoVtbl)) return ModelInfoVtbl.MicrosoftEntries;'
-           in (generated or '')
-           and 'typeof(UniformRandomStreamVtbl)' not in (generated or '')
-           and 'typeof(ManagedSteamCallbackVtbl)' not in (generated or ''))
+           ' Run;' in struct_text('ManagedSteamCallbackVtbl')
+           and ' Run_2;' not in struct_text('ManagedSteamCallbackVtbl')
+           and not struct_text('SteamCallbackVtbl'))
 
-    mw_dtor = microsoft_slots("""
-        class IManagedDtorProbe { public: virtual ~IManagedDtorProbe() {} virtual void A() = 0; };
-    """, ['IManagedDtorProbe'])
-    expect('a destructor is the reorder a managed-written table may not have: its '
-           'Windows length is one short of its span', mw_dtor[1] == 2)
-
-    # -- a class returned by value -------------------------------------------
-    expect('a slot returning a class by value is [MemberFunction] (MSVC passes the '
-           'return buffer after `this`); one returning a scalar is not',
-           'unmanaged[SuppressGCTransition, MemberFunction]<void*, Vector> GetInertia' in (generated or '')
-           and 'unmanaged[MemberFunction]<void*, Vector> GetInvInertia' in (generated or '')
-           and 'MemberFunction]<void*, float> GetMass' not in (generated or ''))
-    expect('the convention is added beside one already there, or on its own',
-           with_convention('delegate* unmanaged<void*, Vector>', 'MemberFunction')
-               == 'delegate* unmanaged[MemberFunction]<void*, Vector>'
-           and with_convention('delegate* unmanaged[SuppressGCTransition]<void*, Vector>', 'MemberFunction')
-               == 'delegate* unmanaged[SuppressGCTransition, MemberFunction]<void*, Vector>')
+    by_value_row = dict([e for e in INTERFACES if e['struct'] == 'PhysicsObjectVtbl'][0], shim=True)
+    by_value_fields, by_value_why = fields_for(by_value_row, load_policy())
+    expect('a table managed reads by layout may not return a class by value (MSVC '
+           'returns it after `this`): IPhysicsObject::GetInertia, emitted, is refused; '
+           'its engine row, walked for the forwarder, is not',
+           by_value_fields is None and 'GetInertia returns a class by value' in (by_value_why or '')
+           and 'GetInertia' in derived('PhysicsObjectVtbl'))
     expect('a pointer or a scalar return is not a class by value',
            not returns_by_value_class('delegate* unmanaged<void*, void*>')
            and not returns_by_value_class('delegate* unmanaged<void*, uint>')
            and not returns_by_value_class('delegate* unmanaged<byte*>')
            and returns_by_value_class('delegate* unmanaged<void*, Vector>'))
+
+    mw_dtor = microsoft_slots("""
+        class IManagedDtorProbe { public: virtual ~IManagedDtorProbe() {} virtual void A() = 0; };
+    """, ['IManagedDtorProbe'])
+    expect('a destructor is a reorder a managed-written table may not have: its '
+           'Windows length is one short of its span', mw_dtor[1] == 2)
 
     # -- a policy key that names nothing -------------------------------------
     saved = dict(load_policy.__globals__)
