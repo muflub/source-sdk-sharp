@@ -31,17 +31,19 @@ public static unsafe class Entry
     /// <summary>
     /// A side's load (plan_side_entries SE1/SE2). <paramref name="pShimRoot"/>
     /// is the one native object every shim interface is acquired from
-    /// (plan_engineapi_vtables A3), checked by the side's entry;
+    /// (plan_engineapi_vtables A3), and <paramref name="pShimRootTable"/> the
+    /// forwarder table it is called through (plan_forwarders_everywhere.md),
+    /// both checked by the side's entry;
     /// <paramref name="ppManagedRoot"/> receives the module's managed root (D4).
     /// </summary>
-    internal static int LoadSide(BootSide side, void* pShimRoot, int shimRootEntries, void** ppManagedRoot)
+    internal static int LoadSide(BootSide side, void* pShimRoot, void* pShimRootTable, void** ppManagedRoot)
     {
         if (ppManagedRoot != null)
             *ppManagedRoot = null;
 
         // The Bootstrap's own console for this side, raw over the root: its own
         // lines go through it, and so do its unload's ("did NOT unload", PIN).
-        BootConsole console = side.Console = BootConsole.Acquire(pShimRoot, shimRootEntries);
+        BootConsole console = side.Console = BootConsole.Acquire(pShimRoot, pShimRootTable);
 
         try
         {
@@ -107,7 +109,7 @@ public static unsafe class Entry
 
             nint vtables = side.Vtables;
             int rc = LoadAndStamp(entry, context, root.AbiFile, facts,
-                                  pShimRoot, shimRootEntries, ppManagedRoot, ref vtables, out nint session);
+                                  pShimRoot, pShimRootTable, ppManagedRoot, ref vtables, out nint session);
             side.Vtables = vtables;
 
             // A session means the side has something to unload, whatever the
@@ -148,13 +150,13 @@ public static unsafe class Entry
     /// never reads the Abi, which is its side root's.
     /// </summary>
     internal static int LoadAndStamp(ISideEntry entry, GameLoadContext context, LoadedFile? abi, byte[] loadFacts,
-                                     void* pShimRoot, int shimRootEntries, void** ppManagedRoot,
+                                     void* pShimRoot, void* pShimRootTable, void** ppManagedRoot,
                                      ref nint vtables, out nint session)
     {
         nint vt = vtables, s = 0;
         int rc;
         fixed (byte* pFacts = loadFacts)
-            rc = entry.Load(pShimRoot, shimRootEntries, ppManagedRoot, &vt, &s, pFacts);
+            rc = entry.Load(pShimRoot, pShimRootTable, ppManagedRoot, &vt, &s, pFacts);
         vtables = vt;
         session = s;
 

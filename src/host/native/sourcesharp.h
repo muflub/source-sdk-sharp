@@ -2790,8 +2790,8 @@ SOURCESHARP_EXPORT void SourceSharp_Release( void );
 SOURCESHARP_EXPORT int  SourceSharp_RefCount( void );
 
 // plan_engineapi_vtables.md step A3: the same load, handing managed ONE native
-// object -- pShimRoot, an IShimRoot (shared/native/ishim_root.h) with the
-// compiler's slot count -- from which it acquires every shim interface.
+// object -- pShimRoot, an IShimRoot (shared/native/ishim_root.h), called through
+// pShimRootTable (plan_forwarders_everywhere.md) -- from which it acquires every shim interface.
 // *ppManagedRoot is the
 // managed-built root (Phase D4), accepted through its own Validate
 // (plan_managed_vtable_reload.md L1), so no slot count travels with it. Every
@@ -2799,9 +2799,9 @@ SOURCESHARP_EXPORT int  SourceSharp_RefCount( void );
 // root (the server since plan_engineapi_vtables E-last, the client since
 // plan_client_vtables CE-last). One export per side (plan_side_entries SE1):
 // no side travels as an argument.
-SOURCESHARP_EXPORT int  SourceSharp_LoadServer( void *pShimRoot, int32_t nShimRootEntries,
+SOURCESHARP_EXPORT int  SourceSharp_LoadServer( void *pShimRoot, const void *pShimRootTable,
                                                 void **ppManagedRoot );
-SOURCESHARP_EXPORT int  SourceSharp_LoadClient( void *pShimRoot, int32_t nShimRootEntries,
+SOURCESHARP_EXPORT int  SourceSharp_LoadClient( void *pShimRoot, const void *pShimRootTable,
                                                 void **ppManagedRoot );
 
 // plan_managed_vtable_reload.md L5: before a reload saves or unloads anything.

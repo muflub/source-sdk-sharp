@@ -33,7 +33,7 @@ public unsafe class SideStateTests
         int rc;
         fixed (byte* pFacts = facts)
         fixed (nint* pState = &state)
-            rc = SideLoad.Load(Side.Server, CrossingOp.LoadServer, null, 0, &root, pState, &s, pFacts);
+            rc = SideLoad.Load(Side.Server, CrossingOp.LoadServer, null, null, &root, pState, &s, pFacts);
         session = s;
         return rc;
     }
@@ -52,7 +52,7 @@ public unsafe class SideStateTests
         {
             int rc;
             fixed (byte* pFacts = facts)
-                rc = SideLoad.Load(Side.Server, CrossingOp.LoadServer, null, 0, &root, &state, &session, pFacts,
+                rc = SideLoad.Load(Side.Server, CrossingOp.LoadServer, null, null, &root, &state, &session, pFacts,
                                    engine => bound.Add(engine.Side));
 
             Assert.Equal(-4, rc);

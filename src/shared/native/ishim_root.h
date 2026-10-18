@@ -52,12 +52,12 @@ public:
 	virtual void *AcquireInterface( int32_t nType, const char *pszVersion,
 	                                int32_t *pnEntries, char *pError, int32_t nErrorBytes ) = 0;
 
-	// The root lives as long as the DLL; this does nothing. It is here to be the
-	// LAST slot, whose index + 1 is the count managed checks.
+	// The root lives as long as the DLL; this does nothing. Last, as its
+	// forwarder table (SSFwd_ShimRoot) only appends.
 	virtual void Release() = 0;
 };
 
-// This side's root and its slot count. Defined in shell_internalfactory.cpp.
-IShimRoot *ShimRoot_Get( int32_t *pnEntries );
+// This side's root, and its forwarder table in *ppTable. Defined in shell_internalfactory.cpp.
+IShimRoot *ShimRoot_Get( const void **ppTable );
 
 #endif // ISHIM_ROOT_H

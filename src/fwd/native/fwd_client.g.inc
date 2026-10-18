@@ -20,10 +20,13 @@
 #include "fwd_steam.h"
 #include "inputsystem/iinputsystem.h"
 #include "networkstringtabledefs.h"
+#include "sourcesharp/game/client/particles_lib/include/ss_particles/iparticlelib.h"
 #include "sourcesharp/game/server/ishim_frame.h"
+#include "sourcesharp/game/server/ishim_level.h"
 #include "sourcesharp/game/shared/ishim_areas.h"
 #include "sourcesharp/game/shared/ishim_areas_client.h"
 #include "sourcesharp/game/shared/ishim_console.h"
+#include "sourcesharp/game/shared/ishim_root.h"
 #include "vcollide_parse.h"
 #include "vphysics/collision_set.h"
 #include "vphysics/constraints.h"
@@ -952,6 +955,255 @@ static void *const s_ShimFrameSlots[] = {
 };
 
 static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 19 };
+
+//-----------------------------------------------------------------------------
+// ShimLevel: 26 forwarder(s) over IShimLevel.
+//-----------------------------------------------------------------------------
+// void IShimLevel::ResetServerTime( void )
+static void SSFwd_ShimLevel_ResetServerTime( IShimLevel *self ) { self->ResetServerTime(); }
+// void IShimLevel::ParseParticleManifest( void )
+static void SSFwd_ShimLevel_ParseParticleManifest( IShimLevel *self ) { self->ParseParticleManifest(); }
+// void IShimLevel::ParseParticleManifestForMap( const char * )
+static void SSFwd_ShimLevel_ParseParticleManifestForMap( IShimLevel *self, const char * a0 ) { self->ParseParticleManifestForMap( a0 ); }
+// void IShimLevel::ParseAllEntities( const char * )
+static void SSFwd_ShimLevel_ParseAllEntities( IShimLevel *self, const char * a0 ) { self->ParseAllEntities( a0 ); }
+// void IShimLevel::PrecachePointTemplates( const char *, const int32_t *, int32_t )
+static void SSFwd_ShimLevel_PrecachePointTemplates( IShimLevel *self, const char * a0, const int32_t * a1, int32_t a2 ) { self->PrecachePointTemplates( a0, a1, a2 ); }
+// void IShimLevel::SetLowViolence( const char * )
+static void SSFwd_ShimLevel_SetLowViolence( IShimLevel *self, const char * a0 ) { self->SetLowViolence( a0 ); }
+// void IShimLevel::LoadMessageOfTheDay( void )
+static void SSFwd_ShimLevel_LoadMessageOfTheDay( IShimLevel *self ) { self->LoadMessageOfTheDay(); }
+// int32_t IShimLevel::ResetDeleteList( void )
+static int32_t SSFwd_ShimLevel_ResetDeleteList( IShimLevel *self ) { return self->ResetDeleteList(); }
+// void IShimLevel::ActivateAllEntities( void )
+static void SSFwd_ShimLevel_ActivateAllEntities( IShimLevel *self ) { self->ActivateAllEntities(); }
+// void IShimLevel::InitPostEntitySystems( void )
+static void SSFwd_ShimLevel_InitPostEntitySystems( IShimLevel *self ) { self->InitPostEntitySystems(); }
+// void IShimLevel::SetPrecacheAllowed( int32_t )
+static void SSFwd_ShimLevel_SetPrecacheAllowed( IShimLevel *self, int32_t a0 ) { self->SetPrecacheAllowed( a0 ); }
+// void IShimLevel::ShutdownPreClearSteamSystems( void )
+static void SSFwd_ShimLevel_ShutdownPreClearSteamSystems( IShimLevel *self ) { self->ShutdownPreClearSteamSystems(); }
+// void IShimLevel::ClearSteamAPIContext( void )
+static void SSFwd_ShimLevel_ClearSteamAPIContext( IShimLevel *self ) { self->ClearSteamAPIContext(); }
+// void IShimLevel::ShutdownPreEntitySystems( void )
+static void SSFwd_ShimLevel_ShutdownPreEntitySystems( IShimLevel *self ) { self->ShutdownPreEntitySystems(); }
+// void IShimLevel::ShutdownStandaloneEntities( void )
+static void SSFwd_ShimLevel_ShutdownStandaloneEntities( IShimLevel *self ) { self->ShutdownStandaloneEntities(); }
+// void IShimLevel::ShutdownSoundEnt( void )
+static void SSFwd_ShimLevel_ShutdownSoundEnt( IShimLevel *self ) { self->ShutdownSoundEnt(); }
+// void IShimLevel::ClearEntityList( void )
+static void SSFwd_ShimLevel_ClearEntityList( IShimLevel *self ) { self->ClearEntityList(); }
+// void IShimLevel::ShutdownPostEntitySystems( void )
+static void SSFwd_ShimLevel_ShutdownPostEntitySystems( IShimLevel *self ) { self->ShutdownPostEntitySystems(); }
+// void IShimLevel::UncacheAllParticleSystems( void )
+static void SSFwd_ShimLevel_UncacheAllParticleSystems( IShimLevel *self ) { self->UncacheAllParticleSystems(); }
+// void IShimLevel::RecreateParticleDictionary( void )
+static void SSFwd_ShimLevel_RecreateParticleDictionary( IShimLevel *self ) { self->RecreateParticleDictionary(); }
+// void IShimLevel::PropDataLoadFile( void )
+static void SSFwd_ShimLevel_PropDataLoadFile( IShimLevel *self ) { self->PropDataLoadFile(); }
+// void IShimLevel::PropDataClearFile( void )
+static void SSFwd_ShimLevel_PropDataClearFile( IShimLevel *self ) { self->PropDataClearFile(); }
+// int32_t IShimLevel::LoadSaveGameState( const char *, int32_t )
+static int32_t SSFwd_ShimLevel_LoadSaveGameState( IShimLevel *self, const char * a0, int32_t a1 ) { return self->LoadSaveGameState( a0, a1 ); }
+// int32_t IShimLevel::FileSizeOnPath( const char *, const char * )
+static int32_t SSFwd_ShimLevel_FileSizeOnPath( IShimLevel *self, const char * a0, const char * a1 ) { return self->FileSizeOnPath( a0, a1 ); }
+// int32_t IShimLevel::ReadFileOnPath( const char *, const char *, void *, int32_t )
+static int32_t SSFwd_ShimLevel_ReadFileOnPath( IShimLevel *self, const char * a0, const char * a1, void * a2, int32_t a3 ) { return self->ReadFileOnPath( a0, a1, a2, a3 ); }
+// int32_t IShimLevel::SpawnWorld( const char * const *, const char * const *, int32_t )
+static int32_t SSFwd_ShimLevel_SpawnWorld( IShimLevel *self, const char * const * a0, const char * const * a1, int32_t a2 ) { return self->SpawnWorld( a0, a1, a2 ); }
+
+static void *const s_ShimLevelSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetServerTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifest ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifestForMap ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseAllEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PrecachePointTemplates ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetLowViolence ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadMessageOfTheDay ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetDeleteList ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ActivateAllEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_InitPostEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetPrecacheAllowed ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreClearSteamSystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearSteamAPIContext ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownStandaloneEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownSoundEnt ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearEntityList ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPostEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_UncacheAllParticleSystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_RecreateParticleDictionary ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataLoadFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataClearFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadSaveGameState ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_FileSizeOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ReadFileOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SpawnWorld ),
+};
+
+static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 26 };
+
+//-----------------------------------------------------------------------------
+// ShimRoot: 3 forwarder(s) over IShimRoot.
+//-----------------------------------------------------------------------------
+// void * IShimRoot::Acquire( const char *, int32_t * )
+static void * SSFwd_ShimRoot_Acquire( IShimRoot *self, const char * a0, int32_t * a1 ) { return self->Acquire( a0, a1 ); }
+// void * IShimRoot::AcquireInterface( int32_t, const char *, int32_t *, char *, int32_t )
+static void * SSFwd_ShimRoot_AcquireInterface( IShimRoot *self, int32_t a0, const char * a1, int32_t * a2, char * a3, int32_t a4 ) { return self->AcquireInterface( a0, a1, a2, a3, a4 ); }
+// void IShimRoot::Release( void )
+static void SSFwd_ShimRoot_Release( IShimRoot *self ) { self->Release(); }
+
+static void *const s_ShimRootSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_Acquire ),
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_AcquireInterface ),
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_Release ),
+};
+
+static const SSForwarderTable s_ShimRootTable = { s_ShimRootSlots, 3 };
+
+//-----------------------------------------------------------------------------
+// ParticleLib: 45 forwarder(s) over ISSParticleLib.
+//-----------------------------------------------------------------------------
+// bool ISSParticleLib::Connect( CreateInterfaceFn )
+static bool SSFwd_ParticleLib_Connect( ISSParticleLib *self, CreateInterfaceFn a0 ) { return self->Connect( a0 ); }
+// void ISSParticleLib::Disconnect( void )
+static void SSFwd_ParticleLib_Disconnect( ISSParticleLib *self ) { self->Disconnect(); }
+// CParticleSystemMgr * ISSParticleLib::Mgr( void )
+static CParticleSystemMgr * SSFwd_ParticleLib_Mgr( ISSParticleLib *self ) { return self->Mgr(); }
+// void ISSParticleLib::Counters( SSParticleLibCounters_t * )
+static void SSFwd_ParticleLib_Counters( ISSParticleLib *self, SSParticleLibCounters_t * a0 ) { self->Counters( a0 ); }
+// void * ISSParticleLib::CollectionNew( size_t )
+static void * SSFwd_ParticleLib_CollectionNew( ISSParticleLib *self, size_t a0 ) { return self->CollectionNew( a0 ); }
+// void ISSParticleLib::CollectionDelete( void * )
+static void SSFwd_ParticleLib_CollectionDelete( ISSParticleLib *self, void * a0 ) { self->CollectionDelete( a0 ); }
+// void ISSParticleLib::CollectionConstruct( CParticleCollection * )
+static void SSFwd_ParticleLib_CollectionConstruct( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionConstruct( a0 ); }
+// void ISSParticleLib::CollectionDestruct( CParticleCollection * )
+static void SSFwd_ParticleLib_CollectionDestruct( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionDestruct( a0 ); }
+// bool ISSParticleLib::CollectionInitDef( CParticleCollection *, CParticleSystemDefinition * )
+static bool SSFwd_ParticleLib_CollectionInitDef( ISSParticleLib *self, CParticleCollection * a0, CParticleSystemDefinition * a1 ) { return self->CollectionInitDef( a0, a1 ); }
+// bool ISSParticleLib::CollectionInitName( CParticleCollection *, const char * )
+static bool SSFwd_ParticleLib_CollectionInitName( ISSParticleLib *self, CParticleCollection * a0, const char * a1 ) { return self->CollectionInitName( a0, a1 ); }
+// void ISSParticleLib::CollectionBloatBoundsUsingControlPoint( CParticleCollection * )
+static void SSFwd_ParticleLib_CollectionBloatBoundsUsingControlPoint( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionBloatBoundsUsingControlPoint( a0 ); }
+// int ISSParticleLib::CollectionGetHighestControlPoint( const CParticleCollection * )
+static int SSFwd_ParticleLib_CollectionGetHighestControlPoint( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionGetHighestControlPoint( a0 ); }
+// const char * ISSParticleLib::CollectionGetName( const CParticleCollection * )
+static const char * SSFwd_ParticleLib_CollectionGetName( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionGetName( a0 ); }
+// bool ISSParticleLib::CollectionHasMoved( const CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionHasMoved( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionHasMoved( a0 ); }
+// bool ISSParticleLib::CollectionIsFinished( CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionIsFinished( ISSParticleLib *self, CParticleCollection * a0 ) { return self->CollectionIsFinished( a0 ); }
+// bool ISSParticleLib::CollectionIsTranslucent( const CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionIsTranslucent( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionIsTranslucent( a0 ); }
+// bool ISSParticleLib::CollectionIsTwoPass( const CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionIsTwoPass( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionIsTwoPass( a0 ); }
+// void ISSParticleLib::CollectionRender( CParticleCollection *, IMatRenderContext *, bool, void * )
+static void SSFwd_ParticleLib_CollectionRender( ISSParticleLib *self, CParticleCollection * a0, IMatRenderContext * a1, bool a2, void * a3 ) { self->CollectionRender( a0, a1, a2, a3 ); }
+// void ISSParticleLib::CollectionSetDormant( CParticleCollection *, bool )
+static void SSFwd_ParticleLib_CollectionSetDormant( ISSParticleLib *self, CParticleCollection * a0, bool a1 ) { self->CollectionSetDormant( a0, a1 ); }
+// void ISSParticleLib::CollectionSimulate( CParticleCollection *, float, bool )
+static void SSFwd_ParticleLib_CollectionSimulate( ISSParticleLib *self, CParticleCollection * a0, float a1, bool a2 ) { self->CollectionSimulate( a0, a1, a2 ); }
+// void ISSParticleLib::CollectionStopEmission( CParticleCollection *, bool, bool, bool )
+static void SSFwd_ParticleLib_CollectionStopEmission( ISSParticleLib *self, CParticleCollection * a0, bool a1, bool a2, bool a3 ) { self->CollectionStopEmission( a0, a1, a2, a3 ); }
+// bool ISSParticleLib::CollectionUsesFullFrameBufferTexture( const CParticleCollection *, bool )
+static bool SSFwd_ParticleLib_CollectionUsesFullFrameBufferTexture( ISSParticleLib *self, const CParticleCollection * a0, bool a1 ) { return self->CollectionUsesFullFrameBufferTexture( a0, a1 ); }
+// bool ISSParticleLib::CollectionUsesPowerOfTwoFrameBufferTexture( const CParticleCollection *, bool )
+static bool SSFwd_ParticleLib_CollectionUsesPowerOfTwoFrameBufferTexture( ISSParticleLib *self, const CParticleCollection * a0, bool a1 ) { return self->CollectionUsesPowerOfTwoFrameBufferTexture( a0, a1 ); }
+// IMaterial * ISSParticleLib::DefinitionGetMaterial( const CParticleSystemDefinition * )
+static IMaterial * SSFwd_ParticleLib_DefinitionGetMaterial( ISSParticleLib *self, const CParticleSystemDefinition * a0 ) { return self->DefinitionGetMaterial( a0 ); }
+// bool ISSParticleLib::DefinitionShouldAlwaysPrecache( const CParticleSystemDefinition * )
+static bool SSFwd_ParticleLib_DefinitionShouldAlwaysPrecache( ISSParticleLib *self, const CParticleSystemDefinition * a0 ) { return self->DefinitionShouldAlwaysPrecache( a0 ); }
+// void ISSParticleLib::MgrAddBuiltinRenderingOperators( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrAddBuiltinRenderingOperators( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrAddBuiltinRenderingOperators( a0 ); }
+// void ISSParticleLib::MgrAddBuiltinSimulationOperators( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrAddBuiltinSimulationOperators( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrAddBuiltinSimulationOperators( a0 ); }
+// void ISSParticleLib::MgrAddToRenderCache( CParticleSystemMgr *, CParticleCollection * )
+static void SSFwd_ParticleLib_MgrAddToRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0, CParticleCollection * a1 ) { self->MgrAddToRenderCache( a0, a1 ); }
+// void ISSParticleLib::MgrCommitProfileInformation( CParticleSystemMgr *, bool )
+static void SSFwd_ParticleLib_MgrCommitProfileInformation( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrCommitProfileInformation( a0, a1 ); }
+// bool ISSParticleLib::MgrDebugFrameWarningNeededTestAndReset( CParticleSystemMgr * )
+static bool SSFwd_ParticleLib_MgrDebugFrameWarningNeededTestAndReset( ISSParticleLib *self, CParticleSystemMgr * a0 ) { return self->MgrDebugFrameWarningNeededTestAndReset( a0 ); }
+// void ISSParticleLib::MgrDecommitTempMemory( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrDecommitTempMemory( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrDecommitTempMemory( a0 ); }
+// void ISSParticleLib::MgrDrawRenderCache( CParticleSystemMgr *, bool )
+static void SSFwd_ParticleLib_MgrDrawRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrDrawRenderCache( a0, a1 ); }
+// void ISSParticleLib::MgrDumpProfileInformation( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrDumpProfileInformation( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrDumpProfileInformation( a0 ); }
+// CParticleSystemDefinition * ISSParticleLib::MgrFindParticleSystem( CParticleSystemMgr *, const char * )
+static CParticleSystemDefinition * SSFwd_ParticleLib_MgrFindParticleSystem( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1 ) { return self->MgrFindParticleSystem( a0, a1 ); }
+// float ISSParticleLib::MgrGetLastSimulationTime( const CParticleSystemMgr * )
+static float SSFwd_ParticleLib_MgrGetLastSimulationTime( ISSParticleLib *self, const CParticleSystemMgr * a0 ) { return self->MgrGetLastSimulationTime( a0 ); }
+// int ISSParticleLib::MgrGetParticleSystemCount( CParticleSystemMgr * )
+static int SSFwd_ParticleLib_MgrGetParticleSystemCount( ISSParticleLib *self, CParticleSystemMgr * a0 ) { return self->MgrGetParticleSystemCount( a0 ); }
+// const char * ISSParticleLib::MgrGetParticleSystemNameFromIndex( CParticleSystemMgr *, int )
+static const char * SSFwd_ParticleLib_MgrGetParticleSystemNameFromIndex( ISSParticleLib *self, CParticleSystemMgr * a0, int a1 ) { return self->MgrGetParticleSystemNameFromIndex( a0, a1 ); }
+// bool ISSParticleLib::MgrInit( CParticleSystemMgr *, IParticleSystemQuery * )
+static bool SSFwd_ParticleLib_MgrInit( ISSParticleLib *self, CParticleSystemMgr * a0, IParticleSystemQuery * a1 ) { return self->MgrInit( a0, a1 ); }
+// float ISSParticleLib::MgrParticleThrottleScaling( const CParticleSystemMgr * )
+static float SSFwd_ParticleLib_MgrParticleThrottleScaling( ISSParticleLib *self, const CParticleSystemMgr * a0 ) { return self->MgrParticleThrottleScaling( a0 ); }
+// void ISSParticleLib::MgrPrecacheParticleSystem( CParticleSystemMgr *, const char * )
+static void SSFwd_ParticleLib_MgrPrecacheParticleSystem( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1 ) { self->MgrPrecacheParticleSystem( a0, a1 ); }
+// bool ISSParticleLib::MgrReadParticleConfigFile( CParticleSystemMgr *, const char *, bool, bool )
+static bool SSFwd_ParticleLib_MgrReadParticleConfigFile( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1, bool a2, bool a3 ) { return self->MgrReadParticleConfigFile( a0, a1, a2, a3 ); }
+// void ISSParticleLib::MgrResetRenderCache( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrResetRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrResetRenderCache( a0 ); }
+// void ISSParticleLib::MgrSetLastSimulationTime( CParticleSystemMgr *, float )
+static void SSFwd_ParticleLib_MgrSetLastSimulationTime( ISSParticleLib *self, CParticleSystemMgr * a0, float a1 ) { self->MgrSetLastSimulationTime( a0, a1 ); }
+// void ISSParticleLib::MgrShouldLoadSheets( CParticleSystemMgr *, bool )
+static void SSFwd_ParticleLib_MgrShouldLoadSheets( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrShouldLoadSheets( a0, a1 ); }
+// void ISSParticleLib::MgrUncacheAllParticleSystems( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrUncacheAllParticleSystems( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrUncacheAllParticleSystems( a0 ); }
+
+static void *const s_ParticleLibSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Connect ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Disconnect ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Mgr ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Counters ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionNew ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionDelete ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionConstruct ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionDestruct ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionInitDef ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionInitName ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionBloatBoundsUsingControlPoint ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetHighestControlPoint ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetName ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionHasMoved ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsFinished ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsTranslucent ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsTwoPass ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionRender ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSetDormant ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSimulate ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionStopEmission ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionUsesFullFrameBufferTexture ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionUsesPowerOfTwoFrameBufferTexture ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_DefinitionGetMaterial ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_DefinitionShouldAlwaysPrecache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddBuiltinRenderingOperators ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddBuiltinSimulationOperators ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddToRenderCache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrCommitProfileInformation ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDebugFrameWarningNeededTestAndReset ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDecommitTempMemory ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDrawRenderCache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDumpProfileInformation ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrFindParticleSystem ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetLastSimulationTime ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetParticleSystemCount ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetParticleSystemNameFromIndex ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrInit ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrParticleThrottleScaling ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrPrecacheParticleSystem ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrReadParticleConfigFile ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrResetRenderCache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrSetLastSimulationTime ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrShouldLoadSheets ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrUncacheAllParticleSystems ),
+};
+
+static const SSForwarderTable s_ParticleLibTable = { s_ParticleLibSlots, 45 };
 
 //-----------------------------------------------------------------------------
 // ShimConsole: 11 forwarder(s) over IShimConsole.
@@ -3173,6 +3425,9 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_VPhysicsKeyParser", &s_VPhysicsKeyParserTable },
 	{ "SSFwd_PhysicsCollisionEvent", &s_PhysicsCollisionEventTable },
 	{ "SSFwd_ShimFrame", &s_ShimFrameTable },
+	{ "SSFwd_ShimLevel", &s_ShimLevelTable },
+	{ "SSFwd_ShimRoot", &s_ShimRootTable },
+	{ "SSFwd_ParticleLib", &s_ParticleLibTable },
 	{ "SSFwd_ShimConsole", &s_ShimConsoleTable },
 	{ "SSFwd_ShimEngine", &s_ShimEngineTable },
 	{ "SSFwd_ShimConsoleServer", &s_ShimConsoleServerTable },

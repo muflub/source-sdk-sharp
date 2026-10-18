@@ -21,9 +21,11 @@
 #include "inetchannelinfo.h"
 #include "networkstringtabledefs.h"
 #include "sourcesharp/game/server/ishim_frame.h"
+#include "sourcesharp/game/server/ishim_level.h"
 #include "sourcesharp/game/shared/ishim_areas.h"
 #include "sourcesharp/game/shared/ishim_areas_client.h"
 #include "sourcesharp/game/shared/ishim_console.h"
+#include "sourcesharp/game/shared/ishim_root.h"
 #include "vcollide_parse.h"
 #include "vphysics/collision_set.h"
 #include "vphysics/constraints.h"
@@ -907,6 +909,111 @@ static void *const s_ShimFrameSlots[] = {
 };
 
 static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 19 };
+
+//-----------------------------------------------------------------------------
+// ShimLevel: 26 forwarder(s) over IShimLevel.
+//-----------------------------------------------------------------------------
+// void IShimLevel::ResetServerTime( void )
+static void SSFwd_ShimLevel_ResetServerTime( IShimLevel *self ) { self->ResetServerTime(); }
+// void IShimLevel::ParseParticleManifest( void )
+static void SSFwd_ShimLevel_ParseParticleManifest( IShimLevel *self ) { self->ParseParticleManifest(); }
+// void IShimLevel::ParseParticleManifestForMap( const char * )
+static void SSFwd_ShimLevel_ParseParticleManifestForMap( IShimLevel *self, const char * a0 ) { self->ParseParticleManifestForMap( a0 ); }
+// void IShimLevel::ParseAllEntities( const char * )
+static void SSFwd_ShimLevel_ParseAllEntities( IShimLevel *self, const char * a0 ) { self->ParseAllEntities( a0 ); }
+// void IShimLevel::PrecachePointTemplates( const char *, const int32_t *, int32_t )
+static void SSFwd_ShimLevel_PrecachePointTemplates( IShimLevel *self, const char * a0, const int32_t * a1, int32_t a2 ) { self->PrecachePointTemplates( a0, a1, a2 ); }
+// void IShimLevel::SetLowViolence( const char * )
+static void SSFwd_ShimLevel_SetLowViolence( IShimLevel *self, const char * a0 ) { self->SetLowViolence( a0 ); }
+// void IShimLevel::LoadMessageOfTheDay( void )
+static void SSFwd_ShimLevel_LoadMessageOfTheDay( IShimLevel *self ) { self->LoadMessageOfTheDay(); }
+// int32_t IShimLevel::ResetDeleteList( void )
+static int32_t SSFwd_ShimLevel_ResetDeleteList( IShimLevel *self ) { return self->ResetDeleteList(); }
+// void IShimLevel::ActivateAllEntities( void )
+static void SSFwd_ShimLevel_ActivateAllEntities( IShimLevel *self ) { self->ActivateAllEntities(); }
+// void IShimLevel::InitPostEntitySystems( void )
+static void SSFwd_ShimLevel_InitPostEntitySystems( IShimLevel *self ) { self->InitPostEntitySystems(); }
+// void IShimLevel::SetPrecacheAllowed( int32_t )
+static void SSFwd_ShimLevel_SetPrecacheAllowed( IShimLevel *self, int32_t a0 ) { self->SetPrecacheAllowed( a0 ); }
+// void IShimLevel::ShutdownPreClearSteamSystems( void )
+static void SSFwd_ShimLevel_ShutdownPreClearSteamSystems( IShimLevel *self ) { self->ShutdownPreClearSteamSystems(); }
+// void IShimLevel::ClearSteamAPIContext( void )
+static void SSFwd_ShimLevel_ClearSteamAPIContext( IShimLevel *self ) { self->ClearSteamAPIContext(); }
+// void IShimLevel::ShutdownPreEntitySystems( void )
+static void SSFwd_ShimLevel_ShutdownPreEntitySystems( IShimLevel *self ) { self->ShutdownPreEntitySystems(); }
+// void IShimLevel::ShutdownStandaloneEntities( void )
+static void SSFwd_ShimLevel_ShutdownStandaloneEntities( IShimLevel *self ) { self->ShutdownStandaloneEntities(); }
+// void IShimLevel::ShutdownSoundEnt( void )
+static void SSFwd_ShimLevel_ShutdownSoundEnt( IShimLevel *self ) { self->ShutdownSoundEnt(); }
+// void IShimLevel::ClearEntityList( void )
+static void SSFwd_ShimLevel_ClearEntityList( IShimLevel *self ) { self->ClearEntityList(); }
+// void IShimLevel::ShutdownPostEntitySystems( void )
+static void SSFwd_ShimLevel_ShutdownPostEntitySystems( IShimLevel *self ) { self->ShutdownPostEntitySystems(); }
+// void IShimLevel::UncacheAllParticleSystems( void )
+static void SSFwd_ShimLevel_UncacheAllParticleSystems( IShimLevel *self ) { self->UncacheAllParticleSystems(); }
+// void IShimLevel::RecreateParticleDictionary( void )
+static void SSFwd_ShimLevel_RecreateParticleDictionary( IShimLevel *self ) { self->RecreateParticleDictionary(); }
+// void IShimLevel::PropDataLoadFile( void )
+static void SSFwd_ShimLevel_PropDataLoadFile( IShimLevel *self ) { self->PropDataLoadFile(); }
+// void IShimLevel::PropDataClearFile( void )
+static void SSFwd_ShimLevel_PropDataClearFile( IShimLevel *self ) { self->PropDataClearFile(); }
+// int32_t IShimLevel::LoadSaveGameState( const char *, int32_t )
+static int32_t SSFwd_ShimLevel_LoadSaveGameState( IShimLevel *self, const char * a0, int32_t a1 ) { return self->LoadSaveGameState( a0, a1 ); }
+// int32_t IShimLevel::FileSizeOnPath( const char *, const char * )
+static int32_t SSFwd_ShimLevel_FileSizeOnPath( IShimLevel *self, const char * a0, const char * a1 ) { return self->FileSizeOnPath( a0, a1 ); }
+// int32_t IShimLevel::ReadFileOnPath( const char *, const char *, void *, int32_t )
+static int32_t SSFwd_ShimLevel_ReadFileOnPath( IShimLevel *self, const char * a0, const char * a1, void * a2, int32_t a3 ) { return self->ReadFileOnPath( a0, a1, a2, a3 ); }
+// int32_t IShimLevel::SpawnWorld( const char * const *, const char * const *, int32_t )
+static int32_t SSFwd_ShimLevel_SpawnWorld( IShimLevel *self, const char * const * a0, const char * const * a1, int32_t a2 ) { return self->SpawnWorld( a0, a1, a2 ); }
+
+static void *const s_ShimLevelSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetServerTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifest ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifestForMap ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseAllEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PrecachePointTemplates ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetLowViolence ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadMessageOfTheDay ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetDeleteList ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ActivateAllEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_InitPostEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetPrecacheAllowed ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreClearSteamSystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearSteamAPIContext ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownStandaloneEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownSoundEnt ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearEntityList ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPostEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_UncacheAllParticleSystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_RecreateParticleDictionary ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataLoadFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataClearFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadSaveGameState ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_FileSizeOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ReadFileOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SpawnWorld ),
+};
+
+static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 26 };
+
+//-----------------------------------------------------------------------------
+// ShimRoot: 3 forwarder(s) over IShimRoot.
+//-----------------------------------------------------------------------------
+// void * IShimRoot::Acquire( const char *, int32_t * )
+static void * SSFwd_ShimRoot_Acquire( IShimRoot *self, const char * a0, int32_t * a1 ) { return self->Acquire( a0, a1 ); }
+// void * IShimRoot::AcquireInterface( int32_t, const char *, int32_t *, char *, int32_t )
+static void * SSFwd_ShimRoot_AcquireInterface( IShimRoot *self, int32_t a0, const char * a1, int32_t * a2, char * a3, int32_t a4 ) { return self->AcquireInterface( a0, a1, a2, a3, a4 ); }
+// void IShimRoot::Release( void )
+static void SSFwd_ShimRoot_Release( IShimRoot *self ) { self->Release(); }
+
+static void *const s_ShimRootSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_Acquire ),
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_AcquireInterface ),
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_Release ),
+};
+
+static const SSForwarderTable s_ShimRootTable = { s_ShimRootSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // ShimConsole: 11 forwarder(s) over IShimConsole.
@@ -3111,6 +3218,8 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_VPhysicsKeyParser", &s_VPhysicsKeyParserTable },
 	{ "SSFwd_PhysicsCollisionEvent", &s_PhysicsCollisionEventTable },
 	{ "SSFwd_ShimFrame", &s_ShimFrameTable },
+	{ "SSFwd_ShimLevel", &s_ShimLevelTable },
+	{ "SSFwd_ShimRoot", &s_ShimRootTable },
 	{ "SSFwd_ShimConsole", &s_ShimConsoleTable },
 	{ "SSFwd_ShimEngine", &s_ShimEngineTable },
 	{ "SSFwd_ShimConsoleServer", &s_ShimConsoleServerTable },

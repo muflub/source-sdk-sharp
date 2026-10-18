@@ -334,21 +334,21 @@ static int32_t SourceSharp_ConsoleConsoleSnapshotEntry( int32_t i, SourceSharpCo
 
 //-----------------------------------------------------------------------------
 // ONE LOAD, FOR THE FIRST LOAD AND THE RELOAD ALIKE -- plan_engineapi_vtables
-// step A3. The server hands managed its IShimRoot through LoadSideV2, beside
-// the struct its managed contracts still read; the client stays on LoadSide
-// until its own wave. Both call sites go through here so they cannot drift.
+// step A3. Each side hands managed its IShimRoot through LoadSideV2, beside the
+// root's forwarder table (plan_forwarders_everywhere.md), which managed calls it
+// through. Both call sites go through here so they cannot drift.
 //-----------------------------------------------------------------------------
 static int SourceSharp_LoadMySide()
 {
-	int32_t nRootEntries = 0;
-	IShimRoot *pRoot = ShimRoot_Get( &nRootEntries );
+	const void *pRootTable = NULL;
+	IShimRoot *pRoot = ShimRoot_Get( &pRootTable );
 
 	// D4, and plan_client_vtables CD for the client: the managed root comes back
 	// beside the shim root, and is kept only if its Validate agrees with the
 	// compiler's slot hashes -- refused loudly otherwise. Neither side takes a
 	// ManagedApi table (the server since E-last, the client since CE-last).
 	void *pManagedRoot = NULL;
-	const int rc = SourceSharp_LoadMySide_Host( pRoot, nRootEntries, &pManagedRoot );
+	const int rc = SourceSharp_LoadMySide_Host( pRoot, pRootTable, &pManagedRoot );
 	if ( rc != SOURCESHARP_OK )
 		return rc;
 

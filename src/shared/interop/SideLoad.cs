@@ -55,16 +55,16 @@ public static unsafe class SideLoad
     /// that fails later still unloads. <paramref name="op"/> is the entry's
     /// own crossing, counted on that state before anything else.
     /// </summary>
-    public static int Load(Side side, CrossingOp op, void* pShimRoot, int shimRootEntries, void** ppManagedRoot,
+    public static int Load(Side side, CrossingOp op, void* pShimRoot, void* pShimRootTable, void** ppManagedRoot,
                            nint* pVtables, nint* pSession, byte* pFacts)
-        => Load(side, op, pShimRoot, shimRootEntries, ppManagedRoot, pVtables, pSession, pFacts, bindSide: null);
+        => Load(side, op, pShimRoot, pShimRootTable, ppManagedRoot, pVtables, pSession, pFacts, bindSide: null);
 
     /// <summary>
     /// The same, with <paramref name="bindSide"/> run on the side's engine as
     /// soon as it exists: what only one side's assembly can bind (the server's
     /// IVEngineServer, whose wrapper is Server.Interop's).
     /// </summary>
-    internal static int Load(Side side, CrossingOp op, void* pShimRoot, int shimRootEntries, void** ppManagedRoot,
+    internal static int Load(Side side, CrossingOp op, void* pShimRoot, void* pShimRootTable, void** ppManagedRoot,
                              nint* pVtables, nint* pSession, byte* pFacts, Action<EngineSide>? bindSide)
     {
         // statics to zero: the side's state, which outlives every load, held by
@@ -119,7 +119,7 @@ public static unsafe class SideLoad
             session = new SideSession(side, engine, facts);
             *pSession = GCHandle.ToIntPtr(GCHandle.Alloc(session));
 
-            if (!ShimRoot.TryBind(pShimRoot, shimRootEntries, out ShimRoot? root, out string why))
+            if (!ShimRoot.TryBind(pShimRoot, pShimRootTable, out ShimRoot? root, out string why))
             {
                 Trace(state.Log, $"LoadSideV2({side}) refused: {why}");
                 return -4;

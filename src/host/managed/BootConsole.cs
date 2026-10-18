@@ -9,45 +9,67 @@ namespace SourceSharp.Bootstrap;
 /// console.log without the Bootstrap naming an Abi type.
 ///
 /// <para>
-/// The root's vtable slot <see cref="RootAcquireSlot"/> is
-/// <c>Acquire(name, &amp;entries)</c>; it is asked for
-/// <see cref="InterfaceVersion"/>, whose vtable has <c>Msg</c> at
-/// <see cref="MsgSlot"/> and <c>Warning</c> at <see cref="WarningSlot"/>.
-/// BootConsoleTests pins those numbers to VtableLayouts.g.cs and to
-/// ShimConsole. With no root, or a root that does not serve the console, the
-/// lines go to stderr instead.
+/// Both calls go through forwarder tables (plan_forwarders_everywhere.md), each
+/// an <c>SSForwarderTable</c>: the slot array, then its count. Slot
+/// <see cref="RootAcquireSlot"/> of the root's table, which native hands over
+/// beside the root, is <c>Acquire(root, name, &amp;entries)</c>; it is asked for
+/// <see cref="InterfaceVersion"/> and for <see cref="ConsoleTable"/>, whose
+/// slots <see cref="MsgSlot"/> and <see cref="WarningSlot"/> are <c>Msg</c> and
+/// <c>Warning</c>. BootConsoleTests pins those numbers to the generated
+/// forwarder structs and to ShimConsole. With no root, or a root that does not
+/// serve the console, the lines go to stderr instead.
 /// </para>
 /// </summary>
 internal sealed unsafe class BootConsole
 {
     internal const string InterfaceVersion = "SourceSharpConsole001";
+    internal const string ConsoleTable = "SSFwd_ShimConsole";
     internal const int RootAcquireSlot = 0;
     internal const int MsgSlot = 0;
     internal const int WarningSlot = 1;
 
-    private readonly void* _self;
+    /// <summary>An SSForwarderTable: the slot array, then its count.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Table
+    {
+        public void** Slots;
+        public int Count;
+    }
 
-    private BootConsole(void* self) => _self = self;
+    private readonly void* _self;
+    private readonly void** _slots;
+
+    private BootConsole(void* self, void** slots)
+    {
+        _self = self;
+        _slots = slots;
+    }
 
     /// <summary>Whether lines reach the game's console rather than stderr.</summary>
     public bool Bound => _self != null;
 
     /// <summary>The console stderr stands in for.</summary>
-    public static BootConsole Stderr() => new(null);
+    public static BootConsole Stderr() => new(null, null);
 
-    /// <summary>The console served by <paramref name="pShimRoot"/>, or stderr's.</summary>
-    public static BootConsole Acquire(void* pShimRoot, int shimRootEntries)
+    /// <summary>The console served by <paramref name="pShimRoot"/>, called through <paramref name="pShimRootTable"/>; or stderr's.</summary>
+    public static BootConsole Acquire(void* pShimRoot, void* pShimRootTable)
     {
-        if (pShimRoot == null || shimRootEntries <= RootAcquireSlot)
+        var root = (Table*)pShimRootTable;
+        if (pShimRoot == null || root == null || root->Slots == null || root->Count <= RootAcquireSlot)
             return Stderr();
 
-        var acquire = (delegate* unmanaged<void*, byte*, int*, void*>)(*(void***)pShimRoot)[RootAcquireSlot];
+        var acquire = (delegate* unmanaged<void*, byte*, int*, void*>)root->Slots[RootAcquireSlot];
         int entries = 0;
         void* self;
+        Table* console;
         fixed (byte* name = Utf8(InterfaceVersion))
             self = acquire(pShimRoot, name, &entries);
+        fixed (byte* name = Utf8(ConsoleTable))
+            console = (Table*)acquire(pShimRoot, name, &entries);
 
-        return self == null || entries <= WarningSlot ? Stderr() : new BootConsole(self);
+        return self == null || console == null || console->Slots == null || console->Count <= WarningSlot
+            ? Stderr()
+            : new BootConsole(self, console->Slots);
     }
 
     public void Msg(string text) => Write(MsgSlot, text);
@@ -62,7 +84,7 @@ internal sealed unsafe class BootConsole
             return;
         }
 
-        var write = (delegate* unmanaged<void*, byte*, void>)(*(void***)_self)[slot];
+        var write = (delegate* unmanaged<void*, byte*, void>)_slots[slot];
         fixed (byte* p = Utf8(text))
             write(_self, p);
     }

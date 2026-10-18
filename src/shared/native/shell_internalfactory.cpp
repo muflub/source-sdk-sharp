@@ -189,10 +189,10 @@ public:
 
 static CShimRoot g_ShimRoot;
 
-IShimRoot *ShimRoot_Get( int32_t *pnEntries )
+IShimRoot *ShimRoot_Get( const void **ppTable )
 {
-	if ( pnEntries )
-		*pnEntries = VTableHook::MemberOf( &IShimRoot::Release ).slot + 1;
+	if ( ppTable )
+		*ppTable = SSFwd_Serve( "SSFwd_ShimRoot", nullptr );
 
 	return &g_ShimRoot;
 }

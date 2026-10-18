@@ -120,6 +120,151 @@ internal unsafe struct PhysicsFwd : IForwarderTable
 }
 
 /// <summary>
+/// <c>ISSParticleLib</c> through its forwarders (SSFwd_ParticleLib): 45 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ParticleLibFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_ParticleLib";
+
+    // bool ISSParticleLib::Connect( CreateInterfaceFn )
+    public delegate* unmanaged<void*, void*, byte> Connect;
+
+    // void ISSParticleLib::Disconnect( void )
+    public delegate* unmanaged<void*, void> Disconnect;
+
+    // CParticleSystemMgr * ISSParticleLib::Mgr( void )
+    public delegate* unmanaged<void*, void*> Mgr;
+
+    // void ISSParticleLib::Counters( SSParticleLibCounters_t * )
+    public delegate* unmanaged<void*, void*, void> Counters;
+
+    // void * ISSParticleLib::CollectionNew( size_t )
+    public delegate* unmanaged<void*, nuint, void*> CollectionNew;
+
+    // void ISSParticleLib::CollectionDelete( void * )
+    public delegate* unmanaged<void*, void*, void> CollectionDelete;
+
+    // void ISSParticleLib::CollectionConstruct( CParticleCollection * )
+    public delegate* unmanaged<void*, void*, void> CollectionConstruct;
+
+    // void ISSParticleLib::CollectionDestruct( CParticleCollection * )
+    public delegate* unmanaged<void*, void*, void> CollectionDestruct;
+
+    // bool ISSParticleLib::CollectionInitDef( CParticleCollection *, CParticleSystemDefinition * )
+    public delegate* unmanaged<void*, void*, void*, byte> CollectionInitDef;
+
+    // bool ISSParticleLib::CollectionInitName( CParticleCollection *, const char * )
+    public delegate* unmanaged<void*, void*, byte*, byte> CollectionInitName;
+
+    // void ISSParticleLib::CollectionBloatBoundsUsingControlPoint( CParticleCollection * )
+    public delegate* unmanaged<void*, void*, void> CollectionBloatBoundsUsingControlPoint;
+
+    // int ISSParticleLib::CollectionGetHighestControlPoint( const CParticleCollection * )
+    public delegate* unmanaged<void*, void*, int> CollectionGetHighestControlPoint;
+
+    // const char * ISSParticleLib::CollectionGetName( const CParticleCollection * )
+    public delegate* unmanaged<void*, void*, byte*> CollectionGetName;
+
+    // bool ISSParticleLib::CollectionHasMoved( const CParticleCollection * )
+    public delegate* unmanaged<void*, void*, byte> CollectionHasMoved;
+
+    // bool ISSParticleLib::CollectionIsFinished( CParticleCollection * )
+    public delegate* unmanaged<void*, void*, byte> CollectionIsFinished;
+
+    // bool ISSParticleLib::CollectionIsTranslucent( const CParticleCollection * )
+    public delegate* unmanaged<void*, void*, byte> CollectionIsTranslucent;
+
+    // bool ISSParticleLib::CollectionIsTwoPass( const CParticleCollection * )
+    public delegate* unmanaged<void*, void*, byte> CollectionIsTwoPass;
+
+    // void ISSParticleLib::CollectionRender( CParticleCollection *, IMatRenderContext *, bool, void * )
+    public delegate* unmanaged<void*, void*, void*, byte, void*, void> CollectionRender;
+
+    // void ISSParticleLib::CollectionSetDormant( CParticleCollection *, bool )
+    public delegate* unmanaged<void*, void*, byte, void> CollectionSetDormant;
+
+    // void ISSParticleLib::CollectionSimulate( CParticleCollection *, float, bool )
+    public delegate* unmanaged<void*, void*, float, byte, void> CollectionSimulate;
+
+    // void ISSParticleLib::CollectionStopEmission( CParticleCollection *, bool, bool, bool )
+    public delegate* unmanaged<void*, void*, byte, byte, byte, void> CollectionStopEmission;
+
+    // bool ISSParticleLib::CollectionUsesFullFrameBufferTexture( const CParticleCollection *, bool )
+    public delegate* unmanaged<void*, void*, byte, byte> CollectionUsesFullFrameBufferTexture;
+
+    // bool ISSParticleLib::CollectionUsesPowerOfTwoFrameBufferTexture( const CParticleCollection *, bool )
+    public delegate* unmanaged<void*, void*, byte, byte> CollectionUsesPowerOfTwoFrameBufferTexture;
+
+    // IMaterial * ISSParticleLib::DefinitionGetMaterial( const CParticleSystemDefinition * )
+    public delegate* unmanaged<void*, void*, void*> DefinitionGetMaterial;
+
+    // bool ISSParticleLib::DefinitionShouldAlwaysPrecache( const CParticleSystemDefinition * )
+    public delegate* unmanaged<void*, void*, byte> DefinitionShouldAlwaysPrecache;
+
+    // void ISSParticleLib::MgrAddBuiltinRenderingOperators( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, void> MgrAddBuiltinRenderingOperators;
+
+    // void ISSParticleLib::MgrAddBuiltinSimulationOperators( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, void> MgrAddBuiltinSimulationOperators;
+
+    // void ISSParticleLib::MgrAddToRenderCache( CParticleSystemMgr *, CParticleCollection * )
+    public delegate* unmanaged<void*, void*, void*, void> MgrAddToRenderCache;
+
+    // void ISSParticleLib::MgrCommitProfileInformation( CParticleSystemMgr *, bool )
+    public delegate* unmanaged<void*, void*, byte, void> MgrCommitProfileInformation;
+
+    // bool ISSParticleLib::MgrDebugFrameWarningNeededTestAndReset( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, byte> MgrDebugFrameWarningNeededTestAndReset;
+
+    // void ISSParticleLib::MgrDecommitTempMemory( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, void> MgrDecommitTempMemory;
+
+    // void ISSParticleLib::MgrDrawRenderCache( CParticleSystemMgr *, bool )
+    public delegate* unmanaged<void*, void*, byte, void> MgrDrawRenderCache;
+
+    // void ISSParticleLib::MgrDumpProfileInformation( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, void> MgrDumpProfileInformation;
+
+    // CParticleSystemDefinition * ISSParticleLib::MgrFindParticleSystem( CParticleSystemMgr *, const char * )
+    public delegate* unmanaged<void*, void*, byte*, void*> MgrFindParticleSystem;
+
+    // float ISSParticleLib::MgrGetLastSimulationTime( const CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, float> MgrGetLastSimulationTime;
+
+    // int ISSParticleLib::MgrGetParticleSystemCount( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, int> MgrGetParticleSystemCount;
+
+    // const char * ISSParticleLib::MgrGetParticleSystemNameFromIndex( CParticleSystemMgr *, int )
+    public delegate* unmanaged<void*, void*, int, byte*> MgrGetParticleSystemNameFromIndex;
+
+    // bool ISSParticleLib::MgrInit( CParticleSystemMgr *, IParticleSystemQuery * )
+    public delegate* unmanaged<void*, void*, void*, byte> MgrInit;
+
+    // float ISSParticleLib::MgrParticleThrottleScaling( const CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, float> MgrParticleThrottleScaling;
+
+    // void ISSParticleLib::MgrPrecacheParticleSystem( CParticleSystemMgr *, const char * )
+    public delegate* unmanaged<void*, void*, byte*, void> MgrPrecacheParticleSystem;
+
+    // bool ISSParticleLib::MgrReadParticleConfigFile( CParticleSystemMgr *, const char *, bool, bool )
+    public delegate* unmanaged<void*, void*, byte*, byte, byte, byte> MgrReadParticleConfigFile;
+
+    // void ISSParticleLib::MgrResetRenderCache( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, void> MgrResetRenderCache;
+
+    // void ISSParticleLib::MgrSetLastSimulationTime( CParticleSystemMgr *, float )
+    public delegate* unmanaged<void*, void*, float, void> MgrSetLastSimulationTime;
+
+    // void ISSParticleLib::MgrShouldLoadSheets( CParticleSystemMgr *, bool )
+    public delegate* unmanaged<void*, void*, byte, void> MgrShouldLoadSheets;
+
+    // void ISSParticleLib::MgrUncacheAllParticleSystems( CParticleSystemMgr * )
+    public delegate* unmanaged<void*, void*, void> MgrUncacheAllParticleSystems;
+}
+
+/// <summary>
 /// <c>CCallbackBase</c>'s functions (SSFwd_SteamCallback): 4 slot(s), none of them a method,
 /// so the first argument is the first parameter.
 /// </summary>

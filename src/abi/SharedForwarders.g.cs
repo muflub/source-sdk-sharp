@@ -849,6 +849,113 @@ internal unsafe struct ShimFrameFwd : IForwarderTable
 }
 
 /// <summary>
+/// <c>IShimLevel</c> through its forwarders (SSFwd_ShimLevel): 26 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ShimLevelFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_ShimLevel";
+
+    // void IShimLevel::ResetServerTime( void )
+    public delegate* unmanaged<void*, void> ResetServerTime;
+
+    // void IShimLevel::ParseParticleManifest( void )
+    public delegate* unmanaged<void*, void> ParseParticleManifest;
+
+    // void IShimLevel::ParseParticleManifestForMap( const char * )
+    public delegate* unmanaged<void*, byte*, void> ParseParticleManifestForMap;
+
+    // void IShimLevel::ParseAllEntities( const char * )
+    public delegate* unmanaged<void*, byte*, void> ParseAllEntities;
+
+    // void IShimLevel::PrecachePointTemplates( const char *, const int32_t *, int32_t )
+    public delegate* unmanaged<void*, byte*, void*, int, void> PrecachePointTemplates;
+
+    // void IShimLevel::SetLowViolence( const char * )
+    public delegate* unmanaged<void*, byte*, void> SetLowViolence;
+
+    // void IShimLevel::LoadMessageOfTheDay( void )
+    public delegate* unmanaged<void*, void> LoadMessageOfTheDay;
+
+    // int32_t IShimLevel::ResetDeleteList( void )
+    public delegate* unmanaged<void*, int> ResetDeleteList;
+
+    // void IShimLevel::ActivateAllEntities( void )
+    public delegate* unmanaged<void*, void> ActivateAllEntities;
+
+    // void IShimLevel::InitPostEntitySystems( void )
+    public delegate* unmanaged<void*, void> InitPostEntitySystems;
+
+    // void IShimLevel::SetPrecacheAllowed( int32_t )
+    public delegate* unmanaged<void*, int, void> SetPrecacheAllowed;
+
+    // void IShimLevel::ShutdownPreClearSteamSystems( void )
+    public delegate* unmanaged<void*, void> ShutdownPreClearSteamSystems;
+
+    // void IShimLevel::ClearSteamAPIContext( void )
+    public delegate* unmanaged<void*, void> ClearSteamAPIContext;
+
+    // void IShimLevel::ShutdownPreEntitySystems( void )
+    public delegate* unmanaged<void*, void> ShutdownPreEntitySystems;
+
+    // void IShimLevel::ShutdownStandaloneEntities( void )
+    public delegate* unmanaged<void*, void> ShutdownStandaloneEntities;
+
+    // void IShimLevel::ShutdownSoundEnt( void )
+    public delegate* unmanaged<void*, void> ShutdownSoundEnt;
+
+    // void IShimLevel::ClearEntityList( void )
+    public delegate* unmanaged<void*, void> ClearEntityList;
+
+    // void IShimLevel::ShutdownPostEntitySystems( void )
+    public delegate* unmanaged<void*, void> ShutdownPostEntitySystems;
+
+    // void IShimLevel::UncacheAllParticleSystems( void )
+    public delegate* unmanaged<void*, void> UncacheAllParticleSystems;
+
+    // void IShimLevel::RecreateParticleDictionary( void )
+    public delegate* unmanaged<void*, void> RecreateParticleDictionary;
+
+    // void IShimLevel::PropDataLoadFile( void )
+    public delegate* unmanaged<void*, void> PropDataLoadFile;
+
+    // void IShimLevel::PropDataClearFile( void )
+    public delegate* unmanaged<void*, void> PropDataClearFile;
+
+    // int32_t IShimLevel::LoadSaveGameState( const char *, int32_t )
+    public delegate* unmanaged<void*, byte*, int, int> LoadSaveGameState;
+
+    // int32_t IShimLevel::FileSizeOnPath( const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, int> FileSizeOnPath;
+
+    // int32_t IShimLevel::ReadFileOnPath( const char *, const char *, void *, int32_t )
+    public delegate* unmanaged<void*, byte*, byte*, void*, int, int> ReadFileOnPath;
+
+    // int32_t IShimLevel::SpawnWorld( const char * const *, const char * const *, int32_t )
+    public delegate* unmanaged<void*, void*, void*, int, int> SpawnWorld;
+}
+
+/// <summary>
+/// <c>IShimRoot</c> through its forwarders (SSFwd_ShimRoot): 3 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ShimRootFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_ShimRoot";
+
+    // void * IShimRoot::Acquire( const char *, int32_t * )
+    public delegate* unmanaged<void*, byte*, void*, void*> Acquire;
+
+    // void * IShimRoot::AcquireInterface( int32_t, const char *, int32_t *, char *, int32_t )
+    public delegate* unmanaged<void*, int, byte*, void*, byte*, int, void*> AcquireInterface;
+
+    // void IShimRoot::Release( void )
+    public delegate* unmanaged<void*, void> Release;
+}
+
+/// <summary>
 /// <c>IShimConsole</c> through its forwarders (SSFwd_ShimConsole): 11 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]

@@ -13,7 +13,7 @@ namespace SourceSharp.Bootstrap;
 internal unsafe interface ISideEntry
 {
     /// <summary>The side's load: binds its shims, makes its module and its managed root.</summary>
-    int Load(void* pShimRoot, int shimRootEntries, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts);
+    int Load(void* pShimRoot, void* pShimRootTable, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts);
 
     /// <summary>The managed build stamp, once the module has initialised (the integrator's ruling A).</summary>
     int Stamped(nint session, byte* pFacts);
@@ -38,27 +38,27 @@ internal sealed unsafe class SideEntryPoints : ISideEntry
     /// </summary>
     internal static (string Name, Type[] Parameters)[] Methods(string side) =>
     [
-        ("Load" + side, [typeof(void*), typeof(int), typeof(void**), typeof(nint*), typeof(nint*), typeof(byte*)]),
+        ("Load" + side, [typeof(void*), typeof(void*), typeof(void**), typeof(nint*), typeof(nint*), typeof(byte*)]),
         ("Stamped" + side, [typeof(nint), typeof(byte*)]),
         ("ReloadCheck" + side, [typeof(nint), typeof(byte*), typeof(int)]),
         ("Unload" + side, [typeof(nint)]),
     ];
 
-    private readonly delegate* unmanaged<void*, int, void**, nint*, nint*, byte*, int> _load;
+    private readonly delegate* unmanaged<void*, void*, void**, nint*, nint*, byte*, int> _load;
     private readonly delegate* unmanaged<nint, byte*, int> _stamped;
     private readonly delegate* unmanaged<nint, byte*, int, int> _reloadCheck;
     private readonly delegate* unmanaged<nint, int> _unload;
 
     private SideEntryPoints(nint[] pointers)
     {
-        _load = (delegate* unmanaged<void*, int, void**, nint*, nint*, byte*, int>)pointers[0];
+        _load = (delegate* unmanaged<void*, void*, void**, nint*, nint*, byte*, int>)pointers[0];
         _stamped = (delegate* unmanaged<nint, byte*, int>)pointers[1];
         _reloadCheck = (delegate* unmanaged<nint, byte*, int, int>)pointers[2];
         _unload = (delegate* unmanaged<nint, int>)pointers[3];
     }
 
-    public int Load(void* pShimRoot, int shimRootEntries, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts)
-        => _load(pShimRoot, shimRootEntries, ppManagedRoot, pVtables, pSession, pFacts);
+    public int Load(void* pShimRoot, void* pShimRootTable, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts)
+        => _load(pShimRoot, pShimRootTable, ppManagedRoot, pVtables, pSession, pFacts);
 
     public int Stamped(nint session, byte* pFacts) => _stamped(session, pFacts);
 
