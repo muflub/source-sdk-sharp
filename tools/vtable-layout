@@ -945,10 +945,10 @@ INTERFACES = [
         header='src/sourcesharp/fwd/imanaged_steam_callback.h',
         chain=['IManagedObject', 'IManagedSteamCallback'],
         chain_headers={'IManagedObject': MANAGED_CORE},
-        reached_by='<c>SSFwd_SteamCallback</c>\'s <c>Construct</c> (libss_fwd_steam)',
+        reached_by='<c>SSFwd_SteamCallback</c>\'s <c>Construct</c> (libss_fwd_client)',
         summary='<c>IManagedSteamCallback</c>, one Steam callback\'s managed side: the client\'s '
                 'logon state, URL launch and rich-presence join.',
-        note='OURS, and managed writes it (plan_engine_forwarders.md phase 5): libss_fwd_steam '
+        note='OURS, and managed writes it (plan_engine_forwarders.md phase 5): libss_fwd_client '
              'builds the CCallbackBase Steam registers, so the compiler orders its two Run '
              'overloads, and both call this one slot. NO VIRTUAL DESTRUCTOR, Release at slot 0 '
              'and Validate at 1; native calls neither, and managed releases the block once '
@@ -2942,7 +2942,7 @@ def self_test(out=sys.stdout):
            and '[VtableSlot' not in random_body and ' SetSeed;' in random_body)
     # Every managed-written layout is ordered alike on both ABIs: the Steam
     # callback, the last one MSVC reversed (CCallbackBase's two Run
-    # overloads), is built natively by libss_fwd_steam, and managed writes
+    # overloads), is built natively by libss_fwd_client, and managed writes
     # only IManagedSteamCallback's one slot (plan_engine_forwarders.md phase 5).
     managed_written = [e['struct'] for e in INTERFACES if kind_of(e) in MANAGED_WRITTEN]
     expect('no managed-written layout carries a Windows slot: managed writes '

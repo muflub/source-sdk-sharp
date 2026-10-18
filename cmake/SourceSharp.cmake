@@ -402,7 +402,7 @@ endfunction()
 # plan_server_novalve.md P4): with them, every opendir it calls is an import
 # from tier0.
 #
-# NO_RUNTIME, for a library that calls nothing (libss_fwd_engine): no C
+# NO_RUNTIME, for a library that calls nothing (libss_fwd_server): no C
 # runtime, no C++ runtime and none of the system libraries the VPC line
 # names, so it needs no other library at all. On Linux, -nostdlib: no libc,
 # no libgcc and no crt start files, whose only work is running global

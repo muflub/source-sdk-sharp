@@ -1,6 +1,6 @@
-//========= SourceSharp — libss_fwd_steam's callback, driven as Steam drives it //
+//========= SourceSharp — the client library's Steam callback, driven as Steam drives it //
 //
-// plan_engine_forwarders.md section 6. libss_fwd_steam builds the
+// plan_engine_forwarders.md section 6. libss_fwd_client builds the
 // CCallbackBase Steam registers, so the compiler, not managed, orders its two
 // Run overloads. Each fact calls the library's table the way managed does
 // (SteamCallbackFwd: slot N is field N) and then the object the way Steam
@@ -14,9 +14,9 @@
 // the only way a test may touch those protected members of an object it did
 // not build.
 //
-// fwd_steam.cpp is compiled into this binary, with fwd_engine.cpp and
-// fwd_vphysics.cpp for the serve helper (the CMake row says why); the built
-// library's export set is fwd_libraries_isolation_test's.
+// The client's library (fwd_client.cpp and fwd_steam.cpp) is compiled into
+// this binary (the CMake row says why); the built library's export set is
+// fwd_libraries_isolation_test's.
 //=============================================================================//
 
 #include "gtest/gtest.h"
@@ -59,7 +59,7 @@ enum
 
 const SSForwarderTable &SteamCallbackTable()
 {
-	const SSForwarderTable *pTable = SSFwdSteam_Table( "SSFwd_SteamCallback" );
+	const SSForwarderTable *pTable = SSFwdClient_Table( "SSFwd_SteamCallback" );
 	EXPECT_NE( nullptr, pTable );
 	static const SSForwarderTable kNone = { nullptr, 0 };
 	return pTable ? *pTable : kNone;
@@ -114,9 +114,9 @@ TEST( FwdSteam, TheLibraryServesTheCallbackTableAndNothingUnderOtherNames )
 	ASSERT_NE( nullptr, table.ppSlots );
 	EXPECT_EQ( (int32_t)kSteamCallbackSlots, table.nSlots );
 
-	EXPECT_EQ( nullptr, SSFwdSteam_Table( "SSFwd_SteamCallbac" ) );
-	EXPECT_EQ( nullptr, SSFwdSteam_Table( "SSFwd_ModelInfo" ) );
-	EXPECT_EQ( nullptr, SSFwdSteam_Table( nullptr ) );
+	EXPECT_EQ( nullptr, SSFwdClient_Table( "SSFwd_SteamCallbac" ) );
+	EXPECT_EQ( nullptr, SSFwdClient_Table( "SSFwd_NoSuchTable" ) );
+	EXPECT_EQ( nullptr, SSFwdClient_Table( nullptr ) );
 }
 
 TEST( FwdSteam, SizeOfIsACallbackBaseAndItsTwoMembersRoundedToAWord )
@@ -239,7 +239,7 @@ TEST( FwdSteam, NeitherReleaseNorValidateIsCalledByTheCallback )
 
 TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 {
-	// SS_FWD_SERVES_STEAM is what linking ss_fwd_steam defines, as client.so
+	// SS_FWD_SERVES_CLIENT is what linking ss_fwd_client defines, as client.so
 	// does: the serve helper then answers the Steam table as its own slot
 	// array and count.
 	int32_t nEntries = -1;
@@ -248,7 +248,8 @@ TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 	EXPECT_EQ( (int32_t)kSteamCallbackSlots, nEntries );
 	EXPECT_EQ( SteamCallbackTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
 
-	// The other families still come back from their own libraries.
+	// The client's library also holds the tables both sides call, and its own.
 	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo", nullptr ) );
 	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_PhysicsObject", nullptr ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_EngineClient", nullptr ) );
 }

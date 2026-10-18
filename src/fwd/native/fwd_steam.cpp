@@ -4,15 +4,15 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — libss_fwd_steam: a Steam callback, built natively ====//
+//========= SourceSharp — the Steam callback, built natively (libss_fwd_client) ====//
 // SS_REASON b  an interface resolved by name at load
 //
 // plan_engine_forwarders.md section 6. SteamAPI_RegisterCallback takes a
 // CCallbackBase *, and Steam calls its three virtuals: Run( void * ),
 // Run( void *, bool, SteamAPICall_t ) and GetCallbackSizeBytes. The order of
 // the two Run overloads is the compiler's (MSVC reverses them), so a table
-// managed wrote in one order is wrong on the other ABI. This library builds
-// the object instead: SSSteamCallback derives CCallbackBase, so its vtable is
+// managed wrote in one order is wrong on the other ABI. The client's forwarder
+// library builds the object instead, here, in a translation unit of its own: SSSteamCallback derives CCallbackBase, so its vtable is
 // this compiler's, and its virtuals call one managed-built object,
 // IManagedSteamCallback, whose single slot is the same everywhere.
 //
@@ -28,11 +28,13 @@
 // so there is nothing to run before the free.
 //
 // The functions are the table's slots (tools/engine-forwarders' HAND row
-// SteamCallback): their names are the generator's, SSFwd_<table>_<slot>, and
-// fwd_steam.g.inc lays them out after them.
+// SteamCallback): their names are the generator's, SSFwd_<table>_<slot>,
+// declared in fwd_steam.h, and fwd_client.g.inc lays them out. This file is
+// built without RTTI (src/fwd/native/CMakeLists.txt): with it, SSSteamCallback's
+// vtable would point at a type_info whose own vtable is the C++ runtime's.
 //=============================================================================//
 #include "ss_fwd_sdk.h"
-#include "ss_fwd.h"
+#include "fwd_steam.h"
 
 #include <new>
 
@@ -71,7 +73,7 @@ namespace
 }
 
 // How many bytes Construct needs: what managed allocates for one callback.
-static int SSFwd_SteamCallback_SizeOf()
+int SSFwd_SteamCallback_SizeOf()
 {
 	return int( sizeof( SSSteamCallback ) );
 }
@@ -79,7 +81,7 @@ static int SSFwd_SteamCallback_SizeOf()
 // Builds the callback in pMemory (SizeOf bytes, pointer-aligned) over its
 // managed side, and answers the CCallbackBase * Steam registers. NULL, and
 // nothing built, without memory or a target.
-static CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedSteamCallback *pTarget, int nPayloadBytes )
+CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedSteamCallback *pTarget, int nPayloadBytes )
 {
 	if ( !pMemory || !pTarget )
 		return nullptr;
@@ -88,22 +90,15 @@ static CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedStea
 }
 
 // Whether Steam holds the callback: unregister it before freeing it only then.
-static bool SSFwd_SteamCallback_IsRegistered( CCallbackBase *pCallback )
+bool SSFwd_SteamCallback_IsRegistered( CCallbackBase *pCallback )
 {
 	return pCallback && static_cast< SSSteamCallback * >( pCallback )->IsRegistered();
 }
 
 // The id Steam filed the callback under when it registered it; 0 before.
-static int SSFwd_SteamCallback_CallbackId( CCallbackBase *pCallback )
+int SSFwd_SteamCallback_CallbackId( CCallbackBase *pCallback )
 {
 	return pCallback ? static_cast< SSSteamCallback * >( pCallback )->CallbackId() : 0;
-}
-
-#include "fwd_steam.g.inc"
-
-SS_FWD_STEAM_API const SSForwarderTable *SSFwdSteam_Table( const char *pszName )
-{
-	return SSFwd_Find( s_ForwarderTables, pszName );
 }
 
 // CCallbackBase's own vtable, which its constructor installs before
@@ -113,7 +108,7 @@ SS_FWD_STEAM_API const SSForwarderTable *SSFwdSteam_Table( const char *pszName )
 // Never called: the object is never used while its base is being built. A test
 // that compiles this source into an executable with a runtime leaves the
 // runtime's in place.
-#if defined( SS_FWD_STEAM_BUILD )
+#if defined( SS_FWD_CLIENT_BUILD )
 #if defined( _MSC_VER )
 #if defined( SS_NO_CRT )
 extern "C" int __cdecl _purecall( void )

@@ -127,7 +127,7 @@
 #include "../game/shared/imanaged_areas.h"
 #include "../game/shared/imanaged_areas_client.h"
 #include "../game/shared/sourcesharp_gamesystem.h"   // IManagedRuntimeServer
-#include "../fwd/imanaged_steam_callback.h"        // IManagedSteamCallback (libss_fwd_steam)
+#include "../fwd/imanaged_steam_callback.h"        // IManagedSteamCallback (libss_fwd_client)
 
 #include "../game/shared/vtable_hook.h"
 
@@ -1031,7 +1031,7 @@ VTABLE_LENGTH_TEST( PhysicsConstraintGroupIsEightSlots, "PhysicsConstraintGroupV
                     &IPhysicsConstraintGroup::SolvePenetration, SS_ABI( 8, 7 ) )
 VTABLE_LENGTH_TEST( VPhysicsKeyHandlerIsTwoSlots, "VPhysicsKeyHandlerVtbl",
                     &IVPhysicsKeyHandler::SetDefaults, 2 )
-// Client Steam (Decision 1a; plan_engine_forwarders.md phase 5): libss_fwd_steam
+// Client Steam (Decision 1a; plan_engine_forwarders.md phase 5): libss_fwd_client
 // builds the CCallbackBase Steam registers, and managed writes only its
 // managed side, IManagedSteamCallback: Release (0), Validate (1), Run. Ours,
 // so one order on every ABI, with no data after the vptr.

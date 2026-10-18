@@ -9,7 +9,7 @@
 // plan_engine_forwarders.md section 6. Steam calls a registered callback
 // through CCallbackBase's three virtuals, and the order of its two Run
 // overloads is the compiler's: MSVC reverses them. So managed no longer builds
-// a CCallbackBase. libss_fwd_steam builds one (fwd_steam.cpp), and its
+// a CCallbackBase. libss_fwd_client builds one (fwd_steam.cpp), and its
 // virtuals call this: one method, no overload, so its slots are the same on
 // every ABI and managed knows nothing about the C++ one.
 //

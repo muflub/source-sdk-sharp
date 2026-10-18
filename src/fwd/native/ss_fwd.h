@@ -1,14 +1,15 @@
 //========= SourceSharp — the forwarder table, as managed binds it ===========//
 //
-// plan_engine_forwarders.md. A forwarder library (libss_fwd_engine,
-// libss_fwd_vphysics) holds one generated function per method managed calls,
-// each a direct call through the object's own vtable compiled for this ABI;
-// libss_fwd_steam holds the functions that build and read a Steam callback
-// (fwd_steam.cpp). Its functions are served as one table per interface:
+// plan_engine_forwarders.md. A forwarder library -- one per side,
+// libss_fwd_server and libss_fwd_client -- holds one generated function per
+// method that side's managed code calls, each a direct call through the
+// object's own vtable compiled for this ABI; the client's also holds the
+// functions that build and read a Steam callback (fwd_steam.cpp). Its
+// functions are served as one table per interface:
 //
 //   word 0   the forwarders, an array of plain function pointers in the order
-//            tools/engine-forwarders wrote them (EngineForwarders.g.cs names
-//            the same order, field by field);
+//            tools/engine-forwarders wrote them (the <Side>Forwarders.g.cs
+//            struct of the same name lists the same order, field by field);
 //   word 1   how many slots there are.
 //
 // A plain array has one layout on every ABI, so nothing here or in managed
@@ -38,33 +39,26 @@ struct SSForwarderNamed
 };
 
 #if defined( _WIN32 )
-	#if defined( SS_FWD_ENGINE_BUILD )
-		#define SS_FWD_ENGINE_API extern "C" __declspec( dllexport )
+	#if defined( SS_FWD_SERVER_BUILD )
+		#define SS_FWD_SERVER_API extern "C" __declspec( dllexport )
 	#else
-		#define SS_FWD_ENGINE_API extern "C" __declspec( dllimport )
+		#define SS_FWD_SERVER_API extern "C" __declspec( dllimport )
 	#endif
-	#if defined( SS_FWD_VPHYSICS_BUILD )
-		#define SS_FWD_VPHYSICS_API extern "C" __declspec( dllexport )
+	#if defined( SS_FWD_CLIENT_BUILD )
+		#define SS_FWD_CLIENT_API extern "C" __declspec( dllexport )
 	#else
-		#define SS_FWD_VPHYSICS_API extern "C" __declspec( dllimport )
-	#endif
-	#if defined( SS_FWD_STEAM_BUILD )
-		#define SS_FWD_STEAM_API extern "C" __declspec( dllexport )
-	#else
-		#define SS_FWD_STEAM_API extern "C" __declspec( dllimport )
+		#define SS_FWD_CLIENT_API extern "C" __declspec( dllimport )
 	#endif
 #else
-	#define SS_FWD_ENGINE_API extern "C" __attribute__(( visibility( "default" ) ))
-	#define SS_FWD_VPHYSICS_API extern "C" __attribute__(( visibility( "default" ) ))
-	#define SS_FWD_STEAM_API extern "C" __attribute__(( visibility( "default" ) ))
+	#define SS_FWD_SERVER_API extern "C" __attribute__(( visibility( "default" ) ))
+	#define SS_FWD_CLIENT_API extern "C" __attribute__(( visibility( "default" ) ))
 #endif
 
 // Each library's one export: the table served under pszName, or NULL for a
 // name it does not serve. The tables are constant data that live as long as
 // the library: nothing is allocated, so nothing is released.
-SS_FWD_ENGINE_API const SSForwarderTable *SSFwdEngine_Table( const char *pszName );
-SS_FWD_VPHYSICS_API const SSForwarderTable *SSFwdVPhysics_Table( const char *pszName );
-SS_FWD_STEAM_API const SSForwarderTable *SSFwdSteam_Table( const char *pszName );
+SS_FWD_SERVER_API const SSForwarderTable *SSFwdServer_Table( const char *pszName );
+SS_FWD_CLIENT_API const SSForwarderTable *SSFwdClient_Table( const char *pszName );
 
 // The lookup each export is: the named table, by exact name. Written out
 // rather than strcmp because the libraries link no runtime (NO_RUNTIME).
@@ -88,26 +82,25 @@ inline const SSForwarderTable *SSFwd_Find( const SSForwarderNamed ( &tables )[ N
 }
 
 // What a game DLL's internal factory answers for a name (SourceSharp_
-// InternalFactory): the table a library it links serves under it, as the
+// InternalFactory): the table its side's library serves under it, as the
 // object managed binds (its first word is the slot array), with its count in
-// *pnEntries; NULL, and *pnEntries left alone, for a name none serves.
-// Table names are unique across the libraries (tools/engine-forwarders
-// refuses a name twice), so the order they are asked in decides nothing.
+// *pnEntries; NULL, and *pnEntries left alone, for a name it does not serve.
 //
-// Both game DLLs link the engine and vphysics libraries. Only the client
-// links libss_fwd_steam, since only it registers Steam callbacks, and linking
-// it is what defines SS_FWD_SERVES_STEAM (ss_fwd_steam's INTERFACE
-// definition), so a DLL serves exactly the libraries it links.
+// Each game DLL links its own side's library alone, and linking it is what
+// defines SS_FWD_SERVES_SERVER or SS_FWD_SERVES_CLIENT (each library's
+// INTERFACE definition), so a DLL serves exactly the library it links. A
+// translation unit that links neither serves nothing.
 inline void *SSFwd_Serve( const char *pszName, int32_t *pnEntries )
 {
-	const SSForwarderTable *pTable = SSFwdEngine_Table( pszName );
+	const SSForwarderTable *pTable = nullptr;
 
+#if defined( SS_FWD_SERVES_SERVER )
 	if ( !pTable )
-		pTable = SSFwdVPhysics_Table( pszName );
-
-#if defined( SS_FWD_SERVES_STEAM )
+		pTable = SSFwdServer_Table( pszName );
+#endif
+#if defined( SS_FWD_SERVES_CLIENT )
 	if ( !pTable )
-		pTable = SSFwdSteam_Table( pszName );
+		pTable = SSFwdClient_Table( pszName );
 #endif
 
 	if ( !pTable )

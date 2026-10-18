@@ -66,35 +66,32 @@ ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
     INCLUDES sourcesharp/host sourcesharp/game/shared
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
 
-# plan_engine_forwarders.md: each slot of libss_fwd_engine's tables reaches the
+# plan_engine_forwarders.md: each slot of the forwarder tables reaches the
 # method it names, with its arguments, against a fake engine object whose
-# recorders sit at the compiler's own slots. fwd_engine.cpp is compiled in
-# rather than the library linked, so the binary runs on Windows with no DLL
-# search path to set up; SS_FWD_ENGINE_BUILD makes its export a definition
-# here. fwd_vphysics.cpp is compiled in the same way, for the internal
-# factory's serve helper, which asks both libraries. OPTIMIZED: its subject is
-# what the compiler does with the dispatch.
+# recorders sit at the compiler's own slots. The server's library
+# (fwd_server.cpp) is compiled in rather than linked, so the binary runs on
+# Windows with no DLL search path to set up; SS_FWD_SERVER_BUILD makes its
+# export a definition here, and SS_FWD_SERVES_SERVER is what server.so's link
+# of it defines, for the internal factory's serve helper. OPTIMIZED: its
+# subject is what the compiler does with the dispatch.
 ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
-    DEFINES SS_FWD_ENGINE_BUILD SS_FWD_VPHYSICS_BUILD
+    DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
     INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_engine.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_vphysics.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp)
 
-# plan_engine_forwarders.md section 6: libss_fwd_steam's callback, built in
-# memory the test hands it and driven through CCallbackBase's virtuals as
-# Steam drives it, reaches the one managed-built method with the payload,
-# answers its size and reads what Steam writes into it. fwd_steam.cpp is
-# compiled in, as fwd_engine_test compiles fwd_engine.cpp; so are the other
-# two libraries' sources, for the serve helper a DLL that links all three
-# (the client: SS_FWD_SERVES_STEAM) answers with.
+# plan_engine_forwarders.md section 6: the client library's Steam callback,
+# built in memory the test hands it and driven through CCallbackBase's
+# virtuals as Steam drives it, reaches the one managed-built method with the
+# payload, answers its size and reads what Steam writes into it. The client's
+# library (fwd_client.cpp, fwd_steam.cpp) is compiled in, as fwd_engine_test
+# compiles the server's, with what client.so's link of it defines.
 ss_cpptest_engine_headers(fwd_steam_test
-    DEFINES SS_FWD_ENGINE_BUILD SS_FWD_VPHYSICS_BUILD SS_FWD_STEAM_BUILD SS_FWD_SERVES_STEAM
+    DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT
     INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_steam_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_engine.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_vphysics.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp)
 
 # The CLOSED SET of acquisition failure reasons, walked rather than sampled --
 # plan_native_api.md Part 3b and Part 5c. The contract says four literals, all
@@ -5283,10 +5280,10 @@ ss_cpptest(particles_lib_isolation_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/particles_lib_isolation_test.cpp)
 
-# plan_engine_forwarders.md: each forwarder library (libss_fwd_engine.so,
-# libss_fwd_vphysics.so, libss_fwd_steam.so) exports its table function alone
-# and links nothing; the game DLLs that serve each (both, or for the Steam
-# library the client alone) need it by SONAME and import that function. Read
+# plan_engine_forwarders.md: each forwarder library (libss_fwd_server.so,
+# libss_fwd_client.so) exports its table function alone and links nothing;
+# each game DLL needs its own side's by SONAME, imports that function, and
+# does not need the other side's. Read
 # off the built files with nm and readelf.
 ss_cpptest(fwd_libraries_isolation_test
     LINUX_ONLY "reads the Linux build's shared objects with nm and readelf"
@@ -5298,13 +5295,12 @@ ss_cpptest(fwd_libraries_isolation_test
 # each DLL imports nothing. fwd_engine_test compiles the sources into an
 # executable with a CRT and cannot see either.
 ss_cpptest(fwd_libraries_load_test
-    DEFINES "SS_FWD_ENGINE_LIB=\"$<TARGET_FILE:ss_fwd_engine>\""
-            "SS_FWD_VPHYSICS_LIB=\"$<TARGET_FILE:ss_fwd_vphysics>\""
-            "SS_FWD_STEAM_LIB=\"$<TARGET_FILE:ss_fwd_steam>\""
+    DEFINES "SS_FWD_SERVER_LIB=\"$<TARGET_FILE:ss_fwd_server>\""
+            "SS_FWD_CLIENT_LIB=\"$<TARGET_FILE:ss_fwd_client>\""
     INCLUDES ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_libraries_load_test.cpp
     LIBS dl)
-add_dependencies(fwd_libraries_load_test ss_fwd_engine ss_fwd_vphysics ss_fwd_steam)
+add_dependencies(fwd_libraries_load_test ss_fwd_server ss_fwd_client)
 
 # The game DLLs export CreateInterface alone, read from the built files on both
 # platforms (ELF's dynamic symbols, PE's export directory): MSVC exports a
