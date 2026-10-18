@@ -397,6 +397,24 @@ FORWARD = [
         struct='ShimFrameVtbl',
         every=True,
     ),
+    # Phase 3: the level steps (ishim_level.h, served by the server alone,
+    # called from EngineLevel in Shared.Interop), the shim root itself
+    # (ishim_root.h, whose table native hands managed at load: managed needs a
+    # table to ask for any other), and libss_particles' ISSParticleLib, which
+    # only the client's ParticleLibrary calls.
+    dict(
+        struct='ShimLevelVtbl',
+        every=True,
+    ),
+    dict(
+        struct='ShimRootVtbl',
+        every=True,
+    ),
+    dict(
+        struct='ParticleLibVtbl',
+        side='client',
+        every=True,
+    ),
 ]
 
 # The generated shim areas (plan_forwarders_everywhere.md phase 2): every

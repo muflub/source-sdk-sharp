@@ -16,8 +16,8 @@ public static unsafe class ClientEntry
     private static readonly BootSide s_Side = BootSide.ForClient();
 
     [UnmanagedCallersOnly]
-    public static int LoadClient(void* pShimRoot, int shimRootEntries, void** ppManagedRoot)
-        => Entry.LoadSide(s_Side, pShimRoot, shimRootEntries, ppManagedRoot);
+    public static int LoadClient(void* pShimRoot, void* pShimRootTable, void** ppManagedRoot)
+        => Entry.LoadSide(s_Side, pShimRoot, pShimRootTable, ppManagedRoot);
 
     [UnmanagedCallersOnly]
     public static int ReloadCheckClient(byte* pWhy, int nWhy)

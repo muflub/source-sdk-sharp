@@ -17,6 +17,7 @@
 
 #include "sourcesharp/game/server/ishim_frame.h"
 #include "sourcesharp/game/shared/ishim_areas.h"
+#include "sourcesharp/game/shared/ishim_root.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -269,4 +270,69 @@ TEST( FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn )
 	reinterpret_cast< void ( * )( IShimEventsServer *, void * ) >( table.ppSlots[ 11 ] )( &events, &events );
 	EXPECT_EQ( 11, events.nLast );
 	EXPECT_EQ( &events, events.pFreed );
+}
+
+//-----------------------------------------------------------------------------
+// THE ROOT (phase 3): native hands its table to managed at load, beside the
+// root (ShimRoot_Get), so it is the table managed reaches everything else
+// through. Acquire, AcquireInterface, Release, in ishim_root.h's order.
+//-----------------------------------------------------------------------------
+namespace
+{
+
+class RecordingRoot final : public IShimRoot
+{
+public:
+	void *Acquire( const char *pszName, int32_t *pnEntries ) override
+	{
+		nLast = 0;
+		pName = pszName;
+		if ( pnEntries )
+			*pnEntries = 7;
+		return this;
+	}
+
+	void *AcquireInterface( int32_t nType, const char *pszVersion, int32_t *, char *, int32_t nErrorBytes ) override
+	{
+		nLast = 1;
+		nTypeSaw = nType;
+		pName = pszVersion;
+		nErrorBytesSaw = nErrorBytes;
+		return nullptr;
+	}
+
+	void Release() override { nLast = 2; }
+
+	int nLast = -1;
+	int32_t nTypeSaw = -1;
+	int32_t nErrorBytesSaw = -1;
+	const char *pName = nullptr;
+};
+
+} // namespace
+
+TEST( FwdShim, TheRootsTableIsAcquireAcquireInterfaceAndRelease )
+{
+	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimRoot" );
+	ASSERT_NE( nullptr, pTable );
+	ASSERT_EQ( 3, pTable->nSlots );
+
+	RecordingRoot root;
+	int32_t nEntries = 0;
+	const char *pszName = "SourceSharpConsole001";
+
+	EXPECT_EQ( &root, ( reinterpret_cast< void *( * )( IShimRoot *, const char *, int32_t * ) >(
+		pTable->ppSlots[ 0 ] )( &root, pszName, &nEntries ) ) );
+	EXPECT_EQ( 0, root.nLast );
+	EXPECT_EQ( pszName, root.pName );
+	EXPECT_EQ( 7, nEntries );
+
+	reinterpret_cast< void *( * )( IShimRoot *, int32_t, const char *, int32_t *, char *, int32_t ) >(
+		pTable->ppSlots[ 1 ] )( &root, 3, pszName, nullptr, nullptr, 64 );
+	EXPECT_EQ( 1, root.nLast );
+	EXPECT_EQ( 3, root.nTypeSaw );
+	EXPECT_EQ( 64, root.nErrorBytesSaw );
+
+	reinterpret_cast< void ( * )( IShimRoot * ) >( pTable->ppSlots[ 2 ] )( &root );
+	EXPECT_EQ( 2, root.nLast );
 }

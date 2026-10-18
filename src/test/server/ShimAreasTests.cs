@@ -100,13 +100,14 @@ public unsafe class ShimAreasTests : IDisposable
             s_served[TableName(v)] = (nint)header;
         }
 
-        var rootVtbl = Alloc(3);   // Acquire, AcquireInterface, Release
-        rootVtbl[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
-        rootVtbl[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
-        var root = Alloc(1);
-        root[0] = (nint)rootVtbl;
+        var rootSlots = Alloc(3);   // the root's forwarder table: Acquire, AcquireInterface, Release
+        rootSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
+        rootSlots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
+        var rootTable = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        rootTable->Slots = (void**)rootSlots;
+        rootTable->SlotCount = 3;
 
-        Assert.True(ShimRoot.TryBind(root, ShimRoot.ExpectedEntries, out var bound, out string why), why);
+        Assert.True(ShimRoot.TryBind(Alloc(1), rootTable, out var bound, out string why), why);
         return bound!;
     }
 

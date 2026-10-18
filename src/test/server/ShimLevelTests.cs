@@ -27,26 +27,24 @@ namespace SourceSharp.Tests;
 public unsafe class ShimLevelTests
 {
     private static int SlotOf(string field)
-        => (int)Marshal.OffsetOf(typeof(ShimLevelVtbl), field) / sizeof(void*);
+        => (int)Marshal.OffsetOf(typeof(ShimLevelFwd), field) / sizeof(void*);
 
     //-------------------------------------------------------------------------
-    // 1. THE LAYOUT.
+    // 1. THE FORWARDER TABLE (SSFwd_ShimLevel, plan_forwarders_everywhere.md):
+    // one slot per method ishim_level.h declares, in its order.
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimLevelLayoutSpansTwentySixSlots()
-        // Twenty-six and not twenty-eight: no virtual destructor, so no
-        // Itanium pair in front of slot 0. vtable_index_agreement_test.cpp
-        // holds this same number against the compiler, on the committed file.
+    public void TheShimLevelTableHasTwentySixSlots()
         //
         // Twenty-two until the save lane's stage 2 appended LoadSaveGameState;
         // twenty-three until plan_server_novalve P2.1 appended FileSizeOnPath
         // and ReadFileOnPath; twenty-five until P5 appended SpawnWorld.
-        => Assert.Equal(26, Vtable.SlotsIn<ShimLevelVtbl>());
+        => Assert.Equal(26, Forwarders.SlotCount<ShimLevelFwd>());
 
     [Fact]
     public void EveryShimLevelFieldIsPointerSized()
-        => Assert.Equal(26 * sizeof(void*), sizeof(ShimLevelVtbl));
+        => Assert.Equal(26 * sizeof(void*), sizeof(ShimLevelFwd));
 
     [Fact]
     public void TheFirstFieldIsSlotZeroAndTheLastIsSlotTwentyFive()
@@ -106,7 +104,7 @@ public unsafe class ShimLevelTests
     private static void* FakeShim(out void** table)
     {
         table = (void**)NativeMemory.AllocZeroed(
-            (nuint)Vtable.SlotsIn<ShimLevelVtbl>(), (nuint)sizeof(void*));
+            (nuint)Forwarders.SlotCount<ShimLevelFwd>(), (nuint)sizeof(void*));
 
         table[SlotOf("ResetDeleteList")] =
             (delegate* unmanaged<void*, int>)&ResetDeleteListAnswers;
@@ -119,10 +117,8 @@ public unsafe class ShimLevelTests
         table[SlotOf("ClearEntityList")] =
             (delegate* unmanaged<void*, void>)&ClearEntityListCounts;
 
-        void** self = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-        *self = table;
-
-        return self;
+        // The object a forwarder is handed; nothing reads it.
+        return NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
     }
 
     private static IEngineLevel BoundTo(void* self, void** table)
@@ -130,7 +126,7 @@ public unsafe class ShimLevelTests
         object level = new EngineLevel(new EngineSide(Side.Server));
 
         Set(level, "_self", Pointer.Box(self, typeof(void*)));
-        Set(level, "_vtbl", Pointer.Box(table, typeof(ShimLevelVtbl*)));
+        Set(level, "_vtbl", Pointer.Box(table, typeof(ShimLevelFwd*)));
 
         return (IEngineLevel)level;
     }
@@ -164,10 +160,15 @@ public unsafe class ShimLevelTests
     {
         s_DeleteListAnswer = 6;
         void* self = FakeShim(out void** table);
+        var header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
         try
         {
             var served = new EngineSide(Side.Server);
-            using var root = new FakeShimRoot().Interface(EngineLevel.InterfaceVersion, self);
+            header->Slots = table;
+            header->SlotCount = Forwarders.SlotCount<ShimLevelFwd>();
+            using var root = new FakeShimRoot()
+                .Interface(EngineLevel.InterfaceVersion, self)
+                .Interface(ShimLevelFwd.TableName, header);
             Assert.True(served.AttachShims(root.Bind(), out string why), why);
 
             Assert.Equal(6, new EngineLevel(served).ResetDeleteList());
@@ -178,6 +179,7 @@ public unsafe class ShimLevelTests
         }
         finally
         {
+            NativeMemory.Free(header);
             NativeMemory.Free(table);
             NativeMemory.Free(self);
         }

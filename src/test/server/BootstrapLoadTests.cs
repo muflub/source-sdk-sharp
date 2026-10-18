@@ -21,7 +21,7 @@ public sealed unsafe class BootstrapLoadTests(SideRootPair roots) : IClassFixtur
         public List<string> Calls { get; } = new();
         public IReadOnlyList<LoadedAssembly> Stamp { get; private set; } = [];
 
-        public int Load(void* pShimRoot, int shimRootEntries, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts)
+        public int Load(void* pShimRoot, void* pShimRootTable, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts)
         {
             Calls.Add("Load");
             SideFacts.ReadLoad(pFacts);
@@ -59,7 +59,7 @@ public sealed unsafe class BootstrapLoadTests(SideRootPair roots) : IClassFixtur
             var abi = new LoadedFile("SourceSharp.Abi.dll", "abi0", DateTime.UnixEpoch);
             nint vtables = 0;
 
-            int rc = Entry.LoadAndStamp(entry, context, abi, Facts(), null, 0, null, ref vtables, out nint session);
+            int rc = Entry.LoadAndStamp(entry, context, abi, Facts(), null, null, null, ref vtables, out nint session);
 
             Assert.Equal(0, rc);
             Assert.Equal(["Load", "Stamped"], entry.Calls);
@@ -78,7 +78,7 @@ public sealed unsafe class BootstrapLoadTests(SideRootPair roots) : IClassFixtur
     private sealed class RefusingEntry : ISideEntry
     {
         public bool Stamped { get; private set; }
-        public int Load(void* pShimRoot, int shimRootEntries, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts)
+        public int Load(void* pShimRoot, void* pShimRootTable, void** ppManagedRoot, nint* pVtables, nint* pSession, byte* pFacts)
         {
             *pSession = 33;
             return -4;
@@ -97,7 +97,7 @@ public sealed unsafe class BootstrapLoadTests(SideRootPair roots) : IClassFixtur
             var entry = new RefusingEntry();
             nint vtables = 0;
 
-            int rc = Entry.LoadAndStamp(entry, context, null, Facts(), null, 0, null, ref vtables, out nint session);
+            int rc = Entry.LoadAndStamp(entry, context, null, Facts(), null, null, null, ref vtables, out nint session);
 
             Assert.Equal(-4, rc);
             Assert.Equal(33, session);

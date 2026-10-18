@@ -326,23 +326,27 @@ TEST( VtableAcquireCount, ShimLevelAcquireNamesTheLastMember )
 	EXPECT_EQ( last, named );
 }
 
-TEST( VtableAcquireCount, ShimRootGetNamesTheLastMember )
+TEST( VtableAcquireCount, ShimRootGetHandsTheRootsForwarderTableRatherThanACount )
 {
-	// The same shape again, for the root LoadSideV2 hands managed.
+	// plan_forwarders_everywhere.md phase 3: the root LoadSideV2 hands managed
+	// travels with its forwarder table, which managed holds against
+	// ShimRootFwd's count, so ShimRoot_Get reads no member's slot any more.
+	// The served name is the generated table's (tools/engine-forwarders'
+	// ShimRoot row); a wrong one hands managed a null table, which it refuses.
 	const std::string source =
 		ReadRelative( "sourcesharp/game/shared/shell_internalfactory.cpp" );
 
 	ASSERT_FALSE( source.empty() )
 		<< "cannot find shell_internalfactory.cpp -- this test is vacuous without it";
 
-	const std::string named =
-		AcquireMemberIn( source, "VTableHook::MemberOf( &IShimRoot::" );
-	const std::string last = LastFieldOf( ReadLayout(), "ShimRootVtbl" );
+	const size_t body = source.find( "IShimRoot *ShimRoot_Get( const void **ppTable )\n{" );
+	ASSERT_NE( std::string::npos, body ) << "ShimRoot_Get no longer takes the table's out-parameter";
+	const std::string fn = source.substr( body, source.find( "\n}\n", body ) - body );
 
-	EXPECT_FALSE( last.empty() )
-		<< "ShimRootVtbl has no fields in the committed layout";
-
-	EXPECT_EQ( last, named );
+	EXPECT_NE( std::string::npos, fn.find( "*ppTable = SSFwd_Serve( \"SSFwd_ShimRoot\", nullptr );" ) )
+		<< "ShimRoot_Get no longer hands over SSFwd_ShimRoot";
+	EXPECT_EQ( std::string::npos, fn.find( "VTableHook::MemberOf" ) )
+		<< "ShimRoot_Get counts the root's vtable again";
 }
 
 TEST( VtableAcquireCount, ShimConsoleAcquireNamesTheLastMember )

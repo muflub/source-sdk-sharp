@@ -193,6 +193,22 @@ numbers here.
   `AnAreaWithTooFewSlotsIsRefusedNamingBoth` red; swapping a base slot with
   a derived one in SSFwd_ShimEventsServer turns fwd_shim_test red.
 
+## 6c. Phase 3, as built (2026-10-18)
+
+- Every=True rows for ShimLevel, ShimRoot and ParticleLib (client); the
+  console's came with phase 2. EngineLevel and ParticleLibrary acquire with
+  `Forwarders.TryAcquire`; ShimConsole holds a `ShimRef<ShimConsoleFwd>`.
+- **The root's table is handed over at load.** `ShimRoot_Get( &pTable )`
+  answers the root and `SSFwd_Serve( "SSFwd_ShimRoot" )`; the load passes
+  both, the table where the root's slot count was, through the host
+  (`SourceSharp_LoadServer/Client( pShimRoot, pShimRootTable, ppManagedRoot )`),
+  the bootstrap (`Entry.LoadSide`, `SideEntryPoints`, whose resolver checks
+  the new signature) and the side entries to `ShimRoot.TryBind( root, table )`,
+  which holds the table to `ShimRootFwd`'s count. BootConsole, which names
+  no Abi type, reads both tables' headers itself.
+- Proofs: without the count check, ShimRootTests' short-table fact is red;
+  fwd_shim_test calls each slot of SSFwd_ShimRoot on a recording IShimRoot.
+
 ## 7. Decisions
 
 - 2026-10-18 (user, relayed by a peer session): every native<->managed call

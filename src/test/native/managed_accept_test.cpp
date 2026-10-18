@@ -329,9 +329,10 @@ TEST( ManagedHolders, TheClientLoadsThroughV2WithItsShimRootAndNoEngineStruct )
 	// side hands it a ManagedApi either; the call is the side, the shim root
 	// and the managed root's out-parameter, and nothing else.
 	// plan_side_entries SE1: each side calls its own host export, so no side
-	// travels as an argument.
-	EXPECT_NE( std::string::npos, fn.find( "const int rc = SourceSharp_LoadMySide_Host( pRoot, nRootEntries, &pManagedRoot );" ) )
-		<< "the load no longer goes through the side's own export with exactly the shim root and the managed root";
+	// travels as an argument. plan_forwarders_everywhere.md phase 3: the shim
+	// root travels with its forwarder table, which replaced its slot count.
+	EXPECT_NE( std::string::npos, fn.find( "const int rc = SourceSharp_LoadMySide_Host( pRoot, pRootTable, &pManagedRoot );" ) )
+		<< "the load no longer goes through the side's own export with exactly the shim root, its table and the managed root";
 	EXPECT_EQ( std::string::npos, fn.find( "SourceSharpManagedApi" ) )
 		<< "the load hands LoadSideV2 a ManagedApi again";
 	EXPECT_NE( std::string::npos, fn.find( "if ( !ManagedRoot_Accept( pManagedRoot, szWhy, sizeof( szWhy ) ) )" ) )

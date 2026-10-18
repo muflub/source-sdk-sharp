@@ -6,10 +6,11 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// plan_engineapi_vtables step A3: <see cref="ShimRoot"/> binds the one native
-/// object LoadSideV2 hands the server, and refuses the two roots that would
-/// misbind every later call. The native root here is a fake built in
-/// unmanaged memory with the same shape: an object whose first word is a
-/// vtable of function pointers, called with the object as `this`.
+/// object LoadSideV2 hands a side, with the forwarder table native hands beside
+/// it (plan_forwarders_everywhere.md phase 3), and refuses the two roots that
+/// would misbind every later call. The native half here is a fake built in
+/// unmanaged memory: an object, and a table of function pointers each called
+/// with the object first.
 /// </summary>
 public unsafe class ShimRootTests : IDisposable
 {
@@ -19,20 +20,34 @@ public unsafe class ShimRootTests : IDisposable
     [Fact]
     public void ANullRootIsRefused()
     {
-        Assert.False(ShimRoot.TryBind(null, ShimRoot.ExpectedEntries, out var bound, out string why));
+        Assert.False(ShimRoot.TryBind(null, FakeTable(), out var bound, out string why));
         Assert.Null(bound);
         Assert.Contains("no shim root", why);
     }
 
     [Fact]
-    public void ACountOtherThanTheLayoutsIsRefusedNamingBoth()
+    public void ATableShorterThanTheStructIsRefusedNamingBoth()
     {
         void* root = FakeRoot();
 
-        Assert.False(ShimRoot.TryBind(root, 2, out var bound, out string why));
+        Assert.False(ShimRoot.TryBind(root, FakeTable(count: 2), out var bound, out string why));
         Assert.Null(bound);
-        Assert.Contains("2 slot(s)", why);
-        Assert.Contains($"has {ShimRoot.ExpectedEntries}", why);
+        Assert.Contains("with 2 forwarder(s)", why);
+        Assert.Contains($"reads {ShimRoot.ExpectedEntries}", why);
+    }
+
+    [Fact]
+    public void ALongerTableIsANewerLibraryAndBinds()
+        // The root's table only appends (tools/engine-forwarders), so slots
+        // past the struct's are a newer library's, never read here.
+        => Assert.True(ShimRoot.TryBind(FakeRoot(), FakeTable(count: 4), out _, out string why), why);
+
+    [Fact]
+    public void NoTableIsRefused()
+    {
+        Assert.False(ShimRoot.TryBind(FakeRoot(), null, out var bound, out string why));
+        Assert.Null(bound);
+        Assert.Contains("no table", why);
     }
 
     [Fact]
@@ -40,7 +55,7 @@ public unsafe class ShimRootTests : IDisposable
     {
         void* root = FakeRoot();
 
-        Assert.True(ShimRoot.TryBind(root, ShimRoot.ExpectedEntries, out var bound, out string why), why);
+        Assert.True(ShimRoot.TryBind(root, FakeTable(), out var bound, out string why), why);
         void* frame = bound!.Acquire("SourceSharpFrame001", out int entries);
 
         Assert.Equal(FrameObject, (nint)frame);
@@ -52,7 +67,7 @@ public unsafe class ShimRootTests : IDisposable
     {
         void* root = FakeRoot();
 
-        Assert.True(ShimRoot.TryBind(root, ShimRoot.ExpectedEntries, out var bound, out _));
+        Assert.True(ShimRoot.TryBind(root, FakeTable(), out var bound, out _));
         void* none = bound!.Acquire("SourceSharpNoSuchThing001", out int entries);
 
         Assert.True(none == null);
@@ -60,21 +75,30 @@ public unsafe class ShimRootTests : IDisposable
     }
 
     [Fact]
-    public void TheLayoutIsThreeSlots()
+    public void TheTableIsThreeSlots()
         => Assert.Equal(3, ShimRoot.ExpectedEntries);   // AcquireInterface joined at C5; AbiVersion left 2026-10-01
 
     private void* FakeRoot()
     {
-        var vtbl = (nint*)NativeMemory.AllocZeroed((nuint)(3 * sizeof(nint)));
-        vtbl[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&Acquire;
-        vtbl[2] = (nint)(delegate* unmanaged<void*, void>)&Release;
-
         var obj = (nint*)NativeMemory.AllocZeroed((nuint)sizeof(nint));
-        obj[0] = (nint)vtbl;
-
-        _blocks.Add((nint)vtbl);
         _blocks.Add((nint)obj);
         return obj;
+    }
+
+    /// <summary>The root's forwarder table: Acquire, AcquireInterface, Release, at <paramref name="count"/> slots.</summary>
+    private void* FakeTable(int count = 3)
+    {
+        var slots = (nint*)NativeMemory.AllocZeroed((nuint)(Math.Max(count, 3) * sizeof(nint)));
+        slots[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&Acquire;
+        slots[2] = (nint)(delegate* unmanaged<void*, void>)&Release;
+
+        var header = (ForwarderTableHeader*)NativeMemory.AllocZeroed((nuint)sizeof(ForwarderTableHeader));
+        header->Slots = (void**)slots;
+        header->SlotCount = count;
+
+        _blocks.Add((nint)slots);
+        _blocks.Add((nint)header);
+        return header;
     }
 
     [UnmanagedCallersOnly]

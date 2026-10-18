@@ -16,8 +16,8 @@ public static unsafe class ServerEntry
     private static readonly BootSide s_Side = BootSide.ForServer();
 
     [UnmanagedCallersOnly]
-    public static int LoadServer(void* pShimRoot, int shimRootEntries, void** ppManagedRoot)
-        => Entry.LoadSide(s_Side, pShimRoot, shimRootEntries, ppManagedRoot);
+    public static int LoadServer(void* pShimRoot, void* pShimRootTable, void** ppManagedRoot)
+        => Entry.LoadSide(s_Side, pShimRoot, pShimRootTable, ppManagedRoot);
 
     [UnmanagedCallersOnly]
     public static int ReloadCheckServer(byte* pWhy, int nWhy)

@@ -129,25 +129,40 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     /// <summary>The root, bound the way LoadSideV2 binds the real one.</summary>
     public ShimRoot Bind()
     {
-        void* root = Raw();
-        Assert.True(ShimRoot.TryBind(root, ShimRoot.ExpectedEntries, out var bound, out string why), why);
+        Assert.True(ShimRoot.TryBind(Raw(), RawTable(), out var bound, out string why), why);
         return bound!;
     }
 
-    /// <summary>The root as native hands it over, unbound.</summary>
+    /// <summary>
+    /// The root as native hands it over, unbound: an object whose second word
+    /// is this instance's handle (its first is unused, as nothing reads a
+    /// root's vtable).
+    /// </summary>
     public void* Raw()
     {
-        var rootVtbl = Alloc(3);   // Acquire, AcquireInterface, Release
-        rootVtbl[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
-        rootVtbl[1] = (nint)(delegate* unmanaged<void*, int, byte*, void*, byte*, int, void*>)&RootAcquireInterface;
-        rootVtbl[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
-
         if (!_self.IsAllocated)
             _self = GCHandle.Alloc(this);
         var root = Alloc(2);
-        root[0] = (nint)rootVtbl;
         root[1] = GCHandle.ToIntPtr(_self);
         return root;
+    }
+
+    /// <summary>
+    /// The root's forwarder table as native hands it over beside the root
+    /// (SSFwd_ShimRoot, an SSForwarderTable): Acquire, AcquireInterface,
+    /// Release, each handed the root object.
+    /// </summary>
+    public void* RawTable()
+    {
+        var slots = Alloc(3);
+        slots[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
+        slots[1] = (nint)(delegate* unmanaged<void*, int, byte*, void*, byte*, int, void*>)&RootAcquireInterface;
+        slots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
+
+        var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        header->Slots = (void**)slots;
+        header->SlotCount = 3;
+        return header;
     }
 
     private nint* Alloc(int words)
