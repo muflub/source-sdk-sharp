@@ -4,82 +4,28 @@ using System.Text;
 namespace SourceSharp.Abi;
 
 //=============================================================================
-// CALLING AN ENGINE INTERFACE FROM C# WITH NO C++ IN BETWEEN.
+// OUR OWN NATIVE INTERFACES, AND THE HELPERS EVERY BINDING SHARES.
 //
-// Three facts that hold under the Itanium C++ ABI (Linux) and the Microsoft
-// one (Windows) alike:
+// The engine's interfaces are no longer called through their vtables: every
+// call managed makes goes through a generated native forwarder
+// (plan_engine_forwarders.md, Forwarders.cs), so nothing here knows how either
+// C++ ABI lays out an engine class. What is left is the acquire of the shim
+// interfaces this tree declares and compiles itself (TryAcquireShim), whose
+// layouts are ours and ordered alike on both ABIs -- no virtual destructor, no
+// overload -- and the marshalling helpers a one-line delegation needs.
 //
-//   * an object's first word is its vtable pointer;
-//   * a vtable entry is a function pointer;
-//   * `this` is the first argument (SysV's rdi, Windows x64's rcx) -- which is
-//     exactly what `delegate* unmanaged<void*, ...>` puts there.
-//
-// What differs is the ORDER of some tables, and VtableLayouts.g.cs carries
-// both: see its header and VtableAbi.
-//
-// So a bound call is `_vtbl->GetLevelName(_self)`. The field's POSITION in the
+// So a bound shim call is `_vtbl->Frame(_self)`. The field's POSITION in the
 // generated struct is the slot number, no index is written at any call site,
 // and nothing at all happens per call.
-//
-//-----------------------------------------------------------------------------
-// WHAT USED TO BE HERE, AND WHY IT IS NOT.
-//
-// This file was 851 lines and it verified: a symbol route against the shipped
-// binary, an RTTI route reading the typeinfo record in front of every vtable, a
-// `this`-adjustment confirmation over three ABI invariants, a per-slot layout
-// check requiring each bound slot to hold a function neither neighbour holds,
-// and a ledger row type carrying a mangled name per method. Beside it ran a
-// live differential that called every bound method and held the answer against
-// something outside the engine.
-//
-// All of it is deleted, and the reason is one sentence from the owner:
-//
-//     THE ENGINE FACTORY INTERFACES ARE STABLE AND DO NOT CHANGE UNLESS THE
-//     INTERFACE VERSION STRING CHANGES.
-//
-// That is the contract Valve's own convention already makes. `CreateInterface`
-// either answers for "VEngineClient014" or it does not, and if it does, the
-// layout is the one that string names. An apparatus that re-proved it on every
-// acquire was answering a question nobody had asked, and its cost was not only
-// its own size: it made every unproved slot a `NotBound_` placeholder, which is
-// how 259 of 350 fields came to be untyped.
-//
-//-----------------------------------------------------------------------------
-// WHAT REPLACES IT IS ONE COMPARISON, AND IT CHECKS US RATHER THAN THE ENGINE.
-//
-// SourceSharp.Abi/VtableLayouts.g.cs is GENERATED from the interface headers by
-// tools/vtable-layout. A generated file can go stale -- somebody edits a header,
-// or lands the generator's input without re-running it -- and then field 71 of
-// the struct is a different method from slot 71 of the engine's table. No call
-// faults. The wrong function returns whatever it left in the return register,
-// writes through whatever it thought its arguments were, and the symptom
-// arrives somewhere else, later.
-//
-// So native holds the count, taken from the COMPILER rather than counted:
-// `VTableHook::MemberOf( &Interface::LastMethod ).slot + 1`, in
-// sourcesharp/game/shared/shell_vtable_interfaces.cpp. SourceSharp_Acquire-
-// Interface hands over the pointer AND that number, and TryAcquire below holds
-// it against `sizeof(TVtbl) / sizeof(void*)`.
-//
-// Equal, construct the impl. Not equal, refuse and name both numbers.
-//
-// THE ASSUMPTION UNDERNEATH IS MADE TRUE RATHER THAN TRUSTED. Both counts come
-// from OUR headers, so the check is only as good as those headers matching the
-// engine's -- and `cdll_int.h` declares two virtuals inside `#if` blocks, each
-// of which shifts every slot below it. shell_vtable_interfaces.cpp `#error`s if
-// it is compiled with USE_SDL off or NO_VOICE on, which are the shipped
-// engine's settings, and vtable_index_agreement_test.cpp pins the resulting
-// length with a static_assert.
 //=============================================================================
 
 /// <summary>
-/// The shared half of the vtable binding: acquire, and the two marshalling
-/// helpers a one-line delegation needs.
+/// The shim acquire, and the marshalling helpers a one-line delegation needs.
 ///
 /// <para>
-/// <b>Nothing here is per call.</b> <see cref="TryAcquire{TVtbl}"/> runs once
-/// when an interface is bound; after that the impl classes index their struct
-/// directly and this file is not in the path.
+/// <b>Nothing here is per call.</b> <see cref="TryAcquireShim{TVtbl}"/> runs
+/// once when an interface is bound; after that the impl classes index their
+/// struct directly and this file is not in the path.
 /// </para>
 /// </summary>
 public static unsafe class Vtable
@@ -139,103 +85,13 @@ public static unsafe class Vtable
         => sizeof(TVtbl) / sizeof(void*);
 
     /// <summary>
-    /// The table length native reports for <typeparamref name="TVtbl"/> in THIS
-    /// process: the struct's span where the engine is built to the Itanium ABI,
-    /// and the Microsoft ABI's length on Windows, where MSVC gives a virtual
-    /// destructor one slot rather than two (<see cref="VtableAbi"/>). Native
-    /// takes its count as <c>MemberOf( &amp;I::LastMethod ).slot + 1</c> from
-    /// the compiler it was built with, so the two ABIs answer differently for
-    /// the same header, and each is held against its own number.
-    /// </summary>
-    public static int EntriesFor<TVtbl>() where TVtbl : unmanaged
-        => OperatingSystem.IsWindows() ? VtableAbi.MicrosoftEntries<TVtbl>() : SlotsIn<TVtbl>();
-
-    /// <summary>
-    /// Ask native for an interface by version string and hold its table length
-    /// against <typeparamref name="TVtbl"/>.
+    /// Ask native for a SHIM interface — one this tree declares, implements and
+    /// compiles itself, served by <see cref="SourceSharpFactoryType.Internal"/>
+    /// — by name, and hold its table length against <typeparamref name="TVtbl"/>.
     ///
     /// <para>
-    /// THE ORDER MATTERS AND IT IS SHORT. Native answers for the version string
-    /// or it does not; if it does, its precompiled count must equal this
-    /// struct's field count; and only then is there anything to construct. A
-    /// failure at either step binds nothing at all — there is no partially
-    /// bound state for a caller to reach a method through.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>Always through a named factory</b> (plan_abi_hotreload D8): the
-    /// caller's side's own (<c>EngineSide.Interfaces</c>) or a test's seam. The
-    /// overloads that took none reached the process-wide factory, which
-    /// followed the thread's active side; their last callers moved to their
-    /// side's and they went.
-    /// </para>
-    /// </summary>
-    /// <param name="factory">The asking side's interface factory.</param>
-    /// <param name="factoryType">Which of native's factories answers.</param>
-    /// <param name="interfaceVersion">
-    /// The factory name, which is the contract — <c>"VEngineClient014"</c> and
-    /// the rest. Native serves the ones its own side was handed and answers
-    /// null for the others, which is not an error: <c>IVEngineClient</c> exists
-    /// only on the client and <c>IVEngineServer</c> only on the server.
-    /// </param>
-    /// <param name="self">The interface pointer, on success.</param>
-    /// <param name="table">Its vtable, on success.</param>
-    /// <param name="why">One line saying what failed. Empty on success.</param>
-    internal static bool TryAcquire<TVtbl>(
-        NativeInterfaceFactory factory, SourceSharpFactoryType factoryType,
-        string interfaceVersion, out void* self, out void** table, out string why)
-        where TVtbl : unmanaged
-    {
-        self = null;
-        table = null;
-
-        if (!factory.TryCreate(
-                factoryType, interfaceVersion, out nint answer, out int entries, out string? error))
-        {
-            why = error!;
-            return false;
-        }
-
-        // THE CHECK. Both numbers are named, because "the layout is wrong" is
-        // not something anybody can act on and "the header says 146, the struct
-        // says 145" points straight at a stale VtableLayouts.g.cs.
-        int declared = EntriesFor<TVtbl>();
-
-        if (entries != declared)
-        {
-            why = $"native says \"{interfaceVersion}\" has {entries} vtable entries and "
-                  + $"{typeof(TVtbl).Name} declares {declared} — "
-                  + "VtableLayouts.g.cs is stale against the headers it is generated "
-                  + "from. Run `tools/vtable-layout --write` and read the diff.";
-            return false;
-        }
-
-        self = (void*)answer;
-
-        // The object's first word IS its vtable pointer. That is the ABI, not a
-        // guess about this engine.
-        table = *(void***)self;
-
-        if (table == null)
-        {
-            why = $"\"{interfaceVersion}\" answered with an object whose vtable pointer is null";
-            self = null;
-            return false;
-        }
-
-        why = string.Empty;
-        return true;
-    }
-
-    /// <summary>
-    /// The same, for a SHIM interface — one this tree declares, implements and
-    /// compiles itself, served by <see cref="SourceSharpFactoryType.Internal"/>.
-    ///
-    /// <para>
-    /// <b>The span check is <c>managed &lt;= native</c> here, and that is the
-    /// only difference.</b> Equality is available for the engine's five because
-    /// both numbers come from our headers and the shipped module's layout is
-    /// pinned by its version string. A shim class is ours to extend: appending
+    /// <b>The span check is <c>managed &lt;= native</c>.</b> A shim class is
+    /// ours to extend: appending
     /// a method to it puts the new slot at the END and moves nothing, so every
     /// slot managed already knows keeps its index, and a rebuilt <c>server.so</c>
     /// that gained shim methods must not refuse an assembly that has not been
@@ -278,7 +134,9 @@ public static unsafe class Vtable
             return false;
         }
 
-        int declared = EntriesFor<TVtbl>();
+        // Our layouts have no virtual destructor and no overload, so the span
+        // is the same under both ABIs and the struct's size is the count.
+        int declared = SlotsIn<TVtbl>();
 
         if (declared > entries)
         {
