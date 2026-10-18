@@ -55,7 +55,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     private EngineSide Attached(Side which = Side.Server)
     {
         var side = new EngineSide(which);
-        _root.Live("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleVtbl.EntityFactoryCount),
+        _root.Live("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.EntityFactoryCount),
                    (nint)(delegate* unmanaged<void*, int>)&Count);
         Assert.True(side.AttachShims(_root.Bind(), out string why), why);
         return side;
@@ -193,7 +193,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
         // A shared slot since plan_client_vtables CC-last deleted the struct:
         // the client's IShimModels and the server's area that extends it share
         // this layout, whose only parameter is the object.
-        var field = typeof(ShimModelsVtbl).GetField(nameof(ShimModelsVtbl.EntitiesInvalidateMdlCacheAll));
+        var field = typeof(ShimModelsFwd).GetField(nameof(ShimModelsFwd.EntitiesInvalidateMdlCacheAll));
 
         Assert.True(field is { FieldType.IsFunctionPointer: true });
         Assert.Equal(typeof(int), field!.FieldType.GetFunctionPointerReturnType());
@@ -213,8 +213,8 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     {
         foreach (string name in new[]
                  {
-                     nameof(ShimEntityLifecycleVtbl.EntityFactoryCount),
-                     nameof(ShimEntityLifecycleVtbl.EntityFactoryRefusalCount),
+                     nameof(ShimEntityLifecycleFwd.EntityFactoryCount),
+                     nameof(ShimEntityLifecycleFwd.EntityFactoryRefusalCount),
                  })
         {
             Type slot = Slot(name);
@@ -229,8 +229,8 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     {
         foreach (string name in new[]
                  {
-                     nameof(ShimEntityLifecycleVtbl.EntityFactoryNameAt),
-                     nameof(ShimEntityLifecycleVtbl.EntityFactoryRefusalNameAt),
+                     nameof(ShimEntityLifecycleFwd.EntityFactoryNameAt),
+                     nameof(ShimEntityLifecycleFwd.EntityFactoryRefusalNameAt),
                  })
         {
             Type slot = Slot(name);
@@ -243,7 +243,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     [Fact]
     public void TheRefusalTimesSlotAnswersAnIntAndTakesAnIndex()
     {
-        Type slot = Slot(nameof(ShimEntityLifecycleVtbl.EntityFactoryRefusalTimesAt));
+        Type slot = Slot(nameof(ShimEntityLifecycleFwd.EntityFactoryRefusalTimesAt));
 
         Assert.Equal(typeof(int), slot.GetFunctionPointerReturnType());
         Assert.Equal(new[] { typeof(void*), typeof(int) }, slot.GetFunctionPointerParameterTypes());
@@ -307,11 +307,11 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
 
     private static Type Slot(string name)
     {
-        var field = typeof(ShimEntityLifecycleVtbl).GetField(name);
+        var field = typeof(ShimEntityLifecycleFwd).GetField(name);
 
-        Assert.True(field is not null, $"ShimEntityLifecycleVtbl no longer declares {name}");
+        Assert.True(field is not null, $"ShimEntityLifecycleFwd no longer declares {name}");
         Assert.True(field!.FieldType.IsFunctionPointer,
-                    $"ShimEntityLifecycleVtbl.{name} is no longer a function pointer");
+                    $"ShimEntityLifecycleFwd.{name} is no longer a function pointer");
 
         return field.FieldType;
     }

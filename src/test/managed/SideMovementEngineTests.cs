@@ -70,7 +70,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void EachRunnersCommandStagesRunOnItsOwnSide()
     {
-        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerVtbl.PlayerRunMove),
+        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerFwd.PlayerRunMove),
             (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveSeven,
             (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveNine);
 
@@ -85,7 +85,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void EachRunnersWorldAsksItsOwnSide()
     {
-        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerVtbl.MovePointContents),
+        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerFwd.MovePointContents),
             (nint)(delegate* unmanaged<void*, void*, int, int>)&ContentsSeven,
             (nint)(delegate* unmanaged<void*, void*, int, int>)&ContentsNine);
 
@@ -104,7 +104,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void ThePlayerShadowProbesTheSideItsBodiesWereBuiltOver()
     {
-        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerVtbl.PlayerShadowFacts),
+        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerFwd.PlayerShadowFacts),
             (nint)(delegate* unmanaged<void*, uint, void*, int>)&ProbeFirst,
             (nint)(delegate* unmanaged<void*, uint, void*, int>)&ProbeSecond);
 
@@ -134,13 +134,13 @@ public unsafe class SideMovementEngineTests : IDisposable
     {
         // Both slots live on both roots; the second side answers differently
         // and must never be asked.
-        _first.Live(MovementServer, nameof(ShimMovementServerVtbl.PlayerRunMove),
+        _first.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerRunMove),
                     (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveOne);
-        _first.Live(MovementServer, nameof(ShimMovementServerVtbl.PlayerShadowFacts),
+        _first.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerShadowFacts),
                     (nint)(delegate* unmanaged<void*, uint, void*, int>)&ProbeFirst);
-        _second.Live(MovementServer, nameof(ShimMovementServerVtbl.PlayerRunMove),
+        _second.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerRunMove),
                      (nint)(delegate* unmanaged<void*, uint, int, int, int>)&RunMoveNine);
-        _second.Live(MovementServer, nameof(ShimMovementServerVtbl.PlayerShadowFacts),
+        _second.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerShadowFacts),
                      (nint)(delegate* unmanaged<void*, uint, void*, int>)&ProbeSecond);
         s_firstCalls = s_secondCalls = 0;
 
@@ -179,7 +179,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void EachEntityAreasReplayFetchesFromItsOwnSide()
     {
         var (first, second) = TwoSides(Side.Client, "SourceSharpPredictionClient001",
-            nameof(ShimPredictionClientVtbl.ClientGetUserCmd),
+            nameof(ShimPredictionClientFwd.ClientGetUserCmd),
             (nint)(delegate* unmanaged<void*, int, void*, int>)&UserCmdFound,
             (nint)(delegate* unmanaged<void*, int, void*, int>)&UserCmdMissing);
 
@@ -196,7 +196,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void EachEntityAreasInterpolationListComesFromItsOwnSide()
     {
         var (first, second) = TwoSides(Side.Client, "SourceSharpStandaloneClient001",
-            nameof(ShimStandaloneClientVtbl.ClientInterpBlocks),
+            nameof(ShimStandaloneClientFwd.ClientInterpBlocks),
             (nint)(delegate* unmanaged<void*, void*, void*, void*>)&InterpOne,
             (nint)(delegate* unmanaged<void*, void*, void*, void*>)&InterpNone);
 
@@ -210,7 +210,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void EachEntityAreasRenderPolicyListComesFromItsOwnSide()
     {
         var (first, second) = TwoSides(Side.Client, "SourceSharpStandaloneClient001",
-            nameof(ShimStandaloneClientVtbl.ClientPolicyBlocks),
+            nameof(ShimStandaloneClientFwd.ClientPolicyBlocks),
             (nint)(delegate* unmanaged<void*, void*, void*>)&PolicyOne,
             (nint)(delegate* unmanaged<void*, void*, void*>)&PolicyNone);
 
@@ -266,7 +266,7 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void AnEngineClientPrintsThroughTheSideItWasAcquiredOn()
     {
         var (first, _) = TwoSides(Side.Client, "SourceSharpViewClient001",
-            nameof(ShimViewClientVtbl.ConNPrintf),
+            nameof(ShimViewClientFwd.ConNPrintf),
             (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintFirst,
             (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintSecond);
 
@@ -298,9 +298,9 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void ANetStateBindsAndAnswersOnTheSideItWasBoundOn()
     {
-        _first.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerVtbl.EntityBindBlob),
+        _first.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerFwd.EntityBindBlob),
                     (nint)(delegate* unmanaged<void*, uint, void*, void*, void*, void*>)&BindBlobFirst);
-        _second.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerVtbl.EntityBindBlob),
+        _second.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerFwd.EntityBindBlob),
                      (nint)(delegate* unmanaged<void*, uint, void*, void*, void*, void*>)&BindBlobSecond);
         s_firstCalls = s_secondCalls = 0;
 
@@ -326,9 +326,9 @@ public unsafe class SideMovementEngineTests : IDisposable
     [Fact]
     public void AttachingWithASideBindsEveryStateThere()
     {
-        _first.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerVtbl.EntityBindBlob),
+        _first.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerFwd.EntityBindBlob),
                     (nint)(delegate* unmanaged<void*, uint, void*, void*, void*, void*>)&BindBlobFirst);
-        _second.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerVtbl.EntityBindBlob),
+        _second.Live("SourceSharpNetworkServer001", nameof(ShimNetworkServerFwd.EntityBindBlob),
                      (nint)(delegate* unmanaged<void*, uint, void*, void*, void*, void*>)&BindBlobSecond);
         s_firstCalls = s_secondCalls = 0;
 

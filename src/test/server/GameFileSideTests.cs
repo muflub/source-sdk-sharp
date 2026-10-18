@@ -65,21 +65,20 @@ public unsafe class GameFileSideTests : IDisposable
     private void Serve(string text)
     {
         byte[] utf8 = Encoding.UTF8.GetBytes(text);
-        int words = Marshal.SizeOf<ShimEngineVtbl>() / sizeof(nint);
+        int words = Marshal.SizeOf<ShimEngineFwd>() / sizeof(nint);
         var table = (nint*)Alloc(words * sizeof(nint));
         var content = (byte*)Alloc(utf8.Length + 4);
         *(int*)content = utf8.Length;
         utf8.CopyTo(new Span<byte>(content + 4, utf8.Length));
         var self = (nint*)Alloc(2 * sizeof(nint));
 
-        table[(int)Marshal.OffsetOf<ShimEngineVtbl>(nameof(ShimEngineVtbl.FilesGameFileSize)) / sizeof(nint)]
+        table[(int)Marshal.OffsetOf<ShimEngineFwd>(nameof(ShimEngineFwd.FilesGameFileSize)) / sizeof(nint)]
             = (nint)(delegate* unmanaged<void*, byte*, int>)&Size;
-        table[(int)Marshal.OffsetOf<ShimEngineVtbl>(nameof(ShimEngineVtbl.FilesReadGameFile)) / sizeof(nint)]
+        table[(int)Marshal.OffsetOf<ShimEngineFwd>(nameof(ShimEngineFwd.FilesReadGameFile)) / sizeof(nint)]
             = (nint)(delegate* unmanaged<void*, byte*, byte*, int, int>)&Read;
-        self[0] = (nint)table;
         self[1] = (nint)content;
 
-        _root.Area(Version, self);
+        _root.Area(Version, self, table);
     }
 
     private EngineSide Attached(Side side)

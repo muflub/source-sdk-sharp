@@ -129,7 +129,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
     public void DestroyShellsHandsNativeTheRawHandles()
     {
         t_seen = null;
-        var side = Attached("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleVtbl.DestroyShell),
+        var side = Attached("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.DestroyShell),
                             (nint)(delegate* unmanaged<void*, uint*, int, void>)&RecordShells);
 
         side.DestroyShells(Handles(Raw));
@@ -141,7 +141,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
     public void DestroyShellsHandsNativeTheRawHandlesOfALargeBatch()
     {
         t_seen = null;
-        var side = Attached("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleVtbl.DestroyShell),
+        var side = Attached("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.DestroyShell),
                             (nint)(delegate* unmanaged<void*, uint*, int, void>)&RecordShells);
         uint[] raw = new uint[3000];
         for (int i = 0; i < raw.Length; i++)
@@ -155,7 +155,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
     [Fact]
     public void EntitiesInSphereReadsTheRawHandlesNativeWrote()
     {
-        var side = Attached("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerVtbl.EntitiesInSphere),
+        var side = Attached("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntitiesInSphere),
                             (nint)(delegate* unmanaged<void*, float*, float, uint*, int, int>)&WriteSphere);
         var into = new EntityHandle[8];
 
@@ -167,7 +167,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
     [Fact]
     public void EntitiesInSphereLeavesTheUnwrittenTailInvalid()
     {
-        var side = Attached("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerVtbl.EntitiesInSphere),
+        var side = Attached("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntitiesInSphere),
                             (nint)(delegate* unmanaged<void*, float*, float, uint*, int, int>)&WriteSphere);
         var into = new EntityHandle[8];
 
@@ -179,7 +179,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
     [Fact]
     public void TheOverlapReportReadsTheRawHandlesNativeWrote()
     {
-        var side = Attached("SourceSharpCollisionServer001", nameof(ShimCollisionServerVtbl.EntityOverlapReport),
+        var side = Attached("SourceSharpCollisionServer001", nameof(ShimCollisionServerFwd.EntityOverlapReport),
                             (nint)(delegate* unmanaged<void*, uint*, int, int>)&WriteOverlaps);
         var into = new OverlapPair[4];
 
@@ -192,7 +192,7 @@ public unsafe class EntityHandleInversionTests : IDisposable
     public void AnOmittedTraceIgnoreReachesNativeAsTheInvalidHandle()
     {
         t_seen = null;
-        var side = Attached("SourceSharpWorldServer001", nameof(ShimWorldServerVtbl.TraceLine),
+        var side = Attached("SourceSharpWorldServer001", nameof(ShimWorldServerFwd.TraceLine),
                             (nint)(delegate* unmanaged<void*, float*, float*, int, uint, float*, float*, float*, uint*, int>)&RecordTraceIgnore);
 
         side.TraceLine(Vector.Zero, new Vector(0f, 0f, 64f), TraceMask.Solid);
