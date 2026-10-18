@@ -25,7 +25,7 @@ EntityOp.cs	plumbing	b: entity-op numbers native passes to Crossings.CountEntity
 EntitySlot.cs	plumbing	a: named by ShimAreas.g.cs	-
 EventIdStamps.cs	plumbing	c: CEventAction::s_iNextIDStamp: restored connections keep their stamps across a managed reload, so the counter must too (P1 run 3 lifetime ruling b)	-
 FogParams.cs	plumbing	a: named by ShimAreas.g.cs	-
-Forwarders.cs	plumbing	a: named by SharedForwarders.g.cs	-
+Forwarders.cs	plumbing	a: named by ShimAreas.g.cs	-
 GitProvenance.cs	plumbing	e: build provenance the Bootstrap reads (loader infra; folds into Bootstrap after SE2)	-
 Globals.cs	plumbing	b: CGlobalVarsRaw layout mirror + its pointer reader	-
 ILog.cs	plumbing	e: the log contract each composition registers over its own console (statics to zero; the static Log is gone)	-

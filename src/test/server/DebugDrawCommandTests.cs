@@ -319,7 +319,7 @@ public class DebugDrawCommandTests
     [Fact]
     public void TheManagedVtableDeclaresTheAddLineOverlaySlot()
     {
-        var slot = typeof(ShimDebugOverlayVtbl).GetField(nameof(ShimDebugOverlayVtbl.AddLineOverlay));
+        var slot = typeof(ShimDebugOverlayFwd).GetField(nameof(ShimDebugOverlayFwd.AddLineOverlay));
 
         Assert.True(slot is { FieldType.IsFunctionPointer: true });
     }

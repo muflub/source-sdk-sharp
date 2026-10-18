@@ -173,6 +173,26 @@ numbers here.
   1.78 - 2.23 ns, through the forwarder 2.14 - 2.27 ns, so +0 to +0.45 ns a
   call. The managed transition both share is not in either number.
 
+## 6b. Phase 2, as built (2026-10-18)
+
+- tools/engine-forwarders generates one every=True row per interface in
+  `ishim_areas.h`, `ishim_areas_client.h` and `ishim_console.h` (55 tables,
+  in tools/vtable-layout's order); a derived area's table is its whole chain,
+  the base's slots first. `src/abi` is a `both` root of the side audit, since
+  ShimAreas.g.cs is the Abi's; a comment naming EngineClient's struct there
+  was reworded, because the audit reads words, comments included.
+- tools/shim-areas writes `ShimRef<TFwd>` (the object and its table) and
+  `ShimRef<TFwd>.TryTake`, which acquires the area by version and its table
+  by name through the root and holds the count (`Forwarders.TryBind`). The
+  typed calls are unchanged: `EngineBase.Vt->GetCurrentTime(EngineBase.Self)`
+  over `ShimEngineFwd`.
+- FakeShimRoot serves each area as an object and a table under the table's
+  name; a fact whose slots read state from their object serves both with
+  `Area(version, self, slots)`.
+- Proofs: dropping the count check from TryTake turns
+  `AnAreaWithTooFewSlotsIsRefusedNamingBoth` red; swapping a base slot with
+  a derived one in SSFwd_ShimEventsServer turns fwd_shim_test red.
+
 ## 7. Decisions
 
 - 2026-10-18 (user, relayed by a peer session): every native<->managed call

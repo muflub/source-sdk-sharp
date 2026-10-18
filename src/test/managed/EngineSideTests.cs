@@ -31,7 +31,7 @@ public unsafe class EngineSideTests
         // plan_client_vtables CC-last: no struct; the server's slot is its shim
         // area's, attached from a fake root with only that slot live.
         using var root = new FakeShimRoot();
-        root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerVtbl.EntityGetIndex),
+        root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
         server.Initialize();
         Assert.True(server.AttachShims(root.Bind(), out string why), why);
@@ -59,7 +59,7 @@ public unsafe class EngineSideTests
         var other = new EngineSide(Side.Server);
 
         using var root = new FakeShimRoot();
-        root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerVtbl.MoveSurface),
+        root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerFwd.MoveSurface),
                   (nint)(delegate* unmanaged<void*, int, MoveSurfaceBlob*, int>)&SurfaceIsSand);
         server.Initialize();
         Assert.True(server.AttachShims(root.Bind(), out string why), why);
@@ -96,7 +96,7 @@ public unsafe class EngineSideTests
         var client = new EngineSide(Side.Client);
 
         using var root = new FakeShimRoot();
-        root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerVtbl.EntityGetIndex),
+        root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
         server.Initialize();
         Assert.True(server.AttachShims(root.Bind(), out string why), why);
@@ -165,7 +165,7 @@ public unsafe class EngineSideTests
         var gone = new EntityHandle(41);
 
         using var root = new FakeShimRoot();
-        root.Live("SourceSharpPlayers001", nameof(ShimPlayersVtbl.PlayerSetViewEntity),
+        root.Live("SourceSharpPlayers001", nameof(ShimPlayersFwd.PlayerSetViewEntity),
                   (nint)(delegate* unmanaged<void*, uint, uint, void>)&RecordView);
         server.Initialize();
         Assert.True(server.AttachShims(root.Bind(), out string why), why);

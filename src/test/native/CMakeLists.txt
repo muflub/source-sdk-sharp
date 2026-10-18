@@ -76,7 +76,7 @@ ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
 # subject is what the compiler does with the dispatch.
 ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
     DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
-    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp)
 
@@ -88,7 +88,7 @@ ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
 # compiles the server's, with what client.so's link of it defines.
 ss_cpptest_engine_headers(fwd_steam_test
     DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT
-    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_steam_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp)
@@ -98,7 +98,7 @@ ss_cpptest_engine_headers(fwd_steam_test
 # recording IShimFrame. The server's library is compiled in, as above.
 ss_cpptest_engine_headers(fwd_shim_test
     DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
-    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_shim_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp)
 

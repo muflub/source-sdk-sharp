@@ -125,7 +125,7 @@ SIDE_FILES = {
 SIDE_ROOTS = {
     'server': ('src/server',),
     'client': ('src/client',),
-    'both': ('src/shared',),
+    'both': ('src/shared', 'src/abi'),
 }
 
 # ---------------------------------------------------------------------------
@@ -397,6 +397,19 @@ FORWARD = [
         struct='ShimFrameVtbl',
         every=True,
     ),
+]
+
+# The generated shim areas (plan_forwarders_everywhere.md phase 2): every
+# interface ishim_areas.h and ishim_areas_client.h declare, and the console
+# base they extend (ishim_console.h), each an every=True row, in
+# tools/vtable-layout's order. Each is both: ShimAreas.g.cs, which calls them,
+# is the Abi's, which compiles into both sides.
+SHIM_AREA_HEADERS = ('ishim_areas.h', 'ishim_areas_client.h', 'ishim_console.h')
+
+FORWARD += [
+    dict(struct=entry['struct'], every=True)
+    for entry in VL.INTERFACES
+    if entry.get('shim') and os.path.basename(entry['header']) in SHIM_AREA_HEADERS
 ]
 
 # ---------------------------------------------------------------------------

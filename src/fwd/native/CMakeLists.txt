@@ -51,10 +51,12 @@ function(ss_fwd_library side)
 
   # ${SS_SRC} itself for our own interfaces (plan_forwarders_everywhere.md),
   # which the generated file includes by their farm path,
-  # "sourcesharp/game/<side>/ishim_*.h".
+  # "sourcesharp/game/<side>/ishim_*.h"; sourcesharp/host for the
+  # sourcesharp.h the shim area headers include for their data structs.
   target_include_directories(${tgt} PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}
       ${SS_SRC}
+      ${SS_SRC}/sourcesharp/host
       ${SS_SRC}/common
       ${SS_SRC}/public
       ${SS_SRC}/public/tier0

@@ -1,6 +1,6 @@
 //========= SourceSharp — the shim layer's own interfaces, through forwarders =//
 //
-// plan_forwarders_everywhere.md phase 1. Managed calls IShimFrame through
+// plan_forwarders_everywhere.md phases 1 and 2. Managed calls IShimFrame through
 // SSFwd_ShimFrame, a table of forwarders the server's library compiles over
 // ishim_frame.h, never through the object's vtable. Each fact calls a slot
 // the way managed does (ShimFrameFwd: slot N is field N, the header's order)
@@ -16,6 +16,7 @@
 #include "ss_fwd.h"
 
 #include "sourcesharp/game/server/ishim_frame.h"
+#include "sourcesharp/game/shared/ishim_areas.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -198,4 +199,74 @@ TEST( FwdShim, TheInternalFactoryServesTheFrameTable )
 	ASSERT_NE( nullptr, pServed );
 	EXPECT_EQ( (int32_t)kShimFrameSlots, nEntries );
 	EXPECT_EQ( ShimFrameTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
+}
+
+//-----------------------------------------------------------------------------
+// A DERIVED AREA (phase 2): IShimEventsServer extends IShimEvents, and its table
+// is the whole chain, the base's five slots first, in declaration order, as
+// ShimEventsServerFwd reads it.
+//-----------------------------------------------------------------------------
+namespace
+{
+
+class RecordingEvents final : public IShimEventsServer
+{
+public:
+	void ListenForGameEvent( const char *pszName ) override { nLast = 0; pName = pszName; }
+	int32_t EventGetInt( void *, const char * ) override { return nLast = 1, 0; }
+	float EventGetFloat( void *, const char * ) override { return nLast = 2, 0.0f; }
+	int32_t EventGetBool( void *, const char * ) override { return nLast = 3, 0; }
+	const char *EventGetString( void *, const char * ) override { return nLast = 4, "four"; }
+	void *EventCreate( const char *pszName ) override { nLast = 5; pName = pszName; return this; }
+	void EventSetInt( void *, const char *, int32_t nValue ) override { nLast = 6; nSet = nValue; }
+	void EventSetFloat( void *, const char *, float ) override { nLast = 7; }
+	void EventSetBool( void *, const char *, int32_t ) override { nLast = 8; }
+	void EventSetString( void *, const char *, const char * ) override { nLast = 9; }
+	int32_t EventFire( void * ) override { return nLast = 10, 1; }
+	void EventFree( void *hEvent ) override { nLast = 11; pFreed = hEvent; }
+
+	int nLast = -1;
+	int32_t nSet = 0;
+	const char *pName = nullptr;
+	void *pFreed = nullptr;
+};
+
+const SSForwarderTable &EventsServerTable()
+{
+	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEventsServer" );
+	EXPECT_NE( nullptr, pTable );
+	static const SSForwarderTable kNone = { nullptr, 0 };
+	return pTable ? *pTable : kNone;
+}
+
+} // namespace
+
+TEST( FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn )
+{
+	const SSForwarderTable &table = EventsServerTable();
+	ASSERT_EQ( 12, table.nSlots );   // IShimEvents' 5, then IShimEventsServer's 7
+
+	RecordingEvents events;
+	const char *pszName = "player_death";
+
+	reinterpret_cast< void ( * )( IShimEventsServer *, const char * ) >( table.ppSlots[ 0 ] )( &events, pszName );
+	EXPECT_EQ( 0, events.nLast );
+	EXPECT_EQ( pszName, events.pName );
+
+	EXPECT_STREQ( "four", reinterpret_cast< const char *( * )( IShimEventsServer *, void *, const char * ) >(
+		table.ppSlots[ 4 ] )( &events, nullptr, "k" ) );
+	EXPECT_EQ( 4, events.nLast );
+
+	EXPECT_EQ( &events, reinterpret_cast< void *( * )( IShimEventsServer *, const char * ) >(
+		table.ppSlots[ 5 ] )( &events, pszName ) );
+	EXPECT_EQ( 5, events.nLast );
+
+	reinterpret_cast< void ( * )( IShimEventsServer *, void *, const char *, int32_t ) >(
+		table.ppSlots[ 6 ] )( &events, nullptr, "k", 7 );
+	EXPECT_EQ( 6, events.nLast );
+	EXPECT_EQ( 7, events.nSet );
+
+	reinterpret_cast< void ( * )( IShimEventsServer *, void * ) >( table.ppSlots[ 11 ] )( &events, &events );
+	EXPECT_EQ( 11, events.nLast );
+	EXPECT_EQ( &events, events.pFreed );
 }
