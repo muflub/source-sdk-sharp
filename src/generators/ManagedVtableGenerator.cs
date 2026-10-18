@@ -45,7 +45,6 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
     private const string VtableAttribute = "SourceSharp.Abi.ManagedVtableAttribute";
     private const string ImplementedByManaged = "SourceSharp.Abi.ImplementedByManagedAttribute";
     private const string SlotHash = "SourceSharp.Abi.SlotHashAttribute";
-    private const string VtableSlot = "SourceSharp.Abi.VtableSlotAttribute";
     private const string Runtime = "global::SourceSharp.Abi.ManagedVtable";
     private const string Registry = "global::SourceSharp.Abi.ManagedVtables";
     private const string HashesAttribute = "global::SourceSharp.Abi.ManagedVtableHashes";
@@ -96,11 +95,11 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
         "SourceSharp", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     /// <summary>
-    /// One slot: its name, its C# argument types after self, its return, its
-    /// hash, and its index under the Microsoft ABI when that is not its field
-    /// position (the layout's <c>[VtableSlot]</c>; -1 when it is).
+    /// One slot: its name, its C# argument types after self, its return and its
+    /// hash. Its index is its field position on both ABIs: tools/vtable-layout
+    /// emits no table MSVC orders differently.
     /// </summary>
-    private sealed record Slot(string Name, ImmutableArray<string> Parameters, string Returns, string Pointer, uint Hash, bool Valve, int Microsoft);
+    private sealed record Slot(string Name, ImmutableArray<string> Parameters, string Returns, string Pointer, uint Hash, bool Valve);
 
     private sealed record Declaration(
         string? Namespace,
@@ -251,16 +250,7 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
             if (hash is null)
                 diagnostics.Add(Diagnostic.Create(NoSlotHash, location, field.Name, layoutName));
 
-            // WHERE MSVC PUTS IT, when that is not field order: tools/vtable-
-            // layout writes [VtableSlot(itanium, microsoft)] on every field of a
-            // managed-written layout MSVC orders differently (CCallbackBase's
-            // two Run, which it reverses).
-            var vtableSlot = field.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == VtableSlot);
-            int microsoft = vtableSlot is { ConstructorArguments.Length: 2 }
-                ? (int)vtableSlot.ConstructorArguments[1].Value!
-                : -1;
-
-            slots.Add(new Slot(field.Name, parameters, returns, pointer, hash ?? 0, valveLayout, microsoft));
+            slots.Add(new Slot(field.Name, parameters, returns, pointer, hash ?? 0, valveLayout));
 
             if (!valveLayout && field.Name is "Release" or "Validate")
                 continue;
@@ -324,15 +314,9 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
         s.AppendLine($"    public static {Runtime} Create({Registry} vtables, {d.ContractFull} target, string? instance)");
         s.AppendLine("    {");
         s.AppendLine($"        global::System.IntPtr* slots = stackalloc global::System.IntPtr[{d.Slots.Length}];");
-        // A slot MSVC numbers differently is written at the index for the ABI
-        // this process runs on: the engine's Windows binaries call it there.
+        // Each thunk at its field's index: the same slot on both ABIs.
         for (int i = 0; i < d.Slots.Length; i++)
-        {
-            string index = d.Slots[i].Microsoft < 0 || d.Slots[i].Microsoft == i
-                ? i.ToString()
-                : $"global::System.OperatingSystem.IsWindows() ? {d.Slots[i].Microsoft} : {i}";
-            s.AppendLine($"        slots[{index}] = (global::System.IntPtr)({d.Slots[i].Pointer})&{d.Slots[i].Name};");
-        }
+            s.AppendLine($"        slots[{i}] = (global::System.IntPtr)({d.Slots[i].Pointer})&{d.Slots[i].Name};");
         // A Valve-layout table has no Release/Validate pair, and can be one
         // slot long (IPhysicsConstraintEvent, IMotionEvent); the registry is told.
         string valve = d.Slots.Any(x => x.Valve) ? ", valveLayout: true" : "";
