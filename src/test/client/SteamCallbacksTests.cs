@@ -7,7 +7,7 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// The Steam callbacks (client Steam, Decision 1a; plan_engine_forwarders.md
-/// phase 5). libss_fwd_steam builds each CCallbackBase Steam registers over a
+/// phase 5). libss_fwd_client builds each CCallbackBase Steam registers over a
 /// managed block, and these facts hold what managed does with it: acquire the
 /// library's table, build one callback per registration over its own block,
 /// hand Steam that callback, and on Dispose unregister what Steam still holds,
@@ -23,7 +23,7 @@ namespace SourceSharp.Tests;
 public unsafe class SteamCallbacksTests
 {
     /// <summary>
-    /// libss_fwd_steam's table over a fake callback: word 0 the managed block
+    /// libss_fwd_client's callback table over a fake callback: word 0 the managed block
     /// it calls, the int at 8 the payload size, the flags Steam writes at 16
     /// and the id at 20.
     /// </summary>

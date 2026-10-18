@@ -5677,13 +5677,13 @@ public unsafe struct PhysicsCollisionEventVtbl
 ///
 /// <para>
 /// 3 slot(s), walked from <c>src/sourcesharp/fwd/imanaged_steam_callback.h</c>. <c>sizeof</c> divided by the pointer
-/// size is that number. Reached through <c>SSFwd_SteamCallback</c>'s <c>Construct</c> (libss_fwd_steam), so no factory hands a count
+/// size is that number. Reached through <c>SSFwd_SteamCallback</c>'s <c>Construct</c> (libss_fwd_client), so no factory hands a count
 /// with the pointer: vtable_index_agreement_test holds the header against it.
 /// </para>
 ///
 /// <para>
 /// OURS, and managed writes it (plan_engine_forwarders.md phase 5):
-/// libss_fwd_steam builds the CCallbackBase Steam registers, so the compiler
+/// libss_fwd_client builds the CCallbackBase Steam registers, so the compiler
 /// orders its two Run overloads, and both call this one slot. NO VIRTUAL
 /// DESTRUCTOR, Release at slot 0 and Validate at 1; native calls neither, and
 /// managed releases the block once Steam has let go of the callback that

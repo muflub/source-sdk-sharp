@@ -1,4 +1,4 @@
-//========= SourceSharp — libss_fwd_engine's forwarders, each to its method ==//
+//========= SourceSharp — the engine forwarders, each to its method ==========//
 //
 // plan_engine_forwarders.md. Every slot of a forwarder table must reach the
 // method its name says, with the arguments it was handed, and return what the
@@ -19,8 +19,9 @@
 // is the member call's convention on both x64 ABIs: `this` is the first
 // integer argument, and none of them returns a class by value.
 //
-// fwd_engine.cpp is compiled into this binary (the CMake row says why); the
-// built library's export set is fwd_engine_isolation_test's.
+// The server's library (fwd_server.cpp) is compiled into this binary (the
+// CMake row says why); the built libraries' export sets are
+// fwd_libraries_isolation_test's.
 //=============================================================================//
 
 #include "gtest/gtest.h"
@@ -132,14 +133,14 @@ struct FakeModelInfo
 
 const SSForwarderTable &ModelInfoTable()
 {
-	const SSForwarderTable *pTable = SSFwdEngine_Table( "SSFwd_ModelInfo" );
+	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ModelInfo" );
 	EXPECT_NE( nullptr, pTable );
 	static const SSForwarderTable s_empty = { nullptr, 0 };
 	return pTable ? *pTable : s_empty;
 }
 
 // Slot N of the table, as the generated order names it
-// (EngineForwarders.g.cs's ModelInfoFwd lists the same order).
+// (SharedForwarders.g.cs's ModelInfoFwd lists the same order).
 enum ModelInfoSlot
 {
 	kGetModel, kGetModelIndex, kGetModelName, kGetVCollide_2, kGetModelBounds,
@@ -162,9 +163,9 @@ TEST( FwdEngine, TheLibraryServesTheModelInfoTableAndNothingUnderOtherNames )
 	ASSERT_EQ( (int)kModelInfoSlots, table.nSlots );
 	ASSERT_NE( nullptr, table.ppSlots );
 
-	EXPECT_EQ( nullptr, SSFwdEngine_Table( "SSFwd_NoSuchTable" ) );
-	EXPECT_EQ( nullptr, SSFwdEngine_Table( "ssfwd_modelinfo" ) );   // names are exact
-	EXPECT_EQ( nullptr, SSFwdEngine_Table( nullptr ) );
+	EXPECT_EQ( nullptr, SSFwdServer_Table( "SSFwd_NoSuchTable" ) );
+	EXPECT_EQ( nullptr, SSFwdServer_Table( "ssfwd_modelinfo" ) );   // names are exact
+	EXPECT_EQ( nullptr, SSFwdServer_Table( nullptr ) );
 }
 
 TEST( FwdEngine, EverySlotIsADistinctFunction )
@@ -306,11 +307,11 @@ TEST( FwdEngine, TheInternalFactoryLeavesTheCountAloneForANameItDoesNotServe )
 	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo", nullptr ) );
 }
 
-TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsLibrarysTablesToo )
+TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsTablesToo )
 {
-	// The serve helper asks both libraries: a vphysics table comes back as
-	// its own slot array and count, exactly as libss_fwd_vphysics serves it.
-	const SSForwarderTable *pTable = SSFwdVPhysics_Table( "SSFwd_PhysicsObject" );
+	// The server's library holds vphysics' tables as well as the engine's: a
+	// vphysics table comes back as its own slot array and count.
+	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_PhysicsObject" );
 	ASSERT_NE( nullptr, pTable );
 	ASSERT_GT( pTable->nSlots, 1 );
 
@@ -319,19 +320,19 @@ TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsLibrarysTablesToo )
 	ASSERT_NE( nullptr, pServed );
 	EXPECT_EQ( pTable->nSlots, nEntries );
 	EXPECT_EQ( pTable->ppSlots, *static_cast< void *const *const * >( pServed ) );
-
-	// And each library serves only its own family.
-	EXPECT_EQ( nullptr, SSFwdEngine_Table( "SSFwd_PhysicsObject" ) );
-	EXPECT_EQ( nullptr, SSFwdVPhysics_Table( "SSFwd_ModelInfo" ) );
 }
 
-TEST( FwdEngine, AGameDllThatDoesNotLinkTheSteamLibraryDoesNotServeItsTable )
+TEST( FwdEngine, TheServerServesNoTableOnlyTheClientCalls )
 {
-	// The server's case: it links no libss_fwd_steam, so SS_FWD_SERVES_STEAM
-	// is not defined and the serve helper never asks for the Steam table
-	// (fwd_steam_test is the client's case, which does).
-	int32_t nEntries = -1;
-	EXPECT_EQ( nullptr, SSFwd_Serve( "SSFwd_SteamCallback", &nEntries ) );
-	EXPECT_EQ( -1, nEntries );
+	// server.so links libss_fwd_server alone (SS_FWD_SERVES_SERVER), and that
+	// library holds none of the client's own tables: neither the library nor
+	// the serve helper answers them (fwd_steam_test is the client's case).
+	for ( const char *pszName : { "SSFwd_EngineClient", "SSFwd_InputSystem", "SSFwd_Physics", "SSFwd_SteamCallback" } )
+	{
+		int32_t nEntries = -1;
+		EXPECT_EQ( nullptr, SSFwdServer_Table( pszName ) ) << pszName;
+		EXPECT_EQ( nullptr, SSFwd_Serve( pszName, &nEntries ) ) << pszName;
+		EXPECT_EQ( -1, nEntries ) << pszName;
+	}
 }
 

@@ -179,7 +179,7 @@ public unsafe partial class ManagedVtableTests
     public void NoGeneratedLayoutReservesWords()
     {
         // The one that did was CCallbackBase's (flags and callback id after
-        // the vptr). libss_fwd_steam builds that object now
+        // the vptr). libss_fwd_client builds that object now
         // (plan_engine_forwarders.md phase 5), and managed writes only its
         // managed side, which carries no data. The machinery above stays
         // until nothing names it.

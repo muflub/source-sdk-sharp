@@ -7,7 +7,7 @@ namespace SourceSharp.Abi;
 // constraint -- reaches managed as a pointer and nothing else. Managed used to
 // read each object's vptr and index the table it found there, which meant
 // knowing the C++ ABI the engine was built with. Now each family of object has
-// a forwarder table in libss_fwd_vphysics (VPhysicsForwarders.g.cs), and a
+// a forwarder table in each side's forwarder library (SharedForwarders.g.cs), and a
 // call is `tables.PhysicsObject->GetMass(obj)`: the object is handed to the
 // forwarder, which calls the method through the object's own vtable as the
 // compiler laid it out. Nothing here reads a vptr.

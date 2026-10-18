@@ -4,7 +4,7 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// One Steam callback's managed side (client Steam, Decision 1a;
-/// plan_engine_forwarders.md phase 5). libss_fwd_steam builds the
+/// plan_engine_forwarders.md phase 5). libss_fwd_client builds the
 /// <c>CCallbackBase</c> Steam registers, so the compiler, not managed, orders
 /// its two <c>Run</c> overloads; both call this one slot. Its table is ours
 /// (<c>IManagedSteamCallback</c>), the same on every ABI.
@@ -63,7 +63,7 @@ public sealed unsafe class SteamCallbackSink(int payloadBytes, SteamCallbackHand
 }
 
 /// <summary>
-/// <see cref="ISteamCallbacks"/> over the side's registry, libss_fwd_steam's
+/// <see cref="ISteamCallbacks"/> over the side's registry, libss_fwd_client's
 /// callback table and the flat API. Each registration is three things: the
 /// managed block Steam's callback calls (<see cref="SteamCallbackSink"/>), the
 /// native callback built over it in memory managed allocates (the library has
@@ -100,7 +100,7 @@ public sealed unsafe class SteamCallbacks : ISteamCallbacks
 
     /// <summary>
     /// The callbacks over the table <paramref name="engine"/>'s interface
-    /// factory serves (the client's, which links libss_fwd_steam); null, with
+    /// factory serves (the client's, which links libss_fwd_client); null, with
     /// the reason, where it serves none.
     /// </summary>
     public static SteamCallbacks? Acquire(ModuleEngine engine, ManagedVtables vtables, ISteamClientApi steam, ILog log, out string why)

@@ -1,0 +1,9 @@
+/* libss_fwd_client.so exports its one function, and nothing it was linked
+   with: the forwarders, the Steam callback's functions and their tables are
+   reached only through it. */
+{
+	global:
+		SSFwdClient_Table;
+	local:
+		*;
+};
