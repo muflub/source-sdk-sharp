@@ -316,6 +316,34 @@ ABIs and need nothing.
   both ABIs (no overloads, no destructor), so building them natively would be
   for uniformity only.
 
+## 8d. Phase 6, as built (2026-10-18, branch claude/engine-forwarders-phase6)
+
+- **Managed reads no engine table by layout.** `Vtable.EntriesFor` and the
+  engine `TryAcquire` are gone; a shim acquire is sized by its own struct.
+  The vphysics suppression facts read the `Physics*Fwd` tables instead of
+  the engine structs.
+- **tools/vtable-layout emits only what managed reads or writes by layout**
+  (`emitted`: a shim row, or a table managed writes). The 46 engine-built
+  CALLED_BY_MANAGED rows stay as input, because tools/engine-forwarders
+  derives the forwarders' signatures from them, but no struct is written for
+  them. VtableLayouts.g.cs no longer carries the property form,
+  `[VtableSlot]`, `MicrosoftEntries`, `VtableAbi` or `[MemberFunction]`.
+- **One order or none.** The generator refuses an emitted table MSVC orders
+  differently (it names the native or forwarder route instead), and an
+  emitted slot that returns a class by value. `microsoft_slots` stays, to
+  find such a table.
+- **`[VtableSlot]` is gone from managed**: the attribute, ManagedVtableGenerator's
+  per-ABI index and its facts, and the test helper that read it.
+- **The agreement test checks only emitted structs.** Its engine-struct
+  arms (lengths, overloads, the Microsoft numbering and the `USE_SDL`
+  pinning that existed for IVEngineClient's count) have no subject left, so
+  they went; the coverage arm still demands a test for every emitted struct.
+- **Left as is:** `ReservedWords` on `[ImplementedByManaged]` (no layout
+  reserves words since the Steam callback went native, but the mechanism is
+  tested and harmless), and the native per-interface counts in
+  `SourceSharpEntriesFor`, which managed no longer compares but which still
+  decide which names a side serves.
+
 ## 9. Done when
 
 - No managed code reads an engine object's vptr or knows which ABI it runs on.
