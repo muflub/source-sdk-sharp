@@ -205,8 +205,9 @@ public class ShellSlotWiringTests
     {
         // The slot is the managed-built runtime's OnStatusLines since
         // plan_engineapi_vtables E1 (the struct's ServerStatusLines went at
-        // E-last), read from its generated layout.
-        string code = Regex.Replace(File.ReadAllText(RepoLayout.Repo("src", "abi", "VtableLayouts.g.cs")),
+        // E-last), read from its generated table (Server.Interop's, written by
+        // tools/managed-areas: plan_forwarders_everywhere.md phase 4).
+        string code = Regex.Replace(File.ReadAllText(RepoLayout.Repo("src", "server", "interop", "ServerManagedTables.g.cs")),
                                     @"//[^\n]*", string.Empty);
 
         Assert.True(code.Contains("delegate* unmanaged<void*, byte*, int, int> OnStatusLines",

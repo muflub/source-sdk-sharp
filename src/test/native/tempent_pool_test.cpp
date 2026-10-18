@@ -364,7 +364,9 @@ TEST( TempEntPoolSeam, TheTwoLiveCallbacksAreCalledFromNativeAndTheDeadOnesAreNo
 
 	for ( size_t i = 0; i < sizeof( kLive ) / sizeof( kLive[ 0 ] ); i++ )
 	{
-		const std::string decl = std::string( "virtual" ) + "void" + kLive[ i ] + "(";
+		// The slot of the table managed writes (plan_forwarders_everywhere.md
+		// phase 4: a C struct member, no virtual), squashed as ReadSquashed reads.
+		const std::string decl = std::string( "void(*" ) + kLive[ i ] + ")(";
 		EXPECT_NE( abi.find( decl ), std::string::npos )
 			<< kLive[ i ] << " is declared in IManagedTempEntsClient.";
 
@@ -383,7 +385,7 @@ TEST( TempEntPoolSeam, TheTwoLiveCallbacksAreCalledFromNativeAndTheDeadOnesAreNo
 
 	for ( size_t i = 0; i < sizeof( kDead ) / sizeof( kDead[ 0 ] ); i++ )
 	{
-		const std::string decl = std::string( "virtual" ) + "int32_t" + kDead[ i ] + "(";
+		const std::string decl = std::string( "int32_t(*" ) + kDead[ i ] + ")(";
 		EXPECT_NE( abi.find( decl ), std::string::npos )
 			<< kDead[ i ] << " stays DECLARED: the area's slot table is the ABI, "
 			   "and its slots leave in the serialised pass, not with their last caller.";

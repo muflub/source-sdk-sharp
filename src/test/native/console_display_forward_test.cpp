@@ -37,15 +37,20 @@ std::vector<ForwardedLine> g_SinkLines;
 
 /// The area the accessor answers with while a "load" is open: it records the
 /// buffer it was handed, and Drain() reads it as the managed reader does.
+/// Managed builds the real one as a block whose first word is its table
+/// (plan_forwarders_everywhere.md phase 4); here the table is static functions
+/// that call the members below.
 class CSinkArea final : public IManagedConsoleOutput
 {
 public:
+	CSinkArea() : IManagedConsoleOutput( &kTable ) {}
+
 	CConsoleLineBuffer *m_pBuffer = nullptr;
 	int m_nAttaches = 0;
 	int m_nLines = 0;
 
-	void ConsoleLine( const char *, int32_t ) override { ++m_nLines; }
-	void ConsoleBufferAttach( void *pBuffer ) override;
+	void Line() { ++m_nLines; }
+	void Attach( void *pBuffer );
 
 	/// The lines buffered since the last drain, onto g_SinkLines.
 	void Drain()
@@ -56,17 +61,25 @@ public:
 			g_SinkLines.push_back( ForwardedLine{ line.text, (int)line.warning, line.seq } );
 	}
 
-	void Release() override {}
+private:
+	static CSinkArea *Of( void *self ) { return static_cast< CSinkArea * >( self ); }
+	static void Released( IManagedObject * ) {}
 	// The forwarder never validates (acceptance is ManagedAccept's job at
 	// acquire); -1 is the agree answer managed_accept_test's fake gives.
-	int32_t Validate( const uint32_t *, int32_t ) override { return -1; }
+	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+	static void Lined( IManagedConsoleOutput *self, const char *, int32_t ) { Of( self )->Line(); }
+	static void Attached( IManagedConsoleOutput *self, void *pBuffer ) { Of( self )->Attach( pBuffer ); }
+
+	static const SSManagedConsoleOutputTable kTable;
 };
+
+const SSManagedConsoleOutputTable CSinkArea::kTable = { &Released, &Validated, &Lined, &Attached };
 
 /// The forwarder's buffer, as the last attach handed it: one per DLL, so
 /// every test sees the same memory and its sequence runs on across tests.
 CConsoleLineBuffer *g_pBuffer = nullptr;
 
-void CSinkArea::ConsoleBufferAttach( void *pBuffer )
+void CSinkArea::Attach( void *pBuffer )
 {
 	++m_nAttaches;
 	m_pBuffer = static_cast<CConsoleLineBuffer *>( pBuffer );
@@ -330,6 +343,8 @@ void EnginePrint( CRecordingCvar &cvar, const char *pText )
 class CTrapArea final : public IManagedConsoleOutput
 {
 public:
+	CTrapArea() : IManagedConsoleOutput( &kTable ) {}
+
 	CRecordingCvar *m_pCvar = nullptr;
 	int m_nHits = 0;
 	int m_nDepth = 0;
@@ -344,11 +359,18 @@ public:
 			--m_nDepth;
 		}
 	}
-	void ConsoleLine( const char *, int32_t ) override { Hit(); }
-	void ConsoleBufferAttach( void * ) override { Hit(); }
-	void Release() override {}
-	int32_t Validate( const uint32_t *, int32_t ) override { return -1; }
+
+private:
+	static CTrapArea *Of( void *self ) { return static_cast< CTrapArea * >( self ); }
+	static void Released( IManagedObject * ) {}
+	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+	static void Lined( IManagedConsoleOutput *self, const char *, int32_t ) { Of( self )->Hit(); }
+	static void Attached( IManagedConsoleOutput *self, void * ) { Of( self )->Hit(); }
+
+	static const SSManagedConsoleOutputTable kTable;
 };
+
+const SSManagedConsoleOutputTable CTrapArea::kTable = { &Released, &Validated, &Lined, &Attached };
 
 TEST_F( ConsoleDisplayForward, WithoutTheGapAReinstallOverADetachedAreaHitsTheTrap )
 {

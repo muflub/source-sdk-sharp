@@ -1,9 +1,10 @@
 //========= SourceSharp — the vtable table lengths, asked of the compiler =====//
 //
-// Managed reads some C++ tables by layout, through the structs in
-// src/abi/VtableLayouts.g.cs: the shim interfaces native implements and
-// managed calls, the managed-built interfaces native calls, and the vphysics
-// callbacks managed writes in Valve's layout. That file is GENERATED from the
+// Some C++ tables are still described by the structs in
+// src/abi/VtableLayouts.g.cs: the shim interfaces native implements (which
+// managed now calls through their forwarders, plan_forwarders_everywhere.md)
+// and the vphysics callbacks managed writes in Valve's layout. That file is
+// GENERATED from the
 // same headers by tools/vtable-layout, and a generated file can go stale:
 // somebody edits a header, or lands the generator's input without re-running
 // it. Then field N of the struct is a different method from slot N of the
@@ -62,13 +63,7 @@
 #include "../game/shared/ishim_console.h"
 #include "../game/shared/ishim_areas.h"
 #include "../game/shared/ishim_areas_client.h"
-#include "../game/shared/imanaged_runtime_client.h"
-#include "../game/shared/imanaged_root.h"
 #include "../game/client/particles_lib/include/ss_particles/iparticlelib.h"
-#include "../game/shared/imanaged_areas.h"
-#include "../game/shared/imanaged_areas_client.h"
-#include "../game/shared/sourcesharp_gamesystem.h"   // IManagedRuntimeServer
-#include "../fwd/imanaged_steam_callback.h"        // IManagedSteamCallback (libss_fwd_client)
 
 #include "../game/shared/vtable_hook.h"
 
@@ -402,52 +397,6 @@ TEST( VtableLayoutLength, ShimRootIsThreeSlots )
 	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ShimRootVtbl" ) );
 }
 
-TEST( VtableLayoutLength, ManagedRootIsThreeSlots )
-{
-	// plan_engineapi_vtables D3/D4, reshaped by plan_managed_vtable_reload.md
-	// L1: Release (0), Validate (1), Acquire, managed-built. Native accepts
-	// managed's object through Validate against these slots' hashes.
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IManagedRoot::Release ).slot );
-	EXPECT_EQ( 1, VTableHook::MemberOf( &IManagedRoot::Validate ).slot );
-	const int compiler = VTableHook::MemberOf( &IManagedRoot::Acquire ).slot + 1;
-
-	EXPECT_EQ( 3, compiler );
-	EXPECT_EQ( compiler, kIManagedRootSlotCount );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ManagedRootVtbl" ) );
-}
-
-TEST( VtableLayoutLength, ManagedRuntimeClientIsNineSlots )
-{
-	// plan_client_vtables CD: the shell client DLL's calls into the mod,
-	// managed-built. Release (0) and Validate (1) from IManagedObject, then
-	// Frame, ClientStage, LevelInit, LevelShutdown, ClientInvalidateMdlCache
-	// (appended at CE9a), ParticlesNeedFullReload (plan_map_load P8) and
-	// MapMaterialReload (P1).
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IManagedRuntimeClient::Release ).slot );
-	EXPECT_EQ( 1, VTableHook::MemberOf( &IManagedRuntimeClient::Validate ).slot );
-	EXPECT_EQ( 6, VTableHook::MemberOf( &IManagedRuntimeClient::ClientInvalidateMdlCache ).slot );
-	EXPECT_EQ( 7, VTableHook::MemberOf( &IManagedRuntimeClient::ParticlesNeedFullReload ).slot );
-	const int compiler = VTableHook::MemberOf( &IManagedRuntimeClient::MapMaterialReload ).slot + 1;
-
-	EXPECT_EQ( 9, compiler );
-	EXPECT_EQ( compiler, kIManagedRuntimeClientSlotCount );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ManagedRuntimeClientVtbl" ) );
-}
-
-TEST( VtableLayoutLength, ManagedRuntimeServerIsThirtyOneSlots )
-{
-	// plan_engineapi_vtables D5/E1: the shell game DLL's calls into the mod,
-	// managed-built. No virtual destructor, no stop slot; Release (0) and
-	// Validate (1) first (plan_managed_vtable_reload.md L1).
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IManagedRuntimeServer::Release ).slot );
-	EXPECT_EQ( 1, VTableHook::MemberOf( &IManagedRuntimeServer::Validate ).slot );
-	const int compiler = VTableHook::MemberOf( &IManagedRuntimeServer::OnGetGameDescription ).slot + 1;
-
-	EXPECT_EQ( 31, compiler );   // 26 at D5, +3 at E1 (the pre-entity pair, worldspawn's keys), +1 at E11 (game description), +1 at L1 (Validate)
-	EXPECT_EQ( compiler, kIManagedRuntimeServerSlotCount );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ManagedRuntimeServerVtbl" ) );
-}
-
 TEST( VtableLayoutLength, ShimConsoleIsElevenSlots )
 {
 	// plan_engineapi_vtables step A4: the ten console slots of EngineApi, in
@@ -557,7 +506,6 @@ TEST( VtableLayoutLength, EveryBoundMethodIsVirtualAndNeedsNoThisAdjustment )
 		// slot numbered against a table nothing is indexing.
 		VTableHook::MemberOf( &IShimFrame::TickCount ),
 		VTableHook::MemberOf( &IShimLevel::ResetServerTime ),
-		VTableHook::MemberOf( &IManagedSteamCallback::Run ),
 		VTableHook::MemberOf( &IPhysicsCollisionEvent::PreCollision ),
 	};
 
@@ -620,21 +568,6 @@ VTABLE_LENGTH_TEST( MotionEventIsOneSlot, "MotionEventVtbl",
 // the key parser's custom keys from its own Valve-layout table.
 VTABLE_LENGTH_TEST( VPhysicsKeyHandlerIsTwoSlots, "VPhysicsKeyHandlerVtbl",
                     &IVPhysicsKeyHandler::SetDefaults, 2 )
-// Client Steam (Decision 1a; plan_engine_forwarders.md phase 5): libss_fwd_client
-// builds the CCallbackBase Steam registers, and managed writes only its
-// managed side, IManagedSteamCallback: Release (0), Validate (1), Run. Ours,
-// so one order on every ABI, with no data after the vptr.
-TEST( VtableLayoutLength, ManagedSteamCallbackIsThreeSlots )
-{
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IManagedSteamCallback::Release ).slot );
-	EXPECT_EQ( 1, VTableHook::MemberOf( &IManagedSteamCallback::Validate ).slot );
-	const int compiler = VTableHook::MemberOf( &IManagedSteamCallback::Run ).slot + 1;
-
-	EXPECT_EQ( 3, compiler );
-	EXPECT_EQ( compiler, FieldsIn( ReadLayout(), "ManagedSteamCallbackVtbl" ) );
-	EXPECT_EQ( sizeof( void * ), sizeof( IManagedSteamCallback ) );   // the vptr and nothing after it
-}
-
 // The five callbacks managed registers (ClientSteamCallbacks.cs): each id and
 // payload size the SDK headers give, which ClientSteamCallbacksTests pins on
 // the managed side. A wrong size makes Steam refuse or misread the payload; a
@@ -871,8 +804,10 @@ TEST( SurfaceDataLayout, TheSoundFieldsTheManagedBatchReads )
 // same table as the interfaces and their layouts.
 #include "shim_areas_layout.inc"
 
-// plan_engineapi_vtables E: the managed-built areas tools/managed-areas generates.
-#include "managed_areas_layout.inc"
+// The tables managed writes and native calls are not here: tools/managed-areas
+// writes both sides of each from docs/managed-interfaces.tsv, its C struct with
+// a static_assert of its size, and native checks managed's per-slot hashes at
+// acquire (plan_forwarders_everywhere.md phase 4).
 
 TEST( VtableLayoutLength, EveryGeneratedStructIsCoveredByATestAbove )
 {
@@ -883,31 +818,24 @@ TEST( VtableLayoutLength, EveryGeneratedStructIsCoveredByATestAbove )
 		// The vphysics callbacks managed writes in Valve's layout.
 		"PhysicsObjectEventVtbl", "PhysicsCollisionEventVtbl", "PhysicsCollisionSolverVtbl",
 		"PhysicsConstraintEventVtbl", "MotionEventVtbl", "VPhysicsKeyHandlerVtbl",
-		"ManagedSteamCallbackVtbl",
 
 		// The shim layer.
 		"ShimFrameVtbl", "ShimLevelVtbl", "ShimRootVtbl", "ShimConsoleVtbl",
 		// plan_particles_so.md: libss_particles.so's own export, served by the
 		// client's internal factory.
 		"ParticleLibVtbl",
-
-		// Phase D: the tables MANAGED writes and native calls.
-		"ManagedRootVtbl", "ManagedRuntimeServerVtbl", "ManagedRuntimeClientVtbl",
 	};
 
 	const std::string layout = ReadLayout();
 	const int covered = (int)( sizeof( kCovered ) / sizeof( kCovered[ 0 ] ) );
 
 	const int areas = (int)( sizeof( kShimAreasCovered ) / sizeof( kShimAreasCovered[ 0 ] ) );
-	const int managedAreas = (int)( sizeof( kManagedAreasCovered ) / sizeof( kManagedAreasCovered[ 0 ] ) );
 
 	// Every name above must really be in the file...
 	for ( int i = 0; i < covered; i++ )
 		EXPECT_NE( -1, FieldsIn( layout, kCovered[ i ] ) ) << kCovered[ i ];
 	for ( int i = 0; i < areas; i++ )
 		EXPECT_NE( -1, FieldsIn( layout, kShimAreasCovered[ i ] ) ) << kShimAreasCovered[ i ];
-	for ( int i = 0; i < managedAreas; i++ )
-		EXPECT_NE( -1, FieldsIn( layout, kManagedAreasCovered[ i ] ) ) << kManagedAreasCovered[ i ];
 
 	// ...and the file must hold no OTHER struct.
 	int emitted = 0;
@@ -920,6 +848,6 @@ TEST( VtableLayoutLength, EveryGeneratedStructIsCoveredByATestAbove )
 		at += needle.size();
 	}
 
-	EXPECT_EQ( covered + areas + kManagedAreasGenerated, emitted )
+	EXPECT_EQ( covered + areas, emitted )
 		<< "a generated struct has no length test naming it";
 }

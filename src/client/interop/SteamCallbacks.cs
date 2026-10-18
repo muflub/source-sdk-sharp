@@ -9,7 +9,7 @@ namespace SourceSharp.Abi;
 /// its two <c>Run</c> overloads; both call this one slot. Its table is ours
 /// (<c>IManagedSteamCallback</c>), the same on every ABI.
 /// </summary>
-[ManagedVtable(typeof(ManagedSteamCallbackVtbl))]
+[ManagedVtable(typeof(ManagedSteamCallbackTable))]
 public unsafe interface ISteamCallbackSink
 {
     /// <summary><c>Run( void *pvParam )</c>: a callback or a call result arrived.</summary>

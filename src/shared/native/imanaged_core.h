@@ -9,8 +9,8 @@
 //
 // plan_managed_vtable_reload.md L0b: IManagedObject, the base every
 // managed-built interface derives from, and IManagedRoot, the one object
-// LoadSideV2 hands native (both sides). IMPLEMENTED BY MANAGED, so no virtual
-// destructor: Release is at slot 0 and Validate at slot 1.
+// LoadSideV2 hands native (both sides). IMPLEMENTED BY MANAGED: native calls
+// each through the table managed wrote, Release at slot 0 and Validate at 1.
 
 #ifndef IMANAGED_CORE_H
 #define IMANAGED_CORE_H
@@ -19,25 +19,60 @@
 #include <stdint.h>
 #include "tier0/platform.h"
 
-// plan_managed_vtable_reload.md L1b: the base of every managed-built interface.
-// Single inheritance puts Release at slot 0 and Validate at slot 1 of the
-// derived interface's one vtable; there is no second vtable pointer.
-abstract_class IManagedObject
+// plan_managed_vtable_reload.md L1b, plan_forwarders_everywhere.md phase 4:
+// the base of every managed-built interface. Word 0 of the block managed
+// builds points at the table it wrote; every table starts with Release and
+// Validate, each handed the object.
+class IManagedObject;
+
+struct SSManagedObjectTable
 {
-public:
-	virtual void Release() = 0;
-	virtual int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) = 0;
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 };
 
-abstract_class IManagedRoot : public IManagedObject
+class IManagedObject
 {
 public:
-	virtual void *Acquire( const char *pszName ) = 0;
+	// Native never builds one: managed does. A native test that fakes one
+	// hands its own table here.
+	explicit IManagedObject( const void *pTable ) : m_pTable( pTable ) {}
+
+	void Release() { Object()->Release( this ); }
+	int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) { return Object()->Validate( this, pSlotHashes, nSlots ); }
+
+protected:
+	const void *m_pTable;
+
+private:
+	const SSManagedObjectTable *Object() const { return static_cast< const SSManagedObjectTable * >( m_pTable ); }
+};
+
+class IManagedRoot;
+
+// The table managed writes for IManagedRoot: Release, Validate, then the TSV's order.
+struct SSManagedRootTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void * ( *Acquire )( IManagedRoot *self, const char *pszName );
+};
+
+class IManagedRoot : public IManagedObject
+{
+public:
+	explicit IManagedRoot( const SSManagedRootTable *pTable ) : IManagedObject( pTable ) {}
+
+	void *Acquire( const char *pszName ) { return Table()->Acquire( this, pszName ); }
+
+private:
+	const SSManagedRootTable *Table() const { return static_cast< const SSManagedRootTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedRootSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xa43ae9b6,
 };
 static const int32_t kIManagedRootSlotCount = 3;
+static_assert( sizeof( SSManagedRootTable ) == 3 * sizeof( void * ), "SSManagedRootTable is one pointer per slot" );
 
 #endif // IMANAGED_CORE_H

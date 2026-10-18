@@ -21,52 +21,124 @@
 #include "sourcesharp.h"
 #include "imanaged_core.h"
 
-abstract_class IManagedCommandsClient : public IManagedObject
+class IManagedCommandsClient;
+
+// The table managed writes for IManagedCommandsClient: Release, Validate, then the TSV's order.
+struct SSManagedCommandsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ConCommandDispatch )( IManagedCommandsClient *self, int32_t nCommandId, const char *pArgs );
+	void ( *ConVarChanged )( IManagedCommandsClient *self, int32_t nConVarId, const char *pNewValue, const char *pOldValue );
+};
+
+class IManagedCommandsClient : public IManagedObject
 {
 public:
-	virtual void ConCommandDispatch( int32_t nCommandId, const char *pArgs ) = 0;
-	virtual void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue ) = 0;
+	explicit IManagedCommandsClient( const SSManagedCommandsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ConCommandDispatch( int32_t nCommandId, const char *pArgs ) { Table()->ConCommandDispatch( this, nCommandId, pArgs ); }
+	void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue ) { Table()->ConVarChanged( this, nConVarId, pNewValue, pOldValue ); }
+
+private:
+	const SSManagedCommandsClientTable *Table() const { return static_cast< const SSManagedCommandsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedCommandsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xeed27821, 0x3d217e2d,
 };
 static const int32_t kIManagedCommandsClientSlotCount = 4;
+static_assert( sizeof( SSManagedCommandsClientTable ) == 4 * sizeof( void * ), "SSManagedCommandsClientTable is one pointer per slot" );
 
-abstract_class IManagedEventsClient : public IManagedObject
+class IManagedEventsClient;
+
+// The table managed writes for IManagedEventsClient: Release, Validate, then the TSV's order.
+struct SSManagedEventsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *OnGameEvent )( IManagedEventsClient *self, const char *pEventName, void *hEvent );
+};
+
+class IManagedEventsClient : public IManagedObject
 {
 public:
-	virtual void OnGameEvent( const char *pEventName, void *hEvent ) = 0;
+	explicit IManagedEventsClient( const SSManagedEventsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void OnGameEvent( const char *pEventName, void *hEvent ) { Table()->OnGameEvent( this, pEventName, hEvent ); }
+
+private:
+	const SSManagedEventsClientTable *Table() const { return static_cast< const SSManagedEventsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedEventsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xacb4e74c,
 };
 static const int32_t kIManagedEventsClientSlotCount = 3;
+static_assert( sizeof( SSManagedEventsClientTable ) == 3 * sizeof( void * ), "SSManagedEventsClientTable is one pointer per slot" );
 
-abstract_class IManagedUserMessagesClient : public IManagedObject
+class IManagedUserMessagesClient;
+
+// The table managed writes for IManagedUserMessagesClient: Release, Validate, then the TSV's order.
+struct SSManagedUserMessagesClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	bool ( *DispatchUserMessage )( IManagedUserMessagesClient *self, int32_t nIndex, const uint8_t *pBlock, int32_t nBlockBytes );
+};
+
+class IManagedUserMessagesClient : public IManagedObject
 {
 public:
-	virtual bool DispatchUserMessage( int32_t nIndex, const uint8_t *pBlock, int32_t nBlockBytes ) = 0;
+	explicit IManagedUserMessagesClient( const SSManagedUserMessagesClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	bool DispatchUserMessage( int32_t nIndex, const uint8_t *pBlock, int32_t nBlockBytes ) { return Table()->DispatchUserMessage( this, nIndex, pBlock, nBlockBytes ); }
+
+private:
+	const SSManagedUserMessagesClientTable *Table() const { return static_cast< const SSManagedUserMessagesClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedUserMessagesClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x42dc42b8,
 };
 static const int32_t kIManagedUserMessagesClientSlotCount = 3;
+static_assert( sizeof( SSManagedUserMessagesClientTable ) == 3 * sizeof( void * ), "SSManagedUserMessagesClientTable is one pointer per slot" );
 
-abstract_class IManagedStandaloneClient : public IManagedObject
+class IManagedStandaloneClient;
+
+// The table managed writes for IManagedStandaloneClient: Release, Validate, then the TSV's order.
+struct SSManagedStandaloneClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *OnStandaloneCreate )( IManagedStandaloneClient *self, uint32_t hEntity, const char *pClassName );
+	void ( *OnStandaloneSpawn )( IManagedStandaloneClient *self, uint32_t hEntity );
+	void ( *OnStandaloneRemoved )( IManagedStandaloneClient *self, uint32_t hEntity );
+	void ( *OnStandaloneDataChanged )( IManagedStandaloneClient *self, uint32_t hEntity, const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType );
+	int32_t ( *OnStandaloneDraw )( IManagedStandaloneClient *self, uint32_t hEntity );
+	void ( *OnStandaloneDormancyChanged )( IManagedStandaloneClient *self, uint32_t hEntity, int32_t bDormant );
+	int32_t ( *NetStateFieldOffset )( IManagedStandaloneClient *self, const char *pClassName, const char *pFieldName );
+	int32_t ( *NetStateFieldBits )( IManagedStandaloneClient *self, const char *pClassName, const char *pFieldName );
+	void ( *OnStandaloneDrawBatch )( IManagedStandaloneClient *self, const uint32_t *pHandles, int32_t nCount, int32_t *pResults );
+};
+
+class IManagedStandaloneClient : public IManagedObject
 {
 public:
-	virtual int32_t OnStandaloneCreate( uint32_t hEntity, const char *pClassName ) = 0;
-	virtual void OnStandaloneSpawn( uint32_t hEntity ) = 0;
-	virtual void OnStandaloneRemoved( uint32_t hEntity ) = 0;
-	virtual void OnStandaloneDataChanged( uint32_t hEntity, const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType ) = 0;
-	virtual int32_t OnStandaloneDraw( uint32_t hEntity ) = 0;
-	virtual void OnStandaloneDormancyChanged( uint32_t hEntity, int32_t bDormant ) = 0;
-	virtual int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName ) = 0;
-	virtual int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName ) = 0;
-	virtual void OnStandaloneDrawBatch( const uint32_t *pHandles, int32_t nCount, int32_t *pResults ) = 0;
+	explicit IManagedStandaloneClient( const SSManagedStandaloneClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t OnStandaloneCreate( uint32_t hEntity, const char *pClassName ) { return Table()->OnStandaloneCreate( this, hEntity, pClassName ); }
+	void OnStandaloneSpawn( uint32_t hEntity ) { Table()->OnStandaloneSpawn( this, hEntity ); }
+	void OnStandaloneRemoved( uint32_t hEntity ) { Table()->OnStandaloneRemoved( this, hEntity ); }
+	void OnStandaloneDataChanged( uint32_t hEntity, const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType ) { Table()->OnStandaloneDataChanged( this, hEntity, pBlob, nBytes, nUpdateType ); }
+	int32_t OnStandaloneDraw( uint32_t hEntity ) { return Table()->OnStandaloneDraw( this, hEntity ); }
+	void OnStandaloneDormancyChanged( uint32_t hEntity, int32_t bDormant ) { Table()->OnStandaloneDormancyChanged( this, hEntity, bDormant ); }
+	int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldOffset( this, pClassName, pFieldName ); }
+	int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldBits( this, pClassName, pFieldName ); }
+	void OnStandaloneDrawBatch( const uint32_t *pHandles, int32_t nCount, int32_t *pResults ) { Table()->OnStandaloneDrawBatch( this, pHandles, nCount, pResults ); }
+
+private:
+	const SSManagedStandaloneClientTable *Table() const { return static_cast< const SSManagedStandaloneClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedStandaloneClientSlotHashes[] = {
@@ -74,41 +146,97 @@ static const uint32_t kIManagedStandaloneClientSlotHashes[] = {
 	0xbddf45d5, 0xbddf45d5, 0xd26c0bc9,
 };
 static const int32_t kIManagedStandaloneClientSlotCount = 11;
+static_assert( sizeof( SSManagedStandaloneClientTable ) == 11 * sizeof( void * ), "SSManagedStandaloneClientTable is one pointer per slot" );
 
-abstract_class IManagedPredictionClient : public IManagedObject
+class IManagedPredictionClient;
+
+// The table managed writes for IManagedPredictionClient: Release, Validate, then the TSV's order.
+struct SSManagedPredictionClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *MoveProcessMovement )( IManagedPredictionClient *self, SourceSharpMoveState *pState );
+	void ( *ClientPredictionUpdate )( IManagedPredictionClient *self, int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived );
+	int32_t ( *ThirdPersonCamera )( IManagedPredictionClient *self, SourceSharpThirdPersonCamera *pIo );
+};
+
+class IManagedPredictionClient : public IManagedObject
 {
 public:
-	virtual int32_t MoveProcessMovement( SourceSharpMoveState *pState ) = 0;
-	virtual void ClientPredictionUpdate( int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived ) = 0;
-	virtual int32_t ThirdPersonCamera( SourceSharpThirdPersonCamera *pIo ) = 0;
+	explicit IManagedPredictionClient( const SSManagedPredictionClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t MoveProcessMovement( SourceSharpMoveState *pState ) { return Table()->MoveProcessMovement( this, pState ); }
+	void ClientPredictionUpdate( int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived ) { Table()->ClientPredictionUpdate( this, nStartFrame, bValidFrame, nIncomingAcknowledged, nOutgoingCommand, bWorldUpdateArrived ); }
+	int32_t ThirdPersonCamera( SourceSharpThirdPersonCamera *pIo ) { return Table()->ThirdPersonCamera( this, pIo ); }
+
+private:
+	const SSManagedPredictionClientTable *Table() const { return static_cast< const SSManagedPredictionClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedPredictionClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x1134ef71, 0x5952f295, 0x1134ef71,
 };
 static const int32_t kIManagedPredictionClientSlotCount = 5;
+static_assert( sizeof( SSManagedPredictionClientTable ) == 5 * sizeof( void * ), "SSManagedPredictionClientTable is one pointer per slot" );
 
-abstract_class IManagedHudClient : public IManagedObject
+class IManagedHudClient;
+
+// The table managed writes for IManagedHudClient: Release, Validate, then the TSV's order.
+struct SSManagedHudClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *OnCreateMove )( IManagedHudClient *self, SourceSharpUserCmd *pCmd, float flInputSampleTime, int32_t bActive );
+};
+
+class IManagedHudClient : public IManagedObject
 {
 public:
-	virtual void OnCreateMove( SourceSharpUserCmd *pCmd, float flInputSampleTime, int32_t bActive ) = 0;
+	explicit IManagedHudClient( const SSManagedHudClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void OnCreateMove( SourceSharpUserCmd *pCmd, float flInputSampleTime, int32_t bActive ) { Table()->OnCreateMove( this, pCmd, flInputSampleTime, bActive ); }
+
+private:
+	const SSManagedHudClientTable *Table() const { return static_cast< const SSManagedHudClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedHudClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x93d74047,
 };
 static const int32_t kIManagedHudClientSlotCount = 3;
+static_assert( sizeof( SSManagedHudClientTable ) == 3 * sizeof( void * ), "SSManagedHudClientTable is one pointer per slot" );
 
-abstract_class IManagedTempEntsClient : public IManagedObject
+class IManagedTempEntsClient;
+
+// The table managed writes for IManagedTempEntsClient: Release, Validate, then the TSV's order.
+struct SSManagedTempEntsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *OnTempEntity )( IManagedTempEntsClient *self, int32_t hClass, const unsigned char *pBlob, int32_t nBytes );
+	int32_t ( *OnNativeTempEntity )( IManagedTempEntsClient *self, int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut );
+	int32_t ( *OnTempEntPoolAlloc )( IManagedTempEntsClient *self, int32_t nPriority );
+	void ( *OnTempEntPoolUpdate )( IManagedTempEntsClient *self, float flFrameTime );
+	void ( *OnTempEntPoolClear )( IManagedTempEntsClient *self );
+	int32_t ( *OnTempEntEjectBrass )( IManagedTempEntsClient *self, int32_t nSlot, int32_t nType, const float *pAnglesPYR, const float *pGunAnglesPYR );
+	int32_t ( *OnImpactChoice )( IManagedTempEntsClient *self, const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax );
+};
+
+class IManagedTempEntsClient : public IManagedObject
 {
 public:
-	virtual void OnTempEntity( int32_t hClass, const unsigned char *pBlob, int32_t nBytes ) = 0;
-	virtual int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut ) = 0;
-	virtual int32_t OnTempEntPoolAlloc( int32_t nPriority ) = 0;
-	virtual void OnTempEntPoolUpdate( float flFrameTime ) = 0;
-	virtual void OnTempEntPoolClear() = 0;
-	virtual int32_t OnTempEntEjectBrass( int32_t nSlot, int32_t nType, const float *pAnglesPYR, const float *pGunAnglesPYR ) = 0;
-	virtual int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax ) = 0;
+	explicit IManagedTempEntsClient( const SSManagedTempEntsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void OnTempEntity( int32_t hClass, const unsigned char *pBlob, int32_t nBytes ) { Table()->OnTempEntity( this, hClass, pBlob, nBytes ); }
+	int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut ) { return Table()->OnNativeTempEntity( this, nId, pFloats, nFloats, pInts, nInts, pBlobOut, nBlobMax, pClassOut ); }
+	int32_t OnTempEntPoolAlloc( int32_t nPriority ) { return Table()->OnTempEntPoolAlloc( this, nPriority ); }
+	void OnTempEntPoolUpdate( float flFrameTime ) { Table()->OnTempEntPoolUpdate( this, flFrameTime ); }
+	void OnTempEntPoolClear() { Table()->OnTempEntPoolClear( this ); }
+	int32_t OnTempEntEjectBrass( int32_t nSlot, int32_t nType, const float *pAnglesPYR, const float *pGunAnglesPYR ) { return Table()->OnTempEntEjectBrass( this, nSlot, nType, pAnglesPYR, pGunAnglesPYR ); }
+	int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax ) { return Table()->OnImpactChoice( this, pIn, nIn, pOut, nOutMax, pParticleNameOut, nParticleNameMax, pDecalNameOut, nDecalNameMax ); }
+
+private:
+	const SSManagedTempEntsClientTable *Table() const { return static_cast< const SSManagedTempEntsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedTempEntsClientSlotHashes[] = {
@@ -116,82 +244,189 @@ static const uint32_t kIManagedTempEntsClientSlotHashes[] = {
 	0x055e06f1,
 };
 static const int32_t kIManagedTempEntsClientSlotCount = 9;
+static_assert( sizeof( SSManagedTempEntsClientTable ) == 9 * sizeof( void * ), "SSManagedTempEntsClientTable is one pointer per slot" );
 
-abstract_class IManagedSaveRestoreClient : public IManagedObject
+class IManagedSaveRestoreClient;
+
+// The table managed writes for IManagedSaveRestoreClient: Release, Validate, then the TSV's order.
+struct SSManagedSaveRestoreClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *ReloadSave )( IManagedSaveRestoreClient *self );
+	int32_t ( *ReloadRestore )( IManagedSaveRestoreClient *self );
+};
+
+class IManagedSaveRestoreClient : public IManagedObject
 {
 public:
-	virtual int32_t ReloadSave() = 0;
-	virtual int32_t ReloadRestore() = 0;
+	explicit IManagedSaveRestoreClient( const SSManagedSaveRestoreClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t ReloadSave() { return Table()->ReloadSave( this ); }
+	int32_t ReloadRestore() { return Table()->ReloadRestore( this ); }
+
+private:
+	const SSManagedSaveRestoreClientTable *Table() const { return static_cast< const SSManagedSaveRestoreClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSaveRestoreClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245,
 };
 static const int32_t kIManagedSaveRestoreClientSlotCount = 4;
+static_assert( sizeof( SSManagedSaveRestoreClientTable ) == 4 * sizeof( void * ), "SSManagedSaveRestoreClientTable is one pointer per slot" );
 
-abstract_class IManagedBeamsClient : public IManagedObject
+class IManagedBeamsClient;
+
+// The table managed writes for IManagedBeamsClient: Release, Validate, then the TSV's order.
+struct SSManagedBeamsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *BeamsLifecycle )( IManagedBeamsClient *self, int32_t nOp, int32_t nArg );
+	void ( *BeamsUpdate )( IManagedBeamsClient *self, float flCurTime, float flFrameTime );
+	void ( *BeamsKillDead )( IManagedBeamsClient *self, uint32_t hEntity, float flCurTime );
+	int32_t ( *BeamsCreate )( IManagedBeamsClient *self, int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime );
+	void ( *BeamsDraw )( IManagedBeamsClient *self, int32_t nRenderable );
+};
+
+class IManagedBeamsClient : public IManagedObject
 {
 public:
-	virtual void BeamsLifecycle( int32_t nOp, int32_t nArg ) = 0;
-	virtual void BeamsUpdate( float flCurTime, float flFrameTime ) = 0;
-	virtual void BeamsKillDead( uint32_t hEntity, float flCurTime ) = 0;
-	virtual int32_t BeamsCreate( int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime ) = 0;
-	virtual void BeamsDraw( int32_t nRenderable ) = 0;
+	explicit IManagedBeamsClient( const SSManagedBeamsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void BeamsLifecycle( int32_t nOp, int32_t nArg ) { Table()->BeamsLifecycle( this, nOp, nArg ); }
+	void BeamsUpdate( float flCurTime, float flFrameTime ) { Table()->BeamsUpdate( this, flCurTime, flFrameTime ); }
+	void BeamsKillDead( uint32_t hEntity, float flCurTime ) { Table()->BeamsKillDead( this, hEntity, flCurTime ); }
+	int32_t BeamsCreate( int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime ) { return Table()->BeamsCreate( this, nKind, pInts, pFloats, pszModel, pszHalo, flCurTime ); }
+	void BeamsDraw( int32_t nRenderable ) { Table()->BeamsDraw( this, nRenderable ); }
+
+private:
+	const SSManagedBeamsClientTable *Table() const { return static_cast< const SSManagedBeamsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedBeamsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x7fb639b8, 0xbdc8b950, 0x86461d22, 0x0d2e11b0, 0xc83e311d,
 };
 static const int32_t kIManagedBeamsClientSlotCount = 7;
+static_assert( sizeof( SSManagedBeamsClientTable ) == 7 * sizeof( void * ), "SSManagedBeamsClientTable is one pointer per slot" );
 
-abstract_class IManagedDiagnosticsClient : public IManagedObject
+class IManagedDiagnosticsClient;
+
+// The table managed writes for IManagedDiagnosticsClient: Release, Validate, then the TSV's order.
+struct SSManagedDiagnosticsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *CrossingsReport )( IManagedDiagnosticsClient *self, char *pBuffer, int32_t nBytes, int32_t bReset );
+	uint32_t ( *Md5PseudoRandom )( IManagedDiagnosticsClient *self, uint32_t nSeed );
+};
+
+class IManagedDiagnosticsClient : public IManagedObject
 {
 public:
-	virtual int32_t CrossingsReport( char *pBuffer, int32_t nBytes, int32_t bReset ) = 0;
-	virtual uint32_t Md5PseudoRandom( uint32_t nSeed ) = 0;
+	explicit IManagedDiagnosticsClient( const SSManagedDiagnosticsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t CrossingsReport( char *pBuffer, int32_t nBytes, int32_t bReset ) { return Table()->CrossingsReport( this, pBuffer, nBytes, bReset ); }
+	uint32_t Md5PseudoRandom( uint32_t nSeed ) { return Table()->Md5PseudoRandom( this, nSeed ); }
+
+private:
+	const SSManagedDiagnosticsClientTable *Table() const { return static_cast< const SSManagedDiagnosticsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedDiagnosticsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xd64a23a5, 0x021a56ce,
 };
 static const int32_t kIManagedDiagnosticsClientSlotCount = 4;
+static_assert( sizeof( SSManagedDiagnosticsClientTable ) == 4 * sizeof( void * ), "SSManagedDiagnosticsClientTable is one pointer per slot" );
 
-abstract_class IManagedDecalsClient : public IManagedObject
+class IManagedDecalsClient;
+
+// The table managed writes for IManagedDecalsClient: Release, Validate, then the TSV's order.
+struct SSManagedDecalsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *Init )( IManagedDecalsClient *self );
+	void ( *LevelInitPreEntity )( IManagedDecalsClient *self );
+	void ( *Shutdown )( IManagedDecalsClient *self );
+	int32_t ( *IndexForName )( IManagedDecalsClient *self, const char *pszName );
+	int32_t ( *NameForIndex )( IManagedDecalsClient *self, int32_t nIndex, char *pOut, int32_t nOutSize );
+	int32_t ( *TranslateForGameMaterial )( IManagedDecalsClient *self, const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize );
+};
+
+class IManagedDecalsClient : public IManagedObject
 {
 public:
-	virtual void Init() = 0;
-	virtual void LevelInitPreEntity() = 0;
-	virtual void Shutdown() = 0;
-	virtual int32_t IndexForName( const char *pszName ) = 0;
-	virtual int32_t NameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize ) = 0;
-	virtual int32_t TranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize ) = 0;
+	explicit IManagedDecalsClient( const SSManagedDecalsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void Init() { Table()->Init( this ); }
+	void LevelInitPreEntity() { Table()->LevelInitPreEntity( this ); }
+	void Shutdown() { Table()->Shutdown( this ); }
+	int32_t IndexForName( const char *pszName ) { return Table()->IndexForName( this, pszName ); }
+	int32_t NameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize ) { return Table()->NameForIndex( this, nIndex, pOut, nOutSize ); }
+	int32_t TranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize ) { return Table()->TranslateForGameMaterial( this, pszDecalName, nGameMaterial, pOut, nOutSize ); }
+
+private:
+	const SSManagedDecalsClientTable *Table() const { return static_cast< const SSManagedDecalsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedDecalsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x88774d41, 0xc7f046a5, 0x256306e9,
 };
 static const int32_t kIManagedDecalsClientSlotCount = 8;
+static_assert( sizeof( SSManagedDecalsClientTable ) == 8 * sizeof( void * ), "SSManagedDecalsClientTable is one pointer per slot" );
 
-abstract_class IManagedParticlesClient : public IManagedObject
+class IManagedParticlesClient;
+
+// The table managed writes for IManagedParticlesClient: Release, Validate, then the TSV's order.
+struct SSManagedParticlesClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *Frame )( IManagedParticlesClient *self, const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes );
+	int32_t ( *DrawBegin )( IManagedParticlesClient *self, const SourceSharpParticleDrawIn_t *pIn, uint8_t *pOut, int32_t nOutBytes );
+	int32_t ( *DrawEnd )( IManagedParticlesClient *self, uint32_t hOwner, int32_t nChannel, const uint8_t *pKeys, int32_t nKeyBytes );
+	int32_t ( *FrameCode )( IManagedParticlesClient *self );
+	int32_t ( *PostRender )( IManagedParticlesClient *self );
+	int32_t ( *QueryCollisionGroup )( IManagedParticlesClient *self, const char *pszName );
+	int32_t ( *QueryLighting )( IManagedParticlesClient *self, const float *pOriginXYZ, uint8_t *pRgbaOut );
+	int32_t ( *QueryTrace )( IManagedParticlesClient *self, const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, int32_t nCollisionGroup, int32_t bHasIgnore );
+	int32_t ( *QueryHitBoxPoints )( IManagedParticlesClient *self, int32_t nControlPoint, const float *pControlPointXYZ, int32_t bHasObject, int32_t nPoints, float *pPointsOut, int32_t *pIndicesOut, float *pRelativeOut );
+	int32_t ( *QueryHitBoxInfo )( IManagedParticlesClient *self, int32_t nControlPoint, int32_t bHasObject, int32_t nBufSize );
+	int32_t ( *ImpactDebris )( IManagedParticlesClient *self, const float *pEndPosXYZ, const float *pNormalXYZ, const float *pColorXYZ, int32_t nMaterial, int32_t iScale, int32_t bNoFlecks, float flThrottle );
+	int32_t ( *ImpactDust )( IManagedParticlesClient *self, const float *pOriginXYZ, const float *pNormalXYZ, const float *pColorXYZ, float flScale, float flThrottle );
+	int32_t ( *ImpactMetalSpark )( IManagedParticlesClient *self, const float *pOriginXYZ, const float *pShotDirXYZ, const float *pNormalXYZ, int32_t iScale, float flThrottle );
+	int32_t ( *WaterSplash )( IManagedParticlesClient *self, int32_t nKind, const float *pOriginXYZ, const float *pNormalXYZ, float flScale, const float *pColorXYZ, float flLifetime, float flAlpha );
+	int32_t ( *SplashTint )( IManagedParticlesClient *self, const float *pColorXYZ, float *pTintXYZ, float *pLuminosity );
+	int32_t ( *TracerQuads )( IManagedParticlesClient *self, int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut );
+	int32_t ( *ManifestFiles )( IManagedParticlesClient *self, int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes );
+};
+
+class IManagedParticlesClient : public IManagedObject
 {
 public:
-	virtual int32_t Frame( const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes ) = 0;
-	virtual int32_t DrawBegin( const SourceSharpParticleDrawIn_t *pIn, uint8_t *pOut, int32_t nOutBytes ) = 0;
-	virtual int32_t DrawEnd( uint32_t hOwner, int32_t nChannel, const uint8_t *pKeys, int32_t nKeyBytes ) = 0;
-	virtual int32_t FrameCode() = 0;
-	virtual int32_t PostRender() = 0;
-	virtual int32_t QueryCollisionGroup( const char *pszName ) = 0;
-	virtual int32_t QueryLighting( const float *pOriginXYZ, uint8_t *pRgbaOut ) = 0;
-	virtual int32_t QueryTrace( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, int32_t nCollisionGroup, int32_t bHasIgnore ) = 0;
-	virtual int32_t QueryHitBoxPoints( int32_t nControlPoint, const float *pControlPointXYZ, int32_t bHasObject, int32_t nPoints, float *pPointsOut, int32_t *pIndicesOut, float *pRelativeOut ) = 0;
-	virtual int32_t QueryHitBoxInfo( int32_t nControlPoint, int32_t bHasObject, int32_t nBufSize ) = 0;
-	virtual int32_t ImpactDebris( const float *pEndPosXYZ, const float *pNormalXYZ, const float *pColorXYZ, int32_t nMaterial, int32_t iScale, int32_t bNoFlecks, float flThrottle ) = 0;
-	virtual int32_t ImpactDust( const float *pOriginXYZ, const float *pNormalXYZ, const float *pColorXYZ, float flScale, float flThrottle ) = 0;
-	virtual int32_t ImpactMetalSpark( const float *pOriginXYZ, const float *pShotDirXYZ, const float *pNormalXYZ, int32_t iScale, float flThrottle ) = 0;
-	virtual int32_t WaterSplash( int32_t nKind, const float *pOriginXYZ, const float *pNormalXYZ, float flScale, const float *pColorXYZ, float flLifetime, float flAlpha ) = 0;
-	virtual int32_t SplashTint( const float *pColorXYZ, float *pTintXYZ, float *pLuminosity ) = 0;
-	virtual int32_t TracerQuads( int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut ) = 0;
-	virtual int32_t ManifestFiles( int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes ) = 0;
+	explicit IManagedParticlesClient( const SSManagedParticlesClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t Frame( const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes ) { return Table()->Frame( this, pIn, nInBytes, pOut, nOutBytes ); }
+	int32_t DrawBegin( const SourceSharpParticleDrawIn_t *pIn, uint8_t *pOut, int32_t nOutBytes ) { return Table()->DrawBegin( this, pIn, pOut, nOutBytes ); }
+	int32_t DrawEnd( uint32_t hOwner, int32_t nChannel, const uint8_t *pKeys, int32_t nKeyBytes ) { return Table()->DrawEnd( this, hOwner, nChannel, pKeys, nKeyBytes ); }
+	int32_t FrameCode() { return Table()->FrameCode( this ); }
+	int32_t PostRender() { return Table()->PostRender( this ); }
+	int32_t QueryCollisionGroup( const char *pszName ) { return Table()->QueryCollisionGroup( this, pszName ); }
+	int32_t QueryLighting( const float *pOriginXYZ, uint8_t *pRgbaOut ) { return Table()->QueryLighting( this, pOriginXYZ, pRgbaOut ); }
+	int32_t QueryTrace( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, int32_t nCollisionGroup, int32_t bHasIgnore ) { return Table()->QueryTrace( this, pStartXYZ, pEndXYZ, nMask, nCollisionGroup, bHasIgnore ); }
+	int32_t QueryHitBoxPoints( int32_t nControlPoint, const float *pControlPointXYZ, int32_t bHasObject, int32_t nPoints, float *pPointsOut, int32_t *pIndicesOut, float *pRelativeOut ) { return Table()->QueryHitBoxPoints( this, nControlPoint, pControlPointXYZ, bHasObject, nPoints, pPointsOut, pIndicesOut, pRelativeOut ); }
+	int32_t QueryHitBoxInfo( int32_t nControlPoint, int32_t bHasObject, int32_t nBufSize ) { return Table()->QueryHitBoxInfo( this, nControlPoint, bHasObject, nBufSize ); }
+	int32_t ImpactDebris( const float *pEndPosXYZ, const float *pNormalXYZ, const float *pColorXYZ, int32_t nMaterial, int32_t iScale, int32_t bNoFlecks, float flThrottle ) { return Table()->ImpactDebris( this, pEndPosXYZ, pNormalXYZ, pColorXYZ, nMaterial, iScale, bNoFlecks, flThrottle ); }
+	int32_t ImpactDust( const float *pOriginXYZ, const float *pNormalXYZ, const float *pColorXYZ, float flScale, float flThrottle ) { return Table()->ImpactDust( this, pOriginXYZ, pNormalXYZ, pColorXYZ, flScale, flThrottle ); }
+	int32_t ImpactMetalSpark( const float *pOriginXYZ, const float *pShotDirXYZ, const float *pNormalXYZ, int32_t iScale, float flThrottle ) { return Table()->ImpactMetalSpark( this, pOriginXYZ, pShotDirXYZ, pNormalXYZ, iScale, flThrottle ); }
+	int32_t WaterSplash( int32_t nKind, const float *pOriginXYZ, const float *pNormalXYZ, float flScale, const float *pColorXYZ, float flLifetime, float flAlpha ) { return Table()->WaterSplash( this, nKind, pOriginXYZ, pNormalXYZ, flScale, pColorXYZ, flLifetime, flAlpha ); }
+	int32_t SplashTint( const float *pColorXYZ, float *pTintXYZ, float *pLuminosity ) { return Table()->SplashTint( this, pColorXYZ, pTintXYZ, pLuminosity ); }
+	int32_t TracerQuads( int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut ) { return Table()->TracerQuads( this, nTracers, pIn, pVertsOut, pValidOut ); }
+	int32_t ManifestFiles( int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes ) { return Table()->ManifestFiles( this, bMap, pszMapName, pBlock, nBlockBytes ); }
+
+private:
+	const SSManagedParticlesClientTable *Table() const { return static_cast< const SSManagedParticlesClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedParticlesClientSlotHashes[] = {
@@ -200,21 +435,47 @@ static const uint32_t kIManagedParticlesClientSlotHashes[] = {
 	0x910f7a19, 0x932de382, 0x4a9e65fd,
 };
 static const int32_t kIManagedParticlesClientSlotCount = 19;
+static_assert( sizeof( SSManagedParticlesClientTable ) == 19 * sizeof( void * ), "SSManagedParticlesClientTable is one pointer per slot" );
 
-abstract_class IManagedUiClient : public IManagedObject
+class IManagedUiClient;
+
+// The table managed writes for IManagedUiClient: Release, Validate, then the TSV's order.
+struct SSManagedUiClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *Paint )( IManagedUiClient *self, int32_t nLayer, int32_t nScreenW, int32_t nScreenH );
+	void ( *ScreenSizeChanged )( IManagedUiClient *self, int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH );
+	void ( *Input )( IManagedUiClient *self, int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar, float flDelta );
+	int32_t ( *ViewportPanel )( IManagedUiClient *self, const char *pszName, int32_t bShow );
+	void ( *CenterPrint )( IManagedUiClient *self, const char *pszText, int32_t r, int32_t g, int32_t b, int32_t a );
+	void ( *CenterClear )( IManagedUiClient *self );
+	void ( *PlaqueState )( IManagedUiClient *self, int32_t nFacts, int32_t nPausedSeconds );
+	void ( *VoiceStatus )( IManagedUiClient *self, int32_t nEntIndex, int32_t bTalking );
+	int32_t ( *KeyInput )( IManagedUiClient *self, int32_t bDown, int32_t nKey, const char *pszBinding, int32_t bConsoleVisible, int32_t nMaxClients );
+	int32_t ( *VoiceIsBlocked )( IManagedUiClient *self, int32_t nClient );
+	void ( *VoiceToggleBlocked )( IManagedUiClient *self, int32_t nClient );
+};
+
+class IManagedUiClient : public IManagedObject
 {
 public:
-	virtual void Paint( int32_t nLayer, int32_t nScreenW, int32_t nScreenH ) = 0;
-	virtual void ScreenSizeChanged( int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH ) = 0;
-	virtual void Input( int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar, float flDelta ) = 0;
-	virtual int32_t ViewportPanel( const char *pszName, int32_t bShow ) = 0;
-	virtual void CenterPrint( const char *pszText, int32_t r, int32_t g, int32_t b, int32_t a ) = 0;
-	virtual void CenterClear() = 0;
-	virtual void PlaqueState( int32_t nFacts, int32_t nPausedSeconds ) = 0;
-	virtual void VoiceStatus( int32_t nEntIndex, int32_t bTalking ) = 0;
-	virtual int32_t KeyInput( int32_t bDown, int32_t nKey, const char *pszBinding, int32_t bConsoleVisible, int32_t nMaxClients ) = 0;
-	virtual int32_t VoiceIsBlocked( int32_t nClient ) = 0;
-	virtual void VoiceToggleBlocked( int32_t nClient ) = 0;
+	explicit IManagedUiClient( const SSManagedUiClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void Paint( int32_t nLayer, int32_t nScreenW, int32_t nScreenH ) { Table()->Paint( this, nLayer, nScreenW, nScreenH ); }
+	void ScreenSizeChanged( int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH ) { Table()->ScreenSizeChanged( this, nOldW, nOldH, nNewW, nNewH ); }
+	void Input( int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar, float flDelta ) { Table()->Input( this, nKind, x, y, nCode, nChar, flDelta ); }
+	int32_t ViewportPanel( const char *pszName, int32_t bShow ) { return Table()->ViewportPanel( this, pszName, bShow ); }
+	void CenterPrint( const char *pszText, int32_t r, int32_t g, int32_t b, int32_t a ) { Table()->CenterPrint( this, pszText, r, g, b, a ); }
+	void CenterClear() { Table()->CenterClear( this ); }
+	void PlaqueState( int32_t nFacts, int32_t nPausedSeconds ) { Table()->PlaqueState( this, nFacts, nPausedSeconds ); }
+	void VoiceStatus( int32_t nEntIndex, int32_t bTalking ) { Table()->VoiceStatus( this, nEntIndex, bTalking ); }
+	int32_t KeyInput( int32_t bDown, int32_t nKey, const char *pszBinding, int32_t bConsoleVisible, int32_t nMaxClients ) { return Table()->KeyInput( this, bDown, nKey, pszBinding, bConsoleVisible, nMaxClients ); }
+	int32_t VoiceIsBlocked( int32_t nClient ) { return Table()->VoiceIsBlocked( this, nClient ); }
+	void VoiceToggleBlocked( int32_t nClient ) { Table()->VoiceToggleBlocked( this, nClient ); }
+
+private:
+	const SSManagedUiClientTable *Table() const { return static_cast< const SSManagedUiClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedUiClientSlotHashes[] = {
@@ -222,53 +483,116 @@ static const uint32_t kIManagedUiClientSlotHashes[] = {
 	0x7fb639b8, 0x7fb639b8, 0x82b96131, 0xa45f061a, 0xc83e311d,
 };
 static const int32_t kIManagedUiClientSlotCount = 13;
+static_assert( sizeof( SSManagedUiClientTable ) == 13 * sizeof( void * ), "SSManagedUiClientTable is one pointer per slot" );
 
-abstract_class IManagedWorldTextClient : public IManagedObject
+class IManagedWorldTextClient;
+
+// The table managed writes for IManagedWorldTextClient: Release, Validate, then the TSV's order.
+struct SSManagedWorldTextClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *Draw )( IManagedWorldTextClient *self, uint32_t hOwner, const SourceSharpWorldTextView_t *pView, SourceSharpWorldTextVertex_t *pOut, int32_t nMax );
+};
+
+class IManagedWorldTextClient : public IManagedObject
 {
 public:
-	virtual int32_t Draw( uint32_t hOwner, const SourceSharpWorldTextView_t *pView, SourceSharpWorldTextVertex_t *pOut, int32_t nMax ) = 0;
+	explicit IManagedWorldTextClient( const SSManagedWorldTextClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t Draw( uint32_t hOwner, const SourceSharpWorldTextView_t *pView, SourceSharpWorldTextVertex_t *pOut, int32_t nMax ) { return Table()->Draw( this, hOwner, pView, pOut, nMax ); }
+
+private:
+	const SSManagedWorldTextClientTable *Table() const { return static_cast< const SSManagedWorldTextClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedWorldTextClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xaeb898c6,
 };
 static const int32_t kIManagedWorldTextClientSlotCount = 3;
+static_assert( sizeof( SSManagedWorldTextClientTable ) == 3 * sizeof( void * ), "SSManagedWorldTextClientTable is one pointer per slot" );
 
-abstract_class IManagedFxClient : public IManagedObject
+class IManagedFxClient;
+
+// The table managed writes for IManagedFxClient: Release, Validate, then the TSV's order.
+struct SSManagedFxClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *DispatchEffect )( IManagedFxClient *self, const char *pEffectName, const SourceSharpEffectData_t *pData );
+	void ( *Smoke )( IManagedFxClient *self, const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFramerate );
+	void ( *Sparks )( IManagedFxClient *self, const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float *pDirXYZ );
+	void ( *Dust )( IManagedFxClient *self, const float *pOriginXYZ, const float *pDirXYZ, float flSize, float flSpeed );
+	void ( *MuzzleFlash )( IManagedFxClient *self, const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType );
+	void ( *MetalSparks )( IManagedFxClient *self, const float *pPositionXYZ, const float *pDirXYZ );
+	void ( *EnergySplash )( IManagedFxClient *self, const float *pPositionXYZ, const float *pDirXYZ, int32_t bExplosive );
+	void ( *Ricochet )( IManagedFxClient *self, const float *pPositionXYZ, const float *pDirXYZ );
+	void ( *SuppressEffectsSounds )( IManagedFxClient *self, int32_t bSuppress );
+	void ( *DrawEffects )( IManagedFxClient *self, float flFrameTime );
+	void ( *FlushEffects )( IManagedFxClient *self );
+	void ( *EffectsLevelInit )( IManagedFxClient *self );
+	void ( *AddLine )( IManagedFxClient *self, const float *pData, int32_t nMaterial );
+	void ( *AddQuad )( IManagedFxClient *self, const float *pData, uint32_t nFlags, int32_t nMaterial );
+	void ( *AddQuadNamed )( IManagedFxClient *self, const float *pData, uint32_t nFlags, const char *pMaterial );
+	void ( *AddStaticLine )( IManagedFxClient *self, const float *pStartXYZ, const float *pEndXYZ, float flScale, float flLife, const char *pMaterial, int32_t nFlags );
+	void ( *AddDiscreetLine )( IManagedFxClient *self, const float *pStartXYZ, const float *pDirXYZ, float flVelocity, float flLength, float flClip, float flScale, float flLife, const char *pMaterial );
+	void ( *TracerSound )( IManagedFxClient *self, const float *pStartXYZ, const float *pEndXYZ, int32_t nType );
+	int32_t ( *SpritePlan )( IManagedFxClient *self, const float *pIn, int32_t nIn, float *pOut, int32_t nOut );
+	int32_t ( *SpriteTrailTick )( IManagedFxClient *self, uint32_t hOwner, float flCurTime, const float *pOriginXYZ, float *pOutBox6 );
+	int32_t ( *SpriteTrailDraw )( IManagedFxClient *self, uint32_t hOwner, float flCurTime, const float *pOriginXYZ );
+	void ( *EffectsPrecache )( IManagedFxClient *self, int32_t nOp );
+	int32_t ( *SmokeFogPlan )( IManagedFxClient *self, float flAlpha, int32_t bHasMaterial, float *pInOutColorXYZ, float *pOutRGBA );
+	int32_t ( *TempEntIsTransparent )( IManagedFxClient *self, int32_t bTranslucent, int32_t nRenderMode );
+	int32_t ( *TempEntRenderGroup )( IManagedFxClient *self, int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent, int32_t bTwoPass );
+	void ( *TempEntBlend )( IManagedFxClient *self, const float *pIn, int32_t *pOut );
+	int32_t ( *TempEntOccludedAlpha )( IManagedFxClient *self, int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt, const float *pIn9 );
+	int32_t ( *TempEntLightingOrigin )( IManagedFxClient *self, int32_t nSlot );
+	void ( *TempEntMuzzleFlash )( IManagedFxClient *self, int32_t nType, uint32_t hEntity, int32_t nAttachment, int32_t bFirstPerson, int32_t bWorldPath );
+	void ( *TempEntEjectBrass )( IManagedFxClient *self, const float *pIn9, int32_t nType );
+	int32_t ( *TempEntAttach )( IManagedFxClient *self, int32_t nClient, int32_t nModelIndex, float flZOffset, float flLife, int32_t nMaxClients );
+	void ( *TempEntsLevelInit )( IManagedFxClient *self );
+};
+
+class IManagedFxClient : public IManagedObject
 {
 public:
-	virtual void DispatchEffect( const char *pEffectName, const SourceSharpEffectData_t *pData ) = 0;
-	virtual void Smoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFramerate ) = 0;
-	virtual void Sparks( const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float *pDirXYZ ) = 0;
-	virtual void Dust( const float *pOriginXYZ, const float *pDirXYZ, float flSize, float flSpeed ) = 0;
-	virtual void MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType ) = 0;
-	virtual void MetalSparks( const float *pPositionXYZ, const float *pDirXYZ ) = 0;
-	virtual void EnergySplash( const float *pPositionXYZ, const float *pDirXYZ, int32_t bExplosive ) = 0;
-	virtual void Ricochet( const float *pPositionXYZ, const float *pDirXYZ ) = 0;
-	virtual void SuppressEffectsSounds( int32_t bSuppress ) = 0;
-	virtual void DrawEffects( float flFrameTime ) = 0;
-	virtual void FlushEffects() = 0;
-	virtual void EffectsLevelInit() = 0;
-	virtual void AddLine( const float *pData, int32_t nMaterial ) = 0;
-	virtual void AddQuad( const float *pData, uint32_t nFlags, int32_t nMaterial ) = 0;
-	virtual void AddQuadNamed( const float *pData, uint32_t nFlags, const char *pMaterial ) = 0;
-	virtual void AddStaticLine( const float *pStartXYZ, const float *pEndXYZ, float flScale, float flLife, const char *pMaterial, int32_t nFlags ) = 0;
-	virtual void AddDiscreetLine( const float *pStartXYZ, const float *pDirXYZ, float flVelocity, float flLength, float flClip, float flScale, float flLife, const char *pMaterial ) = 0;
-	virtual void TracerSound( const float *pStartXYZ, const float *pEndXYZ, int32_t nType ) = 0;
-	virtual int32_t SpritePlan( const float *pIn, int32_t nIn, float *pOut, int32_t nOut ) = 0;
-	virtual int32_t SpriteTrailTick( uint32_t hOwner, float flCurTime, const float *pOriginXYZ, float *pOutBox6 ) = 0;
-	virtual int32_t SpriteTrailDraw( uint32_t hOwner, float flCurTime, const float *pOriginXYZ ) = 0;
-	virtual void EffectsPrecache( int32_t nOp ) = 0;
-	virtual int32_t SmokeFogPlan( float flAlpha, int32_t bHasMaterial, float *pInOutColorXYZ, float *pOutRGBA ) = 0;
-	virtual int32_t TempEntIsTransparent( int32_t bTranslucent, int32_t nRenderMode ) = 0;
-	virtual int32_t TempEntRenderGroup( int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent, int32_t bTwoPass ) = 0;
-	virtual void TempEntBlend( const float *pIn, int32_t *pOut ) = 0;
-	virtual int32_t TempEntOccludedAlpha( int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt, const float *pIn9 ) = 0;
-	virtual int32_t TempEntLightingOrigin( int32_t nSlot ) = 0;
-	virtual void TempEntMuzzleFlash( int32_t nType, uint32_t hEntity, int32_t nAttachment, int32_t bFirstPerson, int32_t bWorldPath ) = 0;
-	virtual void TempEntEjectBrass( const float *pIn9, int32_t nType ) = 0;
-	virtual int32_t TempEntAttach( int32_t nClient, int32_t nModelIndex, float flZOffset, float flLife, int32_t nMaxClients ) = 0;
-	virtual void TempEntsLevelInit() = 0;
+	explicit IManagedFxClient( const SSManagedFxClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void DispatchEffect( const char *pEffectName, const SourceSharpEffectData_t *pData ) { Table()->DispatchEffect( this, pEffectName, pData ); }
+	void Smoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFramerate ) { Table()->Smoke( this, pOriginXYZ, nModelIndex, flScale, flFramerate ); }
+	void Sparks( const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float *pDirXYZ ) { Table()->Sparks( this, pPositionXYZ, nMagnitude, nTrailLength, pDirXYZ ); }
+	void Dust( const float *pOriginXYZ, const float *pDirXYZ, float flSize, float flSpeed ) { Table()->Dust( this, pOriginXYZ, pDirXYZ, flSize, flSpeed ); }
+	void MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType ) { Table()->MuzzleFlash( this, pOriginXYZ, pAnglesPYR, flScale, nType ); }
+	void MetalSparks( const float *pPositionXYZ, const float *pDirXYZ ) { Table()->MetalSparks( this, pPositionXYZ, pDirXYZ ); }
+	void EnergySplash( const float *pPositionXYZ, const float *pDirXYZ, int32_t bExplosive ) { Table()->EnergySplash( this, pPositionXYZ, pDirXYZ, bExplosive ); }
+	void Ricochet( const float *pPositionXYZ, const float *pDirXYZ ) { Table()->Ricochet( this, pPositionXYZ, pDirXYZ ); }
+	void SuppressEffectsSounds( int32_t bSuppress ) { Table()->SuppressEffectsSounds( this, bSuppress ); }
+	void DrawEffects( float flFrameTime ) { Table()->DrawEffects( this, flFrameTime ); }
+	void FlushEffects() { Table()->FlushEffects( this ); }
+	void EffectsLevelInit() { Table()->EffectsLevelInit( this ); }
+	void AddLine( const float *pData, int32_t nMaterial ) { Table()->AddLine( this, pData, nMaterial ); }
+	void AddQuad( const float *pData, uint32_t nFlags, int32_t nMaterial ) { Table()->AddQuad( this, pData, nFlags, nMaterial ); }
+	void AddQuadNamed( const float *pData, uint32_t nFlags, const char *pMaterial ) { Table()->AddQuadNamed( this, pData, nFlags, pMaterial ); }
+	void AddStaticLine( const float *pStartXYZ, const float *pEndXYZ, float flScale, float flLife, const char *pMaterial, int32_t nFlags ) { Table()->AddStaticLine( this, pStartXYZ, pEndXYZ, flScale, flLife, pMaterial, nFlags ); }
+	void AddDiscreetLine( const float *pStartXYZ, const float *pDirXYZ, float flVelocity, float flLength, float flClip, float flScale, float flLife, const char *pMaterial ) { Table()->AddDiscreetLine( this, pStartXYZ, pDirXYZ, flVelocity, flLength, flClip, flScale, flLife, pMaterial ); }
+	void TracerSound( const float *pStartXYZ, const float *pEndXYZ, int32_t nType ) { Table()->TracerSound( this, pStartXYZ, pEndXYZ, nType ); }
+	int32_t SpritePlan( const float *pIn, int32_t nIn, float *pOut, int32_t nOut ) { return Table()->SpritePlan( this, pIn, nIn, pOut, nOut ); }
+	int32_t SpriteTrailTick( uint32_t hOwner, float flCurTime, const float *pOriginXYZ, float *pOutBox6 ) { return Table()->SpriteTrailTick( this, hOwner, flCurTime, pOriginXYZ, pOutBox6 ); }
+	int32_t SpriteTrailDraw( uint32_t hOwner, float flCurTime, const float *pOriginXYZ ) { return Table()->SpriteTrailDraw( this, hOwner, flCurTime, pOriginXYZ ); }
+	void EffectsPrecache( int32_t nOp ) { Table()->EffectsPrecache( this, nOp ); }
+	int32_t SmokeFogPlan( float flAlpha, int32_t bHasMaterial, float *pInOutColorXYZ, float *pOutRGBA ) { return Table()->SmokeFogPlan( this, flAlpha, bHasMaterial, pInOutColorXYZ, pOutRGBA ); }
+	int32_t TempEntIsTransparent( int32_t bTranslucent, int32_t nRenderMode ) { return Table()->TempEntIsTransparent( this, bTranslucent, nRenderMode ); }
+	int32_t TempEntRenderGroup( int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent, int32_t bTwoPass ) { return Table()->TempEntRenderGroup( this, nRenderMode, nBlend, bTranslucent, bTwoPass ); }
+	void TempEntBlend( const float *pIn, int32_t *pOut ) { Table()->TempEntBlend( this, pIn, pOut ); }
+	int32_t TempEntOccludedAlpha( int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt, const float *pIn9 ) { return Table()->TempEntOccludedAlpha( this, nFlags, nAlpha, nRenderAmt, pIn9 ); }
+	int32_t TempEntLightingOrigin( int32_t nSlot ) { return Table()->TempEntLightingOrigin( this, nSlot ); }
+	void TempEntMuzzleFlash( int32_t nType, uint32_t hEntity, int32_t nAttachment, int32_t bFirstPerson, int32_t bWorldPath ) { Table()->TempEntMuzzleFlash( this, nType, hEntity, nAttachment, bFirstPerson, bWorldPath ); }
+	void TempEntEjectBrass( const float *pIn9, int32_t nType ) { Table()->TempEntEjectBrass( this, pIn9, nType ); }
+	int32_t TempEntAttach( int32_t nClient, int32_t nModelIndex, float flZOffset, float flLife, int32_t nMaxClients ) { return Table()->TempEntAttach( this, nClient, nModelIndex, flZOffset, flLife, nMaxClients ); }
+	void TempEntsLevelInit() { Table()->TempEntsLevelInit( this ); }
+
+private:
+	const SSManagedFxClientTable *Table() const { return static_cast< const SSManagedFxClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedFxClientSlotHashes[] = {
@@ -279,23 +603,51 @@ static const uint32_t kIManagedFxClientSlotHashes[] = {
 	0x6e0f257a, 0x07e0f4c4,
 };
 static const int32_t kIManagedFxClientSlotCount = 34;
+static_assert( sizeof( SSManagedFxClientTable ) == 34 * sizeof( void * ), "SSManagedFxClientTable is one pointer per slot" );
 
-abstract_class IManagedSoundControllerClient : public IManagedObject
+class IManagedSoundControllerClient;
+
+// The table managed writes for IManagedSoundControllerClient: Release, Validate, then the TSV's order.
+struct SSManagedSoundControllerClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ClientSoundControllerCreate )( IManagedSoundControllerClient *self, int32_t hPatch );
+	void ( *ClientSoundControllerDestroy )( IManagedSoundControllerClient *self, int32_t hPatch );
+	void ( *ClientSoundControllerPlay )( IManagedSoundControllerClient *self, int32_t hPatch, float flVolume, float flPitch, float flStartTime );
+	float ( *ClientSoundControllerPlayEnvelope )( IManagedSoundControllerClient *self, int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints );
+	void ( *ClientSoundControllerChangePitch )( IManagedSoundControllerClient *self, int32_t hPatch, float flTarget, float flDeltaTime );
+	void ( *ClientSoundControllerChangeVolume )( IManagedSoundControllerClient *self, int32_t hPatch, float flTarget, float flDeltaTime );
+	float ( *ClientSoundControllerGetPitch )( IManagedSoundControllerClient *self, int32_t hPatch );
+	float ( *ClientSoundControllerGetVolume )( IManagedSoundControllerClient *self, int32_t hPatch );
+	void ( *ClientSoundControllerFadeOut )( IManagedSoundControllerClient *self, int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout );
+	void ( *ClientSoundControllerCommandAdd )( IManagedSoundControllerClient *self, int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue );
+	void ( *ClientSoundControllerCommandClear )( IManagedSoundControllerClient *self, int32_t hPatch );
+	void ( *ClientSoundControllerReset )( IManagedSoundControllerClient *self );
+	void ( *ClientSoundControllerShutdown )( IManagedSoundControllerClient *self, int32_t hPatch );
+};
+
+class IManagedSoundControllerClient : public IManagedObject
 {
 public:
-	virtual void ClientSoundControllerCreate( int32_t hPatch ) = 0;
-	virtual void ClientSoundControllerDestroy( int32_t hPatch ) = 0;
-	virtual void ClientSoundControllerPlay( int32_t hPatch, float flVolume, float flPitch, float flStartTime ) = 0;
-	virtual float ClientSoundControllerPlayEnvelope( int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints ) = 0;
-	virtual void ClientSoundControllerChangePitch( int32_t hPatch, float flTarget, float flDeltaTime ) = 0;
-	virtual void ClientSoundControllerChangeVolume( int32_t hPatch, float flTarget, float flDeltaTime ) = 0;
-	virtual float ClientSoundControllerGetPitch( int32_t hPatch ) = 0;
-	virtual float ClientSoundControllerGetVolume( int32_t hPatch ) = 0;
-	virtual void ClientSoundControllerFadeOut( int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout ) = 0;
-	virtual void ClientSoundControllerCommandAdd( int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue ) = 0;
-	virtual void ClientSoundControllerCommandClear( int32_t hPatch ) = 0;
-	virtual void ClientSoundControllerReset() = 0;
-	virtual void ClientSoundControllerShutdown( int32_t hPatch ) = 0;
+	explicit IManagedSoundControllerClient( const SSManagedSoundControllerClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ClientSoundControllerCreate( int32_t hPatch ) { Table()->ClientSoundControllerCreate( this, hPatch ); }
+	void ClientSoundControllerDestroy( int32_t hPatch ) { Table()->ClientSoundControllerDestroy( this, hPatch ); }
+	void ClientSoundControllerPlay( int32_t hPatch, float flVolume, float flPitch, float flStartTime ) { Table()->ClientSoundControllerPlay( this, hPatch, flVolume, flPitch, flStartTime ); }
+	float ClientSoundControllerPlayEnvelope( int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints ) { return Table()->ClientSoundControllerPlayEnvelope( this, hPatch, nCommand, pPoints, nPoints ); }
+	void ClientSoundControllerChangePitch( int32_t hPatch, float flTarget, float flDeltaTime ) { Table()->ClientSoundControllerChangePitch( this, hPatch, flTarget, flDeltaTime ); }
+	void ClientSoundControllerChangeVolume( int32_t hPatch, float flTarget, float flDeltaTime ) { Table()->ClientSoundControllerChangeVolume( this, hPatch, flTarget, flDeltaTime ); }
+	float ClientSoundControllerGetPitch( int32_t hPatch ) { return Table()->ClientSoundControllerGetPitch( this, hPatch ); }
+	float ClientSoundControllerGetVolume( int32_t hPatch ) { return Table()->ClientSoundControllerGetVolume( this, hPatch ); }
+	void ClientSoundControllerFadeOut( int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout ) { Table()->ClientSoundControllerFadeOut( this, hPatch, flDeltaTime, bDestroyOnFadeout ); }
+	void ClientSoundControllerCommandAdd( int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue ) { Table()->ClientSoundControllerCommandAdd( this, hPatch, flExecuteDeltaTime, nCommand, flCommandTime, flValue ); }
+	void ClientSoundControllerCommandClear( int32_t hPatch ) { Table()->ClientSoundControllerCommandClear( this, hPatch ); }
+	void ClientSoundControllerReset() { Table()->ClientSoundControllerReset( this ); }
+	void ClientSoundControllerShutdown( int32_t hPatch ) { Table()->ClientSoundControllerShutdown( this, hPatch ); }
+
+private:
+	const SSManagedSoundControllerClientTable *Table() const { return static_cast< const SSManagedSoundControllerClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSoundControllerClientSlotHashes[] = {
@@ -303,86 +655,202 @@ static const uint32_t kIManagedSoundControllerClientSlotHashes[] = {
 	0x3059985f, 0x3059985f, 0xfaaa3db2, 0x26ec0fb6, 0xc83e311d, 0x07e0f4c4, 0xc83e311d,
 };
 static const int32_t kIManagedSoundControllerClientSlotCount = 15;
+static_assert( sizeof( SSManagedSoundControllerClientTable ) == 15 * sizeof( void * ), "SSManagedSoundControllerClientTable is one pointer per slot" );
 
-abstract_class IManagedSoundscapesClient : public IManagedObject
+class IManagedSoundscapesClient;
+
+// The table managed writes for IManagedSoundscapesClient: Release, Validate, then the TSV's order.
+struct SSManagedSoundscapesClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ClientSoundscapesLevelInit )( IManagedSoundscapesClient *self, const char *pMapName );
+	void ( *ClientSoundscapesUpdate )( IManagedSoundscapesClient *self, float flFrameTime );
+	void ( *ClientSoundscapesLevelShutdown )( IManagedSoundscapesClient *self );
+};
+
+class IManagedSoundscapesClient : public IManagedObject
 {
 public:
-	virtual void ClientSoundscapesLevelInit( const char *pMapName ) = 0;
-	virtual void ClientSoundscapesUpdate( float flFrameTime ) = 0;
-	virtual void ClientSoundscapesLevelShutdown() = 0;
+	explicit IManagedSoundscapesClient( const SSManagedSoundscapesClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ClientSoundscapesLevelInit( const char *pMapName ) { Table()->ClientSoundscapesLevelInit( this, pMapName ); }
+	void ClientSoundscapesUpdate( float flFrameTime ) { Table()->ClientSoundscapesUpdate( this, flFrameTime ); }
+	void ClientSoundscapesLevelShutdown() { Table()->ClientSoundscapesLevelShutdown( this ); }
+
+private:
+	const SSManagedSoundscapesClientTable *Table() const { return static_cast< const SSManagedSoundscapesClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSoundscapesClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x3aa7ebf0, 0xb86ff9be, 0x07e0f4c4,
 };
 static const int32_t kIManagedSoundscapesClientSlotCount = 5;
+static_assert( sizeof( SSManagedSoundscapesClientTable ) == 5 * sizeof( void * ), "SSManagedSoundscapesClientTable is one pointer per slot" );
 
-abstract_class IManagedPrecipitationClient : public IManagedObject
+class IManagedPrecipitationClient;
+
+// The table managed writes for IManagedPrecipitationClient: Release, Validate, then the TSV's order.
+struct SSManagedPrecipitationClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *PrecipitationRender )( IManagedPrecipitationClient *self, const float *pView, float *pTracers, int32_t nMaxTracers, float *pSplashes, int32_t nMaxSplashes, int32_t *pnSplashes );
+};
+
+class IManagedPrecipitationClient : public IManagedObject
 {
 public:
-	virtual int32_t PrecipitationRender( const float *pView, float *pTracers, int32_t nMaxTracers, float *pSplashes, int32_t nMaxSplashes, int32_t *pnSplashes ) = 0;
+	explicit IManagedPrecipitationClient( const SSManagedPrecipitationClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t PrecipitationRender( const float *pView, float *pTracers, int32_t nMaxTracers, float *pSplashes, int32_t nMaxSplashes, int32_t *pnSplashes ) { return Table()->PrecipitationRender( this, pView, pTracers, nMaxTracers, pSplashes, nMaxSplashes, pnSplashes ); }
+
+private:
+	const SSManagedPrecipitationClientTable *Table() const { return static_cast< const SSManagedPrecipitationClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedPrecipitationClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x4324b0e5,
 };
 static const int32_t kIManagedPrecipitationClientSlotCount = 3;
+static_assert( sizeof( SSManagedPrecipitationClientTable ) == 3 * sizeof( void * ), "SSManagedPrecipitationClientTable is one pointer per slot" );
 
-abstract_class IManagedConsoleOutputClient : public IManagedObject
+class IManagedConsoleOutputClient;
+
+// The table managed writes for IManagedConsoleOutputClient: Release, Validate, then the TSV's order.
+struct SSManagedConsoleOutputClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ClientConsoleLine )( IManagedConsoleOutputClient *self, const char *pText, int32_t nWarning );
+	void ( *ClientConsoleBufferAttach )( IManagedConsoleOutputClient *self, void *pBuffer );
+};
+
+class IManagedConsoleOutputClient : public IManagedObject
 {
 public:
-	virtual void ClientConsoleLine( const char *pText, int32_t nWarning ) = 0;
-	virtual void ClientConsoleBufferAttach( void *pBuffer ) = 0;
+	explicit IManagedConsoleOutputClient( const SSManagedConsoleOutputClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ClientConsoleLine( const char *pText, int32_t nWarning ) { Table()->ClientConsoleLine( this, pText, nWarning ); }
+	void ClientConsoleBufferAttach( void *pBuffer ) { Table()->ClientConsoleBufferAttach( this, pBuffer ); }
+
+private:
+	const SSManagedConsoleOutputClientTable *Table() const { return static_cast< const SSManagedConsoleOutputClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedConsoleOutputClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x3e98ef21, 0xde3e0200,
 };
 static const int32_t kIManagedConsoleOutputClientSlotCount = 4;
+static_assert( sizeof( SSManagedConsoleOutputClientTable ) == 4 * sizeof( void * ), "SSManagedConsoleOutputClientTable is one pointer per slot" );
 
-abstract_class IManagedMaterialFilesClient : public IManagedObject
+class IManagedMaterialFilesClient;
+
+// The table managed writes for IManagedMaterialFilesClient: Release, Validate, then the TSV's order.
+struct SSManagedMaterialFilesClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *SpriteMaterial )( IManagedMaterialFilesClient *self, const char *pszSpriteName, uint8_t *pBlock, int32_t nBlockBytes );
+	int32_t ( *EncodeImage )( IManagedMaterialFilesClient *self, int32_t nKind, int32_t nWidth, int32_t nHeight, int32_t bPadPowerOfTwo, const uint8_t *pPixelBlock, int32_t nPixelBlockBytes, uint8_t *pOut, int32_t nOutBytes );
+};
+
+class IManagedMaterialFilesClient : public IManagedObject
 {
 public:
-	virtual int32_t SpriteMaterial( const char *pszSpriteName, uint8_t *pBlock, int32_t nBlockBytes ) = 0;
-	virtual int32_t EncodeImage( int32_t nKind, int32_t nWidth, int32_t nHeight, int32_t bPadPowerOfTwo, const uint8_t *pPixelBlock, int32_t nPixelBlockBytes, uint8_t *pOut, int32_t nOutBytes ) = 0;
+	explicit IManagedMaterialFilesClient( const SSManagedMaterialFilesClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t SpriteMaterial( const char *pszSpriteName, uint8_t *pBlock, int32_t nBlockBytes ) { return Table()->SpriteMaterial( this, pszSpriteName, pBlock, nBlockBytes ); }
+	int32_t EncodeImage( int32_t nKind, int32_t nWidth, int32_t nHeight, int32_t bPadPowerOfTwo, const uint8_t *pPixelBlock, int32_t nPixelBlockBytes, uint8_t *pOut, int32_t nOutBytes ) { return Table()->EncodeImage( this, nKind, nWidth, nHeight, bPadPowerOfTwo, pPixelBlock, nPixelBlockBytes, pOut, nOutBytes ); }
+
+private:
+	const SSManagedMaterialFilesClientTable *Table() const { return static_cast< const SSManagedMaterialFilesClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedMaterialFilesClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x491c72c2, 0x541b6285,
 };
 static const int32_t kIManagedMaterialFilesClientSlotCount = 4;
+static_assert( sizeof( SSManagedMaterialFilesClientTable ) == 4 * sizeof( void * ), "SSManagedMaterialFilesClientTable is one pointer per slot" );
 
-abstract_class IManagedMaterialProxyClient : public IManagedObject
+class IManagedMaterialProxyClient;
+
+// The table managed writes for IManagedMaterialProxyClient: Release, Validate, then the TSV's order.
+struct SSManagedMaterialProxyClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *ProxyInit )( IManagedMaterialProxyClient *self, int32_t hProxy, const char *pszName, const char *pszMaterial, const SourceSharpProxyKey_t *pKeys, int32_t nKeys );
+	int32_t ( *ProxyBind )( IManagedMaterialProxyClient *self, int32_t hProxy, const SourceSharpProxyBindIn_t *pIn, SourceSharpProxyVar_t *pVars, SourceSharpProxyOp_t *pOps, int32_t nMaxOps );
+	void ( *ProxyRelease )( IManagedMaterialProxyClient *self, int32_t hProxy );
+	int32_t ( *MatStubEnabled )( IManagedMaterialProxyClient *self );
+};
+
+class IManagedMaterialProxyClient : public IManagedObject
 {
 public:
-	virtual int32_t ProxyInit( int32_t hProxy, const char *pszName, const char *pszMaterial, const SourceSharpProxyKey_t *pKeys, int32_t nKeys ) = 0;
-	virtual int32_t ProxyBind( int32_t hProxy, const SourceSharpProxyBindIn_t *pIn, SourceSharpProxyVar_t *pVars, SourceSharpProxyOp_t *pOps, int32_t nMaxOps ) = 0;
-	virtual void ProxyRelease( int32_t hProxy ) = 0;
-	virtual int32_t MatStubEnabled() = 0;
+	explicit IManagedMaterialProxyClient( const SSManagedMaterialProxyClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t ProxyInit( int32_t hProxy, const char *pszName, const char *pszMaterial, const SourceSharpProxyKey_t *pKeys, int32_t nKeys ) { return Table()->ProxyInit( this, hProxy, pszName, pszMaterial, pKeys, nKeys ); }
+	int32_t ProxyBind( int32_t hProxy, const SourceSharpProxyBindIn_t *pIn, SourceSharpProxyVar_t *pVars, SourceSharpProxyOp_t *pOps, int32_t nMaxOps ) { return Table()->ProxyBind( this, hProxy, pIn, pVars, pOps, nMaxOps ); }
+	void ProxyRelease( int32_t hProxy ) { Table()->ProxyRelease( this, hProxy ); }
+	int32_t MatStubEnabled() { return Table()->MatStubEnabled( this ); }
+
+private:
+	const SSManagedMaterialProxyClientTable *Table() const { return static_cast< const SSManagedMaterialProxyClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedMaterialProxyClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x0081b551, 0x5b190b51, 0xc83e311d, 0x9d8d9245,
 };
 static const int32_t kIManagedMaterialProxyClientSlotCount = 6;
+static_assert( sizeof( SSManagedMaterialProxyClientTable ) == 6 * sizeof( void * ), "SSManagedMaterialProxyClientTable is one pointer per slot" );
 
-abstract_class IManagedRenderClient : public IManagedObject
+class IManagedRenderClient;
+
+// The table managed writes for IManagedRenderClient: Release, Validate, then the TSV's order.
+struct SSManagedRenderClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *RenderFrame )( IManagedRenderClient *self, const SourceSharpRenderFrameIn_t *pIn, SourceSharpRenderFrameOut_t *pOut );
+	void ( *RenderTraceDone )( IManagedRenderClient *self, int32_t nTag, const char *pText, int32_t nLength );
+	int32_t ( *RenderPlanBuild )( IManagedRenderClient *self, const SourceSharpRenderInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps );
+	int32_t ( *RenderViewProgram )( IManagedRenderClient *self, const SourceSharpViewScene_t *pScene, int32_t nSceneBytes, SourceSharpRenderOp_t *pOps, int32_t nMaxOps );
+	int32_t ( *RenderPostProgram )( IManagedRenderClient *self, const SourceSharpPostInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps );
+	void ( *ViewEffectsFade )( IManagedRenderClient *self, int32_t nDuration, int32_t nHoldTime, int32_t nFlags, int32_t r, int32_t g, int32_t b, int32_t a, float flCurTime );
+	void ( *ViewEffectsCalcShake )( IManagedRenderClient *self, float flCurTime, float flFrameTime, float *pOut );
+	void ( *ViewEffectsFadeParams )( IManagedRenderClient *self, float flCurTime, int32_t *pOut );
+	void ( *ViewEffectsReset )( IManagedRenderClient *self, int32_t nWhich );
+	int32_t ( *RenderShadowDepthPlan )( IManagedRenderClient *self, const SourceSharpViewSetup_t *pView, SourceSharpRenderOp_t *pOps, int32_t nMaxOps, int32_t *pIndexBase );
+	void ( *ViewSetUp )( IManagedRenderClient *self, const SourceSharpViewSetUpIn_t *pIn, SourceSharpViewSetUpOut_t *pOut );
+	void ( *ViewScreenshot )( IManagedRenderClient *self, const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut );
+	void ( *ViewFreezeFrame )( IManagedRenderClient *self, float flFreezeTime, float flCurTime );
+	int32_t ( *ViewDemoCamera )( IManagedRenderClient *self, int32_t nStage, const float *pIn, float *pOut );
+};
+
+class IManagedRenderClient : public IManagedObject
 {
 public:
-	virtual int32_t RenderFrame( const SourceSharpRenderFrameIn_t *pIn, SourceSharpRenderFrameOut_t *pOut ) = 0;
-	virtual void RenderTraceDone( int32_t nTag, const char *pText, int32_t nLength ) = 0;
-	virtual int32_t RenderPlanBuild( const SourceSharpRenderInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps ) = 0;
-	virtual int32_t RenderViewProgram( const SourceSharpViewScene_t *pScene, int32_t nSceneBytes, SourceSharpRenderOp_t *pOps, int32_t nMaxOps ) = 0;
-	virtual int32_t RenderPostProgram( const SourceSharpPostInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps ) = 0;
-	virtual void ViewEffectsFade( int32_t nDuration, int32_t nHoldTime, int32_t nFlags, int32_t r, int32_t g, int32_t b, int32_t a, float flCurTime ) = 0;
-	virtual void ViewEffectsCalcShake( float flCurTime, float flFrameTime, float *pOut ) = 0;
-	virtual void ViewEffectsFadeParams( float flCurTime, int32_t *pOut ) = 0;
-	virtual void ViewEffectsReset( int32_t nWhich ) = 0;
-	virtual int32_t RenderShadowDepthPlan( const SourceSharpViewSetup_t *pView, SourceSharpRenderOp_t *pOps, int32_t nMaxOps, int32_t *pIndexBase ) = 0;
-	virtual void ViewSetUp( const SourceSharpViewSetUpIn_t *pIn, SourceSharpViewSetUpOut_t *pOut ) = 0;
-	virtual void ViewScreenshot( const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut ) = 0;
-	virtual void ViewFreezeFrame( float flFreezeTime, float flCurTime ) = 0;
-	virtual int32_t ViewDemoCamera( int32_t nStage, const float *pIn, float *pOut ) = 0;
+	explicit IManagedRenderClient( const SSManagedRenderClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t RenderFrame( const SourceSharpRenderFrameIn_t *pIn, SourceSharpRenderFrameOut_t *pOut ) { return Table()->RenderFrame( this, pIn, pOut ); }
+	void RenderTraceDone( int32_t nTag, const char *pText, int32_t nLength ) { Table()->RenderTraceDone( this, nTag, pText, nLength ); }
+	int32_t RenderPlanBuild( const SourceSharpRenderInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps ) { return Table()->RenderPlanBuild( this, pIn, pOps, nMaxOps ); }
+	int32_t RenderViewProgram( const SourceSharpViewScene_t *pScene, int32_t nSceneBytes, SourceSharpRenderOp_t *pOps, int32_t nMaxOps ) { return Table()->RenderViewProgram( this, pScene, nSceneBytes, pOps, nMaxOps ); }
+	int32_t RenderPostProgram( const SourceSharpPostInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps ) { return Table()->RenderPostProgram( this, pIn, pOps, nMaxOps ); }
+	void ViewEffectsFade( int32_t nDuration, int32_t nHoldTime, int32_t nFlags, int32_t r, int32_t g, int32_t b, int32_t a, float flCurTime ) { Table()->ViewEffectsFade( this, nDuration, nHoldTime, nFlags, r, g, b, a, flCurTime ); }
+	void ViewEffectsCalcShake( float flCurTime, float flFrameTime, float *pOut ) { Table()->ViewEffectsCalcShake( this, flCurTime, flFrameTime, pOut ); }
+	void ViewEffectsFadeParams( float flCurTime, int32_t *pOut ) { Table()->ViewEffectsFadeParams( this, flCurTime, pOut ); }
+	void ViewEffectsReset( int32_t nWhich ) { Table()->ViewEffectsReset( this, nWhich ); }
+	int32_t RenderShadowDepthPlan( const SourceSharpViewSetup_t *pView, SourceSharpRenderOp_t *pOps, int32_t nMaxOps, int32_t *pIndexBase ) { return Table()->RenderShadowDepthPlan( this, pView, pOps, nMaxOps, pIndexBase ); }
+	void ViewSetUp( const SourceSharpViewSetUpIn_t *pIn, SourceSharpViewSetUpOut_t *pOut ) { Table()->ViewSetUp( this, pIn, pOut ); }
+	void ViewScreenshot( const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut ) { Table()->ViewScreenshot( this, pEye, nWidth, nHeight, pOut ); }
+	void ViewFreezeFrame( float flFreezeTime, float flCurTime ) { Table()->ViewFreezeFrame( this, flFreezeTime, flCurTime ); }
+	int32_t ViewDemoCamera( int32_t nStage, const float *pIn, float *pOut ) { return Table()->ViewDemoCamera( this, nStage, pIn, pOut ); }
+
+private:
+	const SSManagedRenderClientTable *Table() const { return static_cast< const SSManagedRenderClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedRenderClientSlotHashes[] = {
@@ -390,46 +858,97 @@ static const uint32_t kIManagedRenderClientSlotHashes[] = {
 	0xa853d22c, 0x62a4de56, 0xc83e311d, 0x123c2a4a, 0xd70db9bc, 0x6d136a90, 0xbdc8b950, 0xd6707e4a,
 };
 static const int32_t kIManagedRenderClientSlotCount = 16;
+static_assert( sizeof( SSManagedRenderClientTable ) == 16 * sizeof( void * ), "SSManagedRenderClientTable is one pointer per slot" );
 
-abstract_class IManagedInputClient : public IManagedObject
+class IManagedInputClient;
+
+// The table managed writes for IManagedInputClient: Release, Validate, then the TSV's order.
+struct SSManagedInputClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *InputInit )( IManagedInputClient *self, int32_t bNoMouse );
+	void ( *InputShutdown )( IManagedInputClient *self );
+	void ( *InputLevelInit )( IManagedInputClient *self );
+	void ( *InputCreateMove )( IManagedInputClient *self, int32_t nSequence, float flSampleTime, int32_t bActive, SourceSharpDecodedUserCmd *pCmd );
+	void ( *InputExtraMouseSample )( IManagedInputClient *self, float flFrameTime, int32_t bActive );
+	int32_t ( *InputGetButtonBits )( IManagedInputClient *self, int32_t bReset );
+	void ( *InputMakeWeaponSelection )( IManagedInputClient *self, int32_t nWeaponEntIndex );
+	float ( *InputKeyState )( IManagedInputClient *self, int32_t nButton );
+	int32_t ( *InputKeyEvent )( IManagedInputClient *self, int32_t nDown, int32_t nKeyCode, const char *pszBinding );
+	int32_t ( *InputIsKeyDown )( IManagedInputClient *self, const char *pszName, int32_t *pDown );
+	void ( *InputJoystickAdvanced )( IManagedInputClient *self );
+	void ( *InputAccumulateMouse )( IManagedInputClient *self );
+	void ( *InputActivateMouse )( IManagedInputClient *self );
+	void ( *InputDeactivateMouse )( IManagedInputClient *self );
+	void ( *InputClearStates )( IManagedInputClient *self );
+	float ( *InputGetLookSpring )( IManagedInputClient *self );
+	void ( *InputGetFullscreenMousePos )( IManagedInputClient *self, int32_t *pInOut );
+	void ( *InputSetFullscreenMousePos )( IManagedInputClient *self, int32_t x, int32_t y );
+	void ( *InputResetMouse )( IManagedInputClient *self );
+	float ( *InputGetLastForwardMove )( IManagedInputClient *self );
+	void ( *InputJoystickAxes )( IManagedInputClient *self, float *pOut );
+	void ( *InputClearInputButton )( IManagedInputClient *self, int32_t nBits );
+	void ( *InputCamThink )( IManagedInputClient *self );
+	int32_t ( *InputCamOp )( IManagedInputClient *self, int32_t nOp );
+	void ( *InputCamOrthographicSize )( IManagedInputClient *self, float *pOut );
+	void ( *InputCamSetCameraThirdData )( IManagedInputClient *self, const float *pData, const float *pOffset );
+	void ( *InputSetPreferredGameActionSet )( IManagedInputClient *self, int32_t nActionSet );
+	int32_t ( *InputGetPreferredGameActionSet )( IManagedInputClient *self );
+	void ( *InputSetGameActionSetFlags )( IManagedInputClient *self, int32_t nFlags );
+	int32_t ( *InputEnableJoystickMode )( IManagedInputClient *self );
+	int32_t ( *InputIsSteamControllerActive )( IManagedInputClient *self );
+	void ( *InputThirdPersonInit )( IManagedInputClient *self );
+	void ( *InputRumbleScreenShake )( IManagedInputClient *self, float flShake, float flBalance );
+	void ( *InputRumbleStopAll )( IManagedInputClient *self );
+	int32_t ( *InputEncodeUserCmd )( IManagedInputClient *self, const SourceSharpDecodedUserCmd *pTo, const SourceSharpDecodedUserCmd *pFrom, uint8_t *pBlock, int32_t nBlockBytes );
+	int32_t ( *InputDecodeUserCmd )( IManagedInputClient *self, const uint8_t *pBlock, int32_t nBlockBytes, SourceSharpDecodedUserCmd *pOut );
+};
+
+class IManagedInputClient : public IManagedObject
 {
 public:
-	virtual void InputInit( int32_t bNoMouse ) = 0;
-	virtual void InputShutdown() = 0;
-	virtual void InputLevelInit() = 0;
-	virtual void InputCreateMove( int32_t nSequence, float flSampleTime, int32_t bActive, SourceSharpDecodedUserCmd *pCmd ) = 0;
-	virtual void InputExtraMouseSample( float flFrameTime, int32_t bActive ) = 0;
-	virtual int32_t InputGetButtonBits( int32_t bReset ) = 0;
-	virtual void InputMakeWeaponSelection( int32_t nWeaponEntIndex ) = 0;
-	virtual float InputKeyState( int32_t nButton ) = 0;
-	virtual int32_t InputKeyEvent( int32_t nDown, int32_t nKeyCode, const char *pszBinding ) = 0;
-	virtual int32_t InputIsKeyDown( const char *pszName, int32_t *pDown ) = 0;
-	virtual void InputJoystickAdvanced() = 0;
-	virtual void InputAccumulateMouse() = 0;
-	virtual void InputActivateMouse() = 0;
-	virtual void InputDeactivateMouse() = 0;
-	virtual void InputClearStates() = 0;
-	virtual float InputGetLookSpring() = 0;
-	virtual void InputGetFullscreenMousePos( int32_t *pInOut ) = 0;
-	virtual void InputSetFullscreenMousePos( int32_t x, int32_t y ) = 0;
-	virtual void InputResetMouse() = 0;
-	virtual float InputGetLastForwardMove() = 0;
-	virtual void InputJoystickAxes( float *pOut ) = 0;
-	virtual void InputClearInputButton( int32_t nBits ) = 0;
-	virtual void InputCamThink() = 0;
-	virtual int32_t InputCamOp( int32_t nOp ) = 0;
-	virtual void InputCamOrthographicSize( float *pOut ) = 0;
-	virtual void InputCamSetCameraThirdData( const float *pData, const float *pOffset ) = 0;
-	virtual void InputSetPreferredGameActionSet( int32_t nActionSet ) = 0;
-	virtual int32_t InputGetPreferredGameActionSet() = 0;
-	virtual void InputSetGameActionSetFlags( int32_t nFlags ) = 0;
-	virtual int32_t InputEnableJoystickMode() = 0;
-	virtual int32_t InputIsSteamControllerActive() = 0;
-	virtual void InputThirdPersonInit() = 0;
-	virtual void InputRumbleScreenShake( float flShake, float flBalance ) = 0;
-	virtual void InputRumbleStopAll() = 0;
-	virtual int32_t InputEncodeUserCmd( const SourceSharpDecodedUserCmd *pTo, const SourceSharpDecodedUserCmd *pFrom, uint8_t *pBlock, int32_t nBlockBytes ) = 0;
-	virtual int32_t InputDecodeUserCmd( const uint8_t *pBlock, int32_t nBlockBytes, SourceSharpDecodedUserCmd *pOut ) = 0;
+	explicit IManagedInputClient( const SSManagedInputClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void InputInit( int32_t bNoMouse ) { Table()->InputInit( this, bNoMouse ); }
+	void InputShutdown() { Table()->InputShutdown( this ); }
+	void InputLevelInit() { Table()->InputLevelInit( this ); }
+	void InputCreateMove( int32_t nSequence, float flSampleTime, int32_t bActive, SourceSharpDecodedUserCmd *pCmd ) { Table()->InputCreateMove( this, nSequence, flSampleTime, bActive, pCmd ); }
+	void InputExtraMouseSample( float flFrameTime, int32_t bActive ) { Table()->InputExtraMouseSample( this, flFrameTime, bActive ); }
+	int32_t InputGetButtonBits( int32_t bReset ) { return Table()->InputGetButtonBits( this, bReset ); }
+	void InputMakeWeaponSelection( int32_t nWeaponEntIndex ) { Table()->InputMakeWeaponSelection( this, nWeaponEntIndex ); }
+	float InputKeyState( int32_t nButton ) { return Table()->InputKeyState( this, nButton ); }
+	int32_t InputKeyEvent( int32_t nDown, int32_t nKeyCode, const char *pszBinding ) { return Table()->InputKeyEvent( this, nDown, nKeyCode, pszBinding ); }
+	int32_t InputIsKeyDown( const char *pszName, int32_t *pDown ) { return Table()->InputIsKeyDown( this, pszName, pDown ); }
+	void InputJoystickAdvanced() { Table()->InputJoystickAdvanced( this ); }
+	void InputAccumulateMouse() { Table()->InputAccumulateMouse( this ); }
+	void InputActivateMouse() { Table()->InputActivateMouse( this ); }
+	void InputDeactivateMouse() { Table()->InputDeactivateMouse( this ); }
+	void InputClearStates() { Table()->InputClearStates( this ); }
+	float InputGetLookSpring() { return Table()->InputGetLookSpring( this ); }
+	void InputGetFullscreenMousePos( int32_t *pInOut ) { Table()->InputGetFullscreenMousePos( this, pInOut ); }
+	void InputSetFullscreenMousePos( int32_t x, int32_t y ) { Table()->InputSetFullscreenMousePos( this, x, y ); }
+	void InputResetMouse() { Table()->InputResetMouse( this ); }
+	float InputGetLastForwardMove() { return Table()->InputGetLastForwardMove( this ); }
+	void InputJoystickAxes( float *pOut ) { Table()->InputJoystickAxes( this, pOut ); }
+	void InputClearInputButton( int32_t nBits ) { Table()->InputClearInputButton( this, nBits ); }
+	void InputCamThink() { Table()->InputCamThink( this ); }
+	int32_t InputCamOp( int32_t nOp ) { return Table()->InputCamOp( this, nOp ); }
+	void InputCamOrthographicSize( float *pOut ) { Table()->InputCamOrthographicSize( this, pOut ); }
+	void InputCamSetCameraThirdData( const float *pData, const float *pOffset ) { Table()->InputCamSetCameraThirdData( this, pData, pOffset ); }
+	void InputSetPreferredGameActionSet( int32_t nActionSet ) { Table()->InputSetPreferredGameActionSet( this, nActionSet ); }
+	int32_t InputGetPreferredGameActionSet() { return Table()->InputGetPreferredGameActionSet( this ); }
+	void InputSetGameActionSetFlags( int32_t nFlags ) { Table()->InputSetGameActionSetFlags( this, nFlags ); }
+	int32_t InputEnableJoystickMode() { return Table()->InputEnableJoystickMode( this ); }
+	int32_t InputIsSteamControllerActive() { return Table()->InputIsSteamControllerActive( this ); }
+	void InputThirdPersonInit() { Table()->InputThirdPersonInit( this ); }
+	void InputRumbleScreenShake( float flShake, float flBalance ) { Table()->InputRumbleScreenShake( this, flShake, flBalance ); }
+	void InputRumbleStopAll() { Table()->InputRumbleStopAll( this ); }
+	int32_t InputEncodeUserCmd( const SourceSharpDecodedUserCmd *pTo, const SourceSharpDecodedUserCmd *pFrom, uint8_t *pBlock, int32_t nBlockBytes ) { return Table()->InputEncodeUserCmd( this, pTo, pFrom, pBlock, nBlockBytes ); }
+	int32_t InputDecodeUserCmd( const uint8_t *pBlock, int32_t nBlockBytes, SourceSharpDecodedUserCmd *pOut ) { return Table()->InputDecodeUserCmd( this, pBlock, nBlockBytes, pOut ); }
+
+private:
+	const SSManagedInputClientTable *Table() const { return static_cast< const SSManagedInputClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedInputClientSlotHashes[] = {
@@ -440,49 +959,108 @@ static const uint32_t kIManagedInputClientSlotHashes[] = {
 	0x9d8d9245, 0x07e0f4c4, 0xbdc8b950, 0x07e0f4c4, 0x68538cb6, 0x82fea6c6,
 };
 static const int32_t kIManagedInputClientSlotCount = 38;
+static_assert( sizeof( SSManagedInputClientTable ) == 38 * sizeof( void * ), "SSManagedInputClientTable is one pointer per slot" );
 
-abstract_class IManagedBonesClient : public IManagedObject
+class IManagedBonesClient;
+
+// The table managed writes for IManagedBonesClient: Release, Validate, then the TSV's order.
+struct SSManagedBonesClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *SetupBones )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount );
+	int32_t ( *TestHitboxes )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts, float flCurrentTime, int32_t nFrameCount );
+	int32_t ( *GetAttachment )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock, int32_t nAttachment, float *pAttachmentToWorld, float flCurrentTime, int32_t nFrameCount );
+	int32_t ( *LookupAttachment )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock, const char *pszName );
+	int32_t ( *PoseModel )( IManagedBonesClient *self, int32_t nModelIndex, const float *pOriginAngles, const float *pRenderToWorld, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount );
+	void * ( *BoneBatch )( IManagedBonesClient *self, int32_t nFrameCount, float flCurrentTime );
+};
+
+class IManagedBonesClient : public IManagedObject
 {
 public:
-	virtual int32_t SetupBones( uint32_t hEntity, const void *pBlock, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount ) = 0;
-	virtual int32_t TestHitboxes( uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts, float flCurrentTime, int32_t nFrameCount ) = 0;
-	virtual int32_t GetAttachment( uint32_t hEntity, const void *pBlock, int32_t nAttachment, float *pAttachmentToWorld, float flCurrentTime, int32_t nFrameCount ) = 0;
-	virtual int32_t LookupAttachment( uint32_t hEntity, const void *pBlock, const char *pszName ) = 0;
-	virtual int32_t PoseModel( int32_t nModelIndex, const float *pOriginAngles, const float *pRenderToWorld, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount ) = 0;
-	virtual void *BoneBatch( int32_t nFrameCount, float flCurrentTime ) = 0;
+	explicit IManagedBonesClient( const SSManagedBonesClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t SetupBones( uint32_t hEntity, const void *pBlock, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount ) { return Table()->SetupBones( this, hEntity, pBlock, pBoneToWorld, nMaxBones, nBoneMask, flCurrentTime, nFrameCount ); }
+	int32_t TestHitboxes( uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts, float flCurrentTime, int32_t nFrameCount ) { return Table()->TestHitboxes( this, hEntity, pBlock, pRay, nContentsMask, pTraceFloats, pTraceInts, flCurrentTime, nFrameCount ); }
+	int32_t GetAttachment( uint32_t hEntity, const void *pBlock, int32_t nAttachment, float *pAttachmentToWorld, float flCurrentTime, int32_t nFrameCount ) { return Table()->GetAttachment( this, hEntity, pBlock, nAttachment, pAttachmentToWorld, flCurrentTime, nFrameCount ); }
+	int32_t LookupAttachment( uint32_t hEntity, const void *pBlock, const char *pszName ) { return Table()->LookupAttachment( this, hEntity, pBlock, pszName ); }
+	int32_t PoseModel( int32_t nModelIndex, const float *pOriginAngles, const float *pRenderToWorld, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount ) { return Table()->PoseModel( this, nModelIndex, pOriginAngles, pRenderToWorld, pBoneToWorld, nMaxBones, nBoneMask, flCurrentTime, nFrameCount ); }
+	void *BoneBatch( int32_t nFrameCount, float flCurrentTime ) { return Table()->BoneBatch( this, nFrameCount, flCurrentTime ); }
+
+private:
+	const SSManagedBonesClientTable *Table() const { return static_cast< const SSManagedBonesClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedBonesClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x27e30460, 0x16431c67, 0x1e1ce79b, 0x0cdb2209, 0x28d1232f, 0xeb834733,
 };
 static const int32_t kIManagedBonesClientSlotCount = 8;
+static_assert( sizeof( SSManagedBonesClientTable ) == 8 * sizeof( void * ), "SSManagedBonesClientTable is one pointer per slot" );
 
-abstract_class IManagedRagdollsClient : public IManagedObject
+class IManagedRagdollsClient;
+
+// The table managed writes for IManagedRagdollsClient: Release, Validate, then the TSV's order.
+struct SSManagedRagdollsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	int32_t ( *StepPoses )( IManagedRagdollsClient *self );
+	int32_t ( *DestroyAll )( IManagedRagdollsClient *self );
+};
+
+class IManagedRagdollsClient : public IManagedObject
 {
 public:
-	virtual int32_t StepPoses() = 0;
-	virtual int32_t DestroyAll() = 0;
+	explicit IManagedRagdollsClient( const SSManagedRagdollsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	int32_t StepPoses() { return Table()->StepPoses( this ); }
+	int32_t DestroyAll() { return Table()->DestroyAll( this ); }
+
+private:
+	const SSManagedRagdollsClientTable *Table() const { return static_cast< const SSManagedRagdollsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedRagdollsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245,
 };
 static const int32_t kIManagedRagdollsClientSlotCount = 4;
+static_assert( sizeof( SSManagedRagdollsClientTable ) == 4 * sizeof( void * ), "SSManagedRagdollsClientTable is one pointer per slot" );
 
-abstract_class IManagedPhysicsClient : public IManagedObject
+class IManagedPhysicsClient;
+
+// The table managed writes for IManagedPhysicsClient: Release, Validate, then the TSV's order.
+struct SSManagedPhysicsClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void * ( *CreateWorld )( IManagedPhysicsClient *self );
+	int32_t ( *ParseSurfaceData )( IManagedPhysicsClient *self );
+	int32_t ( *PrecacheSurfaceSounds )( IManagedPhysicsClient *self );
+	void ( *SolidKeyValue )( IManagedPhysicsClient *self, void *pData, const char *pKey, const char *pValue );
+	void ( *SolidDefaults )( IManagedPhysicsClient *self, void *pData );
+};
+
+class IManagedPhysicsClient : public IManagedObject
 {
 public:
-	virtual void *CreateWorld() = 0;
-	virtual int32_t ParseSurfaceData() = 0;
-	virtual int32_t PrecacheSurfaceSounds() = 0;
-	virtual void SolidKeyValue( void *pData, const char *pKey, const char *pValue ) = 0;
-	virtual void SolidDefaults( void *pData ) = 0;
+	explicit IManagedPhysicsClient( const SSManagedPhysicsClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void *CreateWorld() { return Table()->CreateWorld( this ); }
+	int32_t ParseSurfaceData() { return Table()->ParseSurfaceData( this ); }
+	int32_t PrecacheSurfaceSounds() { return Table()->PrecacheSurfaceSounds( this ); }
+	void SolidKeyValue( void *pData, const char *pKey, const char *pValue ) { Table()->SolidKeyValue( this, pData, pKey, pValue ); }
+	void SolidDefaults( void *pData ) { Table()->SolidDefaults( this, pData ); }
+
+private:
+	const SSManagedPhysicsClientTable *Table() const { return static_cast< const SSManagedPhysicsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedPhysicsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xe13ef122, 0x9d8d9245, 0x9d8d9245, 0x888e87b0, 0xde3e0200,
 };
 static const int32_t kIManagedPhysicsClientSlotCount = 7;
+static_assert( sizeof( SSManagedPhysicsClientTable ) == 7 * sizeof( void * ), "SSManagedPhysicsClientTable is one pointer per slot" );
 
 #ifdef CLIENT_DLL
 

@@ -315,3 +315,4 @@ IManagedPhysicsClient	ParseSurfaceData	int32_t	void
 IManagedPhysicsClient	PrecacheSurfaceSounds	int32_t	void
 IManagedPhysicsClient	SolidKeyValue	void	void *pData, const char *pKey, const char *pValue
 IManagedPhysicsClient	SolidDefaults	void	void *pData
+IManagedSteamCallback	Run	void	void *pvParam
