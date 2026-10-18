@@ -2302,7 +2302,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         if (_ragdollPhysics?.Keys is { } keys)
         {
             _physicsWorldVPhysics = PhysicsWorldVPhysics.Acquire(_engine, _services.Require<IClientPhysicsEngine>().Environment,
-                                                                 server: false, keys, out string worldWhy);
+                                                                 staticProps: null, keys, out string worldWhy);
             IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string propsWhy);
             if (_physicsWorldVPhysics is null || surfaceProps is null)
             {

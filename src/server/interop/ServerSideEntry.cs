@@ -21,7 +21,8 @@ public static unsafe class ServerSideEntry
     public static int LoadServer(void* pShimRoot, int shimRootEntries, void** ppManagedRoot,
                            nint* pVtables, nint* pSession, byte* pFacts)
     {
-        return SideLoad.Load(Side.Server, CrossingOp.LoadServer, pShimRoot, shimRootEntries, ppManagedRoot, pVtables, pSession, pFacts);
+        return SideLoad.Load(Side.Server, CrossingOp.LoadServer, pShimRoot, shimRootEntries, ppManagedRoot, pVtables, pSession, pFacts,
+                             EngineServerBinding.Bind);
     }
 
     [UnmanagedCallersOnly]

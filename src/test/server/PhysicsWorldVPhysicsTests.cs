@@ -13,9 +13,9 @@ namespace SourceSharp.Tests;
 /// </summary>
 public unsafe class PhysicsWorldVPhysicsTests
 {
-    private sealed class Keys(nint defaultName) : ISolidKeyTable
+    private sealed class Keys(nint defaultName, nint table = 0) : ISolidKeyTable
     {
-        public nint Table => 0;
+        public nint Table => table;
         public SolidKeyDefaults Solids { get; } = new(defaultName);
         public bool SolidInFlight { get; set; }
     }
@@ -69,7 +69,7 @@ public unsafe class PhysicsWorldVPhysicsTests
     [Fact]
     public void ResetSolidZeroesItAndGivesItTheDefaults()
     {
-        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, null, new Keys(0x77), TestVPhysics.None());
+        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, new Keys(0x77), TestVPhysics.None());
         byte* solid = (byte*)NativeMemory.Alloc(SolidLayout.Size);
 
         try
@@ -94,10 +94,57 @@ public unsafe class PhysicsWorldVPhysicsTests
         }
     }
 
+    /// <summary>The server's static prop manager, as the world build sees it: what it was asked, and whether a solid was in flight then.</summary>
+    private sealed class StaticProps(Keys keys) : IStaticPropPhysics
+    {
+        public readonly List<(nint Environment, nint KeyHandler, bool InFlight)> Calls = new();
+
+        public void CreateVPhysicsRepresentations(nint environment, nint keyHandler)
+            => Calls.Add((environment, keyHandler, keys.SolidInFlight));
+    }
+
+    [Fact]
+    public void TheStaticPropsGetTheEnvironmentAndTheKeyHandlerWithASolidInFlight()
+    {
+        var keys = new Keys(0, table: 0x4400);
+        var props = new StaticProps(keys);
+        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, props, keys, TestVPhysics.None());
+
+        adapter.CreateStaticPropPhysics(0x9900);
+
+        Assert.Equal(new[] { ((nint)0x9900, (nint)0x4400, true) }, props.Calls);
+        Assert.False(keys.SolidInFlight);   // and not after
+    }
+
+    [Fact]
+    public void NoStaticPropsAreMadeWithoutAnEnvironment()
+    {
+        var keys = new Keys(0);
+        var props = new StaticProps(keys);
+        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, props, keys, TestVPhysics.None());
+
+        adapter.CreateStaticPropPhysics(0);
+
+        Assert.Empty(props.Calls);
+    }
+
+    [Fact]
+    public void ASideWithNoStaticPropManagerMakesNone()
+    {
+        // The client's case: it hands the world build no static prop manager
+        // (IStaticPropMgrServer is the server's, and so is its table).
+        var keys = new Keys(0);
+        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, keys, TestVPhysics.None());
+
+        adapter.CreateStaticPropPhysics(0x9900);
+
+        Assert.False(keys.SolidInFlight);
+    }
+
     [Fact]
     public void NativeTextIsOneCopyPerName()
     {
-        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, null, new Keys(0), TestVPhysics.None());
+        using var adapter = new PhysicsWorldVPhysics(() => 0, null, null, null, null, null, null, null, new Keys(0), TestVPhysics.None());
 
         nint world = adapter.NativeText("world");
 

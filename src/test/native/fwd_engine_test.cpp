@@ -322,6 +322,17 @@ TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsTablesToo )
 	EXPECT_EQ( pTable->ppSlots, *static_cast< void *const *const * >( pServed ) );
 }
 
+TEST( FwdEngine, TheServerServesItsOwnTables )
+{
+	// The tables only the server calls (IVEngineServer, the INetChannelInfo
+	// objects it answers, the static prop manager) are in its library.
+	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer" } )
+	{
+		EXPECT_NE( nullptr, SSFwdServer_Table( pszName ) ) << pszName;
+		EXPECT_NE( nullptr, SSFwd_Serve( pszName, nullptr ) ) << pszName;
+	}
+}
+
 TEST( FwdEngine, TheServerServesNoTableOnlyTheClientCalls )
 {
 	// server.so links libss_fwd_server alone (SS_FWD_SERVES_SERVER), and that

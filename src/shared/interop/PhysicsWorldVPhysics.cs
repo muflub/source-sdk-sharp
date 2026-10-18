@@ -228,8 +228,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     private readonly PhysicsSurfacePropsFwd* _propsFwd;
     private readonly void* _modelInfo;
     private readonly ModelInfoFwd* _modelInfoFwd;
-    private readonly void* _staticProps;
-    private readonly StaticPropMgrServerFwd* _staticPropsFwd;
+    private readonly IStaticPropPhysics? _staticProps;
     private readonly ISolidKeyTable _keys;
     private readonly VPhysicsTables _vphysics;
 
@@ -243,12 +242,12 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     private byte* _fluid;
 
     /// <param name="environment">The level's IPhysicsEnvironment, asked per call.</param>
-    /// <param name="staticProps">IStaticPropMgr (the server's), or null on a side that does not make the static props' physics here.</param>
+    /// <param name="staticProps">The server's static prop manager (Server.Interop's StaticPropMgrServer), or null on a side that does not make the static props' physics here.</param>
     /// <param name="collisionFwd">IPhysicsCollision's forwarders (<c>PhysicsCollisionFwd</c>); the other
     /// <c>*Fwd</c> parameters likewise. Untyped because the forwarder structs are internal.</param>
     /// <param name="vphysics">The side's vphysics forwarder tables, for the objects this calls.</param>
     public PhysicsWorldVPhysics(Func<nint> environment, void* collision, void** collisionFwd, void* props, void** propsFwd,
-                                void* modelInfo, void** modelInfoFwd, void* staticProps, void** staticPropsFwd,
+                                void* modelInfo, void** modelInfoFwd, IStaticPropPhysics? staticProps,
                                 ISolidKeyTable keys, VPhysicsTables vphysics)
     {
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
@@ -259,7 +258,6 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         _modelInfo = modelInfo;
         _modelInfoFwd = (ModelInfoFwd*)modelInfoFwd;
         _staticProps = staticProps;
-        _staticPropsFwd = (StaticPropMgrServerFwd*)staticPropsFwd;
         _keys = keys ?? throw new ArgumentNullException(nameof(keys));
         _vphysics = vphysics ?? throw new ArgumentNullException(nameof(vphysics));
         _solid = (byte*)NativeMemory.AllocZeroed(SolidLayout.Size);
@@ -268,15 +266,15 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
 
     /// <summary>
     /// From <paramref name="engine"/>'s own side's factories: vphysics'
-    /// collision and surface tables, the side's model info, and (on the server)
-    /// the static prop manager. Null, with the reason, when one does not answer.
+    /// collision and surface tables and the side's model info, with the static
+    /// prop manager the server hands in (<paramref name="staticProps"/>: its
+    /// wrapper and table are Server.Interop's and libss_fwd_server's; null on
+    /// the client). Null, with the reason, when one does not answer.
     /// </summary>
-    public static PhysicsWorldVPhysics? Acquire(ModuleEngine engine, Func<nint> environment, bool server,
+    public static PhysicsWorldVPhysics? Acquire(ModuleEngine engine, Func<nint> environment, IStaticPropPhysics? staticProps,
                                                 ISolidKeyTable keys, out string why)
     {
         NativeInterfaceFactory factory = (engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces;
-        void* staticProps = null;
-        StaticPropMgrServerFwd* staticPropsFwd = null;
 
         if (!Forwarders.TryAcquire<PhysicsCollisionFwd>(factory, SourceSharpFactoryType.Physics, "VPhysicsCollision007",
                                                         out void* collision, out PhysicsCollisionFwd* collisionFwd, out why)
@@ -284,18 +282,14 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
                                                               PhysicsSurfaceProps.InterfaceVersion,
                                                               out void* props, out PhysicsSurfacePropsFwd* propsFwd, out why)
             || !Forwarders.TryAcquire<ModelInfoFwd>(factory, SourceSharpFactoryType.AppSystem,
-                                                 server ? EngineModelInfo.ServerInterfaceVersion : EngineModelInfo.ClientInterfaceVersion,
-                                                 out void* modelInfo, out ModelInfoFwd* modelInfoFwd, out why)
-            || (server && !Forwarders.TryAcquire<StaticPropMgrServerFwd>(factory, SourceSharpFactoryType.AppSystem,
-                                                                         "StaticPropMgrServer002",
-                                                                         out staticProps, out staticPropsFwd, out why)))
+                                                 EngineBound.ModelInfoVersion(engine.Api.Side),
+                                                 out void* modelInfo, out ModelInfoFwd* modelInfoFwd, out why))
         {
             return null;
         }
 
         return new PhysicsWorldVPhysics(environment, collision, (void**)collisionFwd, props, (void**)propsFwd,
-                                        modelInfo, (void**)modelInfoFwd, staticProps, (void**)staticPropsFwd, keys,
-                                        engine.Api.VPhysics);
+                                        modelInfo, (void**)modelInfoFwd, staticProps, keys, engine.Api.VPhysics);
     }
 
     public void Dispose()
@@ -489,7 +483,7 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
         _keys.SolidInFlight = true;
         try
         {
-            _staticPropsFwd->CreateVPhysicsRepresentations(_staticProps, (void*)environment, (void*)_keys.Table, null);
+            _staticProps.CreateVPhysicsRepresentations(environment, _keys.Table);
         }
         finally
         {

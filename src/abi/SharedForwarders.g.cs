@@ -78,43 +78,6 @@ internal unsafe struct BaseFileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 9 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct EngineServerFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_EngineServer";
-
-    // bool IVEngineServer::IsDedicatedServer( void )
-    public delegate* unmanaged<void*, byte> IsDedicatedServer;
-
-    // int IVEngineServer::GetEntityCount( void )
-    public delegate* unmanaged<void*, int> GetEntityCount;
-
-    // INetChannelInfo * IVEngineServer::GetPlayerNetInfo( int )
-    public delegate* unmanaged<void*, int, void*> GetPlayerNetInfo;
-
-    // const char * IVEngineServer::GetClientConVarValue( int, const char * )
-    public delegate* unmanaged<void*, int, byte*, byte*> GetClientConVarValue;
-
-    // int IVEngineServer::GetArea( const Vector & )
-    public delegate* unmanaged<void*, void*, int> GetArea;
-
-    // const char * IVEngineServer::GetMapEntitiesString( void )
-    public delegate* unmanaged<void*, byte*> GetMapEntitiesString;
-
-    // const CSteamID * IVEngineServer::GetClientSteamIDByPlayerIndex( int )
-    public delegate* unmanaged<void*, int, void*> GetClientSteamIDByPlayerIndex;
-
-    // void IVEngineServer::GetGameDir( char *, int )
-    public delegate* unmanaged<void*, byte*, int, void> GetGameDir;
-
-    // bool IVEngineServer::IsModelPrecached( char const * )
-    public delegate* unmanaged<void*, byte*, byte> IsModelPrecached;
-}
-
-/// <summary>
 /// <c>IUniformRandomStream</c> through its forwarders (SSFwd_UniformRandomStream): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
@@ -131,22 +94,6 @@ internal unsafe struct UniformRandomStreamFwd : IForwarderTable
 
     // float IUniformRandomStream::RandomFloatExp( float, float, float )
     public delegate* unmanaged<void*, float, float, float, float> RandomFloatExp;
-}
-
-/// <summary>
-/// <c>INetChannelInfo</c> through its forwarders (SSFwd_NetChannelInfo): 2 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct NetChannelInfoFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_NetChannelInfo";
-
-    // const char * INetChannelInfo::GetAddress( void )
-    public delegate* unmanaged<void*, byte*> GetAddress;
-
-    // float INetChannelInfo::GetAvgLatency( int )
-    public delegate* unmanaged<void*, int, float> GetAvgLatency;
 }
 
 /// <summary>
@@ -201,19 +148,6 @@ internal unsafe struct SoundEmitterSystemFwd : IForwarderTable
 
     // const char * ISoundEmitterSystemBase::GetSoundName( int )
     public delegate* unmanaged<void*, int, byte*> GetSoundName;
-}
-
-/// <summary>
-/// <c>IStaticPropMgrServer</c> through its forwarders (SSFwd_StaticPropMgrServer): 1 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct StaticPropMgrServerFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_StaticPropMgrServer";
-
-    // void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
-    public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations;
 }
 
 /// <summary>

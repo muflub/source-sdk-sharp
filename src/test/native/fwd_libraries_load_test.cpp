@@ -33,8 +33,7 @@ namespace
 using TableFn = const SSForwarderTable *( * )( const char * );
 
 // Each library: its built file, its one export, a table it serves and a table
-// only the other side calls (which it must not serve), or NULL where the
-// other side calls nothing this one lacks.
+// only the other side calls (which it must not serve).
 struct Library
 {
 	const char *pszPath;
@@ -45,7 +44,7 @@ struct Library
 
 constexpr Library kLibraries[] = {
 	{ SS_FWD_SERVER_LIB, "SSFwdServer_Table", "SSFwd_ModelInfo", "SSFwd_SteamCallback" },
-	{ SS_FWD_CLIENT_LIB, "SSFwdClient_Table", "SSFwd_SteamCallback", nullptr },
+	{ SS_FWD_CLIENT_LIB, "SSFwdClient_Table", "SSFwd_SteamCallback", "SSFwd_EngineServer" },
 };
 
 // The library's one export, from the built file; null with a message if the

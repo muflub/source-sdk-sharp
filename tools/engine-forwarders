@@ -184,6 +184,7 @@ FORWARD = [
     ),
     dict(
         struct='EngineServerVtbl',
+        side='server',
         methods=[
             'IsDedicatedServer', 'GetEntityCount', 'GetPlayerNetInfo',
             'GetClientConVarValue', 'GetArea', 'GetMapEntitiesString',
@@ -210,6 +211,7 @@ FORWARD = [
     ),
     dict(
         struct='NetChannelInfoVtbl',
+        side='server',
         methods=[
             'GetAddress', 'GetAvgLatency',
         ],
@@ -235,6 +237,7 @@ FORWARD = [
     ),
     dict(
         struct='StaticPropMgrServerVtbl',
+        side='server',
         methods=[
             'CreateVPhysicsRepresentations',
         ],

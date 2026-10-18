@@ -252,4 +252,11 @@ TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo", nullptr ) );
 	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_PhysicsObject", nullptr ) );
 	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_EngineClient", nullptr ) );
+
+	// And none of the server's own: they are libss_fwd_server's alone.
+	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer" } )
+	{
+		EXPECT_EQ( nullptr, SSFwdClient_Table( pszName ) ) << pszName;
+		EXPECT_EQ( nullptr, SSFwd_Serve( pszName, nullptr ) ) << pszName;
+	}
 }

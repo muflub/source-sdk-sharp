@@ -64,6 +64,7 @@
 # 2026-10-12: src/sourcesharp/game/shared/studio_sequence_timing.cpp deleted (plan_physics_bones_native_zero): model_descriptor.cpp, its last caller, no longer writes a sequence duration (descriptor v3); SourceSharp.Shared.Bones' StudioSequenceTiming computes it from the managed StudioHdr; nm over the kept objects found no reference to its five symbols; its OURS row and override removed
 # 2026-10-12: shell_velocity_home.h deleted (plan_physics_bones_perf C2): its last caller, StandaloneEntity_Velocity, reads the velocity managed holds on the entity; its OURS row removed
 # 2026-10-12: velocity_home_test.cpp deleted with its subject (shell_velocity_home.h); EntityPhysicsMotionTests and PhysicsFrameTests hold the rule in managed; its OURS row removed
+# 2026-10-18: EngineServer.cs moved from src/shared/interop to src/server/interop (plan_engine_forwarders.md, one forwarder library per side): the wrapper holds libss_fwd_server's tables; its interface stays shared as IVtableEngineServer.cs. Its OURS row's destination updated
 path	class	dest	valve_header	reason	run	valve_match	borderline	sha256
 .claude/entity-port/status/nan-explain.md	DROP			lane status scratch	0		0	99c5024f5319b294de5ebb81f137e580b4d3307fa2f9a0015217da2b194cc4b7
 .claude/skills/exec-plan/SKILL.md	OURS	.claude/skills/exec-plan/SKILL.md			0		0	8886abdea2927475d02dd398d901f0c2dd7cdacd61d753d84a50754a0caed046
@@ -506,7 +507,7 @@ src/sourcesharp/managed/SourceSharp.Abi/EngineFrame.cs	OURS	src/shared/interop/E
 src/sourcesharp/managed/SourceSharp.Abi/EngineHierarchyWorld.cs	OURS	src/server/interop/EngineHierarchyWorld.cs	no	orchestration calling Engine/Transform helpers; no algorithm body of its own	0		0	265d2d0b6665eca1bad37bcdf47cebd03f67fad6c7b66c9a5b8646d124c28902
 src/sourcesharp/managed/SourceSharp.Abi/EngineLevel.cs	OURS	src/shared/interop/EngineLevel.cs	no	vtable interop wrapper, no algorithm	0		0	8c7f5b20bee9377597ff7943027351b0963b56ac2cb24e78f33943cc2382bd04
 src/sourcesharp/managed/SourceSharp.Abi/EngineModelInfo.cs	OURS	src/shared/interop/EngineModelInfo.cs	no	interop wrapper, no algorithm	0		0	94ee9199c9fc04248682942d76ca22b29bf14d0e99ac5a9e02b9a859f7a73215
-src/sourcesharp/managed/SourceSharp.Abi/EngineServer.cs	OURS	src/shared/interop/EngineServer.cs	no	interface declarations, no algorithm	0		0	81362e7cb1e02bdc9ff1927bf6c0dcf9b24e6ac9c4e3b9e5cbabd33860a39fed
+src/sourcesharp/managed/SourceSharp.Abi/EngineServer.cs	OURS	src/server/interop/EngineServer.cs	no	interface declarations, no algorithm	0		0	81362e7cb1e02bdc9ff1927bf6c0dcf9b24e6ac9c4e3b9e5cbabd33860a39fed
 src/sourcesharp/managed/SourceSharp.Abi/Entity.cs	OURS	src/abi/Entity.cs	yes	FromVector ports Source's VectorAngles (mathlib), including singularity handling	0		0	6e9030235c35ad4641373abfb0d647870cc1bfa238660b426ce53a10fbc6715c
 src/sourcesharp/managed/SourceSharp.Abi/EntityData.cs	OURS	src/shared/interop/EntityData.cs	no	reflection-based layout builder for managed entity fields; original infra	0		0	03d4cfaeb418fe6eb1a83c7779ebba39d8ea5a8272a17ba6a0381b5e2b0b1928
 src/sourcesharp/managed/SourceSharp.Abi/EntityDirectory.cs	OURS	src/server/managed/EntityDirectory.cs	yes	Unbind/OnEvicting reproduce CBaseEntity::UpdateOnRemove's teardown sequence (CancelEvents, touch-list removal)	0		0	0f55dca4ea33fe80036050f76e21b4af9de07c781d6267f106f0c33e2c3ee50e

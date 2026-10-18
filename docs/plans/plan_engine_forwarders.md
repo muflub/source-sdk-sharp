@@ -298,12 +298,20 @@ ABIs and need nothing.
   `libss_fwd_client` replace the engine, vphysics and Steam libraries; each
   game DLL links its own, and linking it defines `SS_FWD_SERVES_<SIDE>` for
   `SSFwd_Serve`. A row's `side` is where its users compile, and the check
-  (`side_audit`) holds it to the tree. Today the client's own tables are
-  EngineClient, InputSystem, IPhysics and SteamCallback; no table is the
-  server's alone, because IVEngineServer's, INetChannelInfo's and
-  IStaticPropMgrServer's users are in Shared.Interop (EngineServer.cs,
-  EngineBound.Server.cs, PhysicsWorldVPhysics.cs). They become server tables
-  when those users move to Server.Interop.
+  (`side_audit`) holds it to the tree. The client's own tables are
+  EngineClient, InputSystem, IPhysics and SteamCallback; the server's are
+  EngineServer, NetChannelInfo and StaticPropMgrServer.
+- **The server's wrappers moved to Server.Interop** (user, 2026-10-18: "move
+  server only to server interop"). `EngineServer` (IVEngineServer and the
+  INetChannelInfo objects it answers) and `StaticPropMgrServer` are
+  Server.Interop's; what the shared code asks of them stays shared, as
+  interfaces that name no forwarder: `IVtableEngineServer`, which the shared
+  bindings reach through the side's bound slot, and `IStaticPropPhysics`,
+  which the server hands the world physics build. The bound slot holds no
+  acquirer until the server's entry installs one (`EngineServerBinding.Bind`,
+  through `SideLoad.Load`'s bind, run as the side's engine is made); the
+  client's never does, so asking there fails by name, as asking the client's
+  engine always did.
 - **The vphysics callbacks stay managed-written.** They lay out the same on
   both ABIs (no overloads, no destructor), so building them natively would be
   for uniformity only.
@@ -347,3 +355,6 @@ ABIs and need nothing.
   compile: referenced from Shared.Interop or from both sides, it is both;
   from one side's projects only, it is that side's. tools/engine-forwarders
   holds each row's side to the tree.
+- 2026-10-18 (user), on the split: "move server only to server interop" --
+  IVEngineServer's and the static prop manager's wrappers to Server.Interop,
+  so their tables are the server's alone (section 8c).

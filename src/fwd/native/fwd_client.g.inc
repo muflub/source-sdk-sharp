@@ -15,12 +15,9 @@
 
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "cdll_int.h"
-#include "eiface.h"
-#include "engine/IStaticPropMgr.h"
 #include "engine/ivmodelinfo.h"
 #include "filesystem.h"
 #include "fwd_steam.h"
-#include "inetchannelinfo.h"
 #include "inputsystem/iinputsystem.h"
 #include "networkstringtabledefs.h"
 #include "vcollide_parse.h"
@@ -149,42 +146,6 @@ static void *const s_EngineClientSlots[] = {
 static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 13 };
 
 //-----------------------------------------------------------------------------
-// EngineServer: 9 forwarder(s) over IVEngineServer.
-//-----------------------------------------------------------------------------
-// bool IVEngineServer::IsDedicatedServer( void )
-static bool SSFwd_EngineServer_IsDedicatedServer( IVEngineServer *self ) { return self->IsDedicatedServer(); }
-// int IVEngineServer::GetEntityCount( void )
-static int SSFwd_EngineServer_GetEntityCount( IVEngineServer *self ) { return self->GetEntityCount(); }
-// INetChannelInfo * IVEngineServer::GetPlayerNetInfo( int )
-static INetChannelInfo * SSFwd_EngineServer_GetPlayerNetInfo( IVEngineServer *self, int a0 ) { return self->GetPlayerNetInfo( a0 ); }
-// const char * IVEngineServer::GetClientConVarValue( int, const char * )
-static const char * SSFwd_EngineServer_GetClientConVarValue( IVEngineServer *self, int a0, const char * a1 ) { return self->GetClientConVarValue( a0, a1 ); }
-// int IVEngineServer::GetArea( const Vector & )
-static int SSFwd_EngineServer_GetArea( IVEngineServer *self, const Vector & a0 ) { return self->GetArea( a0 ); }
-// const char * IVEngineServer::GetMapEntitiesString( void )
-static const char * SSFwd_EngineServer_GetMapEntitiesString( IVEngineServer *self ) { return self->GetMapEntitiesString(); }
-// const CSteamID * IVEngineServer::GetClientSteamIDByPlayerIndex( int )
-static const CSteamID * SSFwd_EngineServer_GetClientSteamIDByPlayerIndex( IVEngineServer *self, int a0 ) { return self->GetClientSteamIDByPlayerIndex( a0 ); }
-// void IVEngineServer::GetGameDir( char *, int )
-static void SSFwd_EngineServer_GetGameDir( IVEngineServer *self, char * a0, int a1 ) { self->GetGameDir( a0, a1 ); }
-// bool IVEngineServer::IsModelPrecached( char const * )
-static bool SSFwd_EngineServer_IsModelPrecached( IVEngineServer *self, char const * a0 ) { return self->IsModelPrecached( a0 ); }
-
-static void *const s_EngineServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_EngineServer_IsDedicatedServer ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_GetEntityCount ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_GetPlayerNetInfo ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_GetClientConVarValue ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_GetArea ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_GetMapEntitiesString ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_GetClientSteamIDByPlayerIndex ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_GetGameDir ),
-	reinterpret_cast< void * >( &SSFwd_EngineServer_IsModelPrecached ),
-};
-
-static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 9 };
-
-//-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.
 //-----------------------------------------------------------------------------
 // float IUniformRandomStream::RandomFloat( float, float )
@@ -242,21 +203,6 @@ static void *const s_InputSystemSlots[] = {
 static const SSForwarderTable s_InputSystemTable = { s_InputSystemSlots, 10 };
 
 //-----------------------------------------------------------------------------
-// NetChannelInfo: 2 forwarder(s) over INetChannelInfo.
-//-----------------------------------------------------------------------------
-// const char * INetChannelInfo::GetAddress( void )
-static const char * SSFwd_NetChannelInfo_GetAddress( INetChannelInfo *self ) { return self->GetAddress(); }
-// float INetChannelInfo::GetAvgLatency( int )
-static float SSFwd_NetChannelInfo_GetAvgLatency( INetChannelInfo *self, int a0 ) { return self->GetAvgLatency( a0 ); }
-
-static void *const s_NetChannelInfoSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_NetChannelInfo_GetAddress ),
-	reinterpret_cast< void * >( &SSFwd_NetChannelInfo_GetAvgLatency ),
-};
-
-static const SSForwarderTable s_NetChannelInfoTable = { s_NetChannelInfoSlots, 2 };
-
-//-----------------------------------------------------------------------------
 // NetworkStringTableContainer: 1 forwarder(s) over INetworkStringTableContainer.
 //-----------------------------------------------------------------------------
 // INetworkStringTable * INetworkStringTableContainer::FindTable( const char * )
@@ -306,18 +252,6 @@ static void *const s_SoundEmitterSystemSlots[] = {
 };
 
 static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystemSlots, 2 };
-
-//-----------------------------------------------------------------------------
-// StaticPropMgrServer: 1 forwarder(s) over IStaticPropMgrServer.
-//-----------------------------------------------------------------------------
-// void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
-static void SSFwd_StaticPropMgrServer_CreateVPhysicsRepresentations( IStaticPropMgrServer *self, IPhysicsEnvironment * a0, IVPhysicsKeyHandler * a1, void * a2 ) { self->CreateVPhysicsRepresentations( a0, a1, a2 ); }
-
-static void *const s_StaticPropMgrServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_StaticPropMgrServer_CreateVPhysicsRepresentations ),
-};
-
-static const SSForwarderTable s_StaticPropMgrServerTable = { s_StaticPropMgrServerSlots, 1 };
 
 //-----------------------------------------------------------------------------
 // Physics: 2 forwarder(s) over IPhysics.
@@ -971,14 +905,11 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ModelInfo", &s_ModelInfoTable },
 	{ "SSFwd_BaseFileSystem", &s_BaseFileSystemTable },
 	{ "SSFwd_EngineClient", &s_EngineClientTable },
-	{ "SSFwd_EngineServer", &s_EngineServerTable },
 	{ "SSFwd_UniformRandomStream", &s_UniformRandomStreamTable },
 	{ "SSFwd_InputSystem", &s_InputSystemTable },
-	{ "SSFwd_NetChannelInfo", &s_NetChannelInfoTable },
 	{ "SSFwd_NetworkStringTableContainer", &s_NetworkStringTableContainerTable },
 	{ "SSFwd_NetworkStringTable", &s_NetworkStringTableTable },
 	{ "SSFwd_SoundEmitterSystem", &s_SoundEmitterSystemTable },
-	{ "SSFwd_StaticPropMgrServer", &s_StaticPropMgrServerTable },
 	{ "SSFwd_Physics", &s_PhysicsTable },
 	{ "SSFwd_PhysicsCollision", &s_PhysicsCollisionTable },
 	{ "SSFwd_PhysicsSurfaceProps", &s_PhysicsSurfacePropsTable },

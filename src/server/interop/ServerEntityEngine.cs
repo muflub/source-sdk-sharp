@@ -55,6 +55,7 @@ public sealed class ServerEntityEngine
     public static (ServiceContainer Engine, ServerEntityEngine Side) Unattached()
     {
         var side = new EngineSide(Abi.Side.Server);
+        EngineServerBinding.Bind(side);
         var engine = new ServiceContainer();
 
         // The render binding takes the side's mirror in its constructor.
