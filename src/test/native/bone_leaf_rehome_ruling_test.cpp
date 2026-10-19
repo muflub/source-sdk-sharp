@@ -222,8 +222,6 @@ GuardCount CountAgainstAliasGuard( const std::string &source, const char *needle
 }
 
 const char *kAnimH     = "game/client/c_baseanimating.h";
-const char *kLeafCpp   = "sourcesharp/game/client/shell_bone_leaf_library.cpp";
-const char *kLeafH     = "sourcesharp/game/client/bone_leaf_library.h";
 const char *kClientDll = "sourcesharp/game/client/shell_clientdll.cpp";
 const char *kViewFacts = "sourcesharp/game/client/shell_view_facts.cpp";
 const char *kRagdoll   = "game/client/ragdoll.cpp";
@@ -237,65 +235,12 @@ const char *kViewRender = "sourcesharp/game/client/shell_viewrender_client.cpp";
 } // namespace
 
 //=============================================================================
-// WHAT MOVED
+// WHAT MOVED -- and then went. The library itself left client.so and the
+// repository (2026-10-18): nothing read its gate or counter and no sweep was
+// registered. Its two facts here (no entity type in its interface; compiled
+// without a forced include) went with it; BoneLeafEvictionTests (managed)
+// holds that it is gone and that no client file spells its names.
 //=============================================================================
-
-TEST( BoneLeafRehome, TheLeafLibraryNamesNoEntityType )
-{
-	// plan_entity.md §3.7: the bone library is kept "as a leaf library with no
-	// entity type in their interface". This is that claim, checked on both the
-	// header and the bodies, with comments stripped so that this file's own
-	// explanations do not answer it.
-	const char *kEntityTokens[] = {
-		"C_BaseEntity", "C_BaseAnimating", "CBaseEntity", "IGameEntity",
-		"C_EntityShell", "CEntityShell", "CStandaloneEntity", "cbase.h"
-	};
-
-	const std::string cpp = StripComments( Read( kLeafCpp ) );
-	const std::string hdr = StripComments( Read( kLeafH ) );
-
-	for ( size_t i = 0; i < sizeof( kEntityTokens ) / sizeof( kEntityTokens[ 0 ] ); i++ )
-	{
-		EXPECT_FALSE( Has( cpp, kEntityTokens[ i ] ) )
-			<< "shell_bone_leaf_library.cpp names " << kEntityTokens[ i ];
-		EXPECT_FALSE( Has( hdr, kEntityTokens[ i ] ) )
-			<< "bone_leaf_library.h names " << kEntityTokens[ i ];
-	}
-}
-
-TEST( BoneLeafRehome, NoPrecompiledHeaderExistsSoTheArmAboveIsTheCompilersToEnforce )
-{
-	// This case used to assert the OPPOSITE: that the leaf library's $File row
-	// carried a `"Not Using Precompiled Headers"` block, because that opt-out
-	// was what MADE the arm above enforceable rather than a convention -- a TU
-	// compiled with cbase.h force-included has every entity type in scope
-	// whether it spells one or not, and cannot be built into a standalone gtest
-	// at all.
-	//
-	// plan_shim.md 0b removed the mechanism rather than the row's exemption
-	// from it, and the CMake build (Phase 6b) never had one: client_sourcesharp
-	// has no target_precompile_headers, so NO TU is handed cbase.h, and the arm
-	// above is enforced by the compiler for every file in the project instead
-	// of for the ones that remembered to carry a block. The file itself still
-	// has to be compiled.
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kLeafCpp ) )
-		<< kLeafCpp << " is not compiled into client_sourcesharp ("
-		<< cmake_graph::ListFile( cmake_graph::kClient ) << ")";
-
-	EXPECT_FALSE( Has( cmake_graph::ListText( cmake_graph::kClient ), "target_precompile_headers" ) )
-		<< cmake_graph::ListFile( cmake_graph::kClient ) << " declares a precompiled "
-		<< "header again. With it back, shell_bone_leaf_library.cpp is compiled "
-		<< "with cbase.h whether it names an entity type or not, and "
-		<< "bone_leaf_library_test.cpp -- which compiles this file into a "
-		<< "standalone gtest -- cannot build.";
-
-	// What the compiler is actually handed: CMake's PCH arrives as a forced
-	// `-include .../cmake_pch.hxx` (clang: `-include-pch`). A per-source forced
-	// include of anything is the same mechanism under another name.
-	const std::string cmd = cmake_graph::CompileCommand( cmake_graph::kClient, kLeafCpp );
-	EXPECT_FALSE( Has( cmd, "cmake_pch" ) ) << "the leaf library is compiled with a PCH:\n" << cmd;
-	EXPECT_FALSE( Has( cmd, " -include" ) ) << "the leaf library is compiled with a forced include:\n" << cmd;
-}
 
 TEST( BoneLeafRehome, TheClientDllAndViewFactsNoLongerSpellTheGateOnTheEntityClass )
 {

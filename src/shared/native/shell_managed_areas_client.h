@@ -47,7 +47,6 @@ struct CManagedAreasClient
 	IManagedRenderClient *m_pRenderClient;
 	IManagedInputClient *m_pInputClient;
 	IManagedBonesClient *m_pBonesClient;
-	IManagedRagdollsClient *m_pRagdollsClient;
 	IManagedPhysicsClient *m_pPhysicsClient;
 };
 
@@ -93,7 +92,6 @@ inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )
 		&& !holders.m_Areas.m_pRenderClient
 		&& !holders.m_Areas.m_pInputClient
 		&& !holders.m_Areas.m_pBonesClient
-		&& !holders.m_Areas.m_pRagdollsClient
 		&& !holders.m_Areas.m_pPhysicsClient;
 }
 

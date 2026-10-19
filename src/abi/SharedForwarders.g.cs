@@ -210,7 +210,7 @@ internal unsafe struct PhysicsSurfacePropsFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsEnvironment</c> through its forwarders (SSFwd_PhysicsEnvironment): 34 slot(s).
+/// <c>IPhysicsEnvironment</c> through its forwarders (SSFwd_PhysicsEnvironment): 37 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
@@ -319,6 +319,15 @@ internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
 
     // void IPhysicsEnvironment::DebugCheckContacts( void )
     public delegate* unmanaged<void*, void> DebugCheckContacts;
+
+    // void IPhysicsEnvironment::SetGravity( const Vector & )
+    public delegate* unmanaged<void*, void*, void> SetGravity;
+
+    // void IPhysicsEnvironment::SetSimulationTimestep( float )
+    public delegate* unmanaged<void*, float, void> SetSimulationTimestep;
+
+    // void IPhysicsEnvironment::SetQuickDelete( bool )
+    public delegate* unmanaged<void*, byte, void> SetQuickDelete;
 }
 
 /// <summary>
@@ -751,34 +760,6 @@ internal unsafe struct VPhysicsKeyParserFwd : IForwarderTable
 
     // void IVPhysicsKeyParser::SkipBlock( void )
     public delegate* unmanaged<void*, void> SkipBlock;
-}
-
-/// <summary>
-/// <c>IPhysicsCollisionEvent</c> through its forwarders (SSFwd_PhysicsCollisionEvent): 6 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct PhysicsCollisionEventFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_PhysicsCollisionEvent";
-
-    // void IPhysicsCollisionEvent::PreCollision( vcollisionevent_t * )
-    public delegate* unmanaged<void*, void*, void> PreCollision;
-
-    // void IPhysicsCollisionEvent::StartTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
-    public delegate* unmanaged<void*, void*, void*, void*, void> StartTouch;
-
-    // void IPhysicsCollisionEvent::EndTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
-    public delegate* unmanaged<void*, void*, void*, void*, void> EndTouch;
-
-    // void IPhysicsCollisionEvent::PostSimulationFrame( void )
-    public delegate* unmanaged<void*, void> PostSimulationFrame;
-
-    // void IPhysicsCollisionEvent::ObjectEnterTrigger( IPhysicsObject *, IPhysicsObject * )
-    public delegate* unmanaged<void*, void*, void*, void> ObjectEnterTrigger;
-
-    // void IPhysicsCollisionEvent::ObjectLeaveTrigger( IPhysicsObject *, IPhysicsObject * )
-    public delegate* unmanaged<void*, void*, void*, void> ObjectLeaveTrigger;
 }
 
 /// <summary>
@@ -3139,19 +3120,13 @@ internal unsafe struct ShimInputClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimPhysicsClient</c> through its forwarders (SSFwd_ShimPhysicsClient): 8 slot(s).
+/// <c>IShimPhysicsClient</c> through its forwarders (SSFwd_ShimPhysicsClient): 6 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimPhysicsClientFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimPhysicsClient";
-
-    // void * IShimPhysicsClient::PhysicsClientEnvironment( void )
-    public delegate* unmanaged<void*, void*> PhysicsClientEnvironment;
-
-    // void * IShimPhysicsClient::PhysicsClientCollisionEvents( void )
-    public delegate* unmanaged<void*, void*> PhysicsClientCollisionEvents;
 
     // int32_t IShimPhysicsClient::PhysicsClientSurfaceAudio( int32_t, char *, int32_t, char *, int32_t, float * )
     public delegate* unmanaged<void*, int, byte*, int, byte*, int, void*, int> PhysicsClientSurfaceAudio;

@@ -326,7 +326,7 @@ bool DefinesAtFileScope( const std::string &file, const std::string &sym )
 // 1. THE TABLE THE RULING IS ABOUT
 //=============================================================================
 
-TEST( ClientFlipRuling, TheTableHasExactlyTwentyFourLiveRows )
+TEST( ClientFlipRuling, TheTableHasExactlyTwentyTwoLiveRows )
 {
 	// The wave brief's own trap. A raw grep over the initialiser reads more than
 	// this, because the evicted systems are written out inside the comments that
@@ -378,7 +378,14 @@ TEST( ClientFlipRuling, TheTableHasExactlyTwentyFourLiveRows )
 	//
 	// 25 UNTIL CColorCorrectionMgr followed (C9, lane c6-input): it hooked no
 	// system stage, and shell_worldrender.cpp carries out its lookups.
-	EXPECT_EQ( TableRowNames().size(), 24u );
+	//
+	// 24 UNTIL fork physics.cpp followed (the client physics leftovers): the
+	// CDataObjectAccessSystem row, a registration with nothing behind it, left
+	// with shell_physics_shared_client.cpp.
+	//
+	// 23 UNTIL the bone leaf library followed: C_BaseAnimatingGameSystem ran its
+	// level-shutdown sweeps, and none was registered.
+	EXPECT_EQ( TableRowNames().size(), 22u );
 }
 
 TEST( ClientFlipRuling, TheThreeEvictedSystemsAreNamedInCommentsAndAreNotRows )
@@ -566,8 +573,10 @@ TEST( ClientFlipRuling, NoStaysRulingsFileIsOnSection6sLeaveList )
 	// 25 since C8: CClientThinkList's left with client_thinklist.cpp.
 	// 24 since C9 K3: CPropData's left with shell_propdata_system.cpp.
 	// 23 since C9: CColorCorrectionMgr's left with colorcorrectionmgr.cpp.
-	EXPECT_GE( nChecked, 23 )
-		<< "fewer than twenty-three rows are ruled STAYS, so the ruling was not parsed";
+	// 22 since the client physics leftovers: CDataObjectAccessSystem's left with
+	// shell_physics_shared_client.cpp.
+	EXPECT_GE( nChecked, 22 )
+		<< "fewer than twenty-two rows are ruled STAYS, so the ruling was not parsed";
 }
 
 TEST( ClientFlipRuling, NoRowIsRuledLeavesBecauseTheOnlyOneWasRehomed )
@@ -610,103 +619,46 @@ TEST( ClientFlipRuling, NoRowIsRuledLeavesBecauseTheOnlyOneWasRehomed )
 
 	EXPECT_EQ( leaves.size(), 0u );
 
-	// And the row is still in the table, still ruled, and now names the file that
-	// really defines it -- so this was a re-homing and not a row that vanished.
-	int nFound = 0;
+	// The row itself went (2026-10-18). Re-homed twice -- physics_main_shared.cpp,
+	// then physics_shared.cpp's client remnant shell_physics_shared_client.cpp --
+	// it was a registration with nothing behind it (no data object exists in
+	// client.so) kept for fork physics.cpp's watcher asks, and it left with that
+	// file. No ruling names it, and the table no longer registers it.
 	for ( size_t i = 0; i < rulings.size(); i++ )
-	{
-		if ( rulings[ i ].m_Row != "CDataObjectAccessSystem" )
-			continue;
-		nFound++;
-		EXPECT_EQ( "STAYS", rulings[ i ].m_Verdict );
-		// RE-HOMED AGAIN at plan_physics_bones_native_zero 2.6: physics_shared.cpp
-		// left the repository, and the row's registration (with no stage behind
-		// it -- no data object exists in client.so) is what fork physics.cpp's
-		// link remnant keeps.
-		EXPECT_EQ( "sourcesharp/game/client/shell_physics_shared_client.cpp", rulings[ i ].m_File );
-	}
-	EXPECT_EQ( 1, nFound );
+		EXPECT_NE( "CDataObjectAccessSystem", rulings[ i ].m_Row );
+	const std::string table = StripComments( Read( kTableFile ) );
+	ASSERT_NE( table.find( "kClientSystems[]" ), std::string::npos ) << kTableFile << " did not load";
+	EXPECT_EQ( table.find( "ClientSystem_DataObjectAccess" ), std::string::npos );
 }
 
 //=============================================================================
-// 5. THE ONE ROW THIS LANE PORTED
+// 5. THE ONE ROW THIS LANE PORTED -- GONE
+//
+// `C_BaseAnimatingGameSystem` was ported into shell_clientsystems.cpp at the
+// flip; its one stage ran the bone leaf library's level-shutdown sweeps. No
+// sweep was ever registered, and the library and the row went together
+// (2026-10-18, docs/client_evictions.md). Its four facts here (the one PORTED
+// ruling, its class and accessor in the table's file, its function-local
+// instance, its census position) are replaced by this one: no row is ruled
+// PORTED, and the table neither registers nor defines it.
 //=============================================================================
 
-TEST( ClientFlipRuling, ExactlyOneRowIsRuledPortedAndItIsTheBaseAnimatingGameSystem )
+TEST( ClientFlipRuling, NoRowIsRuledPortedSinceTheBaseAnimatingRowLeft )
 {
 	const std::vector<Ruling> rulings = Rulings();
-	std::vector<std::string> ported;
+	ASSERT_FALSE( rulings.empty() );
 	for ( size_t i = 0; i < rulings.size(); i++ )
-		if ( rulings[ i ].m_Verdict == "PORTED" )
-			ported.push_back( rulings[ i ].m_Row );
+		EXPECT_NE( "PORTED", rulings[ i ].m_Verdict ) << rulings[ i ].m_Row;
 
-	ASSERT_EQ( ported.size(), 1u );
-	EXPECT_EQ( ported[ 0 ], "C_BaseAnimatingGameSystem" );
-}
-
-TEST( ClientFlipRuling, ThePortedSystemIsDefinedInTheTablesOwnFile )
-{
 	const std::string table = StripComments( Read( kTableFile ) );
-	EXPECT_NE( table.find( "class CBaseAnimatingGameSystem : public CClientSystem" ),
-	           std::string::npos )
-		<< "shell_clientsystems.cpp no longer defines the ported game system";
-	EXPECT_NE( table.find( "CClientSystem *ClientSystem_BaseAnimating()" ),
-	           std::string::npos )
-		<< "shell_clientsystems.cpp no longer defines the ported row's accessor";
-}
+	ASSERT_NE( table.find( "kClientSystems[]" ), std::string::npos ) << kTableFile << " did not load";
+	EXPECT_EQ( table.find( "CBaseAnimatingGameSystem" ), std::string::npos );
+	EXPECT_EQ( table.find( "ClientSystem_BaseAnimating" ), std::string::npos );
 
-TEST( ClientFlipRuling, ThePortedInstanceIsAFunctionLocalStaticAndNotFileScope )
-{
-	// shell_clientsystems.cpp's own standing rule: NO FILE-SCOPE STATE. The row
-	// needs an object with a vtable, and a function-local static is not file
-	// scope. The ConVar construction-order hazard that forces the other choice
-	// -- a lazily constructed ConVar is constructed after the one
-	// ConVar_Register( FCVAR_CLIENTDLL ) and never registers -- does not apply:
-	// this class declares no ConVar and nothing reaches it before the first
-	// table walk.
-	const std::string table = StripComments( Read( kTableFile ) );
-
-	const size_t accessor = table.find( "CClientSystem *ClientSystem_BaseAnimating()" );
-	ASSERT_NE( accessor, std::string::npos );
-
-	const size_t open  = table.find( '{', accessor );
-	const size_t close = table.find( '}', open );
-	ASSERT_NE( open, std::string::npos );
-	ASSERT_NE( close, std::string::npos );
-
-	const std::string body = table.substr( open, close - open );
-	EXPECT_NE( body.find( "static CBaseAnimatingGameSystem" ), std::string::npos )
-		<< "the ported row's instance is not a function-local static: " << body;
-
-	// And it is not ALSO at file scope, which would make the local one dead.
-	const std::string beforeAccessor = table.substr( 0, accessor );
-	EXPECT_EQ( beforeAccessor.find( "CBaseAnimatingGameSystem g_" ), std::string::npos )
-		<< "a file-scope instance of the ported system exists as well";
-}
-
-TEST( ClientFlipRuling, ThePortedRowKeepsItsMeasuredPositionInTheTable )
-{
-	// The order is the live census's, not a preference, and a port that moved a
-	// row would change the init order of everything after it and the shutdown
-	// order of everything before it. It sits between the pixel-visibility system
-	// and the managed wind think, where the census printed it; the wind think
-	// left with the wind's simulation (lane c2-sims), so the row after it is the
-	// one that followed the wind think, CPrecipHack -- and CPrecipHack left with
-	// the weather (lane c2-sims), so it was CSourceSharpPlayerResourceSystem --
-	// and that left with g_PR (lane c6-input), so it is CSourceSharpSpriteSystem.
 	const std::vector<std::string> rows = TableRowNames();
-	int before = -1, self = -1, after = -1;
+	ASSERT_FALSE( rows.empty() );
 	for ( size_t i = 0; i < rows.size(); i++ )
-	{
-		if ( rows[ i ] == "CPixelVisibilitySystem" )    before = (int)i;
-		if ( rows[ i ] == "C_BaseAnimatingGameSystem" ) self   = (int)i;
-		if ( rows[ i ] == "CSourceSharpSpriteSystem" ) after = (int)i;
-	}
-	ASSERT_NE( before, -1 );
-	ASSERT_NE( self, -1 );
-	ASSERT_NE( after, -1 );
-	EXPECT_EQ( self, before + 1 );
-	EXPECT_EQ( after, self + 1 );
+		EXPECT_NE( "C_BaseAnimatingGameSystem", rows[ i ] );
 }
 
 //=============================================================================//
@@ -1186,9 +1138,11 @@ TEST( ClientFamily8, NoCompiledClientFileCallsAClientOnlyEntityRelay )
 			<< kFiles[i] << " did not open, so its absence below is not a "
 			   "measurement.";
 
-		if ( strSource.find( "GameEntity_ModelIndex" ) != std::string::npos ||
-		     strSource.find( "GameEntity_RefHandle" )  != std::string::npos ||
-		     strSource.find( "GameEntity_EntIndex" )   != std::string::npos )
+		// (The anchor was the shared relays, GameEntity_*, until their client
+		// half left with its last callers, 2026-10-18; the classes the two
+		// files define members of are the anchor now.)
+		if ( strSource.find( "C_StandaloneEntity::" ) != std::string::npos ||
+		     strSource.find( "CTempEnts::" ) != std::string::npos )
 		{
 			nAnchors++;
 		}

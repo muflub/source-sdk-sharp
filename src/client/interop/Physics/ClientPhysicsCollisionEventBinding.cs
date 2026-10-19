@@ -20,26 +20,28 @@ public interface IClientFluidSink
 
 /// <summary>
 /// The client's IPhysicsCollisionEvent, written by managed (plan_client_novalve
-/// C6, cluster 9; lane c6-input), the server's B2.2 shape on the client's own
-/// environment. A slot not taken over forwards unchanged to native's handler
-/// (game/client/physics.cpp's g_Collisions) through IPhysicsCollisionEvent's
-/// forwarders (plan_engine_forwarders.md), which call the handler's own method.
+/// C6, cluster 9), the server's B2.2 shape on the client's own environment.
+/// Every slot is answered here: fork game/client/physics.cpp's g_Collisions,
+/// which the untaken slots once forwarded to, is off client.so.
+/// <para>
+/// Stock's client answers for the five slots no managed piece takes:
+/// PreCollision, PostSimulationFrame and the two trigger slots have empty
+/// bodies; StartTouch and EndTouch return before buffering unless both
+/// objects' game data name an SDK entity, and every client object's game data
+/// is a managed handle word or nothing (physicsowner.h: a handle is no SDK
+/// owner on the client), so they reach nothing either -- and had they, the
+/// client has no touch path (PhysicsOwner_t::StartTouch is a no-op there).
+/// </para>
 /// </summary>
-public sealed unsafe class ClientPhysicsCollisionEventBinding(Crossings crossings, nint native, IClientImpactSink impacts,
-                                                              IClientFluidSink fluids, IClientFrictionSink friction,
-                                                              VPhysicsTables vphysics)
+public sealed unsafe class ClientPhysicsCollisionEventBinding(Crossings crossings, IClientImpactSink impacts,
+                                                              IClientFluidSink fluids, IClientFrictionSink friction)
     : IPhysicsCollisionEventSink
 {
-    private PhysicsCollisionEventFwd* Native => vphysics.PhysicsCollisionEvent;
+    // Stock's body is empty.
+    public void PreCollision(void* pEvent) => crossings.Count(CrossingOp.ClientPhysicsPreCollision);
 
-    public void PreCollision(void* pEvent)
-    {
-        crossings.Count(CrossingOp.ClientPhysicsPreCollision);
-        Native->PreCollision((void*)native, pEvent);
-    }
-
-    // TAKEN OVER: the impact sounds (ClientImpactSounds), answered in the step.
-    // The event is read in place; it does not outlive the call.
+    // The impact sounds (ClientImpactSounds), answered in the step. The event
+    // is read in place; it does not outlive the call.
     public void PostCollision(void* pEvent)
     {
         crossings.Count(CrossingOp.ClientPhysicsPostCollision);
@@ -47,53 +49,37 @@ public sealed unsafe class ClientPhysicsCollisionEventBinding(Crossings crossing
             impacts.PostCollision(in *(VCollisionEvent*)pEvent);
     }
 
-    // TAKEN OVER: the scrape (ClientFriction over the shared FrictionSounds).
+    // The scrape (ClientFriction over the shared FrictionSounds).
     public void Friction(void* pObject, float energy, int surfaceProps, int surfacePropsHit, void* pData)
     {
         crossings.Count(CrossingOp.ClientPhysicsFriction);
         friction.Friction((nint)pObject, energy, surfaceProps, surfacePropsHit, (nint)pData);
     }
 
+    // No SDK owner on either side of a client contact (see the summary).
     public void StartTouch(void* pObject1, void* pObject2, void* pTouchData)
-    {
-        crossings.Count(CrossingOp.ClientPhysicsStartTouch);
-        Native->StartTouch((void*)native, pObject1, pObject2, pTouchData);
-    }
+        => crossings.Count(CrossingOp.ClientPhysicsStartTouch);
 
     public void EndTouch(void* pObject1, void* pObject2, void* pTouchData)
-    {
-        crossings.Count(CrossingOp.ClientPhysicsEndTouch);
-        Native->EndTouch((void*)native, pObject1, pObject2, pTouchData);
-    }
+        => crossings.Count(CrossingOp.ClientPhysicsEndTouch);
 
-    // TAKEN OVER: the splash (ClientFluidEvents), answered in the step.
+    // The splash (ClientFluidEvents), answered in the step.
     public void FluidStartTouch(void* pObject, void* pFluid)
     {
         crossings.Count(CrossingOp.ClientPhysicsFluidStartTouch);
         fluids.FluidStart((nint)pObject, (nint)pFluid);
     }
 
-    // TAKEN OVER: stock's client body is "FIXME: Do nothing for now".
+    // Stock's client body is "FIXME: Do nothing for now".
     public void FluidEndTouch(void* pObject, void* pFluid)
         => crossings.Count(CrossingOp.ClientPhysicsFluidEndTouch);
 
-    public void PostSimulationFrame()
-    {
-        crossings.Count(CrossingOp.ClientPhysicsPostSimulationFrame);
-        Native->PostSimulationFrame((void*)native);
-    }
+    // Stock's bodies are empty.
+    public void PostSimulationFrame() => crossings.Count(CrossingOp.ClientPhysicsPostSimulationFrame);
 
-    public void ObjectEnterTrigger(void* pTrigger, void* pObject)
-    {
-        crossings.Count(CrossingOp.ClientPhysicsObjectEnterTrigger);
-        Native->ObjectEnterTrigger((void*)native, pTrigger, pObject);
-    }
+    public void ObjectEnterTrigger(void* pTrigger, void* pObject) => crossings.Count(CrossingOp.ClientPhysicsObjectEnterTrigger);
 
-    public void ObjectLeaveTrigger(void* pTrigger, void* pObject)
-    {
-        crossings.Count(CrossingOp.ClientPhysicsObjectLeaveTrigger);
-        Native->ObjectLeaveTrigger((void*)native, pTrigger, pObject);
-    }
+    public void ObjectLeaveTrigger(void* pTrigger, void* pObject) => crossings.Count(CrossingOp.ClientPhysicsObjectLeaveTrigger);
 
     /// <summary>The native-callable table over <paramref name="target"/>, in the side's registry.</summary>
     public static ManagedVtable Create(ManagedVtables vtables, IPhysicsCollisionEventSink target)

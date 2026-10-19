@@ -1254,24 +1254,6 @@ ss_cpptest(scaled_collision_rule_test
 ss_cpptest(self_penetration_rule_test
     SOURCES sourcesharp/test/self_penetration_rule_test.cpp)
 
-# Which objects ss_physworld_object reports on (physworld_match_rule.h). Every
-# physics probe in tools/ reads the environment through that command, and the
-# obvious way to ask it for ALL of the environment -- an empty substring --
-# matches NOTHING, because V_stristr compares each letter of the haystack
-# against the needle's first character and an empty needle's is the terminator.
-# tools/3a-penetration-granularity asked that way, got `matched=0 of 427`, fell
-# through to its own fallback, and reported a 415-object subset as the whole
-# world inside a control whose entire job was to establish scope. tier1 on the
-# link line rather than a stub because what the first test asserts is what
-# V_stristr really does, and a stand-in would assert the belief instead.
-# -Wno-dangling-else: Valve's public/tier0/platform.h:1878 (DECLARE_ALIGNED_BYTE_ARRAY),
-# the flag the other tests on this -Ipublic route already carry.
-ss_cpptest_tier1(physworld_match_rule_test
-    DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES public public/tier0 public/tier1 common ${PROJECT_SOURCE_DIR}/src/shared/native
-    SOURCES sourcesharp/test/physworld_match_rule_test.cpp)
-
 # WHERE A THIRD-PERSON CAMERA SITS IS MANAGED, and its 18 gtests moved with it.
 #
 # thirdperson_camera.h held the orbit and its pitch clamp, the sign convention
@@ -3280,34 +3262,6 @@ ss_cpptest(client_systems_table_test
 ss_cpptest(client_flip_ruling_test
     SOURCES sourcesharp/test/client_flip_ruling_test.cpp)
 
-# plan_entity.md §6, the CLIENT FLIP -- lane f-bone. The bone leaf library, which
-# is the bone-access gate, the model-bone generation counter and the two
-# per-frame sweeps, re-homed off C_BaseAnimating into
-# sourcesharp/game/client/shell_bone_leaf_library.cpp.
-#
-# IT DRIVES THE REAL FUNCTIONS. That file is on this link line, and there is no
-# restatement of the push/pop stack in the test -- which is possible only because
-# the translation unit is opted out of the cbase.h precompiled header, exactly as
-# shell_acquire_reasons.cpp is and for the same reason. The arms that matter are
-# the ones a "did the symbol move?" check cannot make: that pushes NEST, that a
-# pop returns to the enclosing push rather than to shut, that the normal-model
-# and view-model flags are independent, and that an unbalanced pop leaves the
-# gate alone. Each of those, got wrong, is a renderer that intermittently refuses
-# to set bones up, which reads as a content bug.
-#
-# tier1 rather than a stub: the gate's stack is a real CUtlVector and its mutex a
-# real CThreadFastMutex, and a stand-in for either would be a test of the
-# stand-in.
-# clang: -Wno-unused-variable for Valve's public/tier1/utlblockmemory.h:350
-# (an unused local in a template gcc 10 never instantiated), on a plain -I here.
-ss_cpptest_tier1(bone_leaf_library_test
-    LINUX_ONLY "calls tier0's ThreadGetCurrentId, which the SDK's only 64-bit Windows tier0.dll (devtools/bin) does not export"
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable
-    INCLUDES public public/tier0 public/tier1 common sourcesharp/game/client
-    SOURCES sourcesharp/test/bone_leaf_library_test.cpp
-            sourcesharp/game/client/shell_bone_leaf_library.cpp)
-
 # The same lane's RULINGS, which are claims about what is NOT in a translation
 # unit and so cannot be driven.
 #
@@ -4301,8 +4255,6 @@ ss_cpptest(rules_callers_test
 # what it does not name.
 #
 # Appended at the END, as the lane brief directs.
-ss_cpptest(ragdoll_signature_test
-    SOURCES sourcesharp/test/ragdoll_signature_test.cpp)
 
 ss_cpptest(anim_cluster_ledger_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
@@ -4782,19 +4734,6 @@ ss_cpptest(shim_vpc_stock_rows_test
 ss_cpptest(shim_reason_letters_test
     SOURCES sourcesharp/test/shim_reason_letters_test.cpp)
 
-
-# lane g-vdisp: the out-of-bounds physics report must not ask vphysics'
-# CollideGetAABB for a virtual-mesh (displacement) collide -- it segfaults
-# there, and every power <= 3 displacement map crashed at level init. This pins
-# the pointer-set membership test the report skips them by.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(virtual_terrain_set_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES sourcesharp/game/server
-    SOURCES sourcesharp/test/virtual_terrain_set_test.cpp)
 
 # plan_globals.md step G0: the server link line holds no static state that
 # docs/globals-ledger.tsv has not ruled, and the counts in

@@ -78,20 +78,22 @@ public class PhysicsSharedEvictionTests
     }
 
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
-    public void TheClientRemnantForwardsEveryDecisionToManaged()
+    public void TheClientRemnantLeftWithForkPhysicsCpp()
     {
-        // What fork game/client/physics.cpp links stays, and each decision in
-        // it is an ask of IManagedPhysicsClient.
-        Assert.True(Lists(CMakeGraph.Client, "shell_physics_shared_client.cpp"));
-        string remnant = Code("src", "client", "native", "shell_physics_shared_client.cpp");
-        foreach (string ask in new[] { "->CreateWorld()", "->ParseSurfaceData()", "->PrecacheSurfaceSounds()",
-                                       "->SolidKeyValue(", "->SolidDefaults(" })
-            Assert.Contains(ask, remnant);
+        // shell_physics_shared_client.cpp held what fork game/client/physics.cpp
+        // linked of physics_shared.cpp; that file left client.so (2026-10-18),
+        // so the remnant went too. The vphysics pointer the shells read stays,
+        // held by shell_physics_client.cpp.
+        Assert.False(Lists(CMakeGraph.Client, "shell_physics_shared_client.cpp"));
+        Assert.False(File.Exists(RepoLayout.Repo("src", "client", "native", "shell_physics_shared_client.cpp")));
+        Assert.True(Lists(CMakeGraph.Client, "shell_physics_client.cpp"));
 
-        // And none of stock's bodies came with it: no parse loop, no manifest
-        // read, no surface sound walk, no world object made here.
-        foreach (string body in new[] { "VPhysicsKeyParserCreate", "CreatePolyObjectStatic", "LoadFromFile",
-                                        "GameSound_PrecacheScript", "GetSurfaceData", "CreateFrictionSnapshot" })
-            Assert.DoesNotContain(body, remnant);
+        // The world build, the manifest and the precache are still asked -- by
+        // managed's ClientPhysicsSystem now, not by a native forwarder.
+        string system = File.ReadAllText(RepoLayout.Repo("src", "client", "managed", "Physics", "ClientPhysicsSystem.cs"));
+        Assert.Contains("w?.CreateWorld()", system);
+        Assert.Contains("w?.CreateStaticProps();", system);
+        Assert.Contains("world()?.PrecacheSurfaceSounds();", system);
+        Assert.Contains("->ParseSurfaceData()", Code("src", "client", "native", "shell_physics_client.cpp"));
     }
 }

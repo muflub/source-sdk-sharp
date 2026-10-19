@@ -178,7 +178,8 @@ const char *const kCallers[] =
 	// shared/soundenvelope.cpp left client.so too (sound cluster 17, lane
 	// c2-sims); its patches' emits and stops are the client shim's now.
 	"../sourcesharp/game/client/shell_soundenvelope_client.cpp",
-	"shared/vphysics_sound.h",
+	// shared/vphysics_sound.h left the farm with fork client/physics.cpp, its
+	// one includer (2026-10-18): the impact list is ClientImpactSounds' (C#).
 	// client/cdll_util.cpp left client.so in C8 (lane c6-input) with no
 	// importer; it was the dead-arm row below.
 	// Step 7a moved all 1,391 compiled lines of game/client/c_impact_effects.cpp
@@ -223,7 +224,9 @@ const char *const kCallers[] =
 	// ClientPredictionMoveWorld's, through ClientEmitSound; the client
 	// physics' impact emit is shell_physics_client.cpp's.
 	"../sourcesharp/game/client/shell_physics_client.cpp",
-	"client/physics.cpp",
+	// client/physics.cpp (fork) left client.so (2026-10-18): its friction
+	// sound's GameSound_GetParameters was a dead arm (the slot is managed's
+	// ClientFriction), and nothing else of it called a sound.
 	"../sourcesharp/game/server/shell_absent.cpp",
 	"../sourcesharp/game/server/shell_sound.cpp",
 	"../sourcesharp/game/server/shell_standalone_player.cpp",

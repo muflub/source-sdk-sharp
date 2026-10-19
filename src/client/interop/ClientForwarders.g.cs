@@ -104,7 +104,20 @@ internal unsafe struct InputSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysics</c> through its forwarders (SSFwd_Physics): 2 slot(s).
+/// <c>IStaticPropMgrClient</c> through its forwarders (SSFwd_StaticPropMgrClient): 1 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct StaticPropMgrClientFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_StaticPropMgrClient";
+
+    // void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations;
+}
+
+/// <summary>
+/// <c>IPhysics</c> through its forwarders (SSFwd_Physics): 5 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsFwd : IForwarderTable
@@ -117,6 +130,15 @@ internal unsafe struct PhysicsFwd : IForwarderTable
 
     // IPhysicsCollisionSet * IPhysics::FindCollisionSet( unsigned int )
     public delegate* unmanaged<void*, uint, void*> FindCollisionSet;
+
+    // IPhysicsEnvironment * IPhysics::CreateEnvironment( void )
+    public delegate* unmanaged<void*, void*> CreateEnvironment;
+
+    // void IPhysics::DestroyEnvironment( IPhysicsEnvironment * )
+    public delegate* unmanaged<void*, void*, void> DestroyEnvironment;
+
+    // void IPhysics::DestroyAllCollisionSets( void )
+    public delegate* unmanaged<void*, void> DestroyAllCollisionSets;
 }
 
 /// <summary>

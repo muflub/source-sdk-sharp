@@ -4,7 +4,38 @@ Work that has been decided on but has no plan or owner yet. Each item says
 why it's here and what is known, with the commit it was measured at.
 
 
-## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
+## physics_debug.cpp's commands, managed: two small follow-ups
+
+Added 2026-10-18 when the six commands moved to PhysicsDebugCommands.cs
+(lane rebased onto main f707d5b8c).
+
+- `physics_report_active` keeps native's name fallback (the entity's name,
+  else its classname); stock's CallbackReport fell back to the MODEL name.
+  Switching is one line in PhysicsReportActiveCommand if the model name is
+  wanted, and changes the command's output.
+- `PhysicsWorldOwner` keeps its `LIVE-API` ruling in
+  tools/physics-scope/rulings.tsv, but `nm -u` over server_sourcesharp's
+  objects finds no importer since physics_debug.o left: only physics.cpp's
+  own SourceSharp_PhysicsUpdateOwners reaches it, through physicsowner.h's
+  inline PhysicsOwnerOf. Re-classify it (5a-physics-classify.py) the next
+  time the scope's totals are re-taken.
+
+
+## PhysicsMotionControllersTests.EachKindsSimulateAllocatesNothing failed once under a full managed-server leg (closed)
+
+At 52d8eb6a4 (main 82d2df06c plus a comment-only cleanup, 2026-10-18), the
+`(kind: Medium, expected: GlobalAcceleration)` case failed once in
+`make test-full`'s managed-server leg: Assert.Equal, values differ. It passed
+3 of 3 alone (`make managed-test FILTER='FullyQualifiedName~PhysicsMotionControllersTests'`,
+24 facts), and the commit under test changes no managed code. This is the same
+shape as the NameMatchesTests entry below: an allocation read around a
+simulate that a JIT tier-up or a parallel leg's GC can charge. Measure the rate
+over repeated legs, then warm until two consecutive simulates allocate nothing.
+The fact is the client physics lane's (8ab15ceaf).
+
+**Closed 2026-10-18:** both allocation facts measure through SteadyAllocation.LeastAllocated (src/test/common): warmed three times, then the fewest bytes across five measured calls, so a JIT tier-up inside one call no longer charges it. Mutation proof: a per-call `new object[1]` in MotionSimulation's SimulateState turned all 4 EachKindsSimulateAllocatesNothing cases red, and one in NameMatches.MoveNext turned AWalkAllocatesNothing red; both green after the restore.
+
+## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg (closed)
 
 At f8c7e82ff (stage1-c-gameplay rebased onto main 42b718990, 2026-10-18) the
 fact failed once in `make test`'s managed-server leg: expected 0 bytes, read
@@ -16,6 +47,7 @@ landing inside the measured walk would charge it. The rate is unmeasured: run
 the leg repeatedly to get one, then warm until two walks in a row allocate
 nothing before measuring.
 
+**Closed 2026-10-18:** both allocation facts measure through SteadyAllocation.LeastAllocated (src/test/common): warmed three times, then the fewest bytes across five measured calls, so a JIT tier-up inside one call no longer charges it. Mutation proof: a per-call `new object[1]` in MotionSimulation's SimulateState turned all 4 EachKindsSimulateAllocatesNothing cases red, and one in NameMatches.MoveNext turned AWalkAllocatesNothing red; both green after the restore.
 
 ## The TF2 stage-0 plan's class-script fixture does not exist
 
@@ -858,6 +890,21 @@ Added 2026-10-11 by lane c6-input (plan_client_novalve C8), owner "physics and b
 and the relay definitions in `shell_standalone_client.cpp`. Whoever removes the last
 site drops the slots and the `IGameEntity` base from `C_StandaloneEntity`, the relay
 definitions, and the header from the client (the server compiles it too).
+
+- **Relays done, slots still open** (2026-10-18, the client physics leftovers): the
+  last two sites went (fork ragdoll.cpp in Phase 3, physics_shared.cpp's in 2.6, fork
+  physics.cpp's PhysicsOwnerOf/VPhysicsUpdate with the client physics flip); the
+  three client relay definitions and the header's client include are deleted
+  (GameEntityRelayEvictionTests). The six slots and the `IGameEntity` base stay for
+  a different reason than the one above: the client's native code still uses
+  `IGameEntity` as its entity type -- `CEffectData::GetEntity`, the impact effects'
+  `GetImpactDecal`/`PlayImpactSound`/`ParseImpactData`, the entity list's
+  `SourceSharp_ClientSdkEntityFromIndex/Handle`, the tempent pool's resolve, and
+  `GetGameEntity()` itself. Dropping the base means retyping those to
+  `C_StandaloneEntity` or `IClientEntity` first. VPhysicsUpdate, Touch, StartTouch
+  and EndTouch have no client caller left (physics.cpp's active-object loop and
+  touch dispatch were the last); ShouldCollide and GetCollisionGroup are asked by
+  native's collision paths through ICollideable/IGameEntity.
 
 - **Two m_oldOrigins where stock keeps one** (found 2026-10-12 by the
   damage-message diagnosis): native's m_vecOldOrigin is set per usercmd and

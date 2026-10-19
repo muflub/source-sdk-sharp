@@ -30,17 +30,11 @@ public interface IClientImpactSoundWorld
     bool Emit(string soundName, Vector origin, int channel, float volume);
 }
 
-/// <summary>The client's physics environment and native's handler, for the install and the forward.</summary>
+/// <summary>The client's level physics environment (ClientPhysicsSystem's), for the ragdolls and the world build.</summary>
 public interface IClientPhysicsEngine
 {
-    /// <summary>The level's IPhysicsEnvironment (physenv), or 0 before one exists.</summary>
+    /// <summary>The level's IPhysicsEnvironment, or 0 outside a level.</summary>
     nint Environment();
-
-    /// <summary>game/client/physics.cpp's g_Collisions, as its IPhysicsCollisionEvent.</summary>
-    nint NativeCollisionEvents();
-
-    /// <summary><c>IPhysicsEnvironment::SetCollisionSolver</c>.</summary>
-    void SetCollisionSolver(nint environment, nint solver);
 }
 
 /// <summary>The client splash's reads and effects (IShimPhysicsClient).</summary>
@@ -79,25 +73,12 @@ public interface IClientPhysicsObjectReads
 /// IShimPhysicsClient over the client's engine (plan_client_novalve C6, cluster
 /// 9; lane c6-input), and the physics objects' own vtables for the object reads.
 /// </summary>
-internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactSoundWorld, IClientPhysicsEngine, IClientPhysicsObjectReads,
+internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactSoundWorld, IClientPhysicsObjectReads,
                                                                 IClientSplashCarryOut
 {
     private const int MaxName = 128;
 
     private readonly VPhysicsObjects _objects = new(api.VPhysics);
-
-    public nint Environment() => api.ClientAttached ? (nint)api.ClientShims.PhysicsClientEnvironment() : 0;
-
-    public nint NativeCollisionEvents() => api.ClientAttached ? (nint)api.ClientShims.PhysicsClientCollisionEvents() : 0;
-
-    public void SetCollisionSolver(nint environment, nint solver)
-    {
-        if (environment == 0)
-            return;
-
-        var vtbl = api.VPhysics.PhysicsEnvironment;
-        vtbl->SetCollisionSolver((void*)environment, (void*)solver);
-    }
 
     public ushort GameFlags(nint physicsObject) => _objects.GameFlags(physicsObject);
 

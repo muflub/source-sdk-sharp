@@ -35,6 +35,18 @@ public sealed class FakeInspect : IVPhysicsInspect
 
     public void SetAirDensity(nint environment, float density) => Calls.Add($"SetAirDensity {density}");
 
+    public readonly Dictionary<nint, ushort> Callbacks = new();
+
+    public void RecheckCollisionFilter(nint o) => Calls.Add($"Recheck 0x{(long)o:x}");
+
+    public ushort CallbackFlags(nint o) => Callbacks.TryGetValue(o, out ushort f) ? f : (ushort)0;
+
+    public void SetCallbackFlags(nint o, ushort flags)
+    {
+        Calls.Add($"SetCallbackFlags 0x{(long)o:x} {flags:x4}");
+        Callbacks[o] = flags;
+    }
+
     /// <summary>A moveable, colliding object at <paramref name="z"/>, listed.</summary>
     public void Add(nint o, string name, float z = 0f, nint collide = 0x7000, bool collisions = true,
                     bool isStatic = false)

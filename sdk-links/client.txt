@@ -124,7 +124,6 @@ src/game/client/particles_new.h
 src/game/client/particles_simple.h
 src/game/client/particlesphererenderer.h
 src/game/client/perfvisualbenchmark.h
-src/game/client/physics.cpp
 src/game/client/physics.h
 src/game/client/prediction.h
 src/game/client/proxyentity.h
@@ -218,7 +217,6 @@ src/game/shared/viewport_panel_names.h
 src/game/shared/voice_banmgr.h
 src/game/shared/voice_common.h
 src/game/shared/voice_status.h
-src/game/shared/vphysics_sound.h
 src/game/shared/weapon_parse.h
 src/game/shared/weapon_proficiency.h
 src/lib/public/linux64/bitmap.a

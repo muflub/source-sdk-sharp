@@ -18,7 +18,6 @@
 #include "cbase.h"
 #include "shell_standalone_client.h"
 #include "standalone_renderable_handle.h"
-#include "game_entity_relays.h"
 
 // plan_entity.md Phase 5a. §3.3's slot table and the five resolvers that
 // replaced this file's twelve cl_entitylist sites; shell_cliententitylist.h
@@ -1092,37 +1091,12 @@ const model_t *C_StandaloneEntity::GetModel( void ) const
 }
 
 //-----------------------------------------------------------------------------
-// game_entity_relays.h's CLIENT half, beside the member that reads the same
-// field one call further on.
-//
-// The cast is the crossing standalone_relays.cpp's banner makes on the server
-// and for the same reason: C_StandaloneEntity is the only implementor of
-// IGameEntity in this DLL (shell_standalone_client.h:132), so the conversion
-// between two of its bases is the compiler's, with the whole layout visible.
-// This is NOT handle_cross.h's problem -- that header runs the other way, from
-// a table occupant of unknown kind, which is why it costs two virtual calls.
+// game_entity_relays.h's CLIENT half STOOD HERE: GameEntity_ModelIndex,
+// GameEntity_RefHandle and GameEntity_EntIndex, each a cast to this class and
+// one member read. Their last client callers were fork ragdoll.cpp and fork
+// physics.cpp, and both left client.so; nm over the kept client objects found
+// no importer (2026-10-18). The server's half (standalone_relays.cpp) stays.
 //-----------------------------------------------------------------------------
-// PROMOTED TO shell_standalone_client.h. The local spelling stays because
-// twenty relays below already use it.
-static const C_StandaloneEntity *ClientShellOf( const IGameEntity *pEnt )
-{
-	return SourceSharp_ClientShellOf( pEnt );
-}
-
-int GameEntity_ModelIndex( const IGameEntity *pEnt )
-{
-	return pEnt ? ClientShellOf( pEnt )->NetworkedModelIndex() : 0;
-}
-
-CBaseHandle GameEntity_RefHandle( const IGameEntity *pEnt )
-{
-	return pEnt ? ClientShellOf( pEnt )->GetRefEHandle() : CBaseHandle();
-}
-
-int GameEntity_EntIndex( const IGameEntity *pEnt )
-{
-	return pEnt ? ClientShellOf( pEnt )->entindex() : -1;
-}
 
 //-----------------------------------------------------------------------------
 // standalone_relays_client.h's THREE DEFINITIONS ARE GONE, and so is the header.
@@ -1141,10 +1115,12 @@ int GameEntity_EntIndex( const IGameEntity *pEnt )
 //   ragdoll.cpp              the model comes from GameEntity_ModelIndex, which
 //                            the same function's caller already reads
 //
-// The SHARED relays in game/shared/game_entity_relays.h stay: their nine client
-// call sites want a model index, a handle or an entity index, and the server
-// compiles the same header. See docs/client-shell.md for why the shell therefore
-// still declares IGameEntity and the six inert slots are still here.
+// The SHARED relays in game_entity_relays.h are the server's alone now: their
+// client half went with its last callers (2026-10-18). The shell still declares
+// IGameEntity, and with it the six inert slots, because the client's native
+// code uses IGameEntity as its entity type (the effect data, the impact
+// effects, the entity list's SDK lookups, GetGameEntity); see
+// docs/client-shell.md and docs/todo.md.
 //-----------------------------------------------------------------------------
 
 bool C_StandaloneEntity::ShouldDraw( void )

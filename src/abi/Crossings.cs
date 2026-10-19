@@ -787,9 +787,9 @@ public enum CrossingOp
     /// <summary>IManagedBonesClient::PoseModel: a legacy temp entity's model posed at sequence 0 (no entity behind it). CLIENT ONLY.</summary>
     ClientBonesPoseModel = 312,
 
-    /// <summary>IManagedRagdollsClient (plan physics_bones_native_zero Phase 3): the physics step's pose write and the level's teardown, each once per call from game/client/physics.cpp. CLIENT ONLY.</summary>
-    ClientRagdollsStepPoses = 313,
-    ClientRagdollsDestroyAll = 314,
+    /// <summary>IManagedPhysicsClient: the client physics system's level events (pre/post entity init), forwarded by native's CPhysicsSystem row. They took IManagedRagdollsClient's 313/314 when the step called the ragdolls itself (the client physics leftovers, 2026-10-18). CLIENT ONLY.</summary>
+    ClientPhysicsLevelInitPreEntity = 313,
+    ClientPhysicsLevelInitPostEntity = 314,
 
     /// <summary>IVPhysicsKeyHandler on managed's custom-block table: one key of a ragdoll's .phy block (collision rules, animated friction), and its defaults, asked from inside vphysics' parse. CLIENT ONLY.</summary>
     ClientRagdollKeyValue = 315,
@@ -802,23 +802,22 @@ public enum CrossingOp
     /// <summary>IManagedPhysicsFrame (plan physics_bones_native_zero 2.6): the level's world physics built and the surface sounds precached, each asked by native's CPhysicsHook. SERVER ONLY.</summary>
     ServerPhysicsCreateWorld = 320,
     ServerPhysicsPrecacheSurfaceSounds = 321,
-    // ClientSolidDefaults took 322 when ServerPhysicsParseModelSolid, a
-    // standalone's physics init asking for its model's solid, retired with
-    // native's InitPhysics (2026-10-12: EntityPhysicsCreation parses the solid
-    // itself, with no crossing).
+    // 322 was ServerPhysicsParseModelSolid until native's InitPhysics retired
+    // (2026-10-12), then ClientSolidDefaults until g_SolidSetup left with fork
+    // physics.cpp (2026-10-18); ClientPhysicsLevelShutdownPreEntity has it now.
 
     /// <summary>IVPhysicsKeyHandler on the server's solid-defaults table (stock's g_SolidSetup): a solid's unparsed key, and its defaults, asked from inside vphysics' parse. SERVER ONLY.</summary>
     ServerSolidKeyValue = 323,
     ServerSolidDefaults = 324,
 
-    /// <summary>IManagedPhysicsClient (plan physics_bones_native_zero 2.6): the level's world physics built, the surface property manifest parsed and the surface sounds' handles written, each asked by game/client/physics.cpp through the native forwarders. CLIENT ONLY.</summary>
-    ClientPhysicsCreateWorld = 325,
+    /// <summary>IManagedPhysicsClient (plan physics_bones_native_zero 2.6): the surface property manifest parsed, asked by native's PhysicsDLLInit. CLIENT ONLY.</summary>
     ClientPhysicsParseSurfaceData = 326,
-    ClientPhysicsPrecacheSurfaceSounds = 327,
 
-    /// <summary>IManagedPhysicsClient: g_SolidSetup's two slots (a solid's unparsed key, and its defaults), forwarded by the native object game/client/physics.cpp hands the static prop manager. CLIENT ONLY.</summary>
-    ClientSolidKeyValue = 328,
-    ClientSolidDefaults = 322,
+    /// <summary>IManagedPhysicsClient: the level's shutdown events, the step and the reset (the client physics leftovers, 2026-10-18), in the numbers CreateWorld, PrecacheSurfaceSounds and g_SolidSetup's two slots left: the world, the precache and the static props' key table are ClientPhysicsSystem's own now. CLIENT ONLY.</summary>
+    ClientPhysicsLevelShutdownPreEntity = 322,
+    ClientPhysicsLevelShutdownPostEntity = 325,
+    ClientPhysicsSimulate = 327,
+    ClientPhysicsReset = 328,
     /// <summary>A fade from native (the engine's View_Fade, the world's start-dark fade) into the managed view effects (C7). CLIENT ONLY.</summary>
     ClientViewEffectsFade = 329,
     /// <summary>The view's CalcShake, once a frame: the managed view effects' offset and roll (C7). CLIENT ONLY.</summary>
@@ -855,6 +854,7 @@ public enum CrossingOp
 
     /// <summary>IManagedMaterialFilesClient::EncodeImage: a screenshot's pixels encoded as its TGA or VTF file in C# (C9: bitmap.a and vtf.a off client.so). CLIENT ONLY.</summary>
     ClientMaterialFilesEncodeImage = 345,
+
 }
 
 /// <summary>

@@ -742,8 +742,6 @@ internal sealed unsafe class ClientShimAreas
     public int InputViewerAimIsAssisted() { return InputClient.Vt->InputViewerAimIsAssisted(InputClient.Self); }
     public void InputShowScoreboard(int a0) { InputClient.Vt->InputShowScoreboard(InputClient.Self, a0); }
     public void* InputMailbox() { return InputClient.Vt->InputMailbox(InputClient.Self); }
-    public void* PhysicsClientEnvironment() { return PhysicsClient.Vt->PhysicsClientEnvironment(PhysicsClient.Self); }
-    public void* PhysicsClientCollisionEvents() { return PhysicsClient.Vt->PhysicsClientCollisionEvents(PhysicsClient.Self); }
     public int PhysicsClientSurfaceAudio(int a0, byte* a1, int a2, byte* a3, int a4, float* a5) { return PhysicsClient.Vt->PhysicsClientSurfaceAudio(PhysicsClient.Self, a0, a1, a2, a3, a4, a5); }
     public int PhysicsClientEmitImpactSound(byte* a0, float* a1, int a2, float a3) { return PhysicsClient.Vt->PhysicsClientEmitImpactSound(PhysicsClient.Self, a0, a1, a2, a3); }
     public void PhysicsClientCollideExtent(void* a0, float* a1, float* a2, float* a3, float* a4) { PhysicsClient.Vt->PhysicsClientCollideExtent(PhysicsClient.Self, a0, a1, a2, a3, a4); }

@@ -1,6 +1,6 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
-# measured at 3e40e69fc
+# measured at 09ad744db
 # 2026-10-18, landing C9 tier0/vstdlib onto main 331c8a0cf (after lane t1's sentence.cpp eviction), re-measured there:
 #   incdir-forbidden-tus 148 (146 + the two new TUs), sdk-links 395 (397 - libtier0.so/libvstdlib.so). --write.
 # 2026-10-18, C9 tier0/vstdlib: client.so links neither libtier0.so nor libvstdlib.so (Linux). Its vprof profile is
@@ -242,9 +242,12 @@
 # 2026-10-18, lane t1, C9: public/sentence.cpp left client.so (its arm is SourceSharp.Client.LipSync): fork-src 16 -> 15,
 #   fork-hdr-total 499 -> 497, fork-hdr-not-allowed 332 -> 330, sdk-links 399 -> 397, incdir-forbidden-tus 147 -> 146,
 #   imports:tier1 15 -> 7 (its CUtlBuffer reads and writes; the 7 left are detailobjectsystem.cpp's CUtlBuffer and particlemgr.cpp's CUtlSymbolTable).
-fork-hdr-not-allowed	330
-fork-hdr-total	497
-fork-src	15
+# 2026-10-18, the client physics and bone leftovers: fork physics.cpp left client.so (ClientPhysicsSystem), and ragdoll_library,
+#   shell_physics_shared_client.cpp, the bone leaf library and the client relays went: fork-src 15 -> 14, fork-hdr-total
+#   497 -> 489, fork-hdr-not-allowed 330 -> 325, incdir-forbidden-tus 148 -> 144, logic-lines 8257 -> 8106, sdk-links 395 -> 393.
+fork-hdr-not-allowed	325
+fork-hdr-total	489
+fork-src	14
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -276,9 +279,9 @@ imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
-incdir-forbidden-tus	148
+incdir-forbidden-tus	144
 link-forbidden	2
-logic-lines	8257
+logic-lines	8106
 native-convar-decls	69
 needed-forbidden	0
-sdk-links	395
+sdk-links	393

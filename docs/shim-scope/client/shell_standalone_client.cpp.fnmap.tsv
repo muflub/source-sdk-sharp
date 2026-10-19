@@ -17,10 +17,6 @@
 11	UNRULED	void C_StandaloneEntity::UpdateVisibility()
 8	UNRULED	void C_StandaloneEntity::RemoveFromLeafSystem()
 4	UNRULED	const model_t *C_StandaloneEntity::GetModel( void ) const
-4	UNRULED	static const C_StandaloneEntity *ClientShellOf( const IGameEntity *pEnt )
-4	UNRULED	int GameEntity_ModelIndex( const IGameEntity *pEnt )
-4	UNRULED	CBaseHandle GameEntity_RefHandle( const IGameEntity *pEnt )
-4	UNRULED	int GameEntity_EntIndex( const IGameEntity *pEnt )
 11	UNRULED	bool C_StandaloneEntity::ShouldDraw( void )
 13	UNRULED	void C_StandaloneEntity::PredictionDrive( const SourceSharpClientPlayerView &view )
 24	UNRULED	void C_StandaloneEntity::GetRenderBounds( Vector &mins, Vector &maxs )

@@ -998,35 +998,6 @@ static const uint32_t kIManagedBonesClientSlotHashes[] = {
 static const int32_t kIManagedBonesClientSlotCount = 8;
 static_assert( sizeof( SSManagedBonesClientTable ) == 8 * sizeof( void * ), "SSManagedBonesClientTable is one pointer per slot" );
 
-class IManagedRagdollsClient;
-
-// The table managed writes for IManagedRagdollsClient: Release, Validate, then the TSV's order.
-struct SSManagedRagdollsClientTable
-{
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *StepPoses )( IManagedRagdollsClient *self );
-	int32_t ( *DestroyAll )( IManagedRagdollsClient *self );
-};
-
-class IManagedRagdollsClient : public IManagedObject
-{
-public:
-	explicit IManagedRagdollsClient( const SSManagedRagdollsClientTable *pTable ) : IManagedObject( pTable ) {}
-
-	int32_t StepPoses() { return Table()->StepPoses( this ); }
-	int32_t DestroyAll() { return Table()->DestroyAll( this ); }
-
-private:
-	const SSManagedRagdollsClientTable *Table() const { return static_cast< const SSManagedRagdollsClientTable * >( m_pTable ); }
-};
-
-static const uint32_t kIManagedRagdollsClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245,
-};
-static const int32_t kIManagedRagdollsClientSlotCount = 4;
-static_assert( sizeof( SSManagedRagdollsClientTable ) == 4 * sizeof( void * ), "SSManagedRagdollsClientTable is one pointer per slot" );
-
 class IManagedPhysicsClient;
 
 // The table managed writes for IManagedPhysicsClient: Release, Validate, then the TSV's order.
@@ -1034,11 +1005,13 @@ struct SSManagedPhysicsClientTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void * ( *CreateWorld )( IManagedPhysicsClient *self );
 	int32_t ( *ParseSurfaceData )( IManagedPhysicsClient *self );
-	int32_t ( *PrecacheSurfaceSounds )( IManagedPhysicsClient *self );
-	void ( *SolidKeyValue )( IManagedPhysicsClient *self, void *pData, const char *pKey, const char *pValue );
-	void ( *SolidDefaults )( IManagedPhysicsClient *self, void *pData );
+	void ( *LevelInitPreEntity )( IManagedPhysicsClient *self );
+	void ( *LevelInitPostEntity )( IManagedPhysicsClient *self );
+	void ( *LevelShutdownPreEntity )( IManagedPhysicsClient *self );
+	void ( *LevelShutdownPostEntity )( IManagedPhysicsClient *self );
+	void ( *Simulate )( IManagedPhysicsClient *self );
+	void ( *Reset )( IManagedPhysicsClient *self );
 };
 
 class IManagedPhysicsClient : public IManagedObject
@@ -1046,21 +1019,24 @@ class IManagedPhysicsClient : public IManagedObject
 public:
 	explicit IManagedPhysicsClient( const SSManagedPhysicsClientTable *pTable ) : IManagedObject( pTable ) {}
 
-	void *CreateWorld() { return Table()->CreateWorld( this ); }
 	int32_t ParseSurfaceData() { return Table()->ParseSurfaceData( this ); }
-	int32_t PrecacheSurfaceSounds() { return Table()->PrecacheSurfaceSounds( this ); }
-	void SolidKeyValue( void *pData, const char *pKey, const char *pValue ) { Table()->SolidKeyValue( this, pData, pKey, pValue ); }
-	void SolidDefaults( void *pData ) { Table()->SolidDefaults( this, pData ); }
+	void LevelInitPreEntity() { Table()->LevelInitPreEntity( this ); }
+	void LevelInitPostEntity() { Table()->LevelInitPostEntity( this ); }
+	void LevelShutdownPreEntity() { Table()->LevelShutdownPreEntity( this ); }
+	void LevelShutdownPostEntity() { Table()->LevelShutdownPostEntity( this ); }
+	void Simulate() { Table()->Simulate( this ); }
+	void Reset() { Table()->Reset( this ); }
 
 private:
 	const SSManagedPhysicsClientTable *Table() const { return static_cast< const SSManagedPhysicsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedPhysicsClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xe13ef122, 0x9d8d9245, 0x9d8d9245, 0x888e87b0, 0xde3e0200,
+	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4,
+	0x07e0f4c4,
 };
-static const int32_t kIManagedPhysicsClientSlotCount = 7;
-static_assert( sizeof( SSManagedPhysicsClientTable ) == 7 * sizeof( void * ), "SSManagedPhysicsClientTable is one pointer per slot" );
+static const int32_t kIManagedPhysicsClientSlotCount = 9;
+static_assert( sizeof( SSManagedPhysicsClientTable ) == 9 * sizeof( void * ), "SSManagedPhysicsClientTable is one pointer per slot" );
 
 #ifdef CLIENT_DLL
 
@@ -1088,7 +1064,6 @@ IManagedMaterialProxyClient *ManagedMaterialProxyClient();   // this load's area
 IManagedRenderClient *ManagedRenderClient();   // this load's area, or NULL outside a load
 IManagedInputClient *ManagedInputClient();   // this load's area, or NULL outside a load
 IManagedBonesClient *ManagedBonesClient();   // this load's area, or NULL outside a load
-IManagedRagdollsClient *ManagedRagdollsClient();   // this load's area, or NULL outside a load
 IManagedPhysicsClient *ManagedPhysicsClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL

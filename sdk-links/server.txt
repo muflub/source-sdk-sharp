@@ -13,7 +13,10 @@ src/public/ivoiceserver.h
 src/public/server_class.h
 src/public/tier1/fmtstr.h
 src/public/toolframework/iserverenginetools.h
+src/public/vphysics/collision_set.h
+src/public/vphysics/constraints.h
 src/public/vphysics/friction.h
+src/public/vphysics/object_hash.h
 src/public/vphysics/player_controller.h
 src/public/vphysics/vehicles.h
 src/public/vstdlib/iprocessutils.h

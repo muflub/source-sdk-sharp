@@ -29,7 +29,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/glow_overlay.cpp
     ${SS_SRC}/game/client/particlemgr.cpp
     ${SS_SRC}/game/client/particles_new.cpp
-    ${SS_SRC}/game/client/physics.cpp
     ${SS_SRC}/game/client/rendertexture.cpp
     ${SS_SRC}/game/client/ScreenSpaceEffects.cpp
     ${SS_SRC}/game/client/toolframework_client.cpp
@@ -37,9 +36,7 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/warp_overlay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/client_util_library.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/managed_runtime_client.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ragdoll_library.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_beam_render.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_bone_leaf_library.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_client_orphans.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_clientdll.cpp
@@ -112,7 +109,6 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/bitbuf_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/convar_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_bounded_cvars_client.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_physics_shared_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_prediction.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_recipientfilter_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_recvtable.cpp

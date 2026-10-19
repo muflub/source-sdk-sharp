@@ -134,11 +134,6 @@ bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot
 	if ( !areas.m_pBonesClient )
 		return false;
 
-	pObject = pRoot->Acquire( "IManagedRagdollsClient" );
-	areas.m_pRagdollsClient = ManagedAccept< IManagedRagdollsClient >( pObject, kIManagedRagdollsClientSlotHashes, kIManagedRagdollsClientSlotCount, pWhy, nWhy );
-	if ( !areas.m_pRagdollsClient )
-		return false;
-
 	pObject = pRoot->Acquire( "IManagedPhysicsClient" );
 	areas.m_pPhysicsClient = ManagedAccept< IManagedPhysicsClient >( pObject, kIManagedPhysicsClientSlotHashes, kIManagedPhysicsClientSlotCount, pWhy, nWhy );
 	if ( !areas.m_pPhysicsClient )
@@ -197,8 +192,6 @@ bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pBonesClient, kIManagedBonesClientSlotHashes, kIManagedBonesClientSlotCount, pWhy, nWhy ) )
 		return false;
-	if ( !ManagedAcceptObject( areas.m_pRagdollsClient, kIManagedRagdollsClientSlotHashes, kIManagedRagdollsClientSlotCount, pWhy, nWhy ) )
-		return false;
 	if ( !ManagedAcceptObject( areas.m_pPhysicsClient, kIManagedPhysicsClientSlotHashes, kIManagedPhysicsClientSlotCount, pWhy, nWhy ) )
 		return false;
 	return true;
@@ -230,7 +223,6 @@ void ManagedAreasClient_Release( CManagedAreasClient &areas )
 	ManagedRelease( areas.m_pRenderClient );
 	ManagedRelease( areas.m_pInputClient );
 	ManagedRelease( areas.m_pBonesClient );
-	ManagedRelease( areas.m_pRagdollsClient );
 	ManagedRelease( areas.m_pPhysicsClient );
 }
 
@@ -352,11 +344,6 @@ IManagedInputClient *ManagedInputClient()
 IManagedBonesClient *ManagedBonesClient()
 {
 	return ShellClientDll_Managed().m_Areas.m_pBonesClient;
-}
-
-IManagedRagdollsClient *ManagedRagdollsClient()
-{
-	return ShellClientDll_Managed().m_Areas.m_pRagdollsClient;
 }
 
 IManagedPhysicsClient *ManagedPhysicsClient()

@@ -7,23 +7,24 @@
 //========= SourceSharp — the client physics' native half ===================//
 // SS_REASON a  a vtable the engine calls through
 //
-// plan_client_novalve C6, cluster 9 (lane c6-input). The client's physics
-// callbacks move to managed the way the server's did (plan_physics_managed
-// B2): managed installs its own IPhysicsCollisionEvent table on the client's
-// environment (ClientPhysicsCollisionEventBinding), each slot it has taken
-// over answered in C#, the rest forwarded to game/client/physics.cpp's
-// g_Collisions. What is here is IShimPhysicsClient's bodies:
+// Fork game/client/physics.cpp is off client.so (docs/client_evictions.md).
+// Its decisions are SourceSharp.Client's ClientPhysicsSystem (the level's
+// environment, the step, the teardown) and the managed collision tables
+// (ClientPhysicsCollisionEventBinding, ClientCollisionSolverBinding). What is
+// here is what a link edge or the engine forces:
 //
-//   the environment and native's handler, for the install and the forward;
-//   a surfaceprop's impact audio, the physprops read stock's PlayImpactSounds
-//     makes; and
-//   the emit of one impact sound, PlayImpactSounds' carry-out: the script's
-//     parameters, a PAS filter at the origin, the emit from the world; and
-//   the splash's reads (a collide's extent at a transform, the point contents,
-//     the water's lighting) and its three fx_water.h effects.
+//   the client system row "CPhysicsSystem" (kClientSystems[] walks it at its
+//     stock position) and the DLL's PhysicsDLLInit / PhysicsReset /
+//     PhysicsSimulate (shell_clientdll.cpp calls them by those names), each a
+//     forward to IManagedPhysicsClient;
+//   PhysicsDLLInit's acquisition of the vphysics pointers the client's shells
+//     read by name (physprops, physcollision; physics_shared.h), held here;
+//   IShimPhysicsClient's bodies: a surfaceprop's impact audio, the emit of one
+//     impact sound (PlayImpactSounds' carry-out), and the splash's reads and
+//     its three fx_water.h effects.
 //
-// The decisions -- which impacts sound, how loud, hard or soft, merged how --
-// are ClientImpactSounds' (C#).
+// The decisions -- which impacts sound, how loud, merged how, when the world
+// steps -- are managed's.
 //=============================================================================//
 
 #include "cbase.h"
@@ -33,27 +34,90 @@
 #include "c_recipientfilter.h"
 #include "fx_water.h"
 #include "engine/IEngineTrace.h"
+#include "physics.h"
+#include "shell_clientsystem.h"
+#include "imanaged_areas_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-// game/client/physics.cpp's handler. Its class is that file's own, so it is
-// named here incomplete: the address is all this file needs, and an
-// IPhysicsCollisionEvent is its FIRST base (CCollisionEvent : public
-// IPhysicsCollisionEvent, public IPhysicsCollisionSolver, public
-// IPhysicsObjectEvent), which the Itanium C++ ABI places at offset zero -- so
-// the object's address is that base's address.
-class CCollisionEvent;
-extern CCollisionEvent g_Collisions;
+// Held pointers the client's shells read by name (physics_shared.h's
+// declarations): physprops by shell_impact_effects, shell_prediction,
+// shell_soundenvelope_client, shell_worldquery_client and the impact audio
+// below; physcollision by the collide extent below.
+IPhysicsSurfaceProps	*physprops = NULL;
+IPhysicsCollision		*physcollision = NULL;
 
-void *SourceSharp_PhysicsClientEnvironment()
+//-----------------------------------------------------------------------------
+// The DLL's physics entry points, as shell_clientdll.cpp names them.
+//-----------------------------------------------------------------------------
+
+// Stock's contract: the DLL's Init fails unless vphysics answers all three
+// interfaces. physprops and physcollision are kept for the shells that read
+// them by name; managed acquires its own.
+bool PhysicsDLLInit( CreateInterfaceFn physicsFactory )
 {
-	return physenv;
+	if ( !physicsFactory( VPHYSICS_INTERFACE_VERSION, NULL ) ||
+		(physprops = (IPhysicsSurfaceProps *)physicsFactory( VPHYSICS_SURFACEPROPS_INTERFACE_VERSION, NULL )) == NULL ||
+		(physcollision = (IPhysicsCollision *)physicsFactory( VPHYSICS_COLLISION_INTERFACE_VERSION, NULL )) == NULL )
+	{
+		return false;
+	}
+
+	IManagedPhysicsClient *pPhysics = ManagedPhysicsClient();
+	if ( !pPhysics || pPhysics->ParseSurfaceData() < 0 )
+		Warning( "[SourceSharp] the surface property manifest was not parsed: %s\n",
+		         pPhysics ? "managed has no surface table" : "no managed load to parse it" );
+	return true;
 }
 
-void *SourceSharp_PhysicsClientCollisionEvents()
+void PhysicsReset()
 {
-	return (void *)&g_Collisions;
+	if ( IManagedPhysicsClient *pPhysics = ManagedPhysicsClient() )
+		pPhysics->Reset();
+}
+
+void PhysicsSimulate()
+{
+	if ( IManagedPhysicsClient *pPhysics = ManagedPhysicsClient() )
+		pPhysics->Simulate();
+}
+
+// kClientSystems[]'s "CPhysicsSystem" row: the four level events, forwarded.
+class CPhysicsSystem : public CClientSystem
+{
+public:
+	CPhysicsSystem() : CClientSystem( "CPhysicsSystem" ) {}
+
+	virtual void LevelInitPreEntity()
+	{
+		if ( IManagedPhysicsClient *pPhysics = ManagedPhysicsClient() )
+			pPhysics->LevelInitPreEntity();
+	}
+
+	virtual void LevelInitPostEntity()
+	{
+		if ( IManagedPhysicsClient *pPhysics = ManagedPhysicsClient() )
+			pPhysics->LevelInitPostEntity();
+	}
+
+	virtual void LevelShutdownPreEntity()
+	{
+		if ( IManagedPhysicsClient *pPhysics = ManagedPhysicsClient() )
+			pPhysics->LevelShutdownPreEntity();
+	}
+
+	virtual void LevelShutdownPostEntity()
+	{
+		if ( IManagedPhysicsClient *pPhysics = ManagedPhysicsClient() )
+			pPhysics->LevelShutdownPostEntity();
+	}
+};
+
+CClientSystem *ClientSystem_Physics()
+{
+	static CPhysicsSystem s_PhysicsSystem;
+	return &s_PhysicsSystem;
 }
 
 int32_t SourceSharp_PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char *pHard, int32_t nHard,

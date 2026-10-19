@@ -883,8 +883,10 @@ TEST( OrphanClientClass, TheAttachedRagdollClientClassAndItsRecvTableAreGone )
 	// DT_Ragdoll_Attached were deleted from game/client/ragdoll.cpp by lane A5;
 	// the file itself left client.so in plan physics_bones_native_zero Phase 3,
 	// so neither can come back without the file coming back first.
-	ASSERT_TRUE( cmake_graph::Compiles( kClient, "game/client/physics.cpp" ) )
-		<< "client_sourcesharp does not compile game/client/physics.cpp -- the "
+	// (The proof-of-read was game/client/physics.cpp until that fork file left
+	// client.so too; shell_clientdll.cpp is the client's own DLL object.)
+	ASSERT_TRUE( cmake_graph::Compiles( kClient, "sourcesharp/game/client/shell_clientdll.cpp" ) )
+		<< "client_sourcesharp does not compile shell_clientdll.cpp -- the "
 		   "reader is not reading the client's source list";
 	EXPECT_FALSE( cmake_graph::Compiles( kClient, kRagdoll ) )
 		<< kRagdoll << " is back in the client project, and with it the place "

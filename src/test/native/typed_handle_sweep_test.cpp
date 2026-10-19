@@ -411,12 +411,11 @@ TEST( TypedHandleSweep, TheOnlyRawSpellingsLeftAreProseInTheRelocatedFiles )
 		// this count is allowed to fall. The other three are unmoved, and the
 		// line numbers above are re-measured rather than carried.
 		{ "sourcesharp/game/server/physics.cpp",        2 },
-		// 1 -> 0 (plan_physics_bones_native_zero 2.3): physics_budget's note on
-		// holding the object rather than a PhysicsOwner_t (physicsowner.h's
-		// "storing an entity pointer without an EHANDLE") went with the
-		// command, which is managed's PhysicsBudget now. The prose went with
-		// the code it was about.
-		{ "sourcesharp/game/server/physics_debug.cpp",  0 },
+		// physics_debug.cpp's row went 1 -> 0 at plan_physics_bones_native_zero
+		// 2.3 (physics_budget's note left with the command), and the file
+		// itself on 2026-10-18 (its commands are managed's
+		// PhysicsDebugCommands.cs). The directory walk below covers it if it
+		// comes back.
 		// physics_shared.cpp's row (1: CWatcherList holds EHANDLEs) went with
 		// the file (plan_physics_bones_native_zero 2.6: its decisions are
 		// managed's; the client remnant carries no such prose).

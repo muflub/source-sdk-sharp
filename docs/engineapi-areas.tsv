@@ -517,8 +517,6 @@ InputViewerCameraModeChanged	EngineApi	IShimInputClient	client		client	-	SourceS
 InputViewerAimIsAssisted	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputViewerAimIsAssisted	int	
 InputShowScoreboard	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputShowScoreboard	int, void	
 InputMailbox	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputMailbox	void*	
-PhysicsClientEnvironment	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientEnvironment	void*	
-PhysicsClientCollisionEvents	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientCollisionEvents	void*	
 PhysicsClientSurfaceAudio	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSurfaceAudio	int, byte*, int, byte*, int, float*, int	
 PhysicsClientEmitImpactSound	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientEmitImpactSound	byte*, float*, int, float, int	
 PhysicsClientCollideExtent	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientCollideExtent	void*, float*, float*, float*, float*, void	

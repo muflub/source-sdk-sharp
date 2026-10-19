@@ -243,10 +243,23 @@ Native physics and bone code still in the tree, by reason:
 | vphysics callback / owner decode | shell_physicsobjects.cpp (130) owner and toucher lookups vphysics asks mid-step; physicsowner.h / physics_gamedata.h / physicslink.h; SourceSharp_PhysicsUpdateOwners |
 | Layout | physics_shell.h (asserts), ss_physics.h, ss_physics_shared.h flag bits, ss_physsaverestore.h + shell_physsaverestore_absent.cpp, standalone_bone_trace.h, studio.cpp (the mdl layout the engine reads; no bone math) |
 | Debug-only | physics_debug.cpp, physworld_match_rule.h |
-| Fork client physics.cpp's link names (ea's input lane owns that file) | client shell_physics_shared_client.cpp (154), ragdoll_library (81), shell_physics_client.cpp |
-| Fork view.cpp / viewrender.cpp calls | client bone_leaf_library (BoneAccessPush/Pop) |
+| Registration and held pointers (client; 2026-10-18) | shell_physics_client.cpp: kClientSystems[]'s CPhysicsSystem row and PhysicsDLLInit / PhysicsReset / PhysicsSimulate, each a forward to IManagedPhysicsClient; physprops and physcollision, read by name by five shells |
+| Carry-outs (client; IShimPhysicsClient) | shell_physics_client.cpp: a surfaceprop's impact audio, the impact emit, the splash's collide extent, point contents, lighting and three fx_water effects |
 
-Still deciding something natively (follow-ups, docs/todo.md):
+Client leftovers closed 2026-10-18 (lane client physics+bones): fork
+game/client/physics.cpp left client.so (its decisions are ClientPhysicsSystem's);
+ragdoll_library.cpp/.h, shell_physics_shared_client.cpp, the bone leaf library
+(bone_leaf_library.h, shell_bone_leaf_library.cpp) and game_entity_relays.h's
+client half were deleted; docs/client_evictions.md has each row.
+
+Still deciding something natively: nothing. The four follow-ups listed at
+e0f8bfc42 were closed by lane C2 (plan_physics_bones_perf), 2026-10-12, per
+docs/todo.md's entry and re-checked on main 234984fe3: the owner update
+writes every active object as stock's PhysFrame (no asleep skip);
+shell_velocity_home.h is deleted (the ground velocity is a held value
+managed hands over); the movetype is the block word managed writes; the
+touched-moveable check is PlayerShadowBodies.TouchedMoveablePhysics. As
+they stood at e0f8bfc42:
 1. CStandaloneEntity::UpdatePhysics skips an asleep object's pose copy (inside the batched owner update): movable with a batched design.
 2. StandaloneEntity_Velocity (shell_velocity_home.h) picks solver or member for the native movement fill, per trace: movable with a batched design.
 3. StandaloneMoveType_Report calls any entity holding an object VPHYSICS, static included (a stock divergence): the movement lane's.

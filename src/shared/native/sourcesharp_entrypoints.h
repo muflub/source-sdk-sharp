@@ -397,7 +397,7 @@ const char *SourceSharp_WorldChapterTitle( void );
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 254 slots.
+// CLIENT ONLY -- 252 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -670,10 +670,8 @@ int32_t SourceSharp_ParticlesWorldTrace( const float *pStartXYZ, const float *pE
 void SourceSharp_PhysicsClientCollideExtent( void *pObject, const float *pOrigin,
                                              const float *pAngles, const float *pDirection,
                                              float *pOut );
-void *SourceSharp_PhysicsClientCollisionEvents( void );
 int32_t SourceSharp_PhysicsClientEmitImpactSound( const char *pszName, const float *pOrigin,
                                                   int32_t nChannel, float flVolume );
-void *SourceSharp_PhysicsClientEnvironment( void );
 int32_t SourceSharp_PhysicsClientPointContents( const float *pPoint );
 void SourceSharp_PhysicsClientSplashEffect( int32_t nKind, const float *pOrigin,
                                             const float *pNormal, float flScale,

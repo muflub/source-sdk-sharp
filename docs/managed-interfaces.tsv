@@ -308,13 +308,7 @@ IManagedBonesClient	GetAttachment	int32_t	uint32_t hEntity, const void *pBlock, 
 IManagedBonesClient	LookupAttachment	int32_t	uint32_t hEntity, const void *pBlock, const char *pszName
 IManagedBonesClient	PoseModel	int32_t	int32_t nModelIndex, const float *pOriginAngles, const float *pRenderToWorld, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount
 IManagedBonesClient	BoneBatch	void *	int32_t nFrameCount, float flCurrentTime
-IManagedRagdollsClient	StepPoses	int32_t	void
-IManagedRagdollsClient	DestroyAll	int32_t	void
-IManagedPhysicsClient	CreateWorld	void *	void
 IManagedPhysicsClient	ParseSurfaceData	int32_t	void
-IManagedPhysicsClient	PrecacheSurfaceSounds	int32_t	void
-IManagedPhysicsClient	SolidKeyValue	void	void *pData, const char *pKey, const char *pValue
-IManagedPhysicsClient	SolidDefaults	void	void *pData
 IManagedSteamCallback	Run	void	void *pvParam
 IManagedPhysicsObjectEvent	ObjectWake	void	void *pObject
 IManagedPhysicsObjectEvent	ObjectSleep	void	void *pObject
@@ -337,3 +331,9 @@ IManagedPhysicsConstraintEvent	ConstraintBroken	void	void *pConstraint
 IManagedMotionEvent	Simulate	int32_t	void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular
 IManagedVPhysicsKeyHandler	ParseKeyValue	void	void *pData, const char *pKey, const char *pValue
 IManagedVPhysicsKeyHandler	SetDefaults	void	void *pData
+IManagedPhysicsClient	LevelInitPreEntity	void	void
+IManagedPhysicsClient	LevelInitPostEntity	void	void
+IManagedPhysicsClient	LevelShutdownPreEntity	void	void
+IManagedPhysicsClient	LevelShutdownPostEntity	void	void
+IManagedPhysicsClient	Simulate	void	void
+IManagedPhysicsClient	Reset	void	void

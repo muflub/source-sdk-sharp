@@ -248,10 +248,22 @@ FORWARD = [
         ],
     ),
     dict(
+        # The client's static prop manager: ClientPhysicsSystem makes the
+        # static props' objects in the level's environment (stock's client
+        # PhysicsLevelInit), through Client.Interop's StaticPropMgrClient.
+        struct='StaticPropMgrClientVtbl',
+        side='client',
+        methods=[
+            'CreateVPhysicsRepresentations',
+        ],
+    ),
+    dict(
         struct='PhysicsVtbl',
         side='client',
         methods=[
             'FindOrCreateCollisionSet', 'FindCollisionSet',
+            # The level's environment, made and destroyed by ClientPhysicsSystem.
+            'CreateEnvironment', 'DestroyEnvironment', 'DestroyAllCollisionSets',
         ],
     ),
     dict(
@@ -285,6 +297,8 @@ FORWARD = [
             'SetObjectEventHandler', 'SetConstraintEventHandler',
             'GetActiveObjectCount', 'GetActiveObjects', 'GetObjectList',
             'DebugCheckContacts',
+            # The client's level setup and teardown (ClientPhysicsSystem).
+            'SetGravity', 'SetSimulationTimestep', 'SetQuickDelete',
         ],
     ),
     dict(
@@ -377,16 +391,6 @@ FORWARD = [
         methods=[
             'GetCurrentBlockName', 'Finished', 'ParseSolid', 'ParseFluid',
             'ParseRagdollConstraint', 'ParseSurfaceTable', 'ParseCustom', 'SkipBlock',
-        ],
-    ),
-    dict(
-        struct='PhysicsCollisionEventVtbl',
-        # The client's own C++ handler (game/client/physics.cpp's g_Collisions),
-        # which ClientPhysicsCollisionEventBinding forwards the slots it does
-        # not take over to.
-        methods=[
-            'PreCollision', 'StartTouch', 'EndTouch', 'PostSimulationFrame',
-            'ObjectEnterTrigger', 'ObjectLeaveTrigger',
         ],
     ),
     # plan_forwarders_everywhere.md phase 1: the shim layer's own frame

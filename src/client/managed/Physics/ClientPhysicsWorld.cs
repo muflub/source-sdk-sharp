@@ -31,12 +31,12 @@ public sealed class ClientPhysicsWorld(IPhysicsWorldVPhysics vphysics, ISurfaceS
     public static Func<string, short> ClientPrecache(Func<string, int>? soundIndex)
         => name => unchecked((short)(soundIndex?.Invoke(name) ?? -1));
 
-    public SolidKeyDefaults? Solids => keys.Solids;
-
-    // The client's world makes no static props here: game/client/physics.cpp
-    // asks the static prop manager itself, with g_SolidSetup, after this.
+    // The client's world makes no static props in the build: stock's client
+    // asked the static prop manager after the world (CreateStaticProps).
     public nint CreateWorld()
         => PhysicsWorldBuilder.Create(vphysics, 0, ObjectParams.Defaults(keys.Solids.DefaultName), staticProps: false);
+
+    public void CreateStaticProps() => vphysics.CreateStaticPropPhysics(vphysics.Environment());
 
     public int ParseSurfaceData() => parseSurfaceData();
 

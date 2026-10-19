@@ -97,9 +97,13 @@ int CountLines( const std::string &s )
 
 const char *const kDoc      = "../docs/physics-move-scope.md";
 const char *const kPhysics  = "sourcesharp/game/server/physics.cpp";
-// The diagnostic console commands' home since 2026-10-01 (user ruling: debug
-// commands live in debug files that only a debug build compiles).
+// The diagnostic console commands' home from 2026-10-01 (user ruling: debug
+// commands live in debug files that only a debug build compiles) until
+// 2026-10-18, when its last six commands moved to managed's
+// PhysicsDebugCommands.cs and the file was deleted.
 const char *const kPhysicsDebug = "sourcesharp/game/server/physics_debug.cpp";
+const char *const kDebugCommandsCs =
+	"sourcesharp/managed/SourceSharp.Server/PhysicsDebugCommands.cs";
 // CCollisionEvent's header, deleted with the handler at
 // plan_physics_bones_native_zero 2.1: vphysics' solver and collision events
 // are managed's own Valve-layout tables since.
@@ -288,6 +292,44 @@ TEST( PhysicsMoveScope, TheTwoTwinHeadersLeftWithTheirGtests )
 	}
 	EXPECT_EQ( 0u, CountOf( PhysicsCode(), "penetration_ledger.h" ) );
 	EXPECT_EQ( 0u, CountOf( PhysicsCode(), "find_max_contact.h" ) );
+}
+
+TEST( PhysicsMoveScope, TheProbeHelpersLeftWithTheirGtests )
+{
+	// physworld_match_rule.h (which objects ss_physworld_object reports on),
+	// physics_shell.h's non-finite test and its sorted pointer set (which
+	// collides ss_physworld_bounds must not ask a hull of) had one user,
+	// physics_debug.cpp, gone 2026-10-18. Their managed twins are
+	// PhysWorldMatch (its facts carry the gtest's cases), PhysicsNanGuard's
+	// IsFinite and PhysWorldProbes' terrain set; the headers' halves and the
+	// two gtests went with them.
+	const std::string shell = ReadRel( kShellHdr );
+	ASSERT_FALSE( shell.empty() ) << "cannot read " << kShellHdr;
+	static const char *kGone[] = {
+		"sourcesharp/game/server/physworld_match_rule.h",
+		"sourcesharp/test/physworld_match_rule_test.cpp",
+		"sourcesharp/test/virtual_terrain_set_test.cpp",
+	};
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+	{
+		std::ifstream gone( kGone[ i ] );
+		EXPECT_FALSE( gone.good() ) << kGone[ i ] << " is back in the farm; its rule is managed";
+	}
+	EXPECT_EQ( 0u, CountOf( shell, "SourceSharpPointerSet" ) );
+	EXPECT_EQ( 0u, CountOf( shell, "SourceSharpSortPointerSet" ) );
+	EXPECT_EQ( 0u, CountOf( shell, "SourceSharpIsFinitePhysics" ) );
+	EXPECT_EQ( 0u, CountOf( shell, "SourceSharpFloatBits" ) );
+	EXPECT_EQ( 1u, CountOf( shell, "class CSourceSharpPhysicsEnvironment" ) )
+		<< "physics_shell.h lost the engine half physics.cpp still uses";
+
+	// The twins, by their deciding lines.
+	const std::string match = ReadRel( "sourcesharp/managed/SourceSharp.Server/PhysWorldMatch.cs" );
+	ASSERT_FALSE( match.empty() ) << "cannot read PhysWorldMatch.cs";
+	EXPECT_EQ( 1u, CountOf( match, "public static bool AllRequested(string? wanted) => wanted == \"*\";" ) );
+	const std::string probes = ReadRel( kDebugCommandsCs );
+	ASSERT_FALSE( probes.empty() ) << "cannot read " << kDebugCommandsCs;
+	EXPECT_EQ( 1u, CountOf( probes, "if (r.Collide != 0 && !terrain.Contains(r.Collide) && _hull is not null)" ) );
+	EXPECT_EQ( 1u, CountOf( probes, "bool finite = PhysicsNanGuard.IsFinite(r.Position) && PhysicsNanGuard.IsFinite(r.Angles);" ) );
 }
 
 TEST( PhysicsMoveScope, NoKeyHandlerIsDefinedInPhysicsCpp )
@@ -505,51 +547,45 @@ TEST( PhysicsMoveScope, TheManagedEnumMarksExactlyTheKindsNothingRecords )
 // 4. The console commands, split the way the scope splits them.
 //=============================================================================
 
-// MOVED, NOT RETIRED (2026-10-01). The six have lived in physics_debug.cpp
-// since the user ruled that diagnostic commands live in debug-only files. This
-// was a presence check on physics.cpp; it is now a presence check on the debug
-// file AND an absence check on physics.cpp, so that neither a command lost in
-// the move nor one left behind in both files passes.
-TEST( PhysicsMoveScope, TheFiveInstrumentsAreStillNativeConsoleCommands )
+// MOVED, NOT RETIRED (2026-10-18). The six lived in physics_debug.cpp from
+// 2026-10-01 (debug-only file, user ruling); they are managed debug commands
+// now (PhysicsDebugCommands.cs, under #if DEBUG), by the same names, and the
+// file is gone. A presence check on the managed declarations and an absence
+// check on both native files, so that neither a command lost in the move nor
+// one left behind passes.
+TEST( PhysicsMoveScope, ThePhysWorldInstrumentsAreManagedDebugCommands )
 {
-	const std::string code  = PhysicsCode();
-	const std::string debug = PhysicsDebugCode();
-	ASSERT_FALSE( debug.empty() )
-		<< "cannot read " << kPhysicsDebug << " -- the six presence checks below "
-		   "would all fail for that reason alone, and the six absences in "
-		   "physics.cpp would mean nothing. make setup links it into the farm.";
+	const std::string code = PhysicsCode();
+	ASSERT_FALSE( code.empty() )
+		<< "cannot read " << kPhysics << " -- the absences below would mean nothing";
+	EXPECT_TRUE( PhysicsDebugCode().empty() )
+		<< kPhysicsDebug << " is back; its commands are managed's (PhysicsDebugCommands.cs)";
+	const std::string managed = ReadRel( kDebugCommandsCs );
+	ASSERT_FALSE( managed.empty() ) << "cannot read " << kDebugCommandsCs;
 	static const char *kInstruments[] = {
 		"ss_physworld_recheck", "ss_physworld_bounds",
 		"ss_physworld_object",
 		// cs_sv_physics_shell went with the event ring it reported on
 		// (plan_physics_bones_native_zero 2.3); physics_event_sink_test
 		// asserts it absent.
-		// ss_physworld_report is managed's (PhysWorldReport,
-		// plan_physics_bones_native_zero 2.3), asserted below.
 		// ss_physworld_penetration went with the native penetration ledger
 		// (plan_physics_bones_native_zero 2.1): its counters are managed's
-		// cs_sv_physics_solver, and asserted absent below.
+		// cs_sv_physics_solver.
 	};
 	for ( size_t i = 0; i < sizeof( kInstruments ) / sizeof( kInstruments[ 0 ] ); i++ )
 	{
+		const std::string declared = std::string( "[ConCommand(\"" ) + kInstruments[ i ] + "\"";
+		EXPECT_EQ( 1u, CountOf( managed, declared ) )
+			<< kInstruments[ i ] << " is not declared in PhysicsDebugCommands.cs. "
+			   "Four tools drive these by name (physics_event_sink_test counts "
+			   "them); if one moved, every driver moved with it or is now broken.";
 		const std::string body = std::string( "SS_NATIVE_COMMAND( " ) + kInstruments[ i ] + " )";
-		EXPECT_EQ( 1u, CountOf( debug, body ) )
-			<< kInstruments[ i ] << " no longer has its native body in "
-			   "physics_debug.cpp (SS_NATIVE_COMMAND; declared in C# since "
-			   "plan_server_novalve.md P2.3c, debug-only since 2026-10-01). "
-			   "39 sites across 9 files drive these by name (section 3.2); if "
-			   "one moved, every driver moved with it or is now broken.";
 		EXPECT_EQ( 0u, CountOf( code, body ) )
-			<< kInstruments[ i ] << " is back in physics.cpp, which a release "
-			   "build compiles; diagnostic commands live in physics_debug.cpp.";
+			<< kInstruments[ i ] << " has a native body in physics.cpp again";
 	}
-	EXPECT_EQ( 0u, CountOf( debug, "SS_NATIVE_COMMAND( ss_physworld_penetration )" ) )
-		<< "ss_physworld_penetration is back, over a ledger that is managed's";
 
 	// MOVED, NOT RETIRED (2.3): the report is a managed debug command over
 	// the same per-pid file, and every driver keeps its name.
-	EXPECT_EQ( 0u, CountOf( debug, "SS_NATIVE_COMMAND( ss_physworld_report )" ) )
-		<< "ss_physworld_report has a native body again; the report is managed's";
 	EXPECT_EQ( 0u, CountOf( code, "SourceSharp_PhysWorldReport" ) )
 		<< "the native report is back in physics.cpp";
 	const std::string diag = ReadRel( kDiagnosticsCs );
@@ -560,49 +596,36 @@ TEST( PhysicsMoveScope, TheFiveInstrumentsAreStillNativeConsoleCommands )
 		<< "the managed report no longer writes the per-pid file the tools read";
 }
 
-// NAMED FOR WHAT IT CHECKS AND NOT FOR THE RULING IT SUPPORTS. This was
-// `...AndStillUndriven`, and it does not check that: the undriven half is a
-// recursive grep over four trees, which is the document's evidence and not
-// this binary's. A fact whose NAME claims more than its body asserts is the
-// same defect as a check that cannot fail, read from the outside.
-TEST( PhysicsMoveScope, TheFiveStockDebugCommandsAreStillNative )
+// SECTION 5.3'S NAMED DECISION, TAKEN for all five stock debug commands:
+// re-registered on the managed side. physics_budget and air_density at
+// plan_physics_bones_native_zero 2.3; physics_highlight_active,
+// physics_report_active and physics_select on 2026-10-18 (debug builds,
+// PhysicsDebugCommands.cs), where physics_select resolves its subject again.
+TEST( PhysicsMoveScope, TheFiveStockDebugCommandsAreManaged )
 {
-	// The scope rules these "re-register or delete, by a named decision" rather
-	// than "moves", on the strength of nothing in tools/, docs/, the managed
-	// tree or cfg/ naming them. This checks only that they are still native.
-	//
-	// FOUR OF THE FIVE ARE IN physics_debug.cpp since 2026-10-01 (debug-only
-	// file, user ruling), which is a location and not section 5.3's named
-	// decision; so they are looked for there, and asserted absent from
-	// physics.cpp. air_density stays in physics.cpp by the same ruling.
-	const std::string code  = PhysicsCode();
-	const std::string debug = PhysicsDebugCode();
-	ASSERT_FALSE( debug.empty() ) << "cannot read " << kPhysicsDebug;
+	const std::string code = PhysicsCode();
+	ASSERT_FALSE( code.empty() ) << "cannot read " << kPhysics;
+	EXPECT_TRUE( PhysicsDebugCode().empty() ) << kPhysicsDebug << " is back";
+	const std::string managed = ReadRel( kDebugCommandsCs );
+	ASSERT_FALSE( managed.empty() ) << "cannot read " << kDebugCommandsCs;
 	static const char *kStock[] = {
 		"physics_highlight_active", "physics_report_active", "physics_select",
-		// physics_budget is managed's (PhysicsBudget, 2.3): asserted below.
 	};
 	for ( size_t i = 0; i < sizeof( kStock ) / sizeof( kStock[ 0 ] ); i++ )
 	{
+		const std::string declared = std::string( "[ConCommand(\"" ) + kStock[ i ] + "\"";
+		EXPECT_EQ( 1u, CountOf( managed, declared ) )
+			<< kStock[ i ] << " is not declared in PhysicsDebugCommands.cs";
 		const std::string body = std::string( "SS_NATIVE_COMMAND( " ) + kStock[ i ] + " )";
-		EXPECT_EQ( 1u, CountOf( debug, body ) )
-			<< kStock[ i ] << " is gone from physics_debug.cpp. If it was deleted "
-			   "or re-registered on the managed side, say so in section 5.3.";
 		EXPECT_EQ( 0u, CountOf( code, body ) )
-			<< kStock[ i ] << " is back in physics.cpp, which a release build "
-			   "compiles; diagnostic commands live in physics_debug.cpp.";
+			<< kStock[ i ] << " has a native body in physics.cpp again";
 	}
-	// SECTION 5.3'S NAMED DECISION, TAKEN (plan_physics_bones_native_zero
-	// 2.3): physics_budget and air_density are re-registered on the managed
-	// side -- physics_budget as a debug command over managed's
-	// PhysicsSolver.ForceEntityToSleep, air_density in every build -- and
-	// their native bodies are gone from both files.
-	EXPECT_EQ( 0u, CountOf( debug, "SS_NATIVE_COMMAND( physics_budget )" ) )
-		<< "physics_budget has a native body again";
 	EXPECT_EQ( 0u, CountOf( code, "SS_NATIVE_COMMAND( air_density )" ) )
 		<< "air_density has a native body again";
 	EXPECT_EQ( 0u, CountOf( code, "PhysForceEntityToSleep" ) )
 		<< "PhysForceEntityToSleep is back in physics.cpp; managed's solver puts objects to sleep";
+	EXPECT_EQ( 0u, CountOf( code, "PhysicsCommand(" ) )
+		<< "PhysicsCommand is back in physics.cpp; physics_select's subject is managed's to resolve";
 	const std::string diag = ReadRel( kDiagnosticsCs );
 	ASSERT_FALSE( diag.empty() ) << "cannot read " << kDiagnosticsCs;
 	EXPECT_EQ( 1u, CountOf( diag, "[ConCommand(\"physics_budget\"" ) );

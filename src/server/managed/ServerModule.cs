@@ -1444,6 +1444,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                     return diagnostics.PlayerShadowCounts(counts) >= 8 ? (counts[6], counts[7]) : (0, 0);
                 },
                 () => reportOn.Value));
+            // physics_debug.cpp's three SS-PHYSWORLD instruments (2026-10-18).
+            // The terrain read is the world build's, made later in this init.
+            var console = _services.Require<IEngineConsole>();
+            _services.AddInstance(new PhysWorldProbes(inspect, entityPhysics.EnvironmentPointer,
+                physicsCollision is null ? null : physicsCollision.Bounds,
+                i => _physicsWorldVPhysics?.VirtualTerrainCollide(i) ?? 0,
+                new PhysWorldReportSink(console), console.Msg));
         }
         // Stuck debris pulled apart (A9): stock's CPhysicsEntitySolver.
         var solver = new PhysicsEntitySolver(new EngineEntitySolverWorld(

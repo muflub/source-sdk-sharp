@@ -437,14 +437,11 @@ public:
 };
 
 // plan_client_novalve C6, cluster 9 (lane c6-input): what the client's managed
-// physics callbacks ask of the native client -- the environment and native's
-// handler, a surfaceprop's impact audio, the emit of one impact sound, and
-// the splash's reads and effects.
+// physics callbacks ask of the native client -- a surfaceprop's impact audio,
+// the emit of one impact sound, and the splash's reads and effects.
 abstract_class IShimPhysicsClient
 {
 public:
-	virtual void * PhysicsClientEnvironment() = 0;
-	virtual void * PhysicsClientCollisionEvents() = 0;
 	virtual int32_t PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char *pHard, int32_t nHard, char *pSoft, int32_t nSoft, float *pOut3 ) = 0;
 	virtual int32_t PhysicsClientEmitImpactSound( const char *pszName, const float *pOrigin, int32_t nChannel, float flVolume ) = 0;
 	virtual void PhysicsClientCollideExtent( void *pObject, const float *pOrigin, const float *pAngles, const float *pDirection, float *pOut ) = 0;

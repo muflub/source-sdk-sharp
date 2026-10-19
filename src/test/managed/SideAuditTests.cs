@@ -291,7 +291,7 @@ public class SideAuditTests
         "InputViewerCameraModeChanged", "InputViewerAimIsAssisted", "InputShowScoreboard",
         // The client physics callbacks' native asks (C6 cluster 9, lane c6-input):
         // the client's own environment, handler, surfaceprops and sound emit.
-        "PhysicsClientEnvironment", "PhysicsClientCollisionEvents", "PhysicsClientSurfaceAudio",
+        "PhysicsClientSurfaceAudio",
         "PhysicsClientEmitImpactSound", "PhysicsClientCollideExtent", "PhysicsClientPointContents",
         "PhysicsClientSplashLighting", "PhysicsClientSplashEffect",
         // The convar watch and the decided values (C8, lane c6-input): the

@@ -282,10 +282,12 @@ TEST( T1Guards, TheTwoPhysicsFilesStillCarryTheirArms )
 {
 	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	const std::string server = CodeOf( "sourcesharp/game/server/physics.cpp" );
-	const std::string client = CodeOf( "game/client/physics.cpp" );
 
 	ASSERT_FALSE( server.empty() );
-	ASSERT_FALSE( client.empty() );
+
+	// THE CLIENT HALF IS GONE: fork game/client/physics.cpp left client.so
+	// (2026-10-18, docs/client_evictions.md), its decisions managed's
+	// ClientPhysicsSystem; there is no client file left to carry an arm.
 
 	// NEITHER FILE CARRIES AN ALIAS ARM ANY MORE, and the name of this test is
 	// now the history of what it checks rather than a description of it. The
@@ -310,7 +312,6 @@ TEST( T1Guards, TheTwoPhysicsFilesStillCarryTheirArms )
 	// taken the armed side instead of the dead one, the second half goes red
 	// while the first stays green.
 	EXPECT_EQ( 0, CountAliasOpens( server ) );
-	EXPECT_EQ( 0, CountAliasOpens( client ) );
 
 	// The armed answer the server file's arms selected, now unconditional: the
 	// solver-object relay igameentity.h names, and the simulated question
@@ -343,32 +344,14 @@ TEST( T1Guards, TheTwoPhysicsFilesStillCarryTheirArms )
 	// assumed, so the helper cannot come back unnoticed either.
 	EXPECT_EQ( 0, CountOf( server, "EntityPhysicsObject( pEntity ) != NULL" ) );
 
-	// The armed answer the client file's arms selected: the object is asked for
-	// its entity, never the entity for its object.
-	//
-	// TWO -> FIVE, AND THE RISE IS THE POINT. `the-close` 6/N (25406d807) put
-	// the three remaining raw spellings in this file onto the same accessor:
-	// `static_cast<IGameEntity *>(pObject->GetGameData())` and
-	// `reinterpret_cast<IGameEntity *>(pActiveList[i]->GetGameData())` are gone
-	// and `PhysicsOwnerOf( ... ).pBase` is what stands where they were. On the
-	// client the resolved `pBase` is the same value the cast produced; on the
-	// server the accessor also knows the world and the handle-keyed arm, which
-	// is why the one spelling is the right one on both sides.
-	EXPECT_EQ( 5, CountOf( client, "PhysicsOwnerOf( pObject ).pBase" ) );
-
-	// ...and the cast it replaced is not reachable in this file any more. The
-	// fork's copy still mentions `GetGameData()` in comments explaining the
-	// removal; the comment-free patched upstream (make sdk-upstream) does not,
-	// so the raw count is no longer asserted here. That the stripper is what
-	// removes such a mention is StrippingIsWhatStopsTheProseFalsePositive's
-	// fact, over a literal it controls.
-	EXPECT_EQ( 0, CountOf( client, "GetGameData()" ) );
+	// The client file's armed answer (PhysicsOwnerOf( pObject ).pBase, five
+	// sites) went with the file: its owner questions are managed's, decoded
+	// from the game-data word (PhysicsGameData.Owner, ClientCollisionSolver).
 
 	// And nothing in either file mentions the macro at all now — not in an
 	// `#endif` comment, not in a stray `#else`. A guard half-deleted by a merge
 	// would leave one of these non-zero.
 	EXPECT_EQ( 0, CountOf( server, "SS_CBASEENTITY_ALIAS" ) );
-	EXPECT_EQ( 0, CountOf( client, "SS_CBASEENTITY_ALIAS" ) );
 }
 
 
@@ -609,16 +592,20 @@ TEST( T1WorldTest, IsWorldEntityLeftWithItsDeadFloodList )
 	// physics_budget to managed (PhysicsBudget) and deleted the dead list with
 	// it, so the armed world question this test held to a plain false has no
 	// body left to grow an IsWorld() into.
-	const std::string code = CodeOf( "sourcesharp/game/server/physics_debug.cpp" );
-	ASSERT_FALSE( code.empty() );
+	//
+	// physics_debug.cpp itself went on 2026-10-18 (its last six commands are
+	// managed's PhysicsDebugCommands.cs), so the list has no file to come
+	// back into either; physics.cpp is the one left to hold the line.
+	const std::string host = CodeOf( "sourcesharp/game/server/physics.cpp" );
+	ASSERT_FALSE( host.empty() );
+	EXPECT_TRUE( CodeOf( "sourcesharp/game/server/physics_debug.cpp" ).empty() );
 
-	EXPECT_EQ( 0, CountOf( code, "CConstraintFloodList" ) );
-	EXPECT_EQ( 0, CountOf( code, "IsWorldEntity(" ) );
-	EXPECT_EQ( 0, CountOf( CodeOf( "sourcesharp/game/server/physics.cpp" ), "IsWorldEntity(" ) );
+	EXPECT_EQ( 0, CountOf( host, "CConstraintFloodList" ) );
+	EXPECT_EQ( 0, CountOf( host, "IsWorldEntity(" ) );
 
-	// The presence half: the file is the one that held it, and still holds the
-	// stock command it sat beside.
-	EXPECT_TRUE( Has( code, "SS_NATIVE_COMMAND( physics_select )" ) );
+	// The presence half: physics.cpp is still the file that answers the world
+	// question, by the owner's pointer compare.
+	EXPECT_TRUE( Has( host, "CWorld *PhysicsWorldOwner(" ) );
 }
 
 
@@ -636,27 +623,11 @@ TEST( T1WorldTest, IsWorldEntityLeftWithItsDeadFloodList )
 // fluidevent_t::hEntity is a CBaseHandle for exactly this reason, and the two
 // signatures now agree.
 //-----------------------------------------------------------------------------
-TEST( T1FluidThrottle, TheClientKeysTheThrottleByHandle )
-{
-	const std::string client = CodeOf( "game/client/physics.cpp" );
-
-	ASSERT_FALSE( client.empty() );
-
-	EXPECT_TRUE( Has( client, "DeltaTimeSinceLastFluid( IHandleEntity *pEntity )" ) );
-
-	// The client's declaration inside its own CCollisionEvent agrees with the
-	// definition -- a mismatch there is a compile error, but the point is that
-	// neither reverts to the entity spelling.
-	EXPECT_EQ( 0, CountOf( client, "DeltaTimeSinceLastFluid( CBaseEntity *pEntity )" ) );
-	EXPECT_EQ( 0, CountOf( client, "DeltaTimeSinceLastFluid( C_BaseEntity *pEntity )" ) );
-
-	// The body compares handles rather than pointers.
-	const std::string body = BodyAfter( client, "CCollisionEvent::DeltaTimeSinceLastFluid( IHandleEntity *pEntity )" );
-	ASSERT_FALSE( body.empty() );
-	EXPECT_TRUE( Has( body, "pEntity->GetRefEHandle()" ) );
-	EXPECT_TRUE( Has( body, "m_fluidEvents[i].hEntity == handle" ) );
-	EXPECT_EQ( 0, CountOf( body, "hEntity.Get()" ) );
-}
+// TEST( T1FluidThrottle, TheClientKeysTheThrottleByHandle ) stood here and read
+// fork game/client/physics.cpp's DeltaTimeSinceLastFluid. That file left
+// client.so (2026-10-18); the client's throttle is managed's ClientFluidEvents,
+// keyed by EntityHandle, and ClientFluidEventsTests' TwoOwnersAreThrottledApart
+// and TheThrottleCountsFromTheOwnersFirstEntry hold the handle keying.
 
 
 //=============================================================================//
@@ -843,14 +814,13 @@ TEST( T1GuardedDefinitions, AnExternallyLinkedGuardedFunctionIsDefinedBothWays )
 
 TEST( T1GuardedDefinitions, TheGuardedAwayConsoleHelpersStayStatic )
 {
-	// physics.cpp AND physics_debug.cpp: the console helpers moved into the
-	// debug file with the diagnostics (2026-10-01), so the absences cover both
-	// and the positive control below reads the debug half.
+	// physics.cpp alone: the console helpers moved into physics_debug.cpp with
+	// the diagnostics (2026-10-01), and that file went on 2026-10-18 when its
+	// last commands became managed's (PhysicsDebugCommands.cs).
 	const std::string host = CodeOf( "sourcesharp/game/server/physics.cpp" );
-	const std::string debug = CodeOf( "sourcesharp/game/server/physics_debug.cpp" );
 	ASSERT_FALSE( host.empty() );
-	ASSERT_FALSE( debug.empty() );
-	const std::string code = host + debug;
+	EXPECT_TRUE( CodeOf( "sourcesharp/game/server/physics_debug.cpp" ).empty() );
+	const std::string code = host;
 
 	// THE SUBJECT OF THIS FACT IS GENUINELY GONE, AND THE FACT IS NOW THE
 	// ABSENCE — which is a DIFFERENT and stronger claim than the one that used
@@ -892,18 +862,16 @@ TEST( T1GuardedDefinitions, TheGuardedAwayConsoleHelpersStayStatic )
 	EXPECT_EQ( 0, CountOf( code, "physics_debug_entity" ) );
 
 	// THE POSITIVE CONTROL, and without it the four clauses above pass over any
-	// file at all — including one this test failed to open, which is a shape
+	// file at all -- including one this test failed to open, which is a shape
 	// this tree has shipped more than forty times.
 	//
-	// PhysicsCommand is the route both deleted commands went through, and it is
-	// STILL HERE with its refusal body, because `physics_select` still calls
-	// it. So the machinery that made the deleted pair unreachable is present
-	// and being exercised; what is absent is absent because it was removed, not
-	// because the file is.
-	EXPECT_TRUE( Has( debug,
-		"void PhysicsCommand( const CCommand &args, void (*func)( IGameEntity *pEntity ) )" ) );
-	EXPECT_EQ( 1, CountOf( debug, "PhysicsCommand( args, MarkVPhysicsDebug );" ) );
-	EXPECT_TRUE( Has( debug, "SS_NATIVE_COMMAND( physics_select )" ) );
+	// PhysicsCommand, the route both deleted commands went through, went with
+	// physics_debug.cpp: physics_select resolves its subject in managed now.
+	// So the control is the file's own surviving definition, and the route is
+	// asserted absent rather than present.
+	EXPECT_TRUE( Has( code, "CWorld *PhysicsWorldOwner(" ) );
+	EXPECT_EQ( 0, CountOf( code, "PhysicsCommand(" ) );
+	EXPECT_EQ( 0, CountOf( code, "MarkVPhysicsDebug" ) );
 }
 
 

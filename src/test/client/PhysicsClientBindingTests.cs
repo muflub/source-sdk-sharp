@@ -20,60 +20,80 @@ public unsafe class PhysicsClientBindingTests
     {
         public readonly List<string> Asked = [];
         public nint CreateWorld() { Asked.Add("world"); return 0x4321; }
+        public void CreateStaticProps() => Asked.Add("props");
         public int ParseSurfaceData() { Asked.Add("manifest"); return 2; }
         public int PrecacheSurfaceSounds() { Asked.Add("sounds"); return 30; }
-        public SolidKeyDefaults? Solids { get; } = new(0x5150);
     }
 
     [Fact]
-    public void EachSlotReachesTheWorldAndCountsOneCrossing()
+    public void TheManifestSlotReachesTheWorldAndCountsOneCrossing()
     {
         using var vtables = new ManagedVtables(side: Side.Client);
         var crossings = new Crossings();
         var world = new World();
-        ManagedVtable table = ManagedAreaFactory.Create(vtables, (IManagedPhysicsClient)new PhysicsClientBinding(crossings, new RecordingLog(), () => world));
-        byte* solid = (byte*)NativeMemory.AllocZeroed(SolidLayout.Size);
-        byte[] k = "contents\0"u8.ToArray(), v = "3\0"u8.ToArray();
+        ManagedVtable table = ManagedAreaFactory.Create(vtables, (IManagedPhysicsClient)new PhysicsClientBinding(crossings, new RecordingLog(), () => world, () => null));
 
-        try
-        {
-            // Release is slot 0, Validate 1, then the five rows in order.
-            Assert.Equal((nint)0x4321, (nint)((delegate* unmanaged<void*, void*>)Slot(table, 2))(table.Pointer));
-            Assert.Equal(2, ((delegate* unmanaged<void*, int>)Slot(table, 3))(table.Pointer));
-            Assert.Equal(30, ((delegate* unmanaged<void*, int>)Slot(table, 4))(table.Pointer));
-
-            ((delegate* unmanaged<void*, void*, void>)Slot(table, 6))(table.Pointer, solid);
-            Assert.Equal((nint)0x5150, ((ObjectParams*)(solid + SolidLayout.Params))->Name);
-            Assert.Equal(1u, world.Solids!.ContentsMask);
-
-            fixed (byte* pk = k)
-            fixed (byte* pv = v)
-                ((delegate* unmanaged<void*, void*, byte*, byte*, void>)Slot(table, 5))(table.Pointer, solid, pk, pv);
-            Assert.Equal(3u, world.Solids.ContentsMask);
-
-            Assert.Equal(["world", "manifest", "sounds"], world.Asked);
-            Assert.Equal(1, crossings.Read(CrossingOp.ClientPhysicsCreateWorld));
-            Assert.Equal(1, crossings.Read(CrossingOp.ClientPhysicsParseSurfaceData));
-            Assert.Equal(1, crossings.Read(CrossingOp.ClientPhysicsPrecacheSurfaceSounds));
-            Assert.Equal(1, crossings.Read(CrossingOp.ClientSolidKeyValue));
-            Assert.Equal(1, crossings.Read(CrossingOp.ClientSolidDefaults));
-        }
-        finally
-        {
-            NativeMemory.Free(solid);
-        }
+        // Release is slot 0, Validate 1, then ParseSurfaceData: the one world
+        // ask native still makes (PhysicsDLLInit). The world, the static props
+        // and the precache are ClientPhysicsSystem's own asks now.
+        Assert.Equal(2, ((delegate* unmanaged<void*, int>)Slot(table, 2))(table.Pointer));
+        Assert.Equal(["manifest"], world.Asked);
+        Assert.Equal(1, crossings.Read(CrossingOp.ClientPhysicsParseSurfaceData));
     }
 
     [Fact]
-    public void WithNoWorldComposedTheSlotsAnswerNothing()
+    public void WithNoWorldComposedTheManifestAnswersMinusOne()
     {
         using var vtables = new ManagedVtables(side: Side.Client);
-        ManagedVtable table = ManagedAreaFactory.Create(vtables, (IManagedPhysicsClient)new PhysicsClientBinding(new Crossings(), new RecordingLog(), () => null));
+        ManagedVtable table = ManagedAreaFactory.Create(vtables, (IManagedPhysicsClient)new PhysicsClientBinding(new Crossings(), new RecordingLog(), () => null, () => null));
 
-        Assert.Equal((nint)0, (nint)((delegate* unmanaged<void*, void*>)Slot(table, 2))(table.Pointer));
-        Assert.Equal(-1, ((delegate* unmanaged<void*, int>)Slot(table, 3))(table.Pointer));
-        Assert.Equal(-1, ((delegate* unmanaged<void*, int>)Slot(table, 4))(table.Pointer));
-        ((delegate* unmanaged<void*, void*, void>)Slot(table, 6))(table.Pointer, null);
+        Assert.Equal(-1, ((delegate* unmanaged<void*, int>)Slot(table, 2))(table.Pointer));
+    }
+
+    private sealed class Frame : IClientPhysicsFrame
+    {
+        public readonly List<string> Asked = [];
+        public bool Throw;
+        public void LevelInitPreEntity() => Asked.Add("init pre");
+        public void LevelInitPostEntity() => Asked.Add("init post");
+        public void LevelShutdownPreEntity() => Asked.Add("shutdown pre");
+        public void LevelShutdownPostEntity() => Asked.Add("shutdown post");
+        public void Simulate() { Asked.Add("simulate"); if (Throw) throw new InvalidOperationException("boom"); }
+        public void Reset() => Asked.Add("reset");
+    }
+
+    [Fact]
+    public void TheSystemsSlotsReachTheFrameInOrderEachCountedOnce()
+    {
+        using var vtables = new ManagedVtables(side: Side.Client);
+        var crossings = new Crossings();
+        var frame = new Frame();
+        ManagedVtable table = ManagedAreaFactory.Create(vtables, (IManagedPhysicsClient)new PhysicsClientBinding(crossings, new RecordingLog(), () => null, () => frame));
+
+        // After the manifest row (slot 2): the six system rows.
+        for (int slot = 3; slot <= 8; slot++)
+            ((delegate* unmanaged<void*, void>)Slot(table, slot))(table.Pointer);
+
+        Assert.Equal(["init pre", "init post", "shutdown pre", "shutdown post", "simulate", "reset"], frame.Asked);
+        foreach (CrossingOp op in new[] { CrossingOp.ClientPhysicsLevelInitPreEntity, CrossingOp.ClientPhysicsLevelInitPostEntity,
+                                          CrossingOp.ClientPhysicsLevelShutdownPreEntity, CrossingOp.ClientPhysicsLevelShutdownPostEntity,
+                                          CrossingOp.ClientPhysicsSimulate, CrossingOp.ClientPhysicsReset })
+            Assert.Equal(1, crossings.Read(op));
+    }
+
+    [Fact]
+    public void AThrowingStepIsLoggedAndDoesNotLeaveManaged()
+    {
+        using var vtables = new ManagedVtables(side: Side.Client);
+        var frame = new Frame { Throw = true };
+        var log = new RecordingLog();
+        ManagedVtable table = ManagedAreaFactory.Create(vtables, (IManagedPhysicsClient)new PhysicsClientBinding(new Crossings(), log, () => null, () => frame));
+
+        ((delegate* unmanaged<void*, void>)Slot(table, 7))(table.Pointer);
+        ((delegate* unmanaged<void*, void>)Slot(table, 8))(table.Pointer);
+
+        Assert.Equal(["simulate", "reset"], frame.Asked);
+        Assert.Contains(log.Lines, l => l.Warning && l.Text.Contains("physics step threw: boom", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -120,7 +120,10 @@ public static class ClientEntityFetches
         // The client's physics callbacks' engine reads (lane c6-input).
         var physics = new ClientPhysicsSlots(engine.Api);
         services.AddInstance<IClientImpactSoundWorld>(physics);
-        services.AddInstance<IClientPhysicsEngine>(physics);
+        // The level's environment: ClientPhysicsSystem makes it and writes it here.
+        var environment = new ClientPhysicsEnvironment();
+        services.AddInstance(environment);
+        services.AddInstance<IClientPhysicsEngine>(environment);
         services.AddInstance<IClientPhysicsObjectReads>(physics);
         services.AddInstance<IClientSplashCarryOut>(physics);
         // The convar watch and the decided values (C8, IShimConVarsClient).

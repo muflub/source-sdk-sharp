@@ -45,14 +45,6 @@ public static class NativeCommands
     /// </summary>
     public static readonly ImmutableArray<ConCommandAttribute> Debug =
     [
-        // physics_debug.cpp
-        new("ss_physworld_recheck") { Help = "SourceSharp: re-ask vphysics's cached collision filter for every object" },
-        new("ss_physworld_bounds") { Help = "SourceSharp: list physics objects at a non-finite or out-of-map position" },
-        new("ss_physworld_object") { Help = "SourceSharp: position, velocity and sleep state of every physics object whose name contains the argument" },
-
-        new("physics_highlight_active") { Help = "Turns on the absbox for all active physics objects" },
-        new("physics_report_active") { Help = "Lists all active physics objects" },
-        new("physics_select") { Help = "Dumps debug info for an entity" },
         // shell_areaportal_debug.cpp
         new("cs_sv_areaportals") { Help = "SourceSharp: print the area-portal list the per-client visibility pass walks" },
         // shell_debugoverlays_debug.cpp

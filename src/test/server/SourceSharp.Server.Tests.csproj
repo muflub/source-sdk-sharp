@@ -38,6 +38,7 @@
     <!-- LINKS -->
     <!-- The mdl fixture builder: ServerSkeletonsTests pose real (built) models. -->
     <Compile Include="..\common\StudioHdrBuilder.cs" Link="common\StudioHdrBuilder.cs" />
+    <Compile Include="..\common\SteadyAllocation.cs" Link="common\SteadyAllocation.cs" />
     <Compile Include="..\common\StudioHdrBuilder.Procedural.cs" Link="common\StudioHdrBuilder.Procedural.cs" />
     <Compile Include="..\common\StudioHdrBuilder.Query.cs" Link="common\StudioHdrBuilder.Query.cs" />
     <Compile Include="..\common\ServiceRegistryTests.Helpers.cs" Link="common\ServiceRegistryTests.Helpers.cs" />

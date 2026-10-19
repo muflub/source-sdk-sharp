@@ -144,7 +144,6 @@ target_sources(server_sourcesharp PRIVATE ${server_sourcesharp_sources})
 # NativeCommands declares their rows under #if DEBUG. tools/cmakegraph.py and
 # its twins read this block and count it only for a debug build directory.
 set(server_sourcesharp_debug_sources
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_areaportal_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_debugoverlays_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_engineboundary_debug.cpp

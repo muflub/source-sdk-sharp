@@ -64,10 +64,9 @@
 // the vtable keeps the dispatch.
 //
 // NO FILE-SCOPE STATE. kClientSystems[] is `static const` -- a constant, not
-// state -- which is this project's standing rule for SourceSharp C++. The one
-// game system this file now DEFINES rather than only names (the ported
-// C_BaseAnimatingGameSystem, below) keeps that rule: its instance is a
-// function-local static inside its accessor, not an object at file scope.
+// state -- which is this project's standing rule for SourceSharp C++. This file
+// defines no game system of its own (the one it did, C_BaseAnimatingGameSystem,
+// went with the bone leaf library).
 //
 //=============================================================================
 
@@ -99,7 +98,6 @@ CClientSystem *ViewportClientSystem();
 CClientSystem *ClientSoundscapeSystem();
 
 CClientSystem *ClientSystem_StandaloneClient();
-CClientSystem *ClientSystem_DataObjectAccess();
 CClientSystem *ClientSystem_GlowOverlay();
 CClientSystem *ClientSystem_DecalEmitter();
 CClientSystem *ClientSystem_DirtySpatialPartition();
@@ -144,64 +142,12 @@ static CClientSystem *ClientShadowGameSystem()        { return g_pClientShadowMg
 static CClientSystem *ClientEffectPrecacheGameSystem(){ return ClientEffectPrecacheSystem(); }
 
 //-----------------------------------------------------------------------------
-// THE ONE ROW THIS FILE DEFINES ITSELF -- plan_entity.md §6, the client flip.
-//
-// `C_BaseAnimatingGameSystem` was declared, instantiated and reached from
-// game/client/c_baseanimating.cpp:643, which the flip DELETES: it is one of §6's
-// seventeen LEAVE files because it defines the hierarchy. The row is not about
-// the hierarchy. Its whole body was two lines of bone-thread-pool bookkeeping --
-// reset the generation stamp, empty the parallel setup queue and say so if it
-// was not already empty -- and §6's bone-leaf-library row keeps that pool
-// NATIVE, by name, in its carve-out on the c_baseanimating.cpp entry.
-//
-// So the row was in the removal set by accident of which file its author put it
-// in. This is p4-flip's physics.cpp argument and c8-rulings' ragdoll.cpp split,
-// one row smaller: the graph put it in the set, the plan did not.
-//
-// THE SPLIT. The SYSTEM is here, beside the table that is the only thing that
-// ever reaches it. The BODY stayed in c_baseanimating.cpp next to
-// C_BaseAnimating::ThreadedBoneSetup, whose queue it resets, as the free
-// function SourceSharp_ClientBoneSetupLevelShutdown() -- so the obligation this
-// file has to a leaving TU is now ONE `void(void)` on §6's own carve-out list
-// instead of a class whose vtable and typeinfo were emitted there. The
-// capability is not removed and is not conditional: the reset still runs, at the
-// same stage, in the same position in the table.
-//
-// AND THE INSTANCE IS A FUNCTION-LOCAL STATIC, which is this file's rule and not
-// an accident. "NO FILE-SCOPE STATE" above is what makes kClientSystems[] a
-// constant rather than a registry, and a file-scope game-system object here
-// would be the first mutable thing at file scope in it. A function-local static
-// is not file scope; the ConVar ordering hazard that forces the other direction
-// (a ConVar constructed lazily is constructed AFTER CShellClientDLL::Init's one
-// ConVar_Register( FCVAR_CLIENTDLL ), so it never registers at all) does not
-// apply, because this class declares no ConVar and nothing reaches it before
-// the first table walk.
-//
-// AND THE FUNCTION THIS ROW CALLS NOW LIVES IN A FILE THAT STAYS. Lane `f-block`
-// found that the split above left the NAME in c_baseanimating.cpp along with the
-// body, so this object owed a symbol defined only inside the flip's removal set
-// -- the obligation the paragraph above says is "ONE `void(void)` on §6's own
-// carve-out list" was still an obligation to a LEAVING file. It is now declared
-// and defined in sourcesharp/game/client/bone_leaf_library.h /
-// shell_bone_leaf_library.cpp, which stay, and c_baseanimating.cpp registers its
-// body there as a sweep. Nothing in THIS file changed but the include: the call
-// below is the same call.
+// THE ONE ROW THIS FILE DEFINED ITSELF, `C_BaseAnimatingGameSystem`, IS GONE
+// (2026-10-18). Ported out of c_baseanimating.cpp at the client flip, its one
+// stage ran the bone leaf library's level-shutdown sweeps, and no sweep was
+// ever registered; the library and the row went together
+// (docs/client_evictions.md). The frame's bones are ClientSkeletons'.
 //-----------------------------------------------------------------------------
-#include "bone_leaf_library.h"
-
-class CBaseAnimatingGameSystem : public CClientSystem
-{
-public:
-	CBaseAnimatingGameSystem() : CClientSystem( "C_BaseAnimatingGameSystem" ) {}
-
-	virtual void LevelShutdownPostEntity() { SourceSharp_ClientBoneSetupLevelShutdown(); }
-};
-
-static CClientSystem *ClientSystem_BaseAnimating()
-{
-	static CBaseAnimatingGameSystem s_BaseAnimatingGameSystem;
-	return &s_BaseAnimatingGameSystem;
-}
 
 //-----------------------------------------------------------------------------
 // The map name -- see the comment on the declaration in shell_clientsystem.h.
@@ -270,36 +216,29 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 // RULING | CClientShadowMgr | STAYS | game/client/clientshadowmgr.cpp | g_pClientShadowMgr
 // RULING | C_SoundscapeSystem | STAYS | sourcesharp/game/client/shell_soundscape_audio_client.cpp | ClientSoundscapeSystem
 // RULING | CSourceSharpStandaloneClientSystem | STAYS | sourcesharp/game/client/shell_standalone_client.cpp | ClientSystem_StandaloneClient
-// RULING | CDataObjectAccessSystem | STAYS | sourcesharp/game/client/shell_physics_shared_client.cpp | ClientSystem_DataObjectAccess
 // RULING | CGlowOverlaySystem | STAYS | game/client/glow_overlay.cpp | ClientSystem_GlowOverlay
 // RULING | CDecalEmitterSystem | STAYS | sourcesharp/game/client/shell_decals_client.cpp | ClientSystem_DecalEmitter
 // RULING | CDirtySpatialPartitionEntityList | STAYS | sourcesharp/game/shared/collisionproperty.cpp | ClientSystem_DirtySpatialPartition
 // RULING | CBulletWhizTimer | STAYS | sourcesharp/game/client/shell_effects_list_client.cpp | ClientSystem_BulletWhizTimer
 // RULING | CPixelVisibilitySystem | STAYS | game/client/c_pixel_visibility.cpp | ClientSystem_PixelVisibility
-// RULING | C_BaseAnimatingGameSystem | PORTED | sourcesharp/game/client/shell_clientsystems.cpp | ClientSystem_BaseAnimating
 // RULING | CSourceSharpSpriteSystem | STAYS | sourcesharp/game/client/shell_sprite_render.cpp | ClientSystem_Sprite
 // RULING | CSourceSharpWorldTextSystem | STAYS | sourcesharp/game/client/shell_worldtext_render.cpp | ClientSystem_WorldText
 // RULING | CSourceSharpRopeSystem | STAYS | sourcesharp/game/client/shell_rope_render.cpp | ClientSystem_Rope
 // RULING | CSourceSharpManagedParticlesSystem | STAYS | sourcesharp/game/client/shell_managed_particles.cpp | ClientSystem_ManagedParticles
 // RULING | CSourceSharpStandaloneInterpSystem | STAYS | sourcesharp/game/client/shell_standalone_client.cpp | ClientSystem_StandaloneInterp
 // RULING | SourceSharp | STAYS | sourcesharp/game/shared/sourcesharp_gamesystem.cpp | ClientSystem_SourceSharpManaged
-// RULING | CPhysicsSystem | STAYS | game/client/physics.cpp | ClientSystem_Physics
+// RULING | CPhysicsSystem | STAYS | sourcesharp/game/client/shell_physics_client.cpp | ClientSystem_Physics
 //
-// THE ONE LEAVES, and what happens to it. `ClientSystem_DataObjectAccess()` is
-// defined in game/shared/physics_main_shared.cpp, which is inside BOTH atomic
-// cycles and is lane c8-shared6's file. §6's LEAVE table already carries the
-// carve-out in prose -- "physics_main_shared.cpp also defines
-// ClientSystem_DataObjectAccess(), a live kClientSystems[] row, which has to be
-// re-homed rather than deleted with the file" -- so this row needs no code
-// change here and one from that lane. The request is filed in
-// .claude/entity-port/requests/c8-clientsystems.md. If it is re-homed with the
-// same name, THIS FILE DOES NOT CHANGE: the declaration above is a declaration,
-// and which TU satisfies it is the linker's business.
+// THE ONE LEAVES went. `ClientSystem_DataObjectAccess()` was re-homed into
+// shell_physics_shared_client.cpp when physics_main_shared.cpp left, a
+// registration with nothing behind it; that file left with fork physics.cpp,
+// whose watcher asks were its only reason (2026-10-18). Its row went with it.
 //
 // THE ROW THAT LOOKS LIKE IT SHOULD LEAVE AND DOES NOT.
-// `CPhysicsSystem` (physics.cpp) is inside the atomic SCC and is named by §6 --
-// the PhysicsShell has a row of its own. It is de-entitied in place by lane
-// c8-shared6 and this lane leaves its accessor exactly where it is.
+// `CPhysicsSystem` stays at its stock position. Fork physics.cpp, which defined
+// it, left client.so (2026-10-18, docs/client_evictions.md); the row is now
+// shell_physics_client.cpp's, forwarding its four level events to managed's
+// ClientPhysicsSystem.
 //
 // IT WAS TWO. `CRagdollLRURetirement` (ragdoll_shared.cpp) stood beside it, on
 // §6's bone-leaf-library row with the ragdoll builder. The BUILDER is still
@@ -360,7 +299,10 @@ static const ClientSystemRow_t kClientSystems[] =
 	// `{ "CPropData", ... }` stood here: its LevelInitPreEntity parsed
 	// propdata.txt into a chunk table nothing on the client read, and its
 	// "precache" was modelinfo->GetModelIndex, a lookup (C9; the file is gone).
-	{ "CDataObjectAccessSystem",            ClientSystem_DataObjectAccess },
+	// `{ "CDataObjectAccessSystem", ClientSystem_DataObjectAccess }` STOOD HERE:
+	// a registration with nothing behind it (nothing in client.so creates a data
+	// object), kept only for fork physics.cpp's watcher asks. It went with
+	// shell_physics_shared_client.cpp when that file left (2026-10-18).
 	// `{ "CEZParticleInit", ... }` stood here: particles_ez.cpp left with lane
 	// c5-particles (FX_Dust is C#'s DustPuff; DrawParticleSingletons draws its
 	// executors from shell_managed_particles.cpp).
@@ -369,7 +311,8 @@ static const ClientSystemRow_t kClientSystems[] =
 	{ "CDirtySpatialPartitionEntityList",   ClientSystem_DirtySpatialPartition },
 	{ "CBulletWhizTimer",                   ClientSystem_BulletWhizTimer },
 	{ "CPixelVisibilitySystem",             ClientSystem_PixelVisibility },
-	{ "C_BaseAnimatingGameSystem",          ClientSystem_BaseAnimating },
+	// `{ "C_BaseAnimatingGameSystem", ClientSystem_BaseAnimating }` STOOD HERE:
+	// its stage ran the bone leaf library's sweeps, none registered (2026-10-18).
 	// `{ "CSourceSharpPlayerResourceSystem", ... }` stood here: it published
 	// g_PR, the native IGameResources, which nothing on the link line and no
 	// engine binary read (lane c6-input); the scoreboard is managed's.

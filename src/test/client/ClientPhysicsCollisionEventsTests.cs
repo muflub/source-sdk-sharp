@@ -9,49 +9,13 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// The client's managed IPhysicsCollisionEvent table (plan_client_novalve C6,
-/// cluster 9; lane c6-input): the impact slot answered by the client's impact
-/// sounds, every other slot forwarded unchanged to native's g_Collisions, each
-/// slot counted; and the installer that puts the table on the client's
-/// environment once per environment.
+/// cluster 9): the impact, scrape and fluid slots answered by their managed
+/// sinks, every other slot answered here as stock's client answered it
+/// (nothing), each slot counted. Fork physics.cpp's g_Collisions is gone, so
+/// nothing is forwarded anywhere.
 /// </summary>
-public unsafe class ClientPhysicsCollisionEventsTests : IDisposable
+public unsafe class ClientPhysicsCollisionEventsTests
 {
-    [ThreadStatic] private static List<string>? t_seen;
-    private static void Saw(string what) => (t_seen ??= new()).Add(what);
-
-    [UnmanagedCallersOnly] private static void Pre(void* self, void* ev) => Saw($"Pre {(nint)ev:x}");
-    [UnmanagedCallersOnly] private static void Start(void* self, void* a, void* b, void* d) => Saw($"StartTouch {(nint)a:x} {(nint)b:x} {(nint)d:x}");
-    [UnmanagedCallersOnly] private static void End(void* self, void* a, void* b, void* d) => Saw($"EndTouch {(nint)a:x} {(nint)b:x} {(nint)d:x}");
-    [UnmanagedCallersOnly] private static void PostSim(void* self) => Saw("PostSimulationFrame");
-    [UnmanagedCallersOnly] private static void Enter(void* self, void* t, void* o) => Saw($"Enter {(nint)t:x} {(nint)o:x}");
-    [UnmanagedCallersOnly] private static void Leave(void* self, void* t, void* o) => Saw($"Leave {(nint)t:x} {(nint)o:x}");
-
-    // Native's handler is reached through IPhysicsCollisionEvent's forwarders,
-    // which hold only the slots the binding forwards: one the binding takes
-    // over (PostCollision, Friction, the fluid touches) has no forwarder, so
-    // forwarding it is a compile error rather than something to watch for.
-    private readonly PhysicsCollisionEventFwd* _fwd;
-    private readonly nint* _native;
-
-    public ClientPhysicsCollisionEventsTests()
-    {
-        t_seen = new();
-        _fwd = (PhysicsCollisionEventFwd*)NativeMemory.AllocZeroed((nuint)sizeof(PhysicsCollisionEventFwd));
-        _fwd->PreCollision = &Pre;
-        _fwd->StartTouch = &Start;
-        _fwd->EndTouch = &End;
-        _fwd->PostSimulationFrame = &PostSim;
-        _fwd->ObjectEnterTrigger = &Enter;
-        _fwd->ObjectLeaveTrigger = &Leave;
-        _native = (nint*)NativeMemory.AllocZeroed((nuint)sizeof(nint));
-    }
-
-    public void Dispose()
-    {
-        NativeMemory.Free(_native);
-        NativeMemory.Free(_fwd);
-    }
-
     private sealed class RecordingImpacts : IClientImpactSink
     {
         public readonly List<string> Seen = new();
@@ -77,17 +41,19 @@ public unsafe class ClientPhysicsCollisionEventsTests : IDisposable
     private readonly RecordingFriction _friction = new();
 
     private ClientPhysicsCollisionEventBinding Sink(Crossings? crossings = null)
-        => new(crossings ?? new Crossings(), (nint)_native, _impacts, _fluids, _friction,
-               TestVPhysics.Of(new VPhysicsTables.Set { PhysicsCollisionEvent = _fwd }));
+        => new(crossings ?? new Crossings(), _impacts, _fluids, _friction);
+
+    private bool NoSinkSawAnything => _impacts.Seen.Count == 0 && _fluids.Seen.Count == 0 && _friction.Seen.Count == 0;
 
     [Fact]
-    public void ThePostCollisionGoesToTheImpactSoundsAndIsNotForwarded()
+    public void ThePostCollisionGoesToTheImpactSoundsAlone()
     {
         var sink = Sink();
         var ev = new VCollisionEvent { Object0 = 0x51, Object1 = 0x52, CollisionSpeed = 320f };
         sink.PostCollision(&ev);
         Assert.Equal(new[] { "post 51 320" }, _impacts.Seen);
-        Assert.Empty(t_seen!);
+        Assert.Empty(_fluids.Seen);
+        Assert.Empty(_friction.Seen);
     }
 
     [Fact]
@@ -95,35 +61,32 @@ public unsafe class ClientPhysicsCollisionEventsTests : IDisposable
     {
         var sink = Sink();
         sink.PostCollision(null);
-        Assert.Empty(_impacts.Seen);
-        Assert.Empty(t_seen!);
+        Assert.True(NoSinkSawAnything);
     }
 
     [Fact]
-    public void EveryUntakenSlotForwardsToNativesHandlerUnchanged()
+    public void TheFiveSlotsStockLeftEmptyReachNoSink()
     {
+        // Stock's client: PreCollision, PostSimulationFrame and the triggers have
+        // empty bodies; a touch between objects with no SDK owner returns at once.
         var sink = Sink();
-        sink.PreCollision((void*)0x10);
+        var ev = new VCollisionEvent { Object0 = 0x51, CollisionSpeed = 320f };
+        sink.PreCollision(&ev);
         sink.StartTouch((void*)0x13, (void*)0x14, (void*)0x15);
         sink.EndTouch((void*)0x16, (void*)0x17, (void*)0x18);
         sink.PostSimulationFrame();
         sink.ObjectEnterTrigger((void*)0x1d, (void*)0x1e);
         sink.ObjectLeaveTrigger((void*)0x1f, (void*)0x20);
-        Assert.Equal(new[]
-        {
-            "Pre 10", "StartTouch 13 14 15", "EndTouch 16 17 18",
-            "PostSimulationFrame", "Enter 1d 1e", "Leave 1f 20",
-        }, t_seen);
-        Assert.Empty(_impacts.Seen);
+        Assert.True(NoSinkSawAnything);
     }
 
     [Fact]
-    public void AScrapeGoesToTheClientsFrictionAndIsNotForwarded()
+    public void AScrapeGoesToTheClientsFriction()
     {
         var sink = Sink();
         sink.Friction((void*)0x11, 8000f, 7, 9, (void*)0x12);
         Assert.Equal(new[] { "friction 11 8000 7 9 12" }, _friction.Seen);
-        Assert.Empty(t_seen!);
+        Assert.Empty(_impacts.Seen);
     }
 
     [Fact]
@@ -133,7 +96,7 @@ public unsafe class ClientPhysicsCollisionEventsTests : IDisposable
         sink.FluidStartTouch((void*)0x19, (void*)0x1a);
         sink.FluidEndTouch((void*)0x1b, (void*)0x1c);
         Assert.Equal(new[] { "start 19 1a" }, _fluids.Seen);
-        Assert.Empty(t_seen!);
+        Assert.Empty(_impacts.Seen);
     }
 
     [Fact]
@@ -161,88 +124,6 @@ public unsafe class ClientPhysicsCollisionEventsTests : IDisposable
                      CrossingOp.ClientPhysicsObjectEnterTrigger, CrossingOp.ClientPhysicsObjectLeaveTrigger,
                  })
             Assert.Equal(1, crossings.Read(op));
-    }
-
-    private sealed class RecordingEnvironment : IVPhysicsEnvironment
-    {
-        public readonly List<(nint Env, nint Handler)> Installed = new();
-        public void SetObjectEventHandler(nint environment, nint handler) => throw new InvalidOperationException("the client installs no object-event table");
-        public float SimulationTimestep(nint environment) => 0f;
-        public void SetCollisionEventHandler(nint environment, nint handler) => Installed.Add((environment, handler));
-        public void SetCollisionSolver(nint environment, nint handler) => throw new InvalidOperationException("the client installs its solver through ClientPhysicsSlots");
-        public void SetConstraintEventHandler(nint environment, nint handler) => throw new InvalidOperationException("the client installs no constraint event handler");
-    }
-
-    [Fact]
-    public void TheTableIsInstalledOnceOnAnEnvironment()
-    {
-        var env = new RecordingEnvironment();
-        var callbacks = new ClientPhysicsCallbacks(() => 0x900, env) { CollisionEvents = 0x700 };
-        callbacks.EnsureInstalled();
-        callbacks.EnsureInstalled();
-        Assert.Equal(new[] { ((nint)0x900, (nint)0x700) }, env.Installed);
-        Assert.Equal(1, callbacks.Installs);
-    }
-
-    [Fact]
-    public void TheSolverGoesOnTheEnvironmentWithTheEventTable()
-    {
-        var env = new RecordingEnvironment();
-        var solvers = new List<(nint Env, nint Solver)>();
-        var callbacks = new ClientPhysicsCallbacks(() => 0x900, env, (e, s) => solvers.Add((e, s)))
-        {
-            CollisionEvents = 0x700,
-            CollisionSolver = 0x600,
-        };
-        callbacks.EnsureInstalled();
-        callbacks.EnsureInstalled();
-        Assert.Equal(new[] { ((nint)0x900, (nint)0x600) }, solvers);
-    }
-
-    [Fact]
-    public void WithNoEnvironmentNothingIsInstalled()
-    {
-        var env = new RecordingEnvironment();
-        var callbacks = new ClientPhysicsCallbacks(() => 0, env) { CollisionEvents = 0x700 };
-        callbacks.EnsureInstalled();
-        Assert.Empty(env.Installed);
-    }
-
-    [Fact]
-    public void WithNoTableNothingIsInstalled()
-    {
-        var env = new RecordingEnvironment();
-        var callbacks = new ClientPhysicsCallbacks(() => 0x900, env);
-        callbacks.EnsureInstalled();
-        Assert.Empty(env.Installed);
-    }
-
-    [Fact]
-    public void InstalledSaysWhetherThisLevelsEnvironmentHasTheTable()
-    {
-        var env = new RecordingEnvironment();
-        nint current = 0;
-        var callbacks = new ClientPhysicsCallbacks(() => current, env) { CollisionEvents = 0x700 };
-        callbacks.EnsureInstalled();
-        Assert.False(callbacks.Installed);
-        current = 0x900;
-        callbacks.EnsureInstalled();
-        Assert.True(callbacks.Installed);
-        callbacks.LevelShutdown();
-        Assert.False(callbacks.Installed);
-    }
-
-    [Fact]
-    public void ANewLevelsEnvironmentGetsTheTableAgain()
-    {
-        var env = new RecordingEnvironment();
-        nint current = 0x900;
-        var callbacks = new ClientPhysicsCallbacks(() => current, env) { CollisionEvents = 0x700 };
-        callbacks.EnsureInstalled();
-        callbacks.LevelShutdown();
-        current = 0x900;   // the allocator may hand the next level the same address
-        callbacks.EnsureInstalled();
-        Assert.Equal(2, env.Installed.Count);
     }
 }
 
@@ -306,26 +187,61 @@ public class PhysicsClientCommandTests
         public void MetalSparks(Vector point, Vector direction) { }
     }
 
-    private sealed class Env : IVPhysicsEnvironment
+    private sealed class Level : SourceSharp.Client.Interop.IClientPhysicsLevelCalls
     {
-        public void SetObjectEventHandler(nint environment, nint handler) { }
-        public void SetCollisionEventHandler(nint environment, nint handler) { }
-        public void SetCollisionSolver(nint environment, nint handler) { }
-        public void SetConstraintEventHandler(nint environment, nint handler) { }
-        public float SimulationTimestep(nint environment) => 0f;
+        public nint CreateEnvironment() => 0x900;
+        public void DestroyEnvironment(nint e) { }
+        public void DestroyAllCollisionSets() { }
+        public void SetGravity(nint e, Vector g) { }
+        public void SetSimulationTimestep(nint e, float s) { }
+        public void SetCollisionEventHandler(nint e, nint h) { }
+        public void SetCollisionSolver(nint e, nint s) { }
+        public void SetQuickDelete(nint e, bool q) { }
+        public void Simulate(nint e, float dt) { }
+        public void ResetSimulationClock(nint e) { }
+    }
+
+    private sealed class Clock : IClientPhysicsClock
+    {
+        public float FrameTime => 0f;
+        public float IntervalPerTick => 0.015f;
+        public float Gravity => 600f;
+        public float TimeScale => 1f;
+    }
+
+    private sealed class NoTail : IClientPhysicsStepTail
+    {
+        public void UpdateFrictionSounds() { }
+        public void UpdateFluidEvents() { }
+        public void PlayImpactSounds() { }
+        public void RemoveAllImpactSounds() { }
     }
 
     [Fact]
     public void ItPrintsTheInstallAndTheImpactCounters()
     {
         var log = new Log();
-        var callbacks = new ClientPhysicsCallbacks(() => 0x900, new Env()) { CollisionEvents = 0x700 };
-        callbacks.EnsureInstalled();
-        new PhysicsClientCommand(log, callbacks, new ClientImpactSounds(new NoWorld()), new ClientCollisionSolver(new NoFacts()),
+        var system = new ClientPhysicsSystem(new Level(), new Clock(), new SourceSharp.Client.Interop.ClientPhysicsEnvironment(),
+                                             () => null, () => null, new NoTail(), log) { CollisionEvents = 0x700 };
+        system.LevelInitPostEntity();
+        system.Simulate();
+        log.Lines.Clear();
+        new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld()), new ClientCollisionSolver(new NoFacts()),
                                  new ClientFluidEvents(new NoFluidWorld(), null, () => 0f),
                                  new SourceSharp.Shared.FrictionSounds(new RecordingEngine(), new NoRamps(),
                                                                        new NoSurfaces(), new NoEffects())).Execute("");
-        Assert.Equal("[SourceSharp/Client] physics: table installed yes (installs 1), impact sounds queued 0, played 0, pairs asked 0, refused 0, splashes 0 (gunshot 0, slime 0, ripple 0), scrapes started 0, playing 0\n",
-                     Assert.Single(log.Lines));
+        // The step's cost is a measurement, so it is matched rather than spelled.
+        Assert.Matches(@"^\[SourceSharp/Client\] physics: environment yes, tables installed yes \(installs 1\), steps 1 " +
+                       @"\(step \d+ ns, solver \d+ ns\), impact sounds queued 0, played 0, pairs asked 0, refused 0, " +
+                       @"splashes 0 \(gunshot 0, slime 0, ripple 0\), scrapes started 0, playing 0\n$",
+                       Assert.Single(log.Lines));
+
+        log.Lines.Clear();
+        new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld()), new ClientCollisionSolver(new NoFacts()),
+                                 new ClientFluidEvents(new NoFluidWorld(), null, () => 0f),
+                                 new SourceSharp.Shared.FrictionSounds(new RecordingEngine(), new NoRamps(),
+                                                                       new NoSurfaces(), new NoEffects())).Execute("reset");
+        Assert.Equal(0, system.Steps);
+        Assert.Equal(0, system.StepNs);
     }
 }

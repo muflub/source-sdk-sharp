@@ -4,6 +4,14 @@
 #   its zero-edge row in section 3 (16 -> 15 stock TUs). Hand-applied from tools/entity-census's diff.
 # 2026-10-18, client.so off libtier0.so and libvstdlib.so (plan_client_novalve C9): tier0_vprof_client.cpp and tier_bindings_client.cpp join client.so: client objects 147 -> 149, shim 131 -> 133. Hand-edited.
 # 2026-10-18, client.so off libmathlib.a (plan_client_novalve C9): mathlib_port.cpp joins client.so (its mathlib members): client objects 146 -> 147, shim 130 -> 131. Hand-edited.
+# 2026-10-18, the client bone leaf library deleted (shell_bone_leaf_library.cpp; nothing read its gate or counter, no
+#   sweep registered): client objects 145 -> 144, shim 131 -> 130. Rows spliced from --print, the notes kept.
+# 2026-10-18, client physics: ragdoll_library.cpp and shell_physics_shared_client.cpp deleted (only fork physics.cpp called them).
+#   client objects 147 -> 145, shim 133 -> 131. Rows spliced from --print, the notes kept.
+# 2026-10-18, client physics: fork game/client/physics.cpp left client.so (ClientPhysicsSystem decides; shell_physics_client.cpp
+#   forwards the DLL's PhysicsDLLInit/Reset/Simulate and the CPhysicsSystem row): client objects 148 -> 147, stock TUs
+#   15 -> 14, entity-using stock TUs 4 -> 3 (code lines 3673 -> 2915), cross-edges 65 -> 60 across 14 -> 13 TUs (physics.cpp's
+#   five). Rows spliced from --print, the notes kept.
 # 2026-10-13, server.so off libmathlib.a: mathlib_port.cpp joins server.so (the mathlib members it calls): server objects
 #   122 -> 123, shim 122 -> 123. Hand-applied from make entity-census's diff, so the notes are kept; its client "their
 #   lines" rows moved too on this machine's public patch series ROOT and were left alone (the fork's edits, see entity-ratchet).
@@ -864,17 +872,23 @@
 #     SourceSharp shim (server)            129 -> 128
 # Hand-edited, not --write.
 #
+# 2026-10-18: physics_debug.cpp was deleted, its six debug commands managed's
+# (PhysicsDebugCommands.cs; docs/server_evictions.md). Debug build:
+#     objects linked (server)              123 -> 122
+#     SourceSharp shim (server)            123 -> 122
+# Hand-edited, not --write.
+#
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 123       148
-  ... stock game/server | game/client                            0        15
+objects linked                                                 122       144
+  ... stock game/server | game/client                            0        14
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        123       133
+  ... SourceSharp shim (sourcesharp/**)                        122       130
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
-stock TUs that use an entity type but define none                0         4
-  ... their code lines                                           0      3673
+stock TUs that use an entity type but define none                0         3
+  ... their code lines                                           0      2915
 stock TUs with entity-free text                                  0        11
   ... their code lines                                           0      7692
 CBaseEntity:: / C_BaseEntity:: members in the DLL                0         0
@@ -882,8 +896,8 @@ CBaseEntity:: / C_BaseEntity:: members in the DLL                0         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0
                      CBaseEntityList) in the DLL
   ... same, without CBaseEntityList:: (§1's reading)             0         0
-shim -> stock cross-edges (distinct symbols)                     0        65
-stock TUs the shim links against                                 0        14
+shim -> stock cross-edges (distinct symbols)                     0        60
+stock TUs the shim links against                                 0        13
 
 # defines-an-entity regex: LINK_ENTITY_TO_CLASS|IMPLEMENT_SERVERCLASS_ST|IMPLEMENT_CLIENTCLASS
 # uses-an-entity regex:    \bC_?Base(Entity|Player|Animating|CombatCharacter|CombatWeapon|Flex)\b|\bg?_?pEntityList\b|\bgEntList\b
@@ -913,14 +927,13 @@ ToEngineIface           0 in 0 files          17 in 10 files        1 in 1 files
 -- server: 0 distinct symbols across 0 of 0 stock TUs
   -- zero-edge stock TUs:
 
--- client: 65 distinct symbols across 14 of 15 stock TUs
+-- client: 60 distinct symbols across 13 of 14 stock TUs
      16  game/client/particlemgr.cpp
       8  game/client/glow_overlay.cpp
       7  game/client/particles_new.cpp
       7  game/client/toolframework_client.cpp
       6  game/client/rendertexture.cpp
       5  game/client/c_pixel_visibility.cpp
-      5  game/client/physics.cpp
       3  game/client/clientleafsystem.cpp
       3  game/client/warp_overlay.cpp
       1  game/client/ScreenSpaceEffects.cpp
@@ -997,12 +1010,6 @@ game/client/c_pixel_visibility.cpp (5)
     ClientSystem_PixelVisibility()
     PixelVisibility_EndCurrentView()
     PixelVisibility_FractionVisible(pixelvis_queryparams_t const&, int*)
-game/client/physics.cpp (5)
-    PhysicsReset()
-    PhysicsDLLInit(void* (*)(char const*, int*))
-    PhysicsSimulate()
-    ClientSystem_Physics()
-    g_Collisions
 game/client/clientleafsystem.cpp (3)
     DefaultRenderBoundsWorldspace(IClientRenderable*, Vector&, Vector&)
     CClientRenderablesList::s_Allocator

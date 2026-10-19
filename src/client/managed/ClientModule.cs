@@ -237,11 +237,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Soundscapes.ClientSoundscapeDriver _soundscapeDriver = null!;
     private Effects.ClientPrecipitations _precipitations = null!;
 
-    // The client's physics callbacks (plan_client_novalve C6, cluster 9; lane
-    // c6-input): the impact sounds, and the table they arrive through,
-    // installed on each level's environment.
+    // The client's physics (plan_client_novalve C6, cluster 9, and the client
+    // leftovers of plan physics_bones_native_zero): the level's environment and
+    // step (ClientPhysicsSystem), the impact sounds, and the tables the
+    // callbacks arrive through.
     private Physics.ClientImpactSounds? _impactSounds;
-    private Physics.ClientPhysicsCallbacks? _physicsCallbacks;
+    private Physics.ClientPhysicsSystem? _physicsSystem;
     private ManagedVtable? _physicsCollisionEvents;
     private Physics.ClientCollisionSolver? _collisionSolver;
     private Physics.ClientFluidEvents? _fluidEvents;
@@ -662,13 +663,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedBonesClient",
                       v => ManagedAreaFactory.Create(v, new BonesClientBinding(_engine.Crossings, Log,
                           _skeletons ?? throw new InvalidOperationException("the client's skeletons are not composed"))));
-        // The ragdolls' physics step and teardown (plan physics_bones_native_zero
-        // Phase 3): game/client/physics.cpp calls the native library's two
-        // forwarders, which ask this area.
-        _bindings.Add("IManagedRagdollsClient",
-                      v => ManagedAreaFactory.Create(v, new RagdollsClientBinding(_engine.Crossings, Log, () => _ragdolls)));
         _bindings.Add("IManagedPhysicsClient",
-                      v => ManagedAreaFactory.Create(v, new PhysicsClientBinding(_engine.Crossings, Log, () => _physicsWorld)));
+                      v => ManagedAreaFactory.Create(v, new PhysicsClientBinding(_engine.Crossings, Log, () => _physicsWorld, () => _physicsSystem)));
 
         // CONVARS FIRST. A command or a drawn entity may ask for one, by class
         // or by the name a player types, and the container has to be holding it
@@ -1452,13 +1448,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The client's physics callbacks: stock's impact sounds, on managed's
         // own collision-event table (lane c6-input).
         _impactSounds = new Physics.ClientImpactSounds(_services.Require<IClientImpactSoundWorld>());
-        var physicsEngine = _services.Require<IClientPhysicsEngine>();
-        _physicsCallbacks = new Physics.ClientPhysicsCallbacks(physicsEngine.Environment, new VPhysicsEnvironment(_engine.VPhysics),
-                                                               physicsEngine.SetCollisionSolver);
         _collisionSolver = new Physics.ClientCollisionSolver(
             new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>()));
         _services.AddInstance(_impactSounds);
-        _services.AddInstance(_physicsCallbacks);
         _services.AddInstance(_collisionSolver);
         // The splash draws from the engine's own random stream, as stock's
         // random->RandomFloat does; with none there is no splash.
@@ -1479,6 +1471,24 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _friction = new Physics.ClientFriction(new VPhysicsObjects(_engine.VPhysics), new Physics.FrictionSoundsScrapes(_frictionSounds),
                                                () => _clock.Now);
         _services.AddInstance(_frictionSounds);
+
+        // The level's environment and the step (stock's CPhysicsSystem): native's
+        // client system row, PhysicsSimulate and PhysicsReset forward here.
+        if (VPhysicsClientLevel.Acquire(_engine, out string whyNoLevel) is not { } level)
+        {
+            Log.Warning($"[SourceSharp/Client] physics: no vphysics for the level ({whyNoLevel}); nothing simulates\n");
+        }
+        else
+        {
+            _physicsSystem = new Physics.ClientPhysicsSystem(
+                level,
+                new Physics.ClientPhysicsClock(_services.Require<IEngineEnvironment>(), _services.Require<IEngineEffects>(),
+                                               _convars.Get<Physics.ClientPhysTimescaleConVar>()
+                                               ?? throw new InvalidOperationException("cl_phys_timescale is not registered")),
+                _services.Require<ClientPhysicsEnvironment>(), () => _physicsWorld, () => _ragdolls,
+                new Physics.ClientPhysicsStepTail(_impactSounds, _fluidEvents!, _frictionSounds, _clock), Log);
+            _services.AddInstance(_physicsSystem);
+        }
 
         // The standalone registry is registered ABOVE, before the temp entity
         // players are built, because two of them ask for it: the explosion's
@@ -1820,23 +1830,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // -- a lamp round a corner still lights the wall you can see.
         _lights.Frame();
 
-        // The impact sounds the last physics step queued (stock played them at
-        // the end of PhysicsSimulate; the managed frame is the first managed
-        // moment after it, so they sound one client frame later).
-        _impactSounds?.Play();
-        _fluidEvents?.Frame();
-        // UpdateFrictionSounds: a scrape not kept alive for 0.1 s stops.
-        _frictionSounds?.Update(_clock.Now);
-
-        // The collision table goes on the level's environment at the first
-        // frame that can see it (CPhysicsSystem makes it after the managed
-        // level init); once on, this costs nothing.
-        if (_physicsCallbacks is { Installed: false } physics)
-        {
-            physics.EnsureInstalled();
-            if (physics.Installed)
-                Log.Msg("[SourceSharp/Client] physics: the managed collision-event table is on the level's environment\n");
-        }
+        // The impact sounds, the fluid entries and the scrapes are the physics
+        // step's (ClientPhysicsSystem.Simulate, at stock's place in the frame).
 
         // Colour corrections, here for the same reason and with the same
         // argument: the weight is a function of where the player is standing,
@@ -2117,7 +2112,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public void LevelShutdown()
     {
         Log.Msg($"[SourceSharp/Client] level shutdown after {_stats.FrameCount} frames\n");
-        _physicsCallbacks?.LevelShutdown();
         _impactSounds?.Clear();
         _fluidEvents?.Clear();
         if (_voiceStatus is { } voice)
@@ -2333,24 +2327,22 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _managedRoot = new ManagedRoot(_bindings
             ?? throw new InvalidOperationException("the managed root was asked for before Initialize"), vtables).Bind();
 
-        // The client's IPhysicsCollisionEvent (lane c6-input): every slot not
-        // taken over forwards to native's g_Collisions, so the table changes
-        // nothing by itself; the impact slot is ClientImpactSounds'.
+        // The client's IPhysicsCollisionEvent: every slot answered in managed
+        // (the impacts, the scrapes and the splash by their sinks, the rest as
+        // stock's client answered them); the physics system puts it on each
+        // level's environment.
         // The objects vphysics is handed as its callbacks are libss_fwd_client's
         // (plan_forwarders_everywhere.md phase 5), each built in its block.
         PhysicsCallbackObjects? callbackObjects = PhysicsCallbackObjects.Acquire(_engine, out string callbacksWhy);
         if (callbackObjects is null)
             Log.Warning($"[SourceSharp/Client] no vphysics callbacks: {callbacksWhy}\n");
 
-        nint nativeCollisionEvents = _services.Require<IClientPhysicsEngine>().NativeCollisionEvents();
-        if (nativeCollisionEvents != 0 && _impactSounds is { } impacts && _physicsCallbacks is { } callbacks
-            && callbackObjects is not null)
+        if (_impactSounds is { } impacts && _physicsSystem is { } callbacks && callbackObjects is not null)
         {
             _physicsCollisionEvents = ClientPhysicsCollisionEventBinding.Create(vtables,
-                new ClientPhysicsCollisionEventBinding(_engine.Crossings, nativeCollisionEvents, impacts,
+                new ClientPhysicsCollisionEventBinding(_engine.Crossings, impacts,
                                                        _fluidEvents ?? throw new InvalidOperationException("the fluid slots were built before the fluid entries"),
-                                                       _friction ?? throw new InvalidOperationException("the friction slot was built before the scrapes"),
-                                                       _engine.VPhysics));
+                                                       _friction ?? throw new InvalidOperationException("the friction slot was built before the scrapes")));
             callbacks.CollisionEvents = callbackObjects.CollisionEvent(_physicsCollisionEvents);
         }
 
@@ -2364,8 +2356,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // CSolidSetDefaults while a solid's parse is in flight.
         if (_ragdollPhysics?.Keys is { } keys)
         {
+            // The static props' objects are the client's to make (stock's client
+            // PhysicsLevelInit asked the static prop manager after the world).
+            IStaticPropPhysics? staticProps = StaticPropMgrClient.Acquire(_engine, out string staticPropsWhy);
+            if (staticProps is null)
+                Log.Warning($"[SourceSharp/Client] physics: no static prop manager ({staticPropsWhy}); the static props make no objects\n");
             _physicsWorldVPhysics = PhysicsWorldVPhysics.Acquire(_engine, _services.Require<IClientPhysicsEngine>().Environment,
-                                                                 staticProps: null, keys, out string worldWhy);
+                                                                 staticProps, keys, out string worldWhy);
             IVtablePhysicsSurfaceProps? surfaceProps = PhysicsSurfaceProps.Acquire(_engine, out string propsWhy);
             if (_physicsWorldVPhysics is null || surfaceProps is null)
             {
@@ -2392,7 +2389,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The client's IPhysicsCollisionSolver: every one of its five answers
         // is ported (ClientCollisionSolver), so it replaces g_Collisions as the
         // solver whole.
-        if (_collisionSolver is { } solver && _physicsCallbacks is { } solverCallbacks && callbackObjects is not null)
+        if (_collisionSolver is { } solver && _physicsSystem is { } solverCallbacks && callbackObjects is not null)
         {
             _physicsCollisionSolver = ClientCollisionSolverBinding.Create(vtables,
                 new ClientCollisionSolverBinding(_engine.Crossings, solver));

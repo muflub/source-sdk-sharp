@@ -246,11 +246,9 @@ public class PhysicsMotionControllersTests
         // plan_physics_bones_perf B3: vphysics asks once per object per tick.
         var (t, _, _, _) = Make();
         MotionState state = PhysicsCostBench.BenchState(kind);
-        t.SimulateState(state, CrateObj, 0.015f, out _, out _);
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        MotionSimResult result = t.SimulateState(state, CrateObj, 0.015f, out _, out _);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        MotionSimResult result = default;
+        long allocated = SteadyAllocation.LeastAllocated(
+            () => result = t.SimulateState(state, CrateObj, 0.015f, out _, out _));
 
         Assert.Equal((expected, 0L), (result, allocated));
     }

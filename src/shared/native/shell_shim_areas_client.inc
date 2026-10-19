@@ -589,10 +589,6 @@ void CShimInputClient::InputShowScoreboard( int32_t bShow )
 void * CShimInputClient::InputMailbox()
 	{ return ::SourceSharp_InputMailbox(); }
 
-void * CShimPhysicsClient::PhysicsClientEnvironment()
-	{ return ::SourceSharp_PhysicsClientEnvironment(); }
-void * CShimPhysicsClient::PhysicsClientCollisionEvents()
-	{ return ::SourceSharp_PhysicsClientCollisionEvents(); }
 int32_t CShimPhysicsClient::PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char * pHard, int32_t nHard, char * pSoft, int32_t nSoft, float * pOut3 )
 	{ return ::SourceSharp_PhysicsClientSurfaceAudio( nSurfaceProps, pHard, nHard, pSoft, nSoft, pOut3 ); }
 int32_t CShimPhysicsClient::PhysicsClientEmitImpactSound( const char * pszName, const float * pOrigin, int32_t nChannel, float flVolume )

@@ -270,7 +270,10 @@ public partial class EngineApiCensusTests
     // BitBlock): 240 - 1 = 239.
     // plan_particles_so.md: ParticlesThrottleScaling went (managed asks
     // libss_particles.so's ISSParticleLib directly): 239 - 1 = 238.
-    private const int ClientOnly = 238;
+    // The client physics leftovers (2026-10-18): PhysicsClientEnvironment and
+    // PhysicsClientCollisionEvents went (managed holds the level's environment;
+    // fork physics.cpp's g_Collisions left client.so): 238 - 2 = 236.
+    private const int ClientOnly = 236;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

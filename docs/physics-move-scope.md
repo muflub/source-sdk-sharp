@@ -613,6 +613,11 @@ be done; emptying it is, and that is §4.
 > collision-check budget counter, the penetration counters' accessor and
 > `PhysTimescale`. The table is the driver census it was taken as.
 
+> **Managed since 2026-10-18.** ss_physworld_recheck, _bounds and _object
+> are SourceSharp.Server's PhysWorldProbes (PhysicsDebugCommands.cs, debug
+> builds), with native's lines and the same per-pid file; physics_debug.cpp
+> is deleted.
+
 The port's own physics diagnostics. A `ConCommand` registers itself from a
 static constructor, so **no link-line census can see a driver**; these have to
 be swept for by name. Re-measured here rather than quoted (`./5a-namedrive.sh`):
@@ -859,6 +864,15 @@ derived from `5a-callers.py` and re-derive it rather than inheriting it.
 > `PhysForceEntityToSleep` are deleted. `physics_highlight_active`,
 > `physics_report_active` and `physics_select` are still native in
 > `physics_debug.cpp`.
+
+> **All five managed (2026-10-18).** `physics_highlight_active`,
+> `physics_report_active` and `physics_select` are re-registered on the
+> managed side too (PhysicsDebugCommands.cs, debug builds), and
+> `physics_debug.cpp` is deleted. `physics_select` resolves its subject again
+> (the player's aim, then a name, then a classname) and toggles
+> CALLBACK_MARKED_FOR_TEST, where native printed a refusal;
+> `physics_highlight_active` still marks nothing, since no entity of this build
+> has `m_debugOverlays`.
 
 > **Moved to `physics_debug.cpp` (2026-10-01),** a debug-only file, by user
 > ruling -- the four commands and every helper below, `PhysForceEntityToSleep`

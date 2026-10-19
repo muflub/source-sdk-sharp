@@ -395,20 +395,6 @@ void SourceSharp_ViewerCameraModeChanged()
 }
 
 //-----------------------------------------------------------------------------
-// THE BONE-ACCESS GATE'S FORWARDERS STOOD HERE, AND THE DEBT THEY CARRIED IS
-// PAID -- lane f-bone. view_facts.h's note said "when the gate moves off
-// C_BaseAnimating [...] these three go with it", and it has: the gate's state
-// and the bodies of SourceSharp_BoneAccessPush / Pop and the scoped
-// CSourceSharpBoneAccessScope are now
-// sourcesharp/game/client/shell_bone_leaf_library.cpp, declared in
-// bone_leaf_library.h. C_BaseAnimating's statics forward to THEM now, which is
-// the direction plan_entity.md §6's bone-leaf-library row asks for.
-//
-// Nothing here re-declares them: this file's callers reach them through
-// view_facts.h, which includes that header.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
 // THE VIEWER'S VEHICLE, for the movement stick's response curve.
 //
 // view_facts.h carries the argument. The short of it: this build has no

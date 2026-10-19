@@ -22,11 +22,9 @@ src/launcher_main/launcher_main_mod_sharp.vpc	no	build/VPC config only
 src/public/bullet_glass.h	yes	ports CBaseEntity::FireBullets' glass-penetration rule
 src/public/chain_state_notify.h	no	retypes a network-var chain holder for interop, no logic reproduced
 src/public/entity_funcslot.h	no	pointer-to-member cast-safety mechanism, not porting logic
-src/sourcesharp/game/client/bone_leaf_library.h	yes	ports C_BaseAnimating::AutoAllowBoneAccess RAII scope guard verbatim (borderline)
 src/sourcesharp/game/client/client_entity_counts.h	yes	rule 3: includes slot_table.h which includes basehandle.h (public)
 src/sourcesharp/game/client/impact_effects.h	no	parameter-block layout only, no algorithm
 src/sourcesharp/game/client/managed_runtime_client.h	no	pure interop adapter, no logic
-src/sourcesharp/game/client/ragdoll_library.h	no	own id-scheme design and declarations, no Valve algorithm
 src/sourcesharp/game/client/shell_clientdll_refusals.h	no	own refusal-counter infrastructure
 src/sourcesharp/game/client/shell_clientdll_voicehelper.h	yes	rule 3: includes voice_status.h (Valve SDK header, game/shared)
 src/sourcesharp/game/client/shell_clientsystem.h	no	architecture mirror of CBaseGameSystem, no-op stages
@@ -1234,7 +1232,6 @@ src/sourcesharp/test/baseentity_statics_test.cpp	no	source scan plus own fake vo
 src/sourcesharp/test/base_table_chain_end_test.cpp	no	source scan re overload resolution claim; no logic
 src/sourcesharp/test/blast_blocking_test.cpp	no	drives own blast_blocking.h identity rule over opaque handles; own header
 src/sourcesharp/test/blood_family_move_test.cpp	no	source scan of a code move between files; no embedded algorithm
-src/sourcesharp/test/bone_leaf_library_test.cpp	no	drives real shell_bone_leaf_library.cpp; test itself has no embedded algorithm
 src/sourcesharp/test/bone_leaf_rehome_ruling_test.cpp	no	source scan of move rulings; no embedded algorithm
 src/sourcesharp/test/boundary_probe_test.cpp	no	tests own CBoundaryProbe counters; no Valve logic
 src/sourcesharp/test/break_model_return_type_test.cpp	no	source scan for return-type agreement across 3 sites; no logic
@@ -1368,7 +1365,6 @@ src/sourcesharp/test/physics_event_sink_test.cpp	no	source-scan checking sink is
 src/sourcesharp/test/physics_gamedata_test.cpp	no	handle/gamedata arithmetic test, original rule
 src/sourcesharp/test/physicslink_lift_test.cpp	no	source scanner verifying static members moved out
 src/sourcesharp/test/physics_move_scope_test.cpp	no	scope-document measurement test, infra
-src/sourcesharp/test/physworld_match_rule_test.cpp	no	tests policy header plus real tier1 V_stristr, not a port itself
 src/sourcesharp/test/player_disconnect_removal_test.cpp	no	source-read verifying announcement ordering
 src/sourcesharp/test/playerinfo_block_test.cpp	no	refusal-counter/body test, original infra
 src/sourcesharp/test/player_name_match_test.cpp	no	tests own PlayerNameMatch header, original logic
@@ -1377,7 +1373,6 @@ src/sourcesharp/test/push_blocker_rule_test.cpp	no	tests own push-filter rule he
 src/sourcesharp/test/pvs_notify_ruling_test.cpp	no	source-scan pinning PVS-notify reachability facts
 src/sourcesharp/test/ragdoll_blast_seam_test.cpp	no	source-scan verifying stock formula text still present, not embedded computation
 src/sourcesharp/test/ragdoll_model_guard_test.cpp	no	source-scan for NULL-guard ordering bug
-src/sourcesharp/test/ragdoll_signature_test.cpp	no	source-scan verifying function shape/flatness
 src/sourcesharp/test/removal_set_middle_test.cpp	no	source-scan classifying member definitions, no algorithm reproduced
 src/sourcesharp/test/removal_set_tail_test.cpp	no	source-scan verifying lifted/deleted definitions
 src/sourcesharp/test/renderable_subject_test.cpp	no	source-scan plus counter test for render path de-entitying
@@ -1469,7 +1464,6 @@ src/sourcesharp/test/util_shared_library_test.cpp	no	source-scan verifying utili
 src/sourcesharp/test/variant_convert_test.cpp	yes	every expression copied out of variant_t::Convert and variant_t::ToString (cbase.cpp)
 src/sourcesharp/test/view_effect_reach_test.cpp	no	tests own view-effect-reach rule header, original logic
 src/sourcesharp/test/view_subject_test.cpp	no	tests own view-subject rule header plus source-scan
-src/sourcesharp/test/virtual_terrain_set_test.cpp	no	tests own pointer-set membership helper, original logic
 src/sourcesharp/test/vpc_folders_test.cpp	no	vpc folder-structure verification test
 src/sourcesharp/test/vpc_link_libraries_test.cpp	no	vpc link-library ratchet test
 src/sourcesharp/test/vpc_no_protobuf_test.cpp	no	vpc/graph protobuf-absence test

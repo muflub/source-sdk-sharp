@@ -880,8 +880,6 @@ public:
 class CShimPhysicsClient final : public IShimPhysicsClient
 {
 public:
-	void * PhysicsClientEnvironment() override;
-	void * PhysicsClientCollisionEvents() override;
 	int32_t PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char * pHard, int32_t nHard, char * pSoft, int32_t nSoft, float * pOut3 ) override;
 	int32_t PhysicsClientEmitImpactSound( const char * pszName, const float * pOrigin, int32_t nChannel, float flVolume ) override;
 	void PhysicsClientCollideExtent( void * pObject, const float * pOrigin, const float * pAngles, const float * pDirection, float * pOut ) override;

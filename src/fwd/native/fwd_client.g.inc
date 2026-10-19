@@ -15,6 +15,7 @@
 
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "cdll_int.h"
+#include "engine/IStaticPropMgr.h"
 #include "engine/ivmodelinfo.h"
 #include "filesystem.h"
 #include "fwd_physics.h"
@@ -262,19 +263,40 @@ static void *const s_SoundEmitterSystemSlots[] = {
 static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystemSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// Physics: 2 forwarder(s) over IPhysics.
+// StaticPropMgrClient: 1 forwarder(s) over IStaticPropMgrClient.
+//-----------------------------------------------------------------------------
+// void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
+static void SSFwd_StaticPropMgrClient_CreateVPhysicsRepresentations( IStaticPropMgrClient *self, IPhysicsEnvironment * a0, IVPhysicsKeyHandler * a1, void * a2 ) { self->CreateVPhysicsRepresentations( a0, a1, a2 ); }
+
+static void *const s_StaticPropMgrClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_StaticPropMgrClient_CreateVPhysicsRepresentations ),
+};
+
+static const SSForwarderTable s_StaticPropMgrClientTable = { s_StaticPropMgrClientSlots, 1 };
+
+//-----------------------------------------------------------------------------
+// Physics: 5 forwarder(s) over IPhysics.
 //-----------------------------------------------------------------------------
 // IPhysicsCollisionSet * IPhysics::FindOrCreateCollisionSet( unsigned int, int )
 static IPhysicsCollisionSet * SSFwd_Physics_FindOrCreateCollisionSet( IPhysics *self, unsigned int a0, int a1 ) { return self->FindOrCreateCollisionSet( a0, a1 ); }
 // IPhysicsCollisionSet * IPhysics::FindCollisionSet( unsigned int )
 static IPhysicsCollisionSet * SSFwd_Physics_FindCollisionSet( IPhysics *self, unsigned int a0 ) { return self->FindCollisionSet( a0 ); }
+// IPhysicsEnvironment * IPhysics::CreateEnvironment( void )
+static IPhysicsEnvironment * SSFwd_Physics_CreateEnvironment( IPhysics *self ) { return self->CreateEnvironment(); }
+// void IPhysics::DestroyEnvironment( IPhysicsEnvironment * )
+static void SSFwd_Physics_DestroyEnvironment( IPhysics *self, IPhysicsEnvironment * a0 ) { self->DestroyEnvironment( a0 ); }
+// void IPhysics::DestroyAllCollisionSets( void )
+static void SSFwd_Physics_DestroyAllCollisionSets( IPhysics *self ) { self->DestroyAllCollisionSets(); }
 
 static void *const s_PhysicsSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_Physics_FindOrCreateCollisionSet ),
 	reinterpret_cast< void * >( &SSFwd_Physics_FindCollisionSet ),
+	reinterpret_cast< void * >( &SSFwd_Physics_CreateEnvironment ),
+	reinterpret_cast< void * >( &SSFwd_Physics_DestroyEnvironment ),
+	reinterpret_cast< void * >( &SSFwd_Physics_DestroyAllCollisionSets ),
 };
 
-static const SSForwarderTable s_PhysicsTable = { s_PhysicsSlots, 2 };
+static const SSForwarderTable s_PhysicsTable = { s_PhysicsSlots, 5 };
 
 //-----------------------------------------------------------------------------
 // PhysicsCollision: 6 forwarder(s) over IPhysicsCollision.
@@ -334,7 +356,7 @@ static void *const s_PhysicsSurfacePropsSlots[] = {
 static const SSForwarderTable s_PhysicsSurfacePropsTable = { s_PhysicsSurfacePropsSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// PhysicsEnvironment: 34 forwarder(s) over IPhysicsEnvironment.
+// PhysicsEnvironment: 37 forwarder(s) over IPhysicsEnvironment.
 //-----------------------------------------------------------------------------
 // void IPhysicsEnvironment::GetGravity( Vector * )
 static void SSFwd_PhysicsEnvironment_GetGravity( IPhysicsEnvironment *self, Vector * a0 ) { self->GetGravity( a0 ); }
@@ -404,6 +426,12 @@ static void SSFwd_PhysicsEnvironment_GetActiveObjects( IPhysicsEnvironment *self
 static const IPhysicsObject * * SSFwd_PhysicsEnvironment_GetObjectList( IPhysicsEnvironment *self, int * a0 ) { return self->GetObjectList( a0 ); }
 // void IPhysicsEnvironment::DebugCheckContacts( void )
 static void SSFwd_PhysicsEnvironment_DebugCheckContacts( IPhysicsEnvironment *self ) { self->DebugCheckContacts(); }
+// void IPhysicsEnvironment::SetGravity( const Vector & )
+static void SSFwd_PhysicsEnvironment_SetGravity( IPhysicsEnvironment *self, const Vector & a0 ) { self->SetGravity( a0 ); }
+// void IPhysicsEnvironment::SetSimulationTimestep( float )
+static void SSFwd_PhysicsEnvironment_SetSimulationTimestep( IPhysicsEnvironment *self, float a0 ) { self->SetSimulationTimestep( a0 ); }
+// void IPhysicsEnvironment::SetQuickDelete( bool )
+static void SSFwd_PhysicsEnvironment_SetQuickDelete( IPhysicsEnvironment *self, bool a0 ) { self->SetQuickDelete( a0 ); }
 
 static void *const s_PhysicsEnvironmentSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_GetGravity ),
@@ -440,9 +468,12 @@ static void *const s_PhysicsEnvironmentSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_GetActiveObjects ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_GetObjectList ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_DebugCheckContacts ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_SetGravity ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_SetSimulationTimestep ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_SetQuickDelete ),
 };
 
-static const SSForwarderTable s_PhysicsEnvironmentTable = { s_PhysicsEnvironmentSlots, 34 };
+static const SSForwarderTable s_PhysicsEnvironmentTable = { s_PhysicsEnvironmentSlots, 37 };
 
 //-----------------------------------------------------------------------------
 // PhysicsObject: 54 forwarder(s) over IPhysicsObject.
@@ -863,33 +894,6 @@ static void *const s_VPhysicsKeyParserSlots[] = {
 };
 
 static const SSForwarderTable s_VPhysicsKeyParserTable = { s_VPhysicsKeyParserSlots, 8 };
-
-//-----------------------------------------------------------------------------
-// PhysicsCollisionEvent: 6 forwarder(s) over IPhysicsCollisionEvent.
-//-----------------------------------------------------------------------------
-// void IPhysicsCollisionEvent::PreCollision( vcollisionevent_t * )
-static void SSFwd_PhysicsCollisionEvent_PreCollision( IPhysicsCollisionEvent *self, vcollisionevent_t * a0 ) { self->PreCollision( a0 ); }
-// void IPhysicsCollisionEvent::StartTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
-static void SSFwd_PhysicsCollisionEvent_StartTouch( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1, IPhysicsCollisionData * a2 ) { self->StartTouch( a0, a1, a2 ); }
-// void IPhysicsCollisionEvent::EndTouch( IPhysicsObject *, IPhysicsObject *, IPhysicsCollisionData * )
-static void SSFwd_PhysicsCollisionEvent_EndTouch( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1, IPhysicsCollisionData * a2 ) { self->EndTouch( a0, a1, a2 ); }
-// void IPhysicsCollisionEvent::PostSimulationFrame( void )
-static void SSFwd_PhysicsCollisionEvent_PostSimulationFrame( IPhysicsCollisionEvent *self ) { self->PostSimulationFrame(); }
-// void IPhysicsCollisionEvent::ObjectEnterTrigger( IPhysicsObject *, IPhysicsObject * )
-static void SSFwd_PhysicsCollisionEvent_ObjectEnterTrigger( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1 ) { self->ObjectEnterTrigger( a0, a1 ); }
-// void IPhysicsCollisionEvent::ObjectLeaveTrigger( IPhysicsObject *, IPhysicsObject * )
-static void SSFwd_PhysicsCollisionEvent_ObjectLeaveTrigger( IPhysicsCollisionEvent *self, IPhysicsObject * a0, IPhysicsObject * a1 ) { self->ObjectLeaveTrigger( a0, a1 ); }
-
-static void *const s_PhysicsCollisionEventSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_PreCollision ),
-	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_StartTouch ),
-	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_EndTouch ),
-	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_PostSimulationFrame ),
-	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_ObjectEnterTrigger ),
-	reinterpret_cast< void * >( &SSFwd_PhysicsCollisionEvent_ObjectLeaveTrigger ),
-};
-
-static const SSForwarderTable s_PhysicsCollisionEventTable = { s_PhysicsCollisionEventSlots, 6 };
 
 //-----------------------------------------------------------------------------
 // ShimFrame: 19 forwarder(s) over IShimFrame.
@@ -3337,12 +3341,8 @@ static void *const s_ShimInputClientSlots[] = {
 static const SSForwarderTable s_ShimInputClientTable = { s_ShimInputClientSlots, 12 };
 
 //-----------------------------------------------------------------------------
-// ShimPhysicsClient: 8 forwarder(s) over IShimPhysicsClient.
+// ShimPhysicsClient: 6 forwarder(s) over IShimPhysicsClient.
 //-----------------------------------------------------------------------------
-// void * IShimPhysicsClient::PhysicsClientEnvironment( void )
-static void * SSFwd_ShimPhysicsClient_PhysicsClientEnvironment( IShimPhysicsClient *self ) { return self->PhysicsClientEnvironment(); }
-// void * IShimPhysicsClient::PhysicsClientCollisionEvents( void )
-static void * SSFwd_ShimPhysicsClient_PhysicsClientCollisionEvents( IShimPhysicsClient *self ) { return self->PhysicsClientCollisionEvents(); }
 // int32_t IShimPhysicsClient::PhysicsClientSurfaceAudio( int32_t, char *, int32_t, char *, int32_t, float * )
 static int32_t SSFwd_ShimPhysicsClient_PhysicsClientSurfaceAudio( IShimPhysicsClient *self, int32_t a0, char * a1, int32_t a2, char * a3, int32_t a4, float * a5 ) { return self->PhysicsClientSurfaceAudio( a0, a1, a2, a3, a4, a5 ); }
 // int32_t IShimPhysicsClient::PhysicsClientEmitImpactSound( const char *, const float *, int32_t, float )
@@ -3357,8 +3357,6 @@ static void SSFwd_ShimPhysicsClient_PhysicsClientSplashLighting( IShimPhysicsCli
 static void SSFwd_ShimPhysicsClient_PhysicsClientSplashEffect( IShimPhysicsClient *self, int32_t a0, const float * a1, const float * a2, float a3, const float * a4, float a5, float a6 ) { self->PhysicsClientSplashEffect( a0, a1, a2, a3, a4, a5, a6 ); }
 
 static void *const s_ShimPhysicsClientSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientEnvironment ),
-	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientCollisionEvents ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSurfaceAudio ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientEmitImpactSound ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientCollideExtent ),
@@ -3367,7 +3365,7 @@ static void *const s_ShimPhysicsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSplashEffect ),
 };
 
-static const SSForwarderTable s_ShimPhysicsClientTable = { s_ShimPhysicsClientSlots, 8 };
+static const SSForwarderTable s_ShimPhysicsClientTable = { s_ShimPhysicsClientSlots, 6 };
 
 //-----------------------------------------------------------------------------
 // ShimConVarsClient: 2 forwarder(s) over IShimConVarsClient.
@@ -3434,6 +3432,7 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_NetworkStringTableContainer", &s_NetworkStringTableContainerTable },
 	{ "SSFwd_NetworkStringTable", &s_NetworkStringTableTable },
 	{ "SSFwd_SoundEmitterSystem", &s_SoundEmitterSystemTable },
+	{ "SSFwd_StaticPropMgrClient", &s_StaticPropMgrClientTable },
 	{ "SSFwd_Physics", &s_PhysicsTable },
 	{ "SSFwd_PhysicsCollision", &s_PhysicsCollisionTable },
 	{ "SSFwd_PhysicsSurfaceProps", &s_PhysicsSurfacePropsTable },
@@ -3450,7 +3449,6 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_PhysicsCollisionSet", &s_PhysicsCollisionSetTable },
 	{ "SSFwd_PhysicsCollisionData", &s_PhysicsCollisionDataTable },
 	{ "SSFwd_VPhysicsKeyParser", &s_VPhysicsKeyParserTable },
-	{ "SSFwd_PhysicsCollisionEvent", &s_PhysicsCollisionEventTable },
 	{ "SSFwd_ShimFrame", &s_ShimFrameTable },
 	{ "SSFwd_ShimLevel", &s_ShimLevelTable },
 	{ "SSFwd_ShimRoot", &s_ShimRootTable },

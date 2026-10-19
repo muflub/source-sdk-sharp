@@ -281,7 +281,10 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 #   non-zero default, and the compiler wrote the 1 MiB buffer into every DLL's .data (release server.so 1692 KB);
 #   apart and all zero it is .bss (server.so 668 KB). One more piece of state for 1 MiB off each DLL file.
 # RAISED 2026-10-13, 357 -> 359, deliberately: vec3_origin and vec3_angle, which libmathlib.a defined while server.so linked it, are mathlib_port.cpp's now (ruled CONST: zero, written only by the initialiser; in .bss with a static-init only because Vector's and QAngle's constructors are not constexpr). The archive's own state (the SSE function pointers, the sine and gamma tables) left server.so with it, uncounted because it was never on the link line's objects.
-globals_link_level	src/game/server	359
+# LOWERED 2026-10-18, 359 -> 352 (-7, make globals-ledger): physics_debug.cpp left server.so; its six
+#   SS_NATIVE_COMMAND bodies and PhysicsCommand's s_RefusePhysicsCommandByName went with it. The
+#   commands are managed's PhysicsDebugCommands.cs. tools/globals-census summary: link_level 352.
+globals_link_level	src/game/server	352
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the

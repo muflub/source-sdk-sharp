@@ -47,112 +47,11 @@
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-// THE NON-FINITE TEST, which the out-of-bounds report (physics_debug.cpp) asks.
-//
-// The guard that refused a non-finite vector before vphysics saw it, and its
-// refusal ledger, are managed's PhysicsNanGuard: they moved with the player
-// shadow, their only caller (plan_physics_bones_native_zero 2.5), and the
-// [SS-PHYSWORLD-NAN] line is managed's ss_physworld_nan.
+// THE NON-FINITE TEST AND THE POINTER SET ARE GONE (2026-10-18). Their one user
+// was physics_debug.cpp's ss_physworld_bounds, which is managed's
+// PhysWorldProbes now, over PhysicsNanGuard.IsFinite and a set of the virtual
+// terrain's collides.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// AND IT READS THE BITS, NOT THE FLOAT, BECAUSE THE RELEASE BUILD IS
-// -ffast-math.
-//
-// `src/vpc_scripts/source_posix_ninja.vpc:312` puts `-ffast-math` in
-// NINJA_OPTIMIZATION_RELEASE. That implies `-ffinite-math-only`, under which the
-// compiler is entitled to assume no operand is ever NaN or infinite -- so
-// `f == f` may be folded to true and a range test reasoned about as if NaN could
-// not reach it. A float-comparison guard would therefore be a check that CANNOT
-// FAIL in the build that ships, which is the worst place to put one.
-//
-// IEEE-754 single precision, read as an integer, needs neither: an exponent of
-// 0xFF is NaN or infinity, and for everything below that the magnitude orders
-// monotonically as an unsigned integer. So one unsigned compare against the
-// bound's own bit pattern answers both questions at once, and no floating-point
-// comparison happens at all.
-//
-// The bound is two thousand times a Source map's legal half-extent (16384): a
-// ceiling nothing real reaches and nothing broken stays under.
-//-----------------------------------------------------------------------------
-inline uint32_t SourceSharpFloatBits( float f )
-{
-	uint32_t nBits;
-	memcpy( &nBits, &f, sizeof( nBits ) );
-	return nBits;
-}
-
-// Derived from the literal rather than written as hex, so the constant cannot
-// drift away from the number the comment names.
-inline uint32_t SourceSharpPhysicsCoordLimitBits()
-{
-	return SourceSharpFloatBits( 3.2768e7f ) & 0x7FFFFFFFu;
-}
-
-inline bool SourceSharpIsFinitePhysicsCoord( float f )
-{
-	return ( SourceSharpFloatBits( f ) & 0x7FFFFFFFu ) < SourceSharpPhysicsCoordLimitBits();
-}
-
-inline bool SourceSharpIsFinitePhysicsVector( const float *pVec3 )
-{
-	return pVec3 != NULL
-		&& SourceSharpIsFinitePhysicsCoord( pVec3[ 0 ] )
-		&& SourceSharpIsFinitePhysicsCoord( pVec3[ 1 ] )
-		&& SourceSharpIsFinitePhysicsCoord( pVec3[ 2 ] );
-}
-
-//-----------------------------------------------------------------------------
-// A SET OF COLLIDE POINTERS the out-of-bounds report must not ask for a hull.
-//
-// vphysics' CollideGetAABB SEGFAULTS on a virtual-mesh collide (the displacement
-// terrain PhysCreateVirtualTerrain makes from GetCollideForVirtualTerrain),
-// reproduced in isolation by maptools lane p3h
-// and hit at level init by p3i's live gate on every map whose displacements are
-// virtual meshes (power <= 3), stock-compiled or not. So the report collects
-// those collide pointers from the same source, sorts them once, and asks this
-// before each CollideGetAABB.
-//
-// Membership is by POINTER, never by the object's name "vdisp_%04d": the name
-// is a string the creating code happens to print and anything may reuse, while
-// the pointer is the exact thing CollideGetAABB would be handed.
-//
-// Pure: no engine, no allocation, no statics -- sorted in the caller's array.
-// Insertion sort because the engine hands the pointers over in creation order,
-// which is near-sorted, and n is at most MAX_MAP_DISPINFO.
-//-----------------------------------------------------------------------------
-inline void SourceSharpSortPointerSet( const void **ppSet, int32_t nCount )
-{
-	for ( int32_t i = 1; i < nCount; i++ )
-	{
-		const void *p = ppSet[ i ];
-		int32_t j = i - 1;
-		while ( j >= 0 && (uintptr_t)ppSet[ j ] > (uintptr_t)p )
-		{
-			ppSet[ j + 1 ] = ppSet[ j ];
-			j--;
-		}
-		ppSet[ j + 1 ] = p;
-	}
-}
-
-// ppSet must have been sorted by SourceSharpSortPointerSet. Duplicates are fine.
-inline bool SourceSharpPointerSetContains( const void *const *ppSet, int32_t nCount, const void *p )
-{
-	int32_t lo = 0;
-	int32_t hi = nCount - 1;
-	while ( ppSet && lo <= hi )
-	{
-		const int32_t mid = lo + ( hi - lo ) / 2;
-		const uintptr_t v = (uintptr_t)ppSet[ mid ];
-		if ( v == (uintptr_t)p )
-			return true;
-		if ( v < (uintptr_t)p )
-			lo = mid + 1;
-		else
-			hi = mid - 1;
-	}
-	return false;
-}
 
 //=============================================================================//
 // THE ENGINE HALF.

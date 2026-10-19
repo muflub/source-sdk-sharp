@@ -16,7 +16,8 @@ public readonly record struct PhysicsObjectReadout(
 /// The environment and object reads managed's physics diagnostics make, each a
 /// direct call through <see cref="PhysicsEnvironmentFwd"/> or
 /// <see cref="PhysicsObjectFwd"/> (plan_physics_bones_native_zero 2.3: the
-/// SS-PHYSWORLD report, physics_budget and air_density left native). Every
+/// SS-PHYSWORLD report, physics_budget and air_density left native; then the
+/// rest of physics_debug.cpp's commands, 2026-10-18). Every
 /// call on 0 is a no-op answering zero.
 /// </summary>
 public interface IVPhysicsInspect
@@ -44,6 +45,15 @@ public interface IVPhysicsInspect
 
     /// <summary><c>IPhysicsEnvironment::SetAirDensity</c>.</summary>
     void SetAirDensity(nint environment, float density);
+
+    /// <summary><c>IPhysicsObject::RecheckCollisionFilter</c> (ss_physworld_recheck).</summary>
+    void RecheckCollisionFilter(nint physicsObject);
+
+    /// <summary><c>IPhysicsObject::GetCallbackFlags</c> (CALLBACK_*).</summary>
+    ushort CallbackFlags(nint physicsObject);
+
+    /// <summary><c>IPhysicsObject::SetCallbackFlags</c> (physics_select).</summary>
+    void SetCallbackFlags(nint physicsObject, ushort flags);
 }
 
 /// <summary>The real vphysics. Holds nothing: every pointer is handed in.</summary>
@@ -142,5 +152,19 @@ public sealed unsafe class VPhysicsInspect : IVPhysicsInspect
     {
         if (environment != 0)
             Env(environment)->SetAirDensity((void*)environment, density);
+    }
+
+    public void RecheckCollisionFilter(nint o)
+    {
+        if (o != 0)
+            Obj(o)->RecheckCollisionFilter((void*)o);
+    }
+
+    public ushort CallbackFlags(nint o) => o == 0 ? (ushort)0 : Obj(o)->GetCallbackFlags((void*)o);
+
+    public void SetCallbackFlags(nint o, ushort flags)
+    {
+        if (o != 0)
+            Obj(o)->SetCallbackFlags((void*)o, flags);
     }
 }

@@ -2,7 +2,8 @@ namespace SourceSharp.Server;
 
 /// <summary>
 /// Which physics objects <c>ss_physworld_object &lt;request&gt;</c> reports on:
-/// the managed twin of native physworld_match_rule.h (plan_physics_managed B1).
+/// the managed twin of native physworld_match_rule.h (plan_physics_managed B1),
+/// and the only rule since that header went with physics_debug.cpp (2026-10-18).
 ///
 /// <para>
 /// "*" AND ONLY "*" is every object, the nameless ones included. Anything else

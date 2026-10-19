@@ -179,14 +179,11 @@ public class NameMatchesTests
             return n;
         }
 
-        Walk(d, alive);   // warm the pools and the JIT
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int visited = Walk(d, alive);
-        long after = GC.GetAllocatedBytesForCurrentThread();
+        int visited = 0;
+        long allocated = SteadyAllocation.LeastAllocated(() => visited = Walk(d, alive));
 
         Assert.Equal(50, visited);
-        Assert.Equal(0, after - before);
+        Assert.Equal(0, allocated);
     }
 
     [Fact]

@@ -7,11 +7,12 @@ CPhysicsHook::LevelInitPostEntity	HOOK	engine-driven game-system slot
 CPhysicsHook::LevelShutdownPreEntity	HOOK	engine-driven game-system slot
 CPhysicsHook::LevelShutdownPostEntity	HOOK	engine-driven game-system slot
 CPhysicsHook::FrameUpdatePostEntityThink	HOOK	engine-driven game-system slot; forwards to managed's PhysicsFrame (IManagedPhysicsFrame)
-PhysicsWorldOwner	LIVE-API	physics_debug.o imports it (measured, debug build; physics_shared.o did until it left at 2.6)
+PhysicsWorldOwner	LIVE-API	physicsowner.h declares it for PhysicsOwnerOf, which SourceSharp_PhysicsUpdateOwners calls in this file; no other server object imports it since physics_debug.o left (2026-10-18, nm -u over server_sourcesharp's objects; physics_shared.o did until 2.6)
 SourceSharp_PhysicsUpdateOwners	LIVE-API	IShimPhysics slot: the owners' transform update managed's PhysicsFrame asks after each simulate (plan_physics_bones_native_zero 2.3)
 #
 # MOVED TO physics_debug.cpp (2026-10-01 user ruling: diagnostic console commands live in debug files
-# that only a debug build compiles). No longer in physics.cpp, so no longer ruled here; their rulings were:
+# that only a debug build compiles), and from there to managed on 2026-10-18 (PhysicsDebugCommands.cs;
+# the file is deleted). No longer in physics.cpp, so no longer ruled here; their rulings were:
 #   SS_NATIVE_COMMAND( ss_physworld_report )	INSTRUMENT	named by 4 tools
 #   ss_physworld_recheck	INSTRUMENT	named by 1 tool, 2 sites
 #   SourceSharpReportObjectsOutOfBounds	INSTRUMENT	ss_physworld_bounds's body

@@ -19,7 +19,7 @@ public sealed unsafe class VPhysicsTablesTests : IDisposable
         PhysicsFrictionSnapshotFwd.TableName, PhysicsFluidControllerFwd.TableName,
         PhysicsConstraintFwd.TableName, PhysicsConstraintGroupFwd.TableName, PhysicsSpringFwd.TableName,
         PhysicsCollisionSetFwd.TableName, PhysicsCollisionDataFwd.TableName,
-        VPhysicsKeyParserFwd.TableName, PhysicsCollisionEventFwd.TableName,
+        VPhysicsKeyParserFwd.TableName,
     };
 
     // One header per table, long enough for any struct, each with its own
@@ -74,8 +74,8 @@ public sealed unsafe class VPhysicsTablesTests : IDisposable
 
         Assert.Equal(Names, _asked);
         Assert.Equal((nint)((ForwarderTableHeader*)_headers[PhysicsObjectFwd.TableName])->Slots, (nint)objects);
-        Assert.Equal((nint)((ForwarderTableHeader*)_headers[PhysicsCollisionEventFwd.TableName])->Slots,
-                     (nint)tables.PhysicsCollisionEvent);
+        Assert.Equal((nint)((ForwarderTableHeader*)_headers[VPhysicsKeyParserFwd.TableName])->Slots,
+                     (nint)tables.VPhysicsKeyParser);
 
         // Bound once. The factory caches what it answered, so a second ask
         // would not reach Acquire; what would show is a rebind reading the

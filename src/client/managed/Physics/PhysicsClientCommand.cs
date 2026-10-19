@@ -4,20 +4,32 @@ using SourceSharp.Shared;
 namespace SourceSharp.Client.Physics;
 
 /// <summary>
-/// cs_cl_physics: the client physics callbacks' counters (lane c6-input) --
-/// whether the level's environment has managed's table, and the impact sounds
-/// queued and played -- so a live run can see the arm reach its consumer.
+/// cs_cl_physics: the client physics' counters -- whether the level has an
+/// environment and managed's tables are on it, the steps taken, and the
+/// impact sounds, solver asks, splashes and scrapes -- so a live run can see
+/// each arm reach its consumer.
 /// </summary>
-[ConCommand("cs_cl_physics", Help = "Print the client physics callbacks' counters (managed table, impact sounds)")]
-public sealed class PhysicsClientCommand(ILog log, ClientPhysicsCallbacks callbacks, ClientImpactSounds impacts,
+[ConCommand("cs_cl_physics", Help = "Print the client physics counters (environment, tables, steps and their cost, impact sounds); 'reset' zeroes the step meter")]
+public sealed class PhysicsClientCommand(ILog log, ClientPhysicsSystem system, ClientImpactSounds impacts,
                                           ClientCollisionSolver solver, ClientFluidEvents fluids,
                                           FrictionSounds scrapes) : IConCommand
 {
     public void Execute(string args)
-        => log.Msg($"[SourceSharp/Client] physics: table installed {(callbacks.Installed ? "yes" : "no")} " +
-                   $"(installs {callbacks.Installs}), impact sounds queued {impacts.Queued}, played {impacts.Played}, " +
+    {
+        if (args.Trim() == "reset")
+        {
+            system.ResetMeter();
+            log.Msg("[SourceSharp/Client] physics: the step meter is reset\n");
+            return;
+        }
+
+        log.Msg($"[SourceSharp/Client] physics: environment {(system.Environment != 0 ? "yes" : "no")}, " +
+                $"tables installed {(system.Installed ? "yes" : "no")} (installs {system.Installs}), steps {system.Steps} " +
+                $"(step {system.StepNs:F0} ns, solver {system.SolverNs:F0} ns), " +
+                   $"impact sounds queued {impacts.Queued}, played {impacts.Played}, " +
                    $"pairs asked {solver.Asked}, refused {solver.Refused}, splashes {fluids.Splashes} " +
                    $"(gunshot {fluids.EffectsOf(ClientSplashKind.GunshotSplash)}, slime {fluids.EffectsOf(ClientSplashKind.GunshotSlimeSplash)}, " +
                    $"ripple {fluids.EffectsOf(ClientSplashKind.WaterRipple)}), " +
                    $"scrapes started {scrapes.Started}, playing {scrapes.Active}\n");
+    }
 }

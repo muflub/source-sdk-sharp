@@ -308,21 +308,16 @@ public unsafe interface IManagedBonesClient
     void* BoneBatch(int a0, float a1);
 }
 
-[ManagedVtable(typeof(ManagedRagdollsClientTable))]
-public unsafe interface IManagedRagdollsClient
-{
-    int StepPoses();
-    int DestroyAll();
-}
-
 [ManagedVtable(typeof(ManagedPhysicsClientTable))]
 public unsafe interface IManagedPhysicsClient
 {
-    void* CreateWorld();
     int ParseSurfaceData();
-    int PrecacheSurfaceSounds();
-    void SolidKeyValue(void* a0, byte* a1, byte* a2);
-    void SolidDefaults(void* a0);
+    void LevelInitPreEntity();
+    void LevelInitPostEntity();
+    void LevelShutdownPreEntity();
+    void LevelShutdownPostEntity();
+    void Simulate();
+    void Reset();
 }
 
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
@@ -376,8 +371,6 @@ public static class ManagedAreaFactory
         => IManagedInputClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedBonesClient target)
         => IManagedBonesClient__ManagedVtable.Create(vtables, target);
-    public static ManagedVtable Create(ManagedVtables vtables, IManagedRagdollsClient target)
-        => IManagedRagdollsClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedPhysicsClient target)
         => IManagedPhysicsClient__ManagedVtable.Create(vtables, target);
 }

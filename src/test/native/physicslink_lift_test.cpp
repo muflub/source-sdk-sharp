@@ -521,9 +521,13 @@ TEST( PhysicsLinkLift, TheTwoPhysicsBridgesRefuseTheContactTouchlinkOutLoud )
 		}
 	};
 
-	const char *const kBridges[] = { "client/physics.cpp", "../sourcesharp/game/server/physics.cpp" };
+	// The CLIENT bridge is gone: fork game/client/physics.cpp left client.so
+	// (2026-10-18) and its touch slots are managed's, which answer as stock's
+	// client did for an owner-less pair (ClientPhysicsCollisionEventsTests.
+	// TheFiveSlotsStockLeftEmptyReachNoSink). The server's half stays.
+	const char *const kBridges[] = { "../sourcesharp/game/server/physics.cpp" };
 
-	for ( size_t i = 0; i < 2; i++ )
+	for ( size_t i = 0; i < sizeof( kBridges ) / sizeof( kBridges[ 0 ] ); i++ )
 	{
 		const std::string strSrc = ReadGameFile( kBridges[ i ] );
 		ASSERT_FALSE( strSrc.empty() ) << kBridges[ i ] << " did not load";
@@ -546,7 +550,7 @@ TEST( PhysicsLinkLift, TheTwoPhysicsBridgesRefuseTheContactTouchlinkOutLoud )
 		// contact touch is ported (managed's since plan_physics_managed B2.2), and
 		// TheServerHoldsAContactTouchAndReleasesIt below pins that build and
 		// teardown went TOGETHER. The client still refuses both.
-		const bool bServer = ( i == 1 );
+		const bool bServer = true;
 
 		EXPECT_EQ( bServer ? 0u : 1u, Local::Occurrences( strCode, "CPhysicsBridgeRefusal s_RefuseContactTouch(" ) )
 			<< kBridges[ i ] << ( bServer

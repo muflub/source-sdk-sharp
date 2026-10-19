@@ -324,7 +324,9 @@ client_stock_tus	src/client/native/CMakeLists.txt	49
 # RAISED 2026-10-18, 221 -> 222, deliberately (plan_engine_forwarders.md phase 5): sourcesharp/fwd/fwd_steam.cpp (b), libss_fwd_steam, which builds the CCallbackBase Steam registers, so the compiler orders its two Run overloads and managed writes only IManagedSteamCallback's one slot rather than a Valve layout whose overload order differs between the ABIs.
 # RAISED 2026-10-19, 222 -> 223, deliberately (plan_forwarders_everywhere.md phase 5, every crossing through forwarders and no vtable written by managed): sourcesharp/fwd/fwd_physics.cpp (b), a source of both forwarder libraries, which builds each vphysics callback (IPhysicsObjectEvent, IPhysicsCollisionEvent, IPhysicsCollisionSolver, IPhysicsConstraintEvent, IMotionEvent, IVPhysicsKeyHandler) in a managed block and forwards its virtuals to a managed-built table, where managed wrote those six Valve layouts itself.
 # RAISED 2026-10-18, 222 -> 224, deliberately (plan_client_novalve C9): tier0_vprof_client.cpp (x), client.so's own never-enabled vprof profile (user ruling 2026-10-18), and tier_bindings_client.cpp (d), which binds CommandLine_Tier0, g_pMemAlloc, the CThread* members, g_pThreadPool and DestroyThreadPool to the libtier0.so and libvstdlib.so the engine loaded, so client.so links neither.
-shim_cpp_files	src/sourcesharp	225
+# LOWERED 2026-10-18, 224 -> 223 (re-measured on main f707d5b8c): sourcesharp/game/server/physics_debug.cpp (c)
+#   was deleted; its six debug commands are managed's PhysicsDebugCommands.cs (docs/server_evictions.md).
+shim_cpp_files	src/sourcesharp	224
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1639,7 +1641,33 @@ shim_cpp_files	src/sourcesharp	225
 # RAISED 2026-10-18, 145112 -> 145122 (+10, measured by the walk), deliberately: mathlib_port.cpp's client-only data behind CLIENT_DLL (server.so's object carries none of it, its globals ledger back at 359) and power2_n constant-initialised from mathlib_port.h's compile-time ss_mathlib::kPower2N (no static initialiser object); the fix for 91925f4b3's census leg.
 # RAISED 2026-10-18, 145428 -> 145732 (+304, measured by the walk), deliberately: client.so links no libtier0.so or libvstdlib.so (plan_client_novalve C9). tier_bindings_client.cpp (+170) binds CommandLine_Tier0, g_pMemAlloc, the CThreadEvent/CThreadSyncObject/CThreadRWLock/CThreadSpinRWLock members, g_pThreadPool and DestroyThreadPool to the copies the engine loaded; tier0_vprof_client.cpp (+96) is client.so's own never-enabled vprof profile (user ruling 2026-10-18); tier0_thread_client.cpp gains Plat_FloatTime (+15); loaded_symbol.h/.cpp gain RequireLoadedSymbol (+23).
 # RAISED 2026-10-18, 145428 -> 145884 (+456, measured by the walk), deliberately: the client links no tier0 or vstdlib (plan_client_novalve C9). tier_bindings_client.cpp (+333, its Linux arm over asm labels and its Windows arm over tier0.dll's decorated names, CI-verified only) binds CommandLine_Tier0, g_pMemAlloc, the CThreadEvent/CThreadSyncObject/CThreadRWLock/CThreadSpinRWLock members, g_pThreadPool and DestroyThreadPool to the copies the engine loaded; tier0_vprof_client.cpp (+93) is the client's own never-enabled vprof profile (user ruling 2026-10-18); tier0_thread_client.cpp gains Plat_FloatTime (+15); loaded_symbol.h/.cpp gain RequireLoadedSymbol (+23); tier0_spew_port.cpp and tier0_thread_port.cpp lose the client.dll exclusions (-8).
-shim_lines	src/sourcesharp	147142
+# RAISED 2026-10-18, 145884 -> 145891 (+7 by the walk, on main f707d5b8c), deliberately and
+#   for one commit: the client physics lane's ABI rows. imanaged_areas_client.h only (+6 slots on
+#   IManagedPhysicsClient: the client physics system's four level events, its step and its reset,
+#   and one line of the generated comment). The decisions are ClientPhysicsSystem's (C#); the
+#   flip that follows evicts fork physics.cpp and deletes ragdoll_library and
+#   shell_physics_shared_client.cpp, which takes this row well below 145884.
+# RAISED 2026-10-18, 145891 -> 145942 (+51 by the walk), for one commit: fork physics.cpp leaves
+#   client.so and shell_physics_client.cpp takes the names shell_clientdll.cpp and kClientSystems[]
+#   call (PhysicsDLLInit, PhysicsReset, PhysicsSimulate, the CPhysicsSystem row), each a forward to
+#   IManagedPhysicsClient (+50), and the CPhysicsSystem ruling's new home in shell_clientsystems.cpp (+1). The next commit deletes ragdoll_library.cpp/.h and
+#   shell_physics_shared_client.cpp, which only physics.cpp called.
+# LOWERED 2026-10-18, 145942 -> 145709 (by the walk): ragdoll_library.cpp/.h and shell_physics_shared_client.cpp deleted
+#   (only fork physics.cpp called them); shell_physics_client.cpp holds physprops and physcollision, and the
+#   CDataObjectAccessSystem row left kClientSystems[].
+# LOWERED 2026-10-18, 145709 -> 145690 (by the walk): ABI (client physics 2): IManagedRagdollsClient and IManagedPhysicsClient's
+#   CreateWorld, PrecacheSurfaceSounds, SolidKeyValue and SolidDefaults left the generated headers with their last callers.
+# LOWERED 2026-10-18, 145690 -> 145184 (by the walk): the client bone leaf library deleted (bone_leaf_library.h,
+#   shell_bone_leaf_library.cpp: the bone-access stack, the model-bone counter, the thread-pool stubs and the sweep
+#   registry, none read), with its eleven call sites and kClientSystems[]'s C_BaseAnimatingGameSystem row.
+# LOWERED 2026-10-18, 145184 -> 145160 (by the walk): game_entity_relays.h's client half (GameEntity_ModelIndex,
+#   GameEntity_RefHandle, GameEntity_EntIndex) deleted from shell_standalone_client.cpp; no client caller left.
+# LOWERED 2026-10-18, 145160 -> 144594 (-566, the deleted file's newlines, re-measured on main 8ab15ceaf):
+#   physics_debug.cpp left, its commands managed's PhysicsDebugCommands.cs. shim-reasons.md's (c) row fell by the same 566.
+# LOWERED 2026-10-18, 144594 -> 144420 (-174): physworld_match_rule.h (73) and physics_shell.h's non-finite
+#   test and pointer set (242 -> 141, -101) went with physics_debug.cpp, their one user; managed's twins are
+#   PhysWorldMatch, PhysicsNanGuard.IsFinite and PhysWorldProbes' terrain set. Headers only: the letter table is unchanged.
+shim_lines	src/sourcesharp	145678
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

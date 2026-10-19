@@ -1039,14 +1039,15 @@ TEST( EntityListSweep, EveryShimFileTogetherNamesTheEntityListFiveTimesAndOnlyIn
 	// left the overlay for src/server/native/, so its existing comment on the
 	// SDK list arrived in this scan's population unchanged -- the relocation
 	// case named below. The zero above still holds over it.
-	EXPECT_EQ( 6, nTotal )
-		<< "the shim's raw-text entity-list surface moved. All six are COMMENTS "
+	// 6 -> 4 ON 2026-10-18: the two lines (by then in physics_debug.cpp, where
+	// PhysicsCommand's refusal named gEntList and FindEntityGeneric) went with
+	// that file; physics_select resolves its subject in managed now.
+	EXPECT_EQ( 4, nTotal )
+		<< "the shim's raw-text entity-list surface moved. All four are COMMENTS "
 		   "-- shell_restoreentities.cpp on what the stock restore walk yields, "
 		   "world_adapter.cpp on the level-shutdown order, "
-		   "shell_standalone_hierarchy.cpp on FindEntityByName, anyentity.h on "
-		   "the arm it no longer has, and "
-		   "physics.cpp (twice) on why FindPhysicsObjectByName cannot resolve a "
-		   "name through the SDK list. If this "
+		   "shell_standalone_hierarchy.cpp on FindEntityByName, and anyentity.h on "
+		   "the arm it no longer has. If this "
 		   "number went UP, either a call came back (which the zero above catches), "
 		   "or a new paragraph was written, or a native file was relocated into "
 		   "the shim tree carrying comments it already had; if it went DOWN, a "

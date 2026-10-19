@@ -62,7 +62,9 @@
 #include "shell_clientdll_refusals.h"
 #include "shell_entitystatics.h"
 #include "shell_clientsystem.h"	// plan_cworld_trace.md T4: the walkers
-#include "bone_leaf_library.h"	// the bone gate, counter and per-frame sweeps
+// bone_leaf_library.h (the bone gate, counter and per-frame sweeps) went
+// 2026-10-18: nothing read the gate or the counter and no sweep was
+// registered; the frame's bones are ClientSkeletons' (docs/client_evictions.md).
 #include "shell_clientdll_voicehelper.h"	// IVoiceStatusHelper, a member below
 #include "shell_savegame.h"		// the save buffer's block frame, shared with the server
 #include "shell_cliententitylist.h"	// 5d: the handle resolve DispatchOnRestore makes
@@ -1188,8 +1190,6 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 
 	ClientWorldFactoryInit();
 
-	SourceSharp_InitBoneSetupThreadPool();
-
 #if defined( WIN32 )
 	// NVNT connect haptics sytem
 	ConnectHaptics(appSystemFactory);
@@ -1257,7 +1257,6 @@ void CShellClientDLL::Shutdown( void )
         g_pAchievementsAndStatsInterface->ReleasePanel();
     }
 
-	SourceSharp_ShutdownBoneSetupThreadPool();
 	ClientWorldFactoryShutdown();
 
 
@@ -1364,10 +1363,7 @@ void CShellClientDLL::HudUpdate( bool bActive )
 
 	gHUD.UpdateHud( bActive );
 
-	{
-		CSourceSharpBoneAccessScope boneaccess( true, false, ( const char * ) 1 ); 
-		SourceSharp_ClientSystemsUpdate( frametime );
-	}
+	SourceSharp_ClientSystemsUpdate( frametime );
 
 	// vgui_controls' global animation controller was stepped here; no panel in
 	// this client is a vgui_controls panel, so nothing animates through it.
@@ -1491,8 +1487,6 @@ void CShellClientDLL::ExtraMouseSample( float frametime, bool active )
 	Assert( EntityAbs_AreRecomputationsEnabled() );
 	Assert( EntityAbs_AreQueriesValid() );
 
-	CSourceSharpBoneAccessScope boneaccess( true, false, ( const char * ) 1 ); 
-
 	MDLCACHE_CRITICAL_SECTION();
 	input->ExtraMouseSample( frametime, active );
 }
@@ -1516,8 +1510,6 @@ void CShellClientDLL::CreateMove ( int sequence_number, float input_sample_frame
 	// reported by no release measurement and fail only in a debug armed build.
 	Assert( EntityAbs_AreRecomputationsEnabled() );
 	Assert( EntityAbs_AreQueriesValid() );
-
-	CSourceSharpBoneAccessScope boneaccess( true, false, ( const char * ) 1 ); 
 
 	MDLCACHE_CRITICAL_SECTION();
 	input->CreateMove( sequence_number, input_sample_frametime, active );
@@ -2259,15 +2251,8 @@ void OnRenderStart()
 
 	{
 		// vprof node for this bloc of math
-		// Invalidate any bone information.
-		SourceSharp_InvalidateBoneCaches();
-
 		EntityAbs_SetQueriesValid( true );
 		EntityAbs_SetRecomputationsEnabled( true );
-
-		// Enable access to all model bones except view models.
-		// This is necessary for aim-ent computation to occur properly
-		SourceSharp_BoneAccessPush( true, false, "OnRenderStart->CViewRender::SetUpView" ); // pops in CViewRender::SetUpView
 
 		// SOURCESHARP: EntityInterp_MarkAimEntsDirty stood here. It walked
 		// g_AimEntsList, which only C_BaseEntity added to; a managed entity
@@ -2286,9 +2271,6 @@ void OnRenderStart()
 
 	RopeManager()->OnRenderStart();
 	
-	// This will place all entities in the correct position in world space and in the KD-tree
-	SourceSharp_UpdateClientSideAnimations();
-
 	::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, false );
 
 	// Deliver the world's deferred OnDataChanged, if one is owed.
@@ -2317,8 +2299,6 @@ void OnRenderStart()
 	// Simulate all the entities.
 	SimulateEntities();
 	PhysicsSimulate();
-
-	SourceSharp_ThreadedBoneSetup();
 
 	{
 		// This creates things like temp entities.
@@ -2367,9 +2347,6 @@ void OnRenderStart()
 
 void OnRenderEnd()
 {
-	// Disallow access to bones (access is enabled in CViewRender::SetUpView).
-	SourceSharp_BoneAccessPop( "CViewRender::SetUpView->OnRenderEnd" );
-
 	UpdatePVSNotifiers();
 }
 

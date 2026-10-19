@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 22 | 5 | 30 |  |  |  | 60 | 34,964 |
-| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 44 | 18,863 |
-| c | static-init registration | 19 | 6 | 3 |  |  |  | 29 | 5,345 |
-| d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 2 |  |  | 21 | 11,938 |
+| a | a vtable the engine or VPhysics calls through | 22 | 5 | 29 |  |  |  | 59 | 34,850 |
+| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 44 | 18,783 |
+| c | static-init registration | 18 | 6 | 3 |  |  |  | 28 | 4,779 |
+| d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 2 |  |  | 21 | 11,924 |
 | e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,119 |
 | f | a bit-level wire codec | 5 | 6 | 2 | 1 |  |  | 14 | 4,670 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 5 | 2 | 9 | 1 |  |  | 19 | 10,080 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 5 | 2 | 7 | 1 |  |  | 17 | 9,811 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 4,839 |
-| x | NO LETTER FITS | 9 | 2 | 1 |  | 2 |  | 20 | 4,869 |
-|  | **total** | **88** | **37** | **69** | **4** | **2** | **1** | **225** | **100,687** |
+| x | NO LETTER FITS | 9 | 2 | 1 |  | 2 |  | 20 | 4,864 |
+|  | **total** | **87** | **37** | **66** | **4** | **2** | **1** | **221** | **99,639** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -182,6 +182,8 @@ Then the port's small todos (plan_physics_bones_perf lane C, 2026-10-12, re-meas
 Then libmathlib.a left server.so's link (2026-10-13, measured by the walk on main aeff4a2): (g) arrives with sourcesharp/game/server/mathlib_port.cpp (server, +79 lines, one file), the mathlib members server.so calls, forwarding to mathlib_port.h's inlines; 219 files, 99,819 in the table. Then (b) 18,658 -> 18,657 is shell_gamedll.cpp's MathLib_Init call, gone with the archive (-1); 99,818 in the table.
 
 Then the engine forwarders (plan_engine_forwarders.md phase 1, 2026-10-13, measured by the walk on main 25e9c07): (b) arrives with sourcesharp/fwd/fwd_engine.cpp, libss_fwd_engine's one translation unit, which serves the generated IVModelInfo forwarders by name (+38 lines, one file); 18,657 -> 18,695; 220 files, 99,856 in the table. Then the game DLLs serve its tables: (b) 18,695 -> 18,704 is shell_internalfactory.cpp asking the library (+9); 99,865 in the table. The library is its own location, fwd, outside the srv/shd/cli columns. Then the library links no runtime: (b) 18,704 -> 18,710 is fwd_engine.cpp comparing table names itself in place of libc's strcmp (+6), and defining _fltused for its CRT-free Windows build (+7); 99,878 in the table. Then every interface managed calls (plan_engine_forwarders.md phases 2-4): (b) 18,717 -> 18,722 is sourcesharp/fwd/fwd_vphysics.cpp, libss_fwd_vphysics's one translation unit (+1 file), with both libraries' lookup moved into ss_fwd.h, a header the table does not count; 221 files, 99,883 in the table. Then the Steam callback (plan_engine_forwarders.md phase 5): (b) 18,722 -> 18,853 is sourcesharp/fwd/fwd_steam.cpp, libss_fwd_steam's one translation unit (+131 lines, one file), which builds the CCallbackBase Steam registers so the compiler orders its two Run overloads, and forwards both to the managed-built IManagedSteamCallback; 222 files, 100,014 in the table. Then one forwarder library per side (ruled 2026-10-18): (b) 18,853 -> 18,857 is sourcesharp/fwd/fwd_server.cpp and fwd_client.cpp in place of fwd_engine.cpp and fwd_vphysics.cpp (+4 and +5, one translation unit for one), and fwd_steam.cpp a source of the client's library, its functions declared in fwd_steam.h, a header the table does not count (-5); 222 files, 100,018 in the table. Then the vphysics callbacks (plan_forwarders_everywhere.md phase 5): (b) 18,857 -> 19,028 is sourcesharp/fwd/fwd_physics.cpp, a source of both libraries (+195 lines, one file), which builds each Valve callback interface vphysics is handed in a managed block and forwards its virtuals to a managed-built table, with the libraries' pure-virtual handler moved into it from fwd_steam.cpp (-24); 223 files, 100,189 in the table. Then no acquire counts a vtable (plan_forwarders_everywhere.md phase 6): managed calls every area and engine interface through a forwarder table carrying its own count, so the slot counts the internal factory handed back go. (b) 19,028 -> 18,857 is shell_vtable_interfaces.cpp's twelve per-interface counts becoming one served-set check (-177), shell_internalfactory.cpp's and particles_lib_client.cpp's acquires (-10, -3), and the IVEngineClient build-flag guard moving into fwd_client.cpp (+19); the generated areas' acquires lost theirs too, in .inc files the walk does not count; (a) 35,001 -> 34,962 is shell_frame.cpp and shell_level.cpp's acquires and their count comments; (h) 4,841 -> 4,839 is sourcesharp_gamesystem.cpp's two vtable_hook.h includes; 223 files, 99,977 in the table.
+
+Then physics_debug.cpp left (2026-10-18, measured by the walk on the lane rebased onto main f707d5b8c): its six debug commands are managed's PhysicsDebugCommands.cs. (c) loses the file (server, -566 lines, 29 -> 28 files, 5,345 -> 4,779); 223 files, 100,162 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 
@@ -334,8 +336,6 @@ Then the engine forwarders (plan_engine_forwarders.md phase 1, 2026-10-13, measu
 
 #### (g) leaf math over mdl/bsp data consumed by renderer or physics — 21 files, 21,639 lines
 
-`sourcesharp/game/client/ragdoll_library.cpp`  
-`sourcesharp/game/client/shell_bone_leaf_library.cpp`  
 `sourcesharp/game/client/shell_client_orphans.cpp`  
 `sourcesharp/game/client/shell_embers_render.cpp`  
 `sourcesharp/game/client/shell_impact_effects.cpp`  

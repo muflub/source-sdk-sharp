@@ -33,7 +33,6 @@
 #include "ScreenSpaceEffects.h"
 #include "toolframework_client.h"
 #include "view_facts.h"
-#include "bone_leaf_library.h"
 #include "iinput.h"
 #include "c_baseplayer.h"
 #include "clienteffectprecachesystem.h"
@@ -471,10 +470,6 @@ void CShellViewRender::SetUpViews()
 	eye.fovViewmodel = eye.fov + flViewModelFovOffset;
 
 	::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, true );
-
-	// All the model bones open until OnRenderEnd (the pop is OnRenderStart's push).
-	SourceSharp_BoneAccessPop( "OnRenderStart->CViewRender::SetUpView" );
-	SourceSharp_BoneAccessPush( true, true, "CViewRender::SetUpView->OnRenderEnd" );
 
 	// The hearing origin, and the underwater DSP from the viewer's water level.
 	AudioState_t audioState;

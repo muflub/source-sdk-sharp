@@ -318,7 +318,9 @@ TEST( PhysicsEventSink, TheRingItsSinkAndTheIdTableAreGone )
 
 	EXPECT_TRUE( Code( "sourcesharp/game/server/physics_shell.cpp" ).empty() )
 		<< "physics_shell.cpp is back: its only content was the ring's and the ids' layout";
-	EXPECT_EQ( 0, CountOf( Code( "sourcesharp/game/server/physics_debug.cpp" ), "cs_sv_physics_shell" ) );
+	// physics_debug.cpp, which carried cs_sv_physics_shell until the ring
+	// went, is itself gone (2026-10-18: its commands are managed's).
+	EXPECT_TRUE( Code( "sourcesharp/game/server/physics_debug.cpp" ).empty() );
 	for ( int i = 0; i < kProductionFileCount; i++ )
 		EXPECT_EQ( 0, CountOf( Code( kProductionFiles[ i ] ), "PhysicsShell()" ) ) << kProductionFiles[ i ];
 
@@ -566,26 +568,29 @@ TEST( PhysicsEventSink, TheManagedRuleStillCarriesEveryNumberThatLeft )
 // ss_physworld_bounds, which tools/defect-shadow-probe now drives.
 //=============================================================================
 
-// Diagnostics, so their bodies are in physics_debug.cpp, which only a debug
-// server.so compiles (user ruling 2026-10-01). The tools that drive them need a
-// debug build.
+// Diagnostics, managed debug commands since 2026-10-18 (PhysicsDebugCommands.cs
+// and PhysicsDiagnostics.cs, under #if DEBUG): physics_debug.cpp, their native
+// home from 2026-10-01, is gone. The tools that drive them need a debug build.
 TEST( PhysicsEventSink, TheFourPhysWorldCommandsStillExist )
 {
-	const std::string strPhysics = Code( "sourcesharp/game/server/physics_debug.cpp" );
-	ASSERT_FALSE( strPhysics.empty() )
-		<< "physics_debug.cpp did not open. Resolved to: "
-		<< Resolved( SrcPath( "sourcesharp/game/server/physics_debug.cpp" ) );
+	const std::string strHost = Code( "sourcesharp/game/server/physics.cpp" );
+	ASSERT_FALSE( strHost.empty() )
+		<< "physics.cpp did not open, so the absence below means nothing. Resolved to: "
+		<< Resolved( SrcPath( "sourcesharp/game/server/physics.cpp" ) );
+	EXPECT_TRUE( Code( "sourcesharp/game/server/physics_debug.cpp" ).empty() )
+		<< "physics_debug.cpp is back; its commands are managed's";
 
-	// ss_physworld_report is managed's since plan_physics_bones_native_zero
-	// 2.3 (PhysWorldReportCommand over PhysWorldReport, the same per-pid file):
-	// still a command, by the same name, for the same three tools.
-	EXPECT_EQ( 0, CountOf( strPhysics, "SS_NATIVE_COMMAND( ss_physworld_report )" ) );
 	const std::string strManaged = Read( SrcPath( "sourcesharp/managed/SourceSharp.Server/PhysicsDiagnostics.cs" ) );
 	ASSERT_FALSE( strManaged.empty() ) << "PhysicsDiagnostics.cs did not open";
 	EXPECT_EQ( 1, CountOf( strManaged, "[ConCommand(\"ss_physworld_report\"" ) );
-	EXPECT_EQ( 1, CountOf( strPhysics, "SS_NATIVE_COMMAND( ss_physworld_recheck )" ) );
-	EXPECT_EQ( 1, CountOf( strPhysics, "SS_NATIVE_COMMAND( ss_physworld_bounds )" ) );
-	EXPECT_EQ( 1, CountOf( strPhysics, "SS_NATIVE_COMMAND( ss_physworld_object )" ) );
+	const std::string strProbes = Read( SrcPath( "sourcesharp/managed/SourceSharp.Server/PhysicsDebugCommands.cs" ) );
+	ASSERT_FALSE( strProbes.empty() ) << "PhysicsDebugCommands.cs did not open";
+	EXPECT_EQ( 1, CountOf( strProbes, "[ConCommand(\"ss_physworld_recheck\"" ) );
+	EXPECT_EQ( 1, CountOf( strProbes, "[ConCommand(\"ss_physworld_bounds\"" ) );
+	EXPECT_EQ( 1, CountOf( strProbes, "[ConCommand(\"ss_physworld_object\"" ) );
+	// The per-pid file every one of them writes, which the tools read.
+	EXPECT_EQ( 1, CountOf( Read( SrcPath( "sourcesharp/managed/SourceSharp.Server/PhysWorldReport.cs" ) ),
+	                       "\"/tmp/ss-physworld-" ) );
 }
 
 TEST( PhysicsEventSink, TheNanLedgerIsManagedAndNativesIsGone )
@@ -593,16 +598,15 @@ TEST( PhysicsEventSink, TheNanLedgerIsManagedAndNativesIsGone )
 	// The guard moved with the player shadow (plan_physics_bones_native_zero
 	// 2.5), so native's ledger was fed by nothing and ss_physworld_bounds
 	// printed refusals=0 whatever happened. The line is managed's
-	// ss_physworld_nan; native keeps only the finite test the walk asks.
+	// ss_physworld_nan.
 	const std::string strHeader = Code( "sourcesharp/game/server/physics_shell.h" );
-	const std::string strDebug  = Code( "sourcesharp/game/server/physics_debug.cpp" );
 	ASSERT_FALSE( strHeader.empty() );
-	ASSERT_FALSE( strDebug.empty() );
 	EXPECT_EQ( 0, CountOf( strHeader, "PhysicsNanLedger" ) );
 	EXPECT_EQ( 0, CountOf( strHeader, "SourceSharpAcceptPhysicsVector" ) );
 	EXPECT_EQ( 0, CountOf( strHeader, "SS_PHYSNAN_" ) );
-	EXPECT_EQ( 0, CountOf( strDebug, "SS-PHYSWORLD-NAN" ) );
-	EXPECT_EQ( 1, CountOf( strHeader, "inline bool SourceSharpIsFinitePhysicsVector(" ) );
+	// And the finite test the bounds walk asked went with the walk (2026-10-18:
+	// ss_physworld_bounds is managed's, over PhysicsNanGuard.IsFinite).
+	EXPECT_EQ( 0, CountOf( strHeader, "SourceSharpIsFinitePhysicsVector" ) );
 
 	const std::string strManaged = Read( SrcPath( "sourcesharp/managed/SourceSharp.Server/PhysicsDiagnostics.cs" ) );
 	ASSERT_FALSE( strManaged.empty() );

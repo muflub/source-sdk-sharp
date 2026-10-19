@@ -234,22 +234,12 @@ void SourceSharp_SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams )
 void SourceSharp_ViewerCameraModeChanged();
 
 //-----------------------------------------------------------------------------
-// BONE ACCESS — THE DEBT ABOVE IS PAID, and the gate is no longer forwarded.
-//
-// This block used to declare `SourceSharp_BoneAccessPush` / `Pop` and the scoped
-// guard here, with the bodies in shell_view_facts.cpp forwarding to
-// `C_BaseAnimating::PushAllowBoneAccess`. The note said: "when the gate moves
-// off C_BaseAnimating [...] these three go with it." Lane f-bone moved it. The
-// gate's state and all three names now live in
-// sourcesharp/game/client/shell_bone_leaf_library.cpp, and C_BaseAnimating's
-// statics are the forwarders — plan_entity.md §6's bone-leaf-library row.
-//
-// The names are re-exported from here rather than moved out of view_facts.h's
-// vocabulary, because the callers that reach the gate through this header
-// (view.cpp, viewrender.cpp) reach it for a VIEW reason and should not have to
-// know which library ended up owning it.
+// BONE ACCESS -- GONE. This block re-exported the bone-access gate
+// (SourceSharp_BoneAccessPush / Pop, the scoped guard) from the bone leaf
+// library. Nothing read the gate (stock's one reader was C_BaseAnimating::
+// SetupBones' developer warning, which left with that file), so the gate, its
+// three calls in the frame and the library went (2026-10-18).
 //-----------------------------------------------------------------------------
-#include "bone_leaf_library.h"
 
 //-----------------------------------------------------------------------------
 // Whether the camera the last frame was set up with can actually SEE the

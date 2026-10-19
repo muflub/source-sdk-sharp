@@ -880,9 +880,10 @@ TEST( Section6Rulings, RagdollSplitIsSixBeforeTheClassThatLeaves )
 	EXPECT_FALSE( in.good() )
 		<< "game/client/ragdoll.cpp is in the farm again; §6's split ruling and "
 		   "its token counts apply to it once more";
-	std::ifstream anchor( "game/client/physics.cpp" );
+	// (The anchor was game/client/physics.cpp until it left client.so too.)
+	std::ifstream anchor( "game/shared/physics_shared.h" );
 	EXPECT_TRUE( anchor.good() )
-		<< "game/client/physics.cpp did not open: the farm is not where this "
+		<< "game/shared/physics_shared.h did not open: the farm is not where this "
 		   "test runs, and the absence above measured nothing";
 }
 

@@ -97,6 +97,18 @@ public sealed partial class SourceFileNamesExistTests
         "standalone_riders.h",
         "shell_mover_velocity.h",
 
+        // ClientPhysicsEvictionTests and PhysicsSharedEvictionTests name these in
+        // order to assert that they are GONE (the client physics leftovers,
+        // 2026-10-18): fork game/client/physics.cpp off client.so, and the files
+        // only it called deleted. Put any back and both facts go red.
+        "game/client/physics.cpp",
+        "ragdoll_library.cpp",
+        "ragdoll_library.h",
+        "shell_physics_shared_client.cpp",
+        // BoneLeafEvictionTests, for the client bone leaf library (2026-10-18).
+        "shell_bone_leaf_library.cpp",
+        "bone_leaf_library.h",
+
         // UserMessageRegistryOwnershipTests asserts the native user-message
         // registry and dispatch are GONE from both builds (plan_side_isolation
         // P2); put either back and those facts go red.

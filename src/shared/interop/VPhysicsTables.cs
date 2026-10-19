@@ -41,7 +41,6 @@ public sealed unsafe class VPhysicsTables
         public PhysicsCollisionSetFwd* PhysicsCollisionSet;
         public PhysicsCollisionDataFwd* PhysicsCollisionData;
         public VPhysicsKeyParserFwd* VPhysicsKeyParser;
-        public PhysicsCollisionEventFwd* PhysicsCollisionEvent;
     }
 
     private readonly NativeInterfaceFactory? _factory;
@@ -87,8 +86,6 @@ public sealed unsafe class VPhysicsTables
 
     internal VPhysicsKeyParserFwd* VPhysicsKeyParser => Bound().VPhysicsKeyParser;
 
-    /// <summary>IPhysicsCollisionEvent's, for a native handler managed forwards to.</summary>
-    internal PhysicsCollisionEventFwd* PhysicsCollisionEvent => Bound().PhysicsCollisionEvent;
 
     private ref readonly Set Bound()
     {
@@ -128,8 +125,7 @@ public sealed unsafe class VPhysicsTables
             && Bind(factory, out set.PhysicsSpring, ref table, out why)
             && Bind(factory, out set.PhysicsCollisionSet, ref table, out why)
             && Bind(factory, out set.PhysicsCollisionData, ref table, out why)
-            && Bind(factory, out set.VPhysicsKeyParser, ref table, out why)
-            && Bind(factory, out set.PhysicsCollisionEvent, ref table, out why);
+            && Bind(factory, out set.VPhysicsKeyParser, ref table, out why);
     }
 
     private static bool Bind<TFwd>(NativeInterfaceFactory factory, out TFwd* fwd, ref string table, out string why)

@@ -11,5 +11,4 @@ tools/valve-text-audit	detects stray Valve copyright lines, so it spells one in 
 tools/move-classify	detects a Valve copyright header (rule 1), so it spells one	header
 docs/plans/plan_sharp_repo.md	quotes the attribution header byte for byte	header
 ledger:relocated Valve code, kept local by user decision 2026-09-27	the fork's src/sourcesharp relocated/split Valve code (VALVE-DERIVED), kept in this repo as local files by user decision 2026-09-27; each carries the attribution header (ledger valve_header=yes); the fork's copies go at Phase 9.5	text
-src/server/native/physics_debug.cpp	split out of physics.cpp (move-ledger override: relocated Valve code, kept local by user decision 2026-09-27) when the diagnostics went debug-only (2026-10-01): it carries stock physics.cpp's physics_* debug commands, the same relocated text	text
 patches/source-sdk-2013/	the fork's edits to Valve files as a git format-patch series on stock upstream (make sdk-upstream): its context and removed lines are Valve's text by construction; requested by the user 2026-10-12

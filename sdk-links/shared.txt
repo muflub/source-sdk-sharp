@@ -141,9 +141,6 @@ src/public/togl/dxformats.h
 src/public/trace.h
 src/public/vcollide.h
 src/public/vcollide_parse.h
-src/public/vphysics/collision_set.h
-src/public/vphysics/constraints.h
-src/public/vphysics/object_hash.h
 src/public/vphysics/performance.h
 src/public/vphysics_interface.h
 src/public/vstdlib/random.h

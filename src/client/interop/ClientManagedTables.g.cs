@@ -1115,28 +1115,6 @@ public unsafe struct ManagedBonesClientTable
     public delegate* unmanaged<void*, int, float, void*> BoneBatch;
 }
 
-/// <summary>The table managed writes for <c>IManagedRagdollsClient</c> (<c>SSManagedRagdollsClientTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedRagdollsClient")]
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct ManagedRagdollsClientTable
-{
-    // 0: void Release( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> Release;
-
-    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
-    [SlotHash(0x0d54c15e)]
-    public delegate* unmanaged<void*, void*, int, int> Validate;
-
-    // 2: int32_t StepPoses( void )
-    [SlotHash(0x9d8d9245)]
-    public delegate* unmanaged<void*, int> StepPoses;
-
-    // 3: int32_t DestroyAll( void )
-    [SlotHash(0x9d8d9245)]
-    public delegate* unmanaged<void*, int> DestroyAll;
-}
-
 /// <summary>The table managed writes for <c>IManagedPhysicsClient</c> (<c>SSManagedPhysicsClientTable</c> native-side).</summary>
 [ImplementedByManaged("IManagedPhysicsClient")]
 [StructLayout(LayoutKind.Sequential)]
@@ -1150,25 +1128,33 @@ public unsafe struct ManagedPhysicsClientTable
     [SlotHash(0x0d54c15e)]
     public delegate* unmanaged<void*, void*, int, int> Validate;
 
-    // 2: void * CreateWorld( void )
-    [SlotHash(0xe13ef122)]
-    public delegate* unmanaged<void*, void*> CreateWorld;
-
-    // 3: int32_t ParseSurfaceData( void )
+    // 2: int32_t ParseSurfaceData( void )
     [SlotHash(0x9d8d9245)]
     public delegate* unmanaged<void*, int> ParseSurfaceData;
 
-    // 4: int32_t PrecacheSurfaceSounds( void )
-    [SlotHash(0x9d8d9245)]
-    public delegate* unmanaged<void*, int> PrecacheSurfaceSounds;
+    // 3: void LevelInitPreEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelInitPreEntity;
 
-    // 5: void SolidKeyValue( void *pData, const char *pKey, const char *pValue )
-    [SlotHash(0x888e87b0)]
-    public delegate* unmanaged<void*, void*, byte*, byte*, void> SolidKeyValue;
+    // 4: void LevelInitPostEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelInitPostEntity;
 
-    // 6: void SolidDefaults( void *pData )
-    [SlotHash(0xde3e0200)]
-    public delegate* unmanaged<void*, void*, void> SolidDefaults;
+    // 5: void LevelShutdownPreEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelShutdownPreEntity;
+
+    // 6: void LevelShutdownPostEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelShutdownPostEntity;
+
+    // 7: void Simulate( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Simulate;
+
+    // 8: void Reset( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Reset;
 }
 
 /// <summary>The table managed writes for <c>IManagedSteamCallback</c> (<c>SSManagedSteamCallbackTable</c> native-side).</summary>

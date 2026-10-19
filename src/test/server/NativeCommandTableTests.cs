@@ -59,7 +59,8 @@ public class NativeCommandTableTests
         var declaredDebug = new SortedSet<string>(NativeCommands.Debug.Select(c => c.Name), StringComparer.Ordinal);
 
         // A floor, so an instrument that found nothing on either side is red.
-        Assert.True(bodies.Count + debugBodies.Count >= 40,
+        // 40 until 2026-10-18, when physics_debug.cpp's six went managed (34).
+        Assert.True(bodies.Count + debugBodies.Count >= 30,
             "found only " + (bodies.Count + debugBodies.Count) + " SS_NATIVE_COMMAND bodies");
         Assert.NotEmpty(debugBodies);
 
