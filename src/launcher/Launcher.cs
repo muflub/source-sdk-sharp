@@ -753,7 +753,7 @@ internal sealed class Launcher(
                     continue;
                 string link = Path.Combine(root, name);
                 if (!Directory.Exists(link) && !File.Exists(link))
-                    File.CreateSymbolicLink(link, sibling);
+                    CreateLink(link, sibling);
             }
 
             string? binDir = Path.GetDirectoryName(modsDir);
@@ -771,20 +771,20 @@ internal sealed class Launcher(
                 // link to exactly this content. A real directory there is the
                 // user's; it is never touched.
                 var existing = new FileInfo(contentLink);
-                bool ours = existing.LinkTarget is not null && existing.Exists &&
+                bool ours = existing.LinkTarget is not null && Directory.Exists(contentLink) &&
                             Path.GetFullPath(existing.LinkTarget) == Path.GetFullPath(content);
                 if (!ours)
                 {
                     if (existing.LinkTarget is not null)
                     {
-                        try { File.Delete(contentLink); }
+                        try { DeleteLink(contentLink); }
                         catch (IOException) when (new FileInfo(contentLink).LinkTarget is null) { }
                     }
 
                     try
                     {
                         if (!Directory.Exists(contentLink) && !File.Exists(contentLink))
-                            File.CreateSymbolicLink(contentLink, content);
+                            CreateLink(contentLink, content);
                     }
                     catch (IOException) when (File.Exists(contentLink))
                     {
@@ -833,13 +833,40 @@ internal sealed class Launcher(
         foreach (string entry in Directory.EnumerateFileSystemEntries(dir))
         {
             var info = new FileInfo(entry);
-            if (info.LinkTarget is not null || !Directory.Exists(entry))
+            if (info.LinkTarget is not null)
+                DeleteLink(entry);
+            else if (!Directory.Exists(entry))
                 File.Delete(entry);
             else
                 RemoveTree(entry);
         }
 
         Directory.Delete(dir);
+    }
+
+    /// <summary>
+    /// A link to <paramref name="target"/>, as a directory link when it is a
+    /// directory: Windows reads a file link to a directory as no directory at
+    /// all. On Linux the two are the same link.
+    /// </summary>
+    private static void CreateLink(string link, string target)
+    {
+        if (Directory.Exists(target))
+            Directory.CreateSymbolicLink(link, target);
+        else
+            File.CreateSymbolicLink(link, target);
+    }
+
+    /// <summary>
+    /// Removes a link, never what it points at. Windows removes a directory
+    /// link as a directory; Linux unlinks every link.
+    /// </summary>
+    internal static void DeleteLink(string link)
+    {
+        if (OperatingSystem.IsWindows() && (File.GetAttributes(link) & FileAttributes.Directory) != 0)
+            Directory.Delete(link);
+        else
+            File.Delete(link);
     }
 
     /// <summary>
