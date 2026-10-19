@@ -369,14 +369,16 @@ TEST( PhysicsEventSink, ConstraintBrokenHasAProducer )
 {
 	// It had none, then native's CPhysConstraintEvents pushed it into the ring.
 	// Since plan_physics_bones_native_zero 2.2 the callback is managed's own
-	// IPhysicsConstraintEvent table: PhysicsConstraints.Broken finds the row
+	// table (libss_fwd's IPhysicsConstraintEvent forwarding to
+	// IManagedPhysicsConstraintEvent since plan_forwarders_everywhere.md
+	// phase 5): PhysicsConstraints.Broken finds the row
 	// by its pointer and posts ConstraintBroken (the id, both ends) to the
 	// router. The retention half: that post, by its construct.
 	const std::string strManaged = Code( "sourcesharp/managed/SourceSharp.Server/PhysicsConstraints.cs" );
 	const std::string strBinding = Code( "sourcesharp/managed/SourceSharp.Server.Interop/PhysicsConstraintEventBinding.cs" );
 
 	EXPECT_EQ( 1, CountOf( strManaged, "KindRaw = (uint)PhysicsEventKind.ConstraintBroken," ) );
-	EXPECT_EQ( 1, CountOf( strBinding, "[ManagedVtable(typeof(PhysicsConstraintEventVtbl))]" ) );
+	EXPECT_EQ( 1, CountOf( strBinding, "[ManagedVtable(typeof(ManagedPhysicsConstraintEventTable))]" ) );
 }
 
 TEST( PhysicsEventSink, TheNativeConstraintRecorderAndHandlerAreGone )
@@ -398,12 +400,14 @@ TEST( PhysicsEventSink, TheMotionEventIsManagedAndTheNativeControllersAreGone )
 {
 	// vphysics asks IMotionEvent::Simulate mid-step for every controller's
 	// force. Since plan_physics_bones_native_zero 2.4 that is managed's own
-	// table (MotionEventBinding, one block for every controller), answered by
+	// table (MotionEventBinding, one block for every controller, behind
+	// libss_fwd's IMotionEvent since plan_forwarders_everywhere.md phase 5),
+	// answered by
 	// MotionSimulation; native's four CSourceSharpMotionEvent classes and their
 	// table left with shell_motioncontrollers.cpp.
 	const std::string strBinding = Code( "sourcesharp/managed/SourceSharp.Server.Interop/MotionEventBinding.cs" );
 	ASSERT_FALSE( strBinding.empty() );
-	EXPECT_EQ( 1, CountOf( strBinding, "[ManagedVtable(typeof(MotionEventVtbl))]" ) );
+	EXPECT_EQ( 1, CountOf( strBinding, "[ManagedVtable(typeof(ManagedMotionEventTable))]" ) );
 	EXPECT_EQ( 1, CountOf( Code( "sourcesharp/managed/SourceSharp.Server/MotionSimulation.cs" ),
 	                       "public static MotionSimResult Motor(" ) );
 

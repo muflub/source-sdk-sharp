@@ -59,7 +59,9 @@ allow	SS_COVERAGE	another configuration of this tree: the coverage build defines
 # arm. They stay waived, unchanged, until someone rules whether the sites go.
 allow	_STATIC_LINKED	link mode: set by the static-link VPC configurations in this tree, not by the shared-object one this builds.
 allow	_SHARED_LIB	link mode: the mirror of _STATIC_LINKED, set by other VPC configurations here.
-allow	SS_NO_CRT	another configuration of this tree: ss_sdk_target's NO_RUNTIME sets it on MSVC only (cmake/SourceSharp.cmake), for a library linked with no CRT, so a scan of the Linux build sees it as never defined. fwd_steam.cpp defines the one CRT handler its vtables name (_purecall) under it; a test compiling the same source into an executable with a CRT leaves it to the CRT.
+allow	SS_NO_CRT	another configuration of this tree: ss_sdk_target's NO_RUNTIME sets it on MSVC only (cmake/SourceSharp.cmake), for a library linked with no CRT, so a scan of the Linux build sees it as never defined. fwd_physics.cpp defines the one CRT handler the forwarder libraries' vtables name (_purecall) under it; a test compiling the same source into an executable with a CRT leaves it to the CRT.
+allow	SS_FWD_SERVER_BUILD	side marker: on libss_fwd_server's command line and not libss_fwd_client's (src/fwd/native/CMakeLists.txt). fwd_physics.cpp is a source of both libraries, so the scan of the client's compile sees the server's marker as never defined, the way a shared file sees GAME_DLL.
+allow	SS_FWD_CLIENT_BUILD	side marker: the mirror of SS_FWD_SERVER_BUILD, on libss_fwd_client's command line and not the server library's.
 #
 #=============================================================================
 # PENDING -- dead here, already present when this check landed, with an owner.
