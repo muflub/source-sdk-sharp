@@ -192,6 +192,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // interface through this side's own factory (EngineClient, D8).
         _services.AddInstance(_engine);
 
+        // And the engine interfaces cs_vtable reports, so the command takes
+        // them rather than naming the engine (plan_shim_areas_split phase 8).
+        _services.AddInstance<IServerEngineInterfaces>(new ServerEngineInterfaces(_engine));
+
         // Game events are CREATED, FIRED AND FREED through IGameEventManager2's
         // forwarders (plan_server_native_v2 T3), which took over three slots;
         // the rest of the area is the binding's. Without the manager an event
@@ -213,7 +217,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                _services.Require<ShellLessRoutes>(),
                                                _services.Require<EntityIoRoutes>(),
                                                _services.Require<EntityRemovalRoutes>(),
-                                               _services, _engine);
+                                               _services, new ServerEntityEngine(_engine));
 
         _livenessAttachment = _engine.AttachLiveness(_liveness);
 
