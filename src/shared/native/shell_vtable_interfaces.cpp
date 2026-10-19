@@ -57,6 +57,7 @@
 #include "filesystem.h"
 #include "engine/ivmodelinfo.h"
 #include "engine/IStaticPropMgr.h"
+#include "engine/IEngineTrace.h"
 #include "vphysics_interface.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "vstdlib/random.h"
@@ -154,11 +155,20 @@ bool SourceSharpServes( const char *pszVersion )
 
 	if ( !ss::StrICmp( pszVersion, INPUTSYSTEM_INTERFACE_VERSION ) )
 		return true;
+
+	// The client's copy of the world, for the movement loop's point contents
+	// (GameMovement.CheckWater through EngineBound.Trace) in prediction.
+	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_CLIENT ) )
+		return true;
 #else
 	if ( !ss::StrICmp( pszVersion, "VEngineServer023" ) )
 		return true;
 
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_SERVER ) )
+		return true;
+
+	// The server's copy of the world, for the movement loop's point contents.
+	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_SERVER ) )
 		return true;
 #endif
 
