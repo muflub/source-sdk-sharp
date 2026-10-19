@@ -632,12 +632,33 @@ TEST( GlobalsClientLedger, TheTwoInstrumentsReconcileWithNothingLeftOver )
 	// and correct. The control is therefore on the term's INPUT, the mutable
 	// symbols the link line's archives define, which an archive term that
 	// read nothing would also report as 0.
-	EXPECT_GE( ReportedNumber( run.m_szOutput, "from_an_archive" ), 0 )
+	//
+	// Since C9 tier1 took libtier1.a off the client's line too, there is NO
+	// archive on it (`# archives 0`, as server.so's). The term then has
+	// nothing to attribute against, and both its numbers must be 0; should an
+	// archive come back, its mutable symbols must be read again.
+	long lArchives = -1;
+	for ( const std::string &line : Lines( run.m_szOutput ) )
+	{
+		const std::vector< std::string > f = Split( line, '\t' );
+		if ( f.size() >= 2 && f[ 0 ] == "# archives" )
+			lArchives = strtol( f[ 1 ].c_str(), NULL, 10 );
+	}
+	ASSERT_GE( lArchives, 0 ) << "no '# archives' provenance line\n" << run.m_szOutput;
+	ASSERT_GE( ReportedNumber( run.m_szOutput, "from_an_archive" ), 0 )
 		<< "no from_an_archive line\n" << run.m_szOutput;
-	EXPECT_GT( ReportedNumber( run.m_szOutput, "archive_mutable_defined" ), 0 )
-		<< "the link line's archives define no mutable symbol: the partition's "
-		   "archive term read nothing, and an empty residue is then not evidence\n"
-		<< run.m_szOutput;
+	if ( lArchives > 0 )
+	{
+		EXPECT_GT( ReportedNumber( run.m_szOutput, "archive_mutable_defined" ), 0 )
+			<< "the link line's archives define no mutable symbol: the partition's "
+			   "archive term read nothing, and an empty residue is then not evidence\n"
+			<< run.m_szOutput;
+	}
+	else
+	{
+		EXPECT_EQ( ReportedNumber( run.m_szOutput, "from_an_archive" ), 0 ) << run.m_szOutput;
+		EXPECT_EQ( ReportedNumber( run.m_szOutput, "archive_mutable_defined" ), 0 ) << run.m_szOutput;
+	}
 	EXPECT_EQ( run.m_nExit, 0 ) << run.m_szOutput;
 }
 

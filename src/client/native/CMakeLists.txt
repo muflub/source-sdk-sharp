@@ -336,16 +336,18 @@ endif()
 # with the Steam callback), whose tables the internal factory serves as the
 # server's does, linked the same way.
 target_link_libraries(client_sourcesharp PRIVATE ss_fwd_client)
-# rt and dl are glibc's; zlib is the system's on Linux and macOS and Valve's
-# libz.lib on Windows (cmake/sdk).
+# dl is glibc's: dlopen/dlsym/dladdr/dlclose are libdl's on the Steam
+# Runtime's glibc (2.31; libc's from 2.34). Nothing in client.so calls librt
+# or zlib, so neither is linked on Linux; zlib is Valve's libz.lib on Windows
+# (cmake/sdk).
 if(SS_PLATFORM STREQUAL linux)
-  target_link_libraries(client_sourcesharp PRIVATE rt z dl)
+  target_link_libraries(client_sourcesharp PRIVATE dl)
 elseif(SS_PLATFORM STREQUAL windows)
   target_link_libraries(client_sourcesharp PRIVATE sdk::z)
 else()
   target_link_libraries(client_sourcesharp PRIVATE z)
 endif()
-# plan_client_novalve C9: the client links no tier0 and no vstdlib, as the
-# server links neither; tier0_vprof_client.cpp and tier_bindings_client.cpp
-# take their place (on Windows: CI-verified only).
-ss_link_group(client_sourcesharp tier1)
+# plan_client_novalve C9: the client links no Valve tier library, as the
+# server links none: tier0_vprof_client.cpp and tier_bindings_client.cpp take
+# tier0's and vstdlib's place (on Windows: CI-verified only), and nothing left
+# in client.so takes a member of libtier1.a.

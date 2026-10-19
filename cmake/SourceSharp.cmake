@@ -446,8 +446,9 @@ function(ss_sdk_target tgt)
       target_compile_definitions(${tgt} PRIVATE SS_NO_CRT)
       target_link_options(${tgt} PRIVATE /NODEFAULTLIB /NOENTRY)
     else()
-      # rpcrt4: UuidCreate and friends, which Valve's code calls where Linux
-      # links libuuid (-luuid above).
+      # rpcrt4: UuidCreate and friends, which Valve's code called where Linux
+      # linked libuuid (no Linux game DLL imports it any more; the Windows set
+      # is CI-verified).
       target_link_libraries(${tgt} PRIVATE shell32 user32 advapi32 gdi32 comdlg32 ole32 rpcrt4)
     endif()
   elseif(SS_PLATFORM STREQUAL osx)
@@ -498,7 +499,9 @@ function(ss_sdk_target tgt)
       target_compile_options(${tgt} PRIVATE -fno-stack-protector)
       target_link_options(${tgt} PRIVATE $<$<NOT:$<BOOL:${SS_COVERAGE}>>:-nostdlib>)
     else()
-      target_link_libraries(${tgt} PRIVATE m dl pthread uuid)
+      # m, dl and pthread: libm's maths, and libdl's and libpthread's calls on the
+      # Steam Runtime's glibc (2.31). No game DLL calls libuuid.
+      target_link_libraries(${tgt} PRIVATE m dl pthread)
     endif()
     set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS
       ${SS_SRC}/devtools/version_script.linux.txt)

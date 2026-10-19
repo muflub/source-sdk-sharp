@@ -1,6 +1,7 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-18, C9 tier1: libtier1.a off client.so's link line (nothing in client.so took a member after detailobjectsystem.cpp and particlemgr.cpp left): link-forbidden 2 -> 1. Hand-edited.
 # 2026-10-18, C7 particles phase 4 (the eviction), measured on main f4b31392d: particlemgr.cpp and particles_new.cpp
 #   left client.so: fork-src 13 -> 11, fork-hdr-not-allowed 320 -> 317, fork-hdr-total 484 -> 481,
 #   incdir-forbidden-tus 144 -> 142, sdk-links 531 -> 528 (with toolframework/itoolframework.h, which only
@@ -305,7 +306,7 @@ imports:vtf<-particles	0
 incdir-forbidden	6
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 141 -> 142, a relabel: generic_payload_client.cpp, split out of the shared generic_payload.cpp, is a new client TU that reaches a forbidden include dir (a split, not new reach).
 incdir-forbidden-tus	142
-link-forbidden	2
+link-forbidden	1
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
 logic-lines	8421
 native-convar-decls	69
