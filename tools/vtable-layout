@@ -871,6 +871,18 @@ INTERFACES = [
              '(plan_physics_managed B0).',
     ),
     dict(
+        struct='PhysicsCollisionEventVtbl',
+        header='src/public/vphysics_interface.h',
+        chain=['IPhysicsCollisionEvent'],
+        reached_by='the client game DLL\'s own handler (game/client/physics.cpp\'s g_Collisions)',
+        summary='<c>IPhysicsCollisionEvent</c>, the client\'s native collision handler, called for the events managed does not answer.',
+        note='REACHED BY POINTER, NOT BY FACTORY NAME, like NetworkStringTableVtbl: '
+             'tools/engine-forwarders forwards it (ClientPhysicsCollisionEventBinding). '
+             'The callback vphysics is handed is libss_fwd\'s, over a managed table '
+             '(plan_forwarders_everywhere.md phase 5); this row is only the walk of '
+             'the header the forwarders read.',
+    ),
+    dict(
         struct='VPhysicsKeyParserVtbl',
         header='src/public/vcollide_parse.h',
         chain=['IVPhysicsKeyParser'],
