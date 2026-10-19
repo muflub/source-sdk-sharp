@@ -74,7 +74,10 @@ constexpr ClientVProfBytes NeverEnabledProfile()
 } // namespace ss
 
 // tier0's name for the profile, over those bytes.
-extern "C" ss::ClientVProfBytes g_VProfCurrentProfile = ss::NeverEnabledProfile();
+extern "C"
+{
+ss::ClientVProfBytes g_VProfCurrentProfile = ss::NeverEnabledProfile();
+}
 SS_BIND_IMPORT( g_VProfCurrentProfile )
 
 CVProfNode *CVProfNode::GetSubNode( const tchar *, int, const tchar *, int )
