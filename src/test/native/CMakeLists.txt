@@ -3637,6 +3637,15 @@ ss_cpptest_mathlib(engine_block_layout_test
     INCLUDES sourcesharp/game/shared
     SOURCES sourcesharp/test/engine_block_layout_test.cpp)
 
+# plan_server_native_v2 T4c: the save structs the managed save codec
+# (SaveGameSession.cs) reads and writes by layout, one case per offset of
+# SaveRestoreLayout; SaveGameSessionTests pins the same numbers in C#.
+ss_cpptest_engine_headers(save_restore_layout_test
+    DEFINES GAME_DLL
+    INCLUDES public public/tier0 public/tier1
+             ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
+    SOURCES sourcesharp/test/save_restore_layout_test.cpp)
+
 # plan_entity.md step 1d -- the shim entity-list sweep, and the two resolvers it
 # added. The census is the step's instrument and this is the step's REASON: a
 # count says how many entity-list calls are left, never which, so a call added

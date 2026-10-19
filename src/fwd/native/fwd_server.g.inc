@@ -137,7 +137,7 @@ static void *const s_FileSystemSlots[] = {
 static const SSForwarderTable s_FileSystemTable = { s_FileSystemSlots, 1 };
 
 //-----------------------------------------------------------------------------
-// EngineServer: 21 forwarder(s) over IVEngineServer.
+// EngineServer: 23 forwarder(s) over IVEngineServer.
 //-----------------------------------------------------------------------------
 // bool IVEngineServer::IsDedicatedServer( void )
 static bool SSFwd_EngineServer_IsDedicatedServer( IVEngineServer *self ) { return self->IsDedicatedServer(); }
@@ -181,6 +181,10 @@ static void SSFwd_EngineServer_EmitAmbientSound( IVEngineServer *self, int a0, c
 static void SSFwd_EngineServer_Message_DetermineMulticastRecipients( IVEngineServer *self, bool a0, const Vector & a1, CBitVec< ABSOLUTE_PLAYER_LIMIT > & a2 ) { self->Message_DetermineMulticastRecipients( a0, a1, a2 ); }
 // int IVEngineServer::SentenceIndexFromName( const char * )
 static int SSFwd_EngineServer_SentenceIndexFromName( IVEngineServer *self, const char * a0 ) { return self->SentenceIndexFromName( a0 ); }
+// void * IVEngineServer::SaveAllocMemory( size_t, size_t )
+static void * SSFwd_EngineServer_SaveAllocMemory( IVEngineServer *self, size_t a0, size_t a1 ) { return self->SaveAllocMemory( a0, a1 ); }
+// void IVEngineServer::SaveFreeMemory( void * )
+static void SSFwd_EngineServer_SaveFreeMemory( IVEngineServer *self, void * a0 ) { self->SaveFreeMemory( a0 ); }
 
 static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_IsDedicatedServer ),
@@ -204,9 +208,11 @@ static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_EmitAmbientSound ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_Message_DetermineMulticastRecipients ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_SentenceIndexFromName ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_SaveAllocMemory ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_SaveFreeMemory ),
 };
 
-static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 21 };
+static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 23 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.

@@ -6613,8 +6613,8 @@ def step_save_load(g):
     run is a second instance launched with -maxplayers 1. It costs one boot.
 
     What it asserts, all through tools/debug-api:
-      * the save happened  (ServerSaveCollect crossed into managed code)
-      * the load happened  (ServerMapLoadSaveGame and ServerSaveRestore did)
+      * the save happened  (ServerSaveWriteBody crossed into managed code)
+      * the load happened  (ServerMapLoadSaveGame and ServerSaveReadBody did)
       * the world came back at the map's own census
       * and the RESTORED state is the saved one, not the current one: the
         player is hurt after saving and is whole again after loading, which is
@@ -6679,9 +6679,9 @@ def step_save_load(g):
 
         api.cmd("save %s" % SAVE_NAME)
         saved = api.wait_for(
-            lambda: crossings_since(api, mark)["ops"].get("ServerSaveCollect", 0) > 0, 30.0)
-        g.check(bool(saved), "save crossed into managed code (ServerSaveCollect %d)"
-                % crossings_since(api, mark)["ops"].get("ServerSaveCollect", 0))
+            lambda: crossings_since(api, mark)["ops"].get("ServerSaveWriteBody", 0) > 0, 30.0)
+        g.check(bool(saved), "save crossed into managed code (ServerSaveWriteBody %d)"
+                % crossings_since(api, mark)["ops"].get("ServerSaveWriteBody", 0))
 
         # Change the world AFTER saving, so a load that does nothing and a load
         # that works cannot both look like a pass.
@@ -6705,9 +6705,9 @@ def step_save_load(g):
         g.check(ops.get("ServerMapLoadSaveGame", 0) >= 1,
                 "the level came up as a SAVED GAME, not a fresh map "
                 "(ServerMapLoadSaveGame %d)" % ops.get("ServerMapLoadSaveGame", 0))
-        g.check(ops.get("ServerSaveRestore", 0) >= 1,
-                "and the managed side restored its entities (ServerSaveRestore %d)"
-                % ops.get("ServerSaveRestore", 0))
+        g.check(ops.get("ServerSaveReadBody", 0) >= 1,
+                "and the managed side restored its entities (ServerSaveReadBody %d)"
+                % ops.get("ServerSaveReadBody", 0))
 
         healed = api.wait_for(
             lambda: (lambda who: who and who["health"] >= 100)(api.player(g.scen["playerClass"])),

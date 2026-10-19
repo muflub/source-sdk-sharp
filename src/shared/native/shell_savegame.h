@@ -998,21 +998,18 @@ inline int ShellSave_ReadBlobBlock( CShellSaveCursor &cur, IShellSaveSymbols &sy
 }
 
 // See docs/managed-saverestore.md, "10. The shell's side of the engine's save cluster".
+//
+// CLIENT ONLY since plan_server_native_v2 T4c: shell_savegame.cpp is client.so's
+// (src/client/native); the server's save cluster is the managed SaveGameSession,
+// and server.so includes this header for ShellSave_LoadGameNeedsPlayer alone.
+#ifdef CLIENT_DLL
 class CSaveRestoreData;
 struct typedescription_t;
 
-// THE ONE THING THAT DIFFERS BETWEEN THE TWO SIDES, and it is one pointer type.
 // The engine's save allocator is `SaveAllocMemory( num, size )` on
-// IVEngineServer (public/eiface.h:172) and, spelled identically, on
-// IVEngineClient (public/cdll_int.h:400) -- two interfaces with no common base,
-// so the shim names whichever one its side has. Everything else is shared.
-#ifdef CLIENT_DLL
+// IVEngineClient (public/cdll_int.h:400).
 class IVEngineClient;
 typedef IVEngineClient ShellSaveEngine_t;
-#else
-class IVEngineServer;
-typedef IVEngineServer ShellSaveEngine_t;
-#endif
 
 // Allocate and place the save buffer. NULL only on an allocation failure, and
 // the caller must say so out loud: docs/managed-saverestore.md §4a records that
@@ -1046,15 +1043,6 @@ int ShellSave_ReadBlob( CSaveRestoreData *pSave, const char *pszName,
 // every other block name, which is what the engine resolves on load.
 #define SOURCESHARP_SAVE_ENTITY_BLOCK "SSENTITY"
 
-#ifndef CLIENT_DLL
-// See docs/managed-saverestore.md, "11. The managed half, driven from the shell's Save and Restore".
-bool ShellSave_WriteManagedEntities( CSaveRestoreData *pSave );
-
-// How many entities came back, kShellSaveNoBlock for a save that carries none,
-// or -1 for a block that was refused -- in which case NOTHING was restored.
-int ShellSave_RestoreManagedEntities( CSaveRestoreData *pSave );
-#endif // !CLIENT_DLL
-
 // Readouts, for the trace. Cheap accessors over the segment, so that
 // shell_gamedll.cpp can report what a save cost without holding a complete
 // CSaveRestoreData.
@@ -1068,5 +1056,6 @@ int ShellSave_BytesAvailable( CSaveRestoreData *pSave );
 // name a single block.
 int ShellSave_SymbolsDefined( CSaveRestoreData *pSave );
 int ShellSave_SymbolTableSize( CSaveRestoreData *pSave );
+#endif // CLIENT_DLL
 
 #endif // SOURCESHARP_SHELL_SAVEGAME_H

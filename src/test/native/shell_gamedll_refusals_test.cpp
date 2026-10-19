@@ -263,8 +263,13 @@ TEST( RefusalSites, EverySaveClusterMethodThatAnswersStoppedRefusingAndSaysWhatI
 		// argued decision, written at each method -- and a body that does
 		// nothing and says nothing is the exact thing Part 7's counter exists
 		// to make impossible. The trace is what replaced the counter here, so
-		// it is what gets asserted.
-		EXPECT_NE( std::string::npos, strBody.find( "ShellSave_Trace(" ) )
+		// it is what gets asserted: a "[SourceSharp][save]" line of its own,
+		// or the forward into the managed SaveGameSession, which narrates
+		// each of its five (plan_server_native_v2 T4c).
+		const bool bNarrates = strBody.find( "Msg( \"[SourceSharp][save] " + strName ) != std::string::npos;
+		const bool bForwards = strBody.find( "ManagedSaveRestore()" ) != std::string::npos
+		                    && strBody.find( "pArea->Save" ) != std::string::npos;
+		EXPECT_TRUE( bNarrates || bForwards )
 			<< strName << " answers silently: a save that quietly did nothing "
 			<< "and a save that worked look identical from outside, which is "
 			<< "why the engine's two silent SaveInit aborts cost a whole "

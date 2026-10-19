@@ -757,7 +757,7 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 		"sourcesharp/game/server/shell_usermessage_send.cpp",
 		"sourcesharp/game/server/shell_worldquery.cpp",
 		"sourcesharp/game/shared/shell_gamerules.cpp",
-		"sourcesharp/game/shared/shell_savegame.cpp",
+		"sourcesharp/game/client/shell_savegame.cpp",
 		"sourcesharp/game/shared/sourcesharp_gamesystem.cpp",
 	};
 

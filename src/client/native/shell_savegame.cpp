@@ -13,23 +13,12 @@
 // allocator, places a CSaveRestoreData in it, and drives the layout over the
 // segment's cursor and symbol table.
 //
-// ONE FILE, BOTH SIDES. The server's IServerGameDLL cluster and the client's
-// IBaseClientDLL cluster are the same fourteen questions asked twice, and the
-// only difference at this level is which interface carries SaveAllocMemory. A
-// second copy would be a second place for the wire format to drift, and the
-// format is not ours -- see shell_savegame.h on why it is CSave's, measured off
-// a segfault rather than chosen.
-//
-// WHY IT IS A SEPARATE TRANSLATION UNIT from shell_gamedll.cpp.
-// public/saverestoretypes.h does not compile without cbase.h on the server:
-// `entitytable_t::hEnt` is a CBaseEntity-typed handle when ehandle.h's include
-// guard has been seen and an
-// `EHandlePlaceholder_t` when it has not, and CGameSaveRestoreInfo::
-// BuildEntityHash calls `.Get()` on it under `#ifdef GAME_DLL`.
-// shell_gamedll.cpp deliberately has no cbase.h -- Phase 7a's whole point is
-// that the shell is the game DLL without being the game -- so it keeps holding
-// `CSaveRestoreData` as the incomplete type eiface.h forward-declares, and
-// every dereference is here.
+// CLIENT.SO'S ALONE since plan_server_native_v2 T4c: the server's half of
+// this file is the managed SaveGameSession over SaveBlockCodec
+// (src/server/interop), which writes the same records -- see shell_savegame.h
+// on why the format is CSave's, measured off a segfault rather than chosen.
+// The client's IBaseClientDLL cluster (its decal and music blocks) still
+// encodes here, through IVEngineClient's SaveAllocMemory.
 //
 // WHAT STAGE 1 DELIBERATELY DOES NOT DO, so that a later reader does not take
 // its absence for an oversight:
@@ -49,25 +38,14 @@
 //
 //=============================================================================//
 
-#ifdef CLIENT_DLL
 #include "cbase.h"
 #include "cdll_int.h"
-#else
-#include "eiface.h"
-#endif
 
 #include "datamap.h"
-#ifdef CLIENT_DLL
 #include "saverestoretypes.h"
-#else
-// The engine's view of the save block, re-declared for server.so and held to
-// upstream's layout by tools/abi-parity (plan_server_novalve.md P5 wave 9).
-#include "engineabi/saverestore.h"
-#endif
 
 #include "sourcesharp.h"
 #include "shell_savegame.h"
-#include "imanaged_areas.h"   // plan_engineapi_vtables E4: the server's IManagedSaveRestore
 #include "ss_string.h"
 
 
@@ -419,134 +397,3 @@ int ShellSave_ReadBlob( CSaveRestoreData *pSave, const char *pszName,
 	pSave->MoveCurPos( cursor.Pos() );
 	return nPayload;
 }
-
-#ifndef CLIENT_DLL
-
-//-----------------------------------------------------------------------------
-// THE MANAGED HALF: the server's IManagedSaveRestore (E4), asked afresh at each
-// call since a reload replaces it. Server only: the client's arm here sat inside
-// this #ifndef and never compiled; IManagedSaveRestoreClient (CE7) keeps the slots.
-//-----------------------------------------------------------------------------
-namespace
-{
-struct CManagedSaveSide
-{
-	IManagedSaveRestore *pArea = ManagedSaveRestore();
-
-	bool CanCollect() const { return pArea != NULL; }
-	bool CanRestore() const { return pArea != NULL; }
-	int32_t Collect( char *pBuffer, int32_t nBytes ) const { return pArea->SaveCollectEntities( pBuffer, nBytes ); }
-	int32_t Restore( const char *pBuffer, int32_t nBytes ) const { return pArea->SaveRestoreEntities( pBuffer, nBytes ); }
-};
-} // namespace
-
-bool ShellSave_WriteManagedEntities( CSaveRestoreData *pSave )
-{
-	const CManagedSaveSide side;
-
-	if ( pSave == NULL || !side.CanCollect() )
-	{
-		// A build with no managed side is a build with no managed entities. It
-		// is not a failed save; there is simply nothing of ours in it.
-		Msg( "[SourceSharp][save] Save  -- no managed side; 0 entity bytes\n" );
-		return true;
-	}
-
-	// SIZE, THEN FILL -- SaveCollectEntities' contract, which is
-	// AnimListActivityNames'. It answers the bytes the WHOLE block needs and
-	// writes nothing unless every one of them fits, so a short buffer comes
-	// back as the required size rather than as a truncated world.
-	const int nBytes = (int)side.Collect( NULL, 0 );
-
-	if ( nBytes < 0 )
-	{
-		// -1 is "the records could not be encoded at all" -- a value too long
-		// for the format. It refuses the WHOLE save rather than dropping one
-		// record, because a save that silently omits an entity is the failure
-		// that survives to the load.
-		Warning( "[SourceSharp] save: the managed side refused to encode its entities. "
-		         "No entity block is written, and the .sav will restore no managed "
-		         "state.\n" );
-		return false;
-	}
-
-	if ( nBytes == 0 )
-	{
-		Msg( "[SourceSharp][save] Save  -- 0 managed entity bytes (nothing live)\n" );
-		return true;
-	}
-
-	// A plain array rather than a CUtlBuffer: the block is written once per
-	// save, the size is known exactly before the allocation, and nothing here
-	// grows.
-	char *pBuffer = new char[ nBytes ];
-
-	const int nFilled = (int)side.Collect( pBuffer, nBytes );
-
-	if ( nFilled != nBytes )
-	{
-		// The two calls disagreed. That is a managed side whose entity set
-		// changed between them, which cannot happen inside one engine call --
-		// so it is a bug rather than a race, and it is named rather than
-		// papered over by writing whichever number is smaller.
-		Warning( "[SourceSharp] save: SaveCollectEntities sized %d bytes and then wrote "
-		         "%d. Nothing is written -- the two calls must agree.\n",
-		         nBytes, nFilled );
-		delete[] pBuffer;
-		return false;
-	}
-
-	const int nBlock = ShellSave_WriteBlob( pSave, SOURCESHARP_SAVE_ENTITY_BLOCK,
-	                                        pBuffer, nBytes );
-	delete[] pBuffer;
-
-	if ( nBlock < 0 )
-		return false;
-
-	Msg( "[SourceSharp][save] Save  -- managed entity block '%s': %d payload bytes in "
-	     "%d block bytes\n", SOURCESHARP_SAVE_ENTITY_BLOCK, nBytes, nBlock );
-	return true;
-}
-
-int ShellSave_RestoreManagedEntities( CSaveRestoreData *pSave )
-{
-	const CManagedSaveSide side;
-
-	if ( pSave == NULL || !side.CanRestore() )
-		return kShellSaveNoBlock;
-
-	const int nPayload = ShellSave_ReadBlob( pSave, SOURCESHARP_SAVE_ENTITY_BLOCK, NULL, 0 );
-
-	if ( nPayload == kShellSaveNoBlock )
-	{
-		Msg( "[SourceSharp][save] Restore -- this save carries no managed entity block; "
-		     "the map's own state is all there is\n" );
-		return kShellSaveNoBlock;
-	}
-
-	if ( nPayload < 0 )
-		return -1;	// ShellSave_ReadBlob has already named it
-
-	if ( nPayload == 0 )
-		return 0;
-
-	char *pBuffer = new char[ nPayload ];
-
-	const int nRead = ShellSave_ReadBlob( pSave, SOURCESHARP_SAVE_ENTITY_BLOCK,
-	                                      pBuffer, nPayload );
-
-	if ( nRead != nPayload )
-	{
-		Warning( "[SourceSharp] load: the managed entity block sized %d bytes and read "
-		         "%d. NOTHING has been restored.\n", nPayload, nRead );
-		delete[] pBuffer;
-		return -1;
-	}
-
-	const int nRestored = (int)side.Restore( pBuffer, nPayload );
-	delete[] pBuffer;
-
-	return nRestored;
-}
-
-#endif // !CLIENT_DLL

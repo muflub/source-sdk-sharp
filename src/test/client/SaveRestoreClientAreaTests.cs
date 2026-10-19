@@ -68,7 +68,9 @@ public class SaveRestoreClientAreaTests
         string[] files =
         {
             Code("src", "shared", "native", "sourcesharp_gamesystem.cpp"),
-            Code("src", "shared", "native", "shell_savegame.cpp"),
+            // The server's save cluster forwards from here since
+            // plan_server_native_v2 T4c (shell_savegame.cpp is client.so's).
+            Code("src", "server", "native", "shell_gamedll.cpp"),
         };
 
         Assert.Contains("ManagedSaveRestoreClient()", files[0]);

@@ -234,6 +234,9 @@ FORWARD = [
             # index UTIL_EmitAmbientSound turned a "!NAME" into.
             'EmitAmbientSound', 'Message_DetermineMulticastRecipients',
             'SentenceIndexFromName',
+            # plan_server_native_v2 T4c: the managed SaveGameSession allocates
+            # the save block through the engine, which frees it.
+            'SaveAllocMemory', 'SaveFreeMemory',
         ],
     ),
     dict(

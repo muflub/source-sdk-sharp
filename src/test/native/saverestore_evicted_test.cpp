@@ -371,12 +371,13 @@ TEST( SaveRestoreEvicted, TheServersSaveClusterAnswersWithoutTheEvictedEncoder )
 	const std::string shell =
 	    ReadStripped( "sourcesharp/game/server/shell_gamedll.cpp" );
 
-	// It answers -- through the shim, not through stock.
-	EXPECT_TRUE( Has( shell, "ShellSave_WriteFields" ) )
+	// It answers -- through the managed SaveGameSession (plan_server_native_v2
+	// T4c), not through stock.
+	EXPECT_TRUE( Has( shell, "pArea->SaveWriteFields(" ) )
 	    << "SaveWriteFields has to encode the engine's own header somehow, and "
-	       "the shim is the somehow this eviction is predicated on";
-	EXPECT_TRUE( Has( shell, "ShellSave_ReadFields" ) );
-	EXPECT_TRUE( Has( shell, "ShellSave_Init" ) );
+	       "the managed codec is the somehow this eviction is predicated on";
+	EXPECT_TRUE( Has( shell, "pArea->SaveReadFields(" ) );
+	EXPECT_TRUE( Has( shell, "pArea->SaveInit(" ) );
 
 	// And these are the three names from the evicted files. Any one of them
 	// appearing here means the shell went back for game/shared/saverestore.cpp,

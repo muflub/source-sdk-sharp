@@ -111,7 +111,6 @@ set(server_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_internalfactory.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_movement.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_physsaverestore_absent.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/shell_savegame.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_shared.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_vtable_interfaces.cpp
     # docs/todo.md's console capture: the IConsoleDisplayFunc that forwards the
@@ -315,10 +314,6 @@ set(server_novalve_sources
     # P5 wave 7c: imovementplayer.h left the overlay for src/shared/native/, and
     # standalone_player_sync.h includes basehandle.h; cbase.h was then unused.
     ${PROJECT_SOURCE_DIR}/src/shared/native/world_net_sync.cpp
-    # P5 wave 9: the save block's records come from engineabi/saverestore.h
-    # (K2-checked against upstream) instead of public/saverestoretypes.h, which
-    # does not compile under GAME_DLL without cbase.h.
-    ${PROJECT_SOURCE_DIR}/src/shared/native/shell_savegame.cpp
     # P5 lane R: g_pDeveloper and InitializeCvars need only icvar.h (cvar,
     # ConVar); game.h and cbase.h were unused.
     # shell_gamedll_convars.cpp left (plan_server_native_min P1): one

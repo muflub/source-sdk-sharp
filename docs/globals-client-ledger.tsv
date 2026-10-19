@@ -750,8 +750,8 @@ shell_movement.o	_ZL10s_Movement	s_Movement	sourcesharp/game/shared/shell_moveme
 shell_physsaverestore_absent.o	_ZZ24GetPhysObjSaveRestoreOps17PhysInterfaceId_tE8s_Absent	GetPhysObjSaveRestoreOps(PhysInterfaceId_t)::s_Absent	sourcesharp/game/shared/shell_physsaverestore_absent.cpp	LOCAL	data	function-local	8	UNRULED		
 shell_physsaverestore_absent.o	_ZZL27ShellPhysSaveRestoreManagervE8s_Absent	ShellPhysSaveRestoreManager()::s_Absent	sourcesharp/game/shared/shell_physsaverestore_absent.cpp	LOCAL	data	function-local	8	UNRULED		
 	g_pPhysSaveRestoreManager	g_pPhysSaveRestoreManager	sourcesharp/game/shared/shell_physsaverestore_absent.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE17beentheredonethat	CSaveRestoreSegment::FindCreateSymbol(char const*)::beentheredonethat	sourcesharp/game/shared/shell_savegame.cpp	WEAK	bss	function-local	1	UNRULED		
-	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE12tokensparsed	CSaveRestoreSegment::FindCreateSymbol(char const*)::tokensparsed	sourcesharp/game/shared/shell_savegame.cpp	WEAK	bss	function-local	4	UNRULED		
+	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE17beentheredonethat	CSaveRestoreSegment::FindCreateSymbol(char const*)::beentheredonethat	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	1	UNRULED		
+	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE12tokensparsed	CSaveRestoreSegment::FindCreateSymbol(char const*)::tokensparsed	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	4	UNRULED		
 	default_fov	default_fov	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 shell_shared.o	_ZL10g_MoveData	g_MoveData	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	168	UNRULED		
 	g_pMoveData	g_pMoveData	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	data	file-or-global	8	UNRULED		

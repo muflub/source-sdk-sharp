@@ -26,7 +26,7 @@ internal unsafe struct FileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 21 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 23 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -96,6 +96,12 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // int IVEngineServer::SentenceIndexFromName( const char * )
     public delegate* unmanaged<void*, byte*, int> SentenceIndexFromName;
+
+    // void * IVEngineServer::SaveAllocMemory( size_t, size_t )
+    public delegate* unmanaged<void*, nuint, nuint, void*> SaveAllocMemory;
+
+    // void IVEngineServer::SaveFreeMemory( void * )
+    public delegate* unmanaged<void*, void*, void> SaveFreeMemory;
 }
 
 /// <summary>

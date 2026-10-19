@@ -175,7 +175,7 @@ set(client_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_movement.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_movement_audit.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_physsaverestore_absent.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/shell_savegame.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_savegame.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_shared.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_vtable_interfaces.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/sound_emitter.cpp

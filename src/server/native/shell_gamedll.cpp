@@ -31,7 +31,6 @@
 #include "shell_managed_areas.h"     // CManagedHolders: the game DLL object owns them (reload L2)
 #include "shell_server.h"
 #include "shell_savecomment.h"
-#include "shell_savegame.h"
 #include "shell_steporder.h"
 #include "shell_gamedll_internal.h"
 #include "shell_factory.h"
@@ -78,39 +77,6 @@ extern CGlobalVars *gpGlobals;
 // -- stock's comment, and stock's placement: the init is the first thing after
 // the systems walk and the shutdown the first thing before it.
 
-
-//-----------------------------------------------------------------------------
-// THE SAVE TRACE, AND WHY IT IS NOT BEHIND A SWITCH.
-//
-// docs/managed-saverestore.md §6 lists six things about the save path that were
-// "not determined", and every one of them is a question about WHAT THE ENGINE
-// CALLS AND IN WHAT ORDER -- which of two SaveInit call sites bailed, whether
-// SaveGlobalState is on the plain-save path at all, where Restore sits relative
-// to LevelInit's savegame arm. None of those is answerable from inside a
-// debugger on a mod that has to be launched with -maxplayers 1 to reach the
-// feature; all of them are answerable from a console log.
-//
-// So the cluster narrates itself. A save is a thing a person types, at most a
-// few times a minute, and the whole sequence is a couple of dozen lines --
-// against which the alternative is the failure this project keeps rediscovering
-// in other clothes: a save that quietly did nothing looks exactly like a save
-// that worked, because the engine aborts BOTH SaveInit call sites in silence
-// (§4a). That is the same argument the refusal counter above is built on, and
-// it is answered the same way rather than differently.
-//
-// A static FUNCTION with no state: internal linkage, and nothing to own.
-//-----------------------------------------------------------------------------
-static void ShellSave_Trace( const char *pszFormat, ... )
-{
-    char szText[ 512 ];
-
-    va_list args;
-    va_start( args, pszFormat );
-    ss::FormatV( szText, sizeof( szText ), pszFormat, args );
-    va_end( args );
-
-    Msg( "[SourceSharp][save] %s\n", szText );
-}
 
 class CShellGameDll : public IServerGameDLL, public IConCommandBaseAccessor, public IManagedRuntimeEnvironment
 {
@@ -765,13 +731,14 @@ public:
     // table empty, and that is a complete answer to the engine rather than an
     // unfinished one. The managed entity half is a separate lane.
     //
-    // WHAT THE ELEVEN DO. SaveInit allocates and places the buffer;
-    // SaveWriteFields and SaveReadFields encode the ENGINE's own structs
-    // through save_field_codec.h and shell_savegame.h's block frame; PreSave,
-    // Save, WriteSaveHeaders, ReadRestoreHeaders, Restore, PreSaveGameLoaded
-    // and the global-state pair each have an argued reason to move no bytes,
-    // written at the method. Every one of them narrates itself -- see
-    // ShellSave_Trace above for why that is not behind a switch.
+    // WHAT THE ELEVEN DO. SaveInit, SaveWriteFields, SaveReadFields, Save and
+    // Restore are each one forward into IManagedSaveRestore
+    // (plan_server_native_v2 T4c): the managed SaveGameSession
+    // (src/server/interop/SaveGameSession.cs) sizes, allocates and places the
+    // block, encodes the ENGINE's own structs and the managed world's one body
+    // block, and narrates each call. PreSave, WriteSaveHeaders,
+    // ReadRestoreHeaders, PreSaveGameLoaded and the global-state pair each
+    // have an argued reason to move no bytes, written at the method.
     //
     // WHAT STILL REFUSES, and each is a method whose work genuinely is not
     // here: GetSaveComment (which still fills its out-parameter),
@@ -788,39 +755,30 @@ public:
     //-------------------------------------------------------------------------
     CSaveRestoreData *SaveInit(int size) override
     {
-        // THE ENGINE PASSES 0 -- docs/managed-saverestore.md §4a's own
-        // correction to D16's trace, where the 3 MiB in the log was the
-        // instrument's substitution and not the argument. The size is ours.
-        ShellSave_Trace( "SaveInit( size=%d )  -- the engine's argument, verbatim", size );
-
-        CSaveRestoreData *pSaveData =
-            ShellSave_Init( m_pEngine, size, m_pGlobals ? m_pGlobals->curtime : 0.0f );
+        // THE ENGINE PASSES 0 -- docs/managed-saverestore.md §4a; the size,
+        // the token table and the time stamp are the managed session's.
+        IManagedSaveRestore *pArea = ManagedSaveRestore();
+        CSaveRestoreData *pSaveData = pArea
+            ? static_cast< CSaveRestoreData * >( pArea->SaveInit( size, m_pGlobals ? m_pGlobals->curtime : 0.0f ) )
+            : nullptr;
 
         if ( pSaveData == nullptr )
         {
-            // ShellSave_Init has already named WHICH allocation failed. This
-            // line is the one that says what happens next, and it is the whole
-            // reason a NULL here must never be quiet: the engine abandons the
-            // save on a NULL, on both of its save paths, and prints
-            // nothing at all. No .sav, no
-            // Warning, no clue -- which is indistinguishable from a save that
-            // was never asked for. docs/managed-saverestore.md §4a.
+            // The session has already named WHICH allocation failed (or there
+            // is no managed side). This line says what happens next: the
+            // engine abandons the save on a NULL, on both of its save paths,
+            // and prints nothing at all -- docs/managed-saverestore.md §4a.
             Warning( "[SourceSharp] SaveInit is answering NULL. The engine will abandon the "
                      "save at this call site and print NOTHING -- no file and no error is "
                      "what that looks like from outside\n" );
             return nullptr;
         }
 
-        // Stock's ::SaveInit publishes it here too (saverestore.cpp:3146) and
-        // this shell has no reason to differ: gpGlobals->pSaveData is how
-        // anything holding a CGlobalVars reaches the save in progress.
+        // Stock's ::SaveInit publishes it here too (saverestore.cpp:3146):
+        // gpGlobals->pSaveData is how anything holding a CGlobalVars reaches
+        // the save in progress.
         if ( m_pGlobals )
             m_pGlobals->pSaveData = pSaveData;
-
-        ShellSave_Trace( "SaveInit -> %d byte buffer, %d symbol slots, entity table EMPTY "
-                         "(tableCount == 0, which §2d measured the engine tolerating)",
-                         ShellSave_BytesAvailable( pSaveData ),
-                         ShellSave_SymbolTableSize( pSaveData ) );
 
         return pSaveData;
     }
@@ -836,29 +794,19 @@ public:
     // pMap IS UNUSED, and stock's body does not read it either: CSave::Write-
     // Fields takes pRootMap only to walk FTYPEDESC_OVERRIDE chains, which the
     // engine's own flat header maps do not have.
+    //
+    // sizeof( typedescription_t ) is passed rather than known in C#: the
+    // struct holds a member-function pointer, whose width is the C++ ABI's.
     void SaveWriteFields(CSaveRestoreData *pSave, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount) override
     {
-        ShellSave_Trace( "SaveWriteFields  block='%s'  %d field(s)  at cursor %d",
-                         pname ? pname : "<null>", fieldCount, ShellSave_CurPos( pSave ) );
-
-        ShellSave_WriteFields( pSave, pname, pBaseData, pFields, fieldCount );
+        if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+            pArea->SaveWriteFields( pSave, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount );
     }
 
-    // THE SYMBOL COUNT IS IN THE TRACE ON PURPOSE -- it is
-    // docs/managed-saverestore.md §6 item 2, which asks whether the engine hands
-    // a populated token table BACK on load. If it does, a reader that resolved
-    // block names through it (as stock's CRestore resolves CSave::WriteHeader's
-    // two-byte token) would have to; this one hashes the name into its own block
-    // frame instead and never touches the table, so the number is what says
-    // whether that was a decision or a coincidence.
     void SaveReadFields(CSaveRestoreData *pSave, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount) override
     {
-        ShellSave_Trace( "SaveReadFields   block='%s'  %d field(s)  at cursor %d  "
-                         "(symbol table: %d of %d slots defined)",
-                         pname ? pname : "<null>", fieldCount, ShellSave_CurPos( pSave ),
-                         ShellSave_SymbolsDefined( pSave ), ShellSave_SymbolTableSize( pSave ) );
-
-        ShellSave_ReadFields( pSave, pname, pBaseData, pFields, fieldCount );
+        if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+            pArea->SaveReadFields( pSave, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount );
     }
 
     //-------------------------------------------------------------------------
@@ -903,16 +851,14 @@ public:
     //-------------------------------------------------------------------------
     void SaveGlobalState(CSaveRestoreData *pSave) override
     {
-        ShellSave_Trace( "SaveGlobalState  -- nothing written; gGlobalState is empty in this "
-                         "build and globalstate.cpp's body is #ifndef SOURCESHARP (cursor %d)",
-                         ShellSave_CurPos( pSave ) );
+        Msg( "[SourceSharp][save] SaveGlobalState  -- nothing written; gGlobalState is empty in "
+             "this build and globalstate.cpp's body is #ifndef SOURCESHARP\n" );
     }
 
     void RestoreGlobalState(CSaveRestoreData *pSave) override
     {
-        ShellSave_Trace( "RestoreGlobalState  -- nothing read; symmetric with SaveGlobalState, "
-                         "so the cursor does not move (cursor %d)",
-                         ShellSave_CurPos( pSave ) );
+        Msg( "[SourceSharp][save] RestoreGlobalState  -- nothing read; symmetric with "
+             "SaveGlobalState\n" );
     }
 
     // Stock's PreSave is `g_pGameSaveRestoreBlockSet->PreSave( s )`, whose one
@@ -926,8 +872,7 @@ public:
     // degenerates at tableCount == 0.
     void PreSave(CSaveRestoreData *pSave) override
     {
-        ShellSave_Trace( "PreSave  -- no entity table is built; tableCount stays 0 (cursor %d)",
-                         ShellSave_CurPos( pSave ) );
+        Msg( "[SourceSharp][save] PreSave  -- no entity table is built; tableCount stays 0\n" );
     }
 
     // The BODIES half of the file, which stage 1 has none of: game entity data
@@ -938,18 +883,11 @@ public:
     // header and body spans by pointer subtraction ACROSS this boundary.
     void Save(CSaveRestoreData *pSave) override
     {
-        const int nBefore = ShellSave_CurPos( pSave );
-
-        // THE ONE BODY BLOCK, and it is the whole managed world.
-        // ShellSave_WriteManagedEntities sizes through SaveCollectEntities,
-        // fills, and frames the bytes as SOURCESHARP_SAVE_ENTITY_BLOCK. A
-        // FALSE is a managed side that refused to encode, and it is loud
-        // there rather than here.
-        ShellSave_WriteManagedEntities( pSave );
-
-        ShellSave_Trace( "Save  -- body blocks written: cursor %d -> %d (%d bytes)",
-                         nBefore, ShellSave_CurPos( pSave ),
-                         ShellSave_CurPos( pSave ) - nBefore );
+        // THE ONE BODY BLOCK, and it is the whole managed world: the session
+        // sizes it through the module, fills it and frames it as SSENTITY. A
+        // refusal is loud there rather than here.
+        if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+            pArea->SaveWriteBody( pSave );
     }
 
     // THE ONE REFUSAL THAT STILL HAS TO WRITE SOMETHING -- docs/plan-audit.md
@@ -989,8 +927,7 @@ public:
         // (SOURCESHARP_SAVE_ENTITY_BLOCK) and Restore reads it at the cursor,
         // so a directory would be a second statement of one fact. The cursor
         // reported is the game's whole contribution to this .sav.
-        ShellSave_Trace( "WriteSaveHeaders  -- 0 header blocks; the game's whole contribution "
-                         "to this .sav is %d bytes", ShellSave_CurPos( pSave ) );
+        Msg( "[SourceSharp][save] WriteSaveHeaders  -- 0 header blocks\n" );
     }
 
     void ReadRestoreHeaders(CSaveRestoreData *pSave) override
@@ -1002,9 +939,7 @@ public:
         // here because WriteSaveHeaders writes nothing; the trace is what says
         // the load reached this far, which for the whole of stage 1 it never
         // did.
-        ShellSave_Trace( "ReadRestoreHeaders  -- 0 header blocks expected (cursor %d, "
-                         "%d bytes of save data available)",
-                         ShellSave_CurPos( pSave ), ShellSave_BytesAvailable( pSave ) );
+        Msg( "[SourceSharp][save] ReadRestoreHeaders  -- 0 header blocks expected\n" );
     }
 
     // createPlayers IS FORWARDED NOWHERE, and that is the honest answer rather
@@ -1015,18 +950,13 @@ public:
     // entity block and an empty table there is nothing for it to select between.
     void Restore(CSaveRestoreData *pSave, bool createPlayers) override
     {
-        const int nBefore = ShellSave_CurPos( pSave );
-
         // THE OTHER HALF OF Save's ONE BLOCK. The world's NATIVE entities have
         // already been respawned from the map lump by this point -- see
         // ServerGameDll.MapLoadSaveGame, which spawns the map and only then
         // asks the engine to load the game state -- so what comes back here is
         // the MANAGED half laid over entities that exist.
-        const int nRestored = ShellSave_RestoreManagedEntities( pSave );
-
-        ShellSave_Trace( "Restore( createPlayers=%d )  -- %d managed entities restored "
-                         "(cursor %d -> %d)", createPlayers ? 1 : 0, nRestored,
-                         nBefore, ShellSave_CurPos( pSave ) );
+        if ( IManagedSaveRestore *pArea = ManagedSaveRestore() )
+            pArea->SaveReadBody( pSave );
     }
 
     // THE ONE MEMBER OF THE SAVE CLUSTER THAT MUST NOT WARN, and getting this
@@ -1102,8 +1032,8 @@ public:
     // lists as undetermined ordering, so it narrates itself like the rest.
     void PreSaveGameLoaded(char const *pSaveName, bool bCurrentlyInGame) override
     {
-        ShellSave_Trace( "PreSaveGameLoaded( '%s', currentlyInGame=%d )",
-                         pSaveName ? pSaveName : "<null>", bCurrentlyInGame ? 1 : 0 );
+        Msg( "[SourceSharp][save] PreSaveGameLoaded( '%s', currentlyInGame=%d )\n",
+             pSaveName ? pSaveName : "<null>", bCurrentlyInGame ? 1 : 0 );
     }
 
     bool ShouldHideServer() override

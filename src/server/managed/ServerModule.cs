@@ -701,7 +701,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedResources",
                       v => ManagedAreaFactory.Create(v, new ResourcesBinding(_engine.Crossings, Log, this)));
         _bindings.Add("IManagedSaveRestore",
-                      v => ManagedAreaFactory.Create(v, new SaveRestoreBinding(_engine.Crossings, Log, this)));
+                      v => ManagedAreaFactory.Create(v, new SaveRestoreBinding(_engine.Crossings, Log, this,
+                                                                               new SaveGameSession(Log, () => EngineServer.Acquire(_engine, out _) as ISaveMemory))));
         // The standalone player's move helper's two sounds (plan_server_native_v2
         // T4a), to the emitter BuildManagedRoot builds.
         _bindings.Add("IManagedSoundEmitter",
@@ -2922,7 +2923,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// unless every one of them fits, so a short buffer comes back as the
     /// required size rather than as a truncated save. An empty world answers 0
     /// rather than a 12-byte empty block, because 0 is what
-    /// <c>SaveCollectEntities</c> in sourcesharp.h says "nothing to save" is.
+    /// <see cref="ISideModule.SaveCollect"/> says "nothing to save" is.
     /// </para>
     /// </summary>
     public int SaveCollect(Span<byte> destination)

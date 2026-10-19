@@ -104,7 +104,8 @@ public interface ISideModule
     /// bytes the whole block needs and writes nothing unless every one of them
     /// fits, so the shell sizes with an empty span and fills on the second
     /// call; 0 is nothing to save and -1 is a block that could not be encoded
-    /// at all. See <c>SaveCollectEntities</c> in sourcesharp.h.
+    /// at all. The server's SaveGameSession frames it as the save's SSENTITY
+    /// block (IManagedSaveRestore::SaveWriteBody).
     /// </summary>
     /// <remarks>
     /// DEFAULTED like <see cref="ReloadSave"/> and for the same reason: a side

@@ -226,7 +226,9 @@ public class ManagedSaveTests
         // its binding declares neither; nothing fills the retired struct slot.
         string server = File.ReadAllText(RepoLayout.Repo("src", "server", "interop", "SaveRestoreBinding.cs"));
         string client = File.ReadAllText(RepoLayout.Repo("src", "client", "interop", "SaveRestoreClientBinding.cs"));
-        foreach (string slot in new[] { "SaveCollectEntities", "SaveRestoreEntities" })
+        // plan_server_native_v2 T4c: the body block's two slots (the entity
+        // block's SaveCollectEntities/SaveRestoreEntities retired with it).
+        foreach (string slot in new[] { "SaveWriteBody", "SaveReadBody" })
         {
             Assert.True(Regex.IsMatch(server, @"public int " + slot + @"\("), slot + " is a method of SaveRestoreBinding.cs");
             Assert.False(Regex.IsMatch(client, @"public int " + slot + @"\("), slot + " is not a method of SaveRestoreClientBinding.cs");

@@ -44,8 +44,11 @@ IManagedResources	ServerPropDataRandomChunkModel	int32_t	const char *pszSection,
 IManagedResources	ModelPrecacheComponents	void	const char *pszModelName
 IManagedSaveRestore	ReloadSave	int32_t	void
 IManagedSaveRestore	ReloadRestore	int32_t	void
-IManagedSaveRestore	SaveCollectEntities	int32_t	char *pBuffer, int32_t nBytes
-IManagedSaveRestore	SaveRestoreEntities	int32_t	const char *pBuffer, int32_t nBytes
+IManagedSaveRestore	SaveInit	void *	int32_t nSize, float flCurTime
+IManagedSaveRestore	SaveWriteFields	int32_t	void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount
+IManagedSaveRestore	SaveReadFields	int32_t	void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount
+IManagedSaveRestore	SaveWriteBody	int32_t	void *pSave
+IManagedSaveRestore	SaveReadBody	int32_t	void *pSave
 IManagedSoundEnt	ServerSoundEntInit	void	int32_t nMaxClients, float flCurTime
 IManagedSoundEnt	ServerSoundEntShutdown	void	void
 IManagedSoundEnt	ServerSoundEntInsert	void	int32_t nType, const float *pXYZ, int32_t nVolume, float flDuration, uint32_t hOwner, int32_t nChannel, uint32_t hTarget

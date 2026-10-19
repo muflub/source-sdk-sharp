@@ -224,13 +224,25 @@ public unsafe struct ManagedSaveRestoreTable
     [SlotHash(0x9d8d9245)]
     public delegate* unmanaged<void*, int> ReloadRestore;
 
-    // 4: int32_t SaveCollectEntities( char *pBuffer, int32_t nBytes )
-    [SlotHash(0x3169518e)]
-    public delegate* unmanaged<void*, byte*, int, int> SaveCollectEntities;
+    // 4: void * SaveInit( int32_t nSize, float flCurTime )
+    [SlotHash(0xeb834733)]
+    public delegate* unmanaged<void*, int, float, void*> SaveInit;
 
-    // 5: int32_t SaveRestoreEntities( const char *pBuffer, int32_t nBytes )
-    [SlotHash(0x3169518e)]
-    public delegate* unmanaged<void*, byte*, int, int> SaveRestoreEntities;
+    // 5: int32_t SaveWriteFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount )
+    [SlotHash(0x7a6a4861)]
+    public delegate* unmanaged<void*, void*, byte*, void*, void*, int, int, int> SaveWriteFields;
+
+    // 6: int32_t SaveReadFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount )
+    [SlotHash(0x7a6a4861)]
+    public delegate* unmanaged<void*, void*, byte*, void*, void*, int, int, int> SaveReadFields;
+
+    // 7: int32_t SaveWriteBody( void *pSave )
+    [SlotHash(0x1134ef71)]
+    public delegate* unmanaged<void*, void*, int> SaveWriteBody;
+
+    // 8: int32_t SaveReadBody( void *pSave )
+    [SlotHash(0x1134ef71)]
+    public delegate* unmanaged<void*, void*, int> SaveReadBody;
 }
 
 /// <summary>The table managed writes for <c>IManagedSoundEnt</c> (<c>SSManagedSoundEntTable</c> native-side).</summary>
