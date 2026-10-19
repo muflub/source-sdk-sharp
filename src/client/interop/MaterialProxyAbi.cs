@@ -204,7 +204,7 @@ public interface IClientMaterialProxies
 }
 
 /// <summary>The real one, over IShimMaterialProxyClient.</summary>
-public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExecutor
+internal sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExecutor
 {
     // The shim areas this calls, taken by constructor (plan_shim_areas_split
     // phase 5). Null on a client that never attached (an unattached engine
