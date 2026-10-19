@@ -6,44 +6,23 @@
 //=============================================================================//
 //========= SourceSharp ==================================================//
 //
-// THE LEAF SYSTEM'S VIEW, GATHERED FOR MANAGED (C7 cluster 12, L1 of
-// docs/plans/c7_leaf_system.md).
+// THE ORACLE'S READING OF STOCK'S REGISTRY, one view at a time (C7 cluster
+// 12; L1 of docs/plans/c7_leaf_system.md built it for client.so, and L2,
+// which moved the registry to managed, left it to the oracle alone).
 //
-// Which renderables a view draws, the leaf each translucent one renders in,
-// the back-to-front order and the view models' opaque/translucent split are
-// managed's decisions (SourceSharp.Client's RenderableListBuilder). The
-// registry they are made over is still stock's CClientLeafSystem until L2
-// moves it. This header is the native half of the crossing: it READS the
-// registry for one view into one length-prefixed buffer, asks the engine the
-// questions managed's answer needs in the same pass, and then WRITES
-// managed's answer into the CClientRenderablesList and the registry. It
-// decides nothing: every `if` below is a bound, a validity guard or the
-// once-per-frame-and-view ComputeFxBlend upkeep that stock's
-// ComputeTranslucentRenderLeaf did before its decisions.
+// leafsystem_oracle_test.cpp compiles the pristine CClientLeafSystem and
+// writes, for each view, the VB row: stock's registry for that view and the
+// engine's answers about every renderable in it, which
+// TheScenarioReachesEveryArm names each arm of decisions 1, 2 and 5 from.
+// CClientLeafSystem is declared in clientleafsystem.cpp alone, so nothing
+// outside that file can name its members; CLeafRegistryMirror below declares
+// the same bases and data members, in the same order and of the same types,
+// so the compiler lays it out as it lays the real class out, and the oracle's
+// MirrorMatchesTheRealClass holds every member's offset to the pristine
+// class's. Nothing here is compiled into a game DLL.
 //
-// THE REGISTRY IS READ THROUGH A LAYOUT MIRROR. CClientLeafSystem is declared
-// in clientleafsystem.cpp alone, so nothing outside that file can name its
-// members, and that file is the fork's. CLeafRegistryMirror below declares
-// the same bases and the same data members, in the same order and of the same
-// types, so the compiler lays it out as it lays the real class out. Two
-// checks hold that: leafsystem_oracle_test's MirrorMatchesTheRealClass
-// compares every member's offset against the pristine class (compiled into
-// that test), and its FarmClassIsThePristineClass holds the farm's class text
-// to the pristine's. At run time Gather() refuses a renderable whose
-// RenderHandle() does not name the slot it was read from, and the executor
-// falls back to stock's own BuildRenderablesList. L2 deletes the mirror with
-// the stock registry.
-//
-// The same header is compiled in two places: into client.so by
-// shell_view_executor_client.cpp, against the engine, and into
-// leafsystem_oracle_test.cpp, against the oracle's stand-ins. Both include
-// it after clientleafsystem.h and detailobjectsystem.h and the declarations
-// of `engine` and `gpGlobals`.
-//
-// THE BUFFER (int32 words; floats are their IEEE bits). The managed reader is
-// SourceSharp.Client.Render.LeafSystem.LeafViewInput; the two must agree, and
-// the golden src/test/client/Fixtures/leafsystem-stock.tsv carries buffers
-// this code wrote, which the managed facts decode.
+// THE BUFFER (int32 words; floats are their IEEE bits), the golden's VB row
+// (src/test/client/Fixtures/leafsystem-stock.tsv):
 //
 //   [0]  total words, this one included
 //   [1]  render frame (SetupRenderInfo_t::m_nRenderFrame)
@@ -63,23 +42,10 @@
 //   then D detail models of 12: present, IsTransparent, GetFxBlend, render
 //        mins, render maxs, render origin
 //
-// THE ANSWER (int32 words):
-//
-//   [0]  total words written
-//   [1]  overflowed groups, a bit per group
-//   then R rows of 3: render frame, render leaf, render frame 2, written back
-//   then N, the entry count, and N entries of 4: group, source (a renderable
-//        row; -1 the leaf's empty marker; -2-d detail model d), the world
-//        list's leaf index, two-pass
-//
-// VIEW MODELS: in, a count V and V words of each view model's group after its
-// ComputeFxBlend, in stock's order (m_ViewModels from the end); out, V words,
-// 0 opaque and 1 translucent.
-//
 //=============================================================================
 
-#ifndef SS_LEAF_VIEW_GATHER_H
-#define SS_LEAF_VIEW_GATHER_H
+#ifndef SS_LEAFSYSTEM_GATHER_H
+#define SS_LEAFSYSTEM_GATHER_H
 
 #include <stdint.h>
 #include <string.h>
@@ -185,8 +151,6 @@ enum
 	LEAFVIEW_LEAF_WORDS       = 6,
 	LEAFVIEW_RENDERABLE_WORDS = 24,
 	LEAFVIEW_DETAIL_WORDS     = 12,
-	LEAFVIEW_STATE_WORDS      = 3,
-	LEAFVIEW_ENTRY_WORDS      = 4,
 	LEAFVIEW_ANSWER_CULLED    = 1,
 	LEAFVIEW_ANSWER_AREA      = 2,
 	LEAFVIEW_ANSWER_OCCLUDED  = 4,
@@ -202,7 +166,6 @@ public:
 	CUtlVector< int32_t >              m_Words;
 	CUtlVector< ClientRenderHandle_t > m_Handles;     // renderable row -> handle
 	CUtlVector< IClientRenderable * >  m_Details;     // detail row -> model
-	CUtlVector< int32_t >              m_Answer;      // sized for the worst answer
 
 	// The rows the view's occurrences name, by handle (cleared per view).
 	CUtlVector< int32_t >              m_RowOfHandle;
@@ -366,108 +329,11 @@ public:
 		}
 
 		m_Words[0] = m_Words.Count();
-
-		// The answer's worst case: every row's state, two markers a leaf, each
-		// renderable at most twice (translucent and its two-pass opaque copy)
-		// and each detail model once.
-		m_Answer.SetCount( 3 + LEAFVIEW_STATE_WORDS * m_Handles.Count()
-		                   + LEAFVIEW_ENTRY_WORDS * ( 2 * world.m_LeafCount + 2 * m_Handles.Count() + m_Details.Count() ) );
 		return true;
-	}
-
-	// Managed's answer, carried out: the registry's per-renderable state and
-	// the list. False, with nothing written, when the answer is malformed (a
-	// group, a source or a count out of range).
-	bool Apply( IClientLeafSystem *pSystem, CClientRenderablesList &list, int &nOverflowGroups )
-	{
-		CLeafRegistryMirror &reg = *CLeafRegistryMirror::Of( pSystem );
-		const int32_t *pOut = m_Answer.Base();
-		const int nOut = pOut[0];
-		const int nRows = m_Handles.Count();
-		const int nEntriesAt = 2 + LEAFVIEW_STATE_WORDS * nRows;
-		if ( nOut < nEntriesAt + 1 || nOut > m_Answer.Count() )
-			return false;
-		const int nEntries = pOut[nEntriesAt];
-		if ( nEntries < 0 || nEntriesAt + 1 + LEAFVIEW_ENTRY_WORDS * nEntries != nOut )
-			return false;
-
-		int counts[ RENDER_GROUP_COUNT ] = {};
-		for ( int e = 0, at = nEntriesAt + 1; e < nEntries; ++e, at += LEAFVIEW_ENTRY_WORDS )
-		{
-			const int group = pOut[at], source = pOut[at + 1];
-			if ( group < 0 || group >= RENDER_GROUP_COUNT || ++counts[group] > CClientRenderablesList::MAX_GROUP_ENTITIES )
-				return false;
-			if ( source >= nRows || ( source <= -2 && -2 - source >= m_Details.Count() ) )
-				return false;
-		}
-
-		nOverflowGroups = pOut[1];
-		for ( int r = 0; r < nRows; ++r )
-		{
-			CLeafRegistryMirror::RenderableInfo_t &info = reg.m_Renderables[ m_Handles[r] ];
-			const int32_t *pState = pOut + 2 + LEAFVIEW_STATE_WORDS * r;
-			info.m_RenderFrame = pState[0];
-			info.m_RenderLeaf = (unsigned int)pState[1];
-			info.m_RenderFrame2 = pState[2];
-		}
-
-		for ( int g = 0; g < RENDER_GROUP_COUNT; ++g )
-			list.m_RenderGroupCounts[g] = 0;
-		for ( int e = 0, at = nEntriesAt + 1; e < nEntries; ++e, at += LEAFVIEW_ENTRY_WORDS )
-		{
-			const int group = pOut[at], source = pOut[at + 1];
-			IClientRenderable *pRenderable = NULL;
-			ClientRenderHandle_t handle = 0;
-			if ( source >= 0 )
-			{
-				pRenderable = reg.m_Renderables[ m_Handles[source] ].m_pRenderable;
-				handle = m_Handles[source];
-			}
-			else if ( source <= -2 )
-			{
-				pRenderable = m_Details[ -2 - source ];
-				handle = DETAIL_PROP_RENDER_HANDLE;
-			}
-			CClientRenderablesList::CEntry &entry = list.m_RenderGroups[group][ list.m_RenderGroupCounts[group]++ ];
-			entry.m_pRenderable = pRenderable;
-			entry.m_iWorldListInfoLeaf = (unsigned short)pOut[at + 2];
-			entry.m_TwoPass = (unsigned short)pOut[at + 3];
-			entry.m_RenderHandle = handle;
-		}
-		return true;
-	}
-
-	// CollateViewModelRenderables' upkeep: each view model, from the end of the
-	// list, computes its blend (which may take it off the list, as stock's
-	// comment says), and its group after that is what managed splits on.
-	CUtlVector< IClientRenderable * > m_ViewModels;
-	CUtlVector< int32_t >             m_ViewModelWords;
-
-	void GatherViewModels( IClientLeafSystem *pSystem )
-	{
-		CLeafRegistryMirror &reg = *CLeafRegistryMirror::Of( pSystem );
-		m_ViewModels.RemoveAll();
-		m_ViewModelWords.RemoveAll();
-		m_ViewModelWords.AddToTail( 0 );
-		for ( int i = reg.m_ViewModels.Count() - 1; i >= 0; --i )
-		{
-			CLeafRegistryMirror::RenderableInfo_t &renderable = reg.m_Renderables[ reg.m_ViewModels[i] ];
-			renderable.m_pRenderable->ComputeFxBlend();
-			m_ViewModels.AddToTail( renderable.m_pRenderable );
-			m_ViewModelWords.AddToTail( renderable.m_RenderGroup );
-		}
-		m_ViewModelWords[0] = m_ViewModels.Count();
-	}
-
-	// out[i]: 0 opaque, 1 translucent, for m_ViewModels[i].
-	void ApplyViewModels( const int32_t *pOut, CUtlVector< IClientRenderable * > &opaque, CUtlVector< IClientRenderable * > &translucent )
-	{
-		for ( int i = 0; i < m_ViewModels.Count(); ++i )
-			( pOut[i] ? translucent : opaque ).AddToTail( m_ViewModels[i] );
 	}
 
 private:
 	typedef CLeafRegistryMirror::ClientLeaf_t ClientLeaf_tRef_t;
 };
 
-#endif // SS_LEAF_VIEW_GATHER_H
+#endif // SS_LEAFSYSTEM_GATHER_H

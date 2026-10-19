@@ -1089,6 +1089,99 @@ static const uint32_t kIManagedDetailPropsClientSlotHashes[] = {
 static const int32_t kIManagedDetailPropsClientSlotCount = 10;
 static_assert( sizeof( SSManagedDetailPropsClientTable ) == 10 * sizeof( void * ), "SSManagedDetailPropsClientTable is one pointer per slot" );
 
+class IManagedLeafSystemClient;
+
+// The table managed writes for IManagedLeafSystemClient: Release, Validate, then the TSV's order.
+struct SSManagedLeafSystemClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *LevelInitPreEntity )( IManagedLeafSystemClient *self, int32_t nLeafCount );
+	int32_t ( *LevelShutdownPostEntity )( IManagedLeafSystemClient *self, int64_t *pOps, int32_t nMaxOps );
+	int32_t ( *PreRender )( IManagedLeafSystemClient *self, const int32_t *pPending, int32_t nPending, int64_t *pOps, int32_t nMaxOps );
+	int32_t ( *TakeOps )( IManagedLeafSystemClient *self, int64_t *pOps, int32_t nMaxOps );
+	int32_t ( *CreateRenderableHandle )( IManagedLeafSystemClient *self, void *pRenderable, int32_t bStaticProp, int32_t nModelType, int32_t bTransparent, int32_t bTwoPass );
+	int32_t ( *AddRenderable )( IManagedLeafSystemClient *self, void *pRenderable, int32_t nGroup, int32_t nModelType );
+	int32_t ( *RemoveRenderable )( IManagedLeafSystemClient *self, int32_t nHandle, int64_t *pOps, int32_t nMaxOps );
+	int32_t ( *AddRenderableToLeaves )( IManagedLeafSystemClient *self, int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
+	void ( *ChangeRenderableRenderGroup )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t nGroup );
+	void ( *SetRenderGroup )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t nGroup );
+	void ( *RenderableChanged )( IManagedLeafSystemClient *self, int32_t nHandle );
+	void ( *EnableAlternateSorting )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t bEnable );
+	void ( *DrawStaticProps )( IManagedLeafSystemClient *self, int32_t bEnable );
+	void ( *DrawSmallEntities )( IManagedLeafSystemClient *self, int32_t bEnable );
+	int32_t ( *GetRenderableLeaves )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t *pLeaves );
+	int32_t ( *GetRenderableLeaf )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t bHasIterator, int32_t nIterator, int32_t *pLeafAndIterator );
+	void * ( *SetSubSystemDataInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nIndex, void *pData );
+	void * ( *GetSubSystemDataInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nIndex );
+	void ( *SetDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nFirst, int32_t nCount );
+	int32_t ( *GetDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t *pFirstAndCount );
+	void ( *DrawDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nFrame, int32_t *pFirstAndCount );
+	int32_t ( *ShouldDrawDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nFrame );
+	void ( *DetailLeaves )( IManagedLeafSystemClient *self, int32_t nFrame, const uint16_t *pLeaves, int32_t nLeafCount, int32_t *pOut );
+	void ( *ComputeTranslucentRenderLeaf )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending, int32_t nPending );
+	int32_t ( *BuildRenderablesList )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending );
+	int32_t ( *CollateViewModelRenderables )( IManagedLeafSystemClient *self, int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending, int32_t nPending );
+	int32_t ( *AddShadow )( IManagedLeafSystemClient *self, int32_t nUserId, int32_t nFlags );
+	void ( *RemoveShadow )( IManagedLeafSystemClient *self, int32_t nHandle );
+	int32_t ( *ProjectShadow )( IManagedLeafSystemClient *self, int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
+	int32_t ( *ProjectFlashlight )( IManagedLeafSystemClient *self, int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
+	int32_t ( *EnumerateShadowsInLeaves )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
+	void ( *Pending )( IManagedLeafSystemClient *self, const int32_t *pEntries, int32_t nCount );
+};
+
+class IManagedLeafSystemClient : public IManagedObject
+{
+public:
+	explicit IManagedLeafSystemClient( const SSManagedLeafSystemClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	void LevelInitPreEntity( int32_t nLeafCount ) { Table()->LevelInitPreEntity( this, nLeafCount ); }
+	int32_t LevelShutdownPostEntity( int64_t *pOps, int32_t nMaxOps ) { return Table()->LevelShutdownPostEntity( this, pOps, nMaxOps ); }
+	int32_t PreRender( const int32_t *pPending, int32_t nPending, int64_t *pOps, int32_t nMaxOps ) { return Table()->PreRender( this, pPending, nPending, pOps, nMaxOps ); }
+	int32_t TakeOps( int64_t *pOps, int32_t nMaxOps ) { return Table()->TakeOps( this, pOps, nMaxOps ); }
+	int32_t CreateRenderableHandle( void *pRenderable, int32_t bStaticProp, int32_t nModelType, int32_t bTransparent, int32_t bTwoPass ) { return Table()->CreateRenderableHandle( this, pRenderable, bStaticProp, nModelType, bTransparent, bTwoPass ); }
+	int32_t AddRenderable( void *pRenderable, int32_t nGroup, int32_t nModelType ) { return Table()->AddRenderable( this, pRenderable, nGroup, nModelType ); }
+	int32_t RemoveRenderable( int32_t nHandle, int64_t *pOps, int32_t nMaxOps ) { return Table()->RemoveRenderable( this, nHandle, pOps, nMaxOps ); }
+	int32_t AddRenderableToLeaves( int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->AddRenderableToLeaves( this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps ); }
+	void ChangeRenderableRenderGroup( int32_t nHandle, int32_t nGroup ) { Table()->ChangeRenderableRenderGroup( this, nHandle, nGroup ); }
+	void SetRenderGroup( int32_t nHandle, int32_t nGroup ) { Table()->SetRenderGroup( this, nHandle, nGroup ); }
+	void RenderableChanged( int32_t nHandle ) { Table()->RenderableChanged( this, nHandle ); }
+	void EnableAlternateSorting( int32_t nHandle, int32_t bEnable ) { Table()->EnableAlternateSorting( this, nHandle, bEnable ); }
+	void DrawStaticProps( int32_t bEnable ) { Table()->DrawStaticProps( this, bEnable ); }
+	void DrawSmallEntities( int32_t bEnable ) { Table()->DrawSmallEntities( this, bEnable ); }
+	int32_t GetRenderableLeaves( int32_t nHandle, int32_t *pLeaves ) { return Table()->GetRenderableLeaves( this, nHandle, pLeaves ); }
+	int32_t GetRenderableLeaf( int32_t nHandle, int32_t bHasIterator, int32_t nIterator, int32_t *pLeafAndIterator ) { return Table()->GetRenderableLeaf( this, nHandle, bHasIterator, nIterator, pLeafAndIterator ); }
+	void *SetSubSystemDataInLeaf( int32_t nLeaf, int32_t nIndex, void *pData ) { return Table()->SetSubSystemDataInLeaf( this, nLeaf, nIndex, pData ); }
+	void *GetSubSystemDataInLeaf( int32_t nLeaf, int32_t nIndex ) { return Table()->GetSubSystemDataInLeaf( this, nLeaf, nIndex ); }
+	void SetDetailObjectsInLeaf( int32_t nLeaf, int32_t nFirst, int32_t nCount ) { Table()->SetDetailObjectsInLeaf( this, nLeaf, nFirst, nCount ); }
+	int32_t GetDetailObjectsInLeaf( int32_t nLeaf, int32_t *pFirstAndCount ) { return Table()->GetDetailObjectsInLeaf( this, nLeaf, pFirstAndCount ); }
+	void DrawDetailObjectsInLeaf( int32_t nLeaf, int32_t nFrame, int32_t *pFirstAndCount ) { Table()->DrawDetailObjectsInLeaf( this, nLeaf, nFrame, pFirstAndCount ); }
+	int32_t ShouldDrawDetailObjectsInLeaf( int32_t nLeaf, int32_t nFrame ) { return Table()->ShouldDrawDetailObjectsInLeaf( this, nLeaf, nFrame ); }
+	void DetailLeaves( int32_t nFrame, const uint16_t *pLeaves, int32_t nLeafCount, int32_t *pOut ) { Table()->DetailLeaves( this, nFrame, pLeaves, nLeafCount, pOut ); }
+	void ComputeTranslucentRenderLeaf( const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending, int32_t nPending ) { Table()->ComputeTranslucentRenderLeaf( this, pLeaves, nLeafCount, nRenderFrame, nViewId, nGlobalFrame, pSystem, pPending, nPending ); }
+	int32_t BuildRenderablesList( const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending ) { return Table()->BuildRenderablesList( this, pLeaves, nLeafCount, pOriginForward, nRenderFrame, nDetailFrame, nFlags, pDetailSystem, pOps, nMaxOps, pPending, nPending ); }
+	int32_t CollateViewModelRenderables( int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending, int32_t nPending ) { return Table()->CollateViewModelRenderables( this, pOps, nMaxOps, pSystem, pPending, nPending ); }
+	int32_t AddShadow( int32_t nUserId, int32_t nFlags ) { return Table()->AddShadow( this, nUserId, nFlags ); }
+	void RemoveShadow( int32_t nHandle ) { Table()->RemoveShadow( this, nHandle ); }
+	int32_t ProjectShadow( int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->ProjectShadow( this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps ); }
+	int32_t ProjectFlashlight( int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->ProjectFlashlight( this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps ); }
+	int32_t EnumerateShadowsInLeaves( const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps ) { return Table()->EnumerateShadowsInLeaves( this, pLeaves, nLeafCount, pOps, nMaxOps ); }
+	void Pending( const int32_t *pEntries, int32_t nCount ) { Table()->Pending( this, pEntries, nCount ); }
+
+private:
+	const SSManagedLeafSystemClientTable *Table() const { return static_cast< const SSManagedLeafSystemClientTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedLeafSystemClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0xc83e311d, 0x0d54c15e, 0xfa64b18d, 0x0d54c15e, 0x20773269, 0x370c7b55,
+	0x77ae56a1, 0xdd939b22, 0x7fb639b8, 0x7fb639b8, 0xc83e311d, 0x7fb639b8, 0xc83e311d, 0xc83e311d,
+	0x17365172, 0x888dc39e, 0x510b5592, 0x920e2abe, 0x4811e619, 0x17365172, 0x878fb6d4, 0xecb3ae59,
+	0xcaf05fac, 0x57de1a71, 0x0ea4a385, 0xa2568725, 0xecb3ae59, 0xc83e311d, 0xdd939b22, 0xdd939b22,
+	0xfa64b18d, 0x2acf7c51,
+};
+static const int32_t kIManagedLeafSystemClientSlotCount = 34;
+static_assert( sizeof( SSManagedLeafSystemClientTable ) == 34 * sizeof( void * ), "SSManagedLeafSystemClientTable is one pointer per slot" );
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient *ManagedCommandsClient();   // this load's area, or NULL outside a load
@@ -1117,6 +1210,7 @@ IManagedInputClient *ManagedInputClient();   // this load's area, or NULL outsid
 IManagedBonesClient *ManagedBonesClient();   // this load's area, or NULL outside a load
 IManagedPhysicsClient *ManagedPhysicsClient();   // this load's area, or NULL outside a load
 IManagedDetailPropsClient *ManagedDetailPropsClient();   // this load's area, or NULL outside a load
+IManagedLeafSystemClient *ManagedLeafSystemClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL
 

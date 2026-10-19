@@ -90,24 +90,13 @@ c_pixel_visibility.o	_ZL22pixelvis_debug_command	pixelvis_debug_command	game/cli
 	r_drawpixelvisibility	r_drawpixelvisibility	game/client/c_pixel_visibility.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	r_pixelvisibility_partial	r_pixelvisibility_partial	game/client/c_pixel_visibility.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	r_pixelvisibility_spew	r_pixelvisibility_spew	game/client/c_pixel_visibility.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-clientleafsystem.o	_ZZN17CClientLeafSystem28ComputeTranslucentRenderLeafEiPKtPKsiiE18fSemaphore__LINE__	CClientLeafSystem::ComputeTranslucentRenderLeaf(int, unsigned short const*, short const*, int, int)::fSemaphore__LINE__	game/client/clientleafsystem.cpp	LOCAL	bss	function-local	4	UNRULED		
-clientleafsystem.o	_ZZN17CClientLeafSystem28ComputeTranslucentRenderLeafEiPKtPKsiiE11orderedList	CClientLeafSystem::ComputeTranslucentRenderLeaf(int, unsigned short const*, short const*, int, int)::orderedList	game/client/clientleafsystem.cpp	LOCAL	bss	function-local	32	UNRULED		
-clientleafsystem.o	_ZZN17CClientLeafSystem28ComputeTranslucentRenderLeafEiPKtPKsiiE19renderablesToUpdate	CClientLeafSystem::ComputeTranslucentRenderLeaf(int, unsigned short const*, short const*, int, int)::renderablesToUpdate	game/client/clientleafsystem.cpp	LOCAL	bss	function-local	32	UNRULED		
-	_ZN17CClientLeafSystem18s_ClientLeafSystemE	CClientLeafSystem::s_ClientLeafSystem	game/client/clientleafsystem.cpp	GLOBAL	bss	class-or-namespace	592	UNRULED		
-	_ZN22CClientRenderablesList11s_AllocatorE	CClientRenderablesList::s_Allocator	game/client/clientleafsystem.cpp	GLOBAL	bss	class-or-namespace	64	UNRULED		
-	_ZZN9CVProfile10EnterScopeEPKciS1_biE9fAsserted	CVProfile::EnterScope(char const*, int, char const*, bool, int)::fAsserted	game/client/clientleafsystem.cpp	WEAK	bss	function-local	1	UNRULED		
-clientleafsystem.o	_ZL48__g_CreateCClientLeafSystemIClientLeafSystem_reg	__g_CreateCClientLeafSystemIClientLeafSystem_reg	game/client/clientleafsystem.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
-clientleafsystem.o	_ZL11cl_drawleaf	cl_drawleaf	game/client/clientleafsystem.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-clientleafsystem.o	_ZL30cl_threaded_client_leaf_system	cl_threaded_client_leaf_system	game/client/clientleafsystem.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-	g_pClientLeafSystem	g_pClientLeafSystem	game/client/clientleafsystem.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-clientleafsystem.o	_ZL16r_PortalTestEnts	r_PortalTestEnts	game/client/clientleafsystem.cpp	LOCAL	bss	file-or-global	144	UNRULED		
-clientleafsystem.o	_ZL16r_portalsopenall	r_portalsopenall	game/client/clientleafsystem.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 	_ZZ15AllocTempVectorvE8s_nIndex	AllocTempVector()::s_nIndex	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	4	UNRULED		
 	_ZZ15AllocTempVectorvE9s_vecTemp	AllocTempVector()::s_vecTemp	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	1536	UNRULED		
 clientshadowmgr.o	_ZZN16CClientShadowMgr26BuildActiveShadowDepthListERK10CViewSetupiPtE18s_bOverflowWarning	CClientShadowMgr::BuildActiveShadowDepthList(CViewSetup const&, int, unsigned short*)::s_bOverflowWarning	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	1	UNRULED		
 clientshadowmgr.o	_ZZN16CClientShadowMgr26ComputeShadowDepthTexturesERK10CViewSetupE8mapCount	CClientShadowMgr::ComputeShadowDepthTextures(CViewSetup const&)::mapCount	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	4	UNRULED		
 clientshadowmgr.o	_ZZN16CClientShadowMgr16CreateFlashlightERK17FlashlightState_tE13invalidHandle	CClientShadowMgr::CreateFlashlight(FlashlightState_t const&)::invalidHandle	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	4	UNRULED		
 clientshadowmgr.o	_ZZNK16CClientShadowMgr18GetShadowDirectionEvE9s_vecDown	CClientShadowMgr::GetShadowDirection() const::s_vecDown	game/client/clientshadowmgr.cpp	LOCAL	bss	function-local	12	UNRULED		
+	_ZZN9CVProfile10EnterScopeEPKciS1_biE9fAsserted	CVProfile::EnterScope(char const*, int, char const*, bool, int)::fAsserted	game/client/clientshadowmgr.cpp	WEAK	bss	function-local	1	UNRULED		
 clientshadowmgr.o	_ZL31__g_CreateCShadowModelProxy_reg	__g_CreateCShadowModelProxy_reg	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 clientshadowmgr.o	_ZL26__g_CreateCShadowProxy_reg	__g_CreateCShadowProxy_reg	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 clientshadowmgr.o	_ZL27cs_cl_shadow_report_command	cs_cl_shadow_report_command	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
@@ -231,7 +220,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_ClientVirtualReality	g_ClientVirtualReality	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	536	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1128	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1136	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -368,6 +357,12 @@ shell_input.o	_ZL7g_Input	g_Input	sourcesharp/game/client/shell_input.cpp	LOCAL	
 	in_speed	in_speed	sourcesharp/game/client/shell_input.cpp	GLOBAL	bss	file-or-global	12	UNRULED		
 	in_strafe	in_strafe	sourcesharp/game/client/shell_input.cpp	GLOBAL	bss	file-or-global	12	UNRULED		
 	input	input	sourcesharp/game/client/shell_input.cpp	GLOBAL	data	file-or-global	8	UNRULED		
+shell_leaf_system_client.o	_ZN12_GLOBAL__N_15s_EnvE	(anonymous namespace)::s_Env	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	64	UNRULED		
+shell_leaf_system_client.o	_ZN12_GLOBAL__N_112s_GameSystemE	(anonymous namespace)::s_GameSystem	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	16	UNRULED		
+shell_leaf_system_client.o	_ZN12_GLOBAL__N_115s_LeafSystemRegE	(anonymous namespace)::s_LeafSystemReg	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
+shell_leaf_system_client.o	_ZN12_GLOBAL__N_19s_StorageE	(anonymous namespace)::s_Storage	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	64	UNRULED		
+	_ZN22CClientRenderablesList11s_AllocatorE	CClientRenderablesList::s_Allocator	sourcesharp/game/client/shell_leaf_system_client.cpp	GLOBAL	bss	class-or-namespace	64	UNRULED		
+	g_pClientLeafSystem	g_pClientLeafSystem	sourcesharp/game/client/shell_leaf_system_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts11BloodSpriteERK6VectoriiiiiifE7s_bSaid	CTempEnts::BloodSprite(Vector const&, int, int, int, int, int, int, float)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts10BreakModelERK6VectorRK6QAngleS2_S2_ffiicE7s_bSaid	CTempEnts::BreakModel(Vector const&, QAngle const&, Vector const&, Vector const&, float, float, int, int, char)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts11BubbleTrailERK6VectorS2_fiifE7s_bSaid	CTempEnts::BubbleTrail(Vector const&, Vector const&, float, int, int, float)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		

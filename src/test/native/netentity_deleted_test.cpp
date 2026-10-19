@@ -537,12 +537,13 @@ TEST( NetEntityDeleted, NothingAnywhereInTheTreeNamesTheFourReapedSlots )
 	for ( size_t i = 0; i < files.size(); i++ )
 	{
 		bStockPublic = bStockPublic || files[ i ].first == "public/tier0/dbg.h";
-		bStockClient = bStockClient || files[ i ].first == "game/client/clientleafsystem.cpp";
+		bStockClient = bStockClient || files[ i ].first == "game/client/clientshadowmgr.cpp";
 		bShim        = bShim        || files[ i ].first == "sourcesharp/game/server/shell_dispatch.cpp";
 	}
 	EXPECT_TRUE( bStockPublic ) << "public/tier0/dbg.h was not read";
-	// (cdll_util.cpp was the client needle until it left the build in C8.)
-	EXPECT_TRUE( bStockClient ) << "game/client/clientleafsystem.cpp was not read";
+	// (cdll_util.cpp was the client needle until it left the build in C8, and
+	// clientleafsystem.cpp until C7 cluster 12 L2.)
+	EXPECT_TRUE( bStockClient ) << "game/client/clientshadowmgr.cpp was not read";
 	EXPECT_TRUE( bShim ) << "sourcesharp/game/server/shell_dispatch.cpp was not read";
 
 	// THE POSITIVE CONTROL FOR THE SEARCH ITSELF. `OnCreateMove` is a live slot

@@ -341,3 +341,41 @@ internal unsafe struct SteamCallbackFwd : IForwarderTable
     // int SSFwd_SteamCallback_CallbackId( CCallbackBase * )
     public delegate* unmanaged<void*, int> CallbackId;
 }
+
+/// <summary>
+/// <c>void</c>'s functions (SSFwd_LeafSystem): 9 slot(s), none of them a method,
+/// so the first argument is the first parameter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct LeafSystemFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_LeafSystem";
+
+    // int SSFwd_LeafSystem_SizeOf( void )
+    public delegate* unmanaged<int> SizeOf;
+
+    // void * SSFwd_LeafSystem_Construct( void *, const SSLeafSystemEnv * )
+    public delegate* unmanaged<void*, void*, void*> Construct;
+
+    // int32_t SSFwd_LeafSystem_ComputeFxBlends( void *, void **, int32_t, int32_t *, int32_t )
+    public delegate* unmanaged<void*, void*, int, void*, int, int> ComputeFxBlends;
+
+    // void SSFwd_LeafSystem_Facts( void **, const int32_t *, int32_t, int32_t * )
+    public delegate* unmanaged<void*, void*, int, void*, void> Facts;
+
+    // void SSFwd_LeafSystem_Receives( void **, const int32_t *, int32_t, int32_t * )
+    public delegate* unmanaged<void*, void*, int, void*, void> Receives;
+
+    // int32_t SSFwd_LeafSystem_EnumerateLeaves( void *, const float *, int32_t, int32_t *, int32_t )
+    public delegate* unmanaged<void*, void*, int, void*, int, int> EnumerateLeaves;
+
+    // void SSFwd_LeafSystem_LeavesAreas( void *, const int32_t *, int32_t, int32_t * )
+    public delegate* unmanaged<void*, void*, int, void*, void> LeavesAreas;
+
+    // void SSFwd_LeafSystem_BoxQueries( void *, const float *, const int32_t *, int32_t, int32_t * )
+    public delegate* unmanaged<void*, void*, void*, int, void*, void> BoxQueries;
+
+    // void SSFwd_LeafSystem_DetailModels( void *, const int32_t *, int32_t, void ** )
+    public delegate* unmanaged<void*, void*, int, void*, void> DetailModels;
+}

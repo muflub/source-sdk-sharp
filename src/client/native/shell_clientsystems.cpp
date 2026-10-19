@@ -135,7 +135,11 @@ extern IClientShadowMgr *g_pClientShadowMgr;
 #include "iclientshadowmgr.h"
 #include "clienteffectprecachesystem.h"
 
-static CClientSystem *ClientLeafGameSystem()          { return ClientLeafSystem(); }
+// The leaf system's row is shell_leaf_system_client.cpp's adapter: the leaf
+// system itself is libss_fwd_client's object, built without RTTI, and the
+// per-frame walks below dynamic_cast (C7 cluster 12 L2).
+CClientSystem *ClientLeafSystemGameSystem();
+static CClientSystem *ClientLeafGameSystem()          { return ClientLeafSystemGameSystem(); }
 static CClientSystem *DetailObjectGameSystem()        { return DetailObjectSystem(); }
 static CClientSystem *ClientShadowGameSystem()        { return g_pClientShadowMgr; }
 static CClientSystem *ClientEffectPrecacheGameSystem(){ return ClientEffectPrecacheSystem(); }
@@ -207,7 +211,10 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 //     string_t IS an address, and the pool is what makes two spellings of one
 //     name compare equal by pointer.
 // RULING | CSoundEmitterSystem | STAYS | sourcesharp/game/client/sound_emitter.cpp | SoundEmitterSystem
-// RULING | CClientLeafSystem | STAYS | game/client/clientleafsystem.cpp | g_pClientLeafSystem
+// RULING | CClientLeafSystem | STAYS | sourcesharp/game/client/shell_leaf_system_client.cpp | ClientLeafSystemGameSystem
+//   ^ RE-HOMED at C7 cluster 12 L2: clientleafsystem.cpp left client.so, the leaf
+//     system is managed's behind libss_fwd_client's forwarder, and the row is
+//     that file's client-system adapter (the forwarder has no RTTI for the walk).
 // RULING | CDetailObjectSystem | STAYS | sourcesharp/game/client/shell_detail_props.cpp | DetailObjectSystem
 // RULING | CViewportClientSystem | STAYS | game/client/vgui_game_viewport.cpp | ViewportClientSystem
 // RULING | CClientEffectPrecacheSystem | STAYS | sourcesharp/game/client/shell_effects_list_client.cpp | ClientEffectPrecacheSystem

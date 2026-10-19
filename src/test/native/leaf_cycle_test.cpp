@@ -223,7 +223,13 @@ std::string FunctionBody( const std::string &strFile, const std::string &strSign
 	return std::string();
 }
 
-const char *kLeafSystem = "game/client/clientleafsystem.cpp";
+// C7 cluster 12 L2: clientleafsystem.cpp left client.so. The leaf system's
+// registry and decisions are SourceSharp.Client's; its native end is the
+// forwarder class (libss_fwd_client) and its client.so home, which also holds
+// the one bounds function other renderables still call.
+const char *kStockLeafSystem = "game/client/clientleafsystem.cpp";
+const char *kLeafSystem = "sourcesharp/game/client/shell_leaf_system_client.cpp";
+const char *kLeafForwarder = "sourcesharp/fwd/fwd_leaf_system.cpp";
 const char *kFacts = "sourcesharp/game/client/shell_renderable_facts.cpp";
 const char *kFactsHeader = "sourcesharp/game/client/renderable_facts.h";
 
@@ -234,63 +240,39 @@ const char *kFactsHeader = "sourcesharp/game/client/renderable_facts.h";
 //=============================================================================
 
 //-----------------------------------------------------------------------------
-// plan_entity.md 3.9's sentence about this file, as a check.
-//
-// The ONE `C_BaseEntity` left in the file is inside `#ifdef
-// DUMP_RENDERABLE_LEAFS`, which is defined nowhere in the tree, so it is dead
-// text that emits no symbol. It is counted separately below rather than
-// excused here, so that turning the dump on is a red test and not a surprise.
+// plan_entity.md 3.9's sentence about the leaf system, as a check, now about
+// its native end: neither file names C_BaseEntity. The stock file's one
+// C_BaseEntity sat inside `#ifdef DUMP_RENDERABLE_LEAFS`, defined nowhere; it
+// left with the file.
 //-----------------------------------------------------------------------------
-TEST( LeafSystemDeEntitied, TheLeafSystemNamesCBaseEntityOnlyInsideTheDeadDump )
+TEST( LeafSystemDeEntitied, TheLeafSystemsNativeEndNamesNoEntity )
 {
-	const std::string code = StripComments( ReadFile( kLeafSystem ) );
-	ASSERT_FALSE( code.empty() ) << kLeafSystem << " read as nothing";
-
-	const size_t dumpOpen = code.find( "#ifdef DUMP_RENDERABLE_LEAFS" );
-	ASSERT_NE( std::string::npos, dumpOpen )
-		<< "the dead-dump guard is gone, so the exemption below has no subject";
-	const size_t dumpClose = code.find( "#endif", dumpOpen );
-	ASSERT_NE( std::string::npos, dumpClose );
-
-	const std::string outside =
-		code.substr( 0, dumpOpen ) + code.substr( dumpClose );
-
-	EXPECT_EQ( 0, CountOccurrences( outside, "C_BaseEntity" ) )
-		<< kLeafSystem << " names C_BaseEntity outside the dead dump; "
-		<< "plan_entity.md 3.9 says this file addresses renderables through "
-		<< "IClientRenderable and never through C_BaseEntity";
+	const char *kFiles[] = { kLeafSystem, kLeafForwarder };
+	for ( const char *pszFile : kFiles )
+	{
+		const std::string code = StripComments( ReadFile( pszFile ) );
+		ASSERT_FALSE( code.empty() ) << pszFile << " read as nothing";
+		EXPECT_EQ( 0, CountOccurrences( code, "C_BaseEntity" ) )
+			<< pszFile << " names C_BaseEntity; the leaf system addresses "
+			<< "renderables through IClientRenderable";
+	}
 }
 
-TEST( LeafSystemDeEntitied, TheDeadDumpIsStillDeadInThisBuild )
+TEST( LeafSystemDeEntitied, TheStockLeafSystemIsNotCompiled )
 {
-	// The exemption above is only honest while the macro really is undefined.
-	// If someone turns it on, its `SDKEntityFromRenderable`/`GetClassname` pair
-	// becomes a live C_BaseEntity reach and needs a seam.
-	//
-	// Phase 6b: the build's own definitions are client_sourcesharp's, read
-	// through cmake_graph.h (Valve's stock client_base.vpc, which this check
-	// also used to read, describes a build this repo never runs and has left
-	// the tree).
-	const char *const kHeader = "game/client/clientleafsystem.h";
-	const std::string header = ReadFile( kHeader );
-	ASSERT_FALSE( header.empty() ) << kHeader << " read as nothing";
-	EXPECT_FALSE( Contains( header, "DUMP_RENDERABLE_LEAFS" ) )
-		<< kHeader << " defines DUMP_RENDERABLE_LEAFS, so the block "
-		<< "clientleafsystem.cpp exempts is compiled after all";
-
-	// What the compiler is handed for clientleafsystem.cpp itself, as -D NAME
-	// or NAME=VALUE. Proof-of-read first: the set this reads is the client's.
-	const std::string cmd = cmake_graph::CompileCommand( cmake_graph::kClient,
-		"game/client/clientleafsystem.cpp" );
-	ASSERT_TRUE( Contains( cmd, " -DCLIENT_DLL " ) )
-		<< "clientleafsystem.cpp's compile command has no -DCLIENT_DLL; this is "
-		<< "not the client's compile line:\n" << cmd;
-	EXPECT_FALSE( Contains( cmd, "-DDUMP_RENDERABLE_LEAFS" ) )
-		<< "client_sourcesharp compiles clientleafsystem.cpp with "
-		<< "DUMP_RENDERABLE_LEAFS, so the block it exempts is compiled after all";
-	EXPECT_FALSE( Contains( cmake_graph::ListText( cmake_graph::kClient ), "DUMP_RENDERABLE_LEAFS" ) )
-		<< cmake_graph::ListFile( cmake_graph::kClient ) << " names "
-		<< "DUMP_RENDERABLE_LEAFS";
+	// The eviction itself: the farm has no stock file, and the client's own
+	// list compiles none -- proof-of-read first, so the absence is about the
+	// client's list.
+	EXPECT_TRUE( ReadFile( kStockLeafSystem ).empty() ) << kStockLeafSystem << " is back in the farm";
+	const std::string list = cmake_graph::ListText( cmake_graph::kClient );
+	ASSERT_TRUE( Contains( list, "shell_leaf_system_client.cpp" ) )
+		<< cmake_graph::ListFile( cmake_graph::kClient ) << " was not read";
+	EXPECT_FALSE( Contains( list, "clientleafsystem.cpp" ) )
+		<< cmake_graph::ListFile( cmake_graph::kClient ) << " compiles clientleafsystem.cpp again";
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kStockLeafSystem ) )
+		<< "client_sourcesharp has a compile command for " << kStockLeafSystem;
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kLeafSystem ) )
+		<< "the graph does not see the leaf system's client.so home; the absence above proves nothing";
 }
 
 //-----------------------------------------------------------------------------
@@ -332,19 +314,20 @@ TEST( LeafSystemDeEntitied, BothBoundsFunctionsStillProduceABoxByTheirOwnPath )
 		<< "DefaultRenderBoundsWorldspace no longer measures the renderable's "
 		   "own bounds, so it fills nothing in and every renderable is placed "
 		   "in the leaves with an uninitialised box.";
-	EXPECT_TRUE( Contains( dflt, "TransformAABB( boxToWorld, mins, maxs, absMins, absMaxs )" ) )
+	EXPECT_TRUE( Contains( dflt, "TransformAABB( toWorld, mins, maxs, absMins, absMaxs )" ) )
 		<< "the rotated case no longer builds a world-aligned box, so an "
 		   "angled renderable gets its unrotated local bounds.";
 
-	const std::string fast = StripComments(
-		FunctionBody( kLeafSystem,
-		              "void CalcRenderableWorldSpaceAABB_Fast( IClientRenderable *pRenderable" ) );
-	ASSERT_FALSE( fast.empty() )
-		<< "CalcRenderableWorldSpaceAABB_Fast has no balanced body";
-	EXPECT_TRUE( Contains( fast, "CalcRenderableWorldSpaceAABB( pRenderable, absMin, absMax )" ) )
-		<< "the fast path no longer falls through to the renderable's own "
-		   "world-space box, so the renderable is placed in the leaves at the "
-		   "origin.";
+	// CalcRenderableWorldSpaceAABB_Fast's successor: the managed registry
+	// places a renderable by the box it answers GetRenderBoundsWorldspace with,
+	// which the forwarder library's facts batch asks it for.
+	const std::string facts = StripComments(
+		FunctionBody( kLeafForwarder,
+		              "void SSFwd_LeafSystem_Facts( void **ppRenderables" ) );
+	ASSERT_FALSE( facts.empty() ) << "SSFwd_LeafSystem_Facts has no balanced body";
+	EXPECT_TRUE( Contains( facts, "p->GetRenderBoundsWorldspace( mins, maxs )" ) )
+		<< "the facts batch no longer asks a renderable for its own world-space "
+		   "box, so the registry places it in the leaves with none.";
 }
 
 TEST( LeafSystemDeEntitied, NeitherBoundsFunctionReachesAnEntityOrADeletedSeam )
@@ -355,7 +338,6 @@ TEST( LeafSystemDeEntitied, NeitherBoundsFunctionReachesAnEntityOrADeletedSeam )
 	// each -- cannot satisfy it.
 	const char *kFns[] = {
 		"void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable",
-		"void CalcRenderableWorldSpaceAABB_Fast( IClientRenderable *pRenderable",
 	};
 	const char *kGone[] = {
 		"SourceSharp_BoneMergeBoundsFromFollowedEntity",
@@ -425,14 +407,18 @@ TEST( LeafSystemDeEntitied, TheLeafSystemNoLongerNeedsTheFactsHeaderAtAll )
 	// The include went with the last call. It is asserted because an include
 	// left behind is how a file keeps a dependency edge it no longer uses --
 	// which is the exact thing the leaf-system cycle work below is about.
-	const std::string code = StripComments( ReadFile( kLeafSystem ) );
-	ASSERT_FALSE( code.empty() ) << kLeafSystem << " read as nothing";
+	const char *kFiles[] = { kLeafSystem, kLeafForwarder };
+	for ( const char *pszFile : kFiles )
+	{
+		const std::string code = StripComments( ReadFile( pszFile ) );
+		ASSERT_FALSE( code.empty() ) << pszFile << " read as nothing";
 
-	EXPECT_FALSE( Contains( code, "#include \"renderable_facts.h\"" ) )
-		<< kLeafSystem << " includes renderable_facts.h with nothing to ask it";
-	EXPECT_EQ( 0, CountOccurrences( code, "SourceSharp_" ) )
-		<< kLeafSystem << " calls into the shim again; it asked the shim for "
-		<< "exactly two things and both were deleted";
+		EXPECT_FALSE( Contains( code, "#include \"renderable_facts.h\"" ) )
+			<< pszFile << " includes renderable_facts.h with nothing to ask it";
+		EXPECT_EQ( 0, CountOccurrences( code, "SourceSharp_" ) )
+			<< pszFile << " calls into the shim again; the stock leaf system asked "
+			<< "the shim for exactly two things and both were deleted";
+	}
 }
 
 

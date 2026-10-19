@@ -91,13 +91,35 @@ set(_ss_fwd_client_sdl)
 if(NOT SS_PLATFORM STREQUAL windows)
   set(_ss_fwd_client_sdl USE_SDL)
 endif()
+# The client library's leaf system (fwd_leaf_system.cpp, C7 cluster 12 L2) is
+# client code built against game/client's headers, here as in the library.
+set(_ss_fwd_leaf_system ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_leaf_system.cpp)
+set_source_files_properties(${_ss_fwd_leaf_system} PROPERTIES
+    COMPILE_DEFINITIONS CLIENT_DLL
+    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
 ss_cpptest_engine_headers(fwd_steam_test
     DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT ${_ss_fwd_client_sdl}
     INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_steam_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${_ss_fwd_leaf_system})
+
+# C7 cluster 12 L2: the client leaf system's forwarder class, driven as the
+# engine and client.so's C++ drive it over a recording managed table, each
+# answer's operations carried out in order, and the batches the managed
+# registry asks native, against fakes whose recorders sit at the compiler's
+# slots. The client's library is compiled in, as fwd_steam_test's is.
+ss_cpptest_engine_headers(fwd_leaf_system_test
+    DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT CLIENT_DLL ${_ss_fwd_client_sdl}
+    INCLUDES sourcesharp/game/shared sourcesharp/host sourcesharp/game/client game/client game/shared
+             ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_leaf_system_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${_ss_fwd_leaf_system})
 
 # plan_forwarders_everywhere.md phase 1: the shim layer's own interfaces
 # through the same forwarder tables, each slot holding what reached a

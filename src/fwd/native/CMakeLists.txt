@@ -101,11 +101,21 @@ ss_fwd_library(client)
 # is built without RTTI; the forwarders keep the tree's default. Its target
 # interface, IManagedSteamCallback, derives IManagedObject (imanaged_core.h).
 target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp)
+# The client's library also builds the leaf system client.so exports
+# (fwd_leaf_system.cpp, C7 cluster 12 L2): IClientLeafSystem over the managed
+# area IManagedLeafSystemClient, a class with virtuals as the two above. Its
+# interface is a game/client header (clientleafsystem.h, which takes
+# shell_clientsystem.h's CClientSystem base), so that file alone is built as
+# client code, with the client's headers and the managed areas' on its path.
+target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp)
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp PROPERTIES
+    COMPILE_DEFINITIONS CLIENT_DLL
+    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
 # The server's library also builds the IRecipientFilter IEngineSound::EmitSound
 # calls back over the managed SoundEmitter's recipients (fwd_recipient_filter.cpp,
 # plan_server_native_v2 T4a): a class with virtuals, as the two above.
 target_sources(ss_fwd_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_recipient_filter.cpp)
-foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp)
+foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_leaf_system.cpp)
   if(SS_IS_MSVC)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS /GR-)
   else()

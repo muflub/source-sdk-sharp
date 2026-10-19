@@ -337,6 +337,43 @@ public unsafe interface IManagedDetailPropsClient
     void* DetailEmit(int a0);
 }
 
+[ManagedVtable(typeof(ManagedLeafSystemClientTable))]
+public unsafe interface IManagedLeafSystemClient
+{
+    void LevelInitPreEntity(int a0);
+    int LevelShutdownPostEntity(void* a0, int a1);
+    int PreRender(void* a0, int a1, void* a2, int a3);
+    int TakeOps(void* a0, int a1);
+    int CreateRenderableHandle(void* a0, int a1, int a2, int a3, int a4);
+    int AddRenderable(void* a0, int a1, int a2);
+    int RemoveRenderable(int a0, void* a1, int a2);
+    int AddRenderableToLeaves(int a0, void* a1, int a2, void* a3, int a4);
+    void ChangeRenderableRenderGroup(int a0, int a1);
+    void SetRenderGroup(int a0, int a1);
+    void RenderableChanged(int a0);
+    void EnableAlternateSorting(int a0, int a1);
+    void DrawStaticProps(int a0);
+    void DrawSmallEntities(int a0);
+    int GetRenderableLeaves(int a0, void* a1);
+    int GetRenderableLeaf(int a0, int a1, int a2, void* a3);
+    void* SetSubSystemDataInLeaf(int a0, int a1, void* a2);
+    void* GetSubSystemDataInLeaf(int a0, int a1);
+    void SetDetailObjectsInLeaf(int a0, int a1, int a2);
+    int GetDetailObjectsInLeaf(int a0, void* a1);
+    void DrawDetailObjectsInLeaf(int a0, int a1, void* a2);
+    int ShouldDrawDetailObjectsInLeaf(int a0, int a1);
+    void DetailLeaves(int a0, void* a1, int a2, void* a3);
+    void ComputeTranslucentRenderLeaf(void* a0, int a1, int a2, int a3, int a4, void* a5, void* a6, int a7);
+    int BuildRenderablesList(void* a0, int a1, void* a2, int a3, int a4, int a5, void* a6, void* a7, int a8, void* a9, int a10);
+    int CollateViewModelRenderables(void* a0, int a1, void* a2, void* a3, int a4);
+    int AddShadow(int a0, int a1);
+    void RemoveShadow(int a0);
+    int ProjectShadow(int a0, void* a1, int a2, void* a3, int a4);
+    int ProjectFlashlight(int a0, void* a1, int a2, void* a3, int a4);
+    int EnumerateShadowsInLeaves(void* a0, int a1, void* a2, int a3);
+    void Pending(void* a0, int a1);
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -392,4 +429,6 @@ public static class ManagedAreaFactory
         => IManagedPhysicsClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedDetailPropsClient target)
         => IManagedDetailPropsClient__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedLeafSystemClient target)
+        => IManagedLeafSystemClient__ManagedVtable.Create(vtables, target);
 }

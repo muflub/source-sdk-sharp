@@ -1,11 +1,11 @@
-# C7 cluster 12 L1 (docs/plans/c7_leaf_system.md): the leaf system's lists, A/B in one process.
-# At each pose two frames by stock's BuildRenderablesList (cs_cl_leaf_lists 0; two, so the
-# frame-to-frame noise is measured) and one by managed's RenderableListBuilder
-# (cs_cl_leaf_lists 1), each recorded by cs_cl_render_trace, whose `scene` lines are every
-# world view's list as it was built; then the map is loaded again in the same process and the
-# first pose recorded once more (the second map load). Every build carries the recorder:
-#   tools/probes/c0-session OUT tools/probes/sessions/c7-leaf-ab.steps --no-probe-build
-# then compare the stock and managed frames' scenes, and the managed frames' `leaflist` notes.
+# C7 cluster 12 (docs/plans/c7_leaf_system.md): the leaf system's render lists at fixed poses, the
+# witness two builds are compared by. L1 recorded stock's and managed's lists A/B in one process
+# (cs_cl_leaf_lists); since L2 the registry and every decision are managed's and there is one path, so
+# the comparison is across builds: run this at each and compare the traces' `scenebytes` lines (every
+# world view's list as it was built). Two frames at the first pose measure the frame-to-frame noise;
+# the map is then loaded again in the same process and the first pose recorded once more (the second
+# map load). Every build carries the recorder:
+#   INSTANCE=0 tools/probes/c0-session OUT tools/probes/sessions/c7-leaf-ab.steps --no-probe-build
 wait managed client module initialized 120
 cmd map dm_lockdown
 wait first paint 240
@@ -13,51 +13,23 @@ sleep 2
 cmd sv_cheats 1
 api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
 sleep 2
-cmd cs_cl_leaf_lists 0
-sleep 1
-cmd cs_cl_render_trace {out}/pose1-stock-a.txt
-wait recorded \d+ lines to .*pose1-stock-a 20
-cmd cs_cl_render_trace {out}/pose1-stock-b.txt
-wait recorded \d+ lines to .*pose1-stock-b 20
-cmd cs_cl_leaf_lists 1
-sleep 1
-cmd cs_cl_render_trace {out}/pose1-managed.txt
-wait recorded \d+ lines to .*pose1-managed 20
+cmd cs_cl_render_trace {out}/pose1-a.txt
+wait recorded \d+ lines to .*pose1-a 20
+cmd cs_cl_render_trace {out}/pose1-b.txt
+wait recorded \d+ lines to .*pose1-b 20
 api teleport pos=-3843,2894,0 ang=25,90,0 settle=1
 sleep 2
-cmd cs_cl_leaf_lists 0
-sleep 1
-cmd cs_cl_render_trace {out}/pose2-stock-a.txt
-wait recorded \d+ lines to .*pose2-stock-a 20
-cmd cs_cl_render_trace {out}/pose2-stock-b.txt
-wait recorded \d+ lines to .*pose2-stock-b 20
-cmd cs_cl_leaf_lists 1
-sleep 1
-cmd cs_cl_render_trace {out}/pose2-managed.txt
-wait recorded \d+ lines to .*pose2-managed 20
+cmd cs_cl_render_trace {out}/pose2.txt
+wait recorded \d+ lines to .*pose2 20
 api teleport pos=-3800,2500,0 ang=-20,30,0 settle=1
 sleep 2
-cmd cs_cl_leaf_lists 0
-sleep 1
-cmd cs_cl_render_trace {out}/pose3-stock-a.txt
-wait recorded \d+ lines to .*pose3-stock-a 20
-cmd cs_cl_render_trace {out}/pose3-stock-b.txt
-wait recorded \d+ lines to .*pose3-stock-b 20
-cmd cs_cl_leaf_lists 1
-sleep 1
-cmd cs_cl_render_trace {out}/pose3-managed.txt
-wait recorded \d+ lines to .*pose3-managed 20
+cmd cs_cl_render_trace {out}/pose3.txt
+wait recorded \d+ lines to .*pose3 20
 cmd map dm_lockdown
 sleep 25
 cmd sv_cheats 1
 api teleport pos=-4116,4600,3 ang=0,-90,0 settle=1
 sleep 2
-cmd cs_cl_leaf_lists 0
-sleep 1
-cmd cs_cl_render_trace {out}/reload-pose1-stock.txt
-wait recorded \d+ lines to .*reload-pose1-stock 60
-cmd cs_cl_leaf_lists 1
-sleep 1
-cmd cs_cl_render_trace {out}/reload-pose1-managed.txt
-wait recorded \d+ lines to .*reload-pose1-managed 20
+cmd cs_cl_render_trace {out}/reload-pose1.txt
+wait recorded \d+ lines to .*reload-pose1 60
 quit

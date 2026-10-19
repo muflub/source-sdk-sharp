@@ -5,60 +5,47 @@
 //
 //=============================================================================//
 
-using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 
 namespace SourceSharp.Client.Render.LeafSystem;
 
-/// <summary>
-/// Whether managed builds the views' render lists (1, the default) or
-/// answers -1 and leaves them to stock's BuildRenderablesList, which is still
-/// compiled until L2 moves the registry: the A/B switch the render trace
-/// compares the two by.
-/// </summary>
-[ConVar("cs_cl_leaf_lists", "1", Help = "Build each view's render list and the view models' split in managed (1) or with the leaf system's stock code (0).")]
-public sealed class CsClLeafListsConVar : FloatConVar { }
+/// <summary>The ConVars the leaf system's decisions read (stock declared them in clientleafsystem.cpp).</summary>
+public interface ILeafListSettings
+{
+    /// <summary>r_PortalTestEnts: clip entities against their area's portal frustum.</summary>
+    bool PortalTestEnts { get; }
+
+    /// <summary>r_portalsopenall.</summary>
+    bool PortalsOpenAll { get; }
+
+    /// <summary>cl_drawleaf: draw only that world-list leaf's renderables (a debug build's filter); -1 all.</summary>
+    int DrawLeaf { get; }
+}
 
 /// <summary>
-/// The leaf system's per-view decisions (C7 cluster 12, L1 of
-/// docs/plans/c7_leaf_system.md), ported from clientleafsystem.cpp:
+/// The leaf system's per-view decisions (C7 cluster 12, L1 and L2 of
+/// docs/plans/c7_leaf_system.md), ported from clientleafsystem.cpp and made
+/// over the managed registry (<see cref="LeafRegistry"/>):
 /// <list type="bullet">
-/// <item>which renderables a view draws, and in which group
+/// <item>DECISION 1, which renderables a view draws and in which group
 /// (CClientLeafSystem::CollateRenderablesInLeaf and DetectBucketedRenderGroup,
 /// over the leaves in BuildRenderablesList's order);</item>
-/// <item>the leaf each translucent renderable renders in
-/// (ComputeTranslucentRenderLeaf's second loop) and the back-to-front order
-/// of each leaf's new translucent entries (SortEntities);</item>
-/// <item>the view models' opaque/translucent split
+/// <item>DECISION 2, the leaf each translucent renderable renders in
+/// (ComputeTranslucentRenderLeaf) and the back-to-front order of each leaf's
+/// new translucent entries (SortEntities);</item>
+/// <item>DECISION 5, the view models' opaque/translucent split
 /// (CollateViewModelRenderables).</item>
 /// </list>
-/// Each is one buffer in and one answer out: the registry is still stock's
-/// (L2 moves it), read by src/client/native/leaf_view_gather.h, whose header
-/// gives both layouts, with the engine's CullBox, DoesBoxTouchAreaFrustum and
-/// IsOccluded already asked for every renderable. The scratch is per instance
-/// and reused; one view at a time.
+/// Each answers into the registry's operation queue
+/// (<see cref="LeafOpKind.ListEntry"/>, <see cref="LeafOpKind.ViewModel"/>)
+/// for the forwarder to write out. Every question of a renderable or the
+/// engine is a batch: a view asks the renderables its registry checks keep for
+/// their blends, the ones its blend keeps for their boxes, and the engine only
+/// about those boxes, as stock asked only what its earlier arms kept. The
+/// scratch is per instance and reused; one view at a time.
 /// </summary>
-public sealed class RenderableListBuilder : IClientLeafLists
+public sealed class RenderableListBuilder
 {
-    // The buffer's layout (leaf_view_gather.h).
-    private const int HeaderWords = 14;
-    private const int LeafWords = 6;
-    private const int RenderableWords = 24;
-    private const int DetailWords = 12;
-    private const int StateWords = 3;
-    private const int EntryWords = 4;
-
-    private const int FlagDrawTranslucent = 1;
-    private const int FlagDrawDetail = 2;
-    private const int FlagDrawStaticProps = 4;
-    private const int FlagPortalTestEnts = 8;
-    private const int FlagPortalsOpenAll = 16;
-    private const int FlagTranslucentLeafPass = 32;
-
-    private const int AnswerCulled = 1;
-    private const int AnswerTouchesArea = 2;
-    private const int AnswerOccluded = 4;
-
     // clientleafsystem.cpp's render flags.
     private const int RenderFlagsTwoPass = 0x01;
     private const int RenderFlagsStaticProp = 0x02;
@@ -80,246 +67,472 @@ public sealed class RenderableListBuilder : IClientLeafLists
     private readonly int[][] _entries = new int[GroupCount][];
     private readonly int[] _counts = new int[GroupCount];
     private readonly float[] _dists = new float[MaxGroupEntities];
-    private int[] _frame = [];
-    private int[] _leaf = [];
-    private int[] _frame2 = [];
 
-    private readonly Func<bool> _enabled;
+    // DETAIL_PROP_RENDER_HANDLE.
+    private const int DetailPropRenderHandle = 0xFFFE;
 
-    /// <summary>Always on: the oracle's and the tests' builder.</summary>
-    public RenderableListBuilder() : this(() => true) { }
+    private readonly LeafRegistry _registry;
+    private readonly ILeafListSettings _settings;
 
-    /// <summary>The game's: on while <paramref name="enabled"/> says so (cs_cl_leaf_lists).</summary>
-    public RenderableListBuilder(Func<bool> enabled)
+    // Scratch, per view.
+    private readonly List<int> _order = [];
+    private readonly List<long> _toBlend = [];
+    private readonly int[] _pending = new int[LeafPending.Words * LeafPending.Max];
+    private readonly List<int> _candidates = [];        // handle per candidate
+    private readonly List<int> _candidateLeaf = [];     // its world-list leaf index
+    private readonly List<int> _leafCandidateStart = [];
+    private readonly List<int> _detailRanges = [];
+    private readonly List<int> _detailLeaf = [];        // world-list leaf index per detail model
+    private readonly List<int> _leafDetailStart = [];
+    private nint[] _detailModels = [];
+    private int[] _alpha = [];
+    private int[] _candidateFacts = [];
+    private int[] _detailFacts = [];
+    private int[] _answers = [];
+    private bool[] _survives = [];
+
+    public RenderableListBuilder(LeafRegistry registry, ILeafListSettings settings)
     {
-        _enabled = enabled;
+        _registry = registry;
+        _settings = settings;
         for (int g = 0; g < GroupCount; g++)
             _entries[g] = new int[MaxGroupEntities * 3];
     }
 
-    /// <inheritdoc/>
-    public int BuildRenderableList(ReadOnlySpan<int> view, Span<int> answer)
+    private LeafRegistry Registry => _registry;
+
+    /// <summary>
+    /// DECISION 2's first half, ComputeTranslucentRenderLeaf: each renderable
+    /// in the view's leaves computes its blend once per frame and view (one
+    /// batch, before anything reads a group the blend may change), then,
+    /// walking the leaves front to back, a translucent renderable met first
+    /// this frame renders in that leaf, and under alternate sorting in the
+    /// last one it is met in.
+    /// </summary>
+    public void ComputeTranslucentRenderLeaf(ReadOnlySpan<int> leaves, int frameNumber, int viewId, int globalFrame, nint system = 0)
     {
-        if (!_enabled() || view.Length < HeaderWords || view[0] != view.Length)
-            return -1;
-        int leafCount = view[10], renderableCount = view[11], occurrenceCount = view[12], detailCount = view[13];
-        if (leafCount < 0 || renderableCount < 0 || occurrenceCount < 0 || detailCount < 0)
-            return -1;
-        int leafAt = HeaderWords;
-        int occurrenceAt = leafAt + LeafWords * leafCount;
-        int renderableAt = occurrenceAt + occurrenceCount;
-        int detailAt = renderableAt + RenderableWords * renderableCount;
-        if ((long)detailAt + (long)DetailWords * detailCount != view.Length)
-            return -1;
-
-        var input = new ViewInput(view, leafAt, occurrenceAt, renderableAt, detailAt);
-        int frame = view[1];
-        int flags = view[2];
-        int drawLeaf = view[3];
-        bool drawTranslucent = (flags & FlagDrawTranslucent) != 0;
-
-        if (_frame.Length < renderableCount)
+        LeafRegistry reg = Registry;
+        LeafBuckets inLeaf = reg.RenderablesInLeaf;
+        _order.Clear();
+        _toBlend.Clear();
+        foreach (int leaf in leaves)
         {
-            _frame = new int[renderableCount];
-            _leaf = new int[renderableCount];
-            _frame2 = new int[renderableCount];
+            if (!reg.IsValidLeaf(leaf))
+                continue;
+            _order.Add(-1 - leaf);
+            for (int node = inLeaf.FirstInBucket(leaf); node >= 0; node = inLeaf.NextInBucket(node))
+            {
+                int handle = inLeaf.Element(node);
+                ref LeafRegistry.RenderableInfo info = ref reg.Info(handle);
+                if (info.TranslucencyCalculated != globalFrame || info.TranslucencyCalculatedView != viewId)
+                {
+                    _toBlend.Add(info.Renderable);
+                    info.TranslucencyCalculated = globalFrame;
+                    info.TranslucencyCalculatedView = (sbyte)viewId;
+                }
+                _order.Add(handle);
+            }
         }
-        for (int r = 0; r < renderableCount; r++)
+        if (_toBlend.Count > 0)
+            Blend(reg, system);
+
+        int current = 0;
+        foreach (int entry in _order)
         {
-            _frame[r] = input.Renderable(r, 3);
-            _leaf[r] = input.Renderable(r, 4);
-            _frame2[r] = input.Renderable(r, 5);
+            if (entry < 0)
+            {
+                current = -1 - entry;
+                continue;
+            }
+            ref LeafRegistry.RenderableInfo info = ref reg.Info(entry);
+            bool translucent = info.Group == GroupTranslucentEntity;
+            if (info.RenderFrame != frameNumber)
+            {
+                if (translucent)
+                    info.RenderLeaf = (uint)current;
+                info.RenderFrame = frameNumber;
+            }
+            else if ((info.Flags & RenderFlagsAlternateSorting) != 0 && translucent)
+            {
+                info.RenderLeaf = (uint)current;
+            }
         }
+    }
+
+    // The blend batch, then the group changes its blends queued (a fading
+    // static prop's), applied before the caller reads the groups.
+    private void Blend(LeafRegistry reg, nint system)
+    {
+        int n = reg.Native.ComputeFxBlends(system, Pointers(_toBlend), _pending);
+        if (n > 0)
+            reg.ApplyPending(_pending.AsSpan(0, LeafPending.Words * Math.Min(n, LeafPending.Max)));
+    }
+
+    private static nint[] Pointers(List<long> list)
+    {
+        var pointers = new nint[list.Count];
+        for (int i = 0; i < pointers.Length; i++)
+            pointers[i] = (nint)list[i];
+        return pointers;
+    }
+
+    /// <summary>
+    /// DECISIONS 1 AND 2, BuildRenderablesList over the registry: each leaf's
+    /// markers, renderables and detail objects (CollateRenderablesInLeaf's
+    /// arms), then the leaf's new translucent entries sorted back to front.
+    /// The list is queued as <see cref="LeafOpKind.ListEntry"/> operations,
+    /// group by group, and a <see cref="LeafOpKind.ListOverflow"/> when a group
+    /// filled.
+    /// </summary>
+    public void BuildRenderablesList(in LeafView view)
+    {
+        LeafRegistry reg = Registry;
+        ILeafListSettings settings = _settings;
+        ILeafNative native = reg.Native;
+        LeafBuckets inLeaf = reg.RenderablesInLeaf;
+        ReadOnlySpan<int> leaves = view.Leaves;
+        int frame = view.RenderFrame;
+        bool drawTranslucent = view.DrawTranslucent;
+        bool portalTestEnts = settings.PortalTestEnts && !settings.PortalsOpenAll;
+        int drawLeaf = view.DrawLeafFilter ? settings.DrawLeaf : -1;
+
+        // The registry's arms, in stock's order: the static-prop switch, then
+        // one entry per renderable per frame (a translucent one only in the
+        // leaf it renders in). Each leaf's detail range when the leaf draws
+        // its detail objects.
+        _candidates.Clear();
+        _candidateLeaf.Clear();
+        _leafCandidateStart.Clear();
+        _detailRanges.Clear();
+        _detailLeaf.Clear();
+        _leafDetailStart.Clear();
+        for (int i = 0; i < leaves.Length; i++)
+        {
+            int leaf = leaves[i];
+            _leafCandidateStart.Add(_candidates.Count);
+            _leafDetailStart.Add(_detailLeaf.Count);
+            if (!reg.IsValidLeaf(leaf))
+                continue;
+            for (int node = inLeaf.FirstInBucket(leaf); node >= 0; node = inLeaf.NextInBucket(node))
+            {
+                int handle = inLeaf.Element(node);
+                ref LeafRegistry.RenderableInfo info = ref reg.Info(handle);
+                if (!reg.DrawStaticPropsEnabled && (info.Flags & RenderFlagsStaticProp) != 0)
+                    continue;
+                if (info.Group != GroupTranslucentEntity)
+                {
+                    if (info.RenderFrame2 == frame)
+                        continue;
+                    info.RenderFrame2 = frame;
+                }
+                else if (info.RenderLeaf != (uint)leaf)
+                {
+                    continue;
+                }
+                _candidates.Add(handle);
+                _candidateLeaf.Add(i);
+            }
+            if (view.DrawDetail && reg.ShouldDrawDetailObjectsInLeaf(leaf, view.DetailBuildFrame)
+                && reg.GetDetailObjectsInLeaf(leaf, out int first, out int count) && count > 0)
+            {
+                _detailRanges.Add(first);
+                _detailRanges.Add(count);
+                for (int k = 0; k < count; k++)
+                    _detailLeaf.Add(i);
+            }
+        }
+        _leafCandidateStart.Add(_candidates.Count);
+        _leafDetailStart.Add(_detailLeaf.Count);
+
+        int nCandidates = _candidates.Count;
+        int nDetails = _detailLeaf.Count;
+        if (_detailModels.Length < nDetails)
+            _detailModels = new nint[nDetails];
+        if (nDetails > 0)
+            native.DetailModels(view.DetailSystem, _detailRanges.ToArray(), _detailModels.AsSpan(0, nDetails));
+        Grow(ref _alpha, nCandidates);
+        Grow(ref _survives, nCandidates);
+        Grow(ref _answers, nCandidates);
+        Grow(ref _candidateFacts, nCandidates * LeafFacts.Words);
+        Grow(ref _detailFacts, nDetails * LeafFacts.Words);
+
+        // The first batch: the candidates' blends (asked only when the view
+        // draws translucent objects) and the detail models' transparency.
+        var pointers = new List<nint>();
+        var what = new List<int>();
+        var into = new List<(bool Detail, int Index)>();
+        if (drawTranslucent)
+        {
+            for (int c = 0; c < nCandidates; c++)
+            {
+                pointers.Add((nint)reg.Info(_candidates[c]).Renderable);
+                what.Add(LeafFacts.Blend);
+                into.Add((false, c));
+            }
+        }
+        for (int d = 0; d < nDetails; d++)
+        {
+            if (_detailModels[d] == 0)
+                continue;
+            pointers.Add(_detailModels[d]);
+            what.Add(LeafFacts.Transparent);
+            into.Add((true, d));
+        }
+        AskFacts(native, pointers, what, into);
+
+        // An invisible renderable is not drawn (stock's alpha is a byte; with
+        // no translucent objects it is 255). The second batch: the visible
+        // ones' boxes (and, for the translucent ones, what the sort centres
+        // on), and the transparent detail models' blends and centres.
+        pointers.Clear();
+        what.Clear();
+        into.Clear();
+        for (int c = 0; c < nCandidates; c++)
+        {
+            _alpha[c] = drawTranslucent ? (byte)_candidateFacts[c * LeafFacts.Words] : 255;
+            _survives[c] = _alpha[c] != 0;
+            if (!_survives[c])
+                continue;
+            ref LeafRegistry.RenderableInfo info = ref reg.Info(_candidates[c]);
+            pointers.Add((nint)info.Renderable);
+            what.Add(LeafFacts.WorldBounds | (info.Group == GroupTranslucentEntity ? LeafFacts.RenderBounds | LeafFacts.Origin : 0));
+            into.Add((false, c));
+        }
+        if (drawTranslucent)
+        {
+            for (int d = 0; d < nDetails; d++)
+            {
+                if (_detailModels[d] == 0 || _detailFacts[d * LeafFacts.Words + 1] == 0)
+                    continue;
+                pointers.Add(_detailModels[d]);
+                what.Add(LeafFacts.Blend | LeafFacts.RenderBounds | LeafFacts.Origin);
+                into.Add((true, d));
+            }
+        }
+        AskFacts(native, pointers, what, into);
+
+        // The engine's questions, for the visible ones only: inside an area,
+        // that area's portal frustum, else the main frustum; then occlusion
+        // for a studio model.
+        var boxes = new List<float>();
+        var programs = new List<int>();
+        var asked = new List<int>();
+        for (int c = 0; c < nCandidates; c++)
+        {
+            _answers[c] = 0;
+            if (!_survives[c])
+                continue;
+            ref LeafRegistry.RenderableInfo info = ref reg.Info(_candidates[c]);
+            int tests = portalTestEnts && info.Area != -1 ? LeafQuery.Area : LeafQuery.Cull;
+            if ((info.Flags & RenderFlagsStudioModel) != 0)
+                tests |= LeafQuery.Occluded;
+            for (int k = 0; k < 6; k++)
+                boxes.Add(BitConverter.Int32BitsToSingle(_candidateFacts[c * LeafFacts.Words + 2 + k]));
+            programs.Add(LeafQuery.Program(tests, (tests & LeafQuery.Area) != 0 ? info.Area : 0));
+            asked.Add(c);
+        }
+        if (asked.Count > 0)
+        {
+            var answers = new int[asked.Count];
+            native.BoxQueries(boxes.ToArray(), programs.ToArray(), answers);
+            for (int k = 0; k < asked.Count; k++)
+                _answers[asked[k]] = answers[k];
+        }
+
+        // The list, leaf by leaf.
         Array.Clear(_counts);
         int overflow = 0;
-
-        if ((flags & FlagTranslucentLeafPass) != 0)
-            ComputeTranslucentRenderLeaf(input, leafCount, frame);
-
-        // BuildRenderablesList: each leaf collated, then its new translucent
-        // entries sorted.
-        for (int i = 0; i < leafCount; i++)
+        for (int i = 0; i < leaves.Length; i++)
         {
             int translucentBefore = _counts[GroupTranslucentEntity];
-            CollateRenderablesInLeaf(input, i, frame, flags, drawLeaf, ref overflow);
+            Add(GroupOpaqueStatic, -1, i, 0, drawLeaf, ref overflow);
+            Add(GroupOpaqueEntity, -1, i, 0, drawLeaf, ref overflow);
+
+            for (int c = _leafCandidateStart[i]; c < _leafCandidateStart[i + 1]; c++)
+            {
+                if (!_survives[c] || _answers[c] != 0)
+                    continue;
+                ref LeafRegistry.RenderableInfo info = ref reg.Info(_candidates[c]);
+                int group = info.Group;
+                if (group != GroupTranslucentEntity)
+                {
+                    if (group >= GroupOpaqueStatic && group <= GroupOpaqueEntity)
+                    {
+                        int at = c * LeafFacts.Words + 2;
+                        float dx = F(_candidateFacts[at + 3]) - F(_candidateFacts[at]);
+                        float dy = F(_candidateFacts[at + 4]) - F(_candidateFacts[at + 1]);
+                        float dz = F(_candidateFacts[at + 5]) - F(_candidateFacts[at + 2]);
+                        float dimension = Max(Max(MathF.Abs(dx), MathF.Abs(dy)), MathF.Abs(dz));
+                        group = BucketedRenderGroup(group, dimension);
+                    }
+                    Add(group, c, i, 0, drawLeaf, ref overflow);
+                }
+                else
+                {
+                    bool twoPass = (info.Flags & RenderFlagsTwoPass) != 0 && _alpha[c] == 255;
+                    if (drawTranslucent)
+                        Add(GroupTranslucentEntity, c, i, twoPass ? 1 : 0, drawLeaf, ref overflow);
+                    if (twoPass)
+                        Add(GroupOpaqueEntity, c, i, 1, drawLeaf, ref overflow);
+                }
+            }
+
+            // The detail objects, which have no render handles.
+            for (int d = _leafDetailStart[i]; d < _leafDetailStart[i + 1]; d++)
+            {
+                if (_detailModels[d] == 0)
+                    continue;
+                if (_detailFacts[d * LeafFacts.Words + 1] != 0)
+                {
+                    if (drawTranslucent && _detailFacts[d * LeafFacts.Words] > 0)
+                        Add(GroupTranslucentEntity, -2 - d, i, 0, drawLeaf, ref overflow);
+                }
+                else
+                {
+                    Add(GroupOpaqueEntity, -2 - d, i, 0, drawLeaf, ref overflow);
+                }
+            }
+
             int added = _counts[GroupTranslucentEntity] - translucentBefore;
             if (added != 0 && drawTranslucent)
-                SortEntities(input, translucentBefore, added, view);
+                SortRegistryEntries(translucentBefore, added, view);
         }
 
-        // The answer: the rows' state, then each group's entries in order.
-        int entries = 0;
-        for (int g = 0; g < GroupCount; g++)
-            entries += _counts[g];
-        int total = 2 + StateWords * renderableCount + 1 + EntryWords * entries;
-        if (answer.Length < total)
-            return -1;
-        answer[0] = total;
-        answer[1] = overflow;
-        int at = 2;
-        for (int r = 0; r < renderableCount; r++)
-        {
-            answer[at++] = _frame[r];
-            answer[at++] = _leaf[r];
-            answer[at++] = _frame2[r];
-        }
-        answer[at++] = entries;
         for (int g = 0; g < GroupCount; g++)
         {
             int[] list = _entries[g];
             for (int e = 0; e < _counts[g]; e++)
             {
-                answer[at++] = g;
-                answer[at++] = list[3 * e];
-                answer[at++] = list[3 * e + 1];
-                answer[at++] = list[3 * e + 2];
+                int source = list[3 * e];
+                long renderable = 0;
+                long handle = 0;
+                if (source >= 0)
+                {
+                    handle = _candidates[source];
+                    renderable = reg.Info(_candidates[source]).Renderable;
+                }
+                else if (source <= -2)
+                {
+                    handle = DetailPropRenderHandle;
+                    renderable = _detailModels[-2 - source];
+                }
+                long packed = handle | ((long)(list[3 * e + 1] & 0xFFFF) << 16) | ((long)(list[3 * e + 2] & 0xFFFF) << 32);
+                reg.Op(LeafOpKind.ListEntry, renderable, packed, g);
             }
         }
-        return total;
+        if (overflow != 0)
+            reg.Op(LeafOpKind.ListOverflow, 0, overflow);
     }
 
-    /// <inheritdoc/>
-    public int SplitViewModels(ReadOnlySpan<int> groups, Span<int> answer)
+    // One facts batch into the candidates' or the detail models' rows.
+    private void AskFacts(ILeafNative native, List<nint> pointers, List<int> what, List<(bool Detail, int Index)> into)
     {
-        if (!_enabled() || groups.Length < 1 || groups[0] < 0 || groups.Length != groups[0] + 1 || answer.Length < groups[0])
-            return -1;
-        int count = groups[0];
-        // The group after the view model's ComputeFxBlend: opaque when it is
-        // the opaque view model group or became an opaque entity, else translucent.
+        int n = pointers.Count;
+        if (n == 0)
+            return;
+        var facts = new int[n * LeafFacts.Words];
+        native.Facts(pointers.ToArray(), what.ToArray(), facts);
+        for (int k = 0; k < n; k++)
+        {
+            int[] target = into[k].Detail ? _detailFacts : _candidateFacts;
+            int at = into[k].Index * LeafFacts.Words;
+            int mask = what[k];
+            CopyIf(mask, LeafFacts.Blend, facts, k, 0, 1, target, at);
+            CopyIf(mask, LeafFacts.Transparent, facts, k, 1, 1, target, at);
+            CopyIf(mask, LeafFacts.WorldBounds, facts, k, 2, 6, target, at);
+            CopyIf(mask, LeafFacts.RenderBounds, facts, k, 8, 6, target, at);
+            CopyIf(mask, LeafFacts.Origin, facts, k, 14, 3, target, at);
+        }
+    }
+
+    private static void CopyIf(int mask, int bit, int[] facts, int k, int word, int count, int[] target, int at)
+    {
+        if ((mask & bit) == 0)
+            return;
+        Array.Copy(facts, k * LeafFacts.Words + word, target, at + word, count);
+    }
+
+    private static void Grow<T>(ref T[] array, int count)
+    {
+        if (array.Length < count)
+            array = new T[Math.Max(count, array.Length * 2)];
+    }
+
+    private static float F(int bits) => BitConverter.Int32BitsToSingle(bits);
+
+    // SortEntities over the registry path's sources: the centre of each
+    // entry's render bounds about its origin, its distance along the view's
+    // forward, and stock's H-sort, swap for swap.
+    private void SortRegistryEntries(int start, int count, in LeafView view)
+    {
+        if (count <= 1)
+            return;
+        int[] list = _entries[GroupTranslucentEntity];
         for (int i = 0; i < count; i++)
         {
-            int group = groups[1 + i];
-            answer[i] = group == GroupViewModelOpaque || group == GroupOpaqueEntity ? 0 : 1;
+            int source = list[3 * (start + i)];
+            int[] facts = source >= 0 ? _candidateFacts : _detailFacts;
+            int at = (source >= 0 ? source : -2 - source) * LeafFacts.Words;
+            float cx = F(facts[at + 8]) + F(facts[at + 11]);
+            float cy = F(facts[at + 9]) + F(facts[at + 12]);
+            float cz = F(facts[at + 10]) + F(facts[at + 13]);
+            cx = F(facts[at + 14]) + 0.5f * cx;
+            cy = F(facts[at + 15]) + 0.5f * cy;
+            cz = F(facts[at + 16]) + 0.5f * cz;
+            float dx = cx - view.OriginX, dy = cy - view.OriginY, dz = cz - view.OriginZ;
+            _dists[i] = dx * view.ForwardX + dy * view.ForwardY + dz * view.ForwardZ;
         }
-        return count;
+        HSort(list, start, count);
     }
 
-    // ComputeTranslucentRenderLeaf's second loop: walking the leaves front to
-    // back, a translucent renderable met for the first time this frame renders
-    // in that leaf; met again under alternate sorting, in the later one.
-    private void ComputeTranslucentRenderLeaf(in ViewInput input, int leafCount, int frame)
+    // Stock's H-sort over _dists, moving the list's entries with them.
+    private void HSort(int[] list, int start, int count)
     {
-        for (int i = 0; i < leafCount; i++)
+        int stepSize = 4;
+        while (stepSize != 0)
         {
-            int leaf = input.Leaf(i, 0);
-            int first = input.Leaf(i, 1), count = input.Leaf(i, 2);
-            for (int k = 0; k < count; k++)
+            int end = count - stepSize;
+            for (int i = 0; i < end; i += stepSize)
             {
-                int r = input.Occurrence(first + k);
-                bool translucent = input.Renderable(r, 1) == GroupTranslucentEntity;
-                if (_frame[r] != frame)
+                if (_dists[i] > _dists[i + stepSize])
                 {
-                    if (translucent)
-                        _leaf[r] = leaf;
-                    _frame[r] = frame;
-                }
-                else if ((input.Renderable(r, 2) & RenderFlagsAlternateSorting) != 0)
-                {
-                    if (translucent)
-                        _leaf[r] = leaf;
+                    Swap(list, start + i, start + i + stepSize);
+                    (_dists[i], _dists[i + stepSize]) = (_dists[i + stepSize], _dists[i]);
+                    if (i == 0)
+                        i = -stepSize;
+                    else
+                        i -= stepSize << 1;
                 }
             }
+            stepSize >>= 1;
         }
     }
 
-    private void CollateRenderablesInLeaf(in ViewInput input, int leafIndex, int frame, int flags, int drawLeaf, ref int overflow)
+    /// <summary>
+    /// DECISION 5, CollateViewModelRenderables over the registry: each view
+    /// model, from the end of the list, computes its blend (one batch; a blend
+    /// may move it out of the view model groups), and is opaque when its group
+    /// after that is the opaque view model group or an opaque entity, else
+    /// translucent. Queued as <see cref="LeafOpKind.ViewModel"/> operations.
+    /// </summary>
+    public void CollateViewModelRenderables(nint system = 0)
     {
-        bool portalTestEnts = (flags & FlagPortalTestEnts) != 0 && (flags & FlagPortalsOpenAll) == 0;
-        bool drawTranslucent = (flags & FlagDrawTranslucent) != 0;
-        bool drawStaticProps = (flags & FlagDrawStaticProps) != 0;
-        int leaf = input.Leaf(leafIndex, 0);
-
-        // The leaf's markers for the static and opaque entities in it.
-        Add(GroupOpaqueStatic, -1, leafIndex, 0, drawLeaf, ref overflow);
-        Add(GroupOpaqueEntity, -1, leafIndex, 0, drawLeaf, ref overflow);
-
-        int first = input.Leaf(leafIndex, 1), count = input.Leaf(leafIndex, 2);
-        for (int k = 0; k < count; k++)
+        LeafRegistry reg = Registry;
+        List<int> viewModels = reg.ViewModels;
+        var handles = new int[viewModels.Count];
+        _toBlend.Clear();
+        for (int i = viewModels.Count - 1, k = 0; i >= 0; --i, ++k)
         {
-            int r = input.Occurrence(first + k);
-            int group = input.Renderable(r, 1);
-            int renderFlags = input.Renderable(r, 2);
-
-            if (!drawStaticProps && (renderFlags & RenderFlagsStaticProp) != 0)
-                continue;
-
-            // One entry per renderable per frame however many leaves it is in;
-            // a translucent one only in the leaf it renders in.
-            if (group != GroupTranslucentEntity)
-            {
-                if (_frame2[r] == frame)
-                    continue;
-                _frame2[r] = frame;
-            }
-            else if (_leaf[r] != leaf)
-            {
-                continue;
-            }
-
-            // An invisible renderable is not drawn (stock's alpha is a byte).
-            int alpha = 255;
-            if (drawTranslucent)
-            {
-                alpha = (byte)input.Renderable(r, 7);
-                if (alpha == 0)
-                    continue;
-            }
-
-            int area = input.Renderable(r, 6);
-            int answers = input.Renderable(r, 8);
-            if (portalTestEnts && area != -1)
-            {
-                if ((answers & AnswerTouchesArea) == 0)
-                    continue;
-            }
-            else if ((answers & AnswerCulled) != 0)
-            {
-                continue;
-            }
-
-            if ((renderFlags & RenderFlagsStudioModel) != 0 && (answers & AnswerOccluded) != 0)
-                continue;
-
-            if (group != GroupTranslucentEntity)
-            {
-                if (group >= GroupOpaqueStatic && group <= GroupOpaqueEntity)
-                {
-                    float dx = input.Float(r, 12) - input.Float(r, 9);
-                    float dy = input.Float(r, 13) - input.Float(r, 10);
-                    float dz = input.Float(r, 14) - input.Float(r, 11);
-                    float dimension = Max(Max(MathF.Abs(dx), MathF.Abs(dy)), MathF.Abs(dz));
-                    group = BucketedRenderGroup(group, dimension);
-                }
-                Add(group, r, leafIndex, 0, drawLeaf, ref overflow);
-            }
-            else
-            {
-                bool twoPass = (renderFlags & RenderFlagsTwoPass) != 0 && alpha == 255;
-                if (drawTranslucent)
-                    Add(GroupTranslucentEntity, r, leafIndex, twoPass ? 1 : 0, drawLeaf, ref overflow);
-                if (twoPass)
-                    Add(GroupOpaqueEntity, r, leafIndex, 1, drawLeaf, ref overflow);
-            }
+            handles[k] = viewModels[i];
+            _toBlend.Add(reg.Info(handles[k]).Renderable);
         }
-
-        // The detail objects, which have no render handles.
-        if ((flags & FlagDrawDetail) != 0 && input.Leaf(leafIndex, 3) != 0)
+        if (_toBlend.Count > 0)
+            Blend(reg, system);
+        foreach (int handle in handles)
         {
-            int firstDetail = input.Leaf(leafIndex, 4), detailCount = input.Leaf(leafIndex, 5);
-            for (int d = firstDetail; d < firstDetail + detailCount; d++)
-            {
-                if (input.Detail(d, 0) == 0)
-                    continue;
-                if (input.Detail(d, 1) != 0)
-                {
-                    if (drawTranslucent && input.Detail(d, 2) > 0)
-                        Add(GroupTranslucentEntity, -2 - d, leafIndex, 0, drawLeaf, ref overflow);
-                }
-                else
-                {
-                    Add(GroupOpaqueEntity, -2 - d, leafIndex, 0, drawLeaf, ref overflow);
-                }
-            }
+            ref LeafRegistry.RenderableInfo info = ref reg.Info(handle);
+            bool opaque = info.Group == GroupViewModelOpaque || info.Group == GroupOpaqueEntity;
+            reg.Op(LeafOpKind.ViewModel, info.Renderable, opaque ? 0 : 1);
         }
     }
 
@@ -357,85 +570,9 @@ public sealed class RenderableListBuilder : IClientLeafLists
         _counts[group] = n + 1;
     }
 
-    // SortEntities: each entry's distance along the view's forward from its
-    // render bounds' centre, then stock's H-sort, swap for swap.
-    private void SortEntities(in ViewInput input, int start, int count, ReadOnlySpan<int> view)
-    {
-        if (count <= 1)
-            return;
-        float ox = Bits(view[4]), oy = Bits(view[5]), oz = Bits(view[6]);
-        float fx = Bits(view[7]), fy = Bits(view[8]), fz = Bits(view[9]);
-        int[] list = _entries[GroupTranslucentEntity];
-        for (int i = 0; i < count; i++)
-        {
-            int source = list[3 * (start + i)];
-            float minX, minY, minZ, maxX, maxY, maxZ, x, y, z;
-            if (source >= 0)
-            {
-                minX = input.Float(source, 15); minY = input.Float(source, 16); minZ = input.Float(source, 17);
-                maxX = input.Float(source, 18); maxY = input.Float(source, 19); maxZ = input.Float(source, 20);
-                x = input.Float(source, 21); y = input.Float(source, 22); z = input.Float(source, 23);
-            }
-            else
-            {
-                int d = -2 - source;
-                minX = input.DetailFloat(d, 3); minY = input.DetailFloat(d, 4); minZ = input.DetailFloat(d, 5);
-                maxX = input.DetailFloat(d, 6); maxY = input.DetailFloat(d, 7); maxZ = input.DetailFloat(d, 8);
-                x = input.DetailFloat(d, 9); y = input.DetailFloat(d, 10); z = input.DetailFloat(d, 11);
-            }
-            // VectorAdd, then VectorMA( origin, 0.5, sum ), then the delta's
-            // dot product with forward.
-            float cx = minX + maxX, cy = minY + maxY, cz = minZ + maxZ;
-            cx = x + 0.5f * cx;
-            cy = y + 0.5f * cy;
-            cz = z + 0.5f * cz;
-            float dx = cx - ox, dy = cy - oy, dz = cz - oz;
-            _dists[i] = dx * fx + dy * fy + dz * fz;
-        }
-
-        int stepSize = 4;
-        while (stepSize != 0)
-        {
-            int end = count - stepSize;
-            for (int i = 0; i < end; i += stepSize)
-            {
-                if (_dists[i] > _dists[i + stepSize])
-                {
-                    Swap(list, start + i, start + i + stepSize);
-                    (_dists[i], _dists[i + stepSize]) = (_dists[i + stepSize], _dists[i]);
-                    if (i == 0)
-                        i = -stepSize;
-                    else
-                        i -= stepSize << 1;
-                }
-            }
-            stepSize >>= 1;
-        }
-    }
-
     private static void Swap(int[] list, int a, int b)
     {
         for (int k = 0; k < 3; k++)
             (list[3 * a + k], list[3 * b + k]) = (list[3 * b + k], list[3 * a + k]);
-    }
-
-    private static float Bits(int word) => BitConverter.Int32BitsToSingle(word);
-
-    // The buffer's sections, by row and word.
-    private readonly ref struct ViewInput(ReadOnlySpan<int> view, int leafAt, int occurrenceAt, int renderableAt, int detailAt)
-    {
-        private readonly ReadOnlySpan<int> _view = view;
-
-        public int Leaf(int i, int word) => _view[leafAt + LeafWords * i + word];
-
-        public int Occurrence(int i) => _view[occurrenceAt + i];
-
-        public int Renderable(int r, int word) => _view[renderableAt + RenderableWords * r + word];
-
-        public float Float(int r, int word) => Bits(Renderable(r, word));
-
-        public int Detail(int d, int word) => _view[detailAt + DetailWords * d + word];
-
-        public float DetailFloat(int d, int word) => Bits(Detail(d, word));
     }
 }

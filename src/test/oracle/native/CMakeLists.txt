@@ -755,8 +755,9 @@ endif()
 # PRISTINE game/client/clientleafsystem.cpp over a scripted world
 # (leafsystem_stub/leafsystem_harness.h says what is stock and what is
 # stand-in), held to the golden src/test/client/Fixtures/leafsystem-stock.tsv,
-# which the managed RenderableListBuilder's facts replay. It also compiles
-# src/client/native/leaf_view_gather.h over the pristine class, and holds that
+# which the managed LeafRegistry's facts replay. It also compiles its own
+# reading of the registry (leafsystem_stub/leafsystem_gather.h) over the
+# pristine class, and holds that
 # header's layout mirror to it. mathlib for the bounds, tier0 for CTSList and
 # the thread check, tier1 for the containers and the ConVars; the pristine
 # tier1/mempool.cpp for the list's fixed-size allocator, which client.so

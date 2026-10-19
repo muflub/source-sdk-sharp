@@ -163,6 +163,204 @@ src/fwd/native, with no `if` on game state:
   renderable in the view's leaves once per view, where stock asked only the
   renderables its earlier arms kept; measure it.
 
+## L2 and L3 as built (2026-10-19, lane worktree-agent-a64d37100d09fb633, base 62e8b7d00)
+
+Commits, in order: 0492995ba (the oracle's registry surface), 484c8cbf3 (the
+managed registry), 70de6086c (the replacement), 75d9ab4fc (a test fix the
+new facts exposed), b6ae89424 (the deletion), f672c994e (the eviction),
+23806a944, 2826e840a, bd669e8b1 (L3's batching), 91df2566b (the
+forwarder fake records the queued slots), e29ec3584 (the shim ratchet,
+138432 → 138529, for the queue). `make test-full` at e29ec3584: all 14 legs
+green. Counts: checks 28, managed 2130, managed-server 7205, managed-client
+3038, tf2_descent 172, tf2 3, native 3526 gtests in 318 binaries plus 13
+must-not-compile, entity 282, ui 490, runner 132, checks-full 3,
+oracle-managed 186, oracle-native 136 gtests in 30 binaries, census 113 in
+7. `make ci-build` (sniper container, gcc) at e29ec3584: green, GLIBC ceiling
+held (newest GLIBC_2.29).
+
+- **The oracle first.** leafsystem_oracle_test gained the registry's whole
+  surface as rows: handles, render groups, alternate sorting, static props,
+  ConVars, PVS, leaf walks, detail and sub-system data, shadows and
+  flashlights, level shutdown, the boxes the engine is asked, and each view's
+  detail frame, origin and leaves. The golden (leafsystem-stock.tsv) carries
+  its own stimulus, so the C# replay rebuilds the scenario from it.
+  LeafRegistryOracleTests (10 facts, one with a hot reload after every view
+  and registry call) holds the managed log to stock's, kind by kind between
+  anchor rows. The facts did not compile before 484c8cbf3; the mutation
+  proofs below show them red.
+- **The registry** (src/client/managed/Render/LeafSystem/LeafRegistry.cs) is
+  DI only, with no statics, and is an IReloadParticipant. It reproduces:
+  - CUtlLinkedList's LIFO handles, reset by a purge;
+  - CBidirectionalSet's newest-first order both ways;
+  - CUtlVector::FastRemove;
+  - PreRender's back-to-front dirty list;
+  - the m_ShadowEnum quirk: AddRenderableToLeaves does not advance the
+    enumerator, so the second static prop added in a leaf misses the shadow.
+
+  Every question it asks native is a batch through ILeafNative (blends, facts
+  by mask, receives, EnumerateLeavesInBox, GetLeavesArea, the culling program
+  per box, detail models). A view asks the engine only about the boxes its
+  earlier checks kept: one BoxQueries call per view.
+- **The native residue** is one forwarder class, SSClientLeafSystem in
+  src/fwd/native/fwd_leaf_system.cpp (libss_fwd_client).
+  - It answers ClientLeafSystem002 and IClientLeafSystem.
+  - It makes the EnumerateLeaf (ISpatialLeafEnumerator) and EnumShadow
+    callbacks and writes RenderHandle().
+  - It carries out managed's LeafOps in order.
+  - Its `if`s are bounds checks, null guards and the switch over an op's kind.
+
+  client.so keeps src/client/native/shell_leaf_system_client.cpp: the
+  object's storage, the env of client.so addresses, g_pClientLeafSystem, the
+  CClientRenderablesList allocator, DefaultRenderBoundsWorldspace and the
+  client-system adapter row.
+- **Deleted** in b6ae89424:
+  - CLeafRegistryMirror and the gather (moved oracle-only, to
+    src/test/oracle/native/leafsystem_stub/leafsystem_gather.h);
+  - BlendPass (logic-lines 8301 → 8281);
+  - the executor's L1 fallback arms, IClientLeafLists and LeafListsAbi.cs.
+
+  RenderLeafList and RenderLeafViewModels are retired slots: they return -1
+  and are still counted.
+- **Evicted** in f672c994e: clientleafsystem.cpp left the client CMake list
+  and sdk-links/client.txt. Its four ConVars are now managed's
+  (LeafListConVars.cs), except r_portalsopenall, which the engine owns and is
+  still watched. `make debug GC_SECTIONS=0` and nogc-relink are green.
+- **Live A/B**: c0-session, debug, dm_lockdown, poses 1 to 3, a second map
+  load, and the flashlight (impulse 100, r_flashlightvisualizetrace 1).
+  - At bd669e8b1 (tip-live3), every world view's scenebytes is byte-equal to
+    base-live (62e8b7d00): pose1, pose2, pose3, reload-pose1, and both of the
+    flashlight's scenes (shadow depth and main).
+  - The base runs differ among themselves. base-live2 and base-live3 reorder
+    6 entities (entindex 40, 83, 90, 135, 162, 292) inside one leaf's
+    group-5 bucket at pose2 and pose3, and base-live3 has one entity fewer
+    (entindex 264) after the reload. That is process-to-process spawn order,
+    present at the base alone.
+  - 0 `EXCEPTION IN` lines and 0 `could not acquire "` lines. The view model,
+    the static props and the flashlight are in the screenshots.
+
+### L3, measured (c0-session, debug, dm_lockdown, 10 s windows, cs_cl_crossings and the render plan's planTimes)
+
+The windows: pose1 is the render gate's stand, (-4116, 4600) looking south;
+pose3 is (-3800, 2500); reload-pose1 is pose1 after a second map load. The
+base is 62e8b7d00, from its own worktree build. The tip runs alternated with
+the base runs in one session series (ll2-l3-*.steps), under load averages of
+10 to 35 from other sessions.
+
+Inbound crossings per client frame. All runs agree to ±0.05.
+
+| window | base 62e8b7d00 (6 runs) | f672c994e, unbatched | 2826e840a (3 runs) | bd669e8b1 (3 runs) |
+|---|---|---|---|---|
+| pose1 | 54.47 (leaf 2: RenderLeafList, RenderLeafViewModels) | 224 (leaf 172: RenderableChanged 107, ChangeRenderableRenderGroup 57, TakeOps 3) | 58.46 (leaf 6) | **57.47 (leaf 5)** |
+| pose3 | 71.47 (leaf 2) | - | 77.8-78.2 (leaf 8.4: Pending 2.05, SetRenderGroup 1.4) | **74.46 (leaf 5)** |
+| reload-pose1 | 54.47 (leaf 2) | - | 58.46 (leaf 6) | **57.47 (leaf 5)** |
+
+The tip's five leaf crossings per frame are PreRender,
+ComputeTranslucentRenderLeaf, BuildRenderablesList,
+CollateViewModelRenderables and DetailLeaves. The base had two. The +3.0 a
+frame is the same at every pose.
+
+The render gate's own instrument reads 36.3 a frame at this stand on main
+(daily gate 2026-10-18, 11631/320). Its ceiling is 55.164 (render row in
+tools/live-gate-budget.tsv). Adding +3 gives about 39.3, so the row is not
+expected to move. It was not re-run here; the daily gate measures it.
+
+The engine and renderable batches the managed registry asks, per frame at
+pose1 (cs_cl_leaf_stats, bd669e8b1):
+
+| batch | calls | items |
+|---|---|---|
+| ComputeFxBlends | 2 | 123 |
+| Facts | 3 | 351 |
+| Receives | 1 | 72 |
+| EnumerateLeaves | 1 | 107 |
+| LeavesAreas | 1 | 107 |
+| BoxQueries | 1 | 122 (the one batched engine query per view) |
+
+The queue (RenderableChanged, ChangeRenderableRenderGroup, SetRenderGroup)
+crosses 0 times a frame of its own. It rides in PreRender and the three
+per-view calls, and in the blend batch's answer.
+
+Render time, the plan's msAvg per window. These are the min and the median
+of the runs, because load from other sessions moved single runs by up to 4x:
+
+| window | base min / median (6) | tip bd669e8b1 min / median (3) |
+|---|---|---|
+| pose1 | 1.538 / 2.25 ms | 1.314 / 2.59 ms |
+| pose3 | 1.950 / 2.52 ms | 1.624 / 2.05 ms |
+| reload-pose1 | 1.578 / 1.77 ms | 1.265 / 1.70 ms |
+
+At its least loaded, the tip renders 14 to 20% faster than the base at
+its least loaded. The medians overlap. The managed leaf system's own time is
+165 to 187 µs a frame in the quietest tip run (tip-4) and up to 519 µs under
+load: PreRender 99, BuildRenderablesList 57, ComputeTranslucentRenderLeaf
+22 µs in tip-live3's first window. PreRender and the per-view builder
+allocate their batch arrays per call, which is the perf pass's first item.
+
+### Mutation proofs (.ll2/mut.py: a byte snapshot, sha256 before, mutated and restored, a fresh mtime on restore)
+
+Each mutation is red, and the source is restored to its pre-mutation
+sha256. Managed runs use `make managed-test` over LeafRegistryOracleTests
+and LeafSystemClientBindingTests; native runs use `buildcpptests
+fwd_leaf_system_test`.
+
+| mutation | file | sha before → mutated | red |
+|---|---|---|---|
+| PreRender walks the dirty list forwards | LeafRegistry.cs | 58248cfa675a → f17c67b9d032 | 5 of 20 facts |
+| freed handles not reused (no LIFO) | LeafRegistry.cs | → 92c09a464d44 | 5 |
+| FastRemove keeps order | LeafRegistry.cs | → e03016c225d9 | 4 |
+| m_ShadowEnum quirk "fixed" (AddRenderableToLeaves advances) | LeafRegistry.cs | → 3f30c27696e7 | 3 |
+| InsertIntoTree does not advance m_ShadowEnum | LeafRegistry.cs | → a20765d2cde0 | 3 |
+| queue kinds swapped (ApplyPending) | LeafRegistry.cs | → 8540ee9bf130 | 4 |
+| Collate ignores the queue it carries | LeafSystemClientBinding.cs | 1120f8c68fc7 → 26becb035133 | 1 |
+| the blend batch's answer not applied | RenderableListBuilder.cs | bdfeb4cb003c → d43a63fbad4b | 1 |
+| PreRender drops its queue | fwd_leaf_system.cpp | 8ffb8bbd340e → 2fe9ecdb1850 | 4 gtests |
+| SetRenderGroup forwarded, not queued | fwd_leaf_system.cpp | → 0f1ffc1b30fb | 1 gtest |
+| no flush before another slot | fwd_leaf_system.cpp | → d8e21cbaae6b | 1 gtest |
+| a full queue is dropped, not handed over | fwd_leaf_system.cpp | → c089819559d1 | 1 gtest |
+
+The SetRenderGroup mutation first crashed the fake, which had no slot for
+the queued calls. The fake now records those slots, so the mutation fails
+an assertion.
+
+### What clientshadowmgr.cpp's rewrite inherits
+
+- **The shadow half of the registry is managed already.** It covers
+  AddShadow, RemoveShadow, ProjectShadow, ProjectFlashlight and
+  EnumerateShadowsInLeaves, the shadows-in-leaf buckets, and the receiver
+  test (decision 4: ShouldRenderableReceiveShadow, asked in one Receives
+  batch per operation).
+- **A managed shadow manager calls LeafRegistry directly, with no
+  crossing.** The ops AddShadowToReceiver and RemoveAllShadowsFromReceiver
+  (LeafOpKind 1 and 2) are how the registry tells today's native shadow
+  manager. They become direct calls, and the forwarder's five shadow methods
+  and the EnumShadow op (8) go with the native manager.
+- **m_ShadowsOnRenderable is not kept**, because stock writes it and never
+  reads it. A managed manager that needs each renderable's shadows adds the
+  set it reads.
+- **The m_ShadowEnum quirk is reproduced and held by the oracle.** A rewrite
+  that "fixes" it changes which static props receive shadows, so the change
+  has to be made on purpose, with the golden re-recorded.
+
+### Divergences (each held by a fact or by the live A/B)
+
+- m_ShadowsOnRenderable is omitted (see above).
+- The receive questions are deferred to one batch per operation, in the
+  order stock offered them, and skipped when the leaves hold no shadows.
+- IsTwoPass is asked of every renderable at CreateRenderableHandle. Stock
+  asks it only of a translucent one, and managed still uses the answer only
+  then.
+- DrawDetailObjectsInLeaf on a leaf out of range answers an empty range
+  (0/0). Stock does not check.
+- The view models' blends are one batch (stock blended each in its loop).
+  A group change a blend queues is applied before the split is read.
+- A list overflow warns once per group per view (Con_NPrintf on line 10, as
+  stock printed it).
+- Calls the forwarder queues reach managed at the next per-frame call, or
+  first, before any other slot. A call native carries out that marks a
+  renderable dirty lands in the next PreRender, as stock's did.
+- The FB order for detail models follows the entity FBs in the golden's
+  comparison. The NP warnings compare as a set.
+
 ## Rulings made here (dated, the brief's "make rulings yourself")
 
 - 2026-10-18: the leaf system is too big for the flashlight lane (it is the
@@ -194,6 +392,32 @@ src/fwd/native, with no `if` on game state:
 - 2026-10-19 (L1 lane): the plan's "render-distance cutoff for things
   shorter than 100 units" is under `#ifdef INVASION_CLIENT_DLL` in stock and
   not compiled in this game: there is no such arm to port.
+
+- 2026-10-19 (L2 lane):
+  - **The forwarder is a libss_fwd_client class, built by client.so into its
+    own storage through the HAND table's Construct.** libss_fwd_client has
+    no RTTI and no heap. client.so therefore keeps:
+    - the client-system row, an adapter, because shell_clientsystems' walk
+      dynamic_casts;
+    - CUtlVector appends, as a callback.
+  - **The L1 gather and the layout mirror move oracle-only**, not deleted:
+    the oracle still needs stock's buffers.
+  - **RenderLeafList and RenderLeafViewModels are retired, not removed**:
+    the slots only append.
+- 2026-10-19 (L3, batching instead of retreating): the unbatched forwarder
+  made 224 inbound crossings a frame at the stand.
+  - **RenderableChanged, ChangeRenderableRenderGroup and SetRenderGroup are
+    queued in the forwarder**, three int32 an entry, 256 at most.
+  - **The queue is handed over in the arguments of PreRender and the three
+    per-view calls, in the blend batch's answer, and through Pending.**
+    Pending is used only for a full queue or for any other slot.
+  - **The op buffer is 512 operations (16 KB of stack)**, so a view's list
+    fits in one buffer.
+
+  The IManagedLeafSystemClient rows and the HAND LeafSystem slot were
+  changed in place three times. Each change is a deliberate break, named in
+  its commit and regenerated on both sides. The tables were born in this
+  lane, and nothing on main reads them.
 
 ## Decisions
 
