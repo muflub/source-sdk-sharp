@@ -351,7 +351,8 @@ client_stock_tus	src/client/native/CMakeLists.txt	9
 #   SendThroughFilter/PlaybackThrough/SourceSharp_TempEntPlayback) are C#'s: TePropPlanner, TeSchemaRegistry,
 #   SendPropPlan, ServerTempEntEngine.
 # 2026-10-19, T4b rebased onto main 60ebe2a09: main's 214 plus the lane's +1 (shell_tempents_store.cpp) = 215.
-shim_cpp_files	src/sourcesharp	215
+# LOWERED 2026-10-19, 215 -> 214 (the walk at the client save codec landing on main 9d7f49fad): shell_savegame.cpp deleted.
+shim_cpp_files	src/sourcesharp	214
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1775,7 +1776,11 @@ shim_cpp_files	src/sourcesharp	215
 # LOWERED 2026-10-19, 137418 -> 136396 (-1022, measured by the walk at the landing on main ab8f56ef2, read with the
 #   ceiling at 1): the client sound emitter's port. sound_emitter.cpp left client.so and the repository, and the shim's
 #   eight sound executors with their slots went, net of client_sound.h's marshals and shell_soundemitter_client.cpp.
-shim_lines	src/sourcesharp	136411
+# LOWERED 2026-10-19, 136396 -> 134737 (-1659, the walk at the client save codec landing on main 9d7f49fad, read with the
+#   ceiling at 1): shell_savegame.cpp deleted and shell_savegame.h's inline codec gone (the lane measured -1031 on its base,
+#   227 of that main's own earlier fall); the rest is the row following main's falls since the sound landing it had not
+#   followed (the probe repair's gamesound.h and ss_emitsound.h deletions).
+shim_lines	src/sourcesharp	134752
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

@@ -388,6 +388,25 @@ TEST( SaveRestoreEvicted, TheServersSaveClusterAnswersWithoutTheEvictedEncoder )
 	EXPECT_FALSE( Has( shell, "g_pGameSaveRestoreBlockSet" ) );
 }
 
+TEST( SaveRestoreEvicted, TheClientsSaveClusterForwardsToTheManagedSession )
+{
+	const std::string shell =
+	    ReadStripped( "sourcesharp/game/client/shell_clientdll.cpp" );
+	ASSERT_FALSE( shell.empty() ) << "could not read shell_clientdll.cpp";
+
+	// The client state file's three byte-moving methods are one forward each
+	// into IManagedSaveRestoreClient (the client save codec): the shared
+	// managed SaveBlockSession decides the buffer and encodes the blocks.
+	EXPECT_TRUE( Has( shell, "pArea->SaveInit( size, gpGlobals->curtime )" ) );
+	EXPECT_TRUE( Has( shell, "pArea->SaveWriteFields( pSaveData, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount )" ) );
+	EXPECT_TRUE( Has( shell, "pArea->SaveReadFields( pSaveData, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount )" ) );
+
+	// And not through the native codec it replaced.
+	EXPECT_FALSE( Has( shell, "ShellSave_" ) );
+	EXPECT_FALSE( Has( shell, "CSave " ) );
+	EXPECT_FALSE( Has( shell, "CRestore " ) );
+}
+
 TEST( SaveRestoreEvicted, TheFourTransitionRefusalsStillStand )
 {
 	const std::string shell =

@@ -97,12 +97,6 @@ ss_cpptest(gamerules_damage_oracle_test
             # gamerules.h.
             ${CMAKE_CURRENT_SOURCE_DIR}/ss_shareddefs_oracle_test.cpp)
 
-# The save codec's two time sentinels (shell_savegame.h) against upstream's
-# ZERO_TIME (game/shared/saverestore.cpp) and INVALID_TIME (public/datamap.h).
-ss_cpptest(save_field_codec_oracle_test
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/save_field_codec_oracle_test.cpp)
-
 # The five client animation-event ids folded into precache_model.cpp against
 # upstream's game/shared/ModelSoundsCache.cpp.
 ss_cpptest(server_wave2_oracle_test
@@ -677,6 +671,85 @@ ss_cpptest_mathlib(lipsync_oracle_test
              ${CMAKE_CURRENT_BINARY_DIR}/lipsync_subject
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/lipsync_oracle_test.cpp
             ${sentence_stock})
+endif()
+
+# THE SAVE CODEC ORACLE: stock's CSave::WriteFields and CRestore::ReadFields --
+# every SaveWriteFields / SaveReadFields block the engine hands a game DLL --
+# run offline from the PRISTINE game/shared/saverestore.cpp over the engine's
+# own maps and writer variants of them (savegame_codec_oracle_test.cpp says
+# what is stock and what is stand-in), held to the golden
+# src/test/client/Fixtures/savegame-stock.tsv, which the managed codec's
+# SaveCodecOracleTests replay byte for byte. The field path is CUT from the
+# pristine file between the markers below (verbatim, into savegame_subject/),
+# since the whole file needs a whole game DLL; a marker that is not found
+# fails the test rather than the configure. The subject's headers
+# (saverestore.h, isaverestore.h, saverestoretypes.h, datamap.h) are copied
+# beside the cut, so they are upstream's. mathlib for vec3_origin and the
+# worldspace matrix helpers, tier1 for Q_strncpy. The -Wno- flags are for
+# VALVE'S CODE: the MSVC pragmas, its unused statics, the hidden overloads
+# CSave declares, CGameSaveRestoreInfo's memset over Vectors, StartBlock's
+# array bound, and ReadFields' Verify() under NDEBUG.
+set(saverestore_cpp_stock "${SS_VALVE_SRC}/game/shared/saverestore.cpp")
+set(savegame_cut_ok FALSE)
+if(SS_VALVE_SDK AND EXISTS "${saverestore_cpp_stock}")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${saverestore_cpp_stock}")
+  file(READ "${saverestore_cpp_stock}" _sr)
+  set(savegame_cut "")
+  set(savegame_cut_ok TRUE)
+  # Each pair: the first text of a region, and the text that ends it (not kept).
+  foreach(_pair
+      "#define MAX_ENTITYARRAY 1024|ASSERT_INVARIANT( sizeof(EHandlePlaceholder_t)"
+      "static int gSizes[FIELD_TYPECOUNT] =|// This does the necessary casting"
+      "CSave::CSave( CSaveRestoreData *pdata )|// Purpose: Start logging save data."
+      "bool CSave::IsAsync()|int\tCSave::EntityIndex( const edict_t *pentLookup )"
+      "void CSave::WriteTime( const char *pname, const float *data, int count )|void CSave::WriteTick( const char *pname, const int *data, int count )"
+      "void CSave::WritePositionVector( const char *pname, const Vector &value )|void CSave::WriteFunction( datamap_t *pRootMap"
+      "bool CSave::WriteGameField( const char *pname|CRestore::CRestore( CSaveRestoreData *pdata )"
+      "CRestore::CRestore( CSaveRestoreData *pdata )|CBaseEntity *CRestore::EntityFromIndex( int entityIndex )"
+      "void CRestore::ReadGameField(|int CRestore::ReadTick( int *pValue"
+      "int CRestore::ReadPositionVector( Vector *pValue )|int CRestore::ReadFunction( datamap_t *pMap")
+    string(FIND "${_pair}" "|" _bar)
+    string(SUBSTRING "${_pair}" 0 ${_bar} _from)
+    math(EXPR _bar "${_bar} + 1")
+    string(SUBSTRING "${_pair}" ${_bar} -1 _to)
+    string(FIND "${_sr}" "${_from}" _a)
+    if(_a EQUAL -1)
+      set(savegame_cut_ok FALSE)
+      set(savegame_missing "${_from}")
+      break()
+    endif()
+    string(SUBSTRING "${_sr}" ${_a} -1 _tail)
+    string(FIND "${_tail}" "${_to}" _b)
+    if(_b EQUAL -1)
+      set(savegame_cut_ok FALSE)
+      set(savegame_missing "${_to}")
+      break()
+    endif()
+    string(SUBSTRING "${_tail}" 0 ${_b} _region)
+    string(APPEND savegame_cut "// ---- pristine saverestore.cpp from `${_from}`\n${_region}\n")
+  endforeach()
+endif()
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${saverestore_cpp_stock}")
+  ss_oracle_missing(savegame_codec_oracle_test "no ${saverestore_cpp_stock}: is the pristine clone at valve-sdk.lock?")
+elseif(NOT savegame_cut_ok)
+  ss_oracle_missing(savegame_codec_oracle_test "pristine saverestore.cpp no longer holds the marker `${savegame_missing}`")
+else()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/savegame_subject/saverestore_cut.inl" "${savegame_cut}")
+configure_file("${SS_VALVE_SRC}/game/shared/saverestore.h" "${CMAKE_CURRENT_BINARY_DIR}/savegame_subject/saverestore.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/isaverestore.h" "${CMAKE_CURRENT_BINARY_DIR}/savegame_subject/isaverestore.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/saverestoretypes.h" "${CMAKE_CURRENT_BINARY_DIR}/savegame_subject/saverestoretypes.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/datamap.h" "${CMAKE_CURRENT_BINARY_DIR}/savegame_subject/datamap.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(savegame_codec_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+            -Wno-overloaded-virtual -Wno-nontrivial-memcall -Wno-sign-compare -Wno-array-parameter
+            -Wno-unused-value
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/savegame_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/savegame_subject
+             ${CMAKE_CURRENT_SOURCE_DIR}/utlvector_stub
+             public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/savegame_codec_oracle_test.cpp)
 endif()
 
 # THE DETAIL-PROP ORACLE (C7 cluster 10): stock's client detail props -- the

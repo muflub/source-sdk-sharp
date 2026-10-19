@@ -111,7 +111,7 @@ public sealed unsafe class SaveGameSessionTests : IDisposable
         void* block = new SaveGameSession(_log, memory).Init(0, 42.5f);
 
         Assert.True(block != null);
-        Assert.Equal(((nuint)(SaveRestoreLayout.SizeOf + SaveGameSession.DefaultBufferBytes), (nuint)1), memory.Allocs[0]);
+        Assert.Equal(((nuint)(SaveRestoreLayout.SizeOf + SaveBlockSession.DefaultBufferBytes), (nuint)1), memory.Allocs[0]);
         Assert.Equal(((nuint)0xfff, (nuint)sizeof(nint)), memory.Allocs[1]);
         Assert.Equal(4 * 1024 * 1024, Read<int>(block, SaveRestoreLayout.BufferSize));
         Assert.Equal(0xfff, Read<int>(block, SaveRestoreLayout.TokenCount));
@@ -392,7 +392,7 @@ public sealed unsafe class SaveGameSessionTests : IDisposable
         var session = new SaveGameSession(_log, new EngineMemory(_arena));
         void* saved = session.Init(1024, 0f);
         var restored = new Entities([]);
-        Assert.Equal(SaveBlockCodec.NoBlock, session.ReadEntities(saved, restored));
+        Assert.Equal(SaveBlobCodec.NoBlock, session.ReadEntities(saved, restored));
         Assert.Null(restored.Restored);
         Assert.Empty(_log.Warnings);
     }

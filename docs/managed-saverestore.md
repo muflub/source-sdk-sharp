@@ -1,5 +1,15 @@
 # Save and restore, and why it is still native
 
+**2026-10-19: it is not native any more.** The field codec this page argues
+for is managed on both sides: `SaveBlockCodec` and `SaveBlockSession`
+(`src/shared/interop`), held byte for byte to stock's `CSave::WriteFields` /
+`CRestore::ReadFields` by `SaveCodecOracleTests` over `savegame-stock.tsv`.
+The server's save cluster forwards to them since plan_server_native_v2 T4c and
+the client's since the client save codec lane; `shell_savegame.cpp` is deleted
+and `shell_savegame.h` (now `src/server/native`) holds only §5's load-game
+player gate. The sections below are kept as the record of why each field type
+and each refusal is what it is; the managed codec's facts cite them.
+
 The reasoning that used to live in `src/sourcesharp/game/shared/shell_savegame.h`
 and `save_field_codec.h`. The two headers are one now — `shell_savegame.h` — and
 every run of prose longer than a few lines is here instead, with a pointer left

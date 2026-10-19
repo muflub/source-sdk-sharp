@@ -108,15 +108,15 @@
 4	UNRULED	uint64_t CShellClientDLL::FrameStageNotifyCalls() const
 4	UNRULED	uint64_t SourceSharp_FrameStageNotifyCalls()
 59	UNRULED	void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
-11	UNRULED	CSaveRestoreData  *CShellClientDLL::SaveInit( int size )
-4	UNRULED	void CShellClientDLL::SaveWriteFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *
-4	UNRULED	void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *p
-3	UNRULED	void CShellClientDLL::PreSave( CSaveRestoreData *s )
-3	UNRULED	void CShellClientDLL::Save( CSaveRestoreData *s )
-3	UNRULED	void CShellClientDLL::WriteSaveHeaders( CSaveRestoreData *s )
-3	UNRULED	void CShellClientDLL::ReadRestoreHeaders( CSaveRestoreData *s )
-3	UNRULED	void CShellClientDLL::Restore( CSaveRestoreData *s, bool b )
-3	UNRULED	void CShellClientDLL::DispatchOnRestore()
+14	SLOT	CSaveRestoreData  *CShellClientDLL::SaveInit( int size )
+5	SLOT	void CShellClientDLL::SaveWriteFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *
+5	SLOT	void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *p
+3	SLOT	void CShellClientDLL::PreSave( CSaveRestoreData *s )
+3	SLOT	void CShellClientDLL::Save( CSaveRestoreData *s )
+3	SLOT	void CShellClientDLL::WriteSaveHeaders( CSaveRestoreData *s )
+3	SLOT	void CShellClientDLL::ReadRestoreHeaders( CSaveRestoreData *s )
+3	SLOT	void CShellClientDLL::Restore( CSaveRestoreData *s, bool b )
+3	SLOT	void CShellClientDLL::DispatchOnRestore()
 4	UNRULED	void CShellClientDLL::WriteSaveGameScreenshot( const char *pFilename )
 11	UNRULED	void CShellClientDLL::EmitSentenceCloseCaption( char const *tokenstream )
 11	UNRULED	void CShellClientDLL::EmitCloseCaption( char const *captionname, float duration )

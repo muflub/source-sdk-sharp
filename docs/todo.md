@@ -192,14 +192,43 @@ Managed callers should call these directly; the managed-built slot goes in T3.
   `ClientSoundEmitterSystem`'s; sound_emitter.cpp left client.so and the
   repository (logic-lines 8804 -> 8229). Its follow-ups are the next section.
 
-- **shell_savegame.cpp's client save codec is native** (moved to
-  src/client/native 2026-10-19, plan_server_native_v2 T4c, same link
-  position): the client's SaveInit/SaveWriteFields/SaveReadFields for its decal
-  and music blocks, about 200 logic lines (docs/client-novalve-ratchet.tsv's
-  logic-lines counts it now), over shell_savegame.h's inline codec. The
-  server's moved to SaveGameSession over SaveBlockCodec (Server.Interop);
-  the client port can take the same codec (it is pure, the CSaveRestoreData
-  layout is the same type) through IManagedSaveRestoreClient slots.
+- **DONE 2026-10-19: the client save codec is managed** (the client save
+  codec lane). IBaseClientDLL's SaveInit/SaveWriteFields/SaveReadFields forward
+  into IManagedSaveRestoreClient, to the shared SaveBlockSession over
+  SaveBlockCodec (src/shared/interop, the server's too); shell_savegame.cpp is
+  deleted and shell_savegame.h (src/server/native) holds only the server's
+  ShellSave_LoadGameNeedsPlayer. The codec is held byte for byte to stock's
+  CSave::WriteFields / CRestore::ReadFields by SaveCodecOracleTests over
+  savegame-stock.tsv (savegame_codec_oracle_test cuts the field path out of the
+  pristine saverestore.cpp). Porting it to that oracle changed four behaviours
+  on both sides, now stock's: a field with no data is not written
+  (ShouldSaveField), positions are relative to GetLandmark both ways, a record
+  of another width fills what both have (ReadSimple), and EmptyFields empties
+  fieldSize x FIELD_SIZE of every declared type. Live, dm_lockdown at
+  -maxplayers 1: 76 DECALLIST blocks out and back through the managed codec per
+  save and load, and the client state file's decal section byte-identical
+  (sha256 6e3c63496f180a46) before a load, after it, and after a second map
+  load. DIVERGENCES KEPT, none reachable from the engine's six save maps:
+  - Six field types (INTEGER, SHORT, VECTOR, TIME and POSITION_VECTOR one
+    element each, CHARACTER arrays). A field of another type that has data is omitted, counted
+    and named in the warning; stock would write it.
+  - FTYPEDESC_SAVE is not read: every described field is a saved one (the
+    engine's maps are all DEFINE_FIELD / DEFINE_ARRAY).
+  - FIELD_EMBEDDED and FIELD_CUSTOM are neither written nor emptied (their own
+    description or ops are not carried).
+  - Hostile input: a truncated or corrupt block is refused whole and the struct
+    left as it was (stock reads what it can); a zero-width record for a known
+    field reads nothing (stock's ReadSimple reads the field's whole width from
+    beyond the record); a token out of range resolves to no name.
+  - FindField's rotating search cookie is not kept: the first case-blind match
+    from the start, the same answer for a map's unique names.
+- **No runtime decal reached the client state file in the live save run**
+  (2026-10-19, the client save codec lane): with sv_cheats 1, an SMG burst at
+  the floor and an env_explosion's scorch (spawnflags 1) left the engine's decal
+  list at the map's own 76 (ClientDecalTranslate 15, ClientSaveWriteFields 76
+  before and after). Either this build's impact and scorch decals are not
+  engine decals or they are not placed; until that is answered the live save
+  check cannot tell a reapplied decal from one the map placed again.
 
 ## Temp entities and datatables in C# (plan_server_native_v2 T4b): what stayed native, and why
 

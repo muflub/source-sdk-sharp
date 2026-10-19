@@ -1,7 +1,7 @@
 # move-ledger at fork tip 69525c1b4ccaf90f85aa9e586795ffb7e2b93a25
-# rows 9496; DROP 122; MOD-COPY 43; OURS 1942; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
-# listed below: 2137 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
-# valve_header: yes 608; no 1220; undecided 0
+# rows 9494; DROP 122; MOD-COPY 43; OURS 1940; OURS-OVERLAY 21; VALVE 6756; VALVE-DERIVED 2; VALVE-EDITED 610
+# listed below: 2135 rows; VALVE and VALVE-EDITED rows are counted, not listed (sdk-links/ names them)
+# valve_header: yes 607; no 1219; undecided 0
 # 2026-09-28: shell_particlequery.cpp/.h deleted after the move (plan_server_novalve.md P2.1); their two OURS rows removed
 # 2026-09-30: imovementplayer.h left the overlay for src/shared/native/ (plan_server_novalve.md P5): it needs only public/ headers, and server.so TUs on the R5 set reach it there; OURS-OVERLAY -> OURS
 # 2026-10-01: ServerNetworkProperty.cpp deleted (plan_server_novalve.md P5, lane E): server.so never constructed a CServerNetworkProperty; its OURS row and override removed
@@ -405,8 +405,7 @@ src/sourcesharp/game/shared/shell_movement_audit.cpp	OURS	src/shared/native/shel
 src/sourcesharp/game/shared/shell_movement_audit.h	OURS	src/shared/native/shell_movement_audit.h	yes	rule 1: carries a Valve copyright header	0		0	e7c59dc11291adf63de9dec6cead181b2527c3d30238efe9a4ce6e20347c66d0
 src/sourcesharp/game/shared/shell_notshipped.h	OURS	src/shared/native/shell_notshipped.h	no	own capability registry	0		0	cd46586a52540867d60f330a0b7f257e1468bdd8c05af50e8b0912275769f156
 src/sourcesharp/game/shared/shell_physsaverestore_absent.cpp	OURS	src/shared/native/shell_physsaverestore_absent.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	faa586385c51ac8b2ba06ae09331faca10ede445ac7744d867476b9988d7501a
-src/sourcesharp/game/client/shell_savegame.cpp	OURS	src/client/native/shell_savegame.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	08016f3bce9e95f1b08843db79346d931f33a1a8576e2b3fca1eaffa70554ca3
-src/sourcesharp/game/shared/shell_savegame.h	OURS	src/shared/native/shell_savegame.h	yes	ports Valve's save/restore field codec (datamap.h field types, time encoding)	0		0	a400184087f4006d14dde7f9768598b37b05f3c0729b608fd524651e8662bc25
+src/sourcesharp/game/shared/shell_savegame.h	OURS	src/server/native/shell_savegame.h	yes	ports stock's load-game player gate (hl2_client.cpp ClientActive's InitialSpawn/Spawn split, saverestore.cpp's entity-table CreatePlayer); the field codec it carried is managed	0		0	a400184087f4006d14dde7f9768598b37b05f3c0729b608fd524651e8662bc25
 src/sourcesharp/game/shared/shell_shared.cpp	OURS	src/shared/native/shell_shared.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		10	7d32fa68eade9890a557a0ba437dc5724578c15ae9fe3ee777053af5a9e79d9a
 src/sourcesharp/game/shared/shell_vtable_interfaces.cpp	OURS	src/shared/native/shell_vtable_interfaces.cpp	yes	rule 3: native code built against SDK headers (#include cbase.h)	0		0	0437ca7fe59720b51609f01ded338d676846bff13711aabe7b7bf320de29d683
 src/sourcesharp/game/shared/shell_vtable_interfaces.h	OURS	src/shared/native/shell_vtable_interfaces.h	no	declarations only	0		0	658df054231a8710d66e65e0a483e7910569faaccfbbb06d1384448d453e35b9
@@ -1724,6 +1723,8 @@ src/sourcesharp/test/fog_wire_test.cpp	OURS	src/test/native/fog_wire_test.cpp	no
 # 2026-10-19: shell_soundenvelope.cpp, closecaption_recipient.h and closecaption_recipient_test.cpp deleted (plan_server_native_v2 T4a): the server's sound patches and the closecaption rule are SourceSharp.Server's (ServerSoundPatches, SoundRecipients); their three OURS rows removed
 # 2026-10-19: shell_sound.cpp deleted (plan_server_native_v2 T4a, the precache path: SourceSharp_PrecacheSound is the managed SoundEmitterSystem's); its OURS row removed
 # 2026-10-19: gamesound.h deleted (client probe build repair): nothing defined or called a GameSound_* function once the client emit path moved to C#, and its last includer, tools/probes/client/c2sims_probes_debug.cpp, asks soundemitterbase directly; its OURS row removed
+# 2026-10-19: shell_savegame.cpp deleted (the client save codec: IBaseClientDLL's save cluster forwards to the managed SaveBlockSession); its OURS row removed
+# 2026-10-19: shell_savegame.h moved src/shared/native -> src/server/native and shrank to ShellSave_LoadGameNeedsPlayer (the field codec is managed on both sides); save_field_codec_test.cpp deleted with the codec it tested, its OURS row removed
 src/sourcesharp/test/gamedll_convars_test.cpp	OURS	src/test/native/gamedll_convars_test.cpp	yes	rule 1: carries a Valve copyright header	0		0	5ec615ab3e28b65dc67b85020002882d50353f7f77ff129b780d757f5ef03d8a
 src/sourcesharp/test/gamedll_ledger_test.cpp	OURS	src/test/native/gamedll_ledger_test.cpp	no	source scan of TODO/verdict table; no logic	0		0	5a4eecaf96ee03d23fba6c233704df5aa24fcc78594e8d39c4424e25f124167b
 src/sourcesharp/test/gameevent_listener_lifetime_test.cpp	OURS	src/test/native/gameevent_listener_lifetime_test.cpp	no	source scan of unhook call order; no logic	0		0	8386e6cd0ee14922e569dcd89bd8295831206355af063ea62d301f6ed7fbfe77
@@ -1793,7 +1794,6 @@ src/sourcesharp/test/renderable_subject_test.cpp	OURS	src/test/native/renderable
 src/sourcesharp/test/rope_verdict_test.cpp	OURS	src/test/native/rope_verdict_test.cpp	no	verdict/ledger re-take test, measures link facts	0		0	19af03f0a1c22ea13456d3727c92c2865f8695b32edc4941caafd2092f3cb9b3
 src/sourcesharp/test/rules_callers_test.cpp	OURS	src/test/native/rules_callers_test.cpp	no	source-scan verifying casts/bridge removed	0		0	eac933fd976ba1ec683a7ccdd81ecfa7073fd1fa7442de9663cebc6dd7b10a65
 src/sourcesharp/test/said_once_per_id_test.cpp	OURS	src/test/native/said_once_per_id_test.cpp	no	tests own once-per-id tracker, original logic	0		0	af15a9e8024018e8f9ef61ff9a50c6f8812e3d47e6a5326704ef946c09601655
-src/sourcesharp/test/save_field_codec_test.cpp	OURS	src/test/native/save_field_codec_test.cpp	no	tests own field codec against datamap.h constants, no algorithm port	0		0	8e3e02d176836932b68a79fcbc15529450fc862f4443123217b22b3f13e4a25b
 src/sourcesharp/test/saverestore_evicted_test.cpp	OURS	src/test/native/saverestore_evicted_test.cpp	no	vpc/guard eviction verification test	0		0	83fccc20ee40160740d42c11f8e8e6f3197e1744bb4b8dc06c8b7634a28d2908
 src/sourcesharp/test/scripted_kinds_test.cpp	OURS	src/test/native/scripted_kinds_test.cpp	no	tests own totality-switch header, original logic	0		0	0d1ec45ec11175290bf0a3615aa9a11b041eb7455e69dfa02b4939ec29c9d188
 src/sourcesharp/test/sdk_player_cast_test.cpp	OURS	src/test/native/sdk_player_cast_test.cpp	no	source-scan classifier for banned cast patterns, fixtures quote Valve lines but logic is original	0		0	4472532249eac99e24400c35a2853cc0daca62ef3518ae18ad130752f47132f6
@@ -1823,7 +1823,7 @@ src/sourcesharp/test/shell_gamemovement_test.cpp	OURS	src/test/native/shell_game
 src/sourcesharp/test/shell_leaf_link_test.cpp	OURS	src/test/native/shell_leaf_link_test.cpp	no	tests own leaf-link guard header, original logic	0		0	1dd04332ef257ea2ebd2dc4e78a05929e44892f1f3128d413678a6c132cbbec2
 src/sourcesharp/test/shell_notshipped_test.cpp	OURS	src/test/native/shell_notshipped_test.cpp	no	runs own shipped ledger header, no algorithm port	0		0	06c77c7a0cb907a442399781bcb4814d204fac6eaa7cd769d04c2fa4681f2e60
 src/sourcesharp/test/shell_savecomment_test.cpp	OURS	src/test/native/shell_savecomment_test.cpp	no	runs own shipped save-comment formatter, original logic	0		0	eb8ce4528e1b581592bf010e9796254e0c8e4fd614c5b961c0d4b55c0267fea9
-src/sourcesharp/test/shell_savegame_test.cpp	OURS	src/test/native/shell_savegame_test.cpp	no	tests own save-buffer framing header, original logic	0		0	39a4cb4588cdce3e16c8f4e2f7fb695819373555140c28a5f9faf90e52824161
+src/sourcesharp/test/shell_savegame_test.cpp	OURS	src/test/native/shell_savegame_test.cpp	no	tests own load-game player gate, original logic	0		0	39a4cb4588cdce3e16c8f4e2f7fb695819373555140c28a5f9faf90e52824161
 src/sourcesharp/test/shell_steporder_test.cpp	OURS	src/test/native/shell_steporder_test.cpp	no	runs own shipped transmit-set recorder, original logic	0		0	14a6d610d1e79b13df32a69ade30374b1303552633b7df4a152c3612401caf94
 src/sourcesharp/test/shell_transmitsteps_test.cpp	OURS	src/test/native/shell_transmitsteps_test.cpp	no	source-read verifying crossing arrangement	0		0	36fc89197826b6e7e80dccf4b7f8e58e32ff9c849831a64c88b8bf6be1c54ea7
 src/sourcesharp/test/shellless_find_test.cpp	OURS	src/test/native/shellless_find_test.cpp	no	tests own collect-with-cap header, original logic	0		0	bd318d3c5944e7bd3eb30dfb78b2c4a1bf38ff62fdca131dc83dba7992f995e1

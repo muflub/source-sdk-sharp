@@ -959,6 +959,12 @@ public enum CrossingOp
     ClientSoundStop = 389,
     /// <summary>IManagedSoundEmitterClient::ClientSoundEmitCloseCaption: a native caller's GameSound_EmitCloseCaption (a sound patch's caption). CLIENT ONLY.</summary>
     ClientSoundEmitCloseCaption = 390,
+    /// <summary>IManagedSaveRestoreClient::SaveInit: the client state file's block allocated and placed by the shared SaveBlockSession, once per save (the client save codec). CLIENT ONLY.</summary>
+    ClientSaveInit = 391,
+    /// <summary>IManagedSaveRestoreClient::SaveWriteFields: one DECALLIST or MUSICLIST struct into the client state file through the managed codec, one per decal and song per save (the client save codec). CLIENT ONLY.</summary>
+    ClientSaveWriteFields = 392,
+    /// <summary>IManagedSaveRestoreClient::SaveReadFields: one DECALLIST or MUSICLIST struct read back, one per decal and song per load (the client save codec). CLIENT ONLY.</summary>
+    ClientSaveReadFields = 393,
 }
 
 /// <summary>

@@ -127,7 +127,7 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 8 };
 
 //-----------------------------------------------------------------------------
-// EngineClient: 23 forwarder(s) over IVEngineClient.
+// EngineClient: 25 forwarder(s) over IVEngineClient.
 //-----------------------------------------------------------------------------
 // void IVEngineClient013::GetScreenSize( int &, int & )
 static void SSFwd_EngineClient_GetScreenSize( IVEngineClient *self, int & a0, int & a1 ) { self->GetScreenSize( a0, a1 ); }
@@ -177,6 +177,10 @@ static int SSFwd_EngineClient_GetDXSupportLevel( IVEngineClient *self ) { return
 static int SSFwd_EngineClient_SentenceIndexFromName( IVEngineClient *self, const char * a0 ) { return self->SentenceIndexFromName( a0 ); }
 // int IVEngineClient013::GetLocalPlayer( void )
 static int SSFwd_EngineClient_GetLocalPlayer( IVEngineClient *self ) { return self->GetLocalPlayer(); }
+// void * IVEngineClient013::SaveAllocMemory( size_t, size_t )
+static void * SSFwd_EngineClient_SaveAllocMemory( IVEngineClient *self, size_t a0, size_t a1 ) { return self->SaveAllocMemory( a0, a1 ); }
+// void IVEngineClient013::SaveFreeMemory( void * )
+static void SSFwd_EngineClient_SaveFreeMemory( IVEngineClient *self, void * a0 ) { self->SaveFreeMemory( a0 ); }
 
 static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetScreenSize ),
@@ -206,9 +210,11 @@ static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetDXSupportLevel ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_SentenceIndexFromName ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetLocalPlayer ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_SaveAllocMemory ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_SaveFreeMemory ),
 };
 
-static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 23 };
+static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 25 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.

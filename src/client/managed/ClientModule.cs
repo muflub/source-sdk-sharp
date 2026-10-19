@@ -673,8 +673,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedTempEntsClient",
                       v => ManagedAreaFactory.Create(v, new TempEntsClientBinding(_engine.Crossings, Log, this)));
         _bindings.Add("IManagedBeamsClient", v => ManagedAreaFactory.Create(v, new BeamsClientBinding(() => _beams)));
+        // The client state file's buffer and its DECALLIST / MUSICLIST blocks
+        // (the client save codec): the engine allocator is asked at SaveInit,
+        // and a block per decal is not narrated (its refusals are).
         _bindings.Add("IManagedSaveRestoreClient",
-                      v => ManagedAreaFactory.Create(v, new SaveRestoreClientBinding(_engine.Crossings, Log, this)));
+                      v => ManagedAreaFactory.Create(v, new SaveRestoreClientBinding(_engine.Crossings, Log, this,
+                          new SaveBlockSession(Log, () => EngineClient.Acquire(_engine, out _) as ISaveMemory, traceBlocks: false))));
         _bindings.Add("IManagedDiagnosticsClient", v => ManagedAreaFactory.Create(v, new DiagnosticsClientBinding(_engine.Crossings, Log)));
         // The decal tables decals.cpp held (lane c2-sims, cluster 18): native's
         // decalsystem forwards here. The service is the container's (below),

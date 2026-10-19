@@ -71,6 +71,9 @@ public unsafe interface IManagedSaveRestoreClient
 {
     int ReloadSave();
     int ReloadRestore();
+    void* SaveInit(int a0, float a1);
+    int SaveWriteFields(void* a0, byte* a1, void* a2, void* a3, int a4, int a5);
+    int SaveReadFields(void* a0, byte* a1, void* a2, void* a3, int a4, int a5);
 }
 
 [ManagedVtable(typeof(ManagedBeamsClientTable))]
