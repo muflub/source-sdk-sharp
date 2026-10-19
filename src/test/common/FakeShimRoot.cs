@@ -17,6 +17,12 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     private readonly List<nint> _blocks = new();
     private readonly Dictionary<string, nint> _areas = new();
     private readonly Dictionary<string, nint> _interfaces = new();
+
+    /// <summary>
+    /// The reason an interface acquire this root does not serve gives, as the
+    /// engine's factory writes one into its error buffer; null writes none.
+    /// </summary>
+    public string? Refusal { get; set; }
     private readonly Dictionary<string, (Type Fwd, nint Table)> _tables = new();
     private readonly Dictionary<string, nint> _headers = new();
     private GCHandle _self;
@@ -193,7 +199,20 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     {
         var owner = (FakeShimRoot)GCHandle.FromIntPtr(((nint*)self)[1]).Target!;
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        return owner._interfaces.TryGetValue(v, out nint found) ? (void*)found : null;
+        if (owner._interfaces.TryGetValue(v, out nint found))
+            return (void*)found;
+
+        // What the engine's factory says when it does not know a name, if the
+        // fact set one: the reason a refused acquire carries to its message.
+        if (owner.Refusal is { } reason && error != null && errorBytes > 0)
+        {
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(reason);
+            int n = Math.Min(bytes.Length, errorBytes - 1);
+            bytes.AsSpan(0, n).CopyTo(new Span<byte>(error, n));
+            error[n] = 0;
+        }
+
+        return null;
     }
 
     [UnmanagedCallersOnly]

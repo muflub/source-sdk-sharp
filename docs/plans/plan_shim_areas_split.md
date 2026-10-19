@@ -394,3 +394,24 @@ Open: none.
     interfaces), `ClientModelNames` (EngineBound's model info), the server's
     native wrappers, and the shared `EngineMoveWorld` and `PhysicsSurfaces`,
     which choose a side at run time.
+- **Phase 6** (2026-10-19). Measured at the start: 13 test files built a seam
+  implementation with `new` (one client adapter and the `Engine*` bindings);
+  the plan's 30 counted helpers that implement no seam (`BreakModels`,
+  `ModelDescriptors`, `MovementRunner`, `PhysicsSurfaces`), which are phase
+  7's. Each fact now takes the implementation from its side's registration and
+  holds the interface: `SideBindings.Of<T>(side, ...)` builds the one binding
+  `EngineServices` registers for `T` (`EngineServices.BindingFor`, shared with
+  `Bindings`), over a composition holding what it takes; client adapters come
+  from the client root (`ClientEntityFetches.AddTo`).
+  - Facts that handed a binding a factory, pointer or table through an
+    internal constructor now attach a `FakeShimRoot` that serves (or refuses)
+    what the binding acquires, or bind the side's globals. `FakeShimRoot`
+    gained a refusal reason for the frame's message facts.
+  - The client root uses an `IParticleLibrary` already registered, so the
+    throttle facts hand it their counting library.
+  - Four facts stay on `EngineEnvironment`'s resolver constructor: the side's
+    environment never resolves an interface (it answers 0 on every side), so
+    that resolver is reachable only through the constructor. Phase 7 wires it
+    to the side's factory or removes it.
+  - No `InternalsVisibleTo` went: each test suite reaches other internals of
+    the interops too.

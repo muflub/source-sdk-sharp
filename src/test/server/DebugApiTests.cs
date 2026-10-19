@@ -797,7 +797,7 @@ public class DebugApiTests
         {
             ManagedDirectory = Path.Combine("elsewhere", "bin", "managed"),
         };
-        var layout = new ModLayout(() => ((IEngineHost)new EngineHost(server)).ManagedDirectory);
+        var layout = new ModLayout(() => ((IEngineHost)SideBindings.Of<IEngineHost>(server)).ManagedDirectory);
 
         Assert.True(layout.ManagedDirectory == Path.Combine("elsewhere", "bin", "managed")
             && layout.ModDirectory == "elsewhere", "the bootstrap's answer is the one used");
@@ -866,8 +866,8 @@ public class DebugApiTests
         var first = new EngineSide(Side.Server) { ManagedDirectory = Path.Combine("first", "bin", "managed") };
         var second = new EngineSide(Side.Server) { ManagedDirectory = Path.Combine("second", "bin", "managed") };
 
-        var a = new ModLayout(() => ((IEngineHost)new EngineHost(first)).ManagedDirectory);
-        var b = new ModLayout(() => ((IEngineHost)new EngineHost(second)).ManagedDirectory);
+        var a = new ModLayout(() => ((IEngineHost)SideBindings.Of<IEngineHost>(first)).ManagedDirectory);
+        var b = new ModLayout(() => ((IEngineHost)SideBindings.Of<IEngineHost>(second)).ManagedDirectory);
 
         Assert.True(a.ModDirectory == "first", "the first layout answers its own side's directory");
         Assert.True(b.ModDirectory == "second", "and the second its own, not the first's");

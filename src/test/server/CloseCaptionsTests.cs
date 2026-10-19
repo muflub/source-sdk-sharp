@@ -25,9 +25,15 @@ public sealed unsafe class CloseCaptionsTests : IDisposable
     private (CloseCaptions Captions, RecordingEngine Engine) Make(int maxClients, string? closecaption)
     {
         _globals->maxClients = maxClients;
+        // What the side checks before it accepts a block as the engine's
+        // (EngineSide.RefuseGlobalVars).
+        _globals->nTimestampNetworkingBase = 100;
+        _globals->nTimestampRandomizeWindow = 32;
         var engine = Mock();
         engine.Returns("Console.FindConVarValue", closecaption);
-        return (new CloseCaptions(engine, new EngineEnvironment(_ => 0, (nint)_globals), engine), engine);
+        var side = new EngineSide(Side.Server);
+        side.BindGlobalVars(Side.Server, (nint)_globals);
+        return (new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(side), engine), engine);
     }
 
     private static List<(string Key, int Player, bool Reliable, byte[] Payload)> Sent(RecordingEngine engine) =>
@@ -62,7 +68,7 @@ public sealed unsafe class CloseCaptionsTests : IDisposable
     {
         var engine = Mock();
         engine.Returns("Console.FindConVarValue", "1");
-        var captions = new CloseCaptions(engine, new EngineEnvironment(_ => 0, 0), engine);
+        var captions = new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(new EngineSide(Side.Server)), engine);
 
         Assert.False(captions.Wanted);
     }

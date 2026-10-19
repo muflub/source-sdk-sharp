@@ -94,11 +94,11 @@ public class ClientSkeletonRouteTests
         }
     }
 
-    private static (EngineEntityRender Render, Fake Fake) Routed()
+    private static (IEngineEntityRender Render, Fake Fake) Routed()
     {
         var fake = new Fake();
         var route = new StandaloneSkeletonRoute { Skeletons = fake };
-        return (new EngineEntityRender(new EngineSide(Side.Client), new StandaloneMirror(), route), fake);
+        return (SideBindings.Of<IEngineEntityRender>(new EngineSide(Side.Client), new StandaloneMirror(), route), fake);
     }
 
     [Fact]

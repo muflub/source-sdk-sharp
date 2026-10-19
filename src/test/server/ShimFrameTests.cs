@@ -142,7 +142,7 @@ public unsafe class ShimFrameTests
     {
         // Over an engine of the fact's own (plan_abi_hotreload D8), whose
         // globals are unbound, so the reads reach the table.
-        object frame = new EngineFrame(side ?? new EngineSide(Side.Server));
+        object frame = SideBindings.Of<IEngineFrame>(side ?? new EngineSide(Side.Server));
 
         Set(frame, "_self", Pointer.Box(self, typeof(void*)));
         Set(frame, "_vtbl", Pointer.Box(table, typeof(ShimFrameFwd*)));
@@ -251,11 +251,17 @@ public unsafe class ShimFrameTests
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// An area whose factory refuses everything, so the first call binds
-    /// nothing and throws.
+    /// The frame as <paramref name="side"/> registers it, over a root that
+    /// serves no interface and says why, so the first call binds nothing and
+    /// throws. The root lives as long as the fact: <paramref name="root"/> is the
+    /// caller's to dispose.
     /// </summary>
-    private static IEngineFrame RefusedArea(EngineSide side)
-        => new EngineFrame(side, new NativeInterfaceFactory(new RefusingSeam().Acquire));
+    private static IEngineFrame RefusedArea(EngineSide side, out FakeShimRoot root)
+    {
+        root = new FakeShimRoot { Refusal = "factory does not know that interface" };
+        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        return SideBindings.Of<IEngineFrame>(side);
+    }
 
     [Fact]
     public void ARefusedShimBindReportsItsContextOnceRatherThanTwice()
@@ -282,8 +288,9 @@ public unsafe class ShimFrameTests
                     "gpGlobals is unbound for the area's side, so TickCount falls "
                     + "through to the table and the bind is reached");
 
-        var thrown = Assert.Throws<InterfaceAcquisitionException>(
-            () => RefusedArea(side).TickCount());
+        var frame = RefusedArea(side, out var root);
+        using var _ = root;
+        var thrown = Assert.Throws<InterfaceAcquisitionException>(() => frame.TickCount());
 
         int said = 0;
         int at = 0;
@@ -305,8 +312,9 @@ public unsafe class ShimFrameTests
         // The other half: saying it once must not mean saying less. A reader of
         // this line has to be able to tell WHICH interface refused and WHY
         // without a second lookup.
-        var thrown = Assert.Throws<InterfaceAcquisitionException>(
-            () => RefusedArea(new EngineSide(Side.Server)).TickCount());
+        var frame = RefusedArea(new EngineSide(Side.Server), out var root);
+        using var _ = root;
+        var thrown = Assert.Throws<InterfaceAcquisitionException>(() => frame.TickCount());
 
         Assert.Contains("SourceSharpFrame001", thrown.Message);
         Assert.Contains("Internal", thrown.Message);
@@ -323,8 +331,9 @@ public unsafe class ShimFrameTests
         // tested it, returned, and the frame step quietly did not happen. An
         // area that cannot reach its interface is not a degraded area, it is a
         // bug, and it now says so at the site that asked.
-        Assert.Throws<InterfaceAcquisitionException>(
-            () => RefusedArea(new EngineSide(Side.Server)).ServiceEventQueue());
+        var frame = RefusedArea(new EngineSide(Side.Server), out var root);
+        using var _ = root;
+        Assert.Throws<InterfaceAcquisitionException>(() => frame.ServiceEventQueue());
     }
 
     //-------------------------------------------------------------------------
@@ -449,22 +458,6 @@ public unsafe class ShimFrameTests
     /// A native half that serves nothing, writing the closed-set literal the
     /// real switch writes for a name it does not know.
     /// </summary>
-    private sealed class RefusingSeam
-    {
-        public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             byte* error, int errorBytes)
-        {
-            ReadOnlySpan<byte> reason = "factory does not know that interface"u8;
-
-            if (error != null && errorBytes > reason.Length)
-            {
-                reason.CopyTo(new Span<byte>(error, reason.Length));
-                error[reason.Length] = 0;
-            }
-
-            return null;
-        }
-    }
 
     /// <summary>
     /// A native half that answers the frame's version string with an object

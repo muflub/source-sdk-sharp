@@ -88,7 +88,7 @@ public sealed unsafe class ViewEntityForwarderTests
         rig.Mirror.NoteCreated(view);
         rig.Mirror.NoteCreated(gone);
         rig.Mirror.NoteRemoved(gone);
-        var players = new EnginePlayers(rig.Side);
+        var players = SideBindings.Of<IEnginePlayers>(rig.Side);
 
         players.SetViewEntity(player, view);
         Assert.Equal((EdictBase + 1, EdictBase + 40), (s_ViewPlayer, s_ViewTarget));
@@ -107,7 +107,7 @@ public sealed unsafe class ViewEntityForwarderTests
         rig.Mirror.NoteCreated(new EntityHandle(1));
         rig.Mirror.NoteRemoved(new EntityHandle(1));
 
-        new EnginePlayers(rig.Side).SetViewEntity(new EntityHandle(1), new EntityHandle(40));
+        SideBindings.Of<IEnginePlayers>(rig.Side).SetViewEntity(new EntityHandle(1), new EntityHandle(40));
 
         Assert.Equal((nint)0, s_ViewPlayer);
     }
@@ -118,7 +118,7 @@ public sealed unsafe class ViewEntityForwarderTests
         using var rig = new Rig();
         var player = new EntityHandle(3);
         rig.Mirror.NoteCreated(player);
-        var players = new EnginePlayers(rig.Side);
+        var players = SideBindings.Of<IEnginePlayers>(rig.Side);
 
         Assert.Equal(103, players.GetUserId(player));
 
@@ -148,7 +148,7 @@ public sealed unsafe class ViewEntityForwarderTests
     public void ALightStyleOutsideTheEnginesSixtyFourIsNotSent()
     {
         using var rig = new Rig();
-        var world = new EngineVisibility(rig.Side);
+        var world = SideBindings.Of<IEngineVisibility>(rig.Side);
 
         world.SetLightStyle(64, "a");
         Assert.Null(s_Text);
