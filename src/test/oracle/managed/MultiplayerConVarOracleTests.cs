@@ -249,8 +249,30 @@ public class MultiplayerConVarOracleTests
     // ------------------------------------------------------------------
 
     /// <summary>The ConVars the CLIENT assembly declares, by console name.</summary>
-    private static Dictionary<string, ConVarBase> ManagedClient() =>
-        DeclaredIn(typeof(client::SourceSharp.Client.ClMpChatTimeConVar).Assembly);
+    // The client's declarations are of the client's copy of the shared interop
+    // (plan_shim_areas_split phase 3): the client's registry reads them, as
+    // DeclaredIn's server registry reads the server's, and refuses a duplicate
+    // name the same way.
+    private static Dictionary<string, client::SourceSharp.Abi.ConVarBase> ManagedClient()
+    {
+        var assembly = typeof(client::SourceSharp.Client.ClMpChatTimeConVar).Assembly;
+        var console = SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(
+            SourceSharp.Tests.ClientDoubles.UnattachedEngine());
+        var registry = new client::SourceSharp.Abi.ConVarRegistry(console);
+        registry.RegisterAll(assembly);
+
+        var byName = new Dictionary<string, client::SourceSharp.Abi.ConVarBase>();
+        foreach (var c in registry.All)
+        {
+            if (c.GetType().Assembly != assembly)
+                continue;
+
+            Assert.True(byName.TryAdd(c.Name, c),
+                assembly.GetName().Name + " declares '" + c.Name + "' twice; Source "
+                + "refuses a duplicate name from one DLL, so one of them would not exist");
+        }
+        return byName;
+    }
 
     /// <summary>
     /// Which of the fifteen the CLIENT ever compiled: the four that sit OUTSIDE
@@ -324,7 +346,7 @@ public class MultiplayerConVarOracleTests
                 + "FCVAR_REPLICATED, and a replicated ConVar only one side "
                 + "declares stops tracking the server.");
 
-            Assert.True(mine[name].Flags.HasFlag(ConVarFlags.Replicated),
+            Assert.True(mine[name].Flags.HasFlag(client::SourceSharp.Abi.ConVarFlags.Replicated),
                 name + " is not Replicated on the client side.");
         }
     }

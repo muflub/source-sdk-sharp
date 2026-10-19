@@ -8,6 +8,14 @@ using SourceSharp.Abi;
 
 using Xunit;
 
+// The client's declarations are of the client's copy of the shared interop
+// (plan_shim_areas_split phase 3), so they are read with the client's registry
+// and compared as the client's types.
+using ConVarAttribute = client::SourceSharp.Abi.ConVarAttribute;
+using ConVarBase = client::SourceSharp.Abi.ConVarBase;
+using ConVarFlags = client::SourceSharp.Abi.ConVarFlags;
+using ConVarRegistry = client::SourceSharp.Abi.ConVarRegistry;
+
 namespace SourceSharp.OracleTests;
 
 /// <summary>
@@ -83,7 +91,7 @@ public class RenderViewConVarOracleTests
     private static Dictionary<string, ConVarBase> Client()
     {
         var assembly = typeof(client::SourceSharp.Client.Render.RFarzConVar).Assembly;
-        var registry = new ConVarRegistry(SourceSharp.Tests.TestServices.UnattachedConsole());
+        var registry = new ConVarRegistry(SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(SourceSharp.Tests.ClientDoubles.UnattachedEngine()));
         registry.RegisterAll(assembly);
         return registry.All.Where(c => c.GetType().Assembly == assembly).ToDictionary(c => c.Name);
     }
