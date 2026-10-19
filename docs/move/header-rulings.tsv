@@ -70,7 +70,7 @@ src/sourcesharp/game/shared/shell_effect_registry.h	no	own new registry mechanis
 src/sourcesharp/game/shared/shell_gamemovement.h	no	own architecture/error messages, no algorithm ported
 src/sourcesharp/game/shared/shell_leaf_link.h	yes	mirrors C_BaseEntity's leaf-link add/remove/dirty guards (borderline)
 src/sourcesharp/game/shared/shell_notshipped.h	no	own capability registry
-src/sourcesharp/game/shared/shell_savegame.h	yes	ports Valve's save/restore field codec (datamap.h field types, time encoding)
+src/sourcesharp/game/shared/shell_savegame.h	yes	ports stock's load-game player gate (hl2_client.cpp ClientActive's InitialSpawn/Spawn split, saverestore.cpp's entity-table CreatePlayer); the field codec it carried is managed
 src/sourcesharp/game/shared/shell_vtable_interfaces.h	no	declarations only
 src/sourcesharp/game/shared/sourcesharp_entrypoints.h	no	generated declarations, no logic
 src/sourcesharp/game/shared/sourcesharp_gamesystem.h	no	interop interface declarations
@@ -1360,7 +1360,6 @@ src/sourcesharp/test/renderable_subject_test.cpp	no	source-scan plus counter tes
 src/sourcesharp/test/rope_verdict_test.cpp	no	verdict/ledger re-take test, measures link facts
 src/sourcesharp/test/rules_callers_test.cpp	no	source-scan verifying casts/bridge removed
 src/sourcesharp/test/said_once_per_id_test.cpp	no	tests own once-per-id tracker, original logic
-src/sourcesharp/test/save_field_codec_test.cpp	no	tests own field codec against datamap.h constants, no algorithm port
 src/sourcesharp/test/saverestore_evicted_test.cpp	no	vpc/guard eviction verification test
 src/sourcesharp/test/scripted_kinds_test.cpp	no	tests own totality-switch header, original logic
 src/sourcesharp/test/sdk_player_cast_test.cpp	no	source-scan classifier for banned cast patterns, fixtures quote Valve lines but logic is original
@@ -1391,7 +1390,7 @@ src/sourcesharp/test/shell_leaf_link_test.cpp	no	tests own leaf-link guard heade
 src/sourcesharp/test/shellless_find_test.cpp	no	tests own collect-with-cap header, original logic
 src/sourcesharp/test/shell_notshipped_test.cpp	no	runs own shipped ledger header, no algorithm port
 src/sourcesharp/test/shell_savecomment_test.cpp	no	runs own shipped save-comment formatter, original logic
-src/sourcesharp/test/shell_savegame_test.cpp	no	tests own save-buffer framing header, original logic
+src/sourcesharp/test/shell_savegame_test.cpp	no	tests own load-game player gate, original logic
 src/sourcesharp/test/shell_steporder_test.cpp	no	runs own shipped transmit-set recorder, original logic
 src/sourcesharp/test/shell_transmitsteps_test.cpp	no	source-read verifying crossing arrangement
 src/sourcesharp/test/shim_reason_letters_test.cpp	no	marker-format checker, original tooling

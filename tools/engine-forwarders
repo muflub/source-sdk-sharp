@@ -216,6 +216,9 @@ FORWARD = [
             # UTIL_EmitAmbientSound's "!SENTENCE" index and the viewer's slot a
             # CLocalPlayerFilter holds.
             'SentenceIndexFromName', 'GetLocalPlayer',
+            # The client save codec: the shared SaveBlockSession allocates the
+            # client state file's block through the engine, which frees it.
+            'SaveAllocMemory', 'SaveFreeMemory',
         ],
     ),
     dict(

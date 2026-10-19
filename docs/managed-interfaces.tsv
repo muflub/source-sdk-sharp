@@ -138,6 +138,9 @@ IManagedTempEntsClient	OnTempEntEjectBrass	int32_t	int32_t nSlot, int32_t nType,
 IManagedTempEntsClient	OnImpactChoice	int32_t	const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax
 IManagedSaveRestoreClient	ReloadSave	int32_t	void
 IManagedSaveRestoreClient	ReloadRestore	int32_t	void
+IManagedSaveRestoreClient	SaveInit	void *	int32_t nSize, float flCurTime
+IManagedSaveRestoreClient	SaveWriteFields	int32_t	void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount
+IManagedSaveRestoreClient	SaveReadFields	int32_t	void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount
 IManagedBeamsClient	BeamsLifecycle	void	int32_t nOp, int32_t nArg
 IManagedBeamsClient	BeamsUpdate	void	float flCurTime, float flFrameTime
 IManagedBeamsClient	BeamsKillDead	void	uint32_t hEntity, float flCurTime

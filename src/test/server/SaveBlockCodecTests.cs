@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using SourceSharp.Abi;
 using SourceSharp.Server.Interop;
 using Xunit;
 
@@ -84,6 +85,7 @@ internal unsafe struct EveryTypeShape
 public sealed unsafe class SaveBlockCodecTests : IDisposable
 {
     private const float BaseTime = 100.0f;
+    private static readonly SaveLevel Level = new(BaseTime);
     private readonly SaveArena _arena = new();
 
     public void Dispose() => _arena.Dispose();
@@ -107,8 +109,10 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         new(_arena.Name("style"), SaveFieldCodec.FieldCharacter, 64, Off<LightStyleShape>("Style")),
     ];
 
-    // The count record, four int records, the time record and two 32-byte strings.
-    private const int HeaderBlock = (4 + 4) + 4 * (4 + 4) + (4 + 4) + 2 * (4 + 32);
+    // The count record, three int records (AHeader's connectionCount is zero,
+    // which stock's ShouldSaveField does not write), the time record and two
+    // 32-byte strings.
+    private const int HeaderBlock = (4 + 4) + 3 * (4 + 4) + (4 + 4) + 2 * (4 + 32);
 
     private static void SetText(byte* dest, string text)
     {
@@ -132,7 +136,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         SaveHeaderShape header = AHeader();
         var cursor = new SaveCursor(buffer, bytes);
         return SaveBlockCodec.WriteFieldBlock(ref cursor, tokens, _arena.Name(block), (byte*)&header,
-                                              HeaderFields(), BaseTime, out omitted);
+                                              HeaderFields(), Level, out omitted);
     }
 
     private static SaveHeaderShape Poisoned()
@@ -159,7 +163,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
 
         Assert.Equal(4, *(short*)buf);
         Assert.Equal("Save Header", Text(tokens.FromSymbol(*(short*)(buf + 2))));
-        Assert.Equal(7, *(int*)(buf + 4));
+        Assert.Equal(6, *(int*)(buf + 4));   // seven fields; the zero connectionCount is not written
     }
 
     [Fact]
@@ -172,7 +176,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
 
         var cursor = new SaveCursor(buf, 512);
         Assert.True(SaveBlockCodec.WriteFieldBlock(ref cursor, tokens, _arena.Name("LIGHTSTYLE"), (byte*)&light,
-                                                   LightStyleFields(), BaseTime, out _) > 0);
+                                                   LightStyleFields(), Level, out _) > 0);
 
         Assert.Equal(4, *(short*)(buf + 8));
         Assert.Equal("index", Text(tokens.FromSymbol(*(short*)(buf + 10))));
@@ -188,7 +192,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         var cursor = new SaveCursor(buf, 512);
 
         Assert.Equal(HeaderBlock, SaveBlockCodec.WriteFieldBlock(ref cursor, _arena.Tokens(), _arena.Name("Save Header"),
-                                                                 (byte*)&header, HeaderFields(), BaseTime, out _));
+                                                                 (byte*)&header, HeaderFields(), Level, out _));
         Assert.Equal(HeaderBlock, cursor.Pos);
     }
 
@@ -203,7 +207,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         SaveHeaderShape output = Poisoned();
         var cursor = new SaveCursor(buf, written);
         int read = SaveBlockCodec.ReadFieldBlock(ref cursor, tokens, _arena.Name("Save Header"), (byte*)&output,
-                                                 HeaderFields(), BaseTime, out string? refusal);
+                                                 HeaderFields(), Level, out string? refusal);
 
         Assert.Equal(written, read);
         Assert.Null(refusal);
@@ -228,13 +232,13 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
 
         var wr = new SaveCursor(buf, 512);
         int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, _arena.Name("LIGHTSTYLE"), (byte*)&light,
-                                                     LightStyleFields(), BaseTime, out _);
+                                                     LightStyleFields(), Level, out _);
         Assert.True(written > 0);
 
         LightStyleShape output = default;
         var rd = new SaveCursor(buf, written);
         Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, _arena.Name("LIGHTSTYLE"), (byte*)&output,
-                                                            LightStyleFields(), BaseTime, out _));
+                                                            LightStyleFields(), Level, out _));
         Assert.Equal(7, output.Index);
         Assert.Equal("mmnmmommommnonmmonqnmmo", Text(output.Style));
         Assert.Equal((byte)'Z', output.Style[60]);
@@ -251,23 +255,23 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
 
         var wr = new SaveCursor(buf, 8192);
         SaveHeaderShape h = AHeader();
-        Assert.True(SaveBlockCodec.WriteFieldBlock(ref wr, tokens, _arena.Name("Save Header"), (byte*)&h, header, BaseTime, out _) > 0);
+        Assert.True(SaveBlockCodec.WriteFieldBlock(ref wr, tokens, _arena.Name("Save Header"), (byte*)&h, header, Level, out _) > 0);
         for (int i = 0; i < 15; i++)
         {
             var ls = new LightStyleShape { Index = i };
             ls.Style[0] = (byte)('a' + i);
-            Assert.True(SaveBlockCodec.WriteFieldBlock(ref wr, tokens, lightName, (byte*)&ls, light, BaseTime, out _) > 0);
+            Assert.True(SaveBlockCodec.WriteFieldBlock(ref wr, tokens, lightName, (byte*)&ls, light, Level, out _) > 0);
         }
 
         int total = wr.Pos;
         var rd = new SaveCursor(buf, total);
         SaveHeaderShape got = default;
-        Assert.True(SaveBlockCodec.ReadFieldBlock(ref rd, tokens, _arena.Name("Save Header"), (byte*)&got, header, BaseTime, out _) > 0);
+        Assert.True(SaveBlockCodec.ReadFieldBlock(ref rd, tokens, _arena.Name("Save Header"), (byte*)&got, header, Level, out _) > 0);
         Assert.Equal("dm_lockdown", Text(got.MapName));
         for (int i = 0; i < 15; i++)
         {
             LightStyleShape ls = default;
-            Assert.True(SaveBlockCodec.ReadFieldBlock(ref rd, tokens, lightName, (byte*)&ls, light, BaseTime, out _) > 0);
+            Assert.True(SaveBlockCodec.ReadFieldBlock(ref rd, tokens, lightName, (byte*)&ls, light, Level, out _) > 0);
             Assert.Equal(i, ls.Index);
             Assert.Equal((byte)('a' + i), ls.Style[0]);
         }
@@ -287,13 +291,13 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         byte* block = _arena.Name("ONE");
 
         var wr = new SaveCursor(buf, 256);
-        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&input, fields, writeBase, out int omitted);
+        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&input, fields, new SaveLevel(writeBase), out int omitted);
         Assert.Equal(0, omitted);
         Assert.Equal(8 + 4 + SaveFieldCodec.Bytes(type, size), written);
 
         EveryTypeShape output = default;
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, fields, readBase, out string? refusal));
+        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, fields, new SaveLevel(readBase), out string? refusal));
         Assert.Null(refusal);
         return output;
     }
@@ -375,7 +379,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
     {
         SaveFieldDesc[] fields = [.. HeaderFields(), new(_arena.Name("ehandle"), 13, 1, 0)];
         Assert.Equal(-1, SaveFieldCodec.BlockBytes(fields));
-        Assert.Equal(HeaderBlock - 8 - 7 * 4, SaveFieldCodec.BlockBytes(HeaderFields()));
+        Assert.Equal(4 * 4 + 4 + 2 * 32, SaveFieldCodec.BlockBytes(HeaderFields()));   // every DECLARED field, data or none
     }
 
     //-------------------------------------------------------------------------
@@ -464,11 +468,11 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
 
         var cursor = new SaveCursor(buf, 512);
         int written = SaveBlockCodec.WriteFieldBlock(ref cursor, tokens, _arena.Name("Save Header"), (byte*)&header,
-                                                     fields, BaseTime, out int omitted);
+                                                     fields, Level, out int omitted);
 
         Assert.Equal(2, omitted);
         Assert.Equal(HeaderBlock, written);
-        Assert.Equal(7, *(int*)(buf + 4));   // the count is the records written, not the fields declared
+        Assert.Equal(6, *(int*)(buf + 4));   // the count is the records written, not the fields declared
     }
 
     [Fact]
@@ -481,7 +485,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         SaveHeaderShape dest = Poisoned();
         var rd = new SaveCursor(buf, written);
         Assert.Equal(-1, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, _arena.Name("LIGHTSTYLE"), (byte*)&dest,
-                                                       HeaderFields(), BaseTime, out string? refusal));
+                                                       HeaderFields(), Level, out string? refusal));
         Assert.Equal("Save Header", refusal);
         Assert.True(StillPoisoned(dest));
         Assert.Equal(0, rd.Pos);
@@ -496,7 +500,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         var rd = new SaveCursor(buf, 64);
 
         Assert.Equal(-1, SaveBlockCodec.ReadFieldBlock(ref rd, _arena.Tokens(), _arena.Name("Save Header"), (byte*)&dest,
-                                                       HeaderFields(), BaseTime, out string? refusal));
+                                                       HeaderFields(), Level, out string? refusal));
         Assert.NotNull(refusal);
         Assert.True(StillPoisoned(dest));
         Assert.Equal(0, rd.Pos);
@@ -516,14 +520,14 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         {
             SaveHeaderShape output = Poisoned();
             var rd = new SaveCursor(buf, cut);
-            Assert.Equal(-1, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, fields, BaseTime, out string? refusal));
+            Assert.Equal(-1, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, fields, Level, out string? refusal));
             Assert.NotNull(refusal);
             Assert.True(StillPoisoned(output), $"a {cut}-byte prefix touched the destination");
         }
 
         SaveHeaderShape whole = default;
         var all = new SaveCursor(buf, written);
-        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref all, tokens, block, (byte*)&whole, fields, BaseTime, out _));
+        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref all, tokens, block, (byte*)&whole, fields, Level, out _));
         Assert.Equal("dm_lockdown", Text(whole.MapName));
     }
 
@@ -537,11 +541,11 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         byte* block = _arena.Name("Save Header");
 
         var wr = new SaveCursor(buf, 512);
-        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&header, wide, BaseTime, out _);
+        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&header, wide, Level, out _);
 
         SaveHeaderShape output = default;
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, HeaderFields(), BaseTime, out _));
+        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, HeaderFields(), Level, out _));
         Assert.Equal(4, output.MapVersion);
         Assert.Equal("sky_day01_01", Text(output.SkyName));
     }
@@ -556,17 +560,17 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         byte* block = _arena.Name("Save Header");
 
         var wr = new SaveCursor(buf, 512);
-        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&header, narrow, BaseTime, out _);
+        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&header, narrow, Level, out _);
 
         SaveHeaderShape output = Poisoned();
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, HeaderFields(), BaseTime, out _));
+        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, HeaderFields(), Level, out _));
         Assert.Equal(0, output.SkillLevel);
         Assert.Equal(15, output.LightStyleCount);
     }
 
     [Fact]
-    public void ARecordOfTheRightNameAndTheWrongWidthIsSkipped()
+    public void ARecordNarrowerThanItsFieldFillsWhatItCarriesAndTheRestIsZero()
     {
         byte* buf = (byte*)_arena.Alloc(512);
         SaveTokenTable tokens = _arena.Tokens();
@@ -575,12 +579,15 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         SaveFieldDesc[] asShort = [new(_arena.Name("skillLevel"), SaveFieldCodec.FieldShort, 1, 0)];
 
         var wr = new SaveCursor(buf, 512);
-        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&header, asShort, BaseTime, out _);
+        int written = SaveBlockCodec.WriteFieldBlock(ref wr, tokens, block, (byte*)&header, asShort, Level, out _);
 
         SaveHeaderShape output = Poisoned();
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, HeaderFields()[..1], BaseTime, out _));
-        Assert.Equal(0, output.SkillLevel);   // zeroed, and the two-byte record did not land in a four-byte field
+        Assert.Equal(written, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, block, (byte*)&output, HeaderFields()[..1], Level, out _));
+        // Stock's ReadSimple: the smaller of the record and the field is read,
+        // into a field EmptyFields has already zeroed -- so the two-byte record
+        // fills the int's low half and the high half stays zero.
+        Assert.Equal(AHeader().SkillLevel, output.SkillLevel);
     }
 
     [Fact]
@@ -594,7 +601,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         SaveHeaderShape output = Poisoned();
         var rd = new SaveCursor(buf, written);
         Assert.Equal(-1, SaveBlockCodec.ReadFieldBlock(ref rd, tokens, _arena.Name("Save Header"), (byte*)&output,
-                                                       HeaderFields(), BaseTime, out string? refusal));
+                                                       HeaderFields(), Level, out string? refusal));
         Assert.Contains("negative field count", refusal);
         Assert.Equal(0, rd.Pos);
     }
@@ -605,11 +612,11 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         byte* buf = (byte*)_arena.Alloc(64);
         var rd = new SaveCursor(buf, 64);
         Assert.Equal(-1, SaveBlockCodec.ReadFieldBlock(ref rd, _arena.Tokens(), _arena.Name("X"), null,
-                                                       HeaderFields(), BaseTime, out string? refusal));
+                                                       HeaderFields(), Level, out string? refusal));
         Assert.NotNull(refusal);
         var wr = new SaveCursor(buf, 64);
         Assert.Equal(-1, SaveBlockCodec.WriteFieldBlock(ref wr, _arena.Tokens(), _arena.Name("X"), null,
-                                                        HeaderFields(), BaseTime, out _));
+                                                        HeaderFields(), Level, out _));
     }
 
     //-------------------------------------------------------------------------
@@ -720,7 +727,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
     private int WriteBlob(byte* buf, int bytes, SaveTokenTable tokens, byte[] payload, string block = "SSENTITY")
     {
         var cursor = new SaveCursor(buf, bytes);
-        return SaveBlockCodec.WriteBlobBlock(ref cursor, tokens, _arena.Name(block), _arena.Name("BLOB"), payload);
+        return SaveBlobCodec.WriteBlobBlock(ref cursor, tokens, _arena.Name(block), _arena.Name("BLOB"), payload);
     }
 
     private static byte[] Payload(int bytes)
@@ -742,7 +749,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
 
         var output = new byte[300];
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(300, SaveBlockCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), output, out string? refusal));
+        Assert.Equal(300, SaveBlobCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), output, out string? refusal));
         Assert.Null(refusal);
         Assert.Equal(payload, output);
         Assert.Equal(written, rd.Pos);
@@ -751,7 +758,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
     [Fact]
     public void APayloadWiderThanARecordIsChunkedAndStillExact()
     {
-        int bytes = SaveBlockCodec.BlobChunk * 2 + 17;
+        int bytes = SaveBlobCodec.BlobChunk * 2 + 17;
         byte* buf = (byte*)_arena.Alloc(bytes + 64);
         SaveTokenTable tokens = _arena.Tokens();
         byte[] payload = Payload(bytes);
@@ -762,7 +769,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
 
         var output = new byte[bytes];
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(bytes, SaveBlockCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), output, out _));
+        Assert.Equal(bytes, SaveBlobCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), output, out _));
         Assert.Equal(payload, output);
     }
 
@@ -774,7 +781,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         int written = WriteBlob(buf, 1024, tokens, Payload(100));
 
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(100, SaveBlockCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), Span<byte>.Empty, out _));
+        Assert.Equal(100, SaveBlobCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), Span<byte>.Empty, out _));
         Assert.Equal(0, rd.Pos);
     }
 
@@ -783,7 +790,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
     {
         byte* buf = (byte*)_arena.Alloc(16);
         var rd = new SaveCursor(buf, 0);
-        Assert.Equal(SaveBlockCodec.NoBlock, SaveBlockCodec.ReadBlobBlock(ref rd, _arena.Tokens(), _arena.Name("SSENTITY"),
+        Assert.Equal(SaveBlobCodec.NoBlock, SaveBlobCodec.ReadBlobBlock(ref rd, _arena.Tokens(), _arena.Name("SSENTITY"),
                                                                           Span<byte>.Empty, out string? refusal));
         Assert.Null(refusal);
     }
@@ -796,7 +803,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         int written = WriteHeader(buf, 1024, tokens, "Save Header", out _);
 
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(SaveBlockCodec.NoBlock, SaveBlockCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"),
+        Assert.Equal(SaveBlobCodec.NoBlock, SaveBlobCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"),
                                                                           new byte[64], out _));
         Assert.Equal(0, rd.Pos);
     }
@@ -813,7 +820,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         {
             var output = new byte[40];
             var rd = new SaveCursor(buf, cut);
-            Assert.Equal(-1, SaveBlockCodec.ReadBlobBlock(ref rd, tokens, block, output, out string? refusal));
+            Assert.Equal(-1, SaveBlobCodec.ReadBlobBlock(ref rd, tokens, block, output, out string? refusal));
             Assert.NotNull(refusal);
             Assert.Equal(0, rd.Pos);
             Assert.DoesNotContain(output, b => b != 0);
@@ -829,7 +836,7 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         *(int*)(buf + 4) = -1;
 
         var rd = new SaveCursor(buf, written);
-        Assert.Equal(-1, SaveBlockCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), new byte[40], out string? refusal));
+        Assert.Equal(-1, SaveBlobCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), new byte[40], out string? refusal));
         Assert.Contains("negative chunk count", refusal);
     }
 
@@ -840,6 +847,6 @@ public sealed unsafe class SaveBlockCodecTests : IDisposable
         SaveTokenTable tokens = _arena.Tokens();
         Assert.Equal(8, WriteBlob(buf, 64, tokens, []));
         var rd = new SaveCursor(buf, 8);
-        Assert.Equal(0, SaveBlockCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), Span<byte>.Empty, out _));
+        Assert.Equal(0, SaveBlobCodec.ReadBlobBlock(ref rd, tokens, _arena.Name("SSENTITY"), Span<byte>.Empty, out _));
     }
 }

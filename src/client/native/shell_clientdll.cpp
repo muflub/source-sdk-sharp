@@ -66,7 +66,6 @@
 // 2026-10-18: nothing read the gate or the counter and no sweep was
 // registered; the frame's bones are ClientSkeletons' (docs/client_evictions.md).
 #include "shell_clientdll_voicehelper.h"	// IVoiceStatusHelper, a member below
-#include "shell_savegame.h"		// the save buffer's block frame, shared with the server
 #include "shell_cliententitylist.h"	// 5d: the handle resolve DispatchOnRestore makes
 #include "gamerules.h"
 #include "sharedInterface.h"
@@ -2533,23 +2532,28 @@ void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 // answering NULL is the load-bearing one, because it is what the engine asks
 // first" -- and it is now a transcript rather than a prediction.
 //
-// So the eight answer, through the same shim the server uses:
-// sourcesharp/game/shared/shell_savegame.h, which is side-neutral by
-// construction and whose one per-side difference is which engine interface
-// carries SaveAllocMemory. WHAT THEY DO NOT DO is write client entity state --
-// no more than the server writes server entity state at this stage. The client
-// buffer a save produces is EMPTY, which is a complete answer to the engine
-// (it wants a file, and an empty one round-trips) and not a partial one.
+// So the three that move bytes answer, and each is one forward into
+// IManagedSaveRestoreClient (the client save codec): the shared managed
+// SaveBlockSession (src/shared/interop/SaveBlockSession.cs) sizes, allocates
+// through IVEngineClient's SaveAllocMemory and places the block, and encodes
+// the engine's DECALLIST and MUSICLIST structs as stock's CSave does. WHAT
+// THEY DO NOT DO is write client entity state -- no more than the server
+// writes server entity state through a datamap. The client entity block a
+// save produces is EMPTY, which is a complete answer to the engine (it wants
+// a file, and an empty one round-trips) and not a partial one.
 CSaveRestoreData  *CShellClientDLL::SaveInit( int size )
 {
-	CSaveRestoreData *pSaveData = ShellSave_Init( engine, size, gpGlobals->curtime );
+	IManagedSaveRestoreClient *pArea = ManagedSaveRestoreClient();
+	CSaveRestoreData *pSaveData = pArea
+		? static_cast< CSaveRestoreData * >( pArea->SaveInit( size, gpGlobals->curtime ) )
+		: NULL;
 
 	if ( pSaveData == NULL )
 	{
 		// The engine abandons the save here and prints nothing -- which is
 		// exactly what the NULL this replaced looked like from outside, and
-		// exactly why it took a save-file audit to find. ShellSave_Init has
-		// already named which allocation failed.
+		// exactly why it took a save-file audit to find. The session has
+		// already named which allocation failed (or there is no managed side).
 		Warning( "[SourceSharp] client SaveInit is answering NULL: the engine will "
 		         "abandon the client state file and, with it, the whole save, "
 		         "printing nothing\n" );
@@ -2558,14 +2562,20 @@ CSaveRestoreData  *CShellClientDLL::SaveInit( int size )
 	return pSaveData;
 }
 
+// pMap IS UNUSED, as stock's is: CSave::WriteFields takes it only for
+// FTYPEDESC_OVERRIDE chains, which the engine's flat maps do not have.
+// sizeof( typedescription_t ) is passed rather than known in C#: the struct
+// holds a member-function pointer, whose width is the C++ ABI's.
 void CShellClientDLL::SaveWriteFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount )
 {
-	ShellSave_WriteFields( pSaveData, pname, pBaseData, pFields, fieldCount );
+	if ( IManagedSaveRestoreClient *pArea = ManagedSaveRestoreClient() )
+		pArea->SaveWriteFields( pSaveData, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount );
 }
 
 void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount )
 {
-	ShellSave_ReadFields( pSaveData, pname, pBaseData, pFields, fieldCount );
+	if ( IManagedSaveRestoreClient *pArea = ManagedSaveRestoreClient() )
+		pArea->SaveReadFields( pSaveData, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount );
 }
 
 // THE REMAINING SIX MOVE NO BYTES, and that is the same decision the server's

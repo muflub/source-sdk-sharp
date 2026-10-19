@@ -4,7 +4,7 @@ namespace SourceSharp.Abi;
 /// <see cref="IVtableEngineClient"/> over the engine's own object, called
 /// through its vtable.
 /// </summary>
-public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchCommands
+public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchCommands, ISaveMemory
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -47,6 +47,12 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
             ? new EngineClient(side, self, table)
             : null;
     }
+
+    /// <summary>IVEngineClient::SaveAllocMemory, for the shared SaveBlockSession (the client save codec).</summary>
+    void* ISaveMemory.SaveAlloc(nuint count, nuint size) => _fwd->SaveAllocMemory(_self, count, size);
+
+    /// <summary>IVEngineClient::SaveFreeMemory.</summary>
+    void ISaveMemory.SaveFree(void* block) => _fwd->SaveFreeMemory(_self, block);
 
     /// <inheritdoc/>
     public string? LevelName()

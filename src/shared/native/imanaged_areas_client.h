@@ -255,6 +255,9 @@ struct SSManagedSaveRestoreClientTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	int32_t ( *ReloadSave )( IManagedSaveRestoreClient *self );
 	int32_t ( *ReloadRestore )( IManagedSaveRestoreClient *self );
+	void * ( *SaveInit )( IManagedSaveRestoreClient *self, int32_t nSize, float flCurTime );
+	int32_t ( *SaveWriteFields )( IManagedSaveRestoreClient *self, void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount );
+	int32_t ( *SaveReadFields )( IManagedSaveRestoreClient *self, void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount );
 };
 
 class IManagedSaveRestoreClient : public IManagedObject
@@ -264,16 +267,19 @@ public:
 
 	int32_t ReloadSave() { return Table()->ReloadSave( this ); }
 	int32_t ReloadRestore() { return Table()->ReloadRestore( this ); }
+	void *SaveInit( int32_t nSize, float flCurTime ) { return Table()->SaveInit( this, nSize, flCurTime ); }
+	int32_t SaveWriteFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount ) { return Table()->SaveWriteFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount ); }
+	int32_t SaveReadFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount ) { return Table()->SaveReadFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount ); }
 
 private:
 	const SSManagedSaveRestoreClientTable *Table() const { return static_cast< const SSManagedSaveRestoreClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedSaveRestoreClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245,
+	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0xeb834733, 0x7a6a4861, 0x7a6a4861,
 };
-static const int32_t kIManagedSaveRestoreClientSlotCount = 4;
-static_assert( sizeof( SSManagedSaveRestoreClientTable ) == 4 * sizeof( void * ), "SSManagedSaveRestoreClientTable is one pointer per slot" );
+static const int32_t kIManagedSaveRestoreClientSlotCount = 7;
+static_assert( sizeof( SSManagedSaveRestoreClientTable ) == 7 * sizeof( void * ), "SSManagedSaveRestoreClientTable is one pointer per slot" );
 
 class IManagedBeamsClient;
 

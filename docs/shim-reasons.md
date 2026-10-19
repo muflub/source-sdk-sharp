@@ -68,15 +68,15 @@ marker is the answer to "why is this native at all", not a full account.
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
 | a | a vtable the engine or VPhysics calls through | 21 | 5 | 32 |  |  |  | 62 | 34,944 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 16,651 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 16,661 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 3,893 |
 | d | a layout the engine reads at fixed offsets | 6 | 6 | 6 | 1 |  |  | 22 | 9,444 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,660 |
-| f | a bit-level wire codec | 5 | 4 | 3 | 1 |  |  | 13 | 3,567 |
+| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,168 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,421 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,098 |
 | x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,605 |
-|  | **total** | **77** | **34** | **73** | **3** | **2** | **1** | **215** | **91,283** |
+|  | **total** | **77** | **34** | **72** | **3** | **2** | **1** | **214** | **90,894** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -212,6 +212,8 @@ Then the leaf system's per-view decisions moved to managed (2026-10-19, C7 clust
 Then the client leaf system's registry moved to managed (C7 cluster 12 L2 and L3, 2026-10-19, measured by the walk at the landing on main 832d8cd95): (a) 60 -> 62 files and 34,952 -> 35,750 lines are libss_fwd_client's leaf-system forwarder and shell_leaf_system_client.cpp, the ClientLeafSystem002 object the engine calls, with the forwarder's queue (net of L1's gather, mirror and fallback arms, which went); (b) 17,660 -> 17,667 is the managed-areas client header's new rows; clientleafsystem.cpp left client.so; 93,238 lines in the table.
 
 Then the client's sound emit path moved to managed (2026-10-19, measured by the walk at the landing on main ab8f56ef2): sound_emitter.cpp left client.so and the repository; (b) 41 -> 40 files and 17,667 -> 16,641 lines (the file, and the shim's eight sound executors and their slots); (h) 8 -> 9 files is client_sound.h's marshals and shell_soundemitter_client.cpp's forwarding row, which decide nothing; (a) 35,104 -> 34,941 and (g) -1 follow the callers' rewiring; 91,280 lines in the table.
+
+Then the client save codec moved to managed (2026-10-19, measured by the walk at the landing on main 9d7f49fad): (f) 13 -> 12 files and 3,567 -> 3,168 lines are shell_savegame.cpp, deleted, and shell_savegame.h's inline codec, gone (the header now holds only the server's ShellSave_LoadGameNeedsPlayer); (b) 16,636 -> 16,646 is shell_clientdll.cpp's three one-line save forwards; 90,871 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

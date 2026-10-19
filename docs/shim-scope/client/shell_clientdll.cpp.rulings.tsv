@@ -30,3 +30,12 @@ void ShellClientDll_RefuseExternal(	INSTRUMENT	the refusal tally's free entry fo
 static void ResetManagedViewEffects(	BOUNDARY	CViewEffects::LevelInit's carry-out: managed's ViewEffects reset at level start
 static void ResetToneMappingScale(	BOUNDARY	ResetToneMapping( 1.0 )'s native half: the render context's tonemap scale reset at level start
 void SourceSharp_ViewFade(	BOUNDARY	CViewEffects::Fade's carry-out: the fade's fields to managed's ViewEffects
+CShellClientDLL::SaveInit(	SLOT	IBaseClientDLL::SaveInit, which the engine's client state save asks first: one forward into IManagedSaveRestoreClient (the client save codec); the managed SaveBlockSession sizes, allocates and places the block, and the NULL's warning decides nothing
+CShellClientDLL::SaveWriteFields(	SLOT	IBaseClientDLL::SaveWriteFields (DECALLIST, MUSICLIST): one forward into IManagedSaveRestoreClient with sizeof( typedescription_t ); the managed codec encodes
+CShellClientDLL::SaveReadFields(	SLOT	IBaseClientDLL::SaveReadFields: one forward into IManagedSaveRestoreClient with sizeof( typedescription_t ); the managed codec decodes
+CShellClientDLL::PreSave(	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes (no client entity state goes through a datamap), symmetric with ReadRestoreHeaders
+CShellClientDLL::Save( CSaveRestoreData	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes (no client entity state goes through a datamap), symmetric with Restore
+CShellClientDLL::WriteSaveHeaders(	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes, symmetric with ReadRestoreHeaders
+CShellClientDLL::ReadRestoreHeaders(	SLOT	an IBaseClientDLL restore slot the engine calls; reads no bytes, symmetric with WriteSaveHeaders
+CShellClientDLL::Restore( CSaveRestoreData	SLOT	an IBaseClientDLL restore slot the engine calls; reads no bytes, symmetric with Save
+CShellClientDLL::DispatchOnRestore(	SLOT	an IBaseClientDLL restore slot the engine calls; there is no restore list to walk (a managed entity's restore is C#'s)

@@ -757,7 +757,8 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 		"sourcesharp/game/server/shell_usermessage_send.cpp",
 		"sourcesharp/game/server/shell_worldquery.cpp",
 		"sourcesharp/game/shared/shell_gamerules.cpp",
-		"sourcesharp/game/client/shell_savegame.cpp",
+		// shell_savegame.cpp is DELETED, not swept (the client save codec):
+		// the client's save cluster forwards to the managed SaveBlockSession.
 		"sourcesharp/game/shared/sourcesharp_gamesystem.cpp",
 	};
 
@@ -774,7 +775,8 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 	// PhysicsMotionControllers, 2.4).
 	// 14 -> 13: shell_restoreentities.cpp likewise (plan_server_native_min P1).
 	// 13 -> 12: shell_soundenvelope.cpp likewise (plan_server_native_v2 T4a).
-	EXPECT_EQ( (size_t)12, nFiles );
+	// 12 -> 11: shell_savegame.cpp likewise (the client save codec).
+	EXPECT_EQ( (size_t)11, nFiles );
 
 	for ( size_t i = 0; i < nFiles; i++ )
 	{

@@ -507,8 +507,6 @@ shell_renderable_facts.o	_ZL14s_ResolveStats	s_ResolveStats	sourcesharp/game/cli
 shell_rope_render.o	_ZL14g_RopeExecutor	g_RopeExecutor	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	152	UNRULED		
 shell_rope_render.o	_ZL15g_RopeMaterials	g_RopeMaterials	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_rope_render.o	_ZL23g_SourceSharpRopeSystem	g_SourceSharpRopeSystem	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
-	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE17beentheredonethat	CSaveRestoreSegment::FindCreateSymbol(char const*)::beentheredonethat	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	1	UNRULED		
-	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE12tokensparsed	CSaveRestoreSegment::FindCreateSymbol(char const*)::tokensparsed	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	4	UNRULED		
 shell_soundemitter_client.o	_ZZ25ClientSystem_SoundEmittervE5s_Row	ClientSystem_SoundEmitter()::s_Row	sourcesharp/game/client/shell_soundemitter_client.cpp	LOCAL	bss	function-local	16	UNRULED		
 shell_soundenvelope_client.o	_ZZL26ShellClientSoundControllervE12s_Controller	ShellClientSoundController()::s_Controller	sourcesharp/game/client/shell_soundenvelope_client.cpp	LOCAL	bss	function-local	48	UNRULED		
 shell_soundscape_audio_client.o	_ZZ22ClientSoundscapeSystemvE8s_System	ClientSoundscapeSystem()::s_System	sourcesharp/game/client/shell_soundscape_audio_client.cpp	LOCAL	bss	function-local	16	UNRULED		

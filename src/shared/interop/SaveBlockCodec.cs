@@ -4,25 +4,26 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace SourceSharp.Server.Interop;
+namespace SourceSharp.Abi;
 
 //=============================================================================
-// THE SAVE BLOCK CODEC, the server's, in C# (plan_server_native_v2 T4c; the
-// user's 2026-10-11 ruling: a managed save/restore codec).
+// THE SAVE BLOCK CODEC, both sides' (plan_server_native_v2 T4c; the user's
+// 2026-10-11 ruling: a managed save/restore codec).
 //
-// What shell_savegame.h was for server.so: the record layout of a field block
-// and a blob block over a byte cursor and the save's own token table. The
-// layout is stock CSave's (a two-byte width, a two-byte token, the bytes), so a
-// .sav written by the native codec reads here and the other way round. The
-// client still builds the native header for its own decal and music blocks;
-// docs/managed-saverestore.md is the argument for each field type, keyed by
-// section.
+// What shell_savegame.h was: the record layout of a field block over a byte
+// cursor and the save's own token table. The layout is stock CSave's (a
+// two-byte width, a two-byte token, the bytes). The server's engine blocks and
+// the client's decal and music blocks are both encoded here; the server's
+// managed-world blob block is SaveBlobCodec (Server.Interop), the one part only
+// one side uses. docs/managed-saverestore.md is the argument for each field
+// type, keyed by section.
 //
 // Everything here is pure: a cursor over bytes, names as NUL-terminated native
-// strings, and a token table. SaveGameSession is the part that knows where
-// those live in the engine's CSaveRestoreData.
+// strings, and a token table. The session is the part that knows where those
+// live in the engine's CSaveRestoreData.
 //=============================================================================
 
 /// <summary>
@@ -46,8 +47,11 @@ public enum SaveFieldKind
 /// positions (stock CSave/CRestore's WriteTime/ReadTime and the position
 /// vector's landmark).
 /// </summary>
-public static class SaveFieldCodec
+public static unsafe class SaveFieldCodec
 {
+    /// <summary>datamap.h FIELD_VOID: never saved.</summary>
+    public const int FieldVoid = 0;
+
     /// <summary>datamap.h FIELD_VECTOR.</summary>
     public const int FieldVector = 3;
 
@@ -59,6 +63,15 @@ public static class SaveFieldCodec
 
     /// <summary>datamap.h FIELD_CHARACTER.</summary>
     public const int FieldCharacter = 8;
+
+    /// <summary>datamap.h FIELD_EMBEDDED: another datadesc, which this codec does not carry.</summary>
+    public const int FieldEmbedded = 10;
+
+    /// <summary>datamap.h FIELD_CUSTOM: its own save/restore ops, which this codec does not carry.</summary>
+    public const int FieldCustom = 11;
+
+    /// <summary>datamap.h FIELD_EHANDLE: empty is 0xFFFFFFFF, not zero.</summary>
+    public const int FieldEHandle = 13;
 
     /// <summary>datamap.h FIELD_POSITION_VECTOR.</summary>
     public const int FieldPositionVector = 15;
@@ -135,6 +148,111 @@ public static class SaveFieldCodec
         return stored + baseTime;
     }
 
+    /// <summary>
+    /// datamap.h's FIELD_SIZE: one element's bytes, per fieldtype_t, for the
+    /// 64-bit build (FIELD_STRING, CLASSPTR, MODELNAME, SOUNDNAME are an intp,
+    /// FIELD_FUNCTION a uint64 under POSIX; FIELD_EDICT is declared
+    /// sizeof(int)). Zero for VOID, EMBEDDED, CUSTOM and an unknown type, as
+    /// CDatamapFieldSizeDeducer's default is. Stock's ShouldSaveField and
+    /// EmptyFields both walk fieldSize of these.
+    /// </summary>
+    public static int ElementBytes(int fieldType) => fieldType switch
+    {
+        1 => 4,          // FLOAT
+        2 => 8,          // STRING
+        3 => 12,         // VECTOR
+        4 => 16,         // QUATERNION
+        5 => 4,          // INTEGER
+        6 => 1,          // BOOLEAN
+        7 => 2,          // SHORT
+        8 => 1,          // CHARACTER
+        9 => 4,          // COLOR32
+        12 => 8,         // CLASSPTR
+        13 => 4,         // EHANDLE
+        14 => 4,         // EDICT
+        15 => 12,        // POSITION_VECTOR
+        16 => 4,         // TIME
+        17 => 4,         // TICK
+        18 => 8,         // MODELNAME
+        19 => 8,         // SOUNDNAME
+        20 => 4,         // INPUT
+        21 => 8,         // FUNCTION
+        22 => 64,        // VMATRIX
+        23 => 64,        // VMATRIX_WORLDSPACE
+        24 => 48,        // MATRIX3X4_WORLDSPACE
+        25 => 8,         // INTERVAL
+        26 => 4,         // MODELINDEX
+        27 => 4,         // MATERIALINDEX
+        28 => 8,         // VECTOR2D
+        _ => 0,
+    };
+
+    /// <summary>
+    /// Stock's CSave::ShouldSaveField for a saved field: FIELD_VOID never has
+    /// data, an EHANDLE has data when any handle is not 0xFFFFFFFF, and every
+    /// other type when any of its fieldSize x <see cref="ElementBytes"/> bytes
+    /// is not zero (DataEmpty). A field with no data is NOT WRITTEN, and reads
+    /// back as zero because the reader empties every field first. EMBEDDED and
+    /// CUSTOM ask their own description, which this codec does not carry, so
+    /// they count as data.
+    /// </summary>
+    public static bool HasData(byte* pField, int fieldType, int fieldSize)
+    {
+        if (fieldType == FieldVoid)
+            return false;
+
+        if (fieldType is FieldEmbedded or FieldCustom)
+            return true;
+
+        if (fieldType == FieldEHandle)
+        {
+            for (int i = 0; i < fieldSize; i++)
+            {
+                if (Unsafe.ReadUnaligned<uint>(pField + i * 4) != 0xFFFFFFFFu)
+                    return true;
+            }
+            return false;
+        }
+
+        int bytes = fieldSize * ElementBytes(fieldType);
+        return bytes > 0 && new ReadOnlySpan<byte>(pField, bytes).ContainsAnyExcept((byte)0);
+    }
+
+    /// <summary>
+    /// Stock's CRestore::EmptyFields for one saved field, before a block is
+    /// read into the struct: fieldSize x <see cref="ElementBytes"/> bytes set
+    /// to zero (0xFF for an EHANDLE). EMBEDDED and CUSTOM are emptied through
+    /// their own description, which this codec does not carry, so they are
+    /// left as they are.
+    /// </summary>
+    public static void Empty(byte* pField, int fieldType, int fieldSize)
+    {
+        int bytes = fieldSize * ElementBytes(fieldType);
+        if (bytes > 0)
+            new Span<byte>(pField, bytes).Fill(fieldType == FieldEHandle ? (byte)0xFF : (byte)0);
+    }
+
+    /// <summary>The bytes of one element as the codec reads it: what stock's ReadSimple divides by.</summary>
+    private static int ReadElement(SaveFieldKind kind) => kind switch
+    {
+        SaveFieldKind.CharArray => 1,
+        SaveFieldKind.Short => 2,
+        SaveFieldKind.Integer or SaveFieldKind.Time => 4,
+        _ => 12,
+    };
+
+    /// <summary>
+    /// Stock's CRestore::ReadSimple over a record of <paramref name="available"/>
+    /// bytes for a field wanting <paramref name="wanted"/>: the smaller of the
+    /// two is read, the rest of the record skipped, and the elements read whole
+    /// are what the time and position rebases apply to.
+    /// </summary>
+    public static int WholeElementsRead(SaveFieldKind kind, int wanted, int available, out int take)
+    {
+        take = Math.Min(wanted, available);
+        return take / ReadElement(kind);
+    }
+
     /// <summary>vec3_invalid: all three components FLT_MAX, never one.</summary>
     public static bool IsInvalidPosition(float x, float y, float z)
         => x == float.MaxValue && y == float.MaxValue && z == float.MaxValue;
@@ -165,6 +283,33 @@ public static class SaveFieldCodec
         }
         return total;
     }
+}
+
+/// <summary>
+/// What a field block is written or read against: the save's base time
+/// (CGameSaveRestoreInfo::GetBaseTime), which times are stored relative to,
+/// and GetLandmark -- the level's landmark offset when it uses one, else the
+/// origin -- which position vectors are.
+/// </summary>
+public readonly struct SaveLevel(float baseTime, float landmarkX, float landmarkY, float landmarkZ)
+{
+    /// <summary>A level with no landmark in use.</summary>
+    public SaveLevel(float baseTime)
+        : this(baseTime, 0f, 0f, 0f)
+    {
+    }
+
+    /// <summary>GetBaseTime.</summary>
+    public float BaseTime { get; } = baseTime;
+
+    /// <summary>GetLandmark's x.</summary>
+    public float LandmarkX { get; } = landmarkX;
+
+    /// <summary>GetLandmark's y.</summary>
+    public float LandmarkY { get; } = landmarkY;
+
+    /// <summary>GetLandmark's z.</summary>
+    public float LandmarkZ { get; } = landmarkZ;
 }
 
 /// <summary>
@@ -360,20 +505,14 @@ public unsafe ref struct SaveCursor
 }
 
 /// <summary>
-/// The field block and the blob block (stock CSave::WriteFields' record
-/// framing: a block opens with a four-byte count record under the block's
-/// name, then one record per field, each with its own width and name).
+/// The field block (stock CSave::WriteFields' record framing: a block opens
+/// with a four-byte count record under the block's name, then one record per
+/// field, each with its own width and name).
 /// </summary>
 public static unsafe class SaveBlockCodec
 {
     /// <summary>A record header: the width short and the token short.</summary>
     public const int RecordHeader = 4;
-
-    /// <summary>The largest payload one blob record carries.</summary>
-    public const int BlobChunk = 30000;
-
-    /// <summary>The answer of a blob read that found a different block, or none, at the cursor.</summary>
-    public const int NoBlock = -2;
 
     /// <summary>strcmp == 0 over two NUL-terminated strings.</summary>
     public static bool StrEquals(byte* a, byte* b)
@@ -420,15 +559,26 @@ public static unsafe class SaveBlockCodec
     }
 
     /// <summary>
-    /// Writes one field block of the struct at <paramref name="pBase"/>. Answers
-    /// the block's bytes, or -1 when it did not fit (the cursor is then
-    /// poisoned and the caller must not advance). A field this build cannot
-    /// encode is OMITTED, counted and named rather than refusing the block:
-    /// each record carries its own name and width, so the reader never sees it
-    /// rather than reading at a wrong offset.
+    /// True for a field stock would write (it has data) and this build cannot
+    /// encode: the one kind of field <see cref="WriteFieldBlock"/> omits.
+    /// </summary>
+    public static bool IsOmitted(byte* pBase, SaveFieldDesc field)
+        => SaveFieldCodec.Bytes(field.Type, field.Size) < 0
+           && SaveFieldCodec.HasData(pBase + field.Offset, field.Type, field.Size);
+
+    /// <summary>
+    /// Writes one field block of the struct at <paramref name="pBase"/>, as
+    /// stock's CSave::WriteFields does: a field with no data is not written
+    /// (ShouldSaveField), a time is stored relative to the base time and a
+    /// position relative to the landmark. Answers the block's bytes, or -1 when
+    /// it did not fit (the cursor is then poisoned and the caller must not
+    /// advance). A field with data that this build cannot encode is OMITTED,
+    /// counted and named rather than refusing the block: each record carries
+    /// its own name and width, so the reader never sees it rather than reading
+    /// at a wrong offset.
     /// </summary>
     public static int WriteFieldBlock(ref SaveCursor cursor, ISaveSymbols symbols, byte* blockName,
-                                      byte* pBase, ReadOnlySpan<SaveFieldDesc> fields, float baseTime,
+                                      byte* pBase, ReadOnlySpan<SaveFieldDesc> fields, SaveLevel level,
                                       out int omitted)
     {
         omitted = 0;
@@ -443,8 +593,13 @@ public static unsafe class SaveBlockCodec
             return -1;
 
         int written = 0;
+        float* v = stackalloc float[3];     // a position vector, re-expressed against the landmark
         foreach (SaveFieldDesc field in fields)
         {
+            byte* pField = pBase + field.Offset;
+            if (!SaveFieldCodec.HasData(pField, field.Type, field.Size))
+                continue;
+
             int bytes = SaveFieldCodec.Bytes(field.Type, field.Size);
             if (bytes < 0)
             {
@@ -452,17 +607,27 @@ public static unsafe class SaveBlockCodec
                 continue;
             }
 
-            byte* pField = pBase + field.Offset;
-            if (SaveFieldCodec.KindOf(field.Type) == SaveFieldKind.Time)
+            SaveFieldKind kind = SaveFieldCodec.KindOf(field.Type);
+            bool ok;
+            if (kind == SaveFieldKind.Time)
             {
-                float stored = SaveFieldCodec.EncodeTime(*(float*)pField, baseTime);
-                if (!WriteRecord(ref cursor, symbols, field.Name, new ReadOnlySpan<byte>(&stored, 4)))
-                    return -1;
+                float stored = SaveFieldCodec.EncodeTime(Unsafe.ReadUnaligned<float>(pField), level.BaseTime);
+                ok = WriteRecord(ref cursor, symbols, field.Name, new ReadOnlySpan<byte>(&stored, 4));
             }
-            else if (!WriteRecord(ref cursor, symbols, field.Name, new ReadOnlySpan<byte>(pField, bytes)))
+            else if (kind == SaveFieldKind.PositionVector)
             {
+                new ReadOnlySpan<byte>(pField, 12).CopyTo(new Span<byte>(v, 12));
+                (v[0], v[1], v[2]) = SaveFieldCodec.EncodePosition(v[0], v[1], v[2], level.LandmarkX, level.LandmarkY,
+                                                                   level.LandmarkZ);
+                ok = WriteRecord(ref cursor, symbols, field.Name, new ReadOnlySpan<byte>(v, 12));
+            }
+            else
+            {
+                ok = WriteRecord(ref cursor, symbols, field.Name, new ReadOnlySpan<byte>(pField, bytes));
+            }
+
+            if (!ok)
                 return -1;
-            }
 
             written++;
         }
@@ -477,18 +642,22 @@ public static unsafe class SaveBlockCodec
         return end - start;
     }
 
-    private static ReadOnlySpan<byte> BitConverterBytes(int value) => BitConverter.GetBytes(value);
+    internal static ReadOnlySpan<byte> BitConverterBytes(int value) => BitConverter.GetBytes(value);
 
     /// <summary>
-    /// Reads one field block into the struct at <paramref name="pBase"/>, in two
-    /// passes: walk the records to find the block's end (a short or corrupt
-    /// block is refused before any field is touched), then zero the fields and
-    /// fill the ones the file carries, matched by case-blind name. A record of
-    /// an unknown name, or of a width the field does not have, is skipped by
-    /// its own width. Answers the bytes consumed, or -1 with the refusal.
+    /// Reads one field block into the struct at <paramref name="pBase"/>, as
+    /// stock's CRestore::ReadFields does, in two passes: walk the records to
+    /// find the block's end (a short or corrupt block is refused before any
+    /// field is touched), then empty the fields (EmptyFields) and fill the ones
+    /// the file carries, matched by case-blind name. A record of an unknown
+    /// name, or for a field this build cannot carry, is skipped by its own
+    /// width; a record wider or narrower than its field fills what both have
+    /// and skips the rest (ReadSimple). Times are rebased onto the base time and
+    /// positions onto the landmark. Answers the bytes consumed, or -1 with the
+    /// refusal.
     /// </summary>
     public static int ReadFieldBlock(ref SaveCursor cursor, ISaveSymbols symbols, byte* blockName,
-                                     byte* pBase, ReadOnlySpan<SaveFieldDesc> fields, float baseTime,
+                                     byte* pBase, ReadOnlySpan<SaveFieldDesc> fields, SaveLevel level,
                                      out string? refusal)
     {
         refusal = null;
@@ -565,14 +734,11 @@ public static unsafe class SaveBlockCodec
         int end = cursor.Pos;
         cursor.Rewind(end - afterHeader);
 
-        // Pass two: zero what this build declares, then fill what the file has.
+        // Pass two: empty every declared field, then fill what the file has.
         foreach (SaveFieldDesc field in fields)
-        {
-            int clear = SaveFieldCodec.Bytes(field.Type, field.Size);
-            if (clear > 0)
-                new Span<byte>(pBase + field.Offset, clear).Clear();
-        }
+            SaveFieldCodec.Empty(pBase + field.Offset, field.Type, field.Size);
 
+        float* v = stackalloc float[3];     // a position vector, rebased onto the landmark
         for (int i = 0; i < saved; i++)
         {
             if (!cursor.ReadInt16(out short recSize) || !cursor.ReadInt16(out short recToken))
@@ -590,7 +756,7 @@ public static unsafe class SaveBlockCodec
             }
 
             int bytes = at >= 0 ? SaveFieldCodec.Bytes(fields[at].Type, fields[at].Size) : -1;
-            if (at < 0 || bytes != recSize)
+            if (bytes < 0)
             {
                 if (!cursor.Skip(recSize))
                 {
@@ -601,139 +767,30 @@ public static unsafe class SaveBlockCodec
             }
 
             byte* pField = pBase + fields[at].Offset;
-            if (SaveFieldCodec.KindOf(fields[at].Type) == SaveFieldKind.Time)
-            {
-                float stored = 0.0f;
-                if (!cursor.Read(new Span<byte>(&stored, 4)))
-                {
-                    refusal = "the save data ends inside a time field";
-                    return -1;
-                }
-                *(float*)pField = SaveFieldCodec.DecodeTime(stored, baseTime);
-            }
-            else if (!cursor.Read(new Span<byte>(pField, bytes)))
+            SaveFieldKind kind = SaveFieldCodec.KindOf(fields[at].Type);
+            int whole = SaveFieldCodec.WholeElementsRead(kind, bytes, recSize, out int take);
+            if (!cursor.Read(new Span<byte>(pField, take)) || !cursor.Skip(recSize - take))
             {
                 refusal = "the save data ends inside a field";
                 return -1;
             }
+
+            if (whole < 1)
+                continue;
+
+            if (kind == SaveFieldKind.Time)
+            {
+                Unsafe.WriteUnaligned(pField, SaveFieldCodec.DecodeTime(Unsafe.ReadUnaligned<float>(pField), level.BaseTime));
+            }
+            else if (kind == SaveFieldKind.PositionVector)
+            {
+                new ReadOnlySpan<byte>(pField, 12).CopyTo(new Span<byte>(v, 12));
+                (v[0], v[1], v[2]) = SaveFieldCodec.DecodePosition(v[0], v[1], v[2], level.LandmarkX, level.LandmarkY,
+                                                                   level.LandmarkZ);
+                new ReadOnlySpan<byte>(v, 12).CopyTo(new Span<byte>(pField, 12));
+            }
         }
 
         return cursor.Pos - start;
-    }
-
-    /// <summary>
-    /// Writes a blob block: a count record under <paramref name="blockName"/>
-    /// then the payload in records of at most <see cref="BlobChunk"/> bytes,
-    /// each under <paramref name="chunkName"/>. Answers the block's bytes, or -1.
-    /// </summary>
-    public static int WriteBlobBlock(ref SaveCursor cursor, ISaveSymbols symbols, byte* blockName,
-                                     byte* chunkName, ReadOnlySpan<byte> data)
-    {
-        if (blockName == null || chunkName == null)
-            return -1;
-
-        int start = cursor.Pos;
-        int chunks = (data.Length + BlobChunk - 1) / BlobChunk;
-
-        if (!WriteRecord(ref cursor, symbols, blockName, BitConverterBytes(chunks)))
-            return -1;
-
-        for (int at = 0; at < data.Length; at += BlobChunk)
-        {
-            int count = Math.Min(BlobChunk, data.Length - at);
-            if (!WriteRecord(ref cursor, symbols, chunkName, data.Slice(at, count)))
-                return -1;
-        }
-
-        return cursor.Pos - start;
-    }
-
-    /// <summary>
-    /// Reads a blob block. SIZE, THEN FILL: when <paramref name="output"/> is
-    /// shorter than the payload the cursor does not move and the payload's size
-    /// is the answer; when it is long enough the payload is copied and the
-    /// cursor moves past the block. <see cref="NoBlock"/> when the cursor is at
-    /// another block or at the end (not an error: a save from before the
-    /// block); -1 with the refusal when the block is there and corrupt.
-    /// </summary>
-    public static int ReadBlobBlock(ref SaveCursor cursor, ISaveSymbols symbols, byte* blockName,
-                                    Span<byte> output, out string? refusal)
-    {
-        refusal = null;
-
-        if (blockName == null)
-        {
-            refusal = "a null buffer or a negative size";
-            return -1;
-        }
-
-        int start = cursor.Pos;
-
-        if (!cursor.ReadInt16(out short size) || !cursor.ReadInt16(out short token))
-        {
-            cursor.Rewind(cursor.Pos - start);
-            return NoBlock;
-        }
-
-        if (size != 4 || (ushort)token != symbols.FindCreate(blockName))
-        {
-            cursor.Rewind(cursor.Pos - start);
-            return NoBlock;
-        }
-
-        if (!cursor.ReadInt32(out int chunks))
-        {
-            cursor.Rewind(cursor.Pos - start);
-            refusal = "the save data ends inside the block's chunk count";
-            return -1;
-        }
-
-        if (chunks < 0)
-        {
-            cursor.Rewind(cursor.Pos - start);
-            refusal = "a negative chunk count, which came off a file";
-            return -1;
-        }
-
-        int afterHeader = cursor.Pos;
-        int payload = 0;
-        for (int i = 0; i < chunks; i++)
-        {
-            if (!cursor.ReadInt16(out short chunkSize) || !cursor.ReadInt16(out _))
-            {
-                cursor.Rewind(cursor.Pos - start);
-                refusal = "the save data ends inside a chunk header";
-                return -1;
-            }
-
-            if (chunkSize < 0 || !cursor.Skip(chunkSize))
-            {
-                cursor.Rewind(cursor.Pos - start);
-                refusal = "a chunk runs past the end of the save data";
-                return -1;
-            }
-
-            payload += chunkSize;
-        }
-
-        int end = cursor.Pos;
-        if (output.Length < payload)
-        {
-            cursor.Rewind(end - start);
-            return payload;
-        }
-
-        cursor.Rewind(end - afterHeader);
-        int filled = 0;
-        for (int i = 0; i < chunks; i++)
-        {
-            cursor.ReadInt16(out short chunkSize);
-            cursor.ReadInt16(out _);
-            if (chunkSize > 0)
-                cursor.Read(output.Slice(filled, chunkSize));
-            filled += chunkSize;
-        }
-
-        return payload;
     }
 }

@@ -109,7 +109,9 @@ public class SaveRestoreClientAreaTests
     {
         string module = Code("src", "client", "managed", "ClientModule.cs");
 
-        Assert.Matches(new Regex(@"_bindings\.Add\(""IManagedSaveRestoreClient"",\s*v => ManagedAreaFactory\.Create\(v, new SaveRestoreClientBinding\(_engine\.Crossings, Log, this\)\)\);"),
+        // The save game's session over the engine client's allocator, asked
+        // at SaveInit (the client save codec).
+        Assert.Matches(new Regex(@"_bindings\.Add\(""IManagedSaveRestoreClient"",\s*v => ManagedAreaFactory\.Create\(v, new SaveRestoreClientBinding\(_engine\.Crossings, Log, this,\s*new SaveBlockSession\(Log, \(\) => EngineClient\.Acquire\(_engine, out _\) as ISaveMemory, traceBlocks: false\)\)\)\);"),
                        module);
     }
 
@@ -130,10 +132,13 @@ public class SaveRestoreClientAreaTests
         public int SaveRestore(ReadOnlySpan<byte> source) => Answer(13);
     }
 
+    // The save game's session, which these reload facts never reach.
+    private static SaveBlockSession NoSession() => new(new RecordingLog(), () => null, traceBlocks: false);
+
     [Fact]
     public unsafe void EachSlotAnswersTheModulesValue()
     {
-        var binding = new SaveRestoreClientBinding(new Crossings(), new RecordingLog(), new Module(fault: false));
+        var binding = new SaveRestoreClientBinding(new Crossings(), new RecordingLog(), new Module(fault: false), NoSession());
 
         Assert.Equal(7, binding.ReloadSave());
         Assert.Equal(5, binding.ReloadRestore());
@@ -144,7 +149,7 @@ public class SaveRestoreClientAreaTests
     {
         // 0 is "nothing saved", a legitimate answer; the deleted thunks answered
         // -1 for a fault and the generated catch would answer 0.
-        var binding = new SaveRestoreClientBinding(new Crossings(), new RecordingLog(), new Module(fault: true));
+        var binding = new SaveRestoreClientBinding(new Crossings(), new RecordingLog(), new Module(fault: true), NoSession());
 
         Assert.Equal(-1, binding.ReloadSave());
         Assert.Equal(-1, binding.ReloadRestore());

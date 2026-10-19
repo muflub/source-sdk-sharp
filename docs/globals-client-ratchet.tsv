@@ -55,6 +55,8 @@
 #   (make globals-client-ledger): link level 1029 -> 1023, unruled 953 -> 947.
 # LOWERED 2026-10-19, link_level 730 -> 725, unruled 674 -> 671 (make globals-client-census at the client sound emitter landing on main
 #   ab8f56ef2): sound_emitter.cpp's statics left client.so with the file; the ledger reconciled by key (make globals-client-ledger).
+# LOWERED 2026-10-19, link_level 725 -> 723, unruled 671 -> 669, static init 121 -> 120 (make globals-client-census at the
+#   client save codec landing on main 9d7f49fad): shell_savegame.cpp's statics left client.so with the file.
 client_globals_symbols_with_no_row	docs/globals-client-ledger.tsv	0
 client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 # 2026-09-28, plan_server_novalve.md P2.3: 1801 (-2: shell_movement.cpp's
@@ -338,7 +340,7 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   forwarder's storage, its environment, the client-system adapter and the ClientLeafSystem002 node, and
 #   g_pClientLeafSystem and CClientRenderablesList::s_Allocator re-attributed to it: 735 -> 730 LOWERED, unruled
 #   679 -> 674 (make globals-client-ledger: 11 pruned, 6 added; make globals-client-census gate PASS).
-client_globals_link_level	src/game/client	725
+client_globals_link_level	src/game/client	723
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -372,7 +374,7 @@ client_globals_link_level	src/game/client	725
 #   arrived ruled CONST: 701 -> 697 LOWERED (make globals-client-census: unruled 697).
 # 2026-10-18, C7 flashlight (cluster 12), the eviction: flashlighteffect.cpp's 18 UNRULED ConVars left with it (the 16 are
 #   managed now, the two depth biases read by name): 697 -> 679 LOWERED (make globals-client-census: unruled 679).
-client_globals_unruled	docs/globals-client-ledger.tsv	671
+client_globals_unruled	docs/globals-client-ledger.tsv	669
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 client_globals_floor	docs/globals-client-ledger.tsv	14
@@ -438,7 +440,7 @@ client_globals_floor	docs/globals-client-ledger.tsv	14
 #   the SDK headers cbase.h pulls in give every client TU (nm over the object: _GLOBAL__sub_I_shell_flashlight_client.cpp).
 # LOWERED 2026-10-18, 122 -> 121 (C7 cluster 12, the eviction): flashlighteffect.o left client.so with its 18 ConVar constructors
 #   (tools/globals-census summary --side client: objects_with_a_static_initialiser 121).
-client_globals_objects_with_static_init	src/game/client	121
+client_globals_objects_with_static_init	src/game/client	120
 client_globals_reconcile_unattributed	src/game/client	0
 # RAISED 2026-10-18, plan_server_native_v2 T2 client arms: link level 792 -> 796, unruled 746 -> 749, static
 #   initialisers 129 -> 130. UTIL_IsLowViolence moved from the shared util_shared_library.cpp to client_util_library.cpp

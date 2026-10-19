@@ -15,7 +15,7 @@ namespace SourceSharp.Abi;
 /// <see cref="IVtableEngineServer"/> over the engine's own object, called
 /// through its vtable.
 /// </summary>
-public sealed unsafe class EngineServer : IVtableEngineServer, SourceSharp.Server.Interop.ISaveMemory
+public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory
 {
     /// <summary><see cref="IVtableEngineServer.InterfaceVersion"/>.</summary>
     public const string InterfaceVersion = IVtableEngineServer.InterfaceVersion;
@@ -72,10 +72,10 @@ public sealed unsafe class EngineServer : IVtableEngineServer, SourceSharp.Serve
     public bool IsDedicatedServer() => _fwd->IsDedicatedServer(_self) != 0;
 
     /// <summary>IVEngineServer::SaveAllocMemory, for the managed SaveGameSession (T4c).</summary>
-    void* SourceSharp.Server.Interop.ISaveMemory.SaveAlloc(nuint count, nuint size) => _fwd->SaveAllocMemory(_self, count, size);
+    void* ISaveMemory.SaveAlloc(nuint count, nuint size) => _fwd->SaveAllocMemory(_self, count, size);
 
     /// <summary>IVEngineServer::SaveFreeMemory.</summary>
-    void SourceSharp.Server.Interop.ISaveMemory.SaveFree(void* block) => _fwd->SaveFreeMemory(_self, block);
+    void ISaveMemory.SaveFree(void* block) => _fwd->SaveFreeMemory(_self, block);
 
     /// <inheritdoc/>
     public int EntityCount() => _fwd->GetEntityCount(_self);

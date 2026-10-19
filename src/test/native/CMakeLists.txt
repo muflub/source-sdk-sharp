@@ -586,35 +586,10 @@ ss_cpptest(client_entity_resolve_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/client_entity_resolve_test.cpp)
 
-# The engine's OWN save headers, encoded. The codec was save_field_codec.h and is
-# the second half of game/shared/shell_savegame.h since plan_shim.md §5 3e. The
-# engine hands the game its save header and its light styles as
-# typedescription_t arrays and expects them back on load, so a game DLL that
-# saves needs a datamap field codec whatever it does with its entities --
-# CSave::WriteFields did it, and that left both builds in Phase 2.
-#
-# It is THREE field types and that is measured rather than chosen
-# (docs/managed-saverestore.md 4a). The facts with teeth are the refusals: a
-# codec that SKIPPED an unrecognised field would write a block one field short
-# and every later field would be read from the wrong offset -- a map name out of
-# the middle of a light style, restored without complaint. Swept across the
-# whole enum, because the case that matters is a type nobody has thought of.
-ss_cpptest(save_field_codec_test
-    SOURCES sourcesharp/test/save_field_codec_test.cpp)
-
-# The FRAME around each of those blocks (sourcesharp/game/server/shell_savegame.h).
-# The codec answers "how wide is one field"; this answers the question
-# above it -- how one SaveWriteFields call is laid out so the matching
-# SaveReadFields finds it, and what happens when the two do not line up.
-#
-# The engine drives the READ: it decides how many SaveReadFields calls to make,
-# under which names and with which datamaps, from counts it recovered out of a
-# FILE. So every disagreement between the read it asks for and the write that
-# happened is a chance to fill the engine's own structs out of the middle of the
-# previous block. Twelve bytes per block make all four kinds loud, and the facts
-# here are one per kind plus a truncation sweep -- every prefix of a valid block
-# refused, with the destination asserted byte-for-byte unchanged, because a
-# half-filled struct is worse than a refused one.
+# The server's load-game player gate (sourcesharp/game/server/shell_savegame.h),
+# what is left of the native save code: on a savegame load the engine calls
+# ClientActive alone, and ShellSave_LoadGameNeedsPlayer says whether the player
+# has to be built there. The save field codec is managed (SaveBlockCodec).
 ss_cpptest(shell_savegame_test
     SOURCES sourcesharp/test/shell_savegame_test.cpp)
 
