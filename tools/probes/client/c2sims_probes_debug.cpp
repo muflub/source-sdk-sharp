@@ -13,22 +13,14 @@
 // replaces (plan_client_novalve.md §5.1 step 1) into a fixture under
 // $SOURCESHARP_C2SIMS_FIXTURE_DIR; nothing runs unless that is set.
 //
-//   cs_cl_probe_decals   decals.cpp's CDecalEmitterSystem, through the
-//                        `decalsystem` pointer every caller uses: the script
-//                        it read, the precache index of every entry, five
-//                        weighted picks per group with the random draws each
-//                        one took (the client's `random` stream is wrapped for
-//                        the duration), the name of every index, and the
-//                        translation of five names over all 256 materials.
-//                        Writes decals-stock.tsv.
+// cs_cl_probe_decals, which recorded stock decals.cpp into decals-stock.tsv,
+// left with its subject: decals.cpp was evicted on 2026-10-05 with its oracle
+// recorded, and src/test/client/Fixtures/README-decals-stock.md names the
+// commit that still has the probe.
 //
 //=============================================================================//
 
 #include "cbase.h"
-#include "decals.h"
-#include "iefx.h"
-#include "filesystem.h"
-#include "KeyValues.h"
 #include "vstdlib/random.h"
 #include "sharedInterface.h"
 
@@ -53,134 +45,7 @@ FILE *OpenFixture( const char *pName )
 	return f;
 }
 
-//-----------------------------------------------------------------------------
-// The client's `random`, forwarded, with every RandomFloat logged into a line
-// buffer while armed. Only RandomFloat is drawn by the decal pick; the others
-// are counted so a draw the fixture does not explain is visible.
-//-----------------------------------------------------------------------------
-class CRecordingRandom : public IUniformRandomStream
-{
-public:
-	explicit CRecordingRandom( IUniformRandomStream *pInner ) : m_pInner( pInner ) { Reset(); }
-
-	void Reset() { m_szDraws[ 0 ] = '\0'; m_nDraws = 0; m_nOther = 0; }
-
-	virtual void SetSeed( int iSeed ) { ++m_nOther; m_pInner->SetSeed( iSeed ); }
-	virtual float RandomFloat( float flMin, float flMax )
-	{
-		float v = m_pInner->RandomFloat( flMin, flMax );
-		size_t n = strlen( m_szDraws );
-		Q_snprintf( m_szDraws + n, sizeof( m_szDraws ) - n, "%s%.9g,%.9g,%.9g", n ? ";" : "", flMin, flMax, v );
-		++m_nDraws;
-		return v;
-	}
-	virtual int RandomInt( int iMin, int iMax ) { ++m_nOther; return m_pInner->RandomInt( iMin, iMax ); }
-	virtual float RandomFloatExp( float flMin, float flMax, float flExp ) { ++m_nOther; return m_pInner->RandomFloatExp( flMin, flMax, flExp ); }
-
-	IUniformRandomStream *m_pInner;
-	char m_szDraws[ 4096 ];
-	int m_nDraws;
-	int m_nOther;
-};
-
-const char *kDecalScript = "scripts/decals_subrect.txt";
-
 } // namespace
-
-CON_COMMAND( cs_cl_probe_decals, "c2-sims probe (debug): record decals.cpp's answers into $SOURCESHARP_C2SIMS_FIXTURE_DIR/decals-stock.tsv" )
-{
-	if ( !decalsystem || !effects || !random )
-	{
-		Msg( "[c2-sims probe] decals: decalsystem=%p effects=%p random=%p\n", (void *)decalsystem, (void *)effects, (void *)random );
-		return;
-	}
-	FILE *f = OpenFixture( "decals-stock.tsv" );
-	if ( !f )
-		return;
-
-	fprintf( f, "# c2-sims decals oracle: stock decals.cpp (CDecalEmitterSystem) through `decalsystem`.\n" );
-	fprintf( f, "# S <group> <entry> <weight>      the script, as stock's KeyValues read it\n" );
-	fprintf( f, "# M <material key> <group>        its TranslationData section\n" );
-	fprintf( f, "# P <entry> <precache index>      effects->Draw_DecalIndexFromName, as stock's LevelInitPreEntity\n" );
-	fprintf( f, "# I <group> <answer> <draws>      GetDecalIndexForName; draws are min,max,value;... ('-' for none)\n" );
-	fprintf( f, "# N <index> <name>                GetDecalNameForIndex ('-' for \"\")\n" );
-	fprintf( f, "# T <name> <material> <answer>    TranslateDecalForGameMaterial ('=' when it answered its input, '-' for \"\")\n" );
-
-	// The script, read as stock reads it (decals.cpp LoadDecalsFromScript).
-	CUtlVector< CUtlString > groups;
-	CUtlVector< CUtlString > entries;
-	KeyValues *kv = new KeyValues( kDecalScript );
-	if ( kv->LoadFromFile( filesystem, kDecalScript ) )
-	{
-		for ( KeyValues *p = kv; p; p = p->GetNextKey() )
-		{
-			if ( !p->GetFirstSubKey() )
-				continue;
-			if ( !Q_stricmp( p->GetName(), "TranslationData" ) )
-			{
-				for ( KeyValues *sub = p->GetFirstSubKey(); sub; sub = sub->GetNextKey() )
-					fprintf( f, "M\t%s\t%s\n", sub->GetName(), *sub->GetString() ? sub->GetString() : "-" );
-				continue;
-			}
-			groups.AddToTail( CUtlString( p->GetName() ) );
-			for ( KeyValues *sub = p->GetFirstSubKey(); sub; sub = sub->GetNextKey() )
-			{
-				fprintf( f, "S\t%s\t%s\t%.9g\n", p->GetName(), sub->GetName(), sub->GetFloat() );
-				entries.AddToTail( CUtlString( sub->GetName() ) );
-			}
-		}
-	}
-	kv->deleteThis();
-
-	int nMaxIndex = -1;
-	for ( int i = 0; i < entries.Count(); ++i )
-	{
-		int idx = effects->Draw_DecalIndexFromName( (char *)entries[ i ].Get() );
-		fprintf( f, "P\t%s\t%d\n", entries[ i ].Get(), idx );
-		if ( idx > nMaxIndex )
-			nMaxIndex = idx;
-	}
-
-	// The picks, with the draws each took. Unknown and empty names too.
-	CRecordingRandom rec( random );
-	IUniformRandomStream *pSaved = random;
-	random = &rec;
-	groups.AddToTail( CUtlString( "NoSuchDecalGroup" ) );
-	groups.AddToTail( CUtlString( "" ) );
-	int nPicks = 0, nOther = 0;
-	for ( int g = 0; g < groups.Count(); ++g )
-	{
-		for ( int k = 0; k < 5; ++k )
-		{
-			rec.Reset();
-			int answer = decalsystem->GetDecalIndexForName( groups[ g ].Get() );
-			fprintf( f, "I\t%s\t%d\t%s\n", groups[ g ].Get(), answer, rec.m_nDraws ? rec.m_szDraws : "-" );
-			nOther += rec.m_nOther;
-			++nPicks;
-		}
-	}
-	random = pSaved;
-
-	for ( int i = -2; i <= nMaxIndex + 2; ++i )
-	{
-		const char *pName = decalsystem->GetDecalNameForIndex( i );
-		fprintf( f, "N\t%d\t%s\n", i, ( pName && *pName ) ? pName : "-" );
-	}
-
-	static const char *kNames[] = { "Impact.Concrete", "impact.concrete", "Impact.Metal", "Scorch", "NoSuchDecalGroup" };
-	for ( int n = 0; n < (int)ARRAYSIZE( kNames ); ++n )
-	{
-		for ( int m = 0; m < 256; ++m )
-		{
-			const char *pAnswer = decalsystem->TranslateDecalForGameMaterial( kNames[ n ], (unsigned char)m );
-			const char *pOut = ( pAnswer == kNames[ n ] ) ? "=" : ( ( pAnswer && *pAnswer ) ? pAnswer : "-" );
-			fprintf( f, "T\t%s\t%d\t%s\n", kNames[ n ], m, pOut );
-		}
-	}
-	fclose( f );
-	Msg( "[c2-sims probe] decals: %d groups, %d entries, %d picks, %d non-float draws, max index %d\n",
-		groups.Count() - 2, entries.Count(), nPicks, nOther, nMaxIndex );
-}
 
 //=============================================================================//
 // THE SIM RECORDER: what tools/probes/c2sims-*-probe.diff patches into one of
@@ -191,12 +56,17 @@ CON_COMMAND( cs_cl_probe_decals, "c2-sims probe (debug): record decals.cpp's ans
 //                                     reports, then closes it
 //
 // While a patched sim's Update runs it arms the draw recorder: every draw
-// through the client's `random` and through vstdlib's installed stream (the
-// free RandomInt that client.so's rand() answers from, randoverride.cpp, which
-// is what FRand calls) is written as a row, in order, so the managed replay is
-// handed the same numbers in the same order. The recorder is installed as the
-// free functions' stream and as `random` for the recording's duration, and
-// draws from its own CUniformRandomStream seeded 0x5eed: a fixed seed.
+// through the client's `random` is written as a row, in order, so the managed
+// replay is handed the same numbers in the same order. The recorder is
+// installed as `random` for the recording's duration and draws from client.so's
+// own stream (vstdlib_random_port.cpp, vstdlib's generator), seeded 0x5eed: a
+// fixed seed.
+//
+// The free functions (RandomInt, which client.so's rand() answers from,
+// randoverride.cpp, and so FRand) draw from that same seeded stream but are no
+// longer logged: client.so stopped linking vstdlib, and its own stream has no
+// InstallUniformRandomStream to put the recorder in front of them. Record a
+// sim that draws through them at a commit that still linked vstdlib.
 //=============================================================================//
 
 #include <stdarg.h>
@@ -238,10 +108,25 @@ public:
 };
 CSimRecordingRandom g_SimRandom;
 
-// The stream every draw comes from while recording, seeded fixed: the client's
-// `random` may itself forward to vstdlib's free functions (whose stream this
-// recorder is installed as), so forwarding to it would recurse.
-CUniformRandomStream g_SimStream;
+// The stream every draw comes from while recording, seeded fixed: client.so's
+// free functions, vstdlib's generator (vstdlib_random_port.cpp). RandomFloatExp
+// is vstdlib's CUniformRandomStream::RandomFloatExp over the same fraction a
+// RandomFloat( 0, 1 ) draws.
+class CSimStream : public IUniformRandomStream
+{
+public:
+	virtual void SetSeed( int iSeed ) { RandomSeed( iSeed ); }
+	virtual float RandomFloat( float flMin, float flMax ) { return ::RandomFloat( flMin, flMax ); }
+	virtual int RandomInt( int iMin, int iMax ) { return ::RandomInt( iMin, iMax ); }
+	virtual float RandomFloatExp( float flMin, float flMax, float flExp )
+	{
+		float fl = ::RandomFloat( 0.0f, 1.0f );
+		if ( flExp != 1.0f )
+			fl = powf( fl, flExp );
+		return fl * ( flMax - flMin ) + flMin;
+	}
+};
+CSimStream g_SimStream;
 } // namespace
 
 bool C2SimsProbe_On() { return g_pSimFile != NULL; }
@@ -276,7 +161,6 @@ bool C2SimsProbe_BeginFrame()
 		{
 			random = g_pSimSavedRandom;
 			g_pSimSavedRandom = NULL;
-			InstallUniformRandomStream( NULL );
 		}
 		Msg( "[c2-sims probe] sim: recorded %d frame(s)\n", g_nSimFrame );
 		return false;
@@ -306,7 +190,6 @@ CON_COMMAND( cs_cl_probe_sim, "c2-sims probe (debug): record a patched sim into 
 		g_SimStream.SetSeed( 0x5eed );
 		g_SimRandom.m_pInner = &g_SimStream;
 		random = &g_SimRandom;
-		InstallUniformRandomStream( &g_SimRandom );
 	}
 	fprintf( g_pSimFile, "# c2-sims %s oracle, recorded by a patched sim (tools/probes/c2sims-%s-probe.diff)\n", args.Arg( 1 ), args.Arg( 1 ) );
 	Msg( "[c2-sims probe] sim: recording %s for %d frame(s)\n", args.Arg( 1 ), g_nSimFramesLeft );
@@ -440,7 +323,7 @@ CON_COMMAND( cs_cl_probe_sndenv, "c2-sims probe (debug): record the client sound
 //   cs_cl_probe_friction <frames> [sound]   default sound Metal_Box.ScrapeRough
 //=============================================================================//
 
-#include "gamesound.h"
+#include "client_sound.h"	// soundemitterbase
 #include "physics_shared.h"
 
 namespace
@@ -475,9 +358,17 @@ CON_COMMAND( cs_cl_probe_friction, "c2-sims probe (debug): drive the client fric
 		return;
 	g_nFrictionFrames = atoi( args.Arg( 1 ) );
 	g_nFrictionFrame = 0;
-	if ( args.ArgC() > 2 )
+	// A valid handle answers for the sound it was looked up for, whatever the
+	// name, so a new sound starts from no handle.
+	if ( args.ArgC() > 2 && Q_strcmp( g_szFrictionSound, args.Arg( 2 ) ) )
+	{
 		Q_strncpy( g_szFrictionSound, args.Arg( 2 ), sizeof( g_szFrictionSound ) );
+		g_hFriction = SOUNDEMITTER_INVALID_HANDLE;
+	}
+	// Stock's GameSound_GetParameters( name, handle, params, NULL ) body: the
+	// handle is looked up (and cached) as PhysFrictionSound will use it.
 	CSoundParameters params;
-	const bool bKnown = GameSound_GetParameters( g_szFrictionSound, g_hFriction, params, NULL );
+	const bool bKnown = soundemitterbase->GetParametersForSoundEx( g_szFrictionSound, g_hFriction, params,
+	                                                               soundemitterbase->GetActorGender( NULL ), true );
 	Msg( "[c2-sims probe] friction: %s is %s\n", g_szFrictionSound, bKnown ? "a known sound script" : "NOT a known sound script" );
 }

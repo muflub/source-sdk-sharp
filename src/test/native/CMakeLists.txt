@@ -104,6 +104,7 @@ ss_cpptest_engine_headers(fwd_steam_test
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
             ${_ss_fwd_leaf_system})
 
 # C7 cluster 12 L2: the client leaf system's forwarder class, driven as the
@@ -119,6 +120,7 @@ ss_cpptest_engine_headers(fwd_leaf_system_test
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp
             ${_ss_fwd_leaf_system})
 
 # plan_forwarders_everywhere.md phase 1: the shim layer's own interfaces
@@ -1804,69 +1806,6 @@ ss_cpptest(engine_core_retype_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/engine_core_retype_test.cpp)
 
-# The seventeen sound statics really did leave the class (gamesound.h) -- the
-# same move precache_model_move_test guards, and guarded the same way. Of the
-# twenty-six CBaseEntity members game/shared/SoundEmitterSystem.cpp defined out
-# of line, SEVENTEEN are declared `static` and so take no `this`; their bodies
-# are the free functions GameSound_*. The class-scope names spent one phase as
-# one-line forwarders quarantined in game/shared/baseentity_sound_forwarders.cpp;
-# route step 1 retired that file and moved all 78 call sites onto GameSound_*.
-# The other NINE take a `this` and stayed put.
-#
-# Three ways that rots with no diagnostic anywhere: logic grows in a forwarder
-# and the SDK's unqualified call sites silently stop agreeing with the port's
-# qualified ones; an eighteenth static definition gets written back into
-# SoundEmitterSystem.cpp because its neighbours are there; or one of the nine
-# non-statics gets tidied into the quarantine file, which would compile and
-# would also destroy the only reason that file exists. So the scanner pins the
-# split at 17/9, pins every forwarder as a forward and nothing more, and pins
-# the free functions as declared in the header and defined in the .cpp.
-#
-# A source scanner that reads nothing passes every claim, so this one is itself
-# checked: the fixtures assert the three files were really opened, and that the
-# extractor tells a DEFINITION from a CALL -- which matters here, because the
-# file under test is full of both (three CBaseEntity::Instance calls and six
-# "CBaseEntity::EmitSound" VPROF string literals).
-ss_cpptest(soundemitter_lift_test
-    SOURCES sourcesharp/test/soundemitter_lift_test.cpp)
-
-# The sound system's five remaining reaches into an entity, and why each one
-# went (laneR_sound_dead_paths_test.cpp). game/shared/SoundEmitterSystem.cpp is
-# a removal-set file that STAYS -- fourteen server objects and nineteen client
-# objects reach into it for GameSound_*, shell_sound.o among them, and it is the
-# only path a sound takes in this port. So its NON-member code has to survive
-# Phase 13's alias, and five places in it reached an entity. Each was measured
-# and each turned out to be a path that cannot run in this build; each is now
-# behind `#ifndef SOURCESHARP` with the stock text intact.
-#
-# Every one of those five rests on a fact about ANOTHER file, and every one of
-# them is green in both directions if that fact stops being true:
-#
-#   * no file on either link line overrides ModifyEmitSoundParams, and
-#     gamerules.h's TranslateEffectForVisionFilter still returns its argument --
-#     so GameSound_Emit's entity lookup buys a no-op;
-#   * player.cpp / c_baseplayer.cpp / baseplayer_shared.cpp are on neither link
-#     line, so a CBaseEntity's IsPlayer() cannot answer true and `fromplayer`
-#     was already false on every path;
-#   * UTIL_SDKPlayerFromEdict still answers NULL by construction, so the
-#     close-caption attenuation loop never ran its body;
-#   * C_BasePlayer::GetLocalPlayer() still answers NULL, so playgamesound has
-#     only ever printed its else-arm.
-#
-# The sixth reach was RETYPED rather than guarded: the server's actor-gender
-# lookup asks the edict for its own IServerEntity now, which is not merely
-# alias-proof but fixes a live defect -- CBaseEntity::Instance answers NULL for
-# an entity outside the SDK hierarchy, and every entity this port owns is one.
-#
-# Nearly every claim here is "X appears ONLY inside a guard", the purest shape
-# of a check that cannot fail, so the guard detector is run over hand-written
-# fixtures that put the same token on both arms -- of `#ifndef`, of
-# `#if !defined()`, of an `#ifdef ... #else`, nested, and of an unrelated
-# conditional that must stay transparent -- and asserted to answer differently.
-ss_cpptest(laneR_sound_dead_paths_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/laneR_sound_dead_paths_test.cpp)
-
 # NOTHING SETS A PREDICTION SUPPRESS HOST (suppress_host_dead_test.cpp), which
 # is what plan_entity.md step 4b's three deletions rest on.
 #
@@ -1894,7 +1833,7 @@ ss_cpptest(suppress_host_dead_test
     SOURCES sourcesharp/test/suppress_host_dead_test.cpp)
 
 # The seven physics statics really did leave the class (physicslink.h) -- the
-# same move soundemitter_lift_test guards, found in the same way and guarded the
+# same move soundemitter_lift_test guarded (retired with sound_emitter.cpp), found and guarded the
 # same way. Of the FIFTY CBaseEntity members game/shared/physics_main_shared.cpp
 # defined out of line, SEVEN take no `this`: six are declared `static` in
 # game/server/baseentity.h (1186-1195) and game/client/c_baseentity.h (947-956)

@@ -206,7 +206,10 @@ const Caller_t kCallers[] =
 	// Neither client.so nor server.so compiles them any more, so they left the
 	// source tree and their rows went with them.
 	{ "../sourcesharp/game/server/precache_model.cpp", true,  false },
-	{ "../sourcesharp/game/client/sound_emitter.cpp", true,  true  },
+	// client/sound_emitter.cpp was here: its GameSound_Precache asked
+	// EntityPrecache_IsAllowed. The client's emit path went to C#
+	// (SourceSharp.Client.Sounds) and the file left; nothing on the client
+	// precaches a sound by name, so the call went with it.
 };
 const size_t kNumCallers = sizeof( kCallers ) / sizeof( kCallers[ 0 ] );
 
@@ -841,13 +844,8 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// server.so compiles them any more; they left the source tree and their
 		// rows went with them.
 		{ "../sourcesharp/game/server/precache_model.cpp", "EntityPrecache_IsAllowed",               1, false },   // 2 -> 1: the second was in the never-defined WATCHACCESS block, deleted in plan_server_native_v2 T2
-		// PATH IS 4b's, COUNTS ARE 4e's -- the two lanes changed different
-		// things about these rows and neither side is wholly right. 4b MOVED
-		// SoundEmitterSystem.cpp to the shim as sound_emitter.cpp, so the path
-		// must follow the file or this row anchors nothing. 4e took the tracer
-		// DEFINITION out of baseentity_shared.cpp into entity_shared_statics.cpp,
-		// so the "3" 4b still carries is the pre-4e reading.
-		{ "../sourcesharp/game/client/sound_emitter.cpp", "EntityPrecache_IsAllowed", 1, false },
+		// sound_emitter.cpp's EntityPrecache_IsAllowed row went with the file
+		// (the client's emit path is C#'s, SourceSharp.Client.Sounds).
 		// The DEFINITION step 4e moved from baseentity_shared.cpp into
 		// entity_shared_statics.cpp, and plan_server_native_v2 T2 on into the
 		// client's utility library (it was #ifdef CLIENT_DLL there).

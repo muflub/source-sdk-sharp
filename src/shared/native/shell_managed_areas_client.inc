@@ -149,6 +149,11 @@ bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot
 	if ( !areas.m_pLeafSystemClient )
 		return false;
 
+	pObject = pRoot->Acquire( "IManagedSoundEmitterClient" );
+	areas.m_pSoundEmitterClient = ManagedAccept< IManagedSoundEmitterClient >( pObject, kIManagedSoundEmitterClientSlotHashes, kIManagedSoundEmitterClientSlotCount, pWhy, nWhy );
+	if ( !areas.m_pSoundEmitterClient )
+		return false;
+
 	return true;
 }
 
@@ -208,6 +213,8 @@ bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pLeafSystemClient, kIManagedLeafSystemClientSlotHashes, kIManagedLeafSystemClientSlotCount, pWhy, nWhy ) )
 		return false;
+	if ( !ManagedAcceptObject( areas.m_pSoundEmitterClient, kIManagedSoundEmitterClientSlotHashes, kIManagedSoundEmitterClientSlotCount, pWhy, nWhy ) )
+		return false;
 	return true;
 }
 
@@ -240,6 +247,7 @@ void ManagedAreasClient_Release( CManagedAreasClient &areas )
 	ManagedRelease( areas.m_pPhysicsClient );
 	ManagedRelease( areas.m_pDetailPropsClient );
 	ManagedRelease( areas.m_pLeafSystemClient );
+	ManagedRelease( areas.m_pSoundEmitterClient );
 }
 
 IManagedCommandsClient *ManagedCommandsClient()
@@ -375,4 +383,9 @@ IManagedDetailPropsClient *ManagedDetailPropsClient()
 IManagedLeafSystemClient *ManagedLeafSystemClient()
 {
 	return ShellClientDll_Managed().m_Areas.m_pLeafSystemClient;
+}
+
+IManagedSoundEmitterClient *ManagedSoundEmitterClient()
+{
+	return ShellClientDll_Managed().m_Areas.m_pSoundEmitterClient;
 }

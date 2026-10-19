@@ -20,8 +20,3 @@
 11	UNRULED	QAngle SharedRandomAngle( const char *sharedname, float minVal, float maxVal, int additionalSeed   )
 6	UNRULED	void UTIL_ParticleTracer( const char *pszTracerEffectName, const Vector &vecStart, const Vector &vecEnd,
 4	UNRULED	void ReloadSoundEntriesInList( IFileList *pFilesToReload )
-10	UNRULED	void GameSound_Emit( IRecipientFilter& filter, int iEntIndex, const char *soundname, HSOUNDSCRIPTHANDLE& handle, const Vector *pOrigin  , fl
-4	UNRULED	int SENTENCEG_Lookup(const char *sample)
-5	UNRULED	bool GameSound_GetParameters( const char *soundname, HSOUNDSCRIPTHANDLE& handle, CSoundParameters &params, const char *actormodel )
-4	UNRULED	void GameSound_Prefetch( const char *name )
-31	UNRULED	void Hack_FixEscapeChars( char *str )

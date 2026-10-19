@@ -144,9 +144,10 @@ CALLBACKS = {
     'IManagedMotionEvent': 'server',
     'IManagedVPhysicsKeyHandler': 'shared',
     # plan_server_native_v2 T4a: the IRecipientFilter IEngineSound::EmitSound
-    # calls back, built by libss_fwd_server (fwd_recipient_filter.cpp) over the
-    # recipients the managed SoundEmitter chose.
-    'IManagedRecipientFilter': 'server',
+    # calls back, built by libss_fwd_<side> (fwd_recipient_filter.cpp) over the
+    # recipients the managed SoundEmitter chose; shared since the client's
+    # emitter is managed too.
+    'IManagedRecipientFilter': 'shared',
 }
 
 

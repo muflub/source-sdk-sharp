@@ -30,7 +30,7 @@ public class SoundscapeOracleTests
     }
 
     // The executors, recorded as rows in the fixture's own shape.
-    private sealed class Audio : ISoundscapeAudio
+    private sealed class Audio : ISoundscapeAudio, ISoundscapeSounds
     {
         public readonly List<object[]> Rows = new();
         public Vector Origin, Forward, Right;
@@ -129,7 +129,7 @@ public class SoundscapeOracleTests
         var clock = new Clock();
         var audio = new Audio();
         var library = Library();
-        var system = new ClientSoundscapes(audio, clock, engine, engine);
+        var system = new ClientSoundscapes(audio, audio, clock, engine, engine);
         system.LevelInit(library);
 
         // Group the rows by frame: an F row opens one, a Q row closes it.

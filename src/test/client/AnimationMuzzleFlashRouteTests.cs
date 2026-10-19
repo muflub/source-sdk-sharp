@@ -17,6 +17,14 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class AnimationMuzzleFlashRouteTests
 {
+    /// <summary>The animation events' sounds: none of these facts is about one.</summary>
+    private sealed class NoSounds : SourceSharp.Client.Sounds.IClientEntitySounds
+    {
+        public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null)
+        {
+        }
+    }
+
     private sealed class Flashes : ILegacyMuzzleFlashes
     {
         public readonly List<string> Calls = [];
@@ -57,7 +65,7 @@ public class AnimationMuzzleFlashRouteTests
         engine.Returns("Entities.GetOrigin", new Vector(0, 0, 0));
         engine.Returns("Entities.GetAngles", new Vector(4, 5, 6));
         var flashes = new Flashes();
-        return (new AnimationEventEffects(engine, engine, engine, engine, flashes, new View(0x00010001), brass, view), flashes, engine);
+        return (new AnimationEventEffects(engine, engine, new NoSounds(), engine, flashes, new View(0x00010001), brass, view), flashes, engine);
     }
 
     private static AnimationEventFired Named(string name, string options)

@@ -5,9 +5,6 @@
 [C_SoundscapeSystem] virtual void LevelShutdownPostEntity()	HOOK	the walk's level shutdown, forwarded
 [C_SoundscapeSystem] virtual void Update( float frametime )	HOOK	the walk's once-a-frame Update, forwarded with its frametime
 CClientSystem *ClientSoundscapeSystem()	SLOT-HELP	the client-systems table's factory for the shell above
-void SourceSharp_SoundscapeEmitAmbient(	BOUNDARY	enginesound->EmitAmbientSound, one stock call
-void SourceSharp_SoundscapeEmitWorld(	BOUNDARY	GameSound_Emit from the world on CHAN_STATIC to the local player, stock's EmitSound_t
-void SourceSharp_SoundscapeStopWorld(	BOUNDARY	GameSound_Stop, one stock call
 void SourceSharp_SoundscapeSetRoomType(	BOUNDARY	enginesound->SetRoomType to the local player
 void SourceSharp_SoundscapeSetPlayerDsp(	BOUNDARY	enginesound->SetPlayerDSP to the local player
 void SourceSharp_SoundscapeMainView(	LIVE-API	MainViewOrigin/Forward/Right read for managed

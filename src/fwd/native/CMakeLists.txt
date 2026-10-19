@@ -50,8 +50,12 @@ function(ss_fwd_library side)
   # fwd_physics.cpp: the vphysics callbacks both sides hand vphysics
   # (plan_forwarders_everywhere.md phase 5), classes with virtuals deriving the
   # Valve interfaces, built without RTTI below for fwd_steam.cpp's reason.
+  # fwd_recipient_filter.cpp: the IRecipientFilter IEngineSound::EmitSound
+  # calls back over the managed sound emitter's recipients (plan_server_native_v2
+  # T4a on the server, the client's emit path since), the same shape.
   target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_${side}.cpp
-                                ${CMAKE_CURRENT_SOURCE_DIR}/fwd_physics.cpp)
+                                ${CMAKE_CURRENT_SOURCE_DIR}/fwd_physics.cpp
+                                ${CMAKE_CURRENT_SOURCE_DIR}/fwd_recipient_filter.cpp)
 
   # ${SS_SRC} itself for our own interfaces (plan_forwarders_everywhere.md),
   # which the generated file includes by their farm path,
@@ -111,10 +115,6 @@ target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp PROPERTIES
     COMPILE_DEFINITIONS CLIENT_DLL
     INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
-# The server's library also builds the IRecipientFilter IEngineSound::EmitSound
-# calls back over the managed SoundEmitter's recipients (fwd_recipient_filter.cpp,
-# plan_server_native_v2 T4a): a class with virtuals, as the two above.
-target_sources(ss_fwd_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_recipient_filter.cpp)
 foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_leaf_system.cpp)
   if(SS_IS_MSVC)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS /GR-)

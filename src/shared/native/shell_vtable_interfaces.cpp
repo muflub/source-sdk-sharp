@@ -172,6 +172,12 @@ bool SourceSharpServes( const char *pszVersion )
 	// The client's static props, for the client's physics world.
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_CLIENT ) )
 		return true;
+
+	// The engine's sound interface the managed ClientSoundEmitter, the tracers
+	// and the soundscapes emit through (EngineSoundClient: sound_emitter.cpp's
+	// client emit path, moved).
+	if ( !ss::StrICmp( pszVersion, IENGINESOUND_CLIENT_INTERFACE_VERSION ) )
+		return true;
 #else
 	if ( !ss::StrICmp( pszVersion, "VEngineServer023" ) )
 		return true;

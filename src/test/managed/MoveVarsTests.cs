@@ -279,16 +279,47 @@ public class MoveVarsTests
         const string shared = "src/sourcesharp/game/shared/";
         foreach (var d in Declarations)
         {
+            // sv_soundemitter_trace's old file, sound_emitter.cpp, left the
+            // repository with the client's emit path (SourceSharp.Client.Sounds);
+            // TheTraceKnobHasNoNativeDeclarationAnywhere holds it over every
+            // native source instead.
+            if (d.Name == "sv_soundemitter_trace")
+                continue;
+
             data.Add(d.Name, d.Name switch
             {
                 "phys_pushscale" => shared + "takedamageinfo_library.cpp",
-                "sv_soundemitter_trace" => "src/sourcesharp/game/client/sound_emitter.cpp",
                 "english" => "src/sourcesharp/game/client/shell_hud_framework.cpp",
                 _ => shared + "movevars_shared.cpp",
             });
         }
 
         return data;
+    }
+
+    [Fact]
+    public void TheTraceKnobHasNoNativeDeclarationAnywhere()
+    {
+        // Every native source of this repository's three shim directories: the
+        // knob's old home is gone, so no one file is the place to look.
+        string[] roots = ["src/client/native", "src/server/native", "src/shared/native"];
+        int read = 0;
+        foreach (string root in roots)
+        {
+            string dir = RepoLayout.Repo(root.Split('/'));
+            Assert.True(Directory.Exists(dir), dir + " is not in the tree");
+            foreach (string path in Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
+            {
+                if (!path.EndsWith(".cpp", StringComparison.Ordinal) && !path.EndsWith(".h", StringComparison.Ordinal))
+                    continue;
+                string text = File.ReadAllText(path);
+                read++;
+                Assert.DoesNotContain("ConVar sv_soundemitter_trace(", text);
+                Assert.DoesNotContain("ConVar sv_soundemitter_trace (", text);
+            }
+        }
+
+        Assert.True(read > 300, $"only {read} native sources were read");
     }
 
     [Theory]

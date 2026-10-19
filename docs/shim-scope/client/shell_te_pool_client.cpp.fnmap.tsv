@@ -37,8 +37,6 @@
 15	BOUNDARY	void SourceSharp_FxElight( int32_t nKey, const float *pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
 6	BOUNDARY	void SourceSharp_FxVectorRandom( float flLo, float flHi, float *pOutXYZ )
 4	BOUNDARY	int32_t SourceSharp_FxMaterialsCached( void )
-15	BOUNDARY	int32_t SourceSharp_FxSoundParameters( const char *pScript, float *pOut6, char *pWave, int32_t nWaveBytes )
-16	BOUNDARY	void SourceSharp_FxEmitWorldSound( const char *pWave, int32_t nChannel, float flVolume, int32_t nSoundLevel, int32_t nPitch,
 7	BOUNDARY	int32_t SourceSharp_FxTempEntCreateNamed( int32_t nSlot, const float *pOriginXYZ, const char *pModel, int32_t nPriority )
 5	BOUNDARY	void SourceSharp_FxLoadModel( const char *pModel )
 5	BOUNDARY	int32_t SourceSharp_FxModelFrameCount( const char *pModel )

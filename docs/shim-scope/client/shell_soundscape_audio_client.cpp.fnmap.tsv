@@ -5,9 +5,6 @@
 5	HOOK	[C_SoundscapeSystem] virtual void LevelShutdownPostEntity() OVERRIDE
 5	HOOK	[C_SoundscapeSystem] virtual void Update( float frametime ) OVERRIDE
 5	SLOT-HELP	CClientSystem *ClientSoundscapeSystem()
-5	BOUNDARY	void SourceSharp_SoundscapeEmitAmbient( const char *pszWave, float flVolume, int32_t nPitch, int32_t nFlags )
-17	BOUNDARY	void SourceSharp_SoundscapeEmitWorld( const char *pszWave, float flVolume, int32_t nSoundLevel, int32_t nPitch,
-5	BOUNDARY	void SourceSharp_SoundscapeStopWorld( const char *pszWave )
 5	BOUNDARY	void SourceSharp_SoundscapeSetRoomType( int32_t nRoomType )
 5	BOUNDARY	void SourceSharp_SoundscapeSetPlayerDsp( int32_t nDspType )
 11	LIVE-API	void SourceSharp_SoundscapeMainView( float *pOut9 )

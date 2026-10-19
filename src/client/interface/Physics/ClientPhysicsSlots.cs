@@ -20,14 +20,18 @@ public interface IClientImpactSoundWorld
 
     /// <summary><c>physprops-&gt;GetSurfaceData( surfaceProps )</c>'s audio, or null when there is none.</summary>
     SurfaceImpactAudio? Surface(int surfaceProps);
+}
 
+/// <summary>How the client's impact sounds play one queued sound (the managed client sound emitter).</summary>
+public interface IClientImpactSoundEmitter
+{
     /// <summary>
     /// The carry-out of one queued sound: the script's parameters, a PAS filter at
     /// <paramref name="origin"/> at their level, and an emit from the world on
     /// <paramref name="channel"/> at the script's volume times <paramref name="volume"/>.
     /// False when the script has no parameters (stock's GameSound_GetParameters failing).
     /// </summary>
-    bool Emit(string soundName, Vector origin, int channel, float volume);
+    bool EmitImpactSound(string soundName, Vector origin, int channel, float volume);
 }
 
 /// <summary>The client splash's reads and effects (IShimPhysicsClient).</summary>

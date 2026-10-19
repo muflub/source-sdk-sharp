@@ -1603,26 +1603,6 @@ internal sealed unsafe partial class EngineSide
         return ClientShims.StandaloneClient.StandaloneIsDormant(entity.Value) != 0;
     }
 
-    public void ClientEmitSound(EntityHandle entity, string soundName, Vector? origin = null)
-    {
-        if (!s_Initialized || !ClientAttached || soundName.Length == 0) return;
-
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-
-        if (origin is Vector at)
-        {
-            float* xyz = stackalloc float[3];
-            xyz[0] = at.X;
-            xyz[1] = at.Y;
-            xyz[2] = at.Z;
-
-            fixed (byte* p = bytes) ClientShims.StandaloneClient.ClientEmitSound(entity.Value, p, xyz);
-        }
-        else
-        {
-            fixed (byte* p = bytes) ClientShims.StandaloneClient.ClientEmitSound(entity.Value, p, null);
-        }
-    }
 
     // SoundEntQuery AND SoundEntInsert WERE HERE.
     //

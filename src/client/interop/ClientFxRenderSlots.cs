@@ -57,14 +57,6 @@ internal sealed unsafe class ClientFxRenderSlots(FxClientArea fxClient) : IFxRen
         return new Vector(v[0], v[1], v[2]);
     }
 
-    public bool EmitTracerSound(string soundName, Vector start, Vector direction)
-    {
-        byte[] utf8 = System.Text.Encoding.UTF8.GetBytes(soundName + "\0");
-        float* s = stackalloc float[] { start.X, start.Y, start.Z };
-        float* d = stackalloc float[] { direction.X, direction.Y, direction.Z };
-        fixed (byte* p = utf8)
-            return fxClient.FxEmitTracerSound(p, s, d) != 0;
-    }
 
     public int LocalPlayer() => fxClient.FxLocalPlayer();
 

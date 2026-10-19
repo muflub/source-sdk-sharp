@@ -6,6 +6,7 @@
 //=============================================================================//
 using System.Text;
 using SourceSharp.Server.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
@@ -106,13 +107,9 @@ public sealed class SoundEmitterSystem
     {
         StartLog();
 
-        // "maps/%s", Q_FixSlashes, Q_strlower. GetCleanMapName was an
-        // identity function here (its TF arms never compiled).
-        string mapName = AsciiLower(("maps/" + _mapName()).Replace('\\', '/'));
-
-        // STOCK'S TF_DLL ARM (Mann-vs-Machine's four extra override scripts)
-        // never compiled into this mod; its #else arm is the one ported.
-        string scriptFile = StripExtension(mapName) + "_level_sounds.txt";
+        // "maps/%s", Q_FixSlashes, Q_strlower, Q_StripExtension (SoundScriptFiles,
+        // both sides' rule).
+        string scriptFile = SoundScriptFiles.LevelSoundsScript(_mapName());
 
         if (_engine.FileExists(scriptFile, "GAME"))
             _engine.AddSoundOverrides(scriptFile);
@@ -243,13 +240,6 @@ public sealed class SoundEmitterSystem
     }
 
     /// <summary><c>Q_strlower</c>: A-Z only; every other character as it is.</summary>
-    private static string AsciiLower(string text)
-        => string.Create(text.Length, text, static (span, from) =>
-        {
-            for (int i = 0; i < from.Length; i++)
-                span[i] = from[i] is >= 'A' and <= 'Z' ? (char)(from[i] + ('a' - 'A')) : from[i];
-        });
-
     private static bool IsDirectWave(string name)
         => name.Contains(".wav", StringComparison.OrdinalIgnoreCase)
            || name.Contains(".mp3", StringComparison.Ordinal);
@@ -292,20 +282,6 @@ public sealed class SoundEmitterSystem
 
     private void NoWaves(int soundIndex)
         => _devMsg($"CSoundEmitterSystem:  sounds.txt entry '{_engine.SoundName(soundIndex)}' has no waves listed under 'wave' or 'rndwave' key!!!\n");
-
-    /// <summary>
-    /// <c>V_StripExtension</c>: everything before the last '.' that comes after
-    /// the last path separator and is not the first character; the name as it
-    /// is when there is none.
-    /// </summary>
-    private static string StripExtension(string path)
-    {
-        int end = path.Length - 1;
-        while (end > 0 && path[end] != '.' && path[end] != '/' && path[end] != '\\')
-            --end;
-
-        return end > 0 && path[end] == '.' ? path[..end] : path;
-    }
 
     //-------------------------------------------------------------------------
     // The -makereslists precache log

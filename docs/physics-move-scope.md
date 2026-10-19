@@ -24,9 +24,9 @@ $ ./5a-codelines.sh src/server/native/physics.cpp
 raw=2994  code=1523  comment=1131  blank=340
 ```
 
-So: **547 raw / 188 code / 286 comment / 73 blank.** Prose is **60.3% of
-the non-blank lines** (286 of 474), not the 49% the plan quotes; the plan's
-figure is comment-over-code (286/188 = 152%) or a different stripper. Either
+So: **542 raw / 187 code / 283 comment / 72 blank.** Prose is **60.2% of
+the non-blank lines** (283 of 470), not the 49% the plan quotes; the plan's
+figure is comment-over-code (283/187 = 151%) or a different stripper. Either
 way the point it was making stands and gets stronger: **less than half of this
 file is code.** (At the server gc cull, before the debug-file move below, it
 was 3,663 raw / 1,813 code / 1,460 comment / 390 blank, 44.6%.)
@@ -495,6 +495,12 @@ from; the pick between the solver and the member left native. LIVE-API
 3/29 -> 3/34; 538 -> 547 raw, 183 -> 188 code, 282 -> 286 comment, 73 blank
 (the same stripper reproduces 538/183/282/73 at 532c1a078); `fnmap` 10
 functions, total 130 -> 135.
+
+The dead `gamesound.h` include (2026-10-19, after the client sound emitter
+left client.so and nothing on either side imports a GameSound_* function):
+the include and its three-line comment go, 547 -> 542 raw, 188 -> 187 code,
+286 -> 283 comment, 73 -> 72 blank. `fnmap` re-run: the same 10 functions at
+the same code sizes, 5 lines earlier; `classify` totals unchanged.
 
 Of the 188 code lines, **135 are inside a function body** across **10
 top-level definitions**. The other 53 are includes, file-scope globals and

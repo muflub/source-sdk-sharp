@@ -9,7 +9,7 @@ namespace SourceSharp.Tests;
 /// stream (each draw checked against the range stock drew from), the view, the
 /// listener, the clock, sounds and particle dispatches recorded.
 /// </summary>
-internal sealed class FxTestRig : IFxRender, IEngineHost
+internal sealed class FxTestRig : IFxRender, IFxTracerSound, IEngineHost
 {
     public readonly Dictionary<string, int> Ids = new(StringComparer.Ordinal);
     public readonly Dictionary<int, string> Names = [];

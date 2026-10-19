@@ -150,6 +150,8 @@ public class ChatFeedTests
         public void SpectatorServerCommand(string line) => sent.Add("server: " + line);
         public bool IsInGame() => true;
         public void VoiceServerCommand(string line, bool reliable) => sent.Add("voice: " + line);
+        public int SentenceIndexFromName(string name) => -1;
+        public int LocalPlayerSlot() => 0;
         public string? LevelName() => null;
         public string? GameDirectory() => null;
         public uint ProtocolVersion() => 0;

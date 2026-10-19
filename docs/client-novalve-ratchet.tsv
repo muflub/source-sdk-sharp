@@ -336,7 +336,9 @@ link-forbidden	1
 #   tools/shim-scope, which walks src/client/native, counts the client's planner and registry for the first time. The
 #   client compiled exactly this text before (its TU preprocesses identically, line markers aside). The client port's to
 #   move; the server's twin is TePropPlanner/TeSchemaRegistry.
-logic-lines	9514
+# LOWERED 2026-10-19, logic-lines 9514 -> 8939 (-575, tools/shim-scope at the client sound emitter landing on main
+#   ab8f56ef2): sound_emitter.cpp's client emit path went to managed (the lane measured 8804 -> 8229 on its base). Hand-edited.
+logic-lines	8939
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).

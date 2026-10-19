@@ -80,11 +80,6 @@ extern CMoveData *g_pMoveData;
 // game/shared/baseentity_shared_forwarders.cpp; that quarantine is retired
 // and the calls below name the free functions directly.
 #include "entity_shared_statics.h"
-
-// The lifted sound statics. They used to be reached as CBaseEntity::Foo()
-// through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
-// that quarantine is retired and the calls below name GameSound_* directly.
-#include "gamesound.h"
 #include "native_command_body.h"
 #include "ss_string.h"
 #include "ss_entityfactory.h"   // ss::EntityFactoryDictionary, for the ss_player factory

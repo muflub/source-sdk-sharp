@@ -109,11 +109,6 @@ using ss::masscenteroverride_t;
 // and the calls below name the free functions directly.
 #include "physicslink.h"
 
-// The lifted sound statics. They used to be reached as CBaseEntity::Foo()
-// through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
-// that quarantine is retired and the calls below name GameSound_* directly.
-#include "gamesound.h"
-
 // memdbgon must be the last include file in a .cpp file!!!
 #include "imanaged_areas.h"       // IManagedPhysicsFrame: the frame, managed
 #include "ss_string.h"

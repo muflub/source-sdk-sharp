@@ -220,7 +220,7 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_ClientVirtualReality	g_ClientVirtualReality	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	536	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1136	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1144	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
@@ -509,6 +509,7 @@ shell_rope_render.o	_ZL15g_RopeMaterials	g_RopeMaterials	sourcesharp/game/client
 shell_rope_render.o	_ZL23g_SourceSharpRopeSystem	g_SourceSharpRopeSystem	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE17beentheredonethat	CSaveRestoreSegment::FindCreateSymbol(char const*)::beentheredonethat	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	1	UNRULED		
 	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE12tokensparsed	CSaveRestoreSegment::FindCreateSymbol(char const*)::tokensparsed	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	4	UNRULED		
+shell_soundemitter_client.o	_ZZ25ClientSystem_SoundEmittervE5s_Row	ClientSystem_SoundEmitter()::s_Row	sourcesharp/game/client/shell_soundemitter_client.cpp	LOCAL	bss	function-local	16	UNRULED		
 shell_soundenvelope_client.o	_ZZL26ShellClientSoundControllervE12s_Controller	ShellClientSoundController()::s_Controller	sourcesharp/game/client/shell_soundenvelope_client.cpp	LOCAL	bss	function-local	48	UNRULED		
 shell_soundscape_audio_client.o	_ZZ22ClientSoundscapeSystemvE8s_System	ClientSoundscapeSystem()::s_System	sourcesharp/game/client/shell_soundscape_audio_client.cpp	LOCAL	bss	function-local	16	UNRULED		
 	r_drawsprites	r_drawsprites	sourcesharp/game/client/shell_sprite_leaf.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
@@ -620,12 +621,6 @@ shell_worldrender.o	_ZL21g_nActiveColorWeights	g_nActiveColorWeights	sourcesharp
 shell_worldrender.o	_ZL18g_nNextColorLookup	g_nNextColorLookup	sourcesharp/game/client/shell_worldrender.cpp	LOCAL	data	file-or-global	4	UNRULED		
 shell_worldtext_render.o	_ZL18g_ManagedWorldText	g_ManagedWorldText	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_worldtext_render.o	_ZL17g_WorldTextSystem	g_WorldTextSystem	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
-sound_emitter.o	_ZZ9WaveTracePKcS0_E11s_WaveTraceB5cxx11	WaveTrace(char const*, char const*)::s_WaveTrace[abi:cxx11]	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	function-local	48	UNRULED		
-sound_emitter.o	_ZL20g_SoundEmitterSystem	g_SoundEmitterSystem	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	file-or-global	16	UNRULED		
-	g_bPermitDirectSoundPrecache	g_bPermitDirectSoundPrecache	sourcesharp/game/client/sound_emitter.cpp	GLOBAL	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
-sound_emitter.o	_ZL15g_pClosecaption	g_pClosecaption	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-	s_bAllowPrecache	s_bAllowPrecache	sourcesharp/game/client/sound_emitter.cpp	WEAK	bss	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
-sound_emitter.o	_ZL21sv_soundemitter_trace	sv_soundemitter_trace	sourcesharp/game/client/sound_emitter.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 tier0_thread_client.o	_ZN12_GLOBAL__N_112s_MainThreadE	(anonymous namespace)::s_MainThread	sourcesharp/game/client/tier0_thread_client.cpp	LOCAL	bss	function-local	8	UNRULED		
 	g_VProfCurrentProfile	g_VProfCurrentProfile	sourcesharp/game/client/tier0_vprof_client.cpp	GLOBAL	data	file-or-global	7696	UNRULED		
 	g_bDoRangeChecks	g_bDoRangeChecks	sourcesharp/game/client/tier1_client.cpp	GLOBAL	data	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it

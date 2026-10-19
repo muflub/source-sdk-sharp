@@ -134,7 +134,7 @@ const char *kShellSend      = "sourcesharp/game/server/shell_usermessage_send.cp
 const char *kShellGameDll   = "sourcesharp/game/server/shell_gamedll.cpp";
 const char *kShellClientDll = "sourcesharp/game/client/shell_clientdll.cpp";
 const char *kShellClientMsg = "sourcesharp/game/client/shell_usermessages_client.cpp";
-const char *kSoundEmitter   = "sourcesharp/game/client/sound_emitter.cpp";
+const char *kClientSound    = "sourcesharp/game/client/client_sound.h";
 
 size_t CountOf( const std::string &hay, const std::string &needle )
 {
@@ -164,28 +164,27 @@ TEST( UserMessageForwarders, GetUserMessageInfoAsksTheManagedRegistry )
 }
 
 //-----------------------------------------------------------------------------
-// THE CLOSE CAPTION IS C#'s (user-message payload model, 2026-10-04):
-// sound_emitter.cpp asks whether one is wanted before it looks anything up,
-// gathers the facts only it can, and forwards them. It writes no message.
+// THE CLOSE CAPTION IS C#'s (user-message payload model, 2026-10-04), on both
+// sides now: the server's SoundEmitter calls ICloseCaptions (plan_server_native_v2
+// T4a), and the client's emit path went to C# with sound_emitter.cpp
+// (SourceSharp.Client.Sounds). What native code still captions -- a sound
+// patch's -- hands the token to the managed emitter through client_sound.h,
+// and writes no message.
 //-----------------------------------------------------------------------------
 TEST( UserMessageForwarders, TheCloseCaptionIsDecidedAndSentByManaged )
 {
-	const std::string code = Code( kSoundEmitter );
-	ASSERT_FALSE( code.empty() ) << kSoundEmitter << " did not load.";
+	const std::string code = Code( kClientSound );
+	ASSERT_FALSE( code.empty() ) << kClientSound << " did not load.";
 
-	// plan_server_native_v2 T4a: the server's emit path is the managed
-	// SoundEmitter, which calls ICloseCaptions itself, so sound_emitter.cpp
-	// hands C# no caption any more and the two IManagedUserMessages slots it
-	// used are retired. The client arm (#ifdef CLIENT_DLL) shows its own HUD.
 	EXPECT_EQ( 0u, CountOf( code, "CloseCaptionsWanted" ) )
-		<< "sound_emitter.cpp asks the managed user messages about captions again; "
-		<< "the server's caption is SoundEmitter.EmitCloseCaption's.";
+		<< "client_sound.h asks the managed user messages about captions; whether one is wanted is "
+		<< "the managed ClientSoundEmitter's.";
 	EXPECT_EQ( 0u, CountOf( code, "pMessages->EmitCloseCaption(" ) )
-		<< "sound_emitter.cpp hands C# a caption again.";
-	// The read is real: the client's caption arm is still in the file.
-	EXPECT_EQ( 1u, CountOf( code, "cchud->ProcessCaption(lowercase,duration,fromplayer);" ) );
+		<< "client_sound.h hands the user messages a caption; the emitter decides it.";
+	// The read is real: the caption crosses to the managed emitter, whole.
+	EXPECT_EQ( 1u, CountOf( code, "pApi->ClientSoundEmitCloseCaption(recipients.m_n,iEntIndex,pszToken,flDuration,bWarnIfMissing?1:0);" ) );
 	EXPECT_EQ( 0u, CountOf( code, "UserMessageBegin(" ) )
-		<< "sound_emitter.cpp writes a user message again; the CloseCaption payload is C#'s.";
+		<< "client_sound.h writes a user message; the CloseCaption payload is C#'s.";
 	EXPECT_EQ( 0u, CountOf( code, "CUserMessagePayload" ) );
 }
 

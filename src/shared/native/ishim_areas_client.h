@@ -145,7 +145,6 @@ abstract_class IShimStandaloneClient
 {
 public:
 	virtual void ActivateOccluder( int32_t nOccluderIndex, int32_t bActive ) = 0;
-	virtual void ClientEmitSound( uint32_t hEntity, const char *pszSoundName, const float *pOriginXYZ ) = 0;
 	virtual void ** ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount ) = 0;
 	virtual void ** ClientPolicyBlocks( int32_t *pOutCount ) = 0;
 	virtual void DynamicLightRelease( int32_t nKey ) = 0;
@@ -330,7 +329,6 @@ public:
 	virtual void FxDrawQuads( int32_t nMaterial, int32_t nVertices, const float *pVertices, int32_t bByteColor ) = 0;
 	virtual void FxView( float *pOut ) = 0;
 	virtual void FxMainViewOrigin( float *pOutXYZ ) = 0;
-	virtual int32_t FxEmitTracerSound( const char *pSoundName, const float *pStartXYZ, const float *pDirXYZ ) = 0;
 	virtual int32_t FxLocalPlayer() = 0;
 	virtual void FxViewAngles( float *pOutPYR ) = 0;
 	virtual int32_t FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut, int32_t nModelSize ) = 0;
@@ -366,8 +364,6 @@ public:
 	// position managed placed, in its base colour, ramped as stock's CImpactOverlay.
 	virtual void FxImpactOverlay( const float *pPositionXYZ, const float *pColorRGB ) = 0;
 	// The tempents' bounce sounds (TempEntSounds), and the models they spawn by name.
-	virtual int32_t FxSoundParameters( const char *pScript, float *pOut6, char *pWave, int32_t nWaveBytes ) = 0;
-	virtual void FxEmitWorldSound( const char *pWave, int32_t nChannel, float flVolume, int32_t nSoundLevel, int32_t nPitch, const float *pOriginXYZ ) = 0;
 	virtual int32_t FxTempEntCreateNamed( int32_t nSlot, const float *pOriginXYZ, const char *pModel, int32_t nPriority ) = 0;
 	virtual void FxLoadModel( const char *pModel ) = 0;
 	virtual int32_t FxModelFrameCount( const char *pModel ) = 0;
@@ -380,9 +376,6 @@ public:
 abstract_class IShimSoundscapeClient
 {
 public:
-	virtual void SoundscapeEmitAmbient( const char *pszWave, float flVolume, int32_t nPitch, int32_t nFlags ) = 0;
-	virtual void SoundscapeEmitWorld( const char *pszWave, float flVolume, int32_t nSoundLevel, int32_t nPitch, int32_t nFlags, const float *pOriginXYZ ) = 0;
-	virtual void SoundscapeStopWorld( const char *pszWave ) = 0;
 	virtual void SoundscapeSetRoomType( int32_t nRoomType ) = 0;
 	virtual void SoundscapeSetPlayerDsp( int32_t nDspType ) = 0;
 	virtual void SoundscapeMainView( float *pOut9 ) = 0;
@@ -458,7 +451,6 @@ abstract_class IShimPhysicsClient
 {
 public:
 	virtual int32_t PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char *pHard, int32_t nHard, char *pSoft, int32_t nSoft, float *pOut3 ) = 0;
-	virtual int32_t PhysicsClientEmitImpactSound( const char *pszName, const float *pOrigin, int32_t nChannel, float flVolume ) = 0;
 	virtual void PhysicsClientCollideExtent( void *pObject, const float *pOrigin, const float *pAngles, const float *pDirection, float *pOut ) = 0;
 	virtual int32_t PhysicsClientPointContents( const float *pPoint ) = 0;
 	virtual void PhysicsClientSplashLighting( const float *pPoint, float *pOut4 ) = 0;

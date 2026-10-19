@@ -231,12 +231,10 @@ AchievementsAndStatsInterface* g_pAchievementsAndStatsInterface = NULL;
 // HPE_END
 //=============================================================================
 
-// plan_cworld_trace.md T4: this one is still declared here, the way stock
-// declared it, and it answers SourceSharp's client base now. Its row is in
-// sourcesharp/game/client/shell_clientsystems.cpp. (ToolFrameworkClientSystem,
-// declared beside it, is deleted: SFM is dead, user ruling 2026-10-19.)
-class CClientSystem;
-CClientSystem *SoundEmitterSystem();
+// (SoundEmitterSystem() was declared here, the way stock declared it. Its row
+// is shell_soundemitter_client.cpp's ClientSystem_SoundEmitter now, which
+// shell_clientsystems.cpp declares; ToolFrameworkClientSystem, declared beside
+// it, is deleted: SFM is dead, user ruling 2026-10-19.)
 
 // Engine player info, no game related infos here
 BEGIN_BYTESWAP_DATADESC( player_info_s )

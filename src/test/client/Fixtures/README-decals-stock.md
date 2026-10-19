@@ -6,6 +6,12 @@ replaced it. `ClientDecalsOracleTests` replays it against the managed port.
 
 ## How it was recorded
 
+The probe and its session file left the tree once the client probe build
+stopped linking it (KeyValues::LoadFromFile left client.so with tier1, and
+the probe's subject, decals.cpp, was evicted on 2026-10-05). Both are still in
+`4e8970d95`. A re-recording needs a tree whose client.so compiles decals.cpp,
+such as `cb18f0a8` below.
+
 1. Base `cb18f0a8` (client-novalve), worktree `ss-client-c2-sims`, nothing else
    changed. Probe: `tools/probes/client/c2sims_probes_debug.cpp`,
    `cs_cl_probe_decals`, compiled into a debug `client.so` configured with

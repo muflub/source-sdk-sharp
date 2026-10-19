@@ -1,0 +1,442 @@
+# soundemitter-client-stock.tsv: written by src/test/oracle/native/soundemitter_client_oracle_test.cpp
+# from the pristine game/shared/SoundEmitterSystem.cpp (CLIENT_DLL); README-soundemitter-client-stock.md says how to read it.
+S	world
+SCRIPT	0	Weapon_Pistol.Single	1	3f4ccccd	80	100	0	2	weapons/pistol/pistol_fire2.wav,weapons/pistol/pistol_fire3.wav	0
+SCRIPT	1	Player.FallDamage	4	3f800000	75	100	0	1	player/pl_fallpain1.wav	0
+SCRIPT	2	Delayed.Thing	0	3f000000	70	95	250	1	ambient/delayed.wav	0
+SCRIPT	3	Empty.Script	0	3f800000	75	100	0	0	-	0
+SCRIPT	4	Broken.Script	0	3f800000	75	100	0	1	broken/never.wav	1
+SCRIPT	5	Npc.Voice	2	3f666666	85	100	0	3	vo/none.wav,vo/male.wav,vo/female.wav	0
+SCRIPT	6	Ambient.Hum	6	3f333333	60	100	0	1	ambient/hum.wav	0
+SCRIPT	7	HL2Player.Caption	2	3f800000	75	100	0	1	vo/caption.wav	0
+DUR	weapons/pistol/pistol_fire2.wav	3eb33333
+DUR	player/pl_fallpain1.wav	3fa00000
+DUR	ambient/delayed.wav	40200000
+DUR	vo/male.wav	40400000
+DUR	vo/none.wav	40300000
+DUR	ambient/hum.wav	40800000
+DUR	vo/caption.wav	3fc00000
+DUR	weapons/raw/shot.WAV	3f000000
+DUR	music/track.mp3	42b40000
+DUR	!12	3fe00000
+SENT	HG_ALERT0	12
+ENT	3	models/combine_male_07.mdl	0	-1
+ENT	4	models/female_01.mdl	0	1
+ENT	1	models/player.mdl	1	-1
+ENT	5	-	0	-1
+ENT	6	models/props/crate.mdl	0	4
+LOCAL	1
+HUD	1
+G	16	42c80000
+V	sv_soundemitter_trace	0
+V	closecaption	0
+S	system
+C	init
+A	ModInit	=	1
+R	init	1
+C	levelinit
+A	LevelName	=	maps/DM_Lockdown.bsp
+A	FileExists	maps/dm_lockdown_level_sounds.txt	GAME	=	0
+C	levelinitpost
+C	levelshutdown
+O	ClearOverrides
+C	levelinit
+A	LevelName	=	maps\\dm_Overrides.bsp
+A	FileExists	maps/dm_overrides_level_sounds.txt	GAME	=	1
+O	AddOverrides	maps/dm_overrides_level_sounds.txt	0
+C	levelshutdown
+O	ClearOverrides
+C	levelinit
+A	LevelName	=	dm_noprefix
+A	FileExists	maps/dm_noprefix_level_sounds.txt	GAME	=	0
+C	levelshutdown
+O	ClearOverrides
+S	raw
+V	sv_soundemitter_trace	1
+C	emitname	1/0	3	weapons/raw/shot.WAV	43000000,c2810000,42010000	42cb0000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	weapons/raw/shot.WAV	-1	1	1	=>-1	=	0	0	3f800000	75	100	100	100	0	-
+C	emitname	1/0	3	weapons/raw/shot.WAV	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	weapons/raw/shot.WAV	-1	1	1	=>-1	=	0	0	3f800000	75	100	100	100	0	-
+C	emitname	1/0	3	weapons/raw/other.wav	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	weapons/raw/other.wav	-1	1	1	=>-1	=	0	0	3f800000	75	100	100	100	0	-
+C	emitparams	1/0	3	1	weapons/raw/shot.WAV	3f800000	85	0	100	0	43000000,c2810000,42010000	00000000	0	1	0	1	-1	-1
+D	Emitsound directly referenced wave weapons/raw/shot.WAV (should use game_sounds.txt system instead)\n
+O	EmitSound	1/0	3	1	weapons/raw/shot.WAV	3f800000	85	0	100	0	43000000,c2810000,42010000	-	00000000	-1
+M	(cl) EmitSound:  Raw wave emitted 'weapons/raw/shot.WAV' (ent 3)\n
+R	ephandle	-1
+C	emitparams	1/0	3	1	weapons/raw/shot.WAV	3f800000	85	0	100	0	43000000,c2810000,42010000	00000000	0	1	0	1	-1	-1
+O	EmitSound	1/0	3	1	weapons/raw/shot.WAV	3f800000	85	0	100	0	43000000,c2810000,42010000	-	00000000	-1
+M	(cl) EmitSound:  Raw wave emitted 'weapons/raw/shot.WAV' (ent 3)\n
+R	ephandle	-1
+C	emitparams	1/0	3	0	weapons/raw/other.wav	3f800000	0	0	100	0	-	00000000	0	1	0	0	-1	-1
+O	EmitSound	1/0	3	0	weapons/raw/other.wav	3f800000	0	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  Raw wave emitted 'weapons/raw/other.wav' (ent 3)\n
+R	ephandle	-1
+C	emitparams	1/1	0	6	music/track.mp3	3e800000	0	128	110	3	-	437a0000	1	1	0	1	7	-1
+O	EmitSound	1/1	0	6	music/track.mp3	3e800000	0	128	110	3	-	-	437a0000	7
+A	Duration	music/track.mp3	=	42b40000
+M	(cl) EmitSound:  Raw wave emitted 'music/track.mp3' (ent 0)\n
+R	duration	42b40000
+R	ephandle	-1
+C	emitparams	-/0	2	0	!HG_ALERT0	3f800000	75	0	100	0	-	00000000	0	1	0	1	-1	-1
+O	EmitSound	-/0	2	0	!HG_ALERT0	3f800000	75	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  Raw wave emitted '!HG_ALERT0' (ent 2)\n
+R	ephandle	-1
+V	sv_soundemitter_trace	0
+C	emitname	1/0	3	weapons/raw/third.wav	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	weapons/raw/third.wav	-1	1	1	=>-1	=	0	0	3f800000	75	100	100	100	0	-
+C	emitname	1/0	3	-	-	00000000
+S	scripts
+V	sv_soundemitter_trace	1
+C	emitname	1/0	3	No.Such.Script	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	No.Such.Script	-1	1	1	=>-1	=	0	0	3f800000	75	100	100	100	0	-
+C	emitname	1/0	0	Weapon_Pistol.Single	43000000,c2810000,42010000	00000000
+A	ParamsEx	Weapon_Pistol.Single	-1	0	1	=>0	=	1	1	3f4ccccd	80	100	98	102	0	weapons/pistol/pistol_fire2.wav
+O	EmitSound	1/0	0	1	weapons/pistol/pistol_fire2.wav	3f4ccccd	80	0	100	0	43000000,c2810000,42010000	-	00000000	-1
+M	(cl) EmitSound:  'Weapon_Pistol.Single' emitted as 'weapons/pistol/pistol_fire2.wav' (ent 0)\n
+C	emitname	1/0	99	Weapon_Pistol.Single	-	00000000
+A	ParamsEx	Weapon_Pistol.Single	-1	0	1	=>0	=	1	1	3f4ccccd	80	100	98	102	0	weapons/pistol/pistol_fire2.wav
+O	EmitSound	1/0	99	1	weapons/pistol/pistol_fire2.wav	3f4ccccd	80	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Weapon_Pistol.Single' emitted as 'weapons/pistol/pistol_fire2.wav' (ent 99)\n
+C	emitname	-/0	3	Npc.Voice	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Npc.Voice	-1	1	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/male.wav
+O	EmitSound	-/0	3	2	vo/male.wav	3f666666	85	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Npc.Voice' emitted as 'vo/male.wav' (ent 3)\n
+C	emitname	1/0	4	Npc.Voice	-	00000000
+A	ActorGender	models/female_01.mdl	=	2
+A	ParamsEx	Npc.Voice	-1	2	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/female.wav
+O	EmitSound	1/0	4	2	vo/female.wav	3f666666	85	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Npc.Voice' emitted as 'vo/female.wav' (ent 4)\n
+C	emitname	1/0	5	Npc.Voice	-	00000000
+A	ActorGender		=	0
+A	ParamsEx	Npc.Voice	-1	0	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/none.wav
+O	EmitSound	1/0	5	2	vo/none.wav	3f666666	85	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Npc.Voice' emitted as 'vo/none.wav' (ent 5)\n
+C	emitname	1/0	6	Npc.Voice	-	00000000
+A	ActorGender	models/props/crate.mdl	=	0
+A	ParamsEx	Npc.Voice	-1	0	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/none.wav
+O	EmitSound	1/0	6	2	vo/none.wav	3f666666	85	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Npc.Voice' emitted as 'vo/none.wav' (ent 6)\n
+C	emitname	1/0	3	Empty.Script	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Empty.Script	-1	1	1	=>3	=	1	0	3f800000	75	100	100	100	0	
+C	emitname	1/0	3	Broken.Script	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Broken.Script	-1	1	1	=>4	=	0	0	3f800000	75	100	100	100	0	-
+C	emitname	1/0	3	Delayed.Thing	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Delayed.Thing	-1	1	1	=>2	=	1	0	3f000000	70	95	95	95	250	ambient/delayed.wav
+O	EmitSound	1/0	3	0	ambient/delayed.wav	3f000000	70	0	95	0	-	-	42c88000	-1
+M	(cl) EmitSound:  'Delayed.Thing' emitted as 'ambient/delayed.wav' (ent 3)\n
+C	emitname	1/0	3	Delayed.Thing	-	43960000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Delayed.Thing	-1	1	1	=>2	=	1	0	3f000000	70	95	95	95	250	ambient/delayed.wav
+O	EmitSound	1/0	3	0	ambient/delayed.wav	3f000000	70	0	95	0	-	-	43960000	-1
+M	(cl) EmitSound:  'Delayed.Thing' emitted as 'ambient/delayed.wav' (ent 3)\n
+C	emitparams	1/0	1	0	Player.FallDamage	3dcccccd	0	2	80	0	-	00000000	1	1	0	0	-1	-1
+A	SoundIndex	Player.FallDamage	=	1
+A	ActorGender	models/player.mdl	=	0
+A	ParamsEx	Player.FallDamage	1	0	1	=>1	=	1	4	3f800000	75	100	100	100	0	player/pl_fallpain1.wav
+O	EmitSound	1/0	1	4	player/pl_fallpain1.wav	3f800000	75	2	80	0	-	-	00000000	-1
+A	Duration	player/pl_fallpain1.wav	=	3fa00000
+M	(cl) EmitSound:  'Player.FallDamage' emitted as 'player/pl_fallpain1.wav' (ent 1)\n
+R	duration	3fa00000
+R	ephandle	1
+C	emitparams	1/0	1	0	Player.FallDamage	3e99999a	0	1	60	0	-	00000000	0	1	0	0	-1	-1
+A	SoundIndex	Player.FallDamage	=	1
+A	ActorGender	models/player.mdl	=	0
+A	ParamsEx	Player.FallDamage	1	0	1	=>1	=	1	4	3f800000	75	100	100	100	0	player/pl_fallpain1.wav
+O	EmitSound	1/0	1	4	player/pl_fallpain1.wav	3e99999a	75	1	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Player.FallDamage' emitted as 'player/pl_fallpain1.wav' (ent 1)\n
+R	ephandle	1
+C	emitparams	1,2/1	1	0	Player.FallDamage	00000000	0	7	150	9	43000000,c2810000,42010000	00000000	0	1	0	0	3	-1
+A	SoundIndex	Player.FallDamage	=	1
+A	ActorGender	models/player.mdl	=	0
+A	ParamsEx	Player.FallDamage	1	0	1	=>1	=	1	4	3f800000	75	100	100	100	0	player/pl_fallpain1.wav
+O	EmitSound	1,2/1	1	4	player/pl_fallpain1.wav	00000000	75	7	150	9	43000000,c2810000,42010000	-	00000000	3
+M	(cl) EmitSound:  'Player.FallDamage' emitted as 'player/pl_fallpain1.wav' (ent 1)\n
+R	ephandle	1
+C	emitparams	1/0	3	0	Weapon_Pistol.Single	3f800000	0	0	100	0	-	00000000	0	1	0	0	-1	1
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Weapon_Pistol.Single	1	1	1	=>1	=	1	4	3f800000	75	100	100	100	0	player/pl_fallpain1.wav
+O	EmitSound	1/0	3	4	player/pl_fallpain1.wav	3f800000	75	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Weapon_Pistol.Single' emitted as 'player/pl_fallpain1.wav' (ent 3)\n
+R	ephandle	1
+C	emitnamehandle	1/0	3	Weapon_Pistol.Single	-1	43000000,c2810000,42010000	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Weapon_Pistol.Single	-1	1	1	=>0	=	1	1	3f4ccccd	80	100	98	102	0	weapons/pistol/pistol_fire2.wav
+O	EmitSound	1/0	3	1	weapons/pistol/pistol_fire2.wav	3f4ccccd	80	0	100	0	43000000,c2810000,42010000	-	00000000	-1
+M	(cl) EmitSound:  'Weapon_Pistol.Single' emitted as 'weapons/pistol/pistol_fire2.wav' (ent 3)\n
+R	handle	0
+C	emitnamehandle	1/0	3	Weapon_Pistol.Single	0	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Weapon_Pistol.Single	0	1	1	=>0	=	1	1	3f4ccccd	80	100	98	102	0	weapons/pistol/pistol_fire2.wav
+O	EmitSound	1/0	3	1	weapons/pistol/pistol_fire2.wav	3f4ccccd	80	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'Weapon_Pistol.Single' emitted as 'weapons/pistol/pistol_fire2.wav' (ent 3)\n
+R	handle	0
+C	emitnamehandle	1/0	3	No.Such.Script	-1	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	No.Such.Script	-1	1	1	=>-1	=	0	0	3f800000	75	100	100	100	0	-
+R	handle	-1
+C	emitparamshandle	1/0	0	0	Delayed.Thing	3f800000	0	0	100	0	-	00000000	1	1	0	0	-1	-1	-1
+A	ParamsEx	Delayed.Thing	-1	0	1	=>2	=	1	0	3f000000	70	95	95	95	250	ambient/delayed.wav
+O	EmitSound	1/0	0	0	ambient/delayed.wav	3f000000	70	0	95	0	-	-	42c88000	-1
+A	Duration	ambient/delayed.wav	=	40200000
+M	(cl) EmitSound:  'Delayed.Thing' emitted as 'ambient/delayed.wav' (ent 0)\n
+R	duration	40200000
+R	handle	2
+C	emitparamshandle	1/0	0	0	weapons/raw/shot.WAV	3f800000	0	0	100	0	-	00000000	0	1	0	0	-1	-1	6
+A	ParamsEx	weapons/raw/shot.WAV	6	0	1	=>6	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	EmitSound	1/0	0	6	ambient/hum.wav	3f333333	60	0	100	0	-	-	00000000	-1
+M	(cl) EmitSound:  'weapons/raw/shot.WAV' emitted as 'ambient/hum.wav' (ent 0)\n
+R	handle	6
+V	sv_soundemitter_trace	0
+C	emitname	1/0	3	Weapon_Pistol.Single	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Weapon_Pistol.Single	-1	1	1	=>0	=	1	1	3f4ccccd	80	100	98	102	0	weapons/pistol/pistol_fire2.wav
+O	EmitSound	1/0	3	1	weapons/pistol/pistol_fire2.wav	3f4ccccd	80	0	100	0	-	-	00000000	-1
+S	captions
+C	emitname	1/0	3	HL2Player.Caption	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	HL2Player.Caption	-1	1	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	3	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+C	caption	1/0	3	HL2Player.Caption	3f800000	0
+G	0	42c80000
+C	emitname	1/0	3	HL2Player.Caption	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	HL2Player.Caption	-1	1	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	3	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+C	caption	1/0	3	HL2Player.Caption	3f800000	0
+V	closecaption	1
+C	emitname	1/0	3	HL2Player.Caption	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	HL2Player.Caption	-1	1	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	3	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+A	Duration	vo/caption.wav	=	3fc00000
+O	Caption	hl2player.caption	3fc00000	0	0
+V	closecaption	0
+G	1	42c80000
+C	emitname	1/0	3	HL2Player.Caption	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	HL2Player.Caption	-1	1	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	3	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+C	caption	1/0	3	HL2Player.Caption	3f800000	0
+V	closecaption	1
+C	emitname	1/0	3	HL2Player.Caption	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	HL2Player.Caption	-1	1	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	3	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+A	Duration	vo/caption.wav	=	3fc00000
+O	Caption	hl2player.caption	3fc00000	0	0
+C	emitname	1/0	1	HL2Player.Caption	-	00000000
+A	ActorGender	models/player.mdl	=	0
+A	ParamsEx	HL2Player.Caption	-1	0	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	1	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+A	Duration	vo/caption.wav	=	3fc00000
+O	Caption	hl2player.caption	3fc00000	1	0
+C	emitname	1/0	6	HL2Player.Caption	-	00000000
+A	ActorGender	models/props/crate.mdl	=	0
+A	ParamsEx	HL2Player.Caption	-1	0	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	6	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+A	Duration	vo/caption.wav	=	3fc00000
+O	Caption	hl2player.caption	3fc00000	1	0
+C	emitname	-/0	3	HL2Player.Caption	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	HL2Player.Caption	-1	1	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	-/0	3	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+C	emitparams	1/0	3	0	Npc.Voice	3f800000	0	0	100	0	-	00000000	1	1	0	0	-1	-1
+A	SoundIndex	Npc.Voice	=	5
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Npc.Voice	5	1	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/male.wav
+O	EmitSound	1/0	3	2	vo/male.wav	3f666666	85	0	100	0	-	-	00000000	-1
+A	Duration	vo/male.wav	=	40400000
+O	Caption	npc.voice	40400000	0	0
+R	duration	40400000
+R	ephandle	5
+C	emitparams	1/0	3	0	Npc.Voice	3f800000	0	0	100	0	-	00000000	0	0	0	0	-1	-1
+A	SoundIndex	Npc.Voice	=	5
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Npc.Voice	5	1	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/male.wav
+O	EmitSound	1/0	3	2	vo/male.wav	3f666666	85	0	100	0	-	-	00000000	-1
+R	ephandle	5
+C	emitparams	1/0	4	0	Npc.Voice	3f800000	0	0	100	0	-	00000000	0	1	1	0	-1	-1
+A	SoundIndex	Npc.Voice	=	5
+A	ActorGender	models/female_01.mdl	=	2
+A	ParamsEx	Npc.Voice	5	2	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/female.wav
+O	EmitSound	1/0	4	2	vo/female.wav	3f666666	85	0	100	0	-	-	00000000	-1
+A	Duration	vo/female.wav	=	00000000
+O	Caption	npc.voice	00000000	1	0
+R	ephandle	5
+C	emitparams	1/0	3	0	Npc.Voice	3f800000	0	1	100	0	-	00000000	0	1	0	0	-1	-1
+A	SoundIndex	Npc.Voice	=	5
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	Npc.Voice	5	1	1	=>5	=	1	2	3f666666	85	100	100	100	0	vo/male.wav
+O	EmitSound	1/0	3	2	vo/male.wav	3f800000	85	1	100	0	-	-	00000000	-1
+R	ephandle	5
+C	caption	1/0	3	HL2Player.Caption	3f800000	0
+O	Caption	hl2player.caption	3f800000	0	0
+C	caption	1/0	1	Npc.Voice	bf800000	1
+A	WavFile	Npc.Voice	0	=	vo/none.wav
+A	Duration	vo/none.wav	=	40300000
+O	Caption	npc.voice	40300000	1	0
+C	caption	1/0	6	No.Such.Token	bf800000	0
+A	WavFile	No.Such.Token	0	=	-
+O	Caption	no.such.token	40000000	1	0
+C	caption	1/0	3	Mixed.CASE\\nSecond\\tLine\\	3f000000	0
+O	Caption	mixed.case\nsecond\\tline\\	3f000000	0	0
+C	caption	-/0	3	HL2Player.Caption	3f800000	0
+HUD	0
+C	caption	1/0	3	HL2Player.Caption	3f800000	0
+C	emitname	1/0	3	HL2Player.Caption	-	00000000
+A	ActorGender	models/combine_male_07.mdl	=	1
+A	ParamsEx	HL2Player.Caption	-1	1	1	=>7	=	1	2	3f800000	75	100	100	100	0	vo/caption.wav
+O	EmitSound	1/0	3	2	vo/caption.wav	3f800000	75	0	100	0	-	-	00000000	-1
+A	Duration	vo/caption.wav	=	3fc00000
+HUD	1
+G	2	42c80000
+C	caption	1/0	3	HL2Player.Caption	3f800000	0
+G	16	42c80000
+V	closecaption	0
+S	stops
+V	sv_soundemitter_trace	1
+C	stopchannel	3	1	weapons/raw/shot.WAV
+O	StopSound	3	1	weapons/raw/shot.WAV
+M	(cl) StopSound:  Raw wave stopped 'weapons/raw/shot.WAV' (ent 3)\n
+C	stopchannel	3	6	music/track.mp3
+O	StopSound	3	6	music/track.mp3
+M	(cl) StopSound:  Raw wave stopped 'music/track.mp3' (ent 3)\n
+C	stopchannel	3	2	!HG_ALERT0
+O	StopSound	3	2	!HG_ALERT0
+M	(cl) StopSound:  Raw wave stopped '!HG_ALERT0' (ent 3)\n
+C	stopchannel	3	0	Weapon_Pistol.Single
+A	SoundIndex	Weapon_Pistol.Single	=	0
+A	Internal	0	=	1	weapons/pistol/pistol_fire2.wav,weapons/pistol/pistol_fire3.wav
+O	StopSound	3	1	weapons/pistol/pistol_fire2.wav
+M	(cl) StopSound:  'Weapon_Pistol.Single' stopped as 'weapons/pistol/pistol_fire2.wav' (ent 3)\n
+O	StopSound	3	1	weapons/pistol/pistol_fire3.wav
+M	(cl) StopSound:  'Weapon_Pistol.Single' stopped as 'weapons/pistol/pistol_fire3.wav' (ent 3)\n
+C	stopchannel	3	0	No.Such.Script
+A	SoundIndex	No.Such.Script	=	-1
+C	stopname	4	Npc.Voice
+A	SoundIndex	Npc.Voice	=	5
+A	Internal	5	=	2	vo/none.wav,vo/male.wav,vo/female.wav
+O	StopSound	4	2	vo/none.wav
+M	(cl) StopSound:  'Npc.Voice' stopped as 'vo/none.wav' (ent 4)\n
+O	StopSound	4	2	vo/male.wav
+M	(cl) StopSound:  'Npc.Voice' stopped as 'vo/male.wav' (ent 4)\n
+O	StopSound	4	2	vo/female.wav
+M	(cl) StopSound:  'Npc.Voice' stopped as 'vo/female.wav' (ent 4)\n
+C	stopname	4	Empty.Script
+A	SoundIndex	Empty.Script	=	3
+A	Internal	3	=	0	-
+C	stopname	4	No.Such.Script
+A	SoundIndex	No.Such.Script	=	-1
+V	sv_soundemitter_trace	0
+C	stopname	4	Player.FallDamage
+A	SoundIndex	Player.FallDamage	=	1
+A	Internal	1	=	4	player/pl_fallpain1.wav
+O	StopSound	4	4	player/pl_fallpain1.wav
+S	ambient
+V	sv_soundemitter_trace	1
+C	ambient	3	43000000,c2810000,42010000	!HG_ALERT0	3f400000	80	0	105	00000000	1
+A	Sentence	HG_ALERT0	=	12
+O	Ambient	!12	3f400000	105	0	00000000
+A	Duration	!12	=	3fe00000
+M	(cl) UTIL_EmitAmbientSound:  Sentence emitted '!12' (ent 3)\n
+R	duration	3fe00000
+C	ambient	3	43000000,c2810000,42010000	!NO_SUCH	3f400000	80	0	105	00000000	1
+A	Sentence	NO_SUCH	=	-1
+R	duration	bf800000
+C	ambient	3	43000000,c2810000,42010000	!HG_ALERT0	3f400000	80	0	105	00000000	0
+A	Sentence	HG_ALERT0	=	12
+O	Ambient	!12	3f400000	105	0	00000000
+M	(cl) UTIL_EmitAmbientSound:  Sentence emitted '!12' (ent 3)\n
+C	ambient	3	43000000,c2810000,42010000	weapons/raw/shot.WAV	3f000000	70	128	90	42dc0000	1
+O	Ambient	weapons/raw/shot.WAV	3f000000	90	128	42dc0000
+A	Duration	weapons/raw/shot.WAV	=	3f000000
+M	(cl) EmitAmbientSound:  Raw wave emitted 'weapons/raw/shot.WAV' (ent 3)\n
+R	duration	3f000000
+C	ambient	3	43000000,c2810000,42010000	music/track.mp3	3f000000	70	0	90	00000000	0
+O	Ambient	music/track.mp3	3f000000	90	0	00000000
+M	(cl) EmitAmbientSound:  Raw wave emitted 'music/track.mp3' (ent 3)\n
+C	ambient	3	43000000,c2810000,42010000	Ambient.Hum	3e4ccccd	70	0	50	00000000	1
+A	Params	Ambient.Hum	0	0	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	Ambient	ambient/hum.wav	3f333333	100	0	00000000
+A	Duration	ambient/hum.wav	=	40800000
+M	(cl) EmitAmbientSound:  'Ambient.Hum' emitted as 'ambient/hum.wav' (ent 3)\n
+R	duration	40800000
+C	ambient	3	43000000,c2810000,42010000	Ambient.Hum	3e4ccccd	70	1	50	00000000	0
+A	Params	Ambient.Hum	0	0	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	Ambient	ambient/hum.wav	3e4ccccd	100	1	00000000
+M	(cl) EmitAmbientSound:  'Ambient.Hum' emitted as 'ambient/hum.wav' (ent 3)\n
+C	ambient	3	43000000,c2810000,42010000	Ambient.Hum	3e4ccccd	70	2	50	00000000	1
+A	Params	Ambient.Hum	0	0	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	Ambient	ambient/hum.wav	3f333333	50	2	00000000
+A	Duration	ambient/hum.wav	=	40800000
+M	(cl) EmitAmbientSound:  'Ambient.Hum' emitted as 'ambient/hum.wav' (ent 3)\n
+R	duration	40800000
+C	ambient	3	43000000,c2810000,42010000	Ambient.Hum	00000000	70	4	50	00000000	0
+A	Params	Ambient.Hum	0	0	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	Ambient	ambient/hum.wav	3f333333	100	4	00000000
+M	(cl) EmitAmbientSound:  'Ambient.Hum' emitted as 'ambient/hum.wav' (ent 3)\n
+C	ambient	3	43000000,c2810000,42010000	No.Such.Script	3e4ccccd	70	0	50	00000000	1
+A	Params	No.Such.Script	0	0	=	0	0	3f800000	75	100	100	100	0	-
+R	duration	bf800000
+G	1	42c80000
+V	closecaption	1
+C	ambient	3	43000000,c2810000,42010000	Ambient.Hum	3e4ccccd	70	0	50	00000000	0
+A	Params	Ambient.Hum	0	0	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	Ambient	ambient/hum.wav	3f333333	100	0	00000000
+A	Duration	ambient/hum.wav	=	40800000
+M	(cl) EmitAmbientSound:  'Ambient.Hum' emitted as 'ambient/hum.wav' (ent 3)\n
+O	Caption	ambient.hum	40800000	0	0
+LOCAL	0
+C	ambient	3	43000000,c2810000,42010000	Ambient.Hum	3e4ccccd	70	0	50	00000000	0
+A	Params	Ambient.Hum	0	0	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	Ambient	ambient/hum.wav	3f333333	100	0	00000000
+A	Duration	ambient/hum.wav	=	40800000
+M	(cl) EmitAmbientSound:  'Ambient.Hum' emitted as 'ambient/hum.wav' (ent 3)\n
+LOCAL	1
+V	closecaption	0
+G	16	42c80000
+V	sv_soundemitter_trace	0
+C	ambient	3	43000000,c2810000,42010000	Ambient.Hum	3e4ccccd	70	0	50	00000000	0
+A	Params	Ambient.Hum	0	0	=	1	6	3f333333	60	100	100	100	0	ambient/hum.wav
+O	Ambient	ambient/hum.wav	3f333333	100	0	00000000
+A	Duration	ambient/hum.wav	=	40800000
+S	lookups
+C	params	Npc.Voice	-
+A	ActorGender	-	=	0
+A	Params	Npc.Voice	0	0	=	1	2	3f666666	85	100	100	100	0	vo/none.wav
+R	params	1	2	3f666666	85	100	100	100	0	vo/none.wav
+C	params	Npc.Voice	models/female_01.mdl
+A	ActorGender	models/female_01.mdl	=	2
+A	Params	Npc.Voice	2	0	=	1	2	3f666666	85	100	100	100	0	vo/female.wav
+R	params	1	2	3f666666	85	100	100	100	0	vo/female.wav
+C	params	Npc.Voice	models/male_02.mdl
+A	ActorGender	models/male_02.mdl	=	1
+A	Params	Npc.Voice	1	0	=	1	2	3f666666	85	100	100	100	0	vo/male.wav
+R	params	1	2	3f666666	85	100	100	100	0	vo/male.wav
+C	params	No.Such.Script	-
+A	ActorGender	-	=	0
+A	Params	No.Such.Script	0	0	=	0	0	3f800000	75	100	100	100	0	-
+R	params	0	0	3f800000	75	100	100	100	0	
+C	params	Broken.Script	-
+A	ActorGender	-	=	0
+A	Params	Broken.Script	0	0	=	0	0	3f800000	75	100	100	100	0	-
+R	params	0	0	3f800000	75	100	100	100	0	
+C	precachescript	Ambient.Hum
+A	SoundIndex	Ambient.Hum	=	6
+R	handle	6
+C	precachescript	No.Such.Script
+A	SoundIndex	No.Such.Script	=	-1
+R	handle	-1
+C	shutdown
+O	ModShutdown
+END

@@ -300,10 +300,10 @@ TEST( FwdShimAreas, ShimEffectsRenderClientIs30Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimStandaloneClientIs22Slots )
+TEST( FwdShimAreas, ShimStandaloneClientIs21Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimStandaloneClient::RegisterAmmoType ).slot + 1;
-	EXPECT_EQ( 22, compiler );
+	EXPECT_EQ( 21, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimStandaloneClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -363,19 +363,19 @@ TEST( FwdShimAreas, ShimParticlesClientIs20Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimFxClientIs39Slots )
+TEST( FwdShimAreas, ShimFxClientIs36Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimFxClient::FxModelFrameCount ).slot + 1;
-	EXPECT_EQ( 39, compiler );
+	EXPECT_EQ( 36, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimFxClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimSoundscapeClientIs13Slots )
+TEST( FwdShimAreas, ShimSoundscapeClientIs10Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimSoundscapeClient::SoundPatchCreate ).slot + 1;
-	EXPECT_EQ( 13, compiler );
+	EXPECT_EQ( 10, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimSoundscapeClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -408,10 +408,10 @@ TEST( FwdShimAreas, ShimInputClientIs12Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimPhysicsClientIs6Slots )
+TEST( FwdShimAreas, ShimPhysicsClientIs5Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimPhysicsClient::PhysicsClientSplashEffect ).slot + 1;
-	EXPECT_EQ( 6, compiler );
+	EXPECT_EQ( 5, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimPhysicsClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client;
+using SourceSharp.Client.Sounds;
 
 using Xunit;
 
@@ -39,10 +40,17 @@ public class ClientPredictionMoveWorldTests
         public void SetPlayerSurface(int material) => Seen.Add("SetPlayerSurface");
     }
 
-    private static (ClientPredictionMoveWorld World, Engine Engine, RecordingEngine Sound) Rig(bool firstRun)
+    /// <summary>The client's entity sounds: records each emit.</summary>
+    private sealed class Sounds : IClientEntitySounds
+    {
+        public readonly List<(EntityHandle Entity, string Name, Vector? Origin)> Emits = new();
+        public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null) => Emits.Add((entity, soundName, origin));
+    }
+
+    private static (ClientPredictionMoveWorld World, Engine Engine, Sounds Sound) Rig(bool firstRun)
     {
         var engine = new Engine();
-        var sound = new RecordingEngine();
+        var sound = new Sounds();
         return (new ClientPredictionMoveWorld(engine, () => Host, () => firstRun, sound), engine, sound);
     }
 
@@ -51,10 +59,10 @@ public class ClientPredictionMoveWorldTests
     {
         var (w, engine, sound) = Rig(firstRun: true);
         w.StartSound(new Vector(1, 2, 3), "Player.Swim");
-        var call = Assert.Single(sound.Calls, c => c.Member == "Sound.ClientEmitSound");
-        Assert.Equal(Host, call.ArgAs<EntityHandle>(0));
-        Assert.Equal("Player.Swim", call.ArgAs<string>(1));
-        Assert.Equal(new Vector(1, 2, 3), call.ArgAs<Vector?>(2));
+        var call = Assert.Single(sound.Emits);
+        Assert.Equal(Host, call.Entity);
+        Assert.Equal("Player.Swim", call.Name);
+        Assert.Equal(new Vector(1, 2, 3), call.Origin);
         Assert.DoesNotContain("StartSound", engine.Seen);
     }
 
@@ -63,7 +71,7 @@ public class ClientPredictionMoveWorldTests
     {
         var (w, engine, sound) = Rig(firstRun: false);
         w.StartSound(new Vector(1, 2, 3), "Player.Swim");
-        Assert.DoesNotContain(sound.Calls, c => c.Member == "Sound.ClientEmitSound");
+        Assert.Empty(sound.Emits);
         Assert.DoesNotContain("StartSound", engine.Seen);
     }
 

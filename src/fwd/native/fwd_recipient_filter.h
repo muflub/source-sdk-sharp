@@ -7,8 +7,8 @@
 //========= SourceSharp — the recipient filter's functions, as the table names them =//
 //
 // plan_server_native_v2 T4a. fwd_recipient_filter.cpp writes these and the
-// server library's generated table (tools/engine-forwarders' HAND row
-// RecipientFilter) lays them out, in this order. They are the library's own:
+// libraries' generated tables (tools/engine-forwarders' HAND row
+// RecipientFilter) lay them out, in this order. They are the library's own:
 // its version script exports none of them.
 //=============================================================================//
 #ifndef FWD_RECIPIENT_FILTER_H

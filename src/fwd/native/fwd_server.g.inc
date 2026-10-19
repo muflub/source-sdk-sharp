@@ -362,7 +362,7 @@ static void *const s_SoundEmitterSystemSlots[] = {
 static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystemSlots, 18 };
 
 //-----------------------------------------------------------------------------
-// EngineSound: 6 forwarder(s) over IEngineSound.
+// EngineSound: 8 forwarder(s) over IEngineSound.
 //-----------------------------------------------------------------------------
 // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
 static void SSFwd_EngineSound_EmitSound_2( IEngineSound *self, IRecipientFilter & a0, int a1, int a2, const char * a3, float a4, soundlevel_t a5, int a6, int a7, int a8, const Vector * a9, const Vector * a10, CUtlVector< Vector > * a11, bool a12, float a13, int a14 ) { self->EmitSound( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
@@ -376,6 +376,10 @@ static bool SSFwd_EngineSound_PrecacheSound( IEngineSound *self, const char * a0
 static bool SSFwd_EngineSound_IsSoundPrecached( IEngineSound *self, const char * a0 ) { return self->IsSoundPrecached( a0 ); }
 // void IEngineSound::PrefetchSound( const char * )
 static void SSFwd_EngineSound_PrefetchSound( IEngineSound *self, const char * a0 ) { self->PrefetchSound( a0 ); }
+// void IEngineSound::EmitAmbientSound( const char *, float, int, int, float )
+static void SSFwd_EngineSound_EmitAmbientSound( IEngineSound *self, const char * a0, float a1, int a2, int a3, float a4 ) { self->EmitAmbientSound( a0, a1, a2, a3, a4 ); }
+// void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+static void SSFwd_EngineSound_EmitSound( IEngineSound *self, IRecipientFilter & a0, int a1, int a2, const char * a3, float a4, float a5, int a6, int a7, int a8, const Vector * a9, const Vector * a10, CUtlVector< Vector > * a11, bool a12, float a13, int a14 ) { self->EmitSound( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
 
 static void *const s_EngineSoundSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineSound_EmitSound_2 ),
@@ -384,9 +388,11 @@ static void *const s_EngineSoundSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineSound_PrecacheSound ),
 	reinterpret_cast< void * >( &SSFwd_EngineSound_IsSoundPrecached ),
 	reinterpret_cast< void * >( &SSFwd_EngineSound_PrefetchSound ),
+	reinterpret_cast< void * >( &SSFwd_EngineSound_EmitAmbientSound ),
+	reinterpret_cast< void * >( &SSFwd_EngineSound_EmitSound ),
 };
 
-static const SSForwarderTable s_EngineSoundTable = { s_EngineSoundSlots, 6 };
+static const SSForwarderTable s_EngineSoundTable = { s_EngineSoundSlots, 8 };
 
 //-----------------------------------------------------------------------------
 // StaticPropMgrServer: 1 forwarder(s) over IStaticPropMgrServer.
@@ -2330,12 +2336,10 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 30 };
 
 //-----------------------------------------------------------------------------
-// ShimStandaloneClient: 22 forwarder(s) over IShimStandaloneClient.
+// ShimStandaloneClient: 21 forwarder(s) over IShimStandaloneClient.
 //-----------------------------------------------------------------------------
 // void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_ActivateOccluder( IShimStandaloneClient *self, int32_t a0, int32_t a1 ) { self->ActivateOccluder( a0, a1 ); }
-// void IShimStandaloneClient::ClientEmitSound( uint32_t, const char *, const float * )
-static void SSFwd_ShimStandaloneClient_ClientEmitSound( IShimStandaloneClient *self, uint32_t a0, const char * a1, const float * a2 ) { self->ClientEmitSound( a0, a1, a2 ); }
 // void * * IShimStandaloneClient::ClientInterpBlocks( int32_t *, float * )
 static void * * SSFwd_ShimStandaloneClient_ClientInterpBlocks( IShimStandaloneClient *self, int32_t * a0, float * a1 ) { return self->ClientInterpBlocks( a0, a1 ); }
 // void * * IShimStandaloneClient::ClientPolicyBlocks( int32_t * )
@@ -2379,7 +2383,6 @@ static void SSFwd_ShimStandaloneClient_RegisterAmmoType( IShimStandaloneClient *
 
 static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ActivateOccluder ),
-	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientEmitSound ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientInterpBlocks ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientPolicyBlocks ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_DynamicLightRelease ),
@@ -2402,7 +2405,7 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_RegisterAmmoType ),
 };
 
-static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 22 };
+static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
 // ShimViewClient: 16 forwarder(s) over IShimViewClient.
@@ -2654,7 +2657,7 @@ static void *const s_ShimParticlesClientSlots[] = {
 static const SSForwarderTable s_ShimParticlesClientTable = { s_ShimParticlesClientSlots, 20 };
 
 //-----------------------------------------------------------------------------
-// ShimFxClient: 39 forwarder(s) over IShimFxClient.
+// ShimFxClient: 36 forwarder(s) over IShimFxClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimFxClient::EffectRegistrationCount( void )
 static int32_t SSFwd_ShimFxClient_EffectRegistrationCount( IShimFxClient *self ) { return self->EffectRegistrationCount(); }
@@ -2680,8 +2683,6 @@ static void SSFwd_ShimFxClient_FxDrawQuads( IShimFxClient *self, int32_t a0, int
 static void SSFwd_ShimFxClient_FxView( IShimFxClient *self, float * a0 ) { self->FxView( a0 ); }
 // void IShimFxClient::FxMainViewOrigin( float * )
 static void SSFwd_ShimFxClient_FxMainViewOrigin( IShimFxClient *self, float * a0 ) { self->FxMainViewOrigin( a0 ); }
-// int32_t IShimFxClient::FxEmitTracerSound( const char *, const float *, const float * )
-static int32_t SSFwd_ShimFxClient_FxEmitTracerSound( IShimFxClient *self, const char * a0, const float * a1, const float * a2 ) { return self->FxEmitTracerSound( a0, a1, a2 ); }
 // int32_t IShimFxClient::FxLocalPlayer( void )
 static int32_t SSFwd_ShimFxClient_FxLocalPlayer( IShimFxClient *self ) { return self->FxLocalPlayer(); }
 // void IShimFxClient::FxViewAngles( float * )
@@ -2724,10 +2725,6 @@ static void SSFwd_ShimFxClient_FxVectorRandom( IShimFxClient *self, float a0, fl
 static int32_t SSFwd_ShimFxClient_FxMaterialsCached( IShimFxClient *self ) { return self->FxMaterialsCached(); }
 // void IShimFxClient::FxImpactOverlay( const float *, const float * )
 static void SSFwd_ShimFxClient_FxImpactOverlay( IShimFxClient *self, const float * a0, const float * a1 ) { self->FxImpactOverlay( a0, a1 ); }
-// int32_t IShimFxClient::FxSoundParameters( const char *, float *, char *, int32_t )
-static int32_t SSFwd_ShimFxClient_FxSoundParameters( IShimFxClient *self, const char * a0, float * a1, char * a2, int32_t a3 ) { return self->FxSoundParameters( a0, a1, a2, a3 ); }
-// void IShimFxClient::FxEmitWorldSound( const char *, int32_t, float, int32_t, int32_t, const float * )
-static void SSFwd_ShimFxClient_FxEmitWorldSound( IShimFxClient *self, const char * a0, int32_t a1, float a2, int32_t a3, int32_t a4, const float * a5 ) { self->FxEmitWorldSound( a0, a1, a2, a3, a4, a5 ); }
 // int32_t IShimFxClient::FxTempEntCreateNamed( int32_t, const float *, const char *, int32_t )
 static int32_t SSFwd_ShimFxClient_FxTempEntCreateNamed( IShimFxClient *self, int32_t a0, const float * a1, const char * a2, int32_t a3 ) { return self->FxTempEntCreateNamed( a0, a1, a2, a3 ); }
 // void IShimFxClient::FxLoadModel( const char * )
@@ -2748,7 +2745,6 @@ static void *const s_ShimFxClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxDrawQuads ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxView ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMainViewOrigin ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEmitTracerSound ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxLocalPlayer ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxViewAngles ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEntityAttachment ),
@@ -2770,24 +2766,16 @@ static void *const s_ShimFxClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxVectorRandom ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialsCached ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxImpactOverlay ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSoundParameters ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEmitWorldSound ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxTempEntCreateNamed ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxLoadModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxModelFrameCount ),
 };
 
-static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 39 };
+static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 36 };
 
 //-----------------------------------------------------------------------------
-// ShimSoundscapeClient: 13 forwarder(s) over IShimSoundscapeClient.
+// ShimSoundscapeClient: 10 forwarder(s) over IShimSoundscapeClient.
 //-----------------------------------------------------------------------------
-// void IShimSoundscapeClient::SoundscapeEmitAmbient( const char *, float, int32_t, int32_t )
-static void SSFwd_ShimSoundscapeClient_SoundscapeEmitAmbient( IShimSoundscapeClient *self, const char * a0, float a1, int32_t a2, int32_t a3 ) { self->SoundscapeEmitAmbient( a0, a1, a2, a3 ); }
-// void IShimSoundscapeClient::SoundscapeEmitWorld( const char *, float, int32_t, int32_t, int32_t, const float * )
-static void SSFwd_ShimSoundscapeClient_SoundscapeEmitWorld( IShimSoundscapeClient *self, const char * a0, float a1, int32_t a2, int32_t a3, int32_t a4, const float * a5 ) { self->SoundscapeEmitWorld( a0, a1, a2, a3, a4, a5 ); }
-// void IShimSoundscapeClient::SoundscapeStopWorld( const char * )
-static void SSFwd_ShimSoundscapeClient_SoundscapeStopWorld( IShimSoundscapeClient *self, const char * a0 ) { self->SoundscapeStopWorld( a0 ); }
 // void IShimSoundscapeClient::SoundscapeSetRoomType( int32_t )
 static void SSFwd_ShimSoundscapeClient_SoundscapeSetRoomType( IShimSoundscapeClient *self, int32_t a0 ) { self->SoundscapeSetRoomType( a0 ); }
 // void IShimSoundscapeClient::SoundscapeSetPlayerDsp( int32_t )
@@ -2810,9 +2798,6 @@ static void SSFwd_ShimSoundscapeClient_SoundPatchFree( IShimSoundscapeClient *se
 static int32_t SSFwd_ShimSoundscapeClient_SoundPatchCreate( IShimSoundscapeClient *self, uint32_t a0, int32_t a1, const char * a2, int32_t a3 ) { return self->SoundPatchCreate( a0, a1, a2, a3 ); }
 
 static void *const s_ShimSoundscapeClientSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeEmitAmbient ),
-	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeEmitWorld ),
-	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeStopWorld ),
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeSetRoomType ),
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeSetPlayerDsp ),
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeMainView ),
@@ -2825,7 +2810,7 @@ static void *const s_ShimSoundscapeClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundPatchCreate ),
 };
 
-static const SSForwarderTable s_ShimSoundscapeClientTable = { s_ShimSoundscapeClientSlots, 13 };
+static const SSForwarderTable s_ShimSoundscapeClientTable = { s_ShimSoundscapeClientSlots, 10 };
 
 //-----------------------------------------------------------------------------
 // ShimPrecipitationClient: 7 forwarder(s) over IShimPrecipitationClient.
@@ -2933,12 +2918,10 @@ static void *const s_ShimInputClientSlots[] = {
 static const SSForwarderTable s_ShimInputClientTable = { s_ShimInputClientSlots, 12 };
 
 //-----------------------------------------------------------------------------
-// ShimPhysicsClient: 6 forwarder(s) over IShimPhysicsClient.
+// ShimPhysicsClient: 5 forwarder(s) over IShimPhysicsClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimPhysicsClient::PhysicsClientSurfaceAudio( int32_t, char *, int32_t, char *, int32_t, float * )
 static int32_t SSFwd_ShimPhysicsClient_PhysicsClientSurfaceAudio( IShimPhysicsClient *self, int32_t a0, char * a1, int32_t a2, char * a3, int32_t a4, float * a5 ) { return self->PhysicsClientSurfaceAudio( a0, a1, a2, a3, a4, a5 ); }
-// int32_t IShimPhysicsClient::PhysicsClientEmitImpactSound( const char *, const float *, int32_t, float )
-static int32_t SSFwd_ShimPhysicsClient_PhysicsClientEmitImpactSound( IShimPhysicsClient *self, const char * a0, const float * a1, int32_t a2, float a3 ) { return self->PhysicsClientEmitImpactSound( a0, a1, a2, a3 ); }
 // void IShimPhysicsClient::PhysicsClientCollideExtent( void *, const float *, const float *, const float *, float * )
 static void SSFwd_ShimPhysicsClient_PhysicsClientCollideExtent( IShimPhysicsClient *self, void * a0, const float * a1, const float * a2, const float * a3, float * a4 ) { self->PhysicsClientCollideExtent( a0, a1, a2, a3, a4 ); }
 // int32_t IShimPhysicsClient::PhysicsClientPointContents( const float * )
@@ -2950,14 +2933,13 @@ static void SSFwd_ShimPhysicsClient_PhysicsClientSplashEffect( IShimPhysicsClien
 
 static void *const s_ShimPhysicsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSurfaceAudio ),
-	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientEmitImpactSound ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientCollideExtent ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientPointContents ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSplashLighting ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSplashEffect ),
 };
 
-static const SSForwarderTable s_ShimPhysicsClientTable = { s_ShimPhysicsClientSlots, 6 };
+static const SSForwarderTable s_ShimPhysicsClientTable = { s_ShimPhysicsClientSlots, 5 };
 
 //-----------------------------------------------------------------------------
 // ShimConVarsClient: 2 forwarder(s) over IShimConVarsClient.

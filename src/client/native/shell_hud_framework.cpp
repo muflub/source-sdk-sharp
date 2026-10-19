@@ -441,8 +441,8 @@ void FreeHudTextureList( CUtlDict< CHudTexture *, int > &list )
 //   * `closecaption` STAYS. The shipped engine.so resolves it BY NAME -- it sits
 //     in the engine's own client-convar query block beside cl_predict and
 //     cl_lagcompensation -- and shell_recipientfilter.cpp:631 reads it off a
-//     connected client through GetClientConVarValue. sound_emitter.cpp reaches
-//     it with cvar->FindVar("closecaption") and two shim files hold
+//     connected client through GetClientConVarValue. The managed client
+//     emitter reads it by name and two shim files hold
 //     `extern ConVar closecaption`, so the declaration is load-bearing for the
 //     link as well. That is §6's one permitted reason to declare a ConVar in
 //     C++: the engine itself resolves the name.

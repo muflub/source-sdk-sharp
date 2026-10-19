@@ -61,10 +61,6 @@
 // and the calls below name the free functions directly.
 #include "entity_shared_statics.h"
 
-// The lifted sound statics. They used to be reached as CBaseEntity::Foo()
-// through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
-// that quarantine is retired and the calls below name GameSound_* directly.
-#include "gamesound.h"
 #include "clientleafsystem.h"
 #include "shell_beam_render.h"
 
@@ -3877,51 +3873,6 @@ void *SourceSharp_StandaloneEngineBlock( uint32_t hEntity, int32_t *pOutBytes )
 		*pOutBytes = (int32_t)sizeof( EngineBlock_t );
 
 	return &pEntity->Block();
-}
-
-//-----------------------------------------------------------------------------
-// A noise, made by the client, because an animation event said so.
-//
-// The first sound this side has ever been able to make. Every sound slot on
-// this ABI is filled under #ifndef CLIENT_DLL, so IEngineSound resolves out of
-// the client container, compiles, is called, and does nothing at all — which
-// is a worse failure than a missing method, because it looks like working
-// code.
-//
-// CLocalPlayerFilter is the right filter and it works here, which was not
-// always true: it used to ask C_BasePlayer::GetLocalPlayer(), which has
-// answered NULL since the standalone player became the viewer, so every client
-// filter came out empty. It asks engine->GetLocalPlayer() now — an index,
-// stated by the engine, needing no entity to have decoded. See
-// local_recipient.h.
-//
-// SOUND_FROM_WORLD when the handle does not resolve rather than a refusal: a
-// sound with an origin is a sound whether or not the thing that asked for it
-// is still there, and an animation event fired on the frame an entity went
-// away is exactly the case.
-//-----------------------------------------------------------------------------
-void SourceSharp_ClientEmitSound( uint32_t hEntity, const char *pszSoundName,
-                                  const float *pOriginXYZ )
-{
-	if ( !pszSoundName || !pszSoundName[0] )
-		return;
-
-	C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity );
-
-	const int iEntIndex = pEntity ? pEntity->entindex() : SOUND_FROM_WORLD;
-
-	CLocalPlayerFilter filter;
-
-	if ( pOriginXYZ )
-	{
-		const Vector vecOrigin( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-
-		GameSound_Emit( filter, iEntIndex, pszSoundName, &vecOrigin );
-	}
-	else
-	{
-		GameSound_Emit( filter, iEntIndex, pszSoundName );
-	}
 }
 
 //=============================================================================//

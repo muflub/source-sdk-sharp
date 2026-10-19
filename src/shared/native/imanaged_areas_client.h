@@ -1182,6 +1182,46 @@ static const uint32_t kIManagedLeafSystemClientSlotHashes[] = {
 static const int32_t kIManagedLeafSystemClientSlotCount = 34;
 static_assert( sizeof( SSManagedLeafSystemClientTable ) == 34 * sizeof( void * ), "SSManagedLeafSystemClientTable is one pointer per slot" );
 
+class IManagedSoundEmitterClient;
+
+// The table managed writes for IManagedSoundEmitterClient: Release, Validate, then the TSV's order.
+struct SSManagedSoundEmitterClientTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	bool ( *ClientSoundSystemInit )( IManagedSoundEmitterClient *self );
+	void ( *ClientSoundSystemShutdown )( IManagedSoundEmitterClient *self );
+	void ( *ClientSoundLevelInitPreEntity )( IManagedSoundEmitterClient *self );
+	void ( *ClientSoundLevelShutdownPostEntity )( IManagedSoundEmitterClient *self );
+	void ( *ClientSoundEmit )( IManagedSoundEmitterClient *self, const int32_t *pRecipients, int32_t nEntIndex, int32_t nChannel, const char *pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp, const float *pOrigin, float flSoundTime, float *pflDuration, int32_t nOptions, int32_t nSpeakerEntity, int32_t *pnHandle );
+	void ( *ClientSoundStop )( IManagedSoundEmitterClient *self, int32_t nEntIndex, int32_t nChannel, const char *pSample );
+	void ( *ClientSoundEmitCloseCaption )( IManagedSoundEmitterClient *self, const int32_t *pRecipients, int32_t nEntIndex, const char *pToken, float flDuration, int32_t bWarnIfMissing );
+};
+
+class IManagedSoundEmitterClient : public IManagedObject
+{
+public:
+	explicit IManagedSoundEmitterClient( const SSManagedSoundEmitterClientTable *pTable ) : IManagedObject( pTable ) {}
+
+	bool ClientSoundSystemInit() { return Table()->ClientSoundSystemInit( this ); }
+	void ClientSoundSystemShutdown() { Table()->ClientSoundSystemShutdown( this ); }
+	void ClientSoundLevelInitPreEntity() { Table()->ClientSoundLevelInitPreEntity( this ); }
+	void ClientSoundLevelShutdownPostEntity() { Table()->ClientSoundLevelShutdownPostEntity( this ); }
+	void ClientSoundEmit( const int32_t *pRecipients, int32_t nEntIndex, int32_t nChannel, const char *pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp, const float *pOrigin, float flSoundTime, float *pflDuration, int32_t nOptions, int32_t nSpeakerEntity, int32_t *pnHandle ) { Table()->ClientSoundEmit( this, pRecipients, nEntIndex, nChannel, pSoundName, flVolume, nSoundLevel, nFlags, nPitch, nSpecialDsp, pOrigin, flSoundTime, pflDuration, nOptions, nSpeakerEntity, pnHandle ); }
+	void ClientSoundStop( int32_t nEntIndex, int32_t nChannel, const char *pSample ) { Table()->ClientSoundStop( this, nEntIndex, nChannel, pSample ); }
+	void ClientSoundEmitCloseCaption( const int32_t *pRecipients, int32_t nEntIndex, const char *pToken, float flDuration, int32_t bWarnIfMissing ) { Table()->ClientSoundEmitCloseCaption( this, pRecipients, nEntIndex, pToken, flDuration, bWarnIfMissing ); }
+
+private:
+	const SSManagedSoundEmitterClientTable *Table() const { return static_cast< const SSManagedSoundEmitterClientTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedSoundEmitterClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0xbe023354, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0xb87f88d8, 0x1092d96c,
+	0x56501132,
+};
+static const int32_t kIManagedSoundEmitterClientSlotCount = 9;
+static_assert( sizeof( SSManagedSoundEmitterClientTable ) == 9 * sizeof( void * ), "SSManagedSoundEmitterClientTable is one pointer per slot" );
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient *ManagedCommandsClient();   // this load's area, or NULL outside a load
@@ -1211,6 +1251,7 @@ IManagedBonesClient *ManagedBonesClient();   // this load's area, or NULL outsid
 IManagedPhysicsClient *ManagedPhysicsClient();   // this load's area, or NULL outside a load
 IManagedDetailPropsClient *ManagedDetailPropsClient();   // this load's area, or NULL outside a load
 IManagedLeafSystemClient *ManagedLeafSystemClient();   // this load's area, or NULL outside a load
+IManagedSoundEmitterClient *ManagedSoundEmitterClient();   // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL
 

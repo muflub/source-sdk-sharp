@@ -25,7 +25,6 @@
 24	BOUNDARY	void SourceSharp_FxDrawQuads( int32_t nMaterial, int32_t nVertices, const float *pVertices, int32_t bByteColor )
 8	BOUNDARY	void SourceSharp_FxView( float *pOut )
 5	BOUNDARY	void SourceSharp_FxMainViewOrigin( float *pOutXYZ )
-12	BOUNDARY	int32_t SourceSharp_FxEmitTracerSound( const char *pSoundName, const float *pStartXYZ, const float *pDirXYZ )
 4	BOUNDARY	int32_t SourceSharp_FxLocalPlayer( void )
 7	BOUNDARY	void SourceSharp_FxViewAngles( float *pOutPYR )
 21	BOUNDARY	int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut, int32_t nModelSize )

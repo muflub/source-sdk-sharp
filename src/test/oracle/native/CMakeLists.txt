@@ -795,3 +795,37 @@ ss_cpptest_mathlib(leafsystem_oracle_test
             ${SS_VALVE_SRC}/tier1/mempool.cpp
     LIBS atomic)
 endif()
+
+# THE CLIENT SOUND EMITTER ORACLE (the client port of sound_emitter.cpp's emit
+# path): stock's CSoundEmitterSystem as the client compiles it -- the emit,
+# stop, ambient and close-caption paths, GetParametersForSound,
+# PrecacheScriptSound and the system's stages -- run offline from the PRISTINE
+# game/shared/SoundEmitterSystem.cpp over a scripted world
+# (soundemitter_stub/soundemitter_harness.h says what is stock and what is
+# stand-in), held to the golden
+# src/test/client/Fixtures/soundemitter-client-stock.tsv, which the managed
+# ClientSoundEmitter's ClientSoundEmitterOracleTests replay. tier1 for the
+# ConVars, the symbol table and the string functions. The -Wno- flags are for
+# VALVE'S CODE: the MSVC pragmas, platform.h's dangling else, and the
+# subject's server-only statics and unused locals under CLIENT_DLL.
+set(soundemitter_stock "${SS_VALVE_SRC}/game/shared/SoundEmitterSystem.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${soundemitter_stock}")
+  ss_oracle_missing(soundemitter_client_oracle_test "no ${soundemitter_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject and the two game/shared headers it was written against are
+# COPIED, byte for byte, into their own directory before they are included:
+# their quoted #includes would otherwise find game/shared's real headers
+# beside them ahead of the stand-ins.
+configure_file("${soundemitter_stock}" "${CMAKE_CURRENT_BINARY_DIR}/soundemitter_subject/SoundEmitterSystem.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/shareddefs.h" "${CMAKE_CURRENT_BINARY_DIR}/soundemitter_subject/shareddefs.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/igamesystem.h" "${CMAKE_CURRENT_BINARY_DIR}/soundemitter_subject/igamesystem.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_tier1(soundemitter_client_oracle_test
+    DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL NO_MALLOC_OVERRIDE
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+            -Wno-unused-private-field -Wno-dangling-else
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/soundemitter_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/soundemitter_subject
+             public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/soundemitter_client_oracle_test.cpp)
+endif()

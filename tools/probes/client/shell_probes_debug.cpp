@@ -49,7 +49,7 @@
 #include "ienginevgui.h"
 #include "vgui/IVGui.h"
 #include "vgui/IPanel.h"
-#include "particles_new.h"
+#include "shell_new_particles.h"
 #include "view.h"
 
 #include <dlfcn.h>
@@ -467,7 +467,7 @@ public:
 		const char *pName = g_pParticleSystemMgr->GetParticleSystemNameFromIndex( m_nNext++ );
 		Q_strncpy( m_szName, pName ? pName : "", sizeof( m_szName ) );
 		memcpy( m_Before, g_PqCounts, sizeof( m_Before ) );
-		m_pEffect = CNewParticleEffect::Create( NULL, m_szName );
+		m_pEffect = CShellNewParticleEffect::Create( m_szName );
 		if ( m_pEffect.IsValid() && m_pEffect->IsValid() )
 		{
 			Vector fwd;
@@ -505,7 +505,7 @@ private:
 	int m_nTicks = 0;
 	char m_szName[ 256 ] = {};
 	long long m_Before[ PQ_COUNT ];
-	CSmartPtr< CNewParticleEffect > m_pEffect;
+	CSmartPtr< CShellNewParticleEffect > m_pEffect;
 };
 
 } // namespace

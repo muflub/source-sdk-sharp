@@ -18,7 +18,7 @@ namespace SourceSharp.Client;
 /// stand-in.
 /// </summary>
 public sealed class ClientPredictionMoveWorld(IMoveWorld engine, Func<EntityHandle> host, Func<bool> firstRun,
-                                              IEngineSound sound) : IMoveWorld
+                                              Sounds.IClientEntitySounds sound) : IMoveWorld
 {
     public MoveTrace Trace(in Vector start, in Vector end, in Vector mins, in Vector maxs, uint mask, int collisionGroup)
         => engine.Trace(start, end, mins, maxs, mask, collisionGroup);
@@ -54,7 +54,7 @@ public sealed class ClientPredictionMoveWorld(IMoveWorld engine, Func<EntityHand
         if (!firstRun())
             return;
 
-        sound.ClientEmitSound(host(), soundName, origin);
+        sound.EmitFrom(host(), soundName, origin);
     }
 
     /// <summary>"Do nothing on the client. Animations are set on the server."</summary>

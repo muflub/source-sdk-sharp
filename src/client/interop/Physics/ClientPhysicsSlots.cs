@@ -66,15 +66,6 @@ internal sealed unsafe class ClientPhysicsSlots(PhysicsClientArea physicsClient,
         return new SurfaceImpactAudio(Name(hard), Name(soft), audio[0], audio[1], audio[2]);
     }
 
-    public bool Emit(string soundName, Vector origin, int channel, float volume)
-    {
-        int bytes = Encoding.UTF8.GetByteCount(soundName);
-        byte* name = stackalloc byte[bytes + 1];
-        Encoding.UTF8.GetBytes(soundName, new Span<byte>(name, bytes));
-        name[bytes] = 0;
-        float* at = stackalloc float[] { origin.X, origin.Y, origin.Z };
-        return physicsClient.PhysicsClientEmitImpactSound(name, at, channel, volume) != 0;
-    }
 
     public Vector Velocity(nint physicsObject)
     {

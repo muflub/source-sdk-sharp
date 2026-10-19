@@ -45,7 +45,6 @@
 #include "c_recipientfilter.h"
 #include "engine/IEngineSound.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "gamesound.h"
 #include "clienteffectprecachesystem.h"
 #include "fx.h"                          // FX_CacheMaterialHandles
 #include "smoke_fog_overlay.h"
@@ -312,20 +311,6 @@ void SourceSharp_FxMainViewOrigin( float *pOutXYZ )
 {
 	const Vector &origin = MainViewOrigin();
 	pOutXYZ[0] = origin.x; pOutXYZ[1] = origin.y; pOutXYZ[2] = origin.z;
-}
-
-int32_t SourceSharp_FxEmitTracerSound( const char *pSoundName, const float *pStartXYZ, const float *pDirXYZ )
-{
-	CSoundParameters params;
-	if ( !pSoundName || !GameSound_GetParameters( pSoundName, params, NULL ) )
-		return 0;
-
-	const Vector start( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
-	const Vector shotDir( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] );
-	CLocalPlayerFilter filter;
-	enginesound->EmitSound( filter, SOUND_FROM_WORLD, CHAN_STATIC, params.soundname,
-		params.volume, SNDLVL_TO_ATTN( params.soundlevel ), 0, params.pitch, 0, &start, &shotDir, NULL );
-	return 1;
 }
 
 int32_t SourceSharp_FxLocalPlayer( void )

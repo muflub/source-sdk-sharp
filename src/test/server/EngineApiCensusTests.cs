@@ -322,7 +322,11 @@ public partial class EngineApiCensusTests
     // alone (IShimSoundscapeClient), the server's patches managed (238 + 5 = 243; on main's flashlight 244 + 5 = 249).
     // plan_server_native_v2 T4b: TempEntRegister is the client's alone
     // (IShimTempEntBackendsClient), the server's tables planned in C# (249 + 1 = 250).
-    private const int ClientOnly = 250;
+    // The client sound emitter's port: its eight executors retired with their callers
+    // (ClientEmitSound, PhysicsClientEmitImpactSound, FxEmitTracerSound,
+    // FxSoundParameters, FxEmitWorldSound, SoundscapeEmitAmbient/EmitWorld/StopWorld),
+    // which the managed ClientSoundEmitter answers: 250 - 8 = 242.
+    private const int ClientOnly = 242;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

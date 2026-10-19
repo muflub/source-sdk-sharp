@@ -12,24 +12,8 @@ internal sealed unsafe class SoundscapeAudioSlots(ConsoleArea console, Soundscap
 {
     private static byte[] Utf8(string s) => Encoding.UTF8.GetBytes(s + "\0");
 
-    public void EmitAmbient(string wave, float volume, int pitch, int flags)
-    {
-        fixed (byte* p = Utf8(wave))
-            soundscapeClient.SoundscapeEmitAmbient(p, volume, pitch, flags);
-    }
 
-    public void EmitWorld(string wave, float volume, int soundLevel, int pitch, int flags, Vector origin)
-    {
-        float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
-        fixed (byte* p = Utf8(wave))
-            soundscapeClient.SoundscapeEmitWorld(p, volume, soundLevel, pitch, flags, o);
-    }
 
-    public void StopWorld(string wave)
-    {
-        fixed (byte* p = Utf8(wave))
-            soundscapeClient.SoundscapeStopWorld(p);
-    }
 
     public void SetRoomType(int roomType)
     {
