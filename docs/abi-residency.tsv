@@ -33,7 +33,7 @@ ISideModule.cs	plumbing	d: module contract the Bootstrap loads (until SE2 makes 
 InputButtons.cs	plumbing	a: named by UserCmd.cs	-
 Interpolated.cs	plumbing	b: InterpolationKind + [Interpolated] decorate EngineBlockHead fields	-
 ManagedVtable.cs	plumbing	d: managed-built vtable machinery + per-side registry that outlives reloads	-
-ManagedVtableAttributes.cs	plumbing	a: named by VtableLayouts.g.cs	-
+ManagedVtableAttributes.cs	plumbing	d: [ImplementedByManaged]/[ManagedVtable]/[SlotHash]: boundary contract metadata	-
 ManagedVtableHashFiles.cs	plumbing	d: reload check reads slot hashes from disk (Bootstrap Entry.cs:263)	-
 MapLoadRaw.cs	plumbing	b: blittable mirror of SourceSharpMapLoad (user example)	-
 MoveEffectKind.cs	plumbing	b: value contract: SourceSharpMoveEffect	-

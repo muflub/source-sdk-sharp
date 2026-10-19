@@ -871,50 +871,6 @@ INTERFACES = [
              '(plan_physics_managed B0).',
     ),
     dict(
-        struct='PhysicsObjectEventVtbl',
-        kind=VALVE_BY_MANAGED,
-        header='src/public/vphysics_interface.h',
-        chain=['IPhysicsObjectEvent'],
-        reached_by='<c>IPhysicsEnvironment::SetObjectEventHandler</c>',
-        summary='<c>IPhysicsObjectEvent</c>, a body woke or went to sleep.',
-        note='VALVE LAYOUT, WRITTEN BY MANAGED (plan_physics_managed B0b): vphysics '
-             'calls it, managed fills every slot. No virtual destructor; '
-             'vtable_index_agreement_test holds the count to the header.',
-    ),
-    dict(
-        struct='PhysicsCollisionEventVtbl',
-        kind=VALVE_BY_MANAGED,
-        header='src/public/vphysics_interface.h',
-        chain=['IPhysicsCollisionEvent'],
-        reached_by='<c>IPhysicsEnvironment::SetCollisionEventHandler</c>',
-        summary='<c>IPhysicsCollisionEvent</c>, collisions, friction, touch, fluid and trigger events from the step.',
-        note='VALVE LAYOUT, WRITTEN BY MANAGED (plan_physics_managed B0b): vphysics '
-             'calls it, managed fills every slot. No virtual destructor; '
-             'vtable_index_agreement_test holds the count to the header.',
-    ),
-    dict(
-        struct='PhysicsCollisionSolverVtbl',
-        kind=VALVE_BY_MANAGED,
-        header='src/public/vphysics_interface.h',
-        chain=['IPhysicsCollisionSolver'],
-        reached_by='<c>IPhysicsEnvironment::SetCollisionSolver</c>',
-        summary='<c>IPhysicsCollisionSolver</c>, the answers the step asks mid-solve: collide, penetrate, freeze.',
-        note='VALVE LAYOUT, WRITTEN BY MANAGED (plan_physics_managed B0b): vphysics '
-             'calls it, managed fills every slot. No virtual destructor; '
-             'vtable_index_agreement_test holds the count to the header.',
-    ),
-    dict(
-        struct='PhysicsConstraintEventVtbl',
-        kind=VALVE_BY_MANAGED,
-        header='src/public/vphysics_interface.h',
-        chain=['IPhysicsConstraintEvent'],
-        reached_by='<c>IPhysicsEnvironment::SetConstraintEventHandler</c>',
-        summary='<c>IPhysicsConstraintEvent</c>, a constraint broke.',
-        note='VALVE LAYOUT, WRITTEN BY MANAGED (plan_physics_managed B0b): vphysics '
-             'calls it, managed fills every slot. No virtual destructor; '
-             'vtable_index_agreement_test holds the count to the header.',
-    ),
-    dict(
         struct='VPhysicsKeyParserVtbl',
         header='src/public/vcollide_parse.h',
         chain=['IVPhysicsKeyParser'],
@@ -948,28 +904,6 @@ INTERFACES = [
         # returns (vphysics): asked per moving ragdoll
         # per frame, so it skips the GC-mode switch (plan_physics_bones_perf B2).
         suppress=['IsInErrorState'],
-    ),
-    dict(
-        struct='VPhysicsKeyHandlerVtbl',
-        kind=VALVE_BY_MANAGED,
-        header='src/public/vcollide_parse.h',
-        chain=['IVPhysicsKeyHandler'],
-        reached_by='<c>IVPhysicsKeyParser::ParseSolid</c> and <c>ParseCustom</c>',
-        summary='<c>IVPhysicsKeyHandler</c>, the keys a .phy block holds that vphysics does not parse itself.',
-        note='VALVE LAYOUT, WRITTEN BY MANAGED (plan_physics_bones_native_zero Phase 3): '
-             'the ragdoll\'s collision rules, animated friction and solid defaults. '
-             'No virtual destructor; vtable_index_agreement_test holds the count to the header.',
-    ),
-    dict(
-        struct='MotionEventVtbl',
-        kind=VALVE_BY_MANAGED,
-        header='src/public/vphysics_interface.h',
-        chain=['IMotionEvent'],
-        reached_by='<c>IPhysicsEnvironment::CreateMotionController</c>',
-        summary='<c>IMotionEvent</c>, a motion controller asks for its force each step.',
-        note='VALVE LAYOUT, WRITTEN BY MANAGED (plan_physics_managed B0b): vphysics '
-             'calls it, managed fills every slot. No virtual destructor; '
-             'vtable_index_agreement_test holds the count to the header.',
     ),
 ]
 

@@ -41,8 +41,7 @@
 
 #include <type_traits>
 
-// The data structs managed reads by layout (the tests after the lengths), and
-// the vphysics callback interfaces managed writes.
+// The data structs managed reads by layout (the tests after the lengths).
 #include "vphysics_interface.h"
 #include "vphysics/constraints.h"
 #include "vcollide_parse.h"
@@ -506,7 +505,6 @@ TEST( VtableLayoutLength, EveryBoundMethodIsVirtualAndNeedsNoThisAdjustment )
 		// slot numbered against a table nothing is indexing.
 		VTableHook::MemberOf( &IShimFrame::TickCount ),
 		VTableHook::MemberOf( &IShimLevel::ResetServerTime ),
-		VTableHook::MemberOf( &IPhysicsCollisionEvent::PreCollision ),
 	};
 
 	for ( size_t i = 0; i < sizeof( members ) / sizeof( members[ 0 ] ); i++ )
@@ -550,24 +548,6 @@ TEST( VtableLayoutLength, AStructTheGeneratorNoLongerEmitsReadsAsMinusOneRatherT
 		EXPECT_EQ( compiler, FieldsIn( ReadLayout(), structName ) ); \
 	}
 
-// plan_physics_managed B0b: the callbacks vphysics calls, in Valve's layout and
-// written by managed. No virtual destructor in any of them, so slot 0 is the
-// first method; a count that drifts from the header is a call through garbage.
-VTABLE_LENGTH_TEST( PhysicsObjectEventIsTwoSlots, "PhysicsObjectEventVtbl",
-                    &IPhysicsObjectEvent::ObjectSleep, 2 )
-VTABLE_LENGTH_TEST( PhysicsCollisionEventIsTenSlots, "PhysicsCollisionEventVtbl",
-                    &IPhysicsCollisionEvent::ObjectLeaveTrigger, 10 )
-VTABLE_LENGTH_TEST( PhysicsCollisionSolverIsFiveSlots, "PhysicsCollisionSolverVtbl",
-                    &IPhysicsCollisionSolver::ShouldFreezeContacts, 5 )
-VTABLE_LENGTH_TEST( PhysicsConstraintEventIsOneSlot, "PhysicsConstraintEventVtbl",
-                    &IPhysicsConstraintEvent::ConstraintBroken, 1 )
-VTABLE_LENGTH_TEST( MotionEventIsOneSlot, "MotionEventVtbl",
-                    &IMotionEvent::Simulate, 1 )
-
-// plan_physics_bones_native_zero Phase 3: the managed ragdoll builder answers
-// the key parser's custom keys from its own Valve-layout table.
-VTABLE_LENGTH_TEST( VPhysicsKeyHandlerIsTwoSlots, "VPhysicsKeyHandlerVtbl",
-                    &IVPhysicsKeyHandler::SetDefaults, 2 )
 // The five callbacks managed registers (ClientSteamCallbacks.cs): each id and
 // payload size the SDK headers give, which ClientSteamCallbacksTests pins on
 // the managed side. A wrong size makes Steam refuse or misread the payload; a
@@ -815,10 +795,6 @@ TEST( VtableLayoutLength, EveryGeneratedStructIsCoveredByATestAbove )
 	// one struct per interface it knows about; if a later lane adds one and no
 	// test here names it, its length is a claim with nothing behind it.
 	const char *const kCovered[] = {
-		// The vphysics callbacks managed writes in Valve's layout.
-		"PhysicsObjectEventVtbl", "PhysicsCollisionEventVtbl", "PhysicsCollisionSolverVtbl",
-		"PhysicsConstraintEventVtbl", "MotionEventVtbl", "VPhysicsKeyHandlerVtbl",
-
 		// The shim layer.
 		"ShimFrameVtbl", "ShimLevelVtbl", "ShimRootVtbl", "ShimConsoleVtbl",
 		// plan_particles_so.md: libss_particles.so's own export, served by the
