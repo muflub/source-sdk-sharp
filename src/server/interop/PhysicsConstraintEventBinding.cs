@@ -3,11 +3,12 @@ using SourceSharp.Abi;
 namespace SourceSharp.Server.Interop;
 
 /// <summary>
-/// vphysics' <c>IPhysicsConstraintEvent</c>, in Valve's layout and written by
-/// managed (plan_physics_bones_native_zero 2.2). One slot, asked from inside
+/// vphysics' <c>IPhysicsConstraintEvent</c>'s managed side (plan_physics_bones_native_zero
+/// 2.2): libss_fwd builds the object vphysics calls (PhysicsCallbackObjects),
+/// whose override calls this table. One slot, asked from inside
 /// the step when a breakable constraint gives way.
 /// </summary>
-[ManagedVtable(typeof(PhysicsConstraintEventVtbl))]
+[ManagedVtable(typeof(ManagedPhysicsConstraintEventTable))]
 public unsafe interface IPhysicsConstraintEventSink
 {
     void ConstraintBroken(void* pConstraint);

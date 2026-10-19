@@ -18,6 +18,7 @@
 #include "engine/IStaticPropMgr.h"
 #include "engine/ivmodelinfo.h"
 #include "filesystem.h"
+#include "fwd_physics.h"
 #include "inetchannelinfo.h"
 #include "networkstringtabledefs.h"
 #include "sourcesharp/game/server/ishim_frame.h"
@@ -3190,6 +3191,29 @@ static void *const s_ShimConVarsClientSlots[] = {
 
 static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 2 };
 
+//-----------------------------------------------------------------------------
+// PhysicsCallbacks: 7 function(s) over void, declared in fwd_physics.h.
+//-----------------------------------------------------------------------------
+// int SSFwd_PhysicsCallbacks_SizeOf( void )
+// void * SSFwd_PhysicsCallbacks_ConstructObjectEvent( void *, IManagedPhysicsObjectEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructCollisionEvent( void *, IManagedPhysicsCollisionEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructCollisionSolver( void *, IManagedPhysicsCollisionSolver * )
+// void * SSFwd_PhysicsCallbacks_ConstructConstraintEvent( void *, IManagedPhysicsConstraintEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructMotionEvent( void *, IManagedMotionEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *, IManagedVPhysicsKeyHandler * )
+
+static void *const s_PhysicsCallbacksSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_SizeOf ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructObjectEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructCollisionEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructCollisionSolver ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructConstraintEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructMotionEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructKeyHandler ),
+};
+
+static const SSForwarderTable s_PhysicsCallbacksTable = { s_PhysicsCallbacksSlots, 7 };
+
 // The tables by the name managed asks for, SSFwd_<table>.
 static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ModelInfo", &s_ModelInfoTable },
@@ -3275,4 +3299,5 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimInputClient", &s_ShimInputClientTable },
 	{ "SSFwd_ShimPhysicsClient", &s_ShimPhysicsClientTable },
 	{ "SSFwd_ShimConVarsClient", &s_ShimConVarsClientTable },
+	{ "SSFwd_PhysicsCallbacks", &s_PhysicsCallbacksTable },
 };

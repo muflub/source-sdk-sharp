@@ -2281,20 +2281,28 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The client's IPhysicsCollisionEvent (lane c6-input): every slot not
         // taken over forwards to native's g_Collisions, so the table changes
         // nothing by itself; the impact slot is ClientImpactSounds'.
+        // The objects vphysics is handed as its callbacks are libss_fwd_client's
+        // (plan_forwarders_everywhere.md phase 5), each built in its block.
+        PhysicsCallbackObjects? callbackObjects = PhysicsCallbackObjects.Acquire(_engine, out string callbacksWhy);
+        if (callbackObjects is null)
+            Log.Warning($"[SourceSharp/Client] no vphysics callbacks: {callbacksWhy}\n");
+
         nint nativeCollisionEvents = _services.Require<IClientPhysicsEngine>().NativeCollisionEvents();
-        if (nativeCollisionEvents != 0 && _impactSounds is { } impacts && _physicsCallbacks is { } callbacks)
+        if (nativeCollisionEvents != 0 && _impactSounds is { } impacts && _physicsCallbacks is { } callbacks
+            && callbackObjects is not null)
         {
             _physicsCollisionEvents = ClientPhysicsCollisionEventBinding.Create(vtables,
                 new ClientPhysicsCollisionEventBinding(_engine.Crossings, nativeCollisionEvents, impacts,
                                                        _fluidEvents ?? throw new InvalidOperationException("the fluid slots were built before the fluid entries"),
                                                        _friction ?? throw new InvalidOperationException("the friction slot was built before the scrapes"),
                                                        _engine.VPhysics));
-            callbacks.CollisionEvents = _physicsCollisionEvents.Address;
+            callbacks.CollisionEvents = callbackObjects.CollisionEvent(_physicsCollisionEvents);
         }
 
         // The ragdolls' IVPhysicsKeyHandler tables (plan physics_bones_native_zero
         // Phase 3): the custom blocks' router and the solids' defaults.
-        _ragdollPhysics?.InstallHandlers(vtables, _engine.Crossings);
+        if (callbackObjects is not null)
+            _ragdollPhysics?.InstallHandlers(vtables, _engine.Crossings, callbackObjects);
 
         // physics_shared.cpp's client half (2.6), over the same key table: the
         // client has one IVPhysicsKeyHandler contract, and it answers as
@@ -2329,11 +2337,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The client's IPhysicsCollisionSolver: every one of its five answers
         // is ported (ClientCollisionSolver), so it replaces g_Collisions as the
         // solver whole.
-        if (_collisionSolver is { } solver && _physicsCallbacks is { } solverCallbacks)
+        if (_collisionSolver is { } solver && _physicsCallbacks is { } solverCallbacks && callbackObjects is not null)
         {
             _physicsCollisionSolver = ClientCollisionSolverBinding.Create(vtables,
                 new ClientCollisionSolverBinding(_engine.Crossings, solver));
-            solverCallbacks.CollisionSolver = _physicsCollisionSolver.Address;
+            solverCallbacks.CollisionSolver = callbackObjects.CollisionSolver(_physicsCollisionSolver);
         }
 
         ActivateSteam(vtables);

@@ -17,6 +17,7 @@
 #include "cdll_int.h"
 #include "engine/ivmodelinfo.h"
 #include "filesystem.h"
+#include "fwd_physics.h"
 #include "fwd_steam.h"
 #include "inputsystem/iinputsystem.h"
 #include "networkstringtabledefs.h"
@@ -3381,6 +3382,29 @@ static void *const s_ShimConVarsClientSlots[] = {
 static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
+// PhysicsCallbacks: 7 function(s) over void, declared in fwd_physics.h.
+//-----------------------------------------------------------------------------
+// int SSFwd_PhysicsCallbacks_SizeOf( void )
+// void * SSFwd_PhysicsCallbacks_ConstructObjectEvent( void *, IManagedPhysicsObjectEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructCollisionEvent( void *, IManagedPhysicsCollisionEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructCollisionSolver( void *, IManagedPhysicsCollisionSolver * )
+// void * SSFwd_PhysicsCallbacks_ConstructConstraintEvent( void *, IManagedPhysicsConstraintEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructMotionEvent( void *, IManagedMotionEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *, IManagedVPhysicsKeyHandler * )
+
+static void *const s_PhysicsCallbacksSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_SizeOf ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructObjectEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructCollisionEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructCollisionSolver ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructConstraintEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructMotionEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructKeyHandler ),
+};
+
+static const SSForwarderTable s_PhysicsCallbacksTable = { s_PhysicsCallbacksSlots, 7 };
+
+//-----------------------------------------------------------------------------
 // SteamCallback: 4 function(s) over CCallbackBase, declared in fwd_steam.h.
 //-----------------------------------------------------------------------------
 // int SSFwd_SteamCallback_SizeOf( void )
@@ -3483,5 +3507,6 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimInputClient", &s_ShimInputClientTable },
 	{ "SSFwd_ShimPhysicsClient", &s_ShimPhysicsClientTable },
 	{ "SSFwd_ShimConVarsClient", &s_ShimConVarsClientTable },
+	{ "SSFwd_PhysicsCallbacks", &s_PhysicsCallbacksTable },
 	{ "SSFwd_SteamCallback", &s_SteamCallbackTable },
 };

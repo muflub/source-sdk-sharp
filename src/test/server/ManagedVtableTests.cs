@@ -438,19 +438,19 @@ public unsafe partial class ManagedVtableTests
         Assert.Equal(LayoutHashes(typeof(ManagedRootTable)), hashes["IManagedRoot"]);
         Assert.Equal(LayoutHashes(typeof(ManagedRuntimeServerTable)), hashes["IManagedRuntimeServer"]);
         Assert.Equal(LayoutHashes(typeof(ManagedFrameTable)), hashes["IManagedFrame"]);
-        // vphysics' IPhysicsObjectEvent, Valve's layout written by managed
-        // (plan_physics_managed B2.1): its two slots' hashes ride along too.
-        Assert.Equal(LayoutHashes(typeof(PhysicsObjectEventVtbl)), hashes["IPhysicsObjectEvent"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsCollisionEventVtbl)), hashes["IPhysicsCollisionEvent"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsCollisionSolverVtbl)), hashes["IPhysicsCollisionSolver"]);
+        // vphysics' callbacks: managed writes a table of its own for each and
+        // libss_fwd builds the Valve object over it (plan_forwarders_everywhere.md
+        // phase 5), so their hashes ride along under the managed names.
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsObjectEventTable)), hashes["IManagedPhysicsObjectEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsCollisionEventTable)), hashes["IManagedPhysicsCollisionEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsCollisionSolverTable)), hashes["IManagedPhysicsCollisionSolver"]);
         Assert.Equal(LayoutHashes(typeof(ManagedBonesTable)), hashes["IManagedBones"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsConstraintEventVtbl)), hashes["IPhysicsConstraintEvent"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedBonesTable)), hashes["IManagedBones"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsConstraintEventVtbl)), hashes["IPhysicsConstraintEvent"]);
-        Assert.Equal(LayoutHashes(typeof(MotionEventVtbl)), hashes["IMotionEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsConstraintEventTable)), hashes["IManagedPhysicsConstraintEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedMotionEventTable)), hashes["IManagedMotionEvent"]);
         // The server's solid key table (stock's g_SolidSetup, 2.6): the
-        // contract now lives in shared interop and the server builds one.
-        Assert.Equal(LayoutHashes(typeof(VPhysicsKeyHandlerVtbl)), hashes["IVPhysicsKeyHandler"]);
+        // contract lives in shared interop and the server builds one.
+        Assert.Equal(LayoutHashes(typeof(ManagedVPhysicsKeyHandlerTable)), hashes["IManagedVPhysicsKeyHandler"]);
+        Assert.DoesNotContain("IPhysicsObjectEvent", hashes.Keys);   // no Valve layout is written by managed any more
         Assert.Equal(26, hashes.Count);   // 18 since plan_side_isolation P2: IManagedUserMessages; 19 with B2.1; 20 with B2.2; 21 with IManagedConsoleOutput (docs/todo.md's console capture); 22 with IPhysicsCollisionSolver (plan_physics_bones_native_zero 2.1); 23 with IManagedBones (physics_bones_native_zero 1.1); 24 with IPhysicsConstraintEvent (2.2); 25 with IMotionEvent (2.4); 26 with IVPhysicsKeyHandler (2.6)
     }
 

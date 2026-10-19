@@ -3184,3 +3184,35 @@ internal unsafe struct ShimConVarsClientFwd : IForwarderTable
     // int32_t IShimConVarsClient::ConVarsClientSetValue( const char *, float )
     public delegate* unmanaged<void*, byte*, float, int> ConVarsClientSetValue;
 }
+
+/// <summary>
+/// <c>void</c>'s functions (SSFwd_PhysicsCallbacks): 7 slot(s), none of them a method,
+/// so the first argument is the first parameter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct PhysicsCallbacksFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_PhysicsCallbacks";
+
+    // int SSFwd_PhysicsCallbacks_SizeOf( void )
+    public delegate* unmanaged<int> SizeOf;
+
+    // void * SSFwd_PhysicsCallbacks_ConstructObjectEvent( void *, IManagedPhysicsObjectEvent * )
+    public delegate* unmanaged<void*, void*, void*> ConstructObjectEvent;
+
+    // void * SSFwd_PhysicsCallbacks_ConstructCollisionEvent( void *, IManagedPhysicsCollisionEvent * )
+    public delegate* unmanaged<void*, void*, void*> ConstructCollisionEvent;
+
+    // void * SSFwd_PhysicsCallbacks_ConstructCollisionSolver( void *, IManagedPhysicsCollisionSolver * )
+    public delegate* unmanaged<void*, void*, void*> ConstructCollisionSolver;
+
+    // void * SSFwd_PhysicsCallbacks_ConstructConstraintEvent( void *, IManagedPhysicsConstraintEvent * )
+    public delegate* unmanaged<void*, void*, void*> ConstructConstraintEvent;
+
+    // void * SSFwd_PhysicsCallbacks_ConstructMotionEvent( void *, IManagedMotionEvent * )
+    public delegate* unmanaged<void*, void*, void*> ConstructMotionEvent;
+
+    // void * SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *, IManagedVPhysicsKeyHandler * )
+    public delegate* unmanaged<void*, void*, void*> ConstructKeyHandler;
+}
