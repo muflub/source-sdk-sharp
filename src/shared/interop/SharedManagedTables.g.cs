@@ -30,3 +30,113 @@ public unsafe struct ManagedRootTable
     [SlotHash(0xa43ae9b6)]
     public delegate* unmanaged<void*, byte*, void*> Acquire;
 }
+
+/// <summary>The table managed writes for <c>IManagedPhysicsCollisionEvent</c> (<c>SSManagedPhysicsCollisionEventTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedPhysicsCollisionEvent", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedPhysicsCollisionEventTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void PreCollision( void *pEvent )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> PreCollision;
+
+    // 3: void PostCollision( void *pEvent )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> PostCollision;
+
+    // 4: void Friction( void *pObject, float flEnergy, int32_t nSurfaceProps, int32_t nSurfacePropsHit, void *pData )
+    [SlotHash(0xa86f7f66)]
+    public delegate* unmanaged<void*, void*, float, int, int, void*, void> Friction;
+
+    // 5: void StartTouch( void *pObject1, void *pObject2, void *pTouchData )
+    [SlotHash(0xd1361c78)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> StartTouch;
+
+    // 6: void EndTouch( void *pObject1, void *pObject2, void *pTouchData )
+    [SlotHash(0xd1361c78)]
+    public delegate* unmanaged<void*, void*, void*, void*, void> EndTouch;
+
+    // 7: void FluidStartTouch( void *pObject, void *pFluid )
+    [SlotHash(0xd70db9bc)]
+    public delegate* unmanaged<void*, void*, void*, void> FluidStartTouch;
+
+    // 8: void FluidEndTouch( void *pObject, void *pFluid )
+    [SlotHash(0xd70db9bc)]
+    public delegate* unmanaged<void*, void*, void*, void> FluidEndTouch;
+
+    // 9: void PostSimulationFrame( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> PostSimulationFrame;
+
+    // 10: void ObjectEnterTrigger( void *pTrigger, void *pObject )
+    [SlotHash(0xd70db9bc)]
+    public delegate* unmanaged<void*, void*, void*, void> ObjectEnterTrigger;
+
+    // 11: void ObjectLeaveTrigger( void *pTrigger, void *pObject )
+    [SlotHash(0xd70db9bc)]
+    public delegate* unmanaged<void*, void*, void*, void> ObjectLeaveTrigger;
+}
+
+/// <summary>The table managed writes for <c>IManagedPhysicsCollisionSolver</c> (<c>SSManagedPhysicsCollisionSolverTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedPhysicsCollisionSolver", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedPhysicsCollisionSolverTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t ShouldCollide( void *pObj0, void *pObj1, void *pGameData0, void *pGameData1 )
+    [SlotHash(0x633b8df5)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int> ShouldCollide;
+
+    // 3: int32_t ShouldSolvePenetration( void *pObj0, void *pObj1, void *pGameData0, void *pGameData1, float flDt )
+    [SlotHash(0xd6b575e7)]
+    public delegate* unmanaged<void*, void*, void*, void*, void*, float, int> ShouldSolvePenetration;
+
+    // 4: bool ShouldFreezeObject( void *pObject )
+    [SlotHash(0xa4166c88)]
+    public delegate* unmanaged<void*, void*, byte> ShouldFreezeObject;
+
+    // 5: int32_t AdditionalCollisionChecksThisTick( int32_t nCurrentChecksDone )
+    [SlotHash(0xa45f061a)]
+    public delegate* unmanaged<void*, int, int> AdditionalCollisionChecksThisTick;
+
+    // 6: bool ShouldFreezeContacts( void *ppObjectList, int32_t nObjectCount )
+    [SlotHash(0x8d9ff6f5)]
+    public delegate* unmanaged<void*, void*, int, byte> ShouldFreezeContacts;
+}
+
+/// <summary>The table managed writes for <c>IManagedVPhysicsKeyHandler</c> (<c>SSManagedVPhysicsKeyHandlerTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedVPhysicsKeyHandler", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedVPhysicsKeyHandlerTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void ParseKeyValue( void *pData, const char *pKey, const char *pValue )
+    [SlotHash(0x888e87b0)]
+    public delegate* unmanaged<void*, void*, byte*, byte*, void> ParseKeyValue;
+
+    // 3: void SetDefaults( void *pData )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> SetDefaults;
+}

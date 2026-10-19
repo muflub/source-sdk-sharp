@@ -81,11 +81,16 @@ public sealed unsafe class SolidKeyHandlerBinding(Crossings crossings, nint defa
         Solids.SetDefaults(pData);
     }
 
-    /// <summary>The table vphysics is handed, built over <paramref name="target"/>, whose <see cref="Table"/> it fills.</summary>
-    public static ManagedVtable Create(ManagedVtables vtables, SolidKeyHandlerBinding target)
+    /// <summary>
+    /// The block built over <paramref name="target"/>, whose <see cref="Table"/>
+    /// it fills with the IVPhysicsKeyHandler vphysics is handed: libss_fwd_server's
+    /// object, built in the block (plan_forwarders_everywhere.md phase 5).
+    /// </summary>
+    public static ManagedVtable Create(ManagedVtables vtables, SolidKeyHandlerBinding target, PhysicsCallbackObjects objects)
     {
+        ArgumentNullException.ThrowIfNull(objects);
         ManagedVtable table = IVPhysicsKeyHandlerSink__ManagedVtable.Create(vtables, target);
-        target.Table = (nint)table.Pointer;
+        target.Table = objects.KeyHandler(table);
         return table;
     }
 }

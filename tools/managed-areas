@@ -125,6 +125,25 @@ OUT_MANAGED_CLIENT = 'src/client/interop/ManagedAreas.g.cs'   # SourceSharp.Clie
 CORE = {'IManagedRoot': False, 'IManagedRuntimeServer': True, 'IManagedRuntimeClient': False,
         'IManagedSteamCallback': False}
 
+# plan_forwarders_everywhere.md phase 5: the managed side of each vphysics
+# callback. vphysics calls IPhysicsCollisionEvent and the rest through its own
+# C++ vtable, so libss_fwd_<side> builds that object (fwd_physics.cpp) and its
+# overrides call these tables. Not areas: built on demand, one per handler.
+# Each block reserves CALLBACK_WORDS words after word 0, where the native
+# object is built (its vptr and its pointer back to the block), so it lives,
+# survives a reload and is freed exactly as the block is. The value is the C#
+# file the table goes in: the assembly whose code builds it.
+CALLBACK_WORDS = 2
+OUT_CALLBACKS = 'src/fwd/native/imanaged_physics_callbacks.h'
+CALLBACKS = {
+    'IManagedPhysicsObjectEvent': 'server',
+    'IManagedPhysicsCollisionEvent': 'shared',
+    'IManagedPhysicsCollisionSolver': 'shared',
+    'IManagedPhysicsConstraintEvent': 'server',
+    'IManagedMotionEvent': 'server',
+    'IManagedVPhysicsKeyHandler': 'shared',
+}
+
 
 def is_client(iface):
     """plan_client_vtables CD: a client area or the client's runtime."""
@@ -180,12 +199,21 @@ def short(iface):
 
 def model():
     """[(interface, [(method, return, parameters)])] for the server's managed-built AREAS."""
-    return [a for a in spec() if a[0] not in CORE and not is_client(a[0])]
+    return [a for a in spec() if a[0] not in CORE and a[0] not in CALLBACKS and not is_client(a[0])]
 
 
 def client_model():
     """plan_client_vtables CD: the client's managed-built areas."""
-    return [a for a in spec() if a[0] not in CORE and is_client(a[0])]
+    return [a for a in spec() if a[0] not in CORE and a[0] not in CALLBACKS and is_client(a[0])]
+
+
+def callbacks():
+    """The vphysics callbacks' managed sides, from the same spec. All must be declared."""
+    found = [a for a in spec() if a[0] in CALLBACKS]
+    missing = sorted(set(CALLBACKS) - set(i for i, _m in found))
+    if missing:
+        raise SystemExit('tools/managed-areas: %s declares no %s' % (SPEC, ', '.join(missing)))
+    return found
 
 
 def core():
@@ -357,6 +385,8 @@ def csharp_table_name(iface):
 
 def table_file(iface):
     """Which C# file an interface's table goes in (TABLE_FILES)."""
+    if iface in CALLBACKS:
+        return OUT_TABLES if CALLBACKS[iface] == 'shared' else OUT_TABLES_SERVER
     if iface == 'IManagedRoot':
         return OUT_TABLES
     if is_client(iface) or iface == 'IManagedSteamCallback':
@@ -382,7 +412,8 @@ def managed_tables(interfaces, path=OUT_TABLES):
         out += ['',
                 '/// <summary>The table managed writes for <c>%s</c> (<c>%s</c> native-side).</summary>'
                 % (iface, table_name(iface)),
-                '[ImplementedByManaged("%s")]' % iface,
+                ('[ImplementedByManaged("%s", ReservedWords = %d)]' % (iface, CALLBACK_WORDS)
+                 if iface in CALLBACKS else '[ImplementedByManaged("%s")]' % iface),
                 '[StructLayout(LayoutKind.Sequential)]',
                 'public unsafe struct %s' % csharp_table_name(iface), '{']
         for n, (name, ret, params, kind, h) in enumerate(table_slots(ss)):
@@ -437,6 +468,19 @@ def generate():
                       'let go), and Run, for both of CCallbackBase\'s Run overloads.'],
                      ['<stdint.h>', '"tier0/platform.h"', '"imanaged_core.h"'],
                      'IManagedSteamCallback', cores['IManagedSteamCallback'], False)
+    cb = [valve, '', GENERATED, '//',
+          '// plan_forwarders_everywhere.md phase 5: the managed side of each vphysics callback.',
+          '// libss_fwd_<side> builds the object vphysics calls (fwd_physics.cpp), deriving',
+          '// IPhysicsCollisionEvent and the rest, and its overrides call these through the',
+          '// table managed wrote. The object lives in the block\'s %d reserved words after' % CALLBACK_WORDS,
+          '// word 0, so it is the block\'s, across a reload too. Engine types cross as void *.',
+          '', '#ifndef IMANAGED_PHYSICS_CALLBACKS_H', '#define IMANAGED_PHYSICS_CALLBACKS_H', '#pragma once', '',
+          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "imanaged_core.h"', '']
+    for i, ss in callbacks():
+        cb += interface_lines(i, ss) + hash_lines(i, ss)
+    cb += ['// The words a block reserves for the object libss_fwd builds in it.',
+           'static const int32_t kManagedPhysicsCallbackWords = %d;' % CALLBACK_WORDS, '',
+           '#endif // IMANAGED_PHYSICS_CALLBACKS_H', '']
 
     # ---- the interfaces ------------------------------------------------------
     h = [valve, '', GENERATED, '//',
@@ -553,6 +597,7 @@ def generate():
     m += factory_lines(areas)
 
     out = {OUT_CORE: '\n'.join(k), OUT_RUNTIME: '\n'.join(r), OUT_STEAM: '\n'.join(st),
+           OUT_CALLBACKS: '\n'.join(cb),
            OUT_IFACE: '\n'.join(h), OUT_HOLDER: '\n'.join(c), OUT_IMPL: '\n'.join(im),
            OUT_MANAGED: '\n'.join(m)}
     out.update(table_texts)
@@ -700,7 +745,7 @@ def self_test():
 
     real = globals()['spec']
     try:
-        globals()['spec'] = lambda: [i for i in real() if i[0] == 'IManagedSoundEnt' or i[0] in CORE]
+        globals()['spec'] = lambda: [i for i in real() if i[0] == 'IManagedSoundEnt' or i[0] in CORE or i[0] in CALLBACKS]
         out = generate()
     finally:
         globals()['spec'] = real

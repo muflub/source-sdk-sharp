@@ -449,6 +449,25 @@ FORWARD += [
 # what Steam keeps in it.
 # ---------------------------------------------------------------------------
 HAND = [
+    # plan_forwarders_everywhere.md phase 5: the vphysics callbacks, built in
+    # the managed block's reserved words over its managed side (fwd_physics.cpp).
+    # Both: the collision event and solver are both sides', and the rest cost
+    # the client library six small functions.
+    dict(
+        table='PhysicsCallbacks',
+        side='both',
+        self_type='void',
+        include='fwd_physics.h',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('ConstructObjectEvent', 'void *', 'void *, IManagedPhysicsObjectEvent *'),
+            ('ConstructCollisionEvent', 'void *', 'void *, IManagedPhysicsCollisionEvent *'),
+            ('ConstructCollisionSolver', 'void *', 'void *, IManagedPhysicsCollisionSolver *'),
+            ('ConstructConstraintEvent', 'void *', 'void *, IManagedPhysicsConstraintEvent *'),
+            ('ConstructMotionEvent', 'void *', 'void *, IManagedMotionEvent *'),
+            ('ConstructKeyHandler', 'void *', 'void *, IManagedVPhysicsKeyHandler *'),
+        ],
+    ),
     dict(
         table='SteamCallback',
         side='client',

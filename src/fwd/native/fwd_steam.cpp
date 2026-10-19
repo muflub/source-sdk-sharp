@@ -100,27 +100,3 @@ int SSFwd_SteamCallback_CallbackId( CCallbackBase *pCallback )
 {
 	return pCallback ? static_cast< SSSteamCallback * >( pCallback )->CallbackId() : 0;
 }
-
-// CCallbackBase's own vtable, which its constructor installs before
-// SSSteamCallback's replaces it, holds the C++ runtime's handler for a pure
-// virtual call in its slots. That handler is the runtime's, and this library
-// links none (NO_RUNTIME), so it defines its own: trap, as the runtime's does.
-// Never called: the object is never used while its base is being built. A test
-// that compiles this source into an executable with a runtime leaves the
-// runtime's in place.
-#if defined( SS_FWD_CLIENT_BUILD )
-#if defined( _MSC_VER )
-#if defined( SS_NO_CRT )
-extern "C" int __cdecl _purecall( void )
-{
-	__debugbreak();
-	return 0;
-}
-#endif
-#else
-extern "C" __attribute__(( visibility( "hidden" ) )) void __cxa_pure_virtual()
-{
-	__builtin_trap();
-}
-#endif
-#endif

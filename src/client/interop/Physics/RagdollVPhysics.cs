@@ -87,11 +87,14 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     /// defaults (stock's <c>g_SolidSetup</c>) and the custom blocks' router, in
     /// one table (a registry holds one per contract).
     /// </summary>
-    public void InstallHandlers(ManagedVtables vtables, Crossings crossings)
+    public void InstallHandlers(ManagedVtables vtables, Crossings crossings, PhysicsCallbackObjects objects)
     {
+        ArgumentNullException.ThrowIfNull(objects);
         _keys = new RagdollKeyHandlerBinding(crossings, (nint)_defaultName);
         _keyTable = RagdollKeyHandlerBinding.Create(vtables, _keys);
-        _keys.Table = (nint)_keyTable.Pointer;
+        // The IVPhysicsKeyHandler vphysics is handed: libss_fwd_client's object,
+        // built in the block (plan_forwarders_everywhere.md phase 5).
+        _keys.Table = objects.KeyHandler(_keyTable);
     }
 
     public void Dispose()
@@ -202,7 +205,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
 
             try
             {
-                Parser(parser)->ParseSolid((void*)parser, solid, (void*)_keyTable.Pointer);
+                Parser(parser)->ParseSolid((void*)parser, solid, (void*)_keys.Table);
             }
             finally
             {
@@ -243,7 +246,7 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
 
         try
         {
-            Parser(parser)->ParseCustom((void*)parser, (void*)_keyTable.Pointer, (void*)_keyTable.Pointer);
+            Parser(parser)->ParseCustom((void*)parser, (void*)_keys.Table, (void*)_keys.Table);
         }
         finally
         {

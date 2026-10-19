@@ -738,3 +738,61 @@ public unsafe struct ManagedBonesTable
     [SlotHash(0x43ac8bd6)]
     public delegate* unmanaged<void*, uint, void*, void*, int, void*, void*, int> TestHitboxes;
 }
+
+/// <summary>The table managed writes for <c>IManagedPhysicsObjectEvent</c> (<c>SSManagedPhysicsObjectEventTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedPhysicsObjectEvent", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedPhysicsObjectEventTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void ObjectWake( void *pObject )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> ObjectWake;
+
+    // 3: void ObjectSleep( void *pObject )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> ObjectSleep;
+}
+
+/// <summary>The table managed writes for <c>IManagedPhysicsConstraintEvent</c> (<c>SSManagedPhysicsConstraintEventTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedPhysicsConstraintEvent", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedPhysicsConstraintEventTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void ConstraintBroken( void *pConstraint )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> ConstraintBroken;
+}
+
+/// <summary>The table managed writes for <c>IManagedMotionEvent</c> (<c>SSManagedMotionEventTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedMotionEvent", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedMotionEventTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t Simulate( void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular )
+    [SlotHash(0xe23bf65f)]
+    public delegate* unmanaged<void*, void*, void*, float, void*, void*, int> Simulate;
+}

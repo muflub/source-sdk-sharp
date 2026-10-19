@@ -182,18 +182,26 @@ public unsafe partial class ManagedVtableTests
                .Select(x => (x.t, x.Item2!));
 
     [Fact]
-    public void NoGeneratedLayoutReservesWords()
+    public void OnlyTheVphysicsCallbacksReserveWordsAndEachReservesTheObjectsSize()
     {
-        // The one that did was CCallbackBase's (flags and callback id after
-        // the vptr). libss_fwd_client builds that object now
-        // (plan_engine_forwarders.md phase 5), and managed writes only its
-        // managed side, which carries no data. The machinery above stays
-        // until nothing names it.
+        // CCallbackBase's layout once reserved its flags and callback id;
+        // libss_fwd_client builds that object now (plan_engine_forwarders.md
+        // phase 5). What reserves words since plan_forwarders_everywhere.md
+        // phase 5 is each vphysics callback: libss_fwd builds the Valve object
+        // (a vptr and its managed target) in the words after the table, so it
+        // lives and dies with the block. Exactly those six, and exactly the
+        // object's two words (kManagedPhysicsCallbackWords).
+        string[] callbacks =
+        [
+            "ManagedPhysicsObjectEventTable", "ManagedPhysicsCollisionEventTable", "ManagedPhysicsCollisionSolverTable",
+            "ManagedPhysicsConstraintEventTable", "ManagedMotionEventTable", "ManagedVPhysicsKeyHandlerTable",
+        ];
         var layouts = ManagedWrittenLayouts().ToList();
 
         Assert.NotEmpty(layouts);   // the stimulus: the managed-written layouts are read
-        Assert.All(layouts, x => Assert.True(x.Attribute.ReservedWords == 0,
-            $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s)"));
+        Assert.Equal(callbacks.Order(), layouts.Where(x => x.Attribute.ReservedWords != 0).Select(x => x.Layout.Name).Order());
+        Assert.All(layouts.Where(x => callbacks.Contains(x.Layout.Name)),
+            x => Assert.True(x.Attribute.ReservedWords == 2, $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s)"));
     }
 
     [Fact]

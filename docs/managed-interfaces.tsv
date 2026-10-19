@@ -316,3 +316,24 @@ IManagedPhysicsClient	PrecacheSurfaceSounds	int32_t	void
 IManagedPhysicsClient	SolidKeyValue	void	void *pData, const char *pKey, const char *pValue
 IManagedPhysicsClient	SolidDefaults	void	void *pData
 IManagedSteamCallback	Run	void	void *pvParam
+IManagedPhysicsObjectEvent	ObjectWake	void	void *pObject
+IManagedPhysicsObjectEvent	ObjectSleep	void	void *pObject
+IManagedPhysicsCollisionEvent	PreCollision	void	void *pEvent
+IManagedPhysicsCollisionEvent	PostCollision	void	void *pEvent
+IManagedPhysicsCollisionEvent	Friction	void	void *pObject, float flEnergy, int32_t nSurfaceProps, int32_t nSurfacePropsHit, void *pData
+IManagedPhysicsCollisionEvent	StartTouch	void	void *pObject1, void *pObject2, void *pTouchData
+IManagedPhysicsCollisionEvent	EndTouch	void	void *pObject1, void *pObject2, void *pTouchData
+IManagedPhysicsCollisionEvent	FluidStartTouch	void	void *pObject, void *pFluid
+IManagedPhysicsCollisionEvent	FluidEndTouch	void	void *pObject, void *pFluid
+IManagedPhysicsCollisionEvent	PostSimulationFrame	void	void
+IManagedPhysicsCollisionEvent	ObjectEnterTrigger	void	void *pTrigger, void *pObject
+IManagedPhysicsCollisionEvent	ObjectLeaveTrigger	void	void *pTrigger, void *pObject
+IManagedPhysicsCollisionSolver	ShouldCollide	int32_t	void *pObj0, void *pObj1, void *pGameData0, void *pGameData1
+IManagedPhysicsCollisionSolver	ShouldSolvePenetration	int32_t	void *pObj0, void *pObj1, void *pGameData0, void *pGameData1, float flDt
+IManagedPhysicsCollisionSolver	ShouldFreezeObject	bool	void *pObject
+IManagedPhysicsCollisionSolver	AdditionalCollisionChecksThisTick	int32_t	int32_t nCurrentChecksDone
+IManagedPhysicsCollisionSolver	ShouldFreezeContacts	bool	void *ppObjectList, int32_t nObjectCount
+IManagedPhysicsConstraintEvent	ConstraintBroken	void	void *pConstraint
+IManagedMotionEvent	Simulate	int32_t	void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular
+IManagedVPhysicsKeyHandler	ParseKeyValue	void	void *pData, const char *pKey, const char *pValue
+IManagedVPhysicsKeyHandler	SetDefaults	void	void *pData
