@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 
 using Xunit;
@@ -11,12 +12,12 @@ namespace SourceSharp.Tests;
 public class EngineEnvironmentTests
 {
     [Fact]
-    public void AnEnvironmentTheShellHasNotFilledInAnswersNothing()
+    public void AnEnvironmentWhoseSideHasNoRootAnswersNothing()
     {
         IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(new EngineSide(Side.Server));
 
         Assert.True(env.GetInterface("VEngineServer023") == 0,
-            "with no factory handed across, every interface lookup answers null");
+            "with no shim root attached, every interface lookup answers null");
     }
 
     [Fact]
@@ -29,17 +30,44 @@ public class EngineEnvironmentTests
     }
 
     [Fact]
-    public void AnInterfaceTheEngineHasIsAnswered()
+    public unsafe void AnInterfaceTheEngineHasIsAnswered()
     {
-        IEngineEnvironment env = new EngineEnvironment(name => name == "VEngineServer023" ? 0x1234 : 0, 0);
+        void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
+        try
+        {
+            using var root = new FakeShimRoot().Interface("VEngineServer023", self);
+            IEngineEnvironment env = Attached(root);
 
-        Assert.True(env.GetInterface("VEngineServer023") == 0x1234, "the factory's answer is what comes back");
+            Assert.True(env.GetInterface("VEngineServer023") == (nint)self, "the factory's answer is what comes back");
+        }
+        finally
+        {
+            NativeMemory.Free(self);
+        }
+    }
+
+    /// <summary>
+    /// The factory asked is the engine's <c>appSystemFactory</c>, the one a
+    /// <c>CreateInterfaceFn</c> handed to a game DLL is; SourceSharp's own
+    /// internal factory would answer for our shim objects instead.
+    /// </summary>
+    [Fact]
+    public void TheEnginesAppSystemFactoryIsTheOneAsked()
+    {
+        using var root = new FakeShimRoot();
+        IEngineEnvironment env = Attached(root);
+        root.Asked.Clear();
+
+        env.GetInterface("VEngineServer023");
+
+        Assert.Equal([(SourceSharpFactoryType.AppSystem, "VEngineServer023")], root.Asked);
     }
 
     [Fact]
     public void AnInterfaceTheEngineDoesNotHaveIsNullRatherThanAThrow()
     {
-        IEngineEnvironment env = new EngineEnvironment(_ => 0, 0);
+        using var root = new FakeShimRoot { Refusal = "no such interface" };
+        IEngineEnvironment env = Attached(root);
 
         Assert.True(env.GetInterface("IDoNotExist001") == 0,
             "a missing interface is a normal answer here, not an exception");
@@ -50,15 +78,33 @@ public class EngineEnvironmentTests
     /// <c>CreateInterfaceFn</c> is handed the pointer straight through, and the
     /// engine's implementation compares it against every registered name — an
     /// empty string is a question with no useful answer and a null one is worse.
+    /// The root here would answer it, so a zero can only mean it was not asked.
     /// </summary>
     [Fact]
-    public void AnEmptyNameIsRefusedWithoutAskingTheEngine()
+    public unsafe void AnEmptyNameIsRefusedWithoutAskingTheEngine()
     {
-        int asked = 0;
-        IEngineEnvironment env = new EngineEnvironment(_ => { asked++; return 0x99; }, 0);
+        void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
+        try
+        {
+            using var root = new FakeShimRoot().Interface("", self);
+            IEngineEnvironment env = Attached(root);
+            root.Asked.Clear();
 
-        Assert.True(env.GetInterface("") == 0 && asked == 0,
-            "an empty interface name is refused here rather than passed to the engine");
+            Assert.True(env.GetInterface("") == 0 && root.Asked.Count == 0,
+                "an empty interface name is refused here rather than passed to the engine");
+        }
+        finally
+        {
+            NativeMemory.Free(self);
+        }
+    }
+
+    /// <summary>The server's environment, as its registration builds it over a side attached to <paramref name="root"/>.</summary>
+    private static IEngineEnvironment Attached(FakeShimRoot root)
+    {
+        var side = new EngineSide(Side.Server);
+        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        return SideBindings.Of<IEngineEnvironment>(side);
     }
 
     /// <summary>

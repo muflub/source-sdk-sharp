@@ -23,6 +23,12 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     /// engine's factory writes one into its error buffer; null writes none.
     /// </summary>
     public string? Refusal { get; set; }
+
+    /// <summary>
+    /// Every interface acquire the root was asked, in order: the factory kind
+    /// and the version string, whether or not it was served.
+    /// </summary>
+    public List<(SourceSharpFactoryType Type, string Version)> Asked { get; } = new();
     private readonly Dictionary<string, (Type Fwd, nint Table)> _tables = new();
     private readonly Dictionary<string, nint> _headers = new();
     private GCHandle _self;
@@ -199,6 +205,7 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     {
         var owner = (FakeShimRoot)GCHandle.FromIntPtr(((nint*)self)[1]).Target!;
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
+        owner.Asked.Add(((SourceSharpFactoryType)type, v));
         if (owner._interfaces.TryGetValue(v, out nint found))
             return (void*)found;
 
