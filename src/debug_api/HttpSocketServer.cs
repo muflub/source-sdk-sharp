@@ -207,9 +207,7 @@ public sealed class HttpSocketServer : IDisposable
             finally
             {
                 if (!handedOff)
-                {
-                    try { client.Close(); } catch { }
-                }
+                    CloseClient(client);
             }
         }
     }
@@ -273,7 +271,7 @@ public sealed class HttpSocketServer : IDisposable
                 }
                 finally
                 {
-                    try { client.Close(); } catch { }
+                    CloseClient(client);
                 }
             })
             {
@@ -286,6 +284,20 @@ public sealed class HttpSocketServer : IDisposable
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Ends the reply's stream, then lets go of the socket. Close alone releases
+    /// only this handle, and the client sees the end of the stream only once
+    /// every handle to the socket is gone: on Windows a child process started
+    /// while the request was open can hold an inherited one, and the client then
+    /// waits on a complete reply (DebugApiWaitTests' long-request fact timed out
+    /// that way on the Windows runners). Shutdown ends it whoever else holds it.
+    /// </summary>
+    internal static void CloseClient(Socket client)
+    {
+        try { client.Shutdown(SocketShutdown.Send); } catch { }
+        try { client.Close(); } catch { }
     }
 
     //-------------------------------------------------------------------------

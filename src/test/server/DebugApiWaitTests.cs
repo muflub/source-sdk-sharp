@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -352,6 +353,47 @@ public class DebugApiWaitTests
             stage?.Invoke($"sent, {all.Length} bytes back and no end of stream: {all}");
         }
         return all.ToString();
+    }
+
+    [DllImport("libc", EntryPoint = "dup", SetLastError = true)]
+    private static extern int Dup(int fd);
+
+    [DllImport("libc", EntryPoint = "close")]
+    private static extern int CloseFd(int fd);
+
+    [LinuxOnlyFact("dup(2) gives the server's socket a second holder, as a child process's inherited handle does on Windows")]
+    public void A_closed_reply_ends_its_stream_while_another_handle_holds_the_socket()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"ss-close-{Guid.NewGuid():N}.sock");
+        using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        listener.Bind(new UnixDomainSocketEndPoint(path));
+        listener.Listen(1);
+        try
+        {
+            using var client = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            client.Connect(new UnixDomainSocketEndPoint(path));
+            Socket served = listener.Accept();
+            int other = Dup((int)served.Handle);
+            Assert.True(other >= 0, $"dup failed: errno {Marshal.GetLastPInvokeError()}");
+            try
+            {
+                served.Send(Encoding.ASCII.GetBytes("reply"));
+                HttpSocketServer.CloseClient(served);
+
+                client.ReceiveTimeout = 2000;
+                var buffer = new byte[16];
+                Assert.Equal(5, client.Receive(buffer));
+                Assert.Equal(0, client.Receive(buffer));
+            }
+            finally
+            {
+                CloseFd(other);
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]
