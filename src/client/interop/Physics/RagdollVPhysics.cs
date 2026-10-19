@@ -335,6 +335,17 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
                                                                 (void*)attached, (void*)group, block);
     }
 
+    public nint CreateBallsocketConstraint(nint environment, nint reference, nint attached, nint group,
+                                           in ConstraintBallsocketParams p)
+    {
+        if (environment == 0)
+            return 0;
+
+        fixed (ConstraintBallsocketParams* block = &p)
+            return (nint)Env(environment)->CreateBallsocketConstraint((void*)environment, (void*)reference,
+                                                                     (void*)attached, (void*)group, block);
+    }
+
     public void DestroyConstraint(nint environment, nint constraint)
     {
         if (environment != 0 && constraint != 0)
@@ -385,6 +396,12 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
     // ---- objects -------------------------------------------------------------
 
     public float Mass(nint physicsObject) => physicsObject == 0 ? 0f : Obj(physicsObject)->GetMass((void*)physicsObject);
+
+    public void SetMass(nint physicsObject, float mass)
+    {
+        if (physicsObject != 0)
+            Obj(physicsObject)->SetMass((void*)physicsObject, mass);
+    }
 
     public Vector Position(nint physicsObject)
     {
@@ -495,6 +512,16 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
             Obj(physicsObject)->LocalToWorldVector((void*)physicsObject, &world, &local);
 
         return world;
+    }
+
+    public Vector WorldToLocal(nint physicsObject, Vector world)
+    {
+        Vector local = Vector.Zero;
+
+        if (physicsObject != 0)
+            Obj(physicsObject)->WorldToLocal((void*)physicsObject, &local, &world);
+
+        return local;
     }
 
     public Vector WorldToLocalVector(nint physicsObject, Vector world)

@@ -2477,7 +2477,7 @@ PROP_DROP_LIFT = 32.0
 PROP_CLASSES_ALL = ("prop_physics", "prop_physics_multiplayer", "prop_physics_respawnable")
 
 
-def clear_debris(g, center, radius):
+def clear_debris(g, center, radius, spare=()):
     """Remove every physics prop within `radius` of `center` (horizontally)
     that the map did not place -- earlier steps' crates and the gibs they broke
     into -- and answer once they are gone. Returns how many.
@@ -2485,14 +2485,15 @@ def clear_debris(g, center, radius):
     A crate dropped onto gibs lands on them: impact-damage's crate came to
     rest unhurt on five gibs an earlier step left on its landing spot (a
     gate-prefix round, 2026-10-05) and the step failed. The map's own props
-    (Gate.state["map_props"], taken at join) are left where they are."""
+    (Gate.state["map_props"], taken at join) are left where they are, and so
+    is every entity index in `spare` (a step's own prop)."""
     keep = g.state.get("map_props")
     if keep is None:
         return 0
     gone = 0
     for klass in PROP_CLASSES_ALL:
         for e in g.api.ents(klass):
-            if e["handle"] in keep:
+            if e["handle"] in keep or e["index"] in spare:
                 continue
             if math.hypot(e["origin"][0] - center[0], e["origin"][1] - center[1]) <= radius:
                 g.api.remove(handle=e["handle"])
@@ -2501,6 +2502,28 @@ def clear_debris(g, center, radius):
         g.say("    cleared %d prop(s) earlier steps left within %.0f of %s"
               % (gone, radius, [round(v) for v in center[:2]]))
     return gone
+
+
+# THE PLAYER'S SPOT in prop-hurts-player: the step checks a square of this
+# half-width around it for props earlier steps left, and clears a circle that
+# covers the whole square first (its corner is at hypot(48, 48) = 67.9).
+PLAYER_SPOT_HALF = 48.0
+PLAYER_SPOT_CLEAR = 70.0
+
+
+def clear_player_spot(g, spot, crate):
+    """clear_debris over the square prop-hurts-player checks around `spot`,
+    sparing the step's own crate (entity index `crate`), which hangs about 45
+    units away and inside the circle.
+
+    Its own clearing is around the AIM POINT (the wall the crate is made on),
+    and the player stands about 290 units from it. A gib of the previous
+    pass's impact-damage crate lay at the player's spot, outside that circle,
+    in pass 2 of a 3-pass gate at 72abbb1a2 (prop 401): the check below named
+    it, and the crate never reached the player (health 100 -> None) -- the
+    one-pass-in-nine failure of 2026-10-18, which a join,prop-hurts-player
+    subset never shows because no impact-damage runs between its passes."""
+    return clear_debris(g, spot, PLAYER_SPOT_CLEAR, spare=(crate,))
 
 
 def aim_point(g):
@@ -3061,6 +3084,7 @@ def step_prop_hurts_player(g):
     hanging = prop_origin(g, index)
     if hanging is None:
         g.skip("the pinned crate is gone")
+    clear_player_spot(g, (hanging[0], hanging[1] - 45.0), index)
     g.teleport((hanging[0], hanging[1] - 45.0, floor[2]), (-89, 90, 0), settle=0.5)
     me = g.api.player(g.scen["playerClass"])
     before = me["health"] if me else None
@@ -3081,8 +3105,8 @@ def step_prop_hurts_player(g):
     keep = g.state.get("map_props", set())
     near = [e for e in g.api.ents("prop_physics")
             if e["index"] != index
-            and abs(e["origin"][0] - hanging[0]) < 48
-            and abs(e["origin"][1] - (hanging[1] - 45.0)) < 48]
+            and abs(e["origin"][0] - hanging[0]) < PLAYER_SPOT_HALF
+            and abs(e["origin"][1] - (hanging[1] - 45.0)) < PLAYER_SPOT_HALF]
     debris = [e["index"] for e in near if e["handle"] not in keep]
     if len(near) > len(debris):
         g.note("the map's own prop(s) %s stand where the player is"
@@ -10676,6 +10700,43 @@ def self_test():
     said = console_lost_line(object())
     ok("consoleLinesLost: unavailable" in said,
        "an api with no status() says unavailable (%r)" % said)
+
+    # prop-hurts-player clears the spot it puts the player on, over the whole
+    # square its debris check reads: a gib of the previous pass's
+    # impact-damage near the player's spot failed a pass at 72abbb1a2.
+    class _DebrisApi:
+        def __init__(self, props):
+            self.props = props
+            self.removed = []
+
+        def ents(self, klass):
+            return [dict(p, index=p["handle"] + 100) for p in self.props
+                    if p["class"] == klass and p["handle"] not in self.removed]
+
+        def remove(self, **selector):
+            self.removed.append(selector["handle"])
+            return {"ok": True}
+
+    spot = (100.0, 200.0)
+    debris = [{"class": "prop_physics", "handle": 11, "origin": [140.0, 240.0, 0.0]},   # the square's corner
+              {"class": "prop_physics_multiplayer", "handle": 12, "origin": [100.0, 150.0, 0.0]},
+              {"class": "prop_physics", "handle": 13, "origin": [100.0, 290.0, 0.0]},   # outside the square
+              {"class": "prop_physics", "handle": 14, "origin": [101.0, 201.0, 0.0]},   # the map's own
+              {"class": "prop_physics", "handle": 15, "origin": [100.0, 245.0, 0.0]}]   # the step's crate
+    api = _DebrisApi(debris)
+    gate = Gate(api, {"playerClass": "player"}, verbose=False)
+    gate.state["map_props"] = {14}
+    gone = clear_player_spot(gate, spot, 115)
+    ok(sorted(api.removed) == [11, 12] and gone == 2,
+       "prop-hurts-player clears what earlier steps left on the player's spot, to its debris "
+       "square's corner (%r)" % api.removed)
+    ok(13 not in api.removed and 14 not in api.removed,
+       "and neither a prop outside the square nor the map's own (%r)" % api.removed)
+    ok(15 not in api.removed,
+       "nor the step's own crate, which hangs 45 units off the spot (%r)" % api.removed)
+    ok(PLAYER_SPOT_CLEAR >= math.hypot(PLAYER_SPOT_HALF, PLAYER_SPOT_HALF),
+       "the clearing covers the whole square the check reads (%.1f >= %.1f)"
+       % (PLAYER_SPOT_CLEAR, math.hypot(PLAYER_SPOT_HALF, PLAYER_SPOT_HALF)))
 
     ok(RUN_ORDER.index("damage") < RUN_ORDER.index("pickup"),
        "damage runs before the health pickup, or the kit has nothing to give")

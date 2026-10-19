@@ -48,6 +48,8 @@ public sealed class FakeRagdollVPhysics : IRagdollVPhysics
         public nint Attached;
         public nint Group;
         public bool Fixed;
+        public bool Ballsocket;
+        public ConstraintBallsocketParams BallsocketParams;
         public ConstraintRagdollParams Ragdoll;
         public ConstraintFixedParams FixedParams;
         public bool Destroyed;
@@ -237,6 +239,17 @@ public sealed class FakeRagdollVPhysics : IRagdollVPhysics
         return id;
     }
 
+    public nint CreateBallsocketConstraint(nint environment, nint reference, nint attached, nint group,
+                                           in ConstraintBallsocketParams p)
+    {
+        nint id = Next();
+        Constraints[id] = new FakeConstraint
+        {
+            Id = id, Reference = reference, Attached = attached, Group = group, Ballsocket = true, BallsocketParams = p,
+        };
+        return id;
+    }
+
     public void DestroyConstraint(nint environment, nint constraint)
     {
         if (Constraints.TryGetValue(constraint, out FakeConstraint? c))
@@ -277,6 +290,8 @@ public sealed class FakeRagdollVPhysics : IRagdollVPhysics
     // ---- objects -------------------------------------------------------------
 
     public float Mass(nint physicsObject) => Objects[physicsObject].Mass;
+
+    public void SetMass(nint physicsObject, float mass) => Objects[physicsObject].Mass = mass;
 
     public Vector Position(nint physicsObject) => Objects[physicsObject].Position;
 
@@ -328,6 +343,9 @@ public sealed class FakeRagdollVPhysics : IRagdollVPhysics
     public Vector LocalToWorld(nint physicsObject, Vector local) => Objects[physicsObject].Position + local;
 
     public Vector LocalToWorldVector(nint physicsObject, Vector local) => local;
+
+    /// <summary>Translation only, as <see cref="LocalToWorld"/>.</summary>
+    public Vector WorldToLocal(nint physicsObject, Vector world) => world - Objects[physicsObject].Position;
 
     /// <summary>A recognisable transform: the world vector doubled.</summary>
     public Vector WorldToLocalVector(nint physicsObject, Vector world) => world * 2f;

@@ -349,8 +349,26 @@ public class TempEntNoCallerArmsOracleTests
         }
     }
 
+    // The pin's half (c_stickybolt.cpp's CRagdollBoltEnumerator) is the
+    // client's RagdollBoltPin, whose own facts are RagdollBoltPinTests; this
+    // records only what the effect hands it, and when.
+    private sealed class Pin(Spawner spawner) : client::SourceSharp.Client.Ragdolls.IRagdollBoltPin
+    {
+        public List<(Vector Origin, Vector Direction, int SpawnedBefore)> Calls { get; } = new();
+
+        public bool Stick(Vector origin, Vector direction)
+        {
+            Calls.Add((origin, direction, spawner.Calls.Count));
+            return false;
+        }
+    }
+
     private static List<(string Model, Vector Origin, Vector Angles, Vector Velocity, float Life, int Flags)> Bolt(
         int maxClients, int surfaceFlags, Vector origin, Vector normal)
+        => Bolt(maxClients, surfaceFlags, origin, normal, out _);
+
+    private static List<(string Model, Vector Origin, Vector Angles, Vector Velocity, float Life, int Flags)> Bolt(
+        int maxClients, int surfaceFlags, Vector origin, Vector normal, out Pin pin)
     {
         var engine = ClientDoubles.Fake();
         nint raw = System.Runtime.InteropServices.Marshal.AllocHGlobal(
@@ -368,7 +386,8 @@ public class TempEntNoCallerArmsOracleTests
                 new ClientTraceResult(true, 0.5f, origin, Vector.Zero, 0, 0, 0, surfaceFlags));
 
             var spawner = new Spawner();
-            var effect = new client::SourceSharp.Client.Effects.CrossbowBoltEffect(spawner, engine, engine, new RecordingLog());
+            pin = new Pin(spawner);
+            var effect = new client::SourceSharp.Client.Effects.CrossbowBoltEffect(spawner, engine, engine, pin);
             Assert.Equal("BoltImpact", effect.EffectName);
 
             effect.Dispatch(new EffectData { Origin = origin, Normal = normal });
@@ -403,6 +422,32 @@ public class TempEntNoCallerArmsOracleTests
         var sp = Bolt(maxClients: 1, surfaceFlags: 0, Vector.Zero, new Vector(1f, 0f, 0f));
         Assert.True(sp.Count == 1 && sp[0].Life == 1f && sp[0].Flags == (int)TempEntFlags.NeverDie,
             "single player: life 1, FTENT_NEVERDIE");
+    }
+
+    [Fact]
+    public void BoltImpactPinsABodyAlongTheFlightBeforeTheBoltIsMade()
+    {
+        string bolt = Regex.Replace(Regex.Replace(ValveSdk.Read("src/game/client/c_stickybolt.cpp"), @"//[^\n]*", ""), @"\s+", "");
+        Has(bolt, "Vector vecEnd = vecOrigin - vecDirection * 128; shotRay.Init( vecOrigin, vecEnd );",
+            "the line runs 128 units back from the bolt");
+        Has(bolt, "CRagdollBoltEnumerator ragdollEnum( shotRay, vecOrigin ); ::partition->EnumerateElementsAlongRay( PARTITION_CLIENT_RESPONSIVE_EDICTS, shotRay, false, &ragdollEnum ); CreateCrossbowBolt( vecOrigin, vecDirection );",
+            "the bodies are enumerated, then the bolt is made");
+        Has(bolt, "float flMass = pPhysicsObject->GetMass(); pPhysicsObject->SetMass( flMass * 2 );", "the element's mass doubled");
+        Has(bolt, "pReference->WorldToLocal( &ballsocket.constraintPosition[0], m_vWorld ); pPhysicsObject->WorldToLocal( &ballsocket.constraintPosition[1], tr.endpos ); physenv->CreateBallsocketConstraint( pReference, pPhysicsObject, NULL, ballsocket );",
+            "the world's end at the bolt, the element's at the entry point, no group");
+        Has(bolt, "ep.m_pSoundName = \"Weapon_Crossbow.BoltSkewer\";", "the sound");
+        Has(bolt, "return ITERATION_STOP;", "one body");
+        Assert.Equal(128f, client::SourceSharp.Client.Ragdolls.RagdollBoltPin.TraceBack);
+        Assert.Equal("Weapon_Crossbow.BoltSkewer", client::SourceSharp.Client.Ragdolls.RagdollBoltPin.SkewerSound);
+
+        var spawned = Bolt(16, surfaceFlags: 0, new Vector(100f, 0f, 0f), new Vector(0f, 1f, 0f), out Pin pin);
+        Assert.True(pin.Calls.Count == 1, $"the pin asked once: {pin.Calls.Count}");
+        Assert.True(pin.Calls[0].Origin.X == 100f && pin.Calls[0].Origin.Y == 0f && pin.Calls[0].Direction.Y == 1f,
+                    "with the effect's origin and normal");
+        Assert.True(pin.Calls[0].SpawnedBefore == 0 && spawned.Count == 1, "before the bolt was made");
+
+        Bolt(16, surfaceFlags: 0x0004, Vector.Zero, new Vector(1f, 0f, 0f), out Pin sky);
+        Assert.True(sky.Calls.Count == 0, "and not at all on the sky");
     }
 
     [Fact]

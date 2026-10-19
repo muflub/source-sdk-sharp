@@ -40,6 +40,10 @@ public sealed class RecordingRagdolls(client::SourceSharp.Abi.RecordingEngine en
     public bool ApplyForceCenter(EntityHandle owner, Vector force)
         => engine.RecordAnswer<bool>("EntityRender.RagdollApplyForceCenter", owner, force);
 
+    public IReadOnlyCollection<EntityHandle> Owners => [];
+
+    public nint ElementObject(EntityHandle owner, int physicsBone) => 0;
+
     public int WriteBones(EntityHandle owner, Span<BoneMatrix3x4> bones, Span<int> owned) => -1;
 
     public bool Destroy(EntityHandle owner) => false;
