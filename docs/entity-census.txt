@@ -916,11 +916,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 103       140
+objects linked                                                 103       141
   ... stock game/server | game/client                            0         7
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        103       133
+  ... SourceSharp shim (sourcesharp/**)                        103       134
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0

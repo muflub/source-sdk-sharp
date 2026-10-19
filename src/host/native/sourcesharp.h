@@ -1120,165 +1120,15 @@ typedef struct
 } SourceSharpTextMessage;
 
 //=============================================================================//
-// TEMP ENTITIES — the description one side of the wire builds a table from.
+// TEMP ENTITIES — the tables both sides build, planned in C#.
 //
 // plan_tmp.md Part 3. A temp entity is a TABLE, not a class: the engine's
 // PlaybackTempEntity takes a `const void *pSender` and a SendTable, and every
 // prop reads at its own declared offset, so nothing here needs a C++ object. C#
-// declares the fields, EntityLayout computes the offsets, and native turns the
-// description below into SendProp[]/SendTable/ServerClass at runtime.
-//
-// THE ARITHMETIC OVER THESE STRUCTS LIVES IN game/client/tempent_schema.h,
-// which includes this header and NOTHING else — so widths, the worst-case
-// encoded size against the engine's 192-byte event cap, duplicate-name refusal and
-// late-registration refusal are all testable without a running Source.
+// declares the fields (TeClass), EntityLayout computes the offsets, TePropPlanner
+// plans the props, and each side's planner decides every field of every prop.
+// What crosses is below; native stores it and decides nothing.
 //=============================================================================//
-
-//-----------------------------------------------------------------------------
-// What kind of prop a field becomes.
-//
-// Five would do (plan 2B: int, float, vector, plus datatable nesting and one
-// array). There are seven because SendPropAngle and SendPropQAngles are NOT
-// SendPropFloat/SendPropVector with [0,360] — they also install
-// SendProxy_AngleToFloat / SendProxy_QAngles, which run anglemod() on the way
-// out. A negative pitch through a plain float proxy encodes out of its declared
-// range; through the angle proxy it wraps, which is what stock sends. A proxy
-// that is not a no-op is not a proxy this port may drop (2B is about the ones
-// that are).
-//-----------------------------------------------------------------------------
-typedef enum
-{
-	SOURCESHARP_TE_PROP_INT       = 0,
-	SOURCESHARP_TE_PROP_FLOAT     = 1,
-	SOURCESHARP_TE_PROP_VECTOR    = 2,
-	SOURCESHARP_TE_PROP_ANGLE     = 3,   // SendPropAngle:   DPT_Float,  [0,360], anglemod
-	SOURCESHARP_TE_PROP_QANGLES   = 4,   // SendPropQAngles: DPT_Vector, [0,360], anglemod
-	SOURCESHARP_TE_PROP_DATATABLE = 5,
-	SOURCESHARP_TE_PROP_ARRAY     = 6,
-} SourceSharpTeProp;
-
-//-----------------------------------------------------------------------------
-// A width that is a SYMBOL in stock's table, resolved natively from the header
-// that owns it.
-//
-// Nine of these, and none may be restated in C# (plan 3.1). A prop one bit
-// narrower than the other side expects is a bitstream that stops making sense
-// partway through — the failure with no log line — and a second copy of
-// MAX_EDICT_BITS is exactly how that happens. Literals that are literals in
-// stock's own table stay literals in C#; these are the ones that are not.
-//-----------------------------------------------------------------------------
-typedef enum
-{
-	SOURCESHARP_TE_BITS_LITERAL         = 0,  // nBits is the width
-	SOURCESHARP_TE_BITS_MAX_EDICT       = 1,  // MAX_EDICT_BITS                 (const.h)
-	SOURCESHARP_TE_BITS_MODEL_INDEX     = 2,  // SP_MODEL_INDEX_BITS            (const.h)
-	SOURCESHARP_TE_BITS_EF_MAX          = 3,  // EF_MAX_BITS                    (const.h)
-	SOURCESHARP_TE_BITS_ANIM_SKIN       = 4,  // ANIMATION_SKIN_BITS            (baseanimating.h)
-	SOURCESHARP_TE_BITS_MAX_PLAYERS_LOG2= 5,  // Q_log2( MAX_PLAYERS )          (shareddefs.h)
-	SOURCESHARP_TE_BITS_EFFECT_FLAG     = 6,  // MAX_EFFECT_FLAG_BITS           (effect_dispatch_data.h)
-	SOURCESHARP_TE_BITS_EFFECT_STRING   = 7,  // MAX_EFFECT_DISPATCH_STRING_BITS(effect_dispatch_data.h)
-	SOURCESHARP_TE_BITS_EHANDLE         = 8,  // NUM_NETWORKED_EHANDLE_BITS     (const.h)
-	SOURCESHARP_TE_BITS_COUNT           = 9,
-} SourceSharpTeBits;
-
-//-----------------------------------------------------------------------------
-// Encoding flags. THE VALUES ARE SPROP_*'s OWN, deliberately, so the
-// translation into a SendProp is the identity — and shell_tempents.cpp asserts
-// that agreement at compile time rather than claiming it in a comment. Two
-// enumerations of the same bits that agreed at first and drifted is the failure
-// this tree keeps writing memories about.
-//
-// SOURCESHARP_TE_FLAG_VECTOR_ELEM is the one that is not an SPROP_ input: it
-// reuses SPROP_IS_A_VECTOR_ELEM's bit, which the ENGINE sets, and means "declare
-// this prop the way SENDINFO_VECTORELEM does" — that is, hand the constructor a
-// NEGATED offset. The engine negates it back and sets the flag itself. See
-// dt_send.h:631.
-//-----------------------------------------------------------------------------
-enum
-{
-	SOURCESHARP_TE_FLAG_NONE                  = 0,
-	SOURCESHARP_TE_FLAG_UNSIGNED              = (1 << 0),
-	SOURCESHARP_TE_FLAG_COORD                 = (1 << 1),
-	SOURCESHARP_TE_FLAG_NOSCALE               = (1 << 2),
-	SOURCESHARP_TE_FLAG_ROUNDDOWN             = (1 << 3),
-	SOURCESHARP_TE_FLAG_ROUNDUP               = (1 << 4),
-	SOURCESHARP_TE_FLAG_NORMAL                = (1 << 5),
-	SOURCESHARP_TE_FLAG_VECTOR_ELEM           = (1 << 11),
-	SOURCESHARP_TE_FLAG_COORD_MP              = (1 << 13),
-	SOURCESHARP_TE_FLAG_COORD_MP_LOWPRECISION = (1 << 14),
-	SOURCESHARP_TE_FLAG_COORD_MP_INTEGRAL     = (1 << 15),
-};
-
-//-----------------------------------------------------------------------------
-// One field of a temp entity: where it sits in the blob, and how it is encoded.
-//
-// The offset comes from EntityLayout and NOT from this side — no TE declares an
-// offset by hand (plan 3.1). What C# cannot compute is the encoding, which is
-// the rest of this struct.
-//-----------------------------------------------------------------------------
-typedef struct
-{
-	const char *pName;      // the WIRE name: "m_vecOrigin[0]", "entindex", ...
-	int32_t     nKind;      // SourceSharpTeProp
-	int32_t     nOffset;    // byte offset into the blob
-	// Storage width in the blob, from EntityLayout — NOT the wire width.
-	//
-	// It is here because SendPropInt picks its read proxy from sizeofVar
-	// (dt_send.cpp:492): 1 byte selects SendProxy_Int8ToInt32, 4 selects
-	// SendProxy_Int32ToInt32. A byte field described as four reads three bytes
-	// of whatever comes after it and sends a plausible number.
-	int32_t     nSizeBytes;
-
-	int32_t     nBits;      // width, when nBitsFrom is LITERAL; -1 means "the flag decides"
-	int32_t     nBitsFrom;  // SourceSharpTeBits
-	int32_t     nFlags;     // SOURCESHARP_TE_FLAG_*
-	float       flLow;
-	float       flHigh;
-	const char *pSubTable;  // DATATABLE only: the table nested here, by name
-
-	// HOW MANY PROPS THIS ONE FIELD BECOMES, and how far apart they sit.
-	//
-	// 0 or 1 is one prop, which is most of them. N > 1 emits N props named
-	// "<name>[0]".."<name>[N-1]" at nOffset + i * nElemStride, which is what
-	// SENDINFO_VECTORELEM and SENDINFO_ARRAYELEM both expand to in stock's
-	// tables — a Vector sent as three floats, a QAngle as three
-	// SendPropAngles, a colour as three bytes. SOURCESHARP_TE_FLAG_VECTOR_ELEM
-	// picks which of the two: it negates each offset, the way
-	// SENDINFO_VECTORELEM does and SENDINFO_ARRAYELEM does not.
-	//
-	// ONE MECHANISM RATHER THAN THREE PROP KINDS, because the C# side declares
-	// one field either way. Three floats declared separately would be three
-	// fields the writer has to keep in step, and the vector it is written from
-	// would have no type.
-	//
-	// For SOURCESHARP_TE_PROP_ARRAY these two mean the DPT_Array's own element
-	// count and stride instead. An array is one prop PAIR rather than N props
-	// (plan 3.3), and there is exactly one in all 44 tables.
-	int32_t     nElems;
-	int32_t     nElemStride;
-} SourceSharpTeField_t;
-
-//-----------------------------------------------------------------------------
-// One temp entity class.
-//
-// nRegisterClass distinguishes the two things a description can be. A CONCRETE
-// TE is a ServerClass the client pairs with by name; a BASE table is a
-// SendTable that other tables nest and that no client ever pairs with directly
-// while stock's own class of that name is still registered. Registering a
-// SECOND ServerClass under a name the native build already publishes is how a
-// join hangs with nothing in any log (plan 2E), so the choice is stated in the
-// description rather than guessed at from the field list.
-//-----------------------------------------------------------------------------
-typedef struct
-{
-	const char                 *pClassName;     // "CTESparks" -- what the two sides pair on
-	const char                 *pTableName;     // "DT_TESparks"
-	const char                 *pBaseTable;     // "DT_TEParticleSystem", or NULL for NOBASE
-	int32_t                     nBlobBytes;     // = EntityLayout.Size, never a maintained constant
-	int32_t                     nRegisterClass; // 0 = build the table only, no ServerClass
-	int32_t                     nFieldCount;
-	const SourceSharpTeField_t *pFields;
-} SourceSharpTeClass_t;
 
 //-----------------------------------------------------------------------------
 // THE SERVER'S TEMP ENTITY TABLES, DECIDED IN C# AND STORED HERE
@@ -1294,8 +1144,7 @@ typedef struct
 // the ServerClass, and decides nothing. The engine walks both by layout and
 // calls the proxies through m_ProxyFn, which is why they are built natively.
 //
-// The client still plans its RecvTables from SourceSharpTeClass_t above, with
-// tempent_schema.h.
+// The client's tables cross the same way, with RecvProp rows (below).
 //-----------------------------------------------------------------------------
 typedef enum
 {
@@ -1352,6 +1201,52 @@ typedef struct
 	const void *pSendTable;     // for PlaybackTempEntity
 	int32_t    *pClassId;       // &ServerClass::m_ClassID, which the engine fills after DLL init; NULL with no class
 } SourceSharpTeBuiltTable_t;
+
+//-----------------------------------------------------------------------------
+// THE CLIENT'S TEMP ENTITY TABLES, DECIDED IN C# AND STORED HERE, the same way.
+//
+// The client plans each table from the same TePropPlanner plan the server's
+// SendTables come from, and RecvPropPlan decides every field dt_recv.h's
+// RecvProp builders would have: the recv name, the type, the positive offset,
+// the flags and the standard proxy. The block is the server's shape with a
+// SourceSharpRecvPropRow_t per prop: a SourceSharpTeTableHeader_t, the rows, and
+// the names. Native stores the rows into RecvProps, builds the RecvTable and, if
+// asked, the ClientClass and its receiving shell, and decides nothing. The
+// engine walks those by layout and compares a prop's proxy with
+// g_StandardRecvProxies, which is why they are built natively.
+//-----------------------------------------------------------------------------
+typedef enum
+{
+	SOURCESHARP_RECVPROXY_NONE                = 0,   // a DPT_Array (InternalRecvPropArray, no length proxy)
+	SOURCESHARP_RECVPROXY_INT32_TO_INT8       = 1,
+	SOURCESHARP_RECVPROXY_INT32_TO_INT16      = 2,
+	SOURCESHARP_RECVPROXY_INT32_TO_INT32      = 3,
+	SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT      = 4,
+	SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR    = 5,
+	SOURCESHARP_RECVPROXY_STATIC_DATATABLE    = 6,   // a DPT_DataTable's table proxy
+	SOURCESHARP_RECVPROXY_COUNT               = 7,
+} SourceSharpRecvProxy;
+
+typedef struct
+{
+	int32_t nType;              // DPT_* (dt_common.h)
+	int32_t nOffset;            // into the blob, never negated
+	int32_t nFlags;             // SPROP_*
+	int32_t nElements;          // m_nElements: 1 unless a DPT_Array
+	int32_t nElementStride;     // m_ElementStride: -1 unless a DPT_Array
+	int32_t nProxy;             // SourceSharpRecvProxy
+	int32_t hDataTable;         // DPT_DataTable: a table built before this one; else -1
+	int32_t oName;              // payload offset of the prop's name
+} SourceSharpRecvPropRow_t;
+
+// What a client build answers besides its handle: a class NAME built by an
+// earlier load answers that table, with bExisted set and the hash it was built
+// with, because the engine walked the class list once.
+typedef struct
+{
+	int32_t  bExisted;
+	uint32_t nShapeHash;
+} SourceSharpTeRecvBuilt_t;
 
 //-----------------------------------------------------------------------------
 // ONE POOLED TEMP ENTITY'S LIFETIME, as the managed pool reads and writes it

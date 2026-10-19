@@ -65,40 +65,11 @@ public sealed unsafe class TempEntTables : ITempEntTables
 /// </summary>
 public static class TempEntBlock
 {
-    /// <summary>The block for one table.</summary>
+    /// <summary>The block for one table (<see cref="TeTableBlock"/>, with SendProp rows).</summary>
     public static byte[] Write(string className, string tableName, bool registerClass, uint shapeHash,
                                IReadOnlyList<SendPropRow> rows)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-
-        int headerBytes = Unsafe.SizeOf<TeTableHeader>();
-        int rowBytes = Unsafe.SizeOf<SendPropRowDesc>();
-        var names = new List<byte>();
-
-        int Name(string text)
-        {
-            int at = headerBytes + rows.Count * rowBytes + names.Count;
-            names.AddRange(System.Text.Encoding.UTF8.GetBytes(text));
-            names.Add(0);
-            return at;
-        }
-
-        var header = new TeTableHeader
-        {
-            Props = rows.Count,
-            RegisterClass = registerClass ? 1 : 0,
-            ClassName = Name(className),
-            TableName = Name(tableName),
-            ShapeHash = shapeHash,
-        };
-
-        var descs = new SendPropRowDesc[rows.Count];
-
-        for (int i = 0; i < rows.Count; i++)
-        {
-            SendPropRow row = rows[i];
-
-            descs[i] = new SendPropRowDesc
+        => TeTableBlock.Write(className, tableName, registerClass, shapeHash, rows, row => row.Name,
+            (row, name) => new SendPropRowDesc
             {
                 Type = (int)row.Type,
                 Offset = row.Offset,
@@ -111,21 +82,8 @@ public static class TempEntBlock
                 ElementStride = row.ElementStride,
                 Proxy = (int)row.Proxy,
                 DataTable = row.DataTable,
-                Name = Name(row.Name),
-            };
-        }
-
-        int payload = headerBytes + rows.Count * rowBytes + names.Count;
-        var block = new byte[BitBlock.HeaderBytes + payload];
-        Span<byte> body = BitBlock.Payload(block.AsSpan());
-
-        MemoryMarshal.Write(body, in header);
-        MemoryMarshal.AsBytes(descs.AsSpan()).CopyTo(body[headerBytes..]);
-        names.ToArray().CopyTo(body[(headerBytes + rows.Count * rowBytes)..]);
-        BitBlock.SetBits(block, payload * 8);
-
-        return block;
-    }
+                Name = name,
+            });
 }
 
 /// <summary>

@@ -28,8 +28,8 @@
 // the unpacking is what the tests read, and the .cpp's job shrinks to one
 // assignment per line into the engine's own call.
 //
-// NO ENGINE HEADERS, on purpose, and it is the same argument tempent_schema.h
-// and generic_payload.h make. The only include is the ABI header, which is pure
+// NO ENGINE HEADERS, on purpose, and it is the same argument generic_payload.h
+// makes. The only include is the ABI header, which is pure
 // C and knows nothing about Source. See sourcesharp/test/te_backend_args_test.cpp.
 //
 //=============================================================================//

@@ -1246,8 +1246,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // BEFORE the players below, because a player for a class native refused
         // is a player nothing can ever route to, and the refusal line has to be
         // on the console above it.
-        int tempEnts = _tempEnts.RegisterAll("Client", Game,
-                                             _services.Require<IEngineEffects>());
+        //
+        // THE TABLES ARE PLANNED HERE AND STORED BY NATIVE (the client half of
+        // plan_server_native_v2 T4b): ClientTempEntEngine decides every
+        // RecvProp, and IShimTempEntBackendsClient::TempEntBuildClient builds
+        // the RecvTable, the ClientClass and the receiving shell from its block.
+        var tempEntEngine = new TempEnts.ClientTempEntEngine(new ClientTempEntTables(_engine), Log);
+        int tempEnts = _tempEnts.RegisterAll("Client", Game, tempEntEngine);
         _services.AddInstance(_tempEnts);
 
         // THE STANDALONE REGISTRY BEFORE THE POOL, and this is why it moved up

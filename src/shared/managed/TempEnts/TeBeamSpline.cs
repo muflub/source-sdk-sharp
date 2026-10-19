@@ -65,7 +65,7 @@ public struct TeSplinePoints
 /// why this table and <c>DT_EffectData</c> are the two priced against
 /// the engine's 192-byte event payload cap and
 /// why overflow here is a <c>Host_Error</c> rather than a dropped effect
-/// (plan 2F). <c>tempent_schema.h</c> prices the worst case AT REGISTRATION —
+/// (plan 2F). <c>TeSchemaRegistry</c> prices the worst case AT REGISTRATION —
 /// a startup message with a console to print it on — instead of discovering it
 /// at playback in the middle of a firefight. The measured answer for this table
 /// is 1,112 bits, 139 of the 192 bytes: 32 of framing, 7 + 5 for

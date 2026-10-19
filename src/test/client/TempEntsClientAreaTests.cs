@@ -22,7 +22,9 @@ public class TempEntsClientAreaTests
     // Each native caller and the calls it makes on the area, with their counts.
     private static readonly (string File, string Slot, int Calls)[] CallSites =
     [
-        ("shell_tempents_client.cpp", "OnTempEntity", 2),
+        // The receiving shell's PostDataUpdate. The local path's Play was the
+        // second caller and had no caller of its own (deleted, 2026-10-19).
+        ("shell_tempents_client.cpp", "OnTempEntity", 1),
         ("shell_tempents_client.cpp", "OnNativeTempEntity", 1),
         // The retired exports were these two callbacks' only callers; the
         // slots stay in IManagedTempEntsClient (their removal is the

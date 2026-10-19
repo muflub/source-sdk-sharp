@@ -562,12 +562,10 @@ shell_te_pool_client.o	_ZL15g_pTempEntSlots	g_pTempEntSlots	sourcesharp/game/cli
 shell_tempents_client.o	_ZZL16TeCreateEventForiE5s_Fns	TeCreateEventFor(int)::s_Fns	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	function-local	512	UNRULED		
 shell_tempents_client.o	_ZZL16TeCreateEventForiE9s_bFilled	TeCreateEventFor(int)::s_bFilled	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_tempents_client.o	_ZL21cs_cl_te_dump_command	cs_cl_te_dump_command	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_tempents_client.o	_ZL9g_TeBuilt	g_TeBuilt	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	2560	UNRULED		
-shell_tempents_client.o	_ZL13g_TePropNames	g_TePropNames	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-shell_tempents_client.o	_ZL12g_TeRegistry	g_TeRegistry	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	232472	UNRULED		
-shell_tempents_client.o	_ZL11g_TeScratch	g_TeScratch	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	512	DEAD		the linker drops it: nothing in the shipped .so reads it
-shell_tempents_client.o	_ZL17g_iTeScratchClass	g_iTeScratchClass	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
-shell_tempents_client.o	_ZL13g_nTeShadowed	g_nTeShadowed	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	4	UNRULED		
+shell_tempents_client.o	_ZL9g_TeBuilt	g_TeBuilt	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	3584	UNRULED		
+shell_tempents_client.o	_ZL9g_TeNamesB5cxx11	g_TeNames[abi:cxx11]	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	48	UNRULED		
+shell_tempents_client.o	_ZL11g_bTeClosed	g_bTeClosed	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	1	UNRULED		
+shell_tempents_client.o	_ZL10g_nTeBuilt	g_nTeBuilt	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	4	UNRULED		
 shell_vgui_client.o	_ZZ12VGui_StartupPFPvPKcPiEE15s_bModeCallback	VGui_Startup(void* (*)(char const*, int*))::s_bModeCallback	sourcesharp/game/client/shell_vgui_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 	g_InputInternal	g_InputInternal	sourcesharp/game/client/shell_vgui_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_vgui_client.o	_ZL16s_nPausedSeconds	s_nPausedSeconds	sourcesharp/game/client/shell_vgui_client.cpp	LOCAL	data	file-or-global	4	UNRULED		

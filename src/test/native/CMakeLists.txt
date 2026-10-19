@@ -315,36 +315,21 @@ ss_cpptest_mathlib(dt_element_names_test
 # (plan_server_native_v2 T4b): the block read and refused when malformed, and
 # each row stored into a SendProp with the real dt_send.cpp proxies.
 ss_cpptest_mathlib(tempent_store_test
-    INCLUDES sourcesharp/host sourcesharp/game/server
+    INCLUDES sourcesharp/host sourcesharp/game/server sourcesharp/game/shared
     SOURCES sourcesharp/test/tempent_store_test.cpp
             sourcesharp/game/server/shell_tempents_store.cpp
     LIBS ss_cpptest_dtobjs)
 
-# The temp entity description (plan_tmp.md Part 9, gate 2). Widths, blob offsets
-# and the worst-case encoded size against the engine's 192-byte event cap, plus
-# the registry's two refusals that cannot be seen from inside a running game -- a duplicate class
-# name (the client begins joining and stops, with nothing in any log) and a late
-# registration (the engine walks the class list once, and a class built after it
-# simply is not there). Header-only and engine-free, same as the payload above.
-# -I for the ABI header, which is where the description structs are declared --
-# tempent_schema.h includes it the same way entity_slots.h does, so the shape
-# crossing the boundary has one definition rather than two that agree at first.
-ss_cpptest(tempent_schema_test
-    INCLUDES sourcesharp/host
-    SOURCES sourcesharp/test/tempent_schema_test.cpp)
-
-# The temp entity PROP PLAN (plan_tmp.md Part 9, gate 2, the client half). The
-# expansion rule -- the leading "baseclass" prop, one field becoming
-# m_vecOrigin[0..2], SENDINFO_VECTORELEM's negated SEND offset beside the
-# positive RECEIVE one, and the array's template-then-DPT_Array pair -- is walked
-# by BOTH shell_tempents.cpp and shell_tempents_client.cpp, so it lives in
-# tempent_schema.h where neither owns it. generic_nettable.h already records
-# what a rule with two implementations does; the symptom here is a client that
-# begins joining and stops with nothing in any log. Header-only and engine-free,
-# same -I for the ABI header as its neighbour above.
-ss_cpptest(tempent_plan_test
-    INCLUDES sourcesharp/host
-    SOURCES sourcesharp/test/tempent_plan_test.cpp)
+# The client's half: a managed plan's block read with the client's rows, and one
+# row stored into one RecvProp, linked with the recv builders and nothing else.
+ss_cpptest_engine_headers(tempent_recv_store_test
+    DEFINES CLIENT_DLL
+    INCLUDES public public/tier0 public/tier1 sourcesharp/host sourcesharp/game/client sourcesharp/game/shared
+             ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
+    SOURCES sourcesharp/test/tempent_recv_store_test.cpp
+            sourcesharp/game/client/shell_tempents_store_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv_names.cpp)
 
 # The temp entity BACKENDS' arguments (plan_tmp.md Part 4, C-Phase 2, gate 2).
 # Fifteen client backends landed in one pass and every one is the same shape:

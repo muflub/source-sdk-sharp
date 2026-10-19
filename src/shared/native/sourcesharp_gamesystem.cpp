@@ -165,10 +165,10 @@ void    SourceSharp_TempEntCloseRegistration( void );
 
 #ifdef CLIENT_DLL
 // Temp entities, client half (plan_tmp.md Part 3), implemented in
-// client/shell_tempents_client.cpp. The SAME ABI slot the server fills, with
-// the other implementation behind it: this one builds a RecvTable and a
-// ClientClass from the same description, and hands the decoded blob to managed
-// code through OnTempEntity.
+// client/shell_tempents_client.cpp: managed plans each table
+// (ClientTempEntEngine) and IShimTempEntBackendsClient::TempEntBuildClient
+// stores it as a RecvTable and a ClientClass; the decoded blob goes back to
+// managed code through OnTempEntity. Close shuts the build window.
 //
 // THE WINDOW IS CShellClientDLL::Init()'s, which calls
 // LoadManagedRuntime( this ) deliberately ahead of gHUD.Init(), and
@@ -176,7 +176,6 @@ void    SourceSharp_TempEntCloseRegistration( void );
 // systems is link order (plan 2D). It was SourceSharp_ClientEarlyInit()'s
 // window until 5b-runtime gave the load a named owner; the window is the same
 // one and is still the reason this registration lands where it does.
-void    SourceSharp_TempEntClientInit( void );
 void    SourceSharp_TempEntClientCloseRegistration( void );
 #endif
 
@@ -1239,15 +1238,6 @@ bool SourceSharp_LoadManagedSide( void )
 // its fill served is a method of one of its shim areas (shared bases in
 // ishim_areas.h, client-only areas in ishim_areas_client.h), acquired through
 // its shim root; the fill went with them.
-
-#ifdef CLIENT_DLL
-	// BEFORE LoadSide, because managed registers its temp entity classes from
-	// inside it. Every managed base table this client declares is resolved
-	// against g_pClientClassHead when stock still owns it, which is the
-	// ordinary state of this port for its whole length. (The server's tables
-	// are planned in C# and nest only each other: plan_server_native_v2 T4b.)
-	SourceSharp_TempEntClientInit();
-#endif
 
 	rc = SourceSharp_LoadMySide();
 	if ( rc != SOURCESHARP_OK )

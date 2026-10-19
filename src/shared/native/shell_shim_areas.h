@@ -443,7 +443,7 @@ public:
 	void ClientSmoke( const float * pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate ) override;
 	void ClientSparks( const float * pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float * pDirectionXYZ ) override;
 	void EffectDispatchName( int32_t nIndex, char * pOut, int32_t nOutBytes ) override;
-	int32_t TempEntRegister( const SourceSharpTeClass_t * pDesc ) override;
+	int32_t TempEntBuildClient( const void * pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t * pOut ) override;
 };
 
 class CShimEffectsRenderClient final : public IShimEffectsRenderClient

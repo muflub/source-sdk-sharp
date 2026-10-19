@@ -9,10 +9,10 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// One prop of a planned temp entity table: what the SEND side builds one
-/// <c>SendProp</c> from. The managed twin of <c>SourceSharpTePropPlan_t</c>
-/// (tempent_schema.h), which the client still plans its RecvProps with: the two
-/// must agree prop for prop, because the client pairs props with the server's by
-/// name and a list that differs by one name or offset begins a join and stops.
+/// <c>SendProp</c> from, and the client one <c>RecvProp</c> (RecvPropPlan). The
+/// managed twin of tempent_schema.h's <c>SourceSharpTePropPlan_t</c>: both sides
+/// plan from this one, because the client pairs props with the server's by name
+/// and a list that differs by one name or offset begins a join and stops.
 /// </summary>
 /// <param name="Name">The send-side name, <c>"m_vecOrigin[1]"</c> for an element.</param>
 /// <param name="Kind">The prop kind; <see cref="TePropKind.Array"/> is the DPT_Array itself.</param>
@@ -49,7 +49,7 @@ public readonly record struct TePropPlan(
 /// <summary>
 /// The arithmetic over a temp entity description: widths, wire costs, blob
 /// sizes and the prop plan. A port of tempent_schema.h's free functions, which
-/// the server's table building used and the client still uses; the facts in
+/// both sides' table building used; both plan from this now. The facts in
 /// TePropPlannerTests are that header's gtests, case for case.
 ///
 /// <para>

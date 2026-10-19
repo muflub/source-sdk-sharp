@@ -30,8 +30,8 @@ namespace SourceSharp.Client.TempEnts;
 ///
 /// <para>
 /// The client resolves a nested data table BY NAME and cannot hold two of one
-/// name (see <c>tempent_schema.h</c> for the segfault and the silently-wrong
-/// origin that fact cost). So a table moves to the managed client only when
+/// name (tempent_schema.h, since deleted, recorded the segfault and the
+/// silently-wrong origin that fact cost). So a table moves to the managed client only when
 /// EVERY NATIVE USER OF IT HAS BEEN EVICTED. For a concrete class that is one
 /// file. For a BASE table it is every derived class at once —
 /// <c>DT_TEParticleSystem</c> has seven client users and six of them

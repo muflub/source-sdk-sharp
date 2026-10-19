@@ -2,43 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace SourceSharp.Abi;
 
-//=============================================================================//
-// THE BLITTABLE MIRRORS. These are what actually cross the boundary; the types
-// above are what C# reads. Laid out to match SourceSharpTeField_t
-// and SourceSharpTeClass_t in sourcesharp.h — a field
-// inserted on one side only shifts every field after it, and the symptom is a
-// prop built with somebody else's width.
-//=============================================================================//
-
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct TeFieldDesc
-{
-    public byte* Name;
-    public int   Kind;
-    public int   Offset;
-    public int   SizeBytes;
-    public int   Bits;
-    public int   BitsFrom;
-    public int   Flags;
-    public float Low;
-    public float High;
-    public byte* SubTable;
-    public int   Elems;
-    public int   ElemStride;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct TeClassDesc
-{
-    public byte*        ClassName;
-    public byte*        TableName;
-    public byte*        BaseTable;
-    public int          BlobBytes;
-    public int          RegisterClass;
-    public int          FieldCount;
-    public TeFieldDesc* Fields;
-}
-
+// THE BLITTABLE MIRRORS of what crosses: laid out to match sourcesharp.h, where a
+// field inserted on one side only shifts every field after it.
+//
 // plan_server_native_v2 T4b: the server's tables, planned in C# and stored by
 // native. One block per table (BitBlock: an int32 bit count, then the payload):
 // a TeTableHeader, the rows, and the names at the payload offsets they give.
@@ -79,4 +45,29 @@ public unsafe struct TeBuiltTable
     public uint  ShapeHash;
     public void* SendTable;
     public int*  ClassId;
+}
+
+// The client's tables, planned in C# and stored by native the same way: one
+// block per table, a TeTableHeader, RecvPropRowDesc rows and the names. Laid
+// out to match SourceSharpRecvPropRow_t and SourceSharpTeRecvBuilt_t in
+// sourcesharp.h (ClientTempEntEngineTests).
+
+[StructLayout(LayoutKind.Sequential)]
+public struct RecvPropRowDesc
+{
+    public int Type;
+    public int Offset;
+    public int Flags;
+    public int Elements;
+    public int ElementStride;
+    public int Proxy;
+    public int DataTable;
+    public int Name;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct TeRecvBuilt
+{
+    public int  Existed;
+    public uint ShapeHash;
 }

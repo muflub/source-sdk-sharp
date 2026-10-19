@@ -3438,9 +3438,6 @@ internal sealed unsafe partial class EngineSide
 
     public int EffectDispatchIndex(string name) => 0;
 
-    // A server that reached the binding's register answers -1: "this side does
-    // not register through here".
-    private partial int SideTempEntRegister(TeClassDesc* desc) => -1;
 }
 
 

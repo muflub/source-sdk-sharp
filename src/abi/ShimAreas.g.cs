@@ -643,7 +643,7 @@ internal sealed unsafe class TempEntBackendsClientArea
     public void ClientSmoke(float* a0, int a1, float a2, float a3) { _shim.Vt->ClientSmoke(_shim.Self, a0, a1, a2, a3); }
     public void ClientSparks(float* a0, int a1, int a2, float* a3) { _shim.Vt->ClientSparks(_shim.Self, a0, a1, a2, a3); }
     public void EffectDispatchName(int a0, byte* a1, int a2) { _shim.Vt->EffectDispatchName(_shim.Self, a0, a1, a2); }
-    public int TempEntRegister(TeClassDesc* a0) { return _shim.Vt->TempEntRegister(_shim.Self, a0); }
+    public int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3) { return _shim.Vt->TempEntBuildClient(_shim.Self, a0, a1, a2, a3); }
 }
 
 /// <summary>

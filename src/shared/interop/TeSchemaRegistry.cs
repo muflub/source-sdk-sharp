@@ -48,19 +48,21 @@ public enum TeRefusal
 }
 
 /// <summary>
-/// The server's temp entity descriptions, and the refusals worth having: a
+/// One side's temp entity descriptions, and the refusals worth having: a
 /// duplicate name, a field that cannot be built or lies outside its blob, a base
 /// nobody owns, and a worst case over the engine's event cap. The managed port
-/// of tempent_schema.h's <c>CSourceSharpTeRegistry</c>, which the client still
-/// registers through; the facts are that class's gtests, case for case.
+/// of tempent_schema.h's <c>CSourceSharpTeRegistry</c>; the facts are that
+/// class's gtests, case for case. Both sides register through it: the server's
+/// ServerTempEntEngine and the client's ClientTempEntEngine.
 ///
 /// <para>
 /// NO EXTERNAL BASE RESOLVER, and that is a measurement rather than a shortcut:
 /// the native registry asked a callback whether STOCK still registered a base
 /// table, for a staged port that has finished. server.so holds no stock temp
 /// entity table (no <c>DT_TE*</c>, <c>DT_BaseBeam</c> or <c>DT_EffectData</c>
-/// string in it at 79be5cebf), so the only tables a base can name are the ones
-/// registered here.
+/// string in it at 79be5cebf), and client.so holds none at ab8f56ef2 (nor a
+/// <c>DT_BaseTempEntity</c>), so the only tables a base can name are the ones
+/// registered here, on either side.
 /// </para>
 /// </summary>
 public sealed class TeSchemaRegistry
@@ -87,6 +89,27 @@ public sealed class TeSchemaRegistry
     /// <summary>The handle of the table of that name, or -1.</summary>
     public int FindByTableName(string? name)
         => name is null ? -1 : _classes.FindIndex(c => string.Equals(c.TableName, name, StringComparison.Ordinal));
+
+    /// <summary>
+    /// The fingerprint a reload compares: the table's name, its blob and its
+    /// field count, the three things a reshape changes (FNV-1a, 32 bits). Native
+    /// keeps it beside a table it built and hands it back when a later load asks
+    /// for the same class, because the table on the wire is the one built at DLL
+    /// init.
+    /// </summary>
+    public static uint ShapeHash(TeClass declaration)
+    {
+        ArgumentNullException.ThrowIfNull(declaration);
+        uint hash = 2166136261u;
+
+        foreach (char c in $"{declaration.TableName}|{declaration.BlobBytes}|{declaration.Fields.Length}")
+        {
+            hash ^= (byte)c;
+            hash *= 16777619u;
+        }
+
+        return hash;
+    }
 
     /// <summary>The words a refusal is reported in (SourceSharpTe_RefusalText's).</summary>
     public static string RefusalText(TeRefusal why) => why switch

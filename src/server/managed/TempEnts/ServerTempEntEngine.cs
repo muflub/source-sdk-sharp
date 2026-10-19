@@ -72,23 +72,6 @@ public sealed class ServerTempEntEngine : EngineEffectsForwarder, ITempEntRegist
     /// <summary>The table a handle names, if this engine built it.</summary>
     public TempEntTable? Table(int handle) => _built.TryGetValue(handle, out var entry) ? entry.Table : null;
 
-    /// <summary>
-    /// The fingerprint a reload compares: the table's name, its blob and its
-    /// field count, the three things a reshape changes (FNV-1a, 32 bits).
-    /// </summary>
-    public static uint ShapeHash(TeClass declaration)
-    {
-        uint hash = 2166136261u;
-
-        foreach (char c in $"{declaration.TableName}|{declaration.BlobBytes}|{declaration.Fields.Length}")
-        {
-            hash ^= (byte)c;
-            hash *= 16777619u;
-        }
-
-        return hash;
-    }
-
     /// <inheritdoc/>
     public override int TempEntRegister(TeClass description)
     {
@@ -151,7 +134,7 @@ public sealed class ServerTempEntEngine : EngineEffectsForwarder, ITempEntRegist
             rows.Add(row);
         }
 
-        uint shape = ShapeHash(description);
+        uint shape = TeSchemaRegistry.ShapeHash(description);
         byte[] block = TempEntBlock.Write(description.ClassName, description.TableName, description.RegistersClass,
                                           shape, rows);
 

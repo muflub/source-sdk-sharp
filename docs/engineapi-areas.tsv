@@ -213,7 +213,7 @@ ClientRicochet	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp
 ClientSmoke	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSmoke	float*, int, float, float, void	
 ClientSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSparks	float*, int, int, float*, void	
 EffectDispatchName	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_EffectDispatchName	int, byte*, int, void	
-TempEntRegister	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_TempEntRegisterClient	TeClassDesc*, int	
+TempEntBuildClient	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_TempEntBuildClient	void*, int, int, TeRecvBuilt*, int	
 DrawSprite	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSprite	uint, int, float, int, int, int, int, int, int, float, int, float, float, int	
 DrawSpriteOffset	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSpriteOffset	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, int	
 ParticleSystemFollowPoints	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemFollowPoints	uint, int, int	

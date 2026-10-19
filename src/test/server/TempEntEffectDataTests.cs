@@ -339,8 +339,8 @@ public class TempEntEffectDataTests
 
         Assert.True(m.Success && int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) == 10,
             "the symbol is ten bits in effect_dispatch_data.h, which is 1024 effect names — "
-          + "the number sourcesharp/game/client/tempent_schema.h restates and "
-          + "tempent_schema_test.cpp checks against this same header");
+          + "the number TePropPlanner restates and TePropPlannerWidthsOracleTests "
+          + "checks against this same header");
     }
 
     /// <summary>

@@ -32,65 +32,11 @@ COMPILE_TIME_ASSERT( DPT_String == 4 );
 COMPILE_TIME_ASSERT( DPT_Array == 5 );
 COMPILE_TIME_ASSERT( DPT_DataTable == 6 );
 
-bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes,
-                                   SourceSharpTeTableBlock_t *pOut )
-{
-	if ( !pBlock || !pOut || nBlockBytes < (int32_t)sizeof( int32_t ) )
-		return false;
-
-	// Length-prefixed: an int32 bit count, then the payload.
-	int32_t nBits = 0;
-	memcpy( &nBits, pBlock, sizeof( nBits ) );
-
-	if ( nBits < 0 || ( nBits % 8 ) != 0 )
-		return false;
-
-	const int nPayload = nBits / 8;
-
-	if ( nPayload > nBlockBytes - (int)sizeof( int32_t )
-	  || nPayload < (int)sizeof( SourceSharpTeTableHeader_t ) )
-		return false;
-
-	SourceSharpTeTableBlock_t block;
-	block.pPayload = (const unsigned char *)pBlock + sizeof( int32_t );
-	block.nPayload = nPayload;
-	memcpy( &block.header, block.pPayload, sizeof( block.header ) );
-	block.pRows = block.pPayload + sizeof( block.header );
-
-	const int nRoom = ( nPayload - (int)sizeof( block.header ) ) / (int)sizeof( SourceSharpSendPropRow_t );
-
-	if ( block.header.nProps < 0 || block.header.nProps > nRoom )
-		return false;
-
-	block.pClassName = SourceSharpTe_BlockName( block, block.header.oClassName );
-	block.pTableName = SourceSharpTe_BlockName( block, block.header.oTableName );
-
-	if ( !block.pClassName || !block.pTableName )
-		return false;
-
-	*pOut = block;
-	return true;
-}
-
 SourceSharpSendPropRow_t SourceSharpTe_BlockRow( const SourceSharpTeTableBlock_t &block, int i )
 {
 	SourceSharpSendPropRow_t row;
 	memcpy( &row, block.pRows + (size_t)i * sizeof( row ), sizeof( row ) );
 	return row;
-}
-
-const char *SourceSharpTe_BlockName( const SourceSharpTeTableBlock_t &block, int32_t oName )
-{
-	if ( oName < 0 )
-		return NULL;
-
-	for ( int i = oName; i < block.nPayload; i++ )
-	{
-		if ( block.pPayload[ i ] == 0 )
-			return i > oName ? (const char *)block.pPayload + oName : NULL;
-	}
-
-	return NULL;
 }
 
 SendVarProxyFn SourceSharpTe_VarProxy( int32_t nProxy )
