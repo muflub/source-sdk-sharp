@@ -311,7 +311,6 @@ const char *const kSharedDir   = "sourcesharp/game/shared";
 // cs_sv_handle_cross_check, a debug-only diagnostic since 2026-10-01: only a
 // debug build compiles this file (server_sourcesharp_debug_sources).
 const char *const kShellBaseDebug = "sourcesharp/game/server/shell_standalone_base_debug.cpp";
-const char *const kSoundEnv    = "sourcesharp/game/server/shell_soundenvelope.cpp";
 const char *const kShellAbsent = "sourcesharp/game/server/shell_absent.cpp";
 const char *const kGlobals     = "sourcesharp/game/server/shell_globals.cpp";
 
@@ -557,36 +556,11 @@ TEST( TypedHandleSweep, TheMatcherDoesNotCountTheSpellingsTheCensusLeavesAlone )
 // WHERE, and what the site is supposed to read.
 //=============================================================================
 
-TEST( TypedHandleSweep, TheSoundPatchHoldsAnUntypedHandle )
-{
-	const std::string src = Read( kSoundEnv );
-	ASSERT_FALSE( src.empty() );
-
-	EXPECT_TRUE( Has( src, "CBaseHandle      m_hEnt;" ) )
-		<< "CSoundPatch's entity member is no longer a CBaseHandle. Stock's "
-		   "typed member is what made a patch attached to an entity outside "
-		   "the SDK store nothing at all: the typed Set takes a CBaseEntity * "
-		   "and HIDES the base's.";
-
-	EXPECT_TRUE( Has( src, "m_hEnt.Set( pEnt );" ) )
-		<< "the patch no longer stores the handle through CBaseHandle::Set, "
-		   "which is the overload that takes an IHandleEntity and has no "
-		   "opinion about which hierarchy it belongs to.";
-}
-
-TEST( TypedHandleSweep, TheSoundPatchResolvesItsEntityThroughTheSlotTable )
-{
-	const std::string src = Read( kSoundEnv );
-	ASSERT_FALSE( src.empty() );
-
-	EXPECT_TRUE( Has( src, "SourceSharp_ShellFromHandle( m_hEnt )" ) )
-		<< "CSoundPatch::EntIndex no longer resolves through the slot table.";
-
-	EXPECT_TRUE( Has( src, "SourceSharp_ShellFromIndex(" ) )
-		<< "CSoundPatch::Build no longer resolves the edict index through the "
-		   "slot table, so a looping sound started by index plays from the "
-		   "world instead of from its entity.";
-}
+// TheSoundPatchHoldsAnUntypedHandle and TheSoundPatchResolvesItsEntityThroughTheSlotTable
+// stood here. Their subject, the native CSoundPatch in shell_soundenvelope.cpp,
+// is ServerSoundPatches (C#) since plan_server_native_v2 T4a: it holds the
+// entity's EntityHandle and asks the managed entity area whether it is valid,
+// so there is no C++ handle spelling left to pin (ServerSoundsTests).
 
 // TheUserMessageEHandleAsksTheEntityForItsOwnHandle stood here. Its subject,
 // MessageWriteEHandle, was deleted with the other sixteen MessageWrite*
@@ -775,7 +749,8 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 		// P1): the whole restore path went, so there is no handle spelling left
 		// to count.
 		"sourcesharp/game/server/shell_soundent.cpp",
-		"sourcesharp/game/server/shell_soundenvelope.cpp",
+		// shell_soundenvelope.cpp is DELETED, not swept (plan_server_native_v2
+		// T4a): the server's sound patch is managed.
 		"sourcesharp/game/server/shell_standalone_base.cpp",
 		"sourcesharp/game/server/shell_standalone_hierarchy.cpp",
 		"sourcesharp/game/server/shell_te_forwards.cpp",
@@ -798,7 +773,8 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 	// 15 -> 14: shell_motioncontrollers.cpp likewise (managed's
 	// PhysicsMotionControllers, 2.4).
 	// 14 -> 13: shell_restoreentities.cpp likewise (plan_server_native_min P1).
-	EXPECT_EQ( (size_t)13, nFiles );
+	// 13 -> 12: shell_soundenvelope.cpp likewise (plan_server_native_v2 T4a).
+	EXPECT_EQ( (size_t)12, nFiles );
 
 	for ( size_t i = 0; i < nFiles; i++ )
 	{

@@ -81,23 +81,9 @@ TEST_F( SsRecipientFilter, AnIndexOutsideTheListAnswersMinusOne )
 	EXPECT_EQ( -1, f.GetRecipientIndex( 1 ) );
 }
 
-TEST_F( SsRecipientFilter, CopyFromAppendsTheSlotsAndTakesTheFlags )
-{
-	ss::CRecipientFilter src;
-	src.AddRecipientByPlayerIndex( 2 );
-	src.MakeReliable();
-	src.UsePredictionRules();
-
-	ss::CRecipientFilter dst;
-	dst.AddRecipientByPlayerIndex( 1 );
-	dst.CopyFrom( src );
-
-	// Appended, not replaced: stock's CopyFrom never cleared the list first.
-	EXPECT_EQ( ( std::vector< int >{ 1, 2 } ), Slots( dst ) );
-	EXPECT_TRUE( dst.IsReliable() );
-	EXPECT_TRUE( dst.IsUsingPredictionRules() );
-	EXPECT_FALSE( dst.IsInitMessage() );
-}
+// CopyFrom left with its one importer, sound_emitter.cpp's server caption
+// (plan_server_native_v2 T4a); RecipientFilter.Copy (C#) is the managed
+// emitter's, held by SoundRecipientsTests.
 
 TEST_F( SsRecipientFilter, ASingleUserFilterHoldsThatSlot )
 {

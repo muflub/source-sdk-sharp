@@ -149,6 +149,25 @@ Managed callers should call these directly; the managed-built slot goes in T3.
   server gc cull, and the orphaned enum in T2. A managed sender of `TeBubbleTrail`
   owes the clamp.
 
+## The sound emit path in C# (plan_server_native_v2 T4a step 1): follow-ups
+
+- **env_microphone's OnSoundPlayed.** Stock's `EmitSoundByHandle` let
+  `CEnvMicrophone::OnSoundPlayed` hear (and swallow) every script emit; neither
+  the native emitter nor the managed `SoundEmitter` that replaced it calls one.
+  The emitter is managed now, so `EnvMicrophone` can be offered each emit there.
+- **The `_DEBUG` "Sound %s was not precached" line.** Stock printed it from
+  the emit in debug builds; the managed emitter drops it (it needs
+  `IEngineSound::IsSoundPrecached`, one more forwarder slot).
+- **The client's emit arm.** `sound_emitter.cpp`'s emit members and
+  `GameSound_Emit`/`Stop`/... are `#ifdef CLIENT_DLL` now; by the
+  server-dead-to-client-only ruling they belong in a client file
+  (`client_util_library.cpp`, the T2 precedent), which is a client-side move.
+- **T4a's rest.** The server's `CSoundEmitterSystem` system (Init, the level's
+  `_level_sounds.txt` overrides and preload, the reslist log),
+  `PrecacheScriptSound`, `GameSound_Precache`, `GameSound_PrecacheScript` and
+  `SourceSharp_PrecacheSound` are the precache path, still native; their audit
+  rows are MOVE.
+
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
 
 At f8c7e82ff (stage1-c-gameplay rebased onto main 42b718990, 2026-10-18) the

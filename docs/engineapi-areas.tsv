@@ -2,11 +2,6 @@ slot	struct	interface	kind	base	side	suppress	body	managed	client_body
 AcquireInterface	EngineApi	IShimRoot	root		both	-	SourceSharp_AcquireInterface	int, byte*, byte*, int, void*	
 GetCurrentTime	EngineApi	IShimEngine	shared		both	S	SourceSharp_GetCurrentTime	float	
 GetGlobalVarsPtr	EngineApi	IShimEngine	shared		both	-	SourceSharp_GetGlobalVarsPtr	nint	
-SoundPatchEmit	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchEmit	int, float, float, int, float, int, void	SourceSharp_ClientSoundPatchEmit
-SoundPatchStop	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchStop	int, void	SourceSharp_ClientSoundPatchStop
-SoundPatchState	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchState	int, int*, int*, void	SourceSharp_ClientSoundPatchState
-SoundPatchFree	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchFree	int, void	SourceSharp_ClientSoundPatchFree
-SoundPatchCreate	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchCreate	uint, int, byte*, int, int	SourceSharp_ClientSoundPatchCreate
 Msg	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleMsg	byte*, void	
 Warning	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleWarning	byte*, void	
 RegisterConCommand	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRegisterConCommand	byte*, byte*, int, int	
@@ -165,11 +160,6 @@ PlayerSnapEyeAngles	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSn
 GetPlayerShootOrigin	EngineApi	IShimPlayers	server		server	-	SourceSharp_GetPlayerShootOrigin	uint, float*, void	
 ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	SourceSharp_ClientsStandalonePlayerEarPosition	int, float*, int	
 PlayerSetTeam	EngineApi	IShimPlayers	server		server	-	SourceSharp_PlayerSetTeam	uint, int, void	
-EntityEmitSound	EngineApi	IShimSound	server		server	-	SourceSharp_EntityEmitSound	uint, byte*, void	
-EntityStopSound	EngineApi	IShimSound	server		server	-	SourceSharp_EntityStopSound	uint, byte*, void	
-EmitSoundAtPosition	EngineApi	IShimSound	server		server	-	SourceSharp_EmitSoundAtPosition	byte*, float*, void	
-EmitAmbientSound	EngineApi	IShimSound	server		server	-	SourceSharp_EmitAmbientSound	int, float*, byte*, float, int, int, int, void	
-EmitWorldSoundScript	EngineApi	IShimSound	server		server	-	SourceSharp_EmitWorldSoundScript	byte*, float*, int, float, int	
 TempEntRegister	EngineApi	IShimEffects	shared		both	-	SourceSharp_TempEntRegister	TeClassDesc*, int	SourceSharp_TempEntRegisterClient
 TempEntPlayback	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_TempEntPlayback	int, void*, int, TeFilterDesc*, float, void	
 EffectDispatchIndex	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_EffectDispatchIndex	byte*, int	
@@ -395,6 +385,11 @@ SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	SourceSh
 SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMainView	float*, void	
 SoundscapeMakingResLists	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMakingResLists	int	
 SoundscapeTouchSoundFile	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeTouchSoundFile	byte*, void	
+SoundPatchEmit	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_ClientSoundPatchEmit	int, float, float, int, float, int, void	
+SoundPatchStop	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_ClientSoundPatchStop	int, void	
+SoundPatchState	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_ClientSoundPatchState	int, int*, int*, void	
+SoundPatchFree	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_ClientSoundPatchFree	int, void	
+SoundPatchCreate	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_ClientSoundPatchCreate	uint, int, byte*, int, int	
 PrecipitationTraceLine	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationTraceLine	float*, float*, int, int, float*, int	
 PrecipitationTraceVolume	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationTraceVolume	uint, float*, float*, float*, float*, float*, int	
 PrecipitationPointContents	EngineApi	IShimPrecipitationClient	client		client	-	SourceSharp_PrecipitationPointContents	float*, int	

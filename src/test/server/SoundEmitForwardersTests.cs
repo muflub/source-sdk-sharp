@@ -1,0 +1,256 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
+using SourceSharp.Abi;
+using Xunit;
+
+namespace SourceSharp.Tests;
+
+/// <summary>
+/// The engine calls the managed SoundEmitter makes (plan_server_native_v2 T4a),
+/// through the forwarder tables, over fakes: what each wrapper hands the
+/// forwarder, and how it reads what comes back. The layouts are held to the
+/// headers by vtable_index_agreement_test (SoundParametersInternalLayout,
+/// PlayerBitVecLayout); these hold the managed side to the same numbers.
+/// </summary>
+public sealed unsafe class SoundEmitForwardersTests : IDisposable
+{
+    // ---- what the fakes saw (the test assembly may keep statics) ----
+    private static nint s_Filter;
+    private static int s_EntIndex, s_Channel, s_SoundLevel, s_Flags, s_Pitch, s_Dsp, s_Speaker;
+    private static float s_Volume, s_SoundTime;
+    private static string? s_Sample;
+    private static nint s_OriginPointer;
+    private static Vector s_Origin;
+    private static nint s_Direction, s_Origins;
+    private static byte s_UpdatePositions;
+    private static short s_HandleSeen;
+    private static byte s_UsePas;
+    private static byte* s_Entry;
+
+    [UnmanagedCallersOnly]
+    private static void EmitSound(void* self, void* filter, int ent, int channel, byte* sample, float volume,
+                                  int level, int flags, int pitch, int dsp, void* origin, void* direction,
+                                  void* origins, byte update, float time, int speaker)
+    {
+        s_Filter = (nint)filter;
+        (s_EntIndex, s_Channel, s_SoundLevel, s_Flags, s_Pitch, s_Dsp, s_Speaker) = (ent, channel, level, flags, pitch, dsp, speaker);
+        (s_Volume, s_SoundTime, s_UpdatePositions) = (volume, time, update);
+        s_Sample = Marshal.PtrToStringUTF8((nint)sample);
+        s_OriginPointer = (nint)origin;
+        s_Origin = origin == null ? default : *(Vector*)origin;
+        (s_Direction, s_Origins) = ((nint)direction, (nint)origins);
+    }
+
+    [UnmanagedCallersOnly]
+    private static byte ParametersEx(void* self, byte* name, void* handle, void* parameters, int gender, byte emitted)
+    {
+        s_HandleSeen = *(short*)handle;
+        if (Marshal.PtrToStringUTF8((nint)name) != "Doors.Move1")
+            return 0;
+
+        *(short*)handle = 42;
+        ((SoundParametersLayout*)parameters)->Channel = gender + 10 * emitted;
+        return 1;
+    }
+
+    [UnmanagedCallersOnly]
+    private static void* InternalParameters(void* self, int index) => index == 42 ? s_Entry : null;
+
+    [UnmanagedCallersOnly]
+    private static byte* WaveName(void* self, void* symbol)
+        => *(ushort*)symbol switch
+        {
+            7 => (byte*)Marshal.StringToCoTaskMemUTF8("doors/move1.wav"),
+            8 => (byte*)Marshal.StringToCoTaskMemUTF8("doors/move2.wav"),
+            _ => null,
+        };
+
+    [UnmanagedCallersOnly]
+    private static void Multicast(void* self, byte usePas, void* origin, void* bits)
+    {
+        s_UsePas = usePas;
+        s_Origin = *(Vector*)origin;
+        ((uint*)bits)[1] |= 1u << 5;   // player slot 38
+    }
+
+    private readonly List<nint> _frees = [];
+
+    public SoundEmitForwardersTests()
+    {
+        s_Filter = s_OriginPointer = s_Direction = s_Origins = -1;
+        s_Sample = null;
+        s_HandleSeen = 0;
+        s_Entry = null;
+    }
+
+    public void Dispose()
+    {
+        foreach (nint p in _frees)
+            NativeMemory.Free((void*)p);
+    }
+
+    private T* Zeroed<T>() where T : unmanaged
+    {
+        var p = (T*)NativeMemory.AllocZeroed(1, (nuint)sizeof(T));
+        _frees.Add((nint)p);
+        return p;
+    }
+
+    private byte* Bytes(int count)
+    {
+        var p = (byte*)NativeMemory.AllocZeroed((nuint)count);
+        _frees.Add((nint)p);
+        return p;
+    }
+
+    // ---- IEngineSoundServer003 ----
+
+    private EngineSoundServer Sound()
+    {
+        EngineSoundFwd* fwd = Zeroed<EngineSoundFwd>();
+        fwd->EmitSound_2 = &EmitSound;
+        return new EngineSoundServer(Bytes(8), fwd);
+    }
+
+    [Fact]
+    public void EmitSoundHandsTheFilterAndEveryArgumentThrough()
+    {
+        Sound().EmitSound(0x1234, 5, 6, "Doors.Move1", 0.5f, 80, 4, 110, 2, new Vector(1, 2, 3), 7.5f, 9);
+
+        Assert.Equal((nint)0x1234, s_Filter);
+        Assert.Equal((5, 6, 80, 4, 110, 2, 9), (s_EntIndex, s_Channel, s_SoundLevel, s_Flags, s_Pitch, s_Dsp, s_Speaker));
+        Assert.Equal((0.5f, 7.5f), (s_Volume, s_SoundTime));
+        Assert.Equal("Doors.Move1", s_Sample);
+        Assert.Equal(new Vector(1, 2, 3), s_Origin);
+    }
+
+    [Fact]
+    public void EmitSoundAsksForNoDirectionAndNoOriginListAndUpdatesPositions()
+    {
+        Sound().EmitSound(0x1234, 5, 6, "Doors.Move1", 0.5f, 80, 4, 110, 2, new Vector(1, 2, 3), 7.5f, 9);
+
+        Assert.Equal(((nint)0, (nint)0, (byte)1), (s_Direction, s_Origins, s_UpdatePositions));
+    }
+
+    [Fact]
+    public void ANullOriginIsANullPointer()
+    {
+        Sound().EmitSound(0x1234, 5, 6, "Doors.Move1", 0.5f, 80, 4, 110, 2, null, 0f, -1);
+
+        Assert.Equal((nint)0, s_OriginPointer);
+    }
+
+    [Fact]
+    public void EmitSoundRefusesANullFilter()
+        => Assert.Throws<ArgumentException>(() => Sound().EmitSound(0, 5, 6, "x", 1f, 75, 0, 100, 0, null, 0f, -1));
+
+    // ---- ISoundEmitterSystemBase ----
+
+    private SoundEmitterBase Emitter()
+    {
+        SoundEmitterSystemFwd* fwd = Zeroed<SoundEmitterSystemFwd>();
+        fwd->GetParametersForSoundEx = &ParametersEx;
+        fwd->InternalGetParametersForSound = &InternalParameters;
+        fwd->GetWaveName = &WaveName;
+        return new SoundEmitterBase(Bytes(8), fwd);
+    }
+
+    [Fact]
+    public void ParametersExPassesTheHandleAndReadsBackWhatTheTableWrote()
+    {
+        short handle = -1;
+        var parameters = SoundParametersLayout.Stock();
+
+        Assert.True(Emitter().ParametersForSoundEx("Doors.Move1", ref handle, ref parameters, 2, true));
+        Assert.Equal((short)-1, s_HandleSeen);
+        Assert.Equal((short)42, handle);
+        Assert.Equal(12, parameters.Channel);
+    }
+
+    [Fact]
+    public void ParametersExIsFalseForAScriptTheTableDoesNotHave()
+    {
+        short handle = -1;
+        var parameters = SoundParametersLayout.Stock();
+
+        Assert.False(Emitter().ParametersForSoundEx("No.Such", ref handle, ref parameters, 0, true));
+    }
+
+    [Fact]
+    public void AnEntryWithOneWaveReadsItFromThePointersOwnBytes()
+    {
+        s_Entry = Bytes(SoundParametersInternalLayout.SizeInBytes);
+        *(ushort*)(s_Entry + 16) = 1;
+        *(ushort*)(s_Entry + 0) = 7;
+        *(ushort*)(s_Entry + 30) = 3;
+
+        var entry = Emitter().Entry(42);
+
+        Assert.NotNull(entry);
+        Assert.Equal(3, entry.Channel);
+        Assert.Equal(["doors/move1.wav"], entry.Waves);
+    }
+
+    [Fact]
+    public void AnEntryWithTwoWavesReadsThemThroughThePointer()
+    {
+        s_Entry = Bytes(SoundParametersInternalLayout.SizeInBytes);
+        byte* waves = Bytes(2 * SoundParametersInternalLayout.SoundFileSize);
+        *(ushort*)(waves + 0) = 7;
+        *(ushort*)(waves + 4) = 8;
+        *(ushort*)(s_Entry + 16) = 2;
+        *(byte**)(s_Entry + 0) = waves;
+        *(ushort*)(s_Entry + 30) = 1;
+
+        var entry = Emitter().Entry(42);
+
+        Assert.NotNull(entry);
+        Assert.Equal(["doors/move1.wav", "doors/move2.wav"], entry.Waves);
+    }
+
+    [Fact]
+    public void AnIndexTheTableHasNoEntryAtIsNull() => Assert.Null(Emitter().Entry(3));
+
+    [Fact]
+    public void TheInternalLayoutIsTheHeadersPackedOne()
+        => Assert.Equal((36, 0, 16, 30, 4),
+                        (SoundParametersInternalLayout.SizeInBytes, SoundParametersInternalLayout.SoundNamesOffset,
+                         SoundParametersInternalLayout.SoundNameCountOffset, SoundParametersInternalLayout.ChannelOffset,
+                         SoundParametersInternalLayout.SoundFileSize));
+
+    // ---- IVEngineServer: the PAS ----
+
+    private static IVtableEngineServer Server(EngineServerFwd* fwd, void* self)
+    {
+        ConstructorInfo ctor = typeof(EngineServer).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).Single();
+        ParameterInfo[] parameters = ctor.GetParameters();
+        return (IVtableEngineServer)ctor.Invoke([Pointer.Box(self, parameters[0].ParameterType),
+                                                 Pointer.Box(fwd, parameters[1].ParameterType),
+                                                 Pointer.Box(null, parameters[2].ParameterType)]);
+    }
+
+    [Fact]
+    public void MulticastRecipientsClearsTheWordsThenLetsTheEngineSetThem()
+    {
+        EngineServerFwd* fwd = Zeroed<EngineServerFwd>();
+        fwd->Message_DetermineMulticastRecipients = &Multicast;
+        Span<uint> bits = stackalloc uint[IVtableEngineServer.PlayerBitWords];
+        bits.Fill(0xFFFFFFFF);
+
+        Server(fwd, Bytes(8)).MulticastRecipients(true, new Vector(4, 5, 6), bits);
+
+        Assert.Equal((byte)1, s_UsePas);
+        Assert.Equal(new Vector(4, 5, 6), s_Origin);
+        Assert.Equal(new uint[] { 0, 1u << 5, 0, 0, 0, 0, 0, 0 }, bits.ToArray());
+    }
+
+    [Fact]
+    public void MulticastRecipientsRefusesFewerWordsThanTheBitVec()
+    {
+        EngineServerFwd* fwd = Zeroed<EngineServerFwd>();
+        fwd->Message_DetermineMulticastRecipients = &Multicast;
+        var server = Server(fwd, Bytes(8));
+
+        Assert.Throws<ArgumentException>(() => server.MulticastRecipients(true, default, new uint[7]));
+    }
+}

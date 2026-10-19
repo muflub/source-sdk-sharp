@@ -255,8 +255,11 @@ TEST( EntityListSweep, TheSixEmptiedSubjectsNameTheEntityListNowhere )
 		<< "shell_entityapi.cpp's two finders walk the shim's own list";
 	EXPECT_EQ( 0, EntityListLines( kToucher ) )
 		<< "toucher.h resolves through CBaseHandle::Get() and the slot table";
-	EXPECT_EQ( 0, EntityListLines( kSoundEnvelope ) )
-		<< "shell_soundenvelope.cpp resolves through the slot table";
+	// shell_soundenvelope.cpp, the third, LEFT server.so in plan_server_native_v2
+	// T4a (section 5 says where its patch went); it names no list because it is
+	// not there.
+	EXPECT_FALSE( Exists( kSoundEnvelope ) )
+		<< "shell_soundenvelope.cpp is back; its patch is ServerSoundPatches (C#)";
 	EXPECT_EQ( 0, EntityListLines( kStandalone ) )
 		<< "shell_standalone.cpp's parent command asks only the standalone list";
 	EXPECT_EQ( 0, LinesWith( RefusalBody(), "gEntList." ) )
@@ -1234,33 +1237,18 @@ TEST( EntityListSweep, TouchersGameArmGoesThroughTheSlotTable )
 // 5. THE SOUND PATCH.
 //=============================================================================
 
-TEST( EntityListSweep, SoundPatchEntIndexResolvesThroughTheSlotTable )
+// THE SOUND PATCH LEFT FOR C# (plan_server_native_v2 T4a). Its three facts here
+// pinned how the native CSoundPatch resolved its entity -- through the slot
+// table, never the networkable face, by index at build. The patch is
+// ServerSoundPatches now, which holds the entity's handle and asks the managed
+// entity area whether it is still valid; ServerSoundsTests hold that (a patch
+// whose entity has gone answers -1 and is not emitted; one from the world rides
+// nothing). What is left to pin natively is the absence.
+TEST( EntityListSweep, TheNativeSoundPatchIsGone )
 {
-	const std::string src = Code( kSoundEnvelope );
-
-	EXPECT_TRUE( Has( src, "if ( !SourceSharp_ShellFromHandle( m_hEnt ) )" ) )
-		<< "the serial check is what makes a stale handle answer -1";
-	EXPECT_TRUE( Has( src, "CSourceSharpSlotTable::IsEdictEntry( nEntry ) ? nEntry : -1" ) )
-		<< "an entry above MAX_EDICTS is a server-only entity with no index to "
-		   "give, and -1 is what the old route answered for it too";
-}
-
-TEST( EntityListSweep, SoundPatchEntIndexNoLongerWalksTheNetworkableFace )
-{
-	const std::string src = Code( kSoundEnvelope );
-
-	EXPECT_FALSE( Has( src, "static_cast< IServerUnknown * >( pEnt )" ) )
-		<< "the table already knows which entry the shell is bound at; the cast "
-		   "and the two virtuals after it were the long way round";
-}
-
-TEST( EntityListSweep, SoundPatchBuildResolvesTheNetworkIndexThroughTheTable )
-{
-	const std::string src = Code( kSoundEnvelope );
-
-	EXPECT_TRUE( Has( src, "? SourceSharp_ShellFromIndex( nEntIndex )" ) )
-		<< "ResolveByIndex has exactly the contract LookupEntityByNetworkIndex "
-		   "had: whoever occupies that entry right now, no serial to check";
+	EXPECT_FALSE( Exists( kSoundEnvelope ) )
+		<< "the server's CSoundPatch is managed: a native copy would decide the "
+		   "same thing in two places";
 }
 
 //=============================================================================

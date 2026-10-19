@@ -26,15 +26,14 @@ src/server/native/shell_globals.cpp	260
 src/server/native/shell_level.cpp	30
 src/server/native/shell_nettable.cpp	6
 src/server/native/shell_nettable_debug.cpp	69
-src/server/native/shell_recipientfilter.cpp	101
+src/server/native/shell_recipientfilter.cpp	62
 src/server/native/shell_scripted.cpp	107
 src/server/native/shell_scripted_debug.cpp	36
-src/server/native/shell_sentences.cpp	11
+src/server/native/shell_sentences.cpp	7
 src/server/native/shell_server.cpp	13
 src/server/native/shell_serversystems.cpp	5
-src/server/native/shell_sound.cpp	104
+src/server/native/shell_sound.cpp	13
 src/server/native/shell_soundent.cpp	11
-src/server/native/shell_soundenvelope.cpp	286
 src/server/native/shell_standalone.cpp	193
 src/server/native/shell_standalone_base.cpp	182
 src/server/native/shell_standalone_base_debug.cpp	70
@@ -42,7 +41,7 @@ src/server/native/shell_standalone_class.cpp	5
 src/server/native/shell_standalone_class_debug.cpp	29
 src/server/native/shell_standalone_debug.cpp	25
 src/server/native/shell_standalone_hierarchy.cpp	138
-src/server/native/shell_standalone_player.cpp	300
+src/server/native/shell_standalone_player.cpp	291
 src/server/native/shell_standalone_player_debug.cpp	34
 src/server/native/shell_stringtables.cpp	51
 src/server/native/shell_te_forwards.cpp	352
@@ -53,7 +52,7 @@ src/server/native/shell_transmitsteps.cpp	13
 src/server/native/shell_usermessage_send.cpp	40
 src/server/native/shell_world_nettable.cpp	14
 src/server/native/shell_worldquery.cpp	386
-src/server/native/ss_recipient_filter.cpp	34
+src/server/native/ss_recipient_filter.cpp	22
 src/server/native/standalone_relays.cpp	30
 src/server/native/world_adapter.cpp	161
 src/server/native/world_adapter_debug.cpp	81
@@ -74,7 +73,7 @@ src/shared/native/shell_movement.cpp	190
 src/shared/native/shell_movement_debug.cpp	4
 src/shared/native/shell_physsaverestore_absent.cpp	53
 src/shared/native/shell_savegame.cpp	291
-src/shared/native/sound_emitter.cpp	535
+src/shared/native/sound_emitter.cpp	186
 src/shared/native/sourcesharp_gamesystem.cpp	77
 src/shared/native/standalone_player_sync.cpp	101
 src/shared/native/takedamageinfo_library.cpp	125

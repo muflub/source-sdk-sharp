@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 35,252 |
-| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,990 |
+| a | a vtable the engine or VPhysics calls through | 22 | 5 | 31 |  |  |  | 61 | 34,909 |
+| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,896 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,031 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 6 | 1 |  |  | 21 | 9,410 |
-| e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,273 |
+| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,670 |
 | f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,720 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,418 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
 | x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,599 |
-|  | **total** | **77** | **35** | **71** | **3** | **2** | **1** | **213** | **93,805** |
+|  | **total** | **77** | **35** | **71** | **3** | **2** | **1** | **213** | **92,765** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise

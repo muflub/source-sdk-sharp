@@ -222,8 +222,10 @@ public partial class EngineApiAreasTests
 
         var shared = Rows().Where(r => r.Struct == "EngineApi" && r.Side == "both" && r.Interface != "IShimRoot").ToList();
         // A floor against a parse that stopped early: 50 -> 40 when the four
-        // game-file read slots folded (2026-10-19; 46 read).
-        Assert.True(shared.Count >= 40, $"{shared.Count} shared slots");
+        // game-file read slots folded (2026-10-19; 46 read); 40 -> 30 when the
+        // five SoundPatch slots left for the client (plan_server_native_v2 T4a;
+        // 35 read).
+        Assert.True(shared.Count >= 30, $"{shared.Count} shared slots");
 
         // Since plan_shim_areas_split phase 9 the container has no calls of its
         // own: a shared slot is routed when an area the client holds calls it.

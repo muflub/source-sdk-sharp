@@ -165,7 +165,7 @@ internal unsafe struct NetworkStringTableFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>ISoundEmitterSystemBase</c> through its forwarders (SSFwd_SoundEmitterSystem): 4 slot(s).
+/// <c>ISoundEmitterSystemBase</c> through its forwarders (SSFwd_SoundEmitterSystem): 9 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct SoundEmitterSystemFwd : IForwarderTable
@@ -184,6 +184,21 @@ internal unsafe struct SoundEmitterSystemFwd : IForwarderTable
 
     // gender_t ISoundEmitterSystemBase::GetActorGender( char const * )
     public delegate* unmanaged<void*, byte*, int> GetActorGender;
+
+    // bool ISoundEmitterSystemBase::GetParametersForSoundEx( const char *, HSOUNDSCRIPTHANDLE &, CSoundParameters &, gender_t, bool )
+    public delegate* unmanaged<void*, byte*, void*, void*, int, byte, byte> GetParametersForSoundEx;
+
+    // CSoundParametersInternal * ISoundEmitterSystemBase::InternalGetParametersForSound( int )
+    public delegate* unmanaged<void*, int, void*> InternalGetParametersForSound;
+
+    // const char * ISoundEmitterSystemBase::GetWaveName( CUtlSymbol & )
+    public delegate* unmanaged<void*, void*, byte*> GetWaveName;
+
+    // const char * ISoundEmitterSystemBase::GetWavFileForSound( const char *, gender_t )
+    public delegate* unmanaged<void*, byte*, int, byte*> GetWavFileForSound_2;
+
+    // soundlevel_t ISoundEmitterSystemBase::LookupSoundLevel( const char * )
+    public delegate* unmanaged<void*, byte*, int> LookupSoundLevel;
 }
 
 /// <summary>
@@ -1051,7 +1066,7 @@ internal unsafe struct ShimConsoleFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEngine</c> through its forwarders (SSFwd_ShimEngine): 7 slot(s).
+/// <c>IShimEngine</c> through its forwarders (SSFwd_ShimEngine): 2 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEngineFwd : IForwarderTable
@@ -1064,21 +1079,6 @@ internal unsafe struct ShimEngineFwd : IForwarderTable
 
     // void * IShimEngine::GetGlobalVarsPtr( void )
     public delegate* unmanaged<void*, void*> GetGlobalVarsPtr;
-
-    // void IShimEngine::SoundPatchEmit( int32_t, float, float, int32_t, float, int32_t )
-    public delegate* unmanaged<void*, int, float, float, int, float, int, void> SoundPatchEmit;
-
-    // void IShimEngine::SoundPatchStop( int32_t )
-    public delegate* unmanaged<void*, int, void> SoundPatchStop;
-
-    // void IShimEngine::SoundPatchState( int32_t, int32_t *, int32_t * )
-    public delegate* unmanaged<void*, int, void*, void*, void> SoundPatchState;
-
-    // void IShimEngine::SoundPatchFree( int32_t )
-    public delegate* unmanaged<void*, int, void> SoundPatchFree;
-
-    // int32_t IShimEngine::SoundPatchCreate( uint32_t, int32_t, const char *, int32_t )
-    public delegate* unmanaged<void*, uint, int, byte*, int, int> SoundPatchCreate;
 }
 
 /// <summary>
@@ -1680,31 +1680,6 @@ internal unsafe struct ShimPlayersFwd : IForwarderTable
 
     // void IShimPlayers::PlayerSetTeam( uint32_t, int32_t )
     public delegate* unmanaged<void*, uint, int, void> PlayerSetTeam;
-}
-
-/// <summary>
-/// <c>IShimSound</c> through its forwarders (SSFwd_ShimSound): 5 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct ShimSoundFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_ShimSound";
-
-    // void IShimSound::EntityEmitSound( uint32_t, const char * )
-    public delegate* unmanaged<void*, uint, byte*, void> EntityEmitSound;
-
-    // void IShimSound::EntityStopSound( uint32_t, const char * )
-    public delegate* unmanaged<void*, uint, byte*, void> EntityStopSound;
-
-    // void IShimSound::EmitSoundAtPosition( const char *, const float * )
-    public delegate* unmanaged<void*, byte*, void*, void> EmitSoundAtPosition;
-
-    // void IShimSound::EmitAmbientSound( int32_t, const float *, const char *, float, int32_t, int32_t, int32_t )
-    public delegate* unmanaged<void*, int, void*, byte*, float, int, int, int, void> EmitAmbientSound;
-
-    // int32_t IShimSound::EmitWorldSoundScript( const char *, const float *, int32_t, float )
-    public delegate* unmanaged<void*, byte*, void*, int, float, int> EmitWorldSoundScript;
 }
 
 /// <summary>
@@ -2665,7 +2640,7 @@ internal unsafe struct ShimFxClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimSoundscapeClient</c> through its forwarders (SSFwd_ShimSoundscapeClient): 8 slot(s).
+/// <c>IShimSoundscapeClient</c> through its forwarders (SSFwd_ShimSoundscapeClient): 13 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimSoundscapeClientFwd : IForwarderTable
@@ -2696,6 +2671,21 @@ internal unsafe struct ShimSoundscapeClientFwd : IForwarderTable
 
     // void IShimSoundscapeClient::SoundscapeTouchSoundFile( const char * )
     public delegate* unmanaged<void*, byte*, void> SoundscapeTouchSoundFile;
+
+    // void IShimSoundscapeClient::SoundPatchEmit( int32_t, float, float, int32_t, float, int32_t )
+    public delegate* unmanaged<void*, int, float, float, int, float, int, void> SoundPatchEmit;
+
+    // void IShimSoundscapeClient::SoundPatchStop( int32_t )
+    public delegate* unmanaged<void*, int, void> SoundPatchStop;
+
+    // void IShimSoundscapeClient::SoundPatchState( int32_t, int32_t *, int32_t * )
+    public delegate* unmanaged<void*, int, void*, void*, void> SoundPatchState;
+
+    // void IShimSoundscapeClient::SoundPatchFree( int32_t )
+    public delegate* unmanaged<void*, int, void> SoundPatchFree;
+
+    // int32_t IShimSoundscapeClient::SoundPatchCreate( uint32_t, int32_t, const char *, int32_t )
+    public delegate* unmanaged<void*, uint, int, byte*, int, int> SoundPatchCreate;
 }
 
 /// <summary>

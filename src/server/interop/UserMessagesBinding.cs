@@ -11,9 +11,9 @@ namespace SourceSharp.Server.Interop;
 public interface ICloseCaptions
 {
     /// <summary>
-    /// Whether a caption would be sent at all just now. Native asks before it
-    /// looks up a caption's facts (a wave's duration costs a file read), so the
-    /// rule is decided here and native only skips the work.
+    /// Whether a caption would be sent at all just now. The SoundEmitter asks
+    /// before it looks up a caption's facts (a wave's duration costs a file
+    /// read), so the rule is decided here and the emitter only skips the work.
     /// </summary>
     bool Wanted { get; }
 
@@ -24,12 +24,13 @@ public interface ICloseCaptions
 
 /// <summary>
 /// The server's user messages, managed-built (plan_side_isolation §2.2a): the
-/// engine's GetUserMessageInfo forwards here and the registry answers;
-/// sound_emitter.cpp's close caption forwards here and goes to
-/// <see cref="ICloseCaptions"/>. No native code names a message any more: every
-/// message is a C# payload.
+/// engine's GetUserMessageInfo forwards here and the registry answers. No
+/// native code names a message any more: every message is a C# payload, and
+/// the close caption, which sound_emitter.cpp forwarded here, is the managed
+/// SoundEmitter's call to <see cref="ICloseCaptions"/> since
+/// plan_server_native_v2 T4a.
 /// </summary>
-public sealed unsafe class UserMessagesBinding(IUserMessageCatalog registry, ICloseCaptions? captions = null) : IManagedUserMessages
+public sealed unsafe class UserMessagesBinding(IUserMessageCatalog registry) : IManagedUserMessages
 {
     /// <summary>The message's key and size at engine id <paramref name="a0"/>; 0 for an id the registry does not hold.</summary>
     public byte GetUserMessageInfo(int a0, byte* a1, int a2, void* a3)
@@ -47,23 +48,6 @@ public sealed unsafe class UserMessagesBinding(IUserMessageCatalog registry, ICl
             *(int*)a3 = size;
 
         return 1;
-    }
-
-    /// <summary>Whether sound_emitter.cpp should gather a caption's facts at all. See <see cref="ICloseCaptions.Wanted"/>.</summary>
-    public byte CloseCaptionsWanted() => captions is { Wanted: true } ? (byte)1 : (byte)0;
-
-    /// <summary>
-    /// sound_emitter.cpp's close caption: the facts native looked up, handed to
-    /// <see cref="ICloseCaptions"/>, which decides whether and what to send.
-    /// </summary>
-    public void EmitCloseCaption(void* a0, int a1, int a2, byte* a3, float a4, int a5, int a6, int a7)
-    {
-        if (captions is null || a3 == null || a1 < 0 || (a1 > 0 && a0 == null))
-            return;
-
-        // Not the name cache: captions are many distinct tokens.
-        string token = System.Runtime.InteropServices.Marshal.PtrToStringUTF8((nint)a3) ?? string.Empty;
-        captions.Emit(new ReadOnlySpan<int>(a0, a1), a2 != 0, token, a4, a5 != 0, a6 != 0, a7);
     }
 
     private static int Truncate(string text, Span<byte> into)

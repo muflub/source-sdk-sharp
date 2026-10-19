@@ -19,7 +19,45 @@ public interface IVtableSoundEmitter
     /// when the script has no such entry.
     /// </summary>
     SoundScriptParams? ScriptParameters(string name);
+
+    /// <summary>
+    /// <c>GetParametersForSound( name, params, gender )</c> into
+    /// <paramref name="parameters"/>, in place; false when the script has no
+    /// such entry.
+    /// </summary>
+    bool ParametersForSound(string name, ref SoundParametersLayout parameters, int gender);
+
+    /// <summary>
+    /// <c>GetParametersForSoundEx( name, handle, params, gender, isbeingemitted )</c>:
+    /// fills <paramref name="parameters"/> in place, and the script's handle
+    /// into <paramref name="handle"/> when it was -1. False when the script
+    /// has no such entry.
+    /// </summary>
+    bool ParametersForSoundEx(string name, ref short handle, ref SoundParametersLayout parameters,
+                              int gender, bool beingEmitted);
+
+    /// <summary>
+    /// <c>InternalGetParametersForSound( index )</c>'s channel and wave names,
+    /// in the entry's order (each through <c>GetWaveName</c>); null for an
+    /// index the table has no entry at.
+    /// </summary>
+    SoundScriptEntry? Entry(int index);
+
+    /// <summary><c>GetWavFileForSound( name, gender )</c>, or null.</summary>
+    string? WavFileForSound(string name, int gender);
+
+    /// <summary><c>LookupSoundLevel( name )</c>: the script's soundlevel, or SNDLVL_NONE (0).</summary>
+    int LookupSoundLevel(string name);
+
+    /// <summary><c>GetActorGender( model )</c>: gender_t, 0 for none or a null model.</summary>
+    int ActorGender(string? model);
 }
+
+/// <summary>
+/// What <c>CSoundParametersInternal</c> holds that the emitter's stop reads:
+/// the channel and every wave of the entry (the rndwave list), named.
+/// </summary>
+public sealed record SoundScriptEntry(int Channel, IReadOnlyList<string> Waves);
 
 public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
 {
@@ -28,7 +66,7 @@ public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
     private readonly void* _self;
     private readonly SoundEmitterSystemFwd* _fwd;
 
-    private SoundEmitterBase(void* self, SoundEmitterSystemFwd* table)
+    internal SoundEmitterBase(void* self, SoundEmitterSystemFwd* table)
     {
         _self = self;
         _fwd = table;
@@ -78,6 +116,120 @@ public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
         return new SoundScriptParams(parameters.Volume, parameters.Pitch, parameters.PitchLow,
                                      parameters.PitchHigh, parameters.SoundLevel);
     }
+
+    public bool ParametersForSound(string name, ref SoundParametersLayout parameters, int gender)
+    {
+        if (string.IsNullOrEmpty(name))
+            return false;
+
+        byte[] bytes = Vtable.Utf8(name);
+
+        fixed (byte* p = bytes)
+        fixed (SoundParametersLayout* into = &parameters)
+            return _fwd->GetParametersForSound(_self, p, into, gender, 0) != 0;
+    }
+
+    public bool ParametersForSoundEx(string name, ref short handle, ref SoundParametersLayout parameters,
+                                     int gender, bool beingEmitted)
+    {
+        if (string.IsNullOrEmpty(name))
+            return false;
+
+        byte[] bytes = Vtable.Utf8(name);
+
+        fixed (byte* p = bytes)
+        fixed (short* h = &handle)
+        fixed (SoundParametersLayout* into = &parameters)
+            return _fwd->GetParametersForSoundEx(_self, p, h, into, gender, beingEmitted ? (byte)1 : (byte)0) != 0;
+    }
+
+    public SoundScriptEntry? Entry(int index)
+    {
+        byte* entry = (byte*)_fwd->InternalGetParametersForSound(_self, index);
+        if (entry == null)
+            return null;
+
+        int count = SoundParametersInternalLayout.WaveCount(entry);
+        ushort* symbols = SoundParametersInternalLayout.Waves(entry);
+        var waves = new List<string>(count);
+
+        for (int i = 0; i < count; i++)
+        {
+            // GetWaveName takes a CUtlSymbol &: the symbol's own two bytes,
+            // which SoundFile holds first.
+            ushort* symbol = (ushort*)((byte*)symbols + i * SoundParametersInternalLayout.SoundFileSize);
+            waves.Add(Vtable.TextOf(_fwd->GetWaveName(_self, symbol), 512) ?? string.Empty);
+        }
+
+        return new SoundScriptEntry(SoundParametersInternalLayout.Channel(entry), waves);
+    }
+
+    public string? WavFileForSound(string name, int gender)
+    {
+        byte[] bytes = Vtable.Utf8(name);
+
+        fixed (byte* p = bytes)
+            return Vtable.TextOf(_fwd->GetWavFileForSound_2(_self, p, gender), 512);
+    }
+
+    public int LookupSoundLevel(string name)
+    {
+        byte[] bytes = Vtable.Utf8(name);
+
+        fixed (byte* p = bytes)
+            return _fwd->LookupSoundLevel(_self, p);
+    }
+
+    public int ActorGender(string? model)
+    {
+        if (model is null)
+            return _fwd->GetActorGender(_self, null);
+
+        byte[] bytes = Vtable.Utf8(model);
+
+        fixed (byte* p = bytes)
+            return _fwd->GetActorGender(_self, p);
+    }
+}
+
+/// <summary>
+/// <c>CSoundParametersInternal</c> (isoundemittersystembase.h, <c>#pragma pack(1)</c>)
+/// at the offsets the emitter's stop reads: the wave list and the channel.
+/// vtable_index_agreement_test's SoundParametersInternalLayout holds them to
+/// the header through its own inline accessors.
+/// </summary>
+public static unsafe class SoundParametersInternalLayout
+{
+    /// <summary><c>sizeof( CSoundParametersInternal )</c>.</summary>
+    public const int SizeInBytes = 36;
+
+    /// <summary><c>m_pSoundNames</c>: the wave array, or the one wave itself when there is one.</summary>
+    public const int SoundNamesOffset = 0;
+
+    /// <summary><c>m_nSoundNames</c>, a uint16.</summary>
+    public const int SoundNameCountOffset = 16;
+
+    /// <summary><c>channel</c>, a uint16.</summary>
+    public const int ChannelOffset = 30;
+
+    /// <summary><c>sizeof( SoundFile )</c>: the symbol (uint16), the gender, the flag.</summary>
+    public const int SoundFileSize = 4;
+
+    /// <summary><c>NumSoundNames()</c>.</summary>
+    public static int WaveCount(byte* entry) => *(ushort*)(entry + SoundNameCountOffset);
+
+    /// <summary><c>GetChannel()</c>.</summary>
+    public static int Channel(byte* entry) => *(ushort*)(entry + ChannelOffset);
+
+    /// <summary>
+    /// <c>GetSoundNames()</c>: with ONE wave the SoundFile is stored in the
+    /// pointer's own bytes, so the list is the field's address; otherwise it
+    /// is what the field points at.
+    /// </summary>
+    public static ushort* Waves(byte* entry)
+        => WaveCount(entry) == 1
+            ? (ushort*)(entry + SoundNamesOffset)
+            : *(ushort**)(entry + SoundNamesOffset);
 }
 
 /// <summary>
@@ -102,6 +254,33 @@ public unsafe struct SoundParametersLayout
     [System.Runtime.InteropServices.FieldOffset(28)] public int Count;
     [System.Runtime.InteropServices.FieldOffset(32)] public fixed byte SoundName[128];
     [System.Runtime.InteropServices.FieldOffset(160)] public int DelayMsec;
+
+    /// <summary><c>soundname</c> as text: the bytes up to the first NUL.</summary>
+    public string Name
+    {
+        get
+        {
+            fixed (byte* p = SoundName)
+            {
+                int length = 0;
+                while (length < 128 && p[length] != 0)
+                    length++;
+                return System.Text.Encoding.UTF8.GetString(p, length);
+            }
+        }
+        set
+        {
+            fixed (byte* p = SoundName)
+            {
+                var span = new Span<byte>(p, 128);
+                span.Clear();
+                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value ?? string.Empty);
+                int written = Math.Min(bytes.Length, 127);
+                bytes.AsSpan(0, written).CopyTo(span);
+                p[written] = 0;
+            }
+        }
+    }
 
     /// <summary>
     /// What CSoundParameters' constructor writes: CHAN_AUTO, VOL_NORM,

@@ -233,72 +233,6 @@ public unsafe struct ManagedSaveRestoreTable
     public delegate* unmanaged<void*, byte*, int, int> SaveRestoreEntities;
 }
 
-/// <summary>The table managed writes for <c>IManagedSoundController</c> (<c>SSManagedSoundControllerTable</c> native-side).</summary>
-[ImplementedByManaged("IManagedSoundController")]
-[StructLayout(LayoutKind.Sequential)]
-public unsafe struct ManagedSoundControllerTable
-{
-    // 0: void Release( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> Release;
-
-    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
-    [SlotHash(0x0d54c15e)]
-    public delegate* unmanaged<void*, void*, int, int> Validate;
-
-    // 2: void ServerSoundControllerCreate( int32_t hPatch )
-    [SlotHash(0xc83e311d)]
-    public delegate* unmanaged<void*, int, void> ServerSoundControllerCreate;
-
-    // 3: void ServerSoundControllerDestroy( int32_t hPatch )
-    [SlotHash(0xc83e311d)]
-    public delegate* unmanaged<void*, int, void> ServerSoundControllerDestroy;
-
-    // 4: void ServerSoundControllerPlay( int32_t hPatch, float flVolume, float flPitch, float flStartTime )
-    [SlotHash(0x56e9e8af)]
-    public delegate* unmanaged<void*, int, float, float, float, void> ServerSoundControllerPlay;
-
-    // 5: float ServerSoundControllerPlayEnvelope( int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints )
-    [SlotHash(0x0bb838af)]
-    public delegate* unmanaged<void*, int, int, void*, int, float> ServerSoundControllerPlayEnvelope;
-
-    // 6: void ServerSoundControllerChangePitch( int32_t hPatch, float flTarget, float flDeltaTime )
-    [SlotHash(0x3ab840f1)]
-    public delegate* unmanaged<void*, int, float, float, void> ServerSoundControllerChangePitch;
-
-    // 7: void ServerSoundControllerChangeVolume( int32_t hPatch, float flTarget, float flDeltaTime )
-    [SlotHash(0x3ab840f1)]
-    public delegate* unmanaged<void*, int, float, float, void> ServerSoundControllerChangeVolume;
-
-    // 8: float ServerSoundControllerGetPitch( int32_t hPatch )
-    [SlotHash(0x3059985f)]
-    public delegate* unmanaged<void*, int, float> ServerSoundControllerGetPitch;
-
-    // 9: float ServerSoundControllerGetVolume( int32_t hPatch )
-    [SlotHash(0x3059985f)]
-    public delegate* unmanaged<void*, int, float> ServerSoundControllerGetVolume;
-
-    // 10: void ServerSoundControllerFadeOut( int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout )
-    [SlotHash(0xfaaa3db2)]
-    public delegate* unmanaged<void*, int, float, int, void> ServerSoundControllerFadeOut;
-
-    // 11: void ServerSoundControllerCommandAdd( int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue )
-    [SlotHash(0x26ec0fb6)]
-    public delegate* unmanaged<void*, int, float, int, float, float, void> ServerSoundControllerCommandAdd;
-
-    // 12: void ServerSoundControllerCommandClear( int32_t hPatch )
-    [SlotHash(0xc83e311d)]
-    public delegate* unmanaged<void*, int, void> ServerSoundControllerCommandClear;
-
-    // 13: void ServerSoundControllerReset( void )
-    [SlotHash(0x07e0f4c4)]
-    public delegate* unmanaged<void*, void> ServerSoundControllerReset;
-
-    // 14: void ServerSoundControllerShutdown( int32_t hPatch )
-    [SlotHash(0xc83e311d)]
-    public delegate* unmanaged<void*, int, void> ServerSoundControllerShutdown;
-}
-
 /// <summary>The table managed writes for <c>IManagedSoundEnt</c> (<c>SSManagedSoundEntTable</c> native-side).</summary>
 [ImplementedByManaged("IManagedSoundEnt")]
 [StructLayout(LayoutKind.Sequential)]
@@ -541,14 +475,6 @@ public unsafe struct ManagedUserMessagesTable
     // 2: bool GetUserMessageInfo( int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize )
     [SlotHash(0xdd84ebe8)]
     public delegate* unmanaged<void*, int, byte*, int, void*, byte> GetUserMessageInfo;
-
-    // 3: bool CloseCaptionsWanted( void )
-    [SlotHash(0xbe023354)]
-    public delegate* unmanaged<void*, byte> CloseCaptionsWanted;
-
-    // 4: void EmitCloseCaption( const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender )
-    [SlotHash(0x60c53dcb)]
-    public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, void> EmitCloseCaption;
 }
 
 /// <summary>The table managed writes for <c>IManagedTempEnts</c> (<c>SSManagedTempEntsTable</c> native-side).</summary>
@@ -795,4 +721,56 @@ public unsafe struct ManagedMotionEventTable
     // 2: int32_t Simulate( void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular )
     [SlotHash(0xe23bf65f)]
     public delegate* unmanaged<void*, void*, void*, float, void*, void*, int> Simulate;
+}
+
+/// <summary>The table managed writes for <c>IManagedRecipientFilter</c> (<c>SSManagedRecipientFilterTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedRecipientFilter", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedRecipientFilterTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t IsReliable( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> IsReliable;
+
+    // 3: int32_t IsInitMessage( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> IsInitMessage;
+
+    // 4: int32_t GetRecipientCount( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> GetRecipientCount;
+
+    // 5: int32_t GetRecipientIndex( int32_t nSlot )
+    [SlotHash(0xa45f061a)]
+    public delegate* unmanaged<void*, int, int> GetRecipientIndex;
+}
+
+/// <summary>The table managed writes for <c>IManagedSoundEmitter</c> (<c>SSManagedSoundEmitterTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedSoundEmitter")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedSoundEmitterTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void ServerMoveSound( int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch )
+    [SlotHash(0xa452a32f)]
+    public delegate* unmanaged<void*, int, void*, int, byte*, float, int, int, int, void> ServerMoveSound;
+
+    // 3: void ServerMoveSoundScript( int32_t nEntIndex, const float *pOrigin, const char *pSoundName )
+    [SlotHash(0x5cb9e839)]
+    public delegate* unmanaged<void*, int, void*, byte*, void> ServerMoveSoundScript;
 }

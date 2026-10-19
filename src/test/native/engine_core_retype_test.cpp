@@ -979,14 +979,21 @@ TEST( VirtualsCostNothingAtLink, GetSoundEmissionOriginIsStillVirtual )
 		   "again. Every such ask is an undefined reference the moment the "
 		   "class is gone -- which it is -- and nothing at the call site says so.";
 
-	// The live successor, in the handle-shaped constructor that replaced them.
-	EXPECT_NE( strFilter.find( "const Vector vecCenter = ent.Center();" ), std::string::npos )
-		<< "the handle-shaped CPASAttenuationFilter no longer takes the "
-		   "entity's centre, so a managed sound source is cropped around "
-		   "something else -- and the sound is unaffected when the entity has "
-		   "an edict, which is exactly what makes the wrong answer invisible.";
-	EXPECT_NE( strFilter.find( "if ( !ent.IsValid() )" ), std::string::npos )
-		<< "the constructor no longer checks that the source resolved. An "
+	// The live successor was the handle-shaped constructor that replaced them;
+	// since plan_server_native_v2 T4a it is managed: ServerSounds.EntityEmitSound
+	// builds the filter around the entity's world-space centre, and refuses a
+	// source that does not resolve before it builds anything.
+	const std::string strSounds = Read( "../sourcesharp/managed/SourceSharp.Server/ServerSounds.cs" );
+	ASSERT_FALSE( strSounds.empty() );
+	EXPECT_EQ( strFilter.find( "CPASAttenuationFilter( const CBaseHandle" ), std::string::npos )
+		<< "the native handle-shaped constructor is back beside its managed successor";
+	EXPECT_NE( strSounds.find( "PasAttenuation(_entities.GetWorldSpaceCenter(entity), soundName)" ), std::string::npos )
+		<< "the entity emit no longer takes the entity's centre, so a managed "
+		   "sound source is cropped around something else -- and the sound is "
+		   "unaffected when the entity has an edict, which is exactly what makes "
+		   "the wrong answer invisible.";
+	EXPECT_NE( strSounds.find( "if (!_entities.IsValid(entity))" ), std::string::npos )
+		<< "the entity emit no longer checks that the source resolved. An "
 		   "unresolvable source must be heard by nobody, not by everyone in "
 		   "the PAS of the world origin.";
 }

@@ -13,10 +13,10 @@ namespace SourceSharp.Server;
 /// <summary>
 /// The close caption a sound carries, decided and sent here: stock's
 /// <c>CSoundEmitterSystem::EmitCloseCaption</c> (soundemittersystem.cpp) past
-/// the facts only native code can look up. sound_emitter.cpp forwards the
+/// the facts the emitter looks up. The managed SoundEmitter hands it the
 /// recipients, the token, the duration (filled from the wave when it was
-/// negative) and the speaker's gender, once per caption, through
-/// <c>IManagedUserMessages::EmitCloseCaption</c>.
+/// negative) and the speaker's gender, once per caption (plan_server_native_v2
+/// T4a; sound_emitter.cpp forwarded them through IManagedUserMessages before).
 /// </summary>
 public sealed class CloseCaptions(IUserMessageSender messages, IEngineEnvironment environment,
                                   IEngineConsole console) : ICloseCaptions

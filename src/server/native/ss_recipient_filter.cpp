@@ -26,24 +26,8 @@
 extern CGlobalVars *gpGlobals;
 
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : src - 
-//-----------------------------------------------------------------------------
-void ss::CRecipientFilter::CopyFrom( const CRecipientFilter& src )
-{
-	m_bReliable = src.IsReliable();
-	m_bInitMessage = src.IsInitMessage();
-
-	m_bUsingPredictionRules = src.IsUsingPredictionRules();
-	m_bIgnorePredictionCull = src.IgnorePredictionCull();
-
-	int c = src.GetRecipientCount();
-	for ( int i = 0; i < c; ++i )
-	{
-		m_Recipients.push_back( src.GetRecipientIndex( i ) );
-	}
-}
+// CopyFrom WENT with its one importer, sound_emitter.cpp's server caption
+// (plan_server_native_v2 T4a): the managed SoundEmitter copies its own filter.
 
 
 

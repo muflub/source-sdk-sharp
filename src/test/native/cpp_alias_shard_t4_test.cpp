@@ -309,14 +309,9 @@ const Retype_t kUnconditionalRetypes[] = {
 	{ "sourcesharp/game/server/ss_recipient_filter.h",
 	  "void AddRecipientByPlayerIndex( int playerindex );",
 	  "AddRecipient( const CBasePlayer" },
-	// shell_soundenvelope.cpp's caller is gone with the rest of the dead
-	// CBasePlayer surface (plan_server_novalve.md P5 wave 8b), and since P5
-	// lane SP so is the interface method that took the pointer: the controller
-	// implements ss::ISoundController only, which names no player. Pinned both
-	// ways: that is the class's one base, and no CBasePlayer comes back.
-	{ "sourcesharp/game/server/shell_soundenvelope.cpp",
-	  "class CShellSoundController : public ss::ISoundController\n",
-	  "CBasePlayer" },
+	// shell_soundenvelope.cpp's row LEFT with the file (plan_server_native_v2
+	// T4a): the server's sound patch and controller are managed
+	// (ServerSoundPatches), so there is no native class left to hold its ground.
 };
 
 const size_t kNumRetypes = sizeof( kUnconditionalRetypes ) / sizeof( kUnconditionalRetypes[ 0 ] );

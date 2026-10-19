@@ -277,35 +277,27 @@ public:
 		engine->Con_NPrintf( idx, "%s", szString );
 	}
 
+	// The movement's sounds (a fall, a swim stroke) go to the managed
+	// SoundEmitter (plan_server_native_v2 T4a), which decides who hears them:
+	// the PAS of the point, as stock's CRecipientFilter::AddRecipientsByPAS.
 	virtual void StartSound( const Vector &origin, int channel, char const *sample,
 	                         float volume, soundlevel_t soundlevel, int fFlags, int pitch ) OVERRIDE
 	{
-		if ( !m_pHost )
+		IManagedSoundEmitter *pEmitter = ManagedSoundEmitter();
+		if ( !m_pHost || !pEmitter || !sample )
 			return;
 
-		ss::CRecipientFilter filter;
-		filter.AddRecipientsByPAS( origin );
-
-		ss::EmitSound_t ep;
-		ep.m_nChannel = channel;
-		ep.m_pSoundName = sample;
-		ep.m_flVolume = volume;
-		ep.m_SoundLevel = soundlevel;
-		ep.m_nFlags = fFlags;
-		ep.m_nPitch = pitch;
-		ep.m_pOrigin = &origin;
-
-		GameSound_Emit( filter, m_pHost->MvEntIndex(), ep );
+		pEmitter->ServerMoveSound( m_pHost->MvEntIndex(), origin.Base(), channel, sample, volume,
+		                           (int32_t)soundlevel, fFlags, pitch );
 	}
 
 	virtual void StartSound( const Vector &origin, const char *soundname ) OVERRIDE
 	{
-		if ( !m_pHost )
+		IManagedSoundEmitter *pEmitter = ManagedSoundEmitter();
+		if ( !m_pHost || !pEmitter || !soundname )
 			return;
 
-		ss::CRecipientFilter filter;
-		filter.AddRecipientsByPAS( origin );
-		GameSound_Emit( filter, m_pHost->MvEntIndex(), soundname );
+		pEmitter->ServerMoveSoundScript( m_pHost->MvEntIndex(), origin.Base(), soundname );
 	}
 
 	virtual void PlaybackEventFull( int flags, int clientindex, unsigned short eventindex,

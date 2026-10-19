@@ -304,7 +304,7 @@ static void *const s_NetworkStringTableSlots[] = {
 static const SSForwarderTable s_NetworkStringTableTable = { s_NetworkStringTableSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// SoundEmitterSystem: 4 forwarder(s) over ISoundEmitterSystemBase.
+// SoundEmitterSystem: 9 forwarder(s) over ISoundEmitterSystemBase.
 //-----------------------------------------------------------------------------
 // int ISoundEmitterSystemBase::GetSoundIndex( const char * )
 static int SSFwd_SoundEmitterSystem_GetSoundIndex( ISoundEmitterSystemBase *self, const char * a0 ) { return self->GetSoundIndex( a0 ); }
@@ -314,15 +314,30 @@ static const char * SSFwd_SoundEmitterSystem_GetSoundName( ISoundEmitterSystemBa
 static bool SSFwd_SoundEmitterSystem_GetParametersForSound( ISoundEmitterSystemBase *self, const char * a0, CSoundParameters & a1, gender_t a2, bool a3 ) { return self->GetParametersForSound( a0, a1, a2, a3 ); }
 // gender_t ISoundEmitterSystemBase::GetActorGender( char const * )
 static gender_t SSFwd_SoundEmitterSystem_GetActorGender( ISoundEmitterSystemBase *self, char const * a0 ) { return self->GetActorGender( a0 ); }
+// bool ISoundEmitterSystemBase::GetParametersForSoundEx( const char *, HSOUNDSCRIPTHANDLE &, CSoundParameters &, gender_t, bool )
+static bool SSFwd_SoundEmitterSystem_GetParametersForSoundEx( ISoundEmitterSystemBase *self, const char * a0, HSOUNDSCRIPTHANDLE & a1, CSoundParameters & a2, gender_t a3, bool a4 ) { return self->GetParametersForSoundEx( a0, a1, a2, a3, a4 ); }
+// CSoundParametersInternal * ISoundEmitterSystemBase::InternalGetParametersForSound( int )
+static CSoundParametersInternal * SSFwd_SoundEmitterSystem_InternalGetParametersForSound( ISoundEmitterSystemBase *self, int a0 ) { return self->InternalGetParametersForSound( a0 ); }
+// const char * ISoundEmitterSystemBase::GetWaveName( CUtlSymbol & )
+static const char * SSFwd_SoundEmitterSystem_GetWaveName( ISoundEmitterSystemBase *self, CUtlSymbol & a0 ) { return self->GetWaveName( a0 ); }
+// const char * ISoundEmitterSystemBase::GetWavFileForSound( const char *, gender_t )
+static const char * SSFwd_SoundEmitterSystem_GetWavFileForSound_2( ISoundEmitterSystemBase *self, const char * a0, gender_t a1 ) { return self->GetWavFileForSound( a0, a1 ); }
+// soundlevel_t ISoundEmitterSystemBase::LookupSoundLevel( const char * )
+static soundlevel_t SSFwd_SoundEmitterSystem_LookupSoundLevel( ISoundEmitterSystemBase *self, const char * a0 ) { return self->LookupSoundLevel( a0 ); }
 
 static void *const s_SoundEmitterSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetSoundIndex ),
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetSoundName ),
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetParametersForSound ),
 	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetActorGender ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetParametersForSoundEx ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_InternalGetParametersForSound ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetWaveName ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_GetWavFileForSound_2 ),
+	reinterpret_cast< void * >( &SSFwd_SoundEmitterSystem_LookupSoundLevel ),
 };
 
-static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystemSlots, 4 };
+static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystemSlots, 9 };
 
 //-----------------------------------------------------------------------------
 // StaticPropMgrClient: 1 forwarder(s) over IStaticPropMgrClient.
@@ -1357,34 +1372,19 @@ static void *const s_ShimConsoleSlots[] = {
 static const SSForwarderTable s_ShimConsoleTable = { s_ShimConsoleSlots, 11 };
 
 //-----------------------------------------------------------------------------
-// ShimEngine: 7 forwarder(s) over IShimEngine.
+// ShimEngine: 2 forwarder(s) over IShimEngine.
 //-----------------------------------------------------------------------------
 // float IShimEngine::GetCurrentTime( void )
 static float SSFwd_ShimEngine_GetCurrentTime( IShimEngine *self ) { return self->GetCurrentTime(); }
 // void * IShimEngine::GetGlobalVarsPtr( void )
 static void * SSFwd_ShimEngine_GetGlobalVarsPtr( IShimEngine *self ) { return self->GetGlobalVarsPtr(); }
-// void IShimEngine::SoundPatchEmit( int32_t, float, float, int32_t, float, int32_t )
-static void SSFwd_ShimEngine_SoundPatchEmit( IShimEngine *self, int32_t a0, float a1, float a2, int32_t a3, float a4, int32_t a5 ) { self->SoundPatchEmit( a0, a1, a2, a3, a4, a5 ); }
-// void IShimEngine::SoundPatchStop( int32_t )
-static void SSFwd_ShimEngine_SoundPatchStop( IShimEngine *self, int32_t a0 ) { self->SoundPatchStop( a0 ); }
-// void IShimEngine::SoundPatchState( int32_t, int32_t *, int32_t * )
-static void SSFwd_ShimEngine_SoundPatchState( IShimEngine *self, int32_t a0, int32_t * a1, int32_t * a2 ) { self->SoundPatchState( a0, a1, a2 ); }
-// void IShimEngine::SoundPatchFree( int32_t )
-static void SSFwd_ShimEngine_SoundPatchFree( IShimEngine *self, int32_t a0 ) { self->SoundPatchFree( a0 ); }
-// int32_t IShimEngine::SoundPatchCreate( uint32_t, int32_t, const char *, int32_t )
-static int32_t SSFwd_ShimEngine_SoundPatchCreate( IShimEngine *self, uint32_t a0, int32_t a1, const char * a2, int32_t a3 ) { return self->SoundPatchCreate( a0, a1, a2, a3 ); }
 
 static void *const s_ShimEngineSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_GetCurrentTime ),
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_GetGlobalVarsPtr ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchEmit ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchStop ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchState ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchFree ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchCreate ),
 };
 
-static const SSForwarderTable s_ShimEngineTable = { s_ShimEngineSlots, 7 };
+static const SSForwarderTable s_ShimEngineTable = { s_ShimEngineSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // ShimConsoleServer: 2 forwarder(s) over IShimConsoleServer.
@@ -1970,30 +1970,6 @@ static void *const s_ShimPlayersSlots[] = {
 };
 
 static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 11 };
-
-//-----------------------------------------------------------------------------
-// ShimSound: 5 forwarder(s) over IShimSound.
-//-----------------------------------------------------------------------------
-// void IShimSound::EntityEmitSound( uint32_t, const char * )
-static void SSFwd_ShimSound_EntityEmitSound( IShimSound *self, uint32_t a0, const char * a1 ) { self->EntityEmitSound( a0, a1 ); }
-// void IShimSound::EntityStopSound( uint32_t, const char * )
-static void SSFwd_ShimSound_EntityStopSound( IShimSound *self, uint32_t a0, const char * a1 ) { self->EntityStopSound( a0, a1 ); }
-// void IShimSound::EmitSoundAtPosition( const char *, const float * )
-static void SSFwd_ShimSound_EmitSoundAtPosition( IShimSound *self, const char * a0, const float * a1 ) { self->EmitSoundAtPosition( a0, a1 ); }
-// void IShimSound::EmitAmbientSound( int32_t, const float *, const char *, float, int32_t, int32_t, int32_t )
-static void SSFwd_ShimSound_EmitAmbientSound( IShimSound *self, int32_t a0, const float * a1, const char * a2, float a3, int32_t a4, int32_t a5, int32_t a6 ) { self->EmitAmbientSound( a0, a1, a2, a3, a4, a5, a6 ); }
-// int32_t IShimSound::EmitWorldSoundScript( const char *, const float *, int32_t, float )
-static int32_t SSFwd_ShimSound_EmitWorldSoundScript( IShimSound *self, const char * a0, const float * a1, int32_t a2, float a3 ) { return self->EmitWorldSoundScript( a0, a1, a2, a3 ); }
-
-static void *const s_ShimSoundSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimSound_EntityEmitSound ),
-	reinterpret_cast< void * >( &SSFwd_ShimSound_EntityStopSound ),
-	reinterpret_cast< void * >( &SSFwd_ShimSound_EmitSoundAtPosition ),
-	reinterpret_cast< void * >( &SSFwd_ShimSound_EmitAmbientSound ),
-	reinterpret_cast< void * >( &SSFwd_ShimSound_EmitWorldSoundScript ),
-};
-
-static const SSForwarderTable s_ShimSoundTable = { s_ShimSoundSlots, 5 };
 
 //-----------------------------------------------------------------------------
 // ShimEffectsServer: 12 forwarder(s) over IShimEffectsServer.
@@ -2929,7 +2905,7 @@ static void *const s_ShimFxClientSlots[] = {
 static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 39 };
 
 //-----------------------------------------------------------------------------
-// ShimSoundscapeClient: 8 forwarder(s) over IShimSoundscapeClient.
+// ShimSoundscapeClient: 13 forwarder(s) over IShimSoundscapeClient.
 //-----------------------------------------------------------------------------
 // void IShimSoundscapeClient::SoundscapeEmitAmbient( const char *, float, int32_t, int32_t )
 static void SSFwd_ShimSoundscapeClient_SoundscapeEmitAmbient( IShimSoundscapeClient *self, const char * a0, float a1, int32_t a2, int32_t a3 ) { self->SoundscapeEmitAmbient( a0, a1, a2, a3 ); }
@@ -2947,6 +2923,16 @@ static void SSFwd_ShimSoundscapeClient_SoundscapeMainView( IShimSoundscapeClient
 static int32_t SSFwd_ShimSoundscapeClient_SoundscapeMakingResLists( IShimSoundscapeClient *self ) { return self->SoundscapeMakingResLists(); }
 // void IShimSoundscapeClient::SoundscapeTouchSoundFile( const char * )
 static void SSFwd_ShimSoundscapeClient_SoundscapeTouchSoundFile( IShimSoundscapeClient *self, const char * a0 ) { self->SoundscapeTouchSoundFile( a0 ); }
+// void IShimSoundscapeClient::SoundPatchEmit( int32_t, float, float, int32_t, float, int32_t )
+static void SSFwd_ShimSoundscapeClient_SoundPatchEmit( IShimSoundscapeClient *self, int32_t a0, float a1, float a2, int32_t a3, float a4, int32_t a5 ) { self->SoundPatchEmit( a0, a1, a2, a3, a4, a5 ); }
+// void IShimSoundscapeClient::SoundPatchStop( int32_t )
+static void SSFwd_ShimSoundscapeClient_SoundPatchStop( IShimSoundscapeClient *self, int32_t a0 ) { self->SoundPatchStop( a0 ); }
+// void IShimSoundscapeClient::SoundPatchState( int32_t, int32_t *, int32_t * )
+static void SSFwd_ShimSoundscapeClient_SoundPatchState( IShimSoundscapeClient *self, int32_t a0, int32_t * a1, int32_t * a2 ) { self->SoundPatchState( a0, a1, a2 ); }
+// void IShimSoundscapeClient::SoundPatchFree( int32_t )
+static void SSFwd_ShimSoundscapeClient_SoundPatchFree( IShimSoundscapeClient *self, int32_t a0 ) { self->SoundPatchFree( a0 ); }
+// int32_t IShimSoundscapeClient::SoundPatchCreate( uint32_t, int32_t, const char *, int32_t )
+static int32_t SSFwd_ShimSoundscapeClient_SoundPatchCreate( IShimSoundscapeClient *self, uint32_t a0, int32_t a1, const char * a2, int32_t a3 ) { return self->SoundPatchCreate( a0, a1, a2, a3 ); }
 
 static void *const s_ShimSoundscapeClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeEmitAmbient ),
@@ -2957,9 +2943,14 @@ static void *const s_ShimSoundscapeClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeMainView ),
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeMakingResLists ),
 	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeTouchSoundFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundPatchEmit ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundPatchStop ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundPatchState ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundPatchFree ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundPatchCreate ),
 };
 
-static const SSForwarderTable s_ShimSoundscapeClientTable = { s_ShimSoundscapeClientSlots, 8 };
+static const SSForwarderTable s_ShimSoundscapeClientTable = { s_ShimSoundscapeClientSlots, 13 };
 
 //-----------------------------------------------------------------------------
 // ShimPrecipitationClient: 7 forwarder(s) over IShimPrecipitationClient.
@@ -3226,7 +3217,6 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimDamage", &s_ShimDamageTable },
 	{ "SSFwd_ShimGameRules", &s_ShimGameRulesTable },
 	{ "SSFwd_ShimPlayers", &s_ShimPlayersTable },
-	{ "SSFwd_ShimSound", &s_ShimSoundTable },
 	{ "SSFwd_ShimEffectsServer", &s_ShimEffectsServerTable },
 	{ "SSFwd_ShimDebugOverlay", &s_ShimDebugOverlayTable },
 	{ "SSFwd_ShimUserMessages", &s_ShimUserMessagesTable },

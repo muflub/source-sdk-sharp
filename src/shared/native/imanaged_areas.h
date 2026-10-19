@@ -126,58 +126,6 @@ static const uint32_t kIManagedSaveRestoreSlotHashes[] = {
 static const int32_t kIManagedSaveRestoreSlotCount = 6;
 static_assert( sizeof( SSManagedSaveRestoreTable ) == 6 * sizeof( void * ), "SSManagedSaveRestoreTable is one pointer per slot" );
 
-class IManagedSoundController;
-
-// The table managed writes for IManagedSoundController: Release, Validate, then the TSV's order.
-struct SSManagedSoundControllerTable
-{
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ServerSoundControllerCreate )( IManagedSoundController *self, int32_t hPatch );
-	void ( *ServerSoundControllerDestroy )( IManagedSoundController *self, int32_t hPatch );
-	void ( *ServerSoundControllerPlay )( IManagedSoundController *self, int32_t hPatch, float flVolume, float flPitch, float flStartTime );
-	float ( *ServerSoundControllerPlayEnvelope )( IManagedSoundController *self, int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints );
-	void ( *ServerSoundControllerChangePitch )( IManagedSoundController *self, int32_t hPatch, float flTarget, float flDeltaTime );
-	void ( *ServerSoundControllerChangeVolume )( IManagedSoundController *self, int32_t hPatch, float flTarget, float flDeltaTime );
-	float ( *ServerSoundControllerGetPitch )( IManagedSoundController *self, int32_t hPatch );
-	float ( *ServerSoundControllerGetVolume )( IManagedSoundController *self, int32_t hPatch );
-	void ( *ServerSoundControllerFadeOut )( IManagedSoundController *self, int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout );
-	void ( *ServerSoundControllerCommandAdd )( IManagedSoundController *self, int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue );
-	void ( *ServerSoundControllerCommandClear )( IManagedSoundController *self, int32_t hPatch );
-	void ( *ServerSoundControllerReset )( IManagedSoundController *self );
-	void ( *ServerSoundControllerShutdown )( IManagedSoundController *self, int32_t hPatch );
-};
-
-class IManagedSoundController : public IManagedObject
-{
-public:
-	explicit IManagedSoundController( const SSManagedSoundControllerTable *pTable ) : IManagedObject( pTable ) {}
-
-	void ServerSoundControllerCreate( int32_t hPatch ) { Table()->ServerSoundControllerCreate( this, hPatch ); }
-	void ServerSoundControllerDestroy( int32_t hPatch ) { Table()->ServerSoundControllerDestroy( this, hPatch ); }
-	void ServerSoundControllerPlay( int32_t hPatch, float flVolume, float flPitch, float flStartTime ) { Table()->ServerSoundControllerPlay( this, hPatch, flVolume, flPitch, flStartTime ); }
-	float ServerSoundControllerPlayEnvelope( int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints ) { return Table()->ServerSoundControllerPlayEnvelope( this, hPatch, nCommand, pPoints, nPoints ); }
-	void ServerSoundControllerChangePitch( int32_t hPatch, float flTarget, float flDeltaTime ) { Table()->ServerSoundControllerChangePitch( this, hPatch, flTarget, flDeltaTime ); }
-	void ServerSoundControllerChangeVolume( int32_t hPatch, float flTarget, float flDeltaTime ) { Table()->ServerSoundControllerChangeVolume( this, hPatch, flTarget, flDeltaTime ); }
-	float ServerSoundControllerGetPitch( int32_t hPatch ) { return Table()->ServerSoundControllerGetPitch( this, hPatch ); }
-	float ServerSoundControllerGetVolume( int32_t hPatch ) { return Table()->ServerSoundControllerGetVolume( this, hPatch ); }
-	void ServerSoundControllerFadeOut( int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout ) { Table()->ServerSoundControllerFadeOut( this, hPatch, flDeltaTime, bDestroyOnFadeout ); }
-	void ServerSoundControllerCommandAdd( int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand, float flCommandTime, float flValue ) { Table()->ServerSoundControllerCommandAdd( this, hPatch, flExecuteDeltaTime, nCommand, flCommandTime, flValue ); }
-	void ServerSoundControllerCommandClear( int32_t hPatch ) { Table()->ServerSoundControllerCommandClear( this, hPatch ); }
-	void ServerSoundControllerReset() { Table()->ServerSoundControllerReset( this ); }
-	void ServerSoundControllerShutdown( int32_t hPatch ) { Table()->ServerSoundControllerShutdown( this, hPatch ); }
-
-private:
-	const SSManagedSoundControllerTable *Table() const { return static_cast< const SSManagedSoundControllerTable * >( m_pTable ); }
-};
-
-static const uint32_t kIManagedSoundControllerSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xc83e311d, 0xc83e311d, 0x56e9e8af, 0x0bb838af, 0x3ab840f1, 0x3ab840f1,
-	0x3059985f, 0x3059985f, 0xfaaa3db2, 0x26ec0fb6, 0xc83e311d, 0x07e0f4c4, 0xc83e311d,
-};
-static const int32_t kIManagedSoundControllerSlotCount = 15;
-static_assert( sizeof( SSManagedSoundControllerTable ) == 15 * sizeof( void * ), "SSManagedSoundControllerTable is one pointer per slot" );
-
 class IManagedSoundEnt;
 
 // The table managed writes for IManagedSoundEnt: Release, Validate, then the TSV's order.
@@ -393,8 +341,6 @@ struct SSManagedUserMessagesTable
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	bool ( *GetUserMessageInfo )( IManagedUserMessages *self, int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize );
-	bool ( *CloseCaptionsWanted )( IManagedUserMessages *self );
-	void ( *EmitCloseCaption )( IManagedUserMessages *self, const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender );
 };
 
 class IManagedUserMessages : public IManagedObject
@@ -403,18 +349,16 @@ public:
 	explicit IManagedUserMessages( const SSManagedUserMessagesTable *pTable ) : IManagedObject( pTable ) {}
 
 	bool GetUserMessageInfo( int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize ) { return Table()->GetUserMessageInfo( this, nIndex, pName, nMaxName, pSize ); }
-	bool CloseCaptionsWanted() { return Table()->CloseCaptionsWanted( this ); }
-	void EmitCloseCaption( const int32_t *pSlots, int32_t nSlots, int32_t bReliable, const char *pToken, float flDuration, int32_t bFromPlayer, int32_t bWarnIfMissing, int32_t nGender ) { Table()->EmitCloseCaption( this, pSlots, nSlots, bReliable, pToken, flDuration, bFromPlayer, bWarnIfMissing, nGender ); }
 
 private:
 	const SSManagedUserMessagesTable *Table() const { return static_cast< const SSManagedUserMessagesTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedUserMessagesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xdd84ebe8, 0xbe023354, 0x60c53dcb,
+	0x07e0f4c4, 0x0d54c15e, 0xdd84ebe8,
 };
-static const int32_t kIManagedUserMessagesSlotCount = 5;
-static_assert( sizeof( SSManagedUserMessagesTable ) == 5 * sizeof( void * ), "SSManagedUserMessagesTable is one pointer per slot" );
+static const int32_t kIManagedUserMessagesSlotCount = 3;
+static_assert( sizeof( SSManagedUserMessagesTable ) == 3 * sizeof( void * ), "SSManagedUserMessagesTable is one pointer per slot" );
 
 class IManagedTempEnts;
 
@@ -654,10 +598,38 @@ static const uint32_t kIManagedBonesSlotHashes[] = {
 static const int32_t kIManagedBonesSlotCount = 3;
 static_assert( sizeof( SSManagedBonesTable ) == 3 * sizeof( void * ), "SSManagedBonesTable is one pointer per slot" );
 
+class IManagedSoundEmitter;
+
+// The table managed writes for IManagedSoundEmitter: Release, Validate, then the TSV's order.
+struct SSManagedSoundEmitterTable
+{
+	void ( *Release )( IManagedObject *self );
+	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
+	void ( *ServerMoveSound )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch );
+	void ( *ServerMoveSoundScript )( IManagedSoundEmitter *self, int32_t nEntIndex, const float *pOrigin, const char *pSoundName );
+};
+
+class IManagedSoundEmitter : public IManagedObject
+{
+public:
+	explicit IManagedSoundEmitter( const SSManagedSoundEmitterTable *pTable ) : IManagedObject( pTable ) {}
+
+	void ServerMoveSound( int32_t nEntIndex, const float *pOrigin, int32_t nChannel, const char *pSample, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch ) { Table()->ServerMoveSound( this, nEntIndex, pOrigin, nChannel, pSample, flVolume, nSoundLevel, nFlags, nPitch ); }
+	void ServerMoveSoundScript( int32_t nEntIndex, const float *pOrigin, const char *pSoundName ) { Table()->ServerMoveSoundScript( this, nEntIndex, pOrigin, pSoundName ); }
+
+private:
+	const SSManagedSoundEmitterTable *Table() const { return static_cast< const SSManagedSoundEmitterTable * >( m_pTable ); }
+};
+
+static const uint32_t kIManagedSoundEmitterSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0xa452a32f, 0x5cb9e839,
+};
+static const int32_t kIManagedSoundEmitterSlotCount = 4;
+static_assert( sizeof( SSManagedSoundEmitterTable ) == 4 * sizeof( void * ), "SSManagedSoundEmitterTable is one pointer per slot" );
+
 IManagedPhysicsFrame *ManagedPhysicsFrame();   // this load's area, or NULL outside a load
 IManagedResources *ManagedResources();   // this load's area, or NULL outside a load
 IManagedSaveRestore *ManagedSaveRestore();   // this load's area, or NULL outside a load
-IManagedSoundController *ManagedSoundController();   // this load's area, or NULL outside a load
 IManagedSoundEnt *ManagedSoundEnt();   // this load's area, or NULL outside a load
 IManagedHierarchy *ManagedHierarchy();   // this load's area, or NULL outside a load
 IManagedEntities *ManagedEntities();   // this load's area, or NULL outside a load
@@ -672,6 +644,7 @@ IManagedPlayerCommands *ManagedPlayerCommands();   // this load's area, or NULL 
 IManagedFrame *ManagedFrame();   // this load's area, or NULL outside a load
 IManagedConsoleOutput *ManagedConsoleOutput();   // this load's area, or NULL outside a load
 IManagedBones *ManagedBones();   // this load's area, or NULL outside a load
+IManagedSoundEmitter *ManagedSoundEmitter();   // this load's area, or NULL outside a load
 
 #endif // !CLIENT_DLL
 

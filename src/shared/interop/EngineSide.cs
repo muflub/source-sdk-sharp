@@ -1207,7 +1207,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        OwnShims.EngineBase.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
+        SidePatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
     }
 
     /// <summary>
@@ -1219,7 +1219,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        OwnShims.EngineBase.SoundPatchStop(patch);
+        SidePatchStop(patch);
     }
 
     /// <summary>
@@ -1242,13 +1242,7 @@ internal sealed unsafe partial class EngineSide
 
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        int index = -1;
-        int active = 0;
-
-        OwnShims.EngineBase.SoundPatchState(patch, &index, &active);
-
-        entIndex = index;
-        filterActive = active != 0;
+        SidePatchState(patch, out entIndex, out filterActive);
     }
 
     /// <summary>
@@ -1260,7 +1254,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        OwnShims.EngineBase.SoundPatchFree(patch);
+        SidePatchFree(patch);
     }
 
 
@@ -1274,10 +1268,16 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached || soundName.Length == 0) return 0;
 
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        fixed (byte* p = bytes)
-            return OwnShims.EngineBase.SoundPatchCreate(entity.Value, channel, p, soundLevel);
+        return SidePatchCreate(entity, channel, soundName, soundLevel);
     }
+
+    // Each side's own patch arm (plan_server_native_v2 T4a): the server's
+    // patches are the managed SoundEmitter's, the client's IShimSoundscapeClient's.
+    private partial void SidePatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption);
+    private partial void SidePatchStop(int patch);
+    private partial void SidePatchState(int patch, out int entIndex, out bool filterActive);
+    private partial void SidePatchFree(int patch);
+    private partial int SidePatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel);
 
 
 

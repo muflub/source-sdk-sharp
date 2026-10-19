@@ -194,11 +194,14 @@ public unsafe partial class ManagedVtableTests
         // phase 5 is each vphysics callback: libss_fwd builds the Valve object
         // (a vptr and its managed target) in the words after the table, so it
         // lives and dies with the block. Exactly those six, and exactly the
-        // object's two words (kManagedPhysicsCallbackWords).
+        // object's two words (kManagedPhysicsCallbackWords). plan_server_native_v2
+        // T4a adds the seventh, the recipient filter EmitSound calls back,
+        // which libss_fwd_server builds the same way.
         string[] callbacks =
         [
             "ManagedPhysicsObjectEventTable", "ManagedPhysicsCollisionEventTable", "ManagedPhysicsCollisionSolverTable",
             "ManagedPhysicsConstraintEventTable", "ManagedMotionEventTable", "ManagedVPhysicsKeyHandlerTable",
+            "ManagedRecipientFilterTable",
         ];
         var layouts = ManagedWrittenLayouts().ToList();
 

@@ -61,7 +61,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 163 slots.
+// SERVER ONLY -- 153 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -90,12 +90,6 @@ int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const ch
                                        float flDuration, int32_t r, int32_t g, int32_t b,
                                        int32_t a );
 int32_t SourceSharp_EffectDispatchIndex( const char *pName );
-void SourceSharp_EmitAmbientSound( int32_t nEntIndex, const float *pXYZ, const char *pSoundName,
-                                   float flVolume, int32_t nSoundLevel, int32_t nFlags,
-                                   int32_t nPitch );
-void SourceSharp_EmitSoundAtPosition( const char *pSoundName, const float *pXYZ );
-int32_t SourceSharp_EmitWorldSoundScript( const char *pszName, const float *pXYZ,
-                                          int32_t nChannel, float flVolume );
 void SourceSharp_EndRound( void );
 int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius,
                                       uint32_t *pOutHandles, int32_t nMax );
@@ -107,7 +101,6 @@ void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize,
 void SourceSharp_EntityDestroyPhysics( uint32_t hEntity );
 int32_t SourceSharp_EntityDispatch( uint32_t hEntity, int32_t nOp,
                                     const SourceSharpOpArgs *pArgs );
-void SourceSharp_EntityEmitSound( uint32_t hEntity, const char *pSoundName );
 int32_t SourceSharp_EntityFactoryCount( void );
 const char *SourceSharp_EntityFactoryNameAt( int32_t index );
 int32_t SourceSharp_EntityFactoryRefusalCount( void );
@@ -181,7 +174,6 @@ void SourceSharp_EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways );
 void SourceSharp_EntitySetVelocity( uint32_t hEntity, const float *pXYZ );
 void SourceSharp_EntitySetVisible( uint32_t hEntity, int32_t bVisible );
 void SourceSharp_EntitySpawn( uint32_t hEntity );
-void SourceSharp_EntityStopSound( uint32_t hEntity, const char *pSoundName );
 int32_t SourceSharp_EntitySwapPhysicsObject( uint32_t hEntity, void *pObject,
                                              void **ppPrevious );
 void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage,
@@ -253,14 +245,6 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
                                          int32_t nOutputCount, int32_t nKind );
 void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand );
 void SourceSharp_SetSkyboxParams( const SourceSharpSkyboxParams *pParams );
-int32_t SourceSharp_SoundPatchCreate( uint32_t hEntity, int32_t nChannel,
-                                      const char *pSoundName, int32_t nSoundLevel );
-void SourceSharp_SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch,
-                                 int32_t nFlags, float flStartTime, int32_t bEmitCaption );
-void SourceSharp_SoundPatchFree( int32_t hPatch );
-void SourceSharp_SoundPatchState( int32_t hPatch, int32_t *pnEntIndex,
-                                  int32_t *pbFilterActive );
-void SourceSharp_SoundPatchStop( int32_t hPatch );
 void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t bInSlime );
 void SourceSharp_TempEntPlayback( int32_t hClass, const void *pBlob, int32_t nBytes,
                                   const SourceSharpTeFilter_t *pFilter, float flDelay );

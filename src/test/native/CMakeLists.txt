@@ -75,7 +75,8 @@ ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
     INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
 
 # plan_engine_forwarders.md section 6: the client library's Steam callback,
 # built in memory the test hands it and driven through CCallbackBase's
@@ -109,14 +110,27 @@ ss_cpptest_engine_headers(fwd_physics_test
     INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_physics_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
+
+# plan_server_native_v2 T4a: the IRecipientFilter libss_fwd_server builds in a
+# managed block's reserved words, driven through its Valve interface as
+# IEngineSound::EmitSound drives it. The server's library is compiled in.
+ss_cpptest_engine_headers(fwd_recipient_filter_test
+    DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_recipient_filter_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
 
 ss_cpptest_engine_headers(fwd_shim_test
     DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
     INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_shim_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_recipient_filter.cpp)
 
 # The CLOSED SET of acquisition failure reasons, walked rather than sampled --
 # plan_native_api.md Part 3b and Part 5c. The contract says four literals, all
@@ -951,16 +965,6 @@ ss_cpptest(collision_origin_identity_test
 # the file is allowed to reach and pins the forwarders as forwarders.
 ss_cpptest(precache_model_move_test
     SOURCES sourcesharp/test/precache_model_move_test.cpp)
-
-# One recipient's worth of RecipientFilter_RemoveIfNotCloseCaptioning, which was
-# a static member of CBaseEntity that never touched an entity and is now the
-# recipient filter's own (plan_baseentity.md Phase 13 precondition (e)). The
-# rule has one case that is not what it looks like: atoi("") and atoi("0") are
-# both zero and mean opposite things -- "not reported yet" keeps the recipient,
-# "captions off" removes them. The function is also a step 5 gate: it removes
-# nobody today, so step 5 is the first day the rule runs at all.
-ss_cpptest(closecaption_recipient_test
-    SOURCES sourcesharp/test/closecaption_recipient_test.cpp)
 
 # The one name-matching rule (entity_name_match.h). It used to exist twice --
 # stock's NamesMatch and entitylist.cpp's GameEntityNameMatches, the second

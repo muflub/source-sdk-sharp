@@ -126,7 +126,8 @@ CORE = {'IManagedRoot': False, 'IManagedRuntimeServer': True, 'IManagedRuntimeCl
         'IManagedSteamCallback': False}
 
 # plan_forwarders_everywhere.md phase 5: the managed side of each vphysics
-# callback. vphysics calls IPhysicsCollisionEvent and the rest through its own
+# callback (and, since plan_server_native_v2 T4a, of the recipient filter the
+# engine's EmitSound calls, which has the same shape). vphysics calls IPhysicsCollisionEvent and the rest through its own
 # C++ vtable, so libss_fwd_<side> builds that object (fwd_physics.cpp) and its
 # overrides call these tables. Not areas: built on demand, one per handler.
 # Each block reserves CALLBACK_WORDS words after word 0, where the native
@@ -142,6 +143,10 @@ CALLBACKS = {
     'IManagedPhysicsConstraintEvent': 'server',
     'IManagedMotionEvent': 'server',
     'IManagedVPhysicsKeyHandler': 'shared',
+    # plan_server_native_v2 T4a: the IRecipientFilter IEngineSound::EmitSound
+    # calls back, built by libss_fwd_server (fwd_recipient_filter.cpp) over the
+    # recipients the managed SoundEmitter chose.
+    'IManagedRecipientFilter': 'server',
 }
 
 
@@ -469,7 +474,8 @@ def generate():
                      ['<stdint.h>', '"tier0/platform.h"', '"imanaged_core.h"'],
                      'IManagedSteamCallback', cores['IManagedSteamCallback'], False)
     cb = [valve, '', GENERATED, '//',
-          '// plan_forwarders_everywhere.md phase 5: the managed side of each vphysics callback.',
+          '// plan_forwarders_everywhere.md phase 5: the managed side of each vphysics callback',
+          '// (and of the IRecipientFilter EmitSound calls back, fwd_recipient_filter.cpp).',
           '// libss_fwd_<side> builds the object vphysics calls (fwd_physics.cpp), deriving',
           '// IPhysicsCollisionEvent and the rest, and its overrides call these through the',
           '// table managed wrote. The object lives in the block\'s %d reserved words after' % CALLBACK_WORDS,

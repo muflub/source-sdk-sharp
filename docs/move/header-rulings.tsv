@@ -6,7 +6,6 @@ src/game/client/local_recipient.h	yes	ports C_RecipientFilter's local-player sup
 src/game/client/self_penetration_rule.h	yes	ports/fixes CCollisionEvent::ShouldSolvePenetration (game/client/physics.cpp)
 src/game/server/server_csharp.vpc	no	build/project file (.vpc), no logic
 src/game/shared/blast_blocking.h	yes	ports CGameRules::RadiusDamage's blast-blocking rule (gamerules.cpp)
-src/game/shared/closecaption_recipient.h	yes	ports RecipientFilter_RemoveIfNotCloseCaptioning rule (recipientfilter.cpp)
 src/game/shared/collideable_center_math.h	yes	ports CCollisionProperty::WorldSpaceCenter/OBBCenter math (collisionproperty.cpp)
 src/game/shared/entity_abs_query_state.h	no	relocates static data members out of class scope, no algorithm
 src/game/shared/entity_debug_globals.h	no	relocates static data members out of class scope, no algorithm
@@ -1245,7 +1244,6 @@ src/sourcesharp/test/client_typed_handle_sweep_test.cpp	no	directory-walk source
 src/sourcesharp/test/client_util_library_test.cpp	no	source scan checking symbols moved intact; no logic
 src/sourcesharp/test/client_world_arm_test.cpp	no	drives own world_subject.h handle rules; not a Valve port
 src/sourcesharp/test/clip_vphysics_port_test.cpp	no	explicitly not a reimplementation of stock's override; source scan of supporting facts
-src/sourcesharp/test/closecaption_recipient_test.cpp	no	drives own closecaption_recipient.h atoi-corner rule; own logic
 src/sourcesharp/test/close_rulings_test.cpp	no	drives changed regexes over text; scanner facts, no Valve algorithm
 src/sourcesharp/test/collideable_center_adapter_test.cpp	no	drives own collideable_center.h adapter over real Vector/matrix; no Valve body
 src/sourcesharp/test/collideable_center_test.cpp	no	drives own collideable_center_math.h; expected values hand-computed, no embedded algorithm

@@ -31,11 +31,6 @@ bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy
 	if ( !areas.m_pSaveRestore )
 		return false;
 
-	pObject = pRoot->Acquire( "IManagedSoundController" );
-	areas.m_pSoundController = ManagedAccept< IManagedSoundController >( pObject, kIManagedSoundControllerSlotHashes, kIManagedSoundControllerSlotCount, pWhy, nWhy );
-	if ( !areas.m_pSoundController )
-		return false;
-
 	pObject = pRoot->Acquire( "IManagedSoundEnt" );
 	areas.m_pSoundEnt = ManagedAccept< IManagedSoundEnt >( pObject, kIManagedSoundEntSlotHashes, kIManagedSoundEntSlotCount, pWhy, nWhy );
 	if ( !areas.m_pSoundEnt )
@@ -106,6 +101,11 @@ bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy
 	if ( !areas.m_pBones )
 		return false;
 
+	pObject = pRoot->Acquire( "IManagedSoundEmitter" );
+	areas.m_pSoundEmitter = ManagedAccept< IManagedSoundEmitter >( pObject, kIManagedSoundEmitterSlotHashes, kIManagedSoundEmitterSlotCount, pWhy, nWhy );
+	if ( !areas.m_pSoundEmitter )
+		return false;
+
 	return true;
 }
 
@@ -116,8 +116,6 @@ bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy 
 	if ( !ManagedAcceptObject( areas.m_pResources, kIManagedResourcesSlotHashes, kIManagedResourcesSlotCount, pWhy, nWhy ) )
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pSaveRestore, kIManagedSaveRestoreSlotHashes, kIManagedSaveRestoreSlotCount, pWhy, nWhy ) )
-		return false;
-	if ( !ManagedAcceptObject( areas.m_pSoundController, kIManagedSoundControllerSlotHashes, kIManagedSoundControllerSlotCount, pWhy, nWhy ) )
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pSoundEnt, kIManagedSoundEntSlotHashes, kIManagedSoundEntSlotCount, pWhy, nWhy ) )
 		return false;
@@ -147,6 +145,8 @@ bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pBones, kIManagedBonesSlotHashes, kIManagedBonesSlotCount, pWhy, nWhy ) )
 		return false;
+	if ( !ManagedAcceptObject( areas.m_pSoundEmitter, kIManagedSoundEmitterSlotHashes, kIManagedSoundEmitterSlotCount, pWhy, nWhy ) )
+		return false;
 	return true;
 }
 
@@ -155,7 +155,6 @@ void ManagedAreas_Release( CManagedAreas &areas )
 	ManagedRelease( areas.m_pPhysicsFrame );
 	ManagedRelease( areas.m_pResources );
 	ManagedRelease( areas.m_pSaveRestore );
-	ManagedRelease( areas.m_pSoundController );
 	ManagedRelease( areas.m_pSoundEnt );
 	ManagedRelease( areas.m_pHierarchy );
 	ManagedRelease( areas.m_pEntities );
@@ -170,6 +169,7 @@ void ManagedAreas_Release( CManagedAreas &areas )
 	ManagedRelease( areas.m_pFrame );
 	ManagedRelease( areas.m_pConsoleOutput );
 	ManagedRelease( areas.m_pBones );
+	ManagedRelease( areas.m_pSoundEmitter );
 }
 
 IManagedPhysicsFrame *ManagedPhysicsFrame()
@@ -185,11 +185,6 @@ IManagedResources *ManagedResources()
 IManagedSaveRestore *ManagedSaveRestore()
 {
 	return ShellGameDll_Managed().m_Areas.m_pSaveRestore;
-}
-
-IManagedSoundController *ManagedSoundController()
-{
-	return ShellGameDll_Managed().m_Areas.m_pSoundController;
 }
 
 IManagedSoundEnt *ManagedSoundEnt()
@@ -260,6 +255,11 @@ IManagedConsoleOutput *ManagedConsoleOutput()
 IManagedBones *ManagedBones()
 {
 	return ShellGameDll_Managed().m_Areas.m_pBones;
+}
+
+IManagedSoundEmitter *ManagedSoundEmitter()
+{
+	return ShellGameDll_Managed().m_Areas.m_pSoundEmitter;
 }
 
 #endif // !CLIENT_DLL

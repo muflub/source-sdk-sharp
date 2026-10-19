@@ -80,7 +80,6 @@ set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sharedappsystems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sound.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_soundent.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_soundenvelope.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_base.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_class.cpp
@@ -432,9 +431,6 @@ set(server_novalve_sources
     # P5 lane SP: gamesound.h left the overlay for src/shared/native/; cbase.h
     # out, UTIL_EmitAmbientSound (sound_emitter.cpp) declared.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sound.cpp
-    # P5 lane SP: the Valve controller gone (aa9909a) and ss::EmitSound_t in
-    # (0ae5154); ss_gamestringpool.h in place of cbase.h / gamestringpool.h.
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_soundenvelope.cpp
     # P5 lane SP: engine and modelinfo declared in place of cbase.h; seven
     # unused animation/sound includes gone.
     ${CMAKE_CURRENT_SOURCE_DIR}/precache_model.cpp

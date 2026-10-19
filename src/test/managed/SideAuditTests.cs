@@ -439,6 +439,13 @@ public class SideAuditTests
         // the server's copy of the volume -- which nothing sends, nothing
         // reads, and nobody could tell apart from the right answer.
         "ClientEntityModelBounds",
+        // plan_server_native_v2 T4a: THE CLIENT'S SOUND PATCHES. The five were
+        // shared IShimEngine slots with a body on each side; the server's
+        // patches are managed now (ServerSoundPatches, through EngineSide's
+        // IServerSoundRoute), so the slots are the client's alone, on
+        // IShimSoundscapeClient, and EngineSide reaches them only from its
+        // client arms.
+        "SoundPatchEmit", "SoundPatchStop", "SoundPatchState", "SoundPatchFree", "SoundPatchCreate",
     };
 
     private static readonly HashSet<string> BothSides = new(StringComparer.Ordinal)
@@ -658,17 +665,11 @@ public class SideAuditTests
         // The four game-file read slots (lane c2-sims, C9) folded onto
         // IBaseFileSystem's forwarders, 2026-10-19 (the user exposed file
         // handles to managed); each side reads through its own VBaseFileSystem011.
-        // The sound patches' four (sound cluster 17, lane c2-sims): both sides'
-        // shims own patches the shared envelope controller drives.
-        "SoundPatchEmit", "SoundPatchStop", "SoundPatchState", "SoundPatchFree",
-        // A scrape's three (C6 cluster 9, lane c6-input): the shared
-        // FrictionSounds is stock's PhysFrictionSound on both sides, so a
-        // patch on an entity has a body on each (a script's parameters and a
-        // surface's scrape names read the engine's interfaces through their
-        // forwarders since 2026-10-19). (Its dust is each side's g_pEffects:
-        // the client's is its own managed IEffects, so DustEffect stays the
-        // server's.)
-        "SoundPatchCreate",
+        // The sound patches' five (sound cluster 17, lane c2-sims; C6 cluster 9)
+        // were here, both sides' shims owning patches the shared envelope
+        // controller drives. They are CLIENT-ONLY since plan_server_native_v2
+        // T4a: the server's patches are managed (ServerSoundPatches), so the
+        // slots are listed with the client's above.
     };
 
     [Fact]
@@ -688,8 +689,9 @@ public class SideAuditTests
         // ABI shrank.
         int serverOnly = sides.Count(kv => kv.Value == SlotSide.Server);
         // A floor for the reader: 200 -> 150 when plan_server_native_v2 T2
-        // deleted the dead server slots (197 left).
-        Assert.True(serverOnly >= 150, $"the server's areas and the fill found the server-only bulk ({serverOnly} found)");
+        // deleted the dead server slots (197 left); 150 -> 140 when T4a retired
+        // IShimSound (146 left).
+        Assert.True(serverOnly >= 140, $"the server's areas and the fill found the server-only bulk ({serverOnly} found)");
 
         // Both and Dual are one expectation since C6c: the server's half of a
         // two-sided slot is an area method, not a fill arm beside the client's,

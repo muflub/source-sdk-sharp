@@ -84,8 +84,6 @@
 // that quarantine is retired and the call below names GameSound_* directly.
 #include "gamesound.h"
 
-// Defined below; util.h declared it for the callers above its definition.
-int SENTENCEG_Lookup( const char *sample );
 
 
 
@@ -109,9 +107,7 @@ void SENTENCEG_Init()
 	fSentencesInit = true;
 }
 
-// convert sentence (sample) name to !sentencenum, return !sentencenum
-
-int SENTENCEG_Lookup(const char *sample)
-{
-	return engine->SentenceIndexFromName( sample + 1 );
-}
+// SENTENCEG_Lookup WENT TO C# (plan_server_native_v2 T4a): its one caller,
+// UTIL_EmitAmbientSound's "!SENTENCE" arm, is the managed SoundEmitter's
+// UtilEmitAmbient, which asks IVEngineServer::SentenceIndexFromName through its
+// forwarder for the name past the '!'.

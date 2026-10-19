@@ -45,7 +45,6 @@
 #define SOURCESHARP_SHIM_PLAYERS_VERSION "SourceSharpPlayers001"
 #define SOURCESHARP_SHIM_WEAPONS_VERSION "SourceSharpWeapons001"
 #define SOURCESHARP_SHIM_INVENTORY_VERSION "SourceSharpInventory001"
-#define SOURCESHARP_SHIM_SOUND_VERSION "SourceSharpSound001"
 #define SOURCESHARP_SHIM_EFFECTS_VERSION "SourceSharpEffects001"
 #define SOURCESHARP_SHIM_DEBUGOVERLAY_VERSION "SourceSharpDebugOverlay001"
 #define SOURCESHARP_SHIM_DIAGNOSTICS_VERSION "SourceSharpDiagnostics001"
@@ -65,11 +64,6 @@ abstract_class IShimEngine
 public:
 	virtual float GetCurrentTime() = 0;
 	virtual void * GetGlobalVarsPtr() = 0;
-	virtual void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) = 0;
-	virtual void SoundPatchStop( int32_t hPatch ) = 0;
-	virtual void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) = 0;
-	virtual void SoundPatchFree( int32_t hPatch ) = 0;
-	virtual int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel ) = 0;
 };
 
 abstract_class IShimConsoleServer
@@ -241,16 +235,6 @@ public:
 	// team number is not validated here, the choice of team is managed
 	// code's (ITeams.Join and its policy hook). Append-only, tf2 stage 0.5.
 	virtual void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) = 0;
-};
-
-abstract_class IShimSound
-{
-public:
-	virtual void EntityEmitSound( uint32_t hEntity, const char * pSoundName ) = 0;
-	virtual void EntityStopSound( uint32_t hEntity, const char * pSoundName ) = 0;
-	virtual void EmitSoundAtPosition( const char * pSoundName, const float * pXYZ ) = 0;
-	virtual void EmitAmbientSound( int32_t nEntIndex, const float * pXYZ, const char * pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch ) = 0;
-	virtual int32_t EmitWorldSoundScript( const char * pszName, const float * pXYZ, int32_t nChannel, float flVolume ) = 0;
 };
 
 abstract_class IShimEffects
