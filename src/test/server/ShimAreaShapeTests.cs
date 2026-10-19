@@ -56,9 +56,7 @@ public unsafe class ShimAreaShapeTests
         Assert.IsType<EngineArea>(server.EngineBase);
         Assert.IsType<EngineArea>(client.EngineBase);
         Assert.Equal(41, server.EngineBase.FilesGameFileSize(null));
-        Assert.Equal(41, server.FilesGameFileSize(null));
         Assert.Equal(41, client.EngineBase.FilesGameFileSize(null));
-        Assert.Equal(41, client.FilesGameFileSize(null));
     }
 
     /// <summary>
@@ -80,11 +78,13 @@ public unsafe class ShimAreaShapeTests
 
         Assert.Equal(typeof(EntitiesArea), typeof(EntitiesServerArea).BaseType);
         Assert.Equal(7, server.EntitiesServer.EntityGetIndex(1));
-        Assert.Equal(7, server.EntityGetIndex(1));
+        // And as its base, under the name the client holds the base by, so
+        // code compiled into both sides calls a both-sides slot the same way.
+        Assert.IsType<EntitiesServerArea>(server.Entities);
+        Assert.Equal(7, server.Entities.EntityGetIndex(1));
         // The client's area is the base class itself, over the client's table.
         Assert.IsType<EntitiesArea>(client.Entities);
         Assert.Equal(9, client.Entities.EntityGetIndex(1));
-        Assert.Equal(9, client.EntityGetIndex(1));
     }
 
     /// <summary>A derived area's own slot is read from its own table.</summary>
@@ -97,7 +97,6 @@ public unsafe class ShimAreaShapeTests
         var server = Server(root);
 
         Assert.Equal(5u, server.EntitiesServer.FindEntityByClassname(0, null));
-        Assert.Equal(5u, server.FindEntityByClassname(0, null));
         Assert.Null(typeof(EntitiesArea).GetMethod(nameof(EntitiesServerArea.FindEntityByClassname)));
     }
 
@@ -111,8 +110,7 @@ public unsafe class ShimAreaShapeTests
         var client = Client(root);
 
         Assert.Equal(3, client.HudClient.GetLocalPlayerIndex());
-        Assert.Equal(3, client.GetLocalPlayerIndex());
         Assert.Null(typeof(ShimAreas).GetField(nameof(ClientShimAreas.HudClient)));
-        Assert.Null(typeof(ShimAreas).GetMethod(nameof(ClientShimAreas.GetLocalPlayerIndex)));
+        Assert.Null(typeof(ShimAreas).GetProperty(nameof(ClientShimAreas.HudClient)));
     }
 }

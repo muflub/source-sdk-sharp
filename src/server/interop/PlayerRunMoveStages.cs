@@ -41,5 +41,5 @@ public sealed class PlayerRunMoveStages
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int RunMoveVia(EngineSide side, EntityHandle player, int index, int stage)
-        => side.ServerAttached ? side.ServerShims.PlayerRunMove(player.Value, index, stage) : 0;
+        => side.ServerAttached ? side.ServerShims.MovementServer.PlayerRunMove(player.Value, index, stage) : 0;
 }

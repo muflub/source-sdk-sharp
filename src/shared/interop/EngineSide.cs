@@ -302,7 +302,7 @@ internal sealed unsafe partial class EngineSide
     /// table yet or the shim is older than the slot.
     /// </summary>
     private nint AskForGlobalVars()
-        => (s_Initialized && OwnShimsAttached) ? (OwnShims.GetGlobalVarsPtr()) : 0;
+        => (s_Initialized && OwnShimsAttached) ? (OwnShims.EngineBase.GetGlobalVarsPtr()) : 0;
 
     /// <summary>
     /// The one line that makes the whole phase checkable in a running game:
@@ -352,7 +352,7 @@ internal sealed unsafe partial class EngineSide
         var line = new System.Text.StringBuilder();
 
         if (OwnShimsAttached)
-            Compare("curtime", (OwnShims.GetCurrentTime()).Equals(globals.CurTime), $"{(OwnShims.GetCurrentTime())}/{globals.CurTime}");
+            Compare("curtime", (OwnShims.EngineBase.GetCurrentTime()).Equals(globals.CurTime), $"{(OwnShims.EngineBase.GetCurrentTime())}/{globals.CurTime}");
         else
             line.Append("curtime no-slot ");
 
@@ -431,7 +431,7 @@ internal sealed unsafe partial class EngineSide
             var ptr = (nint)p;
             Lines.SuppressEcho(message, () =>
             {
-                OwnShims.Msg((byte*)ptr);
+                OwnShims.Console.Msg((byte*)ptr);
             });
         }
     }
@@ -453,7 +453,7 @@ internal sealed unsafe partial class EngineSide
             var ptr = (nint)p;
             Lines.SuppressEcho(message, () =>
             {
-                OwnShims.Warning((byte*)ptr);
+                OwnShims.Console.Warning((byte*)ptr);
             }, isWarning: true);
         }
     }
@@ -479,7 +479,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pName = nameBytes)
         fixed (byte* pHelp = helpBytes)
         {
-            return (OwnShims.RegisterConCommand(pName, pHelp, unchecked((int)flags)));
+            return (OwnShims.Console.RegisterConCommand(pName, pHelp, unchecked((int)flags)));
         }
     }
 
@@ -502,7 +502,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pDef = defBytes)
         fixed (byte* pHelp = helpBytes)
         {
-            return (OwnShims.RegisterConVar(pName, pDef, pHelp, flags,
+            return (OwnShims.Console.RegisterConVar(pName, pDef, pHelp, flags,
                                       min.HasValue ? 1 : 0, min ?? 0f,
                                       max.HasValue ? 1 : 0, max ?? 0f));
         }
@@ -515,7 +515,7 @@ internal sealed unsafe partial class EngineSide
         var bytes = Encoding.UTF8.GetBytes(value + "\0");
         fixed (byte* p = bytes)
         {
-            OwnShims.SetConVarValue(id, p);
+            OwnShims.Console.SetConVarValue(id, p);
         }
     }
 
@@ -526,7 +526,7 @@ internal sealed unsafe partial class EngineSide
 
         const int bufSize = 260;
         byte* buf = stackalloc byte[bufSize];
-        OwnShims.GetConVarValue(id, buf, bufSize);
+        OwnShims.Console.GetConVarValue(id, buf, bufSize);
         return FromUtf8(buf);
     }
 
@@ -544,7 +544,7 @@ internal sealed unsafe partial class EngineSide
 
     /// <summary>Walks the engine's registry; returns how many entries it saw.</summary>
     public int ConsoleSnapshot()
-        => (s_Initialized && OwnShimsAttached) ? (OwnShims.ConsoleSnapshot()) : 0;
+        => (s_Initialized && OwnShimsAttached) ? (OwnShims.Console.ConsoleSnapshot()) : 0;
 
     /// <summary>Copies one entry out of the last snapshot. False past the end.</summary>
     public bool ConsoleSnapshotEntry(int index, out NativeConsoleEntry entry)
@@ -556,7 +556,7 @@ internal sealed unsafe partial class EngineSide
 
         ConsoleEntry raw;
 
-        if ((OwnShims.ConsoleSnapshotEntry(index, &raw)) == 0)
+        if ((OwnShims.Console.ConsoleSnapshotEntry(index, &raw)) == 0)
             return false;
 
         // Every buffer is fixed and NUL-terminated native-side, so each of these
@@ -588,7 +588,7 @@ internal sealed unsafe partial class EngineSide
         var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* pName = nameBytes)
         {
-            if ((OwnShims.FindConVarValue(pName, buf, bufSize)) == 0)
+            if ((OwnShims.Console.FindConVarValue(pName, buf, bufSize)) == 0)
                 return null;
         }
 
@@ -638,7 +638,7 @@ internal sealed unsafe partial class EngineSide
             liveness.TryLookup(h, out bool alive))
             return alive;
 
-        return s_Initialized && OwnShimsAttached && (OwnShims.EntityIsValid(h.Value)) != 0;
+        return s_Initialized && OwnShimsAttached && (OwnShims.Entities.EntityIsValid(h.Value)) != 0;
     }
 
     /// <summary>
@@ -658,7 +658,7 @@ internal sealed unsafe partial class EngineSide
     /// </para>
     /// </summary>
     public bool EntityIsValidBySlot(EntityHandle h)
-        => s_Initialized && OwnShimsAttached && (OwnShims.EntityIsValid(h.Value)) != 0;
+        => s_Initialized && OwnShimsAttached && (OwnShims.Entities.EntityIsValid(h.Value)) != 0;
 
     /// <summary>
     /// The entity's edict index, or -1.
@@ -676,7 +676,7 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.Claims(h))
             return -1;
 
-        return (s_Initialized && OwnShimsAttached) ? (OwnShims.EntityGetIndex(h.Value)) : -1;
+        return (s_Initialized && OwnShimsAttached) ? (OwnShims.Entities.EntityGetIndex(h.Value)) : -1;
     }
 
     public Vector EntityGetOrigin(EntityHandle h)
@@ -688,7 +688,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return default;
 
         float* xyz = stackalloc float[3];
-        OwnShims.EntityGetOrigin(h.Value, xyz);
+        OwnShims.Entities.EntityGetOrigin(h.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
@@ -765,7 +765,7 @@ internal sealed unsafe partial class EngineSide
                     Fields        = description.Fields.Length == 0 ? null : pFields,
                 };
 
-                return (OwnShims.TempEntRegister(&desc));
+                return (OwnShims.Effects.TempEntRegister(&desc));
             }
         }
         finally
@@ -782,7 +782,7 @@ internal sealed unsafe partial class EngineSide
     /// something nobody watches closely.
     /// </summary>
     public unsafe float CurrentGravity()
-        => (!s_Initialized || !OwnShimsAttached) ? 600f : (OwnShims.CurrentGravity());
+        => (!s_Initialized || !OwnShimsAttached) ? 600f : (OwnShims.Movement.CurrentGravity());
 
     //-------------------------------------------------------------------------
     // Game events.
@@ -793,7 +793,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return;
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { OwnShims.ListenForGameEvent(p); }
+        fixed (byte* p = bytes) { OwnShims.Events.ListenForGameEvent(p); }
     }
 
     public int EventGetInt(IntPtr handle, string key)
@@ -801,7 +801,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return 0;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (OwnShims.EventGetInt(handle, p)); }
+        fixed (byte* p = bytes) { return (OwnShims.Events.EventGetInt(handle, p)); }
     }
 
     public float EventGetFloat(IntPtr handle, string key)
@@ -809,7 +809,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return 0f;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (OwnShims.EventGetFloat(handle, p)); }
+        fixed (byte* p = bytes) { return (OwnShims.Events.EventGetFloat(handle, p)); }
     }
 
     public bool EventGetBool(IntPtr handle, string key)
@@ -817,7 +817,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return false;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (OwnShims.EventGetBool(handle, p)) != 0; }
+        fixed (byte* p = bytes) { return (OwnShims.Events.EventGetBool(handle, p)) != 0; }
     }
 
     public string EventGetString(IntPtr handle, string key)
@@ -825,7 +825,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return string.Empty;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return FromUtf8((OwnShims.EventGetString(handle, p))); }
+        fixed (byte* p = bytes) { return FromUtf8((OwnShims.Events.EventGetString(handle, p))); }
     }
 
     /// <summary>
@@ -853,7 +853,7 @@ internal sealed unsafe partial class EngineSide
             if (globals != 0)
                 return new Globals(globals).CurTime;
 
-            return (s_Initialized && OwnShimsAttached) ? (OwnShims.GetCurrentTime()) : 0f;
+            return (s_Initialized && OwnShimsAttached) ? (OwnShims.EngineBase.GetCurrentTime()) : 0f;
         }
     }
 
@@ -880,7 +880,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        OwnShims.RegisterMovementParams(&parameters);
+        OwnShims.Movement.RegisterMovementParams(&parameters);
     }
 
     /// <summary>
@@ -896,7 +896,7 @@ internal sealed unsafe partial class EngineSide
         var blob = default(CollisionRulesBlob);
         blob.SetRows(rows);
 
-        OwnShims.RegisterCollisionRules(&blob);
+        OwnShims.Collision.RegisterCollisionRules(&blob);
         return true;
     }
 
@@ -910,7 +910,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return default;
 
         float* pyr = stackalloc float[3];
-        OwnShims.EntityGetAngles(h.Value, pyr);
+        OwnShims.Entities.EntityGetAngles(h.Value, pyr);
         return new Vector(pyr[0], pyr[1], pyr[2]);
     }
 
@@ -922,7 +922,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return Contents.Empty;
 
         float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return (Contents)(OwnShims.PointContents(p));
+        return (Contents)(OwnShims.World.PointContents(p));
     }
 
     // vphysics' IPhysicsCollision, acquired on first use from this side's
@@ -979,7 +979,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public int NetHierarchyDeclare(int blobBytes)
         => (s_Initialized && OwnShimsAttached)
-            ? (OwnShims.NetHierarchyDeclare(blobBytes)) : 0;
+            ? (OwnShims.Network.NetHierarchyDeclare(blobBytes)) : 0;
 
     /// <summary>
     /// Declares worldspawn's blob size to the native shim, which builds its
@@ -1002,7 +1002,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public int WorldNetDeclare(int blobBytes)
         => (s_Initialized && OwnShimsAttached)
-            ? (OwnShims.WorldNetDeclare(blobBytes)) : 0;
+            ? (OwnShims.Network.WorldNetDeclare(blobBytes)) : 0;
 
     /// <summary>
     /// Publishes one managed type and returns the tier native assigned it, or
@@ -1036,7 +1036,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes)
         fixed (uint* pId = &nativeTypeId)
         {
-            return (OwnShims.NetPublishType(p, shell, schemaHash, layoutBytes, pId));
+            return (OwnShims.Network.NetPublishType(p, shell, schemaHash, layoutBytes, pId));
         }
     }
 
@@ -1053,7 +1053,7 @@ internal sealed unsafe partial class EngineSide
         byte* table = null;
         int bytes = 0, words = 0, props = 0, live = 0;
 
-        if ((OwnShims.NetTierInfo(shell, tier, &table, &bytes, &words, &props, &live)) == 0)
+        if ((OwnShims.Network.NetTierInfo(shell, tier, &table, &bytes, &words, &props, &live)) == 0)
             return null;
 
         return new NetTierInfo(tier, FromUtf8(table), bytes, words, props, live != 0);
@@ -1149,7 +1149,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* n = nameBytes)
         fixed (byte* v = valueBytes)
         {
-            OwnShims.SetNamedConVarValue(n, v);
+            OwnShims.Console.SetNamedConVarValue(n, v);
         }
     }
 
@@ -1174,7 +1174,7 @@ internal sealed unsafe partial class EngineSide
     public void StandaloneSetModelScale(EntityHandle entity, float scale)
     {
         if (s_Initialized && OwnShimsAttached)
-            OwnShims.StandaloneSetModelScale(entity.Value, scale);
+            OwnShims.Models.StandaloneSetModelScale(entity.Value, scale);
     }
 
     /// <summary>
@@ -1194,7 +1194,7 @@ internal sealed unsafe partial class EngineSide
             return string.Empty;
 
         byte* buffer = stackalloc byte[256];
-        OwnShims.EntityGetModelName(entity.Value, buffer, 256);
+        OwnShims.Models.EntityGetModelName(entity.Value, buffer, 256);
 
         return FromUtf8(buffer);
     }
@@ -1217,7 +1217,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        OwnShims.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
+        OwnShims.EngineBase.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
     }
 
     /// <summary>
@@ -1229,7 +1229,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        OwnShims.SoundPatchStop(patch);
+        OwnShims.EngineBase.SoundPatchStop(patch);
     }
 
     /// <summary>
@@ -1255,7 +1255,7 @@ internal sealed unsafe partial class EngineSide
         int index = -1;
         int active = 0;
 
-        OwnShims.SoundPatchState(patch, &index, &active);
+        OwnShims.EngineBase.SoundPatchState(patch, &index, &active);
 
         entIndex = index;
         filterActive = active != 0;
@@ -1270,7 +1270,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return;
 
-        OwnShims.SoundPatchFree(patch);
+        OwnShims.EngineBase.SoundPatchFree(patch);
     }
 
     /// <summary>
@@ -1285,7 +1285,7 @@ internal sealed unsafe partial class EngineSide
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
         int found;
         fixed (byte* p = bytes)
-            found = OwnShims.SoundScriptParameters(p, outs);
+            found = OwnShims.EngineBase.SoundScriptParameters(p, outs);
 
         return found == 0
             ? null
@@ -1304,7 +1304,7 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
         fixed (byte* p = bytes)
-            return OwnShims.SoundPatchCreate(entity.Value, channel, p, soundLevel);
+            return OwnShims.EngineBase.SoundPatchCreate(entity.Value, channel, p, soundLevel);
     }
 
     /// <summary>
@@ -1316,7 +1316,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !OwnShimsAttached) return null;
 
         byte* buffer = stackalloc byte[128];
-        int length = OwnShims.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128);
+        int length = OwnShims.EngineBase.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128);
         return length <= 0 ? null : Encoding.UTF8.GetString(buffer, Math.Min(length, 127));
     }
 
@@ -1331,7 +1331,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !OwnShimsAttached) return SurfaceMaterial.Unknown;
 
-        return (SurfaceMaterial)(OwnShims.SurfacePropGameMaterial(surfaceProp));
+        return (SurfaceMaterial)(OwnShims.World.SurfacePropGameMaterial(surfaceProp));
     }
 
     // ---- plan_gamedll.md Part 4, Phase 6: LEVELINIT'S NINE NATIVE STEPS ----
@@ -1417,7 +1417,7 @@ internal sealed unsafe partial class EngineSide
     public int EntitiesInvalidateMdlCacheAll()
     {
         if (!s_Initialized || !OwnShimsAttached) return 0;
-        return (OwnShims.EntitiesInvalidateMdlCacheAll());
+        return (OwnShims.Models.EntitiesInvalidateMdlCacheAll());
     }
 
 
@@ -1467,7 +1467,7 @@ internal sealed unsafe partial class EngineSide
         {
             var sizeName = Encoding.UTF8.GetBytes(path + "\0");
             fixed (byte* sp = sizeName)
-                size = (OwnShims.FilesGameFileSize(sp));
+                size = (OwnShims.EngineBase.FilesGameFileSize(sp));
         }
 
         if (size < 0) return null;
@@ -1479,7 +1479,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes)
         fixed (byte* b = buf)
         {
-            int read = (OwnShims.FilesReadGameFile(p, b, size));
+            int read = (OwnShims.EngineBase.FilesReadGameFile(p, b, size));
             if (read < 0) return null;
 
             // `read` and not `size`: a short read is a real answer and decoding
@@ -1511,13 +1511,13 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pp = p)
         fixed (byte* pi = id)
         {
-            int size = OwnShims.FilesSizeOnPath(pp, pi);
+            int size = OwnShims.EngineBase.FilesSizeOnPath(pp, pi);
             if (size < 0) return null;
             var buf = new byte[size];
             if (size == 0) return buf;
             fixed (byte* b = buf)
             {
-                int read = OwnShims.FilesReadOnPath(pp, pi, b, size);
+                int read = OwnShims.EngineBase.FilesReadOnPath(pp, pi, b, size);
                 return read == size ? buf : null;
             }
         }
@@ -1532,7 +1532,7 @@ internal sealed unsafe partial class EngineSide
         int size;
         var sizePath = Encoding.UTF8.GetBytes(path + "\0");
         fixed (byte* sp = sizePath)
-            size = (OwnShims.FilesGameFileSize(sp));
+            size = (OwnShims.EngineBase.FilesGameFileSize(sp));
 
         if (size < 0) return null;
         if (size == 0) return Array.Empty<byte>();
@@ -1543,7 +1543,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes)
         fixed (byte* b = buf)
         {
-            int read = (OwnShims.FilesReadGameFile(p, b, size));
+            int read = (OwnShims.EngineBase.FilesReadGameFile(p, b, size));
             if (read < 0) return null;
             return read == size ? buf : buf.AsSpan(0, read).ToArray();
         }

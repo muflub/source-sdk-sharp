@@ -216,7 +216,7 @@ public static unsafe class MovementBridge
             float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
             MoveTraceBlob blob = default;
-            _api.OwnShims.MoveTrace(s, e, lo, hi, (int)mask, collisionGroup, &blob);
+            _api.OwnShims.Movement.MoveTrace(s, e, lo, hi, (int)mask, collisionGroup, &blob);
 
             return new MoveTrace
             {
@@ -242,7 +242,7 @@ public static unsafe class MovementBridge
                 return 0;
 
             float* p = stackalloc float[3] { point.X, point.Y, point.Z };
-            return (_api.OwnShims.MovePointContents(p, slot));
+            return (_api.OwnShims.Movement.MovePointContents(p, slot));
         }
 
         public MoveSurface Surface(int surfaceProps)
@@ -251,7 +251,7 @@ public static unsafe class MovementBridge
                 return default;
 
             MoveSurfaceBlob blob = default;
-            if ((_api.OwnShims.MoveSurface(surfaceProps, &blob)) == 0)
+            if ((_api.OwnShims.Movement.MoveSurface(surfaceProps, &blob)) == 0)
                 return default;
 
             return new MoveSurface
@@ -271,7 +271,7 @@ public static unsafe class MovementBridge
                 return 1;
 
             float* p = stackalloc float[3] { xyz.X, xyz.Y, xyz.Z };
-            return (_api.OwnShims.MoveEffect((int)kind, p, value, flag));
+            return (_api.OwnShims.Movement.MoveEffect((int)kind, p, value, flag));
         }
 
         public void ResetTouchList() => Effect(MoveEffectKind.ResetTouchList, Vector.Zero, 0f, 0);

@@ -109,7 +109,7 @@ public sealed unsafe class ClientInputHost : IInputHost
         get
         {
             int visible = 0, locked = 0;
-            _api.ClientShims.InputCursorState(&visible, &locked);
+            _api.ClientShims.InputClient.InputCursorState(&visible, &locked);
             return visible != 0;
         }
     }
@@ -119,7 +119,7 @@ public sealed unsafe class ClientInputHost : IInputHost
         get
         {
             int visible = 0, locked = 0;
-            _api.ClientShims.InputCursorState(&visible, &locked);
+            _api.ClientShims.InputClient.InputCursorState(&visible, &locked);
             return locked != 0;
         }
     }
@@ -127,19 +127,19 @@ public sealed unsafe class ClientInputHost : IInputHost
     public void GetCursorPos(out int x, out int y)
     {
         int cx = 0, cy = 0;
-        _api.ClientShims.InputGetCursorPos(&cx, &cy);
+        _api.ClientShims.InputClient.InputGetCursorPos(&cx, &cy);
         x = cx;
         y = cy;
     }
 
-    public void SetCursorPos(int x, int y) => _api.ClientShims.InputSetCursorPos(x, y);
+    public void SetCursorPos(int x, int y) => _api.ClientShims.InputClient.InputSetCursorPos(x, y);
 
-    public void SetCursorArrow() => _api.ClientShims.InputSetCursorArrow();
+    public void SetCursorArrow() => _api.ClientShims.InputClient.InputSetCursorArrow();
 
     public void GetVguiScreenSize(out int width, out int height)
     {
         int w = 0, h = 0;
-        _api.ClientShims.InputVguiScreenSize(&w, &h);
+        _api.ClientShims.InputClient.InputVguiScreenSize(&w, &h);
         width = w;
         height = h;
     }
@@ -150,24 +150,24 @@ public sealed unsafe class ClientInputHost : IInputHost
         {
             float sensitivity = 0, fov = 1;
             int keyBits = 0;
-            _api.ClientShims.InputHudFacts(&sensitivity, &keyBits, &fov);
+            _api.ClientShims.InputClient.InputHudFacts(&sensitivity, &keyBits, &fov);
             return new InputHudFacts(sensitivity, keyBits, fov);
         }
     }
 
-    public void StopPitchDrift() => _api.ClientShims.InputStopPitchDrift();
+    public void StopPitchDrift() => _api.ClientShims.InputClient.InputStopPitchDrift();
 
     public void SetLocalViewAngles(InputAngles angles)
     {
         float* a = stackalloc float[3] { angles.Pitch, angles.Yaw, angles.Roll };
-        _api.ClientShims.InputSetLocalViewAngles(a);
+        _api.ClientShims.InputClient.InputSetLocalViewAngles(a);
     }
 
-    public void ViewerCameraModeChanged() => _api.ClientShims.InputViewerCameraModeChanged();
+    public void ViewerCameraModeChanged() => _api.ClientShims.InputClient.InputViewerCameraModeChanged();
 
-    public bool ViewerAimIsAssisted => _api.ClientShims.InputViewerAimIsAssisted() != 0;
+    public bool ViewerAimIsAssisted => _api.ClientShims.InputClient.InputViewerAimIsAssisted() != 0;
 
-    public void ShowScoreboard(bool show) => _api.ClientShims.InputShowScoreboard(show ? 1 : 0);
+    public void ShowScoreboard(bool show) => _api.ClientShims.InputClient.InputShowScoreboard(show ? 1 : 0);
 }
 
 /// <summary><see cref="IInputDevices"/> in the game: the engine's IInputSystem.</summary>

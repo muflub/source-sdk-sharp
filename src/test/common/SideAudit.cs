@@ -219,8 +219,10 @@ internal static class SideAudit
             // EngineSide reaches a shim-area slot through ServerShims / ClientShims,
             // or through OwnShims, the side's own container, which each side's
             // partial file names (plan_shim_areas_split phase 7: a slot both sides
-            // serve, where the run-time side choice was).
-            foreach (Match m in Regex.Matches(line, @"\b(?:ServerShims|ClientShims|OwnShims)\s*\.\s*(\w+)\s*\("))
+            // serve, where the run-time side choice was). Since phase 9 the call
+            // names the area too (OwnShims.Movement.MoveTrace), and the slot is
+            // the name after it.
+            foreach (Match m in Regex.Matches(line, @"\b(?:ServerShims|ClientShims|OwnShims)\s*\.\s*(?:\w+\s*\.\s*)?(\w+)\s*\("))
                 map[current].Add(m.Groups[1].Value);
         }
 

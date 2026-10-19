@@ -1110,6 +1110,17 @@ internal sealed unsafe class ShimAreas
     public readonly DiagnosticsArea Diagnostics = null!;
     public readonly ConsoleArea Console = null!;
 
+    // Each derived area as its shared base, under the name the client
+    // holds that base by.
+    public EventsArea Events => EventsServer;
+    public NetworkArea Network => NetworkServer;
+    public ModelsArea Models => ModelsServer;
+    public MovementArea Movement => MovementServer;
+    public WorldArea World => WorldServer;
+    public EntitiesArea Entities => EntitiesServer;
+    public CollisionArea Collision => CollisionServer;
+    public EffectsArea Effects => EffectsServer;
+
     // Flat calls, one per slot this side serves, each on the area that
     // serves it. They go once every caller takes its area.
     public float GetCurrentTime() { return EngineBase.GetCurrentTime(); }

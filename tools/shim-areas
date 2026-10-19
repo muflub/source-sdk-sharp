@@ -228,6 +228,9 @@ def model():
     return order, slots, base, concrete
 
 
+FLAT = True
+
+
 def short(iface):
     return iface[len('IShim'):]
 
@@ -563,11 +566,22 @@ def generate():
                'internal sealed unsafe class %s' % name, '{']
         for i in routed_here:
             out.append('    public readonly %s %s = null!;' % (area(i), field(i)))
-        out += ['', '    // Flat calls, one per slot this side serves, each on the area that',
-                '    // serves it. They go once every caller takes its area.']
-        for s, i in served.items():
-            ptypes, ret, _sup = types[s]
-            out.append(flat(ret, ptypes, s, i))
+        # A derived area also answers to its shared base's name, as the base's
+        # class: the client holds that base under the name, so code compiled
+        # into both sides (EngineSide.OwnShims) calls a both-sides slot the same
+        # way on either.
+        views = [i for i in routed_here if i in concrete and base[i]]
+        if views:
+            out += ['', '    // Each derived area as its shared base, under the name the client',
+                    '    // holds that base by.']
+            for i in views:
+                out.append('    public %s %s => %s;' % (area(base[i]), field(base[i]), field(i)))
+        if FLAT:
+            out += ['', '    // Flat calls, one per slot this side serves, each on the area that',
+                    '    // serves it. They go once every caller takes its area.']
+            for s, i in served.items():
+                ptypes, ret, _sup = types[s]
+                out.append(flat(ret, ptypes, s, i))
         out += ['',
                 '    // Each area and its table, in turn; the first that is refused stops',
                 '    // the walk, leaving the rest unset and its reason in why.',
@@ -729,6 +743,11 @@ def self_test():
            and '_shim.Vt->GetCurrentTime(_shim.Self' in in_class('GetCurrentTime', 'EngineArea')
            and in_class('GetCurrentTime', 'ShimAreas') == '    public float GetCurrentTime() { return EngineBase.GetCurrentTime(); }'
            and in_class('GetCurrentTime', 'ClientShimAreas') == in_class('GetCurrentTime', 'ShimAreas'))
+    expect('a derived area answers to its shared base\'s name on the server container, as the base, '
+           'so code compiled into both sides names a both-sides slot the same way',
+           '    public MovementArea Movement => MovementServer;' in gen[OUT_MANAGED].split('\n')
+           and '    public readonly MovementArea Movement = null!;' in gen[OUT_MANAGED].split('\n')
+           and not any(l.startswith('    public EngineArea EngineBase =>') for l in gen[OUT_MANAGED].split('\n')))
     expect('the generated file is areas only: no router class, no routing helpers',
            'class ShimSlots' not in gen[OUT_MANAGED]
            and not any((' Slot_' in l or ' Has_' in l) and not l.lstrip().startswith('//') for l in out))

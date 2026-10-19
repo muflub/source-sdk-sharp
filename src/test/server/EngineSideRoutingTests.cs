@@ -42,7 +42,7 @@ public unsafe class EngineSideRoutingTests : IDisposable
         var side = new EngineSide(Side.Server);
         side.Initialize();
 
-        var e = Assert.Throws<InvalidOperationException>(() => side.ServerShims.EntityFactoryCount());
+        var e = Assert.Throws<InvalidOperationException>(() => side.ServerShims.EntityLifecycle.EntityFactoryCount());
         Assert.Contains("before the shim areas were attached", e.Message);
     }
 

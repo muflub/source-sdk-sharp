@@ -86,7 +86,7 @@ internal sealed unsafe partial class EngineSide
         pDir[1] = direction.Y;
         pDir[2] = direction.Z;
 
-        ClientShims.ClientEnergySplash(pPos, pDir, explosive ? 1 : 0);
+        ClientShims.TempEntBackendsClient.ClientEnergySplash(pPos, pDir, explosive ? 1 : 0);
     }
 
     //-------------------------------------------------------------------------
@@ -124,11 +124,11 @@ internal sealed unsafe partial class EngineSide
             float* pDir = stackalloc float[3];
             pDir[0] = dir.X; pDir[1] = dir.Y; pDir[2] = dir.Z;
 
-            ClientShims.ClientSparks(pPos, magnitude, trailLength, pDir);
+            ClientShims.TempEntBackendsClient.ClientSparks(pPos, magnitude, trailLength, pDir);
             return;
         }
 
-        ClientShims.ClientSparks(pPos, magnitude, trailLength, null);
+        ClientShims.TempEntBackendsClient.ClientSparks(pPos, magnitude, trailLength, null);
     }
 
     /// <summary>
@@ -144,7 +144,7 @@ internal sealed unsafe partial class EngineSide
         float* pDir = stackalloc float[3];
         pDir[0] = direction.X; pDir[1] = direction.Y; pDir[2] = direction.Z;
 
-        ClientShims.ClientRicochet(pPos, pDir);
+        ClientShims.TempEntBackendsClient.ClientRicochet(pPos, pDir);
     }
 
     /// <summary>
@@ -163,7 +163,7 @@ internal sealed unsafe partial class EngineSide
         float* pDir = stackalloc float[3];
         pDir[0] = direction.X; pDir[1] = direction.Y; pDir[2] = direction.Z;
 
-        ClientShims.ClientMetalSparks(pPos, pDir);
+        ClientShims.TempEntBackendsClient.ClientMetalSparks(pPos, pDir);
     }
 
     /// <summary>
@@ -184,7 +184,7 @@ internal sealed unsafe partial class EngineSide
         float* pOrigin = stackalloc float[3];
         pOrigin[0] = origin.X; pOrigin[1] = origin.Y; pOrigin[2] = origin.Z;
 
-        ClientShims.ClientSmoke(pOrigin, modelIndex, scale, frameRate);
+        ClientShims.TempEntBackendsClient.ClientSmoke(pOrigin, modelIndex, scale, frameRate);
     }
 
     /// <summary>
@@ -205,7 +205,7 @@ internal sealed unsafe partial class EngineSide
         float* pAngles = stackalloc float[3];
         pAngles[0] = angles.X; pAngles[1] = angles.Y; pAngles[2] = angles.Z;
 
-        ClientShims.ClientMuzzleFlash(pOrigin, pAngles, scale, type);
+        ClientShims.TempEntBackendsClient.ClientMuzzleFlash(pOrigin, pAngles, scale, type);
     }
 
     /// <summary>
@@ -245,11 +245,11 @@ internal sealed unsafe partial class EngineSide
             float* pAxis = stackalloc float[3];
             pAxis[0] = axis.X; pAxis[1] = axis.Y; pAxis[2] = axis.Z;
 
-            ClientShims.ClientDecalShoot(decalIndex, entIndex, pPos, pAxis, flags);
+            ClientShims.TempEntBackendsClient.ClientDecalShoot(decalIndex, entIndex, pPos, pAxis, flags);
             return;
         }
 
-        ClientShims.ClientDecalShoot(decalIndex, entIndex, pPos, null, flags);
+        ClientShims.TempEntBackendsClient.ClientDecalShoot(decalIndex, entIndex, pPos, null, flags);
     }
 
     /// <summary>
@@ -270,7 +270,7 @@ internal sealed unsafe partial class EngineSide
         float* pPos = stackalloc float[3];
         pPos[0] = position.X; pPos[1] = position.Y; pPos[2] = position.Z;
 
-        ClientShims.ClientPlayerDecalShoot(pPos, player, entIndex);
+        ClientShims.TempEntBackendsClient.ClientPlayerDecalShoot(pPos, player, entIndex);
     }
 
     /// <summary>
@@ -288,7 +288,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ClientAttached || name.Length == 0) return -1;
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { return ClientShims.ClientDecalIndexFromName(p); }
+        fixed (byte* p = bytes) { return ClientShims.TempEntBackendsClient.ClientDecalIndexFromName(p); }
     }
 
     /// <summary>
@@ -328,7 +328,7 @@ internal sealed unsafe partial class EngineSide
         float* pEnd = stackalloc float[3];
         pEnd[0] = end.X; pEnd[1] = end.Y; pEnd[2] = end.Z;
 
-        ClientShims.ClientDecalStaticProp(pStart, pEnd, staticPropIndex, decalIndex);
+        ClientShims.TempEntBackendsClient.ClientDecalStaticProp(pStart, pEnd, staticPropIndex, decalIndex);
     }
 
     /// <summary>
@@ -349,7 +349,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return false;
 
-        return ClientShims.ClientIsLowViolence() != 0;
+        return ClientShims.TempEntBackendsClient.ClientIsLowViolence() != 0;
     }
 
     /// <summary>
@@ -375,7 +375,7 @@ internal sealed unsafe partial class EngineSide
         const int bufSize = 260;
         byte* buf = stackalloc byte[bufSize];
 
-        return ClientShims.ClientDecalNameFromIndex(decalIndex, buf, bufSize) > 0 ? FromUtf8(buf) : string.Empty;
+        return ClientShims.TempEntBackendsClient.ClientDecalNameFromIndex(decalIndex, buf, bufSize) > 0 ? FromUtf8(buf) : string.Empty;
     }
 
     /// <summary>
@@ -405,7 +405,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return null;
 
-        int answer = ClientShims.ClientEntityModelType(entIndex);
+        int answer = ClientShims.TempEntBackendsClient.ClientEntityModelType(entIndex);
 
         return answer < 0 ? null : (ModelType)answer;
     }
@@ -442,7 +442,7 @@ internal sealed unsafe partial class EngineSide
         float* pEnd = stackalloc float[3];
         pEnd[0] = rayEnd.X; pEnd[1] = rayEnd.Y; pEnd[2] = rayEnd.Z;
 
-        ClientShims.ClientDecalStudioModel(entIndex, pStart, pEnd, decalIndex);
+        ClientShims.TempEntBackendsClient.ClientDecalStudioModel(entIndex, pStart, pEnd, decalIndex);
     }
 
     /// <summary>
@@ -475,7 +475,7 @@ internal sealed unsafe partial class EngineSide
         float* pCenter = stackalloc float[3];
         pCenter[0] = decalCenter.X; pCenter[1] = decalCenter.Y; pCenter[2] = decalCenter.Z;
 
-        ClientShims.ClientDecalBrushModel(entIndex, pCenter, decalIndex);
+        ClientShims.TempEntBackendsClient.ClientDecalBrushModel(entIndex, pCenter, decalIndex);
     }
 
     /// <summary>
@@ -520,7 +520,7 @@ internal sealed unsafe partial class EngineSide
         float* hi = stackalloc float[3];
         float* pyr = stackalloc float[3];
 
-        if (ClientShims.ClientEntityModelBounds(entityIndex, lo, hi, pyr) == 0) return false;
+        if (ClientShims.TempEntPoolClient.ClientEntityModelBounds(entityIndex, lo, hi, pyr) == 0) return false;
 
         mins = new Vector(lo[0], lo[1], lo[2]);
         maxs = new Vector(hi[0], hi[1], hi[2]);
@@ -548,7 +548,7 @@ internal sealed unsafe partial class EngineSide
         float* pOrigin = stackalloc float[3];
         pOrigin[0] = origin.X; pOrigin[1] = origin.Y; pOrigin[2] = origin.Z;
 
-        ClientShims.ClientExplosionFireball(pOrigin);
+        ClientShims.TempEntBackendsClient.ClientExplosionFireball(pOrigin);
     }
 
     // ---- the legacy temp entity pool (plan_tmp.md Part 5). Client only ----
@@ -580,7 +580,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return 0;
 
-        return ClientShims.TempEntPoolCapacity();
+        return ClientShims.TempEntPoolClient.TempEntPoolCapacity();
     }
 
     /// <summary>
@@ -591,7 +591,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.TempEntPoolDestroy(slot);
+        ClientShims.TempEntPoolClient.TempEntPoolDestroy(slot);
     }
 
     /// <summary>
@@ -606,7 +606,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (TempEntLife* pLife = &life)
         {
-            return ClientShims.TempEntPoolReadLife(slot, pLife) != 0;
+            return ClientShims.TempEntPoolClient.TempEntPoolReadLife(slot, pLife) != 0;
         }
     }
 
@@ -624,7 +624,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (TempEntTransform* p = &transform)
         {
-            return ClientShims.TempEntPoolReadTransform(slot, p) != 0;
+            return ClientShims.TempEntPoolClient.TempEntPoolReadTransform(slot, p) != 0;
         }
     }
 
@@ -639,7 +639,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (TempEntTransform* p = &transform)
         {
-            return ClientShims.TempEntPoolWriteTransform(slot, p) != 0;
+            return ClientShims.TempEntPoolClient.TempEntPoolWriteTransform(slot, p) != 0;
         }
     }
 
@@ -665,7 +665,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (TempEntStatics* p = &statics)
         {
-            return ClientShims.TempEntPoolReadStatics(slot, p) != 0;
+            return ClientShims.TempEntPoolClient.TempEntPoolReadStatics(slot, p) != 0;
         }
     }
 
@@ -681,7 +681,7 @@ internal sealed unsafe partial class EngineSide
 
         float* xyz = stackalloc float[3] { 0f, 0f, 0f };
 
-        ClientShims.ClientWindSpeed(time, xyz);
+        ClientShims.TempEntPoolClient.ClientWindSpeed(time, xyz);
 
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
@@ -699,7 +699,7 @@ internal sealed unsafe partial class EngineSide
 
         float* xyz = stackalloc float[3];
 
-        if (ClientShims.ClientEntityOrigin(entityIndex, xyz) == 0) return false;
+        if (ClientShims.TempEntPoolClient.ClientEntityOrigin(entityIndex, xyz) == 0) return false;
 
         origin = new Vector(xyz[0], xyz[1], xyz[2]);
         return true;
@@ -722,7 +722,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (TempEntLife* pLife = &life)
         {
-            return ClientShims.TempEntPoolWriteLife(slot, pLife) != 0;
+            return ClientShims.TempEntPoolClient.TempEntPoolWriteLife(slot, pLife) != 0;
         }
     }
 
@@ -744,7 +744,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return false;
 
-        return ClientShims.TempEntPoolSimulate(slot, frameTime, frameNumber) != 0;
+        return ClientShims.TempEntPoolClient.TempEntPoolSimulate(slot, frameTime, frameNumber) != 0;
     }
 
     /// <summary>
@@ -756,7 +756,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return false;
 
-        return ClientShims.TempEntPoolAddVisible(slot) != 0;
+        return ClientShims.TempEntPoolClient.TempEntPoolAddVisible(slot) != 0;
     }
 
     /// <summary>
@@ -789,7 +789,7 @@ internal sealed unsafe partial class EngineSide
 
         float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
 
-        return ClientShims.TempEntPoolCreate(slot, xyz, modelIndex, priority) != 0;
+        return ClientShims.TempEntPoolClient.TempEntPoolCreate(slot, xyz, modelIndex, priority) != 0;
     }
 
     /// <summary>
@@ -810,7 +810,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (TempEntSpawn* pSpawn = &spawn)
         {
-            return ClientShims.TempEntPoolWriteSpawn(slot, pSpawn) != 0;
+            return ClientShims.TempEntPoolClient.TempEntPoolWriteSpawn(slot, pSpawn) != 0;
         }
     }
 
@@ -848,7 +848,7 @@ internal sealed unsafe partial class EngineSide
 
         const int bufSize = 128;
         byte* buf = stackalloc byte[bufSize];
-        ClientShims.EffectDispatchName(index, buf, bufSize);
+        ClientShims.TempEntBackendsClient.EffectDispatchName(index, buf, bufSize);
         return FromUtf8(buf);
     }
 
@@ -858,7 +858,7 @@ internal sealed unsafe partial class EngineSide
     /// player" from "dead".
     /// </summary>
     public int LocalPlayerHealth
-        => (s_Initialized && ClientAttached) ? ClientShims.GetLocalPlayerHealth() : -1;
+        => (s_Initialized && ClientAttached) ? ClientShims.HudClient.GetLocalPlayerHealth() : -1;
 
     /// <summary>
     /// One row of the client's native ammo table (its CAmmoDef). Client only
@@ -872,7 +872,7 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* p = bytes)
-            ClientShims.RegisterAmmoType(p, (int)damageType, maxCarry, tracerType, damageForce, damage);
+            ClientShims.StandaloneClient.RegisterAmmoType(p, (int)damageType, maxCarry, tracerType, damageForce, damage);
     }
 
     //-------------------------------------------------------------------------
@@ -892,7 +892,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (byte* p = packed)
         {
-            ClientShims.SurfaceSetEdges(entity.Value, p, count);
+            ClientShims.StandaloneClient.SurfaceSetEdges(entity.Value, p, count);
         }
     }
 
@@ -906,7 +906,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return 0;
 
-        return ClientShims.GetLocalPlayerIndex();
+        return ClientShims.HudClient.GetLocalPlayerIndex();
     }
 
     /// <summary>
@@ -920,7 +920,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.StandaloneSetViewModel(entity.Value, enable ? 1 : 0);
+        ClientShims.StandaloneClient.StandaloneSetViewModel(entity.Value, enable ? 1 : 0);
     }
 
     /// <summary>
@@ -946,7 +946,7 @@ internal sealed unsafe partial class EngineSide
         int surfaceProps;
         int surfaceFlags;
 
-        int stopped = ClientShims.ClientTraceLine(s, e, (int)mask, (int)filter, passEntityIndex,
+        int stopped = ClientShims.ViewClient.ClientTraceLine(s, e, (int)mask, (int)filter, passEntityIndex,
                                           &fraction, endPos, normal, &hitbox, &entIndex,
                                           &surfaceProps, &surfaceFlags);
 
@@ -980,7 +980,7 @@ internal sealed unsafe partial class EngineSide
         byte[] bytes = Vtable.Utf8(text);
 
         fixed (byte* p = bytes)
-            ClientShims.ConNPrintf(engineClient, position, p);
+            ClientShims.ViewClient.ConNPrintf(engineClient, position, p);
     }
 
     /// <summary>
@@ -1004,7 +1004,7 @@ internal sealed unsafe partial class EngineSide
         float* colour = stackalloc float[3] { red, green, blue };
 
         fixed (byte* p = bytes)
-            ClientShims.ConNXPrintf(engineClient, index, timeToLive, colour,
+            ClientShims.ViewClient.ConNXPrintf(engineClient, index, timeToLive, colour,
                             Vtable.Bit(fixedWidthFont), p);
     }
 
@@ -1046,9 +1046,9 @@ internal sealed unsafe partial class EngineSide
         answer[0] = float.NaN;
 
         if (fast)
-            ClientShims.GetLightForPointFast(engineClient, input, Vtable.Bit(clamp), answer);
+            ClientShims.ViewClient.GetLightForPointFast(engineClient, input, Vtable.Bit(clamp), answer);
         else
-            ClientShims.GetLightForPoint(engineClient, input, Vtable.Bit(clamp), answer);
+            ClientShims.ViewClient.GetLightForPoint(engineClient, input, Vtable.Bit(clamp), answer);
 
         if (float.IsNaN(answer[0]))
             return false;
@@ -1066,7 +1066,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetSkin(EntityHandle entity, int skin)
     {
         if (s_Initialized && ClientAttached)
-            ClientShims.EntitySetSkin(entity.Value, skin);
+            ClientShims.StandaloneClient.EntitySetSkin(entity.Value, skin);
     }
 
     /// <summary>
@@ -1090,14 +1090,14 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.SpriteTrailUpdate(owner.Value, renderMode, visible ? 1 : 0);
+        ClientShims.EffectsRenderClient.SpriteTrailUpdate(owner.Value, renderMode, visible ? 1 : 0);
     }
 
     /// <summary>The trail goes when its managed entity does.</summary>
     public void SpriteTrailDestroy(EntityHandle owner)
     {
         if (s_Initialized && ClientAttached)
-            ClientShims.SpriteTrailDestroy(owner.Value);
+            ClientShims.EffectsRenderClient.SpriteTrailDestroy(owner.Value);
     }
 
     /// <summary>
@@ -1116,7 +1116,7 @@ internal sealed unsafe partial class EngineSide
         float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
         float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
-        ClientShims.StandaloneSetCustomDraw(entity.Value, lo, hi);
+        ClientShims.StandaloneClient.StandaloneSetCustomDraw(entity.Value, lo, hi);
     }
 
     /// <summary>
@@ -1142,7 +1142,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.StandaloneSetBlending(entity.Value, translucent ? 1 : 0, ignoreZ ? 1 : 0, alpha);
+        ClientShims.StandaloneClient.StandaloneSetBlending(entity.Value, translucent ? 1 : 0, ignoreZ ? 1 : 0, alpha);
     }
 
     /// <summary>
@@ -1172,7 +1172,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.StandaloneSetShadowCast(entity.Value, (int)choice);
+        ClientShims.StandaloneClient.StandaloneSetShadowCast(entity.Value, (int)choice);
     }
 
     /// <summary>
@@ -1200,7 +1200,7 @@ internal sealed unsafe partial class EngineSide
 
         int choice = 0;
         int held = 0;
-        int cast = ClientShims.StandaloneShadowCast(entity.Value, &choice, &held);
+        int cast = ClientShims.StandaloneClient.StandaloneShadowCast(entity.Value, &choice, &held);
 
         asked = (ShadowCastChoice)choice;
         hasShadow = held != 0;
@@ -1235,7 +1235,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return 0;
 
-        return ClientShims.DrawSprite(owner.Value, modelIndex, frame, renderMode, renderFx,
+        return ClientShims.EffectsRenderClient.DrawSprite(owner.Value, modelIndex, frame, renderMode, renderFx,
                               r, g, b, a, scale, worldSpaceScale ? 1 : 0,
                               hdrColorScale, glowProxySize);
     }
@@ -1269,7 +1269,7 @@ internal sealed unsafe partial class EngineSide
 
         float* o = stackalloc float[3] { offset.X, offset.Y, offset.Z };
 
-        return ClientShims.DrawSpriteOffset(owner.Value, o, modelIndex, frame, renderMode, renderFx,
+        return ClientShims.EffectsRenderClient.DrawSpriteOffset(owner.Value, o, modelIndex, frame, renderMode, renderFx,
                                     r, g, b, a, scale, worldSpaceScale ? 1 : 0,
                                     hdrColorScale, glowProxySize);
     }
@@ -1294,7 +1294,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ClientAttached || name.Length == 0) return false;
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { return ClientShims.ParticleSystemStart(owner.Value, p) != 0; }
+        fixed (byte* p = bytes) { return ClientShims.EffectsRenderClient.ParticleSystemStart(owner.Value, p) != 0; }
     }
 
     /// <summary>
@@ -1308,7 +1308,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.ParticleSystemStop(owner.Value);
+        ClientShims.EffectsRenderClient.ParticleSystemStop(owner.Value);
     }
 
     /// <summary>
@@ -1331,7 +1331,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return false;
 
-        return ClientShims.ParticleSystemFollowPoints(owner.Value, pointMask) != 0;
+        return ClientShims.EffectsRenderClient.ParticleSystemFollowPoints(owner.Value, pointMask) != 0;
     }
 
     /// <summary>
@@ -1350,7 +1350,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pKey = keyBytes)
         fixed (byte* pData = payload)
         {
-            return ClientShims.SendServerMessage(pKey, pData, payload.Length) != 0;
+            return ClientShims.NetClient.SendServerMessage(pKey, pData, payload.Length) != 0;
         }
     }
 
@@ -1378,7 +1378,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (float* p = values)
         {
-            ClientShims.ClientSetWorldRenderState((int)which, p, values.Length);
+            ClientShims.ViewClient.ClientSetWorldRenderState((int)which, p, values.Length);
         }
     }
 
@@ -1396,7 +1396,7 @@ internal sealed unsafe partial class EngineSide
 
             float* xyz = stackalloc float[3];
 
-            return ClientShims.GetLocalPlayerOrigin(xyz) == 0
+            return ClientShims.ViewClient.GetLocalPlayerOrigin(xyz) == 0
                 ? null
                 : new Vector(xyz[0], xyz[1], xyz[2]);
         }
@@ -1413,7 +1413,7 @@ internal sealed unsafe partial class EngineSide
         var bytes = Encoding.UTF8.GetBytes(lookupFile + "\0");
         fixed (byte* p = bytes)
         {
-            return ClientShims.ClientColorCorrection((int)ColorCorrectionOp.Add, 0, p, 0f);
+            return ClientShims.ViewClient.ClientColorCorrection((int)ColorCorrectionOp.Add, 0, p, 0f);
         }
     }
 
@@ -1426,7 +1426,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.ClientColorCorrection((int)ColorCorrectionOp.SetWeight, handle, null, weight);
+        ClientShims.ViewClient.ClientColorCorrection((int)ColorCorrectionOp.SetWeight, handle, null, weight);
     }
 
     /// <summary>
@@ -1437,7 +1437,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        ClientShims.ClientColorCorrection((int)ColorCorrectionOp.Remove, handle, null, 0f);
+        ClientShims.ViewClient.ClientColorCorrection((int)ColorCorrectionOp.Remove, handle, null, 0f);
     }
 
     /// <summary>
@@ -1456,7 +1456,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        fixed (FogParams* p = &parameters) { ClientShims.SetViewerFogParams(p); }
+        fixed (FogParams* p = &parameters) { ClientShims.ViewClient.SetViewerFogParams(p); }
     }
 
     /// <summary>
@@ -1474,7 +1474,7 @@ internal sealed unsafe partial class EngineSide
     public void ClearViewerFogParams()
     {
         if (!s_Initialized || !ClientAttached) return;
-        ClientShims.SetViewerFogParams(null);
+        ClientShims.ViewClient.SetViewerFogParams(null);
     }
 
     /// <summary>
@@ -1494,7 +1494,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        fixed (SkyboxParams* p = &parameters) { ClientShims.SetViewerSkyboxParams(p); }
+        fixed (SkyboxParams* p = &parameters) { ClientShims.ViewClient.SetViewerSkyboxParams(p); }
     }
 
     /// <summary>
@@ -1514,7 +1514,7 @@ internal sealed unsafe partial class EngineSide
     public void ClearViewerSkyboxParams()
     {
         if (!s_Initialized || !ClientAttached) return;
-        ClientShims.SetViewerSkyboxParams(null);
+        ClientShims.ViewClient.SetViewerSkyboxParams(null);
     }
 
     /// <summary>
@@ -1530,7 +1530,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return;
 
-        fixed (DynamicLight* p = &light) { ClientShims.DynamicLightUpdate(p); }
+        fixed (DynamicLight* p = &light) { ClientShims.StandaloneClient.DynamicLightUpdate(p); }
     }
 
     /// <summary>
@@ -1545,14 +1545,14 @@ internal sealed unsafe partial class EngineSide
     public void DynamicLightRelease(int key)
     {
         if (!s_Initialized || !ClientAttached) return;
-        ClientShims.DynamicLightRelease(key);
+        ClientShims.StandaloneClient.DynamicLightRelease(key);
 }
 
     /// <summary>Turns one of the map's compiled occluders on or off. Client-side.</summary>
     public void ActivateOccluder(int occluderIndex, bool active)
     {
         if (s_Initialized && ClientAttached)
-            ClientShims.ActivateOccluder(occluderIndex, active ? 1 : 0);
+            ClientShims.StandaloneClient.ActivateOccluder(occluderIndex, active ? 1 : 0);
     }
 
     /// <summary>
@@ -1570,7 +1570,7 @@ internal sealed unsafe partial class EngineSide
                                          float minimumAlpha = 0f)
     {
         if (s_Initialized && ClientAttached)
-            ClientShims.StandaloneSetFade(entity.Value, (int)style, startDistance, endDistance, minimumAlpha);
+            ClientShims.StandaloneClient.StandaloneSetFade(entity.Value, (int)style, startDistance, endDistance, minimumAlpha);
     }
 
     /// <summary>
@@ -1580,7 +1580,7 @@ internal sealed unsafe partial class EngineSide
     public void StandaloneSetOverlayModel(EntityHandle entity, int modelIndex)
     {
         if (s_Initialized && ClientAttached)
-            ClientShims.StandaloneSetOverlayModel(entity.Value, modelIndex);
+            ClientShims.StandaloneClient.StandaloneSetOverlayModel(entity.Value, modelIndex);
     }
 
     /// <summary>
@@ -1600,7 +1600,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ClientAttached) return false;
 
-        return ClientShims.StandaloneIsDormant(entity.Value) != 0;
+        return ClientShims.StandaloneClient.StandaloneIsDormant(entity.Value) != 0;
     }
 
     public void ClientEmitSound(EntityHandle entity, string soundName, Vector? origin = null)
@@ -1616,11 +1616,11 @@ internal sealed unsafe partial class EngineSide
             xyz[1] = at.Y;
             xyz[2] = at.Z;
 
-            fixed (byte* p = bytes) ClientShims.ClientEmitSound(entity.Value, p, xyz);
+            fixed (byte* p = bytes) ClientShims.StandaloneClient.ClientEmitSound(entity.Value, p, xyz);
         }
         else
         {
-            fixed (byte* p = bytes) ClientShims.ClientEmitSound(entity.Value, p, null);
+            fixed (byte* p = bytes) ClientShims.StandaloneClient.ClientEmitSound(entity.Value, p, null);
         }
     }
 
@@ -1649,7 +1649,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (byte* p = bytes)
         {
-            if (ClientShims.HudTextMessageGet(p, &message) == 0)
+            if (ClientShims.HudClient.HudTextMessageGet(p, &message) == 0)
                 return null;
         }
 
@@ -1670,7 +1670,7 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(panel + "\0");
         fixed (byte* p = bytes)
-            return (ViewportFacts)ClientShims.ClientViewportQuery(p);
+            return (ViewportFacts)ClientShims.UserMessagesClient.ClientViewportQuery(p);
     }
 
     /// <summary>
@@ -1696,7 +1696,7 @@ internal sealed unsafe partial class EngineSide
         var pairBytes = pairs.ToArray();
         fixed (byte* n = nameBytes)
         fixed (byte* d = pairBytes)
-            ClientShims.ClientViewportShow(n, show ? 1 : 0, d, pairBytes.Length, (int)actions);
+            ClientShims.UserMessagesClient.ClientViewportShow(n, show ? 1 : 0, d, pairBytes.Length, (int)actions);
     }
 
     /// <summary>
@@ -1713,7 +1713,7 @@ internal sealed unsafe partial class EngineSide
         byte* buffer = stackalloc byte[64];
 
         fixed (byte* p = bytes)
-            ClientShims.HudLookupBinding(p, buffer, 64);
+            ClientShims.HudClient.HudLookupBinding(p, buffer, 64);
 
         return FromUtf8(buffer);
     }
@@ -1731,7 +1731,7 @@ internal sealed unsafe partial class EngineSide
         byte* buffer = stackalloc byte[512];
 
         fixed (byte* p = bytes)
-            ClientShims.HudLocalise(p, buffer, 512);
+            ClientShims.HudClient.HudLocalise(p, buffer, 512);
 
         return FromUtf8(buffer);
     }
@@ -1759,7 +1759,7 @@ internal sealed unsafe partial class EngineSide
     public int EntitiesUpdateVisibilityAll()
     {
         if (!s_Initialized || !ClientAttached) return 0;
-        return ClientShims.EntitiesUpdateVisibilityAll();
+        return ClientShims.ViewClient.EntitiesUpdateVisibilityAll();
     }
 
     /// <summary>
