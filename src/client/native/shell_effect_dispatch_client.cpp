@@ -169,9 +169,13 @@ IClientRenderable *CEffectData::GetRenderable() const
 	return SourceSharp_ClientRenderableFromHandle( m_hEntity );
 }
 
+// NULL for every entity: the declaration is effect_dispatch_data.h's, and on
+// this side no entity is an IGameEntity. The SDK-filtered resolve it used
+// answered NULL for every entity too. The effect's entity is GetRenderable()
+// and entindex() here, or m_hEntity itself.
 IGameEntity *CEffectData::GetEntity() const
 {
-	return SourceSharp_ClientSdkEntityFromHandle( m_hEntity );
+	return NULL;
 }
 
 int CEffectData::entindex() const

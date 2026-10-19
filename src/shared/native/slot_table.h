@@ -686,6 +686,10 @@ C_StandaloneEntity *SourceSharp_ClientShellFromHandle( const CBaseHandle &handle
 C_StandaloneEntity *SourceSharp_ClientShellFromIndex( int nEntry );
 C_StandaloneEntity *SourceSharp_ClientShellFromHandleEntity( IHandleEntity *pHandleEntity );
 
+// A trace's m_pEnt to the shell it hit, or NULL: never a static prop, and only
+// the object at that address (handle_cross.h's SourceSharp_CrossHandleToClientShell).
+C_StandaloneEntity *SourceSharp_ClientShellFromTraceHit( IHandleEntity *pHandleEntity );
+
 #endif // CLIENT_DLL
 
 #endif // SOURCESHARP_SLOT_TABLE_H

@@ -1028,7 +1028,7 @@ now returns the engine's name UNFILTERED, since the Steam filter is managed's
 `IGameResources`), then retire the object and its per-frame system, or record why it
 stays.
 
-## C_StandaloneEntity's six IGameEntity slots: drop them when the last relay site leaves
+## C_StandaloneEntity's six IGameEntity slots: drop them when the last relay site leaves (CLOSED 2026-10-19)
 
 Added 2026-10-11 by lane c6-input (plan_client_novalve C8), owner "physics and bones".
 
@@ -1087,6 +1087,73 @@ definitions, and the header from the client (the server compiles it too).
   still counts that site, because its guard stack does not know the macro is
   undefined. The client's compiled IGameEntity users are ours:
   trace_filter_library.cpp's GameEntityFromEntityHandle.)
+
+- **CLOSED 2026-10-19 (lane ige, base main 6b0be9239): the base and the six
+  slots are gone.** `class C_StandaloneEntity : public IClientEntity, public
+  ICollideable`; GetGameEntity() is IClientEntity's NULL; a static_assert in
+  shell_standalone_client.cpp refuses the base (shown failing before the drop),
+  and client_entity_resolve_test's TheClientShellIsNoGameEntityAndTheBuildSaysSo
+  pins it. GetCollisionGroup stays, ICollideable's. What was measured first:
+  - With the base dropped and nothing else changed, the client build had TWO
+    errors (precipitation's ShouldCollide, SourceSharp_ClientShellOf); every
+    other user would have compiled and answered NULL. nm over client.so's 141
+    link-edge objects plus libss_particles and libss_fwd_client found the
+    GetGameEntity() readers: TraceGameEntity (shell_movement.o, the client
+    ground; shell_impact_effects.o, the impact control points), the client
+    partition (beam render, the entity list's SDK arms, the particles' and
+    takedamageinfo's CHandle<IGameEntity>::Get, clientshadowmgr.o's EHANDLE).
+    Preprocessed with their compile_commands.json lines, the eight fork TUs
+    client.so compiles name none of IGameEntity, GetGameEntity,
+    TraceGameEntity, GameEntityFromEntityHandle, SDKEntityFrom* in their own
+    text; clientshadowmgr.cpp's three EHANDLEs are m_hTargetEntity, never set
+    (cpp_alias_t5_test's FlashlightTargetVacuity).
+  - The two LIVE readers were retyped first, onto the slot table:
+    SourceSharp_ClientShellFromTraceHit (handle_cross.h's
+    SourceSharp_CrossHandleToClientShell; handle_cross_test's ClientShellCross,
+    mutation-proved) serves movement_ground.h's client arm and the impact
+    effects' three SetImpactControlPoint calls. The control-point owners became
+    a CBaseHandle from the shell's GetRefEHandle(), which fixed a defect: the
+    EHANDLE was assigned from an IGameEntity *, which networkvar.h's
+    SourceSharp_EntityHandle refuses (Warning, AssertMsg, invalid handle) for
+    every managed entity a bullet hit.
+  - SourceSharp_ClientSdkEntityFromIndex/Handle were deleted, not retyped: they
+    asked GetBaseEntity(), NULL from every client implementor, so they answered
+    NULL for every entity. The brief's premise that they reached the real
+    entity was false at 6b0be9239; their callers now say NULL themselves.
+    SourceSharp_ClientShellOf had no caller and went.
+  - **Fork-declared signatures our files implement, kept with IGameEntity and
+    decided per caller** (no client caller passes a client entity to any):
+
+    | signature (declared in) | ours | client callers | decision |
+    |---|---|---|---|
+    | CEffectData::GetEntity (effect_dispatch_data.h) | shell_effect_dispatch_client.cpp:176 | ParseImpactData | returns NULL (the SDK arm it asked was NULL for every entity) |
+    | ParseImpactData (fx_impact.h) | shell_impact_effects.cpp:787 | shell_impact_effects.cpp:1085, return discarded | returns GetEntity()'s NULL |
+    | GetImpactDecal (fx_impact.h) | shell_impact_effects.cpp:543 | none (nm: defined, imported by no client object) | entity ignored, as before |
+    | PlayImpactSound (fx_impact.h) | shell_impact_effects.cpp:722 | shell_impact_effects.cpp:1157 passes NULL | entity ignored, as before |
+    | DispatchParticleEffect x2 (particle_parse.h) | particle_manifest.cpp:352,383 | shell_effects_list_client.cpp (NULL), shell_impact_effects.cpp (no entity) | entity ignored; the effect's entity is cleared on this side |
+    | C_TempEntsSystem::Fizz, ::ClientProjectile (itempents.h) | shell_te_forwards_client.cpp:287,317 | none | empty bodies |
+    | CTempEnts::ClientProjectile (c_te_legacytempents.h) | shell_legacy_tempents_client.cpp:504 | none (nm: no importer) | the existing refusal |
+    | IViewRenderBeams::KillDeadBeams(IGameEntity *) (iviewrender_beams.h) | shell_beam_render.cpp:257 | none; the handle overload is the live one | empty |
+    | IClientUnknown::GetBaseEntity (iclientunknown.h) | shell_standalone_client.h:325, shell_detail_props.cpp:111, shell_tempents_client.cpp:136 | the fork's SDKEntityFromUnknown | NULL, as before |
+    | CTakeDamageInfo / CMultiDamage (takedamageinfo.h) | takedamageinfo_library.cpp:130-232 | ClearMultiDamage's NULLs only (nm: no client importer of the entity forms) | unchanged; ApplyMultiDamage's entity arm is server-only |
+    | CGameRules::ShouldUseRobustRadiusDamage (gamerules.h) | shell_gamerules.h:208 | none on the client | returns false |
+    | CSaveRestoreData::m_pCurrentEntity (saverestore.h, engineabi) | the layout | none on the client | a held pointer's type in an engine layout; untouched |
+
+    Shared declarations that name the type and compile on the client without
+    being used there: physicsowner.h, physicslink.h, imovementplayer.h's
+    MvGetObserverTarget, and the `#ifndef CLIENT_DLL` arms of
+    movement_ground.h and trace_filter_library.cpp. The fork headers keep
+    using IGameEntity (c_baseentity.h's EHANDLE, CHandle<IGameEntity>::Get,
+    SDKEntityFromUnknown; util_shared.h's TraceGameEntity), all of which now
+    answer NULL for every client object -- retyping them is a fork edit.
+- **Queued (2026-10-19): the new-style effects' camera object.**
+  shell_new_particles_client.cpp passes CameraObject 0 (stock: the
+  C_BaseEntity at render->GetViewEntity()), so managed NewParticleEffect's
+  skip-render test (a first-person view hiding its own control-point entity's
+  particles) is never taken. Feeding it SourceSharp_ClientShellFromIndex(
+  render->GetViewEntity() ) makes it live, with SkipObject, which is the shell
+  pointer since lane ige: a behaviour change that wants its own stock
+  recording first.
 
 - **Two m_oldOrigins where stock keeps one** (found 2026-10-12 by the
   damage-message diagnosis): native's m_vecOldOrigin is set per usercmd and

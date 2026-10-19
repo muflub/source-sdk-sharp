@@ -355,4 +355,34 @@ inline auto SourceSharp_SDKEntityFromNetworkable( TNetworkable *pNetworkable ) -
 	return pNetworkable->GetBaseEntity();
 }
 
+//-----------------------------------------------------------------------------
+// From a trace's IHandleEntity to the CLIENT SHELL, or NULL, asking no
+// game-entity face (C_StandaloneEntity is no IGameEntity, 2026-10-18). A static
+// prop is never looked up; the slot table answers the shell bound at the
+// object's own handle; and that shell's IHandleEntity view must BE the object
+// hit, so an entry held by something else answers NULL, not a stranger.
+// Engine-free: handle_cross_test.cpp's ClientShellCross drives it with mocks.
+//-----------------------------------------------------------------------------
+template< class TShell, class THandleEntity, class TResolve, class TIsStaticProp >
+inline TShell *SourceSharp_CrossHandleToClientShell( THandleEntity *pHandleEntity,
+                                                     TResolve resolve,
+                                                     TIsStaticProp isStaticProp )
+{
+	if ( !pHandleEntity )
+		return 0;
+
+	if ( isStaticProp( pHandleEntity ) )
+		return 0;
+
+	TShell *pShell = resolve( pHandleEntity );
+	if ( !pShell )
+		return 0;
+
+	// An upcast, adjusted by the compiler with the whole layout in view.
+	if ( static_cast< THandleEntity * >( pShell ) != pHandleEntity )
+		return 0;
+
+	return pShell;
+}
+
 #endif // SOURCESHARP_HANDLE_CROSS_H

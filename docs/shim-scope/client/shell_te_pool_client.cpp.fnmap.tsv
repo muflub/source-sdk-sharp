@@ -25,7 +25,7 @@
 29	UNRULED	static void TempEntPoolAttach_f( const CCommand &args )
 8	INSTRUMENT	static bool MatrixIsUnwritten( const matrix3x4_t &m )
 36	INSTRUMENT	static void TempEntPoolBones()
-44	INSTRUMENT	static void TempEntPoolLive_f( const CCommand &args )
+41	INSTRUMENT	static void TempEntPoolLive_f( const CCommand &args )
 4	UNRULED	C_LocalTempEntity *CTempEnts::PoolCreateObject()
 6	UNRULED	int32_t SourceSharp_TempEntPoolCreate( int32_t nSlot, const float *pOriginXYZ,
 30	BOUNDARY	int32_t SourceSharpTePool_CreateWithModel( int32_t nSlot, const float *pOriginXYZ,

@@ -91,6 +91,8 @@
 // C_BaseEntity spelling could not.
 #include "shell_cliententitylist.h"
 #include "world_subject.h"
+#include "trace_hit.h"      // ss::TraceHit
+#include "slot_table.h"     // SourceSharp_ClientShellFromTraceHit
 #include "impact_effects.h"
 #include "sourcesharp.h"
 #include "managed_runtime_client.h"
@@ -566,7 +568,7 @@ char const *GetImpactDecal( IGameEntity *pEntity, int iMaterial, int iDamageType
 //-----------------------------------------------------------------------------
 // Purpose: Perform custom effects based on the Decal index
 //-----------------------------------------------------------------------------
-static void SetImpactControlPoint( CShellNewParticleEffect *pEffect, int nPoint, const Vector &vecImpactPoint, const Vector &vecForward, IGameEntity *pEntity )
+static void SetImpactControlPoint( CShellNewParticleEffect *pEffect, int nPoint, const Vector &vecImpactPoint, const Vector &vecForward, C_StandaloneEntity *pEntity )
 {
 	Vector vecImpactY, vecImpactZ;
 	VectorVectors( vecForward, vecImpactY, vecImpactZ );
@@ -606,9 +608,11 @@ static void DispatchNewParticleImpact( const char *pImpactName, const Vector &ve
 	Vector vecImpactPoint = ( tr.fraction != 1.0f ) ? tr.endpos : vecOrigin;
 	Assert( VectorsAreEqual( vecOrigin, tr.endpos, 1e-1 ) );
 
-	SetImpactControlPoint( pEffect.GetObject(), 0, vecImpactPoint, tr.plane.normal, TraceGameEntity( tr ) );
-	SetImpactControlPoint( pEffect.GetObject(), 1, vecImpactPoint, vecReflect,		TraceGameEntity( tr ) );
-	SetImpactControlPoint( pEffect.GetObject(), 2, vecImpactPoint, vecShotBackward,	TraceGameEntity( tr ) );
+	// The shell the trace hit, from the slot table: TraceGameEntity asks
+	// GetGameEntity(), which no client object answers.
+	SetImpactControlPoint( pEffect.GetObject(), 0, vecImpactPoint, tr.plane.normal, SourceSharp_ClientShellFromTraceHit( ss::TraceHit( tr ) ) );
+	SetImpactControlPoint( pEffect.GetObject(), 1, vecImpactPoint, vecReflect,		SourceSharp_ClientShellFromTraceHit( ss::TraceHit( tr ) ) );
+	SetImpactControlPoint( pEffect.GetObject(), 2, vecImpactPoint, vecShotBackward,	SourceSharp_ClientShellFromTraceHit( ss::TraceHit( tr ) ) );
 	pEffect->SetControlPoint( 3, Vector( iScale, iScale, iScale ) );
 	if ( pEffect->DefinitionReadsControlPoint( 4 ) )
 	{

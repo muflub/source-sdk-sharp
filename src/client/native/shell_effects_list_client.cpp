@@ -370,12 +370,13 @@ int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, 
 void SourceSharp_FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ,
                                            const float *pAnglesPYR, int32_t nEntIndex )
 {
-	IGameEntity *pEntity = ( nEntIndex >= 0 )
-		? SourceSharp_ClientSdkEntityFromHandle( SourceSharp_ClientHandleFromIndex( nEntIndex ) )
-		: NULL;
+	// No entity: DispatchParticleEffect clears the effect's entity on this side
+	// whatever it is handed (particle_manifest.cpp), and the SDK-filtered
+	// resolve this used to pass answered NULL for every entity.
+	(void)nEntIndex;
 	DispatchParticleEffect( nSystem, Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ),
 	                        Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-	                        QAngle( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] ), pEntity );
+	                        QAngle( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] ), NULL );
 }
 
 //-----------------------------------------------------------------------------

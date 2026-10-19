@@ -29,7 +29,7 @@
 4	BOUNDARY	int32_t SourceSharp_FxLocalPlayer( void )
 7	BOUNDARY	void SourceSharp_FxViewAngles( float *pOutPYR )
 21	BOUNDARY	int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut, int32_t nModelSize )
-10	BOUNDARY	void SourceSharp_FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ,
+8	BOUNDARY	void SourceSharp_FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ,
 11	BOUNDARY	int32_t SourceSharp_FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR )
 6	BOUNDARY	void SourceSharp_FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR, const float *pGunAnglesPYR, int32_t nType )
 1	SLOT-HELP	[CSourceSharpEffectPrecacheSystem] int Count() const

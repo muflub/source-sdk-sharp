@@ -50,6 +50,7 @@
 #include "mathlib/vector.h"
 #if defined( CLIENT_DLL )
 #include "util_shared.h"
+#include "slot_table.h"   // SourceSharp_ClientShellFromTraceHit: the shell a trace hit
 #else
 // The server's spellings of util_shared.h's two resolvers, on public/ headers
 // (P5, lane E): this header is reached from server TUs on the R5 include set.
@@ -128,10 +129,11 @@ inline IHandleEntity *MovementGroundFromTrace( const trace_t &tr )
 	// -- it bottoms out in GetBaseEntity(), and every implementation of that in
 	// both DLLs returns NULL -- so the server's second arm was the whole
 	// question and the CLIENT had no arm at all: a player standing on a managed
-	// entity resolved to no ground on the client. TraceGameEntity now answers on
-	// both sides.
+	// entity resolved to no ground on the client. The client asks the slot
+	// table for the shell it hit: its C_StandaloneEntity is no IGameEntity, so
+	// util_shared.h's TraceGameEntity answers NULL there.
 #if defined( CLIENT_DLL )
-	if ( TraceGameEntity( tr ) != NULL )
+	if ( SourceSharp_ClientShellFromTraceHit( ss::TraceHit( tr ) ) != NULL )
 #else
 	if ( ss::TraceGameEntity( tr ) != NULL )
 #endif

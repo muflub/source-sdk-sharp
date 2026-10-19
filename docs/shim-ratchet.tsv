@@ -1714,7 +1714,12 @@ shim_cpp_files	src/sourcesharp	221
 #   C7 cluster 12, flashlighteffect.cpp's eviction. shell_tools_off_client.cpp loses `clienttools` and
 #   ToolFramework_PostToolMessage (119 -> 44, -75), which only flashlighteffect.cpp read; the other 313 are the row
 #   following the tree (falls on main it had not followed, net of this lane's executor and trace arms).
-shim_lines	src/sourcesharp	138634
+# LOWERED 2026-10-19, 138634 -> 137414 (measured by the walk at lane ige's tip on main ac8dec8f3, read with the ceiling at 1):
+#   C_StandaloneEntity dropped its IGameEntity base and six slots, -29 by the lane: shell_standalone_client.h -54 (the
+#   base, the slots, SourceSharp_ClientShellOf), shell_cliententitylist.h -18 and .cpp -9 (the SDK-only arms out, the
+#   trace-hit shell resolver in), handle_cross.h +30 and slot_table.h +4 (the shell crossing), +18 across the callers.
+#   the other 1,191 are the row following main's own falls (T4a's sound emit) it had not followed.
+shim_lines	src/sourcesharp	137414
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

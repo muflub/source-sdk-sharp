@@ -960,3 +960,112 @@ TEST( HandleCrossConsumers, TheWeaponCrossingIsTheOneWithNoCallerYet )
 		   "stands on can go too.";
 }
 
+
+// =============================================================================
+// SourceSharp_CrossHandleToClientShell -- a trace hit to the client shell, with
+// no game-entity face asked (2026-10-18: C_StandaloneEntity drops its
+// IGameEntity base, after which GetGameEntity() answers NULL for every client
+// object, so "which of ours did the trace hit?" moves to the slot table).
+//
+// RETENTION FIRST: a shell bound at its own handle must come back as ITSELF.
+// That is the fact the client's ground resolve (movement_ground.h) and the
+// impact effects' control points (shell_impact_effects.cpp) stand on; a
+// resolver that answered NULL would compile, pass every refusal below, and
+// leave a player on a managed entity standing on nothing.
+// =============================================================================
+
+namespace
+{
+
+// FakeHandleEntity is NOT at offset zero inside the shell, so the identity
+// check compares two genuinely different numbers and a version of it that
+// compared raw addresses would refuse the real shell.
+class FakeShellFirstBase
+{
+public:
+	virtual ~FakeShellFirstBase() {}
+	int m_nPadding[ 6 ];
+};
+
+class FakeShell : public FakeShellFirstBase, public FakeClientEntity
+{
+public:
+	virtual FakeBase *GetBaseEntity() { return 0; }
+	virtual FakeClientEntity *GetIClientEntity() { return this; }
+};
+
+// A slot table of one entry: whatever is bound answers every lookup, which is
+// the worst case for the identity check (a handle that names another occupant).
+struct FakeShellTable
+{
+	FakeShell *pBound = 0;
+	int nAsked = 0;
+};
+
+static FakeShell *CrossToShell( FakeHandleEntity *pHit, FakeShellTable &table, bool bStaticProp = false )
+{
+	return SourceSharp_CrossHandleToClientShell< FakeShell >( pHit,
+		[ &table ]( FakeHandleEntity * ) { ++table.nAsked; return table.pBound; },
+		[ bStaticProp ]( FakeHandleEntity * ) { return bStaticProp; } );
+}
+
+} // namespace
+
+TEST( ClientShellCross, TheShellsHandleViewIsNotAtOffsetZero )
+{
+	// The premise: without it the identity check below cannot tell an adjusted
+	// compare from a raw one.
+	FakeShell shell;
+	EXPECT_NE( ( const void * )&shell, ( const void * )static_cast< FakeHandleEntity * >( &shell ) );
+}
+
+TEST( ClientShellCross, ABoundShellComesBackAsItself )
+{
+	FakeShell shell;
+	FakeShellTable table;
+	table.pBound = &shell;
+
+	FakeShell *pFound = CrossToShell( static_cast< FakeHandleEntity * >( &shell ), table );
+	EXPECT_EQ( &shell, pFound )
+		<< "a trace that hit a bound shell resolved to " << ( const void * )pFound
+		<< "; the ground resolve and the impact control points read this answer";
+	EXPECT_EQ( 1, table.nAsked );
+}
+
+TEST( ClientShellCross, NullIn_NullOut )
+{
+	FakeShellTable table;
+	EXPECT_EQ( ( FakeShell * )0, CrossToShell( 0, table ) );
+	EXPECT_EQ( 0, table.nAsked ) << "a NULL hit was looked up";
+}
+
+TEST( ClientShellCross, AnUnboundHandleComesBackNull )
+{
+	FakeShell shell;
+	FakeShellTable table;   // nothing bound
+	EXPECT_EQ( ( FakeShell * )0, CrossToShell( static_cast< FakeHandleEntity * >( &shell ), table ) );
+	EXPECT_EQ( 1, table.nAsked );
+}
+
+TEST( ClientShellCross, AnotherObjectAtTheBoundHandleComesBackNull )
+{
+	// The hit is a detail model whose handle names an entry a shell occupies:
+	// the occupant is not what the trace hit.
+	FakeShell shell;
+	FakeDetailModel detail;
+	FakeShellTable table;
+	table.pBound = &shell;
+
+	EXPECT_EQ( ( FakeShell * )0, CrossToShell( static_cast< FakeHandleEntity * >( &detail ), table ) );
+	EXPECT_EQ( 1, table.nAsked );
+}
+
+TEST( ClientShellCross, AStaticPropIsNeverLookedUp )
+{
+	FakeShell shell;
+	FakeShellTable table;
+	table.pBound = &shell;
+
+	EXPECT_EQ( ( FakeShell * )0, CrossToShell( static_cast< FakeHandleEntity * >( &shell ), table, true ) );
+	EXPECT_EQ( 0, table.nAsked ) << "a static prop's handle was handed to the slot table";
+}

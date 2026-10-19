@@ -122,13 +122,11 @@ class CBoneBitList;
 // handle, a place, the networked state that arrives from the server, and a way
 // to be drawn.
 //-----------------------------------------------------------------------------
-// IGameEntity IS LISTED LAST, exactly as CStandaloneEntity lists it fourth, and
-// for the same reason: it must NOT be at offset zero. An entity's game-entity
-// view and its handle-table view are then genuinely different addresses, so a
-// crossing that asks and a cast that assumes give different answers and the
-// gtests can tell them apart. If this ever became the first base every one of
-// those tests would pass while proving nothing.
-class C_StandaloneEntity : public IClientEntity, public ICollideable, public IGameEntity
+// NOT AN IGameEntity (2026-10-18). The client's native code reaches its
+// entities through the slot table (slot_table.h's shell resolvers), so the
+// game-entity face and its six inert slots went; GetGameEntity() answers
+// IClientEntity's NULL. shell_standalone_client.cpp's static_assert keeps it so.
+class C_StandaloneEntity : public IClientEntity, public ICollideable
 {
 	// THE ENGINE BLOCK, AND IT IS A MEMBER HERE WHERE THE SERVER'S IS THE
 	// BLOB'S PREFIX. That is the one deliberate divergence between the two
@@ -325,14 +323,6 @@ public:
 	// a real check when the crossing landed, and it goes now for the same
 	// reason the server's does.
 	virtual IGameEntity *GetBaseEntity() OVERRIDE { return NULL; }
-
-	// --- IClientEntity, the SourceSharp half -----------------------------------
-	//
-	// THE ARM OF THE PARTITION STEP 5 DOES NOT CHANGE. `this`, before and after,
-	// where GetBaseEntity() above answers NULL before and the same object after.
-	// Every client resolver asks THIS one, so none of them is disturbed by the
-	// canary or by step 5 itself. See handle_cross.h.
-	virtual IGameEntity *GetGameEntity() OVERRIDE { return this; }
 
 	// --- IClientNetworkable --------------------------------------------------
 	virtual IClientUnknown *GetIClientUnknown() OVERRIDE { return this; }
@@ -680,27 +670,6 @@ public:
 	virtual void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) OVERRIDE;
 	virtual bool ShouldTouchTrigger( int ) const OVERRIDE { return false; }
 	virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE { return NULL; }
-
-	// --- IGameEntity -----------------------------------------------------------
-	//
-	// FOUR OF THE SIX ARE INERT HERE, and that is a statement about the client
-	// rather than a stub left for later. Touch, StartTouch and EndTouch are the
-	// engine reporting an overlap it found in the SERVER's spatial partition,
-	// through IServerGameEnts::MarkEntitiesAsTouching; there is no client
-	// callback and no client trigger list, so nothing can call these. So is
-	// VPhysicsUpdate: the solver runs on the server and its per-tick results are
-	// networked, not recomputed. Declared anyway because the boundary is one
-	// interface shared by both sides -- Phase 13 makes C_BaseEntity a typedef to
-	// it -- and a client-only variant would be a second boundary to keep in step.
-	//
-	// GetCollisionGroup is NOT here: ICollideable declares it with the same
-	// signature above, and the one override answers both, exactly as
-	// CStandaloneEntity's does.
-	virtual bool ShouldCollide( int, int ) const OVERRIDE { return true; }
-	virtual void Touch( const Toucher_t & ) OVERRIDE {}
-	virtual void StartTouch( const Toucher_t & ) OVERRIDE {}
-	virtual void EndTouch( const Toucher_t & ) OVERRIDE {}
-	virtual void VPhysicsUpdate( IPhysicsObject * ) OVERRIDE {}
 
 	// Networked in from the server. Public: the RecvProp offsets are taken here,
 	// and they must match the server's SendProp offsets field for field.
@@ -1266,29 +1235,6 @@ int  SourceSharp_StandaloneBlobOffset();
 //-----------------------------------------------------------------------------
 bool SourceSharp_StandaloneTierIsInUse( int iTier );
 
-
-//-----------------------------------------------------------------------------
-// THE BOUNDARY TO THE SHELL, CLIENT SIDE. shell_standalone.h's
-// SourceSharp_ShellOf, same rule, same debug check, same reason for being one
-// function instead of a cast per call site: C_StandaloneEntity is the only
-// implementor of IGameEntity in this DLL (see :132), so the conversion between
-// two bases of one object is the compiler's, with the whole layout visible --
-// and the debug build proves it rather than asserting it in prose, because
-// IGameEntity is polymorphic and dynamic_cast is therefore exact.
-//
-// NOT handle_cross.h's problem: that header runs the other way, from a table
-// occupant of unknown kind, which is why it costs two virtual calls.
-//-----------------------------------------------------------------------------
-inline C_StandaloneEntity *SourceSharp_ClientShellOf( IGameEntity *pEnt )
-{
-	Assert( !pEnt || dynamic_cast< C_StandaloneEntity * >( pEnt ) != NULL );
-	return static_cast< C_StandaloneEntity * >( pEnt );
-}
-
-inline const C_StandaloneEntity *SourceSharp_ClientShellOf( const IGameEntity *pEnt )
-{
-	return SourceSharp_ClientShellOf( const_cast< IGameEntity * >( pEnt ) );
-}
 
 //-----------------------------------------------------------------------------
 // A RECV PROXY'S SUBJECT. `pStruct` is the object the decoder is writing into,

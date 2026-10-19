@@ -111,24 +111,6 @@ IClientThinkable   *SourceSharp_ClientThinkableFromHandle( const CBaseHandle &hE
 CBaseHandle         SourceSharp_ClientHandleFromIndex( int nEntry );
 
 //-----------------------------------------------------------------------------
-// THE SDK-ONLY ARM, which answers NULL for every managed entity — and that is
-// the answer, not a gap.
-//
-// Stock's cl_entitylist->GetEnt( n ) is GetBaseEntity( n ) is
-// SDKEntityFromUnknown( GetListedEntity( n ) ): the FILTERED lookup, which
-// answers only for entities that really are a C_BaseEntity. One caller still
-// needs exactly that (a tempent owner, which is stored as a C_BaseEntity * by a
-// stock class this phase does not touch), so the filter is kept rather than
-// widened — widening it would hand a C_BaseEntity * that is not one.
-//
-// IT GOES WITH ITS CALLER. When the last C_BaseEntity leaves the client
-// (Phase 7) this function has nothing left to answer for and is deleted, not
-// re-pointed.
-//-----------------------------------------------------------------------------
-IGameEntity       *SourceSharp_ClientSdkEntityFromIndex( int nEntry );
-IGameEntity       *SourceSharp_ClientSdkEntityFromHandle( const CBaseHandle &hEnt );
-
-//-----------------------------------------------------------------------------
 // BIND AND UNBIND — the two calls C_StandaloneEntity's constructor and
 // destructor make, and the only two places a client shell enters or leaves the
 // slot table.

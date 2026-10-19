@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 22 | 5 | 31 |  |  |  | 61 | 34,909 |
-| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,896 |
-| c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,031 |
+| a | a vtable the engine or VPhysics calls through | 22 | 5 | 31 |  |  |  | 61 | 34,915 |
+| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,887 |
+| c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,035 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 6 | 1 |  |  | 21 | 9,410 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,670 |
 | f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,720 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,418 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,422 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
 | x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,599 |
-|  | **total** | **77** | **35** | **71** | **3** | **2** | **1** | **213** | **92,765** |
+|  | **total** | **77** | **35** | **71** | **3** | **2** | **1** | **213** | **92,770** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -194,6 +194,16 @@ Then CI on main (2026-10-19, measured by the walk on 546910d): client.dll's MSVC
 Then the flashlight's executor (C7 cluster 12, 2026-10-18, measured by the walk on the lane rebased onto main e070a68e7): (d) 9,267 -> 9,410 is sourcesharp/game/client/shell_flashlight_client.cpp (client, +143 lines, one file), IShimFlashlightClient's bodies: the FlashlightState_t the client shadow manager reads by layout, built from managed's SourceSharpFlashlightState, and the texture reference it keeps; (e) 4,221 -> 4,273 is the client's and the server's world-query arms learning SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW and the client's SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL (stock's flashlight filter over the shells; shell_worldquery_client.cpp +48, shell_worldquery.cpp +4); 213 files, 93,880 lines in the table (93,870 on e070a68e7; main's trace fix, b32ca3536, added (b)'s 10 at the rebase).
 
 Then flashlighteffect.cpp left client.so (C7 cluster 12, 2026-10-18, measured by the walk on the lane rebased onto main e070a68e7): (x) 4,674 -> 4,599 is sourcesharp/game/client/shell_tools_off_client.cpp losing `clienttools` (its never-recording IClientTools) and `ToolFramework_PostToolMessage`, which only flashlighteffect.cpp read (client, 119 -> 44 lines); 213 files, 93,805 lines in the table.
+
+Then two inert client pieces went ahead of C_StandaloneEntity dropping its IGameEntity base (2026-10-19, measured by the walk on main ac8dec8f3): (a) 34,909 -> 34,911 is shell_precipitation_client.cpp's volume trace no longer asking the shell's always-true ShouldCollide (+2, the note saying why: stock's MASK_ALL cull is true for every entity); SourceSharp_ClientShellOf, which had no caller, left shell_standalone_client.h, a header the table does not count; 92,752 lines in the table.
+
+Then the client's SDK-only arms left (2026-10-19, measured by the walk on main ac8dec8f3): SourceSharp_ClientSdkEntityFromIndex and ...FromHandle answered NULL for every entity on this side (every client GetBaseEntity() answers NULL), so their four callers say NULL themselves. (a) 34,911 -> 34,908; (b) 17,881 -> 17,857; (c) 4,031 -> 4,035: shell_cliententitylist.cpp (b, -24, the two arms); shell_effect_dispatch_client.cpp's CEffectData::GetEntity answering NULL with its note (c, +4); shell_new_particles_client.cpp's camera object (+3), shell_effects_list_client.cpp's DispatchParticleEffect argument (+1) and shell_te_pool_client.cpp's cs_cl_te_live losing the SDK-only line (-7) (a); 92,729 lines in the table.
+
+Then the client's trace-hit shell resolver (2026-10-19, measured by the walk on main ac8dec8f3): (b) 17,857 -> 17,872 is shell_cliententitylist.cpp's SourceSharp_ClientShellFromTraceHit and its two includes (+15), handle_cross.h's SourceSharp_CrossHandleToClientShell over the slot table, which movement_ground.h's client ground arm asks in place of TraceGameEntity (whose GetGameEntity() answers NULL once C_StandaloneEntity is no IGameEntity); the headers are not counted; 92,744 lines in the table.
+
+Then the impact effects' control points bind the shell the trace hit (2026-10-19, measured by the walk on main ac8dec8f3): (a) 34,908 -> 34,910; (g) 9,418 -> 9,422: shell_impact_effects.cpp asking SourceSharp_ClientShellFromTraceHit for its three SetImpactControlPoint calls in place of TraceGameEntity, with its two includes and note (g, +4), and shell_new_particles_client.cpp's control-point owners held as the shell's own CBaseHandle and resolved through the slot table (a, +2, its includes). The EHANDLE they replace was assigned from an IGameEntity *, which networkvar.h refuses with a warning and the invalid handle; 92,750 lines in the table.
+
+Then C_StandaloneEntity dropped its IGameEntity base and the six inert slots (2026-10-19, measured by the walk on main ac8dec8f3): (a) 34,910 -> 34,915 is shell_standalone_client.cpp's static_assert that the shell is no IGameEntity, its include and note, in place of the note that said why it still was (+5); the base, GetGameEntity's override and ShouldCollide, Touch, StartTouch, EndTouch and VPhysicsUpdate left shell_standalone_client.h, a header the table does not count (GetCollisionGroup stays, ICollideable's); 92,755 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

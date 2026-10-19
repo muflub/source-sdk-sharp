@@ -20,7 +20,7 @@ bool CShellNewParticleEffect::DefinitionReadsControlPoint(	BOUNDARY	the definiti
 void CShellNewParticleEffect::SetControlPoint(	BOUNDARY	the collection's SetControlPoint; the point is the caller's
 void CShellNewParticleEffect::SetControlPointOrientation(	BOUNDARY	the collection's SetControlPointOrientation
 void CShellNewParticleEffect::SetControlPointEntity(	BOUNDARY	CNewParticleEffect::SetControlPointEntity: the handle kept, its address the library's object
-IGameEntity *CShellNewParticleEffect::GetControlPointEntity(	BOUNDARY	the point's entity, by handle
+C_StandaloneEntity *CShellNewParticleEffect::GetControlPointEntity(	BOUNDARY	the point's entity, by handle
 void CShellNewParticleEffect::StopEmission(	BOUNDARY	the collection's StopEmission; when and how is the caller's
 CShellNewParticleEffect *CShellNewParticleEffect::ReplaceWith(	BOUNDARY	CNewParticleEffect::ReplaceWith's mechanics, carried out for managed's retirement: the old stopped, the named system started at its read points
 const matrix3x4_t &CShellNewParticleEffect::RenderableToWorldTransform()	SLOT	IClientRenderable: the sort origin's translation, as stock's

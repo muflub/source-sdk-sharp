@@ -20,7 +20,6 @@
 1	UNRULED	[C_StandaloneEntity] virtual CMouthInfo *GetMouth( void ) OVERRIDE
 1	UNRULED	[C_StandaloneEntity] virtual bool GetSoundSpatialization( SpatializationInfo_t & ) OVERRIDE
 1	UNRULED	[C_StandaloneEntity] virtual IGameEntity *GetBaseEntity() OVERRIDE
-1	UNRULED	[C_StandaloneEntity] virtual IGameEntity *GetGameEntity() OVERRIDE
 1	UNRULED	[C_StandaloneEntity] virtual IClientUnknown *GetIClientUnknown() OVERRIDE
 1	UNRULED	[C_StandaloneEntity] virtual void Release() OVERRIDE
 1	UNRULED	[C_StandaloneEntity] virtual void OnPreDataChanged( DataUpdateType_t ) OVERRIDE
@@ -91,11 +90,6 @@
 1	UNRULED	[C_StandaloneEntity] virtual int GetCollisionGroup() const OVERRIDE
 1	UNRULED	[C_StandaloneEntity] virtual bool ShouldTouchTrigger( int ) const OVERRIDE
 1	UNRULED	[C_StandaloneEntity] virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE
-1	UNRULED	[C_StandaloneEntity] virtual bool ShouldCollide( int, int ) const OVERRIDE
-1	UNRULED	[C_StandaloneEntity] virtual void Touch( const Toucher_t & ) OVERRIDE
-1	UNRULED	[C_StandaloneEntity] virtual void StartTouch( const Toucher_t & ) OVERRIDE
-1	UNRULED	[C_StandaloneEntity] virtual void EndTouch( const Toucher_t & ) OVERRIDE
-1	UNRULED	[C_StandaloneEntity] virtual void VPhysicsUpdate( IPhysicsObject * ) OVERRIDE
 2	UNRULED	[C_StandaloneEntity] virtual bool WantsInterpolation() const
 1	UNRULED	[C_StandaloneEntity] void SetOverlayModel( int nModelIndex )
 1	UNRULED	[C_StandaloneEntity] void SetSkin( int nSkin )
@@ -105,6 +99,4 @@
 1	UNRULED	[C_StandaloneEntity] int NetworkedModelIndex() const
 1	UNRULED	[C_StandaloneEntity] void BumpPolicyInputs()
 1	UNRULED	[C_StandaloneEntity] bool IsInLeafSystem() const
-5	UNRULED	inline C_StandaloneEntity *SourceSharp_ClientShellOf( IGameEntity *pEnt )
-4	UNRULED	inline const C_StandaloneEntity *SourceSharp_ClientShellOf( const IGameEntity *pEnt )
 4	UNRULED	inline C_StandaloneEntity *SourceSharp_ClientShellFromRecvStruct( void *pStruct )
