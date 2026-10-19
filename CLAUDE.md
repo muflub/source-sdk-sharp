@@ -153,9 +153,17 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
 - **When managed code cannot express something:** find it on the existing ABI
   first, then add a *generic* ABI call, else leave it out as a divergence.
   Native code may carry out a decision; it must never make one.
-- **New managed→native surface is a bound interface** (`IShim<Area>` on the
-  bound-vtable pattern, a `chain=` row in `tools/vtable-layout`). Never add a
-  free `SourceSharp_*` function that finds its state through a global.
+- **New managed→native surface is a forwarder row, never a vtable.** No
+  vtable crosses between native and managed (user ruling 2026-10-18): managed
+  calls a native interface through the forwarder table tools/engine-forwarders
+  generates from its header (an `IShim<Area>` method is a row in
+  `docs/engineapi-areas.tsv`, an engine method a `FORWARD` row), and native
+  calls managed through a C table tools/managed-areas generates from
+  `docs/managed-interfaces.tsv`. A Valve interface that Valve code calls and
+  managed answers is a libss_fwd class over a managed table (`fwd_physics.cpp`,
+  `fwd_steam.cpp`).
+  Never add a free `SourceSharp_*` function that finds its state through a
+  global.
 - **Managed code keeps no state in statics; inject it as a service.** The
   build enforces it: SS0001 (`src/analyzers`) fails a mutable static in a
   runtime assembly, SS0002 a waiver row whose static has gone. The one waiver
@@ -167,11 +175,13 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   needs a measurement. A blown budget is a boundary-design task (batching,
   `[SuppressGCTransition]`), never a retreat to C++. The performance pass comes
   after the port; record costs with numbers.
-- **The ABI is generated vtables; there is no version number** (dropped
+- **The ABI is generated tables; there is no version number** (dropped
   2026-10-01). Shim areas and managed-built interfaces are rows in
   `docs/engineapi-areas.tsv` and `docs/managed-interfaces.tsv`; regenerate both
-  sides from them together. Native validates each managed-built slot by hash;
-  struct layouts are held only by the parity tests. After an ABI merge, check
+  sides from them together. A forwarder table only appends (managed refuses
+  one with fewer slots than its struct reads); native validates each
+  managed-built slot by hash; struct layouts are held only by the parity
+  tests. After an ABI merge, check
   brace balance, per-parent line counts, `<summary>` balance and
   `AbiParityTests`: a keep-both splice eats lines.
 - **`*.Interface` assemblies hold only interfaces, enums and pure data

@@ -272,6 +272,46 @@ numbers here.
   (docs/shim-ratchet.tsv gives the sum by file); dead-conditionals allows
   SS_FWD_SERVER_BUILD / SS_FWD_CLIENT_BUILD as side markers.
 
+## 6f. Phase 6, as built (2026-10-19)
+
+Six commits, 4a0feb7..43a2316 (84 files, +1,493 / -5,686):
+
+- **The last layout user.** ShimProbes.Level held native's vtable length for
+  IShimLevel against ShimLevelVtbl; it now reports SSFwd_ShimLevel's served
+  count against ShimLevelFwd's. Vtable.TryAcquireShim, the last read of a vptr
+  from managed, had no caller and went with Vtable.SlotsIn.
+- **Tests on the forwarder structs.** The facts that reflected over
+  Shim<X>Vtbl read Shim<X>Fwd: the same 58 structs, 608 fields and 47
+  [SuppressGCTransition] marks, compared field by field before the switch.
+- **No count crosses** (section 3's `MemberOf( ... ).slot + 1`). IShimRoot's
+  Acquire and AcquireInterface lose their count parameter (the root is
+  SourceSharpRoot003, its forwarder table regenerated with a deliberate
+  `--reorder`); the internal factory, the hand-written and generated acquires,
+  SSFwd_Serve and NativeInterfaceFactory take and return none.
+  shell_vtable_interfaces.cpp's twelve per-interface counts became
+  SourceSharpServes, the served set they also were, and the USE_SDL / NO_VOICE
+  guard that protects IVEngineClient's numbering moved to fwd_client.cpp, which
+  calls those slots now. The shim ratchet fell 145,905 -> 145,682.
+- **The layouts go.** VtableLayouts.g.cs (2,446 lines) and tools/vtable-layout's
+  emitter: the tool keeps the header walk tools/engine-forwarders and
+  tools/managed-areas load (2,782 -> 2,038 lines; a differential shows every
+  row, walk, signature and hash unchanged). PhysicsCollisionEventVtbl stays as a
+  plain walk, because ClientPhysicsCollisionEventBinding calls the client's own
+  handler through its forwarders (4a0feb7: dropping it in phase 5 broke
+  tools/engine-forwarders' self-test, which the checks leg caught).
+  shim_areas_layout.inc became shim_areas_forwarders.inc: each generated area's
+  SSFwd_ table count against the compiler's, in fwd_shim_test, with the root,
+  console, frame, level and particle library counts beside it.
+- **ValveLayout goes** from the attribute, ManagedVtableGenerator and the
+  registry; ReservedWords stays for the callback objects phase 5 builds in the
+  block.
+- CLAUDE.md's rule now reads "New managed->native surface is a forwarder row,
+  never a vtable".
+
+What remains of "vtable" in the tree is native-only: the engine's own classes,
+libss_fwd's objects deriving Valve interfaces, VTableHook's slot patches, and
+the native tests that ask the compiler for a slot.
+
 ## 7. Decisions
 
 - 2026-10-18 (user, relayed by a peer session): every native<->managed call
