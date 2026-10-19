@@ -280,6 +280,146 @@ public unsafe class ClientAdapterRegistrationTests
                                                                (nint)(delegate* unmanaged<void*, float*, int>)&ContentsOfZOnly,
                                                                c => c.PointContents(new Vector(0, 0, 6))));
 
+    [UnmanagedCallersOnly] private static int SevenFor(void* self, byte* name) => 7;
+    [UnmanagedCallersOnly] private static int GotCmd(void* self, int command, void* cmd) => 1;
+
+    [UnmanagedCallersOnly]
+    private static int ChannelFloats(void* self, float* values, int floats)
+    {
+        for (int i = 0; i < floats; i++)
+            values[i] = 0;
+        values[0] = 1.5f;
+        return floats;
+    }
+
+    [UnmanagedCallersOnly]
+    private static int TwoProps(void* self, int index, byte* cls, int clsBytes, byte* table, int tableBytes,
+                                byte* prop, int propBytes, int* type, int* flags, int* offset, int* elements)
+        => index < 0 ? 2 : 0;
+
+    [UnmanagedCallersOnly] private static void SeeConVar(void* self, byte* name, byte* value) => t_seen = [name[0], value[0]];
+
+    [UnmanagedCallersOnly]
+    private static int FoundVarThree(void* self, int handle, byte* name, int complain, int* found)
+    {
+        *found = 1;
+        return 3;
+    }
+
+    // One block, so the lists read a count; allocated per fact by the fact.
+    [ThreadStatic] private static nint t_blocks;
+
+    [UnmanagedCallersOnly]
+    private static void** OneInterpBlock(void* self, int* count, float* amount)
+    {
+        *count = 1;
+        *amount = 0.25f;
+        return (void**)t_blocks;
+    }
+
+    [UnmanagedCallersOnly]
+    private static void** OnePolicyBlock(void* self, int* count)
+    {
+        *count = 1;
+        return (void**)t_blocks;
+    }
+
+    private static TResult WithOneBlock<TResult>(Func<TResult> run)
+    {
+        t_blocks = Marshal.AllocHGlobal(sizeof(nint));
+        try
+        {
+            *(nint*)t_blocks = 0;
+            return run();
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(t_blocks);
+            t_blocks = 0;
+        }
+    }
+
+    [Fact]
+    public void TheRegisteredConVarSlotsAskTheConVarsArea()
+        => Assert.Equal(7, Through<IClientConVarSlots, int>("SourceSharpConVarsClient001", nameof(ShimConVarsClientFwd.ConVarsClientWatch),
+                                                            (nint)(delegate* unmanaged<void*, byte*, int>)&SevenFor, c => c.Watch("fov")));
+
+    [Fact]
+    public void TheRegisteredEffectRegistrationsAskTheFxArea()
+        => Assert.Equal(7, Through<IClientEffectRegistrations, int>(Fx, nameof(ShimFxClientFwd.EffectRegistrationCount),
+                                                                    (nint)(delegate* unmanaged<void*, int>)&Seven, r => r.Count));
+
+    [Fact]
+    public void TheRegisteredNetChannelAsksTheNetArea()
+        => Assert.Equal(1.5f, Through<IClientNetChannel, float?>("SourceSharpNetClient001", nameof(ShimNetClientFwd.ClientNetChannel),
+                                                                 (nint)(delegate* unmanaged<void*, float*, int, int>)&ChannelFloats,
+                                                                 n => n.Channel()?.Time));
+
+    [Fact]
+    public void TheRegisteredRecvTablesAskTheStandaloneArea()
+        => Assert.Equal(2, Through<IClientRecvTables, int>("SourceSharpStandaloneClient001", nameof(ShimStandaloneClientFwd.ClientRecvProp),
+                                                           (nint)(delegate* unmanaged<void*, int, byte*, int, byte*, int, byte*, int, int*, int*, int*, int*, int>)&TwoProps,
+                                                           r => r.Props().Count));
+
+    [Fact]
+    public void TheRegisteredSoundscapeAudioSetsAConVarThroughTheConsoleArea()
+    {
+        t_seen = null;
+        Through<ISoundscapeAudio, int>("SourceSharpConsole001", nameof(ShimConsoleFwd.SetNamedConVarValue),
+                                       (nint)(delegate* unmanaged<void*, byte*, byte*, void>)&SeeConVar,
+                                       a => { a.SetConVar("dsp_player", "9"); return 0; });
+
+        Assert.Equal([(float)'d', (float)'9'], t_seen!);
+    }
+
+    [Fact]
+    public void TheRegisteredReplayEngineAsksThePredictionArea()
+        => Assert.True(Through<IClientReplayEngine, bool>("SourceSharpPredictionClient001", nameof(ShimPredictionClientFwd.ClientGetUserCmd),
+                                                          (nint)(delegate* unmanaged<void*, int, void*, int>)&GotCmd,
+                                                          r => r.TryGetUserCmd(5, out _)));
+
+    [Fact]
+    public void TheRegisteredInterpolationBlocksAskTheStandaloneArea()
+        => Assert.Equal((1, 0.25f), WithOneBlock(() => Through<IInterpolationBlocks, (int, float)>(
+               "SourceSharpStandaloneClient001", nameof(ShimStandaloneClientFwd.ClientInterpBlocks),
+               (nint)(delegate* unmanaged<void*, int*, float*, void**>)&OneInterpBlock,
+               b => (b.Begin(out float amount), amount))));
+
+    [Fact]
+    public void TheRegisteredRenderPolicyBlocksAskTheStandaloneArea()
+        => Assert.Equal(1, WithOneBlock(() => Through<IRenderPolicyBlocks, int>(
+               "SourceSharpStandaloneClient001", nameof(ShimStandaloneClientFwd.ClientPolicyBlocks),
+               (nint)(delegate* unmanaged<void*, int*, void**>)&OnePolicyBlock, b => b.Begin())));
+
+    [Fact]
+    public void TheRegisteredMaterialProxyExecutorAsksTheProxyArea()
+    {
+        var (slot, found) = Through<IClientMaterialProxyExecutor, (int, bool)>(
+            "SourceSharpMaterialProxyClient001", nameof(ShimMaterialProxyClientFwd.ProxyFindVar),
+            (nint)(delegate* unmanaged<void*, int, byte*, int, int*, int>)&FoundVarThree,
+            x => (x.FindVar(1, "$frame", false, out bool f), f));
+
+        Assert.Equal((3, true), (slot, found));
+    }
+
+    [UnmanagedCallersOnly]
+    private static int OverlayLine(void* self, int index, float* x, float* y, int* line, uint* rgba, byte* text, int bytes)
+    {
+        *line = index + 1;
+        return 4;
+    }
+
+    [Fact]
+    public void TheRegisteredDebugOverlayAsksTheUiArea()
+    {
+        var (bytes, line) = Through<IClientDebugOverlay, (int, int)>(
+            "SourceSharpUiClient001", nameof(ShimUiClientFwd.UiDebugOverlayText),
+            (nint)(delegate* unmanaged<void*, int, float*, float*, int*, uint*, byte*, int, int>)&OverlayLine,
+            o => (o.Text(2, out _, out _, out int l, out _, new byte[16]), l));
+
+        Assert.Equal((4, 3), (bytes, line));
+    }
+
     /// <summary>A guarded call over an unattached engine answers its default, as the attach guard made it.</summary>
     [Fact]
     public void OverAnUnattachedEngineAGuardedFxCallAnswersItsDefault()

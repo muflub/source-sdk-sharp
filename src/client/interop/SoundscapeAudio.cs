@@ -8,64 +8,69 @@ namespace SourceSharp.Client.Interop;
 /// <see cref="ISoundscapeAudio"/> over IShimSoundscapeClient and the console's
 /// two named-convar api. A missing shim plays nothing.
 /// </summary>
-internal sealed unsafe class SoundscapeAudioSlots(EngineSide api) : ISoundscapeAudio
+internal sealed unsafe class SoundscapeAudioSlots(ConsoleArea? console, SoundscapeClientArea? soundscapeClient) : ISoundscapeAudio
 {
+    // The shim areas this calls, taken by constructor (plan_shim_areas_split
+    // phase 5). Null on a client that never attached (an unattached engine
+    // double): a guarded call answers its default and any other throws, as
+    // they did through the side's attach guard.
+    private ConsoleArea Console => console ?? throw ShimAreaGuard.NotAttached(nameof(Console));
+    private SoundscapeClientArea SoundscapeClient => soundscapeClient ?? throw ShimAreaGuard.NotAttached(nameof(SoundscapeClient));
+
     private static byte[] Utf8(string s) => Encoding.UTF8.GetBytes(s + "\0");
 
     public void EmitAmbient(string wave, float volume, int pitch, int flags)
     {
-        if (!api.ClientAttached)
+        if (console is null)
             return;
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeEmitAmbient(p, volume, pitch, flags);
+            SoundscapeClient.SoundscapeEmitAmbient(p, volume, pitch, flags);
     }
 
     public void EmitWorld(string wave, float volume, int soundLevel, int pitch, int flags, Vector origin)
     {
-        if (!api.ClientAttached)
+        if (console is null)
             return;
         float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeEmitWorld(p, volume, soundLevel, pitch, flags, o);
+            SoundscapeClient.SoundscapeEmitWorld(p, volume, soundLevel, pitch, flags, o);
     }
 
     public void StopWorld(string wave)
     {
-        if (!api.ClientAttached)
+        if (console is null)
             return;
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeStopWorld(p);
+            SoundscapeClient.SoundscapeStopWorld(p);
     }
 
     public void SetRoomType(int roomType)
     {
-        if (api.ClientAttached)
-            api.ClientShims.SoundscapeSetRoomType(roomType);
+        if ((console is not null))
+            SoundscapeClient.SoundscapeSetRoomType(roomType);
     }
 
     public void SetPlayerDsp(int dspType)
     {
-        if (api.ClientAttached)
-            api.ClientShims.SoundscapeSetPlayerDsp(dspType);
+        if ((console is not null))
+            SoundscapeClient.SoundscapeSetPlayerDsp(dspType);
     }
 
     public void SetConVar(string name, string value)
     {
-        if (!(api.ServerAttached || api.ClientAttached))
+        if (console is null)
             return;
         fixed (byte* n = Utf8(name))
         fixed (byte* v = Utf8(value))
-            if (api.ServerShimsOrNull is { } __att1) __att1.SetNamedConVarValue(n, v);
-            else api.ClientShims.SetNamedConVarValue(n, v);
+            Console.SetNamedConVarValue(n, v);
     }
 
     public void RevertConVar(string name)
     {
-        if (!(api.ServerAttached || api.ClientAttached))
+        if (console is null)
             return;
         fixed (byte* n = Utf8(name))
-            if (api.ServerShimsOrNull is { } __att2) __att2.RevertNamedConVar(n);
-            else api.ClientShims.RevertNamedConVar(n);
+            Console.RevertNamedConVar(n);
     }
 
     public void MainView(out Vector origin, out Vector forward, out Vector right)
@@ -73,21 +78,21 @@ internal sealed unsafe class SoundscapeAudioSlots(EngineSide api) : ISoundscapeA
         float* v = stackalloc float[9];
         for (int i = 0; i < 9; i++)
             v[i] = 0;
-        if (api.ClientAttached)
-            api.ClientShims.SoundscapeMainView(v);
+        if ((console is not null))
+            SoundscapeClient.SoundscapeMainView(v);
         origin = new Vector(v[0], v[1], v[2]);
         forward = new Vector(v[3], v[4], v[5]);
         right = new Vector(v[6], v[7], v[8]);
     }
 
-    public bool MakingResLists => api.ClientAttached && api.ClientShims.SoundscapeMakingResLists() != 0;
+    public bool MakingResLists => (console is not null) && SoundscapeClient.SoundscapeMakingResLists() != 0;
 
     public void TouchSoundFile(string wave)
     {
-        if (!api.ClientAttached)
+        if (console is null)
             return;
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeTouchSoundFile(p);
+            SoundscapeClient.SoundscapeTouchSoundFile(p);
     }
 }
 

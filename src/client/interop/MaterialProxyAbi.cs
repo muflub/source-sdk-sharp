@@ -206,20 +206,28 @@ public interface IClientMaterialProxies
 /// <summary>The real one, over IShimMaterialProxyClient.</summary>
 public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExecutor
 {
-    private readonly EngineSide _api;
+    // The shim areas this calls, taken by constructor (plan_shim_areas_split
+    // phase 5). Null on a client that never attached (an unattached engine
+    // double): a guarded call answers its default and any other throws, as
+    // they did through the side's attach guard.
+    private readonly MaterialProxyClientArea? _materialProxyClient;
+    private MaterialProxyClientArea MaterialProxyClient => _materialProxyClient ?? throw ShimAreaGuard.NotAttached(nameof(MaterialProxyClient));
 
-    internal ClientMaterialProxyExecutor(EngineSide api) => _api = api;
+    internal ClientMaterialProxyExecutor(MaterialProxyClientArea? materialProxyClient)
+    {
+        _materialProxyClient = materialProxyClient;
+    }
 
     public int FindVar(int handle, string name, bool complain, out bool found)
     {
         found = false;
-        if (!_api.ClientAttached)
+        if (_materialProxyClient is null)
             return -1;
         byte[] utf8 = Vtable.Utf8(name);
         int f = 0;
         int slot;
         fixed (byte* p = utf8)
-            slot = _api.ClientShims.ProxyFindVar(handle, p, complain ? 1 : 0, &f);
+            slot = MaterialProxyClient.ProxyFindVar(handle, p, complain ? 1 : 0, &f);
         found = f != 0;
         return slot;
     }
@@ -227,7 +235,7 @@ public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExe
     public int FindTexture(int handle, string name, string group, bool complain, out bool isError)
     {
         isError = false;
-        if (!_api.ClientAttached)
+        if (_materialProxyClient is null)
             return -1;
         byte[] n = Vtable.Utf8(name);
         byte[] g = Vtable.Utf8(group);
@@ -235,7 +243,7 @@ public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExe
         int slot;
         fixed (byte* pn = n)
         fixed (byte* pg = g)
-            slot = _api.ClientShims.ProxyFindTexture(handle, pn, pg, complain ? 1 : 0, &e);
+            slot = MaterialProxyClient.ProxyFindTexture(handle, pn, pg, complain ? 1 : 0, &e);
         isError = e != 0;
         return slot;
     }
@@ -243,10 +251,10 @@ public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExe
     public int VarTexture(int handle, int slot, out string? name)
     {
         name = null;
-        if (!_api.ClientAttached)
+        if (_materialProxyClient is null)
             return -1;
         byte* buffer = stackalloc byte[260];
-        int frames = _api.ClientShims.ProxyVarTexture(handle, slot, buffer, 260);
+        int frames = MaterialProxyClient.ProxyVarTexture(handle, slot, buffer, 260);
         if (frames >= 0)
             name = Marshal.PtrToStringUTF8((nint)buffer);
         return frames;
@@ -255,38 +263,38 @@ public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExe
     public ProxyEntityRaw BindEntity(int handle)
     {
         var raw = new ProxyEntityRaw { EntIndex = -1, RenderAlpha = -1, IsNpc = -1 };
-        if (_api.ClientAttached)
-            _api.ClientShims.ProxyBindEntity(handle, &raw);
+        if (_materialProxyClient is not null)
+            MaterialProxyClient.ProxyBindEntity(handle, &raw);
         return raw;
     }
 
     public bool ReadView(int kind, Span<float> values)
     {
-        if (!_api.ClientAttached)
+        if (_materialProxyClient is null)
             return false;
         fixed (float* p = values)
-            return _api.ClientShims.ProxyReadView(kind, p, values.Length) != 0;
+            return MaterialProxyClient.ProxyReadView(kind, p, values.Length) != 0;
     }
 
     public bool PlayerCustomFile(int player, out uint crc)
     {
         crc = 0;
-        if (!_api.ClientAttached)
+        if (_materialProxyClient is null)
             return false;
         uint c = 0;
-        int ok = _api.ClientShims.ProxyPlayerCustomFile(player, &c);
+        int ok = MaterialProxyClient.ProxyPlayerCustomFile(player, &c);
         crc = c;
         return ok != 0;
     }
 
     public void NotShipped(string capability, string reason)
     {
-        if (!_api.ClientAttached)
+        if (_materialProxyClient is null)
             return;
         byte[] c = Vtable.Utf8(capability);
         byte[] r = Vtable.Utf8(reason);
         fixed (byte* pc = c)
         fixed (byte* pr = r)
-            _api.ClientShims.ProxyNotShipped(pc, pr);
+            MaterialProxyClient.ProxyNotShipped(pc, pr);
     }
 }

@@ -1,4 +1,4 @@
-namespace SourceSharp.Client.Interop;
+namespace SourceSharp.Abi;
 
 /// <summary>
 /// The refusal an adapter gives when it is called with no shim area behind it.

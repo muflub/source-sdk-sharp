@@ -23,14 +23,14 @@ public static class ClientEntityFetches
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(engine);
 
-        services.AddInstance<IInterpolationBlocks>(new InterpolationBlocks(engine.Api));
-        services.AddInstance<IRenderPolicyBlocks>(new RenderPolicyBlocks(engine.Api));
-        services.AddInstance<IClientReplayEngine>(new ClientReplayEngine(engine.Api));
+        services.AddInstance<IInterpolationBlocks>(new InterpolationBlocks(engine.Api.ClientShimsOrNull?.StandaloneClient));
+        services.AddInstance<IRenderPolicyBlocks>(new RenderPolicyBlocks(engine.Api.ClientShimsOrNull?.StandaloneClient));
+        services.AddInstance<IClientReplayEngine>(new ClientReplayEngine(engine.Api.ClientShimsOrNull?.PredictionClient));
 
         // The recv tables and schema refusals, for the dev API's nettables
         // route (plan_client_novalve §4.4). A read, not a fetch, but over the
         // same slots and with the same reason to live here: it is unsafe.
-        services.AddInstance<IClientRecvTables>(new ClientRecvTables(engine.Api));
+        services.AddInstance<IClientRecvTables>(new ClientRecvTables(engine.Api.ClientShimsOrNull?.StandaloneClient));
 
         // The rope executor and the view, light and world-hull reads a managed
         // rope makes (plan_client_novalve §2 cluster 6).
@@ -45,7 +45,7 @@ public static class ClientEntityFetches
 
         // The UI's draw primitives (plan_client_ui U2), for VguiBackend.
         services.AddInstance<IUiSurface>(new ClientUiSurface(engine.Api.ClientShimsOrNull?.UiClient));
-        services.AddInstance<IClientDebugOverlay>(new ClientDebugOverlay(engine.Api));
+        services.AddInstance<IClientDebugOverlay>(new ClientDebugOverlay(engine.Api.ClientShimsOrNull?.UiClient));
 
         // The second cameras' render targets (lane camproto).
         services.AddInstance<IViewTargets>(new ClientViewTargets(engine.Api.ClientShimsOrNull?.ViewClient));
@@ -55,7 +55,7 @@ public static class ClientEntityFetches
 
         // The net channel and the diagnostics ledgers, for the netgraph and
         // absences routes; one reader over the slots serves both.
-        var readers = new ClientNetReaders(engine.Api);
+        var readers = new ClientNetReaders(engine.Api.ClientShimsOrNull?.DiagnosticsClient, engine.Api.ClientShimsOrNull?.NetClient);
         services.AddInstance<IClientNetChannel>(readers);
         services.AddInstance<IClientDiagnosticsLedgers>(readers);
 
@@ -92,10 +92,10 @@ public static class ClientEntityFetches
         services.AddInstance<IClientWindPublisher>(new ClientWindPublisher(engine.Api.ClientShimsOrNull?.EffectsRenderClient));
         // The material proxies' engine reads (lane c5-proxies): FindVar and
         // FindTexture at Init, the texture, entity and view reads of a bind.
-        services.AddInstance<IClientMaterialProxyExecutor>(new ClientMaterialProxyExecutor(engine.Api));
+        services.AddInstance<IClientMaterialProxyExecutor>(new ClientMaterialProxyExecutor(engine.Api.ClientShimsOrNull?.MaterialProxyClient));
         // The native effect registrations, by walk index, for the managed
         // dispatch table (plan_client_novalve §2 cluster 4).
-        services.AddInstance<IClientEffectRegistrations>(new ClientEffectRegistrations(engine.Api));
+        services.AddInstance<IClientEffectRegistrations>(new ClientEffectRegistrations(engine.Api.ClientShimsOrNull?.FxClient));
 
         // IEffects' FX_* routines and SuppressTE's two answers (cluster 3),
         // for the managed ClientEffects; one object over the slots serves both.
@@ -110,7 +110,7 @@ public static class ClientEntityFetches
         services.AddInstance<IFxPrecache>(new ClientFxPrecacheSlots(engine.Api.ClientShimsOrNull?.FxClient));
 
         // The client soundscape system's executors (sound cluster 17).
-        services.AddInstance<ISoundscapeAudio>(new SoundscapeAudioSlots(engine.Api));
+        services.AddInstance<ISoundscapeAudio>(new SoundscapeAudioSlots(engine.Api.ClientShimsOrNull?.Console, engine.Api.ClientShimsOrNull?.SoundscapeClient));
         var emitters = new ClientFxEmitterSlots(engine.Api.ClientShimsOrNull?.FxClient);
         services.AddInstance<IFxFlashReads>(emitters);
         services.AddInstance<IFxGameSounds>(emitters);
@@ -127,6 +127,6 @@ public static class ClientEntityFetches
         services.AddInstance<IClientPhysicsObjectReads>(physics);
         services.AddInstance<IClientSplashCarryOut>(physics);
         // The convar watch and the decided values (C8, IShimConVarsClient).
-        services.AddInstance<IClientConVarSlots>(new ClientConVarSlots(engine.Api));
+        services.AddInstance<IClientConVarSlots>(new ClientConVarSlots(engine.Api.ClientShimsOrNull?.ConVarsClient));
     }
 }
