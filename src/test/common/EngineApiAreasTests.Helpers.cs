@@ -27,26 +27,28 @@ public partial class EngineApiAreasTests
     }
 
     /// <summary>
-    /// The generated layout of an area (tools/vtable-layout names it
-    /// <c>Shim&lt;X&gt;Vtbl</c> after <c>IShim&lt;X&gt;</c>), or null.
+    /// The forwarder struct of an area (tools/engine-forwarders names it
+    /// <c>Shim&lt;X&gt;Fwd</c> after <c>IShim&lt;X&gt;</c>), or null: what a call
+    /// to the area goes through since plan_forwarders_everywhere.md, one field
+    /// per method in the header's order.
     /// </summary>
     internal static Type? Layout(string iface)
-        => typeof(ShimRootVtbl).Assembly.GetType("SourceSharp.Abi." + LayoutName(iface));
+        => typeof(ShimRootFwd).Assembly.GetType("SourceSharp.Abi." + LayoutName(iface));
 
-    private static string LayoutName(string iface) => "Shim" + iface["IShim".Length..] + "Vtbl";
+    private static string LayoutName(string iface) => "Shim" + iface["IShim".Length..] + "Fwd";
 
-    /// <summary>A row's field in its area's generated layout, or null.</summary>
+    /// <summary>A row's field in its area's forwarder struct, or null.</summary>
     private static FieldInfo? LayoutField(Row r) => Layout(r.Interface)?.GetField(r.Slot);
 
     /// <summary>
-    /// A former engine API slot's field in its area's generated layout, found
+    /// A former engine API slot's field in its area's forwarder struct, found
     /// through its row; null when the table has no row for it.
     /// </summary>
     internal static FieldInfo? SlotField(string slot)
         => Rows().Where(r => r.Struct == "EngineApi" && r.Slot == slot)
                  .Select(LayoutField).FirstOrDefault();
 
-    /// <summary>Whether a layout field carries [SuppressGCTransition].</summary>
+    /// <summary>Whether a forwarder field carries [SuppressGCTransition].</summary>
     internal static bool IsSuppressed(FieldInfo f) => IsSuppressed(f.GetModifiedFieldType());
 
     /// <summary>The same, for a slot's modified type (a field's or a property's).</summary>

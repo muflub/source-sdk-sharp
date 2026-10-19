@@ -159,14 +159,14 @@ public class TempEntBackendTests
     }
 
     /// <summary>
-    /// How many generated shim-area layouts (<c>Shim&lt;X&gt;Vtbl</c>) declare a
+    /// How many shim areas' forwarder structs (<c>Shim&lt;X&gt;Fwd</c>) declare a
     /// slot of this name: the absence above holds in what compiled as well as
     /// in the table.
     /// </summary>
     private static int LayoutsDeclaring(string slot)
-        => typeof(ShimRootVtbl).Assembly.GetTypes()
+        => typeof(ShimRootFwd).Assembly.GetTypes()
                .Count(t => t.Name.StartsWith("Shim", StringComparison.Ordinal)
-                        && t.Name.EndsWith("Vtbl", StringComparison.Ordinal)
+                        && t.Name.EndsWith("Fwd", StringComparison.Ordinal)
                         && t.GetField(slot) is not null);
 
     //-------------------------------------------------------------------------

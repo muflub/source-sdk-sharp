@@ -192,14 +192,14 @@ public class EngineHierarchyWorldTests
     public void EachOutboundParentingSlotIsDeclaredInBothFiles(string slot)
     {
         // A server shim-area method since plan_engineapi_vtables C6c: declared
-        // in ishim_areas.h and mirrored in a generated vtable.
+        // in ishim_areas.h and forwarded by a generated table.
         string areas = AbiParityTests.CodeOnly(File.ReadAllText(
             RepoLayout.Repo("src", "shared", "native", "ishim_areas.h")));
 
         Assert.Matches($@"\bvirtual\s[^;(]*\b{slot}\s*\(", areas);
         Assert.Contains(typeof(ShimAreas).Assembly.GetTypes(),
                         t => t.Name.StartsWith("Shim", StringComparison.Ordinal)
-                             && t.Name.EndsWith("Vtbl", StringComparison.Ordinal)
+                             && t.Name.EndsWith("Fwd", StringComparison.Ordinal)
                              && t.GetField(slot) is not null);
     }
 
