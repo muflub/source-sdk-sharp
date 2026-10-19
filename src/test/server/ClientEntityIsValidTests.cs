@@ -46,27 +46,6 @@ public unsafe class ClientEntityIsValidTests : IDisposable
     }
 
     [Fact]
-    public void AClientSideAsksItsOwnSlotWhetherAnEntityIsValid()
-    {
-        Serve("SourceSharpEntities001", Alive);
-        var engine = Attached(Side.Client);
-
-        Assert.True(engine.ClientAttached, "the client side has its Entities area attached");
-        Assert.True(engine.EntityIsValid(Saved), "and answers from it: the slot said alive");
-    }
-
-    [Fact]
-    public void AClientSideAnswersGoneWhenItsSlotDoes()
-    {
-        // The control: a side that answered "valid" without asking would pass
-        // the fact above.
-        Serve("SourceSharpEntities001", Gone);
-        var engine = Attached(Side.Client);
-
-        Assert.False(engine.EntityIsValid(Saved), "the client answers gone when its slot says gone");
-    }
-
-    [Fact]
     public void AServerSideStillAsksItsSlot()
     {
         // The retention half: the server's route must survive the move.
@@ -81,40 +60,6 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         other.Area("SourceSharpEntitiesServer001", (void*)goneSelf, (void*)goneSlots);
         Assert.True(gone.AttachShims(other.Bind(), out string why), why);
         Assert.False(gone.EntityIsValid(Saved), "and gone when its slot does");
-    }
-
-    [Fact]
-    public void ASavedHandleSurvivesAClientRestore()
-    {
-        Serve("SourceSharpEntities001", Alive);
-        var engine = Attached(Side.Client);
-
-        var record = new ReloadRecord("client");
-        new SaveRecordAccess(record, "client", new RecordingLog()).Write("target", Saved);
-
-        var reader = new SaveRecordAccess(record, "client", new RecordingLog(),
-            new SavedHandles(SideBindings.Of<IEngineHost>(engine), SideBindings.Of<IEngineEntities>(engine)));
-        EntityHandle restored = reader.ReadHandle("target");
-
-        Assert.True(restored.Value == Saved.Value,
-            $"a saved handle to a live client entity comes back as itself (0x{restored.Value:X8}, " +
-            $"saved 0x{Saved.Value:X8})");
-    }
-
-    [Fact]
-    public void ASavedHandleToAGoneEntityComesBackNone()
-    {
-        Serve("SourceSharpEntities001", Gone);
-        var engine = Attached(Side.Client);
-
-        var record = new ReloadRecord("client");
-        new SaveRecordAccess(record, "client", new RecordingLog()).Write("target", Saved);
-
-        var reader = new SaveRecordAccess(record, "client", new RecordingLog(),
-            new SavedHandles(SideBindings.Of<IEngineHost>(engine), SideBindings.Of<IEngineEntities>(engine)));
-
-        Assert.True(reader.ReadHandle("target").Value == EntityHandle.None.Value,
-            "a saved handle the client's list no longer holds comes back None");
     }
 
     //-------------------------------------------------------------------------

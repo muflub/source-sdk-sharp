@@ -84,8 +84,15 @@ internal static class SharedSourceBuild
         const string grants = """
             [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("SourceSharp.SharedSource")]
             """;
+
+        // EngineSide's per-side half (plan_shim_areas_split phase 7): the shared
+        // source calls a slot both sides serve on OwnShims, which each side's
+        // file names. The server's stands in here: both containers carry those
+        // slots under the same names, so the audit reads the same slots.
+        string serverHalf = File.ReadAllText(RepoLayout.Repo("src", "server", "interop", "EngineSide.Server.cs"));
+
         return Compile(dir, InteropName, Sources(50, "src", "shared", "interop"),
-                       [Abi().Location, seams], allowUnsafe: true, extra: [grants]);
+                       [Abi().Location, seams], allowUnsafe: true, extra: [grants, serverHalf]);
     }
 
     private static Assembly Abi() => typeof(SourceSharp.Abi.ILog).Assembly;

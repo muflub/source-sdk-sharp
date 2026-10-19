@@ -447,7 +447,7 @@ internal sealed unsafe partial class EngineSide
     /// table yet or the shim is older than the slot.
     /// </summary>
     private nint AskForGlobalVars()
-        => (s_Initialized && (ServerAttached || ClientAttached)) ? (ServerShimsOrNull is { } __att1 ? __att1.GetGlobalVarsPtr() : ClientShims.GetGlobalVarsPtr()) : 0;
+        => (s_Initialized && OwnShimsAttached) ? (OwnShims.GetGlobalVarsPtr()) : 0;
 
     /// <summary>
     /// The one line that makes the whole phase checkable in a running game:
@@ -496,8 +496,8 @@ internal sealed unsafe partial class EngineSide
         int disagreed = 0;
         var line = new System.Text.StringBuilder();
 
-        if ((ServerAttached || ClientAttached))
-            Compare("curtime", (ServerShimsOrNull is { } __att2 ? __att2.GetCurrentTime() : ClientShims.GetCurrentTime()).Equals(globals.CurTime), $"{(ServerShimsOrNull is { } __att3 ? __att3.GetCurrentTime() : ClientShims.GetCurrentTime())}/{globals.CurTime}");
+        if (OwnShimsAttached)
+            Compare("curtime", (OwnShims.GetCurrentTime()).Equals(globals.CurTime), $"{(OwnShims.GetCurrentTime())}/{globals.CurTime}");
         else
             line.Append("curtime no-slot ");
 
@@ -558,7 +558,7 @@ internal sealed unsafe partial class EngineSide
 
     public void Msg(string message)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached))
+        if (!s_Initialized || !OwnShimsAttached)
         {
             Lines.Line(message, isWarning: false);
             return;
@@ -576,8 +576,7 @@ internal sealed unsafe partial class EngineSide
             var ptr = (nint)p;
             Lines.SuppressEcho(message, () =>
             {
-                if (ServerShimsOrNull is { } __att4) __att4.Msg((byte*)ptr);
-                else ClientShims.Msg((byte*)ptr);
+                OwnShims.Msg((byte*)ptr);
             });
         }
     }
@@ -585,7 +584,7 @@ internal sealed unsafe partial class EngineSide
     /// <summary>Prints a warning to the Source console.</summary>
     public void Warning(string message)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached))
+        if (!s_Initialized || !OwnShimsAttached)
         {
             Lines.Line(message, isWarning: true);
             return;
@@ -599,8 +598,7 @@ internal sealed unsafe partial class EngineSide
             var ptr = (nint)p;
             Lines.SuppressEcho(message, () =>
             {
-                if (ServerShimsOrNull is { } __att5) __att5.Warning((byte*)ptr);
-                else ClientShims.Warning((byte*)ptr);
+                OwnShims.Warning((byte*)ptr);
             }, isWarning: true);
         }
     }
@@ -619,14 +617,14 @@ internal sealed unsafe partial class EngineSide
     /// </param>
     public int RegisterConCommand(string name, string help, ConVarFlags flags)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return -1;
+        if (!s_Initialized || !OwnShimsAttached) return -1;
 
         var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
         var helpBytes = Encoding.UTF8.GetBytes(help + "\0");
         fixed (byte* pName = nameBytes)
         fixed (byte* pHelp = helpBytes)
         {
-            return (ServerShimsOrNull is { } __att6 ? __att6.RegisterConCommand(pName, pHelp, unchecked((int)flags)) : ClientShims.RegisterConCommand(pName, pHelp, unchecked((int)flags)));
+            return (OwnShims.RegisterConCommand(pName, pHelp, unchecked((int)flags)));
         }
     }
 
@@ -640,7 +638,7 @@ internal sealed unsafe partial class EngineSide
     public int RegisterConVar(string name, string defaultValue, string help, int flags,
                                      float? min = null, float? max = null)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return -1;
+        if (!s_Initialized || !OwnShimsAttached) return -1;
 
         var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
         var defBytes  = Encoding.UTF8.GetBytes(defaultValue + "\0");
@@ -649,9 +647,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pDef = defBytes)
         fixed (byte* pHelp = helpBytes)
         {
-            return (ServerShimsOrNull is { } __att7 ? __att7.RegisterConVar(pName, pDef, pHelp, flags,
-                                      min.HasValue ? 1 : 0, min ?? 0f,
-                                      max.HasValue ? 1 : 0, max ?? 0f) : ClientShims.RegisterConVar(pName, pDef, pHelp, flags,
+            return (OwnShims.RegisterConVar(pName, pDef, pHelp, flags,
                                       min.HasValue ? 1 : 0, min ?? 0f,
                                       max.HasValue ? 1 : 0, max ?? 0f));
         }
@@ -659,25 +655,23 @@ internal sealed unsafe partial class EngineSide
 
     public void SetConVarValue(int id, string value)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
         var bytes = Encoding.UTF8.GetBytes(value + "\0");
         fixed (byte* p = bytes)
         {
-            if (ServerShimsOrNull is { } __att8) __att8.SetConVarValue(id, p);
-            else ClientShims.SetConVarValue(id, p);
+            OwnShims.SetConVarValue(id, p);
         }
     }
 
     /// <summary>Reads the engine's current value. Prefer the cached ConVarBase accessors on hot paths.</summary>
     public string GetConVarValue(int id)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return string.Empty;
+        if (!s_Initialized || !OwnShimsAttached) return string.Empty;
 
         const int bufSize = 260;
         byte* buf = stackalloc byte[bufSize];
-        if (ServerShimsOrNull is { } __att9) __att9.GetConVarValue(id, buf, bufSize);
-        else ClientShims.GetConVarValue(id, buf, bufSize);
+        OwnShims.GetConVarValue(id, buf, bufSize);
         return FromUtf8(buf);
     }
 
@@ -695,19 +689,19 @@ internal sealed unsafe partial class EngineSide
 
     /// <summary>Walks the engine's registry; returns how many entries it saw.</summary>
     public int ConsoleSnapshot()
-        => (s_Initialized && (ServerAttached || ClientAttached)) ? (ServerShimsOrNull is { } __att10 ? __att10.ConsoleSnapshot() : ClientShims.ConsoleSnapshot()) : 0;
+        => (s_Initialized && OwnShimsAttached) ? (OwnShims.ConsoleSnapshot()) : 0;
 
     /// <summary>Copies one entry out of the last snapshot. False past the end.</summary>
     public bool ConsoleSnapshotEntry(int index, out NativeConsoleEntry entry)
     {
         entry = default;
 
-        if (!s_Initialized || !(ServerAttached || ClientAttached))
+        if (!s_Initialized || !OwnShimsAttached)
             return false;
 
         ConsoleEntry raw;
 
-        if ((ServerShimsOrNull is { } __att11 ? __att11.ConsoleSnapshotEntry(index, &raw) : ClientShims.ConsoleSnapshotEntry(index, &raw)) == 0)
+        if ((OwnShims.ConsoleSnapshotEntry(index, &raw)) == 0)
             return false;
 
         // Every buffer is fixed and NUL-terminated native-side, so each of these
@@ -731,7 +725,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public string? FindConVarValue(string name)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return null;
+        if (!s_Initialized || !OwnShimsAttached) return null;
 
         const int bufSize = 260;
         byte* buf = stackalloc byte[bufSize];
@@ -739,7 +733,7 @@ internal sealed unsafe partial class EngineSide
         var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* pName = nameBytes)
         {
-            if ((ServerShimsOrNull is { } __att12 ? __att12.FindConVarValue(pName, buf, bufSize) : ClientShims.FindConVarValue(pName, buf, bufSize)) == 0)
+            if ((OwnShims.FindConVarValue(pName, buf, bufSize)) == 0)
                 return null;
         }
 
@@ -789,7 +783,7 @@ internal sealed unsafe partial class EngineSide
             liveness.TryLookup(h, out bool alive))
             return alive;
 
-        return s_Initialized && (ServerAttached || ClientAttached) && (ServerShimsOrNull is { } __att13 ? __att13.EntityIsValid(h.Value) : ClientShims.EntityIsValid(h.Value)) != 0;
+        return s_Initialized && OwnShimsAttached && (OwnShims.EntityIsValid(h.Value)) != 0;
     }
 
     /// <summary>
@@ -809,7 +803,7 @@ internal sealed unsafe partial class EngineSide
     /// </para>
     /// </summary>
     public bool EntityIsValidBySlot(EntityHandle h)
-        => s_Initialized && (ServerAttached || ClientAttached) && (ServerShimsOrNull is { } __att14 ? __att14.EntityIsValid(h.Value) : ClientShims.EntityIsValid(h.Value)) != 0;
+        => s_Initialized && OwnShimsAttached && (OwnShims.EntityIsValid(h.Value)) != 0;
 
     /// <summary>
     /// The entity's edict index, or -1.
@@ -827,7 +821,7 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.Claims(h))
             return -1;
 
-        return (s_Initialized && (ServerAttached || ClientAttached)) ? (ServerShimsOrNull is { } __att15 ? __att15.EntityGetIndex(h.Value) : ClientShims.EntityGetIndex(h.Value)) : -1;
+        return (s_Initialized && OwnShimsAttached) ? (OwnShims.EntityGetIndex(h.Value)) : -1;
     }
 
     public string EntityGetClassName(EntityHandle h)
@@ -871,11 +865,10 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.State(h) is { } shellLess)
             return shellLess.Origin;
 
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return default;
+        if (!s_Initialized || !OwnShimsAttached) return default;
 
         float* xyz = stackalloc float[3];
-        if (ServerShimsOrNull is { } __att16) __att16.EntityGetOrigin(h.Value, xyz);
-        else ClientShims.EntityGetOrigin(h.Value, xyz);
+        OwnShims.EntityGetOrigin(h.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
@@ -1115,7 +1108,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public unsafe int TempEntRegister(TeClass description)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached))
+        if (!s_Initialized || !OwnShimsAttached)
             return -1;
 
         // Every string is pinned for the duration of the call and freed after
@@ -1162,7 +1155,7 @@ internal sealed unsafe partial class EngineSide
                     Fields        = description.Fields.Length == 0 ? null : pFields,
                 };
 
-                return (ServerShimsOrNull is { } __att17 ? __att17.TempEntRegister(&desc) : ClientShims.TempEntRegister(&desc));
+                return (OwnShims.TempEntRegister(&desc));
             }
         }
         finally
@@ -1834,7 +1827,7 @@ internal sealed unsafe partial class EngineSide
     /// something nobody watches closely.
     /// </summary>
     public unsafe float CurrentGravity()
-        => (!s_Initialized || !(ServerAttached || ClientAttached)) ? 600f : (ServerShimsOrNull is { } __att18 ? __att18.CurrentGravity() : ClientShims.CurrentGravity());
+        => (!s_Initialized || !OwnShimsAttached) ? 600f : (OwnShims.CurrentGravity());
 
     /// <summary>
     /// A CLIENT entity's origin by INDEX. False when the index names no entity
@@ -2038,42 +2031,42 @@ internal sealed unsafe partial class EngineSide
 
     public void ListenForGameEvent(string name)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { if (ServerShimsOrNull is { } a) a.ListenForGameEvent(p); else ClientShims.ListenForGameEvent(p); }
+        fixed (byte* p = bytes) { OwnShims.ListenForGameEvent(p); }
     }
 
     public int EventGetInt(IntPtr handle, string key)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return 0;
+        if (!s_Initialized || !OwnShimsAttached) return 0;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (ServerShimsOrNull is { } __att20 ? __att20.EventGetInt(handle, p) : ClientShims.EventGetInt(handle, p)); }
+        fixed (byte* p = bytes) { return (OwnShims.EventGetInt(handle, p)); }
     }
 
     public float EventGetFloat(IntPtr handle, string key)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return 0f;
+        if (!s_Initialized || !OwnShimsAttached) return 0f;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (ServerShimsOrNull is { } __att21 ? __att21.EventGetFloat(handle, p) : ClientShims.EventGetFloat(handle, p)); }
+        fixed (byte* p = bytes) { return (OwnShims.EventGetFloat(handle, p)); }
     }
 
     public bool EventGetBool(IntPtr handle, string key)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return false;
+        if (!s_Initialized || !OwnShimsAttached) return false;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return (ServerShimsOrNull is { } __att22 ? __att22.EventGetBool(handle, p) : ClientShims.EventGetBool(handle, p)) != 0; }
+        fixed (byte* p = bytes) { return (OwnShims.EventGetBool(handle, p)) != 0; }
     }
 
     public string EventGetString(IntPtr handle, string key)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return string.Empty;
+        if (!s_Initialized || !OwnShimsAttached) return string.Empty;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { return FromUtf8((ServerShimsOrNull is { } __att23 ? __att23.EventGetString(handle, p) : ClientShims.EventGetString(handle, p))); }
+        fixed (byte* p = bytes) { return FromUtf8((OwnShims.EventGetString(handle, p))); }
     }
 
     /// <summary>Sets an int field of an event made by <see cref="EventCreate"/>.</summary>
@@ -2139,7 +2132,7 @@ internal sealed unsafe partial class EngineSide
             if (globals != 0)
                 return new Globals(globals).CurTime;
 
-            return (s_Initialized && (ServerAttached || ClientAttached)) ? (ServerShimsOrNull is { } __att24 ? __att24.GetCurrentTime() : ClientShims.GetCurrentTime()) : 0f;
+            return (s_Initialized && OwnShimsAttached) ? (OwnShims.GetCurrentTime()) : 0f;
         }
     }
 
@@ -2960,10 +2953,9 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void RegisterMovementParams(MovementParams parameters)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
-        if (ServerShimsOrNull is { } __att25) __att25.RegisterMovementParams(&parameters);
-        else ClientShims.RegisterMovementParams(&parameters);
+        OwnShims.RegisterMovementParams(&parameters);
     }
 
     /// <summary>
@@ -3002,13 +2994,12 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public bool RegisterCollisionRules(uint[] rows)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return false;
+        if (!s_Initialized || !OwnShimsAttached) return false;
 
         var blob = default(CollisionRulesBlob);
         blob.SetRows(rows);
 
-        if (ServerShimsOrNull is { } __att26) __att26.RegisterCollisionRules(&blob);
-        else ClientShims.RegisterCollisionRules(&blob);
+        OwnShims.RegisterCollisionRules(&blob);
         return true;
     }
 
@@ -3222,11 +3213,10 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.State(h) is { } shellLess)
             return shellLess.Angles;
 
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return default;
+        if (!s_Initialized || !OwnShimsAttached) return default;
 
         float* pyr = stackalloc float[3];
-        if (ServerShimsOrNull is { } __att29) __att29.EntityGetAngles(h.Value, pyr);
-        else ClientShims.EntityGetAngles(h.Value, pyr);
+        OwnShims.EntityGetAngles(h.Value, pyr);
         return new Vector(pyr[0], pyr[1], pyr[2]);
     }
 
@@ -3810,10 +3800,10 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public Contents PointContents(Vector origin)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return Contents.Empty;
+        if (!s_Initialized || !OwnShimsAttached) return Contents.Empty;
 
         float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return (Contents)(ServerShimsOrNull is { } __att30 ? __att30.PointContents(p) : ClientShims.PointContents(p));
+        return (Contents)(OwnShims.PointContents(p));
     }
 
     /// <summary>
@@ -4163,8 +4153,8 @@ internal sealed unsafe partial class EngineSide
     /// </para>
     /// </summary>
     public int NetHierarchyDeclare(int blobBytes)
-        => (s_Initialized && (ServerAttached || ClientAttached))
-            ? (ServerShimsOrNull is { } __att38 ? __att38.NetHierarchyDeclare(blobBytes) : ClientShims.NetHierarchyDeclare(blobBytes)) : 0;
+        => (s_Initialized && OwnShimsAttached)
+            ? (OwnShims.NetHierarchyDeclare(blobBytes)) : 0;
 
     /// <summary>
     /// Declares worldspawn's blob size to the native shim, which builds its
@@ -4186,8 +4176,8 @@ internal sealed unsafe partial class EngineSide
     /// </para>
     /// </summary>
     public int WorldNetDeclare(int blobBytes)
-        => (s_Initialized && (ServerAttached || ClientAttached))
-            ? (ServerShimsOrNull is { } __att39 ? __att39.WorldNetDeclare(blobBytes) : ClientShims.WorldNetDeclare(blobBytes)) : 0;
+        => (s_Initialized && OwnShimsAttached)
+            ? (OwnShims.WorldNetDeclare(blobBytes)) : 0;
 
     /// <summary>
     /// Publishes one managed type and returns the tier native assigned it, or
@@ -4213,7 +4203,7 @@ internal sealed unsafe partial class EngineSide
     {
         nativeTypeId = 0;
 
-        if (!s_Initialized || !(ServerAttached || ClientAttached))
+        if (!s_Initialized || !OwnShimsAttached)
             return -1;
 
         var bytes = Encoding.UTF8.GetBytes(className + "\0");
@@ -4221,7 +4211,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes)
         fixed (uint* pId = &nativeTypeId)
         {
-            return (ServerShimsOrNull is { } __att40 ? __att40.NetPublishType(p, shell, schemaHash, layoutBytes, pId) : ClientShims.NetPublishType(p, shell, schemaHash, layoutBytes, pId));
+            return (OwnShims.NetPublishType(p, shell, schemaHash, layoutBytes, pId));
         }
     }
 
@@ -4232,13 +4222,13 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public NetTierInfo? NetTierAt(int shell, int tier)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached))
+        if (!s_Initialized || !OwnShimsAttached)
             return null;
 
         byte* table = null;
         int bytes = 0, words = 0, props = 0, live = 0;
 
-        if ((ServerShimsOrNull is { } __att41 ? __att41.NetTierInfo(shell, tier, &table, &bytes, &words, &props, &live) : ClientShims.NetTierInfo(shell, tier, &table, &bytes, &words, &props, &live)) == 0)
+        if ((OwnShims.NetTierInfo(shell, tier, &table, &bytes, &words, &props, &live)) == 0)
             return null;
 
         return new NetTierInfo(tier, FromUtf8(table), bytes, words, props, live != 0);
@@ -5391,7 +5381,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void SetNamedConVarValue(string name, string value)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
         var nameBytes  = Encoding.UTF8.GetBytes(name + "\0");
         var valueBytes = Encoding.UTF8.GetBytes(value + "\0");
@@ -5399,8 +5389,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* n = nameBytes)
         fixed (byte* v = valueBytes)
         {
-            if (ServerShimsOrNull is { } __att43) __att43.SetNamedConVarValue(n, v);
-            else ClientShims.SetNamedConVarValue(n, v);
+            OwnShims.SetNamedConVarValue(n, v);
         }
     }
 
@@ -6161,9 +6150,8 @@ internal sealed unsafe partial class EngineSide
     /// </remarks>
     public void StandaloneSetModelScale(EntityHandle entity, float scale)
     {
-        if (s_Initialized && (ServerAttached || ClientAttached))
-            if (ServerShimsOrNull is { } __att44) __att44.StandaloneSetModelScale(entity.Value, scale);
-            else ClientShims.StandaloneSetModelScale(entity.Value, scale);
+        if (s_Initialized && OwnShimsAttached)
+            OwnShims.StandaloneSetModelScale(entity.Value, scale);
     }
 
     /// <summary>
@@ -6233,12 +6221,11 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public string EntityGetModelName(EntityHandle entity)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached))
+        if (!s_Initialized || !OwnShimsAttached)
             return string.Empty;
 
         byte* buffer = stackalloc byte[256];
-        if (ServerShimsOrNull is { } __att48) __att48.EntityGetModelName(entity.Value, buffer, 256);
-        else ClientShims.EntityGetModelName(entity.Value, buffer, 256);
+        OwnShims.EntityGetModelName(entity.Value, buffer, 256);
 
         return FromUtf8(buffer);
     }
@@ -6308,10 +6295,9 @@ internal sealed unsafe partial class EngineSide
     public void SoundPatchEmit(int patch, float volume01, float pitch, int flags,
                                       float startTime, bool emitCaption)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
-        if (ServerShimsOrNull is { } __att49) __att49.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
-        else ClientShims.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
+        OwnShims.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
     }
 
     /// <summary>
@@ -6321,10 +6307,9 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void SoundPatchStop(int patch)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
-        if (ServerShimsOrNull is { } __att50) __att50.SoundPatchStop(patch);
-        else ClientShims.SoundPatchStop(patch);
+        OwnShims.SoundPatchStop(patch);
     }
 
     /// <summary>
@@ -6345,13 +6330,12 @@ internal sealed unsafe partial class EngineSide
         entIndex = -1;
         filterActive = false;
 
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
         int index = -1;
         int active = 0;
 
-        if (ServerShimsOrNull is { } __att51) __att51.SoundPatchState(patch, &index, &active);
-        else ClientShims.SoundPatchState(patch, &index, &active);
+        OwnShims.SoundPatchState(patch, &index, &active);
 
         entIndex = index;
         filterActive = active != 0;
@@ -6364,10 +6348,9 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public void SoundPatchFree(int patch)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !OwnShimsAttached) return;
 
-        if (ServerShimsOrNull is { } __att52) __att52.SoundPatchFree(patch);
-        else ClientShims.SoundPatchFree(patch);
+        OwnShims.SoundPatchFree(patch);
     }
 
     /// <summary>
@@ -6376,13 +6359,13 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public SoundScriptParams? SoundScriptParameters(string soundName)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached) || soundName.Length == 0) return null;
+        if (!s_Initialized || !OwnShimsAttached || soundName.Length == 0) return null;
 
         float* outs = stackalloc float[5];
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
         int found;
         fixed (byte* p = bytes)
-            found = ServerShimsOrNull is { } server ? server.SoundScriptParameters(p, outs) : ClientShims.SoundScriptParameters(p, outs);
+            found = OwnShims.SoundScriptParameters(p, outs);
 
         return found == 0
             ? null
@@ -6397,13 +6380,11 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public int SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached) || soundName.Length == 0) return 0;
+        if (!s_Initialized || !OwnShimsAttached || soundName.Length == 0) return 0;
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
         fixed (byte* p = bytes)
-            return ServerShimsOrNull is { } server
-                ? server.SoundPatchCreate(entity.Value, channel, p, soundLevel)
-                : ClientShims.SoundPatchCreate(entity.Value, channel, p, soundLevel);
+            return OwnShims.SoundPatchCreate(entity.Value, channel, p, soundLevel);
     }
 
     /// <summary>
@@ -6412,12 +6393,10 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public string? SurfaceScrapeSound(int surfaceProps, bool smooth)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return null;
+        if (!s_Initialized || !OwnShimsAttached) return null;
 
         byte* buffer = stackalloc byte[128];
-        int length = ServerShimsOrNull is { } server
-            ? server.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128)
-            : ClientShims.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128);
+        int length = OwnShims.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128);
         return length <= 0 ? null : Encoding.UTF8.GetString(buffer, Math.Min(length, 127));
     }
 
@@ -6585,9 +6564,9 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return SurfaceMaterial.Unknown;
+        if (!s_Initialized || !OwnShimsAttached) return SurfaceMaterial.Unknown;
 
-        return (SurfaceMaterial)(ServerShimsOrNull is { } __att53 ? __att53.SurfacePropGameMaterial(surfaceProp) : ClientShims.SurfacePropGameMaterial(surfaceProp));
+        return (SurfaceMaterial)(OwnShims.SurfacePropGameMaterial(surfaceProp));
     }
 
     /// <summary>
@@ -6695,8 +6674,8 @@ internal sealed unsafe partial class EngineSide
     /// <returns>how many entities dropped a cache.</returns>
     public int EntitiesInvalidateMdlCacheAll()
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return 0;
-        return (ServerShimsOrNull is { } __att58 ? __att58.EntitiesInvalidateMdlCacheAll() : ClientShims.EntitiesInvalidateMdlCacheAll());
+        if (!s_Initialized || !OwnShimsAttached) return 0;
+        return (OwnShims.EntitiesInvalidateMdlCacheAll());
     }
 
     /// <summary>
@@ -6745,7 +6724,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public string? FilesReadGameFile(string path)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return null;
+        if (!s_Initialized || !OwnShimsAttached) return null;
 
         // ITS OWN SIZE CALL, and it went from a wrapper call to this on the
         // commit that converted FilesGameFileSize -- plan_native_api.md Phase 3.
@@ -6765,14 +6744,14 @@ internal sealed unsafe partial class EngineSide
         // list. Converting it means either lifting the no-handles rule, which
         // is the owner's call, or a shim-layer method under Phase 6, which is
         // where a handle-free read belongs anyway.
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return null;
+        if (!s_Initialized || !OwnShimsAttached) return null;
 
         int size;
 
         {
             var sizeName = Encoding.UTF8.GetBytes(path + "\0");
             fixed (byte* sp = sizeName)
-                size = (ServerShimsOrNull is { } __att59 ? __att59.FilesGameFileSize(sp) : ClientShims.FilesGameFileSize(sp));
+                size = (OwnShims.FilesGameFileSize(sp));
         }
 
         if (size < 0) return null;
@@ -6784,7 +6763,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes)
         fixed (byte* b = buf)
         {
-            int read = (ServerShimsOrNull is { } __att60 ? __att60.FilesReadGameFile(p, b, size) : ClientShims.FilesReadGameFile(p, b, size));
+            int read = (OwnShims.FilesReadGameFile(p, b, size));
             if (read < 0) return null;
 
             // `read` and not `size`: a short read is a real answer and decoding
@@ -6808,7 +6787,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public byte[]? FilesReadOnPathBytes(string path, string pathId)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached) || path.Length == 0 || pathId.Length == 0)
+        if (!s_Initialized || !OwnShimsAttached || path.Length == 0 || pathId.Length == 0)
             return null;
 
         var p = Encoding.UTF8.GetBytes(path + "\0");
@@ -6816,13 +6795,13 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pp = p)
         fixed (byte* pi = id)
         {
-            int size = ServerShimsOrNull is { } s ? s.FilesSizeOnPath(pp, pi) : ClientShims.FilesSizeOnPath(pp, pi);
+            int size = OwnShims.FilesSizeOnPath(pp, pi);
             if (size < 0) return null;
             var buf = new byte[size];
             if (size == 0) return buf;
             fixed (byte* b = buf)
             {
-                int read = ServerShimsOrNull is { } s2 ? s2.FilesReadOnPath(pp, pi, b, size) : ClientShims.FilesReadOnPath(pp, pi, b, size);
+                int read = OwnShims.FilesReadOnPath(pp, pi, b, size);
                 return read == size ? buf : null;
             }
         }
@@ -6830,14 +6809,14 @@ internal sealed unsafe partial class EngineSide
 
     public byte[]? FilesReadGameFileBytes(string path)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return null;
+        if (!s_Initialized || !OwnShimsAttached) return null;
 
-        if (!(ServerAttached || ClientAttached)) return null;
+        if (!OwnShimsAttached) return null;
 
         int size;
         var sizePath = Encoding.UTF8.GetBytes(path + "\0");
         fixed (byte* sp = sizePath)
-            size = (ServerShimsOrNull is { } __att61 ? __att61.FilesGameFileSize(sp) : ClientShims.FilesGameFileSize(sp));
+            size = (OwnShims.FilesGameFileSize(sp));
 
         if (size < 0) return null;
         if (size == 0) return Array.Empty<byte>();
@@ -6848,7 +6827,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes)
         fixed (byte* b = buf)
         {
-            int read = (ServerShimsOrNull is { } __att62 ? __att62.FilesReadGameFile(p, b, size) : ClientShims.FilesReadGameFile(p, b, size));
+            int read = (OwnShims.FilesReadGameFile(p, b, size));
             if (read < 0) return null;
             return read == size ? buf : buf.AsSpan(0, read).ToArray();
         }

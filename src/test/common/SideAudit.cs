@@ -216,10 +216,11 @@ internal static class SideAudit
                 continue;
 
             // The area accessors since the router's retirement (docs/todo.md):
-            // EngineSide reaches a shim-area slot through ServerShims / ClientShims
-            // / the ServerShimsOrNull dispatch binding (the __attN pattern variable
-            // the generated typed call is bound to).
-            foreach (Match m in Regex.Matches(line, @"\b(?:ServerShims|ClientShims|ServerShimsOrNull|__att\d+)\s*\.\s*(\w+)\s*\("))
+            // EngineSide reaches a shim-area slot through ServerShims / ClientShims,
+            // or through OwnShims, the side's own container, which each side's
+            // partial file names (plan_shim_areas_split phase 7: a slot both sides
+            // serve, where the run-time side choice was).
+            foreach (Match m in Regex.Matches(line, @"\b(?:ServerShims|ClientShims|OwnShims)\s*\.\s*(\w+)\s*\("))
                 map[current].Add(m.Groups[1].Value);
         }
 
