@@ -15,7 +15,7 @@ namespace SourceSharp.Abi;
 /// <see cref="IVtableEngineServer"/> over the engine's own object, called
 /// through its vtable.
 /// </summary>
-public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory
+public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine
 {
     /// <summary><see cref="IVtableEngineServer.InterfaceVersion"/>.</summary>
     public const string InterfaceVersion = IVtableEngineServer.InterfaceVersion;
@@ -130,6 +130,45 @@ public sealed unsafe class EngineServer : IVtableEngineServer, ISaveMemory
     {
         fixed (byte* p = Vtable.Utf8(name))
             return _fwd->SentenceIndexFromName(_self, p);
+    }
+
+    /// <inheritdoc/>
+    public int PrecacheDecal(string name, bool preload)
+    {
+        fixed (byte* p = Vtable.Utf8(name))
+            return _fwd->PrecacheDecal(_self, p, preload ? (byte)1 : (byte)0);
+    }
+
+    /// <inheritdoc/>
+    public bool IsDecalPrecached(string name) => Ask(_fwd->IsDecalPrecached, _self, name);
+
+    // IAreaPortalEngine, EXPLICITLY: the area portal records' three calls
+    // (plan_server_native_v2 T4d) are offered to what holds that interface and
+    // to nothing that holds IVtableEngineServer (VtableBindingTests).
+
+    /// <inheritdoc/>
+    void SourceSharp.Server.Interop.IAreaPortalEngine.SetAreaPortalState(int portalNumber, bool open)
+        => _fwd->SetAreaPortalState(_self, portalNumber, open ? 1 : 0);
+
+    /// <inheritdoc/>
+    void SourceSharp.Server.Interop.IAreaPortalEngine.SetAreaPortalStates(ReadOnlySpan<int> portalNumbers, ReadOnlySpan<int> isOpen)
+    {
+        int count = Math.Min(portalNumbers.Length, isOpen.Length);
+
+        fixed (int* numbers = portalNumbers)
+        fixed (int* open = isOpen)
+            _fwd->SetAreaPortalStates(_self, numbers, open, count);
+    }
+
+    /// <inheritdoc/>
+    bool SourceSharp.Server.Interop.IAreaPortalEngine.GetAreaPortalPlane(Vector viewOrigin, int portalKey, out Vector normal, out float distance)
+    {
+        // A VPlane: m_Normal, then m_Dist.
+        float* plane = stackalloc float[4];
+        bool found = _fwd->GetAreaPortalPlane(_self, &viewOrigin, portalKey, plane) != 0;
+        normal = new Vector(plane[0], plane[1], plane[2]);
+        distance = plane[3];
+        return found;
     }
 
     /// <inheritdoc/>

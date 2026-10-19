@@ -35,8 +35,9 @@ namespace SourceSharp.Shared;
 /// </para>
 ///
 /// <para>
-/// <b>A LIVE CALLER.</b> <c>shell_worldquery.cpp:2077</c> —
-/// <c>SourceSharp_FunnelEffect</c>, behind <c>IEngineEffects.FunnelEffect</c>.
+/// <b>A LIVE CALLER.</b> The server's <c>EffectsOverTempEnts.FunnelEffect</c>,
+/// behind <c>IEngineEffects.FunnelEffect</c> (the native
+/// <c>SourceSharp_FunnelEffect</c> went in plan_server_native_v2 T4d).
 /// Stock's other caller, <c>effects.cpp:1323</c>'s <c>CEnvFunnel</c>, is
 /// excluded from this build (<c>server_csharp.vpc:1477</c>), so the shell is
 /// the whole of it and it must not stop working for a moment.

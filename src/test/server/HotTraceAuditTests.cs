@@ -50,7 +50,8 @@ public class HotTraceAuditTests
     {
         "SourceSharp_TraceLine",             // 1.573/frame; 26,015 lines a session
         "SourceSharp_EntityTraceHull",       // PlayerShadowRecovery's fit test; 4,314 lines a session
-        "SourceSharp_PrecacheDecal",         // 0.612/frame load; 298 lines a map load
+        // SourceSharp_PrecacheDecal (0.612/frame load) left with its slot:
+        // plan_server_native_v2 T4d folded it onto IVEngineServer (DecalPrecache).
         "SourceSharp_PrecacheModel",         // 0.405/frame load; 197 lines a map load
     };
 

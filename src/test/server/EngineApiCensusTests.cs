@@ -172,7 +172,25 @@ public partial class EngineApiCensusTests
     // plan_server_native_v2 T4b: TempEntPlayback and EffectDispatchIndex
     // retired (the managed ServerTempEntEngine answering them through the
     // engine and string table forwarders), TempEntBuild appended (145 - 2 + 1 = 144).
-    private const int ServerOnly = 144;
+    // plan_server_native_v2 T4d: ExplosionEffect, FunnelEffect, ImpactEffect,
+    // TracerEffect and SplashEffect, never reached past EffectsOverTempEnts,
+    // deleted (144 - 5 = 139).
+    // plan_server_native_v2 T4d: EntityMakePickup, EntitySetPickupEnabled,
+    // EntitySetBrushSolidity and EntitySetNotSolid made in EngineSide over the
+    // solidity, bounds and visibility slots (139 - 4 = 135).
+    // plan_server_native_v2 T4d: PlayerRespawn, GetPlayerShootOrigin and
+    // TracePlayerAim made in EngineSide over the observer, spawn, eye and trace
+    // slots (135 - 3 = 132).
+    // plan_server_native_v2 T4d: IShimPrecache::PrecacheDecal folded onto
+    // IVEngineServer's PrecacheDecal/IsDecalPrecached forwarders (DecalPrecache)
+    // (132 - 1 = 131).
+    // plan_server_native_v2 T4d: IShimWorldServer's AreaPortalCreate,
+    // AreaPortalDestroy, AreaPortalSetOpen and AreaPortalSetWindow retired with
+    // the native record; the managed AreaPortals answers them (131 - 4 = 127).
+    // plan_server_native_v2 T4d: WorldChapterTitle retired: the key is held by
+    // ServerGameDll.WorldKeyValue, the round trip through CWorld gone (127 - 1 =
+    // 126).
+    private const int ServerOnly = 126;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

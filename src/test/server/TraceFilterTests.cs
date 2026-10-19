@@ -173,20 +173,39 @@ public class TraceFilterTests
     }
 
     /// <summary>
-    /// The flashlight's mask (C7 cluster 12) is mapped on every arm that maps
-    /// masks: the client's line and hull traces and the server's line trace,
-    /// each to MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW. A value an arm did not
-    /// know would be read there as the brushes-only default, in silence.
+    /// The flashlight's mask (C7 cluster 12) is mapped on every native arm that
+    /// maps masks: the client's line and hull traces, each to
+    /// MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW. A value an arm did not know would
+    /// be read there as the brushes-only default, in silence. The server's line
+    /// trace maps nothing since plan_server_native_v2 T4d: managed TraceMasks
+    /// hands it the engine's mask (TraceMaskFoldTests holds every row).
     /// </summary>
     [Theory]
     [InlineData("client", "shell_worldquery_client.cpp", 2)]
-    [InlineData("server", "shell_worldquery.cpp", 1)]
     public void TheFlashlightMaskIsMappedOnEachArm(string side, string file, int arms)
     {
         string code = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", side, "native", file)));
         int found = Regex.Matches(code,
             @"else\s+if\s*\(\s*(?:req\.)?nMask\s*==\s*SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW\s*\)\s*nTraceMask\s*=\s*MASK_OPAQUE_AND_NPCS\s*\|\s*CONTENTS_WINDOW\s*;").Count;
         Assert.Equal(arms, found);
+    }
+
+    /// <summary>
+    /// The server's trace slots decide no mask (plan_server_native_v2 T4d): no
+    /// SOURCESHARP_TRACE_ value is compared in shell_worldquery.cpp, so the
+    /// table cannot drift back in beside TraceMasks. The positive arm: the
+    /// client's file, which still maps, is found by the same pattern.
+    /// </summary>
+    [Fact]
+    public void TheServerTraceSlotsMapNoMask()
+    {
+        const string Pattern = @"nMask\s*==\s*SOURCESHARP_TRACE_\w+";
+        string server = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "server", "native", "shell_worldquery.cpp")));
+        string client = AbiParityTests.CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_worldquery_client.cpp")));
+
+        Assert.True(server.Contains("SourceSharp_TraceLineInto", StringComparison.Ordinal), "the server's trace body was read");
+        Assert.NotEmpty(Regex.Matches(client, Pattern));
+        Assert.Empty(Regex.Matches(server, Pattern));
     }
 
     /// <summary>

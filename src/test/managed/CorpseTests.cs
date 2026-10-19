@@ -429,7 +429,7 @@ public class CorpseTests
 
     /// <summary>
     /// AND IS DRAWN AGAIN WHEN THEY COME BACK. Spawn is the respawn on this
-    /// hierarchy — <c>SourceSharp_PlayerRespawn</c> calls straight into it — so
+    /// hierarchy — <c>PlayerSequences.Respawn</c> calls straight into it — so
     /// this is the only place that undoes the hide, and a player who came back
     /// invisible would be a worse bug than the one it fixes.
     /// </summary>

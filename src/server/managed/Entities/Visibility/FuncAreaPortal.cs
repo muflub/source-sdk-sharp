@@ -24,34 +24,35 @@ namespace SourceSharp.Server;
 /// <para>
 /// Shutting one is what makes a closed door stop the server sending the room
 /// behind it. That is the entity's whole purpose and it is decided here. What is
-/// NOT here is membership of the engine's portal list: that list is walked once
-/// per client per frame to build the area bits the client culls by, and a portal
+/// NOT here is membership of the portal list: that list is walked once per
+/// client per frame to build the area bits the client culls by, and a portal
 /// missing from it never gets its bit set — so the client reads the area beyond
-/// as closed and the room stops drawing. See shell_areaportal.cpp, which holds
-/// the list entry and the two geometric tests and nothing else.
+/// as closed and the room stops drawing. See <see cref="AreaPortals"/>, which
+/// holds the records and the walk (shell_areaportal.cpp's, until
+/// plan_server_native_v2 T4d).
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.FuncAreaportal, ScriptedEntityKind.Logical)]
 public class FuncAreaPortal : ScriptedEntity
 {
-    public FuncAreaPortal(IEngineVisibility visibility)
+    public FuncAreaPortal(IAreaPortals portals)
     {
-        Visibility = visibility;
+        Portals = portals;
     }
 
-    /// <summary>what can be seen, and how it is lit.</summary>
-    protected readonly IEngineVisibility Visibility;
+    /// <summary>The area portal records.</summary>
+    protected readonly IAreaPortals Portals;
     /// <summary>What a map may set on this entity. See <see cref="FuncAreaPortalVars"/>.</summary>
     [ScriptVars] public FuncAreaPortalVars Vars = new();
 
-    /// <summary>The native list entry, or 0 if this entity never got one.</summary>
+    /// <summary>The record's token, or 0 if this entity never got one.</summary>
     protected uint Portal;
 
     private bool _open = true;
 
     public override void OnSpawn()
     {
-        Portal = Visibility.AreaPortalCreate(Vars.PortalNumber, Vars.PortalVersion);
+        Portal = Portals.Create(Vars.PortalNumber, Vars.PortalVersion);
 
         if (Portal == 0)
         {
@@ -71,11 +72,11 @@ public class FuncAreaPortal : ScriptedEntity
 
     public override void OnRemoved()
     {
-        // Leaves the hole OPEN, which the native side enforces. A portal removed
+        // Leaves the hole OPEN, which the records enforce. A portal removed
         // while shut would stay shut in the engine with nobody left to reopen
         // it, and everything beyond it would stop being sent for the rest of the
         // map.
-        Visibility.AreaPortalDestroy(Portal);
+        Portals.Destroy(Portal);
         Portal = 0;
     }
 
@@ -94,7 +95,7 @@ public class FuncAreaPortal : ScriptedEntity
     [ScriptedEvent("TurnOn")]  private void OnTurnedOn()  { _open = false; Apply(); }
     [ScriptedEvent("TurnOff")] private void OnTurnedOff() { _open = true;  Apply(); }
 
-    private void Apply() => Visibility.AreaPortalSetOpen(Portal, _open);
+    private void Apply() => Portals.SetOpen(Portal, _open);
 }
 
 /// <summary>

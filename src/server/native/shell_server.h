@@ -178,4 +178,16 @@ int SourceSharp_SkyboxAreaForClient( int iClientEdict, int *pOutArea );
 //-----------------------------------------------------------------------------
 int SourceSharp_EarPositionForClient( int iClientEdict, float *pOutXYZ );
 
+//-----------------------------------------------------------------------------
+// ClientSetupVisibility's area portal walk, asked of C# once per client per
+// frame (plan_server_native_v2 T4d): the managed AreaPortals tell the engine
+// every portal's state (SetAreaPortalStates, 512 at a time) and set the
+// client's bits in pPortalBits, which the caller zeroed. -1, or the portal
+// number too large for the bits, which the caller raises as an Error. -1 with
+// nothing written when the managed side is not loaded: there are no portals
+// then, because only managed entities make them.
+//-----------------------------------------------------------------------------
+int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor,
+                                      unsigned char *pPortalBits, int nPortalBytes );
+
 #endif // SOURCESHARP_SHELL_SERVER_H

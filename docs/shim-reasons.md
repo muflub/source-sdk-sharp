@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 21 | 5 | 32 |  |  |  | 62 | 34,944 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,915 |
-| c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 3,893 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,492 |
-| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,660 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 32 |  |  |  | 61 | 34,491 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,886 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 26 | 3,829 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,264 |
+| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,419 |
 | f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,168 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,421 |
-| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,088 |
+| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,103 |
 | x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,605 |
-|  | **total** | **77** | **34** | **73** | **3** | **2** | **1** | **215** | **90,186** |
+|  | **total** | **75** | **34** | **73** | **3** | **2** | **1** | **213** | **89,186** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise

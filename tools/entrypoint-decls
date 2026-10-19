@@ -284,8 +284,9 @@ def generate():
     client_methods = area_methods(read(CLIENT_AREAS_HEADER))
     served = table_slots(read(SLOT_TABLE))
     # Floors against a scan that stopped early, not targets: the port shrinks
-    # them. methods 200 -> 150 at plan_server_native_v2 T3 (199 read).
-    if len(methods) < 150 or len(client_methods) < 100 or len(served) < 400:
+    # them. methods 200 -> 150 at plan_server_native_v2 T3 (199 read); 150 -> 100
+    # at T4d, which retires the entity API's and the world's slots (149 read).
+    if len(methods) < 100 or len(client_methods) < 100 or len(served) < 400:
         die("read %d area methods, %d client area methods and %d served slots; "
             "the scan lost its subject" % (len(methods), len(client_methods), len(served)))
 
@@ -356,7 +357,8 @@ def generate():
         die("%d slot(s) have no SourceSharpEngineApi field or server area method: %s"
             % (len(unknown), ", ".join(f for f, _ in unknown[:6])))
 
-    if len(rows) < 150:
+    # A floor, as above; 150 -> 100 at plan_server_native_v2 T4d.
+    if len(rows) < 100:
         die("only %d prototypes derived; the scan lost its subject" % len(rows))
 
     rows.sort(key=lambda r: (r[0], r[2]))

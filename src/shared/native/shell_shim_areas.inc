@@ -73,8 +73,6 @@ void CShimModelsServer::EntitySetModel( uint32_t hEntity, const char * pModel )
 
 int32_t CShimPrecache::PrecacheModel( const char * pszModel )
 	{ return ::SourceSharp_PrecacheModel( pszModel ); }
-int32_t CShimPrecache::PrecacheDecal( const char * pName )
-	{ return ::SourceSharp_PrecacheDecal( pName ); }
 
 void CShimMovementServer::MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut )
 	{ return ::SourceSharp_MoveTrace( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut ); }
@@ -105,8 +103,6 @@ int32_t CShimWorldServer::TraceHull( const float * pStartXYZ, const float * pEnd
 	{ return ::SourceSharp_TraceHull( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, hIgnore, pOutHit, pOutStartSolid ); }
 int32_t CShimWorldServer::TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup )
 	{ return ::SourceSharp_TraceLineSurface( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit, pOutSurfaceProps, pOutSurfaceFlags, pOutHitgroup ); }
-uint32_t CShimWorldServer::TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ )
-	{ return ::SourceSharp_TracePlayerAim( hPlayer, flRange, pOutHitXYZ ); }
 void CShimWorldServer::AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ )
 	{ return ::SourceSharp_AngleVectorsFromForward( pForwardXYZ, pOutRightXYZ, pOutUpXYZ ); }
 int32_t CShimWorldServer::WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime )
@@ -117,16 +113,6 @@ int32_t CShimWorldServer::InvisibleRangeReach()
 	{ return ::SourceSharp_InvisibleRangeReach(); }
 void CShimWorldServer::SetSkyboxParams( const SourceSharpSkyboxParams * pParams )
 	{ return ::SourceSharp_SetSkyboxParams( pParams ); }
-const char * CShimWorldServer::WorldChapterTitle()
-	{ return ::SourceSharp_WorldChapterTitle(); }
-uint32_t CShimWorldServer::AreaPortalCreate( int32_t nPortalNumber, int32_t nPortalVersion )
-	{ return ::SourceSharp_AreaPortalCreate( nPortalNumber, nPortalVersion ); }
-void CShimWorldServer::AreaPortalDestroy( uint32_t hPortal )
-	{ return ::SourceSharp_AreaPortalDestroy( hPortal ); }
-void CShimWorldServer::AreaPortalSetOpen( uint32_t hPortal, int32_t bOpen )
-	{ return ::SourceSharp_AreaPortalSetOpen( hPortal, bOpen ); }
-void CShimWorldServer::AreaPortalSetWindow( uint32_t hPortal, uint32_t hEntity, float flFadeDist )
-	{ return ::SourceSharp_AreaPortalSetWindow( hPortal, hEntity, flFadeDist ); }
 int32_t CShimWorldServer::EntityTraceHull( uint32_t hEntity, const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, float * pOutEndXYZ )
 	{ return ::SourceSharp_EntityTraceHull( hEntity, pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOutEndXYZ ); }
 
@@ -168,10 +154,6 @@ void CShimEntitiesServer::EntitySetVisible( uint32_t hEntity, int32_t bVisible )
 	{ return ::SourceSharp_EntitySetVisible( hEntity, bVisible ); }
 void CShimEntitiesServer::EntitySetOwner( uint32_t hEntity, uint32_t hOwner )
 	{ return ::SourceSharp_EntitySetOwner( hEntity, hOwner ); }
-void CShimEntitiesServer::EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY, float flSizeZ )
-	{ return ::SourceSharp_EntityMakePickup( hEntity, flSizeX, flSizeY, flSizeZ ); }
-void CShimEntitiesServer::EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled )
-	{ return ::SourceSharp_EntitySetPickupEnabled( hEntity, bEnabled ); }
 int32_t CShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea )
 	{ return ::SourceSharp_EntitiesStandalonePlayerSkyboxArea( iEdict, pOutArea ); }
 
@@ -262,10 +244,6 @@ void CShimCollisionServer::EntitySetSolidity( uint32_t hEntity, int32_t nSolidTy
 	{ return ::SourceSharp_EntitySetSolidity( hEntity, nSolidType, nSolidFlags ); }
 int32_t CShimCollisionServer::EntityGetSolidFlags( uint32_t hEntity )
 	{ return ::SourceSharp_EntityGetSolidFlags( hEntity ); }
-void CShimCollisionServer::EntitySetNotSolid( uint32_t hEntity, int32_t bNotSolid )
-	{ return ::SourceSharp_EntitySetNotSolid( hEntity, bNotSolid ); }
-void CShimCollisionServer::EntitySetBrushSolidity( uint32_t hEntity, int32_t nSolidity )
-	{ return ::SourceSharp_EntitySetBrushSolidity( hEntity, nSolidity ); }
 int32_t CShimCollisionServer::EntityGetCollisionGroup( uint32_t hEntity )
 	{ return ::SourceSharp_EntityGetCollisionGroup( hEntity ); }
 void CShimCollisionServer::EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
@@ -306,8 +284,6 @@ int32_t CShimPlayers::GetPlayerTeam( uint32_t hPlayer )
 	{ return ::SourceSharp_GetPlayerTeam( hPlayer ); }
 int32_t CShimPlayers::PlayerIsAlive( uint32_t hPlayer )
 	{ return ::SourceSharp_PlayerIsAlive( hPlayer ); }
-void CShimPlayers::PlayerRespawn( uint32_t hPlayer )
-	{ return ::SourceSharp_PlayerRespawn( hPlayer ); }
 void CShimPlayers::PlayerPlaceAtSpawn( uint32_t hPlayer, const float * pOriginXYZ, const float * pAnglesPYR )
 	{ return ::SourceSharp_PlayerPlaceAtSpawn( hPlayer, pOriginXYZ, pAnglesPYR ); }
 int32_t CShimPlayers::PlayerGetObserverMode( uint32_t hPlayer )
@@ -316,27 +292,15 @@ void CShimPlayers::PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode )
 	{ return ::SourceSharp_PlayerSetObserverMode( hPlayer, nMode ); }
 void CShimPlayers::PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYawRoll )
 	{ return ::SourceSharp_PlayerSnapEyeAngles( hPlayer, pPitchYawRoll ); }
-void CShimPlayers::GetPlayerShootOrigin( uint32_t hPlayer, float * pOutXYZ )
-	{ return ::SourceSharp_GetPlayerShootOrigin( hPlayer, pOutXYZ ); }
 int32_t CShimPlayers::ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ )
 	{ return ::SourceSharp_ClientsStandalonePlayerEarPosition( iEdict, pOutXYZ ); }
 void CShimPlayers::PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
 	{ return ::SourceSharp_PlayerSetTeam( hPlayer, nTeam ); }
 
-void CShimEffectsServer::ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude )
-	{ return ::SourceSharp_ExplosionEffect( pOrigin, nModelIndex, flScale, nFrameRate, nFlags, nRadius, nMagnitude ); }
 void CShimEffectsServer::ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir )
 	{ return ::SourceSharp_ViewPunch( pOrigin, pPunchPYR, flRadius, bInAir ); }
-void CShimEffectsServer::ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity )
-	{ return ::SourceSharp_ImpactEffect( pStartXYZ, pEndXYZ, nSurfaceProp, nDamageType, hEntity ); }
-void CShimEffectsServer::TracerEffect( const float * pStartXYZ, const float * pEndXYZ )
-	{ return ::SourceSharp_TracerEffect( pStartXYZ, pEndXYZ ); }
 void CShimEffectsServer::BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed )
 	{ return ::SourceSharp_BubbleEffect( hEntity, nCount, flSpeed ); }
-void CShimEffectsServer::FunnelEffect( const float * pOriginXYZ, int32_t nSpriteIndex, int32_t bReversed )
-	{ return ::SourceSharp_FunnelEffect( pOriginXYZ, nSpriteIndex, bReversed ); }
-void CShimEffectsServer::SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime )
-	{ return ::SourceSharp_SplashEffect( pOriginXYZ, flScale, bInSlime ); }
 void CShimEffectsServer::BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags )
 	{ return ::SourceSharp_BloodEffect( pOriginXYZ, pDirXYZ, nColor, flAmount, bStream, nSprayFlags ); }
 int32_t CShimEffectsServer::PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority )

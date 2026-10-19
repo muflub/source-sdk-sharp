@@ -570,6 +570,15 @@ public class LifecycleTests
                                            // per-player state that must not cross
                                            // the reload. Inserted in the 400/500
                                            // gap; no recorded participant moved.
+        (typeof(AreaPortals),       750),  // plan_server_native_v2 T4d: the area
+                                           // portal records, which were native and
+                                           // are the map's; cleared at level
+                                           // shutdown, carried across a reload.
+                                           // In the 700/1900 gap; none moved.
+        (typeof(DefaultLightStyles), 760), // plan_server_native_v2 T4d: the
+                                           // level's default light styles, which
+                                           // CWorld::Precache wrote; at level init
+                                           // pre-entity. In the same gap.
     };
 
     [Fact]

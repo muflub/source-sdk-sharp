@@ -171,6 +171,12 @@ public interface IVtableEngineServer
     /// <summary><c>SentenceIndexFromName( name )</c>: the sentence's index, or -1.</summary>
     int SentenceIndexFromName(string name);
 
+    /// <summary><c>PrecacheDecal( name, preload )</c>: the decal's index, or -1 (plan_server_native_v2 T4d).</summary>
+    int PrecacheDecal(string name, bool preload);
+
+    /// <summary><c>IsDecalPrecached( name )</c>.</summary>
+    bool IsDecalPrecached(string name);
+
     /// <summary>
     /// <c>Message_DetermineMulticastRecipients( usepas, origin, playerbits )</c>:
     /// the PAS (or PVS) of a point as a bit per player slot, bit N being

@@ -1599,21 +1599,6 @@ ss_must_not_compile(entity_funcslot_virtual
 ss_cpptest_mathlib(world_aligned_bounds_test
     SOURCES sourcesharp/test/world_aligned_bounds_test.cpp)
 
-# The area-portal list, driven for real (areaportal_list_test.cpp).
-#
-# plan_entity.md step 4g took the portal off the SDK hierarchy, and with it went
-# the entity handle -- whose serial is what stops a recycled slot answering a
-# stale handle. The token is an id that is never reused, and this drives it,
-# INCLUDING the case it exists for: remove a portal, create another, and check
-# the first entity's token does not open the second entity's hole. That is a
-# map-cycle bug, and every live gate this project has loads ONE map.
-#
-# mathlib because a window's fade reads CalcDistanceToAABB. It compiles the
-# production header and defines g_AreaPortals and g_AreaPortalsById itself, so
-# the bodies under test are the ones the server links.
-ss_cpptest_mathlib(areaportal_list_test
-    SOURCES sourcesharp/test/areaportal_list_test.cpp)
-
 # Where a templated entity ends up (template_transform_cases.txt). The other test
 # here that links mathlib, and it has to: point_template's placement arithmetic
 # moved to C#, and the golden table the managed test reads is only worth

@@ -912,7 +912,9 @@ TEST( CppAliasT6, TheShimsSdkFallThroughsAreGone )
 
 	// PRESENCE FIRST. Everything below is a count, and a count over a file that
 	// did not open is zero as readily as a count over a file that is right.
-	EXPECT_LT( (size_t)30, CountOf( api, "SourceSharp_ResolveEntity(" ) )  // 40 at ABI 252, after the name walk left
+	// 40 at ABI 252, after the name walk left; the floor fell 30 -> 10 when
+	// plan_server_native_v2 T4d began moving this file's slots to managed.
+	EXPECT_LT( (size_t)10, CountOf( api, "SourceSharp_ResolveEntity(" ) )
 		<< "shell_entityapi.cpp no longer resolves handles, so the counts below "
 		<< "are about nothing";
 
@@ -926,7 +928,9 @@ TEST( CppAliasT6, TheShimsSdkFallThroughsAreGone )
 
 	// THE SUCCESSOR. Every deleted arm's question is answered on the parallel
 	// hierarchy by the branch that ran first in every armed call anyway.
-	EXPECT_LT( (size_t)40, CountOf( api, "ent.pStandalone" ) )
+	// Floor 40 -> 10 with T4d's moves (the file shrinks; what this holds is
+	// that the standalone arm is still the one asked).
+	EXPECT_LT( (size_t)10, CountOf( api, "ent.pStandalone" ) )
 		<< "shell_entityapi.cpp has stopped asking the standalone hierarchy, "
 		<< "which is what the deleted arms were falling through FROM";
 }

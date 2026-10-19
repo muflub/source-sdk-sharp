@@ -26,7 +26,7 @@ internal unsafe struct FileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 24 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 29 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -105,6 +105,21 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // void IVEngineServer::PlaybackTempEntity( IRecipientFilter &, float, const void *, const SendTable *, int )
     public delegate* unmanaged<void*, void*, float, void*, void*, int, void> PlaybackTempEntity;
+
+    // int IVEngineServer::PrecacheDecal( const char *, bool )
+    public delegate* unmanaged<void*, byte*, byte, int> PrecacheDecal;
+
+    // bool IVEngineServer::IsDecalPrecached( char const * )
+    public delegate* unmanaged<void*, byte*, byte> IsDecalPrecached;
+
+    // void IVEngineServer::SetAreaPortalState( int, int )
+    public delegate* unmanaged<void*, int, int, void> SetAreaPortalState;
+
+    // bool IVEngineServer::GetAreaPortalPlane( Vector const &, int, VPlane * )
+    public delegate* unmanaged<void*, void*, int, void*, byte> GetAreaPortalPlane;
+
+    // void IVEngineServer::SetAreaPortalStates( const int *, const int *, int )
+    public delegate* unmanaged<void*, void*, void*, int, void> SetAreaPortalStates;
 }
 
 /// <summary>

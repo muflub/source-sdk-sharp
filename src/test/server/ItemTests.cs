@@ -200,7 +200,7 @@ public class ItemTests
     /// <summary>
     /// The pickup's trigger, as MakePickup builds it: half-extents in X and Y,
     /// but 0..SizeZ in Z -- the box sits ON the origin rather than around it
-    /// (SourceSharp_EntityMakePickup, shell_entityapi.cpp:470).
+    /// (EngineSide.MakePickup; SolidityCompositionTests holds its box).
     /// </summary>
     private static (Vector Centre, Vector Half) PickupBox(Vector at)
         => (new Vector(at.X, at.Y, at.Z + (Pickups.Health.SizeZ / 2f)),

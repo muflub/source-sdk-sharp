@@ -435,16 +435,8 @@ public:
 	// and from cs_sv_world. See SourceSharpWorld_Report for why this ships.
 	void  ReportNetState();
 
-	// The one worldspawn key whose consequence is game logic rather than
-	// engine plumbing. Stock spends it in CWorld::Precache on a native
-	// env_message; this build's env_message is managed, so C# reads the key
-	// at level init instead — SourceSharp_WorldChapterTitle in
-	// shell_worldquery.cpp — and owns what happens next. Stock nulls the
-	// field after spending it; here it keeps its value for the level.
-	//
-	// NOT NETWORKED and therefore NOT in the blob: stock never sent it either,
-	// and it is the one CWorld key that is neither engine surface nor wire.
-	string_t GetChapterTitle() const { return m_iszChapterTitle; }
+	// The chapter title is not held here (plan_server_native_v2 T4d): the key
+	// is ServerGameDll.WorldKeyValue's, which keeps it for ChapterTitle.cs.
 
 
 	//=========================================================================
@@ -578,8 +570,6 @@ private:
 	// managed reload has moved them.
 	bool ResolveFields();
 
-	string_t m_iszChapterTitle;
-
 	SourceSharpWorldFields_t m_Fields;
 
 	//-------------------------------------------------------------------------
@@ -679,7 +669,6 @@ inline void CWorldNetworkable::Release()
 
 
 CWorld* GetWorldEntity();
-extern const char *GetDefaultLightstyleString( int styleIndex );
 
 
 #endif // SS_WORLD_H

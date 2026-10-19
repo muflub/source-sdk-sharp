@@ -32,7 +32,6 @@ set(server_sourcesharp_sources
     # CServerNetworkProperty (only CBaseEntity owned one); shell_gameents.cpp's
     # transmit walk was its last caller, through casts of other objects' networkables.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_absent.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_areaportal.cpp
     # shell_breakpieces.cpp: GONE -- break pieces are C#'s (BreakModels); its two
     # slots are stubs in shell_engineservices.cpp.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_clientsteps.cpp
@@ -134,7 +133,6 @@ target_sources(server_sourcesharp PRIVATE ${server_sourcesharp_sources})
 # NativeCommands declares their rows under #if DEBUG. tools/cmakegraph.py and
 # its twins read this block and count it only for a debug build directory.
 set(server_sourcesharp_debug_sources
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_areaportal_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_debugoverlays_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_engineboundary_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_entityslots_debug.cpp
@@ -309,7 +307,6 @@ set(server_novalve_sources
     # P5 wave 7: shell_standalone.h reaches only public/ and our own headers
     # (wave 7a); these three then needed VPlane + engine, CCommand, and
     # IPhysicsObject in place of cbase.h.
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_areaportal.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_nettable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/standalone_relays.cpp
     # P5 wave 7c: imovementplayer.h left the overlay for src/shared/native/, and

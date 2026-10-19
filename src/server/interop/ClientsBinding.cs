@@ -121,6 +121,22 @@ public sealed unsafe class ClientsBinding(Crossings crossings, ILog log, IServer
         }
     }
 
+    public int ServerAreaPortalVisibility(void* a0, float a1, void* a2, int a3)
+    {
+        Enter(CrossingOp.ServerAreaPortalVisibility);
+        if (game.Clients is not { } clients || a0 == null || a2 == null || a3 <= 0) return -1;
+        float* origin = (float*)a0;
+        try
+        {
+            return clients.AreaPortalVisibility(new Vector(origin[0], origin[1], origin[2]), a1, new Span<byte>(a2, a3));
+        }
+        catch (Exception e)
+        {
+            ManagedVtable.Fail(log, "IManagedClients.ServerAreaPortalVisibility", e);
+            return -1;
+        }
+    }
+
     public int ServerEarPositionForClient(int a0, void* a1)
     {
         Enter(CrossingOp.ServerEarPositionForClient);

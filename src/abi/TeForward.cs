@@ -55,7 +55,9 @@ public enum TeForward
     Dust                     = 8,
     /// <summary>RESERVED: no native forwarder since the server gc cull; kept so no id moves.</summary>
     EnergySplash             = 9,
+    /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4d; kept so no id moves.</summary>
     Explosion                = 10,
+    /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4d; kept so no id moves.</summary>
     LargeFunnel              = 11,
     /// <summary>RESERVED: no native forwarder since plan_server_native_v2 T4b; kept so no id moves.</summary>
     MetalSparks              = 12,

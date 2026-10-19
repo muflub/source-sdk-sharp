@@ -1785,7 +1785,11 @@ shim_cpp_files	src/sourcesharp	215
 # LOWERED 2026-10-19, 134737 -> 132785 (-1952, the walk at the client temp entity landing on main 6c0c02d09, read with the
 #   ceiling at 1): tempent_schema.h (1,271 lines) and the native registration and dead local paths deleted, net of the
 #   new store TU (the lane measured 137418 -> 135466 on its base ab8f56ef2).
-shim_lines	src/sourcesharp	132800
+# 2026-10-19, T4d rebased onto main a001d7a31: main's 132785 less the lane's -1340 (136396 -> 135056 at its base) = 131445 by the arithmetic; the walk measures 131465 (+20, the regenerated area headers carrying both sides' rows), and that is the row.
+# RAISED 2026-10-19, 131480 -> 131488 (+8, measured by the walk), deliberately: fwd_leaf_system.cpp's
+#   op buffer drops to 64 operations (2 KB) under a static_assert, so no frame needs MSVC's __chkstk,
+#   and its global operator delete is non-MSVC only (fwd_physics.cpp's serves MSVC; LNK2005/LNK2019 on CI at f6f1389).
+shim_lines	src/sourcesharp	131488
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

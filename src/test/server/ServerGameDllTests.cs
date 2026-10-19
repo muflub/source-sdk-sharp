@@ -127,6 +127,51 @@ public class ServerGameDllTests
         return (dll, engine);
     }
 
+    // ---- worldspawn's own keys (plan_server_native_v2 T4d) -------------------
+    //
+    // CWorld::KeyValue answered three keys itself before offering the rest to
+    // WorldNet: "skyname" (ConVarRef( "sv_skyname" ).SetValue), "newunit"
+    // (taken, no reader) and "chaptertitle" (held for level init), matched
+    // with stock's FStrEq, which ignores case. Native offers every key now.
+
+    private static readonly EntityHandle World = new(0x00010000u);
+
+    [Theory]
+    [InlineData("skyname")]
+    [InlineData("SkyName")]
+    public void TheSkyKeySetsTheReplicatedSkyConVar(string key)
+    {
+        var (dll, engine) = Build();
+
+        Assert.True(dll.WorldKeyValue(World, key, "sky_day01_05"));
+        Assert.Contains(engine.Calls, c => c.Member == "Console.SetConVarValueByName"
+                                         && (string?)c.Arg(0) == "sv_skyname"
+                                         && (string?)c.Arg(1) == "sky_day01_05");
+    }
+
+    [Fact]
+    public void NewUnitIsTakenAndDoesNothing()
+    {
+        var (dll, engine) = Build();
+        int before = engine.Calls.Count;
+
+        Assert.True(dll.WorldKeyValue(World, "newunit", "1"));
+        Assert.Equal(before, engine.Calls.Count);
+    }
+
+    [Fact]
+    public void TheChapterTitleIsHeldForLevelInitAndGoneAtUnload()
+    {
+        var (dll, _) = Build();
+        Assert.Equal(string.Empty, dll.ChapterTitle);
+
+        Assert.True(dll.WorldKeyValue(World, "ChapterTitle", "Chapter 3"));
+        Assert.Equal("Chapter 3", dll.ChapterTitle);
+
+        dll.MapUnload();
+        Assert.Equal(string.Empty, dll.ChapterTitle);
+    }
+
     // ---- IServerLifetime: the tick interval, read once ----------------------
 
     [Fact]

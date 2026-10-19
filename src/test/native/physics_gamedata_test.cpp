@@ -608,7 +608,10 @@ TEST( PhysicsGameDataSource, TheStandaloneLookupsTakeAHandleAndNotAnObject )
 //-----------------------------------------------------------------------------
 // plan_physics_bones_native_zero 2.4: SourceSharp_EntitySetSolidToWorld was
 // SourceSharp_EntitySetNotSolid inverted, so func_physbox's "notsolid" goes
-// through the generic call (PhysboxNotSolidTests) and the body left.
+// through the generic call (PhysboxNotSolidTests) and the body left. Since
+// plan_server_native_v2 T4d the generic call is managed (EngineSide's
+// EntitySetNotSolid over the solidity getters and EntitySetSolidity), so the
+// native half that must stay is the one solidity writer.
 //-----------------------------------------------------------------------------
 TEST( PhysicsGameDataSource, SetSolidToWorldLeftForTheGenericNotSolidCall )
 {
@@ -617,7 +620,7 @@ TEST( PhysicsGameDataSource, SetSolidToWorldLeftForTheGenericNotSolidCall )
 	EXPECT_FALSE( Contains( strObjects, "SourceSharp_EntitySetSolidToWorld" ) )
 		<< "the native SetSolidToWorld body is back";
 	EXPECT_TRUE( Contains( ReadFile( "sourcesharp/game/server/shell_entityapi.cpp" ),
-	                       "void SourceSharp_EntitySetNotSolid( uint32_t hEntity, int32_t bNotSolid )" ) );
+	                       "void SourceSharp_EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags )" ) );
 }
 
 TEST( PhysicsGameDataSource, NoFileThisStepOwnsCallsGetGameData )

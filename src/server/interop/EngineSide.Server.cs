@@ -24,7 +24,7 @@ namespace SourceSharp.Abi;
 /// bindings that call them are split the same way (EngineBinding.Server.cs).
 /// </para>
 /// </summary>
-internal sealed unsafe partial class EngineSide
+internal sealed unsafe partial class EngineSide : IPlayerSequenceSlots
 {
     /// <summary>The side's own attached areas, the server's; throws before the attach.</summary>
     internal ShimAreas OwnShims => ServerShims;
@@ -557,10 +557,19 @@ internal sealed unsafe partial class EngineSide
     /// Turns the entity into a touchable pickup with the given half-extents.
     /// A trigger, not a solid: the player walks through it rather than into it.
     /// </summary>
+    /// <remarks>
+    /// Two slots, in the order the native body made them (plan_server_native_v2
+    /// T4d): the box first, sitting on the floor under the origin, then the
+    /// solidity, so the partition is updated once for the finished shape. There
+    /// is no touch function to name: the engine reports the overlap and the
+    /// shell relays it, so being in the trigger list IS being a pickup.
+    /// </remarks>
     public void MakePickup(EntityHandle entity, float sizeX, float sizeY, float sizeZ)
     {
-        if (s_Initialized && ServerAttached)
-            ServerShims.EntitiesServer.EntityMakePickup(entity.Value, sizeX, sizeY, sizeZ);
+        if (!s_Initialized || !ServerAttached) return;
+
+        EntitySetBounds(entity, new Vector(-sizeX, -sizeY, 0f), new Vector(sizeX, sizeY, sizeZ));
+        EntitySetSolidity(entity, SolidType.BoundingBox, SolidFlags.Trigger | SolidFlags.NotSolid);
     }
 
     /// <summary>
@@ -629,11 +638,8 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return EntityHandle.None;
 
-        float* xyz = stackalloc float[3];
-        uint hit = ServerShims.WorldServer.TracePlayerAim(player.Value, range, xyz);
-
-        hitPoint = new Vector(xyz[0], xyz[1], xyz[2]);
-        return new EntityHandle(hit);
+        // plan_server_native_v2 T4d: the sequence is PlayerSequences.Aim's.
+        return PlayerSequences.Aim(this, player, range, out hitPoint);
     }
 
     /// <summary>
@@ -652,13 +658,7 @@ internal sealed unsafe partial class EngineSide
     /// than one pellet has to aim each one itself.
     /// </summary>
     public Vector GetPlayerShootOrigin(EntityHandle player)
-    {
-        if (!s_Initialized || !ServerAttached) return default;
-
-        float* xyz = stackalloc float[3];
-        ServerShims.Players.GetPlayerShootOrigin(player.Value, xyz);
-        return new Vector(xyz[0], xyz[1], xyz[2]);
-    }
+        => (s_Initialized && ServerAttached) ? PlayerSequences.ShootOrigin(this, player) : default;
 
     /// <summary>Whether a player is alive. False covers both dead and spectating.</summary>
     /// <summary>
@@ -756,7 +756,7 @@ internal sealed unsafe partial class EngineSide
     public void PlayerRespawn(EntityHandle player)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.Players.PlayerRespawn(player.Value);
+            PlayerSequences.Respawn(this, player);
     }
 
     /// <summary>
@@ -830,10 +830,20 @@ internal sealed unsafe partial class EngineSide
     /// shape it presents. This is FSOLID_NOT_SOLID on an entity that already has
     /// one — a player being stepped through.
     /// </summary>
+    /// <remarks>
+    /// Through <see cref="EntitySetSolidity"/> with the entity's own shape and
+    /// its other flags kept (plan_server_native_v2 T4d), never by writing the
+    /// flag alone: the flag decides which partition lists the entity is in, and
+    /// one set directly leaves a no-longer-solid entity in the solid list,
+    /// stopping traces where a player was meant to be walked through.
+    /// </remarks>
     public void EntitySetNotSolid(EntityHandle entity, bool notSolid)
     {
-        if (s_Initialized && ServerAttached)
-            ServerShims.CollisionServer.EntitySetNotSolid(entity.Value, notSolid ? 1 : 0);
+        if (!s_Initialized || !ServerAttached) return;
+
+        SolidFlags flags = EntityGetSolidFlags(entity);
+        flags = notSolid ? flags | SolidFlags.NotSolid : flags & ~SolidFlags.NotSolid;
+        EntitySetSolidity(entity, EntityGetSolidType(entity), flags);
     }
 
     /// <summary>
@@ -1903,20 +1913,41 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>Whether a brush can be walked through, walked into, or neither.</summary>
+    /// <remarks>
+    /// SOLID_BSP either way (plan_server_native_v2 T4d, from the native switch):
+    /// what changes is the flags, not the shape a trace meets. A trigger volume
+    /// is the same brushes as a wall, described as passable and reporting.
+    /// Anything that is not None or Trigger is solid.
+    /// </remarks>
     public void EntitySetBrushSolidity(EntityHandle entity, BrushSolidity solidity)
     {
-        if (s_Initialized && ServerAttached)
-            ServerShims.CollisionServer.EntitySetBrushSolidity(entity.Value, (int)solidity);
+        SolidFlags flags = solidity switch
+        {
+            BrushSolidity.None => SolidFlags.NotSolid,
+            BrushSolidity.Trigger => SolidFlags.NotSolid | SolidFlags.Trigger,
+            _ => SolidFlags.None,
+        };
+
+        EntitySetSolidity(entity, SolidType.Bsp, flags);
     }
 
     /// <summary>
     /// Shows or hides a pickup without destroying it, so an item that respawns
     /// keeps the entity a mapper may have wired outputs to.
     /// </summary>
+    /// <remarks>
+    /// Out of the trigger list entirely when disabled rather than merely hidden
+    /// (plan_server_native_v2 T4d, from the native body): a pickup that has been
+    /// taken must not be collectable while it waits to respawn, and one left in
+    /// the list would be collected again on the next tick the player stands
+    /// there.
+    /// </remarks>
     public void EntitySetPickupEnabled(EntityHandle entity, bool enabled)
     {
-        if (s_Initialized && ServerAttached)
-            ServerShims.EntitiesServer.EntitySetPickupEnabled(entity.Value, enabled ? 1 : 0);
+        EntitySetVisible(entity, enabled);
+        EntitySetSolidity(entity,
+                          enabled ? SolidType.BoundingBox : SolidType.None,
+                          enabled ? SolidFlags.Trigger | SolidFlags.NotSolid : SolidFlags.NotSolid);
     }
 
     //-------------------------------------------------------------------------
@@ -1977,29 +2008,6 @@ internal sealed unsafe partial class EngineSide
     // A managed wrapper around a deleted slot would be a member EngineAreaTests
     // correctly reports as forwarded by nothing.
 
-    /// <summary>
-    /// The explosion temp entity: fireball, sound, particles, dynamic lights.
-    ///
-    /// <para>
-    /// Presentation ONLY — this hurts nobody. <see cref="ExplosionDamage"/> is
-    /// the other half, and env_explosion fires both because its spawnflags can
-    /// suppress either one independently.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="flags"/> is the TE_EXPLFLAG_* set, NOT the entity's
-    /// spawnflags. The recipient set is a PVS query made native-side from the
-    /// origin: an explosion written to an empty filter is silently invisible.
-    /// </para>
-    /// </summary>
-    public void ExplosionEffect(Vector origin, int modelIndex, float scale,
-                                       int frameRate, int flags, int radius, int magnitude)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.EffectsServer.ExplosionEffect(p, modelIndex, scale, frameRate, flags, radius, magnitude);
-    }
 
     /// <summary>
     /// Kicks the view of every player in range.
@@ -2332,7 +2340,7 @@ internal sealed unsafe partial class EngineSide
         float fraction;
         uint hit;
 
-        int stopped = ServerShims.WorldServer.TraceLine(s, e, (int)mask, Skippable(ignore),
+        int stopped = ServerShims.WorldServer.TraceLine(s, e, TraceMasks.Line(mask), Skippable(ignore),
                                     &fraction, endPos, normal, &hit);
 
         return new TraceResult(
@@ -2384,7 +2392,7 @@ internal sealed unsafe partial class EngineSide
         int surfaceFlags;
         int hitGroup;
 
-        int stopped = ServerShims.WorldServer.TraceLineSurface(s, e, (int)mask, Skippable(ignore),
+        int stopped = ServerShims.WorldServer.TraceLineSurface(s, e, TraceMasks.Line(mask), Skippable(ignore),
                                            &fraction, endPos, normal, &hit,
                                            &surfaceProps, &surfaceFlags, &hitGroup);
 
@@ -2424,7 +2432,7 @@ internal sealed unsafe partial class EngineSide
         uint hit;
         int startSolid;
 
-        int blocked = ServerShims.WorldServer.TraceHull(s, e, lo, hi, (int)mask, Skippable(ignore), &hit, &startSolid);
+        int blocked = ServerShims.WorldServer.TraceHull(s, e, lo, hi, TraceMasks.Hull(mask), Skippable(ignore), &hit, &startSolid);
 
         return new HullResult(blocked != 0, startSolid != 0, new EntityHandle(hit));
     }
@@ -2801,15 +2809,30 @@ internal sealed unsafe partial class EngineSide
     /// mapper's typo and the caller's to report, since the caller is the one
     /// that knows which entity wrote the key.
     /// </summary>
+    /// <remarks>
+    /// Through IVEngineServer's forwarders and the level's precache window
+    /// (plan_server_native_v2 T4d), where the IShimPrecache::PrecacheDecal slot
+    /// ran UTIL_PrecacheDecal: <see cref="DecalPrecache"/> is the sequence.
+    /// </remarks>
     public int PrecacheDecal(string name)
     {
         if (!s_Initialized || !ServerAttached) return -1;
 
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes)
-        {
-            return ServerShims.Precache.PrecacheDecal(p);
-        }
+        return DecalPrecache.Precache(new DecalPrecacheEngine(this), name);
+    }
+
+    private EngineLevel? _decalLevel;
+
+    /// <summary><see cref="IDecalPrecacheEngine"/> over this side: its level and its IVEngineServer.</summary>
+    private readonly struct DecalPrecacheEngine(EngineSide side) : IDecalPrecacheEngine
+    {
+        public bool PrecacheAllowed() => (side._decalLevel ??= new EngineLevel(side)).IsPrecacheAllowed();
+
+        public bool IsDecalPrecached(string name) => EngineBound.Server(side).IsDecalPrecached(name);
+
+        public int PrecacheDecal(string name, bool preload) => EngineBound.Server(side).PrecacheDecal(name, preload);
+
+        public void Warning(string text) => side.Warning(text);
     }
 
     /// <summary>
@@ -3014,16 +3037,6 @@ internal sealed unsafe partial class EngineSide
         return ServerShims.Diagnostics.ExitWatchDisarm();
     }
 
-    /// <summary>One bullet streak, drawn between two points.</summary>
-    public void TracerEffect(Vector start, Vector end)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
-
-        ServerShims.EffectsServer.TracerEffect(s, e);
-    }
 
     /// <summary>
     /// Bubbles rising out of an entity's volume.
@@ -3040,28 +3053,8 @@ internal sealed unsafe partial class EngineSide
         ServerShims.EffectsServer.BubbleEffect(entity.Value, count, speed);
     }
 
-    /// <summary>
-    /// The funnel of sprites that converges on a point, or flies out of one.
-    /// </summary>
-    /// <param name="spriteIndex">A precached sprite, as its model index.</param>
-    /// <param name="reversed">Outward rather than inward.</param>
-    public void FunnelEffect(Vector origin, int spriteIndex, bool reversed)
-    {
-        if (!s_Initialized || !ServerAttached || spriteIndex <= 0) return;
-
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.EffectsServer.FunnelEffect(o, spriteIndex, reversed ? 1 : 0);
-    }
 
 
-    /// <summary>A splash of water at a point. Slime is the green one.</summary>
-    public void SplashEffect(Vector origin, float scale, bool inSlime = false)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.EffectsServer.SplashEffect(o, scale, inSlime ? 1 : 0);
-    }
 
 
     /// <summary>
@@ -3213,55 +3206,10 @@ internal sealed unsafe partial class EngineSide
         return (SolidFlags)ServerShims.CollisionServer.EntityGetSolidFlags(entity.Value);
     }
 
-    /// <summary>
-    /// Joins the engine's area-portal list at the number vbsp assigned, so the
-    /// per-client visibility pass has something to ask about this portal.
-    /// Returns 0 if the number is not a portal.
-    /// </summary>
-    public uint AreaPortalCreate(int portalNumber, int portalVersion)
-    {
-        if (!s_Initialized || !ServerAttached)
-            return 0;
 
-        return ServerShims.WorldServer.AreaPortalCreate(portalNumber, portalVersion);
-    }
 
-    /// <summary>Leaves the list. The hole is left open behind it.</summary>
-    public void AreaPortalDestroy(uint portal)
-    {
-        if (s_Initialized && ServerAttached && portal != 0)
-            ServerShims.WorldServer.AreaPortalDestroy(portal);
-    }
 
-    /// <summary>Whether the hole is open.</summary>
-    public void AreaPortalSetOpen(uint portal, bool open)
-    {
-        if (s_Initialized && ServerAttached && portal != 0)
-            ServerShims.WorldServer.AreaPortalSetOpen(portal, open ? 1 : 0);
-    }
 
-    /// <summary>
-    /// The distance past which a window portal shuts, measured from the volume
-    /// of the entity given.
-    /// </summary>
-    public void AreaPortalSetWindow(uint portal, EntityHandle entity, float fadeDistance)
-    {
-        if (s_Initialized && ServerAttached && portal != 0)
-            ServerShims.WorldServer.AreaPortalSetWindow(portal, entity.Value, fadeDistance);
-    }
-
-    /// <summary>
-    /// worldspawn's chaptertitle key — the world's one game-logic key. Empty
-    /// when the map set no title, on the client (the slot is server-only), or
-    /// before the world exists.
-    /// </summary>
-    public string WorldChapterTitle()
-    {
-        if (!s_Initialized || !ServerAttached)
-            return string.Empty;
-
-        return FromUtf8(ServerShims.WorldServer.WorldChapterTitle());
-    }
 
     /// <summary>
     /// Retunes, restarts or stops an entity's AMBIENT channel.
@@ -3319,28 +3267,6 @@ internal sealed unsafe partial class EngineSide
     }
 
 
-    /// <summary>
-    /// The engine's own bullet impact at a point: the decal, the particles and
-    /// the sound, all of which it picks from the surfaceprop it is handed.
-    ///
-    /// <para>
-    /// <paramref name="surfaceProp"/> is passed in rather than traced for,
-    /// which is the whole point of the call: a caller that knows what the
-    /// thing it hit is really made of can say so. Negative means "whatever the
-    /// struck face says", which is what every caller with nothing better to
-    /// offer passes — see <see cref="EntityModelSurfaceProp"/>.
-    /// </para>
-    /// </summary>
-    public void ImpactEffect(Vector start, Vector end, int surfaceProp,
-                                    DamageType damageType, EntityHandle entity)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
-
-        ServerShims.EffectsServer.ImpactEffect(s, e, surfaceProp, (int)damageType, entity.Value);
-    }
 
     //-------------------------------------------------------------------------
     // THE ENTITY FACTORY DICTIONARY'S FIVE QUESTIONS -- the `sub-factory` lane,

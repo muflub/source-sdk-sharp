@@ -1,15 +1,14 @@
 # tools/server-native-text: release .text bytes per server object
 # (size -B). An object may only shrink; one that is new is listed
 # by --write in the commit that adds it, with its reason there.
-# total 377920 over 90 objects
+# total 350440 over 88 objects
 sourcesharp/game/server/alloc_check.cpp	0
 sourcesharp/game/server/exit_watch.cpp	3571
 sourcesharp/game/server/managed_runtime_server.cpp	282
 sourcesharp/game/server/physics.cpp	3764
 sourcesharp/game/server/precache_model.cpp	552
-sourcesharp/game/server/server_util_library.cpp	1718
+sourcesharp/game/server/server_util_library.cpp	1565
 sourcesharp/game/server/shell_absent.cpp	784
-sourcesharp/game/server/shell_areaportal.cpp	3224
 sourcesharp/game/server/shell_clientsteps.cpp	176
 sourcesharp/game/server/shell_commandclient.cpp	377
 sourcesharp/game/server/shell_debugoverlays.cpp	1321
@@ -17,11 +16,11 @@ sourcesharp/game/server/shell_decals.cpp	175
 sourcesharp/game/server/shell_dispatch.cpp	2376
 sourcesharp/game/server/shell_engineboundary.cpp	1110
 sourcesharp/game/server/shell_engineservices.cpp	703
-sourcesharp/game/server/shell_entityapi.cpp	10364
+sourcesharp/game/server/shell_entityapi.cpp	8226
 sourcesharp/game/server/shell_entityslots.cpp	3123
 sourcesharp/game/server/shell_factory.cpp	761
 sourcesharp/game/server/shell_frame.cpp	957
-sourcesharp/game/server/shell_gameclients.cpp	11318
+sourcesharp/game/server/shell_gameclients.cpp	11066
 sourcesharp/game/server/shell_gamedll.cpp	7060
 sourcesharp/game/server/shell_gameents.cpp	2377
 sourcesharp/game/server/shell_gametags.cpp	125
@@ -45,15 +44,15 @@ sourcesharp/game/server/shell_standalone_class.cpp	13225
 sourcesharp/game/server/shell_standalone_hierarchy.cpp	3738
 sourcesharp/game/server/shell_standalone_player.cpp	22544
 sourcesharp/game/server/shell_stringtables.cpp	4991
-sourcesharp/game/server/shell_te_forwards.cpp	4257
+sourcesharp/game/server/shell_te_forwards.cpp	2735
 sourcesharp/game/server/shell_tempents.cpp	14755
 sourcesharp/game/server/shell_transmitsteps.cpp	155
 sourcesharp/game/server/shell_usermessage_send.cpp	1478
 sourcesharp/game/server/shell_world_nettable.cpp	2693
-sourcesharp/game/server/shell_worldquery.cpp	13807
+sourcesharp/game/server/shell_worldquery.cpp	9553
 sourcesharp/game/server/ss_recipient_filter.cpp	2191
 sourcesharp/game/server/standalone_relays.cpp	1188
-sourcesharp/game/server/world_adapter.cpp	9012
+sourcesharp/game/server/world_adapter.cpp	8002
 sourcesharp/game/server/world_subject_dll.cpp	448
 sourcesharp/game/shared/console_display_forward.cpp	1119
 sourcesharp/game/shared/convar_port.cpp	7453
@@ -77,7 +76,7 @@ sourcesharp/game/shared/shell_physsaverestore_absent.cpp	62
 sourcesharp/game/shared/shell_shared.cpp	488
 sourcesharp/game/shared/shell_vtable_interfaces.cpp	1775
 sourcesharp/game/shared/sound_emitter.cpp	13735
-sourcesharp/game/shared/sourcesharp_gamesystem.cpp	33117
+sourcesharp/game/shared/sourcesharp_gamesystem.cpp	29664
 sourcesharp/game/shared/ss_command_line.cpp	1199
 sourcesharp/game/shared/standalone_player_sync.cpp	5353
 sourcesharp/game/shared/studio_mdlcache.cpp	340

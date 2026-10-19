@@ -736,6 +736,11 @@ typedef enum
 	SOURCESHARP_SHAKE_START_NORUMBLE = 5,
 } SourceSharpShakeCommand;
 
+// The trace mask vocabulary. Since plan_server_native_v2 T4d only the CLIENT's
+// native trace arms read it: the server's trace slots take the engine's own
+// MASK_*, which managed TraceMasks chooses from the same members. The "wired on
+// BOTH arms" notes below date from when the server mapped it natively; the
+// second arm is TraceMasks now (TraceMaskFoldTests).
 typedef enum
 {
 	SOURCESHARP_TRACE_BRUSHES = 0,  // world and brush entities: MASK_SOLID_BRUSHONLY

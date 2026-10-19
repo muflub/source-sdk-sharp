@@ -1,8 +1,8 @@
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// What a brush does to something walking into it. Must match the switch in
-/// SourceSharp_EntitySetBrushSolidity.
+/// What a brush does to something walking into it. EngineSide's
+/// EntitySetBrushSolidity turns it into FSOLID bits on a SOLID_BSP shape.
 /// </summary>
 public enum BrushSolidity
 {

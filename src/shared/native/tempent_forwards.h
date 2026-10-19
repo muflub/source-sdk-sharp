@@ -45,7 +45,9 @@
 // a later renumber pass that owns the whole table can drop them. Three more
 // joined them in plan_server_native_v2 T4b -- TE_Dust, TE_MetalSparks and
 // TE_MuzzleFlash, whose only callers were ss::IEffects methods no server TU
-// called.
+// called. And two more in T4d -- TE_Explosion and TE_LargeFunnel, whose only
+// callers were the ExplosionEffect and FunnelEffect slots EffectsOverTempEnts
+// had already replaced.
 //
 //===========================================================================//
 
@@ -67,8 +69,8 @@ enum SourceSharpTeForward_t
 	SOURCESHARP_TE_FWD_TE_DISPATCH_EFFECT          =  7,   // TE_DispatchEffect -> TeDispatchEffect
 	SOURCESHARP_TE_FWD_DUST                        =  8,   // TE_Dust -> Dust   RESERVED
 	SOURCESHARP_TE_FWD_ENERGY_SPLASH               =  9,   // TE_EnergySplash -> EnergySplash   RESERVED
-	SOURCESHARP_TE_FWD_EXPLOSION                   = 10,   // TE_Explosion -> Explosion
-	SOURCESHARP_TE_FWD_LARGE_FUNNEL                = 11,   // TE_LargeFunnel -> LargeFunnel
+	SOURCESHARP_TE_FWD_EXPLOSION                   = 10,   // TE_Explosion -> Explosion   RESERVED
+	SOURCESHARP_TE_FWD_LARGE_FUNNEL                = 11,   // TE_LargeFunnel -> LargeFunnel   RESERVED
 	SOURCESHARP_TE_FWD_METAL_SPARKS                = 12,   // TE_MetalSparks -> MetalSparks   RESERVED
 	SOURCESHARP_TE_FWD_MUZZLE_FLASH                = 13,   // TE_MuzzleFlash -> MuzzleFlash   RESERVED
 	SOURCESHARP_TE_FWD_PROJECT_DECAL               = 14,   // TE_ProjectDecal -> ProjectDecal

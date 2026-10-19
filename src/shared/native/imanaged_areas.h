@@ -278,6 +278,7 @@ struct SSManagedClientsTable
 	int32_t ( *OnClientNetMessage )( IManagedClients *self, int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen );
 	int32_t ( *OnClientSettingsChanged )( IManagedClients *self, int32_t nEntIndex );
 	int32_t ( *ServerTransmitAlwaysForClient )( IManagedClients *self, int32_t iClientEdict );
+	int32_t ( *ServerAreaPortalVisibility )( IManagedClients *self, const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes );
 };
 
 class IManagedClients : public IManagedObject
@@ -300,6 +301,7 @@ public:
 	int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen ) { return Table()->OnClientNetMessage( this, nEntIndex, pKey, pData, nLen ); }
 	int32_t OnClientSettingsChanged( int32_t nEntIndex ) { return Table()->OnClientSettingsChanged( this, nEntIndex ); }
 	int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict ) { return Table()->ServerTransmitAlwaysForClient( this, iClientEdict ); }
+	int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes ) { return Table()->ServerAreaPortalVisibility( this, pOriginXYZ, flFovDistanceAdjustFactor, pPortalBits, nPortalBytes ); }
 
 private:
 	const SSManagedClientsTable *Table() const { return static_cast< const SSManagedClientsTable * >( m_pTable ); }
@@ -308,10 +310,10 @@ private:
 static const uint32_t kIManagedClientsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x994fbbfe, 0xeed27821, 0x7fb639b8, 0x07e0f4c4, 0x7fb639b8, 0x8a6f1a50,
 	0x8a6f1a50, 0xc2a9f6e4, 0x021a56ce, 0x9e9fda65, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a,
-	0xa45f061a,
+	0xa45f061a, 0x9546130c,
 };
-static const int32_t kIManagedClientsSlotCount = 17;
-static_assert( sizeof( SSManagedClientsTable ) == 17 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
+static const int32_t kIManagedClientsSlotCount = 18;
+static_assert( sizeof( SSManagedClientsTable ) == 18 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
 
 class IManagedEvents;
 

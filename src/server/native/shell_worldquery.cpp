@@ -42,11 +42,9 @@
 #include "vphysics_interface.h"
 #include "ss_effects.h"
 #include "mathlib_port.h"      // ss_mathlib::CalcSqrDistanceToAABB
-#include "ss_effect_dispatch.h"
 #include "engine/ivmodelinfo.h"
 #include "model_types.h"
 #include "ss_physics_shared.h"   // physprops
-#include "engine/IEngineSound.h"  // SOUND_FROM_WORLD
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
 
@@ -60,10 +58,6 @@ extern IVModelInfo *modelinfo;
 void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color, int amount );		// server_util_library.cpp
 void UTIL_BloodSpray( const Vector &pos, const Vector &dir, int color, int amount, int flags );		// shell_absent.cpp
 void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, int amount );		// util_shared_library.cpp
-int UTIL_PrecacheDecal( const char *name, bool preload = false );									// server_util_library.cpp
-void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex = 0,
-                  int iAttachment = ss::kTracerDontUseAttachment, float flVelocity = 0,
-                  bool bWhiz = false, const char *pCustomTracerName = NULL, int iParticleID = 0 );	// util_shared_library.cpp
 void PrecacheMaterial( const char *pMaterialName );												// shell_stringtables.cpp
 void PrecacheParticleSystem( const char *pParticleSystemName );									// shell_stringtables.cpp
 
@@ -424,44 +418,10 @@ static int32_t SourceSharp_TraceLineInto( const float *pStartXYZ, const float *p
 	const Vector vecStart( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
 	const Vector vecEnd( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] );
 
-	// Brushes only is the mask that means "does a wall shield you from this".
-	// It deliberately ignores props, so a blast is not stopped by the crate it
-	// is about to throw.
-	int nTraceMask = MASK_SOLID_BRUSHONLY;
-	if ( nMask == SOURCESHARP_TRACE_SHOT )
-		nTraceMask = MASK_SHOT;
-	else if ( nMask == SOURCESHARP_TRACE_BRUSHES_AND_WATER )
-		nTraceMask = MASK_SOLID_BRUSHONLY | MASK_WATER;
-	// C-Phase 3 lane CX added SOURCESHARP_TRACE_ALL for the CLIENT's trace,
-	// and it is mapped here as well rather than only there. The vocabulary is
-	// one enumeration serving two implementations: a value this arm did not
-	// know would fall through to the default above and answer a brushes-only
-	// trace to a caller that asked for everything -- silently, and plausibly.
-	else if ( nMask == SOURCESHARP_TRACE_ALL )
-		nTraceMask = MASK_ALL;
-	// And SOURCESHARP_TRACE_SHOT_HULL, added by the ragdoll blast push
-	// (behaviour ledger row C1) for the same reason and mapped here for the
-	// same one. It is MASK_SHOT without the hitbox bit and with the grate bit,
-	// so it is not MASK_SHOT and must not fall through to it either.
-	else if ( nMask == SOURCESHARP_TRACE_SHOT_HULL )
-		nTraceMask = MASK_SHOT_HULL;
-	// C-Phase 6 lane FRAME added SOURCESHARP_TRACE_SOLID for the legacy tempent
-	// pool's collision arm, and it is mapped here as well for the same reason
-	// SOURCESHARP_TRACE_ALL is.
-	else if ( nMask == SOURCESHARP_TRACE_SOLID )
-		nTraceMask = MASK_SOLID;
-	// MASK_BLOCKLOS -- "is the line of sight between these two points broken".
-	// Added for the debug-draw commands' colour, which is the question stock's
-	// UTIL_AddDebugLine asked and the only mask that answers it: the default
-	// above stops on glass and does not stop on a blocklos volume, so it would
-	// colour the line by a different question. Wired here as well as on the
-	// client arm for SOURCESHARP_TRACE_ALL's reason.
-	else if ( nMask == SOURCESHARP_TRACE_BLOCKLOS )
-		nTraceMask = MASK_BLOCKLOS;
-	// The flashlight's direction mask (C7 cluster 12): the client's trace
-	// asks it, and it is wired here for SOURCESHARP_TRACE_ALL's reason.
-	else if ( nMask == SOURCESHARP_TRACE_OPAQUE_AND_NPCS_WINDOW )
-		nTraceMask = MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW;
+	// The engine's own MASK_*: which one a managed TraceMask means is
+	// TraceMasks.Line's decision (plan_server_native_v2 T4d), including the
+	// brushes-only fall-through for a value it does not name.
+	const int nTraceMask = nMask;
 
 	// The entity to skip may be on either hierarchy, and it usually IS: the
 	// caller is almost always an emitter excluding itself. CTraceFilterSimple
@@ -524,11 +484,9 @@ static int32_t SourceSharp_TraceLineInto( const float *pStartXYZ, const float *p
 // The two public arms over that one body.
 //
 // ONE DESCRIPTION OF WHAT A TRACE IS, and that is the whole reason the body
-// above was hoisted rather than copied: the mask vocabulary in it has grown
-// four times (SOURCESHARP_TRACE_ALL, _SHOT_HULL, _SOLID, and the brushes-only
-// default), and each time a second copy would have been one a later value fell
-// through silently -- which is the exact failure that comment block warns
-// about. A copy could not be told from the original by any gate in this tree.
+// above was hoisted rather than copied. nMask is the engine's own MASK_*: the
+// vocabulary that grew four times while it was a table here is managed
+// TraceMasks' since plan_server_native_v2 T4d.
 //-----------------------------------------------------------------------------
 int32_t SourceSharp_TraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
                                uint32_t hIgnore, float *pOutFraction, float *pOutEndXYZ,
@@ -792,42 +750,6 @@ void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float f
 }
 
 //-----------------------------------------------------------------------------
-// The explosion TEMP ENTITY, and nothing else.
-//
-// env_explosion is EnvExplosion.cs now. Everything that entity decided -- which
-// sprite, how big, how far, which of its spawnflags suppress which part of the
-// presentation -- is decided in C#, and this is the one step C# cannot take:
-// writing a temp entity to everyone who can see the point.
-//
-// THE FILTER IS WHY THIS IS NATIVE AND IS THE WHOLE RISK. CPASFilter is a PVS
-// query around the blast; managed code has no way to name that set. An
-// explosion written to an EMPTY filter is silently invisible -- the damage
-// lands, the scorch mark appears, the sound plays for nobody and no fireball is
-// ever drawn. This mod shipped precisely that bug once, so the filter is built
-// here from the origin and is never a parameter.
-//
-// nFlags is TE_EXPLFLAG_*, NOT the entity's spawnflags. The two number
-// different bits and the translation lives in EnvExplosion.EffectFlags.
-//-----------------------------------------------------------------------------
-void SourceSharp_ExplosionEffect( const float *pOrigin, int32_t nModelIndex, float flScale,
-                                  int32_t nFrameRate, int32_t nFlags, int32_t nRadius,
-                                  int32_t nMagnitude )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOrigin )
-		return;
-
-	Vector vecOrigin( pOrigin[0], pOrigin[1], pOrigin[2] );
-
-	ss::CPASFilter filter( vecOrigin );
-
-
-	TE_Explosion( filter, 0.0, &vecOrigin, nModelIndex, flScale, nFrameRate,
-	              nFlags, nRadius, nMagnitude );
-}
-
-//-----------------------------------------------------------------------------
 // A swept box, where TraceLine is a swept ray.
 //
 // The question a ray cannot answer is "would this FIT here", and that is the
@@ -856,7 +778,8 @@ int32_t SourceSharp_TraceHull( const float *pStartXYZ, const float *pEndXYZ,
 	if ( !pStartXYZ || !pEndXYZ || !pMinsXYZ || !pMaxsXYZ )
 		return 0;
 
-	const int nTraceMask = ( nMask == SOURCESHARP_TRACE_SHOT ) ? MASK_SHOT : MASK_SOLID;
+	// The engine's own MASK_*, decided by TraceMasks.Hull (plan_server_native_v2 T4d).
+	const int nTraceMask = nMask;
 
 	trace_t tr;
 	ss::UTIL_TraceHull( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ),
@@ -1028,40 +951,6 @@ void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ,
 }
 
 //-----------------------------------------------------------------------------
-// The decals a MAP places.
-//
-// A decal is an index into the engine's table, claimed during level load like
-// any other precache. -1 means the material would not load, which is a
-// mapper's typo; the caller reports it, because the caller is the one that
-// knows which entity wrote the key.
-//
-// HOT IN THE LOAD WINDOW, and it is named here because the number once
-// invited the opposite mistake. This was the loudest surviving bare trace —
-// 298 lines on a dm_lockdown load, more than any other except the three A11
-// demoted, and tools/slot-census put it at 0.612 lines per server frame in
-// the load window. The comment here used to argue that 298 map decals
-// precached once is exactly what the trace is FOR and demoting it would hide
-// the level-load census to save 0.9 % of a log; the census then showed what
-// 0.9 % of a log costs per map change in a session that reloads maps, so the
-// trace is gated like the others. Verbosity 2 keeps the level-load census.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PrecacheDecal( const char *pName )
-{
-	// SOURCESHARP_TRACE_HOT, not bare: tools/slot-census measured this slot at
-	// 0.612 lines per server frame in a dm_lockdown load window — all 298 of
-	// its calls, 13.9 % of that load's 2,143 trace lines. The comment above
-	// argued this trace should stay for the level-load census; the census is
-	// what found it, and verbosity 2 keeps it for tools/slot-census while the
-	// shipped default no longer writes 298 lines of a map's decals per load.
-	SOURCESHARP_TRACE_HOT();
-
-	if ( !pName || !pName[0] )
-		return -1;
-
-	return UTIL_PrecacheDecal( pName, true );
-}
-
-//-----------------------------------------------------------------------------
 // Paints one map decal, in whichever of the four forms was asked for.
 //
 // The trace is here for BloodDecal's reason carried one step further: the
@@ -1176,23 +1065,6 @@ int32_t SourceSharp_PaintDecal( int32_t nTexture, const float *pOriginXYZ,
 }
 
 //-----------------------------------------------------------------------------
-// One bullet streak, drawn between two points.
-//
-// An entity index of zero and no attachment, which is stock's env_tracer
-// exactly: the streak is not coming out of a gun and has nothing to hang off.
-//-----------------------------------------------------------------------------
-void SourceSharp_TracerEffect( const float *pStartXYZ, const float *pEndXYZ )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pStartXYZ || !pEndXYZ )
-		return;
-
-	UTIL_Tracer( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ),
-	             Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ) );
-}
-
-//-----------------------------------------------------------------------------
 // Bubbles rising out of a volume.
 //
 // te->Bubbles rather than te->Fizz, and the reason is structural rather than a
@@ -1264,49 +1136,6 @@ void SourceSharp_BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed )
 
 	TE_Bubbles( filter, 0.0f, &vecMins, &vecMaxs, flHeight,
 	            nBubbleModel, nCount, flSpeed );
-}
-
-//-----------------------------------------------------------------------------
-// The funnel of sprites that converges on — or flies out of — a point.
-//-----------------------------------------------------------------------------
-void SourceSharp_FunnelEffect( const float *pOriginXYZ, int32_t nSpriteIndex,
-                               int32_t bReversed )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOriginXYZ || nSpriteIndex <= 0 )
-		return;
-
-	const Vector vecOrigin( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-
-	// Broadcast rather than PAS, which is stock's own choice and is not an
-	// oversight: a funnel is large, silent and meant to be seen from across a
-	// map, so a filter that asks whether you could HEAR it is the wrong
-	// question.
-	ss::CBroadcastRecipientFilter filter;
-
-
-	TE_LargeFunnel( filter, 0.0f, &vecOrigin, nSpriteIndex, bReversed ? 1 : 0 );
-}
-
-//-----------------------------------------------------------------------------
-// A splash of water at a point.
-//-----------------------------------------------------------------------------
-void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t bInSlime )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOriginXYZ )
-		return;
-
-	ss::CEffectData data;
-
-	data.m_vOrigin = Vector( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-	data.m_vNormal = Vector( 0, 0, 1 );
-	data.m_flScale = flScale;
-	data.m_fFlags  = bInSlime ? ss::kEffectFlagWaterInSlime : 0;
-
-	DispatchEffect( "watersplash", data );
 }
 
 //-----------------------------------------------------------------------------
@@ -1444,30 +1273,6 @@ bool SourceSharp_FillSkyboxParams( ss::sky3dparams_t &out )
 }
 
 //-----------------------------------------------------------------------------
-// The world's one game-logic key (Phase 12).
-//
-// worldspawn is a permanent native adapter — it is edict 0, the engine names
-// it by index — but its KEYS are C#'s to read. Of the thirteen keys CWorld parses --
-// nine DEFINE_KEYFIELDs and four handled in KeyValue --, exactly one drives a game decision rather than engine plumbing:
-// chaptertitle, which stock spends in CWorld::Precache on a native
-// env_message. env_message is managed here, so C# reads the key at level init
-// through this slot and owns the announcement; see ChapterTitle.cs.
-//
-// Returns a pooled string that lives as long as the level, or "" when the map
-// set no title or the world does not exist yet. Never NULL, so the managed
-// marshaller has nothing to special-case.
-//-----------------------------------------------------------------------------
-const char *SourceSharp_WorldChapterTitle( void )
-{
-	CWorld *pWorld = GetWorldEntity();
-	if ( !pWorld )
-		return "";
-
-	string_t isz = pWorld->GetChapterTitle();
-	return ( isz == NULL_STRING ) ? "" : STRING( isz );
-}
-
-//-----------------------------------------------------------------------------
 // What a surface is made of, and the impact that reads it.
 //
 // A trace answers with the surfaceprop of the FACE it struck. That is right for
@@ -1546,52 +1351,6 @@ int32_t SourceSharp_EntityModelSurfaceProp( uint32_t hEntity )
 		return -1;
 
 	return physprops->GetSurfaceIndex( pszName );
-}
-
-//-----------------------------------------------------------------------------
-// The engine's own bullet impact at a point.
-//
-// CBaseEntity::ImpactTrace's body, with one change: the surfaceprop is a
-// PARAMETER. Stock reads it off the trace, which is why a shot into the back of
-// a pane of glass leaves a concrete decal and a concrete noise — the back of the
-// pane really is nodraw. A caller that knows better says so; a caller that does
-// not passes a negative and gets stock's answer.
-//
-// NOTHING IS TRACED HERE, deliberately. The client re-traces start->origin
-// itself in fx_impact.cpp's Impact() to find the plane it decals, and the SOUND
-// — the half this call exists for — is chosen from the surfaceprop the server
-// SENT rather than from what that trace found: PlayImpactSound reads
-// nServerSurfaceProp first and only falls back to the trace. A server-side trace
-// would therefore buy nothing and cost the one thing that matters here — a
-// breakable surface stops being solid to MASK_SHOT the moment its first pane
-// goes, so the re-trace would sail through the pane the shot just hit and put
-// the impact on the wall behind it.
-//-----------------------------------------------------------------------------
-void SourceSharp_ImpactEffect( const float *pStartXYZ, const float *pEndXYZ,
-                               int32_t nSurfaceProp, int32_t nDamageType,
-                               uint32_t hEntity )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pStartXYZ || !pEndXYZ )
-		return;
-
-	SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	ss::CEffectData data;
-	data.m_vStart       = Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
-	data.m_vOrigin      = Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] );
-	data.m_nSurfaceProp = nSurfaceProp;
-	data.m_nDamageType  = nDamageType;
-	data.m_nHitBox      = 0;
-
-	// The entity index the client attaches the impact to. A server-only entity
-	// has none, and 0 — the world — is what stock writes for anything the client
-	// cannot name.
-	const int nIndex    = ent.SoundSourceIndex();
-	data.m_nEntIndex    = ( nIndex == SOUND_FROM_WORLD ) ? 0 : nIndex;
-
-	DispatchEffect( "Impact", data );
 }
 
 //-----------------------------------------------------------------------------

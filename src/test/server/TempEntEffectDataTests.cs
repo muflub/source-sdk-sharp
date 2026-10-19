@@ -870,23 +870,36 @@ public class TempEntEffectDataTests
 
         Assert.True(filesRead == shells.Length, "both shells were read");
 
-        // THREE, NOT FOUR, AND THE FOURTH NEVER DISPATCHED IN THIS BUILD.
+        // ONE SINCE plan_server_native_v2 T4d. `Impact` and `watersplash` were
+        // SourceSharp_ImpactEffect's and SourceSharp_SplashEffect's, which
+        // EffectsOverTempEnts had already replaced (Part 8) and which went with
+        // their slots; managed code dispatches both names now (asserted below
+        // against EffectsOverTempEnts' own text, so the move is not a loss).
         //
         // `GlassImpact`'s only server-side caller was
         // `CBaseEntity::HandleShotImpactingGlass` in shell_ai_orphans.cpp, and
         // that body sat inside `#ifndef SS_CBASEENTITY_ALIAS` -- an arm this
         // build has never compiled -- until lane the-close 1/N deleted it with
-        // the other 240. So the shells dispatched three names before that
-        // commit and three after; what changed is that the text stopped
-        // claiming otherwise.
-        Assert.True(live.Count >= 3,
-            $"the shells dispatch at least three distinct effects by name ({string.Join(", ", live)})");
+        // the other 240.
+        Assert.True(live.Count >= 1,
+            $"the shells dispatch at least one effect by name ({string.Join(", ", live)})");
 
-        foreach (string expected in new[] { "Impact", "watersplash", "bloodspray" })
+        Assert.True(live.Contains("bloodspray"),
+            "'bloodspray' is still dispatched from the shells -- plan Part 6 names it as one "
+          + "of the live callers this table carries");
+
+        foreach (string moved in new[] { "Impact", "watersplash" })
         {
-            Assert.True(live.Contains(expected),
-                $"'{expected}' is still dispatched from the shells -- plan Part 6 names it as one "
-              + "of the live callers this table carries");
+            Assert.DoesNotContain(moved, live);
+        }
+
+        string managedPath = RepoLayout.Repo("src", "server", "managed", "EffectsOverTempEnts.cs");
+        Assert.True(File.Exists(managedPath), "EffectsOverTempEnts.cs is readable at " + managedPath);
+        string managed = File.ReadAllText(managedPath);
+        foreach (string moved in new[] { "Impact", "watersplash" })
+        {
+            Assert.True(managed.Contains($"Dispatch(\"{moved}\", in data);", StringComparison.Ordinal),
+                $"'{moved}' left the shells for EffectsOverTempEnts, which dispatches it by name");
         }
 
         Assert.DoesNotContain("GlassImpact", live);

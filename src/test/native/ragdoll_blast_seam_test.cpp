@@ -204,7 +204,8 @@ std::vector<std::string> DeclaredTraceMasks( const std::string &strHeader )
 } // namespace
 
 //-----------------------------------------------------------------------------
-// (1) The mask vocabulary, on both arms.
+// (1) The mask vocabulary: the client's native arm maps every member; the
+// server's native arm maps none (managed TraceMasks does, since T4d).
 //-----------------------------------------------------------------------------
 TEST( RagdollBlastSeam, EveryTraceMaskIsMappedOnBothArms )
 {
@@ -232,13 +233,18 @@ TEST( RagdollBlastSeam, EveryTraceMaskIsMappedOnBothArms )
 		if ( masks[ i ] == "SOURCESHARP_TRACE_BRUSHES" )
 			continue;
 
-		EXPECT_NE( server.find( masks[ i ] ), std::string::npos )
-			<< masks[ i ] << " is mapped on the SERVER's arm. sourcesharp.h says what "
-			   "happens when it is not: the value falls through to the default, "
-			   "brushes only, and answers a plausible wrong number in silence";
+		// THE SERVER'S ARM IS MANAGED since plan_server_native_v2 T4d:
+		// TraceMasks.Line hands the trace slot the engine's own mask, and
+		// TraceMaskFoldTests holds every row of it. The native trace names no
+		// member at all, so a table cannot creep back in beside the managed one.
+		EXPECT_EQ( server.find( masks[ i ] ), std::string::npos )
+			<< masks[ i ] << " is compared on the SERVER's native arm, which carries "
+			   "the engine mask TraceMasks decided and must decide nothing itself";
 
 		EXPECT_NE( client.find( masks[ i ] ), std::string::npos )
-			<< masks[ i ] << " is mapped on the CLIENT's arm, for the same reason";
+			<< masks[ i ] << " is mapped on the CLIENT's arm. sourcesharp.h says what "
+			   "happens when it is not: the value falls through to the default, "
+			   "brushes only, and answers a plausible wrong number in silence";
 	}
 }
 

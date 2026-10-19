@@ -1,3 +1,6 @@
+# 2026-10-19, plan_server_native_v2 T4d (the area portal records to C#): shell_areaportal.cpp and its debug readout
+#   shell_areaportal_debug.cpp left the server link: server objects 103 -> 101, shim 103 -> 101 (debug build); no cross-edge moved.
+#   Hand-applied from tools/entity-census's diff.
 # 2026-10-19, plan_server_native_v2 T4b (the temp entity tables planned in C#): shell_tempents_store.cpp joined the server
 #   link (the managed plan's block, read and stored): server objects 102 -> 103, shim 102 -> 103 (on main after T4c; 103 -> 104 at the lane's base); no cross-edge moved.
 #   Hand-applied from tools/entity-census's diff.
@@ -916,11 +919,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 103       141
+objects linked                                                 101       141
   ... stock game/server | game/client                            0         7
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        103       134
+  ... SourceSharp shim (sourcesharp/**)                        101       134
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0

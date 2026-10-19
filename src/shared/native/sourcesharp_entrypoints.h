@@ -61,7 +61,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 150 slots.
+// SERVER ONLY -- 132 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -76,10 +76,6 @@ void SourceSharp_ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDama
 void SourceSharp_ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage,
                                    int32_t nDamageType, const float *pForceXYZ,
                                    const float *pPositionXYZ );
-uint32_t SourceSharp_AreaPortalCreate( int32_t nPortalNumber, int32_t nPortalVersion );
-void SourceSharp_AreaPortalDestroy( uint32_t hPortal );
-void SourceSharp_AreaPortalSetOpen( uint32_t hPortal, int32_t bOpen );
-void SourceSharp_AreaPortalSetWindow( uint32_t hPortal, uint32_t hEntity, float flFadeDist );
 void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ, int32_t nColor,
                               float flAmount, int32_t bStream, int32_t nSprayFlags );
 void SourceSharp_BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed );
@@ -137,8 +133,6 @@ void SourceSharp_EntityGetVelocity( uint32_t hEntity, float *pOutXYZ );
 void SourceSharp_EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ );
 int32_t SourceSharp_EntityIsPlayer( uint32_t hEntity );
 int32_t SourceSharp_EntityIsValid( uint32_t hEntity );
-void SourceSharp_EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY,
-                                   float flSizeZ );
 void SourceSharp_EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset );
 void SourceSharp_EntityMarkStateChanged( uint32_t hEntity );
 int32_t SourceSharp_EntityModelSurfaceProp( uint32_t hEntity );
@@ -153,7 +147,6 @@ void SourceSharp_EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR )
 void SourceSharp_EntitySetBounce( uint32_t hEntity, int32_t nBounces );
 void SourceSharp_EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ,
                                   const float *pMaxsXYZ );
-void SourceSharp_EntitySetBrushSolidity( uint32_t hEntity, int32_t nSolidity );
 void SourceSharp_EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup );
 void SourceSharp_EntitySetGravity( uint32_t hEntity, float flGravity );
 void SourceSharp_EntitySetHealth( uint32_t hEntity, int32_t nHealth );
@@ -161,12 +154,10 @@ int32_t SourceSharp_EntitySetKeyValue( uint32_t hEntity, const char *pKey, const
 void SourceSharp_EntitySetLocalTransform( uint32_t hChild, const float *pOrigin,
                                           const float *pAngles );
 void SourceSharp_EntitySetModel( uint32_t hEntity, const char *pModel );
-void SourceSharp_EntitySetNotSolid( uint32_t hEntity, int32_t bNotSolid );
 void SourceSharp_EntitySetOrigin( uint32_t hEntity, const float *pXYZ );
 void SourceSharp_EntitySetOwner( uint32_t hEntity, uint32_t hOwner );
 int32_t SourceSharp_EntitySetParent( uint32_t hChild, uint32_t hParent,
                                      int32_t nParentAttachment );
-void SourceSharp_EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled );
 void SourceSharp_EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags );
 void SourceSharp_EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags );
 void SourceSharp_EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways );
@@ -191,18 +182,10 @@ void SourceSharp_EventSetString( void *hEvent, const char *pKey, const char *pVa
 int32_t SourceSharp_ExitWatchArm( const char *pRecordPath );
 int32_t SourceSharp_ExitWatchDisarm( void );
 int32_t SourceSharp_ExitWatchRead( int32_t *pOut, int32_t nMax );
-void SourceSharp_ExplosionEffect( const float *pOrigin, int32_t nModelIndex, float flScale,
-                                  int32_t nFrameRate, int32_t nFlags, int32_t nRadius,
-                                  int32_t nMagnitude );
 uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pClassName );
-void SourceSharp_FunnelEffect( const float *pOriginXYZ, int32_t nSpriteIndex,
-                               int32_t bReversed );
 uint32_t SourceSharp_GetCommandClientHandle( void );
 uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex );
-void SourceSharp_GetPlayerShootOrigin( uint32_t hPlayer, float *pOutXYZ );
 int32_t SourceSharp_GetPlayerTeam( uint32_t hPlayer );
-void SourceSharp_ImpactEffect( const float *pStartXYZ, const float *pEndXYZ,
-                               int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity );
 int32_t SourceSharp_InvisibleRangeReach( void );
 uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPackedKeys,
                                      int32_t nBytes );
@@ -221,7 +204,6 @@ int32_t SourceSharp_PlayerGetObserverMode( uint32_t hPlayer );
 int32_t SourceSharp_PlayerIsAlive( uint32_t hPlayer );
 void SourceSharp_PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ,
                                      const float *pAnglesPYR );
-void SourceSharp_PlayerRespawn( uint32_t hPlayer );
 int32_t SourceSharp_PlayerRunMove( uint32_t hPlayer, int32_t nIndex, int32_t nStage );
 int32_t SourceSharp_PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType );
 void SourceSharp_PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode );
@@ -234,7 +216,6 @@ int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax );
 int32_t SourceSharp_PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut );
 void SourceSharp_PlayerShadowRelease( uint32_t hPlayer );
 void SourceSharp_PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll );
-int32_t SourceSharp_PrecacheDecal( const char *pName );
 int32_t SourceSharp_PrecacheModel( const char *pszModel );
 void SourceSharp_RegisterClassOps( const char *pClassName, uint32_t nOpMask );
 void SourceSharp_RegisterDamageRules( const SourceSharpDamageRules *pRules );
@@ -243,7 +224,6 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
                                          int32_t nOutputCount, int32_t nKind );
 void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand );
 void SourceSharp_SetSkyboxParams( const SourceSharpSkyboxParams *pParams );
-void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t bInSlime );
 int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
                                   SourceSharpTeBuiltTable_t *pOut );
 int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys,
@@ -261,15 +241,12 @@ int32_t SourceSharp_TraceLineSurface( const float *pStartXYZ, const float *pEndX
                                       float *pOutEndXYZ, float *pOutNormalXYZ,
                                       uint32_t *pOutHit, int32_t *pOutSurfaceProps,
                                       int32_t *pOutSurfaceFlags, int32_t *pOutHitgroup );
-uint32_t SourceSharp_TracePlayerAim( uint32_t hPlayer, float flRange, float *pOutHitXYZ );
-void SourceSharp_TracerEffect( const float *pStartXYZ, const float *pEndXYZ );
 int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes,
                                      int32_t nPlayerIndex, int32_t bReliable );
 void SourceSharp_ViewPunch( const float *pOrigin, const float *pPunchPYR, float flRadius,
                             int32_t bInAir );
 int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
                                        int32_t *pOutSlime );
-const char *SourceSharp_WorldChapterTitle( void );
 #endif
 
 //---------------------------------------------------------------------------

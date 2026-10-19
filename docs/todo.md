@@ -296,6 +296,57 @@ by layout. What is left, each with its exit:
   game rules, the StdEnt tiers) is not refused; no temp entity name can take
   one of those today.
 
+## Entity API and world in C# (plan_server_native_v2 T4d): what stayed native, and why
+
+Measured at the lane's tip (2026-10-19). T4d moved: the five effect slots
+EffectsOverTempEnts already answered, four collision compositions, a player's
+respawn / shoot origin / aim, the trace mask table (TraceMasks), the decal
+precache (onto IVEngineServer), the area portal records and their per-client
+walk (AreaPortals), worldspawn's own keys, the default light styles, and the two
+TE forwards left without callers. What is left in the lane's files, each with
+its exit:
+
+- **The traces** (shell_worldquery.cpp's TraceLineInto, TraceHull,
+  EntityTraceHull, and the traced arms of PaintDecal, BubbleEffect and
+  WaterSurfaceBelow): the engine calls the native ITraceFilter's ShouldHitEntity
+  per candidate, mid-trace, through its vtable. P3f's managed-built filter is
+  the exit; BubbleEffect and WaterSurfaceBelow also want the trace's contents,
+  which no managed trace returns yet.
+- **PaintDecal's permanent form** calls MakeInitMessage on the native recipient
+  filter (signon data), and its traced forms need trace_t's entity, model and
+  local position: P3f's filter object again. TE_BSPDecal and TE_ProjectDecal
+  stay with it.
+- **BloodEffect**: g_pGameRules->IsMultiplayer() (the amount x5) has no managed
+  route (BloodEffectPortabilityTests says so); UTIL_BloodStream keeps
+  TE_BloodStream, UTIL_Smoke and UTIL_BloodDrips keep ss::Effects()'s Smoke and
+  Sparks and their TE forwards.
+- **CWorld::DecalTrace and CWorld::ImpactTrace** are reached virtually from the
+  native UTIL_DecalTrace / UTIL_ImpactTrace (util_shared_library.cpp,
+  server_util_library.cpp); they move with those callers, and TE_Decal,
+  TE_WorldDecal and DispatchEffect("Impact") with them.
+- **W_Precache and CPrecacheRegister** fill g_sModelIndex* globals the native
+  util libraries and TE forwards read; they go when those readers do.
+- **CWorld::Precache's sequence** (game rules install, sound ent, the
+  pre-entity pass, standard entities, W_Precache, ClientGamePrecache) is the
+  lifecycle lane's (P3e: kServerSystems' order to LifecycleStages).
+- **CWorldCollideable::GetCollisionModel** is an ICollideable method the engine
+  calls through the vtable; its FOLD row is wrong for that reason.
+- **EntityGetHealth / EntitySetHealth / PlayerIsAlive, EntityGetEyePosition /
+  EyeAngles, EntityGetVelocity / SetVelocity / Teleport, EntityAddBaseVelocity**:
+  the native movement block reads health and deadflag (MvIsAlive), v_angle sits
+  in the CPlayerState the engine reads by layout (GetPlayerState), and the
+  velocity home is the native physics object's: the movement lane's (P3g).
+- **EntityGetOrigin / Angles / ModelName** are both-sided slots with client
+  bodies; the server half moving to block reads needs the row split per side.
+- **Not reached this lane, no blocker found**: EntityIsPlayer, EntityGetClassName,
+  GetPlayerHandle and FindEntityByClassname (the directory answers them; the
+  EngineSide members are shared and [SuppressGCTransition]), GetPlayerTeam /
+  PlayerSetTeam (nothing native reads m_iTeamNum: an SsPlayer [SaveField] behind
+  ArsenalPlayers would do), TemplateSpawnKeyed, EntitySetKeyValue,
+  EntitiesInSphere, EntityGetState, EntityTakeDamage, EntityModelSurfaceProp (it
+  wants IMaterial / IMaterialVar forwarders) and AngleVectorsFromForward (the
+  client's pane split is native and the two must agree to the bit).
+
 ## The client's sound emit path in C#: follow-ups and divergences
 
 - **CLOSED 2026-10-19: gamesound.h is dead on both sides.** Nothing defines

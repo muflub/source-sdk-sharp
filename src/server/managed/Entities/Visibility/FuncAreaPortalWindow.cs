@@ -23,8 +23,8 @@ namespace SourceSharp.Server;
 /// </para>
 ///
 /// <para>
-/// So this class owns both halves of one decision: it tells the native portal
-/// entry what distance to shut at, and it networks the same distances so the
+/// So this class owns both halves of one decision: it tells its portal record
+/// what distance to shut at, and it networks the same distances so the
 /// client's shell can fade the pane over exactly that band. There is no second
 /// copy of the numbers.
 /// </para>
@@ -41,11 +41,11 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncAreaportalwindow, ScriptedEntityKind.Brush)]
 public sealed class FuncAreaPortalWindow : ScriptedEntity
 {
-    public FuncAreaPortalWindow(IEnginePrecache precache, IEngineEntityRender render, IEngineVisibility visibility)
+    public FuncAreaPortalWindow(IEnginePrecache precache, IEngineEntityRender render, IAreaPortals portals)
     {
         Precache = precache;
         Render = render;
-        Visibility = visibility;
+        Portals = portals;
     }
 
     /// <summary>asking for what this entity will need before the level runs.</summary>
@@ -55,7 +55,7 @@ public sealed class FuncAreaPortalWindow : ScriptedEntity
     private readonly IEngineEntityRender Render;
 
     /// <summary>what can be seen, and how it is lit.</summary>
-    private readonly IEngineVisibility Visibility;
+    private readonly IAreaPortals Portals;
     /// <summary>What a map may set on this entity. See <see cref="FuncAreaPortalWindowVars"/>.</summary>
     [ScriptVars] public FuncAreaPortalWindowVars Vars = new();
 
@@ -70,7 +70,7 @@ public sealed class FuncAreaPortalWindow : ScriptedEntity
         State.TranslucencyLimit    = Vars.TranslucencyLimit;
         State.BackgroundModelIndex = -1;
 
-        _portal = Visibility.AreaPortalCreate(Vars.PortalNumber, Vars.PortalVersion);
+        _portal = Portals.Create(Vars.PortalNumber, Vars.PortalVersion);
 
         if (_portal == 0)
         {
@@ -87,7 +87,7 @@ public sealed class FuncAreaPortalWindow : ScriptedEntity
 
     public override void OnRemoved()
     {
-        Visibility.AreaPortalDestroy(_portal);
+        Portals.Destroy(_portal);
         _portal = 0;
     }
 
@@ -143,11 +143,17 @@ public sealed class FuncAreaPortalWindow : ScriptedEntity
             }
         }
 
-        // LAST, and that ordering is the bug waiting to happen. The native
-        // portal measures the fade distance from this entity's volume, and the
-        // volume is whatever model it is wearing — so asking before the model
-        // has been swapped measures from the brush the mapper did not want.
-        Visibility.AreaPortalSetWindow(_portal, Handle, Vars.FadeDist);
+        // LAST, and that ordering is the bug waiting to happen. The portal
+        // measures the fade distance from this entity's volume, and the volume
+        // is whatever model it is wearing — so asking before the model has been
+        // swapped measures from the brush the mapper did not want.
+        //
+        // The world-space box is the shell's WorldSpaceSurroundingBounds:
+        // origin plus the collision bounds, both off this entity's own block
+        // (plan_server_native_v2 T4d; the native SetWindow read them there).
+        Vector origin = Entities.GetOrigin(Handle);
+        var (mins, maxs) = Entities.GetBounds(Handle);
+        Portals.SetWindow(_portal, origin + mins, origin + maxs, Vars.FadeDist);
     }
 }
 
