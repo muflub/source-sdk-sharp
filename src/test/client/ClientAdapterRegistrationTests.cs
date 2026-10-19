@@ -11,7 +11,7 @@ namespace SourceSharp.Tests;
 /// the adapter through that registration, as its interface, over a
 /// <see cref="FakeShimRoot"/>, so it covers both that the root passes the right
 /// area and that the adapter calls the right slot. Over an engine that never
-/// attached, the root hands the adapter no area and a call refuses.
+/// attached, the registration refuses before it builds any adapter.
 /// </summary>
 public unsafe class ClientAdapterRegistrationTests
 {
@@ -420,11 +420,6 @@ public unsafe class ClientAdapterRegistrationTests
         Assert.Equal((4, 3), (bytes, line));
     }
 
-    /// <summary>A guarded call over an unattached engine answers its default, as the attach guard made it.</summary>
-    [Fact]
-    public void OverAnUnattachedEngineAGuardedFxCallAnswersItsDefault()
-        => Assert.Equal(-1, Composed(new EngineSide(Side.Client)).Require<IFxFlashReads>().EntityIndex(5));
-
     [Fact]
     public void TheRegisteredUiSurfaceCallsThroughTheUiArea()
     {
@@ -433,12 +428,15 @@ public unsafe class ClientAdapterRegistrationTests
                                                   s => s.TextureCreate()));
     }
 
+    /// <summary>
+    /// Over an engine that never attached, the registration itself refuses:
+    /// no adapter is built over a missing area (the game never composes before
+    /// the attach; a test composition hands fakes instead).
+    /// </summary>
     [Fact]
-    public void OverAnUnattachedEngineTheUiSurfaceRefuses()
+    public void OverAnUnattachedEngineTheRegistrationRefuses()
     {
-        var surface = Composed(new EngineSide(Side.Client)).Require<IUiSurface>();
-
-        var refusal = Assert.Throws<InvalidOperationException>(() => surface.TextureCreate());
-        Assert.Contains("UiClient", refusal.Message);
+        var refusal = Assert.Throws<InvalidOperationException>(() => Composed(new EngineSide(Side.Client)));
+        Assert.Contains("before its shim areas were attached", refusal.Message);
     }
 }

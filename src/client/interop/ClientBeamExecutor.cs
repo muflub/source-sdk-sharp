@@ -53,135 +53,113 @@ public sealed unsafe class BeamsClientBinding(Func<IClientBeamCallbacks?> target
 }
 
 /// <summary>The real executor, over the IShimEffectsRenderClient api.</summary>
-internal sealed unsafe class ClientBeamExecutor(EffectsRenderClientArea? effectsRenderClient) : IClientBeamExecutor
+internal sealed unsafe class ClientBeamExecutor(EffectsRenderClientArea effectsRenderClient) : IClientBeamExecutor
 {
-    // The shim areas this calls, taken by constructor (plan_shim_areas_split
-    // phase 5). Null on a client that never attached (an unattached engine
-    // double): a guarded call answers its default and any other throws, as
-    // they did through the side's attach guard.
-    private EffectsRenderClientArea EffectsRenderClient => effectsRenderClient ?? throw ShimAreaGuard.NotAttached(nameof(EffectsRenderClient));
-
     public void View(bool insideView, Span<float> out42)
     {
         out42.Clear();
-        if (effectsRenderClient is null || out42.Length < 42)
+        if (out42.Length < 42)
             return;
         fixed (float* p = out42)
-            EffectsRenderClient.BeamView(insideView ? 1 : 0, p);
+            effectsRenderClient.BeamView(insideView ? 1 : 0, p);
     }
 
     public bool ModelInfo(int modelIndex, out int frameCount)
     {
         frameCount = 0;
-        if (effectsRenderClient is null)
-            return false;
         int n = 0;
-        bool exists = EffectsRenderClient.BeamModelInfo(modelIndex, &n) != 0;
+        bool exists = effectsRenderClient.BeamModelInfo(modelIndex, &n) != 0;
         frameCount = n;
         return exists;
     }
 
     public int ModelIndex(string name)
     {
-        if (effectsRenderClient is null)
-            return -1;
         byte[] bytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* p = bytes)
-            return EffectsRenderClient.BeamModelIndex(p);
+            return effectsRenderClient.BeamModelIndex(p);
     }
 
     public EntityHandle EntityAt(int entry)
-        => (effectsRenderClient is not null) ? new EntityHandle(EffectsRenderClient.BeamEntityAt(entry)) : EntityHandle.None;
+        => new EntityHandle(effectsRenderClient.BeamEntityAt(entry));
 
     public bool EntityHasModel(EntityHandle entity)
-        => (effectsRenderClient is not null) && EffectsRenderClient.BeamEntityHasModel(entity.Value) != 0;
+        => effectsRenderClient.BeamEntityHasModel(entity.Value) != 0;
 
     public int EntityFacts(EntityHandle entity, int attachment, bool tryAttachment, Span<float> out9)
     {
         out9.Clear();
-        if (effectsRenderClient is null || out9.Length < 9)
+        if (out9.Length < 9)
             return 0;
         fixed (float* p = out9)
-            return EffectsRenderClient.BeamEntityFacts(entity.Value, attachment, tryAttachment ? 1 : 0, p);
+            return effectsRenderClient.BeamEntityFacts(entity.Value, attachment, tryAttachment ? 1 : 0, p);
     }
 
     public void BoxVisibility(in Vector mins, in Vector maxs, out bool visible, out bool culled)
     {
         visible = false;
         culled = true;
-        if (effectsRenderClient is null)
-            return;
         float* v = stackalloc float[6] { mins.X, mins.Y, mins.Z, maxs.X, maxs.Y, maxs.Z };
-        int bits = EffectsRenderClient.BeamBoxVisibility(v, v + 3);
+        int bits = effectsRenderClient.BeamBoxVisibility(v, v + 3);
         visible = (bits & 1) != 0;
         culled = (bits & 2) != 0;
     }
 
     public float HaloVisibility(in Vector origin, float proxySize)
     {
-        if (effectsRenderClient is null)
-            return 0;
         float* v = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return EffectsRenderClient.BeamHaloVisibility(v, proxySize);
+        return effectsRenderClient.BeamHaloVisibility(v, proxySize);
     }
 
     public Vector ScreenPosition(in Vector point)
     {
-        if (effectsRenderClient is null)
-            return default;
         float* v = stackalloc float[6] { point.X, point.Y, point.Z, 0, 0, 0 };
-        EffectsRenderClient.BeamScreenPosition(v, v + 3);
+        effectsRenderClient.BeamScreenPosition(v, v + 3);
         return new Vector(v[3], v[4], v[5]);
     }
 
     public int RenderableAdd(in Vector origin, in Vector mins, in Vector maxs)
     {
-        if (effectsRenderClient is null)
-            return -1;
         float* v = stackalloc float[9] { origin.X, origin.Y, origin.Z, mins.X, mins.Y, mins.Z, maxs.X, maxs.Y, maxs.Z };
-        return EffectsRenderClient.BeamRenderableAdd(v);
+        return effectsRenderClient.BeamRenderableAdd(v);
     }
 
     public void RenderableChanged(int renderable, in Vector origin, in Vector mins, in Vector maxs)
     {
-        if (effectsRenderClient is null)
-            return;
         float* v = stackalloc float[9] { origin.X, origin.Y, origin.Z, mins.X, mins.Y, mins.Z, maxs.X, maxs.Y, maxs.Z };
-        EffectsRenderClient.BeamRenderableChanged(renderable, v);
+        effectsRenderClient.BeamRenderableChanged(renderable, v);
     }
 
     public void RenderableRemove(int renderable)
     {
-        if ((effectsRenderClient is not null))
-            EffectsRenderClient.BeamRenderableRemove(renderable);
+        effectsRenderClient.BeamRenderableRemove(renderable);
     }
 
     public bool BindSprite(int modelIndex, int frame, int renderMode, bool wireframe)
-        => (effectsRenderClient is not null) && EffectsRenderClient.BeamBindSprite(modelIndex, frame, renderMode, wireframe ? 1 : 0) != 0;
+        => effectsRenderClient.BeamBindSprite(modelIndex, frame, renderMode, wireframe ? 1 : 0) != 0;
 
     public void SetHdrColorScale(int modelIndex, int renderMode, float scale)
     {
-        if ((effectsRenderClient is not null))
-            EffectsRenderClient.BeamSetHdrColorScale(modelIndex, renderMode, scale);
+        effectsRenderClient.BeamSetHdrColorScale(modelIndex, renderMode, scale);
     }
 
     public bool Glow(int modelIndex, bool bind)
-        => (effectsRenderClient is not null) && EffectsRenderClient.BeamGlow(modelIndex, bind ? 1 : 0) != 0;
+        => effectsRenderClient.BeamGlow(modelIndex, bind ? 1 : 0) != 0;
 
     public void Strip(ReadOnlySpan<float> vertices)
     {
         // Seventeen floats a vertex, two a segment: at least two segments.
-        if (effectsRenderClient is null || vertices.Length < 4 * 17)
+        if (vertices.Length < 4 * 17)
             return;
         fixed (float* p = vertices)
-            EffectsRenderClient.BeamDrawStrip(p, vertices.Length / 17);
+            effectsRenderClient.BeamDrawStrip(p, vertices.Length / 17);
     }
 
     public void Mesh(int primitive, int primitives, int colorKind, ReadOnlySpan<float> vertices)
     {
-        if (effectsRenderClient is null || vertices.Length < 9)
+        if (vertices.Length < 9)
             return;
         fixed (float* p = vertices)
-            EffectsRenderClient.BeamDrawMesh(primitive, primitives, colorKind, p, vertices.Length / 9);
+            effectsRenderClient.BeamDrawMesh(primitive, primitives, colorKind, p, vertices.Length / 9);
     }
 }

@@ -3,28 +3,18 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real answers, over the slots; a missing shim answers "not visible".</summary>
-internal sealed unsafe class ClientFxSpriteGlowSlots(FxClientArea? fxClient) : IFxSpriteGlow
+internal sealed unsafe class ClientFxSpriteGlowSlots(FxClientArea fxClient) : IFxSpriteGlow
 {
-    // The shim areas this calls, taken by constructor (plan_shim_areas_split
-    // phase 5). Null on a client that never attached (an unattached engine
-    // double): a guarded call answers its default and any other throws, as
-    // they did through the side's attach guard.
-    private FxClientArea FxClient => fxClient ?? throw ShimAreaGuard.NotAttached(nameof(FxClient));
-
     public float FractionVisible(in Vector position, float proxySize, float proxyAspect)
     {
-        if (fxClient is null)
-            return 0;
         float* p = stackalloc float[] { position.X, position.Y, position.Z };
-        return FxClient.FxSpriteGlowFraction(p, proxySize, proxyAspect);
+        return fxClient.FxSpriteGlowFraction(p, proxySize, proxyAspect);
     }
 
     public float SightDistance(in Vector position)
     {
-        if (fxClient is null)
-            return 0;
         float* p = stackalloc float[] { position.X, position.Y, position.Z };
-        return FxClient.FxGlowSightDistance(p);
+        return fxClient.FxGlowSightDistance(p);
     }
 }
 
@@ -39,45 +29,35 @@ public interface IClientSpriteHost
     int Plan(ReadOnlySpan<float> input, Span<float> output);
 }
 
-internal sealed unsafe class ClientFxSpriteDrawSlots(FxClientArea? fxClient) : IFxSpriteDraw
+internal sealed unsafe class ClientFxSpriteDrawSlots(FxClientArea fxClient) : IFxSpriteDraw
 {
-    // The shim areas this calls, taken by constructor (plan_shim_areas_split
-    // phase 5). Null on a client that never attached (an unattached engine
-    // double): a guarded call answers its default and any other throws, as
-    // they did through the side's attach guard.
-    private FxClientArea FxClient => fxClient ?? throw ShimAreaGuard.NotAttached(nameof(FxClient));
-
     public bool Begin(EntityHandle owner, in Vector offset, int modelIndex, float frame, int renderMode, int renderFx,
                       int r, int g, int b, int a, float scale, bool worldSpaceScale, float hdrColorScale,
                       float glowProxySize, Span<float> input)
     {
-        if (fxClient is null || input.Length < ClientSpriteRequest.InFloats)
+        if (input.Length < ClientSpriteRequest.InFloats)
             return false;
         float* o = stackalloc float[] { offset.X, offset.Y, offset.Z };
         fixed (float* p = input)
-            return FxClient.FxSpriteDrawBegin(owner.Value, o, modelIndex, frame, renderMode, renderFx, r, g, b, a,
+            return fxClient.FxSpriteDrawBegin(owner.Value, o, modelIndex, frame, renderMode, renderFx, r, g, b, a,
                                                 scale, worldSpaceScale ? 1 : 0, hdrColorScale, glowProxySize, p)
                    == ClientSpriteRequest.InFloats;
     }
 
     public int End(ReadOnlySpan<float> output)
     {
-        if (fxClient is null)
-            return 0;
         if (output.Length < ClientSpriteRequest.OutFloats)
-            return FxClient.FxSpriteDrawEnd(null);
+            return fxClient.FxSpriteDrawEnd(null);
         fixed (float* p = output)
-            return FxClient.FxSpriteDrawEnd(p);
+            return fxClient.FxSpriteDrawEnd(p);
     }
 
     public bool Store(ReadOnlySpan<float> output)
     {
-        if (fxClient is null)
-            return false;
         if (output.IsEmpty)
-            return FxClient.FxSpriteDrawStore(null) != 0;
+            return fxClient.FxSpriteDrawStore(null) != 0;
         fixed (float* p = output)
-            return FxClient.FxSpriteDrawStore(p) != 0;
+            return fxClient.FxSpriteDrawStore(p) != 0;
     }
 }
 
@@ -99,32 +79,23 @@ public interface IClientSpriteTrailHost
 }
 
 /// <summary>The real registry, over the slots; a missing shim has no registrations.</summary>
-internal sealed class ClientFxPrecacheSlots(FxClientArea? fxClient) : IFxPrecache
+internal sealed class ClientFxPrecacheSlots(FxClientArea fxClient) : IFxPrecache
 {
-    // The shim areas this calls, taken by constructor (plan_shim_areas_split
-    // phase 5). Null on a client that never attached (an unattached engine
-    // double): a guarded call answers its default and any other throws, as
-    // they did through the side's attach guard.
-    private FxClientArea FxClient => fxClient ?? throw ShimAreaGuard.NotAttached(nameof(FxClient));
-
-    public int Count() => (fxClient is not null) ? FxClient.FxPrecacheCount() : 0;
+    public int Count() => fxClient.FxPrecacheCount();
 
     public void Cache(int index, bool precache)
     {
-        if (fxClient is not null)
-            FxClient.FxPrecacheCache(index, precache ? 1 : 0);
+        fxClient.FxPrecacheCache(index, precache ? 1 : 0);
     }
 
     public void CacheUsedMaterials()
     {
-        if (fxClient is not null)
-            FxClient.FxCacheUsedMaterials();
+        fxClient.FxCacheUsedMaterials();
     }
 
     public void CacheMaterialHandles()
     {
-        if (fxClient is not null)
-            FxClient.FxCacheMaterialHandles();
+        fxClient.FxCacheMaterialHandles();
     }
 }
 

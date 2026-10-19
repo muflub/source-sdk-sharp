@@ -13,14 +13,11 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal sealed unsafe class InterpolationBlocks : IInterpolationBlocks
 {
-    // The shim areas this calls, taken by constructor (plan_shim_areas_split
-    // phase 5). Null on a client that never attached (an unattached engine
-    // double): a guarded call answers its default and any other throws, as
-    // they did through the side's attach guard.
-    private readonly StandaloneClientArea? _standaloneClient;
-    private StandaloneClientArea StandaloneClient => _standaloneClient ?? throw ShimAreaGuard.NotAttached(nameof(StandaloneClient));
+    // The shim area this calls, handed over by the client root once the
+    // side's areas are attached (plan_shim_areas_split phase 5).
+    private readonly StandaloneClientArea _standaloneClient;
 
-    internal InterpolationBlocks(StandaloneClientArea? standaloneClient)
+    internal InterpolationBlocks(StandaloneClientArea standaloneClient)
     {
         _standaloneClient = standaloneClient;
     }
@@ -34,12 +31,9 @@ internal sealed unsafe class InterpolationBlocks : IInterpolationBlocks
         _blocks = null;
         _count = 0;
 
-        if (_standaloneClient is null)
-            return 0;
-
         int count;
         float amount;
-        void** blocks = StandaloneClient.ClientInterpBlocks(&count, &amount);
+        void** blocks = _standaloneClient.ClientInterpBlocks(&count, &amount);
 
         if (blocks == null || count <= 0)
             return 0;

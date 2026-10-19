@@ -121,7 +121,9 @@ public unsafe class ClientSideEngineTests : IDisposable
     public void TheClientsAreaAndContainerHoldTheSameThreeFetches()
     {
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
+        using var root = new FakeShimRoot();
         var side = new EngineSide(Side.Client);
+        Assert.True(side.AttachClientShims(root.Bind(), out string why), why);
         new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
         EngineServices.AddTo(services, side);
         var entities = services.Require<IEngineEntities>();

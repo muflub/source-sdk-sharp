@@ -261,6 +261,11 @@ Each phase builds, passes its tests and is committed before the next.
   assembly. `Shared.Interop` is compiled into each side's interop to match.
 - 2026-10-19 (user): the Abi keeps only the value types its own code uses; the
   others live in the interface assemblies.
+- 2026-10-19 (user, review of phase 5): the adapters' areas are not nullable,
+  because nothing in the game composes before the attach (LoadSideV2 fails the
+  load first). Tests that compose a client module do not reach the shim at
+  all: they mock the seams the adapters implement, handed in through
+  `IClientEngineAdapters`.
 
 Open: none.
 
@@ -362,23 +367,28 @@ Open: none.
   class whose constructor takes `EngineSide` or `ModuleEngine`, and what it
   reads off it): 89 classes, of which 34 client adapters reach the engine
   through shim areas alone plus the attach guard. Those 34 take the areas they
-  call (`ClientUiSurface(UiClientArea? uiClient)`), handed over by the
-  client's root from `EngineSide.ClientShimsOrNull`, in six commits (UI, FX,
+  call (`ClientUiSurface(UiClientArea uiClient)`), handed over by the
+  client's root from `EngineSide.ClientShims`, in six commits (UI, FX,
   particles, effects render, physics, the rest); all are internal.
   - No side detaches its shims and every game composition runs after the
-    attach, so an adapter can capture its areas at construction. They are
-    nullable because the doubles compose over an engine that never attached:
-    `api.ClientAttached` became a null check of the area, so a guarded call
-    still answers its default, and an unguarded call throws `ShimAreaGuard`'s
-    refusal where `EngineSide.ClientShims` threw before.
+    attach, so an adapter captures its areas at construction, and they are
+    not nullable (review ruling, Decisions). The registration
+    (`ClientEntityFetches`) reads `ClientShims` once and refuses an engine
+    that never attached, before it builds any adapter.
+  - `ClientModule` registers the adapters through the `IClientEngineAdapters`
+    it was handed (the game's constructor hands `ClientEntityFetches`). A
+    test composing a module hands `FakeClientEngineAdapters`, mocks of the
+    seams the composition resolves, so it never reaches a shim area.
   - `ClientPhysicsSlots` also takes the side's `VPhysicsTables`. The soundscape
     audio's server branch went: a client `EngineSide` attaches only client
     areas, so it could never run.
   - `ClientAdapterRegistrationTests` holds each one through the client's
     registration over a `FakeShimRoot`, driving one slot (never a
     `SuppressGCTransition` slot, which cannot call a managed callback), plus
-    the unattached refusal and default. Withholding an area from the root
-    turns that adapter's fact red.
+    the unattached refusal. Withholding an area from the root turns that
+    adapter's fact red. `ClientModuleAdapterSeamTests` holds that the root
+    asks the adapters it was handed and that the game's constructor composes
+    the real ones.
   - The rest wait for phase 7, because what they call is `EngineSide`'s own:
     the `Engine*` bindings (34), the input host and devices (the engine's
     interfaces), `ClientModelNames` (EngineBound's model info), the server's

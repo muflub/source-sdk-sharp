@@ -8,7 +8,8 @@ namespace SourceSharp.Tests;
 /// The client composition root registers its engine adapters (the seams whose
 /// real implementations call shim areas) through the
 /// <c>IClientEngineAdapters</c> it was handed, so a test composition hands
-/// fakes and needs no attached areas.
+/// fakes and needs no attached areas, while the game's constructor composes
+/// the real ones, which refuse an engine that never attached.
 /// </summary>
 public class ClientModuleAdapterSeamTests
 {
@@ -22,5 +23,14 @@ public class ClientModuleAdapterSeamTests
 
         Assert.Equal(1, adapters.Calls);
         Assert.Same(engine, adapters.Engine);
+    }
+
+    [Fact]
+    public void TheGameConstructorComposesTheRealAdaptersWhichRefuseAnUnattachedEngine()
+    {
+        var module = new ClientModule(new ModuleEngine(new EngineSide(Side.Client)));
+
+        var refusal = Assert.Throws<InvalidOperationException>(() => module.ComposeEngineAreas());
+        Assert.Contains("before its shim areas were attached", refusal.Message);
     }
 }
