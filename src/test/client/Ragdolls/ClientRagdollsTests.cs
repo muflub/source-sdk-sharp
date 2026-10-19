@@ -426,6 +426,20 @@ public class ClientRagdollsTests
     }
 
     [Fact]
+    public void TheStepMeterTimesOneCallAFrameOverItsBodies()
+    {
+        Rig rig = Make();
+        Assert.True(rig.Ragdolls.Become(Owner, new Vector(0f, 100f, 0f), 1, out _));
+        Assert.True(rig.Ragdolls.Become(new EntityHandle(0x0003_0042u), new Vector(0f, 100f, 0f), 1, out _));
+        rig.Ragdolls.StepPoses();
+
+        CostSummary s = rig.Ragdolls.StepCost.Summary(System.Diagnostics.Stopwatch.Frequency);
+        Assert.Equal(1, s.Calls);
+        Assert.Equal(2, s.Units);
+        Assert.Equal(1, s.Window);
+    }
+
+    [Fact]
     public void AnOwnerThatIsGoneIsNotCountedAsWritten()
     {
         Rig rig = Fallen();

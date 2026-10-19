@@ -353,6 +353,44 @@ public class PhysicsFrameTests
         Assert.StartsWith("Physics:   1 objects, ", _msg[0], StringComparison.Ordinal);
         Assert.Contains("ms / AVG: ", _msg[0]);
     }
+
+    [Fact]
+    public void The_cost_meter_times_one_call_a_stepping_frame_over_its_steps()
+    {
+        PhysicsFrame frame = Frame();
+        frame.Frame();
+        _clock.AlternateTicks = true;
+        frame.Frame();
+
+        Assert.Equal(2, frame.FrameCost.Calls);
+        Assert.Equal(3, frame.FrameCost.Units);
+        Assert.Equal(3, frame.SimulateCost.Calls);
+        Assert.True(frame.FrameCost.TotalTicks >= frame.SimulateCost.TotalTicks,
+                    "the frame's time includes the solve's");
+    }
+
+    [Fact]
+    public void The_managed_share_is_the_frame_less_its_solves()
+    {
+        PhysicsFrame frame = Frame();
+        _clock.AlternateTicks = true;
+        frame.Frame();
+        frame.Frame();
+
+        Assert.Equal(2, frame.ManagedCost.Calls);
+        Assert.Equal(4, frame.ManagedCost.Units);
+        Assert.Equal(frame.FrameCost.TotalTicks - frame.SimulateCost.TotalTicks, frame.ManagedCost.TotalTicks);
+    }
+
+    [Fact]
+    public void The_cost_meter_skips_a_frame_that_did_not_step()
+    {
+        _native.Env = 0;
+        PhysicsFrame frame = Frame();
+        frame.Frame();
+
+        Assert.Equal(0, frame.FrameCost.Calls + frame.SimulateCost.Calls);
+    }
 }
 
 /// <summary>

@@ -112,6 +112,25 @@ public sealed class PhysicsFrame : IGameLifecycle
     /// <summary>Frames that stepped the solver, since the module started.</summary>
     public long Steps { get; private set; }
 
+    /// <summary>
+    /// The whole frame's wall time, one call a frame that stepped, its units
+    /// the steps (two on alternate ticks): the solve, the active-object walk,
+    /// the owners' update crossing and the player walk (cs_sv_physics_cost).
+    /// </summary>
+    public CostMeter FrameCost { get; } = new();
+
+    /// <summary>The solve alone (IPhysicsEnvironment::Simulate), one call a step.</summary>
+    public CostMeter SimulateCost { get; } = new();
+
+    /// <summary>
+    /// The frame less its solves, one call a frame that stepped: what managed
+    /// adds around vphysics (the decisions, the walks and their crossings).
+    /// </summary>
+    public CostMeter ManagedCost { get; } = new();
+
+    // The solves' ticks inside the current frame, for ManagedCost.
+    private long _frameSolveTicks;
+
     /// <summary>Whether the level is between its pre- and post-entity init (CPhysicsHook's m_bPaused).</summary>
     public bool Paused => _paused;
 
@@ -130,12 +149,23 @@ public sealed class PhysicsFrame : IGameLifecycle
     /// </summary>
     public void Frame()
     {
+        long start = CostMeter.Start();
+        long steps = Steps;
+        _frameSolveTicks = 0;
         float interval = _clock.FrameTime > 0f ? _clock.TickInterval : 0f;
 
         if (_clock.AlternateTicks)
             Step(interval);
 
         Step(interval);
+
+        if (Steps != steps)
+        {
+            long spent = CostMeter.Start() - start;
+            int stepped = (int)(Steps - steps);
+            FrameCost.Record(spent, stepped);
+            ManagedCost.Record(spent - _frameSolveTicks, stepped);
+        }
     }
 
     /// <summary>
@@ -189,7 +219,11 @@ public sealed class PhysicsFrame : IGameLifecycle
         _v.DebugCheckContacts(env);
 #endif
 
+        long solve = CostMeter.Start();
         _v.Simulate(env, deltaTime);
+        long solved = CostMeter.Start() - solve;
+        SimulateCost.Record(solved, 1);
+        _frameSolveTicks += solved;
         Steps++;
 
         // The per-tick transform update, for every owner the solver moved (every

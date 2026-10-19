@@ -33,6 +33,10 @@ public sealed class ClientRagdollsCommand(ILog log, IClientRagdolls ragdolls) : 
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"SSCLRAGDOLLCOST\t{(bodies.StepBodyFrames == 0 ? 0 : bodies.StepTicks * tickNs / bodies.StepBodyFrames):F1}\t" +
             $"{bodies.StepBodyFrames}\t{(bodies.Writes == 0 ? 0 : bodies.WriteTicks * tickNs / bodies.Writes):F1}\t{bodies.Writes}\n"));
+        // The same meters' distributions: the step per frame (units: bodies)
+        // and the write per call, min/median/p95/max over the latest calls.
+        log.Msg(CostMeter.Line("clragdoll.step", bodies.StepCost.Summary(Stopwatch.Frequency)));
+        log.Msg(CostMeter.Line("clragdoll.write", bodies.WriteCost.Summary(Stopwatch.Frequency)));
         if (args.Trim() == "reset")
             bodies.ResetCost();
 
