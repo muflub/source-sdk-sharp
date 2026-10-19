@@ -65,8 +65,10 @@ public partial class EngineApiCensusTests
         var bases = Regex.Matches(areas, @":\s*public\s+(\w+)").Select(m => m.Groups[1].Value).ToHashSet();
         // 9 since lane c2-sims took IShimEngine's file reads to the shared base
         // (no server area extends IShimEngine now; the factory below serves it);
-        // 8 since plan_server_native_v2 T3 retired IShimStringTablesServer.
-        Assert.True(bases.Count >= 8, $"read the shared bases ({bases.Count})");
+        // 8 since plan_server_native_v2 T3 retired IShimStringTablesServer; 7 since
+        // IShimWorld emptied (PointContents folded, 2026-10-19). A floor for the
+        // reader, not a target: the port shrinks it.
+        Assert.True(bases.Count >= 6, $"read the shared bases ({bases.Count})");
 
         // And a shared interface no server area extends (IShimEvents, since
         // plan_side_isolation P2 took its user-message slot to IShimUserMessages):

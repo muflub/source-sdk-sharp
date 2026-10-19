@@ -580,27 +580,6 @@ void SourceSharp_SoundPatchFree( int32_t hPatch )
 // entity with a recipient filter, and a surface's scrape sound names.
 //-----------------------------------------------------------------------------
 
-// CSoundParameters for a sound script: volume, pitch, pitchlow, pitchhigh and
-// soundlevel into pOut[0..4]. 0 when the script has no such entry.
-int32_t SourceSharp_SoundScriptParameters( const char *pSoundName, float *pOut )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pSoundName || !pOut )
-		return 0;
-
-	CSoundParameters params;
-	if ( !GameSound_GetParameters( pSoundName, params, NULL ) )
-		return 0;
-
-	pOut[ 0 ] = params.volume;
-	pOut[ 1 ] = (float)params.pitch;
-	pOut[ 2 ] = (float)params.pitchlow;
-	pOut[ 3 ] = (float)params.pitchhigh;
-	pOut[ 4 ] = (float)params.soundlevel;
-	return 1;
-}
-
 // A sound patch on the entity, heard from where it stands: stock's
 // SoundCreate( CPASAttenuationFilter( entity, level ), entindex, channel,
 // name, level ). The handle the managed controller tracks it by, or 0.
@@ -621,35 +600,4 @@ int32_t SourceSharp_SoundPatchCreate( uint32_t hEntity, int32_t nChannel,
 	CSoundPatch *pPatch = ShellSoundController()->SoundCreate( filter, ent.SoundSourceIndex(),
 	                                                           nChannel, pSoundName, level );
 	return pPatch ? pPatch->Handle() : 0;
-}
-
-// The surface's scrape sound, rough (bSmooth 0) or smooth (1), into pOut as a
-// NUL-terminated name. Its length, or 0 when the surface has none.
-int32_t SourceSharp_SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth,
-                                        char *pOut, int32_t nOut )
-{
-	SOURCESHARP_TRACE_HOT();
-
-	if ( !pOut || nOut <= 0 || !physprops )
-		return 0;
-
-	pOut[ 0 ] = 0;
-	const surfacedata_t *pData = physprops->GetSurfaceData( nSurfaceProps );
-	if ( !pData )
-		return 0;
-
-	const unsigned short nName = bSmooth ? pData->sounds.scrapeSmooth : pData->sounds.scrapeRough;
-	if ( !nName )
-		return 0;
-
-	const char *pName = physprops->GetString( nName );
-	if ( !pName )
-		return 0;
-
-	size_t nLength = strlen( pName );
-	if ( nLength >= (size_t)nOut )
-		nLength = (size_t)nOut - 1;
-	memcpy( pOut, pName, nLength );
-	pOut[ nLength ] = 0;
-	return (int32_t)nLength;
 }

@@ -351,7 +351,7 @@ TEST( EffectsCluster, TheFlipTookEveryHeldTuAndEveryHolder )
 //-----------------------------------------------------------------------------
 TEST( EffectsCluster, TheGibAndDissolveSlotsAreGone )
 {
-	const std::string wq = NoWhitespace( Load( kWorldQuery, "SourceSharp_SparkEffect" ) );
+	const std::string wq = NoWhitespace( Load( kWorldQuery, "SourceSharp_TraceLine" ) );
 
 	ASSERT_FALSE( wq.empty() );
 

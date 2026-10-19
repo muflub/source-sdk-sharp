@@ -31,6 +31,20 @@ public interface IVtablePhysicsSurfaceProps
     /// physics module knows nothing of.
     /// </summary>
     int GameMaterial(int surfaceProps);
+
+    /// <summary>
+    /// One surfaceprop as the movement loop and the friction sounds read it:
+    /// <c>GetSurfaceData( n )</c>'s game and audio fields, and the friction and
+    /// density <c>GetPhysicsProperties</c> answers. <c>default</c> (not valid)
+    /// for an index the physics module knows nothing of.
+    /// </summary>
+    MoveSurface Surface(int surfaceProps);
+
+    /// <summary>
+    /// <c>sounds.scrapeSmooth</c> or <c>sounds.scrapeRough</c>'s name, or null
+    /// when the surface has none.
+    /// </summary>
+    string? ScrapeSound(int surfaceProps, bool smooth);
 }
 
 public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVPhysicsSurfaceSounds
@@ -104,5 +118,37 @@ public sealed unsafe class PhysicsSurfaceProps : IVtablePhysicsSurfaceProps, IVP
     {
         var data = (VPhysicsSurfaceData*)_fwd->GetSurfaceData(_self, surfaceProps);
         return data == null ? 0 : data->GameMaterial;
+    }
+
+    public MoveSurface Surface(int surfaceProps)
+    {
+        var data = (VPhysicsSurfaceData*)_fwd->GetSurfaceData(_self, surfaceProps);
+        if (data == null)
+            return default;
+
+        float density = 0f, friction = 0f;
+        _fwd->GetPhysicsProperties(_self, surfaceProps, &density, null, &friction, null);
+
+        return new MoveSurface
+        {
+            Valid = true,
+            Friction = friction,
+            Material = data->GameMaterial,
+            Climbable = data->Climbable,
+            MaxSpeedFactor = data->MaxSpeedFactor,
+            JumpFactor = data->JumpFactor,
+            Density = density,
+            RoughnessFactor = data->RoughnessFactor,
+            RoughThreshold = data->RoughThreshold,
+        };
+    }
+
+    public string? ScrapeSound(int surfaceProps, bool smooth)
+    {
+        var data = (VPhysicsSurfaceData*)_fwd->GetSurfaceData(_self, surfaceProps);
+        if (data == null)
+            return null;
+
+        return Name(smooth ? data->ScrapeSmooth : data->ScrapeRough);
     }
 }

@@ -3,10 +3,10 @@
 // Included by fwd_shim_test.cpp: the compiler's count for each generated shim
 // interface, held to the forwarder table the server's library serves for it.
 
-TEST( FwdShimAreas, ShimEngineIs9Slots )
+TEST( FwdShimAreas, ShimEngineIs7Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimEngine::SurfaceScrapeSound ).slot + 1;
-	EXPECT_EQ( 9, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimEngine::SoundPatchCreate ).slot + 1;
+	EXPECT_EQ( 7, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEngine" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -48,28 +48,28 @@ TEST( FwdShimAreas, ShimModelsServerIs4Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimPrecacheIs5Slots )
+TEST( FwdShimAreas, ShimPrecacheIs3Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimPrecache::PrecacheParticleSystem ).slot + 1;
-	EXPECT_EQ( 5, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimPrecache::PrecacheDecal ).slot + 1;
+	EXPECT_EQ( 3, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimPrecache" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimMovementServerIs13Slots )
+TEST( FwdShimAreas, ShimMovementServerIs11Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimMovementServer::PlayerSetSlowMovement ).slot + 1;
-	EXPECT_EQ( 13, compiler );
+	EXPECT_EQ( 11, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimMovementServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimWorldServerIs16Slots )
+TEST( FwdShimAreas, ShimWorldServerIs15Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimWorldServer::EntityTraceHull ).slot + 1;
-	EXPECT_EQ( 16, compiler );
+	EXPECT_EQ( 15, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimWorldServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -165,19 +165,19 @@ TEST( FwdShimAreas, ShimSoundIs5Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimEffectsServerIs15Slots )
+TEST( FwdShimAreas, ShimEffectsServerIs12Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimEffectsServer::PaintDecal ).slot + 1;
-	EXPECT_EQ( 15, compiler );
+	EXPECT_EQ( 12, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEffectsServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimDebugOverlayIs5Slots )
+TEST( FwdShimAreas, ShimDebugOverlayIs4Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimDebugOverlay::OverlayResetCounts ).slot + 1;
-	EXPECT_EQ( 5, compiler );
+	EXPECT_EQ( 4, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimDebugOverlay" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -201,10 +201,10 @@ TEST( FwdShimAreas, ShimDiagnosticsIs4Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimEngineIs9SlotsOnTheClient )
+TEST( FwdShimAreas, ShimEngineIs7SlotsOnTheClient )
 {
-	const int compiler = VTableHook::MemberOf( &IShimEngine::SurfaceScrapeSound ).slot + 1;
-	EXPECT_EQ( 9, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimEngine::SoundPatchCreate ).slot + 1;
+	EXPECT_EQ( 7, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEngine" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -237,20 +237,11 @@ TEST( FwdShimAreas, ShimModelsIs3SlotsOnTheClient )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimMovementIs6SlotsOnTheClient )
+TEST( FwdShimAreas, ShimMovementIs4SlotsOnTheClient )
 {
 	const int compiler = VTableHook::MemberOf( &IShimMovement::RegisterMovementParams ).slot + 1;
-	EXPECT_EQ( 6, compiler );
+	EXPECT_EQ( 4, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimMovement" );
-	ASSERT_NE( nullptr, pTable );
-	EXPECT_EQ( compiler, pTable->nSlots );
-}
-
-TEST( FwdShimAreas, ShimWorldIs1SlotsOnTheClient )
-{
-	const int compiler = VTableHook::MemberOf( &IShimWorld::PointContents ).slot + 1;
-	EXPECT_EQ( 1, compiler );
-	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimWorld" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }

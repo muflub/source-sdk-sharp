@@ -58,9 +58,15 @@ public unsafe class EngineSideTests
         var server = new EngineSide(Side.Server);
         var other = new EngineSide(Side.Server);
 
+        // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where a
+        // MoveSurface shim slot answered.
         using var root = new FakeShimRoot();
-        root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerFwd.MoveSurface),
-                  (nint)(delegate* unmanaged<void*, int, MoveSurfaceBlob*, int>)&SurfaceIsSand);
+        nint* self = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
+        s_Sand = (byte*)NativeMemory.AllocZeroed(VPhysicsSurfaceData.SizeInBytes);
+        *(ushort*)(s_Sand + 72) = (ushort)'N';
+        root.Interface(PhysicsSurfaceProps.InterfaceVersion, self).Forwarders(out PhysicsSurfacePropsFwd* fwd);
+        fwd->GetSurfaceData = &SurfaceIsSand;
+        fwd->GetPhysicsProperties = &SandDensity;
         server.Initialize();
         Assert.True(server.AttachShims(root.Bind(), out string why), why);
 
@@ -74,18 +80,18 @@ public unsafe class EngineSideTests
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
         EngineServices.AddTo(services, server);
         Assert.Same(server.Surfaces, services.Require<PhysicsSurfaces>());
+        NativeMemory.Free(s_Sand);
+        NativeMemory.Free(self);
     }
 
+    private static byte* s_Sand;
+
     [UnmanagedCallersOnly]
-    private static int SurfaceIsSand(void* self, int surfaceProps, MoveSurfaceBlob* blob)
-    {
-        if (surfaceProps != 3)
-            return 0;
-        blob->Valid = 1;
-        blob->Material = 'N';
-        blob->Density = 1300f;
-        return 1;
-    }
+    private static void* SurfaceIsSand(void* self, int surfaceProps) => surfaceProps == 3 ? s_Sand : null;
+
+    [UnmanagedCallersOnly]
+    private static void SandDensity(void* self, int surfaceProps, void* density, void* thickness, void* friction, void* elasticity)
+        => *(float*)density = 1300f;
 
     [Fact]
     public void TwoContainersInOneProcessEachAnswerForTheirOwnSide()

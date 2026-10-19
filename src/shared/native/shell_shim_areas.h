@@ -30,9 +30,7 @@ public:
 	void SoundPatchStop( int32_t hPatch ) override;
 	void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) override;
 	void SoundPatchFree( int32_t hPatch ) override;
-	int32_t SoundScriptParameters( const char * pSoundName, float * pOut ) override;
 	int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel ) override;
-	int32_t SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char * pOut, int32_t nOut ) override;
 };
 
 class CShimConsoleServer final : public IShimConsoleServer
@@ -87,16 +85,12 @@ public:
 	int32_t PrecacheModel( const char * pszModel ) override;
 	void PrecacheSound( const char * pSoundName ) override;
 	int32_t PrecacheDecal( const char * pName ) override;
-	void PrecacheMaterial( const char * pMaterialName ) override;
-	void PrecacheParticleSystem( const char * pszName ) override;
 };
 
 class CShimMovementServer final : public IShimMovementServer
 {
 public:
 	void MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut ) override;
-	int32_t MovePointContents( const float * pXYZ, int32_t nSlot ) override;
-	int32_t MoveSurface( int32_t nSurfaceProps, SourceSharpMoveSurface * pOut ) override;
 	int32_t MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue ) override;
 	float CurrentGravity() override;
 	void RegisterMovementParams( const SourceSharpMovementParams * pParams ) override;
@@ -112,7 +106,6 @@ public:
 class CShimWorldServer final : public IShimWorldServer
 {
 public:
-	int32_t PointContents( const float * pOrigin ) override;
 	int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) override;
 	int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) override;
 	int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) override;
@@ -285,13 +278,10 @@ public:
 	int32_t EffectDispatchIndex( const char * pName ) override;
 	void ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude ) override;
 	void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) override;
-	void SparkEffect( const float * pOriginXYZ, int32_t nMagnitude, int32_t nTrailLength, int32_t bMakeSound, const float * pDirXYZ ) override;
 	void ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity ) override;
-	void MuzzleFlashEffect( const float * pOriginXYZ, const float * pAnglesXYZ, float flScale, int32_t nType ) override;
 	void TracerEffect( const float * pStartXYZ, const float * pEndXYZ ) override;
 	void BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed ) override;
 	void FunnelEffect( const float * pOriginXYZ, int32_t nSpriteIndex, int32_t bReversed ) override;
-	void DustEffect( const float * pOriginXYZ, const float * pDirXYZ, float flSize, float flSpeed ) override;
 	void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) override;
 	void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) override;
 	int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) override;
@@ -300,7 +290,6 @@ public:
 class CShimDebugOverlay final : public IShimDebugOverlay
 {
 public:
-	void DrawWorldText( const float * pOriginXYZ, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a ) override;
 	int32_t DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a ) override;
 	void AddLineOverlay( const float * pStartXYZ, const float * pEndXYZ, int32_t r, int32_t g, int32_t b, int32_t bNoDepthTest, float flDuration ) override;
 	void OverlayCounts( uint32_t * pOutDrawn, uint32_t * pOutClipped, uint32_t * pOutNoViewer, uint32_t * pOutNoOverlay, int32_t * pOutViewerSet ) override;
@@ -366,9 +355,7 @@ public:
 	void SoundPatchStop( int32_t hPatch ) override;
 	void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) override;
 	void SoundPatchFree( int32_t hPatch ) override;
-	int32_t SoundScriptParameters( const char * pSoundName, float * pOut ) override;
 	int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel ) override;
-	int32_t SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char * pOut, int32_t nOut ) override;
 };
 
 class CShimEventsClient final : public IShimEvents
@@ -402,17 +389,9 @@ class CShimMovementClient final : public IShimMovement
 {
 public:
 	void MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut ) override;
-	int32_t MovePointContents( const float * pXYZ, int32_t nSlot ) override;
-	int32_t MoveSurface( int32_t nSurfaceProps, SourceSharpMoveSurface * pOut ) override;
 	int32_t MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue ) override;
 	float CurrentGravity() override;
 	void RegisterMovementParams( const SourceSharpMovementParams * pParams ) override;
-};
-
-class CShimWorldClient final : public IShimWorld
-{
-public:
-	int32_t PointContents( const float * pOrigin ) override;
 };
 
 class CShimEntitiesClient final : public IShimEntities
@@ -776,7 +755,6 @@ struct CShimAreasClient
 	CShimNetworkClient m_Network;
 	CShimModelsClient m_Models;
 	CShimMovementClient m_Movement;
-	CShimWorldClient m_World;
 	CShimEntitiesClient m_Entities;
 	CShimCollisionClient m_Collision;
 	CShimEffectsClient m_Effects;

@@ -66,9 +66,7 @@ internal sealed unsafe class EngineArea
     public void SoundPatchStop(int a0) { _shim.Vt->SoundPatchStop(_shim.Self, a0); }
     public void SoundPatchState(int a0, int* a1, int* a2) { _shim.Vt->SoundPatchState(_shim.Self, a0, a1, a2); }
     public void SoundPatchFree(int a0) { _shim.Vt->SoundPatchFree(_shim.Self, a0); }
-    public int SoundScriptParameters(byte* a0, float* a1) { return _shim.Vt->SoundScriptParameters(_shim.Self, a0, a1); }
     public int SoundPatchCreate(uint a0, int a1, byte* a2, int a3) { return _shim.Vt->SoundPatchCreate(_shim.Self, a0, a1, a2, a3); }
-    public int SurfaceScrapeSound(int a0, int a1, byte* a2, int a3) { return _shim.Vt->SurfaceScrapeSound(_shim.Self, a0, a1, a2, a3); }
 }
 
 /// <summary>
@@ -126,23 +124,9 @@ internal unsafe class MovementArea
     internal MovementArea(ShimRef<ShimMovementFwd> shim) { _shim = shim; }
 
     public void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6) { _shim.Vt->MoveTrace(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public int MovePointContents(float* a0, int a1) { return _shim.Vt->MovePointContents(_shim.Self, a0, a1); }
-    public int MoveSurface(int a0, MoveSurfaceBlob* a1) { return _shim.Vt->MoveSurface(_shim.Self, a0, a1); }
     public int MoveEffect(int a0, float* a1, float a2, int a3) { return _shim.Vt->MoveEffect(_shim.Self, a0, a1, a2, a3); }
     public float CurrentGravity() { return _shim.Vt->CurrentGravity(_shim.Self); }
     public void RegisterMovementParams(MovementParams* a0) { _shim.Vt->RegisterMovementParams(_shim.Self, a0); }
-}
-
-/// <summary>
-/// <c>IShimWorld</c>, served as <c>SourceSharpWorld001</c>, through <see cref="ShimWorldFwd"/>.
-/// </summary>
-internal unsafe class WorldArea
-{
-    private readonly ShimRef<ShimWorldFwd> _shim;
-
-    internal WorldArea(ShimRef<ShimWorldFwd> shim) { _shim = shim; }
-
-    public int PointContents(float* a0) { return _shim.Vt->PointContents(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -288,8 +272,6 @@ internal sealed unsafe class PrecacheArea
     public int PrecacheModel(byte* a0) { return _shim.Vt->PrecacheModel(_shim.Self, a0); }
     public void PrecacheSound(byte* a0) { _shim.Vt->PrecacheSound(_shim.Self, a0); }
     public int PrecacheDecal(byte* a0) { return _shim.Vt->PrecacheDecal(_shim.Self, a0); }
-    public void PrecacheMaterial(byte* a0) { _shim.Vt->PrecacheMaterial(_shim.Self, a0); }
-    public void PrecacheParticleSystem(byte* a0) { _shim.Vt->PrecacheParticleSystem(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -315,17 +297,13 @@ internal sealed unsafe class MovementServerArea : MovementArea
 }
 
 /// <summary>
-/// <c>IShimWorldServer</c>, served as <c>SourceSharpWorldServer001</c>, through <see cref="ShimWorldServerFwd"/>. Its base's slots are <see cref="WorldArea"/>'s.
+/// <c>IShimWorldServer</c>, served as <c>SourceSharpWorldServer001</c>, through <see cref="ShimWorldServerFwd"/>.
 /// </summary>
-internal sealed unsafe class WorldServerArea : WorldArea
+internal sealed unsafe class WorldServerArea
 {
     private readonly ShimRef<ShimWorldServerFwd> _shim;
 
-    internal WorldServerArea(ShimRef<ShimWorldServerFwd> shim)
-        : base(new ShimRef<ShimWorldFwd>(shim.Self, (ShimWorldFwd*)shim.Vt))
-    {
-        _shim = shim;
-    }
+    internal WorldServerArea(ShimRef<ShimWorldServerFwd> shim) { _shim = shim; }
 
     public int TraceLine(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7) { return _shim.Vt->TraceLine(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public int TraceHull(float* a0, float* a1, float* a2, float* a3, int a4, uint a5, uint* a6, int* a7) { return _shim.Vt->TraceHull(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
@@ -571,13 +549,10 @@ internal sealed unsafe class EffectsServerArea : EffectsArea
     public int EffectDispatchIndex(byte* a0) { return _shim.Vt->EffectDispatchIndex(_shim.Self, a0); }
     public void ExplosionEffect(float* a0, int a1, float a2, int a3, int a4, int a5, int a6) { _shim.Vt->ExplosionEffect(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void ViewPunch(float* a0, float* a1, float a2, int a3) { _shim.Vt->ViewPunch(_shim.Self, a0, a1, a2, a3); }
-    public void SparkEffect(float* a0, int a1, int a2, int a3, float* a4) { _shim.Vt->SparkEffect(_shim.Self, a0, a1, a2, a3, a4); }
     public void ImpactEffect(float* a0, float* a1, int a2, int a3, uint a4) { _shim.Vt->ImpactEffect(_shim.Self, a0, a1, a2, a3, a4); }
-    public void MuzzleFlashEffect(float* a0, float* a1, float a2, int a3) { _shim.Vt->MuzzleFlashEffect(_shim.Self, a0, a1, a2, a3); }
     public void TracerEffect(float* a0, float* a1) { _shim.Vt->TracerEffect(_shim.Self, a0, a1); }
     public void BubbleEffect(uint a0, int a1, float a2) { _shim.Vt->BubbleEffect(_shim.Self, a0, a1, a2); }
     public void FunnelEffect(float* a0, int a1, int a2) { _shim.Vt->FunnelEffect(_shim.Self, a0, a1, a2); }
-    public void DustEffect(float* a0, float* a1, float a2, float a3) { _shim.Vt->DustEffect(_shim.Self, a0, a1, a2, a3); }
     public void SplashEffect(float* a0, float a1, int a2) { _shim.Vt->SplashEffect(_shim.Self, a0, a1, a2); }
     public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Vt->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int PaintDecal(int a0, float* a1, float* a2, float a3, int a4, int a5) { return _shim.Vt->PaintDecal(_shim.Self, a0, a1, a2, a3, a4, a5); }
@@ -592,7 +567,6 @@ internal sealed unsafe class DebugOverlayArea
 
     internal DebugOverlayArea(ShimRef<ShimDebugOverlayFwd> shim) { _shim = shim; }
 
-    public void DrawWorldText(float* a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { _shim.Vt->DrawWorldText(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { return _shim.Vt->DrawEntityOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { _shim.Vt->AddLineOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4) { _shim.Vt->OverlayCounts(_shim.Self, a0, a1, a2, a3, a4); }
@@ -1110,7 +1084,6 @@ internal sealed unsafe class ShimAreas
     public NetworkArea Network => NetworkServer;
     public ModelsArea Models => ModelsServer;
     public MovementArea Movement => MovementServer;
-    public WorldArea World => WorldServer;
     public EntitiesArea Entities => EntitiesServer;
     public CollisionArea Collision => CollisionServer;
     public EffectsArea Effects => EffectsServer;
@@ -1235,7 +1208,6 @@ internal sealed unsafe class ClientShimAreas
     public readonly NetworkArea Network = null!;
     public readonly ModelsArea Models = null!;
     public readonly MovementArea Movement = null!;
-    public readonly WorldArea World = null!;
     public readonly EntitiesArea Entities = null!;
     public readonly CollisionArea Collision = null!;
     public readonly EffectsArea Effects = null!;
@@ -1284,10 +1256,6 @@ internal sealed unsafe class ClientShimAreas
         {
             if (!ShimRef<ShimMovementFwd>.TryTake(root, "SourceSharpMovement001", out var shim, out why)) return;
             Movement = new MovementArea(shim);
-        }
-        {
-            if (!ShimRef<ShimWorldFwd>.TryTake(root, "SourceSharpWorld001", out var shim, out why)) return;
-            World = new WorldArea(shim);
         }
         {
             if (!ShimRef<ShimEntitiesFwd>.TryTake(root, "SourceSharpEntities001", out var shim, out why)) return;
@@ -1390,5 +1358,5 @@ internal sealed unsafe class ClientShimAreas
         return areas is not null;
     }
 
-    internal static int Count => 29;
+    internal static int Count => 28;
 }

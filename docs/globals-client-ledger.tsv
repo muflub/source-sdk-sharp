@@ -749,13 +749,13 @@ shell_gamerules.o	_ZL20g_DefaultViewVectors	g_DefaultViewVectors	sourcesharp/gam
 	g_StringTableGameRules	g_StringTableGameRules	sourcesharp/game/shared/shell_gamerules.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_gamerules.o	_ZL16s_CollisionRules	s_CollisionRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	80	UNRULED		
 shell_gamerules.o	_ZL13s_DamageRules	s_DamageRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	20	UNRULED		
-shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	240	UNRULED		
+shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	232	UNRULED		
 shell_movement.o	_ZZL11ActiveMovervE9s_pActive	ActiveMover()::s_pActive	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_movement.o	_ZZL12MoveCountersvE9s_nCounts	MoveCounters()::s_nCounts	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_movement.o	_ZZL16MovementRefusalsvE11s_nRefusals	MovementRefusals()::s_nRefusals	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	12	UNRULED		
 	_ZZ37SourceSharpMovement_PendingFallDamagevE21s_flPendingFallDamage	SourceSharpMovement_PendingFallDamage()::s_flPendingFallDamage	sourcesharp/game/shared/shell_movement.cpp	WEAK	bss	function-local	4	UNRULED		
 shell_movement.o	_ZL45__g_CreateCShellGameMovementIGameMovement_reg	__g_CreateCShellGameMovementIGameMovement_reg	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
-shell_movement.o	_ZL19g_ShellGameMovement	g_ShellGameMovement	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	file-or-global	1776	UNRULED		
+shell_movement.o	_ZL19g_ShellGameMovement	g_ShellGameMovement	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 	g_bMovementOptimizations	g_bMovementOptimizations	sourcesharp/game/shared/shell_movement.cpp	GLOBAL	data	file-or-global	1	UNRULED		
 	g_pGameMovement	g_pGameMovement	sourcesharp/game/shared/shell_movement.cpp	GLOBAL	data	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_movement.o	_ZL10s_Movement	s_Movement	sourcesharp/game/shared/shell_movement.cpp	LOCAL	data	file-or-global	152	UNRULED		

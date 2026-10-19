@@ -238,7 +238,9 @@ const char *const kCallers[] =
 	"../sourcesharp/game/server/shell_absent.cpp",
 	"../sourcesharp/game/server/shell_sound.cpp",
 	"../sourcesharp/game/server/shell_standalone_player.cpp",
-	"../sourcesharp/game/server/shell_worldquery.cpp",
+	// shell_worldquery.cpp left the list 2026-10-19: its one call was
+	// SparkEffect's "DoSpark", and the spark is EffectsOverTempEnts' (C#),
+	// which emits the same sound; the slot went.
 	"../sourcesharp/game/server/world_adapter.cpp",
 	"../sourcesharp/game/client/shell_standalone_client.cpp",
 	"../sourcesharp/game/client/shell_explosion_overlay.cpp",	// RPGShotDown, from shell_trail_sim.cpp (lane c2-sims)

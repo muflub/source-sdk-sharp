@@ -28,6 +28,7 @@
 #include "steam/isteamuser.h"
 #include "steam/isteamapps.h"
 #include "steam/isteamfriends.h"
+#include "SoundEmitterSystem/isoundemittersystembase.h"
 
 
 #include <ctype.h>
@@ -364,9 +365,50 @@ TEST( SurfaceDataLayout, TheSoundFieldsTheManagedBatchReads )
 	// game.material, which VPhysicsSurfaceData.GameMaterial reads (2026-10-19).
 	EXPECT_EQ( 72u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, material ) );
 	EXPECT_EQ( 2u, sizeof( surfacegameprops_t::material ) );
+	// What MoveSurface and SurfaceScrapeSound read through the forwarders (2026-10-19).
+	EXPECT_EQ( 28u, offsetof( surfacedata_t, audio ) + offsetof( surfaceaudioparams_t, roughnessFactor ) );
+	EXPECT_EQ( 32u, offsetof( surfacedata_t, audio ) + offsetof( surfaceaudioparams_t, roughThreshold ) );
+	EXPECT_EQ( 52u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, scrapeSmooth ) );
+	EXPECT_EQ( 54u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, scrapeRough ) );
+	EXPECT_EQ( 64u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, maxSpeedFactor ) );
+	EXPECT_EQ( 68u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, jumpFactor ) );
+	EXPECT_EQ( 74u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, climbable ) );
+	EXPECT_EQ( 1u, sizeof( surfacegameprops_t::climbable ) );
 	EXPECT_EQ( 96u, sizeof( surfacedata_t ) );
 }
 
 // plan_engineapi_vtables Phase C: one length test per interface tools/shim-areas
 // generates, and kShimAreasCovered naming their structs -- generated from the
 // same table as the interfaces and their layouts.
+
+//-----------------------------------------------------------------------------
+// CSoundParameters, which SoundEmitterBase.ScriptParameters hands
+// GetParametersForSound to fill (2026-10-19): SoundParametersLayout's offsets,
+// and the constructor's values its Stock() writes first.
+//-----------------------------------------------------------------------------
+TEST( SoundParametersLayout, OffsetsAndConstructor )
+{
+	EXPECT_EQ( 0u,   offsetof( CSoundParameters, channel ) );
+	EXPECT_EQ( 4u,   offsetof( CSoundParameters, volume ) );
+	EXPECT_EQ( 8u,   offsetof( CSoundParameters, pitch ) );
+	EXPECT_EQ( 12u,  offsetof( CSoundParameters, pitchlow ) );
+	EXPECT_EQ( 16u,  offsetof( CSoundParameters, pitchhigh ) );
+	EXPECT_EQ( 20u,  offsetof( CSoundParameters, soundlevel ) );
+	EXPECT_EQ( 4u,   sizeof( soundlevel_t ) );
+	EXPECT_EQ( 24u,  offsetof( CSoundParameters, play_to_owner_only ) );
+	EXPECT_EQ( 28u,  offsetof( CSoundParameters, count ) );
+	EXPECT_EQ( 32u,  offsetof( CSoundParameters, soundname ) );
+	EXPECT_EQ( 160u, offsetof( CSoundParameters, delay_msec ) );
+	EXPECT_EQ( 164u, sizeof( CSoundParameters ) );
+
+	const CSoundParameters fresh;
+	EXPECT_EQ( 0, fresh.channel );
+	EXPECT_EQ( 1.0f, fresh.volume );
+	EXPECT_EQ( 100, fresh.pitch );
+	EXPECT_EQ( 100, fresh.pitchlow );
+	EXPECT_EQ( 100, fresh.pitchhigh );
+	EXPECT_EQ( 75, (int)fresh.soundlevel );
+	EXPECT_EQ( 0, fresh.count );
+	EXPECT_EQ( 0, fresh.delay_msec );
+}
+

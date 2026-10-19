@@ -55,17 +55,20 @@ internal sealed partial class EngineEffects
 
     public int EffectDispatchIndex(string name) => E.EffectDispatchIndex(name);
 
-    public void DustEffect(Vector origin, Vector direction, float size, float speed) => E.DustEffect(origin, direction, size, speed);
+    // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
+    public void DustEffect(Vector origin, Vector direction, float size, float speed) { }
 
     public void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity) => E.ImpactEffect(start, end, surfaceProp, damageType, entity);
 
     public void FunnelEffect(Vector origin, int spriteIndex, bool reversed) => E.FunnelEffect(origin, spriteIndex, reversed);
 
-    public void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1) => E.MuzzleFlashEffect(origin, angles, scale, type);
+    // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
+    public void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1) { }
 
     public bool PaintDecal(int texture, Vector origin, Vector? angles, float projectDistance, bool permanent, bool lowPriority) => E.PaintDecal(texture, origin, angles, projectDistance, permanent, lowPriority);
 
-    public void SparkEffect(Vector origin, int magnitude, int trailLength, bool makeSound = true, Vector? direction = null) => E.SparkEffect(origin, magnitude, trailLength, makeSound, direction);
+    // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
+    public void SparkEffect(Vector origin, int magnitude, int trailLength, bool makeSound = true, Vector? direction = null) { }
 
     public void ExplosionEffect(Vector origin, int modelIndex, float scale, int frameRate, int flags, int radius, int magnitude) => E.ExplosionEffect(origin, modelIndex, scale, frameRate, flags, radius, magnitude);
 
@@ -333,7 +336,30 @@ internal sealed partial class EngineHost
 
 internal sealed partial class EngineHud
 {
-    public void DrawWorldText(Vector origin, int line, string text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) => E.DrawWorldText(origin, line, text, duration, r, g, b, a);
+    // Through IVDebugOverlay's forwarders since 2026-10-19, where the
+    // DrawWorldText slot made the same call through overlay_library. A server
+    // with no overlay (a dedicated one) draws nothing, as HaveOverlay did.
+    public void DrawWorldText(Vector origin, int line, string text, float duration, int r = 255, int g = 255, int b = 255, int a = 255)
+    {
+        if (!E.ServerAttached || text is null)
+            return;
+
+        Overlay()?.TextAtPosition(origin, line, duration, r, g, b, a, text);
+    }
+
+    private IVtableDebugOverlay? _overlay;
+    private bool _overlayAsked;
+
+    private IVtableDebugOverlay? Overlay()
+    {
+        if (!_overlayAsked)
+        {
+            _overlayAsked = true;
+            _overlay = EngineDebugOverlay.Acquire(E.Interfaces, out _);
+        }
+
+        return _overlay;
+    }
 
     public bool DrawEntityOverlay(EntityHandle entity, int line, string? text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) => E.DrawEntityOverlay(entity, line, text, duration, r, g, b, a);
 
@@ -427,9 +453,26 @@ internal sealed partial class EnginePrecache
 {
     public int PrecacheDecal(string name) => E.PrecacheDecal(name);
 
-    public void PrecacheMaterial(string material) => E.PrecacheMaterial(material);
+    // Through the string tables' forwarders since 2026-10-19, where the
+    // PrecacheMaterial and PrecacheParticleSystem slots made the same
+    // AddString( true, name ) on the table shell_stringtables.cpp creates.
+    // Creating and adding are the server's: the client never had either slot.
+    private void Precache(string table, string name)
+    {
+        if (!E.ServerAttached || string.IsNullOrEmpty(name))
+            return;
 
-    public void PrecacheParticleSystem(string name) => E.PrecacheParticleSystem(name);
+        int id = Tables.Find(table);
+        if (id >= 0)
+            Tables.AddString(id, name);
+    }
+
+    private ForwardedStringTables? _tables;
+    private ForwardedStringTables Tables => _tables ??= ForwardedStringTables.Acquire(E);
+
+    public void PrecacheMaterial(string material) => Precache("Materials", material);
+
+    public void PrecacheParticleSystem(string name) => Precache("ParticleEffectNames", name);
 
     public int PrecacheModel(string model) => E.PrecacheModel(model);
 

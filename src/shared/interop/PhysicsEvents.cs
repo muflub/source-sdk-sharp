@@ -384,26 +384,8 @@ public sealed class PhysicsSurfaces
     internal PhysicsSurfaces(EngineSide api) => _api = api;
 
     /// <summary>The surfaceprop at that index, or <c>default</c>.</summary>
-    public unsafe MoveSurface Of(int surfaceProps)
-    {
-        if (!_api.OwnShimsAttached)
-            return default;
-
-        MoveSurfaceBlob blob = default;
-        if ((_api.OwnShims.Movement.MoveSurface(surfaceProps, &blob)) == 0)
-            return default;
-
-        return new MoveSurface
-        {
-            Valid = blob.Valid != 0,
-            Friction = blob.Friction,
-            Material = blob.Material,
-            Climbable = blob.Climbable,
-            MaxSpeedFactor = blob.MaxSpeedFactor,
-            JumpFactor = blob.JumpFactor,
-            Density = blob.Density,
-            RoughnessFactor = blob.RoughnessFactor,
-            RoughThreshold = blob.RoughThreshold,
-        };
-    }
+    public MoveSurface Of(int surfaceProps)
+        => _api.OwnShimsAttached
+            ? EngineBound.SurfaceProps(_api).Surface(surfaceProps)
+            : default;
 }

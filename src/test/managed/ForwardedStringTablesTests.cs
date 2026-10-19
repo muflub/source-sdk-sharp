@@ -307,4 +307,46 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
         Assert.Single(s_Tables);
         Assert.Empty(s_AddServerFlags);
     }
+
+    // EnginePrecache's materials and particle systems, through these tables
+    // since 2026-10-19, where two server slots made the same AddString.
+    private IEnginePrecache Precache(Side side)
+    {
+        Serve(side == Side.Server ? "VEngineServerStringTable001" : "VEngineClientStringTable001");
+        var api = new EngineSide(side);
+        api.Initialize();
+        string why;
+        Assert.True(api.AttachOwnShims(_root.Bind(), out why), why);
+        return SideBindings.Of<IEnginePrecache>(api);
+    }
+
+    private static string[] Strings(string table)
+        => s_Tables.Single(t => Marshal.PtrToStringUTF8(t.Name) == table).Strings.Select(x => Marshal.PtrToStringUTF8(x)!).ToArray();
+
+    [Fact]
+    public void AMaterialAndAParticleSystemGoInTheirOwnTables()
+    {
+        var precache = Precache(Side.Server);
+        Server(serve: false).Create("Materials", 1024);
+        Server(serve: false).Create("ParticleEffectNames", 8192);
+
+        precache.PrecacheMaterial("debug/debugempty");
+        precache.PrecacheParticleSystem("error");
+        precache.PrecacheMaterial("");
+
+        Assert.Equal(new[] { "debug/debugempty" }, Strings("Materials"));
+        Assert.Equal(new[] { "error" }, Strings("ParticleEffectNames"));
+        Assert.Equal(new byte[] { 1, 1 }, s_AddServerFlags);
+    }
+
+    [Fact]
+    public void TheClientPrecachesNothing()
+    {
+        Server().Create("Materials", 1024);
+        var precache = Precache(Side.Client);
+
+        precache.PrecacheMaterial("debug/debugempty");
+
+        Assert.Empty(Strings("Materials"));
+    }
 }

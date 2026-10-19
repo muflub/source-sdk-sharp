@@ -474,6 +474,8 @@ public class MovementTests
             };
         }
 
+        public void ResetPointContentsCache(bool optimizations) { }
+
         public int PointContents(in Vector point, int slot)
         {
             Asked.Add($"PC {point} slot {slot}");
@@ -820,6 +822,9 @@ public class MovementTests
             => OnTrace(start, end, mins, maxs, mask, collisionGroup);
 
         public int PointContents(in Vector point, int slot) => OnPointContents(point, slot);
+
+        public List<bool> Resets { get; } = new();
+        public void ResetPointContentsCache(bool optimizations) => Resets.Add(optimizations);
         public MoveSurface Surface(int surfaceProps) => SurfaceAnswer;
 
         public void ResetTouchList() => Effects.Add("ResetTouchList");
@@ -1736,6 +1741,25 @@ public class MovementTests
     /// A player whose feet are in water is at least at level one — the arm no
     /// dm_lockdown recording can reach, because the map has no water.
     /// </summary>
+    /// <summary>
+    /// The world's point-contents cache is reset at the top of every command,
+    /// as stock's ProcessMovement does on both sides (the client's replay
+    /// never reached native's reset before the cache moved, 2026-10-19).
+    /// </summary>
+    [Fact]
+    public void EveryCommandResetsThePointContentsCacheFirst()
+    {
+        var world = new ScriptedWorld();
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        MoveState s = BaselineState();
+        s.MoveType = GameMovement.MoveTypeNone;
+
+        movement.ProcessMovement(s);
+        movement.ProcessMovement(s);
+
+        Assert.Equal(new[] { true, true }, world.Resets);
+    }
+
     [Fact]
     public void FeetInWaterMakesTheWaterLevelOne()
     {

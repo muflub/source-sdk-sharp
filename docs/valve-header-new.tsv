@@ -466,3 +466,4 @@ src/client/native/shell_particle_mgr_client.cpp	ports CParticleMgr::GetPMaterial
 src/client/managed/Effects/ParticleConVars.cs	ports particlemgr.cpp's live ConVar declarations (r_drawparticles, cl_particleeffect_aabb_buffer, cl_particle_show_bbox(_cost), r_particle_timescale, cl_particle_retire_cost, r_particle_sim_spike_threshold_ms, cl_particle_stats_trigger_count)
 src/client/managed/Effects/ParticleCommands.cs	ports particlemgr.cpp's cl_particle_stats_start/stop and cs_cl_particle_report, and particles_new.cpp's cl_dump_particle_stats
 src/client/managed/Ragdolls/RagdollBoltPin.cs	ports CRagdollBoltEnumerator::EnumElement and StickRagdollNow's shot ray (c_stickybolt.cpp)
+src/shared/interop/MovePointContentsCache.cs	ports CGameMovement::GetPointContentsCached / ResetGetPointContentsCache (gamemovement.cpp)

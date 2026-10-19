@@ -209,7 +209,7 @@ const File_t kGibs = { "sourcesharp/managed/SourceSharp.Server/Entities/Effects/
 	"class Gibs" };
 
 const File_t kWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
-	"void SourceSharp_SparkEffect(" };
+	"int32_t SourceSharp_TraceLine(" };   // SparkEffect went 2026-10-19
 const File_t kNetTable = { "sourcesharp/game/shared/standalone_nettable.h",
 	"STANDALONE_NET_FIELD_COUNT" };
 const File_t kStandalonePlayer = { "sourcesharp/game/server/shell_standalone_player.h",

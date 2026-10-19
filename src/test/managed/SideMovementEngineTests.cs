@@ -32,6 +32,8 @@ public unsafe class SideMovementEngineTests : IDisposable
 
     private readonly FakeShimRoot _first = new();
     private readonly FakeShimRoot _second = new();
+    private readonly nint* _self1 = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
+    private readonly nint* _self2 = (nint*)NativeMemory.AllocZeroed(1, (nuint)sizeof(nint));
 
     private static readonly EntityHandle Player = new(0x0001_0001u);
 
@@ -46,6 +48,8 @@ public unsafe class SideMovementEngineTests : IDisposable
     {
         _first.Dispose();
         _second.Dispose();
+        NativeMemory.Free(_self1);
+        NativeMemory.Free(_self2);
     }
 
     private static EngineSide Attached(FakeShimRoot root, Side side)
@@ -88,18 +92,78 @@ public unsafe class SideMovementEngineTests : IDisposable
         Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
     }
 
+    // The world's point contents go through each side's own IEngineTrace
+    // (2026-10-19), where the MovePointContents slot answered.
+    private (EngineSide First, EngineSide Second) TwoTraces()
+    {
+        _first.Interface(EngineTrace.ServerInterfaceVersion, _self1).Forwarders(out EngineTraceFwd* a);
+        a->GetPointContents = &ContentsSeven;
+        _second.Interface(EngineTrace.ServerInterfaceVersion, _self2).Forwarders(out EngineTraceFwd* b);
+        b->GetPointContents = &ContentsNine;
+        s_firstCalls = s_secondCalls = 0;
+        return (Attached(_first, Side.Server), Attached(_second, Side.Server));
+    }
+
     [Fact]
     public void EachRunnersWorldAsksItsOwnSide()
     {
-        var (first, second) = TwoSides(Side.Server, MovementServer, nameof(ShimMovementServerFwd.MovePointContents),
-            (nint)(delegate* unmanaged<void*, void*, int, int>)&ContentsSeven,
-            (nint)(delegate* unmanaged<void*, void*, int, int>)&ContentsNine);
+        var (first, second) = TwoTraces();
 
         var mine = new MovementRunner(new ModuleEngine(first));
         _ = new MovementRunner(new ModuleEngine(second));
 
         Assert.Equal(7, mine.World.PointContents(Vector.Zero, 0));
         Assert.Equal((1, 0), (s_firstCalls, s_secondCalls));
+    }
+
+    [Fact]
+    public void ASlotAnswersAgainForAPointWithinAUnit()
+    {
+        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        world.ResetPointContentsCache(optimizations: true);
+
+        world.PointContents(new Vector(0, 0, 0), 1);
+        world.PointContents(new Vector(0, 0, 1), 1);
+        Assert.Equal(1, s_firstCalls);
+
+        world.PointContents(new Vector(0, 0, 1.01f), 1);
+        Assert.Equal(2, s_firstCalls);
+    }
+
+    [Fact]
+    public void EachSlotIsItsOwnAndSlotMinusOneIsNeverCached()
+    {
+        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        world.ResetPointContentsCache(optimizations: true);
+
+        world.PointContents(Vector.Zero, 0);
+        world.PointContents(Vector.Zero, 2);
+        world.PointContents(Vector.Zero, -1);
+        world.PointContents(Vector.Zero, -1);
+        Assert.Equal(4, s_firstCalls);
+    }
+
+    [Fact]
+    public void AResetForgetsEverySlot()
+    {
+        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        world.ResetPointContentsCache(optimizations: true);
+        world.PointContents(Vector.Zero, 0);
+
+        world.ResetPointContentsCache(optimizations: true);
+        world.PointContents(Vector.Zero, 0);
+        Assert.Equal(2, s_firstCalls);
+    }
+
+    [Fact]
+    public void WithoutTheOptimizationsNothingIsCached()
+    {
+        var world = new MovementRunner(new ModuleEngine(TwoTraces().First)).World;
+        world.ResetPointContentsCache(optimizations: false);
+
+        world.PointContents(Vector.Zero, 0);
+        world.PointContents(Vector.Zero, 0);
+        Assert.Equal(2, s_firstCalls);
     }
 
     // The shadow's bodies over one side (plan_physics_bones_native_zero 2.5).
@@ -281,10 +345,10 @@ public unsafe class SideMovementEngineTests : IDisposable
     private static int RunMoveNine(void* self, uint player, int index, int stage) { s_secondCalls++; return 9; }
 
     [UnmanagedCallersOnly]
-    private static int ContentsSeven(void* self, void* point, int slot) { s_firstCalls++; return 7; }
+    private static int ContentsSeven(void* self, void* point, void* entity) { s_firstCalls++; return 7; }
 
     [UnmanagedCallersOnly]
-    private static int ContentsNine(void* self, void* point, int slot) { s_secondCalls++; return 9; }
+    private static int ContentsNine(void* self, void* point, void* entity) { s_secondCalls++; return 9; }
 
     [UnmanagedCallersOnly]
     private static int ProbeFirst(void* self, uint player, void* state) { s_firstCalls++; return 0; }

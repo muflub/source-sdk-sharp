@@ -829,23 +829,6 @@ void SourceSharp_ExplosionEffect( const float *pOrigin, int32_t nModelIndex, flo
 }
 
 //-----------------------------------------------------------------------------
-// What is at a point.
-//
-// env_explosion asks only "did I go off in water", but the whole CONTENTS_ mask
-// comes back: the same call answers a dozen such questions and a predicate per
-// caller is how an ABI grows without getting more useful.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PointContents( const float *pOrigin )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOrigin )
-		return 0;
-
-	return (int32_t)ss::UTIL_PointContents( Vector( pOrigin[0], pOrigin[1], pOrigin[2] ) );
-}
-
-//-----------------------------------------------------------------------------
 // A swept box, where TraceLine is a swept ray.
 //
 // The question a ray cannot answer is "would this FIT here", and that is the
@@ -949,53 +932,6 @@ void SourceSharp_EntityGetBounds( uint32_t hEntity, float *pOutMinsXYZ, float *p
 		pOutMaxsXYZ[1] = vecMaxs.y;
 		pOutMaxsXYZ[2] = vecMaxs.z;
 	}
-}
-
-//-----------------------------------------------------------------------------
-// A shower of sparks.
-//
-// A temp entity written straight to the wire, which is the cheapest thing the
-// engine can send and has no server-side object at all. Nothing about it is a
-// decision except when it happens and how big it is.
-//-----------------------------------------------------------------------------
-void SourceSharp_SparkEffect( const float *pOriginXYZ, int32_t nMagnitude, int32_t nTrailLength,
-                              int32_t bMakeSound, const float *pDirXYZ )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOriginXYZ )
-		return;
-
-	// vec3_origin is stock's "no particular direction", not a direction of zero
-	// length that would have to be special-cased downstream.
-	const Vector vecDir = pDirXYZ
-		? Vector( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] )
-		: vec3_origin;
-
-	const Vector vecOrigin( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-
-	// NOT DoSpark. That helper takes the sparking entity and calls EmitSound on
-	// it WITHOUT a null check, and a managed env_spark is on the parallel
-	// hierarchy -- there is no CBaseEntity to hand it. Passing NULL segfaulted
-	// the server the first time one sparked audibly.
-	//
-	// The two halves it does are both reachable directly, and the sound wants to
-	// come from the POSITION anyway rather than from an entity, which is what
-	// SOUND_FROM_WORLD means.
-	ss::Effects()->Sparks( vecOrigin, nMagnitude, nTrailLength, &vecDir );
-
-	if ( !bMakeSound )
-		return;
-
-	ss::CPASAttenuationFilter filter( vecOrigin );
-
-	ss::EmitSound_t params;
-	params.m_pSoundName = "DoSpark";
-	params.m_pOrigin    = &vecOrigin;
-	params.m_flVolume   = VOL_NORM;
-	params.m_nPitch     = PITCH_NORM;
-
-	GameSound_Emit( filter, SOUND_FROM_WORLD, params );
 }
 
 //-----------------------------------------------------------------------------
@@ -1241,35 +1177,6 @@ int32_t SourceSharp_PaintDecal( int32_t nTexture, const float *pOriginXYZ,
 }
 
 //-----------------------------------------------------------------------------
-// A line of text drawn in the world at a position.
-//
-// The engine's debug-overlay channel, which is how point_message has always
-// drawn: it is a mapper's annotation belonging to a PLACE rather than to a
-// screen, and there is no other way to put text at a world position without
-// building a font renderer, which this plan rules out by name.
-//
-// EntityTextAtPosition rather than CBaseEntity::EntityText, and the difference
-// is the whole reason this takes a position: EntityText derives one from the
-// entity's collision bounds, and an entity on the parallel hierarchy with no
-// model and no collision has none to derive from.
-//-----------------------------------------------------------------------------
-void SourceSharp_DrawWorldText( const float *pOriginXYZ, int32_t nLine, const char *pText,
-                                float flDuration, int32_t r, int32_t g, int32_t b, int32_t a )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOriginXYZ || !pText )
-		return;
-
-	const Vector vecOrigin( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-
-	// 4c: the drawing moved to sourcesharp/game/shared/overlay_library, which is
-	// entity-free, so that game/shared/debugoverlay_shared.cpp can leave the
-	// server's vpc. Same call, same arguments, same engine entry underneath.
-	Overlay_TextAtPosition( vecOrigin, nLine, pText, flDuration, r, g, b, a );
-}
-
-//-----------------------------------------------------------------------------
 // One bullet streak, drawn between two points.
 //
 // An entity index of zero and no attachment, which is stock's env_tracer
@@ -1384,33 +1291,6 @@ void SourceSharp_FunnelEffect( const float *pOriginXYZ, int32_t nSpriteIndex,
 }
 
 //-----------------------------------------------------------------------------
-// A puff of dust, thrown along a direction.
-//
-// Normalised HERE as well as in C#, because ss::Effects()->Dust asserts on a
-// direction that is not a unit vector and a debug build stops on it. That
-// assert is stock's; what stock does not guard against is a ZERO vector, which
-// is what a mapper who left the angles alone hands it.
-//-----------------------------------------------------------------------------
-void SourceSharp_DustEffect( const float *pOriginXYZ, const float *pDirXYZ,
-                             float flSize, float flSpeed )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOriginXYZ || !pDirXYZ )
-		return;
-
-	Vector vecDir( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] );
-
-	if ( vecDir.LengthSqr() < 1e-6f )
-		vecDir.Init( 0.0f, 0.0f, 1.0f );
-	else
-		VectorNormalize( vecDir );
-
-	ss::Effects()->Dust( Vector( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] ),
-	                  vecDir, flSize, flSpeed );
-}
-
-//-----------------------------------------------------------------------------
 // A splash of water at a point.
 //-----------------------------------------------------------------------------
 void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t bInSlime )
@@ -1428,33 +1308,6 @@ void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t b
 	data.m_fFlags  = bInSlime ? ss::kEffectFlagWaterInSlime : 0;
 
 	DispatchEffect( "watersplash", data );
-}
-
-//-----------------------------------------------------------------------------
-// A muzzle flash at a point, pointed somewhere.
-//
-// THE REASON THIS ENTITY COULD CROSS AND ITS NEIGHBOURS COULD NOT. Every other
-// row in the particle/trail/smoke family delivers its effect by BEING a
-// networked entity whose stock client class runs an emitter, and a managed
-// entity never appears on the wire as that class. This one is a temp entity
-// carrying a position and a set of angles, which the client reads straight out
-// of the message — no entity index, nothing to resolve, nothing that can be
-// NULL for a managed entity.
-//
-// The angles arrive as pitch/yaw/roll in the order QAngle stores them, which is
-// the order C#'s Vector already holds an entity's angles in.
-//-----------------------------------------------------------------------------
-void SourceSharp_MuzzleFlashEffect( const float *pOriginXYZ, const float *pAnglesXYZ,
-                                    float flScale, int32_t nType )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOriginXYZ || !pAnglesXYZ )
-		return;
-
-	ss::Effects()->MuzzleFlash( Vector( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] ),
-	                         QAngle( pAnglesXYZ[0], pAnglesXYZ[1], pAnglesXYZ[2] ),
-	                         flScale, nType );
 }
 
 //-----------------------------------------------------------------------------
@@ -1502,60 +1355,6 @@ int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
 	// A trace carrying MASK_WATER stops on the floor as readily as on the
 	// water, so "hit something" is not "found water". The contents say which.
 	return ( tr.contents & MASK_WATER ) ? 1 : 0;
-}
-
-//-----------------------------------------------------------------------------
-// A material, by name, with nothing handed back.
-//
-// The neighbour of SourceSharp_PrecacheModel and deliberately NOT the same
-// call. A model index is a number both sides of the wire agree on, which is why
-// that one answers with one; a material is only ever a name the renderer
-// resolves at draw time, and there is no index to give. Returning something
-// here would have invited a caller to network it.
-//
-// skybox_swapper is the first caller: swapping a sky means having loaded the
-// six faces of the new one before the convar changes, or the first frame after
-// the swap draws a checkerboard.
-//-----------------------------------------------------------------------------
-void SourceSharp_PrecacheMaterial( const char *pMaterialName )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pMaterialName || !pMaterialName[0] )
-		return;
-
-	PrecacheMaterial( pMaterialName );
-}
-
-//-----------------------------------------------------------------------------
-// A particle system, by name, with nothing handed back.
-//
-// The third precache and the one that had been missing. A particle system is
-// neither a model nor a material: it goes in its own string table, and the
-// client resolves a name against the .pcf files the manifest loaded. Nothing
-// else here can stand in for it.
-//
-// WHY IT WAS MISSING, which is worth recording because the symptom is silence.
-// Stock precaches the fire systems from CFire::Precache. env_fire is a C# class
-// in this build and LINK_ENTITY_TO_CLASS( env_fire, CFire ) is inside
-// `#ifndef SOURCESHARP`, so no CFire is ever constructed and that function has
-// not run since the day the classname moved. Nothing warned: an unprecached
-// particle system does not refuse, it simply is not in the table the client
-// looks in.
-//
-// ss_firesmoke is the first caller, and it precaches all eight fire systems
-// rather than the one its size picked -- which one a fire needs depends on a
-// spawnflag and on a size that a map can change, and precache time is before
-// either is known.
-//-----------------------------------------------------------------------------
-void SourceSharp_PrecacheParticleSystem( const char *pszName )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pszName || !pszName[0] )
-		return;
-
-	PrecacheParticleSystem( pszName );
 }
 
 // SourceSharp_EngineGetArea IS GONE -- plan_native_api.md Phase 4.
