@@ -8369,15 +8369,18 @@ def step_ui_teammenu(g):
 
     cs_sv_showpanel sends stock's VGUIMenu "team"; the UI opens `teammenu` and
     takes the mouse. An injected click (/client/{slot}/ui/event) on AUTO ASSIGN
-    sends `jointeam 0`, which the server hears ("jointeam 0 from player"), and
-    the menu closes and gives the mouse back. The control: the same click with
-    no menu open sends nothing.
+    sends `jointeam 0`, which the server hears: stock HL2MP's
+    HandleCommand_JoinTeam refuses team 0 with its "invalid team index"
+    warning (hl2mp_player.cpp), and the menu closes and gives the mouse back.
+    The control: the same click with no menu open sends nothing. (The needle
+    was "jointeam 0 from player N" until the team service replaced that
+    placeholder line.)
     """
     slot = ui_slot(g)
     if slot is None:
         return
     g.cheats()
-    needle = "jointeam 0 from player %d" % slot
+    needle = "HandleCommand_JoinTeam( 0 ) - invalid team index."
 
     def click(x, y):
         for kind, code in ((0, 0), (1, 107), (2, 107)):
@@ -9717,10 +9720,68 @@ def probe_calls(gate, method):
     return int(found.group(1)) if found else None
 
 
+# A STEP FAILS ON A MANAGED EXCEPTION OR A REFUSED ACQUISITION IN ITS LOG,
+# whatever its own checks say. Both used to be read, if at all, as "map
+# warning(s), not gated": at e814cd6d3 the movement loop threw on every tick
+# (269,840 "EXCEPTION IN" lines, the engine trace unserved) and at bd894daf1
+# the server fired no game event ("could not acquire GAMEEVENTSMANAGER002"),
+# and every step that did not look for that one effect passed.
+FAULTS = (
+    ("a managed exception", re.compile(r"EXCEPTION IN ")),
+    ("a refused interface acquisition", re.compile(r'could not acquire "')),
+)
+# (step id, pattern) for a step that provokes one of the above on purpose. A row
+# names the step and the line, so an exemption cannot spread past its reason.
+FAULT_EXEMPT = ()
+
+
+def faults_in(lines, step_id, exempt=FAULT_EXEMPT):
+    """[(kind, line)] for every line of `lines` that is a fault and is not
+    exempt for `step_id`. PURE, so --self-test drives it."""
+    found = []
+    for line in lines:
+        for kind, pattern in FAULTS:
+            if pattern.search(line):
+                if not any(sid == step_id and re.search(rx, line) for sid, rx in exempt):
+                    found.append((kind, line))
+                break
+    return found
+
+
+def log_next(api):
+    """The managed log's next sequence number: where a step's window starts."""
+    return api.get("log", 999999, 1).get("next", 0)
+
+
+def log_since(api, seq, page=500, pages=200):
+    """Every managed log line from `seq` on, paged. Returns (lines, complete):
+    complete is False when the window held more than `pages` pages, or the
+    log restarted under it (a relaunched game), so the caller can say what it
+    did not read rather than read it as clean."""
+    lines, cur, complete = [], seq, True
+    for _ in range(pages):
+        reply = api.get("log", cur, page)
+        batch = reply.get("lines", [])
+        if not batch and reply.get("next", 0) < cur:
+            # The log is shorter than where the step began: a new game.
+            cur, complete = 0, False
+            continue
+        lines += [l.get("text", "").rstrip() for l in batch]
+        if len(batch) < page:
+            return lines, complete
+        cur = reply.get("next", cur + len(batch))
+    return lines, False
+
+
 def run_step(gate, step_id, budget, recorded, report):
     _, title, func = BY_ID[step_id]
     gate._step = step_id
     gate.say("\n-- %s (%s)" % (title, step_id))
+
+    try:
+        log_mark = log_next(gate.api)
+    except ApiError:
+        log_mark = None
 
     # Scoped to THIS step. Crossings.Reset's own docstring says this is what it
     # is for: counters that only accumulate would make every stage's budget a
@@ -9745,6 +9806,26 @@ def run_step(gate, step_id, budget, recorded, report):
         verdict = "fail"
         gate.say("    FAIL  the dev API stopped answering: %s" % why)
         gate.failures.append((step_id, "dev API stopped answering: %s" % why))
+
+    if verdict != "skip":
+        if log_mark is None:
+            gate.check(False, "the managed log could not be read at the step's start, so its "
+                              "exceptions and refused acquisitions were not looked for")
+        else:
+            try:
+                lines, complete = log_since(gate.api, log_mark)
+                faults = faults_in(lines, step_id)
+                gate.check(not faults,
+                           "no managed exception or refused acquisition in the step's log "
+                           "(%d line(s) read%s)%s"
+                           % (len(lines), "" if complete else ", NOT ALL",
+                              "" if not faults else ": %d, e.g. %s"
+                              % (len(faults), ["%s: %s" % (k, l[:120]) for k, l in faults[:3]])))
+                if not complete:
+                    gate.note("the step's log was not read whole (a relaunch, or over %d lines)"
+                              % len(lines))
+            except ApiError as why:
+                gate.check(False, "the managed log stopped answering after the step: %s" % why)
 
     if verdict == "pass" and len(gate.failures) > failures_before:
         verdict = "fail"
@@ -9907,6 +9988,25 @@ def self_test():
 
     def ok(condition, name):
         checks.append((bool(condition), name))
+
+    #-- faults_in: a step fails on a managed exception or a refused acquisition --
+    exc = "[SourceSharp] ===== EXCEPTION IN IManagedPlayerCommands.MoveProcessMovement (managed)"
+    acq = ('[SourceSharp/Server] game events: no IGameEventManager2 (could not acquire '
+           '"GAMEEVENTSMANAGER002" from the AppSystem factory: ...)')
+    clean = "[SourceSharp] listening for game event 'player_death'"
+    ok(faults_in([clean], "join") == [], "a clean line is no fault")
+    ok([k for k, _ in faults_in([exc], "join")] == ["a managed exception"],
+       "an EXCEPTION IN line is a managed exception")
+    ok([k for k, _ in faults_in([acq], "kill-feed")] == ["a refused interface acquisition"],
+       "a could-not-acquire line is a refused acquisition")
+    ok(len(faults_in([exc, clean, acq, exc], "join")) == 3, "every fault line is counted")
+    ok(faults_in([exc], "join", exempt=(("join", r"MoveProcessMovement"),)) == [],
+       "an exemption row excuses its own step's line")
+    ok(len(faults_in([exc], "door", exempt=(("join", r"MoveProcessMovement"),))) == 1,
+       "and no other step's")
+    ok(len(faults_in([acq], "join", exempt=(("join", r"MoveProcessMovement"),))) == 1,
+       "and no other line in its own step")
+    ok(FAULT_EXEMPT == (), "no step is exempt today")
 
     #-- reload_vanish_allowance / reload_excused: a self-removal in the span --
     before = {"booked.ss_ragdoll": 1, "dueMs.ss_ragdoll.0": 2500,
@@ -10625,9 +10725,18 @@ def self_test():
     class _RenderApi:
         def __init__(self):
             self.server_reads = 0
+            self.log = []      # what the step's window of the managed log holds
 
         def cmd(self, _line):
             return ""
+
+        def get(self, what, seq, limit):
+            assert what == "log"
+            # /log's shape: the window's lines from `seq`, and the next seq.
+            if seq == 999999:
+                return {"lines": [], "next": 0}
+            batch = self.log[seq:seq + limit]
+            return {"lines": [{"text": t} for t in batch], "next": seq + len(batch)}
 
         def crossings(self):
             self.server_reads += 1
@@ -10671,6 +10780,22 @@ def self_test():
            "negative control: the next step is back on the server's counters (%r)" % recorded)
         ok(any(f[0] == "join" and "ServerFrame" in f[1] for f in gate.failures),
            "and a server window still is (no ServerFrame ops in 40 frames is red)")
+        # The fault check runs on every step: the render step above was clean.
+        api.log = ["[SourceSharp] ok", "[SourceSharp] ===== EXCEPTION IN IManagedX.Y (managed)"]
+        gate2 = Gate(api, {"playerClass": "player"}, verbose=False)
+        verdict2, _ = run_step(gate2, "render", {}, [], {})
+        ok(verdict2 == "fail" and any("managed exception" in f[1] for f in gate2.failures),
+           "a step whose log holds an EXCEPTION IN line fails, whatever its own checks said (%r)"
+           % gate2.failures)
+        api.log = ["[SourceSharp] ok"] * 1200
+        gate3 = Gate(api, {"playerClass": "player"}, verbose=False)
+        verdict3, _ = run_step(gate3, "render", {}, [], {})
+        ok(verdict3 == "pass", "and a clean log of 1,200 lines (three pages) passes (%r)" % gate3.failures)
+        api.log = ["[SourceSharp] ok"] * 1100 + ['x could not acquire "VEngineX001" y']
+        gate4 = Gate(api, {"playerClass": "player"}, verbose=False)
+        verdict4, _ = run_step(gate4, "render", {}, [], {})
+        ok(verdict4 == "fail", "and a refused acquisition on the log's third page fails it")
+        api.log = []
     finally:
         BY_ID["render"], BY_ID["join"] = saved
         globals()["DEBUG_COMMANDS"] = saved_debug

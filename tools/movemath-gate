@@ -477,6 +477,7 @@ echo "== launching $MAP (log: $LOG)"
 ( cd "$GAME_DIR" && . "$ROOT/tools/gpu-offload" && \
   TMPDIR="$RUN_TMP" DEBUG_API_DIR="$SOCKET_DIR" "${LAUNCH[@]}" \
     -debugapi -debugapisocket -condebug -nomessagebox -nocrashdialog -assertlog \
+    -debuguiserve -debuguiport 0 -debugui \
     -novid -windowed -w 640 -h 480 $(python3 "$ROOT/tools/local_launch.py") +map "$MAP" ) > "$LOG" 2>&1 &
 WRAPPER=$!
 
@@ -619,6 +620,34 @@ except Exception:
 # ss_ground is FCVAR_CHEAT, and a cheat command at sv_cheats 0 reports success
 # and does nothing -- indistinguishable from a player who never jumped.
 d cmd "sv_cheats 1" > /dev/null
+
+# THE METER IS THE CLIENT'S, READ THROUGH THE DEBUG CHANNEL. Prediction is
+# client-side (plan_side_isolation rulings 11-12): the server's /prediction
+# answers from the channel's mirror of what its client sends up, and says
+# "available":false with no channel. Launched without -debuguiserve/-debugui,
+# every read below parsed as -1 and the gate failed three checks with "this
+# meter cannot go red" (main 9fb726b..b32ca3536). The channel attaches after the
+# join, so wait for it, and say which it was if it never does.
+prediction_available() {
+    d prediction 0 1 | python3 -c '
+import json, sys
+try:
+    print("yes" if json.load(sys.stdin).get("available") else "no")
+except Exception:
+    print("no")
+'
+}
+PRED_OK=no
+for _ in $(seq 1 40); do
+    PRED_OK="$(prediction_available)"
+    [ "$PRED_OK" = yes ] && break
+    sleep 0.5
+done
+if [ "$PRED_OK" = yes ]; then
+    pass "the client's prediction report is reachable through the debug channel (/prediction available)"
+else
+    fail "the client's prediction report never became available: /prediction says $(d prediction 0 1 | head -c 300)"
+fi
 
 # ---------------------------------------------------------------------------
 # ARM 1 IS GONE. See the block at the top of this file: gamemovement.cpp is in

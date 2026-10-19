@@ -4,6 +4,28 @@ Work that has been decided on but has no plan or owner yet. Each item says
 why it's here and what is known, with the commit it was measured at.
 
 
+## live-gate ui-teammenu: the team menu's click sends no jointeam the server hears
+
+At main 760ca80fc (2026-10-19, both passes) the step's three rounds open the
+UI's team menu, take the mouse and draw AUTO ASSIGN, then fail "the click sent
+jointeam 0 and the server heard it"; the menu closes and gives the mouse back.
+It is the one step the full live gate fails there, and the daily gate's reports
+at 43171f0c1 (2026-10-16..18) failed the same three rows. TF2 Stage 0's 0.5
+work rerouted jointeam (ITeams, IJoinTeamPolicy, IClientCommandHook), which is
+the first place to look. Repro: make live-gate LIVE_ARGS='--steps ui-teammenu'.
+
+
+## live-gate's fault check does not see across a hot reload
+
+Every step fails on a managed EXCEPTION IN or `could not acquire "` line in
+its log (c0902624e). The hot-reload step restarts the managed log, so the
+step's window is re-read from the new log's start and reported "NOT ALL": the
+lines between the step's start and the reload are not looked at (500 lines
+read in each pass at 760ca80fc). Reading the native console feed (/console,
+epoch-aware, which ConsoleFeed already pages) beside the managed log, or
+marking the log before the reload, would close it.
+
+
 ## The client systems' PostRender stage reaches no body
 
 Added 2026-10-19 with SFM's removal (user ruling: "SFM is dead, remove it").

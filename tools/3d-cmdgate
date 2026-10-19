@@ -3,8 +3,9 @@
 plan_entity.md step 3d's own gate: N COMMANDS, ONE CROSSING — MEASURED LIVE, AT
 TWO VERY DIFFERENT N.
 
-WHY IT IS NOT ENOUGH TO COUNT THE CROSSING. `ServerPlayerCommands` counts one
-transition per ProcessUsercmds. A build that queued commands and never ran a
+WHY IT IS NOT ENOUGH TO COUNT THE CROSSING. `ServerPlayerDecodeCommands` counts
+one transition per packet (ProcessUsercmds' decode, plan_server_novalve P2.2;
+it replaced `ServerPlayerCommands`, which the gate read for zero after that). A build that queued commands and never ran a
 single one would post exactly the same number, and the "one crossing per packet"
 claim would read as proved by a game whose players cannot move. So the gate
 hangs on the RATIO — commands actually run, divided by crossings that carried
@@ -86,6 +87,18 @@ def bad(text):
 
 def check(cond, text):
     ok(text) if cond else bad(text)
+
+
+# The crossing that carries one packet's commands into managed code. --self-test
+# holds it to src/abi/Crossings.cs, so a retired name fails there rather than
+# reading zero live (as ServerPlayerCommands did after its replacement).
+PACKET_CROSSING = "ServerPlayerDecodeCommands"
+
+
+def crossing_ops(text):
+    """The member names of the CrossingOp enum in Crossings.cs' text."""
+    body = re.search(r"enum CrossingOp\b[^{]*\{(.*?)\n\}", text, re.S)
+    return set(re.findall(r"^\s*([A-Z][A-Za-z0-9]*)\s*=", body.group(1), re.M)) if body else set()
 
 
 # --------------------------------------------------------------------------
@@ -176,6 +189,20 @@ def self_test():
     check(any(not c for c, t in ratio_verdict(0.0, 0.0)), "two dead arms fail")
     check(any(not c for c, t in ratio_verdict(0.5, 1.9)),
           "a bundled arm under two commands per crossing fails")
+
+    crossings_cs = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "src", "abi", "Crossings.cs")
+    try:
+        ops = crossing_ops(open(crossings_cs).read())
+    except OSError as why:
+        ops = set()
+        bad("src/abi/Crossings.cs did not open (%s)" % why)
+    check(len(ops) > 50, "CrossingOp's members were read from Crossings.cs (%d)" % len(ops))
+    check(PACKET_CROSSING in ops,
+          "the gate's packet crossing %s is a CrossingOp member, so the live read is not "
+          "of a retired name" % PACKET_CROSSING)
+    check("ServerPlayerRunCommands" in ops, "and so is ServerPlayerRunCommands")
+    check("ServerPlayerCommands" not in ops,
+          "the control: the retired ServerPlayerCommands is not a member")
 
     print()
     if FAILURES:
@@ -386,10 +413,10 @@ def measure(game):
             continue
 
         batches, queued, ran, ratio = counters
-        crossing = after.get("ServerPlayerCommands", 0)
+        crossing = after.get(PACKET_CROSSING, 0)
         runs = after.get("ServerPlayerRunCommands", 0)
 
-        print("  crossings ServerPlayerCommands=%d ServerPlayerRunCommands=%d" % (crossing, runs))
+        print("  crossings %s=%d ServerPlayerRunCommands=%d" % (PACKET_CROSSING, crossing, runs))
         print("  readout   batches=%d queued=%d ran=%d ranPerBatch=%.3f"
               % (batches, queued, ran, ratio))
         print("  removed:  %s" % removed)
