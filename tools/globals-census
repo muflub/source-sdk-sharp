@@ -952,6 +952,10 @@ def reconcile(side, config, mtime_policy):
     out.append("so_mutable\t%d" % len(so))
     out.append("  from_link_line_objects\t%d" % from_objects)
     out.append("  from_an_archive\t%d" % from_archives)
+    # What the archive term had to attribute against: every mutable symbol
+    # the link line's archives define. A side whose .so takes no state from
+    # an archive (from_an_archive 0) still proves the term read them here.
+    out.append("archive_mutable_defined\t%d" % len(arch))
     out.append("  from_the_c_runtime\t%d" % from_crt)
     out.append("  UNATTRIBUTED\t%d" % len(unattributed))
     out.append("so_vec_constants_excluded\t%d" % len(so_vec))

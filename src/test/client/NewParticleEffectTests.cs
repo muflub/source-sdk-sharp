@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Effects;
+using SourceSharp.Client.Interop;
 
 using Xunit;
 
@@ -165,10 +166,8 @@ public class NewParticleEffectTests
         LastSimulationTime = 5f,
         NextSleepTime = 4f,
         SkipRenderControlPoint = -1,
-        CameraEntity = 1,
-        SkipEntity = -1,
+        CameraObject = 1,
         LocalPlayer = 1,
-        ObserverTarget = -1,
     };
 
     [Fact]
@@ -244,7 +243,7 @@ public class NewParticleEffectTests
         NewParticleDrawIn d = Draw();
         d.SkipRenderControlPoint = 1;
         d.HighestControlPoint = 1;
-        d.SkipEntity = 1; // the camera's own entity
+        d.SkipObject = 1; // the camera's own entity
         return d;
     }
 
@@ -274,7 +273,7 @@ public class NewParticleEffectTests
     public void TheSkipTestsNeedAnEntityAtTheCamera()
     {
         NewParticleDrawIn d = Skipping();
-        d.CameraEntity = -1;
+        d.CameraObject = 0;
         Assert.Equal(NewParticleDrawReason.Drawn, NewParticleEffect.Draw(d).Reason);
     }
 
@@ -290,7 +289,7 @@ public class NewParticleEffectTests
     public void ASystemOnTheEntityTheLocalPlayerSpectatesInEyeIsSkipped()
     {
         NewParticleDrawIn d = Skipping();
-        d.SkipEntity = 7;
+        d.SkipObject = 7;
         d.ObserverMode = NewParticleEffect.ObserverInEye;
         d.ObserverTarget = 7;
         Assert.Equal(NewParticleDrawReason.SkipInEye, NewParticleEffect.Draw(d).Reason);
@@ -302,7 +301,7 @@ public class NewParticleEffectTests
     public void TheInEyeTestNeedsTheLocalPlayerToBeTheCamera()
     {
         NewParticleDrawIn d = Skipping();
-        d.SkipEntity = 7;
+        d.SkipObject = 7;
         d.ObserverMode = NewParticleEffect.ObserverInEye;
         d.ObserverTarget = 7;
         d.LocalPlayer = 2;

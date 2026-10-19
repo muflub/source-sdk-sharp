@@ -78,7 +78,7 @@
 #include "ivmodemanager.h"
 #include "prediction.h"
 #include "clientsideeffects.h"
-#include "particlemgr.h"
+#include "shell_particle_mgr.h"	// CParticleMgr's Init, Term, LevelInit and level shutdown (C7 particles phase 4)
 #include "smoke_fog_overlay.h"
 #include "view.h"
 #include "ienginevgui.h"
@@ -181,6 +181,7 @@ extern vgui::IInputInternal *g_InputInternal;
 
 #include "ss_command_line.h"
 #include "shell_particle_systems.h"
+#include "shell_new_particles.h"	// ShellNewParticles_Frame / _RemoveAll (C7 particles phase 3)
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -1060,7 +1061,7 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	// The Initializer registry's walk left with initializer.cpp (C8): no object
 	// on the link line registered an Initializer, so it walked nothing.
 
-	if (!ParticleMgr()->Init(MAX_TOTAL_PARTICLES, materials))
+	if ( !ShellParticleMgr_Init( materials ) )
 		return false;
 
 	// plan_map_load P1: a listen server's spawn reloads only what the map paks
@@ -1303,7 +1304,7 @@ void CShellClientDLL::Shutdown( void )
 	gHUD.Shutdown();
 	VGui_Shutdown();
 	
-	ParticleMgr()->Term();
+	ShellParticleMgr_Term();
 	
 	// vgui_controls' .res file cache was cleared here; nothing loads a .res now.
 
@@ -1724,7 +1725,7 @@ void CShellClientDLL::LevelInitPreEntity( char const* pMapName )
 	
 	// Tell mode manager that map is changing
 	modemanager->LevelInit( pMapName );
-	ParticleMgr()->LevelInit();
+	ShellParticleMgr_LevelInit();
 
 
 	// 7b: C_BaseTempEntity::ClearDynamicTempEnts() was here. It deleted every
@@ -1895,7 +1896,10 @@ void CShellClientDLL::LevelShutdown( void )
 
 	view->LevelShutdown();
 	beams->ClearBeams();
-	ParticleMgr()->RemoveAllEffects();
+	// CParticleMgr::RemoveAllEffects: the new-style effects removed, then the
+	// particle materials released (C7 particles phases 3 and 4).
+	ShellNewParticles_RemoveAll();
+	ShellParticleMgr_LevelShutdown();
 	
 	StopAllRumbleEffects();
 
@@ -2324,7 +2328,9 @@ void OnRenderStart()
 		// The old-style effects first, as UpdateAllEffects updated them before
 		// the new ones: managed's (C7 particles phase 2.3).
 		ShellParticles_Frame( gpGlobals->frametime );
-		ParticleMgr()->Simulate( gpGlobals->frametime );
+		// The new-style effects', which UpdateAllEffects updated after the
+		// old (C7 particles phase 3).
+		ShellNewParticles_Frame( gpGlobals->frametime );
 	}
 
 	// SOURCESHARP: EntityInterp_CalcAimEntPositions stood here -- the other half

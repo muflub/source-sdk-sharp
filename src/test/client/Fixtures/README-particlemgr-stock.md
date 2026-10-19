@@ -43,3 +43,7 @@ Particle's tail padding).
 | `drawmat` | binding, material, bucket sort, frame time |
 | `key` | binding, id, the sort key the executor handed GetNext |
 | `post` | binding, drawn this frame (PostRender) |
+
+The probe switch (`SS_PM_PROBES`) left client.so's CMake with the eviction of
+particlemgr.cpp and particles_new.cpp (C7 particles phase 4): to record again,
+check out the recording's commit above.

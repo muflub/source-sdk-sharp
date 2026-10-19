@@ -26,8 +26,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/entity_client_tools.cpp
     ${SS_SRC}/game/client/flashlighteffect.cpp
     ${SS_SRC}/game/client/glow_overlay.cpp
-    ${SS_SRC}/game/client/particlemgr.cpp
-    ${SS_SRC}/game/client/particles_new.cpp
     ${SS_SRC}/game/client/rendertexture.cpp
     ${SS_SRC}/game/client/ScreenSpaceEffects.cpp
     ${SS_SRC}/game/client/toolframework_client.cpp
@@ -67,6 +65,8 @@ set(client_sourcesharp_sources
     # and shell_materialproxies.cpp (docs/client_evictions.md). It also holds
     # CMatStubHandler, which cl_mat_stub.cpp held (mat_stub is a managed convar).
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_material_proxy_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_new_particles_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_particle_mgr_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_player_orphans.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_precipitation_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_physics_client.cpp
@@ -212,20 +212,6 @@ target_sources(client_sourcesharp PRIVATE ${client_sourcesharp_sources})
 option(SS_PSO_PROBES "debug client.so: compile the particles-so spike probes" OFF)
 if(SS_CONFIG STREQUAL "debug" AND SS_PSO_PROBES)
   target_sources(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/tools/probes/client/pso_probes_debug.cpp)
-endif()
-# C7 particles' oracle probe: probe copies of particlemgr.cpp and
-# particles_new.cpp logging the particle manager's decisions, the new effects'
-# (phase 3, tag np) and their simulate time
-# (tools/probes/client/particlemgr.cpp.probe.diff). Its companion,
-# shell_managed_particles.cpp.pm.probe.diff, applies at the phase 2.1
-# recording's commit (README-particlemgr-stock.md): the executor it logged was
-# rewritten in phase 2.3. On its own switch so it builds without the older
-# probes.
-option(SS_PM_PROBES "debug client.so: compile the C7 particle manager probe copy" OFF)
-if(SS_CONFIG STREQUAL "debug" AND SS_PM_PROBES)
-  include(${PROJECT_SOURCE_DIR}/tools/probes/client/probe_copies.cmake)
-  ss_client_probe_copy(game/client/particlemgr.cpp)
-  ss_client_probe_copy(game/client/particles_new.cpp)
 endif()
 # C7 detail's A/B probe: a probe copy of shell_detail_props.cpp logging every
 # detail vertex and model-prop draw (tools/probes/client/detail_probe.h,

@@ -34,7 +34,8 @@
 //
 //   * THE LOCK IS NOT THE LIST. Deleting the file deletes three externally
 //     linked symbols with live callers —
-//     `UpdateDirtySpatialPartitionEntities()` (particlemgr.cpp:1911),
+//     `UpdateDirtySpatialPartitionEntities()` (shell_new_particles_client.cpp's
+//     frame: UpdateNewEffects' call, C7 particles phase 3),
 //     `DirtySpatialPartitionGameSystem()` (shell_serversystems.cpp:353) and
 //     `ClientSystem_DirtySpatialPartition()` (shell_clientsystems.cpp:378) —
 //     and takes the engine's query-callback registration with them. That is a
@@ -379,9 +380,10 @@ void CDirtySpatialPartitionEntityList::OnPostQuery( SpatialPartitionListMask_t l
 //
 // WHAT STAYS OUTSIDE THIS GUARD, and each for a stated reason:
 //
-//   UpdateDirtySpatialPartitionEntities()  particlemgr.cpp:1872 calls it by
-//       name and that file stays in the build, so removing the definition would
-//       be a LINK failure at step 6 rather than a compile one. Armed it drives
+//   UpdateDirtySpatialPartitionEntities()  shell_new_particles_client.cpp's
+//       frame calls it by name (UpdateNewEffects' call, carried there since C7
+//       particles phase 3), so removing the definition would be a
+//       LINK failure rather than a compile one. Armed it drives
 //       a permanently-empty list and is a no-op, which is the correct answer.
 //
 //   CDirtySpatialPartitionEntityList       it is an IPartitionQueryCallback the

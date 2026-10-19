@@ -158,7 +158,11 @@ const char *kSoundscapeCommands = "sourcesharp/managed/SourceSharp.Client/Sounds
 const char *kClientModule = "sourcesharp/managed/SourceSharp.Client/ClientModule.cs";
 const char *kEmitter    = "sourcesharp/game/shared/sound_emitter.cpp";
 const char *kFilter     = "sourcesharp/game/client/shell_recipientfilter_client.cpp";
-const char *kParticleMgr = "game/client/particlemgr.cpp";
+// cs_cl_particle_report, managed since particlemgr.cpp left client.so (C7
+// particles phase 4), over the particles shell's per-system read and the
+// client entity origin read (shell_te_pool_client.cpp).
+const char *kParticleCommands = "sourcesharp/managed/SourceSharp.Client/Effects/ParticleCommands.cs";
+const char *kTePool = "sourcesharp/game/client/shell_te_pool_client.cpp";
 // The managed particle systems' start and follow sweep (the flame's control
 // points), in the particles shell since C5 moved them out of shell_sprite_render.cpp.
 const char *kManagedParticles = "sourcesharp/game/client/shell_managed_particles.cpp";
@@ -224,7 +228,8 @@ TEST( Step7eSubjects, EveryFileThisSuiteReadsIsActuallyThere )
 		{ kClientModule, 500u, "public sealed class ClientModule" },
 		{ kEmitter,     500u, "CSoundEmitterSystem" },
 		{ kFilter,      500u, "C_RecipientFilter::" },
-		{ kParticleMgr, 500u, "r_DrawParticles" },
+		{ kParticleCommands, 500u, "cs_cl_particle_report" },
+		{ kTePool, 500u, "int32_t SourceSharp_ClientEntityOrigin(" },
 		{ kManagedParticles, 500u, "void ShellParticles_PreRender()" },
 		// (client_csharp.vpc was the fifth subject. Its successor, the client's
 		// CMake source list, is read by cmake_graph.h, which throws on a
@@ -416,21 +421,24 @@ TEST( Step7eSubjects, TheEmittersClientArmAsksTheEntityList )
 //=============================================================================
 TEST( Step7eSubjects, TheParticleReportDoesNotUseTheAssertingAccessor )
 {
-	// THE REPORT'S OWN BODY, NOT THE WHOLE FILE, and the first run of this
-	// suite is why. particlemgr.cpp:1631 calls GetControlPointAtCurrentTime in
-	// CParticleMgr's own culling, where it is correct -- the definition's cull
-	// control point is a point the definition declared. A whole-file needle read
-	// that as this step's bug and went red over stock code it has no business
-	// asserting about. Scoped to the function that step 7e added.
-	const std::string whole = Code( kParticleMgr );
+	// THE REPORT'S OWN READ, NOT THE WHOLE FILE, and the first run of this
+	// suite is why: GetControlPointAtCurrentTime is correct where a definition
+	// declared the point, and a whole-file needle went red over code it has no
+	// business asserting about. Since C7 particles phase 4 the report is
+	// managed's (ParticleCommands.cs), and the control points it prints are
+	// read natively by SourceSharp_ParticleSystemsRead, which is the body
+	// scoped here.
+	ASSERT_TRUE( Has( Code( kParticleCommands ), "systems.Read()" ) )
+		<< "the report no longer prints the particles shell's read";
+	const std::string whole = Code( kManagedParticles );
 	ASSERT_FALSE( whole.empty() );
 
-	const size_t begin = whole.find( "void CParticleMgr::SourceSharpParticleReport()" );
+	const size_t begin = whole.find( "int32_t SourceSharp_ParticleSystemsRead(" );
 	ASSERT_NE( std::string::npos, begin )
-		<< "the report function is gone, or was renamed. Everything below is "
+		<< "the report's read is gone, or was renamed. Everything below is "
 		   "about its body and would be vacuous without it.";
 
-	const size_t end = whole.find( "CON_COMMAND( cs_cl_particle_report", begin );
+	const size_t end = whole.find( "\n}\n", begin );
 	ASSERT_NE( std::string::npos, end );
 
 	const std::string code = whole.substr( begin, end - begin );
@@ -440,18 +448,27 @@ TEST( Step7eSubjects, TheParticleReportDoesNotUseTheAssertingAccessor )
 		   "m_pDef->ReadsControlPoint( n ). A REPORT's job is to say what an "
 		   "undeclared control point holds; env_fire_small declares point 0 "
 		   "only and this fired particles.h:2392 twice.";
-	EXPECT_TRUE( Has( code, "m_ControlPoints[ 0 ].m_Position" ) );
-	EXPECT_TRUE( Has( code, "m_ControlPoints[ 1 ].m_Position" ) );
+	EXPECT_TRUE( Has( code, "m_ControlPoints[0].m_Position" ) );
+	EXPECT_TRUE( Has( code, "m_ControlPoints[1].m_Position" ) );
 }
 
 TEST( Step7eSubjects, TheParticleReportCanNameTheClientsOwnCopyOfAnEntity )
 {
-	const std::string code = Code( kParticleMgr );
+	// C7 PARTICLES PHASE 4 MOVED THE REPORT, AND THE FACT IS THE SAME FACT.
+	// particlemgr.cpp left client.so; cs_cl_particle_report is managed's
+	// (ParticleCommands.cs), and its entity line reads IEngineEffects'
+	// ClientEntityOrigin, which native answers in shell_te_pool_client.cpp
+	// through the same SourceSharp_ClientEntityFromIndex the old report's
+	// SSClientEntityFromIndex wrapped. Both halves are asserted below.
+	const std::string code = Code( kParticleCommands );
 	ASSERT_FALSE( code.empty() );
 
 	// Without this line the gate cannot tell a broken follow sweep from a move
 	// that never networked, and its third run could not.
-	EXPECT_TRUE( Has( code, "SourceSharp_ReportClientEntityOrigin" ) );
+	EXPECT_TRUE( Has( code, "effects.ClientEntityOrigin" ) );
+	EXPECT_TRUE( Has( code, ": origin (" ) )
+		<< "the report no longer prints where this side thinks the entity is, "
+		   "in the line tools/7e-particle-sound-gate reads.";
 	// STEP p7-exit MOVED THIS LINE, AND THE FACT IS THE SAME FACT.
 	//
 	// 7e wrote it as `ClientEntityList().GetClientEntity( nEntIndex )` and gave
@@ -468,7 +485,9 @@ TEST( Step7eSubjects, TheParticleReportCanNameTheClientsOwnCopyOfAnEntity )
 	//
 	// The needle is the CALL, not the helper's declaration, so deleting the
 	// call and leaving the helper reddens this.
-	EXPECT_TRUE( Has( code, "SSClientEntityFromIndex( nEntIndex )" ) )
+	const std::string native = Code( kTePool );
+	ASSERT_FALSE( native.empty() );
+	EXPECT_TRUE( Has( native, "SourceSharp_ClientEntityFromIndex( nEntityIndex )" ) )
 		<< "the report no longer resolves the entity index at all. It must ask "
 		   "something that holds BOTH hierarchies, which is 7e's own reason: "
 		   "C_BaseEntity::Instance answers NULL for every entity this port "

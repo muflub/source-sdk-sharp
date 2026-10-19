@@ -626,9 +626,17 @@ TEST( GlobalsClientLedger, TheTwoInstrumentsReconcileWithNothingLeftOver )
 	EXPECT_LE( lLeftOver, lCeiling )
 		<< lLeftOver << " mutable symbols in client.so belong to no link-line "
 		   "object, no archive and no named crt symbol.\n" << run.m_szOutput;
-	EXPECT_GT( ReportedNumber( run.m_szOutput, "from_an_archive" ), 0 )
-		<< "no symbol attributed to an archive: the partition's archive term "
-		   "read nothing, and an empty residue is then not evidence\n"
+	// THE ARCHIVE TERM READ SOMETHING. Since C7 particles phase 4 took
+	// particlemgr.cpp (and tier1's utlsymbol.o with it) off the link line,
+	// client.so takes no mutable state from an archive: from_an_archive is 0
+	// and correct. The control is therefore on the term's INPUT, the mutable
+	// symbols the link line's archives define, which an archive term that
+	// read nothing would also report as 0.
+	EXPECT_GE( ReportedNumber( run.m_szOutput, "from_an_archive" ), 0 )
+		<< "no from_an_archive line\n" << run.m_szOutput;
+	EXPECT_GT( ReportedNumber( run.m_szOutput, "archive_mutable_defined" ), 0 )
+		<< "the link line's archives define no mutable symbol: the partition's "
+		   "archive term read nothing, and an empty residue is then not evidence\n"
 		<< run.m_szOutput;
 	EXPECT_EQ( run.m_nExit, 0 ) << run.m_szOutput;
 }

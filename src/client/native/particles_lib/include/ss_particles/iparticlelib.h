@@ -5,11 +5,11 @@
 //
 //=============================================================================//
 // The one interface libss_particles.so exports, through SSParticleLib_Interface
-// below (plan_particles_so.md). client.so's forwards call it, and managed binds the same object through the client's
-// internal factory (shell_internalfactory.cpp) with the layout tools/vtable-layout
-// generates from this header (ParticleLibVtbl). APPEND-ONLY BY RULE: new methods
-// at the end, nothing inserted or reordered; MgrUncacheAllParticleSystems is the
-// count anchor until something is appended after it (particles_lib_client.cpp).
+// below (plan_particles_so.md). client.so's forwards call it, and managed calls the same object, acquired through the
+// client's internal factory (shell_internalfactory.cpp), through its forwarders
+// (SSFwd_ParticleLib, every method, tools/engine-forwarders). APPEND-ONLY BY RULE:
+// new methods at the end, nothing inserted or reordered; the last declaration
+// (CollectionSetBounds) is what fwd_steam_test holds the table's count to.
 // NO VIRTUAL DESTRUCTOR: the object is the library's singleton, never deleted.
 //
 // Every slot is one function client.so's objects named in particles.a before
@@ -24,6 +24,7 @@
 #define SS_PARTICLES_IPARTICLELIB_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "tier1/interface.h"
 
@@ -43,6 +44,27 @@ struct SSParticleLibCounters_t
 	int nBeamStrips;
 	int nWireframeSpheres;
 	int nWireframeBoxes;
+};
+
+// One collection's step in a CollectionSimulateBatch (C7 particles phase 3):
+// managed's new-effect manager decides which collections step, for how long
+// and whether for their bounds only; the batch carries that out and answers
+// what the manager's next decisions read. 16 bytes: managed builds these
+// (NewParticleAbiParityTests).
+struct SSParticleSimEntry_t
+{
+	CParticleCollection *pCollection;
+	float flDt;              // the seconds to simulate; negative: no step, the answers only
+	int32_t bBoundsOnly;     // Simulate's updateBboxOnly
+};
+
+struct SSParticleSimResult_t
+{
+	int32_t bFinished;       // IsFinished after the step
+	int32_t nActiveParticles;
+	float flNextSleepTime;
+	float vMin[3];           // the collection's bounds after the step
+	float vMax[3];
 };
 
 class ISSParticleLib
@@ -103,6 +125,15 @@ public:
 	virtual void MgrSetLastSimulationTime( CParticleSystemMgr *p, float flTime ) = 0;
 	virtual void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) = 0;
 	virtual void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) = 0;
+
+	// C7 particles phase 3: the new effects' frame, called by managed (the
+	// bound layout ParticleLibVtbl). One batch steps every listed collection,
+	// single-threaded (the phase 3 spike's measurement, docs/todo.md); the
+	// bounds pair serves the first box (CNewParticleEffect::RecalculateBoundingBox,
+	// decided by managed) and the shell's GetRenderBounds.
+	virtual void CollectionSimulateBatch( const SSParticleSimEntry_t *pEntries, int nCount, SSParticleSimResult_t *pResults ) = 0;
+	virtual void CollectionGetBounds( const CParticleCollection *p, float *pMin3, float *pMax3 ) = 0;
+	virtual void CollectionSetBounds( CParticleCollection *p, const float *pMin3, const float *pMax3 ) = 0;
 };
 
 // The library's one export. client.so links the library (DT_NEEDED on its

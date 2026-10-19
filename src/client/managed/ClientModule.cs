@@ -679,7 +679,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                                                   _services.Require<IClientImpactSparks>(),
                                                                                   _services.Require<IClientWaterSplashes>(),
                                                                                   new Effects.RainTracerGeometry(),
-                                                                                  ParticleManifests)));
+                                                                                  ParticleManifests,
+                                                                                  _services.Require<Effects.NewParticleManager>())));
         // point_worldtext's layout (lane c2-sims): the native text renderer asks
         // each owner for its draw's vertices.
         // The client's sound envelope controller (sound cluster 17, lane
@@ -771,6 +772,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Effects.ClientParticleManager>(locator => new Effects.ClientParticleManager(
             () => _particleSims ??= new Effects.ClientParticleSims(_standalones, _particleEffects!),
             locator.Require<IUniformRandom>(), locator.Require<ParticleViews>()));
+        // The new-style effects' manager (C7 particles phase 3): every native
+        // shell's decisions, made here, the library stepping the collections;
+        // an IReloadParticipant, so the decisions' state crosses cs_cl_reload.
+        _services.AddFactory<Effects.NewParticleManager>(locator => new Effects.NewParticleManager(locator.Require<IParticleCollections>()));
         _services.AddFactory<IClientParticleExecutor>(locator => new Effects.BoundParticleExecutor(
             locator.Require<INativeParticleExecutor>(), locator.Require<Effects.ClientParticleManager>()));
         // C7 post-processing: viewpostprocess.cpp's passes as a managed program,

@@ -163,7 +163,7 @@ internal unsafe struct PhysicsFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>ISSParticleLib</c> through its forwarders (SSFwd_ParticleLib): 45 slot(s).
+/// <c>ISSParticleLib</c> through its forwarders (SSFwd_ParticleLib): 48 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ParticleLibFwd : IForwarderTable
@@ -305,6 +305,15 @@ internal unsafe struct ParticleLibFwd : IForwarderTable
 
     // void ISSParticleLib::MgrUncacheAllParticleSystems( CParticleSystemMgr * )
     public delegate* unmanaged<void*, void*, void> MgrUncacheAllParticleSystems;
+
+    // void ISSParticleLib::CollectionSimulateBatch( const SSParticleSimEntry_t *, int, SSParticleSimResult_t * )
+    public delegate* unmanaged<void*, void*, int, void*, void> CollectionSimulateBatch;
+
+    // void ISSParticleLib::CollectionGetBounds( const CParticleCollection *, float *, float * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> CollectionGetBounds;
+
+    // void ISSParticleLib::CollectionSetBounds( CParticleCollection *, const float *, const float * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> CollectionSetBounds;
 }
 
 /// <summary>

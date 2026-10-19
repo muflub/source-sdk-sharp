@@ -1,0 +1,73 @@
+# C7 particles phase 3's A/B: the same scenes on the base and on the build
+# whose new-style effects are managed's. Needs a debug client.so with
+# -DSS_PSO_PROBES=ON (cs_cl_pso_trace_*), run with --no-probe-build.
+#   fx.jsonl      /client/1/particles, sampled: every system, its particles
+#   console.log   the pso trace's binds and draws, by module and material
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+cmd sv_cheats 1
+cmd r_threaded_particles 0
+# placed where the player looks (the spawn route's aim placement), so the
+# camera is put first: every run then has the same scene
+cmd setpos 800 380 70
+cmd setang 0 90 0
+sleep 1
+api place tools/probes/sessions/c7-thirty-fires.json
+cmd setpos 800 380 70
+cmd setang 0 90 0
+sleep 2
+cmd ent_fire c7fire* StartFire
+sleep 4
+save fires client 1 particles
+sleep 0.5
+save fires client 1 particles
+sleep 0.5
+save fires client 1 particles
+sleep 0.5
+save fires client 1 particles
+cmd cs_cl_pso_trace_start
+sleep 5
+cmd cs_cl_pso_trace_stop
+save fires client 1 particles
+# the view turned away and back, then a distance cull
+cmd setang 0 270 0
+sleep 2
+save away client 1 particles
+cmd setang 0 90 0
+cmd setpos 800 -3000 70
+sleep 2
+save far client 1 particles
+cmd setpos 800 380 70
+sleep 2
+# cs_cl_reload while the fires burn: the owned systems carry over
+save reload client 1 particles
+cmd cs_cl_reload
+sleep 3
+save reload client 1 particles
+sleep 2
+save reload client 1 particles
+cmd ent_fire c7fire* Extinguish
+sleep 5
+save out client 1 particles
+cmd map dm_lockdown
+wait first paint 240
+cmd sv_cheats 1
+cmd r_threaded_particles 0
+cmd cl_new_impact_effects 1
+cmd give weapon_smg1
+cmd give item_ammo_smg1
+sleep 1
+cmd use weapon_smg1
+sleep 1
+cmd cs_cl_pso_trace_start
+cmd +attack
+sleep 1
+save smg client 1 particles
+sleep 1
+save smg client 1 particles
+cmd -attack
+cmd cs_cl_pso_trace_stop
+sleep 3
+save smg client 1 particles
+quit

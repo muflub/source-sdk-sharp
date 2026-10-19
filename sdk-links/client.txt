@@ -115,10 +115,8 @@ src/game/client/particle_iterators.h
 src/game/client/particle_litsmokeemitter.h
 src/game/client/particle_util.h
 src/game/client/particledraw.h
-src/game/client/particlemgr.cpp
 src/game/client/particlemgr.h
 src/game/client/particles_ez.h
-src/game/client/particles_new.cpp
 src/game/client/particles_new.h
 src/game/client/particles_simple.h
 src/game/client/particlesphererenderer.h
@@ -479,7 +477,6 @@ src/public/tier3/tier3.h
 src/public/togl/dxformats.h
 src/public/toolframework/iclientenginetools.h
 src/public/toolframework/itoolentity.h
-src/public/toolframework/itoolframework.h
 src/public/trace.h
 src/public/vcollide.h
 src/public/vcollide_parse.h

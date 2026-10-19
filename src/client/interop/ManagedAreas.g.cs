@@ -121,6 +121,8 @@ public unsafe interface IManagedParticlesClient
     int SplashTint(void* a0, void* a1, void* a2);
     int TracerQuads(int a0, void* a1, void* a2, void* a3);
     int ManifestFiles(int a0, byte* a1, void* a2, int a3);
+    int NewEffectsFrame(void* a0, int a1, void* a2, int a3);
+    int NewEffectDraw(void* a0, void* a1);
 }
 
 [ManagedVtable(typeof(ManagedUiClientTable))]

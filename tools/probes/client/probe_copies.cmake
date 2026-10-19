@@ -41,6 +41,9 @@ endfunction()
 #   fx_staticline.cpp, fx_discreetline.cpp, fx_tracer.cpp .probe.diff
 #                                  effectlist-stock.tsv.gz (evicted after 13df3d85)
 #   fx_shelleject.cpp.probe.diff   shelleject-stock.tsv (evicted after e489497f)
+#   particlemgr.cpp, particles_new.cpp .probe.diff (with shell_managed_particles.cpp.pm.probe.diff)
+#                                  particlemgr-stock.tsv.gz, particlemgr-new-stock.tsv.gz
+#                                  (SS_PM_PROBES; recorded at 43171f0c1, evicted in C7 phase 4)
 
 
 # The same for OUR shells (lane c2-fx's sprite decisions): the diff is against

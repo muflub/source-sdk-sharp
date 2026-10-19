@@ -2230,6 +2230,124 @@ typedef struct
 } SourceSharpParticleSystemInfo_t;
 
 //-----------------------------------------------------------------------------
+// C7 particles phase 3: the new-style effects' manager is managed's
+// (SourceSharp.Client.Effects.NewParticleManager over NewParticleEffect); the
+// particle library (libss_particles.so) simulates and renders, and native's
+// shell (shell_new_particles_client.cpp) is the renderable that carries the
+// decisions out. One length-prefixed buffer per direction, as phase 2's.
+//
+// IManagedParticlesClient::NewEffectsFrame's in: this header, then one
+// SourceSharpNewParticleIn_t per live effect in the manager's order (newest
+// first: stock's AddToHead). During the call managed steps the listed
+// collections through the library (ISSParticleLib::CollectionSimulateBatch).
+// NewParticleAbiParityTests holds every struct here against its managed twin.
+//-----------------------------------------------------------------------------
+typedef struct
+{
+	float   Dt;               // the frame's dt (UpdateAllEffects', after its 0.1 s clamp)
+	float   Timescale;        // r_particle_timescale
+	float   CurTime;          // gpGlobals->curtime: the library's last simulation time
+	int32_t FrameCount;       // gpGlobals->framecount (the retirement check)
+	float   AabbBuffer;       // cl_particleeffect_aabb_buffer (DetectChanges)
+	float   RetireCost;       // cl_particle_retire_cost
+	int32_t SpikeThresholdMs; // r_particle_sim_spike_threshold_ms (EndSimulateParticles' profile commit)
+	int32_t ViewX;            // view->GetPlayerViewSetup(): the retirement pass's view
+	int32_t ViewY;
+	int32_t ViewWidth;
+	int32_t ViewHeight;
+	float   ViewFov;
+	float   ViewOriginXYZ[3];
+	float   WorldToScreen[16]; // render->GetMatricesForView's, row-major
+} SourceSharpNewParticleFrameHeader_t;
+
+// A live effect's Flags.
+enum
+{
+	SOURCESHARP_NEW_PARTICLE_RELEASED        = 1 << 0,  // its reference count reached zero since the last frame
+	SOURCESHARP_NEW_PARTICLE_ALLOCATED       = 1 << 1,  // Create made it (m_bAllocated)
+	SOURCESHARP_NEW_PARTICLE_RENDER_HANDLE   = 1 << 2,  // it is in the leaf system
+	SOURCESHARP_NEW_PARTICLE_VIEW_MODEL      = 1 << 3,  // its definition is a view-model effect
+	SOURCESHARP_NEW_PARTICLE_HAS_REPLACEMENT = 1 << 4,  // its definition names a cull replacement
+	SOURCESHARP_NEW_PARTICLE_ADDED           = 1 << 5,  // started since the last frame
+};
+
+typedef struct
+{
+	uint32_t Id;              // the shell's, stable for the effect's life
+	int32_t  Flags;           // SOURCESHARP_NEW_PARTICLE_*
+	uint64_t Collection;      // the library's CParticleCollection *, for the batch
+	uint64_t Definition;      // its CParticleSystemDefinition *, an identity
+	float    NextSleepTime;   // m_flNextSleepTime
+	int32_t  Active;          // m_nActiveParticles
+	int32_t  HasMoved;        // HasMoved()
+	int32_t  Finished;        // IsFinished() (Release's test)
+	float    SortOriginXYZ[3];
+	float    MinXYZ[3];       // the collection's bounds
+	float    MaxXYZ[3];
+	float    CullRadius;      // the definition's (EarlyRetireParticleSystems)
+	float    CullFillCost;
+	float    CullPointXYZ[3]; // GetControlPointAtCurrentTime( the definition's cull control point )
+} SourceSharpNewParticleIn_t;
+
+// NewEffectsFrame's out: one per effect managed asks native to act on.
+enum
+{
+	SOURCESHARP_NEW_PARTICLE_CHANGED    = 1 << 0,  // DetectChanges: RenderableChanged
+	SOURCESHARP_NEW_PARTICLE_REMOVE     = 1 << 1,  // RemoveEffect: out of the leaf system, deleted if allocated
+	SOURCESHARP_NEW_PARTICLE_VIEW_GROUP = 1 << 2,  // AddEffect's RENDER_GROUP_VIEW_MODEL_TRANSLUCENT
+	SOURCESHARP_NEW_PARTICLE_REPLACE    = 1 << 3,  // ReplaceWith( the definition's cull replacement )
+};
+
+typedef struct
+{
+	uint32_t Id;
+	int32_t  Actions;         // SOURCESHARP_NEW_PARTICLE_CHANGED and the rest
+} SourceSharpNewParticleCommit_t;
+
+// IManagedParticlesClient::NewEffectDraw's in: what native read for one
+// CNewParticleEffect::DrawModel. Entities are identity tokens (their IGameEntity
+// pointers), 0 for none: the skip-render tests compare them and nothing else.
+typedef struct
+{
+	uint32_t Id;
+	int32_t  Flags;           // DrawModel's studio flags
+	int32_t  DrawParticles;   // r_drawparticles
+	int32_t  ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
+	int32_t  RenderSystems;   // ParticleMgr()->ShouldRenderParticleSystems()
+	int32_t  ShowBBox;        // cl_particle_show_bbox
+	int32_t  ShowBBoxCost;    // cl_particle_show_bbox_cost
+	int32_t  Active;          // m_nActiveParticles (the debug box's cost)
+	float    CameraXYZ[3];    // the render context's world-space camera
+	float    MinXYZ[3];       // the collection's bounds
+	float    MaxXYZ[3];
+	float    MaxDrawDistance; // the definition's
+	float    NoDrawTimeToGoToSleep;
+	float    LastSimulationTime; // the library manager's
+	float    NextSleepTime;   // m_flNextSleepTime
+	int32_t  SkipRenderControlPoint; // the definition's (-1: none)
+	int32_t  HighestControlPoint;    // m_nHighestCP
+	int32_t  ThirdPerson;     // input->CAM_IsThirdPerson()
+	int32_t  ObserverMode;    // the local player's
+	int32_t  Pad;
+	uint64_t CameraObject;    // the entity at render->GetViewEntity()
+	uint64_t SkipObject;      // the skip-render control point's entity
+	uint64_t LocalPlayer;
+	uint64_t ObserverTarget;  // the local player's
+} SourceSharpNewParticleDrawIn_t;
+
+typedef struct
+{
+	int32_t Action;           // 0 return 0; 1 render now (two-pass when the system is); 2 the library's render cache
+	int32_t SetSleep;         // write NextSleepTime (the distance cull keeps the system awake)
+	float   NextSleepTime;
+	int32_t BBox;             // draw the debug box (cl_particle_show_bbox / _cost)
+	int32_t BBoxR;
+	int32_t BBoxG;
+	int32_t BBoxB;
+	int32_t Stats;            // the frame's stats count this draw (cl_particle_stats)
+} SourceSharpNewParticleDrawOut_t;
+
+//-----------------------------------------------------------------------------
 // point_worldtext's draw (plan_client_novalve C2, lane c2-sims): its layout is
 // C#'s (WorldTextLayout); shell_worldtext_render.cpp is the leaf renderer that
 // builds what managed lays out.

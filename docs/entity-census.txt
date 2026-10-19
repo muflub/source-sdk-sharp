@@ -1,8 +1,11 @@
+# 2026-10-18, C7 particles phase 4 (the eviction), measured on main f4b31392d: particlemgr.cpp and particles_new.cpp left client.so: client objects 144 -> 142, stock game/client 13 -> 11; stock TUs using an entity type 2 -> 1 (857 -> 394 code lines), with entity-free text 11 -> 10 (7692 -> 5997); particlemgr.cpp's last 3 edges (the subtexture classes' constructors, now shell_particle_mgr_client.cpp's) go: cross-edges 39 -> 36, stock TUs linked against 11 -> 10, of 11. Hand-edited.
+# 2026-10-18, C7 particles phase 4 (the replacement), measured on main f4b31392d: shell_particle_mgr_client.cpp joins client.so: client objects 143 -> 144, shim 130 -> 131. particlemgr.cpp's edges 17 -> 3 (CParticleMgr's members and its four convars go; the subtexture classes' three constructors stay until the eviction moves them): cross-edges 53 -> 39. Hand-edited.
 # 2026-10-18, server-native-v2 (plan_server_native_min P1 replayed onto main 331c8a0cf): server TUs left the link:
 #   [snv2] server objects 123 -> 106, shim 123 -> 106. Measured lines re-taken from --write, the prose kept.
 # 2026-10-18, plan_server_native_v2 D1/D3: server.so builds on stock public/ headers, where the entity face is
 #   spelled CBaseEntity (IGameEntity its alias). "CBaseEntity:: members" server 0 -> 3 are that interface's implicit
 #   constructor and destructor; tools/entity-gates reads them as the face and gates the rest (gate 1's reconcile row).
+# 2026-10-18, C7 particles phase 3 (the new-style effects managed's), measured on main f4b31392d: shell_new_particles_client.cpp joins client.so: client objects 142 -> 143, shim 129 -> 130. particles_new.cpp's 7 edges go (the shell replaces CNewParticleEffect; the TU is a zero-edge one until phase 4 evicts it) and particlemgr.cpp gains ShouldRenderParticleSystems (the shell's DrawModel): cross-edges 59 -> 53, stock TUs linked against 12 -> 11. Hand-edited.
 # 2026-10-18, studio.cpp's eviction: model_descriptor.cpp left both DLLs (the model descriptor is managed's StudioModelDescriptor): objects 122 -> 121 (server) and 144 -> 143 (client), shim 122 -> 121 and 130 -> 129; no cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, studio.cpp's eviction: studio.cpp left both DLLs (no native code reads the mdl through CStudioHdr): objects 121 -> 120 (server) and 143 -> 142 (client), shim 121 -> 120 and 129 -> 128; no cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left both DLLs (its only caller was studio.cpp): objects 120 -> 119 (server) and 142 -> 141 (client), shim 120 -> 119 and 128 -> 127; no cross-edge moved. Hand-applied from tools/entity-census's diff.
@@ -900,23 +903,23 @@
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
 objects linked                                                 106       142
-  ... stock game/server | game/client                            0        13
+  ... stock game/server | game/client                            0        11
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        106       129
+  ... SourceSharp shim (sourcesharp/**)                        106       131
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
-stock TUs that use an entity type but define none                0         2
-  ... their code lines                                           0       857
-stock TUs with entity-free text                                  0        11
-  ... their code lines                                           0      7692
+stock TUs that use an entity type but define none                0         1
+  ... their code lines                                           0       394
+stock TUs with entity-free text                                  0        10
+  ... their code lines                                           0      5997
 CBaseEntity:: / C_BaseEntity:: members in the DLL                3         0
   ... same, with NO symbol-type filter (§1's reading)            3         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0
                      CBaseEntityList) in the DLL
   ... same, without CBaseEntityList:: (§1's reading)             0         0
-shim -> stock cross-edges (distinct symbols)                     0        59
-stock TUs the shim links against                                 0        12
+shim -> stock cross-edges (distinct symbols)                     0        36
+stock TUs the shim links against                                 0        10
 
 # defines-an-entity regex: LINK_ENTITY_TO_CLASS|IMPLEMENT_SERVERCLASS_ST|IMPLEMENT_CLIENTCLASS
 # uses-an-entity regex:    \bC_?Base(Entity|Player|Animating|CombatCharacter|CombatWeapon|Flex)\b|\bg?_?pEntityList\b|\bgEntList\b
@@ -946,10 +949,8 @@ ToEngineIface           0 in 0 files          14 in 9 files         1 in 1 files
 -- server: 0 distinct symbols across 0 of 0 stock TUs
   -- zero-edge stock TUs:
 
--- client: 59 distinct symbols across 12 of 13 stock TUs
-     16  game/client/particlemgr.cpp
+-- client: 36 distinct symbols across 10 of 11 stock TUs
       8  game/client/glow_overlay.cpp
-      7  game/client/particles_new.cpp
       7  game/client/toolframework_client.cpp
       6  game/client/rendertexture.cpp
       5  game/client/c_pixel_visibility.cpp
@@ -973,23 +974,6 @@ ToEngineIface           0 in 0 files          14 in 9 files         1 in 1 files
 -- server
 
 -- client
-game/client/particlemgr.cpp (16)
-    ParticleMgr()
-    CParticleMgr::PostRender()
-    CParticleMgr::GetPMaterial(char const*)
-    CParticleMgr::RemoveAllEffects()
-    CParticleMgr::IncrementFrameCode()
-    CParticleMgr::PMaterialToIMaterial(CParticleSubTexture*)
-    CParticleMgr::SetDirectionalLightInfo(CParticleLightInfo const&)
-    CParticleMgr::Init(unsigned long, IMaterialSystem*)
-    CParticleMgr::Term()
-    CParticleMgr::Simulate(float)
-    CParticleMgr::LevelInit()
-    CParticleMgr::GetDirectionalLightInfo(CParticleLightInfo&) const
-    cl_particle_show_bbox
-    cl_particle_show_bbox_cost
-    cl_particleeffect_aabb_buffer
-    r_DrawParticles
 game/client/glow_overlay.cpp (8)
     ClientSystem_GlowOverlay()
     CGlowOverlay::DrawOverlays(bool)
@@ -999,14 +983,6 @@ game/client/glow_overlay.cpp (8)
     CGlowOverlay::CalcBasis(Vector const&, float, float, Vector&, Vector&, Vector&)
     CGlowOverlay::CGlowOverlay()
     CGlowOverlay::~CGlowOverlay()
-game/client/particles_new.cpp (7)
-    CNewParticleEffect::StopEmission(bool, bool, bool)
-    CNewParticleEffect::SetControlPoint(int, Vector const&)
-    CNewParticleEffect::SetControlPointEntity(int, IGameEntity*)
-    CNewParticleEffect::SetControlPointOrientation(int, Vector const&, Vector const&, Vector const&)
-    CNewParticleEffect::AddRef()
-    CNewParticleEffect::Release()
-    CNewParticleEffect::CNewParticleEffect(IGameEntity*, char const*)
 game/client/toolframework_client.cpp (7)
     ToolsEnabled()
     ToolFrameworkClientSystem()

@@ -1,6 +1,20 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-18, C7 particles phase 4 (the eviction), measured on main f4b31392d: particlemgr.cpp and particles_new.cpp
+#   left client.so: fork-src 13 -> 11, fork-hdr-not-allowed 320 -> 317, fork-hdr-total 484 -> 481,
+#   incdir-forbidden-tus 144 -> 142, sdk-links 531 -> 528 (with toolframework/itoolframework.h, which only
+#   particles_new.cpp read), imports:tier1 2 -> 0 (utlsymbol.o among them: client.so names no CUtlSymbol or
+#   CUtlSymbolTable symbol now; 64 in 42b718990's). Hand-edited.
+# 2026-10-18, C7 particles phase 4 (the replacement), measured on main f4b31392d: shell_particle_mgr_client.cpp (what
+#   client.so still called of CParticleMgr) joins client.so: incdir-forbidden-tus 143 -> 144 RAISED (the eviction of
+#   particlemgr.cpp and particles_new.cpp in the next commit but one takes two out); logic-lines 8422 -> 8421 (the
+#   Simulate call left shell_clientdll.cpp; the new functions ruled LAYOUT and BOUNDARY). Hand-edited.
+# 2026-10-18, C7 particles phase 3, measured on main f4b31392d: shell_new_particles_client.cpp (the new-style
+#   effects' shell) joins client.so: incdir-forbidden-tus 142 -> 143 RAISED (the one new TU, compiled with the
+#   client target's include dirs); logic-lines 8420 -> 8422 RAISED (+2: the frame's and the level shutdown's calls in
+#   shell_clientdll.cpp's unruled OnRenderStart and LevelShutdown; the new functions are ruled SLOT, LAYOUT and
+#   BOUNDARY). Hand-edited.
 # 2026-10-18, landing C9 tier0/vstdlib onto main 331c8a0cf (after lane t1's sentence.cpp eviction), re-measured there:
 #   incdir-forbidden-tus 148 (146 + the two new TUs), sdk-links 395 (397 - libtier0.so/libvstdlib.so). --write.
 # 2026-10-18, C9 tier0/vstdlib: client.so links neither libtier0.so nor libvstdlib.so (Linux). Its vprof profile is
@@ -255,9 +269,9 @@
 #   CUtlSymbolTable) (tools/client-novalve-census).
 # 2026-10-18, C7 detail: the fork links detailobjectsystem.cpp left behind went (make sdk-census named them unused): the file,
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
-fork-hdr-not-allowed	320
-fork-hdr-total	484
-fork-src	13
+fork-hdr-not-allowed	317
+fork-hdr-total	481
+fork-src	11
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -270,7 +284,7 @@ imports:steam_api<-particles	0
 imports:tier0	0
 imports:tier0<-dmxloader	0
 imports:tier0<-particles	0
-imports:tier1	2
+imports:tier1	0
 imports:tier1<-dmxloader	0
 imports:tier1<-particles	0
 imports:tier2	0
@@ -293,8 +307,8 @@ incdir-forbidden	6
 incdir-forbidden-tus	142
 link-forbidden	2
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
-logic-lines	8420
+logic-lines	8421
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-sdk-links	531
+sdk-links	528

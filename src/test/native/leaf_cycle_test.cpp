@@ -765,10 +765,17 @@ TEST( LeafCyclePch, CNewParticleEffectIsTheHeaderShapeTheReadingWasTakenAgainst 
 //-----------------------------------------------------------------------------
 TEST( LeafCyclePch, ShouldDrawIsTheKeyFunctionAndStaysOutOfLine )
 {
+	// C7 PARTICLES PHASE 4 TOOK THE DEFINING OBJECT. particles_new.cpp left
+	// client.so: nothing constructs a CNewParticleEffect any more (the
+	// new-style effects are CShellNewParticleEffect, shell_new_particles.h), so
+	// no object defines its key function or its vtable, and none may reference
+	// them. The header is still read (c_baseentity.h -> particle_property.h ->
+	// particles_new.h), so its half of the fact stands as it was: ShouldDraw
+	// stays a bodyless declaration, and an inline body there would put a weak
+	// vtable -- and the class's undefined members, defined nowhere now -- into
+	// every TU that sees it.
 	const std::string header = StripComments( ReadFile( "game/client/particles_new.h" ) );
-	const std::string source = StripComments( ReadFile( "game/client/particles_new.cpp" ) );
 	ASSERT_FALSE( header.empty() ) << "particles_new.h read as nothing";
-	ASSERT_FALSE( source.empty() ) << "particles_new.cpp read as nothing";
 
 	// Still DECLARED in the class body, and still without a body there.
 	EXPECT_TRUE( Contains( header, "bool ShouldDraw( void );" ) )
@@ -783,13 +790,12 @@ TEST( LeafCyclePch, ShouldDrawIsTheKeyFunctionAndStaysOutOfLine )
 		<< "that put 22 undefined symbols into 73 client objects and takes the "
 		<< "client's largest SCC from 78 TUs back to 85";
 
-	// The definition is in the one object, and it is not inline there either.
-	EXPECT_TRUE( Contains( source, "bool CNewParticleEffect::ShouldDraw( void )" ) )
-		<< "particles_new.cpp no longer defines the key function, so nothing "
-		<< "defines it out of line and the class has none";
-	EXPECT_FALSE( Contains( source, "inline bool CNewParticleEffect::ShouldDraw" ) )
-		<< "the definition in particles_new.cpp is inline, which does not make "
-		<< "it a key function";
+	// And the object that defined it is gone from the client's sources, with
+	// its successor in its place.
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/particles_new.cpp" ) )
+		<< "particles_new.cpp is compiled into client.so again";
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_new_particles_client.cpp" ) )
+		<< "the new-style effects' shell is not compiled into client.so";
 }
 
 //-----------------------------------------------------------------------------
@@ -819,19 +825,18 @@ TEST( LeafCyclePch, TheInstrumentIsPresentAndNamesTheThingItMeasures )
 		   "the other way round.";
 
 	// THE LIVE SUCCESSOR, and it is the reading that mattered: the key function
-	// is declared bodyless in the header and defined in exactly ONE object.
-	// Both halves, because the body being in BOTH places still leaves the class
-	// without a key function and would satisfy either half alone.
+	// is declared bodyless in the header and defined in at most ONE object.
+	// Since C7 particles phase 4 that is none: particles_new.cpp left client.so
+	// and nothing constructs the class (ShouldDrawIsTheKeyFunctionAndStays-
+	// OutOfLine above). The header half stands.
 	const std::string header = StripComments( ReadFile( "game/client/particles_new.h" ) );
-	const std::string source = StripComments( ReadFile( "game/client/particles_new.cpp" ) );
 	ASSERT_FALSE( header.empty() ) << "particles_new.h read as nothing";
-	ASSERT_FALSE( source.empty() ) << "particles_new.cpp read as nothing";
 
 	EXPECT_EQ( 0, CountOccurrences( header, "CNewParticleEffect::ShouldDraw" ) )
 		<< "the key function has a body in the header again, so every TU that "
 		   "sees the declaration emits its own weak vtable and the client's "
 		   "largest SCC goes from 78 TUs back to 85.";
-	EXPECT_EQ( 1, CountOccurrences( source, "bool CNewParticleEffect::ShouldDraw( void )" ) )
-		<< "particles_new.cpp does not define the key function exactly once, "
-		   "so there is no single object for GCC to emit the vtable into.";
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/particles_new.cpp" ) )
+		<< "particles_new.cpp is compiled into client.so again; it defined the "
+		   "key function, so with it back there is again one object to check.";
 }

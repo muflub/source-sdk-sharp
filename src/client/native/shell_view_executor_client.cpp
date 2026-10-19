@@ -1390,7 +1390,6 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_ForcedMaterialOverride: modelrender->ForcedMaterialOverride( NULL, (OverrideType_t)op.I[0] ); break;
 		case RENDER_OP_ParticleIncrementFrameCode:
 			ShellParticles_FrameCode();	// the old-style effects', managed's
-			ParticleMgr()->IncrementFrameCode();
 			break;
 		case RENDER_OP_WorldViewBegin:
 		{

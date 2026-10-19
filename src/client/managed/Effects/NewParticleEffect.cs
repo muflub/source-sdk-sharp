@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Client.Interop;
 
 namespace SourceSharp.Client.Effects;
 
@@ -77,12 +78,14 @@ public struct NewParticleDrawIn
     public float NextSleepTime;         // the collection's m_flNextSleepTime
     public int SkipRenderControlPoint;  // the definition's m_nSkipRenderControlPoint (-1: none)
     public int HighestControlPoint;     // the collection's m_nHighestCP
-    public int CameraEntity;            // the view entity, -1 when no entity is there
-    public int SkipEntity;              // the skip-render control point's entity, -1: none
+    // Entities are identity tokens (native's IGameEntity pointers), 0 for none:
+    // the skip-render tests compare them and nothing else.
+    public ulong CameraObject;          // the entity at the view entity's index
+    public ulong SkipObject;            // the skip-render control point's entity
     public bool ThirdPerson;            // input->CAM_IsThirdPerson()
-    public int LocalPlayer;             // the local player's entity, -1: none
+    public ulong LocalPlayer;
     public int ObserverMode;            // the local player's
-    public int ObserverTarget;          // the local player's observer target, -1: none
+    public ulong ObserverTarget;        // the local player's observer target
 }
 
 /// <summary>DrawModel's answer.</summary>
@@ -107,12 +110,6 @@ public struct NewParticleRetireView
     public Vector Origin;
     /// <summary>render->GetMatricesForView's world-to-screen VMatrix, row-major.</summary>
     public Matrix4x4Raw WorldToScreen;
-}
-
-/// <summary>A row-major 4x4 (VMatrix's m[4][4]).</summary>
-public struct Matrix4x4Raw
-{
-    public float M00, M01, M02, M03, M10, M11, M12, M13, M20, M21, M22, M23, M30, M31, M32, M33;
 }
 
 /// <summary>
@@ -320,18 +317,18 @@ public sealed class NewParticleEffect
         if ((d.Flags & StudioTransparency) == 0)
             return new(NewParticleDrawAction.RenderCache, NewParticleDrawReason.Drawn, d.NextSleepTime);
 
-        if (d.CameraEntity >= 0 && d.SkipRenderControlPoint != -1 && d.SkipRenderControlPoint <= d.HighestControlPoint
-            && d.SkipEntity >= 0 && !d.ThirdPerson)
+        if (d.CameraObject != 0 && d.SkipRenderControlPoint != -1 && d.SkipRenderControlPoint <= d.HighestControlPoint
+            && d.SkipObject != 0 && !d.ThirdPerson)
         {
-            if (d.SkipEntity == d.CameraEntity)
+            if (d.SkipObject == d.CameraObject)
                 return new(NewParticleDrawAction.None, NewParticleDrawReason.SkipSelf, d.NextSleepTime);
             // An entity is its own root move parent on this hierarchy
             // (particles_new.cpp's ARMED note): the root test is the same test.
-            int root = d.SkipEntity;
-            if (root == d.CameraEntity)
+            ulong root = d.SkipObject;
+            if (root == d.CameraObject)
                 return new(NewParticleDrawAction.None, NewParticleDrawReason.SkipRoot, d.NextSleepTime);
-            if (d.LocalPlayer >= 0 && d.LocalPlayer == d.CameraEntity && d.ObserverMode == ObserverInEye
-                && (d.ObserverTarget == d.SkipEntity || root == d.ObserverTarget))
+            if (d.LocalPlayer != 0 && d.LocalPlayer == d.CameraObject && d.ObserverMode == ObserverInEye
+                && (d.ObserverTarget == d.SkipObject || root == d.ObserverTarget))
                 return new(NewParticleDrawAction.None, NewParticleDrawReason.SkipInEye, d.NextSleepTime);
         }
         return new(NewParticleDrawAction.Render, NewParticleDrawReason.Drawn, d.NextSleepTime);

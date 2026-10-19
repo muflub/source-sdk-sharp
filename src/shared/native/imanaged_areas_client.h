@@ -400,6 +400,8 @@ struct SSManagedParticlesClientTable
 	int32_t ( *SplashTint )( IManagedParticlesClient *self, const float *pColorXYZ, float *pTintXYZ, float *pLuminosity );
 	int32_t ( *TracerQuads )( IManagedParticlesClient *self, int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut );
 	int32_t ( *ManifestFiles )( IManagedParticlesClient *self, int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes );
+	int32_t ( *NewEffectsFrame )( IManagedParticlesClient *self, const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes );
+	int32_t ( *NewEffectDraw )( IManagedParticlesClient *self, const SourceSharpNewParticleDrawIn_t *pIn, SourceSharpNewParticleDrawOut_t *pOut );
 };
 
 class IManagedParticlesClient : public IManagedObject
@@ -424,6 +426,8 @@ public:
 	int32_t SplashTint( const float *pColorXYZ, float *pTintXYZ, float *pLuminosity ) { return Table()->SplashTint( this, pColorXYZ, pTintXYZ, pLuminosity ); }
 	int32_t TracerQuads( int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut ) { return Table()->TracerQuads( this, nTracers, pIn, pVertsOut, pValidOut ); }
 	int32_t ManifestFiles( int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes ) { return Table()->ManifestFiles( this, bMap, pszMapName, pBlock, nBlockBytes ); }
+	int32_t NewEffectsFrame( const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes ) { return Table()->NewEffectsFrame( this, pIn, nInBytes, pOut, nOutBytes ); }
+	int32_t NewEffectDraw( const SourceSharpNewParticleDrawIn_t *pIn, SourceSharpNewParticleDrawOut_t *pOut ) { return Table()->NewEffectDraw( this, pIn, pOut ); }
 
 private:
 	const SSManagedParticlesClientTable *Table() const { return static_cast< const SSManagedParticlesClientTable * >( m_pTable ); }
@@ -432,10 +436,10 @@ private:
 static const uint32_t kIManagedParticlesClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xfa64b18d, 0x6fc25d72, 0xd9eba2dd, 0x9d8d9245, 0x9d8d9245, 0x88774d41,
 	0x8ba8bb2d, 0xe3a461cd, 0x45eeeac6, 0x3e13ad76, 0xb6d578c8, 0x4c5589e5, 0xc3695b04, 0x8a6d5318,
-	0x910f7a19, 0x932de382, 0x4a9e65fd,
+	0x910f7a19, 0x932de382, 0x4a9e65fd, 0xfa64b18d, 0x8ba8bb2d,
 };
-static const int32_t kIManagedParticlesClientSlotCount = 19;
-static_assert( sizeof( SSManagedParticlesClientTable ) == 19 * sizeof( void * ), "SSManagedParticlesClientTable is one pointer per slot" );
+static const int32_t kIManagedParticlesClientSlotCount = 21;
+static_assert( sizeof( SSManagedParticlesClientTable ) == 21 * sizeof( void * ), "SSManagedParticlesClientTable is one pointer per slot" );
 
 class IManagedUiClient;
 

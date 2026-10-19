@@ -4,6 +4,10 @@
 1	SLOT-HELP	[CollectionAccess] bool InitDef( CParticleSystemDefinition *pDef )
 1	SLOT-HELP	[CollectionAccess] bool InitName( const char *pszName )
 1	SLOT-HELP	[CollectionAccess] void BloatBounds()
+1	SLOT-HELP	[CollectionAccess] const Vector &Min() const
+1	SLOT-HELP	[CollectionAccess] const Vector &Max() const
+5	SLOT-HELP	[CollectionAccess] void SetBounds( const Vector &vMin, const Vector &vMax )
+4	SLOT-HELP	const CollectionAccess *Access( const CParticleCollection *p )
 4	SLOT-HELP	CollectionAccess *Access( CParticleCollection *p )
 13	BOUNDARY	[CSSParticleLib] bool Connect( CreateInterfaceFn appSystemFactory ) override
 8	BOUNDARY	[CSSParticleLib] void Disconnect() override
@@ -50,4 +54,7 @@
 1	BOUNDARY	[CSSParticleLib] void MgrSetLastSimulationTime( CParticleSystemMgr *p, float flTime ) override
 1	BOUNDARY	[CSSParticleLib] void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) override
 1	BOUNDARY	[CSSParticleLib] void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) override
+14	BOUNDARY	[CSSParticleLib] void CollectionSimulateBatch( const SSParticleSimEntry_t *pEntries, int nCount, SSParticleSimResult_t *pResults ) override
+5	BOUNDARY	[CSSParticleLib] void CollectionGetBounds( const CParticleCollection *p, float *pMin3, float *pMax3 ) override
+4	BOUNDARY	[CSSParticleLib] void CollectionSetBounds( CParticleCollection *p, const float *pMin3, const float *pMax3 ) override
 4	LIVE-API	SS_PARTICLELIB_API ISSParticleLib *SSParticleLib_Interface()

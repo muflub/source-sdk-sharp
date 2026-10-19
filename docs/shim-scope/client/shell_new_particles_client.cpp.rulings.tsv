@@ -1,0 +1,38 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+[ShellCollection] static CParticleCollection *Make(	LAYOUT	the library's collection constructed and Init by name through particles_lib_client.cpp's forwards, as CNewParticleEffect's constructor did; no member added
+[ShellCollection] static void Free(	LAYOUT	the collection's destruction through the same forwards
+[ShellCollection] static ShellCollection *Of( CParticleCollection	LAYOUT	a protected-member view of the library's object; no member added
+[ShellCollection] static const ShellCollection *Of( const	LAYOUT	the const view
+[ShellCollection] Vector &MinBounds()	LAYOUT	m_MinBounds, protected in particles.h
+[ShellCollection] Vector &MaxBounds()	LAYOUT	m_MaxBounds
+[ShellCollection] const Vector &MinBounds() const	LAYOUT	m_MinBounds, read
+[ShellCollection] const Vector &MaxBounds() const	LAYOUT	m_MaxBounds, read
+[ShellCollection] int HighestCP() const	LAYOUT	m_nHighestCP, read for the draw's skip-render test
+void CopyVector(	SLOT-HELP	a Vector into a buffer's three floats
+CShellNewParticleEffect::Create(	BOUNDARY	CNewParticleEffect::Create: allocated, named; which system and when is the caller's
+CShellNewParticleEffect::CShellNewParticleEffect(	BOUNDARY	Construct()'s mechanics: the inside-out box, the list's head, the leaf system's handle; the render group is managed's
+CShellNewParticleEffect::~CShellNewParticleEffect()	BOUNDARY	out of the leaf system and the list if still in them, the collection freed
+void CShellNewParticleEffect::Remove()	BOUNDARY	CParticleMgr::RemoveEffect's mechanics, carried out when managed commits the removal; deleted when nothing holds it
+void CShellNewParticleEffect::AddRef()	LAYOUT	CSmartPtr's reference count
+void CShellNewParticleEffect::Release()	BOUNDARY	the count reaching zero is reported to managed (Release's finished test is NewParticleEffect.Release); a removed effect is deleted
+bool CShellNewParticleEffect::DefinitionReadsControlPoint(	BOUNDARY	the definition's ReadsControlPoint, for the impact's colour point
+void CShellNewParticleEffect::SetControlPoint(	BOUNDARY	the collection's SetControlPoint; the point is the caller's
+void CShellNewParticleEffect::SetControlPointOrientation(	BOUNDARY	the collection's SetControlPointOrientation
+void CShellNewParticleEffect::SetControlPointEntity(	BOUNDARY	CNewParticleEffect::SetControlPointEntity: the handle kept, its address the library's object
+IGameEntity *CShellNewParticleEffect::GetControlPointEntity(	BOUNDARY	the point's entity, by handle
+void CShellNewParticleEffect::StopEmission(	BOUNDARY	the collection's StopEmission; when and how is the caller's
+CShellNewParticleEffect *CShellNewParticleEffect::ReplaceWith(	BOUNDARY	CNewParticleEffect::ReplaceWith's mechanics, carried out for managed's retirement: the old stopped, the named system started at its read points
+const matrix3x4_t &CShellNewParticleEffect::RenderableToWorldTransform()	SLOT	IClientRenderable: the sort origin's translation, as stock's
+void CShellNewParticleEffect::GetRenderBounds(	SLOT	IClientRenderable: the collection's bounds about the sort origin
+bool CShellNewParticleEffect::IsTransparent(	SLOT	IClientRenderable: the collection's IsTranslucent
+bool CShellNewParticleEffect::IsTwoPass(	SLOT	IClientRenderable: the collection's IsTwoPass
+bool CShellNewParticleEffect::UsesPowerOfTwoFrameBufferTexture(	SLOT	IClientRenderable: the collection's answer
+bool CShellNewParticleEffect::UsesFullFrameBufferTexture(	SLOT	IClientRenderable: the collection's answer
+int CShellNewParticleEffect::DrawModel(	BOUNDARY	CNewParticleEffect::DrawModel: what stock read, NewEffectDraw's answer carried out (render now, the render cache, the sleep time, the debug box); nothing decided
+int ShellNewParticles_Count()	INSTRUMENT	the list's size, for the report and the dev API
+CShellNewParticleEffect *ShellNewParticles_At(	INSTRUMENT	one listed effect, for the report and the dev API
+void FillEffectIn(	SLOT-HELP	one effect's read for NewEffectsFrame
+int FindById(	SLOT-HELP	a commit's effect, by id, in the frame's snapshot
+void ShellNewParticles_Frame(	BOUNDARY	UpdateNewEffects' crossing: the frame's read, one NewEffectsFrame call, the commits carried out in managed's order; UpdateAllEffects' 0.1 s clamp is stock's own
+void ShellNewParticles_RemoveAll()	BOUNDARY	CParticleMgr::RemoveAllNewEffects at level shutdown: every listed effect removed

@@ -437,10 +437,14 @@ const char *kResolvers  = "sourcesharp/game/client/shell_cliententitylist.cpp";
 // and movehelper_client.cpp with C6 (lane c6-input: stock's client move helper
 // is ClientPredictionMoveWorld, C#), and cdll_util.cpp with C8 (lane c6-input:
 // no importer on the link line), and client_thinklist.cpp with C8 too (no
-// client think is scheduled).
+// client think is scheduled). The last two, particlemgr.cpp and
+// particles_new.cpp, left with C7 particles phase 4: no stock TU on the
+// client's link line is a migrated one now. Their entity asks (the draw's
+// camera object and skip-render entity, the control points' owners) are the
+// new-style effects' shell's, which includes the same resolver shim, so the
+// row reads it: the successor holds the fact the two files held.
 const char *kMigratedStockArmGone[] = {
-	"game/client/particlemgr.cpp",
-	"game/client/particles_new.cpp",
+	"sourcesharp/game/client/shell_new_particles_client.cpp",
 };
 const size_t kMigratedStockArmGoneCount =
 	sizeof( kMigratedStockArmGone ) / sizeof( kMigratedStockArmGone[ 0 ] );
@@ -1232,18 +1236,20 @@ TEST( ClientEntityResolve, TheGuardPassIsWhatSeparatesTheTwoArms )
 	//     of (a)'s second direction: a StripDeadArms that returned nothing would
 	//     pass every absence in this file, so one real migrated TU is
 	//     held to still have its live text after the pass.
-	// particlemgr.cpp since the C2 beam port took view_beams.cpp, which this
-	// was: a migrated TU that stays (particles.a stays, plan_client_novalve).
-	const std::string beamsLive = LiveText( "game/client/particlemgr.cpp" );
+	// particlemgr.cpp since the C2 beam port took view_beams.cpp, and since C7
+	// particles phase 4 evicted particlemgr.cpp, the new-style effects' shell
+	// that took its draw: a compiled TU resolving its entities through the
+	// port's slot table.
+	const std::string beamsLive = LiveText( "sourcesharp/game/client/shell_new_particles_client.cpp" );
 
-	EXPECT_NE( beamsLive.find( "SourceSharp_ClientEntityFromIndex(" ), std::string::npos )
-	    << "particlemgr.cpp's live text no longer contains the slot-table resolver "
+	EXPECT_NE( beamsLive.find( "SourceSharp_ClientSdkEntityFromIndex(" ), std::string::npos )
+	    << "shell_new_particles_client.cpp's live text no longer contains the slot-table resolver "
 	       "after the guard pass. Either the pass is stripping code this build "
 	       "compiles -- in which case every absence in this file is vacuous -- or "
 	       "the file has stopped resolving its entities through the port.";
 
 	EXPECT_GT( beamsLive.size(), 1000u )
-	    << "particlemgr.cpp's live text is " << beamsLive.size() << " bytes after "
+	    << "shell_new_particles_client.cpp's live text is " << beamsLive.size() << " bytes after "
 	       "the guard pass. A pass that empties a compiled TU satisfies every "
 	       "`EXPECT_FALSE( NamesTheStockList( live ) )` in this file for a reason "
 	       "that has nothing to do with the migration.";

@@ -50,7 +50,7 @@
 #include "tier1/interface.h"
 #include "tier1/utlmap.h"
 #include "toolframework_client.h"
-#include "particlemgr.h"
+#include "shell_particle_mgr.h"	// the particle draw state (C7 particles phase 4)
 #include "view.h"
 #include "iviewrender.h"
 #include "c_world.h"
@@ -480,8 +480,8 @@ int32_t SourceSharp_ProxyReadView( int32_t nKind, float *pOut, int32_t nFloats )
 	if ( nKind == 3 && nFloats >= 23 )
 	{
 		CParticleLightInfo info;
-		ParticleMgr()->GetDirectionalLightInfo( info );
-		const VMatrix &mModelView = ParticleMgr()->GetModelView();
+		ShellParticleDraw_GetLight( info );
+		const VMatrix &mModelView = ShellParticleDraw_ModelView();
 		pOut[ 0 ] = info.m_vPos.x;
 		pOut[ 1 ] = info.m_vPos.y;
 		pOut[ 2 ] = info.m_vPos.z;
