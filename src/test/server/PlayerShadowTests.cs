@@ -327,7 +327,7 @@ public unsafe class PlayerShadowTests
                          "SourceSharp.Server.Interop", "PlayerCommandQueue.cs")));
 
         int stage2 = loop.IndexOf("runMove(player, i, 2);", StringComparison.Ordinal);
-        int step = loop.IndexOf("Shadow.Step(side, player, i, shadowEnabled);", StringComparison.Ordinal);
+        int step = loop.IndexOf("Shadow.Step(stages, player, i, shadowEnabled);", StringComparison.Ordinal);
 
         Assert.True(stage2 >= 0, "stage 2 is still driven from the managed loop");
         Assert.True(step > stage2, "and the shadow step follows it");

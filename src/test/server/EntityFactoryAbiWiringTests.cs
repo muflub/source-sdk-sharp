@@ -44,6 +44,17 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
 
     [UnmanagedCallersOnly] private static int Count(void* self) => 0;
 
+    /// <summary>The side's factories over its own lifecycle area, as ModuleEngine binds them.</summary>
+    private static EntityFactories Factories(EngineSide side)
+        => side.BindEntityFactories(side.Areas.Require<EntityLifecycleArea>());
+
+    /// <summary>One ask of a fresh, unattached server side, over its own (detached) lifecycle area.</summary>
+    private static T Fresh<T>(Func<EngineSide, EntityLifecycleArea, T> ask)
+    {
+        var side = new EngineSide(Side.Server);
+        return ask(side, side.Areas.Require<EntityLifecycleArea>());
+    }
+
     /// <summary>
     /// A server side whose EntityLifecycle area is attached, as LoadSideV2
     /// leaves it. Since C6c the five slots are that area's and not the struct's,
@@ -57,14 +68,14 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
         var side = new EngineSide(which);
         _root.Live("SourceSharpEntityLifecycle001", nameof(ShimEntityLifecycleFwd.EntityFactoryCount),
                    (nint)(delegate* unmanaged<void*, int>)&Count);
-        Assert.True(side.AttachShims(_root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
         return side;
     }
 
     [Fact]
     public void TheServerArmWiresTheTable()
     {
-        Assert.True(Attached().BindEntityFactories().Available);
+        Assert.True(Factories(Attached()).Available);
     }
 
     /// <summary>
@@ -75,12 +86,12 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     /// </summary>
     [Fact]
     public void TheServerArmHandsOverAPulledTable()
-        => Assert.True(Attached().BindEntityFactories().Pulled);
+        => Assert.True(Factories(Attached()).Pulled);
 
     [Fact]
     public void TheServerArmWiresAllThreeRefusalSlots()
     {
-        var factories = Attached().BindEntityFactories();
+        var factories = Factories(Attached());
 
         Assert.NotNull(factories.RefusalCount);
         Assert.NotNull(factories.RefusalNameAt);
@@ -95,13 +106,13 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     [Fact]
     public void TheClientArmWiresNothingEvenWithTheAreaAttached()
     {
-        Assert.False(Attached(Side.Client).BindEntityFactories().Available);
+        Assert.False(Factories(Attached(Side.Client)).Available);
     }
 
     [Fact]
     public void TheClientArmLeavesTheRefusalLedgerUnwiredToo()
     {
-        Assert.Null(Attached(Side.Client).BindEntityFactories().RefusalCount);
+        Assert.Null(Factories(Attached(Side.Client)).RefusalCount);
     }
 
     /// <summary>
@@ -111,7 +122,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     [Fact]
     public void AServerWithoutItsShimsWiresNothing()
     {
-        var factories = new EngineSide(Side.Server).BindEntityFactories();
+        var factories = Factories(new EngineSide(Side.Server));
 
         Assert.False(factories.Available);
         Assert.Null(factories.NativeCount);
@@ -126,11 +137,11 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
 
     [Fact]
     public void TheCountWrapperAnswersZeroWithNoEngine()
-        => Assert.Equal(0, new EngineSide(Side.Server).EntityFactoryCount());
+        => Assert.Equal(0, Fresh((side, lifecycle) => side.EntityFactoryCount(lifecycle)));
 
     [Fact]
     public void TheNameWrapperAnswersNullWithNoEngine()
-        => Assert.Null(new EngineSide(Side.Server).EntityFactoryNameAt(0));
+        => Assert.Null(Fresh((side, lifecycle) => side.EntityFactoryNameAt(lifecycle, 0)));
 
     /// <summary>
     /// NULL AS NULL, and not as <c>""</c>.
@@ -164,15 +175,15 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
 
     [Fact]
     public void TheRefusalCountWrapperAnswersZeroWithNoEngine()
-        => Assert.Equal(0, new EngineSide(Side.Server).EntityFactoryRefusalCount());
+        => Assert.Equal(0, Fresh((side, lifecycle) => side.EntityFactoryRefusalCount(lifecycle)));
 
     [Fact]
     public void TheRefusalNameWrapperAnswersNullWithNoEngine()
-        => Assert.Null(new EngineSide(Side.Server).EntityFactoryRefusalNameAt(0));
+        => Assert.Null(Fresh((side, lifecycle) => side.EntityFactoryRefusalNameAt(lifecycle, 0)));
 
     [Fact]
     public void TheRefusalTimesWrapperAnswersZeroWithNoEngine()
-        => Assert.Equal(0, new EngineSide(Side.Server).EntityFactoryRefusalTimesAt(0));
+        => Assert.Equal(0, Fresh((side, lifecycle) => side.EntityFactoryRefusalTimesAt(lifecycle, 0)));
 
     //-------------------------------------------------------------------------
     // The version. The append is five slots; the BUMP is owed by a sixth
@@ -261,7 +272,7 @@ public unsafe class EntityFactoryAbiWiringTests : IDisposable
     /// <b>A SECOND PUBLIC ROUTE TO THIS DATA WOULD BE A ROUTE ROUND THE ONE
     /// DISTINCTION THAT MATTERS.</b> <see cref="EntityFactories.Available"/>
     /// answers "was the dictionary asked"; a caller reading
-    /// <c>new EngineSide(Side.Server).EntityFactoryCount()</c> straight would get 0 from an unwired
+    /// <c>Fresh((side, lifecycle) => side.EntityFactoryCount(lifecycle))</c> straight would get 0 from an unwired
     /// build and read it as "the table is empty", which is exactly the
     /// misreading that refuses <c>ent_create prop_physics</c> for a class that
     /// works.

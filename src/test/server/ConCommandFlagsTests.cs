@@ -150,9 +150,9 @@ public class ConCommandFlagsTests
     [Fact]
     public void ThereIsNoFlaglessRegistrationOverloadLeft()
     {
-        var overloads = typeof(EngineSide)
+        var overloads = typeof(EngineConsole)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(m => m.Name == nameof(EngineSide.RegisterConCommand))
+            .Where(m => m.Name == nameof(EngineConsole.RegisterConCommand))
             .Select(m => m.GetParameters().Select(p => p.ParameterType).ToArray())
             .ToList();
 

@@ -16,7 +16,9 @@ namespace SourceSharp.Client.Input;
 /// <summary><see cref="IInputHost"/> in the game.</summary>
 public sealed unsafe class ClientInputHost : IInputHost
 {
-    private readonly EngineSide _api;
+    // The side's input area (plan_shim_areas_split phase 11): the cursor,
+    // the HUD's facts and the view-angle calls below are its slots.
+    private readonly InputClientArea _input;
     private readonly IEngineConsole _console;
     private readonly Func<IVtableEngineClient?> _engineClient;
     private readonly NativeInterfaceFactory _interfaces;
@@ -26,7 +28,7 @@ public sealed unsafe class ClientInputHost : IInputHost
 
     internal ClientInputHost(ModuleEngine engine, IEngineConsole console)
     {
-        _api = engine.Api;
+        _input = engine.Api.Areas.Require<InputClientArea>();
         _interfaces = engine.Api.Interfaces;
         _console = console;
         _engineClient = () => EngineClient.Acquire(engine, out _);
@@ -109,7 +111,7 @@ public sealed unsafe class ClientInputHost : IInputHost
         get
         {
             int visible = 0, locked = 0;
-            _api.ClientShims.InputClient.InputCursorState(&visible, &locked);
+            _input.InputCursorState(&visible, &locked);
             return visible != 0;
         }
     }
@@ -119,7 +121,7 @@ public sealed unsafe class ClientInputHost : IInputHost
         get
         {
             int visible = 0, locked = 0;
-            _api.ClientShims.InputClient.InputCursorState(&visible, &locked);
+            _input.InputCursorState(&visible, &locked);
             return locked != 0;
         }
     }
@@ -127,19 +129,19 @@ public sealed unsafe class ClientInputHost : IInputHost
     public void GetCursorPos(out int x, out int y)
     {
         int cx = 0, cy = 0;
-        _api.ClientShims.InputClient.InputGetCursorPos(&cx, &cy);
+        _input.InputGetCursorPos(&cx, &cy);
         x = cx;
         y = cy;
     }
 
-    public void SetCursorPos(int x, int y) => _api.ClientShims.InputClient.InputSetCursorPos(x, y);
+    public void SetCursorPos(int x, int y) => _input.InputSetCursorPos(x, y);
 
-    public void SetCursorArrow() => _api.ClientShims.InputClient.InputSetCursorArrow();
+    public void SetCursorArrow() => _input.InputSetCursorArrow();
 
     public void GetVguiScreenSize(out int width, out int height)
     {
         int w = 0, h = 0;
-        _api.ClientShims.InputClient.InputVguiScreenSize(&w, &h);
+        _input.InputVguiScreenSize(&w, &h);
         width = w;
         height = h;
     }
@@ -150,24 +152,24 @@ public sealed unsafe class ClientInputHost : IInputHost
         {
             float sensitivity = 0, fov = 1;
             int keyBits = 0;
-            _api.ClientShims.InputClient.InputHudFacts(&sensitivity, &keyBits, &fov);
+            _input.InputHudFacts(&sensitivity, &keyBits, &fov);
             return new InputHudFacts(sensitivity, keyBits, fov);
         }
     }
 
-    public void StopPitchDrift() => _api.ClientShims.InputClient.InputStopPitchDrift();
+    public void StopPitchDrift() => _input.InputStopPitchDrift();
 
     public void SetLocalViewAngles(InputAngles angles)
     {
         float* a = stackalloc float[3] { angles.Pitch, angles.Yaw, angles.Roll };
-        _api.ClientShims.InputClient.InputSetLocalViewAngles(a);
+        _input.InputSetLocalViewAngles(a);
     }
 
-    public void ViewerCameraModeChanged() => _api.ClientShims.InputClient.InputViewerCameraModeChanged();
+    public void ViewerCameraModeChanged() => _input.InputViewerCameraModeChanged();
 
-    public bool ViewerAimIsAssisted => _api.ClientShims.InputClient.InputViewerAimIsAssisted() != 0;
+    public bool ViewerAimIsAssisted => _input.InputViewerAimIsAssisted() != 0;
 
-    public void ShowScoreboard(bool show) => _api.ClientShims.InputClient.InputShowScoreboard(show ? 1 : 0);
+    public void ShowScoreboard(bool show) => _input.InputShowScoreboard(show ? 1 : 0);
 }
 
 /// <summary><see cref="IInputDevices"/> in the game: the engine's IInputSystem.</summary>

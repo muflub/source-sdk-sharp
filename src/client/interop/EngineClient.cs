@@ -24,9 +24,14 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
     // below (plan_abi_hotreload D8: they went through the static Engine).
     private readonly EngineSide _side;
 
-    private EngineClient(EngineSide side, void* self, EngineClientFwd* table)
+    // The view area those four proxies are slots of (plan_shim_areas_split
+    // phase 11): the side's, taken when this was acquired.
+    private readonly ViewClientArea _view;
+
+    private EngineClient(EngineSide side, ViewClientArea view, void* self, EngineClientFwd* table)
     {
         _side = side;
+        _view = view;
         _self = self;
         _fwd = table;
     }
@@ -44,7 +49,7 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
         return Forwarders.TryAcquire<EngineClientFwd>(
                    side.Interfaces, SourceSharpFactoryType.AppSystem,
                    InterfaceVersion, out void* self, out EngineClientFwd* table, out why)
-            ? new EngineClient(side, self, table)
+            ? new EngineClient(side, side.Areas.Require<ViewClientArea>(), self, table)
             : null;
     }
 
@@ -161,25 +166,25 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
 
     /// <inheritdoc/>
     public void ConsolePrintAt(int position, string text)
-        => _side.ConNPrintf(_self, position, text);
+        => _side.ConNPrintf(_view, _self, position, text);
 
     /// <inheritdoc/>
     public void ConsolePrintAt(int position, float timeToLive,
                                float red, float green, float blue,
                                bool fixedWidthFont, string text)
-        => _side.ConNXPrintf(_self, position, timeToLive, red, green, blue,
+        => _side.ConNXPrintf(_view, _self, position, timeToLive, red, green, blue,
                              fixedWidthFont, text);
 
     /// <inheritdoc/>
     public bool TryLightForPoint(in Vector position, bool clamp, out Vector light)
-        => _side.TryGetLightForPoint(_self, position, clamp, out light);
+        => _side.TryGetLightForPoint(_view, _self, position, clamp, out light);
 
     /// <inheritdoc/>
     public bool IsInGame() => _fwd->IsInGame(_self) != 0;
 
     /// <inheritdoc/>
     public bool TryLightForPointFast(in Vector position, bool clamp, out Vector light)
-        => _side.TryGetLightForPointFast(_self, position, clamp, out light);
+        => _side.TryGetLightForPointFast(_view, _self, position, clamp, out light);
 }
 
 /// <summary>

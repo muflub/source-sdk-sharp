@@ -322,9 +322,11 @@ public partial class AbiParityTests
                          .Select(n => n.StartsWith("pOut", StringComparison.Ordinal) ? n[4..] : n)
                          .ToList();
 
-        string side = RepoLayout.SharedTypeSource("EngineSide");
-        var call = Regex.Match(side, @"ServerShims\.WorldServer\.TraceLineSurface\((?<a>[^;]*)\);");
-        Assert.True(call.Success, "EngineSide calls the TraceLineSurface slot");
+        // The binding that calls the slot, on the area it is handed
+        // (plan_shim_areas_split phase 11).
+        string bindings = RepoLayout.SharedTypeSource("EngineBinding");
+        var call = Regex.Match(bindings, @"_worldServerArea\.TraceLineSurface\((?<a>[^;]*)\);");
+        Assert.True(call.Success, "a binding calls the TraceLineSurface slot");
         var passed = call.Groups["a"].Value.Split(',')
                          .Select(a => a.Trim())
                          .SkipWhile(a => a != "&hit").Skip(1)

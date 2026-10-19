@@ -103,7 +103,7 @@ public class EngineEnvironmentTests
     private static IEngineEnvironment Attached(FakeShimRoot root)
     {
         var side = new EngineSide(Side.Server);
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return SideBindings.Of<IEngineEnvironment>(side);
     }
 

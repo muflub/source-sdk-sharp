@@ -169,7 +169,7 @@ public unsafe class ShimLevelTests
             using var root = new FakeShimRoot()
                 .Interface(EngineLevel.InterfaceVersion, self)
                 .Interface(ShimLevelFwd.TableName, header);
-            Assert.True(served.AttachShims(root.Bind(), out string why), why);
+            Assert.True(served.AttachOwnShims(root.Bind(), out string why), why);
 
             Assert.Equal(6, SideBindings.Of<IEngineLevel>(served).ResetDeleteList());
 
@@ -321,7 +321,7 @@ public unsafe class ShimLevelTests
         // A side whose root serves no level area, reached as the side registers it.
         using var root = new FakeShimRoot();
         var side = new EngineSide(Side.Server);
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         var refused = SideBindings.Of<IEngineLevel>(side);
 
         Assert.Throws<InterfaceAcquisitionException>(() => refused.ClearEntityList());

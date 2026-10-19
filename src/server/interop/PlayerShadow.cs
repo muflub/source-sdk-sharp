@@ -312,15 +312,16 @@ public sealed unsafe class PlayerShadow
     /// </para>
     /// </summary>
     /// <returns>Whether a plan was applied.</returns>
-    /// <param name="api">The side the command loop runs on, from its
-    /// <see cref="MovementRunner"/> (plan_abi_hotreload D8: it was
-    /// <c>Engine.Current</c>); null, a loop with no engine, steps nothing.</param>
+    /// <param name="stages">The stages of the side the command loop runs on,
+    /// over its <see cref="MovementRunner"/> (plan_abi_hotreload D8: it was
+    /// <c>Engine.Current</c>), which trace the climb on that side; null, a loop
+    /// with no engine, steps nothing.</param>
     /// <param name="player">The player whose shadow steps.</param>
     /// <param name="commandIndex">The loop's command index (the arrival ramp).</param>
     /// <param name="enabled"><c>sourcesharp_player_shadow</c>, as this side's composition reads it.</param>
-    internal bool Step(EngineSide? api, EntityHandle player, int commandIndex, bool enabled)
+    internal bool Step(PlayerRunMoveStages? stages, EntityHandle player, int commandIndex, bool enabled)
     {
-        if (api is null || !api.ServerAttached || Bodies is not { } bodies)
+        if (stages is null || !stages.Api.ShimsAttached || Bodies is not { } bodies)
             return false;
 
         // The probe is managed's since plan_physics_bones_native_zero 2.5:
@@ -356,7 +357,7 @@ public sealed unsafe class PlayerShadow
             Vector maxs = crouched ? hulls.DuckHullMax : hulls.HullMax;
             Vector from = state.ShadowOrigin;
             Vector to = new(from.X, from.Y, from.Z + plan.StepHeight);
-            EntityHullTrace trace = api.EntityTraceHull(player, from, to, mins, maxs,
+            EntityHullTrace trace = stages.TraceHull(player, from, to, mins, maxs,
                                                         GameMovement.MaskPlayerSolid,
                                                         GameMovement.CollisionGroupPlayerMovement);
             plan.StepHeight = ClampStep(plan.StepHeight, from.Z, in trace);

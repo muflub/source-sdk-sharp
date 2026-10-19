@@ -107,6 +107,10 @@ public unsafe class SideMovementEngineTests : IDisposable
     private static PlayerShadowBodies BodiesOver(EngineSide side)
         => PlayerShadowBodies.ForEngine(new ModuleEngine(side), new VPhysicsShadowCalls(null, null, TestVPhysics.None()), () => true, _ => { });
 
+    /// <summary>The command loop's stages over <paramref name="side"/>, as its runner builds them.</summary>
+    private static PlayerRunMoveStages StagesOver(EngineSide side)
+        => new(new MovementRunner(new ModuleEngine(side)));
+
     [Fact]
     public void ThePlayerShadowProbesTheSideItsBodiesWereBuiltOver()
     {
@@ -118,11 +122,11 @@ public unsafe class SideMovementEngineTests : IDisposable
         // is measured is which side was asked. The bodies are the composition's,
         // built over its own side, and the loop steps through them.
         _queue.Shadow.Bodies = BodiesOver(first);
-        Assert.False(_queue.Shadow.Step(first, Player, 0, enabled: true));
+        Assert.False(_queue.Shadow.Step(StagesOver(first), Player, 0, enabled: true));
         Assert.Equal((1, 0), (s_firstCalls, s_secondCalls));
 
         _queue.Shadow.Bodies = BodiesOver(second);
-        Assert.False(_queue.Shadow.Step(second, Player, 0, enabled: true));
+        Assert.False(_queue.Shadow.Step(StagesOver(second), Player, 0, enabled: true));
         Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
 
         // And a loop with no engine steps nothing, rather than asking any side.
@@ -131,7 +135,7 @@ public unsafe class SideMovementEngineTests : IDisposable
 
         // Nor does one with no bodies.
         _queue.Shadow.Bodies = null;
-        Assert.False(_queue.Shadow.Step(first, Player, 0, enabled: true));
+        Assert.False(_queue.Shadow.Step(StagesOver(first), Player, 0, enabled: true));
         Assert.Equal((1, 1), (s_firstCalls, s_secondCalls));
     }
 
@@ -194,7 +198,7 @@ public unsafe class SideMovementEngineTests : IDisposable
         _ = Attached(_second, Side.Server);
 
         var state = new SourceSharp.Shared.BarrelNetState();
-        state.Bind(first, Player);
+        state.Bind(first, first.Areas.Require<NetworkServerArea>(), Player);
 
         // Bound to the blob the first side answered (IsBound itself asks the
         // side's EntityIsValid, a SuppressGCTransition slot a managed fake
@@ -222,7 +226,8 @@ public unsafe class SideMovementEngineTests : IDisposable
         _ = Attached(_second, Side.Server);
 
         var holder = new HoldsAState();
-        NetState[] states = NetStateServerBinding.AttachBound(holder, Player, first, new NetStateFields(new RecordingLog()));
+        NetState[] states = NetStateServerBinding.AttachBound(holder, Player, first, first.Areas.Require<NetworkServerArea>(),
+                                                              new NetStateFields(new RecordingLog()));
 
         Assert.Single(states);
         Assert.Equal(Player, holder.State!.Handle);
@@ -239,7 +244,8 @@ public unsafe class SideMovementEngineTests : IDisposable
     public void ANetStateOnASideWithNoEngineTakesLocalStorage()
     {
         var state = new SourceSharp.Shared.BarrelNetState();
-        state.Bind(new EngineSide(Side.Server), Player);
+        var side = new EngineSide(Side.Server);
+        state.Bind(side, side.Areas.Require<NetworkServerArea>(), Player);
 
         Assert.False(state.IsBound, "no engine: a local state, not a bound one");
         Assert.True(state.IsLive, "but it has storage");

@@ -22,9 +22,9 @@ public unsafe class EngineSideRoutingTests : IDisposable
 
         _root.Live("SourceSharpDebugOverlay001", nameof(ShimDebugOverlayFwd.OverlayCounts),
                    (nint)(delegate* unmanaged<void*, uint*, uint*, uint*, uint*, int*, void>)&Counts);
-        Assert.True(side.AttachShims(_root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(_root.Bind(), out string why), why);
 
-        Assert.Equal((7u, 1u, 2u, 3u, true), side.OverlayReadout());
+        Assert.Equal((7u, 1u, 2u, 3u, true), SideBindings.Of<IEngineHud>(side).OverlayReadout());
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public unsafe class EngineSideRoutingTests : IDisposable
         var side = new EngineSide(Side.Server);
         side.Initialize();
 
-        Assert.False(side.ServerAttached);
+        Assert.False(side.ShimsAttached);
     }
 
     [Fact]
@@ -42,7 +42,10 @@ public unsafe class EngineSideRoutingTests : IDisposable
         var side = new EngineSide(Side.Server);
         side.Initialize();
 
-        var e = Assert.Throws<InvalidOperationException>(() => side.ServerShims.EntityLifecycle.EntityFactoryCount());
+        // The side's area before the attach is a detached one, over no table:
+        // a call that slipped past the attach guards refuses with the reason.
+        var lifecycle = side.Areas.Require<EntityLifecycleArea>();
+        var e = Assert.Throws<InvalidOperationException>(() => lifecycle.EntityFactoryCount());
         Assert.Contains("before the shim areas were attached", e.Message);
     }
 

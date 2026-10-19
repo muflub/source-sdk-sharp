@@ -44,13 +44,20 @@ public sealed class StandaloneSlotReference
     // physics_bones_native_zero 1.2): the sequence clock is its, not native's.
     private readonly StandaloneSkeletonRoute? _skeletons;
 
+    // The side's standalone area, whose dormancy slot this reads.
+    private readonly StandaloneClientArea _standalone;
+
     public StandaloneSlotReference(ModuleEngine engine, StandaloneSkeletonRoute? skeletons = null)
+        : this((engine ?? throw new ArgumentNullException(nameof(engine))).Api)
     {
-        _side = (engine ?? throw new ArgumentNullException(nameof(engine))).Api;
         _skeletons = skeletons;
     }
 
-    internal StandaloneSlotReference(EngineSide side) => _side = side;
+    internal StandaloneSlotReference(EngineSide side)
+    {
+        _side = side;
+        _standalone = side.Areas.Require<StandaloneClientArea>();
+    }
 
     /// <summary>
     /// The sequence clock the skeleton keeps: the managed skeleton's (the
@@ -73,5 +80,5 @@ public sealed class StandaloneSlotReference
     }
 
     /// <inheritdoc cref="EngineSide.StandaloneIsDormant"/>
-    public bool IsDormant(EntityHandle entity) => _side.StandaloneIsDormant(entity);
+    public bool IsDormant(EntityHandle entity) => _side.StandaloneIsDormant(_standalone, entity);
 }

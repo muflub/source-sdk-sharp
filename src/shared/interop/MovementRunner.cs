@@ -42,7 +42,7 @@ public sealed unsafe class MovementRunner
     {
         ArgumentNullException.ThrowIfNull(engine);
         Api = engine.Api;
-        _world = new MovementBridge.EngineMoveWorld(Api);
+        _world = new MovementBridge.EngineMoveWorld(Api, Api.Areas.Require<MovementArea>());
         _isServer = engine.Side == Side.Server;
         _clientWorld = clientWorld?.Invoke(_world);
     }

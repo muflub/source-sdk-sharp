@@ -248,7 +248,7 @@ public unsafe class ConvertedEntryTests
                 .Forwarders<EngineClientFwd>(out EngineClientFwd* table);
             ((nint*)table)[ClientCmdSlot] = (nint)(delegate* unmanaged<void*, byte*, void>)&ClientCmdRecords;
             var side = new EngineSide(Side.Client);
-            Assert.True(side.AttachClientShims(root.Bind(), out string attachWhy), attachWhy);
+            Assert.True(side.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
             IVtableEngineClient? client = EngineClient.Acquire(new ModuleEngine(side), out string why);
             Assert.True(client is not null, why);

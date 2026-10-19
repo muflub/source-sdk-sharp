@@ -196,7 +196,7 @@ public class EngineHierarchyWorldTests
             RepoLayout.Repo("src", "shared", "native", "ishim_areas.h")));
 
         Assert.Matches($@"\bvirtual\s[^;(]*\b{slot}\s*\(", areas);
-        Assert.Contains(typeof(ShimAreas).Assembly.GetTypes(),
+        Assert.Contains(typeof(ShimRoot).Assembly.GetTypes(),
                         t => t.Name.StartsWith("Shim", StringComparison.Ordinal)
                              && t.Name.EndsWith("Fwd", StringComparison.Ordinal)
                              && t.GetField(slot) is not null);

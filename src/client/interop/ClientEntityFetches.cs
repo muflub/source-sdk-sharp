@@ -48,55 +48,62 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(engine);
 
-        ClientShimAreas areas = engine.Api.ClientShims;
+        // Refused unattached, as before: an adapter over the detached areas
+        // would answer every read with its attach guard's default, and the
+        // game never composes before the attach.
+        if (!engine.Api.ShimsAttached)
+            throw new InvalidOperationException(
+                "the client's adapters were registered before its shim areas were attached");
 
-        services.AddInstance<IInterpolationBlocks>(new InterpolationBlocks(areas.StandaloneClient));
-        services.AddInstance<IRenderPolicyBlocks>(new RenderPolicyBlocks(areas.StandaloneClient));
-        services.AddInstance<IClientReplayEngine>(new ClientReplayEngine(areas.PredictionClient));
+        IServiceLocator areas = engine.Api.Areas;
+
+        services.AddInstance<IInterpolationBlocks>(new InterpolationBlocks(areas.Require<StandaloneClientArea>()));
+        services.AddInstance<IRenderPolicyBlocks>(new RenderPolicyBlocks(areas.Require<StandaloneClientArea>()));
+        services.AddInstance<IClientReplayEngine>(new ClientReplayEngine(areas.Require<PredictionClientArea>()));
 
         // The recv tables and schema refusals, for the dev API's nettables
         // route (plan_client_novalve §4.4). A read, not a fetch, but over the
         // same slots and with the same reason to live here: it is unsafe.
-        services.AddInstance<IClientRecvTables>(new ClientRecvTables(areas.StandaloneClient));
+        services.AddInstance<IClientRecvTables>(new ClientRecvTables(areas.Require<StandaloneClientArea>()));
 
         // The rope executor and the view, light and world-hull reads a managed
         // rope makes (plan_client_novalve §2 cluster 6).
-        services.AddInstance<IClientRopeExecutor>(new ClientRopeExecutor(areas.EffectsRenderClient));
-        var ropeExecutor = new ClientRopeExecutor(areas.EffectsRenderClient);
+        services.AddInstance<IClientRopeExecutor>(new ClientRopeExecutor(areas.Require<EffectsRenderClientArea>()));
+        var ropeExecutor = new ClientRopeExecutor(areas.Require<EffectsRenderClientArea>());
         services.AddInstance<IClientRopeExecutor>(ropeExecutor);
         services.AddInstance<IClientComputeLighting>(ropeExecutor);
 
         // The beam executor and the reads the managed beam system makes
         // (plan_client_novalve §2 cluster 5).
-        services.AddInstance<IClientBeamExecutor>(new ClientBeamExecutor(areas.EffectsRenderClient));
+        services.AddInstance<IClientBeamExecutor>(new ClientBeamExecutor(areas.Require<EffectsRenderClientArea>()));
 
         // The UI's draw primitives (plan_client_ui U2), for VguiBackend.
-        services.AddInstance<IUiSurface>(new ClientUiSurface(areas.UiClient));
-        services.AddInstance<IClientDebugOverlay>(new ClientDebugOverlay(areas.UiClient));
+        services.AddInstance<IUiSurface>(new ClientUiSurface(areas.Require<UiClientArea>()));
+        services.AddInstance<IClientDebugOverlay>(new ClientDebugOverlay(areas.Require<UiClientArea>()));
 
         // The second cameras' render targets (lane camproto).
-        services.AddInstance<IViewTargets>(new ClientViewTargets(areas.ViewClient));
+        services.AddInstance<IViewTargets>(new ClientViewTargets(areas.Require<ViewClientArea>()));
 
         // The observer's camera (plan_client_novalve C7 item 5).
-        services.AddInstance<IObserverCameraSlots>(new ObserverCameraSlots(areas.ViewClient));
+        services.AddInstance<IObserverCameraSlots>(new ObserverCameraSlots(areas.Require<ViewClientArea>()));
 
         // The net channel and the diagnostics ledgers, for the netgraph and
         // absences routes; one reader over the slots serves both.
-        var readers = new ClientNetReaders(areas.DiagnosticsClient, areas.NetClient);
+        var readers = new ClientNetReaders(areas.Require<DiagnosticsClientArea>(), areas.Require<NetClientArea>());
         services.AddInstance<IClientNetChannel>(readers);
         services.AddInstance<IClientDiagnosticsLedgers>(readers);
 
         // The managed particle sims' draw executor (lane c2-sims): its
         // lifetime, which managed decides.
         // Wrapped by the managed manager's (ClientModule: BoundParticleExecutor).
-        services.AddInstance<INativeParticleExecutor>(new ClientParticleExecutor(areas.ParticlesClient));
+        services.AddInstance<INativeParticleExecutor>(new ClientParticleExecutor(areas.Require<ParticlesClientArea>()));
         // The particles shell's started systems, for the particles route (lane c5-particles).
-        services.AddInstance<IClientParticleSystems>(new ClientParticleSystems(areas.ParticlesClient));
+        services.AddInstance<IClientParticleSystems>(new ClientParticleSystems(areas.Require<ParticlesClientArea>()));
         // The ParticleEffect client effect's carry-out (lane c5-particles).
-        services.AddInstance<IClientParticleOneShots>(new ClientParticleOneShots(areas.ParticlesClient));
+        services.AddInstance<IClientParticleOneShots>(new ClientParticleOneShots(areas.Require<ParticlesClientArea>()));
         // The particle collision's world trace (lane c5-particles).
-        services.AddInstance<IParticleWorldTrace>(new ClientParticleWorldTrace(areas.ParticlesClient));
-        var particleTrace = new ClientParticleWorldTrace(areas.ParticlesClient);
+        services.AddInstance<IParticleWorldTrace>(new ClientParticleWorldTrace(areas.Require<ParticlesClientArea>()));
+        var particleTrace = new ClientParticleWorldTrace(areas.Require<ParticlesClientArea>());
         services.AddInstance<IParticleWorldTrace>(particleTrace);
         services.AddInstance<IParticleMaskTrace>(particleTrace);
         // The view the particle manager draws in, read once per view, and the
@@ -111,48 +118,48 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
             particleLibrary = new ParticleLibrary(engine.Api.Interfaces);
             services.AddInstance(particleLibrary);
         }
-        var particleView = new ClientParticleViewSlots(areas.ParticlesClient, particleLibrary);
+        var particleView = new ClientParticleViewSlots(areas.Require<ParticlesClientArea>(), particleLibrary);
         services.AddInstance<IParticleViewSource>(particleView);
         services.AddInstance<IParticlePixelVisibility>(particleView);
         services.AddInstance<IParticleThrottle>(particleView);
         services.AddInstance(new ParticleViews(particleView));
         // The dust motes' brush test (lane c5-particles).
-        services.AddInstance<IClientBrushContents>(new ClientBrushContents(areas.ParticlesClient));
+        services.AddInstance<IClientBrushContents>(new ClientBrushContents(areas.Require<ParticlesClientArea>()));
         services.AddInstance<IClientModelNames>(new ClientModelNames(engine.Api));
-        services.AddInstance<IClientPlaneTrace>(new ClientPlaneTrace(areas.ParticlesClient));
+        services.AddInstance<IClientPlaneTrace>(new ClientPlaneTrace(areas.Require<ParticlesClientArea>()));
         // point_worldtext's native text renderer (lane c2-sims): its lifetime.
-        services.AddInstance<IClientWorldTextMeshes>(new ClientWorldTextMeshes(areas.ParticlesClient));
+        services.AddInstance<IClientWorldTextMeshes>(new ClientWorldTextMeshes(areas.Require<ParticlesClientArea>()));
         // The client wind's publication (lane c2-sims).
-        services.AddInstance<IClientWindPublisher>(new ClientWindPublisher(areas.EffectsRenderClient));
+        services.AddInstance<IClientWindPublisher>(new ClientWindPublisher(areas.Require<EffectsRenderClientArea>()));
         // The material proxies' engine reads (lane c5-proxies): FindVar and
         // FindTexture at Init, the texture, entity and view reads of a bind.
-        services.AddInstance<IClientMaterialProxyExecutor>(new ClientMaterialProxyExecutor(areas.MaterialProxyClient));
+        services.AddInstance<IClientMaterialProxyExecutor>(new ClientMaterialProxyExecutor(areas.Require<MaterialProxyClientArea>()));
         // The native effect registrations, by walk index, for the managed
         // dispatch table (plan_client_novalve §2 cluster 4).
-        services.AddInstance<IClientEffectRegistrations>(new ClientEffectRegistrations(areas.FxClient));
+        services.AddInstance<IClientEffectRegistrations>(new ClientEffectRegistrations(areas.Require<FxClientArea>()));
 
         // IEffects' FX_* routines and SuppressTE's two answers (cluster 3),
         // for the managed ClientEffects; one object over the slots serves both.
-        var fx = new ClientFxSlots(areas.FxClient);
+        var fx = new ClientFxSlots(areas.Require<FxClientArea>());
         services.AddInstance<IFxSuppression>(fx);
         services.AddInstance<IFxImpactOverlay>(fx);
 
         // The client-side effect list's carry-out (cluster 3).
-        services.AddInstance<IFxRender>(new ClientFxRenderSlots(areas.FxClient));
-        services.AddInstance<IFxSpriteGlow>(new ClientFxSpriteGlowSlots(areas.FxClient));
-        services.AddInstance<IFxSpriteDraw>(new ClientFxSpriteDrawSlots(areas.FxClient));
-        services.AddInstance<IFxPrecache>(new ClientFxPrecacheSlots(areas.FxClient));
+        services.AddInstance<IFxRender>(new ClientFxRenderSlots(areas.Require<FxClientArea>()));
+        services.AddInstance<IFxSpriteGlow>(new ClientFxSpriteGlowSlots(areas.Require<FxClientArea>()));
+        services.AddInstance<IFxSpriteDraw>(new ClientFxSpriteDrawSlots(areas.Require<FxClientArea>()));
+        services.AddInstance<IFxPrecache>(new ClientFxPrecacheSlots(areas.Require<FxClientArea>()));
 
         // The client soundscape system's executors (sound cluster 17).
-        services.AddInstance<ISoundscapeAudio>(new SoundscapeAudioSlots(areas.Console, areas.SoundscapeClient));
-        var emitters = new ClientFxEmitterSlots(areas.FxClient);
+        services.AddInstance<ISoundscapeAudio>(new SoundscapeAudioSlots(areas.Require<ConsoleArea>(), areas.Require<SoundscapeClientArea>()));
+        var emitters = new ClientFxEmitterSlots(areas.Require<FxClientArea>());
         services.AddInstance<IFxFlashReads>(emitters);
         services.AddInstance<IFxGameSounds>(emitters);
         services.AddInstance<IFxTempEntModels>(emitters);
         // The client weather's engine reads (lane c2-sims).
-        services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(areas.PrecipitationClient));
+        services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(areas.Require<PrecipitationClientArea>()));
         // The client's physics callbacks' engine reads (lane c6-input).
-        var physics = new ClientPhysicsSlots(areas.PhysicsClient, engine.Api.VPhysics);
+        var physics = new ClientPhysicsSlots(areas.Require<PhysicsClientArea>(), engine.Api.VPhysics);
         services.AddInstance<IClientImpactSoundWorld>(physics);
         // The level's environment: ClientPhysicsSystem makes it and writes it here.
         var environment = new ClientPhysicsEnvironment();
@@ -161,6 +168,6 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         services.AddInstance<IClientPhysicsObjectReads>(physics);
         services.AddInstance<IClientSplashCarryOut>(physics);
         // The convar watch and the decided values (C8, IShimConVarsClient).
-        services.AddInstance<IClientConVarSlots>(new ClientConVarSlots(areas.ConVarsClient));
+        services.AddInstance<IClientConVarSlots>(new ClientConVarSlots(areas.Require<ConVarsClientArea>()));
     }
 }

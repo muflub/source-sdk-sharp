@@ -69,8 +69,11 @@ public class TempEntBackendTests
         // puff is DustPuff, and ClientTeDust starts it.)
     };
 
+    // The client's half of the bindings, which this suite does not compile:
+    // since plan_shim_areas_split phase 11 the member that calls an area is
+    // the binding's.
     private static string ClientHalf =>
-        File.ReadAllText(RepoLayout.Repo("src", "client", "interop", "EngineSide.Client.cs"));
+        File.ReadAllText(RepoLayout.Repo("src", "client", "interop", "EngineBinding.Client.cs"));
 
     [Fact]
     public void EveryBackendIsReachableFromAbiThroughToACaller()
@@ -82,12 +85,12 @@ public class TempEntBackendTests
             Assert.True(EngineApiAreasTests.SlotField(name) is not null,
                 $"{name} is a slot of its shim area's layout");
 
-            // An EngineSide member since plan_engineapi_vtables B2 (the static
-            // Engine forwarded it until its bindings called the side directly),
-            // in the client's half since plan_shim_areas_split phase 7, which
-            // this suite does not compile: read from the half's source.
+            // A member of the client's binding half since plan_shim_areas_split
+            // phase 11 (an EngineSide member before it, since
+            // plan_engineapi_vtables B2), which this suite does not compile:
+            // read from the half's source.
             Assert.True(Regex.IsMatch(ClientHalf, $@"(?m)^\s+public\s[^\n(=]*\b{name}\s*\("),
-                $"{name} has a wrapper on the client's EngineSide");
+                $"{name} has a member on the client's binding");
 
             // The layer nothing else checks. A slot missing here is a slot no
             // managed caller can reach, because callers take IEngineEffects and

@@ -840,7 +840,7 @@ public class SideAuditTests
 
         string[] SlotsOf(string iface, string member)
             => bindingMap.TryGetValue((iface, member), out var wrappers)
-                ? wrappers.SelectMany(w => wrapperSlots.TryGetValue(w, out var s) ? s : new HashSet<string>()).ToArray()
+                ? SideAudit.SlotsOf(wrappers, wrapperSlots).ToArray()
                 : Array.Empty<string>();
 
         Assert.True(SlotsOf("IEngineEntities", "GetOrigin").Contains("EntityGetOrigin"),

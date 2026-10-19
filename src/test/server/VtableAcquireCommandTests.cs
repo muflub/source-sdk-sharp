@@ -89,7 +89,7 @@ public unsafe class VtableAcquireCommandTests
         using var root = new FakeShimRoot();
         int word = 0;
         root.Interface(UniformRandomStream.InterfaceVersion, &word).Forwarders<UniformRandomStreamFwd>();
-        Assert.True(served.AttachShims(root.Bind(), out string attachWhy), attachWhy);
+        Assert.True(served.AttachOwnShims(root.Bind(), out string attachWhy), attachWhy);
 
         Assert.NotNull(answered.RandomStream(out _));
         Assert.Null(refused.RandomStream(out string why));

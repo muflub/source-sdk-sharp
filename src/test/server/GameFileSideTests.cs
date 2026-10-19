@@ -36,7 +36,7 @@ public unsafe class GameFileSideTests : IDisposable
         Serve("server text");
         var engine = Attached(Side.Server);
 
-        Assert.True(engine.FilesReadGameFile("scripts/propdata.txt") == "server text",
+        Assert.True(SideBindings.Of<IEngineFiles>(engine).ReadGameFile("scripts/propdata.txt") == "server text",
             "the server side reads the served script through IShimEngine");
     }
 
@@ -46,7 +46,7 @@ public unsafe class GameFileSideTests : IDisposable
         var engine = new EngineSide(Side.Client);
         engine.Initialize();
 
-        Assert.True(engine.FilesReadGameFile("scripts/decals_subrect.txt") is null,
+        Assert.True(SideBindings.Of<IEngineFiles>(engine).ReadGameFile("scripts/decals_subrect.txt") is null,
             "a side that cannot serve the slot answers null, not an empty script");
     }
 

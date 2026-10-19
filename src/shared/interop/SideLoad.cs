@@ -154,7 +154,7 @@ public static unsafe class SideLoad
             console!.Msg($"[SourceSharp] LoadSideV2({side}): shim root bound "
                 + $"({ShimRoot.ExpectedEntries} slots), {ShimConsole.InterfaceVersion} acquired "
                 + $"through it ({ShimConsole.ExpectedEntries} slots), "
-                + $"{(session.Server ? ShimAreas.Count : ClientShimAreas.Count)} {(session.Server ? "" : "client ")}areas attached\n");
+                + $"{(session.Server ? ServerAreaRegistration.Count : ClientAreaRegistration.Count)} {(session.Server ? "" : "client ")}areas attached\n");
         }
         catch (Exception e)
         {

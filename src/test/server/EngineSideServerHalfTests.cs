@@ -32,7 +32,7 @@ public class EngineSideServerHalfTests
     public void AttachOwnShimsAttachesTheServersAreas()
     {
         using var root = new FakeShimRoot();
-        Assert.True(Attached(root).ServerAttached);
+        Assert.True(Attached(root).ShimsAttached);
     }
 
     [Fact]

@@ -93,7 +93,7 @@ public sealed unsafe class InputMailbox : IInputMailbox
     /// <summary>The game's block, from IShimInputClient::InputMailbox; null when native has none.</summary>
     public static InputMailbox? Open(ModuleEngine engine, out string why)
     {
-        nint address = (nint)engine.Api.ClientShims.InputClient.InputMailbox();
+        nint address = (nint)engine.Api.Areas.Require<InputClientArea>().InputMailbox();
         if (address == 0)
         {
             why = "IShimInputClient::InputMailbox answered null";

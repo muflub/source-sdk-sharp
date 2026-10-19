@@ -191,44 +191,71 @@ public sealed unsafe class BonesClientBinding(Crossings crossings, ILog log, ICl
 /// StandaloneEngineBlock): one crossing a read, empty for a handle that names
 /// no standalone entity.
 /// </summary>
-public sealed unsafe class ClientStandaloneBlocks(ModuleEngine engine) : IStandaloneBlocks
+public sealed unsafe class ClientStandaloneBlocks : IStandaloneBlocks
 {
+    private readonly EngineSide _api;
+    private readonly StandaloneClientArea _standalone;
+
+    /// <summary>Over <paramref name="engine"/>'s side and its standalone area.</summary>
+    public ClientStandaloneBlocks(ModuleEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        _api = engine.Api;
+        _standalone = _api.Areas.Require<StandaloneClientArea>();
+    }
+
     public Span<byte> Block(EntityHandle entity)
     {
-        EngineSide api = engine.Api;
-
-        if (!api.ClientAttached)
+        if (!_api.ShimsAttached)
             return Span<byte>.Empty;
 
         int size;
-        void* p = api.ClientShims.StandaloneClient.StandaloneEngineBlock(entity.Value, &size);
+        void* p = _standalone.StandaloneEngineBlock(entity.Value, &size);
 
         return p == null || size < EngineBlock.SizeBytes ? Span<byte>.Empty : new Span<byte>(p, EngineBlock.SizeBytes);
     }
 }
 
 /// <summary><see cref="IClientSequenceStore"/> over the engine: one crossing a store.</summary>
-public sealed class ClientSequenceStore(ModuleEngine engine) : IClientSequenceStore
+public sealed class ClientSequenceStore : IClientSequenceStore
 {
+    private readonly EngineSide _api;
+    private readonly StandaloneClientArea _standalone;
+
+    /// <summary>Over <paramref name="engine"/>'s side and its standalone area.</summary>
+    public ClientSequenceStore(ModuleEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        _api = engine.Api;
+        _standalone = _api.Areas.Require<StandaloneClientArea>();
+    }
+
     public void Store(EntityHandle entity, int sequence, float playbackRate, float animTime, float duration,
                       bool looping)
     {
-        EngineSide api = engine.Api;
-
-        if (api.ClientAttached)
-            api.ClientShims.StandaloneClient.StandaloneStoreSequence(entity.Value, sequence, playbackRate, animTime, duration,
-                                                    looping ? 1 : 0);
+        if (_api.ShimsAttached)
+            _standalone.StandaloneStoreSequence(entity.Value, sequence, playbackRate, animTime, duration,
+                                                looping ? 1 : 0);
     }
 }
 
 /// <summary><see cref="IStandaloneRagdollStore"/> over the engine: one crossing a store.</summary>
-public sealed class StandaloneRagdollStore(ModuleEngine engine) : IStandaloneRagdollStore
+public sealed class StandaloneRagdollStore : IStandaloneRagdollStore
 {
+    private readonly EngineSide _api;
+    private readonly StandaloneClientArea _standalone;
+
+    /// <summary>Over <paramref name="engine"/>'s side and its standalone area.</summary>
+    public StandaloneRagdollStore(ModuleEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        _api = engine.Api;
+        _standalone = _api.Areas.Require<StandaloneClientArea>();
+    }
+
     public void SetRagdoll(EntityHandle entity, bool isRagdoll)
     {
-        EngineSide api = engine.Api;
-
-        if (api.ClientAttached)
-            api.ClientShims.StandaloneClient.StandaloneSetRagdoll(entity.Value, isRagdoll ? 1 : 0);
+        if (_api.ShimsAttached)
+            _standalone.StandaloneSetRagdoll(entity.Value, isRagdoll ? 1 : 0);
     }
 }

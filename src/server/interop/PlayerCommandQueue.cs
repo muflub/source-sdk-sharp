@@ -389,7 +389,7 @@ public sealed unsafe class PlayerCommandQueue
     public int Run(EntityHandle player, int nativeCount, PlayerRunMoveStages stages,
                           ISideModule? module, IServerModule? serverModule, bool shadowEnabled)
         => Run(player, nativeCount, new ModuleSink(module, serverModule), stages.RunMove,
-               shadowEnabled, stages.Api);
+               shadowEnabled, stages);
 
     /// <inheritdoc cref="Run(EntityHandle,int,PlayerRunMoveStages,ISideModule,IServerModule,bool)"/>
     /// <param name="sink">
@@ -412,11 +412,11 @@ public sealed unsafe class PlayerCommandQueue
     /// </para>
     /// </param>
     /// <param name="shadowEnabled">Whether the player's shadow steps after each command.</param>
-    /// <param name="side">The side whose shadow steps; null steps none (a fact's
-    /// loop, which has no engine).</param>
+    /// <param name="stages">The stages of the side whose shadow steps; null steps
+    /// none (a fact's loop, which has no engine).</param>
     internal int Run<TSink>(EntityHandle player, int nativeCount, TSink sink,
                                    Func<EntityHandle, int, int, int> runMove,
-                                   bool shadowEnabled = true, EngineSide? side = null)
+                                   bool shadowEnabled = true, PlayerRunMoveStages? stages = null)
         where TSink : IPlayerCommandSink
     {
         var q = QueueFor(player);
@@ -482,7 +482,7 @@ public sealed unsafe class PlayerCommandQueue
             // the shadow's arrival ramp is measured in -- and because both of
             // its calls are outbound, so the move costs no counted crossing.
             // See PlayerShadow.
-            Shadow.Step(side, player, i, shadowEnabled);
+            Shadow.Step(stages, player, i, shadowEnabled);
         }
 
         q.Clear();

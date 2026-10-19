@@ -201,13 +201,18 @@ public static unsafe class MovementBridge
         // The side's slot routing, given by the runner that owns this world
         // (plan_abi_hotreload D8); it was Engine.Current.Slots per call.
         private readonly EngineSide _api;
+        private readonly MovementArea _movement;
 
-        internal EngineMoveWorld(EngineSide api) => _api = api;
+        internal EngineMoveWorld(EngineSide api, MovementArea movement)
+        {
+            _api = api;
+            _movement = movement ?? throw new ArgumentNullException(nameof(movement));
+        }
 
         public MoveTrace Trace(in Vector start, in Vector end, in Vector mins, in Vector maxs,
                                uint mask, int collisionGroup)
         {
-            if (!_api.OwnShimsAttached)
+            if (!_api.ShimsAttached)
                 return MoveTrace.Clear(end);
 
             float* s = stackalloc float[3] { start.X, start.Y, start.Z };
@@ -216,7 +221,7 @@ public static unsafe class MovementBridge
             float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
             MoveTraceBlob blob = default;
-            _api.OwnShims.Movement.MoveTrace(s, e, lo, hi, (int)mask, collisionGroup, &blob);
+            _movement.MoveTrace(s, e, lo, hi, (int)mask, collisionGroup, &blob);
 
             return new MoveTrace
             {
@@ -238,20 +243,20 @@ public static unsafe class MovementBridge
 
         public int PointContents(in Vector point, int slot)
         {
-            if (!_api.OwnShimsAttached)
+            if (!_api.ShimsAttached)
                 return 0;
 
             float* p = stackalloc float[3] { point.X, point.Y, point.Z };
-            return (_api.OwnShims.Movement.MovePointContents(p, slot));
+            return (_movement.MovePointContents(p, slot));
         }
 
         public MoveSurface Surface(int surfaceProps)
         {
-            if (!_api.OwnShimsAttached)
+            if (!_api.ShimsAttached)
                 return default;
 
             MoveSurfaceBlob blob = default;
-            if ((_api.OwnShims.Movement.MoveSurface(surfaceProps, &blob)) == 0)
+            if ((_movement.MoveSurface(surfaceProps, &blob)) == 0)
                 return default;
 
             return new MoveSurface
@@ -267,11 +272,11 @@ public static unsafe class MovementBridge
 
         private int Effect(MoveEffectKind kind, in Vector xyz, float value, int flag)
         {
-            if (!_api.OwnShimsAttached)
+            if (!_api.ShimsAttached)
                 return 1;
 
             float* p = stackalloc float[3] { xyz.X, xyz.Y, xyz.Z };
-            return (_api.OwnShims.Movement.MoveEffect((int)kind, p, value, flag));
+            return (_movement.MoveEffect((int)kind, p, value, flag));
         }
 
         public void ResetTouchList() => Effect(MoveEffectKind.ResetTouchList, Vector.Zero, 0f, 0);

@@ -60,7 +60,7 @@ public sealed unsafe class ViewEntityForwarderTests
             fwd->ServerExecute = &Execute;
             fwd->LightStyle = &Style;
             Side.Initialize();
-            Assert.True(Side.AttachShims(Root.Bind(), out string why), why);
+            Assert.True(Side.AttachOwnShims(Root.Bind(), out string why), why);
             Side.Bound.UseServer((NativeInterfaceFactory factory, SourceSharp.Abi.Side _, out string w) => EngineServer.Acquire(factory, out w));
             _liveness = Side.AttachLiveness(Mirror);
             s_ViewPlayer = s_ViewTarget = 0;

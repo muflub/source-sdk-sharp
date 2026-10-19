@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary><see cref="IPlayerTouchWorld"/> over one side's engine: the entity's block read in place, and its held object.</summary>
-internal sealed class EnginePlayerTouchWorld(EngineSide side) : IPlayerTouchWorld
+internal sealed class EnginePlayerTouchWorld(EngineSide side, NetworkServerArea network) : IPlayerTouchWorld
 {
     private static readonly int MoveTypeOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.MoveType));
     private static readonly int SolidOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidType));
@@ -18,7 +18,7 @@ internal sealed class EnginePlayerTouchWorld(EngineSide side) : IPlayerTouchWorl
 
     public bool TryEntity(EntityHandle entity, out int moveType, out int solidType, out int solidFlags, out nint physicsObject)
     {
-        Span<byte> block = side.GetEntityBlock(entity);
+        Span<byte> block = side.GetEntityBlock(network, entity);
         if (block.Length < EngineBlock.SizeBytes)
         {
             moveType = solidType = solidFlags = 0;
@@ -53,16 +53,16 @@ public interface IPlayerShadows : IPlayerShadowProbe
 }
 
 /// <summary><see cref="IPlayerShadowNative"/> over one side's engine slots.</summary>
-internal sealed class EnginePlayerShadowNative(EngineSide side) : IPlayerShadowNative
+internal sealed class EnginePlayerShadowNative(EngineSide side, MovementServerArea movement) : IPlayerShadowNative
 {
-    public bool Facts(EntityHandle player, out PlayerShadowFacts facts) => side.PlayerShadowFacts(player, out facts);
+    public bool Facts(EntityHandle player, out PlayerShadowFacts facts) => side.PlayerShadowFacts(movement, player, out facts);
 
     public bool Adopt(EntityHandle player, nint stand, nint crouch, nint controller)
-        => side.PlayerShadowAdopt(player, stand, crouch, controller);
+        => side.PlayerShadowAdopt(movement, player, stand, crouch, controller);
 
-    public void Release(EntityHandle player) => side.PlayerShadowRelease(player);
+    public void Release(EntityHandle player) => side.PlayerShadowRelease(movement, player);
 
-    public void Commit(EntityHandle player, int state, bool afterCommand) => side.PlayerShadowCommit(player, state, afterCommand);
+    public void Commit(EntityHandle player, int state, bool afterCommand) => side.PlayerShadowCommit(movement, player, state, afterCommand);
 
     public nint Environment() => side.PhysicsEnvironmentPointer();
 }
@@ -144,8 +144,10 @@ public sealed class PlayerShadowBodies : IPlayerShadows
                                                Action<string> warning)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        var bodies = new PlayerShadowBodies(new EnginePlayerShadowNative(engine.Api), v, enabled, warning,
-                                            new EnginePlayerTouchWorld(engine.Api));
+        var areas = engine.Api.Areas;
+        var bodies = new PlayerShadowBodies(new EnginePlayerShadowNative(engine.Api, areas.Require<MovementServerArea>()),
+                                            v, enabled, warning,
+                                            new EnginePlayerTouchWorld(engine.Api, areas.Require<NetworkServerArea>()));
         engine.Api.Teleported = bodies.Teleport;
         return bodies;
     }

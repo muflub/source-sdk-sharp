@@ -19,7 +19,7 @@ public unsafe class EngineSideTests
         var side = new EngineSide(Side.Server);
 
         Assert.False(side.IsInitialized);
-        Assert.Equal(-1, side.EntityGetIndex(new EntityHandle(1)));
+        Assert.Equal(-1, SideBindings.Of<IEngineEntities>(side).GetIndex(new EntityHandle(1)));
     }
 
     [Fact]
@@ -34,15 +34,15 @@ public unsafe class EngineSideTests
         root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
         server.Initialize();
-        Assert.True(server.AttachShims(root.Bind(), out string why), why);
+        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
 
         Assert.True(server.IsInitialized);
-        Assert.Equal(7, server.EntityGetIndex(new EntityHandle(1)));
+        Assert.Equal(7, SideBindings.Of<IEngineEntities>(server).GetIndex(new EntityHandle(1)));
 
         // Impossible to state before B1: one static table per side, chosen by
         // the thread. Here the client instance was never given the table.
         Assert.False(client.IsInitialized);
-        Assert.Equal(-1, client.EntityGetIndex(new EntityHandle(1)));
+        Assert.Equal(-1, SideBindings.Of<IEngineEntities>(client).GetIndex(new EntityHandle(1)));
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public unsafe class EngineSideTests
         root.Live("SourceSharpMovementServer001", nameof(ShimMovementServerFwd.MoveSurface),
                   (nint)(delegate* unmanaged<void*, int, MoveSurfaceBlob*, int>)&SurfaceIsSand);
         server.Initialize();
-        Assert.True(server.AttachShims(root.Bind(), out string why), why);
+        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
 
         MoveSurface sand = server.Surfaces.Of(3);
         Assert.True(sand.Valid, "the attached side's table answers through its own slot");
@@ -99,7 +99,7 @@ public unsafe class EngineSideTests
         root.Live("SourceSharpEntitiesServer001", nameof(ShimEntitiesServerFwd.EntityGetIndex),
                   (nint)(delegate* unmanaged<void*, uint, int>)&IndexSeven);
         server.Initialize();
-        Assert.True(server.AttachShims(root.Bind(), out string why), why);
+        Assert.True(server.AttachOwnShims(root.Bind(), out string why), why);
 
         var serverServices = new ServiceContainer().AddInstance(new StandaloneMirror());
         var clientServices = new ServiceContainer().AddInstance(new StandaloneMirror());

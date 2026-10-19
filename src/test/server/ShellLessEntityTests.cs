@@ -501,7 +501,7 @@ public class ShellLessEntityTests
         var handle = registry.Create(Shellless, Packed(("origin", "1 2 3")));
 
         registry.Spawn(handle);
-        _side.EntitySetOrigin(handle, new Vector(9f, 9f, 9f));
+        SideBindings.Of<IEngineEntities>(_side).SetOrigin(handle, new Vector(9f, 9f, 9f));
 
         Assert.Equal(3f, registry.StateOf(handle)!.SpawnOrigin.Z);
     }
@@ -639,7 +639,7 @@ public class ShellLessEntityTests
         var registry = Fresh();
         var handle = registry.Create(Shellless, default);
 
-        Assert.Contains(handle, _side.FindEntitiesByClassname(Shellless));
+        Assert.Contains(handle, SideBindings.Of<IEngineEntities>(_side).FindAllByClassname(Shellless));
     }
 
     [Fact]
@@ -885,7 +885,7 @@ public class ShellLessEntityTests
         var registry = Fresh();
         var handle = registry.Create(Shellless, Packed(("origin", "1 2 3")));
 
-        Assert.Equal(3f, _side.EntityGetOrigin(handle).Z);
+        Assert.Equal(3f, SideBindings.Of<IEngineEntities>(_side).GetOrigin(handle).Z);
     }
 
     [Fact]
@@ -894,7 +894,7 @@ public class ShellLessEntityTests
         var registry = Fresh();
         var handle = registry.Create(Shellless, default);
 
-        _side.EntitySetOrigin(handle, new Vector(4f, 5f, 6f));
+        SideBindings.Of<IEngineEntities>(_side).SetOrigin(handle, new Vector(4f, 5f, 6f));
 
         Assert.Equal(6f, registry.StateOf(handle)!.Origin.Z);
     }
@@ -904,7 +904,7 @@ public class ShellLessEntityTests
     {
         var registry = Fresh();
 
-        Assert.Equal(Shellless, _side.EntityGetClassName(registry.Create(Shellless, default)));
+        Assert.Equal(Shellless, SideBindings.Of<IEngineEntities>(_side).GetClassName(registry.Create(Shellless, default)));
     }
 
     [Fact]
@@ -913,7 +913,7 @@ public class ShellLessEntityTests
         var registry = Fresh();
         Make(registry, out var handle, "named");
 
-        Assert.Equal("named", _side.EntityGetName(handle));
+        Assert.Equal("named", SideBindings.Of<IEngineEntities>(_side).GetName(handle));
     }
 
     /// <summary>
@@ -930,7 +930,7 @@ public class ShellLessEntityTests
         var registry = Fresh();
         var relay = Make(registry, out var handle, "before");
 
-        Assert.Equal("before", _side.EntityGetName(handle));
+        Assert.Equal("before", SideBindings.Of<IEngineEntities>(_side).GetName(handle));
 
         Assert.True(registry.AddOutput(handle, relay, "targetname after"),
                     "a targetname is a key every entity takes, so AddOutput is not refused");
@@ -939,7 +939,7 @@ public class ShellLessEntityTests
         registry.FindByName("after", found);
 
         Assert.Equal(new[] { handle }, found);
-        Assert.Equal("after", _side.EntityGetName(handle));
+        Assert.Equal("after", SideBindings.Of<IEngineEntities>(_side).GetName(handle));
     }
 
     [Fact]
@@ -947,7 +947,7 @@ public class ShellLessEntityTests
     {
         var registry = Fresh();
 
-        Assert.Equal(6, _side.EntityGetSpawnFlags(
+        Assert.Equal(6, SideBindings.Of<IEngineEntities>(_side).GetSpawnFlags(
             registry.Create(Shellless, Packed(("spawnflags", "6")))));
     }
 
@@ -956,7 +956,7 @@ public class ShellLessEntityTests
     {
         var registry = Fresh();
 
-        Assert.Equal(42, _side.EntityGetHealth(
+        Assert.Equal(42, SideBindings.Of<IEngineEntities>(_side).GetHealth(
             registry.Create(Shellless, Packed(("health", "42")))));
     }
 
@@ -975,7 +975,7 @@ public class ShellLessEntityTests
         // already server-only and its CStandaloneEntity never claimed an edict.
         var registry = Fresh();
 
-        Assert.Equal(-1, _side.EntityGetIndex(registry.Create(Shellless, default)));
+        Assert.Equal(-1, SideBindings.Of<IEngineEntities>(_side).GetIndex(registry.Create(Shellless, default)));
     }
 
     [Fact]
@@ -983,7 +983,7 @@ public class ShellLessEntityTests
     {
         var registry = Fresh();
 
-        Assert.False(_side.EntityIsPlayer(registry.Create(Shellless, default)));
+        Assert.False(SideBindings.Of<IEngineEntities>(_side).IsPlayer(registry.Create(Shellless, default)));
     }
 
     [Fact]
@@ -992,7 +992,7 @@ public class ShellLessEntityTests
         var registry = Fresh();
         var handle = registry.Create(Shellless, Packed(("origin", "7 8 9")));
 
-        Assert.Equal(9f, _side.EntityGetWorldSpaceCenter(handle).Z);
+        Assert.Equal(9f, SideBindings.Of<IEngineEntities>(_side).GetWorldSpaceCenter(handle).Z);
     }
 
     //=========================================================================
@@ -1297,7 +1297,7 @@ public class ShellLessEntityTests
         var handle = registry.Create(Shellless, default);
 
         long before = _side.ShellLess.SoundsPlacedHere;
-        _side.EntityEmitSound(handle, "Doors.Move18");
+        SideBindings.Of<IEngineSound>(_side).EntityEmitSound(handle, "Doors.Move18");
 
         Assert.Equal(before + 1, _side.ShellLess.SoundsPlacedHere);
     }
@@ -1316,7 +1316,7 @@ public class ShellLessEntityTests
         Fresh();
 
         long before = _side.ShellLess.SoundsPlacedHere;
-        _side.EntityEmitSound(new EntityHandle(64u | (1u << 16)), "Doors.Move18");
+        SideBindings.Of<IEngineSound>(_side).EntityEmitSound(new EntityHandle(64u | (1u << 16)), "Doors.Move18");
 
         Assert.Equal(before, _side.ShellLess.SoundsPlacedHere);
     }
@@ -1332,7 +1332,7 @@ public class ShellLessEntityTests
         var handle = registry.Create(Shellless, default);
 
         long before = _side.ShellLess.SoundsPlacedHere;
-        _side.EntityEmitSound(handle, string.Empty);
+        SideBindings.Of<IEngineSound>(_side).EntityEmitSound(handle, string.Empty);
 
         Assert.Equal(before, _side.ShellLess.SoundsPlacedHere);
     }
@@ -1355,6 +1355,6 @@ public class ShellLessEntityTests
         var registry = Fresh();
         var handle = registry.Create(Shellless, Packed(("origin", "-3657 3583 9")));
 
-        Assert.Equal(new Vector(-3657f, 3583f, 9f), _side.EntityGetOrigin(handle));
+        Assert.Equal(new Vector(-3657f, 3583f, 9f), SideBindings.Of<IEngineEntities>(_side).GetOrigin(handle));
     }
 }

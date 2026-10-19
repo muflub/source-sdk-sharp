@@ -35,7 +35,7 @@ public unsafe class GameFileClientSideTests : IDisposable
         Serve("\"decals\" { \"a\" \"1\" }");
         var engine = Attached(Side.Client);
 
-        Assert.True(engine.FilesReadGameFile("scripts/decals_subrect.txt") == "\"decals\" { \"a\" \"1\" }",
+        Assert.True(SideBindings.Of<IEngineFiles>(engine).ReadGameFile("scripts/decals_subrect.txt") == "\"decals\" { \"a\" \"1\" }",
             "the client side reads the served script through IShimEngine");
     }
 

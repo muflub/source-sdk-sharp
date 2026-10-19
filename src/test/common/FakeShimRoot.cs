@@ -35,26 +35,21 @@ internal sealed unsafe class FakeShimRoot : IDisposable
 
     public FakeShimRoot()
     {
-        foreach (var field in typeof(ShimAreas).GetFields(BindingFlags.Public | BindingFlags.Instance))
+        // Every area either side registers, each served under its version
+        // string: the area's class name less "Area" (IShimEngine's class is
+        // EngineArea, served as SourceSharpEngine001), so the same root binds
+        // a server side and a client side (AttachOwnShims). A base area the
+        // server registers again as its derived area's base is served once.
+        var types = new List<Type>();
+        ServerAreaRegistration.AddDetached((type, _) => types.Add(type));
+        ClientAreaRegistration.AddDetached((type, _) => types.Add(type));
+        foreach (Type area in types)
         {
-            // IShimEngine is its field EngineBase (tools/shim-areas field()),
-            // served as SourceSharpEngine001, on the server too since lane
-            // c2-sims bound it for itself.
-            string version = $"SourceSharp{(field.Name == "EngineBase" ? "Engine" : field.Name)}001";
-            Serve(version, ShimAreaTypes.FwdOf(field.FieldType));
-        }
-
-        // And the client's areas the server's do not already name, so the same
-        // root binds a client side (AttachClientShims). The client's engine
-        // base is its field EngineBase, served as SourceSharpEngine001.
-        foreach (var field in typeof(ClientShimAreas).GetFields(BindingFlags.Public | BindingFlags.Instance))
-        {
-            string name = field.Name == "EngineBase" ? "Engine" : field.Name;
-            string version = $"SourceSharp{name}001";
+            string version = $"SourceSharp{area.Name[..^"Area".Length]}001";
             if (_areas.ContainsKey(version))
                 continue;
 
-            Serve(version, ShimAreaTypes.FwdOf(field.FieldType));
+            Serve(version, ShimAreaTypes.FwdOf(area));
         }
     }
 
@@ -143,6 +138,16 @@ internal sealed unsafe class FakeShimRoot : IDisposable
         _areas[version] = (nint)self;
         ((ForwarderTableHeader*)_headers[version])->Slots = (void**)slots;
         _tables[version] = (_tables[version].Fwd, (nint)slots);
+        return this;
+    }
+
+    /// <summary>
+    /// Stops serving one area, as a root built without it would: its version
+    /// string acquires nothing from now on.
+    /// </summary>
+    public FakeShimRoot Withhold(string version)
+    {
+        _areas.Remove(version);
         return this;
     }
 

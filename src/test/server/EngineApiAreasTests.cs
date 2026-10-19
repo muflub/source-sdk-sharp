@@ -202,19 +202,19 @@ public partial class EngineApiAreasTests
             else if (current is not null)
                 classes[current].Lines.Add(line);
         }
-        Assert.True(classes.ContainsKey("ClientShimAreas"), "the generated file holds ClientShimAreas");
-        var client = classes["ClientShimAreas"].Lines;
-        var held = client.Select(l => Regex.Match(l, @"^    public readonly (\w+) (\w+) = null!;"))
-                         .Where(m => m.Success)
-                         .ToDictionary(m => m.Groups[2].Value, m => m.Groups[1].Value);
-        Assert.True(held.Count >= 20, $"the client container holds {held.Count} areas");
+        // What the client's registration hands (plan_shim_areas_split phase 11:
+        // there is no container), by class name.
+        var held = new List<string>();
+        ClientAreaRegistration.AddDetached((type, _) => held.Add(type.Name));
+        Assert.True(held.Count >= 20, $"the client's registration hands {held.Count} areas");
+        Assert.All(held, name => Assert.True(classes.ContainsKey(name), $"{name} is a generated area class"));
 
         bool Calls(string? cls, string slot)
         {
             for (; cls is not null; cls = classes[cls].Base)
                 if (classes[cls].Lines.Any(l => l.StartsWith("    public ", StringComparison.Ordinal)
                                                 && l.Contains($" {slot}(", StringComparison.Ordinal)
-                                                && l.Contains($"_shim.Vt->{slot}(_shim.Self", StringComparison.Ordinal)))
+                                                && l.Contains($"_shim.Table->{slot}(_shim.Self", StringComparison.Ordinal)))
                     return true;
             return false;
         }
@@ -222,9 +222,8 @@ public partial class EngineApiAreasTests
         var shared = Rows().Where(r => r.Struct == "EngineApi" && r.Side == "both" && r.Interface != "IShimRoot").ToList();
         Assert.True(shared.Count >= 50, $"{shared.Count} shared slots");
 
-        // Since plan_shim_areas_split phase 9 the container has no calls of its
-        // own: a shared slot is routed when an area the client holds calls it.
-        var unrouted = shared.Where(r => !held.Values.Any(area => Calls(area, r.Slot)))
+        // A shared slot is routed when an area the client registers calls it.
+        var unrouted = shared.Where(r => !held.Any(area => Calls(area, r.Slot)))
                              .Select(r => r.Slot).ToList();
 
         Assert.Empty(unrouted);

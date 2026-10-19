@@ -259,7 +259,7 @@ public unsafe class ShimFrameTests
     private static IEngineFrame RefusedArea(EngineSide side, out FakeShimRoot root)
     {
         root = new FakeShimRoot { Refusal = "factory does not know that interface" };
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return SideBindings.Of<IEngineFrame>(side);
     }
 

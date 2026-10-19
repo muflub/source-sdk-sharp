@@ -380,17 +380,22 @@ public struct PhysicsEvent
 public sealed class PhysicsSurfaces
 {
     private readonly EngineSide _api;
+    private readonly MovementArea _movement;
 
-    internal PhysicsSurfaces(EngineSide api) => _api = api;
+    internal PhysicsSurfaces(EngineSide api, MovementArea movement)
+    {
+        _api = api;
+        _movement = movement ?? throw new ArgumentNullException(nameof(movement));
+    }
 
     /// <summary>The surfaceprop at that index, or <c>default</c>.</summary>
     public unsafe MoveSurface Of(int surfaceProps)
     {
-        if (!_api.OwnShimsAttached)
+        if (!_api.ShimsAttached)
             return default;
 
         MoveSurfaceBlob blob = default;
-        if ((_api.OwnShims.Movement.MoveSurface(surfaceProps, &blob)) == 0)
+        if (_movement.MoveSurface(surfaceProps, &blob) == 0)
             return default;
 
         return new MoveSurface

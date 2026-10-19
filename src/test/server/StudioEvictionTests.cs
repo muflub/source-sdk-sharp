@@ -75,13 +75,13 @@ public class StudioEvictionTests
         // The positive arm: IShimModels' remaining slots are read.
         Assert.Contains(rows, r => r.StartsWith("EntityGetModelName\tEngineApi\tIShimModels\t", System.StringComparison.Ordinal));
         Assert.DoesNotContain(rows, r => r.StartsWith("ModelDescriptor\t", System.StringComparison.Ordinal));
-        foreach (string name in new[] { "SourceSharp.Abi.ShimAreas", "SourceSharp.Abi.ClientShimAreas" })
+        foreach (System.Action<System.Action<System.Type, object>> registration in new System.Action<System.Action<System.Type, object>>[]
+                 { SourceSharp.Abi.ServerAreaRegistration.AddDetached, SourceSharp.Abi.ClientAreaRegistration.AddDetached })
         {
-            System.Type areas = typeof(SourceSharp.Abi.EngineBlock).Assembly.GetType(name, throwOnError: true)!;
-            // A container holds areas and no calls (plan_shim_areas_split
-            // phase 9): the slot is a method of an area it holds.
-            var held = areas.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                            .Select(f => f.FieldType).ToList();
+            // Each side's registration hands its areas (plan_shim_areas_split
+            // phase 11): the slot is a method of an area it hands.
+            var held = new List<System.Type>();
+            registration((type, _) => held.Add(type));
             Assert.Contains(held, t => t.GetMethod("EntitiesInvalidateMdlCacheAll") is not null);
             Assert.DoesNotContain(held, t => t.GetMethod("ModelDescriptor") is not null);
         }

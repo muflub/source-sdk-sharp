@@ -120,10 +120,11 @@ std::string ReadCode( const char *pRelative )
 const char *const kSharedDefs = "game/shared/shareddefs.h";
 const char *const kServerNet  = "sourcesharp/game/server/shell_standalone.cpp";
 const char *const kClientCpp  = "sourcesharp/game/client/shell_standalone_client.cpp";
-// EngineSide.cs since plan_engineapi_vtables B1: the per-side instance holds the
-// bodies; the server's half since plan_shim_areas_split phase 7, because the
-// teleport reaches only the server's areas.
-const char *const kEngineCs   = "sourcesharp/managed/SourceSharp.Server.Interop/EngineSide.Server.cs";
+// The binding that calls the teleport's area holds its body since
+// plan_shim_areas_split phase 11 (EngineSide's before it, since
+// plan_engineapi_vtables B1), in its server half, because the teleport reaches
+// only the server's areas.
+const char *const kEngineCs   = "sourcesharp/managed/SourceSharp.Server.Interop/EngineBinding.Server.cs";
 const char *const kInterpCs   = "sourcesharp/managed/SourceSharp.Client/Interpolation.cs";
 const char *const kBlockCs    = "sourcesharp/managed/SourceSharp.Abi/EngineBlock.cs";
 const char *const kGenerated  = "sourcesharp/game/shared/engine_block_generated.h";
@@ -309,15 +310,15 @@ TEST( TeleportDiscontinuity, TheClientReceivesIntoTheSameWord )
 
 TEST( TeleportDiscontinuity, TheServerHalfBumpsTheCounterOnEveryTeleport )
 {
-	// Engine.EntityTeleport is where every teleport on this hierarchy crosses:
+	// IEngineEntities.Teleport is where every teleport on this hierarchy crosses:
 	// point_teleport, trigger_teleport, the trains, the dev commands and any
 	// managed caller yet to be written all arrive here. Bumping on THIS side of
 	// the crossing is what makes the fix cover them without a line of C++.
 	const std::string body = MethodBodyOf(
 		ReadCode( kEngineCs ),
-		"public void EntityTeleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity)" );
+		"public void Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity)" );
 
-	ASSERT_FALSE( body.empty() ) << "Engine.EntityTeleport was not found";
+	ASSERT_FALSE( body.empty() ) << "EngineEntities.Teleport was not found";
 
 	EXPECT_NE( body.find( "TeleportDiscontinuity.Bump(" ), std::string::npos )
 		<< "THE SERVER HALF IS GONE. A teleport that bumps nothing is a pose a "
@@ -326,7 +327,7 @@ TEST( TeleportDiscontinuity, TheServerHalfBumpsTheCounterOnEveryTeleport )
 		   "Nothing else fails when this line goes: the client half still has "
 		   "its unit facts, because those bump the counter themselves.";
 
-	EXPECT_NE( body.find( "MarkEntityBlockChanged(h, TeleportDiscontinuity.FrameOffset)" ),
+	EXPECT_NE( body.find( "MarkEntityBlockChanged(_networkServerArea, h, TeleportDiscontinuity.FrameOffset)" ),
 	           std::string::npos )
 		<< "the bump is not announced. A block write nothing marks is a value "
 		   "the local backdoor never copies -- and the origin's own mark says "

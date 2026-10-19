@@ -48,7 +48,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
         var engine = Attached(Side.Server);
 
         uint[] rows = CollisionRules.BuildMatrix();
-        bool delivered = engine.RegisterCollisionRules(rows);
+        bool delivered = SideBindings.Of<IEngineCollisionRules>(engine).RegisterCollisionRules(rows);
 
         Assert.True(delivered, "the server side reports the matrix delivered");
         Assert.True(recorder[0] == 1, $"the server's rules slot was called once ({recorder[0]} calls)");
@@ -64,7 +64,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
         var engine = new EngineSide(Side.Client);
         engine.Initialize();
 
-        Assert.False(engine.RegisterCollisionRules(CollisionRules.BuildMatrix()),
+        Assert.False(SideBindings.Of<IEngineCollisionRules>(engine).RegisterCollisionRules(CollisionRules.BuildMatrix()),
             "a side that cannot serve the slot reports the matrix undelivered");
     }
 
@@ -81,16 +81,26 @@ public unsafe class CollisionRulesSideTests : IDisposable
 
     //-------------------------------------------------------------------------
 
-    /// <summary>The area the server binds the rules slot through: the one ShimAreas acquires it from.</summary>
+    /// <summary>The area the server binds the rules slot through: the one its registration acquires it from.</summary>
     private static string ServerCollisionVersion
-        => "SourceSharp" + ServerCollisionField.Name + "001";
+        => "SourceSharp" + ServerCollisionArea.Name[..^"Area".Length] + "001";
 
     private static Type ServerCollisionFwd
-        => ShimAreaTypes.FwdOf(ServerCollisionField.FieldType);
+        => ShimAreaTypes.FwdOf(ServerCollisionArea);
 
-    private static System.Reflection.FieldInfo ServerCollisionField
-        => typeof(ShimAreas).GetFields().Single(f =>
-               ShimAreaTypes.FwdOf(f.FieldType).GetField(nameof(ShimCollisionFwd.RegisterCollisionRules)) is not null);
+    // The server's own area whose table carries the rules slot: the one it
+    // registers under its own type, not a base it is registered as too.
+    private static Type ServerCollisionArea
+    {
+        get
+        {
+            var areas = new List<(Type Type, object Area)>();
+            ServerAreaRegistration.AddDetached((type, area) => areas.Add((type, area)));
+            return areas.Where(a => a.Type == a.Area.GetType())
+                        .Select(a => a.Type)
+                        .Single(t => ShimAreaTypes.FwdOf(t).GetField(nameof(ShimCollisionFwd.RegisterCollisionRules)) is not null);
+        }
+    }
 
     /// <summary>
     /// Serves an area object for <paramref name="version"/> whose rules slot

@@ -20,13 +20,16 @@
 // for EngineEntities rather than IEngineEntities would compile, work, and be
 // untestable, and it would be the one class nobody noticed had done it.
 
+using System.Buffers;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Collections.Generic;
 using System.Reflection;
 
 namespace SourceSharp.Abi;
 
 /// <summary>The real engine, for <see cref="IEngineConsole"/>. Every member is one call.</summary>
-internal sealed partial class EngineConsole : IEngineConsole
+internal sealed unsafe partial class EngineConsole : IEngineConsole
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -35,28 +38,193 @@ internal sealed partial class EngineConsole : IEngineConsole
 
     private EngineSide E => _side;
 
-    public EngineConsole(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    private readonly ConsoleArea _consoleArea;
 
     public void ExecuteServerCommand(string command)
     {
         if (!string.IsNullOrEmpty(command))
             EngineBound.Server(E).ServerCommandNow(command);
     }
-    public string? FindConVarValue(string name) => E.FindConVarValue(name);
-    public string GetConVarValue(int id) => E.GetConVarValue(id);
+
+    /// <summary>
+    /// One native convar's value by name. Null when the engine knows no such
+    /// convar, and null for a command, which has no value to read.
+    /// </summary>
+    public string? FindConVarValue(string name)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return null;
+
+        const int bufSize = 260;
+        byte* buf = stackalloc byte[bufSize];
+
+        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
+        fixed (byte* pName = nameBytes)
+        {
+            if (_consoleArea.FindConVarValue(pName, buf, bufSize) == 0)
+                return null;
+        }
+
+        return EngineSide.FromUtf8(buf);
+    }
+
+    /// <summary>Reads the engine's current value. Prefer the cached ConVarBase accessors on hot paths.</summary>
+    public string GetConVarValue(int id)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return string.Empty;
+
+        const int bufSize = 260;
+        byte* buf = stackalloc byte[bufSize];
+        _consoleArea.GetConVarValue(id, buf, bufSize);
+        return EngineSide.FromUtf8(buf);
+    }
+
     public void Msg(string message) => E.Msg(message);
+
+    /// <summary>
+    /// Registers a console command. Native owns the ConCommand object for the
+    /// process lifetime; only the managed handler is rebound on reload, because
+    /// UnregisterConCommands is all-or-nothing per DLL
+    /// (src/tier1/convar.cpp:93). See plan.md Part 5, rule 2.
+    /// </summary>
+    /// <param name="flags">
+    /// The FCVAR word, carried across and ORed with this DLL's own identifier
+    /// flag natively — see the slot's comment in <c>sourcesharp.h</c>. A cheat
+    /// command declared without <see cref="ConVarFlags.Cheat"/> is a command
+    /// that runs with <c>sv_cheats 0</c>, which is a different command.
+    /// </param>
     public int RegisterConCommand(string name, string help, ConVarFlags flags)
-        => E.RegisterConCommand(name, help, flags);
-    public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null) => E.RegisterConVar(name, defaultValue, help, flags, min, max);
-    public void SetConVarValue(int id, string value) => E.SetConVarValue(id, value);
-    public void SetConVarValueByName(string name, string value) => E.SetNamedConVarValue(name, value);
-    public int Snapshot() => E.ConsoleSnapshot();
-    public bool SnapshotEntry(int index, out NativeConsoleEntry entry) => E.ConsoleSnapshotEntry(index, out entry);
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return -1;
+
+        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
+        var helpBytes = Encoding.UTF8.GetBytes(help + "\0");
+        fixed (byte* pName = nameBytes)
+        fixed (byte* pHelp = helpBytes)
+        {
+            return _consoleArea.RegisterConCommand(pName, pHelp, unchecked((int)flags));
+        }
+    }
+
+    /// <summary>
+    /// Registers a ConVar. Native owns it for the process lifetime.
+    ///
+    /// The bounds are optional and are the ENGINE's clamp: a convar with a
+    /// minimum clamps every write on the way in, whatever the source, so a
+    /// change callback never sees a value outside them.
+    /// </summary>
+    public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return -1;
+
+        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
+        var defBytes  = Encoding.UTF8.GetBytes(defaultValue + "\0");
+        var helpBytes = Encoding.UTF8.GetBytes(help + "\0");
+        fixed (byte* pName = nameBytes)
+        fixed (byte* pDef = defBytes)
+        fixed (byte* pHelp = helpBytes)
+        {
+            return _consoleArea.RegisterConVar(pName, pDef, pHelp, flags,
+                                      min.HasValue ? 1 : 0, min ?? 0f,
+                                      max.HasValue ? 1 : 0, max ?? 0f);
+        }
+    }
+
+    public void SetConVarValue(int id, string value)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        var bytes = Encoding.UTF8.GetBytes(value + "\0");
+        fixed (byte* p = bytes)
+        {
+            _consoleArea.SetConVarValue(id, p);
+        }
+    }
+
+    /// <summary>
+    /// Sets a convar the ENGINE owns, by name.
+    ///
+    /// <para>
+    /// The partner of <see cref="FindConVarValue"/>, and deliberately not the
+    /// same call as <see cref="SetConVarValue"/>: that one addresses a convar
+    /// this mod registered and holds an id for, and a renderer convar declared
+    /// in native code has no id here to hold.
+    /// </para>
+    ///
+    /// <para>
+    /// Goes through ConVarRef rather than the console, which is what makes it
+    /// usable at all — a cheat-flagged convar refuses a console change without
+    /// sv_cheats, while every stock entity that writes one writes it from code
+    /// where no such check applies.
+    /// </para>
+    ///
+    /// <para>
+    /// A name that resolves to nothing is ignored. That is the ordinary case
+    /// for a client convar named from the server, not an error.
+    /// </para>
+    /// </summary>
+    public void SetConVarValueByName(string name, string value)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        var nameBytes  = Encoding.UTF8.GetBytes(name + "\0");
+        var valueBytes = Encoding.UTF8.GetBytes(value + "\0");
+
+        fixed (byte* n = nameBytes)
+        fixed (byte* v = valueBytes)
+        {
+            _consoleArea.SetNamedConVarValue(n, v);
+        }
+    }
+
+    //-------------------------------------------------------------------------
+    // The engine's own console registry.
+    //
+    // Nothing above this line can see it: RegisterConVar and friends deal only
+    // in convars C# declared, addressed by an id native handed back. These read
+    // the list the engine already had — thousands of entries belonging to the
+    // engine and both game DLLs — and they are the raw crossings. What renders
+    // them is NativeConsole, which is where the reason for each of them is.
+    //
+    // Game thread only, and a snapshot must be drained before the next is taken.
+    //-------------------------------------------------------------------------
+
+    /// <summary>Walks the engine's registry; returns how many entries it saw.</summary>
+    public int Snapshot()
+        => (E.IsInitialized && E.ShimsAttached) ? _consoleArea.ConsoleSnapshot() : 0;
+
+    /// <summary>Copies one entry out of the last snapshot. False past the end.</summary>
+    public bool SnapshotEntry(int index, out NativeConsoleEntry entry)
+    {
+        entry = default;
+
+        if (!E.IsInitialized || !E.ShimsAttached)
+            return false;
+
+        ConsoleEntry raw;
+
+        if (_consoleArea.ConsoleSnapshotEntry(index, &raw) == 0)
+            return false;
+
+        // Every buffer is fixed and NUL-terminated native-side, so each of these
+        // reads to the terminator rather than to the end of its buffer.
+        entry = new NativeConsoleEntry(
+            EngineSide.FromUtf8(raw.Name),
+            EngineSide.FromUtf8(raw.Value),
+            EngineSide.FromUtf8(raw.Default),
+            EngineSide.FromUtf8(raw.Help),
+            raw.Flags,
+            raw.IsCommand != 0,
+            raw.HasMin != 0 ? raw.Min : null,
+            raw.HasMax != 0 ? raw.Max : null);
+
+        return true;
+    }
+
     public void Warning(string message) => E.Warning(message);
 }
 
 /// <summary>The real engine, for <see cref="IEngineHost"/>. Every member is one call.</summary>
-internal sealed partial class EngineHost : IEngineHost
+internal sealed unsafe partial class EngineHost : IEngineHost
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -69,14 +237,6 @@ internal sealed partial class EngineHost : IEngineHost
     // composition owns, not seven statics); a side that registers none, the
     // client, gets NoSteamGameServer's absent answers.
     private readonly ISteamGameServer _steam;
-
-    public EngineHost(EngineSide side) : this(side, new NoSteamGameServer()) { }
-
-    public EngineHost(EngineSide side, ISteamGameServer steam)
-    {
-        _side = side ?? throw new ArgumentNullException(nameof(side));
-        _steam = steam ?? throw new ArgumentNullException(nameof(steam));
-    }
 
     // The side this binding answers for (plan_abi_hotreload D8): a binding is
     // one side's, so the side its caller runs on is that side.
@@ -96,7 +256,7 @@ internal sealed partial class EngineHost : IEngineHost
 }
 
 /// <summary>The real engine, for <see cref="IEnginePrecache"/>. Every member is one call.</summary>
-internal sealed partial class EnginePrecache : IEnginePrecache
+internal sealed unsafe partial class EnginePrecache : IEnginePrecache
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -104,8 +264,6 @@ internal sealed partial class EnginePrecache : IEnginePrecache
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EnginePrecache(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
     public int ModelFrameCount(int modelIndex) => EngineBound.ModelInfo(E).FrameCountAt(modelIndex);
     public ModelType ModelTypeOf(int modelIndex) => EngineBound.ModelInfo(E).TypeAt(modelIndex);
     // Answered in C# (BreakModels), parsed once per model per level.
@@ -144,7 +302,7 @@ internal sealed partial class EnginePrecache : IEnginePrecache
 /// only ever exists between here and <see cref="StringTableHandle"/>.
 /// </para>
 /// </summary>
-internal sealed partial class EngineStringTables : IEngineStringTables
+internal sealed unsafe partial class EngineStringTables : IEngineStringTables
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -174,7 +332,7 @@ internal sealed partial class EngineStringTables : IEngineStringTables
 // twenty-two calls through IShimLevel's vtable.
 
 /// <summary>The real engine, for <see cref="IEngineFiles"/>. Every member is one call.</summary>
-internal sealed partial class EngineFiles : IEngineFiles
+internal sealed unsafe partial class EngineFiles : IEngineFiles
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -182,6 +340,8 @@ internal sealed partial class EngineFiles : IEngineFiles
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
+
+    private readonly EngineArea _engineBaseArea;
 
     private readonly IVtableBaseFileSystem? _files;
 
@@ -195,10 +355,15 @@ internal sealed partial class EngineFiles : IEngineFiles
     /// this member -- the arm measured nothing, which is worse than a red.
     /// </para>
     /// </summary>
-    internal EngineFiles(EngineSide side, IVtableBaseFileSystem files) : this(side) => _files = files;
+    internal EngineFiles(EngineSide side, EngineArea engineBaseArea, IVtableBaseFileSystem files)
+        : this(side, engineBaseArea) => _files = files;
 
     /// <summary>The one the container builds, over the real engine filesystem.</summary>
-    public EngineFiles(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    public EngineFiles(EngineSide side, EngineArea engineBaseArea)
+    {
+        _side = side ?? throw new ArgumentNullException(nameof(side));
+        _engineBaseArea = engineBaseArea ?? throw new ArgumentNullException(nameof(engineBaseArea));
+    }
 
     // LAZY, and it has to be: areas are constructed on both sides before
     // anything asks them for anything, and acquiring in the constructor would
@@ -220,14 +385,137 @@ internal sealed partial class EngineFiles : IEngineFiles
     // scripts this area exists for are under the SDK's hl2/scripts and are on
     // no mod-relative path at all.
     private const string GameSearchPath = "GAME";
-    public string? ReadGameFile(string path) => E.FilesReadGameFile(path);
-    public byte[]? ReadGameFileBytes(string path) => E.FilesReadGameFileBytes(path);
 
-    public byte[]? ReadFileOnPath(string path, string pathId) => E.FilesReadOnPathBytes(path, pathId);
+    // ---- plan_gamedll_after.md Phase A3 ------------------------------------
+
+    /// <summary>
+    /// The whole text of a file on the engine's <c>GAME</c> search paths, or
+    /// null when it is on none of them.
+    ///
+    /// <para>
+    /// <b>The engine's filesystem and not <c>System.IO</c>, and that is the
+    /// whole point of these two slots.</b> <c>scripts/decals_subrect.txt</c>
+    /// and <c>scripts/propdata.txt</c> are in neither the mod directory nor any
+    /// mounted VPK: they are loose files under the SDK's <c>hl2/scripts</c>,
+    /// reachable only through the <c>game</c> search paths gameinfo.txt sets
+    /// up. A <c>File.ReadAllText</c> over a mod-relative path finds nothing —
+    /// and finds it silently.
+    /// </para>
+    /// </summary>
+    public string? ReadGameFile(string path)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return null;
+
+        // ITS OWN SIZE CALL, and it went from a wrapper call to this on the
+        // commit that converted FilesGameFileSize -- plan_native_api.md Phase 3.
+        //
+        // WHY THIS ONE DID NOT CONVERT WITH IT. Appendix B rules
+        // FilesReadGameFile "C -- converts now" on the ground that
+        // Open/Size/Read/Close are all IBaseFileSystem methods and
+        // VBaseFileSystem011 is bound. Three of the four are refused by a
+        // decision this tree already took and recorded: EngineBaseFileSystem
+        // offers "nothing that writes and no handles", because a FileHandle_t
+        // handed to managed code is a lifetime managed code then owns across a
+        // GC. The handle-free route the size slot uses -- FileExists then Size
+        // -- has no read counterpart: IBaseFileSystem::ReadFile takes a
+        // `CUtlBuffer &`, which is a class managed cannot build.
+        //
+        // So the row stays on the flat ABI and is not in this phase's orphan
+        // list. Converting it means either lifting the no-handles rule, which
+        // is the owner's call, or a shim-layer method under Phase 6, which is
+        // where a handle-free read belongs anyway.
+        if (!E.IsInitialized || !E.ShimsAttached) return null;
+
+        int size;
+
+        {
+            var sizeName = Encoding.UTF8.GetBytes(path + "\0");
+            fixed (byte* sp = sizeName)
+                size = _engineBaseArea.FilesGameFileSize(sp);
+        }
+
+        if (size < 0) return null;
+        if (size == 0) return string.Empty;
+
+        var buf = new byte[size];
+        var bytes = Encoding.UTF8.GetBytes(path + "\0");
+
+        fixed (byte* p = bytes)
+        fixed (byte* b = buf)
+        {
+            int read = _engineBaseArea.FilesReadGameFile(p, b, size);
+            if (read < 0) return null;
+
+            // `read` and not `size`: a short read is a real answer and decoding
+            // the untouched tail would append however many zero bytes the array
+            // still holds to the document.
+            return Encoding.UTF8.GetString(buf, 0, read);
+        }
+    }
+
+    public byte[]? ReadGameFileBytes(string path)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return null;
+
+        if (!E.ShimsAttached) return null;
+
+        int size;
+        var sizePath = Encoding.UTF8.GetBytes(path + "\0");
+        fixed (byte* sp = sizePath)
+            size = _engineBaseArea.FilesGameFileSize(sp);
+
+        if (size < 0) return null;
+        if (size == 0) return Array.Empty<byte>();
+
+        var buf = new byte[size];
+        var bytes = Encoding.UTF8.GetBytes(path + "\0");
+
+        fixed (byte* p = bytes)
+        fixed (byte* b = buf)
+        {
+            int read = _engineBaseArea.FilesReadGameFile(p, b, size);
+            if (read < 0) return null;
+            return read == size ? buf : buf.AsSpan(0, read).ToArray();
+        }
+    }
+
+    /// <summary>
+    /// A game file's BYTES, exactly as the search path holds them, or null when
+    /// it is on none of them. For content that is shipped on rather than read:
+    /// the message of the day goes to clients byte for byte, and a decode and
+    /// re-encode would change any byte that is not valid UTF-8.
+    /// </summary>
+    /// <summary>
+    /// A whole file off one named search path (<c>"GAME"</c>, <c>"BSP"</c>,
+    /// ...), as bytes: <c>null</c> when it is not there, an empty array for a
+    /// real empty file, never a truncated read (IShimEngine::FilesSizeOnPath /
+    /// FilesReadOnPath, both sides; C9).
+    /// </summary>
+    public byte[]? ReadFileOnPath(string path, string pathId)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached || path.Length == 0 || pathId.Length == 0)
+            return null;
+
+        var p = Encoding.UTF8.GetBytes(path + "\0");
+        var id = Encoding.UTF8.GetBytes(pathId + "\0");
+        fixed (byte* pp = p)
+        fixed (byte* pi = id)
+        {
+            int size = _engineBaseArea.FilesSizeOnPath(pp, pi);
+            if (size < 0) return null;
+            var buf = new byte[size];
+            if (size == 0) return buf;
+            fixed (byte* b = buf)
+            {
+                int read = _engineBaseArea.FilesReadOnPath(pp, pi, b, size);
+                return read == size ? buf : null;
+            }
+        }
+    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineGameEvents"/>. Every member is one call.</summary>
-internal sealed partial class EngineGameEvents : IEngineGameEvents
+internal sealed unsafe partial class EngineGameEvents : IEngineGameEvents
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -236,13 +524,51 @@ internal sealed partial class EngineGameEvents : IEngineGameEvents
 
     private EngineSide E => _side;
 
-    public EngineGameEvents(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    private readonly EventsArea _eventsArea;
+    public bool EventGetBool(IntPtr handle, string key)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return false;
 
-    public bool EventGetBool(IntPtr handle, string key) => E.EventGetBool(handle, key);
-    public float EventGetFloat(IntPtr handle, string key) => E.EventGetFloat(handle, key);
-    public int EventGetInt(IntPtr handle, string key) => E.EventGetInt(handle, key);
-    public string EventGetString(IntPtr handle, string key) => E.EventGetString(handle, key);
-    public void ListenForGameEvent(string name) => E.ListenForGameEvent(name);
+        var bytes = Encoding.UTF8.GetBytes(key + "\0");
+        fixed (byte* p = bytes) { return _eventsArea.EventGetBool(handle, p) != 0; }
+    }
+
+    public float EventGetFloat(IntPtr handle, string key)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return 0f;
+
+        var bytes = Encoding.UTF8.GetBytes(key + "\0");
+        fixed (byte* p = bytes) { return _eventsArea.EventGetFloat(handle, p); }
+    }
+
+    public int EventGetInt(IntPtr handle, string key)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return 0;
+
+        var bytes = Encoding.UTF8.GetBytes(key + "\0");
+        fixed (byte* p = bytes) { return _eventsArea.EventGetInt(handle, p); }
+    }
+
+    public string EventGetString(IntPtr handle, string key)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return string.Empty;
+
+        var bytes = Encoding.UTF8.GetBytes(key + "\0");
+        fixed (byte* p = bytes) { return EngineSide.FromUtf8(_eventsArea.EventGetString(handle, p)); }
+    }
+
+    //-------------------------------------------------------------------------
+    // Game events.
+    //-------------------------------------------------------------------------
+
+    public void ListenForGameEvent(string name)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        var bytes = Encoding.UTF8.GetBytes(name + "\0");
+        fixed (byte* p = bytes) { _eventsArea.ListenForGameEvent(p); }
+    }
+
     // No engine answer since plan_server_native_v2 T2: the server creates events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
     public IntPtr EventCreate(string name) => IntPtr.Zero;
     // No engine answer since plan_server_native_v2 T2: the server fires events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
@@ -252,7 +578,7 @@ internal sealed partial class EngineGameEvents : IEngineGameEvents
 }
 
 /// <summary>The real engine, for <see cref="IEngineNetworking"/>. Every member is one call.</summary>
-internal sealed partial class EngineNetworking : IEngineNetworking
+internal sealed unsafe partial class EngineNetworking : IEngineNetworking
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -261,15 +587,120 @@ internal sealed partial class EngineNetworking : IEngineNetworking
 
     private EngineSide E => _side;
 
-    public EngineNetworking(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-    public int NetHierarchyDeclare(int blobBytes) => E.NetHierarchyDeclare(blobBytes);
-    public int WorldNetDeclare(int blobBytes) => E.WorldNetDeclare(blobBytes);
-    public int NetPublishType(string className, int shell, uint schemaHash, int layoutBytes, out uint nativeTypeId) => E.NetPublishType(className, shell, schemaHash, layoutBytes, out nativeTypeId);
-    public NetTierInfo? NetTierAt(int shell, int tier) => E.NetTierAt(shell, tier);
+    private readonly NetworkArea _networkArea;
+
+    // Engine.FireScriptedOutput WAS HERE, AND IS DELETED WITH ITS SLOT --
+    // plan_entity.md step 2a. Its one caller was Output.Fire, which now posts
+    // straight into the directory's queue; there is nothing for a managed
+    // wrapper around a deleted slot to wrap.
+
+    /// <summary>
+    /// Declares the parallel hierarchy's shared blob size, before any class on
+    /// it is described. Returns the payload word count every class on the
+    /// hierarchy will carry, -1 if native refused the size, and 0 when native
+    /// does not supply the call.
+    ///
+    /// <para>
+    /// The number is one for the whole hierarchy rather than one per class,
+    /// because every entity on that hierarchy is allocated the same blob
+    /// length — operator new is a static function with no idea which class the
+    /// factory is about to make. Native cannot work it out early enough: it
+    /// learns the size from the class descriptions as they arrive, so the first
+    /// class described would get fewer payload words than the last.
+    /// </para>
+    ///
+    /// <para>
+    /// It also cannot be derived from the classes a side HOSTS. A state may be
+    /// declared before one half of its entity has been ported, so the two sides
+    /// publish different sets — and two sides deriving the number from what
+    /// they publish derive two numbers. This is computed from every declaration
+    /// in the shared assembly, which both sides read identically.
+    /// </para>
+    /// </summary>
+    public int NetHierarchyDeclare(int blobBytes)
+        => (E.IsInitialized && E.ShimsAttached)
+            ? _networkArea.NetHierarchyDeclare(blobBytes) : 0;
+
+    /// <summary>
+    /// Declares worldspawn's blob size to the native shim, which builds its
+    /// table around the number (plan_gamedll_after.md Part B2).
+    ///
+    /// <para>
+    /// SEPARATE FROM <see cref="NetHierarchyDeclare"/> BECAUSE THE WORLD IS NOT
+    /// ON THE HIERARCHY. That number sizes every entity on the parallel
+    /// hierarchy and is therefore the max over all of them; the world's shim is
+    /// a <c>CBaseEntity</c> that allocates its own blob against its own base, so
+    /// its size is its own and folding it into that max would put three hundred
+    /// bytes on a hundred-odd entities that have no use for them.
+    /// </para>
+    ///
+    /// <para>
+    /// Zero with no engine, which is the test harness: nothing is declared, and
+    /// the caller reports that it published nothing rather than treating the
+    /// absence of a game as a refusal.
+    /// </para>
+    /// </summary>
+    public int WorldNetDeclare(int blobBytes)
+        => (E.IsInitialized && E.ShimsAttached)
+            ? _networkArea.WorldNetDeclare(blobBytes) : 0;
+
+    /// <summary>
+    /// Publishes one managed type and returns the tier native assigned it, or
+    /// -1. See NetPublishType in sourcesharp.h.
+    ///
+    /// <para>
+    /// This is the whole of what replaces the field-by-field description. What
+    /// travels is a name, a layout fingerprint and a size — native has no
+    /// opinion about what a field is any more.
+    /// </para>
+    ///
+    /// <para>
+    /// <paramref name="nativeTypeId"/> is the id NATIVE hashed from the name.
+    /// The caller compares it against <see cref="NetSchema.TypeIdOf"/>, which
+    /// turns "two implementations of FNV-1a in two languages" from something a
+    /// test corpus covers into something every name in the build covers. -1
+    /// with an id of 0 is what an absent engine answers, which is the test
+    /// harness rather than a failure.
+    /// </para>
+    /// </summary>
+    public int NetPublishType(string className, int shell, uint schemaHash, int layoutBytes, out uint nativeTypeId)
+    {
+        nativeTypeId = 0;
+
+        if (!E.IsInitialized || !E.ShimsAttached)
+            return -1;
+
+        var bytes = Encoding.UTF8.GetBytes(className + "\0");
+
+        fixed (byte* p = bytes)
+        fixed (uint* pId = &nativeTypeId)
+        {
+            return _networkArea.NetPublishType(p, shell, schemaHash, layoutBytes, pId);
+        }
+    }
+
+    /// <summary>
+    /// One tier as native registered it, or null past the end of the list. See
+    /// NetTierInfo in sourcesharp.h — this is what <see cref="NetTiers"/> reads
+    /// instead of projecting the boundary rule a second time.
+    /// </summary>
+    public NetTierInfo? NetTierAt(int shell, int tier)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached)
+            return null;
+
+        byte* table = null;
+        int bytes = 0, words = 0, props = 0, live = 0;
+
+        if (_networkArea.NetTierInfo(shell, tier, &table, &bytes, &words, &props, &live) == 0)
+            return null;
+
+        return new NetTierInfo(tier, EngineSide.FromUtf8(table), bytes, words, props, live != 0);
+    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineScripted"/>. Every member is one call.</summary>
-internal sealed partial class EngineScripted : IEngineScripted
+internal sealed unsafe partial class EngineScripted : IEngineScripted
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -277,15 +708,13 @@ internal sealed partial class EngineScripted : IEngineScripted
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineScripted(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 
     // No engine answer since plan_server_native_v2 T2: native map templates are gone (the world and templates arrive parsed); TemplateStore already treats this answer as nothing.
     public List<TemplatePlacement> TemplateCapture(string sourceName, bool removeSources, int limit = 64) => new List<TemplatePlacement>();
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntities"/>. Every member is one call.</summary>
-internal sealed partial class EngineEntities : IEngineEntities
+internal sealed unsafe partial class EngineEntities : IEngineEntities
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -294,45 +723,10 @@ internal sealed partial class EngineEntities : IEngineEntities
 
     private EngineSide E => _side;
 
-    /// <summary>
-    /// A side with no client fetches: the server, and every container that
-    /// registers none. Each answers nothing, which is exactly what the real
-    /// ones answered there (their slots are client-only, so every Has_ was
-    /// false).
-    /// </summary>
-    public EngineEntities(EngineSide side)
-        : this(side, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance)
-    {
-    }
-
-    /// <summary>
-    /// The server's: no client fetches, and its attachment frames answered by
-    /// its managed skeletons once the composition fills the route (plan
-    /// physics_bones_native_zero step 1.2).
-    /// </summary>
-    public EngineEntities(EngineSide side, StandaloneSkeletonRoute skeletons)
-        : this(side, NoInterpolationBlocks.Instance, NoRenderPolicyBlocks.Instance, NoClientReplayEngine.Instance)
-    {
-        _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
-    }
+    private readonly EntitiesArea _entitiesArea;
+    private readonly ModelsArea _modelsArea;
 
     private readonly StandaloneSkeletonRoute _skeletons = new();
-
-    /// <summary>
-    /// The client's: the three held objects read the client's own slots, and
-    /// the client composition builds them and hands them in (P1 run 3: they
-    /// are client code, so the shared binding names only their interfaces).
-    /// EngineServices.Build picks this constructor when the container holds
-    /// all three.
-    /// </summary>
-    public EngineEntities(EngineSide side, IInterpolationBlocks interpolationBlocks,
-                          IRenderPolicyBlocks renderPolicyBlocks, IClientReplayEngine clientReplay)
-    {
-        _side = side ?? throw new ArgumentNullException(nameof(side));
-        _interpolationBlocks = interpolationBlocks ?? throw new ArgumentNullException(nameof(interpolationBlocks));
-        _renderPolicyBlocks = renderPolicyBlocks ?? throw new ArgumentNullException(nameof(renderPolicyBlocks));
-        _clientReplay = clientReplay ?? throw new ArgumentNullException(nameof(clientReplay));
-    }
 
     // ONE INSTANCE, HELD. plan_entity.md step 6a: the list it wraps is rebuilt
     // by Begin() and read by Block(), so the pair has to be the same object
@@ -388,8 +782,39 @@ internal sealed partial class EngineEntities : IEngineEntities
     public Vector GetAngles(EntityHandle h) => E.EntityGetAngles(h);
     // No engine answer since plan_server_native_v2 T2: armour left with CBasePlayer; Armour.cs is the managed owner.
     public int GetArmor(EntityHandle entity) => 0;
-    public int GetIndex(EntityHandle h) => E.EntityGetIndex(h);
-    public Vector GetOrigin(EntityHandle h) => E.EntityGetOrigin(h);
+
+    /// <summary>
+    /// The entity's edict index, or -1.
+    /// </summary>
+    /// <remarks>
+    /// <b>-1 for a shell-less entity, and that is not a degradation</b> — step
+    /// 2e. It is the same answer the shell gave: a class of kind
+    /// <see cref="ScriptedEntityKind.Logical"/> was already server-only, so its
+    /// <c>CStandaloneEntity</c> never claimed an edict and <c>entindex()</c>
+    /// answered -1 for it. What changes is that there is no longer an object to
+    /// ask.
+    /// </remarks>
+    public int GetIndex(EntityHandle h)
+    {
+        if (E.ShellLess.Claims(h))
+            return -1;
+
+        return (E.IsInitialized && E.ShimsAttached) ? _entitiesArea.EntityGetIndex(h.Value) : -1;
+    }
+
+    public Vector GetOrigin(EntityHandle h)
+    {
+        // A SHELL-LESS ENTITY IS ANSWERED HERE AND NEVER CROSSES -- step 2e.
+        if (E.ShellLess.State(h) is { } shellLess)
+            return shellLess.Origin;
+
+        if (!E.IsInitialized || !E.ShimsAttached) return default;
+
+        float* xyz = stackalloc float[3];
+        _entitiesArea.EntityGetOrigin(h.Value, xyz);
+        return new Vector(xyz[0], xyz[1], xyz[2]);
+    }
+
     public bool IsValid(EntityHandle h) => E.EntityIsValid(h);
     // No engine answer since plan_server_native_v2 T2: armour left with CBasePlayer; Armour.cs is the managed owner.
     public void SetArmor(EntityHandle entity, int armor) { }
@@ -421,11 +846,96 @@ internal sealed partial class EngineEntities : IEngineEntities
             : 0;
     // No engine answer since plan_server_native_v2 T2: no stock-hierarchy entity is ever registered on the server, so the SDK's find-by-name has no population; the managed directory's walk is the answer and every caller asks it first.
     public EntityHandle FindBaseByName(string name) => EntityHandle.None;
-    public int InvalidateMdlCacheAll() => E.EntitiesInvalidateMdlCacheAll();
+
+    // ---- plan_gamedll.md Part 4, Phase 6: LEVELINIT'S NINE NATIVE STEPS ----
+    //
+    // Nine wrappers and no tenth that runs them in order. The order is
+    // ServerGameDll.MapLoadNewGame's, in C#, where it can be read and tested;
+    // a Engine.LevelInit() here would be the same C++ sequence one language
+    // further up.
+
+    // // ---- plan_gamedll.md Part 4, Phase 7: SERVERACTIVATE'S AND
+    // 	// ---- LEVELSHUTDOWN'S NATIVE STEPS.
+    // 	//
+    // 	// The same rule as LevelInit's nine above: one slot per irreducible step,
+    // 	// C# owns the order and native owns no part of it. LevelShutdown is the
+    // 	// clearest case in the whole plan -- stock's body is nine calls and the
+    // 	// SEQUENCE is the only thing in it, so a single LevelShutdown slot would
+    // 	// have been a crossing that carried nothing but the thing worth reading.
+    // 	//
+    // 	// SERVER ONLY, all twelve, and NULL on the client for the same reason the
+    // 	// nine above are.
+    // 	//
+    // 	// APPENDED AT THE TAIL: every field above has an offset the managed side
+    // 	// has already compiled against.
+
+    // // ---- plan_gamedll.md Part 4, Phase 7: GAMEFRAME'S NATIVE STEPS.
+    // 	//
+    // 	// Fifteen slots and no GameFrame slot, on the same rule as LevelInit's
+    // 	// nine and LevelShutdown's twelve. The two per-frame passes below are the
+    // 	// named list's, and THE MANAGED FRAME RUNS INSIDE THEM rather than around
+    // 	// them -- SourceSharpManaged is a row of kServerSystems[] at the position
+    // 	// CSourceSharpSystem held, so FramePreThink and Frame keep the same native
+    // 	// neighbours stock gives them. Hoisting them out would move the managed
+    // 	// frame ahead of CSoundEnt, CRagdollLRURetirement and CEntityListSystem,
+    // 	// none of which is a no-op. See shell_frame.cpp.
+    // 	//
+    // 	// SERVER ONLY, all fifteen.
+    // 	//
+    // 	// APPENDED AT THE TAIL: every field above has an offset the managed side
+    // 	// has already compiled against.
+
+    //-------------------------------------------------------------------------
+    // MOD-DECLARED NETWORK STRING TABLES — plan_gamedll_after.md Phase A8.
+    //
+    // ADDITIVE. The seven shared tables (Materials, ParticleEffectNames,
+    // EffectDispatch, VguiScreen, InfoPanel, Scenes, ServerMapCycle) are
+    // created natively and 141 native references read the globals behind them;
+    // nothing here replaces any of that. These six are how a MOD declares a
+    // table of its OWN, which is what the CreateNetworkStringTables slot was
+    // reserved for.
+    //
+    // CREATION ONLY WORKS INSIDE IServerModule's CreateNetworkStringTables.
+    // The engine opens a window for it there and refuses outside it — Create
+    // answers -1 and says so rather than the caller finding out from an index
+    // that does not work. Find works at any time, which is what a hot reload
+    // needs: the managed side forgets its ids, the engine does not forget its
+    // tables.
+    //
+    // EVERY MISS IS -1. Never INVALID_STRING_INDEX (0xFFFF), which crosses as
+    // 65535 and reads as success to every `if (i >= 0)`.
+    //-------------------------------------------------------------------------
+
+    // ---- plan_gamedll_after.md Phase A2 ------------------------------------
+
+    // THE THREE STEAM GAME-SERVER SLOTS ARE RETIRED -- plan_server_novalve.md
+    // P2.5. IEngineHost's Steam members are C#'s own (SteamGameServerFlat, the
+    // flat API); server.so no longer links libsteam_api.so.
+
+    /// <summary>
+    /// Stock's InvalidateMdlCache walk: every live entity that owns a
+    /// <c>CStudioHdr</c> drops it. Native because that cache is a native member
+    /// of <c>CBaseAnimating</c> and no managed walk reaches it.
+    ///
+    /// <para>
+    /// <b>BOTH SIDES, AND IT ANSWERS HOW MANY</b> (lane diag-visibility). The
+    /// slot used to be bound on the server only, so this returned quietly on
+    /// the client and the flush reached nothing there; and it used to answer
+    /// nothing at all, which made an empty body and a working one identical
+    /// from outside. Zero when there is no native side to ask, which is a true
+    /// answer and not a degraded one: with no side bound there are no entities.
+    /// </para>
+    /// </summary>
+    /// <returns>how many entities dropped a cache.</returns>
+    public int InvalidateMdlCacheAll()
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return 0;
+        return _modelsArea.EntitiesInvalidateMdlCacheAll();
+    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntityNames"/>. Every member is one call.</summary>
-internal sealed partial class EngineEntityNames : IEngineEntityNames
+internal sealed unsafe partial class EngineEntityNames : IEngineEntityNames
 {
     private readonly EngineSide _side;
 
@@ -438,17 +948,15 @@ internal sealed partial class EngineEntityNames : IEngineEntityNames
 }
 
 /// <summary>The real engine, for <see cref="IEngineOverlaps"/>. Every member is one call.</summary>
-internal sealed partial class EngineOverlaps : IEngineOverlaps
+internal sealed unsafe partial class EngineOverlaps : IEngineOverlaps
 {
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineOverlaps(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntityPhysics"/>. Every member is one call.</summary>
-internal sealed partial class EngineEntityPhysics : IEngineEntityPhysics
+internal sealed unsafe partial class EngineEntityPhysics : IEngineEntityPhysics
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -456,8 +964,6 @@ internal sealed partial class EngineEntityPhysics : IEngineEntityPhysics
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineEntityPhysics(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
     // No engine answer since plan_server_native_v2 T2: a per-entity friction on the movement path is not ported (func_friction, ss_gib ask).
     public void SetFriction(EntityHandle h, float friction) { }
 }
@@ -476,7 +982,7 @@ internal sealed partial class EngineEntityPhysics : IEngineEntityPhysics
 /// the server side (where neither is wired) reaches them unchanged.
 /// </para>
 /// </summary>
-internal sealed partial class EngineEntityRender : IEngineEntityRender
+internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -485,40 +991,9 @@ internal sealed partial class EngineEntityRender : IEngineEntityRender
 
     private EngineSide E => _side;
 
+    private readonly ModelsArea _modelsArea;
+
     private readonly StandaloneMirror _mirror;
-
-    /// <summary>
-    /// The binding the container builds, on the mirror the pushes feed.
-    ///
-    /// <para>
-    /// <see cref="EngineServices"/> constructs one of these per container —
-    /// the defaults, the client's, the server's — so the mirror cannot be state
-    /// on this object: the dormancy push would feed one instance and the render
-    /// loop would read another, and nothing would say so. It is the side's
-    /// composition's (plan_abi_hotreload D7): the module registers its mirror
-    /// before the engine areas, <see cref="EngineServices"/> resolves this
-    /// parameter from that container, and the module hands the same instance to
-    /// the push handlers.
-    /// </para>
-    /// </summary>
-    public EngineEntityRender(EngineSide side, StandaloneMirror mirror)
-        : this(side, mirror, new StandaloneSkeletonRoute())
-    {
-    }
-
-    /// <summary>
-    /// The server's: its skeletons are managed (plan physics_bones_native_zero
-    /// step 1.2), so the bone members ask the route's
-    /// <see cref="IStandaloneSkeletons"/> once the composition has filled it,
-    /// and native only before that. EngineServices.Build picks this
-    /// constructor when the container holds a route.
-    /// </summary>
-    public EngineEntityRender(EngineSide side, StandaloneMirror mirror, StandaloneSkeletonRoute skeletons)
-    {
-        _side = side ?? throw new ArgumentNullException(nameof(side));
-        _mirror = mirror;
-        _skeletons = skeletons ?? throw new ArgumentNullException(nameof(skeletons));
-    }
 
     private readonly StandaloneSkeletonRoute _skeletons;
 
@@ -777,9 +1252,8 @@ internal sealed partial class EngineEntityRender : IEngineEntityRender
         // player movement reads (CStandaloneEntity::GetModelScale), stored
         // only when the skeleton took it.
         if (Skeletons is not { } skeletons || skeletons.SetModelScale(entity, scale) == SkeletonScaleChange.Changed)
-            E.StandaloneSetModelScale(entity, scale);
+            StandaloneSetModelScale(entity, scale);
     }
-
 
     public void SetBoneMergeSource(EntityHandle entity, int sourceEntityIndex)
         => Client?.SetBoneMergeSource(entity, sourceEntityIndex);
@@ -830,10 +1304,34 @@ internal sealed partial class EngineEntityRender : IEngineEntityRender
     public void SetTextureFrame(EntityHandle entity, int frame) { }
     // No engine answer since plan_server_native_v2 T2: the port is GetArea against the managed sky cameras (env_smokestack asks).
     public bool DetectInSkybox(EntityHandle entity) => false;
+
+    /// <summary>
+    /// How big this instance wears its model, as a multiplier on the size the
+    /// artist built it at. Answered by BOTH sides.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The client's copy is what the player sees. The server's is what its own
+    /// skeleton is built with, so attachments on a scaled model land where the
+    /// artist put them, and it is what the scaled-collision rule reads when it
+    /// decides whether a trace may use the solver's scaled hull.
+    /// </para>
+    /// <para>
+    /// Zero and below are REFUSED natively rather than clamped, and say so in
+    /// the console: a scale of zero collapses every bone onto the entity
+    /// origin, which is a thing that is still in the world and still solid to
+    /// the entity list but draws as nothing and traces as nothing.
+    /// </para>
+    /// </remarks>
+    private void StandaloneSetModelScale(EntityHandle entity, float scale)
+    {
+        if (E.IsInitialized && E.ShimsAttached)
+            _modelsArea.StandaloneSetModelScale(entity.Value, scale);
+    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineDamage"/>. Every member is one call.</summary>
-internal sealed partial class EngineDamage : IEngineDamage
+internal sealed unsafe partial class EngineDamage : IEngineDamage
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -841,8 +1339,6 @@ internal sealed partial class EngineDamage : IEngineDamage
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineDamage(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
     // No engine answer since plan_server_native_v2 T2: CBaseCombatCharacter's server-ragdoll flag left with it (trigger_serverragdoll asks).
     public void SetForceServerRagdoll(EntityHandle entity, bool force) { }
     // No engine answer since plan_server_native_v2 T2: the take-damage mode left with CBaseEntity; every entity answers DAMAGE_YES (trigger_camera asks).
@@ -850,7 +1346,7 @@ internal sealed partial class EngineDamage : IEngineDamage
 }
 
 /// <summary>The real engine, for <see cref="IEngineCollisionRules"/>.</summary>
-internal sealed partial class EngineCollisionRules : IEngineCollisionRules
+internal sealed unsafe partial class EngineCollisionRules : IEngineCollisionRules
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -859,13 +1355,34 @@ internal sealed partial class EngineCollisionRules : IEngineCollisionRules
 
     private EngineSide E => _side;
 
-    public EngineCollisionRules(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    private readonly CollisionArea _collisionArea;
 
-    public bool RegisterCollisionRules(uint[] rows) => E.RegisterCollisionRules(rows);
+    public EngineCollisionRules(EngineSide side, CollisionArea collisionArea)
+    {
+        _side = side ?? throw new ArgumentNullException(nameof(side));
+        _collisionArea = collisionArea ?? throw new ArgumentNullException(nameof(collisionArea));
+    }
+
+    /// <summary>
+    /// The collision matrix. Registered from both sides; answers whether this
+    /// side's native received it, so a side that cannot serve the slot says so
+    /// instead of keeping native's defaults in silence (which the client did
+    /// until the slot moved into the shared IShimCollision base).
+    /// </summary>
+    public bool RegisterCollisionRules(uint[] rows)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return false;
+
+        var blob = default(CollisionRulesBlob);
+        blob.SetRows(rows);
+
+        _collisionArea.RegisterCollisionRules(&blob);
+        return true;
+    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineGameRulesPolicy"/>.</summary>
-internal sealed partial class EngineGameRulesPolicy : IEngineGameRulesPolicy
+internal sealed unsafe partial class EngineGameRulesPolicy : IEngineGameRulesPolicy
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -873,12 +1390,10 @@ internal sealed partial class EngineGameRulesPolicy : IEngineGameRulesPolicy
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineGameRulesPolicy(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 }
 
 /// <summary>The real engine, for <see cref="IEngineBrushMovement"/>. Every member is one call.</summary>
-internal sealed partial class EngineBrushMovement : IEngineBrushMovement
+internal sealed unsafe partial class EngineBrushMovement : IEngineBrushMovement
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -886,8 +1401,6 @@ internal sealed partial class EngineBrushMovement : IEngineBrushMovement
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineBrushMovement(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 
     // No engine answer since plan_server_native_v2 T2: retired mover: EntityMotion implements this interface over the managed angular mover, so nothing reaches the engine binding's.
     public void MoveToAngles(EntityHandle entity, Vector destination, float speed) { }
@@ -898,7 +1411,7 @@ internal sealed partial class EngineBrushMovement : IEngineBrushMovement
 }
 
 /// <summary>The real engine, for <see cref="IEnginePlayers"/>. Every member is one call.</summary>
-internal sealed partial class EnginePlayers : IEnginePlayers
+internal sealed unsafe partial class EnginePlayers : IEnginePlayers
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -906,8 +1419,6 @@ internal sealed partial class EnginePlayers : IEnginePlayers
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EnginePlayers(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 
     // No engine answer since plan_server_native_v2 T2: the engine's frag counter left with CBasePlayer; a managed score store is the port (game_score asks).
     public void AddScore(EntityHandle player, int points, bool allowNegative) { }
@@ -957,7 +1468,7 @@ internal sealed partial class EnginePlayers : IEnginePlayers
 }
 
 /// <summary>The real engine, for <see cref="IEnginePlayerMovement"/>. Every member is one call.</summary>
-internal sealed partial class EnginePlayerMovement : IEnginePlayerMovement
+internal sealed unsafe partial class EnginePlayerMovement : IEnginePlayerMovement
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -966,14 +1477,25 @@ internal sealed partial class EnginePlayerMovement : IEnginePlayerMovement
 
     private EngineSide E => _side;
 
-    public EnginePlayerMovement(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    private readonly MovementArea _movementArea;
 
     public void ClearMovementConstraint(EntityHandle player) => E.PlayerClearMovementConstraint(player);
     // No engine answer since plan_server_native_v2 T2: forcing buttons on the player's command path is not ported (trigger_playermovement, trigger_camera ask).
     public void ForceButtons(EntityHandle player, InputButtons buttons, bool forced) { }
     // No engine answer since plan_server_native_v2 T2: the player's held buttons are not read back (trigger_camera asks).
     public InputButtons GetButtons(EntityHandle player) => default;
-    public void RegisterParams(MovementParams parameters) => E.RegisterMovementParams(parameters);
+
+    /// <summary>
+    /// Hands the movement parameters to the native loop. Called once per side
+    /// at startup — see <see cref="MovementParams"/> for why both.
+    /// </summary>
+    public void RegisterParams(MovementParams parameters)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        _movementArea.RegisterMovementParams(&parameters);
+    }
+
     // No engine answer since plan_server_native_v2 T2: auto-movement suppression is not ported (trigger_playermovement asks).
     public void SetAllowAutoMovement(EntityHandle player, bool allow) { }
     // No engine answer since plan_server_native_v2 T2: disabling buttons on the player's command path is not ported (player_speedmod asks).
@@ -987,7 +1509,7 @@ internal sealed partial class EnginePlayerMovement : IEnginePlayerMovement
 }
 
 /// <summary>The real engine, for <see cref="IEngineWeapons"/>. Every member is one call.</summary>
-internal sealed partial class EngineWeapons : IEngineWeapons
+internal sealed unsafe partial class EngineWeapons : IEngineWeapons
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -995,22 +1517,18 @@ internal sealed partial class EngineWeapons : IEngineWeapons
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineWeapons(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 }
 
 /// <summary>The real engine, for <see cref="IEngineDiagnostics"/>. Every member is one call.</summary>
-internal sealed partial class EngineDiagnostics : IEngineDiagnostics
+internal sealed unsafe partial class EngineDiagnostics : IEngineDiagnostics
 {
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineDiagnostics(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 }
 
 /// <summary>The real engine, for <see cref="IEngineHud"/>. Every member is one call.</summary>
-internal sealed partial class EngineHud : IEngineHud
+internal sealed unsafe partial class EngineHud : IEngineHud
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1018,12 +1536,10 @@ internal sealed partial class EngineHud : IEngineHud
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineHud(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
 }
 
 /// <summary>The real engine, for <see cref="IEngineWorldQuery"/>. Every member is one call.</summary>
-internal sealed partial class EngineWorldQuery : IEngineWorldQuery
+internal sealed unsafe partial class EngineWorldQuery : IEngineWorldQuery
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1032,14 +1548,37 @@ internal sealed partial class EngineWorldQuery : IEngineWorldQuery
 
     private EngineSide E => _side;
 
-    public EngineWorldQuery(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+    private readonly WorldArea _worldArea;
     public int GetArea(Vector origin) => EngineBound.Server(E).GetArea(origin);
-    public Contents PointContents(Vector origin) => E.PointContents(origin);
-    public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp) => E.SurfacePropGameMaterial(surfaceProp);
+
+    /// <summary>
+    /// The CONTENTS_* mask at a point. See <see cref="Contents"/>.
+    /// </summary>
+    public Contents PointContents(Vector origin)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return Contents.Empty;
+
+        float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
+        return (Contents)_worldArea.PointContents(p);
+    }
+
+    /// <summary>
+    /// What a surfaceprop is made of, as a game material.
+    ///
+    /// <see cref="SurfaceMaterial.Unknown"/> for an index that names no
+    /// surface, which is what a negative index and an empty surfaceprops table
+    /// both give.
+    /// </summary>
+    public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return SurfaceMaterial.Unknown;
+
+        return (SurfaceMaterial)_worldArea.SurfacePropGameMaterial(surfaceProp);
+    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineSound"/>. Every member is one call.</summary>
-internal sealed partial class EngineSound : IEngineSound
+internal sealed unsafe partial class EngineSound : IEngineSound
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1048,18 +1587,130 @@ internal sealed partial class EngineSound : IEngineSound
 
     private EngineSide E => _side;
 
-    public EngineSound(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-    public void SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption) => E.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
-    public void SoundPatchStop(int patch) => E.SoundPatchStop(patch);
-    public void SoundPatchState(int patch, out int entIndex, out bool filterActive) => E.SoundPatchState(patch, out entIndex, out filterActive);
-    public void SoundPatchFree(int patch) => E.SoundPatchFree(patch);
-    public SoundScriptParams? SoundScriptParameters(string soundName) => E.SoundScriptParameters(soundName);
-    public int SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel) => E.SoundPatchCreate(entity, channel, soundName, soundLevel);
-    public string? SurfaceScrapeSound(int surfaceProps, bool smooth) => E.SurfaceScrapeSound(surfaceProps, smooth);
+    private readonly EngineArea _engineBaseArea;
+
+    /// <summary>
+    /// Emit one sound patch at the given envelope values — plan_gamedll_after.md
+    /// Phase A3, second pair.
+    ///
+    /// <para>
+    /// <paramref name="volume01"/> is the ENVELOPE's value and not what reaches
+    /// the engine: the shim multiplies it by the volume the sound script chose,
+    /// which it read once at create time. A patch's ramp is a MULTIPLIER on a
+    /// script's number, and only one side of this boundary has ever seen that
+    /// number.
+    /// </para>
+    /// </summary>
+    public void SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        _engineBaseArea.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Stop one sound patch, if it is playing. Idempotent, because the shim
+    /// tracks whether it ever started — stopping a sound that never played is a
+    /// warning from the engine and a real one.
+    /// </summary>
+    public void SoundPatchStop(int patch)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        _engineBaseArea.SoundPatchStop(patch);
+    }
+
+    /// <summary>
+    /// The two questions the frame pass asks of every live patch, in one
+    /// crossing.
+    /// </summary>
+    /// <param name="entIndex">
+    /// The entity the patch rides, or negative when it has gone — which is what
+    /// makes the caller drop it.
+    /// </param>
+    /// <param name="filterActive">
+    /// Whether anybody is still listening. A patch with no recipients is KEPT
+    /// and not emitted, which is stock's behaviour and not the same thing as
+    /// having lost its entity.
+    /// </param>
+    public void SoundPatchState(int patch, out int entIndex, out bool filterActive)
+    {
+        entIndex = -1;
+        filterActive = false;
+
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        int index = -1;
+        int active = 0;
+
+        _engineBaseArea.SoundPatchState(patch, &index, &active);
+
+        entIndex = index;
+        filterActive = active != 0;
+    }
+
+    /// <summary>
+    /// Free the native patch. The one direction <c>SoundDestroy</c> does not
+    /// cover: a queued DESTROY command comes due inside the managed frame pass,
+    /// so the decision is managed and the delete is not.
+    /// </summary>
+    public void SoundPatchFree(int patch)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return;
+
+        _engineBaseArea.SoundPatchFree(patch);
+    }
+
+    /// <summary>
+    /// A sound script's parameters (GetParametersForSound): volume, pitch,
+    /// pitch range and soundlevel. Null when the script has no such entry.
+    /// </summary>
+    public SoundScriptParams? SoundScriptParameters(string soundName)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached || soundName.Length == 0) return null;
+
+        float* outs = stackalloc float[5];
+        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
+        int found;
+        fixed (byte* p = bytes)
+            found = _engineBaseArea.SoundScriptParameters(p, outs);
+
+        return found == 0
+            ? null
+            : new SoundScriptParams(outs[0], (int)outs[1], (int)outs[2], (int)outs[3], (int)outs[4]);
+    }
+
+    /// <summary>
+    /// A sound patch on the entity, heard from where it stands
+    /// (SoundCreate with a CPASAttenuationFilter): the handle the managed
+    /// sound controller tracks it by, or 0. Played, ramped and destroyed
+    /// through the controller like any other patch.
+    /// </summary>
+    public int SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached || soundName.Length == 0) return 0;
+
+        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
+        fixed (byte* p = bytes)
+            return _engineBaseArea.SoundPatchCreate(entity.Value, channel, p, soundLevel);
+    }
+
+    /// <summary>
+    /// The surface's scrape sound, rough or smooth (surfacedata_t::sounds),
+    /// or null when it has none.
+    /// </summary>
+    public string? SurfaceScrapeSound(int surfaceProps, bool smooth)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached) return null;
+
+        byte* buffer = stackalloc byte[128];
+        int length = _engineBaseArea.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128);
+        return length <= 0 ? null : Encoding.UTF8.GetString(buffer, Math.Min(length, 127));
+    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineEffects"/>. Every member is one call.</summary>
-internal sealed partial class EngineEffects : IEngineEffects
+internal sealed unsafe partial class EngineEffects : IEngineEffects
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1068,13 +1719,104 @@ internal sealed partial class EngineEffects : IEngineEffects
 
     private EngineSide E => _side;
 
-    public EngineEffects(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-    public int TempEntRegister(TeClass description) => E.TempEntRegister(description);
-    public float CurrentGravity() => E.CurrentGravity();
+    private readonly EffectsArea _effectsArea;
+    private readonly MovementArea _movementArea;
+
+    //-------------------------------------------------------------------------
+    // TEMP ENTITIES (plan_tmp.md Part 3).
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// Hands one temp entity's description to native, which builds the table.
+    /// Answers the handle, or -1.
+    ///
+    /// <para>
+    /// VALID ONLY DURING LoadSide. A ServerClass links itself into
+    /// <c>g_pServerClassHead</c> when it is constructed and the engine walks
+    /// that list exactly once; one built later is not in the list, nothing
+    /// warns, and the first effect that claims it sends the engine into a table
+    /// that was never flattened. Native refuses after the window rather than
+    /// building one, so a late call answers -1 and says why.
+    /// </para>
+    ///
+    /// <para>
+    /// -1 is also what the CLIENT answers today: the slot is server-only until
+    /// C-Phase 1 lands the receiving half. That is the ordinary shape of a slot
+    /// one side implements, and a caller reads it as "this side does not send
+    /// temp entities" rather than as a failure.
+    /// </para>
+    /// </summary>
+    public int TempEntRegister(TeClass description)
+    {
+        if (!E.IsInitialized || !E.ShimsAttached)
+            return -1;
+
+        // Every string is pinned for the duration of the call and freed after
+        // it. Native COPIES what it is handed — a SendProp keeps the pointer it
+        // was given for the life of the process and this memory is not that —
+        // so nothing here has to outlive the call.
+        var owned = new List<IntPtr>(description.Fields.Length + 4);
+
+        try
+        {
+            var fields = new TeFieldDesc[description.Fields.Length == 0 ? 1 : description.Fields.Length];
+
+            for (int i = 0; i < description.Fields.Length; i++)
+            {
+                TeField f = description.Fields[i];
+
+                fields[i] = new TeFieldDesc
+                {
+                    Name       = EngineSide.Utf8(f.Name, owned),
+                    Kind       = (int)f.Kind,
+                    Offset     = f.Offset,
+                    SizeBytes  = f.SizeBytes,
+                    Bits       = f.Bits,
+                    BitsFrom   = (int)f.BitsFrom,
+                    Flags      = (int)f.Flags,
+                    Low        = f.Low,
+                    High       = f.High,
+                    SubTable   = EngineSide.Utf8(f.SubTable, owned),
+                    Elems      = f.Elems,
+                    ElemStride = f.ElemStride,
+                };
+            }
+
+            fixed (TeFieldDesc* pFields = fields)
+            {
+                var desc = new TeClassDesc
+                {
+                    ClassName     = EngineSide.Utf8(description.ClassName, owned),
+                    TableName     = EngineSide.Utf8(description.TableName, owned),
+                    BaseTable     = EngineSide.Utf8(description.BaseTable, owned),
+                    BlobBytes     = description.BlobBytes,
+                    RegisterClass = description.RegistersClass ? 1 : 0,
+                    FieldCount    = description.Fields.Length,
+                    Fields        = description.Fields.Length == 0 ? null : pFields,
+                };
+
+                return _effectsArea.TempEntRegister(&desc);
+            }
+        }
+        finally
+        {
+            foreach (IntPtr p in owned)
+                Marshal.FreeCoTaskMem(p);
+        }
+    }
+
+    /// <summary>
+    /// <c>GetCurrentGravity()</c>. A slot rather than a constant because
+    /// <c>sv_gravity</c> is a convar: a tempent falling at 600 while the world
+    /// falls at 800 looks almost right, which is the worst kind of wrong for
+    /// something nobody watches closely.
+    /// </summary>
+    public float CurrentGravity()
+        => (!E.IsInitialized || !E.ShimsAttached) ? 600f : _movementArea.CurrentGravity();
 }
 
 /// <summary>The real engine, for <see cref="IEngineVisibility"/>. Every member is one call.</summary>
-internal sealed partial class EngineVisibility : IEngineVisibility
+internal sealed unsafe partial class EngineVisibility : IEngineVisibility
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1082,8 +1824,6 @@ internal sealed partial class EngineVisibility : IEngineVisibility
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-
-    public EngineVisibility(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
     public void SetLightStyle(int style, string pattern)
     {
         // The engine's 64 styles (MAX_LIGHTSTYLES); the slot's guard, moved here.

@@ -51,7 +51,7 @@ public sealed unsafe class ServerGameEventsTests
     {
         var side = new EngineSide(Side.Server);
         side.Initialize();
-        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return new ModuleEngine(side);
     }
 

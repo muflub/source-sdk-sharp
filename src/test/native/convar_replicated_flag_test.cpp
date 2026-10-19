@@ -153,7 +153,9 @@ const char *const kConVarCs  = "sourcesharp/managed/SourceSharp.Shared.Interop/C
 const char *const kConVarFlagsCs = "sourcesharp/managed/SourceSharp.Shared.Interface/ConVarFlags.cs";
 const char *const kGameSys   = "sourcesharp/game/shared/sourcesharp_gamesystem.cpp";
 // EngineSide.cs since plan_engineapi_vtables B1: the per-side instance holds the bodies.
-const char *const kEngineCs  = "sourcesharp/managed/SourceSharp.Shared.Interop/EngineSide.cs";
+// The console binding, which holds the registration since
+// plan_shim_areas_split phase 11 (EngineSide did before it).
+const char *const kEngineCs  = "sourcesharp/managed/SourceSharp.Shared.Interop/EngineBinding.cs";
 const char *const kGameDll   = "sourcesharp/game/server/shell_gamedll.cpp";
 
 } // namespace
@@ -271,11 +273,12 @@ TEST( ConVarReplicatedFlag, TheAbiForwarderPassesFlagsThrough )
 	// The router's retirement (docs/todo.md) put the typed area call inline in
 	// the wrapper, and plan_shim_areas_split phase 7 made its two dispatch arms
 	// one call on the side's own container (on its console area since phase
-	// 9): `flags` must reach that call as itself. The count moved with the
-	// shape, the contract did not.
-	EXPECT_EQ( 1u, CountOf( cs, "OwnShims.Console.RegisterConVar(pName, pDef, pHelp, flags," ) )
-		<< "Engine.RegisterConVar no longer forwards `flags` to the side's shim "
-		   "container -- something is now deriving the argument";
+	// 9; on the console area the binding is handed since phase 11): `flags`
+	// must reach that call as itself. The count moved with the shape, the
+	// contract did not.
+	EXPECT_EQ( 1u, CountOf( cs, "_consoleArea.RegisterConVar(pName, pDef, pHelp, flags," ) )
+		<< "EngineConsole.RegisterConVar no longer forwards `flags` to its console "
+		   "area -- something is now deriving the argument";
 	EXPECT_EQ( 1u, CountOf( cs, "RegisterConVar(pName, pDef, pHelp, " ) )
 		<< "Engine.RegisterConVar calls the shim area more than once again: "
 		   "each call must forward `flags` as itself";

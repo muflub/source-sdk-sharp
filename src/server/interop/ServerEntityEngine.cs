@@ -15,11 +15,30 @@ namespace SourceSharp.Abi;
 /// </summary>
 public sealed class ServerEntityEngine
 {
-    internal ServerEntityEngine(EngineSide api) => Api = api ?? throw new ArgumentNullException(nameof(api));
+    internal ServerEntityEngine(EngineSide api, EntityLifecycleArea lifecycle, WorldServerArea world, NetworkServerArea network)
+    {
+        Api = api ?? throw new ArgumentNullException(nameof(api));
+        _lifecycle = lifecycle ?? throw new ArgumentNullException(nameof(lifecycle));
+        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _network = network ?? throw new ArgumentNullException(nameof(network));
+    }
+
+    // The areas the facade's own calls reach (plan_shim_areas_split phase 11):
+    // the shells' teardown, the invisible-range counter and the blob bind.
+    private readonly EntityLifecycleArea _lifecycle;
+    private readonly WorldServerArea _world;
+    private readonly NetworkServerArea _network;
 
     /// <summary>Over a composition's engine.</summary>
     public ServerEntityEngine(ModuleEngine engine)
         : this((engine ?? throw new ArgumentNullException(nameof(engine))).Api)
+    {
+    }
+
+    /// <summary>Over <paramref name="side"/>, with the areas its calls reach taken from it.</summary>
+    internal ServerEntityEngine(EngineSide side)
+        : this(side, side.Areas.Require<EntityLifecycleArea>(), side.Areas.Require<WorldServerArea>(),
+               side.Areas.Require<NetworkServerArea>())
     {
     }
 
@@ -39,14 +58,14 @@ public sealed class ServerEntityEngine
     public ConsoleLines Lines => Api.Lines;
 
     /// <summary>Frees a frame's batch of shells: <see cref="EngineSide.DestroyShells"/>.</summary>
-    public void DestroyShells(ReadOnlySpan<EntityHandle> batch) => Api.DestroyShells(batch);
+    public void DestroyShells(ReadOnlySpan<EntityHandle> batch) => Api.DestroyShells(_lifecycle, batch);
 
     /// <summary>How far native reaches for a shell-less entity: <see cref="EngineSide.InvisibleRangeReach"/>.</summary>
-    public int InvisibleRangeReach() => Api.InvisibleRangeReach();
+    public int InvisibleRangeReach() => Api.InvisibleRangeReach(_world);
 
     /// <summary>Binds an entity's net states to its blob on this side: <see cref="NetStateServerBinding.AttachBound"/>.</summary>
     public NetState[] AttachBound(object instance, EntityHandle handle, NetStateFields fields)
-        => NetStateServerBinding.AttachBound(instance, handle, Api, fields);
+        => NetStateServerBinding.AttachBound(instance, handle, Api, _network, fields);
 
     /// <summary>
     /// An unattached server side and its engine container: what a registry

@@ -33,8 +33,11 @@ public class EntityPhysicsForwardsLeftTests
         Regex.Replace(File.ReadAllText(RepoLayout.Repo(path)), @"//[^\n]*", "");
 
     // EngineSide with both sides' halves (plan_shim_areas_split phase 7).
+    // The side and the bindings: since plan_shim_areas_split phase 11 a member
+    // that calls an area lives in the binding that calls it.
     private static string SideCode() =>
-        Regex.Replace(RepoLayout.SharedTypeSource("EngineSide"), @"//[^\n]*", "");
+        Regex.Replace(RepoLayout.SharedTypeSource("EngineSide") + "\n" + RepoLayout.SharedTypeSource("EngineBinding"),
+                      @"//[^\n]*", "");
 
     private static string[] AreaSlots() =>
         File.ReadAllLines(RepoLayout.Repo("docs", "engineapi-areas.tsv"))

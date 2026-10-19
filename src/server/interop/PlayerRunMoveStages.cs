@@ -25,11 +25,26 @@ public sealed class PlayerRunMoveStages
 
         // Built once, so the per-frame command loop allocates no delegate.
         EngineSide api = Api;
-        RunMove = (player, index, stage) => RunMoveVia(api, player, index, stage);
+        MovementServerArea area = api.Areas.Require<MovementServerArea>();
+        _world = api.Areas.Require<WorldServerArea>();
+        RunMove = (player, index, stage) => RunMoveVia(api, area, player, index, stage);
     }
 
     /// <summary>The side these stages run on: the runner's.</summary>
     internal EngineSide Api { get; }
+
+    // That side's world area, which the player's shadow traces its climb
+    // through (TraceHull).
+    private readonly WorldServerArea _world;
+
+    /// <summary>
+    /// UTIL_TraceEntity on this side: the entity's hull swept from start to
+    /// end (<see cref="EngineSide.EntityTraceHull"/>), which the player's
+    /// shadow traces a climb through before it takes it.
+    /// </summary>
+    internal EntityHullTrace TraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
+                                       uint mask, int collisionGroup)
+        => Api.EntityTraceHull(_world, entity, start, end, mins, maxs, mask, collisionGroup);
 
     /// <summary><c>PlayerRunMove</c> on this side, as the command loop calls it.</summary>
     internal Func<EntityHandle, int, int, int> RunMove { get; }
@@ -40,6 +55,6 @@ public sealed class PlayerRunMoveStages
     /// the refusal it is.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int RunMoveVia(EngineSide side, EntityHandle player, int index, int stage)
-        => side.ServerAttached ? side.ServerShims.MovementServer.PlayerRunMove(player.Value, index, stage) : 0;
+    private static int RunMoveVia(EngineSide side, MovementServerArea movement, EntityHandle player, int index, int stage)
+        => side.ShimsAttached ? movement.PlayerRunMove(player.Value, index, stage) : 0;
 }

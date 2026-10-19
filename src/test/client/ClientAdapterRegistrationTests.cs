@@ -31,7 +31,7 @@ public unsafe class ClientAdapterRegistrationTests
     private static EngineSide Attached(FakeShimRoot root)
     {
         var side = new EngineSide(Side.Client);
-        Assert.True(side.AttachClientShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         return side;
     }
 

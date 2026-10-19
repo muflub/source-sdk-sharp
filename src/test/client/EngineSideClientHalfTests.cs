@@ -42,12 +42,11 @@ public class EngineSideClientHalfTests
     [Fact]
     public void TheClientsEngineSideAttachesTheClientsAreasOnly()
     {
-        Assert.NotNull(typeof(EngineSide).GetMethod("AttachClientShims", Flags));
-        Assert.Null(typeof(EngineSide).GetMethod("AttachShims", Flags));
-        Assert.Null(typeof(EngineSide).GetProperty("ServerAttached", Flags));
-
         using var root = new FakeShimRoot();
-        Assert.True(Attached(root).ClientAttached, "AttachOwnShims attaches the client's areas");
+        EngineSide side = Attached(root);
+        Assert.True(side.ShimsAttached, "AttachOwnShims attaches the client's areas");
+        Assert.NotNull(side.Areas.Resolve(typeof(HudClientArea)));
+        Assert.Null(side.Areas.Resolve(typeof(EntitiesServerArea)));
     }
 
     private const System.Reflection.BindingFlags Flags
