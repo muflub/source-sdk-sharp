@@ -1841,19 +1841,6 @@ typedef struct SourceSharpClientPlayerView
 	int32_t nHealth;
 } SourceSharpClientPlayerView;
 
-typedef struct SourceSharpMoveSurface
-{
-	int32_t bValid;
-	float   flFriction;
-	int32_t nMaterial;
-	int32_t nClimbable;
-	float   flMaxSpeedFactor;
-	float   flJumpFactor;
-	float   flDensity;          // physics_surfaceprops density (physics stock parity I2)
-	float   flRoughnessFactor;  // audio.roughnessFactor: scrape sound choice (D2)
-	float   flRoughThreshold;   // audio.roughThreshold
-} SourceSharpMoveSurface;
-
 //-----------------------------------------------------------------------------
 // The effects the movement loop triggers. ONE slot with a kind rather than nine
 // slots, because they are all "tell the world something happened" and only one

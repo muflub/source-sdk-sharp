@@ -6,9 +6,7 @@ SoundPatchEmit	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchEmit	i
 SoundPatchStop	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchStop	int, void	SourceSharp_ClientSoundPatchStop
 SoundPatchState	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchState	int, int*, int*, void	SourceSharp_ClientSoundPatchState
 SoundPatchFree	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchFree	int, void	SourceSharp_ClientSoundPatchFree
-SoundScriptParameters	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundScriptParameters	byte*, float*, int	SourceSharp_ClientSoundScriptParameters
 SoundPatchCreate	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchCreate	uint, int, byte*, int, int	SourceSharp_ClientSoundPatchCreate
-SurfaceScrapeSound	EngineApi	IShimEngine	shared		both	-	SourceSharp_SurfaceScrapeSound	int, int, byte*, int, int	SourceSharp_ClientSurfaceScrapeSound
 Msg	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleMsg	byte*, void	
 Warning	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleWarning	byte*, void	
 RegisterConCommand	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRegisterConCommand	byte*, byte*, int, int	
@@ -49,11 +47,7 @@ EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	SourceSharp_
 PrecacheModel	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheModel	byte*, int	
 PrecacheSound	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheSound	byte*, void	
 PrecacheDecal	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheDecal	byte*, int	
-PrecacheMaterial	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheMaterial	byte*, void	
-PrecacheParticleSystem	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheParticleSystem	byte*, void	
 MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, float*, float*, float*, int, int, MoveTraceBlob*, void	
-MovePointContents	EngineApi	IShimMovement	shared		both	-	SourceSharp_MovePointContents	float*, int, int	
-MoveSurface	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveSurface	int, MoveSurfaceBlob*, int	
 MoveEffect	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveEffect	int, float*, float, int, int	
 CurrentGravity	EngineApi	IShimMovement	shared		both	-	SourceSharp_CurrentGravity	float	
 RegisterMovementParams	EngineApi	IShimMovement	shared		both	-	SourceSharp_RegisterMovementParams	MovementParams*, void	
@@ -64,22 +58,21 @@ PlayerShadowRelease	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	Sou
 PlayerShadowCommit	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerShadowCommit	uint, int, int, void	
 PlayerSetMoveType	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetMoveType	uint, int, int	
 PlayerSetSlowMovement	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetSlowMovement	uint, int, void	
-PointContents	EngineApi	IShimWorld	shared		both	-	SourceSharp_PointContents	float*, int	
-TraceLine	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLine	float*, float*, int, uint, float*, float*, float*, uint*, int	
-TraceHull	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceHull	float*, float*, float*, float*, int, uint, uint*, int*, int	
-TraceLineSurface	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLineSurface	float*, float*, int, uint, float*, float*, float*, uint*, int*, int*, int*, int	
-TracePlayerAim	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TracePlayerAim	uint, float, float*, uint	
-AngleVectorsFromForward	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AngleVectorsFromForward	float*, float*, float*, void	
-WaterSurfaceBelow	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_WaterSurfaceBelow	float*, float*, int*, int	
-EntityModelSurfaceProp	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_EntityModelSurfaceProp	uint, int	
-InvisibleRangeReach	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_InvisibleRangeReach	int	
-SetSkyboxParams	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_SetSkyboxParams	SkyboxParams*, void	
-WorldChapterTitle	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_WorldChapterTitle	byte*	
-AreaPortalCreate	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalCreate	int, int, uint	
-AreaPortalDestroy	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalDestroy	uint, void	
-AreaPortalSetOpen	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalSetOpen	uint, int, void	
-AreaPortalSetWindow	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AreaPortalSetWindow	uint, uint, float, void	
-EntityTraceHull	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_EntityTraceHull	uint, float*, float*, float*, float*, int, int, float*, int	
+TraceLine	EngineApi	IShimWorldServer	server		server	-	SourceSharp_TraceLine	float*, float*, int, uint, float*, float*, float*, uint*, int	
+TraceHull	EngineApi	IShimWorldServer	server		server	-	SourceSharp_TraceHull	float*, float*, float*, float*, int, uint, uint*, int*, int	
+TraceLineSurface	EngineApi	IShimWorldServer	server		server	-	SourceSharp_TraceLineSurface	float*, float*, int, uint, float*, float*, float*, uint*, int*, int*, int*, int	
+TracePlayerAim	EngineApi	IShimWorldServer	server		server	-	SourceSharp_TracePlayerAim	uint, float, float*, uint	
+AngleVectorsFromForward	EngineApi	IShimWorldServer	server		server	-	SourceSharp_AngleVectorsFromForward	float*, float*, float*, void	
+WaterSurfaceBelow	EngineApi	IShimWorldServer	server		server	-	SourceSharp_WaterSurfaceBelow	float*, float*, int*, int	
+EntityModelSurfaceProp	EngineApi	IShimWorldServer	server		server	-	SourceSharp_EntityModelSurfaceProp	uint, int	
+InvisibleRangeReach	EngineApi	IShimWorldServer	server		server	-	SourceSharp_InvisibleRangeReach	int	
+SetSkyboxParams	EngineApi	IShimWorldServer	server		server	-	SourceSharp_SetSkyboxParams	SkyboxParams*, void	
+WorldChapterTitle	EngineApi	IShimWorldServer	server		server	-	SourceSharp_WorldChapterTitle	byte*	
+AreaPortalCreate	EngineApi	IShimWorldServer	server		server	-	SourceSharp_AreaPortalCreate	int, int, uint	
+AreaPortalDestroy	EngineApi	IShimWorldServer	server		server	-	SourceSharp_AreaPortalDestroy	uint, void	
+AreaPortalSetOpen	EngineApi	IShimWorldServer	server		server	-	SourceSharp_AreaPortalSetOpen	uint, int, void	
+AreaPortalSetWindow	EngineApi	IShimWorldServer	server		server	-	SourceSharp_AreaPortalSetWindow	uint, uint, float, void	
+EntityTraceHull	EngineApi	IShimWorldServer	server		server	-	SourceSharp_EntityTraceHull	uint, float*, float*, float*, float*, int, int, float*, int	
 EntityGetIndex	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetIndex	uint, int	SourceSharp_ClientEntityGetIndex
 EntityGetOrigin	EngineApi	IShimEntities	shared		both	S	SourceSharp_EntityGetOrigin	uint, float*, void	SourceSharp_ClientEntityGetOrigin
 EntityGetAngles	EngineApi	IShimEntities	shared		both	-	SourceSharp_EntityGetAngles	uint, float*, void	SourceSharp_ClientEntityGetAngles
@@ -182,17 +175,13 @@ TempEntPlayback	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSha
 EffectDispatchIndex	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_EffectDispatchIndex	byte*, int	
 ExplosionEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ExplosionEffect	float*, int, float, int, int, int, int, void	
 ViewPunch	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ViewPunch	float*, float*, float, int, void	
-SparkEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_SparkEffect	float*, int, int, int, float*, void	
 ImpactEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_ImpactEffect	float*, float*, int, int, uint, void	
-MuzzleFlashEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_MuzzleFlashEffect	float*, float*, float, int, void	
 TracerEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_TracerEffect	float*, float*, void	
 BubbleEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_BubbleEffect	uint, int, float, void	
 FunnelEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_FunnelEffect	float*, int, int, void	
-DustEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_DustEffect	float*, float*, float, float, void	
 SplashEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_SplashEffect	float*, float, int, void	
 BloodEffect	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_BloodEffect	float*, float*, int, float, int, int, void	
 PaintDecal	EngineApi	IShimEffectsServer	ext	IShimEffects	server	-	SourceSharp_PaintDecal	int, float*, float*, float, int, int, int	
-DrawWorldText	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawWorldText	float*, int, byte*, float, int, int, int, int, void	
 DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	
 AddLineOverlay	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_AddLineOverlay	float*, float*, int, int, int, int, float, void	
 OverlayCounts	EngineApi	IShimDebugOverlay	server		server	-	SourceSharp_OverlayCounts	uint*, uint*, uint*, uint*, int*, void	

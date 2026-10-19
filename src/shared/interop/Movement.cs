@@ -690,8 +690,8 @@ public sealed class GameMovement
         _s.FrameTime *= _s.LaggedMovementValue;
 
         // ResetGetPointContentsCache() is the world's, not this loop's: the
-        // cache lives beside the trace it saves, and a managed copy of it would
-        // be a second cache disagreeing with the first.
+        // cache lives beside the query it saves (MovePointContentsCache).
+        _w.ResetPointContentsCache(_c.Optimizations);
         _speedCropped = SpeedCroppedReset;
 
         _surfaceData = _s.SurfaceDataValid ? _w.Surface(_s.SurfaceProps) : default;

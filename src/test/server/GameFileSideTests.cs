@@ -131,7 +131,7 @@ public unsafe class GameFileSideTests : IDisposable
         fwd->Close = &Close;
     }
 
-    private EngineFiles Files(Side side)
+    private IEngineFiles Files(Side side)
     {
         var api = new EngineSide(side);
         api.Initialize();
@@ -140,6 +140,6 @@ public unsafe class GameFileSideTests : IDisposable
         bool attached = api.AttachOwnShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
-        return new EngineFiles(api);
+        return SideBindings.Of<IEngineFiles>(api);
     }
 }

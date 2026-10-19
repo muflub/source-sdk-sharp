@@ -95,7 +95,9 @@ public interface IEngineWorldQuery
     bool ClientEntityModelBounds(int entityIndex, out Vector mins, out Vector maxs,
                                  out Vector angles);
 
-    /// <inheritdoc cref="EngineSide.PointContents"/>
+    /// <summary>
+    /// The CONTENTS_* mask at a point. See <see cref="Contents"/>.
+    /// </summary>
     Contents PointContents(Vector origin);
 
     /// <inheritdoc cref="EngineSide.TracePlayerAim"/>
@@ -178,13 +180,19 @@ public interface IEngineSound
     // Physics stock parity D2: what a managed looping sound needs that only the
     // engine can answer.
 
-    /// <inheritdoc cref="EngineSide.SoundScriptParameters"/>
+    /// <summary>
+    /// A sound script's parameters (GetParametersForSound): volume, pitch,
+    /// pitch range and soundlevel. Null when the script has no such entry.
+    /// </summary>
     SoundScriptParams? SoundScriptParameters(string soundName);
 
     /// <inheritdoc cref="EngineSide.SoundPatchCreate"/>
     int SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel);
 
-    /// <inheritdoc cref="EngineSide.SurfaceScrapeSound"/>
+    /// <summary>
+    /// The surface's scrape sound, rough or smooth (surfacedata_t::sounds),
+    /// or null when it has none.
+    /// </summary>
     string? SurfaceScrapeSound(int surfaceProps, bool smooth);
 
     // SoundEntInsert AND SoundEntQuery WERE HERE, and this area's own test is
@@ -381,7 +389,15 @@ public interface IEngineEffects
 
 
 
-    /// <inheritdoc cref="EngineSide.DustEffect"/>
+    /// <summary>
+    /// A puff of dust, thrown along a direction.
+    ///
+    /// <para>
+    /// The direction is normalised on the far side, because the engine asserts
+    /// on one that is not a unit vector — a debug build stops on it rather than
+    /// drawing something odd.
+    /// </para>
+    /// </summary>
     void DustEffect(Vector origin, Vector direction, float size, float speed);
 
 
@@ -393,7 +409,19 @@ public interface IEngineEffects
     /// <inheritdoc cref="EngineSide.FunnelEffect"/>
     void FunnelEffect(Vector origin, int spriteIndex, bool reversed);
 
-    /// <inheritdoc cref="EngineSide.MuzzleFlashEffect"/>
+    /// <summary>
+    /// A muzzle flash at a point, pointed somewhere.
+    ///
+    /// <para>
+    /// A temp entity carrying a position, a set of angles and a size — and no
+    /// entity index. That is the whole of why this one crosses: the rest of the
+    /// particle and trail family delivers its effect by being a networked entity
+    /// whose stock client class runs the emitter, and a managed entity never
+    /// appears on the wire as that class.
+    /// </para>
+    /// </summary>
+    /// <param name="angles">Pitch, yaw and roll, in the order an entity's angles are already held.</param>
+    /// <param name="type">Stock's MUZZLEFLASH_TYPE_DEFAULT is 1, which is the only value stock's env_muzzleflash ever passes.</param>
     void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1);
 
     /// <inheritdoc cref="EngineSide.PaintDecal"/>
@@ -407,7 +435,13 @@ public interface IEngineEffects
 
 
 
-    /// <inheritdoc cref="EngineSide.SparkEffect"/>
+    /// <summary>
+    /// A shower of sparks at a point.
+    /// </summary>
+    /// <param name="direction">
+    /// Null throws them in every direction, which is what a spark with no
+    /// facing means — not a direction of zero length.
+    /// </param>
     void SparkEffect(Vector origin, int magnitude, int trailLength, bool makeSound = true, Vector? direction = null);
 
     /// <inheritdoc cref="EngineSide.ExplosionEffect"/>

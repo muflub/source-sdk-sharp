@@ -467,7 +467,7 @@ public class SideAuditTests
         // is what tools/movemath-gate reported (16 of 88 compared commands
         // disagreeing on Origin, Velocity, Flags and GroundEntity, against 0 in
         // the stock arm).
-        "MoveTrace", "MovePointContents", "MoveSurface", "MoveEffect",
+        "MoveTrace", "MoveEffect",
 
         "ConsoleSnapshot", "ConsoleSnapshotEntry",
         "EventGetBool", "EventGetFloat", "EventGetInt", "EventGetString",
@@ -601,25 +601,8 @@ public class SideAuditTests
         // back to building every model at size 1 while the client draws it at
         // whatever the mapper asked for.
         "StandaloneSetModelScale",
-        // What is at a point, and it arrived here exactly the way
-        // EntityGetModelName, EntityGetAngles and EntitySetSkin did: a slot
-        // that had been SERVER-ONLY for the whole port while managed client
-        // code was free to hold an IEngineWorldQuery and ask it — and get
-        // CONTENTS_EMPTY back, with no error, because EngineServices.AddTo
-        // registers every area on both sides and Engine.cs guards a null slot
-        // by answering a default. That is the "(no model)" shape a fourth time.
-        //
-        // C_TEExplosion is what found it. Stock decides fireball-or-splash with
-        // `UTIL_PointContents( m_vecOrigin ) & CONTENTS_WATER` on the CLIENT
-        // (c_te_explosion.cpp:290) rather than trusting a flag from the server,
-        // and porting that decision to C# needs the question askable here.
-        //
-        // Dual rather than BothSides: the two arms ask two copies of the BSP
-        // through each side's own enginetrace, and the client's is the one that
-        // decides what the client DRAWS. Regressing this to server-only puts
-        // every managed client question about the world back to answering
-        // CONTENTS_EMPTY in silence.
-        "PointContents",
+        // PointContents (dual) folded onto IEngineTrace's forwarders on each side,
+        // 2026-10-19.
         // SurfacePropGameMaterial (dual, C-Phase 5) folded onto IPhysicsSurfaceProps'
         // forwarders on both sides, 2026-10-19.
 
@@ -676,11 +659,12 @@ public class SideAuditTests
         "SoundPatchEmit", "SoundPatchStop", "SoundPatchState", "SoundPatchFree",
         // A scrape's three (C6 cluster 9, lane c6-input): the shared
         // FrictionSounds is stock's PhysFrictionSound on both sides, so a
-        // script's parameters, a patch on an entity and a surface's scrape
-        // names have a body on each. (Its dust is each side's g_pEffects:
+        // patch on an entity has a body on each (a script's parameters and a
+        // surface's scrape names read the engine's interfaces through their
+        // forwarders since 2026-10-19). (Its dust is each side's g_pEffects:
         // the client's is its own managed IEffects, so DustEffect stays the
         // server's.)
-        "SoundScriptParameters", "SoundPatchCreate", "SurfaceScrapeSound",
+        "SoundPatchCreate",
     };
 
     [Fact]

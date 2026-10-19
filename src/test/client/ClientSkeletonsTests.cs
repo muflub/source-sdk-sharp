@@ -86,6 +86,8 @@ public unsafe class ClientSkeletonsTests
         public int SurfacePropCount() => 0;
         public string? PropName(int index) => null;
         public int GameMaterial(int surfaceProps) => 0;
+        public MoveSurface Surface(int surfaceProps) => default;
+        public string? ScrapeSound(int surfaceProps, bool smooth) => null;
         public int SurfaceIndex(string name) => 42;
     }
 

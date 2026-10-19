@@ -34,7 +34,7 @@ src/server/native/shell_server.cpp	13
 src/server/native/shell_serversystems.cpp	5
 src/server/native/shell_sound.cpp	104
 src/server/native/shell_soundent.cpp	11
-src/server/native/shell_soundenvelope.cpp	324
+src/server/native/shell_soundenvelope.cpp	286
 src/server/native/shell_standalone.cpp	193
 src/server/native/shell_standalone_base.cpp	182
 src/server/native/shell_standalone_base_debug.cpp	70
@@ -52,7 +52,7 @@ src/server/native/shell_tempents_debug.cpp	192
 src/server/native/shell_transmitsteps.cpp	13
 src/server/native/shell_usermessage_send.cpp	40
 src/server/native/shell_world_nettable.cpp	14
-src/server/native/shell_worldquery.cpp	459
+src/server/native/shell_worldquery.cpp	384
 src/server/native/ss_recipient_filter.cpp	34
 src/server/native/standalone_relays.cpp	30
 src/server/native/world_adapter.cpp	161
@@ -70,7 +70,7 @@ src/shared/native/shell_diagnostics.cpp	274
 src/shared/native/shell_diagnostics_debug.cpp	8
 src/shared/native/shell_gameevents.cpp	37
 src/shared/native/shell_gamerules.cpp	86
-src/shared/native/shell_movement.cpp	262
+src/shared/native/shell_movement.cpp	190
 src/shared/native/shell_movement_debug.cpp	4
 src/shared/native/shell_physsaverestore_absent.cpp	53
 src/shared/native/shell_savegame.cpp	291

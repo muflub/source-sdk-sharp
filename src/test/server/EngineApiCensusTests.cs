@@ -160,7 +160,12 @@ public partial class EngineApiCensusTests
     // EntityLookupAttachmentAny retire, ServerSkeletons answering both
     // (160 - 2 = 158).
     // 2026-10-19: SurfacePropIndex folded onto IPhysicsSurfaceProps (158 - 1 = 157).
-    private const int ServerOnly = 157;
+    // 2026-10-19: SparkEffect, MuzzleFlashEffect and DustEffect, never reached
+    // past EffectsOverTempEnts, deleted (157 - 3 = 154).
+    // 2026-10-19: PrecacheMaterial and PrecacheParticleSystem folded onto the
+    // string tables' forwarders (154 - 2 = 152).
+    // 2026-10-19: DrawWorldText folded onto IVDebugOverlay (152 - 1 = 151).
+    private const int ServerOnly = 151;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -321,7 +326,14 @@ public partial class EngineApiCensusTests
     // (55 - 4 = 51).
     // 2026-10-19: the four game-file read slots folded onto IBaseFileSystem (51 - 4 = 47).
     // 2026-10-19: SurfacePropGameMaterial folded (47 - 1 = 46).
-    private const int BothSides = 46;
+    // 2026-10-19: PointContents folded onto IEngineTrace (46 - 1 = 45).
+    // 2026-10-19: SurfaceScrapeSound and MoveSurface folded onto
+    // IPhysicsSurfaceProps (45 - 2 = 43).
+    // 2026-10-19: MovePointContents folded onto IEngineTrace, its cache to
+    // managed (43 - 1 = 42).
+    // 2026-10-19: SoundScriptParameters folded onto ISoundEmitterSystemBase
+    // (42 - 1 = 41).
+    private const int BothSides = 41;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

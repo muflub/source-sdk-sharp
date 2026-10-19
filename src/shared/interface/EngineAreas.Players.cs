@@ -323,7 +323,16 @@ public interface IEngineWeapons
 
 public interface IEngineHud
 {
-    /// <inheritdoc cref="EngineSide.DrawWorldText"/>
+    /// <summary>
+    /// A line of text drawn in the world at a position, through the engine's
+    /// debug-overlay channel.
+    ///
+    /// <para>
+    /// <paramref name="line"/> offsets it downward, so several calls at one
+    /// position stack rather than overprint. <paramref name="duration"/> is a
+    /// minimum in seconds — whatever is drawing has to keep drawing.
+    /// </para>
+    /// </summary>
     void DrawWorldText(Vector origin, int line, string text, float duration, int r = 255, int g = 255, int b = 255, int a = 255);
 
     /// <inheritdoc cref="EngineSide.DrawEntityOverlay"/>

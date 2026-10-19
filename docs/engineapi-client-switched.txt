@@ -10,7 +10,6 @@ IShimEvents
 IShimModels
 IShimMovement
 IShimNetwork
-IShimWorld
 IShimHudClient
 IShimPredictionClient
 IShimTempEntPoolClient

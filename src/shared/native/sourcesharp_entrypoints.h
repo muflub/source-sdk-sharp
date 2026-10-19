@@ -33,7 +33,7 @@
 #include "sourcesharp.h"
 
 //---------------------------------------------------------------------------
-// BOTH SIDES -- 17 slots.
+// BOTH SIDES -- 14 slots.
 //
 // A body on the server and a body on the client, or one shared body compiled
 // into each.
@@ -45,8 +45,6 @@ const char *SourceSharp_EventGetString( void *hEvent, const char *pKey );
 void SourceSharp_ListenForGameEvent( const char *pEventName );
 int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue,
                                 int32_t nValue );
-int32_t SourceSharp_MovePointContents( const float *pXYZ, int32_t nSlot );
-int32_t SourceSharp_MoveSurface( int32_t nSurfaceProps, SourceSharpMoveSurface *pOut );
 void SourceSharp_MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
                             const float *pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup,
                             SourceSharpMoveTraceResult *pOut );
@@ -57,14 +55,13 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable,
                                  int32_t *pOutBytes, int32_t *pOutWords, int32_t *pOutProps,
                                  int32_t *pOutLive );
-int32_t SourceSharp_PointContents( const float *pOrigin );
 void SourceSharp_RegisterCollisionRules( const SourceSharpCollisionRules *pRules );
 void SourceSharp_RegisterMovementParams( const SourceSharpMovementParams *pParams );
 void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 171 slots.
+// SERVER ONLY -- 163 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -92,10 +89,6 @@ void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount );
 int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText,
                                        float flDuration, int32_t r, int32_t g, int32_t b,
                                        int32_t a );
-void SourceSharp_DrawWorldText( const float *pOriginXYZ, int32_t nLine, const char *pText,
-                                float flDuration, int32_t r, int32_t g, int32_t b, int32_t a );
-void SourceSharp_DustEffect( const float *pOriginXYZ, const float *pDirXYZ, float flSize,
-                             float flSpeed );
 int32_t SourceSharp_EffectDispatchIndex( const char *pName );
 void SourceSharp_EmitAmbientSound( int32_t nEntIndex, const float *pXYZ, const char *pSoundName,
                                    float flVolume, int32_t nSoundLevel, int32_t nFlags,
@@ -222,8 +215,6 @@ void SourceSharp_ImpactEffect( const float *pStartXYZ, const float *pEndXYZ,
 int32_t SourceSharp_InvisibleRangeReach( void );
 uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPackedKeys,
                                      int32_t nBytes );
-void SourceSharp_MuzzleFlashEffect( const float *pOriginXYZ, const float *pAnglesXYZ,
-                                    float flScale, int32_t nType );
 void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped,
                                 uint32_t *pOutNoViewer, uint32_t *pOutNoOverlay,
                                 int32_t *pOutViewerSet );
@@ -253,9 +244,7 @@ int32_t SourceSharp_PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadow
 void SourceSharp_PlayerShadowRelease( uint32_t hPlayer );
 void SourceSharp_PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll );
 int32_t SourceSharp_PrecacheDecal( const char *pName );
-void SourceSharp_PrecacheMaterial( const char *pMaterialName );
 int32_t SourceSharp_PrecacheModel( const char *pszModel );
-void SourceSharp_PrecacheParticleSystem( const char *pszName );
 void SourceSharp_PrecacheSound( const char *pSoundName );
 void SourceSharp_RegisterClassOps( const char *pClassName, uint32_t nOpMask );
 void SourceSharp_RegisterDamageRules( const SourceSharpDamageRules *pRules );
@@ -272,12 +261,7 @@ void SourceSharp_SoundPatchFree( int32_t hPatch );
 void SourceSharp_SoundPatchState( int32_t hPatch, int32_t *pnEntIndex,
                                   int32_t *pbFilterActive );
 void SourceSharp_SoundPatchStop( int32_t hPatch );
-int32_t SourceSharp_SoundScriptParameters( const char *pSoundName, float *pOut );
-void SourceSharp_SparkEffect( const float *pOriginXYZ, int32_t nMagnitude, int32_t nTrailLength,
-                              int32_t bMakeSound, const float *pDirXYZ );
 void SourceSharp_SplashEffect( const float *pOriginXYZ, float flScale, int32_t bInSlime );
-int32_t SourceSharp_SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char *pOut,
-                                        int32_t nOut );
 void SourceSharp_TempEntPlayback( int32_t hClass, const void *pBlob, int32_t nBytes,
                                   const SourceSharpTeFilter_t *pFilter, float flDelay );
 int32_t SourceSharp_TempEntRegister( const SourceSharpTeClass_t *pDesc );
@@ -308,7 +292,7 @@ const char *SourceSharp_WorldChapterTitle( void );
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 252 slots.
+// CLIENT ONLY -- 250 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -414,11 +398,8 @@ void SourceSharp_ClientSoundPatchFree( int32_t hPatch );
 void SourceSharp_ClientSoundPatchState( int32_t hPatch, int32_t *pnEntIndex,
                                         int32_t *pbFilterActive );
 void SourceSharp_ClientSoundPatchStop( int32_t hPatch );
-int32_t SourceSharp_ClientSoundScriptParameters( const char *pSoundName, float *pOut );
 void SourceSharp_ClientSparks( const float *pPositionXYZ, int32_t nMagnitude,
                                int32_t nTrailLength, const float *pDirectionXYZ );
-int32_t SourceSharp_ClientSurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth,
-                                              char *pOut, int32_t nOut );
 int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ,
                                      const float *pMinsXYZ, const float *pMaxsXYZ,
                                      int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex,

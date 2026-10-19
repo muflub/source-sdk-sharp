@@ -25,6 +25,8 @@ public sealed class ClientPredictionMoveWorld(IMoveWorld engine, Func<EntityHand
 
     public int PointContents(in Vector point, int slot) => engine.PointContents(point, slot);
 
+    public void ResetPointContentsCache(bool optimizations) => engine.ResetPointContentsCache(optimizations);
+
     public MoveSurface Surface(int surfaceProps) => engine.Surface(surfaceProps);
 
     // THE TOUCH LIST HAS NO READER ON THIS CLIENT. Stock's helper keeps it for

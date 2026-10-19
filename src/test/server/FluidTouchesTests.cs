@@ -1,6 +1,3 @@
-using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
-
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
@@ -76,24 +73,5 @@ public class FluidTouchesTests
         var fluid = new FluidTouches(new Densities());
 
         Assert.False(fluid.IsFloating(Crate));
-    }
-
-    [Fact]
-    public void The_surface_blob_matches_the_native_struct_field_for_field()
-    {
-        // MoveSurfaceBlob is filled through a pointer by SourceSharp_MoveSurface;
-        // a field on one side only is a struct the other side over- or
-        // under-reads. Compared by name (Hungarian prefix dropped) and order.
-        string header = File.ReadAllText(RepoLayout.Repo("src", "host", "native", "sourcesharp.h"));
-        var body = Regex.Match(header, @"typedef struct SourceSharpMoveSurface\s*\{(?<b>[^}]*)\}\s*SourceSharpMoveSurface;");
-        Assert.True(body.Success, "sourcesharp.h declares SourceSharpMoveSurface");
-
-        var native = Regex.Matches(body.Groups["b"].Value, @"^\s*(?:int32_t|float)\s+(?:b|fl|n)([A-Za-z]+)\s*;", RegexOptions.Multiline)
-                          .Select(m => m.Groups[1].Value).ToArray();
-        var managed = typeof(MoveSurfaceBlob).GetFields().Select(f => f.Name).ToArray();
-
-        Assert.True(native.Length >= 7, $"the struct's fields were read ({native.Length})");
-        Assert.Equal(native, managed);
-        Assert.Equal(native.Length * 4, Marshal.SizeOf<MoveSurfaceBlob>());
     }
 }

@@ -68,6 +68,8 @@ public class ServerSkeletonsTests
         public string? PropName(int index) => null;
 
         public int GameMaterial(int surfaceProps) => 0;
+        public MoveSurface Surface(int surfaceProps) => default;
+        public string? ScrapeSound(int surfaceProps, bool smooth) => null;
         public int SurfaceIndex(string name)
         {
             Asked.Add(name);

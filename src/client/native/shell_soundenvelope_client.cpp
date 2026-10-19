@@ -421,32 +421,14 @@ void SourceSharp_ClientSoundPatchFree( int32_t hPatch )
 }
 
 //-----------------------------------------------------------------------------
-// THE THREE A MANAGED LOOPING SOUND NEEDS, on the client (plan_client_novalve
-// C6, cluster 9; lane c6-input): the server's three IShimEngine slots
-// (shell_soundenvelope.cpp) with this side's bodies, so the shared
+// WHAT A MANAGED LOOPING SOUND NEEDS, on the client (plan_client_novalve C6,
+// cluster 9; lane c6-input): the server's SoundPatchCreate slot
+// (shell_soundenvelope.cpp) with this side's body, so the shared
 // FrictionSounds -- stock's PhysFrictionSound -- scrapes on either side. The
-// policy is C#'s; a script's parameters, a patch on an entity and a surface's
-// scrape names are the engine's.
+// policy is C#'s; a patch on an entity is the engine's. A script's parameters
+// and a surface's scrape names read the engine's interfaces through their
+// forwarders since 2026-10-19.
 //-----------------------------------------------------------------------------
-
-// CSoundParameters for a sound script into pOut[0..4] (volume, pitch,
-// pitchlow, pitchhigh, soundlevel). 0 when the script has no such entry.
-int32_t SourceSharp_ClientSoundScriptParameters( const char *pSoundName, float *pOut )
-{
-	if ( !pSoundName || !pOut )
-		return 0;
-
-	CSoundParameters params;
-	if ( !GameSound_GetParameters( pSoundName, params, NULL ) )
-		return 0;
-
-	pOut[ 0 ] = params.volume;
-	pOut[ 1 ] = (float)params.pitch;
-	pOut[ 2 ] = (float)params.pitchlow;
-	pOut[ 3 ] = (float)params.pitchhigh;
-	pOut[ 4 ] = (float)params.soundlevel;
-	return 1;
-}
 
 // A sound patch on the entity, as stock's client PhysFrictionSound builds it:
 // SoundCreate( CPASAttenuationFilter( entity, level ), entindex, channel, name,
@@ -471,28 +453,4 @@ int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel,
 	CPASAttenuationFilter filter( pEntity->GetAbsOrigin(), level );
 	CSoundPatch *pPatch = ShellClientSoundController()->SoundCreate( filter, nEntIndex, nChannel, pSoundName, level );
 	return pPatch ? pPatch->Handle() : 0;
-}
-
-// The surface's scrape sound, rough (bSmooth 0) or smooth (1), into pOut as a
-// NUL-terminated name. Its length, or 0 when the surface has none.
-int32_t SourceSharp_ClientSurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char *pOut, int32_t nOut )
-{
-	if ( !pOut || nOut <= 0 || !physprops )
-		return 0;
-
-	pOut[ 0 ] = 0;
-	const surfacedata_t *pData = physprops->GetSurfaceData( nSurfaceProps );
-	if ( !pData )
-		return 0;
-
-	const unsigned short nName = bSmooth ? pData->sounds.scrapeSmooth : pData->sounds.scrapeRough;
-	if ( !nName )
-		return 0;
-
-	const char *pName = physprops->GetString( nName );
-	if ( !pName )
-		return 0;
-
-	V_strncpy( pOut, pName, nOut );
-	return (int32_t)V_strlen( pOut );
 }

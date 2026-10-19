@@ -1039,7 +1039,7 @@ internal sealed partial class EngineWorldQuery : IEngineWorldQuery
 
     public EngineWorldQuery(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
     public int GetArea(Vector origin) => EngineBound.Server(E).GetArea(origin);
-    public Contents PointContents(Vector origin) => E.PointContents(origin);
+    public Contents PointContents(Vector origin) => (Contents)EngineBound.Trace(E).PointContents(origin);
     // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where a slot made
     // the same call: the guard is its.
     public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp)
@@ -1061,9 +1061,17 @@ internal sealed partial class EngineSound : IEngineSound
     public void SoundPatchStop(int patch) => E.SoundPatchStop(patch);
     public void SoundPatchState(int patch, out int entIndex, out bool filterActive) => E.SoundPatchState(patch, out entIndex, out filterActive);
     public void SoundPatchFree(int patch) => E.SoundPatchFree(patch);
-    public SoundScriptParams? SoundScriptParameters(string soundName) => E.SoundScriptParameters(soundName);
+    // Through ISoundEmitterSystemBase's forwarders since 2026-10-19, where the
+    // SoundScriptParameters slot made the same calls on both sides.
+    public SoundScriptParams? SoundScriptParameters(string soundName)
+        => E.OwnShimsAttached && !string.IsNullOrEmpty(soundName)
+            ? EngineBound.SoundEmitter(E).ScriptParameters(soundName)
+            : null;
     public int SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel) => E.SoundPatchCreate(entity, channel, soundName, soundLevel);
-    public string? SurfaceScrapeSound(int surfaceProps, bool smooth) => E.SurfaceScrapeSound(surfaceProps, smooth);
+    // Through IPhysicsSurfaceProps' forwarders since 2026-10-19, where the
+    // SurfaceScrapeSound slot read the same two names.
+    public string? SurfaceScrapeSound(int surfaceProps, bool smooth)
+        => E.OwnShimsAttached ? EngineBound.SurfaceProps(E).ScrapeSound(surfaceProps, smooth) : null;
 }
 
 /// <summary>The real engine, for <see cref="IEngineEffects"/>. Every member is one call.</summary>

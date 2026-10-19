@@ -38,7 +38,6 @@ ManagedVtableHashFiles.cs	plumbing	d: reload check reads slot hashes from disk (
 MapLoadRaw.cs	plumbing	b: blittable mirror of SourceSharpMapLoad (user example)	-
 MoveEffectKind.cs	plumbing	b: value contract: SourceSharpMoveEffect	-
 MoveStateBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
-MoveSurfaceBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
 MoveTraceBlob.cs	plumbing	a: named by ShimAreas.g.cs	-
 MovementBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
 NativeDocAttribute.cs	plumbing	b: C++ comments for the generated native engine block	-

@@ -2617,29 +2617,6 @@ internal sealed unsafe partial class EngineSide
         ServerShims.Damage.ApplyDamageForce(victim.Value, attacker.Value, damage, (int)damageType, f, p);
     }
 
-    /// <summary>
-    /// A shower of sparks at a point.
-    /// </summary>
-    /// <param name="direction">
-    /// Null throws them in every direction, which is what a spark with no
-    /// facing means — not a direction of zero length.
-    /// </param>
-    public void SparkEffect(Vector origin, int magnitude, int trailLength,
-                                   bool makeSound = true, Vector? direction = null)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-
-        if (direction is not Vector dir)
-        {
-            ServerShims.EffectsServer.SparkEffect(o, magnitude, trailLength, makeSound ? 1 : 0, null);
-            return;
-        }
-
-        float* d = stackalloc float[3] { dir.X, dir.Y, dir.Z };
-        ServerShims.EffectsServer.SparkEffect(o, magnitude, trailLength, makeSound ? 1 : 0, d);
-    }
 
     /// <summary>
     /// Precaches a model or sprite and answers its INDEX.
@@ -2937,29 +2914,6 @@ internal sealed unsafe partial class EngineSide
                               permanent ? 1 : 0, lowPriority ? 1 : 0) != 0;
     }
 
-    /// <summary>
-    /// A line of text drawn in the world at a position, through the engine's
-    /// debug-overlay channel.
-    ///
-    /// <para>
-    /// <paramref name="line"/> offsets it downward, so several calls at one
-    /// position stack rather than overprint. <paramref name="duration"/> is a
-    /// minimum in seconds — whatever is drawing has to keep drawing.
-    /// </para>
-    /// </summary>
-    public void DrawWorldText(Vector origin, int line, string text, float duration,
-                                     int r = 255, int g = 255, int b = 255, int a = 255)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        var bytes = Encoding.UTF8.GetBytes(text + "\0");
-
-        fixed (byte* p = bytes)
-        {
-            ServerShims.DebugOverlay.DrawWorldText(o, line, p, duration, r, g, b, a);
-        }
-    }
 
     /// <summary>
     /// One line in the engine's debug overlay, between two world points.
@@ -3163,24 +3117,6 @@ internal sealed unsafe partial class EngineSide
         ServerShims.EffectsServer.FunnelEffect(o, spriteIndex, reversed ? 1 : 0);
     }
 
-    /// <summary>
-    /// A puff of dust, thrown along a direction.
-    ///
-    /// <para>
-    /// The direction is normalised on the far side, because the engine asserts
-    /// on one that is not a unit vector — a debug build stops on it rather than
-    /// drawing something odd.
-    /// </para>
-    /// </summary>
-    public void DustEffect(Vector origin, Vector direction, float size, float speed)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        float* d = stackalloc float[3] { direction.X, direction.Y, direction.Z };
-
-        ServerShims.EffectsServer.DustEffect(o, d, size, speed);
-    }
 
     /// <summary>A splash of water at a point. Slime is the green one.</summary>
     public void SplashEffect(Vector origin, float scale, bool inSlime = false)
@@ -3191,28 +3127,6 @@ internal sealed unsafe partial class EngineSide
         ServerShims.EffectsServer.SplashEffect(o, scale, inSlime ? 1 : 0);
     }
 
-    /// <summary>
-    /// A muzzle flash at a point, pointed somewhere.
-    ///
-    /// <para>
-    /// A temp entity carrying a position, a set of angles and a size — and no
-    /// entity index. That is the whole of why this one crosses: the rest of the
-    /// particle and trail family delivers its effect by being a networked entity
-    /// whose stock client class runs the emitter, and a managed entity never
-    /// appears on the wire as that class.
-    /// </para>
-    /// </summary>
-    /// <param name="angles">Pitch, yaw and roll, in the order an entity's angles are already held.</param>
-    /// <param name="type">Stock's MUZZLEFLASH_TYPE_DEFAULT is 1, which is the only value stock's env_muzzleflash ever passes.</param>
-    public void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        float* a = stackalloc float[3] { angles.X, angles.Y, angles.Z };
-
-        ServerShims.EffectsServer.MuzzleFlashEffect(o, a, scale, type);
-    }
 
     /// <summary>
     /// Where the water beneath a point is, and what kind it is.
@@ -3242,50 +3156,7 @@ internal sealed unsafe partial class EngineSide
             Surface: answer > 0 ? new Vector(surface[0], surface[1], surface[2]) : start);
     }
 
-    /// <summary>
-    /// Precaches a material by name — "skybox/sky_day01_01rt", with no
-    /// extension.
-    ///
-    /// <para>
-    /// Not <see cref="PrecacheModel"/> with a .vmt, which is the neighbouring
-    /// call and answers an INDEX. A model index is a number both sides of the
-    /// wire agree on; a material is only ever a name the renderer resolves, and
-    /// there is nothing to network.
-    /// </para>
-    /// </summary>
-    public void PrecacheMaterial(string material)
-    {
-        if (!s_Initialized || !ServerAttached || material.Length == 0) return;
 
-        var bytes = Encoding.UTF8.GetBytes(material + "\0");
-        fixed (byte* p = bytes) { ServerShims.Precache.PrecacheMaterial(p); }
-    }
-
-    /// <summary>
-    /// A particle system, by name, so the client can build one.
-    ///
-    /// <para>
-    /// The neighbour of <see cref="PrecacheModel"/> and
-    /// <see cref="PrecacheMaterial"/> and interchangeable with neither: a
-    /// particle system has its own string table, and a name that never reached
-    /// it does not refuse at draw time — it is simply not there.
-    /// </para>
-    ///
-    /// <para>
-    /// Stock precaches the fire systems from <c>CFire::Precache</c>. That has
-    /// not run since <c>env_fire</c> became a C# class, because
-    /// <c>LINK_ENTITY_TO_CLASS( env_fire, CFire )</c> sits inside
-    /// <c>#ifndef SOURCESHARP</c> and no <c>CFire</c> is ever constructed, and
-    /// there was no other door to ask through.
-    /// </para>
-    /// </summary>
-    public void PrecacheParticleSystem(string name)
-    {
-        if (!s_Initialized || !ServerAttached || name.Length == 0) return;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { ServerShims.Precache.PrecacheParticleSystem(p); }
-    }
 
     /// <summary>
     /// States the 3D skybox every player is told about.

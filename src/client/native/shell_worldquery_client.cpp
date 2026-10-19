@@ -77,24 +77,8 @@
 
 using namespace TeBackendArgs;
 
-//-----------------------------------------------------------------------------
-// What is at a point, on the client.
-//
-// The whole CONTENTS_ mask comes back rather than a predicate, and the server
-// arm's comment on that applies verbatim: a predicate per caller is how an ABI
-// grows without getting more useful. The explosion asks only about water.
-//
-// UTIL_PointContents is SHARED code (util_shared.h:442) — `enginetrace->
-// GetPointContents` on both sides — so this arm is the same call reaching this
-// side's engine, not a second implementation of the question.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PointContents( const float *pOrigin )
-{
-	if ( !pOrigin )
-		return 0;
-
-	return (int32_t)UTIL_PointContents( Vector( pOrigin[0], pOrigin[1], pOrigin[2] ) );
-}
+// PointContents left native code (2026-10-19): managed asks this side's
+// IEngineTrace through its forwarders.
 
 
 //-----------------------------------------------------------------------------

@@ -258,6 +258,9 @@ FORWARD = [
         struct='SoundEmitterSystemVtbl',
         methods=[
             'GetSoundIndex', 'GetSoundName',
+            # 2026-10-19: a script's parameters, which the SoundScriptParameters
+            # slot read through GameSound_GetParameters on both sides.
+            'GetParametersForSound', 'GetActorGender',
         ],
     ),
     dict(
@@ -298,7 +301,7 @@ FORWARD = [
         struct='PhysicsSurfacePropsVtbl',
         methods=[
             'ParseSurfaceData', 'SurfacePropCount', 'GetSurfaceIndex', 'GetSurfaceData',
-            'GetString', 'GetPropName', 'SetWorldMaterialIndexTable',
+            'GetString', 'GetPropName', 'SetWorldMaterialIndexTable', 'GetPhysicsProperties',
         ],
     ),
     dict(
@@ -438,6 +441,23 @@ FORWARD = [
         struct='ParticleLibVtbl',
         side='client',
         every=True,
+    ),
+    dict(
+        struct='DebugOverlayVtbl',
+        # Both sides resolve VDebugOverlay003 (2026-10-19: DrawWorldText, which
+        # a server slot used to make through overlay_library).
+        methods=[
+            'AddTextOverlayRGB_2',
+        ],
+    ),
+    dict(
+        struct='EngineTraceVtbl',
+        # Both sides: the server's EngineTraceServer003 and the client's
+        # EngineTraceClient003 are one declaration over two objects
+        # (2026-10-19: PointContents, which a both-sides slot used to make).
+        methods=[
+            'GetPointContents',
+        ],
     ),
     dict(
         struct='GameEventManagerVtbl',
@@ -588,6 +608,22 @@ def parameter_types(parameters):
     return [part.strip() for part in declared.split(',') if part.strip()]
 
 
+def printf_fixed(parameters):
+    """A printf-style list's fixed parameters (`..., const char *format,
+    ...` without the `...`), or None for a list that is not varargs. Varargs
+    after anything but a format string is refused: there is no text to fix."""
+    declared = (parameters or '').strip()
+    if not declared.endswith('...'):
+        return None
+
+    fixed = declared[:-3].rstrip().rstrip(',').rstrip()
+    last = fixed.split(',')[-1] if fixed else ''
+    if not re.search(r'\bchar\s*\*', last):
+        raise Refusal('a varargs method is forwarded only after a format string; '
+                      'this one ends ( %s )' % declared)
+    return fixed
+
+
 def forwarders_of(row):
     """[(field, cpp return, cpp parameter types, C# function-pointer type,
     C++ declaration)] for one FORWARD row, in the row's order."""
@@ -610,8 +646,15 @@ def forwarders_of(row):
     for field in row['methods']:
         cls, name, parameters, returns = named[field]
 
+        # A PRINTF-STYLE METHOD IS FORWARDED WITH ITS FORMAT FIXED. Managed
+        # cannot issue a varargs call, and it never needs to: it formats in C#,
+        # and the forwarder passes the text as the one argument of "%s". So the
+        # typed signature is the fixed parameters, the last of which (the
+        # format) carries the text, and the body says `"%s", text`.
+        typed = printf_fixed(parameters)
+
         try:
-            kind = VL.signature_of(returns, parameters)
+            kind = VL.signature_of(returns, typed if typed is not None else parameters)
         except VL.Inexpressible as error:
             raise Refusal('%s::%s cannot be forwarded as typed: %s' % (cls, name, error))
 
@@ -620,7 +663,8 @@ def forwarders_of(row):
                                 'delegate* unmanaged[SuppressGCTransition]<', 1)
 
         declaration = '%s %s::%s( %s )' % (returns, cls, name, parameters or 'void')
-        out.append((field, returns, parameter_types(parameters), kind, declaration))
+        out.append((field, returns, parameter_types(typed if typed is not None else parameters),
+                    kind, declaration))
 
     return out
 
@@ -705,6 +749,10 @@ def emit_native(tables, library='server'):
         for field, returns, types, _kind, declaration in ([] if row.get('hand') else forwarders):
             params = ''.join(', %s a%d' % (t, i) for i, t in enumerate(types))
             args = ', '.join('a%d' % i for i in range(len(types)))
+            if '...' in declaration:
+                # printf_fixed: the last typed argument is the text.
+                args = ', '.join(['a%d' % i for i in range(len(types) - 1)]
+                                 + ['"%s"', 'a%d' % (len(types) - 1)])
             call = 'self->%s( %s )' % (declaration.split('::', 1)[1].split('(', 1)[0],
                                        args) if args else \
                    'self->%s()' % declaration.split('::', 1)[1].split('(', 1)[0]
@@ -1007,6 +1055,20 @@ def self_test(out=sys.stdout):
        '#if defined( SOME_FLAG )\nstatic int SSFwd_ModelInfo_GetModelType(' in gated
        and '#else\n\tnullptr, // the engine is built without SOME_FLAG and has no GetModelType\n#endif' in gated
        and gated.count('#if defined( SOME_FLAG )') == 2)
+
+    overlay = dict(struct='DebugOverlayVtbl', methods=['AddTextOverlayRGB_2'])
+    printf = forwarders_of(overlay)
+    printf_native = emit_native([(resolved(overlay), printf)])
+    ok('a printf-style method is forwarded with its format fixed at "%s" and the text last',
+       printf[0][3].endswith('byte*, void>')
+       and '"%s", a7 );' in printf_native and '...' not in printf[0][3])
+    ok('a list that is not varargs has no fixed format', printf_fixed('int, float') is None)
+    try:
+        printf_fixed('int, ...')
+        refused = False
+    except Refusal:
+        refused = True
+    ok('varargs after anything but a format string is refused', refused)
 
     managed = emit_managed([(base, rows)])
     ok('the C# struct has one plain field per forwarder, in table order',

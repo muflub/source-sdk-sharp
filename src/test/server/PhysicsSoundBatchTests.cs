@@ -261,7 +261,15 @@ public class VPhysicsSurfaceDataLayoutTests
     [InlineData(nameof(VPhysicsSurfaceData.HardVelocityThreshold), 40)]
     [InlineData(nameof(VPhysicsSurfaceData.ImpactSoft), 48)]
     [InlineData(nameof(VPhysicsSurfaceData.ImpactHard), 50)]
+    [InlineData(nameof(VPhysicsSurfaceData.RoughnessFactor), 28)]
+    [InlineData(nameof(VPhysicsSurfaceData.RoughThreshold), 32)]
+    [InlineData(nameof(VPhysicsSurfaceData.ScrapeSmooth), 52)]
+    [InlineData(nameof(VPhysicsSurfaceData.ScrapeRough), 54)]
     [InlineData(nameof(VPhysicsSurfaceData.BreakSound), 60)]
+    [InlineData(nameof(VPhysicsSurfaceData.MaxSpeedFactor), 64)]
+    [InlineData(nameof(VPhysicsSurfaceData.JumpFactor), 68)]
+    [InlineData(nameof(VPhysicsSurfaceData.GameMaterial), 72)]
+    [InlineData(nameof(VPhysicsSurfaceData.Climbable), 74)]
     public void Each_field_is_at_the_headers_offset(string field, int offset)
         => Assert.Equal(offset, (int)Marshal.OffsetOf<VPhysicsSurfaceData>(field));
 

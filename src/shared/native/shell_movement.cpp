@@ -102,8 +102,6 @@ using ss::IGameMovement;
 extern CGlobalVars *gpGlobals;
 float GetCurrentGravity( void );   // movevars_shared.cpp
 using ss::UTIL_TraceRay;
-#define MAX_PLAYERS              ss::kMaxPlayers
-#define MAX_PLAYERS_ARRAY_SAFE   ( ss::kMaxPlayers + 1 )
 #define RUMBLE_FLAGS_NONE        ss::kRumbleFlagsNone
 #define TICK_INTERVAL            ( gpGlobals->interval_per_tick )
 #define VEC_VIEW_SCALED( player )          ( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
@@ -615,7 +613,6 @@ public:
 	                            const float *pMins, const float *pMaxs,
 	                            int nMask, int nCollisionGroup,
 	                            struct SourceSharpMoveTraceResult *pOut );
-	int				WorldPointContents( const float *pXYZ, int nSlot );
 	int				WorldEffect( int nKind, const float *pXYZ, float flValue, int nValue );
 
 	// Step 6f's client bracket needs the move data the servicing methods read --
@@ -628,8 +625,6 @@ public:
 	IMovementPlayer *player;
 
 private:
-	int				GetPointContentsCached( const Vector &point, int slot );
-	void			ResetGetPointContentsCache( void );
 	void			ResetDuckLatched( void );
 
 	CMoveData		*mv;
@@ -650,11 +645,6 @@ private:
 	// ADD_TO_TOUCHED can be replayed with it -- a trace_t cannot cross and the
 	// touch list is replayed against the entities in one.
 	trace_t         m_LastTrace;
-
-	// Cache used to remove redundant calls to GetPointContents().
-	enum { MAX_PC_CACHE_SLOTS = 3 };
-	int				m_CachedGetPointContents[ MAX_PLAYERS_ARRAY_SAFE ][ MAX_PC_CACHE_SLOTS ];
-	Vector			m_CachedGetPointContentsPoint[ MAX_PLAYERS_ARRAY_SAFE ][ MAX_PC_CACHE_SLOTS ];
 };
 
 //-----------------------------------------------------------------------------
@@ -1151,18 +1141,6 @@ void CShellGameMovement::WorldTrace( const float *pStart, const float *pEnd,
 	pOut->bHitWorld      = SourceSharp_IsTheWorld( ss::TraceHit( pm ) ) ? 1 : 0;
 }
 
-int CShellGameMovement::WorldPointContents( const float *pXYZ, int nSlot )
-{
-	const Vector point = SS3E_ReadVec( pXYZ );
-
-	// -1 is stock's UNCACHED path -- LadderMove's floor test asks
-	// enginetrace->GetPointContents directly rather than through the cache.
-	if ( nSlot < 0 )
-		return enginetrace->GetPointContents( point );
-
-	return GetPointContentsCached( point, nSlot );
-}
-
 int CShellGameMovement::WorldEffect( int nKind, const float *pXYZ, float flValue, int nValue )
 {
 	const Vector where = pXYZ ? SS3E_ReadVec( pXYZ ) : vec3_origin;
@@ -1273,46 +1251,6 @@ void SourceSharp_MoveTrace( const float *pStart, const float *pEnd,
 	}
 
 	pMover->WorldTrace( pStart, pEnd, pMins, pMaxs, nMask, nCollisionGroup, pOut );
-}
-
-int32_t SourceSharp_MovePointContents( const float *pXYZ, int32_t nSlot )
-{
-	CShellGameMovement *pMover = *ActiveMover();
-	if ( !pMover || !pXYZ )
-		return 0;
-
-	return pMover->WorldPointContents( pXYZ, nSlot );
-}
-
-int32_t SourceSharp_MoveSurface( int32_t nSurfaceProps, SourceSharpMoveSurface *pOut )
-{
-	if ( !pOut )
-		return 0;
-
-	memset( pOut, 0, sizeof( *pOut ) );
-
-	IPhysicsSurfaceProps *pProps = SS_MOVE_HELPER() ? SS_MOVE_HELPER()->GetSurfaceProps() : NULL;
-	if ( !pProps )
-		return 0;
-
-	const surfacedata_t *pData = pProps->GetSurfaceData( nSurfaceProps );
-	if ( !pData )
-		return 0;
-
-	float flFriction = 0.0f;
-	float flDensity = 0.0f;
-	pProps->GetPhysicsProperties( nSurfaceProps, &flDensity, NULL, &flFriction, NULL );
-
-	pOut->bValid           = 1;
-	pOut->flFriction       = flFriction;
-	pOut->nMaterial        = (int)pData->game.material;
-	pOut->nClimbable       = (int)pData->game.climbable;
-	pOut->flMaxSpeedFactor = pData->game.maxSpeedFactor;
-	pOut->flJumpFactor     = pData->game.jumpFactor;
-	pOut->flDensity        = flDensity;
-	pOut->flRoughnessFactor = pData->audio.roughnessFactor;
-	pOut->flRoughThreshold  = pData->audio.roughThreshold;
-	return 1;
 }
 
 int32_t SourceSharp_MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue )
@@ -1463,10 +1401,7 @@ CShellGameMovement::CShellGameMovement( void )
 	// trace_t has a user-declared constructor, so clang (-Wnontrivial-memcall)
 	// wants the cast to say the byte-wise zeroing is meant. It is.
 	memset( (void *)&m_LastTrace, 0, sizeof( m_LastTrace ) );
-	memset( m_CachedGetPointContents, 0, sizeof( m_CachedGetPointContents ) );
-	memset( m_CachedGetPointContentsPoint, 0, sizeof( m_CachedGetPointContentsPoint ) );
 
-	ResetGetPointContentsCache();
 }
 
 CShellGameMovement::~CShellGameMovement( void )
@@ -1515,7 +1450,6 @@ void CShellGameMovement::ProcessMovement( IMovementPlayer *pPlayer, CMoveData *p
 	//!!Blame Yahn for this one.
 	gpGlobals->frametime *= pPlayer->MvGetLaggedMovementValue();
 
-	ResetGetPointContentsCache();
 
 	// StartTrackPredictionErrors should have set this
 	Assert( player == pPlayer );
@@ -1619,56 +1553,6 @@ Vector CShellGameMovement::GetPlayerViewOffset( bool ducked ) const
 // The two CGameMovement members the servicing half reached through, moved with
 // it. Stock's bodies, unchanged apart from the class name.
 //=============================================================================
-
-void CShellGameMovement::ResetGetPointContentsCache()
-{
-	for ( int slot = 0; slot < MAX_PC_CACHE_SLOTS; ++slot )
-	{
-		for ( int i = 0; i < MAX_PLAYERS; ++i )
-		{
-			m_CachedGetPointContents[ i ][ slot ] = -9999;
-		}
-	}
-}
-
-int CShellGameMovement::GetPointContentsCached( const Vector &point, int slot )
-{
-	if ( g_bMovementOptimizations )
-	{
-		// THE CACHE IS INDEXED BY THE PLAYER, AND THE MOVE DATA IS WHERE THE
-		// PLAYER'S NAME LIVES WHEN THERE IS NO PLAYER OBJECT (step 6f). The
-		// client's replay is managed, owns the player's state in C# and has no
-		// IMovementPlayer at all, so `player` is NULL for the whole of a client
-		// command; m_nPlayerHandle names the same entity and every driver on
-		// both sides sets it before the loop runs.
-		//
-		// FOUND LIVE, and it is the honest red path for this line: with the
-		// unconditional dereference in, dm_lockdown reached the player's first
-		// user command and segfaulted on it -- `gamemovement.cpp (4526) :
-		// Assertion Failed: player`, then SIGSEGV, in tools/.movemath-gate.log.
-		Assert( player || mv );
-		Assert( slot >= 0 && slot < MAX_PC_CACHE_SLOTS );
-
-		int idx = ( player ? player->MvEntIndex() : mv->m_nPlayerHandle.GetEntryIndex() ) - 1;
-
-		if ( idx >= MAX_PLAYERS )
-		{
-			return enginetrace->GetPointContents ( point );
-		}
-
-		if ( m_CachedGetPointContents[ idx ][ slot ] == -9999 || point.DistToSqr( m_CachedGetPointContentsPoint[ idx ][ slot ] ) > 1 )
-		{
-			m_CachedGetPointContents[ idx ][ slot ] = enginetrace->GetPointContents ( point );
-			m_CachedGetPointContentsPoint[ idx ][ slot ] = point;
-		}
-
-		return m_CachedGetPointContents[ idx ][ slot ];
-	}
-	else
-	{
-		return enginetrace->GetPointContents ( point );
-	}
-}
 
 //-----------------------------------------------------------------------------
 // Purpose: Reset interpolation when player duck state changes

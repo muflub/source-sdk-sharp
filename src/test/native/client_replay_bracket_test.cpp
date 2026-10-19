@@ -137,27 +137,24 @@ bool Has( const std::string &haystack, const char *needle )
 } // namespace
 
 //-----------------------------------------------------------------------------
-// The four sites, one fact each. One fact per site rather than one fact listing
+// The sites, one fact each. One fact per site rather than one fact listing
 // four needles, so a failure names the method that will crash rather than "one
 // of these four".
 //-----------------------------------------------------------------------------
 
-TEST( ClientReplayBracket, ThePointContentsCacheDoesNotNeedAPlayerObject )
+TEST( ClientReplayBracket, ThePointContentsCacheIsNoLongerNative )
 {
 	ASSERT_FALSE( Movement().empty() ) << "shell_movement.cpp did not open";
+	ASSERT_TRUE( Has( Movement(), "classCShellGameMovement" ) ) << "the movement shell was read";
 
-	// The cache is indexed by the player, and the move data is where the
-	// player's NAME lives when there is no player object. This is the exact
-	// line the first live run of 6f died on.
-	EXPECT_TRUE( Has( Movement(),
-		"int idx = ( player ? player->MvEntIndex() : mv->m_nPlayerHandle.GetEntryIndex() ) - 1;" ) )
-		<< "GetPointContentsCached reads player->MvEntIndex() unconditionally again. "
-		   "The client's managed replay has no IMovementPlayer, so this is a segfault "
-		   "on the first user command of every session -- measured, not predicted.";
-
-	EXPECT_FALSE( Has( Movement(), "Assert(player);Assert(slot>=0" ) )
-		<< "the Assert above it is back to requiring a player, which fires on every "
-		   "client command in a debug build before the line below crashes.";
+	// The cache was indexed by the player, and the client's replay has no
+	// player object: the first live run of 6f died on that index. Since
+	// 2026-10-19 the cache is managed (MovePointContentsCache) and the world
+	// asks IEngineTrace itself, so there is no native index left to crash on.
+	EXPECT_FALSE( Has( Movement(), "GetPointContentsCached(" ) )
+		<< "a native point-contents cache is back; it must index the player by "
+		   "mv->m_nPlayerHandle, never player->MvEntIndex(), or the client's "
+		   "replay segfaults on its first command.";
 }
 
 TEST( ClientReplayBracket, TheStepSoundEffectsAreGuarded )

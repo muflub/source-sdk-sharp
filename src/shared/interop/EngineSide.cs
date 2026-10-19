@@ -914,16 +914,6 @@ internal sealed unsafe partial class EngineSide
         return new Vector(pyr[0], pyr[1], pyr[2]);
     }
 
-    /// <summary>
-    /// The CONTENTS_* mask at a point. See <see cref="Contents"/>.
-    /// </summary>
-    public Contents PointContents(Vector origin)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return Contents.Empty;
-
-        float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return (Contents)(OwnShims.World.PointContents(p));
-    }
 
     // vphysics' IPhysicsCollision, acquired on first use from this side's
     // factories; the pointer is the vphysics module's for the process.
@@ -1273,24 +1263,6 @@ internal sealed unsafe partial class EngineSide
         OwnShims.EngineBase.SoundPatchFree(patch);
     }
 
-    /// <summary>
-    /// A sound script's parameters (GetParametersForSound): volume, pitch,
-    /// pitch range and soundlevel. Null when the script has no such entry.
-    /// </summary>
-    public SoundScriptParams? SoundScriptParameters(string soundName)
-    {
-        if (!s_Initialized || !OwnShimsAttached || soundName.Length == 0) return null;
-
-        float* outs = stackalloc float[5];
-        var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        int found;
-        fixed (byte* p = bytes)
-            found = OwnShims.EngineBase.SoundScriptParameters(p, outs);
-
-        return found == 0
-            ? null
-            : new SoundScriptParams(outs[0], (int)outs[1], (int)outs[2], (int)outs[3], (int)outs[4]);
-    }
 
     /// <summary>
     /// A sound patch on the entity, heard from where it stands
@@ -1307,18 +1279,6 @@ internal sealed unsafe partial class EngineSide
             return OwnShims.EngineBase.SoundPatchCreate(entity.Value, channel, p, soundLevel);
     }
 
-    /// <summary>
-    /// The surface's scrape sound, rough or smooth (surfacedata_t::sounds),
-    /// or null when it has none.
-    /// </summary>
-    public string? SurfaceScrapeSound(int surfaceProps, bool smooth)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return null;
-
-        byte* buffer = stackalloc byte[128];
-        int length = OwnShims.EngineBase.SurfaceScrapeSound(surfaceProps, smooth ? 1 : 0, buffer, 128);
-        return length <= 0 ? null : Encoding.UTF8.GetString(buffer, Math.Min(length, 127));
-    }
 
 
     // ---- plan_gamedll.md Part 4, Phase 6: LEVELINIT'S NINE NATIVE STEPS ----

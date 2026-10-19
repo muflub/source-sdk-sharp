@@ -46,6 +46,12 @@ public interface IMoveWorld
     /// </summary>
     int PointContents(in Vector point, int slot);
 
+    /// <summary>
+    /// <c>ResetGetPointContentsCache</c>, at the top of every command;
+    /// <paramref name="optimizations"/> is <c>g_bMovementOptimizations</c>.
+    /// </summary>
+    void ResetPointContentsCache(bool optimizations);
+
     /// <summary><c>IPhysicsSurfaceProps</c>, for the four fields the loop reads.</summary>
     MoveSurface Surface(int surfaceProps);
 

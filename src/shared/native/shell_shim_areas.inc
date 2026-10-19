@@ -22,12 +22,8 @@ void CShimEngine::SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t
 	{ return ::SourceSharp_SoundPatchState( hPatch, pnEntIndex, pbFilterActive ); }
 void CShimEngine::SoundPatchFree( int32_t hPatch )
 	{ return ::SourceSharp_SoundPatchFree( hPatch ); }
-int32_t CShimEngine::SoundScriptParameters( const char * pSoundName, float * pOut )
-	{ return ::SourceSharp_SoundScriptParameters( pSoundName, pOut ); }
 int32_t CShimEngine::SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel )
 	{ return ::SourceSharp_SoundPatchCreate( hEntity, nChannel, pSoundName, nSoundLevel ); }
-int32_t CShimEngine::SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char * pOut, int32_t nOut )
-	{ return ::SourceSharp_SurfaceScrapeSound( nSurfaceProps, bSmooth, pOut, nOut ); }
 
 void CShimConsoleServer::SendClientCommand( uint32_t hPlayer, const char * pCommand )
 	{ return ::SourceSharp_SendClientCommand( hPlayer, pCommand ); }
@@ -91,17 +87,9 @@ void CShimPrecache::PrecacheSound( const char * pSoundName )
 	{ return ::SourceSharp_PrecacheSound( pSoundName ); }
 int32_t CShimPrecache::PrecacheDecal( const char * pName )
 	{ return ::SourceSharp_PrecacheDecal( pName ); }
-void CShimPrecache::PrecacheMaterial( const char * pMaterialName )
-	{ return ::SourceSharp_PrecacheMaterial( pMaterialName ); }
-void CShimPrecache::PrecacheParticleSystem( const char * pszName )
-	{ return ::SourceSharp_PrecacheParticleSystem( pszName ); }
 
 void CShimMovementServer::MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut )
 	{ return ::SourceSharp_MoveTrace( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut ); }
-int32_t CShimMovementServer::MovePointContents( const float * pXYZ, int32_t nSlot )
-	{ return ::SourceSharp_MovePointContents( pXYZ, nSlot ); }
-int32_t CShimMovementServer::MoveSurface( int32_t nSurfaceProps, SourceSharpMoveSurface * pOut )
-	{ return ::SourceSharp_MoveSurface( nSurfaceProps, pOut ); }
 int32_t CShimMovementServer::MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue )
 	{ return ::SourceSharp_MoveEffect( nKind, pXYZ, flValue, nValue ); }
 float CShimMovementServer::CurrentGravity()
@@ -123,8 +111,6 @@ int32_t CShimMovementServer::PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveT
 void CShimMovementServer::PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow )
 	{ return ::SourceSharp_PlayerSetSlowMovement( hPlayer, bSlow ); }
 
-int32_t CShimWorldServer::PointContents( const float * pOrigin )
-	{ return ::SourceSharp_PointContents( pOrigin ); }
 int32_t CShimWorldServer::TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit )
 	{ return ::SourceSharp_TraceLine( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit ); }
 int32_t CShimWorldServer::TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid )
@@ -370,20 +356,14 @@ void CShimEffectsServer::ExplosionEffect( const float * pOrigin, int32_t nModelI
 	{ return ::SourceSharp_ExplosionEffect( pOrigin, nModelIndex, flScale, nFrameRate, nFlags, nRadius, nMagnitude ); }
 void CShimEffectsServer::ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir )
 	{ return ::SourceSharp_ViewPunch( pOrigin, pPunchPYR, flRadius, bInAir ); }
-void CShimEffectsServer::SparkEffect( const float * pOriginXYZ, int32_t nMagnitude, int32_t nTrailLength, int32_t bMakeSound, const float * pDirXYZ )
-	{ return ::SourceSharp_SparkEffect( pOriginXYZ, nMagnitude, nTrailLength, bMakeSound, pDirXYZ ); }
 void CShimEffectsServer::ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity )
 	{ return ::SourceSharp_ImpactEffect( pStartXYZ, pEndXYZ, nSurfaceProp, nDamageType, hEntity ); }
-void CShimEffectsServer::MuzzleFlashEffect( const float * pOriginXYZ, const float * pAnglesXYZ, float flScale, int32_t nType )
-	{ return ::SourceSharp_MuzzleFlashEffect( pOriginXYZ, pAnglesXYZ, flScale, nType ); }
 void CShimEffectsServer::TracerEffect( const float * pStartXYZ, const float * pEndXYZ )
 	{ return ::SourceSharp_TracerEffect( pStartXYZ, pEndXYZ ); }
 void CShimEffectsServer::BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed )
 	{ return ::SourceSharp_BubbleEffect( hEntity, nCount, flSpeed ); }
 void CShimEffectsServer::FunnelEffect( const float * pOriginXYZ, int32_t nSpriteIndex, int32_t bReversed )
 	{ return ::SourceSharp_FunnelEffect( pOriginXYZ, nSpriteIndex, bReversed ); }
-void CShimEffectsServer::DustEffect( const float * pOriginXYZ, const float * pDirXYZ, float flSize, float flSpeed )
-	{ return ::SourceSharp_DustEffect( pOriginXYZ, pDirXYZ, flSize, flSpeed ); }
 void CShimEffectsServer::SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime )
 	{ return ::SourceSharp_SplashEffect( pOriginXYZ, flScale, bInSlime ); }
 void CShimEffectsServer::BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags )
@@ -391,8 +371,6 @@ void CShimEffectsServer::BloodEffect( const float * pOriginXYZ, const float * pD
 int32_t CShimEffectsServer::PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority )
 	{ return ::SourceSharp_PaintDecal( nTexture, pOriginXYZ, pAnglesXYZ, flProjectDistance, bPermanent, bLowPriority ); }
 
-void CShimDebugOverlay::DrawWorldText( const float * pOriginXYZ, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a )
-	{ return ::SourceSharp_DrawWorldText( pOriginXYZ, nLine, pText, flDuration, r, g, b, a ); }
 int32_t CShimDebugOverlay::DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a )
 	{ return ::SourceSharp_DrawEntityOverlay( hEntity, nLine, pText, flDuration, r, g, b, a ); }
 void CShimDebugOverlay::AddLineOverlay( const float * pStartXYZ, const float * pEndXYZ, int32_t r, int32_t g, int32_t b, int32_t bNoDepthTest, float flDuration )

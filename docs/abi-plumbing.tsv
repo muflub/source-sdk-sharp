@@ -38,7 +38,6 @@ ManagedVtableHashFiles.cs	d	reload check reads slot hashes from disk (Bootstrap 
 MapLoadRaw.cs	b	blittable mirror of SourceSharpMapLoad (user example)
 MoveEffectKind.cs	b	value contract: SourceSharpMoveEffect
 MoveStateBlob.cs	b	blittable SourceSharpMoveState (user example)
-MoveSurfaceBlob.cs	b	blittable SourceSharpMoveSurface
 MoveTraceBlob.cs	b	blittable SourceSharpMoveTraceResult
 NativeDocAttribute.cs	b	C++ comments for the generated native engine block
 NativeInterfaceFactory.cs	d	acquire-by-version binding machinery

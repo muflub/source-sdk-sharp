@@ -23,12 +23,8 @@ void CShimEngineClient::SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, i
 	{ return ::SourceSharp_ClientSoundPatchState( hPatch, pnEntIndex, pbFilterActive ); }
 void CShimEngineClient::SoundPatchFree( int32_t hPatch )
 	{ return ::SourceSharp_ClientSoundPatchFree( hPatch ); }
-int32_t CShimEngineClient::SoundScriptParameters( const char * pSoundName, float * pOut )
-	{ return ::SourceSharp_ClientSoundScriptParameters( pSoundName, pOut ); }
 int32_t CShimEngineClient::SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel )
 	{ return ::SourceSharp_ClientSoundPatchCreate( hEntity, nChannel, pSoundName, nSoundLevel ); }
-int32_t CShimEngineClient::SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char * pOut, int32_t nOut )
-	{ return ::SourceSharp_ClientSurfaceScrapeSound( nSurfaceProps, bSmooth, pOut, nOut ); }
 
 void CShimEventsClient::ListenForGameEvent( const char * pEventName )
 	{ return ::SourceSharp_ListenForGameEvent( pEventName ); }
@@ -59,19 +55,12 @@ void CShimModelsClient::StandaloneSetModelScale( uint32_t hEntity, float flScale
 
 void CShimMovementClient::MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut )
 	{ return ::SourceSharp_MoveTrace( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut ); }
-int32_t CShimMovementClient::MovePointContents( const float * pXYZ, int32_t nSlot )
-	{ return ::SourceSharp_MovePointContents( pXYZ, nSlot ); }
-int32_t CShimMovementClient::MoveSurface( int32_t nSurfaceProps, SourceSharpMoveSurface * pOut )
-	{ return ::SourceSharp_MoveSurface( nSurfaceProps, pOut ); }
 int32_t CShimMovementClient::MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue )
 	{ return ::SourceSharp_MoveEffect( nKind, pXYZ, flValue, nValue ); }
 float CShimMovementClient::CurrentGravity()
 	{ return ::SourceSharp_CurrentGravity(); }
 void CShimMovementClient::RegisterMovementParams( const SourceSharpMovementParams * pParams )
 	{ return ::SourceSharp_RegisterMovementParams( pParams ); }
-
-int32_t CShimWorldClient::PointContents( const float * pOrigin )
-	{ return ::SourceSharp_PointContents( pOrigin ); }
 
 int32_t CShimEntitiesClient::EntityGetIndex( uint32_t hEntity )
 	{ return ::SourceSharp_ClientEntityGetIndex( hEntity ); }
@@ -602,9 +591,6 @@ void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MOVEMENT_VERSION ) )
 		return static_cast< IShimMovement * >( &areas.m_Movement );
-
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_WORLD_VERSION ) )
-		return static_cast< IShimWorld * >( &areas.m_World );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENTITIES_VERSION ) )
 		return static_cast< IShimEntities * >( &areas.m_Entities );

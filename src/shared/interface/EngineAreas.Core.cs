@@ -174,7 +174,17 @@ public interface IEnginePrecache
     /// <inheritdoc cref="EngineSide.PrecacheDecal"/>
     int PrecacheDecal(string name);
 
-    /// <inheritdoc cref="EngineSide.PrecacheMaterial"/>
+    /// <summary>
+    /// Precaches a material by name — "skybox/sky_day01_01rt", with no
+    /// extension.
+    ///
+    /// <para>
+    /// Not <see cref="PrecacheModel"/> with a .vmt, which is the neighbouring
+    /// call and answers an INDEX. A model index is a number both sides of the
+    /// wire agree on; a material is only ever a name the renderer resolves, and
+    /// there is nothing to network.
+    /// </para>
+    /// </summary>
     void PrecacheMaterial(string material);
 
     /// <inheritdoc cref="EngineSide.PrecacheModel"/>
@@ -214,7 +224,24 @@ public interface IEnginePrecache
     /// </summary>
     ModelType ModelTypeOf(int modelIndex);
 
-    /// <inheritdoc cref="EngineSide.PrecacheParticleSystem"/>
+    /// <summary>
+    /// A particle system, by name, so the client can build one.
+    ///
+    /// <para>
+    /// The neighbour of <see cref="PrecacheModel"/> and
+    /// <see cref="PrecacheMaterial"/> and interchangeable with neither: a
+    /// particle system has its own string table, and a name that never reached
+    /// it does not refuse at draw time — it is simply not there.
+    /// </para>
+    ///
+    /// <para>
+    /// Stock precaches the fire systems from <c>CFire::Precache</c>. That has
+    /// not run since <c>env_fire</c> became a C# class, because
+    /// <c>LINK_ENTITY_TO_CLASS( env_fire, CFire )</c> sits inside
+    /// <c>#ifndef SOURCESHARP</c> and no <c>CFire</c> is ever constructed, and
+    /// there was no other door to ask through.
+    /// </para>
+    /// </summary>
     void PrecacheParticleSystem(string name);
 
     /// <inheritdoc cref="EngineSide.PrecacheSound"/>

@@ -88,6 +88,14 @@ internal sealed partial class EngineBoundSet
         new(UniformRandomStream.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => UniformRandomStream.Acquire(factory, out why));
 
+    // THE TRACE IS ASKED FOR BY THE SIDE'S OWN NAME, as the model info is.
+    internal BoundInterface<IVtableEngineTrace> Trace { get; } =
+        new(EngineTrace.ServerInterfaceVersion, EngineTrace.Acquire);
+
+    internal BoundInterface<IVtableSoundEmitter> SoundEmitter { get; } =
+        new(SoundEmitterBase.InterfaceVersion,
+            (NativeInterfaceFactory factory, Side _, out string why) => SoundEmitterBase.Acquire(factory, out why));
+
     internal BoundInterface<IVtablePhysicsSurfaceProps> SurfaceProps { get; } =
         new(PhysicsSurfaceProps.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => PhysicsSurfaceProps.Acquire(factory, out why));
@@ -118,6 +126,12 @@ internal static partial class EngineBound
 
     /// <summary><c>VEngineRandom001</c>, this side's.</summary>
     internal static IUniformRandom Random(EngineSide side) => side.Bound.Random.For(side);
+
+    /// <summary><c>EngineTraceServer003</c> or <c>EngineTraceClient003</c>, this side's.</summary>
+    internal static IVtableEngineTrace Trace(EngineSide side) => side.Bound.Trace.For(side);
+
+    /// <summary><c>VSoundEmitter002</c>, this side's.</summary>
+    internal static IVtableSoundEmitter SoundEmitter(EngineSide side) => side.Bound.SoundEmitter.For(side);
 
     /// <summary><c>VPhysicsSurfaceProps001</c>, this side's.</summary>
     internal static IVtablePhysicsSurfaceProps SurfaceProps(EngineSide side) => side.Bound.SurfaceProps.For(side);

@@ -202,6 +202,8 @@ public static unsafe class MovementBridge
         // (plan_abi_hotreload D8); it was Engine.Current.Slots per call.
         private readonly EngineSide _api;
 
+        private readonly MovePointContentsCache _pointContents = new();
+
         internal EngineMoveWorld(EngineSide api) => _api = api;
 
         public MoveTrace Trace(in Vector start, in Vector end, in Vector mins, in Vector maxs,
@@ -241,29 +243,20 @@ public static unsafe class MovementBridge
             if (!_api.OwnShimsAttached)
                 return 0;
 
-            float* p = stackalloc float[3] { point.X, point.Y, point.Z };
-            return (_api.OwnShims.Movement.MovePointContents(p, slot));
+            if (_pointContents.TryGet(point, slot, out int cached))
+                return cached;
+
+            int contents = EngineBound.Trace(_api).PointContents(point);
+            _pointContents.Store(point, slot, contents);
+            return contents;
         }
+
+        public void ResetPointContentsCache(bool optimizations) => _pointContents.Reset(optimizations);
 
         public MoveSurface Surface(int surfaceProps)
-        {
-            if (!_api.OwnShimsAttached)
-                return default;
-
-            MoveSurfaceBlob blob = default;
-            if ((_api.OwnShims.Movement.MoveSurface(surfaceProps, &blob)) == 0)
-                return default;
-
-            return new MoveSurface
-            {
-                Valid = blob.Valid != 0,
-                Friction = blob.Friction,
-                Material = blob.Material,
-                Climbable = blob.Climbable,
-                MaxSpeedFactor = blob.MaxSpeedFactor,
-                JumpFactor = blob.JumpFactor,
-            };
-        }
+            => _api.OwnShimsAttached
+                ? EngineBound.SurfaceProps(_api).Surface(surfaceProps)
+                : default;
 
         private int Effect(MoveEffectKind kind, in Vector xyz, float value, int flag)
         {

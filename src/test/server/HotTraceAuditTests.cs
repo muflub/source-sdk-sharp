@@ -50,7 +50,6 @@ public class HotTraceAuditTests
     {
         "SourceSharp_TraceLine",             // 1.573/frame; 26,015 lines a session
         "SourceSharp_EntityTraceHull",       // PlayerShadowRecovery's fit test; 4,314 lines a session
-        "SourceSharp_SurfaceScrapeSound",    // per scraping contact; 3,022 lines a session
         "SourceSharp_PrecacheDecal",         // 0.612/frame load; 298 lines a map load
         "SourceSharp_PrecacheModel",         // 0.405/frame load; 197 lines a map load
     };

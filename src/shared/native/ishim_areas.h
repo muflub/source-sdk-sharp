@@ -69,9 +69,7 @@ public:
 	virtual void SoundPatchStop( int32_t hPatch ) = 0;
 	virtual void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) = 0;
 	virtual void SoundPatchFree( int32_t hPatch ) = 0;
-	virtual int32_t SoundScriptParameters( const char * pSoundName, float * pOut ) = 0;
 	virtual int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char * pSoundName, int32_t nSoundLevel ) = 0;
-	virtual int32_t SurfaceScrapeSound( int32_t nSurfaceProps, int32_t bSmooth, char * pOut, int32_t nOut ) = 0;
 };
 
 abstract_class IShimConsoleServer
@@ -114,25 +112,15 @@ public:
 	virtual int32_t PrecacheModel( const char * pszModel ) = 0;
 	virtual void PrecacheSound( const char * pSoundName ) = 0;
 	virtual int32_t PrecacheDecal( const char * pName ) = 0;
-	virtual void PrecacheMaterial( const char * pMaterialName ) = 0;
-	virtual void PrecacheParticleSystem( const char * pszName ) = 0;
 };
 
 abstract_class IShimMovement
 {
 public:
 	virtual void MoveTrace( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult * pOut ) = 0;
-	virtual int32_t MovePointContents( const float * pXYZ, int32_t nSlot ) = 0;
-	virtual int32_t MoveSurface( int32_t nSurfaceProps, SourceSharpMoveSurface * pOut ) = 0;
 	virtual int32_t MoveEffect( int32_t nKind, const float * pXYZ, float flValue, int32_t nValue ) = 0;
 	virtual float CurrentGravity() = 0;
 	virtual void RegisterMovementParams( const SourceSharpMovementParams * pParams ) = 0;
-};
-
-abstract_class IShimWorld
-{
-public:
-	virtual int32_t PointContents( const float * pOrigin ) = 0;
 };
 
 abstract_class IShimEntities
@@ -274,7 +262,6 @@ public:
 abstract_class IShimDebugOverlay
 {
 public:
-	virtual void DrawWorldText( const float * pOriginXYZ, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a ) = 0;
 	virtual int32_t DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char * pText, float flDuration, int32_t r, int32_t g, int32_t b, int32_t a ) = 0;
 	virtual void AddLineOverlay( const float * pStartXYZ, const float * pEndXYZ, int32_t r, int32_t g, int32_t b, int32_t bNoDepthTest, float flDuration ) = 0;
 	virtual void OverlayCounts( uint32_t * pOutDrawn, uint32_t * pOutClipped, uint32_t * pOutNoViewer, uint32_t * pOutNoOverlay, int32_t * pOutViewerSet ) = 0;
@@ -335,7 +322,7 @@ public:
 	virtual void PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow ) = 0;
 };
 
-abstract_class IShimWorldServer : public IShimWorld
+abstract_class IShimWorldServer
 {
 public:
 	virtual int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) = 0;
@@ -403,13 +390,10 @@ public:
 	virtual int32_t EffectDispatchIndex( const char * pName ) = 0;
 	virtual void ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude ) = 0;
 	virtual void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) = 0;
-	virtual void SparkEffect( const float * pOriginXYZ, int32_t nMagnitude, int32_t nTrailLength, int32_t bMakeSound, const float * pDirXYZ ) = 0;
 	virtual void ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity ) = 0;
-	virtual void MuzzleFlashEffect( const float * pOriginXYZ, const float * pAnglesXYZ, float flScale, int32_t nType ) = 0;
 	virtual void TracerEffect( const float * pStartXYZ, const float * pEndXYZ ) = 0;
 	virtual void BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed ) = 0;
 	virtual void FunnelEffect( const float * pOriginXYZ, int32_t nSpriteIndex, int32_t bReversed ) = 0;
-	virtual void DustEffect( const float * pOriginXYZ, const float * pDirXYZ, float flSize, float flSpeed ) = 0;
 	virtual void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) = 0;
 	virtual void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) = 0;
 	virtual int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) = 0;

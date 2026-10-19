@@ -23,6 +23,7 @@ public class ClientPredictionMoveWorldTests
             return new MoveTrace { Fraction = 0.5f };
         }
         public int PointContents(in Vector point, int slot) { Seen.Add("PointContents"); return 32; }
+        public void ResetPointContentsCache(bool optimizations) => Seen.Add("ResetPointContentsCache");
         public MoveSurface Surface(int surfaceProps) { Seen.Add("Surface"); return new MoveSurface { Valid = true }; }
         public void ResetTouchList() => Seen.Add("ResetTouchList");
         public void AddToTouched(in MoveTrace trace, in Vector velocity) => Seen.Add("AddToTouched");
@@ -97,6 +98,7 @@ public class ClientPredictionMoveWorldTests
         var (w, engine, _) = Rig(firstRun: true);
         Assert.Equal(0.5f, w.Trace(Vector.Zero, Vector.Zero, Vector.Zero, Vector.Zero, 0, 0).Fraction);
         Assert.Equal(32, w.PointContents(Vector.Zero, 0));
+        w.ResetPointContentsCache(true);
         Assert.True(w.Surface(1).Valid);
         w.PlayStepSound(Vector.Zero, 0, 1f, false);
         w.UpdateStepSound(Vector.Zero, Vector.Zero, 0);
@@ -105,7 +107,7 @@ public class ClientPredictionMoveWorldTests
         Assert.Equal(7f, w.EngineTime());
         w.ResetDuckLatched();
         w.SetPlayerSurface(0);
-        Assert.Equal(new[] { "Trace", "PointContents", "Surface", "PlayStepSound", "UpdateStepSound", "Splash",
+        Assert.Equal(new[] { "Trace", "PointContents", "ResetPointContentsCache", "Surface", "PlayStepSound", "UpdateStepSound", "Splash",
                              "RumbleEffect", "EngineTime", "ResetDuckLatched", "SetPlayerSurface" }, engine.Seen);
     }
 }
