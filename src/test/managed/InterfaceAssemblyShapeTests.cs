@@ -25,7 +25,8 @@ public class InterfaceAssemblyShapeTests
 {
     public static TheoryData<string> Assemblies => new()
     {
-        "SourceSharp.Server.Interface",
+        "Debug.Api.Server.Interfaces",
+        "Debug.Api.Client.Interfaces",
         "SourceSharp.Client.Interface",
     };
 

@@ -1,4 +1,4 @@
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
 using SourceSharp.Client.Vgui;

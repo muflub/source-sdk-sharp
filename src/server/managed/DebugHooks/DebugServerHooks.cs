@@ -1,4 +1,4 @@
-using SourceSharp.Server.Interface;
+using Debug.Api.Server.Interfaces;
 
 namespace SourceSharp.Server;
 

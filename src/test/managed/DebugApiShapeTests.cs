@@ -2,8 +2,8 @@ using System.Reflection;
 
 using Xunit;
 
-using ClientSide = SourceSharp.Client.Interface;
-using ServerSide = SourceSharp.Server.Interface;
+using ClientSide = Debug.Api.Client.Interfaces;
+using ServerSide = Debug.Api.Server.Interfaces;
 
 namespace SourceSharp.Tests;
 

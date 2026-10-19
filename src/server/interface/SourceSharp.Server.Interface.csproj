@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <!--
-    The hook points the server serves to its dev API (plan_devapi_interfaces §2):
-    interfaces over plain data. It references System.* only, so the dev API that
-    links it can see nothing else of the game. SourceSharp.Server implements the
-    hooks; Debug.Api.Server calls them. DebugApiClosureTests holds both
-    rules from the built metadata and from this file.
-  -->
-</Project>

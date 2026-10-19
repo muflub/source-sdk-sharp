@@ -1,7 +1,7 @@
 using System.Globalization;
 using SourceSharp.Abi;
 using SourceSharp.Client.Input;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 
 namespace SourceSharp.Client;
 

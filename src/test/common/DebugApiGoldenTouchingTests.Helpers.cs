@@ -9,7 +9,7 @@ namespace SourceSharp.Tests;
 public partial class DebugApiGoldenTouchingTests
 {
     /// <summary>Two touch links, 5-7 and 9-5, over an engine that answers each handle's index in turn.</summary>
-    internal static SourceSharp.Server.Interface.IDebugServerHooks Hooks()
+    internal static Debug.Api.Server.Interfaces.IDebugServerHooks Hooks()
     {
         var engine = DebugApiGoldenWorldTests.Engine();
         var indices = new Queue<int>([5, 7, 9, 5]);

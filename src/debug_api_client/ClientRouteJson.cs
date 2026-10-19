@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Text;
 using System.Text.Json;
 
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 
 namespace Debug.Api;
 

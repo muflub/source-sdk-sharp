@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Debug.Api;
 using SourceSharp.Server;
-using SourceSharp.Server.Interface;
+using Debug.Api.Server.Interfaces;
 using Xunit;
 
 namespace SourceSharp.Tests;

@@ -10,7 +10,7 @@ using SourceSharp.Shared;
 using SourceSharp.Shared.Bones;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared.Interop;
-using SourceSharp.Server.Interface;
+using Debug.Api.Server.Interfaces;
 
 namespace SourceSharp.Server;
 

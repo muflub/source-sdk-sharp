@@ -1,5 +1,5 @@
 using SourceSharp.Abi;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.ViewCamera;

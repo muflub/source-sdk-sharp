@@ -1,4 +1,4 @@
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 using SourceSharp.Client.MaterialProxies;
 
 namespace SourceSharp.Client;

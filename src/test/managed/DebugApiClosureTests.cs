@@ -32,8 +32,8 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class DebugApiClosureTests
 {
-    private const string ServerInterface = "SourceSharp.Server.Interface";
-    private const string ClientInterface = "SourceSharp.Client.Interface";
+    private const string ServerInterface = "Debug.Api.Server.Interfaces";
+    private const string ClientInterface = "Debug.Api.Client.Interfaces";
     private const string DebugApiShared = "Debug.Api.Shared";
     private const string DebugApiServer = "Debug.Api.Server";
     private const string DebugApiClient = "Debug.Api.Client";
@@ -60,8 +60,8 @@ public class DebugApiClosureTests
 
     private static readonly IReadOnlyDictionary<string, string> Projects = new Dictionary<string, string>
     {
-        [ServerInterface] = "src/server/interface/SourceSharp.Server.Interface.csproj",
-        [ClientInterface] = "src/client/interface/SourceSharp.Client.Interface.csproj",
+        [ServerInterface] = "src/debug_api/interfaces/Debug.Api.Server.Interfaces.csproj",
+        [ClientInterface] = "src/debug_api_client/interfaces/Debug.Api.Client.Interfaces.csproj",
         [DebugApiShared] = "src/debug_api_shared/Debug.Api.Shared.csproj",
         [DebugApiServer] = "src/debug_api/Debug.Api.Server.csproj",
         [DebugApiClient] = "src/debug_api_client/Debug.Api.Client.csproj",

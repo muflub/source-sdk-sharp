@@ -23,7 +23,7 @@
     <ProjectReference Include="..\..\analyzers\SourceSharp.Analyzers.csproj" />
     <ProjectReference Include="..\support\SourceSharp.TestSupport.csproj" />
     <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
-    <ProjectReference Include="..\..\server\interface\SourceSharp.Server.Interface.csproj" />
+    <ProjectReference Include="..\..\debug_api\interfaces\Debug.Api.Server.Interfaces.csproj" />
     <ProjectReference Include="..\..\debug_api\Debug.Api.Server.csproj" />
     <ProjectReference Include="..\..\mapgen\SourceSharp.MapGen.csproj" />
     <ProjectReference Include="..\..\debug_api_shared\Debug.Api.Shared.csproj" />

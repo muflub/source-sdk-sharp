@@ -1,7 +1,7 @@
 using SourceSharp.Abi;
 using Debug.Api;
 using SourceSharp.Server;
-using SourceSharp.Server.Interface;
+using Debug.Api.Server.Interfaces;
 using SourceSharp.Tests;
 using Xunit;
 

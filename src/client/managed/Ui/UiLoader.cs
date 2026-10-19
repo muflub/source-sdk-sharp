@@ -5,7 +5,7 @@ using System.Runtime.Loader;
 using System.Security.Cryptography;
 
 using SourceSharp.Abi;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 using SourceSharp.Client.Interop;
 
 namespace SourceSharp.Client.Vgui;

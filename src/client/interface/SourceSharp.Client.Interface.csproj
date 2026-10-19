@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    The client's hook points for its dev API (plan_devapi_interfaces §2): the
-    same model as SourceSharp.Server.Interface. System.* only.
+    The client's interfaces over plain data that its logic implements for
+    others: today the UI's data contracts (Ui/), which screens take by
+    constructor and the client fills. System.* only. The dev API's hook points
+    moved to Debug.Api.Client.Interfaces (plan_shim_areas_split phase 1).
   -->
 </Project>

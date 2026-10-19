@@ -207,11 +207,11 @@ public class ClientProxyRouteTests
         Assert.Equal(0, slot);
     }
 
-    private sealed class OneFrame : SourceSharp.Client.Interface.IDebugClientFrame
+    private sealed class OneFrame : Debug.Api.Client.Interfaces.IDebugClientFrame
     {
         public int Reads;
 
-        public SourceSharp.Client.Interface.DebugClientFrame Read()
+        public Debug.Api.Client.Interfaces.DebugClientFrame Read()
         {
             Reads++;
             return new(7, 0, "Start", [], 0, 0, 0, 0, 0, false, default, 0, 0);

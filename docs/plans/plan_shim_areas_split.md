@@ -263,3 +263,18 @@ Each phase builds, passes its tests and is committed before the next.
   others live in the interface assemblies.
 
 Open: none.
+
+## 9. As built
+
+- **Phase 1** (2026-10-19). The server's dev API contract moved whole, to
+  `src/debug_api/interfaces/` as `Debug.Api.Server.Interfaces`. The client's
+  assembly held two things: the dev API's 16 hook files and the UI's data
+  contracts (`Ui/`, namespace `SourceSharp.Client.Ui`), which the screens, the
+  mod UI, the Descent UI and UiPreview take and the dev API never names. Only
+  the dev API's files moved, to `src/debug_api_client/interfaces/` as
+  `Debug.Api.Client.Interfaces`; `Ui/` stays in `SourceSharp.Client.Interface`,
+  where it is already a seam in this plan's sense, so no UI project's
+  references changed and a screen still sees only that assembly and the toolkit
+  (`UiAssemblyRulesTests`). The renamed and remaining assemblies' public
+  surface, stripped of namespaces and assembly names, is identical to the old
+  two (3,775 members, 71 interfaces, a reflection dump of each).

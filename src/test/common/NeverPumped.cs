@@ -24,6 +24,6 @@ internal static class NeverPumped
     public static DebugApiServer Server(Abi.Crossings? crossings = null, BuildInfo? build = null)
         => Server(TestDebugHooks.Server(crossings: crossings, build: build));
 
-    public static DebugApiServer Server(SourceSharp.Server.Interface.IDebugServerHooks hooks)
+    public static DebugApiServer Server(Debug.Api.Server.Interfaces.IDebugServerHooks hooks)
         => DebugApiServer.ForTest(hooks, Wait);
 }
