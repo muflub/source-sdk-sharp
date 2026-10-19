@@ -4,7 +4,7 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the recipient filter, built natively (libss_fwd_server) ===//
+//========= SourceSharp — the recipient filter, built natively (libss_fwd_<side>) ===//
 // SS_REASON a  a vtable the engine calls through
 //
 // plan_server_native_v2 T4a. IEngineSound::EmitSound takes an IRecipientFilter

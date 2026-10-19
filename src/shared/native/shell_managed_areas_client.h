@@ -50,6 +50,7 @@ struct CManagedAreasClient
 	IManagedPhysicsClient *m_pPhysicsClient;
 	IManagedDetailPropsClient *m_pDetailPropsClient;
 	IManagedLeafSystemClient *m_pLeafSystemClient;
+	IManagedSoundEmitterClient *m_pSoundEmitterClient;
 };
 
 struct CManagedHoldersClient
@@ -96,7 +97,8 @@ inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )
 		&& !holders.m_Areas.m_pBonesClient
 		&& !holders.m_Areas.m_pPhysicsClient
 		&& !holders.m_Areas.m_pDetailPropsClient
-		&& !holders.m_Areas.m_pLeafSystemClient;
+		&& !holders.m_Areas.m_pLeafSystemClient
+		&& !holders.m_Areas.m_pSoundEmitterClient;
 }
 
 bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy );

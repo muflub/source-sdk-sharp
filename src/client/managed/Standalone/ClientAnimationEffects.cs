@@ -65,7 +65,7 @@ public sealed class AnimationEventEffects : IAnimationEventSink
 
     private readonly IEngineEntityRender _render;
     private readonly IEngineVisibility _visibility;
-    private readonly IEngineSound _sound;
+    private readonly Sounds.IClientEntitySounds _sound;
     private readonly IEngineEntities _entities;
     private readonly TempEnts.ILegacyMuzzleFlashes _flashes;
     private readonly IViewEntity _view;
@@ -73,7 +73,7 @@ public sealed class AnimationEventEffects : IAnimationEventSink
     private readonly Interop.IFxRender _fx;
 
     public AnimationEventEffects(IEngineEntityRender render, IEngineVisibility visibility,
-                                 IEngineSound sound, IEngineEntities entities, TempEnts.ILegacyMuzzleFlashes flashes,
+                                 Sounds.IClientEntitySounds sound, IEngineEntities entities, TempEnts.ILegacyMuzzleFlashes flashes,
                                  IViewEntity view, TempEnts.ILegacyBrass brass, Interop.IFxRender fx)
     {
         _brass = brass;
@@ -118,7 +118,7 @@ public sealed class AnimationEventEffects : IAnimationEventSink
                 break;
 
             case AnimationEventKind.Sound:
-                _sound.ClientEmitSound(fired.Entity, action.Payload);
+                _sound.EmitFrom(fired.Entity, action.Payload);
                 Sounded++;
                 LastLine = $"{fired.ClassName} seq {fired.Sequence} " +
                            $"{fired.Carried.Describe()} -> sound '{action.Payload}'";

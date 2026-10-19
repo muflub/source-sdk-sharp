@@ -54,13 +54,6 @@ public interface IFxRender
     /// <summary><c>MainViewOrigin()</c>: where the listener is.</summary>
     Vector MainViewOrigin();
 
-    /// <summary>
-    /// A tracer's near-miss: <c>GameSound_GetParameters( soundName )</c> and, if
-    /// it has parameters, <c>EmitSound</c> to the local player from the world at
-    /// <paramref name="start"/> along <paramref name="direction"/>. Answers whether
-    /// the sound had parameters.
-    /// </summary>
-    bool EmitTracerSound(string soundName, Vector start, Vector direction);
 
     /// <summary><c>engine-&gt;GetLocalPlayer()</c>: the viewer's slot, or 0 and below before there is one.</summary>
     int LocalPlayer();
@@ -93,4 +86,16 @@ public interface IFxRender
 
     /// <summary><c>tempents-&gt;EjectBrass( origin, angles, gunAngles, type )</c>.</summary>
     void EjectBrass(Vector origin, QAngle angles, QAngle gunAngles, int type);
+}
+
+/// <summary>A tracer's near-miss sound (FX_TracerSound's emit), played by the managed client sound emitter.</summary>
+public interface IFxTracerSound
+{
+    /// <summary>
+    /// A tracer's near-miss: <c>GameSound_GetParameters( soundName )</c> and, if
+    /// it has parameters, <c>EmitSound</c> to the local player from the world at
+    /// <paramref name="start"/> along <paramref name="direction"/>. Answers whether
+    /// the sound had parameters.
+    /// </summary>
+    bool EmitTracerSound(string soundName, Vector start, Vector direction);
 }

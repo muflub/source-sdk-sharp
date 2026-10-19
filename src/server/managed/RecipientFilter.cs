@@ -119,7 +119,7 @@ public interface ISoundListeners
 /// <c>CPASAttenuationFilter</c> and its <c>Filter</c>, and
 /// <c>RemoveRecipientsIfNotCloseCaptioning</c>.
 /// </summary>
-public sealed class SoundRecipients(ISoundEmitterEngine engine, ISoundListeners listeners)
+public sealed class SoundRecipients(IServerSoundEmitterEngine engine, ISoundListeners listeners)
 {
     /// <summary>SOUND_NORMAL_CLIP_DIST (const.h).</summary>
     public const float NormalClipDistance = 1000.0f;

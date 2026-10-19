@@ -1,7 +1,7 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
 [CSoundPatch] m_flScriptVolume	LAYOUT	the patch's construction
-[CSoundPatch] void Init(	BOUNDARY	the sound-script lookup (GameSound_GetParameters) and the filter copy; stock's Init
+[CSoundPatch] void Init(	BOUNDARY	the sound-script lookup (ClientSound::GetParameters, stock's GameSound_GetParameters body) and the filter copy; stock's Init
 [CSoundPatch] int Handle()	SLOT-HELP	accessor
 [CSoundPatch] void SetHandle(	SLOT-HELP	accessor
 [CSoundPatch] void SetCaptionDuration(	SLOT-HELP	accessor
@@ -9,8 +9,8 @@
 [CSoundPatch] const char *Name()	SLOT-HELP	accessor
 [CSoundPatch] bool FilterIsActive()	SLOT-HELP	accessor
 [CSoundPatch] int EntIndex()	SLOT-HELP	accessor
-[CSoundPatch] void Emit(	BOUNDARY	one EmitSound_t through GameSound_Emit with the volume, pitch and flags managed decided
-[CSoundPatch] void Stop()	BOUNDARY	GameSound_Stop
+[CSoundPatch] void Emit(	BOUNDARY	one EmitSound_t to the managed ClientSoundEmitter (ClientSound::Emit) with the volume, pitch and flags managed decided
+[CSoundPatch] void Stop()	BOUNDARY	the managed ClientSoundEmitter's stop (ClientSound::Stop, stock's GameSound_Stop)
 [CShellClientSoundController] CShellClientSoundController()	LAYOUT	construction
 [CShellClientSoundController] CSoundPatch *Resolve(	SLOT-HELP	handle -> patch
 [CShellClientSoundController] void Free(	SLOT-HELP	frees a patch managed destroyed

@@ -1,7 +1,6 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
 int32_t SourceSharp_PhysicsClientSurfaceAudio(	BOUNDARY	physprops->GetSurfaceData's impact audio, the read stock's PlayImpactSounds makes
-int32_t SourceSharp_PhysicsClientEmitImpactSound(	BOUNDARY	PlayImpactSounds' carry-out: GameSound_GetParameters, a PAS filter, GameSound_Emit from the world
 void SourceSharp_PhysicsClientCollideExtent(	BOUNDARY	physcollision->CollideGetExtent of the object's collide at a transform, the read stock's PhysicsSplash makes
 int32_t SourceSharp_PhysicsClientPointContents(	SLOT	IShimPhysicsClient: enginetrace->GetPointContents, one read
 void SourceSharp_PhysicsClientSplashLighting(	BOUNDARY	FX_GetSplashLighting, one call

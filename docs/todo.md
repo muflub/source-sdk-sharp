@@ -183,10 +183,15 @@ Managed callers should call these directly; the managed-built slot goes in T3.
   (`IVtableEngineSoundServer.IsSoundPrecached`); `ISoundEmitterEngine` would
   carry it to the emit.
 - **sound_emitter.cpp's client emit path is native** (moved to
-  src/client/native 2026-10-19, same link position): CSoundEmitterSystem's
-  client EmitSound/EmitSoundByHandle/close captions, about 500 logic lines
-  (docs/client-novalve-ratchet.tsv's logic-lines counts it now). It is the
-  client port's to move to managed, as the server's went to SoundEmitter.
+  src/client/native 2026-10-19, same link position). **Closed 2026-10-19:**
+  the emit path is the shared `SoundEmitterCore` (src/shared/managed), the
+  server's `SoundEmitter` and the client's `ClientSoundEmitter`
+  (SourceSharp.Client.Sounds) its two sides' arms, held to pristine
+  SoundEmitterSystem.cpp by `ClientSoundEmitterOracleTests`
+  (soundemitter_client_oracle_test's golden); the system's stages are
+  `ClientSoundEmitterSystem`'s; sound_emitter.cpp left client.so and the
+  repository (logic-lines 8804 -> 8229). Its follow-ups are the next section.
+
 - **shell_savegame.cpp's client save codec is native** (moved to
   src/client/native 2026-10-19, plan_server_native_v2 T4c, same link
   position): the client's SaveInit/SaveWriteFields/SaveReadFields for its decal
@@ -239,6 +244,40 @@ by layout. What is left, each with its exit:
   map's absence; T4b ran it and saw 473/61 dm_lockdown both passes. The sandbox
   map's ss_te_tester fires every temp entity and is the fullest live exercise of
   the managed send; run it from a tree with the map built.
+
+## The client's sound emit path in C#: follow-ups and divergences
+
+- **CLOSED 2026-10-19: gamesound.h is dead on both sides.** Nothing defines
+  or calls a `GameSound_*` function any more (`nm -C -u` over both link
+  lines: none). The four server includes went in 4e8970d95; the client probe
+  build repair moved the last includer (tools/probes/client/
+  c2sims_probes_debug.cpp) to soundemitterbase and deleted the header.
+- **A client entity with no managed half has no speaker gender.** The client's
+  `SpeakerModel` asks the client registry by index (`IClientStandalones`); a
+  shell with no managed instance answers nothing, so its gendered script plays
+  its GENDER_NONE wave. sound_emitter.cpp asked the slot table, which held
+  every shell. Players (the gendered voices) are managed, so nothing audible
+  changed; an index-addressed model-name read would close it.
+- **An entity sound from a handle that names nothing, or a client-only entity,
+  sounds from the world.** `ClientSounds.EmitFrom` maps `GetIndex`'s -1 to
+  SOUND_FROM_WORLD; the native executor emitted from -1 (the engine's "the
+  view entity") for a resolving client-only shell. Telling the two apart needs
+  a resolve answer the entity API does not give yet.
+- **No caption is shown on the client.** Stock dispatched a caption straight to
+  the HUD's `CHudCloseCaption`, which this client does not have
+  (`NoCloseCaptionHud`; sound_emitter.cpp's `GET_HUDELEMENT` found nothing
+  either), and `fromplayer` is false (`ClientSoundContext.FromPlayer`: no SDK
+  players). A managed caption element would take `ICloseCaptionHud` and the
+  owner walk.
+- **The sound patch still crosses twice.** `CSoundPatch` (shell_soundenvelope_client.cpp)
+  keeps its script-or-wave choice, its filter copy and its state natively, so a
+  patch's emit goes managed controller -> native patch -> managed emitter.
+  Moving the patch's state to managed (the envelope's native half, C2) makes it
+  one crossing.
+- **The team-255 broadcast is a native game-event listener** (shell_client.cpp's
+  `FireGameEvent`); a managed listener would take it, and the RPG's
+  `RPGShotDownCallback` (shell_explosion_overlay.cpp) has no dispatcher in this
+  build.
 
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
 
@@ -1255,6 +1294,18 @@ client.so's native side and nothing noticed until C7 needed it (fixed in lane
 input's "probes: the html probe goes" commit). A configure-and-link of the probe
 build in its own build tree, once a day in tools/daily-gate, would catch the
 next one. It is a full client compile, so not per commit.
+
+— closed 2026-10-19, in the full tier instead of the daily gate: it rotted
+again (13 undefined symbols at 4e8970d95, when tier1/vstdlib,
+sound_emitter.cpp and particles_new.cpp left client.so), and
+`tools/client-probe-link` is now a `full` row of tools/checks.tsv (make
+test-full). It configures farm/debug/build-probes (deploying into the tree,
+never bin/debug), links client_sourcesharp, and needs every probe command the
+SS_CLIENT_PROBES block's sources define in the linked client.so. Cost on this
+32-core box: cold 4.1 s wall / 100 s CPU (189 build steps), warm 0.1 s; the
+full checks tier's slowest row stays live-gate's self-test (4.2 s). A header
+change recompiles the probe tree with the normal one, so a test-full after
+one pays the cold cost again.
 
 - **The last native physics decisions** (plan_physics_bones_native_zero Phase 4
   census, 2026-10-12): CStandaloneEntity::UpdatePhysics's asleep-pose skip and

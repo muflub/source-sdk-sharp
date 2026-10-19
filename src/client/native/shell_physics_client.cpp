@@ -30,7 +30,6 @@
 #include "cbase.h"
 #include "vphysics_interface.h"
 #include "physics_shared.h"
-#include "gamesound.h"
 #include "c_recipientfilter.h"
 #include "fx_water.h"
 #include "engine/IEngineTrace.h"
@@ -146,33 +145,6 @@ int32_t SourceSharp_PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char *pHar
 		pOut3[ 1 ] = pSurf->audio.hardThreshold;
 		pOut3[ 2 ] = pSurf->audio.hardVelocityThreshold;
 	}
-	return 1;
-}
-
-int32_t SourceSharp_PhysicsClientEmitImpactSound( const char *pszName, const float *pOrigin, int32_t nChannel,
-                                                  float flVolume )
-{
-	if ( !pszName || !pszName[ 0 ] || !pOrigin )
-		return 0;
-
-	CSoundParameters params;
-	if ( !GameSound_GetParameters( pszName, params, NULL ) )
-		return 0;
-
-	const Vector origin( pOrigin[ 0 ], pOrigin[ 1 ], pOrigin[ 2 ] );
-	CPASAttenuationFilter filter( origin, params.soundlevel );
-
-	EmitSound_t ep;
-	ep.m_nChannel    = nChannel;
-	ep.m_pSoundName  = params.soundname;
-	ep.m_flVolume    = params.volume * flVolume;
-	ep.m_SoundLevel  = params.soundlevel;
-	ep.m_nPitch      = params.pitch;
-	ep.m_pOrigin     = &origin;
-
-	// From the world (entity 0), as stock does it: "If this entity gets
-	// deleted, the sound comes out at the world origin".
-	GameSound_Emit( filter, 0, ep );
 	return 1;
 }
 

@@ -1056,7 +1056,6 @@ public sealed class RecordingEngine :
     bool IEngineSound.EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume) => Record<bool>("Sound.EmitWorldSoundScript", soundName, origin, channel, volume);
     void IEngineSound.EmitSoundAtPosition(string soundName, Vector origin) => RecordVoid("Sound.EmitSoundAtPosition", soundName, origin);
     void IEngineSound.EntityEmitSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityEmitSound", entity, soundName);
-    void IEngineSound.ClientEmitSound(EntityHandle entity, string soundName, Vector? origin) => RecordVoid("Sound.ClientEmitSound", entity, soundName, origin);
     void IEngineSound.EntityStopSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityStopSound", entity, soundName);
     void IEngineSound.SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption) => RecordVoid("Sound.SoundPatchEmit", patch, volume01, pitch, flags, startTime, emitCaption);
     void IEngineSound.SoundPatchStop(int patch) => RecordVoid("Sound.SoundPatchStop", patch);

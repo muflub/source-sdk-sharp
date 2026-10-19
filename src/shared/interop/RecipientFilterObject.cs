@@ -1,30 +1,9 @@
-using SourceSharp.Abi;
-
-namespace SourceSharp.Server.Interop;
-
-/// <summary>
-/// The recipients of one emit, as the engine asks for them: stock's
-/// <c>IRecipientFilter</c> answers, over a list managed chose.
-/// </summary>
-public interface IRecipientList
-{
-    /// <summary><c>IsReliable()</c>.</summary>
-    bool IsReliable { get; }
-
-    /// <summary><c>IsInitMessage()</c>.</summary>
-    bool IsInitMessage { get; }
-
-    /// <summary><c>GetRecipientCount()</c>.</summary>
-    int Count { get; }
-
-    /// <summary><c>GetRecipientIndex( slot )</c>: the player's entity index, or -1 past the end.</summary>
-    int IndexAt(int slot);
-}
+namespace SourceSharp.Abi;
 
 /// <summary>
 /// <c>IRecipientFilter</c>'s managed side (plan_server_native_v2 T4a):
 /// IEngineSound::EmitSound calls the filter it is handed through the filter's
-/// own C++ vtable, so libss_fwd_server builds that object
+/// own C++ vtable, so libss_fwd_&lt;side&gt; builds that object
 /// (fwd_recipient_filter.cpp) and its four overrides call this table. Managed
 /// decides who hears; the native object only answers the engine's questions.
 /// </summary>
@@ -93,7 +72,7 @@ public sealed class RecipientFilterSink : IRecipientFilterSink
 }
 
 /// <summary>
-/// The native <c>IRecipientFilter</c> libss_fwd_server builds in a managed
+/// The native <c>IRecipientFilter</c> libss_fwd_&lt;side&gt; builds in a managed
 /// block's reserved words (<c>SSFwd_RecipientFilter</c>), over the block, as
 /// <see cref="PhysicsCallbackObjects"/> builds vphysics' handlers.
 /// </summary>
@@ -103,7 +82,7 @@ public sealed unsafe class RecipientFilterObject
 
     internal RecipientFilterObject(RecipientFilterFwd* fwd) => _fwd = fwd;
 
-    /// <summary>The server's builder, or null with the reason.</summary>
+    /// <summary>The side's builder, or null with the reason.</summary>
     public static RecipientFilterObject? Acquire(ModuleEngine engine, out string why)
         => Acquire((engine ?? throw new ArgumentNullException(nameof(engine))).Api.Interfaces, out why);
 

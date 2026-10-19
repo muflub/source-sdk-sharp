@@ -79,11 +79,6 @@
 #include "ss_recipient_filter.h"
 #include "engine/IEngineSound.h"
 
-// The lifted sound statics. They used to be reached as CBaseEntity::Foo()
-// through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
-// that quarantine is retired and the call below names GameSound_* directly.
-#include "gamesound.h"
-
 
 
 

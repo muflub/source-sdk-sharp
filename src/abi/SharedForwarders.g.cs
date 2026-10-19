@@ -232,6 +232,40 @@ internal unsafe struct SoundEmitterSystemFwd : IForwarderTable
 }
 
 /// <summary>
+/// <c>IEngineSound</c> through its forwarders (SSFwd_EngineSound): 8 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct EngineSoundFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_EngineSound";
+
+    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound_2;
+
+    // void IEngineSound::StopSound( int, int, const char * )
+    public delegate* unmanaged<void*, int, int, byte*, void> StopSound;
+
+    // float IEngineSound::GetSoundDuration( const char * )
+    public delegate* unmanaged<void*, byte*, float> GetSoundDuration;
+
+    // bool IEngineSound::PrecacheSound( const char *, bool, bool )
+    public delegate* unmanaged<void*, byte*, byte, byte, byte> PrecacheSound;
+
+    // bool IEngineSound::IsSoundPrecached( const char * )
+    public delegate* unmanaged<void*, byte*, byte> IsSoundPrecached;
+
+    // void IEngineSound::PrefetchSound( const char * )
+    public delegate* unmanaged<void*, byte*, void> PrefetchSound;
+
+    // void IEngineSound::EmitAmbientSound( const char *, float, int, int, float )
+    public delegate* unmanaged<void*, byte*, float, int, int, float, void> EmitAmbientSound;
+
+    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    public delegate* unmanaged<void*, void*, int, int, byte*, float, float, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound;
+}
+
+/// <summary>
 /// <c>IPhysicsCollision</c> through its forwarders (SSFwd_PhysicsCollision): 6 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
@@ -2196,7 +2230,7 @@ internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 22 slot(s).
+/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 21 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
@@ -2206,9 +2240,6 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 
     // void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
     public delegate* unmanaged<void*, int, int, void> ActivateOccluder;
-
-    // void IShimStandaloneClient::ClientEmitSound( uint32_t, const char *, const float * )
-    public delegate* unmanaged<void*, uint, byte*, void*, void> ClientEmitSound;
 
     // void * * IShimStandaloneClient::ClientInterpBlocks( int32_t *, float * )
     public delegate* unmanaged<void*, void*, void*, void*> ClientInterpBlocks;
@@ -2527,7 +2558,7 @@ internal unsafe struct ShimParticlesClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimFxClient</c> through its forwarders (SSFwd_ShimFxClient): 39 slot(s).
+/// <c>IShimFxClient</c> through its forwarders (SSFwd_ShimFxClient): 36 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimFxClientFwd : IForwarderTable
@@ -2570,9 +2601,6 @@ internal unsafe struct ShimFxClientFwd : IForwarderTable
 
     // void IShimFxClient::FxMainViewOrigin( float * )
     public delegate* unmanaged<void*, void*, void> FxMainViewOrigin;
-
-    // int32_t IShimFxClient::FxEmitTracerSound( const char *, const float *, const float * )
-    public delegate* unmanaged<void*, byte*, void*, void*, int> FxEmitTracerSound;
 
     // int32_t IShimFxClient::FxLocalPlayer( void )
     public delegate* unmanaged<void*, int> FxLocalPlayer;
@@ -2637,12 +2665,6 @@ internal unsafe struct ShimFxClientFwd : IForwarderTable
     // void IShimFxClient::FxImpactOverlay( const float *, const float * )
     public delegate* unmanaged<void*, void*, void*, void> FxImpactOverlay;
 
-    // int32_t IShimFxClient::FxSoundParameters( const char *, float *, char *, int32_t )
-    public delegate* unmanaged<void*, byte*, void*, byte*, int, int> FxSoundParameters;
-
-    // void IShimFxClient::FxEmitWorldSound( const char *, int32_t, float, int32_t, int32_t, const float * )
-    public delegate* unmanaged<void*, byte*, int, float, int, int, void*, void> FxEmitWorldSound;
-
     // int32_t IShimFxClient::FxTempEntCreateNamed( int32_t, const float *, const char *, int32_t )
     public delegate* unmanaged<void*, int, void*, byte*, int, int> FxTempEntCreateNamed;
 
@@ -2654,22 +2676,13 @@ internal unsafe struct ShimFxClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimSoundscapeClient</c> through its forwarders (SSFwd_ShimSoundscapeClient): 13 slot(s).
+/// <c>IShimSoundscapeClient</c> through its forwarders (SSFwd_ShimSoundscapeClient): 10 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimSoundscapeClientFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimSoundscapeClient";
-
-    // void IShimSoundscapeClient::SoundscapeEmitAmbient( const char *, float, int32_t, int32_t )
-    public delegate* unmanaged<void*, byte*, float, int, int, void> SoundscapeEmitAmbient;
-
-    // void IShimSoundscapeClient::SoundscapeEmitWorld( const char *, float, int32_t, int32_t, int32_t, const float * )
-    public delegate* unmanaged<void*, byte*, float, int, int, int, void*, void> SoundscapeEmitWorld;
-
-    // void IShimSoundscapeClient::SoundscapeStopWorld( const char * )
-    public delegate* unmanaged<void*, byte*, void> SoundscapeStopWorld;
 
     // void IShimSoundscapeClient::SoundscapeSetRoomType( int32_t )
     public delegate* unmanaged<void*, int, void> SoundscapeSetRoomType;
@@ -2811,7 +2824,7 @@ internal unsafe struct ShimInputClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimPhysicsClient</c> through its forwarders (SSFwd_ShimPhysicsClient): 6 slot(s).
+/// <c>IShimPhysicsClient</c> through its forwarders (SSFwd_ShimPhysicsClient): 5 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimPhysicsClientFwd : IForwarderTable
@@ -2821,9 +2834,6 @@ internal unsafe struct ShimPhysicsClientFwd : IForwarderTable
 
     // int32_t IShimPhysicsClient::PhysicsClientSurfaceAudio( int32_t, char *, int32_t, char *, int32_t, float * )
     public delegate* unmanaged<void*, int, byte*, int, byte*, int, void*, int> PhysicsClientSurfaceAudio;
-
-    // int32_t IShimPhysicsClient::PhysicsClientEmitImpactSound( const char *, const float *, int32_t, float )
-    public delegate* unmanaged<void*, byte*, void*, int, float, int> PhysicsClientEmitImpactSound;
 
     // void IShimPhysicsClient::PhysicsClientCollideExtent( void *, const float *, const float *, const float *, float * )
     public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> PhysicsClientCollideExtent;
@@ -2912,4 +2922,21 @@ internal unsafe struct PhysicsCallbacksFwd : IForwarderTable
 
     // void * SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *, IManagedVPhysicsKeyHandler * )
     public delegate* unmanaged<void*, void*, void*> ConstructKeyHandler;
+}
+
+/// <summary>
+/// <c>void</c>'s functions (SSFwd_RecipientFilter): 2 slot(s), none of them a method,
+/// so the first argument is the first parameter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct RecipientFilterFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_RecipientFilter";
+
+    // int SSFwd_RecipientFilter_SizeOf( void )
+    public delegate* unmanaged<int> SizeOf;
+
+    // void * SSFwd_RecipientFilter_Construct( void *, IManagedRecipientFilter * )
+    public delegate* unmanaged<void*, void*, void*> Construct;
 }

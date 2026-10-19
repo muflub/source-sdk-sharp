@@ -697,7 +697,6 @@ internal sealed unsafe class StandaloneClientArea
     internal StandaloneClientArea(ShimRef<ShimStandaloneClientFwd> shim) { _shim = shim; }
 
     public void ActivateOccluder(int a0, int a1) { _shim.Vt->ActivateOccluder(_shim.Self, a0, a1); }
-    public void ClientEmitSound(uint a0, byte* a1, float* a2) { _shim.Vt->ClientEmitSound(_shim.Self, a0, a1, a2); }
     public void** ClientInterpBlocks(int* a0, float* a1) { return (void**)_shim.Vt->ClientInterpBlocks(_shim.Self, a0, a1); }
     public void** ClientPolicyBlocks(int* a0) { return (void**)_shim.Vt->ClientPolicyBlocks(_shim.Self, a0); }
     public void DynamicLightRelease(int a0) { _shim.Vt->DynamicLightRelease(_shim.Self, a0); }
@@ -872,7 +871,6 @@ internal sealed unsafe class FxClientArea
     public void FxDrawQuads(int a0, int a1, float* a2, int a3) { _shim.Vt->FxDrawQuads(_shim.Self, a0, a1, a2, a3); }
     public void FxView(float* a0) { _shim.Vt->FxView(_shim.Self, a0); }
     public void FxMainViewOrigin(float* a0) { _shim.Vt->FxMainViewOrigin(_shim.Self, a0); }
-    public int FxEmitTracerSound(byte* a0, float* a1, float* a2) { return _shim.Vt->FxEmitTracerSound(_shim.Self, a0, a1, a2); }
     public int FxLocalPlayer() { return _shim.Vt->FxLocalPlayer(_shim.Self); }
     public void FxViewAngles(float* a0) { _shim.Vt->FxViewAngles(_shim.Self, a0); }
     public int FxEntityAttachment(int a0, int a1, float* a2, byte* a3, int a4) { return _shim.Vt->FxEntityAttachment(_shim.Self, a0, a1, a2, a3, a4); }
@@ -894,8 +892,6 @@ internal sealed unsafe class FxClientArea
     public void FxVectorRandom(float a0, float a1, float* a2) { _shim.Vt->FxVectorRandom(_shim.Self, a0, a1, a2); }
     public int FxMaterialsCached() { return _shim.Vt->FxMaterialsCached(_shim.Self); }
     public void FxImpactOverlay(float* a0, float* a1) { _shim.Vt->FxImpactOverlay(_shim.Self, a0, a1); }
-    public int FxSoundParameters(byte* a0, float* a1, byte* a2, int a3) { return _shim.Vt->FxSoundParameters(_shim.Self, a0, a1, a2, a3); }
-    public void FxEmitWorldSound(byte* a0, int a1, float a2, int a3, int a4, float* a5) { _shim.Vt->FxEmitWorldSound(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int FxTempEntCreateNamed(int a0, float* a1, byte* a2, int a3) { return _shim.Vt->FxTempEntCreateNamed(_shim.Self, a0, a1, a2, a3); }
     public void FxLoadModel(byte* a0) { _shim.Vt->FxLoadModel(_shim.Self, a0); }
     public int FxModelFrameCount(byte* a0) { return _shim.Vt->FxModelFrameCount(_shim.Self, a0); }
@@ -910,9 +906,6 @@ internal sealed unsafe class SoundscapeClientArea
 
     internal SoundscapeClientArea(ShimRef<ShimSoundscapeClientFwd> shim) { _shim = shim; }
 
-    public void SoundscapeEmitAmbient(byte* a0, float a1, int a2, int a3) { _shim.Vt->SoundscapeEmitAmbient(_shim.Self, a0, a1, a2, a3); }
-    public void SoundscapeEmitWorld(byte* a0, float a1, int a2, int a3, int a4, float* a5) { _shim.Vt->SoundscapeEmitWorld(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public void SoundscapeStopWorld(byte* a0) { _shim.Vt->SoundscapeStopWorld(_shim.Self, a0); }
     public void SoundscapeSetRoomType(int a0) { _shim.Vt->SoundscapeSetRoomType(_shim.Self, a0); }
     public void SoundscapeSetPlayerDsp(int a0) { _shim.Vt->SoundscapeSetPlayerDsp(_shim.Self, a0); }
     public void SoundscapeMainView(float* a0) { _shim.Vt->SoundscapeMainView(_shim.Self, a0); }
@@ -994,7 +987,6 @@ internal sealed unsafe class PhysicsClientArea
     internal PhysicsClientArea(ShimRef<ShimPhysicsClientFwd> shim) { _shim = shim; }
 
     public int PhysicsClientSurfaceAudio(int a0, byte* a1, int a2, byte* a3, int a4, float* a5) { return _shim.Vt->PhysicsClientSurfaceAudio(_shim.Self, a0, a1, a2, a3, a4, a5); }
-    public int PhysicsClientEmitImpactSound(byte* a0, float* a1, int a2, float a3) { return _shim.Vt->PhysicsClientEmitImpactSound(_shim.Self, a0, a1, a2, a3); }
     public void PhysicsClientCollideExtent(void* a0, float* a1, float* a2, float* a3, float* a4) { _shim.Vt->PhysicsClientCollideExtent(_shim.Self, a0, a1, a2, a3, a4); }
     public int PhysicsClientPointContents(float* a0) { return _shim.Vt->PhysicsClientPointContents(_shim.Self, a0); }
     public void PhysicsClientSplashLighting(float* a0, float* a1) { _shim.Vt->PhysicsClientSplashLighting(_shim.Self, a0, a1); }

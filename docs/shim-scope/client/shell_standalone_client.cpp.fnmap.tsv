@@ -116,4 +116,3 @@
 9	BOUNDARY	void C_StandaloneEntity::StoreSequence( int nSequence, float flPlaybackRate, float flAnimTime,
 6	BOUNDARY	void SourceSharp_StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence, float flPlaybackRate,
 11	BOUNDARY	void *SourceSharp_StandaloneEngineBlock( uint32_t hEntity, int32_t *pOutBytes )
-18	UNRULED	void SourceSharp_ClientEmitSound( uint32_t hEntity, const char *pszSoundName,

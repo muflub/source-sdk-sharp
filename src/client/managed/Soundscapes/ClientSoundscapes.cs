@@ -92,6 +92,7 @@ public sealed class ClientSoundscapes
     }
 
     private readonly ISoundscapeAudio _audio;
+    private readonly ISoundscapeSounds _sounds;
     private readonly IGameClock _clock;
     private readonly IEngineHost _host;
     private readonly IEngineConsole _console;
@@ -122,9 +123,11 @@ public sealed class ClientSoundscapes
     private int _pushes;
 
     /// <summary>Built by the client's container.</summary>
-    public ClientSoundscapes(ISoundscapeAudio audio, IGameClock clock, IEngineHost host, IEngineConsole console)
+    public ClientSoundscapes(ISoundscapeAudio audio, ISoundscapeSounds sounds, IGameClock clock, IEngineHost host,
+                             IEngineConsole console)
     {
         _audio = audio;
+        _sounds = sounds;
         _clock = clock;
         _host = host;
         _console = console;
@@ -773,13 +776,13 @@ public sealed class ClientSoundscapes
             if (isAmbient)
             {
                 // start at 0 and fade in
-                _audio.EmitAmbient(wave, 0, pitch, 0);
+                _sounds.EmitAmbient(wave, 0, pitch, 0);
                 slot.VolumeCurrent = 0.0f;
             }
             else
             {
                 // non-ambients at 0 volume are culled, so start at 0.05
-                _audio.EmitWorld(wave, 0.05f, soundLevel, pitch, 0, position);
+                _sounds.EmitWorld(wave, 0.05f, soundLevel, pitch, 0, position);
                 slot.VolumeCurrent = 0.05f;
             }
         }
@@ -804,17 +807,17 @@ public sealed class ClientSoundscapes
     private void StopLoopingSound(LoopingSound sound)
     {
         if (sound.IsAmbient)
-            _audio.EmitAmbient(sound.Wave, 0, 0, SndStop);
+            _sounds.EmitAmbient(sound.Wave, 0, 0, SndStop);
         else
-            _audio.StopWorld(sound.Wave);
+            _sounds.StopWorld(sound.Wave);
     }
 
     private void UpdateLoopingSound(LoopingSound sound)
     {
         if (sound.IsAmbient)
-            _audio.EmitAmbient(sound.Wave, sound.VolumeCurrent, sound.Pitch, SndChangeVol);
+            _sounds.EmitAmbient(sound.Wave, sound.VolumeCurrent, sound.Pitch, SndChangeVol);
         else
-            _audio.EmitWorld(sound.Wave, sound.VolumeCurrent, sound.SoundLevel, sound.Pitch, SndChangeVol, sound.Position);
+            _sounds.EmitWorld(sound.Wave, sound.VolumeCurrent, sound.SoundLevel, sound.Pitch, SndChangeVol, sound.Position);
     }
 
     //-------------------------------------------------------------------------
@@ -841,7 +844,7 @@ public sealed class ClientSoundscapes
             // Argument order is clang's, left to right: volume, then pitch.
             float volume = sound.MasterVolume * RandomInterval(sound.Volume);
             int pitch = (int)RandomInterval(sound.Pitch);
-            _audio.EmitAmbient(wave, volume, pitch, 0);
+            _sounds.EmitAmbient(wave, volume, pitch, 0);
         }
         else
         {
@@ -851,7 +854,7 @@ public sealed class ClientSoundscapes
             if (sound.IsRandom)
                 sound.Position = GenerateRandomSoundPosition();
 
-            _audio.EmitWorld(wave, volume, soundLevel, pitch, 0, sound.Position);
+            _sounds.EmitWorld(wave, volume, soundLevel, pitch, 0, sound.Position);
         }
     }
 

@@ -92,7 +92,7 @@
 // table is the only other thing that wants it.
 //-----------------------------------------------------------------------------
 CClientSystem *GameStringSystem();
-CClientSystem *SoundEmitterSystem();
+CClientSystem *ClientSystem_SoundEmitter();
 CClientSystem *ViewportClientSystem();
 CClientSystem *ClientSoundscapeSystem();
 
@@ -210,7 +210,7 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 //     still STAYS and the reason letter in its banner is (d, weak) -- a
 //     string_t IS an address, and the pool is what makes two spellings of one
 //     name compare equal by pointer.
-// RULING | CSoundEmitterSystem | STAYS | sourcesharp/game/client/sound_emitter.cpp | SoundEmitterSystem
+// RULING | CSoundEmitterSystem | STAYS | sourcesharp/game/client/shell_soundemitter_client.cpp | ClientSystem_SoundEmitter
 // RULING | CClientLeafSystem | STAYS | sourcesharp/game/client/shell_leaf_system_client.cpp | ClientLeafSystemGameSystem
 //   ^ RE-HOMED at C7 cluster 12 L2: clientleafsystem.cpp left client.so, the leaf
 //     system is managed's behind libss_fwd_client's forwarder, and the row is
@@ -273,7 +273,7 @@ static const ClientSystemRow_t kClientSystems[] =
 	// orderings in this half that anybody wrote a reason for.
 	//-------------------------------------------------------------------------
 	{ "CGameStringPool",                    GameStringSystem },
-	{ "CSoundEmitterSystem",                SoundEmitterSystem },
+	{ "CSoundEmitterSystem",                ClientSystem_SoundEmitter },
 	// `{ "CToolFrameworkClient", ... }` stood here: the tool framework's
 	// bridge. Deleted with toolframework_client.cpp: SFM is dead (user ruling
 	// 2026-10-19).

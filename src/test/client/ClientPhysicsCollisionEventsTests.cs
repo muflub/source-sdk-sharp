@@ -137,13 +137,13 @@ public class PhysicsClientCommandTests
         public void Warning(string text) => Lines.Add(text);
     }
 
-    private sealed class NoWorld : IClientImpactSoundWorld
+    private sealed class NoWorld : IClientImpactSoundWorld, IClientImpactSoundEmitter
     {
         public bool IsStatic(nint o) => false;
         public nint GameData(nint o) => 0;
         public Vector Position(nint o) => Vector.Zero;
         public SurfaceImpactAudio? Surface(int s) => null;
-        public bool Emit(string name, Vector origin, int channel, float volume) => true;
+        public bool EmitImpactSound(string name, Vector origin, int channel, float volume) => true;
     }
 
     private sealed class NoFacts : IClientCollisionFacts
@@ -226,7 +226,7 @@ public class PhysicsClientCommandTests
         system.LevelInitPostEntity();
         system.Simulate();
         log.Lines.Clear();
-        new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld()), new ClientCollisionSolver(new NoFacts()),
+        new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld(), new NoWorld()), new ClientCollisionSolver(new NoFacts()),
                                  new ClientFluidEvents(new NoFluidWorld(), null, () => 0f),
                                  new SourceSharp.Shared.FrictionSounds(new RecordingEngine(), new NoRamps(),
                                                                        new NoSurfaces(), new NoEffects())).Execute("");
@@ -237,7 +237,7 @@ public class PhysicsClientCommandTests
                        Assert.Single(log.Lines));
 
         log.Lines.Clear();
-        new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld()), new ClientCollisionSolver(new NoFacts()),
+        new PhysicsClientCommand(log, system, new ClientImpactSounds(new NoWorld(), new NoWorld()), new ClientCollisionSolver(new NoFacts()),
                                  new ClientFluidEvents(new NoFluidWorld(), null, () => 0f),
                                  new SourceSharp.Shared.FrictionSounds(new RecordingEngine(), new NoRamps(),
                                                                        new NoSurfaces(), new NoEffects())).Execute("reset");

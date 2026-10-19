@@ -51,7 +51,7 @@
 #include "c_recipientfilter.h"
 #include "engine/IEngineSound.h"
 #include "c_te_effect_dispatch.h"
-#include "gamesound.h"
+#include "client_sound.h"
 #include "sourcesharp.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -102,7 +102,7 @@ bool CExplosionOverlay::Update( void )
 void RPGShotDownCallback( const CEffectData &data )
 {
 	CLocalPlayerFilter filter;
-	GameSound_Emit( filter, SOUND_FROM_WORLD, "Missile.ShotDown", &data.m_vOrigin );
+	ClientSound::Emit( filter, SOUND_FROM_WORLD, "Missile.ShotDown", &data.m_vOrigin );
 
 	if ( CExplosionOverlay *pOverlay = new CExplosionOverlay )
 	{

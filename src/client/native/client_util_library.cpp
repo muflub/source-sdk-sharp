@@ -68,11 +68,9 @@
 #include "entity_prediction_seed.h"
 #include <vstdlib/random.h>
 #include "particle_parse.h"
-#include "ss_string.h"         // ss::StrCopy, for Hack_FixEscapeChars
 // The sound block from sound_emitter.cpp at the end of this file.
 #include "engine/IEngineSound.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "gamesound.h"
 extern ISoundEmitterSystemBase *soundemitterbase;   // shell_clientdll.cpp
 
 #include <stdarg.h>
@@ -419,96 +417,17 @@ void UTIL_ParticleTracer( const char *pszTracerEffectName, const Vector &vecStar
 }
 
 //=============================================================================//
-// FROM sound_emitter.cpp, WHERE THEY WERE #ifdef CLIENT_DLL (plan_server_native_v2
-// T2, 2026-10-18): a shared TU keeps only what both DLLs import. Moved verbatim,
-// between two files of the same relocated-Valve-code ruling, but for
-// ReloadSoundEntriesInList: it called CSoundEmitterSystem's member of that name,
-// a one-line forwarder to soundemitterbase with no other caller, so it makes
-// that call itself and the member went.
+// FROM sound_emitter.cpp, WHERE IT WAS #ifdef CLIENT_DLL (plan_server_native_v2
+// T2, 2026-10-18): ReloadSoundEntriesInList called CSoundEmitterSystem's member
+// of that name, a one-line forwarder to soundemitterbase with no other caller,
+// so it makes that call itself and the member went. The other five that moved
+// here with it -- GameSound_Emit's name-and-handle overload, the handle overload
+// of GameSound_GetParameters, GameSound_Prefetch, SENTENCEG_Lookup and
+// Hack_FixEscapeChars -- left when the client's emit path went to C#
+// (SourceSharp.Client.Sounds): no client object imports any of them.
 //=============================================================================//
 
 void ReloadSoundEntriesInList( IFileList *pFilesToReload )
 {
 	soundemitterbase->ReloadSoundEntriesInList( pFilesToReload );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : filter - 
-//			iEntIndex - 
-//			*soundname - 
-//			*pOrigin - 
-//-----------------------------------------------------------------------------
-void GameSound_Emit( IRecipientFilter& filter, int iEntIndex, const char *soundname, HSOUNDSCRIPTHANDLE& handle, const Vector *pOrigin /*= NULL*/, float soundtime /*= 0.0f*/, float *duration /*=NULL*/ )
-{
-
-	//VPROF( "CBaseEntity::EmitSound" );
-	GameSoundParams_t params;
-	params.m_pSoundName = soundname;
-	params.m_flSoundTime = soundtime;
-	params.m_pOrigin = pOrigin;
-	params.m_pflSoundDuration = duration;
-	params.m_bWarnOnDirectWaveReference = true;
-
-	GameSound_Emit( filter, iEntIndex, params, handle );
-}
-
-// HACK HACK:  Do we need to pull the entire SENTENCEG_* wrapper over to the client .dll?
-int SENTENCEG_Lookup(const char *sample)
-{
-	return engine->SentenceIndexFromName( sample + 1 );
-}
-
-bool GameSound_GetParameters( const char *soundname, HSOUNDSCRIPTHANDLE& handle, CSoundParameters &params, const char *actormodel )
-{
-	gender_t gender = soundemitterbase->GetActorGender( actormodel );
-	
-	return soundemitterbase->GetParametersForSoundEx( soundname, handle, params, gender );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : *name - 
-//-----------------------------------------------------------------------------
-void GameSound_Prefetch( const char *name )
-{
-	 enginesound->PrefetchSound( name );
-}
-
-//-----------------------------------------------------------------------------
-// From sound_emitter.cpp (plan_server_native_v2 T2): its one caller is the
-// client's close-caption arm there, so server.so never needed it. Turns the
-// two characters "\\n" in a caption token into a newline, in place.
-//-----------------------------------------------------------------------------
-void Hack_FixEscapeChars( char *str )
-{
-	int len = (int)strlen( str ) + 1;
-	char *i = str;
-	char *o = (char *)_alloca( len );
-	char *osave = o;
-	while ( *i )
-	{
-		if ( *i == '\\' )
-		{
-			switch (  *( i + 1 ) )
-			{
-			case 'n':
-				*o = '\n';
-				++i;
-				break;
-			default:
-				*o = *i;
-				break;
-			}
-		}
-		else
-		{
-			*o = *i;
-		}
-
-		++i;
-		++o;
-	}
-	*o = 0;
-	ss::StrCopy( str, osave, len );
 }

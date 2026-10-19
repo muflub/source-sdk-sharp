@@ -945,6 +945,20 @@ public enum CrossingOp
     ClientLeafEnumerateShadowsInLeaves = 382,
     /// <summary>IManagedLeafSystemClient::Pending: the RenderableChanged and ChangeRenderableRenderGroup calls the forwarder queued, in order, before the next call or at a blend batch's end (C7 cluster 12 L3). CLIENT ONLY.</summary>
     ClientLeafPending = 383,
+    /// <summary>IManagedSoundEmitterClient::ClientSoundSystemInit: the CSoundEmitterSystem row's Init, the client's script table loaded by the managed ClientSoundEmitterSystem (ModInit). CLIENT ONLY.</summary>
+    ClientSoundSystemInit = 384,
+    /// <summary>IManagedSoundEmitterClient::ClientSoundSystemShutdown: the row's Shutdown (ModShutdown). CLIENT ONLY.</summary>
+    ClientSoundSystemShutdown = 385,
+    /// <summary>IManagedSoundEmitterClient::ClientSoundLevelInitPreEntity: the row's LevelInitPreEntity, the level's own override script. CLIENT ONLY.</summary>
+    ClientSoundLevelInitPreEntity = 386,
+    /// <summary>IManagedSoundEmitterClient::ClientSoundLevelShutdownPostEntity: the row's LevelShutdownPostEntity, the overrides cleared. CLIENT ONLY.</summary>
+    ClientSoundLevelShutdownPostEntity = 387,
+    /// <summary>IManagedSoundEmitterClient::ClientSoundEmit: a native caller's GameSound_Emit (an impact, a sound patch, a broadcast), to the managed ClientSoundEmitter. CLIENT ONLY.</summary>
+    ClientSoundEmit = 388,
+    /// <summary>IManagedSoundEmitterClient::ClientSoundStop: a native caller's GameSound_Stop (a sound patch). CLIENT ONLY.</summary>
+    ClientSoundStop = 389,
+    /// <summary>IManagedSoundEmitterClient::ClientSoundEmitCloseCaption: a native caller's GameSound_EmitCloseCaption (a sound patch's caption). CLIENT ONLY.</summary>
+    ClientSoundEmitCloseCaption = 390,
 }
 
 /// <summary>

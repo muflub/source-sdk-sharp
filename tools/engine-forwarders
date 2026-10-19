@@ -212,6 +212,10 @@ FORWARD = [
             # The flashlight (C7 cluster 12, SourceSharp.Client.Flashlight):
             # stock's constructor and r_newflashlight callback ask the DX level.
             'GetDXSupportLevel',
+            # The client's sound emitter (sound_emitter.cpp's emit path, moved):
+            # UTIL_EmitAmbientSound's "!SENTENCE" index and the viewer's slot a
+            # CLocalPlayerFilter holds.
+            'SentenceIndexFromName', 'GetLocalPlayer',
         ],
     ),
     dict(
@@ -303,14 +307,18 @@ FORWARD = [
     ),
     dict(
         struct='EngineSoundVtbl',
-        side='server',
         # plan_server_native_v2 T4a: the server's IEngineSoundServer003, which
         # the managed SoundEmitter emits and stops through (sound_emitter.cpp's
-        # emit path, moved).
+        # emit path, moved). Both since the client's emit path moved too: one
+        # class, IEngineSoundClient003 there (Shared.Interop's EngineSound).
         methods=[
             'EmitSound_2', 'StopSound', 'GetSoundDuration',
             # The precache path (GameSound_Precache / GameSound_Prefetch, moved).
             'PrecacheSound', 'IsSoundPrecached', 'PrefetchSound',
+            # The client's: its ambient emit (the client's UTIL_EmitAmbientSound
+            # and the soundscapes), and the attenuation overload a tracer's
+            # whiz is played through, with its direction.
+            'EmitAmbientSound', 'EmitSound',
         ],
     ),
     dict(
@@ -578,9 +586,10 @@ HAND = [
     # plan_server_native_v2 T4a: the IRecipientFilter IEngineSound::EmitSound
     # calls back, built in the managed block's reserved words over the
     # recipients the managed SoundEmitter chose (fwd_recipient_filter.cpp).
+    # Both since the client's emitter is managed too.
     dict(
         table='RecipientFilter',
-        side='server',
+        side='both',
         self_type='void',
         include='fwd_recipient_filter.h',
         slots=[

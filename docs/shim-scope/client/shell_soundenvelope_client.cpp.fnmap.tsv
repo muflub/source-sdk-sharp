@@ -16,7 +16,7 @@
 1	SLOT-HELP	[CSoundPatch] const char *Name() const
 1	SLOT-HELP	[CSoundPatch] bool FilterIsActive() const
 1	SLOT-HELP	[CSoundPatch] int EntIndex() const
-25	BOUNDARY	[CSoundPatch] void Emit( float flVolume01, float flPitch, int nFlags, float flStartTime, bool bEmitCaption )
+24	BOUNDARY	[CSoundPatch] void Emit( float flVolume01, float flPitch, int nFlags, float flStartTime, bool bEmitCaption )
 8	BOUNDARY	[CSoundPatch] void Stop()
 1	LAYOUT	[CShellClientSoundController] CShellClientSoundController() : m_nNextHandle( 1 )
 9	SLOT-HELP	[CShellClientSoundController] CSoundPatch *Resolve( int nHandle )

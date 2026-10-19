@@ -311,9 +311,10 @@ const Site kSites[] =
 	{ "game/shared/props_shared.h",                     kShared },
 	{ "game/shared/ragdoll_shared.h",                   kShared },
 	{ "game/shared/gamestats.h",                        kShared },
-	// kClientOnly since plan_server_native_v2 T4a's precache path: server.so stopped
-	// compiling it, and its CLIENT_DLL arms were resolved.
-	{ "sourcesharp/game/client/sound_emitter.cpp",             kClientOnly },
+	// sound_emitter.cpp's row (kClientOnly since plan_server_native_v2 T4a's
+	// precache path) went with the file: the client's emit path is C#'s, and its
+	// CSoundEmitterSystem row is shell_soundemitter_client.cpp's, over
+	// SourceSharp's CClientSystem rather than a stock base.
 	// client-only, and this classification was STALE. soundenvelope.cpp left
 	// server_csharp.vpc in plan_gamedll_after.md Phase A3's SECOND pair, the same
 	// way decals.cpp left in the first -- the server's sound envelope manager is

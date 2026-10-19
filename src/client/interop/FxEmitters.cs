@@ -78,7 +78,7 @@ public interface IFxEmitters
 }
 
 /// <summary>The muzzle flashes', the bounce sounds' and the named tempents' carry-out, over IShimFxClient's slots.</summary>
-internal sealed unsafe class ClientFxEmitterSlots(FxClientArea fxClient) : IFxFlashReads, IFxGameSounds, IFxTempEntModels
+internal sealed unsafe class ClientFxEmitterSlots(FxClientArea fxClient) : IFxFlashReads, IFxTempEntModels
 {
     private static byte[] Utf8(string s) => System.Text.Encoding.UTF8.GetBytes(s + "\0");
 
@@ -122,26 +122,7 @@ internal sealed unsafe class ClientFxEmitterSlots(FxClientArea fxClient) : IFxFl
 
     public int MaterialsCached() => fxClient.FxMaterialsCached();
 
-    public bool Parameters(string script, out GameSoundParams parameters)
-    {
-        parameters = default;
-        float* v = stackalloc float[6];
-        byte* wave = stackalloc byte[260];
-        int ok;
-        fixed (byte* s = Utf8(script))
-            ok = fxClient.FxSoundParameters(s, v, wave, 260);
-        if (ok == 0)
-            return false;
-        parameters = new GameSoundParams(new string((sbyte*)wave), v[0], (int)v[1], (int)v[2], (int)v[3], (int)v[4], (int)v[5]);
-        return true;
-    }
 
-    public void EmitAtPosition(in GameSoundParams p, float volume, int pitch, in Vector origin)
-    {
-        float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
-        fixed (byte* w = Utf8(p.Wave))
-            fxClient.FxEmitWorldSound(w, p.Channel, volume, p.SoundLevel, pitch, o);
-    }
 
     public bool CreateNamed(int slot, in Vector origin, string model, int priority)
     {

@@ -273,7 +273,7 @@ const char *SourceSharp_WorldChapterTitle( void );
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 256 slots.
+// CLIENT ONLY -- 248 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -319,8 +319,6 @@ void SourceSharp_ClientDecalStaticProp( const float *pStartXYZ, const float *pEn
                                         int32_t nStaticPropIndex, int32_t nDecalIndex );
 void SourceSharp_ClientDecalStudioModel( int32_t nEntity, const float *pRayStartXYZ,
                                          const float *pRayEndXYZ, int32_t nDecalIndex );
-void SourceSharp_ClientEmitSound( uint32_t hEntity, const char *pszSoundName,
-                                  const float *pOriginXYZ );
 void SourceSharp_ClientEndMoveCommand( int32_t bRan, int32_t *pOutGroundIndex );
 void SourceSharp_ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ,
                                      int32_t bExplosive );
@@ -445,11 +443,6 @@ void SourceSharp_FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR,
 void SourceSharp_FxElight( int32_t nKey, const float *pOriginXYZ, int32_t r, int32_t g,
                            int32_t b, int32_t nExponent, float flRadius, float flDecay,
                            float flDie );
-int32_t SourceSharp_FxEmitTracerSound( const char *pSoundName, const float *pStartXYZ,
-                                       const float *pDirXYZ );
-void SourceSharp_FxEmitWorldSound( const char *pWave, int32_t nChannel, float flVolume,
-                                   int32_t nSoundLevel, int32_t nPitch,
-                                   const float *pOriginXYZ );
 int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ,
                                         char *pModelOut, int32_t nModelSize );
 int32_t SourceSharp_FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR );
@@ -470,8 +463,6 @@ int32_t SourceSharp_FxPrecacheCount( void );
 int32_t SourceSharp_FxRecipientCount( const float *pOriginXYZ );
 int32_t SourceSharp_FxRenderableAttachment( uint32_t hEntity, int32_t nAttachment,
                                             float *pOut6 );
-int32_t SourceSharp_FxSoundParameters( const char *pScript, float *pOut6, char *pWave,
-                                       int32_t nWaveBytes );
 int32_t SourceSharp_FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ,
                                        int32_t nModelIndex, float flFrame, int32_t nRenderMode,
                                        int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
@@ -547,8 +538,6 @@ int32_t SourceSharp_ParticlesWorldTrace( const float *pStartXYZ, const float *pE
 void SourceSharp_PhysicsClientCollideExtent( void *pObject, const float *pOrigin,
                                              const float *pAngles, const float *pDirection,
                                              float *pOut );
-int32_t SourceSharp_PhysicsClientEmitImpactSound( const char *pszName, const float *pOrigin,
-                                                  int32_t nChannel, float flVolume );
 int32_t SourceSharp_PhysicsClientPointContents( const float *pPoint );
 void SourceSharp_PhysicsClientSplashEffect( int32_t nKind, const float *pOrigin,
                                             const float *pNormal, float flScale,
@@ -589,15 +578,10 @@ int32_t SourceSharp_RopeMaterial( const char *pszName, int32_t *pOutTextureHeigh
 int32_t SourceSharp_SendServerMessage( const char *pKey, const uint8_t *pData, int32_t nLen );
 void SourceSharp_SetViewerFogParams( const SourceSharpFogParams *pParams );
 void SourceSharp_SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams );
-void SourceSharp_SoundscapeEmitAmbient( const char *pszWave, float flVolume, int32_t nPitch,
-                                        int32_t nFlags );
-void SourceSharp_SoundscapeEmitWorld( const char *pszWave, float flVolume, int32_t nSoundLevel,
-                                      int32_t nPitch, int32_t nFlags, const float *pOriginXYZ );
 void SourceSharp_SoundscapeMainView( float *pOut9 );
 int32_t SourceSharp_SoundscapeMakingResLists( void );
 void SourceSharp_SoundscapeSetPlayerDsp( int32_t nDspType );
 void SourceSharp_SoundscapeSetRoomType( int32_t nRoomType );
-void SourceSharp_SoundscapeStopWorld( const char *pszWave );
 void SourceSharp_SoundscapeTouchSoundFile( const char *pszWave );
 void SourceSharp_SpriteTrailDestroy( uint32_t hOwner );
 void SourceSharp_SpriteTrailUpdate( uint32_t hOwner, int32_t nRenderMode, int32_t bVisible );

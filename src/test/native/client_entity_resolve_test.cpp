@@ -1007,19 +1007,10 @@ TEST( ClientEntityResolve, TheTempEntOwnerHeaderInlineResolvesThroughTheSlotTabl
 
 TEST( ClientEntityResolve, TheShimsSharedClientArmsResolveThroughTheSlotTable )
 {
-	const std::string emitter =
-	    NoWhitespace( LiveText( "sourcesharp/game/client/sound_emitter.cpp" ) );
-	ASSERT_FALSE( emitter.empty() );
-
-	EXPECT_NE( emitter.find( "SourceSharp_ClientEntityFromIndex(entindex)" ),
-	           std::string::npos )
-	    << "sound_emitter.cpp's client arm no longer resolves the entity index "
-	       "at all. It must ask something that holds BOTH hierarchies -- step "
-	       "7e's own reason: C_BaseEntity::Instance answers NULL for every "
-	       "entity this port owns, so every managed entity's sound went out as "
-	       "GENDER_NONE and a soundscript with gender_male/gender_female "
-	       "entries silently took its fallback.";
-
+	// sound_emitter.cpp's client arm stood here: its speaker's gender asked
+	// SourceSharp_ClientEntityFromIndex. The client's emit path is C#'s now
+	// (SourceSharp.Client.Sounds; ClientModule's SpeakerModel over the client
+	// registry), and the file left client.so.
 	const std::string tracer =
 	    NoWhitespace( LiveText( "sourcesharp/game/shared/util_shared_library.cpp" ) );
 	ASSERT_FALSE( tracer.empty() );
@@ -1034,7 +1025,7 @@ TEST( ClientEntityResolve, TheShimsSharedClientArmsResolveThroughTheSlotTable )
 TEST( ClientEntityResolve, TheShimsSharedFilesAreBuiltOnlyWithSOURCESHARPSoTheyKeepNoStockArm )
 {
 	// The reason the "stock arm survived" rule
-	// does not reach these two: their client arm names shell_cliententitylist.h,
+	// does not reach it: its client arm names shell_cliententitylist.h,
 	// which no SOURCESHARP-less build has, so a !SOURCESHARP arm would be dead
 	// text in every build that compiles them.
 	//
@@ -1042,12 +1033,13 @@ TEST( ClientEntityResolve, TheShimsSharedFilesAreBuiltOnlyWithSOURCESHARPSoTheyK
 	// server_base.vpc and asserted neither named the two files. Those describe
 	// Valve's stock build, which this repo never builds, and they have left the
 	// repo. The property that argument was evidence FOR is about OUR build, and
-	// is asked of it directly: every target that compiles either file defines
+	// is asked of it directly: every target that compiles the file defines
 	// SOURCESHARP. A target added without it is the "stock project" the old
 	// fact was the reminder for -- put the !SOURCESHARP arm back, the way
 	// game/client/fx.cpp carries one.
+	// sound_emitter.cpp was the other file here, until the client's emit path
+	// went to C# (SourceSharp.Client.Sounds) and it left client.so.
 	const char *kShimShared[] = {
-		"sourcesharp/game/client/sound_emitter.cpp",
 		"sourcesharp/game/shared/util_shared_library.cpp",
 	};
 	const char *kTargets[] = { cmake_graph::kServer, cmake_graph::kClient, cmake_graph::kHost };
@@ -1071,11 +1063,10 @@ TEST( ClientEntityResolve, TheShimsSharedFilesAreBuiltOnlyWithSOURCESHARPSoTheyK
 		}
 	}
 
-	// The proof-of-read: the client compiles both. A reader that found neither
-	// file anywhere would make every EXPECT above pass by never running.
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kShimShared[ 0 ] )
-	          && cmake_graph::Compiles( cmake_graph::kClient, kShimShared[ 1 ] ) )
-	    << "client_sourcesharp does not compile both shim-shared files, so "
+	// The proof-of-read: the client compiles it. A reader that found the file
+	// nowhere would make every EXPECT above pass by never running.
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kShimShared[ 0 ] ) )
+	    << "client_sourcesharp does not compile the shim-shared file, so "
 	       "this fact is not measuring what it says (" << nCompiling
 	    << " target/file pairs compiled).";
 }

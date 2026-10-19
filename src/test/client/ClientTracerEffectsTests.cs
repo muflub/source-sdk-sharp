@@ -38,7 +38,7 @@ public class ClientTracerEffectsTests
         {
             Console.Returns("Console.FindConVarValue", developer);
             List = new ClientEffectList(Fx, Console);
-            Factory = new ClientSideEffectFactory(Fx, List, Fx, () => true);
+            Factory = new ClientSideEffectFactory(Fx, Fx, List, Fx, () => true);
             Tracers = new TracerSupport(Fx, Console, () => Draw);
         }
     }

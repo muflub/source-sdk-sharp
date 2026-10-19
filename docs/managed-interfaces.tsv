@@ -393,3 +393,10 @@ IManagedLeafSystemClient	EnumerateShadowsInLeaves	int32_t	const uint16_t *pLeave
 # groups) returns it; any other slot called with entries queued, or a full queue, hands
 # them over here first.
 IManagedLeafSystemClient	Pending	void	const int32_t *pEntries, int32_t nCount
+IManagedSoundEmitterClient	ClientSoundSystemInit	bool	void
+IManagedSoundEmitterClient	ClientSoundSystemShutdown	void	void
+IManagedSoundEmitterClient	ClientSoundLevelInitPreEntity	void	void
+IManagedSoundEmitterClient	ClientSoundLevelShutdownPostEntity	void	void
+IManagedSoundEmitterClient	ClientSoundEmit	void	const int32_t *pRecipients, int32_t nEntIndex, int32_t nChannel, const char *pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp, const float *pOrigin, float flSoundTime, float *pflDuration, int32_t nOptions, int32_t nSpeakerEntity, int32_t *pnHandle
+IManagedSoundEmitterClient	ClientSoundStop	void	int32_t nEntIndex, int32_t nChannel, const char *pSample
+IManagedSoundEmitterClient	ClientSoundEmitCloseCaption	void	const int32_t *pRecipients, int32_t nEntIndex, const char *pToken, float flDuration, int32_t bWarnIfMissing

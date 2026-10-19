@@ -279,6 +279,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Effects.FleckSystems _flecks = null!;
     private Effects.SparkEffects _sparks = null!;
     private ClientSoundController _sounds = null!;
+
+    // The client's sounds (sound_emitter.cpp's client emit path, moved): every
+    // caller's emitter, bound in BuildManagedRoot, and the block its native
+    // recipient filter is built in.
+    private Sounds.ClientSounds _clientSounds = null!;
+    private ManagedVtable? _recipientFilter;
     private Soundscapes.ClientSoundscapes _soundscapes = null!;
     private Soundscapes.ClientSoundscapeDriver _soundscapeDriver = null!;
     private Effects.ClientPrecipitations _precipitations = null!;
@@ -393,6 +399,18 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // In the container for the dev API's received counts (ClientDebugBuild).
         _services.AddInstance(_userMessages);
 
+        // THE CLIENT'S SOUNDS (sound_emitter.cpp's client emit path, moved):
+        // one service for every caller, registered before the first of them
+        // (the movement runner's world) and bound to its emitter in
+        // BuildManagedRoot, where the native recipient filter's block is built.
+        _clientSounds = new Sounds.ClientSounds(_services.Require<IEngineEntities>());
+        _services.AddInstance(_clientSounds);
+        _services.AddInstance<Sounds.IClientEntitySounds>(_clientSounds);
+        _services.AddInstance<IFxGameSounds>(_clientSounds);
+        _services.AddInstance<IClientImpactSoundEmitter>(_clientSounds);
+        _services.AddInstance<IFxTracerSound>(_clientSounds);
+        _services.AddInstance<ISoundscapeSounds>(_clientSounds);
+
         // This side's movement runner, over this module's engine
         // (plan_abi_hotreload D8): the native movement crossing and the
         // managed replay run the same loop through it.
@@ -402,7 +420,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _movement = new MovementRunner(_engine, world => new ClientPredictionMoveWorld(world,
             () => _prediction?.PredictingHost ?? EntityHandle.None,
             () => _prediction?.FirstRunOfFunctions ?? false,
-            _services.Require<IEngineSound>()));
+            _clientSounds));
         _services.AddInstance(_movement);
 
         // And the module's engine itself, for what acquires an engine
@@ -690,6 +708,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                       v => ManagedAreaFactory.Create(v, new Input.InputClientBinding(_engine.Crossings, _inputService!)));
         _bindings.Add("IManagedSoundControllerClient",
                       v => ManagedAreaFactory.Create(v, new SoundControllerClientBinding(_engine.Crossings, _sounds)));
+        // The client's sound emitter (sound_emitter.cpp's client emit path,
+        // moved): the CSoundEmitterSystem row's stages and native's last
+        // GameSound_* callers.
+        _bindings.Add("IManagedSoundEmitterClient",
+                      v => ManagedAreaFactory.Create(v, new SoundEmitterClientBinding(_engine.Crossings, _clientSounds)));
         // The client soundscape system (sound cluster 17): native's
         // client-system shell drives it.
         // The weather's render plan (lane c2-sims): DrawPrecipitation asks it.
@@ -1313,7 +1336,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var drawTracers = _convars.Get<DrawTracersConVar>();
         var effectList = new Effects.ClientEffectList(fxRender, fxConsole) { TracerExtra = () => tracerExtra?.Value ?? true };
         _services.AddInstance(effectList);
-        var effectFactory = new Effects.ClientSideEffectFactory(fxRender, effectList, _services.Require<IEngineHost>(),
+        var effectFactory = new Effects.ClientSideEffectFactory(fxRender, _services.Require<IFxTracerSound>(), effectList,
+                                                                _services.Require<IEngineHost>(),
                                                                 () => tracerExtra?.Value ?? true);
         _services.AddInstance(effectFactory);
         var tracers = new Effects.TracerSupport(fxRender, fxConsole, () => drawTracers?.Value ?? true);
@@ -1576,7 +1600,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The client's physics callbacks: stock's impact sounds, on managed's
         // own collision-event table (lane c6-input).
         var propOwners = _services.Resolve(typeof(TempEnts.ClientPhysicsProps)) as TempEnts.IClientPhysicsPropOwners;
-        _impactSounds = new Physics.ClientImpactSounds(_services.Require<IClientImpactSoundWorld>());
+        _impactSounds = new Physics.ClientImpactSounds(_services.Require<IClientImpactSoundWorld>(),
+                                                       _services.Require<IClientImpactSoundEmitter>());
         _collisionSolver = new Physics.ClientCollisionSolver(
             new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>(),
                                              propOwners));
@@ -2590,9 +2615,70 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             solverCallbacks.CollisionSolver = callbackObjects.CollisionSolver(_physicsCollisionSolver);
         }
 
+        BuildSounds(vtables);
+
         ActivateSteam(vtables);
 
         return _managedRoot.Address;
+    }
+
+    /// <summary>
+    /// The client's sound emitter (sound_emitter.cpp's client emit path,
+    /// moved): the script table, the client's engine sound and engine, the
+    /// file system, and the native IRecipientFilter every managed emit hands
+    /// the engine, built in its block here. Without any of them nothing plays
+    /// and the CSoundEmitterSystem row's Init is refused, as the native row's
+    /// false stopped the client.
+    /// </summary>
+    private void BuildSounds(ManagedVtables vtables)
+    {
+        IVtableSoundEmitter? scripts = SoundEmitterBase.Acquire(_engine, out string scriptsWhy);
+        IVtableEngineSoundClient? sound = EngineSoundClient.Acquire(_engine, out string soundWhy);
+        IVtableEngineClient? engineClient = EngineClient.Acquire(_engine, out string clientWhy);
+        IVtableBaseFileSystem? files = EngineBaseFileSystem.Acquire(_engine, out string filesWhy);
+        RecipientFilterObject? filters = RecipientFilterObject.Acquire(_engine, out string filtersWhy);
+        if (scripts is null || sound is null || engineClient is null || files is null || filters is null)
+        {
+            Log.Warning("[SourceSharp/Client] no sound emitter: "
+                        + (scripts is null ? scriptsWhy : sound is null ? soundWhy : engineClient is null ? clientWhy
+                           : files is null ? filesWhy : filtersWhy) + "\n");
+            return;
+        }
+
+        var sink = new RecipientFilterSink();
+        _recipientFilter = RecipientFilterSink.Create(vtables, sink);
+        var engine = new ClientSoundEmitterEngine(scripts, sound, engineClient, sink, filters.Build(_recipientFilter));
+
+        IEngineConsole console = _services.Require<IEngineConsole>();
+        IEngineEnvironment environment = _services.Require<IEngineEnvironment>();
+        IClientStandalones standalones = _services.Require<IClientStandalones>();
+        IEngineEntityRender render = _services.Require<IEngineEntityRender>();
+
+        // The speaker: the client entity at the index; "" for one with no model.
+        string? SpeakerModel(int index)
+            => standalones.GetByIndex(index) is { } speaker ? render.GetModelName(speaker.Handle) ?? string.Empty : null;
+
+        var context = new Sounds.ClientSoundContext(
+            () => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 1,
+            () => float.TryParse(console.FindConVarValue("closecaption"), System.Globalization.NumberStyles.Float,
+                                 System.Globalization.CultureInfo.InvariantCulture, out float on) && (int)on != 0,
+            engineClient.LocalPlayerSlot,
+            () => _convars.Get<SvSoundEmitterTraceConVar>()?.Value == true,
+            SpeakerModel);
+
+        var emitter = new Sounds.ClientSoundEmitter(engine, _services.Require<IGameClock>(), context,
+                                                    new Sounds.NoCloseCaptionHud(), text => Log.Msg(text),
+                                                    DeveloperMessage);
+        _clientSounds.Bind(emitter, new Sounds.ClientSoundEmitterSystem(new ClientSoundSystemEngine(scripts, engineClient, files)),
+                           engine);
+    }
+
+    /// <summary><c>DevMsg</c>: the console line when <c>developer</c> is 1 or more.</summary>
+    private void DeveloperMessage(string text)
+    {
+        if (int.TryParse(NativeConsole.ValueOf(_services.Require<IEngineConsole>(), "developer"), out int level)
+            && level >= 1)
+            Log.Msg(text);
     }
 
     /// <summary>

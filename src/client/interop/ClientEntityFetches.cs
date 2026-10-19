@@ -155,7 +155,7 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         services.AddInstance<ISoundscapeAudio>(new SoundscapeAudioSlots(areas.Console, areas.SoundscapeClient));
         var emitters = new ClientFxEmitterSlots(areas.FxClient);
         services.AddInstance<IFxFlashReads>(emitters);
-        services.AddInstance<IFxGameSounds>(emitters);
+        // IFxGameSounds is the managed client sound emitter's (ClientSounds).
         services.AddInstance<IFxTempEntModels>(emitters);
         // The client weather's engine reads (lane c2-sims).
         services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(areas.PrecipitationClient));

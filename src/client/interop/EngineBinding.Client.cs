@@ -396,7 +396,6 @@ internal sealed partial class EngineScripted
 
 internal sealed partial class EngineSound
 {
-    public void ClientEmitSound(EntityHandle entity, string soundName, Vector? origin = null) => E.ClientEmitSound(entity, soundName, origin);
 
 
     // The server's members, as a client engine answers them: what each one's

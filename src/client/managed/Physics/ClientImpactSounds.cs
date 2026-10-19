@@ -16,7 +16,7 @@ namespace SourceSharp.Client.Physics;
 /// world on CHAN_STATIC) and physicssound::PlayImpactSounds at the end of the
 /// physics frame (plan_client_novalve C6, cluster 9; lane c6-input).
 /// </summary>
-public sealed class ClientImpactSounds(IClientImpactSoundWorld world) : IClientImpactSink
+public sealed class ClientImpactSounds(IClientImpactSoundWorld world, IClientImpactSoundEmitter sounds) : IClientImpactSink
 {
     /// <summary>CHAN_STATIC: CPhysicsSystem::AddImpactSound's channel.</summary>
     public const int ChanStatic = 6;
@@ -148,7 +148,7 @@ public sealed class ClientImpactSounds(IClientImpactSoundWorld world) : IClientI
             }
 
             float volume = sound.Volume > 1 ? 1 : sound.Volume;
-            if (!world.Emit(name, sound.Origin, sound.Channel, volume))
+            if (!sounds.EmitImpactSound(name, sound.Origin, sound.Channel, volume))
                 break;
             Played++;
         }

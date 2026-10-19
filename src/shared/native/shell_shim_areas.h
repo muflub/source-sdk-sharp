@@ -485,7 +485,6 @@ class CShimStandaloneClient final : public IShimStandaloneClient
 {
 public:
 	void ActivateOccluder( int32_t nOccluderIndex, int32_t bActive ) override;
-	void ClientEmitSound( uint32_t hEntity, const char * pszSoundName, const float * pOriginXYZ ) override;
 	void ** ClientInterpBlocks( int32_t * pOutCount, float * pOutInterpAmount ) override;
 	void ** ClientPolicyBlocks( int32_t * pOutCount ) override;
 	void DynamicLightRelease( int32_t nKey ) override;
@@ -618,7 +617,6 @@ public:
 	void FxDrawQuads( int32_t nMaterial, int32_t nVertices, const float * pVertices, int32_t bByteColor ) override;
 	void FxView( float * pOut ) override;
 	void FxMainViewOrigin( float * pOutXYZ ) override;
-	int32_t FxEmitTracerSound( const char * pSoundName, const float * pStartXYZ, const float * pDirXYZ ) override;
 	int32_t FxLocalPlayer() override;
 	void FxViewAngles( float * pOutPYR ) override;
 	int32_t FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float * pOutXYZ, char * pModelOut, int32_t nModelSize ) override;
@@ -640,8 +638,6 @@ public:
 	void FxVectorRandom( float flLo, float flHi, float * pOutXYZ ) override;
 	int32_t FxMaterialsCached() override;
 	void FxImpactOverlay( const float * pPositionXYZ, const float * pColorRGB ) override;
-	int32_t FxSoundParameters( const char * pScript, float * pOut6, char * pWave, int32_t nWaveBytes ) override;
-	void FxEmitWorldSound( const char * pWave, int32_t nChannel, float flVolume, int32_t nSoundLevel, int32_t nPitch, const float * pOriginXYZ ) override;
 	int32_t FxTempEntCreateNamed( int32_t nSlot, const float * pOriginXYZ, const char * pModel, int32_t nPriority ) override;
 	void FxLoadModel( const char * pModel ) override;
 	int32_t FxModelFrameCount( const char * pModel ) override;
@@ -650,9 +646,6 @@ public:
 class CShimSoundscapeClient final : public IShimSoundscapeClient
 {
 public:
-	void SoundscapeEmitAmbient( const char * pszWave, float flVolume, int32_t nPitch, int32_t nFlags ) override;
-	void SoundscapeEmitWorld( const char * pszWave, float flVolume, int32_t nSoundLevel, int32_t nPitch, int32_t nFlags, const float * pOriginXYZ ) override;
-	void SoundscapeStopWorld( const char * pszWave ) override;
 	void SoundscapeSetRoomType( int32_t nRoomType ) override;
 	void SoundscapeSetPlayerDsp( int32_t nDspType ) override;
 	void SoundscapeMainView( float * pOut9 ) override;
@@ -710,7 +703,6 @@ class CShimPhysicsClient final : public IShimPhysicsClient
 {
 public:
 	int32_t PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char * pHard, int32_t nHard, char * pSoft, int32_t nSoft, float * pOut3 ) override;
-	int32_t PhysicsClientEmitImpactSound( const char * pszName, const float * pOrigin, int32_t nChannel, float flVolume ) override;
 	void PhysicsClientCollideExtent( void * pObject, const float * pOrigin, const float * pAngles, const float * pDirection, float * pOut ) override;
 	int32_t PhysicsClientPointContents( const float * pPoint ) override;
 	void PhysicsClientSplashLighting( const float * pPoint, float * pOut4 ) override;

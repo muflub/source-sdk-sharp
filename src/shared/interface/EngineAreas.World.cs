@@ -153,12 +153,8 @@ public interface IEngineSound
     /// <inheritdoc cref="EngineSide.EntityEmitSound"/>
     void EntityEmitSound(EntityHandle entity, string soundName);
 
-    /// <inheritdoc cref="EngineSide.ClientEmitSound"/>
-    void ClientEmitSound(EntityHandle entity, string soundName, Vector? origin = null);
-
     /// <inheritdoc cref="EngineSide.EntityStopSound"/>
     void EntityStopSound(EntityHandle entity, string soundName);
-
 
     // plan_gamedll_after.md Phase A3, second pair -- the four things only the
     // shim can do to a sound patch. THESE belong on this area where the two

@@ -11,18 +11,6 @@ namespace SourceSharp.Client.Interop;
 /// </summary>
 public interface ISoundscapeAudio
 {
-    /// <summary><c>enginesound-&gt;EmitAmbientSound( wave, volume, pitch, flags )</c>.</summary>
-    void EmitAmbient(string wave, float volume, int pitch, int flags);
-
-    /// <summary>
-    /// <c>GameSound_Emit</c> to the local player from <c>SOUND_FROM_WORLD</c> on
-    /// <c>CHAN_STATIC</c>, with the <c>EmitSound_t</c> fields named here.
-    /// </summary>
-    void EmitWorld(string wave, float volume, int soundLevel, int pitch, int flags, Vector origin);
-
-    /// <summary><c>GameSound_Stop( SOUND_FROM_WORLD, CHAN_STATIC, wave )</c>.</summary>
-    void StopWorld(string wave);
-
     /// <summary><c>enginesound-&gt;SetRoomType( local player, roomType )</c>.</summary>
     void SetRoomType(int roomType);
 
@@ -43,4 +31,24 @@ public interface ISoundscapeAudio
 
     /// <summary><c>filesystem-&gt;GetFileTime( "sound/" + PSkipSoundChars( wave ), "GAME" )</c>: a reslist touch.</summary>
     void TouchSoundFile(string wave);
+}
+
+/// <summary>
+/// The sounds a soundscape plays and stops, which the managed client sound
+/// emitter plays (sound_emitter.cpp's client emit path, moved): an ambient
+/// wave straight on the engine, a positioned one through the emitter.
+/// </summary>
+public interface ISoundscapeSounds
+{
+    /// <summary><c>enginesound-&gt;EmitAmbientSound( wave, volume, pitch, flags )</c>.</summary>
+    void EmitAmbient(string wave, float volume, int pitch, int flags);
+
+    /// <summary>
+    /// <c>GameSound_Emit</c> to the local player from <c>SOUND_FROM_WORLD</c> on
+    /// <c>CHAN_STATIC</c>, with the <c>EmitSound_t</c> fields named here.
+    /// </summary>
+    void EmitWorld(string wave, float volume, int soundLevel, int pitch, int flags, Vector origin);
+
+    /// <summary><c>GameSound_Stop( SOUND_FROM_WORLD, CHAN_STATIC, wave )</c>.</summary>
+    void StopWorld(string wave);
 }

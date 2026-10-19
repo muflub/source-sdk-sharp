@@ -28,7 +28,7 @@
 #include "c_rumble.h"
 #include "engine/IEngineSound.h"
 #include "c_recipientfilter.h"
-#include "gamesound.h"
+#include "client_sound.h"
 #include "vgui/ILocalize.h"
 #include "vgui/IPanel.h"
 #include "shell_viewport_client.h"
@@ -483,7 +483,7 @@ public:
 		et.m_pSoundName = event->GetString( "sound" );
 		et.m_nFlags = event->GetInt( "additional_flags" );
 		CLocalPlayerFilter filter;
-		GameSound_Emit( filter, SOUND_FROM_LOCAL_PLAYER, et );
+		ClientSound::Emit( filter, SOUND_FROM_LOCAL_PLAYER, et );
 	}
 
 	// A key the engine offers the client mode. The decision is managed's

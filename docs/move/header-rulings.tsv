@@ -1320,7 +1320,6 @@ src/sourcesharp/test/impact_dispatch_test.cpp	no	source/behavior scan of ABI wir
 src/sourcesharp/test/impact_subject_test.cpp	no	drives real handle_cross.h function via mocks plus a source ban; no algorithm embedded
 src/sourcesharp/test/ivp_ovtree_audit_test.cpp	no	drives real SourceSharpIvpKeyHash against a captured value; test states value 'neither derived here'
 src/sourcesharp/test/jet_lifetime_test.cpp	no	drives own finite/positive arithmetic guard; no Valve algorithm embedded
-src/sourcesharp/test/laneR_sound_dead_paths_test.cpp	no	source scan of dead-path guards in sound_emitter.cpp; no logic
 src/sourcesharp/test/leaf_cycle_test.cpp	no	source scan of relocation/cycle facts; no logic
 src/sourcesharp/test/local_recipient_test.cpp	no	drives own local_recipient.h slot-comparison rule; no Valve algorithm
 src/sourcesharp/test/managed_host_single_instance_test.cpp	no	binary/source scan of a single-instance host fix; no Valve logic
@@ -1402,7 +1401,6 @@ src/sourcesharp/test/shim_vpc_stock_rows_test.cpp	no	vpc ratchet parser test
 src/sourcesharp/test/shot_path_solidity_test.cpp	no	source-scan verifying a chain of definitions across files
 src/sourcesharp/test/skybox_wire_test.cpp	no	source-scan verifying wiring links exist
 src/sourcesharp/test/slot_table_test.cpp	no	tests own slot-table header plus must-not-compile probes, original logic
-src/sourcesharp/test/soundemitter_lift_test.cpp	no	source scanner verifying static members moved
 src/sourcesharp/test/soundent_gamesystem_test.cpp	no	source-scan verifying de-entification facts
 src/sourcesharp/test/soundent_managed_test.cpp	no	source-scan verifying managed participant wiring
 src/sourcesharp/test/soundscape_particle_7e_test.cpp	no	source-scan verifying view-accessor/entity-ask facts

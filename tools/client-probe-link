@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+"""tools/client-probe-link -- does the client probe build still link?
+
+    tools/client-probe-link               configure and link it; exit 1 if not
+    tools/client-probe-link --self-test   this script's own checks
+
+The probe build (SS_CLIENT_PROBES=ON, tools/probes/client) is a debug
+client.so with the oracle recorders compiled in. Nothing else builds it, so
+it rots silently: it stopped linking when Steam left client.so (fixed in lane
+input), and again when tier1/vstdlib, sound_emitter.cpp and particles_new.cpp
+left (13 undefined symbols at 4e8970d95). This configures its own tree,
+farm/debug/build-probes (the debug preset whatever $SOURCESHARP_CONFIG is,
+because the probes are debug-only), and links client_sourcesharp there.
+
+The tree deploys into farm/debug/build-probes/deploy (SS_DEPLOY_DIR), never
+bin/debug: the game directory keeps the normal build's libraries.
+
+A pass needs the link to succeed AND the probes to be in what it linked: the
+console-command name of every CON_COMMAND in every probe source the
+SS_CLIENT_PROBES block of src/client/native/CMakeLists.txt lists must be in
+the linked client.so. A missing farm, a block that lists nothing, or a source
+with no command is a failure, never a pass.
+"""
+import os
+import re
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CMAKELISTS = os.path.join(REPO, "src", "client", "native", "CMakeLists.txt")
+TREE = os.path.join(REPO, "farm", "debug", "build-probes")
+PROBE_SO = os.path.join(TREE, "out", "client.so")
+
+BLOCK = re.compile(r"^if\(SS_CONFIG STREQUAL \"debug\" AND SS_CLIENT_PROBES\)\n(.*?)^endif\(\)",
+                   re.M | re.S)
+SOURCE = re.compile(r"target_sources\(\s*client_sourcesharp\s+PRIVATE\s+\$\{PROJECT_SOURCE_DIR\}/(\S+\.cpp)\s*\)")
+COMMAND = re.compile(r"^\s*CON_COMMAND(?:_F)?\(\s*([A-Za-z_][A-Za-z_0-9]*)\s*,", re.M)
+UNDEFINED = re.compile(r"undefined symbol: (.+)$", re.M)
+
+
+def fail(msg):
+    print("client-probe-link: " + msg)
+    return 1
+
+
+def probe_sources(cmake_text):
+    """The probe .cpp files (repo-relative) the SS_CLIENT_PROBES block adds."""
+    m = BLOCK.search(cmake_text)
+    if not m:
+        return None
+    return SOURCE.findall(m.group(1))
+
+
+def commands(cpp_text):
+    """The console-command names a probe source defines."""
+    return COMMAND.findall(cpp_text)
+
+
+def verdict(rc, log, so_bytes, wanted):
+    """(ok, message) for one link: rc and output of the build, the linked
+    library's bytes (None if absent) and the command names it must hold."""
+    if rc != 0:
+        syms = sorted(set(UNDEFINED.findall(log)))
+        if syms:
+            return False, "the link failed with %d undefined symbol(s):\n  %s" % (len(syms), "\n  ".join(syms))
+        tail = "\n  ".join(log.strip().splitlines()[-30:])
+        return False, "the build failed (exit %d):\n  %s" % (rc, tail)
+    if so_bytes is None:
+        return False, "the build passed but left no client.so"
+    if not wanted:
+        return False, "no probe command to look for (the stimulus cannot reach the subject)"
+    missing = [c for c in wanted if (b"\0" + c.encode() + b"\0") not in so_bytes]
+    if missing:
+        return False, "client.so linked without the probes: %s" % ", ".join(missing)
+    return True, "client.so linked with the %d probe command(s)" % len(wanted)
+
+
+def wanted_commands():
+    """(names, error): every probe command the block's sources define."""
+    try:
+        text = open(CMAKELISTS, encoding="utf-8").read()
+    except OSError as exc:
+        return None, "cannot read %s: %s" % (CMAKELISTS, exc)
+    sources = probe_sources(text)
+    if not sources:
+        return None, "no probe source in the SS_CLIENT_PROBES block of %s" % os.path.relpath(CMAKELISTS, REPO)
+    names = []
+    for rel in sources:
+        try:
+            found = commands(open(os.path.join(REPO, rel), encoding="utf-8").read())
+        except OSError as exc:
+            return None, "cannot read probe source %s: %s" % (rel, exc)
+        if not found:
+            return None, "probe source %s defines no CON_COMMAND" % rel
+        names += found
+    return names, None
+
+
+def read_bytes(path):
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def build():
+    """(rc, log) of configuring and linking the probe tree."""
+    if not os.path.isdir(os.path.join(REPO, "farm", "debug", "src")):
+        return 1, "farm/debug/src is missing: run make setup"
+    configure = [os.path.join(REPO, "tools", "build", "configure"), "debug", "-B", TREE,
+                 "-DSS_CLIENT_PROBES=ON", "-DSS_BUILD_TESTS=OFF",
+                 "-DSS_DEPLOY_DIR=" + os.path.join(TREE, "deploy")]
+    c = subprocess.run(configure, cwd=REPO, capture_output=True, text=True)
+    if c.returncode != 0:
+        return c.returncode, "configure failed:\n" + c.stdout + c.stderr
+    n = subprocess.run(["ninja", "-C", TREE, "client_sourcesharp"], cwd=REPO,
+                       capture_output=True, text=True)
+    return n.returncode, n.stdout + n.stderr
+
+
+def self_test():
+    counts = [0, 0]   # run, failed
+
+    def ck(name, cond):
+        counts[0] += 1
+        counts[1] += 0 if cond else 1
+        print(("  ok    " if cond else "  FAIL  ") + name)
+
+    block = ('option(SS_CLIENT_PROBES "x" OFF)\n'
+             'if(SS_CONFIG STREQUAL "debug" AND SS_CLIENT_PROBES)\n'
+             '  target_sources(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/tools/probes/client/a_debug.cpp)\n'
+             '  # a comment\n'
+             '  target_sources(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/tools/probes/client/b_debug.cpp)\n'
+             'endif()\n'
+             'target_sources(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/src/client/native/c.cpp)\n')
+    ck("the block's two sources are read, and nothing after it",
+       probe_sources(block) == ["tools/probes/client/a_debug.cpp", "tools/probes/client/b_debug.cpp"])
+    ck("a CMakeLists with no probe block gives none", probe_sources("project(x)\n") is None)
+    ck("CON_COMMAND and CON_COMMAND_F names are read, a mention in a comment is not",
+       commands('CON_COMMAND( cs_a, "help" )\n{\n}\nCON_COMMAND_F(cs_b, "h", 0)\n// CON_COMMAND( cs_c, x )\n')
+       == ["cs_a", "cs_b"])
+
+    lld = ("ld.lld-22: error: undefined symbol: KeyValues::LoadFromFile(IBaseFileSystem*)\n"
+           ">>> referenced by c2sims_probes_debug.cpp:113\n"
+           "ld.lld-22: error: undefined symbol: InstallUniformRandomStream\n"
+           "ld.lld-22: error: undefined symbol: InstallUniformRandomStream\n")
+    good, msg = verdict(1, lld, None, ["cs_a"])
+    ck("a failed link fails, naming each undefined symbol once",
+       not good and "2 undefined symbol(s)" in msg and "InstallUniformRandomStream" in msg
+       and "KeyValues::LoadFromFile" in msg)
+    good, msg = verdict(1, "FAILED: x.o\nerror: no member named 'Get'\n", None, ["cs_a"])
+    ck("a failed compile fails, with its output", not good and "no member named" in msg)
+    so = b"\x7fELF\0cs_a\0junk\0cs_b\0"
+    ck("a library holding every command passes", verdict(0, "", so, ["cs_a", "cs_b"])[0])
+    ck("a library missing one fails, naming it",
+       verdict(0, "", so, ["cs_a", "cs_z"]) == (False, "client.so linked without the probes: cs_z"))
+    ck("a name only inside a longer string does not count",
+       not verdict(0, "", b"\0cs_a_longer\0", ["cs_a"])[0])
+    ck("no library fails", not verdict(0, "", None, ["cs_a"])[0])
+    ck("nothing to look for fails", not verdict(0, "", so, [])[0])
+
+    # The live inputs: the block lists probes, each defines a command, and the
+    # normal client.so of the configuration under test holds none of them, so
+    # finding them in the probe library tells the probe build apart from the
+    # normal one.
+    names, why = wanted_commands()
+    ck("the live SS_CLIENT_PROBES block names probe commands (%s)" % (why or "%d" % len(names or [])),
+       bool(names))
+    cfg = os.environ.get("SOURCESHARP_CONFIG", "debug")
+    normal_so = os.path.join(REPO, "farm", cfg, "build", "out", "client.so")
+    normal = read_bytes(normal_so)
+    ck("the normal client.so is built (%s)" % os.path.relpath(normal_so, REPO), normal is not None)
+    if names and normal is not None:
+        ck("the normal client.so holds no probe command",
+           all((b"\0" + c.encode() + b"\0") not in normal for c in names))
+    print("%d checks, %d failed" % (counts[0], counts[1]))
+    return 0 if counts[1] == 0 else 1
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    names, why = wanted_commands()
+    if names is None:
+        return fail(why)
+    rc, log = build()
+    good, msg = verdict(rc, log, read_bytes(PROBE_SO) if rc == 0 else None, names)
+    print("client-probe-link: " + msg)
+    return 0 if good else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

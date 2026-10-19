@@ -36,6 +36,8 @@ public unsafe class VtableClientCommandTests
         public void ConsolePrintAt(int position, float timeToLive, float red, float green, float blue, bool fixedWidthFont, string text) => Printed.Add(text);
         public bool TryLightForPoint(in Vector position, bool clamp, out Vector light) { light = new Vector(0.5f, 0.25f, 1f); return true; }
         public bool TryLightForPointFast(in Vector position, bool clamp, out Vector light) { light = default; return false; }
+        public int SentenceIndexFromName(string name) => -1;
+        public int LocalPlayerSlot() => 0;
     }
 
     [Fact]

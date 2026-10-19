@@ -156,7 +156,9 @@ const char *kSoundscape = "sourcesharp/game/client/shell_soundscape_audio_client
 const char *kSoundscapeManaged = "sourcesharp/managed/SourceSharp.Client/Soundscapes/ClientSoundscapes.cs";
 const char *kSoundscapeCommands = "sourcesharp/managed/SourceSharp.Client/Soundscapes/SoundscapeCommands.cs";
 const char *kClientModule = "sourcesharp/managed/SourceSharp.Client/ClientModule.cs";
-const char *kEmitter    = "sourcesharp/game/client/sound_emitter.cpp";
+// The client's emitter, managed since sound_emitter.cpp left client.so
+// (SourceSharp.Client.Sounds); its speaker lookup is ClientModule's.
+const char *kEmitter    = "sourcesharp/managed/SourceSharp.Client/Sounds/ClientSoundEmitter.cs";
 const char *kFilter     = "sourcesharp/game/client/shell_recipientfilter_client.cpp";
 // cs_cl_particle_report, managed since particlemgr.cpp left client.so (C7
 // particles phase 4), over the particles shell's per-system read and the
@@ -226,7 +228,7 @@ TEST( Step7eSubjects, EveryFileThisSuiteReadsIsActuallyThere )
 		{ kSoundscapeManaged, 500u, "public sealed class ClientSoundscapes" },
 		{ kSoundscapeCommands, 500u, "cs_cl_soundscape_report" },
 		{ kClientModule, 500u, "public sealed class ClientModule" },
-		{ kEmitter,     500u, "CSoundEmitterSystem" },
+		{ kEmitter,     500u, "public sealed class ClientSoundEmitter" },
 		{ kFilter,      500u, "C_RecipientFilter::" },
 		{ kParticleCommands, 500u, "cs_cl_particle_report" },
 		{ kTePool, 500u, "int32_t SourceSharp_ClientEntityOrigin(" },
@@ -385,35 +387,28 @@ TEST( Step7eSubjects, ThePushCounterExistsSoTheGateCanReadIt )
 //=============================================================================
 TEST( Step7eSubjects, TheEmittersClientArmAsksTheEntityList )
 {
+	// THE QUESTION STEP 7e ANSWERED HAS MOVED TO C# WITH THE EMITTER. 7e's
+	// sound_emitter.cpp asked the entity list (SourceSharp_ClientEntityFromIndex)
+	// rather than C_BaseEntity::Instance, which answered NULL for every entity
+	// on the parallel hierarchy, so every managed entity's sound went out as
+	// GENDER_NONE. The managed ClientSoundEmitter asks ClientModule's
+	// SpeakerModel, which asks the client's own registry by index and the
+	// renderable's model by handle: the same question of the entities this port
+	// owns, and no SDK class in it.
+	const std::string module = Code( kClientModule );
+	ASSERT_FALSE( module.empty() );
+
+	EXPECT_TRUE( Has( module, "standalones.GetByIndex(index) is { } speaker ? render.GetModelName(speaker.Handle)" ) )
+		<< "the client's speaker lookup is gone. Deleting it is GENDER_NONE for "
+		   "every entity, which from the console looks like nothing.";
+	EXPECT_TRUE( Has( module, "new Sounds.ClientSoundEmitter(engine, _services.Require<IGameClock>(), context," ) )
+		<< "the client's emitter is not built over the context the speaker lookup is in.";
+
 	const std::string code = Code( kEmitter );
 	ASSERT_FALSE( code.empty() );
-
-	EXPECT_FALSE( Has( code, "C_BaseEntity::Instance( entindex )" ) )
-		<< "the SDK resolve is back. It answers NULL for every entity on the "
-		   "parallel hierarchy, so every managed entity's sound was emitted "
-		   "GENDER_NONE and a soundscript with gender_male/gender_female "
-		   "entries silently took its fallback.";
-	// LANE sub-entitylist ROUTED THIS LINE, AND THE FACT IS THE SAME FACT --
-	// the identical amendment step p7-exit made to
-	// TheParticleReportCanNameTheClientsOwnCopyOfAnEntity above.
-	//
-	// 7e wrote it as `ClientEntityList().GetClientEntity( entindex )` and gave
-	// the reason: "the entity list is the engine boundary and holds BOTH
-	// hierarchies". That reason has not changed -- what changed is which
-	// object holds both. SourceSharp_ClientEntityFromIndex asks the SLOT TABLE
-	// first and falls back to the stock list, and its body is stock's own
-	// GetClientEntity over that one primitive, so it answers for the same
-	// entities this line always did. plan_entity.md clause 2 is what forced
-	// it: no compiled TU may name the stock client entity list, and this was
-	// one of the last two in a game/shared shim file.
-	//
-	// The needle is the CALL. Deleting the resolve entirely reddens this, which
-	// is the point -- GENDER_NONE for every managed entity is what the deletion
-	// looks like from the console, which is to say it looks like nothing.
-	EXPECT_TRUE( Has( code, "SourceSharp_ClientEntityFromIndex( entindex )" ) );
-	EXPECT_FALSE( Has( code, "ClientEntityList().GetClientEntity(" ) )
-		<< "the stock client entity list is named again in a compiled TU.";
-	EXPECT_TRUE( Has( code, "modelinfo->GetModelName( pGenderModel )" ) );
+	EXPECT_FALSE( Has( code, "C_BaseEntity::Instance" ) );
+	EXPECT_FALSE( CompilesTail( cmake_graph::kClient, "sourcesharp/game/client/sound_emitter.cpp" ) )
+		<< "sound_emitter.cpp is back on the client's link line beside the managed emitter.";
 }
 
 //=============================================================================

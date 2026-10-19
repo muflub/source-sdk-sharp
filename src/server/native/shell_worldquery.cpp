@@ -67,11 +67,6 @@ void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex = 
 void PrecacheMaterial( const char *pMaterialName );												// shell_stringtables.cpp
 void PrecacheParticleSystem( const char *pParticleSystemName );									// shell_stringtables.cpp
 
-// The lifted sound statics. They used to be reached as CBaseEntity::Foo()
-// through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
-// that quarantine is retired and the calls below name GameSound_* directly.
-#include "gamesound.h"
-
 
 // Defined by the game system. Declared here the way the other shells do it,
 // rather than pulled in through a header that would drag the whole gamesystem

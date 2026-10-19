@@ -15,7 +15,7 @@ public class ClientImpactSoundsTests
 {
     private const int ChanStatic = 6;
 
-    private sealed class World : IClientImpactSoundWorld
+    private sealed class World : IClientImpactSoundWorld, IClientImpactSoundEmitter
     {
         public readonly Dictionary<nint, nint> Owners = new();
         public readonly HashSet<nint> Statics = new();
@@ -29,7 +29,7 @@ public class ClientImpactSoundsTests
         public Vector Position(nint o) => Positions.TryGetValue(o, out Vector p) ? p : Vector.Zero;
         public SurfaceImpactAudio? Surface(int s) => Surfaces.TryGetValue(s, out var a) ? a : null;
 
-        public bool Emit(string name, Vector origin, int channel, float volume)
+        public bool EmitImpactSound(string name, Vector origin, int channel, float volume)
         {
             if (NoParameters.Contains(name))
                 return false;
@@ -65,7 +65,7 @@ public class ClientImpactSoundsTests
     public void AnImpactNoMoreThanATenthOfASecondAfterTheLastIsSilent()
     {
         var w = Rig();
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 0, 1, 300f, delta: 0.1f));
         Assert.Equal(0, s.Queued);
     }
@@ -74,7 +74,7 @@ public class ClientImpactSoundsTests
     public void AnImpactAtSeventyOrSlowerIsSilent()
     {
         var w = Rig();
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 0, 1, 70f));
         Assert.Equal(0, s.Queued);
     }
@@ -83,7 +83,7 @@ public class ClientImpactSoundsTests
     public void AnImpactPastTheGateQueuesBothSides()
     {
         var w = Rig();
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         Assert.Equal(2, s.Queued);
     }
@@ -93,7 +93,7 @@ public class ClientImpactSoundsTests
     {
         var w = Rig();
         w.Statics.Add(2);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         Assert.Equal(1, s.Queued);
     }
@@ -103,7 +103,7 @@ public class ClientImpactSoundsTests
     {
         var w = Rig();
         w.Owners.Remove(2);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         Assert.Equal(1, s.Queued);
     }
@@ -112,7 +112,7 @@ public class ClientImpactSoundsTests
     public void ANegativeSurfacePropMakesNoSound()
     {
         var w = Rig();
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, -1, 4, 300f));
         Assert.Equal(1, s.Queued);
     }
@@ -122,7 +122,7 @@ public class ClientImpactSoundsTests
     {
         var w = Rig();
         w.Statics.Add(2);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 160f));
         s.Play();
         Assert.Equal(0.25f, Assert.Single(w.Emitted).Volume, 6);
@@ -133,7 +133,7 @@ public class ClientImpactSoundsTests
     {
         var w = Rig();
         w.Statics.Add(2);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 400f));
         s.Play();
         Assert.Equal(1f, Assert.Single(w.Emitted).Volume);
@@ -144,7 +144,7 @@ public class ClientImpactSoundsTests
     {
         var w = Rig();
         w.Statics.Add(2);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         s.Play();
         var e = Assert.Single(w.Emitted);
@@ -160,7 +160,7 @@ public class ClientImpactSoundsTests
         w.Statics.Add(2);
         w.Surfaces[3] = new SurfaceImpactAudio("hard3", "soft3", 1f, 0.5f, 0f);
         w.Surfaces[4] = new SurfaceImpactAudio("hard4", "soft4", 0.25f, 0f, 0f);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         s.Play();
         Assert.Equal("soft3", Assert.Single(w.Emitted).Name);
@@ -173,7 +173,7 @@ public class ClientImpactSoundsTests
         w.Statics.Add(2);
         w.Surfaces[3] = new SurfaceImpactAudio("hard3", null, 1f, 0.5f, 0f);
         w.Surfaces[4] = new SurfaceImpactAudio("hard4", "soft4", 0.25f, 0f, 0f);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         s.Play();
         Assert.Equal("hard3", Assert.Single(w.Emitted).Name);
@@ -188,7 +188,7 @@ public class ClientImpactSoundsTests
         var w = Rig();
         w.Statics.Add(2);
         w.Surfaces[3] = new SurfaceImpactAudio("hard3", "soft3", 1f, 0f, 20000f);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 100f));
         s.Play();
         Assert.Equal("soft3", Assert.Single(w.Emitted).Name);
@@ -205,7 +205,7 @@ public class ClientImpactSoundsTests
         var w = Rig();
         w.Statics.Add(2);
         w.Surfaces[3] = new SurfaceImpactAudio(null, "soft3", 1f, 0f, 0f);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         s.Play();
         Assert.Empty(w.Emitted);
@@ -217,7 +217,7 @@ public class ClientImpactSoundsTests
         var w = Rig();
         w.Statics.Add(2);
         w.Statics.Add(4);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 5, 160f));   // 0.25
         s.PostCollision(Hit(3, 4, 3, 6, 128f));   // 0.16
         Assert.Equal(1, s.Queued);
@@ -233,7 +233,7 @@ public class ClientImpactSoundsTests
         w.Statics.Add(4);
         w.Surfaces[3] = new SurfaceImpactAudio("hard3", "soft3", 1f, 0.5f, 0f);
         w.Surfaces[6] = new SurfaceImpactAudio("hard6", "soft6", 0.25f, 0f, 0f);   // soft under 3
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 5, 128f));   // quieter, hits 5 (hard)
         s.PostCollision(Hit(3, 4, 3, 6, 160f));   // louder, hits 6 (soft)
         s.Play();
@@ -248,7 +248,7 @@ public class ClientImpactSoundsTests
         var w = Rig();
         w.Statics.Add(2);
         w.Statics.Add(4);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 5, 160f));
         s.PostCollision(Hit(3, 4, 3, 6, 128f));
         s.Play();
@@ -261,7 +261,7 @@ public class ClientImpactSoundsTests
         var w = Rig();
         for (nint o = 2; o <= 12; o += 2)
             w.Statics.Add(o);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         // Five distinct surfaces: four, then a fifth added (Count was 4).
         for (int i = 0; i < 5; i++)
             s.PostCollision(Hit(2 * i + 1, 2 * i + 2, i, 12, 160f));
@@ -280,7 +280,7 @@ public class ClientImpactSoundsTests
         var w = Rig();
         w.Statics.Add(2);
         w.Statics.Add(4);
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 5, 160f));
         s.PostCollision(Hit(3, 4, 7, 6, 160f));
         s.Play();
@@ -294,7 +294,7 @@ public class ClientImpactSoundsTests
         w.Statics.Add(2);
         w.Statics.Add(4);
         w.NoParameters.Add("hard7");
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 5, 160f));
         s.PostCollision(Hit(3, 4, 7, 6, 160f));
         s.Play();
@@ -306,7 +306,7 @@ public class ClientImpactSoundsTests
     public void PlayingEmptiesTheList()
     {
         var w = Rig();
-        var s = new ClientImpactSounds(w);
+        var s = new ClientImpactSounds(w, w);
         s.PostCollision(Hit(1, 2, 3, 4, 300f));
         s.Play();
         Assert.Equal(0, s.Queued);

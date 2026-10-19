@@ -140,3 +140,33 @@ public unsafe struct ManagedVPhysicsKeyHandlerTable
     [SlotHash(0xde3e0200)]
     public delegate* unmanaged<void*, void*, void> SetDefaults;
 }
+
+/// <summary>The table managed writes for <c>IManagedRecipientFilter</c> (<c>SSManagedRecipientFilterTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedRecipientFilter", ReservedWords = 2)]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedRecipientFilterTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: int32_t IsReliable( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> IsReliable;
+
+    // 3: int32_t IsInitMessage( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> IsInitMessage;
+
+    // 4: int32_t GetRecipientCount( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> GetRecipientCount;
+
+    // 5: int32_t GetRecipientIndex( int32_t nSlot )
+    [SlotHash(0xa45f061a)]
+    public delegate* unmanaged<void*, int, int> GetRecipientIndex;
+}

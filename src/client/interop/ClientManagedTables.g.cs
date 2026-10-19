@@ -1378,3 +1378,45 @@ public unsafe struct ManagedLeafSystemClientTable
     [SlotHash(0x2acf7c51)]
     public delegate* unmanaged<void*, void*, int, void> Pending;
 }
+
+/// <summary>The table managed writes for <c>IManagedSoundEmitterClient</c> (<c>SSManagedSoundEmitterClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedSoundEmitterClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedSoundEmitterClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: bool ClientSoundSystemInit( void )
+    [SlotHash(0xbe023354)]
+    public delegate* unmanaged<void*, byte> ClientSoundSystemInit;
+
+    // 3: void ClientSoundSystemShutdown( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> ClientSoundSystemShutdown;
+
+    // 4: void ClientSoundLevelInitPreEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> ClientSoundLevelInitPreEntity;
+
+    // 5: void ClientSoundLevelShutdownPostEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> ClientSoundLevelShutdownPostEntity;
+
+    // 6: void ClientSoundEmit( const int32_t *pRecipients, int32_t nEntIndex, int32_t nChannel, const char *pSoundName, float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp, const float *pOrigin, float flSoundTime, float *pflDuration, int32_t nOptions, int32_t nSpeakerEntity, int32_t *pnHandle )
+    [SlotHash(0xb87f88d8)]
+    public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, float, void*, int, int, void*, void> ClientSoundEmit;
+
+    // 7: void ClientSoundStop( int32_t nEntIndex, int32_t nChannel, const char *pSample )
+    [SlotHash(0x1092d96c)]
+    public delegate* unmanaged<void*, int, int, byte*, void> ClientSoundStop;
+
+    // 8: void ClientSoundEmitCloseCaption( const int32_t *pRecipients, int32_t nEntIndex, const char *pToken, float flDuration, int32_t bWarnIfMissing )
+    [SlotHash(0x56501132)]
+    public delegate* unmanaged<void*, void*, int, byte*, float, int, void> ClientSoundEmitCloseCaption;
+}

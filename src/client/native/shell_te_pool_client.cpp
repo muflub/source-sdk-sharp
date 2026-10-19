@@ -76,7 +76,6 @@
 #include "c_recipientfilter.h"
 #include "engine/IEngineSound.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "gamesound.h"
 #include "model_types.h"
 #include "studio.h"
 #include "datacache/imdlcache.h"
@@ -1131,41 +1130,6 @@ void SourceSharp_FxVectorRandom( float flLo, float flHi, float *pOutXYZ )
 int32_t SourceSharp_FxMaterialsCached( void )
 {
 	return ( g_Mat_SMG_Muzzleflash[0] ? 1 : 0 ) | ( g_Mat_Combine_Muzzleflash[0] ? 2 : 0 );
-}
-
-// The tempents' bounce sounds: a script's parameters (volume, pitch, pitch
-// low/high, level, channel; the wave it resolved), and the play.
-int32_t SourceSharp_FxSoundParameters( const char *pScript, float *pOut6, char *pWave, int32_t nWaveBytes )
-{
-	CSoundParameters params;
-	if ( !pScript || !GameSound_GetParameters( pScript, params, NULL ) )
-		return 0;
-	pOut6[0] = params.volume;
-	pOut6[1] = (float)params.pitch;
-	pOut6[2] = (float)params.pitchlow;
-	pOut6[3] = (float)params.pitchhigh;
-	pOut6[4] = (float)params.soundlevel;
-	pOut6[5] = (float)params.channel;
-	if ( pWave && nWaveBytes > 0 )
-		Q_strncpy( pWave, params.soundname, nWaveBytes );
-	return 1;
-}
-
-void SourceSharp_FxEmitWorldSound( const char *pWave, int32_t nChannel, float flVolume, int32_t nSoundLevel, int32_t nPitch,
-                                   const float *pOriginXYZ )
-{
-	if ( !pWave || !pOriginXYZ )
-		return;
-	const Vector origin( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-	CLocalPlayerFilter filter;
-	EmitSound_t ep;
-	ep.m_nChannel = nChannel;
-	ep.m_pSoundName = pWave;
-	ep.m_flVolume = flVolume;
-	ep.m_SoundLevel = (soundlevel_t)nSoundLevel;
-	ep.m_nPitch = nPitch;
-	ep.m_pOrigin = &origin;
-	GameSound_Emit( filter, SOUND_FROM_WORLD, ep );
 }
 
 // A tempent of a model the engine loads by name (the shell casings), made in a

@@ -98,10 +98,9 @@
 #include "managed_runtime_client.h"
 #include "imanaged_areas_client.h"   // plan_client_vtables CE6: IManagedTempEntsClient
 
-// The lifted sound statics. They used to be reached as CBaseEntity::Foo()
-// through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
-// that quarantine is retired and the calls below name GameSound_* directly.
-#include "gamesound.h"
+// The bullet impact's sound, the managed client emitter's (client_sound.h);
+// it was sound_emitter.cpp's GameSound_Emit.
+#include "client_sound.h"
 
 #include "managed_convar_ref.h"
 #include "shell_particle_systems.h"   // c5-particles: the one-shots are watched
@@ -757,7 +756,7 @@ void PlayImpactSound( IGameEntity *pEntity, trace_t &tr, Vector &vecServerOrigin
 		else
 		{
 			CLocalPlayerFilter filter;
-			GameSound_Emit( filter, NULL, pbulletImpactSoundName, pdata->soundhandles.bulletImpact, &vecOrigin );
+			ClientSound::Emit( filter, 0, pbulletImpactSoundName, pdata->soundhandles.bulletImpact, &vecOrigin );
 		}
 
 		return;

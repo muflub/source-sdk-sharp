@@ -37,7 +37,7 @@
 #include "c_recipientfilter.h"
 #include "engine/IEngineSound.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "gamesound.h"
+#include "client_sound.h"
 #include "gamerules.h"
 #include "imanaged_areas_client.h"
 #include "utlvector.h"
@@ -108,7 +108,7 @@ public:
 		CSoundParameters params;
 		Q_strncpy( m_szScriptName, pszSoundName, sizeof( m_szScriptName ) );
 		if ( !Q_stristr( pszSoundName, ".wav" ) && !Q_stristr( pszSoundName, ".mp3" ) &&
-		     GameSound_GetParameters( pszSoundName, params, NULL ) )
+		     ClientSound::GetParameters( pszSoundName, params, NULL ) )
 		{
 			m_flScriptVolume = params.volume;
 			pszSoundName = params.soundname;
@@ -154,12 +154,11 @@ public:
 				ep.m_flSoundTime = flStartTime;
 		}
 
-		GameSound_Emit( m_Filter, m_nEntIndex, ep );
+		ClientSound::Emit( m_Filter, m_nEntIndex, ep );
 
 		if ( bEmitCaption )
 		{
-			GameSound_EmitCloseCaption( m_Filter, m_nEntIndex, m_szScriptName, ep.m_UtlVecSoundOrigin,
-			                            m_flCaptionDuration, true );
+			ClientSound::EmitCloseCaption( m_Filter, m_nEntIndex, m_szScriptName, m_flCaptionDuration, true );
 			m_bPlaying = true;
 		}
 	}
@@ -169,7 +168,7 @@ public:
 		if ( !m_bPlaying )
 			return;
 		if ( m_nEntIndex >= 0 )
-			GameSound_Stop( m_nEntIndex, m_nChannel, m_szSoundName );
+			ClientSound::Stop( m_nEntIndex, m_nChannel, m_szSoundName );
 		m_bPlaying = false;
 	}
 

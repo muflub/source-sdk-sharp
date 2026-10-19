@@ -170,12 +170,12 @@ TEST( PhysicsMoveScope, TheFileIsStillTheSizeTheScopeWasTakenOn )
 	// the file has changed, the rulings have not been re-derived and the
 	// document is a historical record rather than a plan.
 	const int nLines = CountLines( ReadRel( kPhysics ) );
-	EXPECT_EQ( 547, nLines )
+	EXPECT_EQ( 542, nLines )
 		<< "game/server/physics.cpp is now " << nLines << " lines, not the "
-		   "547 docs/physics-move-scope.md was measured on. RE-MEASURE the "
+		   "542 docs/physics-move-scope.md was measured on. RE-MEASURE the "
 		   "scope (tools/physics-scope/fnmap, then tools/physics-scope/classify)"
 		   " and update the document's section 1 and its totals table; do not "
-		   "just edit the number. It was 4,291 until plan_shim.md \u00a78's "
+		   "just edit the number. It was 547 until the dead gamesound.h include went, and 4,291 until plan_shim.md \u00a78's "
 		   "reason-letter marker added one COMMENT line, and 4,292 until lane "
 		   "g-vdisp's virtual-mesh skip added 18 lines to one INSTRUMENT "
 		   "function, and 4,310 until the attribution header replaced the "
@@ -214,10 +214,10 @@ TEST( PhysicsMoveScope, TheFileIsStillTheSizeTheScopeWasTakenOn )
 		   "walk's ring write left with it (2.3), and 544 until the event ring "
 		   "went (2.3), and 534 until physics_shared.cpp's server half did "
 		   "(2.6), and 538 until the owner batch held the velocity managed "
-		   "hands over (plan_physics_bones_perf C2); all thirty-five re-runs are "
+		   "hands over (plan_physics_bones_perf C2); all thirty-six re-runs are "
 		   "recorded "
 		   "in the document's section 1.";
-	EXPECT_NE( Doc().find( "547 raw / 188 code" ), std::string::npos )
+	EXPECT_NE( Doc().find( "542 raw / 187 code" ), std::string::npos )
 		<< "the document no longer states the line split it was measured on";
 }
 

@@ -36,7 +36,6 @@
 #include "soundchars.h"
 #include "view.h"
 #include "tier0/icommandline.h"
-#include "gamesound.h"
 #include "imanaged_areas_client.h"
 #include "shell_clientsystem.h"
 #include "sourcesharp_entrypoints.h"
@@ -86,39 +85,6 @@ CClientSystem *ClientSoundscapeSystem()
 //-----------------------------------------------------------------------------
 // The executors.
 //-----------------------------------------------------------------------------
-
-void SourceSharp_SoundscapeEmitAmbient( const char *pszWave, float flVolume, int32_t nPitch, int32_t nFlags )
-{
-	if ( pszWave )
-		enginesound->EmitAmbientSound( pszWave, flVolume, nPitch, nFlags );
-}
-
-void SourceSharp_SoundscapeEmitWorld( const char *pszWave, float flVolume, int32_t nSoundLevel, int32_t nPitch,
-                                      int32_t nFlags, const float *pOriginXYZ )
-{
-	if ( !pszWave || !pOriginXYZ )
-		return;
-
-	const Vector vecOrigin( pOriginXYZ[ 0 ], pOriginXYZ[ 1 ], pOriginXYZ[ 2 ] );
-	CLocalPlayerFilter filter;
-
-	EmitSound_t ep;
-	ep.m_nChannel = CHAN_STATIC;
-	ep.m_pSoundName = pszWave;
-	ep.m_flVolume = flVolume;
-	ep.m_SoundLevel = (soundlevel_t)nSoundLevel;
-	ep.m_nFlags = nFlags;
-	ep.m_nPitch = nPitch;
-	ep.m_pOrigin = &vecOrigin;
-
-	GameSound_Emit( filter, SOUND_FROM_WORLD, ep );
-}
-
-void SourceSharp_SoundscapeStopWorld( const char *pszWave )
-{
-	if ( pszWave )
-		GameSound_Stop( SOUND_FROM_WORLD, CHAN_STATIC, pszWave );
-}
 
 void SourceSharp_SoundscapeSetRoomType( int32_t nRoomType )
 {

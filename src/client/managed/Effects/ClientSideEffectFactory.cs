@@ -30,6 +30,7 @@ public sealed class ClientSideEffectFactory : IFxQuadSink, IFxLineSink, IFxDiscr
     private const float ListenerHeight = 24;
 
     private readonly IFxRender _render;
+    private readonly IFxTracerSound _tracerSound;
     private readonly ClientEffectList _list;
     private readonly IEngineHost _host;
     private readonly Func<bool> _tracerExtra;
@@ -37,10 +38,13 @@ public sealed class ClientSideEffectFactory : IFxQuadSink, IFxLineSink, IFxDiscr
     // CBulletWhizTimer::m_nextWhizTime: the client's one near-miss clock.
     private float _nextWhizTime;
 
+    /// <param name="tracerSound">The near-miss's emit (the managed client sound emitter).</param>
     /// <param name="tracerExtra">Reads <c>tracer_extra</c> each time a discreet line draws.</param>
-    public ClientSideEffectFactory(IFxRender render, ClientEffectList list, IEngineHost host, Func<bool> tracerExtra)
+    public ClientSideEffectFactory(IFxRender render, IFxTracerSound tracerSound, ClientEffectList list, IEngineHost host,
+                                   Func<bool> tracerExtra)
     {
         _render = render;
+        _tracerSound = tracerSound;
         _list = list;
         _host = host;
         _tracerExtra = tracerExtra;
@@ -218,7 +222,7 @@ public sealed class ClientSideEffectFactory : IFxQuadSink, IFxLineSink, IFxDiscr
 
         Vector shotDir = FxMath.Sub(end, start);
         FxMath.Normalize(ref shotDir);
-        if (_render.EmitTracerSound(soundName, start, shotDir))
+        if (_tracerSound.EmitTracerSound(soundName, start, shotDir))
             WhizSounds++;
 
         _nextWhizTime = now + _host.RandomFloat(minWhizTime, maxWhizTime);

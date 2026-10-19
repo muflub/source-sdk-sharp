@@ -163,7 +163,6 @@ public class SideAuditTests
         "FxDrawQuads",
         "FxView",
         "FxMainViewOrigin",
-        "FxEmitTracerSound",
         "FxLocalPlayer",
         "FxViewAngles",
         "FxEntityAttachment",
@@ -182,14 +181,11 @@ public class SideAuditTests
         "FxVectorRandom",
         "FxMaterialsCached",
         "FxImpactOverlay",
-        "FxSoundParameters",
-        "FxEmitWorldSound",
         "FxTempEntCreateNamed",
         "FxLoadModel", "FxModelFrameCount",
 
         // Sound cluster 17 (lane c2-sims): the client soundscape system's
         // executors (IShimSoundscapeClient), for the managed ClientSoundscapes.
-        "SoundscapeEmitAmbient", "SoundscapeEmitWorld", "SoundscapeStopWorld",
         "SoundscapeSetRoomType", "SoundscapeSetPlayerDsp", "SoundscapeMainView",
         "SoundscapeMakingResLists", "SoundscapeTouchSoundFile",
 
@@ -298,7 +294,7 @@ public class SideAuditTests
         // The client physics callbacks' native asks (C6 cluster 9, lane c6-input):
         // the client's own environment, handler, surfaceprops and sound emit.
         "PhysicsClientSurfaceAudio",
-        "PhysicsClientEmitImpactSound", "PhysicsClientCollideExtent", "PhysicsClientPointContents",
+        "PhysicsClientCollideExtent", "PhysicsClientPointContents",
         "PhysicsClientSplashLighting", "PhysicsClientSplashEffect",
         // The convar watch and the decided values (C8, lane c6-input): the
         // client's bounded convars and its interpolation amount.
@@ -326,11 +322,6 @@ public class SideAuditTests
         // Dormancy is a CLIENT concept: it means the server has stopped
         // sending this entity, which the server itself has no version of.
         "StandaloneIsDormant",
-        // A sound made BY THE CLIENT, for AE_CL_PLAYSOUND. Bucket 3,
-        // presentation for one viewer. Every other sound slot on this ABI is
-        // the server's, because those decide what EVERYONE hears; an
-        // animation event on a predicted viewmodel has no business there.
-        "ClientEmitSound",
         "SurfaceSetEdges",
         // The temp entity backends (plan_tmp.md Part 4). Client-only because
         // they are DRAWING: a ported c_te_*.cpp moves its decode and its

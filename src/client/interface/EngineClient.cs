@@ -159,6 +159,19 @@ public interface IVtableEngineClient
     /// <summary>The voice manager's VModEnable and vban (stock CVoiceStatus::UpdateServerState), reliably or not.</summary>
     void VoiceServerCommand(string line, bool reliable);
 
+    /// <summary>
+    /// <c>IVEngineClient::SentenceIndexFromName( name )</c>: the sentence's
+    /// index, or -1 -- what the client's UTIL_EmitAmbientSound plays a
+    /// "!NAME" by (stock's client SENTENCEG_Lookup).
+    /// </summary>
+    int SentenceIndexFromName(string name);
+
+    /// <summary>
+    /// <c>IVEngineClient::GetLocalPlayer()</c>: the viewer's entity index (its
+    /// player slot), what a CLocalPlayerFilter holds.
+    /// </summary>
+    int LocalPlayerSlot();
+
     // WHAT IS NOT HERE, AND WHAT CHANGED.
     //
     // Managed code MAY run console commands (user, 2026-10-05,

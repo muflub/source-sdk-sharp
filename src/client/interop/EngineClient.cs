@@ -53,6 +53,16 @@ public sealed unsafe class EngineClient : IVtableEngineClient, ISteamLaunchComma
         => Vtable.TextOf(_fwd->GetLevelName(_self), Vtable.MaxPath);
 
     /// <inheritdoc/>
+    public int SentenceIndexFromName(string name)
+    {
+        fixed (byte* p = Vtable.Utf8(name ?? string.Empty))
+            return _fwd->SentenceIndexFromName(_self, p);
+    }
+
+    /// <inheritdoc/>
+    public int LocalPlayerSlot() => _fwd->GetLocalPlayer(_self);
+
+    /// <inheritdoc/>
     public string? GameDirectory()
         => Vtable.TextOf(_fwd->GetGameDirectory(_self), Vtable.MaxPath);
 

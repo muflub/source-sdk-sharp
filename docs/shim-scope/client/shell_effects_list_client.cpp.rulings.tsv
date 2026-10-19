@@ -24,7 +24,6 @@ SourceSharp_FxMaterialName	BOUNDARY	IMaterial::GetName on an id (B4)
 SourceSharp_FxDrawQuads	BOUNDARY	the one quad-mesh draw: the vertices managed computed, through CMeshBuilder (B4)
 SourceSharp_FxView( float	BOUNDARY	CurrentViewOrigin, CurrentViewForward, ScreenWidth read for managed
 SourceSharp_FxMainViewOrigin	BOUNDARY	MainViewOrigin read for managed
-SourceSharp_FxEmitTracerSound	BOUNDARY	GameSound_GetParameters + EmitSound for the near-miss managed decided on (B4)
 SourceSharp_FxLocalPlayer	BOUNDARY	engine->GetLocalPlayer read for managed
 SourceSharp_FxViewAngles	BOUNDARY	engine->GetViewAngles read for managed
 SourceSharp_FxEntityAttachment	BOUNDARY	an entity's renderable GetAttachment (and its model name on failure) read for managed

@@ -48,7 +48,7 @@ public class ClientSoundscapeWiringTests
                     "each slot counts its own crossing");
     }
 
-    private sealed class Audio : ISoundscapeAudio
+    private sealed class Audio : ISoundscapeAudio, ISoundscapeSounds
     {
         public readonly List<string> Loops = new();
 
@@ -89,7 +89,7 @@ public class ClientSoundscapeWiringTests
         var engine = TestServices.Fake();
         engine.Returns("Console.FindConVarValue", "0");
         var audio = new Audio();
-        var system = new ClientSoundscapes(audio, new Clock(), engine, engine);
+        var system = new ClientSoundscapes(audio, audio, new Clock(), engine, engine);
         system.LevelInit(SoundscapeLibrary.Load(path => path == SoundscapeLibrary.ManifestPath
             ? "\"manifest\" { \"file\" \"scripts/restore.txt\" }"
             : path == "scripts/restore.txt" ? Script : null));

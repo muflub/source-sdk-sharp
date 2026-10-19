@@ -96,7 +96,7 @@ public class ClientEffectListTests
             RecordingEngine console = TestServices.Fake();
             console.Returns("Console.FindConVarValue", "0");
             List = new ClientEffectList(Rig, console);
-            Factory = new ClientSideEffectFactory(Rig, List, Rig, () => TracerExtra);
+            Factory = new ClientSideEffectFactory(Rig, Rig, List, Rig, () => TracerExtra);
         }
 
         public List<string> Wrong => Rig.Wrong;

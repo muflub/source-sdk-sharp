@@ -213,8 +213,6 @@ void CShimEffectsRenderClient::BeamDrawMesh( int32_t nPrimitive, int32_t nPrimit
 
 void CShimStandaloneClient::ActivateOccluder( int32_t nOccluderIndex, int32_t bActive )
 	{ return ::SourceSharp_ActivateOccluder( nOccluderIndex, bActive ); }
-void CShimStandaloneClient::ClientEmitSound( uint32_t hEntity, const char * pszSoundName, const float * pOriginXYZ )
-	{ return ::SourceSharp_ClientEmitSound( hEntity, pszSoundName, pOriginXYZ ); }
 void ** CShimStandaloneClient::ClientInterpBlocks( int32_t * pOutCount, float * pOutInterpAmount )
 	{ return ::SourceSharp_ClientInterpBlocks( pOutCount, pOutInterpAmount ); }
 void ** CShimStandaloneClient::ClientPolicyBlocks( int32_t * pOutCount )
@@ -416,8 +414,6 @@ void CShimFxClient::FxView( float * pOut )
 	{ return ::SourceSharp_FxView( pOut ); }
 void CShimFxClient::FxMainViewOrigin( float * pOutXYZ )
 	{ return ::SourceSharp_FxMainViewOrigin( pOutXYZ ); }
-int32_t CShimFxClient::FxEmitTracerSound( const char * pSoundName, const float * pStartXYZ, const float * pDirXYZ )
-	{ return ::SourceSharp_FxEmitTracerSound( pSoundName, pStartXYZ, pDirXYZ ); }
 int32_t CShimFxClient::FxLocalPlayer()
 	{ return ::SourceSharp_FxLocalPlayer(); }
 void CShimFxClient::FxViewAngles( float * pOutPYR )
@@ -460,10 +456,6 @@ int32_t CShimFxClient::FxMaterialsCached()
 	{ return ::SourceSharp_FxMaterialsCached(); }
 void CShimFxClient::FxImpactOverlay( const float * pPositionXYZ, const float * pColorRGB )
 	{ return ::SourceSharp_FxImpactOverlay( pPositionXYZ, pColorRGB ); }
-int32_t CShimFxClient::FxSoundParameters( const char * pScript, float * pOut6, char * pWave, int32_t nWaveBytes )
-	{ return ::SourceSharp_FxSoundParameters( pScript, pOut6, pWave, nWaveBytes ); }
-void CShimFxClient::FxEmitWorldSound( const char * pWave, int32_t nChannel, float flVolume, int32_t nSoundLevel, int32_t nPitch, const float * pOriginXYZ )
-	{ return ::SourceSharp_FxEmitWorldSound( pWave, nChannel, flVolume, nSoundLevel, nPitch, pOriginXYZ ); }
 int32_t CShimFxClient::FxTempEntCreateNamed( int32_t nSlot, const float * pOriginXYZ, const char * pModel, int32_t nPriority )
 	{ return ::SourceSharp_FxTempEntCreateNamed( nSlot, pOriginXYZ, pModel, nPriority ); }
 void CShimFxClient::FxLoadModel( const char * pModel )
@@ -471,12 +463,6 @@ void CShimFxClient::FxLoadModel( const char * pModel )
 int32_t CShimFxClient::FxModelFrameCount( const char * pModel )
 	{ return ::SourceSharp_FxModelFrameCount( pModel ); }
 
-void CShimSoundscapeClient::SoundscapeEmitAmbient( const char * pszWave, float flVolume, int32_t nPitch, int32_t nFlags )
-	{ return ::SourceSharp_SoundscapeEmitAmbient( pszWave, flVolume, nPitch, nFlags ); }
-void CShimSoundscapeClient::SoundscapeEmitWorld( const char * pszWave, float flVolume, int32_t nSoundLevel, int32_t nPitch, int32_t nFlags, const float * pOriginXYZ )
-	{ return ::SourceSharp_SoundscapeEmitWorld( pszWave, flVolume, nSoundLevel, nPitch, nFlags, pOriginXYZ ); }
-void CShimSoundscapeClient::SoundscapeStopWorld( const char * pszWave )
-	{ return ::SourceSharp_SoundscapeStopWorld( pszWave ); }
 void CShimSoundscapeClient::SoundscapeSetRoomType( int32_t nRoomType )
 	{ return ::SourceSharp_SoundscapeSetRoomType( nRoomType ); }
 void CShimSoundscapeClient::SoundscapeSetPlayerDsp( int32_t nDspType )
@@ -555,8 +541,6 @@ void * CShimInputClient::InputMailbox()
 
 int32_t CShimPhysicsClient::PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char * pHard, int32_t nHard, char * pSoft, int32_t nSoft, float * pOut3 )
 	{ return ::SourceSharp_PhysicsClientSurfaceAudio( nSurfaceProps, pHard, nHard, pSoft, nSoft, pOut3 ); }
-int32_t CShimPhysicsClient::PhysicsClientEmitImpactSound( const char * pszName, const float * pOrigin, int32_t nChannel, float flVolume )
-	{ return ::SourceSharp_PhysicsClientEmitImpactSound( pszName, pOrigin, nChannel, flVolume ); }
 void CShimPhysicsClient::PhysicsClientCollideExtent( void * pObject, const float * pOrigin, const float * pAngles, const float * pDirection, float * pOut )
 	{ return ::SourceSharp_PhysicsClientCollideExtent( pObject, pOrigin, pAngles, pDirection, pOut ); }
 int32_t CShimPhysicsClient::PhysicsClientPointContents( const float * pPoint )

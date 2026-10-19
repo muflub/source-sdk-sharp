@@ -1772,7 +1772,10 @@ shim_cpp_files	src/sourcesharp	215
 #   ss::IEffects' Dust, MuzzleFlash and MetalSparks and their TE_Dust, TE_MuzzleFlash and TE_MetalSparks forwards
 #   deleted: no server TU called the three methods (tempent_forwards.h's three ids RESERVED, +3 lines of its note).
 # 2026-10-19, T4b rebased onto main 60ebe2a09: main's 138098 less the lane's -680 = 137418, measured by the walk.
-shim_lines	src/sourcesharp	137433
+# LOWERED 2026-10-19, 137418 -> 136396 (-1022, measured by the walk at the landing on main ab8f56ef2, read with the
+#   ceiling at 1): the client sound emitter's port. sound_emitter.cpp left client.so and the repository, and the shim's
+#   eight sound executors with their slots went, net of client_sound.h's marshals and shell_soundemitter_client.cpp.
+shim_lines	src/sourcesharp	136411
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

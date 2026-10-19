@@ -245,7 +245,6 @@ BeamGlow	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamGlo
 BeamDrawStrip	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamDrawStrip	float*, int, void	
 BeamDrawMesh	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamDrawMesh	int, int, int, float*, int, void	
 ActivateOccluder	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ActivateOccluder	int, int, void	
-ClientEmitSound	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientEmitSound	uint, byte*, float*, void	
 ClientInterpBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientInterpBlocks	int*, float*, void**	
 ClientPolicyBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientPolicyBlocks	int*, void**	
 DynamicLightRelease	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_DynamicLightRelease	int, void	
@@ -344,7 +343,6 @@ FxMaterialName	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialNa
 FxDrawQuads	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxDrawQuads	int, int, float*, int, void	
 FxView	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxView	float*, void	
 FxMainViewOrigin	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMainViewOrigin	float*, void	
-FxEmitTracerSound	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEmitTracerSound	byte*, float*, float*, int	
 FxLocalPlayer	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLocalPlayer	int	
 FxViewAngles	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxViewAngles	float*, void	
 FxEntityAttachment	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEntityAttachment	int, int, float*, byte*, int, int	
@@ -366,8 +364,6 @@ FxElight	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxElight	int, floa
 FxVectorRandom	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxVectorRandom	float, float, float*, void	
 FxMaterialsCached	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialsCached	int	
 FxImpactOverlay	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxImpactOverlay	float*, float*, void	
-FxSoundParameters	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSoundParameters	byte*, float*, byte*, int, int	
-FxEmitWorldSound	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEmitWorldSound	byte*, int, float, int, int, float*, void	
 FxTempEntCreateNamed	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxTempEntCreateNamed	int, float*, byte*, int, int	
 FxLoadModel	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLoadModel	byte*, void	
 FxModelFrameCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxModelFrameCount	byte*, int	
@@ -375,9 +371,6 @@ UiSetMenuInput	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetMenuInp
 UiSetCursor	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetCursor	int, void	
 UiDebugOverlayText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayText	int, float*, float*, int*, uint*, byte*, int, int	
 UiDebugOverlayClearDead	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayClearDead	void	
-SoundscapeEmitAmbient	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeEmitAmbient	byte*, float, int, int, void	
-SoundscapeEmitWorld	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeEmitWorld	byte*, float, int, int, int, float*, void	
-SoundscapeStopWorld	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeStopWorld	byte*, void	
 SoundscapeSetRoomType	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetRoomType	int, void	
 SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetPlayerDsp	int, void	
 SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMainView	float*, void	
@@ -415,7 +408,6 @@ InputViewerAimIsAssisted	EngineApi	IShimInputClient	client		client	-	SourceSharp
 InputShowScoreboard	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputShowScoreboard	int, void	
 InputMailbox	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputMailbox	void*	
 PhysicsClientSurfaceAudio	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSurfaceAudio	int, byte*, int, byte*, int, float*, int	
-PhysicsClientEmitImpactSound	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientEmitImpactSound	byte*, float*, int, float, int	
 PhysicsClientCollideExtent	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientCollideExtent	void*, float*, float*, float*, float*, void	
 PhysicsClientPointContents	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientPointContents	float*, int	
 PhysicsClientSplashLighting	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSplashLighting	float*, float*, void	

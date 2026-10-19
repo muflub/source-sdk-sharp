@@ -264,7 +264,7 @@ TEST( CTeamEvicted, TheBroadcastAudioTeamTestsWentWithTheAnswerTheyLeft )
 	// plays on the local player. Whole construct, so the 255 cannot drift.
 	EXPECT_TRUE( Has( shell, "if ( V_strcmp( event->GetName(), \"teamplay_broadcast_audio\" ) || event->GetInt( \"team\" ) != 255 )" ) )
 	    << "the team-255 broadcast no longer plays; that arm never depended on a team object.";
-	EXPECT_EQ( CountOccurrences( shell, "GameSound_Emit( filter, SOUND_FROM_LOCAL_PLAYER, et );" ), 1 )
+	EXPECT_EQ( CountOccurrences( shell, "ClientSound::Emit( filter, SOUND_FROM_LOCAL_PLAYER, et );" ), 1 )
 	    << "the broadcast's sound is emitted other than once";
 }
 

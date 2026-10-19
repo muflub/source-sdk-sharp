@@ -38,7 +38,7 @@ public sealed class SoundEmitterTests
         public Func<int, string>? WaveForGender;
     }
 
-    internal sealed class FakeEngine : ISoundEmitterEngine
+    internal sealed class FakeEngine : IServerSoundEmitterEngine
     {
         public readonly Dictionary<string, Script> Scripts = new(StringComparer.Ordinal);
         public readonly List<Emitted> Emits = [];
