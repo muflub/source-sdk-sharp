@@ -71,12 +71,12 @@ public class TeFireCommandTests
             var first = new TeFire(testLog, empty, engine, engine);
             var second = new TeFire(testLog, empty, engine, engine);
 
-            Assert.False(first.Send(demo, Vector.Zero, TeFilter.Broadcast, 0f));
-            Assert.False(first.Send(demo, Vector.Zero, TeFilter.Broadcast, 0f));
+            Assert.False(first.Send(demo, Vector.Zero, TeFilters.Broadcast, 0f));
+            Assert.False(first.Send(demo, Vector.Zero, TeFilters.Broadcast, 0f));
             int once = lines.Count(l => l.Contains($"'{demo.ClassName}' is not registered"));
             Assert.True(once == 1, "one sender complains about a class once, however often it is asked");
 
-            Assert.False(second.Send(demo, Vector.Zero, TeFilter.Broadcast, 0f));
+            Assert.False(second.Send(demo, Vector.Zero, TeFilters.Broadcast, 0f));
             int twice = lines.Count(l => l.Contains($"'{demo.ClassName}' is not registered"));
             Assert.True(twice == 2, "a second sender has a memory of its own");
         }

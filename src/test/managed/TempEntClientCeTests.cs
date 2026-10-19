@@ -557,7 +557,7 @@ public class TempEntClientCeTests
             ControlPointOffset = new Vector(4f, 5f, 6f),
         };
 
-        temps.DispatchEffect(TeFilter.Broadcast, 0f, 9, sent);
+        temps.DispatchEffect(TeFilters.Broadcast, 0f, 9, sent);
 
         var playback = server.Last("Effects.TempEntPlayback")!.Value;
         byte[] blob = playback.ArgAs<byte[]>(4)!;
@@ -637,7 +637,7 @@ public class TempEntClientCeTests
         {
             var data = new TeEffectData { SurfaceProp = surface };
 
-            temps.DispatchEffect(TeFilter.Broadcast, 0f, 4, data);
+            temps.DispatchEffect(TeFilters.Broadcast, 0f, 4, data);
 
             byte[] blob = server.Last("Effects.TempEntPlayback")!.Value.ArgAs<byte[]>(4)!;
 

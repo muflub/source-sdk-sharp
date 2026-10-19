@@ -181,7 +181,7 @@ public class Simple3DOracleTests
         var m = new float[12];
         foreach (var r in s_rows.Value.Where(x => x[0] == "s3d"))
         {
-            var view = new ParticleView(m, 0, V(r, 2), V(r, 5));
+            var view = ParticleViewReading.From(m, 0, V(r, 2), V(r, 5));
             var p = new Particle3D
             {
                 Position = V(r, 8), Angles = V(r, 11), LifeRemaining = F(r[14]),

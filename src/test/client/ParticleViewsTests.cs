@@ -21,7 +21,7 @@ public class ParticleViewsTests
         {
             Reads++;
             Span<float> m = stackalloc float[12] { 1, 0, 0, 10, 0, 1, 0, 20, 0, 0, 1, 30 };
-            return new ParticleView(m, ViewId);
+            return ParticleViewReading.From(m, ViewId);
         }
     }
 
@@ -60,10 +60,29 @@ public class ParticleViewsTests
     }
 
     [Fact]
+    public void A_default_view_is_unset_and_a_built_one_is_set()
+    {
+        Assert.False(default(ParticleView).IsSet());
+        Assert.True(ParticleViewReading.From(new float[12], 0).IsSet());
+    }
+
+    [Fact]
+    public void A_view_holds_a_copy_of_the_matrix_it_was_built_from()
+    {
+        var m = new float[] { 1, 0, 0, 10, 0, 1, 0, 20, 0, 0, 1, 30, 99 };
+        var view = ParticleViewReading.From(m, 5, new Vector(1, 2, 3), new Vector(0, 0, 1));
+        m[3] = -1;
+
+        Assert.Equal(12, view.ModelView!.Length);
+        Assert.Equal(new Vector(10, 20, 30), view.TransformPoint(Vector.Zero));
+        Assert.Equal((5, new Vector(1, 2, 3), new Vector(0, 0, 1)), (view.ViewId, view.Origin, view.Forward));
+    }
+
+    [Fact]
     public void A_point_takes_the_translation_and_a_direction_does_not()
     {
         Span<float> m = stackalloc float[12] { 0, 1, 0, 10, 0, 0, 1, 20, 1, 0, 0, 30 };
-        var view = new ParticleView(m, 0);
+        var view = ParticleViewReading.From(m, 0);
         Assert.Equal(new Vector(12, 23, 31), view.TransformPoint(new Vector(1, 2, 3)));
         Assert.Equal(new Vector(2, 3, 1), view.TransformDirection(new Vector(1, 2, 3)));
     }

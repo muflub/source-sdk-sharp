@@ -661,7 +661,7 @@ public class TempEntOddsTests
 
         var tempEnts = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
 
-        tempEnts.Dust(TeFilter.Pvs(Vector.Zero), 0f, Vector.Zero, new Vector(0f, 0f, 8f), 16f, 32f);
+        tempEnts.Dust(TeFilters.Pvs(Vector.Zero), 0f, Vector.Zero, new Vector(0f, 0f, 8f), 16f, 32f);
 
         var sent = engine.Calls.Single(c => c.Member == "Effects.TempEntPlayback");
         byte[] blob = sent.ArgAs<byte[]>(4);

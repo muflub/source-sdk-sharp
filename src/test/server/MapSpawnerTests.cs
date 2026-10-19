@@ -34,16 +34,16 @@ public sealed class MapSpawnerTests
     /// </summary>
     private sealed class Creator : IEngineEntities
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public IInterpolationBlocks InterpolationBlocks => NoInterpolationBlocks.Instance;
+        public IRenderPolicyBlocks RenderPolicyBlocks => NoRenderPolicyBlocks.Instance;
+        public IClientReplayEngine ClientReplay => NoClientReplayEngine.Instance;
+
         private readonly IEngineEntities _engine;
         private uint _next = 0x0500;
 
         internal readonly List<(string ClassName, byte[] Keys)> Created = new();
 
-        // Added by the integrator at the lane 2b / lane 2d merge: 2b put
-        // OverlapReport on IEngineEntities after this double was written.
-        // Forwarded rather than stubbed, so a spawner that starts asking about
-        // overlaps gets the real engine's answer instead of a silent empty one.
-        public int OverlapReport(Span<OverlapPair> into) => _engine.OverlapReport(into);
         internal readonly List<EntityHandle> Spawned = new();
         internal readonly List<EntityHandle> RemovedHandles = new();
 
@@ -121,7 +121,6 @@ public sealed class MapSpawnerTests
         public void ApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround) => _engine.ApplyVelocityImpulse(h, impulse, clearGround);
         public IEnumerable<EntityHandle> FindAllByClassname(string className) => _engine.FindAllByClassname(className);
         public List<EntityHandle> FindAllByName(string name, int limit = 512) => _engine.FindAllByName(name, limit);
-        public NameMatches Named(string name, int limit = 512) => _engine.Named(name, limit);
         public EntityHandle FindByName(string name) => _engine.FindByName(name);
         public bool FireInput(EntityHandle target, string input, string? value = null, EntityHandle activator = default) => _engine.FireInput(target, input, value, activator);
         public Vector GetAngles(EntityHandle h) => _engine.GetAngles(h);

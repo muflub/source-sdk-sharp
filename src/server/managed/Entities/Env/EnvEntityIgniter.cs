@@ -52,7 +52,7 @@ public sealed class EnvEntityIgniter : ScriptedEntity
 
         // Every entity of that name, not the first: a map naming a row of
         // barrels means the row, and stock's loop walks the whole list.
-        using NameMatches victims = Entities.Named(Vars.Target);
+        using NameMatches victims = NameLookup.Named(Vars.Target);
 
         if (victims.Count == 0)
         {

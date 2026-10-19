@@ -11,24 +11,12 @@ namespace SourceSharp.Client.Interop;
 /// normal. Thirteen floats, blittable, crossed by pointer.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-public struct FxVertex
+public struct FxVertex(Vector position, float s, float t, float r, float g, float b, float a, Vector normal)
 {
-    public Vector Position;
-    public float S, T;
-    public float R, G, B, A;
-    public Vector Normal;
-
-    public FxVertex(Vector position, float s, float t, float r, float g, float b, float a, Vector normal)
-    {
-        Position = position;
-        S = s;
-        T = t;
-        R = r;
-        G = g;
-        B = b;
-        A = a;
-        Normal = normal;
-    }
+    public Vector Position = position;
+    public float S = s, T = t;
+    public float R = r, G = g, B = b, A = a;
+    public Vector Normal = normal;
 }
 
 /// <summary>What a client-side effect's draw reads about the view it is drawn into.</summary>

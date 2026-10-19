@@ -21,6 +21,10 @@ public sealed class HostingServicesTests
 
     private sealed class Info : IClientInfo
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public float? AvgLatency(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+
         public ulong SteamId64(int entIndex) => entIndex == 3 ? 76561197960287930UL : 0;
         public string? Address(int entIndex) => entIndex == 3 ? "203.0.113.7:27005" : null;
     }

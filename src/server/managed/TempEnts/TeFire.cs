@@ -190,9 +190,9 @@ public sealed class TeFire : ITeFire
     public static TeFilter FilterNamed(string? name, Vector at)
         => name?.ToLowerInvariant() switch
         {
-            "pvs" => TeFilter.Pvs(at),
-            "pas" => TeFilter.Pas(at),
-            _     => TeFilter.Broadcast,
+            "pvs" => TeFilters.Pvs(at),
+            "pas" => TeFilters.Pas(at),
+            _     => TeFilters.Broadcast,
         };
 }
 

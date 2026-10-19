@@ -73,6 +73,8 @@ public sealed class RecordingEngine :
     IUserMessageSender,
     IEngineScripted,
     IEngineEntities,
+    IEngineEntityNames,
+    IEngineOverlaps,
     IEngineEntityPhysics,
     IEngineEntityRender,
     IEngineDamage,
@@ -450,6 +452,11 @@ public sealed class RecordingEngine :
     string? IEngineFiles.ReadGameFile(string path) => Record<string?>("Files.ReadGameFile", path);
     byte[]? IEngineFiles.ReadGameFileBytes(string path) => Record<byte[]?>("Files.ReadGameFileBytes", path);
 
+    // Only the GAME path, as IEngineFiles' default body answered before
+    // plan_shim_areas_split phase 4 (interface assemblies hold no bodies).
+    byte[]? IEngineFiles.ReadFileOnPath(string path, string pathId)
+        => string.Equals(pathId, "GAME", StringComparison.Ordinal) ? ((IEngineFiles)this).ReadGameFileBytes(path) : null;
+
     // Frame -- plan_gamedll.md Part 4's fifteen steps. The recording is the
     // CALL LIST, which is what lets one fact assert the frame's order as a
     // sequence rather than as a set.
@@ -614,7 +621,7 @@ public sealed class RecordingEngine :
     IEnumerable<EntityHandle> IEngineEntities.FindAllByClassname(string className) => Record<IEnumerable<EntityHandle>>("Entities.FindAllByClassname", className);
     List<EntityHandle> IEngineEntities.FindAllByName(string name, int limit) => Record<List<EntityHandle>>("Entities.FindAllByName", name, limit);
     EntityHandle IEngineEntities.FindByName(string name) => Record<EntityHandle>("Entities.FindByName", name);
-    NameMatches IEngineEntities.Named(string name, int limit)
+    NameMatches IEngineEntityNames.Named(string name, int limit)
         => NameMatches.Copy(Record<List<EntityHandle>>("Entities.Named", name, limit));
     bool IEngineEntities.FireInput(EntityHandle target, string input, string? value, EntityHandle activator) => Record<bool>("Entities.FireInput", target, input, value, activator);
     Vector IEngineEntities.GetAngles(EntityHandle h) => Record<Vector>("Entities.GetAngles", h);
@@ -696,6 +703,12 @@ public sealed class RecordingEngine :
     /// landed. An empty span is what "there is no block here" already means
     /// everywhere else.
     /// </summary>
+    // The empty answers of a side with no lists and no replay, as the
+    // interface's default bodies gave before plan_shim_areas_split phase 4.
+    IInterpolationBlocks IEngineEntities.InterpolationBlocks => NoInterpolationBlocks.Instance;
+    IRenderPolicyBlocks IEngineEntities.RenderPolicyBlocks => NoRenderPolicyBlocks.Instance;
+    IClientReplayEngine IEngineEntities.ClientReplay => NoClientReplayEngine.Instance;
+
     Span<byte> IEngineEntities.GetEngineBlock(EntityHandle entity)
     {
         RecordVoid("Entities.GetEngineBlock", entity);
@@ -720,7 +733,7 @@ public sealed class RecordingEngine :
     /// caller ASKED, which is what <c>OverlapReader</c> is tested on.
     /// </para>
     /// </summary>
-    int IEngineEntities.OverlapReport(Span<OverlapPair> into)
+    int IEngineOverlaps.OverlapReport(Span<OverlapPair> into)
     {
         RecordVoid("Entities.OverlapReport", into.Length);
         return 0;

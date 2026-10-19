@@ -49,7 +49,7 @@ public sealed class EnvTextureToggle : ScriptedEntity
         if (Vars.Target.Length == 0)
             return;
 
-        using NameMatches targets = Entities.Named(Vars.Target);
+        using NameMatches targets = NameLookup.Named(Vars.Target);
 
         if (targets.Count == 0)
         {

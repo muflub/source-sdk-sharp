@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\test\support\server\SourceSharp.TestSupport.Server.csproj" />
     <ProjectReference Include="..\..\test\support\client\SourceSharp.TestSupport.Client.csproj" Aliases="client" />
     <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="client" />
   </ItemGroup>
   <ItemGroup>
     <!-- So facts can read the farm/fork the way core tests do. -->

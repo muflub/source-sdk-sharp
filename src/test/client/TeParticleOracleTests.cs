@@ -188,7 +188,7 @@ public class TeParticleOracleTests
         {
             if (r[0] == "tpv")
             {
-                view = new ParticleView(Enumerable.Range(2, 12).Select(k => F(r[k])).ToArray(), 0);
+                view = ParticleViewReading.From(Enumerable.Range(2, 12).Select(k => F(r[k])).ToArray(), 0);
                 Assert.Equal(TeParticles.ParticleSize, F(r[14]));
                 continue;
             }

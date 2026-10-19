@@ -879,8 +879,8 @@ public class MovementTests
     [Fact]
     public void EachLoopHoldsItsOwnMovementRules()
     {
-        var mine = new GameMovement(new ScriptedWorld(), MoveConstants.Stock);
-        var other = new GameMovement(new ScriptedWorld(), MoveConstants.Stock);
+        var mine = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
+        var other = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
         var doubled = new MovementRules(static _ => 2f,
                                         static (_, friction, _, _, _) => friction * 2f,
                                         static (_, maxSpeed, _, _) => maxSpeed * 2f);
@@ -898,7 +898,7 @@ public class MovementTests
     public void ARoamingObserverWithSpecNoClipMovesAtTheSpectatorConvars()
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = ObserverState(GameMovement.ObsModeRoaming);
         s.ForwardMove = 400f;
 
@@ -918,7 +918,7 @@ public class MovementTests
     [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void ARoamingObserverWithoutSpecNoClipDoesAClippedFreeRoam()
     {
-        MoveConstants c = MoveConstants.Stock;
+        MoveConstants c = MoveConstantDefaults.Stock;
         c.SpecNoClip = false;
 
         var world = new ScriptedWorld();
@@ -942,7 +942,7 @@ public class MovementTests
     [Fact]
     public void AWallStopsARoamingObserverWhenSpecNoClipIsOff()
     {
-        MoveConstants c = MoveConstants.Stock;
+        MoveConstants c = MoveConstantDefaults.Stock;
         c.SpecNoClip = false;
 
         var world = new ScriptedWorld { OnTrace = ForwardWall };
@@ -960,7 +960,7 @@ public class MovementTests
     public void TheSameWallDoesNotStopARoamingObserverWhenSpecNoClipIsOn()
     {
         var world = new ScriptedWorld { OnTrace = ForwardWall };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = ObserverState(GameMovement.ObsModeRoaming);
         s.ForwardMove = 400f;
 
@@ -982,7 +982,7 @@ public class MovementTests
     public void AnObserverThatIsNotRoamingDoesNotMoveAtAll(int mode)
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = ObserverState(mode);
         s.ForwardMove = 400f;
 
@@ -1003,7 +1003,7 @@ public class MovementTests
     public void AnObserverFollowingATargetReachesTheUnreachableArmAndIsCounted(int mode)
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = ObserverState(mode);
         s.ForwardMove = 400f;
 
@@ -1024,7 +1024,7 @@ public class MovementTests
     public void An_observer_with_a_target_takes_its_origin_angles_and_velocity(int mode)
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = ObserverState(mode);
         s.ForwardMove = 400f;
         s.HasObserverTarget = true;
@@ -1047,7 +1047,7 @@ public class MovementTests
     public void ARoamingObserverDoesNotReachTheTargetFollowingArm()
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = ObserverState(GameMovement.ObsModeRoaming);
         s.ForwardMove = 400f;
 
@@ -1067,7 +1067,7 @@ public class MovementTests
     [NotOnCiFact("a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit")]
     public void TheClippedRoamClampsTheWishSpeedToServerMaxVelocity()
     {
-        MoveConstants c = MoveConstants.Stock;
+        MoveConstants c = MoveConstantDefaults.Stock;
         c.SpecNoClip = false;
         c.SpecSpeed = 1f;
         c.SpecAccelerate = 100f;
@@ -1090,7 +1090,7 @@ public class MovementTests
     [Fact]
     public void ARoamingObserverBleedsSpeedAtServerFrictionWithNoInput()
     {
-        MoveConstants c = MoveConstants.Stock;
+        MoveConstants c = MoveConstantDefaults.Stock;
         c.SpecNoClip = false;
 
         var world = new ScriptedWorld();
@@ -1110,7 +1110,7 @@ public class MovementTests
     [Fact]
     public void ARoamingObserverBelowOneUnitPerSecondIsStoppedDead()
     {
-        MoveConstants c = MoveConstants.Stock;
+        MoveConstants c = MoveConstantDefaults.Stock;
         c.SpecNoClip = false;
 
         var world = new ScriptedWorld();
@@ -1145,7 +1145,7 @@ public class MovementTests
     public void AFlyingPlayerCoastsAlongItsVelocityAndDoesNotFall()
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.Velocity = new Vector(100f, 0f, 0f);
 
@@ -1164,7 +1164,7 @@ public class MovementTests
     public void AFlyGravityPlayerFallsByExactlyOneGravityStep()
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFlyGravity);
         s.Velocity = new Vector(100f, 0f, 0f);
 
@@ -1183,7 +1183,7 @@ public class MovementTests
     [Fact]
     public void TheTwoFlyingTypesDifferOnlyByTheGravityStep()
     {
-        var movement = new GameMovement(new ScriptedWorld(), MoveConstants.Stock);
+        var movement = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
 
         MoveState fly = TossState(GameMovement.MoveTypeFly);
         fly.Velocity = new Vector(100f, 0f, 0f);
@@ -1207,7 +1207,7 @@ public class MovementTests
     public void AFlyingPlayerWithForwardInputAcceleratesAtServerAccelerate()
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.ForwardMove = 400f;
 
@@ -1232,7 +1232,7 @@ public class MovementTests
             OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
             OnPointContents = (_, _) => { contents++; return 0; },
         };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
 
         Assert.True(movement.ProcessMovement(s));
@@ -1257,7 +1257,7 @@ public class MovementTests
         {
             OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
         };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.BaseVelocity = new Vector(80f, 0f, 0f);
 
@@ -1280,7 +1280,7 @@ public class MovementTests
     public void ABouncingFlierIsReflectedByTheSurfaceItHits()
     {
         var world = FlyIntoWallWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.Velocity = new Vector(100f, 0f, 0f);
         s.MoveCollide = GameMovement.MoveCollideFlyBounce;
@@ -1300,7 +1300,7 @@ public class MovementTests
     public void ADefaultCollideFlierIsStoppedByTheSurfaceRatherThanReflected()
     {
         var world = FlyIntoWallWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.Velocity = new Vector(100f, 0f, 0f);
         s.MoveCollide = GameMovement.MoveCollideDefault;
@@ -1319,7 +1319,7 @@ public class MovementTests
     public void AFlyCustomCollideLeavesTheVelocityAlone()
     {
         var world = FlyIntoWallWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.Velocity = new Vector(100f, 0f, 0f);
         s.MoveCollide = GameMovement.MoveCollideFlyCustom;
@@ -1337,7 +1337,7 @@ public class MovementTests
     public void AFlierLandingFlatStopsDeadAndTakesTheGround()
     {
         var world = new ScriptedWorld { OnTrace = FarFloorOnly };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.Velocity = new Vector(0f, 0f, -100f);
 
@@ -1358,7 +1358,7 @@ public class MovementTests
     public void ABouncingFlierWithSpeedLeftKeepsRollingAfterItLands()
     {
         var world = new ScriptedWorld { OnTrace = FarFloorOnly };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.Velocity = new Vector(200f, 0f, -100f);
         s.MoveCollide = GameMovement.MoveCollideFlyBounce;
@@ -1393,7 +1393,7 @@ public class MovementTests
                       HitWorld = true,
                   },
         };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = TossState(GameMovement.MoveTypeFly);
         s.Velocity = new Vector(100f, 0f, 0f);
         s.MoveCollide = GameMovement.MoveCollideFlyBounce;
@@ -1500,7 +1500,7 @@ public class MovementTests
     //=========================================================================
     // DUCKING UNDER A FORTY-UNIT GAP -- the policy-player lane's first gate.
     //
-    // The stand hull is 72 units tall and the duck hull 36 (MoveConstants.Stock,
+    // The stand hull is 72 units tall and the duck hull 36 (MoveConstantDefaults.Stock,
     // pinned by ThePlayerHullsAreStockHalfLifes). So a 40-unit gap is a hole a
     // crouching player fits through and a standing one does not, and the pair of
     // facts is the two halves of that one sentence: they GO, and they CANNOT
@@ -1569,7 +1569,7 @@ public class MovementTests
     public void ACrouchedPlayerWalksThroughAFortyUnitGap()
     {
         var world = TunnelWorld(40f);
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = CrouchedState();
         s.Buttons = GameMovement.InDuck;
         s.OldButtons = GameMovement.InDuck;
@@ -1618,7 +1618,7 @@ public class MovementTests
     public void ACrouchedPlayerCannotStandUnderAFortyUnitGap()
     {
         var world = TunnelWorld(40f);
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = CrouchedState();
         s.Buttons = 0;                          // crouch RELEASED
         s.OldButtons = GameMovement.InDuck;     // ...on this very command
@@ -1645,7 +1645,7 @@ public class MovementTests
     public void TheSamePlayerStandsUpOnceTheCeilingIsGone()
     {
         var world = TunnelWorld(1000f);
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = CrouchedState();
         s.Buttons = 0;
         s.OldButtons = GameMovement.InDuck;
@@ -1679,7 +1679,7 @@ public class MovementTests
     public void ALandingHandsTheWorldTheDamageForItsOwnFallVelocity()
     {
         var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.FallVelocity = 800f;
         s.Flags = GameMovement.FlOnGround;
@@ -1699,7 +1699,7 @@ public class MovementTests
     public void ALandingUnderTheSafeSpeedNeverAsksTheWorldForDamage()
     {
         var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.FallVelocity = 579f;   // PLAYER_MAX_SAFE_FALL_SPEED - 1, shareddefs.h:416
         s.Flags = GameMovement.FlOnGround;
@@ -1719,7 +1719,7 @@ public class MovementTests
     public void ALandingOverTheSafeSpeedAsksTheWorldForPositiveDamage()
     {
         var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.FallVelocity = 581f;   // PLAYER_MAX_SAFE_FALL_SPEED + 1, shareddefs.h:416
         s.Flags = GameMovement.FlOnGround;
@@ -1744,7 +1744,7 @@ public class MovementTests
             // Slot 0 is the point just above the feet; the two above it are dry.
             OnPointContents = (_, slot) => slot == 0 ? GameMovement.ContentsWater : 0,
         };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.MoveType = GameMovement.MoveTypeNone;   // so only PlayerMove's preamble runs
 
@@ -1759,7 +1759,7 @@ public class MovementTests
     public void WaterOverTheEyesIsLevelThree()
     {
         var world = new ScriptedWorld { OnPointContents = (_, _) => GameMovement.ContentsWater };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.MoveType = GameMovement.MoveTypeNone;
 
@@ -1779,7 +1779,7 @@ public class MovementTests
         {
             OnPointContents = (_, _) => GameMovement.ContentsWater | GameMovement.ContentsCurrent90,
         };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.MoveType = GameMovement.MoveTypeNone;
 
@@ -1807,7 +1807,7 @@ public class MovementTests
     public void AFormerlyRefusedMoveTypeIsNowAnsweredByTheManagedLoop(int moveType)
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.MoveType = moveType;
         s.ObserverMode = GameMovement.ObsModeRoaming;
@@ -1837,7 +1837,7 @@ public class MovementTests
     public void NoMoveTypeIsDeclinedAnyMore(int moveType)
     {
         var world = new ScriptedWorld();
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.MoveType = moveType;
         s.ObserverMode = GameMovement.ObsModeRoaming;
@@ -1862,7 +1862,7 @@ public class MovementTests
             GameMovement.MoveTypeLadder, GameMovement.MoveTypeObserver,
         };
 
-        var movement = new GameMovement(new ScriptedWorld(), MoveConstants.Stock);
+        var movement = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
 
         foreach (int moveType in all)
         {
@@ -1884,7 +1884,7 @@ public class MovementTests
     [Fact]
     public void AMoveTypeTheEnumDoesNotHaveReachesTheBogusArmAndIsCounted()
     {
-        var movement = new GameMovement(new ScriptedWorld(), MoveConstants.Stock);
+        var movement = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.MoveType = 99;
 
@@ -1917,7 +1917,7 @@ public class MovementTests
                 HitWorld = true,
             },
         };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.ForwardMove = 200f;
 
@@ -1951,7 +1951,7 @@ public class MovementTests
                 HitWorld = true,
             },
         };
-        var movement = new GameMovement(world, MoveConstants.Stock);
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
         s.SideMove = 200f;
 
@@ -1970,7 +1970,7 @@ public class MovementTests
         foreach (int maxClients in new[] { 1, 2 })
         {
             var world = new ScriptedWorld();
-            MoveConstants c = MoveConstants.Stock;
+            MoveConstants c = MoveConstantDefaults.Stock;
             c.MaxClients = maxClients;
 
             var movement = new GameMovement(world, c);
@@ -2014,7 +2014,7 @@ public class MovementTests
             {
                 OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
             };
-            var movement = new GameMovement(world, MoveConstants.Stock) { JumpHeight = jumpHeight };
+            var movement = new GameMovement(world, MoveConstantDefaults.Stock) { JumpHeight = jumpHeight };
 
             MoveState s = BaselineState();
             s.HasGround = true;

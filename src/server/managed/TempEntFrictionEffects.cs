@@ -7,5 +7,5 @@ namespace SourceSharp.Server;
 public sealed class TempEntFrictionEffects(IEngineEffects effects, ITempEnts temps) : IFrictionEffects
 {
     public void Dust(Vector point, Vector direction) => effects.DustEffect(point, direction, 1f, 16f);
-    public void MetalSparks(Vector point, Vector direction) => temps.MetalSparks(TeFilter.Pvs(point), 0f, point, direction);
+    public void MetalSparks(Vector point, Vector direction) => temps.MetalSparks(TeFilters.Pvs(point), 0f, point, direction);
 }

@@ -18,6 +18,12 @@ public sealed class EngineClients(IClientInfo info, IEnginePlayers players, IEng
 
     public string? ClientConVar(int entIndex, string name) => info.ClientConVar(entIndex, name);
 
+    // Null, as IClientInfo's default body answered before plan_shim_areas_split
+    // phase 4 moved the interface to an interface assembly (no bodies): this
+    // class never forwarded the latency, and that phase changes no behaviour.
+    // PlayerResource reads the latency through the side's IClientInfo itself.
+    public float? AvgLatency(int entIndex) => null;
+
     public int UserId(int entIndex)
     {
         var handle = players.GetHandle(entIndex);

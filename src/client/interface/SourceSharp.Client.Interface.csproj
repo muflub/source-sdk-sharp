@@ -1,8 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    The client's interfaces over plain data that its logic implements for
-    others: today the UI's data contracts (Ui/), which screens take by
-    constructor and the client fills. System.* only. The dev API's hook points
-    moved to Debug.Api.Client.Interfaces (plan_shim_areas_split phase 1).
+    The client's interfaces over plain data. Interfaces, enums and data only
+    (SS0030, role "interface" in Directory.Build.props). Two kinds:
+
+    - the UI's data contracts (Ui/), which screens take by constructor and the
+      client fills. A screen references this assembly and the toolkit only
+      (UiAssemblyRulesTests reads that from each screen's metadata), and uses
+      nothing here but Ui/;
+    - the client's engine seams (plan_shim_areas_split phase 4): one interface
+      per capability the client's logic takes from the engine, in managed
+      types, and the managed-only value types their signatures use.
+      SourceSharp.Client.Interop implements them over the native areas.
+
+    It references the Abi, whose value types (Vector, EntityHandle, the blobs)
+    the seams are written in. The seams both sides use are in
+    src/shared/interface and compiled into this assembly and into
+    SourceSharp.Server.Interface. The dev API's hook points moved to
+    Debug.Api.Client.Interfaces (plan_shim_areas_split phase 1).
   -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\shared\interface\**\*.cs"
+             Exclude="..\..\shared\interface\obj\**;..\..\shared\interface\bin\**"
+             Link="shared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- One seam is internal: IEngineStringTables, which carries table ids a
+         mod should never see (its public face is StringTableAttribute and
+         IEngineStringTable). What reached it when it was interop reaches it
+         here: the interop that implements it, the side's logic (the shared
+         StringTableRegistry), the doubles that implement it and the suites. -->
+    <InternalsVisibleTo Include="SourceSharp.Client.Interop" />
+    <InternalsVisibleTo Include="SourceSharp.Client" />
+    <InternalsVisibleTo Include="SourceSharp.TestSupport.Client" />
+    <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.OracleTests" />
+  </ItemGroup>
 </Project>

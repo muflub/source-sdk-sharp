@@ -959,6 +959,15 @@ public class SideAuditTests
     private const string ServerInterop = "SourceSharp.Server.Interop";
     private const string ClientInterop = "SourceSharp.Client.Interop";
 
+    // Each side's engine seams (plan_shim_areas_split phase 4). A call to a
+    // seam names a type in one of these, so the logic's audits follow them as
+    // they follow the interop: a seam is how logic reaches a slot. The
+    // interop's own audits do not: inside the interop a seam call is the
+    // binding chain, which was pass-through when the seams were the interop's
+    // own types, and stays so.
+    private const string ServerInterface = "SourceSharp.Server.Interface";
+    private const string ClientInterface = "SourceSharp.Client.Interface";
+
     private static bool ServerFills(SlotSide side) => side is SlotSide.Server or SlotSide.Both or SlotSide.Dual;
     private static bool ClientFills(SlotSide side) => side is SlotSide.Client or SlotSide.Both or SlotSide.Dual;
     private static bool BothFill(SlotSide side) => side is SlotSide.Both or SlotSide.Dual;
@@ -966,12 +975,12 @@ public class SideAuditTests
     [Fact]
     public void ServerAssemblyLeansOnlyOnSlotsItsSideFills()
         => CheckAssembly(typeof(SourceSharp.Server.ServerModule).Assembly.Location,
-            ServerFills, ServerWaiver, NoneKnown, "SourceSharp.Server", Abi, ServerInterop);
+            ServerFills, ServerWaiver, NoneKnown, "SourceSharp.Server", Abi, ServerInterop, ServerInterface);
 
     [Fact]
     public void ClientAssemblyLeansOnlyOnSlotsItsSideFills()
         => CheckAssembly(typeof(client::SourceSharp.Client.ClientModule).Assembly.Location,
-            ClientFills, ClientWaiver, ClientKnown, "SourceSharp.Client", Abi, ClientInterop);
+            ClientFills, ClientWaiver, ClientKnown, "SourceSharp.Client", Abi, ClientInterop, ClientInterface);
 
     [Fact]
     public void SharedAssemblyLeansOnlyOnSlotsBothSidesFill()
@@ -983,7 +992,8 @@ public class SideAuditTests
         string built = SharedSourceBuild.Build();
         try
         {
-            CheckAssembly(built, BothFill, SharedWaiver, SharedKnown, SharedSourceBuild.Name, Abi, SharedSourceBuild.InteropName);
+            CheckAssembly(built, BothFill, SharedWaiver, SharedKnown, SharedSourceBuild.Name, Abi, SharedSourceBuild.InteropName,
+                          SharedSourceBuild.InterfaceName);
         }
         finally
         {

@@ -138,7 +138,7 @@ public sealed class PhysicsFluidEvents(IVPhysicsObjects objects, IVPhysicsFluids
                 Scale = effect.Scale,
                 Flags = effect.InSlime ? FxWaterInSlime : 0,
             };
-            temps.DispatchEffect(TeFilter.Pvs(effect.Origin), 0f, effect.Name, in data);
+            temps.DispatchEffect(TeFilters.Pvs(effect.Origin), 0f, effect.Name, in data);
         }
     }
 

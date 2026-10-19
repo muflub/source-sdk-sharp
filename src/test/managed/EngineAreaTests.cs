@@ -100,8 +100,7 @@ public class EngineAreaTests
     // (IEngineStringTable, the per-table handle), so the rule has a body worth
     // sharing rather than one line worth repeating.
     private static Type[] Areas()
-        => typeof(EngineServices).Assembly.GetTypes()
-            .Where(EngineServices.IsArea)
+        => EngineServices.Contracts()
             .OrderBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
 
@@ -171,7 +170,11 @@ public class EngineAreaTests
         // code can hold. 27 since plan_physics_bones_native_zero 2.4: the
         // constraint, spring and motion-controller tables are the server's own
         // (PhysicsConstraints, PhysicsMotionControllers), not engine areas.
-        Assert.True(areas.Length == 27, "the engine is split into areas");
+        // 29 since plan_shim_areas_split phase 4: the name lookup and the
+        // overlap report left IEngineEntities as areas of their own
+        // (IEngineEntityNames, IEngineOverlaps), because their types are not
+        // data and the seam interfaces moved to the interface assemblies.
+        Assert.True(areas.Length == 29, "the engine is split into areas");
 
         // Paired by name, and the pairing is reflected over rather than listed —
         // so this is what catches an area added with no binding behind it.

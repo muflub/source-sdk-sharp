@@ -47,28 +47,28 @@ public class NativeConsoleTests
         var gameDll = new NativeConsoleEntry("sv_gravity", "800", "600", "World gravity",
             (int)ConVarFlags.GameDll, false);
 
-        Assert.True(gameDll.DeclaredBy == "server.dll", "a convar registered by the game DLL says so");
+        Assert.True(gameDll.DeclaredBy() == "server.dll", "a convar registered by the game DLL says so");
 
-        Assert.True(gameDll.IsModified, "a value away from its default is modified");
+        Assert.True(gameDll.IsModified(), "a value away from its default is modified");
 
-        Assert.True(gameDll.FlagNames == "GameDll", "a convar's flags render through the entry");
+        Assert.True(gameDll.FlagNames() == "GameDll", "a convar's flags render through the entry");
 
         var clientDll = new NativeConsoleEntry("cl_showfps", "0", "0", "",
             (int)ConVarFlags.ClientDll, false);
 
-        Assert.True(clientDll.DeclaredBy == "client.dll", "a convar registered by the client DLL says so");
+        Assert.True(clientDll.DeclaredBy() == "client.dll", "a convar registered by the client DLL says so");
 
-        Assert.True(!clientDll.IsModified, "a value sitting on its default is not modified");
+        Assert.True(!clientDll.IsModified(), "a value sitting on its default is not modified");
 
         var engine = new NativeConsoleEntry("host_timescale", "1", "1", "", 0, false);
-        Assert.True(engine.DeclaredBy == "engine", "a convar with neither DLL flag belongs to the engine");
+        Assert.True(engine.DeclaredBy() == "engine", "a convar with neither DLL flag belongs to the engine");
 
         // A command has no value and no default, and the two being equal must
         // not read as "unchanged" — there was never anything to change.
         var command = new NativeConsoleEntry("changelevel", "", "", "Change the map",
             (int)ConVarFlags.GameDll, true);
 
-        Assert.True(!command.IsModified, "a command is never modified, having nothing to modify");
+        Assert.True(!command.IsModified(), "a command is never modified, having nothing to modify");
     }
 
     [Fact]

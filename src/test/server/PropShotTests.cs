@@ -24,7 +24,7 @@ public class PropShotTests
         engine.Returns("Entities.IsValid", true);
         engine.Returns("Entities.Named", new List<EntityHandle>());
 
-        return (new PropShotCommand(new RecordingLog(), engine, engine), engine);
+        return (new PropShotCommand(new RecordingLog(), engine, engine, engine), engine);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class PropShotTests
     public void AnEmptyArgumentIsClearRatherThanAnEntityWithNoName()
     {
         var (_, engine) = Probe();
-        var command = new PropShotCommand(new RecordingLog(), engine, engine);
+        var command = new PropShotCommand(new RecordingLog(), engine, engine, engine);
 
         command.Execute("   ");
 

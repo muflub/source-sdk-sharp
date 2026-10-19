@@ -1073,7 +1073,7 @@ internal sealed unsafe partial class EngineSide
     public PayloadAgreement CheckPayloadAgreement(EntityHandle h)
     {
         if (!s_Initialized || !ServerAttached)
-            return PayloadAgreement.NotSupplied;
+            return PayloadAgreements.NotSupplied;
 
         int words = 0;
         int firstBad = -1;

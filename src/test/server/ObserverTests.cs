@@ -22,6 +22,9 @@ public class ObserverTests
 
     internal sealed class Clients : IConnectedClients
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public float? AvgLatency(int entIndex) => null;
+
         public ulong SteamId64(int entIndex) => 0;
         public string? Address(int entIndex) => null;
         public string? SpecMode;

@@ -2,6 +2,7 @@
   <Project Path="src/abi/SourceSharp.Abi.csproj" />
   <Project Path="src/host/managed/SourceSharp.Bootstrap.csproj" />
   <Project Path="src/client/interface/SourceSharp.Client.Interface.csproj" />
+  <Project Path="src/server/interface/SourceSharp.Server.Interface.csproj" />
   <Project Path="src/client/managed/SourceSharp.Client.csproj" />
   <Project Path="src/client/ui/toolkit/SourceSharp.Client.Ui.Toolkit.csproj" />
   <Project Path="src/client/ui/screens/SourceSharp.Client.Ui.csproj" />

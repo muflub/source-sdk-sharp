@@ -188,6 +188,26 @@ public unsafe class EntityHandleInversionTests : IDisposable
         Assert.Equal(Raw, new[] { into[0].A.Value, into[0].B.Value, into[1].A.Value, into[1].B.Value }[..(2 * n)]);
     }
 
+    /// <summary>
+    /// The same report through <see cref="IEngineOverlaps"/>, the seam it
+    /// became in plan_shim_areas_split phase 4, as the side registers it.
+    /// </summary>
+    [Fact]
+    public void TheRegisteredOverlapSeamReadsTheSameReport()
+    {
+        var side = Attached("SourceSharpCollisionServer001", nameof(ShimCollisionServerFwd.EntityOverlapReport),
+                            (nint)(delegate* unmanaged<void*, uint*, int, int>)&WriteOverlaps);
+        var composition = new ServiceContainer().AddInstance(new StandaloneMirror());
+        var overlaps = (IEngineOverlaps)Assert.Single(EngineServices.Bindings(side, composition),
+                                                      b => b.Contract == typeof(IEngineOverlaps)).Binding;
+        var into = new OverlapPair[4];
+
+        int n = overlaps.OverlapReport(into);
+
+        Assert.True(n > 0, "the report reached the slot");
+        Assert.Equal(Raw, new[] { into[0].A.Value, into[0].B.Value, into[1].A.Value, into[1].B.Value }[..(2 * n)]);
+    }
+
     [Fact]
     public void AnOmittedTraceIgnoreReachesNativeAsTheInvalidHandle()
     {

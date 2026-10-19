@@ -450,7 +450,7 @@ public class SparksOracleTests
         {
             for (int i = 0; i < 12; i++)
                 m[i] = F(r[5 + i]);
-            var view = new ParticleView(m, I(r[4]));
+            var view = ParticleViewReading.From(m, I(r[4]));
             var p = new TrailParticle
             {
                 Position = V(r, 17), Velocity = V(r, 20), Lifetime = F(r[23]), DieTime = F(r[24]), Length = F(r[25]),

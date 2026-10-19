@@ -47,6 +47,6 @@ public sealed class DebugConsoleHook(
 
     public IReadOnlyList<DebugNativeEntry> NativeEntries()
         => _native().Select(e => new DebugNativeEntry(
-                e.Name, e.Value, e.DefaultValue, e.Help, e.FlagNames, e.IsCommand, e.Min, e.Max, e.DeclaredBy))
+                e.Name, e.Value, e.DefaultValue, e.Help, e.FlagNames(), e.IsCommand, e.Min, e.Max, e.DeclaredBy()))
             .ToArray();
 }

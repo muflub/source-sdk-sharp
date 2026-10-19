@@ -253,7 +253,7 @@ public class DustOracleTests
             {
                 case "dmv":
                     float[] m = Enumerable.Range(2, 12).Select(k => F(r[k])).ToArray();
-                    view = new ParticleView(m, 0);
+                    view = ParticleViewReading.From(m, 0);
                     sim = new DustVolumeSim
                     {
                         Flags = I(r[14]), DistMax = I(r[15]),

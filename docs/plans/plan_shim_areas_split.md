@@ -317,3 +317,44 @@ Open: none.
     `IRouteBinder`), and others failed loudly (`HookOrderTests` read every
     client hook's order as 0, the ConVar declaration facts found no client
     declarations); each now asks the right side.
+- **Phase 4** (2026-10-19). Re-measured at the start: 93 interfaces that an
+  adapter (a class built over `EngineSide` or `ModuleEngine`) implements, 94
+  with the interfaces their signatures pull in (ILog stays in the Abi), and 57
+  value types their signatures use, all from the interops (none from the
+  managed assemblies). 148 types moved: 66 to `src/shared/interface`, 4 to the
+  new `SourceSharp.Server.Interface`, 78 to `SourceSharp.Client.Interface`
+  beside its `Ui/`. Fourteen files moved whole; 43 were split, the interop
+  keeping the implementations. Namespaces stayed. A reflection dump of each
+  side's interop plus interface after equals the interop before, member for
+  member, but for the changes below.
+  - Nine value types in seam signatures carried behaviour, each looked at on its
+    own. Seven became data, their behaviour staying in the interop as extension
+    methods or a static class (`NativeConsoleEntryReading`,
+    `PayloadAgreements`, `TeFilters`, `MoveConstantDefaults`,
+    `StandaloneBonesReading`, `ParticleViewReading`); `TeClass` lost a lookup
+    nobody called. Two could not: `NameMatches` (a ref struct enumerator whose
+    `using` needs its own `Dispose`) and `OverlapPair` (unordered equality
+    through `IEquatable`). Their calls became seams of their own,
+    `IEngineEntityNames` and `IEngineOverlaps`, which stay in the interop with
+    their types; `EngineServices` finds areas in both assemblies.
+  - Extension methods rather than C# 14 extension members: the side audit and
+    the analyzer harness compile the shared code with Roslyn 4.14.
+  - Ten default interface bodies went (SS0030, and the metadata fact forbids
+    them). Each implementer that leaned on one now says the same answer: the
+    null objects for the three client lists, null or the GAME path in the
+    doubles, and `FxFlashAttachments` for the two flash reads the real binding
+    answers the engine's way (the oracle doubles answer them from recorded runs,
+    so they stay members). `EngineClients.AvgLatency` answers null as its
+    default did; it never forwarded the latency.
+  - `IEngineStringTables` is internal (it carries table ids), so the interface
+    assemblies grant their internals to what reached it in the interop.
+  - A screen still references only `SourceSharp.Client.Interface` and the
+    toolkit, and uses nothing in it but `Ui/`: `UiAssemblyRulesTests` reads that
+    from each screen's metadata, and the interface's new reference to the Abi
+    does not reach a screen that never names an engine type.
+  - The cross-side suites reference the client interface under the `client`
+    alias, as they do its interop. The side audit follows calls into each
+    side's interface assembly from the logic (it found the server's
+    `SetSkin` call again through it) and compiles the shared seams alone in
+    memory for the shared audits; the interop's own audits do not follow them,
+    as they never followed the seams when those were the interop's own types.

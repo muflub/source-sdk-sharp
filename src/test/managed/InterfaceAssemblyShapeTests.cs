@@ -28,6 +28,7 @@ public class InterfaceAssemblyShapeTests
         "Debug.Api.Server.Interfaces",
         "Debug.Api.Client.Interfaces",
         "SourceSharp.Client.Interface",
+        "SourceSharp.Server.Interface",
     };
 
     [Theory]

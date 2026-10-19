@@ -44,6 +44,9 @@ public class AnimationEventCheckTests
     /// </summary>
     private sealed class ModelTable : IEngineEntityRender
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public string? GetModelKeyValueText(string modelName) => null;
+
         public readonly Dictionary<string, int> Activities = new(StringComparer.OrdinalIgnoreCase);
         public readonly Dictionary<string, int> Names = new(StringComparer.OrdinalIgnoreCase);
 

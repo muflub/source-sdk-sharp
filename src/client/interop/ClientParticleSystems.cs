@@ -4,30 +4,6 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Interop;
 
-/// <summary>One CNewParticleEffect the client started, with its system's name.</summary>
-public readonly record struct ClientParticleSystemRow(string Name, ParticleSystemInfo Info);
-
-/// <summary>
-/// The CNewParticleEffect instances the client started, read through
-/// IShimParticlesClient (plan_client_novalve §4.4, the particles route; the
-/// particles shell, shell_particles_client.cpp). Game thread.
-/// </summary>
-public interface IClientParticleSystems
-{
-    /// <summary>Every instance the particles shell watches, in the order it started them.</summary>
-    IReadOnlyList<ClientParticleSystemRow> Read();
-
-    /// <summary>Full reads of the particle manifest's definitions since the process started.</summary>
-    int DefinitionReads();
-
-    /// <summary>
-    /// The particle query's calls that found no managed answer, per method:
-    /// collision group, lighting, trace, hit-box points, hit-box info. Empty
-    /// when the read is not wired.
-    /// </summary>
-    IReadOnlyList<int> QueryUnanswered();
-}
-
 /// <summary>The real one, over the client's shim areas.</summary>
 internal sealed unsafe class ClientParticleSystems(EngineSide api) : IClientParticleSystems
 {
@@ -78,28 +54,6 @@ internal sealed unsafe class ClientParticleSystems(EngineSide api) : IClientPart
     }
 }
 
-/// <summary>
-/// The particles shell's starts for a dispatched particle effect (lane
-/// c5-particles): a system's name by its string-table index, and a one-shot
-/// started at a world point with the control points the dispatch named.
-/// </summary>
-public interface IClientParticleOneShots
-{
-    /// <summary><c>GetParticleSystemNameFromIndex</c>: the ParticleEffectNames table's string, null with no table.</summary>
-    string? NameFromIndex(int index);
-
-    /// <summary>
-    /// <c>CNewParticleEffect::Create( NULL, name )</c>, its sort origin, the
-    /// control points in order, and control point 0's orientation; false when
-    /// no definition answers the name.
-    /// </summary>
-    bool Start(string name, Vector sortOrigin, ReadOnlySpan<ParticleControlPoint> points,
-               Vector forward, Vector right, Vector up);
-}
-
-/// <summary>One control point a dispatch sets: its number and position.</summary>
-public readonly record struct ParticleControlPoint(int Point, Vector Position);
-
 /// <summary>The real one, over IShimParticlesClient.</summary>
 internal sealed unsafe class ClientParticleOneShots(EngineSide api) : IClientParticleOneShots
 {
@@ -133,41 +87,6 @@ internal sealed unsafe class ClientParticleOneShots(EngineSide api) : IClientPar
         fixed (byte* p = bytes)
             return api.ClientShims.ParticleSystemOneShot(p, sort, flat, points.Length, orient) != 0;
     }
-}
-
-/// <summary>A world trace's answer, as much of <c>trace_t</c> as the particle collision reads.</summary>
-public struct ParticleTrace
-{
-    public float Fraction;
-    public Vector EndPos;
-    public Vector Normal;
-    public float Dist;
-    public bool AllSolid;
-    public bool StartSolid;
-}
-
-/// <summary>
-/// <c>UTIL_TraceLine( start, end, MASK_SOLID_BRUSHONLY, NULL,
-/// COLLISION_GROUP_NONE )</c>: the only trace the particle collision makes.
-/// </summary>
-public interface IParticleWorldTrace
-{
-    ParticleTrace TraceLine(Vector start, Vector end);
-}
-
-/// <summary>What a masked line found: fraction, end, the plane's normal, and stock's startsolid / fractionleftsolid.</summary>
-public readonly record struct MaskTrace(float Fraction, Vector End, Vector Normal, bool StartSolid, float FractionLeftSolid);
-
-/// <summary><c>UTIL_TraceLine( start, end, mask, NULL, COLLISION_GROUP_NONE )</c> with the contents mask the caller names.</summary>
-public interface IParticleMaskTrace
-{
-    /// <summary><c>CONTENTS_SOLID</c>.</summary>
-    public const uint ContentsSolid = 0x1;
-
-    /// <summary><c>MASK_WATER</c>: <c>CONTENTS_WATER | CONTENTS_MOVEABLE | CONTENTS_SLIME</c>.</summary>
-    public const uint MaskWater = 0x20 | 0x4000 | 0x10;
-
-    MaskTrace Trace(Vector start, Vector end, uint mask);
 }
 
 /// <summary>The real one, over IShimParticlesClient::ParticlesWorldTrace and ParticlesTraceMask.</summary>
@@ -245,66 +164,43 @@ public interface IClientImpactSparks
     int ImpactMetalSpark(Vector origin, Vector shotDir, Vector normal, int scale, float throttle);
 }
 
-
 /// <summary>
-/// The view the particle manager is drawing (lane c5-particles): its
-/// model-view matrix's three rows, row major (<c>ParticleMgr()-&gt;GetModelView()</c>),
-/// <c>CurrentViewID()</c>, and the view's origin and forward.
+/// Building a <see cref="ParticleView"/> and reading points through it.
+///
+/// <para>
+/// Here rather than on the view since plan_shim_areas_split phase 4: the view
+/// is in a seam's signature (<see cref="IParticleViewSource.Read"/>), so it
+/// lives with the seam in an interface assembly, which holds only data.
+/// </para>
 /// </summary>
-public readonly struct ParticleView
+public static class ParticleViewReading
 {
-    private readonly float[] _m;
+    /// <summary>A view over a copy of the first twelve floats of <paramref name="modelView12"/>.</summary>
+    public static ParticleView From(ReadOnlySpan<float> modelView12, int viewId, Vector origin = default, Vector forward = default)
+        => new() { ModelView = modelView12[..12].ToArray(), ViewId = viewId, Origin = origin, Forward = forward };
 
-    public ParticleView(ReadOnlySpan<float> modelView12, int viewId, Vector origin = default, Vector forward = default)
-    {
-        _m = modelView12[..12].ToArray();
-        ViewId = viewId;
-        Origin = origin;
-        Forward = forward;
-    }
-
-    public int ViewId { get; }
-
-    /// <summary><c>CurrentViewOrigin()</c>.</summary>
-    public Vector Origin { get; }
-
-    /// <summary><c>CurrentViewForward()</c>.</summary>
-    public Vector Forward { get; }
-
-    public bool IsSet => _m is not null;
-
-    /// <summary>One element of the matrix: row <paramref name="r"/> (0..2), column <paramref name="c"/> (0..3).</summary>
-    public float this[int r, int c] => _m[r * 4 + c];
+    /// <summary>Whether the view holds a matrix: false for <c>default</c>.</summary>
+    public static bool IsSet(this in ParticleView view) => view.ModelView is not null;
 
     /// <summary><c>TransformParticle</c> (particlemgr.h): a point into view space.</summary>
-    public Vector TransformPoint(Vector v) => new(
-        _m[0] * v.X + _m[1] * v.Y + _m[2] * v.Z + _m[3],
-        _m[4] * v.X + _m[5] * v.Y + _m[6] * v.Z + _m[7],
-        _m[8] * v.X + _m[9] * v.Y + _m[10] * v.Z + _m[11]);
+    public static Vector TransformPoint(this in ParticleView view, Vector v)
+    {
+        float[] m = view.ModelView!;
+        return new(
+            m[0] * v.X + m[1] * v.Y + m[2] * v.Z + m[3],
+            m[4] * v.X + m[5] * v.Y + m[6] * v.Z + m[7],
+            m[8] * v.X + m[9] * v.Y + m[10] * v.Z + m[11]);
+    }
 
     /// <summary><c>Vector3DMultiply</c> (vmatrix.cpp): a direction into view space.</summary>
-    public Vector TransformDirection(Vector v) => new(
-        _m[0] * v.X + _m[1] * v.Y + _m[2] * v.Z,
-        _m[4] * v.X + _m[5] * v.Y + _m[6] * v.Z,
-        _m[8] * v.X + _m[9] * v.Y + _m[10] * v.Z);
-}
-
-/// <summary>Reads the view the particle manager is drawing (IShimParticlesClient::ParticlesView).</summary>
-public interface IParticleViewSource
-{
-    ParticleView Read();
-}
-
-/// <summary><c>PixelVisibility_FractionVisible</c> at a point through the caller's query handle.</summary>
-public interface IParticlePixelVisibility
-{
-    float FractionVisible(Vector origin, ref int queryHandle);
-}
-
-/// <summary><c>g_pParticleSystemMgr-&gt;ParticleThrottleScaling()</c>, asked of the particle library: 1 unrestricted .. 0 fully.</summary>
-public interface IParticleThrottle
-{
-    float ThrottleScaling();
+    public static Vector TransformDirection(this in ParticleView view, Vector v)
+    {
+        float[] m = view.ModelView!;
+        return new(
+            m[0] * v.X + m[1] * v.Y + m[2] * v.Z,
+            m[4] * v.X + m[5] * v.Y + m[6] * v.Z,
+            m[8] * v.X + m[9] * v.Y + m[10] * v.Z);
+    }
 }
 
 /// <summary>
@@ -325,7 +221,7 @@ internal sealed unsafe class ClientParticleViewSlots(EngineSide api, IParticleLi
         int viewId = 0;
         if (api.ClientAttached)
             api.ClientShims.ParticlesView(m, &viewId, of);
-        return new ParticleView(new ReadOnlySpan<float>(m, 12), viewId, new Vector(of[0], of[1], of[2]), new Vector(of[3], of[4], of[5]));
+        return ParticleViewReading.From(new ReadOnlySpan<float>(m, 12), viewId, new Vector(of[0], of[1], of[2]), new Vector(of[3], of[4], of[5]));
     }
 
     public float FractionVisible(Vector origin, ref int queryHandle)
@@ -425,17 +321,6 @@ public sealed class ParticleFloatMode
         if (daz)
             DenormalsAreZero++;
     }
-}
-
-/// <summary>
-/// The contents at a point inside a managed brush entity's own brush
-/// (IShimParticlesClient::ParticlesBrushPointContents): the engine's point test
-/// over the owner as stock's SOLID_BSP dust volume (lane c5-particles: the dust
-/// motes' spawn test). 0 when nothing answers.
-/// </summary>
-public interface IClientBrushContents
-{
-    int PointContents(EntityHandle owner, Vector point);
 }
 
 /// <summary>The real one, over the client's shim areas.</summary>

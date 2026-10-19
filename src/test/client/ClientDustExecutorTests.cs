@@ -41,7 +41,7 @@ public class ClientDustExecutorTests
 
     private sealed class View : IParticleViewSource
     {
-        public ParticleView Read() => new(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -300 }, 0);
+        public ParticleView Read() => ParticleViewReading.From(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -300 }, 0);
     }
 
     private static (ClientDustMotes Dust, RecordingParticleExecutor Executor, Brush Brush, Winds Winds) Make(bool hasModel)

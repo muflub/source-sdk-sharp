@@ -92,7 +92,7 @@ public class DustVolumeSimTests
         sim.Simulate(1.0f, 1.0f, new Vector(100, 100, 0));
         Assert.Equal(before, sim.Motes[0]);
         // an identity view: the eye at the origin looking down -z
-        var view = new ParticleView(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -200 }, 0);
+        var view = ParticleViewReading.From(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -200 }, 0);
         Assert.True(sim.Render(new DustMote { Position = default, Lifetime = 0, DieTime = 3, Size = 2 }, view, out _, out float alpha, out _));
         // flAlpha 1, faded by 1 + (-200 / 500), times the volume's alpha (255)
         Assert.Equal(1.0f * (1 + (-200f / 500)) * 255, alpha);
@@ -114,8 +114,8 @@ public class DustVolumeSimTests
     {
         var sim = Volume(DustVolumeSim.FlagOn);
         var mote = new DustMote { Lifetime = 1, DieTime = 2, Size = 3 };
-        var at = new ParticleView(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -500 }, 0);
-        var past = new ParticleView(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -501 }, 0);
+        var at = ParticleViewReading.From(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -500 }, 0);
+        var past = ParticleViewReading.From(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -501 }, 0);
         Assert.True(sim.Render(mote, at, out _, out _, out _));
         Assert.False(sim.Render(mote, past, out _, out _, out _));
         Span<ParticleQuadRaw> quads = new ParticleQuadRaw[4];
@@ -128,7 +128,7 @@ public class DustVolumeSimTests
         var sim = Volume(DustVolumeSim.FlagOn);
         sim.ApplyUpdate(created: true);
         sim.AttemptSpawn(new Contents(), new Draws());
-        var view = new ParticleView(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -350 }, 0);
+        var view = ParticleViewReading.From(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -350 }, 0);
         Span<ParticleQuadRaw> quads = new ParticleQuadRaw[4];
         Assert.Equal(1, sim.Draw(view, quads));
         Assert.Equal((int)ParticleQuadKind.ViewColor255Size, quads[0].Kind);

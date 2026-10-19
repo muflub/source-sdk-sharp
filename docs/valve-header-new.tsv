@@ -107,7 +107,7 @@ src/shared/interop/MovementBridge.cs	split out of src/abi/Movement.cs (plan_abi_
 src/abi/PlayerShadowBlobs.cs	split out of src/abi/PlayerShadow.cs (plan_abi_hotreload D3), keeping that file's header (ports CBasePlayer::PostThinkVPhysics/UpdateVPhysicsPosition, player.cpp)
 src/abi/BreakGroup.cs	split out of src/abi/TempEntSpawn.cs (plan_abi_hotreload D3), keeping that file's header (ledger: Prepared() reproduces C_LocalTempEntity::Prepare's defaults, c_te_legacytempents.cpp)
 src/abi/TempEntSpawn.Prepared.cs	split out of src/abi/TempEntSpawn.cs (plan_abi_hotreload D3), keeping its header: Prepared() reproduces C_LocalTempEntity::Prepare's default field values plus its constructor's white colour (c_te_legacytempents.cpp)
-src/shared/interop/TemplateSpawn.cs	split out of src/abi/Transform.cs (plan_abi_hotreload D3), keeping that file's header (ToAngles ports MatrixToAngles)
+src/shared/interface/TemplateSpawn.cs	split out of src/abi/Transform.cs (plan_abi_hotreload D3), keeping that file's header (ToAngles ports MatrixToAngles)
 src/shared/interop/DecodedUserCmd.cs	split out of src/abi/UserCmdCodec.cs (plan_abi_hotreload D3), keeping that file's header (ports ReadUsercmd, usercmd.cpp); DecodedUserCmd is the decoded CUserCmd
 src/shared/managed/EngineCollisionGroup.cs	split out of src/abi/CollisionRules.cs (plan_abi_hotreload D3), keeping that file's header (ShouldCollide transcribes util_shared.cpp's predicate)
 src/shared/interop/Angles.cs	split out of src/abi/Entity.cs (plan_abi_hotreload D3), keeping its header: Angles.FromVector ports Source's VectorAngles (mathlib), including singularity handling
@@ -453,3 +453,8 @@ src/client/native/generic_payload_client.cpp	split from generic_payload.cpp (pla
 src/server/managed/Violence.cs	ports UTIL_ShouldShowBlood (util_shared.cpp)
 src/server/managed/BloodDecals.cs	ports UTIL_BloodDecalTrace and CWorld::DecalTrace (util_shared.cpp, world.cpp)
 src/client/managed/TempEnts/ClientPhysicsProps.cs	ports CTempEnts::PhysicsProp (c_te_legacytempents.cpp), C_PhysPropClientside CreateNew/Initialize/StartFadeOut/Break and BreakModelCreateSingle (physpropclientside.cpp), and PropBreakableCreateAll's client half (props_shared.cpp)
+src/shared/interface/EntityPhysicsMotion.cs	split out of src/shared/interop/EntityPhysicsMotion.cs (plan_shim_areas_split phase 4: its seam interfaces and their value types), keeping that file's header
+src/shared/interface/ConVarFlags.cs	split out of src/shared/interop/ConVarFlags.cs (plan_shim_areas_split phase 4: its seam interfaces and their value types), keeping that file's header
+src/shared/interface/Movement.cs	split out of src/shared/interop/Movement.cs (plan_shim_areas_split phase 4: its seam interfaces and their value types), keeping that file's header
+src/server/interface/VPhysicsEntityCalls.cs	split out of src/server/interop/VPhysicsEntityCalls.cs (plan_shim_areas_split phase 4: its seam interfaces and their value types), keeping that file's header
+src/server/interface/PlayerShadowBodies.cs	split out of src/server/interop/PlayerShadowBodies.cs (plan_shim_areas_split phase 4: its seam interfaces and their value types), keeping that file's header

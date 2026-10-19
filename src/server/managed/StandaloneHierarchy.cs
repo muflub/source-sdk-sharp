@@ -119,7 +119,8 @@ public sealed class StandaloneHierarchy : IFrameLifecycle, IGameLifecycle, ISave
     public StandaloneHierarchy(ILog log, IEngineFrame frame, IEngineLevel level, IEngineHost host,
                                EntityDirectory directory, EntityMotion motion,
                                IEngineEntities entities, ShellLessRoutes shellLess,
-                               IEngineNetworking networking, SolverHeldOverlaps solverHeld)
+                               IEngineNetworking networking, SolverHeldOverlaps solverHeld,
+                               IEngineOverlaps overlaps)
     {
         _solverHeld = solverHeld;
 
@@ -176,7 +177,7 @@ public sealed class StandaloneHierarchy : IFrameLifecycle, IGameLifecycle, ISave
 
         // The engine's report, with the trigger pairs vphysics holds open
         // merged in: managed's half of native's g_SolverHeld (B2.2).
-        _overlaps = new OverlapReader(log, into => solverHeld.Merge(into, entities.OverlapReport(into)));
+        _overlaps = new OverlapReader(log, into => solverHeld.Merge(into, overlaps.OverlapReport(into)));
     }
 
     /// <summary>The trigger pairs vphysics holds open (B2.2), dropped with the level.</summary>

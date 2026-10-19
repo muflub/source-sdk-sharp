@@ -96,6 +96,18 @@ public static partial class EngineServices
         && !typeof(IEngineStringTable).IsAssignableFrom(contract);
 
     /// <summary>
+    /// Every type an engine area may be declared as, by <see cref="IsArea"/>'s
+    /// rule: the side's interface assembly's (the seams, since
+    /// plan_shim_areas_split phase 4) and this assembly's (the areas whose
+    /// types are not data, <see cref="IEngineEntityNames"/> and
+    /// <see cref="IEngineOverlaps"/>, which stay beside their types).
+    /// </summary>
+    internal static IEnumerable<Type> Contracts()
+        => typeof(IEngineEntities).Assembly.GetTypes()
+            .Concat(typeof(EngineServices).Assembly.GetTypes())
+            .Where(IsArea);
+
+    /// <summary>
     /// Every engine area paired with the binding class that implements it,
     /// without building any. Paired by name, and reflected over rather than
     /// listed, so an area added with no binding behind it says so here.
@@ -104,7 +116,7 @@ public static partial class EngineServices
     {
         var assembly = typeof(EngineServices).Assembly;
 
-        foreach (var contract in assembly.GetTypes())
+        foreach (var contract in Contracts())
         {
             if (!IsArea(contract))
                 continue;

@@ -6,7 +6,8 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// The code both sides compile, compiled ALONE: the shared interop
+/// The code both sides compile, compiled ALONE: the shared seams
+/// (src/shared/interface, plan_shim_areas_split phase 4), the shared interop
 /// (src/shared/interop) as the SourceSharp.Shared.Interop assembly was before
 /// plan_shim_areas_split phase 3 compiled it into each side's interop, and the
 /// shared source (src/shared/managed) as the SourceSharp.Shared assembly was
@@ -30,6 +31,15 @@ internal static class SharedSourceBuild
     /// </summary>
     public const string InteropName = "SourceSharp.SharedInteropSource";
 
+    /// <summary>
+    /// The shared seams' assembly name. They are compiled into each side's
+    /// interface assembly (plan_shim_areas_split phase 4), and alone here for
+    /// the interop and the shared source to build against. It grants both its
+    /// internals, as the side's interface assemblies grant theirs, for the one
+    /// internal seam (IEngineStringTables).
+    /// </summary>
+    public const string InterfaceName = "SourceSharp.SharedInterfaceSource";
+
     /// <summary>A fresh directory for one build; the caller deletes it.</summary>
     public static string NewDirectory()
     {
@@ -49,29 +59,38 @@ internal static class SharedSourceBuild
     {
         string dir = NewDirectory();
         string interop = BuildInterop(dir);
-        string path = Compile(dir, Name, Sources("src", "shared", "managed"),
-                              [Abi().Location, interop], allowUnsafe: false, extra: []);
+        string path = Compile(dir, Name, Sources(50, "src", "shared", "managed"),
+                              [Abi().Location, Path.Combine(dir, InterfaceName + ".dll"), interop],
+                              allowUnsafe: false, extra: []);
         return path;
     }
 
     /// <summary>
     /// Compiles the shared interop alone into <paramref name="dir"/>, beside a
-    /// copy of the Abi, and answers the built file's path.
+    /// copy of the Abi and the shared seams compiled alone
+    /// (<see cref="InterfaceName"/>), and answers the built file's path.
     /// </summary>
     public static string BuildInterop(string dir)
     {
+        const string interfaceGrants = """
+            [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("SourceSharp.SharedInteropSource")]
+            [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("SourceSharp.SharedSource")]
+            """;
+        string seams = Compile(dir, InterfaceName, Sources(20, "src", "shared", "interface"),
+                               [Abi().Location], allowUnsafe: false, extra: [interfaceGrants]);
+
         // What the interop granted as an assembly of its own and what the code
         // compiled alone needs: the shared source reads its internals.
         const string grants = """
             [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("SourceSharp.SharedSource")]
             """;
-        return Compile(dir, InteropName, Sources("src", "shared", "interop"),
-                       [Abi().Location], allowUnsafe: true, extra: [grants]);
+        return Compile(dir, InteropName, Sources(50, "src", "shared", "interop"),
+                       [Abi().Location, seams], allowUnsafe: true, extra: [grants]);
     }
 
     private static Assembly Abi() => typeof(SourceSharp.Abi.ILog).Assembly;
 
-    private static string[] Sources(params string[] relative)
+    private static string[] Sources(int atLeast, params string[] relative)
     {
         string source = RepoLayout.Repo(relative);
         string sep = Path.DirectorySeparatorChar.ToString();
@@ -80,7 +99,7 @@ internal static class SharedSourceBuild
                                            && !f.Contains($"{sep}bin{sep}", StringComparison.Ordinal))
                                   .OrderBy(f => f, StringComparer.Ordinal)
                                   .ToArray();
-        Assert.True(files.Length > 50, $"the shared code at {source} ({files.Length} files)");
+        Assert.True(files.Length >= atLeast, $"the shared code at {source} ({files.Length} files, at least {atLeast})");
         return files;
     }
 

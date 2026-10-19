@@ -309,6 +309,15 @@ public abstract class ScriptedEntity
     /// <summary>Handed over by the registry. See <see cref="Entities"/>.</summary>
     internal void BindEngine(IEngineEntities entities) => _entities = entities;
 
+    /// <summary>
+    /// The name lookup (<see cref="IEngineEntityNames"/>), a seam of its own
+    /// since plan_shim_areas_split phase 4, bound with <see cref="Entities"/>
+    /// and for its reason.
+    /// </summary>
+    protected internal IEngineEntityNames NameLookup => _entityNames ?? throw Unbound(nameof(IEngineEntityNames));
+
+    private IEngineEntityNames? _entityNames;
+
     // The areas this base's own helpers (SetModel, Mass, MakePickup, SetVisible
     // and the rest) act through, bound with Entities and for its reason: the
     // subject is always this entity. Private, so a subclass that takes one of
@@ -335,6 +344,7 @@ public abstract class ScriptedEntity
     internal void BindAreas(IServiceLocator engine)
     {
         _entities = engine.Require<IEngineEntities>();
+        _entityNames = engine.Require<IEngineEntityNames>();
         _movement = engine.Require<IEngineBrushMovement>();
         _render = engine.Require<IEngineEntityRender>();
         _physics = engine.Require<IEngineEntityPhysics>();

@@ -28,7 +28,7 @@ public class DustPuffWiringTests
 
     private sealed class Views : IParticleViewSource, IParticlePixelVisibility
     {
-        public ParticleView Read() => new(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -100 }, 0);
+        public ParticleView Read() => ParticleViewReading.From(new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -100 }, 0);
 
         public float FractionVisible(Vector origin, ref int queryHandle) => 1;
     }

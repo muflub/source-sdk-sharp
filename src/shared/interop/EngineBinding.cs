@@ -408,8 +408,6 @@ internal sealed class EngineEntities : IEngineEntities
     public IEnumerable<EntityHandle> FindAllByClassname(string className) => E.FindEntitiesByClassname(className);
     public List<EntityHandle> FindAllByName(string name, int limit = 512) => E.FindEntitiesByName(name, limit);
     public EntityHandle FindByName(string name) => E.FindEntityByName(name);
-    public NameMatches Named(string name, int limit = 512)
-        => name.Length == 0 || E.ShellLess.Mine is not { } side ? NameMatches.None : side.Named(name, limit);
     public bool FireInput(EntityHandle target, string input, string? value = null, EntityHandle activator = default) => E.EntityIo.FireInput(target, input, value, activator);
     public Vector GetAngles(EntityHandle h) => E.EntityGetAngles(h);
     public Vector GetAngularVelocity(EntityHandle entity) => E.EntityGetAngularVelocity(entity);
@@ -476,7 +474,6 @@ internal sealed class EngineEntities : IEngineEntities
     public EntityHandle FindBaseByName(string name) => EntityHandle.None;
     public Span<byte> GetEngineBlock(EntityHandle entity) => E.GetEntityBlock(entity);
     public void DestroyPhysics(EntityHandle entity) => E.EntityDestroyPhysics(entity);
-    public int OverlapReport(Span<OverlapPair> into) => E.EntityOverlapReport(into);
     public int InvalidateMdlCacheAll() => E.EntitiesInvalidateMdlCacheAll();
     public int UpdateVisibilityAll() => E.EntitiesUpdateVisibilityAll();
 
@@ -490,6 +487,31 @@ internal sealed class EngineEntities : IEngineEntities
     public void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) => E.EntitySetSolidity(entity, solidType, solidFlags);
     public void SetBounds(EntityHandle entity, Vector mins, Vector maxs) => E.EntitySetBounds(entity, mins, maxs);
     public void SetSpawnFlags(EntityHandle entity, int spawnFlags) => E.EntitySetSpawnFlags(entity, spawnFlags);
+}
+
+/// <summary>The real engine, for <see cref="IEngineEntityNames"/>. Every member is one call.</summary>
+internal sealed class EngineEntityNames : IEngineEntityNames
+{
+    private readonly EngineSide _side;
+
+    private EngineSide E => _side;
+
+    public EngineEntityNames(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+
+    public NameMatches Named(string name, int limit = 512)
+        => name.Length == 0 || E.ShellLess.Mine is not { } side ? NameMatches.None : side.Named(name, limit);
+}
+
+/// <summary>The real engine, for <see cref="IEngineOverlaps"/>. Every member is one call.</summary>
+internal sealed class EngineOverlaps : IEngineOverlaps
+{
+    private readonly EngineSide _side;
+
+    private EngineSide E => _side;
+
+    public EngineOverlaps(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
+
+    public int OverlapReport(Span<OverlapPair> into) => E.EntityOverlapReport(into);
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntityPhysics"/>. Every member is one call.</summary>

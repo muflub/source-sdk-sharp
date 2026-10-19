@@ -15,6 +15,10 @@ public class FxAttachmentTransformTests
 {
     private sealed class Renderables : IFxFlashReads
     {
+        // The interface's former default body (plan_shim_areas_split phase 4: interface assemblies hold no bodies).
+        public bool AttachmentTransform(uint handle, int attachment, out Vector origin, out QAngle angles) => FxFlashAttachments.Transform(this, handle, attachment, out origin, out angles);
+        public bool AttachmentMatrixOrigin(uint handle, int attachment, out Vector origin) => FxFlashAttachments.MatrixOrigin(this, handle, attachment, out origin);
+
         public bool HasRenderable = true;
         public readonly List<(uint Handle, int Attachment)> Asked = [];
 

@@ -179,14 +179,14 @@ public unsafe class PlayerShadowTests
     /// a crate their shadow has not reached, or who shoves one they are not
     /// touching. Restating the hull here would be a second opinion about how big
     /// a player is, so <see cref="SsPlayer.ShadowHulls"/> takes
-    /// <see cref="MoveConstants.Stock"/>'s and this says so.
+    /// <see cref="MoveConstantDefaults.Stock"/>'s and this says so.
     /// </para>
     /// </summary>
     [Fact]
     public void TheShadowHullIsTheMovementHull()
     {
         var (standMin, standMax, crouchMin, crouchMax) = SsPlayer.ShadowHulls;
-        var c = MoveConstants.Stock;
+        var c = MoveConstantDefaults.Stock;
 
         Assert.Equal(c.HullMin, standMin);
         Assert.Equal(c.HullMax, standMax);
@@ -206,7 +206,7 @@ public unsafe class PlayerShadowTests
         player.OnSpawn();
 
         var call = engine.Last("Shadows.Init")!.Value;
-        var c = MoveConstants.Stock;
+        var c = MoveConstantDefaults.Stock;
 
         Assert.Equal(c.HullMin, call.ArgAs<Vector>(1));
         Assert.Equal(c.HullMax, call.ArgAs<Vector>(2));
@@ -248,7 +248,7 @@ public unsafe class PlayerShadowTests
     /// </summary>
     [Fact]
     public void APlayerCannotShoveSomethingFasterThanTheyWalk()
-        => Assert.True(SsPlayer.PushSpeedLimit < MoveConstants.Stock.MaxSpeed);
+        => Assert.True(SsPlayer.PushSpeedLimit < MoveConstantDefaults.Stock.MaxSpeed);
 
     [Fact]
     public void TheThreeNumbersReachTheEngine()

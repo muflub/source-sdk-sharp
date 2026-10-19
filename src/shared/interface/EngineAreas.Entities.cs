@@ -21,14 +21,17 @@ public interface IEngineEntities
     /// rather than an accessor called per entity.
     ///
     /// <para>
-    /// <b>A DEFAULT, and a deliberate one.</b> Everything that implements this
-    /// area other than the real binding is a test double or a stand-in for a
-    /// side that has no such list, and every one of them would answer the same
-    /// empty answer. A default keeps that answer in ONE place rather than
-    /// copied into each of them, where one copy would eventually differ.
+    /// <b>One answer for every side with no list.</b> Everything that
+    /// implements this area other than the real binding is a test double or a
+    /// stand-in for a side that has no such list, and every one of them answers
+    /// the same empty answer: <c>NoInterpolationBlocks.Instance</c>, so the
+    /// answer is in ONE place rather than copied into each of them, where one
+    /// copy would eventually differ. (It was a default body until
+    /// plan_shim_areas_split phase 4 moved this interface to an interface
+    /// assembly, which holds no bodies.)
     /// </para>
     /// </summary>
-    IInterpolationBlocks InterpolationBlocks => NoInterpolationBlocks.Instance;
+    IInterpolationBlocks InterpolationBlocks { get; }
 
     /// <summary>
     /// THE CLIENT'S RENDER-POLICY LIST — plan_entity.md step 6b. See
@@ -37,21 +40,25 @@ public interface IEngineEntities
     /// rather than 6a's.
     ///
     /// <para>
-    /// A DEFAULT, for the reason <see cref="InterpolationBlocks"/> gives.
+    /// <c>NoRenderPolicyBlocks.Instance</c> on every side with no list, for the
+    /// reason <see cref="InterpolationBlocks"/> gives.
     /// </para>
     /// </summary>
-    IRenderPolicyBlocks RenderPolicyBlocks => NoRenderPolicyBlocks.Instance;
+    IRenderPolicyBlocks RenderPolicyBlocks { get; }
+
+    /// <summary>
     /// THE CLIENT'S REPLAY ENGINE — plan_entity.md step 6f. The three things
     /// the managed prediction cannot answer for itself: the engine's input
     /// ring, the movement bracket, and where native draws the answer.
     ///
     /// <para>
-    /// Defaulted for the same reason the list above is: every implementation
-    /// other than the real binding is a test double or a side with no replay,
-    /// and all of them refuse identically.
+    /// <c>NoClientReplayEngine.Instance</c> on every side with no replay, for
+    /// the same reason the list above is: every implementation other than the
+    /// real binding is a test double or a side with no replay, and all of them
+    /// refuse identically.
     /// </para>
     /// </summary>
-    IClientReplayEngine ClientReplay => NoClientReplayEngine.Instance;
+    IClientReplayEngine ClientReplay { get; }
 
     /// <inheritdoc cref="EngineSide.EntityPositionChanged"/>
     void PositionChanged(EntityHandle entity, Vector previousOrigin);
@@ -98,14 +105,6 @@ public interface IEngineEntities
 
     /// <inheritdoc cref="EngineSide.FindEntitiesByName"/>
     List<EntityHandle> FindAllByName(string name, int limit = 512);
-
-    /// <summary>
-    /// Every entity answering to <paramref name="name"/> (which may end in
-    /// '*'), in name-lookup order, as an allocation-free snapshot for
-    /// <c>foreach</c>. An entity removed during the loop is skipped; one spawned
-    /// during it is not visited. See <see cref="NameMatches"/>.
-    /// </summary>
-    NameMatches Named(string name, int limit = 512);
 
     /// <inheritdoc cref="EngineSide.FindEntityByName"/>
     EntityHandle FindByName(string name);
@@ -254,9 +253,6 @@ public interface IEngineEntities
 
     /// <inheritdoc cref="EngineSide.EntityDestroyPhysics"/>
     void DestroyPhysics(EntityHandle entity);
-
-    /// <inheritdoc cref="EngineSide.EntityOverlapReport"/>
-    int OverlapReport(Span<OverlapPair> into);
 
     // ---- plan_gamedll_after.md Phase A2 ------------------------------------
     //
@@ -447,10 +443,8 @@ public interface IEngineEntityRender
     /// A precached model's <c>$keyvalues</c> text, by model name, or null for a
     /// name that is not a precached model. Through <c>IVModelInfo</c> directly
     /// (plan_server_novalve.md P2.4): no native code parses it any more.
-    /// The default body is for test doubles that have no models; the engine
-    /// binding and RecordingEngine both implement it.
     /// </summary>
-    string? GetModelKeyValueText(string modelName) => null;
+    string? GetModelKeyValueText(string modelName);
 
     /// <summary>
     /// Which frame of an animated material a brush is showing.
