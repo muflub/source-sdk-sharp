@@ -71,9 +71,8 @@ namespace SourceSharp.Client.TempEnts;
 /// </para>
 ///
 /// <para>
-/// WHAT WAS LOST WITH THE FILE: <c>RecordExplosion</c>, the tool-recording
-/// KeyValues message, which is <c>ToolsEnabled()</c>-gated and unreachable in
-/// this build; docs/divergences.md records it. <c>RenderParticles</c> and
+/// NOT PORTED: <c>RecordExplosion</c>, the tool-recording KeyValues message.
+/// SFM is dead (user ruling 2026-10-19). <c>RenderParticles</c> and
 /// <c>SimulateParticles</c> went too and were empty and
 /// <c>RemoveAllParticles()</c> respectively — the class inherited a particle
 /// system it never put a particle in.

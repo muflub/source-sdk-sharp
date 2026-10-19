@@ -99,14 +99,12 @@
 //=============================================================================
 // AND ONE STAGE IS KEPT WITH ITS MEASUREMENT WRITTEN DOWN
 //
-// PostRender has a driver (viewrender.cpp, two sites) and exactly ONE non-empty
-// body in the whole client: CToolFrameworkClient::PostRender, which is
-// `if ( m_pTools ) m_pTools->PostRenderAllTools()`. m_pTools is NULL unless the
-// game was launched under the tool framework, so in a shipping run this stage
-// walks the table and reaches nothing. It is kept because removing it would
-// silently break the tool framework -- a behaviour change this phase has no
-// mandate for -- and it is recorded here because "wired" and "does something"
-// are not the same claim and Phase 7a paid for the difference.
+// PostRender has a driver (the render plan's ClientSystemsPostRender op) and
+// NO non-empty body in the whole client. Its one, CToolFrameworkClient's
+// `if ( m_pTools ) m_pTools->PostRenderAllTools()`, was deleted with the tool
+// framework: SFM is dead (user ruling 2026-10-19). The stage walks the table
+// and reaches nothing; it is recorded here because "wired" and "does
+// something" are not the same claim and Phase 7a paid for the difference.
 //
 //=============================================================================
 

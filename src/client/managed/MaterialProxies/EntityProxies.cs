@@ -26,7 +26,6 @@ public abstract class EntityMaterialProxy : MaterialProxy
         if (!entity.IsEntity)
             return;
         BindEntity(bind, entity);
-        bind.RecordTools();
     }
 
     protected abstract void BindEntity(IProxyBind bind, ProxyEntity entity);
@@ -119,7 +118,6 @@ public sealed class IsNpcProxy : ResultProxy
         if (isNpc < 0)
             return;
         SetFloatResult(bind, isNpc != 0 ? _factor.Get(bind) : 0.0f);
-        bind.RecordTools();
     }
 }
 
@@ -158,7 +156,6 @@ public sealed class HealthProxy : ResultProxy
 
         if (fraction >= 0.0f)
             SetFloatResult(bind, fraction * _factor.Get(bind));
-        bind.RecordTools();
     }
 }
 

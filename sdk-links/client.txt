@@ -62,7 +62,6 @@ src/game/client/clientsideeffects.h
 src/game/client/colorcorrectionmgr.h
 src/game/client/detailobjectsystem.h
 src/game/client/enginesprite.h
-src/game/client/entity_client_tools.cpp
 src/game/client/flashlighteffect.cpp
 src/game/client/flashlighteffect.h
 src/game/client/fontabc.h
@@ -132,7 +131,6 @@ src/game/client/smoke_fog_overlay.h
 src/game/client/studio_stats.h
 src/game/client/tempent.h
 src/game/client/timedevent.h
-src/game/client/toolframework_client.cpp
 src/game/client/toolframework_client.h
 src/game/client/vgui_basepanel.h
 src/game/client/vgui_game_viewport.cpp
@@ -475,7 +473,6 @@ src/public/tier2/tier2.h
 src/public/tier2/tier2dm.h
 src/public/tier3/tier3.h
 src/public/togl/dxformats.h
-src/public/toolframework/iclientenginetools.h
 src/public/toolframework/itoolentity.h
 src/public/trace.h
 src/public/vcollide.h

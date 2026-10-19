@@ -39,9 +39,8 @@ namespace SourceSharp.Client.TempEnts;
 /// </para>
 ///
 /// <para>
-/// WHAT WAS LOST WITH THE FILE: <c>RecordBloodStream</c>, the tool-recording
-/// KeyValues message, which is <c>ToolsEnabled()</c>-gated and unreachable in
-/// this build. Recorded in docs/divergences.md rather than left silent.
+/// NOT PORTED: <c>RecordBloodStream</c>, the tool-recording KeyValues
+/// message. SFM is dead (user ruling 2026-10-19).
 /// </para>
 /// </summary>
 [ClientTempEnt("CTEBloodStream")]

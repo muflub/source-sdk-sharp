@@ -60,7 +60,10 @@
 server_stock_tus	src/server/native/CMakeLists.txt	0
 # 2026-10-11, lane c5-particles rebased onto main 375193a4: client_stock_tus 107 -> 59, re-measured (the test against a ceiling of 1).
 # 2026-10-11, lane c5-particles: client_stock_tus 59 -> 57: particles_ez.cpp and particles_simple.cpp left.
-client_stock_tus	src/client/native/CMakeLists.txt	49
+# 2026-10-19, SFM is dead (user ruling 2026-10-19): toolframework_client.cpp and entity_client_tools.cpp left:
+#   client_stock_tus 49 -> 9, measured by `python3 tools/cmakegraph.py sources client | grep -E '^(game|public)/'
+#   | grep -vxc public/tier0/memoverride.cpp` (11 before the two left; the rest of the fall is main's own).
+client_stock_tus	src/client/native/CMakeLists.txt	9
 #
 # ---------------------------------------------------------------------------
 # The shim itself. "Shipped shim" is every .cpp and .h under src/sourcesharp/
@@ -1698,7 +1701,16 @@ shim_cpp_files	src/sourcesharp	221
 # RAISED 2026-10-18, 145378 -> 145759 (+381, measured by the walk on main 06b426523), deliberately: C7 particles phase 4's replacement of CParticleMgr. shell_particle_mgr_client.cpp and shell_particle_mgr.h (the PMaterial table, the draw state, the library's setup: mechanics, nothing decided) and the callers switched to them (shell_clientdll.cpp, shell_client.cpp, shell_view_executor_client.cpp, shell_impact_effects.cpp, shell_managed_particles.cpp, shell_material_proxy_client.cpp, shell_new_particles_client.cpp). particlemgr.cpp (2,505 lines of the fork) leaves client.so in the next commit but one.
 # RAISED 2026-10-18, 145759 -> 145770 (+11, measured by the walk on main 06b426523), deliberately: the C7 particles phase 3 fix. shell_new_particles_client.cpp's frame makes UpdateNewEffects' UpdateDirtySpatialPartitionEntities call again (+9 with its note), and collisionproperty.cpp's two notes name the new caller (+2).
 # RAISED 2026-10-18, 145770 -> 145794 (+24, measured by the walk on main 06b426523), deliberately: C7 particles phase 4's eviction. particlemgr.cpp's three CParticleSubTexture / CParticleSubTextureGroup constructors move to shell_particle_mgr_client.cpp with their note (+24); particlemgr.cpp (2,505 lines) and particles_new.cpp (713) leave client.so, outside this count. The convars and commands they declared are managed's (ParticleConVars.cs, ParticleCommands.cs).
-shim_lines	src/sourcesharp	145794
+# LOWERED 2026-10-19, 145794 -> 138893 (measured by the walk, ceiling-1 read), SFM is dead (user ruling 2026-10-19):
+#   the shells' tool arms went (shell_te_backends_client.cpp -63, shell_entitystatics.cpp/.h -35/-6,
+#   shell_view_executor_client.cpp -18, view_subject.h's ViewModelIsUnwanted, shell_material_proxy_client.cpp -6,
+#   shell_viewrender_client.cpp -4, shell_clientdll.cpp -3); the rest of the drop is main's own, the row not having
+#   followed it.
+# RAISED 2026-10-19, 138893 -> 139012 (+119, measured by the walk), deliberately: shell_tools_off_client.cpp, client.so's
+#   tools-off stand-ins (ToolsEnabled, ToolFramework_RecordMaterialParams, ToolFramework_PostToolMessage, clienttools)
+#   for the two Valve TUs that still name them, so toolframework_client.cpp and entity_client_tools.cpp can leave
+#   (SFM is dead, user ruling 2026-10-19). They bind names clientshadowmgr.o and flashlighteffect.o import.
+shim_lines	src/sourcesharp	139012
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

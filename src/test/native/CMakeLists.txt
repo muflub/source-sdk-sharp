@@ -4346,7 +4346,8 @@ ss_cpptest(armed_arm_swallowed_test
 # native and are de-entitied in place. A ruling is prose, so what is pinned is
 # the three things it rests on -- §6 naming both files, EffectsClient.cpp still
 # touching no entity, and toolframework_client.cpp's entity edges still inside
-# the SS_CBASEENTITY_ALIAS region WHOLE.
+# the SS_CBASEENTITY_ALIAS region WHOLE -- until the file left client.so (SFM is
+# dead, user ruling 2026-10-19), which is what is pinned for it now.
 #
 # Comments and string literals are stripped first: the headers this lane added
 # to both files quote the very tokens these facts search for.
@@ -5131,6 +5132,30 @@ ss_cpptest(shell_factory_client_test
     INCLUDES public public/tier0 public/tier1 game/client
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_factory_client_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/shell_factory_client.cpp)
+
+# SFM is dead (user ruling 2026-10-19): client.so's tools-off stand-ins
+# (shell_tools_off_client.cpp) answer "tools are off" to the Valve TUs that still
+# name the tool framework. Links no tier0 or tier1.
+ss_cpptest(shell_tools_off_client_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL
+    # Valve headers itoolentity.h reaches: utlblockmemory.h's unused local,
+    # imageformat.h's and studio.h's initialiser order, studio.h's memcpy of
+    # classes, and iclientrenderable.h's `*((CBaseHandle*)0)`.
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable -Wno-reorder-ctor
+            -Wno-nontrivial-memcall -Wno-null-dereference
+    INCLUDES public public/tier0 public/tier1 public/mathlib game/client game/shared
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_tools_off_client_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/shell_tools_off_client.cpp)
+
+# SFM is dead (user ruling 2026-10-19): the tool framework's two TUs are off
+# client.so's source list, the stand-ins are on it, and the built client.so
+# names neither tool interface.
+ss_cpptest(client_tools_evicted_test
+    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and its built client.so with strings"
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/client_tools_evicted_test.cpp)
+if(TARGET client_tools_evicted_test)
+  add_dependencies(client_tools_evicted_test client_sourcesharp)
+endif()
 
 # plan_client_novalve C9: tier1.a's KeyValues.o, ilocalize.o and
 # strtools_unicode.o are not linked into client.so: each name they define that

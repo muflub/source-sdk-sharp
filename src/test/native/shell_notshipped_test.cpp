@@ -9,10 +9,11 @@
 // -- and none of those can be read out of the source. So this compiles the
 // SHIPPED header. Nothing here is a transcription of it.
 //
-// THE ARRANGEMENT -- that shell_diagnostics.cpp's miss hook consults the list,
-// that entity_client_tools.cpp refuses every method but two -- is source-read
-// elsewhere, because both files include cbase.h's whole world and can never be
-// linked into a gtest.
+// THE ARRANGEMENT -- that shell_diagnostics.cpp's miss hook consults the list
+// -- is source-read elsewhere, because that file includes cbase.h's whole world
+// and can never be linked into a gtest. (entity_client_tools.cpp, the
+// IClientTools refusal stub, left client.so: SFM is dead, user ruling
+// 2026-10-19.)
 //
 // "TWO LEDGERS SHARE NOTHING" is the fact that is easy to miss, and it is
 // shell_clientdll_refusals_test.cpp's for the same reason: it is the only way,

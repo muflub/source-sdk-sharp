@@ -1,3 +1,5 @@
+# 2026-10-19, SFM is dead (user ruling 2026-10-19), the eviction, measured on eb10dd6fe + this commit: toolframework_client.cpp and entity_client_tools.cpp left client.so and shell_tools_off_client.cpp joined it: client objects 142 -> 141, stock game/client 11 -> 9, shim 131 -> 132; stock TUs with entity-free text 10 -> 8 (5997 -> 5582 code lines); both were zero-edge TUs, so cross-edges stay 28, now across 8 of 9 stock TUs. The stand-in's IClientRenderable parameters are named, so the ToEngineIface cast pattern does not read them as casts (shim 12 in 6 files, unchanged). Hand-edited.
+# 2026-10-19, SFM is dead (user ruling 2026-10-19), our tool arms, measured on 2b7da491f + this commit: the shells stop calling the tool framework (EntityTool_RecordEntities, the proxy op RecordTools, RecordSparkImpact, ToolFramework_SetupEngineView/SetupAudioState/AdjustEngineViewport, ToolsEnabled, the CToolFrameworkClient system row). toolframework_client.cpp's 7 edges and entity_client_tools.cpp's 1 go (both zero-edge TUs until the eviction): cross-edges 36 -> 28, stock TUs linked against 10 -> 8, of 11. Hand-edited.
 # 2026-10-18, server-native-v2 (plan_server_native_min P1 replayed onto main 331c8a0cf): server TUs left the link:
 #   [snv2] server objects 123 -> 106, shim 123 -> 106. Measured lines re-taken from --write, the prose kept.
 # 2026-10-18, C7 particles phase 4 (the eviction), measured on main f4b31392d: particlemgr.cpp and particles_new.cpp left client.so: client objects 144 -> 142, stock game/client 13 -> 11; stock TUs using an entity type 2 -> 1 (857 -> 394 code lines), with entity-free text 11 -> 10 (7692 -> 5997); particlemgr.cpp's last 3 edges (the subtexture classes' constructors, now shell_particle_mgr_client.cpp's) go: cross-edges 39 -> 36, stock TUs linked against 11 -> 10, of 11. Hand-edited.
@@ -902,24 +904,24 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 106       142
-  ... stock game/server | game/client                            0        11
+objects linked                                                 106       141
+  ... stock game/server | game/client                            0         9
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        106       131
+  ... SourceSharp shim (sourcesharp/**)                        106       132
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         1
   ... their code lines                                           0       394
-stock TUs with entity-free text                                  0        10
-  ... their code lines                                           0      5997
+stock TUs with entity-free text                                  0         8
+  ... their code lines                                           0      5582
 CBaseEntity:: / C_BaseEntity:: members in the DLL                3         0
   ... same, with NO symbol-type filter (§1's reading)            3         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0
                      CBaseEntityList) in the DLL
   ... same, without CBaseEntityList:: (§1's reading)             0         0
-shim -> stock cross-edges (distinct symbols)                     0        36
-stock TUs the shim links against                                 0        10
+shim -> stock cross-edges (distinct symbols)                     0        28
+stock TUs the shim links against                                 0         8
 
 # defines-an-entity regex: LINK_ENTITY_TO_CLASS|IMPLEMENT_SERVERCLASS_ST|IMPLEMENT_CLIENTCLASS
 # uses-an-entity regex:    \bC_?Base(Entity|Player|Animating|CombatCharacter|CombatWeapon|Flex)\b|\bg?_?pEntityList\b|\bgEntList\b
@@ -949,16 +951,14 @@ ToEngineIface           0 in 0 files          14 in 9 files         1 in 1 files
 -- server: 0 distinct symbols across 0 of 0 stock TUs
   -- zero-edge stock TUs:
 
--- client: 36 distinct symbols across 10 of 11 stock TUs
+-- client: 28 distinct symbols across 8 of 9 stock TUs
       8  game/client/glow_overlay.cpp
-      7  game/client/toolframework_client.cpp
       6  game/client/rendertexture.cpp
       5  game/client/c_pixel_visibility.cpp
       3  game/client/clientleafsystem.cpp
       3  game/client/warp_overlay.cpp
       1  game/client/ScreenSpaceEffects.cpp
       1  game/client/clientshadowmgr.cpp
-      1  game/client/entity_client_tools.cpp
       1  game/client/vgui_game_viewport.cpp
   -- zero-edge stock TUs:
       0  game/client/flashlighteffect.cpp
@@ -983,14 +983,6 @@ game/client/glow_overlay.cpp (8)
     CGlowOverlay::CalcBasis(Vector const&, float, float, Vector&, Vector&, Vector&)
     CGlowOverlay::CGlowOverlay()
     CGlowOverlay::~CGlowOverlay()
-game/client/toolframework_client.cpp (7)
-    ToolsEnabled()
-    ToolFrameworkClientSystem()
-    ToolFramework_PostToolMessage(unsigned int, KeyValues*)
-    ToolFramework_SetupAudioState(AudioState_t&)
-    ToolFramework_SetupEngineView(Vector&, QAngle&, float&)
-    ToolFramework_AdjustEngineViewport(int&, int&, int&, int&)
-    ToolFramework_RecordMaterialParams(IMaterial*)
 game/client/rendertexture.cpp (6)
     GetFullscreenTexture()
     GetFullFrameDepthTexture()
@@ -1016,7 +1008,5 @@ game/client/ScreenSpaceEffects.cpp (1)
     g_pScreenSpaceEffects
 game/client/clientshadowmgr.cpp (1)
     g_pClientShadowMgr
-game/client/entity_client_tools.cpp (1)
-    clienttools
 game/client/vgui_game_viewport.cpp (1)
     ViewportClientSystem()

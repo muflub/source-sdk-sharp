@@ -47,19 +47,9 @@ namespace SourceSharp.Client.TempEnts;
 /// </para>
 ///
 /// <para>
-/// <b>WHAT DID NOT COME WITH IT, SAID OUT LOUD: <c>RecordMetalSparks</c>.</b>
-/// Stock's <c>PostDataUpdate</c> posts a <c>KeyValues</c> tool message beside
-/// the draw, for SFM-style recording. It is guarded by <c>ToolsEnabled()</c>,
-/// which is <c>m_pTools &amp;&amp; m_pTools->InToolMode()</c>
-/// (<c>toolframework_client.cpp:49</c>) and therefore false in every non-tool
-/// launch of this mod — so nothing observable stops happening today. It is
-/// still a capability that lapses with the eviction, and this port's rule is
-/// that such a thing is written down rather than left to be noticed: it is
-/// reported to the integrator as a ledger candidate, in the shape lane S5's
-/// <c>DoSpark</c> finding took. <b>It is NOT closed by pretending the draw
-/// covers it</b>, and it is not fixed here: the tool message would go in
-/// <c>SourceSharp_ClientMetalSparks</c>, beside the <c>g_pEffects</c> call it
-/// already makes, which is C-Phase 2's file and not this lane's.
+/// NOT PORTED: <c>RecordMetalSparks</c>, the <c>KeyValues</c> tool message
+/// stock's <c>PostDataUpdate</c> posts beside the draw for SFM recording. SFM
+/// is dead (user ruling 2026-10-19).
 /// </para>
 /// </summary>
 [ClientTempEnt("CTEMetalSparks")]

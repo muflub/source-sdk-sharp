@@ -31,7 +31,6 @@
 #include "iviewrender_beams.h"
 #include "c_te_legacytempents.h"
 #include "ScreenSpaceEffects.h"
-#include "toolframework_client.h"
 #include "view_facts.h"
 #include "iinput.h"
 #include "c_baseplayer.h"
@@ -421,7 +420,9 @@ void DemoCamera( Vector &origin, QAngle &angles )
 // CViewRender::SetUpViews (view.cpp), mono: managed decides the planes and
 // the FOV (ViewFrame, one ViewSetUp crossing); the client mode's override
 // puts the viewer's eye in (CSourceSharpClientMode::OverrideView), a view
-// entity overrides it, the tools and a playing demo may move it; then the
+// entity overrides it, a playing demo may move it (stock let the tools move it
+// too, and gave them the audio state: deleted, SFM is dead, user ruling
+// 2026-10-19); then the
 // viewmodel's FOV follows the override's zoom, the bones open for the frame,
 // the main view and the engine's audio state take the eye.
 //-----------------------------------------------------------------------------
@@ -460,8 +461,6 @@ void CShellViewRender::SetUpViews()
 		}
 	}
 
-	ToolFramework_SetupEngineView( eye.origin, eye.angles, eye.fov );
-
 	if ( engine->IsPlayingDemo() )
 		DemoCamera( eye.origin, eye.angles );
 
@@ -476,9 +475,6 @@ void CShellViewRender::SetUpViews()
 	audioState.m_Origin = eye.origin;
 	audioState.m_Angles = eye.angles;
 	audioState.m_bIsUnderwater = SourceSharp_ViewerAudioIsUnderwater( eye.origin );
-	ToolFramework_SetupAudioState( audioState );
-	eye.origin = audioState.m_Origin;
-	eye.angles = audioState.m_Angles;
 	engine->SetAudioState( audioState );
 
 	ShellView_SetMainView( eye.origin, eye.angles );

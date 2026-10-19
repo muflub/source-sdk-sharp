@@ -13,8 +13,11 @@ namespace SourceSharp.Tests;
 /// <para>
 /// The step removes thirteen stock client translation units on the grounds that
 /// this mod ships no achievements, no replay, no HLTV camera, no rich presence,
-/// no Sixense controller, no map overview and no bonus maps, and rewrites
-/// <c>entity_client_tools.cpp</c> as an <c>IClientTools</c> refusal stub.
+/// no Sixense controller, no map overview and no bonus maps, and rewrote
+/// <c>entity_client_tools.cpp</c> as an <c>IClientTools</c> refusal stub. That
+/// stub and <c>toolframework_client.cpp</c> left client.so on 2026-10-19 (user
+/// ruling: "SFM is dead, remove it"); <c>shell_tools_off_client.cpp</c> answers
+/// "tools are off" for the Valve TUs that still name the tool framework.
 /// </para>
 ///
 /// <para>
@@ -24,7 +27,7 @@ namespace SourceSharp.Tests;
 /// This file asserts the MEMBERSHIP: that the thirteen really left the client
 /// build (<c>client_sourcesharp</c>, <c>src/client/native/CMakeLists.txt</c>;
 /// they left <c>client_csharp.vpc</c> at step 7g, before VPC was replaced), and
-/// that the three things a tool-free game still needs are still there. A ledger that is perfectly correct about a list nobody removed
+/// that the tool framework left with them. A ledger that is perfectly correct about a list nobody removed
 /// anything from is the check that cannot fail.
 /// </para>
 ///
@@ -40,6 +43,13 @@ namespace SourceSharp.Tests;
 /// </remarks>
 public sealed class NotShippedTests
 {
+    /// <summary>The tool framework's two TUs, out of the build since 2026-10-19 (SFM is dead).</summary>
+    public static readonly string[] ToolFramework =
+    {
+        "entity_client_tools.cpp",
+        "toolframework_client.cpp",
+    };
+
     /// <summary>The thirteen translation units step 7g took out of the build.</summary>
     public static readonly string[] Evicted =
     {
@@ -72,8 +82,8 @@ public sealed class NotShippedTests
     {
         var client = CMakeGraph.CompiledSources(CMakeGraph.Client);
 
-        // Proof of read, beside the absences: the tool bridge the client keeps.
-        Assert.True(Compiles(client, "client/entity_client_tools.cpp"));
+        // Proof of read, beside the absences: the tools-off stand-ins the client keeps.
+        Assert.True(Compiles(client, "client/shell_tools_off_client.cpp"));
 
         foreach (string evicted in Evicted)
             Assert.False(Compiles(client, evicted), evicted + " is compiled into client_sourcesharp again");
@@ -124,7 +134,7 @@ public sealed class NotShippedTests
         string root = RepoLayout.SdkTree;
 
         Assert.True(File.Exists(Path.Combine(root, "build", "compile_commands.json")));
-        Assert.True(File.Exists(Path.Combine(root, "src", "game", "client", "entity_client_tools.cpp")));
+        Assert.True(File.Exists(Path.Combine(root, "src", "sourcesharp", "game", "client", "shell_clientdll.cpp")));
     }
 
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
@@ -142,53 +152,46 @@ public sealed class NotShippedTests
     }
 
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
-    public void TheToolBridgeStaysInTheBuildAsARefusalStub()
+    public void TheToolFrameworkLeftTheClientBuild()
     {
-        // NOT evicted, and the exception is the point of the step's own wording
-        // ("entity_client_tools.cpp (an IClientTools refusal stub)"). Twenty-two
-        // in-game call sites dereference `clienttools`, and a tool that attaches
-        // must be refused by name rather than told the export is missing.
-        Assert.True(CMakeGraph.Compiles(CMakeGraph.Client, "game/client/entity_client_tools.cpp"),
-            "client_sourcesharp (src/client/native/CMakeLists.txt) no longer compiles game/client/entity_client_tools.cpp");
+        // SFM is dead (user ruling 2026-10-19): the refusal stub and the
+        // framework bridge left, and the stand-ins took their names.
+        var client = CMakeGraph.CompiledSources(CMakeGraph.Client);
+        Assert.True(Compiles(client, "client/shell_tools_off_client.cpp"),
+            "client_sourcesharp does not compile shell_tools_off_client.cpp, and clientshadowmgr.cpp and flashlighteffect.cpp still name what it defines");
+        foreach (string gone in ToolFramework)
+            Assert.False(Compiles(client, gone), gone + " is compiled into client_sourcesharp again");
     }
 
     [Fact]
-    public void TheToolStubStillExportsTheInterfaceAndTheGlobal()
+    public void TheToolFrameworkIsGoneFromTheFarm()
     {
-        string? path = RepoLayout.FindSdkFile(Path.Combine("src", "game", "client", "entity_client_tools.cpp"));
-        Assert.NotNull(path);
-        string text = File.ReadAllText(path!);
-
-        Assert.Contains("EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CClientTools, IClientTools, VCLIENTTOOLS_INTERFACE_VERSION", text);
-        Assert.Contains("IClientTools *clienttools = &s_ClientTools;", text);
+        // The farm holds only what the DLLs compile; rooted, as above.
+        string root = RepoLayout.SdkTree;
+        Assert.True(File.Exists(Path.Combine(root, "src", "sourcesharp", "game", "client", "shell_tools_off_client.cpp")));
+        foreach (string gone in ToolFramework)
+            Assert.False(File.Exists(Path.Combine(root, "src", "game", "client", gone)), gone + " is back in the farm");
     }
 
     [Fact]
-    public void TheToolStubKeepsTheTwoMethodsAGameWithoutToolsReaches()
+    public void TheToolsOffStandInDefinesTheGlobalAndExportsNoInterface()
     {
-        // IsInRecordingMode and EnableRecordingMode are stock's own bodies and
-        // must NOT refuse: c_te.cpp:537/:681 save the flag, clear it, play a
-        // temp entity back and restore it, and refusing either half leaves that
-        // sequence unbalanced.
-        string? path = RepoLayout.FindSdkFile(Path.Combine("src", "game", "client", "entity_client_tools.cpp"));
-        Assert.NotNull(path);
-        string text = File.ReadAllText(path!);
+        // Only a tool asks for VCLIENTTOOLS001, and no
+        // binary of the install names it, so nothing exports it; `clienttools`
+        // stays, because flashlighteffect.cpp dereferences it.
+        string text = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_tools_off_client.cpp"));
 
-        Assert.Contains("m_bInRecordingMode = bEnable;", text);
-        Assert.Contains("return m_bInRecordingMode;", text);
-        Assert.DoesNotContain("SS_TOOLS_REFUSE( \"IsInRecordingMode\" )", text);
-        Assert.DoesNotContain("SS_TOOLS_REFUSE( \"EnableRecordingMode\" )", text);
+        Assert.Contains("IClientTools *clienttools = &s_ClientToolsOff;", text);
+        Assert.Contains("bool IsInRecordingMode() const override { return false; }", text);
+        Assert.DoesNotContain("EXPOSE_SINGLE_INTERFACE", text);
+        Assert.DoesNotContain("VCLIENTTOOLS_INTERFACE_VERSION", text);
     }
 
     [Fact]
-    public void TheToolStubRefusesEverythingElseByName()
+    public void TheToolsOffStandInOverridesEveryPureVirtual()
     {
-        // A count rather than a spot check, because the failure worth catching
-        // is a method quietly losing its refusal and returning a plausible zero.
-        // IClientTools declares 47 pure virtuals in
-        // public/toolframework/itoolentity.h; two of them answer (above), so 45
-        // refuse. The number is derived here rather than pinned so that adding a
-        // method to the interface moves it honestly:
+        // IClientTools' pure virtuals, counted from the header rather than
+        // pinned, so a method added to the interface moves the number honestly.
         string? iface = RepoLayout.FindSdkFile(Path.Combine("src", "public", "toolframework", "itoolentity.h"));
         Assert.NotNull(iface);
 
@@ -203,15 +206,10 @@ public sealed class NotShippedTests
             .Count;
         Assert.True(pureVirtuals > 40, $"IClientTools parsed as {pureVirtuals} pure virtuals");
 
-        string? path = RepoLayout.FindSdkFile(Path.Combine("src", "game", "client", "entity_client_tools.cpp"));
-        Assert.NotNull(path);
-        string text = File.ReadAllText(path!);
+        string text = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_tools_off_client.cpp"));
+        int overrides = System.Text.RegularExpressions.Regex.Matches(text, @"\) (const )?override\b").Count;
 
-        int refusals = System.Text.RegularExpressions.Regex
-            .Matches(text, @"SS_TOOLS_REFUSE\( ""[A-Za-z]+"" \);")
-            .Count;
-
-        Assert.Equal(pureVirtuals - 2, refusals);
+        Assert.Equal(pureVirtuals, overrides);
     }
 
     [Fact]

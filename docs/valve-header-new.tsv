@@ -467,3 +467,4 @@ src/client/managed/Effects/ParticleConVars.cs	ports particlemgr.cpp's live ConVa
 src/client/managed/Effects/ParticleCommands.cs	ports particlemgr.cpp's cl_particle_stats_start/stop and cs_cl_particle_report, and particles_new.cpp's cl_dump_particle_stats
 src/client/managed/Ragdolls/RagdollBoltPin.cs	ports CRagdollBoltEnumerator::EnumElement and StickRagdollNow's shot ray (c_stickybolt.cpp)
 src/shared/interop/MovePointContentsCache.cs	ports CGameMovement::GetPointContentsCached / ResetGetPointContentsCache (gamemovement.cpp)
+src/client/native/shell_tools_off_client.cpp	native code built against the SDK headers (toolframework_client.h, toolframework/itoolentity.h): the tools-off stand-ins for the names toolframework_client.cpp and entity_client_tools.cpp defined (ToolsEnabled, ToolFramework_RecordMaterialParams, ToolFramework_PostToolMessage, clienttools), which clientshadowmgr.cpp and flashlighteffect.cpp still name (SFM is dead, user ruling 2026-10-19)

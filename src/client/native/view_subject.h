@@ -98,56 +98,10 @@ inline bool ViewEntityOverridesTheEye( int nViewEntity, int nLocalPlayer )
 	return nViewEntity != nLocalPlayer;
 }
 
-//-----------------------------------------------------------------------------
-// THE VIEWMODEL PASS'S KEEP/REMOVE RULE (step c7-view, viewrender.cpp:1171-1194).
-//
-// CViewRender::DrawViewModels collates every viewmodel renderable the leaf
-// system holds and then, when the toolframework is running and one of the two
-// kinds is unwanted, drops the unwanted kind from the list. Stock's spelling of
-// the two kinds is an ENTITY TEST:
-//
-//     bool bEntity = SDKEntityFromRenderable( pRenderable ) != NULL;
-//     if ( ( bEntity && !bDrawPlayer ) || ( !bEntity && !bDrawTools ) ) remove;
-//
-// "a game entity's viewmodel" against "a renderable the toolframework made and
-// no entity owns". The rule is right; what was wrong is the QUESTION it was
-// asked with, and the fault is the one p7-exit recorded at viewrender.cpp:4299
-// -- SDKEntityFromRenderable asks a slot for its STOCK C_BaseEntity, and an
-// entity on the managed hierarchy has none, so it answers NULL for every
-// managed viewmodel. bEntity was therefore FALSE for the player's own
-// viewmodel, and the rule below then reads:
-//
-//     ( false && !bDrawPlayer ) || ( true && !bDrawTools )
-//
-// i.e. bDrawPlayer stops being consulted at all.
-//
-// SAID AS NARROWLY AS IT IS TRUE: in this build bDrawTools IS ToolsEnabled()
-// (viewrender.cpp:1114) and the whole block is guarded on ToolsEnabled(), so
-// bDrawTools is true wherever the rule runs and stock's condition folded to a
-// constant FALSE -- nothing was ever removed. The one reachable consequence is
-// therefore one-directional: with the toolframework running and the player's
-// viewmodel suppressed (third person), the player's viewmodel was kept and
-// drawn anyway. The opposite direction is not reachable here and is not
-// claimed. Neither shows up without -tools.
-//
-// The rule is HERE, unchanged, so it can be asserted; the call site asks
-// `GetIClientUnknown()->GetIClientEntity() != NULL` instead, which is the face
-// BOTH hierarchies wear (shell_standalone_client.h:285 answers `this`) and so
-// separates the two kinds for a managed viewmodel as well as a stock one.
-//
-// The two flags are BOTH consulted deliberately: a rule that dropped on
-// !bDrawPlayer alone would pass every test in which tools are off, because
-// bDrawTools is true whenever ToolsEnabled() is false and the whole block is
-// then skipped anyway.
-//-----------------------------------------------------------------------------
-inline bool ViewModelIsUnwanted( bool bIsGameEntity, bool bDrawPlayerViewModel,
-                                 bool bDrawToolViewModels )
-{
-	if ( bIsGameEntity )
-		return !bDrawPlayerViewModel;
-
-	return !bDrawToolViewModels;
-}
+// THE VIEWMODEL PASS'S KEEP/REMOVE RULE (ViewModelIsUnwanted) stood here: it
+// told a game entity's viewmodel from a tool's when the tool framework was
+// running. Deleted with the tool framework: SFM is dead (user ruling
+// 2026-10-19), so the pass draws the player's viewmodels or none.
 
 } // namespace ViewSubject
 

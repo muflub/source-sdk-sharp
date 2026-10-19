@@ -132,9 +132,6 @@ clientshadowmgr.o	_ZL17s_ClientShadowMgr	s_ClientShadowMgr	game/client/clientsha
 clientshadowmgr.o	_ZL19s_VisibleShadowList	s_VisibleShadowList	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 clientshadowmgr.o	_ZL8s_bBreak	s_bBreak	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 clientshadowmgr.o	_ZL25s_nRttShadowTexturesDrawn	s_nRttShadowTexturesDrawn	game/client/clientshadowmgr.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-entity_client_tools.o	_ZL38__g_CreateCClientToolsIClientTools_reg	__g_CreateCClientToolsIClientTools_reg	game/client/entity_client_tools.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
-	clienttools	clienttools	game/client/entity_client_tools.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-entity_client_tools.o	_ZL13s_ClientTools	s_ClientTools	game/client/entity_client_tools.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 flashlighteffect.o	_ZL23mat_depthbias_shadowmap	mat_depthbias_shadowmap	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 flashlighteffect.o	_ZL33mat_slopescaledepthbias_shadowmap	mat_slopescaledepthbias_shadowmap	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 flashlighteffect.o	_ZL19r_flashlightambient	r_flashlightambient	game/client/flashlighteffect.cpp	LOCAL	bss	file-or-global	144	UNRULED		
@@ -174,7 +171,6 @@ rendertexture.o	_ZL18s_pSmallBufferHDR0	s_pSmallBufferHDR0	game/client/rendertex
 rendertexture.o	_ZL18s_pSmallBufferHDR1	s_pSmallBufferHDR1	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 rendertexture.o	_ZL25s_pWaterReflectionTexture	s_pWaterReflectionTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 rendertexture.o	_ZL25s_pWaterRefractionTexture	s_pWaterRefractionTexture	game/client/rendertexture.cpp	LOCAL	bss	file-or-global	8	UNRULED		
-toolframework_client.o	_ZL21g_ToolFrameworkClient	g_ToolFrameworkClient	game/client/toolframework_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		
 vgui_game_viewport.o	_ZL22g_ViewportClientSystem	g_ViewportClientSystem	game/client/vgui_game_viewport.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 	_ZN18PrecacheEffectWarp20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectWarp::ClientEffectRegister::m_pszMaterials	game/client/warp_overlay.cpp	GLOBAL	data	class-or-namespace	8	UNRULED		
 	_ZN18PrecacheEffectWarp29register_ClientEffectRegisterE	PrecacheEffectWarp::register_ClientEffectRegister	game/client/warp_overlay.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
@@ -591,6 +587,8 @@ shell_tempents_client.o	_ZL12g_TeRegistry	g_TeRegistry	sourcesharp/game/client/s
 shell_tempents_client.o	_ZL11g_TeScratch	g_TeScratch	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	512	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_tempents_client.o	_ZL17g_iTeScratchClass	g_iTeScratchClass	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_tempents_client.o	_ZL13g_nTeShadowed	g_nTeShadowed	sourcesharp/game/client/shell_tempents_client.cpp	LOCAL	bss	file-or-global	4	UNRULED		
+shell_tools_off_client.o	_ZN12_GLOBAL__N_116s_ClientToolsOffE	(anonymous namespace)::s_ClientToolsOff	sourcesharp/game/client/shell_tools_off_client.cpp	LOCAL	data	function-local	8	CONST	-	reset_today=n/a. client.so's IClientTools with no tool behind it (shell_tools_off_client.cpp): no fields, only its vtable, constant-initialised, never written. SFM is dead (user ruling 2026-10-19); it answers tools-off for flashlighteffect.cpp until that file leaves
+	clienttools	clienttools	sourcesharp/game/client/shell_tools_off_client.cpp	GLOBAL	data	file-or-global	8	CONST	-	reset_today=n/a. points at s_ClientToolsOff from load (constant-initialised, never assigned); flashlighteffect.cpp reads it. Was entity_client_tools.cpp's, which left client.so: SFM is dead (user ruling 2026-10-19)
 shell_vgui_client.o	_ZZ12VGui_StartupPFPvPKcPiEE15s_bModeCallback	VGui_Startup(void* (*)(char const*, int*))::s_bModeCallback	sourcesharp/game/client/shell_vgui_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 	g_InputInternal	g_InputInternal	sourcesharp/game/client/shell_vgui_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_vgui_client.o	_ZL16s_nPausedSeconds	s_nPausedSeconds	sourcesharp/game/client/shell_vgui_client.cpp	LOCAL	data	file-or-global	4	UNRULED		

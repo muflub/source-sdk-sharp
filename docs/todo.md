@@ -4,6 +4,27 @@ Work that has been decided on but has no plan or owner yet. Each item says
 why it's here and what is known, with the commit it was measured at.
 
 
+## The client systems' PostRender stage reaches no body
+
+Added 2026-10-19 with SFM's removal (user ruling: "SFM is dead, remove it").
+CToolFrameworkClient was the one kClientSystems[] row with a PostRender body;
+its row left with toolframework_client.cpp, so
+SourceSharp_ClientSystemsPostRender walks the table and calls nothing. The
+render plan still emits RENDER_OP_ClientSystemsPostRender (RenderOpKind 15),
+and the frozen render recordings name it, so the op and the walk stayed.
+Retiring both is one plan-op change plus the recordings' re-freeze.
+
+## The tools-off stand-ins leave with their last two Valve importers
+
+shell_tools_off_client.cpp (2026-10-19) defines ToolsEnabled,
+ToolFramework_RecordMaterialParams, ToolFramework_PostToolMessage and
+`clienttools` only because clientshadowmgr.cpp and flashlighteffect.cpp,
+fork TUs still compiled into client.so, name them. When both have left
+(flashlighteffect.cpp is the flashlight/leaf lane's), delete the file, its
+test, its (x) row in docs/shim-reasons.md and the toolframework_client.h /
+toolframework/itoolentity.h links in sdk-links/client.txt.
+
+
 ## physics_debug.cpp's commands, managed: two small follow-ups (closed)
 
 Added 2026-10-18 when the six commands moved to PhysicsDebugCommands.cs

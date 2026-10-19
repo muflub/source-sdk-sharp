@@ -3,4 +3,3 @@
 4	UNRULED	inline bool AudioIsUnderwater( int nWaterLevel )
 4	UNRULED	inline bool EffectActive( int nEffects, int nEffectMask )
 6	UNRULED	inline bool ViewEntityOverridesTheEye( int nViewEntity, int nLocalPlayer )
-7	UNRULED	inline bool ViewModelIsUnwanted( bool bIsGameEntity, bool bDrawPlayerViewModel,

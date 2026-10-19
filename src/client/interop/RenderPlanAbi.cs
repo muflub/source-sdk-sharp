@@ -320,7 +320,12 @@ public unsafe struct RenderInputs
     public int RefractionHeight;
     public int ThirdPersonSeesOwner;
     public int ViewEntity;
-    public int ToolsEnabled;
+    /// <summary>
+    /// Retired, always 0: was ToolsEnabled() (SFM is dead, user ruling
+    /// 2026-10-19). Kept so the struct's layout, and the frozen recordings
+    /// that read it, do not move.
+    /// </summary>
+    public int Retired0;
     public fixed int FadeColor[4];
     public int FadeBlend;
     public int ScreenOverlay;

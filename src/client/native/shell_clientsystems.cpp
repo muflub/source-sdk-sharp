@@ -93,7 +93,6 @@
 //-----------------------------------------------------------------------------
 CClientSystem *GameStringSystem();
 CClientSystem *SoundEmitterSystem();
-CClientSystem *ToolFrameworkClientSystem();
 CClientSystem *ViewportClientSystem();
 CClientSystem *ClientSoundscapeSystem();
 
@@ -208,7 +207,6 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 //     string_t IS an address, and the pool is what makes two spellings of one
 //     name compare equal by pointer.
 // RULING | CSoundEmitterSystem | STAYS | sourcesharp/game/shared/sound_emitter.cpp | SoundEmitterSystem
-// RULING | CToolFrameworkClient | STAYS | game/client/toolframework_client.cpp | ToolFrameworkClientSystem
 // RULING | CClientLeafSystem | STAYS | game/client/clientleafsystem.cpp | g_pClientLeafSystem
 // RULING | CDetailObjectSystem | STAYS | sourcesharp/game/client/shell_detail_props.cpp | DetailObjectSystem
 // RULING | CViewportClientSystem | STAYS | game/client/vgui_game_viewport.cpp | ViewportClientSystem
@@ -269,7 +267,9 @@ static const ClientSystemRow_t kClientSystems[] =
 	//-------------------------------------------------------------------------
 	{ "CGameStringPool",                    GameStringSystem },
 	{ "CSoundEmitterSystem",                SoundEmitterSystem },
-	{ "CToolFrameworkClient",               ToolFrameworkClientSystem },
+	// `{ "CToolFrameworkClient", ... }` stood here: the tool framework's
+	// bridge. Deleted with toolframework_client.cpp: SFM is dead (user ruling
+	// 2026-10-19).
 
 	// "Client Leaf System has to be initialized first, since DetailObjectSystem
 	// uses it" -- stock's comment above its Add block. It is not literally first
@@ -490,11 +490,11 @@ void SourceSharp_ClientSystemsLevelShutdownPostEntity( void )
 //
 // PreRender and Update both reach real bodies every frame in a shipping run --
 // eight SourceSharp render systems and the managed frame between them. PostRender
-// reaches exactly one body, CToolFrameworkClient's, and that body is
-// `if ( m_pTools ) ...` with m_pTools NULL unless the game was launched under the
-// tool framework. It is wired anyway, because removing it would silently break
-// the tool framework; it is written down here because "wired" and "does
-// something" are two different claims and Phase 7a paid for the difference.
+// reaches NO body: its one, CToolFrameworkClient's, was deleted with the tool
+// framework (SFM is dead, user ruling 2026-10-19). The stage stays wired
+// because the render plan names it (RENDER_OP_ClientSystemsPostRender); it is
+// written down here because "wired" and "does something" are two different
+// claims and Phase 7a paid for the difference.
 //-----------------------------------------------------------------------------
 void SourceSharp_ClientSystemsPreRender( void )
 {

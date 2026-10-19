@@ -72,8 +72,8 @@ public enum ProxyOpKind
     /// <summary><c>SetTextureValue</c> of the proxy's texture slot <c>Arg</c>.</summary>
     Texture = 7,
 
-    /// <summary><c>ToolFramework_RecordMaterialParams( material )</c> when tools are on. No slot.</summary>
-    RecordTools = 8,
+    // 8 was RecordTools (ToolFramework_RecordMaterialParams when tools were on),
+    // deleted: SFM is dead (user ruling 2026-10-19). Never reuse it.
 }
 
 /// <summary>

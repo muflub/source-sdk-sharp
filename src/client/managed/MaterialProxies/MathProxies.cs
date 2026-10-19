@@ -82,7 +82,6 @@ public abstract class BinaryProxy : FunctionProxy
                 IntCase(bind, s1, s2);
                 break;
         }
-        bind.RecordTools();
     }
 
     protected abstract float Vector(float a, float b);
@@ -211,7 +210,6 @@ public sealed class ClampProxy : FunctionProxy
                 break;
             }
         }
-        bind.RecordTools();
     }
 }
 
@@ -251,7 +249,6 @@ public sealed class SineProxy : ResultProxy
         float value = (float)(Math.Sin(2.0f * Pi * (bind.CurTime - offset) / period) * 0.5f + 0.5f);
         value = (max - min) * value + min;
         SetFloatResult(bind, value);
-        bind.RecordTools();
     }
 }
 
@@ -274,7 +271,6 @@ public sealed class EqualsProxy : FunctionProxy
                 bind.SetInt(Result, s1.Int);
                 break;
         }
-        bind.RecordTools();
     }
 }
 
@@ -313,7 +309,6 @@ public sealed class FracIntProxy : FunctionProxy
                 bind.SetInt(Result, s1.Int);
                 break;
         }
-        bind.RecordTools();
     }
 }
 
@@ -336,7 +331,6 @@ public sealed class LinearRampProxy : ResultProxy
     {
         float value = _rate.Get(bind) * bind.CurTime + _initial.Get(bind);
         SetFloatResult(bind, value);
-        bind.RecordTools();
     }
 }
 
@@ -358,7 +352,6 @@ public sealed class UniformNoiseProxy : ResultProxy
     public override void Bind(IProxyBind bind)
     {
         SetFloatResult(bind, bind.RandomFloat(_min.Get(bind), _max.Get(bind)));
-        bind.RecordTools();
     }
 }
 
@@ -398,7 +391,6 @@ public sealed class GaussianNoiseProxy : ResultProxy
         else if (value > max)
             value = max;
         SetFloatResult(bind, value);
-        bind.RecordTools();
     }
 }
 
@@ -439,7 +431,6 @@ public sealed class ExponentialProxy : FunctionProxy
         else if (value > max)
             value = max;
         SetFloatResult(bind, value);
-        bind.RecordTools();
     }
 }
 
@@ -449,7 +440,6 @@ public sealed class AbsProxy : FunctionProxy
     public override void Bind(IProxyBind bind)
     {
         SetFloatResult(bind, MathF.Abs(bind.Var(Src1).Float));
-        bind.RecordTools();
     }
 }
 
@@ -517,7 +507,6 @@ public sealed class LessOrEqualProxy : FunctionProxy
                 bind.SetFloat(Result, src.Int);
                 break;
         }
-        bind.RecordTools();
     }
 }
 
@@ -554,7 +543,6 @@ public sealed class WrapMinMaxProxy : FunctionProxy
             result += _min.Get(bind);
             SetFloatResult(bind, result);
         }
-        bind.RecordTools();
     }
 }
 
@@ -584,7 +572,6 @@ public sealed class SelectFirstIfNonZeroProxy : FunctionProxy
                 bind.SetFloat(Result, s1.Int != 0 ? s1.Int : s2.Int);
                 break;
         }
-        bind.RecordTools();
     }
 }
 
@@ -654,7 +641,6 @@ public sealed class TextureTransformProxy : ResultProxy
         }
 
         bind.SetMatrix(Result, mat);
-        bind.RecordTools();
     }
 }
 
@@ -688,6 +674,5 @@ public sealed class MatrixRotateProxy : ResultProxy
 
         VMatrix mat = VMatrixMath.RotationAboutAxis(axis, _angle.Get(bind), _math);
         bind.SetMatrix(Result, mat);
-        bind.RecordTools();
     }
 }

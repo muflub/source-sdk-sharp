@@ -14,4 +14,3 @@
 14	UNRULED	int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void )
 5	UNRULED	static bool &EntityInterpGateWasOpen()
 34	UNRULED	void EntityInterp_UpdateFrameGate()
-16	UNRULED	void EntityTool_RecordEntities()

@@ -48,7 +48,6 @@
 #include "shell_entitystatics.h"
 #include "entity_abs_query_state.h"
 #include "entity_shared_statics.h"
-#include "toolframework_client.h"
 #include "inetchannelinfo.h"
 // For the evicted vcollide_wireframe change callback below: the standalone
 // registry walk (SourceSharp_StandaloneClientCount / At) and C_StandaloneEntity.
@@ -500,40 +499,6 @@ void EntityInterp_UpdateFrameGate()
 	EntityInterpGateWasOpen() = bOpen;
 }
 
-//=============================================================================//
-//
-// THE TOOL-RECORDING PASS — kept so the SFM path ANSWERS BY NAME.
-//
-// The walk is gone with its list, and the refusal below says which list and
-// why. What is left is the ONE condition under which the missing capability
-// could ever have mattered — a tool actually in recording mode — and under
-// that condition this refuses by name instead of returning quietly from an
-// empty loop.
-//
-// THE GUARD IS STOCK'S OWN, unchanged and in stock's order: ToolsEnabled() is
-// false in every build that has not been started with -tools, so the ordinary
-// game pays one bool read per frame for this and nothing else.
-//
-//=============================================================================//
-
-void EntityTool_RecordEntities()
-{
-
-	if ( !ToolsEnabled() || !clienttools->IsInRecordingMode() )
-		return;
-
-	// §7's refusal, with its reason at the site that refuses. Phase 1c deleted
-	// the ruling table; this is its row, verbatim. The guard above is stock's
-	// own, so an ordinary game never reaches this line at all.
-	Warning( "[SourceSharp] REFUSED: EntityTool_RecordEntities was reached. "
-	         "plan_entity.md §7 -- this capability retired with the C_BaseEntity "
-	         "hierarchy. Reason: it is the only body of the six that names no "
-	         "entity type and carries no guard -- it walks IClientRenderable. It "
-	         "retires anyway, because its LIST does not survive: recordinglist is "
-	         "written only by C_BaseEntity::SetToolRecording, and "
-	         "C_StandaloneEntity::RecordToolMessage is an empty override, so a "
-	         "managed entity would record nothing even if something put it on the "
-	         "list. Now: NOTHING DOES. This is a real capability gap and it is "
-	         "REFUSED BY NAME. Entity recording for SFM is not implemented for "
-	         "the managed hierarchy.\n" );
-}
+// THE TOOL-RECORDING PASS (EntityTool_RecordEntities) is deleted: SFM is dead
+// (user ruling 2026-10-19). Its guard, ToolsEnabled(), is false in every
+// launch of this mod, and its list had no writer.

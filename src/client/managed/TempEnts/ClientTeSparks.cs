@@ -49,10 +49,8 @@ namespace SourceSharp.Client.TempEnts;
 /// </para>
 ///
 /// <para>
-/// WHAT WAS LOST WITH THE FILE: <c>RecordSparks</c>, the tool-recording
-/// KeyValues message, which is <c>ToolsEnabled()</c>-gated and unreachable in
-/// this build. Recorded in docs/divergences.md rather than left silent.
-/// <c>Precache()</c> was empty.
+/// NOT PORTED: <c>RecordSparks</c>, the tool-recording KeyValues message. SFM
+/// is dead (user ruling 2026-10-19). <c>Precache()</c> was empty.
 /// </para>
 /// </summary>
 [ClientTempEnt("CTESparks")]

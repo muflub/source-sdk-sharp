@@ -933,7 +933,8 @@ public static class RenderPlanner
 
         // ---------------------------------------------------------------------
         // CViewRender::DrawViewModels: the viewmodel's view and whether the
-        // player's and the tools' viewmodels draw.
+        // player's viewmodel draws. (Stock's tools' viewmodels are deleted: SFM
+        // is dead, user ruling 2026-10-19.)
         // ---------------------------------------------------------------------
         private void DrawViewModels(in ViewSetup view, bool drawViewModel)
         {
@@ -942,7 +943,7 @@ public static class RenderPlanner
             vm.ZFar = view.ZFarViewmodel;
             vm.Fov = view.FovViewmodel;
             vm.AspectRatio = _in.ScreenAspect;
-            b.Add(RenderOpKind.ViewModels, [ShouldDrawViewModel(drawViewModel) ? 1 : 0, _in.ToolsEnabled != 0 ? 1 : 0], null, vm);
+            b.Add(RenderOpKind.ViewModels, [ShouldDrawViewModel(drawViewModel) ? 1 : 0], null, vm);
         }
 
         private bool ShouldDrawViewModel(bool drawViewModel)

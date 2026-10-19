@@ -33,7 +33,6 @@ public sealed class WaterLodProxy : MaterialProxy
         bind.WaterLod(out float start, out float end);
         bind.SetFloat(_start, start);
         bind.SetFloat(_end, end);
-        bind.RecordTools();
     }
 }
 
@@ -61,7 +60,6 @@ public sealed class WorldDimsProxy : MaterialProxy
             bind.SetVec(_mins, [mins.X, mins.Y, mins.Z], 3);
             bind.SetVec(_maxs, [maxs.X, maxs.Y, maxs.Z], 3);
         }
-        bind.RecordTools();
     }
 }
 
@@ -191,7 +189,6 @@ public sealed class PlayerLogoProxy : MaterialProxy
             bind.SetTexture(_baseTexture, texture);
         else if (_default >= 0)
             bind.SetTexture(_baseTexture, _default);
-        bind.RecordTools();
     }
 
     public override void SaveState(ReloadWriter writer)

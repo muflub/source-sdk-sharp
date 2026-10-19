@@ -62,8 +62,6 @@
 #include "engine/IStaticPropMgr.h"
 #include "util_shared.h"
 #include "c_te_effect_dispatch.h"
-#include "toolframework_client.h"
-#include "tier1/KeyValues.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/itexture.h"
@@ -180,63 +178,10 @@ void SourceSharp_ClientSparks( const float *pPositionXYZ,
 	                    req.bHasDirection ? &vecDirection : NULL );
 }
 
-//-----------------------------------------------------------------------------
-// THE TOOL RECORDING THAT CAME OFF c_te_armorricochet.cpp WITH THE FILE.
-//
-// Stock posts a KeyValues tool message beside each of these two draws --
-// RecordMetalSparks and RecordArmorRicochet, static inlines in the evicted
-// file, called from BOTH halves of it: the received one
-// (C_TEMetalSparks::PostDataUpdate) and the locally made one (TE_MetalSparks).
-// SFM's recording is what reads them.
-//
-// IT IS RESTORED HERE RATHER THAN TRACKED AS A GAP, and here rather than
-// anywhere else, for one reason: this is where stock's two paths converge in
-// this build. Lane CN's managed players call these slots for a received effect
-// and shell_te_fwd_cn.cpp's TE_MetalSparks/TE_ArmorRicochet reach them through
-// the same managed players for a locally made one, so one call site covers both
-// of stock's two -- which is the division Part 4 asks for anyway (the decode and
-// the decision are C#'s; what is left native is everything that touches a
-// pointer type, and a KeyValues is one).
-//
-// Doing it in C# was never available: the message is a KeyValues handed to
-// ToolFramework_PostToolMessage, which is a pointer type that does not cross the
-// ABI, and giving it a slot of its own would be a lane appending an ABI slot.
-//
-// IT DOES NOTHING IN A NORMAL LAUNCH AND THAT IS NOT A REASON TO DROP IT.
-// ToolsEnabled() is `m_pTools && m_pTools->InToolMode()`
-// (toolframework_client.cpp:49), so it is false in every non-tool launch of this
-// mod. A capability that is dormant is still a capability, and this port's
-// standing rule is that a row closes by being made real, never by deleting the
-// call that exposed it.
-//
-// The three fields are stock's own, spelt as stock spells them: a TE enum, a
-// name, the time, and the two vectors as six floats. A tool reading a recording
-// keys on those strings.
-//-----------------------------------------------------------------------------
-static void RecordSparkImpact( int nTeEnum, const char *pszName,
-                               const Vector &vecStart, const Vector &vecDirection )
-{
-	if ( !ToolsEnabled() )
-		return;
-
-	if ( !clienttools || !clienttools->IsInRecordingMode() )
-		return;
-
-	KeyValues *msg = new KeyValues( "TempEntity" );
-
-	msg->SetInt( "te", nTeEnum );
-	msg->SetString( "name", pszName );
-	msg->SetFloat( "time", gpGlobals->curtime );
-	msg->SetFloat( "originx", vecStart.x );
-	msg->SetFloat( "originy", vecStart.y );
-	msg->SetFloat( "originz", vecStart.z );
-	msg->SetFloat( "directionx", vecDirection.x );
-	msg->SetFloat( "directiony", vecDirection.y );
-	msg->SetFloat( "directionz", vecDirection.z );
-
-	ToolFramework_PostToolMessage( HTOOLHANDLE_INVALID, msg );
-	msg->deleteThis();
-}
+// THE TOOL RECORDING THAT CAME OFF c_te_armorricochet.cpp WITH THE FILE
+// (RecordSparkImpact: stock's RecordMetalSparks and RecordArmorRicochet, a
+// KeyValues message to ToolFramework_PostToolMessage beside each draw) stood
+// here. Deleted: SFM is dead (user ruling 2026-10-19).
 
 //-----------------------------------------------------------------------------
 // A ricochet: metal sparks AND the sound. c_te_armorricochet.cpp's
@@ -253,9 +198,6 @@ void SourceSharp_ClientRicochet( const float *pPositionXYZ, const float *pDirect
 	const Vector vecDirection( req.vecDirection.x, req.vecDirection.y, req.vecDirection.z );
 
 	g_pEffects->Ricochet( vecPosition, vecDirection );
-
-	// RecordArmorRicochet, which stock calls immediately after the draw.
-	RecordSparkImpact( TE_ARMOR_RICOCHET, "TE_ArmorRicochet", vecPosition, vecDirection );
 }
 
 //-----------------------------------------------------------------------------
@@ -274,11 +216,6 @@ void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDir
 	const Vector vecDirection( req.vecDirection.x, req.vecDirection.y, req.vecDirection.z );
 
 	g_pEffects->MetalSparks( vecPosition, vecDirection );
-
-	// RecordMetalSparks. A DIFFERENT te enum and a different name from the
-	// ricochet above -- a tool replaying the recording picks the effect by them,
-	// so the pair that differ only in sound must stay two entries.
-	RecordSparkImpact( TE_METAL_SPARKS, "TE_MetalSparks", vecPosition, vecDirection );
 }
 
 //-----------------------------------------------------------------------------

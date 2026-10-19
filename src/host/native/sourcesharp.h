@@ -2382,7 +2382,8 @@ typedef struct
 // raw argument. SourceSharpProxyOp_t is one IMaterialVar setter managed asks
 // for, in order (Kind: 1 SetFloatValue, 2 SetIntValue, 3 SetVecValue( v, Arg ),
 // 4 SetVecValue( x, y, z ), 5 SetVecComponentValue( v, Arg ), 6 SetMatrixValue,
-// 7 SetTextureValue of texture slot Arg, 8 record the material for the tools).
+// 7 SetTextureValue of texture slot Arg; 8, the tools' material record, is
+// deleted with SFM, user ruling 2026-10-19, and never reused).
 // SourceSharpProxyEntity_t is the bind argument resolved as stock's entity
 // proxies resolve it.
 //
@@ -2651,7 +2652,7 @@ typedef struct
 	int32_t RefractionHeight;
 	int32_t ThirdPersonSeesOwner;
 	int32_t ViewEntity;
-	int32_t ToolsEnabled;
+	int32_t Retired0;   // always 0: was ToolsEnabled(); SFM is dead (2026-10-19). Holds the layout.
 	int32_t FadeColor[4];
 	int32_t FadeBlend;
 	int32_t ScreenOverlay;
