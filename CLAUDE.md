@@ -162,8 +162,23 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   `docs/managed-interfaces.tsv`. A Valve interface that Valve code calls and
   managed answers is a libss_fwd class over a managed table (`fwd_physics.cpp`,
   `fwd_steam.cpp`).
-  Never add a free `SourceSharp_*` function that finds its state through a
-  global.
+  - Why: MSVC and Itanium lay vtables out differently, so managed code that
+    indexed one had to know the C++ ABI. A forwarder lets the C++ compiler do
+    the dispatch (`docs/plans/plan_engine_forwarders.md`,
+    `docs/plans/plan_forwarders_everywhere.md`).
+  - A call is `_fwd->Method(_self, ...)` through the interface's table
+    (`Forwarders.TryAcquire`); vphysics objects go through `VPhysicsTables`,
+    injected in the constructor.
+  - Slots only append, because the bind checks only a count: a method joins
+    the END of its row, then run `tools/engine-forwarders --write` (and
+    `tools/shim-areas --write`, `tools/managed-areas --write` for their rows)
+    from the farm. `--reorder` is a deliberate break that rebuilds both sides:
+    name it in the commit message.
+  - Tables are per side (`libss_fwd_server`, `libss_fwd_client`, in
+    `src/fwd/native`). A row's side is where its users compile. Server-only
+    wrappers live in Server.Interop.
+  - Never add a free `SourceSharp_*` function that finds its state through a
+    global.
 - **Managed code keeps no state in statics; inject it as a service.** The
   build enforces it: SS0001 (`src/analyzers`) fails a mutable static in a
   runtime assembly, SS0002 a waiver row whose static has gone. The one waiver
