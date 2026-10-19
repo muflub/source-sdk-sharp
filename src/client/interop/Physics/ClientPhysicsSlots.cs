@@ -1,4 +1,5 @@
 using System.Text;
+using SourceSharp.Client.Interop;
 
 namespace SourceSharp.Abi;
 
@@ -13,12 +14,18 @@ public interface IClientPhysicsEngine
 /// IShimPhysicsClient over the client's engine (plan_client_novalve C6, cluster
 /// 9; lane c6-input), and the physics objects' own vtables for the object reads.
 /// </summary>
-internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactSoundWorld, IClientPhysicsObjectReads,
+internal sealed unsafe class ClientPhysicsSlots(PhysicsClientArea? physicsClient, VPhysicsTables vphysics) : IClientImpactSoundWorld, IClientPhysicsObjectReads,
                                                                 IClientSplashCarryOut
 {
+    // The shim areas this calls, taken by constructor (plan_shim_areas_split
+    // phase 5). Null on a client that never attached (an unattached engine
+    // double): a guarded call answers its default and any other throws, as
+    // they did through the side's attach guard.
+    private PhysicsClientArea PhysicsClient => physicsClient ?? throw ShimAreaGuard.NotAttached(nameof(PhysicsClient));
+
     private const int MaxName = 128;
 
-    private readonly VPhysicsObjects _objects = new(api.VPhysics);
+    private readonly VPhysicsObjects _objects = new(vphysics);
 
     public ushort GameFlags(nint physicsObject) => _objects.GameFlags(physicsObject);
 
@@ -27,7 +34,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
         if (physicsObject == 0)
             return 0;
 
-        var vtbl = api.VPhysics.PhysicsObject;
+        var vtbl = vphysics.PhysicsObject;
         return vtbl->GetContents((void*)physicsObject);
     }
 
@@ -36,7 +43,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
         if (physicsObject == 0)
             return false;
 
-        var vtbl = api.VPhysics.PhysicsObject;
+        var vtbl = vphysics.PhysicsObject;
         return vtbl->GetShadowController((void*)physicsObject) != null;
     }
 
@@ -50,20 +57,20 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
             return Vector.Zero;
 
         Vector position;
-        var vtbl = api.VPhysics.PhysicsObject;
+        var vtbl = vphysics.PhysicsObject;
         vtbl->GetPosition((void*)physicsObject, &position, null);
         return position;
     }
 
     public SurfaceImpactAudio? Surface(int surfaceProps)
     {
-        if (!api.ClientAttached)
+        if (physicsClient is null)
             return null;
 
         byte* hard = stackalloc byte[MaxName];
         byte* soft = stackalloc byte[MaxName];
         float* audio = stackalloc float[3];
-        if (api.ClientShims.PhysicsClientSurfaceAudio(surfaceProps, hard, MaxName, soft, MaxName, audio) == 0)
+        if (PhysicsClient.PhysicsClientSurfaceAudio(surfaceProps, hard, MaxName, soft, MaxName, audio) == 0)
             return null;
 
         return new SurfaceImpactAudio(Name(hard), Name(soft), audio[0], audio[1], audio[2]);
@@ -71,7 +78,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
 
     public bool Emit(string soundName, Vector origin, int channel, float volume)
     {
-        if (!api.ClientAttached)
+        if (physicsClient is null)
             return false;
 
         int bytes = Encoding.UTF8.GetByteCount(soundName);
@@ -79,7 +86,7 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
         Encoding.UTF8.GetBytes(soundName, new Span<byte>(name, bytes));
         name[bytes] = 0;
         float* at = stackalloc float[] { origin.X, origin.Y, origin.Z };
-        return api.ClientShims.PhysicsClientEmitImpactSound(name, at, channel, volume) != 0;
+        return PhysicsClient.PhysicsClientEmitImpactSound(name, at, channel, volume) != 0;
     }
 
     public Vector Velocity(nint physicsObject)
@@ -88,53 +95,53 @@ internal sealed unsafe class ClientPhysicsSlots(EngineSide api) : IClientImpactS
             return Vector.Zero;
 
         Vector velocity;
-        var vtbl = api.VPhysics.PhysicsObject;
+        var vtbl = vphysics.PhysicsObject;
         vtbl->GetVelocity((void*)physicsObject, &velocity, null);
         return velocity;
     }
 
     public Vector CollideExtent(nint physicsObject, Vector origin, Vector angles, Vector direction)
     {
-        if (!api.ClientAttached)
+        if (physicsClient is null)
             return Vector.Zero;
 
         float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
         float* a = stackalloc float[] { angles.X, angles.Y, angles.Z };
         float* d = stackalloc float[] { direction.X, direction.Y, direction.Z };
         float* r = stackalloc float[3];
-        api.ClientShims.PhysicsClientCollideExtent((void*)physicsObject, o, a, d, r);
+        PhysicsClient.PhysicsClientCollideExtent((void*)physicsObject, o, a, d, r);
         return new Vector(r[0], r[1], r[2]);
     }
 
     public int PointContents(Vector point)
     {
-        if (!api.ClientAttached)
+        if (physicsClient is null)
             return 0;
 
         float* p = stackalloc float[] { point.X, point.Y, point.Z };
-        return api.ClientShims.PhysicsClientPointContents(p);
+        return PhysicsClient.PhysicsClientPointContents(p);
     }
 
     public (Vector Color, float Luminosity) SplashLighting(Vector point)
     {
-        if (!api.ClientAttached)
+        if (physicsClient is null)
             return (Vector.Zero, 1f);
 
         float* p = stackalloc float[] { point.X, point.Y, point.Z };
         float* r = stackalloc float[4];
-        api.ClientShims.PhysicsClientSplashLighting(p, r);
+        PhysicsClient.PhysicsClientSplashLighting(p, r);
         return (new Vector(r[0], r[1], r[2]), r[3]);
     }
 
     public void SplashEffect(int kind, Vector origin, Vector normal, float scale, Vector color, float lifetime, float alpha)
     {
-        if (!api.ClientAttached)
+        if (physicsClient is null)
             return;
 
         float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
         float* n = stackalloc float[] { normal.X, normal.Y, normal.Z };
         float* c = stackalloc float[] { color.X, color.Y, color.Z };
-        api.ClientShims.PhysicsClientSplashEffect(kind, o, n, scale, c, lifetime, alpha);
+        PhysicsClient.PhysicsClientSplashEffect(kind, o, n, scale, c, lifetime, alpha);
     }
 
     private static string? Name(byte* text)

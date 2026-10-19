@@ -271,6 +271,15 @@ public unsafe class ClientAdapterRegistrationTests
         Assert.Equal(new ViewTargetInfo(640, 480, 3, 2), info);
     }
 
+    [UnmanagedCallersOnly] private static int ContentsOfZOnly(void* self, float* point) => (int)point[2];
+
+    [Fact]
+    public void TheRegisteredSplashCarryOutAsksThePhysicsArea()
+        => Assert.Equal(6, Through<IClientSplashCarryOut, int>("SourceSharpPhysicsClient001",
+                                                               nameof(ShimPhysicsClientFwd.PhysicsClientPointContents),
+                                                               (nint)(delegate* unmanaged<void*, float*, int>)&ContentsOfZOnly,
+                                                               c => c.PointContents(new Vector(0, 0, 6))));
+
     /// <summary>A guarded call over an unattached engine answers its default, as the attach guard made it.</summary>
     [Fact]
     public void OverAnUnattachedEngineAGuardedFxCallAnswersItsDefault()

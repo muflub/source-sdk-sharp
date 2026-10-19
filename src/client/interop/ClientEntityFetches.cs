@@ -118,7 +118,7 @@ public static class ClientEntityFetches
         // The client weather's engine reads (lane c2-sims).
         services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(engine.Api.ClientShimsOrNull?.PrecipitationClient));
         // The client's physics callbacks' engine reads (lane c6-input).
-        var physics = new ClientPhysicsSlots(engine.Api);
+        var physics = new ClientPhysicsSlots(engine.Api.ClientShimsOrNull?.PhysicsClient, engine.Api.VPhysics);
         services.AddInstance<IClientImpactSoundWorld>(physics);
         // The level's environment: ClientPhysicsSystem makes it and writes it here.
         var environment = new ClientPhysicsEnvironment();
