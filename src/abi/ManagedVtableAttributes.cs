@@ -17,22 +17,12 @@ public sealed class ImplementedByManagedAttribute(string nativeClass) : Attribut
     public string NativeClass { get; } = nativeClass;
 
     /// <summary>
-    /// The table keeps the caller's own (Valve's) slots, so it has no
-    /// Release/Validate pair: tools/vtable-layout's
-    /// <c>valve-implemented-by-managed</c> kind, for the callbacks vphysics
-    /// calls (plan_physics_managed B0b). Managed frees the block itself, with
-    /// <see cref="ManagedVtable.Release"/>, once the holder is done with it.
-    /// </summary>
-    public bool ValveLayout { get; init; }
-
-    /// <summary>
-    /// Words the C++ class keeps after its vptr, which the caller reads and
-    /// writes (CCallbackBase's flags and callback id, which
-    /// SteamAPI_RegisterCallback sets). The block leaves that many words
-    /// between the vptr and its own header, and keeps them across a reload.
-    /// Zero for an interface with no data members. tools/vtable-layout's
-    /// <c>reserved_words</c>, which a parity fact holds to the header's
-    /// <c>sizeof</c>.
+    /// Words the block keeps after word 0 (the table) for native to use: the
+    /// vphysics callbacks' native objects, which libss_fwd builds there over
+    /// the block (plan_forwarders_everywhere.md phase 5, tools/managed-areas'
+    /// CALLBACK_WORDS). The block leaves that many words between the table
+    /// pointer and its own header, and keeps them across a reload. Zero for
+    /// every other table.
     /// </summary>
     public int ReservedWords { get; init; }
 }

@@ -175,7 +175,6 @@ public unsafe class SteamCallbacksTests
             .GetCustomAttributes(typeof(ImplementedByManagedAttribute), false).Single();
 
         Assert.Equal("IManagedSteamCallback", attribute.NativeClass);
-        Assert.False(attribute.ValveLayout);
         Assert.Equal(0, attribute.ReservedWords);
         Assert.Equal(new[] { "Release", "Validate", "Run" }, typeof(ManagedSteamCallbackTable).GetFields().Select(f => f.Name));
         Assert.Equal(typeof(SteamCallbacks).Assembly, typeof(ManagedSteamCallbackTable).Assembly);

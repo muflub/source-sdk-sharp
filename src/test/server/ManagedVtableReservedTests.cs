@@ -80,7 +80,7 @@ public unsafe partial class ManagedVtableTests
         vtables.Detach();
 
         var e = Assert.Throws<InvalidOperationException>(() => Reserved(vtables, new object(), instance: null, words: 2));
-        Assert.Contains("reserves 2 word(s) after the vptr and native holds a block with 1", e.Message);
+        Assert.Contains("reserves 2 word(s) after word 0 and native holds a block with 1", e.Message);
     }
 
     [Fact]

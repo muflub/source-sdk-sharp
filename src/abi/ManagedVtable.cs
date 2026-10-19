@@ -19,12 +19,13 @@ namespace SourceSharp.Abi;
 /// </para>
 ///
 /// <para>
-/// <b>RESERVED WORDS.</b> A Valve base class with data members after its vptr
-/// (CCallbackBase: flags and callback id, which Steam writes) gets those words
-/// kept free: <c>[vptr][R caller words][handle][registry][side][vtable]</c>.
-/// Every reader finds the header BACK from the vtable word 0 points at
+/// <b>RESERVED WORDS.</b> A table whose block native builds something in (the
+/// vphysics callbacks: libss_fwd's object, a vptr and a pointer back to the
+/// block) gets those words kept free:
+/// <c>[table][R native words][handle][registry][side][slots]</c>. Every reader
+/// finds the header BACK from the slots word 0 points at
 /// (<see cref="Header"/>), so one rule reads both shapes and R is never stored
-/// where the caller could overwrite it.
+/// where native could overwrite it.
 /// </para>
 ///
 /// <para>
@@ -100,7 +101,7 @@ public sealed unsafe class ManagedVtable
     /// <summary>The table's slot count.</summary>
     public int Entries { get; }
 
-    /// <summary>The caller's words between the vptr and the header (<see cref="ImplementedByManagedAttribute.ReservedWords"/>).</summary>
+    /// <summary>Native's words between word 0 and the header (<see cref="ImplementedByManagedAttribute.ReservedWords"/>).</summary>
     public int ReservedWords { get; }
 
     /// <summary>Whether the block has been released (and freed). Asks the registry, never the block.</summary>
@@ -292,13 +293,10 @@ public sealed unsafe class ManagedVtables : IDisposable
     /// <paramref name="target"/>. Called by generated code only, with the thunk
     /// addresses in slot order (Release at 0, Validate at 1) and each slot's
     /// hash. A contract detached for a reload is PATCHED in place (L4); one
-    /// with an attached block is refused. <paramref name="valveLayout"/> is a
-    /// table in a Valve caller's own layout (vphysics' callbacks): it has no
-    /// Release/Validate pair, and one slot is a whole table
-    /// (IPhysicsConstraintEvent, IMotionEvent).
+    /// with an attached block is refused.
     /// </summary>
     /// <param name="reservedWords">
-    /// The caller's words after the vptr (<see cref="ImplementedByManagedAttribute.ReservedWords"/>),
+    /// Native's words after word 0 (<see cref="ImplementedByManagedAttribute.ReservedWords"/>),
     /// zeroed here and never written again; a patch must ask for the same count.
     /// </param>
     /// <param name="instance">
@@ -306,16 +304,14 @@ public sealed unsafe class ManagedVtables : IDisposable
     /// reload patches each by its name. Null for the contract's one block.
     /// </param>
     public ManagedVtable Create<T>(string contract, T target, ReadOnlySpan<nint> slots, ReadOnlySpan<uint> hashes,
-                                   int reservedWords = 0, string? instance = null, bool valveLayout = false)
+                                   int reservedWords = 0, string? instance = null)
         where T : class
     {
         ArgumentOutOfRangeException.ThrowIfNegative(reservedWords);
         string key = KeyOf(contract, instance);
         ArgumentNullException.ThrowIfNull(target);
-        if (valveLayout ? slots.Length < 1 : slots.Length < 2)
-            throw new ArgumentException(valveLayout
-                ? "a Valve-layout managed vtable has at least one slot"
-                : "a managed vtable has at least its Release and Validate slots", nameof(slots));
+        if (slots.Length < 2)
+            throw new ArgumentException("a managed vtable has at least its Release and Validate slots", nameof(slots));
         if (hashes.Length != slots.Length)
             throw new ArgumentException($"{contract}: {slots.Length} slot(s) but {hashes.Length} hash(es)", nameof(hashes));
         if (_byKey.TryGetValue(key, out nint held))
@@ -353,7 +349,7 @@ public sealed unsafe class ManagedVtables : IDisposable
             throw new InvalidOperationException(why);
         if (entry.ReservedWords != reservedWords)
             throw new InvalidOperationException(
-                $"{entry.Key}: the new build reserves {reservedWords} word(s) after the vptr and native holds a block with {entry.ReservedWords}");
+                $"{entry.Key}: the new build reserves {reservedWords} word(s) after word 0 and native holds a block with {entry.ReservedWords}");
 
         slots.CopyTo(new Span<nint>((nint*)block[0], slots.Length));
         ManagedVtable.Header(block)[0] = GCHandle<T>.ToIntPtr(new GCHandle<T>(target));
@@ -462,14 +458,15 @@ public sealed unsafe class ManagedVtables : IDisposable
     }
 
     /// <summary>
-    /// Frees blocks a Valve caller holds (<c>ImplementedByManaged</c>'s
-    /// ValveLayout tables, which have no Release slot because vphysics never
-    /// releases its handlers) once native has let go of the side: when
+    /// Frees blocks a native caller holds and never releases (the vphysics
+    /// callbacks: vphysics keeps its handlers until the environment goes, and
+    /// libss_fwd's object over each block calls no Release) once native has
+    /// let go of the side: when
     /// <paramref name="root"/> has been released, which native does at the
     /// final unload and never across a reload. Until then each is kept, to be
     /// detached and re-patched with the root. Says how many it freed.
     /// </summary>
-    public int ReleaseValveHeld(ManagedVtable? root, params ManagedVtable?[] blocks)
+    public int ReleaseCallerHeld(ManagedVtable? root, params ManagedVtable?[] blocks)
     {
         if (root is null || !root.Released)
             return 0;

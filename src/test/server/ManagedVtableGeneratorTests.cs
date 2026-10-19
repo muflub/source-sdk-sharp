@@ -251,142 +251,57 @@ public class ManagedVtableGeneratorTests
     public void ANestedContractIsRefused()
         => Assert.Contains("SSVT007", Diagnostics(Layout + "public static class Outer {\n" + Contract + "}\n"));
 
-    // ---- Valve's layout (plan_physics_managed B0b) -------------------------
-    //
-    // A callback vphysics calls keeps Valve's slots: no Release, no Validate.
-
-    private const string ValveLayout = """
-        [ImplementedByManaged("IWakeProbe", ValveLayout = true)]
-        public unsafe struct WakeProbeVtbl
-        {
-            [SlotHash(0x00000020)]
-            public delegate* unmanaged<void*, void*, void> ObjectWake;
-            [SlotHash(0x00000021)]
-            public delegate* unmanaged<void*, void*, int> ObjectSleep;
-        }
-        """;
-
-    private const string ValveContract = """
-        [ManagedVtable(typeof(WakeProbeVtbl))]
-        public unsafe interface IWakeProbe
-        {
-            void ObjectWake(void* pObject);
-            int ObjectSleep(void* pObject);
-        }
-        """;
-
-    private const string ValveImplementation = """
-        public sealed unsafe class WakeProbe : IWakeProbe
-        {
-            public nint Woken;
-            public void ObjectWake(void* pObject) => Woken = (nint)pObject;
-            public int ObjectSleep(void* pObject) => (int)(nint)pObject + 1;
-        }
-
-        public static unsafe class ValveCaller
-        {
-            public static SourceSharp.Abi.ManagedVtable Build(IWakeProbe target) => IWakeProbe__ManagedVtable.Create(new SourceSharp.Abi.ManagedVtables(), target);
-
-            private static nint Slot(nint self, int i) => ((nint*)((nint*)self)[0])[i];
-
-            public static void Wake(nint self, nint obj)
-                => ((delegate* unmanaged<void*, void*, void>)Slot(self, 0))((void*)self, (void*)obj);
-
-            public static int Sleep(nint self, nint obj)
-                => ((delegate* unmanaged<void*, void*, int>)Slot(self, 1))((void*)self, (void*)obj);
-        }
-        """;
-
-    [Fact]
-    public void AValveLayoutWithNoReleaseOrValidateIsAcceptedClean()
-        => Assert.Empty(Diagnostics(ValveLayout + ValveContract));
-
-    [Fact]
-    public void TheSameLayoutWithoutValveLayoutIsRefused()
-        => Assert.Contains("SSVT005", Diagnostics(
-            (ValveLayout + ValveContract).Replace(", ValveLayout = true", "")));
-
-    [Fact]
-    public void AValveLayoutWritesOnlyItsOwnSlots()
-    {
-        string written = Generated(ValveLayout + ValveContract);
-
-        Assert.Contains("public const int Entries = 2;", written);
-        Assert.Equal(2, written.Split("[global::System.Runtime.InteropServices.UnmanagedCallersOnly]").Length - 1);
-        Assert.DoesNotContain("ReleaseBlock", written);
-        Assert.DoesNotContain("ValidateSlots", written);
-    }
-
-    [Fact]
-    public unsafe void ACallThroughAValveTableLandsOnTheInstanceAtSlotZero()
-    {
-        var (compilation, _) = Drive(ValveLayout + ValveContract + ValveImplementation);
-        using var stream = new MemoryStream();
-        var emitted = compilation.Emit(stream);
-        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics
-            .Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString())));
-
-        var assembly = System.Reflection.Assembly.Load(stream.ToArray());
-        Type caller = assembly.GetType("ValveCaller")!;
-        object probe = Activator.CreateInstance(assembly.GetType("WakeProbe")!)!;
-        var vtable = (ManagedVtable)caller.GetMethod("Build")!.Invoke(null, [probe])!;
-
-        Assert.Equal(2, vtable.Entries);
-        caller.GetMethod("Wake")!.Invoke(null, [(nint)vtable.Pointer, (nint)0x1234]);
-        Assert.Equal((nint)0x1234, (nint)probe.GetType().GetField("Woken")!.GetValue(probe)!);
-        Assert.Equal(8, (int)caller.GetMethod("Sleep")!.Invoke(null, [(nint)vtable.Pointer, (nint)7])!);
-
-        // No Release slot: managed frees the block itself, once.
-        Assert.True(vtable.Release());
-        Assert.True(vtable.Released);
-    }
-
     // ---- Every thunk at its field's index ------------------------------------
     //
-    // tools/vtable-layout emits no table MSVC orders differently, so a slot's
-    // index is its field position on both ABIs.
+    // Every table managed builds is its own (Release and Validate first, then
+    // the TSV's slots), and native calls it through a C struct of the same
+    // order, so a slot's index is its field position on both ABIs.
 
     [Fact]
     public void ALayoutWritesEachThunkAtItsFieldIndex()
     {
-        string written = Generated(ValveLayout + ValveContract);
+        string written = Generated(Good);
         string[] lines = written.Split('\n').Select(l => l.Trim()).ToArray();
 
-        Assert.Single(lines, l => l.StartsWith("slots[0] = ", StringComparison.Ordinal) && l.EndsWith("&ObjectWake;", StringComparison.Ordinal));
-        Assert.Single(lines, l => l.StartsWith("slots[1] = ", StringComparison.Ordinal) && l.EndsWith("&ObjectSleep;", StringComparison.Ordinal));
+        Assert.Single(lines, l => l.StartsWith("slots[2] = ", StringComparison.Ordinal) && l.EndsWith("&Add;", StringComparison.Ordinal));
+        Assert.Single(lines, l => l.StartsWith("slots[3] = ", StringComparison.Ordinal) && l.EndsWith("&Name;", StringComparison.Ordinal));
         Assert.DoesNotContain("IsWindows", written);
     }
 
-    // A Valve class with data after its vptr (CCallbackBase): the layout's
-    // ReservedWords reaches the block, and a call through the table still lands.
+    // A table whose block reserves words after word 0 (the vphysics callbacks,
+    // whose native object libss_fwd builds there, plan_forwarders_everywhere.md
+    // phase 5): the layout's ReservedWords reaches the block, and a call
+    // through the table still lands.
+    private static string Reserved(string source)
+        => source.Replace("[ImplementedByManaged(\"IProbe\")]", "[ImplementedByManaged(\"IProbe\", ReservedWords = 2)]");
+
     [Fact]
     public void AReservedLayoutCarriesItsCountAndANamedInstanceCreate()
     {
-        string written = Generated((ValveLayout + ValveContract).Replace("ValveLayout = true)", "ValveLayout = true, ReservedWords = 1)"));
+        string written = Generated(Reserved(Good));
 
-        Assert.Contains("public const int ReservedWords = 1;", written);
+        Assert.Contains("public const int ReservedWords = 2;", written);
         Assert.Contains("target, string? instance)", written);
     }
 
     [Fact]
-    public unsafe void ACallThroughAReservedValveTableLandsOnTheInstance()
+    public unsafe void ACallThroughAReservedTableLandsOnTheInstance()
     {
-        var (compilation, _) = Drive((ValveLayout + ValveContract + ValveImplementation)
-            .Replace("ValveLayout = true)", "ValveLayout = true, ReservedWords = 1)"));
+        var (compilation, _) = Drive(Reserved(Good + Implementation));
         using var stream = new MemoryStream();
         var emitted = compilation.Emit(stream);
         Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics
             .Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString())));
 
         var assembly = System.Reflection.Assembly.Load(stream.ToArray());
-        Type caller = assembly.GetType("ValveCaller")!;
-        object probe = Activator.CreateInstance(assembly.GetType("WakeProbe")!)!;
+        Type caller = assembly.GetType("NativeCaller")!;
+        object probe = Activator.CreateInstance(assembly.GetType("Probe")!)!;
         var vtable = (ManagedVtable)caller.GetMethod("Build")!.Invoke(null, [probe])!;
 
-        Assert.Equal(1, vtable.ReservedWords);
-        Assert.Equal((nint)((nint*)vtable.Pointer + 1 + 1 + 3), ((nint*)vtable.Pointer)[0]);
-        caller.GetMethod("Wake")!.Invoke(null, [(nint)vtable.Pointer, (nint)0x4321]);
-        Assert.Equal((nint)0x4321, (nint)probe.GetType().GetField("Woken")!.GetValue(probe)!);
+        Assert.Equal(2, vtable.ReservedWords);
+        // Word 0 points past the two reserved words and the block's header.
+        Assert.Equal((nint)((nint*)vtable.Pointer + 1 + 2 + 3), ((nint*)vtable.Pointer)[0]);
+        Assert.Equal(42, (int)caller.GetMethod("Add")!.Invoke(null, [(nint)vtable.Pointer, 2])!);
         Assert.True(vtable.Release());
     }
 

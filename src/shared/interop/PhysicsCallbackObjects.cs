@@ -14,7 +14,7 @@ namespace SourceSharp.Abi;
 /// which the registry zeroes once and never writes again, a reload included;
 /// the object is built there, over the block. So vphysics' pointer stays good
 /// across a managed reload, which patches the block in place, and the object
-/// is freed with the block (<see cref="ManagedVtables.ReleaseValveHeld"/>), when
+/// is freed with the block (<see cref="ManagedVtables.ReleaseCallerHeld"/>), when
 /// native has let go of the side. Building it again over a patched block writes
 /// the same two words.
 /// </para>

@@ -2842,7 +2842,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // vphysics' handlers never release their tables, so managed frees
         // them at the final unload (native has released the root by then);
         // a reload keeps both with the root.
-        _vtables?.ReleaseValveHeld(_managedRoot, _physicsObjectEvents, _physicsCollisionEvents, _physicsCollisionSolver,
+        _vtables?.ReleaseCallerHeld(_managedRoot, _physicsObjectEvents, _physicsCollisionEvents, _physicsCollisionSolver,
                                    _physicsConstraintEvents, _physicsMotionEvents, _solidKeys);
         _solidKeys = null;
         _physicsWorld = null;
