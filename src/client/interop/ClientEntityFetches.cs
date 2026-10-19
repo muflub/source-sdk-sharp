@@ -99,19 +99,19 @@ public static class ClientEntityFetches
 
         // IEffects' FX_* routines and SuppressTE's two answers (cluster 3),
         // for the managed ClientEffects; one object over the slots serves both.
-        var fx = new ClientFxSlots(engine.Api);
+        var fx = new ClientFxSlots(engine.Api.ClientShimsOrNull?.FxClient);
         services.AddInstance<IFxSuppression>(fx);
         services.AddInstance<IFxImpactOverlay>(fx);
 
         // The client-side effect list's carry-out (cluster 3).
-        services.AddInstance<IFxRender>(new ClientFxRenderSlots(engine.Api));
-        services.AddInstance<IFxSpriteGlow>(new ClientFxSpriteGlowSlots(engine.Api));
-        services.AddInstance<IFxSpriteDraw>(new ClientFxSpriteDrawSlots(engine.Api));
-        services.AddInstance<IFxPrecache>(new ClientFxPrecacheSlots(engine.Api));
+        services.AddInstance<IFxRender>(new ClientFxRenderSlots(engine.Api.ClientShimsOrNull?.FxClient));
+        services.AddInstance<IFxSpriteGlow>(new ClientFxSpriteGlowSlots(engine.Api.ClientShimsOrNull?.FxClient));
+        services.AddInstance<IFxSpriteDraw>(new ClientFxSpriteDrawSlots(engine.Api.ClientShimsOrNull?.FxClient));
+        services.AddInstance<IFxPrecache>(new ClientFxPrecacheSlots(engine.Api.ClientShimsOrNull?.FxClient));
 
         // The client soundscape system's executors (sound cluster 17).
         services.AddInstance<ISoundscapeAudio>(new SoundscapeAudioSlots(engine.Api));
-        var emitters = new ClientFxEmitterSlots(engine.Api);
+        var emitters = new ClientFxEmitterSlots(engine.Api.ClientShimsOrNull?.FxClient);
         services.AddInstance<IFxFlashReads>(emitters);
         services.AddInstance<IFxGameSounds>(emitters);
         services.AddInstance<IFxTempEntModels>(emitters);

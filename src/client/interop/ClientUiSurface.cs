@@ -9,7 +9,8 @@ internal sealed unsafe class ClientUiSurface(UiClientArea? uiClient) : IUiSurfac
 {
     // The shim areas this calls, taken by constructor (plan_shim_areas_split
     // phase 5). Null on a client that never attached (an unattached engine
-    // double); a call then throws, as the side's attach guard did.
+    // double): a guarded call answers its default and any other throws, as
+    // they did through the side's attach guard.
     private UiClientArea UiClient => uiClient ?? throw ShimAreaGuard.NotAttached(nameof(UiClient));
 
     public void FilledRect(int x0, int y0, int x1, int y1, uint rgba)

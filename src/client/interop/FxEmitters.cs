@@ -78,8 +78,14 @@ public interface IFxEmitters
 }
 
 /// <summary>The muzzle flashes', the bounce sounds' and the named tempents' carry-out, over IShimFxClient's slots.</summary>
-internal sealed unsafe class ClientFxEmitterSlots(EngineSide api) : IFxFlashReads, IFxGameSounds, IFxTempEntModels
+internal sealed unsafe class ClientFxEmitterSlots(FxClientArea? fxClient) : IFxFlashReads, IFxGameSounds, IFxTempEntModels
 {
+    // The shim areas this calls, taken by constructor (plan_shim_areas_split
+    // phase 5). Null on a client that never attached (an unattached engine
+    // double): a guarded call answers its default and any other throws, as
+    // they did through the side's attach guard.
+    private FxClientArea FxClient => fxClient ?? throw ShimAreaGuard.NotAttached(nameof(FxClient));
+
     private static byte[] Utf8(string s) => System.Text.Encoding.UTF8.GetBytes(s + "\0");
 
     private static void Six(float* v, out Vector origin, out QAngle angles)
@@ -98,46 +104,46 @@ internal sealed unsafe class ClientFxEmitterSlots(EngineSide api) : IFxFlashRead
     {
         origin = default;
         angles = default;
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return false;
         float* v = stackalloc float[6];
-        if (api.ClientShims.FxRenderableAttachment(handle, attachment, v) == 0)
+        if (FxClient.FxRenderableAttachment(handle, attachment, v) == 0)
             return false;
         Six(v, out origin, out angles);
         return true;
     }
 
-    public int EntityIndex(uint handle) => api.ClientAttached ? api.ClientShims.FxHandleEntityIndex(handle) : -1;
+    public int EntityIndex(uint handle) => (fxClient is not null) ? FxClient.FxHandleEntityIndex(handle) : -1;
 
     public void Elight(int key, in Vector origin, byte r, byte g, byte b, sbyte exponent, float radius, float decay, float die)
     {
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return;
         float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
-        api.ClientShims.FxElight(key, o, r, g, b, exponent, radius, decay, die);
+        FxClient.FxElight(key, o, r, g, b, exponent, radius, decay, die);
     }
 
     public Vector VectorRandom(float lo, float hi)
     {
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return default;
         float* v = stackalloc float[3];
-        api.ClientShims.FxVectorRandom(lo, hi, v);
+        FxClient.FxVectorRandom(lo, hi, v);
         return new Vector(v[0], v[1], v[2]);
     }
 
-    public int MaterialsCached() => api.ClientAttached ? api.ClientShims.FxMaterialsCached() : 0;
+    public int MaterialsCached() => (fxClient is not null) ? FxClient.FxMaterialsCached() : 0;
 
     public bool Parameters(string script, out GameSoundParams parameters)
     {
         parameters = default;
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return false;
         float* v = stackalloc float[6];
         byte* wave = stackalloc byte[260];
         int ok;
         fixed (byte* s = Utf8(script))
-            ok = api.ClientShims.FxSoundParameters(s, v, wave, 260);
+            ok = FxClient.FxSoundParameters(s, v, wave, 260);
         if (ok == 0)
             return false;
         parameters = new GameSoundParams(new string((sbyte*)wave), v[0], (int)v[1], (int)v[2], (int)v[3], (int)v[4], (int)v[5]);
@@ -146,36 +152,36 @@ internal sealed unsafe class ClientFxEmitterSlots(EngineSide api) : IFxFlashRead
 
     public void EmitAtPosition(in GameSoundParams p, float volume, int pitch, in Vector origin)
     {
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return;
         float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
         fixed (byte* w = Utf8(p.Wave))
-            api.ClientShims.FxEmitWorldSound(w, p.Channel, volume, p.SoundLevel, pitch, o);
+            FxClient.FxEmitWorldSound(w, p.Channel, volume, p.SoundLevel, pitch, o);
     }
 
     public bool CreateNamed(int slot, in Vector origin, string model, int priority)
     {
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return false;
         float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
         fixed (byte* m = Utf8(model))
-            return api.ClientShims.FxTempEntCreateNamed(slot, o, m, priority) != 0;
+            return FxClient.FxTempEntCreateNamed(slot, o, m, priority) != 0;
     }
 
     public void LoadModel(string model)
     {
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return;
         fixed (byte* m = Utf8(model))
-            api.ClientShims.FxLoadModel(m);
+            FxClient.FxLoadModel(m);
     }
 
     public int FrameCount(string model)
     {
-        if (!api.ClientAttached)
+        if (fxClient is null)
             return -1;
         fixed (byte* m = Utf8(model))
-            return api.ClientShims.FxModelFrameCount(m);
+            return FxClient.FxModelFrameCount(m);
     }
 }
 
