@@ -74,35 +74,14 @@ namespace
 // column here would be a claim the test could not check and would rot. The
 // grouping lives in the doc, where its evidence is.
 //-----------------------------------------------------------------------------
-const char *const kInertSlots[] =
-{
-	"SourceSharp_AddPlayerScore",               // (c) GameScore.cs
-	"SourceSharp_EntityDetectInSkybox",         // (c) EnvSmokeStack.cs
-	"SourceSharp_EntityGetArmor",               // (c) ServerModule.cs, ItemBattery.cs
-	"SourceSharp_EntitySetArmor",               // (c) ServerModule.cs, ItemSuitCharger.cs
-	"SourceSharp_EntitySetForceServerRagdoll",  // (c) TriggerServerRagdoll.cs
-	"SourceSharp_EntitySetFriction",            // (c) FuncFriction.cs, SsGib.cs
-	"SourceSharp_EntitySetTakeDamageMode",      // (c) TriggerCamera.cs
-	"SourceSharp_GetPlayerActiveWeapon",        // (b) ArsenalPlayers.GetActiveWeapon
-	"SourceSharp_GivePlayerAmmo",               // (b) ArsenalPlayers.GiveAmmo
-	"SourceSharp_GivePlayerItem",               // (b) ArsenalPlayers.GiveItem
-	"SourceSharp_PlayerDeployLastWeapon",       // (c) PlayerSpeedMod.cs
-	"SourceSharp_PlayerDropActiveWeapon",       // (b) ArsenalPlayers.DropActiveWeapon
-	"SourceSharp_PlayerForceButtons",           // (c) TriggerPlayerMovement.cs
-	"SourceSharp_PlayerGetActiveWeaponEntity",  // (c) TriggerCamera.cs, WeaponInventory.cs
-	"SourceSharp_PlayerGetButtons",             // (c) TriggerCamera.cs
-	"SourceSharp_PlayerGetViewModelEntity",     // (c) Commands.cs
-	"SourceSharp_PlayerGetWeaponEntity",        // (c) WeaponInventory.cs
-	"SourceSharp_PlayerHolsterActiveWeapon",    // (c) PlayerSpeedMod.cs
-	"SourceSharp_PlayerRemoveAllItems",         // (b) ArsenalPlayers.RemoveAllItems
-	"SourceSharp_PlayerSetAllowAutoMovement",   // (c) TriggerPlayerMovement.cs
-	"SourceSharp_PlayerSetButtonsDisabled",     // (c) PlayerSpeedMod.cs
-	"SourceSharp_PlayerSetFrozen",              // (c) TriggerCamera.cs
-	"SourceSharp_PlayerSetLaggedMovement",      // (c) PlayerSpeedMod.cs
-	"SourceSharp_PlayerSetMovementConstraint",  // (c) PointPlayerMoveConstraint.cs
-};
+// EMPTY SINCE plan_server_native_v2 T2 (2026-10-18): every recorded stub was
+// deleted with its slot, and its constant or no-op moved into EngineBinding
+// with a comment naming the gap (docs/todo.md lists them). The derived set
+// must now be empty too, so a body emptied from here on fails
+// TheLedgerIsExactlyTheDerivedSet until it is argued for and recorded.
+const std::vector< const char * > kInertSlots = {};
 
-const size_t kNumInertSlots = sizeof( kInertSlots ) / sizeof( kInertSlots[0] );
+const size_t kNumInertSlots = kInertSlots.size();
 
 //-----------------------------------------------------------------------------
 // The three with no managed caller at all, retired at the ABI in this lane.
@@ -117,6 +96,33 @@ const char *const kRetiredSlots[] =
 	"SourceSharp_GetPlayerWeaponAmmo",
 	"SourceSharp_SetPlayerWeaponClip",
 	"SourceSharp_TakePlayerAmmo",
+	// plan_server_native_v2 T2: eleven whose bodies were constants. The
+	// constants are EngineBinding's EnginePlayers now, each with its gap.
+	"SourceSharp_AddPlayerScore",
+	"SourceSharp_GetPlayerActiveWeapon",
+	"SourceSharp_GivePlayerAmmo",
+	"SourceSharp_GivePlayerItem",
+	"SourceSharp_PlayerDeployLastWeapon",
+	"SourceSharp_PlayerDropActiveWeapon",
+	"SourceSharp_PlayerGetActiveWeaponEntity",
+	"SourceSharp_PlayerGetViewModelEntity",
+	"SourceSharp_PlayerGetWeaponEntity",
+	"SourceSharp_PlayerHolsterActiveWeapon",
+	"SourceSharp_PlayerRemoveAllItems",
+	// ...and the movement and entity ones whose bodies were empty or constant.
+	"SourceSharp_PlayerSetLaggedMovement",
+	"SourceSharp_PlayerSetButtonsDisabled",
+	"SourceSharp_PlayerForceButtons",
+	"SourceSharp_PlayerSetAllowAutoMovement",
+	"SourceSharp_PlayerSetMovementConstraint",
+	"SourceSharp_PlayerSetFrozen",
+	"SourceSharp_PlayerGetButtons",
+	"SourceSharp_EntitySetForceServerRagdoll",
+	"SourceSharp_EntityGetArmor",
+	"SourceSharp_EntitySetArmor",
+	"SourceSharp_EntitySetFriction",
+	"SourceSharp_EntitySetTakeDamageMode",
+	"SourceSharp_EntityDetectInSkybox",
 };
 
 const size_t kNumRetiredSlots = sizeof( kRetiredSlots ) / sizeof( kRetiredSlots[0] );
@@ -429,10 +435,18 @@ TEST( EntityShellInertSlots, ABodyThatReachesOutIsNotCalledAStub )
 
 TEST( EntityShellInertSlots, AStubIsRecognisedAsOne )
 {
-	const std::string code = StripComments( EntityApiSource() );
-	const std::string body = FunctionBody( code, "SourceSharp_PlayerSetLaggedMovement" );
+	// A FIXTURE, since plan_server_native_v2 T2 deleted the last real stub
+	// (PlayerSetLaggedMovement was this check's subject). The text is the shape
+	// those bodies had: arguments named and ignored, a constant returned.
+	const std::string code = StripComments(
+		"int32_t SourceSharp_FixtureStub( uint32_t hPlayer, int32_t nValue )\n"
+		"{\n"
+		"\t(void)hPlayer;\n"
+		"\treturn 0;\n"
+		"}\n" );
+	const std::string body = FunctionBody( code, "SourceSharp_FixtureStub" );
 
-	ASSERT_FALSE( body.empty() ) << "SourceSharp_PlayerSetLaggedMovement is gone.";
+	ASSERT_FALSE( body.empty() ) << "the definition finder did not find the fixture.";
 	EXPECT_FALSE( BodyReachesOut( body ) )
 		<< "the classifier reads an empty body as reaching out.";
 }

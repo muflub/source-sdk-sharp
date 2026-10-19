@@ -59,6 +59,23 @@ int _V_wcslen( const char *, int, const wchar_t *pwch )
 	return (int)wcslen( pwch );
 }
 
+// _V_strcmp and V_strncpy were tier1_port.cpp's until plan_server_native_v2 T2:
+// server.so stopped calling them, so they are client-only now (ruling
+// 2026-10-12). strncpy's semantics kept: the rest is zero-filled, then the last
+// byte is always the terminator.
+int _V_strcmp( const char *, int, const char *s1, const char *s2 )
+{
+	return strcmp( s1, s2 );
+}
+
+void V_strncpy( char *pDest, const char *pSrc, int maxLen )
+{
+	if ( maxLen <= 0 )
+		return;
+	strncpy( pDest, pSrc, maxLen );
+	pDest[ maxLen - 1 ] = 0;
+}
+
 int V_strncmp( const char *s1, const char *s2, int count )
 {
 	return ss::StrNCmp( s1, s2, count );

@@ -198,81 +198,12 @@ TEST( ServerWave3, PlayerInfoManagerIsOutOfTheBuild )
 		<< "which is the only way that claim means anything.";
 }
 
-//-----------------------------------------------------------------------------
-// plugin_check.cpp: the same macro, the opposite answer.
-//-----------------------------------------------------------------------------
-TEST( ServerWave3, PluginCheckStaysBecauseTheEngineActuallyAsksForIt )
-{
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kServerProofOfRead ) )
-		<< "the reader is not reading server_sourcesharp's source list";
-
-	EXPECT_TRUE( ServerCompiles( "plugin_check.cpp" ) )
-		<< "plugin_check.cpp has left the server build. It has zero nm "
-		<< "consumers, exactly like playerinfomanager.cpp, and the two must "
-		<< "NOT be treated alike: PluginHelpersCheck001 is present in "
-		<< "engine.so. The engine really does ask for this one, and a "
-		<< "published interface that stops being published fails like a null "
-		<< "vtable, not like a link error.";
-
-	// Publishing by NAME is the whole reason nm cannot see the consumer: once
-	// an EXPOSE_ macro, now its row in server.so's factory table
-	// (shell_factory.h), which the engine reaches through CreateInterface.
-	//
-	// READ AT THE sourcesharp PATH since item B6. Section 13's ruling was
-	// "stay and RELOCATE" and only the first half had landed; the file spent
-	// three plans under game/server/. This read is what caught the move when it
-	// finally happened -- it went RED on the old path, by name, which is the
-	// behaviour a path pinned in a test is for.
-	const std::string pc = Tight( "sourcesharp/game/server/plugin_check.cpp",
-	                              "const SourceSharpExposed kExposePluginHelpersCheck" );
-	EXPECT_NE( pc.find( "constSourceSharpExposedkExposePluginHelpersCheck={INTERFACEVERSION_PLUGINHELPERSCHECK," ),
-	           std::string::npos )
-		<< "plugin_check.cpp no longer publishes anything through "
-		<< "CreateInterface, so the reasoning above no longer describes it.";
-}
-
-//-----------------------------------------------------------------------------
-// ...and the second half of that ruling: RELOCATE.
-//
-// Section 13 said the 30 lines "stay and relocate", which is exit RELOCATE from
-// section 3: a file that cannot be C# still has to leave the stock tree, so
-// that "only sourcesharp files are compiled" can eventually be true. The
-// translation unit is unchanged and so is the link graph; what falls is the
-// count of compiled files OUTSIDE sourcesharp/.
-//
-// Two separate facts, because the two ways to get a relocation wrong are a move
-// with no build-list edit (the server stops publishing PluginHelpersCheck001)
-// and a build-list edit with no move (it does not build at all).
-//-----------------------------------------------------------------------------
-TEST( ServerWave3, PluginCheckHasRelocatedOutOfTheStockTree )
-{
-	// The file is at the new path...
-	const std::string moved = Tight( "sourcesharp/game/server/plugin_check.cpp",
-	                                 "CPluginHelpersCheck" );
-	EXPECT_NE( moved.find( "CPluginHelpersCheck" ), std::string::npos )
-		<< "sourcesharp/game/server/plugin_check.cpp is missing or does not "
-		<< "define CPluginHelpersCheck.";
-
-	// ...and NOT at the old one. A copy left behind is two translation units
-	// defining the same interface, which links by luck and publishes whichever
-	// one the linker reached first.
-	std::ifstream old( ( std::string( SrcRoot() ? SrcRoot() : "." )
-	                     + "/game/server/plugin_check.cpp" ).c_str() );
-	EXPECT_FALSE( old.is_open() )
-		<< "game/server/plugin_check.cpp is still there. A relocation that "
-		<< "leaves the original is two definitions of one published interface.";
-
-	// And the server compiles the new path specifically, not just the
-	// basename -- ServerCompiles above is satisfied by any directory, so it
-	// cannot tell a relocation from a file that never moved.
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/plugin_check.cpp" ) )
-		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not "
-		<< "compile the relocated path, so either the move or the list row is "
-		<< "missing.";
-	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, "game/server/plugin_check.cpp" ) )
-		<< "server_sourcesharp still compiles the old game/server path as "
-		<< "well, so the file is claimed twice.";
-}
+// plugin_check.cpp's two facts went with the file (plan_server_native_min P1,
+// Decision 1: third-party plugins are dropped, user ruling 2026-10-11). The
+// risk they guarded -- engine.so carries the PluginHelpersCheck001 string and
+// asks for it -- is recorded in docs/server_evictions.md and engine-boundary.md
+// section 6; the deletion is the ruling, not an oversight, and the headless
+// start is the check that the engine tolerates the NULL.
 
 //-----------------------------------------------------------------------------
 // randoverride.cpp: zero consumers because LIBC WOULD ANSWER INSTEAD.

@@ -66,11 +66,10 @@ class IEngineSound;
 extern CGlobalVars *gpGlobals;
 extern IEngineSound *enginesound;
 extern IFileSystem *filesystem;
-// util_shared_library.cpp
-const char *GetCleanMapName( const char *pszUnCleanMapName, char (&pszTmp)[256] );
-// shell_sentences.cpp
-int SENTENCEG_Lookup( const char *sample );
 #endif
+// Each DLL's own: the server's is shell_sentences.cpp; the client's (the
+// engine's sentence index) client_util_library.cpp since plan_server_native_v2 T2.
+int SENTENCEG_Lookup( const char *sample );
 #include <ctype.h>
 #include <KeyValues.h>
 #include "engine/IEngineSound.h"
@@ -104,19 +103,7 @@ static void KeepEngineOrigins( const ss::EngineFilledUtlVector< Vector > &origin
 #include "util_shared.h"
 #endif
 
-// NVNT haptic utils
-#include "haptics/haptic_utils.h"
 
-#if defined( WIN32 )
-// What stock's HapticProcessSound does in this build: the server's stock body
-// is empty, and the client's passes the sound to the Novint device through
-// haptics.dll, which the SDK's bin/x64 does not ship (with no device stock
-// runs a stub that does nothing, and Linux never had one). So nothing, on
-// both sides; the call site above is stock's.
-void HapticProcessSound( const char *, int )
-{
-}
-#endif
 
 #ifdef CLIENT_DLL
 #include <vgui_controls/Controls.h>
@@ -140,6 +127,11 @@ void HapticProcessSound( const char *, int )
 #include <set>
 #include <string>
 #include "ss_string.h"
+
+// The client's caption arm below unescapes "\\n" in a caption token with
+// this; it lives in client_util_library.cpp since plan_server_native_v2 T2,
+// because the server never calls it.
+void Hack_FixEscapeChars( char *str );
 
 // The server's recipient filters are server.so's own (ss_recipient_filter.h,
 // plan_server_novalve.md P5); the client spells its base C_RecipientFilter
@@ -188,39 +180,6 @@ void WaveTrace( char const *wavname, char const *funcname )
 		DevMsg( "%s directly referenced wave %s (should use game_sounds.txt system instead)\n", 
 			funcname, wavname );
 	}
-}
-
-void Hack_FixEscapeChars( char *str )
-{
-	int len = (int)strlen( str ) + 1;
-	char *i = str;
-	char *o = (char *)_alloca( len );
-	char *osave = o;
-	while ( *i )
-	{
-		if ( *i == '\\' )
-		{
-			switch (  *( i + 1 ) )
-			{
-			case 'n':
-				*o = '\n';
-				++i;
-				break;
-			default:
-				*o = *i;
-				break;
-			}
-		}
-		else
-		{
-			*o = *i;
-		}
-
-		++i;
-		++o;
-	}
-	*o = 0;
-	ss::StrCopy( str, osave, len );
 }
 
 //-----------------------------------------------------------------------------
@@ -333,10 +292,6 @@ public:
 		soundemitterbase->ModShutdown();
 	}
 
-	void ReloadSoundEntriesInList( IFileList *pFilesToReload )
-	{
-		soundemitterbase->ReloadSoundEntriesInList( pFilesToReload );
-	}
 
 	virtual void TraceEmitSound( char const *fmt, ... )
 	{
@@ -380,8 +335,11 @@ public:
 		ss::FixSlashes( mapname );
 		ss::StrLower( mapname );
 
-		char maptmp[256];
-		const char *pszCleanMapName = GetCleanMapName( mapname, maptmp );
+		// GetCleanMapName went (plan_server_native_min P1): an identity
+		// function (its TF arms were deleted before the move); the name is
+		// already clean, and the buffer that was its out-parameter goes with
+		// it.
+		const char *pszCleanMapName = mapname;
 
 		// Load in any map specific overrides
 		char scriptfile[ 512 ];
@@ -688,14 +646,9 @@ public:
 		{
 			EmitCloseCaption( filter, entindex, params, ep );
 		}
-#if defined( WIN32 )
-		// NVNT notify the haptics system of this sound. The `&& !defined(_X360)`
-		// half of stock's guard is gone: that hardware is not a target of this
-		// tree and a shim file may not carry a conditional the build can never
-		// satisfy. WIN32 stays -- it is the allowlisted portability guard, and
-		// a Windows configuration of this same tree really does take this arm.
-		HapticProcessSound(ep.m_pSoundName, entindex);
-#endif
+		// NVNT's HapticProcessSound stood here, under WIN32, and went in
+		// plan_server_native_v2 T2: its body was empty on both sides (the
+		// Novint haptics.dll is not shipped, and Linux never had one).
 	}
 
 	void EmitSound( IRecipientFilter& filter, int entindex, const GameSoundParams_t & ep )
@@ -1098,12 +1051,6 @@ CServerSystem *SoundEmitterSystem()
 	return &g_SoundEmitterSystem;
 }
 
-#if defined( CLIENT_DLL )
-void ReloadSoundEntriesInList( IFileList *pFilesToReload )
-{
-	g_SoundEmitterSystem.ReloadSoundEntriesInList( pFilesToReload );
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // THE DEVELOPER CONSOLE COMMANDS ARE GONE -- plan_shim.md §5 3f, lane 3f.
@@ -1161,29 +1108,6 @@ void GameSound_Emit( IRecipientFilter& filter, int iEntIndex, const char *soundn
 
 	GameSound_Emit( filter, iEntIndex, params, params.m_hSoundScriptHandle );
 }
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : filter - 
-//			iEntIndex - 
-//			*soundname - 
-//			*pOrigin - 
-//-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-void GameSound_Emit( IRecipientFilter& filter, int iEntIndex, const char *soundname, HSOUNDSCRIPTHANDLE& handle, const Vector *pOrigin /*= NULL*/, float soundtime /*= 0.0f*/, float *duration /*=NULL*/ )
-{
-
-	//VPROF( "CBaseEntity::EmitSound" );
-	GameSoundParams_t params;
-	params.m_pSoundName = soundname;
-	params.m_flSoundTime = soundtime;
-	params.m_pOrigin = pOrigin;
-	params.m_pflSoundDuration = duration;
-	params.m_bWarnOnDirectWaveReference = true;
-
-	GameSound_Emit( filter, iEntIndex, params, handle );
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -1270,13 +1194,6 @@ void GameSound_Stop( int iEntIndex, int iChannel, const char *pSample )
 {
 	g_SoundEmitterSystem.StopSound( iEntIndex, iChannel, pSample );
 }
-// HACK HACK:  Do we need to pull the entire SENTENCEG_* wrapper over to the client .dll?
-#if defined( CLIENT_DLL )
-int SENTENCEG_Lookup(const char *sample)
-{
-	return engine->SentenceIndexFromName( sample + 1 );
-}
-#endif
 
 void UTIL_EmitAmbientSound( int entindex, const Vector &vecOrigin, const char *samp, float vol, soundlevel_t soundlevel, int fFlags, int pitch, float soundtime /*= 0.0f*/, float *duration /*=NULL*/ )
 {
@@ -1336,15 +1253,6 @@ bool GameSound_GetParameters( const char *soundname, CSoundParameters &params, c
 	return soundemitterbase->GetParametersForSound( soundname, params, gender );
 }
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-bool GameSound_GetParameters( const char *soundname, HSOUNDSCRIPTHANDLE& handle, CSoundParameters &params, const char *actormodel )
-{
-	gender_t gender = soundemitterbase->GetActorGender( actormodel );
-	
-	return soundemitterbase->GetParametersForSoundEx( soundname, handle, params, gender );
-}
-#endif
-
 HSOUNDSCRIPTHANDLE GameSound_PrecacheScript( const char *soundname )
 {
 #if !defined( CLIENT_DLL )
@@ -1396,15 +1304,4 @@ bool GameSound_Precache( const char *name )
 	bool bret = enginesound->PrecacheSound( name, true );
 	return bret;
 }
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-// Input  : *name - 
-//-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-void GameSound_Prefetch( const char *name )
-{
-	 enginesound->PrefetchSound( name );
-}
-#endif
 

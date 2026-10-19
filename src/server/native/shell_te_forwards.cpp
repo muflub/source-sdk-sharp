@@ -94,17 +94,6 @@ extern INetworkStringTable *g_pStringTableEffectDispatch;
 #include "ss_string.h"
 
 
-// te_bubbletrail.cpp's own enum, which leaves with the file. It is not a wire
-// width -- the prop is a literal 8 in the table and in TeBubbleTrail.cs -- it is
-// the CLAMP TE_BubbleTrail applies before writing, and the clamp is behaviour
-// that has to travel with the forward or a count of 300 becomes a count of 44.
-// (moved verbatim from shell_te_fwd_d.cpp)
-enum
-{
-	BUBBLE_TRAIL_COUNT_BITS = 8,
-	BUBBLE_TRAIL_MAX_COUNT  = ( ( 1 << BUBBLE_TRAIL_COUNT_BITS ) - 1 ),
-};
-
 //-----------------------------------------------------------------------------
 // moved verbatim from shell_te_fwd_s4.cpp
 //-----------------------------------------------------------------------------
@@ -677,8 +666,6 @@ void TE_WorldDecal( IRecipientFilter& filter, float delay,
 // (moved verbatim from shell_te_fwd_s4.cpp)
 static void DispatchEffect( const char *pName, const ss::CEffectData &data, ss::CRecipientFilter &filter )
 {
-	if ( SourceSharpTe_SuppressFilter( filter ) )
-		return;
 
 	TE_DispatchEffect( filter, 0.0, data.m_vOrigin, pName, data );
 }
@@ -769,8 +756,6 @@ public:
 	virtual void Smoke( const Vector &origin, int mModel, float flScale, float flFramerate )
 	{
 		ss::CPVSFilter filter( origin );
-		if ( SourceSharpTe_SuppressFilter( filter ) )
-			return;
 
 		// flScale * 0.1f is stock's, and it is the reason this is not a table
 		// of function pointers: three of the eight adjust an argument on the way
@@ -782,8 +767,6 @@ public:
 	                     const Vector *pvecDir = NULL )
 	{
 		ss::CPVSFilter filter( position );
-		if ( SourceSharpTe_SuppressFilter( filter ) )
-			return;
 
 		TE_Sparks( filter, 0.0, &position, nMagnitude, nTrailLength, pvecDir );
 	}
@@ -791,8 +774,6 @@ public:
 	virtual void Dust( const Vector &pos, const Vector &dir, float size, float speed )
 	{
 		ss::CPVSFilter filter( pos );
-		if ( SourceSharpTe_SuppressFilter( filter ) )
-			return;
 
 		TE_Dust( filter, 0.0, pos, dir, size, speed );
 	}
@@ -800,8 +781,6 @@ public:
 	virtual void MuzzleFlash( const Vector &origin, const QAngle &angles, float scale, int type )
 	{
 		ss::CPVSFilter filter( origin );
-		if ( SourceSharpTe_SuppressFilter( filter ) )
-			return;
 
 		TE_MuzzleFlash( filter, 0.0f, origin, angles, scale, type );
 	}
@@ -809,8 +788,6 @@ public:
 	virtual void MetalSparks( const Vector &position, const Vector &direction )
 	{
 		ss::CPVSFilter filter( position );
-		if ( SourceSharpTe_SuppressFilter( filter ) )
-			return;
 
 		TE_MetalSparks( filter, 0.0, &position, &direction );
 	}

@@ -26,6 +26,7 @@
 #include "standalone_netserial.h"
 #include "shell_world_nettable.h"
 #include "world_net_sync.h"
+#include "igameentity_fwd.h"
 
 //-----------------------------------------------------------------------------
 // CWorld IS A SHIM (plan_gamedll_after.md Part B2), and this is what that means.
@@ -411,8 +412,6 @@ public:
 
 	virtual int RequiredEdictIndex( void ) { return 0; }   // the world always needs to be in slot 0
 
-	static void RegisterSharedActivities( void );
-	static void RegisterSharedEvents( void );
 	virtual void Spawn( void );
 	virtual void Precache( void );
 	virtual bool KeyValue( const char *szKeyName, const char *szValue );
@@ -509,12 +508,9 @@ public:
 	// live since before this class changed.
 	virtual IGameEntity *GetBaseEntity() OVERRIDE { return NULL; }
 
-	// AND NOT THE PARALLEL HIERARCHY EITHER. This is the arm handle_cross.h's
-	// partition asks -- `GetGameEntity() != NULL` means "outside the SDK" --
-	// so answering NULL is what keeps the world out of the standalone arm as
-	// well as out of the SDK's. Both arms NULL is what "a third hierarchy"
-	// means when the partition is asked about it.
-	virtual IGameEntity *GetGameEntity() OVERRIDE { return NULL; }
+	// handle_cross.h's partition reads this same NULL as "not a standalone",
+	// which keeps the world out of that arm too: a third hierarchy is one
+	// that answers neither.
 
 	//=========================================================================
 	// IServerEntity

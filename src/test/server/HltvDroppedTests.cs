@@ -201,24 +201,11 @@ public sealed class HltvDroppedTests
         Assert.Contains("return false;", body);
     }
 
-    [Fact]
-    public void ThePlayerInfoHltvAndReplayFlagsAreStillAnswered()
-    {
-        // IPlayerInfo::IsHLTV and ::IsReplay are ALSO engine vtable slots, and
-        // the CPlayerState storage behind them is the only thing that keeps
-        // the engine's SourceTV and Replay servers from writing through a
-        // NULL. Dropping the feature does not make those two safe to remove.
-        string code = Code(Read("src/sourcesharp/game/server/shell_playerinfo.cpp"));
-
-        Assert.Contains("virtual bool IsHLTV() OVERRIDE", code);
-        Assert.Contains("virtual bool IsReplay() OVERRIDE", code);
-        Assert.Contains("pState->hltv", code);
-        Assert.Contains("pState->replay", code);
-    }
-
-    //=========================================================================
-    // 2. THE ABSENCE RATCHET.
-    //=========================================================================
+    // ThePlayerInfoHltvAndReplayFlagsAreStillAnswered went with
+    // shell_playerinfo.cpp (plan_server_native_min P1, Decision 1): no engine
+    // binary asks for PlayerInfoManager002, so the flags' reader is gone with
+    // the interface. CServerGameClients::GetPlayerState still writes
+    // player->hltv / player->replay (shell_gameclients.cpp).
 
     [Fact]
     public void TheReplayGlobalsDidNotComeBackToTheEngineBoundary()

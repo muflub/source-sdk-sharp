@@ -147,7 +147,6 @@
 // The parallel hierarchy's per-frame drive, declared where it is used rather
 // than given a header whose only reader would be this file -- the same shape
 // shell_standalone.cpp itself uses for it. Defined in shell_standalone_base.cpp.
-void StandaloneEntities_Update();
 void StandaloneEntities_Finish();
 
 // Declared exactly the way stock's GameFrame declares them -- as function-local
@@ -387,9 +386,9 @@ public:
 	//
 	// THE WORK ITSELF IS NATIVE AND STAYS NATIVE. RunAllQueuedCommands replays
 	// CUserCmds and saves and restores gpGlobals->curtime around them;
-	// StandaloneEntities_Update walks a CUtlVector of native shells and updates
-	// touch links, movement and flight; StandaloneEntities_Finish composes the
-	// attachment-parented children and drains the deferred deletes. This is the
+	// StandaloneEntities_Finish composes the attachment-parented children and
+	// drains the deferred deletes; the Update half went (P1, an empty body
+	// behind a slot the managed frame has never called). This is the
 	// floor the managed hierarchy stands on, not logic with a managed half.
 	//
 	// UPDATE AND FINISH ARE TWO AND NOT ONE, because the DUE THINKS run between
@@ -405,7 +404,8 @@ public:
 
 	virtual void StandaloneUpdate() OVERRIDE
 	{
-		StandaloneEntities_Update();
+		// StandaloneEntities_Update went (plan_server_native_min P1): an empty
+		// body behind a slot the managed frame has never called.
 	}
 
 	virtual void StandaloneFinish() OVERRIDE

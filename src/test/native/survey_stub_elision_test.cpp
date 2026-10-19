@@ -507,8 +507,8 @@ TEST( SurveyStubElision, TheSurveyStubAndTheClassItElidedAreBothGone )
 	// in P6; that is the stronger form of "no CBaseEntity class, no stub, no
 	// member definition, no GetContainingEntity in it". Anchored on a sibling
 	// the farm still links, so a reader that sees nothing cannot satisfy it.
-	ASSERT_FALSE( ReadStripped( "game/server/activator.h" ).empty() )
-		<< "game/server/activator.h is missing or unreadable, so the absence "
+	ASSERT_FALSE( ReadStripped( "game/shared/shareddefs.h" ).empty() )
+		<< "game/shared/shareddefs.h is missing or unreadable, so the absence "
 		   "below would be answered by a reader that sees nothing";
 	EXPECT_TRUE( ReadStripped( "game/server/baseentity.h" ).empty() )
 		<< "game/server/baseentity.h is readable from the farm again. The "

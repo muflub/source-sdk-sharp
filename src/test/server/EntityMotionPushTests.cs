@@ -827,23 +827,20 @@ public class EntityMotionPushTests
     }
 
     /// <summary>
-    /// The three retired ABI slots REFUSE OUT LOUD rather than moving nothing
-    /// in silence (LANE_BRIEF §7). A slot that quietly did nothing is
-    /// indistinguishable from a mover that ignored its input, which is the
-    /// failure this file's whole history is made of.
+    /// The three retired mover slots are GONE (plan_server_native_v2 T2): they
+    /// refused out loud while EntityMotion answered every caller through the
+    /// managed movers, so nothing reached them. What must stay true is that no
+    /// native stepper comes back for them.
     /// </summary>
     [Fact]
-    public void TheThreeRetiredMoverSlotsSaySoRatherThanDoingNothing()
+    public void TheThreeRetiredMoverSlotsAreGoneAndNoNativeStepperIsBack()
     {
         string code = CodeOf("src", "sourcesharp", "game", "server", "shell_scripted.cpp");
+        Assert.Contains("SourceSharp_", code);   // read the file, not nothing
 
-        Assert.Contains("SourceSharp_MoverSlotRetired", code);
-        Assert.Contains("EntityMoveToPosition", code);
-        Assert.Contains("EntityMoveToAngles", code);
-        Assert.Contains("EntityStopMoving", code);
-        Assert.Contains("Warning(", code);
-
-        // And they reach no stepper, because there is none to reach.
+        Assert.DoesNotContain("SourceSharp_EntityMoveToPosition(", code);
+        Assert.DoesNotContain("SourceSharp_EntityMoveToAngles(", code);
+        Assert.DoesNotContain("SourceSharp_EntityStopMoving(", code);
         Assert.DoesNotContain("pStandalone->MoveToPosition", code);
         Assert.DoesNotContain("pStandalone->StopMoving", code);
     }

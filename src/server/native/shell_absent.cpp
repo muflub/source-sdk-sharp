@@ -163,50 +163,10 @@ string_t g_iszFuncBrushClassname = NULL_STRING;
 // exactly the same nothing -- without dragging the job system in behind it.
 //=============================================================================
 
-// ai_basenpc.h's class, server.so's own: the same bases and members, without
-// the NPC query entry point (deleted in P5; nothing queued one).
-namespace ss
-{
-class CPostFrameNavigationHook : public CServerSystemPerFrame
-{
-public:
-	virtual const char *Name( void ) { return "CPostFrameNavigationHook"; }
-
-	virtual bool Init( void );
-	virtual void FrameUpdatePostEntityThink( void );
-	virtual void FrameUpdatePreEntityThink( void );
-
-private:
-	CUtlVector<CFunctor *>	m_Functors;
-	bool					m_bGameFrameRunning;
-};
-}
-using ss::CPostFrameNavigationHook;
-
-CPostFrameNavigationHook g_PostFrameNavigationHook;
-
-CServerSystem *PostFrameNavigationSystem( void )
-{
-	return &g_PostFrameNavigationHook;
-}
-
-bool CPostFrameNavigationHook::Init( void )
-{
-	m_Functors.Purge();
-	m_bGameFrameRunning = false;
-	return true;
-}
-
-void CPostFrameNavigationHook::FrameUpdatePreEntityThink( void )
-{
-	m_bGameFrameRunning = true;
-}
-
-void CPostFrameNavigationHook::FrameUpdatePostEntityThink( void )
-{
-	m_bGameFrameRunning = false;
-}
-
+// CPostFrameNavigationHook went (plan_server_native_min P1): its whole body
+// was a bool toggle nothing read (m_Functors never filled,
+// m_bGameFrameRunning never read); the kServerSystems[] row and its accessor
+// went with it. The SetPlayerSurface relay below is not part of the hook.
 
 //=============================================================================
 // THE LAST TENANTS OF THE MAP-ENTITY FILES (was shell_entity_orphans.cpp).
@@ -243,9 +203,9 @@ void ss::SetPlayerSurface( const CBaseHandle &hPlayer, char gameMaterial )
 // g_MessageEntities is an always-empty list; the managed point_message draws
 // through the debug-overlay path from C#, so there is nothing to sweep.
 //-----------------------------------------------------------------------------
-void DrawMessageEntities()
-{
-}
+// DrawMessageEntities went (plan_server_native_min P1): an empty body; the
+// managed point_message draws through the debug-overlay path from C#.
+
 
 //-----------------------------------------------------------------------------
 // GetCurrentSkyCamera IS GONE, AND IT IS THE SECOND HALF OF A PAIR --
@@ -262,31 +222,6 @@ void DrawMessageEntities()
 // So the answer did not change; the question stopped being asked. Nothing on
 // either link line names the symbol.
 //-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// The global RadiusDamage wrapper, from basecombatcharacter.cpp. Live:
-// env_explosion and EntityFlame's burn tick both reach it through
-// shell_worldquery.cpp, and both are real paths in this mod. Stock's body,
-// verbatim -- the rules method does the traversal, and a blast announces itself
-// to the sound ledger.
-//-----------------------------------------------------------------------------
-void RadiusDamage( const ss::CTakeDamageInfo &info, const Vector &vecSrc, float flRadius, int iClassIgnore, IGameEntity *pEntityIgnore, const IHandleEntity *pTraceIgnore )
-{
-	g_pGameRules->RadiusDamage( info, vecSrc, flRadius, iClassIgnore, pEntityIgnore, pTraceIgnore );
-
-	// Let the world know if this was an explosion.
-	if( info.GetDamageType() & ss::kDmgBlast )
-	{
-		// Even the tiniest explosion gets attention. Don't let the radius
-		// be less than 128 units.
-		float soundRadius = MAX( 128.0f, flRadius * 1.5 );
-
-		// GetInflictorHandle, not GetInflictor: InsertSound takes the identity
-		// now (soundent.h), and the entity pointer never enters the expression.
-		ss::SoundEnt_InsertSound( ss::SOUND_COMBAT | ss::SOUND_CONTEXT_EXPLOSION, vecSrc, soundRadius, 0.25,
-		                          info.GetInflictorHandle(), ss::SOUNDENT_CHANNEL_UNSPECIFIED, NULL );
-	}
-}
 
 //-----------------------------------------------------------------------------
 // Blood in the air, at a point and in a direction. From effects.cpp, verbatim.

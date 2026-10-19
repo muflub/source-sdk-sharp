@@ -49,6 +49,74 @@ with EngineBlockTests' and engine_block_layout_test's offset facts.
 
 
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg (closed)
+## Player-movement controls and entity fields that answer nothing: ports owed
+
+Added 2026-10-18 by plan_server_native_v2 T2, which deleted sixteen more
+server slots whose native bodies were empty or constant. The no-ops and
+constants are EngineBinding's now, each commented; nothing changed for a
+caller. What the managed entities ask for, and nobody does yet:
+- the player command path: a lagged-movement factor and disabled buttons
+  (player_speedmod), forced buttons and no auto-movement
+  (trigger_playermovement, trigger_camera), freezing and reading held buttons
+  (trigger_camera), the movement constraint sphere
+  (point_playermoveconstraint), FOV (env_zoom);
+- entity state that left with CBaseEntity/CBasePlayer: armour (Armour.cs owns
+  it in managed; GetArmor answers 0), the take-damage mode (always DAMAGE_YES),
+  per-entity friction (func_friction), the server-ragdoll flag
+  (trigger_serverragdoll), the texture frame index (env_texturetoggle), and
+  whether an entity sits in the 3D skybox (env_smokestack; GetArea against the
+  managed sky cameras is the port).
+
+
+## Player weapon and score questions answer constants: the Arsenal and a score store are the port
+
+Added 2026-10-18 by plan_server_native_v2 T2, which deleted eleven IShimPlayers/
+IShimInventory slots whose native bodies were constants (the IShimInventory area
+went with them). The constants now live in EngineBinding's EnginePlayers, each
+with a comment, and nothing changed for a caller. They are gaps, not answers:
+- HolsterActiveWeapon / DeployLastWeapon answer false: player_speedmod
+  (PlayerSpeedMod.cs) asks the Arsenal to holster and redeploy.
+- GetActiveWeaponEntity / GetWeaponEntity / GetViewModelEntity answer
+  EntityHandle.None: trigger_camera and WeaponInventory ask for entities the
+  Arsenal does not name yet.
+- AddScore does nothing: the engine's frag counter left with CBasePlayer, and
+  game_score has no managed score store to add to.
+GetActiveWeapon, DropActiveWeapon, RemoveAllItems, GiveAmmo and GiveItem are
+answered by ArsenalPlayers for its players; the constants are the no-Arsenal arm.
+
+
+## Entity dissolve (stock's env_entity_dissolver look) is not ported
+
+Added 2026-10-18 by plan_server_native_v2 T2, which deleted the server's
+`EntityDissolve` slot: it was a declared refusal (Warning, answered 0) that no
+managed code called. Stock's dissolve is a CLIENT effect: a material proxy run
+over the target's studio model for a while, driven by the target's render mode
+and a dissolve entity parented to it. The standalone client hierarchy has
+neither, so a managed env_entity_dissolver or combine-ball kill has nothing to
+ask. Porting it is client render work (a render-mode override and the proxy
+driver), then a managed server decision that sends it; no native server slot is
+needed for that.
+
+
+## Managed decisions whose native caller went in plan_server_native_v2 T2
+
+Each is ported stock behaviour with no native path left to reach it.
+Managed callers should call these directly; the managed-built slot goes in T3.
+
+- **PlayerRelationship.** `IManagedClients.GetPlayerRelationship` and
+  `ServerModule.GetPlayerRelationship` hold the teammate rule. Its native caller,
+  `CSourceSharpGameRules::PlayerRelationship`, had no caller and went.
+- **The bubble trail clamp.** `TE_BubbleTrail` clamped its count to 255
+  (`BUBBLE_TRAIL_MAX_COUNT`) before writing it. The native forward went in the
+  server gc cull, and the orphaned enum in T2. A managed sender of `TeBubbleTrail`
+  owes the clamp.
+- **A skin chosen on the server.** `env_beverage` (`EnvBeverage.cs`) and gibs
+  (`SsGib.cs`) call `SetSkin` on the server. The server's native body was empty, so
+  the choice never reached a client; T2 made the slot client-only. The port is a
+  networked skin field on the standalone entity's wire, which stock sends as
+  `m_nSkin`.
+
+## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
 
 At f8c7e82ff (stage1-c-gameplay rebased onto main 42b718990, 2026-10-18) the
 fact failed once in `make test`'s managed-server leg: expected 0 bytes, read

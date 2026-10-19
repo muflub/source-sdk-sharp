@@ -394,7 +394,8 @@ TEST( PvsNotifyClassifier, TheSweepReachesRealFilesAndRealHeaders )
 {
 	// An empty file list would make every sweep below vacuous.
 	const std::vector< std::string > &vec = ClientSourceFiles();
-	ASSERT_GT( vec.size(), 1000u ) << "the source sweep found almost nothing -- "
+	// 1000 -> 900: the port shrinks the tree (995 read at plan_server_native_v2 T3).
+	ASSERT_GT( vec.size(), 900u ) << "the source sweep found almost nothing -- "
 	                                  "run this from the tree's src/ directory";
 
 	int nHeaders = 0;

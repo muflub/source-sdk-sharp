@@ -43,9 +43,11 @@
 // The one thing it needs from its includer is a complete CBaseEntity, and the
 // one place it is included from supplies exactly that.
 //
-// The out-of-line bodies are in entity_bases.cpp, which is also new and for the
-// same reason: three of the four KeyValue implementations were in
-// baseentity.cpp and would have died with it.
+// The out-of-line bodies WERE in entity_bases.cpp, which was never compiled
+// (not on any CMake list, and it included a cbase.h the farm lacks) and is
+// deleted with plan_server_native_min P1: armed, no caller exists for any of
+// the four -- no ServerClass instantiates these classes, so the definitions
+// could only satisfy a caller that is itself dead.
 //
 // WHY THIS FILE IS ALIAS-AGNOSTIC AND EVERY OTHER GAME HEADER IS NOT
 //

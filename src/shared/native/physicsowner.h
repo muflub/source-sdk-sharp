@@ -522,7 +522,7 @@ inline PhysicsOwner_t PhysicsOwnerOfHandle( const CBaseHandle &handle, IPhysicsO
 	owner.pServer = PhysicsStandaloneOwner( handle );
 
 	if ( owner.pServer )
-		owner.pGame = owner.pServer->GetGameEntity();
+		owner.pGame = owner.pServer->GetBaseEntity();
 
 	return owner;
 }
@@ -622,8 +622,15 @@ inline PhysicsOwner_t PhysicsConstraintOwner( IPhysicsConstraint *pConstraint )
 //-----------------------------------------------------------------------------
 inline Toucher_t PhysicsOwner_t::AsToucher() const
 {
+	// The entity goes on pGame, THIRD, with pHandle and pBase NULL: pBase and
+	// pGame have the same type, so the wrong order compiles too and delivers
+	// no touches. This was ToucherOf's whole body, in toucher.cpp until
+	// plan_server_native_v2 T2 (its one importer was behind a constant NULL).
 	if ( pBase )
-		return ToucherOf( pBase );
+	{
+		Toucher_t toucher = { NULL, NULL, pBase };
+		return toucher;
+	}
 
 	// The same handle PhysicsOwnerOf decoded, decoded again rather than carried
 	// as a sixth member of this struct: the struct is aggregate-initialised and

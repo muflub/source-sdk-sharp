@@ -75,6 +75,59 @@ public sealed unsafe class EngineServer : IVtableEngineServer
     public int EntityCount() => _fwd->GetEntityCount(_self);
 
     /// <inheritdoc/>
+    public int PlayerUserId(int entIndex)
+    {
+        void* edict = _fwd->PEntityOfEntIndex(_self, entIndex);
+        if (edict == null)
+            return 0;
+
+        int userId = _fwd->GetPlayerUserId(_self, edict);
+        return userId < 0 ? 0 : userId;
+    }
+
+    /// <inheritdoc/>
+    public void ServerCommandNow(string command)
+    {
+        fixed (byte* p = Vtable.Utf8(command + "\n"))
+            _fwd->ServerCommand(_self, p);
+        _fwd->ServerExecute(_self);
+    }
+
+    /// <inheritdoc/>
+    public void SetView(int playerIndex, int viewIndex)
+    {
+        void* player = _fwd->PEntityOfEntIndex(_self, playerIndex);
+        if (player == null)
+            return;
+
+        void* view = viewIndex >= 0 ? _fwd->PEntityOfEntIndex(_self, viewIndex) : null;
+        _fwd->SetView(_self, player, view != null ? view : player);
+    }
+
+    /// <inheritdoc/>
+    public void LightStyle(int style, string pattern)
+    {
+        fixed (byte* p = Vtable.Utf8(pattern))
+            _fwd->LightStyle(_self, style, p);
+    }
+
+    /// <summary>MAX_MAP_LEAFS / 8 (bspfile.h): the PVS buffer stock hands the engine.</summary>
+    private const int PvsBytes = 65536 / 8;
+
+    /// <inheritdoc/>
+    public bool BoxInPvs(Vector eye, Vector mins, Vector maxs)
+    {
+        int cluster = _fwd->GetClusterForOrigin(_self, &eye);
+
+        byte* pvs = stackalloc byte[PvsBytes];
+        int bytes = _fwd->GetPVSForCluster(_self, cluster, PvsBytes, pvs);
+        if (bytes <= 0)
+            return false;
+
+        return _fwd->CheckBoxInPVS(_self, &mins, &maxs, pvs, bytes) != 0;
+    }
+
+    /// <inheritdoc/>
     public ulong ClientSteamId(int entIndex)
     {
         // A CSteamID is one 64-bit word (its bitfields are a union with

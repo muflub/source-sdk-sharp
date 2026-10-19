@@ -106,12 +106,11 @@ size_t CountOf( const std::string &hay, const std::string &needle )
 	return n;
 }
 
-const char *const kLocalData = "sourcesharp/game/server/shell_playerlocaldata.cpp";
+const char *const kLocalData = "sourcesharp/game/server/shell_standalone_player.cpp";
 // The armed link moved UTIL_SDKPlayerFromEdict and UTIL_PlayerByIndex out of
 // game/server/util.cpp, which the armed server does not compile at all, and
 // into the shim beside the slot-walk family. The body this file reads is
 // unchanged; only its address is.
-const char *const kUtil      = "sourcesharp/game/server/shell_playerslots.cpp";
 // cs_sv_transmitset is a diagnostic: debug builds only, in shell_gamedll_debug.cpp.
 const char *const kGameDllDebug = "sourcesharp/game/server/shell_gamedll_debug.cpp";
 const char *const kProbe     = "../tools/p4-exit-probe-skybox";
@@ -260,27 +259,11 @@ TEST( ClientDataWalk, TheNoSkyboxAnswerIsStocksTwoFiftyFiveAndNotZero )
 // 3. THE PREMISE — if this stops being true the fix's shape is wrong
 //=============================================================================//
 
-TEST( ClientDataWalk, TheSdkPlayerLookupIsGoneBecauseItCouldNeverAnswer )
-{
-	// WAS TheSdkPlayerLookupStillCannotAnswerInThisBuild. It pinned that
-	// UTIL_SDKPlayerFromEdict had no conditional and returned NULL on every
-	// exit: server.so builds no CBasePlayer, so the standalone arm of
-	// UpdateAllClientData is the only live one. That premise is now an ABSENCE
-	// (P5 lane E): the lookup and UTIL_PlayerByIndex are deleted, so no SDK
-	// arm can be put back that asks one. The slot table is what answers for a
-	// player, and the file that held the lookup is proved read by it.
-	const std::string cpp = Code( ReadFile( kUtil ) );
-	ASSERT_FALSE( cpp.empty() ) << kUtil << " did not load";
-	ASSERT_NE( cpp.find( "CStandalonePlayer" ), std::string::npos )
-		<< kUtil << " no longer names the slot table's player; this is not the "
-		   "file the absences below are about";
-
-	EXPECT_EQ( cpp.find( "UTIL_SDKPlayerFromEdict(" ), std::string::npos )
-		<< "UTIL_SDKPlayerFromEdict is back. Nothing in server.so is a "
-		   "CBasePlayer, so it can only answer NULL.";
-	EXPECT_EQ( cpp.find( "UTIL_PlayerByIndex(" ), std::string::npos )
-		<< "UTIL_PlayerByIndex is back. It resolved through the lookup above.";
-}
+// TheSdkPlayerLookupIsGoneBecauseItCouldNeverAnswer went with
+// shell_playerslots.cpp itself (plan_server_native_min P1): the whole
+// slot-walk family is deleted, so there is no file left to prove the absence
+// in. The live walk above (TheWalkAsksTheSlotTableForAStandalonePlayer) is
+// what keeps the standalone arm honest now.
 
 //=============================================================================//
 // 4. THE LIVE PROBE AND THE READOUT IT READS

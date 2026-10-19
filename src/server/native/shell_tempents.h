@@ -53,7 +53,6 @@ namespace ss { struct CEffectData; }
 // Returns true for "do not send at all": the suppress host has been dropped
 // from the filter and nobody is left to send to.
 //-----------------------------------------------------------------------------
-bool SourceSharpTe_SuppressFilter( IRecipientFilter &filter );
 
 //-----------------------------------------------------------------------------
 // The generic writer, from shell_tempents.cpp. No per-TE knowledge on either

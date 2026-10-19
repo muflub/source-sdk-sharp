@@ -19,6 +19,7 @@
 #include "engine/ivmodelinfo.h"
 #include "filesystem.h"
 #include "fwd_physics.h"
+#include "igameevents.h"
 #include "inetchannelinfo.h"
 #include "networkstringtabledefs.h"
 #include "sourcesharp/game/server/ishim_frame.h"
@@ -105,7 +106,7 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// EngineServer: 9 forwarder(s) over IVEngineServer.
+// EngineServer: 18 forwarder(s) over IVEngineServer.
 //-----------------------------------------------------------------------------
 // bool IVEngineServer::IsDedicatedServer( void )
 static bool SSFwd_EngineServer_IsDedicatedServer( IVEngineServer *self ) { return self->IsDedicatedServer(); }
@@ -125,6 +126,24 @@ static const CSteamID * SSFwd_EngineServer_GetClientSteamIDByPlayerIndex( IVEngi
 static void SSFwd_EngineServer_GetGameDir( IVEngineServer *self, char * a0, int a1 ) { self->GetGameDir( a0, a1 ); }
 // bool IVEngineServer::IsModelPrecached( char const * )
 static bool SSFwd_EngineServer_IsModelPrecached( IVEngineServer *self, char const * a0 ) { return self->IsModelPrecached( a0 ); }
+// edict_t * IVEngineServer::PEntityOfEntIndex( int )
+static edict_t * SSFwd_EngineServer_PEntityOfEntIndex( IVEngineServer *self, int a0 ) { return self->PEntityOfEntIndex( a0 ); }
+// int IVEngineServer::GetPlayerUserId( const edict_t * )
+static int SSFwd_EngineServer_GetPlayerUserId( IVEngineServer *self, const edict_t * a0 ) { return self->GetPlayerUserId( a0 ); }
+// void IVEngineServer::ServerCommand( const char * )
+static void SSFwd_EngineServer_ServerCommand( IVEngineServer *self, const char * a0 ) { self->ServerCommand( a0 ); }
+// void IVEngineServer::ServerExecute( void )
+static void SSFwd_EngineServer_ServerExecute( IVEngineServer *self ) { self->ServerExecute(); }
+// void IVEngineServer::SetView( const edict_t *, const edict_t * )
+static void SSFwd_EngineServer_SetView( IVEngineServer *self, const edict_t * a0, const edict_t * a1 ) { self->SetView( a0, a1 ); }
+// void IVEngineServer::LightStyle( int, const char * )
+static void SSFwd_EngineServer_LightStyle( IVEngineServer *self, int a0, const char * a1 ) { self->LightStyle( a0, a1 ); }
+// int IVEngineServer::GetClusterForOrigin( const Vector & )
+static int SSFwd_EngineServer_GetClusterForOrigin( IVEngineServer *self, const Vector & a0 ) { return self->GetClusterForOrigin( a0 ); }
+// int IVEngineServer::GetPVSForCluster( int, int, unsigned char * )
+static int SSFwd_EngineServer_GetPVSForCluster( IVEngineServer *self, int a0, int a1, unsigned char * a2 ) { return self->GetPVSForCluster( a0, a1, a2 ); }
+// bool IVEngineServer::CheckBoxInPVS( const Vector &, const Vector &, const unsigned char *, int )
+static bool SSFwd_EngineServer_CheckBoxInPVS( IVEngineServer *self, const Vector & a0, const Vector & a1, const unsigned char * a2, int a3 ) { return self->CheckBoxInPVS( a0, a1, a2, a3 ); }
 
 static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_IsDedicatedServer ),
@@ -136,9 +155,18 @@ static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_GetClientSteamIDByPlayerIndex ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_GetGameDir ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_IsModelPrecached ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_PEntityOfEntIndex ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_GetPlayerUserId ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_ServerCommand ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_ServerExecute ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_SetView ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_LightStyle ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_GetClusterForOrigin ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_GetPVSForCluster ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_CheckBoxInPVS ),
 };
 
-static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 9 };
+static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 18 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 3 forwarder(s) over IUniformRandomStream.
@@ -174,19 +202,25 @@ static void *const s_NetChannelInfoSlots[] = {
 static const SSForwarderTable s_NetChannelInfoTable = { s_NetChannelInfoSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// NetworkStringTableContainer: 1 forwarder(s) over INetworkStringTableContainer.
+// NetworkStringTableContainer: 3 forwarder(s) over INetworkStringTableContainer.
 //-----------------------------------------------------------------------------
 // INetworkStringTable * INetworkStringTableContainer::FindTable( const char * )
 static INetworkStringTable * SSFwd_NetworkStringTableContainer_FindTable( INetworkStringTableContainer *self, const char * a0 ) { return self->FindTable( a0 ); }
+// INetworkStringTable * INetworkStringTableContainer::CreateStringTable( const char *, int, int, int )
+static INetworkStringTable * SSFwd_NetworkStringTableContainer_CreateStringTable( INetworkStringTableContainer *self, const char * a0, int a1, int a2, int a3 ) { return self->CreateStringTable( a0, a1, a2, a3 ); }
+// INetworkStringTable * INetworkStringTableContainer::GetTable( TABLEID )
+static INetworkStringTable * SSFwd_NetworkStringTableContainer_GetTable( INetworkStringTableContainer *self, TABLEID a0 ) { return self->GetTable( a0 ); }
 
 static void *const s_NetworkStringTableContainerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_NetworkStringTableContainer_FindTable ),
+	reinterpret_cast< void * >( &SSFwd_NetworkStringTableContainer_CreateStringTable ),
+	reinterpret_cast< void * >( &SSFwd_NetworkStringTableContainer_GetTable ),
 };
 
-static const SSForwarderTable s_NetworkStringTableContainerTable = { s_NetworkStringTableContainerSlots, 1 };
+static const SSForwarderTable s_NetworkStringTableContainerTable = { s_NetworkStringTableContainerSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// NetworkStringTable: 5 forwarder(s) over INetworkStringTable.
+// NetworkStringTable: 7 forwarder(s) over INetworkStringTable.
 //-----------------------------------------------------------------------------
 // const char * INetworkStringTable::GetTableName( void )
 static const char * SSFwd_NetworkStringTable_GetTableName( INetworkStringTable *self ) { return self->GetTableName(); }
@@ -198,6 +232,10 @@ static const char * SSFwd_NetworkStringTable_GetString( INetworkStringTable *sel
 static const void * SSFwd_NetworkStringTable_GetStringUserData( INetworkStringTable *self, int a0, int * a1 ) { return self->GetStringUserData( a0, a1 ); }
 // int INetworkStringTable::FindStringIndex( char const * )
 static int SSFwd_NetworkStringTable_FindStringIndex( INetworkStringTable *self, char const * a0 ) { return self->FindStringIndex( a0 ); }
+// TABLEID INetworkStringTable::GetTableId( void )
+static TABLEID SSFwd_NetworkStringTable_GetTableId( INetworkStringTable *self ) { return self->GetTableId(); }
+// int INetworkStringTable::GetNumStrings( void )
+static int SSFwd_NetworkStringTable_GetNumStrings( INetworkStringTable *self ) { return self->GetNumStrings(); }
 
 static void *const s_NetworkStringTableSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_NetworkStringTable_GetTableName ),
@@ -205,9 +243,11 @@ static void *const s_NetworkStringTableSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_NetworkStringTable_GetString ),
 	reinterpret_cast< void * >( &SSFwd_NetworkStringTable_GetStringUserData ),
 	reinterpret_cast< void * >( &SSFwd_NetworkStringTable_FindStringIndex ),
+	reinterpret_cast< void * >( &SSFwd_NetworkStringTable_GetTableId ),
+	reinterpret_cast< void * >( &SSFwd_NetworkStringTable_GetNumStrings ),
 };
 
-static const SSForwarderTable s_NetworkStringTableTable = { s_NetworkStringTableSlots, 5 };
+static const SSForwarderTable s_NetworkStringTableTable = { s_NetworkStringTableSlots, 7 };
 
 //-----------------------------------------------------------------------------
 // SoundEmitterSystem: 2 forwarder(s) over ISoundEmitterSystemBase.
@@ -1005,6 +1045,24 @@ static void *const s_ShimRootSlots[] = {
 static const SSForwarderTable s_ShimRootTable = { s_ShimRootSlots, 3 };
 
 //-----------------------------------------------------------------------------
+// GameEventManager: 3 forwarder(s) over IGameEventManager2.
+//-----------------------------------------------------------------------------
+// IGameEvent * IGameEventManager2::CreateEvent( const char *, bool )
+static IGameEvent * SSFwd_GameEventManager_CreateEvent( IGameEventManager2 *self, const char * a0, bool a1 ) { return self->CreateEvent( a0, a1 ); }
+// bool IGameEventManager2::FireEvent( IGameEvent *, bool )
+static bool SSFwd_GameEventManager_FireEvent( IGameEventManager2 *self, IGameEvent * a0, bool a1 ) { return self->FireEvent( a0, a1 ); }
+// void IGameEventManager2::FreeEvent( IGameEvent * )
+static void SSFwd_GameEventManager_FreeEvent( IGameEventManager2 *self, IGameEvent * a0 ) { self->FreeEvent( a0 ); }
+
+static void *const s_GameEventManagerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_GameEventManager_CreateEvent ),
+	reinterpret_cast< void * >( &SSFwd_GameEventManager_FireEvent ),
+	reinterpret_cast< void * >( &SSFwd_GameEventManager_FreeEvent ),
+};
+
+static const SSForwarderTable s_GameEventManagerTable = { s_GameEventManagerSlots, 3 };
+
+//-----------------------------------------------------------------------------
 // ShimConsole: 11 forwarder(s) over IShimConsole.
 //-----------------------------------------------------------------------------
 // void IShimConsole::Msg( const char * )
@@ -1095,25 +1153,22 @@ static void *const s_ShimEngineSlots[] = {
 static const SSForwarderTable s_ShimEngineTable = { s_ShimEngineSlots, 13 };
 
 //-----------------------------------------------------------------------------
-// ShimConsoleServer: 3 forwarder(s) over IShimConsoleServer.
+// ShimConsoleServer: 2 forwarder(s) over IShimConsoleServer.
 //-----------------------------------------------------------------------------
-// void IShimConsoleServer::ExecuteServerCommand( const char * )
-static void SSFwd_ShimConsoleServer_ExecuteServerCommand( IShimConsoleServer *self, const char * a0 ) { self->ExecuteServerCommand( a0 ); }
 // void IShimConsoleServer::SendClientCommand( uint32_t, const char * )
 static void SSFwd_ShimConsoleServer_SendClientCommand( IShimConsoleServer *self, uint32_t a0, const char * a1 ) { self->SendClientCommand( a0, a1 ); }
 // uint32_t IShimConsoleServer::GetCommandClientHandle( void )
 static uint32_t SSFwd_ShimConsoleServer_GetCommandClientHandle( IShimConsoleServer *self ) { return self->GetCommandClientHandle(); }
 
 static void *const s_ShimConsoleServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimConsoleServer_ExecuteServerCommand ),
 	reinterpret_cast< void * >( &SSFwd_ShimConsoleServer_SendClientCommand ),
 	reinterpret_cast< void * >( &SSFwd_ShimConsoleServer_GetCommandClientHandle ),
 };
 
-static const SSForwarderTable s_ShimConsoleServerTable = { s_ShimConsoleServerSlots, 3 };
+static const SSForwarderTable s_ShimConsoleServerTable = { s_ShimConsoleServerSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimEventsServer: 12 forwarder(s) over IShimEventsServer.
+// ShimEventsServer: 9 forwarder(s) over IShimEventsServer.
 //-----------------------------------------------------------------------------
 // void IShimEvents::ListenForGameEvent( const char * )
 static void SSFwd_ShimEventsServer_ListenForGameEvent( IShimEventsServer *self, const char * a0 ) { self->ListenForGameEvent( a0 ); }
@@ -1125,8 +1180,6 @@ static float SSFwd_ShimEventsServer_EventGetFloat( IShimEventsServer *self, void
 static int32_t SSFwd_ShimEventsServer_EventGetBool( IShimEventsServer *self, void * a0, const char * a1 ) { return self->EventGetBool( a0, a1 ); }
 // const char * IShimEvents::EventGetString( void *, const char * )
 static const char * SSFwd_ShimEventsServer_EventGetString( IShimEventsServer *self, void * a0, const char * a1 ) { return self->EventGetString( a0, a1 ); }
-// void * IShimEventsServer::EventCreate( const char * )
-static void * SSFwd_ShimEventsServer_EventCreate( IShimEventsServer *self, const char * a0 ) { return self->EventCreate( a0 ); }
 // void IShimEventsServer::EventSetInt( void *, const char *, int32_t )
 static void SSFwd_ShimEventsServer_EventSetInt( IShimEventsServer *self, void * a0, const char * a1, int32_t a2 ) { self->EventSetInt( a0, a1, a2 ); }
 // void IShimEventsServer::EventSetFloat( void *, const char *, float )
@@ -1135,10 +1188,6 @@ static void SSFwd_ShimEventsServer_EventSetFloat( IShimEventsServer *self, void 
 static void SSFwd_ShimEventsServer_EventSetBool( IShimEventsServer *self, void * a0, const char * a1, int32_t a2 ) { self->EventSetBool( a0, a1, a2 ); }
 // void IShimEventsServer::EventSetString( void *, const char *, const char * )
 static void SSFwd_ShimEventsServer_EventSetString( IShimEventsServer *self, void * a0, const char * a1, const char * a2 ) { self->EventSetString( a0, a1, a2 ); }
-// int32_t IShimEventsServer::EventFire( void * )
-static int32_t SSFwd_ShimEventsServer_EventFire( IShimEventsServer *self, void * a0 ) { return self->EventFire( a0 ); }
-// void IShimEventsServer::EventFree( void * )
-static void SSFwd_ShimEventsServer_EventFree( IShimEventsServer *self, void * a0 ) { self->EventFree( a0 ); }
 
 static void *const s_ShimEventsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_ListenForGameEvent ),
@@ -1146,43 +1195,13 @@ static void *const s_ShimEventsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetFloat ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetBool ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetString ),
-	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventCreate ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetInt ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetFloat ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetBool ),
 	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetString ),
-	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventFire ),
-	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventFree ),
 };
 
-static const SSForwarderTable s_ShimEventsServerTable = { s_ShimEventsServerSlots, 12 };
-
-//-----------------------------------------------------------------------------
-// ShimStringTablesServer: 6 forwarder(s) over IShimStringTablesServer.
-//-----------------------------------------------------------------------------
-// int32_t IShimStringTables::StringTableFind( const char * )
-static int32_t SSFwd_ShimStringTablesServer_StringTableFind( IShimStringTablesServer *self, const char * a0 ) { return self->StringTableFind( a0 ); }
-// int32_t IShimStringTables::StringTableFindStringIndex( int32_t, const char * )
-static int32_t SSFwd_ShimStringTablesServer_StringTableFindStringIndex( IShimStringTablesServer *self, int32_t a0, const char * a1 ) { return self->StringTableFindStringIndex( a0, a1 ); }
-// int32_t IShimStringTables::StringTableGetString( int32_t, int32_t, char *, int32_t )
-static int32_t SSFwd_ShimStringTablesServer_StringTableGetString( IShimStringTablesServer *self, int32_t a0, int32_t a1, char * a2, int32_t a3 ) { return self->StringTableGetString( a0, a1, a2, a3 ); }
-// int32_t IShimStringTables::StringTableGetNumStrings( int32_t )
-static int32_t SSFwd_ShimStringTablesServer_StringTableGetNumStrings( IShimStringTablesServer *self, int32_t a0 ) { return self->StringTableGetNumStrings( a0 ); }
-// int32_t IShimStringTablesServer::StringTableCreate( const char *, int32_t )
-static int32_t SSFwd_ShimStringTablesServer_StringTableCreate( IShimStringTablesServer *self, const char * a0, int32_t a1 ) { return self->StringTableCreate( a0, a1 ); }
-// int32_t IShimStringTablesServer::StringTableAddString( int32_t, const char * )
-static int32_t SSFwd_ShimStringTablesServer_StringTableAddString( IShimStringTablesServer *self, int32_t a0, const char * a1 ) { return self->StringTableAddString( a0, a1 ); }
-
-static void *const s_ShimStringTablesServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableFind ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableFindStringIndex ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableGetString ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableGetNumStrings ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableCreate ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableAddString ),
-};
-
-static const SSForwarderTable s_ShimStringTablesServerTable = { s_ShimStringTablesServerSlots, 6 };
+static const SSForwarderTable s_ShimEventsServerTable = { s_ShimEventsServerSlots, 9 };
 
 //-----------------------------------------------------------------------------
 // ShimNetworkServer: 11 forwarder(s) over IShimNetworkServer.
@@ -1227,7 +1246,7 @@ static void *const s_ShimNetworkServerSlots[] = {
 static const SSForwarderTable s_ShimNetworkServerTable = { s_ShimNetworkServerSlots, 11 };
 
 //-----------------------------------------------------------------------------
-// ShimModelsServer: 7 forwarder(s) over IShimModelsServer.
+// ShimModelsServer: 5 forwarder(s) over IShimModelsServer.
 //-----------------------------------------------------------------------------
 // void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
 static void SSFwd_ShimModelsServer_EntityGetModelName( IShimModelsServer *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetModelName( a0, a1, a2 ); }
@@ -1239,10 +1258,6 @@ static void SSFwd_ShimModelsServer_StandaloneSetModelScale( IShimModelsServer *s
 static void SSFwd_ShimModelsServer_EntitySetModel( IShimModelsServer *self, uint32_t a0, const char * a1 ) { self->EntitySetModel( a0, a1 ); }
 // void IShimModelsServer::EntitySetSequence( uint32_t, int32_t )
 static void SSFwd_ShimModelsServer_EntitySetSequence( IShimModelsServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetSequence( a0, a1 ); }
-// int32_t IShimModelsServer::EntityGetTextureFrame( uint32_t )
-static int32_t SSFwd_ShimModelsServer_EntityGetTextureFrame( IShimModelsServer *self, uint32_t a0 ) { return self->EntityGetTextureFrame( a0 ); }
-// void IShimModelsServer::EntitySetTextureFrame( uint32_t, int32_t )
-static void SSFwd_ShimModelsServer_EntitySetTextureFrame( IShimModelsServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetTextureFrame( a0, a1 ); }
 
 static void *const s_ShimModelsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntityGetModelName ),
@@ -1250,11 +1265,9 @@ static void *const s_ShimModelsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_StandaloneSetModelScale ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetModel ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetSequence ),
-	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntityGetTextureFrame ),
-	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetTextureFrame ),
 };
 
-static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 7 };
+static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 5 };
 
 //-----------------------------------------------------------------------------
 // ShimPrecache: 5 forwarder(s) over IShimPrecache.
@@ -1281,7 +1294,7 @@ static void *const s_ShimPrecacheSlots[] = {
 static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 5 };
 
 //-----------------------------------------------------------------------------
-// ShimMovementServer: 20 forwarder(s) over IShimMovementServer.
+// ShimMovementServer: 13 forwarder(s) over IShimMovementServer.
 //-----------------------------------------------------------------------------
 // void IShimMovement::MoveTrace( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult * )
 static void SSFwd_ShimMovementServer_MoveTrace( IShimMovementServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6 ) { self->MoveTrace( a0, a1, a2, a3, a4, a5, a6 ); }
@@ -1307,22 +1320,8 @@ static void SSFwd_ShimMovementServer_PlayerShadowRelease( IShimMovementServer *s
 static void SSFwd_ShimMovementServer_PlayerShadowCommit( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->PlayerShadowCommit( a0, a1, a2 ); }
 // int32_t IShimMovementServer::PlayerSetMoveType( uint32_t, int32_t )
 static int32_t SSFwd_ShimMovementServer_PlayerSetMoveType( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { return self->PlayerSetMoveType( a0, a1 ); }
-// void IShimMovementServer::PlayerForceButtons( uint32_t, int32_t, int32_t )
-static void SSFwd_ShimMovementServer_PlayerForceButtons( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->PlayerForceButtons( a0, a1, a2 ); }
-// int32_t IShimMovementServer::PlayerGetButtons( uint32_t )
-static int32_t SSFwd_ShimMovementServer_PlayerGetButtons( IShimMovementServer *self, uint32_t a0 ) { return self->PlayerGetButtons( a0 ); }
-// void IShimMovementServer::PlayerSetButtonsDisabled( uint32_t, int32_t, int32_t )
-static void SSFwd_ShimMovementServer_PlayerSetButtonsDisabled( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->PlayerSetButtonsDisabled( a0, a1, a2 ); }
-// void IShimMovementServer::PlayerSetLaggedMovement( uint32_t, float )
-static void SSFwd_ShimMovementServer_PlayerSetLaggedMovement( IShimMovementServer *self, uint32_t a0, float a1 ) { self->PlayerSetLaggedMovement( a0, a1 ); }
-// void IShimMovementServer::PlayerSetAllowAutoMovement( uint32_t, int32_t )
-static void SSFwd_ShimMovementServer_PlayerSetAllowAutoMovement( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { self->PlayerSetAllowAutoMovement( a0, a1 ); }
 // void IShimMovementServer::PlayerSetSlowMovement( uint32_t, int32_t )
 static void SSFwd_ShimMovementServer_PlayerSetSlowMovement( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { self->PlayerSetSlowMovement( a0, a1 ); }
-// void IShimMovementServer::PlayerSetMovementConstraint( uint32_t, const float *, float, float, float )
-static void SSFwd_ShimMovementServer_PlayerSetMovementConstraint( IShimMovementServer *self, uint32_t a0, const float * a1, float a2, float a3, float a4 ) { self->PlayerSetMovementConstraint( a0, a1, a2, a3, a4 ); }
-// void IShimMovementServer::PlayerSetFrozen( uint32_t, int32_t )
-static void SSFwd_ShimMovementServer_PlayerSetFrozen( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { self->PlayerSetFrozen( a0, a1 ); }
 
 static void *const s_ShimMovementServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveTrace ),
@@ -1337,20 +1336,13 @@ static void *const s_ShimMovementServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowRelease ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowCommit ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetMoveType ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerForceButtons ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerGetButtons ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetButtonsDisabled ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetLaggedMovement ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetAllowAutoMovement ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetSlowMovement ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetMovementConstraint ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetFrozen ),
 };
 
-static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 20 };
+static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 13 };
 
 //-----------------------------------------------------------------------------
-// ShimWorldServer: 19 forwarder(s) over IShimWorldServer.
+// ShimWorldServer: 18 forwarder(s) over IShimWorldServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimWorld::PointContents( const float * )
 static int32_t SSFwd_ShimWorldServer_PointContents( IShimWorldServer *self, const float * a0 ) { return self->PointContents( a0 ); }
@@ -1374,8 +1366,6 @@ static int32_t SSFwd_ShimWorldServer_SurfacePropIndex( IShimWorldServer *self, c
 static int32_t SSFwd_ShimWorldServer_EntityModelSurfaceProp( IShimWorldServer *self, uint32_t a0 ) { return self->EntityModelSurfaceProp( a0 ); }
 // int32_t IShimWorldServer::InvisibleRangeReach( void )
 static int32_t SSFwd_ShimWorldServer_InvisibleRangeReach( IShimWorldServer *self ) { return self->InvisibleRangeReach(); }
-// void IShimWorldServer::EngineLightStyle( int32_t, const char * )
-static void SSFwd_ShimWorldServer_EngineLightStyle( IShimWorldServer *self, int32_t a0, const char * a1 ) { self->EngineLightStyle( a0, a1 ); }
 // void IShimWorldServer::SetSkyboxParams( const SourceSharpSkyboxParams * )
 static void SSFwd_ShimWorldServer_SetSkyboxParams( IShimWorldServer *self, const SourceSharpSkyboxParams * a0 ) { self->SetSkyboxParams( a0 ); }
 // const char * IShimWorldServer::WorldChapterTitle( void )
@@ -1403,7 +1393,6 @@ static void *const s_ShimWorldServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SurfacePropIndex ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityModelSurfaceProp ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_InvisibleRangeReach ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EngineLightStyle ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SetSkyboxParams ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_WorldChapterTitle ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalCreate ),
@@ -1413,10 +1402,10 @@ static void *const s_ShimWorldServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityTraceHull ),
 };
 
-static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 19 };
+static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 18 };
 
 //-----------------------------------------------------------------------------
-// ShimEntitiesServer: 28 forwarder(s) over IShimEntitiesServer.
+// ShimEntitiesServer: 22 forwarder(s) over IShimEntitiesServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimEntities::EntityGetIndex( uint32_t )
 static int32_t SSFwd_ShimEntitiesServer_EntityGetIndex( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetIndex( a0 ); }
@@ -1424,8 +1413,6 @@ static int32_t SSFwd_ShimEntitiesServer_EntityGetIndex( IShimEntitiesServer *sel
 static void SSFwd_ShimEntitiesServer_EntityGetOrigin( IShimEntitiesServer *self, uint32_t a0, float * a1 ) { self->EntityGetOrigin( a0, a1 ); }
 // void IShimEntities::EntityGetAngles( uint32_t, float * )
 static void SSFwd_ShimEntitiesServer_EntityGetAngles( IShimEntitiesServer *self, uint32_t a0, float * a1 ) { self->EntityGetAngles( a0, a1 ); }
-// void IShimEntities::EntitySetSkin( uint32_t, int32_t )
-static void SSFwd_ShimEntitiesServer_EntitySetSkin( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetSkin( a0, a1 ); }
 // int32_t IShimEntities::EntityIsValid( uint32_t )
 static int32_t SSFwd_ShimEntitiesServer_EntityIsValid( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityIsValid( a0 ); }
 // int32_t IShimEntitiesServer::EntityIsPlayer( uint32_t )
@@ -1438,8 +1425,6 @@ static void SSFwd_ShimEntitiesServer_EntityGetName( IShimEntitiesServer *self, u
 static int32_t SSFwd_ShimEntitiesServer_EntityGetState( IShimEntitiesServer *self, uint32_t a0, int32_t * a1 ) { return self->EntityGetState( a0, a1 ); }
 // uint32_t IShimEntitiesServer::FindEntityByClassname( uint32_t, const char * )
 static uint32_t SSFwd_ShimEntitiesServer_FindEntityByClassname( IShimEntitiesServer *self, uint32_t a0, const char * a1 ) { return self->FindEntityByClassname( a0, a1 ); }
-// uint32_t IShimEntitiesServer::FindBaseEntityByName( const char * )
-static uint32_t SSFwd_ShimEntitiesServer_FindBaseEntityByName( IShimEntitiesServer *self, const char * a0 ) { return self->FindBaseEntityByName( a0 ); }
 // int32_t IShimEntitiesServer::EntitiesInSphere( const float *, float, uint32_t *, int32_t )
 static int32_t SSFwd_ShimEntitiesServer_EntitiesInSphere( IShimEntitiesServer *self, const float * a0, float a1, uint32_t * a2, int32_t a3 ) { return self->EntitiesInSphere( a0, a1, a2, a3 ); }
 // int32_t IShimEntitiesServer::EntitySetKeyValue( uint32_t, const char *, const char * )
@@ -1456,10 +1441,6 @@ static void SSFwd_ShimEntitiesServer_EntitySetSpawnFlags( IShimEntitiesServer *s
 static int32_t SSFwd_ShimEntitiesServer_EntityGetHealth( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetHealth( a0 ); }
 // void IShimEntitiesServer::EntitySetHealth( uint32_t, int32_t )
 static void SSFwd_ShimEntitiesServer_EntitySetHealth( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetHealth( a0, a1 ); }
-// int32_t IShimEntitiesServer::EntityGetArmor( uint32_t )
-static int32_t SSFwd_ShimEntitiesServer_EntityGetArmor( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetArmor( a0 ); }
-// void IShimEntitiesServer::EntitySetArmor( uint32_t, int32_t )
-static void SSFwd_ShimEntitiesServer_EntitySetArmor( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetArmor( a0, a1 ); }
 // void IShimEntitiesServer::EntitySetVisible( uint32_t, int32_t )
 static void SSFwd_ShimEntitiesServer_EntitySetVisible( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetVisible( a0, a1 ); }
 // void IShimEntitiesServer::EntitySetOwner( uint32_t, uint32_t )
@@ -1468,10 +1449,6 @@ static void SSFwd_ShimEntitiesServer_EntitySetOwner( IShimEntitiesServer *self, 
 static void SSFwd_ShimEntitiesServer_EntityMakePickup( IShimEntitiesServer *self, uint32_t a0, float a1, float a2, float a3 ) { self->EntityMakePickup( a0, a1, a2, a3 ); }
 // void IShimEntitiesServer::EntitySetPickupEnabled( uint32_t, int32_t )
 static void SSFwd_ShimEntitiesServer_EntitySetPickupEnabled( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetPickupEnabled( a0, a1 ); }
-// int32_t IShimEntitiesServer::EntityDetectInSkybox( uint32_t )
-static int32_t SSFwd_ShimEntitiesServer_EntityDetectInSkybox( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityDetectInSkybox( a0 ); }
-// int32_t IShimEntitiesServer::EntitiesSdkPlayerSkyboxArea( int32_t, int32_t * )
-static int32_t SSFwd_ShimEntitiesServer_EntitiesSdkPlayerSkyboxArea( IShimEntitiesServer *self, int32_t a0, int32_t * a1 ) { return self->EntitiesSdkPlayerSkyboxArea( a0, a1 ); }
 // int32_t IShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t, int32_t * )
 static int32_t SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea( IShimEntitiesServer *self, int32_t a0, int32_t * a1 ) { return self->EntitiesStandalonePlayerSkyboxArea( a0, a1 ); }
 
@@ -1479,14 +1456,12 @@ static void *const s_ShimEntitiesServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetIndex ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetOrigin ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetAngles ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetSkin ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityIsValid ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityIsPlayer ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetClassName ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetName ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetState ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_FindEntityByClassname ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_FindBaseEntityByName ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesInSphere ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetKeyValue ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetSpawnOrigin ),
@@ -1495,21 +1470,17 @@ static void *const s_ShimEntitiesServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetSpawnFlags ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetHealth ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetHealth ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetArmor ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetArmor ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetVisible ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetOwner ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityMakePickup ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetPickupEnabled ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityDetectInSkybox ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesSdkPlayerSkyboxArea ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea ),
 };
 
-static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 28 };
+static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 22 };
 
 //-----------------------------------------------------------------------------
-// ShimEntityLifecycle: 18 forwarder(s) over IShimEntityLifecycle.
+// ShimEntityLifecycle: 14 forwarder(s) over IShimEntityLifecycle.
 //-----------------------------------------------------------------------------
 // uint32_t IShimEntityLifecycle::CreateEntity( const char * )
 static uint32_t SSFwd_ShimEntityLifecycle_CreateEntity( IShimEntityLifecycle *self, const char * a0 ) { return self->CreateEntity( a0 ); }
@@ -1521,16 +1492,8 @@ static void SSFwd_ShimEntityLifecycle_EntityRemove( IShimEntityLifecycle *self, 
 static void SSFwd_ShimEntityLifecycle_DestroyShell( IShimEntityLifecycle *self, const uint32_t * a0, int32_t a1 ) { self->DestroyShell( a0, a1 ); }
 // uint32_t IShimEntityLifecycle::MapSpawnCreate( const char *, const char *, int32_t )
 static uint32_t SSFwd_ShimEntityLifecycle_MapSpawnCreate( IShimEntityLifecycle *self, const char * a0, const char * a1, int32_t a2 ) { return self->MapSpawnCreate( a0, a1, a2 ); }
-// int32_t IShimEntityLifecycle::TemplateCapture( const char *, int32_t, int32_t *, float *, float *, int32_t )
-static int32_t SSFwd_ShimEntityLifecycle_TemplateCapture( IShimEntityLifecycle *self, const char * a0, int32_t a1, int32_t * a2, float * a3, float * a4, int32_t a5 ) { return self->TemplateCapture( a0, a1, a2, a3, a4, a5 ); }
-// void IShimEntityLifecycle::EntitiesPurgeMapRefs( void )
-static void SSFwd_ShimEntityLifecycle_EntitiesPurgeMapRefs( IShimEntityLifecycle *self ) { self->EntitiesPurgeMapRefs(); }
-// void IShimEntityLifecycle::EntitiesCleanupDeleteList( void )
-static void SSFwd_ShimEntityLifecycle_EntitiesCleanupDeleteList( IShimEntityLifecycle *self ) { self->EntitiesCleanupDeleteList(); }
 // void IShimEntityLifecycle::RegisterScriptedEntity( const char *, const char * *, int32_t, int32_t )
 static void SSFwd_ShimEntityLifecycle_RegisterScriptedEntity( IShimEntityLifecycle *self, const char * a0, const char * * a1, int32_t a2, int32_t a3 ) { self->RegisterScriptedEntity( a0, a1, a2, a3 ); }
-// void IShimEntityLifecycle::RegisterWeaponEntity( const char * )
-static void SSFwd_ShimEntityLifecycle_RegisterWeaponEntity( IShimEntityLifecycle *self, const char * a0 ) { self->RegisterWeaponEntity( a0 ); }
 // void IShimEntityLifecycle::RegisterClassOps( const char *, uint32_t )
 static void SSFwd_ShimEntityLifecycle_RegisterClassOps( IShimEntityLifecycle *self, const char * a0, uint32_t a1 ) { self->RegisterClassOps( a0, a1 ); }
 // int32_t IShimEntityLifecycle::EntityDispatch( uint32_t, int32_t, const SourceSharpOpArgs * )
@@ -1554,11 +1517,7 @@ static void *const s_ShimEntityLifecycleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityRemove ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_DestroyShell ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_MapSpawnCreate ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_TemplateCapture ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntitiesPurgeMapRefs ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntitiesCleanupDeleteList ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_RegisterScriptedEntity ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_RegisterWeaponEntity ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_RegisterClassOps ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityDispatch ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryCount ),
@@ -1569,10 +1528,10 @@ static void *const s_ShimEntityLifecycleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_TemplateSpawnKeyed ),
 };
 
-static const SSForwarderTable s_ShimEntityLifecycleTable = { s_ShimEntityLifecycleSlots, 18 };
+static const SSForwarderTable s_ShimEntityLifecycleTable = { s_ShimEntityLifecycleSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// ShimTransform: 18 forwarder(s) over IShimTransform.
+// ShimTransform: 14 forwarder(s) over IShimTransform.
 //-----------------------------------------------------------------------------
 // void IShimTransform::EntitySetOrigin( uint32_t, const float * )
 static void SSFwd_ShimTransform_EntitySetOrigin( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntitySetOrigin( a0, a1 ); }
@@ -1596,18 +1555,10 @@ static void SSFwd_ShimTransform_EntityGetEyePosition( IShimTransform *self, uint
 static void SSFwd_ShimTransform_EntityGetEyeAngles( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetEyeAngles( a0, a1 ); }
 // void IShimTransform::EntityGetWorldSpaceCenter( uint32_t, float * )
 static void SSFwd_ShimTransform_EntityGetWorldSpaceCenter( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetWorldSpaceCenter( a0, a1 ); }
-// void IShimTransform::EntityMoveToPosition( uint32_t, const float *, float )
-static void SSFwd_ShimTransform_EntityMoveToPosition( IShimTransform *self, uint32_t a0, const float * a1, float a2 ) { self->EntityMoveToPosition( a0, a1, a2 ); }
-// void IShimTransform::EntityMoveToAngles( uint32_t, const float *, float )
-static void SSFwd_ShimTransform_EntityMoveToAngles( IShimTransform *self, uint32_t a0, const float * a1, float a2 ) { self->EntityMoveToAngles( a0, a1, a2 ); }
-// void IShimTransform::EntityStopMoving( uint32_t )
-static void SSFwd_ShimTransform_EntityStopMoving( IShimTransform *self, uint32_t a0 ) { self->EntityStopMoving( a0 ); }
 // float IShimTransform::EntityGetGravity( uint32_t )
 static float SSFwd_ShimTransform_EntityGetGravity( IShimTransform *self, uint32_t a0 ) { return self->EntityGetGravity( a0 ); }
 // void IShimTransform::EntitySetGravity( uint32_t, float )
 static void SSFwd_ShimTransform_EntitySetGravity( IShimTransform *self, uint32_t a0, float a1 ) { self->EntitySetGravity( a0, a1 ); }
-// void IShimTransform::EntitySetFriction( uint32_t, float )
-static void SSFwd_ShimTransform_EntitySetFriction( IShimTransform *self, uint32_t a0, float a1 ) { self->EntitySetFriction( a0, a1 ); }
 // void IShimTransform::EntitySetBounce( uint32_t, int32_t )
 static void SSFwd_ShimTransform_EntitySetBounce( IShimTransform *self, uint32_t a0, int32_t a1 ) { self->EntitySetBounce( a0, a1 ); }
 
@@ -1623,16 +1574,12 @@ static void *const s_ShimTransformSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetEyePosition ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetEyeAngles ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetWorldSpaceCenter ),
-	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityMoveToPosition ),
-	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityMoveToAngles ),
-	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityStopMoving ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetGravity ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetGravity ),
-	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetFriction ),
 	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetBounce ),
 };
 
-static const SSForwarderTable s_ShimTransformTable = { s_ShimTransformSlots, 18 };
+static const SSForwarderTable s_ShimTransformTable = { s_ShimTransformSlots, 14 };
 
 //-----------------------------------------------------------------------------
 // ShimHierarchy: 8 forwarder(s) over IShimHierarchy.
@@ -1713,12 +1660,10 @@ static void *const s_ShimCollisionServerSlots[] = {
 static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 12 };
 
 //-----------------------------------------------------------------------------
-// ShimPhysics: 7 forwarder(s) over IShimPhysics.
+// ShimPhysics: 6 forwarder(s) over IShimPhysics.
 //-----------------------------------------------------------------------------
 // void IShimPhysics::EntityDestroyPhysics( uint32_t )
 static void SSFwd_ShimPhysics_EntityDestroyPhysics( IShimPhysics *self, uint32_t a0 ) { self->EntityDestroyPhysics( a0 ); }
-// void IShimPhysics::EntitySetForceServerRagdoll( uint32_t, int32_t )
-static void SSFwd_ShimPhysics_EntitySetForceServerRagdoll( IShimPhysics *self, uint32_t a0, int32_t a1 ) { self->EntitySetForceServerRagdoll( a0, a1 ); }
 // void * IShimPhysics::EntityPhysicsObject( uint32_t )
 static void * SSFwd_ShimPhysics_EntityPhysicsObject( IShimPhysics *self, uint32_t a0 ) { return self->EntityPhysicsObject( a0 ); }
 // void * IShimPhysics::PhysicsEnvironmentPointer( void )
@@ -1732,7 +1677,6 @@ static int32_t SSFwd_ShimPhysics_EntitySwapPhysicsObject( IShimPhysics *self, ui
 
 static void *const s_ShimPhysicsSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntityDestroyPhysics ),
-	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntitySetForceServerRagdoll ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntityPhysicsObject ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysics_PhysicsEnvironmentPointer ),
 	reinterpret_cast< void * >( &SSFwd_ShimPhysics_PhysicsWorldObject ),
@@ -1740,40 +1684,25 @@ static void *const s_ShimPhysicsSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntitySwapPhysicsObject ),
 };
 
-static const SSForwarderTable s_ShimPhysicsTable = { s_ShimPhysicsSlots, 7 };
+static const SSForwarderTable s_ShimPhysicsTable = { s_ShimPhysicsSlots, 6 };
 
 //-----------------------------------------------------------------------------
-// ShimDamage: 8 forwarder(s) over IShimDamage.
+// ShimDamage: 3 forwarder(s) over IShimDamage.
 //-----------------------------------------------------------------------------
 // void IShimDamage::ApplyDamage( uint32_t, uint32_t, float, int32_t )
 static void SSFwd_ShimDamage_ApplyDamage( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3 ) { self->ApplyDamage( a0, a1, a2, a3 ); }
 // void IShimDamage::EntityTakeDamage( uint32_t, uint32_t, float, int32_t, const float *, const float *, int32_t )
 static void SSFwd_ShimDamage_EntityTakeDamage( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3, const float * a4, const float * a5, int32_t a6 ) { self->EntityTakeDamage( a0, a1, a2, a3, a4, a5, a6 ); }
-// void IShimDamage::RadiusDamage( const float *, float, float, int32_t, uint32_t )
-static void SSFwd_ShimDamage_RadiusDamage( IShimDamage *self, const float * a0, float a1, float a2, int32_t a3, uint32_t a4 ) { self->RadiusDamage( a0, a1, a2, a3, a4 ); }
-// void IShimDamage::ExplosionDamage( const float *, float, float, int32_t, uint32_t, uint32_t, uint32_t, float )
-static void SSFwd_ShimDamage_ExplosionDamage( IShimDamage *self, const float * a0, float a1, float a2, int32_t a3, uint32_t a4, uint32_t a5, uint32_t a6, float a7 ) { self->ExplosionDamage( a0, a1, a2, a3, a4, a5, a6, a7 ); }
-// int32_t IShimDamage::EntitySetTakeDamageMode( uint32_t, int32_t )
-static int32_t SSFwd_ShimDamage_EntitySetTakeDamageMode( IShimDamage *self, uint32_t a0, int32_t a1 ) { return self->EntitySetTakeDamageMode( a0, a1 ); }
-// void IShimDamage::EntityIgnite( uint32_t, float )
-static void SSFwd_ShimDamage_EntityIgnite( IShimDamage *self, uint32_t a0, float a1 ) { self->EntityIgnite( a0, a1 ); }
-// int32_t IShimDamage::EntityDissolve( uint32_t, int32_t, float, const float * )
-static int32_t SSFwd_ShimDamage_EntityDissolve( IShimDamage *self, uint32_t a0, int32_t a1, float a2, const float * a3 ) { return self->EntityDissolve( a0, a1, a2, a3 ); }
 // void IShimDamage::ApplyDamageForce( uint32_t, uint32_t, float, int32_t, const float *, const float * )
 static void SSFwd_ShimDamage_ApplyDamageForce( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3, const float * a4, const float * a5 ) { self->ApplyDamageForce( a0, a1, a2, a3, a4, a5 ); }
 
 static void *const s_ShimDamageSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimDamage_ApplyDamage ),
 	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityTakeDamage ),
-	reinterpret_cast< void * >( &SSFwd_ShimDamage_RadiusDamage ),
-	reinterpret_cast< void * >( &SSFwd_ShimDamage_ExplosionDamage ),
-	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntitySetTakeDamageMode ),
-	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityIgnite ),
-	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityDissolve ),
 	reinterpret_cast< void * >( &SSFwd_ShimDamage_ApplyDamageForce ),
 };
 
-static const SSForwarderTable s_ShimDamageTable = { s_ShimDamageSlots, 8 };
+static const SSForwarderTable s_ShimDamageTable = { s_ShimDamageSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // ShimGameRules: 3 forwarder(s) over IShimGameRules.
@@ -1794,16 +1723,12 @@ static void *const s_ShimGameRulesSlots[] = {
 static const SSForwarderTable s_ShimGameRulesTable = { s_ShimGameRulesSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ShimPlayers: 18 forwarder(s) over IShimPlayers.
+// ShimPlayers: 11 forwarder(s) over IShimPlayers.
 //-----------------------------------------------------------------------------
 // uint32_t IShimPlayers::GetPlayerHandle( int32_t )
 static uint32_t SSFwd_ShimPlayers_GetPlayerHandle( IShimPlayers *self, int32_t a0 ) { return self->GetPlayerHandle( a0 ); }
-// int32_t IShimPlayers::GetPlayerUserId( uint32_t )
-static int32_t SSFwd_ShimPlayers_GetPlayerUserId( IShimPlayers *self, uint32_t a0 ) { return self->GetPlayerUserId( a0 ); }
 // int32_t IShimPlayers::GetPlayerTeam( uint32_t )
 static int32_t SSFwd_ShimPlayers_GetPlayerTeam( IShimPlayers *self, uint32_t a0 ) { return self->GetPlayerTeam( a0 ); }
-// void IShimPlayers::AddPlayerScore( uint32_t, int32_t, int32_t )
-static void SSFwd_ShimPlayers_AddPlayerScore( IShimPlayers *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->AddPlayerScore( a0, a1, a2 ); }
 // int32_t IShimPlayers::PlayerIsAlive( uint32_t )
 static int32_t SSFwd_ShimPlayers_PlayerIsAlive( IShimPlayers *self, uint32_t a0 ) { return self->PlayerIsAlive( a0 ); }
 // void IShimPlayers::PlayerRespawn( uint32_t )
@@ -1814,143 +1739,30 @@ static void SSFwd_ShimPlayers_PlayerPlaceAtSpawn( IShimPlayers *self, uint32_t a
 static int32_t SSFwd_ShimPlayers_PlayerGetObserverMode( IShimPlayers *self, uint32_t a0 ) { return self->PlayerGetObserverMode( a0 ); }
 // void IShimPlayers::PlayerSetObserverMode( uint32_t, int32_t )
 static void SSFwd_ShimPlayers_PlayerSetObserverMode( IShimPlayers *self, uint32_t a0, int32_t a1 ) { self->PlayerSetObserverMode( a0, a1 ); }
-// void IShimPlayers::PlayerSetViewEntity( uint32_t, uint32_t )
-static void SSFwd_ShimPlayers_PlayerSetViewEntity( IShimPlayers *self, uint32_t a0, uint32_t a1 ) { self->PlayerSetViewEntity( a0, a1 ); }
-// void IShimPlayers::PlayerSetFov( uint32_t, uint32_t, int32_t, float )
-static void SSFwd_ShimPlayers_PlayerSetFov( IShimPlayers *self, uint32_t a0, uint32_t a1, int32_t a2, float a3 ) { self->PlayerSetFov( a0, a1, a2, a3 ); }
 // void IShimPlayers::PlayerSnapEyeAngles( uint32_t, const float * )
 static void SSFwd_ShimPlayers_PlayerSnapEyeAngles( IShimPlayers *self, uint32_t a0, const float * a1 ) { self->PlayerSnapEyeAngles( a0, a1 ); }
 // void IShimPlayers::GetPlayerShootOrigin( uint32_t, float * )
 static void SSFwd_ShimPlayers_GetPlayerShootOrigin( IShimPlayers *self, uint32_t a0, float * a1 ) { self->GetPlayerShootOrigin( a0, a1 ); }
-// void IShimPlayers::PlayerSetSoundscape( uint32_t, int32_t, int32_t, int32_t, const float * )
-static void SSFwd_ShimPlayers_PlayerSetSoundscape( IShimPlayers *self, uint32_t a0, int32_t a1, int32_t a2, int32_t a3, const float * a4 ) { self->PlayerSetSoundscape( a0, a1, a2, a3, a4 ); }
 // int32_t IShimPlayers::ClientsStandalonePlayerEarPosition( int32_t, float * )
 static int32_t SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition( IShimPlayers *self, int32_t a0, float * a1 ) { return self->ClientsStandalonePlayerEarPosition( a0, a1 ); }
-// int32_t IShimPlayers::ClientsSdkPlayerEarPosition( int32_t, float * )
-static int32_t SSFwd_ShimPlayers_ClientsSdkPlayerEarPosition( IShimPlayers *self, int32_t a0, float * a1 ) { return self->ClientsSdkPlayerEarPosition( a0, a1 ); }
-// int32_t IShimPlayers::PlayerBoxInPvs( uint32_t, const float *, const float * )
-static int32_t SSFwd_ShimPlayers_PlayerBoxInPvs( IShimPlayers *self, uint32_t a0, const float * a1, const float * a2 ) { return self->PlayerBoxInPvs( a0, a1, a2 ); }
 // void IShimPlayers::PlayerSetTeam( uint32_t, int32_t )
 static void SSFwd_ShimPlayers_PlayerSetTeam( IShimPlayers *self, uint32_t a0, int32_t a1 ) { self->PlayerSetTeam( a0, a1 ); }
 
 static void *const s_ShimPlayersSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerHandle ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerUserId ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerTeam ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_AddPlayerScore ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerIsAlive ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerRespawn ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerPlaceAtSpawn ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerGetObserverMode ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetObserverMode ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetViewEntity ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetFov ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSnapEyeAngles ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerShootOrigin ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetSoundscape ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_ClientsSdkPlayerEarPosition ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerBoxInPvs ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetTeam ),
 };
 
-static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 18 };
-
-//-----------------------------------------------------------------------------
-// ShimWeaponsServer: 16 forwarder(s) over IShimWeaponsServer.
-//-----------------------------------------------------------------------------
-// void IShimWeapons::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
-static void SSFwd_ShimWeaponsServer_RegisterAmmoType( IShimWeaponsServer *self, const char * a0, int32_t a1, int32_t a2, int32_t a3, float a4, float a5 ) { self->RegisterAmmoType( a0, a1, a2, a3, a4, a5 ); }
-// void IShimWeapons::RegisterWeaponType( const char *, float, float, int32_t )
-static void SSFwd_ShimWeaponsServer_RegisterWeaponType( IShimWeaponsServer *self, const char * a0, float a1, float a2, int32_t a3 ) { self->RegisterWeaponType( a0, a1, a2, a3 ); }
-// int32_t IShimWeaponsServer::WeaponGetState( uint32_t, SourceSharpWeaponState * )
-static int32_t SSFwd_ShimWeaponsServer_WeaponGetState( IShimWeaponsServer *self, uint32_t a0, SourceSharpWeaponState * a1 ) { return self->WeaponGetState( a0, a1 ); }
-// void IShimWeaponsServer::WeaponIdle( uint32_t )
-static void SSFwd_ShimWeaponsServer_WeaponIdle( IShimWeaponsServer *self, uint32_t a0 ) { self->WeaponIdle( a0 ); }
-// void IShimWeaponsServer::WeaponSetNextPrimaryAttack( uint32_t, float )
-static void SSFwd_ShimWeaponsServer_WeaponSetNextPrimaryAttack( IShimWeaponsServer *self, uint32_t a0, float a1 ) { self->WeaponSetNextPrimaryAttack( a0, a1 ); }
-// void IShimWeaponsServer::WeaponSetNextSecondaryAttack( uint32_t, float )
-static void SSFwd_ShimWeaponsServer_WeaponSetNextSecondaryAttack( IShimWeaponsServer *self, uint32_t a0, float a1 ) { self->WeaponSetNextSecondaryAttack( a0, a1 ); }
-// void IShimWeaponsServer::WeaponSetClip( uint32_t, int32_t )
-static void SSFwd_ShimWeaponsServer_WeaponSetClip( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponSetClip( a0, a1 ); }
-// void IShimWeaponsServer::WeaponSetInReload( uint32_t, int32_t )
-static void SSFwd_ShimWeaponsServer_WeaponSetInReload( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponSetInReload( a0, a1 ); }
-// int32_t IShimWeaponsServer::WeaponTakeAmmo( uint32_t, int32_t )
-static int32_t SSFwd_ShimWeaponsServer_WeaponTakeAmmo( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { return self->WeaponTakeAmmo( a0, a1 ); }
-// int32_t IShimWeaponsServer::WeaponTakeSecondaryAmmo( uint32_t, int32_t )
-static int32_t SSFwd_ShimWeaponsServer_WeaponTakeSecondaryAmmo( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { return self->WeaponTakeSecondaryAmmo( a0, a1 ); }
-// void IShimWeaponsServer::WeaponPlaySound( uint32_t, int32_t )
-static void SSFwd_ShimWeaponsServer_WeaponPlaySound( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponPlaySound( a0, a1 ); }
-// void IShimWeaponsServer::WeaponSendAnim( uint32_t, int32_t )
-static void SSFwd_ShimWeaponsServer_WeaponSendAnim( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponSendAnim( a0, a1 ); }
-// float IShimWeaponsServer::WeaponAnimDuration( uint32_t, int32_t )
-static float SSFwd_ShimWeaponsServer_WeaponAnimDuration( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { return self->WeaponAnimDuration( a0, a1 ); }
-// void IShimWeaponsServer::WeaponFireBullets( uint32_t, int32_t, float )
-static void SSFwd_ShimWeaponsServer_WeaponFireBullets( IShimWeaponsServer *self, uint32_t a0, int32_t a1, float a2 ) { self->WeaponFireBullets( a0, a1, a2 ); }
-// void IShimWeaponsServer::WeaponMuzzleFlash( uint32_t )
-static void SSFwd_ShimWeaponsServer_WeaponMuzzleFlash( IShimWeaponsServer *self, uint32_t a0 ) { self->WeaponMuzzleFlash( a0 ); }
-// void IShimWeaponsServer::WeaponAddViewKick( uint32_t )
-static void SSFwd_ShimWeaponsServer_WeaponAddViewKick( IShimWeaponsServer *self, uint32_t a0 ) { self->WeaponAddViewKick( a0 ); }
-
-static void *const s_ShimWeaponsServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_RegisterAmmoType ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_RegisterWeaponType ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponGetState ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponIdle ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetNextPrimaryAttack ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetNextSecondaryAttack ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetClip ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetInReload ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponTakeAmmo ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponTakeSecondaryAmmo ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponPlaySound ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSendAnim ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponAnimDuration ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponFireBullets ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponMuzzleFlash ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponAddViewKick ),
-};
-
-static const SSForwarderTable s_ShimWeaponsServerTable = { s_ShimWeaponsServerSlots, 16 };
-
-//-----------------------------------------------------------------------------
-// ShimInventory: 10 forwarder(s) over IShimInventory.
-//-----------------------------------------------------------------------------
-// int32_t IShimInventory::GivePlayerItem( uint32_t, const char * )
-static int32_t SSFwd_ShimInventory_GivePlayerItem( IShimInventory *self, uint32_t a0, const char * a1 ) { return self->GivePlayerItem( a0, a1 ); }
-// int32_t IShimInventory::GivePlayerAmmo( uint32_t, int32_t, const char * )
-static int32_t SSFwd_ShimInventory_GivePlayerAmmo( IShimInventory *self, uint32_t a0, int32_t a1, const char * a2 ) { return self->GivePlayerAmmo( a0, a1, a2 ); }
-// void IShimInventory::GetPlayerActiveWeapon( uint32_t, char *, int32_t )
-static void SSFwd_ShimInventory_GetPlayerActiveWeapon( IShimInventory *self, uint32_t a0, char * a1, int32_t a2 ) { self->GetPlayerActiveWeapon( a0, a1, a2 ); }
-// uint32_t IShimInventory::PlayerGetActiveWeaponEntity( uint32_t )
-static uint32_t SSFwd_ShimInventory_PlayerGetActiveWeaponEntity( IShimInventory *self, uint32_t a0 ) { return self->PlayerGetActiveWeaponEntity( a0 ); }
-// uint32_t IShimInventory::PlayerGetWeaponEntity( uint32_t, int32_t )
-static uint32_t SSFwd_ShimInventory_PlayerGetWeaponEntity( IShimInventory *self, uint32_t a0, int32_t a1 ) { return self->PlayerGetWeaponEntity( a0, a1 ); }
-// uint32_t IShimInventory::PlayerGetViewModelEntity( uint32_t )
-static uint32_t SSFwd_ShimInventory_PlayerGetViewModelEntity( IShimInventory *self, uint32_t a0 ) { return self->PlayerGetViewModelEntity( a0 ); }
-// int32_t IShimInventory::PlayerDropActiveWeapon( uint32_t, const float * )
-static int32_t SSFwd_ShimInventory_PlayerDropActiveWeapon( IShimInventory *self, uint32_t a0, const float * a1 ) { return self->PlayerDropActiveWeapon( a0, a1 ); }
-// int32_t IShimInventory::PlayerHolsterActiveWeapon( uint32_t )
-static int32_t SSFwd_ShimInventory_PlayerHolsterActiveWeapon( IShimInventory *self, uint32_t a0 ) { return self->PlayerHolsterActiveWeapon( a0 ); }
-// int32_t IShimInventory::PlayerDeployLastWeapon( uint32_t )
-static int32_t SSFwd_ShimInventory_PlayerDeployLastWeapon( IShimInventory *self, uint32_t a0 ) { return self->PlayerDeployLastWeapon( a0 ); }
-// void IShimInventory::PlayerRemoveAllItems( uint32_t, int32_t )
-static void SSFwd_ShimInventory_PlayerRemoveAllItems( IShimInventory *self, uint32_t a0, int32_t a1 ) { self->PlayerRemoveAllItems( a0, a1 ); }
-
-static void *const s_ShimInventorySlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_GivePlayerItem ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_GivePlayerAmmo ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_GetPlayerActiveWeapon ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerGetActiveWeaponEntity ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerGetWeaponEntity ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerGetViewModelEntity ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerDropActiveWeapon ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerHolsterActiveWeapon ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerDeployLastWeapon ),
-	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerRemoveAllItems ),
-};
-
-static const SSForwarderTable s_ShimInventoryTable = { s_ShimInventorySlots, 10 };
+static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 11 };
 
 //-----------------------------------------------------------------------------
 // ShimSound: 5 forwarder(s) over IShimSound.
@@ -1977,7 +1789,7 @@ static void *const s_ShimSoundSlots[] = {
 static const SSForwarderTable s_ShimSoundTable = { s_ShimSoundSlots, 5 };
 
 //-----------------------------------------------------------------------------
-// ShimEffectsServer: 20 forwarder(s) over IShimEffectsServer.
+// ShimEffectsServer: 15 forwarder(s) over IShimEffectsServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimEffects::TempEntRegister( const SourceSharpTeClass_t * )
 static int32_t SSFwd_ShimEffectsServer_TempEntRegister( IShimEffectsServer *self, const SourceSharpTeClass_t * a0 ) { return self->TempEntRegister( a0 ); }
@@ -2007,18 +1819,8 @@ static void SSFwd_ShimEffectsServer_DustEffect( IShimEffectsServer *self, const 
 static void SSFwd_ShimEffectsServer_SplashEffect( IShimEffectsServer *self, const float * a0, float a1, int32_t a2 ) { self->SplashEffect( a0, a1, a2 ); }
 // void IShimEffectsServer::BloodEffect( const float *, const float *, int32_t, float, int32_t, int32_t )
 static void SSFwd_ShimEffectsServer_BloodEffect( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5 ) { self->BloodEffect( a0, a1, a2, a3, a4, a5 ); }
-// int32_t IShimEffectsServer::BloodDecal( const float *, const float *, int32_t )
-static int32_t SSFwd_ShimEffectsServer_BloodDecal( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2 ) { return self->BloodDecal( a0, a1, a2 ); }
 // int32_t IShimEffectsServer::PaintDecal( int32_t, const float *, const float *, float, int32_t, int32_t )
 static int32_t SSFwd_ShimEffectsServer_PaintDecal( IShimEffectsServer *self, int32_t a0, const float * a1, const float * a2, float a3, int32_t a4, int32_t a5 ) { return self->PaintDecal( a0, a1, a2, a3, a4, a5 ); }
-// int32_t IShimEffectsServer::ShootGib( const char *, const SourceSharpGibShot * )
-static int32_t SSFwd_ShimEffectsServer_ShootGib( IShimEffectsServer *self, const char * a0, const SourceSharpGibShot * a1 ) { return self->ShootGib( a0, a1 ); }
-// uint32_t IShimEffectsServer::FireEffectCreate( int32_t, const float *, float, int32_t )
-static uint32_t SSFwd_ShimEffectsServer_FireEffectCreate( IShimEffectsServer *self, int32_t a0, const float * a1, float a2, int32_t a3 ) { return self->FireEffectCreate( a0, a1, a2, a3 ); }
-// void IShimEffectsServer::FireEffectScale( uint32_t, float, float )
-static void SSFwd_ShimEffectsServer_FireEffectScale( IShimEffectsServer *self, uint32_t a0, float a1, float a2 ) { self->FireEffectScale( a0, a1, a2 ); }
-// void IShimEffectsServer::FireEffectEnable( uint32_t, int32_t )
-static void SSFwd_ShimEffectsServer_FireEffectEnable( IShimEffectsServer *self, uint32_t a0, int32_t a1 ) { self->FireEffectEnable( a0, a1 ); }
 
 static void *const s_ShimEffectsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntRegister ),
@@ -2035,15 +1837,10 @@ static void *const s_ShimEffectsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_DustEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_SplashEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BloodEffect ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BloodDecal ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_PaintDecal ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ShootGib ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FireEffectCreate ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FireEffectScale ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FireEffectEnable ),
 };
 
-static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 20 };
+static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 15 };
 
 //-----------------------------------------------------------------------------
 // ShimDebugOverlay: 5 forwarder(s) over IShimDebugOverlay.
@@ -2127,27 +1924,6 @@ static void *const s_ShimEventsSlots[] = {
 static const SSForwarderTable s_ShimEventsTable = { s_ShimEventsSlots, 5 };
 
 //-----------------------------------------------------------------------------
-// ShimStringTables: 4 forwarder(s) over IShimStringTables.
-//-----------------------------------------------------------------------------
-// int32_t IShimStringTables::StringTableFind( const char * )
-static int32_t SSFwd_ShimStringTables_StringTableFind( IShimStringTables *self, const char * a0 ) { return self->StringTableFind( a0 ); }
-// int32_t IShimStringTables::StringTableFindStringIndex( int32_t, const char * )
-static int32_t SSFwd_ShimStringTables_StringTableFindStringIndex( IShimStringTables *self, int32_t a0, const char * a1 ) { return self->StringTableFindStringIndex( a0, a1 ); }
-// int32_t IShimStringTables::StringTableGetString( int32_t, int32_t, char *, int32_t )
-static int32_t SSFwd_ShimStringTables_StringTableGetString( IShimStringTables *self, int32_t a0, int32_t a1, char * a2, int32_t a3 ) { return self->StringTableGetString( a0, a1, a2, a3 ); }
-// int32_t IShimStringTables::StringTableGetNumStrings( int32_t )
-static int32_t SSFwd_ShimStringTables_StringTableGetNumStrings( IShimStringTables *self, int32_t a0 ) { return self->StringTableGetNumStrings( a0 ); }
-
-static void *const s_ShimStringTablesSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableFind ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableFindStringIndex ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableGetString ),
-	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableGetNumStrings ),
-};
-
-static const SSForwarderTable s_ShimStringTablesTable = { s_ShimStringTablesSlots, 4 };
-
-//-----------------------------------------------------------------------------
 // ShimNetwork: 4 forwarder(s) over IShimNetwork.
 //-----------------------------------------------------------------------------
 // int32_t IShimNetwork::NetHierarchyDeclare( int32_t )
@@ -2229,7 +2005,7 @@ static void *const s_ShimWorldSlots[] = {
 static const SSForwarderTable s_ShimWorldTable = { s_ShimWorldSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimEntities: 5 forwarder(s) over IShimEntities.
+// ShimEntities: 4 forwarder(s) over IShimEntities.
 //-----------------------------------------------------------------------------
 // int32_t IShimEntities::EntityGetIndex( uint32_t )
 static int32_t SSFwd_ShimEntities_EntityGetIndex( IShimEntities *self, uint32_t a0 ) { return self->EntityGetIndex( a0 ); }
@@ -2237,8 +2013,6 @@ static int32_t SSFwd_ShimEntities_EntityGetIndex( IShimEntities *self, uint32_t 
 static void SSFwd_ShimEntities_EntityGetOrigin( IShimEntities *self, uint32_t a0, float * a1 ) { self->EntityGetOrigin( a0, a1 ); }
 // void IShimEntities::EntityGetAngles( uint32_t, float * )
 static void SSFwd_ShimEntities_EntityGetAngles( IShimEntities *self, uint32_t a0, float * a1 ) { self->EntityGetAngles( a0, a1 ); }
-// void IShimEntities::EntitySetSkin( uint32_t, int32_t )
-static void SSFwd_ShimEntities_EntitySetSkin( IShimEntities *self, uint32_t a0, int32_t a1 ) { self->EntitySetSkin( a0, a1 ); }
 // int32_t IShimEntities::EntityIsValid( uint32_t )
 static int32_t SSFwd_ShimEntities_EntityIsValid( IShimEntities *self, uint32_t a0 ) { return self->EntityIsValid( a0 ); }
 
@@ -2246,11 +2020,10 @@ static void *const s_ShimEntitiesSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityGetIndex ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityGetOrigin ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityGetAngles ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntitySetSkin ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityIsValid ),
 };
 
-static const SSForwarderTable s_ShimEntitiesTable = { s_ShimEntitiesSlots, 5 };
+static const SSForwarderTable s_ShimEntitiesTable = { s_ShimEntitiesSlots, 4 };
 
 //-----------------------------------------------------------------------------
 // ShimCollision: 1 forwarder(s) over IShimCollision.
@@ -2263,21 +2036,6 @@ static void *const s_ShimCollisionSlots[] = {
 };
 
 static const SSForwarderTable s_ShimCollisionTable = { s_ShimCollisionSlots, 1 };
-
-//-----------------------------------------------------------------------------
-// ShimWeapons: 2 forwarder(s) over IShimWeapons.
-//-----------------------------------------------------------------------------
-// void IShimWeapons::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
-static void SSFwd_ShimWeapons_RegisterAmmoType( IShimWeapons *self, const char * a0, int32_t a1, int32_t a2, int32_t a3, float a4, float a5 ) { self->RegisterAmmoType( a0, a1, a2, a3, a4, a5 ); }
-// void IShimWeapons::RegisterWeaponType( const char *, float, float, int32_t )
-static void SSFwd_ShimWeapons_RegisterWeaponType( IShimWeapons *self, const char * a0, float a1, float a2, int32_t a3 ) { self->RegisterWeaponType( a0, a1, a2, a3 ); }
-
-static void *const s_ShimWeaponsSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimWeapons_RegisterAmmoType ),
-	reinterpret_cast< void * >( &SSFwd_ShimWeapons_RegisterWeaponType ),
-};
-
-static const SSForwarderTable s_ShimWeaponsTable = { s_ShimWeaponsSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // ShimEffects: 1 forwarder(s) over IShimEffects.
@@ -2547,7 +2305,7 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 30 };
 
 //-----------------------------------------------------------------------------
-// ShimStandaloneClient: 20 forwarder(s) over IShimStandaloneClient.
+// ShimStandaloneClient: 22 forwarder(s) over IShimStandaloneClient.
 //-----------------------------------------------------------------------------
 // void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_ActivateOccluder( IShimStandaloneClient *self, int32_t a0, int32_t a1 ) { self->ActivateOccluder( a0, a1 ); }
@@ -2589,6 +2347,10 @@ static void * SSFwd_ShimStandaloneClient_StandaloneEngineBlock( IShimStandaloneC
 static void SSFwd_ShimStandaloneClient_StandaloneStoreSequence( IShimStandaloneClient *self, uint32_t a0, int32_t a1, float a2, float a3, float a4, int32_t a5 ) { self->StandaloneStoreSequence( a0, a1, a2, a3, a4, a5 ); }
 // void IShimStandaloneClient::StandaloneSetRagdoll( uint32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_StandaloneSetRagdoll( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetRagdoll( a0, a1 ); }
+// void IShimStandaloneClient::EntitySetSkin( uint32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_EntitySetSkin( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->EntitySetSkin( a0, a1 ); }
+// void IShimStandaloneClient::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
+static void SSFwd_ShimStandaloneClient_RegisterAmmoType( IShimStandaloneClient *self, const char * a0, int32_t a1, int32_t a2, int32_t a3, float a4, float a5 ) { self->RegisterAmmoType( a0, a1, a2, a3, a4, a5 ); }
 
 static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ActivateOccluder ),
@@ -2611,9 +2373,11 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneEngineBlock ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneStoreSequence ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetRagdoll ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_EntitySetSkin ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_RegisterAmmoType ),
 };
 
-static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 20 };
+static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 22 };
 
 //-----------------------------------------------------------------------------
 // ShimViewClient: 16 forwarder(s) over IShimViewClient.
@@ -3222,11 +2986,11 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimFrame", &s_ShimFrameTable },
 	{ "SSFwd_ShimLevel", &s_ShimLevelTable },
 	{ "SSFwd_ShimRoot", &s_ShimRootTable },
+	{ "SSFwd_GameEventManager", &s_GameEventManagerTable },
 	{ "SSFwd_ShimConsole", &s_ShimConsoleTable },
 	{ "SSFwd_ShimEngine", &s_ShimEngineTable },
 	{ "SSFwd_ShimConsoleServer", &s_ShimConsoleServerTable },
 	{ "SSFwd_ShimEventsServer", &s_ShimEventsServerTable },
-	{ "SSFwd_ShimStringTablesServer", &s_ShimStringTablesServerTable },
 	{ "SSFwd_ShimNetworkServer", &s_ShimNetworkServerTable },
 	{ "SSFwd_ShimModelsServer", &s_ShimModelsServerTable },
 	{ "SSFwd_ShimPrecache", &s_ShimPrecacheTable },
@@ -3241,22 +3005,18 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimDamage", &s_ShimDamageTable },
 	{ "SSFwd_ShimGameRules", &s_ShimGameRulesTable },
 	{ "SSFwd_ShimPlayers", &s_ShimPlayersTable },
-	{ "SSFwd_ShimWeaponsServer", &s_ShimWeaponsServerTable },
-	{ "SSFwd_ShimInventory", &s_ShimInventoryTable },
 	{ "SSFwd_ShimSound", &s_ShimSoundTable },
 	{ "SSFwd_ShimEffectsServer", &s_ShimEffectsServerTable },
 	{ "SSFwd_ShimDebugOverlay", &s_ShimDebugOverlayTable },
 	{ "SSFwd_ShimUserMessages", &s_ShimUserMessagesTable },
 	{ "SSFwd_ShimDiagnostics", &s_ShimDiagnosticsTable },
 	{ "SSFwd_ShimEvents", &s_ShimEventsTable },
-	{ "SSFwd_ShimStringTables", &s_ShimStringTablesTable },
 	{ "SSFwd_ShimNetwork", &s_ShimNetworkTable },
 	{ "SSFwd_ShimModels", &s_ShimModelsTable },
 	{ "SSFwd_ShimMovement", &s_ShimMovementTable },
 	{ "SSFwd_ShimWorld", &s_ShimWorldTable },
 	{ "SSFwd_ShimEntities", &s_ShimEntitiesTable },
 	{ "SSFwd_ShimCollision", &s_ShimCollisionTable },
-	{ "SSFwd_ShimWeapons", &s_ShimWeaponsTable },
 	{ "SSFwd_ShimEffects", &s_ShimEffectsTable },
 	{ "SSFwd_ShimHudClient", &s_ShimHudClientTable },
 	{ "SSFwd_ShimPredictionClient", &s_ShimPredictionClientTable },

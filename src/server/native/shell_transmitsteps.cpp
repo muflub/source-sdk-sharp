@@ -77,40 +77,6 @@ extern CGlobalVars *gpGlobals;
 
 
 //-----------------------------------------------------------------------------
-// THE SDK HIERARCHY'S ANSWER.
-//
-// 1 when this edict resolves to an SDK entity, with *pOutArea written; 0 when it
-// does not, with *pOutArea UNTOUCHED.
-//
-// UNTOUCHED RATHER THAN ZEROED, because area 0 is a real visleaf area. A step
-// that wrote 0 on the way out would make "the world's first area" and "no such
-// recipient" the same two bytes, and CheckTransmit RETURNS EARLY for one of
-// them and walks 473 edicts for the other.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EntitiesSdkPlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea )
-{
-	if ( pOutArea == NULL )
-		return 0;
-
-	edict_t *pEdict = engine->PEntityOfEntIndex( iEdict );
-	if ( pEdict == NULL )
-		return 0;
-
-	// NO SDK PLAYER BEHIND ANY EDICT, so this step has always answered 0.
-	// GetContainingEntity ANSWERED A CONSTANT NULL in this build: it is
-	// SourceSharp_SDKEntityFromUnknown< IServerEntity >, which bottoms out in
-	// IServerUnknown::GetBaseEntity(), and every implementation of that in
-	// server.so returns NULL (the close read all three out of the binary). The
-	// function is gone; the NULL it answered is written down instead.
-	// The stock cast that followed -- `static_cast<CBasePlayer *>( pEntity )`
-	// on to `m_Local.m_skybox3d.area` -- was unreachable with it. The standalone
-	// hierarchy's answer is the function immediately below, and the decision to
-	// prefer it is in C#.
-	(void)pEdict;
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
 // THE STANDALONE HIERARCHY'S ANSWER. Phase 9a's arm, unchanged except that the
 // decision to reach for it has left this file.
 //-----------------------------------------------------------------------------

@@ -55,7 +55,7 @@ public unsafe class ShimAreasTests : IDisposable
 
     [Fact]
     public void TheCountMatchesTheGeneratedTable()
-        => Assert.Equal(25, ShimAreas.Count);   // 25 since plan_physics_bones_native_zero 2.4 (the three joint tables left); 28 since the debug-api lane's IShimDiagnostics; 27 since plan_side_isolation P2: IShimUserMessages, and IShimEvents bound for itself
+        => Assert.Equal(22, ShimAreas.Count);   // 22 since plan_server_native_v2 T3 (the string tables folded; IShimStringTablesServer retired); 23 since plan_server_native_v2 T2 (IShimWeapons retired: RegisterWeaponType went, RegisterAmmoType is the client's); 24 since the same plan (IShimInventory left with its last slot); 25 since plan_physics_bones_native_zero 2.4 (the three joint tables left); 28 since the debug-api lane's IShimDiagnostics; 27 since plan_side_isolation P2: IShimUserMessages, and IShimEvents bound for itself
 
     // Every version the generated class asks for, read from its own fields'
     // layouts so this test cannot drift from the generator.

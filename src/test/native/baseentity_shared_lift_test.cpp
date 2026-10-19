@@ -198,13 +198,13 @@ const Caller_t kCallers[] =
 	// server/gameinterface.cpp was here until plan_gamedll_after.md Phase A9
 	// step 4 deleted it. Its two surviving EntityPrecache_SetAllowed calls are
 	// Begin/EndRestoreEntities', which went to shell_restoreentities.cpp; the
-	// other two went with stock's CServerGameDLL at step 3.
+	// other two went with stock's CServerGameDLL at step 3. That file left the
+	// server link with plan_server_native_min P1 and its row went with it.
 	//
 	// server/baseanimating.cpp, server/physics_main.cpp,
 	// shared/baseentity_shared.cpp and client/c_baseentity.cpp were here too.
 	// Neither client.so nor server.so compiles them any more, so they left the
 	// source tree and their rows went with them.
-	{ "../sourcesharp/game/server/shell_restoreentities.cpp", true,  false },
 	{ "../sourcesharp/game/server/precache_model.cpp", true,  false },
 	{ "../sourcesharp/game/shared/sound_emitter.cpp", true,  true  },
 };
@@ -279,6 +279,15 @@ const std::string &StaticsHeader()
 const std::string &StaticsSource()
 {
 	static const std::string s = ReadShellFile( "game/shared/entity_shared_statics.cpp" );
+	return s;
+}
+
+// The client's utility library: EntityTracer_ComputeStartPosition's home since
+// plan_server_native_v2 T2 (2026-10-18). It was #ifdef CLIENT_DLL in
+// entity_shared_statics.cpp, and a shared TU keeps only what both DLLs import.
+const std::string &ClientUtilLibrarySource()
+{
+	static const std::string s = ReadShellFile( "game/client/client_util_library.cpp" );
 	return s;
 }
 
@@ -727,7 +736,11 @@ struct Lifted_t
 	// translation unit that now owns the sv_alternateticks ConVar as well.
 	// A bool could not say that, and the version of this test that used one
 	// would have gone on passing with the bodies in either place.
-	enum Home_t { kInStaticsHeader, kInStaticsSource };
+	//
+	// A FOURTH since plan_server_native_v2 T2 (2026-10-18): the tracer helper
+	// was compiled only into the client, so it left the shared source for the
+	// client's utility library (client_util_library.cpp).
+	enum Home_t { kInStaticsHeader, kInStaticsSource, kInClientUtilLibrary };
 	Home_t      eHome;
 };
 
@@ -737,7 +750,7 @@ const Lifted_t kLifted[] =
 	{ "SetAllowPrecache",             "EntityPrecache_SetAllowed",               true,  Lifted_t::kInStaticsHeader },
 	{ "IsSimulatingOnAlternateTicks", "EntitySim_IsSimulatingOnAlternateTicks",  true,  Lifted_t::kInStaticsSource },
 	{ "SetPredictionRandomSeed",      "EntityPrediction_SetSeedFromCommand",     true,  Lifted_t::kInStaticsSource },
-	{ "ComputeTracerStartPosition",   "EntityTracer_ComputeStartPosition",       false, Lifted_t::kInStaticsSource },
+	{ "ComputeTracerStartPosition",   "EntityTracer_ComputeStartPosition",       false, Lifted_t::kInClientUtilLibrary },
 };
 
 const size_t kNumLifted = sizeof( kLifted ) / sizeof( kLifted[ 0 ] );
@@ -819,15 +832,15 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// deleted the file. CShellGameDll opens and closes its own precache
 		// window in shell_level.cpp and is pinned there separately.
 		// 2 -> 1 in the server gc cull (2026-10-01): BeginRestoreEntities had no
-		// caller and the linker dropped it, so its call went with it; End's stays.
-		{ "../sourcesharp/game/server/shell_restoreentities.cpp",
-		                                   "EntityPrecache_SetAllowed",              1, false },
+		// caller and the linker dropped it, so its call went with it; End's
+		// stayed until plan_server_native_min P1 deleted the whole restore path
+		// (the file and its row went with it). 1 -> 0.
 		// server/physics_main.cpp, server/baseanimating.cpp,
 		// shared/baseentity_shared.cpp, client/c_baseentity.cpp and
 		// client/c_baseentity_statics.cpp had rows here. Neither client.so nor
 		// server.so compiles them any more; they left the source tree and their
 		// rows went with them.
-		{ "../sourcesharp/game/server/precache_model.cpp", "EntityPrecache_IsAllowed",               2, false },
+		{ "../sourcesharp/game/server/precache_model.cpp", "EntityPrecache_IsAllowed",               1, false },   // 2 -> 1: the second was in the never-defined WATCHACCESS block, deleted in plan_server_native_v2 T2
 		// PATH IS 4b's, COUNTS ARE 4e's -- the two lanes changed different
 		// things about these rows and neither side is wholly right. 4b MOVED
 		// SoundEmitterSystem.cpp to the shim as sound_emitter.cpp, so the path
@@ -835,8 +848,10 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// DEFINITION out of baseentity_shared.cpp into entity_shared_statics.cpp,
 		// so the "3" 4b still carries is the pre-4e reading.
 		{ "../sourcesharp/game/shared/sound_emitter.cpp", "EntityPrecache_IsAllowed", 1, false },
-		// The DEFINITION step 4e moved here from baseentity_shared.cpp.
-		{ "game/shared/entity_shared_statics.cpp", "EntityTracer_ComputeStartPosition", 1, true },
+		// The DEFINITION step 4e moved from baseentity_shared.cpp into
+		// entity_shared_statics.cpp, and plan_server_native_v2 T2 on into the
+		// client's utility library (it was #ifdef CLIENT_DLL there).
+		{ "game/client/client_util_library.cpp", "EntityTracer_ComputeStartPosition", 1, true },
 		// The SAME QUESTION c_baseentity.cpp's interpolation walk used to ask
 		// is still asked on the client's live path, by
 		// StandaloneInterpolationAmount() in shell_standalone_client.cpp, which
@@ -957,6 +972,18 @@ TEST( BaseEntitySharedLift, EachFreeFunctionIsDefinedWhereItWasSaidToBe )
 				<< "entity_shared_statics.h. The precache pair lives there "
 				<< "because the flag they read is the static data member, and "
 				<< "the storage had to leave the class with them.";
+			continue;
+		}
+
+		if ( kLifted[ i ].eHome == Lifted_t::kInClientUtilLibrary )
+		{
+			EXPECT_TRUE( DefinedFree( ClientUtilLibrarySource(), kLifted[ i ].pszFree ) )
+				<< kLifted[ i ].pszFree << " is not defined at namespace scope in "
+				<< "game/client/client_util_library.cpp, where plan_server_native_v2 "
+				<< "T2 moved it out of the shared entity_shared_statics.cpp.";
+			EXPECT_FALSE( DefinedFree( StaticsSource(), kLifted[ i ].pszFree ) )
+				<< kLifted[ i ].pszFree << " is defined in the shared "
+				<< "entity_shared_statics.cpp again, which server.so compiles too.";
 			continue;
 		}
 
@@ -1165,7 +1192,7 @@ TEST( BaseEntitySharedNullSubject, TheDispatchWentSoTheGuardWentWithIt )
 
 	// The live successor: the world answers for itself, and that dispatch is
 	// inside the world test rather than in front of a general one.
-	EXPECT_NE( std::string::npos, strBody.find( "SourceSharp_IsTheWorld(pTrace->m_pEnt)" ) )
+	EXPECT_NE( std::string::npos, strBody.find( "SourceSharp_IsTheWorld(ss::TraceHit(*pTrace))" ) )
 		<< "UTIL_ImpactTrace no longer asks whether the trace hit the world. "
 		<< "Without that it emits no impact effect on level geometry at all, "
 		<< "which is almost every impact in the game and reads as a renderer "
@@ -1217,8 +1244,8 @@ TEST( BaseEntitySharedLiftFixture, AllFilesWereReallyOpened )
 	// read it for, so it is pinned -- anchored on a sibling in the same
 	// directory that IS readable, so a probe that cannot see game/server at
 	// all does not pass it.
-	EXPECT_TRUE( GameFileExists( "server/activator.h" ) )
-		<< "game/server/activator.h is not readable, so the absence below proves "
+	EXPECT_TRUE( GameFileExists( "shared/shareddefs.h" ) )
+		<< "game/shared/shareddefs.h is not readable, so the absence below proves "
 		<< "nothing about game/server.";
 	EXPECT_FALSE( GameFileExists( "server/baseentity.h" ) )
 		<< "game/server/baseentity.h is readable from the farm again. Nothing "
@@ -1297,7 +1324,7 @@ TEST( BaseEntitySharedLiftFixture, BothDetectorsSeeTheRealDeclarationsOfALiveHea
 	// now: the world answers impacts for itself, and UTIL_ImpactTrace's only
 	// dispatch is to CWorld. Both detectors are proved here, positively and
 	// negatively, on the same file: a plain `virtual T Foo( ... );`, a plain
-	// `static void Foo( void );`, and a member that is NEITHER.
+	// `static void operator delete( void * );`, and a member that is NEITHER.
 	const char *const kKnownVirtuals[] =
 	{
 		"Spawn", "Precache", "KeyValue", "DecalTrace",
@@ -1315,7 +1342,9 @@ TEST( BaseEntitySharedLiftFixture, BothDetectorsSeeTheRealDeclarationsOfALiveHea
 
 	const char *const kKnownStatics[] =
 	{
-		"RegisterSharedActivities", "RegisterSharedEvents",
+		// CWorld's operator delete: its last plain static member since the
+		// empty RegisterShared* hooks went (plan_server_native_v2 T2).
+		"delete",
 	};
 	for ( size_t i = 0; i < sizeof( kKnownStatics ) / sizeof( kKnownStatics[ 0 ] ); i++ )
 	{

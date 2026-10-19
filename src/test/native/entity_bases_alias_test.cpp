@@ -345,8 +345,8 @@ TEST( EntityBasesStandIn, TheStandInDiffersOnlyWhereItSaysSo )
 	// in P6: the include fact retired with it, and the three absences take
 	// their stronger form -- the header that held CBaseEntity cannot be read at
 	// all -- anchored on a sibling the farm still links.
-	ASSERT_FALSE( ReadLinesFromRoot( "game/server/activator.h" ).empty() )
-		<< "could not read game/server/activator.h, so the absence below would "
+	ASSERT_FALSE( ReadLinesFromRoot( "game/shared/shareddefs.h" ).empty() )
+		<< "could not read game/shared/shareddefs.h, so the absence below would "
 		   "be answered by a reader that sees nothing";
 	EXPECT_TRUE( ReadLinesFromRoot( "game/server/baseentity.h" ).empty() )
 		<< "game/server/baseentity.h is readable from the farm again. It is the "

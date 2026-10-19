@@ -148,18 +148,6 @@ extern float g_flServerCurTime;
 
 
 
-//-----------------------------------------------------------------------------
-// STEP 4 -- gameinterface.cpp:1162. g_MapEntityRefs.Purge(), once.
-//
-// The list is gone: CMapLoadEntityFilter, its only writer, is used by no
-// compiled TU and nothing read the list, so there is nothing to purge. The
-// step stays because it is an IShimEntityLifecycle slot C# calls in the level
-// sequence (ABI slots are append-only).
-//-----------------------------------------------------------------------------
-void SourceSharp_EntitiesPurgeMapRefs( void )
-{
-}
-
 //=============================================================================
 // THE RESIDUE FAMILY -- six of this file's calls are ONE thing.
 //
@@ -347,30 +335,6 @@ uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPacked
 // wants one, is a C# convar pair and a string-table write with user data.
 //-----------------------------------------------------------------------------
 
-
-//-----------------------------------------------------------------------------
-// STEP 9 -- gameinterface.cpp:1185. Stock's comment: "Sometimes an ent will
-// Remove() itself during its precache, so RemoveImmediate won't happen. This
-// makes sure those ents get cleaned up."
-//
-// LAST, because everything above it can produce one.
-//-----------------------------------------------------------------------------
-//
-// THIS IS ONE OF TWO DELETE LISTS NOW -- plan_entity.md step 2c. gEntList's is
-// the SDK hierarchy's and is all this step can reach; the parallel hierarchy's
-// is EntityDirectory's, in managed code, and the two are drained together at
-// every one of stock's four CleanupDeleteList points. The pairing is one line
-// in SourceSharp.Abi/EngineBinding.cs -- EntityRemovalRoutes.FreeNow() ahead of
-// this call -- so that WHEN an entity stops existing does not depend on which
-// hierarchy it was on. Nothing was added HERE, because a step that reached into
-// managed code to decide anything would be exactly what Part 4's rule forbids.
-void SourceSharp_EntitiesCleanupDeleteList( void )
-{
-	// THE SDK HALF of the two delete lists this step's own comment describes.
-	// The parallel hierarchy's is EntityRemovalRoutes.FreeNow() in managed code,
-	// paired with this call one line above it in EngineBinding.cs -- so armed,
-	// the managed half is the whole drain and the pairing is unchanged.
-}
 
 //=============================================================================
 // PHASE 7 -- SERVERACTIVATE AND LEVELSHUTDOWN, REDUCED THE SAME WAY.

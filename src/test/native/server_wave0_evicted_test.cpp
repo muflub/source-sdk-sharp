@@ -97,8 +97,10 @@ TEST( ServerWave0, TheFourOwnFilesLiveUnderSourceSharp )
 	const char *pszRoot = SrcRoot();
 	ASSERT_TRUE( pszRoot != NULL );
 
-	static const char *kOurs[] = { "entity_bases", "baseentity_statics",
-	                               "precache_model", "toucher" };
+	// baseentity_statics and entity_bases LEFT THIS LIST
+	// (plan_server_native_min P1): both .cpp files were deleted, and their
+	// absence at both paths is asserted below.
+	static const char *kOurs[] = { "precache_model" };   // toucher.cpp went in plan_server_native_v2 T2
 
 	for ( size_t i = 0; i < sizeof( kOurs ) / sizeof( kOurs[ 0 ] ); i++ )
 	{
@@ -123,6 +125,18 @@ TEST( ServerWave0, TheFourOwnFilesLiveUnderSourceSharp )
 		EXPECT_FALSE( Exists( strStock + ".h" ) )
 			<< strBase << ".h is back under game/server/ as well.";
 	}
+
+	// DELETED, not moved: one unreferenced send proxy and one write-only
+	// global (plan_server_native_min P1). Neither path may hold it.
+	static const char *kGone[] = { "baseentity_statics", "entity_bases" };
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+	{
+		const std::string strGone = kGone[ i ];
+		EXPECT_FALSE( Exists( std::string( pszRoot ) + "/sourcesharp/game/server/" + strGone + ".cpp" ) )
+			<< strGone << ".cpp is back under sourcesharp/game/server/.";
+		EXPECT_FALSE( Exists( std::string( pszRoot ) + "/game/server/" + strGone + ".cpp" ) )
+			<< strGone << ".cpp is back under game/server/.";
+	}
 }
 
 TEST( ServerWave0, TheServerCompilesTheFourAtTheirNewPaths )
@@ -141,8 +155,7 @@ TEST( ServerWave0, TheServerCompilesTheFourAtTheirNewPaths )
 	// must not be listed (the flip removed it), the bare basename must not be
 	// listed either (the old path, same as the other three), and the file must
 	// still be where the move put it.
-	static const char *kOurs[] = { "baseentity_statics.cpp",
-	                               "precache_model.cpp", "toucher.cpp" };
+	static const char *kOurs[] = { "precache_model.cpp" };   // toucher.cpp went in plan_server_native_v2 T2
 
 	for ( size_t i = 0; i < sizeof( kOurs ) / sizeof( kOurs[ 0 ] ); i++ )
 	{
@@ -162,6 +175,11 @@ TEST( ServerWave0, TheServerCompilesTheFourAtTheirNewPaths )
 			<< "file and a duplicate-symbol link.";
 	}
 
+	// baseentity_statics.cpp was deleted (plan_server_native_min P1), so no
+	// spelling of it may be compiled.
+	EXPECT_FALSE( ServerCompilesBasename( "baseentity_statics.cpp" ) )
+		<< "a baseentity_statics.cpp is compiled again; it was deleted.";
+
 	// THE FOURTH, which the flip took. Neither spelling may be present.
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/entity_bases.cpp" ) )
 		<< "entity_bases.cpp is listed at its sourcesharp path again. The flip "
@@ -172,13 +190,9 @@ TEST( ServerWave0, TheServerCompilesTheFourAtTheirNewPaths )
 		<< "out of game/server/ -- where it no longer lives, and where the flip "
 		<< "removed it from anyway.";
 
-	// AND THE HALF THAT IS NOT AN ABSENCE. The absences above are all satisfied
-	// by a list that failed to read (the proof-of-read guards that), so the file
-	// entity_bases.cpp was PART OF still has to be found where the move put it.
-	EXPECT_TRUE( Exists( "sourcesharp/game/server/entity_bases.cpp" ) )
-		<< "entity_bases.cpp is not under sourcesharp/game/server/ at all. The "
-		<< "flip took its build row, not the file: section 6 keeps the source so a "
-		<< "link error names the class rather than an unknown type.";
+	// AND THE HALF THAT IS NOT AN ABSENCE is the two kOurs rows above, which
+	// must be compiled. entity_bases.cpp itself was deleted
+	// (plan_server_native_min P1): the flip had already taken its build row.
 }
 
 //-----------------------------------------------------------------------------

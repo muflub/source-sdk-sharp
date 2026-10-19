@@ -99,13 +99,25 @@ const char *const kMovedDefinitions[] = {
 	// point it: this table is "every definition that moved into the shim", and
 	// these two are not in the shim any more. Their absence has its own fact
 	// below, so the deletion does not become invisible.
-	"bool UTIL_IsLowViolence( void )",
+	// UTIL_IsLowViolence, UTIL_GetActiveHolidayString and
+	// UTIL_GetActiveOperationString STOOD HERE. They were #ifdef CLIENT_DLL, so
+	// plan_server_native_v2 T2 (2026-10-18) moved them on to the client's
+	// utility library (a shared TU keeps only what both DLLs import); they are
+	// kClientMovedDefinitions below, asserted there and absent here.
 	"bool UTIL_ShouldShowBlood( int color )",
-	"const char* UTIL_GetActiveHolidayString()",
-	"const char* UTIL_GetActiveOperationString()",
-	"const char *GetCleanMapName( const char *pszUnCleanMapName, char (&pszTmp)[256])",
+	// GetCleanMapName left (plan_server_native_min P1): no caller in either
+	// DLL. util_shared.h is the fork's and still declares it; nothing links
+	// against the declaration.
 };
 const size_t kNumMoved = sizeof( kMovedDefinitions ) / sizeof( kMovedDefinitions[ 0 ] );
+
+const char *const kClientHome = "sourcesharp/game/client/client_util_library.cpp";
+const char *const kClientMovedDefinitions[] = {
+	"bool UTIL_IsLowViolence( void )",
+	"const char* UTIL_GetActiveHolidayString()",
+	"const char* UTIL_GetActiveOperationString()",
+};
+const size_t kNumClientMoved = sizeof( kClientMovedDefinitions ) / sizeof( kClientMovedDefinitions[ 0 ] );
 
 // The four violence knobs, now declared in MANAGED code.
 //
@@ -162,6 +174,18 @@ TEST( UtilSharedLibrary, EveryMovedDefinitionIsInTheShimFile )
 			<< kMovedDefinitions[ i ] << " is not defined exactly once in "
 			<< kLibrary;
 	}
+
+	const std::string client = ReadFile( kClientHome );
+	ASSERT_FALSE( client.empty() ) << kClientHome << " did not load";
+	for ( size_t i = 0; i < kNumClientMoved; i++ )
+	{
+		EXPECT_EQ( 1u, CountOf( client, kClientMovedDefinitions[ i ] ) )
+			<< kClientMovedDefinitions[ i ] << " is not defined exactly once in "
+			<< kClientHome;
+		EXPECT_EQ( 0u, CountOf( lib, kClientMovedDefinitions[ i ] ) )
+			<< kClientMovedDefinitions[ i ] << " is defined in the shared "
+			<< kLibrary << " again; it is the client's";
+	}
 }
 
 TEST( UtilSharedLibrary, NoMovedDefinitionWasLeftBehindInUtilShared )
@@ -180,6 +204,13 @@ TEST( UtilSharedLibrary, NoMovedDefinitionWasLeftBehindInUtilShared )
 	{
 		EXPECT_EQ( 1u, CountOf( lib, kMovedDefinitions[ i ] ) )
 			<< kMovedDefinitions[ i ] << " is not in " << kLibrary << " either.";
+	}
+	const std::string client = ReadFile( kClientHome );
+	ASSERT_FALSE( client.empty() ) << kClientHome << " did not load";
+	for ( size_t i = 0; i < kNumClientMoved; i++ )
+	{
+		EXPECT_EQ( 1u, CountOf( client, kClientMovedDefinitions[ i ] ) )
+			<< kClientMovedDefinitions[ i ] << " is not in " << kClientHome << " either.";
 	}
 }
 
@@ -227,8 +258,7 @@ TEST( UtilSharedLibrary, TheServerCompilesIt )
 {
 	ExpectCompiledOnce( cmake_graph::kServer );
 	if ( HasFailure() )
-		ADD_FAILURE() << "server.so asks for GetCleanMapName and the shared "
-		   "random functions, and nothing else defines them -- so it does not link.";
+		ADD_FAILURE() << "server.so asks for the shared random functions, and nothing else defines them -- so it does not link.";
 }
 
 TEST( UtilSharedLibrary, TheClientCompilesIt )
@@ -278,8 +308,7 @@ TEST( UtilSharedLibrary, TheLibraryReadsTheFourByNameRatherThanDeclaringThem )
 		// into the engine's registry rather than through a declaration.
 		EXPECT_EQ( 1u, CountOf( lib, std::string( "( \"" ) + kViolenceNames[ i ] + "\" );" ) )
 			<< kViolenceNames[ i ] << " has no by-name ref in " << kLibrary
-			<< ". UTIL_IsLowViolence and UTIL_ShouldShowBlood are still here "
-			   "and still read it.";
+			<< ". UTIL_ShouldShowBlood is still here and still reads it.";
 	}
 
 	// Exactly four REFS, counted by the declaration spelling rather than by the
@@ -288,6 +317,19 @@ TEST( UtilSharedLibrary, TheLibraryReadsTheFourByNameRatherThanDeclaringThem )
 	// step with the prose beside it.
 	EXPECT_EQ( 4u, CountOf( lib, "static CManagedConVarRef\tviolence_" ) )
 		<< "expected exactly four by-name refs in " << kLibrary;
+
+	// UTIL_IsLowViolence moved to the client (plan_server_native_v2 T2) and
+	// reads the same four the same way, through refs of its own file.
+	const std::string client = ReadFile( kClientHome );
+	ASSERT_FALSE( client.empty() ) << kClientHome << " did not load";
+	for ( size_t i = 0; i < kNumConVars; i++ )
+	{
+		EXPECT_EQ( 1u, CountOf( client, std::string( "( \"" ) + kViolenceNames[ i ] + "\" );" ) )
+			<< kViolenceNames[ i ] << " has no by-name ref in " << kClientHome
+			<< ", where UTIL_IsLowViolence reads it.";
+	}
+	EXPECT_EQ( 4u, CountOf( client, "static CManagedConVarRef\tviolence_" ) )
+		<< "expected exactly four by-name refs in " << kClientHome;
 }
 
 TEST( UtilSharedLibrary, TheFourViolenceConVarsAreDeclaredNativelyNowhereAtAll )
@@ -326,7 +368,7 @@ TEST( UtilSharedLibrary, BothStringParserPairsLeftAsPairs )
 	const std::string lib = ReadFile( kLibrary );
 	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
 	// The vacuity guard: a definition this file still holds reads as one.
-	ASSERT_EQ( 1u, CountOf( lib, "const char *GetCleanMapName( const char *pszUnCleanMapName, char (&pszTmp)[256])" ) )
+	ASSERT_EQ( 1u, CountOf( lib, "bool UTIL_ShouldShowBlood( int color )" ) )
 		<< kLibrary << " is not the file this fact means to read";
 
 	// THE FIRST PAIR WENT WITH ITS LAST IMPORTER (C9 K3). UTIL_StringToVector
@@ -374,7 +416,7 @@ TEST( UtilSharedLibrary, TheSteamHalfLeftForManaged )
 	const std::string lib = ReadFile( kLibrary );
 	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
 	// Proof of read: a definition that stayed.
-	ASSERT_EQ( 1u, CountOf( lib, "const char* UTIL_GetActiveHolidayString()" ) );
+	ASSERT_EQ( 1u, CountOf( lib, "bool UTIL_ShouldShowBlood( int color )" ) );
 
 	const char *const kGone[] = {
 		"ISteamUtils* GetSteamUtils()",

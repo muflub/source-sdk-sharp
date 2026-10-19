@@ -143,9 +143,6 @@ void ss::FactoryList_Retrieve( ss::factorylist_t &destData )
 // a variant_t with an entity in it (nm: no caller of SetEntity, Set or
 // Convert outside this file, and DispatchInput converts only to a float).
 //-----------------------------------------------------------------------------
-// Defined in shell_standalone_hierarchy.cpp. At file scope: Convert's block-scope extern,
-// inside namespace ss, would name ss::SourceSharp_FindBaseEntityByName.
-uint32_t SourceSharp_FindBaseEntityByName( const char *pName );
 
 namespace
 {
@@ -440,40 +437,14 @@ bool variant_t::Convert( fieldtype_t newType )
 
 				case FIELD_EHANDLE:
 				{
-					// convert the string to an entity by locating it by name
+					// convert the string to an entity by locating it by name.
+					// NULL, always, and it always was: the one find-by-name it
+					// asked, SourceSharp_FindBaseEntityByName, answered the
+					// invalid handle because no stock-hierarchy entity is ever
+					// registered on the server (plan_server_native_v2 T2 deleted
+					// it). A name resolves in the managed directory, which
+					// Convert cannot reach -- and nothing calls Convert (above).
 					IGameEntity *ent = NULL;
-					if ( iszVal != NULL_STRING )
-					{
-						// ASKED OF THE ONE FIND-BY-NAME THIS BUILD HAS, rather
-						// than of a list directly.
-						//
-						// That relay already spans both hierarchies and already
-						// carries this question's armed answer: armed it searches
-						// the managed directory, which is the whole population,
-						// because no compiled server translation unit registers an
-						// entity of the stock hierarchy any more. Unarmed it does
-						// exactly what the line here used to do.
-						//
-						// ASKING IT RATHER THAN COPYING IT is the point. A second
-						// spelling of find-by-name in this file would be a second
-						// implementation free to drift from the one every other
-						// caller uses -- and it would add a line to the count that
-						// measures how much of the stock list the shim still names,
-						// for a lookup that already exists.
-						//
-						// Declared locally, the way this tree declares every relay
-						// with no header of its own: a signature that drifts fails
-						// to link rather than quietly resolving to something else.
-						// SourceSharp_FindBaseEntityByName: declared at file scope, above.
-
-						const SourceSharpEntity_t found =
-							SourceSharp_ResolveEntity( SourceSharp_FindBaseEntityByName( STRING( iszVal ) ) );
-
-						// An UPCAST, which C++ does on its own: CStandaloneEntity
-						// derives from IGameEntity. Written as a cast it read like
-						// a claim about layout, and it was not one.
-						ent = found.pStandalone;
-					}
 					SetEntity( ent );
 					return true;
 				}

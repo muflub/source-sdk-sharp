@@ -531,7 +531,10 @@ public sealed partial class SourceFileNamesExistTests
     /// the StandaloneSequenceInfo slot it pinned.
     /// 50 TO 49 AT bone_library.cpp's eviction: AnimationLayerTests' read of
     /// anim_layer_rule.h went with the header (the count is AnimLayerRule's).
-    private const int VacuousAssertionSites = 49;
+    /// 49 TO 48 AT plan_server_native_v2 T2: AbiParityTests'
+    /// TheGibShotStructMatchesTheHeader and its not-found arm went with the
+    /// native SourceSharpGibShot.
+    private const int VacuousAssertionSites = 48;
 
     private static readonly Regex Vacuous = new(
         @"\bAssert\s*\.\s*(?:True\s*\(\s*true|False\s*\(\s*false)\b",

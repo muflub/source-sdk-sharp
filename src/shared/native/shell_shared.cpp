@@ -26,9 +26,6 @@
 #include "tier0/dbg.h"
 #endif
 #ifdef CLIENT_DLL
-#include "ammodef.h"
-#endif
-#ifdef CLIENT_DLL
 #include "igamemovement.h"
 #else
 #include "ss_gamemovement.h"	// the server's CMoveData / IGameMovement are server.so's own
@@ -46,7 +43,6 @@ using ss::IGameMovement;
 #include "shell_diagnostics.h"
 #include "tier0/icommandline.h"
 #include "ss_string.h"
-#include "weapon_type_table.h"
 #include "ss_command_line.h"
 #include "filesystem.h"	// FilesSizeOnPath / FilesReadOnPath
 extern IFileSystem *filesystem;	// each DLL's own (shell_engineboundary.cpp, shell_clientdll.cpp)
@@ -109,77 +105,10 @@ ConVar default_fov( "default_fov", "90", FCVAR_REPLICATED | FCVAR_CHEAT,
 static CMoveData g_MoveData;
 CMoveData *g_pMoveData = &g_MoveData;
 
-//-----------------------------------------------------------------------------
-// Ammo types, declared in C#.
-//
-// The table is deliberately NOT lazily initialised behind a "have we done this
-// yet" flag. GetAmmoDef can be called before the managed runtime is up — it is
-// reached from weapon script parsing, which the engine can do early — and a flag
-// would then latch an empty table forever. Instead the table starts empty and
-// valid, and C# fills it during LoadSide.
-//
-// CLIENT ONLY (plan_server_novalve.md P5, user ruling 2026-10-01). server.so's
-// table, ss::CAmmoDef, was written by C# and read by nothing once the server gc
-// cull deleted CalculateBulletDamageForce, so it is gone: the server's managed
-// side no longer registers, and the server's slot below refuses.
-//-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL
-static CAmmoDef g_AmmoDef;
-
-CAmmoDef *GetAmmoDef()
-{
-	return &g_AmmoDef;
-}
-#endif
-
-//-----------------------------------------------------------------------------
-// Called by C# once per ammo type.
-//
-// Idempotent by name: C# re-registers on every side load and a hot reload runs
-// it again, but CAmmoDef is native and survives that, so without this a reload
-// would add duplicate types and shift every ammo index.
-//-----------------------------------------------------------------------------
-#ifndef CLIENT_DLL
-// THE SERVER'S SLOT REFUSES. IShimAreas keeps the method (append-only, and
-// SideAuditTests wants it filled on both sides), but server.so has no table: a
-// call means a managed caller came back, and it is said rather than dropped.
-void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,
-                                   int32_t nTracerType, float flDamageForce, float flDamage )
-{
-	(void)nDamageType; (void)nMaxCarry; (void)nTracerType; (void)flDamageForce; (void)flDamage;
-	Warning( "[SourceSharp] RegisterAmmoType( \"%s\" ) refused: server.so keeps no ammo "
-	         "table (plan_server_novalve.md P5); the server's ammo answers are managed.\n",
-	         pName ? pName : "" );
-}
-#else
-void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,
-                                   int32_t nTracerType, float flDamageForce, float flDamage )
-{
-	if ( !pName || !pName[0] )
-		return;
-
-	if ( g_AmmoDef.Index( pName ) != -1 )
-	{
-		if ( SourceSharp_GetVerbosity() > 1 )
-			Msg( "[SourceSharp] ammo type '%s' already registered; kept\n", pName );
-		return;
-	}
-
-	// The damage is per BULLET and it is the ammo's, not the weapon's, which is
-	// how stock does it: FireBullets asks the ammo definition unless the shot
-	// carries an override, and HL2 sets these through the sk_plr_dmg_* convars.
-	// Registering zero — as this did — makes every bullet in the game do nothing,
-	// and nothing complains.
-	g_AmmoDef.AddAmmoType( pName, nDamageType, nTracerType,
-	                       (int)flDamage, (int)flDamage,   // player and NPC damage
-	                       nMaxCarry,
-	                       (int)flDamageForce, 0 );
-
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] ammo type '%s' max=%d damageType=%d\n",
-			pName, nMaxCarry, nDamageType );
-}
-#endif
+// Ammo types: SourceSharp_RegisterAmmoType is the client's alone (an
+// IShimStandaloneClient slot since plan_server_native_v2 T2), with its
+// CAmmoDef and GetAmmoDef, in src/client/native/shell_client.cpp. The
+// server's refusing body went with IShimWeapons: only the client registers.
 
 //-----------------------------------------------------------------------------
 // Weapon script parsing -- GONE from the server, and this is where it was.
@@ -216,65 +145,9 @@ void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32
 // globals ledgers ruled it DEAD ("the linker drops it").
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// What each weapon does when fired, declared by C# and held here.
-//
-// Native because the stock attack path asks for these DURING the shot:
-// PrimaryAttack reads the fire rate to work out how many shots are owed and the
-// spread to aim them, and a managed call from inside that is a boundary
-// crossing per trigger pull for numbers that changed once at startup.
-//
-// One generic shell serves every weapon name, so none of this can be inherited
-// from a per-weapon C++ class the way stock does it. This table is what replaces
-// those classes.
-//-----------------------------------------------------------------------------
-// The table and its rules are weapon_type_table.h's (weapon_type_table_test).
-static CWeaponTypeTable g_WeaponTypes;
-
-void SourceSharp_RegisterWeaponType( const char *pClassName, float flFireRate,
-                                     float flSpreadDegrees, int32_t nPellets )
-{
-	if ( !pClassName || !pClassName[0] )
-		return;
-
-	// Re-registering replaces rather than duplicates, because both sides
-	// register the same table and the client is loaded after the server on a
-	// listen server. Only a NEW class is announced, as before.
-	const WeaponStats_t stats = { flFireRate, flSpreadDegrees, nPellets };
-
-	if ( !g_WeaponTypes.Register( pClassName, stats ) )
-		return;
-
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] weapon '%s': %.2fs, %.1f deg, %d pellet(s)\n",
-			pClassName, flFireRate, flSpreadDegrees, nPellets );
-}
-
-// Zero from any of these means "not registered", and every caller falls back to
-// the base class rather than to a hardcoded number.
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-float SourceSharp_WeaponFireRate( const char *pClassName )
-{
-	const WeaponStats_t *pType = g_WeaponTypes.Find( pClassName );
-	return pType ? pType->flFireRate : 0.0f;
-}
-#endif
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-float SourceSharp_WeaponSpread( const char *pClassName )
-{
-	const WeaponStats_t *pType = g_WeaponTypes.Find( pClassName );
-	return pType ? pType->flSpreadDegrees : 0.0f;
-}
-#endif
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-int SourceSharp_WeaponPellets( const char *pClassName )
-{
-	const WeaponStats_t *pType = g_WeaponTypes.Find( pClassName );
-	return pType ? pType->nPellets : 0;
-}
-#endif
+// The weapon-type table (fire rate, spread, pellets per classname) went in
+// plan_server_native_v2 T2 with SourceSharp_RegisterWeaponType: its three
+// readers had gone, so it was written at startup and read by nothing.
 
 //-----------------------------------------------------------------------------
 // IShimEngine::FilesSizeOnPath / FilesReadOnPath: a whole file off one named

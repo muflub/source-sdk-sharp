@@ -129,15 +129,6 @@ std::string ReadStripped( const char *pszRel )
 	return StripComments( ss.str() );
 }
 
-int CountOccurrences( const std::string &hay, const std::string &needle )
-{
-	int n = 0;
-	for ( size_t p = hay.find( needle ); p != std::string::npos;
-	      p = hay.find( needle, p + needle.size() ) )
-		n++;
-	return n;
-}
-
 bool Has( const std::string &hay, const char *pszNeedle )
 {
 	return hay.find( pszNeedle ) != std::string::npos;
@@ -218,7 +209,7 @@ TEST( GameStatsEvicted, TheTwoShellReferencesAreGoneRatherThanGuarded )
 	    << "shell_gameclients.cpp still reaches the gamestats global";
 	EXPECT_FALSE( Has( sv, "gamestats.h" ) )
 	    << "shell_gameclients.cpp still includes gamestats.h";
-	// COUNTED, not merely found, and the count is ONE now rather than two.
+	// IT WAS COUNTED, not merely found, and the count was ONE rather than two.
 	//
 	// It was two because there were TWO disconnect paths -- the standalone arm
 	// and stock's SDK arm -- and only one of them had the stat event beside it.
@@ -237,23 +228,22 @@ TEST( GameStatsEvicted, TheTwoShellReferencesAreGoneRatherThanGuarded )
 	// copy, so what this fact guards -- that the eviction took the stat event
 	// and nothing else -- is now asserted against the live path, which is a
 	// stronger place for it to point than before.
-	EXPECT_EQ( CountOccurrences( sv, "g_pGameRules->ClientDisconnected( pEdict );" ), 1 )
-	    << "shell_gameclients.cpp's surviving disconnect path no longer calls "
-	       "ClientDisconnected. The rules would stop being told a client left, "
-	       "and nothing downstream of here would notice.";
-
-	// AND IT IS IN THE ARM THAT RUNS. The count alone would be satisfied by a
-	// call left behind in a dead arm -- which is exactly the state the deleted
-	// copy was in, green under a count of two for as long as it existed.
+	//
+	// AND THE SURVIVOR WENT TOO, in plan_server_native_v2 T2. Its body was
+	// empty (stock's is `if ( pClient ) { }` once SOURCESHARP's arm is taken),
+	// so the rules were never told anything by it; managed hears of a
+	// disconnect on its own path. What this fact still guards is that the
+	// standalone arm, the path a departing client takes, survived the
+	// eviction, and that the call cannot come back without its member.
 	const size_t arm = sv.find(
 	    "if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict ) )" );
 	EXPECT_NE( arm, std::string::npos )
-	    << "ClientDisconnect's standalone arm is gone; the count above is about "
-	       "a call in no reachable path";
-	EXPECT_NE( sv.find( "g_pGameRules->ClientDisconnected( pEdict );", arm ),
-	           std::string::npos )
-	    << "the surviving ClientDisconnected is not inside the standalone arm, "
-	       "so it is in a path a departing client does not take";
+	    << "ClientDisconnect's standalone arm is gone";
+	const std::string rules = ReadStripped( "sourcesharp/game/shared/igamerules.h" );
+	ASSERT_NE( rules.find( "class IGameRules" ), std::string::npos )
+	    << "igamerules.h was not read, so the absence below would prove nothing";
+	EXPECT_FALSE( Has( rules, "ClientDisconnected" ) )
+	    << "IGameRules declares ClientDisconnected again. Its only body was empty";
 
 	const std::string cl =
 	    ReadStripped( "sourcesharp/game/client/shell_clientsystems.cpp" );

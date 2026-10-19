@@ -178,20 +178,6 @@ const char *SourceSharp_EventGetString( void *hEvent, const char *pKey )
 }
 
 #ifndef CLIENT_DLL
-// FIRING (IShimEventsServer): decision-free CreateEvent / Set* / FireEvent for
-// managed code. FireEvent frees the event; EventFree is for one not fired.
-void *SourceSharp_EventCreate( const char *pName )
-{
-	if ( !pName || !pName[0] || !gameeventmanager )
-		return NULL;
-
-	IGameEvent *pEvent = gameeventmanager->CreateEvent( pName );
-	if ( !pEvent )
-		Warning( "[SourceSharp] could not create game event '%s': no such event is declared\n", pName );
-
-	return pEvent;
-}
-
 void SourceSharp_EventSetInt( void *hEvent, const char *pKey, int32_t nValue )
 {
 	if ( IGameEvent *pEvent = (IGameEvent *)hEvent; pEvent && pKey )
@@ -216,18 +202,4 @@ void SourceSharp_EventSetString( void *hEvent, const char *pKey, const char *pVa
 		pEvent->SetString( pKey, pValue ? pValue : "" );
 }
 
-int32_t SourceSharp_EventFire( void *hEvent )
-{
-	IGameEvent *pEvent = (IGameEvent *)hEvent;
-	if ( !pEvent || !gameeventmanager )
-		return 0;
-
-	return gameeventmanager->FireEvent( pEvent ) ? 1 : 0;
-}
-
-void SourceSharp_EventFree( void *hEvent )
-{
-	if ( IGameEvent *pEvent = (IGameEvent *)hEvent; pEvent && gameeventmanager )
-		gameeventmanager->FreeEvent( pEvent );
-}
 #endif // !CLIENT_DLL

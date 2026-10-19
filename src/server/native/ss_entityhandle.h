@@ -24,7 +24,8 @@
 #include "engine/IStaticPropMgr.h"
 #include "gametrace.h"
 
-class IGameEntity;
+#include "igameentity_fwd.h"
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 extern IStaticPropMgrServer *staticpropmgr;   // shell_engineboundary.cpp
 
@@ -45,7 +46,7 @@ inline IGameEntity *GameEntityFromEntityHandle( IHandleEntity *pHandleEntity )
 	// IServerEntity, IServerUnknown and IHandleEntity are a single-inheritance
 	// chain, so all three views of an entity share an address.
 	IServerEntity *pServerEntity = (IServerEntity *)pHandleEntity;
-	return pServerEntity->GetGameEntity();
+	return pServerEntity->GetBaseEntity();
 }
 
 inline const IGameEntity *GameEntityFromEntityHandle( const IHandleEntity *pConstHandleEntity )
@@ -58,7 +59,7 @@ inline const IGameEntity *GameEntityFromEntityHandle( const IHandleEntity *pCons
 // The game entity a trace hit (util_shared.h's TraceGameEntity, server arm).
 inline IGameEntity *TraceGameEntity( const trace_t &tr )
 {
-	return ss::GameEntityFromEntityHandle( tr.m_pEnt );
+	return ss::GameEntityFromEntityHandle( ss::TraceHit( tr ) );
 }
 
 } // namespace ss

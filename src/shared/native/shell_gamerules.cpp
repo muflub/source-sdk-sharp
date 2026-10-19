@@ -39,7 +39,7 @@ uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
 	// physics_shell.h's rule table, which this file wrote the group rows into,
 	// is gone (plan_physics_bones_native_zero 2.3): the rules vphysics asks are
 	// managed's PhysicsSolverRules.
-	#include "ss_shareddefs.h"	// GR_NOTTEAMMATE / GR_TEAMMATE
+	#include "ss_shareddefs.h"	// ss::kDmg*, the damage mask table
 	#include "ss_takedamageinfo.h"	// ss::g_MultiDamage, ss::ApplyMultiDamage
 	#include "standalone_relays.h"	// StandaloneEntity_Name
 
@@ -413,12 +413,9 @@ void SourceSharp_CreateGameRules()
 #ifdef CLIENT_DLL
 BEGIN_NETWORK_TABLE_NOBASE( CSourceSharpGameRules, DT_SourceSharpGameRules )
 END_NETWORK_TABLE()
-#else
-// What BEGIN_NETWORK_TABLE_NOBASE / END_NETWORK_TABLE are on the server
-// (predictable_entity.h).
-BEGIN_SEND_TABLE_NOBASE( CSourceSharpGameRules, DT_SourceSharpGameRules )
-END_SEND_TABLE()
 #endif
+// The server's empty send table went in plan_server_native_v2 T2: no
+// IMPLEMENT_SERVERCLASS and no proxy entity named it.
 
 // The gamerules PROXY ENTITY and its two data-table proxies were here. Deleted
 // -- nothing ever spawned one, and it carried an empty table. See the long note
@@ -558,11 +555,6 @@ void SourceSharp_RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPol
 int CSourceSharpGameRules::Damage_GetTimeBased( void )       { return s_DamageRules.nTimeBased; }
 int CSourceSharpGameRules::Damage_GetNoPhysicsForce( void )  { return s_DamageRules.nNoPhysicsForce; }
 
-bool CSourceSharpGameRules::Damage_NoPhysicsForce( int iDmgType )
-{
-	return ( iDmgType & Damage_GetNoPhysicsForce() ) != 0;
-}
-
 //-----------------------------------------------------------------------------
 // Yes. Stock's CMultiplayRules::IsMultiplayer is `return true` and so is this;
 // there is no single-player arm of this mod to be wrong about.
@@ -608,28 +600,6 @@ bool CSourceSharpGameRules::ClientConnected( edict_t *pEntity, const char *pszNa
 	}
 
 	return true;
-}
-
-// The two player-relationship codes this answer uses: stock's values,
-// restated in ss_shareddefs.h and checked against upstream gamerules.h by
-// ss_shareddefs_oracle_test.
-using ss::GR_NOTTEAMMATE;
-using ss::GR_TEAMMATE;
-
-int CSourceSharpGameRules::PlayerRelationship( IGameEntity *pPlayer, IGameEntity *pTarget )
-{
-	IManagedClients *pApi = ManagedClients();   // plan_engineapi_vtables E: managed-built
-	if ( pApi )
-	{
-		int32_t nResult = pApi->GetPlayerRelationship(
-			SourceSharp_HandleFromEntity( pPlayer ),
-			SourceSharp_HandleFromEntity( pTarget ) );
-
-		if ( nResult >= 0 )
-			return nResult != 0 ? GR_TEAMMATE : GR_NOTTEAMMATE;
-	}
-
-	return GR_NOTTEAMMATE;
 }
 
 //-----------------------------------------------------------------------------
@@ -750,22 +720,6 @@ void CSourceSharpGameRules::EndGameFrame( void )
 // (inline in the header now -- IGameRules declares it in the shared arm.)
 
 //-----------------------------------------------------------------------------
-// A client leaving.
-//
-// EMPTY, and it was already empty. The whole of stock's body is inside
-// `#ifndef SOURCESHARP` -- it dropped the player's items, destroyed their view
-// models and fired game_playerleave, all through a CBasePlayer that this build
-// does not have (13c). What survives upstream is `if ( pClient ) { }`.
-//
-// The managed side is told about a disconnect through its own path, so nothing
-// is lost here; this is a stub because there is nothing left to do, not because
-// something was skipped.
-//-----------------------------------------------------------------------------
-void CSourceSharpGameRules::ClientDisconnected( edict_t *pClient )
-{
-}
-
-//-----------------------------------------------------------------------------
 // A client's keyvalue command.
 //
 // EMPTY, and stock's is too: its body opens with `#ifdef SOURCESHARP return;`
@@ -773,58 +727,6 @@ void CSourceSharpGameRules::ClientDisconnected( edict_t *pClient )
 // CBaseMultiplayerPlayer to announce achievements, and none exists.
 //-----------------------------------------------------------------------------
 // (inline in the header now -- IGameRules declares it in the shared arm.)
-
-//-----------------------------------------------------------------------------
-// The convars this server advertises to the server browser, by tag: NONE HERE,
-// which was CGameRules' own answer (gamerules.h:254).
-//
-// A tag is declared on its convar in C# now (`Tag = "gravity"` on sv_gravity)
-// and SourceSharp.Server.ServerTags puts it in sv_tags on change, by the rule
-// the engine applied to this list (plan_server_novalve.md P3). Stock's other
-// entry, sv_alltalk, names a convar this mod does not declare. Building the list
-// meant building KeyValues the engine walks and frees -- tier1's KeyValues and
-// vstdlib's symbol table in server.so, and memory crossing the boundary.
-//-----------------------------------------------------------------------------
-void CSourceSharpGameRules::GetTaggedConVarList( KeyValues *pCvarTagList )
-{
-}
-
-
-//-----------------------------------------------------------------------------
-// RADIUS DAMAGE IS MANAGED POLICY, AND THIS IS THE REFUSAL THAT SAYS SO.
-//
-// The body that was here -- 337 raw lines out of gamerules.cpp:426 -- decided
-// how hard an explosion hits at a distance, what stands in its way, how much of
-// the blast a blocker keeps, and whether a blast crosses the surface of the
-// water. plan_entity.md 3.10: "Game rules have no native object ... the
-// decision callbacks ... become ordinary managed calls with no native side."
-// Section 6 has no gamerules row at all. It is SourceSharp.Server/BlastSweep.cs
-// now, and the falloff curve alone is SourceSharp.Server/BlastRules.cs, where
-// BlastRulesTests asks it questions no running Source is needed for --
-// including the one the deleted body's own comment recorded and could not
-// assert: magnitude 120, radius 256, a victim out at the edge taking a couple
-// of hit points where the live defect gave it the whole 120.
-//
-// A PRINTED REFUSAL AND NOT A SILENT NO-OP -- section 7's rule. Nothing in the
-// managed tree calls this any more: the two ABI entry points that reached it,
-// SourceSharp_RadiusDamage and SourceSharp_ExplosionDamage
-// (shell_worldquery.cpp), have no managed caller left, and no compiled TU on
-// either side calls the global RadiusDamage but those two. That claim was
-// MEASURED -- every $File in both csharp vpcs, resolved and grepped -- and this
-// Warning is what happens if the measurement was wrong. The two entry points
-// and the global forward are Lane 2's to delete; see
-// .claude/entity-port/requests/policy-rules.md.
-//
-// The arguments keep their names so the signature still reads as the contract
-// igamerules.h declares.
-//-----------------------------------------------------------------------------
-void CSourceSharpGameRules::RadiusDamage( const RulesDamageInfo_t &info, const Vector &vecSrcIn, float flRadius, int iClassIgnore, IGameEntity *pEntityIgnore, const IHandleEntity *pTraceIgnore )
-{
-	Warning( "[SourceSharp] radius damage is managed policy (BlastSweep.cs); "
-	         "the native rule was reached at %.0f %.0f %.0f with radius %.1f "
-	         "and did nothing\n",
-	         vecSrcIn.x, vecSrcIn.y, vecSrcIn.z, flRadius );
-}
 
 #endif // !CLIENT_DLL
 

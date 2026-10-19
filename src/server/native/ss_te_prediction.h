@@ -27,7 +27,14 @@
 #pragma once
 #endif
 
+// igameentity_fwd.h's two arms, spelled here: ss_te_prediction_test compiles
+// this header with no include path at all.
+#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
+class CBaseEntity;
+using IGameEntity = CBaseEntity;
+#else
 class IGameEntity;
+#endif
 
 namespace ss
 {

@@ -113,6 +113,7 @@ set(client_sourcesharp_sources
     # The recv tables' builders and their Valve names (plan_client_novalve C8, engineabi/recv.h).
     ${CMAKE_CURRENT_SOURCE_DIR}/engineabi_recv.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/engineabi_recv_names.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/generic_payload_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_renderable_facts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_rope_render.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_soundscape_audio_client.cpp
@@ -127,7 +128,6 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sprite_leaf.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sprite_render.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_client.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_stringtables_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_surface_render.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_te_backends_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_te_forwards_client.cpp
@@ -157,6 +157,7 @@ set(client_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/collisionproperty.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/collisionutils.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/dt_utlvector_common.cpp
+    ${PROJECT_SOURCE_DIR}/src/shared/native/dt_element_names.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/entity_shared_statics.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/gamestringpool.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/generic_payload.cpp

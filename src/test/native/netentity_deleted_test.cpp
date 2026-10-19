@@ -513,7 +513,8 @@ TEST( NetEntityDeleted, NothingAnywhereInTheTreeNamesTheFourReapedSlots )
 	// THE VACUITY FLOOR, and it is deliberately large. `src/game` alone is over
 	// a thousand files; a walk that stopped at a permission error or a renamed
 	// directory would otherwise report "nobody names them" about nothing.
-	ASSERT_GT( files.size(), 1000u )
+	// 1000 -> 900: the port shrinks the tree (994 read at plan_server_native_v2 T3).
+	ASSERT_GT( files.size(), 900u )
 		<< "only " << files.size() << " source files were read. The recursive "
 		   "walk is not reaching src/game, src/public and src/sourcesharp, so "
 		   "this test is not asking the question it claims to.";

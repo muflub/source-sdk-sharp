@@ -427,7 +427,12 @@ TEST( TraceFilterLibrary, TheTracerStartHelperTakesNoShooter )
 		"void EntityTracer_ComputeStartPosition( const Vector &vecShotSrc, Vector *pVecTracerStart );" ) )
 		<< "the declared shape changed";
 
-	EXPECT_EQ( 1u, CountOf( ReadFile( kStatics ),
+	// The definition is the client's (plan_server_native_v2 T2, 2026-10-18): it
+	// was #ifdef CLIENT_DLL in the shared entity_shared_statics.cpp.
+	EXPECT_EQ( 1u, CountOf( ReadFile( "sourcesharp/game/client/client_util_library.cpp" ),
 		"void EntityTracer_ComputeStartPosition( const Vector &vecShotSrc, Vector *pVecTracerStart )" ) )
 		<< "the definition and the declaration disagree, or the definition moved";
+	EXPECT_EQ( 0u, CountOf( ReadFile( kStatics ),
+		"void EntityTracer_ComputeStartPosition(" ) )
+		<< "the shared entity_shared_statics.cpp defines the client's tracer helper again";
 }

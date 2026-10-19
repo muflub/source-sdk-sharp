@@ -45,9 +45,6 @@ std::vector< CStandaloneEntity * > &StandaloneEntities();
 // runtime object and a ServerClass links itself into the list the engine walks
 // later, so neither needs a macro and neither needs CBaseEntity.
 //-----------------------------------------------------------------------------
-// StandaloneByName, the by-name walk cs_standalone_parent resolves its two
-// arguments with, went with that command to shell_standalone_debug.cpp: it was
-// the only caller.
 
 
 
@@ -1116,7 +1113,7 @@ ServerClass *CStandaloneEntity::GetServerClass()
 
 
 
-// cs_standalone_spawn, cs_standalone_parent, cs_standalone_mapspawn and
-// cs_sv_viewmodel_report are diagnostics: they live in shell_standalone_debug.cpp,
-// which only a debug build compiles.
+// cs_standalone_spawn is a diagnostic: it lives in shell_standalone_debug.cpp,
+// which only a debug build compiles. (cs_standalone_parent, cs_standalone_mapspawn
+// and cs_sv_viewmodel_report had no driver and went; ruling 5 of 2026-10-11.)
 

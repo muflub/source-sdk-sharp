@@ -68,6 +68,7 @@
 
 #include <fstream>
 #include <set>
+#include <cstring>
 #include <string>
 
 namespace
@@ -93,14 +94,18 @@ const char *SourceRoot()
 	return NULL;
 }
 
-std::string ReadServerFile( const char *pszLeaf )
+// pszDir is "/server/" for a Valve path, or "/" for one of ours reached as
+// "../sourcesharp/...": a fresh farm has no game/server directory (no server
+// file is a fork link since plan_server_native_v2 D3), and a path cannot pass
+// through a directory that does not exist.
+std::string ReadUnder( const char *pszDir, const char *pszLeaf )
 {
 	const char *pszRoot = SourceRoot();
 	if ( !pszRoot )
 		return std::string();
 
 	std::string strPath( pszRoot );
-	strPath += "/server/";
+	strPath += pszDir;
 	strPath += pszLeaf;
 
 	std::ifstream file( strPath.c_str() );
@@ -109,6 +114,15 @@ std::string ReadServerFile( const char *pszLeaf )
 
 	return std::string( ( std::istreambuf_iterator< char >( file ) ),
 	                    std::istreambuf_iterator< char >() );
+}
+
+// "server/../x" is resolved by hand to "x", which names the same file without
+// needing game/server to exist.
+std::string ReadServerFile( const char *pszLeaf )
+{
+	if ( strncmp( pszLeaf, "../", 3 ) == 0 )
+		return ReadUnder( "/", pszLeaf + 3 );
+	return ReadUnder( "/server/", pszLeaf );
 }
 
 size_t CountOf( const std::string &hay, const std::string &needle )
@@ -423,8 +437,8 @@ TEST( PrecacheModelMove, PrecacheModelMemberIsAPureForwarder )
 	const std::string strDecls  = StripComments( PrecacheModelHeader() );
 	ASSERT_NE( std::string::npos, strDecls.find( "PRECACHE_MODEL_H" ) )
 		<< "precache_model.h did not load";
-	ASSERT_TRUE( ServerFileReadable( "activator.h" ) )
-		<< "game/server/activator.h did not load, so the absence below would be "
+	ASSERT_TRUE( ServerFileReadable( "../shared/shareddefs.h" ) )
+		<< "game/shared/shareddefs.h did not load, so the absence below would be "
 		   "answered by a reader that sees nothing";
 
 	// Absence half: no member, forwarder or otherwise -- no header to hold one.
@@ -447,8 +461,8 @@ TEST( PrecacheModelMove, PrecacheModelComponentsMemberIsAPureForwarder )
 	const std::string strDecls  = StripComments( PrecacheModelHeader() );
 	ASSERT_NE( std::string::npos, strDecls.find( "PRECACHE_MODEL_H" ) )
 		<< "precache_model.h did not load";
-	ASSERT_TRUE( ServerFileReadable( "activator.h" ) )
-		<< "game/server/activator.h did not load";
+	ASSERT_TRUE( ServerFileReadable( "../shared/shareddefs.h" ) )
+		<< "game/shared/shareddefs.h did not load";
 
 	EXPECT_FALSE( ServerFileReadable( "baseentity.h" ) )
 		<< "game/server/baseentity.h, which held the PrecacheModelComponents "

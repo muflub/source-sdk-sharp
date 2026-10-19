@@ -861,13 +861,8 @@ public sealed class RecordingEngine :
     // Damage
     void IEngineDamage.Apply(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType) => RecordVoid("Damage.Apply", victim, attacker, damage, damageType);
     void IEngineDamage.ApplyAt(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType, Vector force, Vector position) => RecordVoid("Damage.ApplyAt", victim, attacker, damage, damageType, force, position);
-    bool IEngineDamage.Dissolve(EntityHandle entity, DissolveType type, float magnitude, Vector? from) => Record<bool>("Damage.Dissolve", entity, type, magnitude, from);
-    void IEngineDamage.Ignite(EntityHandle entity, float lifetime) => RecordVoid("Damage.Ignite", entity, lifetime);
-    void IEngineDamage.RadiusDamage(Vector origin, float damage, float radius, DamageType damageType, EntityHandle attacker) => RecordVoid("Damage.RadiusDamage", origin, damage, radius, damageType, attacker);
-    void IEngineDamage.ExplosionDamage(Vector origin, float magnitude, float radius, DamageType damageType, EntityHandle attacker, EntityHandle inflictor, EntityHandle ignored, float damageForce) => RecordVoid("Damage.ExplosionDamage", origin, magnitude, radius, damageType, attacker, inflictor, ignored, damageForce);
     void IEngineDamage.SetForceServerRagdoll(EntityHandle entity, bool force) => RecordVoid("Damage.SetForceServerRagdoll", entity, force);
     TakeDamageMode IEngineDamage.SetTakeDamageMode(EntityHandle entity, TakeDamageMode mode) => Record<TakeDamageMode>("Damage.SetTakeDamageMode", entity, mode);
-    bool IEngineDamage.ShootGib(string model, in GibShot shot) => Record<bool>("Damage.ShootGib", model, shot);
     void IEngineDamage.RegisterRules(DamageRuleMasks masks) => RecordVoid("Damage.RegisterRules", masks);
 
     // GameRulesPolicy
@@ -953,27 +948,7 @@ public sealed class RecordingEngine :
     void IEnginePlayerMovement.SnapEyeAngles(EntityHandle player, Vector pitchYawRoll) => RecordVoid("PlayerMovement.SnapEyeAngles", player, pitchYawRoll);
 
     // Weapons
-    void IEngineWeapons.AddViewKick(EntityHandle weapon) => RecordVoid("Weapons.AddViewKick", weapon);
-    float IEngineWeapons.AnimDuration(EntityHandle weapon, WeaponAnim anim) => Record<float>("Weapons.AnimDuration", weapon, anim);
-    void IEngineWeapons.FireBullets(EntityHandle weapon, int shots, float spreadDegrees) => RecordVoid("Weapons.FireBullets", weapon, shots, spreadDegrees);
-    bool IEngineWeapons.GetState(EntityHandle weapon, out WeaponState state)
-    {
-        state = Value<WeaponState>("Weapons.GetState.state");
-        return Record<bool>("Weapons.GetState", weapon);
-    }
-    void IEngineWeapons.Idle(EntityHandle weapon) => RecordVoid("Weapons.Idle", weapon);
-    void IEngineWeapons.MuzzleFlash(EntityHandle weapon) => RecordVoid("Weapons.MuzzleFlash", weapon);
-    void IEngineWeapons.PlaySound(EntityHandle weapon, WeaponSound sound) => RecordVoid("Weapons.PlaySound", weapon, sound);
     void IEngineWeapons.RegisterAmmoType(string name, DamageType damageType, int maxCarry, int tracerType, float damageForce, float damage) => RecordVoid("Weapons.RegisterAmmoType", name, damageType, maxCarry, tracerType, damageForce, damage);
-    void IEngineWeapons.RegisterWeaponEntity(string className) => RecordVoid("Weapons.RegisterWeaponEntity", className);
-    void IEngineWeapons.RegisterWeaponType(string className, float fireRate, float spreadDegrees, int pellets) => RecordVoid("Weapons.RegisterWeaponType", className, fireRate, spreadDegrees, pellets);
-    void IEngineWeapons.SendAnim(EntityHandle weapon, WeaponAnim anim) => RecordVoid("Weapons.SendAnim", weapon, anim);
-    void IEngineWeapons.SetClip(EntityHandle weapon, int clip) => RecordVoid("Weapons.SetClip", weapon, clip);
-    void IEngineWeapons.SetInReload(EntityHandle weapon, bool inReload) => RecordVoid("Weapons.SetInReload", weapon, inReload);
-    void IEngineWeapons.SetNextPrimaryAttack(EntityHandle weapon, float time) => RecordVoid("Weapons.SetNextPrimaryAttack", weapon, time);
-    void IEngineWeapons.SetNextSecondaryAttack(EntityHandle weapon, float time) => RecordVoid("Weapons.SetNextSecondaryAttack", weapon, time);
-    int IEngineWeapons.TakeAmmo(EntityHandle weapon, int count) => Record<int>("Weapons.TakeAmmo", weapon, count);
-    int IEngineWeapons.TakeSecondaryAmmo(EntityHandle weapon, int count) => Record<int>("Weapons.TakeSecondaryAmmo", weapon, count);
 
     // Hud
     void IEngineHud.DrawWorldText(Vector origin, int line, string text, float duration, int r, int g, int b, int a) => RecordVoid("Hud.DrawWorldText", origin, line, text, duration, r, g, b, a);
@@ -1062,10 +1037,8 @@ public sealed class RecordingEngine :
     SoundScriptParams? IEngineSound.SoundScriptParameters(string soundName) => Record<SoundScriptParams?>("Sound.SoundScriptParameters", soundName);
     int IEngineSound.SoundPatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel) => Record<int>("Sound.SoundPatchCreate", entity, channel, soundName, soundLevel);
     string? IEngineSound.SurfaceScrapeSound(int surfaceProps, bool smooth) => Record<string?>("Sound.SurfaceScrapeSound", surfaceProps, smooth);
-    void IEngineSound.PlayerSetSoundscape(EntityHandle player, int entIndex, int soundscapeIndex, int localBits, ReadOnlySpan<Vector> localPositions) => RecordVoid("Sound.PlayerSetSoundscape", player, entIndex, soundscapeIndex, localBits, localPositions.Length);
 
     // Effects
-    bool IEngineEffects.BloodDecal(Vector start, Vector end, BloodColor color) => Record<bool>("Effects.BloodDecal", start, end, color);
     void IEngineEffects.BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream, BloodSpray sprayFlags) => RecordVoid("Effects.BloodEffect", origin, direction, color, amount, stream, sprayFlags);
     void IEngineEffects.BubbleEffect(EntityHandle entity, int count, float speed) => RecordVoid("Effects.BubbleEffect", entity, count, speed);
 
@@ -1231,9 +1204,6 @@ public sealed class RecordingEngine :
     void IEngineEffects.SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => RecordVoid("Effects.SpriteTrailUpdate", owner, renderMode, visible);
     void IEngineEffects.SpriteTrailDestroy(EntityHandle owner) => RecordVoid("Effects.SpriteTrailDestroy", owner);
     void IEngineEffects.DustEffect(Vector origin, Vector direction, float size, float speed) => RecordVoid("Effects.DustEffect", origin, direction, size, speed);
-    EntityHandle IEngineEffects.FireEffectCreate(int type, Vector origin, float scale, int flags) => Record<EntityHandle>("Effects.FireEffectCreate", type, origin, scale, flags);
-    void IEngineEffects.FireEffectEnable(EntityHandle effect, bool enable) => RecordVoid("Effects.FireEffectEnable", effect, enable);
-    void IEngineEffects.FireEffectScale(EntityHandle effect, float scale, float time) => RecordVoid("Effects.FireEffectScale", effect, scale, time);
     void IEngineEffects.ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity) => RecordVoid("Effects.ImpactEffect", start, end, surfaceProp, damageType, entity);
     void IEngineEffects.FunnelEffect(Vector origin, int spriteIndex, bool reversed) => RecordVoid("Effects.FunnelEffect", origin, spriteIndex, reversed);
     void IEngineEffects.MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type) => RecordVoid("Effects.MuzzleFlashEffect", origin, angles, scale, type);

@@ -406,7 +406,6 @@ const FileGuards_t kT6Files[] = {
 	// absorbed. The one left is EndRestoreEntities' OnRestore walk.
 	//
 	// 1 -> 0, AND THE FILE IS GONE: A9 step 4 deleted gameinterface.cpp and the
-	// last guard went with EndRestoreEntities to shell_restoreentities.cpp,
 	// listed below. A row of 0 for a file that does not exist would fail this
 	// table's own "is missing or unreadable" assertion, so the row is REMOVED
 	// and the successor's row carries the guard. The shard total is unchanged
@@ -542,7 +541,7 @@ const FileGuards_t kT6Files[] = {
 	// so rather than inventing a position for the sound listener. The anchor is
 	// unchanged and is now the only thing separating "no regions" from "no
 	// file".
-	{ "sourcesharp/game/server/shell_clientsteps.cpp",       0, "SourceSharp_ClientsSdkPlayerEarPosition" },
+	{ "sourcesharp/game/server/shell_clientsteps.cpp",       0, "SourceSharp_ClientsStandalonePlayerEarPosition" },
 	// The last one out of gameinterface.cpp, with EndRestoreEntities at A9
 	// step 4. Its ledger KEY changed (d00e8845 -> 598e8514) because the restore
 	// list stopped being a file static and the guard's first body line reads
@@ -571,7 +570,8 @@ const FileGuards_t kT6Files[] = {
 	// with it, and the row would have read "this file does not exist" rather
 	// than "this file has no regions". `EndRestoreEntities` is the function the
 	// three regions lived in and it is still here.
-	{ "sourcesharp/game/server/shell_restoreentities.cpp",   0, "void EndRestoreEntities()" },
+	// shell_restoreentities.cpp's row left with the file
+	// (plan_server_native_min P1): the restore path is deleted whole.
 	// 31 -> 30 (plan_cworld_trace.md T3). SourceSharp_EntityGetClassName held a
 	// guard around its own copy of the two hierarchy arms; it asks
 	// SourceSharpEntity_t::Classname() now, which is the projection that already

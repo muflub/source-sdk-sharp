@@ -92,9 +92,7 @@ std::string Code( const std::string &raw )
 	return out;
 }
 
-const char *const kShimCvars = "sourcesharp/game/server/shell_gamedll_convars.cpp";
 const char *const kShimGameDll = "sourcesharp/game/server/shell_gamedll.cpp";
-const char *const kInterfaces = "sourcesharp/game/server/shell_engineboundary.cpp";
 const char *const kStockHdr  = "game/server/game.h";
 const char *const kSoundEnt  = "sourcesharp/managed/SourceSharp.Server/SoundEnt.cs";
 const char *const kManaged   = "sourcesharp/managed/SourceSharp.Server/GameDllConVars.cs";
@@ -111,39 +109,8 @@ const char *const kSettings  = "../game/mod_sharp/cfg/settings.scr";
 // one registers -- the two differ for eleven of them, and the name is the half
 // that is reached from outside this DLL.
 //
-// nDefs is how many times the SYMBOL is defined in the file, and it is 1 for
-// every one of the seventeen -- including `flashlight`, which stock declared
-// TWICE, `#ifdef CSTRIKE` at "1" and `#else` at "0".
-//
-// The pair was carried across verbatim at first, and tools/dead-conditionals
-// reported it: CSTRIKE is on neither command line of this build, so the
-// CSTRIKE arm is dead code now that these declarations are shim code rather
-// than stock. That tool scans sourcesharp/** and not game/**, which is why
-// game.cpp held the pair for as long as it did with nothing saying so -- the
-// move is what made it visible. The arm the build takes was kept; see
-// TheFlashlightDeclarationIsNotConditional.
-struct Cvar { const char *pSymbol; const char *pName; size_t nDefs; };
-
-const Cvar kSeventeen[] = {
-	{ "displaysoundlist", "\"displaysoundlist\"", 1 },
-	{ "mapcyclefile",     "\"mapcyclefile\"",     1 },
-	{ "servercfgfile",    "\"servercfgfile\"",    1 },
-	{ "lservercfgfile",   "\"lservercfgfile\"",   1 },
-	{ "teamplay",         "\"mp_teamplay\"",      1 },
-	{ "falldamage",       "\"mp_falldamage\"",    1 },
-	{ "weaponstay",       "\"mp_weaponstay\"",    1 },
-	{ "forcerespawn",     "\"mp_forcerespawn\"",  1 },
-	{ "footsteps",        "\"mp_footsteps\"",     1 },
-	{ "flashlight",       "\"mp_flashlight\"",    1 },
-	{ "aimcrosshair",     "\"mp_autocrosshair\"", 1 },
-	{ "decalfrequency",   "\"decalfrequency\"",   1 },
-	{ "teamlist",         "\"mp_teamlist\"",      1 },
-	{ "teamoverride",     "\"mp_teamoverride\"",  1 },
-	{ "defaultteam",      "\"mp_defaultteam\"",   1 },
-	{ "allowNPCs",        "\"mp_allowNPCs\"",     1 },
-	{ "suitvolume",       "\"suitvolume\"",       1 },
-};
-const size_t kNumSeventeen = sizeof( kSeventeen ) / sizeof( kSeventeen[ 0 ] );
+// The kSeventeen symbol table went with the native file it counted
+// (plan_server_native_min P1); the managed count below pins the number.
 
 } // namespace
 
@@ -159,93 +126,25 @@ TEST( GameDllConVars, TheStockTranslationUnitHasLeftTheServer )
 
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kStockCpp ) )
 		<< "game.cpp is back in server_sourcesharp (src/server/native/CMakeLists.txt). It defines the same "
-		   "seventeen ConVars as " << kShimCvars << ", so both rows together "
+		   "seventeen ConVars GameDllConVars.cs declares, so both rows together "
 		   "are seventeen duplicate registrations -- which the ConVar system "
 		   "reports at runtime and no compile or link step sees.";
 }
 
-TEST( GameDllConVars, TheShimFileIsStillCompiledForTheDeveloperHandle )
-{
-	// The row is still there and the reason changed. Phase 1d kept this file
-	// for the seventeen declarations; Phase 2c took those to
-	// SourceSharp.Server/GameDllConVars.cs and left one pointer behind.
-	// physics.o and shell_soundscape.o import g_pDeveloper and
-	// shell_engineboundary.o imports InitializeCvars, so the row is still
-	// load-bearing -- for three symbols instead of twenty.
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kShimCvars ) )
-		<< kShimCvars << " is not compiled into server.so (server_sourcesharp, "
-		   "src/server/native/CMakeLists.txt), so "
-		   "g_pDeveloper is undefined and InitializeCvars has no body.";
-}
+// TheShimFileIsStillCompiledForTheDeveloperHandle went with the file it
+// required present (plan_server_native_min P1): g_pDeveloper's two native
+// readers left with physics's and the soundscape's ports, so the pointer and
+// the one call that assigned it are deleted, not re-pinned.
 
 //=============================================================================//
 // 2. ALL SEVENTEEN SURVIVED, BY SYMBOL AND BY NAME
 //=============================================================================//
 
-TEST( GameDllConVars, NoCompiledNativeFileDeclaresAnyOfTheSeventeen )
-{
-	// THE FLIP. This fact used to require each symbol to be defined EXACTLY
-	// ONCE in the shim file, because game.h declared all seventeen extern and
-	// too few was an undefined reference at link time. The declarations are
-	// managed now and game.h's externs went with them, so the requirement
-	// inverts: a native definition that came back would be a SECOND ConVar
-	// registered under a name managed code already registers, which tier1
-	// resolves by making the later one a CHILD of the first -- neither a
-	// compile error nor a link error, and, as util_shared_library.cpp's own
-	// note on `developer` records, "neither the console nor the game says which
-	// one it read."
-	const std::string code = Code( ReadFile( kShimCvars ) );
-	ASSERT_FALSE( code.empty() ) << kShimCvars << " did not load";
-
-	for ( size_t i = 0; i < kNumSeventeen; i++ )
-	{
-		const std::string def = std::string( "ConVar" ) + kSeventeen[ i ].pSymbol + "(";
-		EXPECT_EQ( 0u, CountOf( code, def ) )
-			<< kSeventeen[ i ].pSymbol << " is declared natively again in "
-			<< kShimCvars << ". SourceSharp.Server/GameDllConVars.cs declares "
-			   "the same NAME, so the engine would hold two ConVars for it and "
-			   "say nothing about which one a reader got.";
-	}
-}
-
-TEST( GameDllConVars, TheManagedFileDeclaresAllSeventeenNames )
-{
-	// BY NAME, which is the half that is reached from outside this DLL and the
-	// half a rename would break silently. The managed file is read raw: C#
-	// attribute arguments are code, and the file's own prose does not contain a
-	// quoted convar name outside one -- NoManagedNeedleIsSatisfiedByProseAlone
-	// checks that rather than assuming it.
-	const std::string cs = ReadFile( kManaged );
-	ASSERT_FALSE( cs.empty() ) << kManaged << " did not load";
-
-	for ( size_t i = 0; i < kNumSeventeen; i++ )
-	{
-		EXPECT_LE( 1u, CountOf( cs, std::string( "[ConVar(" ) + kSeventeen[ i ].pName ) )
-			<< "the ConVar NAME " << kSeventeen[ i ].pName << " is not declared "
-			   "by " << kManaged << ". The name is what callers outside this "
-			   "DLL use -- SoundEnt.cs, the engine's ConVarRef, and "
-			   "cfg/settings.scr -- and dropping it is silent at every build "
-			   "step.";
-	}
-}
-
-TEST( GameDllConVars, TheManagedFlashlightDeclarationIsNotTheCstrikeArm )
-{
-	// stock's game.cpp declares mp_flashlight TWICE, `#ifdef CSTRIKE` at "1"
-	// and `#else` at "0". CSTRIKE is on neither command line of this build, so
-	// the CSTRIKE arm has always been dead. Picking it up on the way into C#
-	// would be a behaviour change smuggled in as a move, and nothing about the
-	// build would say so.
-	const std::string cs = ReadFile( kManaged );
-	ASSERT_FALSE( cs.empty() ) << kManaged << " did not load";
-
-	EXPECT_LE( 1u, CountOf( cs, "[ConVar(\"mp_flashlight\", \"0\"" ) )
-		<< "mp_flashlight no longer defaults to \"0\" in " << kManaged
-		<< ". \"1\" is stock's CSTRIKE value; this mod is not Counter-Strike.";
-
-	// The half that pinned game.cpp still carrying both arms was culled when
-	// server.so stopped compiling game.cpp and it left the source tree.
-}
+// NoCompiledNativeFileDeclaresAnyOfTheSeventeen went with the file it read
+// (plan_server_native_min P1). What it guarded against -- a second native
+// ConVar under a managed name -- is the tier1 child-registration hazard, and
+// the whole-tree form of the guard is ExactlyOneCompiledServerFileCalls-
+// ConVarRegister above, which walks every compiled server source.
 
 //=============================================================================//
 // 3. THE BY-NAME CONSUMERS THE CENSUS CANNOT SEE, each still asking
@@ -341,25 +240,10 @@ TEST( GameDllConVars, ExactlyOneCompiledServerFileCallsConVarRegister )
 // 5. THE ENGINE HANDLE, assigned once and called once
 //=============================================================================//
 
-TEST( GameDllConVars, InitializeCvarsAssignsTheDeveloperHandleAndIsStillCalled )
-{
-	const std::string cvars = Code( ReadFile( kShimCvars ) );
-	ASSERT_FALSE( cvars.empty() ) << kShimCvars << " did not load";
-
-	EXPECT_EQ( 1u, CountOf( cvars, "voidInitializeCvars(void){" ) )
-		<< kShimCvars << " does not define InitializeCvars; "
-		<< kInterfaces << " declares it extern and calls it.";
-	EXPECT_EQ( 1u, CountOf( cvars, "g_pDeveloper=cvar->FindVar(\"developer\")" ) )
-		<< "g_pDeveloper is not assigned. physics.cpp and shell_soundscape.cpp "
-		   "dereference it, so a NULL here is a crash on the first cheat "
-		   "check rather than \"cheats are off\".";
-
-	const std::string iface = Code( ReadFile( kInterfaces ) );
-	ASSERT_FALSE( iface.empty() ) << kInterfaces << " did not load";
-	EXPECT_EQ( 1u, CountOf( iface, "InitializeCvars();" ) )
-		<< kInterfaces << " no longer calls InitializeCvars, so g_pDeveloper "
-		   "stays NULL.";
-}
+// InitializeCvarsAssignsTheDeveloperHandleAndIsStillCalled went with its
+// subject (plan_server_native_min P1): InitializeCvars is deleted from
+// shell_engineboundary.cpp with the pointer it assigned, whose last two
+// dereferences left with their files' ports.
 
 TEST( GameDllConVars, TheStockHeaderHasLeftTheFarm )
 {
@@ -376,9 +260,9 @@ TEST( GameDllConVars, TheStockHeaderHasLeftTheFarm )
 	// ReadFile EXPECTs the file to open, so the absence is probed directly. The
 	// sibling read is what keeps it from being true of a cwd that holds no
 	// game/server at all.
-	const std::string sibling = ReadFile( "game/server/entity_funcs.h" );
-	ASSERT_LT( 0u, CountOf( sibling, "#ifndef ENTITY_FUNCS_H" ) )
-		<< "game/server/entity_funcs.h did not read, so the absence below is "
+	const std::string sibling = ReadFile( "game/shared/shareddefs.h" );
+	ASSERT_LT( 0u, CountOf( sibling, "#ifndef SHAREDDEFS_H" ) )
+		<< "game/shared/shareddefs.h did not read, so the absence below is "
 		   "not evidence";
 
 	EXPECT_FALSE( std::ifstream( kStockHdr ).good() )
@@ -391,24 +275,10 @@ TEST( GameDllConVars, TheStockHeaderHasLeftTheFarm )
 // 6. THE CHECK ON THE CHECKS
 //=============================================================================//
 
-TEST( GameDllConVars, NoNeedleIsSatisfiedByProseAlone )
-{
-	// Every assertion above reads Code(), which removes comments. This proves
-	// that is not a formality: the file's banner NAMES game.cpp, ConVar_Register
-	// and six of the ConVars, so a test reading the raw text would pass on the
-	// commentary alone.
-	const std::string raw  = ReadFile( kShimCvars );
-	const std::string code = Code( raw );
-	ASSERT_FALSE( raw.empty() );
-
-	EXPECT_LT( 0u, CountOf( raw, "ConVar_Register" ) )
-		<< "the banner no longer explains which ConVar_Register call is the "
-		   "live one -- rewrite this fact rather than deleting it.";
-	EXPECT_EQ( 0u, CountOf( code, "ConVar_Register" ) )
-		<< kShimCvars << " CALLS ConVar_Register. It must not: that would be "
-		   "the second call, and ExactlyOneCompiledServerFileCallsConVarRegister "
-		   "is the fact about it.";
-}
+// NoNeedleIsSatisfiedByProseAlone read kShimCvars's banner; the file is
+// deleted (plan_server_native_min P1) and with it the banner it proved
+// non-empty. NoManagedNeedleIsSatisfiedByProseAlone keeps the form over the
+// managed file.
 
 TEST( GameDllConVars, NoManagedNeedleIsSatisfiedByProseAlone )
 {
@@ -431,7 +301,7 @@ TEST( GameDllConVars, NoManagedNeedleIsSatisfiedByProseAlone )
 	// Seventeen [ConVar] attributes and not one more: a name this port invented
 	// and parked in this file would be a convar stock never had, sitting in the
 	// file whose whole claim is that it is stock's seventeen.
-	EXPECT_EQ( kNumSeventeen, CountOf( cs, "[ConVar(" ) )
+	EXPECT_EQ( (size_t)17, CountOf( cs, "[ConVar(" ) )
 		<< kManaged << " declares " << CountOf( cs, "[ConVar(" )
-		<< " ConVars rather than " << kNumSeventeen << ".";
+		<< " ConVars rather than 17.";
 }

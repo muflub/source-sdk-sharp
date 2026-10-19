@@ -446,34 +446,31 @@ TEST( SuppressHostDead, TheTempEntSuppressFilterReadsNoSuppressHost )
 }
 
 //-----------------------------------------------------------------------------
-// AND THE FUNCTION STILL ANSWERS. Deleting the read is not the claim; the claim
-// is that the function returns what stock's body computed, which for a NULL
-// host is false -- "there is at least one recipient, do not suppress".
+// AND NO SENDER IS SUPPRESSED. SourceSharpTe_SuppressFilter answered what
+// stock's body computed for a NULL host, false ("there is at least one
+// recipient, do not suppress"), so every caller's suppress arm was dead.
+// plan_server_native_min P1 deleted the function and those arms together.
 //
-// A body of `return true;` would compile, would satisfy the fact above, and
-// would silently drop EVERY temp entity in the game.
+// The risk this fact kept out is unchanged: a suppress check that can answer
+// true with no host would silently drop EVERY temp entity in the game. With
+// the function gone, the guard is that nothing in the file asks one again.
 //-----------------------------------------------------------------------------
-TEST( SuppressHostDead, SuppressFilterAnswersFalse )
+TEST( SuppressHostDead, NoTempEntSenderConsultsASuppressFilter )
 {
 	const std::string s = ReadSrcFile( kTempEnts );
 	ASSERT_FALSE( s.empty() ) << kTempEnts << " read as empty";
+	ASSERT_FALSE( CompiledLinesNaming( s, "SourceSharpTe_" ).empty() )
+		<< kTempEnts << " names no SourceSharpTe_ function, so it is not the "
+		   "temp-entity file this fact means to read";
 
-	const size_t nFn = s.find( "bool SourceSharpTe_SuppressFilter( IRecipientFilter" );
-	ASSERT_NE( std::string::npos, nFn )
-		<< "SourceSharpTe_SuppressFilter is gone from " << kTempEnts;
+	const std::vector< std::string > hits =
+		CompiledLinesNaming( s, "SuppressFilter" );
 
-	const size_t nOpen = s.find( '{', nFn );
-	const size_t nClose = s.find( '}', nOpen );
-	ASSERT_NE( std::string::npos, nClose );
-
-	const std::string strBody = s.substr( nOpen + 1, nClose - nOpen - 1 );
-
-	EXPECT_NE( std::string::npos, strBody.find( "return false;" ) )
-		<< "SourceSharpTe_SuppressFilter no longer answers false. Body: "
-		<< strBody;
-	EXPECT_EQ( std::string::npos, strBody.find( "return true;" ) )
-		<< "SourceSharpTe_SuppressFilter can answer true with no suppress host "
-		   "to justify it, which suppresses every temp entity in the game.";
+	EXPECT_TRUE( hits.empty() )
+		<< kTempEnts << " consults a suppress filter again (" << hits.size()
+		<< " site(s), first: " << ( hits.empty() ? std::string() : hits[ 0 ] )
+		<< "). With no suppress host on this server it can only answer false; "
+		   "an answer of true drops every temp entity in the game.";
 }
 
 //=============================================================================

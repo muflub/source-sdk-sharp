@@ -252,6 +252,9 @@ const std::string &TraceFilterLib() { static std::string s = CodeOnly( Read( "..
 // because a move that leaves a copy behind passes a repointed read and links
 // to the copy.
 const std::string &UtilSharedLib()   { static std::string s = CodeOnly( Read( "../sourcesharp/game/shared/util_shared_library.cpp" ) ); return s; }
+// The shared-random family's home since plan_server_native_v2 T2 (2026-10-18):
+// it was #ifdef CLIENT_DLL in util_shared_library.cpp.
+const std::string &ClientUtilLib()   { static std::string s = CodeOnly( Read( "../sourcesharp/game/client/client_util_library.cpp" ) ); return s; }
 const std::string &BaseEntSharedH() { static std::string s = CodeOnly( Read( "shared/baseentity_shared.h" ) ); return s; }
 // plan_entity.md step 4e: EntityPrediction_SetSeedFromCommand's BODY left
 // baseentity_shared.cpp for the shim, together with the ConVar object and the
@@ -322,8 +325,8 @@ TEST( EngineCoreRetypeScanner, EveryFileWasReallyOpened )
 	// again" this file used to make (PhysicsSplash, a class-scope
 	// GetModelIndex, GetSoundEmissionOrigin, PrecacheModel). A sibling in the
 	// same directory must read, or the absence is true of a tree never found.
-	EXPECT_NE( Read( "server/entity_funcs.h" ).find( "#ifndef ENTITY_FUNCS_H" ), std::string::npos )
-		<< "game/server/entity_funcs.h did not read, so the absence below is "
+	EXPECT_NE( Read( "shared/shareddefs.h" ).find( "#ifndef SHAREDDEFS_H" ), std::string::npos )
+		<< "game/shared/shareddefs.h did not read, so the absence below is "
 		   "not evidence";
 	EXPECT_TRUE( Read( "server/baseentity.h" ).empty() )
 		<< "game/server/baseentity.h is readable from the farm again. Nothing "
@@ -747,8 +750,16 @@ TEST( PredictionSeed, TheSharedRandomFunctionsAskTheHeaderAndNotTheClass )
 	// at the Phase 4 exit; what this fact asserts about them is unchanged, and
 	// it gained the assertion a repoint would otherwise have lost -- that the
 	// bodies are not ALSO still at the old address.
-	const std::string &strLib = UtilSharedLib();
+	//
+	// REPOINTED AGAIN by plan_server_native_v2 T2 (2026-10-18): the bodies were
+	// #ifdef CLIENT_DLL there and moved on to the client's utility library. The
+	// address they left is asserted empty of them below the counts.
+	const std::string &strLib = ClientUtilLib();
 	ASSERT_FALSE( strLib.empty() );
+	ASSERT_FALSE( UtilSharedLib().empty() );
+	EXPECT_EQ( CountOf( UtilSharedLib(), "EntityPrediction_Seed()" ), 0 )
+		<< "the shared util_shared_library.cpp asks the prediction seed again; "
+		   "the shared-random family is the client's";
 
 	// Four functions, two asks each: the assert and the hash.
 	EXPECT_EQ( CountOf( strLib, "EntityPrediction_Seed()" ), 8 );

@@ -69,7 +69,7 @@ const char *SourceRoot()
 	static const char *kCandidates[] = { ".", "src", "../src" };
 	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
 	{
-		const std::string probe = std::string( kCandidates[ i ] ) + "/game/server";
+		const std::string probe = std::string( kCandidates[ i ] ) + "/sourcesharp/game/server";
 		DIR *pDir = opendir( probe.c_str() );
 		if ( pDir )
 		{

@@ -108,6 +108,11 @@ size_t CountOf( const std::string &hay, const std::string &needle )
 }
 
 const char *const kLibrary   = "sourcesharp/game/shared/util_shared_library.cpp";
+// THE FAMILY'S HOME since plan_server_native_v2 T2 (2026-10-18). Its bodies
+// were #ifdef CLIENT_DLL in kLibrary -- server.so never compiled them, and its
+// callers are the client's -- so they left the shared TU for the client's
+// utility library (a shared TU keeps only what both DLLs import).
+const char *const kHome      = "sourcesharp/game/client/client_util_library.cpp";
 const char *const kUtilShrC  = "game/shared/util_shared.cpp";
 const char *const kUtilShrH  = "game/shared/util_shared.h";
 // What each side compiles is read through cmake_graph.h: server_sourcesharp
@@ -148,8 +153,8 @@ const size_t kNumDeclared = sizeof( kStillDeclared ) / sizeof( kStillDeclared[ 0
 
 TEST( SharedRandomMove, TheFileStaticSeedHashCameWithTheFamily )
 {
-	const std::string lib = Code( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
+	const std::string lib = Code( ReadFile( kHome ) );
+	ASSERT_FALSE( lib.empty() ) << kHome << " did not load";
 
 	EXPECT_EQ( 1u, CountOf( lib, "static int SeedFileLineHash(" ) )
 		<< "SeedFileLineHash is FILE-STATIC storage; left behind, the four "
@@ -178,12 +183,12 @@ TEST( SharedRandomMove, TheFileStaticSeedHashCameWithTheFamily )
 
 TEST( SharedRandomMove, EveryMovedDefinitionIsInTheShimFile )
 {
-	const std::string lib = Code( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
+	const std::string lib = Code( ReadFile( kHome ) );
+	ASSERT_FALSE( lib.empty() ) << kHome << " did not load";
 	for ( size_t i = 0; i < kNumMoved; i++ )
 	{
 		EXPECT_EQ( 1u, CountOf( lib, kMoved[ i ] ) )
-			<< kMoved[ i ] << " is not defined exactly once in " << kLibrary;
+			<< kMoved[ i ] << " is not defined exactly once in " << kHome;
 	}
 }
 
@@ -197,12 +202,22 @@ TEST( SharedRandomMove, NoMovedDefinitionWasLeftBehindInUtilShared )
 		<< "them, would bind whichever of the two bodies the linker picked and "
 		<< "the link edge this move cut would be back.";
 
-	const std::string lib = Code( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
+	const std::string lib = Code( ReadFile( kHome ) );
+	ASSERT_FALSE( lib.empty() ) << kHome << " did not load";
 	for ( size_t i = 0; i < kNumMoved; i++ )
 	{
 		EXPECT_EQ( 1u, CountOf( lib, kMoved[ i ] ) )
-			<< kMoved[ i ] << " is not in " << kLibrary << " either.";
+			<< kMoved[ i ] << " is not in " << kHome << " either.";
+	}
+
+	// Nor in the shared library it left: a second body there, compiled into
+	// server.so as well, is the split the first half of this fact forbids.
+	const std::string shared = Code( ReadFile( kLibrary ) );
+	ASSERT_FALSE( shared.empty() ) << kLibrary << " did not load";
+	for ( size_t i = 0; i < kNumMoved; i++ )
+	{
+		EXPECT_EQ( 0u, CountOf( shared, kMoved[ i ] ) )
+			<< kMoved[ i ] << " is defined in " << kLibrary << " again.";
 	}
 }
 
@@ -239,6 +254,12 @@ TEST( SharedRandomMove, TheClientCompilesItToo )
 		<< kLibrary << " as well: the family's callers are on both sides, so a "
 		   "one-sided row leaves one side with a definition and the other with "
 		   "none";
+	// And the family's own home, which only the client compiles.
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kHome ) )
+		<< "client_sourcesharp must compile " << kHome
+		<< ", where the shared-random family is defined";
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kHome ) )
+		<< "server_sourcesharp compiles the client's " << kHome;
 }
 
 //=============================================================================//
@@ -251,8 +272,8 @@ TEST( SharedRandomMove, TheClientCompilesItToo )
 // tier0, so there is no last-include position left to hold.
 TEST( SharedRandomMove, TheLibraryIncludesWhatTheMovedBodiesRead )
 {
-	const std::string raw = ReadFile( kLibrary );
-	ASSERT_FALSE( raw.empty() ) << kLibrary << " did not load";
+	const std::string raw = ReadFile( kHome );
+	ASSERT_FALSE( raw.empty() ) << kHome << " did not load";
 
 	EXPECT_NE( std::string::npos, raw.find( "#include \"checksum_crc.h\"" ) );
 	EXPECT_NE( std::string::npos, raw.find( "#include \"entity_prediction_seed.h\"" ) );

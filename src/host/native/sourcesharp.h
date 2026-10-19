@@ -178,67 +178,6 @@ typedef enum
 // together — a clip count without the max and the reserve does not say whether
 // a reload is possible.
 //-----------------------------------------------------------------------------
-// Everything a shooter has to say about ONE piece of debris.
-//
-// A struct rather than a dozen arguments for the same reason the weapon state
-// below is one: the fields are only meaningful together, and a gib is spawned
-// in a loop where an argument out of order is a silent mis-shot rather than a
-// compile error.
-//
-// The split it expresses: C# owns the LOOP -- how many, how often, how widely
-// scattered, which way -- and native owns what a gib IS, because a gib is an
-// effect with a model, a physics object and a fade-out, and none of that is a
-// decision.
-//-----------------------------------------------------------------------------
-typedef struct
-{
-	// Where it starts, and how it is oriented when it gets there.
-	float    OriginXYZ[3];
-	float    AnglesPYR[3];
-
-	// Which way and how fast. The scatter is already applied by the caller,
-	// because scattering is a decision.
-	float    DirectionXYZ[3];
-	float    Speed;
-
-	// GIB_SIMULATE_POINT, _PHYSICS or _RAGDOLL. A point gib is moved by the
-	// engine's own mover, a physics gib by the solver, a ragdoll is a jointed
-	// body -- a mapper picks between them and the difference is visible.
-	int32_t  Simulation;
-
-	float    Lifetime;
-	float    AngularVelocity;
-
-	// Appearance, all of it the artist's: which skin, how big, how heavily it
-	// falls.
-	int32_t  Skin;
-	float    Scale;
-	float    GravityScale;
-
-	// Which set of impact sounds. Source's matGlass/matWood/... as an int;
-	// -1 is silent.
-	int32_t  Material;
-
-	// Remove on the timer regardless, rather than lingering as debris.
-	int32_t  StrictRemove;
-
-	// BLOOD_COLOR_RED, BLOOD_COLOR_YELLOW or DONT_BLEED (-1), and it has to be
-	// asked for because the two shooters disagree and neither answer is the
-	// one a zeroed field gives.
-	//
-	// game/server/effects.cpp sets it explicitly in BOTH factories, opposite
-	// ways: CGibShooter::CreateGib says SetBloodColor( BLOOD_COLOR_RED ) and
-	// CEnvShooter::CreateGib says SetBloodColor( DONT_BLEED ). Nothing in this
-	// shim said either, and CGib has no constructor -- so m_bloodColor was
-	// whatever the zeroed entity allocation left, which is 0, which is
-	// BLOOD_COLOR_RED. gibshooter was accidentally right and env_shooter was
-	// wrong: a mapper's crate debris left up to five red decals per chunk as it
-	// bounced. Point simulation only -- CGib::BounceGibTouch returns early on
-	// anything the solver owns -- which is why it survived being looked at.
-	int32_t  BloodColor;
-} SourceSharpGibShot;
-
-//-----------------------------------------------------------------------------
 // ONE breakable piece, as the modeller compiled it into the prop.
 //
 // This is stock's breakmodel_t minus the two fields C# has no use for. The
@@ -250,8 +189,8 @@ typedef struct
 // all that is native about gibs: the file is read here, and every decision
 // taken from it is taken in C#.
 //
-// A struct rather than a dozen out-parameters for the same reason
-// SourceSharpGibShot is one: the fields are only meaningful together, and they
+// A struct rather than a dozen out-parameters: the fields are only meaningful
+// together, and they
 // are read in a loop where an argument out of order is a silent mis-spawn
 // rather than a compile error.
 //-----------------------------------------------------------------------------
@@ -498,29 +437,6 @@ typedef struct
 	float    Decay;
 } SourceSharpDynamicLight;
 
-
-typedef struct
-{
-	uint32_t hOwner;
-	int32_t  nButtons;          // held this frame
-	int32_t  nButtonsPressed;   // went down this frame
-	int32_t  nClip;
-	int32_t  nMaxClip;          // 0 when the weapon does not use a clip
-	int32_t  nReserve;
-
-	// The alt-fire pool, which is a SEPARATE ammunition type rather than a
-	// second helping of the same one: an SMG's grenades and its bullets are
-	// counted apart, run out apart, and are picked up apart. Zero when the
-	// weapon script names no secondary ammo, which is how "this weapon has no
-	// alt-fire" and "you are out of grenades" stay different answers.
-	int32_t  nSecondaryReserve;
-
-	int32_t  bInReload;
-	int32_t  bMelee;
-	float    flNextPrimaryAttack;
-	float    flNextSecondaryAttack;
-	float    flCurTime;
-} SourceSharpWeaponState;
 
 // How movement feels, stated once by C# and read by the native movement loop.
 //
@@ -1668,7 +1584,7 @@ typedef enum
 // or five values and pass them flat; this one is twenty-one fields and would
 // be a call nobody could read, with a transposition invisible at both ends. It
 // crosses BY POINTER, filled in C# and read field by field in native code --
-// the same direction SourceSharpGibShot goes, and the same hazard: a field
+// the same direction a gib shot went (SourceSharpGibShot, gone with its slot), and the same hazard: a field
 // inserted on one side only shifts every field after it and the symptom is an
 // effect at plausible but wrong values rather than a crash.
 // AbiParityTests::TheEffectDataStructMatchesTheHeader is what holds the two

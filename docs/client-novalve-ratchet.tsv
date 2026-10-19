@@ -289,9 +289,12 @@ imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
-incdir-forbidden-tus	141
+# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 141 -> 142, a relabel: generic_payload_client.cpp, split out of the shared generic_payload.cpp, is a new client TU that reaches a forbidden include dir (a split, not new reach).
+incdir-forbidden-tus	142
 link-forbidden	2
-logic-lines	8073
+# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
+logic-lines	8420
 native-convar-decls	69
 needed-forbidden	0
-sdk-links	388
+# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
+sdk-links	531

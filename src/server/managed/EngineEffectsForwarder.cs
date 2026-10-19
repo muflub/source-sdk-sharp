@@ -48,7 +48,6 @@ public abstract class EngineEffectsForwarder : IEngineEffects
 
     protected EngineEffectsForwarder(IEngineEffects inner) => Inner = inner;
 
-    public virtual bool BloodDecal(Vector start, Vector end, BloodColor color) => Inner.BloodDecal(start, end, color);
     public virtual void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) => Inner.BloodEffect(origin, direction, color, amount, stream, sprayFlags);
     public virtual void BubbleEffect(EntityHandle entity, int count, float speed) => Inner.BubbleEffect(entity, count, speed);
     public virtual int TempEntRegister(TeClass description) => Inner.TempEntRegister(description);
@@ -63,9 +62,6 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     public virtual void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => Inner.SpriteTrailUpdate(owner, renderMode, visible);
     public virtual void SpriteTrailDestroy(EntityHandle owner) => Inner.SpriteTrailDestroy(owner);
     public virtual void DustEffect(Vector origin, Vector direction, float size, float speed) => Inner.DustEffect(origin, direction, size, speed);
-    public virtual EntityHandle FireEffectCreate(int type, Vector origin, float scale, int flags) => Inner.FireEffectCreate(type, origin, scale, flags);
-    public virtual void FireEffectEnable(EntityHandle effect, bool enable) => Inner.FireEffectEnable(effect, enable);
-    public virtual void FireEffectScale(EntityHandle effect, float scale, float time) => Inner.FireEffectScale(effect, scale, time);
     public virtual void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity) => Inner.ImpactEffect(start, end, surfaceProp, damageType, entity);
     public virtual void FunnelEffect(Vector origin, int spriteIndex, bool reversed) => Inner.FunnelEffect(origin, spriteIndex, reversed);
     public virtual void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1) => Inner.MuzzleFlashEffect(origin, angles, scale, type);

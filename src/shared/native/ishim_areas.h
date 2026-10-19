@@ -81,7 +81,6 @@ public:
 abstract_class IShimConsoleServer
 {
 public:
-	virtual void ExecuteServerCommand( const char * pCommand ) = 0;
 	virtual void SendClientCommand( uint32_t hPlayer, const char * pCommand ) = 0;
 	virtual uint32_t GetCommandClientHandle() = 0;
 };
@@ -94,15 +93,6 @@ public:
 	virtual float EventGetFloat( void * hEvent, const char * pKey ) = 0;
 	virtual int32_t EventGetBool( void * hEvent, const char * pKey ) = 0;
 	virtual const char * EventGetString( void * hEvent, const char * pKey ) = 0;
-};
-
-abstract_class IShimStringTables
-{
-public:
-	virtual int32_t StringTableFind( const char * pszName ) = 0;
-	virtual int32_t StringTableFindStringIndex( int32_t nTableId, const char * pszValue ) = 0;
-	virtual int32_t StringTableGetString( int32_t nTableId, int32_t nStringIndex, char * pOut, int32_t nOutSize ) = 0;
-	virtual int32_t StringTableGetNumStrings( int32_t nTableId ) = 0;
 };
 
 abstract_class IShimNetwork
@@ -156,7 +146,6 @@ public:
 	virtual int32_t EntityGetIndex( uint32_t hEntity ) = 0;
 	virtual void EntityGetOrigin( uint32_t hEntity, float * pOutXYZ ) = 0;
 	virtual void EntityGetAngles( uint32_t hEntity, float * pOutPYR ) = 0;
-	virtual void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) = 0;
 	virtual int32_t EntityIsValid( uint32_t hEntity ) = 0;
 };
 
@@ -168,11 +157,7 @@ public:
 	virtual void EntityRemove( uint32_t hEntity ) = 0;
 	virtual void DestroyShell( const uint32_t * pHandles, int32_t nCount ) = 0;
 	virtual uint32_t MapSpawnCreate( const char * pClassName, const char * pPackedKeys, int32_t nBytes ) = 0;
-	virtual int32_t TemplateCapture( const char * pszSourceName, int32_t bRemoveSources, int32_t * pOutIndices, float * pOutOriginsXYZ, float * pOutAnglesPYR, int32_t nMax ) = 0;
-	virtual void EntitiesPurgeMapRefs() = 0;
-	virtual void EntitiesCleanupDeleteList() = 0;
 	virtual void RegisterScriptedEntity( const char * pClassName, const char ** ppOutputNames, int32_t nOutputCount, int32_t nKind ) = 0;
-	virtual void RegisterWeaponEntity( const char * pClassName ) = 0;
 	virtual void RegisterClassOps( const char * pClassName, uint32_t nOpMask ) = 0;
 	virtual int32_t EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs * pArgs ) = 0;
 	virtual int32_t EntityFactoryCount() = 0;
@@ -197,12 +182,8 @@ public:
 	virtual void EntityGetEyePosition( uint32_t hEntity, float * pOutXYZ ) = 0;
 	virtual void EntityGetEyeAngles( uint32_t hEntity, float * pOutPYR ) = 0;
 	virtual void EntityGetWorldSpaceCenter( uint32_t hEntity, float * pOutXYZ ) = 0;
-	virtual void EntityMoveToPosition( uint32_t hEntity, const float * pXYZ, float flSpeed ) = 0;
-	virtual void EntityMoveToAngles( uint32_t hEntity, const float * pPYR, float flSpeed ) = 0;
-	virtual void EntityStopMoving( uint32_t hEntity ) = 0;
 	virtual float EntityGetGravity( uint32_t hEntity ) = 0;
 	virtual void EntitySetGravity( uint32_t hEntity, float flGravity ) = 0;
-	virtual void EntitySetFriction( uint32_t hEntity, float flFriction ) = 0;
 	virtual void EntitySetBounce( uint32_t hEntity, int32_t nBounces ) = 0;
 };
 
@@ -229,7 +210,6 @@ abstract_class IShimPhysics
 {
 public:
 	virtual void EntityDestroyPhysics( uint32_t hEntity ) = 0;
-	virtual void EntitySetForceServerRagdoll( uint32_t hEntity, int32_t bForce ) = 0;
 	virtual void * EntityPhysicsObject( uint32_t hEntity ) = 0;
 	virtual void * PhysicsEnvironmentPointer() = 0;
 
@@ -243,11 +223,6 @@ abstract_class IShimDamage
 public:
 	virtual void ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType ) = 0;
 	virtual void EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType, const float * pDirXYZ, const float * pForceOriginXYZ, int32_t bPhysicsOnly ) = 0;
-	virtual void RadiusDamage( const float * pOrigin, float flDamage, float flRadius, int32_t nDamageType, uint32_t hAttacker ) = 0;
-	virtual void ExplosionDamage( const float * pOrigin, float flMagnitude, float flRadius, int32_t nDamageType, uint32_t hAttacker, uint32_t hInflictor, uint32_t hIgnored, float flDamageForce ) = 0;
-	virtual int32_t EntitySetTakeDamageMode( uint32_t hEntity, int32_t nMode ) = 0;
-	virtual void EntityIgnite( uint32_t hEntity, float flLifetime ) = 0;
-	virtual int32_t EntityDissolve( uint32_t hEntity, int32_t nType, float flMagnitude, const float * pOriginXYZ ) = 0;
 	virtual void ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType, const float * pForceXYZ, const float * pPositionXYZ ) = 0;
 };
 
@@ -263,56 +238,27 @@ abstract_class IShimPlayers
 {
 public:
 	virtual uint32_t GetPlayerHandle( int32_t nPlayerIndex ) = 0;
-	virtual int32_t GetPlayerUserId( uint32_t hPlayer ) = 0;
 	virtual int32_t GetPlayerTeam( uint32_t hPlayer ) = 0;
-	virtual void AddPlayerScore( uint32_t hPlayer, int32_t nPoints, int32_t bAllowNegative ) = 0;
 	virtual int32_t PlayerIsAlive( uint32_t hPlayer ) = 0;
 	virtual void PlayerRespawn( uint32_t hPlayer ) = 0;
 	virtual void PlayerPlaceAtSpawn( uint32_t hPlayer, const float * pOriginXYZ, const float * pAnglesPYR ) = 0;
 	virtual int32_t PlayerGetObserverMode( uint32_t hPlayer ) = 0;
 	virtual void PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode ) = 0;
-	virtual void PlayerSetViewEntity( uint32_t hPlayer, uint32_t hView ) = 0;
-	virtual void PlayerSetFov( uint32_t hPlayer, uint32_t hRequester, int32_t nFov, float flRate ) = 0;
 	virtual void PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYawRoll ) = 0;
 	virtual void GetPlayerShootOrigin( uint32_t hPlayer, float * pOutXYZ ) = 0;
-	virtual void PlayerSetSoundscape( uint32_t hPlayer, int32_t nEntIndex, int32_t nSoundscapeIndex, int32_t nLocalBits, const float * pLocalPositions ) = 0;
 	virtual int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ ) = 0;
-	virtual int32_t ClientsSdkPlayerEarPosition( int32_t iEdict, float * pOutXYZ ) = 0;
 	// "Is this world-space box inside this player's PVS?" The engine's own
 	// cluster/PVS read — GetClusterForOrigin at the player's eyes,
 	// GetPVSForCluster, CheckBoxInPVS — the same trio stock's check-client
 	// machinery builds (triggers.cpp:1615, 1711). Native carries out the
 	// read; who asks and what they do with the answer is managed code's
 	// decision (stock's CTriggerHurt::RadiationThink gates a geiger ping).
-	virtual int32_t PlayerBoxInPvs( uint32_t hPlayer, const float * pMins, const float * pMaxs ) = 0;
 	// Put a player on a team: the carrying-out half of CBaseEntity's
 	// ChangeTeam (baseentity.cpp:4947 -- `m_iTeamNum = iTeamNum`, one
 	// assignment, no decisions). Native stores it and decides nothing: the
 	// team number is not validated here, the choice of team is managed
 	// code's (ITeams.Join and its policy hook). Append-only, tf2 stage 0.5.
 	virtual void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) = 0;
-};
-
-abstract_class IShimWeapons
-{
-public:
-	virtual void RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage ) = 0;
-	virtual void RegisterWeaponType( const char * pClassName, float flFireRate, float flSpreadDegrees, int32_t nPellets ) = 0;
-};
-
-abstract_class IShimInventory
-{
-public:
-	virtual int32_t GivePlayerItem( uint32_t hPlayer, const char * pClassName ) = 0;
-	virtual int32_t GivePlayerAmmo( uint32_t hPlayer, int32_t nCount, const char * pAmmoName ) = 0;
-	virtual void GetPlayerActiveWeapon( uint32_t hPlayer, char * pOut, int32_t nOutSize ) = 0;
-	virtual uint32_t PlayerGetActiveWeaponEntity( uint32_t hPlayer ) = 0;
-	virtual uint32_t PlayerGetWeaponEntity( uint32_t hPlayer, int32_t nSlot ) = 0;
-	virtual uint32_t PlayerGetViewModelEntity( uint32_t hPlayer ) = 0;
-	virtual int32_t PlayerDropActiveWeapon( uint32_t hPlayer, const float * pVelocityXYZ ) = 0;
-	virtual int32_t PlayerHolsterActiveWeapon( uint32_t hPlayer ) = 0;
-	virtual int32_t PlayerDeployLastWeapon( uint32_t hPlayer ) = 0;
-	virtual void PlayerRemoveAllItems( uint32_t hPlayer, int32_t bStripSuit ) = 0;
 };
 
 abstract_class IShimSound
@@ -359,20 +305,10 @@ public:
 abstract_class IShimEventsServer : public IShimEvents
 {
 public:
-	virtual void * EventCreate( const char * pName ) = 0;
 	virtual void EventSetInt( void * hEvent, const char * pKey, int32_t nValue ) = 0;
 	virtual void EventSetFloat( void * hEvent, const char * pKey, float flValue ) = 0;
 	virtual void EventSetBool( void * hEvent, const char * pKey, int32_t bValue ) = 0;
 	virtual void EventSetString( void * hEvent, const char * pKey, const char * pValue ) = 0;
-	virtual int32_t EventFire( void * hEvent ) = 0;
-	virtual void EventFree( void * hEvent ) = 0;
-};
-
-abstract_class IShimStringTablesServer : public IShimStringTables
-{
-public:
-	virtual int32_t StringTableCreate( const char * pszName, int32_t nMaxEntries ) = 0;
-	virtual int32_t StringTableAddString( int32_t nTableId, const char * pszValue ) = 0;
 };
 
 abstract_class IShimNetworkServer : public IShimNetwork
@@ -392,8 +328,6 @@ abstract_class IShimModelsServer : public IShimModels
 public:
 	virtual void EntitySetModel( uint32_t hEntity, const char * pModel ) = 0;
 	virtual void EntitySetSequence( uint32_t hEntity, int32_t nSequence ) = 0;
-	virtual int32_t EntityGetTextureFrame( uint32_t hEntity ) = 0;
-	virtual void EntitySetTextureFrame( uint32_t hEntity, int32_t nFrame ) = 0;
 };
 
 abstract_class IShimMovementServer : public IShimMovement
@@ -405,14 +339,7 @@ public:
 	virtual void PlayerShadowRelease( uint32_t hPlayer ) = 0;
 	virtual void PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand ) = 0;
 	virtual int32_t PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType ) = 0;
-	virtual void PlayerForceButtons( uint32_t hPlayer, int32_t nButtonMask, int32_t bForced ) = 0;
-	virtual int32_t PlayerGetButtons( uint32_t hPlayer ) = 0;
-	virtual void PlayerSetButtonsDisabled( uint32_t hPlayer, int32_t nButtonMask, int32_t bDisabled ) = 0;
-	virtual void PlayerSetLaggedMovement( uint32_t hPlayer, float flValue ) = 0;
-	virtual void PlayerSetAllowAutoMovement( uint32_t hPlayer, int32_t bAllow ) = 0;
 	virtual void PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow ) = 0;
-	virtual void PlayerSetMovementConstraint( uint32_t hPlayer, const float * pCenterXYZ, float flRadius, float flWidth, float flSpeedFactor ) = 0;
-	virtual void PlayerSetFrozen( uint32_t hPlayer, int32_t bFrozen ) = 0;
 };
 
 abstract_class IShimWorldServer : public IShimWorld
@@ -427,7 +354,6 @@ public:
 	virtual int32_t SurfacePropIndex( const char * pszName ) = 0;
 	virtual int32_t EntityModelSurfaceProp( uint32_t hEntity ) = 0;
 	virtual int32_t InvisibleRangeReach() = 0;
-	virtual void EngineLightStyle( int32_t nStyle, const char * pPattern ) = 0;
 	virtual void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) = 0;
 	virtual const char * WorldChapterTitle() = 0;
 	virtual uint32_t AreaPortalCreate( int32_t nPortalNumber, int32_t nPortalVersion ) = 0;
@@ -445,7 +371,6 @@ public:
 	virtual void EntityGetName( uint32_t hEntity, char * pOut, int32_t nOutSize ) = 0;
 	virtual int32_t EntityGetState( uint32_t hEntity, int32_t * pOutMoveType ) = 0;
 	virtual uint32_t FindEntityByClassname( uint32_t hStartAfter, const char * pClassName ) = 0;
-	virtual uint32_t FindBaseEntityByName( const char * pName ) = 0;
 	virtual int32_t EntitiesInSphere( const float * pCenterXYZ, float flRadius, uint32_t * pOutHandles, int32_t nMax ) = 0;
 	virtual int32_t EntitySetKeyValue( uint32_t hEntity, const char * pKey, const char * pValue ) = 0;
 	virtual void EntityGetSpawnOrigin( uint32_t hEntity, float * pOutXYZ ) = 0;
@@ -454,34 +379,11 @@ public:
 	virtual void EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags ) = 0;
 	virtual int32_t EntityGetHealth( uint32_t hEntity ) = 0;
 	virtual void EntitySetHealth( uint32_t hEntity, int32_t nHealth ) = 0;
-	virtual int32_t EntityGetArmor( uint32_t hEntity ) = 0;
-	virtual void EntitySetArmor( uint32_t hEntity, int32_t nArmor ) = 0;
 	virtual void EntitySetVisible( uint32_t hEntity, int32_t bVisible ) = 0;
 	virtual void EntitySetOwner( uint32_t hEntity, uint32_t hOwner ) = 0;
 	virtual void EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY, float flSizeZ ) = 0;
 	virtual void EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled ) = 0;
-	virtual int32_t EntityDetectInSkybox( uint32_t hEntity ) = 0;
-	virtual int32_t EntitiesSdkPlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea ) = 0;
 	virtual int32_t EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea ) = 0;
-};
-
-abstract_class IShimWeaponsServer : public IShimWeapons
-{
-public:
-	virtual int32_t WeaponGetState( uint32_t hWeapon, SourceSharpWeaponState * pOut ) = 0;
-	virtual void WeaponIdle( uint32_t hWeapon ) = 0;
-	virtual void WeaponSetNextPrimaryAttack( uint32_t hWeapon, float flTime ) = 0;
-	virtual void WeaponSetNextSecondaryAttack( uint32_t hWeapon, float flTime ) = 0;
-	virtual void WeaponSetClip( uint32_t hWeapon, int32_t nClip ) = 0;
-	virtual void WeaponSetInReload( uint32_t hWeapon, int32_t bInReload ) = 0;
-	virtual int32_t WeaponTakeAmmo( uint32_t hWeapon, int32_t nCount ) = 0;
-	virtual int32_t WeaponTakeSecondaryAmmo( uint32_t hWeapon, int32_t nCount ) = 0;
-	virtual void WeaponPlaySound( uint32_t hWeapon, int32_t nSound ) = 0;
-	virtual void WeaponSendAnim( uint32_t hWeapon, int32_t nAnim ) = 0;
-	virtual float WeaponAnimDuration( uint32_t hWeapon, int32_t nAnim ) = 0;
-	virtual void WeaponFireBullets( uint32_t hWeapon, int32_t nShots, float flSpreadDegrees ) = 0;
-	virtual void WeaponMuzzleFlash( uint32_t hWeapon ) = 0;
-	virtual void WeaponAddViewKick( uint32_t hWeapon ) = 0;
 };
 
 abstract_class IShimCollisionServer : public IShimCollision
@@ -518,12 +420,7 @@ public:
 	virtual void DustEffect( const float * pOriginXYZ, const float * pDirXYZ, float flSize, float flSpeed ) = 0;
 	virtual void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) = 0;
 	virtual void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) = 0;
-	virtual int32_t BloodDecal( const float * pStartXYZ, const float * pEndXYZ, int32_t nColor ) = 0;
 	virtual int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) = 0;
-	virtual int32_t ShootGib( const char * pszModel, const SourceSharpGibShot * pShot ) = 0;
-	virtual uint32_t FireEffectCreate( int32_t nType, const float * pOriginXYZ, float flScale, int32_t nFlags ) = 0;
-	virtual void FireEffectScale( uint32_t hEffect, float flScale, float flTime ) = 0;
-	virtual void FireEffectEnable( uint32_t hEffect, int32_t bEnable ) = 0;
 };
 
 #endif // ISHIM_AREAS_H

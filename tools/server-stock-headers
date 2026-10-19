@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""tools/server-stock-headers -- does server.so compile against stock public
+headers? (plan_server_native_v2 T1, Recipe H)
+
+    tools/server-stock-headers               measure; compare against
+                                             docs/server-stock-headers.tsv
+                                             (the failing-TU count may only
+                                             fall); exit 1 if it rose
+    tools/server-stock-headers --write       rewrite the committed count
+    tools/server-stock-headers --list        print each failing TU and its
+                                             first error
+    tools/server-stock-headers --self-test   this script's own checks
+
+    --config C (or SOURCESHARP_CONFIG) picks farm/<C>; default debug.
+
+For every object on server.so's link edge (tools/cmakegraph.py objects
+server), its own command from farm/<config>/build/compile_commands.json is
+re-run with -fsyntax-only, the farm's three public/ include dirs swapped for
+the pristine upstream clone's (SOURCESHARP_VALVE_SDK or valve-sdk.lock.local,
+at the commit valve-sdk.lock pins). Two dirs of ours go ahead of them:
+cmake/compat/clang (D2: the one excused header, a wrapper, under clang only)
+and, while it exists, src/shared/native/sdk/public (our own headers served at
+public/ paths; T1.2 and T1.4 empty it).
+
+SINCE D3 (plan_server_native_v2 T1.6) the build itself is the proof: a TU
+whose command already reads farm/<config>/stock-public is counted as on stock
+headers without being recompiled, after the link is checked to resolve to the
+pinned clone's src/public. A TU that still reads the farm's src/public gets
+the swap above. Either way the count is the TUs NOT on stock headers.
+
+Inputs (a missing or stale one is a failure, never a zero): the compile
+database, the link edge, the clone and its HEAD, the committed count.
+"""
+import concurrent.futures
+import json
+import os
+import shlex
+import subprocess
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RATCHET = os.path.join(REPO, "docs", "server-stock-headers.tsv")
+COMPAT = os.path.join(REPO, "cmake", "compat", "clang")
+OVERLAY = os.path.join(REPO, "src", "shared", "native", "sdk", "public")
+PUBLIC_DIRS = ("public", "public/tier0", "public/tier1")
+
+
+def fail(msg):
+    print("server-stock-headers: " + msg)
+    return 1
+
+
+def config(argv):
+    if "--config" in argv:
+        return argv[argv.index("--config") + 1]
+    return os.environ.get("SOURCESHARP_CONFIG", "debug")
+
+
+def valve_sdk():
+    """The pristine clone, or (None, reason)."""
+    path = os.environ.get("SOURCESHARP_VALVE_SDK", "")
+    if not path:
+        local = os.path.join(REPO, "valve-sdk.lock.local")
+        if os.path.isfile(local):
+            path = open(local).read().strip()
+    if not path or not os.path.isdir(os.path.join(path, "src", "public")):
+        return None, "no pristine clone (SOURCESHARP_VALVE_SDK / valve-sdk.lock.local); run make setup"
+    lock = os.path.join(REPO, "valve-sdk.lock")
+    if not os.path.isfile(lock):
+        return None, "valve-sdk.lock is missing"
+    want = open(lock).read().split()[0]
+    head = subprocess.run(["git", "-C", path, "rev-parse", "HEAD"], capture_output=True, text=True)
+    if head.returncode != 0 or head.stdout.strip() != want:
+        return None, "%s is at %s, not valve-sdk.lock's %s" % (path, head.stdout.strip() or "?", want)
+    return path, None
+
+
+def link_edge(cfg):
+    out = subprocess.run([sys.executable, os.path.join(REPO, "tools", "cmakegraph.py"),
+                          "objects", "server", "--config", cfg], capture_output=True, text=True)
+    if out.returncode != 0:
+        return None
+    objs = [ln.split(" ", 1)[0] for ln in out.stdout.splitlines() if ln.strip()]
+    return objs or None
+
+
+def commands(cfg):
+    path = os.path.join(REPO, "farm", cfg, "build", "compile_commands.json")
+    if not os.path.isfile(path):
+        return None
+    by_obj = {}
+    for e in json.load(open(path)):
+        out = os.path.normpath(os.path.join(e["directory"], e["output"]))
+        by_obj[out] = e
+    return by_obj
+
+
+def stock_args(entry, cfg, sdk):
+    """The entry's argv for a -fsyntax-only run on stock public headers."""
+    args = shlex.split(entry["command"]) if "command" in entry else list(entry["arguments"])
+    farm_src = os.path.join(REPO, "farm", cfg, "src")
+    swap = {"-I" + os.path.join(farm_src, d): "-I" + os.path.join(sdk, "src", d) for d in PUBLIC_DIRS}
+    out, skip = [], False
+    seen_public = False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if a in ("-o", "-MF", "-MT", "-MQ"):
+            skip = True
+            continue
+        if a in ("-c", "-MD", "-MMD"):
+            continue
+        if a.startswith("-I") and "/stock-public" in a:
+            seen_public = True
+            out.append(a)
+            continue
+        if a in swap:
+            if not seen_public:
+                seen_public = True
+                if "clang" in os.path.basename(args[0]):
+                    out.append("-I" + COMPAT)
+                if os.path.isdir(OVERLAY):
+                    out.append("-I" + OVERLAY)
+            out.append(swap[a])
+            continue
+        out.append(a)
+    if not seen_public:
+        return None
+    # The stock build's spelling of the entity face (igameentity.h, D1):
+    # CBaseEntity on the server, with IGameEntity its alias.
+    out.append("-DSS_STOCK_PUBLIC_HEADERS")
+    out.append("-fsyntax-only")
+    return out
+
+
+def first_error(text):
+    for ln in text.splitlines():
+        if " error: " in ln:
+            return ln.split(" error: ", 1)[1].strip()
+    return text.strip().splitlines()[-1] if text.strip() else "?"
+
+
+def run_one(entry, args):
+    r = subprocess.run(args, cwd=entry["directory"], capture_output=True, text=True)
+    return entry["file"], r.returncode == 0, first_error(r.stderr)
+
+
+def measure(cfg):
+    sdk, why = valve_sdk()
+    if sdk is None:
+        return None, why
+    objs = link_edge(cfg)
+    if objs is None:
+        return None, "cannot read server.so's link edge (tools/cmakegraph.py objects server)"
+    cmds = commands(cfg)
+    if cmds is None:
+        return None, "no farm/%s/build/compile_commands.json; build first" % cfg
+    stock = os.path.join(REPO, "farm", cfg, "stock-public")
+    jobs, results = [], []
+    for o in objs:
+        e = cmds.get(os.path.normpath(o))
+        if e is None:
+            return None, "no compile command for %s" % o
+        if on_stock(e, stock):
+            if os.path.realpath(stock) != os.path.realpath(os.path.join(sdk, "src", "public")):
+                return None, ("%s does not resolve to %s/src/public; run make setup"
+                              % (stock, sdk))
+            results.append((e["file"], True, ""))
+            continue
+        a = stock_args(e, cfg, sdk)
+        if a is None:
+            return None, "%s's command names neither stock-public nor the farm's public/" % e["file"]
+        jobs.append((e, a))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
+        results += list(ex.map(lambda j: run_one(*j), jobs))
+    return results, None
+
+
+def on_stock(entry, stock):
+    """Whether the TU's own command reads the pristine public/ (D3)."""
+    args = shlex.split(entry["command"]) if "command" in entry else list(entry["arguments"])
+    want = {"-I" + os.path.join(stock, d) for d in ("", "tier0", "tier1")}
+    want = {w.rstrip("/") for w in want}
+    have = {a.rstrip("/") for a in args if a.startswith("-I")}
+    farm_public = any(a.endswith(os.path.join("src", "public")) and "/farm/" in a for a in have)
+    return want <= have and not farm_public
+
+
+def read_committed():
+    if not os.path.isfile(RATCHET):
+        return None
+    for ln in open(RATCHET):
+        if ln.startswith("#") or not ln.strip():
+            continue
+        k, v = ln.rstrip("\n").split("\t")
+        if k == "failing_tus":
+            return int(v)
+    return None
+
+
+def write_committed(n, total):
+    with open(RATCHET, "w") as fh:
+        fh.write("# tools/server-stock-headers: server TUs that do not compile against the\n"
+                 "# pristine upstream public/ headers (valve-sdk.lock). May only fall; T1's\n"
+                 "# exit is 0. Measured over %d objects.\n" % total)
+        fh.write("failing_tus\t%d\n" % n)
+
+
+def self_test():
+    ok = True
+
+    def ck(name, cond):
+        nonlocal ok
+        print(("  ok    " if cond else "  FAIL  ") + name)
+        ok = ok and cond
+
+    entry = {"directory": "/b", "command": "clang++ -DX -I/r/farm/debug/src/public "
+             "-I/r/farm/debug/src/public/tier0 -I/r/farm/debug/src/public/tier1 -I/r/src/x "
+             "-MD -MT a.o -MF a.d -o a.o -c /r/src/x/a.cpp", "file": "/r/src/x/a.cpp"}
+    global REPO, COMPAT, OVERLAY
+    saved = REPO, COMPAT, OVERLAY
+    REPO, COMPAT, OVERLAY = "/r", "/r/compat", "/nonexistent"
+    a = stock_args(entry, "debug", "/v")
+    REPO, COMPAT, OVERLAY = saved
+    ck("the three public dirs become the clone's", a is not None and
+       ["-I/v/src/public", "-I/v/src/public/tier0", "-I/v/src/public/tier1"] == [x for x in a if x.startswith("-I/v")])
+    ck("the compat dir goes first, under clang", a is not None and a.index("-I/r/compat") < a.index("-I/v/src/public"))
+    ck("-o/-MF/-MT/-MD/-c are dropped", a is not None and not any(x in a for x in ("-o", "-MF", "-MT", "-MD", "-c", "a.o", "a.d")))
+    ck("-fsyntax-only is added", a is not None and a[-1] == "-fsyntax-only")
+    ck("the stock spelling is selected", a is not None and "-DSS_STOCK_PUBLIC_HEADERS" in a)
+    st = {"command": "clang++ -I/r/farm/debug/stock-public -I/r/farm/debug/stock-public/tier0 "
+          "-I/r/farm/debug/stock-public/tier1 -c x.cpp"}
+    ck("a command on stock-public is on stock headers", on_stock(st, "/r/farm/debug/stock-public"))
+    ck("one that also reads the farm's public/ is not", not on_stock(
+        {"command": st["command"] + " -I/r/farm/debug/src/public"}, "/r/farm/debug/stock-public"))
+    ck("one missing a stock-public dir is not", not on_stock(
+        {"command": "clang++ -I/r/farm/debug/stock-public -c x.cpp"}, "/r/farm/debug/stock-public"))
+    ck("a command with no farm public dir is refused", stock_args(
+        {"directory": "/b", "command": "clang++ -I/elsewhere -c x.cpp", "file": "x.cpp"}, "debug", "/v") is None)
+
+    # The stimulus reaches the subject: a real TU's command, pointed at a
+    # scratch file that overrides GetGameEntity, fails; the same command on
+    # a scratch file without it passes.
+    cfg = "debug"
+    sdk, why = valve_sdk()
+    cmds = commands(cfg)
+    objs = link_edge(cfg)
+    if sdk is None or cmds is None or objs is None:
+        ck("live inputs present (%s)" % (why or "compile database / link edge"), False)
+        return 0 if ok else 1
+    e = next(cmds[os.path.normpath(o)] for o in objs if cmds.get(os.path.normpath(o), {}).get("file", "").endswith("shell_tempents.cpp"))
+    with tempfile.TemporaryDirectory() as td:
+        good = os.path.join(td, "good.cpp")
+        bad = os.path.join(td, "bad.cpp")
+        # string_t.h, which iserverentity.h includes, uses NULL undeclared.
+        pre = '#include <cstddef>\n#include "iserverentity.h"\n'
+        open(good, "w").write(pre + 'int ss_canary_good;\n')
+        open(bad, "w").write(pre + 'struct S : IServerEntity {\n'
+                             '  virtual class IGameEntity *GetGameEntity() override;\n};\n')
+        base = stock_args(e, cfg, sdk)
+        def with_file(p):
+            return [x if x != e["file"] else p for x in base]
+        g = subprocess.run(with_file(good), cwd=e["directory"], capture_output=True, text=True)
+        b = subprocess.run(with_file(bad), cwd=e["directory"], capture_output=True, text=True)
+        ck("a TU that only includes iserverentity.h compiles on stock headers", g.returncode == 0)
+        ck("a GetGameEntity override fails on stock headers, for that reason",
+           b.returncode != 0 and "does not override" in b.stderr)
+    return 0 if ok else 1
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    cfg = config(argv)
+    results, why = measure(cfg)
+    if results is None:
+        return fail(why)
+    failing = sorted((f, err) for f, good, err in results if not good)
+    if "--list" in argv:
+        for f, err in failing:
+            print("%s: %s" % (os.path.relpath(f, REPO), err))
+    n = len(failing)
+    print("server-stock-headers: %d of %d server TUs fail on stock public headers" % (n, len(results)))
+    if "--write" in argv:
+        write_committed(n, len(results))
+        return 0
+    committed = read_committed()
+    if committed is None:
+        return fail("docs/server-stock-headers.tsv is missing or has no failing_tus row")
+    if n > committed:
+        for f, err in failing[:20]:
+            print("  %s: %s" % (os.path.relpath(f, REPO), err))
+        return fail("rose: %d -> %d (it may only fall)" % (committed, n))
+    if n < committed:
+        print("server-stock-headers: fell %d -> %d; run --write to lower the ratchet" % (committed, n))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

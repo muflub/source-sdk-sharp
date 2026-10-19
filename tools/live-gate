@@ -250,7 +250,7 @@ CONFIG = os.environ.get("SOURCESHARP_CONFIG") or "debug"
 # THE DIAGNOSTIC CONSOLE COMMANDS ARE IN A DEBUG server.so ONLY (user ruling
 # 2026-10-01: they live in *_debug.cpp files that CMake compiles for debug
 # builds). A release run cannot ask cs_sv_crossings, the boundary probes,
-# cs_sv_playerinfo, cs_standalone_spawn, cs_sv_boneprobe or cs_sv_engine_vectors.
+# cs_standalone_spawn, cs_sv_boneprobe or cs_sv_engine_vectors.
 # What depends on them is either measured another way (the crossing counters, by
 # snapshot delta instead of a reset) or skipped against an `skip@release` row in
 # the skip ledger, and says so.
@@ -2171,10 +2171,10 @@ def join_playerinfo(g):
     passing.
     """
     if not DEBUG_COMMANDS:
-        # Both readouts are debug-only console commands (ss_boundary_probe_*,
-        # cs_sv_playerinfo). The join itself is still the step's verdict.
-        g.say("    note  %s build: the boundary-probe and playerinfo readouts are "
-              "debug-only commands; not checked here" % CONFIG)
+        # The readout is a debug-only console command (ss_boundary_probe_*).
+        # The join itself is still the step's verdict.
+        g.say("    note  %s build: the boundary-probe readout is a debug-only "
+              "command; not checked here" % CONFIG)
         return
     if not g.own_log:
         g.note("attached, so this process captured no log: step 3c's "
@@ -2220,28 +2220,9 @@ def join_playerinfo(g):
             "the SDK arm answered none of them (%d) -- it is deleted, and this "
             "row is the one that would show it coming back" % sdk)
 
-    # AND A PLUGIN-STYLE QUERY ANSWERS. cs_sv_playerinfo goes through
-    # CreateInterface by name, which is the route a server plugin has through
-    # gameServerFactory and the only one anything outside server.so has.
-    # The readout's LAST line, for the reason above: the per-slot lines come
-    # before the tally, so a log that has the tally has them all.
-    before = g.count_console("orphan player states handed out")
-    g.api.cmd("cs_sv_playerinfo")
-
-    g.check(bool(g.api.wait_for(
-                lambda: g.count_console("orphan player states handed out") > before, 60.0)),
-            "cs_sv_playerinfo printed something at all")
-    g.check(g.count_console("PlayerInfoManager002 answered") > 0,
-            "the DLL factory answered PlayerInfoManager002 -- it answered "
-            "nothing in this build before step 3c, because "
-            "playerinfomanager.cpp is not in server_sourcesharp's source list "
-            "(src/server/native/CMakeLists.txt)")
-
-    answered = g.last_console_line("slots answered")
-    found = re.search(r"playerinfo: (\d+) of (\d+) slots answered", answered or "")
-    g.check(found is not None and int(found.group(1)) >= 1,
-            "IPlayerInfo answered for the joined player (%s)"
-            % (answered.strip() if answered else "no readout line"))
+    # THE PLUGIN-STYLE QUERY WENT WITH THE PLUGIN ABI (plan_server_native_min
+    # P1, Decision 1): cs_sv_playerinfo asked PlayerInfoManager002 by name, and
+    # server.so exposes neither the interface nor the command now.
 
     origin = g.last_console_line("         origin ")
     g.check(origin is not None and " origin 0.0 0.0 0.0 " not in origin,

@@ -29,7 +29,7 @@ const char *SourceRoot()
 	static const char *kCandidates[] = { ".", "src", "../src" };
 	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
 	{
-		const std::string probe = std::string( kCandidates[ i ] ) + "/game/server";
+		const std::string probe = std::string( kCandidates[ i ] ) + "/sourcesharp/game/server";
 		DIR *pDir = opendir( probe.c_str() );
 		if ( pDir )
 		{
@@ -125,10 +125,10 @@ TEST( DamageAttacker, EveryEntryResolvesTheAttackerOnEitherHierarchy )
 	EXPECT_EQ( 0, CountOf( api, "SourceSharp_ResolveEntity( hAttacker ).pBase" ) );
 	EXPECT_EQ( 0, CountOf( world, "SourceSharp_ResolveEntity( hAttacker ).pBase" ) );
 
-	// ApplyDamage and ApplyDamageForce; EntityTakeDamage, RadiusDamage and
-	// ExplosionDamage.
+	// ApplyDamage and ApplyDamageForce; EntityTakeDamage (RadiusDamage and
+	// ExplosionDamage went in plan_server_native_v2 T2: no managed caller).
 	EXPECT_EQ( 2, CountOf( api, "IGameEntity *pAttacker = SourceSharp_ResolveEntity( hAttacker ).GameEntity();" ) );
-	EXPECT_EQ( 3, CountOf( world, "IGameEntity *pAttacker = SourceSharp_ResolveEntity( hAttacker ).GameEntity();" ) );
+	EXPECT_EQ( 1, CountOf( world, "IGameEntity *pAttacker = SourceSharp_ResolveEntity( hAttacker ).GameEntity();" ) );
 }
 
 TEST( DamageAttacker, AKillWithNoAttackerIsTheInvalidHandleNotTheWorld )

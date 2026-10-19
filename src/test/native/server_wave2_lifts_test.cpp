@@ -225,8 +225,10 @@ TEST( ServerWave2, TheLiftedHapticRegistrationIsGoneFromTheShell )
 	// usermessages.cpp -- so anchoring on either name would make this test
 	// reason about a file it could not find, which Tight() reports as a
 	// separate failure rather than as this one.
+	// (Anchored on SourceSharp_RegisterAmmoType until plan_server_native_v2 T2
+	// made that slot the client's alone.)
 	const std::string shell = Tight( "sourcesharp/game/shared/shell_shared.cpp",
-	                                 "SourceSharp_RegisterAmmoType" );
+	                                 "SourceSharp_FilesSizeOnPath" );
 	ASSERT_FALSE( shell.empty() );
 
 	const std::vector< std::string > mine = RegistrationsIn( shell );
@@ -264,7 +266,7 @@ TEST( ServerWave2, NothingInTheBuildStillCallsRegisterHapticMessages )
 		"sourcesharp/game/client/shell_usermessages_client.cpp",
 	};
 	const char *pszAnchors[] = {
-		"SourceSharp_RegisterAmmoType",
+		"SourceSharp_FilesSizeOnPath",
 		"SourceSharp_UserMessageSend",
 		"SourceSharp_ClientViewportQuery",
 	};

@@ -295,8 +295,8 @@ struct File_t { const char *pszRel; const char *pszAnchor; };
 // same directory that IS in the farm, so a tree from which game/server cannot be
 // read at all does not pass it.
 const char *const kServerEntityGone = "game/server/baseentity.h";
-const File_t kServerSibling  = { "game/server/activator.h",
-	"#defineACTIVATOR_H" };
+const File_t kServerSibling  = { "game/shared/shareddefs.h",
+	"#defineSHAREDDEFS_H" };
 const File_t kGameEntity     = { "public/igameentity.h",
 	"abstract_classIGameEntity" };
 const File_t kCollisionH     = { "game/shared/collisionproperty.h",

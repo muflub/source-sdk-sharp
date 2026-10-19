@@ -311,17 +311,10 @@ TEST( EntityListSweep, TheRemainingSitesAreLifecycleOrStockWalksAndAreCounted )
 		   "Clear -- were in the same dead arm. The LIVE lifecycle is the slot "
 		   "table's, and SourceSharp_SlotClearAll is what the level steps call.";
 
-	EXPECT_EQ( 1, EntityListLines( "sourcesharp/game/server/shell_restoreentities.cpp" ) )
-		<< "one, and it is PROSE: the line explaining that the stock restore walk "
-		   "yields 0 of the 473 entities on a loaded map. The two CleanupDeleteList "
-		   "calls that stood beside it were guarded out and are gone.";
+	// shell_restoreentities.cpp's one prose line left with the file
+	// (plan_server_native_min P1); baseentity_statics.cpp was at zero since
+	// P5 lane E and is deleted, not counted.
 
-	EXPECT_EQ( 0, EntityListLines( "sourcesharp/game/server/baseentity_statics.cpp" ) )
-		<< "ZERO since P5 lane E. The one line was prose: the NotifyCreateEntity "
-		   "that stood in EntityCreate_NoSpawn, which fired the list's "
-		   "IEntityListener callbacks for a STOCK entity. The function went as "
-		   "dead code (no caller; server.so held none of it), and the paragraph "
-		   "about a line inside it went with it.";
 
 	EXPECT_EQ( 1, EntityListLines( kWorldAdapter ) )
 		<< "one, and it is a COMMENT about the level-shutdown order rather than "
@@ -381,12 +374,10 @@ TEST( EntityListSweep, NoShimFileMakesAnEntityListCallAtAll )
 		"sourcesharp/game/server/shell_worldquery.cpp",
 		"sourcesharp/game/server/shell_engineservices.cpp",
 		"sourcesharp/game/server/shell_level.cpp",
-		"sourcesharp/game/server/shell_restoreentities.cpp",
-		"sourcesharp/game/server/baseentity_statics.cpp",
+		// baseentity_statics.{cpp,h} left with plan_server_native_min P1.
 		"sourcesharp/game/server/world_adapter.cpp",
 		"sourcesharp/game/server/shell_entityslots.cpp",
 		"sourcesharp/game/server/shell_standalone_hierarchy.cpp",
-		"sourcesharp/game/server/baseentity_statics.h",
 	};
 
 	for ( size_t i = 0; i < sizeof( kLedgered ) / sizeof( kLedgered[ 0 ] ); i++ )
@@ -1041,12 +1032,15 @@ TEST( EntityListSweep, EveryShimFileTogetherNamesTheEntityListFiveTimesAndOnlyIn
 	// case named below. The zero above still holds over it.
 	// 6 -> 4 ON 2026-10-18: the two lines (by then in physics_debug.cpp, where
 	// PhysicsCommand's refusal named gEntList and FindEntityGeneric) went with
-	// that file; physics_select resolves its subject in managed now.
-	EXPECT_EQ( 4, nTotal )
-		<< "the shim's raw-text entity-list surface moved. All four are COMMENTS "
-		   "-- shell_restoreentities.cpp on what the stock restore walk yields, "
-		   "world_adapter.cpp on the level-shutdown order, "
-		   "shell_standalone_hierarchy.cpp on FindEntityByName, and anyentity.h on "
+	// that file; physics_select resolves its subject in managed now. 4 -> 3 AT
+	// plan_server_native_min P1: shell_restoreentities.cpp is deleted, and its
+	// prose line (what the stock restore walk yields) went with it. 3 -> 2 AT
+	// plan_server_native_v2 T2: SourceSharp_FindBaseEntityByName went, and
+	// shell_standalone_hierarchy.cpp's prose line on FindEntityByName with it.
+	// The zero above is what makes that safe: no call came back.
+	EXPECT_EQ( 2, nTotal )
+		<< "the shim's raw-text entity-list surface moved. Both are COMMENTS "
+		   "-- world_adapter.cpp on the level-shutdown order, and anyentity.h on "
 		   "the arm it no longer has. If this "
 		   "number went UP, either a call came back (which the zero above catches), "
 		   "or a new paragraph was written, or a native file was relocated into "
@@ -1331,7 +1325,7 @@ TEST( EntityListSweep, TheTraceSubjectCommandPrintsTheTablesAnswerRatherThanACas
 	const std::string src = Code( kWorldAdapterDebug );
 	ASSERT_FALSE( src.empty() ) << kWorldAdapterDebug << " read back empty.";
 
-	EXPECT_TRUE( Has( src, "SourceSharp_ShellFromHandleEntity( tr.m_pEnt )" ) )
+	EXPECT_TRUE( Has( src, "SourceSharp_ShellFromHandleEntity( ss::TraceHit( tr ) )" ) )
 		<< "the slot table's arm is gone. It is the one that can tell 'not one of "
 		   "ours' from 'one of ours': it asks the object for its handle through a "
 		   "virtual it really has and indexes the table, so a static prop, a "

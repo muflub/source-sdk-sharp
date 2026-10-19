@@ -655,32 +655,20 @@ TEST( StringTableIndexZero, TheReplayedSequenceIsTheWholeShippedOne )
 // so these two facts read kTables now. TheSixAccessorsLiveWithTheTablesTheyRead
 // below is what says the move happened and did not leave a second copy behind.
 //-----------------------------------------------------------------------------
-TEST( StringTableIndexZero, AFailedMaterialLookupStillAnswersZero )
+TEST( StringTableIndexZero, TheMaterialLookupIsGoneAndTheIndexZeroReplayStays )
 {
+	// DECIDED, not dropped (plan_server_native_v2 T2): GetMaterialIndex had no
+	// caller on the server (nm over the link edge; its one use was a debug
+	// Assert beside the precache), so it was deleted. Its miss path answered 0,
+	// and GetParticleSystemIndex's still does (the fact below), so the replay
+	// facts that put the error material and the error particle system at index
+	// 0 stay: the table's order is what any reader of it sees.
 	const std::string code = Tight( StripComments( Read( kTables ) ) );
 	ASSERT_FALSE( code.empty() );
-
-	const std::string body = BodyOf( code, "intGetMaterialIndex(constchar*pMaterialName)" );
-	ASSERT_FALSE( body.empty() ) << "GetMaterialIndex is not in shell_stringtables.cpp";
-
-	const std::vector<std::string> rets = ReturnsIn( body );
-	ASSERT_FALSE( rets.empty() ) << "GetMaterialIndex returns nothing -- this fact is reading the wrong function";
-
-	// EVERY return that is not the index it found must be literally 0. Both
-	// misses -- the name it could not find and the null name -- and any third
-	// one somebody adds later.
-	for ( size_t i = 0; i < rets.size(); i++ )
-	{
-		if ( rets[ i ] == "nIndex" )
-			continue;
-
-		EXPECT_EQ( rets[ i ], "0" )
-			<< "GetMaterialIndex has a miss path that answers '" << rets[ i ]
-			<< "' rather than 0. If a failed lookup no longer resolves to index "
-			<< "0, the two index-0 facts above are pinning something that has "
-			<< "stopped mattering -- decide which, do not delete one of them "
-			<< "quietly.";
-	}
+	EXPECT_EQ( std::string::npos, code.find( "intGetMaterialIndex(constchar*pMaterialName)" ) )
+		<< "GetMaterialIndex is back; give its miss path a fact again";
+	EXPECT_NE( std::string::npos, code.find( "intGetParticleSystemIndex(constchar*pParticleSystemName)" ) )
+		<< "the file did not read as the one with the string-table accessors";
 }
 
 TEST( StringTableIndexZero, AFailedParticleSystemLookupStillAnswersZero )
@@ -736,7 +724,6 @@ bool DefinedIn( const char *pszFile, const char *pszTightSignature )
 const char *kSixAccessors[] =
 {
 	"voidPrecacheMaterial(constchar*pMaterialName)",
-	"intGetMaterialIndex(constchar*pMaterialName)",
 	"voidPrecacheParticleSystem(constchar*pParticleSystemName)",
 	"intGetParticleSystemIndex(constchar*pParticleSystemName)",
 };

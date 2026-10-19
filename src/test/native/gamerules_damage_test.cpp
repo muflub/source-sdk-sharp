@@ -87,7 +87,7 @@ TEST( GameRulesDamage, TheThreeReachableOverridesArePresentAndTheSevenDeadOnesAr
 	ASSERT_FALSE( cpp.empty() );
 
 	static const char *kReachable[] = {
-		"Damage_GetTimeBased", "Damage_GetNoPhysicsForce", "Damage_NoPhysicsForce",
+		"Damage_GetTimeBased", "Damage_GetNoPhysicsForce",
 	};
 
 	for ( size_t i = 0; i < sizeof( kReachable ) / sizeof( kReachable[ 0 ] ); i++ )
@@ -132,7 +132,7 @@ TEST( GameRulesDamage, TheThreeReachableOverridesArePresentAndTheSevenDeadOnesAr
 	static const char *kDead[] = {
 		"Damage_GetShouldGibCorpse", "Damage_GetShouldNotBleed", "Damage_GetShowOnHud",
 		"Damage_IsTimeBased", "Damage_ShouldGibCorpse", "Damage_ShouldNotBleed",
-		"Damage_ShowOnHUD",
+		"Damage_ShowOnHUD", "Damage_NoPhysicsForce",
 	};
 
 	for ( size_t i = 0; i < sizeof( kDead ) / sizeof( kDead[ 0 ] ); i++ )
@@ -144,44 +144,3 @@ TEST( GameRulesDamage, TheThreeReachableOverridesArePresentAndTheSevenDeadOnesAr
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Each predicate reads its OWN getter, which is the thing stock did not do.
-//-----------------------------------------------------------------------------
-TEST( GameRulesDamage, EachPredicateAsksItsOwnGetterRatherThanRepeatingTheList )
-{
-	const std::string cpp = Read( kShell );
-	ASSERT_FALSE( cpp.empty() );
-
-	// ONE PAIR LEFT, and it is still worth checking. The other four predicates
-	// were removed with the getters they asked -- nothing called them through
-	// the rules pointer. The improvement this test describes is unchanged for
-	// the pair that remains: stock answered the question twice, in a getter and
-	// again inline in the predicate, and those two lists were free to drift.
-	struct Pair_t { const char *pszPredicate; const char *pszGetter; };
-	static const Pair_t kPairs[] = {
-		{ "Damage_NoPhysicsForce",  "Damage_GetNoPhysicsForce()" },
-	};
-
-	for ( size_t i = 0; i < sizeof( kPairs ) / sizeof( kPairs[ 0 ] ); i++ )
-	{
-		const size_t at = cpp.find( std::string( "CSourceSharpGameRules::" )
-			+ kPairs[ i ].pszPredicate );
-		ASSERT_NE( at, std::string::npos ) << kPairs[ i ].pszPredicate << " is missing";
-
-		const size_t end = cpp.find( "\n}", at );
-		const std::string body = cpp.substr( at, end - at );
-
-		EXPECT_NE( body.find( kPairs[ i ].pszGetter ), std::string::npos )
-			<< kPairs[ i ].pszPredicate << " does not call "
-			<< kPairs[ i ].pszGetter << ". Stock answered each of these "
-			<< "questions TWICE -- a getter returning the mask and a predicate "
-			<< "re-spelling the same flags inline -- which is two lists free to "
-			<< "drift with nothing to report it if they did. One list per "
-			<< "question is the whole improvement here.";
-
-		// ...and does not re-spell the flags itself.
-		EXPECT_EQ( body.find( "DMG_" ), std::string::npos )
-			<< kPairs[ i ].pszPredicate << " names DMG_* flags directly. That is "
-			<< "stock's second copy coming back.";
-	}
-}

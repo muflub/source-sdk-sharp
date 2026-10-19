@@ -284,7 +284,7 @@ TEST( WorldSubject, StandingOnTheWorldIsAskedBeforeEitherHierarchy )
 	// between level geometry and an answer of NULL. It is still asserted FIRST,
 	// because the same reasoning applies to the arm that DID survive: a world
 	// hit must not have to fail TraceGameEntity before it is recognised.
-	const size_t nWorld = body.find( "SourceSharp_IsTheWorld(tr.m_pEnt)" );
+	const size_t nWorld = body.find( "SourceSharp_IsTheWorld(ss::TraceHit(tr))" );
 	const size_t nGame  = body.find( "TraceGameEntity(tr)!=NULL" );
 
 	ASSERT_NE( nWorld, std::string::npos )
@@ -439,7 +439,7 @@ TEST( WorldSubject, BothDllsAskTheSharedRuleRatherThanComparingThemselves )
 		<< "the client no longer routes its world comparison through the "
 		   "shared rule.";
 
-	EXPECT_NE( dll.find( "boolCGameTrace::DidHitWorld()const{returnSourceSharp_IsTheWorld(m_pEnt);}" ),
+	EXPECT_NE( dll.find( "boolCGameTrace::DidHitWorld()const{returnSourceSharp_IsTheWorld(ss::TraceHitHandle(m_pEnt));}" ),
 	           std::string::npos )
 		<< "the server's DidHitWorld has stopped being the free function's one "
 		   "caller, so a trace and a bare handle can now disagree.";

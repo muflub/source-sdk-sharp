@@ -174,16 +174,6 @@ bool GameFileReadable( const char *pszRelative )
 	return !ReadGameFile( pszRelative ).empty();
 }
 
-// The step-6 EVACUATION file: the free functions and the one global that
-// baseentity.cpp defined and that outlive it. See its header comment, and
-// docs/typedef-dryrun/step6/README.md §4 for why a free function is the one
-// defect class no compile survey in this port can see.
-const std::string &ServerStaticsSource()
-{
-	static const std::string s = ReadGameFile( "../sourcesharp/game/server/baseentity_statics.cpp" );
-	return s;
-}
-
 const std::string &ClientHeader()
 {
 	static const std::string s = ReadGameFile( "client/c_baseentity.h" );
@@ -218,12 +208,6 @@ const std::string &PredictionSeedHeader()
 const std::string &ClientStaticsHeader()
 {
 	static const std::string s = ReadGameFile( "client/c_baseentity_statics.h" );
-	return s;
-}
-
-const std::string &ServerStaticsHeader()
-{
-	static const std::string s = ReadGameFile( "../sourcesharp/game/server/baseentity_statics.h" );
 	return s;
 }
 
@@ -478,8 +462,8 @@ TEST( BaseEntityStatics, TheFilesUnderTestWereActuallyRead )
 
 TEST( BaseEntityStatics, TheServerEntityHeaderIsOutOfTheFarm )
 {
-	ASSERT_TRUE( GameFileReadable( "server/activator.h" ) )
-		<< "game/server/activator.h could not be read, so the absence below "
+	ASSERT_TRUE( GameFileReadable( "shared/shareddefs.h" ) )
+		<< "game/shared/shareddefs.h could not be read, so the absence below "
 		<< "would be answered by a reader that sees nothing.";
 
 	EXPECT_FALSE( GameFileReadable( "server/baseentity.h" ) )
@@ -1170,17 +1154,9 @@ TEST( BaseEntityStatics, TheNewClientHeaderIsReachedAndDeclaresTheThree )
 namespace
 {
 
-// Create (EntityCreate_Spawned), CreateNoSpawn (EntityCreate_NoSpawn) and
-// CreatePredictedEntityByName (EntityPredict_CreateByName) were rows here and
-// are DELETED (P5 lane E): no compiled TU called the first two, server.so held
-// neither, and the third was declared and never defined. They are pinned as
-// absences in TheDeadFactoriesStayDeleted below.
-const Lifted kServerLifted[] =
-{
-	{ "EmitSentenceByIndex", "GameSound_EmitSentenceByIndex" },
-};
-
-const size_t kNumServerLifted = sizeof( kServerLifted ) / sizeof( kServerLifted[ 0 ] );
+// The kServerLifted table went with baseentity_statics.{h,cpp}
+// (plan_server_native_min P1): the files and the absence pins over them are
+// gone together.
 
 // THE STEP-6 EVACUATION, of the four above. A body stays in baseentity.cpp
 // unless something OUTSIDE the removal set names it, in which case it has to
@@ -1217,163 +1193,21 @@ const size_t kNumServerLifted = sizeof( kServerLifted ) / sizeof( kServerLifted[
 
 } // namespace
 
-TEST( BaseEntityStatics, TheServerForwardersWentWithTheClassAndTheFreeFunctionsAreWhatIsLeft )
-{
-	// READ THE ASSERTIONS, NOT THE NAME. This was
-	// TheServerForwardersStillForward, and it pinned two groups inside
-	// baseentity.h's class body: the four LIFTED statics, whose class-scope
-	// names survived as one-line forwarders onto free functions, and the three
-	// IN-BODY one-liners, which were already forwarders and merely moved into
-	// the class body so they would emit no symbol.
-	//
-	// BOTH GROUPS LIVED IN THE CLASS BODY, and the class body was baseentity.h's
-	// `#ifndef SS_CBASEENTITY_ALIAS` arm. The alias retired, the arm went with
-	// the other 452, and every forwarder in it went too -- which is what those
-	// notes said would happen ("deleted by the same edit that deletes the class
-	// body at step 4"), not a regression of it.
-	//
-	// THE HALF THAT STILL MATTERS is the other end: the free functions the
-	// forwarders pointed at are now the ONLY way to reach these, so a deletion
-	// there is a link failure rather than a compile error. Each lifted row is
-	// therefore asserted -- a declaration in baseentity_statics.h, and a
-	// definition in baseentity_statics.cpp. (The third way, no body in
-	// game/server/baseentity.h, is retired: that header is compiled by nothing
-	// since plan_server_novalve.md P5 and left the farm in P6.)
-	const std::string strStatics = StripComments( ServerStaticsHeader() );
-	ASSERT_FALSE( strStatics.empty() )
-		<< "baseentity_statics.h did not read, so every presence assertion "
-		<< "below would pass on an empty string.";
+// TheServerForwardersWentWithTheClassAndTheFreeFunctionsAreWhatIsLeft went
+// with the files it read (plan_server_native_min P1): baseentity_statics.{h,cpp}
+// are deleted -- the last lifted body left in the 2026-10-01 gc cull and the
+// two tenants that remained (one unreferenced send proxy, one write-only
+// global) had no reader between them. The client half of the fact is pinned
+// by the client tests that follow.
 
-	for ( size_t i = 0; i < kNumServerLifted; i++ )
-	{
-		// GONE IN THE SERVER GC CULL (2026-10-01): the last row,
-		// GameSound_EmitSentenceByIndex, had one caller (SENTENCEG_PlaySequentialSz)
-		// that nothing called, and --print-gc-sections dropped both from
-		// server.so. Declaration and body are asserted absent; a caller coming
-		// back has to bring them back with a reason.
-		EXPECT_EQ( std::string::npos, strStatics.find( kServerLifted[ i ].pszFree ) )
-			<< kServerLifted[ i ].pszFree << " is declared in "
-			<< "baseentity_statics.h again, and server.so no longer reached it.";
-		EXPECT_TRUE( FunctionBody( ServerStaticsSource(), kServerLifted[ i ].pszFree ).empty() )
-			<< kServerLifted[ i ].pszFree << " has a body in "
-			<< "baseentity_statics.cpp again, and server.so no longer reached it.";
-	}
+// TheDefaultArgumentsAreNotRepeatedOnTheFreeFunctions read
+// baseentity_statics.h and went with it (plan_server_native_min P1).
 
-	// THE THREE IN-BODY ONE-LINERS. Two forward to free functions that are alive
-	// and asserted here; the third -- CBaseEntity::Instance -- is DELETED, and
-	// deleted for a reason that is not "the class went". Its body bottomed out
-	// in GetContainingEntity, whose answer was a constant NULL: all three
-	// implementations of IServerUnknown::GetBaseEntity() in server.so are
-	// `mov $0x0,%eax; ret`. gEntList went the same way -- `nm -C server.so`
-	// finds it neither defined NOR undefined -- so "Instance forwards to
-	// gEntList.GetBaseEntity" names two things that no longer exist. Asserted as
-	// an absence WITH the successor the tree says to ask instead.
-	//
-	// The in-body absences and the gEntList absence read game/server/
-	// baseentity.h, which is compiled by nothing since plan_server_novalve.md
-	// P5 and left the farm in P6; they are retired, and the header's own
-	// absence is TheServerEntityHeaderIsOutOfTheFarm.
-	// The two live in-body rows forward into precache_model.h, NOT into this
-	// lane's own header -- baseentity_statics.h names them only in the prose
-	// that says so, which StripComments removes. With the in-body forwarders
-	// gone that declaration is the only route to them left.
-	const std::string strPrecache =
-		StripComments( ReadGameFile( "../sourcesharp/game/server/precache_model.h" ) );
-	ASSERT_FALSE( strPrecache.empty() )
-		<< "precache_model.h could not be read, so the two assertions below "
-		<< "would pass on an empty string.";
-	// THE FULL DECLARATION, NOT THE NAME, AND A MUTATION IS WHY. `Precache_Model`
-	// is a PREFIX of `Precache_ModelComponents`, so a bare find( "Precache_Model" )
-	// is satisfied by the OTHER row: renaming the real one to PrecacheTheModel
-	// left this fact green with the declaration gone. The same substring trap
-	// this tree has now found in four places. Each row is pinned by a needle that
-	// only its own declaration can satisfy.
-	EXPECT_NE( std::string::npos, strPrecache.find( "int Precache_Model( const char *name" ) )
-		<< "Precache_Model is not declared in precache_model.h; the in-body "
-		<< "forwarder that used to call it is gone, so this is the only route "
-		<< "left.";
-	EXPECT_NE( std::string::npos, strPrecache.find( "void Precache_ModelComponents( int nModelIndex )" ) )
-		<< "Precache_ModelComponents is not declared in precache_model.h.";
-}
+// TheServerHeaderNamesNoEntityTypeAndForwardDeclaresNone read
+// baseentity_statics.h and went with it (plan_server_native_min P1).
 
-TEST( BaseEntityStatics, TheDefaultArgumentsAreNotRepeatedOnTheFreeFunctions )
-{
-	// The drift this stops: `Create`'s `pOwner = NULL` and
-	// EmitSentenceByIndex's six defaults exist on the class declaration. If they
-	// were repeated on the free function too, the two copies could disagree --
-	// silently, because a call through the forwarder takes the class's and a
-	// call to the free function takes the header's, and both compile. A default
-	// argument is one of the three things the brief names as differing between
-	// two declarations with no diagnostic.
-	const std::string strCode = StripComments( ServerStaticsHeader() );
-
-	ASSERT_FALSE( strCode.empty() )
-		<< "sourcesharp/game/server/baseentity_statics.h could not be read.";
-
-	EXPECT_EQ( std::string::npos, strCode.find( "= NULL" ) )
-		<< "baseentity_statics.h repeats a default argument. The defaults live "
-		<< "on the class declarations in baseentity.h and nowhere else.";
-	EXPECT_EQ( std::string::npos, strCode.find( "PITCH_NORM" ) )
-		<< "baseentity_statics.h repeats EmitSentenceByIndex's iPitch default.";
-	EXPECT_EQ( std::string::npos, strCode.find( "bUpdatePositions = " ) )
-		<< "baseentity_statics.h repeats EmitSentenceByIndex's "
-		<< "bUpdatePositions default.";
-}
-
-TEST( BaseEntityStatics, TheServerHeaderNamesNoEntityTypeAndForwardDeclaresNone )
-{
-	// WAS TheServerHeaderNamesTheEntityTypeByIncludingItAndNotByDeclaringIt. The
-	// header used to name IGameEntity because EntityCreate_Spawned returned one,
-	// and it included igameentity.h for that rather than forward-declaring a
-	// dead CBaseEntity. Both factories are gone (P5 lane E), and the header
-	// names no entity type at all now, so it neither includes igameentity.h nor
-	// declares one.
-	//
-	// The dead spelling must still not come back; the positive half is the
-	// one declaration the header exists for.
-	const std::string strCode = StripComments( ServerStaticsHeader() );
-	ASSERT_FALSE( strCode.empty() )
-		<< "sourcesharp/game/server/baseentity_statics.h could not be read.";
-	// Proved read by its guard: its last declaration,
-	// GameSound_EmitSentenceByIndex, went in the server gc cull (2026-10-01).
-	ASSERT_NE( std::string::npos, strCode.find( "#ifndef BASEENTITY_STATICS_H" ) )
-		<< "baseentity_statics.h is not the header this test thinks it is.";
-
-	EXPECT_EQ( std::string::npos, strCode.find( "class CBaseEntity;" ) )
-		<< "baseentity_statics.h forward-declares CBaseEntity again. That name "
-		<< "does not exist -- a declaration of it is a second, empty type that "
-		<< "no definition ever completes.";
-	EXPECT_EQ( std::string::npos, strCode.find( "SS_CBASEENTITY_ALIAS" ) )
-		<< "the alias guard is back in baseentity_statics.h.";
-	EXPECT_EQ( std::string::npos, strCode.find( "IGameEntity" ) )
-		<< "baseentity_statics.h names IGameEntity again; nothing it declares "
-		<< "takes or returns one.";
-}
-
-TEST( BaseEntityStatics, TheDeadFactoriesStayDeleted )
-{
-	// EntityCreate_Spawned and EntityCreate_NoSpawn are DELETED (P5 lane E). No
-	// compiled TU called either, `nm -C server.so` found neither (--gc-sections
-	// had dropped both), and EntityCreate_Spawned called DispatchSpawn, which
-	// nothing in this tree defines. Absent from the header AND the source,
-	// because a declaration without a definition invites somebody to supply
-	// one. Each file is proved read by what it still holds.
-	const std::string strHeader = StripComments( ServerStaticsHeader() );
-	const std::string strSource = StripComments( ServerStaticsSource() );
-	ASSERT_NE( std::string::npos, strHeader.find( "#ifndef BASEENTITY_STATICS_H" ) );
-	ASSERT_NE( std::string::npos, strSource.find( "g_pForceAttachEdict" ) );
-
-	const char *const kGone[] = { "EntityCreate_Spawned", "EntityCreate_NoSpawn",
-	                              "EntityPredict_CreateByName", "EntityUse_ShouldToggle",
-	                              "DispatchSpawn" };
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
-	{
-		EXPECT_EQ( std::string::npos, strHeader.find( kGone[ i ] ) )
-			<< kGone[ i ] << " is named in baseentity_statics.h again";
-		EXPECT_EQ( std::string::npos, strSource.find( kGone[ i ] ) )
-			<< kGone[ i ] << " is named in baseentity_statics.cpp again";
-	}
-}
+// TheDeadFactoriesStayDeleted read baseentity_statics.{h,cpp} and went with
+// them (plan_server_native_min P1).
 
 //=============================================================================
 // THE FIVE DELETIONS, PINNED AS ABSENCES.

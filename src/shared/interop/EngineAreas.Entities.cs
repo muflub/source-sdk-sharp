@@ -87,10 +87,10 @@ public interface IEngineEntities
     // and because CleanupDeleteList has a second caller waiting for it: every
     // point in the frame where something removed itself mid-think.
 
-    /// <inheritdoc cref="EngineSide.EntitiesPurgeMapRefs"/>
+    /// <summary>Clears the map-entity reference list. Before the parse.</summary>
     void PurgeMapRefs();
 
-    /// <inheritdoc cref="EngineSide.EntitiesCleanupDeleteList"/>
+    /// <summary>Reaps entities that removed themselves during a precache.</summary>
     void CleanupDeleteList();
 
     /// <inheritdoc cref="EngineSide.FindEntitiesByClassname"/>
@@ -119,7 +119,7 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntityGetAngularVelocity"/>
     Vector GetAngularVelocity(EntityHandle entity);
 
-    /// <inheritdoc cref="EngineSide.EntityGetArmor"/>
+    /// <summary>Player armour, which the engine keeps separately from health.</summary>
     int GetArmor(EntityHandle entity);
 
     /// <inheritdoc cref="EngineSide.EntityGetBounds"/>
@@ -179,7 +179,7 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntitySetAngularVelocity"/>
     void SetAngularVelocity(EntityHandle entity, Vector degreesPerSecond);
 
-    /// <inheritdoc cref="EngineSide.EntitySetArmor"/>
+    /// <summary>armour left with CBasePlayer; Armour.cs is the managed owner.</summary>
     void SetArmor(EntityHandle entity, int armor);
 
     /// <inheritdoc cref="EngineSide.EntitySetHealth"/>
@@ -237,7 +237,11 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntityLookupAttachmentAny"/>
     int LookupAttachmentAny(EntityHandle entity, string attachmentName);
 
-    /// <inheritdoc cref="EngineSide.FindBaseEntityByName"/>
+    /// <summary>
+    /// THE SDK'S FIND-BY-NAME, which <see cref="FindEntityByName"/> is not: that
+    /// one walks the shim's own vector and answers only the parallel hierarchy.
+    /// Resolving a map's <c>parentname</c> has to reach both.
+    /// </summary>
     EntityHandle FindBaseByName(string name);
 
     /// <inheritdoc cref="EngineSide.GetEntityBlock"/>
@@ -385,7 +389,7 @@ public interface IEngineEntityPhysics
     /// <inheritdoc cref="EngineSide.EntitySetCollisionGroup"/>
     void SetCollisionGroup(EntityHandle entity, CollisionGroup group);
 
-    /// <inheritdoc cref="EngineSide.EntitySetFriction"/>
+    /// <summary>a per-entity friction on the movement path is not ported (func_friction, ss_gib ask).</summary>
     void SetFriction(EntityHandle h, float friction);
 
     /// <inheritdoc cref="EngineSide.EntitySetGravity"/>
@@ -443,7 +447,13 @@ public interface IEngineEntityRender
     /// </summary>
     string? GetModelKeyValueText(string modelName) => null;
 
-    /// <inheritdoc cref="EngineSide.EntityGetTextureFrame"/>
+    /// <summary>
+    /// Which frame of an animated material a brush is showing.
+    ///
+    /// <para>
+    /// The frames belong to the material; which one is up belongs to the map.
+    /// </para>
+    /// </summary>
     int GetTextureFrame(EntityHandle entity);
 
     /// <summary>The sequence with this label, or -1. <see cref="ModelDescriptor.LookupSequence"/>.</summary>
@@ -565,13 +575,24 @@ public interface IEngineEntityRender
     /// <inheritdoc cref="EngineSide.EntitySetSkin"/>
     void SetSkin(EntityHandle entity, int skin);
 
-    /// <inheritdoc cref="EngineSide.EntitySetTextureFrame"/>
+    /// <summary>m_nTextureFrameIndex left with CBaseEntity; env_texturetoggle asks.</summary>
     void SetTextureFrame(EntityHandle entity, int frame);
 
     /// <inheritdoc cref="EngineSide.EntitySetTransmitAlways"/>
     void SetTransmitAlways(EntityHandle entity, bool always);
 
-    /// <inheritdoc cref="EngineSide.EntityDetectInSkybox"/>
+    /// <summary>
+    /// Stock's <c>CBaseEntity::DetectInSkybox</c>: raises <c>EFL_IN_SKYBOX</c>
+    /// if this entity stands inside a 3D skybox, and answers whether it does.
+    ///
+    /// <para>
+    /// A query managed code cannot make — it walks the sky camera list and asks
+    /// the engine whether two areas are connected. The flag it raises has one
+    /// consequence, and it is the one an env_smokestack in a skybox depends on:
+    /// the entity is sent to everyone instead of being PVS-checked, because
+    /// nobody's PVS contains the 3D skybox.
+    /// </para>
+    /// </summary>
     bool DetectInSkybox(EntityHandle entity);
 
     /// <inheritdoc cref="EngineSide.EntitySetVisible"/>
@@ -618,28 +639,27 @@ public interface IEngineDamage
     /// <inheritdoc cref="EngineSide.ApplyDamageForce"/>
     void ApplyAt(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType, Vector force, Vector position);
 
-    /// <inheritdoc cref="EngineSide.EntityDissolve"/>
-    bool Dissolve(EntityHandle entity, DissolveType type = DissolveType.Normal, float magnitude = 250f, Vector? from = null);
-
-    /// <inheritdoc cref="EngineSide.EntityIgnite"/>
-    void Ignite(EntityHandle entity, float lifetime);
-
-    /// <inheritdoc cref="EngineSide.RadiusDamage"/>
-    void RadiusDamage(Vector origin, float damage, float radius, DamageType damageType, EntityHandle attacker = default);
-
-    /// <inheritdoc cref="EngineSide.ExplosionDamage"/>
-    void ExplosionDamage(Vector origin, float magnitude, float radius, DamageType damageType,
-                         EntityHandle attacker, EntityHandle inflictor, EntityHandle ignored,
-                         float damageForce);
-
-    /// <inheritdoc cref="EngineSide.EntitySetForceServerRagdoll"/>
+    /// <summary>
+    /// Whether this body, when it dies, becomes a ragdoll the server simulates
+    /// rather than one the client makes for itself.
+    ///
+    /// Takes any entity and quietly does nothing unless it is a combat
+    /// character, because "is this a combat character" is a native question:
+    /// the flag lives on CBaseCombatCharacter and only its BecomeRagdoll reads
+    /// it. A volume that sweeps everything walking through it would otherwise
+    /// have to ask before every call and could not.
+    /// </summary>
     void SetForceServerRagdoll(EntityHandle entity, bool force);
 
-    /// <inheritdoc cref="EngineSide.EntitySetTakeDamageMode"/>
+    /// <summary>
+    /// Whether an entity may be hurt, answering what it was before.
+    ///
+    /// The previous value comes back rather than being remembered here, because
+    /// invulnerability nests badly: only whoever took it away knows when it is
+    /// done, and two things taking it away in turn must give back what each
+    /// found rather than a shared idea of "normal".
+    /// </summary>
     TakeDamageMode SetTakeDamageMode(EntityHandle entity, TakeDamageMode mode);
-
-    /// <inheritdoc cref="EngineSide.ShootGib"/>
-    bool ShootGib(string model, in GibShot shot);
 
     /// <inheritdoc cref="EngineSide.RegisterDamageRules"/>
     void RegisterRules(DamageRuleMasks masks);
@@ -659,16 +679,20 @@ public interface IEngineDamage
 /// </summary>
 public interface IEngineBrushMovement
 {
-    /// <inheritdoc cref="EngineSide.EntityMoveToAngles"/>
+    /// <summary>Rotates a brush to an orientation at a constant speed.</summary>
     void MoveToAngles(EntityHandle entity, Vector destination, float speed);
 
-    /// <inheritdoc cref="EngineSide.EntityMoveToPosition"/>
+    /// <summary>
+    /// Moves a brush to a position at a constant speed, reporting arrival
+    /// through OnMoveDone. The stepping is native: it has to stop exactly on the
+    /// destination, and a door that stops a fraction short never closes.
+    /// </summary>
     void MoveToPosition(EntityHandle entity, Vector destination, float speed);
 
     /// <inheritdoc cref="EngineSide.SurfaceSetEdges"/>
     void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count);
 
-    /// <inheritdoc cref="EngineSide.EntityStopMoving"/>
+    /// <summary>retired mover: EntityMotion implements this interface, so nothing reaches the engine binding's.</summary>
     void StopMoving(EntityHandle entity);
 
     /// <summary>

@@ -202,6 +202,12 @@ FORWARD = [
             'GetClientSteamIDByPlayerIndex',
             # Passed as values to EngineServer's Fill and Ask helpers.
             'GetGameDir', 'IsModelPrecached',
+            # plan_server_native_v2 T3: the user id, the server command, the
+            # view entity, the light styles and the PVS box test, which were
+            # one-call slots in shell_entityapi.cpp / shell_worldquery.cpp.
+            'PEntityOfEntIndex', 'GetPlayerUserId', 'ServerCommand', 'ServerExecute',
+            'SetView', 'LightStyle', 'GetClusterForOrigin', 'GetPVSForCluster',
+            'CheckBoxInPVS',
         ],
     ),
     dict(
@@ -231,6 +237,9 @@ FORWARD = [
         struct='NetworkStringTableContainerVtbl',
         methods=[
             'FindTable',
+            # plan_server_native_v2 T3: the id-addressed string tables are
+            # managed's (EngineStringTables), not shell_stringtables.h's.
+            'CreateStringTable', 'GetTable',
         ],
     ),
     dict(
@@ -238,6 +247,8 @@ FORWARD = [
         methods=[
             'GetTableName', 'AddString', 'GetString', 'GetStringUserData',
             'FindStringIndex',
+            # plan_server_native_v2 T3, as above.
+            'GetTableId', 'GetNumStrings',
         ],
     ),
     dict(
@@ -424,6 +435,16 @@ FORWARD = [
         struct='ParticleLibVtbl',
         side='client',
         every=True,
+    ),
+    dict(
+        struct='GameEventManagerVtbl',
+        side='server',
+        # The server's game-event firing (plan_server_native_v2 T3): managed
+        # creates, fires and frees an event through the manager, where the
+        # EventCreate / EventFire / EventFree slots used to make each call.
+        methods=[
+            'CreateEvent', 'FireEvent', 'FreeEvent',
+        ],
     ),
 ]
 

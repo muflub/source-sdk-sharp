@@ -201,12 +201,4 @@ void SourceSharpPlayerSync_Write( unsigned char *pBlob,
                                   IMovementPlayer *pPlayer,
                                   const SourceSharpPlayerExtras_t &extras );
 
-// Blob -> native state. Called when the server's word arrives on the client:
-// the basis every replayed command stands on. Fills the extras for the caller
-// to apply through its own setters.
-void SourceSharpPlayerSync_Read( const unsigned char *pBlob,
-                                 const SourceSharpPlayerFields_t &fields,
-                                 IMovementPlayer *pPlayer,
-                                 SourceSharpPlayerExtras_t *pExtras );
-
 #endif // SOURCESHARP_STANDALONE_PLAYER_SYNC_H

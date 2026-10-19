@@ -166,7 +166,7 @@ struct File_t
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 const File_t kShellEntityApi = { "sourcesharp/game/server/shell_entityapi.cpp",
-	"SourceSharp_PlayerGetViewModelEntity" };
+	"int32_t SourceSharp_GetPlayerTeam(" };
 const File_t kShellWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
 	"SourceSharp_TraceLine" };
 const File_t kClientViewModelHdr = { "game/client/c_baseviewmodel.h",
@@ -558,10 +558,10 @@ TEST( ServerBeamViewModelEvicted, TheViewModelHeaderStaysForTheClientThatStillCo
 //-----------------------------------------------------------------------------
 // THE RETIRED API.
 //
-// SourceSharp_PlayerGetViewModelEntity is still on the engine API table -- ABI
-// slots are appended, never removed -- and was retired with CBasePlayer in 13c.
-// If it ever builds a CBaseViewModel again, this eviction is the thing that
-// makes it a NULL.
+// SourceSharp_PlayerGetViewModelEntity was retired with CBasePlayer in 13c and
+// its slot deleted in plan_server_native_v2 T2 (EngineBinding answers
+// EntityHandle.None). If a view model entry point comes back and builds a
+// CBaseViewModel, this eviction is the thing that makes it a NULL.
 //-----------------------------------------------------------------------------
 TEST( ServerBeamViewModelEvicted, TheRetiredViewModelApiBuildsNoViewModel )
 {
@@ -573,6 +573,7 @@ TEST( ServerBeamViewModelEvicted, TheRetiredViewModelApiBuildsNoViewModel )
 		   "build of the stock class here is a build of a class that is no longer "
 		   "in the server";
 
-	EXPECT_NE( s.find( "SourceSharp_PlayerGetViewModelEntity" ), std::string::npos )
-		<< "the entry point this test accounts for is gone from shell_entityapi.cpp";
+	EXPECT_EQ( s.find( "SourceSharp_PlayerGetViewModelEntity" ), std::string::npos )
+		<< "the view model entry point is back in shell_entityapi.cpp; say what "
+		   "it answers and why it is not EngineBinding's";
 }

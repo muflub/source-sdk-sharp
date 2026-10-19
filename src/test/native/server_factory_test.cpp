@@ -47,10 +47,7 @@ const Expected kExpected[] =
 	{ "ServerGameClients004", 3 },
 	{ "ServerGameClients003", 4 },
 	{ "ServerGameTags001", 5 },
-	{ "PlayerInfoManager002", 6 },
-	{ "PluginHelpersCheck001", 7 },
 	{ "VServerDllSharedAppSystems001", 8 },
-	{ "GameMovement001", 10 },
 };
 
 }
@@ -61,10 +58,7 @@ const SourceSharpExposed kExposeServerGameClients = { "ServerGameClients005", St
 const SourceSharpExposed kExposeServerGameClients004 = { "ServerGameClients004", StandIn< 3 > };
 const SourceSharpExposed kExposeServerGameClients003 = { "ServerGameClients003", StandIn< 4 > };
 const SourceSharpExposed kExposeServerGameTags = { "ServerGameTags001", StandIn< 5 > };
-const SourceSharpExposed kExposePlayerInfoManager = { "PlayerInfoManager002", StandIn< 6 > };
-const SourceSharpExposed kExposePluginHelpersCheck = { "PluginHelpersCheck001", StandIn< 7 > };
 const SourceSharpExposed kExposeServerDllSharedAppSystems = { "VServerDllSharedAppSystems001", StandIn< 8 > };
-const SourceSharpExposed kExposeGameMovement = { "GameMovement001", StandIn< 10 > };
 
 TEST( ServerFactory, EveryNameAnswersItsOwnObject )
 {
@@ -110,7 +104,7 @@ TEST( ServerFactory, TheFactoryThisIsCreateInterface )
 	CreateInterfaceFn fn = Sys_GetFactoryThis();
 	ASSERT_NE( nullptr, fn );
 	int rc = -1;
-	EXPECT_EQ( (void *)&g_Objects[6], fn( "PlayerInfoManager002", &rc ) );
+	EXPECT_EQ( (void *)&g_Objects[5], fn( "ServerGameTags001", &rc ) );
 	EXPECT_EQ( IFACE_OK, rc );
 }
 
@@ -118,6 +112,11 @@ TEST( ServerFactory, TheFactoryThisIsCreateInterface )
 // of the 90 .so files under Source SDK Base 2013 Multiplayer only the stock
 // game DLLs carry it, each exposing its own copy. Every server caller asks
 // ss::Effects() now, so nothing asks the factory for it.
+// PlayerInfoManager002 and PluginHelpersCheck001 LEFT THE TABLE with their
+// files (plan_server_native_min P1, Decision 1): no engine binary asks for
+// PlayerInfoManager002, and the plugin check's engine string is the one the
+// ruling accepted dropping (docs/server_evictions.md, engine-boundary.md §6).
+
 TEST( ServerFactory, TheEffectsInterfaceIsNotExposed )
 {
 	int rc = IFACE_OK;
@@ -127,15 +126,43 @@ TEST( ServerFactory, TheEffectsInterfaceIsNotExposed )
 		EXPECT_STRNE( "IEffects001", SourceSharp_ExposedAt( i ).m_pszVersion );
 }
 
-TEST( ServerFactory, TheTableHasTenRowsAndNoNameTwice )
+// GameMovement001 LEFT THE TABLE in plan_server_native_v2 T2 (ruling 4,
+// 2026-10-11): the string is in no engine binary, and the server's callers
+// use g_pGameMovement, never the factory.
+TEST( ServerFactory, TheGameMovementInterfaceIsNotExposed )
 {
-	ASSERT_EQ( 10, SourceSharp_ExposedCount() );
+	int rc = IFACE_OK;
+	EXPECT_EQ( nullptr, CreateInterface( "GameMovement001", &rc ) );
+	EXPECT_EQ( IFACE_FAILED, rc );
+	for ( int i = 0; i < SourceSharp_ExposedCount(); i++ )
+		EXPECT_STRNE( "GameMovement001", SourceSharp_ExposedAt( i ).m_pszVersion );
+}
+
+TEST( ServerFactory, TheTableHasSevenRowsAndNoNameTwice )
+{
+	ASSERT_EQ( 7, SourceSharp_ExposedCount() );
 	std::set< std::string > names;
 	for ( int i = 0; i < SourceSharp_ExposedCount(); i++ )
 		EXPECT_TRUE( names.insert( SourceSharp_ExposedAt( i ).m_pszVersion ).second )
 			<< SourceSharp_ExposedAt( i ).m_pszVersion << " is in the table twice";
 	for ( const Expected &e : kExpected )
 		EXPECT_EQ( 1u, names.count( e.pszVersion ) ) << e.pszVersion << " is not in the table";
+}
+
+TEST( ServerFactory, ThePluginInterfacesAreNotExposedEither )
+{
+	// The two the Decision 1 ruling dropped: answered by the same walk the
+	// IEffects fact above uses, so a name coming back fails both.
+	int rc = IFACE_OK;
+	EXPECT_EQ( nullptr, CreateInterface( "PlayerInfoManager002", &rc ) );
+	EXPECT_EQ( IFACE_FAILED, rc );
+	EXPECT_EQ( nullptr, CreateInterface( "PluginHelpersCheck001", &rc ) );
+	EXPECT_EQ( IFACE_FAILED, rc );
+	for ( int i = 0; i < SourceSharp_ExposedCount(); i++ )
+	{
+		EXPECT_STRNE( "PlayerInfoManager002", SourceSharp_ExposedAt( i ).m_pszVersion );
+		EXPECT_STRNE( "PluginHelpersCheck001", SourceSharp_ExposedAt( i ).m_pszVersion );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -198,10 +225,10 @@ const Site kSites[] =
 	{ "sourcesharp/game/server/shell_gameclients.cpp", "kExposeServerGameClients004" },
 	{ "sourcesharp/game/server/shell_gameclients.cpp", "kExposeServerGameClients003" },
 	{ "sourcesharp/game/server/shell_gametags.cpp", "kExposeServerGameTags" },
-	{ "sourcesharp/game/server/shell_playerinfo.cpp", "kExposePlayerInfoManager" },
-	{ "sourcesharp/game/server/plugin_check.cpp", "kExposePluginHelpersCheck" },
+	// shell_playerinfo.cpp and plugin_check.cpp had rows here and went with
+	// the plugin ABI (plan_server_native_min P1, Decision 1): no engine binary
+	// asks for PlayerInfoManager002 or the plugin check (engine-boundary.md §6).
 	{ "sourcesharp/game/server/shell_sharedappsystems.cpp", "kExposeServerDllSharedAppSystems" },
-	{ "sourcesharp/game/shared/shell_movement.cpp", "kExposeGameMovement" },
 };
 
 }

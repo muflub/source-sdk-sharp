@@ -171,8 +171,8 @@ void CServerGameEnts::MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 )
 	// which is the only place that can hold the link at all — touchlink_t is an
 	// handle typed to CBaseEntity and cannot name the other hierarchy. Telling it here as well
 	// would report the same arrival twice.
-	const Toucher_t toucher1 = entity ? ToucherOf( entity ) : ToucherFromEntityHandle( e1->GetUnknown() );
-	const Toucher_t toucher2 = entityTouched ? ToucherOf( entityTouched ) : ToucherFromEntityHandle( e2->GetUnknown() );
+	const Toucher_t toucher1 = ToucherFromEntityHandle( e1->GetUnknown() );
+	const Toucher_t toucher2 = ToucherFromEntityHandle( e2->GetUnknown() );
 
 	if ( toucher1.pGame && toucher2.IsValid() )
 		toucher1.pGame->Touch( toucher2 );

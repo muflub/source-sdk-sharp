@@ -352,35 +352,15 @@ public:
 	virtual ICollideable *GetCollideable() OVERRIDE { return this; }
 	virtual IServerNetworkable *GetNetworkable() OVERRIDE { return this; }
 
-	// NULL, and that single NULL is what the whole parallel hierarchy rests on.
-	// Its own comment in iserverunknown.h says "Only used by game code".
-	//
-	// THE STEP-5 CANARY THAT USED TO BE HERE IS GONE (plan_entity.md step 4g).
-	//
-	// It made this line answer the entity's IGameEntity subobject instead of
-	// NULL when `ss_step5_sim` was set, to look at the runtime hazard of
-	// plan_baseentity.md's Phase 13 step 5 -- `using CBaseEntity = IGameEntity`
-	// -- before taking it. It earned its keep: three live crash sites in its
-	// first fifteen minutes, which four documented gates and a source scanner
-	// had all missed.
-	//
-	// It goes because ITS SUBJECT IS NOT HAPPENING. plan_entity.md does not
-	// alias CBaseEntity to anything; it deletes the class, and with it this
-	// method's return type. A probe for a step that was replaced is an
-	// instrument nobody will re-read, and the LANE BRIEF's rule for
-	// instrumentation is that it is debt with a named removal owner -- 4g is
-	// the owner the plan names.
-	//
-	// WHAT IS NOT LOST WITH IT. The convar defaulted to 0 and nothing in the
-	// tree ever set it outside the self-test command, so this is byte-for-byte
-	// the NULL every build has shipped. The property the canary judged at
-	// runtime -- that SourceSharp_SDKEntityFromUnknown still refuses a
-	// standalone -- is checked live by cs_sv_handle_cross_check (§3.3) and
-	// offline by handle_cross_test.cpp's SdkEntityResolver facts, which drive
-	// a mock standalone whose GetBaseEntity answers non-NULL and so do not
-	// depend on this line at all.
-	virtual IGameEntity *GetBaseEntity() OVERRIDE { return NULL; }
-	virtual IGameEntity *GetGameEntity() OVERRIDE { return this; }
+	// THIS ENTITY, as its entity face: the one accessor since
+	// plan_server_native_v2 T1.3. It answered NULL while the server also had
+	// the SDK's CBaseEntity tree, and the patch's GetGameEntity() answered
+	// `this` beside it; once no SDK entity was left the two partitioned the
+	// world identically, and stock iserverunknown.h has only this one. On the
+	// stock build its type is CBaseEntity, which IGameEntity aliases (D1).
+	// handle_cross.h's partition reads it: non-NULL is "a standalone", and
+	// the world answers NULL.
+	virtual IGameEntity *GetBaseEntity() OVERRIDE { return this; }
 
 	// --- IServerEntity -------------------------------------------------------
 	virtual int GetModelIndex( void ) const OVERRIDE { return Block().Head.ModelIndex; }
@@ -1266,8 +1246,6 @@ edict_t *SourceSharp_ClaimPendingPlayerEdict();
 // already owns this hierarchy's frame and its shutdown — so they run inside
 // crossings that already happen rather than through relays of their own.
 //-----------------------------------------------------------------------------
-bool StandaloneHierarchy_SetParent( CStandaloneEntity *pChild, CStandaloneEntity *pParent );
-void StandaloneHierarchy_ClearParent( CStandaloneEntity *pChild );
 
 // Answered from the block, with no crossing at all: managed code writes the
 // parent's handle when it makes a link and clears it when it drops one, and this
@@ -1316,15 +1294,8 @@ void SourceSharp_AnnounceStandaloneRemoved( CStandaloneEntity *pEntity );
 //
 // Built per call and never stored, like the Activator_t it holds.
 //-----------------------------------------------------------------------------
-class CStandaloneActivatorScope
-{
-public:
-	explicit CStandaloneActivatorScope( const Activator_t &activator );
-	~CStandaloneActivatorScope();
-
-private:
-	Activator_t m_Previous;
-};
+// CStandaloneActivatorScope went (plan_server_native_min P1): its global had
+// no reader.
 
 
 //-----------------------------------------------------------------------------
@@ -1345,7 +1316,7 @@ private:
 //
 // WHY IT IS SAFE, ONCE. `CStandaloneEntity` is `final` and is the ONLY class in
 // server.so deriving from `IGameEntity` -- `CWorld` answers NULL to
-// `GetGameEntity()` by design (world.h: "this object is not a CBaseEntity, and
+// `GetBaseEntity()` by design (world.h: "this object is not a CBaseEntity, and
 // saying otherwise is exactly the lie this port has spent its length
 // removing"), so it never arrives here as one.
 //

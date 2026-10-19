@@ -147,19 +147,6 @@ public interface IEngineSound
     /// <inheritdoc cref="EngineSide.EntityStopSound"/>
     void EntityStopSound(EntityHandle entity, string soundName);
 
-    /// <inheritdoc cref="EngineSide.PlayerSetSoundscape"/>
-    /// <remarks>
-    /// <b>DEAD as of plan_entity.md step 8e-sound, and kept only because the
-    /// engine table is positional.</b> The native body was empty; the soundscape
-    /// push travels as the <c>Soundscape</c> user message now
-    /// (<c>Soundscapes.Push</c>). Nothing calls this, and the native side warns
-    /// once if anything does. The removal is one operation across
-    /// <c>Abi.cs</c>, <c>sourcesharp.h</c>, <c>shell_sound.cpp</c> and
-    /// <c>sourcesharp_gamesystem.cpp</c>, so it belongs to the integrator's next
-    /// ABI bump — see <c>.claude/entity-port/abi-requests/8e-sound.md</c>.
-    /// </remarks>
-    void PlayerSetSoundscape(EntityHandle player, int entIndex, int soundscapeIndex, int localBits, ReadOnlySpan<Vector> localPositions);
-
 
     // plan_gamedll_after.md Phase A3, second pair -- the four things only the
     // shim can do to a sound patch. THESE belong on this area where the two
@@ -209,8 +196,6 @@ public interface IEngineSound
 /// </summary>
 public interface IEngineEffects
 {
-    /// <inheritdoc cref="EngineSide.BloodDecal"/>
-    bool BloodDecal(Vector start, Vector end, BloodColor color);
 
     /// <inheritdoc cref="EngineSide.BloodEffect"/>
     void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None);
@@ -392,15 +377,6 @@ public interface IEngineEffects
 
 
 
-    /// <inheritdoc cref="EngineSide.FireEffectCreate"/>
-    EntityHandle FireEffectCreate(int type, Vector origin, float scale, int flags);
-
-    /// <inheritdoc cref="EngineSide.FireEffectEnable"/>
-    void FireEffectEnable(EntityHandle effect, bool enable);
-
-    /// <inheritdoc cref="EngineSide.FireEffectScale"/>
-    void FireEffectScale(EntityHandle effect, float scale, float time);
-
     /// <inheritdoc cref="EngineSide.ImpactEffect"/>
     void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity);
 
@@ -489,7 +465,19 @@ public interface IEngineVisibility
     /// <inheritdoc cref="EngineSide.DynamicLightUpdate"/>
     void DynamicLightUpdate(in DynamicLight light);
 
-    /// <inheritdoc cref="EngineSide.EngineLightStyle"/>
+    /// <summary>
+    /// Sets how a numbered lightstyle animates. The pattern is one letter per
+    /// tenth of a second: 'a' is black, 'm' is normal brightness, 'z' is about
+    /// double. It repeats forever.
+    ///
+    /// <para>
+    /// A style number rather than an entity, because that is what the engine
+    /// keeps — 64 slots shared by everything in the map. vbsp reserves 32..62
+    /// for switchable lights and assigns one per NAMED light entity, so two
+    /// lights the mapper named the same thing share a style and go out
+    /// together. That is the reason this is not an entity property.
+    /// </para>
+    /// </summary>
     void SetLightStyle(int style, string pattern);
 
     /// <inheritdoc cref="EngineSide.SetSkyboxParams"/>
@@ -519,7 +507,25 @@ public interface IEngineVisibility
     // `#ifdef SOURCESHARP` block inside CheckTransmit, and moving it means
     // giving C# both reads separately so the ORDER is C#'s.
 
-    /// <inheritdoc cref="EngineSide.EntitiesSdkPlayerSkyboxArea"/>
+    /// <summary>
+    /// The 3D-skybox area of one client, read off the SDK hierarchy ONLY.
+    ///
+    /// <para>
+    /// plan_server.md Phase 8b, plan-audit C4. Half of a pair;
+    /// <see cref="EntitiesStandalonePlayerSkyboxArea"/> is the other half, and
+    /// the ORDER they are asked in is <c>ServerEntities.SkyboxAreaForClient</c>'s
+    /// — which is the whole content of the crossing, because that order used to
+    /// be an <c>#ifdef SOURCESHARP</c> block inside
+    /// <c>CServerGameEnts::CheckTransmit</c>.
+    /// </para>
+    ///
+    /// <para>
+    /// <b><c>area</c> is untouched on a miss, not zeroed.</b> Area 0 is a real
+    /// visleaf area, so "the world's first area" and "no such recipient" cannot
+    /// share a value — CheckTransmit returns early for one and walks every
+    /// edict for the other.
+    /// </para>
+    /// </summary>
     bool TrySdkPlayerSkyboxArea(int edictIndex, out int area);
 
     /// <inheritdoc cref="EngineSide.EntitiesStandalonePlayerSkyboxArea"/>

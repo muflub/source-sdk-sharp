@@ -21,12 +21,12 @@
 //
 //=============================================================================//
 
-#include "ss_util.h"   // engine; ss::ENTINDEX, ss::UTIL_TraceLine, UTIL_VarArgs
+#include "ss_util.h"   // engine; ss::ENTINDEX, ss::UTIL_TraceLine
 #include "shell_standalone_player.h"
 #include "basehandle.h"
 #include "sourcesharp.h"
 #include "shell_diagnostics.h"
-#include "ss_mapentities.h"   // MapEntity_CreateFromKeys, MapEntity_ClaimPendingNonBaseEntity
+#include "ss_mapentities.h"   // MapEntity_CreateFromKeys
 #include "ss_shareddefs.h"   // ss::kDamageYes
 #include "vphysics_interface.h"
 #include "standalone_relays.h"
@@ -53,6 +53,7 @@
 
 #include <algorithm>
 #include <vector>
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 // shareddefs.h's DAMAGE_YES, by its ss_shareddefs.h name. A using-declaration
 // rather than ss:: at the use, because entity_shell_inert_slots_test reads a
@@ -619,33 +620,6 @@ void SourceSharp_EntityRemove( uint32_t hEntity )
 }
 
 //-----------------------------------------------------------------------------
-// Hitscan attack primitives.
-//
-// Enough for C# to implement shooting without a weapon entity: trace where the
-// player is looking, and apply damage. Range, damage and rate of fire are the
-// caller's business — a real CBaseCombatWeapon would drag in viewmodels, ammo
-// pools and prediction, none of which are needed to let players kill each other.
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// What a player is holding, and where their shots come from.
-//
-// Both exist for the same reason: a weapon that fires more than one pellet has
-// to aim each one separately, and it has to know which weapon it is before it
-// knows how many. The client-side accessors are no use — what a shot does is
-// decided on the server, and the server cannot ask a client what it is holding.
-//-----------------------------------------------------------------------------
-void SourceSharp_GetPlayerActiveWeapon( uint32_t hPlayer, char *pOut, int32_t nOutSize )
-{
-	if ( !pOut || nOutSize <= 0 )
-		return;
-
-	// Weapons are managed (Phase 10, the Arsenal) and the CBasePlayer inventory
-	// these read from retired with CSourceSharpPlayer (13c). The slots stay in
-	// the ABI table; the honest answer through them is "no weapon here".
-	pOut[0] = '\0';
-}
-
-//-----------------------------------------------------------------------------
 // THE AMMUNITION A SHOT SPENDS IS GONE FROM HERE (lane 3c-entityshell).
 //
 // GetPlayerWeaponAmmo, SetPlayerWeaponClip and TakePlayerAmmo emptied out with
@@ -719,110 +693,6 @@ void SourceSharp_PlayerRespawn( uint32_t hPlayer )
 }
 
 //-----------------------------------------------------------------------------
-// Throwing a weapon into the world.
-//
-// WHETHER a dead player drops anything is a rule about how a deathmatch feels,
-// and it is C#'s. This is the part that is not: unhooking the weapon from its
-// owner, giving it a body, and letting it be picked up again.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PlayerDropActiveWeapon( uint32_t hPlayer, const float *pVelocityXYZ )
-{
-	// Retired with the CBasePlayer inventory (13c): dropping is the managed
-	// Arsenal's decision and mechanics now. The ABI slot answers "nothing".
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
-// Putting a weapon away and taking it back out.
-//
-// The two halves are one call each because what is indivisible is the
-// bookkeeping, not the choice. Holstering means four things that have to happen
-// together — remember what was out, let the weapon run its own cleanup, empty
-// the hands, and blank the viewmodels — and a caller that got three of them
-// leaves a gun hanging in mid-air or has nothing left to give back.
-//
-// WHY a player is empty-handed is a decision and is not here.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PlayerHolsterActiveWeapon( uint32_t hPlayer )
-{
-	// Retired with the CBasePlayer inventory (13c) — the Arsenal holsters.
-	return 0;
-}
-
-int32_t SourceSharp_PlayerDeployLastWeapon( uint32_t hPlayer )
-{
-	// Retired with the CBasePlayer inventory (13c) — the Arsenal deploys.
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
-// Emptying a player out.
-//
-// The mirror of GivePlayerItem. Distinct from PlayerDropActiveWeapon in a way a
-// player can see: that one gives a weapon a body in the world for somebody else
-// to collect, while this destroys everything carried.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerRemoveAllItems( uint32_t hPlayer, int32_t bStripSuit )
-{
-	// Retired with the CBasePlayer inventory (13c) — the Arsenal empties out.
-}
-
-//-----------------------------------------------------------------------------
-// How fast one player's world runs, and which buttons of theirs are ignored.
-//
-// Both are per-player engine state with no other way in from managed code. The
-// lagged movement value in particular cannot be a Movement rule: movement is
-// predicted, and only the engine can network a per-player factor so that the
-// client's copy of the movement loop scales by the same number. See
-// PlayerSetLaggedMovement in sourcesharp.h.
-//-----------------------------------------------------------------------------
-// NOTE (13c): the per-player movement modifiers below acted on CBasePlayer
-// state and were ALREADY inert for the standalone player before the flag
-// flipped — the standalone loop reads its own state (MvGetLaggedMovementValue
-// is a constant 1.0). Wiring them into the standalone player is a Movement
-// port that happens when a managed rule actually asks for it; until then the
-// ABI slots stay and answer by doing nothing, exactly as they observably did.
-void SourceSharp_PlayerSetLaggedMovement( uint32_t hPlayer, float flValue )
-{
-}
-
-void SourceSharp_PlayerSetButtonsDisabled( uint32_t hPlayer, int32_t nButtonMask,
-                                           int32_t bDisabled )
-{
-}
-
-//-----------------------------------------------------------------------------
-// Buttons held down FOR a player, whether they are pressing them or not.
-//
-// The mirror of SourceSharp_PlayerSetButtonsDisabled and shaped the same way for
-// the same reason: only the named bits move, either way, so a caller gives back
-// exactly what it took and does not release something another rule is holding
-// down. Which buttons, and when, is the decision and is not here.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerForceButtons( uint32_t hPlayer, int32_t nButtonMask, int32_t bForced )
-{
-}
-
-//-----------------------------------------------------------------------------
-// Whether the engine may move a player without being asked.
-//
-// The step up onto a stair, the slide along a wall, the ladder mount: all of
-// them move the player somewhere they did not steer, and a few situations want
-// that suppressed rather than fought.
-//
-// An engine call and not a Movement rule, for the reason PlayerSetLaggedMovement
-// spells out at length: movement is predicted on both sides, and this bool is
-// networked so that both sides run the loop the same way. Deciding WHEN to
-// suppress it stays in C#.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSetAllowAutoMovement( uint32_t hPlayer, int32_t bAllow )
-{
-	// The standalone player's m_Local is reachable, but a server-only write
-	// would mispredict — the client's replay never hears it. Wiring this means
-	// putting the bit on the player's declared state, when a rule first asks.
-}
-
-//-----------------------------------------------------------------------------
 // Whether a player wades rather than walks.
 //
 // Stock sets this together with PFLAG_VPHYSICS_MOTIONCONTROLLER
@@ -842,51 +712,6 @@ void SourceSharp_PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow )
 	// Read into the movement block: no jump in a stasis field (gamemovement.cpp:2401).
 	if ( CStandalonePlayer *pPlayer = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
 		pPlayer->MvLocal().m_bSlowMovement = ( bSlow != 0 );
-}
-
-//-----------------------------------------------------------------------------
-// Keeps a player near a point, sluggishly rather than by a wall.
-//
-// One call for the five fields ActivateMovementConstraint writes, because they
-// are one setting and not five: a centre with no radius constrains nothing, a
-// radius with no centre constrains to the world origin, and a caller able to set
-// them one at a time can only be wrong in between. A radius of 0 deactivates,
-// which is how the engine itself already spells "not constrained".
-//
-// The constraint ENTITY is deliberately left NULL. Stock stores one only so that
-// a player can be released when it dies, and C# holding a handle it can act on
-// is a better answer than native watching an entity on C#'s behalf -- that would
-// be native deciding when the constraint ends.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSetMovementConstraint( uint32_t hPlayer, const float *pCenterXYZ,
-                                             float flRadius, float flWidth,
-                                             float flSpeedFactor )
-{
-	// CBasePlayer-only state the shared loop read from m_Local; already inert
-	// for the standalone player before 13c. Wire when a managed rule asks.
-}
-
-//-----------------------------------------------------------------------------
-// Whether this body, when it dies, becomes a ragdoll the SERVER simulates.
-//
-// The flag is m_bForceServerRagdoll on CBaseCombatCharacter, and
-// CBaseCombatCharacter::BecomeRagdoll is the only thing that reads it. So the
-// question a caller can ask -- "is this thing a combat character?" -- is one
-// only the native side can answer, and it is asked here rather than exposed:
-// MyCombatCharacterPointer() returns NULL for everything that is not one, and
-// that includes every entity on the standalone hierarchy, which is not a
-// CBaseEntity at all and so never reaches this line.
-//
-// Silently ignoring a non-combat-character is deliberate. A trigger volume is
-// swept by whatever walks into it and almost none of that has a ragdoll; a
-// warning here would be one per prop per crossing.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntitySetForceServerRagdoll( uint32_t hEntity, int32_t bForce )
-{
-	// 13c: with basecombatcharacter.cpp out of the build nothing left in it
-	// derives from CBaseCombatCharacter, so MyCombatCharacterPointer() answers
-	// NULL for every entity and this slot has nothing to write to. It stays
-	// for the ABI, answering by doing nothing — exactly what it observably did.
 }
 
 // SourceSharp_EntityBecomePhysicsTrigger (BecomeTrigger / RemoveTrigger on
@@ -949,7 +774,7 @@ uint32_t SourceSharp_TracePlayerAim( uint32_t hPlayer, float flRange, float *pOu
 	// any entity at all, and reporting a managed brush as the world made
 	// `debug-api aim` -- the tool every other measurement here is checked with --
 	// name the wrong thing for half the entities in the mod.
-	return SourceSharp_HandleFromAnyEntity( tr.m_pEnt );
+	return SourceSharp_HandleFromAnyEntity( ss::TraceHit( tr ) );
 }
 
 void SourceSharp_ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType )
@@ -1030,71 +855,12 @@ void SourceSharp_PlayerSetTeam( uint32_t hPlayer, int32_t nTeam )
 		pStandalone->ChangeTeam( nTeam );
 }
 
-//-----------------------------------------------------------------------------
-// The engine's own name for a player, which is what its game events carry.
-//
-// Zero rather than -1 for a non-player, matching what the engine writes into an
-// event's attacker field when the world did the killing. A caller comparing an
-// event's userid against this therefore needs no special case for the world.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_GetPlayerUserId( uint32_t hPlayer )
-{
-	// GetPlayerUserId goes to the engine by edict, and a player mid-disconnect
-	// still resolves as an entity while its edict is already unbound.
-	//
-	// NOTE (13c): before the flip this answered 0 for every standalone player —
-	// it only knew the CBasePlayer list. Answering from the standalone edict is
-	// strictly less wrong: the same engine call stock's GetUserID made.
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
-	{
-		edict_t *pEdict = engine->PEntityOfEntIndex( pStandalone->EntIndex() );
-		return pEdict ? engine->GetPlayerUserId( pEdict ) : 0;
-	}
-
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
-// Gives ammo. Returns what was actually added — the engine clamps to the carry
-// limit, and a caller that wants to know whether the pickup was worth consuming
-// needs the difference.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_GivePlayerAmmo( uint32_t hPlayer, int32_t nCount, const char *pAmmoName )
-{
-	// Retired with the CBasePlayer inventory (13c) — the Arsenal carries ammo.
-	return 0;
-}
-
-int32_t SourceSharp_GivePlayerItem( uint32_t hPlayer, const char *pClassName )
-{
-	// Retired with the CBasePlayer inventory (13c) — the Arsenal grants items.
-	return 0;
-}
-
 uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex )
 {
 	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( nPlayerIndex ) )
 		return pStandalone->ManagedHandle();
 
 	return INVALID_EHANDLE_INDEX;
-}
-
-//-----------------------------------------------------------------------------
-// Player armour.
-//
-// The engine keeps it separately from health and nothing else in this API
-// reaches it, so a battery had no honest way to do anything before this.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EntityGetArmor( uint32_t hEntity )
-{
-	// CBasePlayer's m_ArmorValue retired with it (13c); armour is a managed
-	// number on the player's declared state when a rule wants one. Already 0
-	// for the standalone player before the flip.
-	return 0;
-}
-
-void SourceSharp_EntitySetArmor( uint32_t hEntity, int32_t nArmor )
-{
 }
 
 //-----------------------------------------------------------------------------
@@ -1332,13 +1098,6 @@ void SourceSharp_EntitySetGravity( uint32_t hEntity, float flGravity )
 
 }
 
-void SourceSharp_EntitySetFriction( uint32_t hEntity, float flFriction )
-{
-	// SDK-only from the start: friction is m_flFriction on CBaseEntity and the
-	// standalone hierarchy never had a parallel for it, so armed this function
-	// does nothing -- which is what it already did for half the mod's entities.
-}
-
 //-----------------------------------------------------------------------------
 // How many times a projectile may bounce before its flight ends.
 //
@@ -1510,22 +1269,6 @@ void SourceSharp_EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ )
 //=============================================================================//
 
 //-----------------------------------------------------------------------------
-// Runs a console command as if it had been typed at the server console.
-//
-// ServerExecute follows immediately so the command runs NOW rather than being
-// queued to the next frame. The development API needs the effect to have
-// happened by the time it answers the request that asked for it.
-//-----------------------------------------------------------------------------
-void SourceSharp_ExecuteServerCommand( const char *pCommand )
-{
-	if ( !pCommand || !pCommand[0] )
-		return;
-
-	engine->ServerCommand( UTIL_VarArgs( "%s\n", pCommand ) );
-	engine->ServerExecute();
-}
-
-//-----------------------------------------------------------------------------
 // The same, aimed at ONE client's console rather than the server's.
 //
 // The newline is added here rather than asked of the caller because it is not
@@ -1553,52 +1296,6 @@ void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand )
 		return;
 
 	engine->ClientCommand( pEdict, "%s\n", pCommand );
-}
-
-//-----------------------------------------------------------------------------
-// Adds to a player's score.
-//
-// The engine keeps score on the player rather than as a field anything else
-// reads, so it needs its own call. AllowNegative is the engine's own flag: some
-// maps score by penalty and want it, and most do not and would rather a stray
-// negative be ignored than take points away.
-//-----------------------------------------------------------------------------
-void SourceSharp_AddPlayerScore( uint32_t hPlayer, int32_t nPoints, int32_t bAllowNegative )
-{
-	// CBasePlayer's engine-side frag counter retired with it (13c). The score
-	// a player sees is the managed game's number; already inert for the
-	// standalone player before the flip.
-}
-
-//-----------------------------------------------------------------------------
-// The four calls a managed point_template makes.
-//
-// point_template used to be the standing example of "map-parse machinery, so it
-// stays native". That was never wrong about the machinery and was always wrong
-// about the entity. What it DECIDES -- which names it claims, whether it eats
-// them, whether the copies get unique names, and where each copy goes -- is C#
-// now, in SourceSharp.Server's PointTemplate. What is below is the residue:
-// keyvalue text, the parser that turns text back into an entity, and the
-// ordered spawn. None of those is a decision and none of them can move.
-//
-// The seam is a TRANSFORM, which is the reason the residue is this small. A
-// template is a list of (index, place, facing); the arithmetic that turns
-// "where the source stood" into "where the copy goes" is SourceSharp.Abi's
-// Transform, held to the mathlib it replaced by the golden table in
-// sourcesharp/test/template_transform_cases.txt.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_TemplateCapture( const char *pszSourceName, int32_t bRemoveSources,
-                                     int32_t *pOutIndices, float *pOutOriginsXYZ,
-                                     float *pOutAnglesPYR, int32_t nMax )
-{
-	SOURCESHARP_TRACE();
-
-	// int32_t through the boundary and int inside it. The same width on every
-	// platform this builds for, and passed through rather than copied because
-	// the count can be zero and a zero-length copy would still want a buffer.
-	return MapEntity_TemplateCapture( pszSourceName, bRemoveSources != 0,
-	                                  (int *)pOutIndices, pOutOriginsXYZ, pOutAnglesPYR,
-	                                  nMax );
 }
 
 // SourceSharp_TemplateReconnectIO AND SourceSharp_TemplateSchedulePrecache
@@ -1674,7 +1371,6 @@ int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPa
 		const Vector vecOrigin( pOriginsXYZ[i * 3], pOriginsXYZ[i * 3 + 1], pOriginsXYZ[i * 3 + 2] );
 		const QAngle angles( pAnglesPYR[i * 3], pAnglesPYR[i * 3 + 1], pAnglesPYR[i * 3 + 2] );
 
-		MapEntity_ClaimPendingNonBaseEntity( pEntity );
 		StandaloneEntity_PlaceAndSpawn( pEntity, &vecOrigin, &angles );
 		standalone.push_back( pEntity );
 	}
@@ -1699,59 +1395,6 @@ int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPa
 // camera is C# and decides WHEN each of these happens, from spawnflags a mapper
 // set; what is here is only the reaching-into-CBasePlayer that C# cannot do.
 //-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Whose eyes the client renders from.
-//
-// engine->SetView takes two EDICTS, and an entity on the parallel hierarchy has
-// one — which is the whole reason a camera can move to C# at all. What it cannot
-// do is live in CBasePlayer::m_hViewEntity, a handle typed to CBaseEntity: so for a
-// standalone the member is cleared and the engine is told directly.
-//
-// Clearing it is not a loss. m_hViewEntity is read in four places: SetupVisibility
-// (which is handed the view entity by the engine, not by the member),
-// sceneentity's caption attenuation, CBasePlayer::Precache's re-assert, and
-// CTriggerCamera's "was somebody else already holding this view" — and that last
-// one is now the managed camera, which tracks what it is holding itself.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSetViewEntity( uint32_t hPlayer, uint32_t hView )
-{
-	// CBasePlayer::m_hViewEntity retired with its class (13c); the engine is
-	// told directly, which the comment above explains costs nothing — the
-	// managed camera tracks what it is holding itself.
-	CStandalonePlayer *pPlayerEnt = SourceSharp_ResolveStandalonePlayer( hPlayer );
-	if ( !pPlayerEnt )
-		return;
-
-	edict_t *pPlayerEdict = engine->PEntityOfEntIndex( pPlayerEnt->EntIndex() );
-	if ( !pPlayerEdict )
-		return;
-
-	const SourceSharpEntity_t view = SourceSharp_ResolveEntity( hView );
-
-	edict_t *pViewEdict = NULL;
-	if ( view.pStandalone )
-		pViewEdict = view.pStandalone->GetEdict();
-	// edict() reaches through CBaseEntity's IServerEntity base, which the alias
-	// removes -- IGameEntity has no base at all. The standalone arm above answers
-	// with GetEdict(), and a view entity with no edict falls through to the
-	// player's own, which the line below already spells as the answer.
-
-	// Nothing at all is how the view is given back: the player's own edict.
-	engine->SetView( pPlayerEdict, pViewEdict ? pViewEdict : pPlayerEdict );
-}
-
-//-----------------------------------------------------------------------------
-// Whether a player may act at all. CBasePlayer::EnableControl, spelt as what it
-// does rather than what it permits.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSetFrozen( uint32_t hPlayer, int32_t bFrozen )
-{
-	// CBasePlayer::EnableControl retired with its class (13c). Freezing the
-	// standalone player is a movement rule — managed code owns the loop's
-	// parameters — so the native slot has nothing left to reach into. Already
-	// inert for the standalone player before the flip.
-}
 
 //-----------------------------------------------------------------------------
 // WHERE THE PLAYER IS LOOKING, SET BY THE SERVER AND ADOPTED BY THE CLIENT
@@ -1823,75 +1466,6 @@ int32_t SourceSharp_PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType )
 }
 
 //-----------------------------------------------------------------------------
-// The buttons a player is holding, as IN_* bits.
-//
-// The read that PlayerSetButtonsDisabled and PlayerForceButtons are the writes
-// of. What wants it is anything waiting for the player to press ANY key, which
-// is not a question about a particular one.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PlayerGetButtons( uint32_t hPlayer )
-{
-	// Managed code already hears the standalone player's buttons once per
-	// command (OnPlayerRunCommand), which is the same number this would poll.
-	// Answered 0 for the standalone player before the flip too.
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
-// The weapon a player is holding, as a handle.
-//
-// SourceSharp_GetPlayerActiveWeapon answers the same question with a classname,
-// which is what a rule about weapons wants. A name cannot be hidden, and hiding
-// the viewmodel means EF_NODRAW on the weapon ENTITY.
-//-----------------------------------------------------------------------------
-uint32_t SourceSharp_PlayerGetActiveWeaponEntity( uint32_t hPlayer )
-{
-	// Retired with the CBasePlayer inventory (13c) — the Arsenal knows.
-	return INVALID_EHANDLE_INDEX;
-}
-
-//-----------------------------------------------------------------------------
-// One inventory slot, as an untyped handle (Phase 10).
-//
-// GetWeapon(i) reads m_hMyWeapons[i] through the specialized crossing, so a
-// slot holding a parallel-hierarchy entity answers NULL here — empty rather
-// than wrong — until the managed inventory takes over as the authority.
-//-----------------------------------------------------------------------------
-uint32_t SourceSharp_PlayerGetWeaponEntity( uint32_t hPlayer, int32_t nSlot )
-{
-	// Retired with the CBasePlayer inventory (13c) — the Arsenal is the
-	// authority the Phase 10 comment above was waiting for.
-	return INVALID_EHANDLE_INDEX;
-}
-
-//-----------------------------------------------------------------------------
-// The player's view model, as an entity handle.
-//-----------------------------------------------------------------------------
-uint32_t SourceSharp_PlayerGetViewModelEntity( uint32_t hPlayer )
-{
-	// Retired with CBasePlayer (13c) — the viewmodel is a hierarchy entity
-	// (ViewModelNetState) the managed side owns outright.
-	return INVALID_EHANDLE_INDEX;
-}
-
-//-----------------------------------------------------------------------------
-// Whether an entity may be hurt, answering what it was before.
-//
-// The previous value is RETURNED rather than remembered here, and that is the
-// whole design of the slot: invulnerability nests badly, and only whoever took
-// it away knows when it is done. Two things taking it in turn each give back
-// what they found instead of a shared idea of what normal was.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EntitySetTakeDamageMode( uint32_t hEntity, int32_t nMode )
-{
-	// m_takedamage is a CBaseEntity DATA MEMBER, not a method, so there is not
-	// even a virtual to reach it by. SDK-only from the start; armed the function
-	// answers DAMAGE_YES, which is what it already answered for every entity of
-	// the parallel hierarchy.
-	return kDamageYes;
-}
-
-//-----------------------------------------------------------------------------
 // Whether anything can bump into this.
 //
 // Not SetBrushSolidity, which is a brush choosing what SHAPE it presents to a
@@ -1959,27 +1533,6 @@ void SourceSharp_EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways )
 		return;
 	}
 
-}
-
-//-----------------------------------------------------------------------------
-// Stock's CBaseEntity::DetectInSkybox, reachable from managed code.
-//
-// It walks the sky camera list and asks the engine whether the entity's area is
-// connected to any of them, which is not something C# can do for itself. What
-// it does with the answer is raise EFL_IN_SKYBOX, and that flag has exactly one
-// consequence: UpdateTransmitState sends the entity to everyone rather than
-// PVS-checking it. Which is the whole reason an env_smokestack calls it — a 3D
-// skybox is in nobody's PVS, so a stack standing in one would be culled for
-// every player and drawn for none.
-//
-// Only two entities in the tree ever called it, and this is one of them.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EntityDetectInSkybox( uint32_t hEntity )
-{
-	// The comment above says only two entities in the tree ever called it and
-	// both are CBaseEntity. Armed, 0 -- not in a skybox -- is the same answer it
-	// already gave for anything the SDK could not resolve.
-	return 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -2262,131 +1815,9 @@ float SourceSharp_EntityGetGravity( uint32_t hEntity )
 }
 
 
-//=============================================================================//
-// THE THREE STOCK REMOVAL SPELLINGS, ARMED.
-//
-// All three are defined in game/server/util.cpp, which the armed server does not
-// compile. Armed their arguments have collapsed -- `CBaseEntity *` IS
-// `IGameEntity *` -- so these are not new functions, they are what the stock
-// declarations became, and stock code still calls them: the map loader calls two
-// of them and the physics bridge the third.
-//
-// THEY ARE NOT RE-HOMED, AND THAT IS THE WHOLE POINT. Every one of the three
-// bodies in util.cpp is already wrapped in `#ifndef SS_CBASEENTITY_ALIAS`, so
-// moving them verbatim would produce three functions whose armed arms are
-// `if ( !oldObj ) return;` and nothing else -- a silent no-op wearing the name
-// of a removal, which is exactly the shape plan_entity.md §7 forbids and which
-// this file would have had no way to tell apart from a working one.
-//
-// So each says what it does instead, and the two that genuinely cannot act say
-// so out loud.
-//
-// ARMED ONLY. Unarmed, util.cpp defines all three and this block is not
-// compiled -- otherwise the first of them would call straight back into the
-// function that calls it.
-//=============================================================================//
+// The stock removal spellings UTIL_Remove (both overloads) and
+// UTIL_RemoveImmediate went in plan_server_native_v2 T2: nm -u over the link
+// edge found the networkable overload unimported and the other's one importer
+// in an arm no entity can take. An entity of this hierarchy is removed
+// through its handle (SourceSharp_EntityRemove).
 
-//-----------------------------------------------------------------------------
-// The general remove. BOUND, not refused: the behaviour is intact.
-//
-// The entity is asked for its own handle and the handle goes to the removal
-// this file already exposes, which ends at the shell's own Remove() and from
-// there at the managed directory's deferred-delete list -- the same list, and
-// the same drain, every other removal on this hierarchy uses.
-//
-// DELIBERATELY NOT the standalone template relay, which has the matching
-// signature and would compile. That relay is scoped by its own header to a
-// template source consuming its copy, and widening it into the general remove
-// would be inventing a relay rather than using one.
-//-----------------------------------------------------------------------------
-void UTIL_Remove( IGameEntity *oldObj )
-{
-	if ( !oldObj )
-		return;
-
-	SourceSharp_EntityRemove( (uint32_t)GameEntity_RefHandle( oldObj ).ToInt() );
-}
-
-//-----------------------------------------------------------------------------
-// The NETWORKABLE overload. REFUSED, and it is a genuinely different function
-// from the two above -- not the same one after the alias.
-//
-// Stock reached its delete list by casting the networkable to the stock network
-// property. Armed that cast is unsound as well as unreachable: a shell IS its
-// own networkable and is not that property, so the cast would be undefined
-// behaviour on the only entity kind this build has. The delete list it wanted
-// leaves with the stock entity list.
-//
-// Its two call sites are both downstream of a producer that is itself guarded
-// out armed, so this is expected to be entered zero times -- and unlike the
-// per-frame refusals elsewhere in this port, that makes the reach count a real
-// gate here rather than a number to ignore.
-//
-// WHAT WOULD HAVE TO EXIST: a physics callback that can name an entity of this
-// hierarchy through a networkable, which is the crossing the slot table exists
-// to make unnecessary.
-//-----------------------------------------------------------------------------
-void UTIL_Remove( IServerNetworkable *oldObj )
-{
-	if ( !oldObj )
-		return;
-
-	static CPhysicsBridgeRefusal s_RefuseNetworkableRemove(
-		"removing an entity through its networkable face",
-		"stock reached its delete list by casting the networkable to the stock network "
-		"property; armed a shell IS its own networkable and is not that property, so "
-		"the cast is unsound and not merely unreachable, and the delete list it wanted "
-		"leaves the build with the stock entity list. Both call sites sit downstream of "
-		"a producer that is guarded out armed, so zero reaches is what this predicts "
-		"and a non-zero count here is a real finding. An entity of this hierarchy is "
-		"removed through its handle, never through a networkable." );
-
-	if ( s_RefuseNetworkableRemove.Reached() )
-	{
-		Warning( SOURCESHARP_PHYSICS_REFUSAL_FMT,
-		         s_RefuseNetworkableRemove.What(), s_RefuseNetworkableRemove.Refusal() );
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Is this world-space box inside this player's PVS?
-//
-// The engine's own read, exactly the trio stock's check-client machinery
-// builds (triggers.cpp:1615, 1711): the leaf cluster under the player's eyes,
-// the PVS of that cluster, and the engine's box-over-pvs test over it. Who
-// asks — and what a yes or a no is worth — is managed code's decision; this
-// only answers.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PlayerBoxInPvs( uint32_t hPlayer, const float *pMins, const float *pMaxs )
-{
-	if ( !pMins || !pMaxs )
-		return 0;
-
-	// The standalone player is the only player (13c), and it is the subject
-	// of the read: a handle that is not one has no eyes, so nothing sits in
-	// anyone's view of it.
-	CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer );
-	if ( !pStandalone )
-		return 0;
-
-	// Stock queries from the player's eyes, not their feet — EyePosition is
-	// what every other per-player engine read here uses (GetPlayerShootOrigin
-	// above, TracePlayerAim below).
-	const Vector vecEye = pStandalone->EyePosition();
-
-	const int nCluster = engine->GetClusterForOrigin( vecEye );
-
-	// Stock's callers size the buffer MAX_MAP_CLUSTERS/8 for a landmark's
-	// PVS; the leaf-sized buffer is what CheckBoxInPVS is documented to eat
-	// and what the check-client machinery in triggers.cpp holds. GetPVSForCluster
-	// answers the bytes it needed; passing the full buffer is stock's form.
-	unsigned char pvs[MAX_MAP_LEAFS / 8];
-	const int nPvs = engine->GetPVSForCluster( nCluster, sizeof( pvs ), pvs );
-	if ( nPvs <= 0 )
-		return 0;
-
-	return engine->CheckBoxInPVS( Vector( pMins[0], pMins[1], pMins[2] ),
-	                              Vector( pMaxs[0], pMaxs[1], pMaxs[2] ),
-	                              pvs, nPvs ) ? 1 : 0;
-}

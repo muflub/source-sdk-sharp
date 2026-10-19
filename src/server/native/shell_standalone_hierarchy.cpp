@@ -444,48 +444,10 @@ void StandaloneHierarchy_SetLocal( CStandaloneEntity *pChild, const Vector &vecO
 // Linking and unlinking.
 //=============================================================================//
 
-void StandaloneHierarchy_ClearParent( CStandaloneEntity *pChild )
-{
-	if ( !pChild )
-		return;
+// StandaloneHierarchy_ClearParent and StandaloneHierarchy_SetParent went
+// (plan_server_native_min P1): the debug cs_standalone_parent was their sole
+// referrer and went with them; the managed hierarchy is the only writer now.
 
-	IManagedHierarchy *pApi = HierarchyApi();
-
-	if ( pApi )
-		pApi->HierarchySetParent( HandleOf( pChild ), INVALID_EHANDLE_INDEX, 0 );
-}
-
-//-----------------------------------------------------------------------------
-// The standalone-to-standalone spelling, which is what the console command that
-// calls it means. Both ends' handles cross and no pointer does — the registry is
-// keyed by handles precisely so that no raw parent pointer exists to be held
-// past its owner.
-//-----------------------------------------------------------------------------
-bool StandaloneHierarchy_SetParent( CStandaloneEntity *pChild, CStandaloneEntity *pParent )
-{
-	if ( !pChild )
-		return false;
-
-	IManagedHierarchy *pApi = HierarchyApi();
-
-	if ( !pApi )
-		return false;
-
-	return pApi->HierarchySetParent( HandleOf( pChild ), HandleOf( pParent ), 0 ) != 0;
-}
-
-//=============================================================================//
-// The map's keys, and the pass that finishes them.
-//=============================================================================//
-
-//-----------------------------------------------------------------------------
-// UNGUARDED, both of them, and that is not an oversight. A key arrives once per
-// entity that carries it, during the parse, and the entity has no link yet by
-// definition — the whole point of the deferred name is that neither end has the
-// position an offset would be measured from. So there is nothing in the block to
-// guard on and nothing to gain: two crossings per map for the two entities in
-// dm_lockdown that write the key.
-//-----------------------------------------------------------------------------
 void StandaloneHierarchy_SetParentName( CStandaloneEntity *pChild, const char *pParentName )
 {
 	IManagedHierarchy *pApi = HierarchyApi();
@@ -555,11 +517,10 @@ int32_t SourceSharp_EntityParentProbe( uint32_t hEntity )
 	int32_t nBits = ent.pStandalone ? SOURCESHARP_PARENT_PROBE_STANDALONE
 	                                : SOURCESHARP_PARENT_PROBE_BASE;
 
-	// A standalone entity can always be ASKED for an attachment — its shell
-	// answers 0 attachments for a model that has none, which the frame rule does
-	// not need to know. On the SDK's side only a CBaseAnimating has a skeleton
-	// at all.
-	if ( ent.pStandalone != NULL || ent.Animating() != NULL )
+	// A standalone entity can always be ASKED for an attachment: its shell
+	// answers 0 attachments for a model that has none, which the frame rule
+	// does not need to know. No other entity on the server has a skeleton.
+	if ( ent.pStandalone != NULL )
 		nBits |= SOURCESHARP_PARENT_PROBE_CAN_POSE;
 
 	return nBits;
@@ -640,29 +601,6 @@ int32_t SourceSharp_EntityLookupAttachmentAny( uint32_t hEntity, const char *pAt
 	(void)hEntity;
 	(void)pAttachmentName;
 	return 0;
-}
-
-//-----------------------------------------------------------------------------
-// THE SDK'S FIND-BY-NAME, which SourceSharp_FindEntityByName is not: that one
-// walks the shim's own vector and answers only this hierarchy. A map's
-// `parentname` has to reach both, and the shipped content's parents are the
-// map's own doors and lifts.
-//
-// The FIRST match and no continuation handle, which is what stock's own
-// parenting takes: mapentities.cpp resolves m_iParent with
-// gEntList.FindEntityByName( NULL, ... ) and stops there.
-//-----------------------------------------------------------------------------
-uint32_t SourceSharp_FindBaseEntityByName( const char *pName )
-{
-	if ( !pName || !pName[0] )
-		return INVALID_EHANDLE_INDEX;
-
-	// ARMED, THIS ARM HAS NO POPULATION TO SEARCH. No compiled server
-	// translation unit registers an entity of the stock hierarchy, so the walk
-	// below can only ever answer nothing. An invalid handle is the TRUE answer
-	// armed, not a stub's -- the managed directory's own walk is the whole
-	// answer, and it is the one every caller asks first.
-	return INVALID_EHANDLE_INDEX;
 }
 
 //-----------------------------------------------------------------------------

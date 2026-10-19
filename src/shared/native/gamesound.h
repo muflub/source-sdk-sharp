@@ -107,22 +107,10 @@ void GameSound_Emit( IRecipientFilter& filter, int iEntIndex, const GameSoundPar
 void GameSound_Stop( int iEntIndex, const char *soundname );
 void GameSound_Stop( int iEntIndex, int iChannel, const char *pSample );
 
-//-----------------------------------------------------------------------------
-// The same stop, for a caller that already has the soundscript handle.
-//
-// NOT ONE OF THE SEVENTEEN. It is step 4b's own lift: the emitter system object
-// is a file-static of sound_emitter.cpp, so the one member that reached
-// StopSoundByHandle directly needed a free function once it moved out of that
-// translation unit. Same move, same reason, one phase later.
-//-----------------------------------------------------------------------------
-void GameSound_StopByHandle( int iEntIndex, const char *soundname, HSOUNDSCRIPTHANDLE& handle );
 
-//-----------------------------------------------------------------------------
-// The soundscript's attenuation for a sound, by name or by an already-resolved
-// handle. A pure question for the soundscript system.
-//-----------------------------------------------------------------------------
-soundlevel_t GameSound_LookupSoundLevel( const char *soundname );
-soundlevel_t GameSound_LookupSoundLevel( const char *soundname, HSOUNDSCRIPTHANDLE& handle );
+
+// GameSound_LookupSoundLevel x2 went (plan_server_native_min P1): declared and
+// never defined or referenced.
 
 //-----------------------------------------------------------------------------
 // The soundscript entry for a sound, resolved for the gender of `actormodel`.
@@ -132,11 +120,8 @@ bool GameSound_GetParameters( const char *soundname, CSoundParameters &params,
 bool GameSound_GetParameters( const char *soundname, HSOUNDSCRIPTHANDLE& handle,
                               CSoundParameters &params, const char *actormodel );
 
-//-----------------------------------------------------------------------------
-// An ambient sound at a world position, owned by an entity index.
-//-----------------------------------------------------------------------------
-void GameSound_EmitAmbient( int entindex, const Vector& origin, const char *soundname,
-                            int flags = 0, float soundtime = 0.0f, float *duration = NULL );
+// GameSound_EmitAmbient went (plan_server_native_min P1): declared and never
+// defined or referenced; the ambient path is EngineServerVtbl.EmitAmbientSound.
 
 //-----------------------------------------------------------------------------
 // Show a close caption token to a filter's recipients.
@@ -148,10 +133,8 @@ void GameSound_EmitCloseCaption( IRecipientFilter& filter, int entindex, char co
                                  CUtlVector< Vector >& soundorigins, float duration,
                                  bool warnifmissing = false );
 
-//-----------------------------------------------------------------------------
-// How long the wave behind a soundscript entry runs, in seconds.
-//-----------------------------------------------------------------------------
-float GameSound_Duration( const char *soundname, char const *actormodel );
+// GameSound_Duration went (plan_server_native_min P1): declared and never
+// defined or referenced.
 
 //-----------------------------------------------------------------------------
 // Precaching and prefetching. The *Script forms go through the soundscript
@@ -159,7 +142,8 @@ float GameSound_Duration( const char *soundname, char const *actormodel );
 // straight to the engine and warn when they are used outside precaching.
 //-----------------------------------------------------------------------------
 HSOUNDSCRIPTHANDLE GameSound_PrecacheScript( const char *soundname );
-void GameSound_PrefetchScript( const char *soundname );
+// GameSound_PrefetchScript went (plan_server_native_min P1): declared and
+// never defined or referenced.
 bool GameSound_Precache( const char *name );
 void GameSound_Prefetch( const char *name );
 

@@ -632,7 +632,9 @@ def self_test():
     # itself once no server area extended it.
     # 25 since plan_physics_bones_native_zero 2.4: IShimConstraints, IShimSprings
     # and IShimMotionControllers left with the tables, which are managed's own.
-    expect('25 interfaces are bound on the server (plus the hand-written console)', len(concrete) == 25)
+    # 23 since plan_server_native_v2 T2 retired IShimWeapons; 22 since T3
+    # folded the string tables (IShimStringTablesServer).
+    expect('22 interfaces are bound on the server (plus the hand-written console)', len(concrete) == 22)
     gen = generate()
     out = gen[OUT_MANAGED].split('\n')
 

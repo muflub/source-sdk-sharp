@@ -12,7 +12,8 @@
 # without one, which builds whatever is left and measures every output: CI
 # builds each library in its own step, then runs the whole once.
 #
-# The repo and ROOT (the fork, read-only) are mounted at their host paths, so
+# The repo, ROOT (the fork, read-only) and the pristine public/ server.so
+# builds on (read-only) are mounted at their host paths, so
 # the farm's absolute links resolve inside the container unchanged. The preset
 # is ci-<config>: the image's gcc (CMakePresets.json says why), build tree
 # farm/<config>/build-ci, output bin/ci-<config>/linux64 -- never the local
@@ -35,6 +36,14 @@ if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
     ROOT="$(cat -- "$REPO/sdk-root.lock.local" 2> /dev/null || true)"
     if [[ -z "$ROOT" || ! -d "$ROOT" ]]; then
         echo "error: no ROOT recorded; run: make setup ROOT=../source-sdk-2013"
+        exit 1
+    fi
+    # server.so's include root (plan_server_native_v2 D3): the pristine
+    # upstream public/ that farm/<config>/stock-public links to, mounted at its
+    # host path so the link resolves inside the container too.
+    STOCK_PUBLIC="$(readlink -f -- "$REPO/farm/$CONFIG/stock-public" 2> /dev/null || true)"
+    if [[ -z "$STOCK_PUBLIC" || ! -d "$STOCK_PUBLIC" ]]; then
+        echo "error: farm/$CONFIG/stock-public does not resolve; run: make setup (it needs the pristine clone)"
         exit 1
     fi
     # podman first; SS_CI_RUNNER names one outright (GitHub's runners carry
@@ -63,6 +72,7 @@ if [[ ! -f /run/.containerenv && -z "${SS_IN_CI_CONTAINER:-}" ]]; then
         --env SS_IN_CI_CONTAINER=1 \
         --mount type=bind,source="$REPO",target="$REPO" \
         --mount type=bind,source="$ROOT",target="$ROOT",ro \
+        --mount type=bind,source="$STOCK_PUBLIC",target="$STOCK_PUBLIC",ro \
         --workdir "$REPO" \
         "$IMAGE" "$REPO/tools/build/ci-build" "$CONFIG" $TARGET
 fi

@@ -75,5 +75,5 @@ UserCmd.cs	plumbing	a: named by ShimAreas.g.cs	-
 ViewTargetSetup.cs	plumbing	a: named by ShimAreas.g.cs	-
 Vtable.cs	plumbing	a: named by ShimRoot.cs	-
 WorldQuery.cs	plumbing	a: named by TempEntSpawn.Prepared.cs	-
-WorldQueryBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
+WorldQueryBlobs.cs	plumbing	a: named by MovementBlobs.cs	-
 WorldRenderState.cs	plumbing	b: value contract: SourceSharpWorldRenderState	-

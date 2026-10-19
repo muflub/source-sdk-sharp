@@ -24,12 +24,9 @@ set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_factory.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier_connect.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/baseentity_statics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/managed_runtime_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/physics.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/plugin_check.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/precache_model.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/sendproxy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/server_util_library.cpp
     # ServerNetworkProperty.cpp: GONE (P5 lane E) -- server.so never constructed a
     # CServerNetworkProperty (only CBaseEntity owned one); shell_gameents.cpp's
@@ -56,7 +53,8 @@ set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_frame.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gameclients.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gamedll.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_gamedll_convars.cpp
+    # shell_gamedll_convars.cpp left (plan_server_native_min P1): one
+    # pointer nobody reads any more (docs/server_evictions.md).
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gameents.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gametags.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_globals.cpp
@@ -67,12 +65,14 @@ set(server_sourcesharp_sources
     # vphysics asks managed's own IMotionEvent table for the force.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_nettable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_physicsobjects.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_playerinfo.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_playerlocaldata.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_playerslots.cpp
+    # shell_playerinfo.cpp left (plan_server_native_min P1, Decision 1;
+    # docs/server_evictions.md).
+    # shell_playerslots.cpp left (plan_server_native_min P1): every row
+    # DELETE, sole referrer the debug whois (docs/server_evictions.md).
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_recipientfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ss_recipient_filter.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_restoreentities.cpp
+    # shell_restoreentities.cpp left (plan_server_native_min P1): the restore
+    # path is inert (docs/server_evictions.md).
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_scripted.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sentences.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_server.cpp
@@ -94,13 +94,9 @@ set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_world_nettable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_worldquery.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/standalone_relays.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/toucher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/world_adapter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/world_subject_dll.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/collisionproperty.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/collisionutils.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/dt_send.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/dt_utlvector_common.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/engine_heap.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/ss_command_line.cpp
@@ -148,7 +144,7 @@ set(server_sourcesharp_debug_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gamedll_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gameents_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_nettable_debug.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_playerinfo_debug.cpp
+    # shell_playerinfo_debug.cpp left with shell_playerinfo.cpp (P1).
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_scripted_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_base_debug.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_class_debug.cpp
@@ -237,10 +233,29 @@ target_include_directories(server_sourcesharp PRIVATE
     ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
 )
 
-set(server_novalve_includes
-    ${SS_SRC}/public
-    ${SS_SRC}/public/tier0
-    ${SS_SRC}/public/tier1
+# THE PRISTINE UPSTREAM public/ (plan_server_native_v2 D3, user ruling
+# 2026-10-18). server.so compiles against stock headers: no patch, no overlay
+# at a Valve path. tools/setup links farm/<config>/stock-public to the clone
+# valve-sdk.lock pins (the oracles' reference), and tools/server-stock-headers
+# checks that every server TU reads it. Ahead of it: D2's clang wrapper for
+# the one header clang rejects, and our own headers that only the patched
+# public/ served (igameentity.h, the entity face).
+set(ss_stock_public "${SS_FARM}/stock-public")
+if(NOT EXISTS "${ss_stock_public}/tier1/utlblockmemory.h")
+  message(FATAL_ERROR
+    "server.so builds on the pristine upstream public/ headers, and "
+    "${ss_stock_public} is missing: run `make setup`, which links the clone "
+    "valve-sdk.lock pins (a CI job must not pass --no-valve-sdk).")
+endif()
+set(server_novalve_includes)
+if(SS_IS_CLANG)
+  list(APPEND server_novalve_includes ${PROJECT_SOURCE_DIR}/cmake/compat/clang)
+endif()
+list(APPEND server_novalve_includes
+    ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public
+    ${ss_stock_public}
+    ${ss_stock_public}/tier0
+    ${ss_stock_public}/tier1
 )
 # src/test/native's R5 canary compiles against exactly this set.
 set_property(GLOBAL PROPERTY SS_SERVER_NOVALVE_INCLUDES "${server_novalve_includes}")
@@ -278,22 +293,14 @@ set(server_novalve_sources
     # R5 set, found by a -fsyntax-only trial of every legacy TU with the
     # legacy directories removed. Shared: client.so keeps building them on
     # its own list.
-    ${PROJECT_SOURCE_DIR}/src/shared/native/collisionutils.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/dt_send.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/dt_utlvector_common.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/overlay_library.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_acquire_reasons.cpp
-    # P5 wave 2: cbase.h included and never used -- the include removed, every
-    # function the TU defines compared identical before and after (objdump).
-    ${CMAKE_CURRENT_SOURCE_DIR}/plugin_check.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sharedappsystems.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_internalfactory.cpp
     # P5 wave 3: its dead SOURCESHARP_LINK_ENTITY machinery (the one reason it
     # reached util.h) deleted; cbase.h kept for the client half only.
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_diagnostics.cpp
-    # P5 wave 4: toucher.h no longer pulls baseentity.h/util_shared.h (Toucher_t
-    # needs only the handle types), and toucher.cpp's cbase.h was unused.
-    ${CMAKE_CURRENT_SOURCE_DIR}/toucher.cpp
     # P5 wave 5: the server's recipient filters' list logic (ss_recipient_filter.h).
     ${CMAKE_CURRENT_SOURCE_DIR}/ss_recipient_filter.cpp
     # P5 wave 6: cbase.h out (they used only gpGlobals / mdlcache / CCommand /
@@ -317,7 +324,8 @@ set(server_novalve_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_savegame.cpp
     # P5 lane R: g_pDeveloper and InitializeCvars need only icvar.h (cvar,
     # ConVar); game.h and cbase.h were unused.
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_gamedll_convars.cpp
+    # shell_gamedll_convars.cpp left (plan_server_native_min P1): one
+    # pointer nobody reads any more (docs/server_evictions.md).
     # P5 lane R: g_pGameRules reached through igamerules.h, which now declares
     # it, in place of cbase.h and gamerules.h.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gametags.cpp
@@ -356,12 +364,8 @@ set(server_novalve_sources
     # ss_takedamageinfo.h / ss_shareddefs.h; the server's network table spelled
     # as the send table it is; cbase.h and five game/ headers are the client's.
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_gamerules.cpp
-    # P5 lane E: sendproxy resolves its handle through SourceSharp_EntityFromHandle
-    # (what CBaseHandle::Get's body is on the server) and needs dt_send.h,
-    # string_t.h, basetypes.h; shell_engineservices needed only an extern
-    # filesystem in place of cbase.h, baseanimating.h, entitylist.h and
-    # TemplateEntities.h.
-    ${CMAKE_CURRENT_SOURCE_DIR}/sendproxy.cpp
+    # P5 lane E: shell_engineservices needed only an extern filesystem in place
+    # of cbase.h, baseanimating.h, entitylist.h and TemplateEntities.h.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_engineservices.cpp
     # P5 lane E 3: CWorld's header is ss_world.h (public/ headers only), and
     # public/gametrace.h is trace_t; cbase.h was then unused here, and
@@ -371,24 +375,18 @@ set(server_novalve_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_world_nettable.cpp
     # P5 lane E 6: with entity_shared_statics.h out of the overlay, what it used
     # in place of cbase.h was basehandle.h, igameentity.h and tier0/dbg.h.
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_restoreentities.cpp
+    # shell_restoreentities.cpp left (plan_server_native_min P1,
+    # docs/server_evictions.md).
     # P5 lane E 9: with CServerNetworkProperty gone (lane E 4) and ss_util.h
     # (lane E 7), cbase.h, entityapi.h and entitylist.h give way to ss_util.h
     # and two extern declarations.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_gameents.cpp
-    # P5 lane E 10: shared; its server half needed only basehandle.h,
-    # igameentity.h, ispatialpartition.h, tier0/tslist.h, shell_serversystem.h
-    # and an extern partition, in a !CLIENT_DLL arm. client.so keeps its list.
-    ${PROJECT_SOURCE_DIR}/src/shared/native/collisionproperty.cpp
-    # P5 lane E 13: with the dead factories gone (lane E 12), dt_send.h, edict.h,
-    # irecipientfilter.h and an extern enginesound in place of cbase.h,
-    # baseanimating.h, entitylist.h and sendproxy.h.
-    ${CMAKE_CURRENT_SOURCE_DIR}/baseentity_statics.cpp
     # P5 lane E 16: with ss::CUserCmd (shell_standalone_player.h) and the dead
     # SDK player lookups gone (lane E 15), util.h gives way to ss_util.h,
     # ss_usermessages.h (lane R) and the engine / gpGlobals externs.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_clientsteps.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_playerslots.cpp
+    # shell_playerslots.cpp left (plan_server_native_min P1): every row
+    # DELETE, sole referrer the debug whois (docs/server_evictions.md).
     # P5 lane E 18: with ss::CUserCmd and ss_entityfactory.h (lane E 17),
     # cbase.h and entitylist.h give way to ss_util.h.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_class.cpp
@@ -465,9 +463,7 @@ set(server_novalve_sources
     # P5 (integrator): the CPlayerLocalData group. With ss_playerlocaldata.h and
     # ss_usercmd.h in place, these needed only the engine and gpGlobals externs.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_commandclient.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_playerinfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_transmitsteps.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_playerlocaldata.cpp
     # P5 (integrator): physics.cpp, on ss_physics.h (game/server/physics.h's records as ss:: types).
     ${CMAKE_CURRENT_SOURCE_DIR}/physics.cpp
     # P5 (integrator, engineapi's TU by a4's hand-over): engine and gpGlobals externs.
@@ -526,7 +522,7 @@ foreach(src IN LISTS server_sourcesharp_sources)
     set_property(SOURCE ${src} TARGET_DIRECTORY server_sourcesharp
       APPEND PROPERTY INCLUDE_DIRECTORIES ${server_novalve_includes})
     set_property(SOURCE ${src} TARGET_DIRECTORY server_sourcesharp
-      APPEND PROPERTY COMPILE_DEFINITIONS SS_ENGINEABI)
+      APPEND PROPERTY COMPILE_DEFINITIONS SS_ENGINEABI SS_STOCK_PUBLIC_HEADERS)
   else()
     set_property(SOURCE ${src} TARGET_DIRECTORY server_sourcesharp
       APPEND PROPERTY INCLUDE_DIRECTORIES ${server_legacy_includes})

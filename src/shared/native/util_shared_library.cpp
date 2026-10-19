@@ -85,9 +85,6 @@
 #ifdef CLIENT_DLL
 #include "IEffects.h"
 #endif
-#ifdef CLIENT_DLL
-#include "particle_parse.h"
-#endif
 
 #ifdef CLIENT_DLL
 	#include "c_baseplayer.h"
@@ -271,19 +268,6 @@ static CManagedConVarRef	violence_hgibs( "violence_hgibs" );
 static CManagedConVarRef	violence_ablood( "violence_ablood" );
 static CManagedConVarRef	violence_agibs( "violence_agibs" );
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-bool UTIL_IsLowViolence( void )
-{
-	// These convars are no longer necessary -- the engine is the final arbiter of
-	// violence settings -- but they're here for legacy support and for testing low
-	// violence when the engine is in normal violence mode.
-	if ( !violence_hblood.GetBool() || !violence_ablood.GetBool() || !violence_hgibs.GetBool() || !violence_agibs.GetBool() )
-		return true;
-
-	return engine->IsLowViolence();
-}
-#endif
-
 bool UTIL_ShouldShowBlood( int color )
 {
 	if ( color != DONT_BLEED )
@@ -314,33 +298,10 @@ bool UTIL_ShouldShowBlood( int color )
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-// 5. TWO CONSTANTS OF THIS BUILD, with their arms unfolded.
+// 5. TWO CONSTANTS OF THIS BUILD (UTIL_GetActiveHolidayString/OperationString):
+//    client-only, so in src/client/native/client_util_library.cpp since
+//    plan_server_native_v2 T2 (2026-10-18), with UTIL_IsLowViolence.
 //-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-const char* UTIL_GetActiveHolidayString()
-{
-	// USES_ECON_ITEMS is not on either link line, so stock's arm here was
-	// EconHolidays_GetActiveHolidayString() and was never reachable. See the
-	// mod-guard paragraph in the banner.
-	return NULL;
-}
-#endif
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-const char* UTIL_GetActiveOperationString()
-{
-	// TF_DLL / TF_CLIENT_DLL, likewise: stock walks the econ item schema's
-	// operation definitions here and this build has no schema to walk.
-	return NULL;
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // 6. THE MAP NAME CLEANER
@@ -351,112 +312,13 @@ const char* UTIL_GetActiveOperationString()
 // the unreachable arm and its four #defines gone.
 //-----------------------------------------------------------------------------
 
-const char *GetCleanMapName( const char *pszUnCleanMapName, char (&pszTmp)[256])
-{
-	NOTE_UNUSED( pszTmp );
-	return pszUnCleanMapName;
-}
 
 //-----------------------------------------------------------------------------
-// 7. THE SHARED-RANDOM FAMILY -- MOVED HERE, WHOLE AND UNEDITED, from
-//    game/shared/util_shared.cpp by the Phase 4 exit lane.
-//
-//    A family in this file's own sense: SeedFileLineHash is file-static
-//    storage that only these four can see, so it comes with them or they read
-//    a different hash. Their only other dependencies are header-inline
-//    (EntityPrediction_Seed, entity_prediction_seed.h) or library
-//    (CRC32_*, RandomSeed/RandomFloat/RandomInt) -- no entity type, either
-//    side.
-//
-//    WHY IT MOVED. SharedRandomInt was game/shared/animation.cpp's ONLY tie
-//    into the stock link graph's single cycle -- the one that is the Phase 4
-//    exit's irreducible batch -- so animation.cpp was inside that batch on the
-//    strength of one symbol. It is not now. tools/p4-exit-batches measures it;
-//    shared_random_move_test.cpp pins the move.
-//
-//    Not one caller changed: util_shared.h still declares all four.
+// 7. THE SHARED-RANDOM FAMILY: client-only, so in
+//    src/client/native/client_util_library.cpp since plan_server_native_v2 T2
+//    (2026-10-18), with the banner that says why it left util_shared.cpp.
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// Purpose: Helper function get get determinisitc random values for shared/prediction code
-// Input  : seedvalue - 
-//			*module - 
-//			line - 
-// Output : static int
-//-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-static int SeedFileLineHash( int seedvalue, const char *sharedname, int additionalSeed )
-{
-	CRC32_t retval;
-
-	CRC32_Init( &retval );
-
-	CRC32_ProcessBuffer( &retval, (void *)&seedvalue, sizeof( int ) );
-	CRC32_ProcessBuffer( &retval, (void *)&additionalSeed, sizeof( int ) );
-	CRC32_ProcessBuffer( &retval, (void *)sharedname, (int)strlen( sharedname ) );
-	
-	CRC32_Final( &retval );
-
-	return (int)( retval );
-}
-#endif
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-float SharedRandomFloat( const char *sharedname, float flMinVal, float flMaxVal, int additionalSeed /*=0*/ )
-{
-	Assert( EntityPrediction_Seed() != -1 );
-
-	int seed = SeedFileLineHash( EntityPrediction_Seed(), sharedname, additionalSeed );
-	RandomSeed( seed );
-	return RandomFloat( flMinVal, flMaxVal );
-}
-#endif
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-int SharedRandomInt( const char *sharedname, int iMinVal, int iMaxVal, int additionalSeed /*=0*/ )
-{
-	Assert( EntityPrediction_Seed() != -1 );
-
-	int seed = SeedFileLineHash( EntityPrediction_Seed(), sharedname, additionalSeed );
-	RandomSeed( seed );
-	return RandomInt( iMinVal, iMaxVal );
-}
-#endif
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-Vector SharedRandomVector( const char *sharedname, float minVal, float maxVal, int additionalSeed /*=0*/ )
-{
-	Assert( EntityPrediction_Seed() != -1 );
-
-	int seed = SeedFileLineHash( EntityPrediction_Seed(), sharedname, additionalSeed );
-	RandomSeed( seed );
-	// HACK:  Can't call RandomVector/Angle because it uses rand() not vstlib Random*() functions!
-	// Get a random vector.
-	Vector vRandom;
-	vRandom.x = RandomFloat( minVal, maxVal );
-	vRandom.y = RandomFloat( minVal, maxVal );
-	vRandom.z = RandomFloat( minVal, maxVal );
-	return vRandom;
-}
-#endif
-
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-QAngle SharedRandomAngle( const char *sharedname, float minVal, float maxVal, int additionalSeed /*=0*/ )
-{
-	Assert( EntityPrediction_Seed() != -1 );
-
-	int seed = SeedFileLineHash( EntityPrediction_Seed(), sharedname, additionalSeed );
-	RandomSeed( seed );
-
-	// HACK:  Can't call RandomVector/Angle because it uses rand() not vstlib Random*() functions!
-	// Get a random vector.
-	Vector vRandom;
-	vRandom.x = RandomFloat( minVal, maxVal );
-	vRandom.y = RandomFloat( minVal, maxVal );
-	vRandom.z = RandomFloat( minVal, maxVal );
-	return QAngle( vRandom.x, vRandom.y, vRandom.z );
-}
-#endif
 //------------------------------------------------------------------------------
 // SOURCESHARP, Phase 4 exit lane p4-util — the vector<->angle family and the
 // `developer` ConVar, out of game/shared/util_shared.cpp.
@@ -519,18 +381,6 @@ QAngle SharedRandomAngle( const char *sharedname, float minVal, float maxVal, in
 // The tombstone in util_shared.cpp records why the rest of 4e's measurement no
 // longer holds.
 //------------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// Purpose: Make a tracer using a particle effect
-//-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-void UTIL_ParticleTracer( const char *pszTracerEffectName, const Vector &vecStart, const Vector &vecEnd, 
-				 int iEntIndex, int iAttachment, bool bWhiz )
-{
-	int iParticleIndex = GetParticleSystemIndex( pszTracerEffectName );
-	UTIL_Tracer( vecStart, vecEnd, iEntIndex, iAttachment, 0, bWhiz, "ParticleTracer", iParticleIndex );
-}
-#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Make a tracer effect using the old, non-particle system, tracer effects.
@@ -710,57 +560,9 @@ void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, 
 // section 3.)
 //-----------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-// Purpose : Use trace to pass a specific decal type to the entity being decaled
-// Input   :
-// Output  :
-//------------------------------------------------------------------------------
-void UTIL_DecalTrace( trace_t *pTrace, char const *decalName )
-{
-	if (pTrace->fraction == 1.0)
-		return;
-
-	// TraceEntity WAS HERE and answered a constant NULL, so every trace took the
-	// skip below. DecalTrace is a CBaseEntity virtual with the studio and brush
-	// decal machinery behind it, so there is nothing to forward to: an entity
-	// outside the SDK does not take a decal yet. Skipping is the honest answer
-	// and is what the world itself does for surfaces that refuse one.
-	IGameEntity *pEntity = NULL;
-
-	// NULL when the trace hit an entity that is not a CBaseEntity — the
-	// eleventh place in this SDK to read the type of something the engine
-	// handed it as an IHandleEntity, and the first to be found by an explosion
-	// rather than by a bullet.
-	//
-	// DecalTrace is a CBaseEntity virtual with the studio and brush decal
-	// machinery behind it, so there is nothing to forward to: an entity outside
-	// the SDK simply does not take a decal yet. Skipping is the honest answer
-	// and is what the world itself does for surfaces that refuse one.
-	if ( !pEntity )
-		return;
-
-	// Armed the line above is the whole function, and the paragraph over it
-	// already says why that is the right answer rather than a stub: DecalTrace
-	// is a CBaseEntity virtual with the studio and brush decal machinery behind
-	// it, so there is nothing to forward to. TraceEntity is one of the thirteen
-	// NULL-subject resolvers and armed it answers NULL for everything.
-}
-
-
-void UTIL_BloodDecalTrace( trace_t *pTrace, int bloodColor )
-{
-	if ( UTIL_ShouldShowBlood( bloodColor ) )
-	{
-		if ( bloodColor == BLOOD_COLOR_RED )
-		{
-			UTIL_DecalTrace( pTrace, "Blood" );
-		}
-		else
-		{
-			UTIL_DecalTrace( pTrace, "YellowBlood" );
-		}
-	}
-}
+// UTIL_DecalTrace and UTIL_BloodDecalTrace went in plan_server_native_v2 T2:
+// the first's subject was a constant NULL, so no blood decal was ever painted.
+// Stock's arm is managed BloodDecals now, painting through the decal system.
 
 //-----------------------------------------------------------------------------
 // Purpose: 

@@ -48,6 +48,7 @@
 #include "gametrace.h"
 #include "ss_world.h"
 #include "world_subject.h"
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 
 //-----------------------------------------------------------------------------
@@ -158,7 +159,7 @@ bool CGameTrace::DidHitWorld() const
 	// ONE COMPARISON, ONE PLACE. This used to spell the pointer compare itself;
 	// it now asks the free function above, so a trace and a bare handle cannot
 	// come to different conclusions about the same object.
-	return SourceSharp_IsTheWorld( m_pEnt );
+	return SourceSharp_IsTheWorld( ss::TraceHitHandle( m_pEnt ) );
 }
 
 

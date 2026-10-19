@@ -361,24 +361,34 @@ TEST( CloseRulings, EveryTypedCastRowAlsoNamesTheHierarchyThatActuallyEXISTS )
 }
 
 //=============================================================================//
-// THE PREMISE UNDER 4/N, 5/N AND 7/N — every GetBaseEntity() answers NULL.
+// THE PREMISE UNDER 4/N, 5/N AND 7/N — no GetBaseEntity() answers an SDK entity.
 //
 // Four whole gated families were deleted as unreachable on the strength of this
 // one fact. It was read out of the two linked binaries at the time; here it is
 // read out of the SOURCE, so it is checked on every run rather than once.
+//
+// ONE OVERRIDE ANSWERS `this` SINCE plan_server_native_v2 T1.3, and the premise
+// still holds: CStandaloneEntity's GetBaseEntity() is its own entity face, the
+// server's one accessor once the patch's GetGameEntity() went, and no SDK entity
+// exists for it to be confused with. What the deleted families needed was that
+// no caller reads GetBaseEntity() as "the SDK's CBaseEntity"; the entity gate's
+// GetBaseEntity family (tools/entity-census-patterns) holds the call sites in
+// shim TUs at zero, so the reads are handle_cross.h's partition and
+// ss_entityhandle.h's crossing. The client's override and the world's two
+// still answer NULL.
 //=============================================================================//
 
 TEST( CloseRulings, EveryGetBaseEntityImplementationInTheTreeAnswersNull )
 {
-	struct Site_t { const char *pszFile; const char *pszSignature; };
+	struct Site_t { const char *pszFile; const char *pszSignature; const char *pszAnswer; };
 	static const Site_t kSites[] = {
-		{ "src/sourcesharp/game/server/shell_standalone.h",        "GetBaseEntity() OVERRIDE" },
-		{ "src/sourcesharp/game/client/shell_standalone_client.h", "GetBaseEntity() OVERRIDE" },
+		{ "src/sourcesharp/game/server/shell_standalone.h",        "GetBaseEntity() OVERRIDE", "return this" },
+		{ "src/sourcesharp/game/client/shell_standalone_client.h", "GetBaseEntity() OVERRIDE", "return NULL" },
 		// Was src/game/server/world.h, which is compiled by nothing since
 		// plan_server_novalve.md P5 and left the farm in P6. CWorld and
 		// CWorldNetworkable moved to our ss_world.h (P5 lane E), so the same two
 		// overrides are read from where the server now compiles them.
-		{ "src/sourcesharp/game/server/ss_world.h",                "GetBaseEntity() OVERRIDE" },
+		{ "src/sourcesharp/game/server/ss_world.h",                "GetBaseEntity() OVERRIDE", "return NULL" },
 	};
 
 	int nChecked = 0;
@@ -404,9 +414,10 @@ TEST( CloseRulings, EveryGetBaseEntityImplementationInTheTreeAnswersNull )
 			// declaration sends the sweep looking for the definition.
 			if ( szLine.find( '{' ) != std::string::npos )
 			{
-				EXPECT_NE( std::string::npos, szLine.find( "return NULL" ) )
-					<< kSites[ i ].pszFile << ": a GetBaseEntity() that does not answer NULL, "
-					<< "which is the premise four deleted gate families rested on:\n  " << szLine;
+				EXPECT_NE( std::string::npos, szLine.find( kSites[ i ].pszAnswer ) )
+					<< kSites[ i ].pszFile << ": a GetBaseEntity() that does not answer '"
+					<< kSites[ i ].pszAnswer << "', which is the premise four deleted gate "
+					<< "families rested on:\n  " << szLine;
 				nChecked++; nInThisFile++;
 				continue;
 			}

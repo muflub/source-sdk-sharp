@@ -29,6 +29,7 @@
 #include "world_subject.h"
 #include "shell_standalone_player.h"
 #include "native_command_body.h"
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 extern CGlobalVars *gpGlobals;
 
@@ -97,7 +98,7 @@ static void ReportOneTraceSubject( const char *pszWhat, const Vector &vecStart,
 	trace_t tr;
 	ss::UTIL_TraceLine( vecStart, vecEnd, MASK_SOLID, pIgnore, COLLISION_GROUP_NONE, &tr );
 
-	const AnyEntity_t ent = AnyEntityOf( tr.m_pEnt );
+	const AnyEntity_t ent = AnyEntityOf( ss::TraceHit( tr ) );
 
 	Msg( "[SourceSharp] %-16s fraction %.3f  m_pEnt %p\n", pszWhat, tr.fraction,
 	     (void *)tr.m_pEnt );
@@ -107,7 +108,7 @@ static void ReportOneTraceSubject( const char *pszWhat, const Vector &vecStart,
 	     tr.DidHitNonWorldEntity() ? "YES" : "no" );
 
 	Msg( "[SourceSharp]     third arm      SourceSharp_IsTheWorld %s\n",
-	     SourceSharp_IsTheWorld( tr.m_pEnt ) ? "YES" : "no" );
+	     SourceSharp_IsTheWorld( ss::TraceHit( tr ) ) ? "YES" : "no" );
 
 	// TraceGameEntity IS GONE FROM THIS LINE, and what took its place is the
 	// point of the print rather than a tidier spelling of it.
@@ -129,7 +130,7 @@ static void ReportOneTraceSubject( const char *pszWhat, const Vector &vecStart,
 	// binds the table, which is worth being able to see.
 	Msg( "[SourceSharp]     two arms       TraceGameEntity %p   ShellFromHandleEntity %p\n",
 	     (void *)ss::TraceGameEntity( tr ),
-	     (void *)SourceSharp_ShellFromHandleEntity( tr.m_pEnt ) );
+	     (void *)SourceSharp_ShellFromHandleEntity( ss::TraceHit( tr ) ) );
 
 	Msg( "[SourceSharp]     AnyEntity_t    pBase %p  pGame %p  pWorld %p  "
 	     "valid %s  \"%s\"\n",

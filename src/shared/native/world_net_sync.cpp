@@ -119,17 +119,6 @@ bool SourceSharpWorld_ReadFlag( const unsigned char *pBlob,
 	return SourceSharpPayload_ReadPacked( pBlob, field ) != 0;
 }
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-void SourceSharpWorld_WriteFlag( unsigned char *pBlob,
-                                 const SourceSharpPackedField_t &field, bool bValue )
-{
-	if ( !pBlob || !field.IsResolved() )
-		return;
-
-	SourceSharpPayload_WritePacked( pBlob, field, bValue ? 1u : 0u );
-}
-#endif
-
 //-----------------------------------------------------------------------------
 // The string, in place.
 //

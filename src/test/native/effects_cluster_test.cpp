@@ -347,26 +347,23 @@ TEST( EffectsCluster, TheFlipTookEveryHeldTuAndEveryHolder )
 }
 
 //-----------------------------------------------------------------------------
-// The two refusals, which SAY SO.
+// The two retired slots are GONE, refusals and all (plan_server_native_v2 T2).
 //-----------------------------------------------------------------------------
-TEST( EffectsCluster, BothRetiredSlotsRefuseOutLoudRatherThanReturningZero )
+TEST( EffectsCluster, TheGibAndDissolveSlotsAreGone )
 {
-	const std::string wq = NoWhitespace( Load( kWorldQuery, "SourceSharp_EntityDissolve" ) );
+	const std::string wq = NoWhitespace( Load( kWorldQuery, "SourceSharp_SparkEffect" ) );
 
 	ASSERT_FALSE( wq.empty() );
 
-	// (a) The gib slot. plan_entity.md §7's stub trap: a silent 0 here looks
-	// exactly like a gib that failed to spawn.
-	EXPECT_NE( wq.find( "SourceSharp_ShootGibisretired" ), std::string::npos )
-		<< "SourceSharp_ShootGib no longer says it is retired.";
+	// (a) The gib slot: no managed code called it. A gib is ss_gib, made by
+	// SourceSharp.Server's Gibs (gib_evicted_test pins the managed maker).
+	EXPECT_EQ( wq.find( "SourceSharp_ShootGib(" ), std::string::npos )
+		<< "the gib slot is back; gibs are managed.";
 
-	// (b) The dissolve slot. This one had ALREADY been answering 0 for every
-	// managed entity before 4a -- it resolved the handle to a CBaseEntity, which
-	// is NULL for all of them -- so what changed is that it says so.
-	EXPECT_NE( wq.find( "EntityDissolveisrefused" ), std::string::npos )
-		<< "SourceSharp_EntityDissolve no longer says it is refused. It answers 0 "
-		<< "for every managed entity either way; the difference between a refusal "
-		<< "and a silent no-op is the Warning.";
+	// (b) The dissolve slot: no managed code called it either. Its gap is
+	// recorded in docs/todo.md (anim_cluster_ledger_test pins the record).
+	EXPECT_EQ( wq.find( "SourceSharp_EntityDissolve(" ), std::string::npos )
+		<< "the dissolve slot is back; a refusal or a port, not a silent 0.";
 
 	// And the dissolve really is gone from the code rather than merely quiet:
 	// this is the `Dissolve` edge step 4d's handover named as 4a's, and it was
@@ -374,9 +371,4 @@ TEST( EffectsCluster, BothRetiredSlotsRefuseOutLoudRatherThanReturningZero )
 	EXPECT_EQ( wq.find( "pAnimating->Dissolve(" ), std::string::npos )
 		<< "shell_worldquery.cpp calls CBaseAnimating::Dissolve again; "
 		<< "baseanimating.o has its Dissolve edge back.";
-
-	// BOTH REFUSALS RETURN, and neither is void: a function that refused by
-	// falling off the end would be undefined behaviour rather than a refusal.
-	EXPECT_NE( wq.find( "int32_tSourceSharp_ShootGib(" ), std::string::npos );
-	EXPECT_NE( wq.find( "int32_tSourceSharp_EntityDissolve(" ), std::string::npos );
 }

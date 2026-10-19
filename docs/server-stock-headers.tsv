@@ -1,0 +1,4 @@
+# tools/server-stock-headers: server TUs that do not compile against the
+# pristine upstream public/ headers (valve-sdk.lock). May only fall; T1's
+# exit is 0. Measured over 115 objects.
+failing_tus	0

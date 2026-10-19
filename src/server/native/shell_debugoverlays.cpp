@@ -72,7 +72,11 @@ extern CGlobalVars *gpGlobals;
 #include "overlay_library.h"
 #include "slot_table.h"
 #include "shell_standalone.h"
-#include "shell_playerinfo.h"
+// SourceSharp_PlayerStateForEdict / SourceSharp_ClientViewOrigin: defined in
+// shell_gameclients.cpp now (plan_server_native_min P1); they were declared by
+// the deleted shell_playerinfo.h.
+CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict );
+bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut );
 #include "shell_diagnostics.h"
 #include "PlayerState.h"
 #include "entity_debug_globals.h"
@@ -80,7 +84,6 @@ extern CGlobalVars *gpGlobals;
 
 // Defined elsewhere in the server and reached by name, exactly as
 // gameinterface.cpp reached them. There is no header that declares this one.
-void DrawMessageEntities();
 
 //-----------------------------------------------------------------------------
 // THE PADDED LINE, and the reason it lives in a shim file rather than in the
@@ -380,6 +383,6 @@ void DrawAllDebugOverlays( void )
 	// --------------------------------------------------------
 	Overlay_DrawPooledLines();
 
-	// A hack to draw point_message entities w/o developer required
-	DrawMessageEntities();
+	// DrawMessageEntities went (plan_server_native_min P1): an empty body;
+	// the managed point_message draws through the debug-overlay path from C#.
 }

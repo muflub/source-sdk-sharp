@@ -108,22 +108,3 @@ int32_t SourceSharp_ClientsStandalonePlayerEarPosition( int32_t iEdict, float *p
 	pOutXYZ[ 2 ] = vecEars.z;
 	return 1;
 }
-
-//-----------------------------------------------------------------------------
-// THE SDK HIERARCHY'S ANSWER: NONE, ON EVERY PATH.
-//
-// server.so builds no CBasePlayer, so there is no SDK player to ask. This
-// looked the edict up and asked UTIL_SDKPlayerFromEdict, which answered NULL
-// for every edict, and the armed arm answered 0 even past that (EarPosition is
-// defined in the struck baseplayer_shared.cpp). All four paths returned 0 and
-// left pOutXYZ untouched. That is all the step does now. The lookup went with
-// UTIL_SDKPlayerFromEdict (P5 lane E); the crossing stays, because
-// ServerClients.EarPositionForClient asks it, and the order it asks in is C#'s.
-// A step that cannot answer says so; it does not invent a position.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_ClientsSdkPlayerEarPosition( int32_t iEdict, float *pOutXYZ )
-{
-	(void)iEdict;
-	(void)pOutXYZ;
-	return 0;
-}

@@ -42,7 +42,6 @@ public:
 class CShimConsoleServer final : public IShimConsoleServer
 {
 public:
-	void ExecuteServerCommand( const char * pCommand ) override;
 	void SendClientCommand( uint32_t hPlayer, const char * pCommand ) override;
 	uint32_t GetCommandClientHandle() override;
 };
@@ -55,24 +54,10 @@ public:
 	float EventGetFloat( void * hEvent, const char * pKey ) override;
 	int32_t EventGetBool( void * hEvent, const char * pKey ) override;
 	const char * EventGetString( void * hEvent, const char * pKey ) override;
-	void * EventCreate( const char * pName ) override;
 	void EventSetInt( void * hEvent, const char * pKey, int32_t nValue ) override;
 	void EventSetFloat( void * hEvent, const char * pKey, float flValue ) override;
 	void EventSetBool( void * hEvent, const char * pKey, int32_t bValue ) override;
 	void EventSetString( void * hEvent, const char * pKey, const char * pValue ) override;
-	int32_t EventFire( void * hEvent ) override;
-	void EventFree( void * hEvent ) override;
-};
-
-class CShimStringTablesServer final : public IShimStringTablesServer
-{
-public:
-	int32_t StringTableFind( const char * pszName ) override;
-	int32_t StringTableFindStringIndex( int32_t nTableId, const char * pszValue ) override;
-	int32_t StringTableGetString( int32_t nTableId, int32_t nStringIndex, char * pOut, int32_t nOutSize ) override;
-	int32_t StringTableGetNumStrings( int32_t nTableId ) override;
-	int32_t StringTableCreate( const char * pszName, int32_t nMaxEntries ) override;
-	int32_t StringTableAddString( int32_t nTableId, const char * pszValue ) override;
 };
 
 class CShimNetworkServer final : public IShimNetworkServer
@@ -99,8 +84,6 @@ public:
 	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
 	void EntitySetModel( uint32_t hEntity, const char * pModel ) override;
 	void EntitySetSequence( uint32_t hEntity, int32_t nSequence ) override;
-	int32_t EntityGetTextureFrame( uint32_t hEntity ) override;
-	void EntitySetTextureFrame( uint32_t hEntity, int32_t nFrame ) override;
 };
 
 class CShimPrecache final : public IShimPrecache
@@ -128,14 +111,7 @@ public:
 	void PlayerShadowRelease( uint32_t hPlayer ) override;
 	void PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand ) override;
 	int32_t PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType ) override;
-	void PlayerForceButtons( uint32_t hPlayer, int32_t nButtonMask, int32_t bForced ) override;
-	int32_t PlayerGetButtons( uint32_t hPlayer ) override;
-	void PlayerSetButtonsDisabled( uint32_t hPlayer, int32_t nButtonMask, int32_t bDisabled ) override;
-	void PlayerSetLaggedMovement( uint32_t hPlayer, float flValue ) override;
-	void PlayerSetAllowAutoMovement( uint32_t hPlayer, int32_t bAllow ) override;
 	void PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow ) override;
-	void PlayerSetMovementConstraint( uint32_t hPlayer, const float * pCenterXYZ, float flRadius, float flWidth, float flSpeedFactor ) override;
-	void PlayerSetFrozen( uint32_t hPlayer, int32_t bFrozen ) override;
 };
 
 class CShimWorldServer final : public IShimWorldServer
@@ -152,7 +128,6 @@ public:
 	int32_t SurfacePropIndex( const char * pszName ) override;
 	int32_t EntityModelSurfaceProp( uint32_t hEntity ) override;
 	int32_t InvisibleRangeReach() override;
-	void EngineLightStyle( int32_t nStyle, const char * pPattern ) override;
 	void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) override;
 	const char * WorldChapterTitle() override;
 	uint32_t AreaPortalCreate( int32_t nPortalNumber, int32_t nPortalVersion ) override;
@@ -168,14 +143,12 @@ public:
 	int32_t EntityGetIndex( uint32_t hEntity ) override;
 	void EntityGetOrigin( uint32_t hEntity, float * pOutXYZ ) override;
 	void EntityGetAngles( uint32_t hEntity, float * pOutPYR ) override;
-	void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) override;
 	int32_t EntityIsValid( uint32_t hEntity ) override;
 	int32_t EntityIsPlayer( uint32_t hEntity ) override;
 	void EntityGetClassName( uint32_t hEntity, char * pOut, int32_t nOutSize ) override;
 	void EntityGetName( uint32_t hEntity, char * pOut, int32_t nOutSize ) override;
 	int32_t EntityGetState( uint32_t hEntity, int32_t * pOutMoveType ) override;
 	uint32_t FindEntityByClassname( uint32_t hStartAfter, const char * pClassName ) override;
-	uint32_t FindBaseEntityByName( const char * pName ) override;
 	int32_t EntitiesInSphere( const float * pCenterXYZ, float flRadius, uint32_t * pOutHandles, int32_t nMax ) override;
 	int32_t EntitySetKeyValue( uint32_t hEntity, const char * pKey, const char * pValue ) override;
 	void EntityGetSpawnOrigin( uint32_t hEntity, float * pOutXYZ ) override;
@@ -184,14 +157,10 @@ public:
 	void EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags ) override;
 	int32_t EntityGetHealth( uint32_t hEntity ) override;
 	void EntitySetHealth( uint32_t hEntity, int32_t nHealth ) override;
-	int32_t EntityGetArmor( uint32_t hEntity ) override;
-	void EntitySetArmor( uint32_t hEntity, int32_t nArmor ) override;
 	void EntitySetVisible( uint32_t hEntity, int32_t bVisible ) override;
 	void EntitySetOwner( uint32_t hEntity, uint32_t hOwner ) override;
 	void EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY, float flSizeZ ) override;
 	void EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled ) override;
-	int32_t EntityDetectInSkybox( uint32_t hEntity ) override;
-	int32_t EntitiesSdkPlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea ) override;
 	int32_t EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea ) override;
 };
 
@@ -203,11 +172,7 @@ public:
 	void EntityRemove( uint32_t hEntity ) override;
 	void DestroyShell( const uint32_t * pHandles, int32_t nCount ) override;
 	uint32_t MapSpawnCreate( const char * pClassName, const char * pPackedKeys, int32_t nBytes ) override;
-	int32_t TemplateCapture( const char * pszSourceName, int32_t bRemoveSources, int32_t * pOutIndices, float * pOutOriginsXYZ, float * pOutAnglesPYR, int32_t nMax ) override;
-	void EntitiesPurgeMapRefs() override;
-	void EntitiesCleanupDeleteList() override;
 	void RegisterScriptedEntity( const char * pClassName, const char ** ppOutputNames, int32_t nOutputCount, int32_t nKind ) override;
-	void RegisterWeaponEntity( const char * pClassName ) override;
 	void RegisterClassOps( const char * pClassName, uint32_t nOpMask ) override;
 	int32_t EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs * pArgs ) override;
 	int32_t EntityFactoryCount() override;
@@ -232,12 +197,8 @@ public:
 	void EntityGetEyePosition( uint32_t hEntity, float * pOutXYZ ) override;
 	void EntityGetEyeAngles( uint32_t hEntity, float * pOutPYR ) override;
 	void EntityGetWorldSpaceCenter( uint32_t hEntity, float * pOutXYZ ) override;
-	void EntityMoveToPosition( uint32_t hEntity, const float * pXYZ, float flSpeed ) override;
-	void EntityMoveToAngles( uint32_t hEntity, const float * pPYR, float flSpeed ) override;
-	void EntityStopMoving( uint32_t hEntity ) override;
 	float EntityGetGravity( uint32_t hEntity ) override;
 	void EntitySetGravity( uint32_t hEntity, float flGravity ) override;
-	void EntitySetFriction( uint32_t hEntity, float flFriction ) override;
 	void EntitySetBounce( uint32_t hEntity, int32_t nBounces ) override;
 };
 
@@ -275,7 +236,6 @@ class CShimPhysics final : public IShimPhysics
 {
 public:
 	void EntityDestroyPhysics( uint32_t hEntity ) override;
-	void EntitySetForceServerRagdoll( uint32_t hEntity, int32_t bForce ) override;
 	void * EntityPhysicsObject( uint32_t hEntity ) override;
 	void * PhysicsEnvironmentPointer() override;
 	void * PhysicsWorldObject() override;
@@ -288,11 +248,6 @@ class CShimDamage final : public IShimDamage
 public:
 	void ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType ) override;
 	void EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType, const float * pDirXYZ, const float * pForceOriginXYZ, int32_t bPhysicsOnly ) override;
-	void RadiusDamage( const float * pOrigin, float flDamage, float flRadius, int32_t nDamageType, uint32_t hAttacker ) override;
-	void ExplosionDamage( const float * pOrigin, float flMagnitude, float flRadius, int32_t nDamageType, uint32_t hAttacker, uint32_t hInflictor, uint32_t hIgnored, float flDamageForce ) override;
-	int32_t EntitySetTakeDamageMode( uint32_t hEntity, int32_t nMode ) override;
-	void EntityIgnite( uint32_t hEntity, float flLifetime ) override;
-	int32_t EntityDissolve( uint32_t hEntity, int32_t nType, float flMagnitude, const float * pOriginXYZ ) override;
 	void ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType, const float * pForceXYZ, const float * pPositionXYZ ) override;
 };
 
@@ -308,59 +263,16 @@ class CShimPlayers final : public IShimPlayers
 {
 public:
 	uint32_t GetPlayerHandle( int32_t nPlayerIndex ) override;
-	int32_t GetPlayerUserId( uint32_t hPlayer ) override;
 	int32_t GetPlayerTeam( uint32_t hPlayer ) override;
-	void AddPlayerScore( uint32_t hPlayer, int32_t nPoints, int32_t bAllowNegative ) override;
 	int32_t PlayerIsAlive( uint32_t hPlayer ) override;
 	void PlayerRespawn( uint32_t hPlayer ) override;
 	void PlayerPlaceAtSpawn( uint32_t hPlayer, const float * pOriginXYZ, const float * pAnglesPYR ) override;
 	int32_t PlayerGetObserverMode( uint32_t hPlayer ) override;
 	void PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode ) override;
-	void PlayerSetViewEntity( uint32_t hPlayer, uint32_t hView ) override;
-	void PlayerSetFov( uint32_t hPlayer, uint32_t hRequester, int32_t nFov, float flRate ) override;
 	void PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYawRoll ) override;
 	void GetPlayerShootOrigin( uint32_t hPlayer, float * pOutXYZ ) override;
-	void PlayerSetSoundscape( uint32_t hPlayer, int32_t nEntIndex, int32_t nSoundscapeIndex, int32_t nLocalBits, const float * pLocalPositions ) override;
 	int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ ) override;
-	int32_t ClientsSdkPlayerEarPosition( int32_t iEdict, float * pOutXYZ ) override;
-	int32_t PlayerBoxInPvs( uint32_t hPlayer, const float * pMins, const float * pMaxs ) override;
 	void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) override;
-};
-
-class CShimWeaponsServer final : public IShimWeaponsServer
-{
-public:
-	void RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage ) override;
-	void RegisterWeaponType( const char * pClassName, float flFireRate, float flSpreadDegrees, int32_t nPellets ) override;
-	int32_t WeaponGetState( uint32_t hWeapon, SourceSharpWeaponState * pOut ) override;
-	void WeaponIdle( uint32_t hWeapon ) override;
-	void WeaponSetNextPrimaryAttack( uint32_t hWeapon, float flTime ) override;
-	void WeaponSetNextSecondaryAttack( uint32_t hWeapon, float flTime ) override;
-	void WeaponSetClip( uint32_t hWeapon, int32_t nClip ) override;
-	void WeaponSetInReload( uint32_t hWeapon, int32_t bInReload ) override;
-	int32_t WeaponTakeAmmo( uint32_t hWeapon, int32_t nCount ) override;
-	int32_t WeaponTakeSecondaryAmmo( uint32_t hWeapon, int32_t nCount ) override;
-	void WeaponPlaySound( uint32_t hWeapon, int32_t nSound ) override;
-	void WeaponSendAnim( uint32_t hWeapon, int32_t nAnim ) override;
-	float WeaponAnimDuration( uint32_t hWeapon, int32_t nAnim ) override;
-	void WeaponFireBullets( uint32_t hWeapon, int32_t nShots, float flSpreadDegrees ) override;
-	void WeaponMuzzleFlash( uint32_t hWeapon ) override;
-	void WeaponAddViewKick( uint32_t hWeapon ) override;
-};
-
-class CShimInventory final : public IShimInventory
-{
-public:
-	int32_t GivePlayerItem( uint32_t hPlayer, const char * pClassName ) override;
-	int32_t GivePlayerAmmo( uint32_t hPlayer, int32_t nCount, const char * pAmmoName ) override;
-	void GetPlayerActiveWeapon( uint32_t hPlayer, char * pOut, int32_t nOutSize ) override;
-	uint32_t PlayerGetActiveWeaponEntity( uint32_t hPlayer ) override;
-	uint32_t PlayerGetWeaponEntity( uint32_t hPlayer, int32_t nSlot ) override;
-	uint32_t PlayerGetViewModelEntity( uint32_t hPlayer ) override;
-	int32_t PlayerDropActiveWeapon( uint32_t hPlayer, const float * pVelocityXYZ ) override;
-	int32_t PlayerHolsterActiveWeapon( uint32_t hPlayer ) override;
-	int32_t PlayerDeployLastWeapon( uint32_t hPlayer ) override;
-	void PlayerRemoveAllItems( uint32_t hPlayer, int32_t bStripSuit ) override;
 };
 
 class CShimSound final : public IShimSound
@@ -390,12 +302,7 @@ public:
 	void DustEffect( const float * pOriginXYZ, const float * pDirXYZ, float flSize, float flSpeed ) override;
 	void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) override;
 	void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) override;
-	int32_t BloodDecal( const float * pStartXYZ, const float * pEndXYZ, int32_t nColor ) override;
 	int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) override;
-	int32_t ShootGib( const char * pszModel, const SourceSharpGibShot * pShot ) override;
-	uint32_t FireEffectCreate( int32_t nType, const float * pOriginXYZ, float flScale, int32_t nFlags ) override;
-	void FireEffectScale( uint32_t hEffect, float flScale, float flTime ) override;
-	void FireEffectEnable( uint32_t hEffect, int32_t bEnable ) override;
 };
 
 class CShimDebugOverlay final : public IShimDebugOverlay
@@ -428,7 +335,6 @@ struct CShimAreas
 	CShimEngine m_Engine;
 	CShimConsoleServer m_ConsoleServer;
 	CShimEventsServer m_EventsServer;
-	CShimStringTablesServer m_StringTablesServer;
 	CShimNetworkServer m_NetworkServer;
 	CShimModelsServer m_ModelsServer;
 	CShimPrecache m_Precache;
@@ -443,8 +349,6 @@ struct CShimAreas
 	CShimDamage m_Damage;
 	CShimGameRules m_GameRules;
 	CShimPlayers m_Players;
-	CShimWeaponsServer m_WeaponsServer;
-	CShimInventory m_Inventory;
 	CShimSound m_Sound;
 	CShimEffectsServer m_EffectsServer;
 	CShimDebugOverlay m_DebugOverlay;
@@ -489,15 +393,6 @@ public:
 	const char * EventGetString( void * hEvent, const char * pKey ) override;
 };
 
-class CShimStringTablesClient final : public IShimStringTables
-{
-public:
-	int32_t StringTableFind( const char * pszName ) override;
-	int32_t StringTableFindStringIndex( int32_t nTableId, const char * pszValue ) override;
-	int32_t StringTableGetString( int32_t nTableId, int32_t nStringIndex, char * pOut, int32_t nOutSize ) override;
-	int32_t StringTableGetNumStrings( int32_t nTableId ) override;
-};
-
 class CShimNetworkClient final : public IShimNetwork
 {
 public:
@@ -539,7 +434,6 @@ public:
 	int32_t EntityGetIndex( uint32_t hEntity ) override;
 	void EntityGetOrigin( uint32_t hEntity, float * pOutXYZ ) override;
 	void EntityGetAngles( uint32_t hEntity, float * pOutPYR ) override;
-	void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) override;
 	int32_t EntityIsValid( uint32_t hEntity ) override;
 };
 
@@ -547,13 +441,6 @@ class CShimCollisionClient final : public IShimCollision
 {
 public:
 	void RegisterCollisionRules( const SourceSharpCollisionRules * pRules ) override;
-};
-
-class CShimWeaponsClient final : public IShimWeapons
-{
-public:
-	void RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage ) override;
-	void RegisterWeaponType( const char * pClassName, float flFireRate, float flSpreadDegrees, int32_t nPellets ) override;
 };
 
 class CShimEffectsClient final : public IShimEffects
@@ -680,6 +567,8 @@ public:
 	void * StandaloneEngineBlock( uint32_t hEntity, int32_t * pOutBytes ) override;
 	void StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence, float flPlaybackRate, float flAnimTime, float flDuration, int32_t bLooping ) override;
 	void StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll ) override;
+	void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) override;
+	void RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage ) override;
 };
 
 class CShimViewClient final : public IShimViewClient
@@ -897,14 +786,12 @@ struct CShimAreasClient
 {
 	CShimEngineClient m_Engine;
 	CShimEventsClient m_Events;
-	CShimStringTablesClient m_StringTables;
 	CShimNetworkClient m_Network;
 	CShimModelsClient m_Models;
 	CShimMovementClient m_Movement;
 	CShimWorldClient m_World;
 	CShimEntitiesClient m_Entities;
 	CShimCollisionClient m_Collision;
-	CShimWeaponsClient m_Weapons;
 	CShimEffectsClient m_Effects;
 	CShimHudClient m_HudClient;
 	CShimPredictionClient m_PredictionClient;

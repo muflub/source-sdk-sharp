@@ -37,11 +37,10 @@
 #include "mathlib/vector.h"
 
 #include "igameentity.h"
-class CBaseAnimating;
 class CBasePlayer;
 class CStandaloneEntity;
 class CWorld;
-class IGameEntity;
+#include "igameentity_fwd.h"
 class IHandleEntity;
 class IPhysicsObject;
 struct edict_t;
@@ -172,21 +171,6 @@ struct SourceSharpEntity_t
 	const char *Name() const;
 
 	IPhysicsObject *Physics() const;
-
-	// The SDK arm's skeleton, or NULL — for the animation calls, which only one
-	// hierarchy answers this way (the other side has its own studio header, and
-	// the callers ask for it separately).
-	//
-	// A PROJECTION rather than a cast at each site, for two reasons that both
-	// cost something. It was five open-coded dynamic_cast< CBaseAnimating * >(
-	// ent.pBase ), which is RTTI on a path the entity API takes for every
-	// animation call when CBaseEntity::GetBaseAnimating() is a virtual the SDK
-	// put there for exactly this question. And the obvious hand-substitution is
-	// WRONG: dynamic_cast of a NULL pointer is NULL, a virtual call on one is
-	// not, and ent.pBase is NULL for every entity on the parallel hierarchy —
-	// which is most of them. Writing the guard once is what keeps the five
-	// call sites from each having to remember it.
-	CBaseAnimating *Animating() const;
 
 	// What the engine's own collision code takes when it is told to skip
 	// something. Both hierarchies are IHandleEntity already, so neither needs

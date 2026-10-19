@@ -153,20 +153,6 @@ public sealed class WeaponCatalog
     /// <summary>Whether this side's table has a weapon of this classname.</summary>
     public bool Contains(string className) => IndexOf(className) >= 0;
 
-    /// <summary>
-    /// Hands the table to the native side, which is where the stock attack path
-    /// reads fire rates. Called on both sides — the client predicts a shot and
-    /// needs the same fire rate to predict it with — and it registers the MOD's
-    /// rows too: a native table that stopped at the core rows would leave every
-    /// mod weapon firing at whatever the shell's default rate is.
-    /// </summary>
-    public void Register(string side, IEngineWeapons weapons, ILog log)
-    {
-        foreach (var weapon in Table.Rows)
-            weapons.RegisterWeaponType(weapon.Name, weapon.Interval, weapon.Spread, weapon.Pellets);
-
-        log.Msg($"[SourceSharp/{side}] registered {Count} weapon type(s)\n");
-    }
 
     private Built Build()
     {
@@ -262,23 +248,6 @@ public sealed class AmmoCatalog
     {
         int at = name.Length > 0 && Table.ByName.TryGetValue(name, out int found) ? found : -1;
         return at < 0 ? -1 : at + 1;
-    }
-
-    /// <summary>
-    /// Fills the native ammo table. Called at client init only — server.so keeps
-    /// no ammo table since nothing there read one (plan_server_novalve.md P5)
-    /// and its slot refuses. A weapon naming an unregistered type resolves to
-    /// an ammo index of -1, so this runs before anything can be given.
-    /// </summary>
-    public void Register(string side, IEngineWeapons weapons, ILog log)
-    {
-        foreach (var ammo in Table.Rows)
-        {
-            weapons.RegisterAmmoType(ammo.Name, ammo.DamageType, ammo.MaxCarry,
-                                     ammo.TracerType, ammo.DamageForce, ammo.Damage);
-        }
-
-        log.Msg($"[SourceSharp/{side}] registered {Count} ammo type(s)\n");
     }
 
     private Built Build()

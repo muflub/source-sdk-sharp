@@ -62,8 +62,9 @@ public sealed class SsGib : ScriptedEntity
 {
     public SsGib(IEngineEntityPhysics physics, EntityMotion motion,
                  IEngineEffects effects, IEngineSound sound,
-                 IEngineEntityRender render, IEngineHost host)
+                 IEngineEntityRender render, IEngineHost host, BloodDecals blood)
     {
+        _blood = blood;
         _physics = physics;
         _motion = motion;
         _effects = effects;
@@ -78,6 +79,7 @@ public sealed class SsGib : ScriptedEntity
     private readonly IEngineSound _sound;
     private readonly IEngineEntityRender _render;
     private readonly IEngineHost _host;
+    private readonly BloodDecals _blood;
 
     /// <summary>
     /// <c>CGib::m_cBloodDecals</c>: how many bounces may leave a mark, one per
@@ -273,6 +275,7 @@ public sealed class SsGib : ScriptedEntity
         SetNextThink(lifetime);
     }
 
+
     /// <summary>
     /// It hit something. The port of <c>CGib::BounceGibTouch</c>.
     ///
@@ -294,7 +297,8 @@ public sealed class SsGib : ScriptedEntity
             // are stock's.
             Vector from = Origin + new Vector(0f, 0f, 8f);
 
-            _effects.BloodDecal(from, from + new Vector(0f, 0f, -24f), _bloodColor);
+            // The gib itself is ignored, as stock's trace passed `this`.
+            _blood.Trace(from, from + new Vector(0f, 0f, -24f), _bloodColor, Handle);
             _decalsLeft--;
         }
 

@@ -199,45 +199,9 @@ std::string FileCode( const std::string &strFile )
 // tell an arm REMOVED from an arm replaced by a plausible constant, which §7
 // forbids.
 //
-// BETWEEN THE BRACES, not over the extract, because the signature itself is
-// text. A signature that is not found answers FALSE rather than true, so this
-// cannot pass over a file that lost its function.
-//
-// Takes the already-stripped code rather than a path, so that a caller which
-// has asserted the signature is present is asking about the same text.
-bool BodyIsEmpty( const std::string &strCode, const std::string &strSignature )
-{
-	const size_t a = strCode.find( strSignature );
-	if ( a == std::string::npos )
-		return false;
+// BodyIsEmpty went with Claim 7's subject: entity_bases.cpp held the bodies
+// it measured (plan_server_native_min P1).
 
-	const size_t open = strCode.find( '{', a );
-	if ( open == std::string::npos )
-		return false;
-
-	int nDepth = 0;
-	size_t close = std::string::npos;
-	for ( size_t i = open; i < strCode.size(); i++ )
-	{
-		if ( strCode[ i ] == '{' )
-			nDepth++;
-		else if ( strCode[ i ] == '}' )
-		{
-			nDepth--;
-			if ( nDepth == 0 ) { close = i; break; }
-		}
-	}
-	if ( close == std::string::npos )
-		return false;
-
-	for ( size_t i = open + 1; i < close; i++ )
-	{
-		const char ch = strCode[ i ];
-		if ( ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r' )
-			return false;
-	}
-	return true;
-}
 
 //-----------------------------------------------------------------------------
 // One SS_CBASEENTITY_ALIAS region, split into arms. Both polarities, because
@@ -417,35 +381,33 @@ TEST( CppAliasRetypeW1, ToucherOfPutsTheEntityOnTheGameSide )
 	// the function body instead of the arm's text -- which is strictly wider,
 	// because it also catches the wrong initialiser written anywhere else in
 	// this file.
-	const std::string code = FileCode( "sourcesharp/game/server/toucher.cpp" );
-	ASSERT_FALSE( code.empty() ) << "toucher.cpp read as nothing";
+	// AND THE STATEMENT MOVED, in plan_server_native_v2 T2: toucher.cpp
+	// went (ToucherOf's one importer sat behind a constant NULL), and its
+	// body is now written in place in PhysicsOwner_t::AsToucher, the one
+	// caller left. The fact follows it.
+	const std::string code = FileCode( "sourcesharp/game/shared/physicsowner.h" );
+	ASSERT_FALSE( code.empty() ) << "physicsowner.h read as nothing";
 
-	EXPECT_EQ( 0u, GuardsIn( "sourcesharp/game/server/toucher.cpp" ).size() )
-		<< "toucher.cpp carries an alias region again.";
-
-	// PRESENCE, and it is the positive anchor for everything else here: the
-	// function is still defined and still returns the struct.
-	ASSERT_TRUE( Contains( code, "Toucher_t ToucherOf( IGameEntity *pEntity )" ) )
-		<< "ToucherOf is gone or its parameter has been re-spelled away from "
-		   "IGameEntity, which `the-close` 3/N renamed it to.";
+	// PRESENCE, and it is the positive anchor for everything else here.
+	ASSERT_TRUE( Contains( code, "inline Toucher_t PhysicsOwner_t::AsToucher() const" ) )
+		<< "AsToucher is gone, and with it the one place a toucher is built "
+		   "from an entity pointer.";
 	EXPECT_TRUE( Contains( code, "return toucher;" ) );
 
-	EXPECT_FALSE( Contains( code, "{ pEntity, pEntity, NULL }" ) )
-		<< "the SDK initialiser is back. It sat in a `#ifndef "
-		   "SS_CBASEENTITY_ALIAS` arm that was never compiled, and armed it is "
-		   "not merely dead but WRONG: pBase is the SDK entity and there is no "
-		   "such thing in this build.";
+	EXPECT_FALSE( Contains( code, "{ pBase, pBase, NULL }" ) )
+		<< "the SDK initialiser is back. pBase is the SDK entity and there is "
+		   "no such thing in this build.";
 
-	EXPECT_TRUE( Contains( code, "Toucher_t toucher = { NULL, NULL, pEntity };" ) )
-		<< "ToucherOf must put the entity on pGame (THIRD) and leave pHandle "
-		   "and pBase NULL. Armed, pBase and pGame are the same type, so this is "
-		   "the one statement no compiler and no survey can make for you.";
+	EXPECT_TRUE( Contains( code, "Toucher_t toucher = { NULL, NULL, pBase };" ) )
+		<< "AsToucher must put the entity on pGame (THIRD) and leave pHandle "
+		   "and pBase NULL. pBase and pGame are the same type, so this is the "
+		   "one statement no compiler and no survey can make for you.";
 
 	// ...and the two wrong orders that also compile are named, so a mutation
 	// that swaps them cannot pass by satisfying some looser rule.
-	EXPECT_FALSE( Contains( code, "{ NULL, pEntity, NULL }" ) )
+	EXPECT_FALSE( Contains( code, "{ NULL, pBase, NULL }" ) )
 		<< "the entity is on pBase armed. There is no SDK entity armed.";
-	EXPECT_FALSE( Contains( code, "{ pEntity, NULL, pEntity }" ) )
+	EXPECT_FALSE( Contains( code, "{ pBase, NULL, pBase }" ) )
 		<< "pHandle armed would be an IGameEntity * where an IHandleEntity * is "
 		   "wanted — the no-route kernel, which this lane does not solve.";
 }
@@ -553,92 +515,11 @@ TEST( CppAliasRetypeW1, TheClientWorldIsConstructedOnBothArmsAndStillFreed )
 	ASSERT_NE( 0, nDelete ) << "ClientWorldFactoryShutdown no longer frees the world";
 }
 
-//-----------------------------------------------------------------------------
-// CLAIM 7 — entity_bases.cpp's three answers, each of which was DERIVED rather
-// than chosen (see the file's own header).
-//-----------------------------------------------------------------------------
-TEST( CppAliasRetypeW1, TheFourHelperBaseBodiesAnswerTheDerivedValues )
-{
-	// READ THE ASSERTIONS, NOT THE ARMS. `the-close` 1/N (f288a5e11) deleted
-	// all seven regions in this file, so there are no arms to walk -- but the
-	// three ANSWERS are exactly what this fact was ever about, and every one of
-	// them was DERIVED rather than chosen (see the file's own header). A
-	// derivation is what reads as an accident once the arm beside it is gone,
-	// which is why re-pointing this rather than retiring it matters more here
-	// than almost anywhere else in the shard.
-	//
-	// The claims are now made of each BODY instead of each arm, counted the
-	// same way and to the same totals, so an answer lost in one of the three
-	// KeyValue bodies is still a failure naming which.
-	const std::string code = FileCode( "sourcesharp/game/server/entity_bases.cpp" );
-	ASSERT_FALSE( code.empty() ) << "entity_bases.cpp read as nothing";
-
-	EXPECT_EQ( 0u, GuardsIn( "sourcesharp/game/server/entity_bases.cpp" ).size() )
-		<< "entity_bases.cpp carries an alias region again.";
-
-	// THE THREE CLASSES ARE STILL DEFINED HERE. Everything below is a count or
-	// an absence over this text; without these the whole test is a statement
-	// about a file that did not open.
-	ASSERT_TRUE( Contains( code, "void CPointEntity::Spawn( void )" ) );
-	ASSERT_TRUE( Contains( code, "bool CPointEntity::KeyValue( const char *szKeyName, const char *szValue )" ) );
-	ASSERT_TRUE( Contains( code, "bool CServerOnlyPointEntity::KeyValue( const char *szKeyName, const char *szValue )" ) );
-	ASSERT_TRUE( Contains( code, "bool CLogicalEntity::KeyValue( const char *szKeyName, const char *szValue )" ) );
-
-	// ANSWER 1 -- CPointEntity::Spawn. Armed, solidity is ASKED
-	// (IGameEntity::ShouldCollide), never set, so the body is empty and
-	// `SetSolid` appears nowhere. An empty body is the answer with the
-	// conditional taken out of it; a plausible constant written here instead
-	// would be the §7 failure.
-	const int nSpawn = BodyIsEmpty( code, "void CPointEntity::Spawn( void )" ) ? 1 : 0;
-	EXPECT_EQ( 1, nSpawn ) << "CPointEntity::Spawn's body is not empty. Armed "
-		"there is nothing for it to do -- solidity is asked, not set.";
-	EXPECT_FALSE( Contains( code, "SetSolid( SOLID_NONE )" ) )
-		<< "SetSolid is back. It is not on IGameEntity, and it sat in an arm "
-		   "this build never compiled.";
-
-	// BodyIsEmpty CAN SAY NO, proved on a body in the same file. Without this
-	// the clause above is satisfied by a predicate that answers true for
-	// everything -- the shape of the forty-three checks this port has caught
-	// that could not fail. CPointEntity::KeyValue is three statements with a
-	// nested block, so a brace matcher that stopped at the first `}` would also
-	// be caught here.
-	EXPECT_FALSE( BodyIsEmpty( code,
-		"bool CPointEntity::KeyValue( const char *szKeyName, const char *szValue )" ) )
-		<< "BodyIsEmpty calls a three-statement body empty, so the Spawn clause "
-		   "above is satisfied by a predicate that cannot say no.";
-	EXPECT_FALSE( BodyIsEmpty( code, "void NoSuchFunctionW1( void )" ) )
-		<< "BodyIsEmpty answers TRUE for an anchor that is not there, so every "
-		   "emptiness claim would pass over a file that lost its function.";
-
-	// ANSWER 2 -- the warning survives, three times, one per KeyValue body, and
-	// it no longer names the entity. A map key these classes refuse is still
-	// refused armed and is still worth printing; what cannot be printed is the
-	// classname, because GetClassname is IServerNetworkable's and `this` is not
-	// one armed.
-	const int nWarning = (int)CountOf( code, "Warning(" );
-	EXPECT_EQ( 3, nWarning ) << "one per KeyValue body";
-	EXPECT_FALSE( Contains( code, "GetClassname" ) )
-		<< "GetClassname is not on IGameEntity and `this` is not an "
-		   "IServerEntity to ask instead";
-
-	// ANSWER 3 -- `false`, three times, one per KeyValue body. Armed there is
-	// no base handler to fall through to, and "this class did not handle that
-	// key" is the truthful answer rather than a stub -- it is also what the
-	// unarmed chain returned for every key CBaseEntity::KeyValue did not
-	// recognise, which is what makes it DERIVED rather than picked.
-	const int nKeyValue = (int)CountOf( code, "return false;" );
-	EXPECT_FALSE( Contains( code, "BaseClass::KeyValue" ) )
-		<< "the base fall-through is back; armed there is no base to handle it";
-	EXPECT_FALSE( Contains( code, "BaseClass::" ) );
-	EXPECT_EQ( 3, nKeyValue ) << "one per KeyValue body";
-}
-
-//=============================================================================//
-// THE SCANNER'S OWN TESTS. Everything above is a claim about the tree made by
-// the code below; a scanner that has quietly stopped scanning reports every one
-// of them as satisfied.
-//=============================================================================//
-
+// CLAIM 7 went with entity_bases.cpp (plan_server_native_min P1): the file
+// was compiled by nothing, included a cbase.h the farm lacks, and its four
+// bodies answered questions armed code can no longer ask -- no ServerClass
+// instantiates the four helper bases, so no caller exists to check the
+// derivations against.
 TEST( CppAliasRetypeW1Scanner, StripCommentsRemovesBothCommentKinds )
 {
 	EXPECT_EQ( "a\nb", StripComments( "a// gone\nb" ).substr( 0, 3 ) );

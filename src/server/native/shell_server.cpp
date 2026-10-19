@@ -91,14 +91,9 @@ void ClientGamePrecache( void )
 	SourceSharp_OnClientGamePrecache();
 }
 
-//-----------------------------------------------------------------------------
-// Corpse queue. HL2 recycles a pool of ragdolls here; SourceSharp has no
-// corpses yet, so this is a no-op rather than borrowed HL2 code.
-//-----------------------------------------------------------------------------
-void InitBodyQue( void )
-{
-	SOURCESHARP_STUB();
-}
+// InitBodyQue went (plan_server_native_min P1): a SOURCESHARP_STUB() body —
+// the corpse pool is a managed decision (Corpses.cs), and the one caller
+// called a no-op.
 
 //-----------------------------------------------------------------------------
 // Event log.
@@ -119,24 +114,11 @@ void InitBodyQue( void )
 //
 // The game system itself still has to exist and be non-NULL, hence this shell.
 //-----------------------------------------------------------------------------
-class CSourceSharpEventLog : public CServerSystem
-{
-public:
-	virtual char const *Name() OVERRIDE { return "CSourceSharpEventLog"; }
-
-	virtual bool Init() OVERRIDE
-	{
-		SOURCESHARP_TRACE();
-		return true;
-	}
-
-	virtual void Shutdown() OVERRIDE
-	{
-		SOURCESHARP_TRACE();
-	}
-};
-
-static CSourceSharpEventLog g_SourceSharpEventLog;
+// CSourceSharpEventLog went (plan_server_native_min P1): its Init and
+// Shutdown were SOURCESHARP_TRACE() and nothing else. The requirement it
+// met -- a listener for every fired event, or the engine segfaults on a null
+// descriptor -- is met from C# since the gameevents fold
+// (shared/shell_gameevents.cpp subscribes during LoadSide in DLLInit).
 
 //-----------------------------------------------------------------------------
 // Ends the round, sending everyone to intermission.

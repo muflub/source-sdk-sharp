@@ -134,7 +134,7 @@ const char *kSoundEntH   = "game/server/soundent.h";
 
 // A file beside it that the farm still links, so "soundent.h cannot be read"
 // is never answered by a reader looking in the wrong place.
-const char *kSiblingH    = "game/server/activator.h";
+const char *kSiblingH    = "game/shared/shareddefs.h";
 
 } // namespace
 

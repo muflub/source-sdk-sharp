@@ -34,7 +34,7 @@
 #include "string_t.h"
 #include "mathlib/vector.h"
 
-class IGameEntity;
+#include "igameentity_fwd.h"
 
 namespace ss
 {

@@ -1,6 +1,6 @@
 # docs/server-novalve-ratchet.tsv: tools/server-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
-# measured at fcd85593d
+# measured at 5fd753191
 # 2026-09-29: memalloc-importers added by hand at a90849d (40, debug), the objects importing g_pMemAlloc
 # 2026-09-30: re-taken at P4's close (dfade15 + server.so's own version script): tier0/tier1/vstdlib
 #   imports 0, fork-src 0, NEEDED 0, link-forbidden 0 (devtools/version_script.linux.txt replaced
@@ -14,11 +14,11 @@
 # 2026-10-12, lane input (C9 tier0/vstdlib pure move): vstdlib_random_port.cpp and randoverride.cpp left server.so for
 #   src/client/native (gc-dropped, no server importer of RandomInt/rand/srand; user ruling 2026-10-12):
 #   fork-hdr-not-allowed 44 -> 40, fork-hdr-total 159 -> 154.
-# 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left server.so (its only caller was studio.cpp), and one fork
-#   header only it reached went from the server's closure: fork-hdr-not-allowed 40 -> 39, fork-hdr-total 154 -> 153
-#   (tools/server-novalve-census).
-fork-hdr-not-allowed	39
-fork-hdr-total	153
+# 2026-10-18, plan_server_native_v2 D3: server.so builds on the pristine upstream public/ (farm/<config>/stock-public),
+#   so it reads no fork header at all: fork-hdr-not-allowed 40 -> 0, fork-hdr-total 154 -> 0 (ninja -t deps over the
+#   115 link-edge objects: 152 pristine src/public headers, 0 fork). docs/server-fork-allowlist.txt is empty for the same reason.
+fork-hdr-not-allowed	0
+fork-hdr-total	0
 fork-src	0
 imports:dmxloader	0
 imports:particles	0

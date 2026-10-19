@@ -186,7 +186,6 @@ public class EngineHierarchyWorldTests
     [InlineData("EntityParentProbe")]
     [InlineData("EntityGetAttachmentFrame")]
     [InlineData("EntityLookupAttachmentAny")]
-    [InlineData("FindBaseEntityByName")]
     [InlineData("EntityGetEngineBlock")]
     [InlineData("EntityDestroyPhysics")]
     public void EachOutboundParentingSlotIsDeclaredInBothFiles(string slot)

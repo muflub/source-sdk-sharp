@@ -177,27 +177,24 @@ TEST( TransmitCrossing, TheWalkIsStillNative )
 // EACH STEP READS ONE HIERARCHY, AND DECIDES NOTHING.
 //=============================================================================
 
-TEST( TransmitCrossing, TheSdkStepDoesNotKnowTheStandaloneOneExists )
+TEST( TransmitCrossing, TheStandaloneStepIsTheOnlyStepAndReadsOneHierarchy )
 {
 	const std::string steps = Stripped( kSteps );
 
-	const size_t sdk = steps.find( "int32_t SourceSharp_EntitiesSdkPlayerSkyboxArea(" );
-	ASSERT_NE( std::string::npos, sdk );
+	// ONE STEP since plan_server_native_v2 T2: the SDK step answered 0 for every
+	// edict (server.so builds no CBasePlayer), so it was deleted with its slot
+	// and EngineBinding answers "no SDK area" itself.
+	EXPECT_EQ( std::string::npos, steps.find( "SourceSharp_EntitiesSdkPlayerSkyboxArea(" ) )
+		<< "the SDK skybox step is back; there is no SDK player on the server";
 	const size_t other = steps.find( "int32_t SourceSharp_EntitiesStandalonePlayerSkyboxArea(" );
 	ASSERT_NE( std::string::npos, other );
-	ASSERT_LT( sdk, other );
-
-	// A step that could see both would be a step that could choose, which is
-	// the thing this crossing exists to take away from C++.
-	const std::string strSdkBody = steps.substr( sdk, other - sdk );
-	EXPECT_EQ( 0, CountOccurrences( strSdkBody, "CStandalonePlayer" ) );
 
 	const std::string strOtherBody = steps.substr( other );
 	EXPECT_EQ( 0, CountOccurrences( strOtherBody, "GetContainingEntity" ) );
 	EXPECT_EQ( 0, CountOccurrences( strOtherBody, "CBasePlayer" ) );
 }
 
-TEST( TransmitCrossing, NeitherStepWritesItsOutParameterOnAMiss )
+TEST( TransmitCrossing, TheStepDoesNotWriteItsOutParameterOnAMiss )
 {
 	// AREA 0 IS A REAL VISLEAF AREA. A step that zeroed *pOutArea on the way out
 	// would make "the world's first area" and "no such recipient" the same two
@@ -220,14 +217,11 @@ TEST( TransmitCrossing, NeitherStepWritesItsOutParameterOnAMiss )
 	EXPECT_EQ( 1, CountOccurrences( steps, "*pOutArea = " ) )
 		<< "one assignment, in the one step that can answer yes, and no others";
 
-	const size_t sdk = steps.find( "int32_t SourceSharp_EntitiesSdkPlayerSkyboxArea(" );
-	ASSERT_NE( std::string::npos, sdk );
 	const size_t other = steps.find( "int32_t SourceSharp_EntitiesStandalonePlayerSkyboxArea(" );
 	ASSERT_NE( std::string::npos, other );
 
-	// The SDK step writes nothing at all, and the one assignment is the
-	// standalone step's.
-	EXPECT_EQ( 0, CountOccurrences( steps.substr( sdk, other - sdk ), "*pOutArea = " ) );
+	// The one assignment is the standalone step's (the SDK step that wrote
+	// nothing was deleted, plan_server_native_v2 T2).
 	EXPECT_EQ( 1, CountOccurrences( steps.substr( other ), "*pOutArea = " ) );
 
 	// And each is immediately followed by the success return.
@@ -250,7 +244,7 @@ TEST( TransmitCrossing, NeitherStepWritesItsOutParameterOnAMiss )
 	EXPECT_EQ( 1, nChecked );
 }
 
-TEST( TransmitCrossing, TheSdkStepsUnguardedCastIsGoneWithTheNullItCastAndTheStandaloneStepAnswersInstead )
+TEST( TransmitCrossing, TheSdkStepsUnguardedCastIsGoneWithTheStepAndTheStandaloneStepAnswersInstead )
 {
 	// READ THE ASSERTIONS, NOT THE NAME -- and read them as a pair.
 	//
@@ -279,18 +273,11 @@ TEST( TransmitCrossing, TheSdkStepsUnguardedCastIsGoneWithTheNullItCastAndTheSta
 	EXPECT_EQ( 0, CountOccurrences( steps, "GetContainingEntity" ) );
 	EXPECT_EQ( 0, CountOccurrences( steps, "m_Local.m_skybox3d.area" ) );
 
-	// LIVE: the SDK step is still wired, still takes the out parameter, and
-	// answers 0 without touching it.
-	const size_t sdk = steps.find( "int32_t SourceSharp_EntitiesSdkPlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea )" );
-	ASSERT_NE( std::string::npos, sdk );
+	// GONE TOO: the SDK step that answered 0 for every edict
+	// (plan_server_native_v2 T2).
+	EXPECT_EQ( 0, CountOccurrences( steps, "SourceSharp_EntitiesSdkPlayerSkyboxArea(" ) );
 	const size_t other = steps.find( "int32_t SourceSharp_EntitiesStandalonePlayerSkyboxArea(" );
 	ASSERT_NE( std::string::npos, other );
-	const std::string strSdkBody = steps.substr( sdk, other - sdk );
-
-	EXPECT_EQ( 0, CountOccurrences( strSdkBody, "*pOutArea = " ) );
-	EXPECT_EQ( 0, CountOccurrences( strSdkBody, "return 1;" ) )
-		<< "the SDK step answers yes again -- it has no hierarchy to answer for";
-	EXPECT_LT( 0, CountOccurrences( strSdkBody, "return 0;" ) );
 
 	// LIVE: the standalone step is the one that can say yes, and it reads the
 	// skybox area through the standalone hierarchy's own accessor.
@@ -311,14 +298,14 @@ TEST( TransmitCrossing, TheSdkStepsUnguardedCastIsGoneWithTheNullItCastAndTheSta
 // THE WIRING.
 //=============================================================================
 
-TEST( TransmitCrossing, BothEngineStepsAreWiredExactlyOnce )
+TEST( TransmitCrossing, TheEngineStepIsWiredExactlyOnce )
 {
 	const std::string sys = Stripped( kSystem );
 
 	// The server's area methods forward to the two steps, once each (C6c).
 	const std::string impl = Stripped( kAreasImpl );
-	EXPECT_EQ( 1, CountOccurrences( impl,
-		"{ return ::SourceSharp_EntitiesSdkPlayerSkyboxArea( iEdict, pOutArea ); }" ) );
+	EXPECT_EQ( 0, CountOccurrences( impl, "SourceSharp_EntitiesSdkPlayerSkyboxArea" ) )
+		<< "the SDK skybox step is wired again; it was deleted with its slot";
 	EXPECT_EQ( 1, CountOccurrences( impl,
 		"{ return ::SourceSharp_EntitiesStandalonePlayerSkyboxArea( iEdict, pOutArea ); }" ) );
 
@@ -347,9 +334,7 @@ TEST( TransmitCrossing, TheTwoEngineSlotsLeftTheEngineTableForAServerArea )
 	EXPECT_EQ( std::string::npos, abi.find( "(*EntitiesSdkPlayerSkyboxArea)" ) );
 	EXPECT_EQ( std::string::npos, abi.find( "(*EntitiesStandalonePlayerSkyboxArea)" ) );
 
-	const size_t sdk = areas.find( " EntitiesSdkPlayerSkyboxArea(" );
-	const size_t other = areas.find( " EntitiesStandalonePlayerSkyboxArea(" );
-	ASSERT_NE( std::string::npos, sdk );
-	ASSERT_NE( std::string::npos, other );
-	EXPECT_LT( sdk, other );
+	// The SDK ask left the area too (plan_server_native_v2 T2).
+	EXPECT_EQ( std::string::npos, areas.find( " EntitiesSdkPlayerSkyboxArea(" ) );
+	EXPECT_NE( std::string::npos, areas.find( " EntitiesStandalonePlayerSkyboxArea(" ) );
 }

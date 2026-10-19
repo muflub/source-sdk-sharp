@@ -111,6 +111,14 @@ const std::string &EmitterSource()
 	return s;
 }
 
+// The client's overloads' home since plan_server_native_v2 T2 (2026-10-18).
+const std::string &ClientUtilSource()
+{
+	static const std::string s =
+		ReadGameFile( "../sourcesharp/game/client/client_util_library.cpp" );
+	return s;
+}
+
 //-----------------------------------------------------------------------------
 // Does a path under game/ exist at all? ReadSharedFile cannot answer it: it
 // returns the empty string BOTH for a file that is not there and for one that
@@ -461,18 +469,26 @@ struct Lift_t
 {
 	const char *pszMember;
 	const char *pszFree;
-	int nOverloads;
+	int nOverloads;         // defined in sound_emitter.cpp, which both DLLs compile
+	int nClientOverloads;   // defined in client_util_library.cpp: see below
 };
 
+// THE CLIENT'S OVERLOADS LEFT THE SHARED FILE (plan_server_native_v2 T2,
+// 2026-10-18). Three bodies here were #ifdef CLIENT_DLL -- GameSound_Emit's
+// handle overload, GameSound_GetParameters' handle overload and
+// GameSound_Prefetch -- and a shared TU keeps only what both DLLs import, so
+// they moved to the client's utility library. The lift's claim is about
+// LOCATION ("the body is a free function, not in the class"), so each is
+// counted where it is now and the total is unchanged.
 const Lift_t kLifts[] =
 {
-	{ "EmitSound",             "GameSound_Emit",             4 },
-	{ "StopSound",             "GameSound_Stop",             2 },
-	{ "GetParametersForSound", "GameSound_GetParameters",    2 },
-	{ "EmitCloseCaption",      "GameSound_EmitCloseCaption", 1 },
-	{ "PrecacheScriptSound",   "GameSound_PrecacheScript",   1 },
-	{ "PrecacheSound",         "GameSound_Precache",         1 },
-	{ "PrefetchSound",         "GameSound_Prefetch",         1 },
+	{ "EmitSound",             "GameSound_Emit",             3, 1 },
+	{ "StopSound",             "GameSound_Stop",             2, 0 },
+	{ "GetParametersForSound", "GameSound_GetParameters",    1, 1 },
+	{ "EmitCloseCaption",      "GameSound_EmitCloseCaption", 1, 0 },
+	{ "PrecacheScriptSound",   "GameSound_PrecacheScript",   1, 0 },
+	{ "PrecacheSound",         "GameSound_Precache",         1, 0 },
+	{ "PrefetchSound",         "GameSound_Prefetch",         0, 1 },
 };
 const size_t kNumLifts = sizeof( kLifts ) / sizeof( kLifts[ 0 ] );
 
@@ -621,8 +637,8 @@ TEST( SoundEmitterLift, TheFourDeletedFreeFunctionsHaveNoBodyAtAll )
 	// Positive control. FreeDefinitionCount answering 0 for everything would
 	// pass this whole test, and it is the shape that has gone unnoticed in this
 	// repo more than once -- so one name that IS there is counted first.
-	ASSERT_EQ( 4, FreeDefinitionCount( strCode, "GameSound_Emit" ) )
-		<< "GameSound_Emit's four definitions are not in sound_emitter.cpp, so "
+	ASSERT_EQ( 3, FreeDefinitionCount( strCode, "GameSound_Emit" ) )
+		<< "GameSound_Emit's three shared definitions are not in sound_emitter.cpp, so "
 		   "the counter is not reading the file this test thinks it is and "
 		   "every zero below means nothing";
 
@@ -639,17 +655,24 @@ TEST( SoundEmitterLift, TheFourDeletedFreeFunctionsHaveNoBodyAtAll )
 TEST( SoundEmitterLift, EveryFreeFunctionIsDefinedInSoundEmitterSystemCpp )
 {
 	const std::string strCode = StripComments( EmitterSource() );
+	ASSERT_FALSE( strCode.empty() ) << "the emitter source did not load";
+	const std::string strClient = StripComments( ClientUtilSource() );
+	ASSERT_FALSE( strClient.empty() ) << "client_util_library.cpp did not load";
 
 	int nTotal = 0;
 	for ( size_t i = 0; i < kNumLifts; i++ )
 	{
 		const int nFound = FreeDefinitionCount( strCode, kLifts[ i ].pszFree );
-		nTotal += nFound;
+		const int nClient = FreeDefinitionCount( strClient, kLifts[ i ].pszFree );
+		nTotal += nFound + nClient;
 
 		EXPECT_EQ( kLifts[ i ].nOverloads, nFound )
 			<< "expected " << kLifts[ i ].nOverloads << " definitions of "
 			<< kLifts[ i ].pszFree << " in sound_emitter.cpp, found " << nFound
 			<< ". The lift is only real if the BODY is here.";
+		EXPECT_EQ( kLifts[ i ].nClientOverloads, nClient )
+			<< "expected " << kLifts[ i ].nClientOverloads << " definitions of "
+			<< kLifts[ i ].pszFree << " in client_util_library.cpp, found " << nClient;
 	}
 
 	EXPECT_EQ( kLiftedDefinitions, nTotal );

@@ -21,6 +21,7 @@ shim-scope	routine	tools/shim-scope --self-test && tools/shim-scope
 loadprof	routine	tools/loadprof/lp --self-test
 live-gate	full	tools/live-gate --self-test
 run-checks	full	tools/run-checks --self-test
+server-stock-headers	full	tools/server-stock-headers --self-test && tools/server-stock-headers
 daily-gate	routine	tools/daily-gate --self-test
 local-launch	routine	python3 tools/local_launch.py --self-test
 kwin-bg-rule	routine	tools/kwin-bg-rule --self-test
@@ -34,3 +35,4 @@ package-release	routine	tools/package-release --self-test
 test-tiers	routine	tools/test-tiers --self-test
 ccomments	routine	tools/ccomments.py --self-test
 vpk-extract	routine	tools/vpk-extract --self-test
+server-native-scope	routine	tools/server-native-scope --self-test && tools/server-native-scope

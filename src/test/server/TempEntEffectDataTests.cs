@@ -1404,7 +1404,6 @@ public class TempEntEffectDataTests
         string[][] wanted =
         {
             new[] { "src", "sourcesharp", "public", "dt_send.cpp" },
-            new[] { "src", "sourcesharp", "game", "server", "sendproxy.cpp" },
             new[] { "src", "game", "shared", "effect_dispatch_data.h" },
             new[] { "src", "game", "shared", "effect_dispatch_data.cpp" },
             new[] { "src", "common", "qlimits.h" },

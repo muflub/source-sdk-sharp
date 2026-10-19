@@ -37,6 +37,7 @@
 #include "vgui_int.h"
 #include "ienginevgui.h"
 #include "shell_diagnostics.h"
+#include "ammodef.h"          // the client's ammo table, from shell_shared.cpp
 #include "shell_standalone_client.h"
 #include "ivieweffects.h"
 #include "iinput.h"
@@ -799,4 +800,65 @@ int32_t SourceSharp_ClientFilesReadGameFile( const char *pszPath, char *pOut, in
 	filesystem->Close( hFile );
 
 	return (int32_t)nRead;
+}
+
+//=============================================================================//
+// FROM shell_shared.cpp, WHERE THEY WERE #ifdef CLIENT_DLL (plan_server_native_v2
+// T2, 2026-10-18): a shared TU keeps only what both DLLs import. Moved verbatim.
+//=============================================================================//
+
+//-----------------------------------------------------------------------------
+// Ammo types, declared in C#.
+//
+// The table is deliberately NOT lazily initialised behind a "have we done this
+// yet" flag. GetAmmoDef can be called before the managed runtime is up — it is
+// reached from weapon script parsing, which the engine can do early — and a flag
+// would then latch an empty table forever. Instead the table starts empty and
+// valid, and C# fills it during LoadSide.
+//
+// CLIENT ONLY (plan_server_novalve.md P5, user ruling 2026-10-01). server.so's
+// table, ss::CAmmoDef, was written by C# and read by nothing once the server gc
+// cull deleted CalculateBulletDamageForce, so it is gone: the server's managed
+// side no longer registers, and the server's slot (shell_shared.cpp) refuses.
+//-----------------------------------------------------------------------------
+static CAmmoDef g_AmmoDef;
+
+CAmmoDef *GetAmmoDef()
+{
+	return &g_AmmoDef;
+}
+
+//-----------------------------------------------------------------------------
+// Called by C# once per ammo type.
+//
+// Idempotent by name: C# re-registers on every side load and a hot reload runs
+// it again, but CAmmoDef is native and survives that, so without this a reload
+// would add duplicate types and shift every ammo index.
+//-----------------------------------------------------------------------------
+void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,
+                                   int32_t nTracerType, float flDamageForce, float flDamage )
+{
+	if ( !pName || !pName[0] )
+		return;
+
+	if ( g_AmmoDef.Index( pName ) != -1 )
+	{
+		if ( SourceSharp_GetVerbosity() > 1 )
+			Msg( "[SourceSharp] ammo type '%s' already registered; kept\n", pName );
+		return;
+	}
+
+	// The damage is per BULLET and it is the ammo's, not the weapon's, which is
+	// how stock does it: FireBullets asks the ammo definition unless the shot
+	// carries an override, and HL2 sets these through the sk_plr_dmg_* convars.
+	// Registering zero — as this did — makes every bullet in the game do nothing,
+	// and nothing complains.
+	g_AmmoDef.AddAmmoType( pName, nDamageType, nTracerType,
+	                       (int)flDamage, (int)flDamage,   // player and NPC damage
+	                       nMaxCarry,
+	                       (int)flDamageForce, 0 );
+
+	if ( SourceSharp_GetVerbosity() > 0 )
+		Msg( "[SourceSharp] ammo type '%s' max=%d damageType=%d\n",
+			pName, nMaxCarry, nDamageType );
 }

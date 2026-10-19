@@ -221,18 +221,14 @@ public:
 	float EventGetFloat( void *, const char * ) override { return nLast = 2, 0.0f; }
 	int32_t EventGetBool( void *, const char * ) override { return nLast = 3, 0; }
 	const char *EventGetString( void *, const char * ) override { return nLast = 4, "four"; }
-	void *EventCreate( const char *pszName ) override { nLast = 5; pName = pszName; return this; }
 	void EventSetInt( void *, const char *, int32_t nValue ) override { nLast = 6; nSet = nValue; }
 	void EventSetFloat( void *, const char *, float ) override { nLast = 7; }
 	void EventSetBool( void *, const char *, int32_t ) override { nLast = 8; }
-	void EventSetString( void *, const char *, const char * ) override { nLast = 9; }
-	int32_t EventFire( void * ) override { return nLast = 10, 1; }
-	void EventFree( void *hEvent ) override { nLast = 11; pFreed = hEvent; }
+	void EventSetString( void *, const char *, const char *pszValue ) override { nLast = 9; pName = pszValue; }
 
 	int nLast = -1;
 	int32_t nSet = 0;
 	const char *pName = nullptr;
-	void *pFreed = nullptr;
 };
 
 const SSForwarderTable &EventsServerTable()
@@ -248,7 +244,10 @@ const SSForwarderTable &EventsServerTable()
 TEST( FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn )
 {
 	const SSForwarderTable &table = EventsServerTable();
-	ASSERT_EQ( 12, table.nSlots );   // IShimEvents' 5, then IShimEventsServer's 7
+	// IShimEvents' 5, then IShimEventsServer's 4 setters (EventCreate, EventFire
+	// and EventFree went in plan_server_native_v2 T3: IGameEventManager2's
+	// forwarders make those calls from managed).
+	ASSERT_EQ( 9, table.nSlots );
 
 	RecordingEvents events;
 	const char *pszName = "player_death";
@@ -261,18 +260,16 @@ TEST( FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn )
 		table.ppSlots[ 4 ] )( &events, nullptr, "k" ) );
 	EXPECT_EQ( 4, events.nLast );
 
-	EXPECT_EQ( &events, reinterpret_cast< void *( * )( IShimEventsServer *, const char * ) >(
-		table.ppSlots[ 5 ] )( &events, pszName ) );
-	EXPECT_EQ( 5, events.nLast );
-
 	reinterpret_cast< void ( * )( IShimEventsServer *, void *, const char *, int32_t ) >(
-		table.ppSlots[ 6 ] )( &events, nullptr, "k", 7 );
+		table.ppSlots[ 5 ] )( &events, nullptr, "k", 7 );
 	EXPECT_EQ( 6, events.nLast );
 	EXPECT_EQ( 7, events.nSet );
 
-	reinterpret_cast< void ( * )( IShimEventsServer *, void * ) >( table.ppSlots[ 11 ] )( &events, &events );
-	EXPECT_EQ( 11, events.nLast );
-	EXPECT_EQ( &events, events.pFreed );
+	const char *pszValue = "v";
+	reinterpret_cast< void ( * )( IShimEventsServer *, void *, const char *, const char * ) >(
+		table.ppSlots[ 8 ] )( &events, nullptr, "k", pszValue );
+	EXPECT_EQ( 9, events.nLast );
+	EXPECT_EQ( pszValue, events.pName );
 }
 
 //-----------------------------------------------------------------------------

@@ -148,77 +148,10 @@ static void *SourceSharp_GetGlobalVarsPtr( void )
 	return (void *)gpGlobals;
 }
 #ifndef CLIENT_DLL
-//-----------------------------------------------------------------------------
-// The weapon arms, dead with the C++ weapon shell (Phase 10).
-//
-// These crossed to CSourceSharpWeapon, whose class left the build: the state
-// machine reads and writes the weapon's DECLARED blob now and its per-side
-// arms live in the managed assemblies. The SLOTS keep their positions — the
-// ABI is append-only — and keep non-null, no-answer implementations, because
-// a null slot and a removed slot look identical from C# and only one of them
-// is a deliberate fact. An old managed build calling one gets a refusal, not
-// a crash.
-//-----------------------------------------------------------------------------
-static int32_t SourceSharp_WeaponGetState( uint32_t, SourceSharpWeaponState *pOut )
-{
-	if ( pOut )
-		memset( pOut, 0, sizeof( *pOut ) );
-	return 0;
-}
-static void SourceSharp_WeaponSetNextPrimaryAttack( uint32_t, float )
-{
-}
 #ifndef CLIENT_DLL
 #endif
 #ifndef CLIENT_DLL
 #endif
-static void SourceSharp_WeaponSetNextSecondaryAttack( uint32_t, float )
-{
-}
-static void SourceSharp_WeaponSetClip( uint32_t, int32_t )
-{
-}
-static void SourceSharp_WeaponSetInReload( uint32_t, int32_t )
-{
-}
-static int32_t SourceSharp_WeaponTakeAmmo( uint32_t, int32_t )
-{
-	return 0;
-}
-static int32_t SourceSharp_WeaponTakeSecondaryAmmo( uint32_t, int32_t )
-{
-	return 0;
-}
-static void SourceSharp_WeaponPlaySound( uint32_t, int32_t )
-{
-}
-static void SourceSharp_WeaponSendAnim( uint32_t, int32_t )
-{
-}
-static float SourceSharp_WeaponAnimDuration( uint32_t, int32_t )
-{
-	return 0.0f;
-}
-static void SourceSharp_WeaponFireBullets( uint32_t, int32_t, float )
-{
-}
-static void SourceSharp_WeaponMuzzleFlash( uint32_t )
-{
-}
-static void SourceSharp_WeaponAddViewKick( uint32_t )
-{
-}
-static void SourceSharp_WeaponIdle( uint32_t )
-{
-}
-
-// Claims one entity name for the generic weapon shell. Server only because the
-// entity factory dictionary is the server's — the client makes a weapon from a
-// network class, never from a name.
-// The nine names are [ScriptedEntity] registrations now (Phase 10).
-static void SourceSharp_RegisterWeaponEntity( const char * )
-{
-}
 #endif
 
 #ifndef CLIENT_DLL

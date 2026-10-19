@@ -544,7 +544,10 @@ TEST( StandaloneSystem, TheThreeFrameStepsAreThreeBecauseTheOrderIsADecision )
 	// deeper: the bodies are inside a class now, so a step's one call is
 	// indented twice. The forward DECLARATIONS are still at file scope with no
 	// tab at all, which is what the anchor is for.
-	EXPECT_EQ( 1, CountOf( steps, "\n\t\tStandaloneEntities_Update();" ) );
+	// StandaloneUpdate's body is EMPTY since plan_server_native_min P1:
+	// StandaloneEntities_Update was an empty body the managed frame never
+	// reached, so the slot stays and the call went. No call, at any indent.
+	EXPECT_EQ( 0, CountOf( steps, "StandaloneEntities_Update();" ) );
 	EXPECT_EQ( 1, CountOf( steps, "\n\t\tStandaloneEntities_Finish();" ) );
 
 	// The ORDER is C#'s now, and the calls are in ONE managed method so the

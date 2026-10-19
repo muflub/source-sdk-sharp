@@ -1,3 +1,8 @@
+# 2026-10-18, server-native-v2 (plan_server_native_min P1 replayed onto main 331c8a0cf): server TUs left the link:
+#   [snv2] server objects 123 -> 106, shim 123 -> 106. Measured lines re-taken from --write, the prose kept.
+# 2026-10-18, plan_server_native_v2 D1/D3: server.so builds on stock public/ headers, where the entity face is
+#   spelled CBaseEntity (IGameEntity its alias). "CBaseEntity:: members" server 0 -> 3 are that interface's implicit
+#   constructor and destructor; tools/entity-gates reads them as the face and gates the rest (gate 1's reconcile row).
 # 2026-10-18, studio.cpp's eviction: model_descriptor.cpp left both DLLs (the model descriptor is managed's StudioModelDescriptor): objects 122 -> 121 (server) and 144 -> 143 (client), shim 122 -> 121 and 130 -> 129; no cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, studio.cpp's eviction: studio.cpp left both DLLs (no native code reads the mdl through CStudioHdr): objects 121 -> 120 (server) and 143 -> 142 (client), shim 121 -> 120 and 129 -> 128; no cross-edge moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-18, studio.cpp's eviction: studio_mdlcache.cpp left both DLLs (its only caller was studio.cpp): objects 120 -> 119 (server) and 142 -> 141 (client), shim 120 -> 119 and 128 -> 127; no cross-edge moved. Hand-applied from tools/entity-census's diff.
@@ -894,19 +899,19 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 119       141
+objects linked                                                 106       142
   ... stock game/server | game/client                            0        13
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                        119       128
+  ... SourceSharp shim (sourcesharp/**)                        106       129
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         2
   ... their code lines                                           0       857
 stock TUs with entity-free text                                  0        11
   ... their code lines                                           0      7692
-CBaseEntity:: / C_BaseEntity:: members in the DLL                0         0
-  ... same, with NO symbol-type filter (§1's reading)            0         0
+CBaseEntity:: / C_BaseEntity:: members in the DLL                3         0
+  ... same, with NO symbol-type filter (§1's reading)            3         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0
                      CBaseEntityList) in the DLL
   ... same, without CBaseEntityList:: (§1's reading)             0         0
@@ -932,7 +937,7 @@ GetBaseEntity           0 in 0 files          0 in 0 files          0 in 0 files
 GetContainingEntity     0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 GetGameData             0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
 EHANDLE                 0 in 0 files          0 in 0 files          0 in 0 files          0 in 0 files        
-ToEngineIface           0 in 0 files          17 in 10 files        1 in 1 files          12 in 6 files       
+ToEngineIface           0 in 0 files          14 in 9 files         1 in 1 files          12 in 6 files       
 
 == 3. SHIM -> STOCK CROSS-EDGES, PER STOCK TU ==
 # FLOOR. Sorted by edges. A TU at 0 is one nothing in the shim links

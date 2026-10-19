@@ -457,14 +457,9 @@ INTERFACES = [
         summary='<c>IVoiceServer</c>, who can hear whom.',
         note='Server only.',
     ),
-    dict(
-        struct='ServerPluginHelpersVtbl',
-        header='src/public/engine/iserverplugin.h',
-        chain=['IServerPluginHelpers'],
-        version='ISERVERPLUGINHELPERS001',
-        summary='<c>IServerPluginHelpers</c>, the plugin-facing helpers.',
-        note='Server only.',
-    ),
+    # ServerPluginHelpersVtbl went with the plugin ABI (plan_server_native_min
+    # P1, Decision 1): third-party plugins are dropped and nothing acquired the
+    # pointer the engine handed over.
     dict(
         struct='UploadGameStatsVtbl',
         header='src/public/eiface.h',

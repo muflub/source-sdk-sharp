@@ -421,8 +421,8 @@ TEST( RemovalSetMiddleFixture, AllFilesWereReallyOpened )
 	// empty for a missing file and for no tree alike, so a sibling in the same
 	// directory must read first.
 	EXPECT_NE( std::string::npos,
-	           ReadGameFile( "server/entity_funcs.h" ).find( "#ifndef ENTITY_FUNCS_H" ) )
-		<< "game/server/entity_funcs.h did not read, so the absences below are "
+	           ReadGameFile( "shared/shareddefs.h" ).find( "#ifndef SHAREDDEFS_H" ) )
+		<< "game/shared/shareddefs.h did not read, so the absences below are "
 		<< "not evidence.";
 	EXPECT_TRUE( ServerHeader().empty() )
 		<< "game/server/baseentity.h is readable from the farm again.";

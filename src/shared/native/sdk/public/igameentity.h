@@ -50,8 +50,25 @@ struct Toucher_t;
 
 //-----------------------------------------------------------------------------
 // An entity game code can reason about without knowing what it is.
+//
+// ON THE SERVER, BUILT ON STOCK PUBLIC HEADERS, ITS NAME IS CBaseEntity
+// (plan_server_native_v2 D1, user ruling 2026-10-18: "can alias the two").
+// Stock iserverunknown.h, iservernetworkable.h, eiface.h and gametrace.h
+// name the game's entity CBaseEntity and only forward-declare it; server.so
+// has no other class of that name, so this one is it, and IGameEntity is the
+// same type under the name the rest of the tree spells. The client keeps
+// IGameEntity: its headers are the patched ones, and the alias is per side.
+//
+// SS_STOCK_PUBLIC_HEADERS marks the stock build. Until D3 points server.so's
+// include root at the pristine tree, only tools/server-stock-headers defines
+// it; the patched headers forward-declare `class IGameEntity`, which an alias
+// of the same name could not sit beside.
 //-----------------------------------------------------------------------------
+#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
+abstract_class CBaseEntity
+#else
 abstract_class IGameEntity
+#endif
 {
 public:
 	// What CTraceFilterSimple asks an entity for.
@@ -295,7 +312,15 @@ public:
 	virtual void VPhysicsUpdate( IPhysicsObject *pObject ) = 0;
 
 protected:
+#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
+	virtual ~CBaseEntity() {}
+#else
 	virtual ~IGameEntity() {}
+#endif
 };
+
+#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
+using IGameEntity = CBaseEntity;
+#endif
 
 #endif // IGAMEENTITY_H

@@ -118,9 +118,7 @@ IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
 #define SS_HANDLE_ENTITY( h ) SourceSharp_EntityFromHandle( h )
 // env_player_surface_trigger's funnel, server.so's own (shell_absent.cpp).
 namespace ss { void SetPlayerSurface( const CBaseHandle &, char ); }
-#ifndef CLIENT_DLL
-#include "shell_factory.h"
-#endif
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 #endif
 #ifdef CLIENT_DLL
 #define SS_HANDLE_ENTITY( h ) ( h ).Get()
@@ -449,13 +447,8 @@ void SourceSharp_MoveManagedReport()
 			SourceSharp_MovementRefusalCount( i ) );
 }
 
-#ifdef CLIENT_DLL
-CON_COMMAND( cs_cl_move_managed_report,
-	"cs_cl_move_managed_report -- how many times each ported movement method ran in C# on the CLIENT" )
-{
-	SourceSharp_MoveManagedReport();
-}
-#endif
+// cs_cl_move_managed_report, the client's command over it, is client-only and
+// lives in src/client/native/shell_prediction.cpp since plan_server_native_v2 T2.
 
 //========= SourceSharp — IGameMovement, published by the shim ==============//
 //
@@ -605,10 +598,15 @@ public:
 	virtual void	ProcessMovement( IMovementPlayer *pPlayer, CMoveData *pMove ) OVERRIDE;
 	virtual void	StartTrackPredictionErrors( IMovementPlayer *pPlayer ) OVERRIDE;
 	virtual void	FinishTrackPredictionErrors( IMovementPlayer *pPlayer ) OVERRIDE;
+#ifdef CLIENT_DLL
+	// Stock's igamemovement.h, which the client's GameMovement001 export
+	// implements, declares these four; server.so's ss::IGameMovement dropped
+	// them in plan_server_native_v2 T2 (no caller in either DLL).
 	virtual void	DiffPrint( PRINTF_FORMAT_STRING char const *fmt, ... ) OVERRIDE;
 	virtual Vector	GetPlayerMins( bool ducked ) const OVERRIDE;
 	virtual Vector	GetPlayerMaxs( bool ducked ) const OVERRIDE;
 	virtual Vector	GetPlayerViewOffset( bool ducked ) const OVERRIDE;
+#endif
 
 	// ---- the crossing and the four things it is serviced with -----------
 	bool			RunManagedCommand( void );
@@ -684,11 +682,9 @@ IGameMovement *g_pGameMovement = ( IGameMovement * )&g_ShellGameMovement;
 #ifdef CLIENT_DLL
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellGameMovement, IGameMovement,
 	INTERFACENAME_GAMEMOVEMENT, g_ShellGameMovement );
-#else
-// The server answers it from its factory (shell_factory.cpp), by this row.
-static void *SourceSharp_GetGameMovement() { return (IGameMovement *)&g_ShellGameMovement; }
-const SourceSharpExposed kExposeGameMovement = { INTERFACENAME_GAMEMOVEMENT, SourceSharp_GetGameMovement };
 #endif
+// The server's export went in plan_server_native_v2 T2 (ruling 4, 2026-10-11):
+// no engine binary asks for the name, and server.so's callers use the global.
 
 //-----------------------------------------------------------------------------
 // THE STOCK MOVER ON LOAN IS GONE, AND SO IS THE THING THAT LENT IT.
@@ -1152,7 +1148,7 @@ void CShellGameMovement::WorldTrace( const float *pStart, const float *pEnd,
 	pOut->bHasGround     = pGround ? 1 : 0;
 	SS3E_FillVec( pOut->vecGroundVelocity, MovementGroundVelocity( pGround ) );
 	pOut->bHasEntity     = pm.m_pEnt ? 1 : 0;
-	pOut->bHitWorld      = SourceSharp_IsTheWorld( pm.m_pEnt ) ? 1 : 0;
+	pOut->bHitWorld      = SourceSharp_IsTheWorld( ss::TraceHit( pm ) ) ? 1 : 0;
 }
 
 int CShellGameMovement::WorldPointContents( const float *pXYZ, int nSlot )
@@ -1448,8 +1444,9 @@ void SourceSharp_MoveEndClientCommand( int32_t bRan, int32_t *pOutGroundIndex )
 //           directly through the bracket at the bottom of this file.
 //
 // The remaining four -- DiffPrint, GetPlayerMins, GetPlayerMaxs and
-// GetPlayerViewOffset -- have NO caller in either DLL. They are implemented
-// rather than refused because they are three lines each and because a wrong
+// GetPlayerViewOffset -- have NO caller in either DLL, and are the client's
+// alone since plan_server_native_v2 T2 (stock's interface, which the client
+// exports, declares them). They are implemented rather than refused because they are three lines each and because a wrong
 // answer from a hull accessor is a player who walks through walls: a refusal
 // that returned vec3_origin would be a plausible-looking zero of exactly the
 // kind `.claude/entity-port` has three recorded cases of.
@@ -1566,6 +1563,7 @@ void CShellGameMovement::FinishTrackPredictionErrors( IMovementPlayer *pPlayer )
 {
 }
 
+#ifdef CLIENT_DLL
 //-----------------------------------------------------------------------------
 // Stock's body is empty at PREDICTION_ERROR_CHECK_LEVEL 0 and this one is too.
 // The varargs are consumed rather than ignored so a caller with a bad format
@@ -1615,6 +1613,7 @@ Vector CShellGameMovement::GetPlayerViewOffset( bool ducked ) const
 
 	return ducked ? VEC_DUCK_VIEW_SCALED( player ) : VEC_VIEW_SCALED( player );
 }
+#endif // CLIENT_DLL: the four stock members (see the class)
 
 //=============================================================================
 // The two CGameMovement members the servicing half reached through, moved with

@@ -33,7 +33,7 @@
 #include "string_t.h"
 #include "mathlib/vector.h"
 
-class IGameEntity;
+#include "igameentity_fwd.h"
 class IServerEntity;
 class IServerNetworkable;
 class CSoundPatch;

@@ -142,7 +142,9 @@ public static partial class TestServices
         // The decal system, for the same reason: what an explosion painted is
         // a group name asked for and an index arranged. Reachable with
         // services.Resolve( typeof( IServerDecals ) ).
-        services.AddInstance<IServerDecals>(new RecordingDecals());
+        var decals = new RecordingDecals();
+        services.AddInstance<IServerDecals>(decals);
+        services.AddInstance(new BloodDecals(engine, decals, engine, engine));
         services.AddInstance(new SourceSharp.Server.Interop.SolverHeldOverlaps());
 
         services.AddInstance<IServerSoundEnt>(new SoundEnt(engine, engine, engine));

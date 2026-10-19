@@ -62,7 +62,7 @@
 #include <stdint.h>
 #include "mathlib/vector.h"
 
-class IGameEntity;
+#include "igameentity_fwd.h"
 #include "igameentity.h"
 namespace ss { class CTakeDamageInfo; }	// ss_takedamageinfo.h
 class IHandleEntity;

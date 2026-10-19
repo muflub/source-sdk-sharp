@@ -41,7 +41,7 @@
 #include "shell_diagnostics.h"
 #include "vphysics_interface.h"
 #include "ss_effects.h"
-#include "collisionutils.h"
+#include "mathlib_port.h"      // ss_mathlib::CalcSqrDistanceToAABB
 #include "ss_effect_dispatch.h"
 #include "engine/ivmodelinfo.h"
 #include "model_types.h"
@@ -60,23 +60,12 @@ extern IVModelInfo *modelinfo;
 void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color, int amount );		// server_util_library.cpp
 void UTIL_BloodSpray( const Vector &pos, const Vector &dir, int color, int amount, int flags );		// shell_absent.cpp
 void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, int amount );		// util_shared_library.cpp
-void UTIL_BloodDecalTrace( trace_t *pTrace, int bloodColor );										// util_shared_library.cpp
 int UTIL_PrecacheDecal( const char *name, bool preload = false );									// server_util_library.cpp
 void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex = 0,
                   int iAttachment = ss::kTracerDontUseAttachment, float flVelocity = 0,
                   bool bWhiz = false, const char *pCustomTracerName = NULL, int iParticleID = 0 );	// util_shared_library.cpp
 void PrecacheMaterial( const char *pMaterialName );												// shell_stringtables.cpp
 void PrecacheParticleSystem( const char *pParticleSystemName );									// shell_stringtables.cpp
-
-// baseentity.h's CLASS_NONE: a radius-damage call that ignores no class.
-enum { kClassNone = 0 };
-
-// The global RadiusDamage wrapper (stock's, from basecombatcharacter.cpp), defined
-// in shell_absent.cpp. Declared here, without basecombatcharacter.h's default for
-// the last argument, because that header (reached through beam_shared.h until
-// plan_server_novalve.md P5 wave 8c) brought the CBasePlayer hierarchy with it.
-void RadiusDamage( const ss::CTakeDamageInfo &info, const Vector &vecSrc, float flRadius,
-                   int iClassIgnore, IGameEntity *pEntityIgnore, const IHandleEntity *pTraceIgnore );
 
 // The lifted sound statics. They used to be reached as CBaseEntity::Foo()
 // through one-line forwarders in game/shared/baseentity_sound_forwarders.cpp;
@@ -88,6 +77,7 @@ void RadiusDamage( const ss::CTakeDamageInfo &info, const Vector &vecSrc, float 
 // rather than pulled in through a header that would drag the whole gamesystem
 // into a file about spatial queries.
 #include "imanaged_areas.h"   // plan_engineapi_vtables E9: IManagedEntities
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 
 //-----------------------------------------------------------------------------
@@ -232,7 +222,11 @@ int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius,
 		Vector vecMins, vecMaxs;
 		pStandalone->WorldSpaceSurroundingBounds( &vecMins, &vecMaxs );
 
-		if ( !IsBoxIntersectingSphere( vecMins, vecMaxs, vecCenter, flRadius ) )
+		// collisionutils.cpp's IsBoxIntersectingSphere, which was the server's
+		// one reason to link that TU: the squared distance from the centre to
+		// the box against the squared radius, strictly less, summed per axis in
+		// the same order -- bit for bit the same answer.
+		if ( !( ss_mathlib::CalcSqrDistanceToAABB( vecMins, vecMaxs, vecCenter ) < flRadius * flRadius ) )
 			continue;
 
 		pOutHandles[nCount++] = SourceSharp_HandleFromAnyEntity( pStandalone );
@@ -505,7 +499,7 @@ static int32_t SourceSharp_TraceLineInto( const float *pStartXYZ, const float *p
 		// "is what the line hit the thing I aimed at", and against a managed
 		// target that comparison could not come out true, so every blast read as
 		// blocked and every magnet as obstructed.
-		*pOutHit = SourceSharp_HandleFromAnyEntity( tr.m_pEnt );
+		*pOutHit = SourceSharp_HandleFromAnyEntity( ss::TraceHit( tr ) );
 	}
 
 	// THE SURFACE ONLY WHEN THE LINE WAS STOPPED BY ONE. A trace that ran its
@@ -799,53 +793,6 @@ void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float f
 }
 
 //-----------------------------------------------------------------------------
-// Damage everything in range, the way the engine does it.
-//
-// The distinction from SourceSharp_CreateExplosion is worth stating, because
-// the two look interchangeable and are not. ExplosionCreate builds an
-// env_explosion BY CLASSNAME and that entity carries the presentation: a
-// sprite, a sound, a scorch decal. Its spawnflags suppress some of that and not
-// all of it, so an entity whose whole point is invisible damage on a timer --
-// point_hurt -- cannot be built out of it without the map hearing a bang every
-// tenth of a second.
-//
-// So this is the traversal alone. RadiusDamage is what does the work worth
-// keeping native: the sphere query, the trace to each candidate so a wall
-// stops the blast, and the falloff applied per victim.
-//
-// CLASS_NONE and a NULL ignore list are stock's own arguments from
-// CPointHurt::HurtThink. Neither means anything without NPCs in the build --
-// the class is what makes a blast spare its own faction -- and passing them
-// explicitly keeps this reading as the call it replaces.
-//-----------------------------------------------------------------------------
-void SourceSharp_RadiusDamage( const float *pOrigin, float flDamage, float flRadius,
-                               int32_t nDamageType, uint32_t hAttacker )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOrigin )
-		return;
-
-	// A zero radius damages nothing rather than everything. The engine's
-	// falloff divides by the radius, and a map that left the key unset must not
-	// be read as asking to hurt the whole level.
-	if ( flRadius <= 0.0f )
-		return;
-
-	IGameEntity *pAttacker = SourceSharp_ResolveEntity( hAttacker ).GameEntity();
-
-	// The world is the honest answer when nothing was named, and it is what
-	// CTakeDamageInfo does with a NULL: the kill is credited to nobody. An
-	// invented attacker would put the wrong name in a death message.
-	ss::CTakeDamageInfo info( pAttacker, pAttacker, flDamage, nDamageType );
-
-	// The global wrapper now lives in shell_entity_orphans.cpp — it left
-	// basecombatcharacter.cpp with the player cluster (13c).
-	RadiusDamage( info, Vector( pOrigin[0], pOrigin[1], pOrigin[2] ),
-	              flRadius, kClassNone, NULL, NULL );
-}
-
-//-----------------------------------------------------------------------------
 // The explosion TEMP ENTITY, and nothing else.
 //
 // env_explosion is EnvExplosion.cs now. Everything that entity decided -- which
@@ -876,65 +823,9 @@ void SourceSharp_ExplosionEffect( const float *pOrigin, int32_t nModelIndex, flo
 
 	ss::CPASFilter filter( vecOrigin );
 
-	if ( SourceSharpTe_SuppressFilter( filter ) )
-		return;
 
 	TE_Explosion( filter, 0.0, &vecOrigin, nModelIndex, flScale, nFrameRate,
 	              nFlags, nRadius, nMagnitude );
-}
-
-//-----------------------------------------------------------------------------
-// Radius damage as an EXPLOSION does it.
-//
-// The difference from SourceSharp_RadiusDamage above is three arguments, and
-// every one of them moves the numbers rather than the presentation. See
-// ExplosionDamage in sourcesharp.h; the inflictor one is the expensive one --
-// without it the first trace begins inside the exploding entity's own hull and
-// the falloff collapses to zero for every victim in range.
-//-----------------------------------------------------------------------------
-void SourceSharp_ExplosionDamage( const float *pOrigin, float flMagnitude, float flRadius,
-                                  int32_t nDamageType, uint32_t hAttacker, uint32_t hInflictor,
-                                  uint32_t hIgnored, float flDamageForce )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pOrigin )
-		return;
-
-	// A zero radius damages nothing rather than everything -- the falloff
-	// divides by the radius. Same guard, same reason, as RadiusDamage above.
-	if ( flRadius <= 0.0f )
-		return;
-
-	const Vector vecOrigin( pOrigin[0], pOrigin[1], pOrigin[2] );
-
-	IGameEntity *pAttacker = SourceSharp_ResolveEntity( hAttacker ).GameEntity();
-	const SourceSharpEntity_t inflictor = SourceSharp_ResolveEntity( hInflictor );
-	const SourceSharpEntity_t ignored   = SourceSharp_ResolveEntity( hIgnored );
-
-	// The attacker and the inflictor on either hierarchy (A40). This said a
-	// managed attacker could not be named here, which stopped being true when
-	// CTakeDamageInfo took IGameEntity; the gap it described sent every
-	// managed explosion's kill to nobody.
-	IGameEntity *pInflictor = inflictor.GameEntity();
-	ss::CTakeDamageInfo info( pInflictor ? pInflictor : pAttacker,
-	                      pAttacker, flMagnitude, nDamageType );
-
-	if ( flDamageForce != 0.0f )
-	{
-		// Not the right direction; RadiusDamage fixes it up per victim. Stock
-		// does exactly this and the comment there says the same.
-		info.SetDamagePosition( vecOrigin );
-		info.SetDamageForce( Vector( flDamageForce, 0, 0 ) );
-	}
-
-	// The ignored entity in BOTH senses -- not hurt, and not in the way -- which
-	// is what SourceSharp_CreateExplosion meant by it and what an entity that
-	// explodes where it stands needs. ToHandleEntity() is how a managed entity
-	// says the second half: it is not a CBaseEntity, but both hierarchies can be
-	// an IHandleEntity.
-	RadiusDamage( info, vecOrigin, flRadius, kClassNone, ignored.GameEntity(),
-	              ignored.ToHandleEntity() );
 }
 
 //-----------------------------------------------------------------------------
@@ -997,7 +888,7 @@ int32_t SourceSharp_TraceHull( const float *pStartXYZ, const float *pEndXYZ,
 		*pOutStartSolid = tr.startsolid ? 1 : 0;
 
 	if ( pOutHit )
-		*pOutHit = SourceSharp_HandleFromAnyEntity( tr.m_pEnt );
+		*pOutHit = SourceSharp_HandleFromAnyEntity( ss::TraceHit( tr ) );
 
 	return ( tr.fraction < 1.0f || tr.startsolid ) ? 1 : 0;
 }
@@ -1061,108 +952,6 @@ void SourceSharp_EntityGetBounds( uint32_t hEntity, float *pOutMinsXYZ, float *p
 }
 
 //-----------------------------------------------------------------------------
-// RETIRED. Setting something alight is C# now, end to end.
-//
-// This built a native CEntityFlame and attached it. There is no such class in
-// this build any more: entityflame is ss_entityflame, a managed entity with a
-// managed client half, and the one thing the native flame could do that a
-// managed one could not -- parent itself to what it burns -- stopped being true
-// when shell_standalone_hierarchy.cpp learned to parent a standalone child to a
-// CBaseEntity parent.
-//
-// It could not simply be REPOINTED at the managed flame, because the direction
-// is wrong. What ignites and for how long is a decision, and the caller was
-// already C# (EnvEntityIgniter). A managed caller reaching through the engine
-// to reach a managed entity is a round trip with nothing in the middle of it:
-// Flames.Ignite builds the flame directly instead. What is left going the other
-// way -- a NATIVE entity being set alight, which a prop_ragdoll's Ignite input
-// still does -- is SourceSharp_NotifyEntityIgnite below.
-//
-// WHY THE SLOT STAYS. Removing a field from the MIDDLE of SourceSharpEngineApi
-// shifts every field after it, and several lanes are appending to that struct.
-// Emptying the body is what this change needed; it costs one pointer to a
-// refusal, and the field can go in a later pass that owns the whole table.
-//
-// It REFUSES rather than returning quietly, because a silent return here would
-// look exactly like a flame that failed to spawn.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntityIgnite( uint32_t hEntity, float flLifetime )
-{
-	SOURCESHARP_TRACE();
-
-	static bool s_bWarned = false;
-
-	if ( s_bWarned )
-		return;
-
-	s_bWarned = true;
-	Warning( "[SourceSharp] EntityIgnite is retired: the flame is ss_entityflame "
-	         "and is created from C#. Nothing should be calling this.\n" );
-}
-
-//-----------------------------------------------------------------------------
-// DISSOLVING SOMETHING -- AND IT IS A DECLARED REFUSAL. plan_entity.md step 4a.
-//
-// WHAT IT USED TO DO: resolve the handle to a CBaseEntity, down-cast to
-// CBaseAnimating and call Dissolve(), which builds a CEntityDissolve
-// (game/server/EntityDissolve.cpp), attaches it to the target and lets the
-// CLIENT draw a dissolve shader over the target's studio model.
-//
-// WHY IT IS A REFUSAL RATHER THAN A PORT, and the first half is a measurement
-// rather than an argument. This function ANSWERED 0 FOR EVERY CALLER ALREADY:
-// SourceSharp_ResolveEntity(...).pBase is NULL for every managed handle, so the
-// `if ( !pEntity ) return 0` above took every path. What it looked like was a
-// working slot; what it was, was a silent no-op -- exactly the shape
-// plan_entity.md §7 forbids ("a behaviour that is refused is a ContractBaseline
-// entry with a reason, never a silent no-op").
-//
-// And NOTHING CALLS IT. `grep -rn "\.Dissolve(" SourceSharp.Server` is empty:
-// the slot is reachable from Engine.EntityDissolve and IEngineDamage.Dissolve,
-// and no managed class asks either. So the choice was between porting a client
-// render feature nothing requests and saying so out loud.
-//
-// WHAT A PORT WOULD NEED, named so the refusal has an owner rather than being a
-// dead end: the dissolve is not a server effect at all. It is a material proxy
-// the client runs over the target's model for a window of time, driven off the
-// target's render mode and a dissolve entity parented to it. The standalone
-// client hierarchy draws a studio model and has no render-mode override and no
-// proxy-driving entity, and building one is the client animation and render
-// tail -- step 6c/6d -- not an effects-cluster job. When it lands, this slot is
-// where the server half goes back.
-//
-// THE ABI FIELD STAYS for SourceSharp_ShootGib's reason: removing one from the
-// middle of SourceSharpEngineApi shifts every field after it. It costs one
-// pointer to a warning.
-//
-// THIS IS THE `Dissolve` EDGE step 4d handed to 4a. baseanimating.o owed eight
-// symbols to the shim through SourceSharpEntity_t::Animating(); 4d's handover
-// table named seven as 4f's and this one as 4a's, and this is where it goes.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EntityDissolve( uint32_t hEntity, int32_t nType, float flMagnitude,
-                                    const float *pOriginXYZ )
-{
-	SOURCESHARP_TRACE();
-
-	static bool s_bWarned = false;
-
-	if ( !s_bWarned )
-	{
-		s_bWarned = true;
-		Warning( "[SourceSharp] EntityDissolve is refused: the dissolve is a CLIENT "
-		         "shader over a studio model and the standalone hierarchy has no "
-		         "render-mode override to drive it. See ContractBaseline.Refusals. "
-		         "This answered 0 for every managed entity before it said so.\n" );
-	}
-
-	(void)hEntity;
-	(void)nType;
-	(void)flMagnitude;
-	(void)pOriginXYZ;
-
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
 // A shower of sparks.
 //
 // A temp entity written straight to the wire, which is the cheapest thing the
@@ -1210,120 +999,6 @@ void SourceSharp_SparkEffect( const float *pOriginXYZ, int32_t nMagnitude, int32
 }
 
 //-----------------------------------------------------------------------------
-// Which frame of an animated material a brush is showing.
-//
-// The frames belong to the artist and the material; which one is up belongs to
-// the map, and that is the whole of env_texturetoggle. Two calls rather than an
-// "advance" one, because the map has both inputs -- step it on, or jump to a
-// numbered frame -- and doing the arithmetic in C# keeps the wrap rule there
-// with the entity that owns it.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EntityGetTextureFrame( uint32_t hEntity )
-{
-	// Deliberately untraced: [SuppressGCTransition]. Resolve a handle, read an
-	// int, return.
-	// The frame index is CBaseEntity's own member (m_nTextureFrameIndex), so
-	// armed there is nothing holding it: .pBase is NULL for every handle and
-	// the ternary's own zero -- "no entity, no frame" -- is the answer.
-	return 0;
-}
-
-void SourceSharp_EntitySetTextureFrame( uint32_t hEntity, int32_t nFrame )
-{
-	// Deliberately untraced, as above.
-	// The write half of the pair above, and it goes for the same reason.
-}
-
-//-----------------------------------------------------------------------------
-// Zooming a player's view.
-//
-// SetFOV takes an OWNER, and that is the part worth not losing: the engine
-// keeps track of who asked, so two entities zooming the same player do not
-// fight, and handing back zero from the same owner is how one says it has
-// finished. Passing the requester through rather than inventing one here is
-// what makes UnZoom mean "release MY zoom" instead of "clear everything".
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSetFov( uint32_t hPlayer, uint32_t hRequester, int32_t nFov, float flRate )
-{
-	SOURCESHARP_TRACE();
-
-	// CBasePlayer::SetFOV retired with its class (13c) — m_iFOV was networked
-	// through the CBasePlayer send table, which no longer exists. The zoom for
-	// the standalone player is a field on its declared state when env_zoom is
-	// ported to it; already inert for the standalone player before the flip.
-	// (The owner-pairing lesson that used to live here — SetFOV hard-asserts a
-	// non-NULL requester — is recorded in docs/divergences.md.)
-}
-
-//-----------------------------------------------------------------------------
-// Which skin of a model is drawn.
-//
-// One model with several liveries is how the SDK ships a soda can in six
-// colours. The skins belong to the artist; picking one per instance is a
-// decision, and env_beverage is what makes it.
-//
-// Deliberately untraced: [SuppressGCTransition]. Resolve a handle, write an
-// int, return.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntitySetSkin( uint32_t hEntity, int32_t nSkin )
-{
-	// GetBaseAnimating() again -- the CBaseEntity down-cast the alias removes,
-	// and m_nSkin lives on the CBaseAnimating it reaches. Armed .pBase is NULL
-	// for every handle, so the existing "no entity" fall-through is the answer.
-}
-
-//-----------------------------------------------------------------------------
-// ONE PIECE OF DEBRIS, THROWN -- AND IT IS C# NOW. plan_entity.md step 4a.
-//
-// This function used to be 240 lines that built a CGib, and it was the ONLY
-// thing on the server link line that still needed game/server/gib.cpp:
-//
-//     == gib: 5 symbols owed
-//       shell_worldquery (5)
-//           CGib::DieThink()
-//           CGib::SetBloodColor(int)
-//           CGib::Spawn(char const*)
-//           CreateRagGib(char const*, Vector const&, QAngle const&, ...)
-//           typeinfo for CGib
-//
-// A gib is a managed entity today: ss_gib, made by SourceSharp.Server's Gibs
-// through the ordinary Entities.Create, with SsRagdoll serving
-// GIB_SIMULATE_RAGDOLL -- exactly as stock's CRagGib was its own entity rather
-// than a configured CGib. gib.cpp is out of server_csharp.vpc and off disk.
-//
-// WHY THE SLOT STAYS. Removing a field from the MIDDLE of SourceSharpEngineApi
-// shifts every field after it, and several lanes are appending to that struct
-// right now -- the same argument the three retired fire effects below record.
-// Emptying the body is what this change needed; it costs one pointer to a
-// refusal, and the field itself can go in a later pass that owns the whole
-// table. See .claude/entity-port/abi-requests/4a.md.
-//
-// IT REFUSES RATHER THAN RETURNING QUIETLY. A silent 0 here would look exactly
-// like a gib that failed to spawn, and that is a bug report nobody could act
-// on. plan_entity.md section 7: "a behaviour that is refused is a
-// ContractBaseline entry with a reason, never a silent no-op" -- and there is a
-// ContractBaseline.Refusals entry naming this slot.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_ShootGib( const char *pszModel, const SourceSharpGibShot *pShot )
-{
-	static bool s_bWarned = false;
-
-	if ( !s_bWarned )
-	{
-		s_bWarned = true;
-		Warning( "[SourceSharp] SourceSharp_ShootGib is retired: a gib is ss_gib and is "
-		         "created from C# (SourceSharp.Server.Gibs). Nothing should be calling "
-		         "this.\n" );
-	}
-
-	(void)pszModel;
-	(void)pShot;
-
-	return 0;
-}
-
-
-//-----------------------------------------------------------------------------
 // Precaching a model, and answering the index rather than nothing.
 //
 // The index is why this exists. Precaching alone could have been a void call;
@@ -1367,62 +1042,6 @@ int32_t SourceSharp_PrecacheModel( const char *pszModel )
 // never 0, because 0 is a real frame count; and ModelType.Bad where -1 is
 // not available at the type, because mod_bad IS zero.
 
-
-//-----------------------------------------------------------------------------
-// THE FLAME IS C# NOW. These three are retired, and are kept only as addresses.
-//
-// They used to build a native _firesmoke or _plasma, scale it and switch it on
-// -- CFire::SpawnEffect moved out of fire.cpp and behind the boundary. The
-// flame is a managed entity today: ss_firesmoke and ss_plasma, created by
-// EnvFire.cs through the ordinary Entities.Create, with client halves in
-// SourceSharp.Client/Standalone.
-//
-// WHY THE SLOTS STAY. Removing three fields from the MIDDLE of
-// SourceSharpEngineApi shifts every field after them, and six other lanes are
-// appending to that struct right now. Emptying the bodies is what this change
-// needed -- the eviction was blocked by these three functions naming CBaseFire,
-// CFireSmoke and CPlasma, and nothing else on the server named them at all --
-// and it costs three pointers to a refusal. The fields themselves can go in a
-// later pass that owns the whole table.
-//
-// They REFUSE rather than returning quietly, because a silent zero here would
-// look exactly like a flame that failed to spawn, and that is a bug report
-// nobody could act on.
-//-----------------------------------------------------------------------------
-static void SourceSharp_FireEffectRetired( const char *pszWhich )
-{
-	static bool s_bWarned = false;
-
-	if ( s_bWarned )
-		return;
-
-	s_bWarned = true;
-	Warning( "[SourceSharp] %s is retired: the flame is ss_firesmoke / ss_plasma "
-	         "and is created from C#. Nothing should be calling this.\n", pszWhich );
-}
-
-uint32_t SourceSharp_FireEffectCreate( int32_t nType, const float *pOriginXYZ, float flScale,
-                                       int32_t nFlags )
-{
-	SOURCESHARP_TRACE();
-
-	SourceSharp_FireEffectRetired( "FireEffectCreate" );
-	return 0;
-}
-
-void SourceSharp_FireEffectScale( uint32_t hEffect, float flScale, float flTime )
-{
-	SOURCESHARP_TRACE();
-
-	SourceSharp_FireEffectRetired( "FireEffectScale" );
-}
-
-void SourceSharp_FireEffectEnable( uint32_t hEffect, int32_t bEnable )
-{
-	SOURCESHARP_TRACE();
-
-	SourceSharp_FireEffectRetired( "FireEffectEnable" );
-}
 
 //=============================================================================//
 // The small effects.
@@ -1474,34 +1093,6 @@ void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ,
 }
 
 //-----------------------------------------------------------------------------
-// The mark blood leaves on whatever the spray hit.
-//
-// The trace runs here rather than in C# because UTIL_BloodDecalTrace wants the
-// trace_t itself — the surface struck, its plane and its texture — and the
-// managed TraceResult carries none of that and could not be turned back into
-// one. WHICH line to trace is the decision, and that arrives as two endpoints.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_BloodDecal( const float *pStartXYZ, const float *pEndXYZ, int32_t nColor )
-{
-	SOURCESHARP_TRACE();
-
-	if ( !pStartXYZ || !pEndXYZ || nColor == ss::DONT_BLEED )
-		return 0;
-
-	const Vector vecStart( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
-	const Vector vecEnd( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] );
-
-	trace_t tr;
-	ss::UTIL_TraceLine( vecStart, vecEnd, MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &tr );
-
-	if ( tr.fraction >= 1.0f )
-		return 0;
-
-	UTIL_BloodDecalTrace( &tr, nColor );
-	return 1;
-}
-
-//-----------------------------------------------------------------------------
 // The decals a MAP places.
 //
 // A decal is an index into the engine's table, claimed during level load like
@@ -1534,54 +1125,6 @@ int32_t SourceSharp_PrecacheDecal( const char *pName )
 
 	return UTIL_PrecacheDecal( pName, true );
 }
-
-//-----------------------------------------------------------------------------
-// What a decal may land on.
-//
-// Stock's filter from CDecal::StaticDecal, kept whole because every exclusion
-// in it is a rule about decals rather than a preference of this mod: a mark
-// belongs on the map, not on a crate that will be pushed away, a weapon that
-// will be picked up, or something that is not being drawn at all.
-//
-// The NULL check is this tree's, not stock's. EntityFromEntityHandle answers
-// NULL for anything outside the SDK and stock dereferences it one line later.
-// Something outside the SDK with a brush model is a legitimate surface -- it is
-// drawn, which is the whole of what the tests below ask about -- so it is
-// accepted, which is what the trace already decided by hitting it.
-//-----------------------------------------------------------------------------
-class CSourceSharpDecalFilter : public ss::CTraceFilterSimple
-{
-public:
-	CSourceSharpDecalFilter( const IHandleEntity *pPassEntity, int nCollisionGroup )
-		: ss::CTraceFilterSimple( pPassEntity, nCollisionGroup )
-	{
-	}
-
-	virtual bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask ) OVERRIDE
-	{
-		// THE EXCLUSION LIST IS THE SDK ARM, and armed it has no subject.
-		// IsEffectActive and ClassMatches are both CBaseEntity's own, and
-		// EntityFromEntityHandle -- named in the shard brief's NULL-subject
-		// inventory -- answers NULL for everything once there is no SDK
-		// hierarchy. So the arm goes behind the guard and the `!pEntity`
-		// answer below becomes the only one.
-		//
-		// THAT ANSWER IS ALREADY THE RIGHT ONE, written above this class in
-		// its own words: something outside the SDK with a brush model "is a
-		// legitimate surface -- it is drawn, which is the whole of what the
-		// tests below ask about -- so it is accepted, which is what the trace
-		// already decided by hitting it". Nothing is being invented here; the
-		// non-SDK branch this tree added is simply the whole function armed.
-		//
-		// NOT rewritten into a world test. The exclusions name SDK classnames
-		// (weapon_*, prop_physics, npc_bullseye) that no managed entity
-		// carries, and turning "not an SDK entity" into "is the world" is the
-		// error igameentity.h and the brief both warn about -- the world is
-		// CWorld and answers NON-NULL here.
-
-		return ss::CTraceFilterSimple::ShouldHitEntity( pServerEntity, contentsMask );
-	}
-};
 
 //-----------------------------------------------------------------------------
 // Paints one map decal, in whichever of the four forms was asked for.
@@ -1621,7 +1164,6 @@ int32_t SourceSharp_PaintDecal( int32_t nTexture, const float *pOriginXYZ,
 		if ( bPermanent )
 			filter.MakeInitMessage();
 
-		if ( SourceSharpTe_SuppressFilter( filter ) )
 			return 1;
 
 		TE_ProjectDecal( filter, 0.0f, &vecOrigin, &angles, flProjectDistance, nTexture );
@@ -1632,7 +1174,7 @@ int32_t SourceSharp_PaintDecal( int32_t nTexture, const float *pOriginXYZ,
 	// which is stock's box and is deliberately tiny: a decal is placed ON a
 	// surface by the mapper, not thrown at one.
 	trace_t trace;
-	CSourceSharpDecalFilter traceFilter( NULL, COLLISION_GROUP_NONE );
+	ss::CTraceFilterSimple traceFilter( NULL, COLLISION_GROUP_NONE );
 
 	ss::UTIL_TraceLine( vecOrigin - Vector( 5, 5, 5 ), vecOrigin + Vector( 5, 5, 5 ),
 	                bPermanent ? MASK_SOLID : MASK_SOLID_BRUSHONLY,
@@ -1655,7 +1197,7 @@ int32_t SourceSharp_PaintDecal( int32_t nTexture, const float *pOriginXYZ,
 	// a static prop -- has no valid handle, resolves to neither arm, and comes
 	// out of EntityIndex() as 0, which is the answer it always had.
 	const SourceSharpEntity_t hit =
-		SourceSharp_ResolveEntity( SourceSharp_HandleFromAnyEntity( trace.m_pEnt ) );
+		SourceSharp_ResolveEntity( SourceSharp_HandleFromAnyEntity( ss::TraceHit( trace ) ) );
 
 	const int nEntityIndex = hit.EntityIndex();
 
@@ -1665,7 +1207,6 @@ int32_t SourceSharp_PaintDecal( int32_t nTexture, const float *pOriginXYZ,
 		// connected. The engine works out the surface for itself.
 		ss::CBroadcastRecipientFilter filter;
 
-		if ( SourceSharpTe_SuppressFilter( filter ) )
 			return 1;
 
 		TE_BSPDecal( filter, 0.0f, &vecOrigin, nEntityIndex, nTexture );
@@ -1814,8 +1355,6 @@ void SourceSharp_BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed )
 
 	ss::CBroadcastRecipientFilter filter;
 
-	if ( SourceSharpTe_SuppressFilter( filter ) )
-		return;
 
 	TE_Bubbles( filter, 0.0f, &vecMins, &vecMaxs, flHeight,
 	            nBubbleModel, nCount, flSpeed );
@@ -1840,8 +1379,6 @@ void SourceSharp_FunnelEffect( const float *pOriginXYZ, int32_t nSpriteIndex,
 	// question.
 	ss::CBroadcastRecipientFilter filter;
 
-	if ( SourceSharpTe_SuppressFilter( filter ) )
-		return;
 
 	TE_LargeFunnel( filter, 0.0f, &vecOrigin, nSpriteIndex, bReversed ? 1 : 0 );
 }
@@ -1965,37 +1502,6 @@ int32_t SourceSharp_WaterSurfaceBelow( const float *pStartXYZ, float *pOutXYZ,
 	// A trace carrying MASK_WATER stops on the floor as readily as on the
 	// water, so "hit something" is not "found water". The contents say which.
 	return ( tr.contents & MASK_WATER ) ? 1 : 0;
-}
-
-//-----------------------------------------------------------------------------
-// A lightstyle's animation string.
-//
-// The whole of what the `light` family does at runtime, and the reason those
-// classnames are worth owning at all: vbsp bakes an unswitched light into the
-// lightmap and the entity that survives into the game is a shell that owns a
-// STYLE NUMBER. Toggling, patterns and the fade between two patterns are all
-// this one call with a different string, so all of that is C#'s now and none of
-// it needed anything else from here.
-//
-// engine->LightStyle rather than an entity method because that is what it is —
-// IVEngineServer keeps 64 style slots and hands them to every client. Several
-// map entities may name the same style on purpose, which is how a bank of lamps
-// goes dark together; a per-entity call would have made that impossible to say.
-//-----------------------------------------------------------------------------
-void SourceSharp_EngineLightStyle( int32_t nStyle, const char *pPattern )
-{
-	SOURCESHARP_TRACE();
-
-	// 64 is MAX_LIGHTSTYLES from bspfile.h, which is a map-format header this
-	// file has no other reason to pull in. The engine indexes a fixed array of
-	// that size and does not range-check, so the guard is not optional.
-	if ( nStyle < 0 || nStyle >= 64 || !pPattern )
-		return;
-
-	// LightStyle takes a char* rather than a const char*, and keeps no pointer
-	// to it -- the engine copies the string into its own table. The cast is the
-	// same one every stock caller makes.
-	engine->LightStyle( nStyle, (char *)pPattern );
 }
 
 //-----------------------------------------------------------------------------

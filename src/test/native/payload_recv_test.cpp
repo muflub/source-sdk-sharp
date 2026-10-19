@@ -311,18 +311,15 @@ TEST( PayloadRecvSymmetry, ANarrowerSendPropIsNotTheIdentity )
 // compared.
 //=============================================================================//
 
-TEST( PayloadRecvSymmetry, TheShippedBuildersStillUseThisSpelling )
+// The receiving half (BuildRecvProps, IsFastRecvProxy) was #ifdef CLIENT_DLL in
+// generic_payload.cpp, so plan_server_native_v2 T2 (2026-10-18) moved it to the
+// client-only generic_payload_client.cpp. Each half is read from its own file.
+static std::string ReadTightFromCandidates( const char *const *ppCandidates, size_t nCandidates )
 {
-	static const char *kCandidates[] = {
-		"sourcesharp/game/shared/generic_payload.cpp",
-		"src/sourcesharp/game/shared/generic_payload.cpp",
-		"../src/sourcesharp/game/shared/generic_payload.cpp",
-	};
-
 	std::string text;
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
+	for ( size_t i = 0; i < nCandidates; i++ )
 	{
-		FILE *f = fopen( kCandidates[ i ], "rb" );
+		FILE *f = fopen( ppCandidates[ i ], "rb" );
 		if ( !f )
 			continue;
 		char buf[ 4096 ];
@@ -333,10 +330,6 @@ TEST( PayloadRecvSymmetry, TheShippedBuildersStillUseThisSpelling )
 		break;
 	}
 
-	ASSERT_FALSE( text.empty() )
-		<< "generic_payload.cpp could not be read, so this check would pass "
-		   "over any drift at all";
-
 	// Tight, so the builders' line breaks are not part of the assertion.
 	std::string tight;
 	for ( size_t i = 0; i < text.size(); i++ )
@@ -345,6 +338,32 @@ TEST( PayloadRecvSymmetry, TheShippedBuildersStillUseThisSpelling )
 		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
 			tight += c;
 	}
+	return tight;
+}
+
+TEST( PayloadRecvSymmetry, TheShippedBuildersStillUseThisSpelling )
+{
+	static const char *kCandidates[] = {
+		"sourcesharp/game/shared/generic_payload.cpp",
+		"src/sourcesharp/game/shared/generic_payload.cpp",
+		"../src/sourcesharp/game/shared/generic_payload.cpp",
+	};
+	static const char *kClientCandidates[] = {
+		"sourcesharp/game/client/generic_payload_client.cpp",
+		"src/sourcesharp/game/client/generic_payload_client.cpp",
+		"../src/sourcesharp/game/client/generic_payload_client.cpp",
+	};
+
+	const std::string tight = ReadTightFromCandidates( kCandidates,
+		sizeof( kCandidates ) / sizeof( kCandidates[0] ) );
+	ASSERT_FALSE( tight.empty() )
+		<< "generic_payload.cpp could not be read, so this check would pass "
+		   "over any drift at all";
+	const std::string tightClient = ReadTightFromCandidates( kClientCandidates,
+		sizeof( kClientCandidates ) / sizeof( kClientCandidates[0] ) );
+	ASSERT_FALSE( tightClient.empty() )
+		<< "generic_payload_client.cpp could not be read, so this check would "
+		   "pass over any drift at all";
 
 	EXPECT_NE( tight.find( "SendPropInt(SourceSharpPayload_PropName(i),"
 	                       "SourceSharpPayload_WordOffset(nBlobBase,i),"
@@ -354,9 +373,9 @@ TEST( PayloadRecvSymmetry, TheShippedBuildersStillUseThisSpelling )
 		   "SendPropInt(name, offset, 4, 32, SPROP_UNSIGNED), so the proxy this "
 		   "file round-trips is no longer the proxy the payload uses";
 
-	EXPECT_NE( tight.find( "RecvPropInt(SourceSharpPayload_PropName(i),"
-	                       "SourceSharpPayload_WordOffset(nBlobBase,i),"
-	                       "SOURCESHARP_PAYLOAD_WORD_BYTES);" ),
+	EXPECT_NE( tightClient.find( "RecvPropInt(SourceSharpPayload_PropName(i),"
+	                             "SourceSharpPayload_WordOffset(nBlobBase,i),"
+	                             "SOURCESHARP_PAYLOAD_WORD_BYTES);" ),
 	           std::string::npos )
 		<< "SourceSharpPayload_BuildRecvProps no longer builds "
 		   "RecvPropInt(name, offset, 4)";
@@ -368,8 +387,12 @@ TEST( PayloadRecvSymmetry, TheShippedBuildersStillUseThisSpelling )
 	           std::string::npos )
 		<< "SourceSharpPayload_IsFastSendProxy no longer tests for "
 		   "m_UInt32ToInt32";
-	EXPECT_NE( tight.find( "returnpProp->GetProxyFn()==g_StandardRecvProxies.m_Int32ToInt32;" ),
+	EXPECT_NE( tightClient.find( "returnpProp->GetProxyFn()==g_StandardRecvProxies.m_Int32ToInt32;" ),
 	           std::string::npos )
 		<< "SourceSharpPayload_IsFastRecvProxy no longer tests for "
 		   "m_Int32ToInt32";
+
+	// The receiving half is the client's alone: not also in the shared file.
+	EXPECT_EQ( tight.find( "RecvPropInt(" ), std::string::npos )
+		<< "generic_payload.cpp builds receive props again; they are the client's";
 }

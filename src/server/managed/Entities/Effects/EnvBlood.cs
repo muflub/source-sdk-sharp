@@ -33,14 +33,16 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.EnvBlood)]
 public sealed class EnvBlood : ScriptedEntity
 {
-    public EnvBlood(IEngineEffects effects, IEngineHost host)
+    public EnvBlood(IEngineEffects effects, IEngineHost host, BloodDecals blood)
     {
+        Blood = blood;
         Effects = effects;
         Host = host;
     }
 
     /// <summary>the small effects.</summary>
     private readonly IEngineEffects Effects;
+    private readonly BloodDecals Blood;
 
     /// <summary>the process and the match.</summary>
     private readonly IEngineHost Host;
@@ -220,7 +222,7 @@ public sealed class EnvBlood : ScriptedEntity
             // which way the blood went, and that is what every map with one has
             // always looked like.
             Vector start = Position(activator);
-            Effects.BloodDecal(start, start + Direction() * (Vars.Amount * 2f), _color);
+            Blood.Trace(start, start + Direction() * (Vars.Amount * 2f), _color);
         }
 
         // The newer effects come from the entity's OWN origin in stock, not

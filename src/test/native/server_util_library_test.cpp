@@ -113,11 +113,6 @@ const char *const kMovedDefinitions[] = {
 	"int UTIL_PrecacheDecal( const char *name, bool preload )",
 	"void UTIL_ClearTrace( trace_t &trace )",
 	"void UTIL_SnapDirectionToAxis( Vector &direction, float epsilon )",
-	"const char *UTIL_VarArgs( const char *format, ... )",
-	"static int UTIL_GetNewCheckClient( int check )",
-	"static edict_t *UTIL_GetCurrentCheckClient()",
-	"void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize )",
-	"CServerSystem *CheckClientGameSystem()",
 	// The three temp-entity emitters, and the four helpers they could not
 	// leave behind. 4e listed the emitters as unmoved because at that point
 	// moving one CONVERTED an edge instead of removing one -- the helpers were
@@ -139,17 +134,22 @@ const char *const kGoneInTheCull[] = {
 	"float UTIL_WaterLevel( const Vector &position, float minz, float maxz )",
 	"float UTIL_FindWaterSurface( const Vector &position, float minz, float maxz )",
 	"bool UTIL_IsValidEntity( IServerEntity *pEnt )",
+	// GONE IN plan_server_native_min P1: the check-client system (its two PVS
+	// bitsets had no reader and its walk skipped every candidate) and
+	// UTIL_VarArgs (its one caller formats into a local).
+	"const char *UTIL_VarArgs( const char *format, ... )",
+	"static int UTIL_GetNewCheckClient( int check )",
+	"static edict_t *UTIL_GetCurrentCheckClient()",
+	"void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize )",
+	"CServerSystem *CheckClientGameSystem()",
+	"class CCheckClient : public CServerSystem",
+	"class CWaterTraceFilter : public CTraceFilter",
+	"CCheckClient g_CheckClient(",
 };
 
 // The objects. Each of these is state, and each fails a different way if it is
 // split from the code that reads it.
 const char *const kMovedObjects[] = {
-	"class CCheckClient : public CServerSystem",
-	// UTIL_FindWaterSurface's only filter, and its only user. Left behind it
-	// would be a second trace filter class with the same name in a different
-	// TU -- not a compile error, not a link error, and the two would drift.
-	"class CWaterTraceFilter : public CTraceFilter",
-	"CCheckClient g_CheckClient( \"CCheckClient\" );",
 	// sv_strict_notarget's DECLARATION is managed now
 	// (SourceSharp.Server/ConVars.cs); what must be in this file is the by-name
 	// ref, because UTIL_FindClientInPVSGuts still reads it here and is asked
@@ -231,7 +231,7 @@ TEST( ServerUtilLibrary, TheServerCompilesIt )
 		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not "
 		   "compile " << kLibraryRow << ": "
 		<< "server.so still compiles util.cpp, which no longer defines "
-		   "UTIL_VarArgs, UTIL_ClearTrace or the check-client subsystem.";
+		   "UTIL_ClearTrace or UTIL_PrecacheDecal.";
 }
 
 TEST( ServerUtilLibrary, TheClientDoesNotCompileIt )

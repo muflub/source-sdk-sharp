@@ -82,7 +82,6 @@
 #include "engine/IEngineSound.h"
 #include "engine/IStaticPropMgr.h"
 #include "engine/ivdebugoverlay.h"
-#include "engine/iserverplugin.h"
 #include "datacache/idatacache.h"
 #include "igameevents.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
@@ -149,7 +148,6 @@ IGameEventManager2 *gameeventmanager = NULL;
 IDataCache *datacache = NULL;
 IVDebugOverlay * debugoverlay = NULL;
 ISoundEmitterSystemBase *soundemitterbase = NULL;
-IServerPluginHelpers *serverpluginhelpers = NULL;
 ISceneFileCache *scenefilecache = NULL;
 // serverenginetools, xboxsystem and matchmaking are gone: nothing assigned or
 // read them (the globals ledger ruled all three DEAD, dropped by the linker).
@@ -306,12 +304,13 @@ ConVar *sv_cheats = NULL;
 extern INetworkStringTableContainer *networkstringtable;
 extern IUniformRandomStream *random_valve;
 extern ISoundEmitterSystemBase *soundemitterbase;
-extern IServerPluginHelpers *serverpluginhelpers;
 extern ISceneFileCache *scenefilecache;
 extern IUploadGameStats *gamestatsuploader;
 
-// game.cpp:105. Stock's DLLInit calls it before anything reads a game convar.
-extern void InitializeCvars( void );
+// InitializeCvars went with shell_gamedll_convars.cpp
+// (plan_server_native_min P1): it assigned g_pDeveloper, whose last two
+// dereferences left with their files' ports. Stock's DLLInit called it before
+// anything read a game convar; nothing reads one natively any more.
 
 // The engine's model cache (connected with the tiers).
 extern IMDLCache *mdlcache;
@@ -374,8 +373,11 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 	if ( !mdlcache )
 		return false;
 
-	if ( (serverpluginhelpers = (IServerPluginHelpers *)appSystemFactory( INTERFACEVERSION_ISERVERPLUGINHELPERS, NULL )) == NULL )
-		return false;
+	// IServerPluginHelpers stood here (serverpluginhelpers) and went with the
+	// plugin ABI (plan_server_native_min P1, Decision 1): third-party plugins
+	// are dropped, nothing read the acquired pointer, and the engine asks this
+	// DLL for no plugin interface (engine-boundary.md §6).
+
 	if ( (scenefilecache = (ISceneFileCache *)appSystemFactory( SCENE_FILE_CACHE_INTERFACE_VERSION, NULL )) == NULL )
 		return false;
 
@@ -411,9 +413,9 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 	// "before anything fires one", and both files are loaded together here.
 	gameeventmanager->LoadEventsFromFile( "resource/ModEvents.res" );
 
-	// The game's convars, before anything reads one.
-	InitializeCvars();
-
+	// The game's convars: InitializeCvars stood here and went with
+	// shell_gamedll_convars.cpp (plan_server_native_min P1) -- its pointer's
+	// readers are gone and the registration is shell_gamedll.cpp:258's.
 	// No particle system manager: stock inited CParticleSystemMgr here so
 	// LevelInit could read the manifests through it. They are read in C# since
 	// plan_server_novalve.md P2.1, and server.so links neither particles.a nor

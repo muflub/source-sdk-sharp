@@ -56,25 +56,10 @@ void _V_memmove( const char *, int, void *dest, const void *src, int count )
 	memmove( dest, src, count );
 }
 
-int _V_strcmp( const char *, int, const char *s1, const char *s2 )
-{
-	return strcmp( s1, s2 );
-}
-
 // ASCII case folding, the sign of V_stricmp (ss_string_oracle_test holds it).
 int V_stricmp( const char *s1, const char *s2 )
 {
 	return ss::StrICmp( s1, s2 );
-}
-
-// strncpy's semantics, kept: the rest of pDest is zero-filled, then the last
-// byte is always the terminator.
-void V_strncpy( char *pDest, const char *pSrc, int maxLen )
-{
-	if ( maxLen <= 0 )
-		return;
-	strncpy( pDest, pSrc, maxLen );
-	pDest[ maxLen - 1 ] = 0;
 }
 
 // The length written; on truncation (or an encoding error) maxLen, with the

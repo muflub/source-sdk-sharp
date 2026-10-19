@@ -163,12 +163,14 @@ TEST( CycleDebtMove, TheWholeAngleFamilyLeftTheSharedLibraryTogether )
 
 	// The file is proved read above AND proved to be the right file below, so
 	// neither half of this can pass over an empty or renamed file.
-	EXPECT_EQ( 1u, CountOf( lib, "const char *GetCleanMapName( const char *pszUnCleanMapName, char (&pszTmp)[256])" ) )
-		<< kSharedLib << " no longer defines GetCleanMapName, so this "
+	EXPECT_EQ( 1u, CountOf( lib, "bool UTIL_ShouldShowBlood( int color )" ) )
+		<< kSharedLib << " no longer defines UTIL_ShouldShowBlood, so this "
 		   "fact is not reading the file it thinks it is. (This anchor was "
 		   "`developer` until plan_server_novalve.md P2.3b deleted that "
 		   "declaration: the engine owns the name; then "
-		   "UTIL_StringToFloatArray until C9 K3 deleted that.)";
+		   "UTIL_StringToFloatArray until C9 K3 deleted that, then GetCleanMapName "
+		   "until plan_server_native_min P1 did, then UTIL_IsLowViolence until "
+		   "plan_server_native_v2 T2 moved it to the client.)";
 
 	for ( size_t i = 0; i < kNumAngle; i++ )
 	{
@@ -211,7 +213,7 @@ TEST( CycleDebtMove, TheDeveloperConVarIsTheEnginesAndNotTheSharedLibrarys )
 {
 	const std::string lib = StripComments( ReadFile( kSharedLib ) );
 	ASSERT_FALSE( lib.empty() );
-	ASSERT_EQ( 1u, CountOf( lib, "const char *GetCleanMapName( const char *pszUnCleanMapName, char (&pszTmp)[256])" ) )
+	ASSERT_EQ( 1u, CountOf( lib, "bool UTIL_ShouldShowBlood( int color )" ) )
 		<< kSharedLib << " is not the file this fact means to read";
 
 	EXPECT_EQ( 0u, CountOf( lib, kDeveloperConVar ) )
@@ -329,6 +331,8 @@ TEST( CycleDebtMove, TheFlipRemovedExactlyThreeOfTheseRowsAndNoOthers )
 	// here would now mean a DELETED file came back.
 	EXPECT_EQ( 0u, Rows( sv, "game/shared/util_shared.cpp" ) );
 	EXPECT_EQ( 0u, Rows( cl, "game/shared/util_shared.cpp" ) );
-	EXPECT_EQ( 1u, Rows( sv, "game/shared/collisionproperty.cpp" ) );
+	// collisionproperty.cpp left the server's list (plan_server_native_min
+	// P1: its dirty list had no server writer); the client still compiles it.
+	EXPECT_EQ( 0u, Rows( sv, "game/shared/collisionproperty.cpp" ) );
 	EXPECT_EQ( 1u, Rows( cl, "game/shared/collisionproperty.cpp" ) );
 }

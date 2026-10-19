@@ -106,7 +106,7 @@ bool Exists( const char *pPath )
 // the server side's proof-of-read.
 const char *const kMoveHelperRow  = "game/server/movehelper_server.cpp";
 const char *const kLocalDataRow   = "game/server/playerlocaldata.cpp";
-const char *const kShimLocalRow   = "sourcesharp/game/server/shell_playerlocaldata.cpp";
+const char *const kShimLocalRow   = "sourcesharp/game/server/shell_standalone_player.cpp";
 const char *const kProofOfRead    = "sourcesharp/game/shared/shell_shared.cpp";
 
 const char *const kShimPlayer        = "sourcesharp/game/server/shell_standalone_player.cpp";
@@ -138,6 +138,9 @@ TEST( ServerTusEvicted, TheServerNoLongerCompilesStockPlayerLocalData )
 		   "shim also compiled that is two definitions of the DT_Local send table";
 }
 
+// shell_playerlocaldata.cpp went in plan_server_native_v2 T2 (its DT_Local
+// table was sent by nothing); UpdateAllClientData and CPlayerLocalData's
+// constructor live in shell_standalone_player.cpp, so the row is that file.
 TEST( ServerTusEvicted, TheShimPlayerLocalDataIsCompiledAndOnlyOnTheServer )
 {
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kProofOfRead ) )
@@ -161,8 +164,8 @@ TEST( ServerTusEvicted, TheStockPlayerLocalDataSourceIsGoneFromDisk )
 	// That half was also what kept the absence below from being vacuous, so a
 	// sibling in the same directory that IS in the farm takes over that job: a
 	// cwd from which game/server cannot be seen at all reddens here.
-	ASSERT_TRUE( Exists( "game/server/activator.h" ) )
-		<< "game/server/activator.h is not visible from the test's cwd, so the "
+	ASSERT_TRUE( Exists( "game/shared/shareddefs.h" ) )
+		<< "game/shared/shareddefs.h is not visible from the test's cwd, so the "
 		   "absence below would prove nothing about game/server";
 	EXPECT_FALSE( Exists( "game/server/playerlocaldata.cpp" ) )
 		<< "a copy of the file is still at its old address; it is not compiled, "

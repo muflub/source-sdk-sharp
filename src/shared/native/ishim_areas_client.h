@@ -159,6 +159,8 @@ public:
 	virtual void * StandaloneEngineBlock( uint32_t hEntity, int32_t *pOutBytes ) = 0;
 	virtual void StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence, float flPlaybackRate, float flAnimTime, float flDuration, int32_t bLooping ) = 0;
 	virtual void StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll ) = 0;
+	virtual void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) = 0;
+	virtual void RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage ) = 0;
 };
 
 abstract_class IShimViewClient

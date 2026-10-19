@@ -530,11 +530,6 @@ static CShellSoundController *ShellSoundController()
 	return &s_Controller;
 }
 
-ss::ISoundController &ss::SoundController()
-{
-	return *ShellSoundController();
-}
-
 //-----------------------------------------------------------------------------
 // The three engine slots: what the managed frame pass asks of a patch.
 //-----------------------------------------------------------------------------

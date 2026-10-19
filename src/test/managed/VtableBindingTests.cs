@@ -257,13 +257,22 @@ public unsafe class VtableBindingTests
     }
 
     [Fact]
-    public void TheEngineServerOffersNothingThatChangesTheWorld()
+    public void TheEngineServerChangesTheWorldOnlyThroughNamedMembers()
     {
+        // THE READ-ONLY WINDOW WAS LIFTED BY THE OWNER, for exactly these:
+        // plan_server_native_min P2.2 folds IVEngineServer's ServerCommand/
+        // Execute, SetView and LightStyle through the forwarders, and
+        // plan_server_native_v2 T3 (ruled 2026-10-18) carries it unchanged. Each
+        // arrives as one member named for its purpose; the raw slots and what
+        // creates or precaches stay absent.
         string[] offered = PublicMethodsOf(typeof(EngineServer));
 
+        foreach (string named in new[] { "ServerCommandNow", "SetView", "LightStyle" })
+            Assert.Contains(named, offered);
+
         foreach (string forbidden in new[]
-                 { "CreateEdict", "ServerCommand", "ClientCommand", "PrecacheModel",
-                   "LightStyle", "EmitAmbientSound" })
+                 { "CreateEdict", "ServerCommand", "ServerExecute", "ClientCommand",
+                   "PrecacheModel", "EmitAmbientSound" })
         {
             Assert.DoesNotContain(forbidden, offered);
         }

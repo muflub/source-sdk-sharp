@@ -182,8 +182,11 @@ struct File_t
 // rest of its line, its initialiser, which no other section has.
 const File_t kAiAbsent     = { "sourcesharp/game/server/shell_absent.cpp",
 	"= NULL_STRING;" };
+// RE-POINTED IN plan_server_native_min P1: PostFrameNavigationSystem went
+// with its hook, so the anchor was RadiusDamage's definition; that went in
+// plan_server_native_v2 T2, and the anchor is ss::SetPlayerSurface's.
 const File_t kAiOrphans    = { "sourcesharp/game/server/shell_absent.cpp",
-	"CServerSystem *PostFrameNavigationSystem( void )" };
+	"void ss::SetPlayerSurface(" };
 const File_t kEntOrphans   = { "sourcesharp/game/server/shell_absent.cpp",
 	"void EffectsPrecache(" };
 // kEntityList STOOD HERE and went with its only needle (4a item 11, lane
@@ -205,10 +208,11 @@ const File_t kMapEntities  = { "sourcesharp/game/server/shell_mapparse.cpp",
 // family is not in this file: it lives in trace_filter_library.cpp (kTraceFilterLib
 // below), and lane 2-utilshared deleted nine of its classes' unreachable ARMS for
 // having no live importer -- lane 3f then deleted the nine classes themselves,
-// for the same reason one layer out. `UTIL_IsLowViolence` is an out-of-line definition this file really
-// carries and is not the thing asserted about it, which is the rule.
+// for the same reason one layer out. `UTIL_ShouldShowBlood` is an out-of-line definition this file really
+// carries and is not the thing asserted about it, which is the rule. (The anchor was UTIL_IsLowViolence
+// until plan_server_native_v2 T2 moved that, a client-only arm, to client_util_library.cpp.)
 const File_t kUtilShared   = { "sourcesharp/game/shared/util_shared_library.cpp",
-	"bool UTIL_IsLowViolence(" };
+	"bool UTIL_ShouldShowBlood(" };
 // plan_entity.md step 4e: the shared trace-filter family left util_shared.cpp
 // for this shim. It is read here for one reason only -- it is the other TU that
 // DECLARES NPC_CheckBrushExclude, so it is the other place a caller could
@@ -686,14 +690,14 @@ TEST( EntityBaseHusks, TheAiOrphansKeepTheShotPath )
 			   "without a caller is a stub with no creditor.";
 	}
 
-	// AND THE ONE THAT DID SURVIVE, so the absences above are not passing over
-	// an emptied file. PostFrameNavigationSystem is not AI behaviour either --
-	// it is a game system that happened to live in ai_basenpc.cpp -- and
-	// shell_serversystems.o still imports it for its kServerSystems[] row.
-	EXPECT_NE( s.find( "PostFrameNavigationSystem" ), std::string::npos )
-		<< "PostFrameNavigationSystem left shell_absent.cpp. Stubbing its "
-		   "accessor to NULL puts a null pointer in the game-system list, which "
-		   "is what the assert caught on the first launch.";
+	// AND THE ONE THAT SURVIVED, UNTIL plan_server_native_min P1. The anchor
+	// (ss::SetPlayerSurface) keeps the absences above from passing over an emptied
+	// file. PostFrameNavigationSystem went with its hook, whose whole body was
+	// a bool toggle nothing read, and its kServerSystems[] row went in the same
+	// commit, so no null accessor reaches the game-system list.
+	EXPECT_EQ( s.find( "PostFrameNavigationSystem" ), std::string::npos )
+		<< "PostFrameNavigationSystem is back in shell_absent.cpp. Say which "
+		   "reader needs the hook, and restore its kServerSystems[] row with it.";
 
 	// THE FOURTH ONE IS THE EXCEPTION AND IT IS ASSERTED ABSENT.
 	//
@@ -771,8 +775,7 @@ TEST( EntityBaseHusks, TheEntityOrphansKeepWhatIsStillNamed )
 	const std::string s = Load( kEntOrphans );
 	static const char *kKept[] = {
 		"ss::SetPlayerSurface",
-		"DrawMessageEntities",
-		"RadiusDamage",
+		// RadiusDamage left in plan_server_native_v2 T2: no managed caller.
 		"UTIL_BloodSpray", "EffectsPrecache",
 	};
 	for ( size_t i = 0; i < sizeof( kKept ) / sizeof( kKept[ 0 ] ); i++ )
@@ -781,6 +784,13 @@ TEST( EntityBaseHusks, TheEntityOrphansKeepWhatIsStillNamed )
 			<< kKept[ i ] << " left shell_absent.cpp but something on "
 			   "the server link line still names it";
 	}
+
+	// DrawMessageEntities LEFT IN plan_server_native_min P1: its message list
+	// was always empty (the managed point_message draws itself) and its one
+	// caller went with it.
+	EXPECT_EQ( s.find( "DrawMessageEntities" ), std::string::npos )
+		<< "shell_absent.cpp defines DrawMessageEntities again; say which "
+		   "server object needs it.";
 
 	// CEnvMicrophone::OnSoundPlayed LEFT IN P5: sound_emitter's calls had gone
 	// and no server object imported it.
@@ -920,8 +930,8 @@ TEST( EntityBaseHusks, TheFilterHeaderIsGoneAndNothingIncludesIt )
 {
 	// Anchor: a sibling overlay header in the same directory is still read, so
 	// the absence below is about the file and not about an unreadable tree.
-	ASSERT_FALSE( ReadStripped( "game/server/activator.h" ).empty() )
-		<< "game/server/activator.h is unreadable; the absence below would prove nothing";
+	ASSERT_FALSE( ReadStripped( "game/shared/shareddefs.h" ).empty() )
+		<< "game/shared/shareddefs.h is unreadable; the absence below would prove nothing";
 
 	EXPECT_TRUE( ReadStripped( "game/server/entityfilter.h" ).empty() )
 		<< "game/server/entityfilter.h is back; say which compiled object needs it.";

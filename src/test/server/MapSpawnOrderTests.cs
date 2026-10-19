@@ -14,9 +14,9 @@ namespace SourceSharp.Tests;
 /// <b>The rule had gone quiet rather than been removed.</b> Stock builds the
 /// list and breaks <c>CompareSpawnOrder</c>'s depth ties with it, over the
 /// CBaseEntity spawn list. Eleven of its thirteen classnames are managed
-/// entities now, and a managed entity is never in that list — it is queued in
-/// <c>g_PendingNonBaseSpawns</c> and spawned in MAP-FILE ORDER after everything
-/// else. So the tie-break still ran and had nothing left to apply itself to,
+/// entities now, and a managed entity is never in that list — it was queued in
+/// <c>g_PendingNonBaseSpawns</c> (gone since plan_server_native_v2 T2) and
+/// spawned in MAP-FILE ORDER after everything else. So the tie-break still ran and had nothing left to apply itself to,
 /// which is 5e's shape in the map-load path.
 /// </para>
 /// </summary>

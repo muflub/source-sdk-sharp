@@ -49,15 +49,6 @@ int32_t CShimEventsClient::EventGetBool( void * hEvent, const char * pKey )
 const char * CShimEventsClient::EventGetString( void * hEvent, const char * pKey )
 	{ return ::SourceSharp_EventGetString( hEvent, pKey ); }
 
-int32_t CShimStringTablesClient::StringTableFind( const char * pszName )
-	{ return ::SourceSharp_StringTableFind( pszName ); }
-int32_t CShimStringTablesClient::StringTableFindStringIndex( int32_t nTableId, const char * pszValue )
-	{ return ::SourceSharp_StringTableFindStringIndex( nTableId, pszValue ); }
-int32_t CShimStringTablesClient::StringTableGetString( int32_t nTableId, int32_t nStringIndex, char * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_StringTableGetString( nTableId, nStringIndex, pOut, nOutSize ); }
-int32_t CShimStringTablesClient::StringTableGetNumStrings( int32_t nTableId )
-	{ return ::SourceSharp_StringTableGetNumStrings( nTableId ); }
-
 int32_t CShimNetworkClient::NetHierarchyDeclare( int32_t nBlobBytes )
 	{ return ::SourceSharp_NetHierarchyDeclare( nBlobBytes ); }
 int32_t CShimNetworkClient::NetPublishType( const char * pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes, uint32_t * pOutTypeId )
@@ -98,18 +89,11 @@ void CShimEntitiesClient::EntityGetOrigin( uint32_t hEntity, float * pOutXYZ )
 	{ return ::SourceSharp_ClientEntityGetOrigin( hEntity, pOutXYZ ); }
 void CShimEntitiesClient::EntityGetAngles( uint32_t hEntity, float * pOutPYR )
 	{ return ::SourceSharp_ClientEntityGetAngles( hEntity, pOutPYR ); }
-void CShimEntitiesClient::EntitySetSkin( uint32_t hEntity, int32_t nSkin )
-	{ return ::SourceSharp_EntitySetSkin( hEntity, nSkin ); }
 int32_t CShimEntitiesClient::EntityIsValid( uint32_t hEntity )
 	{ return ::SourceSharp_ClientEntityIsValid( hEntity ); }
 
 void CShimCollisionClient::RegisterCollisionRules( const SourceSharpCollisionRules * pRules )
 	{ return ::SourceSharp_RegisterCollisionRules( pRules ); }
-
-void CShimWeaponsClient::RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage )
-	{ return ::SourceSharp_RegisterAmmoType( pName, nDamageType, nMaxCarry, nTracerType, flDamageForce, flDamage ); }
-void CShimWeaponsClient::RegisterWeaponType( const char * pClassName, float flFireRate, float flSpreadDegrees, int32_t nPellets )
-	{ return ::SourceSharp_RegisterWeaponType( pClassName, flFireRate, flSpreadDegrees, nPellets ); }
 
 int32_t CShimEffectsClient::TempEntRegister( const SourceSharpTeClass_t * pDesc )
 	{ return ::SourceSharp_TempEntRegisterClient( pDesc ); }
@@ -299,6 +283,10 @@ void CShimStandaloneClient::StandaloneStoreSequence( uint32_t hEntity, int32_t n
 	{ return ::SourceSharp_StandaloneStoreSequence( hEntity, nSequence, flPlaybackRate, flAnimTime, flDuration, bLooping ); }
 void CShimStandaloneClient::StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll )
 	{ return ::SourceSharp_StandaloneSetRagdoll( hEntity, bRagdoll ); }
+void CShimStandaloneClient::EntitySetSkin( uint32_t hEntity, int32_t nSkin )
+	{ return ::SourceSharp_EntitySetSkin( hEntity, nSkin ); }
+void CShimStandaloneClient::RegisterAmmoType( const char * pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, float flDamage )
+	{ return ::SourceSharp_RegisterAmmoType( pName, nDamageType, nMaxCarry, nTracerType, flDamageForce, flDamage ); }
 
 void CShimViewClient::ConNPrintf( void * pEngineClient, int32_t nPos, const char * pszText )
 	{ return ::SourceSharp_ConNPrintf( pEngineClient, nPos, pszText ); }
@@ -616,9 +604,6 @@ void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EVENTS_VERSION ) )
 		return static_cast< IShimEvents * >( &areas.m_Events );
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_STRINGTABLES_VERSION ) )
-		return static_cast< IShimStringTables * >( &areas.m_StringTables );
-
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_NETWORK_VERSION ) )
 		return static_cast< IShimNetwork * >( &areas.m_Network );
 
@@ -636,9 +621,6 @@ void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_COLLISION_VERSION ) )
 		return static_cast< IShimCollision * >( &areas.m_Collision );
-
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_WEAPONS_VERSION ) )
-		return static_cast< IShimWeapons * >( &areas.m_Weapons );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EFFECTS_VERSION ) )
 		return static_cast< IShimEffects * >( &areas.m_Effects );

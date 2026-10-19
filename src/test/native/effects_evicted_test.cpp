@@ -169,8 +169,12 @@ const char *const kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp
 // env_explosion's blast and EntityFlame's burn tick -- and no assertion in this
 // file names it, which is this family's rule that an anchor must not be implied
 // by the thing it guards.
+// RE-POINTED AGAIN in plan_server_native_v2 T2: RadiusDamage went (no managed
+// caller; its sound-ledger arm is BlastSweep's now). ss::SetPlayerSurface is
+// the same kind of row: in this file, live (shell_movement's surface funnel),
+// and named by no assertion here.
 const File_t kOrphans = { "sourcesharp/game/server/shell_absent.cpp",
-	"void RadiusDamage( const ss::CTakeDamageInfo &info" };	// ss:: since P5 lane R
+	"void ss::SetPlayerSurface(" };
 const File_t kWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
 	"void SourceSharp_BloodEffect(" };
 // The client's reader of the spray bits is C# since lane c5-particles

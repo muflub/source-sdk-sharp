@@ -315,7 +315,9 @@ derived_classes() { # <so> -> demangled class names, one per line, sorted
     # are demangled here, and grep -f is guarded on a non-empty list below.
     cut -f3 "$TMP/zti.tab" | c++filt | sed 's/^typeinfo for //' > "$TMP/zti.names"
     paste "$TMP/zti.tab" "$TMP/zti.names" > "$TMP/zti.full"
-    awk -F'\t' '$4=="CBaseEntity" || $4=="C_BaseEntity" {print $1}' "$TMP/zti.full" | sort -u > "$TMP/zti.roots"
+    # ROOTS: CBaseEntity and C_BaseEntity, less the server's entity face when
+    # it carries the CBaseEntity name (FACE_ROOT_SKIP, set by gate 1 below).
+    awk -F'\t' -v skip="${FACE_ROOT_SKIP:-}" '($4=="CBaseEntity" || $4=="C_BaseEntity") && $4!=skip {print $1}' "$TMP/zti.full" | sort -u > "$TMP/zti.roots"
 
     awk -F'\t' '
         # EVERY COUNTER IS INITIALISED HERE, and that is not tidiness. `st[n]`
@@ -517,10 +519,36 @@ if runs 1; then
 banner "GATE 1 -- NO BASE ENTITY IN NATIVE CODE"
 
 ENT_RE='CBaseEntity::\|C_BaseEntity::'
+
+# THE SERVER'S ENTITY FACE CARRIES THE NAME CBaseEntity (plan_server_native_v2
+# D1, user ruling 2026-10-18): server.so builds on stock public headers, which
+# name the game's entity CBaseEntity, and igameentity.h's six-member interface
+# is that class there, with IGameEntity its alias. It is not the stock entity
+# this gate exists to keep out, and while it was spelled IGameEntity it and the
+# shells deriving it (CStandaloneEntity, CStandalonePlayer) were never counted.
+# So they are not counted now either -- but ONLY while the evidence says it is
+# the face: igameentity.h declares `abstract_class CBaseEntity`, and every
+# CBaseEntity:: symbol server.so defines is that class's implicit constructor
+# or its destructor (an abstract interface emits nothing else). One stock member back and the face
+# reading is refused: every row below counts the whole class again.
+FACE_SYMBOL='CBaseEntity::CBaseEntity()\|CBaseEntity::~CBaseEntity()'
+SRV_FACE=0
+srv_ent_all=$(nm_strict_count "$SERVER_SO" 'CBaseEntity::')
+srv_ent_face=$(nm_strict_count "$SERVER_SO" "$FACE_SYMBOL")
+if grep -qx 'abstract_class CBaseEntity' "$SRC_ABS/public/igameentity.h" 2>/dev/null \
+   && [ "$srv_ent_all" -gt 0 ] && [ "$srv_ent_all" -eq "$srv_ent_face" ]; then
+    SRV_FACE=1
+fi
+
 S1=$(nm_strict_count "$SERVER_SO" "$ENT_RE"); C1=$(nm_strict_count "$CLIENT_SO" "$ENT_RE")
+[ "$SRV_FACE" -eq 1 ] && S1=$(( S1 - srv_ent_face ))
 row 1 "nm  FLOOR" "CBaseEntity:: / C_BaseEntity:: members" "$S1" "$C1"
 
-derived_classes "$SERVER_SO" > "$TMP/derived.server"
+if [ "$SRV_FACE" -eq 1 ]; then
+    FACE_ROOT_SKIP=CBaseEntity derived_classes "$SERVER_SO" > "$TMP/derived.server"
+else
+    derived_classes "$SERVER_SO" > "$TMP/derived.server"
+fi
 derived_classes "$CLIENT_SO" > "$TMP/derived.client"
 # The roots themselves are in the closure; the gate wants classes DERIVED from
 # them counted separately from the two roots, so the roots come back out.
@@ -615,8 +643,11 @@ DS_S=$( awk -F: '{print $1}' "$TMP/derivesites" | grep -cvE '^game/client/|^sour
 DS_C=$( awk -F: '{print $1}' "$TMP/derivesites" | grep -cvE '^game/server/|^sourcesharp/game/server/' )
 row 1 "src FLOOR" "\": public <entity>\" decls (TUs + shim headers)" "$DS_S" "$DS_C"
 
+S1L=$(nm_loose_count "$SERVER_SO" "$ENT_RE")
+[ "$SRV_FACE" -eq 1 ] && S1L=$(( S1L - $(nm_loose_count "$SERVER_SO" "$FACE_SYMBOL") ))
 recon 1 "same, no symbol-type filter (§1's reading: 1207/602)" \
-    "$(nm_loose_count "$SERVER_SO" "$ENT_RE")" "$(nm_loose_count "$CLIENT_SO" "$ENT_RE")"
+    "$S1L" "$(nm_loose_count "$CLIENT_SO" "$ENT_RE")"
+recon 1 "CBaseEntity read as the entity face (D1), 1 = yes" "$SRV_FACE" 0
 fi
 
 #=============================================================================

@@ -280,7 +280,7 @@ TEST( AnimationPolicy, EveryFileUnderTestWasActuallyRead )
 	EXPECT_GT( Occurrences( Code( kServerHierarchy ), "IManagedBones" ), 0 );
 
 	EXPECT_GT( Code( kServerScripted ).size(), 5000u );
-	EXPECT_GT( Occurrences( Code( kServerScripted ), "SourceSharp_Entity" ), 10 );
+	EXPECT_GT( Occurrences( Code( kServerScripted ), "SourceSharp_Entity" ), 5 );   // 10 -> 5: the mover slots left (plan_server_native_v2 T2)
 }
 
 TEST( AnimationPolicy, StrippingRemovesProseAndKeepsCode )

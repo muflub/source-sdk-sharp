@@ -367,7 +367,6 @@ const char *kTableFile  = "sourcesharp/game/server/shell_serversystems.cpp";
 // OnRestoreAllSystems. It was in game/server/gameinterface.cpp until
 // plan_gamedll_after.md Phase A9 step 4 deleted that file; the restore trio
 // went to shell_restoreentities.cpp and the guard went with it.
-const char *kGameIface  = "sourcesharp/game/server/shell_restoreentities.cpp";
 
 // Every position of a needle in a text, as line numbers.
 std::vector<size_t> LinesContaining( const std::string &text, const char *pszNeedle )
@@ -726,33 +725,10 @@ TEST( ServerSystemsUnderive, StocksGameSystemCallsAreAllOutOfTheBuild )
 	// opposite of what this phase decided. So the absence is asserted with what
 	// it left standing: the function, its kept-whole body, and the ONE driver of
 	// server systems this build has.
-	const std::string text = StripComments( Read( kGameIface ) );
-	ASSERT_FALSE( text.empty() );
-
-	// GONE: not guarded out -- absent. Comment-stripped, so the paragraphs that
-	// explain what left do not answer for the code.
-	EXPECT_EQ( 0, CountOf( text, "IGameSystem::" ) )
-		<< "an IGameSystem:: call is compiled here again. There is no list for "
-		   "it to walk -- igamesystem.cpp is off the link line -- so it is an "
-		   "undefined reference, and if it were not it would be a second driver "
-		   "beside kServerSystems[]";
-	EXPECT_EQ( 0, CountOf( text, "#ifndef SOURCESHARP" ) )
-		<< "a #ifndef SOURCESHARP arm is back in this file -- an arm the "
-		   "compiler never sees is a check that cannot fail, which is why they "
-		   "went";
-
-	// STILL HERE: the function the call was inside, and its body kept whole.
-	// A file that answered the count above by deleting EndRestoreEntities would
-	// have taken a function with a live caller -- ClientActive's -- with it.
-	EXPECT_EQ( 1, CountOf( text, "void EndRestoreEntities()" ) );
-	// BeginRestoreEntities had no caller; the server gc cull deleted it
-	// (2026-10-01, --print-gc-sections dropped it). End keeps its caller.
-	EXPECT_EQ( 0, CountOf( text, "void BeginRestoreEntities()" ) );
-	EXPECT_EQ( 1, CountOf( text, "s_Restored.SetInRestore( false );" ) )
-		<< "EndRestoreEntities stopped clearing the in-restore flag -- the body "
-		   "is kept WHOLE, not emptied around the deleted call";
-	EXPECT_EQ( 1, CountOf( text, "EntityPrecache_SetAllowed( false );" ) );
-
+	// The file-walking half went with shell_restoreentities.cpp itself
+	// (plan_server_native_min P1): the whole restore path is deleted, so there
+	// is neither an IGameSystem:: call nor a kept-whole body left to count.
+	// What must not come back is pinned on the live successor below.
 	// AND THE LIVE SUCCESSOR, which is the whole reason stock's calls had to be
 	// out of the build: server systems are driven by ONE written-down list, and
 	// that list is a table this build walks itself.

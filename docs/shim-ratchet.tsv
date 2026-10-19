@@ -331,7 +331,10 @@ client_stock_tus	src/client/native/CMakeLists.txt	49
 # RAISED 2026-10-18, 217 -> 218, deliberately (C7 cluster 10, measured by the walk): sourcesharp/game/client/shell_detail_props.cpp (a),
 #   client.so's IDetailObjectSystem and the model props' IClientRenderable, carrying out SourceSharp.Client.Detail's answers, so
 #   game/client/detailobjectsystem.cpp (2,881 fork lines) leaves client.so.
-shim_cpp_files	src/sourcesharp	218
+# 2026-10-19, 218 -> 219 at the rebase onto #10/#11 (measured by the walk): #11 added
+#   sourcesharp/fwd/fwd_physics.cpp (222 -> 223 on GitHub) and the 140 commits remove 4 net; the row
+#   had kept the commits' 218, which did not count the file #11 added.
+shim_cpp_files	src/sourcesharp	219
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1685,7 +1688,11 @@ shim_cpp_files	src/sourcesharp	218
 #   and the ISpatialLeafEnumerator the leaf system calls; every decision it carries out is managed's (the length-prefixed
 #   answers of IManagedDetailPropsClient, read by detail_props_wire.h). shell_client_orphans.cpp -7 (GetDetailController, whose
 #   importer was detailobjectsystem.cpp), renderable_facts.h +1 (its sway note re-pointed at the managed port).
-shim_lines	src/sourcesharp	144504
+# RAISED 2026-10-19, 144504 -> 144512 (+8, measured by the walk), at the rebase of main's 140 commits onto
+#   GitHub #10/#11 (public/main 9fb726b93): the ceiling was carried as #11's 145682 plus the commits' own
+#   -1178, and the walk reads 8 more, all in src/shared/native/imanaged_areas_client.h, which
+#   tools/managed-areas now writes in #11's table form (the commits' slots cost 18 lines there, 10 before).
+shim_lines	src/sourcesharp	144512
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

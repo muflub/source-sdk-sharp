@@ -29,29 +29,8 @@ TEST( Tier1Port, SetOverflowFlagMarksTheReaderOverflowed )
 	EXPECT_TRUE( r->IsOverflowed() );
 }
 
-//-----------------------------------------------------------------------------
-// strtools.cpp's members fork-header inlines call (P4, libtier1.a off the
-// link), held to stock's behaviour (src/tier1/strtools.cpp at valve-sdk.lock).
-//-----------------------------------------------------------------------------
-TEST( Tier1PortStrtools, StrncpyZeroFillsTheRestAndAlwaysTerminates )
-{
-	char buf[ 8 ];
-	memset( buf, 'x', sizeof( buf ) );
-	V_strncpy( buf, "ab", sizeof( buf ) );
-	EXPECT_STREQ( "ab", buf );
-	for ( size_t i = 2; i < sizeof( buf ); ++i )
-		EXPECT_EQ( 0, buf[ i ] ) << "byte " << i << " was not zero-filled, as strncpy does";
-
-	V_strncpy( buf, "abcdefghijk", sizeof( buf ) );
-	EXPECT_STREQ( "abcdefg", buf );
-}
-
-TEST( Tier1PortStrtools, StrncpyWithNoRoomWritesNothing )
-{
-	char buf[ 2 ] = { 'q', 'q' };
-	V_strncpy( buf, "ab", 0 );
-	EXPECT_EQ( 'q', buf[ 0 ] );
-}
+// V_strncpy's two facts retired with it (plan_server_native_v2 T2): its two
+// callers spell ss::StrCopy, whose own facts are the strtools tests'.
 
 TEST( Tier1PortStrtools, StricmpFoldsAsciiCaseAndKeepsTheSign )
 {

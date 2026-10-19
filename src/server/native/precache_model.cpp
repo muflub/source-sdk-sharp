@@ -59,41 +59,6 @@ extern IVModelInfo *modelinfo;
 // CModelSoundsCacheSaver row went with it.
 
 
-//#define WATCHACCESS
-#if defined( WATCHACCESS )
-
-static bool g_bWatching = true;
-
-void ModelLogFunc( const char *fileName, const char *accessType )
-{
-	if ( g_bWatching && !EntityPrecache_IsAllowed() )
-	{
-		if ( ss::StrIStr( fileName, ".vcd" ) )
-		{
-			Msg( "%s\n", fileName );
-		}
-	}
-}
-
-class CWatchForModelAccess: public CServerSystem
-{
-public:
-	virtual bool Init()
-	{
-		filesystem->AddLoggingFunc(&ModelLogFunc);
-		return true;
-	}
-
-	virtual void Shutdown()
-	{
-		filesystem->RemoveLoggingFunc(&ModelLogFunc);
-	}
-
-};
-
-static CWatchForModelAccess g_WatchForModels;
-
-#endif
 
 //-----------------------------------------------------------------------------
 // Precache model components
@@ -131,12 +96,6 @@ int Precache_Model( const char *name, bool bPreload )
 			DevMsg( "Late precache of %s -- not necessarily a bug now that we allow ~everything to be dynamically loaded.\n", name );
 		}
 	}
-#if defined( WATCHACCESS )
-	else
-	{
-		g_bWatching = false;
-	}
-#endif
 
 	int idx = engine->PrecacheModel( name, bPreload );
 	if ( idx != -1 )
@@ -144,9 +103,6 @@ int Precache_Model( const char *name, bool bPreload )
 		Precache_ModelComponents( idx );
 	}
 
-#if defined( WATCHACCESS )
-	g_bWatching = true;
-#endif
 
 	return idx;
 }

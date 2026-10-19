@@ -312,7 +312,6 @@ const char *const kSharedDir   = "sourcesharp/game/shared";
 // debug build compiles this file (server_sourcesharp_debug_sources).
 const char *const kShellBaseDebug = "sourcesharp/game/server/shell_standalone_base_debug.cpp";
 const char *const kSoundEnv    = "sourcesharp/game/server/shell_soundenvelope.cpp";
-const char *const kRestore     = "sourcesharp/game/server/shell_restoreentities.cpp";
 const char *const kShellAbsent = "sourcesharp/game/server/shell_absent.cpp";
 const char *const kGlobals     = "sourcesharp/game/server/shell_globals.cpp";
 
@@ -632,71 +631,12 @@ TEST( TypedHandleSweep, TheVariantEHandleFieldIsReadAsAnUntypedHandle )
 		   "anything.";
 }
 
-TEST( TypedHandleSweep, TheRestoreListHoldsUntypedHandles )
-{
-	const std::string src = Read( kRestore );
-	ASSERT_FALSE( src.empty() );
-
-	EXPECT_TRUE( Has( src, "std::vector< CBaseHandle >\tm_Restored;" ) )
-		<< "the restore list is typed again.";
-
-	// The append was AddRestoredEntity's, which the server gc cull deleted
-	// (2026-10-01: no caller, --print-gc-sections dropped it). The list's
-	// element type is what this fact still pins.
-}
-
-//-----------------------------------------------------------------------------
-// AND IT RESOLVES NOTHING AT ALL NOW -- BUT STILL NOT THROUGH THE HANDLE.
-//
-// CBaseHandle::Get() is declared on the base and DEFINED in ehandle.h as a
-// call into g_pEntityList, so spelling it here would put an entity-list read
-// back into this file through a name that does not look like one. That clause
-// is unchanged and is still the point of this fact.
-//
-// WHAT CHANGED IS THE OTHER CLAUSE, and it changed because it was reading dead
-// source. This required
-// `SourceSharp_ResolveEntity( ... ).pBase` inside EndRestoreEntities' OnRestore
-// loop. That whole loop body was inside `#ifndef SS_CBASEENTITY_ALIAS` and was
-// never compiled: IsDormant and OnRestore are both CBaseEntity members and
-// neither is one of IGameEntity's six, so armed there was nothing for the
-// resolved pointer to be. f288a5e11 deleted the arm and the loop body with it.
-//
-// SO THE PAIR IS NOW ABSENCE + THE PATH DECLARING ITSELF DEAD. "It resolves
-// nothing" written alone would be satisfied by deleting EndRestoreEntities, and
-// deleting it is what the file's banner refuses: "a body deleted is a body
-// somebody has to re-derive", and the day a managed save/load lands this is the
-// shape it comes back in. The successor clauses below are the two things that
-// must survive for that to be true -- the list is still drained, and the tail
-// still SAYS SO LOUDLY if a save game ever reaches it.
-//-----------------------------------------------------------------------------
-TEST( TypedHandleSweep, TheRestoreWalkResolvesNothingAndNeverThroughTheHandlesOwnGet )
-{
-	const std::string src = Read( kRestore );
-	ASSERT_FALSE( src.empty() );
-
-	EXPECT_FALSE( Has( src, "s_Restored.List()[i].Get()" ) )
-		<< "the restore walk is back on CBaseHandle::Get(), which is an "
-		   "entity-list read wearing a handle's name. 1d's ledger counts "
-		   "`gEntList.` and `g_pEntityList->`, so a read arriving under this name "
-		   "would not move that count and would not be visible to it either.";
-
-	EXPECT_FALSE( Has( src, "SourceSharp_ResolveEntity(" ) )
-		<< "EndRestoreEntities resolves an entity again. There is nothing for the "
-		   "result to be: OnRestore and IsDormant are CBaseEntity members and not "
-		   "IGameEntity's, so a managed entity's restore is C# work and a resolved "
-		   "pointer here could only be used to call a member the type does not "
-		   "have.";
-
-	// THE LIVE SUCCESSOR: the path is kept whole and declares itself dead.
-	EXPECT_TRUE( Has( src, "s_Restored.List().clear();" ) )
-		<< "the restore list is no longer drained. Whatever the walk does or does "
-		   "not do, a list that is filled and never emptied grows across restores.";
-	EXPECT_TRUE( Has( src, "EndRestoreEntities reached its tail" ) )
-		<< "the loud refusal at the tail is gone. Its whole job is to make the "
-		   "paragraph claiming this path is unreachable falsifiable; without it a "
-		   "walk that resolves nothing is indistinguishable from a walk that "
-		   "should have.";
-}
+// TheRestoreListHoldsUntypedHandles and TheRestoreWalkResolvesNothingAnd...
+// went with shell_restoreentities.cpp itself (plan_server_native_min P1):
+// the whole restore path -- the list, the walk and the loud tail -- is
+// deleted, inert since BeginRestoreEntities lost its definition. The facts
+// the tests kept alive come back with the managed save/restore codec
+// (plan_server_native_min P3c), which writes its own.
 
 // IT IS ONE STUB NOW, NOT TWO, and the second is asserted ABSENT rather than
 // dropped from the fact.
@@ -831,7 +771,9 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 		"sourcesharp/game/server/shell_absent.cpp",
 		"sourcesharp/game/server/shell_entityapi.cpp",
 		"sourcesharp/game/server/shell_gameents.cpp",
-		"sourcesharp/game/server/shell_restoreentities.cpp",
+		// shell_restoreentities.cpp is DELETED, not swept (plan_server_native_min
+		// P1): the whole restore path went, so there is no handle spelling left
+		// to count.
 		"sourcesharp/game/server/shell_soundent.cpp",
 		"sourcesharp/game/server/shell_soundenvelope.cpp",
 		"sourcesharp/game/server/shell_standalone_base.cpp",
@@ -845,7 +787,8 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 	};
 
 	const size_t nFiles = sizeof( kWas ) / sizeof( kWas[0] );
-	// 17 -> 16: gameentity_handle.cpp is DELETED, not swept. Its one function is
+	// 17 -> 15: gameentity_handle.cpp is DELETED, not swept; so is
+	// shell_restoreentities.cpp (plan_server_native_min P1). Its one function is
 	// inline in public/networkvar.h now (plan_entity.md's Phase 1 exit names
 	// `gameentity_handle.*` among the things that are gone), and networkvar.h is
 	// an engine prelude full of CHandle<> declarations -- it cannot stand in for
@@ -854,7 +797,8 @@ TEST( TypedHandleSweep, TheStepStartedFromThirtyFourSpellingsInSeventeenFiles )
 	// table is managed's (plan_physics_bones_native_zero 2.4).
 	// 15 -> 14: shell_motioncontrollers.cpp likewise (managed's
 	// PhysicsMotionControllers, 2.4).
-	EXPECT_EQ( (size_t)14, nFiles );
+	// 14 -> 13: shell_restoreentities.cpp likewise (plan_server_native_min P1).
+	EXPECT_EQ( (size_t)13, nFiles );
 
 	for ( size_t i = 0; i < nFiles; i++ )
 	{

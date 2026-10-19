@@ -448,23 +448,6 @@ public static class ContractBaseline
             // debugoverlay_shared.cpp's bViewCheck arm. Many other files in
             // this tree use it and this one does not.
             "UTIL_TraceLine"),
-        new("SourceSharp_ShootGib — the engine-API slot that built a native CGib",
-            "A gib is a managed entity now (ss_gib, made by SourceSharp.Server.Gibs), "
-          + "and game/server/gib.cpp is out of the server build and off disk. The "
-          + "ABI FIELD stays where it is because removing one from the middle of "
-          + "SourceSharpEngineApi shifts every field after it and several lanes are "
-          + "appending to that struct; what it points at is a Warning naming itself, "
-          + "not an empty body. A silent zero would have looked exactly like a gib "
-          + "that failed to spawn, which is a bug report nobody could act on. The "
-          + "field itself goes in a later pass that owns the whole table.",
-            "plan_entity.md §7, landed by step 4a",
-            // WITNESS. The Warning the slot exists to print. A slot that built a
-            // gib again would not print it, so this is a one-sided witness that
-            // needs no second half.
-            "src/sourcesharp/game/server/shell_worldquery.cpp",
-            "SourceSharp_ShootGib is retired: a gib is ss_gib and is ",
-            ""),
-
         new("a point gib's bounce sheds no energy",
             "CGib::Spawn sets SetFriction(0.55) and MOVECOLLIDE_FLY_BOUNCE takes "
           + "elasticity off a gib on every contact, so stock's gib settles after a "
@@ -508,37 +491,6 @@ public static class ContractBaseline
             // "no sprite is attached to it" cannot survive that.
             "src/sourcesharp/managed/SourceSharp.Server/Entities/Effects/Gibs.cs",
             "is thrown (invisible, as in stock) but no sprite is attached to it. ",
-            ""),
-
-        new("EntityDissolve — dissolving a managed entity",
-            "The dissolve is not a server effect: it is a material proxy the CLIENT "
-          + "runs over the target's studio model for a window of time, driven off the "
-          + "target's render mode and a dissolve entity parented to it. The standalone "
-          + "client hierarchy draws a studio model and has neither a render-mode "
-          + "override nor a proxy-driving entity, and building one is the client "
-          + "animation and render tail rather than an effects-cluster job. The slot "
-          + "ALREADY answered 0 for every managed entity -- it resolved the handle to "
-          + "a CBaseEntity, which is NULL for all of them -- so this records what was "
-          + "already true and makes it say so, which is the difference §7 is about. "
-          + "Nothing in SourceSharp.Server calls it.",
-            "plan_entity.md §7, recorded by step 4a; the port belongs to the client "
-          + "render tail (step 6c/6d)",
-            // WITNESS. The Warning that replaced the silent zero. When the
-            // client render tail lands and this slot does the work again, the
-            // Warning is the first thing that goes.
-            //
-            // THE NEEDLE DELIBERATELY OMITS THE WORD "EntityDissolve", and a
-            // ratchet on the native leg is why. anim_cluster_ledger_test's
-            // TheDissolveIsADECLAREDREFUSALAndNotASilentNoOp pins
-            // CountOf( Code( ContractBaseline.cs ), "EntityDissolve" ) at
-            // exactly ONE -- the Subject above -- so that the entry cannot be
-            // lost while EntityDissolve.cpp is deleted. Spelling the name again
-            // here took it to two and turned that leg red. The needle is the
-            // rest of the same warning line, still unique in the shim, and the
-            // function's own name is already pinned by that test's first
-            // EXPECT.
-            "src/sourcesharp/game/server/shell_worldquery.cpp",
-            "is refused: the dissolve is a CLIENT ",
             ""),
     };
 

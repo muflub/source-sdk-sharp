@@ -59,6 +59,7 @@
 
 // The third arm of the partition. Both DLLs define it; see the header.
 #include "world_subject.h"
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 #if !defined( CLIENT_DLL )
 #include "standalone_relays.h"
@@ -120,8 +121,8 @@ inline IHandleEntity *MovementGroundFromTrace( const trace_t &tr )
 	if ( !tr.m_pEnt )
 		return NULL;
 
-	if ( SourceSharp_IsTheWorld( tr.m_pEnt ) )
-		return tr.m_pEnt;
+	if ( SourceSharp_IsTheWorld( ss::TraceHit( tr ) ) )
+		return ss::TraceHit( tr );
 
 	// ONE ARM. `TraceEntity( tr )` was here first and answered a constant NULL
 	// -- it bottoms out in GetBaseEntity(), and every implementation of that in
@@ -134,7 +135,7 @@ inline IHandleEntity *MovementGroundFromTrace( const trace_t &tr )
 #else
 	if ( ss::TraceGameEntity( tr ) != NULL )
 #endif
-		return tr.m_pEnt;
+		return ss::TraceHit( tr );
 
 	return NULL;
 }

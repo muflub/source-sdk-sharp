@@ -19,6 +19,24 @@ Read this section first; it is written for an agent that has not seen the
 audit. CLAUDE.md's rules apply throughout and are not repeated here except
 where this plan narrows them.
 
+**The boundary rule (user, 2026-10-18, relayed by b6; docs/plans/plan_engine_forwarders.md).**
+Every native<->managed call goes through the generated forwarder tables,
+never through a vtable. Managed never reads an engine or vphysics object's
+vptr and never indexes an engine vtable: no `VtableLayouts.g.cs` engine
+structs, `[VtableSlot]`, `VtableAbi`, `MicrosoftEntries`, `Vtable.EntriesFor`
+or `[MemberFunction]` in new code. An engine call is `_fwd->Method(_self, ...)`
+(vphysics through `VPhysicsTables`); a missing method is appended at the END
+of its FORWARD row in `tools/engine-forwarders`, then
+`tools/engine-forwarders --write` from the farm, never `--reorder`. Our own
+native functions that managed calls are a HAND table in that tool, not a new
+vtable. The other direction (engine or native calling managed) is a native
+class whose virtuals forward to a managed fixed-order table (that plan's §6,
+the Steam-callback shape), never a managed-built vtable. Tables are per side
+(`libss_fwd_server`, `libss_fwd_client`); server-only wrappers live in
+`Server.Interop`. This supersedes the 2026-10-07 "managed calls engine
+vtables directly" ruling; the plan's FOLD, P2.4, P3f and Recipes D/E were
+rewritten to it on 2026-10-18.
+
 **The work queue is the ledger.** `docs/plans/server_native_audit.tsv` has
 one row per function (columns: cluster, file, start, end, code, symbol,
 verdict, destination, reason). Each phase below names the verdicts it
@@ -43,8 +61,8 @@ ratchet from P0 lets a row's verdict change in the same commit as the code)
 and say so in the commit message.
 
 **One commit per unit.** A unit is: one evicted TU, one deleted body (or a
-group of bodies that share one proof), one folded slot, one managed-built
-interface, one moved logic block with its facts. The commit message names
+group of bodies that share one proof), one folded slot, one generated
+forwarder class, one moved logic block with its facts. The commit message names
 the ledger rows it closes (`ledger: shell_playerslots.cpp DELETE x7`) and
 carries the proof command and its output for a deletion. Never `git add -A`;
 stage the paths named in the unit.
@@ -82,7 +100,7 @@ objects under `farm/debug/build/.../server_sourcesharp.dir` and over
 `bin/debug/bin/linux64/server.so`, `ninja -t deps` for the headers, a caller
 census of the 337 server rows of `docs/engineapi-areas.tsv` against every
 non-test `.cs` (every slot has a managed caller; no free deletion at the slot
-level), and `src/abi/VtableLayouts.g.cs` for the engine interfaces managed
+level), and `src/abi/VtableLayouts.g.cs` (then the mechanism; now the forwarder tables) for the engine interfaces managed
 already drives directly.
 
 | what | number |
@@ -105,8 +123,8 @@ fnmap ledger with zero gaps and zero duplicates.
 | KEEP-LAYOUT | struct the engine reads at fixed offsets | 518 | 1,224 |
 | KEEP-REG | load-time / static-init registration the engine needs | 817 | 354 |
 | KEEP-HOST | CoreCLR host, dispatch, and the tier substrate server.so carries because it links no tier libs | 1,840 | 1,199 |
-| KEEP-OUT | outbound engine call that only marshals, on an interface managed has no layout for yet | 2,788 | 820 |
-| FOLD | outbound call on an interface managed already has a layout for: managed calls the vtable; body and slot go | 538 | 170 |
+| KEEP-OUT | outbound engine call that only marshals, ruled at baaebbe6a as "no managed layout yet". Under the forwarder rule that reason is gone (any method can get a FORWARD row), so P0 re-rules these: FOLD unless the call needs a native object managed cannot build (a trace or recipient filter object until P3f) or a type no forwarder can marshal | 2,788 | 820 |
+| FOLD | outbound call managed makes itself through the interface's forwarder table (`_fwd->Method(_self, ...)`, appending the method to its FORWARD row if missing); the native body and its slot go | 538 | 170 |
 | MOVE | logic: decides, computes, parses, iterates, keeps state | 5,599 | 3,312 |
 | DELETE | dead: no caller, no engine entry (nm + grep evidence per row) | 2,199 | 585 |
 | DEBUG | debug-build-only diagnostics: delete, or move to the managed debug API | 2,320 | 598 |
@@ -126,16 +144,16 @@ away.
 Header lines are approximate (a comment-stripped read); function lines are
 exact. shell_savegame.h's 560 double-counts its two inline sub-rows (250).
 
-**KEEP-THUNK is not the floor.** A thunk whose body only forwards to managed
-can be the vtable itself: `tools/vtable-layout` already builds Valve-layout
-vtables in managed from `[UnmanagedCallersOnly]` addresses (`ValveLayout =
-true`: IPhysicsObjectEvent, IMotionEvent, the B2.1/B2.2 pattern). Applied to
-the engine-called interfaces whose methods are pure forwards (IServerGameDLL:
-30 of 55; IServerGameClients; IServerGameEnts; CShimLevel/IShimFrame's
-forwards), the native class goes and what stays is the registration row plus
-an object whose vtable pointer is installed once CoreCLR is up (P2.4). The
-2,436 KEEP-THUNK lines were ruled before this was applied; P2.4 re-rules them
-and the end-state estimate falls below 7,000 by whatever it takes.
+**KEEP-THUNK is not the floor either.** Under the forwarder rule the
+engine-called class stays native (the engine calls its vtable), but a class
+whose methods are pure forwards (IServerGameDLL: 30 of 55; IServerGameClients;
+IServerGameEnts) becomes a GENERATED forwarder class: one generated line per
+virtual, forwarding to a managed fixed-order table (plan_engine_forwarders.md
+§6, the Steam-callback shape, a HAND/reverse row in `tools/engine-forwarders`).
+Hand-written thunk lines go to zero; generated lines (`src/fwd/native/*.g.inc`)
+do not count against the ratchet (Recipe G). The 2,436 KEEP-THUNK lines were
+ruled before this was applied; P2.4 re-rules them and the end-state estimate
+falls below 7,000 hand-written lines by whatever it takes.
 
 ## 3. Per-file verdicts
 
@@ -157,9 +175,9 @@ one MOVE; each gated by the P1 proof):
 | src/server/native/shell_absent.cpp | 82 | 45 DELETE (CPostFrameNavigationHook toggles a bool nobody reads; RadiusDamage is a printed refusal with no managed caller) + 36 MOVE (tracer flags). |
 | src/server/native/server_util_library.cpp | 191 | 129 DELETE: the CCheckClient subsystem writes two PVS bitsets nothing reads (`UTIL_FindClientInPVS` is gone; `GetNewCheckClient` `continue`s every candidate); the rest MOVE/FOLD and two UTIL_ClearTrace callers inline it. |
 | src/server/native/shell_te_forwards.cpp | 369 | 354 MOVE: the 14 `TE_*` + CEffectsServer exist only for native callers and round-trip `SourceSharpTe_Forward -> IManagedTempEnts.OnNativeTempEntity` back into managed, which already builds every effect (EffectsOverTempEnts.cs). Leaves when its native callers call managed. |
-| src/shared/native/shell_gameevents.cpp | 116 | 58 FOLD onto GameEventManagerVtbl; 40 KEEP-OUT only because IGameEvent has no layout (add one: the rest folds). |
-| src/server/native/shell_stringtables.cpp (+ .h) | 98 | every slot FOLDs onto NetworkStringTableContainerVtbl / NetworkStringTableVtbl; the 7 stock table globals persist only for native readers. |
-| src/server/native/shell_engineservices.cpp | 46 | 34 FOLD (BaseFileSystemVtbl) + 1 OOS. |
+| src/shared/native/shell_gameevents.cpp | 116 | 58 FOLD through the IGameEventManager2 forwarder; 40 KEEP-OUT only because IGameEvent had no table (append its FORWARD row and the rest folds). |
+| src/server/native/shell_stringtables.cpp (+ .h) | 98 | every slot FOLDs through the INetworkStringTableContainer / INetworkStringTable forwarders; the 7 stock table globals persist only for native readers. |
+| src/server/native/shell_engineservices.cpp | 46 | 34 FOLD (IBaseFileSystem forwarder) + 1 OOS. |
 | src/shared/native/shell_acquire_reasons.cpp | 22 | 15 MOVE + a 7-line copy. |
 | dead headers | 21+ | activator.h, entity_funcs.h (+entity_funcslot.h), scaled_collision_rule.h, notify_gate.h, push_blocker_rule.h, ent_fire_access.h (ported: DevCommandsLive.cs), physics_sweep.h (declares a function with no definition), scripted_var_defaults.h, said_once_per_id.h, igamerules.h (with the IGameRules retirement below), shell_movement_audit.h (orphan since its .cpp left 2026-10-01), gamesound.h (five declarations nothing defines). Zero includers in src/ including tests, except where a test reads the text. |
 
@@ -187,24 +205,24 @@ The largest logic blocks, by destination (details per row in the ledger):
 
 | block | lines | destination |
 |---|--:|---|
-| sound: CSoundEmitterSystem + EmitCloseCaption (sound_emitter.cpp) | 670 | new `SoundEmitter` over SoundEmitterSystemVtbl + EngineSoundVtbl + EngineServerVtbl.EmitAmbientSound; CloseCaptions.cs |
+| sound: CSoundEmitterSystem + EmitCloseCaption (sound_emitter.cpp) | 670 | new `SoundEmitter` over the ISoundEmitterSystemBase, IEngineSound and IVEngineServer forwarders; CloseCaptions.cs |
 | sound: CSoundPatch + CShellSoundController (shell_soundenvelope.cpp) | 286 | SoundEnvelopeController.cs / SoundController.cs (handle table already managed) |
-| sound: EntityEmitSound/StopSound/EmitSoundAtPosition (shell_sound.cpp) | 84 | SoundEmitter (SOUND_FROM_WORLD rules, PAS filter via EngineServerVtbl PVS calls) |
+| sound: EntityEmitSound/StopSound/EmitSoundAtPosition (shell_sound.cpp) | 84 | SoundEmitter (SOUND_FROM_WORLD rules, PAS filter via the IVEngineServer forwarder's PVS calls) |
 | tempents: tempent_schema.h planner + SourceSharp_TempEntRegister | 603 + 111 | src/shared/interop/TempEntRegistry.cs + new `TePropPlanner`: managed emits `SourceSharpTePropPlan_t` rows; native only constructs SendProp/SendTable/ServerClass (~75 lines) |
 | tempents: TE_* forwarders (shell_te_forwards.cpp) | 354 | EffectsOverTempEnts.cs (already builds them); native callers call managed |
 | datatables: SendProp* builders (dt_send.cpp) | 269 | new `SendPropPlan`: kind/offset/bits/flags/proxy-id/high-low; native stores into the SendProp it must own |
 | save/restore: shell_savegame.h codec + shell_savegame.cpp drivers | ~790 | new `SaveFieldCodec`/`SavedEntityCodec`; three generic IManagedSaveRestore slots hand the engine's buffer/fields/base across; saverestore.h stays LAYOUT. **Decision 3** (contradicts managed-saverestore.md's "(f) stays native", which defends the byte layout, not an engine dependency) |
 | entity I/O: ss::variant_t Set/Convert/ToString (shell_globals.cpp) | 230 | VariantValue.cs / EntityIo.cs; the one live path is DispatchInput's `Convert(FIELD_FLOAT)` + `ToString`; EHANDLE arms unreachable |
 | player: command path (TickBase_Adjust, RunCommand prepare, FinishMove/pitch clamp) + SyncToBlob + IMoveHelper decisions (shell_standalone_player.cpp) | 280 | PlayerCommandQueue.cs + Movement.cs; PlayerNetState.cs / PlayerShadow.cs. Thunk left ~37 lines. Depends on movement state ownership (P3d) |
-| player: PlayerSync_Write (standalone_player_sync.cpp) + ClientSetupVisibility | 101 + 77 | PlayerNetState.cs / new `ClientVisibility` on EngineServerVtbl (ResetPVS/AddOriginToPVS/SetAreaPortalStates/GetArea/GetAreaBits) once g_AreaPortals is managed |
+| player: PlayerSync_Write (standalone_player_sync.cpp) + ClientSetupVisibility | 101 + 77 | PlayerNetState.cs / new `ClientVisibility` on the IVEngineServer forwarder (ResetPVS/AddOriginToPVS/SetAreaPortalStates/GetArea/GetAreaBits) once g_AreaPortals is managed |
 | areaportals: areaportal_list.h state + rule, shell_areaportal.cpp | 93 + 26 | a managed AreaPortals record; crossing: SetAreaPortalState (FOLD) |
 | hierarchy: EntitySetParent/GetParent/GetParentAttachment/Set|GetLocalTransform slots + relays | 138 | round trips (managed -> native -> IManagedHierarchy -> managed): Entities.* facades call HierarchyDriver directly; GetParent reads the block ParentHandle (EngineBlock.cs). Crossing: none |
 | world/entity API: TraceLineInto's SOURCESHARP_TRACE_* mask table, TemplateSpawnKeyed, EntityAddBaseVelocity, CheckTransmit walk, PaintDecal, CWorld::Precache, EntityGetState, CWorld::KeyValue, EntitySetKeyValue round trip, WorldChapterTitle round trip | ~830 | PointTemplate.cs, Movement.cs, ServerEntities (measure CheckTransmit after), DecalEmitter.cs, LifecycleStages.cs, EntityKeyValues.cs/MapSpawner.cs |
 | rule headers: scripted_kinds.h, collision_group_names.h, movement_ground*.h, ground_handle_wire.h | 200 | EngineCollisionGroup.cs already mirrors the positional engine enum (overturns entity-shell.md §3/§9's reason to keep the native 5-row translation), SsPlayer.GroundWireNone, Movement.cs; scripted_kinds needs the ABI change entity-shell.md §9 named |
-| overlays: overlay_library.cpp + shell_debugoverlays.cpp | 240 | new `DebugOverlays` (DebugHooks): viewer, clip rule, counters, pool, picker gate; every draw FOLDs to DebugOverlayVtbl |
+| overlays: overlay_library.cpp + shell_debugoverlays.cpp | 240 | new `DebugOverlays` (DebugHooks): viewer, clip rule, counters, pool, picker gate; every draw FOLDs through the IVDebugOverlay forwarder |
 | damage/blood/tracer: takedamageinfo_library.cpp, blood/tracer arms in util_shared_library / server_util_library / shell_absent | 125 + 120 | DamageRules/BlastRules (g_MultiDamage's only importer is shell_gamerules' ctor/EndGameFrame -- mostly DELETE after the move); new BloodEffects/TracerEffects (violence convars, German recolour, x5 multiplayer, MECH sparks) |
-| recipient filters: shell_recipientfilter.cpp + ss_recipient_filter.cpp + closecaption_recipient.h | 135 | new managed `RecipientFilter` (AddAllPlayers, PVS/PAS via `Message_DetermineMulticastRecipients`, attenuation cull, caption removal); needs a managed-built IRecipientFilter (4 slots). **Decision 2** |
-| trace filter: trace_filter_library.cpp + CSourceSharpGameRules::ShouldCollide | 65 | managed trace filter rule (owner, shape clause, group matrix); needs a managed-built ITraceFilter the engine calls per candidate. **Decision 2** |
+| recipient filters: shell_recipientfilter.cpp + ss_recipient_filter.cpp + closecaption_recipient.h | 135 | new managed `RecipientFilter` (AddAllPlayers, PVS/PAS via `Message_DetermineMulticastRecipients`, attenuation cull, caption removal); the engine-facing IRecipientFilter is a generated forwarder class over a 4-slot managed table. **Decision 2** |
+| trace filter: trace_filter_library.cpp + CSourceSharpGameRules::ShouldCollide | 65 | managed trace filter rule (owner, shape clause, group matrix); the engine-facing ITraceFilter is a generated forwarder class the engine calls per candidate. **Decision 2** |
 | lifecycle: RegisterConVar/RegisterConCommand policy, RegisterConCommandBase (stock game.cpp:60-98 replicated-default capture), kServerSystems[] order, LevelInit arm selection, Precache_Model late-precache rule | 135 | ConVars/GameDllConVars (needs a "flags of a ConCommandBase" and a "set ConVar by pointer" slot), LifecycleStages/GameLifecycle (per-system stage slots), HostingServices, ServerPrecache/ClientAssets |
 | gamerules: CSourceSharpGameRules | 206 | **the engine never calls IGameRules**: igamerules.h is native-internal (10 native importers, no engine consumer); 17 of 24 virtuals are empty/constant. Retire reader by reader: shell_gameclients -> IManagedClients, shell_frame -> ManagedFrame, gametags empty; then the object, its empty SendTable and igamerules.h go |
 
@@ -232,6 +250,14 @@ NULL `pBase` are PORTED, never deleted (port-dead-stock-arms.md).
 - Why first: every later phase is scored by this number, and the file-count
   instruments here have flattered progress before (CLAUDE.md "Measurement
   pitfalls").
+- Second commit of P0: re-rule the 2,788 KEEP-OUT lines under the forwarder
+  rule. Per row: FOLD if the body is a marshalling call on an engine
+  interface (any method can get a FORWARD row); KEEP-OUT only if it
+  constructs or hands the engine a native object managed cannot build (a
+  trace filter, a recipient filter, a ConVar/ConCommand carrier, a SendProp)
+  or passes a type no forwarder marshals; name which in the reason. Expect
+  most of the 2,788 to become FOLD; the ratchet file is re-taken in the
+  same commit.
 
 ### P1. Deletions (about 2,200 .cpp + 585 header lines; ~25 commits; Recipes A, B, C)
 
@@ -288,21 +314,23 @@ No new logic in managed; managed calls what it already can.
    report; live-gate issues it: make it a managed command first, then
    delete), `SourceSharp_EndRound` if CShellGameRules::EndMultiplayerGame
    forwards to managed (verify).
-2. FOLD onto layouts managed already has (`VtableLayouts.g.cs`), one
-   interface per commit, slot and body gone with it: GameEventManagerVtbl
-   (shell_gameevents 58; add an IGameEvent layout and the other 40 follow),
-   NetworkStringTableContainer/TableVtbl (shell_stringtables 45 +
-   precache material/particle AddString), BaseFileSystemVtbl
-   (shell_engineservices 34), DebugOverlayVtbl (overlay_library 29),
-   EngineServerVtbl (ServerCommand/Execute, SetView, GetPlayerUserId,
+2. FOLD through the forwarder tables (Recipe D), one engine interface per
+   commit, slot and body gone with it: IGameEventManager2 + IGameEvent
+   (shell_gameevents 116), INetworkStringTableContainer / INetworkStringTable
+   (shell_stringtables 45 + precache material/particle AddString),
+   IBaseFileSystem (shell_engineservices 34), IVDebugOverlay (overlay_library
+   29), IVEngineServer (ServerCommand/Execute, SetView, GetPlayerUserId,
    LightStyle, PrecacheDecal, PrecacheModel/IsModelPrecached, the PVS reads,
-   SetAreaPortalState, Message_DetermineMulticastRecipients, Time()),
-   EngineTraceVtbl.GetPointContents, EffectsVtbl (Sparks, Dust,
-   MuzzleFlash), ModelInfoVtbl.GetModel, PhysicsSurfaceProps
-   (GetSurfaceIndex/GetSurfaceData), UploadGameStatsVtbl, the GlobalVars
-   fields IShimFrame reads/writes (managed holds the pointer). What cannot
-   fold and why is a row: `SendClientCommand` (ClientCommand is varargs),
-   every trace (needs an ITraceFilter object: P3f).
+   SetAreaPortalState, Message_DetermineMulticastRecipients, Time(),
+   ClientCommand as a forwarder taking the preformatted string, so
+   `SendClientCommand` folds too), IEngineTrace.GetPointContents, IEffects
+   (Sparks, Dust, MuzzleFlash), IVModelInfo.GetModel, IPhysicsSurfaceProps
+   (GetSurfaceIndex/GetSurfaceData), IUploadGameStats, the GlobalVars fields
+   IShimFrame reads/writes (managed holds the pointer), and after P0's
+   re-rule the former KEEP-OUT rows. What cannot fold and why is a row:
+   every trace (needs an ITraceFilter object: P3f), the recipient-filter
+   senders (P3f), the ConVar/ConCommand carriers and SendProp constructors
+   (native objects the engine holds: KEEP-LAYOUT/REG).
 3. Debug commands whose subject is managed data move to `tools/debug-api`
    routes (cs_sv_dump_types, cs_sv_playerinfo, the payload oracle/poke/probe
    bodies in shell_standalone.cpp -> a `_debug.cpp` first, then the API);
@@ -312,25 +340,28 @@ No new logic in managed; managed calls what it already can.
    readers of native-only state (ss_ground, cs_sv_handle_cross_check, the
    SendTable dumpers) stay native until their subject moves.
 
-4. Pure-forward engine vtables become managed-built Valve-layout tables (user
-   question 2026-10-11: "can we call straight into the vtable from C# for
-   pure forwards?" -- yes, the existing `ValveLayout` pattern). Per interface,
-   one commit: a `docs/managed-interfaces.tsv` block, `chain=` in
-   tools/vtable-layout, AbiParityTests, then the native class deleted.
-   Order: IServerGameEnts (6 methods, 3 hot voids), IServerGameClients (19),
-   IServerGameDLL (55; `DLLInit` stays native because it starts the runtime,
-   and the five deciding methods move their decision to managed in the same
-   commit). Two constraints hold the shape: the engine asks CreateInterface
-   for these BEFORE DLLInit, so the factory hands out a native object whose
-   vtable pointer is swapped to the managed table at DLLInit (and swapped
-   back on `cs_sv_reload`, plan_managed_vtable_reload's rules); and an
-   engine-to-managed call is a reverse P/Invoke with a GC transition on every
-   call (`[SuppressGCTransition]` applies only to managed-to-native leaf
-   calls), so the hot per-entity vtables (CStandaloneEntity's ICollideable /
-   IServerEntity / IServerNetworkable, called by the engine per entity per
-   frame) are measured on dm_lockdown before they follow; a blown budget keeps
-   those as a native class over the engine block, which is KEEP-LAYOUT work
-   either way.
+4. Pure-forward engine-called classes become GENERATED forwarder classes
+   (Recipe E). The user asked on 2026-10-11 whether managed could be the
+   vtable for pure forwards; the 2026-10-18 forwarder rule answers how: the
+   engine keeps calling a native object, whose virtuals are generated
+   one-liners forwarding to a managed fixed-order table, so nothing
+   hand-written remains and managed knows no vtable. Per interface, one
+   commit: the reverse row in `tools/engine-forwarders`, `--write`, the
+   managed table filled with `[UnmanagedCallersOnly]` entries, the
+   hand-written class deleted. Order: IServerGameEnts (6 methods, 3 hot
+   voids), IServerGameClients (19), IServerGameDLL (55; `DLLInit` stays
+   hand-written because it starts the runtime, and the five deciding methods
+   move their decision to managed in the same commit). Two constraints hold
+   the shape: the engine asks CreateInterface for these BEFORE DLLInit, so
+   the generated class must answer before the managed table is bound (a
+   slot whose table is unbound returns the documented default, as the shim
+   areas do today) and re-bind across `cs_sv_reload`
+   (plan_managed_vtable_reload's rules); and an engine-to-managed call is a
+   reverse P/Invoke with a GC transition on every call, so the hot
+   per-entity classes (CStandaloneEntity's ICollideable / IServerEntity /
+   IServerNetworkable, called per entity per frame) are measured on
+   dm_lockdown before they follow; a blown budget keeps those hand-written
+   over the engine block, which is KEEP-LAYOUT work either way.
 
 Exit: FOLD at zero; the EngineSide wrapper count falls by the folded slots;
 KEEP-THUNK re-ruled per interface with the measured exceptions named;
@@ -383,14 +414,16 @@ and worktree (delegate by file ownership; serialise the ABI tail).
   (loadGame/background in SourceSharpMapLoad; the four OnMapLoad_* slots
   collapse to one); Precache_Model's late-precache rule; the IGameRules
   retirement reader by reader.
-- **P3f the two engine callbacks (200 lines; Decision 2).** A managed-built
-  ITraceFilter (ShouldHitEntity per candidate, mid-trace) and IRecipientFilter
-  (4 slots), on the B2.1/B2.2 pattern (`docs/managed-interfaces.tsv` rows,
-  `chain=` in tools/vtable-layout, AbiParityTests), with
-  `[SuppressGCTransition]`. Measured on dm_lockdown against the native filter
+- **P3f the two engine callbacks (200 lines; Decision 2, ruled managed).**
+  The rule lives in managed; the engine still calls a native ITraceFilter
+  (ShouldHitEntity per candidate, mid-trace) and IRecipientFilter (4 slots),
+  each a generated forwarder class over a managed fixed-order table
+  (Recipe E), created and released through `libss_fwd_server` like the
+  Steam callback object. Measured on dm_lockdown against the native filter
   before the native one goes: TraceLine is the hottest slot in
   `tools/slot-census.tsv` (3,250 calls, 1.57 trace lines per frame at rest).
-  With these two in place every trace FOLDs onto EngineTraceVtbl and the sound
+  With these two in place every trace FOLDs through the IEngineTrace
+  forwarder (the filter object's pointer is the argument) and the sound
   slot-list crossing from P3a goes.
 - **P3g player command path and movement (570 lines).** TickBase_Adjust,
   the RunCommand prepare, FinishMove/pitch clamp, SyncToBlob, the IMoveHelper
@@ -431,10 +464,11 @@ gates miss (sound patches and areaportals across the second map load).
    and its debug file, plugin_check.cpp (`IPluginHelpersCheck`, 33 lines) and
    the `ServerPluginHelpersVtbl` rows are P1 deletions; `GetPlayerState` stays
    non-NULL (engine-boundary.md §4.1) by other means.
-2. **Managed-built ITraceFilter and IRecipientFilter.** RULED: managed. The
-   engine calls both back synchronously (per trace candidate; per
-   recipient); both are built as managed-built Valve-layout vtables, measured
-   on dm_lockdown before the native ones go (P3f).
+2. **Managed ITraceFilter and IRecipientFilter.** RULED: managed. The engine
+   calls both back synchronously (per trace candidate; per recipient). Under
+   the 2026-10-18 forwarder rule the engine-facing object is a generated
+   forwarder class over a managed fixed-order table (not a managed-built
+   vtable), measured on dm_lockdown before the native ones go (P3f).
 3. **Save/restore codec.** RULED: managed. docs/managed-saverestore.md's "(f)
    stays native" defended the byte layout, which the managed codec keeps
    byte-exact (oracle-hashed); the ruling is overturned in P3c's first commit,
@@ -575,60 +609,84 @@ measurement (`make debug`) so the objects match the tip.
    `src/abi/Crossings.cs` (docs/abi-retirements.md's contract; append your
    row there). Delete the native body and the EngineSide wrapper.
 4. At the END of the phase, one serialised pass: delete every marked row
-   from `docs/engineapi-areas.tsv`, run `tools/shim-areas --write` and
-   `tools/vtable-layout --write`, then `make managed-test FILTER='FullyQualifiedName~AbiParity'`
-   and `~EngineApiAreas`, and check brace balance / per-parent line counts /
+   from `docs/engineapi-areas.tsv`, run `tools/shim-areas --write` (the
+   native shim classes), then -- because since GitHub #10/#11 (main
+   06b426523, 2026-10-18) managed reaches every IShim area through an
+   `every=True` forwarder table, and a forwarder table only ever appends --
+   a DELIBERATE `tools/engine-forwarders --write --reorder` from the farm,
+   which rebuilds both sides' tables (the one case `--reorder` is for; say so
+   in the commit). Then `tools/engine-forwarders` (no flags) must exit 0,
+   `make managed-test FILTER='FullyQualifiedName~AbiParity'` and
+   `~EngineApiAreas` green, and check brace balance / per-parent line counts /
    `<summary>` balance in the generated files (CLAUDE.md "After an ABI merge").
+   `tools/vtable-layout` no longer writes anything (it is the header walk the
+   generators read); `src/abi/VtableLayouts.g.cs` is gone.
 
-### Recipe D: FOLD a slot onto an engine vtable managed already has
+### Recipe D: FOLD a slot through the interface's forwarder table
 
-1. Confirm the layout: `grep -n 'struct <Name>Vtbl' src/abi/VtableLayouts.g.cs`
-   and the method row inside it (the comment names the C++ signature). No
-   row: the interface is not folded in this plan; leave the row KEEP-OUT.
+1. Find the interface's FORWARD row in `tools/engine-forwarders` (`FORWARD =
+   [ dict(struct='<Name>Vtbl', side=..., methods=[...]) ]`; the key is still
+   the old struct spelling, the C# struct it generates is in
+   `src/abi/SharedForwarders.g.cs` or `src/server/interop/ServerForwarders.g.cs`).
+   If the method is missing, APPEND it at the end of `methods` (an overload's
+   second declaration is `Name_2`); if the interface has no row, add one at
+   the end of FORWARD with `side='server'` (or `both` if Shared.Interop will
+   call it). Never reorder. Then, from the farm:
+   `tools/engine-forwarders --write` and read the diff (`exit 2` = the method
+   is not in the header: fix the name, never the header).
 2. In the managed caller (usually the EngineSide wrapper, or the service that
-   calls it), replace the slot call with the direct vtable call the way
-   existing code does it (grep `EngineServerVtbl` outside `.g.cs` for the
-   pattern: `<Holder>.Vt-><Method>(<Holder>.Self, ...)`). Marshal strings as
-   the existing callers do (utf8 `fixed` pins).
+   calls it), replace the slot call with the forwarder call the way existing
+   code does it (`grep -rn '_fwd->' src/server/interop src/shared/interop | head`):
+   `_fwd->Method(_self, ...)`, the engine object pointer obtained the way the
+   neighbouring calls obtain it. Marshal strings as the existing callers do
+   (utf8 `fixed` pins); a varargs method gets a forwarder that takes the
+   preformatted string.
 3. Behaviour parity: a fact that calls the managed path and asserts the same
-   engine call sequence the native body made (the `Crossings` log or a
-   fake vtable in `src/test/managed`), red before step 2, green after.
-4. Retire the slot with Recipe C.
+   engine call sequence the native body made (the `Crossings` log or a fake
+   forwarder table in `src/test/managed`), red before step 2, green after.
+4. Retire the slot with Recipe C. The checks leg runs `tools/engine-forwarders`
+   (no `--write`) and fails if the committed tables drift from the tool.
 
-### Recipe E: a managed-built Valve-layout vtable (P2.4, P3f)
+### Recipe E: a generated forwarder class the engine calls (P2.4, P3f)
 
-The pattern is `src/server/interop/PhysicsObjectEventBinding.cs`
-(`[ManagedVtable(typeof(PhysicsObjectEventVtbl))]`) and its chain row in
-`tools/vtable-layout` (`chain=['IPhysicsObjectEvent']`, which generates
-`[ImplementedByManaged("...", ValveLayout = true)]`).
+The direction is engine -> native -> managed, and the rule forbids a
+managed-built vtable, so the native class stays and is GENERATED. The
+pattern is the Steam callback (plan_engine_forwarders.md §6): a native class
+deriving the engine interface whose virtuals forward, in a fixed order, to a
+managed table; `src/fwd/native/fwd_steam.cpp` / `fwd_steam.h` /
+`imanaged_steam_callback.h` and the `HAND` row `SteamCallback` in
+`tools/engine-forwarders` are the worked example. Read them first.
 
-1. Layout: the interface's vtable struct must exist in
-   `src/abi/VtableLayouts.g.cs` with every slot in Valve's order (the
-   `docs/abi-parity.tsv` row pins it against upstream; `tools/abi-parity
-   --side server` must pass). Add the chain row in `tools/vtable-layout`,
-   `tools/vtable-layout --write`.
-2. Rows in `docs/managed-interfaces.tsv` (interface, method, return,
-   parameters), then `tools/managed-areas --write` (regenerates
-   `src/shared/native/imanaged_areas.h` and the managed side).
-3. The binding class: one `[UnmanagedCallersOnly]` static per slot, the
-   table filled with their addresses in `NativeMemory` (copy the physics
-   binding's shape), registered as a service (no statics: SS0001).
-4. Installation: who hands the engine the pointer. For VPhysics callbacks it
-   is a `Set*Handler` call at level init. For the CreateInterface'd
-   interfaces (P2.4) the engine already holds a native object from before
-   DLLInit: keep that object, and at `IServerGameDLL::DLLInit` (after the
-   runtime is up) overwrite its vtable pointer with the managed table;
-   restore the native table in `DLLShutdown` and across `cs_sv_reload`
-   (plan_managed_vtable_reload.md's rules: the table must survive an
-   assembly reload or be re-pointed after it).
-5. Facts: `AbiParityTests` (slot order), a fact per slot that the engine's
-   call reaches the managed method (drive the vtable from the test through
-   the function pointers), and the gate's second map load live.
-6. Cost (P2.4's hot vtables, P3f): `tools/slot-census` before and after on
+1. The managed-facing table: an `imanaged_<name>.h` abstract class in
+   `src/fwd/native/` with one pure virtual per engine method, no virtual
+   destructor, no overloads (the shape both ABIs lay out identically), and
+   the matching managed binding with one `[UnmanagedCallersOnly]` static per
+   method, registered as a service (no statics: SS0001). The managed struct
+   is generated from the row, not hand-written.
+2. The native class: `fwd_<name>.cpp` deriving the engine interface, each
+   virtual a one-liner calling the managed table; a slot whose table is not
+   yet bound returns that method's documented default. A `HAND` row in
+   `tools/engine-forwarders` (`table`, `side='server'`, `self_type`,
+   `include`, `slots` = SizeOf/Construct/Release and the per-object calls
+   managed needs), then `tools/engine-forwarders --write` from the farm.
+   The native tool emits the table; nothing in `src/server/native` is
+   hand-written for it.
+3. Who hands the engine the pointer. P3f filters: managed constructs the
+   object through the HAND table's `Construct` and passes it as the
+   IEngineTrace forwarder's filter argument, releasing it after the call
+   (no accumulation across runs). P2.4 CreateInterface'd classes: the
+   generated class is what `shell_factory.cpp`'s row exposes from static
+   init; the managed table binds at `DLLInit` after the runtime is up and
+   re-binds across `cs_sv_reload` (plan_managed_vtable_reload.md's rules).
+4. Facts: a fact per slot that the engine's call reaches the managed method
+   (construct the native object from the test and call its virtual), the
+   unbound-default fact for every slot the engine may call before DLLInit,
+   and the gate's second map load live.
+5. Cost (P2.4's hot classes, P3f): `tools/slot-census` before and after on
    dm_lockdown; quote both numbers with commit shas in the commit. A blown
    budget stops for the user.
-7. Delete the native class (Recipe A/B) in the same commit as step 4 lands
-   green, or the next.
+6. Delete the hand-written class (Recipe A/B) in the same commit as step 3
+   lands green, or the next.
 
 ### Recipe F: MOVE a logic block (test-first)
 
@@ -670,7 +728,10 @@ A Python script in `tools/`, in the style of `tools/server-novalve-census`
   DONE or FOLD (else fail: "ruled KEEP but vanished").
 - Ratchet: `docs/server-native-ratchet.tsv`, one row per file: code lines in
   MOVE+DELETE+FOLD+DEBUG rows. Measured > committed fails; `--write`
-  rewrites the file for review in the diff.
+  rewrites the file for review in the diff. Generated files
+  (`src/fwd/native/*.g.inc`, anything `tools/engine-forwarders --write`
+  emits) are not in the server source list and never count; a hand-written
+  line that moves into a generated table is a fall, which is the point.
 - Self-test: plant a function in a temp copy of a TU, run, expect the
   "unruled" failure; plant a raised ratchet row, expect the "rose" failure.
 - `--self-test` must fail when the ledger is missing (a missing input is a

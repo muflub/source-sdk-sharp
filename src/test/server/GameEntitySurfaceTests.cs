@@ -211,8 +211,23 @@ public class GameEntitySurfaceTests
 
         string body = ClassBodyOf(File.ReadAllText(header));
 
-        Assert.True(!body.Contains("#if"),
-            "IGameEntity's class body has no #if/#ifdef/#ifndef, so the member count cannot differ by side");
+        // ONE #if IS ALLOWED, AND IT DECLARES ONE MEMBER EITHER WAY: the
+        // destructor's name. On the server built on stock public headers the
+        // class is CBaseEntity (plan_server_native_v2 D1), and a destructor
+        // must be spelled with the class's own name, never an alias. Removing
+        // exactly that block must leave no other conditional.
+        const string destructorArms =
+            "#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )\n" +
+            "\tvirtual ~CBaseEntity() {}\n" +
+            "#else\n" +
+            "\tvirtual ~IGameEntity() {}\n" +
+            "#endif";
+        Assert.True(body.Contains(destructorArms, StringComparison.Ordinal),
+            "the destructor's two arms are spelled as this fact expects");
+        string rest = body.Replace(destructorArms, "", StringComparison.Ordinal);
+
+        Assert.True(!rest.Contains("#if"),
+            "IGameEntity's class body has no #if/#ifdef/#ifndef but the destructor's name, so the member count cannot differ by side");
     }
 
     /// <summary>

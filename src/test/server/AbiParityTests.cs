@@ -130,69 +130,6 @@ public partial class AbiParityTests
     }
 
     /// <summary>
-    /// The same check for <see cref="GibShot"/>, which had none.
-    ///
-    /// <para>
-    /// It is the OTHER struct that crosses this ABI by pointer, and it goes the
-    /// opposite way from <see cref="BreakPiece"/>: C# fills it and
-    /// <c>SourceSharp_ShootGib</c> reads it field by field. That direction is
-    /// worse, not better. A field appended on one side only shifts nothing the
-    /// compiler can see and everything the gib can: the native side reads a
-    /// gravity scale out of a skin, or a strict-remove flag out of a material,
-    /// and the result is debris that behaves oddly rather than a server that
-    /// stops.
-    /// </para>
-    ///
-    /// <para>
-    /// Written when <c>BloodColor</c> was appended to both sides, which is
-    /// exactly the edit this catches when it is only made to one.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheGibShotStructMatchesTheHeader()
-    {
-        string? header = FindHeader();
-
-        if (header is null)
-        {
-            Assert.True(true, "ABI header found for the gib shot layout (skipped, not found)");
-            return;
-        }
-
-        var native = PlainFields(File.ReadAllText(header), "SourceSharpGibShot");
-
-        Assert.True(native.Count > 0, "the header declares SourceSharpGibShot");
-
-        var managed = typeof(GibShot)
-            .GetFields(System.Reflection.BindingFlags.Public
-                     | System.Reflection.BindingFlags.Instance)
-            .OrderBy(f => f.MetadataToken)
-            .Select(f => (Name: f.Name, Words: f.FieldType == typeof(Vector) ? 3 : 1))
-            .ToList();
-
-        Assert.True(native.Count == managed.Count,
-            $"gib shot field counts match (native {native.Count}, managed {managed.Count})");
-
-        for (int i = 0; i < Math.Min(native.Count, managed.Count); i++)
-        {
-            // Same rule as the break piece: OriginXYZ against Origin, AnglesPYR
-            // against Angles. See SameField.
-            if (!SameField(native[i], managed[i]))
-            {
-                Assert.Fail($"gib shot field {i} matches "
-                          + $"(native '{native[i].Name}' x{native[i].Words}, "
-                          + $"managed '{managed[i].Name}' x{managed[i].Words})");
-                return;
-            }
-        }
-
-        int gibWords = managed.Sum(f => f.Words);
-
-        Assert.True(Unsafe.SizeOf<GibShot>() == gibWords * 4,
-            $"the managed gib shot is {gibWords * 4} bytes, with no padding the header does not have");
-    }
-
-    /// <summary>
     /// The same check for <see cref="EffectData"/>, which is the THIRD struct
     /// crossing this ABI by pointer and the widest of the three.
     ///

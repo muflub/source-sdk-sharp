@@ -209,20 +209,21 @@ public unsafe class ConvertedEntryServerTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheEngineServerStillOffersNothingThatChangesTheWorld()
+    public void TheEngineServerKeepsItsReadsAndNoRawWrite()
     {
         // Three READS were exposed on this impl by Phase 3 and no setter was.
-        // EngineLightStyle is ruled "C -- converts now" by the plan and is NOT
-        // converted, because converting it means this class stops being a
-        // read-only window and that is the owner's call. The row stays on the
-        // flat ABI; EngineServer.cs says so where the method would have been.
+        // EngineLightStyle waited on the owner's call to make this class more
+        // than a read-only window; plan_server_native_min P2.2 (carried into
+        // plan_server_native_v2 T3, ruled 2026-10-18) made it, and LightStyle is
+        // one of the purpose-named writes VtableBindingTests now holds. What
+        // stays true here: the reads are still offered, and no raw command slot.
         string[] offered = typeof(EngineServer)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Where(m => !m.IsSpecialName)
             .Select(m => m.Name)
             .ToArray();
 
-        Assert.DoesNotContain("LightStyle", offered);
+        Assert.DoesNotContain("ServerCommand", offered);
         Assert.Contains("IsDedicatedServer", offered);
         Assert.Contains("EntityCount", offered);
         Assert.Contains("GetArea", offered);

@@ -26,7 +26,10 @@ namespace SourceSharp.Abi;
 /// </summary>
 public interface IEngineConsole
 {
-    /// <inheritdoc cref="EngineSide.ExecuteServerCommand"/>
+    /// <summary>
+    /// Runs a console command as if typed at the server console. Runs it now,
+    /// not next frame — so it must be called on the game thread.
+    /// </summary>
     void ExecuteServerCommand(string command);
 
     /// <inheritdoc cref="EngineSide.FindConVarValue"/>
@@ -276,7 +279,11 @@ public interface IEngineGameEvents
     /// <inheritdoc cref="EngineSide.ListenForGameEvent"/>
     void ListenForGameEvent(string name);
 
-    /// <inheritdoc cref="EngineSide.EventCreate"/>
+    /// <summary>
+    /// A new game event by name (the server's CreateEvent), or zero for a name
+    /// the game's event files do not declare, or on the client, which fires none.
+    /// Fire it (<see cref="EventFire"/>, which frees it) or free it.
+    /// </summary>
     IntPtr EventCreate(string name);
 
     /// <inheritdoc cref="EngineSide.EventSetInt"/>
@@ -291,10 +298,10 @@ public interface IEngineGameEvents
     /// <inheritdoc cref="EngineSide.EventSetString"/>
     void EventSetString(IntPtr handle, string key, string value);
 
-    /// <inheritdoc cref="EngineSide.EventFire"/>
+    /// <summary>Fires an event (the engine's FireEvent, which frees it); whether the engine took it.</summary>
     bool EventFire(IntPtr handle);
 
-    /// <inheritdoc cref="EngineSide.EventFree"/>
+    /// <summary>Frees an event that was created and will not be fired.</summary>
     void EventFree(IntPtr handle);
 }
 
@@ -382,7 +389,27 @@ public interface IUserMessageSender
 /// </summary>
 public interface IEngineScripted
 {
-    /// <inheritdoc cref="EngineSide.TemplateCapture"/>
+    /// <summary>
+    /// Turns every entity of a name into a template, and answers where each one
+    /// stood.
+    ///
+    /// <para>
+    /// Only meaningful DURING the map parse, in the window between the entities
+    /// being read and the entities being spawned — which is the window a
+    /// point_template's own Spawn runs in, and the whole reason any part of
+    /// templating is still native. Outside it there is nothing to claim, and
+    /// this answers with nothing.
+    /// </para>
+    /// </summary>
+    /// <param name="removeSources">
+    /// Whether the entities turned into templates are consumed. A template
+    /// source is not usually meant to remain in the world; a map that wants it
+    /// to says so with a spawnflag, and that decision is the caller's.
+    /// </param>
+    /// <returns>
+    /// One entry per source found, each carrying the index the template store
+    /// gave it and the place it stood in the world.
+    /// </returns>
     List<TemplatePlacement> TemplateCapture(string sourceName, bool removeSources, int limit = 64);
 
     /// <inheritdoc cref="EngineSide.TemplateSpawnKeyed"/>

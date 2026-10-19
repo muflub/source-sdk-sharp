@@ -34,3 +34,5 @@ bool V_IsAbsolutePath( const char *pPath 	HOST	strtools.h's name over ss_string.
 bool V_RemoveDotSlashes( char *pFilename, char separator, bool 	HOST	strtools.h's name over ss_string.h (or the C library), held to pristine strtools.cpp by ss_string_oracle_test (C9 tier1)
 void V_ComposeFileName( const char *path, const char *filename, char *dest, int destSize 	HOST	strtools.h's name over ss_string.h (or the C library), held to pristine strtools.cpp by ss_string_oracle_test (C9 tier1)
 void V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStartingDir 	HOST	strtools.h's name over ss_string.h (or the C library), held to pristine strtools.cpp by ss_string_oracle_test (C9 tier1)
+_V_strcmp	HOST	strtools.h name client.so still links; moved from tier1_port.cpp when server.so stopped calling it (plan_server_native_v2 T2)
+void V_strncpy	HOST	strtools.h name client.so still links; moved from tier1_port.cpp when server.so stopped calling it (plan_server_native_v2 T2)

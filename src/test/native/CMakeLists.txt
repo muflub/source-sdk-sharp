@@ -245,7 +245,8 @@ add_library(ss_cpptest_dtobjs OBJECT
     ${SS_SRC}/sourcesharp/public/dt_send.cpp
     ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv.cpp
     ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv_names.cpp
-    ${SS_SRC}/sourcesharp/public/dt_utlvector_common.cpp)
+    ${SS_SRC}/sourcesharp/public/dt_utlvector_common.cpp
+    ${PROJECT_SOURCE_DIR}/src/shared/native/dt_element_names.cpp)
 ss_test_compile_flags(ss_cpptest_dtobjs)
 ss_test_engine_flags(ss_cpptest_dtobjs)
 # sourcesharp/game/shared for ss_containers.h, the set dt_utlvector_common.cpp
@@ -620,16 +621,6 @@ ss_cpptest(impact_subject_test
 ss_cpptest(impact_dispatch_test
     SOURCES sourcesharp/test/impact_dispatch_test.cpp)
 
-# Asking an entity for its skeleton. The shim did it with dynamic_cast five
-# times, on the path every animation call takes, when CBaseEntity declares a
-# virtual for exactly that question. The substitution is NOT mechanical:
-# dynamic_cast of NULL is NULL and a virtual call on NULL is not, and the arm
-# being cast is NULL for every entity on the parallel hierarchy -- which is most
-# of them. So it is one projection with the guard written once, and this pins
-# the agreement, the guard, and a ban on the cast coming back.
-ss_cpptest(animating_projection_test
-    SOURCES sourcesharp/test/animating_projection_test.cpp)
-
 # bone_merge_key_test LEFT with bone_merge_key.h (plan physics_bones_native_zero
 # 1.2, client half): the rule is BoneMergeKey (BonesMergeKeyTests) and the
 # store-only-when-readable rule ClientBoneDriver's (BonesClientMergeTests).
@@ -884,17 +875,6 @@ ss_cpptest(said_once_per_id_test
 ss_cpptest(physics_bridge_refusal_test
     SOURCES sourcesharp/test/physics_bridge_refusal_test.cpp)
 
-# Who may ent_fire (ent_fire_access.h). Its two access rules were CBasePlayer
-# pointer comparisons: the first read a player who is not a CBasePlayer as
-# nobody and returned in silence, so ent_fire accepted every word in the game
-# and queued nothing; the second compared NULL with NULL and therefore PASSED,
-# which is worse than dead. Both are arithmetic over slot numbers now, and the
-# cases that matter -- a dedicated server, a second player, a tool driving the
-# game through the server console -- are ones a live game cannot easily be put
-# into. Header-only, no engine.
-ss_cpptest(ent_fire_access_test
-    SOURCES sourcesharp/test/ent_fire_access_test.cpp)
-
 # Which slot a client-side recipient filter holds (local_recipient.h). Every add
 # on a C_RecipientFilter went through C_BasePlayer::GetLocalPlayer(), which is
 # NULL for a standalone viewer, so every client filter was EMPTY -- and both
@@ -1081,17 +1061,9 @@ ss_cpptest(model_name_test
 ss_cpptest(view_effect_reach_test
     SOURCES sourcesharp/test/view_effect_reach_test.cpp)
 
-# Finding a player by the name somebody typed (player_name_match.h).
-# UTIL_PlayerByName, UTIL_PlayerByPartialName and UTIL_PlayerByCommandArg all
-# walk the player slots asking UTIL_PlayerByIndex for a CBasePlayer, and this
-# build has none -- so all three answer "nobody" whatever you type and their
-# loop bodies have never run. Those bodies are the rule here, restated over
-# SLOTS because a CBasePlayer * is a type with no instances in this tree and no
-# cast that would make one (Verdict D). The half stock got inconsistent is
-# pinned too: an AMBIGUOUS partial name and NOBODY are the same NULL there, so
-# "no such player" and "say which one you mean" arrive as the same silence.
-ss_cpptest(player_name_match_test
-    SOURCES sourcesharp/test/player_name_match_test.cpp)
+# player_name_match_test went with player_name_match.h and
+# shell_playerslots.cpp (plan_server_native_min P1): the slot-walk family is
+# deleted; managed answers the lookups (PlayerNames / PlayerPing.Sample).
 
 # The string helpers our native code calls in place of tier1's strtools.cpp
 # (ss_string.h), one fact per behaviour. The oracle that runs them beside the
@@ -1203,40 +1175,6 @@ ss_cpptest(jet_lifetime_test
 # Header-only and engine-free: arithmetic over an int.
 ss_cpptest(particle_follow_mask_test
     SOURCES sourcesharp/test/particle_follow_mask_test.cpp)
-
-# The SHAPE jet_lifetime.h was one instance of (scripted_var_defaults.h). A sweep
-# of every [ScriptVars] class for "a var with no initialiser that something
-# divides by" found three more live sites: env_embers' lifetime becomes a
-# particle's m_flDieTime and CSimpleEmitter::UpdateScale divides by it to get the
-# SIZE; env_spritetrail's lifetime divides into the fraction that Lerps a beam
-# segment's WIDTH; and func_smokevolume's particle spacing sizes the cell grid
-# the client allocates.
-#
-# The two facts this pins that are easy to assume away. Source's own clamp() is
-# `a > max ? max : (a < min ? min : a)`, so a NaN is false at both branches and
-# clamping does NOT sanitise — six particle renderers wrap that clamp around a
-# divide by a die time and none of them is protected by it. And NaN and infinity
-# are reachable from ordinary map text: measured on this runtime,
-# float.TryParse("nan") succeeds and float.TryParse("1e40") gives +Infinity,
-# with (int)+Inf saturating to 2147483647.
-#
-# Header-only and engine-free: arithmetic over floats.
-ss_cpptest(scripted_var_defaults_test
-    SOURCES sourcesharp/test/scripted_var_defaults_test.cpp)
-
-# Whether a trace may use the solver's scaled hull (scaled_collision_rule.h).
-# CBaseAnimating::TestCollision decided with `if ( GetModelScale() != 1.0f )`
-# and then read VPhysicsGetObject() and its GetCollide() without looking at
-# either -- scale is a property of the MODEL and both pointers are facts about
-# the SOLVER, so a scaled model is not evidence that there is one. It is the
-# hottest of this sweep's finds: TestCollision runs for every trace that
-# reaches the entity, so the NULL is a crash on the next bullet rather than a
-# rare one. What is pinned is the half that is NOT a null check -- falling
-# through to the hitbox tests rather than answering "nothing was hit", because
-# a wrong-by-a-factor trace is a bad trace and an absent one is a ghost.
-# Header-only and engine-free: three booleans in, one out.
-ss_cpptest(scaled_collision_rule_test
-    SOURCES sourcesharp/test/scaled_collision_rule_test.cpp)
 
 # Whether a penetrating pair's OWNER may solve it (self_penetration_rule.h).
 # CCollisionEvent::ShouldSolvePenetration decided with `if ( pGameData0 ==
@@ -1385,19 +1323,6 @@ ss_cpptest(soundscape_particle_7e_test
 ss_cpptest(trail_lifetime_test
     SOURCES sourcesharp/test/trail_lifetime_test.cpp)
 
-# The notify list, asked of itself rather than of a bit cached on the entity
-# (notify_gate.h). Removing a cache is only safe when the cache was an
-# OVER-approximation of the thing it cached, and EFL_NOTIFY was: AddEntity set
-# it, and RemoveEntity/ClearEntity dropped pairs without ever clearing it. That
-# asymmetry is invisible from either representation alone, so the test carries
-# BOTH -- the list and the flag set -- through the operations CNotifyList
-# performs, and pins the superset property after every one of them, plus the one
-# case where the two genuinely differ. Header-only and engine-free; the
-# container is a template parameter so the game passes a CUtlVector and this
-# passes its own.
-ss_cpptest(notify_gate_test
-    SOURCES sourcesharp/test/notify_gate_test.cpp)
-
 # The registry the de-entified effects hang on (shell_effect_registry.h). The
 # `_render` shells used to hold CHandles, which read as null of their own accord
 # once the engine destroyed the entity behind them. The effects are not entities
@@ -1429,19 +1354,6 @@ ss_cpptest(shell_effect_registry_test
 # happen.
 ss_cpptest(shell_leaf_link_test
     SOURCES sourcesharp/test/shell_leaf_link_test.cpp)
-
-# What a pusher's speculative trace refuses to hit (push_blocker_rule.h).
-# CTraceFilterPushMove reached its two rejections through an unconditional
-# downcast whose only check was a dynamic_cast inside an Assert -- so in a
-# release build a managed prop in an SDK func_rotating's way was two virtual
-# calls through the wrong vtable. Fixing that forces the question the cast hid:
-# the two rejections do NOT mean the same thing on the two hierarchies. The
-# root-parent clause is vacuous over there by construction, and "the solver is
-# moving it" is asked of the object rather than of a move type. Every way of
-# getting that asymmetry wrong is a pusher that moves slightly differently in a
-# map nobody is looking at, so it is a rule in a header with no engine in it.
-ss_cpptest(push_blocker_rule_test
-    SOURCES sourcesharp/test/push_blocker_rule_test.cpp)
 
 # Where a player's tick base is put (tickbase_rule.h): stock's
 # AdjustPlayerTimeBase, which the port had re-basing on idle frames.
@@ -3187,34 +3099,6 @@ ss_cpptest(shell_clientsteps_test
 ss_cpptest(stringtable_index0_test
     SOURCES sourcesharp/test/stringtable_index0_test.cpp)
 
-# THE MOD-DECLARED STRING-TABLE ABI -- plan_gamedll.md Part 13,
-# plan_gamedll_after.md Phase A8 (stringtable_abi_test.cpp).
-#
-# The SHIPPED bodies, run. shell_stringtables.h is engine-free --
-# networkstringtabledefs.h includes nothing and both interfaces are pure
-# abstract classes over int and char* -- so CShellStringTables compiles here
-# against a container this test writes, the same seam shell_gamedll_refusals.h
-# uses. shell_stringtables.cpp includes cbase.h's world and can never be linked
-# into a gtest, and its six entry points are one line each for that reason.
-#
-# Six forwards with five decisions behind them, and every one is invisible in
-# the source and only visible in a body: a TABLEID that no longer resolves --
-# which is what a mod holds after a hot reload -- is refused and says what to do
-# about it; a create for a name that is already taken answers the EXISTING table
-# rather than making a second, because CreateNetworkStringTables runs once per
-# MAP LOAD and a cs_sv_reload runs between two of them; every miss is -1 and
-# never INVALID_STRING_INDEX, which is an unsigned short 0xFFFF that would cross
-# as 65535 and read as success to every "if (i >= 0)"; "the table is not there"
-# and "the table is empty" stay different answers; and an entry that does not
-# fit the caller's buffer is refused rather than truncated, because half a
-# material path names a different file.
-#
-# The ORDER of the managed slot against the two index-0 precaches is NOT here.
-# That is stringtable_index0_test's replay, widened rather than duplicated.
-ss_cpptest(stringtable_abi_test
-    INCLUDES public sourcesharp/game/server
-    SOURCES sourcesharp/test/stringtable_abi_test.cpp)
-
 # plan_gamedll.md Part 3a / Part 9a, Phase 7 -- the named list
 # (server_systems_table_test.cpp).
 #
@@ -4219,15 +4103,9 @@ ss_cpptest(hierarchy_managed_test
 # GetPlayerState may not answer NULL.
 #
 # Two halves. The refusal counter is RUN: CShellPlayerInfoRefusals is engine-free
-# on purpose, so "a call counts", "the same method twice is one row" and "the
-# warning is said once per method" are facts about the shipped class rather than
-# about a stand-in. Everything else is source-read and is forced to be: the two
-# engine sites that make a NULL fatal are HLTV's and Replay's, and step 0d states
-# the live gate covers neither -- so no run of anything this project has can see
-# a NULL return, and what CAN be seen is that the body has none.
-ss_cpptest(playerinfo_block_test
-    INCLUDES sourcesharp/game/server
-    SOURCES sourcesharp/test/playerinfo_block_test.cpp)
+# playerinfo_block_test went with shell_playerinfo.cpp (plan_server_native_min
+# P1, Decision 1): the refusal seam it recorded is deleted with the interface
+# no engine binary asks for.
 
 # tf2 stage 0.5 -- THE PLAYER'S TEAM IS ONE NATIVE STORE (player_team_store_test.cpp).
 # PlayerSetTeam writes CStandalonePlayer::m_iTeamNum; SourceSharp_GetPlayerTeam
@@ -4975,16 +4853,13 @@ ss_cpptest_tier1(convar_port_test
 # importing tier0's g_pMemAlloc (plan_server_novalve.md P4), each driven through
 # the header the game compiles: ss_containers.h's string pool and case-blind
 # hash (the tier1-comparable parts are ss_containers_oracle_test's), the
-# weapon-type table (shell_shared.cpp), the game-event subscription record
+# game-event subscription record
 # (shell_gameevents.cpp) and the managed console's carrier registry
 # (sourcesharp_gamesystem.cpp). Header-only, engine-free.
 # ---------------------------------------------------------------------------
 ss_cpptest(ss_containers_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/ss_containers_test.cpp)
-ss_cpptest(weapon_type_table_test
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/weapon_type_table_test.cpp)
 ss_cpptest(game_event_subscriptions_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/game_event_subscriptions_test.cpp)

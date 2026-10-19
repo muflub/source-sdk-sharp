@@ -60,6 +60,12 @@ before "the engine calls 39 things" means anything.
 
 ## 2. Twenty ABI slots are wired, called by live managed rules, and do nothing
 
+> **Closed 2026-10-18 (plan_server_native_v2 T2).** Every slot in this section
+> and §2's (b) group was deleted from the ABI with its native body; the no-op or
+> constant each gave is now EngineBinding's, with a comment naming the gap, and
+> docs/todo.md lists the gaps by the managed rule that asks. The table below is
+> kept as the record of what each rule wanted.
+
 This is the finding that matters most in 3b, and it is the shape lane 2e-abi hit
 once already (`ScriptedEntity.PlaySequence` routed through a nulled slot and
 returned false on every map, silently, past two live-gate passes).

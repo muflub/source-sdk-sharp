@@ -516,10 +516,11 @@ TEST( MapResidueFactories, SpawnWorldSpawnsTheWorldItBuilt )
 }
 
 // plan_server_novalve.md P5: a standalone entity from pairs that arrive parsed.
-// It must key EVERY pair it is given and QUEUE the entity for the pending spawn
-// pass -- a create that skipped the queue would leave the entity unspawned until
-// the next level load, and nothing would say so.
-TEST( MapResidueFactories, CreateFromKeysKeysEveryPairAndQueuesTheEntity )
+// It must key EVERY pair it is given. Since plan_server_native_v2 T2 there is
+// no pending queue to spawn it later, so the template path that calls it must
+// place and spawn the entity itself -- a create it did not spawn would stand
+// unspawned until the next level load, and nothing would say so.
+TEST( MapResidueFactories, CreateFromKeysKeysEveryPairAndItsCallerSpawnsTheEntity )
 {
 	const std::string parse = NoWhitespace( ReadStripped( "sourcesharp/game/server/shell_mapparse.cpp" ) );
 	ASSERT_FALSE( parse.empty() ) << "could not read shell_mapparse.cpp";
@@ -530,6 +531,14 @@ TEST( MapResidueFactories, CreateFromKeysKeysEveryPairAndQueuesTheEntity )
 
 	EXPECT_NE( body.find( "for(inti=0;i<nKeys;i++)StandaloneEntity_ApplyMapKey(pGameEntity,ppKeys[i],ppValues[i]);" ),
 	           std::string::npos ) << "MapEntity_CreateFromKeys no longer keys every pair";
-	EXPECT_NE( body.find( "g_PendingNonBaseSpawns.push_back(pGameEntity);" ), std::string::npos )
-		<< "MapEntity_CreateFromKeys no longer queues the entity for the spawn pass";
+
+	const std::string api = NoWhitespace( ReadStripped( "sourcesharp/game/server/shell_entityapi.cpp" ) );
+	ASSERT_FALSE( api.empty() ) << "could not read shell_entityapi.cpp";
+	const size_t create = api.find( "IGameEntity*pEntity=MapEntity_CreateFromKeys(" );
+	ASSERT_NE( create, std::string::npos ) << "the template path no longer creates through MapEntity_CreateFromKeys";
+	const size_t spawn = api.find( "StandaloneEntity_PlaceAndSpawn(pEntity,&vecOrigin,&angles);", create );
+	EXPECT_NE( spawn, std::string::npos )
+		<< "the template path creates an entity and no longer spawns it";
+	EXPECT_LT( spawn, api.find( "standalone.push_back(pEntity);", create ) )
+		<< "the template path's spawn is not in the loop that created the entity";
 }

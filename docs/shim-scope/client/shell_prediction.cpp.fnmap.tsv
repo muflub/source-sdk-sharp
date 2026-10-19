@@ -40,3 +40,4 @@
 12	UNRULED	int32_t SourceSharp_ClientBeginMoveCommand( uint32_t hPlayer, int32_t nCommandNumber,
 6	UNRULED	void SourceSharp_ClientEndMoveCommand( int32_t bRan, int32_t *pOutGroundIndex )
 10	UNRULED	void SourceSharp_ClientPlayerPredictionDrive( uint32_t hEntity,
+5	UNRULED	CON_COMMAND( cs_cl_move_managed_report,

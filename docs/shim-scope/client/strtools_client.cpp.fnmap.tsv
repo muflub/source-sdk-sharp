@@ -6,6 +6,8 @@
 4	HOST	void _V_strcpy( const char *, int, char *dest, const char *src )
 4	HOST	char *_V_strstr( const char *, int, const char *s1, const char *search )
 4	HOST	int _V_wcslen( const char *, int, const wchar_t *pwch )
+4	HOST	int _V_strcmp( const char *, int, const char *s1, const char *s2 )
+7	HOST	void V_strncpy( char *pDest, const char *pSrc, int maxLen )
 4	HOST	int V_strncmp( const char *s1, const char *s2, int count )
 4	HOST	int V_strnicmp( const char *s1, const char *s2, int n )
 4	HOST	char *V_strlower( char *start )

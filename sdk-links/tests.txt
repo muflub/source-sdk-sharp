@@ -15,3 +15,12 @@ src/game/shared/interval.h
 src/game/shared/mapentities_shared.h
 src/lib/public/linux64/libtier0.so
 src/lib/public/linux64/libvstdlib.so
+src/public/bone_setup.h
+src/public/dt_send.h
+src/public/game/server/iplayerinfo.h
+src/public/ivoiceserver.h
+src/public/server_class.h
+src/public/toolframework/iserverenginetools.h
+src/public/vphysics/friction.h
+src/public/vphysics/player_controller.h
+src/public/vphysics/vehicles.h

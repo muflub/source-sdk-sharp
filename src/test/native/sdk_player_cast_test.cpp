@@ -2492,8 +2492,8 @@ TEST( SdkPlayerCast, TheResolverListIsHonest )
 	// the farm in P6, which is the stronger form: the file it was defined in
 	// cannot be read at all. Anchored on a sibling the farm still links, so a
 	// reader that sees nothing cannot satisfy it.
-	ASSERT_FALSE( SlurpCodeFromSourceRoot( "server/activator.h" ).empty() )
-		<< "server/activator.h did not read, so the absence below would pass "
+	ASSERT_FALSE( SlurpCodeFromSourceRoot( "shared/shareddefs.h" ).empty() )
+		<< "shared/shareddefs.h did not read, so the absence below would pass "
 		   "over a reader that sees nothing";
 	EXPECT_TRUE( SlurpCodeFromSourceRoot( "server/baseentity.h" ).empty() )
 		<< "server/baseentity.h is readable from the farm again. It is where "
@@ -2529,8 +2529,9 @@ TEST( SdkPlayerCast, TheResolverListIsHonest )
 		   "the partition; every exemption in this file rests on it doing so";
 
 	EXPECT_NE( std::string::npos,
-		strCross.find( "static_cast< TPartition * >( pObject )->GetGameEntity()" ) )
-		<< "the server's partition no longer reaches GetGameEntity()";
+		strCross.find( "static_cast< TPartition * >( pObject )->GetBaseEntity()" ) )
+		<< "the server's partition no longer reaches GetBaseEntity(), its one "
+		   "accessor since plan_server_native_v2 T1.3";
 
 	EXPECT_NE( std::string::npos, strCross.find( "pObject->GetIClientEntity()" ) )
 		<< "the client's partition no longer asks the object for its entity "
@@ -2611,8 +2612,8 @@ TEST( SdkPlayerCast, ToBasePlayerDereferencesNothingAtAllAndTheConversionMovedTo
 	// in P6. Nothing can dereference through a ToBasePlayer no file includes,
 	// so the header's absence is the stronger form of those absences, anchored
 	// on a sibling the farm still links.
-	ASSERT_FALSE( SlurpFromSourceRoot( "server/activator.h" ).empty() )
-		<< "could not read server/activator.h, so the absence below would pass "
+	ASSERT_FALSE( SlurpFromSourceRoot( "shared/shareddefs.h" ).empty() )
+		<< "could not read shared/shareddefs.h, so the absence below would pass "
 		   "over a reader that sees nothing";
 	EXPECT_TRUE( SlurpFromSourceRoot( "server/player.h" ).empty() )
 		<< "server/player.h is readable from the farm again. It holds stock's "

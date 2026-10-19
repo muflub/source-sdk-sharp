@@ -12,7 +12,8 @@ namespace SourceSharp.Abi;
 //
 // IT IS REACHED FROM INSIDE A FRAME. Game code calls this while the engine is
 // running the simulation, so a wrong call here can corrupt entity state rather
-// than return a bad number. Everything exposed below is read-only.
+// than return a bad number. Everything exposed below is a read, bar the
+// three purpose-named writes plan_server_native_v2 T3 added (see below).
 //
 // `edict_t *` DOES NOT MEAN HERE WHAT THE HEADER IMPLIES. This port's entity
 // model has changed underneath it -- CWorld is its own hierarchy and NextEnt
@@ -89,6 +90,40 @@ public interface IVtableEngineServer
     /// </summary>
     int EntityCount();
 
+    //-------------------------------------------------------------------------
+    // FIVE MEMBERS FROM plan_server_native_v2 T3, each the engine call a
+    // one-call slot made (shell_entityapi.cpp, shell_worldquery.cpp).
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// The engine's user id for the client in edict <paramref name="entIndex"/>,
+    /// or 0 when there is no edict or no client there (the slot's default).
+    /// </summary>
+    int PlayerUserId(int entIndex);
+
+    /// <summary>
+    /// Queues <paramref name="command"/> with its terminating newline and runs
+    /// the server's command buffer now (ServerCommand, then ServerExecute).
+    /// </summary>
+    void ServerCommandNow(string command);
+
+    /// <summary>
+    /// Points the client in edict <paramref name="playerIndex"/> at edict
+    /// <paramref name="viewIndex"/>'s view, or at its own when that edict does
+    /// not exist (<c>IVEngineServer::SetView</c>).
+    /// </summary>
+    void SetView(int playerIndex, int viewIndex);
+
+    /// <summary>Sets light style <paramref name="style"/>'s pattern (<c>LightStyle</c>).</summary>
+    void LightStyle(int style, string pattern);
+
+    /// <summary>
+    /// Whether the box is in the PVS of the cluster <paramref name="eye"/> is
+    /// in: GetClusterForOrigin, GetPVSForCluster into a MAX_MAP_LEAFS/8 buffer,
+    /// CheckBoxInPVS. False when the cluster has no PVS.
+    /// </summary>
+    bool BoxInPvs(Vector eye, Vector mins, Vector maxs);
+
     /// <summary>
     /// Which visibility area a point is in, or 255 for none.
     ///
@@ -133,25 +168,15 @@ public interface IVtableEngineServer
     // ClientCommand runs a command on a client. A proxy for a call nothing may
     // make is a slot in the ABI with no caller.
     //
-    // AND LightStyle IS STILL ABSENT, WHICH IS A CONVERSION THIS PHASE DID NOT
-    // MAKE. plan_native_api.md Appendix B rules EngineLightStyle "C -- converts
-    // now": it is one engine->LightStyle call and IVEngineServer is bound. It
-    // is not converted, because it collides with a decision this tree already
-    // took and recorded --
-    // VtableBindingTests.TheEngineServerOffersNothingThatChangesTheWorld names
-    // LightStyle among six methods this impl must never offer, and the rule
-    // behind it is that this class is a READ-ONLY window on IVEngineServer.
+    // LightStyle WAS ABSENT here until the owner lifted the read-only window
+    // for it: plan_server_native_min P2.2, carried into plan_server_native_v2
+    // T3 (ruled 2026-10-18), folds ServerCommand/Execute, SetView and
+    // LightStyle through the forwarders as the purpose-named members above.
     //
-    // The capability is not in question: the flat slot EngineLightStyle already
-    // makes exactly this call, and IEngineVisibility.SetLightStyle is public
-    // game surface today. What is in question is whether the impl class stops
-    // being read-only, and lifting a standing policy line to satisfy a plan row
-    // is the owner's call rather than a lane's. The row stays on the flat ABI
-    // and is NOT in this phase's orphan list.
-    //
-    // Also absent, and each for its own reason rather than for want of anyone
-    // looking: PrecacheModel, CreateEdict, ServerCommand and EmitAmbientSound
-    // all CHANGE something, and ServerCommand runs a console line; Time and
+    // Still absent, and each for its own reason rather than for want of anyone
+    // looking: PrecacheModel, CreateEdict and EmitAmbientSound all CHANGE
+    // something, and the raw ServerCommand runs a console line (ServerCommandNow
+    // is the one named member that does); Time and
     // GetServerTime are answered by the engine's own CGlobalVars through the
     // bound data pointer, which is a load rather than a call. The struct types
     // all 124 slots regardless — it describes the engine's ABI, not this

@@ -53,7 +53,6 @@ protected:
 };
 
 // The server's controller (shell_soundenvelope.cpp).
-ISoundController &SoundController();
 
 } // namespace ss
 

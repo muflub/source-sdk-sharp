@@ -667,25 +667,10 @@ TEST( LaneRSoundDeadPaths, TheOwnerWalksAreGoneAltogether )
 // (5) The caption attenuation loop has never run its body.
 //=============================================================================
 
-TEST( LaneRSoundDeadPaths, UtilPlayerByIndexAndItsLookupAreGoneBecauseTheyOnlyAnsweredNull )
-{
-	// WAS UtilPlayerByIndexStillAnswersNullByConstruction. Both functions
-	// answered NULL on every path -- server.so builds no CBasePlayer -- and the
-	// guarded attenuation loop below rested on that answer. With their last
-	// caller gone (engineapi ad131c0), they are DELETED (P5 lane E), so the
-	// loop's premise is now an absence: there is no SDK player lookup to ask.
-	const std::string strUtil = ReadSrcFile( "sourcesharp/game/server/shell_playerslots.cpp" );
-	ASSERT_GT( strUtil.size(), 5000u ) << "shell_playerslots.cpp did not read";
-	const std::string strCode = StripComments( strUtil );
-
-	EXPECT_EQ( std::string::npos, strCode.find( "UTIL_PlayerByIndex(" ) )
-		<< "UTIL_PlayerByIndex is defined again. It can only answer NULL here.";
-	EXPECT_EQ( std::string::npos, strCode.find( "UTIL_SDKPlayerFromEdict(" ) )
-		<< "UTIL_SDKPlayerFromEdict is defined again. It can only answer NULL here.";
-	// Proof the file is the slot-walk family it was: its slot-keyed answers.
-	EXPECT_NE( std::string::npos, strCode.find( "CStandalonePlayer" ) );
-}
-
+// UtilPlayerByIndexAndItsLookupAreGoneBecauseTheyOnlyAnsweredNull went with
+// shell_playerslots.cpp itself (plan_server_native_min P1): the whole
+// slot-walk family is deleted, so there is no file left to prove absence in.
+// The absence that matters to this file is the loop below.
 TEST( LaneRSoundDeadPaths, TheAttenuationLoopIsGoneAltogether )
 {
 	int nCompiled = 0, nOff = 0;

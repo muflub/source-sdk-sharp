@@ -169,8 +169,8 @@ TEST( GroundTraceSubject, CanStandOnStillReturnsTrueForNull )
 	//
 	// A sibling the farm still links proves the reader looks in the right
 	// directory, so the absence after it is not a reader that sees nothing.
-	ASSERT_FALSE( ReadGameFile( "server/activator.h" ).empty() )
-		<< "game/server/activator.h could not be read; the absence below would "
+	ASSERT_FALSE( ReadGameFile( "shared/shareddefs.h" ).empty() )
+		<< "game/shared/shareddefs.h could not be read; the absence below would "
 		   "pass vacuously";
 
 	EXPECT_TRUE( ReadGameFile( "server/baseentity.h" ).empty() )
@@ -212,7 +212,7 @@ TEST( GroundTraceSubject, CanStandOnStillReturnsTrueForNull )
 		   "entity resolves to no ground again, which is this file's bug by "
 		   "another route.";
 
-	EXPECT_NE( std::string::npos, strGround.find( "return tr.m_pEnt;" ) )
+	EXPECT_NE( std::string::npos, strGround.find( "return ss::TraceHit( tr );" ) )
 		<< "MovementGroundFromTrace no longer returns the trace's own "
 		   "IHandleEntity. Returning anything narrower is how the ground was "
 		   "lost in the first place.";

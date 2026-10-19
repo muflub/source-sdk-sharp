@@ -295,19 +295,22 @@ TEST( AnimClusterLedger, TheFlipTookThreeOfTheseRowsAndRagdollSharedLeftBothSide
 // refusal deleted along with the code it refuses looks exactly like a port.
 //=============================================================================//
 
-TEST( AnimClusterLedger, TheDissolveIsADECLAREDREFUSALAndNotASilentNoOp )
+TEST( AnimClusterLedger, TheDissolveGapIsRecordedNowThatItsRefusalIsGone )
 {
+	// THE REFUSAL WENT WITH ITS SLOT (plan_server_native_v2 T2): no managed
+	// code called EntityDissolve, so the slot, the Warning and the
+	// ContractBaseline entry were deleted together. A refusal deleted along
+	// with the code it refuses looks exactly like a port -- so the gap is now
+	// recorded in docs/todo.md, and that record is what is pinned.
 	const std::string shim = Code( kWorldQuery );
+	ASSERT_FALSE( shim.empty() );
+	EXPECT_EQ( 0, CountOf( shim, "SourceSharp_EntityDissolve(" ) )
+		<< "the dissolve slot is back in the shim; say what calls it";
 
-	// The warning body, not merely the function -- a refusal that stopped
-	// warning is a silent no-op again, which is what §7 forbids.
-	EXPECT_EQ( 1, CountOf( shim, "int32_t SourceSharp_EntityDissolve(" ) );
-	EXPECT_EQ( 1, CountOf( shim, "EntityDissolve is refused" ) );
-	EXPECT_EQ( 1, CountOf( shim, "ContractBaseline.Refusals" ) );
-
-	// And the managed half of the pair still carries the entry, so the reason
-	// survives the code.
-	EXPECT_EQ( 1, CountOf( Code( kBaseline ), "EntityDissolve" ) );
+	const std::string todo = ReadFile( "../docs/todo.md" );
+	ASSERT_FALSE( todo.empty() ) << "docs/todo.md is not readable from here";
+	EXPECT_EQ( 1, CountOf( todo, "## Entity dissolve (stock's env_entity_dissolver look) is not ported" ) )
+		<< "the dissolve's gap is no longer recorded anywhere";
 }
 
 //=============================================================================//

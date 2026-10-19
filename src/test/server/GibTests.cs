@@ -50,9 +50,14 @@ public class GibTests
         // of what the answer was.
         engine.Returns("Host.RandomFloat", 1f);
 
-        // A decal is placed by a trace, so the engine answers whether one landed.
-        // Nothing here reads the answer; the count of CALLS is the subject.
-        engine.Returns("Effects.BloodDecal", true);
+        // A blood decal is a trace down, the violence ConVar for the colour,
+        // and the decal group's index: the trace lands, the ConVar is unset
+        // (on, its default), and "Blood" is decal 7. The count of PAINTS is
+        // the subject.
+        engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(0f, 0f, -4f), new Vector(0f, 0f, 1f), EntityHandle.None));
+        engine.Returns("Console.FindConVarValue", (string?)null);
+        engine.Returns("Effects.PaintDecal", true);
+        ((RecordingDecals)services.Resolve(typeof(IServerDecals))!).Answers("Blood", 7).Answers("YellowBlood", 8);
 
         var handle = new EntityHandle(77u);
 
@@ -219,7 +224,7 @@ public class GibTests
 
         Assert.Equal(0, gib.DecalsLeft);
         Assert.Equal(SsGib.BloodDecalsPerGib,
-                     engine.Calls.Count(c => c.Member == "Effects.BloodDecal"));
+                     engine.Calls.Count(c => c.Member == "Effects.PaintDecal"));
     }
 
     /// <summary>
@@ -227,6 +232,58 @@ public class GibTests
     /// blood-colour fix turns on: <see cref="BloodColor.None"/> is -1, not the 0
     /// a zeroed field reads as.
     /// </summary>
+    /// <summary>
+    /// What a bounce paints, ported from <c>UTIL_BloodDecalTrace</c> and
+    /// <c>CWorld::DecalTrace</c> (plan_server_native_v2 T2): red blood is the
+    /// "Blood" group, any other colour "YellowBlood", at the trace's end.
+    /// </summary>
+    [Theory]
+    [InlineData(BloodColor.Red, 7)]
+    [InlineData(BloodColor.Yellow, 8)]
+    public void ABouncePaintsItsColoursDecalWhereTheTraceLanded(BloodColor blood, int decal)
+    {
+        var (gib, engine) = Spawn();
+        gib.Throw(Shot(blood: blood), invisible: false);
+
+        gib.OnTouch(EntityHandle.None);
+
+        var paint = Assert.Single(engine.Calls, c => c.Member == "Effects.PaintDecal");
+        Assert.Equal(decal, paint.Arg(0));
+        Assert.Equal(new Vector(0f, 0f, -4f), paint.Arg(1));
+    }
+
+    /// <summary>A trace that found nothing paints nothing, and still spends the decal.</summary>
+    [Fact]
+    public void ABounceOverNothingPaintsNothing()
+    {
+        var (gib, engine) = Spawn();
+        engine.Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None));
+        gib.Throw(Shot(blood: BloodColor.Red), invisible: false);
+
+        gib.OnTouch(EntityHandle.None);
+
+        Assert.DoesNotContain(engine.Calls, c => c.Member == "Effects.PaintDecal");
+        Assert.Equal(SsGib.BloodDecalsPerGib - 1, gib.DecalsLeft);
+    }
+
+    /// <summary>
+    /// <c>violence_hblood 0</c> turns red blood off, read as <c>GetBool</c>
+    /// reads it: the int part, so "0.5" is off too.
+    /// </summary>
+    [Theory]
+    [InlineData("0")]
+    [InlineData("0.5")]
+    public void ViolenceOffPaintsNoBlood(string value)
+    {
+        var (gib, engine) = Spawn();
+        engine.Returns("Console.FindConVarValue", value);
+        gib.Throw(Shot(blood: BloodColor.Red), invisible: false);
+
+        gib.OnTouch(EntityHandle.None);
+
+        Assert.DoesNotContain(engine.Calls, c => c.Member == "Effects.PaintDecal");
+    }
+
     [Fact]
     public void AGibToldNotToBleedLeavesNoDecal()
     {
@@ -237,7 +294,7 @@ public class GibTests
 
         Assert.Equal(BloodColor.None, gib.Bleeds);
         Assert.Equal(SsGib.BloodDecalsPerGib, gib.DecalsLeft);
-        Assert.DoesNotContain(engine.Calls, c => c.Member == "Effects.BloodDecal");
+        Assert.DoesNotContain(engine.Calls, c => c.Member == "Effects.PaintDecal");
     }
 
     /// <summary>
@@ -254,7 +311,7 @@ public class GibTests
         gib.Throw(Shot(GibSimulation.Physics, material: SurfaceMaterial.Wood), invisible: false);
         gib.OnTouch(EntityHandle.None);
 
-        Assert.DoesNotContain(engine.Calls, c => c.Member == "Effects.BloodDecal");
+        Assert.DoesNotContain(engine.Calls, c => c.Member == "Effects.PaintDecal");
         Assert.DoesNotContain(engine.Calls, c => c.Member == "Sound.EntityEmitSound");
     }
 

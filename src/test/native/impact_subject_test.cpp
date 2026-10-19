@@ -23,7 +23,7 @@
 //
 //   THE DISAGREEMENT is real code and is exercised: handle_cross.h's
 //   SourceSharp_SDKEntityFromUnknown — the function EntityFromEntityHandle's
-//   server arm IS — driven by mocks of both hierarchies, showing that it
+//   server arm IS — driven by a mock standalone, showing that it
 //   answers NULL for a standalone entity while the handle-table pointer names
 //   it. Not a stand-in for the narrowing; the narrowing itself.
 //
@@ -83,7 +83,6 @@ namespace
 // separateness is what makes the comparison mean anything — on a CBaseEntity
 // every view of the object is the same address and both answers agree.
 
-class FakeBase;
 class FakeGameEntity;
 
 class FakeHandleEntity                                  // ~ IHandleEntity
@@ -93,30 +92,26 @@ public:
 	virtual int RefEHandle() const = 0;
 };
 
-class FakeGameEntity                                    // ~ IGameEntity
+class FakeGameEntity                                    // ~ IGameEntity, CBaseEntity on the server
 {
 public:
 	virtual ~FakeGameEntity() {}
 	virtual int WhoAreYou() const = 0;
 };
 
+// ONE ACCESSOR SINCE plan_server_native_v2 T1.3: stock IServerUnknown's
+// GetBaseEntity(), typed by the entity face. The SDK's tree this half used to
+// model beside the standalone (FakeBase, whose GetBaseEntity() answered
+// itself) is gone from the server, so the narrowing below answers NULL for
+// every object there is -- which is the bug's premise in its strongest form.
 class FakeUnknown : public FakeHandleEntity             // ~ IServerUnknown
 {
 public:
-	virtual FakeBase *GetBaseEntity() = 0;
+	virtual FakeGameEntity *GetBaseEntity() = 0;
 };
 
 class FakeServerEntity : public FakeUnknown             // ~ IServerEntity
 {
-public:
-	virtual FakeGameEntity *GetGameEntity() { return 0; }
-};
-
-class FakeBase : public FakeServerEntity                // ~ CBaseEntity
-{
-public:
-	virtual FakeBase *GetBaseEntity() { return this; }
-	virtual int RefEHandle() const { return 0x5DA11; }
 };
 
 // A padded base BEFORE the boundary, so the IGameEntity subobject is not at
@@ -133,11 +128,7 @@ public:
 class FakeStandalone : public FakeServerEntity, public FakePadding, public FakeGameEntity
 {
 public:
-	// The partition, both arms. GetBaseEntity() answers NULL — "that single
-	// NULL is what the whole parallel hierarchy rests on" — and GetGameEntity()
-	// answers the boundary view.
-	virtual FakeBase *GetBaseEntity() { return 0; }
-	virtual FakeGameEntity *GetGameEntity() { return this; }
+	virtual FakeGameEntity *GetBaseEntity() { return this; }
 
 	virtual int RefEHandle() const { return 0x57A10; }
 	virtual int WhoAreYou() const { return 0x57A10; }
@@ -145,7 +136,7 @@ public:
 
 // What the shell used to do to the trace's pointer, spelled with the REAL
 // function: EntityFromEntityHandle's server arm is this call and nothing else.
-FakeBase *NarrowToTheSdksTree( FakeHandleEntity *pHit )
+FakeGameEntity *NarrowToTheSdksTree( FakeHandleEntity *pHit )
 {
 	if ( !pHit )
 		return 0;
@@ -157,20 +148,7 @@ FakeBase *NarrowToTheSdksTree( FakeHandleEntity *pHit )
 
 TEST( ImpactSubject, NothingHitNamesNothingEitherWay )
 {
-	EXPECT_EQ( ( FakeBase * )0, NarrowToTheSdksTree( 0 ) );
-}
-
-TEST( ImpactSubject, SdkEntityIsNamedTheSameWayItAlwaysWas )
-{
-	FakeBase base;
-	FakeHandleEntity *pHit = &base;   // what the engine wrote into tr.m_pEnt
-
-	// Same object either way, and the same handle. The widening is not a
-	// different answer for an entity that already had one — which is the half
-	// of this change that has to be true for it to be safe.
-	EXPECT_EQ( &base, NarrowToTheSdksTree( pHit ) );
-	EXPECT_EQ( 0x5DA11, pHit->RefEHandle() );
-	EXPECT_EQ( 0x5DA11, NarrowToTheSdksTree( pHit )->RefEHandle() );
+	EXPECT_EQ( ( FakeGameEntity * )0, NarrowToTheSdksTree( 0 ) );
 }
 
 TEST( ImpactSubject, StandaloneIsNamedWhereNarrowingDropsIt )
@@ -178,9 +156,13 @@ TEST( ImpactSubject, StandaloneIsNamedWhereNarrowingDropsIt )
 	FakeStandalone standalone;
 	FakeHandleEntity *pHit = &standalone;
 
+	// The premise: the standalone HAS a face, so the NULL below is the
+	// narrowing's verdict and not an empty object.
+	ASSERT_NE( ( FakeGameEntity * )0, standalone.GetBaseEntity() );
+
 	// The narrowing answers NULL, exactly as designed — and the shell then
 	// turned that NULL into the invalid handle and told C# "you hit nothing".
-	EXPECT_EQ( ( FakeBase * )0, NarrowToTheSdksTree( pHit ) );
+	EXPECT_EQ( ( FakeGameEntity * )0, NarrowToTheSdksTree( pHit ) );
 
 	// The handle-table pointer names it, and under its own handle. This is the
 	// number the managed side gets now and did not get before.
@@ -196,7 +178,7 @@ TEST( ImpactSubject, TheStandalonesTwoViewsAreDifferentAddresses )
 	// addresses, so naming by handle and naming by interface are genuinely
 	// different acts rather than two spellings of a cast.
 	FakeHandleEntity *pTableView = &standalone;
-	FakeGameEntity *pBoundaryView = standalone.GetGameEntity();
+	FakeGameEntity *pBoundaryView = standalone.GetBaseEntity();
 
 	EXPECT_NE( ( void * )pTableView, ( void * )pBoundaryView );
 	EXPECT_EQ( 0x57A10, pBoundaryView->WhoAreYou() );
@@ -444,11 +426,11 @@ TEST( ImpactSubjectBan, TheTraceNamesWhatItHitWidely )
 
 	// The ANSWER, not the default: the line that turns the trace's own entity
 	// into the word C# reads.
-	const std::vector< Hit_t > answer = Naming( Naming( body, "pOutHit" ), "tr.m_pEnt" );
+	const std::vector< Hit_t > answer = Naming( Naming( body, "pOutHit" ), "ss::TraceHit( tr )" );
 
 	ASSERT_FALSE( answer.empty() )
 		<< "the trace no longer tells C# what it hit at all -- nothing in "
-		   "SourceSharp_TraceLine writes tr.m_pEnt out through pOutHit";
+		   "SourceSharp_TraceLine writes ss::TraceHit( tr ) (the stored tr.m_pEnt) out through pOutHit";
 
 	for ( size_t i = 0; i < answer.size(); i++ )
 	{

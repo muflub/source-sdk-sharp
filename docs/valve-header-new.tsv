@@ -82,7 +82,6 @@ src/server/native/shell_engineboundary_debug.cpp	diagnostic console command(s) m
 src/server/native/shell_gamedll_debug.cpp	diagnostic console command(s) moved out of shell_gamedll.cpp into a debug-only file (built against SDK headers)
 src/server/native/shell_gameents_debug.cpp	diagnostic console command(s) moved out of shell_gameents.cpp into a debug-only file (built against SDK headers)
 src/server/native/shell_nettable_debug.cpp	diagnostic console command(s) moved out of shell_nettable.cpp into a debug-only file (built against SDK headers)
-src/server/native/shell_playerinfo_debug.cpp	diagnostic console command(s) moved out of shell_playerinfo.cpp into a debug-only file (built against SDK headers)
 src/server/native/shell_scripted_debug.cpp	diagnostic console command(s) moved out of shell_scripted.cpp into a debug-only file (built against SDK headers)
 src/server/native/shell_standalone_base_debug.cpp	diagnostic console command(s) moved out of shell_standalone_base.cpp into a debug-only file (built against SDK headers)
 src/server/native/shell_standalone_class_debug.cpp	diagnostic console command(s) moved out of shell_standalone_class.cpp into a debug-only file (built against SDK headers)
@@ -447,3 +446,9 @@ src/client/managed/Detail/DetailPropSystem.cs	ports CDetailObjectSystem and CDet
 src/client/native/shell_detail_props.cpp	native code built against SDK headers: the detail props' executor that replaces detailobjectsystem.cpp (CDetailModel's IClientRenderable for the model props, the leaf-system calls, the BSP query and the sprite mesh), carrying out SourceSharp.Client.Detail's answers
 src/client/managed/Detail/DetailConVars.cs	restates detailobjectsystem.cpp's cl_detaildist, cl_detailfade, cl_detail_multiplier and cl_fastdetailsprites declarations (DetailConVarOracleTests holds them to the pristine file)
 tools/probes/client/detail_probe.h	built against SDK headers (materialsystem/imesh.h, tier1/convar.h): the C7 detail A/B probe's CMeshBuilder wrapper and command for the probe copies of detailobjectsystem.cpp and shell_detail_props.cpp
+cmake/compat/clang/tier1/utlblockmemory.h	wrapper (no Valve text) ahead of public/ for clang only: includes stock tier1/utlblockmemory.h with V_swap spelled for its bit-fields (plan_server_native_v2 D2)
+src/shared/native/trace_hit.h	native code built against SDK headers (gametrace.h): the IHandleEntity the engine stores in trace_t::m_pEnt, read the same way on patched and stock headers (plan_server_native_v2 T1)
+src/shared/native/dt_element_names.cpp	split from dt_utlvector_common.cpp (relocated Valve code, kept local by user decision 2026-09-27): DT_ArrayElementNameForIdx, the network array element names
+src/client/native/generic_payload_client.cpp	split from generic_payload.cpp (plan_server_native_v2 T2, 2026-10-18): its CLIENT_DLL-only schema refusal path and receive props, native code built against SDK headers (dt_recv.h)
+src/server/managed/Violence.cs	ports UTIL_ShouldShowBlood (util_shared.cpp)
+src/server/managed/BloodDecals.cs	ports UTIL_BloodDecalTrace and CWorld::DecalTrace (util_shared.cpp, world.cpp)

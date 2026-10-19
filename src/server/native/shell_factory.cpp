@@ -36,10 +36,7 @@ const SourceSharpExposed *const kExposed[] =
 	&kExposeServerGameClients004,
 	&kExposeServerGameClients003,
 	&kExposeServerGameTags,
-	&kExposePlayerInfoManager,
-	&kExposePluginHelpersCheck,
 	&kExposeServerDllSharedAppSystems,
-	&kExposeGameMovement,
 };
 
 constexpr int kExposedCount = (int)( sizeof( kExposed ) / sizeof( kExposed[0] ) );

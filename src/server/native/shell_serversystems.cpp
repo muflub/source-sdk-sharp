@@ -115,15 +115,6 @@ CServerSystem *PhysicsGameSystem();
 CServerSystem *SoundEmitterSystem();
 CServerSystem *GameLogSystem();
 
-// ai_basenpc.h declared this one returning its concrete type, and stock's
-// DLLInit cast. shell_absent.cpp's ss::CPostFrameNavigationHook is server.so's
-// own (P5), so it answers the base it is used as; the one-line adapter below
-// keeps the table's column uniform.
-CServerSystem *PostFrameNavigationSystem();
-
-CServerSystem *CheckClientGameSystem();
-CServerSystem *DirtySpatialPartitionGameSystem();
-
 // "Due to dependencies, these are not autogamesystems" -- stock's comment, at
 // the point stock calls it, immediately after InitAllSystems.
 
@@ -259,13 +250,7 @@ CServerSystem *SourceSharpManagedGameSystem()
 	return &s_Managed;
 }
 
-//-----------------------------------------------------------------------------
-// The PostFrameNavigation adapter, so the table's column is uniform.
-//-----------------------------------------------------------------------------
-static CServerSystem *PostFrameNavigationGameSystem()
-{
-	return PostFrameNavigationSystem();
-}
+
 
 //=============================================================================
 // THE TABLE.
@@ -305,9 +290,13 @@ static const ServerSystemRow_t kServerSystems[] =
 	// as physics moving late.
 	{ "CPhysicsHook",                     PhysicsGameSystem },
 
-	{ "CPostFrameNavigationHook",         PostFrameNavigationGameSystem },
+	// `{ "CPostFrameNavigationHook", PostFrameNavigationGameSystem }` STOOD
+	// HERE and went with the hook (plan_server_native_min P1): its whole body
+	// was a bool toggle nothing read.
 	{ "CSoundEmitterSystem",              SoundEmitterSystem },
-	{ "CCheckClient",                     CheckClientGameSystem },
+	// `{ "CCheckClient", CheckClientGameSystem }` STOOD HERE and went with the
+	// system (plan_server_native_min P1): its two PVS bitsets had no reader and
+	// its walk skipped every candidate.
 	// `{ "CPrecacheOtherList", PrecacheOtherGameSystem }` STOOD HERE and went
 	// with the class in the server gc cull (2026-10-01). It was a dedupe set for
 	// UTIL_PrecacheOther, cleared at each level change; its one writer,
@@ -317,7 +306,6 @@ static const ServerSystemRow_t kServerSystems[] =
 	// The server's table held only the two watcher refusals; no kept server
 	// object asked EntityDataObject_Get or _Has (nm), so nothing could reach
 	// them, and the system had no stage but Init and Shutdown.
-	{ "CDirtySpatialPartitionEntityList", DirtySpatialPartitionGameSystem },
 	// STOCK'S POSITION FOR THE MANAGED FRAME, and the reason it is not second
 	// is at the top of this file. In stock's list CSourceSharpSystem sits
 	// immediately after the standalone system, so the managed frame runs after
@@ -482,9 +470,9 @@ static const int kServerSystemCount = ARRAYSIZE( kServerSystems );
 //                            too -- no row between 11 and 12 declared it, so the
 //                            teardown runs where it always ran.
 //
-//   CSourceSharpEventLog  -- Part 9a group E. Its Init and Shutdown are both
-//                            SOURCESHARP_TRACE() and nothing else
-//                            (shell_server.cpp:138). The requirement it used to
+//   CSourceSharpEventLog  -- Part 9a group E. DELETED (plan_server_native_min
+//                            P1): its Init and Shutdown were
+//                            SOURCESHARP_TRACE() and nothing else. The requirement it used to
 //                            meet -- something must listen, or an event fires
 //                            with a null descriptor and the engine segfaults --
 //                            is met by shell_gameevents.cpp's managed

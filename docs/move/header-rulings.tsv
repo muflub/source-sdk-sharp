@@ -4,9 +4,6 @@ src/game/client/c_baseentity_statics.h	no	lifted declarations only, bodies stay 
 src/game/client/client_csharp.vpc	no	build/project file (.vpc), no logic
 src/game/client/local_recipient.h	yes	ports C_RecipientFilter's local-player suppression rule (c_te.cpp SuppressTE)
 src/game/client/self_penetration_rule.h	yes	ports/fixes CCollisionEvent::ShouldSolvePenetration (game/client/physics.cpp)
-src/game/server/ent_fire_access.h	yes	ports ent_fire's issuer/access checks (UTIL_GetCommandClient/GetListenServerHost)
-src/game/server/entity_funcs.h	yes	verbatim BASEPTR/ENTITYFUNCPTR/USEPTR typedefs and datadesc macros from baseentity.h
-src/game/server/scaled_collision_rule.h	yes	ports CBaseAnimating::TestCollision's scaled-hull rule
 src/game/server/server_csharp.vpc	no	build/project file (.vpc), no logic
 src/game/shared/blast_blocking.h	yes	ports CGameRules::RadiusDamage's blast-blocking rule (gamerules.cpp)
 src/game/shared/closecaption_recipient.h	yes	ports RecipientFilter_RemoveIfNotCloseCaptioning rule (recipientfilter.cpp)
@@ -37,20 +34,16 @@ src/sourcesharp/game/client/view_subject.h	yes	ports AudioStateIsUnderwater/IsEf
 src/sourcesharp/game/server/collision_group_names.h	no	own name<->engine-number lookup table
 src/sourcesharp/game/server/entity_bases.h	yes	ports CPointEntity/CServerOnlyEntity/CLogicalEntity classes (baseentity.h/.cpp)
 src/sourcesharp/game/server/managed_runtime_server.h	no	pure interop adapter, no logic
-src/sourcesharp/game/server/notify_gate.h	no	trivial generic list scan, own infrastructure
 src/sourcesharp/game/server/precache_model.h	no	declarations only
-src/sourcesharp/game/server/push_blocker_rule.h	yes	ports CTraceFilterPushMove's two rejection rules
 src/sourcesharp/game/server/scripted_kinds.h	no	own lookup fixing a null-deref bug, not Valve logic
 src/sourcesharp/game/server/shellless_find.h	no	own new arithmetic, not Valve logic
 src/sourcesharp/game/server/shell_model_name.h	yes	ports EntityInitPhysics' brush-model-name check (borderline)
-src/sourcesharp/game/server/shell_playerinfo.h	no	own refusal-counter class
 src/sourcesharp/game/server/shell_savecomment.h	yes	ports CServerGameDLL::GetSaveComment formatting (gameinterface.cpp)
 src/sourcesharp/game/server/shell_server.h	yes	rule 3: includes igameentity.h which includes mathlib/vector.h
 src/sourcesharp/game/server/shell_serversystem.h	no	architecture mirror, no-op stages
 src/sourcesharp/game/server/shell_shadow_ctrl_probe.h	yes	reproduces vphysics player-controller layout/clip logic (borderline)
 src/sourcesharp/game/server/shell_standalone_class.h	yes	rule 3: includes shell_standalone.h/shell_resolve.h (igameentity.h, mathlib)
 src/sourcesharp/game/server/shell_steporder.h	no	own transmit-set instrumentation
-src/sourcesharp/game/server/shell_stringtables.h	yes	rule 3: includes networkstringtabledefs.h (public)
 src/sourcesharp/game/server/standalone_collision_rules.h	yes	ports CBaseEntity::CollisionRulesChanged's recheck call (baseentity_shared.cpp)
 src/sourcesharp/game/server/standalone_handle_ban.h	no	compile-time type-ban mechanism
 src/sourcesharp/game/server/standalone_names.h	no	own ASCII compare deliberately avoiding Q_stricmp
@@ -71,9 +64,7 @@ src/sourcesharp/game/shared/managed_init_failure.h	no	own diagnostic messages
 src/sourcesharp/game/shared/move_root.h	yes	ports CBaseEntity::GetRootMoveParent's walk (baseentity_shared.cpp)
 src/sourcesharp/game/shared/particle_follow_mask.h	no	own new control-point mask design
 src/sourcesharp/game/shared/physics_bridge_refusal.h	no	own refusal-counter infrastructure
-src/sourcesharp/game/shared/player_name_match.h	yes	ports UTIL_PlayerByName/UTIL_PlayerByPartialName matching rule (util.cpp)
 src/sourcesharp/game/shared/said_once_per_id.h	no	own dedup-set mechanism
-src/sourcesharp/game/shared/scripted_var_defaults.h	no	generic safety infrastructure, no specific Valve algorithm
 src/sourcesharp/game/shared/shell_boundary_probe.h	no	own instrumentation
 src/sourcesharp/game/shared/shell_diagnostics.h	yes	rule 3: includes util.h which includes tier0/memdbgon.h
 src/sourcesharp/game/shared/shell_effect_registry.h	no	own new registry mechanism
@@ -1219,7 +1210,6 @@ src/sourcesharp/test/admin_command_move_test.cpp	no	checks a moved stock functio
 src/sourcesharp/test/alias_mechanics_test.cpp	no	source scan of #ifndef guard shape; no logic
 src/sourcesharp/test/ambient_generic_evicted_test.cpp	no	source scan confirming entity class deleted from build; no logic
 src/sourcesharp/test/animating_parallel_arm_test.cpp	no	checks shim entry points return NULL on SDK-only arm; no algorithm
-src/sourcesharp/test/animating_projection_test.cpp	no	checks dynamic_cast substitution shape/ban; no logic embedded
 src/sourcesharp/test/animation_policy_test.cpp	no	checks shim leaves duration/hitbox decisions to managed side; no algorithm
 src/sourcesharp/test/anim_cluster_ledger_test.cpp	no	ledger source-scan of registrations still wired; no logic embedded
 src/sourcesharp/test/anim_event_names_test.cpp	no	checks own 5-row table agrees with C# table; own data not Valve algorithm
@@ -1292,7 +1282,6 @@ src/sourcesharp/test/effects_evicted_test.cpp	no	source scan of eviction facts a
 src/sourcesharp/test/effect_tus_evicted_test.cpp	no	source scan of evicted stock files; no logic
 src/sourcesharp/test/engine_block_layout_test.cpp	no	offsetof checks vs generated struct; struct layout only, not logic
 src/sourcesharp/test/engine_core_retype_test.cpp	no	source scan of retype supporting facts; no logic
-src/sourcesharp/test/ent_fire_access_test.cpp	no	drives own ent_fire_access.h slot arithmetic; own logic, not Valve's
 src/sourcesharp/test/entity_base_cluster_test.cpp	no	source scan of removed base-class behaviours; no logic
 src/sourcesharp/test/entity_base_husks_test.cpp	no	source scan of deleted classes and stub glue; no logic
 src/sourcesharp/test/entity_bases_alias_armed.cpp	no	compiles own entity_bases.h against real interface; no Valve logic embedded
@@ -1351,7 +1340,6 @@ src/sourcesharp/test/movement_ground_writeback_test.cpp	no	drives own movement_g
 src/sourcesharp/test/move_root_test.cpp	no	drives real move_root.h bounded walk via stub entity; no algorithm embedded in test
 src/sourcesharp/test/netentity_deleted_test.cpp	no	source scan confirming a deleted class stays deleted; no logic
 src/sourcesharp/test/nodraw_visibility_test.cpp	no	compiled table check plus source scan of remaining plumbing; no logic
-src/sourcesharp/test/notify_gate_test.cpp	yes	models CNotifyList::AddEntity/RemoveEntity/ClearEntity exactly (entitylist.cpp) as reference implementation
 src/sourcesharp/test/orphan_clientclass_test.cpp	no	orphan/class-list census test, no algorithm reproduced
 src/sourcesharp/test/orphan_reach_test.cpp	no	linker orphan-reach infrastructure test
 src/sourcesharp/test/overlay_library_test.cpp	no	checks overlay clip/report counters, not a Valve algorithm port
@@ -1365,10 +1353,7 @@ src/sourcesharp/test/physics_gamedata_test.cpp	no	handle/gamedata arithmetic tes
 src/sourcesharp/test/physicslink_lift_test.cpp	no	source scanner verifying static members moved out
 src/sourcesharp/test/physics_move_scope_test.cpp	no	scope-document measurement test, infra
 src/sourcesharp/test/player_disconnect_removal_test.cpp	no	source-read verifying announcement ordering
-src/sourcesharp/test/playerinfo_block_test.cpp	no	refusal-counter/body test, original infra
-src/sourcesharp/test/player_name_match_test.cpp	no	tests own PlayerNameMatch header, original logic
 src/sourcesharp/test/precache_model_move_test.cpp	no	source scanner verifying static members moved
-src/sourcesharp/test/push_blocker_rule_test.cpp	no	tests own push-filter rule header, original logic
 src/sourcesharp/test/pvs_notify_ruling_test.cpp	no	source-scan pinning PVS-notify reachability facts
 src/sourcesharp/test/ragdoll_blast_seam_test.cpp	no	source-scan verifying stock formula text still present, not embedded computation
 src/sourcesharp/test/ragdoll_model_guard_test.cpp	no	source-scan for NULL-guard ordering bug
@@ -1380,9 +1365,7 @@ src/sourcesharp/test/rules_callers_test.cpp	no	source-scan verifying casts/bridg
 src/sourcesharp/test/said_once_per_id_test.cpp	no	tests own once-per-id tracker, original logic
 src/sourcesharp/test/save_field_codec_test.cpp	no	tests own field codec against datamap.h constants, no algorithm port
 src/sourcesharp/test/saverestore_evicted_test.cpp	no	vpc/guard eviction verification test
-src/sourcesharp/test/scaled_collision_rule_test.cpp	no	tests own collision-rule header, cites Valve function only as motivation
 src/sourcesharp/test/scripted_kinds_test.cpp	no	tests own totality-switch header, original logic
-src/sourcesharp/test/scripted_var_defaults_test.cpp	no	tests own NaN-safe default header, original logic
 src/sourcesharp/test/sdk_player_cast_test.cpp	no	source-scan classifier for banned cast patterns, fixtures quote Valve lines but logic is original
 src/sourcesharp/test/section6_rulings_test.cpp	no	source-scan pinning a documentation ruling's preconditions
 src/sourcesharp/test/self_penetration_rule_test.cpp	no	tests own boolean-rule header, cites Valve bug only as motivation
@@ -1441,7 +1424,6 @@ src/sourcesharp/test/standalone_system_test.cpp	no	source-scan verifying stage-b
 src/sourcesharp/test/standard_filter_shape_test.cpp	no	tests own trace-filter shape-rule header, original logic
 src/sourcesharp/test/steam_mdlcache_test.cpp	no	source-read verifying native step ordering/state
 src/sourcesharp/test/stock_serverclass_census_test.cpp	no	vpc/source scan counting surviving ServerClass registrations
-src/sourcesharp/test/stringtable_abi_test.cpp	no	runs own shipped stringtable-ABI header, original logic
 src/sourcesharp/test/stringtable_index0_test.cpp	no	replays shipped sequence against a model of engine numbering, own code
 src/sourcesharp/test/suppress_host_dead_test.cpp	no	source-scan verifying dead writers stay absent
 src/sourcesharp/test/survey_stub_elision_test.cpp	no	source-scan verifying survey-stub boundary rule

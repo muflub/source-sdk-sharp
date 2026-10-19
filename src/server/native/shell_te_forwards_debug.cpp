@@ -74,8 +74,6 @@ static void FireOneDispatch( const char *pName, const Vector &at )
 
 	ss::CBroadcastRecipientFilter filter;
 
-	if ( SourceSharpTe_SuppressFilter( filter ) )
-		return;
 
 	TE_DispatchEffect( filter, 0.0f, data.m_vOrigin, pName, data );
 

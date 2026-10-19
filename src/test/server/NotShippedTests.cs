@@ -287,7 +287,10 @@ public sealed class NotShippedTests
         string? path = RepoLayout.FindSdkFile(Path.Combine("src", "sourcesharp", "game", "shared", "shell_shared.cpp"));
         Assert.NotNull(path);
         string text = File.ReadAllText(path!);
-        Assert.Contains("SourceSharp_WeaponPellets", text);   // the file the scan reads is the right one
+        // The file the scan reads is the right one. (Anchored on
+        // SourceSharp_WeaponPellets, then SourceSharp_RegisterWeaponType, until
+        // plan_server_native_v2 T2 deleted each: no reader in either DLL.)
+        Assert.Contains("int32_t SourceSharp_FilesSizeOnPath(", text);
         Assert.DoesNotContain("COM_GetModDirectory()", text);
     }
 }

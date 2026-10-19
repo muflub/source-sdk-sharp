@@ -34,10 +34,7 @@ extern const SourceSharpExposed kExposeServerGameClients;
 extern const SourceSharpExposed kExposeServerGameClients004;
 extern const SourceSharpExposed kExposeServerGameClients003;
 extern const SourceSharpExposed kExposeServerGameTags;
-extern const SourceSharpExposed kExposePlayerInfoManager;
-extern const SourceSharpExposed kExposePluginHelpersCheck;
 extern const SourceSharpExposed kExposeServerDllSharedAppSystems;
-extern const SourceSharpExposed kExposeGameMovement;
 
 // The table CreateInterface reads, in its order: for the diagnostics dump and
 // the tests, which must see what the factory sees.

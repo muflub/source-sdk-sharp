@@ -60,8 +60,6 @@ const SourceSharpExposed kExposeServerGameTags = { INTERFACEVERSION_SERVERGAMETA
 //-----------------------------------------------------------------------------
 void CServerGameTags::GetTaggedConVarList( KeyValues *pCvarTagList )
 {
-	if ( pCvarTagList && g_pGameRules )
-	{
-		g_pGameRules->GetTaggedConVarList( pCvarTagList );
-	}
+	// No tags here: each is declared on its convar in C# and ServerTags puts
+	// it in sv_tags (plan_server_novalve.md P3).
 }

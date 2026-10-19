@@ -57,7 +57,6 @@ internal sealed unsafe class ShimAreas
     public readonly ShimRef<ShimEngineFwd> EngineBase;
     public readonly ShimRef<ShimConsoleServerFwd> ConsoleServer;
     public readonly ShimRef<ShimEventsServerFwd> EventsServer;
-    public readonly ShimRef<ShimStringTablesServerFwd> StringTablesServer;
     public readonly ShimRef<ShimNetworkServerFwd> NetworkServer;
     public readonly ShimRef<ShimModelsServerFwd> ModelsServer;
     public readonly ShimRef<ShimPrecacheFwd> Precache;
@@ -72,8 +71,6 @@ internal sealed unsafe class ShimAreas
     public readonly ShimRef<ShimDamageFwd> Damage;
     public readonly ShimRef<ShimGameRulesFwd> GameRules;
     public readonly ShimRef<ShimPlayersFwd> Players;
-    public readonly ShimRef<ShimWeaponsServerFwd> WeaponsServer;
-    public readonly ShimRef<ShimInventoryFwd> Inventory;
     public readonly ShimRef<ShimSoundFwd> Sound;
     public readonly ShimRef<ShimEffectsServerFwd> EffectsServer;
     public readonly ShimRef<ShimDebugOverlayFwd> DebugOverlay;
@@ -97,7 +94,6 @@ internal sealed unsafe class ShimAreas
     public int SoundScriptParameters(byte* a0, float* a1) { return EngineBase.Vt->SoundScriptParameters(EngineBase.Self, a0, a1); }
     public int SoundPatchCreate(uint a0, int a1, byte* a2, int a3) { return EngineBase.Vt->SoundPatchCreate(EngineBase.Self, a0, a1, a2, a3); }
     public int SurfaceScrapeSound(int a0, int a1, byte* a2, int a3) { return EngineBase.Vt->SurfaceScrapeSound(EngineBase.Self, a0, a1, a2, a3); }
-    public void ExecuteServerCommand(byte* a0) { ConsoleServer.Vt->ExecuteServerCommand(ConsoleServer.Self, a0); }
     public void SendClientCommand(uint a0, byte* a1) { ConsoleServer.Vt->SendClientCommand(ConsoleServer.Self, a0, a1); }
     public uint GetCommandClientHandle() { return ConsoleServer.Vt->GetCommandClientHandle(ConsoleServer.Self); }
     public void ListenForGameEvent(byte* a0) { EventsServer.Vt->ListenForGameEvent(EventsServer.Self, a0); }
@@ -105,19 +101,10 @@ internal sealed unsafe class ShimAreas
     public float EventGetFloat(IntPtr a0, byte* a1) { return EventsServer.Vt->EventGetFloat(EventsServer.Self, (void*)a0, a1); }
     public int EventGetBool(IntPtr a0, byte* a1) { return EventsServer.Vt->EventGetBool(EventsServer.Self, (void*)a0, a1); }
     public byte* EventGetString(IntPtr a0, byte* a1) { return (byte*)EventsServer.Vt->EventGetString(EventsServer.Self, (void*)a0, a1); }
-    public IntPtr EventCreate(byte* a0) { return (IntPtr)EventsServer.Vt->EventCreate(EventsServer.Self, a0); }
     public void EventSetInt(IntPtr a0, byte* a1, int a2) { EventsServer.Vt->EventSetInt(EventsServer.Self, (void*)a0, a1, a2); }
     public void EventSetFloat(IntPtr a0, byte* a1, float a2) { EventsServer.Vt->EventSetFloat(EventsServer.Self, (void*)a0, a1, a2); }
     public void EventSetBool(IntPtr a0, byte* a1, int a2) { EventsServer.Vt->EventSetBool(EventsServer.Self, (void*)a0, a1, a2); }
     public void EventSetString(IntPtr a0, byte* a1, byte* a2) { EventsServer.Vt->EventSetString(EventsServer.Self, (void*)a0, a1, a2); }
-    public int EventFire(IntPtr a0) { return EventsServer.Vt->EventFire(EventsServer.Self, (void*)a0); }
-    public void EventFree(IntPtr a0) { EventsServer.Vt->EventFree(EventsServer.Self, (void*)a0); }
-    public int StringTableFind(byte* a0) { return StringTablesServer.Vt->StringTableFind(StringTablesServer.Self, a0); }
-    public int StringTableFindStringIndex(int a0, byte* a1) { return StringTablesServer.Vt->StringTableFindStringIndex(StringTablesServer.Self, a0, a1); }
-    public int StringTableGetString(int a0, int a1, byte* a2, int a3) { return StringTablesServer.Vt->StringTableGetString(StringTablesServer.Self, a0, a1, a2, a3); }
-    public int StringTableGetNumStrings(int a0) { return StringTablesServer.Vt->StringTableGetNumStrings(StringTablesServer.Self, a0); }
-    public int StringTableCreate(byte* a0, int a1) { return StringTablesServer.Vt->StringTableCreate(StringTablesServer.Self, a0, a1); }
-    public int StringTableAddString(int a0, byte* a1) { return StringTablesServer.Vt->StringTableAddString(StringTablesServer.Self, a0, a1); }
     public int NetHierarchyDeclare(int a0) { return NetworkServer.Vt->NetHierarchyDeclare(NetworkServer.Self, a0); }
     public int NetPublishType(byte* a0, int a1, uint a2, int a3, uint* a4) { return NetworkServer.Vt->NetPublishType(NetworkServer.Self, a0, a1, a2, a3, a4); }
     public int NetTierInfo(int a0, int a1, byte** a2, int* a3, int* a4, int* a5, int* a6) { return NetworkServer.Vt->NetTierInfo(NetworkServer.Self, a0, a1, a2, a3, a4, a5, a6); }
@@ -134,8 +121,6 @@ internal sealed unsafe class ShimAreas
     public void StandaloneSetModelScale(uint a0, float a1) { ModelsServer.Vt->StandaloneSetModelScale(ModelsServer.Self, a0, a1); }
     public void EntitySetModel(uint a0, byte* a1) { ModelsServer.Vt->EntitySetModel(ModelsServer.Self, a0, a1); }
     public void EntitySetSequence(uint a0, int a1) { ModelsServer.Vt->EntitySetSequence(ModelsServer.Self, a0, a1); }
-    public int EntityGetTextureFrame(uint a0) { return ModelsServer.Vt->EntityGetTextureFrame(ModelsServer.Self, a0); }
-    public void EntitySetTextureFrame(uint a0, int a1) { ModelsServer.Vt->EntitySetTextureFrame(ModelsServer.Self, a0, a1); }
     public int PrecacheModel(byte* a0) { return Precache.Vt->PrecacheModel(Precache.Self, a0); }
     public void PrecacheSound(byte* a0) { Precache.Vt->PrecacheSound(Precache.Self, a0); }
     public int PrecacheDecal(byte* a0) { return Precache.Vt->PrecacheDecal(Precache.Self, a0); }
@@ -153,14 +138,7 @@ internal sealed unsafe class ShimAreas
     public void PlayerShadowRelease(uint a0) { MovementServer.Vt->PlayerShadowRelease(MovementServer.Self, a0); }
     public void PlayerShadowCommit(uint a0, int a1, int a2) { MovementServer.Vt->PlayerShadowCommit(MovementServer.Self, a0, a1, a2); }
     public int PlayerSetMoveType(uint a0, int a1) { return MovementServer.Vt->PlayerSetMoveType(MovementServer.Self, a0, a1); }
-    public void PlayerForceButtons(uint a0, int a1, int a2) { MovementServer.Vt->PlayerForceButtons(MovementServer.Self, a0, a1, a2); }
-    public int PlayerGetButtons(uint a0) { return MovementServer.Vt->PlayerGetButtons(MovementServer.Self, a0); }
-    public void PlayerSetButtonsDisabled(uint a0, int a1, int a2) { MovementServer.Vt->PlayerSetButtonsDisabled(MovementServer.Self, a0, a1, a2); }
-    public void PlayerSetLaggedMovement(uint a0, float a1) { MovementServer.Vt->PlayerSetLaggedMovement(MovementServer.Self, a0, a1); }
-    public void PlayerSetAllowAutoMovement(uint a0, int a1) { MovementServer.Vt->PlayerSetAllowAutoMovement(MovementServer.Self, a0, a1); }
     public void PlayerSetSlowMovement(uint a0, int a1) { MovementServer.Vt->PlayerSetSlowMovement(MovementServer.Self, a0, a1); }
-    public void PlayerSetMovementConstraint(uint a0, float* a1, float a2, float a3, float a4) { MovementServer.Vt->PlayerSetMovementConstraint(MovementServer.Self, a0, a1, a2, a3, a4); }
-    public void PlayerSetFrozen(uint a0, int a1) { MovementServer.Vt->PlayerSetFrozen(MovementServer.Self, a0, a1); }
     public int PointContents(float* a0) { return WorldServer.Vt->PointContents(WorldServer.Self, a0); }
     public int SurfacePropGameMaterial(int a0) { return WorldServer.Vt->SurfacePropGameMaterial(WorldServer.Self, a0); }
     public int TraceLine(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7) { return WorldServer.Vt->TraceLine(WorldServer.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
@@ -172,7 +150,6 @@ internal sealed unsafe class ShimAreas
     public int SurfacePropIndex(byte* a0) { return WorldServer.Vt->SurfacePropIndex(WorldServer.Self, a0); }
     public int EntityModelSurfaceProp(uint a0) { return WorldServer.Vt->EntityModelSurfaceProp(WorldServer.Self, a0); }
     public int InvisibleRangeReach() { return WorldServer.Vt->InvisibleRangeReach(WorldServer.Self); }
-    public void EngineLightStyle(int a0, byte* a1) { WorldServer.Vt->EngineLightStyle(WorldServer.Self, a0, a1); }
     public void SetSkyboxParams(SkyboxParams* a0) { WorldServer.Vt->SetSkyboxParams(WorldServer.Self, a0); }
     public byte* WorldChapterTitle() { return (byte*)WorldServer.Vt->WorldChapterTitle(WorldServer.Self); }
     public uint AreaPortalCreate(int a0, int a1) { return WorldServer.Vt->AreaPortalCreate(WorldServer.Self, a0, a1); }
@@ -183,14 +160,12 @@ internal sealed unsafe class ShimAreas
     public int EntityGetIndex(uint a0) { return EntitiesServer.Vt->EntityGetIndex(EntitiesServer.Self, a0); }
     public void EntityGetOrigin(uint a0, float* a1) { EntitiesServer.Vt->EntityGetOrigin(EntitiesServer.Self, a0, a1); }
     public void EntityGetAngles(uint a0, float* a1) { EntitiesServer.Vt->EntityGetAngles(EntitiesServer.Self, a0, a1); }
-    public void EntitySetSkin(uint a0, int a1) { EntitiesServer.Vt->EntitySetSkin(EntitiesServer.Self, a0, a1); }
     public int EntityIsValid(uint a0) { return EntitiesServer.Vt->EntityIsValid(EntitiesServer.Self, a0); }
     public int EntityIsPlayer(uint a0) { return EntitiesServer.Vt->EntityIsPlayer(EntitiesServer.Self, a0); }
     public void EntityGetClassName(uint a0, byte* a1, int a2) { EntitiesServer.Vt->EntityGetClassName(EntitiesServer.Self, a0, a1, a2); }
     public void EntityGetName(uint a0, byte* a1, int a2) { EntitiesServer.Vt->EntityGetName(EntitiesServer.Self, a0, a1, a2); }
     public int EntityGetState(uint a0, int* a1) { return EntitiesServer.Vt->EntityGetState(EntitiesServer.Self, a0, a1); }
     public uint FindEntityByClassname(uint a0, byte* a1) { return EntitiesServer.Vt->FindEntityByClassname(EntitiesServer.Self, a0, a1); }
-    public uint FindBaseEntityByName(byte* a0) { return EntitiesServer.Vt->FindBaseEntityByName(EntitiesServer.Self, a0); }
     public int EntitiesInSphere(float* a0, float a1, uint* a2, int a3) { return EntitiesServer.Vt->EntitiesInSphere(EntitiesServer.Self, a0, a1, a2, a3); }
     public int EntitySetKeyValue(uint a0, byte* a1, byte* a2) { return EntitiesServer.Vt->EntitySetKeyValue(EntitiesServer.Self, a0, a1, a2); }
     public void EntityGetSpawnOrigin(uint a0, float* a1) { EntitiesServer.Vt->EntityGetSpawnOrigin(EntitiesServer.Self, a0, a1); }
@@ -199,25 +174,17 @@ internal sealed unsafe class ShimAreas
     public void EntitySetSpawnFlags(uint a0, int a1) { EntitiesServer.Vt->EntitySetSpawnFlags(EntitiesServer.Self, a0, a1); }
     public int EntityGetHealth(uint a0) { return EntitiesServer.Vt->EntityGetHealth(EntitiesServer.Self, a0); }
     public void EntitySetHealth(uint a0, int a1) { EntitiesServer.Vt->EntitySetHealth(EntitiesServer.Self, a0, a1); }
-    public int EntityGetArmor(uint a0) { return EntitiesServer.Vt->EntityGetArmor(EntitiesServer.Self, a0); }
-    public void EntitySetArmor(uint a0, int a1) { EntitiesServer.Vt->EntitySetArmor(EntitiesServer.Self, a0, a1); }
     public void EntitySetVisible(uint a0, int a1) { EntitiesServer.Vt->EntitySetVisible(EntitiesServer.Self, a0, a1); }
     public void EntitySetOwner(uint a0, uint a1) { EntitiesServer.Vt->EntitySetOwner(EntitiesServer.Self, a0, a1); }
     public void EntityMakePickup(uint a0, float a1, float a2, float a3) { EntitiesServer.Vt->EntityMakePickup(EntitiesServer.Self, a0, a1, a2, a3); }
     public void EntitySetPickupEnabled(uint a0, int a1) { EntitiesServer.Vt->EntitySetPickupEnabled(EntitiesServer.Self, a0, a1); }
-    public int EntityDetectInSkybox(uint a0) { return EntitiesServer.Vt->EntityDetectInSkybox(EntitiesServer.Self, a0); }
-    public int EntitiesSdkPlayerSkyboxArea(int a0, int* a1) { return EntitiesServer.Vt->EntitiesSdkPlayerSkyboxArea(EntitiesServer.Self, a0, a1); }
     public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) { return EntitiesServer.Vt->EntitiesStandalonePlayerSkyboxArea(EntitiesServer.Self, a0, a1); }
     public uint CreateEntity(byte* a0) { return EntityLifecycle.Vt->CreateEntity(EntityLifecycle.Self, a0); }
     public void EntitySpawn(uint a0) { EntityLifecycle.Vt->EntitySpawn(EntityLifecycle.Self, a0); }
     public void EntityRemove(uint a0) { EntityLifecycle.Vt->EntityRemove(EntityLifecycle.Self, a0); }
     public void DestroyShell(uint* a0, int a1) { EntityLifecycle.Vt->DestroyShell(EntityLifecycle.Self, a0, a1); }
     public uint MapSpawnCreate(byte* a0, byte* a1, int a2) { return EntityLifecycle.Vt->MapSpawnCreate(EntityLifecycle.Self, a0, a1, a2); }
-    public int TemplateCapture(byte* a0, int a1, int* a2, float* a3, float* a4, int a5) { return EntityLifecycle.Vt->TemplateCapture(EntityLifecycle.Self, a0, a1, a2, a3, a4, a5); }
-    public void EntitiesPurgeMapRefs() { EntityLifecycle.Vt->EntitiesPurgeMapRefs(EntityLifecycle.Self); }
-    public void EntitiesCleanupDeleteList() { EntityLifecycle.Vt->EntitiesCleanupDeleteList(EntityLifecycle.Self); }
     public void RegisterScriptedEntity(byte* a0, byte** a1, int a2, int a3) { EntityLifecycle.Vt->RegisterScriptedEntity(EntityLifecycle.Self, a0, a1, a2, a3); }
-    public void RegisterWeaponEntity(byte* a0) { EntityLifecycle.Vt->RegisterWeaponEntity(EntityLifecycle.Self, a0); }
     public void RegisterClassOps(byte* a0, uint a1) { EntityLifecycle.Vt->RegisterClassOps(EntityLifecycle.Self, a0, a1); }
     public int EntityDispatch(uint a0, int a1, OpArgs* a2) { return EntityLifecycle.Vt->EntityDispatch(EntityLifecycle.Self, a0, a1, a2); }
     public int EntityFactoryCount() { return EntityLifecycle.Vt->EntityFactoryCount(EntityLifecycle.Self); }
@@ -237,12 +204,8 @@ internal sealed unsafe class ShimAreas
     public void EntityGetEyePosition(uint a0, float* a1) { Transform.Vt->EntityGetEyePosition(Transform.Self, a0, a1); }
     public void EntityGetEyeAngles(uint a0, float* a1) { Transform.Vt->EntityGetEyeAngles(Transform.Self, a0, a1); }
     public void EntityGetWorldSpaceCenter(uint a0, float* a1) { Transform.Vt->EntityGetWorldSpaceCenter(Transform.Self, a0, a1); }
-    public void EntityMoveToPosition(uint a0, float* a1, float a2) { Transform.Vt->EntityMoveToPosition(Transform.Self, a0, a1, a2); }
-    public void EntityMoveToAngles(uint a0, float* a1, float a2) { Transform.Vt->EntityMoveToAngles(Transform.Self, a0, a1, a2); }
-    public void EntityStopMoving(uint a0) { Transform.Vt->EntityStopMoving(Transform.Self, a0); }
     public float EntityGetGravity(uint a0) { return Transform.Vt->EntityGetGravity(Transform.Self, a0); }
     public void EntitySetGravity(uint a0, float a1) { Transform.Vt->EntitySetGravity(Transform.Self, a0, a1); }
-    public void EntitySetFriction(uint a0, float a1) { Transform.Vt->EntitySetFriction(Transform.Self, a0, a1); }
     public void EntitySetBounce(uint a0, int a1) { Transform.Vt->EntitySetBounce(Transform.Self, a0, a1); }
     public int EntitySetParent(uint a0, uint a1, int a2) { return Hierarchy.Vt->EntitySetParent(Hierarchy.Self, a0, a1, a2); }
     public uint EntityGetParent(uint a0) { return Hierarchy.Vt->EntityGetParent(Hierarchy.Self, a0); }
@@ -265,7 +228,6 @@ internal sealed unsafe class ShimAreas
     public void EntitySetCollisionGroup(uint a0, int a1) { CollisionServer.Vt->EntitySetCollisionGroup(CollisionServer.Self, a0, a1); }
     public int EntityOverlapReport(uint* a0, int a1) { return CollisionServer.Vt->EntityOverlapReport(CollisionServer.Self, a0, a1); }
     public void EntityDestroyPhysics(uint a0) { Physics.Vt->EntityDestroyPhysics(Physics.Self, a0); }
-    public void EntitySetForceServerRagdoll(uint a0, int a1) { Physics.Vt->EntitySetForceServerRagdoll(Physics.Self, a0, a1); }
     public nint EntityPhysicsObject(uint a0) { return (nint)Physics.Vt->EntityPhysicsObject(Physics.Self, a0); }
     public nint PhysicsEnvironmentPointer() { return (nint)Physics.Vt->PhysicsEnvironmentPointer(Physics.Self); }
     public nint PhysicsWorldObject() { return (nint)Physics.Vt->PhysicsWorldObject(Physics.Self); }
@@ -273,59 +235,21 @@ internal sealed unsafe class ShimAreas
     public int EntitySwapPhysicsObject(uint a0, nint a1, void** a2) { return Physics.Vt->EntitySwapPhysicsObject(Physics.Self, a0, (void*)a1, a2); }
     public void ApplyDamage(uint a0, uint a1, float a2, int a3) { Damage.Vt->ApplyDamage(Damage.Self, a0, a1, a2, a3); }
     public void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6) { Damage.Vt->EntityTakeDamage(Damage.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public void RadiusDamage(float* a0, float a1, float a2, int a3, uint a4) { Damage.Vt->RadiusDamage(Damage.Self, a0, a1, a2, a3, a4); }
-    public void ExplosionDamage(float* a0, float a1, float a2, int a3, uint a4, uint a5, uint a6, float a7) { Damage.Vt->ExplosionDamage(Damage.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
-    public int EntitySetTakeDamageMode(uint a0, int a1) { return Damage.Vt->EntitySetTakeDamageMode(Damage.Self, a0, a1); }
-    public void EntityIgnite(uint a0, float a1) { Damage.Vt->EntityIgnite(Damage.Self, a0, a1); }
-    public int EntityDissolve(uint a0, int a1, float a2, float* a3) { return Damage.Vt->EntityDissolve(Damage.Self, a0, a1, a2, a3); }
     public void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5) { Damage.Vt->ApplyDamageForce(Damage.Self, a0, a1, a2, a3, a4, a5); }
     public void RegisterGameRulesPolicy(GameRulesPolicyBlob* a0) { GameRules.Vt->RegisterGameRulesPolicy(GameRules.Self, a0); }
     public void RegisterDamageRules(DamageRuleMasks* a0) { GameRules.Vt->RegisterDamageRules(GameRules.Self, a0); }
     public void EndRound() { GameRules.Vt->EndRound(GameRules.Self); }
     public uint GetPlayerHandle(int a0) { return Players.Vt->GetPlayerHandle(Players.Self, a0); }
-    public int GetPlayerUserId(uint a0) { return Players.Vt->GetPlayerUserId(Players.Self, a0); }
     public int GetPlayerTeam(uint a0) { return Players.Vt->GetPlayerTeam(Players.Self, a0); }
-    public void AddPlayerScore(uint a0, int a1, int a2) { Players.Vt->AddPlayerScore(Players.Self, a0, a1, a2); }
     public int PlayerIsAlive(uint a0) { return Players.Vt->PlayerIsAlive(Players.Self, a0); }
     public void PlayerRespawn(uint a0) { Players.Vt->PlayerRespawn(Players.Self, a0); }
     public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { Players.Vt->PlayerPlaceAtSpawn(Players.Self, a0, a1, a2); }
     public int PlayerGetObserverMode(uint a0) { return Players.Vt->PlayerGetObserverMode(Players.Self, a0); }
     public void PlayerSetObserverMode(uint a0, int a1) { Players.Vt->PlayerSetObserverMode(Players.Self, a0, a1); }
-    public void PlayerSetViewEntity(uint a0, uint a1) { Players.Vt->PlayerSetViewEntity(Players.Self, a0, a1); }
-    public void PlayerSetFov(uint a0, uint a1, int a2, float a3) { Players.Vt->PlayerSetFov(Players.Self, a0, a1, a2, a3); }
     public void PlayerSnapEyeAngles(uint a0, float* a1) { Players.Vt->PlayerSnapEyeAngles(Players.Self, a0, a1); }
     public void GetPlayerShootOrigin(uint a0, float* a1) { Players.Vt->GetPlayerShootOrigin(Players.Self, a0, a1); }
-    public void PlayerSetSoundscape(uint a0, int a1, int a2, int a3, float* a4) { Players.Vt->PlayerSetSoundscape(Players.Self, a0, a1, a2, a3, a4); }
     public int ClientsStandalonePlayerEarPosition(int a0, float* a1) { return Players.Vt->ClientsStandalonePlayerEarPosition(Players.Self, a0, a1); }
-    public int ClientsSdkPlayerEarPosition(int a0, float* a1) { return Players.Vt->ClientsSdkPlayerEarPosition(Players.Self, a0, a1); }
-    public int PlayerBoxInPvs(uint a0, float* a1, float* a2) { return Players.Vt->PlayerBoxInPvs(Players.Self, a0, a1, a2); }
     public void PlayerSetTeam(uint a0, int a1) { Players.Vt->PlayerSetTeam(Players.Self, a0, a1); }
-    public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { WeaponsServer.Vt->RegisterAmmoType(WeaponsServer.Self, a0, a1, a2, a3, a4, a5); }
-    public void RegisterWeaponType(byte* a0, float a1, float a2, int a3) { WeaponsServer.Vt->RegisterWeaponType(WeaponsServer.Self, a0, a1, a2, a3); }
-    public int WeaponGetState(uint a0, WeaponState* a1) { return WeaponsServer.Vt->WeaponGetState(WeaponsServer.Self, a0, a1); }
-    public void WeaponIdle(uint a0) { WeaponsServer.Vt->WeaponIdle(WeaponsServer.Self, a0); }
-    public void WeaponSetNextPrimaryAttack(uint a0, float a1) { WeaponsServer.Vt->WeaponSetNextPrimaryAttack(WeaponsServer.Self, a0, a1); }
-    public void WeaponSetNextSecondaryAttack(uint a0, float a1) { WeaponsServer.Vt->WeaponSetNextSecondaryAttack(WeaponsServer.Self, a0, a1); }
-    public void WeaponSetClip(uint a0, int a1) { WeaponsServer.Vt->WeaponSetClip(WeaponsServer.Self, a0, a1); }
-    public void WeaponSetInReload(uint a0, int a1) { WeaponsServer.Vt->WeaponSetInReload(WeaponsServer.Self, a0, a1); }
-    public int WeaponTakeAmmo(uint a0, int a1) { return WeaponsServer.Vt->WeaponTakeAmmo(WeaponsServer.Self, a0, a1); }
-    public int WeaponTakeSecondaryAmmo(uint a0, int a1) { return WeaponsServer.Vt->WeaponTakeSecondaryAmmo(WeaponsServer.Self, a0, a1); }
-    public void WeaponPlaySound(uint a0, int a1) { WeaponsServer.Vt->WeaponPlaySound(WeaponsServer.Self, a0, a1); }
-    public void WeaponSendAnim(uint a0, int a1) { WeaponsServer.Vt->WeaponSendAnim(WeaponsServer.Self, a0, a1); }
-    public float WeaponAnimDuration(uint a0, int a1) { return WeaponsServer.Vt->WeaponAnimDuration(WeaponsServer.Self, a0, a1); }
-    public void WeaponFireBullets(uint a0, int a1, float a2) { WeaponsServer.Vt->WeaponFireBullets(WeaponsServer.Self, a0, a1, a2); }
-    public void WeaponMuzzleFlash(uint a0) { WeaponsServer.Vt->WeaponMuzzleFlash(WeaponsServer.Self, a0); }
-    public void WeaponAddViewKick(uint a0) { WeaponsServer.Vt->WeaponAddViewKick(WeaponsServer.Self, a0); }
-    public int GivePlayerItem(uint a0, byte* a1) { return Inventory.Vt->GivePlayerItem(Inventory.Self, a0, a1); }
-    public int GivePlayerAmmo(uint a0, int a1, byte* a2) { return Inventory.Vt->GivePlayerAmmo(Inventory.Self, a0, a1, a2); }
-    public void GetPlayerActiveWeapon(uint a0, byte* a1, int a2) { Inventory.Vt->GetPlayerActiveWeapon(Inventory.Self, a0, a1, a2); }
-    public uint PlayerGetActiveWeaponEntity(uint a0) { return Inventory.Vt->PlayerGetActiveWeaponEntity(Inventory.Self, a0); }
-    public uint PlayerGetWeaponEntity(uint a0, int a1) { return Inventory.Vt->PlayerGetWeaponEntity(Inventory.Self, a0, a1); }
-    public uint PlayerGetViewModelEntity(uint a0) { return Inventory.Vt->PlayerGetViewModelEntity(Inventory.Self, a0); }
-    public int PlayerDropActiveWeapon(uint a0, float* a1) { return Inventory.Vt->PlayerDropActiveWeapon(Inventory.Self, a0, a1); }
-    public int PlayerHolsterActiveWeapon(uint a0) { return Inventory.Vt->PlayerHolsterActiveWeapon(Inventory.Self, a0); }
-    public int PlayerDeployLastWeapon(uint a0) { return Inventory.Vt->PlayerDeployLastWeapon(Inventory.Self, a0); }
-    public void PlayerRemoveAllItems(uint a0, int a1) { Inventory.Vt->PlayerRemoveAllItems(Inventory.Self, a0, a1); }
     public void EntityEmitSound(uint a0, byte* a1) { Sound.Vt->EntityEmitSound(Sound.Self, a0, a1); }
     public void EntityStopSound(uint a0, byte* a1) { Sound.Vt->EntityStopSound(Sound.Self, a0, a1); }
     public void EmitSoundAtPosition(byte* a0, float* a1) { Sound.Vt->EmitSoundAtPosition(Sound.Self, a0, a1); }
@@ -345,12 +269,7 @@ internal sealed unsafe class ShimAreas
     public void DustEffect(float* a0, float* a1, float a2, float a3) { EffectsServer.Vt->DustEffect(EffectsServer.Self, a0, a1, a2, a3); }
     public void SplashEffect(float* a0, float a1, int a2) { EffectsServer.Vt->SplashEffect(EffectsServer.Self, a0, a1, a2); }
     public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { EffectsServer.Vt->BloodEffect(EffectsServer.Self, a0, a1, a2, a3, a4, a5); }
-    public int BloodDecal(float* a0, float* a1, int a2) { return EffectsServer.Vt->BloodDecal(EffectsServer.Self, a0, a1, a2); }
     public int PaintDecal(int a0, float* a1, float* a2, float a3, int a4, int a5) { return EffectsServer.Vt->PaintDecal(EffectsServer.Self, a0, a1, a2, a3, a4, a5); }
-    public int ShootGib(byte* a0, GibShot* a1) { return EffectsServer.Vt->ShootGib(EffectsServer.Self, a0, a1); }
-    public uint FireEffectCreate(int a0, float* a1, float a2, int a3) { return EffectsServer.Vt->FireEffectCreate(EffectsServer.Self, a0, a1, a2, a3); }
-    public void FireEffectScale(uint a0, float a1, float a2) { EffectsServer.Vt->FireEffectScale(EffectsServer.Self, a0, a1, a2); }
-    public void FireEffectEnable(uint a0, int a1) { EffectsServer.Vt->FireEffectEnable(EffectsServer.Self, a0, a1); }
     public void DrawWorldText(float* a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { DebugOverlay.Vt->DrawWorldText(DebugOverlay.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { return DebugOverlay.Vt->DrawEntityOverlay(DebugOverlay.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { DebugOverlay.Vt->AddLineOverlay(DebugOverlay.Self, a0, a1, a2, a3, a4, a5, a6); }
@@ -381,7 +300,6 @@ internal sealed unsafe class ShimAreas
         if (!ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out EngineBase, out why)) return;
         if (!ShimRef<ShimConsoleServerFwd>.TryTake(root, "SourceSharpConsoleServer001", out ConsoleServer, out why)) return;
         if (!ShimRef<ShimEventsServerFwd>.TryTake(root, "SourceSharpEventsServer001", out EventsServer, out why)) return;
-        if (!ShimRef<ShimStringTablesServerFwd>.TryTake(root, "SourceSharpStringTablesServer001", out StringTablesServer, out why)) return;
         if (!ShimRef<ShimNetworkServerFwd>.TryTake(root, "SourceSharpNetworkServer001", out NetworkServer, out why)) return;
         if (!ShimRef<ShimModelsServerFwd>.TryTake(root, "SourceSharpModelsServer001", out ModelsServer, out why)) return;
         if (!ShimRef<ShimPrecacheFwd>.TryTake(root, "SourceSharpPrecache001", out Precache, out why)) return;
@@ -396,8 +314,6 @@ internal sealed unsafe class ShimAreas
         if (!ShimRef<ShimDamageFwd>.TryTake(root, "SourceSharpDamage001", out Damage, out why)) return;
         if (!ShimRef<ShimGameRulesFwd>.TryTake(root, "SourceSharpGameRules001", out GameRules, out why)) return;
         if (!ShimRef<ShimPlayersFwd>.TryTake(root, "SourceSharpPlayers001", out Players, out why)) return;
-        if (!ShimRef<ShimWeaponsServerFwd>.TryTake(root, "SourceSharpWeaponsServer001", out WeaponsServer, out why)) return;
-        if (!ShimRef<ShimInventoryFwd>.TryTake(root, "SourceSharpInventory001", out Inventory, out why)) return;
         if (!ShimRef<ShimSoundFwd>.TryTake(root, "SourceSharpSound001", out Sound, out why)) return;
         if (!ShimRef<ShimEffectsServerFwd>.TryTake(root, "SourceSharpEffectsServer001", out EffectsServer, out why)) return;
         if (!ShimRef<ShimDebugOverlayFwd>.TryTake(root, "SourceSharpDebugOverlay001", out DebugOverlay, out why)) return;
@@ -413,7 +329,7 @@ internal sealed unsafe class ShimAreas
         return areas is not null;
     }
 
-    internal static int Count => 25;
+    internal static int Count => 22;
 }
 
 /// <summary>
@@ -424,14 +340,12 @@ internal sealed unsafe class ClientShimAreas
 {
     public readonly ShimRef<ShimEngineFwd> EngineBase;
     public readonly ShimRef<ShimEventsFwd> Events;
-    public readonly ShimRef<ShimStringTablesFwd> StringTables;
     public readonly ShimRef<ShimNetworkFwd> Network;
     public readonly ShimRef<ShimModelsFwd> Models;
     public readonly ShimRef<ShimMovementFwd> Movement;
     public readonly ShimRef<ShimWorldFwd> World;
     public readonly ShimRef<ShimEntitiesFwd> Entities;
     public readonly ShimRef<ShimCollisionFwd> Collision;
-    public readonly ShimRef<ShimWeaponsFwd> Weapons;
     public readonly ShimRef<ShimEffectsFwd> Effects;
     public readonly ShimRef<ShimConsoleFwd> Console;
     public readonly ShimRef<ShimHudClientFwd> HudClient;
@@ -473,10 +387,6 @@ internal sealed unsafe class ClientShimAreas
     public float EventGetFloat(IntPtr a0, byte* a1) { return Events.Vt->EventGetFloat(Events.Self, (void*)a0, a1); }
     public int EventGetBool(IntPtr a0, byte* a1) { return Events.Vt->EventGetBool(Events.Self, (void*)a0, a1); }
     public byte* EventGetString(IntPtr a0, byte* a1) { return (byte*)Events.Vt->EventGetString(Events.Self, (void*)a0, a1); }
-    public int StringTableFind(byte* a0) { return StringTables.Vt->StringTableFind(StringTables.Self, a0); }
-    public int StringTableFindStringIndex(int a0, byte* a1) { return StringTables.Vt->StringTableFindStringIndex(StringTables.Self, a0, a1); }
-    public int StringTableGetString(int a0, int a1, byte* a2, int a3) { return StringTables.Vt->StringTableGetString(StringTables.Self, a0, a1, a2, a3); }
-    public int StringTableGetNumStrings(int a0) { return StringTables.Vt->StringTableGetNumStrings(StringTables.Self, a0); }
     public int NetHierarchyDeclare(int a0) { return Network.Vt->NetHierarchyDeclare(Network.Self, a0); }
     public int NetPublishType(byte* a0, int a1, uint a2, int a3, uint* a4) { return Network.Vt->NetPublishType(Network.Self, a0, a1, a2, a3, a4); }
     public int NetTierInfo(int a0, int a1, byte** a2, int* a3, int* a4, int* a5, int* a6) { return Network.Vt->NetTierInfo(Network.Self, a0, a1, a2, a3, a4, a5, a6); }
@@ -495,11 +405,8 @@ internal sealed unsafe class ClientShimAreas
     public int EntityGetIndex(uint a0) { return Entities.Vt->EntityGetIndex(Entities.Self, a0); }
     public void EntityGetOrigin(uint a0, float* a1) { Entities.Vt->EntityGetOrigin(Entities.Self, a0, a1); }
     public void EntityGetAngles(uint a0, float* a1) { Entities.Vt->EntityGetAngles(Entities.Self, a0, a1); }
-    public void EntitySetSkin(uint a0, int a1) { Entities.Vt->EntitySetSkin(Entities.Self, a0, a1); }
     public int EntityIsValid(uint a0) { return Entities.Vt->EntityIsValid(Entities.Self, a0); }
     public void RegisterCollisionRules(CollisionRulesBlob* a0) { Collision.Vt->RegisterCollisionRules(Collision.Self, a0); }
-    public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { Weapons.Vt->RegisterAmmoType(Weapons.Self, a0, a1, a2, a3, a4, a5); }
-    public void RegisterWeaponType(byte* a0, float a1, float a2, int a3) { Weapons.Vt->RegisterWeaponType(Weapons.Self, a0, a1, a2, a3); }
     public int TempEntRegister(TeClassDesc* a0) { return Effects.Vt->TempEntRegister(Effects.Self, a0); }
     public void Msg(byte* a0) { Console.Vt->Msg(Console.Self, a0); }
     public void Warning(byte* a0) { Console.Vt->Warning(Console.Self, a0); }
@@ -602,6 +509,8 @@ internal sealed unsafe class ClientShimAreas
     public void* StandaloneEngineBlock(uint a0, int* a1) { return StandaloneClient.Vt->StandaloneEngineBlock(StandaloneClient.Self, a0, a1); }
     public void StandaloneStoreSequence(uint a0, int a1, float a2, float a3, float a4, int a5) { StandaloneClient.Vt->StandaloneStoreSequence(StandaloneClient.Self, a0, a1, a2, a3, a4, a5); }
     public void StandaloneSetRagdoll(uint a0, int a1) { StandaloneClient.Vt->StandaloneSetRagdoll(StandaloneClient.Self, a0, a1); }
+    public void EntitySetSkin(uint a0, int a1) { StandaloneClient.Vt->EntitySetSkin(StandaloneClient.Self, a0, a1); }
+    public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { StandaloneClient.Vt->RegisterAmmoType(StandaloneClient.Self, a0, a1, a2, a3, a4, a5); }
     public void ConNPrintf(void* a0, int a1, byte* a2) { ViewClient.Vt->ConNPrintf(ViewClient.Self, a0, a1, a2); }
     public void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5) { ViewClient.Vt->ConNXPrintf(ViewClient.Self, a0, a1, a2, a3, a4, a5); }
     public void GetLightForPoint(void* a0, float* a1, int a2, float* a3) { ViewClient.Vt->GetLightForPoint(ViewClient.Self, a0, a1, a2, a3); }
@@ -753,14 +662,12 @@ internal sealed unsafe class ClientShimAreas
     {
         if (!ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out EngineBase, out why)) return;
         if (!ShimRef<ShimEventsFwd>.TryTake(root, "SourceSharpEvents001", out Events, out why)) return;
-        if (!ShimRef<ShimStringTablesFwd>.TryTake(root, "SourceSharpStringTables001", out StringTables, out why)) return;
         if (!ShimRef<ShimNetworkFwd>.TryTake(root, "SourceSharpNetwork001", out Network, out why)) return;
         if (!ShimRef<ShimModelsFwd>.TryTake(root, "SourceSharpModels001", out Models, out why)) return;
         if (!ShimRef<ShimMovementFwd>.TryTake(root, "SourceSharpMovement001", out Movement, out why)) return;
         if (!ShimRef<ShimWorldFwd>.TryTake(root, "SourceSharpWorld001", out World, out why)) return;
         if (!ShimRef<ShimEntitiesFwd>.TryTake(root, "SourceSharpEntities001", out Entities, out why)) return;
         if (!ShimRef<ShimCollisionFwd>.TryTake(root, "SourceSharpCollision001", out Collision, out why)) return;
-        if (!ShimRef<ShimWeaponsFwd>.TryTake(root, "SourceSharpWeapons001", out Weapons, out why)) return;
         if (!ShimRef<ShimEffectsFwd>.TryTake(root, "SourceSharpEffects001", out Effects, out why)) return;
         if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out Console, out why)) return;
         if (!ShimRef<ShimHudClientFwd>.TryTake(root, "SourceSharpHudClient001", out HudClient, out why)) return;
@@ -791,5 +698,5 @@ internal sealed unsafe class ClientShimAreas
         return areas is not null;
     }
 
-    internal static int Count => 31;
+    internal static int Count => 29;
 }

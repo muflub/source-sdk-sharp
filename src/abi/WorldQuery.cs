@@ -471,26 +471,6 @@ public enum TakeDamageMode
     Aim = 3,
 }
 
-/// <summary>
-/// Source's ENTITY_DISSOLVE_*. How the thing comes apart.
-///
-/// Only the shapes the engine actually implements are named, rather than
-/// mirroring a range and implying the rest do something.
-/// </summary>
-public enum DissolveType
-{
-    /// <summary>The combine-ball look: eaten away from the edges.</summary>
-    Normal = 0,
-
-    /// <summary>Thrown outward as it goes, for something that was hit hard.</summary>
-    ElectricalLight = 1,
-
-    ElectricalHeavy = 2,
-
-    /// <summary>Straight fade with no scatter.</summary>
-    Core = 3,
-}
-
 /// <summary>How a piece of debris is moved once it is thrown.</summary>
 public enum GibSimulation
 {

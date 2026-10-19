@@ -804,8 +804,8 @@ TEST( PhysicsLinkLiftFixture, AllFilesWereReallyOpened )
 	// file and for no tree at all, so a sibling in the same directory must read
 	// first.
 	EXPECT_NE( std::string::npos,
-	           ReadGameFile( "server/entity_funcs.h" ).find( "#ifndef ENTITY_FUNCS_H" ) )
-		<< "game/server/entity_funcs.h did not read, so the absence below is not "
+	           ReadGameFile( "shared/shareddefs.h" ).find( "#ifndef SHAREDDEFS_H" ) )
+		<< "game/shared/shareddefs.h did not read, so the absence below is not "
 		<< "evidence.";
 	EXPECT_TRUE( ServerBaseEntityHeader().empty() )
 		<< "game/server/baseentity.h is readable from the farm again. Nothing has "

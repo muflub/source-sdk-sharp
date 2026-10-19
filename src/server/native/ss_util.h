@@ -13,7 +13,7 @@
 //
 //   Functions DEFINED IN OUR CODE are declared here at global scope, with the
 //   fork's signatures, so callers link to the one definition they always had:
-//   UTIL_ClearTrace, UTIL_VarArgs and UTIL_ImpactTrace (server_util_library.cpp; no
+//   UTIL_ClearTrace and UTIL_ImpactTrace (server_util_library.cpp; no
 //   default argument here, so pass all three), UTIL_IsCommandIssuedByServerAdmin
 //   (shell_commandclient.cpp), UTIL_ShouldShowBlood, UTIL_RemoveImmediate,
 //   CreateEntityByName (its default the one baseentity.h gave it), the view
@@ -46,7 +46,7 @@
 #include "tier1/strtools.h"
 #include "ss_tracefilter.h"
 
-class IGameEntity;
+#include "igameentity_fwd.h"
 class IServerNetworkable;
 
 extern IVEngineServer *engine;
@@ -58,11 +58,6 @@ extern IEngineTrace   *enginetrace;
 void UTIL_ClearTrace( trace_t &trace );
 bool UTIL_IsCommandIssuedByServerAdmin( void );
 bool UTIL_ShouldShowBlood( int bloodColor );				// util_shared_library.cpp
-void UTIL_RemoveImmediate( IGameEntity *oldObj );			// shell_entityapi.cpp
-void UTIL_Remove( IServerNetworkable *oldObj );				// shell_entityapi.cpp
-void UTIL_Remove( IGameEntity *oldObj );					// shell_entityapi.cpp
-IGameEntity *CreateEntityByName( const char *className, int iForceEdictIndex = -1 );	// shell_mapparse.cpp
-const char *UTIL_VarArgs( const char *format, ... );		// server_util_library.cpp
 void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName );	// server_util_library.cpp
 
 void UTIL_ViewPunch( const Vector &center, QAngle angPunch, float radius, bool bInAir );	// shell_scripted.cpp

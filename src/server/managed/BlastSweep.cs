@@ -106,6 +106,7 @@ public sealed class BlastSweep : IBlastSweep
     private readonly IEngineEntityPhysics _physics;
     private readonly DamageInflictors? _inflictors;
     private readonly IEngineConsole _console;
+    private readonly IServerSoundEnt _sounds;
 
     /// <summary>
     /// <b>A registered service and not a static.</b> The sweep needs five
@@ -119,9 +120,11 @@ public sealed class BlastSweep : IBlastSweep
     /// </summary>
     public BlastSweep(ILog log, IEngineWorldQuery world, IEngineDamage damage,
                       IEngineEntities entities, IEngineEntityPhysics physics,
-                      IEngineConsole console, DamageInflictors? inflictors = null)
+                      IEngineConsole console, IServerSoundEnt sounds,
+                      DamageInflictors? inflictors = null)
     {
         _inflictors = inflictors;
+        _sounds = sounds;
         _log = log;
         _world = world;
         _damage = damage;
@@ -346,6 +349,27 @@ public sealed class BlastSweep : IBlastSweep
                                   forceOrigin: wantsForce ? source : default);
             }
         }
+
+        AnnounceBlast(origin, radius, damageType, inflictor);
+    }
+
+    /// <summary>
+    /// <b>A blast tells the sound ledger it happened.</b> Stock's global
+    /// <c>RadiusDamage</c> (basecombatcharacter.cpp) ran the rules' sweep and
+    /// then, for blast damage, inserted a combat sound flagged as an explosion:
+    /// a radius of 1.5 times the blast's and never under 128 units, for a
+    /// quarter of a second, owned by the inflictor, at the unlifted origin.
+    /// The native copy had no caller since the sweep moved here, and went in
+    /// plan_server_native_v2 T2; this is that arm, ported.
+    /// </summary>
+    private void AnnounceBlast(Vector origin, float radius, DamageType damageType, EntityHandle inflictor)
+    {
+        if ((damageType & DamageType.Blast) == 0)
+            return;
+
+        // Stock hands the float radius to an int volume, which truncates.
+        _sounds.Insert((int)(SoundType.Combat | SoundType.ContextExplosion), origin,
+                       (int)MathF.Max(128f, radius * 1.5f), 0.25f, inflictor);
     }
 
     /// <summary>

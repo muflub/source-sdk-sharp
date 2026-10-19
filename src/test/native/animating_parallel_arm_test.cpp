@@ -261,7 +261,9 @@ TEST( AnimatingParallelArm, TheSweepFindsEntryPointsAtAll )
 
 	// The parser is the thing most likely to silently stop working, and it fails
 	// OPEN -- finding nothing -- rather than closed.
-	EXPECT_GT( entries.size(), 20u )
+	// 20 -> 15 at plan_server_native_v2 T2, which deleted the three retired
+	// mover slots and their helper (19 left).
+	EXPECT_GT( entries.size(), 15u )
 		<< "the entry-point parser found " << entries.size()
 		<< " definitions in " << kFile << "; it used to find dozens, so it has "
 		   "stopped matching rather than the file having shrunk";

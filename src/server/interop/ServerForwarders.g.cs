@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 9 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 18 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -47,6 +47,33 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // bool IVEngineServer::IsModelPrecached( char const * )
     public delegate* unmanaged<void*, byte*, byte> IsModelPrecached;
+
+    // edict_t * IVEngineServer::PEntityOfEntIndex( int )
+    public delegate* unmanaged<void*, int, void*> PEntityOfEntIndex;
+
+    // int IVEngineServer::GetPlayerUserId( const edict_t * )
+    public delegate* unmanaged<void*, void*, int> GetPlayerUserId;
+
+    // void IVEngineServer::ServerCommand( const char * )
+    public delegate* unmanaged<void*, byte*, void> ServerCommand;
+
+    // void IVEngineServer::ServerExecute( void )
+    public delegate* unmanaged<void*, void> ServerExecute;
+
+    // void IVEngineServer::SetView( const edict_t *, const edict_t * )
+    public delegate* unmanaged<void*, void*, void*, void> SetView;
+
+    // void IVEngineServer::LightStyle( int, const char * )
+    public delegate* unmanaged<void*, int, byte*, void> LightStyle;
+
+    // int IVEngineServer::GetClusterForOrigin( const Vector & )
+    public delegate* unmanaged<void*, void*, int> GetClusterForOrigin;
+
+    // int IVEngineServer::GetPVSForCluster( int, int, unsigned char * )
+    public delegate* unmanaged<void*, int, int, byte*, int> GetPVSForCluster;
+
+    // bool IVEngineServer::CheckBoxInPVS( const Vector &, const Vector &, const unsigned char *, int )
+    public delegate* unmanaged<void*, void*, void*, byte*, int, byte> CheckBoxInPVS;
 }
 
 /// <summary>
@@ -76,4 +103,23 @@ internal unsafe struct StaticPropMgrServerFwd : IForwarderTable
 
     // void IStaticPropMgr::CreateVPhysicsRepresentations( IPhysicsEnvironment *, IVPhysicsKeyHandler *, void * )
     public delegate* unmanaged<void*, void*, void*, void*, void> CreateVPhysicsRepresentations;
+}
+
+/// <summary>
+/// <c>IGameEventManager2</c> through its forwarders (SSFwd_GameEventManager): 3 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct GameEventManagerFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_GameEventManager";
+
+    // IGameEvent * IGameEventManager2::CreateEvent( const char *, bool )
+    public delegate* unmanaged<void*, byte*, byte, void*> CreateEvent;
+
+    // bool IGameEventManager2::FireEvent( IGameEvent *, bool )
+    public delegate* unmanaged<void*, void*, byte, byte> FireEvent;
+
+    // void IGameEventManager2::FreeEvent( IGameEvent * )
+    public delegate* unmanaged<void*, void*, void> FreeEvent;
 }

@@ -83,31 +83,3 @@ SS_NATIVE_COMMAND( dumpentityfactories )
 	}
 }
 
-//-----------------------------------------------------------------------------
-// `dump_entity_sizes`, kept rather than folded away.
-//
-// `dumpentityfactories <anything>` prints the same numbers, so this command is
-// strictly redundant -- and it is here anyway, because it is a spelling
-// somebody's config or habit may hold and REMOVING A CAPABILITY WHILE MOVING A
-// SUBSYSTEM is exactly the failure this wave's brief is written against. The
-// move is a move; the console surface is what it was.
-//
-// Stock's body was `((CEntityFactoryDictionary*)EntityFactoryDictionary())
-// ->ReportEntitySizes()` -- a downcast from the interface to the concrete class,
-// which is why the class had to be visible to it and why the command lived in
-// util.cpp at all. There is no cast here: it asks the dictionary's accessors
-// (shell_standalone_class.h), which is all a debug-only file can reach.
-//-----------------------------------------------------------------------------
-SS_NATIVE_COMMAND( dump_entity_sizes )
-{
-	if ( !UTIL_IsCommandIssuedByServerAdmin() )
-		return;
-
-	for ( int i = 0; i < SourceSharp_EntityFactoryCount(); i++ )
-	{
-		Msg( " %s: %llu", SourceSharp_EntityFactoryNameAt( i ),
-		     (uint64)SourceSharp_EntityFactorySizeAt( i ) );
-	}
-
-	Msg( "\n" );
-}

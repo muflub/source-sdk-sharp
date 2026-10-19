@@ -64,6 +64,7 @@
 // The lifted prediction-seed statics: the ONE storage the client and the server
 // must share per command. See entity_shared_statics.h.
 #include "entity_shared_statics.h"
+#include "shell_gamemovement.h"   // SourceSharp_MoveManagedReport, for cs_cl_move_managed_report
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -495,4 +496,17 @@ void SourceSharp_ClientPlayerPredictionDrive( uint32_t hEntity,
 		return;
 
 	pEntity->PredictionDrive( *pView );
+}
+
+//-----------------------------------------------------------------------------
+// THE CLIENT'S MOVEMENT REPORT. From shell_movement.cpp, where it was #ifdef
+// CLIENT_DLL (plan_server_native_v2 T2, 2026-10-18: a shared TU keeps only what
+// both DLLs import). SourceSharp_MoveManagedReport stays there, beside the
+// counters it prints, and the server's debug-only cs_sv_move_managed_report
+// prints the same lines from the same body.
+//-----------------------------------------------------------------------------
+CON_COMMAND( cs_cl_move_managed_report,
+	"cs_cl_move_managed_report -- how many times each ported movement method ran in C# on the CLIENT" )
+{
+	SourceSharp_MoveManagedReport();
 }

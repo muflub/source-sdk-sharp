@@ -103,32 +103,13 @@ public:
 	               SolidType_t nSolidType, int nSolidFlags,
 	               bool bTouchEveryTick, bool bPlayer )
 	{
-		// THE OLD STRINGS ARE NOT FREED, and that is the file's standing
-		// contract rather than an oversight -- see the class comment above.
-		// `CStandaloneEntity::m_pClass` is a POINTER to this very m_Desc
-		// (`PostConstruct`, shell_standalone_base.cpp:1441), so every entity of
-		// this class that is standing when C# comes back reads whatever is here
-		// afterwards. Overwriting the fields is safe because the pointer does
-		// not move; freeing what they used to point at would not be. A name and
-		// its output list per class per reload is a few kilobytes a developer
-		// spends by typing cs_sv_reload, against a whole leaked factory object
-		// per class per reload before this change.
-		if ( nOutputCount > SOURCESHARP_MAX_STANDALONE_OUTPUTS )
-		{
-			// Truncating silently would produce a map whose connections simply
-			// never fire, with nothing to explain why.
-			Warning( "[SourceSharp] entity class '%s' declares %d outputs; only %d are available\n",
-				pClassName, nOutputCount, SOURCESHARP_MAX_STANDALONE_OUTPUTS );
-			nOutputCount = SOURCESHARP_MAX_STANDALONE_OUTPUTS;
-		}
-
-		// Copied, because the caller's array is the managed marshaller's and
-		// does not outlive the call. The entity reads these on every keyvalue
-		// of every instance for the rest of the process.
-		char **ppNames = ( nOutputCount > 0 ) ? new char *[ nOutputCount ] : NULL;
-
-		for ( int i = 0; i < nOutputCount; i++ )
-			ppNames[i] = const_cast< char * >( Keep( ppOutputNames[i] ) );
+		// THE OUTPUT-NAME COPY WENT (plan_server_native_min P1): the per-class
+		// output list had no reader since step 2a -- outputs are managed
+		// (EntityIoQueue), and nothing reads m_Desc.ppOutputNames. The struct
+		// fields keep their places (the desc's layout is shared); they just
+		// stay empty now.
+		(void)ppOutputNames;
+		(void)nOutputCount;
 
 		// The NAME is claimed once and never re-pointed. It is what
 		// InstallFactory keyed the dictionary on and what GetClassName answers,
@@ -138,8 +119,8 @@ public:
 		if ( !m_Desc.pClassName )
 			m_Desc.pClassName = Keep( pClassName );
 
-		m_Desc.ppOutputNames = (const char **)ppNames;
-		m_Desc.nOutputCount  = nOutputCount;
+		m_Desc.ppOutputNames = NULL;
+		m_Desc.nOutputCount  = 0;
 		m_Desc.bServerOnly   = bServerOnly;
 		m_Desc.nSolidType      = nSolidType;
 		m_Desc.nSolidFlags     = nSolidFlags;

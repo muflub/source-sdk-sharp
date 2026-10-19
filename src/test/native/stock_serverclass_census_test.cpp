@@ -326,8 +326,8 @@ std::string Join( const std::set< std::string > &s )
 // as the thing that must stay unreadable, next to a sibling in the same
 // directory that is readable.
 const char *kRagdollH = "game/server/physics_prop_ragdoll.h";
-const char *kServerSiblingH = "game/server/activator.h";
-const char *kServerSiblingHAnchor = "#define ACTIVATOR_H";
+const char *kServerSiblingH = "game/shared/shareddefs.h";
+const char *kServerSiblingHAnchor = "#define SHAREDDEFS_H";
 
 // team.cpp and team.h are OUT OF THE BUILD. They stay on disk, so they are
 // still named here -- but only as the thing nothing may reach, never as a file
@@ -457,6 +457,8 @@ std::string ResolveInclude( const std::string &strIncluder, const std::string &s
 	if ( s_roots.empty() )
 	{
 		const std::string strPrefix = cmake_graph::FarmSrc() + "/";
+		const std::string strFarmSrc = cmake_graph::FarmSrc();
+		const std::string strStock = strFarmSrc.substr( 0, strFarmSrc.rfind( '/' ) ) + "/stock-public";
 		std::istringstream toks( cmake_graph::CompileCommand( cmake_graph::kServer, kServerLegacyIncludeAnchor ) );
 		std::string strTok;
 		while ( toks >> strTok )
@@ -466,16 +468,24 @@ std::string ResolveInclude( const std::string &strIncluder, const std::string &s
 			const std::string strDir = strTok.substr( 2 );
 			if ( strDir.compare( 0, strPrefix.size(), strPrefix ) == 0 )
 				s_roots.push_back( strDir.substr( strPrefix.size() ) );
+			// The pristine public/ (plan_server_native_v2 D3) is the farm's
+			// stock-public link, beside src/ rather than under it.
+			else if ( strDir.compare( 0, strStock.size(), strStock ) == 0 )
+				s_roots.push_back( "../stock-public" + strDir.substr( strStock.size() ) );
 		}
 		// A command whose -I list resolved to nothing under the farm is not
 		// the server's, and an empty root list would make every include
 		// unresolvable -- the closure checks below catch that too, but say so
 		// here where the cause is.
-		// Since P5 every server TU is on the R5 set, so the farm roots are
-		// public/ and its tier0/tier1 children, never game/.
-		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "public" ) )
+		// Since P5 every server TU is on the R5 set, and since D3 its public/
+		// is the pristine one: the roots are stock-public and its tier0/tier1
+		// children, never game/ and never the farm's patched public/.
+		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "../stock-public" ) )
 			!= s_roots.end() )
-			<< "server_sourcesharp's compile command has no -I<farm>/src/public";
+			<< "server_sourcesharp's compile command has no -I<farm>/stock-public";
+		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "public" ) )
+			== s_roots.end() )
+			<< "server_sourcesharp's compile command reads the farm's patched public/ again";
 	}
 
 	std::string inc = strInclude;

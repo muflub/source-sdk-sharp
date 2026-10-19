@@ -26,7 +26,7 @@
 
 #include <stddef.h>
 
-class IGameEntity;
+#include "igameentity_fwd.h"
 class CWorld;
 
 
@@ -37,23 +37,10 @@ class CWorld;
 bool MapEntity_SpawnWorld( const char *const *ppKeys, const char *const *ppValues, int nKeys );
 
 // A standalone entity from its parsed key/value pairs (block order, classname
-// included), keyed and QUEUED for MapEntity_SpawnPendingNonBaseEntities -- the
-// same work the text parse's non-base arm does, without the text. NULL when no
-// registered class answers pClassName.
+// included), created and keyed; the caller places and spawns it. The same work
+// the text parse's non-base arm did, without the text. NULL when no registered
+// class answers pClassName.
 IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys,
                                        const char *const *ppValues, int nKeys );
-
-// Spawns the entities the parse queued because they are not SDK entities.
-void MapEntity_SpawnPendingNonBaseEntities();
-
-// Takes pEntity off that queue; false when it was not on it.
-bool MapEntity_ClaimPendingNonBaseEntity( IGameEntity *pEntity );
-
-// The engine-side point_template capture (SourceSharp_TemplateCapture's
-// callee). It answers 0, nothing captured: the capture window is MapSpawner's
-// in C#. See the definition.
-int MapEntity_TemplateCapture( const char *pszSourceName, bool bRemoveSources,
-                               int *pOutIndices, float *pOutOriginsXYZ,
-                               float *pOutAnglesPYR, int nMax );
 
 #endif // SS_MAPENTITIES_H

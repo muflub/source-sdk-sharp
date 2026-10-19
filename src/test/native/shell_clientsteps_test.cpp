@@ -175,38 +175,23 @@ TEST( ClientsCrossing, TheAssertStayedWithTheCaller )
 // EACH STEP READS ONE HIERARCHY.
 //=============================================================================
 
-TEST( ClientsCrossing, TheTwoStepsAreInTheirOwnFileAndEachReadsOneHierarchy )
+TEST( ClientsCrossing, TheStandaloneStepIsTheOnlyStepAndReadsOneHierarchy )
 {
 	const std::string steps = Stripped( kSteps );
 
+	// ONE STEP since plan_server_native_v2 T2. The SDK step read no hierarchy
+	// (server.so builds no CBasePlayer) and answered 0, so it was deleted with
+	// its slot and EngineBinding answers "no SDK ears" itself.
 	EXPECT_EQ( 1, CountOccurrences(
 		steps, "int32_t SourceSharp_ClientsStandalonePlayerEarPosition(" ) );
-	EXPECT_EQ( 1, CountOccurrences(
-		steps, "int32_t SourceSharp_ClientsSdkPlayerEarPosition(" ) );
+	EXPECT_EQ( 0, CountOccurrences( steps, "SourceSharp_ClientsSdkPlayerEarPosition(" ) )
+		<< "the SDK ear step is back; there is no SDK player on the server";
 
-	// ONE HIERARCHY EACH, and this is the assertion that stops the pair
-	// collapsing back into one step that decides. A step naming both would be
-	// the #ifdef again with a new name.
-	const size_t standalone = steps.find( "SourceSharp_ClientsStandalonePlayerEarPosition(" );
-	const size_t sdk        = steps.find( "SourceSharp_ClientsSdkPlayerEarPosition(" );
-	ASSERT_NE( std::string::npos, standalone );
-	ASSERT_NE( std::string::npos, sdk );
-	ASSERT_LT( standalone, sdk ) << "the two step bodies are not in the order this test assumes";
-
-	const std::string standaloneBody = steps.substr( standalone, sdk - standalone );
-	const std::string sdkBody        = steps.substr( sdk );
-
-	EXPECT_EQ( 1, CountOccurrences( standaloneBody, "CStandalonePlayer::FromEdict" ) );
-	EXPECT_EQ( 0, CountOccurrences( standaloneBody, "UTIL_SDKPlayerFromEdict" ) );
-
-	// The SDK step reads NO hierarchy now (P5 lane E): server.so builds no
-	// CBasePlayer, its lookup answered NULL for every edict, and it went with
-	// UTIL_SDKPlayerFromEdict. It must not start reading the standalone one.
-	EXPECT_EQ( 0, CountOccurrences( sdkBody, "UTIL_SDKPlayerFromEdict" ) );
-	EXPECT_EQ( 0, CountOccurrences( sdkBody, "CStandalonePlayer" ) );
+	EXPECT_EQ( 1, CountOccurrences( steps, "CStandalonePlayer::FromEdict" ) );
+	EXPECT_EQ( 0, CountOccurrences( steps, "UTIL_SDKPlayerFromEdict" ) );
 }
 
-TEST( ClientsCrossing, TheAliasArmsReadIsGoneAndTheSdkStepStillAnswersNoWhereTheReadWas )
+TEST( ClientsCrossing, TheAliasArmsReadIsGoneAndSoIsTheSdkStep )
 {
 	// READ THE ASSERTIONS, NOT THE NAME. This fact was
 	// TheAliasArmWentWithTheReadAndNotWithTheMethod, and it pinned the ONE
@@ -232,22 +217,11 @@ TEST( ClientsCrossing, TheAliasArmsReadIsGoneAndTheSdkStepStillAnswersNoWhereThe
 		   "it names does not exist any more, so this arm cannot be armed";
 	EXPECT_EQ( 0, CountOccurrences( steps, "pPlayer->EarPosition()" ) );
 
-	// LIVE: the SDK step still asks the SDK hierarchy, in the step file, and
-	// answers no where the read used to be.
-	const size_t sdk = steps.find( "int32_t SourceSharp_ClientsSdkPlayerEarPosition(" );
-	ASSERT_NE( std::string::npos, sdk );
-	const std::string sdkBody = steps.substr( sdk );
-
-	// P5 lane E: every path of the old body returned 0 -- the lookup could not
-	// find a CBasePlayer in server.so -- so the step is now that 0 alone, and
-	// it writes nothing to pOutXYZ (the caller's Assert reads the 0).
-	EXPECT_EQ( 0, CountOccurrences( sdkBody, "UTIL_SDKPlayerFromEdict" ) );
-	EXPECT_EQ( 0, CountOccurrences( sdkBody, "pOutXYZ[" ) )
-		<< "the SDK step writes a position again";
-	EXPECT_EQ( 1, CountOccurrences( sdkBody, "return 0;" ) );
-	EXPECT_EQ( 0, CountOccurrences( sdkBody, "return 1;" ) )
-		<< "the SDK step answers yes again -- CBasePlayer::EarPosition is still "
-		   "defined in the struck baseplayer_shared.cpp";
+	// The SDK step itself is gone (plan_server_native_v2 T2): it answered 0
+	// with no read in it, so the guard has nothing left to stand beside.
+	EXPECT_EQ( 0, CountOccurrences( steps, "SourceSharp_ClientsSdkPlayerEarPosition(" ) );
+	EXPECT_EQ( 1, CountOccurrences( steps, "int32_t SourceSharp_ClientsStandalonePlayerEarPosition(" ) )
+		<< "the step file did not read as itself";
 
 	// AND THE METHOD STILL DOES NOT DO THE READ ITSELF. That was the other half
 	// of "with the read, not with the method": no guard region, and no SDK read
@@ -261,7 +235,7 @@ TEST( ClientsCrossing, TheAliasArmsReadIsGoneAndTheSdkStepStillAnswersNoWhereThe
 	EXPECT_EQ( 1, CountOccurrences( body, "SourceSharp_EarPositionForClient(" ) );
 }
 
-TEST( ClientsCrossing, NeitherStepZeroesItsOutParameterOnAMiss )
+TEST( ClientsCrossing, TheStepDoesNotZeroItsOutParameterOnAMiss )
 {
 	// The world origin is a real position. A step that wrote three zeroes on
 	// the way out would make "the listener is at the origin" and "no such
@@ -278,19 +252,15 @@ TEST( ClientsCrossing, NeitherStepZeroesItsOutParameterOnAMiss )
 	// property this fact is about, so its zero is asserted rather than dropped.
 	const std::string steps = Stripped( kSteps );
 
+	// The SDK step that wrote nothing is gone (plan_server_native_v2 T2), so
+	// the file's three writes are all the standalone step's.
 	const size_t standalone = steps.find( "int32_t SourceSharp_ClientsStandalonePlayerEarPosition(" );
-	const size_t sdk        = steps.find( "int32_t SourceSharp_ClientsSdkPlayerEarPosition(" );
 	ASSERT_NE( std::string::npos, standalone );
-	ASSERT_NE( std::string::npos, sdk );
-	ASSERT_LT( standalone, sdk );
 
 	EXPECT_EQ( 3, CountOccurrences( steps, "pOutXYZ[ " ) )
 		<< "the step that answers writes pOutXYZ a number of times other than "
 		   "3 -- a zeroing pass on the miss path is the shape this catches";
-	EXPECT_EQ( 3, CountOccurrences( steps.substr( standalone, sdk - standalone ), "pOutXYZ[ " ) );
-	EXPECT_EQ( 0, CountOccurrences( steps.substr( sdk ), "pOutXYZ[ " ) )
-		<< "the SDK step writes pOutXYZ -- it has no answer to write, so any "
-		   "write there is a stand-in position or a clearing pass";
+	EXPECT_EQ( 3, CountOccurrences( steps.substr( standalone ), "pOutXYZ[ " ) );
 }
 
 //=============================================================================
@@ -317,11 +287,9 @@ TEST( ClientsCrossing, TheTwoEngineSlotsLeftTheEngineTableForAServerArea )
 	EXPECT_EQ( std::string::npos, abi.find( "(*ClientsStandalonePlayerEarPosition)" ) );
 	EXPECT_EQ( std::string::npos, abi.find( "(*ClientsSdkPlayerEarPosition)" ) );
 
-	const size_t standalone = areas.find( " ClientsStandalonePlayerEarPosition(" );
-	const size_t sdk = areas.find( " ClientsSdkPlayerEarPosition(" );
-	ASSERT_NE( std::string::npos, standalone );
-	ASSERT_NE( std::string::npos, sdk );
-	EXPECT_LT( standalone, sdk );
+	// The SDK ask left the area too (plan_server_native_v2 T2).
+	EXPECT_NE( std::string::npos, areas.find( " ClientsStandalonePlayerEarPosition(" ) );
+	EXPECT_EQ( std::string::npos, areas.find( " ClientsSdkPlayerEarPosition(" ) );
 }
 
 TEST( ClientsCrossing, TheTwoAsksAreAreaMethodsNotStructSlots )
@@ -345,7 +313,7 @@ TEST( ClientsCrossing, TheTwoAsksAreAreaMethodsNotStructSlots )
 	EXPECT_LT( sky, ears ) << "the area keeps the order the slots were appended in";
 }
 
-TEST( ClientsCrossing, BothStepsAreWiredIntoTheEngineTable )
+TEST( ClientsCrossing, TheStepIsWiredIntoTheEngineTable )
 {
 	// A step nobody wires is a null slot, and a null engine slot is a call
 	// through a null pointer at the first sound the server emits.
@@ -355,9 +323,8 @@ TEST( ClientsCrossing, BothStepsAreWiredIntoTheEngineTable )
 	EXPECT_TRUE( impl.find(
 		"{ return ::SourceSharp_ClientsStandalonePlayerEarPosition( iEdict, pOutXYZ ); }" )
 		!= std::string::npos );
-	EXPECT_TRUE( impl.find(
-		"{ return ::SourceSharp_ClientsSdkPlayerEarPosition( iEdict, pOutXYZ ); }" )
-		!= std::string::npos );
+	EXPECT_TRUE( impl.find( "SourceSharp_ClientsSdkPlayerEarPosition" ) == std::string::npos )
+		<< "the SDK ear step is wired again; it was deleted with its slot";
 }
 
 TEST( ClientsCrossing, TheEarAskIsAnAreaTheLoadRequires )

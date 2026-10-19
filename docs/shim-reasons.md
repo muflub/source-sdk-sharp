@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 22 | 5 | 30 |  |  |  | 60 | 35,297 |
-| b | an interface resolved by name at load | 16 | 3 | 15 |  |  |  | 44 | 18,783 |
-| c | static-init registration | 18 | 6 | 3 |  |  |  | 28 | 4,779 |
-| d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 10,404 |
-| e | a synchronous mid-step answer | 6 | 3 | 2 |  |  |  | 10 | 5,119 |
-| f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 4,465 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 5 | 1 | 7 | 1 |  |  | 16 | 9,748 |
-| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 4,839 |
-| x | NO LETTER FITS | 9 | 2 | 1 |  | 2 |  | 20 | 4,864 |
-|  | **total** | **87** | **35** | **67** | **3** | **2** | **1** | **219** | **98,298** |
+| a | a vtable the engine or VPhysics calls through | 21 | 5 | 30 |  |  |  | 59 | 34,846 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 17,720 |
+| c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,077 |
+| d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 9,357 |
+| e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,552 |
+| f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,715 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,446 |
+| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
+| x | NO LETTER FITS | 7 | 2 | 1 |  | 2 |  | 18 | 4,540 |
+|  | **total** | **77** | **35** | **67** | **3** | **2** | **1** | **209** | **93,365** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -321,6 +321,7 @@ Then detailobjectsystem.cpp left client.so (C7 cluster 10, 2026-10-18, measured 
 
 #### (f) a bit-level wire codec — 16 files, 6,123 lines
 
+`sourcesharp/game/client/generic_payload_client.cpp`  
 `sourcesharp/game/client/shell_recvtable.cpp`  
 `sourcesharp/game/client/shell_world_nettable_client.cpp`  
 `sourcesharp/game/server/sendproxy.cpp`  
@@ -386,8 +387,6 @@ close produces. **This is the number the port exists to drive to zero.**
 | `sourcesharp/common/steamid.cpp` | 741 | nothing of its own — `plan_shim_rulings.tsv` ruled it **DELETE** and the deletion was never executed | its own deletion, with a 0-consumer proof |
 | `sourcesharp/game/server/alloc_check.cpp` | 637 | nothing the engine asks for: it is the `__wrap_` half of the debug build's allocation link hook (plan_server_novalve.md §3.6), proving no block is freed across the engine/mod boundary. It compiles to nothing outside `SS_ALLOC_CHECK` | the release build carries no checker, so none; it leaves only if the no-cross-free rule gets another instrument |
 | `sourcesharp/game/server/shell_absent.cpp` | 342 | eleven definitions that an object on the server link line still imports. The file states its own exit condition as zero and does not reach it | the last importer of each of the eleven |
-| `sourcesharp/game/server/shell_gamedll_convars.cpp` | 100 | one pointer, `g_pDeveloper = cvar->FindVar( "developer" )`. The seventeen ConVars that were here are already managed | `shell_soundscape.cpp:110`'s `g_pDeveloper->GetBool()`, the one remaining native read |
-| `sourcesharp/game/server/shell_restoreentities.cpp` | 176 | two names native code still spells: `Game_SetOneWayTransition` (`world_adapter.cpp:468`) and `EndRestoreEntities` (`shell_gameclients.cpp:286`). `AddRestoredEntity` and `BeginRestoreEntities` have no compiled caller at all | those two call sites |
 | `sourcesharp/game/shared/tier0_spew_port.cpp` | 356 | tier0's spew and assert entry points (Msg, Warning, DevMsg, Error, the five functions every Assert expands to, the spew slot), defined in server.so so it links no libtier0 (plan_server_novalve.md P4). Native code calls them through `public/tier0/dbg.h` | P5's header move: no server object calling a `dbg.h` function |
 | `sourcesharp/game/shared/tier0_thread_port.cpp` | 202 | the tier0 thread and platform calls fork-header inlines make: `ThreadGetCurrentId` and `CThreadFastMutex::Lock( id, sleep )` (studio.h's `CStudioHdr` holds two fast mutexes) and `Plat_IsInDebugSession` (`DebuggerBreak`, in `_DEBUG` asserts and tslist.h), defined in server.so so it links no libtier0 for them. Our own code uses std for these (collisionproperty's partition lock, ss_clock.h) | P5's header move: when no server object includes threadtools.h or platform.h's `DebuggerBreak` |
 | `sourcesharp/game/client/vstdlib_random_port.cpp` | 144 | vstdlib's `RandomSeed`/`RandomInt`/`RandomFloat`/`RandomFloatExp` over one server-owned stream of the same generator (the P0 random probe: callers need the algorithm, not vstdlib's shared instance), so server.so links no libvstdlib. Callers: `randoverride.cpp`'s `rand()`, `bone_setup`'s attachment pick, `SharedRandom*` | its callers moving managed: `SharedRandom*` with usercmd prediction, the attachment pick with bone setup, `rand()` with randoverride.cpp's deletion |

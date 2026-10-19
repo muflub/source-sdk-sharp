@@ -76,3 +76,5 @@
 3	LIVE-API	void StudioStats_FindClosestEntity( CClientRenderablesList * )
 11	BOUNDARY	int32_t SourceSharp_ClientFilesGameFileSize( const char *pszPath )
 19	BOUNDARY	int32_t SourceSharp_ClientFilesReadGameFile( const char *pszPath, char *pOut, int32_t nOutSize )
+4	UNRULED	CAmmoDef *GetAmmoDef()
+19	UNRULED	void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,

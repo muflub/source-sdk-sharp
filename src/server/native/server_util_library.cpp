@@ -82,6 +82,7 @@
 
 #include "managed_convar_ref.h"
 #include "ss_string.h"
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 extern CGlobalVars *gpGlobals;   // shell_engineboundary.cpp
 
@@ -158,214 +159,29 @@ void UTIL_SnapDirectionToAxis( Vector &direction, float epsilon )
 	}
 }
 
-//------------------------------------------------------------------------------
-// UTIL_VarArgs
-//------------------------------------------------------------------------------
-const char *UTIL_VarArgs( const char *format, ... )
-{
-	va_list		argptr;
-	static char		string[1024];
-	
-	va_start (argptr, format);
-	ss::FormatV(string, sizeof(string), format,argptr);
-	va_end (argptr);
-
-	return string;	
-}
+// UTIL_VarArgs went (plan_server_native_min P1): a static buffer shared by
+// every caller; its one live caller formats into a local instead.
 
 //------------------------------------------------------------------------------
 // the check-client subsystem
 //------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-// Purpose: Helper for UTIL_FindClientInPVS
-// Input  : check - last checked client
-// Output : static int UTIL_GetNewCheckClient
-//-----------------------------------------------------------------------------
-// FIXME:  include bspfile.h here?
-class CCheckClient : public CServerSystem
-{
-public:
-	CCheckClient( char const *name ) : CServerSystem( name )
-	{
-	}
+// The CCheckClient system went (plan_server_native_min P1): its two PVS
+// bitsets had no reader (UTIL_FindClientInPVS is gone), and GetNewCheckClient
+// `continue`d every candidate, so the walk it drove produced nothing.
 
-	void LevelInitPreEntity()
-	{
-		m_checkCluster = -1;
-		m_lastcheck = 1;
-		m_lastchecktime = -1;
-		m_bClientPVSIsExpanded = false;
-	}
-
-	byte	m_checkPVS[MAX_MAP_LEAFS/8];
-	byte	m_checkVisibilityPVS[MAX_MAP_LEAFS/8];
-	int		m_checkCluster;
-	int		m_lastcheck;
-	float	m_lastchecktime;
-	bool	m_bClientPVSIsExpanded;
-};
-
-CCheckClient g_CheckClient( "CCheckClient" );
-
-//-----------------------------------------------------------------------------
-// plan_gamedll.md Part 3a / Phase 7 -- one accessor, so the shell's named list
-// `kServerSystems[]` (sourcesharp/game/server/shell_serversystems.cpp) can name
-// this system instead of relying on the CAutoGameSystem constructor's append,
-// which is link order.
-//
-// The object above has INTERNAL LINKAGE, so this function is the only way to
-// reach it from another translation unit. Nothing else changes: it still
-// registers itself, it is simply no longer the registration that decides when
-// it runs.
-//-----------------------------------------------------------------------------
-CServerSystem *CheckClientGameSystem()
-{
-	return &g_CheckClient;
-}
-
-
-
-static int UTIL_GetNewCheckClient( int check )
-{
-	int		i;
-	edict_t	*ent;
-
-// cycle to the next one
-
-	if (check < 1)
-		check = 1;
-	if (check > gpGlobals->maxClients)
-		check = gpGlobals->maxClients;
-
-	if (check == gpGlobals->maxClients)
-		i = 1;
-	else
-		i = check + 1;
-
-	for ( ;  ; i++)
-	{
-		if ( i > gpGlobals->maxClients )
-		{
-			i = 1;
-		}
-
-		ent = engine->PEntityOfEntIndex( i );
-		if ( !ent )
-			continue;
-
-		// Looped but didn't find anything else
-		if ( i == check )
-			break;	
-
-		if ( !ent->GetUnknown() )
-			continue;
-
-		// EVERY CANDIDATE IS SKIPPED, and was before this line changed.
-		// GetContainingEntity ANSWERED A CONSTANT NULL in this build: it is
-	// SourceSharp_SDKEntityFromUnknown< IServerEntity >, which bottoms out in
-	// IServerUnknown::GetBaseEntity(), and every implementation of that in
-	// server.so returns NULL (the close read all three out of the binary). The
-	// function is gone; the NULL it answered is written down instead.
-		// GetFlags never crosses (THE TWELVE) either, so the "is this a client"
-		// test that used to follow had nothing left to ask.
-		continue;
-	}
-
-	if ( i != check )
-	{
-		memset( g_CheckClient.m_checkVisibilityPVS, 0, sizeof(g_CheckClient.m_checkVisibilityPVS) );
-		g_CheckClient.m_bClientPVSIsExpanded = false;
-	}
-
-	if ( ent )
-	{
-		// igameentity.h answers EyePosition by name: "the SDK sites that remain
-		// resolve a player EDICT through GetContainingEntity, which answers NULL here
-		// -- so they are already inert for this hierarchy rather than waiting on
-		// anything". This is one of those sites, verbatim. Armed the block is dead by
-		// its own `!pce` return, and falling out of it reaches the same `return i`.
-	}
-	
-	return i;
-}
 
 
 //-----------------------------------------------------------------------------
 // Gets the current check client....
 //-----------------------------------------------------------------------------
-static edict_t *UTIL_GetCurrentCheckClient()
-{
-	edict_t	*ent;
 
-	// find a new check if on a new frame
-	float delta = gpGlobals->curtime - g_CheckClient.m_lastchecktime;
-	if ( delta >= 0.1 || delta < 0 )
-	{
-		g_CheckClient.m_lastcheck = UTIL_GetNewCheckClient( g_CheckClient.m_lastcheck );
-		g_CheckClient.m_lastchecktime = gpGlobals->curtime;
-	}
 
-	// return check if it might be visible	
-	ent = engine->PEntityOfEntIndex( g_CheckClient.m_lastcheck );
-
-	// Allow dead clients -- JAY
-	// Our monsters know the difference, and this function gates alot of behavior
-	// It's annoying to die and see monsters stop thinking because you're no longer
-	// "in" their PVS
-	if ( !ent || ent->IsFree() || !ent->GetUnknown())
-	{
-		return NULL;
-	}
-
-	return ent;
-}
-
-void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize )
-{
-	if ( pClient == UTIL_GetCurrentCheckClient() )
-	{
-		Assert( pvssize <= sizeof(g_CheckClient.m_checkVisibilityPVS) );
-
-		g_CheckClient.m_bClientPVSIsExpanded = false;
-
-		unsigned *pFrom = (unsigned *)pvs;
-		unsigned *pMask = (unsigned *)g_CheckClient.m_checkPVS;
-		unsigned *pTo = (unsigned *)g_CheckClient.m_checkVisibilityPVS;
-
-		int limit = pvssize / 4;
-		int i;
-
-		for ( i = 0; i < limit; i++ )
-		{
-			pTo[i] = pFrom[i] & ~pMask[i];
-
-			if ( pFrom[i] )
-			{
-				g_CheckClient.m_bClientPVSIsExpanded = true;
-			}
-		}
-
-		int remainder = pvssize % 4;
-		for ( i = 0; i < remainder; i++ )
-		{
-			((unsigned char *)&pTo[limit])[i] = ((unsigned char *)&pFrom[limit])[i] & !((unsigned char *)&pMask[limit])[i];
-
-			if ( ((unsigned char *)&pFrom[limit])[i] != 0)
-			{
-				g_CheckClient.m_bClientPVSIsExpanded = true;
-			}
-		}
-	}
-}
-
-// UTIL_ClientPVSIsExpanded and the box overload of UTIL_FindClientInPVS were
-// here; deleted. Every caller of both was a file this build has never
-// compiled -- ai_basenpc.cpp, npc_antliongrub.cpp and triggers.cpp -- and the
-// box overload was one more ask on the pointer that is becoming IGameEntity.
-// UTIL_SetClientVisibilityPVS still writes m_bClientPVSIsExpanded and
-// m_checkVisibilityPVS below; the fields keep the visibility bookkeeping
-// coherent for the edict-flavoured UTIL_FindClientInPVS, which keeps its one
-// live caller (ragdoll_shared.cpp's fade check).
+// UTIL_ClientPVSIsExpanded, the box overload of UTIL_FindClientInPVS and the
+// whole CCheckClient state they read went with plan_server_native_min P1: no
+// reader of the bitsets was left, and GetNewCheckClient skipped every
+// candidate. The edict-flavoured UTIL_FindClientInPVS below keeps its one
+// live caller (ragdoll_shared.cpp's fade check) and reads none of it.
 
 //-----------------------------------------------------------------------------
 // Purpose: Returns a client (or object that has a client enemy) that would be a valid target.
@@ -445,8 +261,6 @@ void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color,
 
 	ss::CPVSFilter filter( origin );
 
-	if ( SourceSharpTe_SuppressFilter( filter ) )
-		return;
 
 	TE_BloodStream( filter, 0.0, &origin, &direction, 247, 63, 14, 255, MIN( amount, 255 ) );
 }				
@@ -480,7 +294,7 @@ void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpa
 	// The world answers for itself. CWorld::ImpactTrace is
 	// CBaseEntity::ImpactTrace's body with the entity index answered by
 	// definition rather than looked up.
-	if ( SourceSharp_IsTheWorld( pTrace->m_pEnt ) )
+	if ( SourceSharp_IsTheWorld( ss::TraceHit( *pTrace ) ) )
 	{
 		if ( ( pTrace->surface.flags & SURF_SKY ) || pTrace->fraction == 1.0 )
 			return;
@@ -493,38 +307,9 @@ void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpa
 
 }
 
-//-----------------------------------------------------------------------------
-// Like UTIL_WaterLevel, but *way* less expensive.
-// I didn't replace UTIL_WaterLevel everywhere to avoid breaking anything.
-//-----------------------------------------------------------------------------
-class CWaterTraceFilter : public CTraceFilter
-{
-public:
-	bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask )
-	{
-		// SOURCESHARP: this asked EntityFromEntityHandle for a CBaseEntity and
-		// answered "not water" for anything that was not one -- which is a
-		// static prop, correctly, and ALSO every entity on the parallel
-		// hierarchy, which is not correct and is most of this build.
-		//
-		// The question is a COLLIDEABLE's, not an entity's:
-		// CBaseEntity::GetSolidFlags() is `m_Collision.GetSolidFlags()` and
-		// m_Collision IS the ICollideable. enginetrace->GetCollideable resolves
-		// the same field for whatever is in the spatial partition, both
-		// hierarchies and static props alike, so the static-prop answer is
-		// unchanged -- a prop carries no FSOLID_VOLUME_CONTENTS -- and a
-		// managed water volume stops being invisible here.
-		ICollideable *pCollide = enginetrace->GetCollideable( pHandleEntity );
+// CWaterTraceFilter went (plan_server_native_min P1): nm shows no vtable or
+// typeinfo for it emitted or imported by any server object; nothing constructed
+// one.
 
-		if ( !pCollide )
-			return false;
-
-		// Only impact water stuff...
-		if ( pCollide->GetSolidFlags() & FSOLID_VOLUME_CONTENTS )
-			return true;
-
-		return false;
-	}
-};
 
 

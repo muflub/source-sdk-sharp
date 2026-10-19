@@ -93,8 +93,9 @@ void UTIL_SetCommandClientIndex( int index );                                // 
 
 // SourceSharp_PlayerStateForEdict and SourceSharp_ClientViewOrigin -- step 3c.
 // GetPlayerState's storage and the once-per-client-per-frame view origin that
-// ClientSetupVisibility and ClientEarPosition share.
-#include "shell_playerinfo.h"
+// ClientSetupVisibility and ClientEarPosition share. They moved here from
+// shell_playerinfo.cpp (plan_server_native_min P1, Decision 1): the plugin
+// interface around them went, the two functions did not.
 
 // THE LAST OF THOSE FORWARD DECLARATIONS IS GONE -- plan_shim.md 4a item 11,
 // lane 5a-physresidue. It was
@@ -157,11 +158,89 @@ void UTIL_SetCommandClientIndex( int index );                                // 
 #include "ss_string.h"
 
 
-// EndRestoreEntities is still gameinterface.cpp's, with the rest of the restore
-// trio and stock's CServerGameDLL. ClientActive below is its ONE caller in the
-// whole tree, which is why `nm` reported it as having none: caller and callee
-// were in one translation unit and the reference never left the object.
-void EndRestoreEntities();
+// EndRestoreEntities went with shell_restoreentities.cpp
+// (plan_server_native_min P1): BeginRestoreEntities has had no definition in
+// src/ since the gc cull, so the body returned on its first line forever and
+// the call here observed nothing.
+
+//-----------------------------------------------------------------------------
+// GetPlayerState's answer, and it is NEVER NULL. Moved here from
+// shell_playerinfo.cpp with the plugin ABI's deletion (plan_server_native_min
+// P1, Decision 1); the reasoning is unchanged: two engine sites write through
+// the result with no null test, and one is reached on an edict that has no
+// entity at all, so "read it out of the entity's block" cannot be the whole
+// answer.
+//
+// The orphan states are indexed by EDICT, not by player number, so two orphan
+// clients -- an HLTV master and a Replay master, which is the case that
+// exists -- do not write into each other's bytes. One shared struct would have
+// been enough for the two bools those two sites write and would have been
+// wrong the first time anything read frags back.
+//-----------------------------------------------------------------------------
+static CPlayerState s_OrphanPlayerStates[ ABSOLUTE_PLAYER_LIMIT + 1 ];
+
+CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict )
+{
+	CStandalonePlayer *pPlayer = CStandalonePlayer::FromEdict( pEdict );
+
+	if ( pPlayer != NULL )
+	{
+		// 0e's PROBE ARM, and it is the step's own gate: the answer came out of
+		// that player's engine block. Counted here rather than at the call site
+		// so that the edict is resolved ONCE -- the engine asks this every tick
+		// per client, and a second FromEdict to work out what to count would be
+		// a lookup spent on the counting.
+		SS_BOUNDARY_HIT( kBoundaryProbe_GetPlayerState_Standalone );
+		return pPlayer->PlayerStatePtr();
+	}
+
+	// The counter that used to say NULL. Same question -- an edict this game
+	// has no player for -- different answer.
+	SS_BOUNDARY_HIT( kBoundaryProbe_GetPlayerState_Null );
+
+	int nIndex = ( pEdict != NULL ) ? engine->IndexOfEdict( pEdict ) : 0;
+	if ( nIndex < 0 || nIndex > ABSOLUTE_PLAYER_LIMIT )
+		nIndex = 0;
+	return &s_OrphanPlayerStates[ nIndex ];
+}
+
+//-----------------------------------------------------------------------------
+// Where this client's eyes are, asked of managed code at most once per frame.
+//
+// THE STAMP IS THE WHOLE MECHANISM. gpGlobals->framecount is what both readers
+// share; a block whose stamp is this frame already holds a managed answer and
+// there is nothing to ask.
+//-----------------------------------------------------------------------------
+bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut )
+{
+	if ( pOut == NULL )
+		return false;
+
+	CStandalonePlayer *pPlayer = CStandalonePlayer::FromEdict( pClient );
+
+	if ( pPlayer == NULL )
+		return false;
+
+	EngineBlockServerTail_t &tail = pPlayer->Block().Server;
+
+	if ( tail.ViewOriginFrame != gpGlobals->framecount )
+	{
+		float flEyes[ 3 ] = { 0.0f, 0.0f, 0.0f };
+
+		// A MISS LEAVES THE CACHE ALONE AND ANSWERS NO. The managed side writes
+		// the three floats only on a hit (SourceSharp_EarPositionForClient), so
+		// a zeroed flEyes is not an answer -- and the world origin is a real
+		// position, which is exactly why that contract exists.
+		if ( !SourceSharp_EarPositionForClient( engine->IndexOfEdict( pClient ), flEyes ) )
+			return false;
+
+		tail.ViewOrigin.Init( flEyes[ 0 ], flEyes[ 1 ], flEyes[ 2 ] );
+		tail.ViewOriginFrame = gpGlobals->framecount;
+	}
+
+	*pOut = tail.ViewOrigin;
+	return true;
+}
 
 // The two fields that used to be file-scope statics beside these bodies. See
 // the file header for why they are fields; gameinterface.h declares them.
@@ -302,8 +381,8 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 
 	::ClientActive( pEdict, bLoadGame );
 
-	// If we just loaded from a save file, call OnRestore on valid entities
-	EndRestoreEntities();
+	// EndRestoreEntities stood here and went with shell_restoreentities.cpp
+	// (plan_server_native_min P1): it returned on its first line forever.
 
 	if ( gpGlobals->eLoadType != MapLoad_LoadGame )
 	{
@@ -392,9 +471,6 @@ void CServerGameClients::ClientDisconnect( edict_t *pEdict )
 	// queue until its 256-batch staleness sweep found it.
 	if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromEdict( pEdict ) )
 	{
-		if ( g_pGameRules )
-			g_pGameRules->ClientDisconnected( pEdict );
-
 		// SINCE THIS CLIENT ISN'T AROUND TO THINK ANY MORE, RESET THEIR SOUND
 		// -- stock's comment, and THIS IS THE FIRST BUILD IN WHICH IT ACTUALLY
 		// RUNS. The call used to sit in the SDK arm below, inside
@@ -522,49 +598,6 @@ void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 }
 
 
-#ifdef PORTAL
-//-----------------------------------------------------------------------------
-// Purpose: Runs CFuncAreaPortalBase::UpdateVisibility on each portal
-// Input  : pAreaPortal - The Area portal to test for visibility from portals
-// Output : int - 1 if any portal needs this area portal open, 0 otherwise.
-//-----------------------------------------------------------------------------
-int TestAreaPortalVisibilityThroughPortals ( CFuncAreaPortalBase* pAreaPortal, edict_t *pViewEntity, unsigned char *pvs, int pvssize  )
-{
-	int iPortalCount = CProp_Portal_Shared::AllPortals.Count();
-	if( iPortalCount == 0 )
-		return 0;
-
-	CProp_Portal **pPortals = CProp_Portal_Shared::AllPortals.Base();
-
-	for ( int i = 0; i != iPortalCount; ++i )
-	{
-		CProp_Portal* pLocalPortal = pPortals[ i ];
-		if ( pLocalPortal && pLocalPortal->m_bActivated )
-		{
-			CProp_Portal* pRemotePortal = pLocalPortal->m_hLinkedPortal.Get();
-
-			// Make sure this portal's linked portal is in the PVS before we add what it can see
-			if ( pRemotePortal && pRemotePortal->m_bActivated && pRemotePortal->NetworkProp() && 
-				pRemotePortal->NetworkProp()->IsInPVS( pViewEntity, pvs, pvssize ) )
-			{
-				bool bIsOpenOnClient = true;
-				float fovDistanceAdjustFactor = 1.0f;
-				Vector portalOrg = pLocalPortal->GetAbsOrigin();
-				int iPortalNeedsThisPortalOpen = pAreaPortal->UpdateVisibility( portalOrg, fovDistanceAdjustFactor, bIsOpenOnClient );
-
-				// Stop checking on success, this portal needs to be open
-				if ( iPortalNeedsThisPortalOpen )
-				{
-					return iPortalNeedsThisPortalOpen;
-				}
-			}
-		}
-	}
-	
-	return 0;
-}
-#endif
-
 //-----------------------------------------------------------------------------
 // Purpose: A client can have a separate "view entity" indicating that his/her view should depend on the origin of that
 //  view entity.  If that's the case, then pViewEntity will be non-NULL and will be used.  Otherwise, the current
@@ -683,7 +716,8 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 		if ( !pViewEntity )
 			engine->AddOriginToPVS( org );
 
-		UTIL_SetClientVisibilityPVS( pClient, pvs, pvssize );
+		// UTIL_SetClientVisibilityPVS went with the CCheckClient system
+		// (plan_server_native_min P1): the bitsets it wrote had no reader.
 	}
 
 	unsigned char portalBits[MAX_AREA_PORTAL_STATE_BYTES];
@@ -701,14 +735,6 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 		// Update our array of which portals are open and flush it if necessary.		
 		portalNums[iOutPortal] = pCur->m_portalNumber;
 		isOpen[iOutPortal] = pCur->UpdateVisibility( org, fovDistanceAdjustFactor, bIsOpenOnClient );
-
-#ifdef PORTAL
-		// If the client doesn't need this open, test if portals might need this area portal open
-		if ( isOpen[iOutPortal] == 0 )
-		{
-			isOpen[iOutPortal] = TestAreaPortalVisibilityThroughPortals( pCur, pViewEntity, pvs, pvssize );
-		}
-#endif
 
 		++iOutPortal;
 		if ( iOutPortal >= ARRAYSIZE( portalNums ) )

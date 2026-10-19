@@ -345,7 +345,7 @@ TEST( PermanentDecalBan, TheDecalNamesWhatItHitWidely )
 		<< "the decal does not name its subject by the wide handle spelling at "
 		   "all, so an entity outside the SDK cannot be its subject";
 
-	EXPECT_FALSE( Naming( body, "trace.m_pEnt" ).empty() )
+	EXPECT_FALSE( Naming( body, "ss::TraceHit( trace )" ).empty() )
 		<< "the decal no longer reads the trace's own m_pEnt, so what it does "
 		   "read needs re-reading against this ban";
 }

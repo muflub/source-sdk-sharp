@@ -1459,10 +1459,30 @@ TEST( EntityGates, TheBinariesStillCarryATypeinfoTableToWalk )
 			"' | awk 'NF==4 && $4 ~ /^_ZTI/ {print $4}' | c++filt "
 			"| grep -cE '^typeinfo for C_?BaseEntity$' || true" );
 		ASSERT_EQ( 0, roots.m_nExit ) << kSo[ i ] << ":\n" << roots.m_szOutput;
-		EXPECT_EQ( 0, strtol( roots.m_szOutput.c_str(), NULL, 10 ) )
+
+		// THE SERVER'S ONE EXCEPTION IS THE ENTITY FACE (plan_server_native_v2
+		// D1): on stock public headers igameentity.h's six-member interface is
+		// named CBaseEntity there, so a debug server.so (RTTI on) carries its
+		// typeinfo. It is admitted on the gate's own evidence and on nothing
+		// looser: the header declares the face, and every CBaseEntity:: symbol
+		// the binary defines is that interface's implicit constructor or its
+		// destructor. A stock member back and the root counts again.
+		long nAllowed = 0;
+		if ( i == 0 )
+		{
+			const Run_t face = RunAtRoot( "grep -cx 'abstract_class CBaseEntity' src/public/igameentity.h || true" );
+			const Run_t members = RunAtRoot( std::string( "nm -C --defined-only '" ) + kSo[ i ] +
+				"' | awk '$2 ~ /^[TWVDBRt]$/' | grep 'CBaseEntity::' "
+				"| grep -cv 'CBaseEntity::CBaseEntity()\\|CBaseEntity::~CBaseEntity()' || true" );
+			if ( strtol( face.m_szOutput.c_str(), NULL, 10 ) == 1 &&
+			     strtol( members.m_szOutput.c_str(), NULL, 10 ) == 0 )
+				nAllowed = 1;
+		}
+		EXPECT_LE( strtol( roots.m_szOutput.c_str(), NULL, 10 ), nAllowed )
 			<< kSo[ i ] << " still carries a typeinfo for CBaseEntity or "
-			   "C_BaseEntity, so the empty closure above is the WALK failing "
-			   "rather than the hierarchy being gone.";
+			   "C_BaseEntity that is not the server's entity face, so the empty "
+			   "closure above is the WALK failing rather than the hierarchy "
+			   "being gone.";
 	}
 }
 

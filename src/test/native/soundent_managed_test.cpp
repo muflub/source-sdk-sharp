@@ -648,9 +648,12 @@ TEST( SoundControllerManaged, TheShimAnswersTheServersOwnInterface )
 	// ss::SoundController() now (ss_soundcontroller.h). nm found no server object
 	// importing GetController after that, so the Valve class and its sixteen
 	// methods nobody called left the shim.
-	EXPECT_EQ( 1, CountOf( shim, "ss::ISoundController &ss::SoundController()" ) )
-		<< "nothing defines ss::SoundController, so physics.cpp's friction sounds "
-		   "do not link";
+	// AND THEN THAT CALLER LEFT TOO: the friction sounds are managed since the
+	// physics flip, so nm found no importer of ss::SoundController() and
+	// plan_server_native_v2 T2 deleted it. The controller's own entry points
+	// (SourceSharp_* below) are what remains.
+	EXPECT_EQ( 0, CountOf( shim, "ss::ISoundController &ss::SoundController()" ) )
+		<< "ss::SoundController() is back; say which native caller needs it";
 	EXPECT_EQ( 0, CountOf( shim, "CSoundEnvelopeController::GetController" ) )
 		<< "the shim answers the Valve controller again; nothing in server.so "
 		   "asks for it";

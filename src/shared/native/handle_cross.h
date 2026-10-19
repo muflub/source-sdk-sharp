@@ -85,11 +85,11 @@
 // "IS THIS OBJECT OUTSIDE THE SDK'S TREE?" -- one question, and only one side
 // of the build can ask it.
 //
-// The server asks IServerEntity::GetGameEntity(). That is the arm of the
-// partition Phase 13 step 5 does not change: a standalone entity answers with
-// itself before and after, an SDK entity answers NULL before and after. Asking
-// it the other way round -- GetBaseEntity() == NULL -- is what step 5 breaks,
-// and what killed the process three times in the dry run.
+// The server asks IServerUnknown::GetBaseEntity(), its one accessor since
+// plan_server_native_v2 T1.3: a standalone answers its entity face, the world
+// answers NULL, and no SDK entity is left to answer anything. (Before T1.3 the
+// server also had the SDK's tree, whose GetBaseEntity() answered itself, so it
+// asked the patch's GetGameEntity() instead; the client still does, below.)
 //
 // THE CLIENT ASKS THE SAME QUESTION, ONE VIRTUAL LATER (Phase 13's revised step
 // 1, landed). IClientEntity::GetGameEntity() now exists and answers exactly as
@@ -125,12 +125,12 @@ struct SourceSharp_Partition
 {
 	template< class TObject >
 	static auto GameEntityOf( TObject *pObject )
-		-> decltype( static_cast< TPartition * >( pObject )->GetGameEntity() )
+		-> decltype( static_cast< TPartition * >( pObject )->GetBaseEntity() )
 	{
 		// Structural: the interfaces this is used with are one
 		// single-inheritance chain, so the cast adjusts nothing. The address
 		// change, if any, happens inside the object on the virtual call.
-		return static_cast< TPartition * >( pObject )->GetGameEntity();
+		return static_cast< TPartition * >( pObject )->GetBaseEntity();
 	}
 
 	template< class TObject >
@@ -261,9 +261,9 @@ inline TWeapon *SourceSharp_CrossHandleToWeapon( THandleEntity *pHandleEntity )
 // object, and every call through it dispatches out of whatever happens to sit
 // at that offset.
 //
-// GetGameEntity() is the compiler-adjusted conversion, performed by the object
-// itself, and it is also the partition: the SDK's tree answers NULL and the
-// parallel hierarchy answers with itself. Both facts come from one virtual
+// GetBaseEntity() is the compiler-adjusted conversion, performed by the object
+// itself, and it is also the partition: the world answers NULL and a
+// standalone answers with itself. Both facts come from one virtual
 // call, which is why there is nothing to cast.
 //
 // TServerEntity is IServerEntity. THE SERVER'S FORM ONLY -- the client's is
@@ -282,7 +282,7 @@ inline TGameEntity *SourceSharp_CrossHandleToGameEntity( THandleEntity *pHandleE
 	// NEXT line, inside the object, where the compiler knows the layout.
 	TServerEntity *pServerEntity = static_cast< TServerEntity * >( pHandleEntity );
 
-	return pServerEntity->GetGameEntity();
+	return pServerEntity->GetBaseEntity();
 }
 
 //-----------------------------------------------------------------------------

@@ -40,14 +40,9 @@
 #include "ss_entityhandle.h"       // ss::GameEntityFromEntityHandle
 #include "ss_gamestringpool.h"     // AllocPooledString
 extern CGlobalVars *gpGlobals;
-// The player-slot helpers util.h declared; shell_playerslots.cpp and
-// shell_commandclient.cpp define them.
-const char *UTIL_PlayerNameBySlot( int nSlot );
-int UTIL_PlayerUserIdBySlot( int nSlot );
-int UTIL_PlayerSlotByName( const char *pName );
-int UTIL_PlayerSlotByPartialName( const char *pName );
-int UTIL_PlayerSlotByCommandArg( const char *pArg );
-void UTIL_GetPlayerConnectionInfo( int playerIndex, int &ping, int &packetloss );
+// The player-slot helpers util.h declared went with shell_playerslots.cpp
+// (plan_server_native_min P1): every row DELETE, the sole referrer the debug
+// whois. Managed answers slot lookups (PlayerNames / PlayerPing.Sample).
 int UTIL_GetCommandClientIndex( void );
 #include "ss_recipient_filter.h"
 #include "igamerules.h"
@@ -65,7 +60,6 @@ using ss::IGameMovement;
 // for the landing this move helper is about to apply.
 #include "shell_gamemovement.h"
 #include "vphysics_interface.h"
-#include "player_name_match.h"
 #include "vphysics/player_controller.h"
 #include "physics_gamedata.h"
 #include "anyentity.h"
@@ -96,6 +90,7 @@ extern CMoveData *g_pMoveData;
 #include "ss_entityfactory.h"   // ss::EntityFactoryDictionary, for the ss_player factory
 #include "imanaged_areas.h"   // plan_engineapi_vtables E10, E15, E17: IManagedClients, IManagedCommands, IManagedPlayerCommands
 #include "tickbase_rule.h"
+#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 // The player's physics-shadow states, with stock's values (player.h's
 // VPHYS_WALK / VPHYS_CROUCH / VPHYS_NOCLIP). Spelled here because player.h
@@ -260,7 +255,7 @@ public:
 		// (PlayerShadowBodies.TouchedMoveablePhysics, 2026-10-12); native
 		// records what was touched, and whether it was the ground then.
 		if ( m_pHost && tr.m_pEnt )
-			m_pHost->RecordMoveTouch( tr.m_pEnt->GetRefEHandle() );
+			m_pHost->RecordMoveTouch( ss::TraceHit( tr )->GetRefEHandle() );
 		return true;
 	}
 
@@ -1570,3 +1565,54 @@ CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayer
 // diagnostic: it lives in shell_standalone_player_debug.cpp, which only a debug
 // build compiles.
 //-----------------------------------------------------------------------------
+
+//=============================================================================
+// THE LOCAL DATA'S CONSTRUCTOR AND ITS PER-FRAME UPDATE, from
+// shell_playerlocaldata.cpp (plan_server_native_v2 T2). That file also held
+// DT_Local, the send table stock's CBasePlayer sends its CPlayerLocalData
+// through; no ServerClass here references it (nm: no object imported the
+// table), so the engine never sent it, and it went with its datadescs, which
+// nothing imported either. The struct stays: the movement code and the
+// transmit step read it as this player's state. Both bodies are stock's.
+//=============================================================================
+
+ss::CPlayerLocalData::CPlayerLocalData()
+{
+#ifdef _DEBUG
+	m_vecOverViewpoint.Init();
+	m_vecPunchAngle.Init();
+#endif
+	m_audio.soundscapeIndex = 0;
+	m_audio.localBits = 0;
+	m_audio.entIndex = 0;
+	m_pOldSkyCamera = NULL;
+	m_bDrawViewmodel = true;
+
+	m_szScriptOverlayMaterial.GetForModify()[0] = '\0';
+}
+
+// The sky camera's parameters, from the managed sky camera when the map has
+// one, else area 255 ("no 3D skybox"). shell_transmitsteps.cpp reads the area
+// for the client's PVS.
+static void StandaloneClientData_Update( CStandalonePlayer *pPlayer )
+{
+	MvLocalData_t &local = pPlayer->MvLocal();
+
+	ss::sky3dparams_t managed;
+	if ( SourceSharp_FillSkyboxParams( managed ) )
+	{
+		local.m_skybox3d.CopyFrom( managed );
+		return;
+	}
+
+	local.m_skybox3d.area = 255;
+}
+
+void UpdateAllClientData( void )
+{
+	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
+	{
+		if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( i ) )
+			StandaloneClientData_Update( pStandalone );
+	}
+}

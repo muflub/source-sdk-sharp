@@ -244,16 +244,15 @@ TEST( WorldRelease, TheWorldIsOnTheNonSdkArm )
 		   "name does not exist in this build; public/ss_cbaseentity_alias.h is "
 		   "deleted.";
 
-	// THE THIRD-HIERARCHY HALF, asserted beside the SDK one for the reason the
-	// note above gives about asserting only one arm: handle_cross.h's partition
-	// reads `GetGameEntity() != NULL` as "outside the SDK", so a world that
-	// answered non-NULL there would leave the SDK arm and join the parallel
-	// hierarchy rather than stay a third thing.
-	EXPECT_TRUE( Has( hdr, "virtual IGameEntity *GetGameEntity() OVERRIDE { return NULL; }" ) )
-		<< "CWorldNetworkable::GetGameEntity no longer answers NULL, so the "
-		   "world is now resolvable as a parallel-hierarchy entity -- and "
-		   "GameEntityFromEntityHandle would hand it to every trace filter and "
-		   "every volume query as an ordinary entity.";
+	// THE THIRD-HIERARCHY HALF IS THE SAME NULL since plan_server_native_v2
+	// T1.3. handle_cross.h's partition reads GetBaseEntity() now -- non-NULL
+	// means "a standalone" -- so CWorld's NULL above keeps the world out of
+	// that arm as well as out of the SDK's. The patch's second accessor, which
+	// the world used to answer NULL to separately, must not come back: a
+	// second accessor is a second answer that can disagree.
+	EXPECT_EQ( 0, CountAll( hdr, "GetGameEntity" ) )
+		<< "the world declares GetGameEntity() again; the partition asks "
+		   "GetBaseEntity(), and two accessors can disagree.";
 }
 
 //-----------------------------------------------------------------------------

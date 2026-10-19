@@ -2076,19 +2076,6 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes) { return FromUtf8((ServerShimsOrNull is { } __att23 ? __att23.EventGetString(handle, p) : ClientShims.EventGetString(handle, p))); }
     }
 
-    /// <summary>
-    /// A new game event by name (the server's CreateEvent), or zero for a name
-    /// the game's event files do not declare, or on the client, which fires none.
-    /// Fire it (<see cref="EventFire"/>, which frees it) or free it.
-    /// </summary>
-    public IntPtr EventCreate(string name)
-    {
-        if (!s_Initialized || !ServerAttached) return IntPtr.Zero;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { return ServerShims.EventCreate(p); }
-    }
-
     /// <summary>Sets an int field of an event made by <see cref="EventCreate"/>.</summary>
     public void EventSetInt(IntPtr handle, string key, int value)
     {
@@ -2125,20 +2112,6 @@ internal sealed unsafe partial class EngineSide
         var v = Encoding.UTF8.GetBytes((value ?? string.Empty) + "\0");
         fixed (byte* pk = k)
         fixed (byte* pv = v) { ServerShims.EventSetString(handle, pk, pv); }
-    }
-
-    /// <summary>Fires an event (the engine's FireEvent, which frees it); whether the engine took it.</summary>
-    public bool EventFire(IntPtr handle)
-    {
-        if (!s_Initialized || !ServerAttached || handle == IntPtr.Zero) return false;
-        return ServerShims.EventFire(handle) != 0;
-    }
-
-    /// <summary>Frees an event that was created and will not be fired.</summary>
-    public void EventFree(IntPtr handle)
-    {
-        if (!s_Initialized || !ServerAttached || handle == IntPtr.Zero) return;
-        ServerShims.EventFree(handle);
     }
 
     /// <summary>
@@ -2364,20 +2337,6 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// The classname of the weapon a player is holding, server side. Empty when
-    /// they are empty-handed, which is a real state here — the loadout can be
-    /// empty, and a player between weapons has none for a tick.
-    /// </summary>
-    public string GetPlayerActiveWeapon(EntityHandle player)
-    {
-        if (!s_Initialized || !ServerAttached) return string.Empty;
-
-        byte* buffer = stackalloc byte[64];
-        ServerShims.GetPlayerActiveWeapon(player.Value, buffer, 64);
-        return FromUtf8(buffer);
-    }
-
-    /// <summary>
     /// Where a player's shots start — their eye, which is what the stock weapon
     /// code fires from. Separate from the aim trace because a weapon firing more
     /// than one pellet has to aim each one itself.
@@ -2500,85 +2459,6 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// Throws the weapon in a player's hands into the world, where somebody else
-    /// can pick it up. False when they were empty-handed, which is a real state
-    /// rather than a failure.
-    /// </summary>
-    public bool PlayerDropActiveWeapon(EntityHandle player, Vector velocity)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-
-        float* v = stackalloc float[3] { velocity.X, velocity.Y, velocity.Z };
-        return ServerShims.PlayerDropActiveWeapon(player.Value, v) != 0;
-    }
-
-    /// <summary>
-    /// Destroys everything a player carries, and the suit too if asked.
-    ///
-    /// Not the same as dropping: <see cref="PlayerDropActiveWeapon"/> hands one
-    /// weapon to the world where somebody else can take it, while this leaves
-    /// nothing behind.
-    /// </summary>
-    public void PlayerRemoveAllItems(EntityHandle player, bool stripSuit)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.PlayerRemoveAllItems(player.Value, stripSuit ? 1 : 0);
-    }
-
-    /// <summary>
-    /// How fast one player's world runs: 1 is normal, 0.5 is half speed.
-    ///
-    /// Deliberately here rather than in <c>Movement</c>, which is where a speed
-    /// rule otherwise belongs. Movement is predicted, so a per-player factor the
-    /// client cannot see makes the two sides disagree about where the player is
-    /// on every unacknowledged command — and the symptom is rubber-banding. The
-    /// engine networks this value, so both halves scale by the same number.
-    /// </summary>
-    public void PlayerSetLaggedMovement(EntityHandle player, float value)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetLaggedMovement(player.Value, value);
-    }
-
-    /// <summary>
-    /// Strikes buttons out of a player's commands before anything reads them, or
-    /// stops doing so.
-    ///
-    /// Only the named bits are touched, so a caller clears exactly what it
-    /// claimed and leaves whatever else is held down alone.
-    /// </summary>
-    public void PlayerSetButtonsDisabled(EntityHandle player, InputButtons buttons,
-                                                bool disabled)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetButtonsDisabled(player.Value, (int)buttons, disabled ? 1 : 0);
-    }
-
-    /// <summary>
-    /// Holds buttons down for a player whether or not they are pressing them.
-    /// The mirror of <see cref="PlayerSetButtonsDisabled"/>: only the named bits
-    /// move either way, so a caller gives back exactly what it took.
-    /// </summary>
-    public void PlayerForceButtons(EntityHandle player, InputButtons buttons, bool forced)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.PlayerForceButtons(player.Value, (int)buttons, forced ? 1 : 0);
-    }
-
-    /// <summary>
-    /// Whether the engine may move a player who did not steer — the step up onto
-    /// a stair, the slide along a wall, the ladder mount.
-    ///
-    /// An engine call rather than a Movement rule because it is predicted on
-    /// both sides and networked, exactly as the lagged movement value is.
-    /// </summary>
-    public void PlayerSetAllowAutoMovement(EntityHandle player, bool allow)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetAllowAutoMovement(player.Value, allow ? 1 : 0);
-    }
-
-    /// <summary>
     /// Whether a player wades rather than walks, together with the flag that
     /// stops their own movement fighting whatever is pushing them.
     ///
@@ -2643,125 +2523,11 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// Keeps a player within <paramref name="radius"/> of a point, by slowing
-    /// them near the edge rather than by a wall.
-    ///
-    /// <paramref name="width"/> is the band over which the slowing comes on and
-    /// <paramref name="speedFactor"/> is what the speed is multiplied by at the
-    /// edge. A radius of 0 releases the player, which is how the engine itself
-    /// spells "not constrained".
+    /// Releases a player from any movement constraint. Nothing to release: the
+    /// constraint sphere is not ported (plan_server_native_v2 T2 deleted the
+    /// empty native setter; docs/todo.md).
     /// </summary>
-    public void PlayerSetMovementConstraint(EntityHandle player, Vector centre,
-                                                   float radius, float width, float speedFactor)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* c = stackalloc float[3] { centre.X, centre.Y, centre.Z };
-        ServerShims.PlayerSetMovementConstraint(player.Value, c, radius, width, speedFactor);
-    }
-
-    /// <summary>Releases a player from any movement constraint.</summary>
-    public void PlayerClearMovementConstraint(EntityHandle player)
-        => PlayerSetMovementConstraint(player, default, 0f, 0f, 0f);
-
-    /// <summary>
-    /// Renders a player's view from <paramref name="view"/> instead of their own
-    /// eyes. An invalid handle gives the view back.
-    ///
-    /// The entity may be on either hierarchy. What it must be is TRANSMITTED —
-    /// the client takes the origin and angles off its own copy, so a view
-    /// entity it was never sent leaves the player looking out of their own head
-    /// with nothing to say why. See <see cref="EntitySetTransmitAlways"/>.
-    /// </summary>
-    public void PlayerSetViewEntity(EntityHandle player, EntityHandle view)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetViewEntity(player.Value, EntityIsValid(view) ? view.Value : 0u);
-    }
-
-    /// <summary>
-    /// Whether a player may act at all. Stock's EnableControl, inverted to read
-    /// as what it does rather than what it permits.
-    ///
-    /// Frozen is not safe: a frozen player is still shot at, and still dies.
-    /// Anything that freezes somebody for a cutscene wants
-    /// <see cref="EntitySetTakeDamageMode"/> as well.
-    /// </summary>
-    public void PlayerSetFrozen(EntityHandle player, bool frozen)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetFrozen(player.Value, frozen ? 1 : 0);
-    }
-
-    /// <summary>
-    /// The buttons a player is holding right now.
-    ///
-    /// The read behind <see cref="PlayerSetButtonsDisabled"/>. Wanted by
-    /// anything waiting for the player to press ANY key, which no subscription
-    /// to a particular one can express.
-    /// </summary>
-    public InputButtons PlayerGetButtons(EntityHandle player)
-    {
-        if (!s_Initialized || !ServerAttached) return 0;
-        return (InputButtons)ServerShims.PlayerGetButtons(player.Value);
-    }
-
-    /// <summary>
-    /// The weapon a player is holding, as a handle. Invalid when empty-handed.
-    ///
-    /// <see cref="GetPlayerActiveWeapon"/> answers the same question with a
-    /// classname, which is what a rule about weapons wants. This is for acting
-    /// ON the weapon entity — hiding the viewmodel, most of all.
-    /// </summary>
-    public EntityHandle PlayerGetActiveWeaponEntity(EntityHandle player)
-    {
-        if (!s_Initialized || !ServerAttached)
-            return EntityHandle.None;
-
-        return new EntityHandle(ServerShims.PlayerGetActiveWeaponEntity(player.Value));
-    }
-
-    /// <summary>
-    /// One inventory slot, as an untyped handle. Invalid for an empty slot, a
-    /// slot out of 0..47, or no such player.
-    ///
-    /// The managed half of m_hMyWeapons: the slots become addressable without
-    /// a CBaseCombatWeapon anywhere in the question, which is what lets the
-    /// inventory's readers survive the weapons leaving that class.
-    /// </summary>
-    public EntityHandle PlayerGetWeaponEntity(EntityHandle player, int slot)
-    {
-        if (!s_Initialized || !ServerAttached)
-            return EntityHandle.None;
-
-        return new EntityHandle(ServerShims.PlayerGetWeaponEntity(player.Value, slot));
-    }
-
-    /// <summary>
-    /// The player's view model, as an entity handle. Invalid when the player
-    /// has none — before spawn, or as an observer.
-    /// </summary>
-    public EntityHandle PlayerGetViewModelEntity(EntityHandle player)
-    {
-        if (!s_Initialized || !ServerAttached)
-            return EntityHandle.None;
-
-        return new EntityHandle(ServerShims.PlayerGetViewModelEntity(player.Value));
-    }
-
-    /// <summary>
-    /// Whether an entity may be hurt, answering what it was before.
-    ///
-    /// The previous value comes back rather than being remembered here, because
-    /// invulnerability nests badly: only whoever took it away knows when it is
-    /// done, and two things taking it away in turn must give back what each
-    /// found rather than a shared idea of "normal".
-    /// </summary>
-    public TakeDamageMode EntitySetTakeDamageMode(EntityHandle entity, TakeDamageMode mode)
-    {
-        if (!s_Initialized || !ServerAttached) return TakeDamageMode.Yes;
-        return (TakeDamageMode)ServerShims.EntitySetTakeDamageMode(entity.Value, (int)mode);
-    }
+    public void PlayerClearMovementConstraint(EntityHandle player) { }
 
     /// <summary>
     /// Whether anything can bump into this entity.
@@ -2821,26 +2587,6 @@ internal sealed unsafe partial class EngineSide
         {
             return ServerShims.EntitySetKeyValue(entity.Value, pKey, pValue) != 0;
         }
-    }
-
-    /// <summary>
-    /// Puts the weapon in a player's hands away, remembering which it was, and
-    /// hides the viewmodel with it. False when they were holding nothing.
-    /// </summary>
-    public bool PlayerHolsterActiveWeapon(EntityHandle player)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-        return ServerShims.PlayerHolsterActiveWeapon(player.Value) != 0;
-    }
-
-    /// <summary>
-    /// Takes the remembered weapon back out. False when nothing was remembered,
-    /// which is what a player who never had one looks like.
-    /// </summary>
-    public bool PlayerDeployLastWeapon(EntityHandle player)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-        return ServerShims.PlayerDeployLastWeapon(player.Value) != 0;
     }
 
     /// <summary>
@@ -3028,16 +2774,6 @@ internal sealed unsafe partial class EngineSide
         => (s_Initialized && ServerAttached) ? ServerShims.GetPlayerTeam(player.Value) : -1;
 
     /// <summary>
-    /// The engine's userid for a player, or 0 for anything that is not one.
-    ///
-    /// The other half of the player's identity. Entity calls take a handle;
-    /// game events name players by userid, and until this existed a rule
-    /// reading a death event could not reach either player it described.
-    /// </summary>
-    public int GetPlayerUserId(EntityHandle player)
-        => (s_Initialized && ServerAttached) ? ServerShims.GetPlayerUserId(player.Value) : 0;
-
-    /// <summary>
     /// The player a userid names, or None if nobody on the server has it.
     ///
     /// Built from the property rather than asked for as its own engine call —
@@ -3057,7 +2793,7 @@ internal sealed unsafe partial class EngineSide
         {
             var player = GetPlayerHandle(slot);
 
-            if (player != EntityHandle.None && GetPlayerUserId(player) == userId)
+            if (player != EntityHandle.None && EngineBound.Server(this).PlayerUserId(player.EntryIndex) == userId)
                 return player;
         }
 
@@ -3276,58 +3012,19 @@ internal sealed unsafe partial class EngineSide
         return true;
     }
 
+    /// <summary>
+    /// One row of the client's native ammo table (its CAmmoDef). Client only
+    /// since plan_server_native_v2 T2: server.so keeps no ammo table.
+    /// </summary>
     public void RegisterAmmoType(string name, DamageType damageType, int maxCarry,
                                         int tracerType = 0, float damageForce = 0f,
                                         float damage = 0f)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
+        if (!s_Initialized || !ClientAttached) return;
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* p = bytes)
-        {
-            if (ServerShimsOrNull is { } __att27) __att27.RegisterAmmoType(p, (int)damageType, maxCarry, tracerType, damageForce, damage);
-            else ClientShims.RegisterAmmoType(p, (int)damageType, maxCarry, tracerType, damageForce, damage);
-        }
-    }
-
-    /// <summary>
-    /// Registers what a weapon does when fired.
-    ///
-    /// Held natively because the stock attack path asks for these DURING a shot,
-    /// and one generic shell serves every weapon name — so none of it can be
-    /// inherited from a per-weapon C++ class the way stock does.
-    /// </summary>
-    public void RegisterWeaponType(string className, float fireRate,
-                                          float spreadDegrees, int pellets)
-    {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
-
-        var bytes = Encoding.UTF8.GetBytes(className + "\0");
-        fixed (byte* p = bytes) { if (ServerShimsOrNull is { } a) a.RegisterWeaponType(p, fireRate, spreadDegrees, pellets); else ClientShims.RegisterWeaponType(p, fireRate, spreadDegrees, pellets); }
-    }
-
-    /// <summary>
-    /// Claims an entity classname for the generic weapon shell.
-    ///
-    /// This is what makes a weapon EXIST as far as the engine is concerned: the
-    /// name a map places, that <c>GiveNamedItem</c> creates by and that
-    /// <c>ent_create</c> types. Without it the name resolves to no factory and
-    /// the entity is dropped as unknown.
-    ///
-    /// <para>
-    /// Server-only on the native side, and the reason is not entity handles for
-    /// once — the entity factory dictionary belongs to the server, and a client
-    /// builds a weapon from its network class rather than from a name. So the
-    /// slot is null on the client and this call does nothing there, which is
-    /// what lets one <c>WeaponCatalog.Register</c> run unchanged on both sides.
-    /// </para>
-    /// </summary>
-    public void RegisterWeaponEntity(string className)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        var bytes = Encoding.UTF8.GetBytes(className + "\0");
-        fixed (byte* p = bytes) { ServerShims.RegisterWeaponEntity(p); }
+            ClientShims.RegisterAmmoType(p, (int)damageType, maxCarry, tracerType, damageForce, damage);
     }
 
     //-------------------------------------------------------------------------
@@ -3337,138 +3034,6 @@ internal sealed unsafe partial class EngineSide
     // What is here is what IS the engine: assembling a bullet and tracing it,
     // playing a view-model animation, reading how long one lasts.
     //-------------------------------------------------------------------------
-
-    /// <summary>
-    /// Everything the state machine reads. False when the handle is not a weapon
-    /// or has no owner — a weapon lying on the ground has no machine to run.
-    /// </summary>
-    public bool WeaponGetState(EntityHandle weapon, out WeaponState state)
-    {
-        state = default;
-
-        if (!s_Initialized || !ServerAttached) return false;
-
-        fixed (WeaponState* p = &state)
-            return ServerShims.WeaponGetState(weapon.Value, p) != 0;
-    }
-
-    public void WeaponSetNextPrimaryAttack(EntityHandle weapon, float time)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponSetNextPrimaryAttack(weapon.Value, time);
-    }
-
-    public void WeaponSetNextSecondaryAttack(EntityHandle weapon, float time)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponSetNextSecondaryAttack(weapon.Value, time);
-    }
-
-    public void WeaponSetClip(EntityHandle weapon, int clip)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponSetClip(weapon.Value, clip);
-    }
-
-    public void WeaponSetInReload(EntityHandle weapon, bool inReload)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponSetInReload(weapon.Value, inReload ? 1 : 0);
-    }
-
-    /// <summary>
-    /// Takes from the owner's reserve for this weapon's ammo. Answers how many
-    /// were actually taken, which is what makes a partial reload possible.
-    /// </summary>
-    public int WeaponTakeAmmo(EntityHandle weapon, int count)
-        => (s_Initialized && ServerAttached) ? ServerShims.WeaponTakeAmmo(weapon.Value, count) : 0;
-
-    /// <summary>Spends from the alt-fire pool, which is a different ammunition type.</summary>
-    public int WeaponTakeSecondaryAmmo(EntityHandle weapon, int count)
-        => (s_Initialized && ServerAttached)
-             ? ServerShims.WeaponTakeSecondaryAmmo(weapon.Value, count) : 0;
-
-    public void WeaponPlaySound(EntityHandle weapon, WeaponSound sound)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponPlaySound(weapon.Value, (int)sound);
-    }
-
-    public void WeaponSendAnim(EntityHandle weapon, WeaponAnim anim)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponSendAnim(weapon.Value, (int)anim);
-    }
-
-    /// <summary>
-    /// How long an animation lasts, which is how long a reload takes. Read from
-    /// the model rather than declared, so it cannot drift from the view model
-    /// the weapon script names.
-    /// </summary>
-    public float WeaponAnimDuration(EntityHandle weapon, WeaponAnim anim)
-        => (s_Initialized && ServerAttached)
-            ? ServerShims.WeaponAnimDuration(weapon.Value, (int)anim) : 0f;
-
-    /// <summary>
-    /// Fires bullets: the trace, the damage the ammo carries, decals, blood,
-    /// hitgroup scaling and physics force. The largest thing that stays native,
-    /// and the right thing to keep — there is no decision in any of it.
-    /// </summary>
-    public void WeaponFireBullets(EntityHandle weapon, int shots, float spreadDegrees)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponFireBullets(weapon.Value, shots, spreadDegrees);
-    }
-
-    /// <summary>The muzzle flash and the owner's firing animation, which are one event.</summary>
-    public void WeaponMuzzleFlash(EntityHandle weapon)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponMuzzleFlash(weapon.Value);
-    }
-
-    public void WeaponAddViewKick(EntityHandle weapon)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponAddViewKick(weapon.Value);
-    }
-
-    /// <summary>
-    /// Lets the view model settle back to idle.
-    ///
-    /// Not cosmetic: a weapon whose idle is never sent stops animating after its
-    /// deploy, and a view model with no live sequence stops being drawn — which
-    /// reads as the gun vanishing from the player's hands.
-    /// </summary>
-    public void WeaponIdle(EntityHandle weapon)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.WeaponIdle(weapon.Value);
-    }
-
-    /// <summary>
-    /// Gives a player ammo. Returns how much was actually added, which is less
-    /// than asked for near the carry limit.
-    /// </summary>
-    public int GivePlayerAmmo(EntityHandle player, int count, string ammoName)
-    {
-        if (!s_Initialized || !ServerAttached) return 0;
-
-        var bytes = Encoding.UTF8.GetBytes(ammoName + "\0");
-        fixed (byte* p = bytes) { return ServerShims.GivePlayerAmmo(player.Value, count, p); }
-    }
-
-    /// <summary>
-    /// Gives a player an item by entity class name. Returns false if no such
-    /// class exists — a typo would otherwise look like a rules bug.
-    /// </summary>
-    public bool GivePlayerItem(EntityHandle player, string className)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-
-        var bytes = Encoding.UTF8.GetBytes(className + "\0");
-        fixed (byte* p = bytes) { return ServerShims.GivePlayerItem(player.Value, p) != 0; }
-    }
 
     //-------------------------------------------------------------------------
     // C#-declared entities.
@@ -3931,12 +3496,6 @@ internal sealed unsafe partial class EngineSide
             ServerShims.EntitySetGravity(h.Value, gravity);
     }
 
-    public void EntitySetFriction(EntityHandle h, float friction)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetFriction(h.Value, friction);
-    }
-
     //-------------------------------------------------------------------------
     // WHAT MANAGED PARENTING ASKS OF THE WORLD (step 2h, made live).
     //
@@ -4140,35 +3699,9 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes) { return ServerShims.EntityLookupAttachmentAny(entity.Value, p); }
     }
 
-    /// <summary>
-    /// THE SDK'S FIND-BY-NAME, which <see cref="FindEntityByName"/> is not: that
-    /// one walks the shim's own vector and answers only the parallel hierarchy.
-    /// Resolving a map's <c>parentname</c> has to reach both.
-    /// </summary>
-    public EntityHandle FindBaseEntityByName(string name)
-    {
-        if (!s_Initialized || !ServerAttached || name.Length == 0)
-            return EntityHandle.None;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { return new EntityHandle(ServerShims.FindBaseEntityByName(p)); }
-    }
-
     //-------------------------------------------------------------------------
     // Host.
     //-------------------------------------------------------------------------
-
-    /// <summary>
-    /// Runs a console command as if typed at the server console. Runs it now,
-    /// not next frame — so it must be called on the game thread.
-    /// </summary>
-    public void ExecuteServerCommand(string command)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        var bytes = Encoding.UTF8.GetBytes(command + "\0");
-        fixed (byte* p = bytes) { ServerShims.ExecuteServerCommand(p); }
-    }
 
     /// <summary>
     /// Runs a console command on ONE client, as if that player had typed it.
@@ -4184,40 +3717,6 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(command + "\0");
         fixed (byte* p = bytes) { ServerShims.SendClientCommand(player.Value, p); }
-    }
-
-    /// <summary>
-    /// Whether this body, when it dies, becomes a ragdoll the server simulates
-    /// rather than one the client makes for itself.
-    ///
-    /// Takes any entity and quietly does nothing unless it is a combat
-    /// character, because "is this a combat character" is a native question:
-    /// the flag lives on CBaseCombatCharacter and only its BecomeRagdoll reads
-    /// it. A volume that sweeps everything walking through it would otherwise
-    /// have to ask before every call and could not.
-    /// </summary>
-    public void EntitySetForceServerRagdoll(EntityHandle entity, bool force)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        ServerShims.EntitySetForceServerRagdoll(entity.Value, force ? 1 : 0);
-    }
-
-    /// <summary>Adds to a player's score. Negative points are refused unless allowed.</summary>
-    public void AddPlayerScore(EntityHandle player, int points, bool allowNegative)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.AddPlayerScore(player.Value, points, allowNegative ? 1 : 0);
-    }
-
-    /// <summary>Player armour, which the engine keeps separately from health.</summary>
-    public int EntityGetArmor(EntityHandle entity)
-        => (s_Initialized && ServerAttached) ? ServerShims.EntityGetArmor(entity.Value) : 0;
-
-    public void EntitySetArmor(EntityHandle entity, int armor)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetArmor(entity.Value, armor);
     }
 
     /// <summary>Whether a brush is drawn.</summary>
@@ -4247,28 +3746,6 @@ internal sealed unsafe partial class EngineSide
     //-------------------------------------------------------------------------
     // Brush movement. Doors, lifts, platforms.
     //-------------------------------------------------------------------------
-
-    /// <summary>
-    /// Moves a brush to a position at a constant speed, reporting arrival
-    /// through OnMoveDone. The stepping is native: it has to stop exactly on the
-    /// destination, and a door that stops a fraction short never closes.
-    /// </summary>
-    public void EntityMoveToPosition(EntityHandle entity, Vector destination, float speed)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* xyz = stackalloc float[3] { destination.X, destination.Y, destination.Z };
-        ServerShims.EntityMoveToPosition(entity.Value, xyz, speed);
-    }
-
-    /// <summary>Rotates a brush to an orientation at a constant speed.</summary>
-    public void EntityMoveToAngles(EntityHandle entity, Vector destination, float speed)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* pyr = stackalloc float[3] { destination.X, destination.Y, destination.Z };
-        ServerShims.EntityMoveToAngles(entity.Value, pyr, speed);
-    }
 
     /// <summary>
     /// Spins an entity continuously. Not the same as rotating TO an angle: a fan
@@ -4325,39 +3802,6 @@ internal sealed unsafe partial class EngineSide
     // correctly reports as forwarded by nothing.
 
     /// <summary>
-    /// Hurts everything in range, and shows nothing.
-    ///
-    /// <para>
-    /// The counterpart to the explosion an entity makes (Explosions.Fire,
-    /// managed) and not a quieter
-    /// version of it: an explosion is an ENTITY the engine builds by classname,
-    /// carrying a sprite, a sound and a scorch mark that its spawnflags only
-    /// partly suppress. This is the damage traversal on its own, which is what
-    /// something like point_hurt wants — invisible harm on a timer, where a bang
-    /// every tenth of a second would be the bug.
-    /// </para>
-    ///
-    /// <para>
-    /// The falloff and the trace to each victim are the engine's, so a wall
-    /// still stops it.
-    /// </para>
-    /// </summary>
-    /// <param name="attacker">
-    /// Who is credited with anything it kills. The default is
-    /// <see cref="EntityHandle.None"/>, nobody: native resolves it to NULL and
-    /// <c>CTakeDamageInfo</c> credits the kill to no one — what a map firing
-    /// this from a timer means.
-    /// </param>
-    public void RadiusDamage(Vector origin, float damage, float radius,
-                                    DamageType damageType, EntityHandle attacker = default)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.RadiusDamage(p, damage, radius, (int)damageType, attacker.Value);
-    }
-
-    /// <summary>
     /// The explosion temp entity: fireball, sound, particles, dynamic lights.
     ///
     /// <para>
@@ -4379,31 +3823,6 @@ internal sealed unsafe partial class EngineSide
 
         float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         ServerShims.ExplosionEffect(p, modelIndex, scale, frameRate, flags, radius, magnitude);
-    }
-
-    /// <summary>
-    /// Radius damage as an explosion does it — with an inflictor, an ignored
-    /// entity and a damage force, none of which <see cref="RadiusDamage"/> can
-    /// carry.
-    ///
-    /// <para>
-    /// <paramref name="inflictor"/> is what the blast's traces pass THROUGH,
-    /// and an entity that explodes where it stands must name itself. Without it
-    /// the first trace starts inside that entity's own hull, stops at fraction
-    /// zero, and the falloff term is zero for every victim in range — they all
-    /// take the full magnitude however far away they stand.
-    /// </para>
-    /// </summary>
-    public void ExplosionDamage(Vector origin, float magnitude, float radius,
-                                       DamageType damageType, EntityHandle attacker,
-                                       EntityHandle inflictor, EntityHandle ignored,
-                                       float damageForce)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.ExplosionDamage(p, magnitude, radius, (int)damageType, attacker.Value,
-                            inflictor.Value, ignored.Value, damageForce);
     }
 
     /// <summary>
@@ -4660,12 +4079,6 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ClientAttached) return;
 
         ClientShims.StandaloneSetViewModel(entity.Value, enable ? 1 : 0);
-    }
-
-    public void EntityStopMoving(EntityHandle entity)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.EntityStopMoving(entity.Value);
     }
 
     /// <summary>Sets an entity's orientation.</summary>
@@ -5086,63 +4499,6 @@ internal sealed unsafe partial class EngineSide
         return new HullResult(blocked != 0, startSolid != 0, new EntityHandle(hit));
     }
 
-    /// <summary>
-    /// Turns every entity of a name into a template, and answers where each one
-    /// stood.
-    ///
-    /// <para>
-    /// Only meaningful DURING the map parse, in the window between the entities
-    /// being read and the entities being spawned — which is the window a
-    /// point_template's own Spawn runs in, and the whole reason any part of
-    /// templating is still native. Outside it there is nothing to claim, and
-    /// this answers with nothing.
-    /// </para>
-    /// </summary>
-    /// <param name="removeSources">
-    /// Whether the entities turned into templates are consumed. A template
-    /// source is not usually meant to remain in the world; a map that wants it
-    /// to says so with a spawnflag, and that decision is the caller's.
-    /// </param>
-    /// <returns>
-    /// One entry per source found, each carrying the index the template store
-    /// gave it and the place it stood in the world.
-    /// </returns>
-    public List<TemplatePlacement> TemplateCapture(string sourceName, bool removeSources,
-                                                          int limit = 64)
-    {
-        var found = new List<TemplatePlacement>();
-
-        if (!s_Initialized || !ServerAttached || sourceName.Length == 0)
-            return found;
-
-        var nameBytes = Encoding.UTF8.GetBytes(sourceName + "\0");
-        int* indices = stackalloc int[limit];
-        float* origins = stackalloc float[limit * 3];
-        float* angles = stackalloc float[limit * 3];
-
-        int total;
-        fixed (byte* pName = nameBytes)
-        {
-            total = ServerShims.TemplateCapture(pName, removeSources ? 1 : 0, indices, origins, angles, limit);
-        }
-
-        for (int i = 0; i < Math.Min(total, limit); i++)
-        {
-            found.Add(new TemplatePlacement(
-                indices[i],
-                new Vector(origins[i * 3], origins[i * 3 + 1], origins[i * 3 + 2]),
-                new QAngle(angles[i * 3], angles[i * 3 + 1], angles[i * 3 + 2])));
-        }
-
-        if (total > limit)
-        {
-            Warning($"[SourceSharp] '{sourceName}' named {total} entities and only {limit} became " +
-                     "templates; the rest are gone from the map and in no template\n");
-        }
-
-        return found;
-    }
-
     // TemplateReconnectIO AND TemplateSchedulePrecache STOOD HERE, and they are
     // gone rather than moved (plan_server_all.md Wave 1, docs/plan-audit.md
     // D11). Both were "pure text manipulation on the stored map data … native
@@ -5390,16 +4746,6 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// Sets an entity alight for a number of seconds. Zero burns until
-    /// something puts it out.
-    /// </summary>
-    public void EntityIgnite(EntityHandle entity, float lifetime)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.EntityIgnite(entity.Value, lifetime);
-    }
-
-    /// <summary>
     /// Dissolves an entity.
     /// </summary>
     /// <returns>
@@ -5422,18 +4768,6 @@ internal sealed unsafe partial class EngineSide
         float* f = stackalloc float[3] { force.X, force.Y, force.Z };
         float* p = stackalloc float[3] { position.X, position.Y, position.Z };
         ServerShims.ApplyDamageForce(victim.Value, attacker.Value, damage, (int)damageType, f, p);
-    }
-
-    public bool EntityDissolve(EntityHandle entity, DissolveType type = DissolveType.Normal,
-                                      float magnitude = 250f, Vector? from = null)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-
-        if (from is not Vector origin)
-            return ServerShims.EntityDissolve(entity.Value, (int)type, magnitude, null) != 0;
-
-        float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return ServerShims.EntityDissolve(entity.Value, (int)type, magnitude, p) != 0;
     }
 
     /// <summary>
@@ -5461,76 +4795,15 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// Which frame of an animated material a brush is showing.
-    ///
-    /// <para>
-    /// The frames belong to the material; which one is up belongs to the map.
-    /// </para>
-    /// </summary>
-    public int EntityGetTextureFrame(EntityHandle entity)
-        => (s_Initialized && ServerAttached)
-            ? ServerShims.EntityGetTextureFrame(entity.Value) : 0;
-
-    public void EntitySetTextureFrame(EntityHandle entity, int frame)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.EntitySetTextureFrame(entity.Value, frame);
-    }
-
-    /// <summary>
-    /// Zooms a player's view to a field of view over <paramref name="rate"/>
-    /// seconds.
-    /// </summary>
-    /// <param name="requester">
-    /// Who is asking. The engine tracks the owner so two entities zooming the
-    /// same player do not fight, and releasing must come from the same one.
-    /// </param>
-    /// <param name="fov">
-    /// Zero RELEASES rather than setting a field of view of zero — it is how a
-    /// requester says it has finished and the player returns to their own
-    /// setting.
-    /// </param>
-    public void PlayerSetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.PlayerSetFov(player.Value, requester.Value, fov, rate);
-    }
-
-    /// <summary>
     /// Which skin of a model is drawn. Silently does nothing for an entity with
-    /// no animating model, which is what stock does too.
+    /// no animating model, which is what stock does too. Client only: the
+    /// server's body was empty and went in plan_server_native_v2 T2, so a
+    /// skin chosen on the server reaches no client (docs/todo.md).
     /// </summary>
     public void EntitySetSkin(EntityHandle entity, int skin)
     {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return;
-        if (ServerShimsOrNull is { } __att42) __att42.EntitySetSkin(entity.Value, skin);
-        else ClientShims.EntitySetSkin(entity.Value, skin);
-    }
-
-    /// <summary>
-    /// Throws one piece of debris.
-    ///
-    /// <para>
-    /// The loop around this — how many, how often, how widely scattered — is the
-    /// caller's, and is the whole of what a shooter entity decides. What a gib
-    /// IS stays native: a model, a physics object and a fade-out.
-    /// </para>
-    /// </summary>
-    /// <returns>
-    /// False when nothing was made, which is not always an error: gore can be
-    /// switched off by a convar, and a model can fail to load.
-    /// </returns>
-    public bool ShootGib(string model, in GibShot shot)
-    {
-        if (!s_Initialized || !ServerAttached || model.Length == 0) return false;
-
-        var modelBytes = Encoding.UTF8.GetBytes(model + "\0");
-
-        fixed (byte* pModel = modelBytes)
-        fixed (GibShot* pShot = &shot)
-        {
-            return ServerShims.ShootGib(pModel, pShot) != 0;
-        }
+        if (s_Initialized && ClientAttached)
+            ClientShims.EntitySetSkin(entity.Value, skin);
     }
 
 
@@ -5582,46 +4855,6 @@ internal sealed unsafe partial class EngineSide
     {
         if (s_Initialized && ClientAttached)
             ClientShims.SpriteTrailDestroy(owner.Value);
-    }
-
-    /// <summary>
-    /// Creates the FLAME — the particle effect and glow a fire is drawn as.
-    ///
-    /// <para>
-    /// What burns, how hot, for how long, what it sets alight and what it
-    /// spreads to is decided in C#. This is only the thing you can see.
-    /// </para>
-    /// </summary>
-    /// <param name="flags">
-    /// The mapper's smoke/glow/visible-from-above choices, passed through as the
-    /// spawnflags they came from rather than re-derived.
-    /// </param>
-    public EntityHandle FireEffectCreate(int type, Vector origin, float scale, int flags)
-    {
-        if (!s_Initialized || !ServerAttached) return EntityHandle.None;
-
-        float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return new EntityHandle(ServerShims.FireEffectCreate(type, p, scale, flags));
-    }
-
-    /// <summary>
-    /// How big the flame is drawn, as a fraction of full size, eased over
-    /// <paramref name="time"/> seconds — a fire visibly taking hold or dying.
-    /// </summary>
-    public void FireEffectScale(EntityHandle effect, float scale, float time)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.FireEffectScale(effect.Value, scale, time);
-    }
-
-    /// <summary>
-    /// Burning or not. Separate from creation because a fire that has gone out
-    /// still exists and can be lit again.
-    /// </summary>
-    public void FireEffectEnable(EntityHandle effect, bool enable)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.FireEffectEnable(effect.Value, enable ? 1 : 0);
     }
 
     /// <summary>
@@ -6232,27 +5465,6 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// The mark blood leaves on whatever the line hits, if it hits anything.
-    ///
-    /// <para>
-    /// The trace runs natively rather than through <see cref="TraceLine"/> and
-    /// then a decal call, because the engine's decal placement wants the whole
-    /// trace — the surface, its plane and its texture — and
-    /// <see cref="TraceResult"/> carries none of that.
-    /// </para>
-    /// </summary>
-    /// <returns>Whether a decal was placed.</returns>
-    public bool BloodDecal(Vector start, Vector end, BloodColor color)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-
-        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
-        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
-
-        return ServerShims.BloodDecal(s, e, (int)color) != 0;
-    }
-
-    /// <summary>
     /// Claims a decal material during level load. Answers the index the engine
     /// will know it by, or -1 when the material would not load — which is a
     /// mapper's typo and the caller's to report, since the caller is the one
@@ -6613,27 +5825,6 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// Sets how a numbered lightstyle animates. The pattern is one letter per
-    /// tenth of a second: 'a' is black, 'm' is normal brightness, 'z' is about
-    /// double. It repeats forever.
-    ///
-    /// <para>
-    /// A style number rather than an entity, because that is what the engine
-    /// keeps — 64 slots shared by everything in the map. vbsp reserves 32..62
-    /// for switchable lights and assigns one per NAMED light entity, so two
-    /// lights the mapper named the same thing share a style and go out
-    /// together. That is the reason this is not an entity property.
-    /// </para>
-    /// </summary>
-    public void EngineLightStyle(int style, string pattern)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        var bytes = Encoding.UTF8.GetBytes(pattern + "\0");
-        fixed (byte* p = bytes) { ServerShims.EngineLightStyle(style, p); }
-    }
-
-    /// <summary>
     /// Precaches a material by name — "skybox/sky_day01_01rt", with no
     /// extension.
     ///
@@ -6782,38 +5973,6 @@ internal sealed unsafe partial class EngineSide
     }
 
     /// <summary>
-    /// The 3D-skybox area of one client, read off the SDK hierarchy ONLY.
-    ///
-    /// <para>
-    /// plan_server.md Phase 8b, plan-audit C4. Half of a pair;
-    /// <see cref="EntitiesStandalonePlayerSkyboxArea"/> is the other half, and
-    /// the ORDER they are asked in is <c>ServerEntities.SkyboxAreaForClient</c>'s
-    /// — which is the whole content of the crossing, because that order used to
-    /// be an <c>#ifdef SOURCESHARP</c> block inside
-    /// <c>CServerGameEnts::CheckTransmit</c>.
-    /// </para>
-    ///
-    /// <para>
-    /// <b><c>area</c> is untouched on a miss, not zeroed.</b> Area 0 is a real
-    /// visleaf area, so "the world's first area" and "no such recipient" cannot
-    /// share a value — CheckTransmit returns early for one and walks every
-    /// edict for the other.
-    /// </para>
-    /// </summary>
-    public bool EntitiesSdkPlayerSkyboxArea(int edictIndex, out int area)
-    {
-        area = 0;
-        if (!s_Initialized || !ServerAttached) return false;
-
-        int value = 0;
-        int found = ServerShims.EntitiesSdkPlayerSkyboxArea(edictIndex, &value);
-        if (found == 0) return false;
-
-        area = value;
-        return true;
-    }
-
-    /// <summary>
     /// The 3D-skybox area of one client, read off the standalone hierarchy —
     /// the other half of the pair above.
     /// </summary>
@@ -6861,83 +6020,6 @@ internal sealed unsafe partial class EngineSide
 
         ears = new Vector(xyz[0], xyz[1], xyz[2]);
         return true;
-    }
-
-    /// <summary>
-    /// Where one client's ears are, read off the SDK hierarchy — the other half
-    /// of the pair above.
-    /// </summary>
-    public bool ClientsSdkPlayerEarPosition(int edictIndex, out Vector ears)
-    {
-        ears = default;
-        if (!s_Initialized || !ServerAttached) return false;
-
-        float* xyz = stackalloc float[3];
-        xyz[0] = 0.0f; xyz[1] = 0.0f; xyz[2] = 0.0f;
-        int found = ServerShims.ClientsSdkPlayerEarPosition(edictIndex, xyz);
-        if (found == 0) return false;
-
-        ears = new Vector(xyz[0], xyz[1], xyz[2]);
-        return true;
-    }
-
-    /// <summary>
-    /// Does this player see the world-space box — is it inside the PVS of
-    /// the leaf cluster at their eyes? The engine's own read (stock builds
-    /// the same cluster/PVS trio in its check-client machinery,
-    /// triggers.cpp:1615); what a yes is worth is the caller's rule — stock's
-    /// <c>CTRiggerHurt::RadiationThink</c> pings only the geiger of a player
-    /// who can see the box.
-    ///
-    /// <para>
-    /// <b>False when there is no engine, no attached shim, or the handle is
-    /// not a player.</b> Failing closed means a player who cannot be asked
-    /// hears nothing, which is the same outcome as an empty PVS and never a
-    /// false ping.
-    /// </para>
-    /// </summary>
-    public bool PlayerBoxInPvs(EntityHandle player, Vector mins, Vector maxs)
-    {
-        if (!s_Initialized || !ServerAttached) return false;
-
-        float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
-        float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
-        return ServerShims.PlayerBoxInPvs(player.Value, lo, hi) != 0;
-    }
-
-    /// <summary>
-    /// Tells one player what they are hearing.
-    ///
-    /// <para>
-    /// <paramref name="entIndex"/> is an identity token rather than an entity
-    /// index — the client only compares it with the last one to notice a
-    /// change. Any distinct positive number per soundscape entity works, which
-    /// is what lets an entity with no edict at all drive one. Zero is silence.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="localPositions"/> is up to eight places a soundscape's
-    /// positioned sounds come from; <paramref name="localBits"/> says which of
-    /// them are live. The rest are left as they were rather than zeroed, which
-    /// is what stops a soundscape change networking eight stale vectors.
-    /// </para>
-    /// </summary>
-    public void PlayerSetSoundscape(EntityHandle player, int entIndex, int soundscapeIndex,
-                                           int localBits, ReadOnlySpan<Vector> localPositions)
-    {
-        if (!s_Initialized || !ServerAttached) return;
-
-        float* positions = stackalloc float[8 * 3];
-
-        for (int i = 0; i < 8; i++)
-        {
-            Vector p = i < localPositions.Length ? localPositions[i] : default;
-            positions[i * 3 + 0] = p.X;
-            positions[i * 3 + 1] = p.Y;
-            positions[i * 3 + 2] = p.Z;
-        }
-
-        ServerShims.PlayerSetSoundscape(player.Value, entIndex, soundscapeIndex, localBits, positions);
     }
 
     /// <summary>
@@ -7200,26 +6282,6 @@ internal sealed unsafe partial class EngineSide
 
 
 
-
-    /// <summary>
-    /// Stock's <c>CBaseEntity::DetectInSkybox</c>: raises <c>EFL_IN_SKYBOX</c>
-    /// if this entity stands inside a 3D skybox, and answers whether it does.
-    ///
-    /// <para>
-    /// A query managed code cannot make — it walks the sky camera list and asks
-    /// the engine whether two areas are connected. The flag it raises has one
-    /// consequence, and it is the one an env_smokestack in a skybox depends on:
-    /// the entity is sent to everyone instead of being PVS-checked, because
-    /// nobody's PVS contains the 3D skybox.
-    /// </para>
-    /// </summary>
-    public bool EntityDetectInSkybox(EntityHandle entity)
-    {
-        if (!s_Initialized || !ServerAttached)
-            return false;
-
-        return ServerShims.EntityDetectInSkybox(entity.Value) != 0;
-    }
 
 
 
@@ -7585,20 +6647,6 @@ internal sealed unsafe partial class EngineSide
     // a Engine.LevelInit() here would be the same C++ sequence one language
     // further up.
 
-    /// <summary>Clears the map-entity reference list. Before the parse.</summary>
-    public void EntitiesPurgeMapRefs()
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.EntitiesPurgeMapRefs();
-    }
-
-    /// <summary>Reaps entities that removed themselves during a precache.</summary>
-    public void EntitiesCleanupDeleteList()
-    {
-        if (!s_Initialized || !ServerAttached) return;
-        ServerShims.EntitiesCleanupDeleteList();
-    }
-
     // // ---- plan_gamedll.md Part 4, Phase 7: SERVERACTIVATE'S AND
     // 	// ---- LEVELSHUTDOWN'S NATIVE STEPS.
     // 	//
@@ -7651,82 +6699,6 @@ internal sealed unsafe partial class EngineSide
     // 65535 and reads as success to every `if (i >= 0)`.
     //-------------------------------------------------------------------------
 
-    /// <summary>
-    /// Creates a table and answers its id, or answers the id of the table that
-    /// already has that name. −1 on refusal — including a create attempted
-    /// outside <c>CreateNetworkStringTables</c>, which the engine does not
-    /// allow.
-    /// </summary>
-    public int StringTableCreate(string name, int maxEntries)
-    {
-        if (!s_Initialized || !ServerAttached) return -1;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes)
-        {
-            return ServerShims.StringTableCreate(p, maxEntries);
-        }
-    }
-
-    /// <summary>The id of an existing table, or −1. Valid at any time.</summary>
-    public int StringTableFind(string name)
-    {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return -1;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes)
-        {
-            return (ServerShimsOrNull is { } __att54 ? __att54.StringTableFind(p) : ClientShims.StringTableFind(p));
-        }
-    }
-
-    /// <summary>Adds a string; answers its index, or −1.</summary>
-    public int StringTableAddString(int tableId, string value)
-    {
-        if (!s_Initialized || !ServerAttached) return -1;
-
-        var bytes = Encoding.UTF8.GetBytes(value + "\0");
-        fixed (byte* p = bytes)
-        {
-            return ServerShims.StringTableAddString(tableId, p);
-        }
-    }
-
-    /// <summary>The index of a string, or −1 when the table does not hold it.</summary>
-    public int StringTableFindStringIndex(int tableId, string value)
-    {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return -1;
-
-        var bytes = Encoding.UTF8.GetBytes(value + "\0");
-        fixed (byte* p = bytes)
-        {
-            return (ServerShimsOrNull is { } __att55 ? __att55.StringTableFindStringIndex(tableId, p) : ClientShims.StringTableFindStringIndex(tableId, p));
-        }
-    }
-
-    /// <summary>
-    /// One entry, by index. Null when there is none — and null rather than
-    /// empty on purpose: a table may legitimately hold an empty string, and
-    /// collapsing the two makes "there is no such entry" indistinguishable
-    /// from "the entry is blank".
-    /// </summary>
-    public string? StringTableGetString(int tableId, int stringIndex)
-    {
-        if (!s_Initialized || !(ServerAttached || ClientAttached)) return null;
-
-        const int bufSize = 260;
-        byte* buf = stackalloc byte[bufSize];
-
-        return (ServerShimsOrNull is { } __att56 ? __att56.StringTableGetString(tableId, stringIndex, buf, bufSize) : ClientShims.StringTableGetString(tableId, stringIndex, buf, bufSize)) < 0
-             ? null
-             : FromUtf8(buf);
-    }
-
-    /// <summary>How many strings a table holds, or −1 when there is no such table.</summary>
-    public int StringTableGetNumStrings(int tableId)
-        => (s_Initialized && (ServerAttached || ClientAttached))
-         ? (ServerShimsOrNull is { } __att57 ? __att57.StringTableGetNumStrings(tableId) : ClientShims.StringTableGetNumStrings(tableId))
-         : -1;
     // ---- plan_gamedll_after.md Phase A2 ------------------------------------
 
     // THE THREE STEAM GAME-SERVER SLOTS ARE RETIRED -- plan_server_novalve.md

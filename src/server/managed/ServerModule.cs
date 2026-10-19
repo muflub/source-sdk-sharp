@@ -192,6 +192,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // interface through this side's own factory (EngineClient, D8).
         _services.AddInstance(_engine);
 
+        // Game events are CREATED, FIRED AND FREED through IGameEventManager2's
+        // forwarders (plan_server_native_v2 T3), which took over three slots;
+        // the rest of the area is the binding's. Without the manager an event
+        // is never made, and that is said once here rather than per event.
+        if (ServerGameEvents.Acquire(_engine, _services.Require<IEngineGameEvents>(), Log, out string eventsWhy) is { } serverEvents)
+            _services.AddInstance(serverEvents);
+        else
+            Log.Warning($"[SourceSharp/Server] game events: no IGameEventManager2 ({eventsWhy}); no event will be fired\n");
+
         _gameEvents = new GameEventRegistry(_services.Require<IEngineGameEvents>(), Log);
 
         // THE ENTITY REGISTRY, over THIS side's three routes and this
@@ -849,7 +858,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                             _services.Require<IEngineDamage>(), _services.Require<IEngineWorldQuery>(),
                                             _services.Require<IEngineEntityPhysics>(), _convars,
                                             _services.Resolve<IConnectedClients>()));
-        _services.AddInstance<IBlastSweep>(_services.Create<BlastSweep>());
 
         // The weapon and ammo tables THIS side reads, registered before the
         // arsenal is built so the container hands the same objects to it, to
@@ -941,6 +949,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _decals = _services.Create<DecalEmitter>();
         _propData = _services.Create<PropData>();
         _services.AddInstance<IServerDecals>(_decals);
+        _services.AddInstance(_services.Create<BloodDecals>());
         _services.AddInstance<IServerPropData>(_propData);
 
         // THE SURFACE PROPERTY MANIFEST, once, before any map -- plan_server_novalve.md
@@ -967,6 +976,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // those two entities resolve.
         _soundEnt = _services.Create<SoundEnt>();
         _services.AddInstance<IServerSoundEnt>(_soundEnt);
+        // After the ledger, which every blast announces itself to. Nothing
+        // resolves the sweep before the entities that explode are spawned.
+        _services.AddInstance<IBlastSweep>(_services.Create<BlastSweep>());
 
         // Sound envelopes. The shim asks it everything for the patches native
         // code builds; FrictionSounds is the one managed caller, through
@@ -1688,11 +1700,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IAppliedMovementTuning>(movementTuning);
         movementTuning.Apply(_convars, _movementRules.Constants);
 
-        // The weapon table's native registration — here, after the mods'
-        // registration, because this is the FIRST read of the catalogue and
-        // the first read is what builds it: the mods' rows must be in the list
-        // the native fire-rate table is filled from.
-        _services.Require<WeaponCatalog>().Register("Server", _services.Require<IEngineWeapons>(), Log);
+        // The weapon catalogue's FIRST read, here, after the mods' registration:
+        // the first read is what builds it, so the mods' rows are in it. (It
+        // was the native fire-rate table's registration until
+        // plan_server_native_v2 T2 deleted that table, which nothing read.)
+        _ = _services.Require<WeaponCatalog>().Count;
 
         // vphysics' callbacks on managed's own tables (plan_physics_managed B2):
         // a lifecycle participant, so it is registered before the driver below.

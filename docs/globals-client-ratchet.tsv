@@ -313,7 +313,10 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 #   the four cl_detail*/fastdetailsprites convars and its mat_fullbright, Four_255s, Four_MagicNumbers, s_pQuadCount,
 #   CDetailModel::gm_LightStylesMap and RenderableToWorldTransform's mat) gone, and shell_detail_props.o's g_ShellDetailProps
 #   arriving (ruled MEMBER DetailProps:DLL) (make globals-client-ledger, reconciled).
-client_globals_link_level	src/game/client	774
+# RAISED 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: 774 -> 777. The client-arms lane moved
+#   client-only statics out of shared TUs into client files (the two ConCommands of generic_payload_client.cpp, g_AmmoDef in
+#   shell_client.o), less g_WeaponTypes with the weapon-type table (make globals-client-ledger, gate PASS).
+client_globals_link_level	src/game/client	777
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -340,7 +343,10 @@ client_globals_link_level	src/game/client	774
 # 2026-10-18, the client bone leaf library deleted (its gate, stack, counter and sweep tables, and C_BaseAnimatingGameSystem's instance, pruned): 740 -> 733 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # 2026-10-18, C7 detail: 733 -> 718 LOWERED. The ledger held 729 UNRULED rows at main a7ee694f9 (4 of slack);
 #   detailobjectsystem.cpp's eleven left with it and g_ShellDetailProps arrived ruled (MEMBER), so 718 by count.
-client_globals_unruled	docs/globals-client-ledger.tsv	718
+# RAISED 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: 718 -> 722. The client-arms lane moved
+#   client-only statics out of shared TUs into client files (the two ConCommands of generic_payload_client.cpp, g_AmmoDef in
+#   shell_client.o), less g_WeaponTypes with the weapon-type table (make globals-client-ledger, gate PASS).
+client_globals_unruled	docs/globals-client-ledger.tsv	722
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 client_globals_floor	docs/globals-client-ledger.tsv	14
@@ -396,5 +402,14 @@ client_globals_floor	docs/globals-client-ledger.tsv	14
 # 2026-10-18, the client bone leaf library deleted (its gate, stack, counter and sweep tables, and C_BaseAnimatingGameSystem's instance, pruned): 125 -> 124 LOWERED (make globals-client-ledger, make globals-client-census gate PASS).
 # LOWERED 2026-10-18, 124 -> 122: studio.cpp's eviction; studio.cpp's CManagedConVarRef was a static initialiser (measured by tools/globals-census summary --side client: 124 at main d6d3b9a3d, 123 once model_descriptor.cpp left, 122 now).
 # LOWERED 2026-10-18, 122 -> 121: studio_mdlcache.cpp left client.so; its object carried studio.h's header statics' initialiser (measured by tools/globals-census summary --side client).
-client_globals_objects_with_static_init	src/game/client	121
+# RAISED 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: 121 -> 122. The client-arms lane moved
+#   client-only statics out of shared TUs into client files (the two ConCommands of generic_payload_client.cpp, g_AmmoDef in
+#   shell_client.o), less g_WeaponTypes with the weapon-type table (make globals-client-ledger, gate PASS).
+client_globals_objects_with_static_init	src/game/client	122
 client_globals_reconcile_unattributed	src/game/client	0
+# RAISED 2026-10-18, plan_server_native_v2 T2 client arms: link level 792 -> 796, unruled 746 -> 749, static
+#   initialisers 129 -> 130. UTIL_IsLowViolence moved from the shared util_shared_library.cpp to client_util_library.cpp
+#   with four violence_* CManagedConVarRef refs of its own (UNRULED, as the shared file's four that UTIL_ShouldShowBlood
+#   keeps); generic_payload.cpp's client half is the new generic_payload_client.cpp, one more object with a static
+#   initialiser (its two ConCommands). The other statics that moved (g_AmmoDef, the refusal table, three ConCommands,
+#   s_LastEntityReasonableEmitTime) kept their rulings under their new objects (make globals-client-ledger, gate PASS).

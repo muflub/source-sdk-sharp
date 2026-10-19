@@ -20,6 +20,24 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// </summary>
     // The particle manifests' file lists (C9 KeyValues K1), read in C# over
     // the engine's filesystem by search path.
+    /// <summary>
+    /// Fills the client's native ammo table (its CAmmoDef), in catalogue
+    /// order. Client only: server.so keeps no ammo table, and the slot is the
+    /// client's alone since plan_server_native_v2 T2. A weapon naming an
+    /// unregistered type resolves to an ammo index of -1, so this runs before
+    /// anything can be given.
+    /// </summary>
+    private void RegisterAmmo(AmmoCatalog catalog, IEngineWeapons weapons)
+    {
+        foreach (var ammo in catalog.All)
+        {
+            weapons.RegisterAmmoType(ammo.Name, ammo.DamageType, ammo.MaxCarry,
+                                     ammo.TracerType, ammo.DamageForce, ammo.Damage);
+        }
+
+        Log.Msg($"[SourceSharp/Client] registered {catalog.Count} ammo type(s)\n");
+    }
+
     private List<string>? ParticleManifests(bool map, string mapName)
     {
         var files = new ParticleManifestFiles(Log, _services.Require<IEngineFiles>().ReadFileOnPath);
@@ -1069,8 +1087,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // rows in the same index order, or a mod weapon fires at the shell's
         // default rate and its ammo resolves to nothing. Building them here is
         // what freezes the table; the first read wins (see WeaponCatalog).
-        _services.Require<AmmoCatalog>().Register("Client", _services.Require<IEngineWeapons>(), Log);
-        _services.Require<WeaponCatalog>().Register("Client", _services.Require<IEngineWeapons>(), Log);
+        RegisterAmmo(_services.Require<AmmoCatalog>(), _services.Require<IEngineWeapons>());
+        // The weapon catalogue's first read, for the same reason (its native
+        // fire-rate table went in plan_server_native_v2 T2: nothing read it).
+        _ = _services.Require<WeaponCatalog>().Count;
 
         // THE MOVEMENT CONSTANTS, resolved once now the mods are in (phase
         // 0.3), the same way the server asks: zero registrations answer the

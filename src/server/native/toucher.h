@@ -111,19 +111,6 @@ struct Toucher_t
 };
 
 //-----------------------------------------------------------------------------
-// The toucher a caller already has.
-//
-// No lookup: a site that holds a CBaseEntity knows what it holds, and every
-// existing touch site is one of those.
-//
-// Declared here, DEFINED IN toucher.cpp. Its body is the only line in this
-// header that needs a CBaseEntity to be an IHandleEntity, and this header is
-// read by 26 of the server's translation units. toucher.cpp says why that
-// matters and what the typedef does to it.
-//-----------------------------------------------------------------------------
-Toucher_t ToucherOf( IGameEntity *pEntity );
-
-//-----------------------------------------------------------------------------
 // The toucher behind something the engine handed over, which is where the two
 // kinds are still mixed: an edict, a partition element, a trace result.
 //

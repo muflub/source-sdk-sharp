@@ -142,12 +142,6 @@ const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBy
                                          int nOffset );
 
 //-----------------------------------------------------------------------------
-// The one writer native does. See CWorld::SetStartDark.
-//-----------------------------------------------------------------------------
-void SourceSharpWorld_WriteFlag( unsigned char *pBlob,
-                                 const SourceSharpPackedField_t &field, bool bValue );
-
-//-----------------------------------------------------------------------------
 // ALL TEN VALUES, ON ONE LINE, FROM WHICHEVER SIDE ASKS.
 //
 // THIS IS THE ONLY LIVE EVIDENCE THE VALUES ARRIVE, and that is why it is a

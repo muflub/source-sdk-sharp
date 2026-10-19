@@ -764,6 +764,10 @@ def run(repo, root, configs, check=False, accept=False, provision=True,
     for cfg in configs:
         farm = os.path.join(repo, "farm", cfg)
         links = plan_farm(repo, root, cfg, manifest, module_map, ours)
+        if valve is not None:
+            # server.so's include root (plan_server_native_v2 D3): the
+            # pristine upstream public/, outside src/ so nothing else reads it.
+            links["stock-public"] = os.path.join(valve, "src", "public")
         if not check:
             os.makedirs(farm, exist_ok=True)
         changes += apply_links(farm, links, check, report) if (

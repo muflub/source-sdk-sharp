@@ -44,7 +44,7 @@ namespace SourceSharp.Abi;
 /// arguments flat. Twenty-one fields is a call nobody can read and a
 /// transposition nobody can see. The line has to be drawn somewhere and this is
 /// where the rest of the ABI already draws it — <c>SourceSharpBreakPiece</c>
-/// and <c>SourceSharpGibShot</c> are the precedent.
+/// and <c>SourceSharpGibShot</c> (gone with its slot in plan_server_native_v2 T2) are the precedent.
 /// </para>
 /// </summary>
 public struct EffectData

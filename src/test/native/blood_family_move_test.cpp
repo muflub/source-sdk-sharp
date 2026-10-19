@@ -116,14 +116,24 @@ const char *const kLibrary   = "sourcesharp/game/shared/util_shared_library.cpp"
 const char *const kStockCpp  = "game/shared/util_shared.cpp";
 const char *const kStockHdr  = "game/shared/util_shared.h";
 
+// UTIL_ParticleTracer CAME WITH THE FAMILY and has since gone on to the client:
+// it was #ifdef CLIENT_DLL here, so plan_server_native_v2 T2 (2026-10-18) moved
+// it to the client's utility library (a shared TU keeps only what both DLLs
+// import). Its member of the family is asserted there, and absent here.
+const char *const kClientHome     = "sourcesharp/game/client/client_util_library.cpp";
+const char *const kClientOnlyMember =
+	"void UTIL_ParticleTracer( const char *pszTracerEffectName, const Vector &vecStart, const Vector &vecEnd, ";
+
+const char *const kBloodImpact =
+	"void UTIL_BloodImpact( const Vector &pos, const Vector &dir, int color, int amount )";
+
 const char *const kMoved[] = {
-	"void UTIL_ParticleTracer( const char *pszTracerEffectName, const Vector &vecStart, const Vector &vecEnd, ",
 	"void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex, ",
-	"void UTIL_DecalTrace( trace_t *pTrace, char const *decalName )",
-	"void UTIL_BloodDecalTrace( trace_t *pTrace, int bloodColor )",
+	// UTIL_DecalTrace and UTIL_BloodDecalTrace LEFT in plan_server_native_v2
+	// T2: managed's BloodDecals paints blood now (GibTests' decal facts).
 	// Named by no shim TU, and that is the point: it is UTIL_BloodDrips'
 	// callee, so leaving it behind is 4e's conversion one symbol to the left.
-	"void UTIL_BloodImpact( const Vector &pos, const Vector &dir, int color, int amount )",
+	kBloodImpact,
 };
 const size_t kNumMoved = sizeof( kMoved ) / sizeof( kMoved[ 0 ] );
 
@@ -146,6 +156,14 @@ TEST( BloodFamilyMove, EveryMovedMemberIsInTheSharedLibrary )
 		EXPECT_EQ( 1u, CountOf( lib, kMoved[ i ] ) )
 			<< kMoved[ i ] << " is not defined exactly once in " << kLibrary;
 	}
+
+	EXPECT_EQ( 0u, CountOf( lib, kClientOnlyMember ) )
+		<< kClientOnlyMember << " is defined in the shared " << kLibrary
+		<< " again; it is the client's";
+	const std::string client = StripComments( ReadFile( kClientHome ) );
+	ASSERT_FALSE( client.empty() ) << kClientHome << " did not load";
+	EXPECT_EQ( 1u, CountOf( client, kClientOnlyMember ) )
+		<< kClientOnlyMember << " is not defined exactly once in " << kClientHome;
 }
 
 // game/shared/util_shared.cpp DOES NOT EXIST. plan_shim.md Phase 2c, lane
@@ -174,6 +192,11 @@ TEST( BloodFamilyMove, TheStockFileIsGoneAndTheLibraryHasTheFamily )
 			<< kMoved[ i ] << " is not in " << kLibrary << " either. The family "
 			<< "did not move, it evaporated.";
 	}
+	const std::string client = StripComments( ReadFile( kClientHome ) );
+	ASSERT_FALSE( client.empty() ) << kClientHome << " did not load";
+	EXPECT_EQ( 1u, CountOf( client, kClientOnlyMember ) )
+		<< kClientOnlyMember << " is not in " << kClientHome << " either. The "
+		<< "family did not move, it evaporated.";
 }
 
 TEST( BloodFamilyMove, UtilBloodImpactCameEvenThoughNoShimTuNamesIt )
@@ -181,7 +204,7 @@ TEST( BloodFamilyMove, UtilBloodImpactCameEvenThoughNoShimTuNamesIt )
 	const std::string lib = StripComments( ReadFile( kLibrary ) );
 	ASSERT_FALSE( lib.empty() );
 
-	EXPECT_EQ( 1u, CountOf( lib, kMoved[ 4 ] ) )
+	EXPECT_EQ( 1u, CountOf( lib, kBloodImpact ) )
 		<< "UTIL_BloodImpact is UTIL_BloodDrips' callee and they are now in the "
 		<< "same translation unit. Splitting them again is 4e's measured "
 		<< "conversion one symbol to the left: the family moves and the "
@@ -246,27 +269,24 @@ TEST( BloodFamilyMove, UtilBloodDripsMovedWithItsServerArmOnly )
 // UTIL_DecalTrace's subject is now a written-out NULL. The two halves below are
 // the present half (the refusal, and the reason, both still in the file) and
 // the absent half (the resolver call and the SDK forward it guarded).
-TEST( BloodFamilyMove, TheDecalRefusalCameAcrossIntact )
+TEST( BloodFamilyMove, TheDecalTraceLeftForManaged )
 {
-	const std::string lib = ReadFile( kLibrary );
+	const std::string lib = StripComments( ReadFile( kLibrary ) );
 	ASSERT_FALSE( lib.empty() );
+	// The live anchor first, so the absences below cannot pass over an
+	// emptied file.
+	ASSERT_EQ( 1u, CountOf( lib, kBloodImpact ) ) << kLibrary << " lost UTIL_BloodImpact";
 
-	// An entity outside the SDK hierarchy takes no decal; skipping IS the
-	// answer, and the paragraph above the line in the source says so. Deleting
-	// it as unreachable is the shape of all six recorded silent losses.
-	EXPECT_EQ( 1u, CountOf( lib, "\tIGameEntity *pEntity = NULL;" ) )
-		<< "the subject of the refusal must still be spelled out in "
-		<< kLibrary << ". TraceEntity answered a constant NULL; the NULL is "
-		   "what survived it, and it is what the refusal below reads.";
-	EXPECT_EQ( 1u, CountOf( lib, "\tif ( !pEntity )\n\t\treturn;" ) )
-		<< "the refusal itself. This is UTIL_DecalTrace's whole behaviour and "
-		   "deleting it as unreachable is the shape of all six recorded "
-		   "silent losses.";
-	// The reason is load-bearing: without it the next reader sees a NULL that
-	// looks like an unfinished stub and fills it in.
-	EXPECT_LE( 1u, CountOf( lib, "does not take a decal yet" ) )
-		<< "the paragraph that says WHY the skip is the answer and not a TODO "
-		   "must stay above the NULL.";
+	// THE REFUSAL WENT WITH ITS CALLERS, and the behaviour did not go with it.
+	// UTIL_DecalTrace's subject was a written-out NULL, so the blood decal it
+	// existed to paint was never painted. plan_server_native_v2 T2 ported
+	// stock's arm (UTIL_BloodDecalTrace, CWorld::DecalTrace) to managed
+	// BloodDecals, where gibs and env_blood paint through the decal system,
+	// and deleted the slot and both functions here.
+	EXPECT_EQ( 0u, CountOf( lib, "void UTIL_DecalTrace(" ) )
+		<< "UTIL_DecalTrace is back. Blood decals are BloodDecals.cs's.";
+	EXPECT_EQ( 0u, CountOf( lib, "void UTIL_BloodDecalTrace(" ) )
+		<< "UTIL_BloodDecalTrace is back. Blood decals are BloodDecals.cs's.";
 }
 
 TEST( BloodFamilyMove, TheDeadResolverAndTheArmItGuardedAreBothGone )

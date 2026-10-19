@@ -209,7 +209,7 @@ const File_t kGibs = { "sourcesharp/managed/SourceSharp.Server/Entities/Effects/
 	"class Gibs" };
 
 const File_t kWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
-	"int32_t SourceSharp_ShootGib(" };
+	"void SourceSharp_SparkEffect(" };
 const File_t kNetTable = { "sourcesharp/game/shared/standalone_nettable.h",
 	"STANDALONE_NET_FIELD_COUNT" };
 const File_t kStandalonePlayer = { "sourcesharp/game/server/shell_standalone_player.h",
@@ -341,14 +341,13 @@ TEST( GibEvicted, NothingInTheShimReachesIntoGibHAnyMore )
 	EXPECT_EQ( wq.find( "CreateRagGib" ), std::string::npos )
 		<< "shell_worldquery.cpp calls CreateRagGib again.";
 
-	// AND THE SLOT REFUSES RATHER THAN RETURNING QUIETLY. plan_entity.md §7:
-	// "a behaviour that is refused is a ContractBaseline entry with a reason,
-	// never a silent no-op". The field stays in SourceSharpEngineApi because
-	// removing one from the middle shifts every field after it; what it points
-	// at is a warning.
-	EXPECT_NE( NoWhitespace( wq ).find( "SourceSharp_ShootGibisretired" ), std::string::npos )
-		<< "SourceSharp_ShootGib no longer says it is retired. An empty body "
-		<< "that returned 0 would look exactly like a gib that failed to spawn.";
+	// AND THE SLOT IS GONE, refusal and all (plan_server_native_v2 T2): no
+	// managed code called it -- a gib is ss_gib, made by SourceSharp.Server's
+	// Gibs, which TheManagedGibAndItsMakerAreBothThere pins. A slot coming back
+	// would be a second, native gib maker.
+	EXPECT_EQ( wq.find( "SourceSharp_ShootGib(" ), std::string::npos )
+		<< "SourceSharp_ShootGib is back in shell_worldquery.cpp; gibs are "
+		<< "managed (ss_gib).";
 
 	// And nothing anywhere in the shim reaches into gib.h. Zero consumers means
 	// zero, and the scan is what says so rather than the one file above.

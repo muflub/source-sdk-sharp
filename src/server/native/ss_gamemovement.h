@@ -82,11 +82,8 @@ public:
 	virtual void   ProcessMovement( IMovementPlayer *pPlayer, CMoveData *pMove ) = 0;
 	virtual void   StartTrackPredictionErrors( IMovementPlayer *pPlayer ) = 0;
 	virtual void   FinishTrackPredictionErrors( IMovementPlayer *pPlayer ) = 0;
-	virtual void   DiffPrint( PRINTF_FORMAT_STRING char const *fmt, ... ) = 0;
-
-	virtual Vector GetPlayerMins( bool ducked ) const = 0;
-	virtual Vector GetPlayerMaxs( bool ducked ) const = 0;
-	virtual Vector GetPlayerViewOffset( bool ducked ) const = 0;
+	// DiffPrint and the three hull accessors went in plan_server_native_v2
+	// T2: no caller in server.so (the hulls are Movement.cs's).
 };
 
 } // namespace ss

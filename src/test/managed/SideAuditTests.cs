@@ -114,6 +114,12 @@ public class SideAuditTests
         // client shell the solver owns an entity's pose. A client standalone
         // and its render tail exist only in client.so.
         "StandaloneSetRagdoll",
+        // The skin, client-only since plan_server_native_v2 T2: the server's
+        // arm was an empty body (see DualWired's note where it was listed).
+        "EntitySetSkin",
+        // The ammo table, client-only since the same plan: only the client
+        // registers (ClientModule), and server.so keeps no table.
+        "RegisterAmmoType",
 
         // The same plan's netgraph and absences routes: the client's net
         // channel (a client has the one to its server) and its diagnostics
@@ -479,7 +485,8 @@ public class SideAuditTests
         "GetGlobalVarsPtr",
         "ListenForGameEvent", "Msg",
         "NetHierarchyDeclare", "NetPublishType", "NetTierInfo",
-        "RegisterAmmoType", "RegisterConCommand", "RegisterConVar",
+        // RegisterAmmoType is client-only since plan_server_native_v2 T2.
+        "RegisterConCommand", "RegisterConVar",
         // Both sides since Phase 9: movement is predicted, so the client must
         // replay with the same parameter block the server ticks with. This was
         // the masked hazard Part 4b.3 led with — server-only wiring left the
@@ -496,7 +503,8 @@ public class SideAuditTests
         // base holds it; the server's other collision slots moved to
         // IShimCollisionServer.
         "RegisterCollisionRules",
-        "RegisterWeaponType",
+        // RegisterWeaponType went in plan_server_native_v2 T2: its table had
+        // no reader on either side.
         "SetConVarValue", "SetNamedConVarValue", "RevertNamedConVar", "Warning",
     };
 
@@ -570,20 +578,12 @@ public class SideAuditTests
         // the studio name -- left when both sides' skeletons became managed:
         // plan physics_bones_native_zero 1.2. Each side's EngineEntityRender
         // asks its own skeleton.)
-        // The skin, and it arrived here the same way EntityGetModelName and
-        // EntityGetAngles did: a slot that had been server-only for the whole
-        // port, doing nothing whatever for the hierarchy every managed entity
-        // is on. The server's arm writes m_nSkin on a native CBaseAnimating;
-        // no entity on the standalone hierarchy has that member, so managed
-        // code asking for a livery got skin 0 and no error — which is the
-        // "(no model)" shape a third time, and blocker 2 of gib_verdict_test.
-        //
-        // Dual rather than BothSides because the two arms reach two different
-        // kinds of object: the server's writes a networked member on an SDK
-        // entity, the client's lands the value on the standalone shell where
-        // modelrender reads it. Regressing this to server-only puts every
-        // managed entity back to one livery.
-        "EntitySetSkin",
+        // EntitySetSkin WAS HERE, dual, and is client-only since
+        // plan_server_native_v2 T2. Its server arm wrote m_nSkin on a native
+        // CBaseAnimating, and the body had been empty since no entity on the
+        // standalone hierarchy has one. The client's arm, which lands the skin
+        // where modelrender reads it, is the slot. What the server's callers
+        // lose is ServerWaiver's one line.
         // The model SCALE, and it is dual for a reason the skin beside it is
         // not. A skin is read once by modelrender on the machine doing the
         // drawing, so the server has no question to answer. A SIZE is asked by
@@ -659,21 +659,10 @@ public class SideAuditTests
         // per-side, not because the answers can differ.
         "SurfacePropGameMaterial",
 
-        // plan_gamedll_after.md Phase A8, the client half. Four of the six
-        // string-table slots, and the two that are NOT here are the point:
-        // StringTableCreate and StringTableAddString stay server-only, so a
-        // client-side create or add cannot reach the engine at all.
-        //
-        // Dual and not BothSides, and here the distinction is real rather than
-        // bookkeeping: the two arms reach two DIFFERENT containers. The server's
-        // `networkstringtable` is INTERFACENAME_NETWORKSTRINGTABLESERVER and
-        // holds the tables it created; the client's (cdll_client_int.cpp:192) is
-        // the client interface and holds the copies that REPLICATED to it. Same
-        // shipped bodies over each side's own container.
-        "StringTableFind",
-        "StringTableFindStringIndex",
-        "StringTableGetString",
-        "StringTableGetNumStrings",
+        // The four dual string-table slots (plan_gamedll_after.md Phase A8)
+        // went in plan_server_native_v2 T3: each side's managed
+        // ForwardedStringTables asks its own container through the forwarders,
+        // and creating and adding are still the server's alone.
 
         // plan_gamedll_after.md Part B2. ONE SLOT, TWO IMPLEMENTATIONS, and it
         // is the same shape as TempEntRegister at the top of this set: a
@@ -752,7 +741,9 @@ public class SideAuditTests
         // slots, so a count this low means a source went unread, not that the
         // ABI shrank.
         int serverOnly = sides.Count(kv => kv.Value == SlotSide.Server);
-        Assert.True(serverOnly >= 200, $"the server's areas and the fill found the server-only bulk ({serverOnly} found)");
+        // A floor for the reader: 200 -> 150 when plan_server_native_v2 T2
+        // deleted the dead server slots (197 left).
+        Assert.True(serverOnly >= 150, $"the server's areas and the fill found the server-only bulk ({serverOnly} found)");
 
         // Both and Dual are one expectation since C6c: the server's half of a
         // two-sided slot is an area method, not a fill arm beside the client's,
@@ -885,7 +876,19 @@ public class SideAuditTests
     /// </summary>
     private static readonly HashSet<string> ClientWaiver = new(StringComparer.Ordinal);
 
-    private static readonly HashSet<string> ServerWaiver = new(StringComparer.Ordinal);
+    /// <summary>
+    /// Server code that leans on client-only slots. ONE LINE, and it is a bug
+    /// report: env_beverage and gibs pick a skin on the server, and since the
+    /// server's EntitySetSkin body was empty, the choice has never reached a
+    /// client. The slot went client-only in plan_server_native_v2 T2 rather
+    /// than keep an empty native body for this audit to pass over. The port is
+    /// a networked skin on the standalone entity's wire (docs/todo.md); this
+    /// line goes when that lands.
+    /// </summary>
+    private static readonly HashSet<string> ServerWaiver = new(StringComparer.Ordinal)
+    {
+        "IEngineEntityRender.SetSkin is backed by Client-only slot 'EntitySetSkin'",
+    };
 
     /// <summary>
     /// Shared code that leans on server-only slots.

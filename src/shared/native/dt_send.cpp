@@ -11,7 +11,6 @@
 #include "mathlib/mathlib.h"
 #include "mathlib/vector.h"
 #include "tier0/dbg.h"
-#include "dt_utlvector_common.h"
 
 
 #if !defined(_STATIC_LINKED) || defined(GAME_DLL)
@@ -100,18 +99,6 @@ void SendProxy_VectorToVector( const SendProp *pProp, const void *pStruct, const
 	pOut->m_Vector[2] = v[2];
 }
 
-#if 0 // We can't ship this since it changes the size of DTVariant to be 20 bytes instead of 16 and that breaks MODs!!!
-void SendProxy_QuaternionToQuaternion( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID)
-{
-	Quaternion& q = *(Quaternion*)pData;
-	Assert( q.IsValid() );
-	pOut->m_Vector[0] = q[0];
-	pOut->m_Vector[1] = q[1];
-	pOut->m_Vector[2] = q[2];
-	pOut->m_Vector[3] = q[3];
-}
-#endif
-
 void SendProxy_Int8ToInt32( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID)
 {
 	pOut->m_Int = *((const char*)pData);
@@ -163,11 +150,6 @@ void SendProxy_StringToString( const SendProp *pProp, const void *pStruct, const
 void* SendProxy_DataTableToDataTable( const SendProp *pProp, const void *pStructBase, const void *pData, CSendProxyRecipients *pRecipients, int objectID )
 {
 	return (void*)pData;
-}
-
-void* SendProxy_DataTablePtrToDataTable( const SendProp *pProp, const void *pStructBase, const void *pData, CSendProxyRecipients *pRecipients, int objectID )
-{
-	return *((void**)pData);
 }
 
 static void SendProxy_Empty( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID)
@@ -328,44 +310,6 @@ SendProp SendPropVector(
 
 	return ret;
 }
-
-#if 0 // We can't ship this since it changes the size of DTVariant to be 20 bytes instead of 16 and that breaks MODs!!!
-SendProp SendPropQuaternion(
-	const char *pVarName,
-	int offset,
-	int sizeofVar,
-	int nBits,					// Number of bits to use when encoding.
-	int flags,
-	float fLowValue,			// For floating point, low and high values.
-	float fHighValue,			// High value. If HIGH_DEFAULT, it's (1<<nBits).
-	SendVarProxyFn varProxy
-	)
-{
-	SendProp ret;
-
-	if(varProxy == SendProxy_QuaternionToQuaternion)
-	{
-		Assert(sizeofVar == sizeof(Quaternion));
-	}
-
-	if ( nBits == 32 )
-		flags |= SPROP_NOSCALE;
-
-	ret.m_Type = DPT_Quaternion;
-	ret.m_pVarName = pVarName;
-	ret.SetOffset( offset );
-	ret.m_nBits = nBits;
-	ret.SetFlags( flags );
-	ret.m_fLowValue = fLowValue;
-	ret.m_fHighValue = fHighValue;
-	ret.m_fHighLowMul = AssignRangeMultiplier( ret.m_nBits, ret.m_fHighValue - ret.m_fLowValue );
-	ret.SetProxyFn( varProxy );
-	if( ret.GetFlags() & (SPROP_COORD | SPROP_NOSCALE | SPROP_NORMAL | SPROP_COORD_MP | SPROP_COORD_MP_LOWPRECISION | SPROP_COORD_MP_INTEGRAL) )
-		ret.m_nBits = 0;
-
-	return ret;
-}
-#endif
 
 SendProp SendPropAngle(
 	const char *pVarName,
@@ -533,51 +477,6 @@ SendProp SendPropString(
 	return ret;
 }
 
-SendProp SendPropArray3(
-	const char *pVarName,
-	int offset,
-	int sizeofVar,
-	int elements,
-	SendProp pArrayProp,
-	SendTableProxyFn varProxy
-	)
-{
-	SendProp ret;
-
-	Assert( elements <= MAX_ARRAY_ELEMENTS );
-
-	ret.m_Type = DPT_DataTable;
-	ret.m_pVarName = pVarName;
-	ret.SetOffset( offset );
-	ret.SetDataTableProxyFn( varProxy );
-	
-	SendProp *pArrayPropAllocated = new SendProp;
-	*pArrayPropAllocated = pArrayProp;
-	ret.SetArrayProp( pArrayPropAllocated );
-	
-	// Handle special proxy types where they always let all clients get the results.
-	if ( varProxy == SendProxy_DataTableToDataTable || varProxy == SendProxy_DataTablePtrToDataTable )
-	{
-		ret.SetFlags( SPROP_PROXY_ALWAYS_YES );
-	}
-
-	SendProp *pProps = new SendProp[elements]; // TODO free that again
-	
-	for ( int i = 0; i < elements; i++ )
-	{
-		pProps[i] = pArrayProp;	// copy array element property setting
-		pProps[i].SetOffset( i*sizeofVar ); // adjust offset
-		pProps[i].m_pVarName = DT_ArrayElementNameForIdx(i);	// give unique name
-		pProps[i].m_pParentArrayPropName = pVarName; // For debugging...
-	}
-
-	SendTable *pTable = new SendTable( pProps, elements, pVarName ); // TODO free that again
-
-	ret.SetDataTable( pTable );
-
-	return ret;
-}
-
 SendProp SendPropDataTable(
 	const char *pVarName,
 	int offset,
@@ -594,7 +493,7 @@ SendProp SendPropDataTable(
 	ret.SetDataTableProxyFn( varProxy );
 	
 	// Handle special proxy types where they always let all clients get the results.
-	if ( varProxy == SendProxy_DataTableToDataTable || varProxy == SendProxy_DataTablePtrToDataTable )
+	if ( varProxy == SendProxy_DataTableToDataTable )
 	{
 		ret.SetFlags( SPROP_PROXY_ALWAYS_YES );
 	}

@@ -149,49 +149,9 @@ public unsafe class EngineSideTests
         internal static readonly EngineSide? Held = null;
     }
 
-    /// <summary>
-    /// A side asks ITS OWN engine whether the view entity is valid. Through the
-    /// static <c>EntityHandle.IsValid</c> it asked whichever side was active, so
-    /// a side that knew the view entity was alive sent 0 (the player's own eyes)
-    /// whenever the active side did not know the handle. The side's answer comes
-    /// from its own liveness mirror here: the EntityIsValid slot suppresses the
-    /// GC transition, so no managed fake can serve it.
-    /// </summary>
-    [Fact]
-    public void TheViewEntityIsJudgedByTheSidesOwnEngine()
-    {
-        var server = new EngineSide(Side.Server);
-        var view = new EntityHandle(40);
-        var gone = new EntityHandle(41);
-
-        using var root = new FakeShimRoot();
-        root.Live("SourceSharpPlayers001", nameof(ShimPlayersFwd.PlayerSetViewEntity),
-                  (nint)(delegate* unmanaged<void*, uint, uint, void>)&RecordView);
-        server.Initialize();
-        Assert.True(server.AttachShims(root.Bind(), out string why), why);
-
-        var mirror = new LivenessMirror();
-        mirror.NoteCreated(view);
-        mirror.NoteCreated(gone);
-        mirror.NoteRemoved(gone);
-        using var attached = server.AttachLiveness(mirror);
-        Assert.True(server.EntityIsValid(view), "the side's own mirror knows the view entity");
-
-        s_SentView = 0xDEADu;
-        server.PlayerSetViewEntity(new EntityHandle(1), view);
-        Assert.Equal(40u, s_SentView);
-
-        // The control: a handle the side knows is gone gives the view back.
-        server.PlayerSetViewEntity(new EntityHandle(1), gone);
-        Assert.Equal(0u, s_SentView);
-    }
-
-    // What the fake PlayerSetViewEntity slot was last sent. Test-only; the slot
-    // is a function pointer with no state of its own to record into.
-    private static uint s_SentView;
-
-    [UnmanagedCallersOnly]
-    private static void RecordView(void* self, uint player, uint view) => s_SentView = view;
+    // TheViewEntityIsJudgedByTheSidesOwnEngine moved to the server tests
+    // (ViewEntityForwarderTests) with the rule it held, in plan_server_native_v2
+    // T3: the view entity goes through IVEngineServer's forwarders now.
 
     [UnmanagedCallersOnly]
     private static int IndexSeven(void* self, uint handle) => 7;

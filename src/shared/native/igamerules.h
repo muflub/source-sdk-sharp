@@ -128,7 +128,6 @@ public:
 	virtual void ClientSpawned( edict_t * pPlayer ) = 0;
 	virtual int Damage_GetNoPhysicsForce( void ) = 0;
 	virtual int Damage_GetTimeBased( void ) = 0;
-	virtual bool Damage_NoPhysicsForce( int iDmgType ) = 0;
 	virtual const RulesViewVectors_t* GetViewVectors( void ) const = 0;
 	virtual bool IsConnectedUserInfoChangeAllowed( CBasePlayer *pPlayer ) = 0;
 	virtual bool IsMultiplayer( void ) = 0;
@@ -144,12 +143,10 @@ public:
 	virtual float AdjustPlayerDamageInflicted( float damage ) = 0;
 	virtual void AdjustPlayerDamageTaken( RulesDamageInfo_t *pInfo ) = 0;
 	virtual bool ClientConnected( edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen ) = 0;
-	virtual void ClientDisconnected( edict_t *pClient ) = 0;
 	virtual void CreateCustomNetworkStringTables( void ) = 0;
 	virtual void CreateStandardEntities( void ) = 0;
 	virtual void EndGameFrame( void ) = 0;
 	virtual void EndMultiplayerGame( void ) = 0;
-	virtual void GetTaggedConVarList( KeyValues *pCvarTagList ) = 0;
 	virtual void InitDefaultAIRelationships( void ) = 0;
 	// LevelShutdown IS NOT HERE. This interface lists what CALLS INTO the rules,
 	// and LevelShutdown had exactly one caller in this build -- CWorld's
@@ -158,7 +155,6 @@ public:
 	// and is dispatched to every IGameLifecycle, which is where a rules class
 	// that wants it should ask for it.
 	virtual void Precache( void ) = 0;
-	virtual void RadiusDamage( const RulesDamageInfo_t &info, const Vector &vecSrc, float flRadius, int iClassIgnore, IGameEntity *pEntityIgnore, const IHandleEntity *pTraceIgnore = NULL ) = 0;
 	virtual void ResetMapCycleTimeStamp( void ) = 0;
 	virtual void Status( void (*print) (const char *fmt, ...) ) = 0;
 #else

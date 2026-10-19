@@ -153,48 +153,6 @@ const std::string &ServerHeader()
 	return s;
 }
 
-const std::string &StaticsHeader()
-{
-	static const std::string s = ReadGameFile( "../sourcesharp/game/server/baseentity_statics.h" );
-	return s;
-}
-
-//-----------------------------------------------------------------------------
-// Strip // and /* */ comments, so that a name written in PROSE -- and all three
-// files under test are full of exactly that, being about exactly this -- is not
-// read as code. This file's own header block would fail nearly every assertion
-// below without it.
-//
-// Not a C++ lexer: it does not track string or character literals, and does not
-// need to: the only needles read through it are names and #include lines.
-//-----------------------------------------------------------------------------
-std::string StripComments( const std::string &s )
-{
-	std::string out;
-	out.reserve( s.size() );
-
-	for ( size_t i = 0; i < s.size(); )
-	{
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '/' )
-		{
-			while ( i < s.size() && s[ i ] != '\n' )
-				i++;
-			continue;
-		}
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '*' )
-		{
-			const size_t end = s.find( "*/", i + 2 );
-			if ( end == std::string::npos )
-				break;
-			i = end + 2;
-			continue;
-		}
-		out += s[ i++ ];
-	}
-
-	return out;
-}
-
 bool Contains( const std::string &strHaystack, const char *pszNeedle )
 {
 	return strHaystack.find( pszNeedle ) != std::string::npos;
@@ -203,26 +161,27 @@ bool Contains( const std::string &strHaystack, const char *pszNeedle )
 }  // namespace
 
 //=============================================================================
-// The files were actually read.
+// THE STATICS HEADER IS GONE TOO (plan_server_native_min P1).
+//
+// Four facts read sourcesharp/game/server/baseentity_statics.h: that it was
+// readable, that the two lifted declarations (EntityUse_ShouldToggle,
+// EntityPredict_CreateByName) stayed gone from it, that it did not include
+// shareddefs.h, and that no `persist` default came back. The header and its
+// .cpp were deleted (one unreferenced send proxy, one write-only global), so
+// its absence is the strong form of all four. Anchored on a header the farm
+// still links, so a reader that sees nothing cannot satisfy it.
 //=============================================================================
 
-TEST( BaseEntityLift, TheFilesUnderTestWereActuallyRead )
+TEST( BaseEntityLift, TheStaticsHeaderHasLeftTheTree )
 {
-	// Anchors, not line counts. A file that fails to open reads as empty, and
-	// every "no longer declares" assertion below is then true at once. A line
-	// count is no defence either -- one lane's `lines.size() > 100` sat four
-	// lines from a false alarm.
-	//
-	// game/server/baseentity.h used to be the first row here. It is compiled by
-	// nothing since plan_server_novalve.md P5 and left the farm in P6; its
-	// absence is pinned in TheServerHeaderHasLeftTheFarm below instead.
-	ASSERT_FALSE( StaticsHeader().empty() )
-		<< "sourcesharp/game/server/baseentity_statics.h read as empty. Every "
-		<< "absence assertion in this file would pass for free.";
-	EXPECT_TRUE( Contains( StaticsHeader(), "BASEENTITY_STATICS_H" ) )
-		<< "sourcesharp/game/server/baseentity_statics.h no longer contains its "
-		<< "anchor \"BASEENTITY_STATICS_H\". Either the wrong file was read, or "
-		<< "the anchor needs updating -- do not simply delete it.";
+	ASSERT_TRUE( Contains( ReadGameFile( "shared/shareddefs.h" ), "#ifndef SHAREDDEFS_H" ) )
+		<< "game/shared/shareddefs.h did not read from the farm, so the "
+		<< "absence below would be true of a tree that was never found.";
+
+	EXPECT_TRUE( ReadGameFile( "../sourcesharp/game/server/baseentity_statics.h" ).empty() )
+		<< "sourcesharp/game/server/baseentity_statics.h is back. If a target "
+		<< "needs it, EntityUse_ShouldToggle, EntityPredict_CreateByName and the "
+		<< "`persist` default must stay out of it: nothing defines them.";
 }
 
 //=============================================================================
@@ -250,59 +209,13 @@ TEST( BaseEntityLift, TheFilesUnderTestWereActuallyRead )
 
 TEST( BaseEntityLift, TheServerHeaderHasLeftTheFarm )
 {
-	const std::string strSibling = ReadGameFile( "server/entity_funcs.h" );
-	ASSERT_TRUE( Contains( strSibling, "#ifndef ENTITY_FUNCS_H" ) )
-		<< "game/server/entity_funcs.h did not read from the farm, so the "
+	const std::string strSibling = ReadGameFile( "shared/shareddefs.h" );
+	ASSERT_TRUE( Contains( strSibling, "#ifndef SHAREDDEFS_H" ) )
+		<< "game/shared/shareddefs.h did not read from the farm, so the "
 		<< "absence below would be true of a tree that was never found.";
 
 	EXPECT_TRUE( ServerHeader().empty() )
 		<< "game/server/baseentity.h is readable from the farm again. Nothing "
 		<< "has compiled it since plan_server_novalve.md P5; if a target needs "
 		<< "it again, its stale class arms and free operators come back with it.";
-}
-
-//=============================================================================
-// The two genuine lifts.
-//=============================================================================
-
-TEST( BaseEntityLift, TheTwoLiftedDeclarationsAreGoneBecauseNothingDefinedThem )
-{
-	// WAS TheTwoFreeFunctionsAreDeclaredInTheStaticsHeader. Both lifts were
-	// DECLARED in baseentity_statics.h and DEFINED nowhere: EntityUse_ShouldToggle
-	// and EntityPredict_CreateByName had no body in any compiled TU and no
-	// caller. A declaration with no definition is the shape that invites
-	// somebody to supply one, so they went (P5 lane E), with the shareddefs.h
-	// include that existed only for ShouldToggle's USE_TYPE.
-	//
-	// THE POSITIVE HALF proves the header was read, by its guard: its last
-	// declaration, GameSound_EmitSentenceByIndex, went in the server gc cull.
-	const std::string strStatics = StripComments( StaticsHeader() );
-	ASSERT_TRUE( Contains( strStatics, "#ifndef BASEENTITY_STATICS_H" ) )
-		<< "baseentity_statics.h did not read; the absences below would mean nothing";
-
-	EXPECT_FALSE( Contains( strStatics, "EntityUse_ShouldToggle" ) )
-		<< "baseentity_statics.h declares EntityUse_ShouldToggle again. Nothing "
-		<< "defines it.";
-	EXPECT_FALSE( Contains( strStatics, "EntityPredict_CreateByName" ) )
-		<< "baseentity_statics.h declares EntityPredict_CreateByName again. "
-		<< "Nothing defines it.";
-	EXPECT_FALSE( Contains( strStatics, "#include \"shareddefs.h\"" ) )
-		<< "baseentity_statics.h includes shareddefs.h again; nothing in it "
-		<< "names a shareddefs.h type now, and the include keeps the header off "
-		<< "the R5 set.";
-}
-
-TEST( BaseEntityLift, NoPersistDefaultCameBackOnEitherHeader )
-{
-	// WAS TheDefaultArgumentWentWithTheClassAndDidNotMoveToTheFreeOne. Its
-	// presence half -- the `bool persist )` parameter surviving on the free
-	// declaration -- had its subject deleted with EntityPredict_CreateByName.
-	// The absence half stands: no `persist = false` default on either header.
-	// Its baseentity.h half is now TheServerHeaderHasLeftTheFarm: that header is
-	// compiled by nothing since plan_server_novalve.md P5 and left the farm in P6.
-	const std::string strStatics = StripComments( StaticsHeader() );
-	ASSERT_FALSE( strStatics.empty() ) << "baseentity_statics.h did not read";
-	EXPECT_FALSE( Contains( strStatics, "persist" ) )
-		<< "baseentity_statics.h names `persist` again; the declaration that "
-		<< "took it is gone.";
 }

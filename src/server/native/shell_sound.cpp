@@ -310,54 +310,6 @@ int32_t SourceSharp_EmitWorldSoundScript( const char *pszName, const float *pXYZ
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-// THE SLOT THE SOUNDSCAPE PUSH USED TO TAKE, AND NOTHING CALLS IT NOW.
-// plan_entity.md step 8e-sound.
-//
-// It had an EMPTY BODY, and the reason was structural rather than an omission:
-// CBasePlayer::GetAudioParams retired with its class at step 13c, audioparams_t
-// was networked through that class's local-data table, and the standalone
-// player carries no equivalent. So Soundscapes.cs decided correctly, called
-// this, and this returned. Step 7e measured the far end of the same silence:
-// 255 soundscapes parsed on dm_lockdown, a player standing inside one, and the
-// client's current soundscape -1 [none].
-//
-// THE PUSH TRAVELS AS A USER MESSAGE NOW. Soundscapes.Push sends a `Soundscape`
-// message to the one player it just decided for, and SoundscapeMessage's client
-// handler hands it to the client's soundscape system (the managed
-// ClientSoundscapes.Push since sound cluster 17). Nothing on the server
-// crosses to native for it at all, which is the right shape: deciding which
-// soundscape a player is in is arithmetic over positions, radii and traces, and
-// putting a chosen index on the wire is the networking layer's job.
-//
-// WHY THE SLOT IS STILL HERE. SourceSharpEngineApi is POSITIONAL and shared:
-// removing an entry from the middle of it is a change to every lane's merge,
-// not to this file, so it is written up in
-// .claude/entity-port/abi-requests/8e-sound.md for the integrator to do once,
-// with the four sites listed. Until then this body is a DECLARED DEAD MARKER
-// rather than a silent no-op -- if anything reaches it, it says so and names
-// what to call instead, which is the difference between "nobody calls this" and
-// "somebody calls this and nothing happens".
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSetSoundscape( uint32_t hPlayer, int32_t nEntIndex,
-                                      int32_t nSoundscapeIndex, int32_t nLocalBits,
-                                      const float *pLocalPositions )
-{
-	SOURCESHARP_TRACE();
-
-	static bool s_bSaid = false;
-
-	if ( !s_bSaid )
-	{
-		s_bSaid = true;
-		Warning( "[SourceSharp] SourceSharp_PlayerSetSoundscape was called and is "
-		         "DEAD: the soundscape push travels as the `Soundscape` user "
-		         "message now (Soundscapes.Push -> SoundscapeMessage -> "
-		         "ClientSetSoundscape). Whatever called this reached nobody. "
-		         "plan_entity.md step 8e-sound. Said once.\n" );
-	}
-}
-
-//-----------------------------------------------------------------------------
 // An ambient sound: not another EmitSound, but an update to a CHANNEL.
 //
 // The engine keys an ambient by (entity index, sound name). A second call with

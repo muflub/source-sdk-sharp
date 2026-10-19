@@ -52,8 +52,10 @@ public class ShimAreaTypedCallsTests
     public void EverySlotIsATypedMethodOnItsOwningAreaClass()
     {
         var rows = Rows();
-        // The positive arm: the walk reaches the rows it claims to check.
-        Assert.True(rows.Count > 500, $"the tsv walk found {rows.Count} slot rows");
+        // The positive arm: the walk reaches the rows it claims to check. A
+        // floor for the reader, not the population: 500 -> 400 when
+        // plan_server_native_v2 T2 deleted the dead slots (499 left).
+        Assert.True(rows.Count > 400, $"the tsv walk found {rows.Count} slot rows");
 
         var missing = new List<string>();
         foreach (var (slot, kind, side) in rows)

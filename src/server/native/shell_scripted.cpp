@@ -329,67 +329,6 @@ int32_t SourceSharp_EntityGetSpawnFlags( uint32_t hEntity )
 // SourceSharp.Abi/EntityIo.cs.
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// Movement, called from C#.
-//
-// One hierarchy answers now. A door made of brushes and a door made of a model
-// were always the same thing to the managed side, which knows nothing about
-// shells; they are the same thing here too, and the dispatch that used to pick
-// between a brush shell and a prop shell picked between two classes no map
-// entity was.
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// THE THREE MOVER SLOTS ARE RETIRED -- plan_entity.md step 2g.
-//
-// They forwarded to CStandaloneEntity::MoveToPosition / MoveToAngles /
-// StopMoving, which set six members that CStandaloneEntity::UpdateMovement
-// integrated. All of that is SourceSharp.Server/EntityMotion.cs now, and a
-// mover reaches it through IEngineBrushMovement rather than through here:
-// ServerModule registers the managed integrator for that contract, so
-// ScriptedEntity.MoveTo, RotateTo, Spin and StopMoving all land in C#.
-//
-// A DECLARED, PRINTED REFUSAL AND NOT A SILENT NO-OP (LANE_BRIEF §7). The slots
-// are kept because removing one is an ABI shape change no lane may make alone;
-// .claude/entity-port/abi-requests/2g.md asks the integrator to delete all
-// three. Until then, anything that finds its way back to them says so once per
-// entity rather than moving nothing in silence -- which is exactly the failure
-// this whole file's history is made of.
-//-----------------------------------------------------------------------------
-static void SourceSharp_MoverSlotRetired( uint32_t hEntity, const char *pWhich )
-{
-	static CSaidOncePerId s_Said;
-
-	if ( !s_Said.FirstTime( hEntity ) )
-		return;
-
-	CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity );
-
-	Warning( "[SourceSharp] %s is retired (plan_entity.md step 2g): brush movement "
-	         "is SourceSharp.Server/EntityMotion.cs, reached through "
-	         "IEngineBrushMovement. '%s' was not moved.\n",
-	         pWhich,
-	         pStandalone ? StandaloneEntity_Name( pStandalone ) : "<no entity>" );
-}
-
-void SourceSharp_EntityMoveToPosition( uint32_t hEntity, const float *pXYZ, float flSpeed )
-{
-	( void )pXYZ;
-	( void )flSpeed;
-	SourceSharp_MoverSlotRetired( hEntity, "EntityMoveToPosition" );
-}
-
-void SourceSharp_EntityMoveToAngles( uint32_t hEntity, const float *pPYR, float flSpeed )
-{
-	( void )pPYR;
-	( void )flSpeed;
-	SourceSharp_MoverSlotRetired( hEntity, "EntityMoveToAngles" );
-}
-
-void SourceSharp_EntityStopMoving( uint32_t hEntity )
-{
-	SourceSharp_MoverSlotRetired( hEntity, "EntityStopMoving" );
-}
-
 void SourceSharp_EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ )
 {
 	if ( !pOutXYZ )

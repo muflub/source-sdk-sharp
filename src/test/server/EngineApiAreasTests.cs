@@ -29,8 +29,9 @@ public partial class EngineApiAreasTests
                           .Select(kv => kv.Key).ToHashSet();
 
         // An anti-vacuous floor, not a count: the slots leave as their work
-        // goes managed (300 at the entity physics init's ABI, 2026-10-12).
-        Assert.True(served.Count > 250, $"the census found the server's slots ({served.Count})");
+        // goes managed (300 at the entity physics init's ABI, 2026-10-12;
+        // 250 -> 200 when plan_server_native_v2 T2 deleted the dead ones).
+        Assert.True(served.Count > 200, $"the census found the server's slots ({served.Count})");
         Assert.DoesNotContain(served, s => rows.Count(r => r.Slot == s) != 1);
         // A client-only row (plan_client_vtables CC) is the kind rule's to check.
         Assert.Empty(rows.Where(r => r.Kind != "client" && !served.Contains(r.Slot)).Select(r => r.Slot));

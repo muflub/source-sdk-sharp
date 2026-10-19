@@ -31,6 +31,7 @@
 1	gate	... their members	0	0
 1	gate	CBaseEntity:: / C_BaseEntity:: members	0	0
 1	gate	classes derived from them (typeinfo closure)	0	0
+1	reconcile	CBaseEntity read as the entity face (D1), 1 = yes	1	0
 1	reconcile	same, no symbol-type filter (§1's reading: 1207/602)	0	0
 2	gate	entity-list members (incl. CBaseEntityList::)	0	0
 2	gate	gEntList / ClientEntityList() / IEntityListener	0	0
@@ -49,4 +50,4 @@
 3	gate	reinterpret_cast	0	0
 3	gate	stale allowlist entries (match no cast site)	0	0
 3	gate	static_cast	0	0
-3	reconcile	ToEngineIface (the other direction -- not gated)	21	22
+3	reconcile	ToEngineIface (the other direction -- not gated)	14	13

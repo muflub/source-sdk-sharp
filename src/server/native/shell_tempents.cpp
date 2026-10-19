@@ -576,10 +576,9 @@ ss::TePrediction *SourceSharpTe_PredictionSystem( void )
 // list is walked through, and SourceSharpTe_PredictionSystem() above hands it
 // to takedamageinfo.cpp; only the cull it existed to feed is gone.
 //-----------------------------------------------------------------------------
-bool SourceSharpTe_SuppressFilter( IRecipientFilter & )
-{
-	return false;
-}
+// SourceSharpTe_SuppressFilter went (plan_server_native_min P1): it answered
+// constant false, so the nine `if (Suppress) return` guards around it never
+// returned; the guards go with it.
 
 //=============================================================================//
 // PLAYBACK.

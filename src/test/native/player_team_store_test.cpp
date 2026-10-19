@@ -143,7 +143,6 @@ std::string BodyAfter( const std::string &text, const std::string &head )
 }
 
 const char *const kEntityApi = "sourcesharp/game/server/shell_entityapi.cpp";
-const char *const kPlayerInfo = "sourcesharp/game/server/shell_playerinfo.cpp";
 const char *const kPlayerHeader = "sourcesharp/game/server/shell_standalone_player.h";
 const char *const kPlayerSource = "sourcesharp/game/server/shell_standalone_player.cpp";
 
@@ -194,18 +193,9 @@ TEST( PlayerTeamStore, GetPlayerTeamReturnsTheStoredTeam )
 		<< "GetPlayerTeam answers a flat 0 again: " << body;
 }
 
-//-----------------------------------------------------------------------------
-// The plugin-side reader answers the store too.
-//-----------------------------------------------------------------------------
-TEST( PlayerTeamStore, GetTeamIndexReadsTheStore )
-{
-	const std::string body = BodyAfter( ReadNormalised( kPlayerInfo ),
-		"virtual int GetTeamIndex() OVERRIDE" );
-	ASSERT_FALSE( body.empty() ) << "IPlayerInfo::GetTeamIndex's body was not found";
-
-	EXPECT_NE( body.find( "pPlayer->TeamNumber()" ), std::string::npos )
-		<< "GetTeamIndex no longer reads the stored team: " << body;
-}
+// The plugin-side reader (IPlayerInfo::GetTeamIndex in shell_playerinfo.cpp)
+// went with the plugin ABI (plan_server_native_min P1, ruling 1); the
+// engine-side reader above is the one reader left.
 
 //-----------------------------------------------------------------------------
 // And the two accessors are the member itself: the write assigns it, the read

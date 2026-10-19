@@ -283,7 +283,9 @@ def generate():
     methods = area_methods(read(AREAS_HEADER))
     client_methods = area_methods(read(CLIENT_AREAS_HEADER))
     served = table_slots(read(SLOT_TABLE))
-    if len(methods) < 200 or len(client_methods) < 100 or len(served) < 400:
+    # Floors against a scan that stopped early, not targets: the port shrinks
+    # them. methods 200 -> 150 at plan_server_native_v2 T3 (199 read).
+    if len(methods) < 150 or len(client_methods) < 100 or len(served) < 400:
         die("read %d area methods, %d client area methods and %d served slots; "
             "the scan lost its subject" % (len(methods), len(client_methods), len(served)))
 

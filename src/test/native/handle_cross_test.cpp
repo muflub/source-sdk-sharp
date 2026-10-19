@@ -259,9 +259,10 @@ TEST( HandleCross, CastAndCrossingAgreeOnARealWeapon )
 // IGameEntity view is not its IHandleEntity view, and the two differ by a
 // number of bytes the test can print.
 //
-// This is what makes the comparison mean something. Every other entity in the
-// game is a CBaseEntity, where the boundary sits at offset zero, both answers
-// coincide and a cast is indistinguishable from a crossing.
+// This is what makes the comparison mean something. On a stock CBaseEntity the
+// boundary sat at offset zero, both answers coincided and a cast was
+// indistinguishable from a crossing; the server has no such entity any more,
+// and the standalone is where the two differ.
 // =============================================================================
 
 namespace
@@ -276,15 +277,20 @@ public:
 	virtual int RefEHandle() const { return -1; }
 };
 
-class SdkBaseEntity;                                    // ~ CBaseEntity
-class SdkGameEntity;                                    // ~ IGameEntity
-class SdkWeapon;                                        // ~ CBaseCombatWeapon
+class SdkGameEntity;                                    // ~ IGameEntity, which IS CBaseEntity
 
+// ONE ACCESSOR SINCE plan_server_native_v2 T1.3. Stock iserverunknown.h's
+// GetBaseEntity() is typed by the entity face, and on the server that face is
+// CBaseEntity with IGameEntity its alias (D1). The patch's second accessor,
+// GetGameEntity(), is gone: the two partitioned the world identically once no
+// SDK CBaseEntity was left on the server, and the SDK's tree this suite used to
+// model beside the standalone one (SdkBaseEntity, SdkWeapon, the "step 5"
+// standalone) went with it. What stays is what the crossing still does: adjust
+// from the handle table's address to the face's, inside the object.
 class SdkServerUnknown : public SdkHandleEntity         // ~ IServerUnknown
 {
 public:
-	virtual SdkBaseEntity *GetBaseEntity() = 0;
-	virtual SdkGameEntity *GetGameEntity() { return 0; }
+	virtual SdkGameEntity *GetBaseEntity() = 0;
 };
 
 class SdkServerEntity : public SdkServerUnknown         // ~ IServerEntity
@@ -306,25 +312,6 @@ public:
 	virtual int WhoAreYou() const = 0;
 };
 
-// --- the SDK's tree: the boundary is not implemented at all ------------------
-
-class SdkBaseEntity : public SdkServerEntity
-{
-public:
-	virtual SdkBaseEntity *GetBaseEntity() { return this; }
-
-	// The single NULL the whole partition rests on, today. At Phase 13 step 5
-	// this returns `this` instead, and the crossing follows it there without
-	// being edited, because it asks.
-	virtual SdkGameEntity *GetGameEntity() { return 0; }
-
-	// CBaseEntity really does declare this, which is why the weapon crossing can
-	// call it on GetBaseEntity()'s result without a cast.
-	virtual SdkWeapon *MyCombatWeaponPointer() { return 0; }
-
-	int m_nSdkPadding[ 6 ];
-};
-
 // --- the parallel hierarchy: four bases, the boundary last -------------------
 
 class SdkNetworkable                                    // ~ IServerNetworkable
@@ -333,12 +320,9 @@ public:
 	virtual ~SdkNetworkable() {}
 	virtual SdkHandleEntity *GetEntityHandle() = 0;
 
-	// IServerNetworkable really does declare this too, with the same signature
-	// as IServerUnknown's and the comment "Only used by game code" -- so a
-	// standalone entity's ONE override answers both, and resolving through the
-	// networkable is exactly as exposed to step 5 as resolving through the
-	// unknown. UTIL_Remove and the tools interface take this route.
-	virtual SdkBaseEntity *GetBaseEntity() = 0;
+	// IServerNetworkable declares this too, with the same signature as
+	// IServerUnknown's, so a standalone entity's ONE override answers both.
+	virtual SdkGameEntity *GetBaseEntity() = 0;
 
 	int m_nNetPadding[ 3 ];
 };
@@ -355,17 +339,26 @@ class SdkStandalone : public SdkServerEntity, public SdkNetworkable,
                       public SdkCollideable, public SdkGameEntity
 {
 public:
-	virtual SdkBaseEntity  *GetBaseEntity() { return 0; }
-	virtual SdkGameEntity  *GetGameEntity() { return this; }
+	virtual SdkGameEntity   *GetBaseEntity()   { return this; }
 	virtual SdkHandleEntity *GetEntityHandle() { return this; }
 
 	virtual int WhoAreYou() const { return 0x5A11D; }
 };
 
+// The world: in the entity list as an IServerEntity, with no entity face at
+// all. CWorld's GetBaseEntity() answers NULL, and that NULL is the partition's
+// other arm.
+class SdkWorld : public SdkServerEntity, public SdkNetworkable
+{
+public:
+	virtual SdkGameEntity   *GetBaseEntity()   { return 0; }
+	virtual SdkHandleEntity *GetEntityHandle() { return static_cast< SdkServerEntity * >( this ); }
+};
+
 // What the entity list holds and what CBaseHandle::Get() hands back: the
 // IHandleEntity view, and nothing else.
 static SdkHandleEntity *TableEntry( SdkStandalone *pEnt ) { return pEnt; }
-static SdkHandleEntity *TableEntry( SdkBaseEntity *pEnt )  { return pEnt; }
+static SdkHandleEntity *TableEntry( SdkWorld *pEnt )      { return static_cast< SdkServerEntity * >( pEnt ); }
 
 // THE KNOWN-GOOD CROSSING, and it is known-good because the COMPILER performs
 // it: from the concrete type, where the layout is a fact rather than an
@@ -466,274 +459,82 @@ TEST( HandleCrossGameEntity, NullIn_NullOut )
 	EXPECT_EQ( ( SdkGameEntity * )0, CrossToGame( 0 ) );
 }
 
-TEST( HandleCrossGameEntity, SdkEntityComesBackNull )
+TEST( HandleCrossGameEntity, TheWorldComesBackNull )
 {
-	// The other arm of the partition. A CBaseEntity is not on the boundary and
-	// says so with the same virtual, so the crossing needs no second rule — and
-	// when step 5 changes that NULL to `this`, this test changes with the
-	// hierarchy rather than the crossing.
-	SdkBaseEntity base;
-	EXPECT_EQ( ( SdkGameEntity * )0, CrossToGame( TableEntry( &base ) ) );
-}
-
-TEST( HandleCrossGameEntity, OnAnSdkEntityACastWouldHaveBeenRight )
-{
-	// Why the bug survived, stated as a test: for a hierarchy whose boundary is
-	// at offset zero the two answers coincide, and this whole suite would be
-	// vacuous if it were written against one. It is written against the
-	// standalone above for exactly that reason.
-	SdkBaseEntity base;
-	EXPECT_EQ( ( const void * )TableEntry( &base ),
-	           ( const void * )static_cast< SdkServerEntity * >( &base ) );
+	// The other arm of the partition. The world has no entity face and says so
+	// with the same virtual, so the crossing needs no second rule.
+	SdkWorld world;
+	EXPECT_EQ( ( SdkGameEntity * )0, CrossToGame( TableEntry( &world ) ) );
 }
 
 } // namespace
 
 // =============================================================================
-// The partition as a RESOLVER — SourceSharp_SDKEntityFromUnknown.
+// The partition as a RESOLVER — SourceSharp_SDKEntityFromNetworkable.
 //
-// The crossing above answers "where is this entity's game-entity view". This
-// answers the opposite question — "is this entity in the SDK's tree, and if so
-// where" — and it is the question 86 enumerated call sites ask by reading
-// GetBaseEntity() and comparing the answer against NULL.
+// "Is this entity in the SDK's tree, and if so where." On the server the
+// answer is no for every object since T1.3: a standalone is outside the SDK
+// (its GetBaseEntity() answers its face), and the world has no face at all.
+// shell_mapparse.cpp's CreateEntityByName asks this and frees what it made
+// when the answer is NULL, as it always has for a standalone.
 //
-// WHAT MAKES THIS SUITE NON-VACUOUS. Today GetBaseEntity() already answers NULL
-// for a standalone entity, so a resolver that asks the partition and one that
-// does not agree on every input, and a suite built on today's hierarchy would
-// pass with the partition line deleted. So the mock below is a standalone whose
-// GetBaseEntity() returns its own IGameEntity subobject. On that object the two
-// resolvers disagree, and the disagreement is the bug — printed as an address
-// rather than left as a vtable nobody can inspect.
-//
-// NOTHING IN THE TREE ANSWERS THAT WAY ANY MORE, and that is exactly why the
-// mock has to. `ss_step5_sim` used to make the live CStandaloneEntity do it and
-// was retired at plan_entity.md step 4g; the shape it simulated is still what
-// any future non-NULL GetBaseEntity would produce, and this suite is now the
-// only thing that would notice a resolver going back to asking the wrong arm.
-//
-// PROVEN RED. Deleting the `GetGameEntity() != 0` test from
-// SourceSharp_SDKEntityFromUnknown fails Step5StandaloneStillResolvesToNull,
-// and the message names the address the caller would have dispatched through.
+// WHAT KEEPS THIS NON-VACUOUS: the standalone's raw GetBaseEntity() is
+// non-NULL and at a different address from its networkable face, so a
+// resolver that stopped asking the partition, or a route that skipped
+// GetEntityHandle(), would hand that address back.
 // =============================================================================
 
 namespace
 {
 
-// A standalone entity AS IT WILL BE AT STEP 5: GetBaseEntity() no longer
-// answers NULL, it answers the IGameEntity view of the same object. Nothing
-// else about it changes — same bases, same order, same GetGameEntity().
-class SdkStandaloneStep5 : public SdkServerEntity, public SdkNetworkable,
-                           public SdkCollideable, public SdkGameEntity
-{
-public:
-	virtual SdkBaseEntity *GetBaseEntity()
-	{
-		return reinterpret_cast< SdkBaseEntity * >( static_cast< SdkGameEntity * >( this ) );
-	}
-	virtual SdkGameEntity   *GetGameEntity()   { return this; }
-	virtual SdkHandleEntity *GetEntityHandle() { return this; }
-
-	virtual int WhoAreYou() const { return 0x5A11D; }
-};
-
-static SdkBaseEntity *Resolve( SdkServerUnknown *pUnknown )
-{
-	return SourceSharp_SDKEntityFromUnknown< SdkServerEntity >( pUnknown );
-}
-
-TEST( SdkEntityResolver, NullIn_NullOut )
-{
-	EXPECT_EQ( ( SdkBaseEntity * )0, Resolve( 0 ) );
-}
-
-TEST( SdkEntityResolver, AnSdkEntityResolvesToItself )
-{
-	// The answer that must not change. Every caller of GetContainingEntity,
-	// CBaseEntity::Instance, gEntList.GetBaseEntity and EntityFromEntityHandle
-	// depends on this staying bit-identical to the raw call for the SDK's tree.
-	SdkBaseEntity base;
-	EXPECT_EQ( &base, Resolve( &base ) );
-	EXPECT_EQ( base.GetBaseEntity(), Resolve( &base ) );
-}
-
-TEST( SdkEntityResolver, TodaysStandaloneResolvesToNull )
-{
-	// True with or without the partition, because today's GetBaseEntity()
-	// already answers NULL. Recorded so the suite is honest about which of its
-	// cases can distinguish anything: this one cannot, and the next one can.
-	SdkStandalone standalone;
-	EXPECT_EQ( ( SdkBaseEntity * )0, Resolve( &standalone ) );
-	EXPECT_EQ( ( SdkBaseEntity * )0, standalone.GetBaseEntity() );
-}
-
-TEST( SdkEntityResolver, Step5StandaloneStillResolvesToNull )
-{
-	// THE ONE THAT MATTERS. At step 5 the raw call answers non-NULL and the
-	// resolver must still answer NULL, because a standalone entity is not in
-	// the SDK's tree and no amount of step 5 makes it one.
-	SdkStandaloneStep5 standalone;
-
-	EXPECT_EQ( ( SdkBaseEntity * )0, Resolve( &standalone ) )
-		<< "the resolver handed back " << ( const void * )Resolve( &standalone )
-		<< " for an entity that is not in the SDK's tree; the caller's NULL "
-		   "check will pass and it will dispatch through that address";
-}
-
-TEST( SdkEntityResolver, Step5RawGetBaseEntityIsTheHazard )
-{
-	// The premise, asserted rather than assumed: if this ever stopped being
-	// true the test above would pass while proving nothing, exactly as a suite
-	// written against today's hierarchy does.
-	SdkStandaloneStep5 standalone;
-
-	SdkBaseEntity *pRaw = standalone.GetBaseEntity();
-
-	EXPECT_NE( ( SdkBaseEntity * )0, pRaw )
-		<< "the step-5 mock still answers NULL, so this suite cannot tell a "
-		   "resolver that asks the partition from one that does not";
-
-	// And it is not merely non-NULL, it is a DIFFERENT ADDRESS from the one the
-	// handle table holds — the 24-byte delta the live crash printed in rdi.
-	EXPECT_NE( ( const void * )static_cast< SdkHandleEntity * >( &standalone ),
-	           ( const void * )pRaw )
-		<< "the mock's IGameEntity subobject is at offset zero, so the wrong "
-		   "pointer would coincide with the right one";
-}
-
-// The networkable face of the same object, which is a SEPARATE base and so a
-// separate function. If SourceSharp_SDKEntityFromNetworkable ever gets
-// "simplified" into a static_cast to the partition, this is what catches it:
-// the mock's IServerNetworkable and IServerEntity subobjects are at different
-// offsets, exactly as the real ones are.
-static SdkBaseEntity *ResolveNetworkable( SdkNetworkable *pNetworkable )
+static SdkGameEntity *ResolveNetworkable( SdkNetworkable *pNetworkable )
 {
 	return SourceSharp_SDKEntityFromNetworkable< SdkServerEntity >( pNetworkable );
 }
 
-// An SDK entity that is also networkable, so the resolver has a positive case
-// to answer as well as a negative one.
-class SdkNetworkedBaseEntity : public SdkBaseEntity, public SdkNetworkable
-{
-public:
-	virtual SdkBaseEntity   *GetBaseEntity()   { return this; }
-	virtual SdkGameEntity   *GetGameEntity()   { return 0; }
-	virtual SdkHandleEntity *GetEntityHandle() { return this; }
-};
-
 TEST( SdkEntityResolver, NetworkableNullIn_NullOut )
 {
-	EXPECT_EQ( ( SdkBaseEntity * )0, ResolveNetworkable( 0 ) );
+	EXPECT_EQ( ( SdkGameEntity * )0, ResolveNetworkable( 0 ) );
 }
 
-TEST( SdkEntityResolver, AnSdkEntityResolvesToItselfThroughTheNetworkable )
+TEST( SdkEntityResolver, AStandaloneIsNotAnSdkEntity )
 {
-	SdkNetworkedBaseEntity ent;
-	EXPECT_EQ( static_cast< SdkBaseEntity * >( &ent ),
-		ResolveNetworkable( static_cast< SdkNetworkable * >( &ent ) ) );
-}
+	SdkStandalone standalone;
 
-TEST( SdkEntityResolver, Step5StandaloneResolvesToNullThroughTheNetworkable )
-{
-	SdkStandaloneStep5 standalone;
-
-	// The premise: the two faces really are at different addresses, so the
-	// route through GetEntityHandle() is doing work rather than being a
-	// no-op that would pass either way.
+	// The premise: the raw accessor answers, and the two faces really are at
+	// different addresses, so the route through GetEntityHandle() is doing
+	// work rather than being a no-op that would pass either way.
+	EXPECT_NE( ( SdkGameEntity * )0, standalone.GetBaseEntity() )
+		<< "the standalone's GetBaseEntity() answers NULL, so this case cannot "
+		   "tell a resolver that asks the partition from one that does not";
 	EXPECT_NE( ( const void * )static_cast< SdkNetworkable * >( &standalone ),
 	           ( const void * )static_cast< SdkServerEntity * >( &standalone ) )
 		<< "the mock's two faces coincide, so this case cannot distinguish "
 		   "the crossing from a cast";
 
-	EXPECT_EQ( ( SdkBaseEntity * )0, ResolveNetworkable( &standalone ) );
+	EXPECT_EQ( ( SdkGameEntity * )0, ResolveNetworkable( &standalone ) )
+		<< "the resolver handed back " << ( const void * )ResolveNetworkable( &standalone )
+		<< " for an entity that is not in the SDK's tree";
 }
 
-// --- the WEAPON crossing, which is itself on the step-5 list ------------------
-//
-// handle_cross.h:70 is the last entry in nullflip_verbose.txt's server column,
-// and it belongs there: SourceSharp_CrossHandleToWeapon used to read
-// GetBaseEntity() and NULL-check the answer, so at step 5 a managed weapon in a
-// CHandle<CBaseCombatWeapon> slot would come back non-NULL and
-// MyCombatWeaponPointer() would dispatch through the wrong subobject -- which
-// is the exact bug the crossing exists to prevent, arriving through the
-// crossing.
-//
-// The weapon mocks at the top of this file have no partition to ask (they are
-// the CLIENT's shape), so this case is built on the step-5 standalone instead,
-// which does.
-
-class SdkWeapon : public SdkBaseEntity
+TEST( SdkEntityResolver, TheWorldIsNotAnSdkEntityEither )
 {
-public:
-	virtual SdkWeapon *MyCombatWeaponPointer() { return this; }
-};
-
-// A standalone entity at step 5 that ALSO answers MyCombatWeaponPointer, which
-// is what a managed weapon is: the pointer resolves, so only the partition can
-// stop it.
-class SdkStandaloneWeaponStep5 : public SdkStandaloneStep5
-{
-public:
-	virtual SdkWeapon *MyCombatWeaponPointer() { return 0; }
-};
-
-template< class TPartition >
-static SdkWeapon *CrossToWeapon( SdkHandleEntity *pHandleEntity )
-{
-	return SourceSharp_CrossHandleToWeapon<
-		SdkWeapon, TPartition, SdkServerUnknown >( pHandleEntity );
+	SdkWorld world;
+	EXPECT_EQ( ( SdkGameEntity * )0, ResolveNetworkable( &world ) );
 }
 
-TEST( SdkEntityResolver, TheWeaponCrossingAsksThePartitionToo )
+TEST( SdkEntityResolver, TheServerPartitionRecognisesAStandaloneAndNotTheWorld )
 {
-	SdkStandaloneWeaponStep5 standalone;
-
-	// Without the partition -- the client's shape, and what the server's used to
-	// be -- the step-5 value comes back non-NULL and the crossing goes on to
-	// call a virtual through it. Asserted so the case is known to be live.
-	EXPECT_NE( ( SdkBaseEntity * )0, standalone.GetBaseEntity() )
-		<< "the step-5 mock answers NULL, so this case proves nothing";
-
-	// With it, NULL, which is the answer every weapon handle has always got for
-	// an entity that is not on the SDK's tree.
-	EXPECT_EQ( ( SdkWeapon * )0,
-		CrossToWeapon< SdkServerEntity >( static_cast< SdkHandleEntity * >( &standalone ) ) );
-}
-
-TEST( SdkEntityResolver, TheWeaponCrossingStillFindsARealWeapon )
-{
-	// The answer that must not change. A partition that made everything NULL
-	// would pass the test above and break every weapon in the game.
-	SdkWeapon weapon;
-	EXPECT_EQ( &weapon,
-		CrossToWeapon< SdkServerEntity >( static_cast< SdkHandleEntity * >( &weapon ) ) );
-
-	SdkBaseEntity notAWeapon;
-	EXPECT_EQ( ( SdkWeapon * )0,
-		CrossToWeapon< SdkServerEntity >( static_cast< SdkHandleEntity * >( &notAWeapon ) ) );
-}
-
-TEST( SdkEntityResolver, TheServerPartitionRecognisesAStandaloneAndOnlyThat )
-{
-	// This test used to assert the OPPOSITE of half of itself: that
-	// SourceSharpNoPartition -- the tag the client passed when it had no
-	// GetGameEntity() to ask -- answered false for a standalone entity, which
-	// is the recorded absence of a check rather than a check. The tag is gone
-	// (Phase 13's revised step 1), so what is left is the contrast that was
-	// always the point: the partition says yes to exactly the objects that are
-	// not on the SDK's tree, and no to the ones that are.
-	SdkStandaloneWeaponStep5 standalone;
-	SdkWeapon weapon;
+	SdkStandalone standalone;
+	SdkWorld world;
 
 	EXPECT_TRUE( SourceSharp_Partition< SdkServerEntity >::IsOutsideTheSdk(
 		static_cast< SdkServerUnknown * >( &standalone ) ) )
-		<< "the partition failed to recognise a standalone entity -- and this "
-		   "one is a STEP-5 standalone, so GetBaseEntity() cannot be what "
-		   "answered";
+		<< "the partition failed to recognise a standalone entity";
 
 	EXPECT_FALSE( SourceSharp_Partition< SdkServerEntity >::IsOutsideTheSdk(
-		static_cast< SdkServerUnknown * >( &weapon ) ) )
-		<< "the partition called an SDK entity foreign; every weapon handle in "
-		   "the game would come back NULL";
+		static_cast< SdkServerUnknown * >( &world ) ) )
+		<< "the partition called the world a standalone; it has no entity face";
 }
 
 TEST( SdkEntityResolver, TheDeltaIsWhatTheLiveCrashSaw )
@@ -742,14 +543,14 @@ TEST( SdkEntityResolver, TheDeltaIsWhatTheLiveCrashSaw )
 	// IGameEntity view, PAST the handle table's address for the same object.
 	// The number is the layout's, not this test's; what is asserted is that
 	// there IS one, so the shape being reproduced is the shape that crashed.
-	SdkStandaloneStep5 standalone;
+	SdkStandalone standalone;
 
 	const long delta = ByteDelta( standalone.GetBaseEntity(),
 	                              static_cast< SdkHandleEntity * >( &standalone ) );
 
 	EXPECT_GT( delta, 0 )
-		<< "the step-5 value coincides with the handle table's address; the "
-		   "live hazard was a pointer PAST it";
+		<< "the face coincides with the handle table's address; the live "
+		   "hazard was a pointer PAST it";
 }
 
 } // namespace
@@ -1036,7 +837,7 @@ TEST( ClientSdkEntityResolver, TheWeaponCrossingAsksThePartitionToo )
 //     103 server / 129 client
 //   ... SourceSharp_CrossHandleToGameEntity        102 server /   0 client
 //   ... SourceSharp_CrossHandleToClientGameEntity    0 server / 129 client
-//   ... SourceSharp_SDKEntityFromNetworkable         1 server /   0 client
+//   ... SourceSharp_SDKEntityFromNetworkable         0 server /   0 client (T2)
 //
 // The ruling was taken with an instrument that asks a HEADER which objects
 // import its symbols. A header has no object and every entity here is an inline
@@ -1090,11 +891,10 @@ const LiveCrossing_t kLiveCrossings[] = {
 	// entity list's resolver. That header is compiled by nothing since
 	// plan_server_novalve.md P5 and left the farm in P6; the row is retired.)
 
-	// And the one SHIM translation unit that names a crossing directly rather
-	// than through a prelude header, so the pin does not rest entirely on
-	// stock's headers.
-	{ "SourceSharp_SDKEntityFromNetworkable", "sourcesharp/game/server/shell_mapparse.cpp",
-	  "SourceSharp_SDKEntityFromNetworkable< IServerEntity >( pNetwork )" },
+	// (shell_mapparse.cpp's SourceSharp_SDKEntityFromNetworkable row went with
+	// CreateEntityByName, its only caller, in plan_server_native_v2 T2: no
+	// server object called that function, and the resolver answers NULL for
+	// every server object anyway. The mock facts above still drive it.)
 };
 
 const size_t kNumLiveCrossings =

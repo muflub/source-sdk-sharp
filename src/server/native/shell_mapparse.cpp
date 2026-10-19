@@ -74,8 +74,8 @@
 // `_spawned` list. That move landed at plan_entity.md step 2d. So the ~350 is a
 // DELETE of the native duplicate, which is what happened above, and what is left
 // here is the runtime single-block path that MapSpawner does not own:
-// shell_entityapi.cpp's point_template instance and shell_standalone.cpp's
-// cs_standalone_mapspawn -- both from PARSED pairs since plan_server_novalve.md
+// shell_entityapi.cpp's point_template instance (and, until plan_server_native_v2
+// T3, the debug cs_standalone_mapspawn) -- from PARSED pairs since plan_server_novalve.md
 // P5, which also deleted the text parser and took this file onto the R5
 // include set (no cbase.h, no game/ headers).
 // FreeContainingEntity WENT TO ITS ONE CALLER, shell_gameents.cpp's
@@ -97,107 +97,14 @@
 #include <vector>
 
 
-// Declared rather than included, because shell_standalone.h is the parallel
-// hierarchy's own header and this file has no other business with it. One
-// function, called from one place -- see MapEntity_SpawnPendingNonBaseEntities.
-void StandaloneHierarchy_ResolveParentNames();
-
-// Map entities that are not CBaseEntity, parsed and keyed but not yet spawned.
-// Drained by MapEntity_SpawnPendingNonBaseEntities, which its one caller runs
-// after the block it just parsed.
-//
-// A LIST OF ENTITIES AND NOTHING ELSE NOW. It used to be a struct of four --
-// the entity, its engine-facing IServerEntity, and a pointer and length into
-// the BSP entity lump -- because a native point_template pass read the classname
-// and transform off the second and copied the map TEXT off the other two. That
-// pass is MapSpawner's (see MapEntity_TemplateCapture below), and the three
-// extra fields had no reader left: MapEntity_PendingNonBaseEntity and
-// MapEntity_RecordPendingNonBaseMapData were their only accessors and both had
-// zero importers on the link line.
-static std::vector< IGameEntity * > g_PendingNonBaseSpawns;
-extern edict_t *g_pForceAttachEdict;
-
-// creates an entity by string name, but does not spawn it
-IGameEntity *CreateEntityByName( const char *className, int iForceEdictIndex )
-{
-	if ( iForceEdictIndex != -1 )
-	{
-		g_pForceAttachEdict = engine->CreateEdict( iForceEdictIndex );
-		if ( !g_pForceAttachEdict )
-			Error( "CreateEntityByName( %s, %d ) - CreateEdict failed.", className, iForceEdictIndex );
-	}
-
-	// worldspawn CANNOT COME BACK THROUGH THIS FUNCTION, and saying so here is
-	// cheaper than the alternative.
-	//
-	// The return type is CBaseEntity * and the world is not one
-	// (plan_cworld_trace.md T3), so the resolution below would answer NULL and
-	// the object would be destroyed on the next line -- after its constructor
-	// had already claimed the world singleton and attached EDICT 0. The caller
-	// would get NULL, which is what it gets now, and the level would quietly
-	// have lost its world.
-	//
-	// MapEntity_CreateWorld is the one legitimate creation and it goes through
-	// CreateNetworkableEntityByName, which neither resolves nor destroys.
-	// CWorldFactory refuses a second construction as well; this is the earlier
-	// and more specific of the two refusals, and it names the caller's mistake
-	// rather than the symptom.
-	if ( ss::FStrEq( className, "worldspawn" ) )
-	{
-		Warning( "[SourceSharp] CreateEntityByName( \"worldspawn\" ): the world is not a "
-		         "CBaseEntity and cannot be returned by this function. Use "
-		         "GetWorldEntity(), or CreateNetworkableEntityByName if you mean to "
-		         "build one.\n" );
-		return NULL;
-	}
-
-	IServerNetworkable *pNetwork = ss::EntityFactoryDictionary()->Create( className );
-	g_pForceAttachEdict = NULL;
-
-	if ( !pNetwork )
-		return NULL;
-
-	// NOT asserted any more.
-	//
-	// The factory returns IServerNetworkable, which is the engine's own type
-	// and has never required a CBaseEntity — so a class registered by this mod
-	// may legitimately answer NULL here. The assert claimed otherwise and would
-	// fire on a correct answer.
-	//
-	// A caller that wants such an entity uses CreateNetworkableEntityByName
-	// below, which hands back what the factory actually made. This one keeps
-	// its signature and its meaning: the CBaseEntity, or nothing.
-	IGameEntity *pEntity = SourceSharp_SDKEntityFromNetworkable< IServerEntity >( pNetwork );
-
-	// And nothing means NOTHING, including nothing left behind.
-	//
-	// Returning NULL while keeping the object leaks one entity per call, and
-	// the call used to happen more often than it looked: MapEntity_PrecacheEntity
-	// created every entity in the map here, precached it, and removed it —
-	// through the pointer this function returns. An entity it could not name
-	// was created, never precached, and never removed, so every map entity on
-	// the parallel hierarchy existed twice for the whole level: once as the
-	// real one and once as a ghost that answered to the same name.
-	//
-	// It read as the map having double the entities it has, which is exactly
-	// what it was. That caller is gone with the rest of the dead band (Phase
-	// 2c) and the release stays, because the two live callers -- ParseEntity's
-	// factory arm and EntityCreate_NoSpawn -- leak exactly the same way without
-	// it.
-	if ( !pEntity )
-	{
-		ss::EntityFactoryDictionary()->Destroy( className, pNetwork );
-		return NULL;
-	}
-
-	// stock's `if ( g_pScriptVM ) g_VScriptGameEventListener.RunGameEventCallbacks(
-	// "OnEntityCreated", ... )` stood here inside a `#if 0`. VScript is not in
-	// this build at all -- vscript_server.h left this file's include list with
-	// it -- and a `#if 0` around a call to something that does not exist is
-	// dead text rather than a switched-off feature.
-
-	return pEntity;
-}
+// The pending queue of non-CBaseEntity map entities went in
+// plan_server_native_v2 T2. CreateFromKeys pushed onto it and its one live
+// caller, the point_template path, claimed the entity straight back; the
+// managed map load never queued here (0 entries over two dm_lockdown loads).
+// Each caller now spawns what it created.
+// g_pForceAttachEdict went with baseentity_statics.cpp
+// (plan_server_native_min P1): stock's PostConstructor read it to attach the
+// forced edict, and no CBaseEntity::PostConstructor exists to read it here.
 
 //-----------------------------------------------------------------------------
 // The same creation, without discarding an entity that is not a CBaseEntity.
@@ -274,18 +181,11 @@ IGameEntity *CreateEntityByNameEither( const char *className, IGameEntity **ppOu
 //-----------------------------------------------------------------------------
 IGameEntity *CreateGameEntityByName( const char *className, IServerEntity **ppOutServerEntity )
 {
-	IGameEntity *pBaseEntity = NULL;
-	IGameEntity *pGameEntity = CreateEntityByNameEither( className, &pBaseEntity, ppOutServerEntity );
-	if ( pGameEntity )
-		return pGameEntity;
-
-	if ( pBaseEntity )
-	{
-		Warning( "'%s' is a CBaseEntity, not an IGameEntity; removed\n", className );
-		UTIL_Remove( pBaseEntity );
-	}
-
-	return NULL;
+	// No base-entity out-parameter: CreateEntityByNameEither then releases
+	// anything that is not on the parallel hierarchy itself. Its CBaseEntity
+	// arm, and the UTIL_Remove it called, went in plan_server_native_v2 T2: a
+	// standalone's handle answers first, so no entity reached it.
+	return CreateEntityByNameEither( className, NULL, ppOutServerEntity );
 }
 
 
@@ -331,9 +231,9 @@ bool MapEntity_SpawnWorld( const char *const *ppKeys, const char *const *ppValue
 
 //-----------------------------------------------------------------------------
 // A standalone entity from pairs that arrive parsed (plan_server_novalve.md
-// P5): create, key each pair in order, queue. What the text parse's non-base
-// arm did, without the text (that parse is gone). Native carries out what the
-// caller decided; it reads no text.
+// P5): create and key each pair in order. The caller places and spawns it.
+// What the text parse's non-base arm did, without the text (that parse is
+// gone). Native carries out what the caller decided; it reads no text.
 //-----------------------------------------------------------------------------
 IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys,
                                        const char *const *ppValues, int nKeys )
@@ -348,123 +248,7 @@ IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const
 	for ( int i = 0; i < nKeys; i++ )
 		StandaloneEntity_ApplyMapKey( pGameEntity, ppKeys[ i ], ppValues[ i ] );
 
-	g_PendingNonBaseSpawns.push_back( pGameEntity );
 	return pGameEntity;
-}
-
-//-----------------------------------------------------------------------------
-// Spawns the map's non-CBaseEntity entities.
-//
-// Called last, and deliberately: everything a map entity might refer to by name
-// now exists. These take no part in the hierarchical ordering, whose spawn list
-// is typed to the SDK's own entity handle and therefore CBaseEntity-only — so
-// they cannot be parented and cannot be told to spawn before or after a
-// particular other entity. They spawn together, after everything else.
-//
-// (The handle's SPELLING is deliberately not written out, here or anywhere else
-// in this file. typed_handle_sweep_test sweeps every compiled shim source for
-// it, raw, comments included -- plan_entity.md 1e: the shim holds CBaseHandle
-// and resolves through the slot table at the use site. This file was stock's
-// until plan_shim.md Phase 2c relocated it, so the sweep had never read it
-// before and caught the inherited mention on the first run.)
-//
-// Exposed rather than inlined into the loop so that anything parsing a single
-// block — a test, a spawner — can finish the job the same way the map loader
-// does.
-//-----------------------------------------------------------------------------
-void MapEntity_SpawnPendingNonBaseEntities()
-{
-	// THE BATCH IS TAKEN BEFORE ANY OF IT SPAWNS, and the queue is emptied
-	// before any of it spawns either. Spawning can BOTH add to this queue and
-	// take from it -- a point_template instance parses a fresh block, queues the
-	// entity and claims it straight back (shell_entityapi.cpp:1979) -- so
-	// walking a live list by index is a batch whose membership changes under it.
-	// The template pass one screen up already collects first for exactly this
-	// reason ("walking that list while it shrinks would skip entries").
-	//
-	// It was index-over-a-live-list before plan_entity.md's Phase 4 exit and is
-	// a snapshot now. The observable behaviour is the same: the claim that
-	// shrinks the queue is on the same line as the add that grew it.
-	//
-	// NO SPAWN-PRIORITY ORDERING HERE, AND THAT IS MEASURED RATHER THAN
-	// FORGOTTEN. Stock breaks CompareSpawnOrder's ties with a thirteen-classname
-	// list, and eleven of those thirteen are managed entities -- but the managed
-	// map load does not come through this function at all. MapSpawner.SpawnMapText
-	// splits the lump and keeps every block whose class the managed registry
-	// owns, handing native only the residue: 586 of dm_lockdown's 605 blocks are
-	// managed, and over two map loads in one process this queue produced ZERO
-	// entries (the crossing counter for the slot that used to be asked here read
-	// 0 against ServerLevelInit 2). The ordering lives in MapSpawner, which is
-	// where the spawn is; a slot asked here would be dead ABI surface.
-	std::vector< IGameEntity * > batch;
-	batch.swap( g_PendingNonBaseSpawns );
-
-	for ( IGameEntity *pEntity : batch )
-		StandaloneEntity_PlaceAndSpawn( pEntity, NULL, NULL );
-
-	// A THIRD pass, and it has to be a third one.
-	//
-	// A parentname is known from the moment the block is parsed, but the offset a
-	// child keeps from its parent is measured from where the two of them ended up
-	// — and an entity does not have that until its own Spawn has run. So the names
-	// were recorded during the parse and are only turned into links here, once
-	// every standalone entity in the map is standing where it belongs.
-	//
-	// Which also means the loop above no longer decides anything about ordering
-	// that parenting depends on. The comment on this function says these entities
-	// cannot be parented; for a standalone child of a standalone parent that is no
-	// longer true, and this is the line that changed it.
-	StandaloneHierarchy_ResolveParentNames();
-}
-
-
-//-----------------------------------------------------------------------------
-// Turns every entity of a name into a template -- and there is no native window
-// for it to do that IN, so it answers nothing.
-//
-// THAT IS THE RIGHT ANSWER AND NOT A STUB. A template claims its sources
-// between the map's entities being created and being spawned. That window was
-// three file-scope statics here, opened and shut by MapEntity_SpawnMapTemplates
-// from inside MapEntity_ParseAllEntities -- and MapEntity_ParseAllEntities has
-// no caller (0 importers on the link line, and a counter on it read 0 over two
-// dm_lockdown loads in one process). So the window has never once been open in
-// this build and every path through the old body returned 0 at its first line.
-//
-// THE WINDOW IS MapSpawner'S. SourceSharp.Server/MapSpawner.cs:514 is Capture,
-// and TemplateStore.MapWindow is the delegate it installs for exactly the span
-// between its create pass and its spawn pass. What is left for this function is
-// the RUNTIME path -- `ent_create point_template`, with no map being parsed --
-// and TemplateStore.Capture's own comment says what belongs there: "stock's
-// answer there is 'nothing', which is what the engine's own TemplateCapture
-// gives." This is that engine-side TemplateCapture.
-//
-// KEPT RATHER THAN DELETED because SourceSharp_TemplateCapture
-// (shell_entityapi.cpp:1791) is an ABI entry point and calls it, and because a
-// symbol that vanishes is a link error somebody fixes by writing a new empty
-// body -- which is the silent no-op plan_entity.md 7 forbids. This one says
-// what it is.
-//-----------------------------------------------------------------------------
-int MapEntity_TemplateCapture( const char *pszSourceName, bool bRemoveSources,
-                               int *pOutIndices, float *pOutOriginsXYZ,
-                               float *pOutAnglesPYR, int nMax )
-{
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
-
-bool MapEntity_ClaimPendingNonBaseEntity( IGameEntity *pEntity )
-{
-	// The FIRST match only, as the loop this replaced removed: nothing stops the
-	// same entity being queued twice, so erase-remove would not be the same.
-	std::vector< IGameEntity * >::iterator it =
-		std::find( g_PendingNonBaseSpawns.begin(), g_PendingNonBaseSpawns.end(), pEntity );
-
-	if ( it == g_PendingNonBaseSpawns.end() )
-		return false;
-
-	g_PendingNonBaseSpawns.erase( it );
-	return true;
 }
 
 //-----------------------------------------------------------------------------

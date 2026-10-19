@@ -783,12 +783,14 @@ TEST( CppAliasLane1Scanner, TheEmptyBodyTestAnswersBothWays )
 	// side, which is the half that catches a matcher answering TRUE for
 	// everything -- so those two are the ones to guard.
 	//
-	// AND THAT ONE WENT IN THE SERVER GC CULL (2026-10-01), so the TRUE case
-	// is now a function the tree really has with an empty body by design:
-	// shell_absent.cpp's DrawMessageEntities, whose message list is always
-	// empty (the managed point_message draws itself).
-	EXPECT_TRUE( BodyAfterIsEmpty( "sourcesharp/game/server/shell_absent.cpp",
-		"void DrawMessageEntities()" ) );
+	// AND THAT ONE WENT IN THE SERVER GC CULL (2026-10-01), and its successor,
+	// shell_absent.cpp's DrawMessageEntities, went in plan_server_native_min
+	// P1. Its successor, CWorld::RegisterSharedEvents, went in
+	// plan_server_native_v2 T2. The TRUE case is now shell_gametags.cpp's
+	// CServerGameTags::GetTaggedConVarList: the engine calls it, and its body
+	// is prose only, because each tag is declared on its convar in C#.
+	EXPECT_TRUE( BodyAfterIsEmpty( "sourcesharp/game/server/shell_gametags.cpp",
+		"void CServerGameTags::GetTaggedConVarList( KeyValues *pCvarTagList )" ) );
 
 
 	// FALSE: a function in the SAME FILE with code in it, and the row is

@@ -133,7 +133,30 @@ public partial class EngineApiCensusTests
     // player on this team" store the managed ITeams hands down, server-only
     // -> 231 (277 at the lane's base; re-counted on the rebase onto main
     // 7532a33ff). Measured.
-    private const int ServerOnly = 231;
+    // plan_server_native_v2 T2 (2026-10-18): EntityDissolve, a refusal no
+    // managed code called, deleted with its slot -> 230. Measured.
+    // Then eleven player/inventory slots whose bodies were constants; the
+    // constants are EngineBinding's now -> 219. Measured.
+    // Then sixteen movement and entity slots likewise -> 203. Measured.
+    // Then EntityIgnite, ShootGib, the three FireEffect refusals (no caller)
+    // and TemplateCapture (a constant, EngineBinding's now) -> 197. Measured.
+    // Then nine more: FindBaseEntityByName, PurgeMapRefs, CleanupDeleteList,
+    // the three retired movers, the two SDK-player steps and the dead
+    // PlayerSetSoundscape -> 188. Measured.
+    // Then the fifteen no-op weapon slots (IShimWeaponsServer, which left
+    // with them; the server binds IShimWeapons itself) -> 173. Measured.
+    // plan_server_native_v2 T2: IShimDamage's RadiusDamage and ExplosionDamage,
+    // no managed caller (173 - 2 = 171).
+    // plan_server_native_v2 T2: BloodDecal, the decal managed BloodDecals
+    // paints now (171 - 1 = 170).
+    // plan_server_native_v2 T3: EventCreate, EventFire and EventFree folded
+    // through IGameEventManager2's forwarders (170 - 3 = 167).
+    // plan_server_native_v2 T3: StringTableCreate and StringTableAddString
+    // folded (ForwardedStringTables; 167 - 2 = 165).
+    // plan_server_native_v2 T3: five IVEngineServer one-call slots folded
+    // (GetPlayerUserId, ExecuteServerCommand, PlayerSetViewEntity,
+    // PlayerBoxInPvs, EngineLightStyle; 165 - 5 = 160).
+    private const int ServerOnly = 160;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -273,7 +296,11 @@ public partial class EngineApiCensusTests
     // The client physics leftovers (2026-10-18): PhysicsClientEnvironment and
     // PhysicsClientCollisionEvents went (managed holds the level's environment;
     // fork physics.cpp's g_Collisions left client.so): 238 - 2 = 236.
-    private const int ClientOnly = 236;
+    // plan_server_native_v2 T2: EntitySetSkin is client-only (the server's
+    // body was empty): 238 + 1 = 239.
+    // plan_server_native_v2 T2: RegisterAmmoType is client-only (239 + 1 = 240).
+    // Combined at the rebase onto the forwarders main: 236 + 2 = 238.
+    private const int ClientOnly = 238;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).
@@ -283,7 +310,12 @@ public partial class EngineApiCensusTests
     // C9: IShimEngine's FilesSizeOnPath and FilesReadOnPath (57 + 2 = 59).
     // studio.cpp's eviction (2026-10-18): IShimModels' ModelDescriptor retired,
     // the descriptor read from the managed header (59 - 1 = 58).
-    private const int BothSides = 58;
+    // plan_server_native_v2 T2: EntitySetSkin left for the client (59 - 1 = 58).
+    // plan_server_native_v2 T2: RegisterAmmoType left for the client and
+    // RegisterWeaponType went (58 - 2 = 56).
+    // plan_server_native_v2 T3: the four shared StringTable* slots folded
+    // (55 - 4 = 51).
+    private const int BothSides = 51;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

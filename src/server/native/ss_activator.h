@@ -95,7 +95,7 @@
 template < class T > class CHandle;
 
 #include "igameentity.h"
-class IGameEntity;
+#include "igameentity_fwd.h"
 
 //-----------------------------------------------------------------------------
 // The entity that caused this, on whichever hierarchy holds it.

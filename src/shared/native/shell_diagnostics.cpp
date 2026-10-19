@@ -256,9 +256,9 @@ int32_t SourceSharp_ClientNotShipped( int32_t iIndex, char *pOutName, int32_t nN
 	if ( iIndex >= 0 && iIndex < ledger.NameCount() )
 	{
 		if ( pOutName && nNameBytes > 0 )
-			V_strncpy( pOutName, ledger.NameAt( iIndex ) ? ledger.NameAt( iIndex ) : "", nNameBytes );
+			ss::StrCopy( pOutName, ledger.NameAt( iIndex ) ? ledger.NameAt( iIndex ) : "", nNameBytes );
 		if ( pOutReason && nReasonBytes > 0 )
-			V_strncpy( pOutReason, ledger.ReasonAt( iIndex ) ? ledger.ReasonAt( iIndex ) : "", nReasonBytes );
+			ss::StrCopy( pOutReason, ledger.ReasonAt( iIndex ) ? ledger.ReasonAt( iIndex ) : "", nReasonBytes );
 		if ( pOutCount )
 			*pOutCount = ledger.CountAt( iIndex );
 	}

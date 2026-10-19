@@ -294,8 +294,10 @@ TEST( ClientPchPrelude, EveryTuThatNamesASourceTypeIncludesASourceHeaderOfItsOwn
 	// A floor against a walk that stopped early, not a target: the port shrinks
 	// it. 196 checked at lane ui's rebase onto client-novalve 26adc6bf (debug),
 	// after C3 evicted the stock viewport panels, clientmode_shared, vgui_int
-	// and the voice manager; the two DLLs compile 310 TUs there.
-	EXPECT_GT( nChecked, 150 )
+	// and the voice manager; the two DLLs compile 310 TUs there. 150 checked at
+	// plan_server_native_v2 T3 (the shrink the comment above expects), so the
+	// floor is 120.
+	EXPECT_GT( nChecked, 120 )
 		<< "only " << nChecked << " translation units were checked, and the two "
 		   "game DLLs compile more than 300 between them -- a number this low "
 		   "means the walk stopped early rather than that the work is done";

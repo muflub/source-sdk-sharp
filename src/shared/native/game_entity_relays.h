@@ -42,7 +42,7 @@
 
 #include "basehandle.h"
 
-class IGameEntity;
+#include "igameentity_fwd.h"
 
 //-----------------------------------------------------------------------------
 // TWO ARMS, AND THE UNARMED ONE IS A TEMPLATE. Read this before adding a relay.

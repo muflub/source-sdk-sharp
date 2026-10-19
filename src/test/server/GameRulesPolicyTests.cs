@@ -166,7 +166,9 @@ public class GameRulesPolicyTests
         // about: fall damage is a per-player answer and could never have become
         // a table read. It still is one -- MoveMath.FallDamage, inside the
         // managed movement loop, handed the fall velocity that armed the call.
-        foreach (string method in new[] { "ClientConnected", "PlayerRelationship" })
+        // PlayerRelationship went in plan_server_native_v2 T2: it was not an
+        // IGameRules member and nothing native called it.
+        foreach (string method in new[] { "ClientConnected" })
         {
             string body = Body(cpp, "CSourceSharpGameRules::" + method + "(");
 

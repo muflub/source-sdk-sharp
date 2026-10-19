@@ -1,0 +1,533 @@
+# server.so: what is left, and how it leaves (v2)
+
+Uncommitted draft (repo rule: plans wait for user review). Base: main
+42b718990 (2026-10-18). Supersedes the inventory, per-file verdicts and
+phases of `plan_server_native_min.md` (2026-10-11, base baaebbe6a), whose
+ledger (`server_native_audit.tsv`), recipes (§8, A-G) and six user rulings
+stay in force and are referenced here, not repeated. Every number below was
+measured this session at 42b718990 with the command named beside it; the
+fork was clean after every run.
+
+**Asked (user, 2026-10-18):** what code is left in server.so, and a plan to
+remove, port or reduce it; server.so should only ever include public Valve
+headers, and, asked mid-audit, whether it compiles without the
+`patches/source-sdk-2013/` series.
+
+## 0. Where the 2026-10-11 plan stands
+
+Not started, except the lane it declared out of scope. Of its P0-P4 nothing
+landed: no `tools/server-native-scope` check, no `docs/server-native-ratchet.tsv`,
+and every whole-file deletion it named in §3 is still on the link
+(`collisionproperty.cpp`, `shell_restoreentities.cpp`, `shell_playerslots.cpp`,
+`shell_playerlocaldata.cpp`, `sendproxy.cpp`, `dt_utlvector_common.cpp`,
+`shell_gamedll_convars.cpp`, `baseentity_statics.cpp`, `shell_absent.cpp`,
+`shell_playerinfo.cpp`, `plugin_check.cpp`, `shell_te_forwards.cpp`,
+`shell_stringtables.cpp`; checked by path this session). What did land since
+baaebbe6a and changed the server link: physics and bones to managed
+(`plan_physics_bones_native_zero`, DONE 2026-10-12: `physics_shared.cpp`,
+`bone_setup.cpp`, `bone_library.cpp`, `studio_sequence_timing.cpp` off the
+link), the mathlib port moved to `src/shared/native` for both DLLs (C9), the
+engine forwarders (`libss_fwd_server.so`), `entity_bases.cpp` deleted, and
+the two random-port TUs moved client-only.
+
+## 1. Inventory at 42b718990
+
+Instruments: `python3 tools/cmakegraph.py objects server --config debug`
+(the link edge, 123 objects), `size -B` over those objects and the deployed
+`.so`, `ninja -C farm/debug/build -t deps` over the 123 objects (headers),
+`nm -g` over the objects (who imports whom), `tools/physics-scope/fnmap`
+over every TU joined against the 2026-10-11 ledger, `make debug` and
+`make release` run in this checkout at the tip, and a `-fsyntax-only` trial
+of every TU's own compile command against the pristine upstream clone
+(`../source-sdk-2013-valve` at `valve-sdk.lock` 22288b91).
+
+| what | number |
+|---|--:|
+| TUs on the link edge | 123: 79 `src/server/native` + 44 `src/shared/native`; 24 are debug-only (`server_sourcesharp_debug_sources`) |
+| raw `.cpp` lines | 58,241 (36,040 server + 22,201 shared-on-the-server-list) |
+| code lines (comments and blanks stripped) | 25,345; 1,369 debug-only; **23,976 compiled into release** |
+| our headers the objects reach | 171 files, 36,668 lines: 97 shared (22,966), 71 server (10,523), `src/host/native/sourcesharp.h` (2,824, the ABI data), `engineabi/saverestore.h` (240), fwd (115) |
+| fork headers the objects reach | **153 files, every one under `src/public/`, 63,105 lines**; 11 of them carry hunks from patch 0001 (below); 3 more are OUR files served at `public/` paths (`igameentity.h` 301, `entity_funcslot.h` 109, `chain_state_notify.h` 86) |
+| what server.so links | `libmanaged_host.so`, `libss_fwd_server.so`, libc/m/dl/pthread/uuid. No Valve archive (`cmakegraph.py libs server`) |
+| exports | one: `CreateInterface` (`nm -D`). It serves 10 interface names (`shell_factory.cpp` `kExposed[]`): ServerGameDLL, ServerGameEnts, ServerGameClients ×3 versions, ServerGameTags, PlayerInfoManager, PluginHelpersCheck, ServerDllSharedAppSystems, GameMovement |
+| managed→native surface | 290 rows for the server in `docs/engineapi-areas.tsv` (231 `server` + 59 `both`) across 38 `IShim*` areas; 505 `SourceSharp_*` bodies in the server TUs behind them (grep); none exported |
+| native→managed surface | 20 server-side interfaces in `docs/managed-interfaces.tsv` (IManagedRuntimeServer 29 methods, IManagedClients 15, IManagedSoundController 13, IManagedHierarchy 11, IManagedEntities 8, ...). 7 are managed-built Valve-layout vtables today (IMotionEvent, IPhysicsCollisionEvent, IPhysicsCollisionSolver, IPhysicsConstraintEvent, IPhysicsObjectEvent, IVPhysicsKeyHandler, IWakeProbe) |
+| debug `server.so` | `.text` 939,083 B (objects' `.text` sum before GC 1,126,796; debug-only objects 86,287); file 6,594,672 |
+| release `server.so` | **`.text` 403,711 B, file 601,568** (`make release` this session; the previous binary was 2026-10-03's) |
+
+The 11 patched public headers and how many of the 123 objects reach each
+(`ninja -t deps`): `tier1/utlblockmemory.h` 92, `datamap.h` 76,
+`iserverunknown.h`/`iservernetworkable.h`/`iserverentity.h` 73,
+`gametrace.h` 68, `dt_send.h` 49, `eiface.h` 48, `networkvar.h` 27,
+`isaverestore.h` 1 (`world_adapter.cpp`), `haptics/haptic_utils.h` 1
+(`sound_emitter.cpp`). Patches 0002-0005 touch nothing server.so reads.
+
+### 1.1 The biggest objects (debug `.text`, code lines, 2026-10-11 verdict lines where the ledger row joined)
+
+| `.text` B | code | object | ledger lines by verdict (joined rows only) |
+|--:|--:|---|---|
+| 83,604 | 898 | sourcesharp_gamesystem.cpp | HOST 256, THUNK 143, OUT 133, MOVE 73, DELETE 51 |
+| 48,173 | 888 | shell_standalone_base.cpp | OUT 438, MOVE 182, LAYOUT 81, THUNK 36, DELETE 16 |
+| 48,030 | 265 | shell_standalone_class.cpp | OUT 45, REG 29 (the factory and send tables) |
+| 46,592 | 726 | shell_standalone_player.cpp | MOVE 175, OUT 147, THUNK 51, LAYOUT 46, 96 unruled (ShadowFacts etc., new since) |
+| 38,423 | 227 | mathlib_port.cpp | unruled (the C9 port; substrate) |
+| 36,290 | 978 | studio.cpp | OUT 395, 211 unruled; **imported by model_descriptor.cpp only (8 symbols)** |
+| 35,604 | 897 | shell_worldquery.cpp | MOVE 418, OUT 235, FOLD 104, DELETE 83 |
+| 33,391 | 849 | sound_emitter.cpp | ledger rows hand-spelled (MOVE-dominant per the old §3) |
+| 30,612 | 379 | shell_tempents.cpp | MOVE 232, LAYOUT 40; **235 KB of `.bss`** (the TE pool) |
+| 28,558 | 880 | shell_entityapi.cpp | MOVE 374, OUT 218, DELETE 130, FOLD 47, LAYOUT 47 |
+| 26,555 | 788 | shell_movement.cpp | hand-spelled rows (THUNK/OUT-dominant, MOVE 90, DELETE 76 per old §3) |
+| 24,863 | 344 | shell_soundenvelope.cpp | hand-spelled (MOVE-dominant) |
+| 23,618 | 175 | shell_playerlocaldata.cpp | MOVE 19; **DT_Local: no server object imports its table** |
+| 17,670 | 2,194 | collisionutils.cpp | never ruled; **one symbol imported, `IsBoxIntersectingSphere`, by shell_worldquery.cpp** |
+| 16,833 | 320 | shell_savegame.cpp | MOVE 193, FOLD 36 |
+| 16,803 | 398 | world_adapter.cpp | MOVE 135, LAYOUT 93 |
+| 15,711 | 61 | shell_areaportal.cpp | MOVE 26, FOLD 16, OUT 10 |
+| 14,765 | 134 | shell_shared.cpp | hand-spelled (DELETE-dominant per old §3) |
+| 14,661 | 452 | shell_standalone.cpp | DEBUG 182, REG 150 |
+| 13,830 | 128 | shell_gameevents.cpp | FOLD 58, OUT 40 |
+| 13,769 | 462 | convar_port.cpp | hand-spelled (THUNK/REG: engine ABI) |
+| 13,662 | 565 | shell_diagnostics.cpp | DEBUG 274, HOST 209 |
+| 13,189 | 509 | shell_gamedll.cpp | 55 IServerGameDLL slots, 30 pure forwards |
+| 12,313 | 340 | shell_gameclients.cpp | THUNK 139, MOVE 102, DELETE 28 |
+| 12,282 | 188 | physics.cpp | was OOS; now in scope: CPhysicsHook registration + held globals |
+| 12,107 | 105 | model_descriptor.cpp | OUT 66; imported by sourcesharp_gamesystem.cpp only (1 symbol) |
+| 11,289 | 533 | dt_send.cpp | MOVE 269, LAYOUT 82, DELETE 78, THUNK 75 |
+
+Full table: regenerate with the three instruments above (the join script is
+Recipe G's; its output this session is not committed).
+
+### 1.2 The ledger, re-joined at the tip
+
+`server_native_audit.tsv` has 1,654 rows. Joined on file + fnmap head line:
+1,069 functions match (DEBUG 113 rows/1,700 lines, DELETE 165/1,436, FOLD
+49/445, KEEP-HOST 66/988, KEEP-LAYOUT 39/450, KEEP-OUT 262/2,441, KEEP-REG
+33/342, KEEP-THUNK 108/831, MOVE 196/3,763, OOS 38/542); 374 functions at
+the tip have no joined row (5,013 lines) and 292 ledger rows join nothing.
+Three causes, all mechanical: (a) 65 OOS rows landed with the physics plan;
+(b) the rows of sound_emitter, shell_movement, convar_port, tier0/tier1
+ports, shell_shared, shell_sound, shell_soundenvelope, gamestringpool and
+alloc_check were hand-spelled (`CSoundEmitterSystem::EmitSound`, `ConVar
+ctor(3)`) rather than as fnmap heads, so they neither join nor are missing;
+(c) three files were never ruled: `collisionutils.cpp` (2,075 code lines),
+`physics.cpp`/`physics_debug.cpp`/`shell_physicsobjects.cpp` (386, were
+OOS), `mathlib_port.cpp` (202, arrived with C9). T0 below fixes (b) and
+(c) so the ratchet joins exactly.
+
+### 1.3 Does server.so compile without the patch series? (asked 2026-10-18)
+
+Not yet, but it is one naming change away. The trial compiled each of the
+123 TUs with its own command from `compile_commands.json`, the three farm
+`public/` include dirs swapped for the pristine clone's (clang++-22,
+`-fsyntax-only`):
+
+| include set | TUs failing | the errors |
+|---|--:|---|
+| stock `src/public` only | 97 | `igameentity.h` not found (68 TUs) and the bit-field error below |
+| stock + our three overlay headers on the path | 92 | every one on `utlblockmemory.h:140-141`: `non-const reference cannot bind to bit-field` (clang only, diagnosed at the template's definition; **g++ 15.2 accepts the stock header**, so the CI build already compiles it unpatched) |
+| stock + overlay + the clang fix for that one header | **48** | **every error is the `IGameEntity`/`CBaseEntity` naming**: 93 `GetBaseEntity` return not covariant (stock declares `CBaseEntity*`, our shells return `IGameEntity*`), 48 `GetGameEntity` `override` overrides nothing, 25 no `GetGameEntity` in `IServerEntity`, 22 handle helpers (`GameEntityFromEntityHandle`, `SourceSharp_IsTheWorld`, `SourceSharp_HandleFromAnyEntity`), 8 `IGameEntity` unknown, 8 `IHandleEntity*` vs `trace_t::m_pEnt` |
+
+The 75 passing TUs include dt_send, shell_tempents, shell_savegame,
+sound_emitter (its haptics include compiles stock too), convar_port and the
+whole host substrate. The server uses none of patch 0001's other
+constructs: `DEFINE_FUNCTION`/`EntityFuncSlot` (0 server sites),
+`BEGIN_SEND_TABLE` with a base (0; only `_NOBASE`), `CNetworkHandle` (0),
+`DECLARE_NETWORKVAR_CHAIN` (0 outside the overlay).
+
+## 2. What is left, by kind
+
+The 23,976 release code lines fall into the same bins as before; the
+binding bins are what the engine forces (CLAUDE.md: a vtable it calls, a
+layout it reads, a registration it needs, a pointer it holds), everything
+else leaves.
+
+| bin | what, at the tip | goes by |
+|---|---|---|
+| engine-called vtables (KEEP-THUNK) | IServerGameDLL (55 slots), IServerGameClients (19), IServerGameEnts (6), IServerGameTags, SharedAppSystems, CShimLevel/IShimFrame, CStandaloneEntity's ICollideable/IServerEntity/IServerNetworkable, CShellGameMovement, ConVar/ConCommand carriers, the sound-emitter and string-table forwards | pure forwards become managed-built Valve-layout vtables (T3.4); hot per-entity ones measured first |
+| layouts the engine reads (KEEP-LAYOUT) | SendProp/SendTable/ServerClass, edict/PVSInfo, the engine block, CPlayerState, saverestore records, `sourcesharp.h`'s 43 structs | stays; shrinks only as readers go |
+| registration (KEEP-REG) | `CreateInterface` + `kExposed[]`, factory tables, kServerSystems, ConVar_Register, CPhysicsHook, DLLInit | stays (minus PlayerInfoManager, PluginHelpersCheck, GameMovement: rulings 1 and 4) |
+| CoreCLR host + substrate (KEEP-HOST) | managed_runtime_server, shell_internalfactory, exit_watch, fatal_report, tier0/tier1 ports, mathlib_port (38 KB), convar_port's ConVarRef, gamestringpool | stays; the ports shrink with their native readers (T5) |
+| marshalling-only outbound (KEEP-OUT) | traces, PVS, precache, string tables, mdl reads, the entity API's getters | FOLD onto the 159 engine Vtbl layouts managed already has (`src/abi/VtableLayouts.g.cs`) where a layout exists; the rest after T3.4/P3f |
+| logic (MOVE) | sound (sound_emitter, soundenvelope, shell_sound: ~67 KB `.text`), tempents + datatables (42 KB), standalone entity base/player (MOVE 357 lines), worldquery/entityapi (MOVE 792), save/restore codec, areaportals, hierarchy, variant_t, player command path, movement constants, ClientSetupVisibility, model descriptors | T4, per subsystem, test-first |
+| dead (DELETE) | the §3 whole files of the old plan, plus found this session: `collisionutils.cpp` kept for one function; `shell_playerslots.cpp` referred to only by a debug object; `studio.cpp`'s 22 unimported `CStudioHdr`/`studiohdr_t` members; 8 unreached headers (760 lines: `entity_bases.h`, `push_blocker_rule.h`, `notify_gate.h`, and the five under `src/server/native/sdk/game/server/`, read only by 20 gtests' text checks) | T2 |
+| debug-only (DEBUG) | 24 TUs, 1,369 code lines, 86 KB debug `.text`; release compiles none | T3.3: debug-API routes or deletion (ruling 5) |
+
+## 3. Tracks
+
+Order: T0, then T1 (it respells a type in 48 TUs and every later lane
+would conflict with it), then T2-T4 in lanes as ruling 6 ordered the old
+P3, then T5. Per commit: `make debug` (zero warnings), the touched tests,
+`make debug GC_SECTIONS=0` after any eviction, fork clean. Per track:
+`make check`, `make test-full` before a landing that changes the link line
+(test-full-before-link-landing), the daily gate's next report before the
+next track builds on the new static-init order. Ledger rows close in the
+same commit as the code (Recipe G).
+
+### T0. The ratchet, re-keyed (1-2 commits; Recipe G)
+
+1. Re-key the hand-spelled ledger rows (§1.2 (b)) to fnmap head lines so
+   the join is exact; rule the never-ruled files (§1.2 (c)): `collisionutils.cpp`
+   DELETE-after-MOVE (one live function), `physics.cpp` KEEP-REG with its
+   held globals, `shell_physicsobjects.cpp` KEEP-OUT (vphysics asks it
+   mid-step), `physics_debug.cpp` DEBUG, `mathlib_port.cpp` KEEP-HOST,
+   `shell_standalone_player.cpp`'s 7 new functions by reading them.
+2. Land `tools/server-native-scope` in `tools/checks.tsv` as the old P0
+   described (every function has a ruling; per-file MOVE+DELETE+FOLD+DEBUG
+   lines may only fall; `docs/server-native-ratchet.tsv`). Add two columns
+   the old ratchet lacked: release `.text` per object (`size -B`, so a move
+   that leaves a copy behind shows) and the stock-header canary count (T1).
+
+### T1. Stock public headers only (the user's 2026-10-18 ask; ~8 commits)
+
+End state: the server's R5 include set is the pristine upstream's
+`src/public` (no patch, no overlay served at a Valve path), and a check
+proves it every run.
+
+1. **The canary first** (Recipe H): `tools/server-stock-headers`, in the
+   full tier, compiles every server TU `-fsyntax-only` against the pristine
+   clone (`VALVE_SDK`, `valve-sdk.lock`, already provisioned by `make setup`
+   for the oracles) and holds the failing-TU count as a ratchet starting at
+   48. Refusal half: re-introduce one `GetGameEntity` override in a scratch
+   copy and see red. Lands with T0 so progress is scored from the start.
+2. **Decision D1: the server's entity face is spelled `CBaseEntity`.** Stock
+   headers forward-declare `class CBaseEntity` and return it from
+   `IServerUnknown::GetBaseEntity`, `IServerNetworkable::GetBaseEntity`,
+   `IServerGameEnts::EdictToBaseEntity`, `trace_t::m_pEnt` (the server arm),
+   `EHANDLE` and `inputfunc_t`; the patch exists only to respell those as
+   `IGameEntity`. If our class *is* `CBaseEntity`, every one of the 48
+   failures goes away without a header edit. Mechanics: `igameentity.h`
+   leaves the overlay for `src/shared/native/game_entity.h`, defines
+   `class CBaseEntity` under `GAME_DLL` with today's body, and keeps
+   `using IGameEntity = CBaseEntity;` so the 75 files that say `IGameEntity`
+   need no edit at all (the client keeps its own spelling: the alias is
+   per side). The build enforces the name once: a must-not-compile test
+   that a second `class CBaseEntity` definition on the server fails.
+3. `GetGameEntity()` collapses onto `GetBaseEntity()` (15 files;
+   `handle_cross.h`, `ss_entityhandle.h`, `shell_resolve.h`): the two
+   partition the world identically now that no SDK `CBaseEntity` exists on
+   the server, so the added `IServerEntity` virtual (a slot appended to a
+   Valve interface) is not needed. Facts: `handle_cross` tests pass with
+   the one accessor; the live gate's second map load.
+4. The other two overlay public headers (`entity_funcslot.h`,
+   `chain_state_notify.h`) have no server user: they move under
+   `src/client/native/sdk/public/` (client-only overlay). `datamap.h`'s
+   `DataMapAccess(IGameEntity*)`/`PredMapBaseAccess` hunks are then unused
+   by the server too (`entity_bases.h`, their one echo, is dead: T2).
+5. **Decision D2: the clang bit-field error in `tier1/utlblockmemory.h`.**
+   Stock compiles under gcc (CI) and not under clang 22 (the host). Options:
+   (a) a compile-only overlay of that one header in `cmake/compat/clang/`
+   (the Windows precedent: `cmake/compat/windows/`), carried as
+   OURS-OVERLAY with the reason in its header; (b) build server.so with gcc
+   on the host too (`SS_CXX=gcc` for one target: loses `-Wunused-*`
+   parity and lld's ICF); (c) ask upstream. Recommended: (a), named in
+   `docs/valve-header-new.tsv`, and the canary counts it as the one
+   excused header.
+6. **Decision D3: switch the include root.** When the canary is at 0, the
+   server's `server_novalve_includes` point at the pristine tree
+   (`tools/setup` links `farm/<config>/stock-public` from `VALVE_SDK`;
+   `sdk-links/server.txt`+`shared.txt` keep listing what is read, now
+   against the lock in `valve-sdk.lock`). From then on a server TU that
+   needs a patched construct fails the normal build, and the canary becomes
+   a self-test of the setup (the link resolves to the pristine tree, not
+   the fork). Patch 0001's server-only hunks (`iserverentity.h`'s added
+   virtual, `iserverunknown.h`, `iservernetworkable.h`) can then leave the
+   series in the client plan's time, not this one's: the client still
+   reads them.
+
+Exit: `tools/server-stock-headers` at 0; `make sdk-census` green with the
+server lists against the pristine lock; `patches/` unchanged (the client's);
+release `.text` unchanged within noise (a rename moves no code; confirm by
+`size -B` before/after).
+
+### T2. Deletions (old P1, re-proven at the tip; ~30 commits; Recipes A, B, C)
+
+Each with its proof in the commit message (`nm -g` over the 123 objects,
+`--print-gc-sections`, grep over `src/` with tests, `GC_SECTIONS=0` link).
+Evidence found this session, to re-run per unit:
+
+- `collisionutils.cpp` (2,194 code lines, 17.7 KB): one importer,
+  `shell_worldquery.cpp:235` → `IsBoxIntersectingSphere` (37 lines). Move
+  that function beside its caller, or its caller to managed (the client
+  already has a managed port in `PrecipitationSim.cs`; the server would take
+  a shared one), evict the TU, delete its `sdk-links` line if any.
+- `studio.cpp` (36 KB): 30 symbols defined, 8 imported, all by
+  `model_descriptor.cpp`; the 22 others (`GetActivityListVersion`,
+  `CountAutoplaySequences`, the `studiohdr_t::` twins) are DELETE after an
+  intra-TU check (`nm` cannot see those).
+- `shell_playerslots.cpp`: 6 symbols, every importer is
+  `shell_standalone_player_debug.cpp` (debug-only). Managed has PlayerNames
+  and PlayerPing.Sample. Goes with the debug command (T3.3) or before it.
+- `shell_playerlocaldata.cpp` (DT_Local, 23.6 KB, 6.8 KB `.data`) + its only
+  consumers `sendproxy.cpp`, `dt_utlvector_common.cpp`: no server object
+  imports the table (importers: `shell_frame`, `shell_standalone_player`,
+  for the struct's ctor only).
+- `collisionproperty.cpp` (one symbol imported, by `shell_serversystems`'s
+  `kServerSystems[]` row), `shell_restoreentities.cpp`,
+  `baseentity_statics.cpp`, `shell_gamedll_convars.cpp`, `shell_absent.cpp`'s
+  DELETE rows, `shell_playerinfo.cpp` + `plugin_check.cpp` + their
+  `kExposed[]` rows (ruling 1), the `GameMovement001` export (ruling 4),
+  `shell_te_forwards.cpp` once its native callers call managed (T4).
+- The 8 unreached headers (760 lines). 20 gtests read their text: each
+  test is retired with the header, not satisfied by keeping it.
+- The dead bodies inside live files that the old P1.2 lists (24 inert
+  slots in entityapi/worldquery, 14 no-op weapon slots, IShimFrame's 4
+  empty slots, CShimLevel's 13, ...), each with its `engineapi-areas.tsv`
+  row and EngineSide wrapper in the same commit; one serialised ABI
+  renumbering at the end (`docs/abi-retirements.md`).
+
+Exit: DELETE at zero in the ratchet; 10 → 7 names in `kExposed[]`;
+`GC_SECTIONS=0` links; release `.text` down by the evicted objects' sizes
+(quote before/after).
+
+### T3. Folds, round trips, debug routes, managed-built engine vtables (old P2; ~25 commits; Recipes C, D, E)
+
+Unchanged from the old plan's P2.1-P2.4 and ruled (rulings 2, 4, 5). Sizes
+at the tip: FOLD 49 joined functions/445 lines plus the hand-spelled sound
+and string-table rows; 159 engine `*Vtbl` layouts exist in
+`VtableLayouts.g.cs` (GameEventManager, NetworkStringTable(Container),
+BaseFileSystem, DebugOverlay, EngineServer, EngineTrace, Effects,
+ModelInfo, PhysicsSurfaceProps, UploadGameStats, SoundEmitterSystem,
+EngineSound, Cvar are all there). T3.4's managed-built Valve-layout vtables
+have seven precedents in the tree already (§1); order IServerGameEnts (6),
+IServerGameClients (19), IServerGameDLL (55, `DLLInit` stays native), each
+with its `docs/managed-interfaces.tsv` block and AbiParityTests, the hot
+per-entity vtables measured on dm_lockdown before they follow.
+
+### T4. Logic to managed, by subsystem (old P3a-P3g, ~5,000 lines; the long track)
+
+Ruling 6 orders it: a (sound), b (tempents + datatables), c (save/restore)
+in parallel lanes, then d (entity API/world) and e (lifecycle), then f (the
+two engine callbacks), then g (player command path and movement). Tip
+sizes to score each lane by, from §1.1: sound 67 KB `.text` across three
+objects; tempents 30.6 KB + 235 KB `.bss` + dt_send 11 KB; save/restore
+16.8 KB; worldquery + entityapi 64 KB (MOVE 792 lines); world_adapter 16.8
+KB; areaportal 15.7 KB; standalone base + player MOVE 357 lines; movement
+26.5 KB; gameclients 12.3 KB. Two additions since the old plan:
+
+- **Model descriptors** (`model_descriptor.cpp` 12 KB + `studio.cpp` 36 KB
+  + `studio_mdlcache.cpp`): kept because `ModelDescriptors` lives in
+  Shared.Interop and cannot reach the managed StudioHdr (docs/todo.md,
+  2026-10-12). **Decision D4:** move `ModelDescriptors` to where the
+  managed StudioHdr is reachable and retire the `IShimModels.ModelDescriptor`
+  slot (one serialised ABI change); then the whole chain leaves the server
+  link (the client keeps `studio.cpp` for its own readers). 48 KB of
+  release `.text` for one slot.
+- **physics.cpp / shell_physicsobjects.cpp** (now in scope): CPhysicsHook
+  is KEEP-REG, the held globals (`physenv`, `g_PhysWorldObject`,
+  `physcollision`...) stay as engine-held pointers, and the four native
+  decisions the physics census left are the movement lane's (P3g).
+
+### T5. Substrate collapse and close (old P4)
+
+Re-measure importers of `mathlib_port.cpp` (13 symbols imported today by
+19 objects), `convar_port.cpp`'s ConVarRef (15 importing objects),
+`gamestringpool.cpp`, the tier0/tier1 ports; delete what has no importer
+left after T4. Close with §1's instruments re-run at the tip, the
+before/after table with shas, and the census of what native stays and why.
+
+### T6. Native globals and statics to one root (user ask 2026-10-18; plan_globals.md's design, re-measured)
+
+The design already exists: plan_globals.md §2, "one root, two tiers". One
+static, `s_gameShellDll`; a DLL-tier object (`m_pDll`, `new` in DLLInit,
+`delete` in DLLShutdown) holding EntitySlots, NetTables, TempEnts, Precache,
+Players, Sound, Diagnostics; a level-tier object (`m_pLevel`, `new` in
+LevelInit, `delete` in LevelShutdown) holding physics, per-map caches and
+latches, so a reload leak is impossible by construction; and every
+managed→native call arriving on a bound vtable whose `this` is the owner, so
+no free `SourceSharp_*` body needs a global to find its state. That plan's
+numbers are stale (its own banner says so); the instrument is current.
+
+Measured this session (`make globals-census`, debug, tip a594c5e14 with
+uncommitted docs; `tools/globals-census` reads the link edge, `readelf`
+over the 123 objects, state = OBJECT/TLS symbols in `.bss`/`.data`/`.tbss`/
+`.tdata`, never a source grep):
+
+| what | number |
+|---|--:|
+| mutable statics, link level (`docs/globals-ledger.tsv` rows) | 359; object level 390; 1,716,959 bytes |
+| objects with a static initialiser | 108 of 123 |
+| ledger dispositions | UNRULED 173, MEMBER 59 (1,053,460 B: `g_LineBuffer` 1 MB), CONST 48, DEAD 45, MANAGED 26, FLOOR 8 |
+| UNRULED by census category | other 105 (102,758 B), engine-iface-ptr 35 (`engine`, `gpGlobals`, `filesystem`, `physenv`...: 28 in shell_engineboundary.cpp, 8 in physics.cpp), abi-block 23 (536,023 B: `g_TeRegistry` 232 KB, `g_EntitySlots` 164 KB, `s_SlotTable` 82 KB, `s_Types` 43 KB), datatable 9, convar 6, pool 1, factory 1, gamesystem 1 |
+| gate | PASS (every symbol has a row; no row without a symbol) |
+
+Steps (each closes ledger rows; `make globals-census` gate green per commit;
+the live gate's second map load is the reset proof for every level-tier
+move):
+
+1. **Rule the 173 UNRULED rows** by the plan's dispositions (DEAD, CONST,
+   MANAGED, MEMBER with owner tier, FLOOR) in `docs/globals-ledger.tsv` via
+   `make globals-ledger` (reconciles, never regenerates). The engine-iface
+   pointers are MEMBER on the root's engine binding (plan_globals §2:
+   `m_pEngine`, `m_pGlobals`...); the four abi blocks are MEMBER `m_pDll`
+   (EntitySlots, TempEnts, NetTypes); the player-info and boundary-probe
+   rows are DEAD with T2 (ruling 1); the `s_Said*` refusal latches are
+   DEAD with the MOVE of their bodies.
+2. **DEAD rows go with T2** (45 ruled + the newly ruled): 12,740 bytes
+   today; DT_Local's 28 datatable rows are the `shell_playerlocaldata`
+   eviction.
+3. **The scaffolding** (plan_globals G2): `CServerDllState` and
+   `CServerLevelState` behind `m_pDll`/`m_pLevel`, constructed in
+   DLLInit/LevelInit; `IShimRoot::Acquire` as the bootstrap pair replacing
+   `SourceSharp_InternalFactory`. One integrator commit series before any
+   fan-out; the ABI tail serialised as everywhere in this plan.
+4. **MEMBER rows move**, owner by owner (59 ruled + the abi blocks + the
+   engine pointers): a subsystem object implements its `IShim<Area>` and
+   reads `m_...`; its former globals delete in the same commit. Order: the
+   four abi blocks first (536 KB, and every entity op resolves through
+   `EntitySlots`), then the engine binding, then Diagnostics/Console/
+   Overlaps/World/NetTables/GameRules/Physics/Players by tier. This rides
+   T3's folds and T4's moves: a MOVE to managed closes its rows as MANAGED
+   instead, so T6's step 4 is done last in each lane, over what stays.
+5. **Static initialisers** (plan_globals G5): the 108 objects with
+   `.init_array` entries fall to the root, the `InterfaceReg` nodes and
+   whatever D6 keeps; `tools/globals-census summary`'s
+   `objects_with_a_static_initialiser` is the ratchet.
+6. **C callbacks** per D6: `ShellSide()` beside the root for the spew hook,
+   the signal handler and ConVar change callbacks; a gtest pins the calling
+   files (plan_globals §2.3).
+
+Exit: `link_level` = the FLOOR rows D6 allows (target: 1 object plus the
+callback accessor and whatever of (b)/(c) the ruling keeps), 0 UNRULED, 0
+MEMBER, 0 DEAD; `objects_with_a_static_initialiser` at the floor; the daily
+gate green on the new static-init order; plan_globals.md's banner replaced
+by a pointer here.
+
+## 4. End state (estimate, to be replaced by measurement at the close)
+
+Binding at the tip: THUNK 831 + LAYOUT 450 + REG 342 joined lines plus the
+hand-spelled convar/tier rows (~1,000) and HOST 988: about 3,600 code lines,
+falling by the forwards T3.4 turns into managed-built vtables (IServerGameDLL
+30 of 55, IServerGameClients, IServerGameEnts: roughly 400 lines) and rising
+by nothing. KEEP-OUT 2,441 falls to the traces and the recipient filter
+until P3f, then to near zero. So release server.so after T1-T5: about 3,000
+code lines of binding and host, every fork header stock and public, release
+`.text` from 403,711 B to an estimated 150-200 KB (the host, the ports and
+the layouts; measure, do not trust this number).
+
+## 5. Decisions for the user
+
+The six rulings of 2026-10-11 (plugins dropped; managed ITraceFilter and
+IRecipientFilter; managed save/restore codec; GameMovement001 export cut;
+driverless debug commands cut; P3 order a,b,c | d,e | f | g) stand.
+
+**RULED 2026-10-18 (user), at the landing:** after the rebase onto
+plan_forwarders_everywhere (#10, #11), the shim areas are append-only
+forwarder tables, and this branch's slot deletions may regenerate them with
+`tools/engine-forwarders --write --reorder` once (both sides rebuild
+together), rather than keep retired placeholders. The user also asked that
+all of this branch's work be squashed and landed on main once main is
+updated.
+
+**THE --reorder, NAMED (2026-10-18, follow-up to the landing at bd894daf1).** The
+landed commits' messages do not say it, so it is said here. Two of the four
+landed commits shrank forwarder tables with `tools/engine-forwarders --write
+--reorder` (the user's ruling above); 393cb1bdb and 54621d40c touch no table.
+Found by comparing each commit's `*Forwarders.g.cs` field lists with its
+parent's.
+
+- **d9e567c0b (T2):** ShimDamage (RadiusDamage, ExplosionDamage,
+  EntitySetTakeDamageMode, EntityIgnite, EntityDissolve); ShimEffectsServer
+  (BloodDecal, ShootGib, FireEffectCreate, FireEffectScale, FireEffectEnable);
+  ShimEntitiesServer (FindBaseEntityByName, EntityDetectInSkybox,
+  EntitiesSdkPlayerSkyboxArea); ShimEntityLifecycle (TemplateCapture,
+  EntitiesPurgeMapRefs, EntitiesCleanupDeleteList, RegisterWeaponEntity);
+  ShimMovementServer (PlayerForceButtons, PlayerGetButtons,
+  PlayerSetButtonsDisabled, PlayerSetLaggedMovement, PlayerSetAllowAutoMovement,
+  PlayerSetMovementConstraint, PlayerSetFrozen); ShimPhysics
+  (EntitySetForceServerRagdoll); ShimPlayers (AddPlayerScore, PlayerSetFov,
+  PlayerSetSoundscape, ClientsSdkPlayerEarPosition); ShimTransform
+  (EntityMoveToPosition, EntityMoveToAngles, EntityStopMoving). Whole tables
+  gone: ShimInventory, ShimWeapons, ShimWeaponsServer. EntitySetSkin and
+  RegisterAmmoType were appended to ShimStandaloneClient (no reorder there).
+- **bd894daf1 (T3 part):** ShimConsoleServer (ExecuteServerCommand);
+  ShimEventsServer (EventCreate, EventFire, EventFree); ShimPlayers
+  (GetPlayerUserId, PlayerSetViewEntity, PlayerBoxInPvs); ShimWorldServer
+  (EngineLightStyle). Whole tables gone: ShimStringTables,
+  ShimStringTablesServer. The engine rows (GameEventManager, the string-table
+  container and table, EngineServer) only appended.
+
+**RULED 2026-10-18 (user):** D1 "can alias the two" (one class under both
+names: `class CBaseEntity` with `using IGameEntity = CBaseEntity`, as T1.2
+says); D2 yes (option a, the one-header compat overlay); D3 yes (the
+pristine tree becomes the server's include root at canary 0); D4 yes
+(retire the ModelDescriptor slot; the studio chain leaves the server link);
+D5 yes (T1 before the lanes). The user also asked for native globals and
+statics to go "except for the one instance of game dll": that is track T6,
+and its floor is D6.
+
+6. **D6 (T6): the static-state floor.** The one static object is
+   `s_gameShellDll` (`shell_gamedll.cpp`, 2,032 bytes, the address
+   `EXPOSE_SINGLE_INTERFACE_GLOBALVAR` takes at static init). Three shapes
+   cannot hang off it without a global and need a ruling each: (a) C
+   callbacks with no user-data argument that the engine or the kernel calls
+   (the spew hook, the signal handler in `exit_watch.cpp`, `FnChangeCallback_t`
+   on ConVars): plan_globals.md §2.3's answer is one accessor, `ShellSide()`,
+   defined beside the root, with a gtest pinning its callers [recommended];
+   (b) `ConVar`/`ConCommand` objects the engine's ICvar holds pointers to (7
+   rows today): heap members of the DLL tier registered in `DLLInit`, or
+   left static; (c) the registration list heads static initialisers build
+   before `DLLInit` (`g_pServerClassHead`, `s_pNonModifiedPointerProxyHead`,
+   the 40 `SS_NATIVE_COMMAND` list nodes): rebuilt in `DLLInit` from
+   constant tables [recommended], or left as the FLOOR rows they are.
+
+New:
+
+1. **D1 (T1.2): the server's entity face is named `CBaseEntity`** (with
+   `IGameEntity` as a per-side alias), so stock headers bind to it. The
+   alternative is to keep the patch forever: there is no third way, because
+   the stock headers name the type.
+2. **D2 (T1.5): the clang-only `utlblockmemory.h` error**: (a) a one-header
+   compile-only overlay in `cmake/compat/clang/` [recommended], (b) gcc for
+   server.so on the host, (c) leave server.so on the patched header and
+   accept "stock except one clang fix".
+3. **D3 (T1.6): after the canary reaches 0, point the server's include set
+   at the pristine tree** (`VALVE_SDK`), so the normal build is the proof;
+   or keep the farm's patched headers and rely on the canary alone.
+4. **D4 (T4): retire `IShimModels.ModelDescriptor`** by moving
+   `ModelDescriptors` next to the managed StudioHdr, so `studio.cpp`,
+   `model_descriptor.cpp` and `studio_mdlcache.cpp` leave the server link
+   (48 KB release `.text`); or keep the chain as KEEP-OUT.
+5. **D5: order.** T1 before T2-T4 [recommended: it respells one type across
+   48 TUs and would conflict with every lane], or T1 as its own lane beside
+   them with the conflicts resolved at each rebase.
+
+## 6. Risks
+
+- The `CBaseEntity` name is load-bearing in tests: 99 gtests under
+  `src/test/native` mention it (`cpp_alias_retype_*`,
+  `entity_bases_alias_*`, `sdk_player_cast_test`, the 20 that read the dead
+  headers' text), many asserting its *absence* on the server. T1.2 audits
+  each before the rename (a test that pins the old spelling is rewritten to
+  pin the new invariant: one definition, ours).
+- `SS_CBASEENTITY_ALIAS` is a server compile definition from the P5 era:
+  431 test lines and ~30 ledgered comments name it, but only two
+  preprocessor sites still read it, one client header and one test fixture
+  (`grep -E '^\s*#\s*(if|ifdef|ifndef|elif).*SS_CBASEENTITY_ALIAS'`). It is
+  not half of this change; it goes with T1.2 once the two sites are
+  re-pointed.
+- Two include roots (farm for the client, pristine for the server) is a
+  setup-tool change; `tools/setup`'s refusal of a path supplied by both
+  repos must extend to the third tree.
+- Everything the old plan's §6 listed (callback cost, text-reading tests,
+  static-init order, hot reload, coordination with the physics lane: the
+  last is closed, the physics plan is DONE).
+
+## 7. Recipes
+
+A-G as in `plan_server_native_min.md` §8. New:
+
+- **Recipe H, the stock-header canary.** For each object on the link edge
+  (`cmakegraph.py objects server`), take its `compile_commands.json`
+  command, replace the three farm `public` include dirs with
+  `$VALVE_SDK/src/public{,/tier0,/tier1}` (plus the one excused header's
+  dir under D2), drop `-o`/`-MD`/`-c`, add `-fsyntax-only`, run; count the
+  failing TUs and the distinct error texts; compare with
+  `docs/server-native-ratchet.tsv`'s column (may only fall). A missing clone
+  or a clone whose HEAD is not `valve-sdk.lock` is a failure. Self-test:
+  with one `GetGameEntity` override put back in a scratch TU the count
+  rises by one.
+- **Recipe I, the rename.** (1) the audit of tests that name `CBaseEntity`;
+  (2) `game_entity.h` with `class CBaseEntity` + the alias, overlay
+  `igameentity.h` deleted in the same commit, `tools/setup` re-run; (3)
+  `GetGameEntity` → `GetBaseEntity` file by file with `make debug` between;
+  (4) the canary count after each step in the commit message.

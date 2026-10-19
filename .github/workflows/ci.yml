@@ -168,12 +168,17 @@ jobs:
         run: python -m pip install --quiet pyyaml
 
       # The farm the container builds from, as the Windows job composes its
-      # own: no bundled .NET, no Linux Node, no oracle clone (--no-provision
-      # --no-valve-sdk), none of which a native build reads.
+      # own: no bundled .NET and no Linux Node (--no-provision), neither of
+      # which a native build reads; the pristine clone it does read (D3).
       - name: Set up (tools/sdk-upstream, tools/setup)
         run: |
           python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --no-valve-sdk
+          # server.so builds on the pristine upstream public/ (plan_server_native_v2
+          # D3): a shared clone of the commit valve-sdk.lock pins, borrowing the
+          # upstream clone's objects, linked by tools/setup as farm/<config>/stock-public.
+          git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
+          git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
+          python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --valve-sdk ../source-sdk-2013-valve
 
       - name: The sniper image
         run: |
@@ -574,14 +579,20 @@ jobs:
       - uses: ./.github/actions/host-packages
 
       # tools/sdk-upstream and tools/setup are Python and run anywhere git and
-      # symlinks do. --no-provision --no-valve-sdk: no bundled .NET yet (it is
-      # bundled from setup-dotnet's below), no Linux Node and no oracle clone.
+      # symlinks do. --no-provision: no bundled .NET yet (it is bundled from
+      # setup-dotnet's below) and no Linux Node. --valve-sdk: the pristine clone
+      # server.so builds on (D3), a shared clone of the upstream one.
       # Both configurations: the build is Release, the tests read Debug's.
       - name: Set up (tools/sdk-upstream, tools/setup)
         run: |
           python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
+          # server.so builds on the pristine upstream public/ (plan_server_native_v2
+          # D3): a shared clone of the commit valve-sdk.lock pins, borrowing the
+          # upstream clone's objects, linked by tools/setup as farm/<config>/stock-public.
+          git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
+          git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
           for cfg in release debug; do
-            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --no-valve-sdk
+            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --valve-sdk ../source-sdk-2013-valve
           done
 
       # What the farm's links came out as on this platform: a Windows link
@@ -719,14 +730,20 @@ jobs:
       - uses: ./.github/actions/host-packages
 
       # tools/sdk-upstream and tools/setup are Python and run anywhere git and
-      # symlinks do. --no-provision --no-valve-sdk: no bundled .NET yet (it is
-      # bundled from setup-dotnet's below), no Linux Node and no oracle clone.
+      # symlinks do. --no-provision: no bundled .NET yet (it is bundled from
+      # setup-dotnet's below) and no Linux Node. --valve-sdk: the pristine clone
+      # server.so builds on (D3), a shared clone of the upstream one.
       # Both configurations: the build is Release, the tests read Debug's.
       - name: Set up (tools/sdk-upstream, tools/setup)
         run: |
           python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
+          # server.so builds on the pristine upstream public/ (plan_server_native_v2
+          # D3): a shared clone of the commit valve-sdk.lock pins, borrowing the
+          # upstream clone's objects, linked by tools/setup as farm/<config>/stock-public.
+          git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
+          git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
           for cfg in release debug; do
-            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --no-valve-sdk
+            python tools/setup --root ../source-sdk-2013-upstream --config $cfg --no-provision --valve-sdk ../source-sdk-2013-valve
           done
 
       # What the farm's links came out as on this platform: a Windows link
@@ -789,7 +806,7 @@ jobs:
       - name: Bundle the .NET runtime (tools/setup --provision-runtime)
         run: |
           python tools/setup --root ../source-sdk-2013-upstream --config release \
-            --no-provision --no-valve-sdk --provision-runtime --dotnet-root "$DOTNET_ROOT"
+            --no-provision --valve-sdk ../source-sdk-2013-valve --provision-runtime --dotnet-root "$DOTNET_ROOT"
           ls bin/release/bin/dotnet/host/fxr
 
       - name: Label

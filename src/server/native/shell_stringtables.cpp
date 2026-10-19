@@ -46,7 +46,6 @@
 
 #include "networkstringtabledefs.h"
 #include "tier0/dbg.h"
-#include "shell_stringtables.h"   // the mod-declared route, Phase A8
 
 
 // The engine's string table container (connected in shell_engineboundary.cpp).
@@ -107,30 +106,6 @@ void PrecacheMaterial( const char *pMaterialName )
 	g_pStringTableMaterials->AddString( true, pMaterialName );
 }
 
-
-//-----------------------------------------------------------------------------
-// Converts a previously precached material into an index
-//-----------------------------------------------------------------------------
-int GetMaterialIndex( const char *pMaterialName )
-{
-	if (pMaterialName)
-	{
-		int nIndex = g_pStringTableMaterials->FindStringIndex( pMaterialName );
-		
-		if (nIndex != INVALID_STRING_INDEX )
-		{
-			return nIndex;
-		}
-		else
-		{
-			DevMsg("Warning! GetMaterialIndex: couldn't find material %s\n ", pMaterialName );
-			return 0;
-		}
-	}
-
-	// This is the invalid string index
-	return 0;
-}
 
 //-----------------------------------------------------------------------------
 // Precaches a vgui screen overlay material
@@ -200,7 +175,6 @@ void SourceSharp_CreateNetworkStringTables( void )
 	// other is load-bearing, and stringtable_index0_test.cpp is what says so
 	// when somebody moves one.
 	PrecacheMaterial( "debug/debugempty" );
-	Assert( GetMaterialIndex( "debug/debugempty" ) == 0 );
 
 	PrecacheParticleSystem( "error" );
 	Assert( GetParticleSystemIndex( "error" ) == 0 );
@@ -214,56 +188,8 @@ void SourceSharp_CreateNetworkStringTables( void )
 }
 
 //=============================================================================
-// PHASE A8 -- THE MOD-DECLARED ROUTE.
-//
-// Six entry points, one per StringTable* slot at the tail of
-// SourceSharpEngineApi. Every body is one line: build a CShellStringTables over
-// the engine's container on the stack and ask it. The LOGIC is in
-// shell_stringtables.h, which is engine-free and is therefore the thing
-// sourcesharp/test/stringtable_abi_test.cpp compiles and runs -- these six are
-// the part a gtest cannot reach, so there is deliberately nothing in them.
-//
-// NO STATE. The object is a stack temporary holding one pointer; the ENGINE
-// remembers the tables, which is what makes that possible.
+// PHASE A8's mod-declared route (the six StringTable* slots and
+// shell_stringtables.h's CShellStringTables) is managed since
+// plan_server_native_v2 T3: ForwardedStringTables, over the container's and
+// the tables' forwarders, with the same rules.
 //=============================================================================
-
-//-----------------------------------------------------------------------------
-// The console half the engine-free header declares. tier0's Warning, so a
-// refusal is on the same channel as Phase 8's, which is the channel that cannot
-// be starved: it needs no frame, no level and no clean exit.
-//-----------------------------------------------------------------------------
-void ShellStringTables_Warning( const char *pMessage )
-{
-	if ( pMessage != NULL )
-		Warning( "%s", pMessage );
-}
-
-int32_t SourceSharp_StringTableCreate( const char *pszName, int32_t nMaxEntries )
-{
-	return CShellStringTables( networkstringtable ).Create( pszName, nMaxEntries );
-}
-
-int32_t SourceSharp_StringTableFind( const char *pszName )
-{
-	return CShellStringTables( networkstringtable ).Find( pszName );
-}
-
-int32_t SourceSharp_StringTableAddString( int32_t nTableId, const char *pszValue )
-{
-	return CShellStringTables( networkstringtable ).AddString( nTableId, pszValue );
-}
-
-int32_t SourceSharp_StringTableFindStringIndex( int32_t nTableId, const char *pszValue )
-{
-	return CShellStringTables( networkstringtable ).FindStringIndex( nTableId, pszValue );
-}
-
-int32_t SourceSharp_StringTableGetString( int32_t nTableId, int32_t nStringIndex, char *pOut, int32_t nOutSize )
-{
-	return CShellStringTables( networkstringtable ).GetString( nTableId, nStringIndex, pOut, nOutSize );
-}
-
-int32_t SourceSharp_StringTableGetNumStrings( int32_t nTableId )
-{
-	return CShellStringTables( networkstringtable ).GetNumStrings( nTableId );
-}

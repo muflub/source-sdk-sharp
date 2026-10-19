@@ -152,7 +152,7 @@ std::string ReadSrcFile( const char *pszRelative )
 
 // Phase 1b merged shell_ai_orphans.cpp into shell_absent.cpp, keeping only what
 // an object on the server link line still imported. Of this file's subjects
-// that is PostFrameNavigationSystem and nothing else: the three EntityShot_*
+// that was PostFrameNavigationSystem (gone in plan_server_native_min P1): the three EntityShot_*
 // lifts and CTriggerTraceEnum were imported by no object at all and went.
 // The name is kept so that the facts below read as the same questions asked of
 // the same subject after a move.
@@ -176,9 +176,13 @@ const std::string &ShotPathHeader()
 	return s;
 }
 
-const std::string &SweepHeader()
+// The control for the farm's game/ tree. game/server/ is empty since
+// plan_server_native_min P1 deleted its last overlay headers
+// (physics_sweep.h among them), so the control is a header the client still
+// links from game/shared/.
+const std::string &FarmControlHeader()
 {
-	static const std::string s = ReadSrcFile( "game/server/physics_sweep.h" );
+	static const std::string s = ReadSrcFile( "game/shared/shareddefs.h" );
 	return s;
 }
 
@@ -564,16 +568,15 @@ const Anchor_t kAnchors[] =
 	// physics_main.cpp, physics_main_client.cpp, subs.cpp, baseentity_shared.cpp
 	// and NextBot/NextBot.h LEFT THIS LIST: they are Valve stock that neither
 	// client.so nor server.so compiles, and the farm no longer carries them.
-	// RE-ANCHORED (Phase 1b). Was shell_ai_orphans.cpp on "CTriggerTraceEnum";
-	// that file and that class are both gone, so the anchor is the subject of
-	// this file's that SURVIVED the merge -- the deferred-navigation hook, which
-	// shell_serversystems.o still imports.
-	{ "sourcesharp/.../shell_absent.cpp",          OrphansSource,            "CPostFrameNavigationHook" },
+	// RE-ANCHORED (Phase 1b, then plan_server_native_min P1). Was
+	// shell_ai_orphans.cpp on "CTriggerTraceEnum", then the deferred-navigation
+	// hook; both went, so the anchor is a definition the file still holds.
+	{ "sourcesharp/.../shell_absent.cpp",          OrphansSource,            "void ss::SetPlayerSurface(" },
 	{ "sourcesharp/game/server/anyentity.h",                   AnyEntityHeader,          "ANYENTITY_H" },
 	// NEITHER QUARANTINE FILE IS HERE ANY MORE. baseentity_sweep_forwarders.cpp
 	// and shell_ai_orphans_forwarders.cpp have both been retired.
 	{ "sourcesharp/.../shell_shot_path.h",         ShotPathHeader,           "SHELL_SHOT_PATH_H" },
-	{ "game/server/physics_sweep.h",               SweepHeader,              "PHYSICS_SWEEP_H" },
+	{ "game/shared/shareddefs.h",                  FarmControlHeader,        "SHAREDDEFS_H" },
 	// RE-ANCHORED, BOTH OF THEM. These used to be "PhysicsStepRunTimestep" and
 	// "PerformCustomPhysics", two names from the class bodies that
 	// `#ifndef SS_CBASEENTITY_ALIAS` kept out of this build and the close has
@@ -614,12 +617,11 @@ TEST( RemovalSetTailFixture, EveryFileWasReallyOpenedAndIsTheRightOne )
 	// THE SERVER ENTITY HEADER IS GONE, which is the strong form of every
 	// "not declared again in baseentity.h" row this file used to read it for.
 	// game/server/baseentity.h is compiled by nothing since
-	// plan_server_novalve.md P5 and left the farm in P6. Anchored on its
-	// sibling physics_sweep.h, which the loop above has just proved readable
-	// from the same directory.
-	EXPECT_NE( std::string::npos, SweepHeader().find( "PHYSICS_SWEEP_H" ) )
-		<< "game/server/physics_sweep.h did not read, so the absence below "
-		<< "proves nothing about game/server.";
+	// plan_server_novalve.md P5 and left the farm in P6. Anchored on the farm
+	// control header, which the loop above has just proved readable.
+	EXPECT_NE( std::string::npos, FarmControlHeader().find( "SHAREDDEFS_H" ) )
+		<< "game/shared/shareddefs.h did not read, so the absence below "
+		<< "proves nothing about the farm.";
 	EXPECT_TRUE( ReadSrcFile( "game/server/baseentity.h" ).empty() )
 		<< "game/server/baseentity.h is readable from the farm again. Nothing "
 		<< "compiles it; if it is back, the rows retired from this file need "
@@ -663,8 +665,9 @@ TEST( RemovalSetTail, OrphansDefinesNoMemberAtAllAndStillDefinesTheThreeLifts )
 	//
 	// So the fact that keeps this from passing over an emptied file is no
 	// longer "the three are here"; it is the anchor above, which requires
-	// CPostFrameNavigationHook -- the one subject of this file that a live
-	// object still imports.
+	// ss::SetPlayerSurface, a definition the file still holds now that the
+	// deferred-navigation hook (plan_server_native_min P1) and RadiusDamage
+	// (plan_server_native_v2 T2) are gone.
 	//
 	// BULLETS NO LONGER HIT TRIGGERS. plan_shim.md §10 records that as an open
 	// question with the experiment that settles it: shoot a trigger_hurt with a
@@ -731,8 +734,8 @@ TEST( RemovalSetTail, HeadersCarryEveryFreeFunction )
 			<< "shell_shot_path.h does not declare " << kOrphanLifts[ i ].pszFree;
 	}
 
-	EXPECT_TRUE( IsDeclaredAtAll( SweepHeader(), "PhysicsSweep_CheckEntity" ) )
-		<< "physics_sweep.h does not declare PhysicsSweep_CheckEntity";
+	// physics_sweep.h's PhysicsSweep_CheckEntity declaration went with the
+	// header (plan_server_native_min P1): it had no definition.
 }
 
 //=============================================================================

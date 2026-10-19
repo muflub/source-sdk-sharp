@@ -363,10 +363,10 @@ TEST( ShellGameDllRegistration, TheOtherFourInterfacesAreStillStocksAndAreNotGua
 // -- by a sibling in the same directory that must exist and read as itself.
 TEST( ShellGameDllRegistration, TheStockHeaderHasLeftTheFarm )
 {
-	const char *const kSibling = "game/server/entity_funcs.h";
+	const char *const kSibling = "game/shared/shareddefs.h";
 	ASSERT_TRUE( SrcExists( kSibling ) ) << kSibling << " is not in the farm, so "
 		"the absence below is not evidence";
-	ASSERT_EQ( 1, CountOf( ReadSrc( kSibling ), "#ifndef ENTITY_FUNCS_H" ) )
+	ASSERT_EQ( 1, CountOf( ReadSrc( kSibling ), "#ifndef SHAREDDEFS_H" ) )
 		<< kSibling << " did not read as itself";
 
 	EXPECT_FALSE( SrcExists( kStockH ) )

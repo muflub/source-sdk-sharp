@@ -127,7 +127,6 @@ const char *kShared  = "sourcesharp/game/server/shell_sharedappsystems.cpp";
 const char *kClients = "sourcesharp/game/server/shell_gameclients.cpp";
 const char *kTags    = "sourcesharp/game/server/shell_gametags.cpp";
 const char *kHeader  = "game/server/gameinterface.h";
-const char *kRestore = "sourcesharp/game/server/shell_restoreentities.cpp";
 const char *kGlobals = "sourcesharp/game/server/shell_engineboundary.cpp";
 // WHERE THE RATIONALE LIVES NOW. It used to be a comment beside the $File line
 // in the .vpc; the scripts were reformatted with every comment stripped out to
@@ -536,8 +535,8 @@ TEST( GameInterfaceSplit, TheHeaderRegistersNothingAtAll )
 	// assertion that it is not there at all -- anchored on a sibling in the
 	// same directory that IS there, so a probe that cannot see game/server
 	// does not pass it.
-	EXPECT_TRUE( Exists( "game/server/activator.h" ) )
-		<< "game/server/activator.h is not readable, so the absence below "
+	EXPECT_TRUE( Exists( "game/shared/shareddefs.h" ) )
+		<< "game/shared/shareddefs.h is not readable, so the absence below "
 		<< "proves nothing about game/server.";
 	EXPECT_FALSE( Exists( kHeader ) )
 		<< kHeader << " is readable from the farm again. It once registered "
@@ -651,94 +650,18 @@ TEST( GameInterfaceSplit, IsEngineThreadedIsGoneFromTheServerAndStillLivesOnTheC
 		<< "decision and this phase did not take it.";
 }
 
-TEST( GameInterfaceSplit, TheRestoreTailSaysWhyItIsNotRePointedAtTheShell )
-{
-	// EndRestoreEntities ended by re-running stock's whole ServerActivate on
-	// stock's object. That object is deleted; the call is NOT re-pointed at
-	// CShellGameDll, and the reason has to survive in the file or the next
-	// reader will "fix" it. Loud rather than silent, because if the line is
-	// ever reached the argument is wrong.
-	// EndRestoreEntities moved to shell_restoreentities.cpp at step 4 with the
-	// rest of the trio. The fact is unchanged; only the file holding it is.
-	const std::string raw = Read( kRestore );
-	ASSERT_FALSE( raw.empty() );
-
-	EXPECT_NE( raw.find( "EndRestoreEntities reached its tail" ), std::string::npos )
-		<< "the restore tail is silent again. Either the Warning went, or the "
-		<< "re-activation was quietly re-pointed at the shell -- which would "
-		<< "give a refused save/restore path the appearance of working.";
-	// Comment-stripped for this half, deliberately: the comment beside the
-	// Warning QUOTES the deleted call, which is the whole of its explanation.
-	EXPECT_EQ( Code( kRestore ).find( "g_ServerGameDLL.ServerActivate" ), std::string::npos )
-		<< "stock's object is called again, in code rather than in the comment "
-		<< "that records what was there.";
-}
+// TheRestoreTailSaysWhyItIsNotRePointedAtTheShell went with
+// shell_restoreentities.cpp (plan_server_native_min P1): EndRestoreEntities
+// returned on its first line forever and the whole path is deleted; there is
+// no tail left to keep loud and nothing to re-point. The managed save/restore
+// codec (P3c) writes its own refusal.
 
 //=============================================================================//
 // STEP 4 — the residue is rehomed and the file is deleted
 //=============================================================================//
 
-TEST( GameInterfaceSplit, TheRestoreTrioIsWholeAndItsStateIsFields )
-{
-	const std::string code = Code( kRestore );
-	ASSERT_FALSE( code.empty() );
-
-	// All four functions. AddRestoredEntity has six callers in
-	// game/shared/saverestore.cpp and EndRestoreEntities one in
-	// shell_gameclients.cpp; Game_SetOneWayTransition has two, world.cpp's and
-	// world_adapter.cpp's. A missing definition is a link error -- but a
-	// missing BODY is not, which is what these read.
-	// RENAMED, NOT MOVED -- see EdictToBaseEntity above: the parameter type is
-	// spelled IGameEntity now, and the six callers in game/shared/saverestore.cpp
-	// pass the same pointer they always did.
-	// THE TRIO IS ONE NOW (server gc cull, 2026-10-01). AddRestoredEntity and
-	// BeginRestoreEntities lost their callers with saverestore.cpp, and
-	// server.so's --print-gc-sections link dropped both; they are deleted, and
-	// asserted absent. EndRestoreEntities keeps its caller (ClientActive).
-	EXPECT_EQ( code.find( "voidAddRestoredEntity(" ), std::string::npos );
-	EXPECT_EQ( code.find( "voidBeginRestoreEntities(" ), std::string::npos );
-	EXPECT_NE( code.find( "voidEndRestoreEntities(){" ), std::string::npos );
-	EXPECT_NE( code.find( "voidGame_SetOneWayTransition(void){" ), std::string::npos );
-
-	// The list is appended to and the flag is set and cleared. Stock had all
-	// three as file statics; tools/statics-audit gates that out of
-	// src/sourcesharp, so they are fields -- and a field that is declared and
-	// never written compiles perfectly.
-	// THE SPELLING MOVED AT plan_entity.md STEP 1e AND THE FACT DID NOT.
-	// Stock built an EHANDLE from the pointer here; that construction is one
-	// virtual call -- GetRefEHandle() -- wrapped in a typed handle whose type
-	// nothing in this file reads back, and 1e's gate is that no compiled server
-	// shim TU spells a typed entity handle. What this fact is FOR is unchanged:
-	// AddRestoredEntity has to APPEND, because a body that does not leaves
-	// EndRestoreEntities with nothing to walk and no link error to say so.
-	// typed_handle_sweep_test.cpp pins the new expression from the other side.
-	//
-	// AND IT MOVED AGAIN AT THE ARMED COMPILE, lane armed-28, for a reason the
-	// paragraph above anticipates without naming: the one virtual call that
-	// construction reduces to, `GetRefEHandle()`, is on IHandleEntity -- and
-	// armed a CBaseEntity is an IGameEntity, which has no base at all and which
-	// igameentity.h refuses to give that member to BY NAME ("an entity that
-	// implements those already answers them, and duplicating them here would
-	// invite the two to disagree"). So the expression is
-	// `SourceSharp_RefHandleFromEntity( pEntity )`, declared in shell_resolve.h,
-	// which is the same call with the one alias guard in the whole family behind
-	// it (shell_entityapi.cpp). Unarmed it is `pEntity->GetRefEHandle()`
-	// verbatim, so nothing about the restore list's contents changes in the
-	// configuration that ships today.
-	//
-	// THE FACT IS STILL THE APPEND, which is the whole reason this line exists
-	// and why only its needle moved.
-	// (The append and the opening SetInRestore(true) went with Add and Begin.)
-	EXPECT_NE( code.find( "s_Restored.SetInRestore(false);" ), std::string::npos );
-	EXPECT_NE( code.find( "s_OneWay.Set();" ), std::string::npos )
-		<< "Game_SetOneWayTransition does not set the flag -- its two live "
-		<< "callers would be calling an empty body.";
-
-	EXPECT_EQ( code.find( "staticbool" ), std::string::npos )
-		<< "a file-scope static came across; statics-audit gates that shape.";
-	EXPECT_EQ( code.find( "g_RestoredEntities" ), std::string::npos );
-	EXPECT_EQ( code.find( "g_InRestore" ), std::string::npos );
-}
+// TheRestoreTrioIsWholeAndItsStateIsFields went with the file it read
+// (plan_server_native_min P1): the trio is deleted whole, not kept-whole.
 
 TEST( GameInterfaceSplit, EveryEngineGlobalIsStillDefinedExactlyOnce )
 {
@@ -906,7 +829,7 @@ TEST( GameInterfaceSplit, BothNewFilesAreInTheServerProject )
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kShared ) ) << kShared;
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kClients ) ) << kClients;
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kTags ) ) << kTags;
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kRestore ) ) << kRestore;
+	// kRestore left the list with shell_restoreentities.cpp (P1).
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kGlobals ) ) << kGlobals;
 }
 

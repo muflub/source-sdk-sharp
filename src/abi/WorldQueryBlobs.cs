@@ -47,56 +47,10 @@ public enum SurfaceMaterial
 }
 
 /// <summary>
-/// Everything a weapon's state machine reads, in one crossing.
-///
-/// One struct rather than a dozen getters because it is read once per weapon
-/// per frame for every player, and because the fields are only meaningful
-/// together — a clip count without the max and the reserve does not say whether
-/// a reload is possible.
-///
-/// Must match SourceSharpWeaponState in sourcesharp.h.
-/// </summary>
-[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
-public struct WeaponState
-{
-    public uint Owner;
-
-    /// <summary>Buttons held this frame.</summary>
-    public int Buttons;
-
-    /// <summary>Buttons that went down this frame — the leading edge.</summary>
-    public int ButtonsPressed;
-
-    public int Clip;
-
-    /// <summary>Zero when the weapon does not use a clip, which is how a crowbar differs.</summary>
-    public int MaxClip;
-
-    public int Reserve;
-
-    /// <summary>
-    /// The alt-fire pool — a SEPARATE ammunition type, not a second helping of
-    /// the same one. An SMG's grenades and its bullets are counted apart, run
-    /// out apart, and are picked up apart.
-    ///
-    /// Zero both when the weapon has no secondary ammo at all and when the
-    /// player has none left, which is deliberate: neither may fire, so the two
-    /// need not be told apart here.
-    /// </summary>
-    public int SecondaryReserve;
-
-    public int InReload;
-    public int Melee;
-    public float NextPrimaryAttack;
-    public float NextSecondaryAttack;
-    public float CurrentTime;
-}
-
-/// <summary>
 /// Everything a shooter says about ONE piece of debris.
 ///
 /// <para>
-/// Must match SourceSharpGibShot in sourcesharp.h. A struct rather than a dozen
+/// Managed data since plan_server_native_v2 T2 (SourceSharp_ShootGib and its native SourceSharpGibShot went). A struct rather than a dozen
 /// arguments because the fields are only meaningful together, and these are
 /// filled in a loop where an argument out of order would be a silent mis-shot.
 /// </para>

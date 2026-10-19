@@ -111,7 +111,6 @@ static CManagedConVarRef s_Language( "g_Language" );
 // cluster. The world reset below is the only remaining touch — spawn point
 // rotation was the SDK player's, and the managed side keeps its own.
 IGameEntity						*g_pLastSpawn = NULL;
-void InitBodyQue(void);
 
 //-----------------------------------------------------------------------------
 // The global sprite indexes, transplanted from basecombatweapon.cpp when that
@@ -478,8 +477,9 @@ bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 		// Single player only.  Clear save directory if set
 		if ( atoi(szValue) )
 		{
-			extern void Game_SetOneWayTransition();
-			Game_SetOneWayTransition();
+			// Game_SetOneWayTransition stood here and went with
+			// shell_restoreentities.cpp (plan_server_native_min P1): the flag
+			// it set had no reader.
 		}
 		return true;
 	}
@@ -799,8 +799,6 @@ void CWorld::DecalTrace( trace_t *pTrace, char const *decalName)
 
 	ss::CBroadcastRecipientFilter filter;
 
-	if ( SourceSharpTe_SuppressFilter( filter ) )
-		return;
 
 	if ( pTrace->hitbox != 0 )
 	{
@@ -810,17 +808,6 @@ void CWorld::DecalTrace( trace_t *pTrace, char const *decalName)
 	{
 		TE_WorldDecal( filter, 0.0, &pTrace->endpos, index );
 	}
-}
-
-void CWorld::RegisterSharedActivities( void )
-{
-	// The shared activity and event tables are not registered any more --
-	// there is no registry to register them into. See the note where the
-	// registries used to be opened.
-}
-
-void CWorld::RegisterSharedEvents( void )
-{
 }
 
 
@@ -1184,13 +1171,11 @@ void CWorld::Precache( void )
 	// =================================================
 	//	Activities
 	// =================================================
-	// Nothing to free: the activity and event registries went in Phase 2d.
-	// See the note where they used to be opened.
-	RegisterSharedActivities();
+	// Nothing to register: the activity and event registries went in Phase
+	// 2d, and their empty Register* hooks in plan_server_native_v2 T2.
 
-	RegisterSharedEvents();
-
-	InitBodyQue();
+	// InitBodyQue stood here (plan_server_native_min P1): a no-op stub; the
+	// corpse pool is Corpses.cs's decision.
 // init sentence group playback stuff from sentences.txt.
 // ok to call this multiple times, calls after first are ignored.
 

@@ -108,8 +108,6 @@ public:
 	DECLARE_CLASS_NOBASE( CSourceSharpGameRules );
 #ifdef CLIENT_DLL
 	DECLARE_NETWORKCLASS_NOBASE();
-#else
-	DECLARE_SERVERCLASS_NOBASE();	// what DECLARE_NETWORKCLASS_NOBASE is on this side
 #endif
 
 	CSourceSharpGameRules();
@@ -150,11 +148,11 @@ public:
 	// paths that run per hit, and the values are pushed once rather than asked
 	// for (see SourceSharpDamageRules).
 	//-------------------------------------------------------------------------
-	// THREE OF THESE ELEVEN ARE IGameRules MEMBERS AND EIGHT ARE NOT, which is
-	// not an oversight. IGameRules lists what calls into the rules THROUGH the
-	// rules pointer, and only three are reached that way in this build:
-	// Damage_GetNoPhysicsForce, Damage_GetTimeBased and Damage_NoPhysicsForce
-	// (takedamageinfo.cpp:355, compiled on both sides). The other eight are the
+	// TWO OF THESE ARE IGameRules MEMBERS, which is not an oversight.
+	// IGameRules lists what calls into the rules THROUGH the rules pointer, and
+	// only two are reached that way in this build: Damage_GetNoPhysicsForce and
+	// Damage_GetTimeBased. Damage_NoPhysicsForce went in plan_server_native_v2
+	// T2: its caller was takedamageinfo.cpp, which no DLL compiles. The other eight are the
 	// same policy family answered from the same table, but their g_pGameRules->
 	// callers are all in files this build does not compile -- player.cpp,
 	// ai_basenpc.cpp, physics.cpp. They stay plain virtuals here rather than
@@ -162,8 +160,6 @@ public:
 	// caller is surface with nothing behind it.
 	virtual int  Damage_GetTimeBased( void ) OVERRIDE;
 	virtual int  Damage_GetNoPhysicsForce( void ) OVERRIDE;
-
-	virtual bool Damage_NoPhysicsForce( int iDmgType ) OVERRIDE;
 
 	// Yes, and said here rather than inherited. See the .cpp.
 	virtual bool IsMultiplayer( void ) OVERRIDE;
@@ -230,7 +226,6 @@ public:
 	// Server-only: gamerules.h declares these inside its !CLIENT_DLL branch.
 	virtual bool  ClientConnected( edict_t *pEntity, const char *pszName,
 	                               const char *pszAddress, char *reject, int maxrejectlen ) OVERRIDE;
-	virtual int   PlayerRelationship( IGameEntity *pPlayer, IGameEntity *pTarget );
 
 	// Respawn and damage policy. CMultiplayRules answers all of these in C++;
 	// each now asks C# first and falls back to the stock rule when managed code
@@ -291,8 +286,6 @@ public:
 	// are already hollow upstream, which is the point: what looked like 2,004
 	// lines of multiplayer rules is, for this mod, eight short answers.
 	//-------------------------------------------------------------------------
-	virtual void ClientDisconnected( edict_t *pClient ) OVERRIDE;
-	virtual void GetTaggedConVarList( KeyValues *pCvarTagList ) OVERRIDE;
 
 	//-------------------------------------------------------------------------
 	// THE TWENTY-FIVE C++ REQUIRES AND NOTHING CALLS.
@@ -330,11 +323,6 @@ public:
 	virtual void  Precache( void ) OVERRIDE { return; }                                    // gamerules.h:267
 	virtual void  ResetMapCycleTimeStamp( void ) OVERRIDE { return; }                      // gamerules.h:449
 	virtual void  Status( void (*print) (const char *fmt, ...) ) OVERRIDE {}               // gamerules.h:252
-
-	// Server-only, with real bodies in the .cpp.
-	virtual void  RadiusDamage( const RulesDamageInfo_t &info, const Vector &vecSrcIn, float flRadius,
-	                            int iClassIgnore, IGameEntity *pEntityIgnore,
-	                            const IHandleEntity *pTraceIgnore = NULL ) OVERRIDE;
 #else
 	//-------------------------------------------------------------------------
 	// And the two the CLIENT half of IGameRules declares.

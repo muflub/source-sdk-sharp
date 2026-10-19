@@ -4,9 +4,9 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 46 links here; 606 in all lists (were 676)
+# 48 links here; 604 in all lists (were 604)
 #      12 src/mathlib
-#      11 src/public
+#      13 src/public
 #       3 src/raytrace
 #      17 src/tier1
 #       3 src/utils
@@ -28,10 +28,12 @@ src/public/mathlib/halton.h
 src/public/mathlib/ssequaternion.h
 src/public/raytrace.h
 src/public/tier1/characterset.h
+src/public/tier1/fmtstr.h
 src/public/tier1/memstack.h
 src/public/tier1/utlbufferutil.h
 src/public/tier1/utlcommon.h
 src/public/tier1/utlhashtable.h
+src/public/vstdlib/iprocessutils.h
 src/public/zip_utils.h
 src/raytrace/raytrace.cpp
 src/raytrace/trace2.cpp

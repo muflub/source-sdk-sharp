@@ -223,10 +223,21 @@ client_util_library.o	_ZZ7VarArgsPKczE6string	VarArgs(char const*, ...)::string	
 client_util_library.o	_ZL25g_nLocalPlayerVisionFlags	g_nLocalPlayerVisionFlags	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	4	UNRULED		
 client_util_library.o	_ZL37g_nLocalPlayerVisionFlagsWeaponsCheck	g_nLocalPlayerVisionFlagsWeaponsCheck	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	4	UNRULED		
 	localplayer_visionflags	localplayer_visionflags	sourcesharp/game/client/client_util_library.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
+client_util_library.o	_ZL30s_LastEntityReasonableEmitTime	s_LastEntityReasonableEmitTime	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+	_ZZN2ss17SecondsSinceStartEvE7s_Start	ss::SecondsSinceStart()::s_Start	sourcesharp/game/client/client_util_library.cpp	WEAK	bss	function-local	8	UNRULED		
+client_util_library.o	_ZL15violence_ablood	violence_ablood	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
+client_util_library.o	_ZL14violence_agibs	violence_agibs	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
+client_util_library.o	_ZL15violence_hblood	violence_hblood	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
+client_util_library.o	_ZL14violence_hgibs	violence_hgibs	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 	g_StandardRecvProxies	g_StandardRecvProxies	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	bss	file-or-global	40	UNRULED		
 	g_bUseNetworkVars	g_bUseNetworkVars	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	data	file-or-global	1	UNRULED		
 	g_pClientClassHead	g_pClientClassHead	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	bss	file-or-global	8	FLOOR		the ClientClass list; shell_clientdll.cpp's GetAllClasses hands its head to the engine and shell_tempents_client.cpp walks it
 	g_pRenamedRecvTableInfoHead	g_pRenamedRecvTableInfoHead	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
+generic_payload_client.o	_ZN12_GLOBAL__N_110g_RefusalsE	(anonymous namespace)::g_Refusals	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	function-local	256	UNRULED		
+generic_payload_client.o	_ZN12_GLOBAL__N_115g_nRefusalTypesE	(anonymous namespace)::g_nRefusalTypes	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	function-local	4	UNRULED		
+generic_payload_client.o	_ZN12_GLOBAL__N_117g_nRefusalUpdatesE	(anonymous namespace)::g_nRefusalUpdates	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	function-local	4	UNRULED		
+generic_payload_client.o	_ZL26cs_cl_dump_payload_command	cs_cl_dump_payload_command	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
+generic_payload_client.o	_ZL27cs_cl_schema_status_command	cs_cl_schema_status_command	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 	g_pParticleSystemMgr	g_pParticleSystemMgr	sourcesharp/game/client/particles_lib_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_beam_render.o	_ZN12_GLOBAL__N_117g_BeamRenderablesE	(anonymous namespace)::g_BeamRenderables	sourcesharp/game/client/shell_beam_render.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_beam_render.o	_ZN12_GLOBAL__N_121g_FreeBeamRenderablesE	(anonymous namespace)::g_FreeBeamRenderables	sourcesharp/game/client/shell_beam_render.cpp	LOCAL	bss	function-local	32	UNRULED		
@@ -256,6 +267,7 @@ shell_client.o	_ZZL34SourceSharp_ApplyThirdPersonCameraP18C_StandaloneEntityP10C
 shell_client.o	_ZL36cl_reload_localization_files_command	cl_reload_localization_files_command	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_client.o	_ZL28cl_show_num_particle_systems	cl_show_num_particle_systems	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 	fps	fps	sourcesharp/game/client/shell_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
+shell_client.o	_ZL9g_AmmoDef	g_AmmoDef	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	2320	UNRULED		
 shell_client.o	_ZL12g_ClientMode	g_ClientMode	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_client.o	_ZL13g_ModeManager	g_ModeManager	sourcesharp/game/client/shell_client.cpp	LOCAL	data	file-or-global	8	UNRULED		
 	g_pClientMode	g_pClientMode	sourcesharp/game/client/shell_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
@@ -525,6 +537,7 @@ shell_precipitation_client.o	_ZZ31SourceSharp_PrecipitationPlayerPfE11default_fo
 	_ZN11IMoveHelper13sm_pSingletonE	IMoveHelper::sm_pSingleton	sourcesharp/game/client/shell_prediction.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN17IPredictionSystem20g_pPredictionSystemsE	IPredictionSystem::g_pPredictionSystems	sourcesharp/game/client/shell_prediction.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 shell_prediction.o	_ZL47__g_CreateCSourceSharpPredictionIPrediction_reg	__g_CreateCSourceSharpPredictionIPrediction_reg	sourcesharp/game/client/shell_prediction.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
+shell_prediction.o	_ZL33cs_cl_move_managed_report_command	cs_cl_move_managed_report_command	sourcesharp/game/client/shell_prediction.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_prediction.o	_ZL12g_Prediction	g_Prediction	sourcesharp/game/client/shell_prediction.cpp	LOCAL	bss	file-or-global	80	FLOOR		engine.so resolves VClientPrediction001 and CreateInterface returns this object's address
 shell_prediction.o	_ZL21g_bWorldUpdateArrived	g_bWorldUpdateArrived	sourcesharp/game/client/shell_prediction.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 	prediction	prediction	sourcesharp/game/client/shell_prediction.cpp	GLOBAL	data	file-or-global	8	UNRULED		
@@ -701,21 +714,15 @@ convar_port.o	_ZN12_GLOBAL__N_116s_nRegisterFlagsE	(anonymous namespace)::s_nReg
 	_ZN14ConCommandBase11s_pAccessorE	ConCommandBase::s_pAccessor	sourcesharp/game/shared/convar_port.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN14ConCommandBase18s_pConCommandBasesE	ConCommandBase::s_pConCommandBases	sourcesharp/game/shared/convar_port.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 convar_port.o	_ZZN9ConVarRef4InitEPKcbE23s_bWarnedWithoutConsole	ConVarRef::Init(char const*, bool)::s_bWarnedWithoutConsole	sourcesharp/game/shared/convar_port.cpp	LOCAL	bss	function-local	1	UNRULED		
+dt_element_names.o	_ZL16s_DTElementNames	s_DTElementNames	sourcesharp/game/shared/dt_element_names.cpp	LOCAL	bss	file-or-global	10240	DEAD		the linker drops it: nothing in the shipped .so reads it
 	k_flMaxEntityEulerAngle	k_flMaxEntityEulerAngle	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 	k_flMaxEntityPosCoord	k_flMaxEntityPosCoord	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 	k_flMaxEntitySpeed	k_flMaxEntitySpeed	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 	k_flMaxEntitySpinRate	k_flMaxEntitySpinRate	sourcesharp/game/shared/entity_shared_statics.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
-entity_shared_statics.o	_ZL30s_LastEntityReasonableEmitTime	s_LastEntityReasonableEmitTime	sourcesharp/game/shared/entity_shared_statics.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 	s_nPredictionRandomSeed	s_nPredictionRandomSeed	sourcesharp/game/shared/entity_shared_statics.cpp	WEAK	data	file-or-global	4	UNRULED		
-	_ZZN2ss17SecondsSinceStartEvE7s_Start	ss::SecondsSinceStart()::s_Start	sourcesharp/game/shared/entity_shared_statics.cpp	WEAK	bss	function-local	8	MEMBER	Diagnostics:DLL	reset_today=NO. ss_clock.h's base, taken on the first call: Plat_FloatTime's process-relative base (tier0 held it), kept so float stall timers in studio.cpp keep millisecond precision (P4).
 entity_shared_statics.o	_ZL17sv_alternateticks	sv_alternateticks	sourcesharp/game/shared/entity_shared_statics.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 gamestringpool.o	_ZL16g_GameStringPool	g_GameStringPool	sourcesharp/game/shared/gamestringpool.cpp	LOCAL	bss	file-or-global	64	UNRULED		
-generic_payload.o	_ZN12_GLOBAL__N_110g_RefusalsE	(anonymous namespace)::g_Refusals	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	function-local	256	UNRULED		
-generic_payload.o	_ZN12_GLOBAL__N_115g_nRefusalTypesE	(anonymous namespace)::g_nRefusalTypes	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	function-local	4	UNRULED		
-generic_payload.o	_ZN12_GLOBAL__N_117g_nRefusalUpdatesE	(anonymous namespace)::g_nRefusalUpdates	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	function-local	4	UNRULED		
 generic_payload.o	_ZZ20SourceSharp_NetTypesvE7s_Types	SourceSharp_NetTypes()::s_Types	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	function-local	43016	UNRULED		
-generic_payload.o	_ZL26cs_cl_dump_payload_command	cs_cl_dump_payload_command	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-generic_payload.o	_ZL27cs_cl_schema_status_command	cs_cl_schema_status_command	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 generic_payload.o	_ZL18g_PayloadPropNames	g_PayloadPropNames	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	file-or-global	2560	UNRULED		
 generic_payload.o	_ZL24g_bPayloadPropNamesBuilt	g_bPayloadPropNamesBuilt	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 	power2_n	power2_n	sourcesharp/game/shared/mathlib_port.cpp	GLOBAL	data	file-or-global	1024	CONST	-	reset_today=n/a. color_conversion.cpp's exponent table (mathlib.h's TexLightToLinear reads it), constant-initialised from ss_mathlib::kPower2N by mathlib_port.cpp (C9); non-const as stock declares it, never written.
@@ -766,13 +773,12 @@ shell_gamerules.o	_ZL20g_DefaultViewVectors	g_DefaultViewVectors	sourcesharp/gam
 	g_StringTableGameRules	g_StringTableGameRules	sourcesharp/game/shared/shell_gamerules.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_gamerules.o	_ZL16s_CollisionRules	s_CollisionRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	80	UNRULED		
 shell_gamerules.o	_ZL13s_DamageRules	s_DamageRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	20	UNRULED		
-shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	256	UNRULED		
+shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	240	UNRULED		
 shell_movement.o	_ZZL11ActiveMovervE9s_pActive	ActiveMover()::s_pActive	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_movement.o	_ZZL12MoveCountersvE9s_nCounts	MoveCounters()::s_nCounts	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_movement.o	_ZZL16MovementRefusalsvE11s_nRefusals	MovementRefusals()::s_nRefusals	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	12	UNRULED		
 	_ZZ37SourceSharpMovement_PendingFallDamagevE21s_flPendingFallDamage	SourceSharpMovement_PendingFallDamage()::s_flPendingFallDamage	sourcesharp/game/shared/shell_movement.cpp	WEAK	bss	function-local	4	UNRULED		
 shell_movement.o	_ZL45__g_CreateCShellGameMovementIGameMovement_reg	__g_CreateCShellGameMovementIGameMovement_reg	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
-shell_movement.o	_ZL33cs_cl_move_managed_report_command	cs_cl_move_managed_report_command	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_movement.o	_ZL19g_ShellGameMovement	g_ShellGameMovement	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	file-or-global	1776	UNRULED		
 	g_bMovementOptimizations	g_bMovementOptimizations	sourcesharp/game/shared/shell_movement.cpp	GLOBAL	data	file-or-global	1	UNRULED		
 	g_pGameMovement	g_pGameMovement	sourcesharp/game/shared/shell_movement.cpp	GLOBAL	data	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
@@ -784,9 +790,7 @@ shell_physsaverestore_absent.o	_ZZL27ShellPhysSaveRestoreManagervE8s_Absent	Shel
 	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE17beentheredonethat	CSaveRestoreSegment::FindCreateSymbol(char const*)::beentheredonethat	sourcesharp/game/shared/shell_savegame.cpp	WEAK	bss	function-local	1	UNRULED		
 	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE12tokensparsed	CSaveRestoreSegment::FindCreateSymbol(char const*)::tokensparsed	sourcesharp/game/shared/shell_savegame.cpp	WEAK	bss	function-local	4	UNRULED		
 	default_fov	default_fov	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-shell_shared.o	_ZL9g_AmmoDef	g_AmmoDef	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	2320	UNRULED		
 shell_shared.o	_ZL10g_MoveData	g_MoveData	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	168	UNRULED		
-shell_shared.o	_ZL13g_WeaponTypes	g_WeaponTypes	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	48	UNRULED		
 	g_pMoveData	g_pMoveData	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 sound_emitter.o	_ZZ9WaveTracePKcS0_E11s_WaveTraceB5cxx11	WaveTrace(char const*, char const*)::s_WaveTrace[abi:cxx11]	sourcesharp/game/shared/sound_emitter.cpp	LOCAL	bss	function-local	48	UNRULED		
 sound_emitter.o	_ZL20g_SoundEmitterSystem	g_SoundEmitterSystem	sourcesharp/game/shared/sound_emitter.cpp	LOCAL	bss	file-or-global	16	UNRULED		
@@ -850,4 +854,3 @@ collisionutils.o	_ZL12s_ExtIndices	s_ExtIndices	sourcesharp/public/collisionutil
 collisionutils.o	_ZL12s_MatIndices	s_MatIndices	sourcesharp/public/collisionutils.cpp	LOCAL	data	file-or-global	24	DEAD		the linker drops it: nothing in the shipped .so reads it
 dt_utlvector_common.o	_ZL8g_RTDictB5cxx11	g_RTDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 dt_utlvector_common.o	_ZL8g_STDictB5cxx11	g_STDict[abi:cxx11]	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
-dt_utlvector_common.o	_ZL16s_DTElementNames	s_DTElementNames	sourcesharp/public/dt_utlvector_common.cpp	LOCAL	bss	file-or-global	10240	DEAD		the linker drops it: nothing in the shipped .so reads it

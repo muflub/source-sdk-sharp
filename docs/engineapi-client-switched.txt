@@ -10,8 +10,6 @@ IShimEvents
 IShimModels
 IShimMovement
 IShimNetwork
-IShimStringTables
-IShimWeapons
 IShimWorld
 IShimHudClient
 IShimPredictionClient

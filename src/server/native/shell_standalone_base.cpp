@@ -58,6 +58,7 @@
 
 #include "imanaged_areas.h"   // plan_engineapi_vtables E9: IManagedEntities
 #include "ss_takedamageinfo.h"	// server.so's damage info
+#include "ss_entityhandle.h"   // ss::GameEntityFromEntityHandle: the one read of a handle's entity face
 
 // What cbase.h and physics_shared.h declared for this file before P5 (lane E).
 extern ISpatialPartition *partition;   // shell_engineboundary.cpp
@@ -106,21 +107,10 @@ std::vector< CStandaloneEntity * > &StandaloneEntities() { return g_Standalones;
 // managed entity able to cause something. See activator.h: the two halves are
 // carried together, the SDK half is what every unconverted reader still gets,
 // and the other half is the one this hierarchy could never name.
-static Activator_t g_CurrentActivator;
 
-CStandaloneActivatorScope::CStandaloneActivatorScope( const Activator_t &activator )
-	: m_Previous( g_CurrentActivator )
-{
-	g_CurrentActivator = activator;
-}
-
-// Restored rather than cleared: an input handler that fires an output which
-// lands on another entity nests these, and clearing would lose the outer
-// activator halfway through.
-CStandaloneActivatorScope::~CStandaloneActivatorScope()
-{
-	g_CurrentActivator = m_Previous;
-}
+// CStandaloneActivatorScope went (plan_server_native_min P1): g_CurrentActivator
+// had no reader -- FireNamedOutput, the one, was deleted at step 2a and the
+// activator rides the managed queued event (EntityIoQueue).
 
 //-----------------------------------------------------------------------------
 // THE resolve. Everything below it is a projection of its result.
@@ -138,7 +128,7 @@ IGameEntity *SourceSharpEntity_t::GameEntity() const
 {
 	if ( pBase )
 		return pBase;
-	return pStandalone ? pStandalone->GetGameEntity() : NULL;
+	return pStandalone;
 }
 
 SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity )
@@ -196,9 +186,7 @@ SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity )
 	if ( ent.pWorld )
 		return ent;
 
-	IServerUnknown *pUnknown = static_cast< IServerUnknown * >( pHandleEntity );
-
-	if ( IGameEntity *pGame = static_cast< IServerEntity * >( pUnknown )->GetGameEntity() )
+	if ( IGameEntity *pGame = ss::GameEntityFromEntityHandle( pHandleEntity ) )
 		ent.pStandalone = SourceSharp_ShellOf( pGame );
 	//=========================================================================
 	// SOURCESHARP, Phase 13 step 5 — WHY THE pBase ARM AND EVERY ARM BELOW IT
@@ -392,14 +380,8 @@ IPhysicsObject *SourceSharpEntity_t::Physics() const
 // and a virtual call on NULL is not; a mechanical substitution at five call
 // sites would have been five chances to leave it out.
 //-----------------------------------------------------------------------------
-CBaseAnimating *SourceSharpEntity_t::Animating() const
-{
-	// No parallel arm to fall through to, and none is owed: this asks for the
-	// SDK's skeleton and armed there is no SDK entity to have one. NULL is
-	// already this function's answer for every entity on the other hierarchy,
-	// and every caller tests it -- the header says so in as many words.
-	return NULL;
-}
+// SourceSharpEntity_t::Animating() went (plan_server_native_min P1): it
+// answered NULL unconditionally and its two callers' arms are documented dead.
 
 IHandleEntity *SourceSharpEntity_t::ToHandleEntity() const
 {
@@ -2201,8 +2183,8 @@ bool CStandaloneEntity::KeyValueShellOnly( const char *szKeyName, const char *sz
 bool CStandaloneEntity::AcceptInput( const char *szInputName, const Activator_t &activator,
                                      IGameEntity *pCaller, const ss::variant_t &Value )
 {
-	CStandaloneActivatorScope scope( activator );
-
+	// The CStandaloneActivatorScope that stood here wrote a global with no
+	// reader (plan_server_native_min P1).
 	return OnManagedInput( szInputName, activator, Value );
 }
 
@@ -2588,26 +2570,11 @@ void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount )
 // beside every other one this build makes -- which is IEngineFrame's own rule:
 // a step is never a decision.
 //-----------------------------------------------------------------------------
-void StandaloneEntities_Update()
-{
-	// AND NOW IT DOES NOTHING, and that is the end of a three-step demolition
-	// rather than an oversight. This loop had three lines in it:
-	//
-	//   the think walk       step 1g: one crossing per thinking entity, which
-	//                        §3.4 forbids by name. A managed heap now.
-	//   the touch sweep      step 2b: expiring a link is a diff, and the diff
-	//                        is managed.
-	//   pEnt->UpdateMovement()  step 2g: the mover, which is this file's block
-	//                        above.
-	//
-	// The body is kept as this comment rather than the function deleted, because
-	// SourceSharp_FrameStandaloneUpdate is an ABI slot and removing a slot is a
-	// shape change no lane may make on its own. NOTHING CALLS IT: the managed
-	// frame stopped asking for this step in the same commit
-	// (StandaloneHierarchy.OnThink), so it costs no crossing either.
-	// .claude/entity-port/abi-requests/2g.md asks the integrator to delete the
-	// step, the slot and this function together.
-}
+// StandaloneEntities_Update went (plan_server_native_min P1): its three
+// lines left step by step (1g thinks, 2b touch sweep, 2g movement) and the
+// .abi-requests/2g.md instruction to delete the step, the slot and the
+// function together is executed here; the managed frame never asked for it.
+
 
 //-----------------------------------------------------------------------------
 // THE SECOND HALF: what has to happen after the thinks have run.

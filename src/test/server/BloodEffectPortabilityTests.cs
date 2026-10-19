@@ -75,6 +75,11 @@ public class BloodEffectPortabilityTests
     /// </summary>
     private const string ViolenceHome = "src/sourcesharp/game/shared/util_shared_library.cpp";
 
+    // UTIL_IsLowViolence's home since plan_server_native_v2 T2 (2026-10-18): it
+    // was #ifdef CLIENT_DLL in ViolenceHome, so it moved to the client's utility
+    // library with refs of its own to the same four convars.
+    private const string LowViolenceHome = "src/sourcesharp/game/client/client_util_library.cpp";
+
     // -----------------------------------------------------------------------
     // The gate: what UTIL_ShouldShowBlood actually reads.
     // -----------------------------------------------------------------------
@@ -111,7 +116,8 @@ public class BloodEffectPortabilityTests
         // And the function that DOES reach the engine is a separate one, so the
         // absence above is a fact about the call graph rather than about how
         // this test happened to slice the file.
-        string lowViolence = Body(ViolenceHome, "bool UTIL_IsLowViolence(");
+        string lowViolence = Body(LowViolenceHome, "bool UTIL_IsLowViolence(");
+        Assert.DoesNotContain("bool UTIL_IsLowViolence(", Read(ViolenceHome), StringComparison.Ordinal);
 
         Assert.Contains("engine->IsLowViolence()", lowViolence, StringComparison.Ordinal);
         Assert.Contains("violence_hgibs", lowViolence, StringComparison.Ordinal);
