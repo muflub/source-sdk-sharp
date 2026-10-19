@@ -48,14 +48,12 @@ public sealed unsafe class VPhysicsTablesTests : IDisposable
             NativeMemory.Free((void*)block);
     }
 
-    private void* Acquire(SourceSharpFactoryType type, byte* version, int* entries, byte* error, int errorBytes)
+    private void* Acquire(SourceSharpFactoryType type, byte* version, byte* error, int errorBytes)
     {
         string name = Vtable.TextOf(version, 64) ?? string.Empty;
         _asked.Add(name);
         bool served = type == SourceSharpFactoryType.Internal && name != _unserved
                       && _headers.TryGetValue(name, out _);
-        if (entries != null)
-            *entries = served ? 256 : 0;
         return served ? (void*)_headers[name] : null;
     }
 

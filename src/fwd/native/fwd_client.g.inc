@@ -17,9 +17,17 @@
 #include "cdll_int.h"
 #include "engine/ivmodelinfo.h"
 #include "filesystem.h"
+#include "fwd_physics.h"
 #include "fwd_steam.h"
 #include "inputsystem/iinputsystem.h"
 #include "networkstringtabledefs.h"
+#include "sourcesharp/game/client/particles_lib/include/ss_particles/iparticlelib.h"
+#include "sourcesharp/game/server/ishim_frame.h"
+#include "sourcesharp/game/server/ishim_level.h"
+#include "sourcesharp/game/shared/ishim_areas.h"
+#include "sourcesharp/game/shared/ishim_areas_client.h"
+#include "sourcesharp/game/shared/ishim_console.h"
+#include "sourcesharp/game/shared/ishim_root.h"
 #include "vcollide_parse.h"
 #include "vphysics/collision_set.h"
 #include "vphysics/constraints.h"
@@ -884,6 +892,2519 @@ static void *const s_PhysicsCollisionEventSlots[] = {
 static const SSForwarderTable s_PhysicsCollisionEventTable = { s_PhysicsCollisionEventSlots, 6 };
 
 //-----------------------------------------------------------------------------
+// ShimFrame: 19 forwarder(s) over IShimFrame.
+//-----------------------------------------------------------------------------
+// int32_t IShimFrame::IsSimulatingOnAlternateTicks( void )
+static int32_t SSFwd_ShimFrame_IsSimulatingOnAlternateTicks( IShimFrame *self ) { return self->IsSimulatingOnAlternateTicks(); }
+// int32_t IShimFrame::TickCount( void )
+static int32_t SSFwd_ShimFrame_TickCount( IShimFrame *self ) { return self->TickCount(); }
+// float IShimFrame::GetFrameTime( void )
+static float SSFwd_ShimFrame_GetFrameTime( IShimFrame *self ) { return self->GetFrameTime(); }
+// void IShimFrame::SetFrameTime( float )
+static void SSFwd_ShimFrame_SetFrameTime( IShimFrame *self, float a0 ) { self->SetFrameTime( a0 ); }
+// void IShimFrame::SetServerCurTime( void )
+static void SSFwd_ShimFrame_SetServerCurTime( IShimFrame *self ) { self->SetServerCurTime(); }
+// void IShimFrame::ServerSystemsPreThink( void )
+static void SSFwd_ShimFrame_ServerSystemsPreThink( IShimFrame *self ) { self->ServerSystemsPreThink(); }
+// void IShimFrame::PhysicsRunThinkFunctions( int32_t )
+static void SSFwd_ShimFrame_PhysicsRunThinkFunctions( IShimFrame *self, int32_t a0 ) { self->PhysicsRunThinkFunctions( a0 ); }
+// void IShimFrame::ServerSystemsPostThink( void )
+static void SSFwd_ShimFrame_ServerSystemsPostThink( IShimFrame *self ) { self->ServerSystemsPostThink(); }
+// void IShimFrame::ServiceEventQueue( void )
+static void SSFwd_ShimFrame_ServiceEventQueue( IShimFrame *self ) { self->ServiceEventQueue(); }
+// void IShimFrame::UpdateAllClientData( void )
+static void SSFwd_ShimFrame_UpdateAllClientData( IShimFrame *self ) { self->UpdateAllClientData(); }
+// void IShimFrame::EndGameFrame( void )
+static void SSFwd_ShimFrame_EndGameFrame( IShimFrame *self ) { self->EndGameFrame(); }
+// void IShimFrame::FireNetworkPropertyEvents( void )
+static void SSFwd_ShimFrame_FireNetworkPropertyEvents( IShimFrame *self ) { self->FireNetworkPropertyEvents(); }
+// void IShimFrame::GamestatsUpdateConnection( void )
+static void SSFwd_ShimFrame_GamestatsUpdateConnection( IShimFrame *self ) { self->GamestatsUpdateConnection(); }
+// void IShimFrame::DrawAllDebugOverlays( void )
+static void SSFwd_ShimFrame_DrawAllDebugOverlays( IShimFrame *self ) { self->DrawAllDebugOverlays(); }
+// void IShimFrame::ServerSystemsPreClientUpdate( void )
+static void SSFwd_ShimFrame_ServerSystemsPreClientUpdate( IShimFrame *self ) { self->ServerSystemsPreClientUpdate(); }
+// void IShimFrame::StandalonePlayerCommands( void )
+static void SSFwd_ShimFrame_StandalonePlayerCommands( IShimFrame *self ) { self->StandalonePlayerCommands(); }
+// void IShimFrame::StandaloneUpdate( void )
+static void SSFwd_ShimFrame_StandaloneUpdate( IShimFrame *self ) { self->StandaloneUpdate(); }
+// void IShimFrame::StandaloneFinish( void )
+static void SSFwd_ShimFrame_StandaloneFinish( IShimFrame *self ) { self->StandaloneFinish(); }
+// int32_t IShimFrame::DeliverToSdkEntities( const char *, const char *, const char * )
+static int32_t SSFwd_ShimFrame_DeliverToSdkEntities( IShimFrame *self, const char * a0, const char * a1, const char * a2 ) { return self->DeliverToSdkEntities( a0, a1, a2 ); }
+
+static void *const s_ShimFrameSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_IsSimulatingOnAlternateTicks ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_TickCount ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_GetFrameTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetFrameTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetServerCurTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPreThink ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_PhysicsRunThinkFunctions ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPostThink ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServiceEventQueue ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_UpdateAllClientData ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_EndGameFrame ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_FireNetworkPropertyEvents ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_GamestatsUpdateConnection ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_DrawAllDebugOverlays ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_ServerSystemsPreClientUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandalonePlayerCommands ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_StandaloneFinish ),
+	reinterpret_cast< void * >( &SSFwd_ShimFrame_DeliverToSdkEntities ),
+};
+
+static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 19 };
+
+//-----------------------------------------------------------------------------
+// ShimLevel: 26 forwarder(s) over IShimLevel.
+//-----------------------------------------------------------------------------
+// void IShimLevel::ResetServerTime( void )
+static void SSFwd_ShimLevel_ResetServerTime( IShimLevel *self ) { self->ResetServerTime(); }
+// void IShimLevel::ParseParticleManifest( void )
+static void SSFwd_ShimLevel_ParseParticleManifest( IShimLevel *self ) { self->ParseParticleManifest(); }
+// void IShimLevel::ParseParticleManifestForMap( const char * )
+static void SSFwd_ShimLevel_ParseParticleManifestForMap( IShimLevel *self, const char * a0 ) { self->ParseParticleManifestForMap( a0 ); }
+// void IShimLevel::ParseAllEntities( const char * )
+static void SSFwd_ShimLevel_ParseAllEntities( IShimLevel *self, const char * a0 ) { self->ParseAllEntities( a0 ); }
+// void IShimLevel::PrecachePointTemplates( const char *, const int32_t *, int32_t )
+static void SSFwd_ShimLevel_PrecachePointTemplates( IShimLevel *self, const char * a0, const int32_t * a1, int32_t a2 ) { self->PrecachePointTemplates( a0, a1, a2 ); }
+// void IShimLevel::SetLowViolence( const char * )
+static void SSFwd_ShimLevel_SetLowViolence( IShimLevel *self, const char * a0 ) { self->SetLowViolence( a0 ); }
+// void IShimLevel::LoadMessageOfTheDay( void )
+static void SSFwd_ShimLevel_LoadMessageOfTheDay( IShimLevel *self ) { self->LoadMessageOfTheDay(); }
+// int32_t IShimLevel::ResetDeleteList( void )
+static int32_t SSFwd_ShimLevel_ResetDeleteList( IShimLevel *self ) { return self->ResetDeleteList(); }
+// void IShimLevel::ActivateAllEntities( void )
+static void SSFwd_ShimLevel_ActivateAllEntities( IShimLevel *self ) { self->ActivateAllEntities(); }
+// void IShimLevel::InitPostEntitySystems( void )
+static void SSFwd_ShimLevel_InitPostEntitySystems( IShimLevel *self ) { self->InitPostEntitySystems(); }
+// void IShimLevel::SetPrecacheAllowed( int32_t )
+static void SSFwd_ShimLevel_SetPrecacheAllowed( IShimLevel *self, int32_t a0 ) { self->SetPrecacheAllowed( a0 ); }
+// void IShimLevel::ShutdownPreClearSteamSystems( void )
+static void SSFwd_ShimLevel_ShutdownPreClearSteamSystems( IShimLevel *self ) { self->ShutdownPreClearSteamSystems(); }
+// void IShimLevel::ClearSteamAPIContext( void )
+static void SSFwd_ShimLevel_ClearSteamAPIContext( IShimLevel *self ) { self->ClearSteamAPIContext(); }
+// void IShimLevel::ShutdownPreEntitySystems( void )
+static void SSFwd_ShimLevel_ShutdownPreEntitySystems( IShimLevel *self ) { self->ShutdownPreEntitySystems(); }
+// void IShimLevel::ShutdownStandaloneEntities( void )
+static void SSFwd_ShimLevel_ShutdownStandaloneEntities( IShimLevel *self ) { self->ShutdownStandaloneEntities(); }
+// void IShimLevel::ShutdownSoundEnt( void )
+static void SSFwd_ShimLevel_ShutdownSoundEnt( IShimLevel *self ) { self->ShutdownSoundEnt(); }
+// void IShimLevel::ClearEntityList( void )
+static void SSFwd_ShimLevel_ClearEntityList( IShimLevel *self ) { self->ClearEntityList(); }
+// void IShimLevel::ShutdownPostEntitySystems( void )
+static void SSFwd_ShimLevel_ShutdownPostEntitySystems( IShimLevel *self ) { self->ShutdownPostEntitySystems(); }
+// void IShimLevel::UncacheAllParticleSystems( void )
+static void SSFwd_ShimLevel_UncacheAllParticleSystems( IShimLevel *self ) { self->UncacheAllParticleSystems(); }
+// void IShimLevel::RecreateParticleDictionary( void )
+static void SSFwd_ShimLevel_RecreateParticleDictionary( IShimLevel *self ) { self->RecreateParticleDictionary(); }
+// void IShimLevel::PropDataLoadFile( void )
+static void SSFwd_ShimLevel_PropDataLoadFile( IShimLevel *self ) { self->PropDataLoadFile(); }
+// void IShimLevel::PropDataClearFile( void )
+static void SSFwd_ShimLevel_PropDataClearFile( IShimLevel *self ) { self->PropDataClearFile(); }
+// int32_t IShimLevel::LoadSaveGameState( const char *, int32_t )
+static int32_t SSFwd_ShimLevel_LoadSaveGameState( IShimLevel *self, const char * a0, int32_t a1 ) { return self->LoadSaveGameState( a0, a1 ); }
+// int32_t IShimLevel::FileSizeOnPath( const char *, const char * )
+static int32_t SSFwd_ShimLevel_FileSizeOnPath( IShimLevel *self, const char * a0, const char * a1 ) { return self->FileSizeOnPath( a0, a1 ); }
+// int32_t IShimLevel::ReadFileOnPath( const char *, const char *, void *, int32_t )
+static int32_t SSFwd_ShimLevel_ReadFileOnPath( IShimLevel *self, const char * a0, const char * a1, void * a2, int32_t a3 ) { return self->ReadFileOnPath( a0, a1, a2, a3 ); }
+// int32_t IShimLevel::SpawnWorld( const char * const *, const char * const *, int32_t )
+static int32_t SSFwd_ShimLevel_SpawnWorld( IShimLevel *self, const char * const * a0, const char * const * a1, int32_t a2 ) { return self->SpawnWorld( a0, a1, a2 ); }
+
+static void *const s_ShimLevelSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetServerTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifest ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseParticleManifestForMap ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ParseAllEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PrecachePointTemplates ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetLowViolence ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadMessageOfTheDay ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ResetDeleteList ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ActivateAllEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_InitPostEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SetPrecacheAllowed ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreClearSteamSystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearSteamAPIContext ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPreEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownStandaloneEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownSoundEnt ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ClearEntityList ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ShutdownPostEntitySystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_UncacheAllParticleSystems ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_RecreateParticleDictionary ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataLoadFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_PropDataClearFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_LoadSaveGameState ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_FileSizeOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_ReadFileOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimLevel_SpawnWorld ),
+};
+
+static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 26 };
+
+//-----------------------------------------------------------------------------
+// ShimRoot: 3 forwarder(s) over IShimRoot.
+//-----------------------------------------------------------------------------
+// void * IShimRoot::Acquire( const char * )
+static void * SSFwd_ShimRoot_Acquire( IShimRoot *self, const char * a0 ) { return self->Acquire( a0 ); }
+// void * IShimRoot::AcquireInterface( int32_t, const char *, char *, int32_t )
+static void * SSFwd_ShimRoot_AcquireInterface( IShimRoot *self, int32_t a0, const char * a1, char * a2, int32_t a3 ) { return self->AcquireInterface( a0, a1, a2, a3 ); }
+// void IShimRoot::Release( void )
+static void SSFwd_ShimRoot_Release( IShimRoot *self ) { self->Release(); }
+
+static void *const s_ShimRootSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_Acquire ),
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_AcquireInterface ),
+	reinterpret_cast< void * >( &SSFwd_ShimRoot_Release ),
+};
+
+static const SSForwarderTable s_ShimRootTable = { s_ShimRootSlots, 3 };
+
+//-----------------------------------------------------------------------------
+// ParticleLib: 45 forwarder(s) over ISSParticleLib.
+//-----------------------------------------------------------------------------
+// bool ISSParticleLib::Connect( CreateInterfaceFn )
+static bool SSFwd_ParticleLib_Connect( ISSParticleLib *self, CreateInterfaceFn a0 ) { return self->Connect( a0 ); }
+// void ISSParticleLib::Disconnect( void )
+static void SSFwd_ParticleLib_Disconnect( ISSParticleLib *self ) { self->Disconnect(); }
+// CParticleSystemMgr * ISSParticleLib::Mgr( void )
+static CParticleSystemMgr * SSFwd_ParticleLib_Mgr( ISSParticleLib *self ) { return self->Mgr(); }
+// void ISSParticleLib::Counters( SSParticleLibCounters_t * )
+static void SSFwd_ParticleLib_Counters( ISSParticleLib *self, SSParticleLibCounters_t * a0 ) { self->Counters( a0 ); }
+// void * ISSParticleLib::CollectionNew( size_t )
+static void * SSFwd_ParticleLib_CollectionNew( ISSParticleLib *self, size_t a0 ) { return self->CollectionNew( a0 ); }
+// void ISSParticleLib::CollectionDelete( void * )
+static void SSFwd_ParticleLib_CollectionDelete( ISSParticleLib *self, void * a0 ) { self->CollectionDelete( a0 ); }
+// void ISSParticleLib::CollectionConstruct( CParticleCollection * )
+static void SSFwd_ParticleLib_CollectionConstruct( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionConstruct( a0 ); }
+// void ISSParticleLib::CollectionDestruct( CParticleCollection * )
+static void SSFwd_ParticleLib_CollectionDestruct( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionDestruct( a0 ); }
+// bool ISSParticleLib::CollectionInitDef( CParticleCollection *, CParticleSystemDefinition * )
+static bool SSFwd_ParticleLib_CollectionInitDef( ISSParticleLib *self, CParticleCollection * a0, CParticleSystemDefinition * a1 ) { return self->CollectionInitDef( a0, a1 ); }
+// bool ISSParticleLib::CollectionInitName( CParticleCollection *, const char * )
+static bool SSFwd_ParticleLib_CollectionInitName( ISSParticleLib *self, CParticleCollection * a0, const char * a1 ) { return self->CollectionInitName( a0, a1 ); }
+// void ISSParticleLib::CollectionBloatBoundsUsingControlPoint( CParticleCollection * )
+static void SSFwd_ParticleLib_CollectionBloatBoundsUsingControlPoint( ISSParticleLib *self, CParticleCollection * a0 ) { self->CollectionBloatBoundsUsingControlPoint( a0 ); }
+// int ISSParticleLib::CollectionGetHighestControlPoint( const CParticleCollection * )
+static int SSFwd_ParticleLib_CollectionGetHighestControlPoint( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionGetHighestControlPoint( a0 ); }
+// const char * ISSParticleLib::CollectionGetName( const CParticleCollection * )
+static const char * SSFwd_ParticleLib_CollectionGetName( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionGetName( a0 ); }
+// bool ISSParticleLib::CollectionHasMoved( const CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionHasMoved( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionHasMoved( a0 ); }
+// bool ISSParticleLib::CollectionIsFinished( CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionIsFinished( ISSParticleLib *self, CParticleCollection * a0 ) { return self->CollectionIsFinished( a0 ); }
+// bool ISSParticleLib::CollectionIsTranslucent( const CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionIsTranslucent( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionIsTranslucent( a0 ); }
+// bool ISSParticleLib::CollectionIsTwoPass( const CParticleCollection * )
+static bool SSFwd_ParticleLib_CollectionIsTwoPass( ISSParticleLib *self, const CParticleCollection * a0 ) { return self->CollectionIsTwoPass( a0 ); }
+// void ISSParticleLib::CollectionRender( CParticleCollection *, IMatRenderContext *, bool, void * )
+static void SSFwd_ParticleLib_CollectionRender( ISSParticleLib *self, CParticleCollection * a0, IMatRenderContext * a1, bool a2, void * a3 ) { self->CollectionRender( a0, a1, a2, a3 ); }
+// void ISSParticleLib::CollectionSetDormant( CParticleCollection *, bool )
+static void SSFwd_ParticleLib_CollectionSetDormant( ISSParticleLib *self, CParticleCollection * a0, bool a1 ) { self->CollectionSetDormant( a0, a1 ); }
+// void ISSParticleLib::CollectionSimulate( CParticleCollection *, float, bool )
+static void SSFwd_ParticleLib_CollectionSimulate( ISSParticleLib *self, CParticleCollection * a0, float a1, bool a2 ) { self->CollectionSimulate( a0, a1, a2 ); }
+// void ISSParticleLib::CollectionStopEmission( CParticleCollection *, bool, bool, bool )
+static void SSFwd_ParticleLib_CollectionStopEmission( ISSParticleLib *self, CParticleCollection * a0, bool a1, bool a2, bool a3 ) { self->CollectionStopEmission( a0, a1, a2, a3 ); }
+// bool ISSParticleLib::CollectionUsesFullFrameBufferTexture( const CParticleCollection *, bool )
+static bool SSFwd_ParticleLib_CollectionUsesFullFrameBufferTexture( ISSParticleLib *self, const CParticleCollection * a0, bool a1 ) { return self->CollectionUsesFullFrameBufferTexture( a0, a1 ); }
+// bool ISSParticleLib::CollectionUsesPowerOfTwoFrameBufferTexture( const CParticleCollection *, bool )
+static bool SSFwd_ParticleLib_CollectionUsesPowerOfTwoFrameBufferTexture( ISSParticleLib *self, const CParticleCollection * a0, bool a1 ) { return self->CollectionUsesPowerOfTwoFrameBufferTexture( a0, a1 ); }
+// IMaterial * ISSParticleLib::DefinitionGetMaterial( const CParticleSystemDefinition * )
+static IMaterial * SSFwd_ParticleLib_DefinitionGetMaterial( ISSParticleLib *self, const CParticleSystemDefinition * a0 ) { return self->DefinitionGetMaterial( a0 ); }
+// bool ISSParticleLib::DefinitionShouldAlwaysPrecache( const CParticleSystemDefinition * )
+static bool SSFwd_ParticleLib_DefinitionShouldAlwaysPrecache( ISSParticleLib *self, const CParticleSystemDefinition * a0 ) { return self->DefinitionShouldAlwaysPrecache( a0 ); }
+// void ISSParticleLib::MgrAddBuiltinRenderingOperators( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrAddBuiltinRenderingOperators( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrAddBuiltinRenderingOperators( a0 ); }
+// void ISSParticleLib::MgrAddBuiltinSimulationOperators( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrAddBuiltinSimulationOperators( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrAddBuiltinSimulationOperators( a0 ); }
+// void ISSParticleLib::MgrAddToRenderCache( CParticleSystemMgr *, CParticleCollection * )
+static void SSFwd_ParticleLib_MgrAddToRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0, CParticleCollection * a1 ) { self->MgrAddToRenderCache( a0, a1 ); }
+// void ISSParticleLib::MgrCommitProfileInformation( CParticleSystemMgr *, bool )
+static void SSFwd_ParticleLib_MgrCommitProfileInformation( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrCommitProfileInformation( a0, a1 ); }
+// bool ISSParticleLib::MgrDebugFrameWarningNeededTestAndReset( CParticleSystemMgr * )
+static bool SSFwd_ParticleLib_MgrDebugFrameWarningNeededTestAndReset( ISSParticleLib *self, CParticleSystemMgr * a0 ) { return self->MgrDebugFrameWarningNeededTestAndReset( a0 ); }
+// void ISSParticleLib::MgrDecommitTempMemory( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrDecommitTempMemory( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrDecommitTempMemory( a0 ); }
+// void ISSParticleLib::MgrDrawRenderCache( CParticleSystemMgr *, bool )
+static void SSFwd_ParticleLib_MgrDrawRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrDrawRenderCache( a0, a1 ); }
+// void ISSParticleLib::MgrDumpProfileInformation( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrDumpProfileInformation( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrDumpProfileInformation( a0 ); }
+// CParticleSystemDefinition * ISSParticleLib::MgrFindParticleSystem( CParticleSystemMgr *, const char * )
+static CParticleSystemDefinition * SSFwd_ParticleLib_MgrFindParticleSystem( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1 ) { return self->MgrFindParticleSystem( a0, a1 ); }
+// float ISSParticleLib::MgrGetLastSimulationTime( const CParticleSystemMgr * )
+static float SSFwd_ParticleLib_MgrGetLastSimulationTime( ISSParticleLib *self, const CParticleSystemMgr * a0 ) { return self->MgrGetLastSimulationTime( a0 ); }
+// int ISSParticleLib::MgrGetParticleSystemCount( CParticleSystemMgr * )
+static int SSFwd_ParticleLib_MgrGetParticleSystemCount( ISSParticleLib *self, CParticleSystemMgr * a0 ) { return self->MgrGetParticleSystemCount( a0 ); }
+// const char * ISSParticleLib::MgrGetParticleSystemNameFromIndex( CParticleSystemMgr *, int )
+static const char * SSFwd_ParticleLib_MgrGetParticleSystemNameFromIndex( ISSParticleLib *self, CParticleSystemMgr * a0, int a1 ) { return self->MgrGetParticleSystemNameFromIndex( a0, a1 ); }
+// bool ISSParticleLib::MgrInit( CParticleSystemMgr *, IParticleSystemQuery * )
+static bool SSFwd_ParticleLib_MgrInit( ISSParticleLib *self, CParticleSystemMgr * a0, IParticleSystemQuery * a1 ) { return self->MgrInit( a0, a1 ); }
+// float ISSParticleLib::MgrParticleThrottleScaling( const CParticleSystemMgr * )
+static float SSFwd_ParticleLib_MgrParticleThrottleScaling( ISSParticleLib *self, const CParticleSystemMgr * a0 ) { return self->MgrParticleThrottleScaling( a0 ); }
+// void ISSParticleLib::MgrPrecacheParticleSystem( CParticleSystemMgr *, const char * )
+static void SSFwd_ParticleLib_MgrPrecacheParticleSystem( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1 ) { self->MgrPrecacheParticleSystem( a0, a1 ); }
+// bool ISSParticleLib::MgrReadParticleConfigFile( CParticleSystemMgr *, const char *, bool, bool )
+static bool SSFwd_ParticleLib_MgrReadParticleConfigFile( ISSParticleLib *self, CParticleSystemMgr * a0, const char * a1, bool a2, bool a3 ) { return self->MgrReadParticleConfigFile( a0, a1, a2, a3 ); }
+// void ISSParticleLib::MgrResetRenderCache( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrResetRenderCache( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrResetRenderCache( a0 ); }
+// void ISSParticleLib::MgrSetLastSimulationTime( CParticleSystemMgr *, float )
+static void SSFwd_ParticleLib_MgrSetLastSimulationTime( ISSParticleLib *self, CParticleSystemMgr * a0, float a1 ) { self->MgrSetLastSimulationTime( a0, a1 ); }
+// void ISSParticleLib::MgrShouldLoadSheets( CParticleSystemMgr *, bool )
+static void SSFwd_ParticleLib_MgrShouldLoadSheets( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrShouldLoadSheets( a0, a1 ); }
+// void ISSParticleLib::MgrUncacheAllParticleSystems( CParticleSystemMgr * )
+static void SSFwd_ParticleLib_MgrUncacheAllParticleSystems( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrUncacheAllParticleSystems( a0 ); }
+
+static void *const s_ParticleLibSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Connect ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Disconnect ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Mgr ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_Counters ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionNew ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionDelete ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionConstruct ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionDestruct ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionInitDef ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionInitName ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionBloatBoundsUsingControlPoint ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetHighestControlPoint ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetName ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionHasMoved ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsFinished ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsTranslucent ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionIsTwoPass ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionRender ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSetDormant ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSimulate ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionStopEmission ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionUsesFullFrameBufferTexture ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionUsesPowerOfTwoFrameBufferTexture ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_DefinitionGetMaterial ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_DefinitionShouldAlwaysPrecache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddBuiltinRenderingOperators ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddBuiltinSimulationOperators ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrAddToRenderCache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrCommitProfileInformation ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDebugFrameWarningNeededTestAndReset ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDecommitTempMemory ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDrawRenderCache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrDumpProfileInformation ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrFindParticleSystem ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetLastSimulationTime ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetParticleSystemCount ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrGetParticleSystemNameFromIndex ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrInit ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrParticleThrottleScaling ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrPrecacheParticleSystem ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrReadParticleConfigFile ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrResetRenderCache ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrSetLastSimulationTime ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrShouldLoadSheets ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrUncacheAllParticleSystems ),
+};
+
+static const SSForwarderTable s_ParticleLibTable = { s_ParticleLibSlots, 45 };
+
+//-----------------------------------------------------------------------------
+// ShimConsole: 11 forwarder(s) over IShimConsole.
+//-----------------------------------------------------------------------------
+// void IShimConsole::Msg( const char * )
+static void SSFwd_ShimConsole_Msg( IShimConsole *self, const char * a0 ) { self->Msg( a0 ); }
+// void IShimConsole::Warning( const char * )
+static void SSFwd_ShimConsole_Warning( IShimConsole *self, const char * a0 ) { self->Warning( a0 ); }
+// int32_t IShimConsole::RegisterConCommand( const char *, const char *, int32_t )
+static int32_t SSFwd_ShimConsole_RegisterConCommand( IShimConsole *self, const char * a0, const char * a1, int32_t a2 ) { return self->RegisterConCommand( a0, a1, a2 ); }
+// int32_t IShimConsole::RegisterConVar( const char *, const char *, const char *, int32_t, int32_t, float, int32_t, float )
+static int32_t SSFwd_ShimConsole_RegisterConVar( IShimConsole *self, const char * a0, const char * a1, const char * a2, int32_t a3, int32_t a4, float a5, int32_t a6, float a7 ) { return self->RegisterConVar( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// void IShimConsole::SetConVarValue( int32_t, const char * )
+static void SSFwd_ShimConsole_SetConVarValue( IShimConsole *self, int32_t a0, const char * a1 ) { self->SetConVarValue( a0, a1 ); }
+// void IShimConsole::GetConVarValue( int32_t, char *, int32_t )
+static void SSFwd_ShimConsole_GetConVarValue( IShimConsole *self, int32_t a0, char * a1, int32_t a2 ) { self->GetConVarValue( a0, a1, a2 ); }
+// int32_t IShimConsole::FindConVarValue( const char *, char *, int32_t )
+static int32_t SSFwd_ShimConsole_FindConVarValue( IShimConsole *self, const char * a0, char * a1, int32_t a2 ) { return self->FindConVarValue( a0, a1, a2 ); }
+// void IShimConsole::SetNamedConVarValue( const char *, const char * )
+static void SSFwd_ShimConsole_SetNamedConVarValue( IShimConsole *self, const char * a0, const char * a1 ) { self->SetNamedConVarValue( a0, a1 ); }
+// void IShimConsole::RevertNamedConVar( const char * )
+static void SSFwd_ShimConsole_RevertNamedConVar( IShimConsole *self, const char * a0 ) { self->RevertNamedConVar( a0 ); }
+// int32_t IShimConsole::ConsoleSnapshot( void )
+static int32_t SSFwd_ShimConsole_ConsoleSnapshot( IShimConsole *self ) { return self->ConsoleSnapshot(); }
+// int32_t IShimConsole::ConsoleSnapshotEntry( int32_t, SourceSharpConsoleEntry * )
+static int32_t SSFwd_ShimConsole_ConsoleSnapshotEntry( IShimConsole *self, int32_t a0, SourceSharpConsoleEntry * a1 ) { return self->ConsoleSnapshotEntry( a0, a1 ); }
+
+static void *const s_ShimConsoleSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_Msg ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_Warning ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_RegisterConCommand ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_RegisterConVar ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_SetConVarValue ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_GetConVarValue ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_FindConVarValue ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_SetNamedConVarValue ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_RevertNamedConVar ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_ConsoleSnapshot ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_ConsoleSnapshotEntry ),
+};
+
+static const SSForwarderTable s_ShimConsoleTable = { s_ShimConsoleSlots, 11 };
+
+//-----------------------------------------------------------------------------
+// ShimEngine: 13 forwarder(s) over IShimEngine.
+//-----------------------------------------------------------------------------
+// float IShimEngine::GetCurrentTime( void )
+static float SSFwd_ShimEngine_GetCurrentTime( IShimEngine *self ) { return self->GetCurrentTime(); }
+// void * IShimEngine::GetGlobalVarsPtr( void )
+static void * SSFwd_ShimEngine_GetGlobalVarsPtr( IShimEngine *self ) { return self->GetGlobalVarsPtr(); }
+// int32_t IShimEngine::FilesGameFileSize( const char * )
+static int32_t SSFwd_ShimEngine_FilesGameFileSize( IShimEngine *self, const char * a0 ) { return self->FilesGameFileSize( a0 ); }
+// int32_t IShimEngine::FilesReadGameFile( const char *, char *, int32_t )
+static int32_t SSFwd_ShimEngine_FilesReadGameFile( IShimEngine *self, const char * a0, char * a1, int32_t a2 ) { return self->FilesReadGameFile( a0, a1, a2 ); }
+// int32_t IShimEngine::FilesSizeOnPath( const char *, const char * )
+static int32_t SSFwd_ShimEngine_FilesSizeOnPath( IShimEngine *self, const char * a0, const char * a1 ) { return self->FilesSizeOnPath( a0, a1 ); }
+// int32_t IShimEngine::FilesReadOnPath( const char *, const char *, void *, int32_t )
+static int32_t SSFwd_ShimEngine_FilesReadOnPath( IShimEngine *self, const char * a0, const char * a1, void * a2, int32_t a3 ) { return self->FilesReadOnPath( a0, a1, a2, a3 ); }
+// void IShimEngine::SoundPatchEmit( int32_t, float, float, int32_t, float, int32_t )
+static void SSFwd_ShimEngine_SoundPatchEmit( IShimEngine *self, int32_t a0, float a1, float a2, int32_t a3, float a4, int32_t a5 ) { self->SoundPatchEmit( a0, a1, a2, a3, a4, a5 ); }
+// void IShimEngine::SoundPatchStop( int32_t )
+static void SSFwd_ShimEngine_SoundPatchStop( IShimEngine *self, int32_t a0 ) { self->SoundPatchStop( a0 ); }
+// void IShimEngine::SoundPatchState( int32_t, int32_t *, int32_t * )
+static void SSFwd_ShimEngine_SoundPatchState( IShimEngine *self, int32_t a0, int32_t * a1, int32_t * a2 ) { self->SoundPatchState( a0, a1, a2 ); }
+// void IShimEngine::SoundPatchFree( int32_t )
+static void SSFwd_ShimEngine_SoundPatchFree( IShimEngine *self, int32_t a0 ) { self->SoundPatchFree( a0 ); }
+// int32_t IShimEngine::SoundScriptParameters( const char *, float * )
+static int32_t SSFwd_ShimEngine_SoundScriptParameters( IShimEngine *self, const char * a0, float * a1 ) { return self->SoundScriptParameters( a0, a1 ); }
+// int32_t IShimEngine::SoundPatchCreate( uint32_t, int32_t, const char *, int32_t )
+static int32_t SSFwd_ShimEngine_SoundPatchCreate( IShimEngine *self, uint32_t a0, int32_t a1, const char * a2, int32_t a3 ) { return self->SoundPatchCreate( a0, a1, a2, a3 ); }
+// int32_t IShimEngine::SurfaceScrapeSound( int32_t, int32_t, char *, int32_t )
+static int32_t SSFwd_ShimEngine_SurfaceScrapeSound( IShimEngine *self, int32_t a0, int32_t a1, char * a2, int32_t a3 ) { return self->SurfaceScrapeSound( a0, a1, a2, a3 ); }
+
+static void *const s_ShimEngineSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_GetCurrentTime ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_GetGlobalVarsPtr ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesGameFileSize ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesReadGameFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesSizeOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesReadOnPath ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchEmit ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchStop ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchState ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchFree ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundScriptParameters ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimEngine_SurfaceScrapeSound ),
+};
+
+static const SSForwarderTable s_ShimEngineTable = { s_ShimEngineSlots, 13 };
+
+//-----------------------------------------------------------------------------
+// ShimConsoleServer: 3 forwarder(s) over IShimConsoleServer.
+//-----------------------------------------------------------------------------
+// void IShimConsoleServer::ExecuteServerCommand( const char * )
+static void SSFwd_ShimConsoleServer_ExecuteServerCommand( IShimConsoleServer *self, const char * a0 ) { self->ExecuteServerCommand( a0 ); }
+// void IShimConsoleServer::SendClientCommand( uint32_t, const char * )
+static void SSFwd_ShimConsoleServer_SendClientCommand( IShimConsoleServer *self, uint32_t a0, const char * a1 ) { self->SendClientCommand( a0, a1 ); }
+// uint32_t IShimConsoleServer::GetCommandClientHandle( void )
+static uint32_t SSFwd_ShimConsoleServer_GetCommandClientHandle( IShimConsoleServer *self ) { return self->GetCommandClientHandle(); }
+
+static void *const s_ShimConsoleServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimConsoleServer_ExecuteServerCommand ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsoleServer_SendClientCommand ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsoleServer_GetCommandClientHandle ),
+};
+
+static const SSForwarderTable s_ShimConsoleServerTable = { s_ShimConsoleServerSlots, 3 };
+
+//-----------------------------------------------------------------------------
+// ShimEventsServer: 12 forwarder(s) over IShimEventsServer.
+//-----------------------------------------------------------------------------
+// void IShimEvents::ListenForGameEvent( const char * )
+static void SSFwd_ShimEventsServer_ListenForGameEvent( IShimEventsServer *self, const char * a0 ) { self->ListenForGameEvent( a0 ); }
+// int32_t IShimEvents::EventGetInt( void *, const char * )
+static int32_t SSFwd_ShimEventsServer_EventGetInt( IShimEventsServer *self, void * a0, const char * a1 ) { return self->EventGetInt( a0, a1 ); }
+// float IShimEvents::EventGetFloat( void *, const char * )
+static float SSFwd_ShimEventsServer_EventGetFloat( IShimEventsServer *self, void * a0, const char * a1 ) { return self->EventGetFloat( a0, a1 ); }
+// int32_t IShimEvents::EventGetBool( void *, const char * )
+static int32_t SSFwd_ShimEventsServer_EventGetBool( IShimEventsServer *self, void * a0, const char * a1 ) { return self->EventGetBool( a0, a1 ); }
+// const char * IShimEvents::EventGetString( void *, const char * )
+static const char * SSFwd_ShimEventsServer_EventGetString( IShimEventsServer *self, void * a0, const char * a1 ) { return self->EventGetString( a0, a1 ); }
+// void * IShimEventsServer::EventCreate( const char * )
+static void * SSFwd_ShimEventsServer_EventCreate( IShimEventsServer *self, const char * a0 ) { return self->EventCreate( a0 ); }
+// void IShimEventsServer::EventSetInt( void *, const char *, int32_t )
+static void SSFwd_ShimEventsServer_EventSetInt( IShimEventsServer *self, void * a0, const char * a1, int32_t a2 ) { self->EventSetInt( a0, a1, a2 ); }
+// void IShimEventsServer::EventSetFloat( void *, const char *, float )
+static void SSFwd_ShimEventsServer_EventSetFloat( IShimEventsServer *self, void * a0, const char * a1, float a2 ) { self->EventSetFloat( a0, a1, a2 ); }
+// void IShimEventsServer::EventSetBool( void *, const char *, int32_t )
+static void SSFwd_ShimEventsServer_EventSetBool( IShimEventsServer *self, void * a0, const char * a1, int32_t a2 ) { self->EventSetBool( a0, a1, a2 ); }
+// void IShimEventsServer::EventSetString( void *, const char *, const char * )
+static void SSFwd_ShimEventsServer_EventSetString( IShimEventsServer *self, void * a0, const char * a1, const char * a2 ) { self->EventSetString( a0, a1, a2 ); }
+// int32_t IShimEventsServer::EventFire( void * )
+static int32_t SSFwd_ShimEventsServer_EventFire( IShimEventsServer *self, void * a0 ) { return self->EventFire( a0 ); }
+// void IShimEventsServer::EventFree( void * )
+static void SSFwd_ShimEventsServer_EventFree( IShimEventsServer *self, void * a0 ) { self->EventFree( a0 ); }
+
+static void *const s_ShimEventsServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_ListenForGameEvent ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetInt ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetFloat ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetBool ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventGetString ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetInt ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetFloat ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetBool ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventSetString ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventFire ),
+	reinterpret_cast< void * >( &SSFwd_ShimEventsServer_EventFree ),
+};
+
+static const SSForwarderTable s_ShimEventsServerTable = { s_ShimEventsServerSlots, 12 };
+
+//-----------------------------------------------------------------------------
+// ShimStringTablesServer: 6 forwarder(s) over IShimStringTablesServer.
+//-----------------------------------------------------------------------------
+// int32_t IShimStringTables::StringTableFind( const char * )
+static int32_t SSFwd_ShimStringTablesServer_StringTableFind( IShimStringTablesServer *self, const char * a0 ) { return self->StringTableFind( a0 ); }
+// int32_t IShimStringTables::StringTableFindStringIndex( int32_t, const char * )
+static int32_t SSFwd_ShimStringTablesServer_StringTableFindStringIndex( IShimStringTablesServer *self, int32_t a0, const char * a1 ) { return self->StringTableFindStringIndex( a0, a1 ); }
+// int32_t IShimStringTables::StringTableGetString( int32_t, int32_t, char *, int32_t )
+static int32_t SSFwd_ShimStringTablesServer_StringTableGetString( IShimStringTablesServer *self, int32_t a0, int32_t a1, char * a2, int32_t a3 ) { return self->StringTableGetString( a0, a1, a2, a3 ); }
+// int32_t IShimStringTables::StringTableGetNumStrings( int32_t )
+static int32_t SSFwd_ShimStringTablesServer_StringTableGetNumStrings( IShimStringTablesServer *self, int32_t a0 ) { return self->StringTableGetNumStrings( a0 ); }
+// int32_t IShimStringTablesServer::StringTableCreate( const char *, int32_t )
+static int32_t SSFwd_ShimStringTablesServer_StringTableCreate( IShimStringTablesServer *self, const char * a0, int32_t a1 ) { return self->StringTableCreate( a0, a1 ); }
+// int32_t IShimStringTablesServer::StringTableAddString( int32_t, const char * )
+static int32_t SSFwd_ShimStringTablesServer_StringTableAddString( IShimStringTablesServer *self, int32_t a0, const char * a1 ) { return self->StringTableAddString( a0, a1 ); }
+
+static void *const s_ShimStringTablesServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableFind ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableFindStringIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableGetString ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableGetNumStrings ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTablesServer_StringTableAddString ),
+};
+
+static const SSForwarderTable s_ShimStringTablesServerTable = { s_ShimStringTablesServerSlots, 6 };
+
+//-----------------------------------------------------------------------------
+// ShimNetworkServer: 11 forwarder(s) over IShimNetworkServer.
+//-----------------------------------------------------------------------------
+// int32_t IShimNetwork::NetHierarchyDeclare( int32_t )
+static int32_t SSFwd_ShimNetworkServer_NetHierarchyDeclare( IShimNetworkServer *self, int32_t a0 ) { return self->NetHierarchyDeclare( a0 ); }
+// int32_t IShimNetwork::NetPublishType( const char *, int32_t, uint32_t, int32_t, uint32_t * )
+static int32_t SSFwd_ShimNetworkServer_NetPublishType( IShimNetworkServer *self, const char * a0, int32_t a1, uint32_t a2, int32_t a3, uint32_t * a4 ) { return self->NetPublishType( a0, a1, a2, a3, a4 ); }
+// int32_t IShimNetwork::NetTierInfo( int32_t, int32_t, const char * *, int32_t *, int32_t *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimNetworkServer_NetTierInfo( IShimNetworkServer *self, int32_t a0, int32_t a1, const char * * a2, int32_t * a3, int32_t * a4, int32_t * a5, int32_t * a6 ) { return self->NetTierInfo( a0, a1, a2, a3, a4, a5, a6 ); }
+// int32_t IShimNetwork::WorldNetDeclare( int32_t )
+static int32_t SSFwd_ShimNetworkServer_WorldNetDeclare( IShimNetworkServer *self, int32_t a0 ) { return self->WorldNetDeclare( a0 ); }
+// void * IShimNetworkServer::EntityGetDataBlob( uint32_t, int32_t * )
+static void * SSFwd_ShimNetworkServer_EntityGetDataBlob( IShimNetworkServer *self, uint32_t a0, int32_t * a1 ) { return self->EntityGetDataBlob( a0, a1 ); }
+// void * IShimNetworkServer::EntityBindBlob( uint32_t, int32_t *, SourceSharpEntitySlot_t * *, uint32_t * )
+static void * SSFwd_ShimNetworkServer_EntityBindBlob( IShimNetworkServer *self, uint32_t a0, int32_t * a1, SourceSharpEntitySlot_t * * a2, uint32_t * a3 ) { return self->EntityBindBlob( a0, a1, a2, a3 ); }
+// void IShimNetworkServer::EntityMarkStateChanged( uint32_t )
+static void SSFwd_ShimNetworkServer_EntityMarkStateChanged( IShimNetworkServer *self, uint32_t a0 ) { self->EntityMarkStateChanged( a0 ); }
+// void IShimNetworkServer::EntityMarkBlockChanged( uint32_t, int32_t )
+static void SSFwd_ShimNetworkServer_EntityMarkBlockChanged( IShimNetworkServer *self, uint32_t a0, int32_t a1 ) { self->EntityMarkBlockChanged( a0, a1 ); }
+// int32_t IShimNetworkServer::EntityPayloadAgreement( uint32_t, int32_t *, int32_t * )
+static int32_t SSFwd_ShimNetworkServer_EntityPayloadAgreement( IShimNetworkServer *self, uint32_t a0, int32_t * a1, int32_t * a2 ) { return self->EntityPayloadAgreement( a0, a1, a2 ); }
+// void * IShimNetworkServer::EntityGetEngineBlock( uint32_t, int32_t * )
+static void * SSFwd_ShimNetworkServer_EntityGetEngineBlock( IShimNetworkServer *self, uint32_t a0, int32_t * a1 ) { return self->EntityGetEngineBlock( a0, a1 ); }
+// void IShimNetworkServer::EntitySetTransmitAlways( uint32_t, int32_t )
+static void SSFwd_ShimNetworkServer_EntitySetTransmitAlways( IShimNetworkServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetTransmitAlways( a0, a1 ); }
+
+static void *const s_ShimNetworkServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_NetHierarchyDeclare ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_NetPublishType ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_NetTierInfo ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_WorldNetDeclare ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityGetDataBlob ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityBindBlob ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityMarkStateChanged ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityMarkBlockChanged ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityPayloadAgreement ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntityGetEngineBlock ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetworkServer_EntitySetTransmitAlways ),
+};
+
+static const SSForwarderTable s_ShimNetworkServerTable = { s_ShimNetworkServerSlots, 11 };
+
+//-----------------------------------------------------------------------------
+// ShimModelsServer: 8 forwarder(s) over IShimModelsServer.
+//-----------------------------------------------------------------------------
+// int32_t IShimModels::ModelDescriptor( int32_t, char *, int32_t )
+static int32_t SSFwd_ShimModelsServer_ModelDescriptor( IShimModelsServer *self, int32_t a0, char * a1, int32_t a2 ) { return self->ModelDescriptor( a0, a1, a2 ); }
+// void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
+static void SSFwd_ShimModelsServer_EntityGetModelName( IShimModelsServer *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetModelName( a0, a1, a2 ); }
+// int32_t IShimModels::EntitiesInvalidateMdlCacheAll( void )
+static int32_t SSFwd_ShimModelsServer_EntitiesInvalidateMdlCacheAll( IShimModelsServer *self ) { return self->EntitiesInvalidateMdlCacheAll(); }
+// void IShimModels::StandaloneSetModelScale( uint32_t, float )
+static void SSFwd_ShimModelsServer_StandaloneSetModelScale( IShimModelsServer *self, uint32_t a0, float a1 ) { self->StandaloneSetModelScale( a0, a1 ); }
+// void IShimModelsServer::EntitySetModel( uint32_t, const char * )
+static void SSFwd_ShimModelsServer_EntitySetModel( IShimModelsServer *self, uint32_t a0, const char * a1 ) { self->EntitySetModel( a0, a1 ); }
+// void IShimModelsServer::EntitySetSequence( uint32_t, int32_t )
+static void SSFwd_ShimModelsServer_EntitySetSequence( IShimModelsServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetSequence( a0, a1 ); }
+// int32_t IShimModelsServer::EntityGetTextureFrame( uint32_t )
+static int32_t SSFwd_ShimModelsServer_EntityGetTextureFrame( IShimModelsServer *self, uint32_t a0 ) { return self->EntityGetTextureFrame( a0 ); }
+// void IShimModelsServer::EntitySetTextureFrame( uint32_t, int32_t )
+static void SSFwd_ShimModelsServer_EntitySetTextureFrame( IShimModelsServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetTextureFrame( a0, a1 ); }
+
+static void *const s_ShimModelsServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_ModelDescriptor ),
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntityGetModelName ),
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitiesInvalidateMdlCacheAll ),
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_StandaloneSetModelScale ),
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetSequence ),
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntityGetTextureFrame ),
+	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetTextureFrame ),
+};
+
+static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 8 };
+
+//-----------------------------------------------------------------------------
+// ShimPrecache: 5 forwarder(s) over IShimPrecache.
+//-----------------------------------------------------------------------------
+// int32_t IShimPrecache::PrecacheModel( const char * )
+static int32_t SSFwd_ShimPrecache_PrecacheModel( IShimPrecache *self, const char * a0 ) { return self->PrecacheModel( a0 ); }
+// void IShimPrecache::PrecacheSound( const char * )
+static void SSFwd_ShimPrecache_PrecacheSound( IShimPrecache *self, const char * a0 ) { self->PrecacheSound( a0 ); }
+// int32_t IShimPrecache::PrecacheDecal( const char * )
+static int32_t SSFwd_ShimPrecache_PrecacheDecal( IShimPrecache *self, const char * a0 ) { return self->PrecacheDecal( a0 ); }
+// void IShimPrecache::PrecacheMaterial( const char * )
+static void SSFwd_ShimPrecache_PrecacheMaterial( IShimPrecache *self, const char * a0 ) { self->PrecacheMaterial( a0 ); }
+// void IShimPrecache::PrecacheParticleSystem( const char * )
+static void SSFwd_ShimPrecache_PrecacheParticleSystem( IShimPrecache *self, const char * a0 ) { self->PrecacheParticleSystem( a0 ); }
+
+static void *const s_ShimPrecacheSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheDecal ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheMaterial ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheParticleSystem ),
+};
+
+static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 5 };
+
+//-----------------------------------------------------------------------------
+// ShimMovementServer: 20 forwarder(s) over IShimMovementServer.
+//-----------------------------------------------------------------------------
+// void IShimMovement::MoveTrace( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult * )
+static void SSFwd_ShimMovementServer_MoveTrace( IShimMovementServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6 ) { self->MoveTrace( a0, a1, a2, a3, a4, a5, a6 ); }
+// int32_t IShimMovement::MovePointContents( const float *, int32_t )
+static int32_t SSFwd_ShimMovementServer_MovePointContents( IShimMovementServer *self, const float * a0, int32_t a1 ) { return self->MovePointContents( a0, a1 ); }
+// int32_t IShimMovement::MoveSurface( int32_t, SourceSharpMoveSurface * )
+static int32_t SSFwd_ShimMovementServer_MoveSurface( IShimMovementServer *self, int32_t a0, SourceSharpMoveSurface * a1 ) { return self->MoveSurface( a0, a1 ); }
+// int32_t IShimMovement::MoveEffect( int32_t, const float *, float, int32_t )
+static int32_t SSFwd_ShimMovementServer_MoveEffect( IShimMovementServer *self, int32_t a0, const float * a1, float a2, int32_t a3 ) { return self->MoveEffect( a0, a1, a2, a3 ); }
+// float IShimMovement::CurrentGravity( void )
+static float SSFwd_ShimMovementServer_CurrentGravity( IShimMovementServer *self ) { return self->CurrentGravity(); }
+// void IShimMovement::RegisterMovementParams( const SourceSharpMovementParams * )
+static void SSFwd_ShimMovementServer_RegisterMovementParams( IShimMovementServer *self, const SourceSharpMovementParams * a0 ) { self->RegisterMovementParams( a0 ); }
+// int32_t IShimMovementServer::PlayerRunMove( uint32_t, int32_t, int32_t )
+static int32_t SSFwd_ShimMovementServer_PlayerRunMove( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { return self->PlayerRunMove( a0, a1, a2 ); }
+// int32_t IShimMovementServer::PlayerShadowFacts( uint32_t, SourceSharpPlayerShadowFacts * )
+static int32_t SSFwd_ShimMovementServer_PlayerShadowFacts( IShimMovementServer *self, uint32_t a0, SourceSharpPlayerShadowFacts * a1 ) { return self->PlayerShadowFacts( a0, a1 ); }
+// int32_t IShimMovementServer::PlayerShadowAdopt( uint32_t, void *, void *, void * )
+static int32_t SSFwd_ShimMovementServer_PlayerShadowAdopt( IShimMovementServer *self, uint32_t a0, void * a1, void * a2, void * a3 ) { return self->PlayerShadowAdopt( a0, a1, a2, a3 ); }
+// void IShimMovementServer::PlayerShadowRelease( uint32_t )
+static void SSFwd_ShimMovementServer_PlayerShadowRelease( IShimMovementServer *self, uint32_t a0 ) { self->PlayerShadowRelease( a0 ); }
+// void IShimMovementServer::PlayerShadowCommit( uint32_t, int32_t, int32_t )
+static void SSFwd_ShimMovementServer_PlayerShadowCommit( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->PlayerShadowCommit( a0, a1, a2 ); }
+// int32_t IShimMovementServer::PlayerSetMoveType( uint32_t, int32_t )
+static int32_t SSFwd_ShimMovementServer_PlayerSetMoveType( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { return self->PlayerSetMoveType( a0, a1 ); }
+// void IShimMovementServer::PlayerForceButtons( uint32_t, int32_t, int32_t )
+static void SSFwd_ShimMovementServer_PlayerForceButtons( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->PlayerForceButtons( a0, a1, a2 ); }
+// int32_t IShimMovementServer::PlayerGetButtons( uint32_t )
+static int32_t SSFwd_ShimMovementServer_PlayerGetButtons( IShimMovementServer *self, uint32_t a0 ) { return self->PlayerGetButtons( a0 ); }
+// void IShimMovementServer::PlayerSetButtonsDisabled( uint32_t, int32_t, int32_t )
+static void SSFwd_ShimMovementServer_PlayerSetButtonsDisabled( IShimMovementServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->PlayerSetButtonsDisabled( a0, a1, a2 ); }
+// void IShimMovementServer::PlayerSetLaggedMovement( uint32_t, float )
+static void SSFwd_ShimMovementServer_PlayerSetLaggedMovement( IShimMovementServer *self, uint32_t a0, float a1 ) { self->PlayerSetLaggedMovement( a0, a1 ); }
+// void IShimMovementServer::PlayerSetAllowAutoMovement( uint32_t, int32_t )
+static void SSFwd_ShimMovementServer_PlayerSetAllowAutoMovement( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { self->PlayerSetAllowAutoMovement( a0, a1 ); }
+// void IShimMovementServer::PlayerSetSlowMovement( uint32_t, int32_t )
+static void SSFwd_ShimMovementServer_PlayerSetSlowMovement( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { self->PlayerSetSlowMovement( a0, a1 ); }
+// void IShimMovementServer::PlayerSetMovementConstraint( uint32_t, const float *, float, float, float )
+static void SSFwd_ShimMovementServer_PlayerSetMovementConstraint( IShimMovementServer *self, uint32_t a0, const float * a1, float a2, float a3, float a4 ) { self->PlayerSetMovementConstraint( a0, a1, a2, a3, a4 ); }
+// void IShimMovementServer::PlayerSetFrozen( uint32_t, int32_t )
+static void SSFwd_ShimMovementServer_PlayerSetFrozen( IShimMovementServer *self, uint32_t a0, int32_t a1 ) { self->PlayerSetFrozen( a0, a1 ); }
+
+static void *const s_ShimMovementServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveTrace ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MovePointContents ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveSurface ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_CurrentGravity ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_RegisterMovementParams ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerRunMove ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowFacts ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowAdopt ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowRelease ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowCommit ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetMoveType ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerForceButtons ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerGetButtons ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetButtonsDisabled ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetLaggedMovement ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetAllowAutoMovement ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetSlowMovement ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetMovementConstraint ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSetFrozen ),
+};
+
+static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 20 };
+
+//-----------------------------------------------------------------------------
+// ShimWorldServer: 19 forwarder(s) over IShimWorldServer.
+//-----------------------------------------------------------------------------
+// int32_t IShimWorld::PointContents( const float * )
+static int32_t SSFwd_ShimWorldServer_PointContents( IShimWorldServer *self, const float * a0 ) { return self->PointContents( a0 ); }
+// int32_t IShimWorld::SurfacePropGameMaterial( int32_t )
+static int32_t SSFwd_ShimWorldServer_SurfacePropGameMaterial( IShimWorldServer *self, int32_t a0 ) { return self->SurfacePropGameMaterial( a0 ); }
+// int32_t IShimWorldServer::TraceLine( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t * )
+static int32_t SSFwd_ShimWorldServer_TraceLine( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7 ) { return self->TraceLine( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// int32_t IShimWorldServer::TraceHull( const float *, const float *, const float *, const float *, int32_t, uint32_t, uint32_t *, int32_t * )
+static int32_t SSFwd_ShimWorldServer_TraceHull( IShimWorldServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, uint32_t a5, uint32_t * a6, int32_t * a7 ) { return self->TraceHull( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// int32_t IShimWorldServer::TraceLineSurface( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimWorldServer_TraceLineSurface( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7, int32_t * a8, int32_t * a9 ) { return self->TraceLineSurface( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 ); }
+// uint32_t IShimWorldServer::TracePlayerAim( uint32_t, float, float * )
+static uint32_t SSFwd_ShimWorldServer_TracePlayerAim( IShimWorldServer *self, uint32_t a0, float a1, float * a2 ) { return self->TracePlayerAim( a0, a1, a2 ); }
+// void IShimWorldServer::AngleVectorsFromForward( const float *, float *, float * )
+static void SSFwd_ShimWorldServer_AngleVectorsFromForward( IShimWorldServer *self, const float * a0, float * a1, float * a2 ) { self->AngleVectorsFromForward( a0, a1, a2 ); }
+// int32_t IShimWorldServer::WaterSurfaceBelow( const float *, float *, int32_t * )
+static int32_t SSFwd_ShimWorldServer_WaterSurfaceBelow( IShimWorldServer *self, const float * a0, float * a1, int32_t * a2 ) { return self->WaterSurfaceBelow( a0, a1, a2 ); }
+// int32_t IShimWorldServer::SurfacePropIndex( const char * )
+static int32_t SSFwd_ShimWorldServer_SurfacePropIndex( IShimWorldServer *self, const char * a0 ) { return self->SurfacePropIndex( a0 ); }
+// int32_t IShimWorldServer::EntityModelSurfaceProp( uint32_t )
+static int32_t SSFwd_ShimWorldServer_EntityModelSurfaceProp( IShimWorldServer *self, uint32_t a0 ) { return self->EntityModelSurfaceProp( a0 ); }
+// int32_t IShimWorldServer::InvisibleRangeReach( void )
+static int32_t SSFwd_ShimWorldServer_InvisibleRangeReach( IShimWorldServer *self ) { return self->InvisibleRangeReach(); }
+// void IShimWorldServer::EngineLightStyle( int32_t, const char * )
+static void SSFwd_ShimWorldServer_EngineLightStyle( IShimWorldServer *self, int32_t a0, const char * a1 ) { self->EngineLightStyle( a0, a1 ); }
+// void IShimWorldServer::SetSkyboxParams( const SourceSharpSkyboxParams * )
+static void SSFwd_ShimWorldServer_SetSkyboxParams( IShimWorldServer *self, const SourceSharpSkyboxParams * a0 ) { self->SetSkyboxParams( a0 ); }
+// const char * IShimWorldServer::WorldChapterTitle( void )
+static const char * SSFwd_ShimWorldServer_WorldChapterTitle( IShimWorldServer *self ) { return self->WorldChapterTitle(); }
+// uint32_t IShimWorldServer::AreaPortalCreate( int32_t, int32_t )
+static uint32_t SSFwd_ShimWorldServer_AreaPortalCreate( IShimWorldServer *self, int32_t a0, int32_t a1 ) { return self->AreaPortalCreate( a0, a1 ); }
+// void IShimWorldServer::AreaPortalDestroy( uint32_t )
+static void SSFwd_ShimWorldServer_AreaPortalDestroy( IShimWorldServer *self, uint32_t a0 ) { self->AreaPortalDestroy( a0 ); }
+// void IShimWorldServer::AreaPortalSetOpen( uint32_t, int32_t )
+static void SSFwd_ShimWorldServer_AreaPortalSetOpen( IShimWorldServer *self, uint32_t a0, int32_t a1 ) { self->AreaPortalSetOpen( a0, a1 ); }
+// void IShimWorldServer::AreaPortalSetWindow( uint32_t, uint32_t, float )
+static void SSFwd_ShimWorldServer_AreaPortalSetWindow( IShimWorldServer *self, uint32_t a0, uint32_t a1, float a2 ) { self->AreaPortalSetWindow( a0, a1, a2 ); }
+// int32_t IShimWorldServer::EntityTraceHull( uint32_t, const float *, const float *, const float *, const float *, int32_t, int32_t, float * )
+static int32_t SSFwd_ShimWorldServer_EntityTraceHull( IShimWorldServer *self, uint32_t a0, const float * a1, const float * a2, const float * a3, const float * a4, int32_t a5, int32_t a6, float * a7 ) { return self->EntityTraceHull( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+
+static void *const s_ShimWorldServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_PointContents ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SurfacePropGameMaterial ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceLine ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceHull ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceLineSurface ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TracePlayerAim ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AngleVectorsFromForward ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_WaterSurfaceBelow ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SurfacePropIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityModelSurfaceProp ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_InvisibleRangeReach ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EngineLightStyle ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SetSkyboxParams ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_WorldChapterTitle ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalDestroy ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalSetOpen ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalSetWindow ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityTraceHull ),
+};
+
+static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 19 };
+
+//-----------------------------------------------------------------------------
+// ShimEntitiesServer: 28 forwarder(s) over IShimEntitiesServer.
+//-----------------------------------------------------------------------------
+// int32_t IShimEntities::EntityGetIndex( uint32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntityGetIndex( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetIndex( a0 ); }
+// void IShimEntities::EntityGetOrigin( uint32_t, float * )
+static void SSFwd_ShimEntitiesServer_EntityGetOrigin( IShimEntitiesServer *self, uint32_t a0, float * a1 ) { self->EntityGetOrigin( a0, a1 ); }
+// void IShimEntities::EntityGetAngles( uint32_t, float * )
+static void SSFwd_ShimEntitiesServer_EntityGetAngles( IShimEntitiesServer *self, uint32_t a0, float * a1 ) { self->EntityGetAngles( a0, a1 ); }
+// void IShimEntities::EntitySetSkin( uint32_t, int32_t )
+static void SSFwd_ShimEntitiesServer_EntitySetSkin( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetSkin( a0, a1 ); }
+// int32_t IShimEntities::EntityIsValid( uint32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntityIsValid( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityIsValid( a0 ); }
+// int32_t IShimEntitiesServer::EntityIsPlayer( uint32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntityIsPlayer( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityIsPlayer( a0 ); }
+// void IShimEntitiesServer::EntityGetClassName( uint32_t, char *, int32_t )
+static void SSFwd_ShimEntitiesServer_EntityGetClassName( IShimEntitiesServer *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetClassName( a0, a1, a2 ); }
+// void IShimEntitiesServer::EntityGetName( uint32_t, char *, int32_t )
+static void SSFwd_ShimEntitiesServer_EntityGetName( IShimEntitiesServer *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetName( a0, a1, a2 ); }
+// int32_t IShimEntitiesServer::EntityGetState( uint32_t, int32_t * )
+static int32_t SSFwd_ShimEntitiesServer_EntityGetState( IShimEntitiesServer *self, uint32_t a0, int32_t * a1 ) { return self->EntityGetState( a0, a1 ); }
+// uint32_t IShimEntitiesServer::FindEntityByClassname( uint32_t, const char * )
+static uint32_t SSFwd_ShimEntitiesServer_FindEntityByClassname( IShimEntitiesServer *self, uint32_t a0, const char * a1 ) { return self->FindEntityByClassname( a0, a1 ); }
+// uint32_t IShimEntitiesServer::FindBaseEntityByName( const char * )
+static uint32_t SSFwd_ShimEntitiesServer_FindBaseEntityByName( IShimEntitiesServer *self, const char * a0 ) { return self->FindBaseEntityByName( a0 ); }
+// int32_t IShimEntitiesServer::EntitiesInSphere( const float *, float, uint32_t *, int32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntitiesInSphere( IShimEntitiesServer *self, const float * a0, float a1, uint32_t * a2, int32_t a3 ) { return self->EntitiesInSphere( a0, a1, a2, a3 ); }
+// int32_t IShimEntitiesServer::EntitySetKeyValue( uint32_t, const char *, const char * )
+static int32_t SSFwd_ShimEntitiesServer_EntitySetKeyValue( IShimEntitiesServer *self, uint32_t a0, const char * a1, const char * a2 ) { return self->EntitySetKeyValue( a0, a1, a2 ); }
+// void IShimEntitiesServer::EntityGetSpawnOrigin( uint32_t, float * )
+static void SSFwd_ShimEntitiesServer_EntityGetSpawnOrigin( IShimEntitiesServer *self, uint32_t a0, float * a1 ) { self->EntityGetSpawnOrigin( a0, a1 ); }
+// void IShimEntitiesServer::EntityGetSpawnAngles( uint32_t, float * )
+static void SSFwd_ShimEntitiesServer_EntityGetSpawnAngles( IShimEntitiesServer *self, uint32_t a0, float * a1 ) { self->EntityGetSpawnAngles( a0, a1 ); }
+// int32_t IShimEntitiesServer::EntityGetSpawnFlags( uint32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntityGetSpawnFlags( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetSpawnFlags( a0 ); }
+// void IShimEntitiesServer::EntitySetSpawnFlags( uint32_t, int32_t )
+static void SSFwd_ShimEntitiesServer_EntitySetSpawnFlags( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetSpawnFlags( a0, a1 ); }
+// int32_t IShimEntitiesServer::EntityGetHealth( uint32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntityGetHealth( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetHealth( a0 ); }
+// void IShimEntitiesServer::EntitySetHealth( uint32_t, int32_t )
+static void SSFwd_ShimEntitiesServer_EntitySetHealth( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetHealth( a0, a1 ); }
+// int32_t IShimEntitiesServer::EntityGetArmor( uint32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntityGetArmor( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetArmor( a0 ); }
+// void IShimEntitiesServer::EntitySetArmor( uint32_t, int32_t )
+static void SSFwd_ShimEntitiesServer_EntitySetArmor( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetArmor( a0, a1 ); }
+// void IShimEntitiesServer::EntitySetVisible( uint32_t, int32_t )
+static void SSFwd_ShimEntitiesServer_EntitySetVisible( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetVisible( a0, a1 ); }
+// void IShimEntitiesServer::EntitySetOwner( uint32_t, uint32_t )
+static void SSFwd_ShimEntitiesServer_EntitySetOwner( IShimEntitiesServer *self, uint32_t a0, uint32_t a1 ) { self->EntitySetOwner( a0, a1 ); }
+// void IShimEntitiesServer::EntityMakePickup( uint32_t, float, float, float )
+static void SSFwd_ShimEntitiesServer_EntityMakePickup( IShimEntitiesServer *self, uint32_t a0, float a1, float a2, float a3 ) { self->EntityMakePickup( a0, a1, a2, a3 ); }
+// void IShimEntitiesServer::EntitySetPickupEnabled( uint32_t, int32_t )
+static void SSFwd_ShimEntitiesServer_EntitySetPickupEnabled( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetPickupEnabled( a0, a1 ); }
+// int32_t IShimEntitiesServer::EntityDetectInSkybox( uint32_t )
+static int32_t SSFwd_ShimEntitiesServer_EntityDetectInSkybox( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityDetectInSkybox( a0 ); }
+// int32_t IShimEntitiesServer::EntitiesSdkPlayerSkyboxArea( int32_t, int32_t * )
+static int32_t SSFwd_ShimEntitiesServer_EntitiesSdkPlayerSkyboxArea( IShimEntitiesServer *self, int32_t a0, int32_t * a1 ) { return self->EntitiesSdkPlayerSkyboxArea( a0, a1 ); }
+// int32_t IShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t, int32_t * )
+static int32_t SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea( IShimEntitiesServer *self, int32_t a0, int32_t * a1 ) { return self->EntitiesStandalonePlayerSkyboxArea( a0, a1 ); }
+
+static void *const s_ShimEntitiesServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetSkin ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityIsValid ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityIsPlayer ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetClassName ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetName ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetState ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_FindEntityByClassname ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_FindBaseEntityByName ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesInSphere ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetKeyValue ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetSpawnOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetSpawnAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetSpawnFlags ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetSpawnFlags ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetHealth ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetHealth ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityGetArmor ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetArmor ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetVisible ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetOwner ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityMakePickup ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetPickupEnabled ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityDetectInSkybox ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesSdkPlayerSkyboxArea ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea ),
+};
+
+static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 28 };
+
+//-----------------------------------------------------------------------------
+// ShimEntityLifecycle: 18 forwarder(s) over IShimEntityLifecycle.
+//-----------------------------------------------------------------------------
+// uint32_t IShimEntityLifecycle::CreateEntity( const char * )
+static uint32_t SSFwd_ShimEntityLifecycle_CreateEntity( IShimEntityLifecycle *self, const char * a0 ) { return self->CreateEntity( a0 ); }
+// void IShimEntityLifecycle::EntitySpawn( uint32_t )
+static void SSFwd_ShimEntityLifecycle_EntitySpawn( IShimEntityLifecycle *self, uint32_t a0 ) { self->EntitySpawn( a0 ); }
+// void IShimEntityLifecycle::EntityRemove( uint32_t )
+static void SSFwd_ShimEntityLifecycle_EntityRemove( IShimEntityLifecycle *self, uint32_t a0 ) { self->EntityRemove( a0 ); }
+// void IShimEntityLifecycle::DestroyShell( const uint32_t *, int32_t )
+static void SSFwd_ShimEntityLifecycle_DestroyShell( IShimEntityLifecycle *self, const uint32_t * a0, int32_t a1 ) { self->DestroyShell( a0, a1 ); }
+// uint32_t IShimEntityLifecycle::MapSpawnCreate( const char *, const char *, int32_t )
+static uint32_t SSFwd_ShimEntityLifecycle_MapSpawnCreate( IShimEntityLifecycle *self, const char * a0, const char * a1, int32_t a2 ) { return self->MapSpawnCreate( a0, a1, a2 ); }
+// int32_t IShimEntityLifecycle::TemplateCapture( const char *, int32_t, int32_t *, float *, float *, int32_t )
+static int32_t SSFwd_ShimEntityLifecycle_TemplateCapture( IShimEntityLifecycle *self, const char * a0, int32_t a1, int32_t * a2, float * a3, float * a4, int32_t a5 ) { return self->TemplateCapture( a0, a1, a2, a3, a4, a5 ); }
+// void IShimEntityLifecycle::EntitiesPurgeMapRefs( void )
+static void SSFwd_ShimEntityLifecycle_EntitiesPurgeMapRefs( IShimEntityLifecycle *self ) { self->EntitiesPurgeMapRefs(); }
+// void IShimEntityLifecycle::EntitiesCleanupDeleteList( void )
+static void SSFwd_ShimEntityLifecycle_EntitiesCleanupDeleteList( IShimEntityLifecycle *self ) { self->EntitiesCleanupDeleteList(); }
+// void IShimEntityLifecycle::RegisterScriptedEntity( const char *, const char * *, int32_t, int32_t )
+static void SSFwd_ShimEntityLifecycle_RegisterScriptedEntity( IShimEntityLifecycle *self, const char * a0, const char * * a1, int32_t a2, int32_t a3 ) { self->RegisterScriptedEntity( a0, a1, a2, a3 ); }
+// void IShimEntityLifecycle::RegisterWeaponEntity( const char * )
+static void SSFwd_ShimEntityLifecycle_RegisterWeaponEntity( IShimEntityLifecycle *self, const char * a0 ) { self->RegisterWeaponEntity( a0 ); }
+// void IShimEntityLifecycle::RegisterClassOps( const char *, uint32_t )
+static void SSFwd_ShimEntityLifecycle_RegisterClassOps( IShimEntityLifecycle *self, const char * a0, uint32_t a1 ) { self->RegisterClassOps( a0, a1 ); }
+// int32_t IShimEntityLifecycle::EntityDispatch( uint32_t, int32_t, const SourceSharpOpArgs * )
+static int32_t SSFwd_ShimEntityLifecycle_EntityDispatch( IShimEntityLifecycle *self, uint32_t a0, int32_t a1, const SourceSharpOpArgs * a2 ) { return self->EntityDispatch( a0, a1, a2 ); }
+// int32_t IShimEntityLifecycle::EntityFactoryCount( void )
+static int32_t SSFwd_ShimEntityLifecycle_EntityFactoryCount( IShimEntityLifecycle *self ) { return self->EntityFactoryCount(); }
+// const char * IShimEntityLifecycle::EntityFactoryNameAt( int32_t )
+static const char * SSFwd_ShimEntityLifecycle_EntityFactoryNameAt( IShimEntityLifecycle *self, int32_t a0 ) { return self->EntityFactoryNameAt( a0 ); }
+// int32_t IShimEntityLifecycle::EntityFactoryRefusalCount( void )
+static int32_t SSFwd_ShimEntityLifecycle_EntityFactoryRefusalCount( IShimEntityLifecycle *self ) { return self->EntityFactoryRefusalCount(); }
+// const char * IShimEntityLifecycle::EntityFactoryRefusalNameAt( int32_t )
+static const char * SSFwd_ShimEntityLifecycle_EntityFactoryRefusalNameAt( IShimEntityLifecycle *self, int32_t a0 ) { return self->EntityFactoryRefusalNameAt( a0 ); }
+// int32_t IShimEntityLifecycle::EntityFactoryRefusalTimesAt( int32_t )
+static int32_t SSFwd_ShimEntityLifecycle_EntityFactoryRefusalTimesAt( IShimEntityLifecycle *self, int32_t a0 ) { return self->EntityFactoryRefusalTimesAt( a0 ); }
+// int32_t IShimEntityLifecycle::TemplateSpawnKeyed( const char *, const char *, const int32_t *, const float *, const float *, int32_t, uint32_t *, int32_t )
+static int32_t SSFwd_ShimEntityLifecycle_TemplateSpawnKeyed( IShimEntityLifecycle *self, const char * a0, const char * a1, const int32_t * a2, const float * a3, const float * a4, int32_t a5, uint32_t * a6, int32_t a7 ) { return self->TemplateSpawnKeyed( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+
+static void *const s_ShimEntityLifecycleSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_CreateEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntitySpawn ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityRemove ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_DestroyShell ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_MapSpawnCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_TemplateCapture ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntitiesPurgeMapRefs ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntitiesCleanupDeleteList ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_RegisterScriptedEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_RegisterWeaponEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_RegisterClassOps ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityDispatch ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryCount ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryNameAt ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryRefusalCount ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryRefusalNameAt ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryRefusalTimesAt ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_TemplateSpawnKeyed ),
+};
+
+static const SSForwarderTable s_ShimEntityLifecycleTable = { s_ShimEntityLifecycleSlots, 18 };
+
+//-----------------------------------------------------------------------------
+// ShimTransform: 18 forwarder(s) over IShimTransform.
+//-----------------------------------------------------------------------------
+// void IShimTransform::EntitySetOrigin( uint32_t, const float * )
+static void SSFwd_ShimTransform_EntitySetOrigin( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntitySetOrigin( a0, a1 ); }
+// void IShimTransform::EntitySetAngles( uint32_t, const float * )
+static void SSFwd_ShimTransform_EntitySetAngles( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntitySetAngles( a0, a1 ); }
+// void IShimTransform::EntityTeleport( uint32_t, const float *, const float *, int32_t )
+static void SSFwd_ShimTransform_EntityTeleport( IShimTransform *self, uint32_t a0, const float * a1, const float * a2, int32_t a3 ) { self->EntityTeleport( a0, a1, a2, a3 ); }
+// void IShimTransform::EntityGetVelocity( uint32_t, float * )
+static void SSFwd_ShimTransform_EntityGetVelocity( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetVelocity( a0, a1 ); }
+// void IShimTransform::EntitySetVelocity( uint32_t, const float * )
+static void SSFwd_ShimTransform_EntitySetVelocity( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntitySetVelocity( a0, a1 ); }
+// void IShimTransform::EntityAddBaseVelocity( uint32_t, const float * )
+static void SSFwd_ShimTransform_EntityAddBaseVelocity( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntityAddBaseVelocity( a0, a1 ); }
+// void IShimTransform::EntityGetAngularVelocity( uint32_t, float * )
+static void SSFwd_ShimTransform_EntityGetAngularVelocity( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetAngularVelocity( a0, a1 ); }
+// void IShimTransform::EntitySetAngularVelocity( uint32_t, const float * )
+static void SSFwd_ShimTransform_EntitySetAngularVelocity( IShimTransform *self, uint32_t a0, const float * a1 ) { self->EntitySetAngularVelocity( a0, a1 ); }
+// void IShimTransform::EntityGetEyePosition( uint32_t, float * )
+static void SSFwd_ShimTransform_EntityGetEyePosition( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetEyePosition( a0, a1 ); }
+// void IShimTransform::EntityGetEyeAngles( uint32_t, float * )
+static void SSFwd_ShimTransform_EntityGetEyeAngles( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetEyeAngles( a0, a1 ); }
+// void IShimTransform::EntityGetWorldSpaceCenter( uint32_t, float * )
+static void SSFwd_ShimTransform_EntityGetWorldSpaceCenter( IShimTransform *self, uint32_t a0, float * a1 ) { self->EntityGetWorldSpaceCenter( a0, a1 ); }
+// void IShimTransform::EntityMoveToPosition( uint32_t, const float *, float )
+static void SSFwd_ShimTransform_EntityMoveToPosition( IShimTransform *self, uint32_t a0, const float * a1, float a2 ) { self->EntityMoveToPosition( a0, a1, a2 ); }
+// void IShimTransform::EntityMoveToAngles( uint32_t, const float *, float )
+static void SSFwd_ShimTransform_EntityMoveToAngles( IShimTransform *self, uint32_t a0, const float * a1, float a2 ) { self->EntityMoveToAngles( a0, a1, a2 ); }
+// void IShimTransform::EntityStopMoving( uint32_t )
+static void SSFwd_ShimTransform_EntityStopMoving( IShimTransform *self, uint32_t a0 ) { self->EntityStopMoving( a0 ); }
+// float IShimTransform::EntityGetGravity( uint32_t )
+static float SSFwd_ShimTransform_EntityGetGravity( IShimTransform *self, uint32_t a0 ) { return self->EntityGetGravity( a0 ); }
+// void IShimTransform::EntitySetGravity( uint32_t, float )
+static void SSFwd_ShimTransform_EntitySetGravity( IShimTransform *self, uint32_t a0, float a1 ) { self->EntitySetGravity( a0, a1 ); }
+// void IShimTransform::EntitySetFriction( uint32_t, float )
+static void SSFwd_ShimTransform_EntitySetFriction( IShimTransform *self, uint32_t a0, float a1 ) { self->EntitySetFriction( a0, a1 ); }
+// void IShimTransform::EntitySetBounce( uint32_t, int32_t )
+static void SSFwd_ShimTransform_EntitySetBounce( IShimTransform *self, uint32_t a0, int32_t a1 ) { self->EntitySetBounce( a0, a1 ); }
+
+static void *const s_ShimTransformSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityTeleport ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetVelocity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetVelocity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityAddBaseVelocity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetAngularVelocity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetAngularVelocity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetEyePosition ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetEyeAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetWorldSpaceCenter ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityMoveToPosition ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityMoveToAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityStopMoving ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntityGetGravity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetGravity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetFriction ),
+	reinterpret_cast< void * >( &SSFwd_ShimTransform_EntitySetBounce ),
+};
+
+static const SSForwarderTable s_ShimTransformTable = { s_ShimTransformSlots, 18 };
+
+//-----------------------------------------------------------------------------
+// ShimHierarchy: 8 forwarder(s) over IShimHierarchy.
+//-----------------------------------------------------------------------------
+// int32_t IShimHierarchy::EntitySetParent( uint32_t, uint32_t, int32_t )
+static int32_t SSFwd_ShimHierarchy_EntitySetParent( IShimHierarchy *self, uint32_t a0, uint32_t a1, int32_t a2 ) { return self->EntitySetParent( a0, a1, a2 ); }
+// uint32_t IShimHierarchy::EntityGetParent( uint32_t )
+static uint32_t SSFwd_ShimHierarchy_EntityGetParent( IShimHierarchy *self, uint32_t a0 ) { return self->EntityGetParent( a0 ); }
+// int32_t IShimHierarchy::EntityGetParentAttachment( uint32_t )
+static int32_t SSFwd_ShimHierarchy_EntityGetParentAttachment( IShimHierarchy *self, uint32_t a0 ) { return self->EntityGetParentAttachment( a0 ); }
+// void IShimHierarchy::EntitySetLocalTransform( uint32_t, const float *, const float * )
+static void SSFwd_ShimHierarchy_EntitySetLocalTransform( IShimHierarchy *self, uint32_t a0, const float * a1, const float * a2 ) { self->EntitySetLocalTransform( a0, a1, a2 ); }
+// void IShimHierarchy::EntityGetLocalTransform( uint32_t, float *, float * )
+static void SSFwd_ShimHierarchy_EntityGetLocalTransform( IShimHierarchy *self, uint32_t a0, float * a1, float * a2 ) { self->EntityGetLocalTransform( a0, a1, a2 ); }
+// int32_t IShimHierarchy::EntityParentProbe( uint32_t )
+static int32_t SSFwd_ShimHierarchy_EntityParentProbe( IShimHierarchy *self, uint32_t a0 ) { return self->EntityParentProbe( a0 ); }
+// int32_t IShimHierarchy::EntityGetAttachmentFrame( uint32_t, int32_t, float *, float * )
+static int32_t SSFwd_ShimHierarchy_EntityGetAttachmentFrame( IShimHierarchy *self, uint32_t a0, int32_t a1, float * a2, float * a3 ) { return self->EntityGetAttachmentFrame( a0, a1, a2, a3 ); }
+// int32_t IShimHierarchy::EntityLookupAttachmentAny( uint32_t, const char * )
+static int32_t SSFwd_ShimHierarchy_EntityLookupAttachmentAny( IShimHierarchy *self, uint32_t a0, const char * a1 ) { return self->EntityLookupAttachmentAny( a0, a1 ); }
+
+static void *const s_ShimHierarchySlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntitySetParent ),
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityGetParent ),
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityGetParentAttachment ),
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntitySetLocalTransform ),
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityGetLocalTransform ),
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityParentProbe ),
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityGetAttachmentFrame ),
+	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityLookupAttachmentAny ),
+};
+
+static const SSForwarderTable s_ShimHierarchyTable = { s_ShimHierarchySlots, 8 };
+
+//-----------------------------------------------------------------------------
+// ShimCollisionServer: 12 forwarder(s) over IShimCollisionServer.
+//-----------------------------------------------------------------------------
+// void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
+static void SSFwd_ShimCollisionServer_RegisterCollisionRules( IShimCollisionServer *self, const SourceSharpCollisionRules * a0 ) { self->RegisterCollisionRules( a0 ); }
+// void IShimCollisionServer::EntityGetBounds( uint32_t, float *, float * )
+static void SSFwd_ShimCollisionServer_EntityGetBounds( IShimCollisionServer *self, uint32_t a0, float * a1, float * a2 ) { self->EntityGetBounds( a0, a1, a2 ); }
+// void IShimCollisionServer::EntityGetBoundsSize( uint32_t, float * )
+static void SSFwd_ShimCollisionServer_EntityGetBoundsSize( IShimCollisionServer *self, uint32_t a0, float * a1 ) { self->EntityGetBoundsSize( a0, a1 ); }
+// void IShimCollisionServer::EntitySetBounds( uint32_t, const float *, const float * )
+static void SSFwd_ShimCollisionServer_EntitySetBounds( IShimCollisionServer *self, uint32_t a0, const float * a1, const float * a2 ) { self->EntitySetBounds( a0, a1, a2 ); }
+// int32_t IShimCollisionServer::EntityGetSolidType( uint32_t )
+static int32_t SSFwd_ShimCollisionServer_EntityGetSolidType( IShimCollisionServer *self, uint32_t a0 ) { return self->EntityGetSolidType( a0 ); }
+// void IShimCollisionServer::EntitySetSolidity( uint32_t, int32_t, int32_t )
+static void SSFwd_ShimCollisionServer_EntitySetSolidity( IShimCollisionServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->EntitySetSolidity( a0, a1, a2 ); }
+// int32_t IShimCollisionServer::EntityGetSolidFlags( uint32_t )
+static int32_t SSFwd_ShimCollisionServer_EntityGetSolidFlags( IShimCollisionServer *self, uint32_t a0 ) { return self->EntityGetSolidFlags( a0 ); }
+// void IShimCollisionServer::EntitySetNotSolid( uint32_t, int32_t )
+static void SSFwd_ShimCollisionServer_EntitySetNotSolid( IShimCollisionServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetNotSolid( a0, a1 ); }
+// void IShimCollisionServer::EntitySetBrushSolidity( uint32_t, int32_t )
+static void SSFwd_ShimCollisionServer_EntitySetBrushSolidity( IShimCollisionServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetBrushSolidity( a0, a1 ); }
+// int32_t IShimCollisionServer::EntityGetCollisionGroup( uint32_t )
+static int32_t SSFwd_ShimCollisionServer_EntityGetCollisionGroup( IShimCollisionServer *self, uint32_t a0 ) { return self->EntityGetCollisionGroup( a0 ); }
+// void IShimCollisionServer::EntitySetCollisionGroup( uint32_t, int32_t )
+static void SSFwd_ShimCollisionServer_EntitySetCollisionGroup( IShimCollisionServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetCollisionGroup( a0, a1 ); }
+// int32_t IShimCollisionServer::EntityOverlapReport( uint32_t *, int32_t )
+static int32_t SSFwd_ShimCollisionServer_EntityOverlapReport( IShimCollisionServer *self, uint32_t * a0, int32_t a1 ) { return self->EntityOverlapReport( a0, a1 ); }
+
+static void *const s_ShimCollisionServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_RegisterCollisionRules ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetBounds ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetBoundsSize ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetBounds ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetSolidType ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetSolidity ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetSolidFlags ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetNotSolid ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetBrushSolidity ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetCollisionGroup ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetCollisionGroup ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityOverlapReport ),
+};
+
+static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 12 };
+
+//-----------------------------------------------------------------------------
+// ShimPhysics: 7 forwarder(s) over IShimPhysics.
+//-----------------------------------------------------------------------------
+// void IShimPhysics::EntityDestroyPhysics( uint32_t )
+static void SSFwd_ShimPhysics_EntityDestroyPhysics( IShimPhysics *self, uint32_t a0 ) { self->EntityDestroyPhysics( a0 ); }
+// void IShimPhysics::EntitySetForceServerRagdoll( uint32_t, int32_t )
+static void SSFwd_ShimPhysics_EntitySetForceServerRagdoll( IShimPhysics *self, uint32_t a0, int32_t a1 ) { self->EntitySetForceServerRagdoll( a0, a1 ); }
+// void * IShimPhysics::EntityPhysicsObject( uint32_t )
+static void * SSFwd_ShimPhysics_EntityPhysicsObject( IShimPhysics *self, uint32_t a0 ) { return self->EntityPhysicsObject( a0 ); }
+// void * IShimPhysics::PhysicsEnvironmentPointer( void )
+static void * SSFwd_ShimPhysics_PhysicsEnvironmentPointer( IShimPhysics *self ) { return self->PhysicsEnvironmentPointer(); }
+// void * IShimPhysics::PhysicsWorldObject( void )
+static void * SSFwd_ShimPhysics_PhysicsWorldObject( IShimPhysics *self ) { return self->PhysicsWorldObject(); }
+// int32_t IShimPhysics::PhysicsUpdateOwners( void * *, float *, int32_t, uint32_t * )
+static int32_t SSFwd_ShimPhysics_PhysicsUpdateOwners( IShimPhysics *self, void * * a0, float * a1, int32_t a2, uint32_t * a3 ) { return self->PhysicsUpdateOwners( a0, a1, a2, a3 ); }
+// int32_t IShimPhysics::EntitySwapPhysicsObject( uint32_t, void *, void * * )
+static int32_t SSFwd_ShimPhysics_EntitySwapPhysicsObject( IShimPhysics *self, uint32_t a0, void * a1, void * * a2 ) { return self->EntitySwapPhysicsObject( a0, a1, a2 ); }
+
+static void *const s_ShimPhysicsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntityDestroyPhysics ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntitySetForceServerRagdoll ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntityPhysicsObject ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysics_PhysicsEnvironmentPointer ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysics_PhysicsWorldObject ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysics_PhysicsUpdateOwners ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysics_EntitySwapPhysicsObject ),
+};
+
+static const SSForwarderTable s_ShimPhysicsTable = { s_ShimPhysicsSlots, 7 };
+
+//-----------------------------------------------------------------------------
+// ShimDamage: 8 forwarder(s) over IShimDamage.
+//-----------------------------------------------------------------------------
+// void IShimDamage::ApplyDamage( uint32_t, uint32_t, float, int32_t )
+static void SSFwd_ShimDamage_ApplyDamage( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3 ) { self->ApplyDamage( a0, a1, a2, a3 ); }
+// void IShimDamage::EntityTakeDamage( uint32_t, uint32_t, float, int32_t, const float *, const float *, int32_t )
+static void SSFwd_ShimDamage_EntityTakeDamage( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3, const float * a4, const float * a5, int32_t a6 ) { self->EntityTakeDamage( a0, a1, a2, a3, a4, a5, a6 ); }
+// void IShimDamage::RadiusDamage( const float *, float, float, int32_t, uint32_t )
+static void SSFwd_ShimDamage_RadiusDamage( IShimDamage *self, const float * a0, float a1, float a2, int32_t a3, uint32_t a4 ) { self->RadiusDamage( a0, a1, a2, a3, a4 ); }
+// void IShimDamage::ExplosionDamage( const float *, float, float, int32_t, uint32_t, uint32_t, uint32_t, float )
+static void SSFwd_ShimDamage_ExplosionDamage( IShimDamage *self, const float * a0, float a1, float a2, int32_t a3, uint32_t a4, uint32_t a5, uint32_t a6, float a7 ) { self->ExplosionDamage( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// int32_t IShimDamage::EntitySetTakeDamageMode( uint32_t, int32_t )
+static int32_t SSFwd_ShimDamage_EntitySetTakeDamageMode( IShimDamage *self, uint32_t a0, int32_t a1 ) { return self->EntitySetTakeDamageMode( a0, a1 ); }
+// void IShimDamage::EntityIgnite( uint32_t, float )
+static void SSFwd_ShimDamage_EntityIgnite( IShimDamage *self, uint32_t a0, float a1 ) { self->EntityIgnite( a0, a1 ); }
+// int32_t IShimDamage::EntityDissolve( uint32_t, int32_t, float, const float * )
+static int32_t SSFwd_ShimDamage_EntityDissolve( IShimDamage *self, uint32_t a0, int32_t a1, float a2, const float * a3 ) { return self->EntityDissolve( a0, a1, a2, a3 ); }
+// void IShimDamage::ApplyDamageForce( uint32_t, uint32_t, float, int32_t, const float *, const float * )
+static void SSFwd_ShimDamage_ApplyDamageForce( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3, const float * a4, const float * a5 ) { self->ApplyDamageForce( a0, a1, a2, a3, a4, a5 ); }
+
+static void *const s_ShimDamageSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_ApplyDamage ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityTakeDamage ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_RadiusDamage ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_ExplosionDamage ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntitySetTakeDamageMode ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityIgnite ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityDissolve ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_ApplyDamageForce ),
+};
+
+static const SSForwarderTable s_ShimDamageTable = { s_ShimDamageSlots, 8 };
+
+//-----------------------------------------------------------------------------
+// ShimGameRules: 3 forwarder(s) over IShimGameRules.
+//-----------------------------------------------------------------------------
+// void IShimGameRules::RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy * )
+static void SSFwd_ShimGameRules_RegisterGameRulesPolicy( IShimGameRules *self, const SourceSharpGameRulesPolicy * a0 ) { self->RegisterGameRulesPolicy( a0 ); }
+// void IShimGameRules::RegisterDamageRules( const SourceSharpDamageRules * )
+static void SSFwd_ShimGameRules_RegisterDamageRules( IShimGameRules *self, const SourceSharpDamageRules * a0 ) { self->RegisterDamageRules( a0 ); }
+// void IShimGameRules::EndRound( void )
+static void SSFwd_ShimGameRules_EndRound( IShimGameRules *self ) { self->EndRound(); }
+
+static void *const s_ShimGameRulesSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimGameRules_RegisterGameRulesPolicy ),
+	reinterpret_cast< void * >( &SSFwd_ShimGameRules_RegisterDamageRules ),
+	reinterpret_cast< void * >( &SSFwd_ShimGameRules_EndRound ),
+};
+
+static const SSForwarderTable s_ShimGameRulesTable = { s_ShimGameRulesSlots, 3 };
+
+//-----------------------------------------------------------------------------
+// ShimPlayers: 17 forwarder(s) over IShimPlayers.
+//-----------------------------------------------------------------------------
+// uint32_t IShimPlayers::GetPlayerHandle( int32_t )
+static uint32_t SSFwd_ShimPlayers_GetPlayerHandle( IShimPlayers *self, int32_t a0 ) { return self->GetPlayerHandle( a0 ); }
+// int32_t IShimPlayers::GetPlayerUserId( uint32_t )
+static int32_t SSFwd_ShimPlayers_GetPlayerUserId( IShimPlayers *self, uint32_t a0 ) { return self->GetPlayerUserId( a0 ); }
+// int32_t IShimPlayers::GetPlayerTeam( uint32_t )
+static int32_t SSFwd_ShimPlayers_GetPlayerTeam( IShimPlayers *self, uint32_t a0 ) { return self->GetPlayerTeam( a0 ); }
+// void IShimPlayers::AddPlayerScore( uint32_t, int32_t, int32_t )
+static void SSFwd_ShimPlayers_AddPlayerScore( IShimPlayers *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->AddPlayerScore( a0, a1, a2 ); }
+// int32_t IShimPlayers::PlayerIsAlive( uint32_t )
+static int32_t SSFwd_ShimPlayers_PlayerIsAlive( IShimPlayers *self, uint32_t a0 ) { return self->PlayerIsAlive( a0 ); }
+// void IShimPlayers::PlayerRespawn( uint32_t )
+static void SSFwd_ShimPlayers_PlayerRespawn( IShimPlayers *self, uint32_t a0 ) { self->PlayerRespawn( a0 ); }
+// void IShimPlayers::PlayerPlaceAtSpawn( uint32_t, const float *, const float * )
+static void SSFwd_ShimPlayers_PlayerPlaceAtSpawn( IShimPlayers *self, uint32_t a0, const float * a1, const float * a2 ) { self->PlayerPlaceAtSpawn( a0, a1, a2 ); }
+// int32_t IShimPlayers::PlayerGetObserverMode( uint32_t )
+static int32_t SSFwd_ShimPlayers_PlayerGetObserverMode( IShimPlayers *self, uint32_t a0 ) { return self->PlayerGetObserverMode( a0 ); }
+// void IShimPlayers::PlayerSetObserverMode( uint32_t, int32_t )
+static void SSFwd_ShimPlayers_PlayerSetObserverMode( IShimPlayers *self, uint32_t a0, int32_t a1 ) { self->PlayerSetObserverMode( a0, a1 ); }
+// void IShimPlayers::PlayerSetViewEntity( uint32_t, uint32_t )
+static void SSFwd_ShimPlayers_PlayerSetViewEntity( IShimPlayers *self, uint32_t a0, uint32_t a1 ) { self->PlayerSetViewEntity( a0, a1 ); }
+// void IShimPlayers::PlayerSetFov( uint32_t, uint32_t, int32_t, float )
+static void SSFwd_ShimPlayers_PlayerSetFov( IShimPlayers *self, uint32_t a0, uint32_t a1, int32_t a2, float a3 ) { self->PlayerSetFov( a0, a1, a2, a3 ); }
+// void IShimPlayers::PlayerSnapEyeAngles( uint32_t, const float * )
+static void SSFwd_ShimPlayers_PlayerSnapEyeAngles( IShimPlayers *self, uint32_t a0, const float * a1 ) { self->PlayerSnapEyeAngles( a0, a1 ); }
+// void IShimPlayers::GetPlayerShootOrigin( uint32_t, float * )
+static void SSFwd_ShimPlayers_GetPlayerShootOrigin( IShimPlayers *self, uint32_t a0, float * a1 ) { self->GetPlayerShootOrigin( a0, a1 ); }
+// void IShimPlayers::PlayerSetSoundscape( uint32_t, int32_t, int32_t, int32_t, const float * )
+static void SSFwd_ShimPlayers_PlayerSetSoundscape( IShimPlayers *self, uint32_t a0, int32_t a1, int32_t a2, int32_t a3, const float * a4 ) { self->PlayerSetSoundscape( a0, a1, a2, a3, a4 ); }
+// int32_t IShimPlayers::ClientsStandalonePlayerEarPosition( int32_t, float * )
+static int32_t SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition( IShimPlayers *self, int32_t a0, float * a1 ) { return self->ClientsStandalonePlayerEarPosition( a0, a1 ); }
+// int32_t IShimPlayers::ClientsSdkPlayerEarPosition( int32_t, float * )
+static int32_t SSFwd_ShimPlayers_ClientsSdkPlayerEarPosition( IShimPlayers *self, int32_t a0, float * a1 ) { return self->ClientsSdkPlayerEarPosition( a0, a1 ); }
+// int32_t IShimPlayers::PlayerBoxInPvs( uint32_t, const float *, const float * )
+static int32_t SSFwd_ShimPlayers_PlayerBoxInPvs( IShimPlayers *self, uint32_t a0, const float * a1, const float * a2 ) { return self->PlayerBoxInPvs( a0, a1, a2 ); }
+
+static void *const s_ShimPlayersSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerHandle ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerUserId ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerTeam ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_AddPlayerScore ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerIsAlive ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerRespawn ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerPlaceAtSpawn ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerGetObserverMode ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetObserverMode ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetViewEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetFov ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSnapEyeAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerShootOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetSoundscape ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_ClientsSdkPlayerEarPosition ),
+	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerBoxInPvs ),
+};
+
+static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 17 };
+
+//-----------------------------------------------------------------------------
+// ShimWeaponsServer: 16 forwarder(s) over IShimWeaponsServer.
+//-----------------------------------------------------------------------------
+// void IShimWeapons::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
+static void SSFwd_ShimWeaponsServer_RegisterAmmoType( IShimWeaponsServer *self, const char * a0, int32_t a1, int32_t a2, int32_t a3, float a4, float a5 ) { self->RegisterAmmoType( a0, a1, a2, a3, a4, a5 ); }
+// void IShimWeapons::RegisterWeaponType( const char *, float, float, int32_t )
+static void SSFwd_ShimWeaponsServer_RegisterWeaponType( IShimWeaponsServer *self, const char * a0, float a1, float a2, int32_t a3 ) { self->RegisterWeaponType( a0, a1, a2, a3 ); }
+// int32_t IShimWeaponsServer::WeaponGetState( uint32_t, SourceSharpWeaponState * )
+static int32_t SSFwd_ShimWeaponsServer_WeaponGetState( IShimWeaponsServer *self, uint32_t a0, SourceSharpWeaponState * a1 ) { return self->WeaponGetState( a0, a1 ); }
+// void IShimWeaponsServer::WeaponIdle( uint32_t )
+static void SSFwd_ShimWeaponsServer_WeaponIdle( IShimWeaponsServer *self, uint32_t a0 ) { self->WeaponIdle( a0 ); }
+// void IShimWeaponsServer::WeaponSetNextPrimaryAttack( uint32_t, float )
+static void SSFwd_ShimWeaponsServer_WeaponSetNextPrimaryAttack( IShimWeaponsServer *self, uint32_t a0, float a1 ) { self->WeaponSetNextPrimaryAttack( a0, a1 ); }
+// void IShimWeaponsServer::WeaponSetNextSecondaryAttack( uint32_t, float )
+static void SSFwd_ShimWeaponsServer_WeaponSetNextSecondaryAttack( IShimWeaponsServer *self, uint32_t a0, float a1 ) { self->WeaponSetNextSecondaryAttack( a0, a1 ); }
+// void IShimWeaponsServer::WeaponSetClip( uint32_t, int32_t )
+static void SSFwd_ShimWeaponsServer_WeaponSetClip( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponSetClip( a0, a1 ); }
+// void IShimWeaponsServer::WeaponSetInReload( uint32_t, int32_t )
+static void SSFwd_ShimWeaponsServer_WeaponSetInReload( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponSetInReload( a0, a1 ); }
+// int32_t IShimWeaponsServer::WeaponTakeAmmo( uint32_t, int32_t )
+static int32_t SSFwd_ShimWeaponsServer_WeaponTakeAmmo( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { return self->WeaponTakeAmmo( a0, a1 ); }
+// int32_t IShimWeaponsServer::WeaponTakeSecondaryAmmo( uint32_t, int32_t )
+static int32_t SSFwd_ShimWeaponsServer_WeaponTakeSecondaryAmmo( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { return self->WeaponTakeSecondaryAmmo( a0, a1 ); }
+// void IShimWeaponsServer::WeaponPlaySound( uint32_t, int32_t )
+static void SSFwd_ShimWeaponsServer_WeaponPlaySound( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponPlaySound( a0, a1 ); }
+// void IShimWeaponsServer::WeaponSendAnim( uint32_t, int32_t )
+static void SSFwd_ShimWeaponsServer_WeaponSendAnim( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { self->WeaponSendAnim( a0, a1 ); }
+// float IShimWeaponsServer::WeaponAnimDuration( uint32_t, int32_t )
+static float SSFwd_ShimWeaponsServer_WeaponAnimDuration( IShimWeaponsServer *self, uint32_t a0, int32_t a1 ) { return self->WeaponAnimDuration( a0, a1 ); }
+// void IShimWeaponsServer::WeaponFireBullets( uint32_t, int32_t, float )
+static void SSFwd_ShimWeaponsServer_WeaponFireBullets( IShimWeaponsServer *self, uint32_t a0, int32_t a1, float a2 ) { self->WeaponFireBullets( a0, a1, a2 ); }
+// void IShimWeaponsServer::WeaponMuzzleFlash( uint32_t )
+static void SSFwd_ShimWeaponsServer_WeaponMuzzleFlash( IShimWeaponsServer *self, uint32_t a0 ) { self->WeaponMuzzleFlash( a0 ); }
+// void IShimWeaponsServer::WeaponAddViewKick( uint32_t )
+static void SSFwd_ShimWeaponsServer_WeaponAddViewKick( IShimWeaponsServer *self, uint32_t a0 ) { self->WeaponAddViewKick( a0 ); }
+
+static void *const s_ShimWeaponsServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_RegisterAmmoType ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_RegisterWeaponType ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponGetState ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponIdle ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetNextPrimaryAttack ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetNextSecondaryAttack ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetClip ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSetInReload ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponTakeAmmo ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponTakeSecondaryAmmo ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponPlaySound ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponSendAnim ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponAnimDuration ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponFireBullets ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponMuzzleFlash ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeaponsServer_WeaponAddViewKick ),
+};
+
+static const SSForwarderTable s_ShimWeaponsServerTable = { s_ShimWeaponsServerSlots, 16 };
+
+//-----------------------------------------------------------------------------
+// ShimInventory: 10 forwarder(s) over IShimInventory.
+//-----------------------------------------------------------------------------
+// int32_t IShimInventory::GivePlayerItem( uint32_t, const char * )
+static int32_t SSFwd_ShimInventory_GivePlayerItem( IShimInventory *self, uint32_t a0, const char * a1 ) { return self->GivePlayerItem( a0, a1 ); }
+// int32_t IShimInventory::GivePlayerAmmo( uint32_t, int32_t, const char * )
+static int32_t SSFwd_ShimInventory_GivePlayerAmmo( IShimInventory *self, uint32_t a0, int32_t a1, const char * a2 ) { return self->GivePlayerAmmo( a0, a1, a2 ); }
+// void IShimInventory::GetPlayerActiveWeapon( uint32_t, char *, int32_t )
+static void SSFwd_ShimInventory_GetPlayerActiveWeapon( IShimInventory *self, uint32_t a0, char * a1, int32_t a2 ) { self->GetPlayerActiveWeapon( a0, a1, a2 ); }
+// uint32_t IShimInventory::PlayerGetActiveWeaponEntity( uint32_t )
+static uint32_t SSFwd_ShimInventory_PlayerGetActiveWeaponEntity( IShimInventory *self, uint32_t a0 ) { return self->PlayerGetActiveWeaponEntity( a0 ); }
+// uint32_t IShimInventory::PlayerGetWeaponEntity( uint32_t, int32_t )
+static uint32_t SSFwd_ShimInventory_PlayerGetWeaponEntity( IShimInventory *self, uint32_t a0, int32_t a1 ) { return self->PlayerGetWeaponEntity( a0, a1 ); }
+// uint32_t IShimInventory::PlayerGetViewModelEntity( uint32_t )
+static uint32_t SSFwd_ShimInventory_PlayerGetViewModelEntity( IShimInventory *self, uint32_t a0 ) { return self->PlayerGetViewModelEntity( a0 ); }
+// int32_t IShimInventory::PlayerDropActiveWeapon( uint32_t, const float * )
+static int32_t SSFwd_ShimInventory_PlayerDropActiveWeapon( IShimInventory *self, uint32_t a0, const float * a1 ) { return self->PlayerDropActiveWeapon( a0, a1 ); }
+// int32_t IShimInventory::PlayerHolsterActiveWeapon( uint32_t )
+static int32_t SSFwd_ShimInventory_PlayerHolsterActiveWeapon( IShimInventory *self, uint32_t a0 ) { return self->PlayerHolsterActiveWeapon( a0 ); }
+// int32_t IShimInventory::PlayerDeployLastWeapon( uint32_t )
+static int32_t SSFwd_ShimInventory_PlayerDeployLastWeapon( IShimInventory *self, uint32_t a0 ) { return self->PlayerDeployLastWeapon( a0 ); }
+// void IShimInventory::PlayerRemoveAllItems( uint32_t, int32_t )
+static void SSFwd_ShimInventory_PlayerRemoveAllItems( IShimInventory *self, uint32_t a0, int32_t a1 ) { self->PlayerRemoveAllItems( a0, a1 ); }
+
+static void *const s_ShimInventorySlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_GivePlayerItem ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_GivePlayerAmmo ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_GetPlayerActiveWeapon ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerGetActiveWeaponEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerGetWeaponEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerGetViewModelEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerDropActiveWeapon ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerHolsterActiveWeapon ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerDeployLastWeapon ),
+	reinterpret_cast< void * >( &SSFwd_ShimInventory_PlayerRemoveAllItems ),
+};
+
+static const SSForwarderTable s_ShimInventoryTable = { s_ShimInventorySlots, 10 };
+
+//-----------------------------------------------------------------------------
+// ShimSound: 5 forwarder(s) over IShimSound.
+//-----------------------------------------------------------------------------
+// void IShimSound::EntityEmitSound( uint32_t, const char * )
+static void SSFwd_ShimSound_EntityEmitSound( IShimSound *self, uint32_t a0, const char * a1 ) { self->EntityEmitSound( a0, a1 ); }
+// void IShimSound::EntityStopSound( uint32_t, const char * )
+static void SSFwd_ShimSound_EntityStopSound( IShimSound *self, uint32_t a0, const char * a1 ) { self->EntityStopSound( a0, a1 ); }
+// void IShimSound::EmitSoundAtPosition( const char *, const float * )
+static void SSFwd_ShimSound_EmitSoundAtPosition( IShimSound *self, const char * a0, const float * a1 ) { self->EmitSoundAtPosition( a0, a1 ); }
+// void IShimSound::EmitAmbientSound( int32_t, const float *, const char *, float, int32_t, int32_t, int32_t )
+static void SSFwd_ShimSound_EmitAmbientSound( IShimSound *self, int32_t a0, const float * a1, const char * a2, float a3, int32_t a4, int32_t a5, int32_t a6 ) { self->EmitAmbientSound( a0, a1, a2, a3, a4, a5, a6 ); }
+// int32_t IShimSound::EmitWorldSoundScript( const char *, const float *, int32_t, float )
+static int32_t SSFwd_ShimSound_EmitWorldSoundScript( IShimSound *self, const char * a0, const float * a1, int32_t a2, float a3 ) { return self->EmitWorldSoundScript( a0, a1, a2, a3 ); }
+
+static void *const s_ShimSoundSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimSound_EntityEmitSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimSound_EntityStopSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimSound_EmitSoundAtPosition ),
+	reinterpret_cast< void * >( &SSFwd_ShimSound_EmitAmbientSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimSound_EmitWorldSoundScript ),
+};
+
+static const SSForwarderTable s_ShimSoundTable = { s_ShimSoundSlots, 5 };
+
+//-----------------------------------------------------------------------------
+// ShimEffectsServer: 20 forwarder(s) over IShimEffectsServer.
+//-----------------------------------------------------------------------------
+// int32_t IShimEffects::TempEntRegister( const SourceSharpTeClass_t * )
+static int32_t SSFwd_ShimEffectsServer_TempEntRegister( IShimEffectsServer *self, const SourceSharpTeClass_t * a0 ) { return self->TempEntRegister( a0 ); }
+// void IShimEffectsServer::TempEntPlayback( int32_t, const void *, int32_t, const SourceSharpTeFilter_t *, float )
+static void SSFwd_ShimEffectsServer_TempEntPlayback( IShimEffectsServer *self, int32_t a0, const void * a1, int32_t a2, const SourceSharpTeFilter_t * a3, float a4 ) { self->TempEntPlayback( a0, a1, a2, a3, a4 ); }
+// int32_t IShimEffectsServer::EffectDispatchIndex( const char * )
+static int32_t SSFwd_ShimEffectsServer_EffectDispatchIndex( IShimEffectsServer *self, const char * a0 ) { return self->EffectDispatchIndex( a0 ); }
+// void IShimEffectsServer::ExplosionEffect( const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t )
+static void SSFwd_ShimEffectsServer_ExplosionEffect( IShimEffectsServer *self, const float * a0, int32_t a1, float a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6 ) { self->ExplosionEffect( a0, a1, a2, a3, a4, a5, a6 ); }
+// void IShimEffectsServer::ViewPunch( const float *, const float *, float, int32_t )
+static void SSFwd_ShimEffectsServer_ViewPunch( IShimEffectsServer *self, const float * a0, const float * a1, float a2, int32_t a3 ) { self->ViewPunch( a0, a1, a2, a3 ); }
+// void IShimEffectsServer::SparkEffect( const float *, int32_t, int32_t, int32_t, const float * )
+static void SSFwd_ShimEffectsServer_SparkEffect( IShimEffectsServer *self, const float * a0, int32_t a1, int32_t a2, int32_t a3, const float * a4 ) { self->SparkEffect( a0, a1, a2, a3, a4 ); }
+// void IShimEffectsServer::ImpactEffect( const float *, const float *, int32_t, int32_t, uint32_t )
+static void SSFwd_ShimEffectsServer_ImpactEffect( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->ImpactEffect( a0, a1, a2, a3, a4 ); }
+// void IShimEffectsServer::MuzzleFlashEffect( const float *, const float *, float, int32_t )
+static void SSFwd_ShimEffectsServer_MuzzleFlashEffect( IShimEffectsServer *self, const float * a0, const float * a1, float a2, int32_t a3 ) { self->MuzzleFlashEffect( a0, a1, a2, a3 ); }
+// void IShimEffectsServer::TracerEffect( const float *, const float * )
+static void SSFwd_ShimEffectsServer_TracerEffect( IShimEffectsServer *self, const float * a0, const float * a1 ) { self->TracerEffect( a0, a1 ); }
+// void IShimEffectsServer::BubbleEffect( uint32_t, int32_t, float )
+static void SSFwd_ShimEffectsServer_BubbleEffect( IShimEffectsServer *self, uint32_t a0, int32_t a1, float a2 ) { self->BubbleEffect( a0, a1, a2 ); }
+// void IShimEffectsServer::FunnelEffect( const float *, int32_t, int32_t )
+static void SSFwd_ShimEffectsServer_FunnelEffect( IShimEffectsServer *self, const float * a0, int32_t a1, int32_t a2 ) { self->FunnelEffect( a0, a1, a2 ); }
+// void IShimEffectsServer::DustEffect( const float *, const float *, float, float )
+static void SSFwd_ShimEffectsServer_DustEffect( IShimEffectsServer *self, const float * a0, const float * a1, float a2, float a3 ) { self->DustEffect( a0, a1, a2, a3 ); }
+// void IShimEffectsServer::SplashEffect( const float *, float, int32_t )
+static void SSFwd_ShimEffectsServer_SplashEffect( IShimEffectsServer *self, const float * a0, float a1, int32_t a2 ) { self->SplashEffect( a0, a1, a2 ); }
+// void IShimEffectsServer::BloodEffect( const float *, const float *, int32_t, float, int32_t, int32_t )
+static void SSFwd_ShimEffectsServer_BloodEffect( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5 ) { self->BloodEffect( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimEffectsServer::BloodDecal( const float *, const float *, int32_t )
+static int32_t SSFwd_ShimEffectsServer_BloodDecal( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2 ) { return self->BloodDecal( a0, a1, a2 ); }
+// int32_t IShimEffectsServer::PaintDecal( int32_t, const float *, const float *, float, int32_t, int32_t )
+static int32_t SSFwd_ShimEffectsServer_PaintDecal( IShimEffectsServer *self, int32_t a0, const float * a1, const float * a2, float a3, int32_t a4, int32_t a5 ) { return self->PaintDecal( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimEffectsServer::ShootGib( const char *, const SourceSharpGibShot * )
+static int32_t SSFwd_ShimEffectsServer_ShootGib( IShimEffectsServer *self, const char * a0, const SourceSharpGibShot * a1 ) { return self->ShootGib( a0, a1 ); }
+// uint32_t IShimEffectsServer::FireEffectCreate( int32_t, const float *, float, int32_t )
+static uint32_t SSFwd_ShimEffectsServer_FireEffectCreate( IShimEffectsServer *self, int32_t a0, const float * a1, float a2, int32_t a3 ) { return self->FireEffectCreate( a0, a1, a2, a3 ); }
+// void IShimEffectsServer::FireEffectScale( uint32_t, float, float )
+static void SSFwd_ShimEffectsServer_FireEffectScale( IShimEffectsServer *self, uint32_t a0, float a1, float a2 ) { self->FireEffectScale( a0, a1, a2 ); }
+// void IShimEffectsServer::FireEffectEnable( uint32_t, int32_t )
+static void SSFwd_ShimEffectsServer_FireEffectEnable( IShimEffectsServer *self, uint32_t a0, int32_t a1 ) { self->FireEffectEnable( a0, a1 ); }
+
+static void *const s_ShimEffectsServerSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntRegister ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntPlayback ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_EffectDispatchIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ExplosionEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ViewPunch ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_SparkEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ImpactEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_MuzzleFlashEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TracerEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BubbleEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FunnelEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_DustEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_SplashEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BloodEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BloodDecal ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_PaintDecal ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ShootGib ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FireEffectCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FireEffectScale ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FireEffectEnable ),
+};
+
+static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 20 };
+
+//-----------------------------------------------------------------------------
+// ShimDebugOverlay: 5 forwarder(s) over IShimDebugOverlay.
+//-----------------------------------------------------------------------------
+// void IShimDebugOverlay::DrawWorldText( const float *, int32_t, const char *, float, int32_t, int32_t, int32_t, int32_t )
+static void SSFwd_ShimDebugOverlay_DrawWorldText( IShimDebugOverlay *self, const float * a0, int32_t a1, const char * a2, float a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7 ) { self->DrawWorldText( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// int32_t IShimDebugOverlay::DrawEntityOverlay( uint32_t, int32_t, const char *, float, int32_t, int32_t, int32_t, int32_t )
+static int32_t SSFwd_ShimDebugOverlay_DrawEntityOverlay( IShimDebugOverlay *self, uint32_t a0, int32_t a1, const char * a2, float a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7 ) { return self->DrawEntityOverlay( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// void IShimDebugOverlay::AddLineOverlay( const float *, const float *, int32_t, int32_t, int32_t, int32_t, float )
+static void SSFwd_ShimDebugOverlay_AddLineOverlay( IShimDebugOverlay *self, const float * a0, const float * a1, int32_t a2, int32_t a3, int32_t a4, int32_t a5, float a6 ) { self->AddLineOverlay( a0, a1, a2, a3, a4, a5, a6 ); }
+// void IShimDebugOverlay::OverlayCounts( uint32_t *, uint32_t *, uint32_t *, uint32_t *, int32_t * )
+static void SSFwd_ShimDebugOverlay_OverlayCounts( IShimDebugOverlay *self, uint32_t * a0, uint32_t * a1, uint32_t * a2, uint32_t * a3, int32_t * a4 ) { self->OverlayCounts( a0, a1, a2, a3, a4 ); }
+// void IShimDebugOverlay::OverlayResetCounts( void )
+static void SSFwd_ShimDebugOverlay_OverlayResetCounts( IShimDebugOverlay *self ) { self->OverlayResetCounts(); }
+
+static void *const s_ShimDebugOverlaySlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_DrawWorldText ),
+	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_DrawEntityOverlay ),
+	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_AddLineOverlay ),
+	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_OverlayCounts ),
+	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_OverlayResetCounts ),
+};
+
+static const SSForwarderTable s_ShimDebugOverlayTable = { s_ShimDebugOverlaySlots, 5 };
+
+//-----------------------------------------------------------------------------
+// ShimUserMessages: 1 forwarder(s) over IShimUserMessages.
+//-----------------------------------------------------------------------------
+// int32_t IShimUserMessages::UserMessageSend( int32_t, const unsigned char *, int32_t, int32_t, int32_t )
+static int32_t SSFwd_ShimUserMessages_UserMessageSend( IShimUserMessages *self, int32_t a0, const unsigned char * a1, int32_t a2, int32_t a3, int32_t a4 ) { return self->UserMessageSend( a0, a1, a2, a3, a4 ); }
+
+static void *const s_ShimUserMessagesSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimUserMessages_UserMessageSend ),
+};
+
+static const SSForwarderTable s_ShimUserMessagesTable = { s_ShimUserMessagesSlots, 1 };
+
+//-----------------------------------------------------------------------------
+// ShimDiagnostics: 4 forwarder(s) over IShimDiagnostics.
+//-----------------------------------------------------------------------------
+// int32_t IShimDiagnostics::PlayerShadowCounts( int32_t *, int32_t )
+static int32_t SSFwd_ShimDiagnostics_PlayerShadowCounts( IShimDiagnostics *self, int32_t * a0, int32_t a1 ) { return self->PlayerShadowCounts( a0, a1 ); }
+// int32_t IShimDiagnostics::ExitWatchArm( const char * )
+static int32_t SSFwd_ShimDiagnostics_ExitWatchArm( IShimDiagnostics *self, const char * a0 ) { return self->ExitWatchArm( a0 ); }
+// int32_t IShimDiagnostics::ExitWatchRead( int32_t *, int32_t )
+static int32_t SSFwd_ShimDiagnostics_ExitWatchRead( IShimDiagnostics *self, int32_t * a0, int32_t a1 ) { return self->ExitWatchRead( a0, a1 ); }
+// int32_t IShimDiagnostics::ExitWatchDisarm( void )
+static int32_t SSFwd_ShimDiagnostics_ExitWatchDisarm( IShimDiagnostics *self ) { return self->ExitWatchDisarm(); }
+
+static void *const s_ShimDiagnosticsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimDiagnostics_PlayerShadowCounts ),
+	reinterpret_cast< void * >( &SSFwd_ShimDiagnostics_ExitWatchArm ),
+	reinterpret_cast< void * >( &SSFwd_ShimDiagnostics_ExitWatchRead ),
+	reinterpret_cast< void * >( &SSFwd_ShimDiagnostics_ExitWatchDisarm ),
+};
+
+static const SSForwarderTable s_ShimDiagnosticsTable = { s_ShimDiagnosticsSlots, 4 };
+
+//-----------------------------------------------------------------------------
+// ShimEvents: 5 forwarder(s) over IShimEvents.
+//-----------------------------------------------------------------------------
+// void IShimEvents::ListenForGameEvent( const char * )
+static void SSFwd_ShimEvents_ListenForGameEvent( IShimEvents *self, const char * a0 ) { self->ListenForGameEvent( a0 ); }
+// int32_t IShimEvents::EventGetInt( void *, const char * )
+static int32_t SSFwd_ShimEvents_EventGetInt( IShimEvents *self, void * a0, const char * a1 ) { return self->EventGetInt( a0, a1 ); }
+// float IShimEvents::EventGetFloat( void *, const char * )
+static float SSFwd_ShimEvents_EventGetFloat( IShimEvents *self, void * a0, const char * a1 ) { return self->EventGetFloat( a0, a1 ); }
+// int32_t IShimEvents::EventGetBool( void *, const char * )
+static int32_t SSFwd_ShimEvents_EventGetBool( IShimEvents *self, void * a0, const char * a1 ) { return self->EventGetBool( a0, a1 ); }
+// const char * IShimEvents::EventGetString( void *, const char * )
+static const char * SSFwd_ShimEvents_EventGetString( IShimEvents *self, void * a0, const char * a1 ) { return self->EventGetString( a0, a1 ); }
+
+static void *const s_ShimEventsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEvents_ListenForGameEvent ),
+	reinterpret_cast< void * >( &SSFwd_ShimEvents_EventGetInt ),
+	reinterpret_cast< void * >( &SSFwd_ShimEvents_EventGetFloat ),
+	reinterpret_cast< void * >( &SSFwd_ShimEvents_EventGetBool ),
+	reinterpret_cast< void * >( &SSFwd_ShimEvents_EventGetString ),
+};
+
+static const SSForwarderTable s_ShimEventsTable = { s_ShimEventsSlots, 5 };
+
+//-----------------------------------------------------------------------------
+// ShimStringTables: 4 forwarder(s) over IShimStringTables.
+//-----------------------------------------------------------------------------
+// int32_t IShimStringTables::StringTableFind( const char * )
+static int32_t SSFwd_ShimStringTables_StringTableFind( IShimStringTables *self, const char * a0 ) { return self->StringTableFind( a0 ); }
+// int32_t IShimStringTables::StringTableFindStringIndex( int32_t, const char * )
+static int32_t SSFwd_ShimStringTables_StringTableFindStringIndex( IShimStringTables *self, int32_t a0, const char * a1 ) { return self->StringTableFindStringIndex( a0, a1 ); }
+// int32_t IShimStringTables::StringTableGetString( int32_t, int32_t, char *, int32_t )
+static int32_t SSFwd_ShimStringTables_StringTableGetString( IShimStringTables *self, int32_t a0, int32_t a1, char * a2, int32_t a3 ) { return self->StringTableGetString( a0, a1, a2, a3 ); }
+// int32_t IShimStringTables::StringTableGetNumStrings( int32_t )
+static int32_t SSFwd_ShimStringTables_StringTableGetNumStrings( IShimStringTables *self, int32_t a0 ) { return self->StringTableGetNumStrings( a0 ); }
+
+static void *const s_ShimStringTablesSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableFind ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableFindStringIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableGetString ),
+	reinterpret_cast< void * >( &SSFwd_ShimStringTables_StringTableGetNumStrings ),
+};
+
+static const SSForwarderTable s_ShimStringTablesTable = { s_ShimStringTablesSlots, 4 };
+
+//-----------------------------------------------------------------------------
+// ShimNetwork: 4 forwarder(s) over IShimNetwork.
+//-----------------------------------------------------------------------------
+// int32_t IShimNetwork::NetHierarchyDeclare( int32_t )
+static int32_t SSFwd_ShimNetwork_NetHierarchyDeclare( IShimNetwork *self, int32_t a0 ) { return self->NetHierarchyDeclare( a0 ); }
+// int32_t IShimNetwork::NetPublishType( const char *, int32_t, uint32_t, int32_t, uint32_t * )
+static int32_t SSFwd_ShimNetwork_NetPublishType( IShimNetwork *self, const char * a0, int32_t a1, uint32_t a2, int32_t a3, uint32_t * a4 ) { return self->NetPublishType( a0, a1, a2, a3, a4 ); }
+// int32_t IShimNetwork::NetTierInfo( int32_t, int32_t, const char * *, int32_t *, int32_t *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimNetwork_NetTierInfo( IShimNetwork *self, int32_t a0, int32_t a1, const char * * a2, int32_t * a3, int32_t * a4, int32_t * a5, int32_t * a6 ) { return self->NetTierInfo( a0, a1, a2, a3, a4, a5, a6 ); }
+// int32_t IShimNetwork::WorldNetDeclare( int32_t )
+static int32_t SSFwd_ShimNetwork_WorldNetDeclare( IShimNetwork *self, int32_t a0 ) { return self->WorldNetDeclare( a0 ); }
+
+static void *const s_ShimNetworkSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimNetwork_NetHierarchyDeclare ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetwork_NetPublishType ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetwork_NetTierInfo ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetwork_WorldNetDeclare ),
+};
+
+static const SSForwarderTable s_ShimNetworkTable = { s_ShimNetworkSlots, 4 };
+
+//-----------------------------------------------------------------------------
+// ShimModels: 4 forwarder(s) over IShimModels.
+//-----------------------------------------------------------------------------
+// int32_t IShimModels::ModelDescriptor( int32_t, char *, int32_t )
+static int32_t SSFwd_ShimModels_ModelDescriptor( IShimModels *self, int32_t a0, char * a1, int32_t a2 ) { return self->ModelDescriptor( a0, a1, a2 ); }
+// void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
+static void SSFwd_ShimModels_EntityGetModelName( IShimModels *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetModelName( a0, a1, a2 ); }
+// int32_t IShimModels::EntitiesInvalidateMdlCacheAll( void )
+static int32_t SSFwd_ShimModels_EntitiesInvalidateMdlCacheAll( IShimModels *self ) { return self->EntitiesInvalidateMdlCacheAll(); }
+// void IShimModels::StandaloneSetModelScale( uint32_t, float )
+static void SSFwd_ShimModels_StandaloneSetModelScale( IShimModels *self, uint32_t a0, float a1 ) { self->StandaloneSetModelScale( a0, a1 ); }
+
+static void *const s_ShimModelsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimModels_ModelDescriptor ),
+	reinterpret_cast< void * >( &SSFwd_ShimModels_EntityGetModelName ),
+	reinterpret_cast< void * >( &SSFwd_ShimModels_EntitiesInvalidateMdlCacheAll ),
+	reinterpret_cast< void * >( &SSFwd_ShimModels_StandaloneSetModelScale ),
+};
+
+static const SSForwarderTable s_ShimModelsTable = { s_ShimModelsSlots, 4 };
+
+//-----------------------------------------------------------------------------
+// ShimMovement: 6 forwarder(s) over IShimMovement.
+//-----------------------------------------------------------------------------
+// void IShimMovement::MoveTrace( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult * )
+static void SSFwd_ShimMovement_MoveTrace( IShimMovement *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6 ) { self->MoveTrace( a0, a1, a2, a3, a4, a5, a6 ); }
+// int32_t IShimMovement::MovePointContents( const float *, int32_t )
+static int32_t SSFwd_ShimMovement_MovePointContents( IShimMovement *self, const float * a0, int32_t a1 ) { return self->MovePointContents( a0, a1 ); }
+// int32_t IShimMovement::MoveSurface( int32_t, SourceSharpMoveSurface * )
+static int32_t SSFwd_ShimMovement_MoveSurface( IShimMovement *self, int32_t a0, SourceSharpMoveSurface * a1 ) { return self->MoveSurface( a0, a1 ); }
+// int32_t IShimMovement::MoveEffect( int32_t, const float *, float, int32_t )
+static int32_t SSFwd_ShimMovement_MoveEffect( IShimMovement *self, int32_t a0, const float * a1, float a2, int32_t a3 ) { return self->MoveEffect( a0, a1, a2, a3 ); }
+// float IShimMovement::CurrentGravity( void )
+static float SSFwd_ShimMovement_CurrentGravity( IShimMovement *self ) { return self->CurrentGravity(); }
+// void IShimMovement::RegisterMovementParams( const SourceSharpMovementParams * )
+static void SSFwd_ShimMovement_RegisterMovementParams( IShimMovement *self, const SourceSharpMovementParams * a0 ) { self->RegisterMovementParams( a0 ); }
+
+static void *const s_ShimMovementSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimMovement_MoveTrace ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovement_MovePointContents ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovement_MoveSurface ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovement_MoveEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovement_CurrentGravity ),
+	reinterpret_cast< void * >( &SSFwd_ShimMovement_RegisterMovementParams ),
+};
+
+static const SSForwarderTable s_ShimMovementTable = { s_ShimMovementSlots, 6 };
+
+//-----------------------------------------------------------------------------
+// ShimWorld: 2 forwarder(s) over IShimWorld.
+//-----------------------------------------------------------------------------
+// int32_t IShimWorld::PointContents( const float * )
+static int32_t SSFwd_ShimWorld_PointContents( IShimWorld *self, const float * a0 ) { return self->PointContents( a0 ); }
+// int32_t IShimWorld::SurfacePropGameMaterial( int32_t )
+static int32_t SSFwd_ShimWorld_SurfacePropGameMaterial( IShimWorld *self, int32_t a0 ) { return self->SurfacePropGameMaterial( a0 ); }
+
+static void *const s_ShimWorldSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimWorld_PointContents ),
+	reinterpret_cast< void * >( &SSFwd_ShimWorld_SurfacePropGameMaterial ),
+};
+
+static const SSForwarderTable s_ShimWorldTable = { s_ShimWorldSlots, 2 };
+
+//-----------------------------------------------------------------------------
+// ShimEntities: 5 forwarder(s) over IShimEntities.
+//-----------------------------------------------------------------------------
+// int32_t IShimEntities::EntityGetIndex( uint32_t )
+static int32_t SSFwd_ShimEntities_EntityGetIndex( IShimEntities *self, uint32_t a0 ) { return self->EntityGetIndex( a0 ); }
+// void IShimEntities::EntityGetOrigin( uint32_t, float * )
+static void SSFwd_ShimEntities_EntityGetOrigin( IShimEntities *self, uint32_t a0, float * a1 ) { self->EntityGetOrigin( a0, a1 ); }
+// void IShimEntities::EntityGetAngles( uint32_t, float * )
+static void SSFwd_ShimEntities_EntityGetAngles( IShimEntities *self, uint32_t a0, float * a1 ) { self->EntityGetAngles( a0, a1 ); }
+// void IShimEntities::EntitySetSkin( uint32_t, int32_t )
+static void SSFwd_ShimEntities_EntitySetSkin( IShimEntities *self, uint32_t a0, int32_t a1 ) { self->EntitySetSkin( a0, a1 ); }
+// int32_t IShimEntities::EntityIsValid( uint32_t )
+static int32_t SSFwd_ShimEntities_EntityIsValid( IShimEntities *self, uint32_t a0 ) { return self->EntityIsValid( a0 ); }
+
+static void *const s_ShimEntitiesSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityGetIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityGetOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityGetAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntitySetSkin ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntities_EntityIsValid ),
+};
+
+static const SSForwarderTable s_ShimEntitiesTable = { s_ShimEntitiesSlots, 5 };
+
+//-----------------------------------------------------------------------------
+// ShimCollision: 1 forwarder(s) over IShimCollision.
+//-----------------------------------------------------------------------------
+// void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
+static void SSFwd_ShimCollision_RegisterCollisionRules( IShimCollision *self, const SourceSharpCollisionRules * a0 ) { self->RegisterCollisionRules( a0 ); }
+
+static void *const s_ShimCollisionSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimCollision_RegisterCollisionRules ),
+};
+
+static const SSForwarderTable s_ShimCollisionTable = { s_ShimCollisionSlots, 1 };
+
+//-----------------------------------------------------------------------------
+// ShimWeapons: 2 forwarder(s) over IShimWeapons.
+//-----------------------------------------------------------------------------
+// void IShimWeapons::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
+static void SSFwd_ShimWeapons_RegisterAmmoType( IShimWeapons *self, const char * a0, int32_t a1, int32_t a2, int32_t a3, float a4, float a5 ) { self->RegisterAmmoType( a0, a1, a2, a3, a4, a5 ); }
+// void IShimWeapons::RegisterWeaponType( const char *, float, float, int32_t )
+static void SSFwd_ShimWeapons_RegisterWeaponType( IShimWeapons *self, const char * a0, float a1, float a2, int32_t a3 ) { self->RegisterWeaponType( a0, a1, a2, a3 ); }
+
+static void *const s_ShimWeaponsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimWeapons_RegisterAmmoType ),
+	reinterpret_cast< void * >( &SSFwd_ShimWeapons_RegisterWeaponType ),
+};
+
+static const SSForwarderTable s_ShimWeaponsTable = { s_ShimWeaponsSlots, 2 };
+
+//-----------------------------------------------------------------------------
+// ShimEffects: 1 forwarder(s) over IShimEffects.
+//-----------------------------------------------------------------------------
+// int32_t IShimEffects::TempEntRegister( const SourceSharpTeClass_t * )
+static int32_t SSFwd_ShimEffects_TempEntRegister( IShimEffects *self, const SourceSharpTeClass_t * a0 ) { return self->TempEntRegister( a0 ); }
+
+static void *const s_ShimEffectsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEffects_TempEntRegister ),
+};
+
+static const SSForwarderTable s_ShimEffectsTable = { s_ShimEffectsSlots, 1 };
+
+//-----------------------------------------------------------------------------
+// ShimHudClient: 5 forwarder(s) over IShimHudClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimHudClient::GetLocalPlayerHealth( void )
+static int32_t SSFwd_ShimHudClient_GetLocalPlayerHealth( IShimHudClient *self ) { return self->GetLocalPlayerHealth(); }
+// int32_t IShimHudClient::GetLocalPlayerIndex( void )
+static int32_t SSFwd_ShimHudClient_GetLocalPlayerIndex( IShimHudClient *self ) { return self->GetLocalPlayerIndex(); }
+// void IShimHudClient::HudLocalise( const char *, char *, int32_t )
+static void SSFwd_ShimHudClient_HudLocalise( IShimHudClient *self, const char * a0, char * a1, int32_t a2 ) { self->HudLocalise( a0, a1, a2 ); }
+// void IShimHudClient::HudLookupBinding( const char *, char *, int32_t )
+static void SSFwd_ShimHudClient_HudLookupBinding( IShimHudClient *self, const char * a0, char * a1, int32_t a2 ) { self->HudLookupBinding( a0, a1, a2 ); }
+// int32_t IShimHudClient::HudTextMessageGet( const char *, SourceSharpTextMessage * )
+static int32_t SSFwd_ShimHudClient_HudTextMessageGet( IShimHudClient *self, const char * a0, SourceSharpTextMessage * a1 ) { return self->HudTextMessageGet( a0, a1 ); }
+
+static void *const s_ShimHudClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimHudClient_GetLocalPlayerHealth ),
+	reinterpret_cast< void * >( &SSFwd_ShimHudClient_GetLocalPlayerIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimHudClient_HudLocalise ),
+	reinterpret_cast< void * >( &SSFwd_ShimHudClient_HudLookupBinding ),
+	reinterpret_cast< void * >( &SSFwd_ShimHudClient_HudTextMessageGet ),
+};
+
+static const SSForwarderTable s_ShimHudClientTable = { s_ShimHudClientSlots, 5 };
+
+//-----------------------------------------------------------------------------
+// ShimPredictionClient: 4 forwarder(s) over IShimPredictionClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimPredictionClient::ClientGetUserCmd( int32_t, SourceSharpUserCmd * )
+static int32_t SSFwd_ShimPredictionClient_ClientGetUserCmd( IShimPredictionClient *self, int32_t a0, SourceSharpUserCmd * a1 ) { return self->ClientGetUserCmd( a0, a1 ); }
+// void IShimPredictionClient::ClientPlayerPredictionDrive( uint32_t, const SourceSharpClientPlayerView * )
+static void SSFwd_ShimPredictionClient_ClientPlayerPredictionDrive( IShimPredictionClient *self, uint32_t a0, const SourceSharpClientPlayerView * a1 ) { self->ClientPlayerPredictionDrive( a0, a1 ); }
+// int32_t IShimPredictionClient::MoveBeginClientCommand( uint32_t, int32_t, SourceSharpMoveState * )
+static int32_t SSFwd_ShimPredictionClient_MoveBeginClientCommand( IShimPredictionClient *self, uint32_t a0, int32_t a1, SourceSharpMoveState * a2 ) { return self->MoveBeginClientCommand( a0, a1, a2 ); }
+// void IShimPredictionClient::MoveEndClientCommand( int32_t, int32_t * )
+static void SSFwd_ShimPredictionClient_MoveEndClientCommand( IShimPredictionClient *self, int32_t a0, int32_t * a1 ) { self->MoveEndClientCommand( a0, a1 ); }
+
+static void *const s_ShimPredictionClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimPredictionClient_ClientGetUserCmd ),
+	reinterpret_cast< void * >( &SSFwd_ShimPredictionClient_ClientPlayerPredictionDrive ),
+	reinterpret_cast< void * >( &SSFwd_ShimPredictionClient_MoveBeginClientCommand ),
+	reinterpret_cast< void * >( &SSFwd_ShimPredictionClient_MoveEndClientCommand ),
+};
+
+static const SSForwarderTable s_ShimPredictionClientTable = { s_ShimPredictionClientSlots, 4 };
+
+//-----------------------------------------------------------------------------
+// ShimTempEntPoolClient: 14 forwarder(s) over IShimTempEntPoolClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimTempEntPoolClient::ClientEntityModelBounds( int32_t, float *, float *, float * )
+static int32_t SSFwd_ShimTempEntPoolClient_ClientEntityModelBounds( IShimTempEntPoolClient *self, int32_t a0, float * a1, float * a2, float * a3 ) { return self->ClientEntityModelBounds( a0, a1, a2, a3 ); }
+// int32_t IShimTempEntPoolClient::ClientEntityOrigin( int32_t, float * )
+static int32_t SSFwd_ShimTempEntPoolClient_ClientEntityOrigin( IShimTempEntPoolClient *self, int32_t a0, float * a1 ) { return self->ClientEntityOrigin( a0, a1 ); }
+// void IShimTempEntPoolClient::ClientWindSpeed( float, float * )
+static void SSFwd_ShimTempEntPoolClient_ClientWindSpeed( IShimTempEntPoolClient *self, float a0, float * a1 ) { self->ClientWindSpeed( a0, a1 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolAddVisible( int32_t )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolAddVisible( IShimTempEntPoolClient *self, int32_t a0 ) { return self->TempEntPoolAddVisible( a0 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolCapacity( void )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolCapacity( IShimTempEntPoolClient *self ) { return self->TempEntPoolCapacity(); }
+// int32_t IShimTempEntPoolClient::TempEntPoolCreate( int32_t, const float *, int32_t, int32_t )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolCreate( IShimTempEntPoolClient *self, int32_t a0, const float * a1, int32_t a2, int32_t a3 ) { return self->TempEntPoolCreate( a0, a1, a2, a3 ); }
+// void IShimTempEntPoolClient::TempEntPoolDestroy( int32_t )
+static void SSFwd_ShimTempEntPoolClient_TempEntPoolDestroy( IShimTempEntPoolClient *self, int32_t a0 ) { self->TempEntPoolDestroy( a0 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolReadLife( int32_t, SourceSharpTempEntLife_t * )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolReadLife( IShimTempEntPoolClient *self, int32_t a0, SourceSharpTempEntLife_t * a1 ) { return self->TempEntPoolReadLife( a0, a1 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolReadStatics( int32_t, SourceSharpTempEntStatics_t * )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolReadStatics( IShimTempEntPoolClient *self, int32_t a0, SourceSharpTempEntStatics_t * a1 ) { return self->TempEntPoolReadStatics( a0, a1 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolReadTransform( int32_t, SourceSharpTempEntTransform_t * )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolReadTransform( IShimTempEntPoolClient *self, int32_t a0, SourceSharpTempEntTransform_t * a1 ) { return self->TempEntPoolReadTransform( a0, a1 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolSimulate( int32_t, float, int32_t )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolSimulate( IShimTempEntPoolClient *self, int32_t a0, float a1, int32_t a2 ) { return self->TempEntPoolSimulate( a0, a1, a2 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolWriteLife( int32_t, const SourceSharpTempEntLife_t * )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolWriteLife( IShimTempEntPoolClient *self, int32_t a0, const SourceSharpTempEntLife_t * a1 ) { return self->TempEntPoolWriteLife( a0, a1 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolWriteSpawn( int32_t, const SourceSharpTempEntSpawn_t * )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolWriteSpawn( IShimTempEntPoolClient *self, int32_t a0, const SourceSharpTempEntSpawn_t * a1 ) { return self->TempEntPoolWriteSpawn( a0, a1 ); }
+// int32_t IShimTempEntPoolClient::TempEntPoolWriteTransform( int32_t, const SourceSharpTempEntTransform_t * )
+static int32_t SSFwd_ShimTempEntPoolClient_TempEntPoolWriteTransform( IShimTempEntPoolClient *self, int32_t a0, const SourceSharpTempEntTransform_t * a1 ) { return self->TempEntPoolWriteTransform( a0, a1 ); }
+
+static void *const s_ShimTempEntPoolClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_ClientEntityModelBounds ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_ClientEntityOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_ClientWindSpeed ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolAddVisible ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolCapacity ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolDestroy ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolReadLife ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolReadStatics ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolReadTransform ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolSimulate ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolWriteLife ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolWriteSpawn ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntPoolClient_TempEntPoolWriteTransform ),
+};
+
+static const SSForwarderTable s_ShimTempEntPoolClientTable = { s_ShimTempEntPoolClientSlots, 14 };
+
+//-----------------------------------------------------------------------------
+// ShimTempEntBackendsClient: 17 forwarder(s) over IShimTempEntBackendsClient.
+//-----------------------------------------------------------------------------
+// void IShimTempEntBackendsClient::ClientDecalBrushModel( int32_t, const float *, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel( IShimTempEntBackendsClient *self, int32_t a0, const float * a1, int32_t a2 ) { self->ClientDecalBrushModel( a0, a1, a2 ); }
+// int32_t IShimTempEntBackendsClient::ClientDecalIndexFromName( const char * )
+static int32_t SSFwd_ShimTempEntBackendsClient_ClientDecalIndexFromName( IShimTempEntBackendsClient *self, const char * a0 ) { return self->ClientDecalIndexFromName( a0 ); }
+// int32_t IShimTempEntBackendsClient::ClientDecalNameFromIndex( int32_t, char *, int32_t )
+static int32_t SSFwd_ShimTempEntBackendsClient_ClientDecalNameFromIndex( IShimTempEntBackendsClient *self, int32_t a0, char * a1, int32_t a2 ) { return self->ClientDecalNameFromIndex( a0, a1, a2 ); }
+// void IShimTempEntBackendsClient::ClientDecalShoot( int32_t, int32_t, const float *, const float *, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientDecalShoot( IShimTempEntBackendsClient *self, int32_t a0, int32_t a1, const float * a2, const float * a3, int32_t a4 ) { self->ClientDecalShoot( a0, a1, a2, a3, a4 ); }
+// void IShimTempEntBackendsClient::ClientDecalStaticProp( const float *, const float *, int32_t, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientDecalStaticProp( IShimTempEntBackendsClient *self, const float * a0, const float * a1, int32_t a2, int32_t a3 ) { self->ClientDecalStaticProp( a0, a1, a2, a3 ); }
+// void IShimTempEntBackendsClient::ClientDecalStudioModel( int32_t, const float *, const float *, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientDecalStudioModel( IShimTempEntBackendsClient *self, int32_t a0, const float * a1, const float * a2, int32_t a3 ) { self->ClientDecalStudioModel( a0, a1, a2, a3 ); }
+// void IShimTempEntBackendsClient::ClientEnergySplash( const float *, const float *, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientEnergySplash( IShimTempEntBackendsClient *self, const float * a0, const float * a1, int32_t a2 ) { self->ClientEnergySplash( a0, a1, a2 ); }
+// int32_t IShimTempEntBackendsClient::ClientEntityModelType( int32_t )
+static int32_t SSFwd_ShimTempEntBackendsClient_ClientEntityModelType( IShimTempEntBackendsClient *self, int32_t a0 ) { return self->ClientEntityModelType( a0 ); }
+// void IShimTempEntBackendsClient::ClientExplosionFireball( const float * )
+static void SSFwd_ShimTempEntBackendsClient_ClientExplosionFireball( IShimTempEntBackendsClient *self, const float * a0 ) { self->ClientExplosionFireball( a0 ); }
+// int32_t IShimTempEntBackendsClient::ClientIsLowViolence( void )
+static int32_t SSFwd_ShimTempEntBackendsClient_ClientIsLowViolence( IShimTempEntBackendsClient *self ) { return self->ClientIsLowViolence(); }
+// void IShimTempEntBackendsClient::ClientMetalSparks( const float *, const float * )
+static void SSFwd_ShimTempEntBackendsClient_ClientMetalSparks( IShimTempEntBackendsClient *self, const float * a0, const float * a1 ) { self->ClientMetalSparks( a0, a1 ); }
+// void IShimTempEntBackendsClient::ClientMuzzleFlash( const float *, const float *, float, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientMuzzleFlash( IShimTempEntBackendsClient *self, const float * a0, const float * a1, float a2, int32_t a3 ) { self->ClientMuzzleFlash( a0, a1, a2, a3 ); }
+// void IShimTempEntBackendsClient::ClientPlayerDecalShoot( const float *, int32_t, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientPlayerDecalShoot( IShimTempEntBackendsClient *self, const float * a0, int32_t a1, int32_t a2 ) { self->ClientPlayerDecalShoot( a0, a1, a2 ); }
+// void IShimTempEntBackendsClient::ClientRicochet( const float *, const float * )
+static void SSFwd_ShimTempEntBackendsClient_ClientRicochet( IShimTempEntBackendsClient *self, const float * a0, const float * a1 ) { self->ClientRicochet( a0, a1 ); }
+// void IShimTempEntBackendsClient::ClientSmoke( const float *, int32_t, float, float )
+static void SSFwd_ShimTempEntBackendsClient_ClientSmoke( IShimTempEntBackendsClient *self, const float * a0, int32_t a1, float a2, float a3 ) { self->ClientSmoke( a0, a1, a2, a3 ); }
+// void IShimTempEntBackendsClient::ClientSparks( const float *, int32_t, int32_t, const float * )
+static void SSFwd_ShimTempEntBackendsClient_ClientSparks( IShimTempEntBackendsClient *self, const float * a0, int32_t a1, int32_t a2, const float * a3 ) { self->ClientSparks( a0, a1, a2, a3 ); }
+// void IShimTempEntBackendsClient::EffectDispatchName( int32_t, char *, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_EffectDispatchName( IShimTempEntBackendsClient *self, int32_t a0, char * a1, int32_t a2 ) { self->EffectDispatchName( a0, a1, a2 ); }
+
+static void *const s_ShimTempEntBackendsClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalIndexFromName ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalNameFromIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalShoot ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalStaticProp ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalStudioModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientEnergySplash ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientEntityModelType ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientExplosionFireball ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientIsLowViolence ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientMetalSparks ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientMuzzleFlash ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientPlayerDecalShoot ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientRicochet ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientSmoke ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientSparks ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_EffectDispatchName ),
+};
+
+static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 17 };
+
+//-----------------------------------------------------------------------------
+// ShimEffectsRenderClient: 30 forwarder(s) over IShimEffectsRenderClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimEffectsRenderClient::DrawSprite( uint32_t, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float )
+static int32_t SSFwd_ShimEffectsRenderClient_DrawSprite( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, float a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8, float a9, int32_t a10, float a11, float a12 ) { return self->DrawSprite( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 ); }
+// int32_t IShimEffectsRenderClient::DrawSpriteOffset( uint32_t, const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float )
+static int32_t SSFwd_ShimEffectsRenderClient_DrawSpriteOffset( IShimEffectsRenderClient *self, uint32_t a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8, int32_t a9, float a10, int32_t a11, float a12, float a13 ) { return self->DrawSpriteOffset( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13 ); }
+// int32_t IShimEffectsRenderClient::ParticleSystemFollowPoints( uint32_t, int32_t )
+static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemFollowPoints( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1 ) { return self->ParticleSystemFollowPoints( a0, a1 ); }
+// int32_t IShimEffectsRenderClient::ParticleSystemStart( uint32_t, const char * )
+static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemStart( IShimEffectsRenderClient *self, uint32_t a0, const char * a1 ) { return self->ParticleSystemStart( a0, a1 ); }
+// void IShimEffectsRenderClient::ParticleSystemStop( uint32_t )
+static void SSFwd_ShimEffectsRenderClient_ParticleSystemStop( IShimEffectsRenderClient *self, uint32_t a0 ) { self->ParticleSystemStop( a0 ); }
+// void IShimEffectsRenderClient::SpriteTrailDestroy( uint32_t )
+static void SSFwd_ShimEffectsRenderClient_SpriteTrailDestroy( IShimEffectsRenderClient *self, uint32_t a0 ) { self->SpriteTrailDestroy( a0 ); }
+// void IShimEffectsRenderClient::SpriteTrailUpdate( uint32_t, int32_t, int32_t )
+static void SSFwd_ShimEffectsRenderClient_SpriteTrailUpdate( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->SpriteTrailUpdate( a0, a1, a2 ); }
+// void IShimEffectsRenderClient::WindPublish( const float *, const float *, int32_t )
+static void SSFwd_ShimEffectsRenderClient_WindPublish( IShimEffectsRenderClient *self, const float * a0, const float * a1, int32_t a2 ) { self->WindPublish( a0, a1, a2 ); }
+// int32_t IShimEffectsRenderClient::RopeMaterial( const char *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimEffectsRenderClient_RopeMaterial( IShimEffectsRenderClient *self, const char * a0, int32_t * a1, int32_t * a2 ) { return self->RopeMaterial( a0, a1, a2 ); }
+// void IShimEffectsRenderClient::RopeDraw( int32_t, const float *, int32_t, const float *, int32_t, int32_t )
+static void SSFwd_ShimEffectsRenderClient_RopeDraw( IShimEffectsRenderClient *self, int32_t a0, const float * a1, int32_t a2, const float * a3, int32_t a4, int32_t a5 ) { self->RopeDraw( a0, a1, a2, a3, a4, a5 ); }
+// void IShimEffectsRenderClient::ClientViewState( int32_t, float *, float *, float *, float *, int32_t *, int32_t *, int32_t * )
+static void SSFwd_ShimEffectsRenderClient_ClientViewState( IShimEffectsRenderClient *self, int32_t a0, float * a1, float * a2, float * a3, float * a4, int32_t * a5, int32_t * a6, int32_t * a7 ) { self->ClientViewState( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// void IShimEffectsRenderClient::ClientComputeLighting( const float *, float *, float * )
+static void SSFwd_ShimEffectsRenderClient_ClientComputeLighting( IShimEffectsRenderClient *self, const float * a0, float * a1, float * a2 ) { self->ClientComputeLighting( a0, a1, a2 ); }
+// float IShimEffectsRenderClient::ClientTraceHullWorld( const float *, const float *, const float *, const float *, int32_t, int32_t *, float * )
+static float SSFwd_ShimEffectsRenderClient_ClientTraceHullWorld( IShimEffectsRenderClient *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t * a5, float * a6 ) { return self->ClientTraceHullWorld( a0, a1, a2, a3, a4, a5, a6 ); }
+// void IShimEffectsRenderClient::BeamView( int32_t, float * )
+static void SSFwd_ShimEffectsRenderClient_BeamView( IShimEffectsRenderClient *self, int32_t a0, float * a1 ) { self->BeamView( a0, a1 ); }
+// int32_t IShimEffectsRenderClient::BeamModelInfo( int32_t, int32_t * )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamModelInfo( IShimEffectsRenderClient *self, int32_t a0, int32_t * a1 ) { return self->BeamModelInfo( a0, a1 ); }
+// int32_t IShimEffectsRenderClient::BeamModelIndex( const char * )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamModelIndex( IShimEffectsRenderClient *self, const char * a0 ) { return self->BeamModelIndex( a0 ); }
+// uint32_t IShimEffectsRenderClient::BeamEntityAt( int32_t )
+static uint32_t SSFwd_ShimEffectsRenderClient_BeamEntityAt( IShimEffectsRenderClient *self, int32_t a0 ) { return self->BeamEntityAt( a0 ); }
+// int32_t IShimEffectsRenderClient::BeamEntityHasModel( uint32_t )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamEntityHasModel( IShimEffectsRenderClient *self, uint32_t a0 ) { return self->BeamEntityHasModel( a0 ); }
+// int32_t IShimEffectsRenderClient::BeamEntityFacts( uint32_t, int32_t, int32_t, float * )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamEntityFacts( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, int32_t a2, float * a3 ) { return self->BeamEntityFacts( a0, a1, a2, a3 ); }
+// int32_t IShimEffectsRenderClient::BeamBoxVisibility( const float *, const float * )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamBoxVisibility( IShimEffectsRenderClient *self, const float * a0, const float * a1 ) { return self->BeamBoxVisibility( a0, a1 ); }
+// float IShimEffectsRenderClient::BeamHaloVisibility( const float *, float )
+static float SSFwd_ShimEffectsRenderClient_BeamHaloVisibility( IShimEffectsRenderClient *self, const float * a0, float a1 ) { return self->BeamHaloVisibility( a0, a1 ); }
+// int32_t IShimEffectsRenderClient::BeamScreenPosition( const float *, float * )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamScreenPosition( IShimEffectsRenderClient *self, const float * a0, float * a1 ) { return self->BeamScreenPosition( a0, a1 ); }
+// int32_t IShimEffectsRenderClient::BeamRenderableAdd( const float * )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamRenderableAdd( IShimEffectsRenderClient *self, const float * a0 ) { return self->BeamRenderableAdd( a0 ); }
+// void IShimEffectsRenderClient::BeamRenderableChanged( int32_t, const float * )
+static void SSFwd_ShimEffectsRenderClient_BeamRenderableChanged( IShimEffectsRenderClient *self, int32_t a0, const float * a1 ) { self->BeamRenderableChanged( a0, a1 ); }
+// void IShimEffectsRenderClient::BeamRenderableRemove( int32_t )
+static void SSFwd_ShimEffectsRenderClient_BeamRenderableRemove( IShimEffectsRenderClient *self, int32_t a0 ) { self->BeamRenderableRemove( a0 ); }
+// int32_t IShimEffectsRenderClient::BeamBindSprite( int32_t, int32_t, int32_t, int32_t )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamBindSprite( IShimEffectsRenderClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3 ) { return self->BeamBindSprite( a0, a1, a2, a3 ); }
+// void IShimEffectsRenderClient::BeamSetHdrColorScale( int32_t, int32_t, float )
+static void SSFwd_ShimEffectsRenderClient_BeamSetHdrColorScale( IShimEffectsRenderClient *self, int32_t a0, int32_t a1, float a2 ) { self->BeamSetHdrColorScale( a0, a1, a2 ); }
+// int32_t IShimEffectsRenderClient::BeamGlow( int32_t, int32_t )
+static int32_t SSFwd_ShimEffectsRenderClient_BeamGlow( IShimEffectsRenderClient *self, int32_t a0, int32_t a1 ) { return self->BeamGlow( a0, a1 ); }
+// void IShimEffectsRenderClient::BeamDrawStrip( const float *, int32_t )
+static void SSFwd_ShimEffectsRenderClient_BeamDrawStrip( IShimEffectsRenderClient *self, const float * a0, int32_t a1 ) { self->BeamDrawStrip( a0, a1 ); }
+// void IShimEffectsRenderClient::BeamDrawMesh( int32_t, int32_t, int32_t, const float *, int32_t )
+static void SSFwd_ShimEffectsRenderClient_BeamDrawMesh( IShimEffectsRenderClient *self, int32_t a0, int32_t a1, int32_t a2, const float * a3, int32_t a4 ) { self->BeamDrawMesh( a0, a1, a2, a3, a4 ); }
+
+static void *const s_ShimEffectsRenderClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_DrawSprite ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_DrawSpriteOffset ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemFollowPoints ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStart ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStop ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_SpriteTrailDestroy ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_SpriteTrailUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_WindPublish ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_RopeMaterial ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_RopeDraw ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ClientViewState ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ClientComputeLighting ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ClientTraceHullWorld ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamView ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamModelInfo ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamModelIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamEntityAt ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamEntityHasModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamEntityFacts ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamBoxVisibility ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamHaloVisibility ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamScreenPosition ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamRenderableAdd ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamRenderableChanged ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamRenderableRemove ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamBindSprite ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamSetHdrColorScale ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamGlow ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamDrawStrip ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamDrawMesh ),
+};
+
+static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 30 };
+
+//-----------------------------------------------------------------------------
+// ShimStandaloneClient: 20 forwarder(s) over IShimStandaloneClient.
+//-----------------------------------------------------------------------------
+// void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_ActivateOccluder( IShimStandaloneClient *self, int32_t a0, int32_t a1 ) { self->ActivateOccluder( a0, a1 ); }
+// void IShimStandaloneClient::ClientEmitSound( uint32_t, const char *, const float * )
+static void SSFwd_ShimStandaloneClient_ClientEmitSound( IShimStandaloneClient *self, uint32_t a0, const char * a1, const float * a2 ) { self->ClientEmitSound( a0, a1, a2 ); }
+// void * * IShimStandaloneClient::ClientInterpBlocks( int32_t *, float * )
+static void * * SSFwd_ShimStandaloneClient_ClientInterpBlocks( IShimStandaloneClient *self, int32_t * a0, float * a1 ) { return self->ClientInterpBlocks( a0, a1 ); }
+// void * * IShimStandaloneClient::ClientPolicyBlocks( int32_t * )
+static void * * SSFwd_ShimStandaloneClient_ClientPolicyBlocks( IShimStandaloneClient *self, int32_t * a0 ) { return self->ClientPolicyBlocks( a0 ); }
+// void IShimStandaloneClient::DynamicLightRelease( int32_t )
+static void SSFwd_ShimStandaloneClient_DynamicLightRelease( IShimStandaloneClient *self, int32_t a0 ) { self->DynamicLightRelease( a0 ); }
+// void IShimStandaloneClient::DynamicLightUpdate( const SourceSharpDynamicLight * )
+static void SSFwd_ShimStandaloneClient_DynamicLightUpdate( IShimStandaloneClient *self, const SourceSharpDynamicLight * a0 ) { self->DynamicLightUpdate( a0 ); }
+// int32_t IShimStandaloneClient::StandaloneIsDormant( uint32_t )
+static int32_t SSFwd_ShimStandaloneClient_StandaloneIsDormant( IShimStandaloneClient *self, uint32_t a0 ) { return self->StandaloneIsDormant( a0 ); }
+// void IShimStandaloneClient::StandaloneSetBlending( uint32_t, int32_t, int32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_StandaloneSetBlending( IShimStandaloneClient *self, uint32_t a0, int32_t a1, int32_t a2, int32_t a3 ) { self->StandaloneSetBlending( a0, a1, a2, a3 ); }
+// void IShimStandaloneClient::StandaloneSetCustomDraw( uint32_t, const float *, const float * )
+static void SSFwd_ShimStandaloneClient_StandaloneSetCustomDraw( IShimStandaloneClient *self, uint32_t a0, const float * a1, const float * a2 ) { self->StandaloneSetCustomDraw( a0, a1, a2 ); }
+// void IShimStandaloneClient::StandaloneSetFade( uint32_t, int32_t, float, float, float )
+static void SSFwd_ShimStandaloneClient_StandaloneSetFade( IShimStandaloneClient *self, uint32_t a0, int32_t a1, float a2, float a3, float a4 ) { self->StandaloneSetFade( a0, a1, a2, a3, a4 ); }
+// void IShimStandaloneClient::StandaloneSetOverlayModel( uint32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_StandaloneSetOverlayModel( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetOverlayModel( a0, a1 ); }
+// void IShimStandaloneClient::StandaloneSetShadowCast( uint32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_StandaloneSetShadowCast( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetShadowCast( a0, a1 ); }
+// void IShimStandaloneClient::StandaloneSetViewModel( uint32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_StandaloneSetViewModel( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetViewModel( a0, a1 ); }
+// int32_t IShimStandaloneClient::StandaloneShadowCast( uint32_t, int32_t *, int32_t * )
+static int32_t SSFwd_ShimStandaloneClient_StandaloneShadowCast( IShimStandaloneClient *self, uint32_t a0, int32_t * a1, int32_t * a2 ) { return self->StandaloneShadowCast( a0, a1, a2 ); }
+// void IShimStandaloneClient::SurfaceSetEdges( uint32_t, const unsigned char *, int32_t )
+static void SSFwd_ShimStandaloneClient_SurfaceSetEdges( IShimStandaloneClient *self, uint32_t a0, const unsigned char * a1, int32_t a2 ) { self->SurfaceSetEdges( a0, a1, a2 ); }
+// int32_t IShimStandaloneClient::ClientRecvProp( int32_t, char *, int32_t, char *, int32_t, char *, int32_t, int32_t *, int32_t *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimStandaloneClient_ClientRecvProp( IShimStandaloneClient *self, int32_t a0, char * a1, int32_t a2, char * a3, int32_t a4, char * a5, int32_t a6, int32_t * a7, int32_t * a8, int32_t * a9, int32_t * a10 ) { return self->ClientRecvProp( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 ); }
+// int32_t IShimStandaloneClient::ClientSchemaRefusal( int32_t, uint32_t *, uint32_t *, uint32_t *, int32_t *, char *, int32_t, int32_t * )
+static int32_t SSFwd_ShimStandaloneClient_ClientSchemaRefusal( IShimStandaloneClient *self, int32_t a0, uint32_t * a1, uint32_t * a2, uint32_t * a3, int32_t * a4, char * a5, int32_t a6, int32_t * a7 ) { return self->ClientSchemaRefusal( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// void * IShimStandaloneClient::StandaloneEngineBlock( uint32_t, int32_t * )
+static void * SSFwd_ShimStandaloneClient_StandaloneEngineBlock( IShimStandaloneClient *self, uint32_t a0, int32_t * a1 ) { return self->StandaloneEngineBlock( a0, a1 ); }
+// void IShimStandaloneClient::StandaloneStoreSequence( uint32_t, int32_t, float, float, float, int32_t )
+static void SSFwd_ShimStandaloneClient_StandaloneStoreSequence( IShimStandaloneClient *self, uint32_t a0, int32_t a1, float a2, float a3, float a4, int32_t a5 ) { self->StandaloneStoreSequence( a0, a1, a2, a3, a4, a5 ); }
+// void IShimStandaloneClient::StandaloneSetRagdoll( uint32_t, int32_t )
+static void SSFwd_ShimStandaloneClient_StandaloneSetRagdoll( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetRagdoll( a0, a1 ); }
+
+static void *const s_ShimStandaloneClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ActivateOccluder ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientEmitSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientInterpBlocks ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientPolicyBlocks ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_DynamicLightRelease ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_DynamicLightUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneIsDormant ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetBlending ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetCustomDraw ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetFade ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetOverlayModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetShadowCast ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetViewModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneShadowCast ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceSetEdges ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientRecvProp ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientSchemaRefusal ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneEngineBlock ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneStoreSequence ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetRagdoll ),
+};
+
+static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 20 };
+
+//-----------------------------------------------------------------------------
+// ShimViewClient: 16 forwarder(s) over IShimViewClient.
+//-----------------------------------------------------------------------------
+// void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
+static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
+// void IShimViewClient::ConNXPrintf( void *, int32_t, float, const float *, int32_t, const char * )
+static void SSFwd_ShimViewClient_ConNXPrintf( IShimViewClient *self, void * a0, int32_t a1, float a2, const float * a3, int32_t a4, const char * a5 ) { self->ConNXPrintf( a0, a1, a2, a3, a4, a5 ); }
+// void IShimViewClient::GetLightForPoint( void *, const float *, int32_t, float * )
+static void SSFwd_ShimViewClient_GetLightForPoint( IShimViewClient *self, void * a0, const float * a1, int32_t a2, float * a3 ) { self->GetLightForPoint( a0, a1, a2, a3 ); }
+// void IShimViewClient::GetLightForPointFast( void *, const float *, int32_t, float * )
+static void SSFwd_ShimViewClient_GetLightForPointFast( IShimViewClient *self, void * a0, const float * a1, int32_t a2, float * a3 ) { self->GetLightForPointFast( a0, a1, a2, a3 ); }
+// int32_t IShimViewClient::ClientColorCorrection( int32_t, int32_t, const char *, float )
+static int32_t SSFwd_ShimViewClient_ClientColorCorrection( IShimViewClient *self, int32_t a0, int32_t a1, const char * a2, float a3 ) { return self->ClientColorCorrection( a0, a1, a2, a3 ); }
+// void IShimViewClient::ClientSetWorldRenderState( int32_t, const float *, int32_t )
+static void SSFwd_ShimViewClient_ClientSetWorldRenderState( IShimViewClient *self, int32_t a0, const float * a1, int32_t a2 ) { self->ClientSetWorldRenderState( a0, a1, a2 ); }
+// int32_t IShimViewClient::GetLocalPlayerOrigin( float * )
+static int32_t SSFwd_ShimViewClient_GetLocalPlayerOrigin( IShimViewClient *self, float * a0 ) { return self->GetLocalPlayerOrigin( a0 ); }
+// void IShimViewClient::SetViewerFogParams( const SourceSharpFogParams * )
+static void SSFwd_ShimViewClient_SetViewerFogParams( IShimViewClient *self, const SourceSharpFogParams * a0 ) { self->SetViewerFogParams( a0 ); }
+// void IShimViewClient::SetViewerSkyboxParams( const SourceSharpSkyboxParams * )
+static void SSFwd_ShimViewClient_SetViewerSkyboxParams( IShimViewClient *self, const SourceSharpSkyboxParams * a0 ) { self->SetViewerSkyboxParams( a0 ); }
+// int32_t IShimViewClient::ClientTraceLine( const float *, const float *, int32_t, int32_t, int32_t, float *, float *, float *, int32_t *, int32_t *, int32_t *, int32_t * )
+static int32_t SSFwd_ShimViewClient_ClientTraceLine( IShimViewClient *self, const float * a0, const float * a1, int32_t a2, int32_t a3, int32_t a4, float * a5, float * a6, float * a7, int32_t * a8, int32_t * a9, int32_t * a10, int32_t * a11 ) { return self->ClientTraceLine( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 ); }
+// int32_t IShimViewClient::ClientTraceHull( const float *, const float *, const float *, const float *, int32_t, int32_t, int32_t, float *, float * )
+static int32_t SSFwd_ShimViewClient_ClientTraceHull( IShimViewClient *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, int32_t a6, float * a7, float * a8 ) { return self->ClientTraceHull( a0, a1, a2, a3, a4, a5, a6, a7, a8 ); }
+// int32_t IShimViewClient::ClientEntityRenderPose( int32_t, float *, float * )
+static int32_t SSFwd_ShimViewClient_ClientEntityRenderPose( IShimViewClient *self, int32_t a0, float * a1, float * a2 ) { return self->ClientEntityRenderPose( a0, a1, a2 ); }
+// void IShimViewClient::ViewOverrideSet( int32_t, const float *, const float *, int32_t )
+static void SSFwd_ShimViewClient_ViewOverrideSet( IShimViewClient *self, int32_t a0, const float * a1, const float * a2, int32_t a3 ) { self->ViewOverrideSet( a0, a1, a2, a3 ); }
+// int32_t IShimViewClient::EntitiesUpdateVisibilityAll( void )
+static int32_t SSFwd_ShimViewClient_EntitiesUpdateVisibilityAll( IShimViewClient *self ) { return self->EntitiesUpdateVisibilityAll(); }
+// int32_t IShimViewClient::RenderViewToTarget( int32_t, const SourceSharpViewTargetSetup * )
+static int32_t SSFwd_ShimViewClient_RenderViewToTarget( IShimViewClient *self, int32_t a0, const SourceSharpViewTargetSetup * a1 ) { return self->RenderViewToTarget( a0, a1 ); }
+// int32_t IShimViewClient::ViewTargetInfo( int32_t, int32_t * )
+static int32_t SSFwd_ShimViewClient_ViewTargetInfo( IShimViewClient *self, int32_t a0, int32_t * a1 ) { return self->ViewTargetInfo( a0, a1 ); }
+
+static void *const s_ShimViewClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNXPrintf ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GetLightForPoint ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GetLightForPointFast ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientColorCorrection ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientSetWorldRenderState ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_GetLocalPlayerOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_SetViewerFogParams ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_SetViewerSkyboxParams ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientTraceLine ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientTraceHull ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientEntityRenderPose ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ViewOverrideSet ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_EntitiesUpdateVisibilityAll ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_RenderViewToTarget ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ViewTargetInfo ),
+};
+
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 16 };
+
+//-----------------------------------------------------------------------------
+// ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimUserMessagesClient::ClientViewportQuery( const char * )
+static int32_t SSFwd_ShimUserMessagesClient_ClientViewportQuery( IShimUserMessagesClient *self, const char * a0 ) { return self->ClientViewportQuery( a0 ); }
+// void IShimUserMessagesClient::ClientViewportShow( const char *, int32_t, const unsigned char *, int32_t, int32_t )
+static void SSFwd_ShimUserMessagesClient_ClientViewportShow( IShimUserMessagesClient *self, const char * a0, int32_t a1, const unsigned char * a2, int32_t a3, int32_t a4 ) { self->ClientViewportShow( a0, a1, a2, a3, a4 ); }
+
+static void *const s_ShimUserMessagesClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimUserMessagesClient_ClientViewportQuery ),
+	reinterpret_cast< void * >( &SSFwd_ShimUserMessagesClient_ClientViewportShow ),
+};
+
+static const SSForwarderTable s_ShimUserMessagesClientTable = { s_ShimUserMessagesClientSlots, 2 };
+
+//-----------------------------------------------------------------------------
+// ShimNetClient: 4 forwarder(s) over IShimNetClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimNetClient::SendServerMessage( const char *, const uint8_t *, int32_t )
+static int32_t SSFwd_ShimNetClient_SendServerMessage( IShimNetClient *self, const char * a0, const uint8_t * a1, int32_t a2 ) { return self->SendServerMessage( a0, a1, a2 ); }
+// int32_t IShimNetClient::ClientNetFlow( int32_t, float *, int32_t )
+static int32_t SSFwd_ShimNetClient_ClientNetFlow( IShimNetClient *self, int32_t a0, float * a1, int32_t a2 ) { return self->ClientNetFlow( a0, a1, a2 ); }
+// int32_t IShimNetClient::ClientNetChannel( float *, int32_t )
+static int32_t SSFwd_ShimNetClient_ClientNetChannel( IShimNetClient *self, float * a0, int32_t a1 ) { return self->ClientNetChannel( a0, a1 ); }
+// int32_t IShimNetClient::ClientNetPacket( int32_t, int32_t, float *, int32_t )
+static int32_t SSFwd_ShimNetClient_ClientNetPacket( IShimNetClient *self, int32_t a0, int32_t a1, float * a2, int32_t a3 ) { return self->ClientNetPacket( a0, a1, a2, a3 ); }
+
+static void *const s_ShimNetClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimNetClient_SendServerMessage ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetClient_ClientNetFlow ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetClient_ClientNetChannel ),
+	reinterpret_cast< void * >( &SSFwd_ShimNetClient_ClientNetPacket ),
+};
+
+static const SSForwarderTable s_ShimNetClientTable = { s_ShimNetClientSlots, 4 };
+
+//-----------------------------------------------------------------------------
+// ShimDiagnosticsClient: 2 forwarder(s) over IShimDiagnosticsClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimDiagnosticsClient::ClientNotShipped( int32_t, char *, int32_t, char *, int32_t, int32_t *, int32_t * )
+static int32_t SSFwd_ShimDiagnosticsClient_ClientNotShipped( IShimDiagnosticsClient *self, int32_t a0, char * a1, int32_t a2, char * a3, int32_t a4, int32_t * a5, int32_t * a6 ) { return self->ClientNotShipped( a0, a1, a2, a3, a4, a5, a6 ); }
+// int32_t IShimDiagnosticsClient::ClientRefusal( int32_t, char *, int32_t, int32_t *, int32_t * )
+static int32_t SSFwd_ShimDiagnosticsClient_ClientRefusal( IShimDiagnosticsClient *self, int32_t a0, char * a1, int32_t a2, int32_t * a3, int32_t * a4 ) { return self->ClientRefusal( a0, a1, a2, a3, a4 ); }
+
+static void *const s_ShimDiagnosticsClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimDiagnosticsClient_ClientNotShipped ),
+	reinterpret_cast< void * >( &SSFwd_ShimDiagnosticsClient_ClientRefusal ),
+};
+
+static const SSForwarderTable s_ShimDiagnosticsClientTable = { s_ShimDiagnosticsClientSlots, 2 };
+
+//-----------------------------------------------------------------------------
+// ShimUiClient: 21 forwarder(s) over IShimUiClient.
+//-----------------------------------------------------------------------------
+// void IShimUiClient::UiDrawFilledRect( int32_t, int32_t, int32_t, int32_t, uint32_t )
+static void SSFwd_ShimUiClient_UiDrawFilledRect( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->UiDrawFilledRect( a0, a1, a2, a3, a4 ); }
+// void IShimUiClient::UiDrawFilledRectFade( int32_t, int32_t, int32_t, int32_t, uint32_t, int32_t, int32_t, int32_t )
+static void SSFwd_ShimUiClient_UiDrawFilledRectFade( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4, int32_t a5, int32_t a6, int32_t a7 ) { self->UiDrawFilledRectFade( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// void IShimUiClient::UiDrawOutlinedRect( int32_t, int32_t, int32_t, int32_t, uint32_t )
+static void SSFwd_ShimUiClient_UiDrawOutlinedRect( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->UiDrawOutlinedRect( a0, a1, a2, a3, a4 ); }
+// void IShimUiClient::UiDrawLine( int32_t, int32_t, int32_t, int32_t, uint32_t )
+static void SSFwd_ShimUiClient_UiDrawLine( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->UiDrawLine( a0, a1, a2, a3, a4 ); }
+// void IShimUiClient::UiDrawTexturedRect( int32_t, int32_t, int32_t, int32_t, int32_t, float, float, float, float, uint32_t )
+static void SSFwd_ShimUiClient_UiDrawTexturedRect( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, int32_t a4, float a5, float a6, float a7, float a8, uint32_t a9 ) { self->UiDrawTexturedRect( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 ); }
+// void IShimUiClient::UiDrawPolygon( int32_t, const float *, int32_t, uint32_t )
+static void SSFwd_ShimUiClient_UiDrawPolygon( IShimUiClient *self, int32_t a0, const float * a1, int32_t a2, uint32_t a3 ) { self->UiDrawPolygon( a0, a1, a2, a3 ); }
+// void IShimUiClient::UiDrawText( int32_t, int32_t, int32_t, const uint16_t *, int32_t, uint32_t )
+static void SSFwd_ShimUiClient_UiDrawText( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, const uint16_t * a3, int32_t a4, uint32_t a5 ) { self->UiDrawText( a0, a1, a2, a3, a4, a5 ); }
+// void IShimUiClient::UiMeasureText( int32_t, const uint16_t *, int32_t, int32_t *, int32_t * )
+static void SSFwd_ShimUiClient_UiMeasureText( IShimUiClient *self, int32_t a0, const uint16_t * a1, int32_t a2, int32_t * a3, int32_t * a4 ) { self->UiMeasureText( a0, a1, a2, a3, a4 ); }
+// void IShimUiClient::UiSetClip( int32_t, int32_t, int32_t, int32_t, int32_t )
+static void SSFwd_ShimUiClient_UiSetClip( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, int32_t a4 ) { self->UiSetClip( a0, a1, a2, a3, a4 ); }
+// int32_t IShimUiClient::UiTextureCreate( void )
+static int32_t SSFwd_ShimUiClient_UiTextureCreate( IShimUiClient *self ) { return self->UiTextureCreate(); }
+// void IShimUiClient::UiTextureUpload( int32_t, const uint8_t *, int32_t, int32_t )
+static void SSFwd_ShimUiClient_UiTextureUpload( IShimUiClient *self, int32_t a0, const uint8_t * a1, int32_t a2, int32_t a3 ) { self->UiTextureUpload( a0, a1, a2, a3 ); }
+// int32_t IShimUiClient::UiFontAddFile( const char * )
+static int32_t SSFwd_ShimUiClient_UiFontAddFile( IShimUiClient *self, const char * a0 ) { return self->UiFontAddFile( a0 ); }
+// int32_t IShimUiClient::UiFontCreate( const char *, int32_t, int32_t, int32_t )
+static int32_t SSFwd_ShimUiClient_UiFontCreate( IShimUiClient *self, const char * a0, int32_t a1, int32_t a2, int32_t a3 ) { return self->UiFontCreate( a0, a1, a2, a3 ); }
+// void IShimUiClient::UiFontMetrics( int32_t, int32_t *, int32_t * )
+static void SSFwd_ShimUiClient_UiFontMetrics( IShimUiClient *self, int32_t a0, int32_t * a1, int32_t * a2 ) { self->UiFontMetrics( a0, a1, a2 ); }
+// int32_t IShimUiClient::UiFontAdvances( int32_t, int32_t, int32_t, int32_t * )
+static int32_t SSFwd_ShimUiClient_UiFontAdvances( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t * a3 ) { return self->UiFontAdvances( a0, a1, a2, a3 ); }
+// void IShimUiClient::UiScreenSize( int32_t *, int32_t * )
+static void SSFwd_ShimUiClient_UiScreenSize( IShimUiClient *self, int32_t * a0, int32_t * a1 ) { self->UiScreenSize( a0, a1 ); }
+// void IShimUiClient::UiPlaySound( const char * )
+static void SSFwd_ShimUiClient_UiPlaySound( IShimUiClient *self, const char * a0 ) { self->UiPlaySound( a0 ); }
+// void IShimUiClient::UiSetMenuInput( int32_t, int32_t )
+static void SSFwd_ShimUiClient_UiSetMenuInput( IShimUiClient *self, int32_t a0, int32_t a1 ) { self->UiSetMenuInput( a0, a1 ); }
+// void IShimUiClient::UiSetCursor( int32_t )
+static void SSFwd_ShimUiClient_UiSetCursor( IShimUiClient *self, int32_t a0 ) { self->UiSetCursor( a0 ); }
+// int32_t IShimUiClient::UiDebugOverlayText( int32_t, float *, float *, int32_t *, uint32_t *, uint8_t *, int32_t )
+static int32_t SSFwd_ShimUiClient_UiDebugOverlayText( IShimUiClient *self, int32_t a0, float * a1, float * a2, int32_t * a3, uint32_t * a4, uint8_t * a5, int32_t a6 ) { return self->UiDebugOverlayText( a0, a1, a2, a3, a4, a5, a6 ); }
+// void IShimUiClient::UiDebugOverlayClearDead( void )
+static void SSFwd_ShimUiClient_UiDebugOverlayClearDead( IShimUiClient *self ) { self->UiDebugOverlayClearDead(); }
+
+static void *const s_ShimUiClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawFilledRect ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawFilledRectFade ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawOutlinedRect ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawLine ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawTexturedRect ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawPolygon ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawText ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiMeasureText ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiSetClip ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiTextureCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiTextureUpload ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiFontAddFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiFontCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiFontMetrics ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiFontAdvances ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiScreenSize ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiPlaySound ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiSetMenuInput ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiSetCursor ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDebugOverlayText ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDebugOverlayClearDead ),
+};
+
+static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 21 };
+
+//-----------------------------------------------------------------------------
+// ShimParticlesClient: 20 forwarder(s) over IShimParticlesClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimParticlesClient::ParticlesCreate( uint32_t, int32_t, const char *, float, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticlesCreate( IShimParticlesClient *self, uint32_t a0, int32_t a1, const char * a2, float a3, int32_t a4 ) { return self->ParticlesCreate( a0, a1, a2, a3, a4 ); }
+// void IShimParticlesClient::ParticlesConfigure( uint32_t, int32_t, float )
+static void SSFwd_ShimParticlesClient_ParticlesConfigure( IShimParticlesClient *self, uint32_t a0, int32_t a1, float a2 ) { self->ParticlesConfigure( a0, a1, a2 ); }
+// void IShimParticlesClient::ParticlesDestroy( uint32_t, int32_t )
+static void SSFwd_ShimParticlesClient_ParticlesDestroy( IShimParticlesClient *self, uint32_t a0, int32_t a1 ) { self->ParticlesDestroy( a0, a1 ); }
+// void IShimParticlesClient::ParticlesSetLights( uint32_t, int32_t, const float *, int32_t )
+static void SSFwd_ShimParticlesClient_ParticlesSetLights( IShimParticlesClient *self, uint32_t a0, int32_t a1, const float * a2, int32_t a3 ) { self->ParticlesSetLights( a0, a1, a2, a3 ); }
+// int32_t IShimParticlesClient::ParticlesTraceLine( const float *, const float *, int32_t, float *, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticlesTraceLine( IShimParticlesClient *self, const float * a0, const float * a1, int32_t a2, float * a3, int32_t a4 ) { return self->ParticlesTraceLine( a0, a1, a2, a3, a4 ); }
+// int32_t IShimParticlesClient::WorldTextMeshUpdate( uint32_t, const char *, const float *, int32_t )
+static int32_t SSFwd_ShimParticlesClient_WorldTextMeshUpdate( IShimParticlesClient *self, uint32_t a0, const char * a1, const float * a2, int32_t a3 ) { return self->WorldTextMeshUpdate( a0, a1, a2, a3 ); }
+// void IShimParticlesClient::WorldTextMeshDestroy( uint32_t )
+static void SSFwd_ShimParticlesClient_WorldTextMeshDestroy( IShimParticlesClient *self, uint32_t a0 ) { self->WorldTextMeshDestroy( a0 ); }
+// int32_t IShimParticlesClient::ParticleSystemsRead( int32_t, SourceSharpParticleSystemInfo_t *, char *, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticleSystemsRead( IShimParticlesClient *self, int32_t a0, SourceSharpParticleSystemInfo_t * a1, char * a2, int32_t a3 ) { return self->ParticleSystemsRead( a0, a1, a2, a3 ); }
+// int32_t IShimParticlesClient::ParticleDefinitionReads( void )
+static int32_t SSFwd_ShimParticlesClient_ParticleDefinitionReads( IShimParticlesClient *self ) { return self->ParticleDefinitionReads(); }
+// int32_t IShimParticlesClient::ParticleQueryUnanswered( int32_t *, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticleQueryUnanswered( IShimParticlesClient *self, int32_t * a0, int32_t a1 ) { return self->ParticleQueryUnanswered( a0, a1 ); }
+// int32_t IShimParticlesClient::ParticlesMaterialVarInt( uint32_t, int32_t, const char *, int32_t * )
+static int32_t SSFwd_ShimParticlesClient_ParticlesMaterialVarInt( IShimParticlesClient *self, uint32_t a0, int32_t a1, const char * a2, int32_t * a3 ) { return self->ParticlesMaterialVarInt( a0, a1, a2, a3 ); }
+// int32_t IShimParticlesClient::ParticlesCreateAt( int32_t, const char *, const float *, float, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticlesCreateAt( IShimParticlesClient *self, int32_t a0, const char * a1, const float * a2, float a3, int32_t a4 ) { return self->ParticlesCreateAt( a0, a1, a2, a3, a4 ); }
+// int32_t IShimParticlesClient::ParticleSystemNameFromIndex( int32_t, char *, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticleSystemNameFromIndex( IShimParticlesClient *self, int32_t a0, char * a1, int32_t a2 ) { return self->ParticleSystemNameFromIndex( a0, a1, a2 ); }
+// int32_t IShimParticlesClient::ParticleSystemOneShot( const char *, const float *, const float *, int32_t, const float * )
+static int32_t SSFwd_ShimParticlesClient_ParticleSystemOneShot( IShimParticlesClient *self, const char * a0, const float * a1, const float * a2, int32_t a3, const float * a4 ) { return self->ParticleSystemOneShot( a0, a1, a2, a3, a4 ); }
+// int32_t IShimParticlesClient::ParticlesWorldTrace( const float *, const float *, float *, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticlesWorldTrace( IShimParticlesClient *self, const float * a0, const float * a1, float * a2, int32_t a3 ) { return self->ParticlesWorldTrace( a0, a1, a2, a3 ); }
+// void IShimParticlesClient::ParticlesView( float *, int32_t *, float * )
+static void SSFwd_ShimParticlesClient_ParticlesView( IShimParticlesClient *self, float * a0, int32_t * a1, float * a2 ) { self->ParticlesView( a0, a1, a2 ); }
+// float IShimParticlesClient::ParticlesPixelVisible( const float *, int32_t * )
+static float SSFwd_ShimParticlesClient_ParticlesPixelVisible( IShimParticlesClient *self, const float * a0, int32_t * a1 ) { return self->ParticlesPixelVisible( a0, a1 ); }
+// int32_t IShimParticlesClient::ParticlesTraceMask( const float *, const float *, uint32_t, float *, int32_t )
+static int32_t SSFwd_ShimParticlesClient_ParticlesTraceMask( IShimParticlesClient *self, const float * a0, const float * a1, uint32_t a2, float * a3, int32_t a4 ) { return self->ParticlesTraceMask( a0, a1, a2, a3, a4 ); }
+// int32_t IShimParticlesClient::ParticlesSetSpace( uint32_t, int32_t, uint32_t, int32_t, int32_t, SourceSharpParticleFollow_t * )
+static int32_t SSFwd_ShimParticlesClient_ParticlesSetSpace( IShimParticlesClient *self, uint32_t a0, int32_t a1, uint32_t a2, int32_t a3, int32_t a4, SourceSharpParticleFollow_t * a5 ) { return self->ParticlesSetSpace( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimParticlesClient::ParticlesBrushPointContents( uint32_t, const float * )
+static int32_t SSFwd_ShimParticlesClient_ParticlesBrushPointContents( IShimParticlesClient *self, uint32_t a0, const float * a1 ) { return self->ParticlesBrushPointContents( a0, a1 ); }
+
+static void *const s_ShimParticlesClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesCreate ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesConfigure ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesDestroy ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesSetLights ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesTraceLine ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_WorldTextMeshUpdate ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_WorldTextMeshDestroy ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticleSystemsRead ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticleDefinitionReads ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticleQueryUnanswered ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesMaterialVarInt ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesCreateAt ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticleSystemNameFromIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticleSystemOneShot ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesWorldTrace ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesView ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesPixelVisible ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesTraceMask ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesSetSpace ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesBrushPointContents ),
+};
+
+static const SSForwarderTable s_ShimParticlesClientTable = { s_ShimParticlesClientSlots, 20 };
+
+//-----------------------------------------------------------------------------
+// ShimFxClient: 39 forwarder(s) over IShimFxClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimFxClient::EffectRegistrationCount( void )
+static int32_t SSFwd_ShimFxClient_EffectRegistrationCount( IShimFxClient *self ) { return self->EffectRegistrationCount(); }
+// int32_t IShimFxClient::EffectRegistrationName( int32_t, char *, int32_t )
+static int32_t SSFwd_ShimFxClient_EffectRegistrationName( IShimFxClient *self, int32_t a0, char * a1, int32_t a2 ) { return self->EffectRegistrationName( a0, a1, a2 ); }
+// void IShimFxClient::EffectRegistrationRun( int32_t, const SourceSharpEffectData_t * )
+static void SSFwd_ShimFxClient_EffectRegistrationRun( IShimFxClient *self, int32_t a0, const SourceSharpEffectData_t * a1 ) { self->EffectRegistrationRun( a0, a1 ); }
+// int32_t IShimFxClient::FxCanPredict( void )
+static int32_t SSFwd_ShimFxClient_FxCanPredict( IShimFxClient *self ) { return self->FxCanPredict(); }
+// int32_t IShimFxClient::FxRecipientCount( const float * )
+static int32_t SSFwd_ShimFxClient_FxRecipientCount( IShimFxClient *self, const float * a0 ) { return self->FxRecipientCount( a0 ); }
+// int32_t IShimFxClient::FxMaterialFind( const char * )
+static int32_t SSFwd_ShimFxClient_FxMaterialFind( IShimFxClient *self, const char * a0 ) { return self->FxMaterialFind( a0 ); }
+// void IShimFxClient::FxMaterialAddRef( int32_t )
+static void SSFwd_ShimFxClient_FxMaterialAddRef( IShimFxClient *self, int32_t a0 ) { self->FxMaterialAddRef( a0 ); }
+// void IShimFxClient::FxMaterialRelease( int32_t )
+static void SSFwd_ShimFxClient_FxMaterialRelease( IShimFxClient *self, int32_t a0 ) { self->FxMaterialRelease( a0 ); }
+// int32_t IShimFxClient::FxMaterialName( int32_t, char *, int32_t )
+static int32_t SSFwd_ShimFxClient_FxMaterialName( IShimFxClient *self, int32_t a0, char * a1, int32_t a2 ) { return self->FxMaterialName( a0, a1, a2 ); }
+// void IShimFxClient::FxDrawQuads( int32_t, int32_t, const float *, int32_t )
+static void SSFwd_ShimFxClient_FxDrawQuads( IShimFxClient *self, int32_t a0, int32_t a1, const float * a2, int32_t a3 ) { self->FxDrawQuads( a0, a1, a2, a3 ); }
+// void IShimFxClient::FxView( float * )
+static void SSFwd_ShimFxClient_FxView( IShimFxClient *self, float * a0 ) { self->FxView( a0 ); }
+// void IShimFxClient::FxMainViewOrigin( float * )
+static void SSFwd_ShimFxClient_FxMainViewOrigin( IShimFxClient *self, float * a0 ) { self->FxMainViewOrigin( a0 ); }
+// int32_t IShimFxClient::FxEmitTracerSound( const char *, const float *, const float * )
+static int32_t SSFwd_ShimFxClient_FxEmitTracerSound( IShimFxClient *self, const char * a0, const float * a1, const float * a2 ) { return self->FxEmitTracerSound( a0, a1, a2 ); }
+// int32_t IShimFxClient::FxLocalPlayer( void )
+static int32_t SSFwd_ShimFxClient_FxLocalPlayer( IShimFxClient *self ) { return self->FxLocalPlayer(); }
+// void IShimFxClient::FxViewAngles( float * )
+static void SSFwd_ShimFxClient_FxViewAngles( IShimFxClient *self, float * a0 ) { self->FxViewAngles( a0 ); }
+// int32_t IShimFxClient::FxEntityAttachment( int32_t, int32_t, float *, char *, int32_t )
+static int32_t SSFwd_ShimFxClient_FxEntityAttachment( IShimFxClient *self, int32_t a0, int32_t a1, float * a2, char * a3, int32_t a4 ) { return self->FxEntityAttachment( a0, a1, a2, a3, a4 ); }
+// void IShimFxClient::FxDispatchParticleEffect( int32_t, const float *, const float *, const float *, int32_t )
+static void SSFwd_ShimFxClient_FxDispatchParticleEffect( IShimFxClient *self, int32_t a0, const float * a1, const float * a2, const float * a3, int32_t a4 ) { self->FxDispatchParticleEffect( a0, a1, a2, a3, a4 ); }
+// int32_t IShimFxClient::FxEntityRenderAngles( int32_t, float * )
+static int32_t SSFwd_ShimFxClient_FxEntityRenderAngles( IShimFxClient *self, int32_t a0, float * a1 ) { return self->FxEntityRenderAngles( a0, a1 ); }
+// void IShimFxClient::FxEjectBrass( const float *, const float *, const float *, int32_t )
+static void SSFwd_ShimFxClient_FxEjectBrass( IShimFxClient *self, const float * a0, const float * a1, const float * a2, int32_t a3 ) { self->FxEjectBrass( a0, a1, a2, a3 ); }
+// float IShimFxClient::FxSpriteGlowFraction( const float *, float, float )
+static float SSFwd_ShimFxClient_FxSpriteGlowFraction( IShimFxClient *self, const float * a0, float a1, float a2 ) { return self->FxSpriteGlowFraction( a0, a1, a2 ); }
+// float IShimFxClient::FxGlowSightDistance( const float * )
+static float SSFwd_ShimFxClient_FxGlowSightDistance( IShimFxClient *self, const float * a0 ) { return self->FxGlowSightDistance( a0 ); }
+// int32_t IShimFxClient::FxSpriteDrawBegin( uint32_t, const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float, float * )
+static int32_t SSFwd_ShimFxClient_FxSpriteDrawBegin( IShimFxClient *self, uint32_t a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8, int32_t a9, float a10, int32_t a11, float a12, float a13, float * a14 ) { return self->FxSpriteDrawBegin( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
+// int32_t IShimFxClient::FxSpriteDrawEnd( const float * )
+static int32_t SSFwd_ShimFxClient_FxSpriteDrawEnd( IShimFxClient *self, const float * a0 ) { return self->FxSpriteDrawEnd( a0 ); }
+// int32_t IShimFxClient::FxSpriteDrawStore( const float * )
+static int32_t SSFwd_ShimFxClient_FxSpriteDrawStore( IShimFxClient *self, const float * a0 ) { return self->FxSpriteDrawStore( a0 ); }
+// int32_t IShimFxClient::FxPrecacheCount( void )
+static int32_t SSFwd_ShimFxClient_FxPrecacheCount( IShimFxClient *self ) { return self->FxPrecacheCount(); }
+// void IShimFxClient::FxPrecacheCache( int32_t, int32_t )
+static void SSFwd_ShimFxClient_FxPrecacheCache( IShimFxClient *self, int32_t a0, int32_t a1 ) { self->FxPrecacheCache( a0, a1 ); }
+// void IShimFxClient::FxCacheUsedMaterials( void )
+static void SSFwd_ShimFxClient_FxCacheUsedMaterials( IShimFxClient *self ) { self->FxCacheUsedMaterials(); }
+// void IShimFxClient::FxCacheMaterialHandles( void )
+static void SSFwd_ShimFxClient_FxCacheMaterialHandles( IShimFxClient *self ) { self->FxCacheMaterialHandles(); }
+// int32_t IShimFxClient::FxRenderableAttachment( uint32_t, int32_t, float * )
+static int32_t SSFwd_ShimFxClient_FxRenderableAttachment( IShimFxClient *self, uint32_t a0, int32_t a1, float * a2 ) { return self->FxRenderableAttachment( a0, a1, a2 ); }
+// int32_t IShimFxClient::FxHandleEntityIndex( uint32_t )
+static int32_t SSFwd_ShimFxClient_FxHandleEntityIndex( IShimFxClient *self, uint32_t a0 ) { return self->FxHandleEntityIndex( a0 ); }
+// void IShimFxClient::FxElight( int32_t, const float *, int32_t, int32_t, int32_t, int32_t, float, float, float )
+static void SSFwd_ShimFxClient_FxElight( IShimFxClient *self, int32_t a0, const float * a1, int32_t a2, int32_t a3, int32_t a4, int32_t a5, float a6, float a7, float a8 ) { self->FxElight( a0, a1, a2, a3, a4, a5, a6, a7, a8 ); }
+// void IShimFxClient::FxVectorRandom( float, float, float * )
+static void SSFwd_ShimFxClient_FxVectorRandom( IShimFxClient *self, float a0, float a1, float * a2 ) { self->FxVectorRandom( a0, a1, a2 ); }
+// int32_t IShimFxClient::FxMaterialsCached( void )
+static int32_t SSFwd_ShimFxClient_FxMaterialsCached( IShimFxClient *self ) { return self->FxMaterialsCached(); }
+// void IShimFxClient::FxImpactOverlay( const float *, const float * )
+static void SSFwd_ShimFxClient_FxImpactOverlay( IShimFxClient *self, const float * a0, const float * a1 ) { self->FxImpactOverlay( a0, a1 ); }
+// int32_t IShimFxClient::FxSoundParameters( const char *, float *, char *, int32_t )
+static int32_t SSFwd_ShimFxClient_FxSoundParameters( IShimFxClient *self, const char * a0, float * a1, char * a2, int32_t a3 ) { return self->FxSoundParameters( a0, a1, a2, a3 ); }
+// void IShimFxClient::FxEmitWorldSound( const char *, int32_t, float, int32_t, int32_t, const float * )
+static void SSFwd_ShimFxClient_FxEmitWorldSound( IShimFxClient *self, const char * a0, int32_t a1, float a2, int32_t a3, int32_t a4, const float * a5 ) { self->FxEmitWorldSound( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimFxClient::FxTempEntCreateNamed( int32_t, const float *, const char *, int32_t )
+static int32_t SSFwd_ShimFxClient_FxTempEntCreateNamed( IShimFxClient *self, int32_t a0, const float * a1, const char * a2, int32_t a3 ) { return self->FxTempEntCreateNamed( a0, a1, a2, a3 ); }
+// void IShimFxClient::FxLoadModel( const char * )
+static void SSFwd_ShimFxClient_FxLoadModel( IShimFxClient *self, const char * a0 ) { self->FxLoadModel( a0 ); }
+// int32_t IShimFxClient::FxModelFrameCount( const char * )
+static int32_t SSFwd_ShimFxClient_FxModelFrameCount( IShimFxClient *self, const char * a0 ) { return self->FxModelFrameCount( a0 ); }
+
+static void *const s_ShimFxClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_EffectRegistrationCount ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_EffectRegistrationName ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_EffectRegistrationRun ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxCanPredict ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxRecipientCount ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialFind ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialAddRef ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialRelease ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialName ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxDrawQuads ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxView ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMainViewOrigin ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEmitTracerSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxLocalPlayer ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxViewAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEntityAttachment ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxDispatchParticleEffect ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEntityRenderAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEjectBrass ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteGlowFraction ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxGlowSightDistance ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteDrawBegin ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteDrawEnd ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSpriteDrawStore ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxPrecacheCount ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxPrecacheCache ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxCacheUsedMaterials ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxCacheMaterialHandles ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxRenderableAttachment ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxHandleEntityIndex ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxElight ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxVectorRandom ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialsCached ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxImpactOverlay ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxSoundParameters ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxEmitWorldSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxTempEntCreateNamed ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxLoadModel ),
+	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxModelFrameCount ),
+};
+
+static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 39 };
+
+//-----------------------------------------------------------------------------
+// ShimSoundscapeClient: 8 forwarder(s) over IShimSoundscapeClient.
+//-----------------------------------------------------------------------------
+// void IShimSoundscapeClient::SoundscapeEmitAmbient( const char *, float, int32_t, int32_t )
+static void SSFwd_ShimSoundscapeClient_SoundscapeEmitAmbient( IShimSoundscapeClient *self, const char * a0, float a1, int32_t a2, int32_t a3 ) { self->SoundscapeEmitAmbient( a0, a1, a2, a3 ); }
+// void IShimSoundscapeClient::SoundscapeEmitWorld( const char *, float, int32_t, int32_t, int32_t, const float * )
+static void SSFwd_ShimSoundscapeClient_SoundscapeEmitWorld( IShimSoundscapeClient *self, const char * a0, float a1, int32_t a2, int32_t a3, int32_t a4, const float * a5 ) { self->SoundscapeEmitWorld( a0, a1, a2, a3, a4, a5 ); }
+// void IShimSoundscapeClient::SoundscapeStopWorld( const char * )
+static void SSFwd_ShimSoundscapeClient_SoundscapeStopWorld( IShimSoundscapeClient *self, const char * a0 ) { self->SoundscapeStopWorld( a0 ); }
+// void IShimSoundscapeClient::SoundscapeSetRoomType( int32_t )
+static void SSFwd_ShimSoundscapeClient_SoundscapeSetRoomType( IShimSoundscapeClient *self, int32_t a0 ) { self->SoundscapeSetRoomType( a0 ); }
+// void IShimSoundscapeClient::SoundscapeSetPlayerDsp( int32_t )
+static void SSFwd_ShimSoundscapeClient_SoundscapeSetPlayerDsp( IShimSoundscapeClient *self, int32_t a0 ) { self->SoundscapeSetPlayerDsp( a0 ); }
+// void IShimSoundscapeClient::SoundscapeMainView( float * )
+static void SSFwd_ShimSoundscapeClient_SoundscapeMainView( IShimSoundscapeClient *self, float * a0 ) { self->SoundscapeMainView( a0 ); }
+// int32_t IShimSoundscapeClient::SoundscapeMakingResLists( void )
+static int32_t SSFwd_ShimSoundscapeClient_SoundscapeMakingResLists( IShimSoundscapeClient *self ) { return self->SoundscapeMakingResLists(); }
+// void IShimSoundscapeClient::SoundscapeTouchSoundFile( const char * )
+static void SSFwd_ShimSoundscapeClient_SoundscapeTouchSoundFile( IShimSoundscapeClient *self, const char * a0 ) { self->SoundscapeTouchSoundFile( a0 ); }
+
+static void *const s_ShimSoundscapeClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeEmitAmbient ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeEmitWorld ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeStopWorld ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeSetRoomType ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeSetPlayerDsp ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeMainView ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeMakingResLists ),
+	reinterpret_cast< void * >( &SSFwd_ShimSoundscapeClient_SoundscapeTouchSoundFile ),
+};
+
+static const SSForwarderTable s_ShimSoundscapeClientTable = { s_ShimSoundscapeClientSlots, 8 };
+
+//-----------------------------------------------------------------------------
+// ShimPrecipitationClient: 7 forwarder(s) over IShimPrecipitationClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimPrecipitationClient::PrecipitationTraceLine( const float *, const float *, int32_t, int32_t, float * )
+static int32_t SSFwd_ShimPrecipitationClient_PrecipitationTraceLine( IShimPrecipitationClient *self, const float * a0, const float * a1, int32_t a2, int32_t a3, float * a4 ) { return self->PrecipitationTraceLine( a0, a1, a2, a3, a4 ); }
+// int32_t IShimPrecipitationClient::PrecipitationTraceVolume( uint32_t, const float *, const float *, const float *, const float *, float * )
+static int32_t SSFwd_ShimPrecipitationClient_PrecipitationTraceVolume( IShimPrecipitationClient *self, uint32_t a0, const float * a1, const float * a2, const float * a3, const float * a4, float * a5 ) { return self->PrecipitationTraceVolume( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimPrecipitationClient::PrecipitationPointContents( const float * )
+static int32_t SSFwd_ShimPrecipitationClient_PrecipitationPointContents( IShimPrecipitationClient *self, const float * a0 ) { return self->PrecipitationPointContents( a0 ); }
+// int32_t IShimPrecipitationClient::PrecipitationInPvs( uint32_t )
+static int32_t SSFwd_ShimPrecipitationClient_PrecipitationInPvs( IShimPrecipitationClient *self, uint32_t a0 ) { return self->PrecipitationInPvs( a0 ); }
+// int32_t IShimPrecipitationClient::PrecipitationPlayer( float * )
+static int32_t SSFwd_ShimPrecipitationClient_PrecipitationPlayer( IShimPrecipitationClient *self, float * a0 ) { return self->PrecipitationPlayer( a0 ); }
+// void IShimPrecipitationClient::PrecipitationWorldBounds( float * )
+static void SSFwd_ShimPrecipitationClient_PrecipitationWorldBounds( IShimPrecipitationClient *self, float * a0 ) { self->PrecipitationWorldBounds( a0 ); }
+// int32_t IShimPrecipitationClient::PrecipitationScreenWidth( void )
+static int32_t SSFwd_ShimPrecipitationClient_PrecipitationScreenWidth( IShimPrecipitationClient *self ) { return self->PrecipitationScreenWidth(); }
+
+static void *const s_ShimPrecipitationClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimPrecipitationClient_PrecipitationTraceLine ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecipitationClient_PrecipitationTraceVolume ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecipitationClient_PrecipitationPointContents ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecipitationClient_PrecipitationInPvs ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecipitationClient_PrecipitationPlayer ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecipitationClient_PrecipitationWorldBounds ),
+	reinterpret_cast< void * >( &SSFwd_ShimPrecipitationClient_PrecipitationScreenWidth ),
+};
+
+static const SSForwarderTable s_ShimPrecipitationClientTable = { s_ShimPrecipitationClientSlots, 7 };
+
+//-----------------------------------------------------------------------------
+// ShimMaterialProxyClient: 7 forwarder(s) over IShimMaterialProxyClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimMaterialProxyClient::ProxyFindVar( int32_t, const char *, int32_t, int32_t * )
+static int32_t SSFwd_ShimMaterialProxyClient_ProxyFindVar( IShimMaterialProxyClient *self, int32_t a0, const char * a1, int32_t a2, int32_t * a3 ) { return self->ProxyFindVar( a0, a1, a2, a3 ); }
+// int32_t IShimMaterialProxyClient::ProxyFindTexture( int32_t, const char *, const char *, int32_t, int32_t * )
+static int32_t SSFwd_ShimMaterialProxyClient_ProxyFindTexture( IShimMaterialProxyClient *self, int32_t a0, const char * a1, const char * a2, int32_t a3, int32_t * a4 ) { return self->ProxyFindTexture( a0, a1, a2, a3, a4 ); }
+// int32_t IShimMaterialProxyClient::ProxyVarTexture( int32_t, int32_t, char *, int32_t )
+static int32_t SSFwd_ShimMaterialProxyClient_ProxyVarTexture( IShimMaterialProxyClient *self, int32_t a0, int32_t a1, char * a2, int32_t a3 ) { return self->ProxyVarTexture( a0, a1, a2, a3 ); }
+// int32_t IShimMaterialProxyClient::ProxyBindEntity( int32_t, SourceSharpProxyEntity_t * )
+static int32_t SSFwd_ShimMaterialProxyClient_ProxyBindEntity( IShimMaterialProxyClient *self, int32_t a0, SourceSharpProxyEntity_t * a1 ) { return self->ProxyBindEntity( a0, a1 ); }
+// int32_t IShimMaterialProxyClient::ProxyReadView( int32_t, float *, int32_t )
+static int32_t SSFwd_ShimMaterialProxyClient_ProxyReadView( IShimMaterialProxyClient *self, int32_t a0, float * a1, int32_t a2 ) { return self->ProxyReadView( a0, a1, a2 ); }
+// int32_t IShimMaterialProxyClient::ProxyPlayerCustomFile( int32_t, uint32_t * )
+static int32_t SSFwd_ShimMaterialProxyClient_ProxyPlayerCustomFile( IShimMaterialProxyClient *self, int32_t a0, uint32_t * a1 ) { return self->ProxyPlayerCustomFile( a0, a1 ); }
+// void IShimMaterialProxyClient::ProxyNotShipped( const char *, const char * )
+static void SSFwd_ShimMaterialProxyClient_ProxyNotShipped( IShimMaterialProxyClient *self, const char * a0, const char * a1 ) { self->ProxyNotShipped( a0, a1 ); }
+
+static void *const s_ShimMaterialProxyClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimMaterialProxyClient_ProxyFindVar ),
+	reinterpret_cast< void * >( &SSFwd_ShimMaterialProxyClient_ProxyFindTexture ),
+	reinterpret_cast< void * >( &SSFwd_ShimMaterialProxyClient_ProxyVarTexture ),
+	reinterpret_cast< void * >( &SSFwd_ShimMaterialProxyClient_ProxyBindEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimMaterialProxyClient_ProxyReadView ),
+	reinterpret_cast< void * >( &SSFwd_ShimMaterialProxyClient_ProxyPlayerCustomFile ),
+	reinterpret_cast< void * >( &SSFwd_ShimMaterialProxyClient_ProxyNotShipped ),
+};
+
+static const SSForwarderTable s_ShimMaterialProxyClientTable = { s_ShimMaterialProxyClientSlots, 7 };
+
+//-----------------------------------------------------------------------------
+// ShimInputClient: 12 forwarder(s) over IShimInputClient.
+//-----------------------------------------------------------------------------
+// void IShimInputClient::InputCursorState( int32_t *, int32_t * )
+static void SSFwd_ShimInputClient_InputCursorState( IShimInputClient *self, int32_t * a0, int32_t * a1 ) { self->InputCursorState( a0, a1 ); }
+// void IShimInputClient::InputGetCursorPos( int32_t *, int32_t * )
+static void SSFwd_ShimInputClient_InputGetCursorPos( IShimInputClient *self, int32_t * a0, int32_t * a1 ) { self->InputGetCursorPos( a0, a1 ); }
+// void IShimInputClient::InputSetCursorPos( int32_t, int32_t )
+static void SSFwd_ShimInputClient_InputSetCursorPos( IShimInputClient *self, int32_t a0, int32_t a1 ) { self->InputSetCursorPos( a0, a1 ); }
+// void IShimInputClient::InputSetCursorArrow( void )
+static void SSFwd_ShimInputClient_InputSetCursorArrow( IShimInputClient *self ) { self->InputSetCursorArrow(); }
+// void IShimInputClient::InputVguiScreenSize( int32_t *, int32_t * )
+static void SSFwd_ShimInputClient_InputVguiScreenSize( IShimInputClient *self, int32_t * a0, int32_t * a1 ) { self->InputVguiScreenSize( a0, a1 ); }
+// void IShimInputClient::InputHudFacts( float *, int32_t *, float * )
+static void SSFwd_ShimInputClient_InputHudFacts( IShimInputClient *self, float * a0, int32_t * a1, float * a2 ) { self->InputHudFacts( a0, a1, a2 ); }
+// void IShimInputClient::InputStopPitchDrift( void )
+static void SSFwd_ShimInputClient_InputStopPitchDrift( IShimInputClient *self ) { self->InputStopPitchDrift(); }
+// void IShimInputClient::InputSetLocalViewAngles( const float * )
+static void SSFwd_ShimInputClient_InputSetLocalViewAngles( IShimInputClient *self, const float * a0 ) { self->InputSetLocalViewAngles( a0 ); }
+// void IShimInputClient::InputViewerCameraModeChanged( void )
+static void SSFwd_ShimInputClient_InputViewerCameraModeChanged( IShimInputClient *self ) { self->InputViewerCameraModeChanged(); }
+// int32_t IShimInputClient::InputViewerAimIsAssisted( void )
+static int32_t SSFwd_ShimInputClient_InputViewerAimIsAssisted( IShimInputClient *self ) { return self->InputViewerAimIsAssisted(); }
+// void IShimInputClient::InputShowScoreboard( int32_t )
+static void SSFwd_ShimInputClient_InputShowScoreboard( IShimInputClient *self, int32_t a0 ) { self->InputShowScoreboard( a0 ); }
+// void * IShimInputClient::InputMailbox( void )
+static void * SSFwd_ShimInputClient_InputMailbox( IShimInputClient *self ) { return self->InputMailbox(); }
+
+static void *const s_ShimInputClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputCursorState ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputGetCursorPos ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputSetCursorPos ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputSetCursorArrow ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputVguiScreenSize ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputHudFacts ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputStopPitchDrift ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputSetLocalViewAngles ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputViewerCameraModeChanged ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputViewerAimIsAssisted ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputShowScoreboard ),
+	reinterpret_cast< void * >( &SSFwd_ShimInputClient_InputMailbox ),
+};
+
+static const SSForwarderTable s_ShimInputClientTable = { s_ShimInputClientSlots, 12 };
+
+//-----------------------------------------------------------------------------
+// ShimPhysicsClient: 8 forwarder(s) over IShimPhysicsClient.
+//-----------------------------------------------------------------------------
+// void * IShimPhysicsClient::PhysicsClientEnvironment( void )
+static void * SSFwd_ShimPhysicsClient_PhysicsClientEnvironment( IShimPhysicsClient *self ) { return self->PhysicsClientEnvironment(); }
+// void * IShimPhysicsClient::PhysicsClientCollisionEvents( void )
+static void * SSFwd_ShimPhysicsClient_PhysicsClientCollisionEvents( IShimPhysicsClient *self ) { return self->PhysicsClientCollisionEvents(); }
+// int32_t IShimPhysicsClient::PhysicsClientSurfaceAudio( int32_t, char *, int32_t, char *, int32_t, float * )
+static int32_t SSFwd_ShimPhysicsClient_PhysicsClientSurfaceAudio( IShimPhysicsClient *self, int32_t a0, char * a1, int32_t a2, char * a3, int32_t a4, float * a5 ) { return self->PhysicsClientSurfaceAudio( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimPhysicsClient::PhysicsClientEmitImpactSound( const char *, const float *, int32_t, float )
+static int32_t SSFwd_ShimPhysicsClient_PhysicsClientEmitImpactSound( IShimPhysicsClient *self, const char * a0, const float * a1, int32_t a2, float a3 ) { return self->PhysicsClientEmitImpactSound( a0, a1, a2, a3 ); }
+// void IShimPhysicsClient::PhysicsClientCollideExtent( void *, const float *, const float *, const float *, float * )
+static void SSFwd_ShimPhysicsClient_PhysicsClientCollideExtent( IShimPhysicsClient *self, void * a0, const float * a1, const float * a2, const float * a3, float * a4 ) { self->PhysicsClientCollideExtent( a0, a1, a2, a3, a4 ); }
+// int32_t IShimPhysicsClient::PhysicsClientPointContents( const float * )
+static int32_t SSFwd_ShimPhysicsClient_PhysicsClientPointContents( IShimPhysicsClient *self, const float * a0 ) { return self->PhysicsClientPointContents( a0 ); }
+// void IShimPhysicsClient::PhysicsClientSplashLighting( const float *, float * )
+static void SSFwd_ShimPhysicsClient_PhysicsClientSplashLighting( IShimPhysicsClient *self, const float * a0, float * a1 ) { self->PhysicsClientSplashLighting( a0, a1 ); }
+// void IShimPhysicsClient::PhysicsClientSplashEffect( int32_t, const float *, const float *, float, const float *, float, float )
+static void SSFwd_ShimPhysicsClient_PhysicsClientSplashEffect( IShimPhysicsClient *self, int32_t a0, const float * a1, const float * a2, float a3, const float * a4, float a5, float a6 ) { self->PhysicsClientSplashEffect( a0, a1, a2, a3, a4, a5, a6 ); }
+
+static void *const s_ShimPhysicsClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientEnvironment ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientCollisionEvents ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSurfaceAudio ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientEmitImpactSound ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientCollideExtent ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientPointContents ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSplashLighting ),
+	reinterpret_cast< void * >( &SSFwd_ShimPhysicsClient_PhysicsClientSplashEffect ),
+};
+
+static const SSForwarderTable s_ShimPhysicsClientTable = { s_ShimPhysicsClientSlots, 8 };
+
+//-----------------------------------------------------------------------------
+// ShimConVarsClient: 2 forwarder(s) over IShimConVarsClient.
+//-----------------------------------------------------------------------------
+// int32_t IShimConVarsClient::ConVarsClientWatch( const char * )
+static int32_t SSFwd_ShimConVarsClient_ConVarsClientWatch( IShimConVarsClient *self, const char * a0 ) { return self->ConVarsClientWatch( a0 ); }
+// int32_t IShimConVarsClient::ConVarsClientSetValue( const char *, float )
+static int32_t SSFwd_ShimConVarsClient_ConVarsClientSetValue( IShimConVarsClient *self, const char * a0, float a1 ) { return self->ConVarsClientSetValue( a0, a1 ); }
+
+static void *const s_ShimConVarsClientSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_ShimConVarsClient_ConVarsClientWatch ),
+	reinterpret_cast< void * >( &SSFwd_ShimConVarsClient_ConVarsClientSetValue ),
+};
+
+static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 2 };
+
+//-----------------------------------------------------------------------------
+// PhysicsCallbacks: 7 function(s) over void, declared in fwd_physics.h.
+//-----------------------------------------------------------------------------
+// int SSFwd_PhysicsCallbacks_SizeOf( void )
+// void * SSFwd_PhysicsCallbacks_ConstructObjectEvent( void *, IManagedPhysicsObjectEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructCollisionEvent( void *, IManagedPhysicsCollisionEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructCollisionSolver( void *, IManagedPhysicsCollisionSolver * )
+// void * SSFwd_PhysicsCallbacks_ConstructConstraintEvent( void *, IManagedPhysicsConstraintEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructMotionEvent( void *, IManagedMotionEvent * )
+// void * SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *, IManagedVPhysicsKeyHandler * )
+
+static void *const s_PhysicsCallbacksSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_SizeOf ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructObjectEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructCollisionEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructCollisionSolver ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructConstraintEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructMotionEvent ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsCallbacks_ConstructKeyHandler ),
+};
+
+static const SSForwarderTable s_PhysicsCallbacksTable = { s_PhysicsCallbacksSlots, 7 };
+
+//-----------------------------------------------------------------------------
 // SteamCallback: 4 function(s) over CCallbackBase, declared in fwd_steam.h.
 //-----------------------------------------------------------------------------
 // int SSFwd_SteamCallback_SizeOf( void )
@@ -927,5 +3448,65 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_PhysicsCollisionData", &s_PhysicsCollisionDataTable },
 	{ "SSFwd_VPhysicsKeyParser", &s_VPhysicsKeyParserTable },
 	{ "SSFwd_PhysicsCollisionEvent", &s_PhysicsCollisionEventTable },
+	{ "SSFwd_ShimFrame", &s_ShimFrameTable },
+	{ "SSFwd_ShimLevel", &s_ShimLevelTable },
+	{ "SSFwd_ShimRoot", &s_ShimRootTable },
+	{ "SSFwd_ParticleLib", &s_ParticleLibTable },
+	{ "SSFwd_ShimConsole", &s_ShimConsoleTable },
+	{ "SSFwd_ShimEngine", &s_ShimEngineTable },
+	{ "SSFwd_ShimConsoleServer", &s_ShimConsoleServerTable },
+	{ "SSFwd_ShimEventsServer", &s_ShimEventsServerTable },
+	{ "SSFwd_ShimStringTablesServer", &s_ShimStringTablesServerTable },
+	{ "SSFwd_ShimNetworkServer", &s_ShimNetworkServerTable },
+	{ "SSFwd_ShimModelsServer", &s_ShimModelsServerTable },
+	{ "SSFwd_ShimPrecache", &s_ShimPrecacheTable },
+	{ "SSFwd_ShimMovementServer", &s_ShimMovementServerTable },
+	{ "SSFwd_ShimWorldServer", &s_ShimWorldServerTable },
+	{ "SSFwd_ShimEntitiesServer", &s_ShimEntitiesServerTable },
+	{ "SSFwd_ShimEntityLifecycle", &s_ShimEntityLifecycleTable },
+	{ "SSFwd_ShimTransform", &s_ShimTransformTable },
+	{ "SSFwd_ShimHierarchy", &s_ShimHierarchyTable },
+	{ "SSFwd_ShimCollisionServer", &s_ShimCollisionServerTable },
+	{ "SSFwd_ShimPhysics", &s_ShimPhysicsTable },
+	{ "SSFwd_ShimDamage", &s_ShimDamageTable },
+	{ "SSFwd_ShimGameRules", &s_ShimGameRulesTable },
+	{ "SSFwd_ShimPlayers", &s_ShimPlayersTable },
+	{ "SSFwd_ShimWeaponsServer", &s_ShimWeaponsServerTable },
+	{ "SSFwd_ShimInventory", &s_ShimInventoryTable },
+	{ "SSFwd_ShimSound", &s_ShimSoundTable },
+	{ "SSFwd_ShimEffectsServer", &s_ShimEffectsServerTable },
+	{ "SSFwd_ShimDebugOverlay", &s_ShimDebugOverlayTable },
+	{ "SSFwd_ShimUserMessages", &s_ShimUserMessagesTable },
+	{ "SSFwd_ShimDiagnostics", &s_ShimDiagnosticsTable },
+	{ "SSFwd_ShimEvents", &s_ShimEventsTable },
+	{ "SSFwd_ShimStringTables", &s_ShimStringTablesTable },
+	{ "SSFwd_ShimNetwork", &s_ShimNetworkTable },
+	{ "SSFwd_ShimModels", &s_ShimModelsTable },
+	{ "SSFwd_ShimMovement", &s_ShimMovementTable },
+	{ "SSFwd_ShimWorld", &s_ShimWorldTable },
+	{ "SSFwd_ShimEntities", &s_ShimEntitiesTable },
+	{ "SSFwd_ShimCollision", &s_ShimCollisionTable },
+	{ "SSFwd_ShimWeapons", &s_ShimWeaponsTable },
+	{ "SSFwd_ShimEffects", &s_ShimEffectsTable },
+	{ "SSFwd_ShimHudClient", &s_ShimHudClientTable },
+	{ "SSFwd_ShimPredictionClient", &s_ShimPredictionClientTable },
+	{ "SSFwd_ShimTempEntPoolClient", &s_ShimTempEntPoolClientTable },
+	{ "SSFwd_ShimTempEntBackendsClient", &s_ShimTempEntBackendsClientTable },
+	{ "SSFwd_ShimEffectsRenderClient", &s_ShimEffectsRenderClientTable },
+	{ "SSFwd_ShimStandaloneClient", &s_ShimStandaloneClientTable },
+	{ "SSFwd_ShimViewClient", &s_ShimViewClientTable },
+	{ "SSFwd_ShimUserMessagesClient", &s_ShimUserMessagesClientTable },
+	{ "SSFwd_ShimNetClient", &s_ShimNetClientTable },
+	{ "SSFwd_ShimDiagnosticsClient", &s_ShimDiagnosticsClientTable },
+	{ "SSFwd_ShimUiClient", &s_ShimUiClientTable },
+	{ "SSFwd_ShimParticlesClient", &s_ShimParticlesClientTable },
+	{ "SSFwd_ShimFxClient", &s_ShimFxClientTable },
+	{ "SSFwd_ShimSoundscapeClient", &s_ShimSoundscapeClientTable },
+	{ "SSFwd_ShimPrecipitationClient", &s_ShimPrecipitationClientTable },
+	{ "SSFwd_ShimMaterialProxyClient", &s_ShimMaterialProxyClientTable },
+	{ "SSFwd_ShimInputClient", &s_ShimInputClientTable },
+	{ "SSFwd_ShimPhysicsClient", &s_ShimPhysicsClientTable },
+	{ "SSFwd_ShimConVarsClient", &s_ShimConVarsClientTable },
+	{ "SSFwd_PhysicsCallbacks", &s_PhysicsCallbacksTable },
 	{ "SSFwd_SteamCallback", &s_SteamCallbackTable },
 };

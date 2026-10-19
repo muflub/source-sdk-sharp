@@ -166,6 +166,21 @@ public unsafe class SteamCallbacksTests
     }
 
     [Fact]
+    public void TheManagedSideIsOneRunAfterReleaseAndValidateAndReservesNothing()
+    {
+        // libss_fwd_client builds the CCallbackBase (plan_engine_forwarders.md
+        // phase 5); managed writes only this table, which tools/managed-areas
+        // puts in Client.Interop beside the code that builds it.
+        var attribute = (ImplementedByManagedAttribute)typeof(ManagedSteamCallbackTable)
+            .GetCustomAttributes(typeof(ImplementedByManagedAttribute), false).Single();
+
+        Assert.Equal("IManagedSteamCallback", attribute.NativeClass);
+        Assert.Equal(0, attribute.ReservedWords);
+        Assert.Equal(new[] { "Release", "Validate", "Run" }, typeof(ManagedSteamCallbackTable).GetFields().Select(f => f.Name));
+        Assert.Equal(typeof(SteamCallbacks).Assembly, typeof(ManagedSteamCallbackTable).Assembly);
+    }
+
+    [Fact]
     public void RegisteringHandsSteamTheNativeCallbackAndTheIdItWritesBack()
     {
         using var f = new Fixture();

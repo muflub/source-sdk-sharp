@@ -80,7 +80,7 @@ public unsafe partial class ManagedVtableTests
         vtables.Detach();
 
         var e = Assert.Throws<InvalidOperationException>(() => Reserved(vtables, new object(), instance: null, words: 2));
-        Assert.Contains("reserves 2 word(s) after the vptr and native holds a block with 1", e.Message);
+        Assert.Contains("reserves 2 word(s) after word 0 and native holds a block with 1", e.Message);
     }
 
     [Fact]
@@ -168,36 +168,54 @@ public unsafe partial class ManagedVtableTests
 
     // ---- the layouts: what reserves words, and how many --------------------
 
+    // The root's table is Shared.Interop's, the server's runtime and areas are
+    // Server.Interop's (tools/managed-areas writes each table into the assembly
+    // that builds it), and the Valve layouts are still the Abi's. The client's
+    // are ClientManagedTablesTests'.
     private static IEnumerable<(Type Layout, ImplementedByManagedAttribute Attribute)> ManagedWrittenLayouts()
-        => typeof(ManagedVtable).Assembly.GetTypes()
+        => new[] { typeof(ManagedVtable).Assembly, typeof(ManagedRootTable).Assembly,
+                   typeof(SourceSharp.Server.Interop.ServerRuntimeBinding).Assembly }
+               .SelectMany(a => a.GetTypes())
                .Select(t => (t, t.GetCustomAttributes(typeof(ImplementedByManagedAttribute), false)
                                  .Cast<ImplementedByManagedAttribute>().SingleOrDefault()))
                .Where(x => x.Item2 is not null)
                .Select(x => (x.t, x.Item2!));
 
     [Fact]
-    public void NoGeneratedLayoutReservesWords()
+    public void OnlyTheVphysicsCallbacksReserveWordsAndEachReservesTheObjectsSize()
     {
-        // The one that did was CCallbackBase's (flags and callback id after
-        // the vptr). libss_fwd_client builds that object now
-        // (plan_engine_forwarders.md phase 5), and managed writes only its
-        // managed side, which carries no data. The machinery above stays
-        // until nothing names it.
+        // CCallbackBase's layout once reserved its flags and callback id;
+        // libss_fwd_client builds that object now (plan_engine_forwarders.md
+        // phase 5). What reserves words since plan_forwarders_everywhere.md
+        // phase 5 is each vphysics callback: libss_fwd builds the Valve object
+        // (a vptr and its managed target) in the words after the table, so it
+        // lives and dies with the block. Exactly those six, and exactly the
+        // object's two words (kManagedPhysicsCallbackWords).
+        string[] callbacks =
+        [
+            "ManagedPhysicsObjectEventTable", "ManagedPhysicsCollisionEventTable", "ManagedPhysicsCollisionSolverTable",
+            "ManagedPhysicsConstraintEventTable", "ManagedMotionEventTable", "ManagedVPhysicsKeyHandlerTable",
+        ];
         var layouts = ManagedWrittenLayouts().ToList();
 
         Assert.NotEmpty(layouts);   // the stimulus: the managed-written layouts are read
-        Assert.All(layouts, x => Assert.True(x.Attribute.ReservedWords == 0,
-            $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s)"));
+        Assert.Equal(callbacks.Order(), layouts.Where(x => x.Attribute.ReservedWords != 0).Select(x => x.Layout.Name).Order());
+        Assert.All(layouts.Where(x => callbacks.Contains(x.Layout.Name)),
+            x => Assert.True(x.Attribute.ReservedWords == 2, $"{x.Layout.Name} reserves {x.Attribute.ReservedWords} word(s)"));
     }
 
     [Fact]
-    public void TheSteamCallbacksManagedSideIsOurLayoutWithOneRun()
+    public void EachSidesTablesAreInItsOwnInterop()
     {
-        var steam = ManagedWrittenLayouts().Single(x => x.Attribute.NativeClass == "IManagedSteamCallback");
+        // The root's table is the one both sides build, so Shared.Interop's
+        // (its ManagedRoot builds it); every other table is the side's whose
+        // code builds it. None is the Abi's, which holds plumbing only.
+        bool IsTable(Type t) => t.GetCustomAttributes(typeof(ImplementedByManagedAttribute), false).Length > 0
+                                && t.Name.EndsWith("Table", StringComparison.Ordinal);
 
-        Assert.Equal("ManagedSteamCallbackVtbl", steam.Layout.Name);
-        Assert.False(steam.Attribute.ValveLayout);
-        Assert.Equal(new[] { "Release", "Validate", "Run" }, steam.Layout.GetFields().Select(f => f.Name));
-        Assert.DoesNotContain(ManagedWrittenLayouts(), x => x.Attribute.NativeClass == "CCallbackBase");
+        Assert.DoesNotContain(typeof(ManagedVtable).Assembly.GetTypes(), IsTable);
+        Assert.Equal(typeof(SourceSharp.Shared.Interop.ManagedRoot).Assembly, typeof(ManagedRootTable).Assembly);
+        Assert.Contains(ManagedWrittenLayouts(), x => x.Layout.Name == "ManagedRuntimeServerTable"
+                                                       && x.Layout.Assembly == typeof(SourceSharp.Server.Interop.ServerRuntimeBinding).Assembly);
     }
 }

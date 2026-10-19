@@ -47,10 +47,20 @@ function(ss_fwd_library side)
   endif()
   set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS ${script})
 
-  target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_${side}.cpp)
+  # fwd_physics.cpp: the vphysics callbacks both sides hand vphysics
+  # (plan_forwarders_everywhere.md phase 5), classes with virtuals deriving the
+  # Valve interfaces, built without RTTI below for fwd_steam.cpp's reason.
+  target_sources(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_${side}.cpp
+                                ${CMAKE_CURRENT_SOURCE_DIR}/fwd_physics.cpp)
 
+  # ${SS_SRC} itself for our own interfaces (plan_forwarders_everywhere.md),
+  # which the generated file includes by their farm path,
+  # "sourcesharp/game/<side>/ishim_*.h"; sourcesharp/host for the
+  # sourcesharp.h the shim area headers include for their data structs.
   target_include_directories(${tgt} PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}
+      ${SS_SRC}
+      ${SS_SRC}/sourcesharp/host
       ${SS_SRC}/common
       ${SS_SRC}/public
       ${SS_SRC}/public/tier0
@@ -91,9 +101,13 @@ ss_fwd_library(client)
 # is built without RTTI; the forwarders keep the tree's default. Its target
 # interface, IManagedSteamCallback, derives IManagedObject (imanaged_core.h).
 target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp)
-if(SS_IS_MSVC)
-  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp PROPERTIES COMPILE_OPTIONS /GR-)
-else()
-  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp PROPERTIES COMPILE_OPTIONS -fno-rtti)
-endif()
+foreach(no_rtti fwd_steam.cpp fwd_physics.cpp)
+  if(SS_IS_MSVC)
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS /GR-)
+  else()
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS -fno-rtti)
+  endif()
+endforeach()
+# imanaged_core.h, which the managed sides' headers include: both libraries.
 target_include_directories(ss_fwd_client PRIVATE ${SS_SRC}/sourcesharp/game/shared)
+target_include_directories(ss_fwd_server PRIVATE ${SS_SRC}/sourcesharp/game/shared)

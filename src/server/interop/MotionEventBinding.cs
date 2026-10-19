@@ -3,13 +3,14 @@ using SourceSharp.Abi;
 namespace SourceSharp.Server.Interop;
 
 /// <summary>
-/// vphysics' <c>IMotionEvent</c>, in Valve's layout and written by managed
-/// (plan_physics_bones_native_zero 2.2/2.4). ONE table for every motion
+/// vphysics' <c>IMotionEvent</c>'s managed side (plan_physics_bones_native_zero
+/// 2.2/2.4): libss_fwd builds the object vphysics calls
+/// (PhysicsCallbackObjects), whose override calls this table. ONE table for every motion
 /// controller: vphysics hands Simulate the controller it is asking for
 /// (<c>m_handler-&gt;Simulate( this, ... )</c>),
 /// which is the key the controller's state is found by.
 /// </summary>
-[ManagedVtable(typeof(MotionEventVtbl))]
+[ManagedVtable(typeof(ManagedMotionEventTable))]
 public unsafe interface IMotionEventSink
 {
     int Simulate(void* pController, void* pObject, float deltaTime, void* linear, void* angular);

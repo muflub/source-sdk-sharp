@@ -151,10 +151,12 @@ public class EngineHierarchyWorldTests
         // the whole family and the prefix is deliberate: it is what makes the two
         // lists comparable without a table that would be a third thing to keep
         // honest.
-        // IManagedHierarchy's methods since plan_engineapi_vtables E8 (the
-        // struct's slots went at E-last), named after the slots they replaced.
+        // IManagedHierarchy's slots since plan_engineapi_vtables E8 (the
+        // struct's slots went at E-last), named after the slots they replaced:
+        // the members of the table managed writes (plan_forwarders_everywhere.md
+        // phase 4).
         header = File.ReadAllText(RepoLayout.Repo("src", "shared", "native", "imanaged_areas.h"));
-        var slots = Regex.Matches(header, @"virtual [\w\s\*]+?(Hierarchy\w+)\(")
+        var slots = Regex.Matches(header, @"\( \*(Hierarchy\w+) \)\( IManagedHierarchy \*self")
                          .Select(m => m.Groups[1].Value)
                          .ToHashSet(StringComparer.Ordinal);
 
@@ -190,14 +192,14 @@ public class EngineHierarchyWorldTests
     public void EachOutboundParentingSlotIsDeclaredInBothFiles(string slot)
     {
         // A server shim-area method since plan_engineapi_vtables C6c: declared
-        // in ishim_areas.h and mirrored in a generated vtable.
+        // in ishim_areas.h and forwarded by a generated table.
         string areas = AbiParityTests.CodeOnly(File.ReadAllText(
             RepoLayout.Repo("src", "shared", "native", "ishim_areas.h")));
 
         Assert.Matches($@"\bvirtual\s[^;(]*\b{slot}\s*\(", areas);
         Assert.Contains(typeof(ShimAreas).Assembly.GetTypes(),
                         t => t.Name.StartsWith("Shim", StringComparison.Ordinal)
-                             && t.Name.EndsWith("Vtbl", StringComparison.Ordinal)
+                             && t.Name.EndsWith("Fwd", StringComparison.Ordinal)
                              && t.GetField(slot) is not null);
     }
 

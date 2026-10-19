@@ -83,43 +83,55 @@ std::string g_strLastMapName;
 int g_nLastGeneration = -1;
 
 // A runtime of one generation. Release and Validate are the managed object's
-// own slots (imanaged_core.h); the adapter must reach neither.
+// own slots (imanaged_core.h); the adapter must reach neither. Managed builds
+// the real one as a block whose first word is its table
+// (plan_forwarders_everywhere.md phase 4): here the table is static functions,
+// each handed the object.
 class CFakeRuntime : public IManagedRuntimeClient
 {
 public:
-	explicit CFakeRuntime( int nGeneration ) : m_nGeneration( nGeneration ) {}
+	explicit CFakeRuntime( int nGeneration ) : IManagedRuntimeClient( &kTable ), m_nGeneration( nGeneration ) {}
 
-	void Release() override { ADD_FAILURE() << "the adapter released the runtime"; }
-	int32_t Validate( const uint32_t *, int32_t ) override
+private:
+	static CFakeRuntime *Of( void *self ) { return static_cast< CFakeRuntime * >( self ); }
+
+	static void Released( IManagedObject * ) { ADD_FAILURE() << "the adapter released the runtime"; }
+	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t )
 	{
 		ADD_FAILURE() << "the adapter validated the runtime";
 		return 0;
 	}
 
-	void Frame( float dt ) override
+	static void Framed( IManagedRuntimeClient *self, float dt )
 	{
 		g_Tally.nFrame++;
 		g_LastFrameTime = dt;
-		g_nLastGeneration = m_nGeneration;
+		g_nLastGeneration = Of( self )->m_nGeneration;
 	}
-	void ClientStage( int32_t ) override { ADD_FAILURE() << "the adapter has no stage forward"; }
-	void LevelInit( const char *pName ) override
+	static void Staged( IManagedRuntimeClient *, int32_t ) { ADD_FAILURE() << "the adapter has no stage forward"; }
+	static void LevelInited( IManagedRuntimeClient *self, const char *pName )
 	{
 		g_Tally.nLevelInit++;
 		g_strLastMapName = pName ? pName : "";
-		g_nLastGeneration = m_nGeneration;
+		g_nLastGeneration = Of( self )->m_nGeneration;
 	}
-	void LevelShutdown() override
+	static void LevelShut( IManagedRuntimeClient *self )
 	{
 		g_Tally.nLevelShutdown++;
-		g_nLastGeneration = m_nGeneration;
+		g_nLastGeneration = Of( self )->m_nGeneration;
 	}
-	void ClientInvalidateMdlCache() override { ADD_FAILURE() << "the adapter has no model-cache forward"; }
-	int32_t ParticlesNeedFullReload( int32_t ) override { ADD_FAILURE() << "the adapter has no particle-reload forward"; return 1; }
-	int32_t MapMaterialReload( const char *, const char *, char *, int32_t ) override { ADD_FAILURE() << "the adapter has no map-material forward"; return -1; }
+	static void MdlCacheInvalidated( IManagedRuntimeClient * ) { ADD_FAILURE() << "the adapter has no model-cache forward"; }
+	static int32_t ParticlesAsked( IManagedRuntimeClient *, int32_t ) { ADD_FAILURE() << "the adapter has no particle-reload forward"; return 1; }
+	static int32_t MaterialsAsked( IManagedRuntimeClient *, const char *, const char *, char *, int32_t ) { ADD_FAILURE() << "the adapter has no map-material forward"; return -1; }
 
-private:
+	static const SSManagedRuntimeClientTable kTable;
+
 	int m_nGeneration;
+};
+
+const SSManagedRuntimeClientTable CFakeRuntime::kTable = {
+	&Released, &Validated, &Framed, &Staged, &LevelInited, &LevelShut,
+	&MdlCacheInvalidated, &ParticlesAsked, &MaterialsAsked,
 };
 
 CFakeRuntime g_RuntimeA( 1 );

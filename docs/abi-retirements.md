@@ -260,8 +260,9 @@ that set changes in either direction.
 `SourceSharpManagedApi` fields, and the difference decides which pass removes
 them.** They are virtual methods of `IShimFrame`
 (`src/sourcesharp/game/server/ishim_frame.h`), reached by managed code through
-the vtable that `ShimFrame_Acquire` hands the internal factory, indexed by
-position in `ShimFrameVtbl` (`SourceSharp.Abi/VtableLayouts.g.cs`, generated).
+the forwarder table `SSFwd_ShimFrame` (`ShimFrameFwd` in
+`SourceSharp.Abi/SharedForwarders.g.cs`, generated), whose slots follow the
+header's order.
 
 So the worklist grep this file's preamble prescribes —
 
@@ -275,9 +276,10 @@ lane; both still answer 0. The markers for these four are in
 
 and the pass that acts on them is the deliberate `SourceSharpFrame001` ->
 `SourceSharpFrame002` version-string bump, not the ABI renumbering pass. The
-managed side of the count is generated from that same header by
-`tools/vtable-layout`, so there is no second file to mark: the layout follows
-the header by construction and the tool diffs it on every run.
+managed side is generated from that same header by `tools/engine-forwarders`
+(the forwarder table and `ShimFrameFwd`), so there is no second file to mark:
+the table follows the header by construction and the tool diffs it on every
+run.
 
 WHY THEY CANNOT SIMPLY BE DELETED, which is the same argument as the ABI's and
 one notch sharper. Acquisition holds the managed slot count N against the count

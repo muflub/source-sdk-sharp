@@ -30,8 +30,8 @@ namespace SourceSharp.Tests;
 /// <para>
 /// WHERE IT WOULD COME BACK. Since plan_client_vtables CC-last deleted the
 /// engine API struct, a slot is declared as a shim-area method (ishim_areas.h,
-/// ishim_areas_client.h) and mirrored by its generated layout
-/// (VtableLayouts.g.cs), and a managed slot as a managed-built area method
+/// ishim_areas_client.h) and forwarded by its generated table
+/// (SharedForwarders.g.cs), and a managed slot as a managed-built area method
 /// (no struct way back in since plan_client_vtables CE-last; AbiParityTests
 /// holds both structs' absence). Every read goes through <see cref="AbiParityTests.CodeOnly"/>, so
 /// prose that names the reaped slot is not read as a declaration. (The two
@@ -70,7 +70,6 @@ public class EntityHierarchyReapedTests
 
     private const string AreasRel = "game/shared/ishim_areas.h";
     private const string ClientAreasRel = "game/shared/ishim_areas_client.h";
-    private const string LayoutsRel = "managed/SourceSharp.Abi/VtableLayouts.g.cs";
     // plan_client_vtables CC-last: the client fills no struct; its wiring is
     // the generated forwards from its shim areas to the bodies.
     private const string WiringRel = "game/shared/shell_shim_areas_client.inc";

@@ -14,7 +14,7 @@
     exit 2   a header could not be read, or a forwarded method is not in it
 
 plan_engine_forwarders.md. Managed used to call an engine interface by indexing
-the engine object's vtable through a struct in VtableLayouts.g.cs, and so had to
+the engine object's vtable through a generated layout struct, and so had to
 know both C++ ABIs: MSVC gives a virtual destructor one slot rather than two and
 lays each class's overloads out grouped and in reverse declaration order. A
 forwarder takes that away. For every method managed calls this writes one line
@@ -46,8 +46,8 @@ for a deliberate break, after which only a rebuild of both sides is safe.
 
 WHAT IS FORWARDED IS WHAT MANAGED CALLS, not every slot: a method enters
 FORWARD when managed code first calls it. The names are the field names
-VtableLayouts.g.cs gives (an overload's second declaration is `Name_2`), so the
-two files can be read side by side while both exist.
+tools/vtable-layout's header walk gives (an overload's second declaration is
+`Name_2`).
 
 HAND-WRITTEN TABLES (HAND below) are the same tables over functions that are
 not one interface's methods, written in the library's own source: the Steam
@@ -125,12 +125,12 @@ SIDE_FILES = {
 SIDE_ROOTS = {
     'server': ('src/server',),
     'client': ('src/client',),
-    'both': ('src/shared',),
+    'both': ('src/shared', 'src/abi'),
 }
 
 # ---------------------------------------------------------------------------
-# WHAT IS FORWARDED. Keyed by the VtableLayouts.g.cs struct the interface is
-# described by: its header and chain come from tools/vtable-layout's
+# WHAT IS FORWARDED. Keyed by the struct name the interface is described by in
+# tools/vtable-layout: its header and chain come from that tool's
 # INTERFACES row, so the table's name (the struct's, less `Vtbl`), the C++
 # type its `self` is (the chain's last class) and the header the forwarders
 # include (the row's, under src/public) are derived, and a row names only its
@@ -143,6 +143,11 @@ SIDE_ROOTS = {
 # layout everywhere and managed sees the method's absence rather than a
 # neighbour's slot. Native does not invent an answer for a method that is not
 # there.
+#
+# `every=True` FORWARDS EVERY SLOT, in the header's declaration order, and
+# names no methods: the row of one of OUR interfaces, which exists for managed
+# to call (plan_forwarders_everywhere.md), whose header only ever appends. Its
+# table grows when the header does, under the same append-only refusal.
 #
 # A ROW'S METHODS ARE ITS SLOTS, IN ORDER, AND ONLY EVER GROW AT THE END: a
 # method managed starts calling is appended to its row, never inserted at its
@@ -384,6 +389,45 @@ FORWARD = [
             'ObjectEnterTrigger', 'ObjectLeaveTrigger',
         ],
     ),
+    # plan_forwarders_everywhere.md phase 1: the shim layer's own frame
+    # steps (ishim_frame.h), which native implements (CShimFrame) and managed
+    # calls every slot of. Only the server serves the object; the table is
+    # both because EngineFrame, its user, compiles into both sides.
+    dict(
+        struct='ShimFrameVtbl',
+        every=True,
+    ),
+    # Phase 3: the level steps (ishim_level.h, served by the server alone,
+    # called from EngineLevel in Shared.Interop), the shim root itself
+    # (ishim_root.h, whose table native hands managed at load: managed needs a
+    # table to ask for any other), and libss_particles' ISSParticleLib, which
+    # only the client's ParticleLibrary calls.
+    dict(
+        struct='ShimLevelVtbl',
+        every=True,
+    ),
+    dict(
+        struct='ShimRootVtbl',
+        every=True,
+    ),
+    dict(
+        struct='ParticleLibVtbl',
+        side='client',
+        every=True,
+    ),
+]
+
+# The generated shim areas (plan_forwarders_everywhere.md phase 2): every
+# interface ishim_areas.h and ishim_areas_client.h declare, and the console
+# base they extend (ishim_console.h), each an every=True row, in
+# tools/vtable-layout's order. Each is both: ShimAreas.g.cs, which calls them,
+# is the Abi's, which compiles into both sides.
+SHIM_AREA_HEADERS = ('ishim_areas.h', 'ishim_areas_client.h', 'ishim_console.h')
+
+FORWARD += [
+    dict(struct=entry['struct'], every=True)
+    for entry in VL.INTERFACES
+    if entry.get('shim') and os.path.basename(entry['header']) in SHIM_AREA_HEADERS
 ]
 
 # ---------------------------------------------------------------------------
@@ -405,6 +449,25 @@ FORWARD = [
 # what Steam keeps in it.
 # ---------------------------------------------------------------------------
 HAND = [
+    # plan_forwarders_everywhere.md phase 5: the vphysics callbacks, built in
+    # the managed block's reserved words over its managed side (fwd_physics.cpp).
+    # Both: the collision event and solver are both sides', and the rest cost
+    # the client library six small functions.
+    dict(
+        table='PhysicsCallbacks',
+        side='both',
+        self_type='void',
+        include='fwd_physics.h',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('ConstructObjectEvent', 'void *', 'void *, IManagedPhysicsObjectEvent *'),
+            ('ConstructCollisionEvent', 'void *', 'void *, IManagedPhysicsCollisionEvent *'),
+            ('ConstructCollisionSolver', 'void *', 'void *, IManagedPhysicsCollisionSolver *'),
+            ('ConstructConstraintEvent', 'void *', 'void *, IManagedPhysicsConstraintEvent *'),
+            ('ConstructMotionEvent', 'void *', 'void *, IManagedMotionEvent *'),
+            ('ConstructKeyHandler', 'void *', 'void *, IManagedVPhysicsKeyHandler *'),
+        ],
+    ),
     dict(
         table='SteamCallback',
         side='client',
@@ -449,12 +512,18 @@ def resolved(row):
     if out['side'] not in SIDES:
         raise Refusal('%s names side %s; the sides are %s'
                       % (row['struct'], out['side'], ', '.join(SIDES)))
+    if row.get('every') and not row.get('resolved'):
+        if 'methods' in row:
+            raise Refusal('%s says every=True and names methods: an every row forwards '
+                          'each slot in the header\'s order, so it names none' % row['struct'])
+        out['methods'] = list(slots_of(entry))
+    out['resolved'] = True
     return out
 
 
 def slots_of(entry):
     """{field name: (class, method, parameters, returns)} for one interface,
-    named as VtableLayouts.g.cs names its fields, in declaration order."""
+    named as tools/vtable-layout's walk names its fields, in declaration order."""
     rows, why = VL.derive_chain(VL.chain_steps(entry))
 
     if rows is None:
@@ -495,7 +564,7 @@ def forwarders_of(row):
     unknown = [m for m in row['methods'] if m not in named]
     if unknown:
         raise Refusal('%s forwards %s, which %s not a method of %s (the names are '
-                      'VtableLayouts.g.cs\'s fields: an overload\'s second is Name_2)'
+                      'the header walk\'s fields: an overload\'s second is Name_2)'
                       % (row['table'], ', '.join(unknown),
                          'is' if len(unknown) == 1 else 'are', ' / '.join(entry['chain'])))
 
@@ -869,6 +938,18 @@ def self_test(out=sys.stdout):
        refuses(dict(base, methods=['GetModel', 'GetModel'])))
     ok('an interface tools/vtable-layout does not describe is refused',
        refuses(dict(base, struct='NoSuchVtbl')))
+
+    every_row = resolved(dict(struct='ShimFrameVtbl', every=True))
+    every_names = list(slots_of(interface_entry('ShimFrameVtbl')))
+    ok('an every row forwards each slot, in the header\'s order',
+       every_row['methods'] == every_names and len(every_names) > 1
+       and every_names[0] == 'IsSimulatingOnAlternateTicks')
+    try:
+        resolved(dict(struct='ShimFrameVtbl', every=True, methods=['TickCount']))
+        every_refused = False
+    except Refusal:
+        every_refused = True
+    ok('an every row that also names methods is refused', every_refused)
 
     rows = forwarders_of(dict(base, methods=['GetModelType', 'GetModel']))
     ok('the table is in FORWARD order, not header order',

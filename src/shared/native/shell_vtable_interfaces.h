@@ -27,21 +27,16 @@
 // for the contract; this is the function that fills it.
 //-----------------------------------------------------------------------------
 void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *pszVersion,
-                                    int32_t *pnEntries, char *pError, int32_t nErrorBytes );
+                                    char *pError, int32_t nErrorBytes );
 
 //-----------------------------------------------------------------------------
 // The shim layer's own CreateInterfaceFn -- the SOURCESHARP_FACTORY_INTERNAL
-// arm. Defined per side in shell_internalfactory.cpp; answers NULL, with
-// *pnEntries zeroed, for a name this side does not serve.
-//
-// It hands back the COUNT as well as the pointer, and the count is the area's
-// own (VTableHook::MemberOf in the file that owns the singleton). That is why
-// the entry-count table in shell_vtable_interfaces.cpp answers only for the
-// ENGINE names: a shim area's length is the compiler's answer about a class in
-// this tree, and asking a second place for it would be a second thing to keep
-// in step.
+// arm. Defined per side in shell_internalfactory.cpp; answers NULL for a name
+// this side does not serve. No count comes back: managed calls what it gets
+// through a forwarder table, whose header holds its own
+// (plan_forwarders_everywhere.md).
 //-----------------------------------------------------------------------------
-void *SourceSharp_InternalFactory( const char *pszName, int32_t *pnEntries );
+void *SourceSharp_InternalFactory( const char *pszName );
 
 //-----------------------------------------------------------------------------
 // One reason's literal. Never NULL, and never anything but ASCII with no '%'.

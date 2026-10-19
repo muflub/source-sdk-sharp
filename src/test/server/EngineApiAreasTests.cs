@@ -60,10 +60,10 @@ public partial class EngineApiAreasTests
 
     /// <summary>
     /// The table's <c>suppress</c> column and what compiled agree, for every
-    /// slot. Since plan_client_vtables CC-last the compiled side is the slot's
-    /// field in its area's generated layout (<c>Shim&lt;X&gt;Vtbl</c> in
-    /// VtableLayouts.g.cs), read from metadata: the convention is a custom
-    /// modifier, so it goes through GetModifiedFieldType.
+    /// slot. The compiled side is the slot's field in its area's forwarder
+    /// struct (<c>Shim&lt;X&gt;Fwd</c> in SharedForwarders.g.cs, since
+    /// plan_forwarders_everywhere.md), read from metadata: the convention is a
+    /// custom modifier, so it goes through GetModifiedFieldType.
     /// </summary>
     [Fact]
     public void EverySuppressedSlotIsMarkedSuppressedAndNoOtherIs()

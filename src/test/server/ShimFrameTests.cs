@@ -9,22 +9,23 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 //=============================================================================
-// THE PILOT AREA, DISPATCHED THROUGH A VTABLE BUILT IN THIS FILE.
+// THE PILOT AREA, DISPATCHED THROUGH A FORWARDER TABLE BUILT IN THIS FILE.
 //
-// plan_native_api.md Phase 2. EngineFrame is the first area to stop forwarding
-// into the god-class and start calling through a generated layout, and what has
-// to be true of it is three things:
+// plan_native_api.md Phase 2 made EngineFrame the first area to call through
+// a generated struct; plan_forwarders_everywhere.md phase 1 made that struct
+// the area's forwarder table (SSFwd_ShimFrame, libss_fwd_server) rather than
+// the object's vtable. What has to be true of it is three things:
 //
 //   1. THE FIELD'S POSITION IS THE SLOT. A call lands in the slot the struct's
 //      field order says and no index is written anywhere -- so a table built
 //      here with a distinct function in each position is enough to catch a
 //      member wired to its neighbour.
 //
-//   2. THE SPAN CHECK IS `managed <= native` HERE AND EQUALITY FOR THE ENGINE,
-//      and the difference is load-bearing rather than a relaxation: our own
-//      class is append-only, so native gaining methods must not refuse an
-//      assembly that has not been rebuilt, while managed expecting MORE than
-//      native has is a stale layout and is refused by name.
+//   2. THE COUNT CHECK IS `managed <= native`: the table only appends
+//      (tools/engine-forwarders refuses anything else), so native gaining
+//      forwarders must not refuse an assembly that has not been rebuilt, while
+//      managed expecting MORE than native serves is a stale struct and is
+//      refused by name.
 //
 //   3. THE MARSHALLING. `bool` is not blittable in an unmanaged function
 //      pointer, so PhysicsRunThinkFunctions crosses as an int and the
@@ -43,25 +44,24 @@ public unsafe class ShimFrameTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimFrameLayoutSpansNineteenSlots()
-        // Nineteen and not twenty-one: IShimFrame declares NO virtual
-        // destructor, so there is no Itanium complete/deleting pair in front of
-        // slot 0. ishim_frame.h argues why, and vtable_index_agreement_test.cpp
-        // holds this same number against the compiler's own answer.
+    public void TheShimFrameTableHasNineteenSlots()
+        // One forwarder per method IShimFrame declares (an every=True row in
+        // tools/engine-forwarders), and nothing else.
         //
         // Seventeen until step 1g, which split StandaloneRunFrame into
         // StandaloneUpdate and StandaloneFinish so the managed think pass could
         // run between them (plan_entity.md §3.4); eighteen until the
         // sub-ioqueue lane appended DeliverToSdkEntities.
-        => Assert.Equal(19, Vtable.SlotsIn<ShimFrameVtbl>());
+        => Assert.Equal(19, Forwarders.SlotCount<ShimFrameFwd>());
 
     [Fact]
     public void EveryShimFrameFieldIsPointerSized()
     {
-        // A vtable is an array of function pointers, so a struct describing one
-        // is its field count times eight and nothing else. A field that was not
-        // pointer-sized would make every slot below it index the wrong entry.
-        Assert.Equal(19 * sizeof(void*), sizeof(ShimFrameVtbl));
+        // A forwarder table is an array of function pointers, so a struct
+        // describing one is its field count times eight and nothing else. A
+        // field that was not pointer-sized would make every slot below it read
+        // the wrong entry.
+        Assert.Equal(19 * sizeof(void*), sizeof(ShimFrameFwd));
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public unsafe class ShimFrameTests
     {
         // The generated file's own claim, read as BYTE OFFSETS rather than as
         // an order in a listing -- which is what the ABI actually cares about.
-        var layout = typeof(ShimFrameVtbl);
+        var layout = typeof(ShimFrameFwd);
 
         int first = (int)Marshal.OffsetOf(layout, "IsSimulatingOnAlternateTicks");
         int last = (int)Marshal.OffsetOf(layout, "DeliverToSdkEntities");
@@ -84,7 +84,7 @@ public unsafe class ShimFrameTests
         // eighteen in between are in the header's order -- and a reorder in
         // the middle is precisely what the span check cannot see.
         => Assert.Equal(6 * sizeof(void*),
-                        (int)Marshal.OffsetOf(typeof(ShimFrameVtbl),
+                        (int)Marshal.OffsetOf(typeof(ShimFrameFwd),
                                               "PhysicsRunThinkFunctions"));
 
     //-------------------------------------------------------------------------
@@ -110,22 +110,21 @@ public unsafe class ShimFrameTests
         => s_ServiceEventQueueCalls++;
 
     /// <summary>
-    /// An object whose first word points at an eighteen-entry table with a
-    /// distinct function in the four slots the facts below reach.
+    /// A forwarder table of the struct's length with a distinct function in
+    /// the four slots the facts below reach, written by index, and an object
+    /// it is called on. Nothing reads the object: a forwarder table is handed
+    /// the object, it does not live in it.
     /// </summary>
     private static void* FakeShim(out void** table)
     {
-        table = (void**)NativeMemory.AllocZeroed(18, (nuint)sizeof(void*));
+        table = (void**)NativeMemory.AllocZeroed((nuint)Forwarders.SlotCount<ShimFrameFwd>(), (nuint)sizeof(void*));
 
         table[1] = (delegate* unmanaged<void*, int>)&TickCountAnswers;
         table[2] = (delegate* unmanaged<void*, float>)&GetFrameTimeAnswers;
         table[6] = (delegate* unmanaged<void*, int, void>)&PhysicsRecords;
         table[8] = (delegate* unmanaged<void*, void>)&ServiceEventQueueCounts;
 
-        void** self = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-        *self = table;
-
-        return self;
+        return NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
     }
 
     /// <summary>
@@ -133,7 +132,7 @@ public unsafe class ShimFrameTests
     ///
     /// <para>
     /// The fields are private and stay private -- production binds them through
-    /// <c>Vtable.TryAcquireShim</c> and nothing else -- so this reaches them by
+    /// <c>Forwarders.TryAcquire</c> and nothing else -- so this reaches them by
     /// REFLECTION, which is a thing only a test may do. An accessor would be a
     /// second, permanent door into a class whose whole point is that it has one,
     /// and it would compile in the shipped assembly.
@@ -146,7 +145,7 @@ public unsafe class ShimFrameTests
         object frame = new EngineFrame(side ?? new EngineSide(Side.Server));
 
         Set(frame, "_self", Pointer.Box(self, typeof(void*)));
-        Set(frame, "_vtbl", Pointer.Box(table, typeof(ShimFrameVtbl*)));
+        Set(frame, "_vtbl", Pointer.Box(table, typeof(ShimFrameFwd*)));
 
         return (IEngineFrame)frame;
     }
@@ -161,7 +160,7 @@ public unsafe class ShimFrameTests
     {
         // GPGLOBALS IS NOT BOUND IN A TEST PROCESS, which is what makes this
         // fact able to see the binding at all: on a live server TickCount reads
-        // the engine's own struct and never touches the vtable. The live probe
+        // the engine's own struct and never touches the table. The live probe
         // (ShimProbes.Frame) is the other half -- it calls the SLOT directly and
         // holds it against the CGlobalVars read.
         var side = new EngineSide(Side.Server);
@@ -270,8 +269,9 @@ public unsafe class ShimFrameTests
         //   could not acquire "SourceSharpFrame001" from the Internal factory:
         //   factory does not know that interface
         //
-        // 1,795 times in one map load. Vtable.TryAcquireShim already composes
-        // the context and the exception's constructor composed it again.
+        // 1,795 times in one map load. The acquire already composes the
+        // context (NativeInterfaceFactory.TryCreate) and the exception's
+        // constructor composed it again.
         //
         // AND IT GOES THROUGH Bind() RATHER THAN THROUGH THE EXCEPTION HELPER,
         // which is the difference between a fact and a decoration: the helper
@@ -280,7 +280,7 @@ public unsafe class ShimFrameTests
         var side = new EngineSide(Side.Server);
         Assert.True(side.GlobalVarsPointer == 0,
                     "gpGlobals is unbound for the area's side, so TickCount falls "
-                    + "through to the vtable and the bind is reached");
+                    + "through to the table and the bind is reached");
 
         var thrown = Assert.Throws<InterfaceAcquisitionException>(
             () => RefusedArea(side).TickCount());
@@ -382,26 +382,26 @@ public unsafe class ShimFrameTests
         => Assert.Equal("SourceSharpFrame001", EngineFrame.InterfaceVersion);
 
     //-------------------------------------------------------------------------
-    // 4. WHAT THE SHIM SPAN CHECK ACCEPTS AND REFUSES.
+    // 4. WHAT THE FORWARDER COUNT CHECK ACCEPTS AND REFUSES.
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void AShimLayoutShorterThanTheClassIsAccepted()
+    public void AStructShorterThanTheServedTableIsAccepted()
     {
-        // THE WHOLE REASON THE SHIM CHECK IS `<=` RATHER THAN `==`. Appending a
-        // method to IShimFrame puts the new slot at the END and moves nothing,
-        // so a game DLL that gained one must still bind an assembly compiled
-        // before it. Driven through the factory seam, because there is no
-        // native half in this process.
+        // THE WHOLE REASON THE CHECK IS `<=` RATHER THAN `==`. Appending a
+        // method to IShimFrame appends its forwarder at the END and moves
+        // nothing, so a library that gained one must still bind an assembly
+        // compiled before it. Driven through the factory seam, because there is
+        // no native half in this process.
         Assert.True(AcquireAgainstNative(nativeEntries: 20, out string why),
-                    $"a shorter managed layout binds: {why}");
+                    $"a shorter managed struct binds: {why}");
     }
 
     [Fact]
-    public void AShimLayoutLongerThanTheClassIsRefusedNamingBothNumbers()
+    public void AStructLongerThanTheServedTableIsRefusedNamingBothNumbers()
     {
         Assert.False(AcquireAgainstNative(nativeEntries: 18, out string why),
-                     "a managed layout expecting more slots than the class has "
+                     "a managed struct expecting more slots than native serves "
                      + "must not bind");
 
         Assert.Contains("18", why);
@@ -409,13 +409,14 @@ public unsafe class ShimFrameTests
     }
 
     [Fact]
-    public void AShimLayoutExactlyTheClassesLengthIsAccepted()
+    public void AStructExactlyTheServedTablesLengthIsAccepted()
         => Assert.True(AcquireAgainstNative(nativeEntries: 19, out _),
                        "equality is the ordinary case and is not excluded by `<=`");
 
     /// <summary>
-    /// Drive the REAL <c>Vtable.TryAcquireShim</c> against a native half that
-    /// reports <paramref name="nativeEntries"/> for a one-slot object.
+    /// Drive the REAL <c>Forwarders.TryAcquire</c> against a native half that
+    /// serves the frame object and a forwarder table of
+    /// <paramref name="nativeEntries"/> slots.
     ///
     /// <para>
     /// The internal overload takes the factory, so what is under test is the
@@ -436,9 +437,9 @@ public unsafe class ShimFrameTests
         var seam = new EntrySeam(nativeEntries);
         var factory = new NativeInterfaceFactory(seam.Acquire);
 
-        bool ok = Vtable.TryAcquireShim<ShimFrameVtbl>(
-            factory, EngineFrame.InterfaceVersion,
-            out void* _, out void** _, out why);
+        bool ok = Forwarders.TryAcquire(
+            factory, SourceSharpFactoryType.Internal, EngineFrame.InterfaceVersion,
+            out void* _, out ShimFrameFwd* _, out why);
 
         seam.Free();
         return ok;
@@ -451,11 +452,8 @@ public unsafe class ShimFrameTests
     private sealed class RefusingSeam
     {
         public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             int* entries, byte* error, int errorBytes)
+                             byte* error, int errorBytes)
         {
-            if (entries != null)
-                *entries = 0;
-
             ReadOnlySpan<byte> reason = "factory does not know that interface"u8;
 
             if (error != null && errorBytes > reason.Length)
@@ -469,43 +467,45 @@ public unsafe class ShimFrameTests
     }
 
     /// <summary>
-    /// A native half that answers for any name with an object whose vtable is
-    /// one entry long, and reports whatever entry count it was built with.
+    /// A native half that answers the frame's version string with an object
+    /// and <c>SSFwd_ShimFrame</c> with a table header of the count it was
+    /// built with, as SSFwd_Serve does.
     ///
     /// <para>
-    /// It has to answer with a REAL object: the span check runs after the
-    /// acquire succeeds, and a null answer would fail before reaching it — a
+    /// It has to answer with REAL answers: the count check runs after both
+    /// acquires succeed, and a null answer would fail before reaching it — a
     /// seam that refused everything would make the accept arms pass for the
     /// wrong reason and the refuse arms pass for no reason at all.
     /// </para>
     /// </summary>
     private sealed class EntrySeam
     {
-        private readonly int _entries;
-        private readonly void** _table;
-        private readonly void** _self;
+        private readonly void** _slots;
+        private readonly ForwarderTableHeader* _header;
+        private readonly void* _self;
 
         public EntrySeam(int entries)
         {
-            _entries = entries;
-            _table = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-            _self = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-            *_self = _table;
+            _slots = (void**)NativeMemory.AllocZeroed((nuint)Math.Max(entries, 1), (nuint)sizeof(void*));
+            _header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
+            _header->Slots = _slots;
+            _header->SlotCount = entries;
+            _self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
         }
 
         public void Free()
         {
-            NativeMemory.Free(_table);
+            NativeMemory.Free(_slots);
+            NativeMemory.Free(_header);
             NativeMemory.Free(_self);
         }
 
         public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             int* entries, byte* error, int errorBytes)
+                             byte* error, int errorBytes)
         {
-            if (entries != null)
-                *entries = _entries;
+            string name = new string((sbyte*)version);
 
-            return _self;
+            return name == ShimFrameFwd.TableName ? _header : _self;
         }
     }
 }

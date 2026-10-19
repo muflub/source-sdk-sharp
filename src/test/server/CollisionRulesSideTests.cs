@@ -43,7 +43,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
     [Fact]
     public void AClientSideDeliversTheMatrixToItsShimRoot()
     {
-        uint* recorder = Serve("SourceSharpCollision001", typeof(ShimCollisionVtbl));
+        uint* recorder = Serve("SourceSharpCollision001", typeof(ShimCollisionFwd));
         var engine = Attached(Side.Client);
 
         uint[] rows = CollisionRules.BuildMatrix();
@@ -59,7 +59,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
     public void AServerSideStillDeliversTheMatrixToItsShimRoot()
     {
         // The retention half: the server's route must survive the move.
-        uint* recorder = Serve(ServerCollisionVersion, ServerCollisionVtbl);
+        uint* recorder = Serve(ServerCollisionVersion, ServerCollisionFwd);
         var engine = Attached(Side.Server);
 
         uint[] rows = CollisionRules.BuildMatrix();
@@ -100,13 +100,13 @@ public unsafe class CollisionRulesSideTests : IDisposable
     private static string ServerCollisionVersion
         => "SourceSharp" + ServerCollisionField.Name + "001";
 
-    private static Type ServerCollisionVtbl
+    private static Type ServerCollisionFwd
         => ServerCollisionField.FieldType.GetGenericArguments()[0];
 
     private static System.Reflection.FieldInfo ServerCollisionField
         => typeof(ShimAreas).GetFields().Single(f =>
                f.FieldType.IsGenericType
-               && f.FieldType.GetGenericArguments()[0].GetField(nameof(ShimCollisionVtbl.RegisterCollisionRules)) is not null);
+               && f.FieldType.GetGenericArguments()[0].GetField(nameof(ShimCollisionFwd.RegisterCollisionRules)) is not null);
 
     /// <summary>
     /// Serves an area object for <paramref name="version"/> whose rules slot
@@ -119,12 +119,11 @@ public unsafe class CollisionRulesSideTests : IDisposable
         var recorder = (uint*)Alloc(RecorderWords * sizeof(uint));
         var self = (nint*)Alloc(2 * sizeof(nint));
 
-        int slot = (int)Marshal.OffsetOf(vtbl, nameof(ShimCollisionVtbl.RegisterCollisionRules)) / sizeof(nint);
+        int slot = (int)Marshal.OffsetOf(vtbl, nameof(ShimCollisionFwd.RegisterCollisionRules)) / sizeof(nint);
         table[slot] = (nint)(delegate* unmanaged<void*, CollisionRulesBlob*, void>)&Record;
-        self[0] = (nint)table;
         self[1] = (nint)recorder;
 
-        _root.Area(version, self);
+        _root.Area(version, self, table);
         return recorder;
     }
 

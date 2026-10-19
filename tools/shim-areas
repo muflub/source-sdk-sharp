@@ -25,8 +25,9 @@ sourcesharp_gamesystem.cpp:
                                           with, and ShimAreas_Acquire; included at
                                           the end of sourcesharp_gamesystem.cpp,
                                           where the static bodies are visible
-  src/test/native/shim_areas_layout.inc  one length test per bound interface,
-                                          included by vtable_index_agreement_test
+  src/test/native/shim_areas_forwarders.inc  one count test per bound interface,
+                                          its forwarder table against the
+                                          compiler, included by fwd_shim_test
   src/abi/ShimAreas.g.cs                 the managed Slot_X/Has_X routing: class
                                           ShimSlots, held per side by EngineSide and
                                           never a partial of it (plan_abi_hotreload D4)
@@ -57,7 +58,7 @@ OUT_IFACE_CLIENT = 'src/shared/native/ishim_areas_client.h'   # hand-kept, plan_
 OUT_CLASSES = 'src/shared/native/shell_shim_areas.h'
 OUT_IMPL = 'src/shared/native/shell_shim_areas.inc'
 OUT_IMPL_CLIENT = 'src/shared/native/shell_shim_areas_client.inc'
-OUT_TEST = 'src/test/native/shim_areas_layout.inc'
+OUT_TEST = 'src/test/native/shim_areas_forwarders.inc'
 OUT_MANAGED = 'src/abi/ShimAreas.g.cs'
 SWITCHED = 'docs/engineapi-switched.txt'
 # plan_client_vtables CB: the shared bases whose EngineSide calls go through the
@@ -317,7 +318,7 @@ def generate():
     c += ['};', '',
           '// The internal factory\'s rows for every interface above: the area and the',
           '// compiler\'s slot count for it, or NULL and 0. Defined in shell_shim_areas.inc.',
-          'void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName, int32_t *pnEntries );',
+          'void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName );',
           '', '#else // CLIENT_DLL', '',
           '// plan_client_vtables CB, CC: the client implements each shared base, and its',
           '// client-only areas, forwarding to the body each row of the slot table names.', '']
@@ -340,7 +341,7 @@ def generate():
         c.append('\tCShim%s m_%s;' % (short(i), short(i)))
     c += ['};', '',
           '// The client factory\'s rows: each shared base by its own version string.',
-          'void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName, int32_t *pnEntries );',
+          'void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );',
           '', '#endif // CLIENT_DLL', '', '#endif // SHELL_SHIM_AREAS_H', '']
 
     # ---- the forwards ------------------------------------------------------------
@@ -355,16 +356,11 @@ def generate():
                 im.append(decl(ret, 'CShim%s::%s' % (short(i), s), params, ''))
                 im.append('\t{ return ::%s(%s); }' % (fill[s], ' %s ' % args if args else ''))
         im.append('')
-    im += ['void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName, int32_t *pnEntries )', '{',
-           '\tif ( pnEntries )', '\t\t*pnEntries = 0;', '', '\tif ( !pszName )', '\t\treturn NULL;', '']
+    im += ['void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )', '{',
+           '\tif ( !pszName )', '\t\treturn NULL;', '']
     for i in concrete:
-        last = slots[i][-1]
         im += ['\tif ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_%s_VERSION ) )' % short(i).upper(),
-               '\t{',
-               '\t\tif ( pnEntries )',
-               '\t\t\t*pnEntries = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, last),
-               '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)),
-               '\t}', '']
+               '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)), '']
     im += ['\treturn NULL;', '}', '']
 
     # ---- the client's forwards (plan_client_vtables CB) ----------------------
@@ -386,44 +382,37 @@ def generate():
             cim.append(decl(ret, 'CShim%s::%s' % (short(i), s), params, ''))
             cim.append('\t{ return ::%s(%s); }' % (fill[s], ' %s ' % args if args else ''))
         cim.append('')
-    cim += ['void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName, int32_t *pnEntries )', '{',
-            '\tif ( pnEntries )', '\t\t*pnEntries = 0;', '', '\tif ( !pszName )', '\t\treturn NULL;', '']
-    every_slots = dict(slots)
-    every_slots.update(client_slots)
+    cim += ['void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )', '{',
+            '\tif ( !pszName )', '\t\treturn NULL;', '']
     for i in client_bases + client_only:
         cim += ['\tif ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_%s_VERSION ) )' % short(i).upper(),
-                '\t{',
-                '\t\tif ( pnEntries )',
-                '\t\t\t*pnEntries = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, every_slots[i][-1]),
-                '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)),
-                '\t}', '']
+                '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)), '']
     cim += ['\treturn NULL;', '}', '']
 
-    # ---- the layout tests ---------------------------------------------------------
+    # ---- the forwarder tables' counts ----------------------------------------------
+    # Each area is called through its forwarder table (plan_forwarders_everywhere.md),
+    # which tools/engine-forwarders generates from the same header: its count is
+    # held to the compiler's for the interface, so a header walk that dropped or
+    # doubled a slot is caught where the table is built.
     t = ['// ' + GENERATED[3:], '//',
-         '// Included by vtable_index_agreement_test.cpp: the compiler\'s count for each',
-         '// generated shim interface, held to its generated layout.', '']
+         '// Included by fwd_shim_test.cpp: the compiler\'s count for each generated shim',
+         '// interface, held to the forwarder table the server\'s library serves for it.', '']
+    def table_test(name, i, last, n):
+        return ['TEST( FwdShimAreas, %s )' % name, '{',
+                '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, last),
+                '\tEXPECT_EQ( %d, compiler );' % n,
+                '\tconst SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_Shim%s" );' % short(i),
+                '\tASSERT_NE( nullptr, pTable );',
+                '\tEXPECT_EQ( compiler, pTable->nSlots );', '}', '']
     for i in concrete:
-        last = slots[i][-1]
         n = sum(len(slots[ci]) for ci in chain(i, base))
-        t += ['TEST( VtableLayoutLength, Shim%sIs%dSlots )' % (short(i), n), '{',
-              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, last),
-              '\tEXPECT_EQ( %d, compiler );' % n,
-              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Shim%sVtbl" ) );' % short(i), '}', '']
+        t += table_test('Shim%sIs%dSlots' % (short(i), n), i, slots[i][-1], n)
     for i in client_bases:
         n = len(slots[i])
-        t += ['TEST( VtableLayoutLength, Shim%sIs%dSlotsOnTheClient )' % (short(i), n), '{',
-              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, slots[i][-1]),
-              '\tEXPECT_EQ( %d, compiler );' % n,
-              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Shim%sVtbl" ) );' % short(i), '}', '']
+        t += table_test('Shim%sIs%dSlotsOnTheClient' % (short(i), n), i, slots[i][-1], n)
     for i in client_only:
         n = len(client_slots[i])
-        t += ['TEST( VtableLayoutLength, Shim%sIs%dSlots )' % (short(i), n), '{',
-              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, client_slots[i][-1]),
-              '\tEXPECT_EQ( %d, compiler );' % n,
-              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Shim%sVtbl" ) );' % short(i), '}', '']
-    t += ['static const char *const kShimAreasCovered[] = {'] + \
-         ['\t"Shim%sVtbl",' % short(i) for i in dict.fromkeys(concrete + client_bases + client_only)] + ['};', '']
+        t += table_test('Shim%sIs%dSlots' % (short(i), n), i, client_slots[i][-1], n)
 
     # ---- the managed side: routing helpers and the bound areas --------------
     types = {}
@@ -448,32 +437,61 @@ def generate():
     m = ['// ' + GENERATED[3:],
          '//',
          '// plan_engineapi_vtables Phase C / docs/todo.md router retirement. Two',
-         '// area classes, each with one typed call per slot it serves; the vtable',
-         '// call is inline. Choosing between the server and client area for a',
-         '// both-sides slot is EngineSide\'s job (the attach state lives there);',
-         '// there is no generated router class and no Slot_X/Has_X plumbing.',
+         '// area classes, each with one typed call per slot it serves; the call',
+         '// through the area\'s forwarder table (plan_forwarders_everywhere.md) is',
+         '// inline. Choosing between the server and client area for a both-sides',
+         '// slot is EngineSide\'s job (the attach state lives there); there is no',
+         '// generated router class and no Slot_X/Has_X plumbing.',
          '',
          '#nullable enable',
          '',
          'namespace SourceSharp.Abi;',
          '',
-         '/// <summary>One acquired shim area: its object and its vtable.</summary>',
-         'internal readonly unsafe struct ShimRef<TVtbl> where TVtbl : unmanaged',
+         '/// <summary>',
+         '/// One acquired shim area: its object and the forwarder table that calls',
+         '/// it (<c>SSFwd_Shim&lt;Area&gt;</c>). Nothing is read through the object.',
+         '/// </summary>',
+         'internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarderTable',
          '{',
          '    public readonly void* Self;',
-         '    public readonly TVtbl* Vt;',
+         '    public readonly TFwd* Vt;',
          '',
-         '    public ShimRef(void* self) { Self = self; Vt = *(TVtbl**)self; }',
+         '    public ShimRef(void* self, TFwd* table) { Self = self; Vt = table; }',
+         '',
+         '    /// <summary>',
+         '    /// The area by its version string and its table by the table\'s name,',
+         '    /// both from the shim root, the table held to the struct\'s count',
+         '    /// (<see cref="Forwarders.TryBind"/>); false with the reason.',
+         '    /// </summary>',
+         '    public static bool TryTake(ShimRoot root, string version, out ShimRef<TFwd> area, out string why)',
+         '    {',
+         '        area = default;',
+         '        void* self = root.Acquire(version);',
+         '        if (self == null)',
+         '        {',
+         '            why = $"the shim root does not serve {version}";',
+         '            return false;',
+         '        }',
+         '        var header = (ForwarderTableHeader*)root.Acquire(TFwd.TableName);',
+         '        if (!Forwarders.TryBind(header, out TFwd* table, out why))',
+         '        {',
+         '            why = $"{version}: {why}";',
+         '            return false;',
+         '        }',
+         '        area = new ShimRef<TFwd>(self, table);',
+         '        return true;',
+         '    }',
          '}',
          '',
          '/// <summary>',
          '/// Every generated area, acquired from the shim root by version string with',
-         '/// the <c>managed &lt;= native</c> span check the append-only shim areas use.',
+         '/// its forwarder table, which native must serve at no fewer slots than the',
+         '/// struct reads (the tables only append).',
          '/// </summary>',
          'internal sealed unsafe class ShimAreas',
          '{']
     for i in routed:
-        m.append('    public readonly ShimRef<Shim%sVtbl> %s;' % (short(i), field(i)))
+        m.append('    public readonly ShimRef<Shim%sFwd> %s;' % (short(i), field(i)))
     # docs/todo.md "Managed code calls the engine vtables directly": every
     # slot as a typed instance method on the area class that serves it, the
     # vtable call inline. The router (ShimSlots) is being retired; the typed
@@ -504,39 +522,20 @@ def generate():
         m.append(typed(ret, ptypes, s, i))
     m.append('')
     m += ['',
-          '    private ShimAreas(ShimRoot root)',
+          '    // Each area and its table, in turn; the first that is refused stops',
+          '    // the walk, leaving the rest unset and its reason in why.',
+          '    private ShimAreas(ShimRoot root, out string why)',
           '    {']
     for i in routed:
-        m.append('        %s = new(root.Acquire("%s", out _));' % (field(i), version(i)))
+        m.append('        if (!ShimRef<Shim%sFwd>.TryTake(root, "%s", out %s, out why)) return;'
+                 % (short(i), version(i), field(i)))
     m += ['    }',
           '',
           '    internal static bool TryAcquire(ShimRoot root, out ShimAreas? areas, out string why)',
           '    {',
-          '        areas = null;',
-          '        (string Version, int Needs)[] wanted =',
-          '        [']
-    for i in routed:
-        m.append('            ("%s", sizeof(Shim%sVtbl) / sizeof(void*)),' % (version(i), short(i)))
-    m += ['        ];',
-          '',
-          '        foreach (var (version, needs) in wanted)',
-          '        {',
-          '            void* self = root.Acquire(version, out int entries);',
-          '            if (self == null)',
-          '            {',
-          '                why = $"the shim root does not serve {version}";',
-          '                return false;',
-          '            }',
-          '            if (needs > entries)',
-          '            {',
-          '                why = $"{version} has {entries} slot(s) and its generated layout needs {needs}";',
-          '                return false;',
-          '            }',
-          '        }',
-          '',
-          '        areas = new ShimAreas(root);',
-          '        why = string.Empty;',
-          '        return true;',
+          '        var taken = new ShimAreas(root, out why);',
+          '        areas = why.Length == 0 ? taken : null;',
+          '        return areas is not null;',
           '    }',
           '',
           '    internal static int Count => %d;' % len(concrete),
@@ -550,7 +549,7 @@ def generate():
           '{']
     client_routed = client_bases + sorted(hand) + client_only
     for i in client_routed:
-        m.append('    public readonly ShimRef<Shim%sVtbl> %s;' % (short(i), field(i)))
+        m.append('    public readonly ShimRef<Shim%sFwd> %s;' % (short(i), field(i)))
     # The client's typed calls: its shared bases and its client-only areas.
     m.append('')
     m.append('    // Typed calls, one per slot this class serves.')
@@ -562,39 +561,18 @@ def generate():
         ptypes, ret, _sup = types[s]
         m.append(typed(ret, ptypes, s, i))
     m += ['',
-          '    private ClientShimAreas(ShimRoot root)',
+          '    private ClientShimAreas(ShimRoot root, out string why)',
           '    {']
     for i in client_routed:
-        m.append('        %s = new(root.Acquire("%s", out _));' % (field(i), version(i)))
+        m.append('        if (!ShimRef<Shim%sFwd>.TryTake(root, "%s", out %s, out why)) return;'
+                 % (short(i), version(i), field(i)))
     m += ['    }',
           '',
           '    internal static bool TryAcquire(ShimRoot root, out ClientShimAreas? areas, out string why)',
           '    {',
-          '        areas = null;',
-          '        (string Version, int Needs)[] wanted =',
-          '        [']
-    for i in client_routed:
-        m.append('            ("%s", sizeof(Shim%sVtbl) / sizeof(void*)),' % (version(i), short(i)))
-    m += ['        ];',
-          '',
-          '        foreach (var (version, needs) in wanted)',
-          '        {',
-          '            void* self = root.Acquire(version, out int entries);',
-          '            if (self == null)',
-          '            {',
-          '                why = $"the client\'s shim root does not serve {version}";',
-          '                return false;',
-          '            }',
-          '            if (needs > entries)',
-          '            {',
-          '                why = $"{version} has {entries} slot(s) and its generated layout needs {needs}";',
-          '                return false;',
-          '            }',
-          '        }',
-          '',
-          '        areas = new ClientShimAreas(root);',
-          '        why = string.Empty;',
-          '        return true;',
+          '        var taken = new ClientShimAreas(root, out why);',
+          '        areas = why.Length == 0 ? taken : null;',
+          '        return areas is not null;',
           '    }',
           '',
           '    internal static int Count => %d;' % len(client_routed),
@@ -672,6 +650,14 @@ def self_test():
             if keep and l.startswith('    public ') and (' %s(' % slot) in l:
                 body.append(l)
         return body[0] if len(body) == 1 else ''
+
+    managed = gen[OUT_MANAGED]
+    expect('every area is held over its forwarder struct and its table is acquired by name '
+           '(plan_forwarders_everywhere.md): no vtable struct, no vptr read',
+           'ShimRef<ShimEngineFwd> EngineBase;' in managed
+           and 'ShimRef<ShimEngineFwd>.TryTake(root, "SourceSharpEngine001", out EngineBase, out why)' in managed
+           and 'Forwarders.TryBind(header, out TFwd* table, out why)' in managed
+           and not re.search(r'Shim\w+Vtbl', managed) and '*(TVtbl**)' not in managed)
 
     emit = in_class('EntityEmitSound', 'ShimAreas')
     health = in_class('EntityGetHealth', 'ShimAreas')

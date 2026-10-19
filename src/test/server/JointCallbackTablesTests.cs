@@ -6,11 +6,12 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// vphysics' IPhysicsConstraintEvent and IMotionEvent as managed builds them
-/// (plan_physics_bones_native_zero 2.2): each a ONE-slot table in Valve's
-/// layout, built by the real registry and called through its block the way
-/// vphysics calls it. The live gate found the registry refusing a one-slot
-/// table ("at least its Release and Validate slots"), which no fact had
-/// reached because none built these tables.
+/// (plan_physics_bones_native_zero 2.2): each a table of one callback after
+/// its Release and Validate slots (plan_forwarders_everywhere.md phase 5),
+/// built by the real registry and called through its block the way
+/// libss_fwd's object calls it. The live gate once found the registry
+/// refusing a one-slot table, which no fact had reached because none built
+/// these tables.
 /// </summary>
 public unsafe class JointCallbackTablesTests
 {
@@ -27,7 +28,9 @@ public unsafe class JointCallbackTablesTests
         }
     }
 
-    private static void* Slot0(ManagedVtable table) => (void*)(*(nint**)table.Pointer)[0];
+    // A slot by its field in the managed table's layout.
+    private static void* Slot<TTable>(ManagedVtable table, string field)
+        => (void*)(*(nint**)table.Pointer)[(int)System.Runtime.InteropServices.Marshal.OffsetOf(typeof(TTable), field) / sizeof(nint)];
 
     [Fact]
     public void TheConstraintEventTableIsBuiltAndItsSlotReachesTheTable()
@@ -37,8 +40,8 @@ public unsafe class JointCallbackTablesTests
         nint heard = 0;
         var table = PhysicsConstraintEventBinding.Create(vtables, new PhysicsConstraintEventBinding(crossings, p => heard = p));
 
-        Assert.Equal(1, table.Entries);
-        ((delegate* unmanaged<void*, void*, void>)Slot0(table))(table.Pointer, (void*)0x4321);
+        Assert.Equal(3, table.Entries);   // Release, Validate, ConstraintBroken
+        ((delegate* unmanaged<void*, void*, void>)Slot<ManagedPhysicsConstraintEventTable>(table, "ConstraintBroken"))(table.Pointer, (void*)0x4321);
         Assert.Equal((nint)0x4321, heard);
         Assert.Equal(1, crossings.Read(CrossingOp.ServerPhysicsConstraintBroken));
     }
@@ -52,17 +55,17 @@ public unsafe class JointCallbackTablesTests
         var table = MotionEventBinding.Create(vtables, new MotionEventBinding(crossings, answers));
 
         Vector linear = default, angular = default;
-        int result = ((delegate* unmanaged<void*, void*, void*, float, void*, void*, int>)Slot0(table))(
+        int result = ((delegate* unmanaged<void*, void*, void*, float, void*, void*, int>)Slot<ManagedMotionEventTable>(table, "Simulate"))(
             table.Pointer, (void*)0x7001, (void*)0x2001, 0.015f, &linear, &angular);
 
-        Assert.Equal(1, table.Entries);
+        Assert.Equal(3, table.Entries);   // Release, Validate, Simulate
         Assert.True(result == 3 && answers.Asked == ((nint)0x7001, (nint)0x2001, 0.015f));
         Assert.True(linear.Y == 2f && angular.Z == 6f, "the answer is written through vphysics' references");
         Assert.Equal(1, crossings.Read(CrossingOp.ServerPhysicsMotionSimulate));
     }
 
     [Fact]
-    public void ANonValveTableOfOneSlotIsStillRefused()
+    public void ATableOfOneSlotIsRefused()
     {
         using var vtables = new ManagedVtables();
         nint* slots = stackalloc nint[1];

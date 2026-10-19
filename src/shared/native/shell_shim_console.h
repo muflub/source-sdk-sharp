@@ -49,6 +49,6 @@ CShimConsole &ShimConsole();
 #endif
 
 // The internal factory's row for SOURCESHARP_SHIM_CONSOLE_VERSION.
-void *ShimConsole_Acquire( int32_t *pnEntries );
+void *ShimConsole_Acquire();
 
 #endif // SHELL_SHIM_CONSOLE_H

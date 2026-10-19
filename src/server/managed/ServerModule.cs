@@ -2698,6 +2698,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _managedRoot = new ManagedRoot(_bindings
             ?? throw new InvalidOperationException("the managed root was asked for before Initialize"), vtables).Bind();
 
+        // The objects vphysics is handed as its callbacks are libss_fwd_server's
+        // (plan_forwarders_everywhere.md phase 5), each built in its block.
+        PhysicsCallbackObjects? callbackObjects = PhysicsCallbackObjects.Acquire(_engine, out string callbacksWhy);
+        if (callbackObjects is null)
+            Log.Warning($"[SourceSharp/Server] no vphysics callbacks: {callbacksWhy}\n");
+
         var objects = new VPhysicsObjects(_engine.VPhysics);
         _physicsObjectEvents = PhysicsObjectEventBinding.Create(vtables,
             new PhysicsObjectEventBinding(_engine.Crossings, objects.GameData, ev => _physicsRouter?.Post(ev)));
@@ -2738,7 +2744,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         if (_physicsMotion is not null)
         {
             _physicsMotionEvents = MotionEventBinding.Create(vtables, new MotionEventBinding(_engine.Crossings, _physicsMotion));
-            _physicsMotion.Handler = _physicsMotionEvents.Address;
+            _physicsMotion.Handler = callbackObjects?.MotionEvent(_physicsMotionEvents) ?? 0;
         }
 
         // physics_shared.cpp's server half (2.6): the solid key table, and the
@@ -2748,10 +2754,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         {
             var solidKeys = new SolidKeyHandlerBinding(_engine.Crossings,
                                                        System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi("DEFAULT"));
-            _solidKeys = SolidKeyHandlerBinding.Create(vtables, solidKeys);
+            _solidKeys = callbackObjects is null ? null : SolidKeyHandlerBinding.Create(vtables, solidKeys, callbackObjects);
             var entityPhysics = _services.Require<IEngineEntityPhysics>();
             IStaticPropPhysics? staticProps = StaticPropMgrServer.Acquire(_engine, out string worldWhy);
-            _physicsWorldVPhysics = staticProps is null
+            if (_solidKeys is null)
+                worldWhy = $"no solid key handler: {callbacksWhy}";
+            _physicsWorldVPhysics = staticProps is null || _solidKeys is null
                 ? null
                 : PhysicsWorldVPhysics.Acquire(_engine, entityPhysics.EnvironmentPointer, staticProps,
                                                solidKeys, out worldWhy);
@@ -2795,12 +2803,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             }
         }
 
-        if (_physicsCallbacks is not null)
+        if (_physicsCallbacks is not null && callbackObjects is not null)
         {
-            _physicsCallbacks.ObjectEvents = _physicsObjectEvents.Address;
-            _physicsCallbacks.CollisionEvents = _physicsCollisionEvents?.Address ?? 0;
-            _physicsCallbacks.CollisionSolver = _physicsCollisionSolver?.Address ?? 0;
-            _physicsCallbacks.ConstraintEvents = _physicsConstraintEvents?.Address ?? 0;
+            _physicsCallbacks.ObjectEvents = callbackObjects.ObjectEvent(_physicsObjectEvents);
+            _physicsCallbacks.CollisionEvents = _physicsCollisionEvents is { } collisionEvents ? callbackObjects.CollisionEvent(collisionEvents) : 0;
+            _physicsCallbacks.CollisionSolver = _physicsCollisionSolver is { } collisionSolver ? callbackObjects.CollisionSolver(collisionSolver) : 0;
+            _physicsCallbacks.ConstraintEvents = _physicsConstraintEvents is { } constraintEvents ? callbackObjects.ConstraintEvent(constraintEvents) : 0;
         }
 
         return _managedRoot.Address;
@@ -2834,7 +2842,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // vphysics' handlers never release their tables, so managed frees
         // them at the final unload (native has released the root by then);
         // a reload keeps both with the root.
-        _vtables?.ReleaseValveHeld(_managedRoot, _physicsObjectEvents, _physicsCollisionEvents, _physicsCollisionSolver,
+        _vtables?.ReleaseCallerHeld(_managedRoot, _physicsObjectEvents, _physicsCollisionEvents, _physicsCollisionSolver,
                                    _physicsConstraintEvents, _physicsMotionEvents, _solidKeys);
         _solidKeys = null;
         _physicsWorld = null;

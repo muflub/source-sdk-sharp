@@ -1,12 +1,14 @@
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// vphysics' <c>IPhysicsCollisionEvent</c>, in Valve's layout and written by
-/// managed (plan_physics_managed B2.2). Ten slots, called from inside the
+/// vphysics' <c>IPhysicsCollisionEvent</c>'s managed side (plan_physics_managed
+/// B2.2): libss_fwd builds the object vphysics calls
+/// (<see cref="PhysicsCallbackObjects"/>), and its overrides call this table,
+/// which managed writes. Ten slots, called from inside the
 /// step, all answered by the side's binding; on the server PostSimulationFrame's one native duty, draining
 /// the event ring, is an outbound call (plan_physics_bones_native_zero 2.1).
 /// </summary>
-[ManagedVtable(typeof(PhysicsCollisionEventVtbl))]
+[ManagedVtable(typeof(ManagedPhysicsCollisionEventTable))]
 public unsafe interface IPhysicsCollisionEventSink
 {
     void PreCollision(void* pEvent);

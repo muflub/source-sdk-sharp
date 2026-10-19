@@ -129,21 +129,11 @@
 // So it is spelled plainly, baselined deliberately, and said out loud here.
 //
 //-----------------------------------------------------------------------------
-// THE ENTRY COUNT COMES FROM THE COMPILER, NOT FROM COUNTING.
-//
-// `VTableHook::MemberOf( &IShimFrame::<the last member> ).slot + 1` reads the
-// slot out of a pointer-to-member-function, which under the Itanium ABI carries
-// it directly. So the number is whatever the compiler decided when it compiled
-// ishim_frame.h, and "count the virtual keywords" never happens. That matters
-// most where it is least visible -- this interface has no virtual destructor,
-// and one appearing would take the first TWO slots and move everything.
-//
-// Managed holds that number against sizeof(ShimFrameVtbl)/sizeof(void*) and
-// requires managed <= native. Why that relation and not equality is argued in
-// ishim_frame.h: appending to a C++ class moves nothing, so a rebuilt
-// server.so that gained shim methods still satisfies it and every existing
-// binding is still right, while a stale-newer managed assembly expecting more
-// than native has is refused by name.
+// NO ENTRY COUNT (plan_forwarders_everywhere.md). Managed calls IShimFrame
+// through the forwarder library's SSFwd_ShimFrame, generated from
+// ishim_frame.h, so its slots are the compiler's to number and the table's
+// header carries its own count, which managed holds against ShimFrameFwd
+// (managed <= native: appending to the class appends to the table).
 //
 //=============================================================================//
 
@@ -152,7 +142,6 @@
 #include "ishim_frame.h"
 #include "shell_server.h"
 #include "shell_standalone_player.h"
-#include "vtable_hook.h"
 
 
 // The parallel hierarchy's per-frame drive, declared where it is used rather
@@ -450,31 +439,14 @@ public:
 static CShimFrame g_ShimFrame;
 
 //-----------------------------------------------------------------------------
-// The internalFactory's row for this area: the pointer and the compiler's own
-// count for the table behind it.
-//
-// **THE NAME BELOW MUST BE THE LAST DECLARATION IN IShimFrame.** The
-// append-only rule is what makes naming the last one sufficient; a method added
-// after it and NOT named here reports a count one short, and managed then
-// refuses the bind -- correctly and loudly, once per frame, from inside
-// GameFrame.
-//
-// THAT IS NOT HYPOTHETICAL. The sub-ioqueue lane appended
-// DeliverToSdkEntities, left this line naming StandaloneFinish, and shipped a
-// game whose every server frame threw
-//
-//     native says "SourceSharpFrame001" has 18 vtable entries and
-//     ShimFrameVtbl declares 19
-//
-// -- with `make check` GREEN, both slot-count facts green, and the whole
-// managed frame dead. A live run is what found it. So it is now also held by a
-// test: VtableAcquireCount.ShimFrameAcquireNamesTheLastMember reads this file
-// and the committed layout and requires the two to name the same member.
+// The internalFactory's row for this area: the pointer alone. Managed calls it
+// through SSFwd_ShimFrame (plan_forwarders_everywhere.md phase 1), whose table
+// the forwarder library generates from ishim_frame.h with its own count, so a
+// method appended to IShimFrame needs no line here. (A count typed here once
+// named the wrong last member and killed every managed frame with the suite
+// green; the forwarder table cannot drift that way.)
 //-----------------------------------------------------------------------------
-void *ShimFrame_Acquire( int32_t *pnEntries )
+void *ShimFrame_Acquire()
 {
-	if ( pnEntries )
-		*pnEntries = VTableHook::MemberOf( &IShimFrame::DeliverToSdkEntities ).slot + 1;
-
 	return static_cast< IShimFrame * >( &g_ShimFrame );
 }

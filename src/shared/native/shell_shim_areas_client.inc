@@ -611,223 +611,100 @@ int32_t CShimConVarsClient::ConVarsClientWatch( const char * pName )
 int32_t CShimConVarsClient::ConVarsClientSetValue( const char * pName, float flValue )
 	{ return ::SourceSharp_ConVarsClientSetValue( pName, flValue ); }
 
-void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName, int32_t *pnEntries )
+void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )
 {
-	if ( pnEntries )
-		*pnEntries = 0;
-
 	if ( !pszName )
 		return NULL;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENGINE_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimEngine::SurfaceScrapeSound ).slot + 1;
 		return static_cast< IShimEngine * >( &areas.m_Engine );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EVENTS_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimEvents::EventGetString ).slot + 1;
 		return static_cast< IShimEvents * >( &areas.m_Events );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_STRINGTABLES_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimStringTables::StringTableGetNumStrings ).slot + 1;
 		return static_cast< IShimStringTables * >( &areas.m_StringTables );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_NETWORK_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimNetwork::WorldNetDeclare ).slot + 1;
 		return static_cast< IShimNetwork * >( &areas.m_Network );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MODELS_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimModels::StandaloneSetModelScale ).slot + 1;
 		return static_cast< IShimModels * >( &areas.m_Models );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MOVEMENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimMovement::RegisterMovementParams ).slot + 1;
 		return static_cast< IShimMovement * >( &areas.m_Movement );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_WORLD_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimWorld::SurfacePropGameMaterial ).slot + 1;
 		return static_cast< IShimWorld * >( &areas.m_World );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENTITIES_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimEntities::EntityIsValid ).slot + 1;
 		return static_cast< IShimEntities * >( &areas.m_Entities );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_COLLISION_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimCollision::RegisterCollisionRules ).slot + 1;
 		return static_cast< IShimCollision * >( &areas.m_Collision );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_WEAPONS_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimWeapons::RegisterWeaponType ).slot + 1;
 		return static_cast< IShimWeapons * >( &areas.m_Weapons );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EFFECTS_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimEffects::TempEntRegister ).slot + 1;
 		return static_cast< IShimEffects * >( &areas.m_Effects );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_HUDCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimHudClient::HudTextMessageGet ).slot + 1;
 		return static_cast< IShimHudClient * >( &areas.m_HudClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PREDICTIONCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimPredictionClient::MoveEndClientCommand ).slot + 1;
 		return static_cast< IShimPredictionClient * >( &areas.m_PredictionClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_TEMPENTPOOLCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimTempEntPoolClient::TempEntPoolWriteTransform ).slot + 1;
 		return static_cast< IShimTempEntPoolClient * >( &areas.m_TempEntPoolClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_TEMPENTBACKENDSCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimTempEntBackendsClient::EffectDispatchName ).slot + 1;
 		return static_cast< IShimTempEntBackendsClient * >( &areas.m_TempEntBackendsClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EFFECTSRENDERCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimEffectsRenderClient::BeamDrawMesh ).slot + 1;
 		return static_cast< IShimEffectsRenderClient * >( &areas.m_EffectsRenderClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_STANDALONECLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimStandaloneClient::StandaloneSetRagdoll ).slot + 1;
 		return static_cast< IShimStandaloneClient * >( &areas.m_StandaloneClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_VIEWCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimViewClient::ViewTargetInfo ).slot + 1;
 		return static_cast< IShimViewClient * >( &areas.m_ViewClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_USERMESSAGESCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimUserMessagesClient::ClientViewportShow ).slot + 1;
 		return static_cast< IShimUserMessagesClient * >( &areas.m_UserMessagesClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_NETCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimNetClient::ClientNetPacket ).slot + 1;
 		return static_cast< IShimNetClient * >( &areas.m_NetClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_DIAGNOSTICSCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimDiagnosticsClient::ClientRefusal ).slot + 1;
 		return static_cast< IShimDiagnosticsClient * >( &areas.m_DiagnosticsClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_UICLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimUiClient::UiDebugOverlayClearDead ).slot + 1;
 		return static_cast< IShimUiClient * >( &areas.m_UiClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PARTICLESCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimParticlesClient::ParticlesBrushPointContents ).slot + 1;
 		return static_cast< IShimParticlesClient * >( &areas.m_ParticlesClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_FXCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimFxClient::FxModelFrameCount ).slot + 1;
 		return static_cast< IShimFxClient * >( &areas.m_FxClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_SOUNDSCAPECLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimSoundscapeClient::SoundscapeTouchSoundFile ).slot + 1;
 		return static_cast< IShimSoundscapeClient * >( &areas.m_SoundscapeClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PRECIPITATIONCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimPrecipitationClient::PrecipitationScreenWidth ).slot + 1;
 		return static_cast< IShimPrecipitationClient * >( &areas.m_PrecipitationClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MATERIALPROXYCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimMaterialProxyClient::ProxyNotShipped ).slot + 1;
 		return static_cast< IShimMaterialProxyClient * >( &areas.m_MaterialProxyClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_INPUTCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimInputClient::InputMailbox ).slot + 1;
 		return static_cast< IShimInputClient * >( &areas.m_InputClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PHYSICSCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimPhysicsClient::PhysicsClientSplashEffect ).slot + 1;
 		return static_cast< IShimPhysicsClient * >( &areas.m_PhysicsClient );
-	}
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONVARSCLIENT_VERSION ) )
-	{
-		if ( pnEntries )
-			*pnEntries = VTableHook::MemberOf( &IShimConVarsClient::ConVarsClientSetValue ).slot + 1;
 		return static_cast< IShimConVarsClient * >( &areas.m_ConVarsClient );
-	}
 
 	return NULL;
 }

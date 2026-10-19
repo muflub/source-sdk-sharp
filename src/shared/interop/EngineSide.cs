@@ -508,7 +508,7 @@ internal sealed unsafe partial class EngineSide
         // them did not go anywhere -- shell_frame.cpp still reads
         // gpGlobals->tickcount and ->frametime -- and IShimFrame reaches exactly
         // those, so the comparison is against the same two loads it always was,
-        // through a vtable instead of through two fields.
+        // through its forwarders instead of through two fields.
         //
         // The whole point of this check is that the two answers come from two
         // ROUTES: the mirror reads the engine's struct at offsets this port
@@ -520,11 +520,10 @@ internal sealed unsafe partial class EngineSide
         // The client does not serve SourceSharpFrame001, so it takes the
         // no-slot arm and says so -- which is what that arm has always been
         // for.
-        if (Vtable.TryAcquireShim<ShimFrameVtbl>(
-                Interfaces, "SourceSharpFrame001", out void* frameSelf, out void** frameTable, out _))
+        if (Forwarders.TryAcquire(
+                Interfaces, SourceSharpFactoryType.Internal, "SourceSharpFrame001",
+                out void* frameSelf, out ShimFrameFwd* frame, out _))
         {
-            var frame = (ShimFrameVtbl*)frameTable;
-
             int shimTick = frame->TickCount(frameSelf);
             float shimFrameTime = frame->GetFrameTime(frameSelf);
 
@@ -5278,19 +5277,17 @@ internal sealed unsafe partial class EngineSide
     // signature cannot spell at all. See docs/vtable-binding.md and
     // sourcesharp/game/shared/shell_vtable_interfaces.cpp.
     //
-    // WHAT IS NOT HERE IS THE POINT. There is no forwarder per engine method:
-    // the plan these replaced wanted one extern "C" entry point and one ABI
-    // field for each of 307 compiled-set methods. Managed indexes the vtable
-    // instead, and five slots is what that costs.
+    // The engine methods themselves are called through the forwarder
+    // libraries' generated tables (plan_engine_forwarders.md), which are
+    // acquired by name through this same slot.
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// The interface pointer for a factory kind and a version string, how many
-    /// entries its vtable has — the one check the binding makes — and, on
+    /// The interface pointer for a factory kind and a version string, and, on
     /// failure, native's reason.
     ///
     /// <para>
-    /// Null, with <paramref name="entries"/> zero, for a string this side does
+    /// Null for a string this side does
     /// not serve. That is not an error: <c>IVEngineClient</c> exists only on the
     /// client and <c>IVEngineServer</c> only on the server.
     /// </para>
@@ -5313,15 +5310,12 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public unsafe void* AcquireInterface(
         SourceSharpFactoryType type, byte* interfaceVersion,
-        int* entries, byte* error, int errorBytes)
+        byte* error, int errorBytes)
     {
-        if (entries != null)
-            *entries = 0;
-
         // Each side's shim root answers (plan_engineapi_vtables C5 for the
         // server, plan_client_vtables CB for the client); there is no struct.
         if (Root is { } root && interfaceVersion != null)
-            return root.AcquireInterface((int)type, interfaceVersion, entries, error, errorBytes);
+            return root.AcquireInterface((int)type, interfaceVersion, error, errorBytes);
 
         SayNoBoundary(error, errorBytes);
         return null;

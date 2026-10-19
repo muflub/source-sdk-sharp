@@ -130,12 +130,13 @@ public interface ISurfaceSoundTable
 }
 
 /// <summary>
-/// vphysics' <c>IVPhysicsKeyHandler</c>, in Valve's layout and written by
-/// managed (plan_physics_bones_native_zero Phase 3, shared since 2.6): the keys
+/// vphysics' <c>IVPhysicsKeyHandler</c>'s managed side (plan_physics_bones_native_zero
+/// Phase 3, shared since 2.6): libss_fwd builds the object vphysics calls
+/// (<see cref="PhysicsCallbackObjects"/>), whose overrides call this table. The keys
 /// a .phy block holds that vphysics does not parse itself, handed over one at a
 /// time from inside <c>IVPhysicsKeyParser::ParseSolid</c> / <c>ParseCustom</c>.
 /// </summary>
-[ManagedVtable(typeof(VPhysicsKeyHandlerVtbl))]
+[ManagedVtable(typeof(ManagedVPhysicsKeyHandlerTable))]
 public unsafe interface IVPhysicsKeyHandlerSink
 {
     void ParseKeyValue(void* pData, byte* pKey, byte* pValue);

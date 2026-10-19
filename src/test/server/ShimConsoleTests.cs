@@ -6,10 +6,11 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// plan_engineapi_vtables step A4: <see cref="ShimConsole"/> is acquired from
-/// the root by name, refuses a root that does not serve it or serves fewer
-/// slots than the layout needs, and routes a call through slot 0 with the text
-/// intact. The root and the console are fakes built in unmanaged memory, in
-/// the native shape: an object whose first word is its vtable.
+/// the root by name, refuses a root that does not serve it or serves its
+/// forwarder table (plan_forwarders_everywhere.md) with fewer slots than the
+/// struct reads, and routes a call through slot 0 with the text intact. The
+/// root and the console are fakes built in unmanaged memory, in the native
+/// shape: an object, and a table of functions each handed the object.
 /// </summary>
 public unsafe class ShimConsoleTests : IDisposable
 {
@@ -19,9 +20,10 @@ public unsafe class ShimConsoleTests : IDisposable
     private static string? s_lastMsg;
     private static string? s_lastWarning;
 
-    // What the fake root answers for the console: its object and its count.
+    // What the fake root answers for the console: its object, and its
+    // forwarder table under the table's name.
     private static nint s_console;
-    private static int s_consoleEntries;
+    private static nint s_consoleTable;
 
     [Fact]
     public void MsgReachesSlotZeroWithTheTextIntact()
@@ -62,8 +64,8 @@ public unsafe class ShimConsoleTests : IDisposable
 
         Assert.False(ShimConsole.TryAcquire(root, out var bound, out string why));
         Assert.Null(bound);
-        Assert.Contains($"{ShimConsole.ExpectedEntries - 1} slot(s)", why);
-        Assert.Contains($"needs {ShimConsole.ExpectedEntries}", why);
+        Assert.Contains($"with {ShimConsole.ExpectedEntries - 1} forwarder(s)", why);
+        Assert.Contains($"reads {ShimConsole.ExpectedEntries}", why);
     }
 
     [Fact]
@@ -77,7 +79,7 @@ public unsafe class ShimConsoleTests : IDisposable
     }
 
     [Fact]
-    public void TheLayoutIsElevenSlots()
+    public void TheTableIsElevenSlots()
         // Ten, then RevertNamedConVar (sound cluster 17, lane c2-sims).
         => Assert.Equal(11, ShimConsole.ExpectedEntries);
 
@@ -90,23 +92,24 @@ public unsafe class ShimConsoleTests : IDisposable
 
     private ShimRoot Root(bool serveConsole, int entries)
     {
-        var consoleVtbl = Alloc(ShimConsole.ExpectedEntries);
-        consoleVtbl[0] = (nint)(delegate* unmanaged<void*, byte*, void>)&Msg;
-        consoleVtbl[1] = (nint)(delegate* unmanaged<void*, byte*, void>)&Warning;
+        var consoleSlots = Alloc(Math.Max(entries, ShimConsole.ExpectedEntries));
+        consoleSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void>)&Msg;
+        consoleSlots[1] = (nint)(delegate* unmanaged<void*, byte*, void>)&Warning;
+        var consoleTable = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        consoleTable->Slots = (void**)consoleSlots;
+        consoleTable->SlotCount = entries;
 
-        var console = Alloc(1);
-        console[0] = (nint)consoleVtbl;
-        s_console = serveConsole ? (nint)console : 0;
-        s_consoleEntries = entries;
+        s_console = serveConsole ? (nint)Alloc(1) : 0;
+        s_consoleTable = (nint)consoleTable;
 
-        var rootVtbl = Alloc(3);   // Acquire, AcquireInterface, Release
-        rootVtbl[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
-        rootVtbl[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
+        var rootSlots = Alloc(3);   // the root's forwarder table: Acquire, AcquireInterface, Release
+        rootSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void*>)&RootAcquire;
+        rootSlots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
+        var rootTable = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        rootTable->Slots = (void**)rootSlots;
+        rootTable->SlotCount = 3;
 
-        var root = Alloc(1);
-        root[0] = (nint)rootVtbl;
-
-        Assert.True(ShimRoot.TryBind(root, ShimRoot.ExpectedEntries, out var bound, out string why), why);
+        Assert.True(ShimRoot.TryBind(Alloc(1), rootTable, out var bound, out string why), why);
         return bound!;
     }
 
@@ -118,11 +121,12 @@ public unsafe class ShimConsoleTests : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquire(void* self, byte* name, void* pEntries)
+    private static void* RootAcquire(void* self, byte* name)
     {
-        bool console = Marshal.PtrToStringUTF8((nint)name) == ShimConsole.InterfaceVersion && s_console != 0;
-        *(int*)pEntries = console ? s_consoleEntries : 0;
-        return console ? (void*)s_console : null;
+        string n = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
+        if (n == ShimConsoleFwd.TableName)
+            return (void*)s_consoleTable;
+        return n == ShimConsole.InterfaceVersion && s_console != 0 ? (void*)s_console : null;
     }
 
     [UnmanagedCallersOnly]

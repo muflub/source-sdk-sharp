@@ -250,7 +250,6 @@ src/sourcesharp/managed/SourceSharp.Abi/UserMessage.cs	no	registry mirrors our o
 src/sourcesharp/managed/SourceSharp.Abi/Utf8Names.cs	no	UTF-8 name buffer utility, no algorithm
 src/sourcesharp/managed/SourceSharp.Abi/VariantValue.cs	yes	Atoi/Atof/FormatG/ScanColor/ScanVector reproduce stock's variant_t::Convert C-runtime parsing quirks exactly
 src/sourcesharp/managed/SourceSharp.Abi/Vtable.cs	no	vtable acquisition plumbing/convention, no algorithm
-src/sourcesharp/managed/SourceSharp.Abi/VtableLayouts.g.cs	no	generated vtable slot layout struct; interop layout only
 src/sourcesharp/managed/SourceSharp.Abi/WorldQuery.cs	no	enums/structs mirror engine trace/content constants; layout only, no filter algorithm implemented
 src/sourcesharp/managed/SourceSharp.Bootstrap/Entry.cs	no	native entry-point dispatch plumbing, no Valve logic
 src/sourcesharp/managed/SourceSharp.Bootstrap/GameLoadContext.cs	no	own collectible AssemblyLoadContext infra

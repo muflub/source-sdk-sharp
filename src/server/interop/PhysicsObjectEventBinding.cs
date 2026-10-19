@@ -4,12 +4,13 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server.Interop;
 
 /// <summary>
-/// vphysics' <c>IPhysicsObjectEvent</c>, in Valve's layout and written by
-/// managed (plan_physics_managed B0b, B2.1). The environment calls it from
+/// vphysics' <c>IPhysicsObjectEvent</c>'s managed side (plan_physics_managed B0b,
+/// B2.1): libss_fwd builds the object vphysics calls (PhysicsCallbackObjects),
+/// whose overrides call this table. The environment calls it from
 /// inside its own step, so each call only names the owner and queues the
 /// event; the router delivers it after the step, as the native ring did.
 /// </summary>
-[ManagedVtable(typeof(PhysicsObjectEventVtbl))]
+[ManagedVtable(typeof(ManagedPhysicsObjectEventTable))]
 public unsafe interface IPhysicsObjectEventSink
 {
     void ObjectWake(void* pObject);

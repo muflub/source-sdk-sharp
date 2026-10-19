@@ -52,14 +52,12 @@ public sealed unsafe class ForwardersTests
         // The factory seam: the header under ModelInfoFwd's name from the
         // internal factory, and the engine object under the server's model
         // info name from the app-system one.
-        public void* Acquire(SourceSharpFactoryType type, byte* version, int* entries, byte* error, int errorBytes)
+        public void* Acquire(SourceSharpFactoryType type, byte* version, byte* error, int errorBytes)
         {
             string name = Vtable.TextOf(version, 64) ?? string.Empty;
             bool table = ServesTable && type == SourceSharpFactoryType.Internal && name == ModelInfoFwd.TableName;
             bool engine = ServesObject && type == SourceSharpFactoryType.AppSystem
                           && name == EngineModelInfo.ServerInterfaceVersion;
-            if (entries != null)
-                *entries = table ? Header->SlotCount : engine ? 59 : 0;
             return table ? Header : engine ? (void*)EngineObject : null;
         }
 
@@ -138,7 +136,7 @@ public sealed unsafe class ForwardersTests
     public void AnUnservedTableRefusesWithTheFactorysReason()
     {
         var factory = new NativeInterfaceFactory(
-            (type, version, entries, error, errorBytes) => null);
+            (type, version, error, errorBytes) => null);
 
         Assert.False(Forwarders.TryAcquire(factory, out ModelInfoFwd* table, out string why));
         Assert.True(table == null);

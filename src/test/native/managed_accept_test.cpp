@@ -16,46 +16,57 @@
 namespace
 {
 
-// A stand-in for a managed-built root: Validate answers as the generated
-// managed thunk does (ManagedVtable.ValidateSlots) from the hashes it was
-// "built" with, and counts its calls so a test sees the stimulus arrive.
+// A stand-in for a managed-built root: an object whose first word is its
+// table (plan_forwarders_everywhere.md phase 4), as the block managed builds
+// is. Validate answers as the generated managed thunk does
+// (ManagedVtable.ValidateSlots) from the hashes it was "built" with, and
+// counts its calls so a test sees the stimulus arrive.
 class FakeRoot : public IManagedRoot
 {
 public:
-	explicit FakeRoot( const uint32_t *pHashes, int32_t nHashes ) : m_pHashes( pHashes ), m_nHashes( nHashes ) {}
-
-	void Release() override {}
-	void *Acquire( const char * ) override { return NULL; }
-
-	int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) override
-	{
-		++m_nCalls;
-		if ( !pSlotHashes || nSlots <= 0 )
-			return 0;
-		const int32_t nShared = nSlots < m_nHashes ? nSlots : m_nHashes;
-		for ( int32_t i = 0; i < nShared; ++i )
-		{
-			if ( pSlotHashes[ i ] != m_pHashes[ i ] )
-				return i;
-		}
-		return nSlots == m_nHashes ? -1 : nShared;
-	}
+	explicit FakeRoot( const uint32_t *pHashes, int32_t nHashes )
+		: IManagedRoot( &kTable ), m_pHashes( pHashes ), m_nHashes( nHashes ) {}
 
 	int m_nCalls = 0;
 
 private:
+	static FakeRoot *Of( void *self ) { return static_cast< FakeRoot * >( self ); }
+	static void Released( IManagedObject * ) {}
+	static void *Acquired( IManagedRoot *, const char * ) { return NULL; }
+
+	static int32_t Validated( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots )
+	{
+		FakeRoot *root = Of( self );
+		++root->m_nCalls;
+		if ( !pSlotHashes || nSlots <= 0 )
+			return 0;
+		const int32_t nShared = nSlots < root->m_nHashes ? nSlots : root->m_nHashes;
+		for ( int32_t i = 0; i < nShared; ++i )
+		{
+			if ( pSlotHashes[ i ] != root->m_pHashes[ i ] )
+				return i;
+		}
+		return nSlots == root->m_nHashes ? -1 : nShared;
+	}
+
+	static const SSManagedRootTable kTable;
+
 	const uint32_t *m_pHashes;
 	int32_t m_nHashes;
 };
 
+const SSManagedRootTable FakeRoot::kTable = { &Released, &Validated, &Acquired };
+
 } // namespace
 
-TEST( ManagedAccept, TheCompilerPutsReleaseThenValidateFirst )
+TEST( ManagedAccept, TheTablePutsReleaseThenValidateFirst )
 {
-	// The control for everything below: the fixed slots the accept relies on.
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IManagedRoot::Release ).slot );
-	EXPECT_EQ( 1, VTableHook::MemberOf( &IManagedRoot::Validate ).slot );
-	EXPECT_EQ( 2, VTableHook::MemberOf( &IManagedRoot::Acquire ).slot );
+	// The control for everything below: the fixed slots the accept relies on,
+	// in the table managed writes, whose order is the TSV's (no compiler
+	// chooses it: plan_forwarders_everywhere.md phase 4).
+	EXPECT_EQ( 0 * sizeof( void * ), offsetof( SSManagedRootTable, Release ) );
+	EXPECT_EQ( 1 * sizeof( void * ), offsetof( SSManagedRootTable, Validate ) );
+	EXPECT_EQ( 2 * sizeof( void * ), offsetof( SSManagedRootTable, Acquire ) );
 	EXPECT_EQ( 3, kIManagedRootSlotCount );
 }
 
@@ -125,27 +136,37 @@ namespace
 class ReleaseProbe : public IManagedRoot
 {
 public:
-	void Release() override
-	{
-		++m_nReleases;
-		m_bHolderWasNullAtRelease = m_ppHolder && *m_ppHolder == NULL;
-	}
-	int32_t Validate( const uint32_t *, int32_t ) override { return -1; }
-	void *Acquire( const char * ) override { return NULL; }
+	ReleaseProbe() : IManagedRoot( &kTable ) {}
 
 	IManagedRoot **m_ppHolder = NULL;
 	int m_nReleases = 0;
 	bool m_bHolderWasNullAtRelease = false;
+
+private:
+	static void Released( IManagedObject *self )
+	{
+		ReleaseProbe *probe = static_cast< ReleaseProbe * >( self );
+		++probe->m_nReleases;
+		probe->m_bHolderWasNullAtRelease = probe->m_ppHolder && *probe->m_ppHolder == NULL;
+	}
+	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+	static void *Acquired( IManagedRoot *, const char * ) { return NULL; }
+
+	static const SSManagedRootTable kTable;
 };
+
+const SSManagedRootTable ReleaseProbe::kTable = { &Released, &Validated, &Acquired };
 
 } // namespace
 
 TEST( ManagedAccept, EveryGeneratedInterfaceSharesTheBasesTwoSlots )
 {
 	static_assert( std::is_base_of< IManagedObject, IManagedRoot >::value, "the root derives from the base" );
-	EXPECT_EQ( 0, VTableHook::MemberOf( &IManagedObject::Release ).slot );
-	EXPECT_EQ( 1, VTableHook::MemberOf( &IManagedObject::Validate ).slot );
-	// The base is primary: one vtable pointer, at the object's start.
+	EXPECT_EQ( 0 * sizeof( void * ), offsetof( SSManagedObjectTable, Release ) );
+	EXPECT_EQ( 1 * sizeof( void * ), offsetof( SSManagedObjectTable, Validate ) );
+	// No virtual anywhere: the object is the table pointer and nothing else,
+	// the first word of the block managed builds.
+	static_assert( !std::is_polymorphic< IManagedRoot >::value, "a managed-built interface has no vtable" );
 	EXPECT_EQ( sizeof( void * ), sizeof( IManagedRoot ) );
 }
 
@@ -329,9 +350,10 @@ TEST( ManagedHolders, TheClientLoadsThroughV2WithItsShimRootAndNoEngineStruct )
 	// side hands it a ManagedApi either; the call is the side, the shim root
 	// and the managed root's out-parameter, and nothing else.
 	// plan_side_entries SE1: each side calls its own host export, so no side
-	// travels as an argument.
-	EXPECT_NE( std::string::npos, fn.find( "const int rc = SourceSharp_LoadMySide_Host( pRoot, nRootEntries, &pManagedRoot );" ) )
-		<< "the load no longer goes through the side's own export with exactly the shim root and the managed root";
+	// travels as an argument. plan_forwarders_everywhere.md phase 3: the shim
+	// root travels with its forwarder table, which replaced its slot count.
+	EXPECT_NE( std::string::npos, fn.find( "const int rc = SourceSharp_LoadMySide_Host( pRoot, pRootTable, &pManagedRoot );" ) )
+		<< "the load no longer goes through the side's own export with exactly the shim root, its table and the managed root";
 	EXPECT_EQ( std::string::npos, fn.find( "SourceSharpManagedApi" ) )
 		<< "the load hands LoadSideV2 a ManagedApi again";
 	EXPECT_NE( std::string::npos, fn.find( "if ( !ManagedRoot_Accept( pManagedRoot, szWhy, sizeof( szWhy ) ) )" ) )
@@ -359,4 +381,112 @@ TEST( ManagedHolders, TheClientsShimRootServesTheConsole )
 	ASSERT_NE( std::string::npos, open ) << "the control: the file has server-only blocks";
 	EXPECT_TRUE( close != std::string::npos && close > open )
 		<< "the console row is inside an #ifndef CLIENT_DLL block: the client's root no longer serves it";
+}
+
+//-----------------------------------------------------------------------------
+// plan_forwarders_everywhere.md phase 4: a managed-built interface has no
+// virtual. Each method is an inline forwarder that calls its own slot of the
+// table managed wrote, the object first and the arguments in order.
+//-----------------------------------------------------------------------------
+namespace
+{
+
+struct SoundEntCalls
+{
+	int nSlot = -1;
+	void *pSelf = nullptr;
+	int32_t nA = 0;
+	float flB = 0.0f;
+	const float *pXYZ = nullptr;
+	uint32_t hOwner = 0;
+	uint32_t hTarget = 0;
+};
+
+SoundEntCalls g_SoundEnt;
+
+void SoundEntInit( IManagedSoundEnt *self, int32_t nMaxClients, float flCurTime )
+{
+	g_SoundEnt.nSlot = 2;
+	g_SoundEnt.pSelf = self;
+	g_SoundEnt.nA = nMaxClients;
+	g_SoundEnt.flB = flCurTime;
+}
+
+void SoundEntShutdown( IManagedSoundEnt *self )
+{
+	g_SoundEnt.nSlot = 3;
+	g_SoundEnt.pSelf = self;
+}
+
+void SoundEntInsert( IManagedSoundEnt *self, int32_t nType, const float *pXYZ, int32_t, float flDuration,
+                     uint32_t hOwner, int32_t, uint32_t hTarget )
+{
+	g_SoundEnt.nSlot = 4;
+	g_SoundEnt.pSelf = self;
+	g_SoundEnt.nA = nType;
+	g_SoundEnt.pXYZ = pXYZ;
+	g_SoundEnt.flB = flDuration;
+	g_SoundEnt.hOwner = hOwner;
+	g_SoundEnt.hTarget = hTarget;
+}
+
+void SoundEntReset( IManagedSoundEnt *self, int32_t nIndex )
+{
+	g_SoundEnt.nSlot = 5;
+	g_SoundEnt.pSelf = self;
+	g_SoundEnt.nA = nIndex;
+}
+
+void SoundEntReleased( IManagedObject *self )
+{
+	g_SoundEnt.nSlot = 0;
+	g_SoundEnt.pSelf = self;
+}
+
+int32_t SoundEntValidated( IManagedObject *self, const uint32_t *, int32_t nSlots )
+{
+	g_SoundEnt.nSlot = 1;
+	g_SoundEnt.pSelf = self;
+	return nSlots;
+}
+
+const SSManagedSoundEntTable kSoundEntTable = {
+	&SoundEntReleased, &SoundEntValidated, &SoundEntInit, &SoundEntShutdown, &SoundEntInsert, &SoundEntReset,
+};
+
+} // namespace
+
+TEST( ManagedAccept, EachMethodCallsItsOwnSlotWithTheObjectAndItsArguments )
+{
+	IManagedSoundEnt area( &kSoundEntTable );
+	const float xyz[ 3 ] = { 1.0f, 2.0f, 3.0f };
+
+	area.ServerSoundEntInit( 24, 1.5f );
+	EXPECT_EQ( 2, g_SoundEnt.nSlot );
+	EXPECT_EQ( &area, g_SoundEnt.pSelf );
+	EXPECT_EQ( 24, g_SoundEnt.nA );
+	EXPECT_FLOAT_EQ( 1.5f, g_SoundEnt.flB );
+
+	area.ServerSoundEntShutdown();
+	EXPECT_EQ( 3, g_SoundEnt.nSlot );
+
+	area.ServerSoundEntInsert( 7, xyz, 100, 0.25f, 0x11u, 4, 0x22u );
+	EXPECT_EQ( 4, g_SoundEnt.nSlot );
+	EXPECT_EQ( 7, g_SoundEnt.nA );
+	EXPECT_EQ( xyz, g_SoundEnt.pXYZ );
+	EXPECT_FLOAT_EQ( 0.25f, g_SoundEnt.flB );
+	EXPECT_EQ( 0x11u, g_SoundEnt.hOwner );
+	EXPECT_EQ( 0x22u, g_SoundEnt.hTarget );
+
+	area.ServerSoundEntResetClientSound( 9 );
+	EXPECT_EQ( 5, g_SoundEnt.nSlot );
+	EXPECT_EQ( 9, g_SoundEnt.nA );
+
+	// And the base's two, through the base, on the same table.
+	IManagedObject *pObject = &area;
+	EXPECT_EQ( kIManagedSoundEntSlotCount, pObject->Validate( kIManagedSoundEntSlotHashes, kIManagedSoundEntSlotCount ) );
+	EXPECT_EQ( 1, g_SoundEnt.nSlot );
+	pObject->Release();
+	EXPECT_EQ( 0, g_SoundEnt.nSlot );
+	EXPECT_EQ( static_cast< void * >( &area ), g_SoundEnt.pSelf );
 }

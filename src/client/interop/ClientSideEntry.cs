@@ -18,10 +18,10 @@ namespace SourceSharp.Client.Interop;
 public static unsafe class ClientSideEntry
 {
     [UnmanagedCallersOnly]
-    public static int LoadClient(void* pShimRoot, int shimRootEntries, void** ppManagedRoot,
+    public static int LoadClient(void* pShimRoot, void* pShimRootTable, void** ppManagedRoot,
                            nint* pVtables, nint* pSession, byte* pFacts)
     {
-        return SideLoad.Load(Side.Client, CrossingOp.LoadClient, pShimRoot, shimRootEntries, ppManagedRoot, pVtables, pSession, pFacts);
+        return SideLoad.Load(Side.Client, CrossingOp.LoadClient, pShimRoot, pShimRootTable, ppManagedRoot, pVtables, pSession, pFacts);
     }
 
     [UnmanagedCallersOnly]

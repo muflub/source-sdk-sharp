@@ -19,7 +19,7 @@ public sealed unsafe class ShimProbeSideTests
 
         using var root = new FakeShimRoot();
         int word = 0;
-        root.Interface(EngineLevel.InterfaceVersion, &word);
+        root.Interface(EngineLevel.InterfaceVersion, &word).Forwarders<ShimLevelFwd>();
 
         served.Initialize();
         Assert.True(served.AttachShims(root.Bind(), out string why), why);
@@ -31,6 +31,49 @@ public sealed unsafe class ShimProbeSideTests
                     $"the engine whose root serves the level interface binds it: {answered}");
         Assert.True(refused.StartsWith("IShimLevel: REFUSED", StringComparison.Ordinal),
                     $"and the other engine, with no root, refuses rather than borrowing the first's: {refused}");
+    }
+
+    // The level probe's span is the forwarder table's (plan_forwarders_everywhere.md
+    // phase 6): what native serves under SSFwd_ShimLevel against what ShimLevelFwd reads.
+    private static string Level(Action<FakeShimRoot> serve)
+    {
+        var side = new EngineSide(Side.Server);
+        using var root = new FakeShimRoot();
+        int word = 0;
+        root.Interface(EngineLevel.InterfaceVersion, &word);
+        serve(root);
+
+        side.Initialize();
+        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        return ShimProbes.Level(new ModuleEngine(side));
+    }
+
+    [Fact]
+    public void TheLevelProbeReportsTheForwarderTablesSpanAgainstTheStruct()
+    {
+        int reads = Forwarders.SlotCount<ShimLevelFwd>();
+
+        Assert.Equal($"IShimLevel: bound, native serves {reads} forwarder(s) and ShimLevelFwd reads {reads}",
+                     Level(r => r.Forwarders<ShimLevelFwd>()));
+    }
+
+    [Fact]
+    public void TheLevelProbeSaysWhenNativeServesFewerForwardersThanTheStructReads()
+    {
+        int reads = Forwarders.SlotCount<ShimLevelFwd>();
+
+        Assert.Equal($"IShimLevel: bound, native serves {reads - 1} forwarder(s) and ShimLevelFwd reads {reads}"
+                     + " — WHICH IS MORE THAN NATIVE HAS",
+                     Level(r => r.Forwarders<ShimLevelFwd>(out _, reads - 1)));
+    }
+
+    [Fact]
+    public void TheLevelProbeSaysWhenTheObjectIsServedAndItsForwardersAreNot()
+    {
+        string answer = Level(_ => { });
+
+        Assert.StartsWith("IShimLevel: bound, but its forwarders are REFUSED — ", answer);
+        Assert.Contains(ShimLevelFwd.TableName, answer);
     }
 
     [Fact]

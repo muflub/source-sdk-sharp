@@ -99,7 +99,7 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
     /// hash. Its index is its field position on both ABIs: tools/vtable-layout
     /// emits no table MSVC orders differently.
     /// </summary>
-    private sealed record Slot(string Name, ImmutableArray<string> Parameters, string Returns, string Pointer, uint Hash, bool Valve);
+    private sealed record Slot(string Name, ImmutableArray<string> Parameters, string Returns, string Pointer, uint Hash);
 
     private sealed record Declaration(
         string? Namespace,
@@ -168,14 +168,8 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
                                 .First(a => a.AttributeClass?.ToDisplayString() == ImplementedByManaged);
         native = implemented.ConstructorArguments.FirstOrDefault().Value as string ?? contract.Name;
 
-        // VALVE'S LAYOUT (plan_physics_managed B0b): the caller's own slots, so
-        // there is no Release/Validate pair to require or to write; every field
-        // is a contract method.
-        bool valveLayout = implemented.NamedArguments
-                                      .Any(a => a.Key == "ValveLayout" && a.Value.Value is true);
-
-        // RESERVED WORDS: the C++ class's data members after its vptr, which
-        // the caller writes (CCallbackBase); the block keeps them free.
+        // RESERVED WORDS: words after word 0 that native builds in (the
+        // vphysics callbacks' objects, libss_fwd); the block keeps them free.
         reservedWords = implemented.NamedArguments
                                    .Where(a => a.Key == "ReservedWords" && a.Value.Value is int)
                                    .Select(a => (int)a.Value.Value!)
@@ -192,10 +186,7 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
         // write every pointer as void*), because native calls it
         // before it knows anything else about the object.
         var release = fields.ElementAtOrDefault(0);
-        if (valveLayout)
-        {
-        }
-        else if (release is null || release.Name != "Release"
+        if (release is null || release.Name != "Release"
             || ((IFunctionPointerTypeSymbol)release.Type).Signature.Parameters.Length != 1
             || !((IFunctionPointerTypeSymbol)release.Type).Signature.ReturnsVoid)
         {
@@ -206,10 +197,7 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
 
         var validate = fields.ElementAtOrDefault(1);
         var validateSignature = (validate?.Type as IFunctionPointerTypeSymbol)?.Signature;
-        if (valveLayout)
-        {
-        }
-        else if (validate is null || validate.Name != "Validate" || validateSignature is null
+        if (validate is null || validate.Name != "Validate" || validateSignature is null
             || validateSignature.ReturnType.SpecialType != SpecialType.System_Int32
             || validateSignature.Parameters.Length != 3
             || validateSignature.Parameters[1].Type is not IPointerTypeSymbol { PointedAtType.SpecialType: SpecialType.System_UInt32 or SpecialType.System_Void }
@@ -227,14 +215,14 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
         foreach (var group in methods.GroupBy(m => m.Name).Where(g => g.Count() > 1))
             diagnostics.Add(Diagnostic.Create(Overloaded, location, group.Key, contract.Name));
 
-        foreach (var fixedSlot in methods.Where(m => !valveLayout && m.Name is "Release" or "Validate"))
+        foreach (var fixedSlot in methods.Where(m => m.Name is "Release" or "Validate"))
             diagnostics.Add(Diagnostic.Create(ReleaseIsTheGenerators, location, contract.Name,
                 $"the contract declares {fixedSlot.Name}, which the generator writes: Release frees the " +
                 "handle and Validate answers from the layout's slot hashes, and a contract's own would " +
                 "run instead of that or beside it"));
 
         var slotNames = new HashSet<string>(fields.Select(f => f.Name));
-        foreach (var method in methods.Where(m => !slotNames.Contains(m.Name) && (valveLayout || m.Name is not ("Release" or "Validate"))))
+        foreach (var method in methods.Where(m => !slotNames.Contains(m.Name) && m.Name is not ("Release" or "Validate")))
             diagnostics.Add(Diagnostic.Create(MethodWithoutSlot, location, method.Name, contract.Name, layoutName));
 
         for (int i = 0; i < fields.Count; i++)
@@ -250,9 +238,9 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
             if (hash is null)
                 diagnostics.Add(Diagnostic.Create(NoSlotHash, location, field.Name, layoutName));
 
-            slots.Add(new Slot(field.Name, parameters, returns, pointer, hash ?? 0, valveLayout));
+            slots.Add(new Slot(field.Name, parameters, returns, pointer, hash ?? 0));
 
-            if (!valveLayout && field.Name is "Release" or "Validate")
+            if (field.Name is "Release" or "Validate")
                 continue;
 
             var method = methods.FirstOrDefault(m => m.Name == field.Name);
@@ -317,10 +305,7 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
         // Each thunk at its field's index: the same slot on both ABIs.
         for (int i = 0; i < d.Slots.Length; i++)
             s.AppendLine($"        slots[{i}] = (global::System.IntPtr)({d.Slots[i].Pointer})&{d.Slots[i].Name};");
-        // A Valve-layout table has no Release/Validate pair, and can be one
-        // slot long (IPhysicsConstraintEvent, IMotionEvent); the registry is told.
-        string valve = d.Slots.Any(x => x.Valve) ? ", valveLayout: true" : "";
-        s.AppendLine($"        return vtables.Create<{d.ContractFull}>(Native, target, new global::System.ReadOnlySpan<global::System.IntPtr>(slots, {d.Slots.Length}), SlotHashes, ReservedWords, instance{valve});");
+        s.AppendLine($"        return vtables.Create<{d.ContractFull}>(Native, target, new global::System.ReadOnlySpan<global::System.IntPtr>(slots, {d.Slots.Length}), SlotHashes, ReservedWords, instance);");
         s.AppendLine("    }");
 
         foreach (var slot in d.Slots)
@@ -336,9 +321,9 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
             s.AppendLine($"        {Registry}? owner = {Runtime}.Enter(self);   // L6's depth, on the block's own registry");
             s.AppendLine("        try");
             s.AppendLine("        {");
-            if (slot.Name == "Release" && !slot.Valve)
+            if (slot.Name == "Release")
                 s.AppendLine($"            {Runtime}.ReleaseBlock<{d.ContractFull}>(self);");
-            else if (slot.Name == "Validate" && !slot.Valve)
+            else if (slot.Name == "Validate")
                 s.AppendLine($"            return {Runtime}.ValidateSlots(SlotHashes, (uint*)a0, a1);");
             else
                 s.AppendLine($"            {(isVoid ? "" : "return ")}{Runtime}.Target<{d.ContractFull}>(self).{slot.Name}({names});");
@@ -346,7 +331,7 @@ public sealed class ManagedVtableGenerator : IIncrementalGenerator
             s.AppendLine("        catch (global::System.Exception e)");
             s.AppendLine("        {");
             s.AppendLine($"            {Runtime}.Fail(owner?.Log, \"{d.Contract}.{slot.Name}\", e);");
-            if (slot.Name == "Validate" && !slot.Valve)
+            if (slot.Name == "Validate")
                 s.AppendLine("            return 0;   // a fault is never a match: slot 0 differs");
             else if (!isVoid)
                 s.AppendLine("            return default;");

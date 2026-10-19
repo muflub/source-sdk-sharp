@@ -20,7 +20,7 @@ public unsafe class EngineSideRoutingTests : IDisposable
         var side = new EngineSide(Side.Server);
         side.Initialize();   // plan_client_vtables CC-last: there is no struct
 
-        _root.Live("SourceSharpDebugOverlay001", nameof(ShimDebugOverlayVtbl.OverlayCounts),
+        _root.Live("SourceSharpDebugOverlay001", nameof(ShimDebugOverlayFwd.OverlayCounts),
                    (nint)(delegate* unmanaged<void*, uint*, uint*, uint*, uint*, int*, void>)&Counts);
         Assert.True(side.AttachShims(_root.Bind(), out string why), why);
 

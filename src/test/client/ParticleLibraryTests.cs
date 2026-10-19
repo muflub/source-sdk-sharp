@@ -10,26 +10,28 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// plan_particles_so.md: managed binds libss_particles.so's ISSParticleLib
-/// through the client's internal factory (SSParticleLib001) with the layout
-/// tools/vtable-layout generates (ParticleLibVtbl). The facts: the layout's
-/// ends and the slots this binding reaches, the dispatch over a table this
-/// file builds, the refusal when nothing serves the name or serves too few
-/// slots, and the throttle read going through the library.
+/// through the client's internal factory (SSParticleLib001), called through
+/// its forwarder table (SSFwd_ParticleLib, ParticleLibFwd:
+/// plan_forwarders_everywhere.md). The facts: the table's ends and the slots
+/// this binding reaches, the dispatch over a table this file builds, the
+/// refusal when nothing serves the name or serves too few slots, and the
+/// throttle read going through the library.
 /// </summary>
 public unsafe class ParticleLibraryTests
 {
     private static int SlotOf(string field)
-        => (int)Marshal.OffsetOf(typeof(ParticleLibVtbl), field) / sizeof(void*);
+        => (int)Marshal.OffsetOf(typeof(ParticleLibFwd), field) / sizeof(void*);
 
     //-------------------------------------------------------------------------
-    // 1. THE LAYOUT. vtable_index_agreement_test holds the count against the
-    // compiler; these name the slots the binding reaches, so a reorder in the
-    // middle (which `managed <= native` cannot see) reddens here.
+    // 1. THE TABLE. tools/engine-forwarders lays it out in the header's order
+    // and only appends; these name the slots the binding reaches, so a
+    // reorder in the middle (which `managed <= native` cannot see) reddens
+    // here.
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheParticleLibLayoutSpansFortyFiveSlots()
-        => Assert.Equal(45, Vtable.SlotsIn<ParticleLibVtbl>());
+    public void TheParticleLibTableHasFortyFiveSlots()
+        => Assert.Equal(45, Forwarders.SlotCount<ParticleLibFwd>());
 
     [Fact]
     public void ConnectIsSlotZeroAndTheAnchorIsTheLast()
@@ -84,37 +86,46 @@ public unsafe class ParticleLibraryTests
         return (byte*)s_NamePin.AddrOfPinnedObject();
     }
 
+    /// <summary>
+    /// The library's object and its forwarder table, served by the internal
+    /// factory as the client serves them: the object by version, the table
+    /// by its name, the table's count <c>entries</c>.
+    /// </summary>
     private sealed class Served : IDisposable
     {
         public readonly void** Table;
-        public readonly void** Self;
-        public readonly int Entries;
+        public readonly void* Self;
+        public readonly ForwarderTableHeader* Header;
 
         public Served(int entries)
         {
-            Entries = entries;
-            Table = (void**)NativeMemory.AllocZeroed((nuint)Vtable.SlotsIn<ParticleLibVtbl>(), (nuint)sizeof(void*));
+            Table = (void**)NativeMemory.AllocZeroed((nuint)Forwarders.SlotCount<ParticleLibFwd>(), (nuint)sizeof(void*));
             Table[SlotOf("Mgr")] = (delegate* unmanaged<void*, void*>)&MgrAnswers;
             Table[SlotOf("MgrParticleThrottleScaling")] = (delegate* unmanaged<void*, void*, float>)&ThrottleRecords;
             Table[SlotOf("MgrGetParticleSystemCount")] = (delegate* unmanaged<void*, void*, int>)&CountAnswers;
             Table[SlotOf("MgrGetParticleSystemNameFromIndex")] = (delegate* unmanaged<void*, void*, int, byte*>)&NameRecords;
-            Self = (void**)NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
-            *Self = Table;
+            Self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
+            Header = (ForwarderTableHeader*)NativeMemory.AllocZeroed(1, (nuint)sizeof(ForwarderTableHeader));
+            Header->Slots = Table;
+            Header->SlotCount = entries;
         }
 
-        public void* Acquire(SourceSharpFactoryType type, byte* version, int* entries, byte* error, int errorBytes)
+        public void* Acquire(SourceSharpFactoryType type, byte* version, byte* error, int errorBytes)
         {
-            bool mine = type == SourceSharpFactoryType.Internal
-                        && Vtable.TextOf(version, 64) == ParticleLibrary.InterfaceVersion;
-            if (entries != null)
-                *entries = mine ? Entries : 0;
-            return mine ? Self : null;
+            if (type != SourceSharpFactoryType.Internal)
+                return null;
+
+            string name = Vtable.TextOf(version, 64) ?? string.Empty;
+            return name == ParticleLibrary.InterfaceVersion ? Self
+                 : name == ParticleLibFwd.TableName ? Header
+                 : null;
         }
 
         public void Dispose()
         {
             NativeMemory.Free(Table);
             NativeMemory.Free(Self);
+            NativeMemory.Free(Header);
         }
     }
 
@@ -164,8 +175,8 @@ public unsafe class ParticleLibraryTests
     [Fact]
     public void ALibraryWithFewerSlotsThanTheLayoutIsRefused()
     {
-        // The shim rule: managed <= native. A library that reports 44 entries
-        // cannot hold the 45 this layout reaches.
+        // The count rule: managed <= native. A table of 44 slots cannot hold
+        // the 45 this struct reaches.
         using var served = new Served(44);
         Assert.Throws<InterfaceAcquisitionException>(() => Over(served).ThrottleScaling());
     }
@@ -174,10 +185,8 @@ public unsafe class ParticleLibraryTests
     public void NothingServingTheNameThrowsRatherThanAnsweringOne()
     {
         var unserved = new ParticleLibrary(new NativeInterfaceFactory(
-            (type, version, entries, error, bytes) =>
+            (type, version, error, bytes) =>
             {
-                if (entries != null)
-                    *entries = 0;
                 return null;
             }));
         Assert.Throws<InterfaceAcquisitionException>(() => unserved.ThrottleScaling());

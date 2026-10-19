@@ -50,7 +50,7 @@
 // plan_side_entries SE1: one set per side (ServerEntry, ClientEntry), so no
 // side travels as an argument.
 typedef int32_t (CORECLR_DELEGATE_CALLTYPE *bootstrap_load_fn)(
-	void *pShimRoot, int32_t nShimRootEntries, void **ppManagedRoot );
+	void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot );
 typedef int32_t (CORECLR_DELEGATE_CALLTYPE *bootstrap_unload_fn)( void );
 typedef int32_t (CORECLR_DELEGATE_CALLTYPE *bootstrap_reload_check_fn)( char *pWhy, int32_t nWhy );
 
@@ -662,10 +662,10 @@ void SourceSharp_Release( void )
 // There is no struct (the server's since E-last, the client's since
 // plan_client_vtables CE-last): every call into managed code is a managed-built
 // area acquired through the managed root this hands back. The shim root's
-// slot count is checked on the managed side.
+// forwarder table's count is checked on the managed side.
 //-----------------------------------------------------------------------------
 static int LoadSide( const SourceSharpSideEntries &side,
-                     void *pShimRoot, int32_t nShimRootEntries, void **ppManagedRoot )
+                     void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot )
 {
 	if ( g_State.nRefCount <= 0 || !side.pfnLoad )
 	{
@@ -673,19 +673,19 @@ static int LoadSide( const SourceSharpSideEntries &side,
 		return SOURCESHARP_ERR_NOT_INITIALIZED;
 	}
 
-	if ( !pShimRoot || nShimRootEntries <= 0 )
+	if ( !pShimRoot || !pShimRootTable )
 	{
-		SetError( "SourceSharp_Load %s without a shim root (%p, %d)", side.pName, pShimRoot, nShimRootEntries );
+		SetError( "SourceSharp_Load %s without a shim root (%p, table %p)", side.pName, pShimRoot, pShimRootTable );
 		return SOURCESHARP_ERR_BOOTSTRAP;
 	}
 
-	SS_Log( "LoadSideV2(%s): calling managed bootstrap, root %p (%d slots)",
-		side.pName, pShimRoot, nShimRootEntries );
+	SS_Log( "LoadSideV2(%s): calling managed bootstrap, root %p, table %p",
+		side.pName, pShimRoot, pShimRootTable );
 
 	if ( ppManagedRoot )
 		*ppManagedRoot = NULL;
 
-	int rc = side.pfnLoad( pShimRoot, nShimRootEntries, ppManagedRoot );
+	int rc = side.pfnLoad( pShimRoot, pShimRootTable, ppManagedRoot );
 	if ( rc != 0 )
 	{
 		SetError( "managed %s load returned %d", side.pName, rc );
@@ -716,10 +716,10 @@ static void UnloadSide( const SourceSharpSideEntries &side )
 	side.pfnUnload();
 }
 
-int SourceSharp_LoadServer( void *pShimRoot, int32_t nShimRootEntries, void **ppManagedRoot )
-{ return LoadSide( g_State.Server, pShimRoot, nShimRootEntries, ppManagedRoot ); }
-int SourceSharp_LoadClient( void *pShimRoot, int32_t nShimRootEntries, void **ppManagedRoot )
-{ return LoadSide( g_State.Client, pShimRoot, nShimRootEntries, ppManagedRoot ); }
+int SourceSharp_LoadServer( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot )
+{ return LoadSide( g_State.Server, pShimRoot, pShimRootTable, ppManagedRoot ); }
+int SourceSharp_LoadClient( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot )
+{ return LoadSide( g_State.Client, pShimRoot, pShimRootTable, ppManagedRoot ); }
 
 int SourceSharp_ReloadCheckServer( char *pWhy, int32_t nWhy ) { return ReloadCheck( g_State.Server, pWhy, nWhy ); }
 int SourceSharp_ReloadCheckClient( char *pWhy, int32_t nWhy ) { return ReloadCheck( g_State.Client, pWhy, nWhy ); }

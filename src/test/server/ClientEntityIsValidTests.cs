@@ -77,7 +77,8 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         using var other = new FakeShimRoot();
         var gone = new EngineSide(Side.Server);
         gone.Initialize();
-        other.Area("SourceSharpEntitiesServer001", Area(Gone));
+        var (goneSelf, goneSlots) = Area(Gone);
+        other.Area("SourceSharpEntitiesServer001", (void*)goneSelf, (void*)goneSlots);
         Assert.True(gone.AttachShims(other.Bind(), out string why), why);
         Assert.False(gone.EntityIsValid(Saved), "and gone when its slot does");
     }
@@ -135,20 +136,24 @@ public unsafe class ClientEntityIsValidTests : IDisposable
     private static readonly string Gone = OperatingSystem.IsWindows() ? "_get_printf_count_output" : "sched_yield";
 
     /// <summary>Serves an entities area for <paramref name="version"/> whose EntityIsValid slot is <paramref name="answer"/>.</summary>
-    private void Serve(string version, string answer) => _root.Area(version, Area(answer));
-
-    private void* Area(string answer)
+    private void Serve(string version, string answer)
     {
-        Type vtbl = typeof(ShimEntitiesServerVtbl);
+        var (self, slots) = Area(answer);
+        _root.Area(version, (void*)self, (void*)slots);
+    }
+
+    /// <summary>An object, and a forwarder slot array whose EntityIsValid slot is <paramref name="answer"/>.</summary>
+    private (nint Self, nint Slots) Area(string answer)
+    {
+        Type vtbl = typeof(ShimEntitiesServerFwd);
         int words = Marshal.SizeOf(vtbl) / sizeof(nint);
         var table = (nint*)Alloc(words * sizeof(nint));
         var self = (nint*)Alloc(sizeof(nint));
 
-        int slot = (int)Marshal.OffsetOf(vtbl, nameof(ShimEntitiesServerVtbl.EntityIsValid)) / sizeof(nint);
+        int slot = (int)Marshal.OffsetOf(vtbl, nameof(ShimEntitiesServerFwd.EntityIsValid)) / sizeof(nint);
         nint libc = NativeLibrary.Load(Library);
         table[slot] = NativeLibrary.GetExport(libc, answer);
-        self[0] = (nint)table;
-        return self;
+        return ((nint)self, (nint)table);
     }
 
     private EngineSide Attached(Side side)

@@ -59,7 +59,8 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// <see cref="IEngineFrame"/> over the shim layer's own <c>IShimFrame</c>,
-/// called through its vtable.
+/// called through its forwarders (<c>SSFwd_ShimFrame</c>,
+/// plan_forwarders_everywhere.md): no slot of the object's vtable is read here.
 /// </summary>
 internal sealed unsafe class EngineFrame : IEngineFrame
 {
@@ -77,7 +78,7 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     private readonly EngineSide _side;
 
     private void* _self;
-    private ShimFrameVtbl* _vtbl;
+    private ShimFrameFwd* _vtbl;
 
     /// <summary>
     /// The one the container builds: over the side's own factory, which asks
@@ -115,7 +116,7 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     /// pointer-sized writes of identical values are indistinguishable from one.
     /// </para>
     /// </summary>
-    private ShimFrameVtbl* Vtbl
+    private ShimFrameFwd* Vtbl
     {
         get
         {
@@ -132,13 +133,14 @@ internal sealed unsafe class EngineFrame : IEngineFrame
         // so: `why` is already a whole sentence with the factory kind and the
         // version string in front of it, so composing it again printed the
         // context twice, once per frame. See InterfaceAcquisitionException.
-        if (!Vtable.TryAcquireShim<ShimFrameVtbl>(
-                _factory, InterfaceVersion, out void* self, out void** table, out string why))
+        if (!Forwarders.TryAcquire(
+                _factory, SourceSharpFactoryType.Internal, InterfaceVersion,
+                out void* self, out ShimFrameFwd* table, out string why))
             throw InterfaceAcquisitionException.FromReport(
                 SourceSharpFactoryType.Internal, InterfaceVersion, why);
 
         _self = self;
-        _vtbl = (ShimFrameVtbl*)table;
+        _vtbl = table;
     }
 
     /// <inheritdoc/>

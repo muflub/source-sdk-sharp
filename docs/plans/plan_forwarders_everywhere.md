@@ -1,0 +1,321 @@
+# plan_forwarders_everywhere.md: no vtable crosses between native and managed
+
+Status: approved for execution 2026-10-18 (see Decisions). Follows
+plan_engine_forwarders.md, whose phase 6 left `src/abi/VtableLayouts.g.cs`
+holding only our own tables.
+
+## 1. Why
+
+The user's ruling (Decisions, 2026-10-18): every native<->managed call goes
+through generated forwarders and never through a vtable. plan_engine_forwarders
+did that for the engine and vphysics. What still crosses as a vtable, at
+8b35a67 (counted from tools/vtable-layout's emitted rows):
+
+| Kind | Tables | Who builds the table | Who calls it |
+|---|---|---|---|
+| shim areas (`ishim_areas.h` 35, `ishim_areas_client.h` 19) | 54 | native (`CShim*`) | managed, through `ShimRef<TVtbl>` in `ShimAreas.g.cs` |
+| hand-written shims: root, console, frame, level | 4 | native | managed (`ShimRoot.cs`, `ShimConsole.cs`, `EngineFrame.cs`, `EngineLevel.cs`, `EngineSide.cs`) |
+| the particle library (`iparticlelib.h`) | 1 | libss_particles | managed (`ParticleLibrary.cs`) |
+| managed-built areas (`imanaged_areas.h` 18, `imanaged_areas_client.h` 26) | 44 | managed (`ManagedVtableGenerator`) | native, as C++ virtual calls |
+| managed root, two runtimes, Steam callback target | 4 | managed | native, as C++ virtual calls |
+| vphysics callbacks (`vphysics_interface.h` 5, `vcollide_parse.h` 1) | 6 | managed, in Valve's layout | vphysics, as C++ virtual calls |
+
+None of these is ABI-dependent any more (phase 6 refuses a table MSVC orders
+differently), but each is still a layout that two compilers, or a compiler and
+a C# struct, must agree on slot by slot, held by `vtable_index_agreement_test`,
+`[SlotHash]` and the count checks. A forwarder table is a plain array of
+function pointers whose order is a generated list, on both sides.
+
+## 2. The three shapes
+
+### 2a. Native builds, managed calls: forwarders (as plan_engine_forwarders)
+
+For each shim interface, tools/engine-forwarders writes one forwarder per slot,
+
+    static float SSFwd_ShimEngine_GetCurrentTime( IShimEngine *self )
+        { return self->GetCurrentTime(); }
+
+into the side's forwarder library (libss_fwd_server / libss_fwd_client), and
+the C# struct `ShimEngineFwd` beside the engine ones. The native classes stay
+as they are (`CShim*` over the `SourceSharp_*` bodies); only managed's way in
+changes. `self->GetCurrentTime()` is a virtual call compiled by the same
+compiler that compiled the class, so no layout crosses.
+
+- **Every slot is forwarded**, not only the ones managed calls: the shim
+  interfaces exist for managed, and their slots already only append
+  (tools/shim-areas' span check). A row says `every=True` instead of a method
+  list; the append-only refusal applies as for engine rows.
+- **Managed's call shape does not change.** `ShimRef<T>` holds `Self` and the
+  table; `ShimAreas.g.cs` (tools/shim-areas) keeps writing
+  `EngineBase.Vt->GetCurrentTime(EngineBase.Self)`, now over `ShimEngineFwd`.
+- **The table is acquired by name** through the root, as the engine tables are
+  (`SSFwd_<Table>` through `SourceSharp_InternalFactory`, which `SSFwd_Serve`
+  answers), with `Forwarders.TryBind`'s count check.
+- **The root is the exception that is handed over**: managed needs a table to
+  call anything, so `SourceSharp_LoadMySide` passes the root object and the
+  root's `SSForwarderTable *` to `LoadSideV2` in place of today's entry count.
+- **The particle library** is a native object served by libss_particles; its
+  forwarders go in libss_fwd_client over `iparticlelib.h`.
+
+### 2b. Managed builds, native calls: native forwarders over a managed table
+
+Managed keeps building the block it builds now (`ManagedVtable`: word 0 points
+at the table, the header follows), but native stops calling it as a C++
+object. tools/managed-areas writes, from `docs/managed-interfaces.tsv`, per
+interface:
+
+    struct SSManagedResourcesTable          // the table managed writes
+    {
+        void ( *Release )( IManagedResources *self );
+        int32_t ( *Validate )( IManagedResources *self, const uint32_t *, int32_t );
+        void ( *Precache )( IManagedResources *self, const char *a0 );
+    };
+
+    class IManagedResources : public IManagedObject   // no virtual anywhere
+    {
+    public:
+        void Precache( const char *a0 ) { return Table()->Precache( this, a0 ); }
+        ...
+    };
+
+`IManagedObject` holds the one data member, the table pointer managed wrote at
+word 0, and its `Release` / `Validate` read the first two fields every table
+starts with. Native call sites (`pArea->Precache( "x" )`) do not change, and
+the inline methods are the generated forwarders of this direction. The order
+is the TSV's, on both sides; `Validate` and the per-slot hashes stay as the
+check that native and managed were generated from the same rows. Managed's
+C# table struct is written by tools/managed-areas from the same TSV rather
+than parsed back out of a C++ header by tools/vtable-layout.
+
+Reload is unchanged: the block stays where native holds it and the rebuilt
+module rewrites its word 0 (plan_managed_vtable_reload.md L4).
+
+### 2c. Valve calls, managed implements: a native class over a managed table
+
+vphysics calls `IPhysicsCollisionEvent` and the rest through its own C++
+vtable, so something native must be that object. As the Steam callback is
+(plan_engine_forwarders 8c), libss_fwd_<side> builds a class per interface,
+deriving the Valve one, whose overrides call a managed-built table of shape
+2b: `SSPhysicsCollisionEvent::PreCollision( e ) { m_pTarget->PreCollision( e ); }`.
+Managed allocates the object (`SizeOf`, `Construct`, as for Steam) and hands
+vphysics the native pointer. The six become ordinary managed-built interfaces
+(`IManagedPhysicsCollisionEvent`, ...).
+
+## 3. What goes, at the end
+
+- `src/abi/VtableLayouts.g.cs`, `Vtable.cs`'s shim acquire, `ShimRef<TVtbl>`'s
+  vptr read, and tools/vtable-layout's emitter (its header walk stays as
+  tools/engine-forwarders' input for the engine rows).
+- `vtable_index_agreement_test`'s length arms and the generated
+  `shim_areas_layout.inc` / `managed_areas_layout.inc`; the forwarder
+  libraries' tests take over (each table's count and a call through it).
+- `VTableHook::MemberOf( ... ).slot + 1` counts handed to managed.
+- `[ImplementedByManaged(ValveLayout = true)]` and `ReservedWords`.
+- CLAUDE.md's porting rule "New managed->native surface is a bound interface
+  (`IShim<Area>` on the bound-vtable pattern, a `chain=` row in
+  tools/vtable-layout)" is rewritten to name forwarder rows.
+
+## 4. Phases
+
+Each phase builds, passes its tests and is committed before the next.
+
+1. **Spike: IShimFrame through forwarders.** tools/engine-forwarders learns a
+   native-implemented row with `every=True` over one of our headers; the
+   server library serves `SSFwd_ShimFrame`; `EngineFrame`, `EngineSide`'s
+   frame read and `ShimProbes` call through `ShimFrameFwd`. Facts: the table's
+   count and a call through it in the native fwd tests; the managed binding
+   over a fake table.
+2. **The generated shim areas** (54): tools/shim-areas switches `ShimRef` to the
+   forwarder structs; the rows are generated from the TSV's interfaces.
+3. **The other native-built tables**: console, level, the particle library,
+   and the root (the `LoadSideV2` change on both sides).
+4. **Managed-built tables** (48), shape 2b: tools/managed-areas writes the
+   tables and the non-virtual classes; the hand-declared ones (root, both
+   runtimes, Steam target) move to the TSV or are written the same way;
+   native fakes in tests build tables.
+5. **vphysics callbacks** (6), shape 2c.
+6. **Delete** what section 3 lists; CLAUDE.md's rule.
+
+## 5. Checks
+
+- The forwarder generator's append-only refusal covers shim rows as it does
+  engine rows; tools/managed-areas keeps the TSV's order and the hashes.
+- A managed bind refuses a table native serves with fewer slots than the
+  struct reads (`Forwarders.TryBind`), naming both counts.
+- No mutation proof is "the build still passes": each phase breaks its
+  subject (drop a slot, swap two rows) and shows the red.
+
+## 6. Costs
+
+A shim call gains one direct call and return (the forwarder, then the
+virtual). The engine forwarders' spike measured that shape at +0.5 to +1 ns a
+call (plan_engine_forwarders.md 8a, GetModelType, 50M calls x 5 rounds).
+Shim calls are per frame and per entity, so phase 1 re-measures a hot one
+(IShimFrame's TickCount) the same way, before and after, and records the
+numbers here.
+
+## 6a. Phase 1, as built (2026-10-18)
+
+- tools/engine-forwarders takes `every=True` rows: every slot of the
+  interface, in the header's order, under the same append-only refusal. The
+  ShimFrame row is `both`, because EngineFrame compiles into both sides; only
+  the server serves the object, so the client's acquire fails on the object's
+  name first, as before.
+- The forwarder libraries include `${SS_SRC}`, so the generated file names our
+  headers by their farm path (`sourcesharp/game/server/ishim_frame.h`).
+- EngineFrame, EngineSide's globals cross-check and ShimProbes.Frame call
+  through `ShimFrameFwd`; ShimFrameTests drive a forwarder table and the
+  count check; fwd_shim_test calls each slot of the built table on a recording
+  IShimFrame (a swapped pair of slots turns it red).
+- **The measurement** (scratch harness, clang -O2, the call through a
+  function pointer the optimiser cannot see through, 50M calls a round, 5
+  rounds, the 4-core Xeon @ 2.10 GHz): through the object's vtable slot
+  1.78 - 2.23 ns, through the forwarder 2.14 - 2.27 ns, so +0 to +0.45 ns a
+  call. The managed transition both share is not in either number.
+
+## 6b. Phase 2, as built (2026-10-18)
+
+- tools/engine-forwarders generates one every=True row per interface in
+  `ishim_areas.h`, `ishim_areas_client.h` and `ishim_console.h` (55 tables,
+  in tools/vtable-layout's order); a derived area's table is its whole chain,
+  the base's slots first. `src/abi` is a `both` root of the side audit, since
+  ShimAreas.g.cs is the Abi's; a comment naming EngineClient's struct there
+  was reworded, because the audit reads words, comments included.
+- tools/shim-areas writes `ShimRef<TFwd>` (the object and its table) and
+  `ShimRef<TFwd>.TryTake`, which acquires the area by version and its table
+  by name through the root and holds the count (`Forwarders.TryBind`). The
+  typed calls are unchanged: `EngineBase.Vt->GetCurrentTime(EngineBase.Self)`
+  over `ShimEngineFwd`.
+- FakeShimRoot serves each area as an object and a table under the table's
+  name; a fact whose slots read state from their object serves both with
+  `Area(version, self, slots)`.
+- Proofs: dropping the count check from TryTake turns
+  `AnAreaWithTooFewSlotsIsRefusedNamingBoth` red; swapping a base slot with
+  a derived one in SSFwd_ShimEventsServer turns fwd_shim_test red.
+
+## 6c. Phase 3, as built (2026-10-18)
+
+- Every=True rows for ShimLevel, ShimRoot and ParticleLib (client); the
+  console's came with phase 2. EngineLevel and ParticleLibrary acquire with
+  `Forwarders.TryAcquire`; ShimConsole holds a `ShimRef<ShimConsoleFwd>`.
+- **The root's table is handed over at load.** `ShimRoot_Get( &pTable )`
+  answers the root and `SSFwd_Serve( "SSFwd_ShimRoot" )`; the load passes
+  both, the table where the root's slot count was, through the host
+  (`SourceSharp_LoadServer/Client( pShimRoot, pShimRootTable, ppManagedRoot )`),
+  the bootstrap (`Entry.LoadSide`, `SideEntryPoints`, whose resolver checks
+  the new signature) and the side entries to `ShimRoot.TryBind( root, table )`,
+  which holds the table to `ShimRootFwd`'s count. BootConsole, which names
+  no Abi type, reads both tables' headers itself.
+- Proofs: without the count check, ShimRootTests' short-table fact is red;
+  fwd_shim_test calls each slot of SSFwd_ShimRoot on a recording IShimRoot.
+
+## 6d. Phase 4, as built (2026-10-18)
+
+- tools/managed-areas writes both sides of every managed-built table from
+  docs/managed-interfaces.tsv, in one pass. Native: per interface a C struct
+  (`SSManagedFooTable`, Release and Validate first, each handed the base), a
+  class with no virtual whose inline methods call it, the object first, and a
+  static_assert of the struct's size. IManagedObject holds the one data member,
+  the table pointer at word 0 of the block managed builds. C#: one struct per
+  table (`ManagedFooTable`, with `[SlotHash]`), in the assembly whose code
+  builds it (user, 2026-10-18: "can ManagedTables.g.cs be split by
+  server/client in their own interop modules?"): the root's in Shared.Interop
+  (SharedManagedTables.g.cs: its ManagedRoot builds it for both sides, and the
+  Abi holds plumbing only, as the residency census says), the server's runtime
+  and areas in Server.Interop
+  (ServerManagedTables.g.cs), the client's runtime, areas and Steam callback in
+  Client.Interop (ClientManagedTables.g.cs). Types and hashes come from
+  tools/vtable-layout's signature_of and slot_hash; all 48 tables kept their
+  fields' types and every hash, checked against the structs they replace.
+- IManagedSteamCallback joined the TSV; its header (src/fwd/native) is
+  generated now. tools/vtable-layout describes no managed-built table, and
+  managed_areas_layout.inc and the agreement test's managed arms went.
+- Native fakes in five test files build tables; managed_accept_test holds a
+  wrapper's dispatch (each method its own slot, the object and its arguments
+  in order: swapping two arguments in the generated forwarder turns it red).
+- The shim ratchet rose by the 1049 generated lines (docs/shim-ratchet.tsv).
+
+## 6e. Phase 5, as built (2026-10-19)
+
+- libss_fwd_<side> builds the six vphysics callbacks (src/fwd/native/
+  fwd_physics.cpp, a source of both libraries): one class per Valve interface
+  (IPhysicsObjectEvent, IPhysicsCollisionEvent, IPhysicsCollisionSolver,
+  IPhysicsConstraintEvent, IMotionEvent, IVPhysicsKeyHandler), each a vptr and
+  a pointer to its managed table, forwarding every virtual to it. The six
+  became managed-built interfaces in docs/managed-interfaces.tsv
+  (`IManagedPhysicsObjectEvent`, ...); tools/managed-areas writes their C
+  structs into a header of their own (imanaged_physics_callbacks.h), since no
+  area holds them, and their C# tables beside the code that builds each.
+- Where section 2c had managed allocate the object with SizeOf/Construct, the
+  object lives in the block itself: each callback table reserves two words
+  after word 0 (`ReservedWords = 2`, the header's
+  kManagedPhysicsCallbackWords), and `SSFwd_PhysicsCallbacks.Construct<Kind>`
+  builds the object there, over the block. vphysics holds a pointer into the
+  block, so the object survives a reload patch (which rewrites word 0's
+  table, not the reserved words) and is freed with the block: no second
+  allocation and no lifetime to pair. `PhysicsCallbackObjects` (Shared.Interop)
+  refuses a library whose SizeOf exceeds what the block reserves.
+- The libraries' pure-virtual handler (`__cxa_pure_virtual` / `_purecall`,
+  which a class with virtuals names and NO_RUNTIME leaves undefined) moved
+  from fwd_steam.cpp to fwd_physics.cpp, so both libraries carry it.
+- tools/vtable-layout lost its six valve-implemented-by-managed rows and
+  VtableLayouts.g.cs those structs (65 -> 59); vtable_index_agreement_test its
+  six length arms. fwd_physics_test drives each object through its Valve
+  interface as vphysics does; mutation: ObjectWake forwarded to ObjectSleep
+  turns TheObjectEventReachesTheManagedSideWithTheObject red.
+  PhysicsCallbackObjectsTests: the oversize refusal (red with the check
+  disabled), the build location, each kind, and the reload patch.
+  tools/managed-areas' self-test: five arms over the callbacks (red with the
+  motion controller filed in Shared.Interop, and with the reserved words
+  dropped).
+- The shim ratchet rose by 432 lines and one translation unit
+  (docs/shim-ratchet.tsv gives the sum by file); dead-conditionals allows
+  SS_FWD_SERVER_BUILD / SS_FWD_CLIENT_BUILD as side markers.
+
+## 6f. Phase 6, as built (2026-10-19)
+
+Six commits, 4a0feb7..43a2316 (84 files, +1,493 / -5,686):
+
+- **The last layout user.** ShimProbes.Level held native's vtable length for
+  IShimLevel against ShimLevelVtbl; it now reports SSFwd_ShimLevel's served
+  count against ShimLevelFwd's. Vtable.TryAcquireShim, the last read of a vptr
+  from managed, had no caller and went with Vtable.SlotsIn.
+- **Tests on the forwarder structs.** The facts that reflected over
+  Shim<X>Vtbl read Shim<X>Fwd: the same 58 structs, 608 fields and 47
+  [SuppressGCTransition] marks, compared field by field before the switch.
+- **No count crosses** (section 3's `MemberOf( ... ).slot + 1`). IShimRoot's
+  Acquire and AcquireInterface lose their count parameter (the root is
+  SourceSharpRoot003, its forwarder table regenerated with a deliberate
+  `--reorder`); the internal factory, the hand-written and generated acquires,
+  SSFwd_Serve and NativeInterfaceFactory take and return none.
+  shell_vtable_interfaces.cpp's twelve per-interface counts became
+  SourceSharpServes, the served set they also were, and the USE_SDL / NO_VOICE
+  guard that protects IVEngineClient's numbering moved to fwd_client.cpp, which
+  calls those slots now. The shim ratchet fell 145,905 -> 145,682.
+- **The layouts go.** VtableLayouts.g.cs (2,446 lines) and tools/vtable-layout's
+  emitter: the tool keeps the header walk tools/engine-forwarders and
+  tools/managed-areas load (2,782 -> 2,038 lines; a differential shows every
+  row, walk, signature and hash unchanged). PhysicsCollisionEventVtbl stays as a
+  plain walk, because ClientPhysicsCollisionEventBinding calls the client's own
+  handler through its forwarders (4a0feb7: dropping it in phase 5 broke
+  tools/engine-forwarders' self-test, which the checks leg caught).
+  shim_areas_layout.inc became shim_areas_forwarders.inc: each generated area's
+  SSFwd_ table count against the compiler's, in fwd_shim_test, with the root,
+  console, frame, level and particle library counts beside it.
+- **ValveLayout goes** from the attribute, ManagedVtableGenerator and the
+  registry; ReservedWords stays for the callback objects phase 5 builds in the
+  block.
+- CLAUDE.md's rule now reads "New managed->native surface is a forwarder row,
+  never a vtable".
+
+What remains of "vtable" in the tree is native-only: the engine's own classes,
+libss_fwd's objects deriving Valve interfaces, VTableHook's slot patches, and
+the native tests that ask the compiler for a slot.
+
+## 7. Decisions
+
+- 2026-10-18 (user, relayed by a peer session): every native<->managed call
+  goes through the generated forwarders and never through vtables. The user
+  acted on it in this session by asking for this plan.
+- 2026-10-18 (user): "Write as plan, commit and start executing" -- this plan
+  is committed and executed without the usual review pause.

@@ -54,14 +54,10 @@ ss_cpptest_engine_headers(managed_accept_test
     INCLUDES sourcesharp/game/shared sourcesharp/host
     SOURCES sourcesharp/test/managed_accept_test.cpp)
 
-# The compiler's own answer for the four IUniformRandomStream slots C# indexes
-# directly, held against the numbers written down in the C# ledger. Engine
-# headers, because the whole point is that the SDK's own declaration is what
-# decides -- but it links nothing: a pointer-to-member needs a declaration and
-# no definition, so vstdlib is not on the line below -- and neither is
-# vtable_hook.cpp, which no longer exists.
-# -I for the ABI header: ishim_console.h names SourceSharpConsoleEntry, which
-# sourcesharp.h declares (plan_engineapi_vtables A4).
+# The data structs managed reads and writes in place, held to their managed
+# views' offsets, and the fact that no acquire hands managed a vtable count.
+# Engine headers, because the SDK's own declarations decide the offsets; it
+# links nothing.
 ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
     INCLUDES sourcesharp/host sourcesharp/game/shared
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)
@@ -76,9 +72,10 @@ ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
 # subject is what the compiler does with the dispatch.
 ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
     DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
-    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_engine_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
 
 # plan_engine_forwarders.md section 6: the client library's Steam callback,
 # built in memory the test hands it and driven through CCallbackBase's
@@ -86,12 +83,40 @@ ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
 # payload, answers its size and reads what Steam writes into it. The client's
 # library (fwd_client.cpp, fwd_steam.cpp) is compiled in, as fwd_engine_test
 # compiles the server's, with what client.so's link of it defines.
+# fwd_client.cpp calls IVEngineClient's virtuals, whose numbering depends on
+# USE_SDL: the test compiles it with the define the library has (the
+# platform's, SS_COMMON_DEFS), or fwd_client.cpp's guard refuses it.
+set(_ss_fwd_client_sdl)
+if(NOT SS_PLATFORM STREQUAL windows)
+  set(_ss_fwd_client_sdl USE_SDL)
+endif()
 ss_cpptest_engine_headers(fwd_steam_test
-    DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT
-    INCLUDES sourcesharp/game/shared ${PROJECT_SOURCE_DIR}/src/fwd/native
+    DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT ${_ss_fwd_client_sdl}
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_steam_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
-            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp)
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
+
+# plan_forwarders_everywhere.md phase 1: the shim layer's own interfaces
+# through the same forwarder tables, each slot holding what reached a
+# recording IShimFrame. The server's library is compiled in, as above.
+# plan_forwarders_everywhere.md phase 5: the vphysics callbacks libss_fwd
+# builds in a managed block's reserved words, driven through their Valve
+# interfaces as vphysics drives them. The server's library is compiled in.
+ss_cpptest_engine_headers(fwd_physics_test
+    DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_physics_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
+
+ss_cpptest_engine_headers(fwd_shim_test
+    DEFINES SS_FWD_SERVER_BUILD SS_FWD_SERVES_SERVER
+    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_shim_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_server.cpp
+            ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_physics.cpp)
 
 # The CLOSED SET of acquisition failure reasons, walked rather than sampled --
 # plan_native_api.md Part 3b and Part 5c. The contract says four literals, all

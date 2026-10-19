@@ -102,11 +102,11 @@ public unsafe partial class ManagedVtableTests
         Assert.True(a.Released && b.Released && c.Released);
     }
 
-    // Regression (live gate 9884cec7, "still bound x2"): vphysics' two
-    // Valve-layout handlers have no Release slot, so nothing freed them and
-    // the final unload's safety net reported both as leaks.
+    // Regression (live gate 9884cec7, "still bound x2"): vphysics never
+    // releases its handlers, so nothing freed their blocks and the final
+    // unload's safety net reported both as leaks.
     [Fact]
-    public void ValveHeldBlocksAreFreedOnceNativeReleasesTheRoot()
+    public void CallerHeldBlocksAreFreedOnceNativeReleasesTheRoot()
     {
         using var vtables = new ManagedVtables();
         var root = new ManagedRoot(new ManagedBindings(), vtables).Bind();
@@ -114,20 +114,20 @@ public unsafe partial class ManagedVtableTests
         var collisionEvents = Stand(vtables, "PhysicsCollisionEvent");
         ReleaseThroughTheTable(root);
 
-        Assert.Equal(2, vtables.ReleaseValveHeld(root, objectEvents, collisionEvents));
+        Assert.Equal(2, vtables.ReleaseCallerHeld(root, objectEvents, collisionEvents));
 
         Assert.True(objectEvents.Released && collisionEvents.Released);
         Assert.Equal(0, vtables.FreeRemaining());
     }
 
     [Fact]
-    public void ValveHeldBlocksAreKeptWhileTheRootIsHeldAsOnAReload()
+    public void CallerHeldBlocksAreKeptWhileTheRootIsHeldAsOnAReload()
     {
         using var vtables = new ManagedVtables();
         var root = new ManagedRoot(new ManagedBindings(), vtables).Bind();
         var objectEvents = Stand(vtables, "PhysicsObjectEvent");
 
-        Assert.Equal(0, vtables.ReleaseValveHeld(root, objectEvents, null));
+        Assert.Equal(0, vtables.ReleaseCallerHeld(root, objectEvents, null));
 
         Assert.False(objectEvents.Released);
     }
@@ -331,7 +331,11 @@ public unsafe partial class ManagedVtableTests
     [Fact]
     public void TheTrapTableCoversEveryManagedBuiltLayout()
     {
-        var widest = typeof(ManagedRootVtbl).Assembly.GetTypes()
+        // The Abi's Valve layouts, the root's (Shared.Interop) and the server's
+        // (Server.Interop); the client's are held by ClientManagedTablesTests,
+        // in the project that sees them.
+        var widest = new[] { typeof(ManagedVtable).Assembly, typeof(ManagedRootTable).Assembly, typeof(ManagedRuntimeServerTable).Assembly }
+            .SelectMany(a => a.GetTypes())
             .Where(t => t.GetCustomAttributes(typeof(ImplementedByManagedAttribute), false).Length > 0)
             .Select(t => (t.Name, Slots: t.GetFields().Length))
             .ToList();
@@ -431,22 +435,22 @@ public unsafe partial class ManagedVtableTests
         var hashes = ManagedVtableHashFiles.Read(dir, ["SourceSharp.Server"]);
 
         // The root comes from SourceSharp.Shared, reached through the server's references.
-        Assert.Equal(LayoutHashes(typeof(ManagedRootVtbl)), hashes["IManagedRoot"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedRuntimeServerVtbl)), hashes["IManagedRuntimeServer"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedFrameVtbl)), hashes["IManagedFrame"]);
-        // vphysics' IPhysicsObjectEvent, Valve's layout written by managed
-        // (plan_physics_managed B2.1): its two slots' hashes ride along too.
-        Assert.Equal(LayoutHashes(typeof(PhysicsObjectEventVtbl)), hashes["IPhysicsObjectEvent"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsCollisionEventVtbl)), hashes["IPhysicsCollisionEvent"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsCollisionSolverVtbl)), hashes["IPhysicsCollisionSolver"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedBonesVtbl)), hashes["IManagedBones"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsConstraintEventVtbl)), hashes["IPhysicsConstraintEvent"]);
-        Assert.Equal(LayoutHashes(typeof(ManagedBonesVtbl)), hashes["IManagedBones"]);
-        Assert.Equal(LayoutHashes(typeof(PhysicsConstraintEventVtbl)), hashes["IPhysicsConstraintEvent"]);
-        Assert.Equal(LayoutHashes(typeof(MotionEventVtbl)), hashes["IMotionEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedRootTable)), hashes["IManagedRoot"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedRuntimeServerTable)), hashes["IManagedRuntimeServer"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedFrameTable)), hashes["IManagedFrame"]);
+        // vphysics' callbacks: managed writes a table of its own for each and
+        // libss_fwd builds the Valve object over it (plan_forwarders_everywhere.md
+        // phase 5), so their hashes ride along under the managed names.
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsObjectEventTable)), hashes["IManagedPhysicsObjectEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsCollisionEventTable)), hashes["IManagedPhysicsCollisionEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsCollisionSolverTable)), hashes["IManagedPhysicsCollisionSolver"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedBonesTable)), hashes["IManagedBones"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedPhysicsConstraintEventTable)), hashes["IManagedPhysicsConstraintEvent"]);
+        Assert.Equal(LayoutHashes(typeof(ManagedMotionEventTable)), hashes["IManagedMotionEvent"]);
         // The server's solid key table (stock's g_SolidSetup, 2.6): the
-        // contract now lives in shared interop and the server builds one.
-        Assert.Equal(LayoutHashes(typeof(VPhysicsKeyHandlerVtbl)), hashes["IVPhysicsKeyHandler"]);
+        // contract lives in shared interop and the server builds one.
+        Assert.Equal(LayoutHashes(typeof(ManagedVPhysicsKeyHandlerTable)), hashes["IManagedVPhysicsKeyHandler"]);
+        Assert.DoesNotContain("IPhysicsObjectEvent", hashes.Keys);   // no Valve layout is written by managed any more
         Assert.Equal(26, hashes.Count);   // 18 since plan_side_isolation P2: IManagedUserMessages; 19 with B2.1; 20 with B2.2; 21 with IManagedConsoleOutput (docs/todo.md's console capture); 22 with IPhysicsCollisionSolver (plan_physics_bones_native_zero 2.1); 23 with IManagedBones (physics_bones_native_zero 1.1); 24 with IPhysicsConstraintEvent (2.2); 25 with IMotionEvent (2.4); 26 with IVPhysicsKeyHandler (2.6)
     }
 

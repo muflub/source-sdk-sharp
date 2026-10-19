@@ -6,34 +6,30 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// A shim root in unmanaged memory serving every generated area with a zeroed
-/// vtable, except the slots a test fills with <see cref="Live"/>. The root
-/// object's second word holds a handle to this instance, so tests in parallel
-/// classes each answer from their own table.
+/// A shim root in unmanaged memory serving every generated area as an object
+/// and a zeroed forwarder table under the table's own name
+/// (plan_forwarders_everywhere.md), except the slots a test fills with
+/// <see cref="Live"/>. The root object's second word holds a handle to this
+/// instance, so tests in parallel classes each answer from their own table.
 /// </summary>
 internal sealed unsafe class FakeShimRoot : IDisposable
 {
     private readonly List<nint> _blocks = new();
     private readonly Dictionary<string, nint> _areas = new();
     private readonly Dictionary<string, nint> _interfaces = new();
-    private readonly Dictionary<string, (Type Vtbl, nint Table)> _tables = new();
+    private readonly Dictionary<string, (Type Fwd, nint Table)> _tables = new();
+    private readonly Dictionary<string, nint> _headers = new();
     private GCHandle _self;
 
     public FakeShimRoot()
     {
         foreach (var field in typeof(ShimAreas).GetFields(BindingFlags.Public | BindingFlags.Instance))
         {
-            Type vtbl = field.FieldType.GetGenericArguments()[0];
-            var table = Alloc(Marshal.SizeOf(vtbl) / sizeof(nint));
-            var obj = Alloc(1);
-            obj[0] = (nint)table;
-
             // IShimEngine is its field EngineBase (tools/shim-areas field()),
             // served as SourceSharpEngine001, on the server too since lane
             // c2-sims bound it for itself.
             string version = $"SourceSharp{(field.Name == "EngineBase" ? "Engine" : field.Name)}001";
-            _areas[version] = (nint)obj;
-            _tables[version] = (vtbl, (nint)table);
+            Serve(version, field.FieldType.GetGenericArguments()[0]);
         }
 
         // And the client's areas the server's do not already name, so the same
@@ -46,20 +42,34 @@ internal sealed unsafe class FakeShimRoot : IDisposable
             if (_areas.ContainsKey(version))
                 continue;
 
-            Type vtbl = field.FieldType.GetGenericArguments()[0];
-            var table = Alloc(Marshal.SizeOf(vtbl) / sizeof(nint));
-            var obj = Alloc(1);
-            obj[0] = (nint)table;
-            _areas[version] = (nint)obj;
-            _tables[version] = (vtbl, (nint)table);
+            Serve(version, field.FieldType.GetGenericArguments()[0]);
         }
+    }
+
+    /// <summary>
+    /// One area: an object nothing reads, under its version string, and its
+    /// forwarder table's header, under the table's name, as the game DLL's
+    /// internal factory serves both through the root's Acquire.
+    /// </summary>
+    private void Serve(string version, Type fwd)
+    {
+        int count = Marshal.SizeOf(fwd) / sizeof(nint);
+        var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        header->Slots = (void**)Alloc(count);
+        header->SlotCount = count;
+
+        string tableName = (string)fwd.GetProperty("TableName", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!;
+        _areas[version] = (nint)Alloc(1);
+        _areas[tableName] = (nint)header;
+        _headers[version] = (nint)header;
+        _tables[version] = (fwd, (nint)header->Slots);
     }
 
     /// <summary>Fills one slot of one area, by the area's version and the slot's name.</summary>
     public FakeShimRoot Live(string version, string slot, nint fn)
     {
-        var (vtbl, table) = _tables[version];
-        ((nint*)table)[(int)Marshal.OffsetOf(vtbl, slot) / sizeof(nint)] = fn;
+        var (fwd, table) = _tables[version];
+        ((nint*)table)[(int)Marshal.OffsetOf(fwd, slot) / sizeof(nint)] = fn;
         return this;
     }
 
@@ -85,17 +95,24 @@ internal sealed unsafe class FakeShimRoot : IDisposable
 
     /// <summary>The same, handing back the table for a fact to fill.</summary>
     public FakeShimRoot Forwarders<TFwd>(out TFwd* table) where TFwd : unmanaged, IForwarderTable
+        => Forwarders(out table, SourceSharp.Abi.Forwarders.SlotCount<TFwd>());
+
+    /// <summary>
+    /// The same, saying it holds <paramref name="served"/> slots: fewer than
+    /// <typeparamref name="TFwd"/> reads is an older library. The slot array
+    /// still spans the struct, so nothing reads past it.
+    /// </summary>
+    public FakeShimRoot Forwarders<TFwd>(out TFwd* table, int served) where TFwd : unmanaged, IForwarderTable
     {
         int count = SourceSharp.Abi.Forwarders.SlotCount<TFwd>();
         var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
-        header->Slots = (void**)Alloc(count);
-        header->SlotCount = count;
+        header->Slots = (void**)Alloc(Math.Max(count, served));
+        header->SlotCount = served;
         _interfaces[TFwd.TableName] = (nint)header;
         table = (TFwd*)header->Slots;
         return this;
     }
 
-    /// <summary>The root, bound the way LoadSideV2 binds the real one.</summary>
     /// <summary>Serves <paramref name="self"/> as the area <paramref name="version"/> through Acquire.</summary>
     public FakeShimRoot Area(string version, void* self)
     {
@@ -103,27 +120,57 @@ internal sealed unsafe class FakeShimRoot : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Serves <paramref name="self"/> as the generated area
+    /// <paramref name="version"/> and <paramref name="slots"/>, a slot array
+    /// of its forwarder struct's length, as that area's table: a fact whose
+    /// slots read state from the object they are handed.
+    /// </summary>
+    public FakeShimRoot Area(string version, void* self, void* slots)
+    {
+        _areas[version] = (nint)self;
+        ((ForwarderTableHeader*)_headers[version])->Slots = (void**)slots;
+        _tables[version] = (_tables[version].Fwd, (nint)slots);
+        return this;
+    }
+
+    /// <summary>The root, bound the way LoadSideV2 binds the real one.</summary>
     public ShimRoot Bind()
     {
-        void* root = Raw();
-        Assert.True(ShimRoot.TryBind(root, ShimRoot.ExpectedEntries, out var bound, out string why), why);
+        Assert.True(ShimRoot.TryBind(Raw(), RawTable(), out var bound, out string why), why);
         return bound!;
     }
 
-    /// <summary>The root as native hands it over, unbound.</summary>
+    /// <summary>
+    /// The root as native hands it over, unbound: an object whose second word
+    /// is this instance's handle (its first is unused, as nothing reads a
+    /// root's vtable).
+    /// </summary>
     public void* Raw()
     {
-        var rootVtbl = Alloc(3);   // Acquire, AcquireInterface, Release
-        rootVtbl[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
-        rootVtbl[1] = (nint)(delegate* unmanaged<void*, int, byte*, void*, byte*, int, void*>)&RootAcquireInterface;
-        rootVtbl[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
-
         if (!_self.IsAllocated)
             _self = GCHandle.Alloc(this);
         var root = Alloc(2);
-        root[0] = (nint)rootVtbl;
         root[1] = GCHandle.ToIntPtr(_self);
         return root;
+    }
+
+    /// <summary>
+    /// The root's forwarder table as native hands it over beside the root
+    /// (SSFwd_ShimRoot, an SSForwarderTable): Acquire, AcquireInterface,
+    /// Release, each handed the root object.
+    /// </summary>
+    public void* RawTable()
+    {
+        var slots = Alloc(3);
+        slots[0] = (nint)(delegate* unmanaged<void*, byte*, void*>)&RootAcquire;
+        slots[1] = (nint)(delegate* unmanaged<void*, int, byte*, byte*, int, void*>)&RootAcquireInterface;
+        slots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
+
+        var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        header->Slots = (void**)slots;
+        header->SlotCount = 3;
+        return header;
     }
 
     private nint* Alloc(int words)
@@ -134,35 +181,19 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquire(void* self, byte* name, void* pEntries)
+    private static void* RootAcquire(void* self, byte* name)
     {
         var owner = (FakeShimRoot)GCHandle.FromIntPtr(((nint*)self)[1]).Target!;
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        if (!owner._areas.TryGetValue(v, out nint area))
-        {
-            *(int*)pEntries = 0;
-            return null;
-        }
-
-        *(int*)pEntries = 1000;   // at least every slot the layout knows
-        return (void*)area;
+        return owner._areas.TryGetValue(v, out nint area) ? (void*)area : null;
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquireInterface(void* self, int type, byte* name, void* pEntries, byte* error, int errorBytes)
+    private static void* RootAcquireInterface(void* self, int type, byte* name, byte* error, int errorBytes)
     {
         var owner = (FakeShimRoot)GCHandle.FromIntPtr(((nint*)self)[1]).Target!;
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        if (!owner._interfaces.TryGetValue(v, out nint found))
-        {
-            if (pEntries != null)
-                *(int*)pEntries = 0;
-            return null;
-        }
-
-        if (pEntries != null)
-            *(int*)pEntries = 1000;   // at least every slot the layout knows
-        return (void*)found;
+        return owner._interfaces.TryGetValue(v, out nint found) ? (void*)found : null;
     }
 
     [UnmanagedCallersOnly]

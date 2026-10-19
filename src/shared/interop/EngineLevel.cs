@@ -33,7 +33,8 @@ namespace SourceSharp.Abi;
 
 /// <summary>
 /// <see cref="IEngineLevel"/> over the shim layer's own <c>IShimLevel</c>,
-/// called through its vtable.
+/// called through its forwarders (<c>SSFwd_ShimLevel</c>,
+/// plan_forwarders_everywhere.md).
 /// </summary>
 internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
 {
@@ -43,7 +44,7 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
     private readonly NativeInterfaceFactory _factory;
 
     private void* _self;
-    private ShimLevelVtbl* _vtbl;
+    private ShimLevelFwd* _vtbl;
 
     /// <summary>
     /// The one the container builds: over the real ABI slot, acquired through
@@ -59,7 +60,7 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
     /// </summary>
     internal EngineLevel(NativeInterfaceFactory factory) => _factory = factory;
 
-    private ShimLevelVtbl* Vtbl
+    private ShimLevelFwd* Vtbl
     {
         get
         {
@@ -72,13 +73,14 @@ internal sealed unsafe class EngineLevel : IEngineLevel, ILevelFiles
 
     private void Bind()
     {
-        if (!Vtable.TryAcquireShim<ShimLevelVtbl>(
-                _factory, InterfaceVersion, out void* self, out void** table, out string why))
+        if (!Forwarders.TryAcquire(
+                _factory, SourceSharpFactoryType.Internal, InterfaceVersion,
+                out void* self, out ShimLevelFwd* table, out string why))
             throw InterfaceAcquisitionException.FromReport(
                 SourceSharpFactoryType.Internal, InterfaceVersion, why);
 
         _self = self;
-        _vtbl = (ShimLevelVtbl*)table;
+        _vtbl = table;
     }
 
     /// <inheritdoc/>

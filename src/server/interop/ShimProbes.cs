@@ -12,7 +12,7 @@ namespace SourceSharp.Abi;
 //
 // docs/vtable-binding.md §1a is emphatic that TYPING IS NOT BINDING and that
 // the generated layout structs are `internal`. A probe that reached into
-// ShimFrameVtbl from SourceSharp.Server would need two things this port has
+// ShimFrameFwd from SourceSharp.Server would need two things this port has
 // deliberately withheld: that assembly compiled `/unsafe`, and
 // InternalsVisibleTo pointed at it -- which would hand game code the god-class
 // and every layout along with the one struct it wanted. The area facades are
@@ -27,7 +27,7 @@ namespace SourceSharp.Abi;
 // naming once here rather than rediscovering per area.
 //
 // IEngineFrame.TickCount reads the engine's own CGlobalVars when that pointer
-// is bound and only falls back to the vtable when it is not -- so on a live
+// is bound and only falls back to the shim when it is not -- so on a live
 // server, calling the facade never touches the binding at all and a probe
 // built on it would print a correct number with the slot completely unbound.
 // The probes below call the SLOT, and print an independent answer beside it.
@@ -73,7 +73,7 @@ public static unsafe class ShimProbes
         // whether the server's engine answers the version string at all.
         return engine.Api.Interfaces.TryCreate(
                    SourceSharpFactoryType.AppSystem, EngineClientInterfaceVersion,
-                   out _, out _, out string? why)
+                   out _, out string? why)
             ? "IVEngineClient: SERVED on the server, which serves no such interface"
             : $"IVEngineClient: REFUSED — {why}";
     }
@@ -104,12 +104,10 @@ public static unsafe class ShimProbes
     {
         ArgumentNullException.ThrowIfNull(engine);
 
-        if (!Vtable.TryAcquireShim<ShimFrameVtbl>(
-                engine.Api.Interfaces, EngineFrame.InterfaceVersion,
-                out void* self, out void** table, out string why))
+        if (!Forwarders.TryAcquire(
+                engine.Api.Interfaces, SourceSharpFactoryType.Internal, EngineFrame.InterfaceVersion,
+                out void* self, out ShimFrameFwd* vtbl, out string why))
             return $"IShimFrame: REFUSED — {why}";
-
-        var vtbl = (ShimFrameVtbl*)table;
 
         int throughTheShim = vtbl->TickCount(self);
         float frameTime = vtbl->GetFrameTime(self);
@@ -125,8 +123,8 @@ public static unsafe class ShimProbes
     }
 
     /// <summary>
-    /// <c>IShimLevel</c>: bound or refused, and the size of the table it
-    /// answered for.
+    /// <c>IShimLevel</c>: bound or refused, and the size of the forwarder
+    /// table native serves for it.
     ///
     /// <para>
     /// <b>THIS ONE DOES NOT CALL A METHOD, and that is deliberate.</b> Every
@@ -151,14 +149,24 @@ public static unsafe class ShimProbes
 
         if (!engine.Api.Interfaces.TryCreate(
                 SourceSharpFactoryType.Internal, EngineLevel.InterfaceVersion,
-                out nint _, out int entries, out string? error))
+                out nint _, out string? error))
             return $"IShimLevel: REFUSED — {error}";
 
-        int declared = Vtable.SlotsIn<ShimLevelVtbl>();
+        // The span is the forwarder table's (plan_forwarders_everywhere.md):
+        // managed calls the level through SSFwd_ShimLevel, never through the
+        // object's vtable, so the count that matters is how many forwarders
+        // the library serves against how many ShimLevelFwd reads.
+        if (!engine.Api.Interfaces.TryCreate(
+                SourceSharpFactoryType.Internal, ShimLevelFwd.TableName,
+                out nint answer, out string? tableError) || answer == 0)
+            return $"IShimLevel: bound, but its forwarders are REFUSED — {tableError ?? "no table"}";
 
-        return $"IShimLevel: bound, native says {entries} slot(s) and "
-             + $"ShimLevelVtbl declares {declared}"
-             + (declared <= entries ? "" : " — WHICH IS MORE THAN NATIVE HAS");
+        int served = ((ForwarderTableHeader*)answer)->SlotCount;
+        int reads = Forwarders.SlotCount<ShimLevelFwd>();
+
+        return $"IShimLevel: bound, native serves {served} forwarder(s) and "
+             + $"ShimLevelFwd reads {reads}"
+             + (reads <= served ? "" : " — WHICH IS MORE THAN NATIVE HAS");
     }
 
 }

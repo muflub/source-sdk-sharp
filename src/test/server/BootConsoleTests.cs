@@ -7,27 +7,29 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// The Bootstrap's raw console (plan_side_entries SE2) reaches the same slots
-/// the generated layouts name, without the Bootstrap naming them.
+/// the generated forwarder structs name (plan_forwarders_everywhere.md),
+/// without the Bootstrap naming them.
 /// </summary>
 public sealed unsafe class BootConsoleTests
 {
-    private static int Slot(Type vtbl, string field) => (int)Marshal.OffsetOf(vtbl, field) / sizeof(nint);
+    private static int Slot(Type fwd, string field) => (int)Marshal.OffsetOf(fwd, field) / sizeof(nint);
 
     [Fact]
-    public void ItsSlotsAreTheGeneratedLayouts()
+    public void ItsSlotsAreTheGeneratedForwarderStructs()
     {
-        Assert.Equal(BootConsole.RootAcquireSlot, Slot(typeof(ShimRootVtbl), nameof(ShimRootVtbl.Acquire)));
-        Assert.Equal(BootConsole.MsgSlot, Slot(typeof(ShimConsoleVtbl), nameof(ShimConsoleVtbl.Msg)));
-        Assert.Equal(BootConsole.WarningSlot, Slot(typeof(ShimConsoleVtbl), nameof(ShimConsoleVtbl.Warning)));
+        Assert.Equal(BootConsole.RootAcquireSlot, Slot(typeof(ShimRootFwd), nameof(ShimRootFwd.Acquire)));
+        Assert.Equal(BootConsole.MsgSlot, Slot(typeof(ShimConsoleFwd), nameof(ShimConsoleFwd.Msg)));
+        Assert.Equal(BootConsole.WarningSlot, Slot(typeof(ShimConsoleFwd), nameof(ShimConsoleFwd.Warning)));
     }
 
     [Fact]
-    public void ItAsksForTheShimConsolesInterface()
+    public void ItAsksForTheShimConsolesInterfaceAndTable()
     {
         Assert.Equal(ShimConsole.InterfaceVersion, BootConsole.InterfaceVersion);
+        Assert.Equal(BootConsole.ConsoleTable, ShimConsoleFwd.TableName);
     }
 
-    /// <summary>A console object: its vtable, then a handle to the lines it was given.</summary>
+    /// <summary>What a console object, whose second word is a handle to this, was given.</summary>
     private sealed class Lines
     {
         public readonly List<string> Written = new();
@@ -50,17 +52,16 @@ public sealed unsafe class BootConsoleTests
     {
         var lines = new Lines();
         GCHandle handle = GCHandle.Alloc(lines);
-        nint* vtbl = (nint*)NativeMemory.AllocZeroed((nuint)(sizeof(ShimConsoleVtbl)));
+        nint* slots = (nint*)NativeMemory.AllocZeroed((nuint)(sizeof(ShimConsoleFwd)));
         nint* console = (nint*)NativeMemory.AllocZeroed((nuint)(2 * sizeof(nint)));
         try
         {
-            vtbl[Slot(typeof(ShimConsoleVtbl), nameof(ShimConsoleVtbl.Msg))] = (nint)(delegate* unmanaged<void*, byte*, void>)&Msg;
-            vtbl[Slot(typeof(ShimConsoleVtbl), nameof(ShimConsoleVtbl.Warning))] = (nint)(delegate* unmanaged<void*, byte*, void>)&Warning;
-            console[0] = (nint)vtbl;
+            slots[Slot(typeof(ShimConsoleFwd), nameof(ShimConsoleFwd.Msg))] = (nint)(delegate* unmanaged<void*, byte*, void>)&Msg;
+            slots[Slot(typeof(ShimConsoleFwd), nameof(ShimConsoleFwd.Warning))] = (nint)(delegate* unmanaged<void*, byte*, void>)&Warning;
             console[1] = GCHandle.ToIntPtr(handle);
 
-            using var root = new FakeShimRoot().Area(ShimConsole.InterfaceVersion, console);
-            BootConsole boot = BootConsole.Acquire(root.Raw(), ShimRoot.ExpectedEntries);
+            using var root = new FakeShimRoot().Area(ShimConsole.InterfaceVersion, console, slots);
+            BootConsole boot = BootConsole.Acquire(root.Raw(), root.RawTable());
 
             Assert.True(boot.Bound);
             boot.Msg("[SourceSharp] one\n");
@@ -70,7 +71,7 @@ public sealed unsafe class BootConsoleTests
         finally
         {
             NativeMemory.Free(console);
-            NativeMemory.Free(vtbl);
+            NativeMemory.Free(slots);
             handle.Free();
         }
     }
@@ -78,9 +79,9 @@ public sealed unsafe class BootConsoleTests
     [Fact]
     public void WithoutARootItWritesToStderr()
     {
-        Assert.False(BootConsole.Acquire(null, ShimRoot.ExpectedEntries).Bound);
         using var root = new FakeShimRoot();
-        Assert.False(BootConsole.Acquire(root.Raw(), 0).Bound);
-        Assert.True(BootConsole.Acquire(root.Raw(), ShimRoot.ExpectedEntries).Bound);   // the control
+        Assert.False(BootConsole.Acquire(null, root.RawTable()).Bound);
+        Assert.False(BootConsole.Acquire(root.Raw(), null).Bound);
+        Assert.True(BootConsole.Acquire(root.Raw(), root.RawTable()).Bound);   // the control
     }
 }

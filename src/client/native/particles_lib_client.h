@@ -22,8 +22,8 @@ void ParticleLib_Disconnect();
 void ParticleLib_Counters( SSParticleLibCounters_t *pOut );
 
 // The internal factory's row for SS_PARTICLE_LIB_INTERFACE_VERSION: the
-// library's ISSParticleLib and its slot count (shell_internalfactory.cpp), so
-// managed binds the same object client.so's forwards call.
-void *ParticleLib_Acquire( int32_t *pnEntries );
+// library's ISSParticleLib (shell_internalfactory.cpp), so managed binds the
+// same object client.so's forwards call.
+void *ParticleLib_Acquire();
 
 #endif // PARTICLES_LIB_CLIENT_H

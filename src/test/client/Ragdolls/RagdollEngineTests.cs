@@ -16,6 +16,11 @@ public unsafe class RagdollEngineTests
 {
     private static void* Slot(ManagedVtable table, int slot) => (void*)(*(nint**)table.Pointer)[slot];
 
+    // The key handler's slots by name: its table leads with Release and Validate
+    // (plan_forwarders_everywhere.md phase 5), so its order is the struct's.
+    private static int KeySlot(string field)
+        => (int)System.Runtime.InteropServices.Marshal.OffsetOf(typeof(ManagedVPhysicsKeyHandlerTable), field) / sizeof(nint);
+
     private sealed class KeySink : IRagdollKeySink
     {
         public readonly List<(string, string)> Heard = [];
@@ -37,7 +42,7 @@ public unsafe class RagdollEngineTests
 
         fixed (byte* pk = k)
         fixed (byte* pv = v)
-            ((delegate* unmanaged<void*, void*, byte*, byte*, void>)Slot(table, 0))(table.Pointer, data, pk, pv);
+            ((delegate* unmanaged<void*, void*, byte*, byte*, void>)Slot(table, KeySlot("ParseKeyValue")))(table.Pointer, data, pk, pv);
     }
 
     [Fact]
@@ -51,10 +56,10 @@ public unsafe class RagdollEngineTests
         try
         {
             sink.SolidInFlight = true;
-            ((delegate* unmanaged<void*, void*, void>)Slot(table, 1))(table.Pointer, solid);
+            ((delegate* unmanaged<void*, void*, void>)Slot(table, KeySlot("SetDefaults")))(table.Pointer, solid);
             ObjectParams p = *(ObjectParams*)(solid + SolidLayout.Params);
 
-            Assert.Equal(2, table.Entries);
+            Assert.Equal(4, table.Entries);   // Release, Validate, ParseKeyValue, SetDefaults
             Assert.True(p.Mass == 1f && p.RotInertiaLimit == 0.05f && p.Name == 0x5150 && p.EnableCollisions == 1);
             Assert.Equal(1, crossings.Read(CrossingOp.ClientRagdollSolidDefaults));
         }
@@ -74,7 +79,7 @@ public unsafe class RagdollEngineTests
 
         try
         {
-            ((delegate* unmanaged<void*, void*, void>)Slot(table, 1))(table.Pointer, block);
+            ((delegate* unmanaged<void*, void*, void>)Slot(table, KeySlot("SetDefaults")))(table.Pointer, block);
 
             Assert.Equal(0f, ((ObjectParams*)(block + SolidLayout.Params))->Mass);
             Assert.Equal(1, crossings.Read(CrossingOp.ClientRagdollKeyDefaults));

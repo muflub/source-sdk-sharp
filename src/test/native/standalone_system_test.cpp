@@ -378,15 +378,16 @@ TEST( StandaloneSystem, ThePreEntityPairIsARuntimeSlotThatCannotBeLeftUnfilled )
 	// It was a ManagedApi slot that SOURCESHARP_SHELL_REQUIRED had to name, or a
 	// managed build that did not fill it would come up and silently stop
 	// dispatching the pre-entity stages. Since plan_engineapi_vtables E1 the
-	// pair is IManagedRuntimeServer's: a pure virtual the generated table must
-	// fill (ManagedVtableGenerator refuses a missing method), so nothing can
-	// leave it null. The required list itself is gone (E17b), and the class is
-	// generated into imanaged_runtime.h (plan_managed_vtable_reload.md L0c).
+	// pair is IManagedRuntimeServer's: a slot of the table managed writes
+	// (ManagedVtableGenerator refuses a missing method), so nothing can leave
+	// it null. The required list itself is gone (E17b), and the class and its
+	// table are generated into imanaged_runtime.h (plan_managed_vtable_reload.md
+	// L0c; plan_forwarders_everywhere.md phase 4: a C struct, no virtual).
 	const std::string decl = Read( "sourcesharp/game/shared/imanaged_runtime.h" );
 	ASSERT_FALSE( decl.empty() );
 
-	EXPECT_EQ( 1, CountOf( decl, "virtual void OnMapLoadPreEntity( const char *pszMapName ) = 0;" ) );
-	EXPECT_EQ( 1, CountOf( decl, "virtual void OnMapUnloadPreEntity() = 0;" ) );
+	EXPECT_EQ( 1, CountOf( decl, "void ( *OnMapLoadPreEntity )( IManagedRuntimeServer *self, const char *pszMapName );" ) );
+	EXPECT_EQ( 1, CountOf( decl, "void ( *OnMapUnloadPreEntity )( IManagedRuntimeServer *self );" ) );
 }
 
 TEST( StandaloneSystem, TheMapUnloadSlotIsARuntimeMethodNotAStructField )
@@ -405,7 +406,7 @@ TEST( StandaloneSystem, TheMapUnloadSlotIsARuntimeMethodNotAStructField )
 		<< "the control: the header's surviving function pointer is found by the same needle";
 
 	const std::string runtime = Read( "sourcesharp/game/shared/imanaged_runtime.h" );
-	EXPECT_EQ( 1, CountOf( runtime, "virtual void OnMapUnloadPreEntity() = 0;" ) );
+	EXPECT_EQ( 1, CountOf( runtime, "void ( *OnMapUnloadPreEntity )( IManagedRuntimeServer *self );" ) );
 }
 
 TEST( StandaloneSystem, TheDispatchIsNotAlsoWrittenIntoMapUnload )

@@ -25,6 +25,8 @@
 
 #include "steam/steam_api_common.h"
 #include "imanaged_steam_callback.h"
+#include "sourcesharp/game/client/particles_lib/include/ss_particles/iparticlelib.h"
+#include "sourcesharp/game/shared/vtable_hook.h"
 
 #include <stdint.h>
 
@@ -82,22 +84,33 @@ bool IsRegistered( CCallbackBase *pCallback ) { return Slot< bool ( * )( CCallba
 
 int CallbackId( CCallbackBase *pCallback ) { return Slot< int ( * )( CCallbackBase * ) >( kCallbackId )( pCallback ); }
 
-// The managed side: counts its runs and keeps the last payload.
+// The managed side: counts its runs and keeps the last payload. Managed builds
+// this object as a block whose first word is its table (plan_forwarders_
+// everywhere.md phase 4); here the table is three static functions, each
+// handed the object.
 class RecordingTarget final : public IManagedSteamCallback
 {
 public:
-	void Release() override { ++nReleases; }
-	int32_t Validate( const uint32_t *, int32_t ) override { return 0; }
-	void Run( void *pvParam ) override
-	{
-		++nRuns;
-		pLast = pvParam;
-	}
+	RecordingTarget() : IManagedSteamCallback( &kTable ) {}
 
 	int nRuns = 0;
 	int nReleases = 0;
 	void *pLast = nullptr;
+
+private:
+	static RecordingTarget *Of( void *self ) { return static_cast< RecordingTarget * >( self ); }
+	static void Released( IManagedObject *self ) { ++Of( self )->nReleases; }
+	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return 0; }
+	static void Ran( IManagedSteamCallback *self, void *pvParam )
+	{
+		++Of( self )->nRuns;
+		Of( self )->pLast = pvParam;
+	}
+
+	static const SSManagedSteamCallbackTable kTable;
 };
+
+const SSManagedSteamCallbackTable RecordingTarget::kTable = { &Released, &Validated, &Ran };
 
 // Memory as managed allocates it: SizeOf bytes, pointer-aligned. Generous, so
 // a SizeOf that answered too little shows as a mismatch, not a corruption.
@@ -242,21 +255,36 @@ TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 	// SS_FWD_SERVES_CLIENT is what linking ss_fwd_client defines, as client.so
 	// does: the serve helper then answers the Steam table as its own slot
 	// array and count.
-	int32_t nEntries = -1;
-	void *pServed = SSFwd_Serve( "SSFwd_SteamCallback", &nEntries );
+	void *pServed = SSFwd_Serve( "SSFwd_SteamCallback" );
 	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( (int32_t)kSteamCallbackSlots, nEntries );
+	EXPECT_EQ( (int32_t)kSteamCallbackSlots, static_cast< const SSForwarderTable * >( pServed )->nSlots );
 	EXPECT_EQ( SteamCallbackTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
 
 	// The client's library also holds the tables both sides call, and its own.
-	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo", nullptr ) );
-	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_PhysicsObject", nullptr ) );
-	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_EngineClient", nullptr ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo" ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_PhysicsObject" ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_EngineClient" ) );
 
 	// And none of the server's own: they are libss_fwd_server's alone.
 	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer" } )
 	{
 		EXPECT_EQ( nullptr, SSFwdClient_Table( pszName ) ) << pszName;
-		EXPECT_EQ( nullptr, SSFwd_Serve( pszName, nullptr ) ) << pszName;
+		EXPECT_EQ( nullptr, SSFwd_Serve( pszName ) ) << pszName;
 	}
+}
+
+TEST( FwdSteam, TheParticleLibraryTableIsFortyFiveSlotsAsTheCompilerCountsThem )
+{
+	// libss_particles.so's ISSParticleLib, which only the client calls, so its
+	// table is the client library's alone: Connect, Disconnect, Mgr, Counters,
+	// then the 41 particles.a members client.so forwards. No virtual
+	// destructor; read off the last member, so an append the table missed
+	// shows here. (Held to the old generated layout until
+	// plan_forwarders_everywhere.md phase 6.)
+	const int compiler = VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1;
+	EXPECT_EQ( 45, compiler );
+
+	const SSForwarderTable *pTable = SSFwdClient_Table( "SSFwd_ParticleLib" );
+	ASSERT_NE( nullptr, pTable );
+	EXPECT_EQ( compiler, pTable->nSlots );
 }

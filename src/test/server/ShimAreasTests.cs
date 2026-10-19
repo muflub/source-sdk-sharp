@@ -8,16 +8,17 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// plan_engineapi_vtables Phase C0: <see cref="ShimAreas"/> acquires every
 /// generated area from the shim root, and refuses a root that is missing one or
-/// serves one with fewer slots than its generated layout. The root is a fake
-/// in unmanaged memory answering version strings from a table this test fills.
+/// serves its forwarder table (plan_forwarders_everywhere.md) with fewer slots
+/// than the generated struct reads. The root is a fake in unmanaged memory
+/// answering version strings and table names from tables this test fills.
 /// </summary>
 public unsafe class ShimAreasTests : IDisposable
 {
     private readonly List<nint> _blocks = new();
 
-    // What the fake root serves: version -> slot count. -1 = not served.
-    private static readonly Dictionary<string, int> s_served = new();
-    private static nint s_area;
+    // What the fake root serves: an area's version -> its object, and its
+    // table's name -> the table's header. A name in neither is not served.
+    private static readonly Dictionary<string, nint> s_served = new();
 
     [Fact]
     public void EveryAreaServedBinds()
@@ -48,7 +49,8 @@ public unsafe class ShimAreasTests : IDisposable
         Assert.False(ShimAreas.TryAcquire(root, out var areas, out string why));
         Assert.Null(areas);
         Assert.Contains(victim, why);
-        Assert.Contains("needs", why);
+        Assert.Contains($"with {Needs(victim) - 1} forwarder(s)", why);
+        Assert.Contains($"reads {Needs(victim)}", why);
     }
 
     [Fact]
@@ -66,34 +68,46 @@ public unsafe class ShimAreasTests : IDisposable
     // (tools/shim-areas field()); every other field is its version's stem.
     private static string Stem(string field) => field == "EngineBase" ? "Engine" : field;
 
-    private static int Needs(string version)
+    private static Type Fwd(string version)
     {
         string stem = version["SourceSharp".Length..^"001".Length];
         var field = typeof(ShimAreas).GetField(stem == "Engine" ? "EngineBase" : stem)!;
-        var vtbl = field.FieldType.GetGenericArguments()[0];
-        return Marshal.SizeOf(vtbl) / sizeof(nint);
+        return field.FieldType.GetGenericArguments()[0];
     }
+
+    private static int Needs(string version) => Marshal.SizeOf(Fwd(version)) / sizeof(nint);
+
+    private static string TableName(string version)
+        => (string)Fwd(version).GetProperty("TableName", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!;
 
     // serve: whether a version is served; delta: added to its exact slot count.
     private ShimRoot Root(Func<string, bool> serve, Func<string, int> delta)
     {
         s_served.Clear();
-        foreach (string v in Versions())
-            s_served[v] = serve(v) ? Needs(v) + delta(v) : -1;
 
         // One shared, zeroed area object: nothing here is called through it.
-        var areaVtbl = Alloc(64);
         var area = Alloc(1);
-        area[0] = (nint)areaVtbl;
-        s_area = (nint)area;
 
-        var rootVtbl = Alloc(3);   // Acquire, AcquireInterface, Release
-        rootVtbl[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
-        rootVtbl[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
-        var root = Alloc(1);
-        root[0] = (nint)rootVtbl;
+        foreach (string v in Versions())
+        {
+            if (serve(v))
+                s_served[v] = (nint)area;
 
-        Assert.True(ShimRoot.TryBind(root, ShimRoot.ExpectedEntries, out var bound, out string why), why);
+            int count = Needs(v) + delta(v);
+            var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+            header->Slots = (void**)Alloc(Math.Max(count, 1));
+            header->SlotCount = count;
+            s_served[TableName(v)] = (nint)header;
+        }
+
+        var rootSlots = Alloc(3);   // the root's forwarder table: Acquire, AcquireInterface, Release
+        rootSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void*>)&RootAcquire;
+        rootSlots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
+        var rootTable = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
+        rootTable->Slots = (void**)rootSlots;
+        rootTable->SlotCount = 3;
+
+        Assert.True(ShimRoot.TryBind(Alloc(1), rootTable, out var bound, out string why), why);
         return bound!;
     }
 
@@ -105,12 +119,10 @@ public unsafe class ShimAreasTests : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquire(void* self, byte* name, void* pEntries)
+    private static void* RootAcquire(void* self, byte* name)
     {
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        int n = s_served.TryGetValue(v, out int c) ? c : -1;
-        *(int*)pEntries = n < 0 ? 0 : n;
-        return n < 0 ? null : (void*)s_area;
+        return s_served.TryGetValue(v, out nint answer) ? (void*)answer : null;
     }
 
     [UnmanagedCallersOnly]
