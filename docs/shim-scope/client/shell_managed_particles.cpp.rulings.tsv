@@ -29,7 +29,7 @@ static void ReapWatchedParticleSystems(	INSTRUMENT	drops the watch rows whose ef
 void ShellParticles_WatchOneShot(	INSTRUMENT	an impact's one-shot, watched for the route; its life stays the manager's
 static int CountParticles(	INSTRUMENT	the route's active-particle count, summed over the children
 int32_t SourceSharp_ParticleSystemsRead(	INSTRUMENT	the particles route's read: one watched system by index
-static CSmartPtr< CNewParticleEffect > CreateWatched(	BOUNDARY	the library's CNewParticleEffect::Create for an owned system, watched for the route; which system and for whom is the caller's
+static CSmartPtr< CShellNewParticleEffect > CreateWatched(	BOUNDARY	the new-style effect's Create (CShellNewParticleEffect) for an owned system, watched for the route; which system and for whom is the caller's
 void SourceSharp_ParticleSystemStop(	SLOT	IShimEffectsRenderClient::ParticleSystemStop, managed's call when its entity stops its system: finds the owner's row and hands it to ReleaseParticleSystemAt; whether to stop is the caller's
 [CShellParticleSystemQuery] virtual void GetLightingAtPoint(	SLOT	IParticleSystemQuery slot particles.a calls: managed's tint (ParticleSystemQuery.LightingAtPoint) set under stock's light mutex; unanswered leaves the library's tint and counts
 [CShellParticleSystemQuery] virtual void TraceLine(	SLOT	IParticleSystemQuery slot: managed decides whether to trace (ParticleSystemQuery.ShouldTrace); the trace runs with the library's own mask, ignore and group, or stock's miss is written

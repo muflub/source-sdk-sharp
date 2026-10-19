@@ -45,7 +45,9 @@
 #include "particles_ez.h"	// DrawParticleSingletons, defined below now that particles_ez.cpp has left
 #include "imanaged_areas_client.h"
 #include "sourcesharp.h"
-#include "particles_new.h"
+#include "shell_particle_mgr.h"	// the PMaterial table and the draw state (C7 particles phase 4)
+#include "managed_convar_ref.h"
+#include "shell_new_particles.h"	// C7 particles phase 3: the new-style effects' shell
 #include "particle_follow_mask.h"
 #include "shell_effect_registry.h"
 #include "shell_particle_systems.h"
@@ -72,10 +74,12 @@ using ss::BitBlockBits;
 using ss::BitBlockSetBits;
 using ss::kBitBlockHeaderBytes;
 
-// particlemgr.cpp's (C7 particles phase 4 moves them): DrawModel reads them.
-extern ConVar r_DrawParticles;
-extern ConVar cl_particle_show_bbox;
-extern ConVar cl_particle_show_bbox_cost;
+// Managed's declarations (C7 particles phase 4, ParticleConVars), read by
+// name: DrawModel reads them.
+static CManagedConVarRef r_DrawParticles( "r_drawparticles" );
+static CManagedConVarRef cl_particle_show_bbox( "cl_particle_show_bbox" );
+static CManagedConVarRef cl_particle_show_bbox_cost( "cl_particle_show_bbox_cost" );
+static CManagedConVarRef cl_particleeffect_aabb_buffer( "cl_particleeffect_aabb_buffer" );
 
 namespace
 {
@@ -204,7 +208,7 @@ void RenderAnglesQuad( ParticleDraw *pDraw, const SourceSharpParticleQuad_t &q, 
 //-----------------------------------------------------------------------------
 int32_t ParticlesViewKey()
 {
-	const VMatrix &mv = ParticleMgr()->GetModelView();
+	const VMatrix &mv = ShellParticleDraw_ModelView();
 	const unsigned char *p = (const unsigned char *)&mv;
 	uint32_t h = 2166136261u;
 	for ( size_t i = 0; i < sizeof( VMatrix ); i++ )
@@ -315,7 +319,7 @@ public:
 	// leaf system (CParticleMgr::AddEffect's CreateRenderableHandle).
 	bool Start( const char *pszMaterial, float flCullRadius )
 	{
-		m_hMaterial = ParticleMgr()->GetPMaterial( pszMaterial );
+		m_hMaterial = ShellParticleMaterial_Find( pszMaterial );
 		if ( !m_hMaterial )
 			return false;
 		m_flCullRadius = flCullRadius;
@@ -348,7 +352,7 @@ public:
 	}
 
 	// The effect's material, for a managed question about one of its vars.
-	IMaterial *Material() { return ParticleMgr()->PMaterialToIMaterial( m_hMaterial ); }
+	IMaterial *Material() { return ShellParticleMaterial_Material( m_hMaterial ); }
 
 	uint32_t Owner() const { return m_hOwner; }
 	int32_t Channel() const { return m_nChannel; }
@@ -428,7 +432,7 @@ private:
 	{
 		if ( !m_hMaterial )
 			return NULL;
-		ParticleMgr()->PMaterialToIMaterial( m_hMaterial );	// RepairPMaterial, as AddParticle did
+		ShellParticleMaterial_Material( m_hMaterial );	// RepairPMaterial, as AddParticle did
 		return m_hMaterial->m_pGroup ? m_hMaterial->m_pGroup->m_pPageMaterial : NULL;
 	}
 
@@ -478,7 +482,7 @@ void CManagedParticleEffect::RenderStart( VMatrix &tempModel, VMatrix &tempView 
 		pRenderContext->LoadIdentity();
 	}
 	if ( m_bLit )
-		ParticleMgr()->SetDirectionalLightInfo( m_Directional );
+		ShellParticleDraw_SetLight( m_Directional );
 }
 
 void CManagedParticleEffect::RenderEnd( VMatrix &tempModel, VMatrix &tempView )
@@ -504,7 +508,7 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
                                         int nQuads, float *pKeys )
 {
 	CMatRenderContextPtr pRenderContext( materials );
-	pRenderContext->Bind( pMaterial, ParticleMgr() );
+	pRenderContext->Bind( pMaterial, ShellParticleDraw_BindArg() );
 	IMesh *pMesh = pRenderContext->GetDynamicMesh( true );
 	CMeshBuilder builder;
 	builder.Begin( pMesh, MATERIAL_QUADS, NUM_PARTICLES_PER_BATCH * 4 );
@@ -512,7 +516,7 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
 	particleDraw.Init( &builder, pMaterial, flFrameTime );
 	particleDraw.m_pSubTexture = m_hMaterial;
 	ParticleDraw *pDraw = &particleDraw;
-	const VMatrix &mv = ParticleMgr()->GetModelView();
+	const VMatrix &mv = ShellParticleDraw_ModelView();
 
 	int nInBatch = 0;
 	for ( int i = 0; i < nQuads; i++ )
@@ -604,11 +608,11 @@ int CManagedParticleEffect::DrawModel( int flags )
 	if ( m_nFlags & kFlagCameraSpace )
 	{
 		CMatRenderContextPtr pRenderContext( materials );
-		pRenderContext->GetMatrix( MATERIAL_VIEW, &ParticleMgr()->GetModelView() );
+		pRenderContext->GetMatrix( MATERIAL_VIEW, &ShellParticleDraw_ModelView() );
 	}
 	else
 	{
-		ParticleMgr()->GetModelView().Identity();
+		ShellParticleDraw_ModelView().Identity();
 	}
 
 	SourceSharpParticleDrawIn_t in;
@@ -800,7 +804,6 @@ int32_t SourceSharp_ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32
 // over in one length-prefixed buffer, and each binding's state comes back in
 // another, which the executors answer the leaf system from.
 //-----------------------------------------------------------------------------
-extern ConVar cl_particleeffect_aabb_buffer;
 
 void ShellParticles_Frame( float flFrameTime )
 {
@@ -986,8 +989,8 @@ CClientSystem *ClientSystem_ManagedParticles() { return &g_ManagedParticlesSyste
 //
 // particles.a and dmxloader.a stay, bound like vphysics (user ruling,
 // 2026-10-04, plan_client_novalve §3.4). This half of the file is the client's
-// side of that binding: the CNewParticleEffect instances the client starts,
-// which the library owns, and what the dev API reads about them.
+// side of that binding: the new-style effects (CShellNewParticleEffect) the
+// client starts, whose collections the library owns, and what the dev API reads about them.
 //
 // TWO KINDS OF INSTANCE ARE STARTED HERE, and both are kept in one table:
 //
@@ -1036,7 +1039,7 @@ CClientSystem *ClientSystem_ManagedParticles() { return &g_ManagedParticlesSyste
 struct SourceSharpParticleSystem_t
 {
 	uint32_t                        hOwner;
-	CSmartPtr< CNewParticleEffect > pEffect;
+	CSmartPtr< CShellNewParticleEffect > pEffect;
 
 	// Which control points the sweep below keeps at the owner, as a bitmask.
 	//
@@ -1059,7 +1062,7 @@ static CUtlVector< SourceSharpParticleSystem_t > g_ParticleSystems;
 //-----------------------------------------------------------------------------
 struct WatchedParticleSystem_t
 {
-	CUtlReference< CNewParticleEffect > ref;
+	CUtlReference< CShellNewParticleEffect > ref;
 	uint32_t                            hOwner;
 	int32_t                             nKind;
 	float                               flStarted;
@@ -1082,7 +1085,7 @@ static void ReapWatchedParticleSystems()
 
 // Reaps first, so the table is bounded by the live effects even when nobody
 // reads it.
-static void WatchParticleSystem( CNewParticleEffect *pEffect, uint32_t hOwner, int32_t nKind )
+static void WatchParticleSystem( CShellNewParticleEffect *pEffect, uint32_t hOwner, int32_t nKind )
 {
 	ReapWatchedParticleSystems();
 
@@ -1096,9 +1099,9 @@ static void WatchParticleSystem( CNewParticleEffect *pEffect, uint32_t hOwner, i
 
 // The library's Create, for an owned system, watched for the route. A refused
 // name (no definition) is not watched: Start refuses it to managed.
-static CSmartPtr< CNewParticleEffect > CreateWatched( uint32_t hOwner, const char *pszName )
+static CSmartPtr< CShellNewParticleEffect > CreateWatched( uint32_t hOwner, const char *pszName )
 {
-	CSmartPtr< CNewParticleEffect > pEffect = CNewParticleEffect::Create( NULL, pszName, "SourceSharpFlame" );
+	CSmartPtr< CShellNewParticleEffect > pEffect = CShellNewParticleEffect::Create( pszName, "SourceSharpFlame" );
 	if ( pEffect.IsValid() && pEffect->IsValid() )
 		WatchParticleSystem( pEffect.GetObject(), hOwner, SOURCESHARP_PARTICLE_SYSTEM_OWNED );
 	return pEffect;
@@ -1113,7 +1116,7 @@ static CSmartPtr< CNewParticleEffect > CreateWatched( uint32_t hOwner, const cha
 //-----------------------------------------------------------------------------
 static void ReleaseParticleSystemAt( int nIndex )
 {
-	CNewParticleEffect *pEffect = g_ParticleSystems[ nIndex ].pEffect.GetObject();
+	CShellNewParticleEffect *pEffect = g_ParticleSystems[ nIndex ].pEffect.GetObject();
 
 	if ( pEffect )
 		pEffect->StopEmission( false, false, true );
@@ -1143,7 +1146,7 @@ int32_t SourceSharp_ParticleSystemStart( uint32_t hOwner, const char *pszName )
 	if ( nExisting >= 0 )
 		ReleaseParticleSystemAt( nExisting );
 
-	CSmartPtr< CNewParticleEffect > pEffect = CreateWatched( hOwner, pszName );
+	CSmartPtr< CShellNewParticleEffect > pEffect = CreateWatched( hOwner, pszName );
 
 	// A name no .pcf defines comes back as an effect with no definition behind
 	// it, which draws nothing and says nothing. Refused here so the managed
@@ -1221,7 +1224,7 @@ void SourceSharp_ParticleSystemStop( uint32_t hOwner )
 //-----------------------------------------------------------------------------
 // A one-shot an impact started: watched, not held.
 //-----------------------------------------------------------------------------
-void ShellParticles_WatchOneShot( CNewParticleEffect *pEffect )
+void ShellParticles_WatchOneShot( CShellNewParticleEffect *pEffect )
 {
 	if ( pEffect )
 		WatchParticleSystem( pEffect, SOURCESHARP_PARTICLE_NO_OWNER, SOURCESHARP_PARTICLE_SYSTEM_ONE_SHOT );
@@ -1242,7 +1245,7 @@ void ShellParticles_PreRender()
 {
 	for ( int i = g_ParticleSystems.Count() - 1; i >= 0; i-- )
 	{
-		CNewParticleEffect *pEffect = g_ParticleSystems[i].pEffect.GetObject();
+		CShellNewParticleEffect *pEffect = g_ParticleSystems[i].pEffect.GetObject();
 
 		if ( !pEffect )
 		{
@@ -1280,14 +1283,14 @@ void ShellParticles_PreRender()
 
 //-----------------------------------------------------------------------------
 // The systems are stopped rather than merely forgotten. Unlike a renderer, a
-// CNewParticleEffect is a live simulation the particle manager holds a
+// new-style effect is a live simulation the particle manager holds a
 // reference to, and a level change is not a moment to let one burn out
 // gracefully.
 //-----------------------------------------------------------------------------
 void ShellParticles_LevelShutdown()
 {
 	for ( int i = g_ParticleSystems.Count() - 1; i >= 0; i-- )
-		if ( CNewParticleEffect *pEffect = g_ParticleSystems[i].pEffect.GetObject() )
+		if ( CShellNewParticleEffect *pEffect = g_ParticleSystems[i].pEffect.GetObject() )
 			pEffect->StopEmission( false, true, true );
 
 	g_ParticleSystems.RemoveAll();
@@ -1317,7 +1320,7 @@ int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSyst
 		return nCount;
 
 	const WatchedParticleSystem_t *pWatch = g_WatchedParticles[ nIndex ];
-	CNewParticleEffect *pEffect = pWatch->ref();
+	CShellNewParticleEffect *pEffect = pWatch->ref();
 
 	memset( pOut, 0, sizeof( *pOut ) );
 	pOut->Kind = pWatch->nKind;
@@ -1332,12 +1335,12 @@ int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSyst
 
 	if ( pEffect )
 	{
-		pOut->Particles = CountParticles( pEffect );
-		const Vector &cp0 = pEffect->m_ControlPoints[0].m_Position;
+		pOut->Particles = CountParticles( pEffect->Collection() );
+		const Vector &cp0 = pEffect->Collection()->m_ControlPoints[0].m_Position;
 		pOut->ControlPoint0XYZ[0] = cp0.x;
 		pOut->ControlPoint0XYZ[1] = cp0.y;
 		pOut->ControlPoint0XYZ[2] = cp0.z;
-		const Vector &cp1 = pEffect->m_ControlPoints[1].m_Position;
+		const Vector &cp1 = pEffect->Collection()->m_ControlPoints[1].m_Position;
 		pOut->ControlPoint1XYZ[0] = cp1.x;
 		pOut->ControlPoint1XYZ[1] = cp1.y;
 		pOut->ControlPoint1XYZ[2] = cp1.z;
@@ -1569,7 +1572,7 @@ int32_t SourceSharp_ParticleSystemOneShot( const char *pszName, const float *pSo
 {
 	if ( !pszName || !pSortOriginXYZ || ( nPoints > 0 && !pPoints ) || !pOrientation0 )
 		return 0;
-	CSmartPtr< CNewParticleEffect > pEffect = CNewParticleEffect::Create( NULL, pszName );
+	CSmartPtr< CShellNewParticleEffect > pEffect = CShellNewParticleEffect::Create( pszName );
 	if ( !pEffect.IsValid() || !pEffect->IsValid() )
 		return 0;
 	pEffect->SetSortOrigin( Vector( pSortOriginXYZ[0], pSortOriginXYZ[1], pSortOriginXYZ[2] ) );
@@ -1622,7 +1625,7 @@ void SourceSharp_ParticlesView( float *pModelView12, int32_t *pViewId, float *pO
 {
 	if ( pModelView12 )
 	{
-		const VMatrix &mv = ParticleMgr()->GetModelView();
+		const VMatrix &mv = ShellParticleDraw_ModelView();
 		for ( int r = 0; r < 3; r++ )
 			for ( int c = 0; c < 4; c++ )
 				pModelView12[ r * 4 + c ] = mv[r][c];

@@ -1,3 +1,5 @@
+using SourceSharp.Client.Interop;
+
 namespace SourceSharp.Abi;
 
 /// <summary>
@@ -15,6 +17,36 @@ public interface IParticleLibrary
 
     /// <summary><c>CParticleSystemMgr::GetParticleSystemNameFromIndex</c>, or null past the end.</summary>
     string? SystemName(int index);
+
+    /// <summary><c>CParticleSystemMgr::DumpProfileInformation</c>: the kept timings, to particle_profile.csv.</summary>
+    void DumpProfileInformation();
+}
+
+/// <summary>
+/// The library's half of the new-style effects' frame (C7 particles phase 3):
+/// what managed's manager (NewParticleManager) has the library carry out. The
+/// collections are the library's, named by the pointers native listed. Game
+/// thread, inside IManagedParticlesClient::NewEffectsFrame.
+/// </summary>
+public interface IParticleCollections
+{
+    /// <summary><c>CParticleSystemMgr::SetLastSimulationTime</c>.</summary>
+    void SetLastSimulationTime(float time);
+
+    /// <summary><c>ISSParticleLib::CollectionSimulateBatch</c>: each entry stepped in order, one answer each.</summary>
+    void SimulateBatch(ReadOnlySpan<ParticleSimEntry> entries, Span<ParticleSimResult> results);
+
+    /// <summary><c>CParticleCollection::BloatBoundsUsingControlPoint</c> (the first box).</summary>
+    void BloatBounds(ulong collection);
+
+    /// <summary>The collection's bounds.</summary>
+    void Bounds(ulong collection, out Vector min, out Vector max);
+
+    /// <summary>Sets the collection's bounds (an inside-out first box collapsed to the sort origin).</summary>
+    void SetBounds(ulong collection, Vector min, Vector max);
+
+    /// <summary><c>CParticleSystemMgr::CommitProfileInformation</c>: the frame's per-definition timings kept when it was a spike.</summary>
+    void CommitProfileInformation(bool commit);
 }
 
 /// <summary>
@@ -26,7 +58,7 @@ public interface IParticleLibrary
 /// object. Bound on first use, so a reloaded assembly binds again; the library
 /// is native and outlives every reload.
 /// </summary>
-internal sealed unsafe class ParticleLibrary(NativeInterfaceFactory factory) : IParticleLibrary
+internal sealed unsafe class ParticleLibrary(NativeInterfaceFactory factory) : IParticleLibrary, IParticleCollections
 {
     public const string InterfaceVersion = "SSParticleLib001";
 
@@ -73,4 +105,40 @@ internal sealed unsafe class ParticleLibrary(NativeInterfaceFactory factory) : I
         => index >= 0 && index < SystemCount()
             ? Vtable.TextOf(Vtbl->MgrGetParticleSystemNameFromIndex(_self, Manager, index), MaxName)
             : null;
+
+    /// <inheritdoc/>
+    public void DumpProfileInformation() => Vtbl->MgrDumpProfileInformation(_self, Manager);
+
+    /// <inheritdoc/>
+    public void SetLastSimulationTime(float time) => Vtbl->MgrSetLastSimulationTime(_self, Manager, time);
+
+    /// <inheritdoc/>
+    public void SimulateBatch(ReadOnlySpan<ParticleSimEntry> entries, Span<ParticleSimResult> results)
+    {
+        if (results.Length < entries.Length)
+            throw new ArgumentException("one answer per entry", nameof(results));
+        fixed (ParticleSimEntry* pIn = entries)
+        fixed (ParticleSimResult* pOut = results)
+            Vtbl->CollectionSimulateBatch(_self, pIn, entries.Length, pOut);
+    }
+
+    /// <inheritdoc/>
+    public void BloatBounds(ulong collection) => Vtbl->CollectionBloatBoundsUsingControlPoint(_self, (void*)collection);
+
+    /// <inheritdoc/>
+    public void Bounds(ulong collection, out Vector min, out Vector max)
+    {
+        Vector a, b;
+        Vtbl->CollectionGetBounds(_self, (void*)collection, &a, &b);
+        min = a;
+        max = b;
+    }
+
+    /// <inheritdoc/>
+    public void SetBounds(ulong collection, Vector min, Vector max)
+        => Vtbl->CollectionSetBounds(_self, (void*)collection, &min, &max);
+
+    /// <inheritdoc/>
+    public void CommitProfileInformation(bool commit)
+        => Vtbl->MgrCommitProfileInformation(_self, Manager, commit ? (byte)1 : (byte)0);
 }

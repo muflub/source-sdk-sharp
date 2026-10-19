@@ -8,7 +8,7 @@
 12	UNRULED	void FX_DustImpact( const Vector &origin, trace_t *tr, float flScale )
 56	UNRULED	static bool SourceSharp_ImpactChoice( int nMaterial, int nScale, int nFlags,
 8	UNRULED	char const *GetImpactDecal( IGameEntity *pEntity, int iMaterial, int iDamageType )
-9	UNRULED	static void SetImpactControlPoint( CNewParticleEffect *pEffect, int nPoint, const Vector &vecImpactPoint, const Vector &vecForward, IGameEnt
+9	UNRULED	static void SetImpactControlPoint( CShellNewParticleEffect *pEffect, int nPoint, const Vector &vecImpactPoint, const Vector &vecForward, IGa
 25	UNRULED	static void DispatchNewParticleImpact( const char *pImpactName, const Vector &vecOrigin,
 40	UNRULED	static void ApplyImpactChoice( const ImpactChoice_t &choice, const Vector &vecOrigin,
 7	UNRULED	void PerformCustomEffects( const Vector &vecOrigin, trace_t &tr, const Vector &shotDir, int iMaterial, int iScale, int nFlags )

@@ -24,6 +24,9 @@ C0 probes (docs/plans/plan_client_novalve.md §6 C0 item 7, answers in §8).
 STEPS_FILE, one step per line ('#' comments; {out} is OUT_DIR):
       cmd <console command>        through tools/debug-api cmd
       api <args...>                tools/debug-api <args...> (e.g. fire, ents)
+      save <name> <args...>        tools/debug-api <args...>, its whole answer
+                                   appended to OUT_DIR/<name>.jsonl (one line
+                                   per step, e.g. `save fx client 1 particles`)
       sleep <seconds>
       wait <regex> <seconds>       until console.log (this run's part) or the
                                    probe log matches; a timeout FAILS the run
@@ -244,6 +247,12 @@ def main():
             elif verb == "api":
                 r = api(*rest.split())
                 results.append("%s -> rc=%d %s" % (step, r.returncode, " ".join((r.stdout + r.stderr).split())[:300]))
+            elif verb == "save":
+                name, _, args = rest.partition(" ")
+                r = api(*args.split())
+                with open(os.path.join(out, name + ".jsonl"), "a") as f:
+                    f.write(" ".join(r.stdout.split()) + "\n")
+                results.append("%s -> rc=%d %d bytes" % (step, r.returncode, len(r.stdout)))
             elif verb == "sleep":
                 time.sleep(float(rest))
                 results.append(step)

@@ -1106,7 +1106,7 @@ static void *const s_ShimRootSlots[] = {
 static const SSForwarderTable s_ShimRootTable = { s_ShimRootSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ParticleLib: 45 forwarder(s) over ISSParticleLib.
+// ParticleLib: 48 forwarder(s) over ISSParticleLib.
 //-----------------------------------------------------------------------------
 // bool ISSParticleLib::Connect( CreateInterfaceFn )
 static bool SSFwd_ParticleLib_Connect( ISSParticleLib *self, CreateInterfaceFn a0 ) { return self->Connect( a0 ); }
@@ -1198,6 +1198,12 @@ static void SSFwd_ParticleLib_MgrSetLastSimulationTime( ISSParticleLib *self, CP
 static void SSFwd_ParticleLib_MgrShouldLoadSheets( ISSParticleLib *self, CParticleSystemMgr * a0, bool a1 ) { self->MgrShouldLoadSheets( a0, a1 ); }
 // void ISSParticleLib::MgrUncacheAllParticleSystems( CParticleSystemMgr * )
 static void SSFwd_ParticleLib_MgrUncacheAllParticleSystems( ISSParticleLib *self, CParticleSystemMgr * a0 ) { self->MgrUncacheAllParticleSystems( a0 ); }
+// void ISSParticleLib::CollectionSimulateBatch( const SSParticleSimEntry_t *, int, SSParticleSimResult_t * )
+static void SSFwd_ParticleLib_CollectionSimulateBatch( ISSParticleLib *self, const SSParticleSimEntry_t * a0, int a1, SSParticleSimResult_t * a2 ) { self->CollectionSimulateBatch( a0, a1, a2 ); }
+// void ISSParticleLib::CollectionGetBounds( const CParticleCollection *, float *, float * )
+static void SSFwd_ParticleLib_CollectionGetBounds( ISSParticleLib *self, const CParticleCollection * a0, float * a1, float * a2 ) { self->CollectionGetBounds( a0, a1, a2 ); }
+// void ISSParticleLib::CollectionSetBounds( CParticleCollection *, const float *, const float * )
+static void SSFwd_ParticleLib_CollectionSetBounds( ISSParticleLib *self, CParticleCollection * a0, const float * a1, const float * a2 ) { self->CollectionSetBounds( a0, a1, a2 ); }
 
 static void *const s_ParticleLibSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_Connect ),
@@ -1245,9 +1251,12 @@ static void *const s_ParticleLibSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrSetLastSimulationTime ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrShouldLoadSheets ),
 	reinterpret_cast< void * >( &SSFwd_ParticleLib_MgrUncacheAllParticleSystems ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSimulateBatch ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionGetBounds ),
+	reinterpret_cast< void * >( &SSFwd_ParticleLib_CollectionSetBounds ),
 };
 
-static const SSForwarderTable s_ParticleLibTable = { s_ParticleLibSlots, 45 };
+static const SSForwarderTable s_ParticleLibTable = { s_ParticleLibSlots, 48 };
 
 //-----------------------------------------------------------------------------
 // ShimConsole: 11 forwarder(s) over IShimConsole.

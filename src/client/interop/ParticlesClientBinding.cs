@@ -51,6 +51,17 @@ public interface IClientParticleBindings
     void PostRender();
 }
 
+/// <summary>
+/// The new-style effects' manager, as the native shells ask it (C7 particles
+/// phase 3; SourceSharp.Client.Effects.NewParticleManager).
+/// </summary>
+public interface IClientNewParticles
+{
+    int Frame(in NewParticleFrameHeader header, ReadOnlySpan<NewParticleIn> effects, Span<NewParticleCommit> commits);
+
+    NewParticleDrawOutRaw Draw(in NewParticleDrawInRaw input);
+}
+
 public interface IClientParticleQuery
 {
     /// <summary><c>GetCollisionGroupFromName</c>.</summary>
@@ -79,8 +90,51 @@ public sealed unsafe class ParticlesClientBinding(Crossings crossings, ILog log,
                                                   IClientParticleQuery query, IClientImpactSprays sprays,
                                                   IClientImpactSparks sparks, IClientWaterSplashes water,
                                                   IClientTracerGeometry tracers,
-                                                  Func<bool, string, List<string>?>? manifestFiles = null) : IManagedParticlesClient
+                                                  Func<bool, string, List<string>?>? manifestFiles = null,
+                                                  IClientNewParticles? newEffects = null) : IManagedParticlesClient
 {
+    // C7 particles phase 3: the new-style effects' frame, once a frame; the
+    // library steps the listed collections during it. One length-prefixed
+    // buffer per direction, as Frame's.
+    public int NewEffectsFrame(void* a0, int a1, void* a2, int a3)
+    {
+        crossings.Count(CrossingOp.ClientParticlesNewEffectsFrame);
+        try
+        {
+            if (newEffects == null || a0 == null || a2 == null || a1 < BitBlock.HeaderBytes || a3 < BitBlock.HeaderBytes)
+                return -1;
+            var inBlock = new ReadOnlySpan<byte>(a0, a1);
+            int inBytes = BitBlock.Bits(inBlock) / 8;
+            int headerSize = Unsafe.SizeOf<NewParticleFrameHeader>();
+            if (inBytes < headerSize || inBytes > a1 - BitBlock.HeaderBytes)
+                return -1;
+            ReadOnlySpan<byte> payload = BitBlock.Payload(inBlock)[..inBytes];
+            NewParticleFrameHeader header = MemoryMarshal.Read<NewParticleFrameHeader>(payload);
+            ReadOnlySpan<NewParticleIn> effects = MemoryMarshal.Cast<byte, NewParticleIn>(payload[headerSize..]);
+
+            var outBlock = new Span<byte>(a2, a3);
+            Span<NewParticleCommit> commits = MemoryMarshal.Cast<byte, NewParticleCommit>(BitBlock.Payload(outBlock));
+            int n = newEffects.Frame(header, effects, commits);
+            BitBlock.SetBits(outBlock, n * Unsafe.SizeOf<NewParticleCommit>() * 8);
+            return 1;
+        }
+        catch (Exception e) { ManagedVtable.Fail(log, "IManagedParticlesClient.NewEffectsFrame", e); return -1; }
+    }
+
+    // One CNewParticleEffect::DrawModel's decisions.
+    public int NewEffectDraw(void* a0, void* a1)
+    {
+        crossings.Count(CrossingOp.ClientParticlesNewEffectDraw);
+        try
+        {
+            if (newEffects == null || a0 == null || a1 == null)
+                return -1;
+            *(NewParticleDrawOutRaw*)a1 = newEffects.Draw(*(NewParticleDrawInRaw*)a0);
+            return 1;
+        }
+        catch (Exception e) { ManagedVtable.Fail(log, "IManagedParticlesClient.NewEffectDraw", e); return -1; }
+    }
+
     // C9 KeyValues K1: the game's (bMap 0) or a map's (1) particle manifest,
     // read in C# (SourceSharp.Shared's ParticleManifestFiles, handed in as a
     // function); its file entries come back NUL-separated in one BitBlock.

@@ -36,7 +36,7 @@
 6	SLOT	[CSourceSharpClientMode] virtual void LevelShutdown( void ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void AdjustEngineViewport( int &x, int &y, int &width, int &height ) OVERRIDE
 1	HOOK	[CSourceSharpClientMode] virtual void PreRender( CViewSetup *pSetup ) OVERRIDE
-5	SLOT	[CSourceSharpClientMode] virtual void PostRender( void ) OVERRIDE
+4	SLOT	[CSourceSharpClientMode] virtual void PostRender( void ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void PostRenderVGui() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void ActivateInGameVGuiContext( vgui::Panel *pPanel ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void DeactivateInGameVGuiContext() OVERRIDE

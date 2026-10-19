@@ -51,3 +51,7 @@ radius (no `area`), no effect asked for a first box, and no effect slept (every
 fire was drawn each frame, and a drawn system's render keeps it awake; the
 skips are effects flagged for removal). Those arms are held by facts derived
 from stock instead (NewParticleEffectTests).
+
+The probe switch (`SS_PM_PROBES`) left client.so's CMake with the eviction of
+particlemgr.cpp and particles_new.cpp (C7 particles phase 4): to record again,
+check out the recording's commit above.

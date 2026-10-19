@@ -111,6 +111,11 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
             particleLibrary = new ParticleLibrary(engine.Api.Interfaces);
             services.AddInstance(particleLibrary);
         }
+
+        // The new-style effects' collections are the same library's
+        // (C7 particles phase 4), when it serves them.
+        if (particleLibrary is IParticleCollections collections && services.Resolve<IParticleCollections>() is null)
+            services.AddInstance<IParticleCollections>(collections);
         var particleView = new ClientParticleViewSlots(areas.ParticlesClient, particleLibrary);
         services.AddInstance<IParticleViewSource>(particleView);
         services.AddInstance<IParticlePixelVisibility>(particleView);

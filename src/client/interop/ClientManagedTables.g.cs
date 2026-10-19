@@ -445,6 +445,14 @@ public unsafe struct ManagedParticlesClientTable
     // 18: int32_t ManifestFiles( int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes )
     [SlotHash(0x4a9e65fd)]
     public delegate* unmanaged<void*, int, byte*, void*, int, int> ManifestFiles;
+
+    // 19: int32_t NewEffectsFrame( const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes )
+    [SlotHash(0xfa64b18d)]
+    public delegate* unmanaged<void*, void*, int, void*, int, int> NewEffectsFrame;
+
+    // 20: int32_t NewEffectDraw( const SourceSharpNewParticleDrawIn_t *pIn, SourceSharpNewParticleDrawOut_t *pOut )
+    [SlotHash(0x8ba8bb2d)]
+    public delegate* unmanaged<void*, void*, void*, int> NewEffectDraw;
 }
 
 /// <summary>The table managed writes for <c>IManagedUiClient</c> (<c>SSManagedUiClientTable</c> native-side).</summary>

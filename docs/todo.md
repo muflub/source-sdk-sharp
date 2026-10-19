@@ -829,16 +829,39 @@ halves belong on `Respond`).
   before 4 of 18 passes red on the door, after 0 of 18 (4 of the 18 in the
   failing geometry, all green).
 
-- **C7 particles: where the work stopped (2026-10-12), and what is next.**
+- **C7 particles: where the work stopped (2026-10-18), and what is next.**
   Landed:
   - phase 1: ParticleSphereProxy is C#'s; particle_proxies.cpp left client.so;
   - 2.1: the stock old-style manager, recorded (particlemgr-stock.tsv.gz);
   - 2.2: ParticleBinding, held to that recording;
   - 2.3: the ABI commit. ClientParticleManager owns the old-style bindings,
     and the native executor is its own renderable.
+  - phase 3: the new-style effects are managed's. The stock recording
+    (particlemgr-new-stock.tsv.gz), NewParticleEffect held to it, and the ABI
+    commit: NewParticleManager decides each frame (IManagedParticlesClient::
+    NewEffectsFrame, one crossing) and each draw (NewEffectDraw); the library
+    steps every listed collection in one batch call (ISSParticleLib::
+    CollectionSimulateBatch, reached through SSFwd_ParticleLib). The native
+    shell is CShellNewParticleEffect (shell_new_particles_client.cpp), a
+    renderable over the library's own CParticleCollection: CNewParticleEffect
+    is no longer constructed. User ruling 2026-10-18: the library keeps all
+    simulation, operators and rendering; it is never ported.
 
-  Phase 3 spike, decision record (the user stopped the lane here; no handle
-  ABI was built):
+  Phase 3's divergences from stock (all recorded in the ABI commit):
+  - a removed effect leaves the leaf system at once and is deleted when its
+    last CSmartPtr lets go (stock deleted it at once, whoever held it);
+  - a retirement's replacement (cl_particle_retire_cost, a cheat, off by
+    default) is started after the frame and steps from the next one (stock
+    replaced mid-frame and stepped it in the same frame);
+  - r_threaded_particles is not read: the batch is single-threaded (the
+    spike's measurement below);
+  - Release's finished test is made at the next frame, before anything steps
+    (stock made it at the release; nothing simulates in between);
+  - the tool framework's recording messages are not sent (no recording here);
+  - cl_particle_stats_trigger_count's spew is not run (stock's stats
+    functions are empty in this tree).
+
+  The phase 3 spike's decision record:
   - The particle library has no game-side reach. Neither
     libss_particles.so nor particles.a names CNewParticleEffect,
     IClientRenderable or C_BaseEntity (`strings`: 0 hits).
@@ -846,19 +869,7 @@ halves belong on `Respond`).
     dispatches into the derived class.
   - The only game code that reads a collection is our IParticleSystemQuery
     (shell_managed_particles.cpp). It reads m_ControlPoints[n].m_Position,
-    and m_pObject only as a non-null test. Both are library-owned fields
-    behind a handle.
-  - So the plan_particles_so.md section 8 (A) design holds: library slots
-    on an opaque collection handle, with start answering the handle
-    through a NEW appended slot. The slots needed:
-    - set a control point's position and orientation;
-    - set its object (SetControlPointEntity's m_pObject; its one caller is
-      shell_impact_effects.cpp);
-    - stop emission, is-finished, particle count, bounds, simulate, render.
-  - The two TUs' importers are ours only: shell_managed_particles,
-    shell_impact_effects, shell_clientdll, shell_client,
-    shell_view_executor_client, shell_material_proxy_client (nm at 2.3).
-    No fork TU imports either, so neither eviction waits on a fork edit.
+    and m_pObject only as a non-null test. Both are library-owned fields.
   - Threading: measured, not assumed (ebe389584, debug -O0). 30 env_fire
     systems with about 1,090 particles simulate in about 0.1 ms a frame
     single-threaded (median 102 us, p95 152 us). ParallelProcess is no faster
@@ -866,21 +877,18 @@ halves belong on `Respond`).
     managed builds the sim list and makes one single-threaded batch call
     into the library. No Parallel.For.
 
-  Next:
-  - phase 3: the handle slots (an ABI commit; tell the integrator before
-    calling it ready, numbering crossing ops after main's latest, 346+ at
-    b931fc909);
-  - CNewParticleEffect as a composition shell over the handle, and the new
-    effects' decisions (sim list, early retire, timescale, DrawModel's) to
-    C#, oracle first: extend particlemgr.cpp.probe.diff for UpdateNewEffects
-    and CNewParticleEffect::DrawModel;
-  - phase 4: evict particlemgr.cpp and particles_new.cpp. Move their
-    convars to managed declarations: r_drawparticles,
-    cl_particleeffect_aabb_buffer, cl_particle_show_bbox(_cost),
-    r_threaded_particles, cl_particle_stats_* and the rest. Move the
-    PMaterial table: GetPMaterial, used by shell_impact_effects' g_Mat_*
-    handles and the executor's material. Add client_evictions.md rows, no
-    CMake comments.
+  - phase 4: particlemgr.cpp and particles_new.cpp left client.so. What the
+    client still called of CParticleMgr (the PMaterial table, the draw
+    state, the library's setup) is shell_particle_mgr_client.cpp; the live
+    convars are ParticleConVars.cs's and the commands ParticleCommands.cs's
+    (cs_cl_particle_report reads the dev API's per-system rows, which do not
+    carry the highest control point stock printed, nor a cull replacement or
+    a system no definition answers). Dropped as unread:
+    particle_simulateoverflow, r_threaded_particles, particle_sim_alt_cores.
+    tier1's utlsymbol left client.so with particlemgr.cpp.
+
+  Next: nothing in C7 particles. The particle library (libss_particles.so)
+  keeps all simulation, operators and rendering (user ruling 2026-10-18).
 
 - **Ownerless particle effects do not cross cs_cl_reload** (2026-10-12,
   found by C7 particles phase 2.3). Muzzle flashes and impacts are lost.

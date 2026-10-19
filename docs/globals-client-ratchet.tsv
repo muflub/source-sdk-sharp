@@ -316,7 +316,10 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 # RAISED 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: 774 -> 777. The client-arms lane moved
 #   client-only statics out of shared TUs into client files (the two ConCommands of generic_payload_client.cpp, g_AmmoDef in
 #   shell_client.o), less g_WeaponTypes with the weapon-type table (make globals-client-ledger, gate PASS).
-client_globals_link_level	src/game/client	777
+# 2026-10-18, C7 particles phase 3, measured on main f4b31392d: shell_new_particles_client.cpp joins client.so with 9 pieces of state (make globals-client-ledger, added UNRULED): the new-style effects' list and its id counter, and seven CManagedConVarRef reads of the convars particlemgr.cpp declares (by name, so phase 4 can make them managed declarations). link_level 777 -> 786, unruled 722 -> 731, objects_with_static_init 122 -> 123 (the TU's list and refs construct at load).
+# 2026-10-18, C7 particles phase 4 (the replacement), measured on main f4b31392d: shell_particle_mgr_client.cpp's state (the PMaterial table, the draw state: one struct) and shell_managed_particles.cpp's four convar reads by name (CManagedConVarRef, for the declarations managed takes over at the eviction): link_level 786 -> 791, unruled 731 -> 736, objects_with_static_init 123 -> 124 (make globals-client-ledger).
+# 2026-10-18, C7 particles phase 4 (the eviction), measured on main f4b31392d: particlemgr.cpp and particles_new.cpp left client.so with 37 pieces of state (make globals-client-ledger: 37 rows pruned, none added): link_level 791 -> 754, unruled 736 -> 701, objects_with_static_init 124 -> 122 (the two objects' load-time initialisers: their ConVars and ConCommands among them, now managed declarations).
+client_globals_link_level	src/game/client	754
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -346,7 +349,7 @@ client_globals_link_level	src/game/client	777
 # RAISED 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: 718 -> 722. The client-arms lane moved
 #   client-only statics out of shared TUs into client files (the two ConCommands of generic_payload_client.cpp, g_AmmoDef in
 #   shell_client.o), less g_WeaponTypes with the weapon-type table (make globals-client-ledger, gate PASS).
-client_globals_unruled	docs/globals-client-ledger.tsv	722
+client_globals_unruled	docs/globals-client-ledger.tsv	701
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 client_globals_floor	docs/globals-client-ledger.tsv	14

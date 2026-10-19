@@ -366,9 +366,12 @@ TEST( CppAliasShardT4, TheResidueWaveTookTheDeadArmsWhole )
 		{ "game/client/toolframework_client.cpp", "ToolFramework_RecordMaterialParams",
 		  { "IsToolRecording", "SDKEntityFromUnknown", NULL } },
 
-		// 74b071771:...:171 (whole-body), :295 and :683 (substituting), plus
-		// :396 and :440. What must be gone is the SDK half of each.
-		{ "game/client/particles_new.cpp", "CNewParticleEffect::ReplaceWith",
+		// particles_new.cpp's row: 74b071771:...:171 (whole-body), :295 and
+		// :683 (substituting), plus :396 and :440. The file left client.so (C7
+		// particles phase 4); CNewParticleEffect's mechanics are the shell's
+		// (shell_new_particles_client.cpp, phase 3), and the SDK half of each
+		// region is as absent from it.
+		{ "sourcesharp/game/client/shell_new_particles_client.cpp", "CShellNewParticleEffect::ReplaceWith",
 		  { "OnParticleSystemDeleted", "ParticleProp", "GetRootMoveParent",
 		    "pEntity->entindex()", NULL } },
 	};
@@ -407,10 +410,14 @@ TEST( CppAliasShardT4, TheResidueWaveTookTheDeadArmsWhole )
 	// entindex() and GetRootMoveParent(), neither of which it has.
 	struct Survivor_t { const char *pszFile; const char *pszArmedAnswer; };
 	const Survivor_t kSurvivingArmedAnswers[] = {
-		// 74b071771:src/game/client/particles_new.cpp:297, the `#else` of :295.
-		{ "game/client/particles_new.cpp", "state.m_nObject = -1" },
-		// 74b071771:src/game/client/particles_new.cpp:685, the `#else` of :683.
-		{ "game/client/particles_new.cpp", "pRootMove = pEntity" },
+		// 74b071771:src/game/client/particles_new.cpp:685, the `#else` of :683:
+		// an entity is its own root move parent. particles_new.cpp left client.so
+		// (C7 particles phase 4) and DrawModel's skip-render decision is
+		// managed's (NewParticleEffect.Draw, phase 3), which keeps that answer.
+		// The other survivor, :297's `state.m_nObject = -1`, was a tool
+		// recording message's field; the shell sends no tool messages (no
+		// recording in this build), so it has no successor.
+		{ "sourcesharp/managed/SourceSharp.Client/Effects/NewParticleEffect.cs", "ulong root = d.SkipObject" },
 	};
 	const size_t kNumSurvivors =
 		sizeof( kSurvivingArmedAnswers ) / sizeof( kSurvivingArmedAnswers[ 0 ] );

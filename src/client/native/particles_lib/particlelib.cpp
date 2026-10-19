@@ -51,7 +51,19 @@ struct CollectionAccess : public CParticleCollection
 	bool InitDef( CParticleSystemDefinition *pDef ) { return Init( pDef ); }
 	bool InitName( const char *pszName ) { return Init( pszName ); }
 	void BloatBounds() { BloatBoundsUsingControlPoint(); }
+	const Vector &Min() const { return m_MinBounds; }
+	const Vector &Max() const { return m_MaxBounds; }
+	void SetBounds( const Vector &vMin, const Vector &vMax )
+	{
+		m_MinBounds = vMin;
+		m_MaxBounds = vMax;
+	}
 };
+
+const CollectionAccess *Access( const CParticleCollection *p )
+{
+	return static_cast< const CollectionAccess * >( p );
+}
 
 CollectionAccess *Access( CParticleCollection *p )
 {
@@ -169,6 +181,30 @@ public:
 	void MgrSetLastSimulationTime( CParticleSystemMgr *p, float flTime ) override { p->SetLastSimulationTime( flTime ); }
 	void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) override { p->ShouldLoadSheets( bLoadSheets ); }
 	void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) override { p->UncacheAllParticleSystems(); }
+
+	void CollectionSimulateBatch( const SSParticleSimEntry_t *pEntries, int nCount, SSParticleSimResult_t *pResults ) override
+	{
+		for ( int i = 0; i < nCount; i++ )
+		{
+			CParticleCollection *p = pEntries[i].pCollection;
+			if ( pEntries[i].flDt >= 0.0f )
+				p->Simulate( pEntries[i].flDt, pEntries[i].bBoundsOnly != 0 );
+			SSParticleSimResult_t &r = pResults[i];
+			r.bFinished = p->IsFinished() ? 1 : 0;
+			r.nActiveParticles = p->m_nActiveParticles;
+			r.flNextSleepTime = p->m_flNextSleepTime;
+			CollectionGetBounds( p, r.vMin, r.vMax );
+		}
+	}
+	void CollectionGetBounds( const CParticleCollection *p, float *pMin3, float *pMax3 ) override
+	{
+		VectorCopy( Access( p )->Min(), *(Vector *)pMin3 );
+		VectorCopy( Access( p )->Max(), *(Vector *)pMax3 );
+	}
+	void CollectionSetBounds( CParticleCollection *p, const float *pMin3, const float *pMax3 ) override
+	{
+		Access( p )->SetBounds( *(const Vector *)pMin3, *(const Vector *)pMax3 );
+	}
 };
 
 CSSParticleLib s_SSParticleLib;

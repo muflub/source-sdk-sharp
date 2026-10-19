@@ -420,7 +420,6 @@ public:
 	virtual void PostRender( void ) OVERRIDE
 	{
 		ShellParticles_PostRender();	// the old-style effects, managed's
-		ParticleMgr()->PostRender();
 	}
 	virtual void PostRenderVGui() OVERRIDE {}
 

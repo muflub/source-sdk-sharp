@@ -15,8 +15,10 @@
 //      CBaseEntity's OWN sub-objects — `CNetworkVarEmbedded` members reached
 //      only through CollisionProp() / ParticleProp(). What must not drift is
 //      WHAT IS OUTSIDE those arms: UpdateDirtySpatialPartitionEntities is
-//      called by name from particlemgr.cpp and that file stays in the build, so
-//      guarding it would turn a compile error at step 6 into a LINK error, and
+//      called by name from the new-style particle effects' frame (particlemgr.cpp's
+//      UpdateNewEffects call, in shell_new_particles_client.cpp since that
+//      file left the build), so guarding it would turn a compile error into a
+//      LINK error, and
 //      the CDirtySpatialPartitionEntityList read-lock pair is an
 //      IPartitionQueryCallback the ENGINE calls and has to keep pairing. Both
 //      are one careless brace move away from being swallowed.
@@ -308,7 +310,11 @@ Arm_t ArmOfFirst( const std::string &strRelative, const std::string &strNeedle,
 // THE FILES. Shard T3's twelve, named once.
 //-----------------------------------------------------------------------------
 const char *kCollision   = "sourcesharp/game/shared/collisionproperty.cpp";
-const char *kParticleMgr = "game/client/particlemgr.cpp";
+// particlemgr.cpp left client.so (C7 particles phase 4). Its row's subject,
+// RemoveAllNewEffects and UpdateNewEffects, is the new-style effects' shell
+// (C7 particles phase 3), which carries UpdateNewEffects' call to
+// UpdateDirtySpatialPartitionEntities.
+const char *kNewParticles = "sourcesharp/game/client/shell_new_particles_client.cpp";
 // The Phase 4 exit's cluster-E lane (p4-util) moved every definition
 // game/shared/takedamageinfo.cpp held into the shim, WHOLE -- the value type,
 // its datadesc, the CMultiDamage accumulator and the damage-force calculators.
@@ -365,7 +371,7 @@ const char *kShellPlayerC= "sourcesharp/game/client/shell_prediction.cpp";
 // files. Every row left is one the `residue` wave or `the-close` cleared (see
 // below), so this list is now also the cleared set.
 const char *kAllEdited[] = {
-	kCollision, kParticleMgr, kTakeDamage, kShellBase, kShellPlayerS,
+	kCollision, kNewParticles, kTakeDamage, kShellBase, kShellPlayerS,
 };
 
 //-----------------------------------------------------------------------------
@@ -520,7 +526,7 @@ TEST( CppAliasShardT3, TheResidueWaveTookTheDeadArmsWhole )
 		   " absences below would prove nothing.";
 	EXPECT_TRUE( Has( strCollision, "void UpdateDirtySpatialPartitionEntities()" ) )
 		<< kCollision << " no longer defines UpdateDirtySpatialPartitionEntities,"
-		   " which particlemgr.cpp calls by name.";
+		   " which the new-style effects' frame calls by name.";
 	EXPECT_TRUE( Has( strCollision, "m_DirtyEntities.PushItem(" ) )
 		<< kCollision << " no longer re-pushes the still-dirty handles. That push"
 		   " was ARM_ALWAYS at 74b071771 too (:338) and is not the one the wave"
@@ -547,22 +553,28 @@ TEST( CppAliasShardT3, TheResidueWaveTookTheDeadArmsWhole )
 		   " inside the arm at :202). AddEntity's whole body was that push.";
 
 	//-------------------------------------------------------------------------
-	// particlemgr.cpp. One arm, one sweep: a C_BaseEntityIterator walk asking
-	// every entity for its ParticleProp, at 74b071771:...:1434.
+	// particlemgr.cpp's row. One arm, one sweep: a C_BaseEntityIterator walk
+	// asking every entity for its ParticleProp, at 74b071771:...:1434, in
+	// CParticleMgr::RemoveAllNewEffects. The file left client.so (C7
+	// particles phase 4); RemoveAllNewEffects is the shell's
+	// ShellNewParticles_RemoveAll, and the same absences hold of it.
 	//-------------------------------------------------------------------------
-	const std::string strMgr = CodeOf( kParticleMgr );
-	ASSERT_FALSE( strMgr.empty() ) << kParticleMgr << " did not open.";
+	const std::string strMgr = CodeOf( kNewParticles );
+	ASSERT_FALSE( strMgr.empty() ) << kNewParticles << " did not open.";
 
-	ASSERT_TRUE( Has( strMgr, "UpdateDirtySpatialPartitionEntities();" ) )
-		<< kParticleMgr << " no longer calls UpdateDirtySpatialPartitionEntities;"
+	ASSERT_TRUE( Has( strMgr, "void ShellNewParticles_RemoveAll()" ) )
+		<< kNewParticles << " no longer holds RemoveAllNewEffects' successor;"
 		   " the absences below would prove nothing.";
-	EXPECT_EQ( 0, GuardCount( kParticleMgr ) )
-		<< kParticleMgr << " carries a `#ifndef SS_CBASEENTITY_ALIAS` again.";
+	ASSERT_TRUE( Has( strMgr, "UpdateDirtySpatialPartitionEntities();" ) )
+		<< kNewParticles << " no longer calls UpdateDirtySpatialPartitionEntities;"
+		   " the absences below would prove nothing.";
+	EXPECT_EQ( 0, GuardCount( kNewParticles ) )
+		<< kNewParticles << " carries a `#ifndef SS_CBASEENTITY_ALIAS`.";
 	EXPECT_FALSE( Has( strMgr, "C_BaseEntityIterator" ) )
-		<< kParticleMgr << " walks the entity list again (74b071771:...:1434,"
-		   " inside an arm with no #else, so it was never compiled).";
+		<< kNewParticles << " walks the entity list (stock's 74b071771:...:1434"
+		   " sweep was inside an arm with no #else, so it was never compiled).";
 	EXPECT_FALSE( Has( strMgr, "ParticleProp()" ) )
-		<< kParticleMgr << " asks an entity for its particle property again.";
+		<< kNewParticles << " asks an entity for its particle property.";
 }
 
 
@@ -759,20 +771,21 @@ TEST( CppAliasShardT3, TheCollisionPropertyHalfIsBehindTheAliasArm )
 
 TEST( CppAliasShardT3, UpdateDirtySpatialPartitionEntitiesStaysOutsideTheArm )
 {
-	// particlemgr.cpp calls this BY NAME and stays in the build, so guarding it
-	// turns step 6's compile error into a link error. Both halves are asserted:
-	// the definition is unguarded, and the caller is real.
+	// The new-style effects' frame calls this BY NAME (UpdateNewEffects' call,
+	// which left with particlemgr.cpp for shell_new_particles_client.cpp), so
+	// guarding it turns a compile error into a link error. Both halves are
+	// asserted: the definition is unguarded, and the caller is real.
 	bool bFound = false;
 	EXPECT_EQ( ARM_ALWAYS,
 	           ArmOfFirst( kCollision, "void UpdateDirtySpatialPartitionEntities()", &bFound ) );
 	EXPECT_TRUE( bFound ) << "UpdateDirtySpatialPartitionEntities' definition was not found in "
 	                      << kCollision;
 
-	const std::string strMgr = CodeOf( kParticleMgr );
-	ASSERT_FALSE( strMgr.empty() ) << kParticleMgr << " did not open.";
-	EXPECT_TRUE( Has( strMgr, "UpdateDirtySpatialPartitionEntities();" ) )
-		<< "particlemgr.cpp no longer calls UpdateDirtySpatialPartitionEntities."
-		   " If that is deliberate the arm above may move, but say so here.";
+	const std::string strShell = CodeOf( kNewParticles );
+	ASSERT_FALSE( strShell.empty() ) << kNewParticles << " did not open.";
+	EXPECT_TRUE( Has( strShell, "UpdateDirtySpatialPartitionEntities();" ) )
+		<< kNewParticles << " no longer makes UpdateNewEffects' partition update"
+		   " before the new-style effects step.";
 }
 
 TEST( CppAliasShardT3, ThePartitionReadLockPairStaysOutsideTheArm )
@@ -1019,7 +1032,7 @@ TEST( CppAliasShardT3, TheDtClassNameIsNotUsedAsAClassnameAnywhereInTheDamageFil
 TEST( CppAliasShardT3Fixture, EveryFileNamedByThisTestOpensAndIsNotTrivial )
 {
 	const char *kAll[] = {
-		kCollision, kParticleMgr, kTakeDamage,
+		kCollision, kNewParticles, kTakeDamage,
 		kShellBase, kShellPlayerS, kShellPlayerC,
 	};
 	for ( size_t i = 0; i < sizeof( kAll ) / sizeof( kAll[ 0 ] ); i++ )

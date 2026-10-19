@@ -871,6 +871,10 @@ public enum CrossingOp
     ClientDetailPrepare = 352,
     /// <summary>IManagedDetailPropsClient::DetailEmit: a prepared draw's quads. CLIENT ONLY.</summary>
     ClientDetailEmit = 353,
+    /// <summary>The new-style particle effects' frame (CParticleMgr::UpdateNewEffects), once a frame; the library steps the listed collections during it (C7 particles phase 3). CLIENT ONLY.</summary>
+    ClientParticlesNewEffectsFrame = 354,
+    /// <summary>One new-style effect's draw decisions (CNewParticleEffect::DrawModel), per drawn effect per view (C7 particles phase 3). CLIENT ONLY.</summary>
+    ClientParticlesNewEffectDraw = 355,
 }
 
 /// <summary>

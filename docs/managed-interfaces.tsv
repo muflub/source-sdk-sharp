@@ -180,6 +180,8 @@ IManagedParticlesClient	WaterSplash	int32_t	int32_t nKind, const float *pOriginX
 IManagedParticlesClient	SplashTint	int32_t	const float *pColorXYZ, float *pTintXYZ, float *pLuminosity
 IManagedParticlesClient	TracerQuads	int32_t	int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut
 IManagedParticlesClient	ManifestFiles	int32_t	int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes
+IManagedParticlesClient	NewEffectsFrame	int32_t	const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes
+IManagedParticlesClient	NewEffectDraw	int32_t	const SourceSharpNewParticleDrawIn_t *pIn, SourceSharpNewParticleDrawOut_t *pOut
 IManagedUiClient	Paint	void	int32_t nLayer, int32_t nScreenW, int32_t nScreenH
 IManagedUiClient	ScreenSizeChanged	void	int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH
 IManagedWorldTextClient	Draw	int32_t	uint32_t hOwner, const SourceSharpWorldTextView_t *pView, SourceSharpWorldTextVertex_t *pOut, int32_t nMax

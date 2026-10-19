@@ -334,7 +334,9 @@ client_stock_tus	src/client/native/CMakeLists.txt	49
 # 2026-10-19, 218 -> 219 at the rebase onto #10/#11 (measured by the walk): #11 added
 #   sourcesharp/fwd/fwd_physics.cpp (222 -> 223 on GitHub) and the 140 commits remove 4 net; the row
 #   had kept the commits' 218, which did not count the file #11 added.
-shim_cpp_files	src/sourcesharp	219
+# RAISED 2026-10-18, 219 -> 220, deliberately (C7 particles phase 3, measured on main 06b426523): sourcesharp/game/client/shell_new_particles_client.cpp (a), the new-style particle effect's renderable shell (CShellNewParticleEffect, an IClientRenderable the leaf system draws) over the library's CParticleCollection, and the frame that carries out NewParticleManager's commits. particlemgr.cpp and particles_new.cpp, whose work it took, leave client.so in phase 4.
+# RAISED 2026-10-18, 220 -> 221, deliberately (C7 particles phase 4, measured on main 06b426523): sourcesharp/game/client/shell_particle_mgr_client.cpp (b), what client.so still called of CParticleMgr: the PMaterial table, the draw state the light proxy reads, and Init/Term/LevelInit's calls into the particle library (reached by name). It replaces particlemgr.cpp, a fork TU outside this count, which leaves client.so in the next commit but one.
+shim_cpp_files	src/sourcesharp	221
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1692,7 +1694,11 @@ shim_cpp_files	src/sourcesharp	219
 #   GitHub #10/#11 (public/main 9fb726b93): the ceiling was carried as #11's 145682 plus the commits' own
 #   -1178, and the walk reads 8 more, all in src/shared/native/imanaged_areas_client.h, which
 #   tools/managed-areas now writes in #11's table form (the commits' slots cost 18 lines there, 10 before).
-shim_lines	src/sourcesharp	144512
+# RAISED 2026-10-18, 144512 -> 145378 (+866, measured by the walk on main 06b426523), deliberately: C7 particles phase 3. shell_new_particles_client.cpp and shell_new_particles.h (the new-style effects' shell: creation, control points, the leaf system's answers, DrawModel carrying out NewEffectDraw's answer, the frame filling NewEffectsFrame's buffer and carrying out its commits); sourcesharp.h's five SourceSharpNewParticle* structs; imanaged_areas_client.h's two generated slots (the managed-built table's pointers and wrappers); particlelib.cpp's batch and bounds slots; shell_managed_particles.cpp and shell_impact_effects.cpp switched to the shell. The decisions are managed's (NewParticleManager over NewParticleEffect, held by the stock replay); native reads, crosses and carries out. Phase 4's eviction of particlemgr.cpp and particles_new.cpp (fork TUs, outside this count) is the other side of it.
+# RAISED 2026-10-18, 145378 -> 145759 (+381, measured by the walk on main 06b426523), deliberately: C7 particles phase 4's replacement of CParticleMgr. shell_particle_mgr_client.cpp and shell_particle_mgr.h (the PMaterial table, the draw state, the library's setup: mechanics, nothing decided) and the callers switched to them (shell_clientdll.cpp, shell_client.cpp, shell_view_executor_client.cpp, shell_impact_effects.cpp, shell_managed_particles.cpp, shell_material_proxy_client.cpp, shell_new_particles_client.cpp). particlemgr.cpp (2,505 lines of the fork) leaves client.so in the next commit but one.
+# RAISED 2026-10-18, 145759 -> 145770 (+11, measured by the walk on main 06b426523), deliberately: the C7 particles phase 3 fix. shell_new_particles_client.cpp's frame makes UpdateNewEffects' UpdateDirtySpatialPartitionEntities call again (+9 with its note), and collisionproperty.cpp's two notes name the new caller (+2).
+# RAISED 2026-10-18, 145770 -> 145794 (+24, measured by the walk on main 06b426523), deliberately: C7 particles phase 4's eviction. particlemgr.cpp's three CParticleSubTexture / CParticleSubTextureGroup constructors move to shell_particle_mgr_client.cpp with their note (+24); particlemgr.cpp (2,505 lines) and particles_new.cpp (713) leave client.so, outside this count. The convars and commands they declared are managed's (ParticleConVars.cs, ParticleCommands.cs).
+shim_lines	src/sourcesharp	145794
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

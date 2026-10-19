@@ -1538,13 +1538,15 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// (One fewer compiled once the dead proxyentity.cpp left too, C9, lane c6-input.)
 	// Floors 20 -> 16 in C9 (lane c6-input, 2026-10-12) once studio_shared.cpp left,
 	// and 16 -> 12 once sequence_Transitioner.cpp and vgui_consolepanel.cpp left
-	// (16 compiled under game/).
+	// (16 compiled under game/). nHere 12 -> 10 in C7 particles phase 4
+	// (2026-10-18, on main 8605b6ea1: 11 compiled under game/ once
+	// particlemgr.cpp and particles_new.cpp left).
 	const ScanResult_t &client = ClientScan();
 	EXPECT_GT( client.nFiles, 12 )
 		<< "scanned " << client.nFiles << " client files -- too few to mean "
 		<< "anything, and low enough that the $File parse is the first thing "
 		<< "to suspect";
-	EXPECT_GT( client.nHere, 12 )
+	EXPECT_GT( client.nHere, 10 )
 		<< "client_sourcesharp compiles " << client.nHere << " entries under "
 		<< "game/ -- too few for the ratio below to mean anything";
 	EXPECT_GT( client.nFiles * 100, client.nHere * 90 )
@@ -1558,10 +1560,13 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 		<< "not read";
 	// 14,000: detailobjectsystem.cpp's 2,881 lines left the scan with the file
 	// (C7 cluster 10; 14,518 scanned after it, in a tree set up from the fork).
-	// 13,000: a tree from stock upstream plus patches/ (make sdk-upstream, as
-	// CI's) reads fewer lines, since the fork's edited files are longer: 13,913
-	// at 28b4e9d and 13,715 at 4cb81375.
-	EXPECT_GT( client.nLines, 13000 )
+	// A tree from stock upstream plus patches/ (make sdk-upstream, as CI's)
+	// reads fewer lines, since the fork's edited files are longer: 13,913 at
+	// 28b4e9d and 13,715 at 4cb81375. particlemgr.cpp and particles_new.cpp
+	// left with C7 particles phase 4: 11,300 scanned after them on the fork
+	// (main 8605b6ea1), about 10,800 on upstream (13,715 less their 2,918
+	// upstream lines). 10,000 holds on both.
+	EXPECT_GT( client.nLines, 10000 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )

@@ -84,7 +84,7 @@
 41	UNRULED	void CShellClientDLL::LevelInitPreEntity( char const* pMapName )
 6	UNRULED	void CShellClientDLL::LevelInitPostEntity( )
 10	UNRULED	void CShellClientDLL::ResetStringTablePointers()
-26	UNRULED	void CShellClientDLL::LevelShutdown( void )
+27	UNRULED	void CShellClientDLL::LevelShutdown( void )
 8	UNRULED	void CShellClientDLL::SetCrosshairAngle( const QAngle& angle )
 7	UNRULED	void CShellClientDLL::InitSprite( CEngineSprite *pSprite, const char *loadname )
 7	UNRULED	void CShellClientDLL::ShutdownSprite( CEngineSprite *pSprite )

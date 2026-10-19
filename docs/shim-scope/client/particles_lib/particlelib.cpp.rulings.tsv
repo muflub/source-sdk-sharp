@@ -51,3 +51,10 @@ CollectionAccess *Access( CParticleCollection *p )	SLOT-HELP	reaches CParticleCo
 [CSSParticleLib] void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
 [CSSParticleLib] void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
 SSParticleLib_Interface	LIVE-API	the library's one export: client.so imports it (nm -D -u client.so: U SSParticleLib_Interface) and takes ISSParticleLib from it, linked by SONAME rather than looked up at load
+[CollectionAccess] const Vector &Min() const	SLOT-HELP	reaches CParticleCollection's protected bounds for the batch and the bounds slots beside it
+[CollectionAccess] const Vector &Max() const	SLOT-HELP	reaches CParticleCollection's protected bounds for the batch and the bounds slots beside it
+[CollectionAccess] void SetBounds(	SLOT-HELP	reaches CParticleCollection's protected bounds for the bounds slot beside it
+const CollectionAccess *Access( const CParticleCollection *p )	SLOT-HELP	the const view of the protected-member access
+[CSSParticleLib] void CollectionSimulateBatch(	BOUNDARY	C7 particles phase 3: each listed collection stepped as managed decided (dt, bounds only), and what the next decisions read answered back; nothing decided here
+[CSSParticleLib] void CollectionGetBounds(	BOUNDARY	the collection's bounds, read
+[CSSParticleLib] void CollectionSetBounds(	BOUNDARY	the collection's bounds, written as managed's first box decided

@@ -252,15 +252,12 @@ public class NewParticleEffectOracleTests
                         Min = l.Min,
                         Max = l.Max,
                         MaxDrawDistance = F(c[6]),
-                        CameraEntity = I(c[7]),
+                        CameraObject = (ulong)(I(c[7]) + 1), // the view entity: some entity
                         SkipRenderControlPoint = I(c[8]),
                         HighestControlPoint = I(c[9]),
                         LastSimulationTime = F(c[10]),
                         NoDrawTimeToGoToSleep = F(c[11]),
                         NextSleepTime = l.NextSleepTime,
-                        SkipEntity = -1,
-                        LocalPlayer = -1,
-                        ObserverTarget = -1,
                     };
                     float dist = NewParticleEffect.SqrDistanceToBox(l.Min, l.Max, drawIn.Camera);
                     if (!dist.Equals(F(c[5])))

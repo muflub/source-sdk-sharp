@@ -76,9 +76,12 @@
 #include "IEffects.h"
 // DispatchParticleEffect, for its CHAR_TEX_WARPSHIELD arm.
 #include "particle_parse.h"
-// CNewParticleEffect, for the whole cl_new_impact_effects 1 path -- the
-// particle-system table and the three control points set on it.
-#include "particles_new.h"
+// The new-style effect's shell (C7 particles phase 3), for the whole
+// cl_new_impact_effects 1 path -- the particle-system table and the three
+// control points set on it.
+#include "shell_new_particles.h"
+// The PMaterial table the g_Mat_* handles come from (C7 particles phase 4).
+#include "shell_particle_mgr.h"
 // The typed refusal and the one spelling of its print. FX_AffectRagdolls is a
 // §7 refusal in this build and the banner above its body says why.
 #include "physics_bridge_refusal.h"
@@ -141,39 +144,39 @@ static CManagedConVarRef fx_drawimpactdust( "fx_drawimpactdust" );
 
 void FX_CacheMaterialHandles( void )
 {
-	g_Mat_Fleck_Wood[0] = ParticleMgr()->GetPMaterial( "effects/fleck_wood1" );
-	g_Mat_Fleck_Wood[1] = ParticleMgr()->GetPMaterial( "effects/fleck_wood2" );
+	g_Mat_Fleck_Wood[0] = ShellParticleMaterial_Find( "effects/fleck_wood1" );
+	g_Mat_Fleck_Wood[1] = ShellParticleMaterial_Find( "effects/fleck_wood2" );
 
-	g_Mat_Fleck_Cement[0] = ParticleMgr()->GetPMaterial( "effects/fleck_cement1");
-	g_Mat_Fleck_Cement[1] = ParticleMgr()->GetPMaterial( "effects/fleck_cement2" );
+	g_Mat_Fleck_Cement[0] = ShellParticleMaterial_Find( "effects/fleck_cement1");
+	g_Mat_Fleck_Cement[1] = ShellParticleMaterial_Find( "effects/fleck_cement2" );
 
-	g_Mat_Fleck_Antlion[0] = ParticleMgr()->GetPMaterial( "effects/fleck_antlion1" );
-	g_Mat_Fleck_Antlion[1] = ParticleMgr()->GetPMaterial( "effects/fleck_antlion2" );
+	g_Mat_Fleck_Antlion[0] = ShellParticleMaterial_Find( "effects/fleck_antlion1" );
+	g_Mat_Fleck_Antlion[1] = ShellParticleMaterial_Find( "effects/fleck_antlion2" );
 
-	g_Mat_Fleck_Glass[0] = ParticleMgr()->GetPMaterial( "effects/fleck_glass1" );
-	g_Mat_Fleck_Glass[1] = ParticleMgr()->GetPMaterial( "effects/fleck_glass2" );
+	g_Mat_Fleck_Glass[0] = ShellParticleMaterial_Find( "effects/fleck_glass1" );
+	g_Mat_Fleck_Glass[1] = ShellParticleMaterial_Find( "effects/fleck_glass2" );
 
-	g_Mat_Fleck_Tile[0] = ParticleMgr()->GetPMaterial( "effects/fleck_tile1" );
-	g_Mat_Fleck_Tile[1] = ParticleMgr()->GetPMaterial( "effects/fleck_tile2" );
+	g_Mat_Fleck_Tile[0] = ShellParticleMaterial_Find( "effects/fleck_tile1" );
+	g_Mat_Fleck_Tile[1] = ShellParticleMaterial_Find( "effects/fleck_tile2" );
 
-	g_Mat_DustPuff[0] = ParticleMgr()->GetPMaterial( "particle/particle_smokegrenade" );
-	g_Mat_DustPuff[1] = ParticleMgr()->GetPMaterial( "particle/particle_noisesphere" );
+	g_Mat_DustPuff[0] = ShellParticleMaterial_Find( "particle/particle_smokegrenade" );
+	g_Mat_DustPuff[1] = ShellParticleMaterial_Find( "particle/particle_noisesphere" );
 
-	g_Mat_BloodPuff[0] = ParticleMgr()->GetPMaterial( "effects/blood" );
-	g_Mat_BloodPuff[1] = ParticleMgr()->GetPMaterial( "effects/blood2" );
+	g_Mat_BloodPuff[0] = ShellParticleMaterial_Find( "effects/blood" );
+	g_Mat_BloodPuff[1] = ShellParticleMaterial_Find( "effects/blood2" );
 	
 	// The two mod guards stock wraps these in -- `#ifndef TF_CLIENT_DLL` around
 	// the SMG flashes and `#ifndef CSTRIKE_DLL` around the Combine ones -- are
 	// gone rather than carried: this is neither of those games and never will
 	// be, so both arms this build takes are the only arms, and a dead mod guard
 	// in the shim is what tools/dead-conditionals exists to refuse.
-	g_Mat_SMG_Muzzleflash[0] = ParticleMgr()->GetPMaterial( "effects/muzzleflash1" );
-	g_Mat_SMG_Muzzleflash[1] = ParticleMgr()->GetPMaterial( "effects/muzzleflash2" );
-	g_Mat_SMG_Muzzleflash[2] = ParticleMgr()->GetPMaterial( "effects/muzzleflash3" );
-	g_Mat_SMG_Muzzleflash[3] = ParticleMgr()->GetPMaterial( "effects/muzzleflash4" );
-	g_Mat_Combine_Muzzleflash[0] = ParticleMgr()->GetPMaterial( "effects/combinemuzzle1" );
-	g_Mat_Combine_Muzzleflash[1] = ParticleMgr()->GetPMaterial( "effects/combinemuzzle2" );
-	g_Mat_Combine_Muzzleflash[2] = ParticleMgr()->GetPMaterial( "effects/strider_muzzle" );
+	g_Mat_SMG_Muzzleflash[0] = ShellParticleMaterial_Find( "effects/muzzleflash1" );
+	g_Mat_SMG_Muzzleflash[1] = ShellParticleMaterial_Find( "effects/muzzleflash2" );
+	g_Mat_SMG_Muzzleflash[2] = ShellParticleMaterial_Find( "effects/muzzleflash3" );
+	g_Mat_SMG_Muzzleflash[3] = ShellParticleMaterial_Find( "effects/muzzleflash4" );
+	g_Mat_Combine_Muzzleflash[0] = ShellParticleMaterial_Find( "effects/combinemuzzle1" );
+	g_Mat_Combine_Muzzleflash[1] = ShellParticleMaterial_Find( "effects/combinemuzzle2" );
+	g_Mat_Combine_Muzzleflash[2] = ShellParticleMaterial_Find( "effects/strider_muzzle" );
 }
 
 
@@ -563,7 +566,7 @@ char const *GetImpactDecal( IGameEntity *pEntity, int iMaterial, int iDamageType
 //-----------------------------------------------------------------------------
 // Purpose: Perform custom effects based on the Decal index
 //-----------------------------------------------------------------------------
-static void SetImpactControlPoint( CNewParticleEffect *pEffect, int nPoint, const Vector &vecImpactPoint, const Vector &vecForward, IGameEntity *pEntity )
+static void SetImpactControlPoint( CShellNewParticleEffect *pEffect, int nPoint, const Vector &vecImpactPoint, const Vector &vecForward, IGameEntity *pEntity )
 {
 	Vector vecImpactY, vecImpactZ;
 	VectorVectors( vecForward, vecImpactY, vecImpactZ );
@@ -586,7 +589,7 @@ static void SetImpactControlPoint( CNewParticleEffect *pEffect, int nPoint, cons
 static void DispatchNewParticleImpact( const char *pImpactName, const Vector &vecOrigin,
                                        trace_t &tr, const Vector &shotDir, int iScale )
 {
-	CSmartPtr<CNewParticleEffect> pEffect = CNewParticleEffect::Create( NULL, pImpactName );
+	CSmartPtr<CShellNewParticleEffect> pEffect = CShellNewParticleEffect::Create( pImpactName );
 	if ( !pEffect->IsValid() )
 		return;
 
@@ -607,7 +610,7 @@ static void DispatchNewParticleImpact( const char *pImpactName, const Vector &ve
 	SetImpactControlPoint( pEffect.GetObject(), 1, vecImpactPoint, vecReflect,		TraceGameEntity( tr ) );
 	SetImpactControlPoint( pEffect.GetObject(), 2, vecImpactPoint, vecShotBackward,	TraceGameEntity( tr ) );
 	pEffect->SetControlPoint( 3, Vector( iScale, iScale, iScale ) );
-	if ( pEffect->m_pDef->ReadsControlPoint( 4 ) )
+	if ( pEffect->DefinitionReadsControlPoint( 4 ) )
 	{
 		Vector vecColor;
 		GetColorForSurface( &tr, &vecColor );

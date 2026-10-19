@@ -30,14 +30,17 @@ public unsafe class ParticleLibraryTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheParticleLibTableHasFortyFiveSlots()
-        => Assert.Equal(45, Forwarders.SlotCount<ParticleLibFwd>());
+    public void TheParticleLibTableHasFortyEightSlots()
+        // 45, then C7 particles phase 3's three (the batch step and the
+        // bounds pair), appended.
+        => Assert.Equal(48, Forwarders.SlotCount<ParticleLibFwd>());
 
     [Fact]
     public void ConnectIsSlotZeroAndTheAnchorIsTheLast()
     {
         Assert.Equal(0, SlotOf("Connect"));
         Assert.Equal(44, SlotOf("MgrUncacheAllParticleSystems"));
+        Assert.Equal(47, SlotOf("CollectionSetBounds"));
     }
 
     [Fact]
@@ -134,7 +137,7 @@ public unsafe class ParticleLibraryTests
     [Fact]
     public void ThrottleScalingAsksTheManagerTheLibraryHandsBack()
     {
-        using var served = new Served(45);
+        using var served = new Served(48);
         s_ThrottleSawManager = 0;
 
         Assert.Equal(0.25f, Over(served).ThrottleScaling());
@@ -147,7 +150,7 @@ public unsafe class ParticleLibraryTests
         s_NamePin = GCHandle.Alloc(s_Name, GCHandleType.Pinned);
         try
         {
-            using var served = new Served(45);
+            using var served = new Served(48);
             s_NameSawIndex = -1;
 
             Assert.Equal("env_fire_small", Over(served).SystemName(2));
@@ -163,7 +166,7 @@ public unsafe class ParticleLibraryTests
     [Fact]
     public void AnIndexPastTheCountIsNullAndNeverReachesTheLibrary()
     {
-        using var served = new Served(45);
+        using var served = new Served(48);
         s_NameSawIndex = -1;
         ParticleLibrary library = Over(served);
 
@@ -175,9 +178,9 @@ public unsafe class ParticleLibraryTests
     [Fact]
     public void ALibraryWithFewerSlotsThanTheLayoutIsRefused()
     {
-        // The count rule: managed <= native. A table of 44 slots cannot hold
-        // the 45 this struct reaches.
-        using var served = new Served(44);
+        // The count rule: managed <= native. A table of 47 slots cannot hold
+        // the 48 this struct reaches.
+        using var served = new Served(47);
         Assert.Throws<InterfaceAcquisitionException>(() => Over(served).ThrottleScaling());
     }
 
@@ -222,6 +225,8 @@ public unsafe class ParticleLibraryTests
         public int SystemCount() => 0;
 
         public string? SystemName(int index) => null;
+
+        public void DumpProfileInformation() { }
     }
 
     [Fact]
