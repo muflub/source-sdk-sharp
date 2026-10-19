@@ -26,8 +26,6 @@ public sealed class ParticleQueryEngine(Func<IVtableEngineClient?> acquire) : IP
 {
     private IVtableEngineClient? _engine;
 
-    public static ParticleQueryEngine FromEngine(ModuleEngine engine) => new(() => EngineClient.Acquire(engine, out _));
-
     public bool IsInGame()
     {
         _engine ??= acquire();

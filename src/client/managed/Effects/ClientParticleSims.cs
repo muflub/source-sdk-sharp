@@ -58,8 +58,6 @@ public sealed class ClientWorldLight(Func<IVtableEngineClient?> acquire) : IClie
 {
     private IVtableEngineClient? _engine;
 
-    public static ClientWorldLight FromEngine(ModuleEngine engine) => new(() => EngineClient.Acquire(engine, out _));
-
     public Vector LightForPoint(Vector position, bool clamp)
     {
         _engine ??= acquire();

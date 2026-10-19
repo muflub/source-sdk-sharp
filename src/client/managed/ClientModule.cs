@@ -78,6 +78,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// </summary>
     private ILog Log => _engine.Log;
 
+    /// <summary>
+    /// This composition's <c>IVEngineClient</c>, acquired through its own engine
+    /// (plan_abi_hotreload D8). The services that call the engine client take
+    /// this acquire rather than the engine (plan_shim_areas_split phase 8), so
+    /// only the root names <see cref="ModuleEngine"/>.
+    /// </summary>
+    private IVtableEngineClient? AcquireEngineClient() => EngineClient.Acquire(_engine, out _);
+
     public ClientModule(ModuleEngine engine)
         : this(engine, new ClientEntityFetches())
     {
@@ -399,6 +407,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // And the module's engine itself, for what acquires an engine
         // interface through this side's own factory (EngineClient, D8).
         _services.AddInstance(_engine);
+
+        // And its engine client, for what reports the engine's refusal
+        // (cs_vtable_client) rather than naming the engine.
+        _services.AddInstance<IVtableEngineClientSource>(new VtableEngineClientSource(_engine));
 
         // This side's build stamps (statics to zero): its SideState's, which
         // the HUD's corner stamp reads.
@@ -766,7 +778,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<Render.IPostProcessContributor>>(locator => new Hooks<Render.IPostProcessContributor>(locator, log));
         _services.AddFactory<Render.PostProcessHost>(locator => new Render.PostProcessHost(
             locator.Require<IHooks<Render.IPostProcessContributor>>(),
-            locator.Require<IFxRender>(), locator.Require<IEngineConsole>(), log, () => EngineClient.Acquire(_engine, out _)));
+            locator.Require<IFxRender>(), locator.Require<IEngineConsole>(), log, AcquireEngineClient));
         _services.AddFactory<MaterialProxies.IPostProxyValues>(locator => locator.Require<Render.PostProcessHost>());
         _services.AddFactory<Render.DemoViewCamera>(locator => new Render.DemoViewCamera(
             button => _inputService?.KeyState(button) ?? 0f, () => locator.Require<Render.ClDemoviewoverrideConVar>().Value));
@@ -775,11 +787,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<MaterialProxies.IMaterialProxyReadings>(
             locator => (MaterialProxies.MaterialProxyHost)locator.Require<IClientMaterialProxies>());
         // The world's light at a point, which the particle sims tint by.
-        _services.AddInstance<Effects.IClientWorldLight>(Effects.ClientWorldLight.FromEngine(_engine));
+        _services.AddInstance<Effects.IClientWorldLight>(new Effects.ClientWorldLight(AcquireEngineClient));
         // The particle query particles.a calls back (lane c5-particles).
-        _services.AddInstance<Effects.IParticleQueryEngine>(Effects.ParticleQueryEngine.FromEngine(_engine));
+        _services.AddInstance<Effects.IParticleQueryEngine>(new Effects.ParticleQueryEngine(AcquireEngineClient));
         _services.Add<IClientParticleQuery, Effects.ParticleSystemQuery>();
-        _services.AddInstance<IClientReconnect>(EngineReconnect.FromEngine(_engine, log));
+        _services.AddInstance<IClientReconnect>(new EngineReconnect(AcquireEngineClient, log));
         _services.AddInstance<ISteamAuthTickets>(new SteamUserTickets(log));
 
         // The client's Steam, through the process's own libsteam_api.so (C6, Steam
@@ -787,7 +799,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // name goes through (stock's g_PR->GetPlayerName, ONE source for the UI).
         var steamApi = new SteamClientFlat();
         _services.AddInstance<ISteamClientApi>(steamApi);
-        _services.AddInstance<Vgui.IPlayerNames>(new Vgui.EnginePlayerNames(() => EngineClient.Acquire(_engine, out _),
+        _services.AddInstance<Vgui.IPlayerNames>(new Vgui.EnginePlayerNames(AcquireEngineClient,
                                                                             new Steam.SteamPlayerNameFilter(steamApi)));
 
         // Beside the engine rather than down with the game services: the clock
@@ -845,7 +857,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // IManagedRenderClient. CalcShake's rumble angle goes to the mixer.
         _services.AddFactory<Render.ViewEffectsHost>(locator => new Render.ViewEffectsHost(
             locator.Require<IUniformRandom>(), locator.Require<IGameClock>(), locator.Require<Render.ShakeShowConVar>(),
-            () => EngineClient.Acquire(_engine, out _), shake => _inputService?.RumbleScreenShake(shake, 0f)));
+            AcquireEngineClient, shake => _inputService?.RumbleScreenShake(shake, 0f)));
         _services.AddInstance<IClientMessageEffects>(new ClientMessageEffects(_services.Require<IEngineHud>(), () => _uiLoader?.Current, () => _voiceStatus,
                                                                              m => _inputService?.RumbleEffect(m.Waveform, m.Data, m.Flags),
                                                                              () => _services.Require<Render.ViewEffectsHost>(),
@@ -920,7 +932,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // for the next one (plan_client_novalve §3.8, §4.4).
         _reloadLedger = new ClientReloadLedger(_engine.Reload, _clock, log);
         _services.AddInstance(_reloadLedger);
-        _services.AddInstance(ClientReloadRequester.FromEngine(_engine));
+        _services.AddInstance(new ClientReloadRequester(AcquireEngineClient));
         _services.Add<IDebugClientReload, ClientDebugReload>();
         _services.Add<IDebugClientNetGraph, ClientDebugNetGraph>();
         _services.Add<IDebugClientUi, Vgui.UiDebugForwarder>();
@@ -1609,7 +1621,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _voice = new Vgui.VoiceSpeakers(new Vgui.VoicePlayers(_services.Require<IClientStandalones>(), _services.Require<Vgui.IPlayerNames>()));
         _services.AddInstance<SourceSharp.Client.Ui.IVoiceSource>(_voice);
         var modEnable = _convars.Get<Voice.VoiceModEnableConVar>();
-        _voiceStatus = new Voice.VoiceStatus(new Voice.VoiceEngine(() => EngineClient.Acquire(_engine, out _), modEnable), _clock, Log,
+        _voiceStatus = new Voice.VoiceStatus(new Voice.VoiceEngine(AcquireEngineClient, modEnable), _clock, Log,
                                              new Voice.VoiceBanFile(_services.Require<IModInfo>().GameDir, Log), modEnable,
                                              _convars.Get<Voice.VoiceClientDebugConVar>());
         _voiceEvents = new Voice.VoiceStatusFanOut(_voice, _voiceStatus);
@@ -1619,11 +1631,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var observer = new Vgui.ObserverState(
             new Vgui.LocalObserverFields(_services.Require<IClientStandalones>(), () => observerHud.LocalPlayerIndex),
             new Vgui.SpectatedPlayers(_services.Require<IClientStandalones>(), _services.Require<Vgui.IPlayerNames>()),
-            () => EngineClient.Acquire(_engine, out _)?.LevelName());
+            () => AcquireEngineClient()?.LevelName());
         _services.AddInstance<SourceSharp.Client.Ui.IObserverSource>(observer);
         _services.AddInstance<SourceSharp.Client.Ui.ISpectatorTargetSource>(observer);
         _services.AddInstance(new Vgui.SpectatorCommandRunner(new Vgui.SpectatorCommands(), observer, Log,
-                                                              () => EngineClient.Acquire(_engine, out _)));
+                                                              AcquireEngineClient));
         _services.AddInstance<SourceSharp.Client.Ui.IDebugOverlaySource>(
             new Vgui.DebugOverlayText(_services.Require<IClientDebugOverlay>(), _clock));
         // THE CHAT (stock CBaseHudChat): its feed and its input line, the core's.
@@ -1632,7 +1644,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                          _convars.Get<Vgui.HudSayTextTimeConVar>());
         chatFeed.Subscribe(_services.Require<SayTextMessage>(), _services.Require<SayText2Message>());
         _services.AddInstance<SourceSharp.Client.Ui.IChatSource>(chatFeed);
-        var chatInput = new Vgui.ChatInputUi(() => EngineClient.Acquire(_engine, out _));
+        var chatInput = new Vgui.ChatInputUi(AcquireEngineClient);
         _services.AddInstance(chatInput);
         _services.AddInstance<SourceSharp.Client.Ui.IChatInputSource>(chatInput);
 
@@ -1662,7 +1674,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var hud = _hud;
         var arsenal = _clientArsenal;
         var uiServices = new Vgui.UiRuntimeServices(_services, Log, hud, arsenal, _convars.Get<Vgui.UiScaleConVar>(),
-                                                    () => EngineClient.Acquire(_engine, out _),
+                                                    AcquireEngineClient,
                                                     AcquireInputSystem,
                                                     () => ClientStringTables.Acquire(_engine, out _));
         // The mod's own UI assemblies (mods.yaml client_ui, stage 0.9) join
@@ -1689,7 +1701,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new Vgui.ViewportPanelCommand(_uiLoader));
         var uiLoader = _uiLoader;
         _services.AddInstance(new Vgui.ShowInfo(() => uiLoader.Current, Log));
-        _keys = new Vgui.ClientKeyInput(chatOpener, observer, () => EngineClient.Acquire(_engine, out _));
+        _keys = new Vgui.ClientKeyInput(chatOpener, observer, AcquireEngineClient);
 
         // THE PLAYER'S REPLAY (plan_entity.md step 6f). After the arsenal,
         // which it drives: the weapon machine's two phases are direct calls
