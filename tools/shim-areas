@@ -317,7 +317,7 @@ def generate():
     c += ['};', '',
           '// The internal factory\'s rows for every interface above: the area and the',
           '// compiler\'s slot count for it, or NULL and 0. Defined in shell_shim_areas.inc.',
-          'void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName, int32_t *pnEntries );',
+          'void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName );',
           '', '#else // CLIENT_DLL', '',
           '// plan_client_vtables CB, CC: the client implements each shared base, and its',
           '// client-only areas, forwarding to the body each row of the slot table names.', '']
@@ -340,7 +340,7 @@ def generate():
         c.append('\tCShim%s m_%s;' % (short(i), short(i)))
     c += ['};', '',
           '// The client factory\'s rows: each shared base by its own version string.',
-          'void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName, int32_t *pnEntries );',
+          'void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );',
           '', '#endif // CLIENT_DLL', '', '#endif // SHELL_SHIM_AREAS_H', '']
 
     # ---- the forwards ------------------------------------------------------------
@@ -355,16 +355,11 @@ def generate():
                 im.append(decl(ret, 'CShim%s::%s' % (short(i), s), params, ''))
                 im.append('\t{ return ::%s(%s); }' % (fill[s], ' %s ' % args if args else ''))
         im.append('')
-    im += ['void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName, int32_t *pnEntries )', '{',
-           '\tif ( pnEntries )', '\t\t*pnEntries = 0;', '', '\tif ( !pszName )', '\t\treturn NULL;', '']
+    im += ['void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )', '{',
+           '\tif ( !pszName )', '\t\treturn NULL;', '']
     for i in concrete:
-        last = slots[i][-1]
         im += ['\tif ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_%s_VERSION ) )' % short(i).upper(),
-               '\t{',
-               '\t\tif ( pnEntries )',
-               '\t\t\t*pnEntries = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, last),
-               '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)),
-               '\t}', '']
+               '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)), '']
     im += ['\treturn NULL;', '}', '']
 
     # ---- the client's forwards (plan_client_vtables CB) ----------------------
@@ -386,17 +381,11 @@ def generate():
             cim.append(decl(ret, 'CShim%s::%s' % (short(i), s), params, ''))
             cim.append('\t{ return ::%s(%s); }' % (fill[s], ' %s ' % args if args else ''))
         cim.append('')
-    cim += ['void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName, int32_t *pnEntries )', '{',
-            '\tif ( pnEntries )', '\t\t*pnEntries = 0;', '', '\tif ( !pszName )', '\t\treturn NULL;', '']
-    every_slots = dict(slots)
-    every_slots.update(client_slots)
+    cim += ['void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )', '{',
+            '\tif ( !pszName )', '\t\treturn NULL;', '']
     for i in client_bases + client_only:
         cim += ['\tif ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_%s_VERSION ) )' % short(i).upper(),
-                '\t{',
-                '\t\tif ( pnEntries )',
-                '\t\t\t*pnEntries = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, every_slots[i][-1]),
-                '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)),
-                '\t}', '']
+                '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)), '']
     cim += ['\treturn NULL;', '}', '']
 
     # ---- the layout tests ---------------------------------------------------------
@@ -477,13 +466,13 @@ def generate():
          '    public static bool TryTake(ShimRoot root, string version, out ShimRef<TFwd> area, out string why)',
          '    {',
          '        area = default;',
-         '        void* self = root.Acquire(version, out _);',
+         '        void* self = root.Acquire(version);',
          '        if (self == null)',
          '        {',
          '            why = $"the shim root does not serve {version}";',
          '            return false;',
          '        }',
-         '        var header = (ForwarderTableHeader*)root.Acquire(TFwd.TableName, out _);',
+         '        var header = (ForwarderTableHeader*)root.Acquire(TFwd.TableName);',
          '        if (!Forwarders.TryBind(header, out TFwd* table, out why))',
          '        {',
          '            why = $"{version}: {why}";',

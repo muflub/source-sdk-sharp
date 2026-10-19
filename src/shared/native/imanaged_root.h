@@ -30,9 +30,9 @@
 
 // THE CLASS IS GENERATED (plan_managed_vtable_reload.md L0c): tools/managed-areas
 // writes IManagedRoot into imanaged_core.h from docs/managed-interfaces.tsv.
-//   Acquire( pszName, pnEntries ) -- a managed-built interface by name, with
-//     managed's slot count for it in *pnEntries; NULL and 0 for a name this
-//     side does not serve.
+//   Acquire( pszName ) -- a managed-built interface by name; NULL for a name
+//     this side does not serve. Native checks what it gets through its
+//     Validate slot, against the compiled slot hashes, not by a count.
 //   Release() -- frees the managed handle behind this object. Native nulls its
 //     pointer first: a freed handle's slot is reused, so a late call would land
 //     on a different live object.

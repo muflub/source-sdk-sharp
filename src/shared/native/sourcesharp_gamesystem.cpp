@@ -2143,14 +2143,12 @@ void SourceSharp_OnClientGamePrecache()
 //-----------------------------------------------------------------------------
 #ifndef CLIENT_DLL
 #include "ss_string.h"
-#include "vtable_hook.h"
 #include "shell_shim_areas.h"
 #include "shell_shim_areas.inc"
 #else
 // plan_client_vtables CB, CC: the client's shim areas, forwarding to the bodies
 // docs/engineapi-areas.tsv names (tools/shim-areas).
 #include "ss_string.h"
-#include "vtable_hook.h"
 #include "shell_shim_areas.h"
 #include "shell_shim_areas_client.inc"
 #endif

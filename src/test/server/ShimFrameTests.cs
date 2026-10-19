@@ -452,11 +452,8 @@ public unsafe class ShimFrameTests
     private sealed class RefusingSeam
     {
         public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             int* entries, byte* error, int errorBytes)
+                             byte* error, int errorBytes)
         {
-            if (entries != null)
-                *entries = 0;
-
             ReadOnlySpan<byte> reason = "factory does not know that interface"u8;
 
             if (error != null && errorBytes > reason.Length)
@@ -504,12 +501,9 @@ public unsafe class ShimFrameTests
         }
 
         public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             int* entries, byte* error, int errorBytes)
+                             byte* error, int errorBytes)
         {
             string name = new string((sbyte*)version);
-
-            if (entries != null)
-                *entries = 0;
 
             return name == ShimFrameFwd.TableName ? _header : _self;
         }

@@ -290,21 +290,19 @@ TEST( FwdEngine, TheInternalFactoryServesATableAsItsSlotArrayWithItsCount )
 {
 	// SSFwd_Serve is what both game DLLs' internal factory answers with:
 	// the object's first word must be the slot array (managed reads the table
-	// through it) and the count the table's own.
-	int32_t nEntries = -1;
-	void *pServed = SSFwd_Serve( "SSFwd_ModelInfo", &nEntries );
+	// through it) and its second the table's own count, which managed holds
+	// against its struct (no count is returned beside it any more).
+	void *pServed = SSFwd_Serve( "SSFwd_ModelInfo" );
 	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( (int32_t)kModelInfoSlots, nEntries );
+	EXPECT_EQ( (int32_t)kModelInfoSlots, static_cast< const SSForwarderTable * >( pServed )->nSlots );
 	EXPECT_EQ( ModelInfoTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
 }
 
-TEST( FwdEngine, TheInternalFactoryLeavesTheCountAloneForANameItDoesNotServe )
+TEST( FwdEngine, TheInternalFactoryAnswersNullForANameItDoesNotServe )
 {
-	int32_t nEntries = -1;
-	EXPECT_EQ( nullptr, SSFwd_Serve( "VModelInfoServer004", &nEntries ) );
-	EXPECT_EQ( -1, nEntries );
-	// And a caller that wants no count may pass none.
-	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo", nullptr ) );
+	// An interface's version string is not a table's name.
+	EXPECT_EQ( nullptr, SSFwd_Serve( "VModelInfoServer004" ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo" ) );
 }
 
 TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsTablesToo )
@@ -315,10 +313,9 @@ TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsTablesToo )
 	ASSERT_NE( nullptr, pTable );
 	ASSERT_GT( pTable->nSlots, 1 );
 
-	int32_t nEntries = -1;
-	void *pServed = SSFwd_Serve( "SSFwd_PhysicsObject", &nEntries );
+	void *pServed = SSFwd_Serve( "SSFwd_PhysicsObject" );
 	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( pTable->nSlots, nEntries );
+	EXPECT_EQ( pTable->nSlots, static_cast< const SSForwarderTable * >( pServed )->nSlots );
 	EXPECT_EQ( pTable->ppSlots, *static_cast< void *const *const * >( pServed ) );
 }
 
@@ -329,7 +326,7 @@ TEST( FwdEngine, TheServerServesItsOwnTables )
 	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer" } )
 	{
 		EXPECT_NE( nullptr, SSFwdServer_Table( pszName ) ) << pszName;
-		EXPECT_NE( nullptr, SSFwd_Serve( pszName, nullptr ) ) << pszName;
+		EXPECT_NE( nullptr, SSFwd_Serve( pszName ) ) << pszName;
 	}
 }
 
@@ -340,10 +337,8 @@ TEST( FwdEngine, TheServerServesNoTableOnlyTheClientCalls )
 	// the serve helper answers them (fwd_steam_test is the client's case).
 	for ( const char *pszName : { "SSFwd_EngineClient", "SSFwd_InputSystem", "SSFwd_Physics", "SSFwd_SteamCallback" } )
 	{
-		int32_t nEntries = -1;
 		EXPECT_EQ( nullptr, SSFwdServer_Table( pszName ) ) << pszName;
-		EXPECT_EQ( nullptr, SSFwd_Serve( pszName, &nEntries ) ) << pszName;
-		EXPECT_EQ( -1, nEntries ) << pszName;
+		EXPECT_EQ( nullptr, SSFwd_Serve( pszName ) ) << pszName;
 	}
 }
 

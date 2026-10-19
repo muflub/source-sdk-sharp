@@ -23,6 +23,25 @@
 #include "ss_fwd_sdk.h"
 #include "ss_fwd.h"
 
+// THE DEFINES MUST MATCH THE ENGINE'S, and for cdll_int.h they are
+// load-bearing: two of IVEngineClient013's virtuals are declared inside `#if`
+// blocks, and each one shifts every slot below it. The forwarders below call
+// those virtuals, so a different answer here calls the wrong method through
+// every slot past the block. The shipped engine was built with USE_SDL in and
+// NO_VOICE out on Linux and macOS; Valve's Windows engine renders through
+// DirectX and has no SDL, so there USE_SDL must be OUT (source_video_base.vpc
+// sets SDL only with GL). Checked before the headers, as command-line defines.
+#if defined( _WIN32 )
+#if defined( USE_SDL )
+#error "SourceSharp: the shipped Windows engine is built without USE_SDL and this translation unit has it. Every IVEngineClient013 slot from 127 down would be called one too high."
+#endif
+#elif !defined( USE_SDL )
+#error "SourceSharp: the shipped engine is built with USE_SDL and this translation unit is not. Every IVEngineClient013 slot from 127 down would be called one too low."
+#endif
+#if defined( NO_VOICE )
+#error "SourceSharp: the shipped engine is built with voice IN (NO_VOICE undefined) and this translation unit has NO_VOICE. Every IVEngineClient013 slot from 53 down would be called one too high."
+#endif
+
 // The interface headers the forwarders call through, and fwd_steam.h for the
 // Steam callback's functions, are the generated file's own includes.
 #include "fwd_client.g.inc"

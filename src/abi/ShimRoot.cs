@@ -19,7 +19,7 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal sealed unsafe class ShimRoot
 {
-    public const string InterfaceVersion = "SourceSharpRoot002";
+    public const string InterfaceVersion = "SourceSharpRoot003";
 
     private readonly void* _self;
     private readonly ShimRootFwd* _vt;
@@ -53,26 +53,23 @@ internal sealed unsafe class ShimRoot
     }
 
     /// <summary>
-    /// An ENGINE interface by factory kind and version, with its slot count
+    /// An ENGINE interface by factory kind and version
     /// (plan_engineapi_vtables C5: what the struct's AcquireInterface slot did).
+    /// No slot count comes back (plan_forwarders_everywhere.md phase 6): it is
+    /// called through its forwarder table, whose header holds its own.
     /// </summary>
-    internal void* AcquireInterface(int type, byte* interfaceVersion, int* entries, byte* error, int errorBytes)
-        => _vt->AcquireInterface(_self, type, interfaceVersion, entries, error, errorBytes);
+    internal void* AcquireInterface(int type, byte* interfaceVersion, byte* error, int errorBytes)
+        => _vt->AcquireInterface(_self, type, interfaceVersion, error, errorBytes);
 
     /// <summary>
-    /// A shim interface this side serves: its object and its slot count, or
-    /// null and 0 for a name this side does not serve.
+    /// A shim interface or forwarder table this side serves, or null for a
+    /// name this side does not serve.
     /// </summary>
-    internal void* Acquire(string interfaceVersion, out int entries)
+    internal void* Acquire(string interfaceVersion)
     {
-        int n = 0;
         byte[] name = Vtable.Utf8(interfaceVersion);
 
-        void* self;
         fixed (byte* p = name)
-            self = _vt->Acquire(_self, p, &n);
-
-        entries = self == null ? 0 : n;
-        return self;
+            return _vt->Acquire(_self, p);
     }
 }

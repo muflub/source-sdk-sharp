@@ -101,7 +101,7 @@ public unsafe class ShimAreasTests : IDisposable
         }
 
         var rootSlots = Alloc(3);   // the root's forwarder table: Acquire, AcquireInterface, Release
-        rootSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
+        rootSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void*>)&RootAcquire;
         rootSlots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
         var rootTable = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
         rootTable->Slots = (void**)rootSlots;
@@ -119,10 +119,9 @@ public unsafe class ShimAreasTests : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquire(void* self, byte* name, void* pEntries)
+    private static void* RootAcquire(void* self, byte* name)
     {
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        *(int*)pEntries = 0;
         return s_served.TryGetValue(v, out nint answer) ? (void*)answer : null;
     }
 

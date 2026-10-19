@@ -73,7 +73,7 @@ public static unsafe class ShimProbes
         // whether the server's engine answers the version string at all.
         return engine.Api.Interfaces.TryCreate(
                    SourceSharpFactoryType.AppSystem, EngineClientInterfaceVersion,
-                   out _, out _, out string? why)
+                   out _, out string? why)
             ? "IVEngineClient: SERVED on the server, which serves no such interface"
             : $"IVEngineClient: REFUSED — {why}";
     }
@@ -149,7 +149,7 @@ public static unsafe class ShimProbes
 
         if (!engine.Api.Interfaces.TryCreate(
                 SourceSharpFactoryType.Internal, EngineLevel.InterfaceVersion,
-                out nint _, out _, out string? error))
+                out nint _, out string? error))
             return $"IShimLevel: REFUSED — {error}";
 
         // The span is the forwarder table's (plan_forwarders_everywhere.md):
@@ -158,7 +158,7 @@ public static unsafe class ShimProbes
         // the library serves against how many ShimLevelFwd reads.
         if (!engine.Api.Interfaces.TryCreate(
                 SourceSharpFactoryType.Internal, ShimLevelFwd.TableName,
-                out nint answer, out _, out string? tableError) || answer == 0)
+                out nint answer, out string? tableError) || answer == 0)
             return $"IShimLevel: bound, but its forwarders are REFUSED — {tableError ?? "no table"}";
 
         int served = ((ForwarderTableHeader*)answer)->SlotCount;

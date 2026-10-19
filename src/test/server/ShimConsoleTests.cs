@@ -103,7 +103,7 @@ public unsafe class ShimConsoleTests : IDisposable
         s_consoleTable = (nint)consoleTable;
 
         var rootSlots = Alloc(3);   // the root's forwarder table: Acquire, AcquireInterface, Release
-        rootSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
+        rootSlots[0] = (nint)(delegate* unmanaged<void*, byte*, void*>)&RootAcquire;
         rootSlots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
         var rootTable = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
         rootTable->Slots = (void**)rootSlots;
@@ -121,10 +121,9 @@ public unsafe class ShimConsoleTests : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquire(void* self, byte* name, void* pEntries)
+    private static void* RootAcquire(void* self, byte* name)
     {
         string n = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        *(int*)pEntries = 0;
         if (n == ShimConsoleFwd.TableName)
             return (void*)s_consoleTable;
         return n == ShimConsole.InterfaceVersion && s_console != 0 ? (void*)s_console : null;

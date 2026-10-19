@@ -51,27 +51,25 @@ public unsafe class ShimRootTests : IDisposable
     }
 
     [Fact]
-    public void AGoodRootBindsAndAcquireReturnsTheObjectAndItsCount()
+    public void AGoodRootBindsAndAcquireReturnsTheObject()
     {
         void* root = FakeRoot();
 
         Assert.True(ShimRoot.TryBind(root, FakeTable(), out var bound, out string why), why);
-        void* frame = bound!.Acquire("SourceSharpFrame001", out int entries);
+        void* frame = bound!.Acquire("SourceSharpFrame001");
 
         Assert.Equal(FrameObject, (nint)frame);
-        Assert.Equal(19, entries);
     }
 
     [Fact]
-    public void ANameTheSideDoesNotServeAnswersNullAndZero()
+    public void ANameTheSideDoesNotServeAnswersNull()
     {
         void* root = FakeRoot();
 
         Assert.True(ShimRoot.TryBind(root, FakeTable(), out var bound, out _));
-        void* none = bound!.Acquire("SourceSharpNoSuchThing001", out int entries);
+        void* none = bound!.Acquire("SourceSharpNoSuchThing001");
 
         Assert.True(none == null);
-        Assert.Equal(0, entries);
     }
 
     [Fact]
@@ -89,7 +87,7 @@ public unsafe class ShimRootTests : IDisposable
     private void* FakeTable(int count = 3)
     {
         var slots = (nint*)NativeMemory.AllocZeroed((nuint)(Math.Max(count, 3) * sizeof(nint)));
-        slots[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&Acquire;
+        slots[0] = (nint)(delegate* unmanaged<void*, byte*, void*>)&Acquire;
         slots[2] = (nint)(delegate* unmanaged<void*, void>)&Release;
 
         var header = (ForwarderTableHeader*)NativeMemory.AllocZeroed((nuint)sizeof(ForwarderTableHeader));
@@ -102,17 +100,10 @@ public unsafe class ShimRootTests : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void* Acquire(void* self, byte* name, void* pEntries)
+    private static void* Acquire(void* self, byte* name)
     {
         string n = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        if (n != "SourceSharpFrame001")
-        {
-            *(int*)pEntries = 0;
-            return null;
-        }
-
-        *(int*)pEntries = 19;
-        return (void*)FrameObject;
+        return n == "SourceSharpFrame001" ? (void*)FrameObject : null;
     }
 
     [UnmanagedCallersOnly]

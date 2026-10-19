@@ -5,44 +5,27 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the engine interfaces C# calls through their vtables =//
+//========= SourceSharp — the engine interfaces C# calls, by name =============//
 // SS_REASON b  an interface resolved by name at load
 //
 // TWO JOBS AND NOTHING ELSE.
 //
-//   1. Hand managed an interface pointer AND the number of entries in that
-//      interface's vtable, taken from the COMPILER rather than counted.
+//   1. Hand managed an interface pointer for a version string this side was
+//      built to serve.
 //   2. Four proxies, for the four slots on IVEngineClient013 that a managed
 //      `delegate* unmanaged<...>` cannot spell at all.
 //
 //-----------------------------------------------------------------------------
-// WHY THERE IS A COUNT AT ALL, GIVEN THE VERSION STRING IS THE CONTRACT.
+// NO COUNT GOES WITH THE POINTER (plan_forwarders_everywhere.md).
 //
-// It is not a check on the ENGINE. The engine's factory interfaces are stable:
-// "VEngineClient014" names one layout, and Valve's own convention is that the
-// string changes when the layout does. Asking the shipped module to prove
-// itself every time it answers would be answering a question nobody asked.
-//
-// What the count checks is OURSELVES. SourceSharp.Abi/VtableLayouts.g.cs is
-// GENERATED from these same headers by tools/vtable-layout, and a generated
-// file can go stale -- somebody edits a header, or lands the generator's input
-// without re-running it. Then the struct's field 71 is a different method from
-// the engine's slot 71, no call faults, and the symptom arrives later looking
-// like a bug in whatever ran next.
-//
-// So the number below is the compiler's own answer for how long the table is,
-// managed compares it against sizeof(TVtbl) / sizeof(void *), and a stale
-// generated file refuses to bind instead of calling the wrong function. One
-// integer, once per acquire, nothing per call.
-//
-//-----------------------------------------------------------------------------
-// THE COUNTS ARE NOT TYPED IN. `VTableHook::MemberOf( &I::LastMethod ).slot + 1`
-// reads the slot out of a pointer-to-member-function, which under the Itanium
-// ABI carries it directly -- so the number is whatever the compiler decided
-// when it compiled these headers, and "count the virtual keywords" never
-// happens. That matters most where it is least visible: IVModelInfo declares a
-// virtual destructor, which occupies TWO slots, and MemberOf has already
-// accounted for both.
+// Managed once indexed these objects' vtables through structs generated from
+// the headers, so each acquire carried the compiler's slot count (the last
+// method's slot, read out of a pointer to it) and managed refused a struct
+// longer than it. Managed now calls every one of them through a generated
+// native forwarder (the forwarder libraries, src/fwd), compiled against the
+// same headers, so a slot is the compiler's to number and never managed's,
+// and a forwarder table carries its own count in its header. What is left
+// here is which names this side serves.
 //
 //-----------------------------------------------------------------------------
 // AND THE POINTERS ARE THE ONES THE ENGINE ALREADY HANDED THIS DLL.
@@ -62,35 +45,11 @@
 #ifdef CLIENT_DLL
 #include "cbase.h"
 #else
-// The server half is on public/ headers alone: the interfaces it counts
-// slots of, below, and server.so's own factory list.
+// The server half is on public/ headers alone: the interfaces whose version
+// strings it serves, below, and server.so's own factory list.
 #include "eiface.h"
 #endif
 
-// THE DEFINES MUST MATCH THE ENGINE'S, and for cdll_int.h they are load-bearing:
-// two of IVEngineClient013's virtuals are declared inside `#if` blocks, and each
-// one shifts every slot below it. The shipped engine was built with USE_SDL in
-// and NO_VOICE out (on Linux and macOS; Valve's Windows engine renders through
-// DirectX and has no SDL, so there USE_SDL must be OUT: source_video_base.vpc
-// sets SDL only with GL); this file's whole output is a slot count, so compiling it
-// against a different answer would produce a wrong number that looks exactly
-// like a right one.
-//
-// cbase.h has already pulled cdll_int.h in by here, so these cannot be DEFINED
-// at this point -- only checked. Defining them lower down would be worse than
-// useless: it would read as a guarantee and do nothing.
-#ifdef CLIENT_DLL
-#if defined( _WIN32 )
-#if defined( USE_SDL )
-#error "SourceSharp: the shipped Windows engine is built without USE_SDL and this translation unit has it. Every IVEngineClient013 slot from 127 down would be numbered one too high."
-#endif
-#elif !defined( USE_SDL )
-#error "SourceSharp: the shipped engine is built with USE_SDL and this translation unit is not. Every IVEngineClient013 slot from 127 down would be numbered one too low."
-#endif
-#if defined( NO_VOICE )
-#error "SourceSharp: the shipped engine is built with voice IN (NO_VOICE undefined) and this translation unit has NO_VOICE. Every IVEngineClient013 slot from 53 down would be numbered one too high."
-#endif
-#endif // CLIENT_DLL
 
 #ifdef CLIENT_DLL
 #include "con_nprint.h"
@@ -133,139 +92,19 @@ using ss::FactoryList_Retrieve;
 #include "sourcesharp.h"
 #include "shell_vtable_interfaces.h"
 #include "shell_diagnostics.h"
-#include "vtable_hook.h"
 #include "ss_string.h"
 
 
 
 //-----------------------------------------------------------------------------
-// THE PRECOMPILED LIST: one row per interface version string.
+// THE SERVED SET: the engine interface versions this side answers for.
 //
-// `Entries()` is evaluated from the compiled headers, so the list is precompiled
-// in the only sense that matters -- nothing in it was written down by a person.
-//-----------------------------------------------------------------------------
-namespace
-{
-
-int UniformRandomStreamEntries()
-{
-	// RandomFloatExp is the last declaration in vstdlib/random.h's
-	// IUniformRandomStream. Its virtual destructor is COMMENTED OUT at line 28,
-	// so there is no complete/deleting pair above these four.
-	return VTableHook::MemberOf( &IUniformRandomStream::RandomFloatExp ).slot + 1;
-}
-
-int ModelInfoEntries()
-{
-	// UnregisterModelLoadCallback is the last declaration in IVModelInfo, and
-	// the +2 for the virtual destructor is already inside the slot MemberOf
-	// reports -- which is exactly why this is not a count of `virtual` lines.
-	return VTableHook::MemberOf( &IVModelInfo::UnregisterModelLoadCallback ).slot + 1;
-}
-
-int PhysicsSurfacePropsEntries()
-{
-	// GetPhysicsParameters is IPhysicsSurfaceProps' last declaration; the
-	// virtual destructor's two slots are inside the number MemberOf reports.
-	// Served for plan_server_novalve.md P2.4: SourceSharp.Server's
-	// SurfacePropertyManifest hands VPhysics the files the manifest names; and
-	// on the client for the managed ragdolls' solids and the hitbox trace's
-	// surface names (plan_physics_bones_native_zero Phase 3).
-	return VTableHook::MemberOf( &IPhysicsSurfaceProps::GetPhysicsParameters ).slot + 1;
-}
-
-int PhysicsCollisionEntries()
-{
-	// ReadStat is IPhysicsCollision's last declaration; the virtual
-	// destructor's two slots are inside the number MemberOf reports. Served
-	// on the server for plan_physics_bones_native_zero 2.5 (managed's player
-	// shadow builds its two box hulls with BBoxToCollide, PhysicsCollision.cs)
-	// and on the client for Phase 3's managed ragdolls (the .phy key parser
-	// and a collide's box).
-	return VTableHook::MemberOf( &IPhysicsCollision::ReadStat ).slot + 1;
-}
-
-#ifdef CLIENT_DLL
-int PhysicsEntries()
-{
-	// DestroyAllCollisionSets is IPhysics' last declaration, over IAppSystem's
-	// slots. Served on the client for the managed ragdolls (plan
-	// physics_bones_native_zero Phase 3): a model's collision set.
-	return VTableHook::MemberOf( &IPhysics::DestroyAllCollisionSets ).slot + 1;
-}
-#endif
-
-#ifndef CLIENT_DLL
-int StaticPropMgrServerEntries()
-{
-	// GetAllStaticPropsInOBB is IStaticPropMgrServer's last declaration, over
-	// IStaticPropMgr's. No virtual destructor. Served for
-	// plan_physics_bones_native_zero 2.6: managed's world build makes the
-	// static props' physics (CreateVPhysicsRepresentations), as stock's
-	// PhysCreateWorld did.
-	return VTableHook::MemberOf( &IStaticPropMgrServer::GetAllStaticPropsInOBB ).slot + 1;
-}
-#endif
-
-int SoundEmitterEntries()
-{
-	// Flush is ISoundEmitterSystemBase's last declaration; IAppSystem's slots
-	// come first and are inside the number. Served for plan_server_novalve.md
-	// P3: C#'s model components ask it which script sounds exist; and on the
-	// client for plan_physics_bones_native_zero 2.6, whose surface sound
-	// precache writes each script's index back into vphysics' surface table.
-	return VTableHook::MemberOf( &ISoundEmitterSystemBase::Flush ).slot + 1;
-}
-
-int BaseFileSystemEntries()
-{
-	// UnzipFile is IBaseFileSystem's last declaration. Numbered against
-	// IBaseFileSystem's OWN table -- a pointer-to-member of a base is numbered
-	// from the base, which is what the secondary vtable at this+8 holds.
-	return VTableHook::MemberOf( &IBaseFileSystem::UnzipFile ).slot + 1;
-}
-
-#ifdef CLIENT_DLL
-int EngineClientEntries()
-{
-	// SetRichPresenceConnect is IVEngineClient's last declaration, and
-	// IVEngineClient derives from IVEngineClient013 by SINGLE inheritance -- so
-	// its slots CONTINUE the base's numbering and this one number is the length
-	// of the whole chain. With both conditionals in (checked above) it is 146.
-	return VTableHook::MemberOf( &IVEngineClient::SetRichPresenceConnect ).slot + 1;
-}
-
-int InputSystemEntries()
-{
-	// SetSkipControllerInitialization is IInputSystem's last declaration, over
-	// IAppSystem's slots. Served for the UI's key bindings (plan_client_ui §6):
-	// ButtonCodeToString names a captured button.
-	return VTableHook::MemberOf( &IInputSystem::SetSkipControllerInitialization ).slot + 1;
-}
-#else
-int EngineServerEntries()
-{
-	// SetPausedForced is IVEngineServer's last declaration. eiface.h's class
-	// body holds no preprocessor directive at all, so nothing here is
-	// conditional and this number is the same under every compilation.
-	return VTableHook::MemberOf( &IVEngineServer::SetPausedForced ).slot + 1;
-}
-#endif
-
-// INetworkStringTableContainer. SetAllowClientSideAddString is its last
-// declaration; the virtual destructor takes slots 0 and 1. C# acquires it to
-// FindTable the engine's own tables (the message of the day's InfoPanel).
-int NetworkStringTableContainerEntries()
-{
-	return VTableHook::MemberOf( &INetworkStringTableContainer::SetAllowClientSideAddString ).slot + 1;
-}
-
-//-----------------------------------------------------------------------------
-// THE PRECOMPILED COUNT FOR ONE VERSION STRING, AND IT IS ALSO THE SERVED SET.
-//
-// Zero means "this side does not serve that name", which is a real answer
-// rather than a missing one: EngineClientEntries only COMPILES on the client,
-// so the server cannot claim a length for IVEngineClient and does not.
+// No count goes with a name (plan_forwarders_everywhere.md): managed calls each
+// through a forwarder table, whose header carries its own slot count, so what
+// is left is which names this side serves. A name not listed is "this side
+// does not serve that name", which is a real answer rather than a missing one:
+// the server does not claim IVEngineClient, which only the client is built
+// against.
 //
 // SERVING IS DECIDED HERE RATHER THAN BY ASKING A FACTORY, and the difference
 // is visible on a listen server: engine.so registers VEngineClient014 and would
@@ -274,51 +113,53 @@ int NetworkStringTableContainerEntries()
 // managed code because a factory would answer is not a binding anybody asked
 // for. What this side was BUILT to serve is what it serves.
 //-----------------------------------------------------------------------------
-int SourceSharpEntriesFor( const char *pszVersion )
+namespace
+{
+
+bool SourceSharpServes( const char *pszVersion )
 {
 	if ( !pszVersion )
-		return 0;
+		return false;
 
 	if ( !ss::StrICmp( pszVersion, "VEngineRandom001" ) )
-		return UniformRandomStreamEntries();
+		return true;
 
-	// BOTH MODEL-INFO NAMES ARE CLAIMED ON BOTH SIDES, and the claim is about the
-	// TABLE LENGTH rather than about the object. ivmodelinfo.h declares one
+	// BOTH MODEL-INFO NAMES ARE SERVED ON BOTH SIDES. ivmodelinfo.h declares one
 	// IVModelInfo and the engine registers two objects of that class under two
-	// names, so the length is the same either way -- and WHICH object comes back
-	// is now the factory's answer rather than this table's.
+	// names, and one forwarder table calls either -- WHICH object comes back is
+	// the factory's answer rather than this list's.
 	if ( !ss::StrICmp( pszVersion, "VModelInfoServer004" )
 	     || !ss::StrICmp( pszVersion, "VModelInfoClient006" ) )
-		return ModelInfoEntries();
+		return true;
 
 	if ( !ss::StrICmp( pszVersion, "VBaseFileSystem011" ) )
-		return BaseFileSystemEntries();
+		return true;
 
 	if ( !ss::StrICmp( pszVersion, "VPhysicsSurfaceProps001" ) )
-		return PhysicsSurfacePropsEntries();
+		return true;
 
 	if ( !ss::StrICmp( pszVersion, VPHYSICS_COLLISION_INTERFACE_VERSION ) )
-		return PhysicsCollisionEntries();
+		return true;
 
 	if ( !ss::StrICmp( pszVersion, SOUNDEMITTERSYSTEM_INTERFACE_VERSION ) )
-		return SoundEmitterEntries();
+		return true;
 
 #ifdef CLIENT_DLL
 	if ( !ss::StrICmp( pszVersion, "VEngineClient014" ) )
-		return EngineClientEntries();
+		return true;
 
 	// The client's vphysics, from the physics factory its Init was handed.
 	if ( !ss::StrICmp( pszVersion, VPHYSICS_INTERFACE_VERSION ) )
-		return PhysicsEntries();
+		return true;
 
 	if ( !ss::StrICmp( pszVersion, INPUTSYSTEM_INTERFACE_VERSION ) )
-		return InputSystemEntries();
+		return true;
 #else
 	if ( !ss::StrICmp( pszVersion, "VEngineServer023" ) )
-		return EngineServerEntries();
+		return true;
 
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_SERVER ) )
-		return StaticPropMgrServerEntries();
+		return true;
 #endif
 
 	// Each side's own container: engine.so registers both names on a listen
@@ -327,13 +168,13 @@ int SourceSharpEntriesFor( const char *pszVersion )
 	// ServedInterfaceTests reads each side's preprocessed body.)
 #ifdef CLIENT_DLL
 	if ( !ss::StrICmp( pszVersion, INTERFACENAME_NETWORKSTRINGTABLECLIENT ) )
-		return NetworkStringTableContainerEntries();
+		return true;
 #else
 	if ( !ss::StrICmp( pszVersion, INTERFACENAME_NETWORKSTRINGTABLESERVER ) )
-		return NetworkStringTableContainerEntries();
+		return true;
 #endif
 
-	return 0;
+	return false;
 }
 
 //-----------------------------------------------------------------------------
@@ -408,11 +249,8 @@ CreateInterfaceFn FactoryFor( SourceSharpFactoryType eType, bool *pbStored )
 // the size it is given, so there is no helper to write here.
 //-----------------------------------------------------------------------------
 void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *pszVersion,
-                                    int32_t *pnEntries, char *pError, int32_t nErrorBytes )
+                                    char *pError, int32_t nErrorBytes )
 {
-	if ( pnEntries )
-		*pnEntries = 0;
-
 	if ( eType != SOURCESHARP_FACTORY_APPSYSTEM
 	     && eType != SOURCESHARP_FACTORY_PHYSICS
 	     && eType != SOURCESHARP_FACTORY_FILESYSTEM
@@ -428,35 +266,23 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 		// EXEMPT FROM THE NOT-YET-AVAILABLE CASE, and it is the only kind that
 		// is: these singletons are ours and exist from DLL load, so there is no
 		// captured factory to be waiting for.
-		//
-		// AND IT ANSWERS ITS OWN COUNT. A shim area's table length is the
-		// compiler's answer about a class in THIS tree, taken beside the
-		// singleton it describes; the engine table below cannot know it and
-		// asking it to would be a second place to keep in step.
-		int32_t nShimEntries = 0;
-		void *pShim = SourceSharp_InternalFactory( pszVersion, &nShimEntries );
+		void *pShim = SourceSharp_InternalFactory( pszVersion );
 
-		if ( !pShim || nShimEntries <= 0 )
+		if ( !pShim )
 		{
 			SourceSharp_SayAcquireReason( pError, nErrorBytes,
 			                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 			return NULL;
 		}
 
-		if ( pnEntries )
-			*pnEntries = nShimEntries;
-
 		return pShim;
 	}
 
-	// THE NAME IS RESOLVED BEFORE ANY ENGINE FACTORY IS ASKED, because the count
-	// is what makes a pointer bindable at all: managed's one check is this
-	// number against sizeof(TVtbl)/sizeof(void *), and a pointer with no number
-	// is nothing a caller could do anything with. A name this side has no count
-	// for is a name this side does not serve.
-	int nEntries = SourceSharpEntriesFor( pszVersion );
-
-	if ( nEntries <= 0 )
+	// THE NAME IS RESOLVED BEFORE ANY ENGINE FACTORY IS ASKED: a name this side
+	// was not built to serve is refused without asking, so a factory that would
+	// answer for the other side's object (VEngineClient014 on a listen
+	// server's server.so) is never reached.
+	if ( !SourceSharpServes( pszVersion ) )
 	{
 		SourceSharp_SayAcquireReason( pError, nErrorBytes,
 		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
@@ -491,9 +317,6 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 		return NULL;
 	}
-
-	if ( pnEntries )
-		*pnEntries = nEntries;
 
 	return pInterface;
 }

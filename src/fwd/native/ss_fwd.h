@@ -83,14 +83,14 @@ inline const SSForwarderTable *SSFwd_Find( const SSForwarderNamed ( &tables )[ N
 
 // What a game DLL's internal factory answers for a name (SourceSharp_
 // InternalFactory): the table its side's library serves under it, as the
-// object managed binds (its first word is the slot array), with its count in
-// *pnEntries; NULL, and *pnEntries left alone, for a name it does not serve.
+// object managed binds (its first word is the slot array, its second the
+// count); NULL for a name it does not serve.
 //
 // Each game DLL links its own side's library alone, and linking it is what
 // defines SS_FWD_SERVES_SERVER or SS_FWD_SERVES_CLIENT (each library's
 // INTERFACE definition), so a DLL serves exactly the library it links. A
 // translation unit that links neither serves nothing.
-inline void *SSFwd_Serve( const char *pszName, int32_t *pnEntries )
+inline void *SSFwd_Serve( const char *pszName )
 {
 	const SSForwarderTable *pTable = nullptr;
 
@@ -105,9 +105,6 @@ inline void *SSFwd_Serve( const char *pszName, int32_t *pnEntries )
 
 	if ( !pTable )
 		return nullptr;
-
-	if ( pnEntries )
-		*pnEntries = pTable->nSlots;
 
 	return const_cast< SSForwarderTable * >( pTable );
 }

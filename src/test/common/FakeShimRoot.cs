@@ -163,8 +163,8 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     public void* RawTable()
     {
         var slots = Alloc(3);
-        slots[0] = (nint)(delegate* unmanaged<void*, byte*, void*, void*>)&RootAcquire;
-        slots[1] = (nint)(delegate* unmanaged<void*, int, byte*, void*, byte*, int, void*>)&RootAcquireInterface;
+        slots[0] = (nint)(delegate* unmanaged<void*, byte*, void*>)&RootAcquire;
+        slots[1] = (nint)(delegate* unmanaged<void*, int, byte*, byte*, int, void*>)&RootAcquireInterface;
         slots[2] = (nint)(delegate* unmanaged<void*, void>)&RootRelease;
 
         var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
@@ -181,35 +181,19 @@ internal sealed unsafe class FakeShimRoot : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquire(void* self, byte* name, void* pEntries)
+    private static void* RootAcquire(void* self, byte* name)
     {
         var owner = (FakeShimRoot)GCHandle.FromIntPtr(((nint*)self)[1]).Target!;
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        if (!owner._areas.TryGetValue(v, out nint area))
-        {
-            *(int*)pEntries = 0;
-            return null;
-        }
-
-        *(int*)pEntries = 1000;   // at least every slot the layout knows
-        return (void*)area;
+        return owner._areas.TryGetValue(v, out nint area) ? (void*)area : null;
     }
 
     [UnmanagedCallersOnly]
-    private static void* RootAcquireInterface(void* self, int type, byte* name, void* pEntries, byte* error, int errorBytes)
+    private static void* RootAcquireInterface(void* self, int type, byte* name, byte* error, int errorBytes)
     {
         var owner = (FakeShimRoot)GCHandle.FromIntPtr(((nint*)self)[1]).Target!;
         string v = Marshal.PtrToStringUTF8((nint)name) ?? string.Empty;
-        if (!owner._interfaces.TryGetValue(v, out nint found))
-        {
-            if (pEntries != null)
-                *(int*)pEntries = 0;
-            return null;
-        }
-
-        if (pEntries != null)
-            *(int*)pEntries = 1000;   // at least every slot the layout knows
-        return (void*)found;
+        return owner._interfaces.TryGetValue(v, out nint found) ? (void*)found : null;
     }
 
     [UnmanagedCallersOnly]

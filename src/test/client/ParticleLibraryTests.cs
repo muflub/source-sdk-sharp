@@ -110,10 +110,8 @@ public unsafe class ParticleLibraryTests
             Header->SlotCount = entries;
         }
 
-        public void* Acquire(SourceSharpFactoryType type, byte* version, int* entries, byte* error, int errorBytes)
+        public void* Acquire(SourceSharpFactoryType type, byte* version, byte* error, int errorBytes)
         {
-            if (entries != null)
-                *entries = 0;
             if (type != SourceSharpFactoryType.Internal)
                 return null;
 
@@ -187,10 +185,8 @@ public unsafe class ParticleLibraryTests
     public void NothingServingTheNameThrowsRatherThanAnsweringOne()
     {
         var unserved = new ParticleLibrary(new NativeInterfaceFactory(
-            (type, version, entries, error, bytes) =>
+            (type, version, error, bytes) =>
             {
-                if (entries != null)
-                    *entries = 0;
                 return null;
             }));
         Assert.Throws<InterfaceAcquisitionException>(() => unserved.ThrottleScaling());

@@ -1,5 +1,5 @@
 slot	struct	interface	kind	base	side	suppress	body	managed	client_body
-AcquireInterface	EngineApi	IShimRoot	root		both	-	SourceSharp_AcquireInterface	int, byte*, int*, byte*, int, void*	
+AcquireInterface	EngineApi	IShimRoot	root		both	-	SourceSharp_AcquireInterface	int, byte*, byte*, int, void*	
 GetCurrentTime	EngineApi	IShimEngine	shared		both	S	SourceSharp_GetCurrentTime	float	
 GetGlobalVarsPtr	EngineApi	IShimEngine	shared		both	-	SourceSharp_GetGlobalVarsPtr	nint	
 FilesGameFileSize	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesGameFileSize	byte*, int	SourceSharp_ClientFilesGameFileSize

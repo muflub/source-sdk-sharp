@@ -1001,10 +1001,10 @@ static const SSForwarderTable s_ShimLevelTable = { s_ShimLevelSlots, 26 };
 //-----------------------------------------------------------------------------
 // ShimRoot: 3 forwarder(s) over IShimRoot.
 //-----------------------------------------------------------------------------
-// void * IShimRoot::Acquire( const char *, int32_t * )
-static void * SSFwd_ShimRoot_Acquire( IShimRoot *self, const char * a0, int32_t * a1 ) { return self->Acquire( a0, a1 ); }
-// void * IShimRoot::AcquireInterface( int32_t, const char *, int32_t *, char *, int32_t )
-static void * SSFwd_ShimRoot_AcquireInterface( IShimRoot *self, int32_t a0, const char * a1, int32_t * a2, char * a3, int32_t a4 ) { return self->AcquireInterface( a0, a1, a2, a3, a4 ); }
+// void * IShimRoot::Acquire( const char * )
+static void * SSFwd_ShimRoot_Acquire( IShimRoot *self, const char * a0 ) { return self->Acquire( a0 ); }
+// void * IShimRoot::AcquireInterface( int32_t, const char *, char *, int32_t )
+static void * SSFwd_ShimRoot_AcquireInterface( IShimRoot *self, int32_t a0, const char * a1, char * a2, int32_t a3 ) { return self->AcquireInterface( a0, a1, a2, a3 ); }
 // void IShimRoot::Release( void )
 static void SSFwd_ShimRoot_Release( IShimRoot *self ) { self->Release(); }
 

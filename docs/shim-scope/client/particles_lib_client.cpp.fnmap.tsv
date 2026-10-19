@@ -3,7 +3,7 @@
 4	SLOT-HELP	ISSParticleLib *Lib()
 5	BOUNDARY	bool ParticleLib_Connect( CreateInterfaceFn appSystemFactory )
 4	BOUNDARY	void ParticleLib_Disconnect()
-6	BOUNDARY	void *ParticleLib_Acquire( int32_t *pnEntries )
+4	BOUNDARY	void *ParticleLib_Acquire()
 4	BOUNDARY	void ParticleLib_Counters( SSParticleLibCounters_t *pOut )
 1	BOUNDARY	void *CParticleCollection::operator new( size_t nSize )
 1	BOUNDARY	void CParticleCollection::operator delete( void *pData )
