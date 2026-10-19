@@ -112,6 +112,24 @@ public class ServedInterfaceTests
         Assert.DoesNotContain("\"VPhysics031\"", served);
     }
 
+    /// <summary>
+    /// The server serves the game event manager ServerGameEvents fires
+    /// through. Unserved from bd894daf1 to 01862e849, the server fired no game
+    /// event: the live gate's kill-feed, changename, frag-credit and round-end
+    /// steps all failed (bisected by b6).
+    /// </summary>
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
+    public void The_server_serves_the_game_event_manager()
+        => Assert.Contains("\"GAMEEVENTSMANAGER002\"", ServedBy("server_sourcesharp"));
+
+    /// <summary>
+    /// The server serves the engine sound interface the managed SoundEmitter
+    /// emits through (plan_server_native_v2 T4a); unserved, no sound plays.
+    /// </summary>
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
+    public void The_server_serves_the_engine_sound_interface()
+        => Assert.Contains("\"IEngineSoundServer003\"", ServedBy("server_sourcesharp"));
+
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
     public void The_server_serves_its_own_string_table_container_and_not_the_clients()
     {
@@ -180,4 +198,104 @@ public class ServedInterfaceTests
         Assert.Contains("\"StaticPropMgrServer002\"", ServedBy("server_sourcesharp"));
         Assert.DoesNotContain("\"StaticPropMgrServer002\"", ServedBy("client_sourcesharp"));
     }
+
+    /// <summary>
+    /// The debug overlay, which EngineDebugOverlay (shared interop) and the
+    /// client's FlashlightSlots (r_flashlightvisualizetrace) acquire. engine.so
+    /// registers one object under the name for both sides. A name a side does
+    /// not serve is refused as an unknown interface, and every overlay call is
+    /// then silently a no-op.
+    /// </summary>
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
+    public void Both_sides_serve_the_debug_overlay()
+    {
+        Assert.Contains($"\"{SourceSharp.Abi.EngineDebugOverlay.InterfaceVersion}\"", ServedBy("client_sourcesharp"));
+        Assert.Contains($"\"{SourceSharp.Abi.EngineDebugOverlay.InterfaceVersion}\"", ServedBy("server_sourcesharp"));
+    }
+
+    /// <summary>
+    /// The client's static props (StaticPropMgrClient, the client's physics
+    /// world): each side serves its own manager and not the other's.
+    /// </summary>
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
+    public void The_client_serves_its_own_static_prop_manager_and_not_the_servers()
+    {
+        Assert.Contains("\"StaticPropMgrClient004\"", ServedBy("client_sourcesharp"));
+        Assert.DoesNotContain("\"StaticPropMgrClient004\"", ServedBy("server_sourcesharp"));
+    }
+
+    // Names a managed file acquires on purpose from a side that refuses them:
+    // the answer it wants is the refusal.
+    private static readonly Dictionary<string, string> Refused = new()
+    {
+        ["src/server/interop/ShimProbes.cs VEngineClient014"] =
+            "the server's probe that IVEngineClient is NOT served to server-side managed code",
+    };
+
+    /// <summary>
+    /// EVERY ENGINE NAME MANAGED ACQUIRES IS ONE ITS SIDE SERVES. A name
+    /// Forwarders.TryAcquire asks for through an engine factory is refused by
+    /// SourceSharpServes unless that side's arm lists it, and a fold's facts
+    /// cannot see the refusal: FakeShimRoot answers any name. GAMEEVENTSMANAGER002,
+    /// IEngineSoundServer003, VDebugOverlay003, StaticPropMgrClient004 and both
+    /// EngineTrace names each went unserved that way (2026-10-19). Every
+    /// interface-version literal in a runtime file that calls
+    /// Forwarders.TryAcquire must be in the preprocessed body of each side that
+    /// file compiles into: src/server is the server's, src/client the client's,
+    /// src/shared both's, except a name that says Server or Client is that
+    /// side's alone. Our own internal factory's names (SourceSharp*, SS*) are
+    /// not engine names and are not asked of it.
+    /// </summary>
+    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
+    public void Every_engine_name_managed_acquires_is_served_by_its_side()
+    {
+        string server = ServedBy("server_sourcesharp");
+        string client = ServedBy("client_sourcesharp");
+        var version = new System.Text.RegularExpressions.Regex("\"([A-Za-z_]+[0-9]{3})\"");
+        var missing = new List<string>();
+        int checkedNames = 0;
+
+        foreach (string path in Directory.EnumerateFiles(RepoLayout.Repo("src"), "*.cs", SearchOption.AllDirectories))
+        {
+            string rel = Path.GetRelativePath(RepoLayout.Repo(), path).Replace('\\', '/');
+            if (rel.StartsWith("src/test/", StringComparison.Ordinal) || rel.Contains("/obj/", StringComparison.Ordinal))
+                continue;
+            string text = File.ReadAllText(path);
+            if (!text.Contains("Forwarders.TryAcquire", StringComparison.Ordinal))
+                continue;
+
+            bool serverFile = rel.StartsWith("src/server/", StringComparison.Ordinal);
+            bool clientFile = rel.StartsWith("src/client/", StringComparison.Ordinal);
+            foreach (string name in version.Matches(text).Select(m => m.Groups[1].Value).Distinct())
+            {
+                if (name.StartsWith("SourceSharp", StringComparison.Ordinal) || name.StartsWith("SS", StringComparison.Ordinal)
+                    || Refused.ContainsKey($"{rel} {name}"))
+                    continue;
+
+                bool forServer = serverFile || (!clientFile && !name.Contains("Client", StringComparison.Ordinal));
+                bool forClient = clientFile || (!serverFile && !name.Contains("Server", StringComparison.Ordinal));
+                checkedNames++;
+                if (forServer && !server.Contains($"\"{name}\"", StringComparison.Ordinal))
+                    missing.Add($"{rel}: {name} (server)");
+                if (forClient && !client.Contains($"\"{name}\"", StringComparison.Ordinal))
+                    missing.Add($"{rel}: {name} (client)");
+            }
+        }
+
+        Assert.True(checkedNames >= 20, $"the scan reached the acquiring files ({checkedNames} names)");
+        Assert.True(missing.Count == 0, "acquired but not served by SourceSharpServes:\n" + string.Join("\n", missing));
+    }
+
+    [Fact]
+    public void Every_refusal_exemption_still_names_an_acquisition()
+    {
+        foreach (string key in Refused.Keys)
+        {
+            string[] parts = key.Split(' ');
+            string text = File.ReadAllText(RepoLayout.Repo(parts[0]));
+            Assert.Contains($"\"{parts[1]}\"", text);
+            Assert.Contains("Forwarders.TryAcquire", text);
+        }
+    }
 }
+
