@@ -94,3 +94,19 @@ bool CVProfNode::ExitScope()
 {
 	NeverEntered( "ExitScope" );
 }
+
+#if defined( _WIN32 )
+// CVProfile's EnterScope and ExitScope are inline in vprof.h, and a fork object
+// that did not inline one imports it from tier0.dll (particlemgr,
+// clientleafsystem, clientshadowmgr). As tier_bindings_client.cpp's thread
+// members: emitted here, where the header is read plain, and the linker binds
+// each import to them (LNK4217). On this profile both do nothing. Calls
+// compiled without optimisation stay calls; nothing calls this function.
+#pragma optimize( "", off )
+void SS_EmitVProfInlines( CVProfile *pProfile )
+{
+	pProfile->EnterScope( "", 0, "", false, 0 );
+	pProfile->ExitScope();
+}
+#pragma optimize( "", on )
+#endif

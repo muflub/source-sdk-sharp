@@ -55,6 +55,7 @@
 #if defined( _WIN32 )
 	#include "tier0/threadtools.h"
 	#include "ss_platform.h"	// SS_BIND_IMPORT
+	#include <new>
 	#pragma warning( disable : 4073 )	// initializers put in library initialization area
 	#pragma init_seg( lib )
 #endif
@@ -228,6 +229,23 @@ void CThreadSpinRWLock::SpinLockForWrite( const uint32 threadId )
 	SS_TIER0_MEMBER( void, CThreadSpinRWLock *, uint32 );
 	pfn( this, threadId );
 }
+
+// tier0's headers define these members inline, and a fork object that did not
+// inline one imports it from tier0.dll (clientleafsystem's and particlemgr's
+// CThreadMutex::Lock, tier1's utlsymbol's CThreadSpinRWLock constructor and
+// LockForWrite). Read plain here, they are emitted as this module's own (the
+// headers' bodies, on the object's own fields, as tier0's copies run) and the
+// linker binds each import to them (LNK4217). Calls compiled without
+// optimisation stay calls, so the compiler emits each member; nothing calls
+// this function.
+#pragma optimize( "", off )
+void SS_EmitTier0ThreadInlines( CThreadMutex *pMutex, void *pSpinLock )
+{
+	pMutex->Lock();
+	CThreadSpinRWLock *pLock = new ( pSpinLock ) CThreadSpinRWLock;
+	pLock->LockForWrite();
+}
+#pragma optimize( "", on )
 
 #else // the ELF names
 
