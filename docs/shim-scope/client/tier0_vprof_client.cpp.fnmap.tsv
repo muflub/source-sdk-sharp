@@ -6,3 +6,4 @@
 4	LIVE-API	CVProfNode *CVProfNode::GetSubNode( const tchar *, int, const tchar *, int )
 4	LIVE-API	void CVProfNode::EnterScope()
 4	LIVE-API	bool CVProfNode::ExitScope()
+5	LIVE-API	void SS_EmitVProfInlines( CVProfile *pProfile )

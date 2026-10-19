@@ -818,7 +818,7 @@ public sealed class LauncherTests : IDisposable
         Run(Found(), new FakeRunner(0), TmpEnv(), "-instance");
         Assert.Equal(Path.Combine(_game, "content"),
                      Path.GetFullPath(new FileInfo(contentLink).LinkTarget!));
-        File.Delete(contentLink);
+        Launcher.Launcher.DeleteLink(contentLink);
 
         // a real directory that is not ours is left alone
         Directory.CreateDirectory(contentLink);

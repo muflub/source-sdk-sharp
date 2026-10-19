@@ -6,3 +6,4 @@ void NeverEntered(	INSTRUMENT	the report a broken never-enabled invariant stops 
 CVProfNode::GetSubNode(	LIVE-API	clientleafsystem.o imports it (lld without -ltier0, 2026-10-18); never reached
 CVProfNode::EnterScope()	LIVE-API	clientleafsystem.o imports it (lld without -ltier0, 2026-10-18); never reached
 CVProfNode::ExitScope()	LIVE-API	clientleafsystem.o imports it (lld without -ltier0, 2026-10-18); never reached
+void SS_EmitVProfInlines(	LIVE-API	(Windows) emits vprof.h's inline CVProfile::EnterScope/ExitScope, which fork objects import where MSVC did not inline them (MSVC link without tier0.lib: LNK2001 in CI, 2026-10-19); never called

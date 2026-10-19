@@ -16,7 +16,7 @@ SS_CThreadSpinRWLock_LockForRead(	BOUNDARY	tier0's CThreadSpinRWLock member (lib
 SS_CThreadSpinRWLock_UnlockRead(	BOUNDARY	tier0's CThreadSpinRWLock member (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
 SS_CThreadSpinRWLock_UnlockWrite(	BOUNDARY	tier0's CThreadSpinRWLock member (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
 SS_CThreadSpinRWLock_SpinLockForWrite(	BOUNDARY	tier0's CThreadSpinRWLock member (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
-[BindEnginePointers] BindEnginePointers()	BOUNDARY	(Windows) g_pMemAlloc and g_pThreadPool copied from the engine's tier0.dll/vstdlib.dll at load (init_seg lib)
+[BindEnginePointers] BindEnginePointers()	BOUNDARY	(Windows) g_pMemAlloc, g_pThreadPool and g_pVCR copied from the engine's tier0.dll/vstdlib.dll at load (init_seg lib)
 extern "" void *CommandLine_Tier0()	BOUNDARY	(Windows) tier0.dll's CommandLine_Tier0
 extern "" void DestroyThreadPool(	BOUNDARY	(Windows) vstdlib.dll's DestroyThreadPool
 CThreadSyncObject::CThreadSyncObject()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
@@ -35,3 +35,4 @@ void CThreadSpinRWLock::LockForRead()	BOUNDARY	(Windows) tier0.dll's member, by 
 void CThreadSpinRWLock::UnlockRead()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
 void CThreadSpinRWLock::UnlockWrite()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
 void CThreadSpinRWLock::SpinLockForWrite(	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void SS_EmitTier0ThreadInlines(	LIVE-API	(Windows) emits tier0's inline CThreadMutex/CThreadSpinRWLock members, which fork objects import where MSVC did not inline them (MSVC link without tier0.lib: LNK2001 in CI, 2026-10-19); never called
