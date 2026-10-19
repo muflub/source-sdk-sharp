@@ -53,129 +53,135 @@ public sealed unsafe class BeamsClientBinding(Func<IClientBeamCallbacks?> target
 }
 
 /// <summary>The real executor, over the IShimEffectsRenderClient api.</summary>
-internal sealed unsafe class ClientBeamExecutor(EngineSide api) : IClientBeamExecutor
+internal sealed unsafe class ClientBeamExecutor(EffectsRenderClientArea? effectsRenderClient) : IClientBeamExecutor
 {
+    // The shim areas this calls, taken by constructor (plan_shim_areas_split
+    // phase 5). Null on a client that never attached (an unattached engine
+    // double): a guarded call answers its default and any other throws, as
+    // they did through the side's attach guard.
+    private EffectsRenderClientArea EffectsRenderClient => effectsRenderClient ?? throw ShimAreaGuard.NotAttached(nameof(EffectsRenderClient));
+
     public void View(bool insideView, Span<float> out42)
     {
         out42.Clear();
-        if (!api.ClientAttached || out42.Length < 42)
+        if (effectsRenderClient is null || out42.Length < 42)
             return;
         fixed (float* p = out42)
-            api.ClientShims.BeamView(insideView ? 1 : 0, p);
+            EffectsRenderClient.BeamView(insideView ? 1 : 0, p);
     }
 
     public bool ModelInfo(int modelIndex, out int frameCount)
     {
         frameCount = 0;
-        if (!api.ClientAttached)
+        if (effectsRenderClient is null)
             return false;
         int n = 0;
-        bool exists = api.ClientShims.BeamModelInfo(modelIndex, &n) != 0;
+        bool exists = EffectsRenderClient.BeamModelInfo(modelIndex, &n) != 0;
         frameCount = n;
         return exists;
     }
 
     public int ModelIndex(string name)
     {
-        if (!api.ClientAttached)
+        if (effectsRenderClient is null)
             return -1;
         byte[] bytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* p = bytes)
-            return api.ClientShims.BeamModelIndex(p);
+            return EffectsRenderClient.BeamModelIndex(p);
     }
 
     public EntityHandle EntityAt(int entry)
-        => api.ClientAttached ? new EntityHandle(api.ClientShims.BeamEntityAt(entry)) : EntityHandle.None;
+        => (effectsRenderClient is not null) ? new EntityHandle(EffectsRenderClient.BeamEntityAt(entry)) : EntityHandle.None;
 
     public bool EntityHasModel(EntityHandle entity)
-        => api.ClientAttached && api.ClientShims.BeamEntityHasModel(entity.Value) != 0;
+        => (effectsRenderClient is not null) && EffectsRenderClient.BeamEntityHasModel(entity.Value) != 0;
 
     public int EntityFacts(EntityHandle entity, int attachment, bool tryAttachment, Span<float> out9)
     {
         out9.Clear();
-        if (!api.ClientAttached || out9.Length < 9)
+        if (effectsRenderClient is null || out9.Length < 9)
             return 0;
         fixed (float* p = out9)
-            return api.ClientShims.BeamEntityFacts(entity.Value, attachment, tryAttachment ? 1 : 0, p);
+            return EffectsRenderClient.BeamEntityFacts(entity.Value, attachment, tryAttachment ? 1 : 0, p);
     }
 
     public void BoxVisibility(in Vector mins, in Vector maxs, out bool visible, out bool culled)
     {
         visible = false;
         culled = true;
-        if (!api.ClientAttached)
+        if (effectsRenderClient is null)
             return;
         float* v = stackalloc float[6] { mins.X, mins.Y, mins.Z, maxs.X, maxs.Y, maxs.Z };
-        int bits = api.ClientShims.BeamBoxVisibility(v, v + 3);
+        int bits = EffectsRenderClient.BeamBoxVisibility(v, v + 3);
         visible = (bits & 1) != 0;
         culled = (bits & 2) != 0;
     }
 
     public float HaloVisibility(in Vector origin, float proxySize)
     {
-        if (!api.ClientAttached)
+        if (effectsRenderClient is null)
             return 0;
         float* v = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        return api.ClientShims.BeamHaloVisibility(v, proxySize);
+        return EffectsRenderClient.BeamHaloVisibility(v, proxySize);
     }
 
     public Vector ScreenPosition(in Vector point)
     {
-        if (!api.ClientAttached)
+        if (effectsRenderClient is null)
             return default;
         float* v = stackalloc float[6] { point.X, point.Y, point.Z, 0, 0, 0 };
-        api.ClientShims.BeamScreenPosition(v, v + 3);
+        EffectsRenderClient.BeamScreenPosition(v, v + 3);
         return new Vector(v[3], v[4], v[5]);
     }
 
     public int RenderableAdd(in Vector origin, in Vector mins, in Vector maxs)
     {
-        if (!api.ClientAttached)
+        if (effectsRenderClient is null)
             return -1;
         float* v = stackalloc float[9] { origin.X, origin.Y, origin.Z, mins.X, mins.Y, mins.Z, maxs.X, maxs.Y, maxs.Z };
-        return api.ClientShims.BeamRenderableAdd(v);
+        return EffectsRenderClient.BeamRenderableAdd(v);
     }
 
     public void RenderableChanged(int renderable, in Vector origin, in Vector mins, in Vector maxs)
     {
-        if (!api.ClientAttached)
+        if (effectsRenderClient is null)
             return;
         float* v = stackalloc float[9] { origin.X, origin.Y, origin.Z, mins.X, mins.Y, mins.Z, maxs.X, maxs.Y, maxs.Z };
-        api.ClientShims.BeamRenderableChanged(renderable, v);
+        EffectsRenderClient.BeamRenderableChanged(renderable, v);
     }
 
     public void RenderableRemove(int renderable)
     {
-        if (api.ClientAttached)
-            api.ClientShims.BeamRenderableRemove(renderable);
+        if ((effectsRenderClient is not null))
+            EffectsRenderClient.BeamRenderableRemove(renderable);
     }
 
     public bool BindSprite(int modelIndex, int frame, int renderMode, bool wireframe)
-        => api.ClientAttached && api.ClientShims.BeamBindSprite(modelIndex, frame, renderMode, wireframe ? 1 : 0) != 0;
+        => (effectsRenderClient is not null) && EffectsRenderClient.BeamBindSprite(modelIndex, frame, renderMode, wireframe ? 1 : 0) != 0;
 
     public void SetHdrColorScale(int modelIndex, int renderMode, float scale)
     {
-        if (api.ClientAttached)
-            api.ClientShims.BeamSetHdrColorScale(modelIndex, renderMode, scale);
+        if ((effectsRenderClient is not null))
+            EffectsRenderClient.BeamSetHdrColorScale(modelIndex, renderMode, scale);
     }
 
     public bool Glow(int modelIndex, bool bind)
-        => api.ClientAttached && api.ClientShims.BeamGlow(modelIndex, bind ? 1 : 0) != 0;
+        => (effectsRenderClient is not null) && EffectsRenderClient.BeamGlow(modelIndex, bind ? 1 : 0) != 0;
 
     public void Strip(ReadOnlySpan<float> vertices)
     {
         // Seventeen floats a vertex, two a segment: at least two segments.
-        if (!api.ClientAttached || vertices.Length < 4 * 17)
+        if (effectsRenderClient is null || vertices.Length < 4 * 17)
             return;
         fixed (float* p = vertices)
-            api.ClientShims.BeamDrawStrip(p, vertices.Length / 17);
+            EffectsRenderClient.BeamDrawStrip(p, vertices.Length / 17);
     }
 
     public void Mesh(int primitive, int primitives, int colorKind, ReadOnlySpan<float> vertices)
     {
-        if (!api.ClientAttached || vertices.Length < 9)
+        if (effectsRenderClient is null || vertices.Length < 9)
             return;
         fixed (float* p = vertices)
-            api.ClientShims.BeamDrawMesh(primitive, primitives, colorKind, p, vertices.Length / 9);
+            EffectsRenderClient.BeamDrawMesh(primitive, primitives, colorKind, p, vertices.Length / 9);
     }
 }

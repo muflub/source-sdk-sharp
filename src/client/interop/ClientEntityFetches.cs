@@ -34,24 +34,24 @@ public static class ClientEntityFetches
 
         // The rope executor and the view, light and world-hull reads a managed
         // rope makes (plan_client_novalve §2 cluster 6).
-        services.AddInstance<IClientRopeExecutor>(new ClientRopeExecutor(engine.Api));
-        var ropeExecutor = new ClientRopeExecutor(engine.Api);
+        services.AddInstance<IClientRopeExecutor>(new ClientRopeExecutor(engine.Api.ClientShimsOrNull?.EffectsRenderClient));
+        var ropeExecutor = new ClientRopeExecutor(engine.Api.ClientShimsOrNull?.EffectsRenderClient);
         services.AddInstance<IClientRopeExecutor>(ropeExecutor);
         services.AddInstance<IClientComputeLighting>(ropeExecutor);
 
         // The beam executor and the reads the managed beam system makes
         // (plan_client_novalve §2 cluster 5).
-        services.AddInstance<IClientBeamExecutor>(new ClientBeamExecutor(engine.Api));
+        services.AddInstance<IClientBeamExecutor>(new ClientBeamExecutor(engine.Api.ClientShimsOrNull?.EffectsRenderClient));
 
         // The UI's draw primitives (plan_client_ui U2), for VguiBackend.
         services.AddInstance<IUiSurface>(new ClientUiSurface(engine.Api.ClientShimsOrNull?.UiClient));
         services.AddInstance<IClientDebugOverlay>(new ClientDebugOverlay(engine.Api));
 
         // The second cameras' render targets (lane camproto).
-        services.AddInstance<IViewTargets>(new ClientViewTargets(engine.Api));
+        services.AddInstance<IViewTargets>(new ClientViewTargets(engine.Api.ClientShimsOrNull?.ViewClient));
 
         // The observer's camera (plan_client_novalve C7 item 5).
-        services.AddInstance<IObserverCameraSlots>(new ObserverCameraSlots(engine.Api));
+        services.AddInstance<IObserverCameraSlots>(new ObserverCameraSlots(engine.Api.ClientShimsOrNull?.ViewClient));
 
         // The net channel and the diagnostics ledgers, for the netgraph and
         // absences routes; one reader over the slots serves both.
@@ -116,7 +116,7 @@ public static class ClientEntityFetches
         services.AddInstance<IFxGameSounds>(emitters);
         services.AddInstance<IFxTempEntModels>(emitters);
         // The client weather's engine reads (lane c2-sims).
-        services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(engine.Api));
+        services.AddInstance<IClientPrecipitationEngine>(new ClientPrecipitationSlots(engine.Api.ClientShimsOrNull?.PrecipitationClient));
         // The client's physics callbacks' engine reads (lane c6-input).
         var physics = new ClientPhysicsSlots(engine.Api);
         services.AddInstance<IClientImpactSoundWorld>(physics);

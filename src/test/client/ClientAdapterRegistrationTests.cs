@@ -204,6 +204,73 @@ public unsafe class ClientAdapterRegistrationTests
         Assert.Equal([1f, 2f], t_seen!);
     }
 
+    private const string EffectsRender = "SourceSharpEffectsRenderClient001";
+    private const string View = "SourceSharpViewClient001";
+
+    [UnmanagedCallersOnly] private static int HasModel(void* self, uint entity) => entity == 0x0001_0004u ? 1 : 0;
+
+    [UnmanagedCallersOnly]
+    private static int RopeMaterialTall(void* self, byte* name, int* height, int* back)
+    {
+        *height = 32;
+        *back = 1;
+        return 11;
+    }
+
+    [UnmanagedCallersOnly] private static void SeeOverride(void* self, int active, float* origin, float* angles, int setAngles)
+        => t_seen = [active, origin[0], setAngles];
+
+    [UnmanagedCallersOnly]
+    private static int TargetInfo(void* self, int target, int* out4)
+    {
+        out4[0] = 640; out4[1] = 480; out4[2] = target; out4[3] = 2;
+        return 1;
+    }
+
+    [Fact]
+    public void TheRegisteredBeamExecutorAsksTheEffectsRenderArea()
+        => Assert.True(Through<IClientBeamExecutor, bool>(EffectsRender, nameof(ShimEffectsRenderClientFwd.BeamEntityHasModel),
+                                                          (nint)(delegate* unmanaged<void*, uint, int>)&HasModel,
+                                                          b => b.EntityHasModel(new EntityHandle(0x0001_0004u))));
+
+    [Fact]
+    public void TheRegisteredRopeExecutorAsksTheEffectsRenderArea()
+    {
+        var (handle, height, back) = Through<IClientRopeExecutor, (int, int, bool)>(
+            EffectsRender, nameof(ShimEffectsRenderClientFwd.RopeMaterial),
+            (nint)(delegate* unmanaged<void*, byte*, int*, int*, int>)&RopeMaterialTall,
+            r => (r.Material("cable/rope", out int h, out bool b), h, b));
+
+        Assert.Equal((11, 32, true), (handle, height, back));
+    }
+
+    [Fact]
+    public void TheRegisteredPrecipitationEngineAsksThePrecipitationArea()
+        => Assert.Equal(7, Through<IClientPrecipitationEngine, int>("SourceSharpPrecipitationClient001",
+                                                                    nameof(ShimPrecipitationClientFwd.PrecipitationScreenWidth),
+                                                                    (nint)(delegate* unmanaged<void*, int>)&Seven, p => p.ScreenWidth()));
+
+    [Fact]
+    public void TheRegisteredObserverCameraSetsTheViewThroughTheViewArea()
+    {
+        t_seen = null;
+        Through<IObserverCameraSlots, int>(View, nameof(ShimViewClientFwd.ViewOverrideSet),
+                                           (nint)(delegate* unmanaged<void*, int, float*, float*, int, void>)&SeeOverride,
+                                           o => { o.SetView(true, new Vector(9, 0, 0), default, false); return 0; });
+
+        Assert.Equal([1f, 9f, 0f], t_seen!);
+    }
+
+    [Fact]
+    public void TheRegisteredViewTargetsAskTheViewArea()
+    {
+        var info = Through<IViewTargets, ViewTargetInfo>(View, nameof(ShimViewClientFwd.ViewTargetInfo),
+                                                         (nint)(delegate* unmanaged<void*, int, int*, int>)&TargetInfo,
+                                                         v => v.Info(3, out var i) ? i : default);
+
+        Assert.Equal(new ViewTargetInfo(640, 480, 3, 2), info);
+    }
+
     /// <summary>A guarded call over an unattached engine answers its default, as the attach guard made it.</summary>
     [Fact]
     public void OverAnUnattachedEngineAGuardedFxCallAnswersItsDefault()
