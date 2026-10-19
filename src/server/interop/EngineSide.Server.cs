@@ -68,27 +68,27 @@ internal sealed unsafe partial class EngineSide
         public Vector EntityVelocity(EntityHandle entity)
         {
             float* xyz = stackalloc float[3];
-            side.ServerShims.EntityGetVelocity(entity.Value, xyz);
+            side.ServerShims.Transform.EntityGetVelocity(entity.Value, xyz);
             return new Vector(xyz[0], xyz[1], xyz[2]);
         }
 
         public void SetEntityVelocity(EntityHandle entity, Vector velocity)
         {
             float* xyz = stackalloc float[3] { velocity.X, velocity.Y, velocity.Z };
-            side.ServerShims.EntitySetVelocity(entity.Value, xyz);
+            side.ServerShims.Transform.EntitySetVelocity(entity.Value, xyz);
         }
 
         public Vector EntityAngularVelocity(EntityHandle entity)
         {
             float* pyr = stackalloc float[3];
-            side.ServerShims.EntityGetAngularVelocity(entity.Value, pyr);
+            side.ServerShims.Transform.EntityGetAngularVelocity(entity.Value, pyr);
             return new Vector(pyr[0], pyr[1], pyr[2]);
         }
 
         public void SetEntityAngularVelocity(EntityHandle entity, Vector degreesPerSecond)
         {
             float* pyr = stackalloc float[3] { degreesPerSecond.X, degreesPerSecond.Y, degreesPerSecond.Z };
-            side.ServerShims.EntitySetAngularVelocity(entity.Value, pyr);
+            side.ServerShims.Transform.EntitySetAngularVelocity(entity.Value, pyr);
         }
 
         public Vector Angles(EntityHandle entity) => side.EntityGetAngles(entity);
@@ -102,9 +102,6 @@ internal sealed unsafe partial class EngineSide
     /// <summary>The server's attached areas; throws before the attach.</summary>
     internal ShimAreas ServerShims => _shims ?? throw new InvalidOperationException(
         "a server-only engine slot was called before the shim areas were attached");
-
-    /// <summary>The server's areas, or null when they are not attached.</summary>
-    internal ShimAreas? ServerShimsOrNull => _shims;
 
     /// <summary>Binds every generated area; the server calls this from LoadSideV2.</summary>
     internal bool AttachShims(ShimRoot root, out string why)
@@ -181,7 +178,7 @@ internal sealed unsafe partial class EngineSide
 
         const int bufSize = 128;
         byte* buf = stackalloc byte[bufSize];
-        ServerShims.EntityGetClassName(h.Value, buf, bufSize);
+        ServerShims.EntitiesServer.EntityGetClassName(h.Value, buf, bufSize);
         return FromUtf8(buf);
     }
 
@@ -191,7 +188,7 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.State(h) is { } shellLess)
             return shellLess.Health;
 
-        return (s_Initialized && ServerAttached) ? ServerShims.EntityGetHealth(h.Value) : 0;
+        return (s_Initialized && ServerAttached) ? ServerShims.EntitiesServer.EntityGetHealth(h.Value) : 0;
     }
 
     public void EntitySetHealth(EntityHandle h, int health)
@@ -203,7 +200,7 @@ internal sealed unsafe partial class EngineSide
         }
 
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetHealth(h.Value, health);
+            ServerShims.EntitiesServer.EntitySetHealth(h.Value, health);
     }
 
     public void EntitySetOrigin(EntityHandle h, Vector origin)
@@ -218,7 +215,7 @@ internal sealed unsafe partial class EngineSide
 
         float* xyz = stackalloc float[3];
         xyz[0] = origin.X; xyz[1] = origin.Y; xyz[2] = origin.Z;
-        ServerShims.EntitySetOrigin(h.Value, xyz);
+        ServerShims.Transform.EntitySetOrigin(h.Value, xyz);
     }
 
     /// <summary>
@@ -235,13 +232,13 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.Claims(h))
             return false;
 
-        return s_Initialized && ServerAttached && ServerShims.EntityIsPlayer(h.Value) != 0;
+        return s_Initialized && ServerAttached && ServerShims.EntitiesServer.EntityIsPlayer(h.Value) != 0;
     }
 
     /// <summary>Handle for a player slot (1..maxplayers), or None if absent.</summary>
     public EntityHandle GetPlayerHandle(int playerIndex)
         => (s_Initialized && ServerAttached)
-            ? new EntityHandle(ServerShims.GetPlayerHandle(playerIndex))
+            ? new EntityHandle(ServerShims.Players.GetPlayerHandle(playerIndex))
             : EntityHandle.None;
 
     /// <summary>
@@ -258,7 +255,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public EntityHandle GetCommandClient()
         => (s_Initialized && ServerAttached)
-            ? new EntityHandle(ServerShims.GetCommandClientHandle())
+            ? new EntityHandle(ServerShims.ConsoleServer.GetCommandClientHandle())
             : EntityHandle.None;
 
     /// <summary>
@@ -276,7 +273,7 @@ internal sealed unsafe partial class EngineSide
             return Span<byte>.Empty;
 
         int size;
-        void* p = ServerShims.EntityGetDataBlob(h.Value, &size);
+        void* p = ServerShims.NetworkServer.EntityGetDataBlob(h.Value, &size);
         if (p == null || size <= 0)
             return Span<byte>.Empty;
 
@@ -303,7 +300,7 @@ internal sealed unsafe partial class EngineSide
         uint serial = 0;
         EntitySlot* slot = null;
 
-        void* p = ServerShims.EntityBindBlob(h.Value, &size, &slot, &serial);
+        void* p = ServerShims.NetworkServer.EntityBindBlob(h.Value, &size, &slot, &serial);
 
         if (p == null || size <= 0 || slot == null)
             return default;
@@ -339,7 +336,7 @@ internal sealed unsafe partial class EngineSide
     public void MarkEntityStateChanged(EntityHandle h)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntityMarkStateChanged(h.Value);
+            ServerShims.NetworkServer.EntityMarkStateChanged(h.Value);
     }
 
     /// <summary>
@@ -376,7 +373,7 @@ internal sealed unsafe partial class EngineSide
     public void MarkEntityBlockChanged(EntityHandle h, int blockOffset)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntityMarkBlockChanged(h.Value, blockOffset);
+            ServerShims.NetworkServer.EntityMarkBlockChanged(h.Value, blockOffset);
     }
 
     /// <summary>
@@ -404,7 +401,7 @@ internal sealed unsafe partial class EngineSide
 
         int words = 0;
         int firstBad = -1;
-        int result = ServerShims.EntityPayloadAgreement(h.Value, &words, &firstBad);
+        int result = ServerShims.NetworkServer.EntityPayloadAgreement(h.Value, &words, &firstBad);
 
         return new PayloadAgreement(
             result switch
@@ -441,7 +438,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (byte* pBlob = blob)
         {
-            ServerShims.TempEntPlayback(handle, pBlob, blob.Length, &wire, delay);
+            ServerShims.EffectsServer.TempEntPlayback(handle, pBlob, blob.Length, &wire, delay);
         }
     }
 
@@ -472,7 +469,7 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
 
-        fixed (byte* p = bytes) { return ServerShims.EffectDispatchIndex(p); }
+        fixed (byte* p = bytes) { return ServerShims.EffectsServer.EffectDispatchIndex(p); }
     }
 
     /// <summary>Sets an int field of an event made by <see cref="EventCreate"/>.</summary>
@@ -481,7 +478,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || handle == IntPtr.Zero) return;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { ServerShims.EventSetInt(handle, p, value); }
+        fixed (byte* p = bytes) { ServerShims.EventsServer.EventSetInt(handle, p, value); }
     }
 
     /// <summary>Sets a float field.</summary>
@@ -490,7 +487,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || handle == IntPtr.Zero) return;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { ServerShims.EventSetFloat(handle, p, value); }
+        fixed (byte* p = bytes) { ServerShims.EventsServer.EventSetFloat(handle, p, value); }
     }
 
     /// <summary>Sets a bool field.</summary>
@@ -499,7 +496,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || handle == IntPtr.Zero) return;
 
         var bytes = Encoding.UTF8.GetBytes(key + "\0");
-        fixed (byte* p = bytes) { ServerShims.EventSetBool(handle, p, value ? 1 : 0); }
+        fixed (byte* p = bytes) { ServerShims.EventsServer.EventSetBool(handle, p, value ? 1 : 0); }
     }
 
     /// <summary>Sets a string field.</summary>
@@ -510,7 +507,7 @@ internal sealed unsafe partial class EngineSide
         var k = Encoding.UTF8.GetBytes(key + "\0");
         var v = Encoding.UTF8.GetBytes((value ?? string.Empty) + "\0");
         fixed (byte* pk = k)
-        fixed (byte* pv = v) { ServerShims.EventSetString(handle, pk, pv); }
+        fixed (byte* pv = v) { ServerShims.EventsServer.EventSetString(handle, pk, pv); }
     }
 
     //-------------------------------------------------------------------------
@@ -534,7 +531,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return EntityHandle.None;
 
         var bytes = Encoding.UTF8.GetBytes(className + "\0");
-        fixed (byte* p = bytes) { return new EntityHandle(ServerShims.CreateEntity(p)); }
+        fixed (byte* p = bytes) { return new EntityHandle(ServerShims.EntityLifecycle.CreateEntity(p)); }
     }
 
     /// <summary>
@@ -575,7 +572,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pName = name)
         fixed (byte* pKeys = packedKeys)
         {
-            return new EntityHandle(ServerShims.MapSpawnCreate(pName, pKeys, packedKeys.Length));
+            return new EntityHandle(ServerShims.EntityLifecycle.MapSpawnCreate(pName, pKeys, packedKeys.Length));
         }
     }
 
@@ -601,7 +598,7 @@ internal sealed unsafe partial class EngineSide
         }
 
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySpawn(entity.Value);
+            ServerShims.EntityLifecycle.EntitySpawn(entity.Value);
     }
 
     /// <summary>Precaches and applies a model.</summary>
@@ -610,7 +607,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return;
 
         var bytes = Encoding.UTF8.GetBytes(model + "\0");
-        fixed (byte* p = bytes) { ServerShims.EntitySetModel(entity.Value, p); }
+        fixed (byte* p = bytes) { ServerShims.ModelsServer.EntitySetModel(entity.Value, p); }
     }
 
     /// <summary>
@@ -620,7 +617,7 @@ internal sealed unsafe partial class EngineSide
     public void MakePickup(EntityHandle entity, float sizeX, float sizeY, float sizeZ)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntityMakePickup(entity.Value, sizeX, sizeY, sizeZ);
+            ServerShims.EntitiesServer.EntityMakePickup(entity.Value, sizeX, sizeY, sizeZ);
     }
 
     /// <summary>
@@ -675,7 +672,7 @@ internal sealed unsafe partial class EngineSide
             return EntityHandle.None.Value;
 
         var bytes = Encoding.UTF8.GetBytes(className + "\0");
-        fixed (byte* p = bytes) { return ServerShims.FindEntityByClassname(startAfter, p); }
+        fixed (byte* p = bytes) { return ServerShims.EntitiesServer.FindEntityByClassname(startAfter, p); }
     }
 
     /// <summary>
@@ -690,7 +687,7 @@ internal sealed unsafe partial class EngineSide
             return EntityHandle.None;
 
         float* xyz = stackalloc float[3];
-        uint hit = ServerShims.TracePlayerAim(player.Value, range, xyz);
+        uint hit = ServerShims.WorldServer.TracePlayerAim(player.Value, range, xyz);
 
         hitPoint = new Vector(xyz[0], xyz[1], xyz[2]);
         return new EntityHandle(hit);
@@ -703,7 +700,7 @@ internal sealed unsafe partial class EngineSide
     public void ApplyDamage(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.ApplyDamage(victim.Value, attacker.Value, damage, (int)damageType);
+            ServerShims.Damage.ApplyDamage(victim.Value, attacker.Value, damage, (int)damageType);
     }
 
     /// <summary>
@@ -716,7 +713,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return default;
 
         float* xyz = stackalloc float[3];
-        ServerShims.GetPlayerShootOrigin(player.Value, xyz);
+        ServerShims.Players.GetPlayerShootOrigin(player.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
@@ -736,25 +733,25 @@ internal sealed unsafe partial class EngineSide
 
         facts.StructSize = (uint)sizeof(PlayerShadowFacts);
         fixed (PlayerShadowFacts* p = &facts)
-            return ServerShims.PlayerShadowFacts(player.Value, p) != 0;
+            return ServerShims.MovementServer.PlayerShadowFacts(player.Value, p) != 0;
     }
 
     /// <summary>Native holds the body managed built (stand, crouch, controller). False when the player is gone.</summary>
     internal bool PlayerShadowAdopt(EntityHandle player, nint stand, nint crouch, nint controller)
-        => s_Initialized && ServerAttached && ServerShims.PlayerShadowAdopt(player.Value, stand, crouch, controller) != 0;
+        => s_Initialized && ServerAttached && ServerShims.MovementServer.PlayerShadowAdopt(player.Value, stand, crouch, controller) != 0;
 
     /// <summary>Native tears the held body down (DestroyVCollision), or drops it if its environment has gone.</summary>
     internal void PlayerShadowRelease(EntityHandle player)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.PlayerShadowRelease(player.Value);
+            ServerShims.MovementServer.PlayerShadowRelease(player.Value);
     }
 
     /// <summary>The hull in play; after a command, m_oldOrigin and the move's step height consumed.</summary>
     internal void PlayerShadowCommit(EntityHandle player, int state, bool afterCommand)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.PlayerShadowCommit(player.Value, state, afterCommand ? 1 : 0);
+            ServerShims.MovementServer.PlayerShadowCommit(player.Value, state, afterCommand ? 1 : 0);
     }
 
     /// <summary>
@@ -771,12 +768,12 @@ internal sealed unsafe partial class EngineSide
         float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
         float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
         float* outEnd = stackalloc float[3];
-        int bits = ServerShims.EntityTraceHull(entity.Value, s0, e0, lo, hi, (int)mask, collisionGroup, outEnd);
+        int bits = ServerShims.WorldServer.EntityTraceHull(entity.Value, s0, e0, lo, hi, (int)mask, collisionGroup, outEnd);
         return new EntityHullTrace(new Vector(outEnd[0], outEnd[1], outEnd[2]), (bits & 1) != 0, (bits & 2) != 0);
     }
 
     public bool PlayerIsAlive(EntityHandle player)
-        => s_Initialized && ServerAttached && ServerShims.PlayerIsAlive(player.Value) != 0;
+        => s_Initialized && ServerAttached && ServerShims.Players.PlayerIsAlive(player.Value) != 0;
 
     /// <summary>
     /// Puts a player into or out of spectating.
@@ -786,12 +783,12 @@ internal sealed unsafe partial class EngineSide
     public void PlayerSetObserverMode(EntityHandle player, ObserverMode mode)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetObserverMode(player.Value, (int)mode);
+            ServerShims.Players.PlayerSetObserverMode(player.Value, (int)mode);
     }
 
     public ObserverMode PlayerGetObserverMode(EntityHandle player)
         => (s_Initialized && ServerAttached)
-            ? (ObserverMode)ServerShims.PlayerGetObserverMode(player.Value)
+            ? (ObserverMode)ServerShims.Players.PlayerGetObserverMode(player.Value)
             : ObserverMode.None;
 
     /// <summary>
@@ -805,7 +802,7 @@ internal sealed unsafe partial class EngineSide
     public void PlayerSetTeam(EntityHandle player, int team)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetTeam(player.Value, team);
+            ServerShims.Players.PlayerSetTeam(player.Value, team);
     }
 
     /// <summary>
@@ -816,7 +813,7 @@ internal sealed unsafe partial class EngineSide
     public void PlayerRespawn(EntityHandle player)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.PlayerRespawn(player.Value);
+            ServerShims.Players.PlayerRespawn(player.Value);
     }
 
     /// <summary>
@@ -830,7 +827,7 @@ internal sealed unsafe partial class EngineSide
     public void PlayerSetSlowMovement(EntityHandle player, bool slow)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.PlayerSetSlowMovement(player.Value, slow ? 1 : 0);
+            ServerShims.MovementServer.PlayerSetSlowMovement(player.Value, slow ? 1 : 0);
     }
 
     /// <summary>
@@ -855,7 +852,7 @@ internal sealed unsafe partial class EngineSide
             return;
 
         float* a = stackalloc float[3] { pitchYawRoll.X, pitchYawRoll.Y, pitchYawRoll.Z };
-        ServerShims.PlayerSnapEyeAngles(player.Value, a);
+        ServerShims.Players.PlayerSnapEyeAngles(player.Value, a);
     }
 
     /// <summary>
@@ -880,7 +877,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return MoveType.None;
 
-        return (MoveType)ServerShims.PlayerSetMoveType(player.Value, (int)moveType);
+        return (MoveType)ServerShims.MovementServer.PlayerSetMoveType(player.Value, (int)moveType);
     }
 
     /// <summary>
@@ -893,7 +890,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetNotSolid(EntityHandle entity, bool notSolid)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetNotSolid(entity.Value, notSolid ? 1 : 0);
+            ServerShims.CollisionServer.EntitySetNotSolid(entity.Value, notSolid ? 1 : 0);
     }
 
     /// <summary>
@@ -908,7 +905,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetTransmitAlways(EntityHandle entity, bool always)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetTransmitAlways(entity.Value, always ? 1 : 0);
+            ServerShims.NetworkServer.EntitySetTransmitAlways(entity.Value, always ? 1 : 0);
     }
 
     /// <summary>
@@ -939,7 +936,7 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* pKey = keyBytes)
         fixed (byte* pValue = valueBytes)
         {
-            return ServerShims.EntitySetKeyValue(entity.Value, pKey, pValue) != 0;
+            return ServerShims.EntitiesServer.EntitySetKeyValue(entity.Value, pKey, pValue) != 0;
         }
     }
 
@@ -971,7 +968,7 @@ internal sealed unsafe partial class EngineSide
             return;
 
         if (s_Initialized && ServerAttached)
-            ServerShims.EntityRemove(entity.Value);
+            ServerShims.EntityLifecycle.EntityRemove(entity.Value);
     }
 
     /// <summary>
@@ -1002,7 +999,7 @@ internal sealed unsafe partial class EngineSide
 
             fixed (uint* p = raw)
             {
-                ServerShims.DestroyShell(p, batch.Length);
+                ServerShims.EntityLifecycle.DestroyShell(p, batch.Length);
             }
         }
         finally
@@ -1041,7 +1038,7 @@ internal sealed unsafe partial class EngineSide
     /// to every consumer of the entity API.
     /// </remarks>
     internal int InvisibleRangeReach()
-        => (s_Initialized && ServerAttached) ? ServerShims.InvisibleRangeReach() : 0;
+        => (s_Initialized && ServerAttached) ? ServerShims.WorldServer.InvisibleRangeReach() : 0;
 
     /// <summary>
     /// A handle for a "skip this entity" parameter, with a shell-less one
@@ -1092,7 +1089,7 @@ internal sealed unsafe partial class EngineSide
         float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         float* pyr = stackalloc float[3] { angles.X, angles.Y, angles.Z };
 
-        ServerShims.PlayerPlaceAtSpawn(player.Value, xyz, pyr);
+        ServerShims.Players.PlayerPlaceAtSpawn(player.Value, xyz, pyr);
     }
 
     /// <summary>
@@ -1105,7 +1102,7 @@ internal sealed unsafe partial class EngineSide
     public void EndRound()
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EndRound();
+            ServerShims.GameRules.EndRound();
     }
 
     /// <summary>
@@ -1116,7 +1113,7 @@ internal sealed unsafe partial class EngineSide
     /// "not a player" from "no team yet".
     /// </summary>
     public int GetPlayerTeam(EntityHandle player)
-        => (s_Initialized && ServerAttached) ? ServerShims.GetPlayerTeam(player.Value) : -1;
+        => (s_Initialized && ServerAttached) ? ServerShims.Players.GetPlayerTeam(player.Value) : -1;
 
     /// <summary>
     /// The player a userid names, or None if nobody on the server has it.
@@ -1157,7 +1154,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || soundName.Length == 0) return;
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        fixed (byte* p = bytes) ServerShims.PrecacheSound(p);
+        fixed (byte* p = bytes) ServerShims.Precache.PrecacheSound(p);
     }
 
     /// <summary>
@@ -1239,7 +1236,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return;
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        fixed (byte* p = bytes) ServerShims.EntityEmitSound(entity.Value, p);
+        fixed (byte* p = bytes) ServerShims.Sound.EntityEmitSound(entity.Value, p);
     }
 
     /// <summary>
@@ -1269,7 +1266,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || soundName.Length == 0) return;
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
-        fixed (byte* p = bytes) ServerShims.EntityStopSound(entity.Value, p);
+        fixed (byte* p = bytes) ServerShims.Sound.EntityStopSound(entity.Value, p);
     }
 
     /// <summary>
@@ -1285,7 +1282,7 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
         float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        fixed (byte* p = bytes) return ServerShims.EmitWorldSoundScript(p, xyz, channel, volume) != 0;
+        fixed (byte* p = bytes) return ServerShims.Sound.EmitWorldSoundScript(p, xyz, channel, volume) != 0;
     }
 
     /// <summary>A noise with no entity to come from.</summary>
@@ -1295,7 +1292,7 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(soundName + "\0");
         float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        fixed (byte* p = bytes) ServerShims.EmitSoundAtPosition(p, xyz);
+        fixed (byte* p = bytes) ServerShims.Sound.EmitSoundAtPosition(p, xyz);
     }
 
     /// <summary>
@@ -1312,7 +1309,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return;
 
-        ServerShims.RegisterDamageRules(&masks);
+        ServerShims.GameRules.RegisterDamageRules(&masks);
     }
 
     /// <summary>
@@ -1323,7 +1320,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return;
 
-        ServerShims.RegisterGameRulesPolicy(&policy);
+        ServerShims.GameRules.RegisterGameRulesPolicy(&policy);
     }
 
     //-------------------------------------------------------------------------
@@ -1371,7 +1368,7 @@ internal sealed unsafe partial class EngineSide
 
             fixed (byte* pName = nameBytes)
             {
-                ServerShims.RegisterScriptedEntity(pName, pointers, outputNames.Length, (int)kind);
+                ServerShims.EntityLifecycle.RegisterScriptedEntity(pName, pointers, outputNames.Length, (int)kind);
             }
         }
         finally
@@ -1408,7 +1405,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (byte* pName = nameBytes)
         {
-            ServerShims.RegisterClassOps(pName, opMask);
+            ServerShims.EntityLifecycle.RegisterClassOps(pName, opMask);
         }
     }
 
@@ -1436,7 +1433,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return 0;
 
-        return ServerShims.EntityDispatch(h.Value, (int)op, args);
+        return ServerShims.EntityLifecycle.EntityDispatch(h.Value, (int)op, args);
     }
 
     /// <summary>
@@ -1488,7 +1485,7 @@ internal sealed unsafe partial class EngineSide
         float* r = stackalloc float[3];
         float* u = stackalloc float[3];
 
-        ServerShims.AngleVectorsFromForward(f, r, u);
+        ServerShims.WorldServer.AngleVectorsFromForward(f, r, u);
 
         return (new Vector(r[0], r[1], r[2]), new Vector(u[0], u[1], u[2]));
     }
@@ -1513,7 +1510,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return default;
 
         float* xyz = stackalloc float[3];
-        ServerShims.EntityGetEyePosition(h.Value, xyz);
+        ServerShims.Transform.EntityGetEyePosition(h.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
@@ -1523,7 +1520,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return default;
 
         float* pyr = stackalloc float[3];
-        ServerShims.EntityGetEyeAngles(h.Value, pyr);
+        ServerShims.Transform.EntityGetEyeAngles(h.Value, pyr);
         return new Vector(pyr[0], pyr[1], pyr[2]);
     }
 
@@ -1543,7 +1540,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return default;
 
         float* xyz = stackalloc float[3];
-        ServerShims.EntityGetWorldSpaceCenter(h.Value, xyz);
+        ServerShims.Transform.EntityGetWorldSpaceCenter(h.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
@@ -1601,12 +1598,12 @@ internal sealed unsafe partial class EngineSide
 
         if (angles is not Vector a)
         {
-            ServerShims.EntityTeleport(h.Value, xyz, null, zeroVelocity ? 1 : 0);
+            ServerShims.Transform.EntityTeleport(h.Value, xyz, null, zeroVelocity ? 1 : 0);
         }
         else
         {
             float* pyr = stackalloc float[3] { a.X, a.Y, a.Z };
-            ServerShims.EntityTeleport(h.Value, xyz, pyr, zeroVelocity ? 1 : 0);
+            ServerShims.Transform.EntityTeleport(h.Value, xyz, pyr, zeroVelocity ? 1 : 0);
         }
 
         // The solver half, after the entity has moved (it reads the facing
@@ -1637,7 +1634,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return false;
 
-        return ServerShims.EntitySetParent(child.Value, parent.Value, parentAttachment) != 0;
+        return ServerShims.Hierarchy.EntitySetParent(child.Value, parent.Value, parentAttachment) != 0;
     }
 
     /// <summary>
@@ -1651,7 +1648,7 @@ internal sealed unsafe partial class EngineSide
         // answers for "nothing carries this" (and default, since 2026-10-05).
         if (!s_Initialized || !ServerAttached) return EntityHandle.None;
 
-        return new EntityHandle(ServerShims.EntityGetParent(child.Value));
+        return new EntityHandle(ServerShims.Hierarchy.EntityGetParent(child.Value));
     }
 
     /// <summary>
@@ -1664,7 +1661,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return 0;
 
-        return ServerShims.EntityGetParentAttachment(child.Value);
+        return ServerShims.Hierarchy.EntityGetParentAttachment(child.Value);
     }
 
     /// <summary>
@@ -1699,7 +1696,7 @@ internal sealed unsafe partial class EngineSide
             pyr = buf;
         }
 
-        ServerShims.EntitySetLocalTransform(child.Value, xyz, pyr);
+        ServerShims.Hierarchy.EntitySetLocalTransform(child.Value, xyz, pyr);
     }
 
     /// <summary>
@@ -1717,7 +1714,7 @@ internal sealed unsafe partial class EngineSide
         float* xyz = stackalloc float[3];
         float* pyr = stackalloc float[3];
 
-        ServerShims.EntityGetLocalTransform(child.Value, xyz, pyr);
+        ServerShims.Hierarchy.EntityGetLocalTransform(child.Value, xyz, pyr);
 
         origin = new Vector(xyz[0], xyz[1], xyz[2]);
         angles = new Vector(pyr[0], pyr[1], pyr[2]);
@@ -1734,7 +1731,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetOwner(EntityHandle h, EntityHandle owner)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetOwner(h.Value, owner.Value);
+            ServerShims.EntitiesServer.EntitySetOwner(h.Value, owner.Value);
     }
 
     /// <summary>
@@ -1750,13 +1747,13 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetBounce(EntityHandle h, int bounces)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetBounce(h.Value, bounces);
+            ServerShims.Transform.EntitySetBounce(h.Value, bounces);
     }
 
     public void EntitySetGravity(EntityHandle h, float gravity)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetGravity(h.Value, gravity);
+            ServerShims.Transform.EntitySetGravity(h.Value, gravity);
     }
 
     //-------------------------------------------------------------------------
@@ -1797,7 +1794,7 @@ internal sealed unsafe partial class EngineSide
             return Span<byte>.Empty;
 
         int size;
-        void* p = ServerShims.EntityGetEngineBlock(h.Value, &size);
+        void* p = ServerShims.NetworkServer.EntityGetEngineBlock(h.Value, &size);
 
         if (p == null || size <= 0)
             return Span<byte>.Empty;
@@ -1827,7 +1824,7 @@ internal sealed unsafe partial class EngineSide
     public void EntityDestroyPhysics(EntityHandle entity)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntityDestroyPhysics(entity.Value);
+            ServerShims.Physics.EntityDestroyPhysics(entity.Value);
     }
 
     /// <summary>
@@ -1844,7 +1841,7 @@ internal sealed unsafe partial class EngineSide
             return false;
 
         void* held = null;
-        int ok = ServerShims.EntitySwapPhysicsObject(entity.Value, physicsObject, &held);
+        int ok = ServerShims.Physics.EntitySwapPhysicsObject(entity.Value, physicsObject, &held);
         previous = (nint)held;
         return ok != 0;
     }
@@ -1880,7 +1877,7 @@ internal sealed unsafe partial class EngineSide
         // nothing for it and answers the count, which is how the reader sizes
         // itself without a first call that throws away pairs.
         fixed (OverlapPair* p = into)
-            return ServerShims.EntityOverlapReport((uint*)p, into.Length);
+            return ServerShims.CollisionServer.EntityOverlapReport((uint*)p, into.Length);
     }
 
     /// <summary>
@@ -1901,7 +1898,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return ParentProbe.None;
 
-        return (ParentProbe)ServerShims.EntityParentProbe(entity.Value);
+        return (ParentProbe)ServerShims.Hierarchy.EntityParentProbe(entity.Value);
     }
 
     /// <summary>
@@ -1934,7 +1931,7 @@ internal sealed unsafe partial class EngineSide
         float* xyz = stackalloc float[3];
         float* pyr = stackalloc float[3];
 
-        int got = ServerShims.EntityGetAttachmentFrame(entity.Value, attachment, xyz, pyr);
+        int got = ServerShims.Hierarchy.EntityGetAttachmentFrame(entity.Value, attachment, xyz, pyr);
 
         origin = new Vector(xyz[0], xyz[1], xyz[2]);
         angles = new QAngle(pyr[0], pyr[1], pyr[2]);
@@ -1959,21 +1956,21 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return;
 
         var bytes = Encoding.UTF8.GetBytes(command + "\0");
-        fixed (byte* p = bytes) { ServerShims.SendClientCommand(player.Value, p); }
+        fixed (byte* p = bytes) { ServerShims.ConsoleServer.SendClientCommand(player.Value, p); }
     }
 
     /// <summary>Whether a brush is drawn.</summary>
     public void EntitySetVisible(EntityHandle entity, bool visible)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetVisible(entity.Value, visible ? 1 : 0);
+            ServerShims.EntitiesServer.EntitySetVisible(entity.Value, visible ? 1 : 0);
     }
 
     /// <summary>Whether a brush can be walked through, walked into, or neither.</summary>
     public void EntitySetBrushSolidity(EntityHandle entity, BrushSolidity solidity)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetBrushSolidity(entity.Value, (int)solidity);
+            ServerShims.CollisionServer.EntitySetBrushSolidity(entity.Value, (int)solidity);
     }
 
     /// <summary>
@@ -1983,7 +1980,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetPickupEnabled(EntityHandle entity, bool enabled)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetPickupEnabled(entity.Value, enabled ? 1 : 0);
+            ServerShims.EntitiesServer.EntitySetPickupEnabled(entity.Value, enabled ? 1 : 0);
     }
 
     //-------------------------------------------------------------------------
@@ -2065,7 +2062,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return;
 
         float* p = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.ExplosionEffect(p, modelIndex, scale, frameRate, flags, radius, magnitude);
+        ServerShims.EffectsServer.ExplosionEffect(p, modelIndex, scale, frameRate, flags, radius, magnitude);
     }
 
     /// <summary>
@@ -2081,7 +2078,7 @@ internal sealed unsafe partial class EngineSide
 
         float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         float* p = stackalloc float[3] { punch.X, punch.Y, punch.Z };
-        ServerShims.ViewPunch(o, p, radius, inAir ? 1 : 0);
+        ServerShims.EffectsServer.ViewPunch(o, p, radius, inAir ? 1 : 0);
     }
 
     /// <summary>How heavy a physics object is. Zero if it has no physics at all.</summary>
@@ -2159,7 +2156,7 @@ internal sealed unsafe partial class EngineSide
     /// (plan_physics_managed). Valid until the entity's object is destroyed.
     /// </summary>
     public nint EntityPhysicsObject(EntityHandle entity)
-        => s_Initialized && ServerAttached ? ServerShims.EntityPhysicsObject(entity.Value) : 0;
+        => s_Initialized && ServerAttached ? ServerShims.Physics.EntityPhysicsObject(entity.Value) : 0;
 
     /// <summary>
     /// The level's <c>IPhysicsEnvironment *</c>, or 0 between levels: managed
@@ -2167,7 +2164,7 @@ internal sealed unsafe partial class EngineSide
     /// <c>PhysicsEnvironmentFwd</c> (plan_physics_managed B2).
     /// </summary>
     public nint PhysicsEnvironmentPointer()
-        => s_Initialized && ServerAttached ? ServerShims.PhysicsEnvironmentPointer() : 0;
+        => s_Initialized && ServerAttached ? ServerShims.Physics.PhysicsEnvironmentPointer() : 0;
 
     /// <summary>
     /// <c>IPhysicsCollision::CollideGetExtent</c> for a physics object at its
@@ -2198,7 +2195,7 @@ internal sealed unsafe partial class EngineSide
     /// (plan_physics_bones_native_zero 2.1). 0 between levels.
     /// </summary>
     public nint PhysicsWorldObject()
-        => s_Initialized && ServerAttached ? ServerShims.PhysicsWorldObject() : 0;
+        => s_Initialized && ServerAttached ? ServerShims.Physics.PhysicsWorldObject() : 0;
 
     /// <summary>
     /// Each active object's owner told the solver moved it, carried out by
@@ -2216,7 +2213,7 @@ internal sealed unsafe partial class EngineSide
         fixed (nint* pObjects = objects)
         fixed (float* pVelocities = velocities)
         fixed (uint* pOwners = owners)
-            return ServerShims.PhysicsUpdateOwners((void**)pObjects, pVelocities, count, pOwners);
+            return ServerShims.Physics.PhysicsUpdateOwners((void**)pObjects, pVelocities, count, pOwners);
     }
 
     /// <summary>
@@ -2265,7 +2262,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return;
 
         float* pyr = stackalloc float[3] { angles.X, angles.Y, angles.Z };
-        ServerShims.EntitySetAngles(entity.Value, pyr);
+        ServerShims.Transform.EntitySetAngles(entity.Value, pyr);
     }
 
     /// <summary>The name a mapper gave an entity. Empty if it has none.</summary>
@@ -2279,7 +2276,7 @@ internal sealed unsafe partial class EngineSide
 
         const int bufSize = 128;
         byte* buf = stackalloc byte[bufSize];
-        ServerShims.EntityGetName(entity.Value, buf, bufSize);
+        ServerShims.EntitiesServer.EntityGetName(entity.Value, buf, bufSize);
         return FromUtf8(buf);
     }
 
@@ -2289,7 +2286,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return default;
 
         float* xyz = stackalloc float[3];
-        ServerShims.EntityGetBoundsSize(entity.Value, xyz);
+        ServerShims.CollisionServer.EntityGetBoundsSize(entity.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
@@ -2306,7 +2303,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return default;
 
         float* xyz = stackalloc float[3];
-        ServerShims.EntityGetSpawnOrigin(entity.Value, xyz);
+        ServerShims.EntitiesServer.EntityGetSpawnOrigin(entity.Value, xyz);
         return new Vector(xyz[0], xyz[1], xyz[2]);
     }
 
@@ -2319,7 +2316,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return default;
 
         float* pyr = stackalloc float[3];
-        ServerShims.EntityGetSpawnAngles(entity.Value, pyr);
+        ServerShims.EntitiesServer.EntityGetSpawnAngles(entity.Value, pyr);
         return new Vector(pyr[0], pyr[1], pyr[2]);
     }
 
@@ -2330,7 +2327,7 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.State(entity) is { } shellLess)
             return shellLess.SpawnFlags;
 
-        return (s_Initialized && ServerAttached) ? ServerShims.EntityGetSpawnFlags(entity.Value) : 0;
+        return (s_Initialized && ServerAttached) ? ServerShims.EntitiesServer.EntityGetSpawnFlags(entity.Value) : 0;
     }
 
     //-------------------------------------------------------------------------
@@ -2365,7 +2362,7 @@ internal sealed unsafe partial class EngineSide
         // it wrote are decoded in place before anyone reads them.
         int written;
         fixed (uint* p = EntityHandle.RawView(into))
-            written = ServerShims.EntitiesInSphere(c, radius, p, into.Length);
+            written = ServerShims.EntitiesServer.EntitiesInSphere(c, radius, p, into.Length);
 
         written = Math.Clamp(written, 0, into.Length);
         EntityHandle.DecodeRawInPlace(into[..written]);
@@ -2380,7 +2377,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return EntityState.None;
 
         int move;
-        var state = (EntityState)ServerShims.EntityGetState(entity.Value, &move);
+        var state = (EntityState)ServerShims.EntitiesServer.EntityGetState(entity.Value, &move);
         moveType = (MoveType)move;
         return state;
     }
@@ -2399,7 +2396,7 @@ internal sealed unsafe partial class EngineSide
         float fraction;
         uint hit;
 
-        int stopped = ServerShims.TraceLine(s, e, (int)mask, Skippable(ignore),
+        int stopped = ServerShims.WorldServer.TraceLine(s, e, (int)mask, Skippable(ignore),
                                     &fraction, endPos, normal, &hit);
 
         return new TraceResult(
@@ -2451,7 +2448,7 @@ internal sealed unsafe partial class EngineSide
         int surfaceFlags;
         int hitGroup;
 
-        int stopped = ServerShims.TraceLineSurface(s, e, (int)mask, Skippable(ignore),
+        int stopped = ServerShims.WorldServer.TraceLineSurface(s, e, (int)mask, Skippable(ignore),
                                            &fraction, endPos, normal, &hit,
                                            &surfaceProps, &surfaceFlags, &hitGroup);
 
@@ -2491,7 +2488,7 @@ internal sealed unsafe partial class EngineSide
         uint hit;
         int startSolid;
 
-        int blocked = ServerShims.TraceHull(s, e, lo, hi, (int)mask, Skippable(ignore), &hit, &startSolid);
+        int blocked = ServerShims.WorldServer.TraceHull(s, e, lo, hi, (int)mask, Skippable(ignore), &hit, &startSolid);
 
         return new HullResult(blocked != 0, startSolid != 0, new EntityHandle(hit));
     }
@@ -2576,7 +2573,7 @@ internal sealed unsafe partial class EngineSide
         fixed (float* pOrigins = origins)
         fixed (float* pAngles = angles)
         {
-            total = ServerShims.TemplateSpawnKeyed(pNames, pPacks, pBytes, pOrigins, pAngles, count,
+            total = ServerShims.EntityLifecycle.TemplateSpawnKeyed(pNames, pPacks, pBytes, pOrigins, pAngles, count,
                                             handles, limit);
         }
 
@@ -2617,7 +2614,7 @@ internal sealed unsafe partial class EngineSide
 
         float* f = stackalloc float[3] { force.X, force.Y, force.Z };
         float* p = stackalloc float[3] { position.X, position.Y, position.Z };
-        ServerShims.ApplyDamageForce(victim.Value, attacker.Value, damage, (int)damageType, f, p);
+        ServerShims.Damage.ApplyDamageForce(victim.Value, attacker.Value, damage, (int)damageType, f, p);
     }
 
     /// <summary>
@@ -2636,12 +2633,12 @@ internal sealed unsafe partial class EngineSide
 
         if (direction is not Vector dir)
         {
-            ServerShims.SparkEffect(o, magnitude, trailLength, makeSound ? 1 : 0, null);
+            ServerShims.EffectsServer.SparkEffect(o, magnitude, trailLength, makeSound ? 1 : 0, null);
             return;
         }
 
         float* d = stackalloc float[3] { dir.X, dir.Y, dir.Z };
-        ServerShims.SparkEffect(o, magnitude, trailLength, makeSound ? 1 : 0, d);
+        ServerShims.EffectsServer.SparkEffect(o, magnitude, trailLength, makeSound ? 1 : 0, d);
     }
 
     /// <summary>
@@ -2660,7 +2657,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || model.Length == 0) return -1;
 
         var bytes = Encoding.UTF8.GetBytes(model + "\0");
-        fixed (byte* p = bytes) { return ServerShims.PrecacheModel(p); }
+        fixed (byte* p = bytes) { return ServerShims.Precache.PrecacheModel(p); }
     }
 
     /// <summary>
@@ -2687,7 +2684,7 @@ internal sealed unsafe partial class EngineSide
         float* lo = stackalloc float[3];
         float* hi = stackalloc float[3];
 
-        ServerShims.EntityGetBounds(entity.Value, lo, hi);
+        ServerShims.CollisionServer.EntityGetBounds(entity.Value, lo, hi);
 
         return (new Vector(lo[0], lo[1], lo[2]), new Vector(hi[0], hi[1], hi[2]));
     }
@@ -2720,7 +2717,7 @@ internal sealed unsafe partial class EngineSide
         float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
         float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
-        ServerShims.EntitySetBounds(entity.Value, lo, hi);
+        ServerShims.CollisionServer.EntitySetBounds(entity.Value, lo, hi);
     }
 
     /// <summary>
@@ -2735,7 +2732,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public SolidType EntityGetSolidType(EntityHandle entity)
         => (s_Initialized && ServerAttached)
-               ? (SolidType)ServerShims.EntityGetSolidType(entity.Value)
+               ? (SolidType)ServerShims.CollisionServer.EntityGetSolidType(entity.Value)
                : SolidType.None;
 
     /// <summary>
@@ -2754,7 +2751,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetSolidity(entity.Value, (int)solidType, (int)solidFlags);
+            ServerShims.CollisionServer.EntitySetSolidity(entity.Value, (int)solidType, (int)solidFlags);
     }
 
     /// <summary>
@@ -2770,7 +2767,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetSpawnFlags(EntityHandle entity, int spawnFlags)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetSpawnFlags(entity.Value, spawnFlags);
+            ServerShims.EntitiesServer.EntitySetSpawnFlags(entity.Value, spawnFlags);
     }
 
     /// <summary>
@@ -2780,7 +2777,7 @@ internal sealed unsafe partial class EngineSide
     /// </summary>
     public float EntityGetGravity(EntityHandle entity)
         => (s_Initialized && ServerAttached)
-               ? ServerShims.EntityGetGravity(entity.Value)
+               ? ServerShims.Transform.EntityGetGravity(entity.Value)
                : 0f;
 
     /// <summary>
@@ -2804,7 +2801,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return;
 
         float* v = stackalloc float[3] { velocity.X, velocity.Y, velocity.Z };
-        ServerShims.EntityAddBaseVelocity(entity.Value, v);
+        ServerShims.Transform.EntityAddBaseVelocity(entity.Value, v);
     }
 
     /// <summary>
@@ -2827,7 +2824,7 @@ internal sealed unsafe partial class EngineSide
 
         if (direction is not Vector dir)
         {
-            ServerShims.EntityTakeDamage(entity.Value, attacker.Value, damage, (int)damageType,
+            ServerShims.Damage.EntityTakeDamage(entity.Value, attacker.Value, damage, (int)damageType,
                                  null, null, physicsOnly ? 1 : 0);
             return;
         }
@@ -2835,7 +2832,7 @@ internal sealed unsafe partial class EngineSide
         float* d = stackalloc float[3] { dir.X, dir.Y, dir.Z };
         float* o = stackalloc float[3] { forceOrigin.X, forceOrigin.Y, forceOrigin.Z };
 
-        ServerShims.EntityTakeDamage(entity.Value, attacker.Value, damage, (int)damageType,
+        ServerShims.Damage.EntityTakeDamage(entity.Value, attacker.Value, damage, (int)damageType,
                              d, o, physicsOnly ? 1 : 0);
     }
 
@@ -2882,7 +2879,7 @@ internal sealed unsafe partial class EngineSide
         float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         float* d = stackalloc float[3] { direction.X, direction.Y, direction.Z };
 
-        ServerShims.BloodEffect(o, d, (int)color, amount, stream ? 1 : 0, (int)sprayFlags);
+        ServerShims.EffectsServer.BloodEffect(o, d, (int)color, amount, stream ? 1 : 0, (int)sprayFlags);
     }
 
     /// <summary>
@@ -2898,7 +2895,7 @@ internal sealed unsafe partial class EngineSide
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
         fixed (byte* p = bytes)
         {
-            return ServerShims.PrecacheDecal(p);
+            return ServerShims.Precache.PrecacheDecal(p);
         }
     }
 
@@ -2936,7 +2933,7 @@ internal sealed unsafe partial class EngineSide
             a[2] = angles.Value.Z;
         }
 
-        return ServerShims.PaintDecal(texture, o, angles.HasValue ? a : null, projectDistance,
+        return ServerShims.EffectsServer.PaintDecal(texture, o, angles.HasValue ? a : null, projectDistance,
                               permanent ? 1 : 0, lowPriority ? 1 : 0) != 0;
     }
 
@@ -2960,7 +2957,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (byte* p = bytes)
         {
-            ServerShims.DrawWorldText(o, line, p, duration, r, g, b, a);
+            ServerShims.DebugOverlay.DrawWorldText(o, line, p, duration, r, g, b, a);
         }
     }
 
@@ -2991,7 +2988,7 @@ internal sealed unsafe partial class EngineSide
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
 
-        ServerShims.AddLineOverlay(s, e, r, g, b, noDepthTest ? 1 : 0, duration);
+        ServerShims.DebugOverlay.AddLineOverlay(s, e, r, g, b, noDepthTest ? 1 : 0, duration);
     }
 
     /// <summary>
@@ -3031,7 +3028,7 @@ internal sealed unsafe partial class EngineSide
 
         fixed (byte* p = bytes)
         {
-            return ServerShims.DrawEntityOverlay(entity.Value, line, p, duration, r, g, b, a) != 0;
+            return ServerShims.DebugOverlay.DrawEntityOverlay(entity.Value, line, p, duration, r, g, b, a) != 0;
         }
     }
 
@@ -3058,7 +3055,7 @@ internal sealed unsafe partial class EngineSide
         uint drawn = 0, clipped = 0, noViewer = 0, noOverlay = 0;
         int viewerSet = 0;
 
-        ServerShims.OverlayCounts(&drawn, &clipped, &noViewer, &noOverlay, &viewerSet);
+        ServerShims.DebugOverlay.OverlayCounts(&drawn, &clipped, &noViewer, &noOverlay, &viewerSet);
 
         return (drawn, clipped, noViewer, noOverlay, viewerSet != 0);
     }
@@ -3071,7 +3068,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return;
 
-        ServerShims.OverlayResetCounts();
+        ServerShims.DebugOverlay.OverlayResetCounts();
     }
 
     /// <summary>
@@ -3084,7 +3081,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached || into.IsEmpty) return 0;
 
-        fixed (int* p = into) { return ServerShims.PlayerShadowCounts(p, into.Length); }
+        fixed (int* p = into) { return ServerShims.Diagnostics.PlayerShadowCounts(p, into.Length); }
     }
 
     /// <summary>
@@ -3099,7 +3096,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return 0;
 
         var bytes = Encoding.UTF8.GetBytes(recordPath + "\0");
-        fixed (byte* p = bytes) { return ServerShims.ExitWatchArm(p); }
+        fixed (byte* p = bytes) { return ServerShims.Diagnostics.ExitWatchArm(p); }
     }
 
     /// <summary>
@@ -3110,7 +3107,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached || into.IsEmpty) return 0;
 
-        fixed (int* p = into) { return ServerShims.ExitWatchRead(p, into.Length); }
+        fixed (int* p = into) { return ServerShims.Diagnostics.ExitWatchRead(p, into.Length); }
     }
 
     /// <summary>
@@ -3124,7 +3121,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return 0;
 
-        return ServerShims.ExitWatchDisarm();
+        return ServerShims.Diagnostics.ExitWatchDisarm();
     }
 
     /// <summary>One bullet streak, drawn between two points.</summary>
@@ -3135,7 +3132,7 @@ internal sealed unsafe partial class EngineSide
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
 
-        ServerShims.TracerEffect(s, e);
+        ServerShims.EffectsServer.TracerEffect(s, e);
     }
 
     /// <summary>
@@ -3150,7 +3147,7 @@ internal sealed unsafe partial class EngineSide
     public void BubbleEffect(EntityHandle entity, int count, float speed)
     {
         if (!s_Initialized || !ServerAttached) return;
-        ServerShims.BubbleEffect(entity.Value, count, speed);
+        ServerShims.EffectsServer.BubbleEffect(entity.Value, count, speed);
     }
 
     /// <summary>
@@ -3163,7 +3160,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || spriteIndex <= 0) return;
 
         float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.FunnelEffect(o, spriteIndex, reversed ? 1 : 0);
+        ServerShims.EffectsServer.FunnelEffect(o, spriteIndex, reversed ? 1 : 0);
     }
 
     /// <summary>
@@ -3182,7 +3179,7 @@ internal sealed unsafe partial class EngineSide
         float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         float* d = stackalloc float[3] { direction.X, direction.Y, direction.Z };
 
-        ServerShims.DustEffect(o, d, size, speed);
+        ServerShims.EffectsServer.DustEffect(o, d, size, speed);
     }
 
     /// <summary>A splash of water at a point. Slime is the green one.</summary>
@@ -3191,7 +3188,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return;
 
         float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
-        ServerShims.SplashEffect(o, scale, inSlime ? 1 : 0);
+        ServerShims.EffectsServer.SplashEffect(o, scale, inSlime ? 1 : 0);
     }
 
     /// <summary>
@@ -3214,7 +3211,7 @@ internal sealed unsafe partial class EngineSide
         float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         float* a = stackalloc float[3] { angles.X, angles.Y, angles.Z };
 
-        ServerShims.MuzzleFlashEffect(o, a, scale, type);
+        ServerShims.EffectsServer.MuzzleFlashEffect(o, a, scale, type);
     }
 
     /// <summary>
@@ -3236,7 +3233,7 @@ internal sealed unsafe partial class EngineSide
         float* surface = stackalloc float[3];
         int slime;
 
-        int answer = ServerShims.WaterSurfaceBelow(s, surface, &slime);
+        int answer = ServerShims.WorldServer.WaterSurfaceBelow(s, surface, &slime);
 
         return new WaterBelow(
             Submerged: answer < 0,
@@ -3261,7 +3258,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || material.Length == 0) return;
 
         var bytes = Encoding.UTF8.GetBytes(material + "\0");
-        fixed (byte* p = bytes) { ServerShims.PrecacheMaterial(p); }
+        fixed (byte* p = bytes) { ServerShims.Precache.PrecacheMaterial(p); }
     }
 
     /// <summary>
@@ -3287,7 +3284,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached || name.Length == 0) return;
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
-        fixed (byte* p = bytes) { ServerShims.PrecacheParticleSystem(p); }
+        fixed (byte* p = bytes) { ServerShims.Precache.PrecacheParticleSystem(p); }
     }
 
     /// <summary>
@@ -3303,7 +3300,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return;
 
-        fixed (SkyboxParams* p = &parameters) { ServerShims.SetSkyboxParams(p); }
+        fixed (SkyboxParams* p = &parameters) { ServerShims.WorldServer.SetSkyboxParams(p); }
     }
 
     /// <summary>
@@ -3313,7 +3310,7 @@ internal sealed unsafe partial class EngineSide
     public void ClearSkyboxParams()
     {
         if (!s_Initialized || !ServerAttached) return;
-        ServerShims.SetSkyboxParams(null);
+        ServerShims.WorldServer.SetSkyboxParams(null);
     }
 
     /// <summary>
@@ -3326,7 +3323,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached) return false;
 
         int value = 0;
-        int found = ServerShims.EntitiesStandalonePlayerSkyboxArea(edictIndex, &value);
+        int found = ServerShims.EntitiesServer.EntitiesStandalonePlayerSkyboxArea(edictIndex, &value);
         if (found == 0) return false;
 
         area = value;
@@ -3359,7 +3356,7 @@ internal sealed unsafe partial class EngineSide
 
         float* xyz = stackalloc float[3];
         xyz[0] = 0.0f; xyz[1] = 0.0f; xyz[2] = 0.0f;
-        int found = ServerShims.ClientsStandalonePlayerEarPosition(edictIndex, xyz);
+        int found = ServerShims.Players.ClientsStandalonePlayerEarPosition(edictIndex, xyz);
         if (found == 0) return false;
 
         ears = new Vector(xyz[0], xyz[1], xyz[2]);
@@ -3376,7 +3373,7 @@ internal sealed unsafe partial class EngineSide
     public void EntitySetCollisionGroup(EntityHandle entity, CollisionGroup group)
     {
         if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetCollisionGroup(entity.Value, (int)group);
+            ServerShims.CollisionServer.EntitySetCollisionGroup(entity.Value, (int)group);
     }
 
     /// <summary>
@@ -3388,7 +3385,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return CollisionGroup.None;
 
-        return (CollisionGroup)ServerShims.EntityGetCollisionGroup(entity.Value);
+        return (CollisionGroup)ServerShims.CollisionServer.EntityGetCollisionGroup(entity.Value);
     }
 
     /// <summary>
@@ -3406,7 +3403,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return SolidFlags.None;
 
-        return (SolidFlags)ServerShims.EntityGetSolidFlags(entity.Value);
+        return (SolidFlags)ServerShims.CollisionServer.EntityGetSolidFlags(entity.Value);
     }
 
     /// <summary>
@@ -3419,21 +3416,21 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return 0;
 
-        return ServerShims.AreaPortalCreate(portalNumber, portalVersion);
+        return ServerShims.WorldServer.AreaPortalCreate(portalNumber, portalVersion);
     }
 
     /// <summary>Leaves the list. The hole is left open behind it.</summary>
     public void AreaPortalDestroy(uint portal)
     {
         if (s_Initialized && ServerAttached && portal != 0)
-            ServerShims.AreaPortalDestroy(portal);
+            ServerShims.WorldServer.AreaPortalDestroy(portal);
     }
 
     /// <summary>Whether the hole is open.</summary>
     public void AreaPortalSetOpen(uint portal, bool open)
     {
         if (s_Initialized && ServerAttached && portal != 0)
-            ServerShims.AreaPortalSetOpen(portal, open ? 1 : 0);
+            ServerShims.WorldServer.AreaPortalSetOpen(portal, open ? 1 : 0);
     }
 
     /// <summary>
@@ -3443,7 +3440,7 @@ internal sealed unsafe partial class EngineSide
     public void AreaPortalSetWindow(uint portal, EntityHandle entity, float fadeDistance)
     {
         if (s_Initialized && ServerAttached && portal != 0)
-            ServerShims.AreaPortalSetWindow(portal, entity.Value, fadeDistance);
+            ServerShims.WorldServer.AreaPortalSetWindow(portal, entity.Value, fadeDistance);
     }
 
     /// <summary>
@@ -3456,7 +3453,7 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return string.Empty;
 
-        return FromUtf8(ServerShims.WorldChapterTitle());
+        return FromUtf8(ServerShims.WorldServer.WorldChapterTitle());
     }
 
     /// <summary>
@@ -3488,7 +3485,7 @@ internal sealed unsafe partial class EngineSide
         float* xyz = stackalloc float[3] { origin.X, origin.Y, origin.Z };
 
         fixed (byte* p = bytes)
-            ServerShims.EmitAmbientSound(entIndex, xyz, p, volume, soundLevel, flags, pitch);
+            ServerShims.Sound.EmitAmbientSound(entIndex, xyz, p, volume, soundLevel, flags, pitch);
     }
 
     /// <summary>
@@ -3515,7 +3512,7 @@ internal sealed unsafe partial class EngineSide
     {
         if (!s_Initialized || !ServerAttached) return -1;
 
-        return ServerShims.EntityModelSurfaceProp(entity.Value);
+        return ServerShims.WorldServer.EntityModelSurfaceProp(entity.Value);
     }
 
     /// <summary>
@@ -3529,7 +3526,7 @@ internal sealed unsafe partial class EngineSide
 
         var bytes = Encoding.UTF8.GetBytes(name + "\0");
 
-        fixed (byte* p = bytes) { return ServerShims.SurfacePropIndex(p); }
+        fixed (byte* p = bytes) { return ServerShims.WorldServer.SurfacePropIndex(p); }
     }
 
     /// <summary>
@@ -3552,7 +3549,7 @@ internal sealed unsafe partial class EngineSide
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
 
-        ServerShims.ImpactEffect(s, e, surfaceProp, (int)damageType, entity.Value);
+        ServerShims.EffectsServer.ImpactEffect(s, e, surfaceProp, (int)damageType, entity.Value);
     }
 
     //-------------------------------------------------------------------------
@@ -3579,7 +3576,7 @@ internal sealed unsafe partial class EngineSide
 
     /// <summary>How many classnames the native dictionary holds a factory for.</summary>
     internal int EntityFactoryCount()
-        => (s_Initialized && ServerAttached) ? ServerShims.EntityFactoryCount() : 0;
+        => (s_Initialized && ServerAttached) ? ServerShims.EntityLifecycle.EntityFactoryCount() : 0;
 
     /// <summary>
     /// The i'th installed classname in install order, or null past the end.
@@ -3599,12 +3596,12 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return null;
 
-        return Utf8OrNull(ServerShims.EntityFactoryNameAt(index));
+        return Utf8OrNull(ServerShims.EntityLifecycle.EntityFactoryNameAt(index));
     }
 
     /// <summary>How many distinct classnames have been asked for and refused.</summary>
     internal int EntityFactoryRefusalCount()
-        => (s_Initialized && ServerAttached) ? ServerShims.EntityFactoryRefusalCount() : 0;
+        => (s_Initialized && ServerAttached) ? ServerShims.EntityLifecycle.EntityFactoryRefusalCount() : 0;
 
     /// <summary>The i'th refused classname, or null past the end.</summary>
     internal string? EntityFactoryRefusalNameAt(int index)
@@ -3612,13 +3609,13 @@ internal sealed unsafe partial class EngineSide
         if (!s_Initialized || !ServerAttached)
             return null;
 
-        return Utf8OrNull(ServerShims.EntityFactoryRefusalNameAt(index));
+        return Utf8OrNull(ServerShims.EntityLifecycle.EntityFactoryRefusalNameAt(index));
     }
 
     /// <summary>How many times the i'th refused classname was asked for.</summary>
     internal int EntityFactoryRefusalTimesAt(int index)
         => (s_Initialized && ServerAttached)
-            ? ServerShims.EntityFactoryRefusalTimesAt(index)
+            ? ServerShims.EntityLifecycle.EntityFactoryRefusalTimesAt(index)
             : 0;
 
 }

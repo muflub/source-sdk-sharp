@@ -201,7 +201,7 @@ public sealed unsafe class ClientStandaloneBlocks(ModuleEngine engine) : IStanda
             return Span<byte>.Empty;
 
         int size;
-        void* p = api.ClientShims.StandaloneEngineBlock(entity.Value, &size);
+        void* p = api.ClientShims.StandaloneClient.StandaloneEngineBlock(entity.Value, &size);
 
         return p == null || size < EngineBlock.SizeBytes ? Span<byte>.Empty : new Span<byte>(p, EngineBlock.SizeBytes);
     }
@@ -216,7 +216,7 @@ public sealed class ClientSequenceStore(ModuleEngine engine) : IClientSequenceSt
         EngineSide api = engine.Api;
 
         if (api.ClientAttached)
-            api.ClientShims.StandaloneStoreSequence(entity.Value, sequence, playbackRate, animTime, duration,
+            api.ClientShims.StandaloneClient.StandaloneStoreSequence(entity.Value, sequence, playbackRate, animTime, duration,
                                                     looping ? 1 : 0);
     }
 }
@@ -229,6 +229,6 @@ public sealed class StandaloneRagdollStore(ModuleEngine engine) : IStandaloneRag
         EngineSide api = engine.Api;
 
         if (api.ClientAttached)
-            api.ClientShims.StandaloneSetRagdoll(entity.Value, isRagdoll ? 1 : 0);
+            api.ClientShims.StandaloneClient.StandaloneSetRagdoll(entity.Value, isRagdoll ? 1 : 0);
     }
 }

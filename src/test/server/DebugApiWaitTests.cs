@@ -335,9 +335,16 @@ public class DebugApiWaitTests
     // stage: where the request is, for a fact's message if it never comes back
     // (the long-request fact once timed out on a Windows runner with no more
     // to go on than "no reply").
+    //
+    // The receive timeout is what makes a server that stops answering a failed
+    // fact rather than a hung test host: without it a Windows runner sat in
+    // Receive until the hang collector aborted the whole run, five minutes
+    // later, with no word of what the server had seen.
     private static string Ask(string socketPath, string path, Action<string>? stage = null)
     {
         using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        socket.ReceiveTimeout = 15_000;
+        socket.SendTimeout = 15_000;
         stage?.Invoke("connecting");
         socket.Connect(new UnixDomainSocketEndPoint(socketPath));
         stage?.Invoke("connected, sending");
@@ -359,11 +366,12 @@ public class DebugApiWaitTests
     {
         string path = Path.Combine(Path.GetTempPath(), $"ss-wait-{Guid.NewGuid():N}.sock");
         using var release = new ManualResetEventSlim(false);
+        var errors = new System.Collections.Concurrent.ConcurrentQueue<string>();
         var http = new HttpSocketServer(new UnixDomainSocketEndPoint(path),
             request => request.Path == "/slow"
                 ? (release.Wait(TimeSpan.FromSeconds(10)) ? new HttpReply(200, "{\"slow\":true}") : new HttpReply(500, "{}"))
                 : new HttpReply(200, "{\"fast\":true}"),
-            _ => { }, request => request.Path == "/slow");
+            errors.Enqueue, request => request.Path == "/slow");
         try
         {
             http.Start();
@@ -372,7 +380,19 @@ public class DebugApiWaitTests
                                            () => Volatile.Read(ref slowStage));
             Thread.Sleep(50);
 
-            Assert.Contains("\"fast\":true", Ask(path, "/fast"), StringComparison.Ordinal);
+            string fast;
+            try
+            {
+                fast = Ask(path, "/fast");
+            }
+            catch (SocketException e)
+            {
+                throw new Xunit.Sdk.XunitException(
+                    $"the fast request got no reply ({e.SocketErrorCode}); the server said: "
+                    + (errors.IsEmpty ? "nothing" : string.Join(" | ", errors)));
+            }
+
+            Assert.Contains("\"fast\":true", fast, StringComparison.Ordinal);
             Assert.False(slow.IsCompleted, "the slow request was not still waiting");
 
             release.Set();
@@ -384,6 +404,59 @@ public class DebugApiWaitTests
             http.Dispose();
             File.Delete(path);
         }
+    }
+
+    /// <summary>
+    /// A failed accept is one connection's failure, not the server's: the loop
+    /// says so and keeps answering. It used to return on any exception from
+    /// Accept, and every client after that waited in the backlog for a reply
+    /// that never came.
+    /// </summary>
+    [Fact]
+    public void A_failed_accept_does_not_stop_the_server()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"ss-wait-{Guid.NewGuid():N}.sock");
+        var errors = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        int accepts = 0;
+        var http = new HttpSocketServer(new UnixDomainSocketEndPoint(path),
+            _ => new HttpReply(200, "{\"ok\":true}"),
+            errors.Enqueue, isLongPoll: null,
+            accept: listener => Interlocked.Increment(ref accepts) == 1
+                ? throw new SocketException((int)SocketError.ConnectionReset)
+                : listener.Accept());
+        try
+        {
+            http.Start();
+
+            Assert.Contains("\"ok\":true", Ask(path, "/after"), StringComparison.Ordinal);
+            Assert.True(Volatile.Read(ref accepts) >= 2, "the stand-in accept was used, and failed once first");
+            Assert.Contains(errors, e => e.StartsWith("accept failed:", StringComparison.Ordinal));
+        }
+        finally
+        {
+            http.Dispose();
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    /// Closing the listener still ends the loop: Dispose's join returns at once
+    /// and reports nothing, so the retry is only for a server that is running.
+    /// </summary>
+    [Fact]
+    public void Dispose_still_ends_the_loop_without_an_error()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"ss-wait-{Guid.NewGuid():N}.sock");
+        var errors = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var http = new HttpSocketServer(new UnixDomainSocketEndPoint(path), _ => new HttpReply(200, "{}"), errors.Enqueue);
+        http.Start();
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        http.Dispose();
+        File.Delete(path);
+
+        Assert.True(clock.Elapsed < TimeSpan.FromMilliseconds(900), $"Dispose took {clock.Elapsed}");
+        Assert.Empty(errors);
     }
 
     [Fact]

@@ -270,9 +270,10 @@ TEST( ConVarReplicatedFlag, TheAbiForwarderPassesFlagsThrough )
 
 	// The router's retirement (docs/todo.md) put the typed area call inline in
 	// the wrapper, and plan_shim_areas_split phase 7 made its two dispatch arms
-	// one call on the side's own container: `flags` must reach that call as
-	// itself. The count moved with the shape, the contract did not.
-	EXPECT_EQ( 1u, CountOf( cs, "OwnShims.RegisterConVar(pName, pDef, pHelp, flags," ) )
+	// one call on the side's own container (on its console area since phase
+	// 9): `flags` must reach that call as itself. The count moved with the
+	// shape, the contract did not.
+	EXPECT_EQ( 1u, CountOf( cs, "OwnShims.Console.RegisterConVar(pName, pDef, pHelp, flags," ) )
 		<< "Engine.RegisterConVar no longer forwards `flags` to the side's shim "
 		   "container -- something is now deriving the argument";
 	EXPECT_EQ( 1u, CountOf( cs, "RegisterConVar(pName, pDef, pHelp, " ) )

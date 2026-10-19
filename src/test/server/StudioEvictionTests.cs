@@ -78,8 +78,12 @@ public class StudioEvictionTests
         foreach (string name in new[] { "SourceSharp.Abi.ShimAreas", "SourceSharp.Abi.ClientShimAreas" })
         {
             System.Type areas = typeof(SourceSharp.Abi.EngineBlock).Assembly.GetType(name, throwOnError: true)!;
-            Assert.NotNull(areas.GetMethod("EntitiesInvalidateMdlCacheAll"));
-            Assert.Null(areas.GetMethod("ModelDescriptor"));
+            // A container holds areas and no calls (plan_shim_areas_split
+            // phase 9): the slot is a method of an area it holds.
+            var held = areas.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                            .Select(f => f.FieldType).ToList();
+            Assert.Contains(held, t => t.GetMethod("EntitiesInvalidateMdlCacheAll") is not null);
+            Assert.DoesNotContain(held, t => t.GetMethod("ModelDescriptor") is not null);
         }
     }
 }

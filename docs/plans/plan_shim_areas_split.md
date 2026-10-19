@@ -523,3 +523,28 @@ Open: none.
     - It finds one implementation of a seam interface: the Abi's
       `StandardErrorLog`, the stderr `ILog` that three logic types fall back
       to with no engine. Phase 10 rules on it.
+- **Phase 9** (2026-10-19). Measured at the start: 208 flat members on
+  `ShimAreas` and 288 on `ClientShimAreas` (the plan's 288 and 296 were
+  stale).
+  - Every caller names its area (`ServerShims.EntityLifecycle.EntityFactoryCount()`),
+    in a commit of its own: 319 sites in 10 files. They were found by
+    building with the flat members withheld and rewritten from the
+    compiler's CS1061 locations. A slot both sides serve took its shared
+    base's name.
+  - The server's container holds a both-sides slot's area as its derived
+    class (`MovementServer`), the client's as the base (`Movement`). So the
+    server's container also answers to each base's name, as the base's class
+    (`Movement => MovementServer`), and code compiled into both sides calls
+    `OwnShims.Movement.MoveTrace` on either. The generator writes those
+    views, under a self-test arm that withholding them turns red.
+  - Text audits that parsed the call shape were updated. Run with the old
+    shape, SideAudit's slot regex turns two facts red; AbiParityTests'
+    needle names the area.
+  - Then the generator stopped writing flat members: `ShimAreas.g.cs` loses
+    496 one-line members. A self-test arm (a planted flat member turns it red)
+    and `NeitherContainerHasACallOfItsOwn` hold the containers to areas
+    only.
+  - `EngineSide`: an IL scan of every built assembly found two members no
+    product code calls. `ServerShimsOrNull`, which fed the side choices
+    phase 7 removed, went. `Liveness` stays as the attach facts' observation
+    point.

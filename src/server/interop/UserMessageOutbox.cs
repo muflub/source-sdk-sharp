@@ -23,6 +23,6 @@ public sealed unsafe class UserMessageOutbox : IUserMessageOutbox
             return false;
 
         fixed (byte* p = payload)
-            return _side.ServerShims.UserMessageSend(id, p, payload.Length, player, reliable ? 1 : 0) != 0;
+            return _side.ServerShims.UserMessages.UserMessageSend(id, p, payload.Length, player, reliable ? 1 : 0) != 0;
     }
 }

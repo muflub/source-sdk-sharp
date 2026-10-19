@@ -88,12 +88,32 @@ public sealed class HttpSocketServer : IDisposable
     /// <summary>More long-poll sessions than this at once are refused with a 503.</summary>
     public const int MaxSessions = 32;
 
+    /// <summary>
+    /// How the loop takes the next connection off the listener: the listener's
+    /// own <c>Accept</c>, unless a test stands in a failing one.
+    /// </summary>
+    private readonly Func<Socket, Socket> _accept;
+
+    /// <summary>How long the loop waits after a failed accept before it tries again.</summary>
+    private static readonly TimeSpan AcceptRetryDelay = TimeSpan.FromMilliseconds(50);
+
     public HttpSocketServer(EndPoint endPoint, Func<HttpRequest, HttpReply> handler, Action<string> onError,
                             Func<HttpRequest, bool>? isLongPoll = null)
+        : this(endPoint, handler, onError, isLongPoll, accept: null)
+    {
+    }
+
+    /// <summary>
+    /// The server with the listener's accept replaced, for a fact that makes
+    /// one accept fail.
+    /// </summary>
+    internal HttpSocketServer(EndPoint endPoint, Func<HttpRequest, HttpReply> handler, Action<string> onError,
+                              Func<HttpRequest, bool>? isLongPoll, Func<Socket, Socket>? accept)
     {
         _handler = handler;
         _onError = onError;
         _isLongPoll = isLongPoll ?? (_ => false);
+        _accept = accept ?? (listener => listener.Accept());
 
         _listener = endPoint is UnixDomainSocketEndPoint
             ? new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified)
@@ -185,11 +205,25 @@ public sealed class HttpSocketServer : IDisposable
 
             try
             {
-                client = _listener.Accept();
+                client = _accept(_listener);
             }
-            catch
+            catch (Exception e)
             {
-                return; // listener closed
+                // Dispose closed the listener: the loop is done.
+                if (!_running)
+                    return;
+
+                // ANY OTHER FAILED ACCEPT IS ONE CONNECTION'S, NOT THE SERVER'S.
+                // A connection the peer reset before it was taken, an
+                // interrupted call: the loop used to return on any of them, and
+                // every client after that connected into the backlog and waited
+                // for a reply that never came (a Windows runner's
+                // DebugApiWaitTests hung five minutes on exactly that). So say
+                // what failed and keep taking connections; the pause keeps a
+                // listener that fails every time from spinning.
+                _onError($"accept failed: {e.Message}");
+                Thread.Sleep(AcceptRetryDelay);
+                continue;
             }
 
             // Serially, one connection at a time. A debugging client makes one

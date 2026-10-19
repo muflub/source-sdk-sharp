@@ -390,7 +390,7 @@ public sealed class PhysicsSurfaces
             return default;
 
         MoveSurfaceBlob blob = default;
-        if ((_api.OwnShims.MoveSurface(surfaceProps, &blob)) == 0)
+        if ((_api.OwnShims.Movement.MoveSurface(surfaceProps, &blob)) == 0)
             return default;
 
         return new MoveSurface

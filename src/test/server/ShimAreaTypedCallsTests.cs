@@ -43,10 +43,19 @@ public class ShimAreaTypedCallsTests
         => area.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
     /// <summary>
+    /// Whether one of the areas <paramref name="container"/> holds declares the
+    /// slot. Since plan_shim_areas_split phase 9 a container has no calls of its
+    /// own: a caller names the area.
+    /// </summary>
+    private static bool Serves(Type container, string slot)
+        => container.GetFields(BindingFlags.Public | BindingFlags.Instance).Any(f => Method(f.FieldType, slot) is not null);
+
+    /// <summary>
     /// "callers use the generated vtable interfaces of each shim area
     /// directly": every slot row is a typed instance method on the area class
-    /// that serves it — the server's areas on <c>ShimAreas</c>, the client's
-    /// on <c>ClientShimAreas</c>, and a both-sides slot on both.
+    /// that serves it — an area <c>ShimAreas</c> holds for the server's, one
+    /// <c>ClientShimAreas</c> holds for the client's, and a both-sides slot on
+    /// an area of each.
     /// </summary>
     [Fact]
     public void EverySlotIsATypedMethodOnItsOwningAreaClass()
@@ -62,9 +71,9 @@ public class ShimAreaTypedCallsTests
         {
             bool serverServes = side == "server" || side == "both";
             bool clientServes = side == "client" || side == "both";
-            if (serverServes && Method(typeof(ShimAreas), slot) is null)
+            if (serverServes && !Serves(typeof(ShimAreas), slot))
                 missing.Add($"ShimAreas.{slot} ({kind}/{side})");
-            if (clientServes && Method(typeof(ClientShimAreas), slot) is null)
+            if (clientServes && !Serves(typeof(ClientShimAreas), slot))
                 missing.Add($"ClientShimAreas.{slot} ({kind}/{side})");
         }
         Assert.Empty(missing);
@@ -88,9 +97,10 @@ public class ShimAreaTypedCallsTests
         // Positive arms: the areas are real and carry the typed calls.
         Assert.Contains("class ShimAreas", code, StringComparison.Ordinal);
         Assert.Contains("class ClientShimAreas", code, StringComparison.Ordinal);
-        Assert.NotNull(Method(typeof(ShimAreas), "EntityGetHealth"));
-        Assert.NotNull(Method(typeof(ShimAreas), "GetCurrentTime"));
-        Assert.NotNull(Method(typeof(ClientShimAreas), "GetCurrentTime"));
+        Assert.NotNull(Method(typeof(EntitiesServerArea), "EntityGetHealth"));
+        Assert.NotNull(Method(typeof(EngineArea), "GetCurrentTime"));
+        Assert.True(Serves(typeof(ShimAreas), "GetCurrentTime") && Serves(typeof(ClientShimAreas), "GetCurrentTime"),
+                    "a both-sides slot is on an area each container holds");
     }
 
     /// <summary>
