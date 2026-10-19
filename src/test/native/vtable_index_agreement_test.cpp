@@ -361,6 +361,9 @@ TEST( SurfaceDataLayout, TheSoundFieldsTheManagedBatchReads )
 	EXPECT_EQ( 48u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, impactSoft ) );
 	EXPECT_EQ( 50u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, impactHard ) );
 	EXPECT_EQ( 60u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, breakSound ) );
+	// game.material, which VPhysicsSurfaceData.GameMaterial reads (2026-10-19).
+	EXPECT_EQ( 72u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, material ) );
+	EXPECT_EQ( 2u, sizeof( surfacegameprops_t::material ) );
 	EXPECT_EQ( 96u, sizeof( surfacedata_t ) );
 }
 

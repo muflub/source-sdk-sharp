@@ -33,6 +33,12 @@ public struct VPhysicsSurfaceData
 
     /// <summary><c>sounds.breakSound</c>: a string index, 0 for none.</summary>
     [FieldOffset(60)] public ushort BreakSound;
+
+    /// <summary>
+    /// <c>game.material</c>, the game material (CHAR_TEX_*) a surfaceprop is made
+    /// of: what SurfacePropGameMaterial answered before it folded (2026-10-19).
+    /// </summary>
+    [FieldOffset(72)] public ushort GameMaterial;
 }
 
 /// <summary>

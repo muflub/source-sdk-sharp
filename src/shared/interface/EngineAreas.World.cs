@@ -110,10 +110,20 @@ public interface IEngineWorldQuery
     /// <inheritdoc cref="EngineSide.EntityModelSurfaceProp"/>
     int EntityModelSurfaceProp(EntityHandle entity);
 
-    /// <inheritdoc cref="EngineSide.SurfacePropIndex"/>
+    /// <summary>
+    /// A surfaceprop by name — "glass", "tile", "metal" — or -1. What a map
+    /// key that names a KIND of surface rather than a material resolves
+    /// through.
+    /// </summary>
     int SurfacePropIndex(string name);
 
-    /// <inheritdoc cref="EngineSide.SurfacePropGameMaterial"/>
+    /// <summary>
+    /// What a surfaceprop is made of, as a game material.
+    ///
+    /// <see cref="SurfaceMaterial.Unknown"/> for an index that names no
+    /// surface, which is what a negative index and an empty surfaceprops table
+    /// both give.
+    /// </summary>
     SurfaceMaterial SurfacePropGameMaterial(int surfaceProp);
 }
 

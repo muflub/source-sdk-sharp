@@ -15,14 +15,6 @@ float CShimEngineClient::GetCurrentTime()
 	{ return ::SourceSharp_GetCurrentTime(); }
 void * CShimEngineClient::GetGlobalVarsPtr()
 	{ return ::SourceSharp_GetGlobalVarsPtr(); }
-int32_t CShimEngineClient::FilesGameFileSize( const char * pszPath )
-	{ return ::SourceSharp_ClientFilesGameFileSize( pszPath ); }
-int32_t CShimEngineClient::FilesReadGameFile( const char * pszPath, char * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_ClientFilesReadGameFile( pszPath, pOut, nOutSize ); }
-int32_t CShimEngineClient::FilesSizeOnPath( const char * pszPath, const char * pszPathId )
-	{ return ::SourceSharp_FilesSizeOnPath( pszPath, pszPathId ); }
-int32_t CShimEngineClient::FilesReadOnPath( const char * pszPath, const char * pszPathId, void * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_FilesReadOnPath( pszPath, pszPathId, pOut, nOutSize ); }
 void CShimEngineClient::SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption )
 	{ return ::SourceSharp_ClientSoundPatchEmit( hPatch, flVolume01, flPitch, nFlags, flStartTime, bEmitCaption ); }
 void CShimEngineClient::SoundPatchStop( int32_t hPatch )
@@ -80,8 +72,6 @@ void CShimMovementClient::RegisterMovementParams( const SourceSharpMovementParam
 
 int32_t CShimWorldClient::PointContents( const float * pOrigin )
 	{ return ::SourceSharp_PointContents( pOrigin ); }
-int32_t CShimWorldClient::SurfacePropGameMaterial( int32_t nSurfaceProp )
-	{ return ::SourceSharp_SurfacePropGameMaterial( nSurfaceProp ); }
 
 int32_t CShimEntitiesClient::EntityGetIndex( uint32_t hEntity )
 	{ return ::SourceSharp_ClientEntityGetIndex( hEntity ); }

@@ -134,8 +134,6 @@ int32_t SourceSharp_EntitiesInvalidateMdlCacheAll( void );
 // parse is C#'s because a name table and a weighted pick have no engine tie.
 // shell_files.cpp.
 //-----------------------------------------------------------------------------
-int32_t SourceSharp_FilesGameFileSize( const char *pszPath );
-int32_t SourceSharp_FilesReadGameFile( const char *pszPath, char *pOut, int32_t nOutSize );
 
 //-----------------------------------------------------------------------------
 // The managed side's four server event points, each with exactly ONE body --

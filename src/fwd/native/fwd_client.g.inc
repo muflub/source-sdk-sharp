@@ -89,7 +89,7 @@ static void *const s_ModelInfoSlots[] = {
 static const SSForwarderTable s_ModelInfoTable = { s_ModelInfoSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// BaseFileSystem: 3 forwarder(s) over IBaseFileSystem.
+// BaseFileSystem: 7 forwarder(s) over IBaseFileSystem.
 //-----------------------------------------------------------------------------
 // unsigned int IBaseFileSystem::Size( const char *, const char * )
 static unsigned int SSFwd_BaseFileSystem_Size_2( IBaseFileSystem *self, const char * a0, const char * a1 ) { return self->Size( a0, a1 ); }
@@ -97,14 +97,26 @@ static unsigned int SSFwd_BaseFileSystem_Size_2( IBaseFileSystem *self, const ch
 static bool SSFwd_BaseFileSystem_FileExists( IBaseFileSystem *self, const char * a0, const char * a1 ) { return self->FileExists( a0, a1 ); }
 // long IBaseFileSystem::GetFileTime( const char *, const char * )
 static long SSFwd_BaseFileSystem_GetFileTime( IBaseFileSystem *self, const char * a0, const char * a1 ) { return self->GetFileTime( a0, a1 ); }
+// FileHandle_t IBaseFileSystem::Open( const char *, const char *, const char * )
+static FileHandle_t SSFwd_BaseFileSystem_Open( IBaseFileSystem *self, const char * a0, const char * a1, const char * a2 ) { return self->Open( a0, a1, a2 ); }
+// unsigned int IBaseFileSystem::Size( FileHandle_t )
+static unsigned int SSFwd_BaseFileSystem_Size( IBaseFileSystem *self, FileHandle_t a0 ) { return self->Size( a0 ); }
+// int IBaseFileSystem::Read( void *, int, FileHandle_t )
+static int SSFwd_BaseFileSystem_Read( IBaseFileSystem *self, void * a0, int a1, FileHandle_t a2 ) { return self->Read( a0, a1, a2 ); }
+// void IBaseFileSystem::Close( FileHandle_t )
+static void SSFwd_BaseFileSystem_Close( IBaseFileSystem *self, FileHandle_t a0 ) { self->Close( a0 ); }
 
 static void *const s_BaseFileSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Size_2 ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_FileExists ),
 	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_GetFileTime ),
+	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Open ),
+	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Size ),
+	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Read ),
+	reinterpret_cast< void * >( &SSFwd_BaseFileSystem_Close ),
 };
 
-static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 3 };
+static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
 
 //-----------------------------------------------------------------------------
 // EngineClient: 20 forwarder(s) over IVEngineClient.
@@ -1301,20 +1313,12 @@ static void *const s_ShimConsoleSlots[] = {
 static const SSForwarderTable s_ShimConsoleTable = { s_ShimConsoleSlots, 11 };
 
 //-----------------------------------------------------------------------------
-// ShimEngine: 13 forwarder(s) over IShimEngine.
+// ShimEngine: 9 forwarder(s) over IShimEngine.
 //-----------------------------------------------------------------------------
 // float IShimEngine::GetCurrentTime( void )
 static float SSFwd_ShimEngine_GetCurrentTime( IShimEngine *self ) { return self->GetCurrentTime(); }
 // void * IShimEngine::GetGlobalVarsPtr( void )
 static void * SSFwd_ShimEngine_GetGlobalVarsPtr( IShimEngine *self ) { return self->GetGlobalVarsPtr(); }
-// int32_t IShimEngine::FilesGameFileSize( const char * )
-static int32_t SSFwd_ShimEngine_FilesGameFileSize( IShimEngine *self, const char * a0 ) { return self->FilesGameFileSize( a0 ); }
-// int32_t IShimEngine::FilesReadGameFile( const char *, char *, int32_t )
-static int32_t SSFwd_ShimEngine_FilesReadGameFile( IShimEngine *self, const char * a0, char * a1, int32_t a2 ) { return self->FilesReadGameFile( a0, a1, a2 ); }
-// int32_t IShimEngine::FilesSizeOnPath( const char *, const char * )
-static int32_t SSFwd_ShimEngine_FilesSizeOnPath( IShimEngine *self, const char * a0, const char * a1 ) { return self->FilesSizeOnPath( a0, a1 ); }
-// int32_t IShimEngine::FilesReadOnPath( const char *, const char *, void *, int32_t )
-static int32_t SSFwd_ShimEngine_FilesReadOnPath( IShimEngine *self, const char * a0, const char * a1, void * a2, int32_t a3 ) { return self->FilesReadOnPath( a0, a1, a2, a3 ); }
 // void IShimEngine::SoundPatchEmit( int32_t, float, float, int32_t, float, int32_t )
 static void SSFwd_ShimEngine_SoundPatchEmit( IShimEngine *self, int32_t a0, float a1, float a2, int32_t a3, float a4, int32_t a5 ) { self->SoundPatchEmit( a0, a1, a2, a3, a4, a5 ); }
 // void IShimEngine::SoundPatchStop( int32_t )
@@ -1333,10 +1337,6 @@ static int32_t SSFwd_ShimEngine_SurfaceScrapeSound( IShimEngine *self, int32_t a
 static void *const s_ShimEngineSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_GetCurrentTime ),
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_GetGlobalVarsPtr ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesGameFileSize ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesReadGameFile ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesSizeOnPath ),
-	reinterpret_cast< void * >( &SSFwd_ShimEngine_FilesReadOnPath ),
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchEmit ),
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchStop ),
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_SoundPatchState ),
@@ -1346,7 +1346,7 @@ static void *const s_ShimEngineSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEngine_SurfaceScrapeSound ),
 };
 
-static const SSForwarderTable s_ShimEngineTable = { s_ShimEngineSlots, 13 };
+static const SSForwarderTable s_ShimEngineTable = { s_ShimEngineSlots, 9 };
 
 //-----------------------------------------------------------------------------
 // ShimConsoleServer: 2 forwarder(s) over IShimConsoleServer.
@@ -1535,12 +1535,10 @@ static void *const s_ShimMovementServerSlots[] = {
 static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 13 };
 
 //-----------------------------------------------------------------------------
-// ShimWorldServer: 18 forwarder(s) over IShimWorldServer.
+// ShimWorldServer: 16 forwarder(s) over IShimWorldServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimWorld::PointContents( const float * )
 static int32_t SSFwd_ShimWorldServer_PointContents( IShimWorldServer *self, const float * a0 ) { return self->PointContents( a0 ); }
-// int32_t IShimWorld::SurfacePropGameMaterial( int32_t )
-static int32_t SSFwd_ShimWorldServer_SurfacePropGameMaterial( IShimWorldServer *self, int32_t a0 ) { return self->SurfacePropGameMaterial( a0 ); }
 // int32_t IShimWorldServer::TraceLine( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t * )
 static int32_t SSFwd_ShimWorldServer_TraceLine( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7 ) { return self->TraceLine( a0, a1, a2, a3, a4, a5, a6, a7 ); }
 // int32_t IShimWorldServer::TraceHull( const float *, const float *, const float *, const float *, int32_t, uint32_t, uint32_t *, int32_t * )
@@ -1553,8 +1551,6 @@ static uint32_t SSFwd_ShimWorldServer_TracePlayerAim( IShimWorldServer *self, ui
 static void SSFwd_ShimWorldServer_AngleVectorsFromForward( IShimWorldServer *self, const float * a0, float * a1, float * a2 ) { self->AngleVectorsFromForward( a0, a1, a2 ); }
 // int32_t IShimWorldServer::WaterSurfaceBelow( const float *, float *, int32_t * )
 static int32_t SSFwd_ShimWorldServer_WaterSurfaceBelow( IShimWorldServer *self, const float * a0, float * a1, int32_t * a2 ) { return self->WaterSurfaceBelow( a0, a1, a2 ); }
-// int32_t IShimWorldServer::SurfacePropIndex( const char * )
-static int32_t SSFwd_ShimWorldServer_SurfacePropIndex( IShimWorldServer *self, const char * a0 ) { return self->SurfacePropIndex( a0 ); }
 // int32_t IShimWorldServer::EntityModelSurfaceProp( uint32_t )
 static int32_t SSFwd_ShimWorldServer_EntityModelSurfaceProp( IShimWorldServer *self, uint32_t a0 ) { return self->EntityModelSurfaceProp( a0 ); }
 // int32_t IShimWorldServer::InvisibleRangeReach( void )
@@ -1576,14 +1572,12 @@ static int32_t SSFwd_ShimWorldServer_EntityTraceHull( IShimWorldServer *self, ui
 
 static void *const s_ShimWorldServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_PointContents ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SurfacePropGameMaterial ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceLine ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceHull ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceLineSurface ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TracePlayerAim ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AngleVectorsFromForward ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_WaterSurfaceBelow ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SurfacePropIndex ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityModelSurfaceProp ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_InvisibleRangeReach ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SetSkyboxParams ),
@@ -1595,7 +1589,7 @@ static void *const s_ShimWorldServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityTraceHull ),
 };
 
-static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 18 };
+static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 16 };
 
 //-----------------------------------------------------------------------------
 // ShimEntitiesServer: 22 forwarder(s) over IShimEntitiesServer.
@@ -2180,19 +2174,16 @@ static void *const s_ShimMovementSlots[] = {
 static const SSForwarderTable s_ShimMovementTable = { s_ShimMovementSlots, 6 };
 
 //-----------------------------------------------------------------------------
-// ShimWorld: 2 forwarder(s) over IShimWorld.
+// ShimWorld: 1 forwarder(s) over IShimWorld.
 //-----------------------------------------------------------------------------
 // int32_t IShimWorld::PointContents( const float * )
 static int32_t SSFwd_ShimWorld_PointContents( IShimWorld *self, const float * a0 ) { return self->PointContents( a0 ); }
-// int32_t IShimWorld::SurfacePropGameMaterial( int32_t )
-static int32_t SSFwd_ShimWorld_SurfacePropGameMaterial( IShimWorld *self, int32_t a0 ) { return self->SurfacePropGameMaterial( a0 ); }
 
 static void *const s_ShimWorldSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimWorld_PointContents ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorld_SurfacePropGameMaterial ),
 };
 
-static const SSForwarderTable s_ShimWorldTable = { s_ShimWorldSlots, 2 };
+static const SSForwarderTable s_ShimWorldTable = { s_ShimWorldSlots, 1 };
 
 //-----------------------------------------------------------------------------
 // ShimEntities: 4 forwarder(s) over IShimEntities.

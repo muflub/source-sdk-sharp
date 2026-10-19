@@ -26,10 +26,6 @@ class CShimEngine final : public IShimEngine
 public:
 	float GetCurrentTime() override;
 	void * GetGlobalVarsPtr() override;
-	int32_t FilesGameFileSize( const char * pszPath ) override;
-	int32_t FilesReadGameFile( const char * pszPath, char * pOut, int32_t nOutSize ) override;
-	int32_t FilesSizeOnPath( const char * pszPath, const char * pszPathId ) override;
-	int32_t FilesReadOnPath( const char * pszPath, const char * pszPathId, void * pOut, int32_t nOutSize ) override;
 	void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) override;
 	void SoundPatchStop( int32_t hPatch ) override;
 	void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) override;
@@ -117,14 +113,12 @@ class CShimWorldServer final : public IShimWorldServer
 {
 public:
 	int32_t PointContents( const float * pOrigin ) override;
-	int32_t SurfacePropGameMaterial( int32_t nSurfaceProp ) override;
 	int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) override;
 	int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) override;
 	int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) override;
 	uint32_t TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ ) override;
 	void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) override;
 	int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) override;
-	int32_t SurfacePropIndex( const char * pszName ) override;
 	int32_t EntityModelSurfaceProp( uint32_t hEntity ) override;
 	int32_t InvisibleRangeReach() override;
 	void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) override;
@@ -368,10 +362,6 @@ class CShimEngineClient final : public IShimEngine
 public:
 	float GetCurrentTime() override;
 	void * GetGlobalVarsPtr() override;
-	int32_t FilesGameFileSize( const char * pszPath ) override;
-	int32_t FilesReadGameFile( const char * pszPath, char * pOut, int32_t nOutSize ) override;
-	int32_t FilesSizeOnPath( const char * pszPath, const char * pszPathId ) override;
-	int32_t FilesReadOnPath( const char * pszPath, const char * pszPathId, void * pOut, int32_t nOutSize ) override;
 	void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption ) override;
 	void SoundPatchStop( int32_t hPatch ) override;
 	void SoundPatchState( int32_t hPatch, int32_t * pnEntIndex, int32_t * pbFilterActive ) override;
@@ -423,7 +413,6 @@ class CShimWorldClient final : public IShimWorld
 {
 public:
 	int32_t PointContents( const float * pOrigin ) override;
-	int32_t SurfacePropGameMaterial( int32_t nSurfaceProp ) override;
 };
 
 class CShimEntitiesClient final : public IShimEntities

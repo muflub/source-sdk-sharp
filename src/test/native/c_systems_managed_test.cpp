@@ -111,7 +111,6 @@ const char *kTable      = "sourcesharp/game/server/shell_serversystems.cpp";
 // of server_csharp.vpc and client_csharp.vpc.
 const char *kShim       = "sourcesharp/game/server/shell_decals.cpp";
 const char *kSteps      = "sourcesharp/game/server/shell_propdata.cpp";
-const char *kFiles      = "sourcesharp/game/server/shell_engineservices.cpp";
 const char *kDecalsCpp  = "sourcesharp/game/client/shell_decals_client.cpp";
 const char *kGameSystem = "sourcesharp/game/shared/sourcesharp_gamesystem.cpp";
 
@@ -506,51 +505,8 @@ TEST( CSystemsManaged, ThePropDataStepsAreRetiredAndTheirFileIsGone )
 }
 
 //=============================================================================//
-// 6. THE FILE READ IS A STEP, AND IT REFUSES RATHER THAN TRUNCATING
+// 6. THE FILE READ LEFT NATIVE CODE (2026-10-19): the user exposed file handles
+// to managed, and the read is Open/Size/Read/Close through IBaseFileSystem's
+// forwarders (EngineBaseFileSystem.ReadAll). Its three rules -- no truncation,
+// a missing file is not an empty one, the GAME path id -- are GameFileSideTests'.
 //=============================================================================//
-
-TEST( CSystemsManaged, TheGameFileReadRefusesAFileThatDoesNotFit )
-{
-	const std::string files = Read( kFiles );
-	ASSERT_FALSE( files.empty() );
-
-	// Half a KeyValues document parses. What it parses to is a table missing its
-	// tail, with nothing said -- which is A8's own rule for StringTableGetString
-	// applied to the other place on this ABI where a truncation would look like
-	// data.
-	EXPECT_EQ( 1, CountOf( files, "if ( (int32_t)nSize > nOutSize )" ) );
-	EXPECT_EQ( 0, CountOf( files, "nOutSize - 1" ) )
-		<< "there is no truncating path at all";
-}
-
-TEST( CSystemsManaged, AMissingFileIsMinusOneAndAnEmptyOneIsZero )
-{
-	const std::string files = Read( kFiles );
-	ASSERT_FALSE( files.empty() );
-
-	// filesystem->Size on a path that does not exist answers 0 on this
-	// filesystem, which is the one answer this slot may not give for a missing
-	// file: collapsed, a missing game script reads as an empty one and the table
-	// it fills comes up empty with nothing said.
-	EXPECT_EQ( 2, CountOf( files, "filesystem->Open( pszPath, \"rb\", \"GAME\" )" ) )
-		<< "both entry points open the file, so the size is asked through "
-		   "Open/Size/Close rather than through the path-taking Size";
-	EXPECT_EQ( 0, CountOf( files, "filesystem->Size( pszPath" ) )
-		<< "filesystem->Size( path ) answers 0 for a path that is not there, "
-		   "which is the one answer this slot may not give for a missing file";
-	EXPECT_EQ( 2, CountOf( files, "FILESYSTEM_INVALID_HANDLE" ) )
-		<< "and both entry points refuse a path they cannot open";
-}
-
-TEST( CSystemsManaged, TheReadIsOnTheGamePathIdAndNothingElse )
-{
-	const std::string files = Read( kFiles );
-	ASSERT_FALSE( files.empty() );
-
-	// "GAME" is the path id CPropData's and CDecalEmitterSystem's own
-	// LoadFromFile calls used, so a file either system could find is a file this
-	// can find. A different id would be a different search path and a silently
-	// empty table.
-	EXPECT_EQ( 2, CountOf( files, "\"GAME\"" ) );
-	EXPECT_EQ( 0, CountOf( files, "\"MOD\"" ) );
-}

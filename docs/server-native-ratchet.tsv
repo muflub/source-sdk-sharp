@@ -14,7 +14,6 @@ src/server/native/shell_debugoverlays.cpp	87
 src/server/native/shell_debugoverlays_debug.cpp	6
 src/server/native/shell_dispatch.cpp	24
 src/server/native/shell_engineboundary_debug.cpp	44
-src/server/native/shell_engineservices.cpp	34
 src/server/native/shell_entityapi.cpp	406
 src/server/native/shell_entityslots_debug.cpp	9
 src/server/native/shell_factory.cpp	8
@@ -53,7 +52,7 @@ src/server/native/shell_tempents_debug.cpp	192
 src/server/native/shell_transmitsteps.cpp	13
 src/server/native/shell_usermessage_send.cpp	40
 src/server/native/shell_world_nettable.cpp	14
-src/server/native/shell_worldquery.cpp	474
+src/server/native/shell_worldquery.cpp	459
 src/server/native/ss_recipient_filter.cpp	34
 src/server/native/standalone_relays.cpp	30
 src/server/native/world_adapter.cpp	161
@@ -75,7 +74,6 @@ src/shared/native/shell_movement.cpp	262
 src/shared/native/shell_movement_debug.cpp	4
 src/shared/native/shell_physsaverestore_absent.cpp	53
 src/shared/native/shell_savegame.cpp	291
-src/shared/native/shell_shared.cpp	28
 src/shared/native/sound_emitter.cpp	535
 src/shared/native/sourcesharp_gamesystem.cpp	77
 src/shared/native/standalone_player_sync.cpp	101

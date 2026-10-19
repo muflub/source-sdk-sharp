@@ -14,14 +14,6 @@ float CShimEngine::GetCurrentTime()
 	{ return ::SourceSharp_GetCurrentTime(); }
 void * CShimEngine::GetGlobalVarsPtr()
 	{ return ::SourceSharp_GetGlobalVarsPtr(); }
-int32_t CShimEngine::FilesGameFileSize( const char * pszPath )
-	{ return ::SourceSharp_FilesGameFileSize( pszPath ); }
-int32_t CShimEngine::FilesReadGameFile( const char * pszPath, char * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_FilesReadGameFile( pszPath, pOut, nOutSize ); }
-int32_t CShimEngine::FilesSizeOnPath( const char * pszPath, const char * pszPathId )
-	{ return ::SourceSharp_FilesSizeOnPath( pszPath, pszPathId ); }
-int32_t CShimEngine::FilesReadOnPath( const char * pszPath, const char * pszPathId, void * pOut, int32_t nOutSize )
-	{ return ::SourceSharp_FilesReadOnPath( pszPath, pszPathId, pOut, nOutSize ); }
 void CShimEngine::SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime, int32_t bEmitCaption )
 	{ return ::SourceSharp_SoundPatchEmit( hPatch, flVolume01, flPitch, nFlags, flStartTime, bEmitCaption ); }
 void CShimEngine::SoundPatchStop( int32_t hPatch )
@@ -133,8 +125,6 @@ void CShimMovementServer::PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow
 
 int32_t CShimWorldServer::PointContents( const float * pOrigin )
 	{ return ::SourceSharp_PointContents( pOrigin ); }
-int32_t CShimWorldServer::SurfacePropGameMaterial( int32_t nSurfaceProp )
-	{ return ::SourceSharp_SurfacePropGameMaterial( nSurfaceProp ); }
 int32_t CShimWorldServer::TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit )
 	{ return ::SourceSharp_TraceLine( pStartXYZ, pEndXYZ, nMask, hIgnore, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHit ); }
 int32_t CShimWorldServer::TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid )
@@ -147,8 +137,6 @@ void CShimWorldServer::AngleVectorsFromForward( const float * pForwardXYZ, float
 	{ return ::SourceSharp_AngleVectorsFromForward( pForwardXYZ, pOutRightXYZ, pOutUpXYZ ); }
 int32_t CShimWorldServer::WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime )
 	{ return ::SourceSharp_WaterSurfaceBelow( pStartXYZ, pOutXYZ, pOutSlime ); }
-int32_t CShimWorldServer::SurfacePropIndex( const char * pszName )
-	{ return ::SourceSharp_SurfacePropIndex( pszName ); }
 int32_t CShimWorldServer::EntityModelSurfaceProp( uint32_t hEntity )
 	{ return ::SourceSharp_EntityModelSurfaceProp( hEntity ); }
 int32_t CShimWorldServer::InvisibleRangeReach()

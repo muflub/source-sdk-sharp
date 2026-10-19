@@ -67,6 +67,7 @@ public class ServerSkeletonsTests
         public int SurfacePropCount() => 0;
         public string? PropName(int index) => null;
 
+        public int GameMaterial(int surfaceProps) => 0;
         public int SurfaceIndex(string name)
         {
             Asked.Add(name);

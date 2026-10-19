@@ -2,10 +2,6 @@ slot	struct	interface	kind	base	side	suppress	body	managed	client_body
 AcquireInterface	EngineApi	IShimRoot	root		both	-	SourceSharp_AcquireInterface	int, byte*, byte*, int, void*	
 GetCurrentTime	EngineApi	IShimEngine	shared		both	S	SourceSharp_GetCurrentTime	float	
 GetGlobalVarsPtr	EngineApi	IShimEngine	shared		both	-	SourceSharp_GetGlobalVarsPtr	nint	
-FilesGameFileSize	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesGameFileSize	byte*, int	SourceSharp_ClientFilesGameFileSize
-FilesReadGameFile	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesReadGameFile	byte*, byte*, int, int	SourceSharp_ClientFilesReadGameFile
-FilesSizeOnPath	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesSizeOnPath	byte*, byte*, int	
-FilesReadOnPath	EngineApi	IShimEngine	shared		both	-	SourceSharp_FilesReadOnPath	byte*, byte*, void*, int, int	
 SoundPatchEmit	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchEmit	int, float, float, int, float, int, void	SourceSharp_ClientSoundPatchEmit
 SoundPatchStop	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchStop	int, void	SourceSharp_ClientSoundPatchStop
 SoundPatchState	EngineApi	IShimEngine	shared		both	-	SourceSharp_SoundPatchState	int, int*, int*, void	SourceSharp_ClientSoundPatchState
@@ -69,14 +65,12 @@ PlayerShadowCommit	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	Sour
 PlayerSetMoveType	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetMoveType	uint, int, int	
 PlayerSetSlowMovement	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	SourceSharp_PlayerSetSlowMovement	uint, int, void	
 PointContents	EngineApi	IShimWorld	shared		both	-	SourceSharp_PointContents	float*, int	
-SurfacePropGameMaterial	EngineApi	IShimWorld	shared		both	-	SourceSharp_SurfacePropGameMaterial	int, int	
 TraceLine	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLine	float*, float*, int, uint, float*, float*, float*, uint*, int	
 TraceHull	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceHull	float*, float*, float*, float*, int, uint, uint*, int*, int	
 TraceLineSurface	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TraceLineSurface	float*, float*, int, uint, float*, float*, float*, uint*, int*, int*, int*, int	
 TracePlayerAim	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_TracePlayerAim	uint, float, float*, uint	
 AngleVectorsFromForward	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_AngleVectorsFromForward	float*, float*, float*, void	
 WaterSurfaceBelow	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_WaterSurfaceBelow	float*, float*, int*, int	
-SurfacePropIndex	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_SurfacePropIndex	byte*, int	
 EntityModelSurfaceProp	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_EntityModelSurfaceProp	uint, int	
 InvisibleRangeReach	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_InvisibleRangeReach	int	
 SetSkyboxParams	EngineApi	IShimWorldServer	ext	IShimWorld	server	-	SourceSharp_SetSkyboxParams	SkyboxParams*, void	

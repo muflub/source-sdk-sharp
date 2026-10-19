@@ -36,12 +36,6 @@
 //
 //=============================================================================//
 
-// shell_files: the GAME search path, which is the only way to reach the SDK's
-// own loose hl2/scripts.
-#include "filesystem.h"
-
-extern IFileSystem *filesystem;
-
 // shell_steamcontext: CSteamGameServerAPIContext is Steam's own struct of
 // interface pointers, and steamgameserverapicontext is the engine's instance.
 #include "eiface.h"
@@ -59,71 +53,6 @@ extern IFileSystem *filesystem;
 //=============================================================================//
 // READING A GAME SCRIPT -- was shell_files.cpp
 //=============================================================================//
-
-//-----------------------------------------------------------------------------
-// filesystem->Size, on the GAME path id -- the same one CPropData and
-// CDecalEmitterSystem's own KeyValues::LoadFromFile calls used, so a file
-// either system could find is a file this can find.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_FilesGameFileSize( const char *pszPath )
-{
-	if ( pszPath == NULL || pszPath[ 0 ] == '\0' || filesystem == NULL )
-		return -1;
-
-	// Asked through Open/Size/Close rather than filesystem->Size( path ) alone:
-	// Size() on a path that does not exist answers 0 on this filesystem, which
-	// is the one answer this slot may not give for a missing file.
-	FileHandle_t hFile = filesystem->Open( pszPath, "rb", "GAME" );
-
-	if ( hFile == FILESYSTEM_INVALID_HANDLE )
-		return -1;
-
-	unsigned int nSize = filesystem->Size( hFile );
-	filesystem->Close( hFile );
-
-	return (int32_t)nSize;
-}
-
-//-----------------------------------------------------------------------------
-// filesystem->Read into the CALLER's buffer.
-//
-// The byte count read, or -1. NOT NUL-TERMINATED and not claimed to be: the
-// managed side is handed a length and reads exactly that many bytes, because a
-// game script is allowed to contain no terminator and appending one would need
-// a byte of the caller's buffer the caller did not offer.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_FilesReadGameFile( const char *pszPath, char *pOut, int32_t nOutSize )
-{
-	if ( pszPath == NULL || pszPath[ 0 ] == '\0' || pOut == NULL || nOutSize <= 0 )
-		return -1;
-
-	if ( filesystem == NULL )
-		return -1;
-
-	FileHandle_t hFile = filesystem->Open( pszPath, "rb", "GAME" );
-
-	if ( hFile == FILESYSTEM_INVALID_HANDLE )
-		return -1;
-
-	unsigned int nSize = filesystem->Size( hFile );
-
-	// REFUSED, not truncated. See the header comment.
-	if ( (int32_t)nSize > nOutSize )
-	{
-		filesystem->Close( hFile );
-
-		Warning( "[SourceSharp] game file '%s' is %u byte(s) and the buffer offered "
-		         "is %d; refused rather than truncated -- half a KeyValues document "
-		         "parses into a table missing its tail\n",
-		         pszPath, nSize, nOutSize );
-		return -1;
-	}
-
-	int nRead = filesystem->Read( pOut, (int)nSize, hFile );
-	filesystem->Close( hFile );
-
-	return (int32_t)nRead;
-}
 
 //=============================================================================//
 // STEAM'S GAME SERVER CONTEXT WAS HERE -- plan_server_novalve.md P2.5.

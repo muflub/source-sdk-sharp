@@ -290,7 +290,7 @@ public sealed class NotShippedTests
         // The file the scan reads is the right one. (Anchored on
         // SourceSharp_WeaponPellets, then SourceSharp_RegisterWeaponType, until
         // plan_server_native_v2 T2 deleted each: no reader in either DLL.)
-        Assert.Contains("int32_t SourceSharp_FilesSizeOnPath(", text);
+        Assert.Contains("ConVar default_fov(", text);   // FilesSizeOnPath folded 2026-10-19
         Assert.DoesNotContain("COM_GetModDirectory()", text);
     }
 }

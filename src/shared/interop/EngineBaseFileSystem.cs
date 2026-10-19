@@ -34,9 +34,21 @@ namespace SourceSharp.Abi;
 // tools/vtable-layout --self-test has an arm on the ordering.
 //=============================================================================
 
-/// <summary>How big a game file is, without the engine's file handles.</summary>
+/// <summary>
+/// Game files: their size, time and existence by name, and their bytes, read
+/// through a file handle this class opens and closes within one call (the
+/// user's 2026-10-19 ruling exposed the handles; none outlives a call).
+/// </summary>
 public interface IVtableBaseFileSystem
 {
+    /// <summary>
+    /// The whole of a file on a search path, or null when it is not there:
+    /// Open("rb"), Size, Read, Close. A short read answers the bytes read, which
+    /// is a real answer. What the FilesReadGameFile / FilesReadOnPath slots did,
+    /// without the slot.
+    /// </summary>
+    byte[]? ReadAll(string fileName, string pathId);
+
     /// <summary>
     /// The size in bytes of a file on a search path, or 0 when it is not there.
     ///
@@ -170,5 +182,36 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
         fixed (byte* n = name)
         fixed (byte* p = path)
             return _fwd->GetFileTime(_self, n, p);
+    }
+
+    /// <inheritdoc/>
+    public byte[]? ReadAll(string fileName, string pathId)
+    {
+        void* handle;
+        fixed (byte* n = Vtable.Utf8(fileName))
+        fixed (byte* m = Vtable.Utf8("rb"))
+        fixed (byte* p = Vtable.Utf8(pathId))
+            handle = _fwd->Open(_self, n, m, p);
+
+        if (handle == null)
+            return null;
+
+        try
+        {
+            uint size = _fwd->Size(_self, handle);
+            var bytes = new byte[size];
+            if (size == 0)
+                return bytes;
+
+            int read;
+            fixed (byte* b = bytes)
+                read = _fwd->Read(_self, b, (int)size, handle);
+
+            return read < 0 ? null : read == bytes.Length ? bytes : bytes[..read];
+        }
+        finally
+        {
+            _fwd->Close(_self, handle);
+        }
     }
 }

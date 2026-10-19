@@ -620,45 +620,8 @@ public class SideAuditTests
         // every managed client question about the world back to answering
         // CONTENTS_EMPTY in silence.
         "PointContents",
-        // MODELFRAMECOUNT AND MODELTYPE ARE NOT SLOTS ANY MORE -- their rows
-        // were here and are deliberately gone, plan_native_api.md Phases 3 and
-        // 4. This audit reads the ABI's fill block, so a row for a slot that no
-        // longer exists is a row that fails forever; leaving them would have
-        // been a check nobody could make pass, and deleting them silently would
-        // have lost what they were for. So: the reason, kept.
-        //
-        // WHAT THEY DEFENDED. Both had been SERVER-ONLY for the whole port
-        // while managed client code was free to hold the area and ask, and get
-        // a plausible wrong answer back with no error -- the fifth and sixth
-        // instances of that exact shape this file records. TEN of
-        // c_te_legacytempents.cpp's seventeen spawn helpers open by asking a
-        // frame count, and a helper that believes a sprite has -1 frames sets
-        // m_flFrameMax to -2 and dies on its first animated frame. ModelType's
-        // reader is BreakModel, and mod_bad is ZERO -- an unwired arm answers
-        // "that model is broken" about a model that is fine.
-        //
-        // WHERE IT IS DEFENDED NOW. Both are IVModelInfo calls, and the wrong
-        // side is no longer reachable by leaving a fill arm out: there is no
-        // fill arm. It is reachable in exactly one way -- asking for the wrong
-        // version string -- and EngineBoundTests.ModelInfoIsAskedForByTheSides-
-        // OwnName is the arm that says the client asks for VModelInfoClient006
-        // and the server for VModelInfoServer004.
-        // What a surface is MADE OF, and it is the sixth time this exact shape
-        // has turned up: server-only for the whole port while managed client
-        // code was free to hold an IEngineWorldQuery and ask -- and get 0 back
-        // with no error. Zero is not "unknown" here, it is a character code, so
-        // the caller reads it as a real material.
-        //
-        // Found by this very test refusing C-Phase 5's cs_cl_te_trace, which is
-        // the audit doing its job rather than an obstacle: that probe exists to
-        // CONFIRM lane CX's unverified surfaceProps out, and an index printed as
-        // a number cannot be told apart from a wrong one.
-        //
-        // Dual rather than BothSides on the surface of it -- but here the two
-        // arms are the SAME CODE over the SAME shared physprops, reading the
-        // same surfaceprops script. It is dual because the slot table is
-        // per-side, not because the answers can differ.
-        "SurfacePropGameMaterial",
+        // SurfacePropGameMaterial (dual, C-Phase 5) folded onto IPhysicsSurfaceProps'
+        // forwarders on both sides, 2026-10-19.
 
         // The four dual string-table slots (plan_gamedll_after.md Phase A8)
         // went in plan_server_native_v2 T3: each side's managed
@@ -705,15 +668,9 @@ public class SideAuditTests
         // the other side.
         "EntitiesInvalidateMdlCacheAll",
 
-        // lane c2-sims (plan_client_novalve clusters 17/18). Reading a game
-        // script off the GAME path: the client's decal table and soundscapes
-        // are managed now and begin with a KeyValues read only the engine's
-        // filesystem can do. Dual: each side's body reads its own DLL's
-        // IFileSystem (shell_engineservices.cpp, shell_client.cpp).
-        "FilesGameFileSize", "FilesReadGameFile",
-        // C9: a whole file off a named search path, both sides (the client's
-        // text parsing moved to managed; its map particle manifest is on "BSP").
-        "FilesSizeOnPath", "FilesReadOnPath",
+        // The four game-file read slots (lane c2-sims, C9) folded onto
+        // IBaseFileSystem's forwarders, 2026-10-19 (the user exposed file
+        // handles to managed); each side reads through its own VBaseFileSystem011.
         // The sound patches' four (sound cluster 17, lane c2-sims): both sides'
         // shims own patches the shared envelope controller drives.
         "SoundPatchEmit", "SoundPatchStop", "SoundPatchState", "SoundPatchFree",

@@ -561,6 +561,14 @@ measurement (`make debug`) so the objects match the tip.
    A hit in a test that only pins the symbol's existence is retired with the
    symbol (say so in the commit). A hit in `docs/engineapi-areas.tsv` means
    the body is a slot: use Recipe C.
+   **A console command is also known by what it prints.** For a
+   `CON_COMMAND` / `SS_NATIVE_COMMAND` body, grep `tools/` for the command's
+   name AND for every literal string its body prints
+   (`grep -rnF '         origin ' tools/`): tools/live-gate scrapes
+   console.log with `last_console_line(...)`, and deleting
+   `cs_sv_playerinfo` (393cb1bdb) left the join step reading a line nothing
+   printed, red 33 of 33 passes until cc889d4c1 re-pointed it at the dev
+   API. Re-point the reader in the same commit as the deletion.
 3. Virtual calls emit no symbol: for a virtual method, also grep the method
    name across `src/*/native` and read each hit.
 4. **A shared TU is swept on both sides, and server-dead code leaves it.**

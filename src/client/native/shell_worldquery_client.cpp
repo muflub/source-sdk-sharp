@@ -407,33 +407,5 @@ int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOri
 // agree by construction.
 #include "physics_shared.h"
 
-//-----------------------------------------------------------------------------
-// WHAT A SURFACE IS MADE OF, on this side.
-//
-// The sixth instance of the shape SideAuditTests keeps a list of, and it was
-// found the way the fifth was -- by a client caller appearing and the audit
-// refusing it. SurfacePropGameMaterial had a SERVER arm only, so managed client
-// code holding an IEngineWorldQuery could ask what a surface was made of and
-// get 0 back with no error. Zero is not "unknown": it is a character code, and
-// the caller would have read it as a real material.
-//
-// C-PHASE 5 IS WHAT NEEDED IT, and for a smaller reason than the four before
-// it. The pool's collision block hands surfaceProps straight to
-// CEffectData::m_nSurfaceProp without interpreting it, so rows C4 and C5 do not
-// need this. What needs it is cs_cl_te_trace, the probe that CONFIRMS the
-// surfaceProps out lane CX added and could not verify: an index printed as a
-// number cannot be told apart from a wrong one, and an index turned into the
-// material the surface visibly is can.
-//
-// physprops is the shared IPhysicsSurfaceProps and answers from the same
-// surfaceprops script on both sides, so the two arms agree by construction.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_SurfacePropGameMaterial( int32_t nSurfaceProp )
-{
-	if ( !physprops || nSurfaceProp < 0 )
-		return 0;
-
-	surfacedata_t *pSurface = physprops->GetSurfaceData( nSurfaceProp );
-
-	return pSurface ? pSurface->game.material : 0;
-}
+// SurfacePropGameMaterial left native code (2026-10-19): managed reads
+// game.material through IPhysicsSurfaceProps' forwarders on both sides.

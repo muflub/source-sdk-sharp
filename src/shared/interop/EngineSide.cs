@@ -1320,19 +1320,6 @@ internal sealed unsafe partial class EngineSide
         return length <= 0 ? null : Encoding.UTF8.GetString(buffer, Math.Min(length, 127));
     }
 
-    /// <summary>
-    /// What a surfaceprop is made of, as a game material.
-    ///
-    /// <see cref="SurfaceMaterial.Unknown"/> for an index that names no
-    /// surface, which is what a negative index and an empty surfaceprops table
-    /// both give.
-    /// </summary>
-    public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return SurfaceMaterial.Unknown;
-
-        return (SurfaceMaterial)(OwnShims.World.SurfacePropGameMaterial(surfaceProp));
-    }
 
     // ---- plan_gamedll.md Part 4, Phase 6: LEVELINIT'S NINE NATIVE STEPS ----
     //
@@ -1424,130 +1411,8 @@ internal sealed unsafe partial class EngineSide
 
     // ---- plan_gamedll_after.md Phase A3 ------------------------------------
 
-    /// <summary>
-    /// The whole text of a file on the engine's <c>GAME</c> search paths, or
-    /// null when it is on none of them.
-    ///
-    /// <para>
-    /// <b>The engine's filesystem and not <c>System.IO</c>, and that is the
-    /// whole point of these two slots.</b> <c>scripts/decals_subrect.txt</c>
-    /// and <c>scripts/propdata.txt</c> are in neither the mod directory nor any
-    /// mounted VPK: they are loose files under the SDK's <c>hl2/scripts</c>,
-    /// reachable only through the <c>game</c> search paths gameinfo.txt sets
-    /// up. A <c>File.ReadAllText</c> over a mod-relative path finds nothing —
-    /// and finds it silently.
-    /// </para>
-    /// </summary>
-    public string? FilesReadGameFile(string path)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return null;
 
-        // ITS OWN SIZE CALL, and it went from a wrapper call to this on the
-        // commit that converted FilesGameFileSize -- plan_native_api.md Phase 3.
-        //
-        // WHY THIS ONE DID NOT CONVERT WITH IT. Appendix B rules
-        // FilesReadGameFile "C -- converts now" on the ground that
-        // Open/Size/Read/Close are all IBaseFileSystem methods and
-        // VBaseFileSystem011 is bound. Three of the four are refused by a
-        // decision this tree already took and recorded: EngineBaseFileSystem
-        // offers "nothing that writes and no handles", because a FileHandle_t
-        // handed to managed code is a lifetime managed code then owns across a
-        // GC. The handle-free route the size slot uses -- FileExists then Size
-        // -- has no read counterpart: IBaseFileSystem::ReadFile takes a
-        // `CUtlBuffer &`, which is a class managed cannot build.
-        //
-        // So the row stays on the flat ABI and is not in this phase's orphan
-        // list. Converting it means either lifting the no-handles rule, which
-        // is the owner's call, or a shim-layer method under Phase 6, which is
-        // where a handle-free read belongs anyway.
-        if (!s_Initialized || !OwnShimsAttached) return null;
 
-        int size;
-
-        {
-            var sizeName = Encoding.UTF8.GetBytes(path + "\0");
-            fixed (byte* sp = sizeName)
-                size = (OwnShims.EngineBase.FilesGameFileSize(sp));
-        }
-
-        if (size < 0) return null;
-        if (size == 0) return string.Empty;
-
-        var buf = new byte[size];
-        var bytes = Encoding.UTF8.GetBytes(path + "\0");
-
-        fixed (byte* p = bytes)
-        fixed (byte* b = buf)
-        {
-            int read = (OwnShims.EngineBase.FilesReadGameFile(p, b, size));
-            if (read < 0) return null;
-
-            // `read` and not `size`: a short read is a real answer and decoding
-            // the untouched tail would append however many zero bytes the array
-            // still holds to the document.
-            return Encoding.UTF8.GetString(buf, 0, read);
-        }
-    }
-
-    /// <summary>
-    /// A game file's BYTES, exactly as the search path holds them, or null when
-    /// it is on none of them. For content that is shipped on rather than read:
-    /// the message of the day goes to clients byte for byte, and a decode and
-    /// re-encode would change any byte that is not valid UTF-8.
-    /// </summary>
-    /// <summary>
-    /// A whole file off one named search path (<c>"GAME"</c>, <c>"BSP"</c>,
-    /// ...), as bytes: <c>null</c> when it is not there, an empty array for a
-    /// real empty file, never a truncated read (IShimEngine::FilesSizeOnPath /
-    /// FilesReadOnPath, both sides; C9).
-    /// </summary>
-    public byte[]? FilesReadOnPathBytes(string path, string pathId)
-    {
-        if (!s_Initialized || !OwnShimsAttached || path.Length == 0 || pathId.Length == 0)
-            return null;
-
-        var p = Encoding.UTF8.GetBytes(path + "\0");
-        var id = Encoding.UTF8.GetBytes(pathId + "\0");
-        fixed (byte* pp = p)
-        fixed (byte* pi = id)
-        {
-            int size = OwnShims.EngineBase.FilesSizeOnPath(pp, pi);
-            if (size < 0) return null;
-            var buf = new byte[size];
-            if (size == 0) return buf;
-            fixed (byte* b = buf)
-            {
-                int read = OwnShims.EngineBase.FilesReadOnPath(pp, pi, b, size);
-                return read == size ? buf : null;
-            }
-        }
-    }
-
-    public byte[]? FilesReadGameFileBytes(string path)
-    {
-        if (!s_Initialized || !OwnShimsAttached) return null;
-
-        if (!OwnShimsAttached) return null;
-
-        int size;
-        var sizePath = Encoding.UTF8.GetBytes(path + "\0");
-        fixed (byte* sp = sizePath)
-            size = (OwnShims.EngineBase.FilesGameFileSize(sp));
-
-        if (size < 0) return null;
-        if (size == 0) return Array.Empty<byte>();
-
-        var buf = new byte[size];
-        var bytes = Encoding.UTF8.GetBytes(path + "\0");
-
-        fixed (byte* p = bytes)
-        fixed (byte* b = buf)
-        {
-            int read = (OwnShims.EngineBase.FilesReadGameFile(p, b, size));
-            if (read < 0) return null;
-            return read == size ? buf : buf.AsSpan(0, read).ToArray();
-        }
-    }
 
     // ---- marshalling and the globals check, this side's own (plan_abi_hotreload D8) ----
     // They were the static Engine's and reached here through `using static`;

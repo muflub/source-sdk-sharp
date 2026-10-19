@@ -62,10 +62,6 @@ internal sealed unsafe class EngineArea
 
     public float GetCurrentTime() { return _shim.Vt->GetCurrentTime(_shim.Self); }
     public nint GetGlobalVarsPtr() { return (nint)_shim.Vt->GetGlobalVarsPtr(_shim.Self); }
-    public int FilesGameFileSize(byte* a0) { return _shim.Vt->FilesGameFileSize(_shim.Self, a0); }
-    public int FilesReadGameFile(byte* a0, byte* a1, int a2) { return _shim.Vt->FilesReadGameFile(_shim.Self, a0, a1, a2); }
-    public int FilesSizeOnPath(byte* a0, byte* a1) { return _shim.Vt->FilesSizeOnPath(_shim.Self, a0, a1); }
-    public int FilesReadOnPath(byte* a0, byte* a1, void* a2, int a3) { return _shim.Vt->FilesReadOnPath(_shim.Self, a0, a1, a2, a3); }
     public void SoundPatchEmit(int a0, float a1, float a2, int a3, float a4, int a5) { _shim.Vt->SoundPatchEmit(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public void SoundPatchStop(int a0) { _shim.Vt->SoundPatchStop(_shim.Self, a0); }
     public void SoundPatchState(int a0, int* a1, int* a2) { _shim.Vt->SoundPatchState(_shim.Self, a0, a1, a2); }
@@ -147,7 +143,6 @@ internal unsafe class WorldArea
     internal WorldArea(ShimRef<ShimWorldFwd> shim) { _shim = shim; }
 
     public int PointContents(float* a0) { return _shim.Vt->PointContents(_shim.Self, a0); }
-    public int SurfacePropGameMaterial(int a0) { return _shim.Vt->SurfacePropGameMaterial(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -338,7 +333,6 @@ internal sealed unsafe class WorldServerArea : WorldArea
     public uint TracePlayerAim(uint a0, float a1, float* a2) { return _shim.Vt->TracePlayerAim(_shim.Self, a0, a1, a2); }
     public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { _shim.Vt->AngleVectorsFromForward(_shim.Self, a0, a1, a2); }
     public int WaterSurfaceBelow(float* a0, float* a1, int* a2) { return _shim.Vt->WaterSurfaceBelow(_shim.Self, a0, a1, a2); }
-    public int SurfacePropIndex(byte* a0) { return _shim.Vt->SurfacePropIndex(_shim.Self, a0); }
     public int EntityModelSurfaceProp(uint a0) { return _shim.Vt->EntityModelSurfaceProp(_shim.Self, a0); }
     public int InvisibleRangeReach() { return _shim.Vt->InvisibleRangeReach(_shim.Self); }
     public void SetSkyboxParams(SkyboxParams* a0) { _shim.Vt->SetSkyboxParams(_shim.Self, a0); }
