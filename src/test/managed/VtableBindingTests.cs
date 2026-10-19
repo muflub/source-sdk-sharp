@@ -251,7 +251,10 @@ public unsafe class VtableBindingTests
     [Fact]
     public void TheEngineClientRunsConsoleCommandsOnlyThroughNamedMembers()
     {
-        string[] offered = PublicMethodsOf(typeof(EngineClient));
+        // What game code is offered is the seam's surface: the client's
+        // implementation is reached only through it (plan_shim_areas_split
+        // phase 10).
+        string[] offered = PublicMethodsOf(typeof(IVtableEngineClient));
 
         Assert.Contains("SubmitConsoleLine", offered);
         foreach (string forbidden in new[]

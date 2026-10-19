@@ -548,3 +548,32 @@ Open: none.
     product code calls. `ServerShimsOrNull`, which fed the side choices
     phase 7 removed, went. `Liveness` stays as the attach facts' observation
     point.
+- **Phase 10** (2026-10-19). `SeamCensus` (`src/test/common`) finds the
+  engine's wrapper by shape in the Abi and each side's interop: the side
+  (`EngineSide`, `ModuleEngine`), area classes (they hold a `ShimRef<TFwd>`),
+  forwarder structs (value types implementing `IForwarderTable`), and seam
+  implementations. A seam implementation is a class implementing a seam
+  interface (or `ILog`) that holds one of the others. A stateless null object
+  such as `StandardErrorLog`, which phase 8's census had found, holds none
+  and does not count.
+  - A reference is any of: the base type, interfaces, field, method and local
+    signatures, or an IL token. It is attributed to the outermost type.
+  - `NoLogicAssemblyNamesTheEnginesWrapperOutsideTheRoots` covers
+    `SourceSharp.Server`, `SourceSharp.Client`, the UI, the toolkit and the
+    mods; only `ServerModule` and `ClientModule` may name the wrapper. TF2
+    is outside this project's references and is not scanned.
+  - Each test project (cross-side, server, client, with its test support)
+    holds the second rule: construct or hold no seam implementation. Two
+    references are allowed because they hold nothing: a static call (an
+    acquire answering with the interface) and a `typeof` (the structural
+    facts in `VtableBindingTests`).
+  - The last offenders were fixed first. Two facts built `EngineClient` by
+    reflection; they now acquire it over a `FakeShimRoot` that serves it. The
+    client double took its clock from `new EngineClock`; it now calls
+    `ModuleEngine.Clock()`, as the root does.
+  - Mutation proofs: each of these turns its fact red, and the failure names
+    the planted site.
+    - an `EngineSide` parameter planted in a server logic type;
+    - `new ClientUiSurface(null)` planted in a client test;
+    - `new EngineClock(...)` planted in a server test.
+  - CLAUDE.md states the rule beside the interface-assembly rule.

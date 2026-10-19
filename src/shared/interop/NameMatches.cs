@@ -54,12 +54,24 @@ public interface IEngineEntityNames
 /// and the enumerator is this ref struct itself, so a <c>foreach</c> allocates
 /// nothing. <c>foreach</c> disposes it, which returns the buffer; the buffer
 /// moves to the enumerator on <see cref="GetEnumerator"/>, so a <c>using</c>
-/// around the same value returns it at most once.
+/// declaration (<c>using NameMatches m = ...;</c>) around the same value
+/// returns it at most once.
+/// </para>
+///
+/// <para>
+/// <b>NOT <c>using (m)</c> OVER A LOCAL.</b> A <c>using</c> statement over an
+/// existing local copies the value into a hidden temporary before the body
+/// runs, so the copy still holds the buffer after the walk returned it, and the
+/// pool is handed one array twice: two later renters then share it. The
+/// declaration form disposes the local itself.
 /// </para>
 /// </summary>
 public ref struct NameMatches
 {
     private EntityHandle[]? _rented;
+    // Where the buffer goes back to: ArrayPool<EntityHandle>.Shared, or a fact's
+    // counting pool. Null in default(NameMatches), which holds no buffer.
+    private readonly ArrayPool<EntityHandle>? _pool;
     private readonly int _count;
     private readonly Func<EntityHandle, bool>? _alive;
     private int _next;
@@ -69,7 +81,15 @@ public ref struct NameMatches
     /// <param name="count">How many of its entries are the matches.</param>
     /// <param name="alive">Whether a match still exists when the walk reaches it.</param>
     internal NameMatches(EntityHandle[]? rented, int count, Func<EntityHandle, bool>? alive)
+        : this(rented, count, alive, ArrayPool<EntityHandle>.Shared)
     {
+    }
+
+    /// <summary>The same, returning the buffer to <paramref name="pool"/>, which it was rented from.</summary>
+    internal NameMatches(EntityHandle[]? rented, int count, Func<EntityHandle, bool>? alive,
+                         ArrayPool<EntityHandle> pool)
+    {
+        _pool = pool;
         _rented = rented;
         _count = rented is null ? 0 : count;
         _alive = alive;
@@ -131,7 +151,7 @@ public ref struct NameMatches
         if (_rented is null)
             return;
 
-        ArrayPool<EntityHandle>.Shared.Return(_rented);
+        (_pool ?? ArrayPool<EntityHandle>.Shared).Return(_rented);
         _rented = null;
     }
 }

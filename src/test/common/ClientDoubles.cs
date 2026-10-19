@@ -68,7 +68,7 @@ internal static class ClientDoubles
         var engine = new C.ServiceContainer();
         engine.AddInstance(new C.StandaloneMirror());
         C.EngineServices.AddTo(engine, side);
-        engine.AddInstance<C.IGameClock>(new C.EngineClock(side));
+        engine.AddInstance<C.IGameClock>(new C.ModuleEngine(side).Clock());
         return engine;
     }
 }

@@ -151,21 +151,21 @@ public unsafe class ClientSideEngineTests : IDisposable
     [Fact]
     public void AnEngineClientPrintsThroughTheSideItWasAcquiredOn()
     {
-        var (first, _) = TwoSides(Side.Client, "SourceSharpViewClient001",
-            nameof(ShimViewClientFwd.ConNPrintf),
-            (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintFirst,
-            (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintSecond);
-
         void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
         try
         {
-            // The table's type is Client.Interop's own (ClientForwarders.g.cs),
-            // so it is named through the constructor rather than here.
-            var ctor = typeof(EngineClient)
-                .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Single();
-            var client = (IVtableEngineClient)ctor.Invoke(
-                [first, Pointer.Box(self, typeof(void*)), Pointer.Box(null, ctor.GetParameters()[2].ParameterType)]);
+            // Each root serves the engine client, so the one acquired through
+            // the first side is the first root's, held as its interface
+            // (plan_shim_areas_split phase 10).
+            _first.Interface(EngineClient.InterfaceVersion, self).Forwarders<EngineClientFwd>();
+            _second.Interface(EngineClient.InterfaceVersion, self).Forwarders<EngineClientFwd>();
+            var (first, _) = TwoSides(Side.Client, "SourceSharpViewClient001",
+                nameof(ShimViewClientFwd.ConNPrintf),
+                (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintFirst,
+                (nint)(delegate* unmanaged<void*, void*, int, byte*, void>)&PrintSecond);
+
+            IVtableEngineClient? client = EngineClient.Acquire(new ModuleEngine(first), out string why);
+            Assert.True(client is not null, why);
 
             client.ConsolePrintAt(3, "hello");
         }
