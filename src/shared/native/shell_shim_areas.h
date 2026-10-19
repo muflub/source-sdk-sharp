@@ -78,7 +78,6 @@ class CShimPrecache final : public IShimPrecache
 {
 public:
 	int32_t PrecacheModel( const char * pszModel ) override;
-	int32_t PrecacheDecal( const char * pName ) override;
 };
 
 class CShimMovementServer final : public IShimMovementServer
@@ -103,17 +102,11 @@ public:
 	int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) override;
 	int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) override;
 	int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) override;
-	uint32_t TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ ) override;
 	void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) override;
 	int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) override;
 	int32_t EntityModelSurfaceProp( uint32_t hEntity ) override;
 	int32_t InvisibleRangeReach() override;
 	void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) override;
-	const char * WorldChapterTitle() override;
-	uint32_t AreaPortalCreate( int32_t nPortalNumber, int32_t nPortalVersion ) override;
-	void AreaPortalDestroy( uint32_t hPortal ) override;
-	void AreaPortalSetOpen( uint32_t hPortal, int32_t bOpen ) override;
-	void AreaPortalSetWindow( uint32_t hPortal, uint32_t hEntity, float flFadeDist ) override;
 	int32_t EntityTraceHull( uint32_t hEntity, const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, float * pOutEndXYZ ) override;
 };
 
@@ -139,8 +132,6 @@ public:
 	void EntitySetHealth( uint32_t hEntity, int32_t nHealth ) override;
 	void EntitySetVisible( uint32_t hEntity, int32_t bVisible ) override;
 	void EntitySetOwner( uint32_t hEntity, uint32_t hOwner ) override;
-	void EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY, float flSizeZ ) override;
-	void EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled ) override;
 	int32_t EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea ) override;
 };
 
@@ -204,8 +195,6 @@ public:
 	int32_t EntityGetSolidType( uint32_t hEntity ) override;
 	void EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags ) override;
 	int32_t EntityGetSolidFlags( uint32_t hEntity ) override;
-	void EntitySetNotSolid( uint32_t hEntity, int32_t bNotSolid ) override;
-	void EntitySetBrushSolidity( uint32_t hEntity, int32_t nSolidity ) override;
 	int32_t EntityGetCollisionGroup( uint32_t hEntity ) override;
 	void EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup ) override;
 	int32_t EntityOverlapReport( uint32_t * pOutPairs, int32_t nMaxPairs ) override;
@@ -244,12 +233,10 @@ public:
 	uint32_t GetPlayerHandle( int32_t nPlayerIndex ) override;
 	int32_t GetPlayerTeam( uint32_t hPlayer ) override;
 	int32_t PlayerIsAlive( uint32_t hPlayer ) override;
-	void PlayerRespawn( uint32_t hPlayer ) override;
 	void PlayerPlaceAtSpawn( uint32_t hPlayer, const float * pOriginXYZ, const float * pAnglesPYR ) override;
 	int32_t PlayerGetObserverMode( uint32_t hPlayer ) override;
 	void PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode ) override;
 	void PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYawRoll ) override;
-	void GetPlayerShootOrigin( uint32_t hPlayer, float * pOutXYZ ) override;
 	int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ ) override;
 	void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) override;
 };
@@ -257,13 +244,8 @@ public:
 class CShimEffectsServer final : public IShimEffectsServer
 {
 public:
-	void ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude ) override;
 	void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) override;
-	void ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity ) override;
-	void TracerEffect( const float * pStartXYZ, const float * pEndXYZ ) override;
 	void BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed ) override;
-	void FunnelEffect( const float * pOriginXYZ, int32_t nSpriteIndex, int32_t bReversed ) override;
-	void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) override;
 	void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) override;
 	int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) override;
 	int32_t TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut ) override;

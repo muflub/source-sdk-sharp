@@ -10,7 +10,6 @@
 # the server: its patches are managed); every other row is the measurement above, unchanged.
 direction	slot	calls	rest	load
 managed:engine	SourceSharp_TraceLine	3250	1.569	1.433
-managed:engine	SourceSharp_PrecacheDecal	298	0.000	0.612
 managed:engine	SourceSharp_PrecacheModel	197	0.000	0.405
 managed:engine	SourceSharp_PaintDecal	81	0.000	0.166
 managed:engine	SourceSharp_EntityTraceHull	38	0.000	0.078

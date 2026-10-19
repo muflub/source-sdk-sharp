@@ -18,7 +18,15 @@
 // their own reasons.
 //
 //-----------------------------------------------------------------------------
-// 1. shell_areaportal.cpp — THE REFUSAL WAS TAKEN (plan_entity.md step 4g).
+// 1. shell_areaportal.cpp — THE REFUSAL WAS TAKEN (plan_entity.md step 4g),
+//    AND THE RECORD HAS SINCE LEFT NATIVE CODE (plan_server_native_v2 T4d).
+//
+// The account below is kept as the record of why the native record looked as
+// it did. Its facts were retired with shell_areaportal.cpp and
+// areaportal_list.h: the records and the walk are the managed AreaPortals now,
+// and AreaPortalsTests holds what these facts held (the backface arm leaves
+// the client's flag alone, the 80-unit padding, the 10-unit fade buffer, a
+// token never reused).
 //
 // THIS IS A RE-TAKE, WHICH IS WHAT THIS FILE'S OWN STANDARD DEMANDS: "A RED
 // HERE MEANS RE-TAKE THE VERDICT, NOT 'REGRESSION'". The refusal read:
@@ -244,18 +252,6 @@ std::string NoWhitespace( const std::string &s )
 
 struct File_t { const char *pszRel; const char *pszAnchor; };
 
-// The retyped list, which is the shim's own header now rather than the SDK's.
-// Anchored on the class head, so a file that keeps the name and stops declaring
-// the record fails to anchor rather than reading as "the record is gone".
-const File_t kPortalListHeader = { "sourcesharp/game/server/areaportal_list.h",
-	"class CAreaPortal" };
-// The walk is CServerGameClients::ClientSetupVisibility's, and it moved with
-// that class to shell_gameclients.cpp at plan_gamedll_after.md Phase A9 step 2.
-// The anchor is unchanged, which is what says the walk itself did not move.
-const File_t kGameInterface = { "sourcesharp/game/server/shell_gameclients.cpp",
-	"for ( CAreaPortal *pCur : g_AreaPortals )" };
-const File_t kOurPortal = { "sourcesharp/game/server/shell_areaportal.cpp",
-	"SourceSharp_AreaPortalCreate" };
 // THE ANCHOR IS THE CLASS HEAD, NOT THE CLASS NAME. "class CWorld" became a
 // PREFIX the day world.h gained CWorldCollideable and CWorldNetworkable above
 // it, and a prefix anchor is satisfied by a file that no longer declares the
@@ -303,108 +299,12 @@ std::string ReadAnchored( const File_t &file )
 } // namespace
 
 //=============================================================================//
-// VERDICT 1 — TAKEN. The area-portal list is not typed to an entity any more.
-//
-// Each fact below is one a later lane could undo by accident, so a red here is
-// a REGRESSION rather than a verdict to re-take. The verdict itself is gone.
+// VERDICT 1 — TAKEN, AND ITS SUBJECT HAS LEFT NATIVE CODE. The area portal
+// record, its list and the per-client walk are the managed AreaPortals since
+// plan_server_native_v2 T4d; the five facts that stood here went with
+// shell_areaportal.cpp and areaportal_list.h (see the header comment), and
+// AreaPortalsTests holds the behaviour they guarded.
 //=============================================================================//
-TEST( ShimUnderiveVerdict, TheAreaPortalListIsNotTypedToAnEntity )
-{
-	const std::string list = NoWhitespace( ReadAnchored( kPortalListHeader ) );
-
-	EXPECT_NE( list.find( "std::list<CAreaPortal*>g_AreaPortals" ),
-	           std::string::npos )
-		<< "g_AreaPortals is no longer a list of CAreaPortal. If it has been "
-		   "typed back to CFuncAreaPortalBase the record is an SDK entity "
-		   "again, with the network property, collision property, datadesc, "
-		   "think list, touch links and save/restore it does not use.";
-}
-
-TEST( ShimUnderiveVerdict, TheAreaPortalRecordDerivesFromNothing )
-{
-	const std::string list = NoWhitespace( ReadAnchored( kPortalListHeader ) );
-
-	// The class head, with no colon after it. `class CAreaPortal{` is what a
-	// record with no base looks like once the whitespace is gone; a base of any
-	// kind puts a ':' between the name and the brace.
-	EXPECT_NE( list.find( "classCAreaPortal{" ), std::string::npos )
-		<< "CAreaPortal has acquired a base class. The whole of verdict 1 was "
-		   "that it does not need one.";
-}
-
-TEST( ShimUnderiveVerdict, TheAreaPortalIsNotCreatedThroughTheEntityFactory )
-{
-	const std::string ours = NoWhitespace( ReadAnchored( kOurPortal ) );
-
-	EXPECT_EQ( ours.find( "LINK_ENTITY_TO_CLASS" ), std::string::npos )
-		<< "the portal has a classname and a factory again — it is being made "
-		   "by the entity system, which is what taking this verdict removed.";
-	EXPECT_EQ( ours.find( "CreateEntityByName" ), std::string::npos )
-		<< "the portal is being created through the entity system again.";
-	EXPECT_EQ( ours.find( "dynamic_cast" ), std::string::npos )
-		<< "the portal handle is being resolved by down-casting an entity "
-		   "again. §3.16 counts that; the token carries an index and a serial "
-		   "precisely so it does not have to.";
-}
-
-TEST( ShimUnderiveVerdict, TheAreaPortalWalkStillTouchesOnlyTheThreeMembers )
-{
-	// The three the retype was costed against. A fourth would mean the record
-	// has to grow something the walk needs, which is the change that would make
-	// somebody reach for the entity again.
-	const std::string iface = NoWhitespace( ReadAnchored( kGameInterface ) );
-	EXPECT_NE( iface.find( "pCur->m_portalNumber" ), std::string::npos );
-	EXPECT_NE( iface.find( "pCur->m_iPortalVersion" ), std::string::npos );
-	EXPECT_NE( iface.find( "pCur->UpdateVisibility(" ), std::string::npos );
-
-	EXPECT_NE( iface.find( "for(CAreaPortal*pCur:g_AreaPortals)" ), std::string::npos )
-		<< "the walk no longer types its element to CAreaPortal.";
-}
-
-//=============================================================================//
-// The backface arm is the piece of the base class the taking had to CARRY, and
-// the one thing about it that is easy to get wrong: it deliberately leaves
-// bIsOpenOnClient alone, so that a portal closed only for flow purposes is
-// still reported open to the client and moving between two areas does not pop.
-// func_areaportalbase.h's illustration is about exactly this.
-//=============================================================================//
-TEST( ShimUnderiveVerdict, TheBackfaceArmDoesNotTouchTheClientFlag )
-{
-	const std::string ours = ReadAnchored( kOurPortal );
-
-	const size_t nPlane = ours.find( "GetAreaPortalPlane" );
-	ASSERT_NE( nPlane, std::string::npos )
-		<< "the backface test is gone. Without it a portal never closes for a "
-		   "viewer standing behind it and the server sends every area beyond "
-		   "every portal.";
-
-	// From the plane read to the end of the function, nothing assigns the
-	// client flag. The two arms that DO assign it are in the header, called
-	// from above this point as ClosedByManagedState.
-	const size_t nEnd = ours.find( "\nuint32_t SourceSharp_AreaPortalCreate", nPlane );
-	ASSERT_NE( nEnd, std::string::npos )
-		<< "UpdateVisibility's end could not be found; this fact would "
-		   "otherwise scan the whole file and pass for the wrong reason.";
-
-	EXPECT_EQ( ours.find( "bIsOpenOnClient", nPlane ), std::string::npos )
-		<< "the backface arm assigns bIsOpenOnClient. It must not: a portal "
-		   "closed only because the viewer is behind its plane is still open "
-		   "on the client, and telling the client otherwise pops the room.";
-	EXPECT_LT( nPlane, nEnd );
-}
-
-TEST( ShimUnderiveVerdict, ThePortalPaddingSurvivedTheMove )
-{
-	const std::string ours = NoWhitespace( ReadAnchored( kPortalListHeader ) );
-
-	EXPECT_NE( ours.find( "AREAPORTAL_VIEWER_PADDING80" ), std::string::npos )
-		<< "the viewer padding is gone or has changed value. Without it a "
-		   "portal snaps shut the instant the viewer crosses its plane.";
-	EXPECT_NE( ours.find( "AREAPORTAL_FADE_DIST_BUFFER10" ), std::string::npos )
-		<< "a window's fade buffer is gone. The server stops sending through a "
-		   "window the instant it goes opaque, which shows as popping under "
-		   "net lag.";
-}
 
 //=============================================================================//
 // VERDICT 2 — TAKEN. world_adapter.cpp no longer derives.

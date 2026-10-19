@@ -1582,19 +1582,16 @@ static void *const s_ShimModelsServerSlots[] = {
 static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 4 };
 
 //-----------------------------------------------------------------------------
-// ShimPrecache: 2 forwarder(s) over IShimPrecache.
+// ShimPrecache: 1 forwarder(s) over IShimPrecache.
 //-----------------------------------------------------------------------------
 // int32_t IShimPrecache::PrecacheModel( const char * )
 static int32_t SSFwd_ShimPrecache_PrecacheModel( IShimPrecache *self, const char * a0 ) { return self->PrecacheModel( a0 ); }
-// int32_t IShimPrecache::PrecacheDecal( const char * )
-static int32_t SSFwd_ShimPrecache_PrecacheDecal( IShimPrecache *self, const char * a0 ) { return self->PrecacheDecal( a0 ); }
 
 static void *const s_ShimPrecacheSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheModel ),
-	reinterpret_cast< void * >( &SSFwd_ShimPrecache_PrecacheDecal ),
 };
 
-static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 2 };
+static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 1 };
 
 //-----------------------------------------------------------------------------
 // ShimMovementServer: 11 forwarder(s) over IShimMovementServer.
@@ -1639,7 +1636,7 @@ static void *const s_ShimMovementServerSlots[] = {
 static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 11 };
 
 //-----------------------------------------------------------------------------
-// ShimWorldServer: 15 forwarder(s) over IShimWorldServer.
+// ShimWorldServer: 9 forwarder(s) over IShimWorldServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimWorldServer::TraceLine( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t * )
 static int32_t SSFwd_ShimWorldServer_TraceLine( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7 ) { return self->TraceLine( a0, a1, a2, a3, a4, a5, a6, a7 ); }
@@ -1647,8 +1644,6 @@ static int32_t SSFwd_ShimWorldServer_TraceLine( IShimWorldServer *self, const fl
 static int32_t SSFwd_ShimWorldServer_TraceHull( IShimWorldServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, uint32_t a5, uint32_t * a6, int32_t * a7 ) { return self->TraceHull( a0, a1, a2, a3, a4, a5, a6, a7 ); }
 // int32_t IShimWorldServer::TraceLineSurface( const float *, const float *, int32_t, uint32_t, float *, float *, float *, uint32_t *, int32_t *, int32_t *, int32_t * )
 static int32_t SSFwd_ShimWorldServer_TraceLineSurface( IShimWorldServer *self, const float * a0, const float * a1, int32_t a2, uint32_t a3, float * a4, float * a5, float * a6, uint32_t * a7, int32_t * a8, int32_t * a9, int32_t * a10 ) { return self->TraceLineSurface( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 ); }
-// uint32_t IShimWorldServer::TracePlayerAim( uint32_t, float, float * )
-static uint32_t SSFwd_ShimWorldServer_TracePlayerAim( IShimWorldServer *self, uint32_t a0, float a1, float * a2 ) { return self->TracePlayerAim( a0, a1, a2 ); }
 // void IShimWorldServer::AngleVectorsFromForward( const float *, float *, float * )
 static void SSFwd_ShimWorldServer_AngleVectorsFromForward( IShimWorldServer *self, const float * a0, float * a1, float * a2 ) { self->AngleVectorsFromForward( a0, a1, a2 ); }
 // int32_t IShimWorldServer::WaterSurfaceBelow( const float *, float *, int32_t * )
@@ -1659,16 +1654,6 @@ static int32_t SSFwd_ShimWorldServer_EntityModelSurfaceProp( IShimWorldServer *s
 static int32_t SSFwd_ShimWorldServer_InvisibleRangeReach( IShimWorldServer *self ) { return self->InvisibleRangeReach(); }
 // void IShimWorldServer::SetSkyboxParams( const SourceSharpSkyboxParams * )
 static void SSFwd_ShimWorldServer_SetSkyboxParams( IShimWorldServer *self, const SourceSharpSkyboxParams * a0 ) { self->SetSkyboxParams( a0 ); }
-// const char * IShimWorldServer::WorldChapterTitle( void )
-static const char * SSFwd_ShimWorldServer_WorldChapterTitle( IShimWorldServer *self ) { return self->WorldChapterTitle(); }
-// uint32_t IShimWorldServer::AreaPortalCreate( int32_t, int32_t )
-static uint32_t SSFwd_ShimWorldServer_AreaPortalCreate( IShimWorldServer *self, int32_t a0, int32_t a1 ) { return self->AreaPortalCreate( a0, a1 ); }
-// void IShimWorldServer::AreaPortalDestroy( uint32_t )
-static void SSFwd_ShimWorldServer_AreaPortalDestroy( IShimWorldServer *self, uint32_t a0 ) { self->AreaPortalDestroy( a0 ); }
-// void IShimWorldServer::AreaPortalSetOpen( uint32_t, int32_t )
-static void SSFwd_ShimWorldServer_AreaPortalSetOpen( IShimWorldServer *self, uint32_t a0, int32_t a1 ) { self->AreaPortalSetOpen( a0, a1 ); }
-// void IShimWorldServer::AreaPortalSetWindow( uint32_t, uint32_t, float )
-static void SSFwd_ShimWorldServer_AreaPortalSetWindow( IShimWorldServer *self, uint32_t a0, uint32_t a1, float a2 ) { self->AreaPortalSetWindow( a0, a1, a2 ); }
 // int32_t IShimWorldServer::EntityTraceHull( uint32_t, const float *, const float *, const float *, const float *, int32_t, int32_t, float * )
 static int32_t SSFwd_ShimWorldServer_EntityTraceHull( IShimWorldServer *self, uint32_t a0, const float * a1, const float * a2, const float * a3, const float * a4, int32_t a5, int32_t a6, float * a7 ) { return self->EntityTraceHull( a0, a1, a2, a3, a4, a5, a6, a7 ); }
 
@@ -1676,24 +1661,18 @@ static void *const s_ShimWorldServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceLine ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceHull ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TraceLineSurface ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_TracePlayerAim ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AngleVectorsFromForward ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_WaterSurfaceBelow ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityModelSurfaceProp ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_InvisibleRangeReach ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_SetSkyboxParams ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_WorldChapterTitle ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalCreate ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalDestroy ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalSetOpen ),
-	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_AreaPortalSetWindow ),
 	reinterpret_cast< void * >( &SSFwd_ShimWorldServer_EntityTraceHull ),
 };
 
-static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 15 };
+static const SSForwarderTable s_ShimWorldServerTable = { s_ShimWorldServerSlots, 9 };
 
 //-----------------------------------------------------------------------------
-// ShimEntitiesServer: 22 forwarder(s) over IShimEntitiesServer.
+// ShimEntitiesServer: 20 forwarder(s) over IShimEntitiesServer.
 //-----------------------------------------------------------------------------
 // int32_t IShimEntities::EntityGetIndex( uint32_t )
 static int32_t SSFwd_ShimEntitiesServer_EntityGetIndex( IShimEntitiesServer *self, uint32_t a0 ) { return self->EntityGetIndex( a0 ); }
@@ -1733,10 +1712,6 @@ static void SSFwd_ShimEntitiesServer_EntitySetHealth( IShimEntitiesServer *self,
 static void SSFwd_ShimEntitiesServer_EntitySetVisible( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetVisible( a0, a1 ); }
 // void IShimEntitiesServer::EntitySetOwner( uint32_t, uint32_t )
 static void SSFwd_ShimEntitiesServer_EntitySetOwner( IShimEntitiesServer *self, uint32_t a0, uint32_t a1 ) { self->EntitySetOwner( a0, a1 ); }
-// void IShimEntitiesServer::EntityMakePickup( uint32_t, float, float, float )
-static void SSFwd_ShimEntitiesServer_EntityMakePickup( IShimEntitiesServer *self, uint32_t a0, float a1, float a2, float a3 ) { self->EntityMakePickup( a0, a1, a2, a3 ); }
-// void IShimEntitiesServer::EntitySetPickupEnabled( uint32_t, int32_t )
-static void SSFwd_ShimEntitiesServer_EntitySetPickupEnabled( IShimEntitiesServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetPickupEnabled( a0, a1 ); }
 // int32_t IShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t, int32_t * )
 static int32_t SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea( IShimEntitiesServer *self, int32_t a0, int32_t * a1 ) { return self->EntitiesStandalonePlayerSkyboxArea( a0, a1 ); }
 
@@ -1760,12 +1735,10 @@ static void *const s_ShimEntitiesServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetHealth ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetVisible ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetOwner ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntityMakePickup ),
-	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitySetPickupEnabled ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntitiesServer_EntitiesStandalonePlayerSkyboxArea ),
 };
 
-static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 22 };
+static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 20 };
 
 //-----------------------------------------------------------------------------
 // ShimEntityLifecycle: 14 forwarder(s) over IShimEntityLifecycle.
@@ -1900,7 +1873,7 @@ static void *const s_ShimHierarchySlots[] = {
 static const SSForwarderTable s_ShimHierarchyTable = { s_ShimHierarchySlots, 7 };
 
 //-----------------------------------------------------------------------------
-// ShimCollisionServer: 12 forwarder(s) over IShimCollisionServer.
+// ShimCollisionServer: 10 forwarder(s) over IShimCollisionServer.
 //-----------------------------------------------------------------------------
 // void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
 static void SSFwd_ShimCollisionServer_RegisterCollisionRules( IShimCollisionServer *self, const SourceSharpCollisionRules * a0 ) { self->RegisterCollisionRules( a0 ); }
@@ -1916,10 +1889,6 @@ static int32_t SSFwd_ShimCollisionServer_EntityGetSolidType( IShimCollisionServe
 static void SSFwd_ShimCollisionServer_EntitySetSolidity( IShimCollisionServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->EntitySetSolidity( a0, a1, a2 ); }
 // int32_t IShimCollisionServer::EntityGetSolidFlags( uint32_t )
 static int32_t SSFwd_ShimCollisionServer_EntityGetSolidFlags( IShimCollisionServer *self, uint32_t a0 ) { return self->EntityGetSolidFlags( a0 ); }
-// void IShimCollisionServer::EntitySetNotSolid( uint32_t, int32_t )
-static void SSFwd_ShimCollisionServer_EntitySetNotSolid( IShimCollisionServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetNotSolid( a0, a1 ); }
-// void IShimCollisionServer::EntitySetBrushSolidity( uint32_t, int32_t )
-static void SSFwd_ShimCollisionServer_EntitySetBrushSolidity( IShimCollisionServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetBrushSolidity( a0, a1 ); }
 // int32_t IShimCollisionServer::EntityGetCollisionGroup( uint32_t )
 static int32_t SSFwd_ShimCollisionServer_EntityGetCollisionGroup( IShimCollisionServer *self, uint32_t a0 ) { return self->EntityGetCollisionGroup( a0 ); }
 // void IShimCollisionServer::EntitySetCollisionGroup( uint32_t, int32_t )
@@ -1935,14 +1904,12 @@ static void *const s_ShimCollisionServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetSolidType ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetSolidity ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetSolidFlags ),
-	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetNotSolid ),
-	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetBrushSolidity ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetCollisionGroup ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetCollisionGroup ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityOverlapReport ),
 };
 
-static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 12 };
+static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 10 };
 
 //-----------------------------------------------------------------------------
 // ShimPhysics: 6 forwarder(s) over IShimPhysics.
@@ -2008,7 +1975,7 @@ static void *const s_ShimGameRulesSlots[] = {
 static const SSForwarderTable s_ShimGameRulesTable = { s_ShimGameRulesSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ShimPlayers: 11 forwarder(s) over IShimPlayers.
+// ShimPlayers: 9 forwarder(s) over IShimPlayers.
 //-----------------------------------------------------------------------------
 // uint32_t IShimPlayers::GetPlayerHandle( int32_t )
 static uint32_t SSFwd_ShimPlayers_GetPlayerHandle( IShimPlayers *self, int32_t a0 ) { return self->GetPlayerHandle( a0 ); }
@@ -2016,8 +1983,6 @@ static uint32_t SSFwd_ShimPlayers_GetPlayerHandle( IShimPlayers *self, int32_t a
 static int32_t SSFwd_ShimPlayers_GetPlayerTeam( IShimPlayers *self, uint32_t a0 ) { return self->GetPlayerTeam( a0 ); }
 // int32_t IShimPlayers::PlayerIsAlive( uint32_t )
 static int32_t SSFwd_ShimPlayers_PlayerIsAlive( IShimPlayers *self, uint32_t a0 ) { return self->PlayerIsAlive( a0 ); }
-// void IShimPlayers::PlayerRespawn( uint32_t )
-static void SSFwd_ShimPlayers_PlayerRespawn( IShimPlayers *self, uint32_t a0 ) { self->PlayerRespawn( a0 ); }
 // void IShimPlayers::PlayerPlaceAtSpawn( uint32_t, const float *, const float * )
 static void SSFwd_ShimPlayers_PlayerPlaceAtSpawn( IShimPlayers *self, uint32_t a0, const float * a1, const float * a2 ) { self->PlayerPlaceAtSpawn( a0, a1, a2 ); }
 // int32_t IShimPlayers::PlayerGetObserverMode( uint32_t )
@@ -2026,8 +1991,6 @@ static int32_t SSFwd_ShimPlayers_PlayerGetObserverMode( IShimPlayers *self, uint
 static void SSFwd_ShimPlayers_PlayerSetObserverMode( IShimPlayers *self, uint32_t a0, int32_t a1 ) { self->PlayerSetObserverMode( a0, a1 ); }
 // void IShimPlayers::PlayerSnapEyeAngles( uint32_t, const float * )
 static void SSFwd_ShimPlayers_PlayerSnapEyeAngles( IShimPlayers *self, uint32_t a0, const float * a1 ) { self->PlayerSnapEyeAngles( a0, a1 ); }
-// void IShimPlayers::GetPlayerShootOrigin( uint32_t, float * )
-static void SSFwd_ShimPlayers_GetPlayerShootOrigin( IShimPlayers *self, uint32_t a0, float * a1 ) { self->GetPlayerShootOrigin( a0, a1 ); }
 // int32_t IShimPlayers::ClientsStandalonePlayerEarPosition( int32_t, float * )
 static int32_t SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition( IShimPlayers *self, int32_t a0, float * a1 ) { return self->ClientsStandalonePlayerEarPosition( a0, a1 ); }
 // void IShimPlayers::PlayerSetTeam( uint32_t, int32_t )
@@ -2037,35 +2000,23 @@ static void *const s_ShimPlayersSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerHandle ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerTeam ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerIsAlive ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerRespawn ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerPlaceAtSpawn ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerGetObserverMode ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetObserverMode ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSnapEyeAngles ),
-	reinterpret_cast< void * >( &SSFwd_ShimPlayers_GetPlayerShootOrigin ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_ClientsStandalonePlayerEarPosition ),
 	reinterpret_cast< void * >( &SSFwd_ShimPlayers_PlayerSetTeam ),
 };
 
-static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 11 };
+static const SSForwarderTable s_ShimPlayersTable = { s_ShimPlayersSlots, 9 };
 
 //-----------------------------------------------------------------------------
-// ShimEffectsServer: 10 forwarder(s) over IShimEffectsServer.
+// ShimEffectsServer: 5 forwarder(s) over IShimEffectsServer.
 //-----------------------------------------------------------------------------
-// void IShimEffectsServer::ExplosionEffect( const float *, int32_t, float, int32_t, int32_t, int32_t, int32_t )
-static void SSFwd_ShimEffectsServer_ExplosionEffect( IShimEffectsServer *self, const float * a0, int32_t a1, float a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6 ) { self->ExplosionEffect( a0, a1, a2, a3, a4, a5, a6 ); }
 // void IShimEffectsServer::ViewPunch( const float *, const float *, float, int32_t )
 static void SSFwd_ShimEffectsServer_ViewPunch( IShimEffectsServer *self, const float * a0, const float * a1, float a2, int32_t a3 ) { self->ViewPunch( a0, a1, a2, a3 ); }
-// void IShimEffectsServer::ImpactEffect( const float *, const float *, int32_t, int32_t, uint32_t )
-static void SSFwd_ShimEffectsServer_ImpactEffect( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->ImpactEffect( a0, a1, a2, a3, a4 ); }
-// void IShimEffectsServer::TracerEffect( const float *, const float * )
-static void SSFwd_ShimEffectsServer_TracerEffect( IShimEffectsServer *self, const float * a0, const float * a1 ) { self->TracerEffect( a0, a1 ); }
 // void IShimEffectsServer::BubbleEffect( uint32_t, int32_t, float )
 static void SSFwd_ShimEffectsServer_BubbleEffect( IShimEffectsServer *self, uint32_t a0, int32_t a1, float a2 ) { self->BubbleEffect( a0, a1, a2 ); }
-// void IShimEffectsServer::FunnelEffect( const float *, int32_t, int32_t )
-static void SSFwd_ShimEffectsServer_FunnelEffect( IShimEffectsServer *self, const float * a0, int32_t a1, int32_t a2 ) { self->FunnelEffect( a0, a1, a2 ); }
-// void IShimEffectsServer::SplashEffect( const float *, float, int32_t )
-static void SSFwd_ShimEffectsServer_SplashEffect( IShimEffectsServer *self, const float * a0, float a1, int32_t a2 ) { self->SplashEffect( a0, a1, a2 ); }
 // void IShimEffectsServer::BloodEffect( const float *, const float *, int32_t, float, int32_t, int32_t )
 static void SSFwd_ShimEffectsServer_BloodEffect( IShimEffectsServer *self, const float * a0, const float * a1, int32_t a2, float a3, int32_t a4, int32_t a5 ) { self->BloodEffect( a0, a1, a2, a3, a4, a5 ); }
 // int32_t IShimEffectsServer::PaintDecal( int32_t, const float *, const float *, float, int32_t, int32_t )
@@ -2074,19 +2025,14 @@ static int32_t SSFwd_ShimEffectsServer_PaintDecal( IShimEffectsServer *self, int
 static int32_t SSFwd_ShimEffectsServer_TempEntBuild( IShimEffectsServer *self, const void * a0, int32_t a1, SourceSharpTeBuiltTable_t * a2 ) { return self->TempEntBuild( a0, a1, a2 ); }
 
 static void *const s_ShimEffectsServerSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ExplosionEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ViewPunch ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_ImpactEffect ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TracerEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BubbleEffect ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_FunnelEffect ),
-	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_SplashEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_BloodEffect ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_PaintDecal ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsServer_TempEntBuild ),
 };
 
-static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 10 };
+static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSlots, 5 };
 
 //-----------------------------------------------------------------------------
 // ShimDebugOverlay: 4 forwarder(s) over IShimDebugOverlay.

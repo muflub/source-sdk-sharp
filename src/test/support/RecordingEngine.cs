@@ -1046,7 +1046,6 @@ public sealed class RecordingEngine :
         return Record<EntityHandle>("WorldQuery.TracePlayerAim", player, range);
     }
     WaterBelow IEngineWorldQuery.WaterSurfaceBelow(Vector start) => Record<WaterBelow>("WorldQuery.WaterSurfaceBelow", start);
-    string IEngineWorldQuery.WorldChapterTitle() => Record<string>("WorldQuery.WorldChapterTitle");
     int IEngineWorldQuery.EntityModelSurfaceProp(EntityHandle entity) => Record<int>("WorldQuery.EntityModelSurfaceProp", entity);
     int IEngineWorldQuery.SurfacePropIndex(string name) => Record<int>("WorldQuery.SurfacePropIndex", name);
     SurfaceMaterial IEngineWorldQuery.SurfacePropGameMaterial(int surfaceProp) => Record<SurfaceMaterial>("WorldQuery.SurfacePropGameMaterial", surfaceProp);
@@ -1247,10 +1246,6 @@ public sealed class RecordingEngine :
 
     // Visibility
     void IEngineVisibility.ActivateOccluder(int occluderIndex, bool active) => RecordVoid("Visibility.ActivateOccluder", occluderIndex, active);
-    uint IEngineVisibility.AreaPortalCreate(int portalNumber, int portalVersion) => Record<uint>("Visibility.AreaPortalCreate", portalNumber, portalVersion);
-    void IEngineVisibility.AreaPortalDestroy(uint portal) => RecordVoid("Visibility.AreaPortalDestroy", portal);
-    void IEngineVisibility.AreaPortalSetOpen(uint portal, bool open) => RecordVoid("Visibility.AreaPortalSetOpen", portal, open);
-    void IEngineVisibility.AreaPortalSetWindow(uint portal, EntityHandle entity, float fadeDistance) => RecordVoid("Visibility.AreaPortalSetWindow", portal, entity, fadeDistance);
     void IEngineVisibility.ClearSkyboxParams() => RecordVoid("Visibility.ClearSkyboxParams");
     void IEngineVisibility.ClientSetWorldRenderState(WorldRenderState which, ReadOnlySpan<float> values) => RecordVoid("Visibility.ClientSetWorldRenderState", which, values.Length);
     int IEngineVisibility.ColorCorrectionAdd(string lookupFile) => Record<int>("Visibility.ColorCorrectionAdd", lookupFile);

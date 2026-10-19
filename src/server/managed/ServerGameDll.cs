@@ -681,6 +681,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         // holds a pointer into the entity, and a state that reports itself
         // unbound is better than one that is merely never asked.
         _worldNet.Unbind();
+        ChapterTitle = string.Empty;
 
         _level.ShutdownPreClearSteamSystems();
 
@@ -1044,8 +1045,40 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// question arrives at, and the seam is all it is.
     /// </para>
     /// </summary>
+    /// <remarks>
+    /// THREE KEYS ARE NOT VALUES WORLDSPAWN HOLDS, and they are answered here
+    /// (plan_server_native_v2 T4d; CWorld::KeyValue answered them natively):
+    /// "skyname" sets the ConVar the engine replicates, "newunit" talks to a
+    /// save system with no reader of it left, and "chaptertitle" is a game-logic
+    /// key the level announces per player and stock never networked. Matched as
+    /// stock's FStrEq does, ignoring case.
+    /// </remarks>
     public bool WorldKeyValue(EntityHandle world, string key, string value)
-        => _worldNet.ApplyKey(world, key, value);
+    {
+        if (key.Equals("skyname", StringComparison.OrdinalIgnoreCase))
+        {
+            _console.SetConVarValueByName("sv_skyname", value);
+            return true;
+        }
+
+        if (key.Equals("newunit", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (key.Equals("chaptertitle", StringComparison.OrdinalIgnoreCase))
+        {
+            ChapterTitle = value;
+            return true;
+        }
+
+        return _worldNet.ApplyKey(world, key, value);
+    }
+
+    /// <summary>
+    /// The map's "chaptertitle", or empty: what CWorld::m_iszChapterTitle held
+    /// until plan_server_native_v2 T4d. Dropped with the world at
+    /// <see cref="MapUnload"/>, as the member went with its entity.
+    /// </summary>
+    public string ChapterTitle { get; private set; } = string.Empty;
 
     /// <summary>
     /// worldspawn's bound networked state: the module's, kept between the map

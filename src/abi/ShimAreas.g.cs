@@ -253,7 +253,6 @@ internal sealed unsafe class PrecacheArea
     internal PrecacheArea(ShimRef<ShimPrecacheFwd> shim) { _shim = shim; }
 
     public int PrecacheModel(byte* a0) { return _shim.Vt->PrecacheModel(_shim.Self, a0); }
-    public int PrecacheDecal(byte* a0) { return _shim.Vt->PrecacheDecal(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -290,17 +289,11 @@ internal sealed unsafe class WorldServerArea
     public int TraceLine(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7) { return _shim.Vt->TraceLine(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public int TraceHull(float* a0, float* a1, float* a2, float* a3, int a4, uint a5, uint* a6, int* a7) { return _shim.Vt->TraceHull(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public int TraceLineSurface(float* a0, float* a1, int a2, uint a3, float* a4, float* a5, float* a6, uint* a7, int* a8, int* a9, int* a10) { return _shim.Vt->TraceLineSurface(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); }
-    public uint TracePlayerAim(uint a0, float a1, float* a2) { return _shim.Vt->TracePlayerAim(_shim.Self, a0, a1, a2); }
     public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { _shim.Vt->AngleVectorsFromForward(_shim.Self, a0, a1, a2); }
     public int WaterSurfaceBelow(float* a0, float* a1, int* a2) { return _shim.Vt->WaterSurfaceBelow(_shim.Self, a0, a1, a2); }
     public int EntityModelSurfaceProp(uint a0) { return _shim.Vt->EntityModelSurfaceProp(_shim.Self, a0); }
     public int InvisibleRangeReach() { return _shim.Vt->InvisibleRangeReach(_shim.Self); }
     public void SetSkyboxParams(SkyboxParams* a0) { _shim.Vt->SetSkyboxParams(_shim.Self, a0); }
-    public byte* WorldChapterTitle() { return (byte*)_shim.Vt->WorldChapterTitle(_shim.Self); }
-    public uint AreaPortalCreate(int a0, int a1) { return _shim.Vt->AreaPortalCreate(_shim.Self, a0, a1); }
-    public void AreaPortalDestroy(uint a0) { _shim.Vt->AreaPortalDestroy(_shim.Self, a0); }
-    public void AreaPortalSetOpen(uint a0, int a1) { _shim.Vt->AreaPortalSetOpen(_shim.Self, a0, a1); }
-    public void AreaPortalSetWindow(uint a0, uint a1, float a2) { _shim.Vt->AreaPortalSetWindow(_shim.Self, a0, a1, a2); }
     public int EntityTraceHull(uint a0, float* a1, float* a2, float* a3, float* a4, int a5, int a6, float* a7) { return _shim.Vt->EntityTraceHull(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
 }
 
@@ -332,8 +325,6 @@ internal sealed unsafe class EntitiesServerArea : EntitiesArea
     public void EntitySetHealth(uint a0, int a1) { _shim.Vt->EntitySetHealth(_shim.Self, a0, a1); }
     public void EntitySetVisible(uint a0, int a1) { _shim.Vt->EntitySetVisible(_shim.Self, a0, a1); }
     public void EntitySetOwner(uint a0, uint a1) { _shim.Vt->EntitySetOwner(_shim.Self, a0, a1); }
-    public void EntityMakePickup(uint a0, float a1, float a2, float a3) { _shim.Vt->EntityMakePickup(_shim.Self, a0, a1, a2, a3); }
-    public void EntitySetPickupEnabled(uint a0, int a1) { _shim.Vt->EntitySetPickupEnabled(_shim.Self, a0, a1); }
     public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) { return _shim.Vt->EntitiesStandalonePlayerSkyboxArea(_shim.Self, a0, a1); }
 }
 
@@ -424,8 +415,6 @@ internal sealed unsafe class CollisionServerArea : CollisionArea
     public int EntityGetSolidType(uint a0) { return _shim.Vt->EntityGetSolidType(_shim.Self, a0); }
     public void EntitySetSolidity(uint a0, int a1, int a2) { _shim.Vt->EntitySetSolidity(_shim.Self, a0, a1, a2); }
     public int EntityGetSolidFlags(uint a0) { return _shim.Vt->EntityGetSolidFlags(_shim.Self, a0); }
-    public void EntitySetNotSolid(uint a0, int a1) { _shim.Vt->EntitySetNotSolid(_shim.Self, a0, a1); }
-    public void EntitySetBrushSolidity(uint a0, int a1) { _shim.Vt->EntitySetBrushSolidity(_shim.Self, a0, a1); }
     public int EntityGetCollisionGroup(uint a0) { return _shim.Vt->EntityGetCollisionGroup(_shim.Self, a0); }
     public void EntitySetCollisionGroup(uint a0, int a1) { _shim.Vt->EntitySetCollisionGroup(_shim.Self, a0, a1); }
     public int EntityOverlapReport(uint* a0, int a1) { return _shim.Vt->EntityOverlapReport(_shim.Self, a0, a1); }
@@ -488,12 +477,10 @@ internal sealed unsafe class PlayersArea
     public uint GetPlayerHandle(int a0) { return _shim.Vt->GetPlayerHandle(_shim.Self, a0); }
     public int GetPlayerTeam(uint a0) { return _shim.Vt->GetPlayerTeam(_shim.Self, a0); }
     public int PlayerIsAlive(uint a0) { return _shim.Vt->PlayerIsAlive(_shim.Self, a0); }
-    public void PlayerRespawn(uint a0) { _shim.Vt->PlayerRespawn(_shim.Self, a0); }
     public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { _shim.Vt->PlayerPlaceAtSpawn(_shim.Self, a0, a1, a2); }
     public int PlayerGetObserverMode(uint a0) { return _shim.Vt->PlayerGetObserverMode(_shim.Self, a0); }
     public void PlayerSetObserverMode(uint a0, int a1) { _shim.Vt->PlayerSetObserverMode(_shim.Self, a0, a1); }
     public void PlayerSnapEyeAngles(uint a0, float* a1) { _shim.Vt->PlayerSnapEyeAngles(_shim.Self, a0, a1); }
-    public void GetPlayerShootOrigin(uint a0, float* a1) { _shim.Vt->GetPlayerShootOrigin(_shim.Self, a0, a1); }
     public int ClientsStandalonePlayerEarPosition(int a0, float* a1) { return _shim.Vt->ClientsStandalonePlayerEarPosition(_shim.Self, a0, a1); }
     public void PlayerSetTeam(uint a0, int a1) { _shim.Vt->PlayerSetTeam(_shim.Self, a0, a1); }
 }
@@ -507,13 +494,8 @@ internal sealed unsafe class EffectsServerArea
 
     internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim) { _shim = shim; }
 
-    public void ExplosionEffect(float* a0, int a1, float a2, int a3, int a4, int a5, int a6) { _shim.Vt->ExplosionEffect(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void ViewPunch(float* a0, float* a1, float a2, int a3) { _shim.Vt->ViewPunch(_shim.Self, a0, a1, a2, a3); }
-    public void ImpactEffect(float* a0, float* a1, int a2, int a3, uint a4) { _shim.Vt->ImpactEffect(_shim.Self, a0, a1, a2, a3, a4); }
-    public void TracerEffect(float* a0, float* a1) { _shim.Vt->TracerEffect(_shim.Self, a0, a1); }
     public void BubbleEffect(uint a0, int a1, float a2) { _shim.Vt->BubbleEffect(_shim.Self, a0, a1, a2); }
-    public void FunnelEffect(float* a0, int a1, int a2) { _shim.Vt->FunnelEffect(_shim.Self, a0, a1, a2); }
-    public void SplashEffect(float* a0, float a1, int a2) { _shim.Vt->SplashEffect(_shim.Self, a0, a1, a2); }
     public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Vt->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int PaintDecal(int a0, float* a1, float* a2, float a3, int a4, int a5) { return _shim.Vt->PaintDecal(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) { return _shim.Vt->TempEntBuild(_shim.Self, a0, a1, a2); }

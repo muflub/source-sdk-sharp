@@ -347,71 +347,43 @@ TEST( ServerWave1, TheSoundscapeRegistryLeftForCSharp )
 }
 
 //-----------------------------------------------------------------------------
-// areaportal: the bodies moved, the declaration did not, and there is exactly
-// one definition of the list.
-//-----------------------------------------------------------------------------
-TEST( ServerWave1, TheAreaPortalListIsDefinedExactlyOnceAndInTheShell )
-{
-	const std::string ap = Tight( "sourcesharp/game/server/shell_areaportal.cpp",
-	                              "SourceSharp_AreaPortalCreate" );
-	ASSERT_FALSE( ap.empty() );
-
-	EXPECT_NE( ap.find( "std::list<CAreaPortal*>g_AreaPortals;" ),
-	           std::string::npos )
-		<< "g_AreaPortals is not defined in shell_areaportal.cpp. "
-		<< "ClientSetupVisibility walks it every frame for every client; with "
-		<< "no definition the link fails, and with two it fails differently.";
-
-	// The join and the leave are the record's constructor and destructor, and
-	// they are in the header with the rest of the engine-free half --
-	// areaportal_list_test.cpp drives them for real. Named here because "the
-	// list is defined once" and "something is in it" are two facts and this
-	// test is about the pair.
-	const std::string list = Tight( "sourcesharp/game/server/areaportal_list.h",
-	                                "class CAreaPortal" );
-	ASSERT_FALSE( list.empty() );
-
-	EXPECT_NE( list.find( "m_itList=g_AreaPortals.insert(g_AreaPortals.end(),this);" ), std::string::npos )
-		<< "nothing puts a portal IN g_AreaPortals. Without that a portal is "
-		<< "never walked, never gets its bit set, and the room beyond it stops "
-		<< "drawing.";
-
-	EXPECT_NE( list.find( "g_AreaPortals.erase(m_itList);" ), std::string::npos )
-		<< "nothing takes a portal OUT of g_AreaPortals. A freed record left in "
-		<< "the list is walked every frame for every client.";
-
-	EXPECT_NE( ap.find( "AREAPORTAL_VIEWER_PADDING" ), std::string::npos )
-		<< "the viewer padding is gone from the backface test. Without it a "
-		<< "portal snaps shut the instant the viewer crosses its plane.";
-}
-
-//-----------------------------------------------------------------------------
-// ...and the SDK class the bodies used to belong to has no instances left.
+// areaportal: the records are managed (plan_server_native_v2 T4d), and the SDK
+// class the bodies used to belong to has no instances left.
 //
-// A separate fact from the one above on purpose: "the list is ours" and "the
-// old class is unused" are two things, and a single test asserting both would
-// go green on either being true if the other were quietly restored.
+// Until T4d this was two facts over shell_areaportal.cpp and areaportal_list.h
+// (the list defined once, joined and left by the record, the viewer padding in
+// the backface test). Those files are gone; AreaPortalsTests holds the joins,
+// the padding and the walk. What stays here is the server's side of it: the
+// shim TU is not compiled, the visibility pass reaches the records through the
+// managed walk and names no SDK areaportal header, and the stock files are out.
 //-----------------------------------------------------------------------------
 TEST( ServerWave1, NothingDerivesFromTheSdkAreaPortalClassAnyMore )
 {
-	const std::string ap = Tight( "sourcesharp/game/server/shell_areaportal.cpp",
-	                              "SourceSharp_AreaPortalCreate" );
-	ASSERT_FALSE( ap.empty() );
+	const char *pszRoot = SrcRoot();
+	ASSERT_TRUE( pszRoot != NULL );
 
-	EXPECT_EQ( ap.find( "CFuncAreaPortalBase" ), std::string::npos )
-		<< "shell_areaportal.cpp names CFuncAreaPortalBase again. The record is "
-		<< "an SDK entity once more, with the network property, collision "
-		<< "property, datadesc, think list, touch links and save/restore a "
-		<< "portal does not use.";
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer,
+		"sourcesharp/game/server/shell_areaportal.cpp" ) )
+		<< "the native area portal record is compiled again";
 
+	// The walk's caller: the walk itself is the managed AreaPortals', asked once
+	// per client per frame from here.
 	const std::string walk = Tight( "sourcesharp/game/server/shell_gameclients.cpp",
-	                                "for(CAreaPortal*pCur:g_AreaPortals)" );
+	                                "SourceSharp_AreaPortalVisibility(" );
 	ASSERT_FALSE( walk.empty() );
 
 	EXPECT_EQ( walk.find( "func_areaportalbase.h" ), std::string::npos );
 	EXPECT_EQ( walk.find( "func_areaportalwindow.h" ), std::string::npos )
 		<< "the visibility walk includes an SDK areaportal header again. It "
-		<< "reaches the list through areaportal_list.h now.";
+		<< "reaches the records through the managed walk now.";
+
+	// The retention half: the records and the walk exist, in C#.
+	const std::string records = ReadRaw( std::string( pszRoot )
+		+ "/sourcesharp/managed/SourceSharp.Server/AreaPortals.cs" );
+	ASSERT_FALSE( records.empty() );
+	EXPECT_NE( records.find( "public int Visibility(Vector origin, float fovDistanceAdjustFactor, Span<byte> portalBits)" ),
+	           std::string::npos )
+		<< "AreaPortals no longer makes the per-client walk";
 
 	// The stock files are still on disk and still out of the build. Asserted
 	// because "nothing includes them" is only half of "they are not compiled",

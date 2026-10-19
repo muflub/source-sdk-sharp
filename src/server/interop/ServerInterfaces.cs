@@ -811,6 +811,14 @@ public interface IServerClients
     /// because the caller asserts before writing it.
     /// </param>
     bool EarPositionForClient(int clientEdictIndex, out Vector ears);
+
+    /// <summary>
+    /// ClientSetupVisibility's area portal walk for one client (plan_server_native_v2
+    /// T4d): every portal's server answer to the engine, the client's portal bits
+    /// into <paramref name="portalBits"/>. -1, or a portal number too large for the
+    /// bits, which the caller raises as an Error.
+    /// </summary>
+    int AreaPortalVisibility(Vector origin, float fovDistanceAdjustFactor, Span<byte> portalBits);
 }
 
 /// <summary>

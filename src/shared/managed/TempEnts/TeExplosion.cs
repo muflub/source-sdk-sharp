@@ -31,10 +31,11 @@ namespace SourceSharp.Shared;
 /// </para>
 ///
 /// <para>
-/// <b>THE ONLY LIVE NATIVE CALLER IN THIS LANE</b> is
-/// <c>shell_worldquery.cpp:782</c> — <c>SourceSharp_ExplosionEffect</c>, which
-/// <c>IEngineEffects.ExplosionEffect</c> reaches, and which is how every
-/// managed explosion in this build happens. <c>explode.cpp</c> and the
+/// <b>THE ONLY LIVE CALLER</b> is the server's
+/// <c>EffectsOverTempEnts.ExplosionEffect</c> (the native
+/// <c>SourceSharp_ExplosionEffect</c> it replaced went in plan_server_native_v2
+/// T4d), which is how every managed explosion in this build happens.
+/// <c>explode.cpp</c> and the
 /// <c>hl2/grenade_*.cpp</c> set also call <c>te-&gt;Explosion</c> and are all
 /// excluded from this build (<c>server_csharp.vpc:1394</c> and the weapon
 /// evictions), so the shell is the whole of it — and it is not a path that may

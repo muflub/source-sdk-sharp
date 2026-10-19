@@ -46,7 +46,6 @@ public static class NativeCommands
     public static readonly ImmutableArray<ConCommandAttribute> Debug =
     [
         // shell_areaportal_debug.cpp
-        new("cs_sv_areaportals") { Help = "SourceSharp: print the area-portal list the per-client visibility pass walks" },
         // shell_debugoverlays_debug.cpp
         new("clear_debug_overlays") { Help = "clears debug overlays" },
         // shell_engineboundary_debug.cpp

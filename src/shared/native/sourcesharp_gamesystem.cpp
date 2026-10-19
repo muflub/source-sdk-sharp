@@ -1498,6 +1498,21 @@ int SourceSharp_EarPositionForClient( int iClientEdict, float *pOutXYZ )
 	return nFound ? 1 : 0;
 }
 
+//-----------------------------------------------------------------------------
+// ClientSetupVisibility's area portal walk (plan_server_native_v2 T4d): the
+// records are managed, so the walk is. Once per client per frame, one crossing;
+// see shell_server.h.
+//-----------------------------------------------------------------------------
+int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor,
+                                      unsigned char *pPortalBits, int nPortalBytes )
+{
+	if ( !g_bSourceSharpLoaded || !ManagedClients() )
+		return -1;
+
+	return ManagedClients()->ServerAreaPortalVisibility( pOriginXYZ, flFovDistanceAdjustFactor,
+	                                                     pPortalBits, nPortalBytes );
+}
+
 void SourceSharp_ManagedLevelShutdown( void )
 {
 	// E18: the managed-built IManagedFrame.

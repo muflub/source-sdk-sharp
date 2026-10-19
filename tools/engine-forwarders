@@ -247,6 +247,12 @@ FORWARD = [
             # plan_server_native_v2 T4b: the managed temp entity send, over the
             # managed recipient filter and a table native built from its plan.
             'PlaybackTempEntity',
+            # plan_server_native_v2 T4d: a map decal's precache (DecalPrecache),
+            # where IShimPrecache::PrecacheDecal ran UTIL_PrecacheDecal.
+            'PrecacheDecal', 'IsDecalPrecached',
+            # plan_server_native_v2 T4d: the area portal records (AreaPortals)
+            # and the per-client walk ClientSetupVisibility asks managed for.
+            'SetAreaPortalState', 'GetAreaPortalPlane', 'SetAreaPortalStates',
         ],
     ),
     dict(

@@ -315,7 +315,10 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-19, 281 -> 278 (plan_server_native_v2 T4a, the precache path): sound_emitter.cpp left the server
 #   link, and with it g_SoundEmitterSystem, g_bPermitDirectSoundPrecache and PrecacheScriptSound's
 #   s_PrecacheScriptSoundFailures (SoundEmitterSystem's fields now). `make globals-census` -> link_level 278.
-globals_link_level	src/sourcesharp/game/server	278
+# LOWERED 2026-10-19, 278 -> 273 (plan_server_native_v2 T4d): shell_areaportal.cpp left the server (g_AreaPortals,
+#   g_AreaPortalsById, NextAreaPortalToken's s_nLast; shell_areaportal_debug.cpp's command node), and world_adapter.cpp's
+#   g_DefaultLightstyles went with the default light styles. `make globals-ledger` -> 273 rows.
+globals_link_level	src/sourcesharp/game/server	273
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the

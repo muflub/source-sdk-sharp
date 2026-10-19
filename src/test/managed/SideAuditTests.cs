@@ -677,8 +677,9 @@ public class SideAuditTests
         int serverOnly = sides.Count(kv => kv.Value == SlotSide.Server);
         // A floor for the reader: 200 -> 150 when plan_server_native_v2 T2
         // deleted the dead server slots (197 left); 150 -> 140 when T4a retired
-        // IShimSound (146 left).
-        Assert.True(serverOnly >= 140, $"the server's areas and the fill found the server-only bulk ({serverOnly} found)");
+        // IShimSound (146 left); 140 -> 110 when T4d began retiring the entity
+        // API and world slots (139 left at its first step).
+        Assert.True(serverOnly >= 110, $"the server's areas and the fill found the server-only bulk ({serverOnly} found)");
 
         // Both and Dual are one expectation since C6c: the server's half of a
         // two-sided slot is an area method, not a fill arm beside the client's,

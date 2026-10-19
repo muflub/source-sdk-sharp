@@ -123,6 +123,18 @@ public enum LifecycleStage
     /// <summary>Soundscape identity tokens, which restart with the map.</summary>
     Soundscapes = 700,
 
+    /// <summary>
+    /// The area portal records (plan_server_native_v2 T4d), whose portal numbers
+    /// are the map's: a new map's func_areaportals create their own.
+    /// </summary>
+    AreaPortals = 750,
+
+    /// <summary>
+    /// The level's default light styles (plan_server_native_v2 T4d), written at
+    /// level init before any map entity spawns, as CWorld::Precache wrote them.
+    /// </summary>
+    DefaultLightStyles = 760,
+
     // ---- plan_gamedll_after.md Phase A3 -------------------------------------
     //
     // The two "C" game systems that became managed. Both are PRE-ENTITY

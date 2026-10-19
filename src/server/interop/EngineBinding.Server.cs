@@ -58,9 +58,11 @@ internal sealed partial class EngineEffects
     // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
     public void DustEffect(Vector origin, Vector direction, float size, float speed) { }
 
-    public void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity) => E.ImpactEffect(start, end, surfaceProp, damageType, entity);
+    // No engine answer since plan_server_native_v2 T4d: the server answers this from managed temp entities (EffectsOverTempEnts).
+    public void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity) { }
 
-    public void FunnelEffect(Vector origin, int spriteIndex, bool reversed) => E.FunnelEffect(origin, spriteIndex, reversed);
+    // No engine answer since plan_server_native_v2 T4d: the server answers this from managed temp entities (EffectsOverTempEnts).
+    public void FunnelEffect(Vector origin, int spriteIndex, bool reversed) { }
 
     // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
     public void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1) { }
@@ -70,11 +72,14 @@ internal sealed partial class EngineEffects
     // No engine answer since plan_server_native_v2 T2: the server answers this from managed temp entities (EffectsOverTempEnts, Part 8), which never fell through to the slot.
     public void SparkEffect(Vector origin, int magnitude, int trailLength, bool makeSound = true, Vector? direction = null) { }
 
-    public void ExplosionEffect(Vector origin, int modelIndex, float scale, int frameRate, int flags, int radius, int magnitude) => E.ExplosionEffect(origin, modelIndex, scale, frameRate, flags, radius, magnitude);
+    // No engine answer since plan_server_native_v2 T4d: the server answers this from managed temp entities (EffectsOverTempEnts).
+    public void ExplosionEffect(Vector origin, int modelIndex, float scale, int frameRate, int flags, int radius, int magnitude) { }
 
-    public void SplashEffect(Vector origin, float scale, bool inSlime = false) => E.SplashEffect(origin, scale, inSlime);
+    // No engine answer since plan_server_native_v2 T4d: the server answers this from managed temp entities (EffectsOverTempEnts).
+    public void SplashEffect(Vector origin, float scale, bool inSlime = false) { }
 
-    public void TracerEffect(Vector start, Vector end) => E.TracerEffect(start, end);
+    // No engine answer since plan_server_native_v2 T4d: the server answers this from managed temp entities (EffectsOverTempEnts).
+    public void TracerEffect(Vector start, Vector end) { }
 
 
     // The client's members, as a server engine answers them: what each one's
@@ -505,13 +510,9 @@ internal sealed partial class EngineSound
 
 internal sealed partial class EngineVisibility
 {
-    public uint AreaPortalCreate(int portalNumber, int portalVersion) => E.AreaPortalCreate(portalNumber, portalVersion);
 
-    public void AreaPortalDestroy(uint portal) => E.AreaPortalDestroy(portal);
 
-    public void AreaPortalSetOpen(uint portal, bool open) => E.AreaPortalSetOpen(portal, open);
 
-    public void AreaPortalSetWindow(uint portal, EntityHandle entity, float fadeDistance) => E.AreaPortalSetWindow(portal, entity, fadeDistance);
 
     public void ClearSkyboxParams() => E.ClearSkyboxParams();
 
@@ -561,7 +562,6 @@ internal sealed partial class EngineWorldQuery
 
     public WaterBelow WaterSurfaceBelow(Vector start) => E.WaterSurfaceBelow(start);
 
-    public string WorldChapterTitle() => E.WorldChapterTitle();
 
     public int EntityModelSurfaceProp(EntityHandle entity) => E.EntityModelSurfaceProp(entity);
 

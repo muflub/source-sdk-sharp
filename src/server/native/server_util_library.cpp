@@ -63,9 +63,6 @@
 // CServerSystem, the base CCheckClient derives from and the type its accessor
 // returns. util.cpp includes this first for the same reason.
 #include "shell_serversystem.h"
-// EntityPrecache_IsAllowed(), which UTIL_PrecacheDecal asks before warning.
-// Header-inline (4e moved it here from baseentity_shared.cpp), so no edge.
-#include "entity_shared_statics.h"
 #include "bspfile.h"
 #include "mathlib/mathlib.h"
 #include "vstdlib/random.h"
@@ -92,28 +89,6 @@ extern CGlobalVars *gpGlobals;   // shell_engineboundary.cpp
 //------------------------------------------------------------------------------
 #ifdef	DEBUG
 #endif	// DEBUG
-
-//------------------------------------------------------------------------------
-// UTIL_PrecacheDecal
-//------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-int UTIL_PrecacheDecal( const char *name, bool preload )
-{
-	// If this is out of order, make sure to warn.
-	if ( !EntityPrecache_IsAllowed() )
-	{
-		if ( !engine->IsDecalPrecached( name ) )
-		{
-			Assert( !"UTIL_PrecacheDecal:  too late" );
-
-			Warning( "Late precache of %s\n", name );
-		}
-	}
-
-	return engine->PrecacheDecal( name, preload );
-}
 
 //------------------------------------------------------------------------------
 // g_NullSurface

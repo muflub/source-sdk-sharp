@@ -965,6 +965,8 @@ public enum CrossingOp
     ClientSaveWriteFields = 392,
     /// <summary>IManagedSaveRestoreClient::SaveReadFields: one DECALLIST or MUSICLIST struct read back, one per decal and song per load (the client save codec). CLIENT ONLY.</summary>
     ClientSaveReadFields = 393,
+    /// <summary>IManagedClients::ServerAreaPortalVisibility: ClientSetupVisibility's area portal walk, once per client per frame, over the managed AreaPortals (plan_server_native_v2 T4d).</summary>
+    ServerAreaPortalVisibility = 394,
 }
 
 /// <summary>

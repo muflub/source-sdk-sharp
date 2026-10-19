@@ -1211,7 +1211,6 @@ src/sourcesharp/test/animating_parallel_arm_test.cpp	no	checks shim entry points
 src/sourcesharp/test/animation_policy_test.cpp	no	checks shim leaves duration/hitbox decisions to managed side; no algorithm
 src/sourcesharp/test/anim_cluster_ledger_test.cpp	no	ledger source-scan of registrations still wired; no logic embedded
 src/sourcesharp/test/anim_event_names_test.cpp	no	checks own 5-row table agrees with C# table; own data not Valve algorithm
-src/sourcesharp/test/areaportal_list_test.cpp	no	drives real production areaportal_list.h; test itself has no embedded logic
 src/sourcesharp/test/armed_arm_swallowed_test.cpp	no	source scan for a guard-shape bug; no algorithm reproduced
 src/sourcesharp/test/assert_stack_test.cpp	no	tests own dedup/format arithmetic header; not a Valve port
 src/sourcesharp/test/baseentity_lift_test.cpp	no	source scanner over stock file text for lifted defs; no embedded logic

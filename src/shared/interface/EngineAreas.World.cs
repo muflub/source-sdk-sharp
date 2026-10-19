@@ -106,9 +106,6 @@ public interface IEngineWorldQuery
     /// <inheritdoc cref="EngineSide.WaterSurfaceBelow"/>
     WaterBelow WaterSurfaceBelow(Vector start);
 
-    /// <inheritdoc cref="EngineSide.WorldChapterTitle"/>
-    string WorldChapterTitle();
-
     /// <inheritdoc cref="EngineSide.EntityModelSurfaceProp"/>
     int EntityModelSurfaceProp(EntityHandle entity);
 
@@ -399,10 +396,25 @@ public interface IEngineEffects
 
 
 
-    /// <inheritdoc cref="EngineSide.ImpactEffect"/>
+    /// <summary>
+    /// The engine's own bullet impact at a point: the decal, the particles and
+    /// the sound, all of which it picks from the surfaceprop it is handed.
+    ///
+    /// <para>
+    /// <paramref name="surfaceProp"/> is passed in rather than traced for,
+    /// which is the whole point of the call: a caller that knows what the
+    /// thing it hit is really made of can say so. Negative means "whatever the
+    /// struck face says", which is what every caller with nothing better to
+    /// offer passes — see <see cref="EntityModelSurfaceProp"/>.
+    /// </para>
+    /// </summary>
     void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity);
 
-    /// <inheritdoc cref="EngineSide.FunnelEffect"/>
+    /// <summary>
+    /// The funnel of sprites that converges on a point, or flies out of one.
+    /// </summary>
+    /// <param name="spriteIndex">A precached sprite, as its model index.</param>
+    /// <param name="reversed">Outward rather than inward.</param>
     void FunnelEffect(Vector origin, int spriteIndex, bool reversed);
 
     /// <summary>
@@ -440,17 +452,31 @@ public interface IEngineEffects
     /// </param>
     void SparkEffect(Vector origin, int magnitude, int trailLength, bool makeSound = true, Vector? direction = null);
 
-    /// <inheritdoc cref="EngineSide.ExplosionEffect"/>
+    /// <summary>
+    /// The explosion temp entity: fireball, sound, particles, dynamic lights.
+    ///
+    /// <para>
+    /// Presentation ONLY — this hurts nobody. <see cref="ExplosionDamage"/> is
+    /// the other half, and env_explosion fires both because its spawnflags can
+    /// suppress either one independently.
+    /// </para>
+    ///
+    /// <para>
+    /// <paramref name="flags"/> is the TE_EXPLFLAG_* set, NOT the entity's
+    /// spawnflags. The recipient set is a PVS query made native-side from the
+    /// origin: an explosion written to an empty filter is silently invisible.
+    /// </para>
+    /// </summary>
     void ExplosionEffect(Vector origin, int modelIndex, float scale, int frameRate,
                          int flags, int radius, int magnitude);
 
-    /// <inheritdoc cref="EngineSide.SplashEffect"/>
+    /// <summary>A splash of water at a point. Slime is the green one.</summary>
     void SplashEffect(Vector origin, float scale, bool inSlime = false);
 
 
 
 
-    /// <inheritdoc cref="EngineSide.TracerEffect"/>
+    /// <summary>One bullet streak, drawn between two points.</summary>
     void TracerEffect(Vector start, Vector end);
 
 
@@ -471,18 +497,6 @@ public interface IEngineVisibility
 {
     /// <inheritdoc cref="EngineSide.ActivateOccluder"/>
     void ActivateOccluder(int occluderIndex, bool active);
-
-    /// <inheritdoc cref="EngineSide.AreaPortalCreate"/>
-    uint AreaPortalCreate(int portalNumber, int portalVersion);
-
-    /// <inheritdoc cref="EngineSide.AreaPortalDestroy"/>
-    void AreaPortalDestroy(uint portal);
-
-    /// <inheritdoc cref="EngineSide.AreaPortalSetOpen"/>
-    void AreaPortalSetOpen(uint portal, bool open);
-
-    /// <inheritdoc cref="EngineSide.AreaPortalSetWindow"/>
-    void AreaPortalSetWindow(uint portal, EntityHandle entity, float fadeDistance);
 
     /// <inheritdoc cref="EngineSide.ClearSkyboxParams"/>
     void ClearSkyboxParams();

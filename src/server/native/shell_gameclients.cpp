@@ -63,7 +63,6 @@
 // plan_entity.md step 4g: the area-portal list is no longer typed to an
 // entity, so this walk no longer reaches an SDK header for it. The record
 // and the list are the shim's own.
-#include "areaportal_list.h"
 #include "ivoiceserver.h"
 #include "vstdlib/random.h"
 // hltvdirector.h was included here and nothing in this file named anything from
@@ -720,47 +719,19 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 		// (plan_server_native_min P1): the bitsets it wrote had no reader.
 	}
 
+	// THE AREA PORTALS ARE MANAGED (plan_server_native_v2 T4d): the records are
+	// the AreaPortals service's, so the walk over them is too -- every portal's
+	// server answer to the engine, in creation order and 512 at a time, and the
+	// client's bits here. A portal number too large for the bits is the Error
+	// the native walk raised; managed names it and native raises it.
 	unsigned char portalBits[MAX_AREA_PORTAL_STATE_BYTES];
 	memset( portalBits, 0, sizeof( portalBits ) );
-	
-	int portalNums[512];
-	int isOpen[512];
-	int iOutPortal = 0;
 
-	for ( CAreaPortal *pCur : g_AreaPortals )
-	{
-
-		bool bIsOpenOnClient = true;
-		
-		// Update our array of which portals are open and flush it if necessary.		
-		portalNums[iOutPortal] = pCur->m_portalNumber;
-		isOpen[iOutPortal] = pCur->UpdateVisibility( org, fovDistanceAdjustFactor, bIsOpenOnClient );
-
-		++iOutPortal;
-		if ( iOutPortal >= ARRAYSIZE( portalNums ) )
-		{
-			engine->SetAreaPortalStates( portalNums, isOpen, iOutPortal );
-			iOutPortal = 0;
-		}
-
-		// Version 0 portals (ie: shipping Half-Life 2 era) are always treated as open
-		// for purposes of the m_chAreaPortalBits array on the client.
-		if ( pCur->m_iPortalVersion == 0 )
-			bIsOpenOnClient = true;
-
-		if ( bIsOpenOnClient )
-		{
-			if ( pCur->m_portalNumber < 0 )
-				continue;
-			else if ( pCur->m_portalNumber >= sizeof( portalBits ) * 8 )
-				Error( "ClientSetupVisibility: portal number (%d) too large", pCur->m_portalNumber );
-			else
-				portalBits[pCur->m_portalNumber >> 3] |= (1 << (pCur->m_portalNumber & 7));
-		}	
-	}
-
-	// Flush the remaining areaportal states.
-	engine->SetAreaPortalStates( portalNums, isOpen, iOutPortal );
+	const float flOrg[ 3 ] = { org.x, org.y, org.z };
+	const int nTooLarge = SourceSharp_AreaPortalVisibility( flOrg, fovDistanceAdjustFactor,
+	                                                        portalBits, sizeof( portalBits ) );
+	if ( nTooLarge >= 0 )
+		Error( "ClientSetupVisibility: portal number (%d) too large", nTooLarge );
 
 	// The standalone half of the same update: which areas this client may
 	// see, recomputed from its own eyes. Held on its CPlayerLocalData —

@@ -25,54 +25,44 @@ namespace SourceSharp.Tests;
 public class TeForwardDispatchTests
 {
     /// <summary>
-    /// <c>TE_Explosion( filter, delay, pos, modelindex, scale, framerate, flags,
-    /// radius, magnitude, normal, materialType )</c>, with every number
-    /// different so a transposition cannot pass.
+    /// <c>TE_Bubbles( filter, delay, mins, maxs, height, modelindex, count,
+    /// speed )</c>, with every number different so a transposition cannot pass.
     ///
     /// <para>
-    /// IT WAS TE_DynamicLight UNTIL plan_shim.md PHASE 1f. That id went with
-    /// the client forwarder that was its only sender, so the subject moved to
-    /// one that survives and has the same shapes this fact was written to
-    /// catch: a Vector at the head of the floats, a second Vector further in
-    /// (so a float index off by one is visible), a float read between two ints,
-    /// and one int narrowed on the way into the field.
+    /// IT WAS TE_Explosion UNTIL plan_server_native_v2 T4d, and TE_DynamicLight
+    /// before plan_shim.md phase 1f: each time the id went with its last native
+    /// sender, so the subject moved to one that survives. This one has the
+    /// shapes the fact was written to catch: a Vector at the head of the floats,
+    /// a second Vector straight after it (so a float index off by one is
+    /// visible), and floats and ints that interleave in the signature but not
+    /// in the arrays.
     /// </para>
     /// </summary>
     [Fact]
-    public void AnExplosionsArgumentsLandOnTheFieldsItsSignatureNames()
+    public void BubblesArgumentsLandOnTheFieldsItsSignatureNames()
     {
-        float[] f = [11f, 22f, 33f, /* scale */ 44f, /* normal */ 55f, 66f, 77f];
-        int[]   i = [/* modelindex */ 101, /* framerate */ 102, /* flags */ 103,
-                     /* materialType */ 'C', /* radius */ 104, /* magnitude */ 105];
+        float[] f = [11f, 22f, 33f, 44f, 55f, 66f, /* height */ 77f, /* speed */ 88f];
+        int[]   i = [/* modelindex */ 101, /* count */ 102];
 
-        var state = TeForwardDispatch.Build(TeForward.Explosion, f, i) as TeExplosion;
+        var state = TeForwardDispatch.Build(TeForward.Bubbles, f, i) as TeBubbles;
 
         Assert.True(state is not null,
-            "TeForward.Explosion builds a TeExplosion; a null here is a forward that "
+            "TeForward.Bubbles builds a TeBubbles; a null here is a forward that "
           + "reached C# and produced nothing");
 
-        Assert.True(state!.Origin.X == 11f && state.Origin.Y == 22f && state.Origin.Z == 33f,
-            $"the first three floats are the origin, in order; it came out {state.Origin}");
+        Assert.True(state!.Mins.X == 11f && state.Mins.Y == 22f && state.Mins.Z == 33f,
+            $"the first three floats are the mins, in order; they came out {state.Mins}");
 
-        Assert.True(state.Scale == 44f, $"then scale, not {state.Scale}");
+        Assert.True(state.Maxs.X == 44f && state.Maxs.Y == 55f && state.Maxs.Z == 66f,
+            $"then the maxs, which is the read that a float index off by one moves; it "
+          + $"came out {state.Maxs}");
 
-        Assert.True(state.Normal.X == 55f && state.Normal.Y == 66f && state.Normal.Z == 77f,
-            $"then the normal, which is the read that a float index off by one moves; it "
-          + $"came out {state.Normal}");
+        Assert.True(state.Height == 77f && state.Speed == 88f,
+            $"then height and speed, the two floats the ints sit between in the "
+          + $"signature; they came out [{state.Height}, {state.Speed}]");
 
-        Assert.True(state.ModelIndex == 101 && state.FrameRate == 102 && state.Flags == 103,
-            $"the ints open modelindex, framerate, flags; they came out "
-          + $"[{state.ModelIndex}, {state.FrameRate}, {state.Flags}]");
-
-        // NARROWED ON THE WAY IN, and that is the declaration's width rather
-        // than anything this arm remembered: materialType is one byte on the
-        // wire and 'C' is ITempEntsSystem::Explosion's own declared default.
-        Assert.True(state.MaterialType == (byte)'C',
-            $"materialType survives the narrowing to one byte: 'C' came back as "
-          + $"{state.MaterialType}");
-
-        Assert.True(state.Radius == 104 && state.Magnitude == 105,
-            $"and radius then magnitude LAST, not [{state.Radius}, {state.Magnitude}]");
+        Assert.True(state.ModelIndex == 101 && state.Count == 102,
+            $"the ints are modelindex then count, not [{state.ModelIndex}, {state.Count}]");
     }
 
     /// <summary>
@@ -97,12 +87,12 @@ public class TeForwardDispatchTests
     [Fact]
     public void TooFewArgumentsAreRefusedRatherThanReadPastTheEnd()
     {
-        Assert.True(TeForwardDispatch.Build(TeForward.Explosion, [1f, 2f], [1, 2, 3, 4, 5, 6]) is null,
-            "two floats where seven are wanted builds nothing");
+        Assert.True(TeForwardDispatch.Build(TeForward.Bubbles, [1f, 2f], [1, 2]) is null,
+            "two floats where eight are wanted builds nothing");
 
-        Assert.True(TeForwardDispatch.Build(TeForward.Explosion,
-                                            [1f, 2f, 3f, 4f, 5f, 6f, 7f], [1]) is null,
-            "and one int where six are wanted");
+        Assert.True(TeForwardDispatch.Build(TeForward.Bubbles,
+                                            [1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f], [1]) is null,
+            "and one int where two are wanted");
     }
 
     /// <summary>
@@ -113,11 +103,11 @@ public class TeForwardDispatchTests
     [Fact]
     public void TheStateResolvesToTheWireClassTheForwardMeant()
     {
-        var state = TeForwardDispatch.Build(TeForward.Explosion,
-                                            [0f, 0f, 0f, 1f, 1f, 1f, 1f], [1, 1, 1, 1, 1, 1])!;
+        var state = TeForwardDispatch.Build(TeForward.Bubbles,
+                                            [0f, 0f, 0f, 1f, 1f, 1f, 1f, 1f], [1, 1])!;
 
-        Assert.True(TempEntityAttribute.ClassNameOf(state.GetType()) == "CTEExplosion",
-            "TE_Explosion forwards CTEExplosion, which is the name both sides pair on and "
+        Assert.True(TempEntityAttribute.ClassNameOf(state.GetType()) == "CTEBubbles",
+            "TE_Bubbles forwards CTEBubbles, which is the name both sides pair on and "
           + "the one ClientTempEnts.PlayLocally looks the player up by");
     }
 }

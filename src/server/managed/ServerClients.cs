@@ -47,11 +47,19 @@ public sealed class ServerClients : IServerClients
     /// </summary>
     private readonly IEntityDirectory? _entities;
 
-    public ServerClients(IEnginePlayers players, IEntityDirectory? entities = null)
+    /// <summary>The area portal records the visibility walk is over (plan_server_native_v2 T4d).</summary>
+    private readonly AreaPortals? _portals;
+
+    public ServerClients(IEnginePlayers players, IEntityDirectory? entities = null, AreaPortals? portals = null)
     {
         _players = players;
         _entities = entities;
+        _portals = portals;
     }
+
+    /// <inheritdoc/>
+    public int AreaPortalVisibility(Vector origin, float fovDistanceAdjustFactor, Span<byte> portalBits)
+        => _portals?.Visibility(origin, fovDistanceAdjustFactor, portalBits) ?? -1;
 
     /// <summary>
     /// <b>The order, and it is the whole of this method.</b>

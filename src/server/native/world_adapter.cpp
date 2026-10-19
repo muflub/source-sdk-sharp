@@ -26,11 +26,12 @@
 // and change nothing the engine sees.
 //
 // Its KEYS are C#'s to read. Of the thirteen keys CWorld parses, exactly one
-// drives a game decision rather than engine plumbing -- chaptertitle, read at
-// level init through SourceSharp_WorldChapterTitle (shell_worldquery.cpp) and
-// decided in ChapterTitle.cs. The rest are engine surface: skyname sets a
-// convar, newunit talks to the save system, world_mins/maxs and the occlusion
-// and detail-sprite parameters ride DT_WORLD to the client renderer.
+// drives a game decision rather than engine plumbing -- chaptertitle, held
+// by ServerGameDll.WorldKeyValue and decided in ChapterTitle.cs. The rest are
+// engine surface: skyname sets a convar (managed sets it, since
+// plan_server_native_v2 T4d), newunit talks to the save system, world_mins/maxs
+// and the occlusion and detail-sprite parameters ride DT_WORLD to the client
+// renderer. Every key is offered to C#; none is parsed here.
 //
 // What CWorld::Precache does is ENGINE BOOTSTRAP, not game logic: game rules
 // installation, the sound entity, the body queue, sentence and particle
@@ -283,18 +284,18 @@ CWorldFactory g_WorldFactory;
 //          PARSING as well as the storage: world_mins is three floats because
 //          C# says so, not because an sscanf here says so.
 //
-//   chaptertitle -- SPECIAL-CASED HERE, because it is reachable and measured
-//          so: SourceSharp_WorldChapterTitle (shell_worldquery.cpp:2474) is the
-//          one compiled reader of GetChapterTitle(), and it hands the key to
-//          ChapterTitle.cs, which announces it per player on first spawn (see
-//          docs/divergences.md, "The chapter title shows on first spawn"). It
-//          is NOT networked and never was, so it does not belong in
-//          WorldNetState; it is stored the way the keyfield stored it,
-//          AllocPooledString and all.
+//   chaptertitle -- held by ServerGameDll.WorldKeyValue since
+//          plan_server_native_v2 T4d, for ChapterTitle.cs, which announces it
+//          per player on first spawn (see docs/divergences.md, "The chapter
+//          title shows on first spawn"). It is NOT networked and never was, so
+//          it does not belong in WorldNetState. skyname and newunit went to the
+//          same seam in the same step: every key reaches C#, none is parsed here.
 //
 //   gametitle -- NOT PARSED AT ALL ANY MORE, and this is the one thing this
-//          edit loses. See CWorld::KeyValue for the measurement and
-//          docs/divergences.md for the entry.
+//          edit loses: the member it filled had no reader in this build
+//          (GetDisplayTitle() had zero callers; stock's was CBasePlayer's
+//          first-spawn title path, player.cpp:7003-7008, not in this build).
+//          docs/divergences.md has the entry.
 //
 // THE _X360 ARM WENT WITH THE BLOCK. It spelt the occlusion pair
 // "maxoccludeearea_x360" / "minoccluderarea_x360" and this build has no X360 arm
@@ -461,79 +462,11 @@ bool CWorld::ResolveFields()
 //
 bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 {
-	if ( ss::FStrEq(szKeyName, "skyname") )
-	{
-		// Sent over net now.
-		ConVarRef skyname( "sv_skyname" );
-		skyname.SetValue( szValue );
-		return true;
-	}
-
-	if ( ss::FStrEq(szKeyName, "newunit") )
-	{
-		// Single player only.  Clear save directory if set
-		if ( atoi(szValue) )
-		{
-			// Game_SetOneWayTransition stood here and went with
-			// shell_restoreentities.cpp (plan_server_native_min P1): the flag
-			// it set had no reader.
-		}
-		return true;
-	}
-
-	// chaptertitle, SPECIAL-CASED because it is reachable and is not networked.
-	//
-	// It was DEFINE_KEYFIELD( m_iszChapterTitle, FIELD_STRING, "chaptertitle" )
-	// and this is what that row did: FIELD_STRING's keyfield parse is
-	// AllocPooledString of the raw text, so the pooled handle is made here
-	// exactly as the datamap made it.
-	//
-	// It does NOT go to WorldNetState, and that is the line between the two
-	// halves of this method. That declaration is worldspawn's WIRE, and stock
-	// never sent this key -- C# reads it back through
-	// SourceSharp_WorldChapterTitle at level init and announces it per player.
-	// Putting it in the blob would put a 256-byte string on DT_WORLD that no
-	// client reads.
-	if ( ss::FStrEq(szKeyName, "chaptertitle") )
-	{
-		m_iszChapterTitle = AllocPooledString( szValue );
-		return true;
-	}
-
-	// gametitle IS NOT PARSED, AND THAT IS A LOSS RATHER THAN A TIDY-UP.
-	//
-	// It was DEFINE_KEYFIELD( m_bDisplayTitle, FIELD_BOOLEAN, "gametitle" ) and
-	// it is not special-cased here, because the member it filled has no reader
-	// in this build. Measured over the 143 .cpp server_csharp.vpc names:
-	// GetDisplayTitle() has ZERO callers. Its stock caller is CBasePlayer's
-	// first-spawn title path (player.cpp:7003-7008), and player.cpp is not in
-	// this build.
-	//
-	// WHAT IS LOST, said plainly: a map that sets `gametitle 1` used to have the
-	// fact stored on the world, and the day the player cluster comes back that
-	// path would have found it there. It will find nothing, and the first thing
-	// to notice will be a chapter title that does not show on a map that asked
-	// for one. The moment for that is C#'s now -- ChapterTitle.cs announces on
-	// first spawn, which is the moment gametitle names -- so the honest ending
-	// is that the KEY needs re-adding to WorldNetState or to this method the day
-	// something reads it, and not that a member sits here answering a constant
-	// false that reads like data.
-	//
-	// Recorded in docs/divergences.md rather than only here.
-
-	// EVERY NETWORKED KEY, HANDED TO THE SIDE THAT OWNS THE VALUE.
-	//
-	// Not a list of names here: the shim does not know which keys WorldNetState
-	// answers to, and a list on this side would be a second copy of the
-	// declaration -- the exact drift the [StandaloneNetState] design exists to
-	// delete. Every key the map gives worldspawn is offered, and C# says
-	// whether it took it. `sscanf( "%f %f %f" )` used to live on this side for
-	// world_mins and world_maxs; the parsing moved with the value.
-	//
-	// The two above are NOT offered, and that is a decision rather than an
-	// omission. "skyname" sets a ConVar the engine replicates on its own and
-	// "newunit" talks to the save system; neither is a value worldspawn holds,
-	// so neither is WorldNetState's to store.
+	// EVERY KEY, HANDED TO THE SIDE THAT OWNS ITS MEANING (plan_server_native_v2
+	// T4d). "skyname", "newunit" and "chaptertitle" were answered here; they are
+	// ServerGameDll.WorldKeyValue's now, beside WorldNet's networked keys. The
+	// shim does not know which keys C# answers to, and a list on this side
+	// would be a second copy of the declaration.
 	// E1: the managed-built runtime's slot, not a ManagedApi one.
 	IManagedRuntimeServer *pRuntime = ManagedRuntimeServer();
 
@@ -1078,47 +1011,6 @@ void CWorld::ReportNetState()
 	SourceSharpWorld_Report( "Server", DataBlob(), BlobBytes(), m_Fields );
 }
 
-static const char *g_DefaultLightstyles[] =
-{
-	// 0 normal
-	"m",
-	// 1 FLICKER (first variety)
-	"mmnmmommommnonmmonqnmmo",
-	// 2 SLOW STRONG PULSE
-	"abcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba",
-	// 3 CANDLE (first variety)
-	"mmmmmaaaaammmmmaaaaaabcdefgabcdefg",
-	// 4 FAST STROBE
-	"mamamamamama",
-	// 5 GENTLE PULSE 1
-	"jklmnopqrstuvwxyzyxwvutsrqponmlkj",
-	// 6 FLICKER (second variety)
-	"nmonqnmomnmomomno",
-	// 7 CANDLE (second variety)
-	"mmmaaaabcdefgmmmmaaaammmaamm",
-	// 8 CANDLE (third variety)
-	"mmmaaammmaaammmabcdefaaaammmmabcdefmmmaaaa",
-	// 9 SLOW STROBE (fourth variety)
-	"aaaaaaaazzzzzzzz",
-	// 10 FLUORESCENT FLICKER
-	"mmamammmmammamamaaamammma",
-	// 11 SLOW PULSE NOT FADE TO BLACK
-	"abcdefghijklmnopqrrqponmlkjihgfedcba",
-	// 12 UNDERWATER LIGHT MUTATION
-	// this light only distorts the lightmap - no contribution
-	// is made to the brightness of affected surfaces
-	"mmnnmmnnnmmnn",
-};
-
-
-const char *GetDefaultLightstyleString( int styleIndex )
-{
-	if ( styleIndex < ARRAYSIZE(g_DefaultLightstyles) )
-	{
-		return g_DefaultLightstyles[styleIndex];
-	}
-	return "m";
-}
 
 void CWorld::Precache( void )
 {
@@ -1239,18 +1131,10 @@ void CWorld::Precache( void )
 		pEmitter->ServerPrecacheScriptSound( "BaseEntity.ExitWater" );
 	}
 
-//
-// Setup light animation tables. 'a' is total darkness, 'z' is maxbright.
-//
-	for ( int i = 0; i < ARRAYSIZE(g_DefaultLightstyles); i++ )
-	{
-		engine->LightStyle( i, GetDefaultLightstyleString(i) );
-	}
-
-	// styles 32-62 are assigned by the light program for switchable lights
-
-	// 63 testing
-	engine->LightStyle(63, "a");
+	// THE DEFAULT LIGHT STYLES ARE MANAGED (plan_server_native_v2 T4d): stock's
+	// table and style 63 are written by DefaultLightStyles at
+	// LevelInitPreEntity, a few lines up in SourceSharp_LevelInitPreEntityAllSystems,
+	// still before any map entity spawns.
 
 	// STOCK LOADED THE AI NETWORKS AND SCHEDULES HERE (P5 lane E deleted the
 	// calls). This mod ports no Source AI, and shell_absent.cpp's bodies were
@@ -1272,10 +1156,9 @@ void CWorld::Precache( void )
 	// native env_message; env_message is managed, and even stock's own path
 	// showed nobody on a multiplayer server (CMessage::Use falls back to
 	// UTIL_GetLocalPlayer, NULL when maxClients > 1, and no SF_MESSAGE_ALL).
-	// C# reads the key through SourceSharp_WorldChapterTitle -- m_iszChapterTitle
-	// is NOT nulled, so it keeps its value for the level -- and announces it
-	// once per player on first spawn; see ChapterTitle.cs and
-	// docs/divergences.md.
+	// C# holds the key (ServerGameDll.WorldKeyValue, plan_server_native_v2
+	// T4d) for the level and announces it once per player on first spawn; see
+	// ChapterTitle.cs and docs/divergences.md.
 
 	g_iszFuncBrushClassname = AllocPooledString("func_brush");
 }

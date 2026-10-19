@@ -804,11 +804,13 @@ TEST( TempEntForwardersCollapsed, TheForwardIdTableCoversEveryIdTheTwoForwarders
 		   "renumbering is the thing that header warns about";
 
 	// The four the server gc cull reserved: ARMOR_RICOCHET, BEAM_POINTS,
-	// BUBBLE_TRAIL, ENERGY_SPLASH; and the three plan_server_native_v2 T4b
+	// BUBBLE_TRAIL, ENERGY_SPLASH; the three plan_server_native_v2 T4b
 	// reserved: DUST, METAL_SPARKS, MUZZLE_FLASH (their ss::IEffects callers had
-	// none). Moves only with a deliberate change.
-	EXPECT_EQ( nReserved, 7 )
-		<< "tempent_forwards.h marks seven ids RESERVED since plan_server_native_v2 T4b";
+	// none); and the two T4d reserved: EXPLOSION, LARGE_FUNNEL (their callers
+	// were slots EffectsOverTempEnts had replaced). Moves only with a
+	// deliberate change.
+	EXPECT_EQ( nReserved, 9 )
+		<< "tempent_forwards.h marks nine ids RESERVED since plan_server_native_v2 T4d";
 
 	std::string strList;
 	for ( size_t i = 0; i < unused.size(); i++ )

@@ -1070,6 +1070,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // C5). Same arrangement and same reason as the line above it: the only
         // caller is the shell's ClientEarPosition, and registering it by
         // contract keeps the thunk resolving a subject rather than a field.
+        // The area portal records (plan_server_native_v2 T4d), before the
+        // clients: ClientSetupVisibility's walk is IServerClients', over these.
+        // By the concrete type as well, which is how the lifecycle finds it.
+        var areaPortals = new AreaPortals(() => EngineServer.Acquire(_engine, out _) as IAreaPortalEngine);
+        _services.AddInstance(areaPortals);
+        _services.AddInstance<IAreaPortals>(areaPortals);
+
+        // The level's default light styles (plan_server_native_v2 T4d), which
+        // CWorld::Precache wrote: a lifecycle participant, found by its type.
+        _services.AddInstance(new DefaultLightStyles(_services.Require<IEngineVisibility>()));
+
         _serverClients = _services.Create<ServerClients>();
         _services.AddInstance<IServerClients>(_serverClients);
 
@@ -2241,10 +2252,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 + "rather than as an error here.\n");
         }
 
-        // worldspawn's one game-logic key, read from the native adapter. The
-        // world has existed since long before LevelInit — it is the FIRST
-        // thing the map spawns — so the key is already parsed by now.
-        _chapterTitle.LevelInit(_world.WorldChapterTitle());
+        // worldspawn's one game-logic key, held by the DLL's key seam since
+        // plan_server_native_v2 T4d. The world has existed since long before
+        // LevelInit — it is the FIRST thing the map spawns — so the key is
+        // already parsed by now.
+        _chapterTitle.LevelInit(_gameDll.ChapterTitle);
 
         // The map's decals, painted HERE and nowhere else.
         //

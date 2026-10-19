@@ -126,20 +126,6 @@ void TE_Decal( IRecipientFilter& filter, float delay,
 void TE_DispatchEffect( IRecipientFilter& filter, float delay,
 	const Vector &pos, const char *pName, const ss::CEffectData &data );
 
-
-// normal and materialType keep te.cpp's defaults: te_explosion.cpp:126 turns the
-// NULL normal into (0,0,1) — UP — rather than a zero-length one, and 'C' is
-// ITempEntsSystem::Explosion's own declared default.
-void TE_Explosion( IRecipientFilter& filter, float delay,
-	const Vector* pos, int modelindex, float scale, int framerate, int flags,
-	int radius, int magnitude, const Vector* normal = NULL,
-	unsigned char materialType = 'C' );
-
-void TE_LargeFunnel( IRecipientFilter& filter, float delay,
-	const Vector* pos, int modelindex, int reversed );
-
-
-
 void TE_Smoke( IRecipientFilter& filter, float delay,
 	const Vector* pos, int modelindex, float scale, int framerate );
 

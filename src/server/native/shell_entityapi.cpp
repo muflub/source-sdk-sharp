@@ -53,7 +53,6 @@
 
 #include <algorithm>
 #include <vector>
-#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 
 // shareddefs.h's DAMAGE_YES, by its ss_shareddefs.h name. A using-declaration
 // rather than ss:: at the use, because entity_shell_inert_slots_test reads a
@@ -517,26 +516,6 @@ void SourceSharp_EntitySetModel( uint32_t hEntity, const char *pModel )
 	// left to be wrong about, so the warning goes with the arm it describes.
 }
 
-void SourceSharp_EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY, float flSizeZ )
-{
-	// Standalone only. There is no touch function to name: the engine reports
-	// the overlap through MarkEntitiesAsTouching and the shell relays it, so
-	// being in the trigger list IS being a pickup. The CBaseEntity arm — solid
-	// flags plus a SetTouch on the netentity shell — served the pickups when
-	// they rode on that shell, and they no longer do; see SsPickup.
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	if ( ent.pStandalone )
-	{
-		ent.pStandalone->SetCollisionBounds( Vector( -flSizeX, -flSizeY, 0 ),
-		                                     Vector(  flSizeX,  flSizeY, flSizeZ ) );
-
-		ent.pStandalone->SetSolidity( SOLID_BBOX, FSOLID_TRIGGER | FSOLID_NOT_SOLID );
-		return;
-	}
-
-}
-
 //-----------------------------------------------------------------------------
 // Entity iteration, in Source's own idiom.
 //
@@ -675,24 +654,6 @@ int32_t SourceSharp_PlayerGetObserverMode( uint32_t hPlayer )
 }
 
 //-----------------------------------------------------------------------------
-// Putting a dead player back in the world.
-//
-// Through the engine's own respawn rather than by setting health and moving
-// them: the spawn point choice, the loadout hook and the spawn event all hang
-// off it, and doing it by hand would skip every one of them.
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerRespawn( uint32_t hPlayer )
-{
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
-	{
-		// Spawn IS the respawn on the hierarchy: the same spawn-point ask,
-		// the same managed OnSpawn resetting the game state.
-		pStandalone->SetObserver( false, SOURCESHARP_OBS_NONE );
-		pStandalone->Spawn();
-	}
-}
-
-//-----------------------------------------------------------------------------
 // Whether a player wades rather than walks.
 //
 // Stock sets this together with PFLAG_VPHYSICS_MOTIONCONTROLLER
@@ -718,64 +679,6 @@ void SourceSharp_PlayerSetSlowMovement( uint32_t hPlayer, int32_t bSlow )
 // the entity's object) is managed's since plan_physics_bones_native_zero (the
 // last thin forwards, 2026-10-12): EntityPhysicsMotion.BecomeTrigger, through
 // PhysicsObjectVtbl. Its slot left with it.
-
-void SourceSharp_GetPlayerShootOrigin( uint32_t hPlayer, float *pOutXYZ )
-{
-	if ( !pOutXYZ )
-		return;
-
-	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
-
-	// EyePosition is what the stock weapon code fires from — using the entity
-	// origin instead puts every shot at the player's feet.
-	if ( CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer ) )
-	{
-		const Vector vecEye = pStandalone->EyePosition();
-
-		pOutXYZ[0] = vecEye.x;
-		pOutXYZ[1] = vecEye.y;
-		pOutXYZ[2] = vecEye.z;
-		return;
-	}
-
-}
-
-uint32_t SourceSharp_TracePlayerAim( uint32_t hPlayer, float flRange, float *pOutHitXYZ )
-{
-	// The standalone player is the only player (13c). Its eyes and view angles
-	// live on its own state — EyePosition through the loop-maintained view
-	// offset, angles in the engine-facing CPlayerState.
-	CStandalonePlayer *pStandalone = SourceSharp_ResolveStandalonePlayer( hPlayer );
-	if ( !pStandalone )
-		return INVALID_EHANDLE_INDEX;
-
-	const Vector vecStart = pStandalone->EyePosition();
-
-	Vector vecForward;
-	AngleVectors( pStandalone->PlayerStatePtr()->v_angle, &vecForward );
-
-	const Vector vecEnd = vecStart + vecForward * flRange;
-
-	// MASK_SHOT and skipping the shooter, exactly as the stock weapon code
-	// traces — anything else would let a player shoot themselves, or let shots
-	// pass through cover that stops real bullets. A standalone entity is
-	// already an IHandleEntity, so the filter takes it directly.
-	trace_t tr;
-	ss::UTIL_TraceLine( vecStart, vecEnd, MASK_SHOT, pStandalone, COLLISION_GROUP_NONE, &tr );
-
-	if ( pOutHitXYZ )
-	{
-		pOutHitXYZ[0] = tr.endpos.x;
-		pOutHitXYZ[1] = tr.endpos.y;
-		pOutHitXYZ[2] = tr.endpos.z;
-	}
-
-	// The SUBJECT of this trace is a player and always will be. What it HIT is
-	// any entity at all, and reporting a managed brush as the world made
-	// `debug-api aim` -- the tool every other measurement here is checked with --
-	// name the wrong thing for half the entities in the mod.
-	return SourceSharp_HandleFromAnyEntity( ss::TraceHit( tr ) );
-}
 
 void SourceSharp_ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType )
 {
@@ -864,37 +767,6 @@ uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex )
 }
 
 //-----------------------------------------------------------------------------
-// Shows or hides a pickup without destroying it.
-//
-// A map item that respawns has to keep its entity: a mapper may have wired
-// outputs to it, and those connections were bound when the map loaded and cannot
-// be rebuilt. So collecting one makes it invisible and untouchable, and its
-// respawn makes it solid again.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled )
-{
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	if ( CStandaloneEntity *pStandalone = ent.pStandalone )
-	{
-		pStandalone->SetVisible( bEnabled != 0 );
-
-		// Out of the trigger list entirely rather than merely invisible: a
-		// pickup that has been taken must not be collectable while it waits to
-		// respawn, and leaving it in the list would collect it again on the
-		// next tick the player is still standing there.
-		pStandalone->SetSolidity( bEnabled ? SOLID_BBOX : SOLID_NONE,
-		                          bEnabled ? ( FSOLID_TRIGGER | FSOLID_NOT_SOLID )
-		                                   : FSOLID_NOT_SOLID );
-		return;
-	}
-
-	// Standalone only, like MakePickup: nothing on the CBaseEntity side is a
-	// pickup any more, and silently toggling EF_NODRAW on one would hide a
-	// caller's mistake rather than serve anything.
-}
-
-//-----------------------------------------------------------------------------
 // Whether a brush is drawn.
 //-----------------------------------------------------------------------------
 void SourceSharp_EntitySetVisible( uint32_t hEntity, int32_t bVisible )
@@ -909,42 +781,6 @@ void SourceSharp_EntitySetVisible( uint32_t hEntity, int32_t bVisible )
 
 	// EF_NODRAW lives in m_fEffects, a CBaseEntity network var. The standalone
 	// arm above returns; armed, only it is left.
-}
-
-//-----------------------------------------------------------------------------
-// Whether a brush can be walked through, walked into, or neither.
-//
-// Three states rather than a flag, because a map brush is any of them and the
-// difference is not "solid or not": a trigger is passable AND reports being
-// entered, which is a third thing.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntitySetBrushSolidity( uint32_t hEntity, int32_t nSolidity )
-{
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	if ( CStandaloneEntity *pStandalone = ent.pStandalone )
-	{
-		// SOLID_BSP either way: what changes is the FLAGS, not what shape the
-		// engine traces against. A trigger volume is the same brushes as a
-		// wall, described as passable and reporting.
-		switch ( nSolidity )
-		{
-		case 0: // passable, and says nothing about it
-			pStandalone->SetSolidity( SOLID_BSP, FSOLID_NOT_SOLID );
-			break;
-
-		case 2: // passable, and reports being entered
-			pStandalone->SetSolidity( SOLID_BSP, FSOLID_NOT_SOLID | FSOLID_TRIGGER );
-			break;
-
-		default: // solid
-			pStandalone->SetSolidity( SOLID_BSP, 0 );
-			break;
-		}
-
-		return;
-	}
-
 }
 
 //=============================================================================//
@@ -1463,45 +1299,6 @@ int32_t SourceSharp_PlayerSetMoveType( uint32_t hPlayer, int32_t nMoveType )
 	pPlayer->MvSetMoveType( (MoveType_t)nMoveType );
 
 	return nWas;
-}
-
-//-----------------------------------------------------------------------------
-// Whether anything can bump into this.
-//
-// Not SetBrushSolidity, which is a brush choosing what SHAPE it presents to a
-// trace. This is one flag on something that already has a shape — a player being
-// stepped through while a camera holds their view.
-//
-// It is also func_physbox's "notsolid" (shell_physicsobjects.cpp's
-// SetSolidToWorld was this call inverted until plan_physics_bones_native_zero
-// 2.4 retired it).
-//
-// The parallel arm goes through SetSolidity rather than writing the flag,
-// because the flag decides which partition
-// lists the entity is in, and the partition is what the engine reads. Set
-// directly, something told to stop being solid stays in the solid list and goes
-// on stopping traces — an invisible wall where a player was meant to be walked
-// through.
-//
-// It read only pBase until Phase 6's gate asked it about a standalone, which is
-// the silence this whole gate exists for: it returned having done nothing, and
-// GetSolidFlags — which does answer both — reported the same flags before and
-// after.
-//-----------------------------------------------------------------------------
-void SourceSharp_EntitySetNotSolid( uint32_t hEntity, int32_t bNotSolid )
-{
-	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
-
-	if ( CStandaloneEntity *pStandalone = ent.pStandalone )
-	{
-		const int nFlags = bNotSolid
-			? ( pStandalone->GetSolidFlags() | FSOLID_NOT_SOLID )
-			: ( pStandalone->GetSolidFlags() & ~FSOLID_NOT_SOLID );
-
-		pStandalone->SetSolidity( pStandalone->GetSolid(), nFlags );
-		return;
-	}
-
 }
 
 //-----------------------------------------------------------------------------

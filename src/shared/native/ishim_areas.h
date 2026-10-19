@@ -104,7 +104,6 @@ abstract_class IShimPrecache
 {
 public:
 	virtual int32_t PrecacheModel( const char * pszModel ) = 0;
-	virtual int32_t PrecacheDecal( const char * pName ) = 0;
 };
 
 abstract_class IShimMovement
@@ -215,12 +214,10 @@ public:
 	virtual uint32_t GetPlayerHandle( int32_t nPlayerIndex ) = 0;
 	virtual int32_t GetPlayerTeam( uint32_t hPlayer ) = 0;
 	virtual int32_t PlayerIsAlive( uint32_t hPlayer ) = 0;
-	virtual void PlayerRespawn( uint32_t hPlayer ) = 0;
 	virtual void PlayerPlaceAtSpawn( uint32_t hPlayer, const float * pOriginXYZ, const float * pAnglesPYR ) = 0;
 	virtual int32_t PlayerGetObserverMode( uint32_t hPlayer ) = 0;
 	virtual void PlayerSetObserverMode( uint32_t hPlayer, int32_t nMode ) = 0;
 	virtual void PlayerSnapEyeAngles( uint32_t hPlayer, const float * pPitchYawRoll ) = 0;
-	virtual void GetPlayerShootOrigin( uint32_t hPlayer, float * pOutXYZ ) = 0;
 	virtual int32_t ClientsStandalonePlayerEarPosition( int32_t iEdict, float * pOutXYZ ) = 0;
 	// "Is this world-space box inside this player's PVS?" The engine's own
 	// cluster/PVS read — GetClusterForOrigin at the player's eyes,
@@ -305,17 +302,11 @@ public:
 	virtual int32_t TraceLine( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit ) = 0;
 	virtual int32_t TraceHull( const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, uint32_t hIgnore, uint32_t * pOutHit, int32_t * pOutStartSolid ) = 0;
 	virtual int32_t TraceLineSurface( const float * pStartXYZ, const float * pEndXYZ, int32_t nMask, uint32_t hIgnore, float * pOutFraction, float * pOutEndXYZ, float * pOutNormalXYZ, uint32_t * pOutHit, int32_t * pOutSurfaceProps, int32_t * pOutSurfaceFlags, int32_t * pOutHitgroup ) = 0;
-	virtual uint32_t TracePlayerAim( uint32_t hPlayer, float flRange, float * pOutHitXYZ ) = 0;
 	virtual void AngleVectorsFromForward( const float * pForwardXYZ, float * pOutRightXYZ, float * pOutUpXYZ ) = 0;
 	virtual int32_t WaterSurfaceBelow( const float * pStartXYZ, float * pOutXYZ, int32_t * pOutSlime ) = 0;
 	virtual int32_t EntityModelSurfaceProp( uint32_t hEntity ) = 0;
 	virtual int32_t InvisibleRangeReach() = 0;
 	virtual void SetSkyboxParams( const SourceSharpSkyboxParams * pParams ) = 0;
-	virtual const char * WorldChapterTitle() = 0;
-	virtual uint32_t AreaPortalCreate( int32_t nPortalNumber, int32_t nPortalVersion ) = 0;
-	virtual void AreaPortalDestroy( uint32_t hPortal ) = 0;
-	virtual void AreaPortalSetOpen( uint32_t hPortal, int32_t bOpen ) = 0;
-	virtual void AreaPortalSetWindow( uint32_t hPortal, uint32_t hEntity, float flFadeDist ) = 0;
 	virtual int32_t EntityTraceHull( uint32_t hEntity, const float * pStartXYZ, const float * pEndXYZ, const float * pMinsXYZ, const float * pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup, float * pOutEndXYZ ) = 0;
 };
 
@@ -337,8 +328,6 @@ public:
 	virtual void EntitySetHealth( uint32_t hEntity, int32_t nHealth ) = 0;
 	virtual void EntitySetVisible( uint32_t hEntity, int32_t bVisible ) = 0;
 	virtual void EntitySetOwner( uint32_t hEntity, uint32_t hOwner ) = 0;
-	virtual void EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY, float flSizeZ ) = 0;
-	virtual void EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled ) = 0;
 	virtual int32_t EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t * pOutArea ) = 0;
 };
 
@@ -351,8 +340,6 @@ public:
 	virtual int32_t EntityGetSolidType( uint32_t hEntity ) = 0;
 	virtual void EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags ) = 0;
 	virtual int32_t EntityGetSolidFlags( uint32_t hEntity ) = 0;
-	virtual void EntitySetNotSolid( uint32_t hEntity, int32_t bNotSolid ) = 0;
-	virtual void EntitySetBrushSolidity( uint32_t hEntity, int32_t nSolidity ) = 0;
 	virtual int32_t EntityGetCollisionGroup( uint32_t hEntity ) = 0;
 	virtual void EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup ) = 0;
 
@@ -363,13 +350,8 @@ public:
 abstract_class IShimEffectsServer
 {
 public:
-	virtual void ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude ) = 0;
 	virtual void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) = 0;
-	virtual void ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity ) = 0;
-	virtual void TracerEffect( const float * pStartXYZ, const float * pEndXYZ ) = 0;
 	virtual void BubbleEffect( uint32_t hEntity, int32_t nCount, float flSpeed ) = 0;
-	virtual void FunnelEffect( const float * pOriginXYZ, int32_t nSpriteIndex, int32_t bReversed ) = 0;
-	virtual void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) = 0;
 	virtual void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) = 0;
 	virtual int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) = 0;
 	// plan_server_native_v2 T4b: one temp entity table, planned in C#, stored

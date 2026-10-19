@@ -59,8 +59,6 @@ public static class TeForwardDispatch
             TeForward.BloodStream              => BloodStream(f, i),
             TeForward.Bubbles                  => Bubbles(f, i),
             TeForward.Decal                    => Decal(f, i),
-            TeForward.Explosion                => Explosion(f, i),
-            TeForward.LargeFunnel              => LargeFunnel(f, i),
             TeForward.ProjectDecal             => ProjectDecal(f, i),
             TeForward.Smoke                    => Smoke(f, i),
             TeForward.Sparks                   => Sparks(f, i),
@@ -124,38 +122,6 @@ public static class TeForwardDispatch
             Entity = i[0],
             Hitbox = i[1],
             Index  = i[2],
-        };
-    }
-
-    private static TempEntState? Explosion(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 7 || i.Length < 6)
-            return null;
-
-        return new TeExplosion
-        {
-            Origin       = new Vector(f[0], f[1], f[2]),
-            ModelIndex   = i[0],
-            Scale        = f[3],
-            FrameRate    = i[1],
-            Flags        = i[2],
-            Normal       = new Vector(f[4], f[5], f[6]),
-            MaterialType = (byte)i[3],
-            Radius       = i[4],
-            Magnitude    = i[5],
-        };
-    }
-
-    private static TempEntState? LargeFunnel(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 3 || i.Length < 2)
-            return null;
-
-        return new TeLargeFunnel
-        {
-            Origin     = new Vector(f[0], f[1], f[2]),
-            ModelIndex = i[0],
-            Reversed   = i[1],
         };
     }
 

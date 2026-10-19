@@ -110,7 +110,6 @@ const char *const kLibraryRow = "sourcesharp/game/server/server_util_library.cpp
 const char *const kClientProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
 const char *const kMovedDefinitions[] = {
-	"int UTIL_PrecacheDecal( const char *name, bool preload )",
 	"void UTIL_ClearTrace( trace_t &trace )",
 	"void UTIL_SnapDirectionToAxis( Vector &direction, float epsilon )",
 	// The three temp-entity emitters, and the four helpers they could not
@@ -128,6 +127,10 @@ const size_t kNumMoved = sizeof( kMovedDefinitions ) / sizeof( kMovedDefinitions
 const char *const kGoneInTheCull[] = {
 	"void DBG_AssertFunction( bool fExpr, const char *szExpr, const char *szFile, int szLine, const char *szMessage )",
 	"static edict_t *UTIL_FindClientInPVSGuts(edict_t *pEdict, unsigned char *pvs, unsigned pvssize )",
+	// Not the cull: plan_server_native_v2 T4d folded it into the managed
+	// DecalPrecache (IVEngineServer's PrecacheDecal/IsDecalPrecached forwarders),
+	// which was its one importer's (SourceSharp_PrecacheDecal's) replacement.
+	"int UTIL_PrecacheDecal( const char *name, bool preload )",
 	"edict_t *UTIL_FindClientInPVS(edict_t *pEdict)",
 	"void UTIL_Bubbles( const Vector& mins, const Vector& maxs, int count )",
 	"void UTIL_BubbleTrail( const Vector& from, const Vector& to, int count )",
@@ -231,7 +234,7 @@ TEST( ServerUtilLibrary, TheServerCompilesIt )
 		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not "
 		   "compile " << kLibraryRow << ": "
 		<< "server.so still compiles util.cpp, which no longer defines "
-		   "UTIL_ClearTrace or UTIL_PrecacheDecal.";
+		   "UTIL_ClearTrace.";
 }
 
 TEST( ServerUtilLibrary, TheClientDoesNotCompileIt )

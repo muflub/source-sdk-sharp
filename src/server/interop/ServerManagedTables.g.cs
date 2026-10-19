@@ -451,6 +451,10 @@ public unsafe struct ManagedClientsTable
     // 16: int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict )
     [SlotHash(0xa45f061a)]
     public delegate* unmanaged<void*, int, int> ServerTransmitAlwaysForClient;
+
+    // 17: int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes )
+    [SlotHash(0x9546130c)]
+    public delegate* unmanaged<void*, void*, float, void*, int, int> ServerAreaPortalVisibility;
 }
 
 /// <summary>The table managed writes for <c>IManagedEvents</c> (<c>SSManagedEventsTable</c> native-side).</summary>
