@@ -172,8 +172,10 @@ Added 2026-10-04 at main 9925463d; closed 2026-10-07 at todo-list (this
 lane).
 
 The router is gone. `tools/shim-areas` now emits one typed method per slot
-on the area class that serves it (`ShimAreas`, `ClientShimAreas`), with the
-vtable call inline; the generated file is `src/abi/ShimAreas.g.cs`. There is
+on the area class that serves it, with the vtable call inline; the
+generated file is `src/abi/ShimAreas.g.cs`. (Since plan_shim_areas_split
+phase 11 no container holds the areas: each binding or adapter is handed the
+areas it calls by constructor.) There is
 no `Slot_X` router, no `Has_X` (an area method is reached only through the
 attach-state pattern-match, which is what `Has_X` tested), and no
 throwing accessor. Each `EngineSide` dispatch reads

@@ -273,6 +273,11 @@ Each phase builds, passes its tests and is committed before the next.
   other half answers what the member's attach guard answered there (chosen
   over stubs in `EngineSide` and over moving only the members no shared code
   calls).
+- 2026-10-19 (user, after phase 10 merged): the containers go too. Asked "did
+  you actually remove the class that is a list of interfaces and inject the
+  interfaces directly into all the places?", then "no plan, just do it":
+  phase 11 removes `ShimAreas` and `ClientShimAreas`, and every consumer is
+  handed the areas it calls by constructor.
 
 Open: none.
 
@@ -577,3 +582,57 @@ Open: none.
     - `new ClientUiSurface(null)` planted in a client test;
     - `new EngineClock(...)` planted in a server test.
   - CLAUDE.md states the rule beside the interface-assembly rule.
+- **Phase 11** (2026-10-19). The containers are gone. Each area is handed to
+  the code that calls it, by constructor.
+  - `tools/shim-areas` writes `ServerAreaRegistration` and
+    `ClientAreaRegistration` in their place: static, with no state. Each takes
+    every area of its side from the root or none, and hands each one, by
+    type, to the side's registry. A derived server area is also handed under
+    its shared base's type. `AddDetached` hands the same types over no table.
+    That is what a side with no engine registers, so a test's composition
+    builds. Every typed call goes through `ShimRef.Table`, which refuses a
+    detached area with "was called before the shim areas were attached"
+    instead of reading a null table. That keeps phase 9's unattached-throw
+    fact. Four self-test arms hold the shape, among them: no container,
+    takes before the one add, and the checked table. Each was proved by a
+    planted mutation.
+  - `EngineSide` keeps the registry (`Areas`, detached until the attach) and
+    one `ShimsAttached` flag in place of `ServerShims`, `ClientShims`,
+    `OwnShims` and their `*Attached` twins. It keeps four areas of its own
+    (console, engine, entities, models) and the server three more (precache,
+    transform, physics). They serve the services made with the side, before
+    any composition: its log, globals and clock, model descriptors, break
+    models, liveness, surfaces and the motion host. They are assigned at each
+    attach.
+  - The members that called an area moved into the binding that called
+    them: 232 were inlined into a pass-through binding member of the same
+    signature, the rest moved as private members. A Roslyn pass in the
+    scratchpad did it, and rounds ran until nothing more could move.
+    `EngineSide` went from 7,102 lines to 1,886 and the bindings from 2,136
+    to 7,405. Each binding's side half declares the public constructors
+    with the areas that half calls. `EngineServices.Build` fills an area
+    parameter from the side's registry and everything else from the
+    composition, as before.
+  - A member with several callers that needs the side's state stays on
+    `EngineSide` and takes its area as a parameter: the blob bind, the
+    hull trace, the factory table, the shells. A consumer that is not a
+    binding resolves its areas once, at its composition point: a
+    `ModuleEngine` constructor or a static factory such as `ForEngine` or
+    `Acquire`. The player shadow's climb traces through
+    `PlayerRunMoveStages.TraceHull`, so the command loop hands on stages
+    rather than an area.
+  - `ShimAreaInjectionCensusTests` holds three rules over both sides' built
+    interop and the Abi:
+    - no type hands out an area (every area field or property is private);
+    - `EngineSide` holds exactly its seven, or four, own areas;
+    - `Areas` is read only by the side, `ModuleEngine`, the client's
+      adapter registration, a constructor or a static method, never per call.
+
+    Mutation proofs turn each red: an `internal` area field, an
+    eighth area field on the side, and a binding method that looks an area up.
+  - Tests: `FakeShimRoot` serves what the registrations hand. Facts that
+    called a moved member call it through its binding (`SideBindings.Of`).
+    The side audit reads an area call by its field or parameter name
+    (`_networkServerArea.X(`, `networkArea.X(`) and follows private binding
+    helpers to a fixed point. Its reach walk treats a call on an area class
+    as the slot.

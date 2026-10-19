@@ -220,6 +220,15 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   (`src/test/common/SeamCensus.cs`). Why: an adapter that took the whole side
   depended on every area, and a test that named one could not see the
   registration break (`docs/plans/plan_shim_areas_split.md`).
+- **A shim area is handed to the code that calls it; nothing holds the areas
+  as a set.** A binding or adapter takes the `*Area` classes it calls by
+  constructor, and `EngineServices.Build` fills them from the side's
+  registration (`EngineSide.Areas`), which only composition reads (a
+  constructor, a static factory, `ModuleEngine`). `EngineSide` keeps only the
+  areas its own services read (its log, globals, model names, break models and
+  motion host). `ShimAreaInjectionCensusTests` holds all three. Why: the
+  containers (`ShimAreas`, `ClientShimAreas`) let every binding reach every
+  area through its side, so nothing said what each one depended on.
 - **The invalid entity handle is `0xFFFFFFFF`, never 0**, because entry 0 is the
   world. `EntityHandle` stores the raw handle inverted, so `default(EntityHandle)`
   IS `EntityHandle.None`; the raw handle 0 (entry 0) must be named on purpose.
