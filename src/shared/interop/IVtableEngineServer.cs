@@ -179,6 +179,16 @@ public interface IVtableEngineServer
     /// </summary>
     void MulticastRecipients(bool usePas, Vector origin, Span<uint> playerBits);
 
+    /// <summary>
+    /// <c>PlaybackTempEntity</c> (plan_server_native_v2 T4b): one temp entity,
+    /// encoded now from <paramref name="sender"/> through the SendTable native
+    /// built from its managed plan, to the recipients of
+    /// <paramref name="filter"/> (the IRecipientFilter libss_fwd_server builds
+    /// over the managed sink). The engine reads the sender during the call and
+    /// keeps the encoded bits, never the pointer.
+    /// </summary>
+    void PlaybackTempEntity(nint filter, float delay, ReadOnlySpan<byte> sender, nint sendTable, int classId);
+
     /// <summary>The uint32 words of CBitVec&lt;ABSOLUTE_PLAYER_LIMIT&gt; (255 bits).</summary>
     const int PlayerBitWords = 8;
 

@@ -747,12 +747,13 @@ as an index into it. The client additionally hooks each one for dispatch.
 ## `SourceSharp_EffectDispatchIndex`
 
 A name, as an entry in the engine's "EffectDispatch" network string table
-(plan_tmp.md Part 8), implemented in server/shell_te_fwd_s4.cpp beside the
-forward that already owned this knowledge.
+(plan_tmp.md Part 8). RETIRED by plan_server_native_v2 T4b: the server's
+ServerTempEntEngine asks the table itself, AddString through the string table
+forwarders (Server.Interop's EffectDispatchNames), and the native
+TE_DispatchEffect forward asks the same table the same question.
 
-Server only, and not by taste: g_pStringTableEffectDispatch is a server-side
-engine interface. The client only ever reads a NAME back out of the table by
-the index this answered.
+Server only, and not by taste: the server numbers the table. The client only
+ever reads a NAME back out of it by the index the server sent.
 
 ## `SourceSharp_BeamCreatePoints`
 

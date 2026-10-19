@@ -381,11 +381,14 @@ public class SideAuditTests
         // client-only for ClientDecalIndexFromName's reason read backwards --
         // it reads the CLIENT's copy of the EffectDispatch string table, which
         // is the side that has to turn an index into a callback. The SERVER's
-        // half of that same table is EffectDispatchIndex, in ServerOnly, and
-        // the two are deliberately separate slots: one ADDS names, one READS
-        // them, and giving them one name would have hidden which side owns the
-        // numbering.
+        // half of that same table is no slot since plan_server_native_v2 T4b:
+        // ServerTempEntEngine ADDS names through the string table forwarders,
+        // and this READS them, so which side owns the numbering is still plain.
         "EffectDispatchName",
+        // The client's temp entity registration (plan_server_native_v2 T4b):
+        // RecvProp[] -> RecvTable -> ClientClass from a TeClass. The server's
+        // tables are planned in C# and stored through its own TempEntBuild.
+        "TempEntRegister",
         // C-Phase 3 lane CX's four, for the last three client decal halves.
         // Client-only, and only ONE of them is drawing. ClientDecalStaticProp
         // is the engine's static prop renderer, which the server has no arm of.
@@ -521,21 +524,14 @@ public class SideAuditTests
 
     private static readonly HashSet<string> DualWired = new(StringComparer.Ordinal)
     {
-        // ONE SLOT, TWO IMPLEMENTATIONS, and it is the whole shape of the temp
-        // entity port. A TeClass in SourceSharp.Shared is handed to this slot
-        // on both sides; the server's arm builds SendProp[] -> SendTable ->
-        // ServerClass out of it and the client's builds RecvProp[] ->
-        // RecvTable -> ClientClass out of the SAME description, so the two
-        // tables physically cannot drift. Managed code calls it identically and
-        // never learns which arm answered.
-        //
-        // Regressing this to server-only is the exact failure plan 2E
-        // describes: the server would keep registering ServerClasses the client
-        // has no receiver for, and the client would begin instantiating and
-        // stop with nothing in any log. Its sibling TempEntPlayback is
-        // deliberately NOT here -- that one is the sending half and the client
-        // has nothing to send.
-        "TempEntRegister",
+        // TempEntRegister WAS HERE, one slot with two arms over one TeClass.
+        // plan_server_native_v2 T4b took the server's arm into C#
+        // (ServerTempEntEngine plans the table and IShimEffectsServer::
+        // TempEntBuild stores it), so the slot is the client's alone (ClientOnly
+        // above). The two tables still cannot drift: both are planned from the
+        // same TeClass, the server by TePropPlanner and the client by
+        // tempent_schema.h, and TePropPlannerTests holds the two plans to the
+        // same answers.
         // WHERE AN ENTITY IS, answered by each side off its own table -- the
         // server through the edict, the client off C_StandaloneEntity's own
         // transform, which is the same read ClientEntityOrigin already does by

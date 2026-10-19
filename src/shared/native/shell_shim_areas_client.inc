@@ -64,9 +64,6 @@ int32_t CShimEntitiesClient::EntityIsValid( uint32_t hEntity )
 void CShimCollisionClient::RegisterCollisionRules( const SourceSharpCollisionRules * pRules )
 	{ return ::SourceSharp_RegisterCollisionRules( pRules ); }
 
-int32_t CShimEffectsClient::TempEntRegister( const SourceSharpTeClass_t * pDesc )
-	{ return ::SourceSharp_TempEntRegisterClient( pDesc ); }
-
 int32_t CShimHudClient::GetLocalPlayerHealth()
 	{ return ::SourceSharp_GetLocalPlayerHealth(); }
 int32_t CShimHudClient::GetLocalPlayerIndex()
@@ -150,6 +147,8 @@ void CShimTempEntBackendsClient::ClientSparks( const float * pPositionXYZ, int32
 	{ return ::SourceSharp_ClientSparks( pPositionXYZ, nMagnitude, nTrailLength, pDirectionXYZ ); }
 void CShimTempEntBackendsClient::EffectDispatchName( int32_t nIndex, char * pOut, int32_t nOutBytes )
 	{ return ::SourceSharp_EffectDispatchName( nIndex, pOut, nOutBytes ); }
+int32_t CShimTempEntBackendsClient::TempEntRegister( const SourceSharpTeClass_t * pDesc )
+	{ return ::SourceSharp_TempEntRegisterClient( pDesc ); }
 
 int32_t CShimEffectsRenderClient::DrawSprite( uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize )
 	{ return ::SourceSharp_DrawSprite( hOwner, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize ); }
@@ -610,9 +609,6 @@ void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_COLLISION_VERSION ) )
 		return static_cast< IShimCollision * >( &areas.m_Collision );
-
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EFFECTS_VERSION ) )
-		return static_cast< IShimEffects * >( &areas.m_Effects );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_HUDCLIENT_VERSION ) )
 		return static_cast< IShimHudClient * >( &areas.m_HudClient );

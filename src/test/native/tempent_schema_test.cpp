@@ -19,7 +19,7 @@
 //=============================================================================//
 
 #include "gtest/gtest.h"
-#include "../game/shared/tempent_schema.h"
+#include "../game/client/tempent_schema.h"
 
 #include <stdio.h>
 #include <string.h>

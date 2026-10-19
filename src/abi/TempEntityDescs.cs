@@ -4,8 +4,8 @@ namespace SourceSharp.Abi;
 
 //=============================================================================//
 // THE BLITTABLE MIRRORS. These are what actually cross the boundary; the types
-// above are what C# reads. Laid out to match SourceSharpTeField_t,
-// SourceSharpTeClass_t and SourceSharpTeFilter_t in sourcesharp.h — a field
+// above are what C# reads. Laid out to match SourceSharpTeField_t
+// and SourceSharpTeClass_t in sourcesharp.h — a field
 // inserted on one side only shifts every field after it, and the symptom is a
 // prop built with somebody else's width.
 //=============================================================================//
@@ -39,12 +39,44 @@ public unsafe struct TeClassDesc
     public TeFieldDesc* Fields;
 }
 
+// plan_server_native_v2 T4b: the server's tables, planned in C# and stored by
+// native. One block per table (BitBlock: an int32 bit count, then the payload):
+// a TeTableHeader, the rows, and the names at the payload offsets they give.
+// Laid out to match SourceSharpTeTableHeader_t, SourceSharpSendPropRow_t and
+// SourceSharpTeBuiltTable_t in sourcesharp.h (TempEntTableAbiParityTests).
+
 [StructLayout(LayoutKind.Sequential)]
-public unsafe struct TeFilterDesc
+public struct TeTableHeader
 {
-    public int   Kind;
-    public fixed float Origin[3];
-    public int   PlayerIndex;
-    public float Attenuation;
-    public int   IgnorePredictionCull;
+    public int  Props;
+    public int  RegisterClass;
+    public int  ClassName;
+    public int  TableName;
+    public uint ShapeHash;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct SendPropRowDesc
+{
+    public int   Type;
+    public int   Offset;
+    public int   Flags;
+    public int   Bits;
+    public float LowValue;
+    public float HighValue;
+    public float HighLowMul;
+    public int   Elements;
+    public int   ElementStride;
+    public int   Proxy;
+    public int   DataTable;
+    public int   Name;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct TeBuiltTable
+{
+    public int   Existed;
+    public uint  ShapeHash;
+    public void* SendTable;
+    public int*  ClassId;
 }

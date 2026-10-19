@@ -360,7 +360,7 @@ shell_input.o	_ZL7g_Input	g_Input	sourcesharp/game/client/shell_input.cpp	LOCAL	
 shell_leaf_system_client.o	_ZN12_GLOBAL__N_15s_EnvE	(anonymous namespace)::s_Env	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	64	UNRULED		
 shell_leaf_system_client.o	_ZN12_GLOBAL__N_112s_GameSystemE	(anonymous namespace)::s_GameSystem	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	16	UNRULED		
 shell_leaf_system_client.o	_ZN12_GLOBAL__N_115s_LeafSystemRegE	(anonymous namespace)::s_LeafSystemReg	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
-shell_leaf_system_client.o	_ZN12_GLOBAL__N_19s_StorageE	(anonymous namespace)::s_Storage	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	64	UNRULED		
+shell_leaf_system_client.o	_ZN12_GLOBAL__N_19s_StorageE	(anonymous namespace)::s_Storage	sourcesharp/game/client/shell_leaf_system_client.cpp	LOCAL	bss	function-local	4096	UNRULED		
 	_ZN22CClientRenderablesList11s_AllocatorE	CClientRenderablesList::s_Allocator	sourcesharp/game/client/shell_leaf_system_client.cpp	GLOBAL	bss	class-or-namespace	64	UNRULED		
 	g_pClientLeafSystem	g_pClientLeafSystem	sourcesharp/game/client/shell_leaf_system_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts11BloodSpriteERK6VectoriiiiiifE7s_bSaid	CTempEnts::BloodSprite(Vector const&, int, int, int, int, int, int, float)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
@@ -507,6 +507,8 @@ shell_renderable_facts.o	_ZL14s_ResolveStats	s_ResolveStats	sourcesharp/game/cli
 shell_rope_render.o	_ZL14g_RopeExecutor	g_RopeExecutor	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	152	UNRULED		
 shell_rope_render.o	_ZL15g_RopeMaterials	g_RopeMaterials	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_rope_render.o	_ZL23g_SourceSharpRopeSystem	g_SourceSharpRopeSystem	sourcesharp/game/client/shell_rope_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
+	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE17beentheredonethat	CSaveRestoreSegment::FindCreateSymbol(char const*)::beentheredonethat	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	1	UNRULED		
+	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE12tokensparsed	CSaveRestoreSegment::FindCreateSymbol(char const*)::tokensparsed	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	4	UNRULED		
 shell_soundenvelope_client.o	_ZZL26ShellClientSoundControllervE12s_Controller	ShellClientSoundController()::s_Controller	sourcesharp/game/client/shell_soundenvelope_client.cpp	LOCAL	bss	function-local	48	UNRULED		
 shell_soundscape_audio_client.o	_ZZ22ClientSoundscapeSystemvE8s_System	ClientSoundscapeSystem()::s_System	sourcesharp/game/client/shell_soundscape_audio_client.cpp	LOCAL	bss	function-local	16	UNRULED		
 	r_drawsprites	r_drawsprites	sourcesharp/game/client/shell_sprite_leaf.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
@@ -731,7 +733,7 @@ shell_gamerules.o	_ZL20g_DefaultViewVectors	g_DefaultViewVectors	sourcesharp/gam
 	g_StringTableGameRules	g_StringTableGameRules	sourcesharp/game/shared/shell_gamerules.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_gamerules.o	_ZL16s_CollisionRules	s_CollisionRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	80	UNRULED		
 shell_gamerules.o	_ZL13s_DamageRules	s_DamageRules	sourcesharp/game/shared/shell_gamerules.cpp	LOCAL	data	file-or-global	20	UNRULED		
-shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	240	UNRULED		
+shell_internalfactory.o	_ZL10g_ShimRoot	g_ShimRoot	sourcesharp/game/shared/shell_internalfactory.cpp	LOCAL	data	file-or-global	232	UNRULED		
 shell_movement.o	_ZZL11ActiveMovervE9s_pActive	ActiveMover()::s_pActive	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_movement.o	_ZZL12MoveCountersvE9s_nCounts	MoveCounters()::s_nCounts	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_movement.o	_ZZL16MovementRefusalsvE11s_nRefusals	MovementRefusals()::s_nRefusals	sourcesharp/game/shared/shell_movement.cpp	LOCAL	bss	function-local	12	UNRULED		
@@ -745,8 +747,6 @@ shell_movement.o	_ZL10s_Movement	s_Movement	sourcesharp/game/shared/shell_moveme
 shell_physsaverestore_absent.o	_ZZ24GetPhysObjSaveRestoreOps17PhysInterfaceId_tE8s_Absent	GetPhysObjSaveRestoreOps(PhysInterfaceId_t)::s_Absent	sourcesharp/game/shared/shell_physsaverestore_absent.cpp	LOCAL	data	function-local	8	UNRULED		
 shell_physsaverestore_absent.o	_ZZL27ShellPhysSaveRestoreManagervE8s_Absent	ShellPhysSaveRestoreManager()::s_Absent	sourcesharp/game/shared/shell_physsaverestore_absent.cpp	LOCAL	data	function-local	8	UNRULED		
 	g_pPhysSaveRestoreManager	g_pPhysSaveRestoreManager	sourcesharp/game/shared/shell_physsaverestore_absent.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE17beentheredonethat	CSaveRestoreSegment::FindCreateSymbol(char const*)::beentheredonethat	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	1	UNRULED		
-	_ZZN19CSaveRestoreSegment16FindCreateSymbolEPKcE12tokensparsed	CSaveRestoreSegment::FindCreateSymbol(char const*)::tokensparsed	sourcesharp/game/client/shell_savegame.cpp	WEAK	bss	function-local	4	UNRULED		
 	default_fov	default_fov	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 shell_shared.o	_ZL10g_MoveData	g_MoveData	sourcesharp/game/shared/shell_shared.cpp	LOCAL	bss	file-or-global	168	UNRULED		
 	g_pMoveData	g_pMoveData	sourcesharp/game/shared/shell_shared.cpp	GLOBAL	data	file-or-global	8	UNRULED		

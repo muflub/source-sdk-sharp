@@ -155,7 +155,15 @@ public sealed class SoundRecipients(ISoundEmitterEngine engine, ISoundListeners 
     /// <c>CPASFilter( origin )</c>: everyone on a one-player server, otherwise
     /// the players whose PAS holds the point, as the engine reckons it.
     /// </summary>
-    public RecipientFilter Pas(Vector origin)
+    public RecipientFilter Pas(Vector origin) => Multicast(true, origin);
+
+    /// <summary>
+    /// <c>CPVSFilter( origin )</c>: AddRecipientsByPVS, the same rule over the
+    /// PVS (plan_server_native_v2 T4b: the temp entities' PVS sends).
+    /// </summary>
+    public RecipientFilter Pvs(Vector origin) => Multicast(false, origin);
+
+    private RecipientFilter Multicast(bool usePas, Vector origin)
     {
         var filter = Empty();
 
@@ -166,7 +174,7 @@ public sealed class SoundRecipients(ISoundEmitterEngine engine, ISoundListeners 
         }
 
         Span<uint> bits = stackalloc uint[IVtableEngineServer.PlayerBitWords];
-        engine.MulticastRecipients(true, origin, bits);
+        engine.MulticastRecipients(usePas, origin, bits);
         filter.AddFromBits(bits);
         return filter;
     }

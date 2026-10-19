@@ -121,6 +121,15 @@ public sealed class TempEntRegistry
     /// </para>
     /// </summary>
     public int RegisterAll(string side, Assembly shared, IEngineEffects engine)
+        => RegisterAll(side, shared, new EngineEffectsRegistrar(engine));
+
+    /// <summary>
+    /// The same, through <paramref name="registrar"/>: the server's
+    /// ServerTempEntEngine, which plans each table in C# and has native store
+    /// it (plan_server_native_v2 T4b), where the client's registrar is its
+    /// engine slot.
+    /// </summary>
+    public int RegisterAll(string side, Assembly shared, ITempEntRegistrar registrar)
     {
         var types = new List<Type>();
 
@@ -132,7 +141,7 @@ public sealed class TempEntRegistry
             types.Add(type);
         }
 
-        return Register(side, types, engine);
+        return Register(side, types, registrar);
     }
 
     /// <summary>
@@ -140,6 +149,10 @@ public sealed class TempEntRegistry
     /// they arrive in: what <see cref="RegisterAll"/> does after its scan.
     /// </summary>
     internal int Register(string side, IEnumerable<Type> types, IEngineEffects engine)
+        => Register(side, types, new EngineEffectsRegistrar(engine));
+
+    /// <summary>The same, through <paramref name="registrar"/>.</summary>
+    internal int Register(string side, IEnumerable<Type> types, ITempEntRegistrar registrar)
     {
         var declared = new List<(TempEntityAttribute Attr, Type Type)>();
 
@@ -261,7 +274,7 @@ public sealed class TempEntRegistry
                 pending.RemoveAt(i);
                 placedThisPass++;
 
-                if (Publish(side, built1, built, engine))
+                if (Publish(side, built1, built, registrar))
                     accepted++;
                 else
                     refused++;
@@ -288,9 +301,9 @@ public sealed class TempEntRegistry
     }
 
     private bool Publish(string side, TeClass declaration,
-                         Dictionary<string, TeClass> built, IEngineEffects engine)
+                         Dictionary<string, TeClass> built, ITempEntRegistrar registrar)
     {
-        int handle = engine.TempEntRegister(declaration);
+        int handle = registrar.TempEntRegister(declaration);
 
         // Every field this class's blob holds: the base chain's first, in the
         // order the wire has them, then its own.
@@ -390,4 +403,23 @@ public sealed class TempEntRegistry
                 yield return table;
         }
     }
+}
+
+/// <summary>
+/// Who builds a temp entity table from a declaration and answers its handle
+/// (or -1): the client's engine slot, or the server's ServerTempEntEngine
+/// (plan_server_native_v2 T4b). The same member name as
+/// <see cref="IEngineEffects.TempEntRegister"/>, so an engine that is both
+/// answers both with one method.
+/// </summary>
+public interface ITempEntRegistrar
+{
+    /// <summary>The table's handle, or -1 when it was refused.</summary>
+    int TempEntRegister(TeClass description);
+}
+
+/// <summary>A registrar over an engine's <see cref="IEngineEffects.TempEntRegister"/>.</summary>
+internal sealed class EngineEffectsRegistrar(IEngineEffects engine) : ITempEntRegistrar
+{
+    public int TempEntRegister(TeClass description) => engine.TempEntRegister(description);
 }

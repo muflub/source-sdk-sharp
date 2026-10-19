@@ -21,7 +21,9 @@
 #include "ss_recipient_filter.h"
 #include "ss_effect_dispatch.h"
 #include "shell_tempents.h"
-#include "sourcesharp_entrypoints.h"   // SourceSharp_EffectDispatchIndex
+#include "networkstringtabledefs.h"
+
+extern INetworkStringTable *g_pStringTableEffectDispatch;
 #include "native_command_body.h"
 #include "ss_string.h"
 
@@ -77,10 +79,10 @@ static void FireOneDispatch( const char *pName, const Vector &at )
 
 	TE_DispatchEffect( filter, 0.0f, data.m_vOrigin, pName, data );
 
-	// SourceSharp_EffectDispatchIndex is shell_te_forwards.cpp's EffectNameIndex,
-	// exported -- the same resolution TE_DispatchEffect just made, not a second.
-	Msg( "cs_sv_te_dispatch: '%s' -> string table index %d at (%g %g %g)\n",
-		pName, SourceSharp_EffectDispatchIndex( pName ), at.x, at.y, at.z );
+	// A LOOKUP, not a second AddString: TE_DispatchEffect just added the name,
+	// so this reads the index that dispatch sent.
+	Msg( "cs_sv_te_dispatch: '%s' -> string table index %d at (%g %g %g)\n", pName,
+		g_pStringTableEffectDispatch ? g_pStringTableEffectDispatch->FindStringIndex( pName ) : -1, at.x, at.y, at.z );
 }
 
 SS_NATIVE_COMMAND( cs_sv_te_dispatch )

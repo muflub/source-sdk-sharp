@@ -257,9 +257,6 @@ public:
 class CShimEffectsServer final : public IShimEffectsServer
 {
 public:
-	int32_t TempEntRegister( const SourceSharpTeClass_t * pDesc ) override;
-	void TempEntPlayback( int32_t hClass, const void * pBlob, int32_t nBytes, const SourceSharpTeFilter_t * pFilter, float flDelay ) override;
-	int32_t EffectDispatchIndex( const char * pName ) override;
 	void ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude ) override;
 	void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) override;
 	void ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity ) override;
@@ -269,6 +266,7 @@ public:
 	void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) override;
 	void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) override;
 	int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) override;
+	int32_t TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut ) override;
 };
 
 class CShimDebugOverlay final : public IShimDebugOverlay
@@ -387,12 +385,6 @@ public:
 	void RegisterCollisionRules( const SourceSharpCollisionRules * pRules ) override;
 };
 
-class CShimEffectsClient final : public IShimEffects
-{
-public:
-	int32_t TempEntRegister( const SourceSharpTeClass_t * pDesc ) override;
-};
-
 class CShimHudClient final : public IShimHudClient
 {
 public:
@@ -451,6 +443,7 @@ public:
 	void ClientSmoke( const float * pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate ) override;
 	void ClientSparks( const float * pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float * pDirectionXYZ ) override;
 	void EffectDispatchName( int32_t nIndex, char * pOut, int32_t nOutBytes ) override;
+	int32_t TempEntRegister( const SourceSharpTeClass_t * pDesc ) override;
 };
 
 class CShimEffectsRenderClient final : public IShimEffectsRenderClient
@@ -751,7 +744,6 @@ struct CShimAreasClient
 	CShimMovementClient m_Movement;
 	CShimEntitiesClient m_Entities;
 	CShimCollisionClient m_Collision;
-	CShimEffectsClient m_Effects;
 	CShimHudClient m_HudClient;
 	CShimPredictionClient m_PredictionClient;
 	CShimTempEntPoolClient m_TempEntPoolClient;

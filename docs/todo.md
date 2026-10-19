@@ -196,6 +196,50 @@ Managed callers should call these directly; the managed-built slot goes in T3.
   the client port can take the same codec (it is pure, the CSaveRestoreData
   layout is the same type) through IManagedSaveRestoreClient slots.
 
+## Temp entities and datatables in C# (plan_server_native_v2 T4b): what stayed native, and why
+
+Measured at the lane's tip (2026-10-19). The server plans its temp entity
+tables in C# (TePropPlanner, TeSchemaRegistry, SendPropPlan, ServerTempEntEngine)
+and plays them through the PlaybackTempEntity forwarder; native stores the plan
+(shell_tempents_store.cpp) because the engine walks SendProp/SendTable/ServerClass
+by layout. What is left, each with its exit:
+
+- **shell_te_forwards.cpp's TE_* forwards, DispatchEffect and ss::Effects()**,
+  and **SourceSharpTe_Forward** (shell_tempents.cpp), the round trip that packs
+  a native caller's arguments in managed and sends them with the caller's own
+  IRecipientFilter. They stay while their native callers do: shell_worldquery.cpp
+  (TE_Explosion, TE_ProjectDecal, TE_BSPDecal, TE_Bubbles, TE_LargeFunnel,
+  DispatchEffect "watersplash"/"Impact"), world_adapter.cpp (TE_Decal,
+  TE_WorldDecal, DispatchEffect "Impact"), util_shared_library.cpp (Tracer,
+  bloodimpact, ss::Effects()->Sparks), server_util_library.cpp (TE_BloodStream,
+  ss::Effects()->Smoke), particle_manifest.cpp ("ParticleEffect") and
+  shell_absent.cpp ("bloodspray"). Worth checking first: IShimEffectsServer's
+  ExplosionEffect, FunnelEffect, ImpactEffect, TracerEffect and SplashEffect
+  slots are called only by EngineSide, and the server's registered IEngineEffects
+  (EffectsOverTempEnts) overrides all five in managed; if nothing holds the raw
+  binding, the slots and their shell_worldquery.cpp bodies are dead, and with
+  them TE_Explosion's and TE_LargeFunnel's callers (T4d's file).
+- **EffectNameIndex** (shell_te_forwards.cpp) serves the native TE_DispatchEffect
+  only; managed asks the same table through EffectDispatchNames.
+- **dt_send.cpp's SendPropInt, SendPropVector (with AssignRangeMultiplier) and
+  SendPropString**: their callers are shell_standalone.cpp's tiers and
+  generic_payload.cpp, which build their tables at DLL init from native
+  constants. SendPropPlan already ports all three; they go with the standalone
+  shell's own move.
+- **generic_nettable.h** (the tiers, FNV class hash, CSourceSharpTypeTable,
+  SchemaNeedsRestamp): its server readers are CStandaloneEntity's
+  GetServerClass (the engine calls it per entity through the networkable's
+  vtable, so the answer has to be native-local), shell_standalone.cpp's
+  NetPublishType / NetHierarchyDeclare slots (shared with the client's
+  shell_recvtable.cpp) and the reload restamp. Moving the decisions means the
+  shell taking its tier, type id and schema hash from managed at create: the
+  standalone entity base's move, not this lane's.
+- **ss_sandbox.bsp is not built in a fresh worktree** (it needs the map-tools
+  checkout beside this one), so live-gate's map-change step fails there on the
+  map's absence; T4b ran it and saw 473/61 dm_lockdown both passes. The sandbox
+  map's ss_te_tester fires every temp entity and is the fullest live exercise of
+  the managed send; run it from a tree with the map built.
+
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
 
 At f8c7e82ff (stage1-c-gameplay rebased onto main 42b718990, 2026-10-18) the

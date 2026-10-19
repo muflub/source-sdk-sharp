@@ -224,56 +224,12 @@ float AssignRangeMultiplier( int nBits, double range )
 
 
 
-SendProp SendPropFloat(
-	const char *pVarName,		
-	// Variable name.
-	int offset,			// Offset into container structure.
-	int sizeofVar,
-	int nBits,			// Number of bits to use when encoding.
-	int flags,
-	float fLowValue,		// For floating point, low and high values.
-	float fHighValue,		// High value. If HIGH_DEFAULT, it's (1<<nBits).
-	SendVarProxyFn varProxy
-	)
-{
-	SendProp ret;
-
-	if ( varProxy == SendProxy_FloatToFloat )
-	{
-		Assert( sizeofVar == 0 || sizeofVar == 4 );
-	}
-
-	if ( nBits <= 0 || nBits == 32 )
-	{
-		flags |= SPROP_NOSCALE;
-		fLowValue = 0.f;
-		fHighValue = 0.f;
-	}
-	else
-	{
-		if(fHighValue == HIGH_DEFAULT)
-			fHighValue = (1 << nBits);
-
-		if (flags & SPROP_ROUNDDOWN)
-			fHighValue = fHighValue - ((fHighValue - fLowValue) / (1 << nBits));
-		else if (flags & SPROP_ROUNDUP)
-			fLowValue = fLowValue + ((fHighValue - fLowValue) / (1 << nBits));
-	}
-
-	ret.m_Type = DPT_Float;
-	ret.m_pVarName = pVarName;
-	ret.SetOffset( offset );
-	ret.m_nBits = nBits;
-	ret.SetFlags( flags );
-	ret.m_fLowValue = fLowValue;
-	ret.m_fHighValue = fHighValue;
-	ret.m_fHighLowMul = AssignRangeMultiplier( ret.m_nBits, ret.m_fHighValue - ret.m_fLowValue );
-	ret.SetProxyFn( varProxy );
-	if( ret.GetFlags() & (SPROP_COORD | SPROP_NOSCALE | SPROP_NORMAL | SPROP_COORD_MP | SPROP_COORD_MP_LOWPRECISION | SPROP_COORD_MP_INTEGRAL ) )
-		ret.m_nBits = 0;
-
-	return ret;
-}
+// SendPropFloat, SendPropAngle, SendPropQAngles and SendPropDataTable went
+// with plan_server_native_v2 T4b: their one server caller was the temp entity
+// table builder, whose SendProps are now decided in C# (SendPropPlan) and
+// stored by shell_tempents_store.cpp. SendPropInt, SendPropVector and
+// SendPropString stay for the standalone entity tiers (shell_standalone.cpp)
+// and the generic payload (generic_payload.cpp).
 
 SendProp SendPropVector(
 	const char *pVarName,
@@ -311,72 +267,6 @@ SendProp SendPropVector(
 	return ret;
 }
 
-SendProp SendPropAngle(
-	const char *pVarName,
-	int offset,
-	int sizeofVar,
-	int nBits,
-	int flags,
-	SendVarProxyFn varProxy
-	)
-{
-	SendProp ret;
-
-	if(varProxy == SendProxy_AngleToFloat)
-	{
-		Assert(sizeofVar == 4);
-	}
-
-	if ( nBits == 32 )
-		flags |= SPROP_NOSCALE;
-
-	ret.m_Type = DPT_Float;
-	ret.m_pVarName = pVarName;
-	ret.SetOffset( offset );
-	ret.m_nBits = nBits;
-	ret.SetFlags( flags );
-	ret.m_fLowValue = 0.0f;
-	ret.m_fHighValue = 360.0f;
-	ret.m_fHighLowMul = AssignRangeMultiplier( ret.m_nBits, ret.m_fHighValue - ret.m_fLowValue );
-	ret.SetProxyFn( varProxy );
-
-	return ret;
-}
-
-
-SendProp SendPropQAngles(
-	const char *pVarName,
-	int offset,
-	int sizeofVar,
-	int nBits,
-	int flags,
-	SendVarProxyFn varProxy
-	)
-{
-	SendProp ret;
-
-	if(varProxy == SendProxy_AngleToFloat)
-	{
-		Assert(sizeofVar == 4);
-	}
-
-	if ( nBits == 32 )
-		flags |= SPROP_NOSCALE;
-
-	ret.m_Type = DPT_Vector;
-	ret.m_pVarName = pVarName;
-	ret.SetOffset( offset );
-	ret.m_nBits = nBits;
-	ret.SetFlags( flags );
-	ret.m_fLowValue = 0.0f;
-	ret.m_fHighValue = 360.0f;
-	ret.m_fHighLowMul = AssignRangeMultiplier( ret.m_nBits, ret.m_fHighValue - ret.m_fLowValue );
-
-	ret.SetProxyFn( varProxy );
-
-	return ret;
-}
-  
 SendProp SendPropInt(
 	const char *pVarName,
 	int offset,
@@ -476,36 +366,6 @@ SendProp SendPropString(
 
 	return ret;
 }
-
-SendProp SendPropDataTable(
-	const char *pVarName,
-	int offset,
-	SendTable *pTable,
-	SendTableProxyFn varProxy
-	)
-{
-	SendProp ret;
-
-	ret.m_Type = DPT_DataTable;
-	ret.m_pVarName = pVarName;
-	ret.SetOffset( offset );
-	ret.SetDataTable( pTable );
-	ret.SetDataTableProxyFn( varProxy );
-	
-	// Handle special proxy types where they always let all clients get the results.
-	if ( varProxy == SendProxy_DataTableToDataTable )
-	{
-		ret.SetFlags( SPROP_PROXY_ALWAYS_YES );
-	}
-	
-	if ( varProxy == SendProxy_DataTableToDataTable && offset == 0 )
-	{
-		ret.SetFlags( SPROP_COLLAPSIBLE );
-	}
-
-	return ret;
-}
-
 
 SendProp InternalSendPropArray(
 	const int elementCount,

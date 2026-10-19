@@ -345,8 +345,8 @@ public static class TeDemos
         // the CLIENT gives it one -- handle 6, c_te_basebeam.cpp evicted -- but
         // te_basebeam.cpp is still compiled on the SERVER, so native refuses the
         // managed ServerClass at registration ("the native build still registers
-        // one of that name") and SourceSharp_TempEntPlayback then refuses the
-        // send, once per fire, naming the class. The table is built either way,
+        // one of that name") and the playback then refused the send, once per
+        // fire, naming the class. The table is built either way,
         // which is why the seven derived beams pair and work.
         //
         // KEPT, NOT EXEMPTED -- and the disagreement it was kept for is CLOSED.

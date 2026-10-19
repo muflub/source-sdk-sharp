@@ -413,64 +413,7 @@ internal sealed unsafe partial class EngineSide
             words, firstBad);
     }
 
-    /// <summary>
-    /// Sends one. The blob is the packed fields, addressed by the offsets the
-    /// description carries; native refuses a blob shorter than the declared size
-    /// rather than sending whatever follows it.
-    /// </summary>
-    public unsafe void TempEntPlayback(int handle, ReadOnlySpan<byte> blob,
-                                              TeFilter filter, float delay)
-    {
-        if (!s_Initialized || !ServerAttached || handle < 0 || blob.IsEmpty)
-            return;
 
-        var wire = new TeFilterDesc
-        {
-            Kind                 = (int)filter.Kind,
-            PlayerIndex          = filter.PlayerIndex,
-            Attenuation          = filter.Attenuation,
-            IgnorePredictionCull = filter.IgnorePredictionCull ? 1 : 0,
-        };
-
-        wire.Origin[0] = filter.Origin.X;
-        wire.Origin[1] = filter.Origin.Y;
-        wire.Origin[2] = filter.Origin.Z;
-
-        fixed (byte* pBlob = blob)
-        {
-            ServerShims.EffectsServer.TempEntPlayback(handle, pBlob, blob.Length, &wire, delay);
-        }
-    }
-
-    /// <summary>
-    /// An effect NAME, as the index the wire carries for it.
-    ///
-    /// <para>
-    /// SERVER ONLY. The "EffectDispatch" network string table is a server-side
-    /// engine interface; the client only ever turns an index back into a name
-    /// to pick a callback. A client that asked gets 0 — the table's first
-    /// entry — which is what every null-guarded slot in this file answers and
-    /// is not a failure a caller can do anything about.
-    /// </para>
-    ///
-    /// <para>
-    /// THERE IS ONE NUMBERING AND THE ENGINE OWNS IT. Resolving a name in
-    /// managed code instead would be a second numbering of a table the engine
-    /// already keeps, and the symptom of the two disagreeing is not a missing
-    /// effect but the WRONG one — which reads as a bug in that effect rather
-    /// than in this port. Adding a name already present answers the index it
-    /// already has, so this is idempotent for the life of the level.
-    /// </para>
-    /// </summary>
-    public unsafe int EffectDispatchIndex(string name)
-    {
-        if (!s_Initialized || !ServerAttached || name.Length == 0)
-            return 0;
-
-        var bytes = Encoding.UTF8.GetBytes(name + "\0");
-
-        fixed (byte* p = bytes) { return ServerShims.EffectsServer.EffectDispatchIndex(p); }
-    }
 
     /// <summary>Sets an int field of an event made by <see cref="EventCreate"/>.</summary>
     public void EventSetInt(IntPtr handle, string key, int value)
@@ -3486,5 +3429,18 @@ internal sealed unsafe partial class EngineSide
 
     private partial int SidePatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel)
         => ServerSounds?.SoundPatchCreate(entity, channel, soundName, soundLevel) ?? 0;
+    // T4b (plan_server_native_v2): the server's temp entities are planned in C#
+    // and stored by native (ServerTempEntEngine over IShimEffectsServer's
+    // TempEntBuild), so neither of these reaches the engine any more.
+    public void TempEntPlayback(int handle, ReadOnlySpan<byte> blob, TeFilter filter, float delay)
+    {
+    }
+
+    public int EffectDispatchIndex(string name) => 0;
+
+    // A server that reached the binding's register answers -1: "this side does
+    // not register through here".
+    private partial int SideTempEntRegister(TeClassDesc* desc) => -1;
 }
+
 

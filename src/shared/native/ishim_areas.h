@@ -236,12 +236,6 @@ public:
 	virtual void PlayerSetTeam( uint32_t hPlayer, int32_t nTeam ) = 0;
 };
 
-abstract_class IShimEffects
-{
-public:
-	virtual int32_t TempEntRegister( const SourceSharpTeClass_t * pDesc ) = 0;
-};
-
 abstract_class IShimDebugOverlay
 {
 public:
@@ -366,11 +360,9 @@ public:
 
 };
 
-abstract_class IShimEffectsServer : public IShimEffects
+abstract_class IShimEffectsServer
 {
 public:
-	virtual void TempEntPlayback( int32_t hClass, const void * pBlob, int32_t nBytes, const SourceSharpTeFilter_t * pFilter, float flDelay ) = 0;
-	virtual int32_t EffectDispatchIndex( const char * pName ) = 0;
 	virtual void ExplosionEffect( const float * pOrigin, int32_t nModelIndex, float flScale, int32_t nFrameRate, int32_t nFlags, int32_t nRadius, int32_t nMagnitude ) = 0;
 	virtual void ViewPunch( const float * pOrigin, const float * pPunchPYR, float flRadius, int32_t bInAir ) = 0;
 	virtual void ImpactEffect( const float * pStartXYZ, const float * pEndXYZ, int32_t nSurfaceProp, int32_t nDamageType, uint32_t hEntity ) = 0;
@@ -380,6 +372,10 @@ public:
 	virtual void SplashEffect( const float * pOriginXYZ, float flScale, int32_t bInSlime ) = 0;
 	virtual void BloodEffect( const float * pOriginXYZ, const float * pDirXYZ, int32_t nColor, float flAmount, int32_t bStream, int32_t nSprayFlags ) = 0;
 	virtual int32_t PaintDecal( int32_t nTexture, const float * pOriginXYZ, const float * pAnglesXYZ, float flProjectDistance, int32_t bPermanent, int32_t bLowPriority ) = 0;
+	// plan_server_native_v2 T4b: one temp entity table, planned in C#, stored
+	// into SendProps (shell_tempents.cpp). The block is length-prefixed
+	// (sourcesharp.h, SourceSharpTeTableHeader_t). Answers the handle, or -1.
+	virtual int32_t TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut ) = 0;
 };
 
 #endif // ISHIM_AREAS_H

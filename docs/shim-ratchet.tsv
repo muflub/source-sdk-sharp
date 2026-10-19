@@ -344,7 +344,14 @@ client_stock_tus	src/client/native/CMakeLists.txt	9
 # RAISED 2026-10-19, 212 -> 214 (+2, measured by the walk at the landing on main 832d8cd95), deliberately: C7 cluster 12 L2,
 #   shell_leaf_system_client.cpp (the ClientLeafSystem002 object the engine calls by name, and its client-system adapter)
 #   and the forwarder class over IManagedLeafSystemClient; clientleafsystem.cpp (fork) left client.so in their place.
-shim_cpp_files	src/sourcesharp	214
+# RAISED 2026-10-19, 212 -> 213, deliberately (plan_server_native_v2 T4b, measured by the walk): sourcesharp/game/server/
+#   shell_tempents_store.cpp (d), the block a managed temp entity plan crosses in, read and stored into SendProps the
+#   engine walks by layout, split from shell_tempents.cpp so tempent_store_test reaches it with dt_send.cpp alone. The
+#   decisions it replaced (tempent_schema.h's plan and registry for the server, SourceSharp_TempEntRegister's,
+#   SendThroughFilter/PlaybackThrough/SourceSharp_TempEntPlayback) are C#'s: TePropPlanner, TeSchemaRegistry,
+#   SendPropPlan, ServerTempEntEngine.
+# 2026-10-19, T4b rebased onto main 60ebe2a09: main's 214 plus the lane's +1 (shell_tempents_store.cpp) = 215.
+shim_cpp_files	src/sourcesharp	215
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1754,7 +1761,18 @@ shim_cpp_files	src/sourcesharp	214
 #   C7 cluster 12 L2/L3, the leaf system's native residue: the generated forwarder class, its call queue (L3: 5
 #   crossings a frame), the engine-facing ClientLeafSystem002 object and the regenerated managed-area rows, net of
 #   L1's gather, layout mirror and fallback arms (deleted). The lane measured +518 on its base 62e8b7d00.
-shim_lines	src/sourcesharp	138113
+# LOWERED 2026-10-19, 137807 -> 137392 (-415, measured by the walk against a ceiling of 1): plan_server_native_v2 T4b, the
+#   server's temp entity tables planned in C# (shell_tempents.cpp 794 -> 277 lines, its debug dump without the
+#   registry, SourceSharp_EffectDispatchIndex folded), net of shell_tempents_store.cpp/.h (+237) and the ABI header's
+#   block structs.
+# LOWERED 2026-10-19, 137392 -> 137252 (-140, measured by the walk against a ceiling of 1): plan_server_native_v2 T4b,
+#   dt_send.cpp's SendPropFloat, SendPropAngle, SendPropQAngles and SendPropDataTable deleted (their decisions are
+#   SendPropPlan's; their one server caller was the temp entity builder).
+# LOWERED 2026-10-19, 137252 -> 137127 (-125, measured by the walk): plan_server_native_v2 T4b,
+#   ss::IEffects' Dust, MuzzleFlash and MetalSparks and their TE_Dust, TE_MuzzleFlash and TE_MetalSparks forwards
+#   deleted: no server TU called the three methods (tempent_forwards.h's three ids RESERVED, +3 lines of its note).
+# 2026-10-19, T4b rebased onto main 60ebe2a09: main's 138098 less the lane's -680 = 137418, measured by the walk.
+shim_lines	src/sourcesharp	137433
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

@@ -87,6 +87,7 @@ set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_stringtables.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_te_forwards.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents_store.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_transmitsteps.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_usermessage_send.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_world_nettable.cpp
@@ -471,6 +472,9 @@ set(server_novalve_sources
     # P5 lane SP: ss::TePrediction in (0bfbce4); engine and CCommand from
     # public/ headers in place of cbase.h.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents.cpp
+    # plan_server_native_v2 T4b: the managed plan's block, read and stored;
+    # dt_send.h and the ABI header.
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents_store.cpp
     # P5 lane SP: the Valve IEffects gone (6d67c68), ss::CEffectData in
     # (dd8b64a); gpGlobals and the EffectDispatch table declared.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_te_forwards.cpp

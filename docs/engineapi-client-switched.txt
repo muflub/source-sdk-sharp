@@ -3,7 +3,6 @@
 # line, as named in docs/engineapi-areas.tsv; empty while the client reads the struct.
 IShimCollision
 IShimConsole
-IShimEffects
 IShimEngine
 IShimEntities
 IShimEvents

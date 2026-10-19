@@ -105,13 +105,15 @@ public class TempEntEffectDataTests
     }
 
     /// <summary>
-    /// The one line of engine code this whole table turns on, read off disk.
+    /// The one rule this whole table turns on: SendPropDataTable's
+    /// collapsible flag, which the server applies in C# since
+    /// plan_server_native_v2 T4b (<see cref="SendPropPlan.DataTable"/>, held to
+    /// stock's dt_send.cpp by SendPropPlanTests).
     ///
     /// <para>
     /// A managed test cannot see a segfault inside <c>engine.so</c>, so what it
-    /// can do is assert that the CONDITION which produced it is still spelled
-    /// the way the fix assumes. If Valve ever drops the <c>offset == 0</c> half
-    /// of that test, this goes red and the pad can go.
+    /// can do is assert that the CONDITION which produced it is the one the fix
+    /// assumes: collapsible at offset zero and only there.
     /// </para>
     /// </summary>
     [Fact]
@@ -123,20 +125,13 @@ public class TempEntEffectDataTests
             "and the blob is four bytes longer than the payload because of it — the pad is "
           + "never written and never sent");
 
-        string? send = ReadSource(Path.Combine("src", "sourcesharp", "public", "dt_send.cpp"));
-
-        if (send is null)
-        {
-            Assert.True(true, "dt_send.cpp is not beside the binary (SKIPPED)");
-            return;
-        }
-
-        Assert.True(Regex.IsMatch(send,
-            @"if\s*\(\s*varProxy\s*==\s*SendProxy_DataTableToDataTable\s*&&\s*offset\s*==\s*0\s*\)"
-          + @"[\s{]*ret\.SetFlags\(\s*SPROP_COLLAPSIBLE\s*\)"),
-            "SendPropDataTable still sets SPROP_COLLAPSIBLE only when the proxy is the identity "
-          + "AND the offset is zero — which is why moving the nested table off zero is enough, "
-          + "and why the 'baseclass' prop at zero is still collapsible as stock intends");
+        Assert.True((SendPropPlan.DataTable("m_EffectData", Dispatch().Fields[0].Offset, 0).Flags
+                     & SendPropPlan.Collapsible) == 0,
+            "the nested table at its padded offset is not collapsible");
+        Assert.True(SendPropPlan.DataTable("baseclass", 0, 0).Flags == SendPropPlan.Collapsible,
+            "SendPropDataTable sets SPROP_COLLAPSIBLE when the proxy is the identity AND the offset is "
+          + "zero -- which is why moving the nested table off zero is enough, and why the 'baseclass' "
+          + "prop at zero is still collapsible as stock intends");
     }
 
     [Fact]
@@ -344,7 +339,7 @@ public class TempEntEffectDataTests
 
         Assert.True(m.Success && int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) == 10,
             "the symbol is ten bits in effect_dispatch_data.h, which is 1024 effect names — "
-          + "the number sourcesharp/game/shared/tempent_schema.h restates and "
+          + "the number sourcesharp/game/client/tempent_schema.h restates and "
           + "tempent_schema_test.cpp checks against this same header");
     }
 
@@ -1403,7 +1398,6 @@ public class TempEntEffectDataTests
     {
         string[][] wanted =
         {
-            new[] { "src", "sourcesharp", "public", "dt_send.cpp" },
             new[] { "src", "game", "shared", "effect_dispatch_data.h" },
             new[] { "src", "game", "shared", "effect_dispatch_data.cpp" },
             new[] { "src", "common", "qlimits.h" },

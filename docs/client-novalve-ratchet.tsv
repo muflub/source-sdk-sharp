@@ -1,6 +1,7 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-19, T4b rebased onto main 60ebe2a09, measured by tools/shim-scope: logic-lines 8990 (main) -> 9514, the lane's +524 (tempent_schema.h counted in src/client/native for the first time; not new logic).
 # 2026-10-19, shell_savegame.cpp moved src/shared/native -> src/client/native (client.so's alone since plan_server_native_v2 T4c), measured by tools/shim-scope: logic-lines 8804 -> 9010 RAISED (+206). NOT new logic: tools/shim-scope walks src/client/native only, so the file's client save codec (ShellSave_Init/WriteFields/ReadFields and the now-unreached blob and readout functions, unruled) is counted for the first time; the client object is unchanged (same defined symbols, .text 27,555 bytes before and after). docs/todo.md names the port. Hand-edited.
 # 2026-10-19, sound_emitter.cpp moved src/shared/native -> src/client/native (client.so's alone since plan_server_native_v2 T4a), measured by tools/shim-scope: logic-lines 8301 -> 8804 RAISED (+503). NOT new logic: tools/shim-scope walks src/client/native only, so the file's client emit path (CSoundEmitterSystem's EmitSound/EmitSoundByHandle/close captions, unruled) is counted for the first time. It is the client port's to move to managed. Hand-edited.
 # 2026-10-19, C7 cluster 12 L1 (the leaf system's decisions to managed), measured by tools/shim-scope on 9f2f149d5 (8281: main's fall of 17 the row had not followed) and with the lane: logic-lines 8298 -> 8301 RAISED (+20 LOGIC, leaf_view_gather.h's BlendPass: ComputeTranslucentRenderLeaf's once-per-frame-and-view ComputeFxBlend stamp, which moves with the registry in L2; the gather, its Apply and the executor's crossings are ruled LAYOUT / SLOT-HELP). Hand-edited.
@@ -330,7 +331,12 @@ link-forbidden	1
 # LOWERED 2026-10-19, logic-lines 9010 -> 8990 (-20, tools/shim-scope at the C7 cluster 12 L2 landing on main
 #   832d8cd95): BlendPass, L1's native once-per-frame-and-view ComputeFxBlend check, moved to managed with the registry.
 #   fork-src 8 -> 7 and the fork-hdr rows had already followed clientleafsystem.cpp's eviction in the rebase. Hand-edited.
-logic-lines	8990
+# 2026-10-19, plan_server_native_v2 T4b: RAISED 8804 -> 9328 (+524), a relabel: tempent_schema.h moved from
+#   src/shared/native to src/client/native (the server plans its temp entity tables in C# and no longer includes it), so
+#   tools/shim-scope, which walks src/client/native, counts the client's planner and registry for the first time. The
+#   client compiled exactly this text before (its TU preprocesses identically, line markers aside). The client port's to
+#   move; the server's twin is TePropPlanner/TeSchemaRegistry.
+logic-lines	9514
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).

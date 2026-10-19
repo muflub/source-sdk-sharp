@@ -434,6 +434,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // rebuild at a level change.
     private readonly TempEntRegistry _tempEnts;
 
+    // The server's temp entity engine (plan_server_native_v2 T4b): the tables'
+    // plans, built during the DLL-init window; its sender is attached with the
+    // recipient filter, in BuildSounds.
+    private ServerTempEntEngine? _tempEntEngine;
+
     /// <summary>
     /// Pack a native forward into the blob its class expects. The send stays
     /// native because the filter belongs to the caller, so this hands bytes back
@@ -1351,8 +1356,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // claims it sends the engine into a table that was never flattened.
         // Ordering between game systems is link order, so a second
         // CAutoGameSystem would be a coin toss (plan 2D).
-        _tempEnts.RegisterAll("Server", Game,
-                              _services.Require<IEngineEffects>());
+        //
+        // THE TABLES ARE PLANNED HERE AND STORED BY NATIVE (plan_server_native_v2
+        // T4b): ServerTempEntEngine answers the registration, the playback and
+        // the effect index; every other IEngineEffects member is the engine's.
+        _tempEntEngine = new ServerTempEntEngine(_services.Require<IEngineEffects>(), new TempEntTables(_engine), Log,
+                                                 EffectDispatchNames.For(_services));
+        _tempEnts.RegisterAll("Server", Game, (ITempEntRegistrar)_tempEntEngine);
 
         // THE REGISTRY ITSELF, as the client already registers its own
         // (ClientModule). ITempEnts covers twenty-one of the forty-three tables
@@ -1365,7 +1375,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // The demonstration sender cs_te_fire and ss_te_tester share: this
         // module's registry, and the names it has already complained about.
-        _services.AddInstance<ITeFire>(_services.Create<TeFire>());
+        _services.AddInstance<ITeFire>(new TeFire(Log, _tempEnts, _tempEntEngine,
+                                                 _services.Require<IEnginePrecache>()));
 
         // Registered by CONTRACT: what a caller wants is "make sparks happen",
         // and the class that answers it is a detail of which side is asking.
@@ -1377,7 +1388,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the engine; handing it the wrapper instead would work today and would
         // be a cycle waiting to be closed the first time a rewired member of
         // that wrapper wanted a temp entity.
-        IEngineEffects nativeEffects = _services.Require<IEngineEffects>();
+        IEngineEffects nativeEffects = _tempEntEngine;
         var temps = new TempEnts(Log, _tempEnts, nativeEffects);
 
         _services.AddInstance<ITempEnts>(temps);
@@ -3127,7 +3138,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         var sink = new RecipientFilterSink();
         _recipientFilter = RecipientFilterSink.Create(vtables, sink);
-        var engine = new SoundEmitterEngine(scripts, sound, server, sink, filters.Build(_recipientFilter));
+        nint nativeFilter = filters.Build(_recipientFilter);
+        var engine = new SoundEmitterEngine(scripts, sound, server, sink, nativeFilter);
 
         var players = _services.Require<IEnginePlayers>();
         var entities = _services.Require<IEngineEntities>();
@@ -3152,6 +3164,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _serverSounds = new ServerSounds(emitter, entities, handle => _soundController.Create(handle),
                                          text => Log.Warning(text), _soundSystem);
         ServerSoundRouting.Route(_engine, _serverSounds);
+
+        // The temp entities' send (plan_server_native_v2 T4b): the same managed
+        // recipient filter, the same recipient rules, PlaybackTempEntity
+        // through the engine forwarder.
+        _tempEntEngine?.Attach(new TempEntSender(new TempEntSendEngine(server, sink, nativeFilter)),
+                               new TempEntRecipients(recipients));
     }
 
     /// <summary>

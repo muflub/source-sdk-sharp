@@ -144,19 +144,14 @@ public sealed class TeFireCommand : IConCommand
                 sent++;
         }
 
-        // THE COUNT IS WHAT MANAGED HANDED TO NATIVE, and the wording says so
-        // rather than claiming forty-three effects went out.
-        //
-        // Managed knows a class is registered — it has a handle — and cannot
-        // know whether native will play it. One class in the build is refused at
-        // that step today: CTEBaseBeam's ServerClass belongs to the still-native
-        // te_basebeam.cpp, so SourceSharp_TempEntPlayback refuses the send with a
-        // line of its own immediately above this one. A summary reading "43 of 43
-        // sent" over a class that never left would be exactly the count that
-        // cannot fail.
-        _log.Msg($"cs_te_fire: {sent} of {TeDemos.All.Count} temp entities handed to native " +
-                $"from ({at.X:0.##} {at.Y:0.##} {at.Z:0.##}). A class whose ServerClass the " +
-                "native build still owns is refused at playback and says so above.\n");
+        // THE COUNT IS WHAT WAS HANDED TO THE PLAYBACK, and the wording says so
+        // rather than claiming forty-three effects arrived. ServerTempEntEngine
+        // refuses a send it cannot make (a table with no ServerClass, a short
+        // blob) with a line of its own immediately above this one, so a summary
+        // over a class that never left is not the count that cannot fail.
+        _log.Msg($"cs_te_fire: {sent} of {TeDemos.All.Count} temp entities handed to the playback " +
+                $"from ({at.X:0.##} {at.Y:0.##} {at.Z:0.##}). A send the playback refuses " +
+                "says so above.\n");
     }
 
     private bool Fire(TeDemo demo, Vector at, string? filter)
