@@ -430,3 +430,4 @@ src/shared/managed/Anim/IAnimStateLayer.cs	boundary of our design (the chain sea
 src/shared/managed/Anim/AnimStateLayerChain.cs	our design (ordered first-yes chain, StageUniqueness tie refusal); no Valve logic
 src/shared/managed/Anim/EngineAnimTarget.cs	our design (the engine-backed IAnimTarget both sides build); no Valve logic
 src/test/oracle/native/sequence_transitioner_oracle_test.cpp	the sequence transitioner oracle's harness: built against SDK headers (studio.h, the client animationlayer.h); restates studio_shared.cpp's three model-cache members as failing stand-ins
+src/client/managed/Effects/NewParticleEffect.cs	ports CNewParticleEffect (particles_new.cpp) and CParticleMgr::BuildParticleSimList / ProcessPSystem / EarlyRetireParticleSystems / ComputeParticleDefScreenArea / RetireParticleCollections (particlemgr.cpp)

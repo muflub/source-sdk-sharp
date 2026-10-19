@@ -209,8 +209,9 @@ option(SS_PSO_PROBES "debug client.so: compile the particles-so spike probes" OF
 if(SS_CONFIG STREQUAL "debug" AND SS_PSO_PROBES)
   target_sources(client_sourcesharp PRIVATE ${PROJECT_SOURCE_DIR}/tools/probes/client/pso_probes_debug.cpp)
 endif()
-# C7 particles' oracle probe: a probe copy of particlemgr.cpp logging the
-# particle manager's decisions and the new effects' simulate time
+# C7 particles' oracle probe: probe copies of particlemgr.cpp and
+# particles_new.cpp logging the particle manager's decisions, the new effects'
+# (phase 3, tag np) and their simulate time
 # (tools/probes/client/particlemgr.cpp.probe.diff). Its companion,
 # shell_managed_particles.cpp.pm.probe.diff, applies at the phase 2.1
 # recording's commit (README-particlemgr-stock.md): the executor it logged was
@@ -220,6 +221,7 @@ option(SS_PM_PROBES "debug client.so: compile the C7 particle manager probe copy
 if(SS_CONFIG STREQUAL "debug" AND SS_PM_PROBES)
   include(${PROJECT_SOURCE_DIR}/tools/probes/client/probe_copies.cmake)
   ss_client_probe_copy(game/client/particlemgr.cpp)
+  ss_client_probe_copy(game/client/particles_new.cpp)
 endif()
 option(SS_CLIENT_PROBES "debug client.so: compile the C0 probes (tools/probes/client)" OFF)
 if(SS_CONFIG STREQUAL "debug" AND SS_CLIENT_PROBES)

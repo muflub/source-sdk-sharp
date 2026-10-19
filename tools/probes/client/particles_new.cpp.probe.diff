@@ -1,0 +1,158 @@
+--- a/src/game/client/particles_new.cpp	2026-10-18 13:35:12.688274584 -0700
++++ b/src/game/client/particles_new.cpp	2026-10-18 13:44:37.997267661 -0700
+@@ -20,6 +20,36 @@
+ #include "input.h"
+ 
+ extern ConVar cl_particleeffect_aabb_buffer;
++
++// ---- C7 particles phase 3 probe (tools/probes/client/particles_new.cpp.probe.diff) ----
++// CNewParticleEffect's decisions, tag "np", to SOURCESHARP_PROBE_LOG.
++#include <fcntl.h>
++#include <unistd.h>
++static void NpLog( const char *pFmt, ... )
++{
++	static int s_fd = -2;
++	if ( s_fd == -2 )
++	{
++		const char *pPath = getenv( "SOURCESHARP_PROBE_LOG" );
++		s_fd = ( pPath && *pPath ) ? open( pPath, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644 ) : -1;
++	}
++	if ( s_fd < 0 )
++		return;
++	static thread_local char buf[ 4096 ];
++	va_list ap;
++	va_start( ap, pFmt );
++	int n = V_vsnprintf( buf, sizeof( buf ) - 2, pFmt, ap );
++	va_end( ap );
++	if ( n < 0 )
++		return;
++	if ( n > (int)sizeof( buf ) - 2 )
++		n = sizeof( buf ) - 2;
++	buf[ n++ ] = '\n';
++	(void)!write( s_fd, buf, n );
++}
++#define NP_V( v ) (v).x, (v).y, (v).z
++#define NP_DRAW_RETURN( r, why ) do { NpLog( "np\tdraw\t%p\t%d\t%d\t%s\t%.9g", this, flags, r, why, m_flNextSleepTime ); return r; } while ( 0 )
++// ---- end probe ----
+ #include "shell_cliententitylist.h"
+ 
+ //-----------------------------------------------------------------------------
+@@ -173,6 +203,7 @@
+ {
+ 	Assert( m_RefCount > 0 );
+ 	--m_RefCount;
++	NpLog( "np\trelease\t%p\t%d\t%d\t%d", this, m_RefCount, m_bAllocated ? 1 : 0, IsFinished() ? 1 : 0 );
+ 
+ 	// If all the particles are already gone, delete ourselves now.
+ 	// If there are still particles, wait for the last NotifyDestroyParticle.
+@@ -242,6 +273,7 @@
+ 		ToolFramework_PostToolMessage( HTOOLHANDLE_INVALID, msg );
+ 	}
+ 
++	NpLog( "np\tstop\t%p\t%d\t%d\t%d", this, bInfiniteOnly ? 1 : 0, bRemoveAllParticles ? 1 : 0, bWakeOnStop ? 1 : 0 );
+ 	CParticleCollection::StopEmission( bInfiniteOnly, bRemoveAllParticles, bWakeOnStop );
+ }
+ 
+@@ -428,9 +460,11 @@
+ 	if ( m_MaxBounds.x < m_MinBounds.x )
+ 	{
+ 		m_MaxBounds = m_MinBounds = GetSortOrigin();
++		NpLog( "np\trecalc\t%p\t0\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g", this, NP_V( m_MinBounds ), NP_V( m_MaxBounds ) );
+ 		return false;
+ 	}
+ 
++	NpLog( "np\trecalc\t%p\t1\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g", this, NP_V( m_MinBounds ), NP_V( m_MaxBounds ) );
+ 	return true;
+ }
+ 
+@@ -443,6 +477,9 @@
+ 
+ void CNewParticleEffect::DetectChanges()
+ {
++	NpLog( "np\tdetect\t%p\t%d\t%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g\t%.9g,%.9g,%.9g", this,
++	       m_hRenderHandle == INVALID_CLIENT_RENDER_HANDLE ? 0 : 1, cl_particleeffect_aabb_buffer.GetFloat(),
++	       NP_V( m_MinBounds ), NP_V( m_MaxBounds ), NP_V( m_LastMin ), NP_V( m_LastMax ) );
+ 	// if we have no render handle, return
+ 	if ( m_hRenderHandle == INVALID_CLIENT_RENDER_HANDLE )
+ 		return;
+@@ -470,6 +507,7 @@
+ 	{
+ 		// call leafsystem to updated this guy
+ 		ClientLeafSystem()->RenderableChanged( m_hRenderHandle );
++		NpLog( "np\tchanged\t%p", this );
+ 
+ 		// remember last parameters
+ 		// Add some padding in here so we don't reinsert it into the leaf system if it just changes a tiny amount.
+@@ -584,14 +622,14 @@
+ {
+ 	VPROF_BUDGET( "CNewParticleEffect::DrawModel", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
+ 	if ( r_DrawParticles.GetBool() == false )
+-		return 0;
++		NP_DRAW_RETURN( 0, "drawparticles" );
+ 
+ 	if ( !g_pClientMode->ShouldDrawParticles() || !ParticleMgr()->ShouldRenderParticleSystems() )
+-		return 0;
++		NP_DRAW_RETURN( 0, "clientmode" );
+ 	
+ 	if ( ( flags & ( STUDIO_SHADOWDEPTHTEXTURE | STUDIO_SSAODEPTHTEXTURE ) ) != 0 )
+ 	{
+-		return 0;
++		NP_DRAW_RETURN( 0, "shadowdepth" );
+ 	}
+ 	
+ 	// do distance cull check here. We do it here instead of in particles so we can easily only do
+@@ -599,6 +637,9 @@
+ 	CMatRenderContextPtr pRenderContext( materials );
+ 	Vector vecCamera;
+ 	pRenderContext->GetWorldSpaceCameraPosition( &vecCamera );
++	NpLog( "np\tdrawin\t%p\t%d\t%.9g,%.9g,%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%.9g\t%.9g", this, flags, NP_V( vecCamera ),
++	       CalcSqrDistanceToAABB( m_MinBounds, m_MaxBounds, vecCamera ), m_pDef->m_flMaxDrawDistance, render->GetViewEntity(),
++	       m_pDef->m_nSkipRenderControlPoint, m_nHighestCP, g_pParticleSystemMgr->GetLastSimulationTime(), m_pDef->m_flNoDrawTimeToGoToSleep );
+ 	if ( CalcSqrDistanceToAABB( m_MinBounds, m_MaxBounds, vecCamera ) > ( m_pDef->m_flMaxDrawDistance * m_pDef->m_flMaxDrawDistance ) )
+ 	{
+ 		if ( !IsRetail() && ( g_cl_particle_show_bbox || ( g_cl_particle_show_bbox_cost != 0 ) ) )
+@@ -609,7 +650,7 @@
+ 		// Still need to make sure we set this or they won't follow their attachemnt points.
+ 		m_flNextSleepTime = Max ( m_flNextSleepTime, ( g_pParticleSystemMgr->GetLastSimulationTime() + m_pDef->m_flNoDrawTimeToGoToSleep ));
+ 
+-		return 0;
++		NP_DRAW_RETURN( 0, "distance" );
+ 	}
+ 
+ 	if ( flags & STUDIO_TRANSPARENCY )
+@@ -628,7 +669,7 @@
+ 				if ( !input->CAM_IsThirdPerson() )
+ 				{
+ 					if ( pEntity == pCameraObject )
+-						return 0;
++						NP_DRAW_RETURN( 0, "skip-self" );
+ 					// ARMED, AN ENTITY IS ITS OWN ROOT MOVE PARENT, and that is
+ 					// the SDK's own answer rather than a stand-in:
+ 					// CBaseEntity::GetRootMoveParent (baseentity_shared.cpp:1611)
+@@ -649,7 +690,7 @@
+ 					// compares the entity itself against the observer target.
+ 					IGameEntity *pRootMove = pEntity;
+ 					if ( pRootMove == pCameraObject )
+-						return 0;
++						NP_DRAW_RETURN( 0, "skip-root" );
+ 
+ 					// If we're spectating in-eyes of the camera object, we don't see it
+ 					C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
+@@ -657,7 +698,7 @@
+ 					{
+ 						IGameEntity *pObTarget = pPlayer->GetObserverTarget();
+ 						if ( pPlayer->GetObserverMode() == OBS_MODE_IN_EYE && (pObTarget == pEntity || pRootMove == pObTarget ) )
+-							return 0;
++							NP_DRAW_RETURN( 0, "skip-in-eye" );
+ 					}
+ 				}
+ 			}
+@@ -689,7 +730,7 @@
+ 		}
+ 	}
+ 
+-	return 1;
++	NP_DRAW_RETURN( 1, "drawn" );
+ }
+ 
+ static void DumpParticleStats_f( void )

@@ -1,0 +1,47 @@
+# C7 particles phase 3: the new-style effects as stock's CParticleMgr and
+# CNewParticleEffect run them (particlemgr.cpp.probe.diff, particles_new.cpp.probe.diff).
+wait managed client module initialized 120
+cmd map ss_sandbox
+wait first paint 240
+cmd sv_cheats 1
+# stock's single-threaded sim path, the one managed's batch call takes
+cmd r_threaded_particles 0
+api place tools/probes/sessions/c7-thirty-fires.json
+cmd setpos 800 380 70
+cmd setang 0 90 0
+sleep 2
+cmd ent_fire c7fire* StartFire
+sleep 3
+# look away: the systems leave the view, the draws stop
+cmd setang 0 270 0
+sleep 2
+cmd setang 0 90 0
+sleep 1
+# far enough that a system with a draw distance culls
+cmd setpos 800 -3000 70
+sleep 2
+cmd setpos 800 380 70
+sleep 1
+cmd r_particle_timescale 0.5
+sleep 2
+cmd r_particle_timescale 1
+cmd cl_particle_retire_cost 1
+sleep 2
+cmd cl_particle_retire_cost 0
+cmd ent_fire c7fire* Extinguish
+sleep 4
+cmd map dm_lockdown
+wait first paint 240
+cmd sv_cheats 1
+cmd r_threaded_particles 0
+cmd cl_new_impact_effects 1
+cmd give weapon_smg1
+cmd give item_ammo_smg1
+sleep 1
+cmd use weapon_smg1
+sleep 1
+cmd +attack
+sleep 2
+cmd -attack
+sleep 2
+quit
