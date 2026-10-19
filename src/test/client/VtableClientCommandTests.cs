@@ -94,7 +94,7 @@ public unsafe class VtableClientCommandTests
 
     private static IVtableEngineClientSource Composed(EngineSide side)
     {
-        var module = new ClientModule(new ModuleEngine(side));
+        var module = new ClientModule(new ModuleEngine(side), new FakeClientEngineAdapters());
         module.ComposeEngineAreas();
         return module.Services.Require<IVtableEngineClientSource>();
     }
