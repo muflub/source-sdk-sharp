@@ -50,12 +50,12 @@ public class SkeletonRouteTests
         }
     }
 
-    private static (EngineEntityRender Render, EngineEntities Entities, Fake Fake, StandaloneSkeletonRoute Route) Rig(bool filled)
+    private static (IEngineEntityRender Render, IEngineEntities Entities, Fake Fake, StandaloneSkeletonRoute Route) Rig(bool filled)
     {
         var fake = new Fake();
         var route = new StandaloneSkeletonRoute { Skeletons = filled ? fake : null };
         var side = new EngineSide(Side.Server);
-        return (new EngineEntityRender(side, new StandaloneMirror(), route), new EngineEntities(side, route), fake, route);
+        return (SideBindings.Of<IEngineEntityRender>(side, new StandaloneMirror(), route), SideBindings.Of<IEngineEntities>(side, route), fake, route);
     }
 
     [Fact]

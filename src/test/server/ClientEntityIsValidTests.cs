@@ -93,7 +93,7 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         new SaveRecordAccess(record, "client", new RecordingLog()).Write("target", Saved);
 
         var reader = new SaveRecordAccess(record, "client", new RecordingLog(),
-            new SavedHandles(new EngineHost(engine), new EngineEntities(engine)));
+            new SavedHandles(SideBindings.Of<IEngineHost>(engine), SideBindings.Of<IEngineEntities>(engine)));
         EntityHandle restored = reader.ReadHandle("target");
 
         Assert.True(restored.Value == Saved.Value,
@@ -111,7 +111,7 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         new SaveRecordAccess(record, "client", new RecordingLog()).Write("target", Saved);
 
         var reader = new SaveRecordAccess(record, "client", new RecordingLog(),
-            new SavedHandles(new EngineHost(engine), new EngineEntities(engine)));
+            new SavedHandles(SideBindings.Of<IEngineHost>(engine), SideBindings.Of<IEngineEntities>(engine)));
 
         Assert.True(reader.ReadHandle("target").Value == EntityHandle.None.Value,
             "a saved handle the client's list no longer holds comes back None");

@@ -242,7 +242,7 @@ public class GlobalVarsBindingTests
         // read moved into the facade unchanged, and this fact moved with it.
         // A new EngineFrame binds nothing: with the globals bound the vtable
         // is never reached, which is exactly what is being asserted.
-        Assert.True(new EngineFrame(side).GetFrameTime() == 0.015f,
+        Assert.True(SideBindings.Of<IEngineFrame>(side).GetFrameTime() == 0.015f,
             "IEngineFrame.GetFrameTime reads frametime out of the bound globals "
             + "rather than crossing to the shim");
     }
@@ -256,7 +256,7 @@ public class GlobalVarsBindingTests
         var side = new EngineSide(Side.Server);
         side.BindGlobalVars(Side.Server, (nint)(&raw));
 
-        Assert.True(new EngineFrame(side).TickCount() == 1234,
+        Assert.True(SideBindings.Of<IEngineFrame>(side).TickCount() == 1234,
             "IEngineFrame.TickCount reads tickcount out of the bound globals "
             + "rather than crossing to the shim");
     }
@@ -344,7 +344,7 @@ public class GlobalVarsBindingTests
         IEngineEnvironment env = new EngineEnvironment(null, (nint)(&handed));
         var side = new EngineSide(Side.Server);
         side.BindGlobalVars(Side.Server, (nint)(&engine));
-        IEngineEnvironment sides = new EngineEnvironment(side);
+        IEngineEnvironment sides = SideBindings.Of<IEngineEnvironment>(side);
 
         Assert.True(sides.Globals.CurTime == 77f, "the control: the side's own environment reads the engine's");
         Assert.True(env.Globals.CurTime == 5.5f,

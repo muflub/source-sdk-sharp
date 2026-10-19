@@ -13,7 +13,7 @@ public class EngineEnvironmentTests
     [Fact]
     public void AnEnvironmentTheShellHasNotFilledInAnswersNothing()
     {
-        IEngineEnvironment env = new EngineEnvironment(new EngineSide(Side.Server));
+        IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(new EngineSide(Side.Server));
 
         Assert.True(env.GetInterface("VEngineServer023") == 0,
             "with no factory handed across, every interface lookup answers null");
@@ -22,7 +22,7 @@ public class EngineEnvironmentTests
     [Fact]
     public void AnEnvironmentTheShellHasNotFilledInHasNoGlobals()
     {
-        IEngineEnvironment env = new EngineEnvironment(new EngineSide(Side.Server));
+        IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(new EngineSide(Side.Server));
 
         Assert.True(!env.Globals.IsAvailable,
             "and Globals says it is not available rather than answering a plausible zero");

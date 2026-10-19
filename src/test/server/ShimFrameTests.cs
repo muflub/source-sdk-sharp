@@ -142,7 +142,7 @@ public unsafe class ShimFrameTests
     {
         // Over an engine of the fact's own (plan_abi_hotreload D8), whose
         // globals are unbound, so the reads reach the table.
-        object frame = new EngineFrame(side ?? new EngineSide(Side.Server));
+        object frame = SideBindings.Of<IEngineFrame>(side ?? new EngineSide(Side.Server));
 
         Set(frame, "_self", Pointer.Box(self, typeof(void*)));
         Set(frame, "_vtbl", Pointer.Box(table, typeof(ShimFrameFwd*)));

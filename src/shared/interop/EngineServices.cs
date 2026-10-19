@@ -154,6 +154,23 @@ public static partial class EngineServices
             yield return (contract, Build(implementation, side, from));
     }
 
+    /// <summary>
+    /// The one binding <see cref="Bindings"/> would build for
+    /// <paramref name="contract"/>, built the same way: what a fact holds when it
+    /// tests an area's implementation through its registration
+    /// (plan_shim_areas_split phase 6) without building every other area.
+    /// </summary>
+    internal static object BindingFor(Type contract, EngineSide side, IServiceLocator from)
+    {
+        foreach (var (area, implementation) in Areas(side.Log))
+        {
+            if (area == contract)
+                return Build(implementation, side, from);
+        }
+
+        throw new ServiceResolutionException($"{contract.Name} is not an engine area");
+    }
+
     private static object Build(Type implementation, EngineSide side, IServiceLocator from)
     {
         var constructors = implementation.GetConstructors()

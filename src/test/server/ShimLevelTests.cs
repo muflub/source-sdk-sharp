@@ -123,7 +123,7 @@ public unsafe class ShimLevelTests
 
     private static IEngineLevel BoundTo(void* self, void** table)
     {
-        object level = new EngineLevel(new EngineSide(Side.Server));
+        object level = SideBindings.Of<IEngineLevel>(new EngineSide(Side.Server));
 
         Set(level, "_self", Pointer.Box(self, typeof(void*)));
         Set(level, "_vtbl", Pointer.Box(table, typeof(ShimLevelFwd*)));
@@ -171,11 +171,11 @@ public unsafe class ShimLevelTests
                 .Interface(ShimLevelFwd.TableName, header);
             Assert.True(served.AttachShims(root.Bind(), out string why), why);
 
-            Assert.Equal(6, new EngineLevel(served).ResetDeleteList());
+            Assert.Equal(6, SideBindings.Of<IEngineLevel>(served).ResetDeleteList());
 
             // The control: a side with no root behind it refuses the same call.
             var unserved = new EngineSide(Side.Server);
-            Assert.Throws<InterfaceAcquisitionException>(() => new EngineLevel(unserved).ResetDeleteList());
+            Assert.Throws<InterfaceAcquisitionException>(() => SideBindings.Of<IEngineLevel>(unserved).ResetDeleteList());
         }
         finally
         {
