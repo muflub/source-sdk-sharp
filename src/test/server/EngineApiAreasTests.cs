@@ -222,13 +222,10 @@ public partial class EngineApiAreasTests
         var shared = Rows().Where(r => r.Struct == "EngineApi" && r.Side == "both" && r.Interface != "IShimRoot").ToList();
         Assert.True(shared.Count >= 50, $"{shared.Count} shared slots");
 
-        var unrouted = shared.Where(r =>
-        {
-            string? line = client.FirstOrDefault(l => l.StartsWith("    public ", StringComparison.Ordinal)
-                                                      && l.Contains($" {r.Slot}(", StringComparison.Ordinal));
-            var call = line is null ? Match.Empty : Regex.Match(line, $@"\{{ (?:return )?(\w+)\.{r.Slot}\(");
-            return !call.Success || !held.TryGetValue(call.Groups[1].Value, out string? area) || !Calls(area, r.Slot);
-        }).Select(r => r.Slot).ToList();
+        // Since plan_shim_areas_split phase 9 the container has no calls of its
+        // own: a shared slot is routed when an area the client holds calls it.
+        var unrouted = shared.Where(r => !held.Values.Any(area => Calls(area, r.Slot)))
+                             .Select(r => r.Slot).ToList();
 
         Assert.Empty(unrouted);
     }
