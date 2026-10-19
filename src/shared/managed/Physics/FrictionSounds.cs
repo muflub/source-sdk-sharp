@@ -69,15 +69,25 @@ public sealed class FrictionSounds
     private readonly IPhysicsSurfaceTable _surfaces;
     private readonly List<Scrape> _scrapes = new(MaxScrapes);
 
-    /// <summary>Either side's: the two effects a scrape throws off, as that side's g_pEffects makes them.</summary>
+    /// <summary>
+    /// Either side's: the two effects a scrape throws off, as that side's
+    /// g_pEffects makes them. <paramref name="soundSource"/> names the entity
+    /// a scrape's sound is created on, where that is not the scraping entity
+    /// itself: the client's PhysFrictionSound lets the world play it for a
+    /// clientside entity ("clientside created entites doesn't have a valid
+    /// entindex"). The scrape is still the entity's.
+    /// </summary>
     public FrictionSounds(IEngineSound sound, ISoundPatchRamps controller, IPhysicsSurfaceTable surfaces,
-                          IFrictionEffects effects)
+                          IFrictionEffects effects, Func<EntityHandle, EntityHandle>? soundSource = null)
     {
         _sound = sound;
         _controller = controller;
         _surfaces = surfaces;
         _effects = effects;
+        _soundSource = soundSource;
     }
+
+    private readonly Func<EntityHandle, EntityHandle>? _soundSource;
 
     /// <summary>the dust and the sparks a scrape throws off (stock's PhysFrictionEffect, g_pEffects).</summary>
     private readonly IFrictionEffects _effects;
@@ -165,7 +175,7 @@ public sealed class FrictionSounds
             if (script.Volume * volume <= 0.1f)
                 return;
 
-            int patch = _sound.SoundPatchCreate(entity, ChanBody, name, script.SoundLevel);
+            int patch = _sound.SoundPatchCreate(_soundSource?.Invoke(entity) ?? entity, ChanBody, name, script.SoundLevel);
             if (patch == 0)
                 return;
 

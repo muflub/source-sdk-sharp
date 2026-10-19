@@ -12,6 +12,14 @@ public interface IClientFrictionSink
     void Friction(nint physicsObject, float energy, int surfaceProps, int surfacePropsHit, nint collisionData);
 }
 
+/// <summary>The client's contact touches (ClientContactTouches).</summary>
+public interface IClientTouchSink
+{
+    void StartTouch(nint object1, nint object2, nint touchData);
+
+    void EndTouch(nint object1, nint object2, nint touchData);
+}
+
 /// <summary>The client's fluid entries (ClientFluidEvents).</summary>
 public interface IClientFluidSink
 {
@@ -24,17 +32,15 @@ public interface IClientFluidSink
 /// Every slot is answered here: fork game/client/physics.cpp's g_Collisions,
 /// which the untaken slots once forwarded to, is off client.so.
 /// <para>
-/// Stock's client answers for the five slots no managed piece takes:
+/// Stock's client answers for the four slots no managed piece takes:
 /// PreCollision, PostSimulationFrame and the two trigger slots have empty
-/// bodies; StartTouch and EndTouch return before buffering unless both
-/// objects' game data name an SDK entity, and every client object's game data
-/// is a managed handle word or nothing (physicsowner.h: a handle is no SDK
-/// owner on the client), so they reach nothing either -- and had they, the
-/// client has no touch path (PhysicsOwner_t::StartTouch is a no-op there).
+/// bodies. StartTouch and EndTouch go to the contact touches
+/// (ClientContactTouches), which name the owners and buffer the pair.
 /// </para>
 /// </summary>
 public sealed unsafe class ClientPhysicsCollisionEventBinding(Crossings crossings, IClientImpactSink impacts,
-                                                              IClientFluidSink fluids, IClientFrictionSink friction)
+                                                              IClientFluidSink fluids, IClientFrictionSink friction,
+                                                              IClientTouchSink? touches = null)
     : IPhysicsCollisionEventSink
 {
     // Stock's body is empty.
@@ -56,12 +62,18 @@ public sealed unsafe class ClientPhysicsCollisionEventBinding(Crossings crossing
         friction.Friction((nint)pObject, energy, surfaceProps, surfacePropsHit, (nint)pData);
     }
 
-    // No SDK owner on either side of a client contact (see the summary).
+    // The contact touches (ClientContactTouches), buffered for the step's end.
     public void StartTouch(void* pObject1, void* pObject2, void* pTouchData)
-        => crossings.Count(CrossingOp.ClientPhysicsStartTouch);
+    {
+        crossings.Count(CrossingOp.ClientPhysicsStartTouch);
+        touches?.StartTouch((nint)pObject1, (nint)pObject2, (nint)pTouchData);
+    }
 
     public void EndTouch(void* pObject1, void* pObject2, void* pTouchData)
-        => crossings.Count(CrossingOp.ClientPhysicsEndTouch);
+    {
+        crossings.Count(CrossingOp.ClientPhysicsEndTouch);
+        touches?.EndTouch((nint)pObject1, (nint)pObject2, (nint)pTouchData);
+    }
 
     // The splash (ClientFluidEvents), answered in the step.
     public void FluidStartTouch(void* pObject, void* pFluid)

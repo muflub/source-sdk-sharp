@@ -37,6 +37,9 @@ public interface IClientPhysicsStepTail
     /// <summary><c>UpdateFrictionSounds</c>: a scrape not kept alive stops.</summary>
     void UpdateFrictionSounds();
 
+    /// <summary><c>UpdateTouchEvents</c>: the step's buffered contact touches, dispatched.</summary>
+    void UpdateTouchEvents() { }
+
     /// <summary><c>UpdateFluidEvents</c>: a fluid entry older than its window is forgotten.</summary>
     void UpdateFluidEvents();
 
@@ -188,6 +191,7 @@ public sealed class ClientPhysicsSystem(IClientPhysicsLevelCalls vphysics, IClie
             _solverTicks += Stopwatch.GetTimestamp() - solver;
             ragdolls()?.StepPoses();
             tail.UpdateFrictionSounds();
+            tail.UpdateTouchEvents();
             tail.UpdateFluidEvents();
             tail.PlayImpactSounds();
             Steps++;

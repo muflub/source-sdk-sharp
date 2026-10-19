@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Client;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.TempEnts;
 using SourceSharp.Shared;
@@ -24,11 +25,16 @@ public class ClientPhysicsPropsTests
         public readonly List<(int Slot, Vector Origin, int Model, TempEntSpawn Spawn)> Made = [];
         public bool Refuse;
 
+        public readonly HashSet<int> Adopted = [];
+        public bool RefuseAdopt;
+
+        public bool Adopt(int slot) => !RefuseAdopt && Adopted.Add(slot);
+
         public int Spawn(Vector origin, int modelIndex, in TempEntSpawn spawn)
         {
             if (Refuse)
                 return -1;
-            int slot = Made.Count + 3;
+            int slot = Made.Count + 3 + Adopted.Count * 100;
             Made.Add((slot, origin, modelIndex, spawn));
             return slot;
         }
@@ -259,5 +265,386 @@ public class ClientPhysicsPropsTests
         props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 1, 0);
 
         Assert.Equal([Chunk, ServerChunk], _slots.Made.Select(m => m.Model));
+    }
+
+    // ---- the owner: game data and collision group ---------------------------
+
+    [Fact]
+    public void A_props_object_carries_the_props_own_handle_as_its_game_data()
+    {
+        var props = Props();
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+
+        EntityHandle owner = PhysicsGameData.Owner(_vphysics.Live.Single().Overrides.GameData);
+        Assert.NotEqual(EntityHandle.None, owner);
+        Assert.True(owner.IsInvisibleRange);
+        Assert.Equal(props.HandleOf(_slots.Made[0].Slot), owner);
+        Assert.True(props.IsProp(owner));
+    }
+
+    [Fact]
+    public void Two_props_are_two_owners()
+    {
+        var props = Props();
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+
+        var owners = _vphysics.Live.Select(o => PhysicsGameData.Owner(o.Overrides.GameData)).Distinct().ToList();
+        Assert.Equal(2, owners.Count);
+    }
+
+    [Fact]
+    public void A_freed_props_handle_names_nobody_even_when_its_entry_is_reused()
+    {
+        var props = Props();
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        EntityHandle first = props.HandleOf(_slots.Made[0].Slot);
+
+        props.Forget(_slots.Made[0].Slot);
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        EntityHandle second = props.HandleOf(_slots.Made[1].Slot);
+
+        Assert.False(props.IsProp(first));
+        Assert.True(props.IsProp(second));
+        Assert.Equal(first.EntryIndex, second.EntryIndex);
+        Assert.NotEqual(first, second);
+    }
+
+    [Fact]
+    public void A_prop_is_in_COLLISION_GROUP_PUSHAWAY()
+    {
+        var props = Props();
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+
+        Assert.True(props.TryGroup(props.HandleOf(_slots.Made[0].Slot), out EngineCollisionGroup group));
+        Assert.Equal(EngineCollisionGroup.PushAway, group);
+    }
+
+    [Fact]
+    public void A_piece_with_health_stays_PUSHAWAY_and_one_with_none_is_COLLISION_GROUP_NONE()
+    {
+        var props = Props();
+
+        // The crate's client piece writes no health, so it has the parser's default of 1.
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 1, 0);
+
+        Assert.True(props.TryGroup(props.HandleOf(_slots.Made[0].Slot), out EngineCollisionGroup group));
+        Assert.Equal(EngineCollisionGroup.PushAway, group);
+        Assert.Equal(EngineCollisionGroup.None, ClientPhysicsProps.GroupFor(piece: true, health: 0f));
+        Assert.Equal(EngineCollisionGroup.PushAway, ClientPhysicsProps.GroupFor(piece: false, health: 0f));
+    }
+
+    [Fact]
+    public void The_solver_reads_a_props_group_and_a_ragdolls_as_DEBRIS()
+    {
+        var props = Props();
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        var facts = new SourceSharp.Client.Physics.ClientCollisionFacts(null!, null!, props);
+
+        Assert.Equal(EngineCollisionGroup.PushAway, facts.GroupOf(props.HandleOf(_slots.Made[0].Slot)));
+        Assert.Equal(EngineCollisionGroup.Debris, facts.GroupOf(new EntityHandle(5)));
+    }
+
+    [Fact]
+    public void A_props_splash_is_placed_at_its_object()
+    {
+        var props = Props();
+        props.PhysicsProp(Crate, 0, new Vector(10f, 20f, 30f), QAngle.Zero, Vector.Zero, 0, 0);
+        var world = new SourceSharp.Client.Physics.ClientFluidWorld(null!, null!, null!, null!, null!, props);
+
+        (Vector origin, _) = world.OwnerTransform(props.HandleOf(_slots.Made[0].Slot));
+
+        Assert.Equal(new Vector(10f, 20f, 30f), origin);
+    }
+
+    // ---- the scrape ---------------------------------------------------------
+
+    [Fact]
+    public void A_props_scrape_is_the_worlds_to_play_and_anyone_elses_their_own()
+    {
+        var props = Props();
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        EntityHandle prop = props.HandleOf(_slots.Made[0].Slot);
+
+        Assert.Equal(new EntityHandle(0), props.SoundSource(prop));
+        Assert.Equal(new EntityHandle(77), props.SoundSource(new EntityHandle(77)));
+    }
+
+    // ---- the effects --------------------------------------------------------
+
+    private const int EfNoShadow = 0x010, EfNoDraw = 0x020;
+
+    [Fact]
+    public void A_prop_with_EF_NODRAW_is_drawn_by_nobody()
+    {
+        var props = Props();
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, EfNoDraw);
+
+        Assert.Equal(ClientPhysicsProps.RenderNone, _slots.Made.Single().Spawn.RenderMode);
+    }
+
+    [Fact]
+    public void A_prop_without_EF_NODRAW_keeps_the_prepared_render_mode()
+    {
+        var props = Props();
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, EfNoShadow);
+
+        Assert.Equal(TempEntSpawn.Prepared(0f).RenderMode, _slots.Made.Single().Spawn.RenderMode);
+    }
+
+    [Fact]
+    public void A_broken_props_pieces_inherit_its_effects()
+    {
+        var props = Props();
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 1, EfNoShadow | EfNoDraw);
+
+        Assert.Equal(ClientPhysicsProps.RenderNone, _slots.Made.Single().Spawn.RenderMode);
+    }
+
+    // ---- the piece limits ---------------------------------------------------
+
+    private sealed class Limits : IPropBreakLimits
+    {
+        public int MaxPieces { get; set; } = -1;
+        public int MaxPiecesPerFrame { get; set; } = -1;
+        public int FrameCount { get; set; } = 1;
+    }
+
+    // Four client pieces, each its own block.
+    private const string FourPieces =
+        "break { \"model\" \"props_junk/wood_crate001a_chunk01\" }\n"
+      + "break { \"model\" \"props_junk/wood_crate001a_chunk01\" }\n"
+      + "break { \"model\" \"props_junk/wood_crate001a_chunk01\" }\n"
+      + "break { \"model\" \"props_junk/wood_crate001a_chunk01\" }";
+
+    private ClientPhysicsProps Limited(Limits limits)
+    {
+        var descriptors = new ModelDescriptors(_ => 0, _ => CrateModel, _log);
+        var breaks = new BreakModels(new Names().IndexOf, null, index => index == Crate ? FourPieces : null, descriptors, _log);
+        return new ClientPhysicsProps(_vphysics, _slots, new Names(), breaks, _clock, () => _maxClients, new Seeds(), _log,
+                                      limits);
+    }
+
+    [Fact]
+    public void Without_limits_every_piece_is_made()
+    {
+        var props = Limited(new Limits());
+
+        Assert.Equal(4, props.Break(CrateModel, 0, Vector.Zero, QAngle.Zero, Vector.Zero, Vector.Zero));
+    }
+
+    [Fact]
+    public void props_break_max_pieces_stops_the_walk_at_its_index()
+    {
+        var props = Limited(new Limits { MaxPieces = 2 });
+
+        Assert.Equal(2, props.Break(CrateModel, 0, Vector.Zero, QAngle.Zero, Vector.Zero, Vector.Zero));
+    }
+
+    [Fact]
+    public void The_per_frame_limit_lets_one_past_it_through_then_stops_the_frame()
+    {
+        var limits = new Limits { MaxPiecesPerFrame = 2 };
+        var props = Limited(limits);
+
+        // Stock breaks once the count is PAST the limit, so three are made.
+        Assert.Equal(3, props.Break(CrateModel, 0, Vector.Zero, QAngle.Zero, Vector.Zero, Vector.Zero));
+        // The frame's count is spent: a second break makes nothing.
+        Assert.Equal(0, props.Break(CrateModel, 0, Vector.Zero, QAngle.Zero, Vector.Zero, Vector.Zero));
+
+        // A new frame resets it.
+        limits.FrameCount = 2;
+        Assert.Equal(3, props.Break(CrateModel, 0, Vector.Zero, QAngle.Zero, Vector.Zero, Vector.Zero));
+    }
+
+    [Fact]
+    public void A_frame_that_made_exactly_its_limit_makes_no_more()
+    {
+        var props = Limited(new Limits { MaxPiecesPerFrame = 4 });
+
+        Assert.Equal(4, props.Break(CrateModel, 0, Vector.Zero, QAngle.Zero, Vector.Zero, Vector.Zero));
+        // The frame's count equals the limit: the break returns before its walk.
+        Assert.Equal(0, props.Break(CrateModel, 0, Vector.Zero, QAngle.Zero, Vector.Zero, Vector.Zero));
+    }
+
+    // ---- the reload ---------------------------------------------------------
+
+    private static ReloadReader Carry(IReloadParticipant from)
+    {
+        var writer = new ReloadWriter();
+        from.Save(writer);
+        return new ReloadReader(writer.ToArray());
+    }
+
+    [Fact]
+    public void A_prop_survives_a_reload_with_its_object_slot_handle_and_group()
+    {
+        var before = Props();
+        before.PhysicsProp(Crate, 0, new Vector(5f, 6f, 7f), QAngle.Zero, Vector.Zero, 0, 0);
+        int slot = _slots.Made[0].Slot;
+        EntityHandle handle = before.HandleOf(slot);
+        nint obj = before.ObjectOf(slot);
+
+        var after = Props();
+        var reader = Carry(before);
+        after.Restore(reader);
+
+        Assert.True(reader.AtEnd);
+        Assert.Equal(1, after.Count);
+        Assert.Equal(obj, after.ObjectOf(slot));
+        Assert.Equal(handle, after.HandleOf(slot));
+        Assert.True(after.IsProp(handle));
+        Assert.True(after.TryGroup(handle, out EngineCollisionGroup group));
+        Assert.Equal(EngineCollisionGroup.PushAway, group);
+        Assert.Contains(slot, _slots.Adopted);
+
+        var transform = new TempEntTransform();
+        Assert.True(after.Drive(slot, ref transform));
+        Assert.Equal(new Vector(5f, 6f, 7f), transform.Origin);
+    }
+
+    [Fact]
+    public void A_prop_made_after_a_reload_names_a_different_handle()
+    {
+        var before = Props();
+        before.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        EntityHandle carried = before.HandleOf(_slots.Made[0].Slot);
+
+        var after = Props();
+        after.Restore(Carry(before));
+        after.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+
+        Assert.NotEqual(carried, after.HandleOf(_slots.Made[1].Slot));
+        Assert.Equal(2, after.Count);
+    }
+
+    [Fact]
+    public void A_carried_prop_whose_slot_cannot_be_taken_back_is_destroyed()
+    {
+        var before = Props();
+        before.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        _slots.RefuseAdopt = true;
+
+        var after = Props();
+        after.Restore(Carry(before));
+
+        Assert.Equal(0, after.Count);
+        Assert.Empty(_vphysics.Live);
+    }
+
+    // ---- the touch ----------------------------------------------------------
+
+    [Fact]
+    public void A_props_object_asks_for_touches_against_static_objects_keeping_its_other_flags()
+    {
+        var props = Props();
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+
+        // The fake's objects start with GLOBAL_COLLISION | GLOBAL_FRICTION.
+        Assert.Equal(0x0003 | ClientPhysicsProps.CallbackGlobalTouchStatic, _vphysics.Live.Single().CallbackFlags);
+    }
+
+    [Fact]
+    public void A_broken_props_pieces_ask_for_static_touches_too()
+    {
+        var props = Props();
+
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 1, 0);
+
+        Assert.Equal(0x0008, _vphysics.Live.Single().CallbackFlags & 0x0008);
+    }
+
+    // ---- StartTouch and HitSurface ------------------------------------------
+
+    private sealed class Hits : IClientPropHitSurfaces
+    {
+        public bool Splats;
+        public readonly List<(EntityHandle Other, Vector Start, Vector End)> Decals = [];
+
+        public bool BloodSplats(string model) => Splats;
+
+        public void BloodDecal(EntityHandle other, Vector start, Vector end) => Decals.Add((other, start, end));
+    }
+
+    [Fact]
+    public void A_props_world_touch_splats_blood_where_its_model_asks_at_most_every_tenth_of_a_second()
+    {
+        var props = Props();
+        var hits = new Hits { Splats = true };
+        props.HitSurfaces = hits;
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        EntityHandle prop = props.HandleOf(_slots.Made[0].Slot);
+        var at = new Vector(4f, 5f, 6f);
+
+        props.StartTouch(prop, ClientPhysicsProps.World, at, Vector.Zero);
+        _clock.Now += 0.05f;
+        props.StartTouch(prop, ClientPhysicsProps.World, at, Vector.Zero);
+        _clock.Now += 0.1f;
+        props.StartTouch(prop, ClientPhysicsProps.World, at, Vector.Zero);
+
+        Assert.Equal(2, hits.Decals.Count);
+        Assert.Equal((ClientPhysicsProps.World, Vector.Zero, at), hits.Decals[0]);
+        Assert.Equal(3, props.Touches);
+        Assert.Equal(3, props.WorldTouches);
+        Assert.Equal(2, props.SurfaceHits);
+    }
+
+    [Fact]
+    public void A_props_touch_splats_nothing_where_its_model_does_not_ask()
+    {
+        var props = Props();
+        var hits = new Hits();
+        props.HitSurfaces = hits;
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+
+        props.StartTouch(props.HandleOf(_slots.Made[0].Slot), ClientPhysicsProps.World, Vector.Zero, Vector.Zero);
+
+        Assert.Empty(hits.Decals);
+        Assert.Equal(1, props.SurfaceHits);
+    }
+
+    [Fact]
+    public void Only_a_live_prop_receives_touches()
+    {
+        var props = Props();
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        EntityHandle prop = props.HandleOf(_slots.Made[0].Slot);
+
+        Assert.True(props.Receives(prop));
+        props.Forget(_slots.Made[0].Slot);
+        Assert.False(props.Receives(prop));
+        Assert.False(props.Receives(ClientPhysicsProps.World));
+    }
+
+    [Fact]
+    public void A_prop_resting_on_the_world_is_touched_by_the_world_end_to_end()
+    {
+        var props = Props();
+        props.PhysicsProp(Crate, 0, Vector.Zero, QAngle.Zero, Vector.Zero, 0, 0);
+        nint obj = _vphysics.Live.Single().Id;
+        var touches = new SourceSharp.Client.Physics.ClientContactTouches(new VPhysicsWorld(_vphysics), props);
+
+        touches.StartTouch(obj, 0x7770, 0x1);
+        touches.UpdateTouchEvents();
+
+        Assert.Equal(1, props.WorldTouches);
+        Assert.Equal(1, touches.DispatchedByWorld);
+    }
+
+    private sealed class VPhysicsWorld(FakeRagdollVPhysics vphysics) : SourceSharp.Client.Physics.IClientTouchWorld
+    {
+        public nint GameData(nint o) => vphysics.Objects.ContainsKey(o) ? vphysics.GameData(o) : 0;
+
+        public bool IsStatic(nint o) => o == 0x7770;
+
+        public Vector ContactPoint(nint d) => Vector.Zero;
+
+        public Vector SurfaceNormal(nint d) => Vector.Zero;
     }
 }

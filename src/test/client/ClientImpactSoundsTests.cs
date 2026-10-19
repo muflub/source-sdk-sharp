@@ -109,18 +109,6 @@ public class ClientImpactSoundsTests
     }
 
     [Fact]
-    public void AClientsidePropSoundsWithNoGameDataAsStocksEntityPointerDid()
-    {
-        // Stock's C_PhysPropClientside carries itself as game data; ours carries
-        // none, so the props say which objects are theirs.
-        var w = Rig();
-        w.Owners.Remove(2);
-        var s = new ClientImpactSounds(w) { SoundsWithoutGameData = o => o == 2 };
-        s.PostCollision(Hit(1, 2, 3, 4, 300f));
-        Assert.Equal(2, s.Queued);
-    }
-
-    [Fact]
     public void ANegativeSurfacePropMakesNoSound()
     {
         var w = Rig();

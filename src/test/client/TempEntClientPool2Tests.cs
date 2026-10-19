@@ -70,6 +70,28 @@ public class TempEntClientPool2Tests
         }
     }
 
+    [Fact]
+    public void A_carried_slot_is_adopted_live_and_never_handed_out_again()
+    {
+        var log = new RecordingLog();
+        var native = new SpawningPool(Fake());
+        var pool = new ClientTempEntPool(log, native, new Clock(), new TempEntPoolTests.NoSimulation());
+
+        // Slot 0 is the top of the newest-first free list: the next one handed out.
+        Assert.True(pool.Adopt(0));
+        Assert.Equal(1, pool.Count);
+        Assert.False(pool.Adopt(0));
+        Assert.False(pool.Adopt(500));
+
+        var handed = new HashSet<int>();
+        for (int i = 0; i < 499; i++)
+            handed.Add(pool.Spawn(Vector.Zero, 1, TempEntPriority.Low, TempEntSpawn.Prepared(0f)));
+
+        Assert.DoesNotContain(0, handed);
+        Assert.Equal(499, handed.Count);
+        Assert.Equal(-1, pool.Spawn(Vector.Zero, 1, TempEntPriority.Low, TempEntSpawn.Prepared(0f)));
+    }
+
     private sealed class Clock : IGameClock
     {
         public float Now { get; set; } = 100f;

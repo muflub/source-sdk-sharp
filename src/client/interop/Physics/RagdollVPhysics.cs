@@ -458,6 +458,15 @@ public sealed unsafe class RagdollVPhysics : IRagdollVPhysics, IDisposable
             Obj(physicsObject)->SetGameFlags((void*)physicsObject, flags);
     }
 
+    public ushort CallbackFlags(nint physicsObject)
+        => physicsObject == 0 ? (ushort)0 : Obj(physicsObject)->GetCallbackFlags((void*)physicsObject);
+
+    public void SetCallbackFlags(nint physicsObject, ushort flags)
+    {
+        if (physicsObject != 0)
+            Obj(physicsObject)->SetCallbackFlags((void*)physicsObject, flags);
+    }
+
     public nint GameData(nint physicsObject)
         => physicsObject == 0 ? 0 : (nint)Obj(physicsObject)->GetGameData((void*)physicsObject);
 

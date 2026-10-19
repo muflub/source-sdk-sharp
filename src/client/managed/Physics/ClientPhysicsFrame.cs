@@ -40,9 +40,11 @@ public sealed class ClientPhysicsClock(IEngineEnvironment engine, IEngineEffects
 
 /// <summary><see cref="IClientPhysicsStepTail"/> over the client's impact sounds, fluid entries and scrapes.</summary>
 public sealed class ClientPhysicsStepTail(ClientImpactSounds impacts, ClientFluidEvents fluids, FrictionSounds scrapes,
-                                          IGameClock clock) : IClientPhysicsStepTail
+                                          IGameClock clock, ClientContactTouches? touches = null) : IClientPhysicsStepTail
 {
     public void UpdateFrictionSounds() => scrapes.Update(clock.Now);
+
+    public void UpdateTouchEvents() => touches?.UpdateTouchEvents();
 
     public void UpdateFluidEvents() => fluids.Frame();
 
