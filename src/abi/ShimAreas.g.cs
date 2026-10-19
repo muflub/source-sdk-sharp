@@ -120,7 +120,6 @@ internal sealed unsafe class ShimAreas
     public int EntitiesInvalidateMdlCacheAll() { return ModelsServer.Vt->EntitiesInvalidateMdlCacheAll(ModelsServer.Self); }
     public void StandaloneSetModelScale(uint a0, float a1) { ModelsServer.Vt->StandaloneSetModelScale(ModelsServer.Self, a0, a1); }
     public void EntitySetModel(uint a0, byte* a1) { ModelsServer.Vt->EntitySetModel(ModelsServer.Self, a0, a1); }
-    public void EntitySetSequence(uint a0, int a1) { ModelsServer.Vt->EntitySetSequence(ModelsServer.Self, a0, a1); }
     public int PrecacheModel(byte* a0) { return Precache.Vt->PrecacheModel(Precache.Self, a0); }
     public void PrecacheSound(byte* a0) { Precache.Vt->PrecacheSound(Precache.Self, a0); }
     public int PrecacheDecal(byte* a0) { return Precache.Vt->PrecacheDecal(Precache.Self, a0); }
@@ -214,7 +213,6 @@ internal sealed unsafe class ShimAreas
     public void EntityGetLocalTransform(uint a0, float* a1, float* a2) { Hierarchy.Vt->EntityGetLocalTransform(Hierarchy.Self, a0, a1, a2); }
     public int EntityParentProbe(uint a0) { return Hierarchy.Vt->EntityParentProbe(Hierarchy.Self, a0); }
     public int EntityGetAttachmentFrame(uint a0, int a1, float* a2, float* a3) { return Hierarchy.Vt->EntityGetAttachmentFrame(Hierarchy.Self, a0, a1, a2, a3); }
-    public int EntityLookupAttachmentAny(uint a0, byte* a1) { return Hierarchy.Vt->EntityLookupAttachmentAny(Hierarchy.Self, a0, a1); }
     public void RegisterCollisionRules(CollisionRulesBlob* a0) { CollisionServer.Vt->RegisterCollisionRules(CollisionServer.Self, a0); }
     public void EntityGetBounds(uint a0, float* a1, float* a2) { CollisionServer.Vt->EntityGetBounds(CollisionServer.Self, a0, a1, a2); }
     public void EntityGetBoundsSize(uint a0, float* a1) { CollisionServer.Vt->EntityGetBoundsSize(CollisionServer.Self, a0, a1); }

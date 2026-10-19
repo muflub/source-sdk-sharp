@@ -587,23 +587,6 @@ int32_t SourceSharp_EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachm
 }
 
 //-----------------------------------------------------------------------------
-// An attachment NAME to a one-based index, on either hierarchy. Zero for a name
-// the model does not carry — the engine's own spelling, and the same answer both
-// sides' LookupAttachment gives.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_EntityLookupAttachmentAny( uint32_t hEntity, const char *pAttachmentName )
-{
-	// NOTHING NATIVE ANSWERS THIS NOW. The standalone arm's skeleton is managed
-	// (ServerSkeletons, plan physics_bones_native_zero 1.2) and
-	// EngineEntities.LookupAttachmentAny answers the whole of it there; the
-	// SDK arm was dead armed by definition (Animating() returns NULL when the
-	// alias is armed). The slot stays until IShimHierarchy is renumbered.
-	(void)hEntity;
-	(void)pAttachmentName;
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
 // THE ENGINE BLOCK, WITH ITS OWN LENGTH.
 //
 // SourceSharp_EntityGetDataBlob answers the NETWORKED payload, whose length is
@@ -854,17 +837,3 @@ void SourceSharp_EntityGetLocalTransform( uint32_t hChild, float *pOutOrigin, fl
 // its record/replay arms -- an oracle for the native bone_library.cpp the
 // server no longer links -- went with the file they checked.
 //=============================================================================//
-
-//-----------------------------------------------------------------------------
-// A RETIRED SKELETON BODY WAS REACHED. Said out loud by the one native bone
-// body the server still carries with nothing behind it (EntitySetSequence, an
-// IShimModelsServer slot: EngineEntityRender asks ServerSkeletons instead).
-// The shared IShimModels bone bodies that used it left with their rows when
-// the client's skeleton followed (plan physics_bones_native_zero 1.2).
-//-----------------------------------------------------------------------------
-void StandaloneBones_Unreached( const char *pszSlot )
-{
-	Warning( "[SourceSharp] %s reached the server's native body; the server's "
-	         "skeleton is managed (ServerSkeletons) and answers this itself\n", pszSlot );
-}
-

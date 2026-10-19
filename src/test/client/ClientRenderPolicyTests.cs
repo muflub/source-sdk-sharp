@@ -951,20 +951,6 @@ public class ClientRenderPolicyTests
     }
 
     [Fact]
-    public void TheBlocksOwnCountFieldsAreNotRead()
-    {
-        // The shell no longer writes them: a stale value there must not reach
-        // the rule. The header answers 4 sequences and no pose parameters.
-        var blocks = OneProp();
-        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.StudioSequenceCount)), 0);
-        Write(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.StudioPoseParameterCount)), 9);
-
-        ClientRenderFacts facts = ClientRenderPolicy.ReadFacts(blocks.Raw(0), new FakeModels());
-
-        Assert.Equal((4, 0), (facts.SequenceCount, facts.PoseParameterCount));
-    }
-
-    [Fact]
     public void AStudioModelWhoseHeaderCannotOpenHasNoSequencesToDecideFromYet()
     {
         var blocks = OneProp();

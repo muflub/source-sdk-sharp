@@ -197,7 +197,6 @@ public:
 	virtual void EntityGetLocalTransform( uint32_t hChild, float * pOutOrigin, float * pOutAngles ) = 0;
 	virtual int32_t EntityParentProbe( uint32_t hEntity ) = 0;
 	virtual int32_t EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float * pOutOriginXYZ, float * pOutAnglesPYR ) = 0;
-	virtual int32_t EntityLookupAttachmentAny( uint32_t hEntity, const char * pAttachmentName ) = 0;
 };
 
 abstract_class IShimCollision
@@ -327,7 +326,6 @@ abstract_class IShimModelsServer : public IShimModels
 {
 public:
 	virtual void EntitySetModel( uint32_t hEntity, const char * pModel ) = 0;
-	virtual void EntitySetSequence( uint32_t hEntity, int32_t nSequence ) = 0;
 };
 
 abstract_class IShimMovementServer : public IShimMovement

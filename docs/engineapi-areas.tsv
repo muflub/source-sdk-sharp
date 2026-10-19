@@ -50,7 +50,6 @@ EntityGetModelName	EngineApi	IShimModels	shared		both	-	SourceSharp_EntityGetMod
 EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	SourceSharp_EntitiesInvalidateMdlCacheAll	int	SourceSharp_ClientEntitiesInvalidateMdlCacheAll
 StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	SourceSharp_StandaloneSetModelScale	uint, float, void	
 EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	SourceSharp_EntitySetModel	uint, byte*, void	
-EntitySetSequence	EngineApi	IShimModelsServer	ext	IShimModels	server	-	SourceSharp_EntitySetSequence	uint, int, void	
 PrecacheModel	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheModel	byte*, int	
 PrecacheSound	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheSound	byte*, void	
 PrecacheDecal	EngineApi	IShimPrecache	server		server	-	SourceSharp_PrecacheDecal	byte*, int	
@@ -144,7 +143,6 @@ EntitySetLocalTransform	EngineApi	IShimHierarchy	server		server	-	SourceSharp_En
 EntityGetLocalTransform	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetLocalTransform	uint, float*, float*, void	
 EntityParentProbe	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityParentProbe	uint, int	
 EntityGetAttachmentFrame	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityGetAttachmentFrame	uint, int, float*, float*, int	
-EntityLookupAttachmentAny	EngineApi	IShimHierarchy	server		server	-	SourceSharp_EntityLookupAttachmentAny	uint, byte*, int	
 RegisterCollisionRules	EngineApi	IShimCollision	shared		both	-	SourceSharp_RegisterCollisionRules	CollisionRulesBlob*, void	
 EntityGetBounds	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetBounds	uint, float*, float*, void	
 EntityGetBoundsSize	EngineApi	IShimCollisionServer	ext	IShimCollision	server	S	SourceSharp_EntityGetBoundsSize	uint, float*, void	

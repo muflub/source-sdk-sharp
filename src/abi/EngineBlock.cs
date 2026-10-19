@@ -107,7 +107,7 @@ public struct EngineBlock
     /// misplaced.
     /// </para>
     /// </summary>
-    public const int SizeBytes = 504;
+    public const int SizeBytes = 488;
 
     /// <summary>
     /// What the runtime says, for the fact that compares the two. Kept beside
@@ -1098,30 +1098,6 @@ public struct EngineBlockClientTail
         Section = "render policy: the model facts, which are the ENGINE's")]
     public int ModelType;
 
-    /// <summary>
-    /// UNWRITTEN since studio.cpp's eviction (2026-10-18): the render policy
-    /// reads the studio header's sequence count from the side's managed header
-    /// (ClientRenderPolicy.ReadModelCounts), and nothing writes or reads this.
-    /// Kept so the tail's layout does not move (docs/todo.md).
-    /// </summary>
-    [NativeDoc(
-        "UNWRITTEN since studio.cpp's eviction: the render policy reads the studio",
-        "header's counts from the side's managed header. Kept, with the three below,",
-        "so the tail's layout does not move (docs/todo.md).")]
-    public int StudioSequenceCount;
-
-    /// <summary>Unwritten; see <see cref="StudioSequenceCount"/>.</summary>
-    [NativeDoc("Unwritten; see StudioSequenceCount.")]
-    public int StudioPoseParameterCount;
-
-    /// <summary>Unwritten; see <see cref="StudioSequenceCount"/>.</summary>
-    [NativeDoc("Unwritten; see StudioSequenceCount.")]
-    public int StudioBoneControllerCount;
-
-    /// <summary>Unwritten; see <see cref="StudioSequenceCount"/>.</summary>
-    [NativeDoc("Unwritten; see StudioSequenceCount.")]
-    public int StudioIkChainCount;
-
     // ---- render policy: the two serials that keep the loop from running -----
 
     /// <summary>
@@ -1172,10 +1148,9 @@ public struct EngineBlockClientTail
     /// <b>It occupies the word that was <c>Padding1</c>,</b> deliberately: the
     /// tail padding existed so that every byte of the block belonged to a named
     /// field, and a real field serves that purpose better than a placeholder
-    /// does. Nothing moved — the block is still 496 bytes and every offset in
-    /// <c>engine_block_layout_test.cpp</c> is the number it was — which is what
-    /// makes this a rename rather than a layout change three concurrent lanes
-    /// would have had to merge.
+    /// does. It was a rename rather than a layout change when it landed; it
+    /// moved to 204 when the four unwritten Studio*Count words before it went
+    /// (2026-10-18).
     /// </para>
     ///
     /// <para>
@@ -1193,7 +1168,6 @@ public struct EngineBlockClientTail
         "ModelRenderInfo_t both hard-coded 0 before step 6d; stock keeps this on",
         "CBaseAnimating and a mod moves it to swap a character's boxes",
         "mid-animation, which is a decision and so belongs to managed code.",
-        "It occupies the word that used to be explicit tail padding, so the block",
-        "is still 496 bytes and no offset moved.")]
+        "It took the word that used to be explicit tail padding.")]
     public int HitboxSet;
 }

@@ -68,7 +68,7 @@ int32_t SourceSharp_SurfacePropGameMaterial( int32_t nSurfaceProp );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 176 slots.
+// SERVER ONLY -- 174 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -156,7 +156,6 @@ void SourceSharp_EntityGetVelocity( uint32_t hEntity, float *pOutXYZ );
 void SourceSharp_EntityGetWorldSpaceCenter( uint32_t hEntity, float *pOutXYZ );
 int32_t SourceSharp_EntityIsPlayer( uint32_t hEntity );
 int32_t SourceSharp_EntityIsValid( uint32_t hEntity );
-int32_t SourceSharp_EntityLookupAttachmentAny( uint32_t hEntity, const char *pAttachmentName );
 void SourceSharp_EntityMakePickup( uint32_t hEntity, float flSizeX, float flSizeY,
                                    float flSizeZ );
 void SourceSharp_EntityMarkBlockChanged( uint32_t hEntity, int32_t nBlockOffset );
@@ -187,7 +186,6 @@ void SourceSharp_EntitySetOwner( uint32_t hEntity, uint32_t hOwner );
 int32_t SourceSharp_EntitySetParent( uint32_t hChild, uint32_t hParent,
                                      int32_t nParentAttachment );
 void SourceSharp_EntitySetPickupEnabled( uint32_t hEntity, int32_t bEnabled );
-void SourceSharp_EntitySetSequence( uint32_t hEntity, int32_t nSequence );
 void SourceSharp_EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags );
 void SourceSharp_EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags );
 void SourceSharp_EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways );

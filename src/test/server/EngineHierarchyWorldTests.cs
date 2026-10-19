@@ -170,12 +170,13 @@ public class EngineHierarchyWorldTests
     }
 
     /// <summary>
-    /// The six the other way — what managed parenting asks of the world. Named
+    /// The four the other way — what managed parenting asks of the world. Named
     /// individually rather than counted, because the count is the thing a
-    /// seventh slot would quietly change.
+    /// fifth slot would quietly change (EntityLookupAttachmentAny left on
+    /// 2026-10-18: the managed skeletons answer it).
     ///
     /// <para>
-    /// Two of the six were added AFTER the first live run and neither could have
+    /// Two of them were added AFTER the first live run and neither could have
     /// been predicted from reading: <c>EntityGetEngineBlock</c>, because the
     /// payload's length is the entity's tier and stops short of the block, and
     /// <c>EntityDestroyPhysics</c>, because a parented child that keeps its
@@ -185,7 +186,6 @@ public class EngineHierarchyWorldTests
     [Theory]
     [InlineData("EntityParentProbe")]
     [InlineData("EntityGetAttachmentFrame")]
-    [InlineData("EntityLookupAttachmentAny")]
     [InlineData("EntityGetEngineBlock")]
     [InlineData("EntityDestroyPhysics")]
     public void EachOutboundParentingSlotIsDeclaredInBothFiles(string slot)

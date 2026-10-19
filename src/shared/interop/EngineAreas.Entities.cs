@@ -234,7 +234,12 @@ public interface IEngineEntities
     bool GetAttachmentFrame(EntityHandle entity, int attachment,
                             out Vector origin, out QAngle angles);
 
-    /// <inheritdoc cref="EngineSide.EntityLookupAttachmentAny"/>
+    /// <summary>
+    /// An attachment NAME to a one-based index, on either hierarchy; 0 for a
+    /// name the model does not carry, the engine's own spelling. The server's
+    /// managed skeletons answer it; managed calls no native slot for it
+    /// (2026-10-18).
+    /// </summary>
     int LookupAttachmentAny(EntityHandle entity, string attachmentName);
 
     /// <summary>
@@ -563,7 +568,11 @@ public interface IEngineEntityRender
     /// <summary>EF_BONEMERGE's follower half: the source by client entity index, -1 to stop. (plan physics_bones_native_zero 1.2: the skeleton route.)</summary>
     void SetBoneMergeSource(EntityHandle entity, int sourceEntityIndex);
 
-    /// <inheritdoc cref="EngineSide.EntitySetSequence"/>
+    /// <summary>
+    /// Plays a sequence from the start at rate 1 (PlaySequence's fixed shape);
+    /// a negative sequence is refused. The server's managed skeletons answer it
+    /// (managed calls no native slot for it, 2026-10-18).
+    /// </summary>
     void SetSequence(EntityHandle entity, int sequence);
 
     /// <inheritdoc cref="EngineSide.StandaloneSetViewModel"/>

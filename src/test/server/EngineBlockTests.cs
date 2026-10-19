@@ -202,7 +202,7 @@ public class EngineBlockTests
     }
 
     //-------------------------------------------------------------------------
-    // EngineBlockClientTail: 19 fields, 96 bytes.
+    // EngineBlockClientTail: 36 fields, 208 bytes.
     //-------------------------------------------------------------------------
     [Fact]
     public void ClientRenderOriginIsAt0()
@@ -337,36 +337,20 @@ public class EngineBlockTests
         => Assert.Equal(192, (int)Marshal.OffsetOf<EngineBlockClientTail>("ModelType"));
 
     [Fact]
-    public void ClientStudioSequenceCountIsAt196()
-        => Assert.Equal(196, (int)Marshal.OffsetOf<EngineBlockClientTail>("StudioSequenceCount"));
+    public void ClientPolicyInputsIsAt196()
+        => Assert.Equal(196, (int)Marshal.OffsetOf<EngineBlockClientTail>("PolicyInputs"));
 
     [Fact]
-    public void ClientStudioPoseParameterCountIsAt200()
-        => Assert.Equal(200, (int)Marshal.OffsetOf<EngineBlockClientTail>("StudioPoseParameterCount"));
+    public void ClientPolicyOutputsIsAt200()
+        => Assert.Equal(200, (int)Marshal.OffsetOf<EngineBlockClientTail>("PolicyOutputs"));
 
     [Fact]
-    public void ClientStudioBoneControllerCountIsAt204()
-        => Assert.Equal(204, (int)Marshal.OffsetOf<EngineBlockClientTail>("StudioBoneControllerCount"));
+    public void ClientHitboxSetIsAt204()
+        => Assert.Equal(204, (int)Marshal.OffsetOf<EngineBlockClientTail>("HitboxSet"));
 
     [Fact]
-    public void ClientStudioIkChainCountIsAt208()
-        => Assert.Equal(208, (int)Marshal.OffsetOf<EngineBlockClientTail>("StudioIkChainCount"));
-
-    [Fact]
-    public void ClientPolicyInputsIsAt212()
-        => Assert.Equal(212, (int)Marshal.OffsetOf<EngineBlockClientTail>("PolicyInputs"));
-
-    [Fact]
-    public void ClientPolicyOutputsIsAt216()
-        => Assert.Equal(216, (int)Marshal.OffsetOf<EngineBlockClientTail>("PolicyOutputs"));
-
-    [Fact]
-    public void ClientHitboxSetIsAt220()
-        => Assert.Equal(220, (int)Marshal.OffsetOf<EngineBlockClientTail>("HitboxSet"));
-
-    [Fact]
-    public void ClientIs224BytesWide()
-        => Assert.Equal(224, Marshal.SizeOf<EngineBlockClientTail>());
+    public void ClientIs208BytesWide()
+        => Assert.Equal(208, Marshal.SizeOf<EngineBlockClientTail>());
 
     [Fact]
     public void TheClientDeclaresExactlyTheFieldsThisFileChecks()
@@ -376,12 +360,12 @@ public class EngineBlockTests
         // fourteenth placement value would pass every offset fact above and be
         // checked by none of them, on either side.
         Assert.Equal(
-            new[] { "RenderOrigin", "RenderAngles", "RenderMins", "RenderMaxs", "RenderColorR", "RenderColorG", "RenderColorB", "RenderColorA", "FxBlend", "Skin", "Body", "ShadowChoice", "RenderGroup", "Sequence", "Cycle", "PlaybackRate", "AnimTime", "SimulationTime", "RenderTransform", "Drawn", "Transparent", "ShadowType", "ShadowFlags", "Dormant", "ViewModel", "CustomDraw", "Translucent", "HideWhenOwnerSeen", "FadeStyle", "FadeStartDistance", "FadeEndDistance", "FadeMinAlpha", "ModelType", "StudioSequenceCount", "StudioPoseParameterCount", "StudioBoneControllerCount", "StudioIkChainCount", "PolicyInputs", "PolicyOutputs", "HitboxSet" },
+            new[] { "RenderOrigin", "RenderAngles", "RenderMins", "RenderMaxs", "RenderColorR", "RenderColorG", "RenderColorB", "RenderColorA", "FxBlend", "Skin", "Body", "ShadowChoice", "RenderGroup", "Sequence", "Cycle", "PlaybackRate", "AnimTime", "SimulationTime", "RenderTransform", "Drawn", "Transparent", "ShadowType", "ShadowFlags", "Dormant", "ViewModel", "CustomDraw", "Translucent", "HideWhenOwnerSeen", "FadeStyle", "FadeStartDistance", "FadeEndDistance", "FadeMinAlpha", "ModelType", "PolicyInputs", "PolicyOutputs", "HitboxSet" },
             EngineBlock.FieldsOf(typeof(EngineBlockClientTail)).Select(f => f.Name).ToArray());
     }
 
     //-------------------------------------------------------------------------
-    // EngineBlock: 3 fields, 504 bytes.
+    // EngineBlock: 3 fields, 488 bytes.
     //-------------------------------------------------------------------------
     [Fact]
     public void BlockHeadIsAt0()
@@ -396,8 +380,8 @@ public class EngineBlockTests
         => Assert.Equal(280, (int)Marshal.OffsetOf<EngineBlock>("Client"));
 
     [Fact]
-    public void BlockIs504BytesWide()
-        => Assert.Equal(504, Marshal.SizeOf<EngineBlock>());
+    public void BlockIs488BytesWide()
+        => Assert.Equal(488, Marshal.SizeOf<EngineBlock>());
 
     [Fact]
     public void TheBlockDeclaresExactlyTheFieldsThisFileChecks()
@@ -467,7 +451,7 @@ public class EngineBlockTests
     /// past.
     /// </para>
     /// </summary>
-    private const uint PinnedFingerprint = 0x65967b70u;
+    private const uint PinnedFingerprint = 0x027436fcu;
 
     [Fact]
     public void TheFingerprintIsTheValueBothSidesWereBuiltWith()

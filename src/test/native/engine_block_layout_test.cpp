@@ -285,12 +285,12 @@ TEST( EngineBlockServerLayout, ViewOriginFrameIsAt116 )
 }
 
 //-----------------------------------------------------------------------------
-// EngineBlockClientTail_t: 19 fields, 96 bytes.
+// EngineBlockClientTail_t: 36 fields, 208 bytes.
 //-----------------------------------------------------------------------------
 
-TEST( EngineBlockClientLayout, TheStructIs224BytesWide )
+TEST( EngineBlockClientLayout, TheStructIs208BytesWide )
 {
-	EXPECT_EQ( 224u, sizeof( EngineBlockClientTail_t ) );
+	EXPECT_EQ( 208u, sizeof( EngineBlockClientTail_t ) );
 }
 
 TEST( EngineBlockClientLayout, RenderOriginIsAt0 )
@@ -458,48 +458,28 @@ TEST( EngineBlockClientLayout, ModelTypeIsAt192 )
 	EXPECT_EQ( 192u, offsetof( EngineBlockClientTail_t, ModelType ) );
 }
 
-TEST( EngineBlockClientLayout, StudioSequenceCountIsAt196 )
+TEST( EngineBlockClientLayout, PolicyInputsIsAt196 )
 {
-	EXPECT_EQ( 196u, offsetof( EngineBlockClientTail_t, StudioSequenceCount ) );
+	EXPECT_EQ( 196u, offsetof( EngineBlockClientTail_t, PolicyInputs ) );
 }
 
-TEST( EngineBlockClientLayout, StudioPoseParameterCountIsAt200 )
+TEST( EngineBlockClientLayout, PolicyOutputsIsAt200 )
 {
-	EXPECT_EQ( 200u, offsetof( EngineBlockClientTail_t, StudioPoseParameterCount ) );
+	EXPECT_EQ( 200u, offsetof( EngineBlockClientTail_t, PolicyOutputs ) );
 }
 
-TEST( EngineBlockClientLayout, StudioBoneControllerCountIsAt204 )
+TEST( EngineBlockClientLayout, HitboxSetIsAt204 )
 {
-	EXPECT_EQ( 204u, offsetof( EngineBlockClientTail_t, StudioBoneControllerCount ) );
-}
-
-TEST( EngineBlockClientLayout, StudioIkChainCountIsAt208 )
-{
-	EXPECT_EQ( 208u, offsetof( EngineBlockClientTail_t, StudioIkChainCount ) );
-}
-
-TEST( EngineBlockClientLayout, PolicyInputsIsAt212 )
-{
-	EXPECT_EQ( 212u, offsetof( EngineBlockClientTail_t, PolicyInputs ) );
-}
-
-TEST( EngineBlockClientLayout, PolicyOutputsIsAt216 )
-{
-	EXPECT_EQ( 216u, offsetof( EngineBlockClientTail_t, PolicyOutputs ) );
-}
-
-TEST( EngineBlockClientLayout, HitboxSetIsAt220 )
-{
-	EXPECT_EQ( 220u, offsetof( EngineBlockClientTail_t, HitboxSet ) );
+	EXPECT_EQ( 204u, offsetof( EngineBlockClientTail_t, HitboxSet ) );
 }
 
 //-----------------------------------------------------------------------------
-// EngineBlock_t: 3 fields, 504 bytes.
+// EngineBlock_t: 3 fields, 488 bytes.
 //-----------------------------------------------------------------------------
 
-TEST( EngineBlockBlockLayout, TheStructIs504BytesWide )
+TEST( EngineBlockBlockLayout, TheStructIs488BytesWide )
 {
-	EXPECT_EQ( 504u, sizeof( EngineBlock_t ) );
+	EXPECT_EQ( 488u, sizeof( EngineBlock_t ) );
 }
 
 TEST( EngineBlockBlockLayout, HeadIsAt0 )

@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 21 | 5 | 30 |  |  |  | 59 | 34,846 |
+| a | a vtable the engine or VPhysics calls through | 21 | 5 | 30 |  |  |  | 59 | 34,798 |
 | b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 17,720 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,077 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 9,357 |
 | e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,552 |
 | f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,715 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,446 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,415 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
 | x | NO LETTER FITS | 7 | 2 | 1 |  | 2 |  | 18 | 4,540 |
-|  | **total** | **77** | **35** | **67** | **3** | **2** | **1** | **209** | **93,365** |
+|  | **total** | **77** | **35** | **67** | **3** | **2** | **1** | **209** | **93,286** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -186,6 +186,8 @@ Then the engine forwarders (plan_engine_forwarders.md phase 1, 2026-10-13, measu
 Then physics_debug.cpp left (2026-10-18, measured by the walk on the lane rebased onto main f707d5b8c): its six debug commands are managed's PhysicsDebugCommands.cs. (c) loses the file (server, -566 lines, 29 -> 28 files, 5,345 -> 4,779); 223 files, 100,162 lines in the table.
 
 Then detailobjectsystem.cpp left client.so (C7 cluster 10, 2026-10-18, measured by the walk on the lane rebased onto main a7ee694f9): (a) arrives with sourcesharp/game/client/shell_detail_props.cpp (client, +497 lines, one file), client.so's IDetailObjectSystem, the model props' IClientRenderable and the leaf enumerator, carrying out SourceSharp.Client.Detail's answers; (g) 9,755 -> 9,748 is shell_client_orphans.cpp's GetDetailController, whose only importer was detailobjectsystem.cpp (-7); 218 files, 98,339 in the table.
+
+Then the server's last two native skeleton slots left the ABI (2026-10-18, lane claude/tail-skeleton-standalone, measured by the walk on the lane rebased onto main f4b31392d): (a) 34,846 -> 34,798 is shell_scripted.cpp's SourceSharp_EntitySetSequence and its comment block (-48); (g) 9,446 -> 9,415 is shell_standalone_hierarchy.cpp's SourceSharp_EntityLookupAttachmentAny and StandaloneBones_Unreached (-31). ServerSkeletons answers both; no file left or arrived; 209 files, 93,286 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

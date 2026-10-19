@@ -125,6 +125,15 @@ public class SkeletonRouteTests
     }
 
     [Fact]
+    public void AnEmptyRouteLooksUpNoAttachment()
+    {
+        var (_, entities, fake, _) = Rig(filled: false);
+
+        Assert.Equal(0, entities.LookupAttachmentAny(Brush, "x"));
+        Assert.Empty(fake.Calls);
+    }
+
+    [Fact]
     public void ARefusedScaleIsNotStoredNatively()
     {
         // The store is native and unattached here, so what is pinned is that

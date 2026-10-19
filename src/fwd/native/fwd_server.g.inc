@@ -1246,7 +1246,7 @@ static void *const s_ShimNetworkServerSlots[] = {
 static const SSForwarderTable s_ShimNetworkServerTable = { s_ShimNetworkServerSlots, 11 };
 
 //-----------------------------------------------------------------------------
-// ShimModelsServer: 5 forwarder(s) over IShimModelsServer.
+// ShimModelsServer: 4 forwarder(s) over IShimModelsServer.
 //-----------------------------------------------------------------------------
 // void IShimModels::EntityGetModelName( uint32_t, char *, int32_t )
 static void SSFwd_ShimModelsServer_EntityGetModelName( IShimModelsServer *self, uint32_t a0, char * a1, int32_t a2 ) { self->EntityGetModelName( a0, a1, a2 ); }
@@ -1256,18 +1256,15 @@ static int32_t SSFwd_ShimModelsServer_EntitiesInvalidateMdlCacheAll( IShimModels
 static void SSFwd_ShimModelsServer_StandaloneSetModelScale( IShimModelsServer *self, uint32_t a0, float a1 ) { self->StandaloneSetModelScale( a0, a1 ); }
 // void IShimModelsServer::EntitySetModel( uint32_t, const char * )
 static void SSFwd_ShimModelsServer_EntitySetModel( IShimModelsServer *self, uint32_t a0, const char * a1 ) { self->EntitySetModel( a0, a1 ); }
-// void IShimModelsServer::EntitySetSequence( uint32_t, int32_t )
-static void SSFwd_ShimModelsServer_EntitySetSequence( IShimModelsServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetSequence( a0, a1 ); }
 
 static void *const s_ShimModelsServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntityGetModelName ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitiesInvalidateMdlCacheAll ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_StandaloneSetModelScale ),
 	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetModel ),
-	reinterpret_cast< void * >( &SSFwd_ShimModelsServer_EntitySetSequence ),
 };
 
-static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 5 };
+static const SSForwarderTable s_ShimModelsServerTable = { s_ShimModelsServerSlots, 4 };
 
 //-----------------------------------------------------------------------------
 // ShimPrecache: 5 forwarder(s) over IShimPrecache.
@@ -1582,7 +1579,7 @@ static void *const s_ShimTransformSlots[] = {
 static const SSForwarderTable s_ShimTransformTable = { s_ShimTransformSlots, 14 };
 
 //-----------------------------------------------------------------------------
-// ShimHierarchy: 8 forwarder(s) over IShimHierarchy.
+// ShimHierarchy: 7 forwarder(s) over IShimHierarchy.
 //-----------------------------------------------------------------------------
 // int32_t IShimHierarchy::EntitySetParent( uint32_t, uint32_t, int32_t )
 static int32_t SSFwd_ShimHierarchy_EntitySetParent( IShimHierarchy *self, uint32_t a0, uint32_t a1, int32_t a2 ) { return self->EntitySetParent( a0, a1, a2 ); }
@@ -1598,8 +1595,6 @@ static void SSFwd_ShimHierarchy_EntityGetLocalTransform( IShimHierarchy *self, u
 static int32_t SSFwd_ShimHierarchy_EntityParentProbe( IShimHierarchy *self, uint32_t a0 ) { return self->EntityParentProbe( a0 ); }
 // int32_t IShimHierarchy::EntityGetAttachmentFrame( uint32_t, int32_t, float *, float * )
 static int32_t SSFwd_ShimHierarchy_EntityGetAttachmentFrame( IShimHierarchy *self, uint32_t a0, int32_t a1, float * a2, float * a3 ) { return self->EntityGetAttachmentFrame( a0, a1, a2, a3 ); }
-// int32_t IShimHierarchy::EntityLookupAttachmentAny( uint32_t, const char * )
-static int32_t SSFwd_ShimHierarchy_EntityLookupAttachmentAny( IShimHierarchy *self, uint32_t a0, const char * a1 ) { return self->EntityLookupAttachmentAny( a0, a1 ); }
 
 static void *const s_ShimHierarchySlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntitySetParent ),
@@ -1609,10 +1604,9 @@ static void *const s_ShimHierarchySlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityGetLocalTransform ),
 	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityParentProbe ),
 	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityGetAttachmentFrame ),
-	reinterpret_cast< void * >( &SSFwd_ShimHierarchy_EntityLookupAttachmentAny ),
 };
 
-static const SSForwarderTable s_ShimHierarchyTable = { s_ShimHierarchySlots, 8 };
+static const SSForwarderTable s_ShimHierarchyTable = { s_ShimHierarchySlots, 7 };
 
 //-----------------------------------------------------------------------------
 // ShimCollisionServer: 12 forwarder(s) over IShimCollisionServer.

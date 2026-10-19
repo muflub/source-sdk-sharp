@@ -156,7 +156,10 @@ public partial class EngineApiCensusTests
     // plan_server_native_v2 T3: five IVEngineServer one-call slots folded
     // (GetPlayerUserId, ExecuteServerCommand, PlayerSetViewEntity,
     // PlayerBoxInPvs, EngineLightStyle; 165 - 5 = 160).
-    private const int ServerOnly = 160;
+    // 2026-10-18 (the skeleton slots): EntitySetSequence and
+    // EntityLookupAttachmentAny retire, ServerSkeletons answering both
+    // (160 - 2 = 158).
+    private const int ServerOnly = 158;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

@@ -83,7 +83,6 @@ public:
 	int32_t EntitiesInvalidateMdlCacheAll() override;
 	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
 	void EntitySetModel( uint32_t hEntity, const char * pModel ) override;
-	void EntitySetSequence( uint32_t hEntity, int32_t nSequence ) override;
 };
 
 class CShimPrecache final : public IShimPrecache
@@ -212,7 +211,6 @@ public:
 	void EntityGetLocalTransform( uint32_t hChild, float * pOutOrigin, float * pOutAngles ) override;
 	int32_t EntityParentProbe( uint32_t hEntity ) override;
 	int32_t EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float * pOutOriginXYZ, float * pOutAnglesPYR ) override;
-	int32_t EntityLookupAttachmentAny( uint32_t hEntity, const char * pAttachmentName ) override;
 };
 
 class CShimCollisionServer final : public IShimCollisionServer

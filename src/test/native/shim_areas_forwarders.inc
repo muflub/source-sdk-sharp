@@ -39,10 +39,10 @@ TEST( FwdShimAreas, ShimNetworkServerIs11Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimModelsServerIs5Slots )
+TEST( FwdShimAreas, ShimModelsServerIs4Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimModelsServer::EntitySetSequence ).slot + 1;
-	EXPECT_EQ( 5, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimModelsServer::EntitySetModel ).slot + 1;
+	EXPECT_EQ( 4, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimModelsServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -102,10 +102,10 @@ TEST( FwdShimAreas, ShimTransformIs14Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimHierarchyIs8Slots )
+TEST( FwdShimAreas, ShimHierarchyIs7Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimHierarchy::EntityLookupAttachmentAny ).slot + 1;
-	EXPECT_EQ( 8, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimHierarchy::EntityGetAttachmentFrame ).slot + 1;
+	EXPECT_EQ( 7, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimHierarchy" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

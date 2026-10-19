@@ -92,8 +92,6 @@ void CShimModelsServer::StandaloneSetModelScale( uint32_t hEntity, float flScale
 	{ return ::SourceSharp_StandaloneSetModelScale( hEntity, flScale ); }
 void CShimModelsServer::EntitySetModel( uint32_t hEntity, const char * pModel )
 	{ return ::SourceSharp_EntitySetModel( hEntity, pModel ); }
-void CShimModelsServer::EntitySetSequence( uint32_t hEntity, int32_t nSequence )
-	{ return ::SourceSharp_EntitySetSequence( hEntity, nSequence ); }
 
 int32_t CShimPrecache::PrecacheModel( const char * pszModel )
 	{ return ::SourceSharp_PrecacheModel( pszModel ); }
@@ -287,8 +285,6 @@ int32_t CShimHierarchy::EntityParentProbe( uint32_t hEntity )
 	{ return ::SourceSharp_EntityParentProbe( hEntity ); }
 int32_t CShimHierarchy::EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float * pOutOriginXYZ, float * pOutAnglesPYR )
 	{ return ::SourceSharp_EntityGetAttachmentFrame( hEntity, nAttachment, pOutOriginXYZ, pOutAnglesPYR ); }
-int32_t CShimHierarchy::EntityLookupAttachmentAny( uint32_t hEntity, const char * pAttachmentName )
-	{ return ::SourceSharp_EntityLookupAttachmentAny( hEntity, pAttachmentName ); }
 
 void CShimCollisionServer::RegisterCollisionRules( const SourceSharpCollisionRules * pRules )
 	{ return ::SourceSharp_RegisterCollisionRules( pRules ); }

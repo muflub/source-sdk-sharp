@@ -195,10 +195,6 @@ public class EngineBlockClientTailTests
         public float FadeEndDistance;
         public float FadeMinAlpha;
         public int ModelType;
-        public int StudioSequenceCount;
-        public int StudioPoseParameterCount;
-        public int StudioBoneControllerCount;
-        public int StudioIkChainCount;
         public uint PolicyInputs;
         public uint PolicyOutputs;
         public int HitboxSet;
@@ -241,10 +237,6 @@ public class EngineBlockClientTailTests
         public float FadeEndDistance;
         public float FadeMinAlpha;
         public int ModelType;
-        public int StudioSequenceCount;
-        public int StudioPoseParameterCount;
-        public int StudioBoneControllerCount;
-        public int StudioIkChainCount;
         public uint PolicyInputs;
         public uint PolicyOutputs;
         public int HitboxSet;
@@ -287,10 +279,6 @@ public class EngineBlockClientTailTests
         public float FadeEndDistance;
         public float FadeMinAlpha;
         public int ModelType;
-        public int StudioSequenceCount;
-        public int StudioPoseParameterCount;
-        public int StudioBoneControllerCount;
-        public int StudioIkChainCount;
         public uint PolicyInputs;
         public uint PolicyOutputs;
         public float PoseParameter0;

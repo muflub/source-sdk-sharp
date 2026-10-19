@@ -412,45 +412,23 @@ TEST( AnimatingParallelArm, EveryAnimationEntryPointAnswersBothHierarchies )
 // THE ONE THAT SHIPPED, named so a reader can find the bug from the test.
 //=============================================================================//
 
-TEST( AnimatingParallelArm, SetSequenceReachesTheParallelHierarchysPose )
+// RETIRED WITH ITS SLOT (2026-10-18). SetSequenceReachesTheParallelHierarchysPose
+// held SourceSharp_EntitySetSequence to a parallel arm or a declared refusal.
+// Since physics_bones_native_zero 1.2 ServerSkeletons answers both arms
+// (SkeletonRouteTests, ServerSkeletonsTests), and the IShimModelsServer slot
+// and its body were retired together. What is held now is that the body is
+// gone and stays gone, against a sweep that still reads the file's other
+// entry points.
+TEST( AnimatingParallelArm, TheRetiredSetSequenceBodyStaysGone )
 {
 	const std::vector< Entry > entries = ScanEntryPoints();
+	ASSERT_GT( entries.size(), 10u ) << "the sweep of " << kFile << " found almost nothing";
 
-	bool bFound = false;
 	for ( size_t i = 0; i < entries.size(); i++ )
 	{
-		if ( entries[ i ].name != "SourceSharp_EntitySetSequence" )
-			continue;
-
-		bFound = true;
-
-		// SINCE physics_bones_native_zero 1.2 the parallel arm is MANAGED:
-		// EngineEntityRender.SetSequence asks ServerSkeletons, which writes
-		// Block().Client.Sequence (SkeletonRouteTests, ServerSkeletonsTests
-		// hold that half). The native body is then reached by nothing, and is
-		// allowed only as a DECLARED refusal -- StandaloneBones_Unreached, which
-		// warns -- never as the silent SDK-only no-op this fact was written for.
-		const std::vector< std::string > lines = CodeLines( kFile );
-		bool bRefusesOutLoud = false;
-
-		for ( size_t j = (size_t)entries[ i ].nLine;
-		      j < lines.size() && ( i + 1 >= entries.size() || (int)j < entries[ i + 1 ].nLine ); j++ )
-		{
-			if ( lines[ j ].find( "StandaloneBones_Unreached(" ) != std::string::npos )
-				bRefusesOutLoud = true;
-		}
-
-		EXPECT_TRUE( entries[ i ].bAnswersParallel || bRefusesOutLoud )
-			<< "SourceSharp_EntitySetSequence answers only the SDK hierarchy, so "
-			   "ScriptedEntity.PlaySequence looks a sequence up successfully and "
-			   "then sets nothing. Either the parallel arm is here, or the body "
-			   "says out loud that the managed skeleton answers it.";
-		EXPECT_FALSE( entries[ i ].bAsksSdkArm && !entries[ i ].bAnswersParallel && !bRefusesOutLoud );
+		EXPECT_NE( entries[ i ].name, "SourceSharp_EntitySetSequence" )
+			<< kFile << ":" << entries[ i ].nLine << " defines the retired body again";
 	}
-
-	EXPECT_TRUE( bFound )
-		<< "SourceSharp_EntitySetSequence is not in " << kFile << " any more; "
-		   "this fact is watching nothing";
 }
 
 //=============================================================================//

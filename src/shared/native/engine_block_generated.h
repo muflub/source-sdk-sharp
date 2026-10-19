@@ -41,7 +41,7 @@
 // was built against, and so a stale header is a value that disagrees with
 // EngineBlockFingerprint.Current rather than a silence.
 //-----------------------------------------------------------------------------
-#define SOURCESHARP_ENGINE_BLOCK_FINGERPRINT 0x65967b70u
+#define SOURCESHARP_ENGINE_BLOCK_FINGERPRINT 0x027436fcu
 
 //-----------------------------------------------------------------------------
 // The shared head: who the entity is and where it is.
@@ -193,7 +193,7 @@ struct EngineBlockServerTail_t
 
 //-----------------------------------------------------------------------------
 // The client tail: the interpolated pose, the render state, and the animation
-// inputs the bone code reads. 224 bytes.
+// inputs the bone code reads. 208 bytes.
 //
 // THE POSE HERE IS NOT THE PLACEMENT IN THE HEAD. The head carries where the
 // entity is according to the last update; this carries where it is being drawn
@@ -326,20 +326,6 @@ struct EngineBlockClientTail_t
 	// the same as mod_bad.
 	int32_t     ModelType;
 
-	// UNWRITTEN since studio.cpp's eviction: the render policy reads the studio
-	// header's counts from the side's managed header. Kept, with the three below,
-	// so the tail's layout does not move (docs/todo.md).
-	int32_t     StudioSequenceCount;
-
-	// Unwritten; see StudioSequenceCount.
-	int32_t     StudioPoseParameterCount;
-
-	// Unwritten; see StudioSequenceCount.
-	int32_t     StudioBoneControllerCount;
-
-	// Unwritten; see StudioSequenceCount.
-	int32_t     StudioIkChainCount;
-
 	// ---- render policy: the two serials that keep the loop from running ----
 
 	// Bumped by whoever changes any policy INPUT above. Managed code recomputes an
@@ -356,13 +342,12 @@ struct EngineBlockClientTail_t
 	// ModelRenderInfo_t both hard-coded 0 before step 6d; stock keeps this on
 	// CBaseAnimating and a mod moves it to swap a character's boxes
 	// mid-animation, which is a decision and so belongs to managed code.
-	// It occupies the word that used to be explicit tail padding, so the block
-	// is still 496 bytes and no offset moved.
+	// It took the word that used to be explicit tail padding.
 	int32_t     HitboxSet;
 };
 
 //-----------------------------------------------------------------------------
-// The block itself, at offset 0 of every entity's blob: 504 bytes of head
+// The block itself, at offset 0 of every entity's blob: 488 bytes of head
 // and two tails, in the order the fingerprint hashes them.
 //-----------------------------------------------------------------------------
 struct EngineBlock_t
@@ -461,7 +446,7 @@ static_assert( offsetof( EngineBlockServerTail_t, ViewOrigin ) == 104,
 static_assert( offsetof( EngineBlockServerTail_t, ViewOriginFrame ) == 116,
                "EngineBlockServerTail_t::ViewOriginFrame is not where EngineBlockServerTail.ViewOriginFrame is" );
 
-static_assert( sizeof( EngineBlockClientTail_t ) == 224,
+static_assert( sizeof( EngineBlockClientTail_t ) == 208,
                "EngineBlockClientTail_t is not the size SourceSharp.Abi.EngineBlockClientTail is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderAngles ) == 12,
                "EngineBlockClientTail_t::RenderAngles is not where EngineBlockClientTail.RenderAngles is" );
@@ -527,22 +512,14 @@ static_assert( offsetof( EngineBlockClientTail_t, FadeMinAlpha ) == 188,
                "EngineBlockClientTail_t::FadeMinAlpha is not where EngineBlockClientTail.FadeMinAlpha is" );
 static_assert( offsetof( EngineBlockClientTail_t, ModelType ) == 192,
                "EngineBlockClientTail_t::ModelType is not where EngineBlockClientTail.ModelType is" );
-static_assert( offsetof( EngineBlockClientTail_t, StudioSequenceCount ) == 196,
-               "EngineBlockClientTail_t::StudioSequenceCount is not where EngineBlockClientTail.StudioSequenceCount is" );
-static_assert( offsetof( EngineBlockClientTail_t, StudioPoseParameterCount ) == 200,
-               "EngineBlockClientTail_t::StudioPoseParameterCount is not where EngineBlockClientTail.StudioPoseParameterCount is" );
-static_assert( offsetof( EngineBlockClientTail_t, StudioBoneControllerCount ) == 204,
-               "EngineBlockClientTail_t::StudioBoneControllerCount is not where EngineBlockClientTail.StudioBoneControllerCount is" );
-static_assert( offsetof( EngineBlockClientTail_t, StudioIkChainCount ) == 208,
-               "EngineBlockClientTail_t::StudioIkChainCount is not where EngineBlockClientTail.StudioIkChainCount is" );
-static_assert( offsetof( EngineBlockClientTail_t, PolicyInputs ) == 212,
+static_assert( offsetof( EngineBlockClientTail_t, PolicyInputs ) == 196,
                "EngineBlockClientTail_t::PolicyInputs is not where EngineBlockClientTail.PolicyInputs is" );
-static_assert( offsetof( EngineBlockClientTail_t, PolicyOutputs ) == 216,
+static_assert( offsetof( EngineBlockClientTail_t, PolicyOutputs ) == 200,
                "EngineBlockClientTail_t::PolicyOutputs is not where EngineBlockClientTail.PolicyOutputs is" );
-static_assert( offsetof( EngineBlockClientTail_t, HitboxSet ) == 220,
+static_assert( offsetof( EngineBlockClientTail_t, HitboxSet ) == 204,
                "EngineBlockClientTail_t::HitboxSet is not where EngineBlockClientTail.HitboxSet is" );
 
-static_assert( sizeof( EngineBlock_t ) == 504,
+static_assert( sizeof( EngineBlock_t ) == 488,
                "EngineBlock_t is not the size SourceSharp.Abi.EngineBlock is" );
 static_assert( offsetof( EngineBlock_t, Server ) == 160,
                "EngineBlock_t::Server is not where EngineBlock.Server is" );

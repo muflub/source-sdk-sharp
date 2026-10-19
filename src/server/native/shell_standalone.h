@@ -1354,13 +1354,6 @@ inline CStandaloneEntity *SourceSharp_ShellOf( IServerNetworkable *pNet )
 }
 
 //-----------------------------------------------------------------------------
-// The server's skeleton is managed (plan physics_bones_native_zero 1.2): the
-// IShimModels bodies it used to answer are kept for the shared table and say so
-// if they are ever reached (shell_standalone_hierarchy.cpp).
-//-----------------------------------------------------------------------------
-void StandaloneBones_Unreached( const char *pszSlot );
-
-//-----------------------------------------------------------------------------
 // plan_entity.md 1e -- CHandle< CStandaloneEntity > IS BANNED, and the ban is
 // here because this header is what makes the shell nameable.
 //

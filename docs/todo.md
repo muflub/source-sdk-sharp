@@ -36,7 +36,7 @@ The fact is the client physics lane's (8ab15ceaf).
 **Closed 2026-10-18:** both allocation facts measure through SteadyAllocation.LeastAllocated (src/test/common): warmed three times, then the fewest bytes across five measured calls, so a JIT tier-up inside one call no longer charges it. Mutation proof: a per-call `new object[1]` in MotionSimulation's SimulateState turned all 4 EachKindsSimulateAllocatesNothing cases red, and one in NameMatches.MoveNext turned AWalkAllocatesNothing red; both green after the restore.
 
 
-## The client tail's four Studio*Count fields are unwritten
+## The client tail's four Studio*Count fields are unwritten (closed)
 
 Added 2026-10-18 (studio.cpp's eviction, studio 3). The render policy reads
 a studio model's sequence, pose-parameter, bone-controller and IK-chain
@@ -46,6 +46,11 @@ so `EngineBlockClientTail.StudioSequenceCount` .. `StudioIkChainCount`
 because removing them moves PolicyInputs, PolicyOutputs and HitboxSet and
 shrinks the tail (224 bytes); drop them at the next re-layout of the block,
 with EngineBlockTests' and engine_block_layout_test's offset facts.
+— closed 2026-10-18 (lane claude/tail-skeleton-standalone): the four words
+left EngineBlock.cs and the regenerated header; PolicyInputs, PolicyOutputs
+and HitboxSet moved to 196, 200 and 204, the tail is 208 bytes and the block
+488, and the fingerprint is 0x027436fc. ClientRenderPolicyTests'
+TheBlocksOwnCountFieldsAreNotRead went with its subject.
 
 
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg (closed)
@@ -597,6 +602,18 @@ Added 2026-10-11 at the bones 1.2 lane (worktree-agent-a52447138edc9bfa5).
   then they could become client-only rows in one serialised ABI pass. The
   server-only EntitySetSequence and IShimHierarchy's LookupAttachmentAny are
   the same shape.
+  — the seven shared rows: closed 2026-10-18 (lane claude/tail-skeleton-standalone):
+  none of them is in docs/engineapi-areas.tsv any more (grep, at main
+  8605b6ea1). EntitySetSequence and EntityLookupAttachmentAny: closed
+  2026-10-18 (same lane). Managed stopped calling them first (EngineBinding's
+  empty-route fallbacks and the EngineSide wrappers went); then the rows,
+  ishim_areas.h's two methods, the native bodies in shell_scripted.cpp and
+  shell_standalone_hierarchy.cpp and StandaloneBones_Unreached went, with a
+  deliberate `tools/engine-forwarders --write --reorder` that drops
+  ShimModelsServer slot 4 and ShimHierarchy slot 7 (both the last slot; no
+  other slot moved). EngineApiCensusTests' server-only count 160 -> 158;
+  animating_parallel_arm_test's TheRetiredSetSequenceBodyStaysGone holds the
+  body's absence.
 - **studio_sequence_timing.cpp is on server.so**: closed 2026-10-12 (lane
   agent-a77ed344, "studio timing" commits). The descriptor blob dropped each
   sequence's duration (format v3); ModelDescriptors takes it from
@@ -986,6 +1003,24 @@ definitions, and the header from the client (the server compiles it too).
   and EndTouch have no client caller left (physics.cpp's active-object loop and
   touch dispatch were the last); ShouldCollide and GetCollisionGroup are asked by
   native's collision paths through ICollideable/IGameEntity.
+
+- **Inventory, 2026-10-18 (lane claude/tail-skeleton-standalone): the base needs
+  fork edits.** Fork code on client.so still uses `IGameEntity` as the
+  entity type, so dropping the base would compile but answer NULL there:
+  icliententity.h's `GetGameEntity()` and iclientunknown.h's `GetBaseEntity()`;
+  util_shared.h's `GameEntityFromEntityHandle` and c_baseentity.h's
+  `SDKEntityFromRenderable`; flashlighteffect.cpp's trace filter (it asks
+  `GetCollisionGroup`); clientleafsystem.cpp (`GetClassname`); and particles_new.cpp
+  (the owner, the control-point entity and the view-entity walk). Fork
+  interfaces also fix our implementations' types: DispatchParticleEffect,
+  CTakeDamageInfo/CMultiDamage, KillDeadBeams, ClientProjectile, the te
+  forwards, CEffectData::GetEntity. Ours to retype to `C_StandaloneEntity *`
+  once those go: `SourceSharp_ClientSdkEntityFromIndex/Handle`, the impact
+  effects (GetImpactDecal, SetImpactControlPoint, PlayImpactSound,
+  ParseImpactData, DispatchNewParticleImpact) and the new particles'
+  Set/GetControlPointEntity. These last are ca's particles lane's files. The base
+  can go when particles_new.cpp, flashlighteffect.cpp and clientleafsystem.cpp
+  leave client.so, or after a user-made fork retype.
 
 - **Two m_oldOrigins where stock keeps one** (found 2026-10-12 by the
   damage-message diagnosis): native's m_vecOldOrigin is set per usercmd and

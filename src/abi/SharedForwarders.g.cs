@@ -1143,7 +1143,7 @@ internal unsafe struct ShimNetworkServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimModelsServer</c> through its forwarders (SSFwd_ShimModelsServer): 5 slot(s).
+/// <c>IShimModelsServer</c> through its forwarders (SSFwd_ShimModelsServer): 4 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimModelsServerFwd : IForwarderTable
@@ -1162,9 +1162,6 @@ internal unsafe struct ShimModelsServerFwd : IForwarderTable
 
     // void IShimModelsServer::EntitySetModel( uint32_t, const char * )
     public delegate* unmanaged<void*, uint, byte*, void> EntitySetModel;
-
-    // void IShimModelsServer::EntitySetSequence( uint32_t, int32_t )
-    public delegate* unmanaged<void*, uint, int, void> EntitySetSequence;
 }
 
 /// <summary>
@@ -1486,7 +1483,7 @@ internal unsafe struct ShimTransformFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimHierarchy</c> through its forwarders (SSFwd_ShimHierarchy): 8 slot(s).
+/// <c>IShimHierarchy</c> through its forwarders (SSFwd_ShimHierarchy): 7 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimHierarchyFwd : IForwarderTable
@@ -1514,9 +1511,6 @@ internal unsafe struct ShimHierarchyFwd : IForwarderTable
 
     // int32_t IShimHierarchy::EntityGetAttachmentFrame( uint32_t, int32_t, float *, float * )
     public delegate* unmanaged<void*, uint, int, void*, void*, int> EntityGetAttachmentFrame;
-
-    // int32_t IShimHierarchy::EntityLookupAttachmentAny( uint32_t, const char * )
-    public delegate* unmanaged<void*, uint, byte*, int> EntityLookupAttachmentAny;
 }
 
 /// <summary>

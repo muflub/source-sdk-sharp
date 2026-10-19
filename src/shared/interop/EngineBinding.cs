@@ -465,11 +465,13 @@ internal sealed class EngineEntities : IEngineEntities
     }
 
     public int LookupAttachmentAny(EntityHandle entity, string attachmentName)
-        // The native slot's only other arm (an SDK entity) answers 0 armed, so
-        // a managed skeleton answers the whole of it.
+        // A managed skeleton answers the whole of it. Before the composition
+        // fills the route (and on the client, which has no such route) the
+        // answer is the engine's "no such attachment", 0, which is all the
+        // native slot (IShimHierarchy's, unreached since the flip) answers.
         => _skeletons.Skeletons is { } skeletons
             ? skeletons.LookupAttachment(entity, attachmentName)
-            : E.EntityLookupAttachmentAny(entity, attachmentName);
+            : 0;
     // No engine answer since plan_server_native_v2 T2: no stock-hierarchy entity is ever registered on the server, so the SDK's find-by-name has no population; the managed directory's walk is the answer and every caller asks it first.
     public EntityHandle FindBaseByName(string name) => EntityHandle.None;
     public Span<byte> GetEngineBlock(EntityHandle entity) => E.GetEntityBlock(entity);
@@ -859,17 +861,12 @@ internal sealed class EngineEntityRender : IEngineEntityRender
         => Client?.SetBoneMergeSource(entity, sourceEntityIndex);
     public void SetSequence(EntityHandle entity, int sequence)
     {
-        // PlaySequence's fixed shape: from the start, at rate 1. The native
-        // slot's other arm (an SDK entity) is unreachable armed, so a managed
-        // skeleton answers the whole of it.
-        if (Skeletons is { } skeletons)
-        {
-            if (sequence >= 0)
-                skeletons.SetSequence(entity, sequence, 1.0f, restart: true);
-            return;
-        }
-
-        E.EntitySetSequence(entity, sequence);
+        // PlaySequence's fixed shape: from the start, at rate 1. A managed
+        // skeleton answers the whole of it; with no skeleton composed yet there
+        // is nothing to play the sequence on (IShimModelsServer's native slot
+        // behind this only warns).
+        if (Skeletons is { } skeletons && sequence >= 0)
+            skeletons.SetSequence(entity, sequence, 1.0f, restart: true);
     }
     public void SetViewModel(EntityHandle entity, bool enable) => E.StandaloneSetViewModel(entity, enable);
     /// <summary>

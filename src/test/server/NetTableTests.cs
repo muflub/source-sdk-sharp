@@ -1018,8 +1018,11 @@ public partial class NetTableTests
         // EngineLimits.MaxTeams = 32 shorts, 64 bytes, the eighth run, and it
         // took the declaration 912 -> 976 — still under the 1024 tier, so
         // player_manager's wire block is unchanged and no other class moved.
+        //
+        // 960 since the client tail's four unwritten Studio*Count words went
+        // (2026-10-18): the block shrank 504 -> 488, so 488 + 472 = 960.
         Assert.True(blob == EngineBlock.SizeBytes + 472, $"the hierarchy's declared blob is 472 bytes past the engine block ({blob})");
-        Assert.Equal(976, blob);
+        Assert.Equal(960, blob);
 
         // The greediest classes, BY NAME. A max with no name would still pass
         // with color_correction back at 276 — it is WHICH class sets the number

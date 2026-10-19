@@ -3679,26 +3679,6 @@ internal sealed unsafe partial class EngineSide
         return got != 0;
     }
 
-    /// <summary>
-    /// An attachment NAME to a one-based index, on either hierarchy. 0 for a
-    /// name the model does not carry — the engine's own spelling.
-    ///
-    /// <para>
-    /// the skeleton's attachment lookup answers the same question of the
-    /// parallel hierarchy alone, and that is not enough for parenting: a map's
-    /// <c>parentattachment</c> is looked up on the PARENT's model, and the
-    /// shipped content's parents are the map's own doors and lifts.
-    /// </para>
-    /// </summary>
-    public int EntityLookupAttachmentAny(EntityHandle entity, string attachmentName)
-    {
-        if (!s_Initialized || !ServerAttached || attachmentName.Length == 0)
-            return 0;
-
-        var bytes = Encoding.UTF8.GetBytes(attachmentName + "\0");
-        fixed (byte* p = bytes) { return ServerShims.EntityLookupAttachmentAny(entity.Value, p); }
-    }
-
     //-------------------------------------------------------------------------
     // Host.
     //-------------------------------------------------------------------------
@@ -4045,13 +4025,6 @@ internal sealed unsafe partial class EngineSide
     {
         if (s_Initialized && ServerAttached)
             Motion.BecomeTrigger(entity, isTrigger);
-    }
-
-    /// <summary>Plays a sequence from the start.</summary>
-    public void EntitySetSequence(EntityHandle entity, int sequence)
-    {
-        if (s_Initialized && ServerAttached)
-            ServerShims.EntitySetSequence(entity.Value, sequence);
     }
 
     /// <summary>
