@@ -224,6 +224,44 @@ public class EngineAreaTests
         Assert.True(described.Any(row => row.Key == "IEngineEntities" && row.Kind == "instance"), "the areas appear in the container's own listing");
     }
 
+    /// <summary>
+    /// plan_shim_areas_split phase 7: each side compiles its own copy of the
+    /// bindings, so each side's composition registers its own implementation of
+    /// every area, from its own interop assembly, under its own copy of the
+    /// interface. A binding of the other side's registered here would answer
+    /// out of the wrong side's shims: the run-time side choice this phase
+    /// removed, back by the side door.
+    /// </summary>
+    [Fact]
+    public void EachSideRegistersItsOwnBindingOfEveryArea()
+    {
+        var server = new ServiceContainer().AddInstance(new StandaloneMirror());
+        EngineServices.AddTo(server, new EngineSide(Side.Server));
+        var client = new client::SourceSharp.Abi.ServiceContainer().AddInstance(new client::SourceSharp.Abi.StandaloneMirror());
+        client::SourceSharp.Abi.EngineServices.AddTo(client, new client::SourceSharp.Abi.EngineSide(Side.Client));
+
+        Assembly serverInterop = typeof(EngineSide).Assembly;
+        Assembly clientInterop = typeof(client::SourceSharp.Abi.EngineSide).Assembly;
+        Assert.NotSame(serverInterop, clientInterop);
+
+        var clientAreas = client::SourceSharp.Abi.EngineServices.Contracts().ToDictionary(t => t.FullName!);
+        Assert.Equal(Areas().Select(t => t.FullName!).Order(StringComparer.Ordinal),
+                     clientAreas.Keys.Order(StringComparer.Ordinal));
+
+        foreach (Type area in Areas())
+        {
+            Type clientArea = clientAreas[area.FullName!];
+            Assert.NotSame(area, clientArea);
+
+            object? s = server.Resolve(area);
+            object? c = client.Resolve(clientArea);
+            Assert.True(s is not null && s.GetType().Assembly == serverInterop,
+                        $"the server registers its own binding of {area.Name}");
+            Assert.True(c is not null && c.GetType().Assembly == clientInterop && clientArea.IsInstanceOfType(c),
+                        $"the client registers its own binding of {area.Name}");
+        }
+    }
+
     [Fact]
     public void TheDoubleCoversEveryArea()
     {
