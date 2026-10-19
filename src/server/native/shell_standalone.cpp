@@ -120,6 +120,11 @@ static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 	                                              + SS_BLOCK_HEAD_OFFSET( SolidType );
 	nOffsets[ STANDALONE_NET_FIELD_SOLIDFLAGS ]   = CStandaloneEntity::BlockBase()
 	                                              + SS_BLOCK_HEAD_OFFSET( SolidFlags );
+	// THE SKIN: the block's Client.Skin, which managed writes and marks
+	// (EngineEntityRender.SetSkin) with the same offset inside the block.
+	nOffsets[ STANDALONE_NET_FIELD_SKIN ]         = CStandaloneEntity::BlockBase()
+	                                              + (int)offsetof( EngineBlock_t, Client )
+	                                              + (int)offsetof( EngineBlockClientTail_t, Skin );
 
 	int nCount = 0;
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );

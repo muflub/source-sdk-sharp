@@ -126,11 +126,6 @@ Managed callers should call these directly; the managed-built slot goes in T3.
   (`BUBBLE_TRAIL_MAX_COUNT`) before writing it. The native forward went in the
   server gc cull, and the orphaned enum in T2. A managed sender of `TeBubbleTrail`
   owes the clamp.
-- **A skin chosen on the server.** `env_beverage` (`EnvBeverage.cs`) and gibs
-  (`SsGib.cs`) call `SetSkin` on the server. The server's native body was empty, so
-  the choice never reached a client; T2 made the slot client-only. The port is a
-  networked skin field on the standalone entity's wire, which stock sends as
-  `m_nSkin`.
 
 ## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
 

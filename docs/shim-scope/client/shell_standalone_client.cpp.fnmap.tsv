@@ -41,7 +41,7 @@
 5	UNRULED	void C_StandaloneEntity::WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const
 8	UNRULED	void C_StandaloneEntity::WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs )
 6	UNRULED	static void RecvProxy_StandaloneTypeId( const CRecvProxyData *pData, void *pStruct,
-42	UNRULED	static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
+45	UNRULED	static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
 4	UNRULED	int SourceSharp_StandaloneBlobOffset()
 5	UNRULED	int C_StandaloneEntity::BlockBase()
 11	UNRULED	void *C_StandaloneEntity::operator new( size_t nBytes, int nBlobBytes )

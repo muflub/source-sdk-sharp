@@ -582,8 +582,9 @@ public class SideAuditTests
         // plan_server_native_v2 T2. Its server arm wrote m_nSkin on a native
         // CBaseAnimating, and the body had been empty since no entity on the
         // standalone hierarchy has one. The client's arm, which lands the skin
-        // where modelrender reads it, is the slot. What the server's callers
-        // lose is ServerWaiver's one line.
+        // where modelrender reads it, is the slot. The server's skin travels as
+        // the m_nSkin prop since 2026-10-19 (NetworkedSkin): it writes its block
+        // and marks the offset, and needs no skin slot at all.
         // The model SCALE, and it is dual for a reason the skin beside it is
         // not. A skin is read once by modelrender on the machine doing the
         // drawing, so the server has no question to answer. A SIZE is asked by
@@ -876,19 +877,7 @@ public class SideAuditTests
     /// </summary>
     private static readonly HashSet<string> ClientWaiver = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// Server code that leans on client-only slots. ONE LINE, and it is a bug
-    /// report: env_beverage and gibs pick a skin on the server, and since the
-    /// server's EntitySetSkin body was empty, the choice has never reached a
-    /// client. The slot went client-only in plan_server_native_v2 T2 rather
-    /// than keep an empty native body for this audit to pass over. The port is
-    /// a networked skin on the standalone entity's wire (docs/todo.md); this
-    /// line goes when that lands.
-    /// </summary>
-    private static readonly HashSet<string> ServerWaiver = new(StringComparer.Ordinal)
-    {
-        "IEngineEntityRender.SetSkin is backed by Client-only slot 'EntitySetSkin'",
-    };
+    private static readonly HashSet<string> ServerWaiver = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Shared code that leans on server-only slots.

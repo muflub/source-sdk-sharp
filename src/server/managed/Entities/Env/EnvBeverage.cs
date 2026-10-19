@@ -20,11 +20,11 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.EnvBeverage)]
 public sealed class EnvBeverage : ScriptedEntity
 {
-    public EnvBeverage(IEngineHost host, IEnginePrecache precache, IEngineEntityRender render)
+    public EnvBeverage(IEngineHost host, IEnginePrecache precache, IServerSkins skins)
     {
         Host = host;
         Precache = precache;
-        Render = render;
+        Skins = skins;
     }
 
     /// <summary>the process and the match.</summary>
@@ -34,7 +34,7 @@ public sealed class EnvBeverage : ScriptedEntity
     private readonly IEnginePrecache Precache;
 
     /// <summary>what this entity looks like.</summary>
-    private readonly IEngineEntityRender Render;
+    private readonly IServerSkins Skins;
     /// <summary>What a map may set on this entity. See <see cref="EnvBeverageVars"/>.</summary>
     [ScriptVars] public EnvBeverageVars Vars = new();
 
@@ -111,14 +111,10 @@ public sealed class EnvBeverage : ScriptedEntity
         // skins can be chosen, and the shell applies a pending model during
         // spawn rather than before it.
         //
-        // It currently lands nowhere. The can moved to the parallel hierarchy
-        // with item_sodacan, and that hierarchy has no skin — the client's
-        // GetSkin returns a hardcoded zero and nothing networks one. So every
-        // can comes out in the first livery until the shell grows the field.
-        // The choice is still made here, because it is still this entity's to
-        // make and the day it is carried nothing here should have to change.
-        // See docs/divergences.md.
-        Render.SetSkin(can, SkinFor(Vars.BeverageType));
+        // It reaches the client as the m_nSkin prop (2026-10-19): ServerSkins
+        // writes the can's engine block and marks the offset, and the client's
+        // GetSkin answers it. Before that every can came out in the first livery.
+        Skins.SetSkin(can, SkinFor(Vars.BeverageType));
 
         _waiting = can;
         Vars.Remaining--;

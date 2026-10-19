@@ -179,6 +179,10 @@ enum { STANDALONE_NOINTERP_PARITY_BITS = 2 };
 // either stops the client build — the NOINTERP row above is the precedent.
 enum { STANDALONE_SOLID_FLAGS_MAX_BITS = 10 };
 
+// ANIMATION_SKIN_BITS (game/shared/shareddefs.h), named here for the same
+// reason as the two above.
+enum { STANDALONE_SKIN_BITS = 10 };
+
 inline const StandaloneNetField_t *StandaloneNetFields( int *pOutCount )
 {
 	static const StandaloneNetField_t s_Fields[] =
@@ -212,6 +216,13 @@ inline const StandaloneNetField_t *StandaloneNetFields( int *pOutCount )
 		// stock's TestCollision gate to TestHitboxes — a client that cannot
 		// see the flags cannot run the gate.
 		{ "m_nSolidFlags",   STANDALONE_NET_INT,    STANDALONE_SOLID_FLAGS_MAX_BITS },
+		// THE SKIN, at the tail for the same wire-order reason. Stock sends
+		// CBaseAnimating's m_nSkin at ANIMATION_SKIN_BITS (10); a skin is never
+		// negative, so it travels unsigned like every INT row here. Both sides
+		// address the engine block's Client.Skin, which is what the client's
+		// GetSkin answers: a skin the SERVER picks (env_beverage's can, a gib)
+		// reached no client before this row (plan_server_native_v2, 2026-10-19).
+		{ "m_nSkin",         STANDALONE_NET_INT,    STANDALONE_SKIN_BITS },
 	};
 
 	if ( pOutCount )
@@ -236,6 +247,8 @@ enum
 	// Appended with the fields, for the same wire-order reason.
 	STANDALONE_NET_FIELD_SOLIDTYPE,
 	STANDALONE_NET_FIELD_SOLIDFLAGS,
+	// Appended with its row.
+	STANDALONE_NET_FIELD_SKIN,
 
 	STANDALONE_NET_FIELD_COUNT,
 };

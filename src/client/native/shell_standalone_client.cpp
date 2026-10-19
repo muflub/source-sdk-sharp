@@ -2165,6 +2165,11 @@ static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
 	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( SolidType );
 	nOffsets[ STANDALONE_NET_FIELD_SOLIDFLAGS ]   = C_StandaloneEntity::BlockBase()
 	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( SolidFlags );
+	// THE SKIN, received straight into the block's Client.Skin, which GetSkin
+	// answers. Nothing on this side runs when it changes; the answer is a load.
+	nOffsets[ STANDALONE_NET_FIELD_SKIN ]         = C_StandaloneEntity::BlockBase()
+	                                              + (int)offsetof( EngineBlock_t, Client )
+	                                              + (int)offsetof( EngineBlockClientTail_t, Skin );
 
 	int nCount = 0;
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );

@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 35,357 |
+| a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 35,362 |
 | b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 18,090 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,077 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 9,383 |
 | e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,552 |
-| f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,715 |
+| f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,720 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,418 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
 | x | NO LETTER FITS | 7 | 2 | 1 |  | 2 |  | 18 | 4,559 |
-|  | **total** | **77** | **35** | **69** | **3** | **2** | **1** | **211** | **94,263** |
+|  | **total** | **77** | **35** | **69** | **3** | **2** | **1** | **211** | **94,273** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise

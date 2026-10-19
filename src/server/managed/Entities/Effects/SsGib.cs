@@ -62,9 +62,11 @@ public sealed class SsGib : ScriptedEntity
 {
     public SsGib(IEngineEntityPhysics physics, EntityMotion motion,
                  IEngineEffects effects, IEngineSound sound,
-                 IEngineEntityRender render, IEngineHost host, BloodDecals blood)
+                 IEngineEntityRender render, IEngineHost host, BloodDecals blood,
+                 IServerSkins skins)
     {
         _blood = blood;
+        _skins = skins;
         _physics = physics;
         _motion = motion;
         _effects = effects;
@@ -80,6 +82,7 @@ public sealed class SsGib : ScriptedEntity
     private readonly IEngineEntityRender _render;
     private readonly IEngineHost _host;
     private readonly BloodDecals _blood;
+    private readonly IServerSkins _skins;
 
     /// <summary>
     /// <c>CGib::m_cBloodDecals</c>: how many bounces may leave a mark, one per
@@ -202,7 +205,7 @@ public sealed class SsGib : ScriptedEntity
         if (invisible)
             _render.SetVisible(Handle, false);
 
-        _render.SetSkin(Handle, shot.Skin);
+        _skins.SetSkin(Handle, shot.Skin);
         _render.SetModelScale(Handle, shot.Scale > 0f ? shot.Scale : 1f);
 
         // ZERO MEANS ONE, which is the engine's rule and not a guess:
