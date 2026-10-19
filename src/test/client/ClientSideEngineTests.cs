@@ -40,9 +40,7 @@ public unsafe class ClientSideEngineTests : IDisposable
         api.Initialize();
 
         string why;
-        bool attached = side == Side.Server
-            ? api.AttachShims(root.Bind(), out why)
-            : api.AttachClientShims(root.Bind(), out why);
+        bool attached = api.AttachOwnShims(root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;
@@ -123,7 +121,7 @@ public unsafe class ClientSideEngineTests : IDisposable
         var services = new ServiceContainer().AddInstance(new StandaloneMirror());
         using var root = new FakeShimRoot();
         var side = new EngineSide(Side.Client);
-        Assert.True(side.AttachClientShims(root.Bind(), out string why), why);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string why), why);
         new SourceSharp.Client.Interop.ClientEntityFetches().AddTo(services, new ModuleEngine(side));
         EngineServices.AddTo(services, side);
         var entities = services.Require<IEngineEntities>();

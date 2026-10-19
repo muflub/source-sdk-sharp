@@ -58,7 +58,7 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         gone.Initialize();
         var (goneSelf, goneSlots) = Area(Gone);
         other.Area("SourceSharpEntitiesServer001", (void*)goneSelf, (void*)goneSlots);
-        Assert.True(gone.AttachShims(other.Bind(), out string why), why);
+        Assert.True(gone.AttachOwnShims(other.Bind(), out string why), why);
         Assert.False(gone.EntityIsValid(Saved), "and gone when its slot does");
     }
 
@@ -107,9 +107,7 @@ public unsafe class ClientEntityIsValidTests : IDisposable
         api.Initialize();
 
         string why;
-        bool attached = side == Side.Server
-            ? api.AttachShims(_root.Bind(), out why)
-            : api.AttachClientShims(_root.Bind(), out why);
+        bool attached = api.AttachOwnShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

@@ -77,9 +77,7 @@ public unsafe class GameFileSideTests : IDisposable
         api.Initialize();
 
         string why;
-        bool attached = side == Side.Server
-            ? api.AttachShims(_root.Bind(), out why)
-            : api.AttachClientShims(_root.Bind(), out why);
+        bool attached = api.AttachOwnShims(_root.Bind(), out why);
 
         Assert.True(attached, why);
         return api;

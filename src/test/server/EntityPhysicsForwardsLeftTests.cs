@@ -32,6 +32,10 @@ public class EntityPhysicsForwardsLeftTests
     private static string Code(params string[] path) =>
         Regex.Replace(File.ReadAllText(RepoLayout.Repo(path)), @"//[^\n]*", "");
 
+    // EngineSide with both sides' halves (plan_shim_areas_split phase 7).
+    private static string SideCode() =>
+        Regex.Replace(RepoLayout.SharedTypeSource("EngineSide"), @"//[^\n]*", "");
+
     private static string[] AreaSlots() =>
         File.ReadAllLines(RepoLayout.Repo("docs", "engineapi-areas.tsv"))
             .Select(l => l.Split('\t')[0])
@@ -65,7 +69,7 @@ public class EntityPhysicsForwardsLeftTests
     {
         _ = slot;
 
-        Assert.Contains(managedCall, Code("src", "shared", "interop", "EngineSide.cs"));
+        Assert.Contains(managedCall, SideCode());
         Assert.Contains(vtableCall, Code("src", "shared", "interop", "EntityPhysicsMotion.cs"));
     }
 
@@ -102,7 +106,7 @@ public class EntityPhysicsForwardsLeftTests
     [Fact]
     public void ManagedDecidesTheVelocityHome()
     {
-        string side = Code("src", "shared", "interop", "EngineSide.cs");
+        string side = SideCode();
         Assert.Contains("return Motion.Velocity(h);", side);
         Assert.Contains("Motion.SetVelocity(h, velocity);", side);
         Assert.Contains("return Motion.AngularVelocity(entity);", side);
@@ -128,7 +132,7 @@ public class EntityPhysicsForwardsLeftTests
     public void ManagedMovesTheObjectAfterTheTeleport()
     {
         Assert.Contains("Motion.TeleportObject(h, origin, angles, zeroVelocity);",
-                        Code("src", "shared", "interop", "EngineSide.cs"));
+                        SideCode());
         Assert.Contains("->SetPosition((void*)o, &origin, &angles, isTeleport ? (byte)1 : (byte)0)",
                         Code("src", "shared", "interop", "EntityPhysicsMotion.cs"));
     }
@@ -153,7 +157,7 @@ public class EntityPhysicsForwardsLeftTests
     public void TheObjectComesFromTheHeldPointerRead()
     {
         Assert.Contains("public nint PhysicsObject(EntityHandle entity) => side.EntityPhysicsObject(entity);",
-                        Code("src", "shared", "interop", "EngineSide.cs"));
+                        SideCode());
         Assert.Contains("void *SourceSharp_EntityPhysicsObject( uint32_t hEntity )",
                         Code("src", "server", "native", "shell_scripted.cpp"));
     }

@@ -322,7 +322,7 @@ public partial class AbiParityTests
                          .Select(n => n.StartsWith("pOut", StringComparison.Ordinal) ? n[4..] : n)
                          .ToList();
 
-        string side = File.ReadAllText(RepoLayout.Repo("src", "shared", "interop", "EngineSide.cs"));
+        string side = RepoLayout.SharedTypeSource("EngineSide");
         var call = Regex.Match(side, @"ServerShims\.TraceLineSurface\((?<a>[^;]*)\);");
         Assert.True(call.Success, "EngineSide calls the TraceLineSurface slot");
         var passed = call.Groups["a"].Value.Split(',')

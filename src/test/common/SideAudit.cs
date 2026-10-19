@@ -239,21 +239,63 @@ internal static class SideAudit
     /// </summary>
     /// <summary>The binding classes <see cref="BindingMap"/> reads, by simple name.</summary>
     public static HashSet<string> BindingClasses(string bindingSource)
-        => Regex.Matches(bindingSource, @"(?m)^\s*internal\s+sealed\s+class\s+(\w+)\s*:\s*IEngine\w+")
+        => Regex.Matches(bindingSource, @"(?m)^\s*internal\s+sealed\s+(?:partial\s+)?class\s+(\w+)\s*:\s*IEngine\w+")
                 .Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
 
-    public static Dictionary<(string Iface, string Member), HashSet<string>> BindingMap(string bindingSource)
+    /// <summary>
+    /// The map over the shared bindings and each side's halves
+    /// (plan_shim_areas_split phase 7): a side-only member lives in its side's
+    /// half, and the other half answers it without calling the engine, so the
+    /// union maps each member to what its real implementation calls. A half
+    /// names its class without the interface; the shared declaration gives it.
+    /// </summary>
+    public static Dictionary<(string Iface, string Member), HashSet<string>> BindingMap(params string[] bindingSources)
     {
+        var ifaces = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (string source in bindingSources)
+            foreach (Match m in Regex.Matches(source, @"(?m)^\s*internal\s+sealed\s+(?:partial\s+)?class\s+(\w+)\s*:\s*(IEngine\w+)"))
+                ifaces[m.Groups[1].Value] = m.Groups[2].Value;
+
+        // A member whose shared logic wraps one side-only engine call reaches it
+        // through a private partial helper, which each half implements. The
+        // helpers are parsed as members (marked), then folded into the members
+        // that call them, so the chain still ends at the engine member.
+        var helpers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string source in bindingSources)
+            foreach (Match m in Regex.Matches(source, @"(?m)^\s+private\s+partial\s+[\w<>?,\s]+?\s(\w+)\s*\("))
+                helpers.Add(m.Groups[1].Value);
+
         var map = new Dictionary<(string, string), HashSet<string>>();
+        foreach (string source in bindingSources)
+            AddBindings(map, ifaces, helpers, source);
+
+        foreach (var key in map.Keys.Where(k => helpers.Contains(k.Item2)).ToList())
+        {
+            HashSet<string> calls = map[key];
+            map.Remove(key);
+            foreach (var entry in map.Where(e => e.Key.Item1 == key.Item1 && e.Value.Remove(HelperMark + key.Item2)))
+                entry.Value.UnionWith(calls);
+        }
+
+        return map;
+    }
+
+    // A helper call, as recorded before the fold: never an engine member's name.
+    private const string HelperMark = "helper:";
+
+    private static void AddBindings(Dictionary<(string, string), HashSet<string>> map,
+                                    Dictionary<string, string> ifaces, HashSet<string> helpers,
+                                    string bindingSource)
+    {
         string? iface = null;
         (string, string)? current = null;
 
         foreach (string line in bindingSource.Split('\n'))
         {
-            Match cls = Regex.Match(line, @"^\s*internal\s+sealed\s+class\s+\w+\s*:\s*(IEngine\w+)");
+            Match cls = Regex.Match(line, @"^\s*internal\s+sealed\s+(?:partial\s+)?class\s+(\w+)");
             if (cls.Success)
             {
-                iface = cls.Groups[1].Value;
+                iface = ifaces.GetValueOrDefault(cls.Groups[1].Value);
                 current = null;
                 continue;
             }
@@ -261,7 +303,7 @@ internal static class SideAudit
             if (iface is null)
                 continue;
 
-            if (Regex.IsMatch(line, @"^\s+public\s+"))
+            if (Regex.IsMatch(line, @"^\s+(?:public|private\s+partial)\s+"))
             {
                 string name = MemberNameOf(line);
                 if (name.Length > 0)
@@ -278,9 +320,12 @@ internal static class SideAudit
             // `E.X` since plan_engineapi_vtables B2: a binding calls its side.
             foreach (Match m in Regex.Matches(line, @"\b(?:Engine|E)\.(\w+)"))
                 map[current.Value].Add(m.Groups[1].Value);
+
+            foreach (Match m in Regex.Matches(line, @"(?<![.\w])(\w+)\s*\("))
+                if (helpers.Contains(m.Groups[1].Value) && m.Groups[1].Value != current.Value.Item2)
+                    map[current.Value].Add(HelperMark + m.Groups[1].Value);
         }
 
-        return map;
     }
 
     /// <summary>

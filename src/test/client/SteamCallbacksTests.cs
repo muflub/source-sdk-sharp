@@ -151,7 +151,7 @@ public unsafe class SteamCallbacksTests
 
             var side = new EngineSide(Side.Client);
             side.Initialize();
-            Assert.True(side.AttachShims(_root.Bind(), out string attach), attach);
+            Assert.True(side.AttachOwnShims(_root.Bind(), out string attach), attach);
 
             Callbacks = SteamCallbacks.Acquire(new ModuleEngine(side), Vtables, Steam, log ?? new Log(), out string why)
                 ?? throw new InvalidOperationException(why);
@@ -320,7 +320,7 @@ public unsafe class SteamCallbacksTests
         using var root = new FakeShimRoot();   // serves no SSFwd_SteamCallback
         var side = new EngineSide(Side.Client);
         side.Initialize();
-        Assert.True(side.AttachShims(root.Bind(), out string attach), attach);
+        Assert.True(side.AttachOwnShims(root.Bind(), out string attach), attach);
         using var vtables = new ManagedVtables();
 
         SteamCallbacks? callbacks = SteamCallbacks.Acquire(new ModuleEngine(side), vtables, new SteamDouble(), new Log(), out string why);

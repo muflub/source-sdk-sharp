@@ -9,6 +9,12 @@
 // table and the marshalling around it. This is not a replacement for it, and the
 // two must not drift, which is why nothing here does more than forward.
 //
+// Each class is partial (plan_shim_areas_split phase 7). This file holds what
+// both sides forward; a member only one side's engine serves is in that side's
+// half (src/server/interop/EngineBinding.Server.cs,
+// src/client/interop/EngineBinding.Client.cs), and the other half answers what
+// the engine member's attach guard answered there, without calling it.
+//
 // internal rather than public, and every registration is by interface. Nothing
 // outside this assembly should be able to name a binding: a class that reached
 // for EngineEntities rather than IEngineEntities would compile, work, and be
@@ -20,7 +26,7 @@ using System.Reflection;
 namespace SourceSharp.Abi;
 
 /// <summary>The real engine, for <see cref="IEngineConsole"/>. Every member is one call.</summary>
-internal sealed class EngineConsole : IEngineConsole
+internal sealed partial class EngineConsole : IEngineConsole
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -42,7 +48,6 @@ internal sealed class EngineConsole : IEngineConsole
     public int RegisterConCommand(string name, string help, ConVarFlags flags)
         => E.RegisterConCommand(name, help, flags);
     public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null) => E.RegisterConVar(name, defaultValue, help, flags, min, max);
-    public void SendClientCommand(EntityHandle player, string command) => E.SendClientCommand(player, command);
     public void SetConVarValue(int id, string value) => E.SetConVarValue(id, value);
     public void SetConVarValueByName(string name, string value) => E.SetNamedConVarValue(name, value);
     public int Snapshot() => E.ConsoleSnapshot();
@@ -51,7 +56,7 @@ internal sealed class EngineConsole : IEngineConsole
 }
 
 /// <summary>The real engine, for <see cref="IEngineHost"/>. Every member is one call.</summary>
-internal sealed class EngineHost : IEngineHost
+internal sealed partial class EngineHost : IEngineHost
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -77,7 +82,6 @@ internal sealed class EngineHost : IEngineHost
     // one side's, so the side its caller runs on is that side.
     public Side ActiveSide => E.Side;
     public float CurrentTime => E.CurrentTime;
-    public void EndRound() => E.EndRound();
     public bool IsInitialized => E.IsInitialized;
     public string ManagedDirectory => E.ManagedDirectory;
     public float RandomFloat(float min, float max) => EngineBound.Random(E).RandomFloat(min, max);
@@ -92,7 +96,7 @@ internal sealed class EngineHost : IEngineHost
 }
 
 /// <summary>The real engine, for <see cref="IEnginePrecache"/>. Every member is one call.</summary>
-internal sealed class EnginePrecache : IEnginePrecache
+internal sealed partial class EnginePrecache : IEnginePrecache
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -102,14 +106,8 @@ internal sealed class EnginePrecache : IEnginePrecache
     private EngineSide E => _side;
 
     public EnginePrecache(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public int PrecacheDecal(string name) => E.PrecacheDecal(name);
-    public void PrecacheMaterial(string material) => E.PrecacheMaterial(material);
-    public void PrecacheParticleSystem(string name) => E.PrecacheParticleSystem(name);
-    public int PrecacheModel(string model) => E.PrecacheModel(model);
     public int ModelFrameCount(int modelIndex) => EngineBound.ModelInfo(E).FrameCountAt(modelIndex);
     public ModelType ModelTypeOf(int modelIndex) => EngineBound.ModelInfo(E).TypeAt(modelIndex);
-    public void PrecacheSound(string soundName) => E.PrecacheSound(soundName);
     // Answered in C# (BreakModels), parsed once per model per level.
     public int BreakPieceCount(string model) => E.Breaks.Count(model);
     public bool BreakPieceAt(string model, int index, float defaultBurstScale, CollisionGroup defaultCollisionGroup, out string pieceModel, out BreakPiece piece)
@@ -146,7 +144,7 @@ internal sealed class EnginePrecache : IEnginePrecache
 /// only ever exists between here and <see cref="StringTableHandle"/>.
 /// </para>
 /// </summary>
-internal sealed class EngineStringTables : IEngineStringTables
+internal sealed partial class EngineStringTables : IEngineStringTables
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -176,7 +174,7 @@ internal sealed class EngineStringTables : IEngineStringTables
 // twenty-two calls through IShimLevel's vtable.
 
 /// <summary>The real engine, for <see cref="IEngineFiles"/>. Every member is one call.</summary>
-internal sealed class EngineFiles : IEngineFiles
+internal sealed partial class EngineFiles : IEngineFiles
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -229,7 +227,7 @@ internal sealed class EngineFiles : IEngineFiles
 }
 
 /// <summary>The real engine, for <see cref="IEngineGameEvents"/>. Every member is one call.</summary>
-internal sealed class EngineGameEvents : IEngineGameEvents
+internal sealed partial class EngineGameEvents : IEngineGameEvents
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -247,10 +245,6 @@ internal sealed class EngineGameEvents : IEngineGameEvents
     public void ListenForGameEvent(string name) => E.ListenForGameEvent(name);
     // No engine answer since plan_server_native_v2 T2: the server creates events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
     public IntPtr EventCreate(string name) => IntPtr.Zero;
-    public void EventSetInt(IntPtr handle, string key, int value) => E.EventSetInt(handle, key, value);
-    public void EventSetFloat(IntPtr handle, string key, float value) => E.EventSetFloat(handle, key, value);
-    public void EventSetBool(IntPtr handle, string key, bool value) => E.EventSetBool(handle, key, value);
-    public void EventSetString(IntPtr handle, string key, string value) => E.EventSetString(handle, key, value);
     // No engine answer since plan_server_native_v2 T2: the server fires events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
     public bool EventFire(IntPtr handle) => false;
     // No engine answer since plan_server_native_v2 T2: the server frees events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
@@ -258,7 +252,7 @@ internal sealed class EngineGameEvents : IEngineGameEvents
 }
 
 /// <summary>The real engine, for <see cref="IEngineNetworking"/>. Every member is one call.</summary>
-internal sealed class EngineNetworking : IEngineNetworking
+internal sealed partial class EngineNetworking : IEngineNetworking
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -268,21 +262,14 @@ internal sealed class EngineNetworking : IEngineNetworking
     private EngineSide E => _side;
 
     public EngineNetworking(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public PayloadAgreement CheckPayloadAgreement(EntityHandle h) => E.CheckPayloadAgreement(h);
-    public EntityState EntityGetState(EntityHandle entity, out MoveType moveType) => E.EntityGetState(entity, out moveType);
-    public Span<byte> GetEntityBlob(EntityHandle h) => E.GetEntityBlob(h);
-    public void MarkEntityStateChanged(EntityHandle h) => E.MarkEntityStateChanged(h);
-    public void MarkEntityBlockChanged(EntityHandle h, int blockOffset) => E.MarkEntityBlockChanged(h, blockOffset);
     public int NetHierarchyDeclare(int blobBytes) => E.NetHierarchyDeclare(blobBytes);
     public int WorldNetDeclare(int blobBytes) => E.WorldNetDeclare(blobBytes);
     public int NetPublishType(string className, int shell, uint schemaHash, int layoutBytes, out uint nativeTypeId) => E.NetPublishType(className, shell, schemaHash, layoutBytes, out nativeTypeId);
     public NetTierInfo? NetTierAt(int shell, int tier) => E.NetTierAt(shell, tier);
-    public bool SendServerMessage(string key, ReadOnlySpan<byte> payload) => E.SendServerMessage(key, payload);
 }
 
 /// <summary>The real engine, for <see cref="IEngineScripted"/>. Every member is one call.</summary>
-internal sealed class EngineScripted : IEngineScripted
+internal sealed partial class EngineScripted : IEngineScripted
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -295,13 +282,10 @@ internal sealed class EngineScripted : IEngineScripted
 
     // No engine answer since plan_server_native_v2 T2: native map templates are gone (the world and templates arrive parsed); TemplateStore already treats this answer as nothing.
     public List<TemplatePlacement> TemplateCapture(string sourceName, bool removeSources, int limit = 64) => new List<TemplatePlacement>();
-    public List<EntityHandle> TemplateSpawnKeyed(IReadOnlyList<KeyedSpawn> spawns, int limit = 64) => E.TemplateSpawnKeyed(spawns, limit);
-    public void RegisterEntityClass(string className, string[] outputNames, ScriptedEntityKind kind) => E.RegisterScriptedEntity(className, outputNames, kind);
-    public void RegisterEntityClassOps(string className, uint opMask) => E.RegisterClassOps(className, opMask);
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntities"/>. Every member is one call.</summary>
-internal sealed class EngineEntities : IEngineEntities
+internal sealed partial class EngineEntities : IEngineEntities
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -369,13 +353,6 @@ internal sealed class EngineEntities : IEngineEntities
     private readonly IClientReplayEngine _clientReplay;
 
     public IClientReplayEngine ClientReplay => _clientReplay;
-
-    public void AddBaseVelocity(EntityHandle entity, Vector velocity) => E.EntityAddBaseVelocity(entity, velocity);
-    public void PositionChanged(EntityHandle entity, Vector previousOrigin) => E.EntityPositionChanged(entity, previousOrigin);
-    public void ApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround) => E.EntityApplyVelocityImpulse(h, impulse, clearGround);
-    public EntityHandle Create(string className) => E.CreateEntity(className);
-    public EntityHandle CreateFromMap(string className, byte[] packedKeys)
-        => E.MapSpawnCreate(className, packedKeys);
     public int Count() => EngineBound.Server(E).EntityCount();
     // No engine answer since plan_server_native_v2 T2: the SDK entity list's map references went with the list; nothing native holds one to purge.
     public void PurgeMapRefs() { }
@@ -405,48 +382,17 @@ internal sealed class EngineEntities : IEngineEntities
         // managed removal queue is the whole of it.
         E.Removal.FreeNow();
     }
-    public IEnumerable<EntityHandle> FindAllByClassname(string className) => E.FindEntitiesByClassname(className);
     public List<EntityHandle> FindAllByName(string name, int limit = 512) => E.FindEntitiesByName(name, limit);
     public EntityHandle FindByName(string name) => E.FindEntityByName(name);
     public bool FireInput(EntityHandle target, string input, string? value = null, EntityHandle activator = default) => E.EntityIo.FireInput(target, input, value, activator);
     public Vector GetAngles(EntityHandle h) => E.EntityGetAngles(h);
-    public Vector GetAngularVelocity(EntityHandle entity) => E.EntityGetAngularVelocity(entity);
     // No engine answer since plan_server_native_v2 T2: armour left with CBasePlayer; Armour.cs is the managed owner.
     public int GetArmor(EntityHandle entity) => 0;
-    public (Vector Mins, Vector Maxs) GetBounds(EntityHandle entity) => E.EntityGetBounds(entity);
-    public Vector GetBoundsSize(EntityHandle entity) => E.EntityGetBoundsSize(entity);
-    public string GetClassName(EntityHandle h) => E.EntityGetClassName(h);
-    public Vector GetEyeAngles(EntityHandle h) => E.EntityGetEyeAngles(h);
-    public Vector GetEyePosition(EntityHandle h) => E.EntityGetEyePosition(h);
-    public int GetHealth(EntityHandle h) => E.EntityGetHealth(h);
     public int GetIndex(EntityHandle h) => E.EntityGetIndex(h);
-    public string GetName(EntityHandle entity) => E.EntityGetName(entity);
     public Vector GetOrigin(EntityHandle h) => E.EntityGetOrigin(h);
-    public Vector GetSpawnAngles(EntityHandle entity) => E.EntityGetSpawnAngles(entity);
-    public int GetSpawnFlags(EntityHandle entity) => E.EntityGetSpawnFlags(entity);
-    public Vector GetSpawnOrigin(EntityHandle entity) => E.EntityGetSpawnOrigin(entity);
-    public Vector GetVelocity(EntityHandle h) => E.EntityGetVelocity(h);
-    public Vector GetWorldSpaceCenter(EntityHandle h) => E.EntityGetWorldSpaceCenter(h);
-    public bool IsPlayer(EntityHandle h) => E.EntityIsPlayer(h);
     public bool IsValid(EntityHandle h) => E.EntityIsValid(h);
-    public void Remove(EntityHandle entity) => E.RemoveEntity(entity);
-    public void SetAngles(EntityHandle entity, Vector angles) => E.EntitySetAngles(entity, angles);
-    public void SetAngularVelocity(EntityHandle entity, Vector degreesPerSecond) => E.EntitySetAngularVelocity(entity, degreesPerSecond);
     // No engine answer since plan_server_native_v2 T2: armour left with CBasePlayer; Armour.cs is the managed owner.
     public void SetArmor(EntityHandle entity, int armor) { }
-    public void SetHealth(EntityHandle h, int health) => E.EntitySetHealth(h, health);
-    public bool SetKeyValue(EntityHandle entity, string key, string value) => E.EntitySetKeyValue(entity, key, value);
-    public void SetOrigin(EntityHandle h, Vector origin) => E.EntitySetOrigin(h, origin);
-    public void SetOwner(EntityHandle h, EntityHandle owner) => E.EntitySetOwner(h, owner);
-    public void SetVelocity(EntityHandle h, Vector velocity) => E.EntitySetVelocity(h, velocity);
-    public void Spawn(EntityHandle entity) => E.SpawnEntity(entity);
-    public void Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) => E.EntityTeleport(h, origin, angles, zeroVelocity);
-    public bool SetParent(EntityHandle child, EntityHandle parent, int parentAttachment = 0) => E.EntitySetParent(child, parent, parentAttachment);
-    public EntityHandle GetParent(EntityHandle child) => E.EntityGetParent(child);
-    public int GetParentAttachment(EntityHandle child) => E.EntityGetParentAttachment(child);
-    public void SetLocalTransform(EntityHandle child, Vector? origin, Vector? angles) => E.EntitySetLocalTransform(child, origin, angles);
-    public void GetLocalTransform(EntityHandle child, out Vector origin, out Vector angles) => E.EntityGetLocalTransform(child, out origin, out angles);
-    public ParentProbe ParentProbe(EntityHandle entity) => E.EntityParentProbe(entity);
     public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles)
     {
         // A standalone entity's skeleton is managed; anything else (an entity
@@ -459,8 +405,11 @@ internal sealed class EngineEntities : IEngineEntities
                 return found;
         }
 
-        return E.EntityGetAttachmentFrame(entity, attachment, out origin, out angles);
+        return EngineAttachmentFrame(entity, attachment, out origin, out angles);
     }
+
+    /// <summary>The engine's own-transform answer for an entity with no managed skeleton: the server's slot.</summary>
+    private partial bool EngineAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles);
 
     public int LookupAttachmentAny(EntityHandle entity, string attachmentName)
         // A managed skeleton answers the whole of it. Before the composition
@@ -472,25 +421,11 @@ internal sealed class EngineEntities : IEngineEntities
             : 0;
     // No engine answer since plan_server_native_v2 T2: no stock-hierarchy entity is ever registered on the server, so the SDK's find-by-name has no population; the managed directory's walk is the answer and every caller asks it first.
     public EntityHandle FindBaseByName(string name) => EntityHandle.None;
-    public Span<byte> GetEngineBlock(EntityHandle entity) => E.GetEntityBlock(entity);
-    public void DestroyPhysics(EntityHandle entity) => E.EntityDestroyPhysics(entity);
     public int InvalidateMdlCacheAll() => E.EntitiesInvalidateMdlCacheAll();
-    public int UpdateVisibilityAll() => E.EntitiesUpdateVisibilityAll();
-
-    // The native half of a savegame. Three of these are a second spelling of a
-    // call another area also offers, over the same static wrapper and the same
-    // one ABI slot -- see the block at the end of IEngineEntities.
-    public float GetGravity(EntityHandle entity) => E.EntityGetGravity(entity);
-    public void SetGravity(EntityHandle entity, float gravity) => E.EntitySetGravity(entity, gravity);
-    public SolidFlags GetSolidFlags(EntityHandle entity) => E.EntityGetSolidFlags(entity);
-    public SolidType GetSolidType(EntityHandle entity) => E.EntityGetSolidType(entity);
-    public void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) => E.EntitySetSolidity(entity, solidType, solidFlags);
-    public void SetBounds(EntityHandle entity, Vector mins, Vector maxs) => E.EntitySetBounds(entity, mins, maxs);
-    public void SetSpawnFlags(EntityHandle entity, int spawnFlags) => E.EntitySetSpawnFlags(entity, spawnFlags);
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntityNames"/>. Every member is one call.</summary>
-internal sealed class EngineEntityNames : IEngineEntityNames
+internal sealed partial class EngineEntityNames : IEngineEntityNames
 {
     private readonly EngineSide _side;
 
@@ -503,19 +438,17 @@ internal sealed class EngineEntityNames : IEngineEntityNames
 }
 
 /// <summary>The real engine, for <see cref="IEngineOverlaps"/>. Every member is one call.</summary>
-internal sealed class EngineOverlaps : IEngineOverlaps
+internal sealed partial class EngineOverlaps : IEngineOverlaps
 {
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
 
     public EngineOverlaps(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public int OverlapReport(Span<OverlapPair> into) => E.EntityOverlapReport(into);
 }
 
 /// <summary>The real engine, for <see cref="IEngineEntityPhysics"/>. Every member is one call.</summary>
-internal sealed class EngineEntityPhysics : IEngineEntityPhysics
+internal sealed partial class EngineEntityPhysics : IEngineEntityPhysics
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -525,35 +458,8 @@ internal sealed class EngineEntityPhysics : IEngineEntityPhysics
     private EngineSide E => _side;
 
     public EngineEntityPhysics(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void ApplyForceCenter(EntityHandle entity, Vector force) => E.EntityApplyForceCenter(entity, force);
-    public void ApplyForceOffset(EntityHandle entity, Vector force, Vector worldPoint) => E.EntityApplyForceOffset(entity, force, worldPoint);
-    public void ApplyTorque(EntityHandle entity, Vector torque) => E.EntityApplyTorque(entity, torque);
-    public void BecomePhysicsTrigger(EntityHandle entity, bool isTrigger) => E.EntityBecomePhysicsTrigger(entity, isTrigger);
-    public void EnableMotion(EntityHandle entity, bool enable) => E.EntityEnableMotion(entity, enable);
-    public void Wake(EntityHandle entity) => E.EntityPhysicsWake(entity);
-    public void Sleep(EntityHandle entity) => E.EntityPhysicsSleep(entity);
-    public void AddGameFlags(EntityHandle entity, uint flags) => E.EntityAddPhysicsGameFlags(entity, flags);
-    public float GetMass(EntityHandle entity) => E.EntityGetMass(entity);
-    public bool InitPhysics(EntityHandle entity, bool asleep = false, bool debris = false) => E.EntityInitPhysics(entity, asleep, debris);
-    public void SetBounce(EntityHandle h, int bounces) => E.EntitySetBounce(h, bounces);
-    public void SetBrushSolidity(EntityHandle entity, BrushSolidity solidity) => E.EntitySetBrushSolidity(entity, solidity);
-    public CollisionGroup GetCollisionGroup(EntityHandle entity) => E.EntityGetCollisionGroup(entity);
-    public SolidFlags GetSolidFlags(EntityHandle entity) => E.EntityGetSolidFlags(entity);
-    public void SetCollisionGroup(EntityHandle entity, CollisionGroup group) => E.EntitySetCollisionGroup(entity, group);
     // No engine answer since plan_server_native_v2 T2: a per-entity friction on the movement path is not ported (func_friction, ss_gib ask).
     public void SetFriction(EntityHandle h, float friction) { }
-    public void SetGravity(EntityHandle h, float gravity) => E.EntitySetGravity(h, gravity);
-    public void SetMass(EntityHandle entity, float mass) => E.EntitySetMass(entity, mass);
-    public void SetNotSolid(EntityHandle entity, bool notSolid) => E.EntitySetNotSolid(entity, notSolid);
-
-    public nint PhysicsObject(EntityHandle entity) => E.EntityPhysicsObject(entity);
-    public nint EnvironmentPointer() => E.PhysicsEnvironmentPointer();
-
-    public Vector CollideExtent(nint physicsObject, Vector direction) => E.PhysicsCollideExtent(physicsObject, direction);
-    public Vector Inertia(nint physicsObject) => E.PhysicsInertia(physicsObject);
-    public nint WorldObject() => E.PhysicsWorldObject();
-    public void SetPhysicsStatic(EntityHandle entity, bool isStatic) => E.EntitySetPhysicsStatic(entity, isStatic);
 }
 
 /// <summary>
@@ -570,7 +476,7 @@ internal sealed class EngineEntityPhysics : IEngineEntityPhysics
 /// the server side (where neither is wired) reaches them unchanged.
 /// </para>
 /// </summary>
-internal sealed class EngineEntityRender : IEngineEntityRender
+internal sealed partial class EngineEntityRender : IEngineEntityRender
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -776,7 +682,10 @@ internal sealed class EngineEntityRender : IEngineEntityRender
     /// engine pushes into, not from a poll. plan_crossings.md Phase X3.
     /// </summary>
     public bool IsDormant(EntityHandle entity)
-        => Mirrored ? _mirror.IsDormant(entity) : E.StandaloneIsDormant(entity);
+        => Mirrored ? _mirror.IsDormant(entity) : EngineIsDormant(entity);
+
+    /// <summary>Whether the engine stopped sending this entity, asked of the client's slot.</summary>
+    private partial bool EngineIsDormant(EntityHandle entity);
     public int SequenceEventCount(EntityHandle entity, int sequence)
         => E.Models.For(entity).EventsOf(sequence).Count;
     /// <summary>
@@ -861,13 +770,6 @@ internal sealed class EngineEntityRender : IEngineEntityRender
 
         return true;
     }
-    public void SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) => E.StandaloneSetCustomDraw(entity, mins, maxs);
-    public void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) => E.StandaloneSetBlending(entity, translucent, ignoreZ, alpha);
-    public void SetShadowCast(EntityHandle entity, ShadowCastChoice choice) => E.StandaloneSetShadowCast(entity, choice);
-    public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked, out bool hasShadow) => E.StandaloneShadowCast(entity, out asked, out hasShadow);
-    public void SetFade(EntityHandle entity, FadeStyle style, float startDistance, float endDistance, float minimumAlpha = 0f) => E.StandaloneSetFade(entity, style, startDistance, endDistance, minimumAlpha);
-    public void SetModel(EntityHandle entity, string model) => E.SetEntityModel(entity, model);
-    public void SetOverlayModel(EntityHandle entity, int modelIndex) => E.StandaloneSetOverlayModel(entity, modelIndex);
 
     public void SetModelScale(EntityHandle entity, float scale)
     {
@@ -890,7 +792,6 @@ internal sealed class EngineEntityRender : IEngineEntityRender
         if (Skeletons is { } skeletons && sequence >= 0)
             skeletons.SetSequence(entity, sequence, 1.0f, restart: true);
     }
-    public void SetViewModel(EntityHandle entity, bool enable) => E.StandaloneSetViewModel(entity, enable);
     /// <summary>
     /// Play a sequence — and record it, because managed is its only author.
     ///
@@ -925,17 +826,14 @@ internal sealed class EngineEntityRender : IEngineEntityRender
             && client.SequenceInfo(entity, out float duration, out bool looping))
             _mirror.NoteSequenceInfo(entity, duration, looping);
     }
-    public void SetSkin(EntityHandle entity, int skin) => E.EntitySetSkin(entity, skin);
     // No engine answer since plan_server_native_v2 T2: m_nTextureFrameIndex left with CBaseEntity; env_texturetoggle asks.
     public void SetTextureFrame(EntityHandle entity, int frame) { }
-    public void SetTransmitAlways(EntityHandle entity, bool always) => E.EntitySetTransmitAlways(entity, always);
     // No engine answer since plan_server_native_v2 T2: the port is GetArea against the managed sky cameras (env_smokestack asks).
     public bool DetectInSkybox(EntityHandle entity) => false;
-    public void SetVisible(EntityHandle entity, bool visible) => E.EntitySetVisible(entity, visible);
 }
 
 /// <summary>The real engine, for <see cref="IEngineDamage"/>. Every member is one call.</summary>
-internal sealed class EngineDamage : IEngineDamage
+internal sealed partial class EngineDamage : IEngineDamage
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -945,20 +843,14 @@ internal sealed class EngineDamage : IEngineDamage
     private EngineSide E => _side;
 
     public EngineDamage(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void Apply(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType) => E.ApplyDamage(victim, attacker, damage, damageType);
-    public void ApplyAt(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType, Vector force, Vector position)
-        => E.ApplyDamageForce(victim, attacker, damage, damageType, force, position);
     // No engine answer since plan_server_native_v2 T2: CBaseCombatCharacter's server-ragdoll flag left with it (trigger_serverragdoll asks).
     public void SetForceServerRagdoll(EntityHandle entity, bool force) { }
     // No engine answer since plan_server_native_v2 T2: the take-damage mode left with CBaseEntity; every entity answers DAMAGE_YES (trigger_camera asks).
     public TakeDamageMode SetTakeDamageMode(EntityHandle entity, TakeDamageMode mode) => TakeDamageMode.Yes;
-    public void RegisterRules(DamageRuleMasks masks) => E.RegisterDamageRules(masks);
-    public void TakeDamage(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction = null, Vector forceOrigin = default, bool physicsOnly = false) => E.EntityTakeDamage(entity, attacker, damage, damageType, direction, forceOrigin, physicsOnly);
 }
 
 /// <summary>The real engine, for <see cref="IEngineCollisionRules"/>.</summary>
-internal sealed class EngineCollisionRules : IEngineCollisionRules
+internal sealed partial class EngineCollisionRules : IEngineCollisionRules
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -973,7 +865,7 @@ internal sealed class EngineCollisionRules : IEngineCollisionRules
 }
 
 /// <summary>The real engine, for <see cref="IEngineGameRulesPolicy"/>.</summary>
-internal sealed class EngineGameRulesPolicy : IEngineGameRulesPolicy
+internal sealed partial class EngineGameRulesPolicy : IEngineGameRulesPolicy
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -983,12 +875,10 @@ internal sealed class EngineGameRulesPolicy : IEngineGameRulesPolicy
     private EngineSide E => _side;
 
     public EngineGameRulesPolicy(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void RegisterPolicy(GameRulesPolicyBlob policy) => E.RegisterGameRulesPolicy(policy);
 }
 
 /// <summary>The real engine, for <see cref="IEngineBrushMovement"/>. Every member is one call.</summary>
-internal sealed class EngineBrushMovement : IEngineBrushMovement
+internal sealed partial class EngineBrushMovement : IEngineBrushMovement
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1003,14 +893,12 @@ internal sealed class EngineBrushMovement : IEngineBrushMovement
     public void MoveToAngles(EntityHandle entity, Vector destination, float speed) { }
     // No engine answer since plan_server_native_v2 T2: retired mover: EntityMotion implements this interface over the managed linear mover, so nothing reaches the engine binding's.
     public void MoveToPosition(EntityHandle entity, Vector destination, float speed) { }
-    public void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count) => E.SurfaceSetEdges(entity, packed, count);
     // No engine answer since plan_server_native_v2 T2: retired mover: EntityMotion implements this interface, so nothing reaches the engine binding's.
     public void StopMoving(EntityHandle entity) { }
-    public void Spin(EntityHandle entity, Vector degreesPerSecond) => E.EntitySetAngularVelocity(entity, degreesPerSecond);
 }
 
 /// <summary>The real engine, for <see cref="IEnginePlayers"/>. Every member is one call.</summary>
-internal sealed class EnginePlayers : IEnginePlayers
+internal sealed partial class EnginePlayers : IEnginePlayers
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1023,13 +911,11 @@ internal sealed class EnginePlayers : IEnginePlayers
 
     // No engine answer since plan_server_native_v2 T2: the engine's frag counter left with CBasePlayer; a managed score store is the port (game_score asks).
     public void AddScore(EntityHandle player, int points, bool allowNegative) { }
-    public void PlaceAtSpawn(EntityHandle player, Vector origin, Vector angles) => E.PlayerPlaceAtSpawn(player, origin, angles);
 
     // No engine answer since plan_server_native_v2 T2: redeploying is the Arsenal's to do and it does not yet (player_speedmod asks).
     public bool DeployLastWeapon(EntityHandle player) => false;
     // No engine answer since plan_server_native_v2 T2: only the Arsenal's players carry weapons, and ArsenalPlayers drops theirs.
     public bool DropActiveWeapon(EntityHandle player, Vector velocity) => false;
-    public EntityHandle FindByUserId(int userId) => E.FindPlayerByUserId(userId);
     // No engine answer since plan_server_native_v2 T2: a player outside the Arsenal holds no weapon the engine knows of; ArsenalPlayers answers its own.
     public string GetActiveWeapon(EntityHandle player) => string.Empty;
     // No engine answer since plan_server_native_v2 T2: the active weapon is the Arsenal's to name and it does not yet (trigger_camera, WeaponInventory ask).
@@ -1040,11 +926,6 @@ internal sealed class EnginePlayers : IEnginePlayers
 
     // No engine answer since plan_server_native_v2 T2: the view model is the Arsenal's to name and it does not yet.
     public EntityHandle GetViewModelEntity(EntityHandle player) => EntityHandle.None;
-    public EntityHandle GetHandle(int playerIndex) => E.GetPlayerHandle(playerIndex);
-    public EntityHandle GetCommandClient() => E.GetCommandClient();
-    public ObserverMode GetObserverMode(EntityHandle player) => E.PlayerGetObserverMode(player);
-    public Vector GetShootOrigin(EntityHandle player) => E.GetPlayerShootOrigin(player);
-    public int GetTeam(EntityHandle player) => E.GetPlayerTeam(player);
     public int GetUserId(EntityHandle player) => E.EntityIsValid(player) ? EngineBound.Server(E).PlayerUserId(player.EntryIndex) : 0;
     // No engine answer since plan_server_native_v2 T2: ammo is the Arsenal's; ArsenalPlayers gives it to its players.
     public int GiveAmmo(EntityHandle player, int count, string ammoName) => 0;
@@ -1052,25 +933,19 @@ internal sealed class EnginePlayers : IEnginePlayers
     public bool GiveItem(EntityHandle player, string className) => false;
     // No engine answer since plan_server_native_v2 T2: holstering is the Arsenal's to do and it does not yet (player_speedmod asks; docs/todo.md).
     public bool HolsterActiveWeapon(EntityHandle player) => false;
-    public bool IsAlive(EntityHandle player) => E.PlayerIsAlive(player);
-    public bool BoxInPvs(EntityHandle player, Vector mins, Vector maxs) => E.EntityIsValid(player) && EngineBound.Server(E).BoxInPvs(E.EntityGetEyePosition(player), mins, maxs);
-    public void MakePickup(EntityHandle entity, float sizeX, float sizeY, float sizeZ) => E.MakePickup(entity, sizeX, sizeY, sizeZ);
+    public bool BoxInPvs(EntityHandle player, Vector mins, Vector maxs) => E.EntityIsValid(player) && EngineBound.Server(E).BoxInPvs(EyePosition(player), mins, maxs);
+
+    /// <summary>Where the player's eyes are, as the server's slot answers it.</summary>
+    private partial Vector EyePosition(EntityHandle player);
     // No engine answer since plan_server_native_v2 T2: only the Arsenal's players carry items, and ArsenalPlayers strips theirs.
     public void RemoveAllItems(EntityHandle player, bool stripSuit) { }
-    public void Respawn(EntityHandle player) => E.PlayerRespawn(player);
     // No engine answer since plan_server_native_v2 T2: CBasePlayer::SetFOV left with CBasePlayer; env_zoom asks.
     public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f) { }
-    public void SetObserverMode(EntityHandle player, ObserverMode mode) => E.PlayerSetObserverMode(player, mode);
-    public void SetTeam(EntityHandle player, int team) => E.PlayerSetTeam(player, team);
-    public void SetPickupEnabled(EntityHandle entity, bool enabled) => E.EntitySetPickupEnabled(entity, enabled);
     public void SetViewEntity(EntityHandle player, EntityHandle view)
     {
         if (E.EntityIsValid(player))
             EngineBound.Server(E).SetView(player.EntryIndex, E.EntityIsValid(view) ? view.EntryIndex : -1);
     }
-
-    public bool TryStandalonePlayerEarPosition(int edictIndex, out Vector ears)
-        => E.ClientsStandalonePlayerEarPosition(edictIndex, out ears);
 
     // No engine answer since plan_server_native_v2 T2: there is no SDK player
     // on the server, so there are no SDK ears; the standalone arm above answers.
@@ -1082,7 +957,7 @@ internal sealed class EnginePlayers : IEnginePlayers
 }
 
 /// <summary>The real engine, for <see cref="IEnginePlayerMovement"/>. Every member is one call.</summary>
-internal sealed class EnginePlayerMovement : IEnginePlayerMovement
+internal sealed partial class EnginePlayerMovement : IEnginePlayerMovement
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1109,13 +984,10 @@ internal sealed class EnginePlayerMovement : IEnginePlayerMovement
     public void SetLaggedMovement(EntityHandle player, float value) { }
     // No engine answer since plan_server_native_v2 T2: the movement constraint sphere is not ported (point_playermoveconstraint asks).
     public void SetMovementConstraint(EntityHandle player, Vector centre, float radius, float width, float speedFactor) { }
-    public void SetSlowMovement(EntityHandle player, bool slow) => E.PlayerSetSlowMovement(player, slow);
-    public MoveType SetMoveType(EntityHandle player, MoveType moveType) => E.PlayerSetMoveType(player, moveType);
-    public void SnapEyeAngles(EntityHandle player, Vector pitchYawRoll) => E.PlayerSnapEyeAngles(player, pitchYawRoll);
 }
 
 /// <summary>The real engine, for <see cref="IEngineWeapons"/>. Every member is one call.</summary>
-internal sealed class EngineWeapons : IEngineWeapons
+internal sealed partial class EngineWeapons : IEngineWeapons
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1125,27 +997,20 @@ internal sealed class EngineWeapons : IEngineWeapons
     private EngineSide E => _side;
 
     public EngineWeapons(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void RegisterAmmoType(string name, DamageType damageType, int maxCarry, int tracerType = 0, float damageForce = 0f, float damage = 0f) => E.RegisterAmmoType(name, damageType, maxCarry, tracerType, damageForce, damage);
 }
 
 /// <summary>The real engine, for <see cref="IEngineDiagnostics"/>. Every member is one call.</summary>
-internal sealed class EngineDiagnostics : IEngineDiagnostics
+internal sealed partial class EngineDiagnostics : IEngineDiagnostics
 {
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
 
     public EngineDiagnostics(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public int PlayerShadowCounts(Span<int> into) => E.PlayerShadowCounts(into);
-    public int ExitWatchArm(string recordPath) => E.ExitWatchArm(recordPath);
-    public int ExitWatchRead(Span<int> into) => E.ExitWatchRead(into);
-    public int ExitWatchDisarm() => E.ExitWatchDisarm();
 }
 
 /// <summary>The real engine, for <see cref="IEngineHud"/>. Every member is one call.</summary>
-internal sealed class EngineHud : IEngineHud
+internal sealed partial class EngineHud : IEngineHud
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1155,25 +1020,10 @@ internal sealed class EngineHud : IEngineHud
     private EngineSide E => _side;
 
     public EngineHud(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void DrawWorldText(Vector origin, int line, string text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) => E.DrawWorldText(origin, line, text, duration, r, g, b, a);
-    public bool DrawEntityOverlay(EntityHandle entity, int line, string? text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) => E.DrawEntityOverlay(entity, line, text, duration, r, g, b, a);
-    public (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet) OverlayReadout() => E.OverlayReadout();
-    public void OverlayResetCounts() => E.OverlayResetCounts();
-    public void AddLineOverlay(Vector start, Vector end, int r, int g, int b, bool noDepthTest = true, float duration = 0f) => E.AddLineOverlay(start, end, r, g, b, noDepthTest, duration);
-    public int LocalPlayerHealth => E.LocalPlayerHealth;
-    public Vector? LocalPlayerOrigin => E.LocalPlayerOrigin;
-    public int LocalPlayerIndex => E.GetLocalPlayerIndex();
-    public string Localise(string token) => E.HudLocalise(token);
-    public string LookupBinding(string binding) => E.HudLookupBinding(binding);
-    public TextMessage? TextMessageGet(string name) => E.HudTextMessageGet(name);
-    public void ViewPunch(Vector origin, Vector punch, float radius, bool inAir = false) => E.ViewPunch(origin, punch, radius, inAir);
-    public ViewportFacts ViewportQuery(string panel) => E.ClientViewportQuery(panel);
-    public void ViewportShow(string panel, bool show, IReadOnlyList<KeyValuePair<string, string>> data, ViewportActions actions) => E.ClientViewportShow(panel, show, data, actions);
 }
 
 /// <summary>The real engine, for <see cref="IEngineWorldQuery"/>. Every member is one call.</summary>
-internal sealed class EngineWorldQuery : IEngineWorldQuery
+internal sealed partial class EngineWorldQuery : IEngineWorldQuery
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1183,37 +1033,13 @@ internal sealed class EngineWorldQuery : IEngineWorldQuery
     private EngineSide E => _side;
 
     public EngineWorldQuery(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public (Vector Right, Vector Up) AngleVectorsFromForward(Vector forward) => E.AngleVectorsFromForward(forward);
-    public int EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => E.EntitiesInSphere(center, radius, into);
     public int GetArea(Vector origin) => EngineBound.Server(E).GetArea(origin);
-    public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => E.TraceHull(start, end, mins, maxs, mask, ignore);
-    public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => E.EntityTraceHull(entity, start, end, mins, maxs, mask, collisionGroup);
-    public TraceResult TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => E.TraceLine(start, end, mask, ignore);
-    public SurfaceTraceResult TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => E.TraceLineSurface(start, end, mask, ignore);
-    public ClientTraceResult ClientTraceLine(Vector start, Vector end, TraceMask mask) => E.ClientTraceLine(start, end, mask);
-
-    public ClientTraceResult ClientTraceLine(Vector start, Vector end, TraceMask mask,
-                                             TraceFilter filter, int passEntityIndex = -1)
-        => E.ClientTraceLine(start, end, mask, filter, passEntityIndex);
-
-    // C-Phase 3 lane DECALS. What a client entity's model IS, which is the
-    // switch C_BaseEntity::AddDecal makes -- made in C#, over this.
-    public ModelType? ClientEntityModelType(int entIndex) => E.ClientEntityModelType(entIndex);
-    public bool ClientEntityModelBounds(int entityIndex, out Vector mins, out Vector maxs,
-                                        out Vector angles)
-        => E.ClientEntityModelBounds(entityIndex, out mins, out maxs, out angles);
     public Contents PointContents(Vector origin) => E.PointContents(origin);
-    public EntityHandle TracePlayerAim(EntityHandle player, float range, out Vector hitPoint) => E.TracePlayerAim(player, range, out hitPoint);
-    public WaterBelow WaterSurfaceBelow(Vector start) => E.WaterSurfaceBelow(start);
-    public string WorldChapterTitle() => E.WorldChapterTitle();
-    public int EntityModelSurfaceProp(EntityHandle entity) => E.EntityModelSurfaceProp(entity);
-    public int SurfacePropIndex(string name) => E.SurfacePropIndex(name);
     public SurfaceMaterial SurfacePropGameMaterial(int surfaceProp) => E.SurfacePropGameMaterial(surfaceProp);
 }
 
 /// <summary>The real engine, for <see cref="IEngineSound"/>. Every member is one call.</summary>
-internal sealed class EngineSound : IEngineSound
+internal sealed partial class EngineSound : IEngineSound
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1223,13 +1049,6 @@ internal sealed class EngineSound : IEngineSound
     private EngineSide E => _side;
 
     public EngineSound(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void EmitAmbientSound(int entIndex, Vector origin, string soundName, float volume, int soundLevel, int flags, int pitch) => E.EmitAmbientSound(entIndex, origin, soundName, volume, soundLevel, flags, pitch);
-    public bool EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume) => E.EmitWorldSoundScript(soundName, origin, channel, volume);
-    public void EmitSoundAtPosition(string soundName, Vector origin) => E.EmitSoundAtPosition(soundName, origin);
-    public void EntityEmitSound(EntityHandle entity, string soundName) => E.EntityEmitSound(entity, soundName);
-    public void ClientEmitSound(EntityHandle entity, string soundName, Vector? origin = null) => E.ClientEmitSound(entity, soundName, origin);
-    public void EntityStopSound(EntityHandle entity, string soundName) => E.EntityStopSound(entity, soundName);
     public void SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption) => E.SoundPatchEmit(patch, volume01, pitch, flags, startTime, emitCaption);
     public void SoundPatchStop(int patch) => E.SoundPatchStop(patch);
     public void SoundPatchState(int patch, out int entIndex, out bool filterActive) => E.SoundPatchState(patch, out entIndex, out filterActive);
@@ -1240,7 +1059,7 @@ internal sealed class EngineSound : IEngineSound
 }
 
 /// <summary>The real engine, for <see cref="IEngineEffects"/>. Every member is one call.</summary>
-internal sealed class EngineEffects : IEngineEffects
+internal sealed partial class EngineEffects : IEngineEffects
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1250,75 +1069,12 @@ internal sealed class EngineEffects : IEngineEffects
     private EngineSide E => _side;
 
     public EngineEffects(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) => E.BloodEffect(origin, direction, color, amount, stream, sprayFlags);
-    public void BubbleEffect(EntityHandle entity, int count, float speed) => E.BubbleEffect(entity, count, speed);
     public int TempEntRegister(TeClass description) => E.TempEntRegister(description);
-    public void TempEntPlayback(int handle, ReadOnlySpan<byte> blob, TeFilter filter, float delay) => E.TempEntPlayback(handle, blob, filter, delay);
-    public int EffectDispatchIndex(string name) => E.EffectDispatchIndex(name);
-    public void ClientEnergySplash(Vector position, Vector direction, bool explosive) => E.ClientEnergySplash(position, direction, explosive);
-    public void ClientSparks(Vector position, int magnitude, int trailLength, Vector? direction = null) => E.ClientSparks(position, magnitude, trailLength, direction);
-    public void ClientRicochet(Vector position, Vector direction) => E.ClientRicochet(position, direction);
-    public void ClientMetalSparks(Vector position, Vector direction) => E.ClientMetalSparks(position, direction);
-    public void ClientSmoke(Vector origin, int modelIndex, float scale, float frameRate) => E.ClientSmoke(origin, modelIndex, scale, frameRate);
-    public void ClientMuzzleFlash(Vector origin, Vector angles, float scale, int type) => E.ClientMuzzleFlash(origin, angles, scale, type);
-    public void ClientDecalShoot(int decalIndex, int entIndex, Vector position, Vector? sAxis = null, int flags = 0) => E.ClientDecalShoot(decalIndex, entIndex, position, sAxis, flags);
-    public void ClientPlayerDecalShoot(Vector position, int player, int entIndex) => E.ClientPlayerDecalShoot(position, player, entIndex);
-    public int ClientDecalIndexFromName(string name) => E.ClientDecalIndexFromName(name);
-
-    // C-Phase 3 lane CX's three. ClientTraceLine is on EngineWorldQuery above.
-    public void ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex) => E.ClientDecalStaticProp(start, end, staticPropIndex, decalIndex);
-    public bool ClientIsLowViolence() => E.ClientIsLowViolence();
-    public string ClientDecalNameFromIndex(int decalIndex) => E.ClientDecalNameFromIndex(decalIndex);
-
-    // C-Phase 3 lane DECALS's two drawing arms, closing ledger rows C2 and C3.
-    // ClientEntityModelType is on EngineWorldQuery above.
-    public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex) => E.ClientDecalStudioModel(entIndex, rayStart, rayEnd, decalIndex);
-    public void ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex) => E.ClientDecalBrushModel(entIndex, decalCenter, decalIndex);
-    // C-Phase 6 lane FRAME's two.
-    public bool TempEntPoolReadStatics(int slot, out TempEntStatics statics) => E.TempEntPoolReadStatics(slot, out statics);
-    public Vector ClientWindSpeed(float time) => E.ClientWindSpeed(time);
-
-    // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP). Eight named
-    // primitives, not one kind+params slot; Sparks reuses ClientSparks above.
-    public void ClientExplosionFireball(Vector origin) => E.ClientExplosionFireball(origin);
-
-    // THE LEGACY TEMP ENTITY POOL (plan_tmp.md Part 5, C-Phase 4).
-    public int TempEntPoolCapacity() => E.TempEntPoolCapacity();
-    public void TempEntPoolDestroy(int slot) => E.TempEntPoolDestroy(slot);
-    public bool TempEntPoolReadLife(int slot, out TempEntLife life) => E.TempEntPoolReadLife(slot, out life);
-    public bool TempEntPoolWriteLife(int slot, in TempEntLife life) => E.TempEntPoolWriteLife(slot, in life);
-    public bool TempEntPoolReadTransform(int slot, out TempEntTransform transform) => E.TempEntPoolReadTransform(slot, out transform);
-    public bool TempEntPoolWriteTransform(int slot, in TempEntTransform transform) => E.TempEntPoolWriteTransform(slot, in transform);
     public float CurrentGravity() => E.CurrentGravity();
-    public bool ClientEntityOrigin(int entityIndex, out Vector origin) => E.ClientEntityOrigin(entityIndex, out origin);
-    public bool TempEntPoolSimulate(int slot, float frameTime, int frameNumber) => E.TempEntPoolSimulate(slot, frameTime, frameNumber);
-    public bool TempEntPoolAddVisible(int slot) => E.TempEntPoolAddVisible(slot);
-
-    // C-PHASE 5. What a MANAGED spawn helper needs from the same pool.
-    public bool TempEntPoolCreate(int slot, Vector origin, int modelIndex, int priority) => E.TempEntPoolCreate(slot, origin, modelIndex, priority);
-    public bool TempEntPoolWriteSpawn(int slot, in TempEntSpawn spawn) => E.TempEntPoolWriteSpawn(slot, in spawn);
-    public string EffectDispatchName(int index) => E.EffectDispatchName(index);
-    public int DrawSprite(EntityHandle owner, int modelIndex, float frame, int renderMode, int renderFx, int r, int g, int b, int a, float scale, bool worldSpaceScale, float hdrColorScale, float glowProxySize) => E.DrawSprite(owner, modelIndex, frame, renderMode, renderFx, r, g, b, a, scale, worldSpaceScale, hdrColorScale, glowProxySize);
-    public int DrawSpriteOffset(EntityHandle owner, Vector offset, int modelIndex, float frame, int renderMode, int renderFx, int r, int g, int b, int a, float scale, bool worldSpaceScale, float hdrColorScale, float glowProxySize) => E.DrawSpriteOffset(owner, offset, modelIndex, frame, renderMode, renderFx, r, g, b, a, scale, worldSpaceScale, hdrColorScale, glowProxySize);
-    public bool ParticleSystemStart(EntityHandle owner, string name) => E.ParticleSystemStart(owner, name);
-    public void ParticleSystemStop(EntityHandle owner) => E.ParticleSystemStop(owner);
-    public bool ParticleSystemFollowPoints(EntityHandle owner, int pointMask) => E.ParticleSystemFollowPoints(owner, pointMask);
-    public void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => E.SpriteTrailUpdate(owner, renderMode, visible);
-    public void SpriteTrailDestroy(EntityHandle owner) => E.SpriteTrailDestroy(owner);
-    public void DustEffect(Vector origin, Vector direction, float size, float speed) => E.DustEffect(origin, direction, size, speed);
-    public void ImpactEffect(Vector start, Vector end, int surfaceProp, DamageType damageType, EntityHandle entity) => E.ImpactEffect(start, end, surfaceProp, damageType, entity);
-    public void FunnelEffect(Vector origin, int spriteIndex, bool reversed) => E.FunnelEffect(origin, spriteIndex, reversed);
-    public void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1) => E.MuzzleFlashEffect(origin, angles, scale, type);
-    public bool PaintDecal(int texture, Vector origin, Vector? angles, float projectDistance, bool permanent, bool lowPriority) => E.PaintDecal(texture, origin, angles, projectDistance, permanent, lowPriority);
-    public void SparkEffect(Vector origin, int magnitude, int trailLength, bool makeSound = true, Vector? direction = null) => E.SparkEffect(origin, magnitude, trailLength, makeSound, direction);
-    public void ExplosionEffect(Vector origin, int modelIndex, float scale, int frameRate, int flags, int radius, int magnitude) => E.ExplosionEffect(origin, modelIndex, scale, frameRate, flags, radius, magnitude);
-    public void SplashEffect(Vector origin, float scale, bool inSlime = false) => E.SplashEffect(origin, scale, inSlime);
-    public void TracerEffect(Vector start, Vector end) => E.TracerEffect(start, end);
 }
 
 /// <summary>The real engine, for <see cref="IEngineVisibility"/>. Every member is one call.</summary>
-internal sealed class EngineVisibility : IEngineVisibility
+internal sealed partial class EngineVisibility : IEngineVisibility
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -1328,36 +1084,12 @@ internal sealed class EngineVisibility : IEngineVisibility
     private EngineSide E => _side;
 
     public EngineVisibility(EngineSide side) => _side = side ?? throw new ArgumentNullException(nameof(side));
-
-    public void ActivateOccluder(int occluderIndex, bool active) => E.ActivateOccluder(occluderIndex, active);
-    public uint AreaPortalCreate(int portalNumber, int portalVersion) => E.AreaPortalCreate(portalNumber, portalVersion);
-    public void AreaPortalDestroy(uint portal) => E.AreaPortalDestroy(portal);
-    public void AreaPortalSetOpen(uint portal, bool open) => E.AreaPortalSetOpen(portal, open);
-    public void AreaPortalSetWindow(uint portal, EntityHandle entity, float fadeDistance) => E.AreaPortalSetWindow(portal, entity, fadeDistance);
-    public void ClearSkyboxParams() => E.ClearSkyboxParams();
-    public void ClientSetWorldRenderState(WorldRenderState which, ReadOnlySpan<float> values) => E.ClientSetWorldRenderState(which, values);
-    public int ColorCorrectionAdd(string lookupFile) => E.ColorCorrectionAdd(lookupFile);
-    public void ColorCorrectionRemove(int handle) => E.ColorCorrectionRemove(handle);
-    public void ColorCorrectionSetWeight(int handle, float weight) => E.ColorCorrectionSetWeight(handle, weight);
-    public void DynamicLightRelease(int key) => E.DynamicLightRelease(key);
-    public void DynamicLightUpdate(in DynamicLight light) => E.DynamicLightUpdate(in light);
     public void SetLightStyle(int style, string pattern)
     {
         // The engine's 64 styles (MAX_LIGHTSTYLES); the slot's guard, moved here.
         if (style >= 0 && style < 64 && pattern is not null)
             EngineBound.Server(E).LightStyle(style, pattern);
     }
-    public void SetSkyboxParams(in SkyboxParams parameters) => E.SetSkyboxParams(in parameters);
-
-    public void SetViewerFogParams(in FogParams parameters) => E.SetViewerFogParams(in parameters);
-
-    public void ClearViewerFogParams() => E.ClearViewerFogParams();
-
-    /// <inheritdoc/>
-    public void SetViewerSkyboxParams(in SkyboxParams parameters) => E.SetViewerSkyboxParams(in parameters);
-
-    /// <inheritdoc/>
-    public void ClearViewerSkyboxParams() => E.ClearViewerSkyboxParams();
 
     // No engine answer since plan_server_native_v2 T2: there is no SDK player
     // on the server to have a skybox area; the standalone arm below answers.
@@ -1366,8 +1098,5 @@ internal sealed class EngineVisibility : IEngineVisibility
         area = 0;
         return false;
     }
-
-    public bool TryStandalonePlayerSkyboxArea(int edictIndex, out int area)
-        => E.EntitiesStandalonePlayerSkyboxArea(edictIndex, out area);
 }
 

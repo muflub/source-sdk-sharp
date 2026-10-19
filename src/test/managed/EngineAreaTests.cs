@@ -437,7 +437,9 @@ public class EngineAreaTests
             return;
         }
 
-        string text = File.ReadAllText(binding);
+        // The shared bindings and each side's half (plan_shim_areas_split
+        // phase 7): a side-only member is forwarded from its side's half.
+        string text = RepoLayout.SharedTypeSource("EngineBinding");
         var forwarded = new HashSet<string>(StringComparer.Ordinal);
 
         // `E.X` since plan_engineapi_vtables B2: a binding calls its side's

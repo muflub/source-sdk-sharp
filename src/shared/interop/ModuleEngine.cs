@@ -22,7 +22,7 @@ namespace SourceSharp.Abi;
 /// interfaces.
 /// </para>
 /// </summary>
-public sealed class ModuleEngine
+public sealed partial class ModuleEngine
 {
     internal ModuleEngine(EngineSide api)
     {
@@ -125,12 +125,4 @@ public sealed class ModuleEngine
     /// step 1.2): what the managed skeleton builds its studio headers from.
     /// </summary>
     public IStudioMemory StudioMemory() => new EngineStudioMemory(Api);
-
-    /// <summary>
-    /// This engine's entity factory table, its providers bound to the native
-    /// dictionary when the side has one (the server, with its shims attached)
-    /// and unbound otherwise. A new instance per call: the server's composition
-    /// asks once and registers it (plan_abi_hotreload D7).
-    /// </summary>
-    public EntityFactories EntityFactories() => Api.BindEntityFactories();
 }
