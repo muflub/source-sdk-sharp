@@ -123,8 +123,8 @@ public static unsafe class ShimProbes
     }
 
     /// <summary>
-    /// <c>IShimLevel</c>: bound or refused, and the size of the table it
-    /// answered for.
+    /// <c>IShimLevel</c>: bound or refused, and the size of the forwarder
+    /// table native serves for it.
     ///
     /// <para>
     /// <b>THIS ONE DOES NOT CALL A METHOD, and that is deliberate.</b> Every
@@ -149,14 +149,24 @@ public static unsafe class ShimProbes
 
         if (!engine.Api.Interfaces.TryCreate(
                 SourceSharpFactoryType.Internal, EngineLevel.InterfaceVersion,
-                out nint _, out int entries, out string? error))
+                out nint _, out _, out string? error))
             return $"IShimLevel: REFUSED — {error}";
 
-        int declared = Vtable.SlotsIn<ShimLevelVtbl>();
+        // The span is the forwarder table's (plan_forwarders_everywhere.md):
+        // managed calls the level through SSFwd_ShimLevel, never through the
+        // object's vtable, so the count that matters is how many forwarders
+        // the library serves against how many ShimLevelFwd reads.
+        if (!engine.Api.Interfaces.TryCreate(
+                SourceSharpFactoryType.Internal, ShimLevelFwd.TableName,
+                out nint answer, out _, out string? tableError) || answer == 0)
+            return $"IShimLevel: bound, but its forwarders are REFUSED — {tableError ?? "no table"}";
 
-        return $"IShimLevel: bound, native says {entries} slot(s) and "
-             + $"ShimLevelVtbl declares {declared}"
-             + (declared <= entries ? "" : " — WHICH IS MORE THAN NATIVE HAS");
+        int served = ((ForwarderTableHeader*)answer)->SlotCount;
+        int reads = Forwarders.SlotCount<ShimLevelFwd>();
+
+        return $"IShimLevel: bound, native serves {served} forwarder(s) and "
+             + $"ShimLevelFwd reads {reads}"
+             + (reads <= served ? "" : " — WHICH IS MORE THAN NATIVE HAS");
     }
 
 }

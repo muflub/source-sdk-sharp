@@ -122,7 +122,7 @@ public sealed class InterfaceAcquisitionException : Exception
     /// <para>
     /// <b>This exists because the obvious spelling composed the message
     /// twice</b>, and it took a live run to notice:
-    /// <c>Vtable.TryAcquireShim</c> answers with a composed report — native's
+    /// the shim acquire of the day answered with a composed report — native's
     /// reason with the factory kind and the version string already in front of
     /// it — and handing that to the constructor above as a bare <c>reason</c>
     /// produced <i>"could not acquire X from the Internal factory: could not

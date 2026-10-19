@@ -95,11 +95,19 @@ internal sealed unsafe class FakeShimRoot : IDisposable
 
     /// <summary>The same, handing back the table for a fact to fill.</summary>
     public FakeShimRoot Forwarders<TFwd>(out TFwd* table) where TFwd : unmanaged, IForwarderTable
+        => Forwarders(out table, SourceSharp.Abi.Forwarders.SlotCount<TFwd>());
+
+    /// <summary>
+    /// The same, saying it holds <paramref name="served"/> slots: fewer than
+    /// <typeparamref name="TFwd"/> reads is an older library. The slot array
+    /// still spans the struct, so nothing reads past it.
+    /// </summary>
+    public FakeShimRoot Forwarders<TFwd>(out TFwd* table, int served) where TFwd : unmanaged, IForwarderTable
     {
         int count = SourceSharp.Abi.Forwarders.SlotCount<TFwd>();
         var header = (ForwarderTableHeader*)Alloc(sizeof(ForwarderTableHeader) / sizeof(nint));
-        header->Slots = (void**)Alloc(count);
-        header->SlotCount = count;
+        header->Slots = (void**)Alloc(Math.Max(count, served));
+        header->SlotCount = served;
         _interfaces[TFwd.TableName] = (nint)header;
         table = (TFwd*)header->Slots;
         return this;
