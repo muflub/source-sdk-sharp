@@ -683,7 +683,22 @@ shell_worldrender.o	_ZL18g_nNextColorLookup	g_nNextColorLookup	sourcesharp/game/
 shell_worldtext_render.o	_ZL18g_ManagedWorldText	g_ManagedWorldText	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_worldtext_render.o	_ZL17g_WorldTextSystem	g_WorldTextSystem	sourcesharp/game/client/shell_worldtext_render.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 tier0_thread_client.o	_ZN12_GLOBAL__N_112s_MainThreadE	(anonymous namespace)::s_MainThread	sourcesharp/game/client/tier0_thread_client.cpp	LOCAL	bss	function-local	8	UNRULED		
+	g_VProfCurrentProfile	g_VProfCurrentProfile	sourcesharp/game/client/tier0_vprof_client.cpp	GLOBAL	data	file-or-global	7696	UNRULED		
 	g_bDoRangeChecks	g_bDoRangeChecks	sourcesharp/game/client/tier1_client.cpp	GLOBAL	data	file-or-global	1	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ20SS_CThreadEvent_CtorPvbE3pfn	SS_CThreadEvent_Ctor(void*, bool)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ19SS_CThreadEvent_SetPvE3pfn	SS_CThreadEvent_Set(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	UNRULED		
+tier_bindings_client.o	_ZZ29SS_CThreadRWLock_LockForWritePvE3pfn	SS_CThreadRWLock_LockForWrite(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ28SS_CThreadRWLock_UnlockWritePvE3pfn	SS_CThreadRWLock_UnlockWrite(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ28SS_CThreadRWLock_WaitForReadPvE3pfn	SS_CThreadRWLock_WaitForRead(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ32SS_CThreadSpinRWLock_LockForReadPvE3pfn	SS_CThreadSpinRWLock_LockForRead(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ37SS_CThreadSpinRWLock_SpinLockForWritePvjE3pfn	SS_CThreadSpinRWLock_SpinLockForWrite(void*, unsigned int)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ31SS_CThreadSpinRWLock_UnlockReadPvE3pfn	SS_CThreadSpinRWLock_UnlockRead(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ32SS_CThreadSpinRWLock_UnlockWritePvE3pfn	SS_CThreadSpinRWLock_UnlockWrite(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
+tier_bindings_client.o	_ZZ25SS_CThreadSyncObject_DtorPvE3pfn	SS_CThreadSyncObject_Dtor(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	UNRULED		
+tier_bindings_client.o	_ZZ20SS_CommandLine_Tier0vE3pfn	SS_CommandLine_Tier0()::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	UNRULED		
+tier_bindings_client.o	_ZZ20SS_DestroyThreadPoolPvE3pfn	SS_DestroyThreadPool(void*)::pfn	sourcesharp/game/client/tier_bindings_client.cpp	LOCAL	bss	function-local	8	UNRULED		
+	g_pMemAlloc	g_pMemAlloc	sourcesharp/game/client/tier_bindings_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
+	g_pThreadPool	g_pThreadPool	sourcesharp/game/client/tier_bindings_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 vstdlib_random_port.o	_ZN12_GLOBAL__N_18s_StreamE	(anonymous namespace)::s_Stream	sourcesharp/game/client/vstdlib_random_port.cpp	LOCAL	bss	function-local	176	UNRULED		
 world_adapter_client.o	_ZL14g_pClientWorld	g_pClientWorld	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 	g_pGameRules	g_pGameRules	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		

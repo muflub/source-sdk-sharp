@@ -1,0 +1,37 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+Fn Tier0(	BOUNDARY	libtier0.so's own definition, found once (RequireLoadedSymbol)
+Fn Vstdlib(	BOUNDARY	libvstdlib.so's own definition, found once (RequireLoadedSymbol)
+void *PointerIn(	BOUNDARY	a pointer variable's value in the library the engine loaded
+__attribute__(( constructor( 101 ) )) static void BindEnginePointers()	BOUNDARY	(Linux) g_pMemAlloc and g_pThreadPool copied from the engine's libtier0/libvstdlib at load
+void *SS_CommandLine_Tier0()	BOUNDARY	the engine's CommandLine_Tier0 (clientshadowmgr.o, ScreenSpaceEffects.o import it; lld without -ltier0, 2026-10-18)
+void SS_DestroyThreadPool(	BOUNDARY	vstdlib's DestroyThreadPool (particlemgr.o imports it)
+SS_CThreadEvent_Ctor(	BOUNDARY	tier0's CThreadEvent( bool ) (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+SS_CThreadEvent_Set(	BOUNDARY	tier0's CThreadEvent::Set (clientleafsystem.o's CJob::Abort imports it)
+SS_CThreadSyncObject_Dtor(	BOUNDARY	tier0's ~CThreadSyncObject (libtier1.a utlsymbol.o imports it)
+SS_CThreadRWLock_WaitForRead(	BOUNDARY	tier0's CThreadRWLock slow path (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+SS_CThreadRWLock_LockForWrite(	BOUNDARY	tier0's CThreadRWLock slow path (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+SS_CThreadRWLock_UnlockWrite(	BOUNDARY	tier0's CThreadRWLock slow path (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+SS_CThreadSpinRWLock_LockForRead(	BOUNDARY	tier0's CThreadSpinRWLock member (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+SS_CThreadSpinRWLock_UnlockRead(	BOUNDARY	tier0's CThreadSpinRWLock member (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+SS_CThreadSpinRWLock_UnlockWrite(	BOUNDARY	tier0's CThreadSpinRWLock member (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+SS_CThreadSpinRWLock_SpinLockForWrite(	BOUNDARY	tier0's CThreadSpinRWLock member (libtier1.a utlsymbol.o, GC_SECTIONS=0 link)
+[BindEnginePointers] BindEnginePointers()	BOUNDARY	(Windows) g_pMemAlloc and g_pThreadPool copied from the engine's tier0.dll/vstdlib.dll at load (init_seg lib)
+extern "" void *CommandLine_Tier0()	BOUNDARY	(Windows) tier0.dll's CommandLine_Tier0
+extern "" void DestroyThreadPool(	BOUNDARY	(Windows) vstdlib.dll's DestroyThreadPool
+CThreadSyncObject::CThreadSyncObject()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+CThreadSyncObject::~CThreadSyncObject()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+bool CThreadSyncObject::operator!()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+bool CThreadSyncObject::Wait(	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+CThreadEvent::CThreadEvent( bool	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+bool CThreadEvent::Set()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+bool CThreadEvent::Reset()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+bool CThreadEvent::Check()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+bool CThreadEvent::Wait(	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void CThreadRWLock::WaitForRead()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void CThreadRWLock::LockForWrite()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void CThreadRWLock::UnlockWrite()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void CThreadSpinRWLock::LockForRead()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void CThreadSpinRWLock::UnlockRead()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void CThreadSpinRWLock::UnlockWrite()	BOUNDARY	(Windows) tier0.dll's member, by its decorated name
+void CThreadSpinRWLock::SpinLockForWrite(	BOUNDARY	(Windows) tier0.dll's member, by its decorated name

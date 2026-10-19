@@ -5144,6 +5144,47 @@ if(TARGET tier0_spew_forward_test)
   add_dependencies(tier0_spew_forward_test ss_fake_tier0)
 endif()
 
+# client.so's tier0 and vstdlib bindings (plan_client_novalve C9): every name
+# tier_bindings_client.cpp defines reaches the library the engine loaded. The
+# fakes stand in for the game's libtier0.so and libvstdlib.so (their file
+# names, each name the client binds, and a record of each call), linked so they
+# are loaded before the bindings copy their two pointers at load.
+if(SS_PLATFORM STREQUAL linux)
+foreach(fake tier0 vstdlib)
+  add_library(ss_fake_engine_${fake} SHARED
+      ${PROJECT_SOURCE_DIR}/src/test/native/fake_engine_tier/fake_engine_${fake}.cpp)
+  ss_test_compile_flags(ss_fake_engine_${fake})
+  set_target_properties(ss_fake_engine_${fake} PROPERTIES
+      OUTPUT_NAME ${fake}
+      LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fake_engine_tier
+      CXX_VISIBILITY_PRESET hidden)
+endforeach()
+endif()
+ss_cpptest(tier_bindings_client_test
+    LINUX_ONLY "binds to the libtier0.so and libvstdlib.so loaded in the process"
+    DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/tier_bindings_client_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/tier_bindings_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
+    LIBS ss_fake_engine_tier0 ss_fake_engine_vstdlib dl)
+
+# client.so's own tier0 profile, never enabled (user ruling 2026-10-18), and
+# its Plat_FloatTime (plan_client_novalve C9). Links no tier0: a VPROF macro
+# that reached a node would stop the process.
+ss_cpptest(tier0_client_test
+    LINUX_ONLY "client.so's own tier0 profile and clock, which only Linux builds"
+    DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC VPROF_LEVEL=1
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-reorder-ctor
+    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/tier0_client_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/tier0_vprof_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/tier0_thread_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp)
+
 # console_display_forward.cpp: the engine's console prints, forwarded to this
 # load's managed console-output area (docs/todo.md's console capture item).
 # Links no engine: CRecordingCvar records the Install/RemoveConsoleDisplayFunc

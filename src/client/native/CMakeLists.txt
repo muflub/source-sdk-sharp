@@ -5,7 +5,12 @@
 
 add_library(client_sourcesharp SHARED)
 set_target_properties(client_sourcesharp PROPERTIES OUTPUT_NAME client PREFIX "" NO_SONAME ON)
-ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN)
+# NO_WRAP, as server.so (plan_client_novalve C9): the --wrap= set routes file
+# calls through libtier0's path-case fixups, which client.so no longer links.
+# The only wrapped calls left were our own (ss_command_line, fatal_report,
+# alloc_check, tier0_thread_port, ss_platform.h's page probe), on /proc paths
+# and paths from the environment, which server.so makes unwrapped too.
+ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN NO_WRAP)
 
 # 246 translation units, sorted: the Valve files that still come from the fork
 # first, then this repo's, each group alphabetically (link order is this order;
@@ -89,6 +94,11 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/vstdlib_random_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tier0_spew_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_client.cpp
+    # The client links neither library (C9): its own vprof profile, never
+    # enabled (user ruling 2026-10-18), and its bindings to the tier0 and
+    # vstdlib the engine loaded.
+    ${CMAKE_CURRENT_SOURCE_DIR}/tier0_vprof_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tier_bindings_client.cpp
     # tier1, the server's ports (plan_client_novalve C9's tier1 step), and the
     # members of the same tier1 objects only the client calls.
     ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
@@ -312,6 +322,8 @@ if(SS_IS_MSVC)
       ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/tier0_spew_client.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/tier0_thread_client.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/tier0_vprof_client.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/tier_bindings_client.cpp
     TARGET_DIRECTORY client_sourcesharp
     APPEND PROPERTY COMPILE_DEFINITIONS STATIC_TIER0)
 endif()
@@ -345,4 +357,7 @@ elseif(SS_PLATFORM STREQUAL windows)
 else()
   target_link_libraries(client_sourcesharp PRIVATE z)
 endif()
-ss_link_group(client_sourcesharp sdk::tier0 tier1 sdk::vstdlib)
+# plan_client_novalve C9: the client links no tier0 and no vstdlib, as the
+# server links neither; tier0_vprof_client.cpp and tier_bindings_client.cpp
+# take their place (on Windows: CI-verified only).
+ss_link_group(client_sourcesharp tier1)

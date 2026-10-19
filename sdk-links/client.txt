@@ -223,8 +223,6 @@ src/game/shared/weapon_parse.h
 src/game/shared/weapon_proficiency.h
 src/lib/public/linux64/bitmap.a
 src/lib/public/linux64/dmxloader.a
-src/lib/public/linux64/libtier0.so
-src/lib/public/linux64/libvstdlib.so
 src/lib/public/linux64/particles.a
 src/lib/public/linux64/tier2.a
 src/lib/public/linux64/tier3.a

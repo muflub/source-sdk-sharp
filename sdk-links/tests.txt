@@ -13,3 +13,5 @@ src/game/shared/effect_dispatch_data.cpp
 src/game/shared/entitydatainstantiator.h
 src/game/shared/interval.h
 src/game/shared/mapentities_shared.h
+src/lib/public/linux64/libtier0.so
+src/lib/public/linux64/libvstdlib.so

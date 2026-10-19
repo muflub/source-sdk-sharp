@@ -1,6 +1,15 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
-# measured at 98b32c5b2
+# measured at 3e40e69fc
+# 2026-10-18, landing C9 tier0/vstdlib onto main 331c8a0cf (after lane t1's sentence.cpp eviction), re-measured there:
+#   incdir-forbidden-tus 148 (146 + the two new TUs), sdk-links 395 (397 - libtier0.so/libvstdlib.so). --write.
+# 2026-10-18, C9 tier0/vstdlib: client.so links neither libtier0.so nor libvstdlib.so (Linux). Its vprof profile is
+#   its own and never enabled (tier0_vprof_client.cpp, user ruling 2026-10-18), Plat_FloatTime is ss_clock.h's, and
+#   CommandLine_Tier0, g_pMemAlloc, the CThread* members, g_pThreadPool and DestroyThreadPool are bound to the copies
+#   the engine loaded (tier_bindings_client.cpp); the target is NO_WRAP like the server's. imports:tier0 7 -> 0,
+#   imports:vstdlib 2 -> 0, needed-forbidden 2 -> 0, link-forbidden 35 -> 2 (-ltier0, -lvstdlib and tier0's 31
+#   --wrap= flags left); incdir-forbidden-tus 147 -> 149 RAISED (the two new TUs, compiled with the client target's
+#   include dirs); sdk-links 399 -> 397 (libtier0.so and libvstdlib.so moved to sdk-links/tests.txt). --write.
 # 2026-10-18, C9 mathlib: libmathlib.a off client.so's link; mathlib_port.cpp (src/shared/native, the server's port
 #   grown by the client's members) joins client.so: incdir-forbidden-tus 146 -> 147 RAISED (the one new TU, compiled with
 #   the client target's include dirs); logic-lines 8260 -> 8257 (MathLib_Init's call in shell_clientdll.cpp left). --write.
@@ -245,7 +254,7 @@ imports:matsys_controls<-particles	0
 imports:steam_api	0
 imports:steam_api<-dmxloader	0
 imports:steam_api<-particles	0
-imports:tier0	7
+imports:tier0	0
 imports:tier0<-dmxloader	0
 imports:tier0<-particles	0
 imports:tier1	7
@@ -260,16 +269,16 @@ imports:tier3<-particles	0
 imports:vgui_controls	0
 imports:vgui_controls<-dmxloader	0
 imports:vgui_controls<-particles	0
-imports:vstdlib	2
+imports:vstdlib	0
 imports:vstdlib<-dmxloader	0
 imports:vstdlib<-particles	0
 imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
-incdir-forbidden-tus	146
-link-forbidden	35
+incdir-forbidden-tus	148
+link-forbidden	2
 logic-lines	8257
 native-convar-decls	69
-needed-forbidden	2
-sdk-links	397
+needed-forbidden	0
+sdk-links	395

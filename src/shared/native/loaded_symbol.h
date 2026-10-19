@@ -28,6 +28,12 @@ namespace ss
 // no such symbol. Never loads a library.
 void *FindLoadedSymbol( const char *pszFile, const char *pszSymbol );
 
+// FindLoadedSymbol for a symbol the caller cannot work without (client.so's
+// tier0 and vstdlib bindings, tier_bindings_client.cpp): no such object, or no
+// such symbol in it, is a broken process, and this stops it, loudly, naming
+// both, rather than hand back NULL for a later call to jump through.
+void *RequireLoadedSymbol( const char *pszFile, const char *pszSymbol );
+
 } // namespace ss
 
 #endif // SOURCESHARP_LOADED_SYMBOL_H

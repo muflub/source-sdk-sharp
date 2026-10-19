@@ -1,0 +1,8 @@
+# key (a substring of one fnmap head)	verdict	reason
+# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+[ProfileLayout] static constexpr size_t AtRoot()	LAYOUT	CVProfile's m_fAtRoot offset, for the never-enabled profile's bytes
+constexpr ClientVProfBytes NeverEnabledProfile()	LAYOUT	the never-enabled profile in CVProfile's layout, which vprof.h's inline scopes read (user ruling 2026-10-18)
+void NeverEntered(	INSTRUMENT	the report a broken never-enabled invariant stops with
+CVProfNode::GetSubNode(	LIVE-API	clientleafsystem.o imports it (lld without -ltier0, 2026-10-18); never reached
+CVProfNode::EnterScope()	LIVE-API	clientleafsystem.o imports it (lld without -ltier0, 2026-10-18); never reached
+CVProfNode::ExitScope()	LIVE-API	clientleafsystem.o imports it (lld without -ltier0, 2026-10-18); never reached

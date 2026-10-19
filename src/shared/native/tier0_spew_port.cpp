@@ -315,12 +315,9 @@ void DevMsg( int level, const tchar *pMsg, ... )
 	va_end( args );
 }
 
-// client.dll on Windows leaves the C++-linkage overloads to tier0.dll: their
-// import names are mangled, so SS_BIND_IMPORT cannot bind them, and the
-// import library's member for one (pulled in by every other call of it)
-// would collide with a definition here. tier0's own versions behave the same.
-// server.dll links no tier0 and keeps them, bound by the linker (LNK4217).
-#if !( defined( _WIN32 ) && defined( CLIENT_DLL ) )
+// The C++-linkage overloads: their import names are mangled, so SS_BIND_IMPORT
+// cannot bind them. Neither DLL links tier0.lib (client.dll since plan_client_
+// novalve C9), so the linker binds each import of one to these (LNK4217).
 void DevMsg( const tchar *pMsg, ... )
 {
 	if ( !DeveloperAt( 1 ) )
@@ -340,7 +337,6 @@ void DevWarning( const tchar *pMsg, ... )
 	SpewV( SPEW_WARNING, pMsg, args );
 	va_end( args );
 }
-#endif
 
 //-----------------------------------------------------------------------------
 // Error: said, then the process ends -- the user's fatal report.

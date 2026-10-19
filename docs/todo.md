@@ -1031,14 +1031,24 @@ out/client.so, and `tools/client-novalve-census`.
   (runtime phonemes, emphasis samples), the entity's CMouthInfo voice sources, the .vfe files,
   and the phonemedelay/phonemefilter/phonemesnap ConVars (VisemeSettings.Stock holds their defaults).
   Then the ruling's live PROOF (a mouth moving) can be run.
-- **tier0** (imports:tier0 7): client.so still imports `CommandLine_Tier0`,
-  `Plat_FloatTime`, the VProf trio (`CVProfNode::EnterScope/ExitScope/
-  GetSubNode`, `g_VProfCurrentProfile`), `CThreadEvent::Set`,
-  `CThreadSyncObject::~CThreadSyncObject` and `g_pMemAlloc` from
-  libtier0.so. Each needs its importer found (`nm -u` over the link edge) and
-  a ruling: our port, or a binding like engine_heap.h.
-- **vstdlib** (imports:vstdlib 2): `g_pThreadPool` and `DestroyThreadPool`
-  are still imported from libvstdlib.so. KeyValuesSystem no longer is.
+- **tier0 and vstdlib: DONE 2026-10-18** (imports:tier0 7 -> 0, imports:vstdlib
+  2 -> 0, needed-forbidden 2 -> 0): the client links neither (client.dll's
+  arm, on server.dll's STATIC_TIER0/SS_BIND_IMPORT/LNK4217 pattern with
+  GetProcAddress behind loaded_symbol.h, is CI-verified only).
+  `Plat_FloatTime` is ported (tier0_thread_client.cpp, ss_clock.h);
+  `CommandLine_Tier0`, `g_pMemAlloc`, the CThreadEvent/CThreadSyncObject/
+  CThreadRWLock/CThreadSpinRWLock members, `g_pThreadPool` and
+  `DestroyThreadPool` are bound to the engine's loaded copies
+  (tier_bindings_client.cpp); the target is NO_WRAP like the server's.
+  **Divergence (user ruling 2026-10-18):** the VPROF macros in client.so's fork
+  TUs (clientleafsystem.cpp) run against client.so's own never-enabled profile
+  (tier0_vprof_client.cpp), so the client's nodes no longer show in the
+  engine's `vprof` report or budget panel. Still open: libss_particles.so
+  still has DT_NEEDED on both (particles lane); and no live run has reached a
+  client job on vstdlib's pool (the fork's threaded leaf/shadow branches are
+  hard-wired off, and the mod's content defines no new-style effect the
+  threaded particle branch would simulate), so that binding is held by
+  tier_bindings_client_test alone.
 - **flashlighteffect.cpp** is ruled `port` and kept; it is C7 cluster 12
   (entry above: "Client flashlight").
 

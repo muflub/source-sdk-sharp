@@ -4,7 +4,7 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the tier0 thread call only client.so needs =========//
+//========= SourceSharp — the tier0 thread and clock calls only client.so needs //
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
 //
 // tier0_thread_port.cpp (src/shared/native) holds the thread and platform
@@ -16,9 +16,18 @@
 // which bind here too while they are on the link). The main thread is the one
 // that loaded client.so: the engine dlopens it from its main thread, so the
 // id taken at this file's static initialisation is that thread's.
+//
+// Plat_FloatTime (plan_client_novalve C9, so client.so links no libtier0):
+// particlemgr.cpp's Begin/EndSimulateParticles, its only caller, subtract two
+// of its own readings to time one simulation pass. A difference needs only a
+// steady clock in seconds, so it is ss_clock.h's, whose base is this DLL's
+// first reading rather than tier0's; no client caller compares it with an
+// engine time (the linker's undefined list without libtier0 names no other).
 //=============================================================================//
 
+#include "tier0/platform.h"
 #include "tier0/threadtools.h"
+#include "ss_clock.h"
 #include "ss_platform.h"	// SS_BIND_IMPORT
 #ifdef _MSC_VER
 // This file defines functions the engine DLLs' headers declare dllimport
@@ -36,6 +45,12 @@ bool ThreadInMainThread()
 	return ThreadGetCurrentId() == s_MainThread;
 }
 
+double Plat_FloatTime()
+{
+	return ss::SecondsSinceStart();
+}
+
 // Every call in this module of the functions above, made through the
 // import pointer, reaches these definitions (ss_platform.h).
 SS_BIND_IMPORT( ThreadInMainThread )
+SS_BIND_IMPORT( Plat_FloatTime )

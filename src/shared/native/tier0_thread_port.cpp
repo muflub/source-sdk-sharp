@@ -73,12 +73,9 @@ ThreadId_t ThreadGetCurrentId()
 // spin a while, then give the CPU away -- for nSpinSleepTime ms when asked,
 // else a yield -- and spin again.
 //
-// client.dll on Windows leaves the C++-linkage members to tier0.dll: their
-// import names are mangled, so SS_BIND_IMPORT cannot bind them, and the
-// import library's member for one (pulled in by every other call of it)
-// would collide with a definition here. tier0's own versions behave the same.
-// server.dll links no tier0 and keeps them, bound by the linker (LNK4217).
-#if !( defined( _WIN32 ) && defined( CLIENT_DLL ) )
+// A C++-linkage member: its import name is mangled, so SS_BIND_IMPORT cannot
+// bind it. Neither DLL links tier0.lib (client.dll since plan_client_novalve
+// C9), so the linker binds each import of it to this definition (LNK4217).
 void CThreadFastMutex::Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile
 {
 	enum { kSpinsBeforeYield = 1000 };
@@ -104,7 +101,6 @@ void CThreadFastMutex::Lock( const ThreadId_t threadId, unsigned nSpinSleepTime 
 #endif
 	}
 }
-#endif
 
 // A tracer is attached when /proc/self/status says "TracerPid:" is not 0
 // (Linux), when the kernel's process entry carries P_TRACED (macOS), or when

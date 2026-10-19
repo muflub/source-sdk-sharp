@@ -2,7 +2,8 @@
 // SS_REASON d  a layout the engine reads at fixed offsets
 //
 // Native for engine_heap.h (d), which must free through the allocator the
-// engine's vectors were grown with, and for tier0_spew_port (x).
+// engine's vectors were grown with, for tier0_spew_port (x), and for
+// client.so's tier0 and vstdlib bindings (tier_bindings_client.cpp, d).
 //
 // Three spellings of "a symbol in a library the process already holds",
 // none of which loads anything: Linux walks the loaded objects
@@ -12,6 +13,8 @@
 
 #include "loaded_symbol.h"
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #if defined( _WIN32 )
@@ -105,6 +108,20 @@ void *FindLoadedSymbol( const char *pszFile, const char *pszSymbol )
 	dlclose( hModule );
 	return pSymbol;
 #endif
+}
+
+void *RequireLoadedSymbol( const char *pszFile, const char *pszSymbol )
+{
+	void *pSymbol = FindLoadedSymbol( pszFile, pszSymbol );
+	if ( !pSymbol )
+	{
+		fprintf( stderr, "[SourceSharp] %s: no loaded %s defines it. This module binds it "
+		                 "to the copy the engine loaded and links no other; stopping.\n",
+		         pszSymbol, pszFile );
+		fflush( stderr );
+		abort();
+	}
+	return pSymbol;
 }
 
 } // namespace ss

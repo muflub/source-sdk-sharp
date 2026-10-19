@@ -457,10 +457,10 @@ TEST( ManagedHostSingleInstance, BothGameModulesNeedTheHostObject )
 		<< "client.so has no DT_NEEDED on libmanaged_host.so.";
 
 	// Not vacuous: the reader really did find this object's other dependencies.
-	// (libtier0.so was the server's control until P4.8 took it off the link.)
+	// (libtier0.so was the server's control until P4.8 took it off the link,
+	// and the client's until plan_client_novalve C9 did the same.)
 	EXPECT_TRUE( Server().Needs( "libstdc++.so.6" ) );
 	EXPECT_TRUE( Client().Needs( "libstdc++.so.6" ) );
-	EXPECT_TRUE( Client().Needs( "libtier0.so" ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -473,6 +473,18 @@ TEST( ManagedHostSingleInstance, TheServerNeedsNoValveLibrary )
 	EXPECT_FALSE( Server().Needs( "libtier0.so" ) );
 	EXPECT_FALSE( Server().Needs( "libvstdlib.so" ) );
 	EXPECT_FALSE( Server().Needs( "libsteam_api.so" ) );
+}
+
+//-----------------------------------------------------------------------------
+// plan_client_novalve C9: client.so needs neither tier0 nor vstdlib; its names
+// from them are its own or bound to the engine's copies (tier_bindings_client).
+// The reader's positive arm is BothGameModulesNeedTheHostObject.
+//-----------------------------------------------------------------------------
+TEST( ManagedHostSingleInstance, TheClientNeedsNeitherTier0NorVstdlib )
+{
+	ASSERT_TRUE( Client().Loaded() );
+	EXPECT_FALSE( Client().Needs( "libtier0.so" ) );
+	EXPECT_FALSE( Client().Needs( "libvstdlib.so" ) );
 }
 
 //-----------------------------------------------------------------------------

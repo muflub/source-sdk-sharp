@@ -371,7 +371,7 @@ src/client/managed/Ropes/BeamSegDraw.cs	ports CBeamSegDraw::Start/NextSeg/End an
 src/client/native/beam_strip_vertex.h	native code built against SDK headers: writes the strip vertices managed BeamSegDraw decided through CMeshBuilder (plan_client_novalve C9)
 src/client/native/tier0_spew_client.cpp	native code built against SDK headers: defines tier0's DevWarning( level ) (public/tier0/dbg.h) for client.so, over tier0_spew_port.cpp's Tier0_DevSpewV
 src/shared/native/tier0_spew_port.h	declares tier0_spew_port.cpp's Tier0_DevSpewV (dbg.h's SpewType_t)
-src/client/native/tier0_thread_client.cpp	native code built against SDK headers: defines tier0's ThreadInMainThread (public/tier0/threadtools.h) for client.so, over tier0_thread_port.cpp's ThreadGetCurrentId
+src/client/native/tier0_thread_client.cpp	native code built against SDK headers: defines tier0's ThreadInMainThread (public/tier0/threadtools.h) for client.so, over tier0_thread_port.cpp's ThreadGetCurrentId, and Plat_FloatTime (public/tier0/platform.h) over ss_clock.h
 src/client/managed/Render/PostProcessConVars.cs	ports viewpostprocess.cpp's convar declarations (names, defaults, flags, help)
 src/tf2/client/PyroConVars.cs	ports viewpostprocess.cpp's pyro_* convar declarations
 src/client/managed/MaterialProxies/PostProcessProxies.cs	ports CMotionBlurMaterialProxy and CEnginePostMaterialProxy (viewpostprocess.cpp)
@@ -436,3 +436,5 @@ src/client/managed/LipSync/FlexSettingFile.cs	reads the .vfe phoneme class files
 src/client/managed/LipSync/FlexControllerRegistry.cs	ports C_BaseFlex::AddGlobalFlexController and GetGlobalFlexControllerName (c_baseflex.cpp)
 src/client/managed/LipSync/Visemes.cs	ports C_BaseFlex::ProcessVisemes, AddVisemesForSentence, AddViseme, SetupEmphasisBlend, ComputeBlendedSetting, SetupMappings and EnsureTranslations (c_baseflex.cpp)
 src/test/oracle/native/lipsync_oracle_test.cpp	the lip sync oracle's harness: built against SDK headers (studio.h, sentence.h, mouthinfo.h); restates c_baseflex.h's Emphasized_Phoneme and phoneme class enum and EnsureTranslations' key mapping as stand-ins
+src/client/native/tier0_vprof_client.cpp	native code built against SDK headers: defines client.so's own never-enabled g_VProfCurrentProfile and the CVProfNode members tier0/vprof.h's VPROF macros name (user ruling 2026-10-18), so client.so links no libtier0 (plan_client_novalve C9)
+src/client/native/tier_bindings_client.cpp	native code built against SDK headers (tier0/threadtools.h on Windows): binds the tier0 and vstdlib names the client imports (CommandLine_Tier0, g_pMemAlloc, the CThread* members, g_pThreadPool, DestroyThreadPool) to the copies the engine loaded (plan_client_novalve C9)

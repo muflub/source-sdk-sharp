@@ -89,11 +89,13 @@ TEST( LinkLibraries, TheMatcherReadsEachSpellingOfALibrary )
 
 TEST( LinkLibraries, TheMatcherFindsALibraryThatIsDefinitelyThere )
 {
-	// The positive control: without it every absence below is free. The client
-	// still links tier0; the server links no Valve library at all now, and
-	// libdl is the one library its line names on every Linux build.
-	EXPECT_TRUE( Links( kTargets[ 1 ], "tier0" ) ) << kTargets[ 1 ];
+	// The positive control: without it every absence below is free. Neither
+	// DLL links tier0 or vstdlib now (plan_server_novalve.md P4, plan_client_
+	// novalve C9), and libdl is the one library both lines name on every Linux
+	// build: loaded_symbol.cpp's dlopen/dlsym, through which both DLLs reach
+	// the engine's tier0, needs it.
 	EXPECT_TRUE( Links( kTargets[ 0 ], "dl" ) ) << kTargets[ 0 ];
+	EXPECT_TRUE( Links( kTargets[ 1 ], "dl" ) ) << kTargets[ 1 ];
 }
 
 TEST( LinkLibraries, NeitherDllLinksMathlib )
@@ -109,13 +111,20 @@ TEST( LinkLibraries, NeitherDllLinksMathlib )
 
 TEST( LinkLibraries, TheServerLinksNoTierLibrary )
 {
-	// plan_server_novalve.md P4: R2-R4 at zero. The client still links all three.
+	// plan_server_novalve.md P4: R2-R4 at zero.
 	ASSERT_STREQ( "server_sourcesharp", kTargets[ 0 ] );
 	for ( const char *pLib : { "tier0", "tier1", "vstdlib" } )
-	{
 		EXPECT_FALSE( Links( kTargets[ 0 ], pLib ) ) << "server.so links " << pLib << " again";
-		EXPECT_TRUE( Links( kTargets[ 1 ], pLib ) ) << "client.so stopped linking " << pLib << ": the control is gone";
-	}
+}
+
+TEST( LinkLibraries, TheClientLinksNeitherTier0NorVstdlib )
+{
+	// plan_client_novalve C9: client.so's tier0 and vstdlib names are its own
+	// (tier0_vprof_client.cpp, tier0_thread_client.cpp) or bound to the copies
+	// the engine loaded (tier_bindings_client.cpp). tier1 is a lane of its own.
+	ASSERT_STREQ( "client_sourcesharp", kTargets[ 1 ] );
+	for ( const char *pLib : { "tier0", "vstdlib" } )
+		EXPECT_FALSE( Links( kTargets[ 1 ], pLib ) ) << "client.so links " << pLib << " again";
 }
 
 TEST( LinkLibraries, ChoreoobjectsIsGoneFromBothLinkLines )
@@ -167,8 +176,8 @@ TEST( LinkLibraries, NeitherLinkLineNamesLibprotobuf )
 
 TEST( LinkLibraries, NeitherSideLinksSteamApi )
 {
-	// Proof of read: the client's link group is parsed (tier0 is on it).
-	ASSERT_TRUE( Links( cmake_graph::kClient, "tier0" ) );
+	// Proof of read: the client's link line is parsed (libdl is on it).
+	ASSERT_TRUE( Links( cmake_graph::kClient, "dl" ) );
 
 	// plan_client_novalve C6, Steam to managed (lane c6-input): the client's
 	// Steam is C#'s too -- ClientSteamContext, the five callbacks, the name
