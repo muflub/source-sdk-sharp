@@ -1472,6 +1472,9 @@ LipSyncVisemesTests' `"c" + i` (i 0..383) turned it red 3 of 3 in the client
 assembly, green with the LipSync facts filtered out; the facts now format in
 hex. To do: make the control allocate something no cache can serve (e.g. a
 fresh `new string('x', 8)` a frame, or numbers past 300).
+DONE 2026-10-19 (C7 cluster 12 L2): LeafRegistryOracleTests formats the
+golden's small integers and turned it red again in the full run; the control
+now formats from 1000 up.
 
 
 ## The prop-hurts-player live-gate flake: measured, and fixed in the step

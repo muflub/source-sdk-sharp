@@ -276,9 +276,11 @@
 #   CUtlSymbolTable) (tools/client-novalve-census).
 # 2026-10-18, C7 detail: the fork links detailobjectsystem.cpp left behind went (make sdk-census named them unused): the file,
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
-fork-hdr-not-allowed	311
-fork-hdr-total	475
-fork-src	8
+# 2026-10-19, C7 cluster 12 L2, the eviction: clientleafsystem.cpp left client.so (tools/client-novalve-census): fork-hdr-not-allowed 311 -> 309,
+#   fork-hdr-total 475 -> 473, fork-src 8 -> 7, incdir-forbidden-tus 142 -> 141, sdk-links 522 -> 521. Hand-edited.
+fork-hdr-not-allowed	309
+fork-hdr-total	473
+fork-src	7
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -315,14 +317,21 @@ incdir-forbidden	6
 #   joins client.so with the target's include dirs: incdir-forbidden-tus 141 -> 142 RAISED (the new TU). logic-lines 8362 -> 8298:
 #   SourceSharp_ClientTraceLine ruled SLOT (it grew 64 -> 71 with the flashlight's mask and filter, and is IShimViewClient's slot
 #   as ClientTraceHull is); the new filter and executor are ruled SLOT/SLOT-HELP/LAYOUT/BOUNDARY (tools/shim-scope). Hand-edited.
+# 2026-10-19, C7 cluster 12 L2 (the leaf system's registry to managed): shell_leaf_system_client.cpp, the storage and
+#   ClientLeafSystem002 row of libss_fwd_client's leaf system, joins client.so with the target's include dirs:
+#   incdir-forbidden-tus 141 -> 142 RAISED (the new TU; tools/client-novalve-census). Its functions are ruled
+#   SLOT-HELP/HOOK (tools/shim-scope), so logic-lines stays 8301. Hand-edited.
 incdir-forbidden-tus	141
 link-forbidden	1
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
 # 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
 #   (three lines: the offset into the block's Client.Skin). The client compiled no skin receive before; this is new reach the
 #   fix needs, not a relabel.
-logic-lines	9010
+# LOWERED 2026-10-19, logic-lines 9010 -> 8990 (-20, tools/shim-scope at the C7 cluster 12 L2 landing on main
+#   832d8cd95): BlendPass, L1's native once-per-frame-and-view ComputeFxBlend check, moved to managed with the registry.
+#   fork-src 8 -> 7 and the fork-hdr rows had already followed clientleafsystem.cpp's eviction in the rebase. Hand-edited.
+logic-lines	8990
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-sdk-links	522
+sdk-links	521

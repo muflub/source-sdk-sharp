@@ -21,7 +21,6 @@ ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN NO_WRAP)
 # path back to its farm spelling through tools/module-map.tsv.
 set(client_sourcesharp_sources
     ${SS_SRC}/game/client/c_pixel_visibility.cpp
-    ${SS_SRC}/game/client/clientleafsystem.cpp
     ${SS_SRC}/game/client/clientshadowmgr.cpp
     ${SS_SRC}/game/client/glow_overlay.cpp
     ${SS_SRC}/game/client/rendertexture.cpp
@@ -130,6 +129,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_te_backends_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_te_forwards_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_te_pool_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_leaf_system_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_legacy_tempents_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tools_off_client.cpp

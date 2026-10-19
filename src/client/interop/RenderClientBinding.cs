@@ -10,48 +10,23 @@ namespace SourceSharp.Client.Interop;
 /// recorded frame's text back. Every body counts its crossing; a failure
 /// answers stock, unrecorded (what the zeroed answer native starts from says).
 /// </summary>
-public sealed unsafe class RenderClientBinding(Crossings crossings, ILog log, IClientRenderPlan plan,
-                                              IClientLeafLists? leafLists = null)
+public sealed unsafe class RenderClientBinding(Crossings crossings, ILog log, IClientRenderPlan plan)
     : IManagedRenderClient
 {
-    // The leaf system's view (C7 cluster 12 L1): one buffer in, one answer
-    // out; -1 tells native to build the view with stock's BuildRenderablesList.
+    // RETIRED SLOTS (C7 cluster 12 L1's leaf lists): the leaf system is
+    // managed's since L2 and native asks it through IManagedLeafSystemClient.
+    // The table only appends, so the two slots stay, answer -1 (no list), and
+    // are still counted: a count above zero is a caller nobody expected.
     public int RenderLeafList(void* a0, void* a1, int a2)
     {
         crossings.Count(CrossingOp.ClientRenderLeafList);
-        if (leafLists == null || a0 == null || a1 == null || a2 <= 0)
-            return -1;
-        int words = *(int*)a0;
-        if (words <= 0)
-            return -1;
-        try
-        {
-            return leafLists.BuildRenderableList(new ReadOnlySpan<int>(a0, words), new Span<int>(a1, a2));
-        }
-        catch (Exception e)
-        {
-            ManagedVtable.Fail(log, "IManagedRenderClient.RenderLeafList", e);
-            return -1;
-        }
+        return -1;
     }
 
     public int RenderLeafViewModels(void* a0, void* a1, int a2)
     {
         crossings.Count(CrossingOp.ClientRenderLeafViewModels);
-        if (leafLists == null || a0 == null || a1 == null || a2 < 0)
-            return -1;
-        int count = *(int*)a0;
-        if (count < 0 || count > a2)
-            return -1;
-        try
-        {
-            return leafLists.SplitViewModels(new ReadOnlySpan<int>(a0, count + 1), new Span<int>(a1, a2));
-        }
-        catch (Exception e)
-        {
-            ManagedVtable.Fail(log, "IManagedRenderClient.RenderLeafViewModels", e);
-            return -1;
-        }
+        return -1;
     }
 
     public int RenderFrame(void* a0, void* a1)

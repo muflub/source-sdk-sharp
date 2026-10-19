@@ -67,8 +67,8 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 34,952 |
-| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,675 |
+| a | a vtable the engine or VPhysics calls through | 21 | 5 | 32 |  |  |  | 62 | 35,758 |
+| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,682 |
 | c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,035 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 6 | 1 |  |  | 21 | 9,410 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 3,670 |
@@ -76,7 +76,7 @@ marker is the answer to "why is this native at all", not a full account.
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,422 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
 | x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,605 |
-|  | **total** | **76** | **34** | **72** | **3** | **2** | **1** | **212** | **92,448** |
+|  | **total** | **76** | **34** | **73** | **3** | **2** | **1** | **214** | **93,261** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -208,6 +208,8 @@ Then C_StandaloneEntity dropped its IGameEntity base and the six inert slots (20
 Then the served names b6's acquire scan found missing (2026-10-19, measured by the walk on main 01862e849): (b) 17,872 -> 17,882 is shell_vtable_interfaces.cpp's SourceSharpServes rows for VDebugOverlay003 on both sides and StaticPropMgrClient004 on the client, with ivdebugoverlay.h's include (+10); Forwarders.TryAcquire refused both as unknown interfaces, so every overlay call and every client static-prop read was a no-op; 92,765 lines in the table.
 
 Then the leaf system's per-view decisions moved to managed (2026-10-19, C7 cluster 12 L1, measured by the walk on 9f2f149d5 plus the lane): (a) 34,915 -> 35,011 is shell_view_executor_client.cpp's ManagedRenderablesList and ManagedViewModels, the gather's crossing and the answer carried out, with stock's builder kept as the fallback (+96); the gather itself is leaf_view_gather.h, a header the table does not count; 92,874 lines in the table.
+
+Then the client leaf system's registry moved to managed (C7 cluster 12 L2 and L3, 2026-10-19, measured by the walk at the landing on main 832d8cd95): (a) 60 -> 62 files and 34,952 -> 35,750 lines are libss_fwd_client's leaf-system forwarder and shell_leaf_system_client.cpp, the ClientLeafSystem002 object the engine calls, with the forwarder's queue (net of L1's gather, mirror and fallback arms, which went); (b) 17,660 -> 17,667 is the managed-areas client header's new rows; clientleafsystem.cpp left client.so; 93,238 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

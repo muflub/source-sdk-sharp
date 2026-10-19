@@ -37,8 +37,6 @@ void GatherFrame(	BOUNDARY	CViewRender::Render's inputs: engine, client mode and
 bool InstallHooks()	HOOK	overwrites the three CViewRender slots once
 void H_BuildRenderablesList(	HOOK	IClientLeafSystem::BuildRenderablesList, patched: stock's list is built, then the view's custom-draw standalones are noted for one batch (C7 item 7)
 void AfterRenderablesList(	SLOT-HELP	what follows a view's list, from managed's builder or stock's: the custom-draw standalones noted for one batch (C7 item 7) and the trace's scene
-bool ManagedRenderablesList(	SLOT-HELP	the view's list from managed (C7 cluster 12 L1): the gather, one crossing, the answer carried out; stock's builder when managed does not answer
-bool ManagedViewModels(	SLOT-HELP	the view models' split from managed (C7 cluster 12 L1): the gather, one crossing, the answer carried out; stock's function when managed does not answer
 void ExecuteOps(	SLOT-HELP	carries out the plan's ops and a view program's, one engine call or stock primitive each, in managed's order (Execute is it plus the closing of open views)
 [CPlanView] IWorldRenderList *WorldList()	SLOT-HELP	the view's world list, for the program's ops
 [CPlanView] WorldListInfo_t *WorldInfo()	SLOT-HELP	the view's world list info, for the scene gather

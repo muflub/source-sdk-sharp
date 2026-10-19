@@ -1545,12 +1545,15 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// (SFM is dead, user ruling 2026-10-19: 12 scanned, 9 compiled under game/,
 	// at 2b7da491f plus the SFM commits). nHere 8 -> 7 when flashlighteffect.cpp
 	// left (C7 cluster 12, 2026-10-18, on main e070a68e7: 8 compiled under game/).
+	// Files 10 -> 8 and nHere 7 -> 6 when clientleafsystem.cpp left (C7 cluster
+	// 12 L2, 2026-10-19, on main 62e8b7d00 plus the lane: 10 scanned, 7 compiled
+	// under game/).
 	const ScanResult_t &client = ClientScan();
-	EXPECT_GT( client.nFiles, 10 )
+	EXPECT_GT( client.nFiles, 8 )
 		<< "scanned " << client.nFiles << " client files -- too few to mean "
 		<< "anything, and low enough that the $File parse is the first thing "
 		<< "to suspect";
-	EXPECT_GT( client.nHere, 7 )
+	EXPECT_GT( client.nHere, 6 )
 		<< "client_sourcesharp compiles " << client.nHere << " entries under "
 		<< "game/ -- too few for the ratio below to mean anything";
 	EXPECT_GT( client.nFiles * 100, client.nHere * 90 )
@@ -1572,8 +1575,10 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// upstream lines). entity_client_tools.cpp and toolframework_client.cpp
 	// left too (SFM is dead, user ruling 2026-10-19): 10,378 scanned after them
 	// on the fork; upstream's copies are 793 + 356 lines, so about 9,650 there.
-	// 9,000 holds on both.
-	EXPECT_GT( client.nLines, 9000 )
+	// clientleafsystem.cpp left with C7 cluster 12 L2: 7,991 scanned after it
+	// on the fork; upstream's copy is about 1,800 lines, so about 7,850 there.
+	// 7,000 holds on both.
+	EXPECT_GT( client.nLines, 7000 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )
@@ -1715,10 +1720,11 @@ TEST( SdkPlayerCast, TheEvictionListWasParsedAndIsLoadBearing )
 	// matches on the basename and nothing in the build is called
 	// "cliententitylist.cpp" any more.
 	//
-	// clientleafsystem.cpp takes the job on the same grounds mapentities.cpp
-	// took it on the server: still compiled, and still carrying a live resolver
-	// site (:1125), so it is a file where the ban has teeth.
-	EXPECT_FALSE( IsEvicted( "client", "clientleafsystem.cpp" ) )
+	// clientleafsystem.cpp took the job on the same grounds mapentities.cpp
+	// took it on the server, and left client.so with C7 cluster 12 L2 (the leaf
+	// system is managed's). clientshadowmgr.cpp takes it now: still compiled,
+	// so a file the list must report as compiled.
+	EXPECT_FALSE( IsEvicted( "client", "clientshadowmgr.cpp" ) )
 		<< "the client source list reports a compiled file as evicted; every "
 		<< "ban above it is scanning nothing";
 
@@ -1929,7 +1935,12 @@ TEST( SdkPlayerCast, TheScannerReadEveryFileOfTheOriginalInventory )
 		<< "class in the build is under no ban at all";
 
 	const ScanResult_t &client = ClientScan();
-	EXPECT_TRUE( ScannedFileNamed( client, "client/clientleafsystem.cpp" ) );
+	// clientleafsystem.cpp left client.so with C7 cluster 12 L2, so it left
+	// the inventory too; the shadow manager, which stays, is read below.
+	EXPECT_FALSE( ScannedFileNamed( client, "client/clientleafsystem.cpp" ) )
+		<< "clientleafsystem.cpp is in the client scan again: the stock leaf "
+		<< "system is back in client.so.";
+	EXPECT_TRUE( ScannedFileNamed( client, "client/clientshadowmgr.cpp" ) );
 
 	// client/cliententitylist.cpp STOOD HERE and the flip evicted it, the
 	// client's half of the same commit. The list itself is
@@ -2324,12 +2335,15 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	EXPECT_TRUE( HitsInFileEnding( client.EveryResolverHits, "shared/trace_filter_library.cpp" ) )
 		<< "Ban C's predicate finds nothing in the shim's trace-filter family "
 		<< "on the client." << Describe( client.EveryResolverHits );
-	EXPECT_TRUE( HitsInFileEnding( client.EveryResolverHits, "client/clientleafsystem.cpp" ) )
-		<< "Ban C's predicate finds nothing in clientleafsystem.cpp."
+	// clientleafsystem.cpp's row (its AddRenderableToLeaf dump, under a
+	// DUMP_RENDERABLE_LEAFS nothing defines) left with the file at C7 cluster
+	// 12 L2. cdll_util.cpp's CFlaggedEntitiesEnum::EnumElement held the third
+	// row until C8 (lane c6-input), when the file left client.so with no
+	// importer; the class has no armed spelling left on the client outside the
+	// trace-filter family.
+	EXPECT_FALSE( HitsInFileEnding( client.EveryResolverHits, "client/clientleafsystem.cpp" ) )
+		<< "Ban C's predicate finds clientleafsystem.cpp again."
 		<< Describe( client.EveryResolverHits );
-	// cdll_util.cpp's CFlaggedEntitiesEnum::EnumElement held the third row
-	// until C8 (lane c6-input), when the file left client.so with no importer;
-	// the class has no armed spelling left on the client outside the two above.
 
 	// THE EVICTED ROW'S FILE HAS LEFT THE BUILD. toolframework_client.cpp held
 	// it until the residue wave; then the file left client.so (SFM is dead,
@@ -2370,7 +2384,10 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// CTraceFilterSkipPlayerAndViewModel resolver with it (the managed
 	// flashlight's filter resolves the hit by handle, flashlight_trace_filter.h).
 	// Its absence is asserted below with clientshadowmgr.cpp proved read.
-	EXPECT_GE( client.EveryResolverHits.size(), 2u )
+	// 2 -> 1 in C7 cluster 12 L2 (2026-10-19): clientleafsystem.cpp left
+	// client.so, and its dead dump's SDKEntityFromRenderable with it; the
+	// trace-filter family, named above, is the class's one armed spelling left.
+	EXPECT_GE( client.EveryResolverHits.size(), 1u )
 		<< "the same, on the client." << Describe( client.EveryResolverHits );
 
 }

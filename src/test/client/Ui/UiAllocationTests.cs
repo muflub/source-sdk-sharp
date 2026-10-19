@@ -191,8 +191,11 @@ public class UiAllocationTests(ITestOutputHelper output)
     public void The_measure_sees_an_allocation_in_describe()
     {
         // The negative control: the same loop with a screen that makes a string a frame.
+        // From 1000 up: .NET caches the strings of 0..299 once any test in the
+        // process has formatted them (docs/todo.md), and a cached string is no
+        // allocation for the measure to see.
         var ctx = new UiContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language(), []);
-        int n = 0;
+        int n = 1000;
         var screen = new TestScreen("alloc", (ref UiFrame ui) => { ui.Data((n++).ToString()); });
         for (int i = 0; i < 60; i++)
             UiTestKit.Frame(ctx, UiSamples.Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui), now: i / 60.0);

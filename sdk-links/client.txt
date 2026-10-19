@@ -53,7 +53,6 @@ src/game/client/client_thinklist.h
 src/game/client/client_virtualreality.h
 src/game/client/clienteffectprecachesystem.h
 src/game/client/cliententitylist.h
-src/game/client/clientleafsystem.cpp
 src/game/client/clientleafsystem.h
 src/game/client/clientmode.h
 src/game/client/clientshadowmgr.cpp

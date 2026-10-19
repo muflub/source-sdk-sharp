@@ -711,8 +711,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The render plan (C7): View_Render asks which path draws each frame.
         _bindings.Add("IManagedRenderClient",
                       v => ManagedAreaFactory.Create(v, new RenderClientBinding(_engine.Crossings, Log,
-                                                                              _services.Require<IClientRenderPlan>(),
-                                                                              _services.Require<IClientLeafLists>())));
+                                                                              _services.Require<IClientRenderPlan>())));
+        // The client leaf system (C7 cluster 12 L2): libss_fwd_client's
+        // IClientLeafSystem asks the registry and its decisions.
+        _bindings.Add("IManagedLeafSystemClient",
+                      v => ManagedAreaFactory.Create(v, new LeafSystemClientBinding(
+                          _engine.Crossings, Log, _services.Require<IClientLeafSystemHost>())));
         _bindings.Add("IManagedWorldTextClient",
                       v => ManagedAreaFactory.Create(v, new WorldTextClientBinding(_engine.Crossings, Log,
                                                                                   new Effects.ClientWorldTexts(_standalones))));
@@ -790,9 +794,32 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.DemoViewCamera>(locator => new Render.DemoViewCamera(
             button => _inputService?.KeyState(button) ?? 0f, () => locator.Require<Render.ClDemoviewoverrideConVar>().Value));
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
-        // The leaf system's per-view decisions (C7 cluster 12 L1).
-        _services.AddFactory<IClientLeafLists>(locator => new Render.LeafSystem.RenderableListBuilder(
-            () => locator.Require<Render.LeafSystem.CsClLeafListsConVar>().Value != 0));
+        // The leaf system's registry and its decisions over it (C7 cluster 12
+        // L2); the registry is an IReloadParticipant, so every renderable,
+        // leaf and shadow crosses cs_cl_reload. Its native batches are the
+        // forwarder library's LeafSystem table.
+        _services.AddFactory<ILeafNative>(_ => (ILeafNative?)NativeLeafCalls.Acquire(_engine, out string why)
+                                               ?? throw new InvalidOperationException("the client leaf system's native table: " + why));
+        _services.AddFactory<Render.LeafSystem.LeafRegistry>(locator => new Render.LeafSystem.LeafRegistry(locator.Require<ILeafNative>()));
+        _services.AddFactory<Render.LeafSystem.LeafListConVars>(locator =>
+        {
+            var leafConVars = new Render.LeafSystem.LeafListConVars(_convars,
+                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
+            leafConVars.Start();
+            _leafConVars = leafConVars;
+            return leafConVars;
+        });
+        _services.AddFactory<Render.LeafSystem.RenderableListBuilder>(locator => new Render.LeafSystem.RenderableListBuilder(
+            locator.Require<Render.LeafSystem.LeafRegistry>(), locator.Require<Render.LeafSystem.LeafListConVars>()));
+        // The leaf system's cost (L3, cs_cl_leaf_stats): its calls and time, and
+        // the native batches it asks.
+        _services.AddFactory<Render.LeafSystem.LeafSystemStats>(locator => new Render.LeafSystem.LeafSystemStats
+        {
+            Outbound = (locator.Require<ILeafNative>() as NativeLeafCalls)?.Calls,
+        });
+        _services.AddFactory<IClientLeafSystemHost>(locator => new Render.LeafSystem.ClientLeafSystem(
+            locator.Require<Render.LeafSystem.LeafRegistry>(), locator.Require<Render.LeafSystem.RenderableListBuilder>(),
+            locator.Require<Render.LeafSystem.LeafSystemStats>()));
         _services.AddFactory<IClientRenderPlan>(locator => locator.Require<Render.RenderPlanHost>());
         _services.AddFactory<MaterialProxies.IMaterialProxyReadings>(
             locator => (MaterialProxies.MaterialProxyHost)locator.Require<IClientMaterialProxies>());
@@ -2131,6 +2158,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Render.ObserverCamera? _observerCamera;
     private Flashlight.LocalPlayerFlashlight? _flashlight;
     private Flashlight.FlashlightConVars? _flashlightSettings;
+    private Render.LeafSystem.LeafListConVars? _leafConVars;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
 
@@ -2368,6 +2396,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The flashlight's ConVars, read through the same watch.
         if (_flashlightSettings is { } flashlight && flashlight.OnChanged(id, newValue))
+            return;
+
+        // The leaf system's (C7 cluster 12 L2): r_portalsopenall, the engine's.
+        if (_leafConVars is { } leafConVars && leafConVars.OnChanged(id, newValue))
             return;
 
         if (!_convars.NotifyChanged(id, newValue, oldValue))

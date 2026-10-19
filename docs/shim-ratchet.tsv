@@ -341,7 +341,10 @@ client_stock_tus	src/client/native/CMakeLists.txt	9
 # RAISED 2026-10-18, 220 -> 221, deliberately (C7 particles phase 4, measured on main 06b426523): sourcesharp/game/client/shell_particle_mgr_client.cpp (b), what client.so still called of CParticleMgr: the PMaterial table, the draw state the light proxy reads, and Init/Term/LevelInit's calls into the particle library (reached by name). It replaces particlemgr.cpp, a fork TU outside this count, which leaves client.so in the next commit but one.
 # LOWERED 2026-10-19, 221 -> 212 (measured against a ceiling of 1): shell_sound.cpp deleted (plan_server_native_v2
 #   T4a's precache path); the rest of the fall had not been followed down.
-shim_cpp_files	src/sourcesharp	212
+# RAISED 2026-10-19, 212 -> 214 (+2, measured by the walk at the landing on main 832d8cd95), deliberately: C7 cluster 12 L2,
+#   shell_leaf_system_client.cpp (the ClientLeafSystem002 object the engine calls by name, and its client-system adapter)
+#   and the forwarder class over IManagedLeafSystemClient; clientleafsystem.cpp (fork) left client.so in their place.
+shim_cpp_files	src/sourcesharp	214
 # RAISED 2026-09-29, 171132 -> 171233: cs_sv_engine_vectors (shell_engineboundary.cpp +77),
 # the live gate's check that engine-filled vectors go back to engine.so's allocator, and
 # engine_heap's EngineHeapSeenBy (+20 .cpp, +4 .h). 171132 + 101 = 171233.
@@ -1747,7 +1750,11 @@ shim_cpp_files	src/sourcesharp	212
 # LOWERED 2026-10-19, 137459 -> 137233 (-226, measured by the walk against a ceiling of 1; on main's 138033, 137807): plan_server_native_v2
 #   T4a's precache path took sound_emitter.cpp's server arms out (the server no longer compiles it) and deleted
 #   shell_sound.cpp; the managed row's Init and the two script-precache callers cross IManagedSoundEmitter.
-shim_lines	src/sourcesharp	137822
+# RAISED 2026-10-19, 137807 -> 138098 (+291, measured by the walk at the landing on main 832d8cd95), deliberately:
+#   C7 cluster 12 L2/L3, the leaf system's native residue: the generated forwarder class, its call queue (L3: 5
+#   crossings a frame), the engine-facing ClientLeafSystem002 object and the regenerated managed-area rows, net of
+#   L1's gather, layout mirror and fallback arms (deleted). The lane measured +518 on its base 62e8b7d00.
+shim_lines	src/sourcesharp	138113
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

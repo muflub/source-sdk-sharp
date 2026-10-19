@@ -70,7 +70,7 @@ TEST( ClientC8Evicted, CdllUtilLeft )
 {
 	EXPECT_TRUE( Read( "game/client/cdll_util.cpp" ).empty() ) << "cdll_util.cpp is back in the farm";
 	// The root resolved: a sibling the client still compiles.
-	EXPECT_FALSE( Read( "game/client/clientleafsystem.cpp" ).empty() );
+	EXPECT_FALSE( Read( "game/client/clientshadowmgr.cpp" ).empty() );
 }
 
 // game_entity_relays.h's client sites (docs/client-shell.md 2.2), the two in

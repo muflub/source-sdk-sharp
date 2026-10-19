@@ -20,6 +20,7 @@
 #include "engine/ivdebugoverlay.h"
 #include "engine/ivmodelinfo.h"
 #include "filesystem.h"
+#include "fwd_leaf_system.h"
 #include "fwd_physics.h"
 #include "fwd_steam.h"
 #include "inputsystem/iinputsystem.h"
@@ -3196,6 +3197,33 @@ static void *const s_SteamCallbackSlots[] = {
 
 static const SSForwarderTable s_SteamCallbackTable = { s_SteamCallbackSlots, 4 };
 
+//-----------------------------------------------------------------------------
+// LeafSystem: 9 function(s) over void, declared in fwd_leaf_system.h.
+//-----------------------------------------------------------------------------
+// int SSFwd_LeafSystem_SizeOf( void )
+// void * SSFwd_LeafSystem_Construct( void *, const SSLeafSystemEnv * )
+// int32_t SSFwd_LeafSystem_ComputeFxBlends( void *, void **, int32_t, int32_t *, int32_t )
+// void SSFwd_LeafSystem_Facts( void **, const int32_t *, int32_t, int32_t * )
+// void SSFwd_LeafSystem_Receives( void **, const int32_t *, int32_t, int32_t * )
+// int32_t SSFwd_LeafSystem_EnumerateLeaves( void *, const float *, int32_t, int32_t *, int32_t )
+// void SSFwd_LeafSystem_LeavesAreas( void *, const int32_t *, int32_t, int32_t * )
+// void SSFwd_LeafSystem_BoxQueries( void *, const float *, const int32_t *, int32_t, int32_t * )
+// void SSFwd_LeafSystem_DetailModels( void *, const int32_t *, int32_t, void ** )
+
+static void *const s_LeafSystemSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_SizeOf ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_Construct ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_ComputeFxBlends ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_Facts ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_Receives ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_EnumerateLeaves ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_LeavesAreas ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_BoxQueries ),
+	reinterpret_cast< void * >( &SSFwd_LeafSystem_DetailModels ),
+};
+
+static const SSForwarderTable s_LeafSystemTable = { s_LeafSystemSlots, 9 };
+
 // The tables by the name managed asks for, SSFwd_<table>.
 static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ModelInfo", &s_ModelInfoTable },
@@ -3280,4 +3308,5 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ShimFlashlightClient", &s_ShimFlashlightClientTable },
 	{ "SSFwd_PhysicsCallbacks", &s_PhysicsCallbacksTable },
 	{ "SSFwd_SteamCallback", &s_SteamCallbackTable },
+	{ "SSFwd_LeafSystem", &s_LeafSystemTable },
 };

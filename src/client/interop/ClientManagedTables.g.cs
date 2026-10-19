@@ -1236,3 +1236,145 @@ public unsafe struct ManagedDetailPropsClientTable
     [SlotHash(0x5d056f2d)]
     public delegate* unmanaged<void*, int, void*> DetailEmit;
 }
+
+/// <summary>The table managed writes for <c>IManagedLeafSystemClient</c> (<c>SSManagedLeafSystemClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedLeafSystemClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedLeafSystemClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void LevelInitPreEntity( int32_t nLeafCount )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> LevelInitPreEntity;
+
+    // 3: int32_t LevelShutdownPostEntity( int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> LevelShutdownPostEntity;
+
+    // 4: int32_t PreRender( const int32_t *pPending, int32_t nPending, int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0xfa64b18d)]
+    public delegate* unmanaged<void*, void*, int, void*, int, int> PreRender;
+
+    // 5: int32_t TakeOps( int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> TakeOps;
+
+    // 6: int32_t CreateRenderableHandle( void *pRenderable, int32_t bStaticProp, int32_t nModelType, int32_t bTransparent, int32_t bTwoPass )
+    [SlotHash(0x20773269)]
+    public delegate* unmanaged<void*, void*, int, int, int, int, int> CreateRenderableHandle;
+
+    // 7: int32_t AddRenderable( void *pRenderable, int32_t nGroup, int32_t nModelType )
+    [SlotHash(0x370c7b55)]
+    public delegate* unmanaged<void*, void*, int, int, int> AddRenderable;
+
+    // 8: int32_t RemoveRenderable( int32_t nHandle, int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0x77ae56a1)]
+    public delegate* unmanaged<void*, int, void*, int, int> RemoveRenderable;
+
+    // 9: int32_t AddRenderableToLeaves( int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0xdd939b22)]
+    public delegate* unmanaged<void*, int, void*, int, void*, int, int> AddRenderableToLeaves;
+
+    // 10: void ChangeRenderableRenderGroup( int32_t nHandle, int32_t nGroup )
+    [SlotHash(0x7fb639b8)]
+    public delegate* unmanaged<void*, int, int, void> ChangeRenderableRenderGroup;
+
+    // 11: void SetRenderGroup( int32_t nHandle, int32_t nGroup )
+    [SlotHash(0x7fb639b8)]
+    public delegate* unmanaged<void*, int, int, void> SetRenderGroup;
+
+    // 12: void RenderableChanged( int32_t nHandle )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> RenderableChanged;
+
+    // 13: void EnableAlternateSorting( int32_t nHandle, int32_t bEnable )
+    [SlotHash(0x7fb639b8)]
+    public delegate* unmanaged<void*, int, int, void> EnableAlternateSorting;
+
+    // 14: void DrawStaticProps( int32_t bEnable )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> DrawStaticProps;
+
+    // 15: void DrawSmallEntities( int32_t bEnable )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> DrawSmallEntities;
+
+    // 16: int32_t GetRenderableLeaves( int32_t nHandle, int32_t *pLeaves )
+    [SlotHash(0x17365172)]
+    public delegate* unmanaged<void*, int, void*, int> GetRenderableLeaves;
+
+    // 17: int32_t GetRenderableLeaf( int32_t nHandle, int32_t bHasIterator, int32_t nIterator, int32_t *pLeafAndIterator )
+    [SlotHash(0x888dc39e)]
+    public delegate* unmanaged<void*, int, int, int, void*, int> GetRenderableLeaf;
+
+    // 18: void * SetSubSystemDataInLeaf( int32_t nLeaf, int32_t nIndex, void *pData )
+    [SlotHash(0x510b5592)]
+    public delegate* unmanaged<void*, int, int, void*, void*> SetSubSystemDataInLeaf;
+
+    // 19: void * GetSubSystemDataInLeaf( int32_t nLeaf, int32_t nIndex )
+    [SlotHash(0x920e2abe)]
+    public delegate* unmanaged<void*, int, int, void*> GetSubSystemDataInLeaf;
+
+    // 20: void SetDetailObjectsInLeaf( int32_t nLeaf, int32_t nFirst, int32_t nCount )
+    [SlotHash(0x4811e619)]
+    public delegate* unmanaged<void*, int, int, int, void> SetDetailObjectsInLeaf;
+
+    // 21: int32_t GetDetailObjectsInLeaf( int32_t nLeaf, int32_t *pFirstAndCount )
+    [SlotHash(0x17365172)]
+    public delegate* unmanaged<void*, int, void*, int> GetDetailObjectsInLeaf;
+
+    // 22: void DrawDetailObjectsInLeaf( int32_t nLeaf, int32_t nFrame, int32_t *pFirstAndCount )
+    [SlotHash(0x878fb6d4)]
+    public delegate* unmanaged<void*, int, int, void*, void> DrawDetailObjectsInLeaf;
+
+    // 23: int32_t ShouldDrawDetailObjectsInLeaf( int32_t nLeaf, int32_t nFrame )
+    [SlotHash(0xecb3ae59)]
+    public delegate* unmanaged<void*, int, int, int> ShouldDrawDetailObjectsInLeaf;
+
+    // 24: void DetailLeaves( int32_t nFrame, const uint16_t *pLeaves, int32_t nLeafCount, int32_t *pOut )
+    [SlotHash(0xcaf05fac)]
+    public delegate* unmanaged<void*, int, void*, int, void*, void> DetailLeaves;
+
+    // 25: void ComputeTranslucentRenderLeaf( const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending, int32_t nPending )
+    [SlotHash(0x57de1a71)]
+    public delegate* unmanaged<void*, void*, int, int, int, int, void*, void*, int, void> ComputeTranslucentRenderLeaf;
+
+    // 26: int32_t BuildRenderablesList( const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending )
+    [SlotHash(0x0ea4a385)]
+    public delegate* unmanaged<void*, void*, int, void*, int, int, int, void*, void*, int, void*, int, int> BuildRenderablesList;
+
+    // 27: int32_t CollateViewModelRenderables( int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending, int32_t nPending )
+    [SlotHash(0xa2568725)]
+    public delegate* unmanaged<void*, void*, int, void*, void*, int, int> CollateViewModelRenderables;
+
+    // 28: int32_t AddShadow( int32_t nUserId, int32_t nFlags )
+    [SlotHash(0xecb3ae59)]
+    public delegate* unmanaged<void*, int, int, int> AddShadow;
+
+    // 29: void RemoveShadow( int32_t nHandle )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> RemoveShadow;
+
+    // 30: int32_t ProjectShadow( int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0xdd939b22)]
+    public delegate* unmanaged<void*, int, void*, int, void*, int, int> ProjectShadow;
+
+    // 31: int32_t ProjectFlashlight( int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0xdd939b22)]
+    public delegate* unmanaged<void*, int, void*, int, void*, int, int> ProjectFlashlight;
+
+    // 32: int32_t EnumerateShadowsInLeaves( const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps )
+    [SlotHash(0xfa64b18d)]
+    public delegate* unmanaged<void*, void*, int, void*, int, int> EnumerateShadowsInLeaves;
+
+    // 33: void Pending( const int32_t *pEntries, int32_t nCount )
+    [SlotHash(0x2acf7c51)]
+    public delegate* unmanaged<void*, void*, int, void> Pending;
+}

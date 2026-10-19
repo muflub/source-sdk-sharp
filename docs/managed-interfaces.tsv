@@ -256,6 +256,8 @@ IManagedRenderClient	ViewSetUp	void	const SourceSharpViewSetUpIn_t *pIn, SourceS
 IManagedRenderClient	ViewScreenshot	void	const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut
 IManagedRenderClient	ViewFreezeFrame	void	float flFreezeTime, float flCurTime
 IManagedRenderClient	ViewDemoCamera	int32_t	int32_t nStage, const float *pIn, float *pOut
+# RenderLeafList and RenderLeafViewModels are C7 cluster 12 L1's, RETIRED at L2 (the leaf
+# system is IManagedLeafSystemClient's): the binding answers -1. The table only appends.
 IManagedRenderClient	RenderLeafList	int32_t	const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords
 IManagedRenderClient	RenderLeafViewModels	int32_t	const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords
 IManagedInputClient	InputInit	void	int32_t bNoMouse
@@ -345,3 +347,49 @@ IManagedSoundEmitter	ServerMoveSound	void	int32_t nEntIndex, const float *pOrigi
 IManagedSoundEmitter	ServerMoveSoundScript	void	int32_t nEntIndex, const float *pOrigin, const char *pSoundName
 IManagedSoundEmitter	ServerSoundSystemInit	bool	void
 IManagedSoundEmitter	ServerPrecacheScriptSound	void	const char *pSoundName
+# C7 cluster 12 L2 (docs/plans/c7_leaf_system.md): the client leaf system's
+# registry and decisions are managed's. libss_fwd_client's forwarder class
+# (src/fwd/native/fwd_leaf_system.cpp) answers IClientLeafSystem and the
+# engine's ClientLeafSystem002 through this; a slot ending in pOps/nMaxOps
+# answers with the operations the forwarder carries out (LeafOpKind, four
+# int64 words each), the rest drained through TakeOps.
+IManagedLeafSystemClient	LevelInitPreEntity	void	int32_t nLeafCount
+IManagedLeafSystemClient	LevelShutdownPostEntity	int32_t	int64_t *pOps, int32_t nMaxOps
+IManagedLeafSystemClient	PreRender	int32_t	const int32_t *pPending, int32_t nPending, int64_t *pOps, int32_t nMaxOps
+IManagedLeafSystemClient	TakeOps	int32_t	int64_t *pOps, int32_t nMaxOps
+IManagedLeafSystemClient	CreateRenderableHandle	int32_t	void *pRenderable, int32_t bStaticProp, int32_t nModelType, int32_t bTransparent, int32_t bTwoPass
+IManagedLeafSystemClient	AddRenderable	int32_t	void *pRenderable, int32_t nGroup, int32_t nModelType
+IManagedLeafSystemClient	RemoveRenderable	int32_t	int32_t nHandle, int64_t *pOps, int32_t nMaxOps
+IManagedLeafSystemClient	AddRenderableToLeaves	int32_t	int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
+IManagedLeafSystemClient	ChangeRenderableRenderGroup	void	int32_t nHandle, int32_t nGroup
+IManagedLeafSystemClient	SetRenderGroup	void	int32_t nHandle, int32_t nGroup
+IManagedLeafSystemClient	RenderableChanged	void	int32_t nHandle
+IManagedLeafSystemClient	EnableAlternateSorting	void	int32_t nHandle, int32_t bEnable
+IManagedLeafSystemClient	DrawStaticProps	void	int32_t bEnable
+IManagedLeafSystemClient	DrawSmallEntities	void	int32_t bEnable
+IManagedLeafSystemClient	GetRenderableLeaves	int32_t	int32_t nHandle, int32_t *pLeaves
+IManagedLeafSystemClient	GetRenderableLeaf	int32_t	int32_t nHandle, int32_t bHasIterator, int32_t nIterator, int32_t *pLeafAndIterator
+IManagedLeafSystemClient	SetSubSystemDataInLeaf	void *	int32_t nLeaf, int32_t nIndex, void *pData
+IManagedLeafSystemClient	GetSubSystemDataInLeaf	void *	int32_t nLeaf, int32_t nIndex
+IManagedLeafSystemClient	SetDetailObjectsInLeaf	void	int32_t nLeaf, int32_t nFirst, int32_t nCount
+IManagedLeafSystemClient	GetDetailObjectsInLeaf	int32_t	int32_t nLeaf, int32_t *pFirstAndCount
+IManagedLeafSystemClient	DrawDetailObjectsInLeaf	void	int32_t nLeaf, int32_t nFrame, int32_t *pFirstAndCount
+IManagedLeafSystemClient	ShouldDrawDetailObjectsInLeaf	int32_t	int32_t nLeaf, int32_t nFrame
+IManagedLeafSystemClient	DetailLeaves	void	int32_t nFrame, const uint16_t *pLeaves, int32_t nLeafCount, int32_t *pOut
+IManagedLeafSystemClient	ComputeTranslucentRenderLeaf	void	const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending, int32_t nPending
+IManagedLeafSystemClient	BuildRenderablesList	int32_t	const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending
+IManagedLeafSystemClient	CollateViewModelRenderables	int32_t	int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending, int32_t nPending
+IManagedLeafSystemClient	AddShadow	int32_t	int32_t nUserId, int32_t nFlags
+IManagedLeafSystemClient	RemoveShadow	void	int32_t nHandle
+IManagedLeafSystemClient	ProjectShadow	int32_t	int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
+IManagedLeafSystemClient	ProjectFlashlight	int32_t	int32_t nHandle, const int32_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
+IManagedLeafSystemClient	EnumerateShadowsInLeaves	int32_t	const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps
+# L3's batching: RenderableChanged, ChangeRenderableRenderGroup and SetRenderGroup (per
+# renderable, per frame) are queued in the forwarder, nCount entries of three int32
+# (1 RenderableChanged handle; 2 ChangeRenderableRenderGroup handle, group; 3
+# SetRenderGroup handle, group). PreRender carries the queue in its
+# arguments, as do the per-view ComputeTranslucentRenderLeaf, BuildRenderablesList and
+# CollateViewModelRenderables, and a blend batch (whose fading static props change their
+# groups) returns it; any other slot called with entries queued, or a full queue, hands
+# them over here first.
+IManagedLeafSystemClient	Pending	void	const int32_t *pEntries, int32_t nCount

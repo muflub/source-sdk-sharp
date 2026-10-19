@@ -882,6 +882,69 @@ public enum CrossingOp
     ServerSaveWriteFields = 350,
     /// <summary>IManagedSaveRestore::SaveReadFields: one of the engine's own structs read back, a few dozen per load (plan_server_native_v2 T4c).</summary>
     ServerSaveReadFields = 351,
+    /// <summary>IManagedLeafSystemClient::LevelInitPreEntity: the level's leaves made, at LevelInitPreEntity (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafLevelInitPreEntity = 352,
+    /// <summary>IManagedLeafSystemClient::LevelShutdownPostEntity: the registry purged and the sub-systems' data handed back to delete, at LevelShutdownPostEntity (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafLevelShutdownPostEntity = 353,
+    /// <summary>IManagedLeafSystemClient::PreRender: the dirty renderables re-inserted into their leaves, once a frame (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafPreRender = 354,
+    /// <summary>IManagedLeafSystemClient::TakeOps: the rest of an answer's operations, when they filled the forwarder's buffer (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafTakeOps = 355,
+    /// <summary>IManagedLeafSystemClient::CreateRenderableHandle: a renderable registered by handle (the engine's static props; particles) (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafCreateRenderableHandle = 356,
+    /// <summary>IManagedLeafSystemClient::AddRenderable: a renderable registered in a group, inserted at the next PreRender (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafAddRenderable = 357,
+    /// <summary>IManagedLeafSystemClient::RemoveRenderable: a renderable removed (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafRemoveRenderable = 358,
+    /// <summary>IManagedLeafSystemClient::AddRenderableToLeaves: the engine's static prop into the leaves it computed (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafAddRenderableToLeaves = 359,
+    /// <summary>IManagedLeafSystemClient::ChangeRenderableRenderGroup: the engine's static-prop fade between opaque and translucent (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafChangeRenderableRenderGroup = 360,
+    /// <summary>IManagedLeafSystemClient::SetRenderGroup: a renderable's render group set (a temp entity's blend sets one) (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafSetRenderGroup = 361,
+    /// <summary>IManagedLeafSystemClient::RenderableChanged: a renderable moved or changed bounds: dirty until PreRender (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafRenderableChanged = 362,
+    /// <summary>IManagedLeafSystemClient::EnableAlternateSorting: a translucent renderable's alternate sorting set (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafEnableAlternateSorting = 363,
+    /// <summary>IManagedLeafSystemClient::DrawStaticProps: the static props' switch (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafDrawStaticProps = 364,
+    /// <summary>IManagedLeafSystemClient::DrawSmallEntities: the small entities' switch (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafDrawSmallEntities = 365,
+    /// <summary>IManagedLeafSystemClient::GetRenderableLeaves: a renderable's leaves (IsRenderableInPVS, GetRenderableLeaves) (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafGetRenderableLeaves = 366,
+    /// <summary>IManagedLeafSystemClient::GetRenderableLeaf: one step of a walk over a renderable's leaves (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafGetRenderableLeaf = 367,
+    /// <summary>IManagedLeafSystemClient::SetSubSystemDataInLeaf: a leaf's sub-system data set (the detail props' fast-sprite marker) (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafSetSubSystemDataInLeaf = 368,
+    /// <summary>IManagedLeafSystemClient::GetSubSystemDataInLeaf: a leaf's sub-system data asked (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafGetSubSystemDataInLeaf = 369,
+    /// <summary>IManagedLeafSystemClient::SetDetailObjectsInLeaf: a leaf's detail objects set, at level load (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafSetDetailObjectsInLeaf = 370,
+    /// <summary>IManagedLeafSystemClient::GetDetailObjectsInLeaf: a leaf's detail objects asked (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafGetDetailObjectsInLeaf = 371,
+    /// <summary>IManagedLeafSystemClient::DrawDetailObjectsInLeaf: a leaf in the detail props' sphere marked, per leaf per detail build (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafDrawDetailObjectsInLeaf = 372,
+    /// <summary>IManagedLeafSystemClient::ShouldDrawDetailObjectsInLeaf: decision 3 for one leaf (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafShouldDrawDetailObjectsInLeaf = 373,
+    /// <summary>IManagedLeafSystemClient::DetailLeaves: decision 3 for a view's leaves, once per view scene (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafDetailLeaves = 374,
+    /// <summary>IManagedLeafSystemClient::ComputeTranslucentRenderLeaf: a view's blends and translucent leaves, once per view with a translucent-leaf pass (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafComputeTranslucentRenderLeaf = 375,
+    /// <summary>IManagedLeafSystemClient::BuildRenderablesList: a view's render list, once per view that draws entities (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafBuildRenderablesList = 376,
+    /// <summary>IManagedLeafSystemClient::CollateViewModelRenderables: the view models' split, once per view-model draw (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafCollateViewModelRenderables = 377,
+    /// <summary>IManagedLeafSystemClient::AddShadow: a shadow or flashlight registered (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafAddShadow = 378,
+    /// <summary>IManagedLeafSystemClient::RemoveShadow: a shadow or flashlight removed (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafRemoveShadow = 379,
+    /// <summary>IManagedLeafSystemClient::ProjectShadow: a shadow projected into leaves, per shadow update (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafProjectShadow = 380,
+    /// <summary>IManagedLeafSystemClient::ProjectFlashlight: a flashlight projected into leaves, per flashlight update (C7 cluster 12 L2). CLIENT ONLY.</summary>
+    ClientLeafProjectFlashlight = 381,
+    ClientLeafEnumerateShadowsInLeaves = 382,
+    /// <summary>IManagedLeafSystemClient::Pending: the RenderableChanged and ChangeRenderableRenderGroup calls the forwarder queued, in order, before the next call or at a blend batch's end (C7 cluster 12 L3). CLIENT ONLY.</summary>
+    ClientLeafPending = 383,
 }
 
 /// <summary>

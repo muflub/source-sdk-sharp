@@ -597,6 +597,28 @@ HAND = [
             ('CallbackId', 'int', 'CCallbackBase *'),
         ],
     ),
+    # C7 cluster 12 L2 (docs/plans/c7_leaf_system.md): the client leaf system.
+    # SizeOf and Construct build the IClientLeafSystem client.so exports
+    # (fwd_leaf_system.cpp's forwarder class over IManagedLeafSystemClient);
+    # the rest are the batches the managed registry asks native, each a loop
+    # over the objects it is handed.
+    dict(
+        table='LeafSystem',
+        side='client',
+        self_type='void',
+        include='fwd_leaf_system.h',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('Construct', 'void *', 'void *, const SSLeafSystemEnv *'),
+            ('ComputeFxBlends', 'int32_t', 'void *, void **, int32_t, int32_t *, int32_t'),
+            ('Facts', 'void', 'void **, const int32_t *, int32_t, int32_t *'),
+            ('Receives', 'void', 'void **, const int32_t *, int32_t, int32_t *'),
+            ('EnumerateLeaves', 'int32_t', 'void *, const float *, int32_t, int32_t *, int32_t'),
+            ('LeavesAreas', 'void', 'void *, const int32_t *, int32_t, int32_t *'),
+            ('BoxQueries', 'void', 'void *, const float *, const int32_t *, int32_t, int32_t *'),
+            ('DetailModels', 'void', 'void *, const int32_t *, int32_t, void **'),
+        ],
+    ),
 ]
 
 PREFIX = 'SSFwd_'

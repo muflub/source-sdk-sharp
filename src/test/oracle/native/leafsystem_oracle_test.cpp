@@ -29,23 +29,29 @@
 // includes the file into this translation unit. leafsystem_stub/
 // leafsystem_harness.h says what is stock and what is stand-in.
 //
-// WHAT MANAGED IS HANDED. SourceSharp.Client's RenderableListBuilder makes
-// these decisions over one buffer per view, written by
-// src/client/native/leaf_view_gather.h. The golden carries, for every view,
-// that buffer (VB) beside what stock built (O, ST), so the managed facts
-// replay the same input and compare against stock. Golden mode writes the
-// buffer as the live gather would see the registry -- each renderable's group
-// and blend after the view's ComputeFxBlend, its render frame and leaf
-// before stock's ComputeTranslucentRenderLeaf moved them -- and
-// TheLiveGatherWritesTheGoldensBuffers runs the scenario again with the gather
-// called the way the client calls it and requires the same buffers.
+// WHAT MANAGED REPLAYS. The managed leaf system (SourceSharp.Client's
+// LeafRegistry and RenderableListBuilder, L2) owns the registry and every
+// decision. The golden carries its own stimulus -- every call the scenario
+// makes is a row before it is made, every thing described first (T) -- so
+// LeafRegistryOracleTests rebuilds the same world from the golden alone and
+// requires stock's rows: handles, leaves and areas, receivers, enumerations,
+// blends, the engine's questions, each view's list and state, the view
+// models, the PVS, leaf walks, detail state.
+//
+// THE VB ROWS ARE THE ORACLE'S OWN: stock's registry for each view and the
+// engine's answers about each renderable in it, read through
+// leafsystem_stub/leafsystem_gather.h's layout mirror (L1 built that reader
+// for client.so; L2 left it here). TheScenarioReachesEveryArm names each arm
+// from them. Each is written as the registry stands after the view's
+// ComputeFxBlend, with each renderable's render frame and leaf from before
+// stock's ComputeTranslucentRenderLeaf moved them.
 //
 // BOTH SIDES ARE PINNED TO THE GOLDEN. This test asserts that stock produces
-// exactly it; SourceSharp.Client.Tests' RenderableListBuilderOracleTests
-// asserts the managed port does. Regenerating the golden to make this test
-// green deletes the check: the golden changes only when the scenario or the
-// buffer's format does, and then on purpose (touch leafsystem_golden.regen
-// beside this file, run, delete the marker, and say why in the commit).
+// exactly it; SourceSharp.Client.Tests' LeafRegistryOracleTests asserts the
+// managed port does. Regenerating the golden to make this test green deletes
+// the check: the golden changes only when the scenario or a row's format
+// does, and then on purpose (touch leafsystem_golden.regen beside this file,
+// run, delete the marker, and say why in the commit).
 //
 //=============================================================================
 
@@ -272,9 +278,19 @@ void LeafEngine::Con_NPrintf( int pos, const char *fmt, ... )
 	LeafLog( "NP\t%d\t%s", pos, szText );
 }
 
-bool LeafRender::AreAnyLeavesVisible( int *, int )
+// A leaf is visible when it is one of the first six (area 1's, on the
+// 12-leaf level): IsRenderableInPVS's answer, and the leaves it was asked of.
+bool LeafRender::AreAnyLeavesVisible( int *pLeafList, int nLeaves )
 {
-	return true;
+	std::string s;
+	bool bVisible = false;
+	for ( int i = 0; i < nLeaves; i++ )
+	{
+		s += ( i ? "," : "" ) + std::to_string( pLeafList[ i ] );
+		bVisible = bVisible || pLeafList[ i ] < 6;
+	}
+	LeafLog( "PVQ\t%s\t%d", s.c_str(), bVisible ? 1 : 0 );
+	return bVisible;
 }
 
 static int IdOf( IClientRenderable *p )
@@ -324,8 +340,8 @@ InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName ) : m_p
 #include "clientleafsystem.cpp"
 #include "tier0/memdbgoff.h"
 
-// What the client compiles to hand managed its views.
-#include "../../../client/native/leaf_view_gather.h"
+// The oracle's own reading of the registry, for the VB rows.
+#include "leafsystem_gather.h"
 
 static CClientLeafSystem &Subject()
 {
@@ -406,6 +422,22 @@ C_BaseEntity *BlendTo( C_BaseEntity *p, int n ) { p->m_nBlendTo = n; return p; }
 C_BaseEntity *GroupOnBlend( C_BaseEntity *p, int g ) { p->m_nGroupOnBlend = g; return p; }
 C_BaseEntity *Receives( C_BaseEntity *p, int f ) { p->m_nReceiveFlags = f; return p; }
 
+// Everything a thing answers, so a replay can build the same one (L2): its
+// model type, transparency, two-pass, blend, the blend and group its
+// ComputeFxBlend moves to (-1 none), the projected textures it takes, and its
+// world box, render box and origin.
+void LogDesc( C_BaseEntity *p )
+{
+	LeafLog( "T\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x",
+	         p->m_nId, p->m_nModelType, p->m_bTransparent ? 1 : 0, p->m_bTwoPass ? 1 : 0, p->m_nFxBlend, p->m_nBlendTo,
+	         p->m_nGroupOnBlend, p->m_nReceiveFlags,
+	         LeafBits( p->m_vecAbsMins.x ), LeafBits( p->m_vecAbsMins.y ), LeafBits( p->m_vecAbsMins.z ),
+	         LeafBits( p->m_vecAbsMaxs.x ), LeafBits( p->m_vecAbsMaxs.y ), LeafBits( p->m_vecAbsMaxs.z ),
+	         LeafBits( p->m_vecMins.x ), LeafBits( p->m_vecMins.y ), LeafBits( p->m_vecMins.z ),
+	         LeafBits( p->m_vecMaxs.x ), LeafBits( p->m_vecMaxs.y ), LeafBits( p->m_vecMaxs.z ),
+	         LeafBits( p->m_vecOrigin.x ), LeafBits( p->m_vecOrigin.y ), LeafBits( p->m_vecOrigin.z ) );
+}
+
 void LogThing( const char *pszHow, C_BaseEntity *p, int nGroup )
 {
 	LeafLog( "R\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d", p->m_nId, pszHow, nGroup,
@@ -418,23 +450,32 @@ void LogThing( const char *pszHow, C_BaseEntity *p, int nGroup )
 // A client renderable: AddRenderable, inserted into the tree at PreRender.
 C_BaseEntity *Add( C_BaseEntity *p, RenderGroup_t group )
 {
+	LogDesc( p );
 	Subject().AddRenderable( p, group );
 	LogThing( "add", p, group );
 	return p;
 }
 
 // A static prop as the engine registers one: CreateRenderableHandle, then
-// AddRenderableToLeaves with the leaves its box is in.
+// AddRenderableToLeaves with the leaves its box is in (the SL row, before the
+// call, so a replay hands the same leaves).
 C_BaseEntity *AddStatic( C_BaseEntity *p )
 {
+	LogDesc( p );
 	Subject().CreateRenderableHandle( p, true );
+	LeafLog( "CH\t%d\t%d", p->m_nId, p->RenderHandle() );
 	unsigned short leaves[ 128 ];
 	int n = 0;
+	std::string s;
 	for ( int i = 0; i < (int)s_LeafBoxes.size() && n < 128; i++ )
 	{
 		if ( Overlaps( p->m_vecAbsMins, p->m_vecAbsMaxs, s_LeafBoxes[ i ] ) )
+		{
+			s += ( n ? "," : "" ) + std::to_string( i );
 			leaves[ n++ ] = (unsigned short)i;
+		}
 	}
+	LeafLog( "SL\t%d\t%s", p->m_nId, s.c_str() );
 	Subject().AddRenderableToLeaves( p->RenderHandle(), n, leaves );
 	LogThing( "static", p, Registry().m_Renderables[ p->RenderHandle() ].m_RenderGroup );
 	return p;
@@ -456,6 +497,142 @@ void Remove( int nId )
 	C_BaseEntity *p = Find( nId );
 	LeafLog( "RM\t%d\t%d", nId, p->RenderHandle() );
 	Subject().RemoveRenderable( p->RenderHandle() );
+	LeafLog( "RH\t%d\t%d", nId, p->RenderHandle() );
+}
+
+// The rest of the registry's surface, each call a row before it is made (so
+// a replay makes the same call) and its answer, when it has one, a row after.
+void SetGroup( int nId, RenderGroup_t group )
+{
+	LeafLog( "RG\t%d\t%d", nId, group );
+	Subject().SetRenderGroup( Find( nId )->RenderHandle(), group );
+}
+
+void ChangeGroup( int nId, RenderGroup_t group )
+{
+	LeafLog( "CG\t%d\t%d", nId, group );
+	// Private in the class; the engine calls it through IClientLeafSystemEngine.
+	g_pClientLeafSystem->ChangeRenderableRenderGroup( Find( nId )->RenderHandle(), group );
+}
+
+void AltSort( int nId, bool bEnable )
+{
+	LeafLog( "AS\t%d\t%d", nId, bEnable ? 1 : 0 );
+	Subject().EnableAlternateSorting( Find( nId )->RenderHandle(), bEnable );
+}
+
+void StaticProps( bool bEnable )
+{
+	LeafLog( "SP\t%d", bEnable ? 1 : 0 );
+	Subject().DrawStaticProps( bEnable );
+}
+
+void SetConVar( ConVar &var, int nValue )
+{
+	LeafLog( "CV\t%s\t%d", var.GetName(), nValue );
+	var.SetValue( nValue );
+}
+
+void InPVS( int nId )
+{
+	LeafLog( "PV\t%d", nId );
+	const bool b = Subject().IsRenderableInPVS( Find( nId ) );
+	LeafLog( "PVA\t%d\t%d", nId, b ? 1 : 0 );
+}
+
+// GetRenderableLeaf, walked as a caller walks it: the first leaf, then each
+// next by the iterator the last call gave.
+void WalkLeaves( int nId )
+{
+	const ClientRenderHandle_t h = Find( nId ) ? Find( nId )->RenderHandle() : INVALID_CLIENT_RENDER_HANDLE;
+	std::string s;
+	int leaf = -1, it = -1;
+	bool b = Subject().GetRenderableLeaf( h, &leaf, NULL, &it );
+	while ( b )
+	{
+		s += ( s.empty() ? "" : "," ) + std::to_string( leaf );
+		const int in = it;
+		b = Subject().GetRenderableLeaf( h, &leaf, &in, &it );
+	}
+	LeafLog( "GL\t%d\t%s", nId, s.c_str() );
+}
+
+// The leaf's detail range and sub-system data as GetDetailObjectsInLeaf and
+// GetSubSystemDataInLeaf answer them, and ShouldDrawDetailObjectsInLeaf over
+// every leaf at a frame (decision 3).
+void DetailState( int nFrame )
+{
+	LeafLog( "DST\t%d", nFrame );
+	for ( int leaf = 0; leaf < (int)s_LeafBoxes.size(); leaf++ )
+	{
+		int nFirst = -7, nCount = -7;
+		Subject().GetDetailObjectsInLeaf( leaf, nFirst, nCount );
+		const bool bData = Subject().GetSubSystemDataInLeaf( leaf, CLSUBSYSTEM_DETAILOBJECTS ) != NULL;
+		LeafLog( "GD\t%d\t%d\t%d\t%d\t%d", leaf, nFirst, nCount, bData ? 1 : 0,
+		         Subject().ShouldDrawDetailObjectsInLeaf( leaf, nFrame ) ? 1 : 0 );
+	}
+}
+
+// A sub-system's data, which says when the leaf system deletes it.
+class CLeafSubData : public CClientLeafSubSystemData
+{
+public:
+	explicit CLeafSubData( int nTag ) : m_nTag( nTag ) {}
+	~CLeafSubData() { LeafLog( "SDEL\t%d", m_nTag ); }
+	int m_nTag;
+};
+
+void SetSubData( int leaf, int nTag )
+{
+	LeafLog( "DSS\t%d\t%d", leaf, nTag );
+	Subject().SetSubSystemDataInLeaf( leaf, CLSUBSYSTEM_DETAILOBJECTS, new CLeafSubData( nTag ) );
+}
+
+void SetDetail( int leaf, int nFirst, int nCount )
+{
+	LeafLog( "DS\t%d\t%d\t%d", leaf, nFirst, nCount );
+	Subject().SetDetailObjectsInLeaf( leaf, nFirst, nCount );
+}
+
+void DrawDetail( int leaf, int nFrame )
+{
+	int nFirst = -7, nCount = -7;
+	LeafLog( "DD\t%d\t%d", leaf, nFrame );
+	Subject().DrawDetailObjectsInLeaf( leaf, nFrame, nFirst, nCount );
+	LeafLog( "DDA\t%d\t%d\t%d", leaf, nFirst, nCount );
+}
+
+ClientLeafShadowHandle_t AddShadow( int nUserId, int nFlags )
+{
+	const ClientLeafShadowHandle_t h = Subject().AddShadow( nUserId, nFlags );
+	LeafLog( "SH\t%d\t%d\t%d", nUserId, h, nFlags );
+	return h;
+}
+
+std::string Joined( const int *p, int n )
+{
+	std::string s;
+	for ( int i = 0; i < n; i++ )
+		s += ( i ? "," : "" ) + std::to_string( p[ i ] );
+	return s;
+}
+
+void Project( ClientLeafShadowHandle_t h, int n, const int *pLeaves )
+{
+	LeafLog( "PS\t%d\t%s", h, Joined( pLeaves, n ).c_str() );
+	Subject().ProjectShadow( h, n, pLeaves );
+}
+
+void ProjectLight( ClientLeafShadowHandle_t h, int n, const int *pLeaves )
+{
+	LeafLog( "PF\t%d\t%s", h, Joined( pLeaves, n ).c_str() );
+	Subject().ProjectFlashlight( h, n, pLeaves );
+}
+
+void RemoveShadow( int nUserId, ClientLeafShadowHandle_t h )
+{
+	LeafLog( "SD\t%d\t%d", nUserId, h );
+	Subject().RemoveShadow( h );
 }
 
 void Frame( int nFrame )
@@ -479,9 +656,16 @@ void Frame( int nFrame )
 	}
 }
 
+// LevelShutdownPostEntity, which deletes the sub-systems' data (SDEL).
+void LevelShutdown()
+{
+	LeafLog( "LS" );
+	Subject().LevelShutdownPostEntity();
+}
+
 void SetLevel( int nLeaves, float flWidth )
 {
-	Subject().LevelShutdownPostEntity();
+	LevelShutdown();
 	s_LeafBoxes.clear();
 	s_LeafAreas.clear();
 	for ( int i = 0; i < nLeaves; i++ )
@@ -490,7 +674,34 @@ void SetLevel( int nLeaves, float flWidth )
 		s_LeafAreas.push_back( flWidth >= 100.0f ? ( i < 6 ? 1 : ( i < 10 ? 2 : 3 ) ) : 1 );
 	}
 	Subject().LevelInitPreEntity();
-	LeafLog( "LV\t%d", nLeaves );
+	// The level's leaf count, then (for a replay) the leaves' width along x
+	// (each is y and z -500..500) and their areas, in runs.
+	LeafLog( "LV\t%d\t%08x", nLeaves, LeafBits( flWidth ) );
+	for ( int i = 0; i < nLeaves; )
+	{
+		int j = i;
+		while ( j + 1 < nLeaves && s_LeafAreas[ j + 1 ] == s_LeafAreas[ i ] )
+			++j;
+		LeafLog( "LA\t%d\t%d\t%d", i, j, s_LeafAreas[ i ] );
+		i = j + 1;
+	}
+}
+
+// The engine's boxes, for a replay: the view frustum, the areas' portal
+// frustums and the occluder.
+void LogWorldBoxes()
+{
+	auto box = []( const char *pszName, const LeafBox_t &b )
+	{
+		LeafLog( "WB\t%s\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x", pszName, LeafBits( b.mins.x ), LeafBits( b.mins.y ),
+		         LeafBits( b.mins.z ), LeafBits( b.maxs.x ), LeafBits( b.maxs.y ), LeafBits( b.maxs.z ) );
+	};
+	box( "frustum", s_Frustum );
+	box( "area0", s_AreaFrustum[ 0 ] );
+	box( "area1", s_AreaFrustum[ 1 ] );
+	box( "area2", s_AreaFrustum[ 2 ] );
+	box( "area3", s_AreaFrustum[ 3 ] );
+	box( "occluder", s_Occluder );
 }
 
 //-----------------------------------------------------------------------------
@@ -520,9 +731,7 @@ std::vector< int > Range( int a, int b )
 	return v;
 }
 
-bool s_bLiveGather = false;
 int s_nRenderFrame = 0;
-int s_nApplied = 0;   // live mode: entries CLeafViewGather::Apply wrote and the check compared
 const int kDetailFrame = 1;
 
 void LogWords( const char *pszTag, const CUtlVector< int32_t > &words )
@@ -548,9 +757,14 @@ void RunView( const LeafView_t &view )
 	world.m_pLeafList = leafList.data();
 	world.m_pLeafFogVolume = fogList.data();
 
-	LeafLog( "V\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d", view.m_pszTag, nFrame, view.m_nViewID, world.m_LeafCount,
-	         view.m_bTranslucentLeafPass ? 1 : 0, view.m_bDrawTranslucent ? 1 : 0, view.m_bDrawDetail ? 1 : 0,
-	         Registry().m_DrawStaticProps ? 1 : 0 );
+	// After stock's columns, for a replay: the detail build frame, the view's
+	// origin and forward, and its leaves in order.
+	LeafLog( "V\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%s", view.m_pszTag, nFrame,
+	         view.m_nViewID, world.m_LeafCount, view.m_bTranslucentLeafPass ? 1 : 0, view.m_bDrawTranslucent ? 1 : 0,
+	         view.m_bDrawDetail ? 1 : 0, Registry().m_DrawStaticProps ? 1 : 0, kDetailFrame,
+	         LeafBits( view.m_vecOrigin.x ), LeafBits( view.m_vecOrigin.y ), LeafBits( view.m_vecOrigin.z ),
+	         LeafBits( view.m_vecForward.x ), LeafBits( view.m_vecForward.y ), LeafBits( view.m_vecForward.z ),
+	         Joined( view.m_Leaves.data(), (int)view.m_Leaves.size() ).c_str() );
 
 	LeafViewRequest_t req;
 	req.m_pWorldListInfo = &world;
@@ -570,23 +784,11 @@ void RunView( const LeafView_t &view )
 	req.m_vecForward = view.m_vecForward;
 
 	CLeafViewGather gather;
-	if ( s_bLiveGather )
-	{
-		// As the client calls it: the blend upkeep and the read, before stock's
-		// ComputeTranslucentRenderLeaf (whose blends are then already done).
-		g_bQuiet = true;
-		const bool bOk = gather.Gather( g_pClientLeafSystem, req );
-		g_bQuiet = false;
-		EXPECT_TRUE( bOk );
-		if ( view.m_bTranslucentLeafPass )
-			Subject().ComputeTranslucentRenderLeaf( world.m_LeafCount, world.m_pLeafList, world.m_pLeafFogVolume, nFrame, view.m_nViewID );
-	}
-	else
 	{
 		// The registry before stock's ComputeTranslucentRenderLeaf, read without
 		// the blend upkeep; then stock's pass (which blends); then the read
 		// after it, whose blends are done. The buffer is the second read with
-		// the first read's render frame and leaf: what the live gather sees.
+		// the first read's render frame and leaf.
 		CLeafViewGather before;
 		LeafViewRequest_t beforeReq = req;
 		beforeReq.m_bTranslucentLeafPass = false;
@@ -656,75 +858,6 @@ void RunView( const LeafView_t &view )
 			         e.m_TwoPass, e.m_RenderHandle );
 		}
 	}
-	// Live mode: the answer managed would give, read off stock's list and the
-	// registry stock left, is handed to Apply, which must write the same list
-	// into a fresh one (and the same state back).
-	if ( s_bLiveGather )
-	{
-		CUtlVector< int32_t > &answer = gather.m_Answer;
-		const int nRows = gather.m_Handles.Count();
-		int at = 2;
-		for ( int r = 0; r < nRows; r++ )
-		{
-			const CLeafRegistryMirror::RenderableInfo_t &ri = Registry().m_Renderables[ gather.m_Handles[ r ] ];
-			answer[ at++ ] = ri.m_RenderFrame;
-			answer[ at++ ] = (int32_t)ri.m_RenderLeaf;
-			answer[ at++ ] = ri.m_RenderFrame2;
-		}
-		const int nCountAt = at++;
-		int nEntries = 0;
-		for ( int g = 0; g < RENDER_GROUP_COUNT; g++ )
-		{
-			for ( int i = 0; i < pList->m_RenderGroupCounts[ g ]; i++ )
-			{
-				const CClientRenderablesList::CEntry &e = pList->m_RenderGroups[ g ][ i ];
-				int source = -1;
-				for ( int r = 0; r < nRows && e.m_pRenderable && e.m_RenderHandle != DETAIL_PROP_RENDER_HANDLE; r++ )
-					if ( gather.m_Handles[ r ] == e.m_RenderHandle )
-						source = r;
-				for ( int d = 0; d < gather.m_Details.Count() && e.m_RenderHandle == DETAIL_PROP_RENDER_HANDLE; d++ )
-					if ( gather.m_Details[ d ] == e.m_pRenderable )
-						source = -2 - d;
-				ASSERT_LT( at + 4, answer.Count() );
-				answer[ at++ ] = g;
-				answer[ at++ ] = source;
-				answer[ at++ ] = e.m_iWorldListInfoLeaf;
-				answer[ at++ ] = e.m_TwoPass;
-				++nEntries;
-			}
-		}
-		answer[ nCountAt ] = nEntries;
-		answer[ 0 ] = at;
-		answer[ 1 ] = 0;
-
-		CClientRenderablesList *pApplied = new CClientRenderablesList;
-		int nOverflow = -1;
-		EXPECT_TRUE( gather.Apply( g_pClientLeafSystem, *pApplied, nOverflow ) ) << view.m_pszTag;
-		EXPECT_EQ( 0, nOverflow );
-		for ( int g = 0; g < RENDER_GROUP_COUNT; g++ )
-		{
-			EXPECT_EQ( pList->m_RenderGroupCounts[ g ], pApplied->m_RenderGroupCounts[ g ] ) << view.m_pszTag << " group " << g;
-			for ( int i = 0; i < pList->m_RenderGroupCounts[ g ] && i < pApplied->m_RenderGroupCounts[ g ]; i++ )
-			{
-				const CClientRenderablesList::CEntry &a = pList->m_RenderGroups[ g ][ i ], &b = pApplied->m_RenderGroups[ g ][ i ];
-				EXPECT_TRUE( a.m_pRenderable == b.m_pRenderable && a.m_RenderHandle == b.m_RenderHandle &&
-				             a.m_iWorldListInfoLeaf == b.m_iWorldListInfoLeaf && a.m_TwoPass == b.m_TwoPass )
-					<< view.m_pszTag << " group " << g << " entry " << i;
-				++s_nApplied;
-			}
-		}
-		pApplied->Release();
-
-		// A malformed answer (a source past the rows) is refused, and writes nothing.
-		answer[ nCountAt + 2 ] = nRows + 5;
-		CClientRenderablesList *pRefused = new CClientRenderablesList;
-		for ( int g = 0; g < RENDER_GROUP_COUNT; g++ )
-			pRefused->m_RenderGroupCounts[ g ] = 77;
-		EXPECT_TRUE( nEntries == 0 || !gather.Apply( g_pClientLeafSystem, *pRefused, nOverflow ) ) << view.m_pszTag;
-		EXPECT_TRUE( nEntries == 0 || pRefused->m_RenderGroupCounts[ 0 ] == 77 ) << view.m_pszTag;
-		pRefused->Release();
-	}
-
 	// And the registry state the buffer's rows are left with.
 	for ( int r = 0; r < gather.m_Handles.Count(); r++ )
 	{
@@ -739,20 +872,6 @@ void RunViewModels()
 {
 	LeafLog( "VM\t%d", gpGlobals->framecount );
 	CUtlVector< IClientRenderable * > opaque, translucent;
-	if ( s_bLiveGather )
-	{
-		CLeafViewGather gather;
-		g_bQuiet = true;
-		gather.GatherViewModels( g_pClientLeafSystem );
-		g_bQuiet = false;
-		LogWords( "VMB", gather.m_ViewModelWords );
-		std::string ids = "VMI";
-		for ( int i = 0; i < gather.m_ViewModels.Count(); i++ )
-			ids += "\t" + std::to_string( IdOf( gather.m_ViewModels[ i ] ) );
-		LeafLog( "%s", ids.c_str() );
-		return;
-	}
-
 	s_ViewModelCapture.clear();
 	s_bViewModelCapture = true;
 	Subject().CollateViewModelRenderables( opaque, translucent );
@@ -795,25 +914,24 @@ void EnumShadows( std::vector< int > leaves )
 //-----------------------------------------------------------------------------
 // The scenario.
 //-----------------------------------------------------------------------------
-std::string RunScenario( bool bLiveGather )
+std::string RunScenario()
 {
 	EXPECT_TRUE( ThreadInMainThread() ) << "the subject inserts on the main thread only";
 	g_pCVar = &g_LeafCvar;
 	g_Log.clear();
-	s_bLiveGather = bLiveGather;
 	s_nRenderFrame = 0;
 	s_Globals.framecount = 0;
 	s_Things.clear();
 	s_DetailModels.clear();
-	Subject().DrawStaticProps( true );
-	r_PortalTestEnts.SetValue( 1 );
-	r_portalsopenall.SetValue( 0 );
-#ifdef _DEBUG
-	cl_drawleaf.SetValue( -1 );
-#endif
-
 	LeafLog( "# leafsystem-stock.tsv: written by src/test/oracle/native/leafsystem_oracle_test.cpp" );
 	LeafLog( "# from the pristine game/client/clientleafsystem.cpp; README-leafsystem-stock.md says how to read it." );
+
+	StaticProps( true );
+	SetConVar( r_PortalTestEnts, 1 );
+	SetConVar( r_portalsopenall, 0 );
+#ifdef _DEBUG
+	SetConVar( cl_drawleaf, -1 );
+#endif
 
 	SetLevel( 12, 100.0f );
 	s_Frustum = MakeBox( -1000, -400, -400, 2000, 400, 400 );
@@ -822,6 +940,7 @@ std::string RunScenario( bool bLiveGather )
 	s_AreaFrustum[ 2 ] = MakeBox( -1000, -200, -500, 2000, 200, 500 );
 	s_AreaFrustum[ 3 ] = MakeBox( -1000, -500, -500, 2000, 500, 500 );
 	s_Occluder = MakeBox( 1000, -100, -100, 1100, 100, 100 );
+	LogWorldBoxes();
 
 	const int kBrush = 1, kSprite = 2, kStudio = 3;
 
@@ -862,8 +981,8 @@ std::string RunScenario( bool bLiveGather )
 		Add( Transparent( Thing( 20 + i, kStudio, sortX[ i ], 5 + i, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
 	// Translucent across leaves 2-4, nearest-leaf and alternately sorted.
 	Add( Transparent( Thing( 26, kStudio, 250, 200, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
-	C_BaseEntity *pAlt = Add( Transparent( Thing( 27, kStudio, 255, 190, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
-	Subject().EnableAlternateSorting( pAlt->RenderHandle(), true );
+	Add( Transparent( Thing( 27, kStudio, 255, 190, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
+	AltSort( 27, true );
 	// Two-pass at 255 and at 128.
 	Add( Transparent( Thing( 28, kStudio, 410, 10, 5, 5 ) ), RENDER_GROUP_TWOPASS );
 	Add( BlendTo( Transparent( Thing( 29, kStudio, 420, 10, 5, 5 ) ), 128 ), RENDER_GROUP_TWOPASS );
@@ -894,20 +1013,22 @@ std::string RunScenario( bool bLiveGather )
 		if ( detailSpec[ i ][ 0 ] < 0 )
 		{
 			s_DetailModels.push_back( NULL );
+			LeafLog( "DM\t%d\t-1", i );
 			continue;
 		}
 		C_BaseEntity *p = Thing( detailSpec[ i ][ 0 ], kStudio, 160 + 5 * i, 2, 2, 2 );
 		p->m_bTransparent = detailSpec[ i ][ 1 ] != 0;
 		p->m_nFxBlend = detailSpec[ i ][ 2 ];
 		s_DetailModels.push_back( p );
+		LogDesc( p );
+		LeafLog( "DM\t%d\t%d", i, p->m_nId );
 	}
-	Subject().SetDetailObjectsInLeaf( 1, 0, 4 );
-	Subject().SetDetailObjectsInLeaf( 7, 4, 2 );
-	Subject().SetSubSystemDataInLeaf( 8, CLSUBSYSTEM_DETAILOBJECTS, new CClientLeafSubSystemData );
-	int nFirst = 0, nCount = 0;
-	Subject().DrawDetailObjectsInLeaf( 1, kDetailFrame, nFirst, nCount );
-	Subject().DrawDetailObjectsInLeaf( 7, kDetailFrame + 7, nFirst, nCount );
-	Subject().DrawDetailObjectsInLeaf( 8, kDetailFrame, nFirst, nCount );
+	SetDetail( 1, 0, 4 );
+	SetDetail( 7, 4, 2 );
+	SetSubData( 8, 1 );
+	DrawDetail( 1, kDetailFrame );
+	DrawDetail( 7, kDetailFrame + 7 );
+	DrawDetail( 8, kDetailFrame );
 
 	const Vector fwd( 1, 0, 0 ), back( -1, 0, 0 );
 	const Vector front( -100, 0, 0 ), behind( 1300, 0, 0 );
@@ -915,14 +1036,12 @@ std::string RunScenario( bool bLiveGather )
 	// FRAME 1: the main view front to back, the shadow depth view, the view
 	// models; shadows projected and enumerated.
 	Frame( 1 );
-	ClientLeafShadowHandle_t sh0 = Subject().AddShadow( 100, SHADOW_FLAGS_SHADOW );
-	LeafLog( "SH\t100\t%d", sh0 );
+	ClientLeafShadowHandle_t sh0 = AddShadow( 100, SHADOW_FLAGS_SHADOW );
 	int shadowLeaves[] = { 0, 1 };
-	Subject().ProjectShadow( sh0, 2, shadowLeaves );
-	ClientLeafShadowHandle_t sh1 = Subject().AddShadow( 101, SHADOW_FLAGS_FLASHLIGHT );
-	LeafLog( "SH\t101\t%d", sh1 );
+	Project( sh0, 2, shadowLeaves );
+	ClientLeafShadowHandle_t sh1 = AddShadow( 101, SHADOW_FLAGS_FLASHLIGHT );
 	int flashLeaves[] = { 5, 6, 7 };
-	Subject().ProjectFlashlight( sh1, 3, flashLeaves );
+	ProjectLight( sh1, 3, flashLeaves );
 	EnumShadows( { 0, 1, 5, 6 } );
 
 	RunView( { "main", Range( 0, 11 ), VIEW_MAIN, true, true, true, front, fwd } );
@@ -939,43 +1058,95 @@ std::string RunScenario( bool bLiveGather )
 	RunView( { "main-back", Range( 11, 0 ), VIEW_MAIN, true, true, true, behind, back } );
 	RunView( { "main-back-again", Range( 11, 0 ), VIEW_MAIN, true, true, true, behind, back } );
 	RunView( { "reflection", { 3, 2, 4 }, VIEW_REFLECTION, true, true, true, front, fwd } );
-	Subject().DrawStaticProps( false );
+	StaticProps( false );
 	RunView( { "nostaticprops", Range( 0, 11 ), VIEW_MAIN, true, true, true, front, fwd } );
-	Subject().DrawStaticProps( true );
+	StaticProps( true );
 	RunViewModels();
-	Subject().RemoveShadow( sh0 );
-	LeafLog( "SD\t100" );
+	RemoveShadow( 100, sh0 );
 	EnumShadows( { 0, 1, 5, 6 } );
 	EnumShadows( {} );
 
 	// FRAME 3: the portal ConVars, no detail objects, and a shadow depth view
 	// over leaves whose translucent renderables were last placed elsewhere.
 	Frame( 3 );
-	r_PortalTestEnts.SetValue( 0 );
+	SetConVar( r_PortalTestEnts, 0 );
 	RunView( { "noportaltest", Range( 0, 11 ), VIEW_MAIN, true, true, true, front, fwd } );
-	r_PortalTestEnts.SetValue( 1 );
-	r_portalsopenall.SetValue( 1 );
+	SetConVar( r_PortalTestEnts, 1 );
+	SetConVar( r_portalsopenall, 1 );
 	RunView( { "portalsopenall", Range( 0, 11 ), VIEW_MAIN, true, true, true, front, fwd } );
-	r_portalsopenall.SetValue( 0 );
+	SetConVar( r_portalsopenall, 0 );
 	RunView( { "nodetail", Range( 0, 11 ), VIEW_MAIN, true, true, false, front, fwd } );
 	RunView( { "detail-opaque-only", Range( 0, 11 ), VIEW_MONITOR, false, false, true, front, fwd } );
 	RunView( { "shadowdepth-back", Range( 4, 2 ), VIEW_SHADOW_DEPTH_TEXTURE, false, false, false, behind, back } );
 #ifdef _DEBUG
-	cl_drawleaf.SetValue( 3 );
+	SetConVar( cl_drawleaf, 3 );
 	RunView( { "drawleaf", Range( 0, 11 ), VIEW_MAIN, true, true, true, front, fwd } );
-	cl_drawleaf.SetValue( -1 );
+	SetConVar( cl_drawleaf, -1 );
 #endif
 	RunViewModels();
 
+	// FRAME 4, THE REGISTRY (L2): a shadow whose flags carry more than its
+	// kind, projected over leaves 0-2; two static props added into leaf 1
+	// after it, of which only the first takes it (AddRenderableToLeaves does
+	// not advance the shadow enumerator, and the first one's add stamped the
+	// shadow); a brush model moved inside it (its receivers cleared and added
+	// again); a renderable moved and removed in the same frame (it leaves the
+	// dirty list); render groups into and out of the view models' list, two-pass
+	// on and off; a static prop the engine fades to translucent; alternate
+	// sorting off; the shadow projected elsewhere; the PVS, a renderable's
+	// leaves walked, the detail state per leaf, and the sub-systems' data
+	// replaced.
+	ClientLeafShadowHandle_t sh2 = AddShadow( 102, SHADOW_FLAGS_SHADOW | ( SHADOW_FLAGS_LAST_FLAG << 1 ) );
+	int shadow2Leaves[] = { 0, 1, 2 };
+	Project( sh2, 3, shadow2Leaves );
+	AddStatic( Receives( Thing( 48, kStudio, 170, 10, 5, 5 ), SHADOW_FLAGS_SHADOW ) );
+	AddStatic( Receives( Thing( 49, kStudio, 180, 10, 5, 5 ), SHADOW_FLAGS_SHADOW ) );
+	EnumShadows( { 0, 1, 2, 5 } );
+	Move( 7, 45 );
+	Move( 3, 125 );
+	Remove( 3 );
+	SetGroup( 9, RENDER_GROUP_VIEW_MODEL_OPAQUE );
+	SetGroup( 15, RENDER_GROUP_OPAQUE_ENTITY );
+	SetGroup( 32, RENDER_GROUP_TWOPASS );
+	SetGroup( 28, RENDER_GROUP_TRANSLUCENT_ENTITY );
+	ChangeGroup( 41, RENDER_GROUP_TRANSLUCENT_ENTITY );
+	AltSort( 27, false );
+	Frame( 4 );
+	int shadow2Elsewhere[] = { 4, 5 };
+	Project( sh2, 2, shadow2Elsewhere );
+	EnumShadows( { 0, 1, 2, 4, 5 } );
+	RunView( { "registry", Range( 0, 11 ), VIEW_MAIN, true, true, true, front, fwd } );
+	RunViewModels();
+	InPVS( 1 );
+	InPVS( 50 );
+	InPVS( 40 );
+	InPVS( 33 );
+	InPVS( 2 );
+	WalkLeaves( 26 );
+	WalkLeaves( 1 );
+	WalkLeaves( 2 );
+	DetailState( kDetailFrame );
+	DetailState( kDetailFrame + 7 );
+	SetSubData( 8, 2 );
+	SetSubData( 1, 3 );
+	DetailState( kDetailFrame );
+	RemoveShadow( 102, sh2 );
+	EnumShadows( { 0, 1, 2, 4, 5 } );
+
 	// A LEVEL OF 4100 LEAVES: the markers alone overflow the opaque groups.
+	// Its change deletes the sub-systems' data, and a handle from the old
+	// level, removed after it, names nothing.
+	const ClientRenderHandle_t hStale = Find( 33 )->RenderHandle();
 	s_Things.clear();
 	s_DetailModels.clear();
 	SetLevel( 4100, 10.0f );
 	Add( Thing( 60, kStudio, 5, 2, 2, 2 ), RENDER_GROUP_OPAQUE_ENTITY );
-	Frame( 4 );
+	LeafLog( "RMS\t%d", hStale );
+	Subject().RemoveRenderable( hStale );
+	Frame( 5 );
 	RunView( { "overflow", Range( 0, 4099 ), VIEW_MAIN, true, true, true, front, fwd } );
 
-	Subject().LevelShutdownPostEntity();
+	LevelShutdown();
 	s_Things.clear();
 	LeafLog( "END" );
 	return g_Log;
@@ -1027,7 +1198,7 @@ std::vector< std::string > Fields( const std::string &line )
 TEST( LeafSystemOracle, StockProducesTheGolden )
 {
 	SS_SKIP_ON_CI( "a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
-	const std::string run = RunScenario( false );
+	const std::string run = RunScenario();
 
 	if ( std::ifstream( MarkerPath() ).good() )
 	{
@@ -1051,37 +1222,6 @@ TEST( LeafSystemOracle, StockProducesTheGolden )
 			<< "\nand the golden has\n  " << ( n < b.size() ? b[ n ].substr( 0, 300 ) : "<end>" )
 			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
-}
-
-// The buffers the golden carries are the ones the client's own calls write:
-// the same scenario, gathered as shell_view_executor_client.cpp gathers
-// (blend upkeep first, then the read), writes the same VB and VMB rows, and
-// stock then builds the same lists.
-TEST( LeafSystemOracle, TheLiveGatherWritesTheGoldensBuffers )
-{
-	const std::vector< std::string > golden = Lines( RunScenario( false ) );
-	const std::vector< std::string > live = Lines( RunScenario( true ) );
-	std::vector< std::string > g, l;
-	for ( const std::string &s : golden )
-		if ( !s.compare( 0, 3, "VB\t" ) || !s.compare( 0, 4, "VMB\t" ) || !s.compare( 0, 3, "VMI" ) || !s.compare( 0, 2, "O\t" ) || !s.compare( 0, 3, "ST\t" ) )
-			g.push_back( s );
-	for ( const std::string &s : live )
-		if ( !s.compare( 0, 3, "VB\t" ) || !s.compare( 0, 4, "VMB\t" ) || !s.compare( 0, 3, "VMI" ) || !s.compare( 0, 2, "O\t" ) || !s.compare( 0, 3, "ST\t" ) )
-			l.push_back( s );
-	ASSERT_GT( g.size(), 200u );
-	ASSERT_EQ( g.size(), l.size() );
-	for ( size_t i = 0; i < g.size(); i++ )
-		ASSERT_EQ( g[ i ], l[ i ] ) << "row " << i;
-}
-
-//-----------------------------------------------------------------------------
-// Apply carries an answer out: given the answer stock's own list would be,
-// it writes that list, entry for entry, and refuses a malformed one whole.
-TEST( LeafSystemOracle, ApplyWritesTheAnswerIntoTheList )
-{
-	s_nApplied = 0;
-	RunScenario( true );
-	EXPECT_GT( s_nApplied, 1000 ) << "the check compared too few entries";
 }
 
 //-----------------------------------------------------------------------------
@@ -1157,7 +1297,7 @@ float F( int32_t w )
 
 TEST( LeafSystemOracle, TheScenarioReachesEveryArm )
 {
-	const std::string run = RunScenario( false );
+	const std::string run = RunScenario();
 	const std::vector< ViewRun_t > views = ParseViews( run );
 	ASSERT_GE( views.size(), 10u );
 
@@ -1433,7 +1573,7 @@ TEST( LeafSystemOracle, TheScenarioReachesEveryArm )
 }
 
 //-----------------------------------------------------------------------------
-// THE MIRROR IS THE CLASS. leaf_view_gather.h reads CClientLeafSystem through
+// THE MIRROR IS THE CLASS. leafsystem_gather.h reads CClientLeafSystem through
 // CLeafRegistryMirror; every member it declares must sit where the real
 // class's does. The real class's members are private, so they are named
 // where access is not checked: in an explicit instantiation's arguments.
@@ -1559,38 +1699,4 @@ TEST( LeafSystemOracle, MirrorMatchesTheRealClass )
 	// and every renderable's handle names the slot it was read from (the
 	// scenario's views above would have failed Gather() otherwise).
 	EXPECT_EQ( (void *)&Subject(), (void *)&Registry() );
-}
-
-// The mirror holds the PRISTINE class's layout; the client compiles the
-// farm's. The class body must be the same text in both, and so must the
-// header's sub-system count the leaf's array is sized by.
-TEST( LeafSystemOracle, FarmClassIsThePristineClass )
-{
-	auto classBody = []( const std::string &text ) -> std::string
-	{
-		const size_t start = text.find( "class CClientLeafSystem : public IClientLeafSystem, public ISpatialLeafEnumerator" );
-		if ( start == std::string::npos )
-			return std::string();
-		const size_t end = text.find( "\n};", start );
-		return end == std::string::npos ? std::string() : text.substr( start, end - start );
-	};
-	auto readFarm = []( const char *pszRel ) -> std::string
-	{
-		const char *pszTree = getenv( "SOURCESHARP_SDK_TREE" );
-		EXPECT_TRUE( pszTree && *pszTree ) << "SOURCESHARP_SDK_TREE is not set";
-		std::ifstream f( std::string( pszTree ? pszTree : "" ) + "/src/" + pszRel, std::ios::binary );
-		EXPECT_TRUE( f.good() ) << "the farm has no " << pszRel;
-		std::stringstream ss;
-		ss << f.rdbuf();
-		return ss.str();
-	};
-
-	const std::string pristine = classBody( ReadValve( "src/game/client/clientleafsystem.cpp" ) );
-	const std::string farm = classBody( readFarm( "game/client/clientleafsystem.cpp" ) );
-	ASSERT_GT( pristine.size(), 5000u ) << "the pristine class was not found";
-	EXPECT_EQ( pristine, farm ) << "the farm's CClientLeafSystem is not the pristine one: re-check CLeafRegistryMirror";
-
-	const std::string needle = "#define N_CLSUBSYSTEMS 1";
-	EXPECT_NE( ReadValve( "src/game/client/clientleafsystem.h" ).find( needle ), std::string::npos );
-	EXPECT_NE( readFarm( "game/client/clientleafsystem.h" ).find( needle ), std::string::npos );
 }

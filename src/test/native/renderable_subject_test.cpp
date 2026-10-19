@@ -204,12 +204,13 @@ int CountOccurrences( const std::string &strHaystack, const std::string &strNeed
 
 // Step 7d's translation units, by the paths the vpc names them by. There were
 // five; glow_outline_effect.cpp left client.so in plan_client_novalve C1 (its
-// body sat under GLOWS_ENABLE, defined nowhere) and detailobjectsystem.cpp in
+// body sat under GLOWS_ENABLE, defined nowhere), detailobjectsystem.cpp in
 // C7 cluster 10 (its decisions are SourceSharp.Client.Detail's, its executor
-// shell_detail_props.cpp), so "the five" below are three.
+// shell_detail_props.cpp) and clientleafsystem.cpp in C7 cluster 12 L2 (its
+// registry and decisions are SourceSharp.Client's LeafRegistry, its native
+// residue libss_fwd_client's forwarder class), so "the five" below are two.
 const char *kStep7dTus[] =
 {
-	"game/client/clientleafsystem.cpp",
 	"game/client/clientshadowmgr.cpp",
 	"game/client/c_pixel_visibility.cpp",
 };
@@ -261,7 +262,6 @@ TEST( Step7dSourceScan, NoneOfTheFiveAsksForTheLocalPlayerEntity )
 	// left client.so (C7 cluster 10).
 	const char *kMustBeClean[] =
 	{
-		"game/client/clientleafsystem.cpp",
 		"game/client/clientshadowmgr.cpp",
 		"game/client/c_pixel_visibility.cpp",
 	};
@@ -559,22 +559,19 @@ TEST( Step7dNotDeleted, TheShadowReportSaysSoWhenItIsAboutNothing )
 // files at once, which is the half that catches a block moving back home.
 TEST( Step7dNotDeleted, TheFourRelocatedBlocksAreGoneFromBothEnds )
 {
-	// THE DEAD DUMP IS CUT OUT OF THE LEAF SYSTEM'S TEXT, not excused in prose.
-	// `#ifdef DUMP_RENDERABLE_LEAFS` is defined nowhere in the tree and its
-	// body does an SDKEntityFromRenderable/GetClassname pair; that block is
-	// stock's own debugging dump, it emits no symbol, and
-	// LeafSystemDeEntitied.TheDeadDumpIsStillDeadInThisBuild is what keeps the
-	// exemption honest by failing if anybody defines the macro.
-	std::string strLeaf = StripComments( ReadFile( "game/client/clientleafsystem.cpp" ) );
-	{
-		const size_t dumpOpen = strLeaf.find( "#ifdef DUMP_RENDERABLE_LEAFS" );
-		ASSERT_NE( std::string::npos, dumpOpen )
-			<< "the dead-dump guard is gone from clientleafsystem.cpp, so the "
-			   "excision below has no subject and the absences read as passes";
-		const size_t dumpClose = strLeaf.find( "#endif", dumpOpen );
-		ASSERT_NE( std::string::npos, dumpClose );
-		strLeaf = strLeaf.substr( 0, dumpOpen ) + strLeaf.substr( dumpClose );
-	}
+	// THE LEAF SYSTEM'S END IS NOW OURS. clientleafsystem.cpp left client.so
+	// (C7 cluster 12 L2) and its dead dump with it; what client.so and
+	// libss_fwd_client keep of it is the forwarder class and its home, and
+	// they are read here as the leaf end. The stock file is gone from the farm.
+	EXPECT_TRUE( ReadFile( "game/client/clientleafsystem.cpp" ).empty() )
+		<< "clientleafsystem.cpp is back in the farm";
+	const std::string strLeaf =
+		StripComments( ReadFile( "sourcesharp/game/client/shell_leaf_system_client.cpp" ) ) +
+		StripComments( ReadFile( "sourcesharp/fwd/fwd_leaf_system.cpp" ) );
+	ASSERT_NE( std::string::npos, strLeaf.find( "IClientLeafSystem *g_pClientLeafSystem" ) )
+		<< "the leaf end was not read";
+	ASSERT_NE( std::string::npos, strLeaf.find( "class SSClientLeafSystem final : public IClientLeafSystem" ) )
+		<< "the forwarder class was not read";
 
 	const std::string strShadow = StripComments( ReadFile( "game/client/clientshadowmgr.cpp" ) );
 	const std::string strFacts =
@@ -604,7 +601,7 @@ TEST( Step7dNotDeleted, TheFourRelocatedBlocksAreGoneFromBothEnds )
 		EXPECT_EQ( std::string::npos, strFactsHeader.find( kSeams[ i ] ) )
 			<< "the shim declares " << kSeams[ i ] << " again";
 		EXPECT_EQ( std::string::npos, strLeaf.find( kSeams[ i ] ) )
-			<< "clientleafsystem.cpp calls " << kSeams[ i ] << " again";
+			<< "the leaf system's native end calls " << kSeams[ i ] << " again";
 		EXPECT_EQ( std::string::npos, strShadow.find( kSeams[ i ] ) )
 			<< "clientshadowmgr.cpp calls " << kSeams[ i ] << " again";
 	}
@@ -631,7 +628,7 @@ TEST( Step7dNotDeleted, TheFourRelocatedBlocksAreGoneFromBothEnds )
 			<< "clientshadowmgr.cpp reaches an SDK entity again ("
 			<< kReaches[ i ] << ")";
 		EXPECT_EQ( std::string::npos, strLeaf.find( kReaches[ i ] ) )
-			<< "clientleafsystem.cpp reaches an SDK entity again ("
+			<< "the leaf system's native end reaches an SDK entity again ("
 			<< kReaches[ i ] << ")";
 	}
 

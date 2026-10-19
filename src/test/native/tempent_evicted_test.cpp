@@ -650,10 +650,11 @@ TEST( TempEntForwardersCollapsed, StockCTeIsOutOfTheClientBuildAndTheShimDefines
 
 	// AND THE READER IS SHOWN TO SEE THE CLIENT LIST, because an absence
 	// answered by a reader that saw nothing would pass the line above for free.
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/clientleafsystem.cpp" ) )
-		<< "clientleafsystem.cpp is still compiled -- the reader sees the client "
-		   "list. c_te_effect_dispatch.cpp, then cdll_util.cpp, were this control "
-		   "until C2 and C8 evicted them";
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/clientshadowmgr.cpp" ) )
+		<< "clientshadowmgr.cpp is still compiled -- the reader sees the client "
+		   "list. c_te_effect_dispatch.cpp, then cdll_util.cpp, then "
+		   "clientleafsystem.cpp were this control until C2, C8 and C7 cluster 12 "
+		   "L2 evicted them";
 
 	// Exactly one definition of `te` in the client's sources, and it is the
 	// shim's: two would be a link error, none an undefined reference in
