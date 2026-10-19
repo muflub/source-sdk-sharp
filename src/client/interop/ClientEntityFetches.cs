@@ -102,8 +102,15 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // The view the particle manager draws in, read once per view, and the
         // glows' pixel visibility (lane c5-particles).
         // libss_particles.so's ISSParticleLib, bound directly (plan_particles_so.md).
-        var particleLibrary = new ParticleLibrary(engine.Api.Interfaces);
-        services.AddInstance<IParticleLibrary>(particleLibrary);
+        // The library the view asks for the throttle: the one already
+        // registered, when the host (or a fact) has registered one, else the
+        // side's own over its engine interfaces.
+        IParticleLibrary? particleLibrary = services.Resolve<IParticleLibrary>();
+        if (particleLibrary is null)
+        {
+            particleLibrary = new ParticleLibrary(engine.Api.Interfaces);
+            services.AddInstance(particleLibrary);
+        }
         var particleView = new ClientParticleViewSlots(areas.ParticlesClient, particleLibrary);
         services.AddInstance<IParticleViewSource>(particleView);
         services.AddInstance<IParticlePixelVisibility>(particleView);

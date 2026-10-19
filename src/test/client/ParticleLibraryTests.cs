@@ -197,6 +197,18 @@ public unsafe class ParticleLibraryTests
     // library (the IShimParticlesClient slot it replaced is gone).
     //-------------------------------------------------------------------------
 
+    /// <summary>
+    /// The client's particle throttle as its root registers it over
+    /// <paramref name="side"/>, with <paramref name="library"/> registered first
+    /// as the library it asks (plan_shim_areas_split phase 6).
+    /// </summary>
+    private static IParticleThrottle ViewSlots(EngineSide side, IParticleLibrary library)
+    {
+        var services = new ServiceContainer().AddInstance(library);
+        new ClientEntityFetches().AddTo(services, new ModuleEngine(side));
+        return services.Require<IParticleThrottle>();
+    }
+
     private sealed class CountingLibrary : IParticleLibrary
     {
         public int Asked;
@@ -220,7 +232,7 @@ public unsafe class ParticleLibraryTests
         Assert.True(side.AttachClientShims(root.Bind(), out string why), why);
         var library = new CountingLibrary();
 
-        Assert.Equal(0.5f, new ClientParticleViewSlots(side.ClientShims.ParticlesClient, library).ThrottleScaling());
+        Assert.Equal(0.5f, ViewSlots(side, library).ThrottleScaling());
         Assert.Equal(1, library.Asked);
     }
 }
