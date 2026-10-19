@@ -21,7 +21,7 @@ set(server_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mathlib_port.cpp
+    ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_factory.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier_connect.cpp
@@ -269,7 +269,7 @@ set(server_novalve_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_spew_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier0_thread_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/mathlib_port.cpp
+    ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_factory.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier_connect.cpp

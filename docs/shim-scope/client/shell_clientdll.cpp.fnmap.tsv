@@ -43,7 +43,7 @@
 1	LIVE-API	bool CClientVirtualReality::ShouldRenderHUDInWorld()
 1	LIVE-API	void CClientVirtualReality::PostProcessFrame( StereoEye_t )
 1	LIVE-API	void CClientVirtualReality::OverlayHUDQuadWithUndistort( const CViewSetup &, bool, bool, bool )
-125	UNRULED	int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )
+124	UNRULED	int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )
 4	UNRULED	bool CShellClientDLL::ReplayInit( CreateInterfaceFn fnReplayFactory )
 4	UNRULED	bool CShellClientDLL::ReplayPostInit()
 13	UNRULED	void CShellClientDLL::PostInit()

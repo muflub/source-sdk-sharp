@@ -294,3 +294,360 @@ TEST( MathlibPortStock, CalcSqrDistanceToAABBMatchesStock )
 }
 
 } // namespace
+
+//-----------------------------------------------------------------------------
+// client.so's members (plan_client_novalve C9): every one beside stock's.
+//-----------------------------------------------------------------------------
+
+// color_conversion.cpp's table; mathlib.h declares it only inside an inline.
+extern float power2_n[256];
+
+namespace
+{
+
+std::vector<Quaternion> Quaternions()
+{
+	std::vector<Quaternion> out = { Quaternion( 0, 0, 0, 1 ), Quaternion( 1, 0, 0, 0 ), Quaternion( 0, 0.7071068f, 0, 0.7071068f ) };
+	for ( const QAngle &a : Angles() )
+	{
+		Quaternion q;
+		AngleQuaternion( a, q );
+		out.push_back( q );
+	}
+	return out;
+}
+
+std::vector<VMatrix> VMatrices()
+{
+	std::vector<VMatrix> out;
+	VMatrix m;
+	MatrixSetIdentity( m );
+	out.push_back( m );
+	// A singular one (MatrixInverseGeneral's refusal) and a near-singular one.
+	out.push_back( VMatrix( 1, 2, 3, 4, 2, 4, 6, 8, 0, 0, 1, 0, 0, 0, 0, 1 ) );
+	out.push_back( VMatrix( 1e-6f, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 ) );
+	// A pivot just above the 0.00001 refusal: inverted, not refused.
+	out.push_back( VMatrix( 5e-5f, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 ) );
+	Inputs rng;
+	for ( int i = 0; i < 2000; ++i )
+	{
+		for ( int r = 0; r < 4; ++r )
+			for ( int c = 0; c < 4; ++c )
+				m[r][c] = rng.Uniform( -10, 10 );
+		out.push_back( m );
+	}
+	return out;
+}
+
+::testing::AssertionResult SameVMatrix( const VMatrix &port, const VMatrix &stock, const char *what, int index )
+{
+	return SameBits( port.Base(), stock.Base(), 16, what, index );
+}
+
+::testing::AssertionResult SameFrustum( const Frustum_t &port, const Frustum_t &stock, const char *what, int index )
+{
+	for ( int p = 0; p < FRUSTUM_NUMPLANES; ++p )
+	{
+		const cplane_t &a = *port.GetPlane( p ), &b = *stock.GetPlane( p );
+		::testing::AssertionResult r = SameBits( a.normal.Base(), b.normal.Base(), 3, what, index );
+		if ( !r )
+			return r;
+		r = SameBits( &a.dist, &b.dist, 1, what, index );
+		if ( !r )
+			return r;
+		r = SameBits( port.GetAbsNormal( p ).Base(), stock.GetAbsNormal( p ).Base(), 3, what, index );
+		if ( !r )
+			return r;
+		if ( a.type != b.type || a.signbits != b.signbits )
+			return ::testing::AssertionFailure() << what << " input #" << index << " plane " << p << ": type/signbits differ";
+	}
+	return ::testing::AssertionSuccess();
+}
+
+} // namespace
+
+TEST( MathlibPortStock, CrossProductRotateAndColumnsMatchStock )
+{
+	const std::vector<Vector> v = Vectors();
+	const std::vector<matrix3x4_t> mats = Matrices();
+	for ( int i = 0; i + 1 < (int)v.size(); ++i )
+	{
+		Vector p, s;
+		ss_mathlib::CrossProduct( v[i].Base(), v[i + 1].Base(), p.Base() );
+		CrossProduct( v[i].Base(), v[i + 1].Base(), s.Base() );
+		ASSERT_TRUE( SameBits( p.Base(), s.Base(), 3, "CrossProduct", i ) );
+
+		const matrix3x4_t &m = mats[i % mats.size()];
+		ss_mathlib::VectorRotate( v[i].Base(), m, p.Base() );
+		VectorRotate( v[i].Base(), m, s.Base() );
+		ASSERT_TRUE( SameBits( p.Base(), s.Base(), 3, "VectorRotate", i ) );
+
+		matrix3x4_t pm = m, sm = m;
+		ss_mathlib::MatrixSetColumn( v[i], i % 4, pm );
+		MatrixSetColumn( v[i], i % 4, sm );
+		ASSERT_TRUE( SameMatrix( pm, sm, "MatrixSetColumn", i ) );
+		ss_mathlib::MatrixCopy( m, pm );
+		MatrixCopy( m, sm );
+		ASSERT_TRUE( SameMatrix( pm, sm, "MatrixCopy", i ) );
+
+		Vector pf, pr, pu, sf, sr, su;
+		ss_mathlib::MatrixVectors( m, &pf, &pr, &pu );
+		MatrixVectors( m, &sf, &sr, &su );
+		ASSERT_TRUE( SameBits( pr.Base(), sr.Base(), 3, "MatrixVectors", i ) );
+	}
+}
+
+TEST( MathlibPortStock, MatrixInvertMatchesStockInAndOutOfPlace )
+{
+	const std::vector<matrix3x4_t> mats = Matrices();
+	for ( int i = 0; i < (int)mats.size(); ++i )
+	{
+		matrix3x4_t p, s;
+		ss_mathlib::MatrixInvert( mats[i], p );
+		MatrixInvert( mats[i], s );
+		ASSERT_TRUE( SameMatrix( p, s, "MatrixInvert", i ) );
+		p = mats[i];
+		s = mats[i];
+		ss_mathlib::MatrixInvert( p, p );
+		MatrixInvert( s, s );
+		ASSERT_TRUE( SameMatrix( p, s, "MatrixInvert(in place)", i ) );
+	}
+}
+
+TEST( MathlibPortStock, AngleIMatrixMatchesStock )
+{
+	const std::vector<QAngle> angles = Angles();
+	for ( int i = 0; i < (int)angles.size(); ++i )
+	{
+		matrix3x4_t p, s;
+		ss_mathlib::AngleIMatrix( angles[i], p );
+		AngleIMatrix( angles[i], s );
+		ASSERT_TRUE( SameMatrix( p, s, "AngleIMatrix", i ) );
+		const Vector at( 1.5f * i, -2.5f * i, 3.5f );
+		ss_mathlib::AngleIMatrix( angles[i], at, p );
+		AngleIMatrix( angles[i], at, s );
+		ASSERT_TRUE( SameMatrix( p, s, "AngleIMatrix(position)", i ) );
+	}
+}
+
+TEST( MathlibPortStock, ConcatTransformsMatchesStockIncludingNegativeZeros )
+{
+	const std::vector<matrix3x4_t> mats = Matrices();
+	int negativeZeros = 0;
+	for ( int i = 0; i + 1 < (int)mats.size(); ++i )
+	{
+		matrix3x4_t p, s;
+		ss_mathlib::ConcatTransforms( mats[i], mats[i + 1], p );
+		ConcatTransforms( mats[i], mats[i + 1], s );
+		ASSERT_TRUE( SameMatrix( p, s, "ConcatTransforms", i ) );
+	}
+	// A product that sums to -0: stock's vector add makes it +0.
+	matrix3x4_t a( -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 ), b( 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 );
+	matrix3x4_t p, s;
+	ss_mathlib::ConcatTransforms( a, b, p );
+	ConcatTransforms( a, b, s );
+	EXPECT_TRUE( SameMatrix( p, s, "ConcatTransforms(-0)", 0 ) );
+	for ( int k = 0; k < 12; ++k )
+		negativeZeros += ( Bits( ( (float *)a.Base() )[k] * 0.0f ) == 0x80000000u ) ? 1 : 0;
+	EXPECT_GT( negativeZeros, 0 ); // the stimulus had a negative product
+}
+
+TEST( MathlibPortStock, QuaternionsMatchStock )
+{
+	const std::vector<Quaternion> qs = Quaternions();
+	for ( int i = 0; i < (int)qs.size(); ++i )
+	{
+		matrix3x4_t pm, sm;
+		ss_mathlib::QuaternionMatrix( qs[i], pm );
+		QuaternionMatrix( qs[i], sm );
+		ASSERT_TRUE( SameMatrix( pm, sm, "QuaternionMatrix", i ) );
+		QAngle pa, sa;
+		ss_mathlib::QuaternionAngles( qs[i], pa );
+		QuaternionAngles( qs[i], sa );
+		ASSERT_TRUE( SameBits( pa.Base(), sa.Base(), 3, "QuaternionAngles", i ) );
+	}
+	const std::vector<QAngle> angles = Angles();
+	for ( int i = 0; i < (int)angles.size(); ++i )
+	{
+		Quaternion p, s;
+		ss_mathlib::AngleQuaternion( angles[i], p );
+		AngleQuaternion( angles[i], s );
+		ASSERT_TRUE( SameBits( p.Base(), s.Base(), 4, "AngleQuaternion", i ) );
+		Vector f, r, u;
+		AngleVectors( angles[i], &f, &r, &u );
+		ss_mathlib::BasisToQuaternion( f, r, u, p );
+		BasisToQuaternion( f, r, u, s );
+		ASSERT_TRUE( SameBits( p.Base(), s.Base(), 4, "BasisToQuaternion", i ) );
+	}
+}
+
+TEST( MathlibPortStock, VectorVectorsAndThreeArgumentVectorAnglesMatchStock )
+{
+	const std::vector<Vector> v = Vectors();
+	for ( int i = 0; i + 1 < (int)v.size(); ++i )
+	{
+		Vector pr, pu, sr, su;
+		ss_mathlib::VectorVectors( v[i], pr, pu );
+		VectorVectors( v[i], sr, su );
+		ASSERT_TRUE( SameBits( pr.Base(), sr.Base(), 3, "VectorVectors(right)", i ) );
+		ASSERT_TRUE( SameBits( pu.Base(), su.Base(), 3, "VectorVectors(up)", i ) );
+		QAngle pa, sa;
+		ss_mathlib::VectorAngles( v[i], v[i + 1], pa );
+		VectorAngles( v[i], v[i + 1], sa );
+		ASSERT_TRUE( SameBits( pa.Base(), sa.Base(), 3, "VectorAngles(pseudoup)", i ) );
+	}
+}
+
+TEST( MathlibPortStock, BoundsMatchStock )
+{
+	const std::vector<Vector> v = Vectors();
+	Vector pmin, pmax, smin, smax;
+	ss_mathlib::ClearBounds( pmin, pmax );
+	ClearBounds( smin, smax );
+	ASSERT_TRUE( SameBits( pmin.Base(), smin.Base(), 3, "ClearBounds", 0 ) );
+	ASSERT_TRUE( SameBits( pmax.Base(), smax.Base(), 3, "ClearBounds", 0 ) );
+	for ( int i = 0; i < (int)v.size(); ++i )
+	{
+		ss_mathlib::AddPointToBounds( v[i], pmin, pmax );
+		AddPointToBounds( v[i], smin, smax );
+		ASSERT_TRUE( SameBits( pmin.Base(), smin.Base(), 3, "AddPointToBounds", i ) );
+		ASSERT_TRUE( SameBits( pmax.Base(), smax.Base(), 3, "AddPointToBounds", i ) );
+	}
+	const std::vector<matrix3x4_t> mats = Matrices();
+	for ( int i = 0; i + 1 < (int)v.size(); ++i )
+	{
+		const Vector lo = v[i].Min( v[i + 1] ), hi = v[i].Max( v[i + 1] );
+		Vector p0, p1, s0, s1;
+		ss_mathlib::TransformAABB( mats[i % mats.size()], lo, hi, p0, p1 );
+		TransformAABB( mats[i % mats.size()], lo, hi, s0, s1 );
+		ASSERT_TRUE( SameBits( p0.Base(), s0.Base(), 3, "TransformAABB(mins)", i ) );
+		ASSERT_TRUE( SameBits( p1.Base(), s1.Base(), 3, "TransformAABB(maxs)", i ) );
+	}
+}
+
+TEST( MathlibPortStock, ApproachAndCatmullRomMatchStock )
+{
+	Inputs rng;
+	const std::vector<Vector> v = Vectors();
+	for ( int i = 0; i + 3 < (int)v.size(); ++i )
+	{
+		const float target = rng.Uniform( -10, 10 ), value = rng.Uniform( -10, 10 ), speed = rng.Uniform( -1, 5 );
+		const float p = ss_mathlib::Approach( target, value, speed ), s = Approach( target, value, speed );
+		ASSERT_TRUE( SameBits( &p, &s, 1, "Approach", i ) );
+		const float t = rng.Uniform( 0, 1 );
+		Vector po, so;
+		ss_mathlib::Catmull_Rom_Spline( v[i], v[i + 1], v[i + 2], v[i + 3], t, po );
+		Catmull_Rom_Spline( v[i], v[i + 1], v[i + 2], v[i + 3], t, so );
+		ASSERT_TRUE( SameBits( po.Base(), so.Base(), 3, "Catmull_Rom_Spline", i ) );
+	}
+}
+
+TEST( MathlibPortStock, BoxOnPlaneSideMatchesStockForEveryPlaneKind )
+{
+	Inputs rng;
+	const std::vector<Vector> v = Vectors();
+	int kinds[11] = {};
+	for ( int i = 0; i + 1 < (int)v.size(); ++i )
+	{
+		const Vector lo = v[i].Min( v[i + 1] ), hi = v[i].Max( v[i + 1] );
+		cplane_t plane;
+		plane.normal = Vector( rng.Uniform( -1, 1 ), rng.Uniform( -1, 1 ), rng.Uniform( -1, 1 ) );
+		plane.dist = rng.Uniform( -4096, 4096 );
+		plane.type = i % 4 == 0 ? ( i / 4 ) % 3 : PLANE_ANYZ;
+		plane.signbits = SignbitsForPlane( &plane );
+		ASSERT_EQ( ss_mathlib::SignbitsForPlane( &plane ), plane.signbits ) << i;
+		ASSERT_EQ( ss_mathlib::BoxOnPlaneSide( &lo.x, &hi.x, &plane ), BoxOnPlaneSide( &lo.x, &hi.x, &plane ) ) << i;
+		kinds[ plane.type < 3 ? plane.type : 3 + plane.signbits ]++;
+	}
+	for ( int k = 0; k < 11; ++k )
+		EXPECT_GT( kinds[k], 0 ) << "plane kind " << k << " was never tested";
+}
+
+TEST( MathlibPortStock, FrustumsMatchStock )
+{
+	Inputs rng;
+	const std::vector<QAngle> angles = Angles();
+	const std::vector<Vector> v = Vectors();
+	for ( int i = 0; i < (int)angles.size(); ++i )
+	{
+		const float fov = i % 7 == 0 ? 200.0f : rng.Uniform( 10, 170 ), aspect = rng.Uniform( 0.5f, 2.5f );
+		const float pf = ss_mathlib::CalcFovY( fov, aspect ), sf = CalcFovY( fov, aspect );
+		ASSERT_TRUE( SameBits( &pf, &sf, 1, "CalcFovY", i ) );
+		Frustum_t p, s;
+		ss_mathlib::GeneratePerspectiveFrustum( v[i % v.size()], angles[i], 7.0f, 28000.0f, fov, aspect, p );
+		GeneratePerspectiveFrustum( v[i % v.size()], angles[i], 7.0f, 28000.0f, fov, aspect, s );
+		ASSERT_TRUE( SameFrustum( p, s, "GeneratePerspectiveFrustum", i ) );
+		const Vector lo = v[i % v.size()].Min( v[( i + 1 ) % v.size()] ), hi = v[i % v.size()].Max( v[( i + 1 ) % v.size()] );
+		ASSERT_EQ( ss_mathlib::R_CullBox( lo, hi, s ), R_CullBox( lo, hi, s ) ) << i;
+	}
+}
+
+TEST( MathlibPortStock, GammaAndThePower2TableMatchStock )
+{
+	for ( int i = 0; i <= 4096; ++i )
+	{
+		const float x = i / 4096.0f;
+		const float p = ss_mathlib::LinearToGammaFullRange( x ), s = LinearToGammaFullRange( x );
+		ASSERT_TRUE( SameBits( &p, &s, 1, "LinearToGammaFullRange", i ) );
+	}
+	for ( int i = 0; i < 256; ++i )
+	{
+		const float p = ss_mathlib::kPower2N.v[i];
+		ASSERT_TRUE( SameBits( &p, &power2_n[i], 1, "power2_n", i ) );
+	}
+}
+
+TEST( MathlibPortStock, VMatrixMembersMatchStock )
+{
+	const std::vector<VMatrix> ms = VMatrices();
+	const std::vector<Vector> v = Vectors();
+	int refused = 0;
+	for ( int i = 0; i + 1 < (int)ms.size(); ++i )
+	{
+		VMatrix p, s;
+		ss_mathlib::MatrixMultiply( ms[i], ms[i + 1], p );
+		MatrixMultiply( ms[i], ms[i + 1], s );
+		ASSERT_TRUE( SameVMatrix( p, s, "MatrixMultiply", i ) );
+		ASSERT_TRUE( SameVMatrix( ms[i] * ms[i + 1], s, "VMatrix::operator*", i ) );
+
+		ss_mathlib::MatrixTranspose( ms[i], p );
+		MatrixTranspose( ms[i], s );
+		ASSERT_TRUE( SameVMatrix( p, s, "MatrixTranspose", i ) );
+		ASSERT_TRUE( SameVMatrix( ss_mathlib::Transposed( ms[i] ), ms[i].Transpose(), "VMatrix::Transpose", i ) );
+
+		p = ms[i + 1];
+		s = ms[i + 1];
+		const bool pok = ss_mathlib::MatrixInverseGeneral( ms[i], p ), sok = MatrixInverseGeneral( ms[i], s );
+		ASSERT_EQ( pok, sok ) << i;
+		ASSERT_TRUE( SameVMatrix( p, s, "MatrixInverseGeneral", i ) );
+		refused += pok ? 0 : 1;
+
+		const Vector &x = v[i % v.size()];
+		Vector pv, sv;
+		ss_mathlib::Vector3DMultiply( ms[i], x, pv );
+		Vector3DMultiply( ms[i], x, sv );
+		ASSERT_TRUE( SameBits( pv.Base(), sv.Base(), 3, "Vector3DMultiply", i ) );
+		ss_mathlib::Vector3DMultiplyPositionProjective( ms[i], x, pv );
+		Vector3DMultiplyPositionProjective( ms[i], x, sv );
+		ASSERT_TRUE( SameBits( pv.Base(), sv.Base(), 3, "Vector3DMultiplyPositionProjective", i ) );
+
+		Vector pmin, pmax, smin, smax;
+		ss_mathlib::CalculateAABBFromProjectionMatrix( ms[i], &pmin, &pmax );
+		CalculateAABBFromProjectionMatrix( ms[i], &smin, &smax );
+		ASSERT_TRUE( SameBits( pmin.Base(), smin.Base(), 3, "CalculateAABBFromProjectionMatrix", i ) );
+		ASSERT_TRUE( SameBits( pmax.Base(), smax.Base(), 3, "CalculateAABBFromProjectionMatrix", i ) );
+
+		const float a = 10.0f + ( i % 150 ), b = 10.0f + ( ( i * 7 ) % 150 );
+		ss_mathlib::MatrixBuildPerspective( p, a, b, 4.0f, 2000.0f + i );
+		MatrixBuildPerspective( s, a, b, 4.0f, 2000.0f + i );
+		ASSERT_TRUE( SameVMatrix( p, s, "MatrixBuildPerspective", i ) );
+		ss_mathlib::MatrixBuildScale( p, x.x, x.y, x.z );
+		MatrixBuildScale( s, x.x, x.y, x.z );
+		ASSERT_TRUE( SameVMatrix( p, s, "MatrixBuildScale", i ) );
+	}
+	VMatrix p, s;
+	ss_mathlib::MatrixSetIdentity( p );
+	MatrixSetIdentity( s );
+	EXPECT_TRUE( SameVMatrix( p, s, "MatrixSetIdentity", 0 ) );
+	EXPECT_GT( refused, 0 ); // the singular input reached MatrixInverseGeneral's refusal
+}

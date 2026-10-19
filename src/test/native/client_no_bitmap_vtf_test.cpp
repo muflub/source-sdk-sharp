@@ -66,10 +66,12 @@ bool LinksArchive( const char *pszBase )
 
 TEST( ClientNoBitmapVtf, NeitherArchiveIsOnTheLinkLine )
 {
-	bool bMathlib = false;
+	// Proof of read: libdl, which every Linux link line names (libmathlib.a,
+	// the control this used, left client.so's line in C9).
+	bool bDl = false;
 	for ( const std::string &tok : cmake_graph::LinkLibraries( cmake_graph::kClient ) )
-		bMathlib |= tok.find( "mathlib" ) != std::string::npos;
-	ASSERT_TRUE( bMathlib ) << "client_sourcesharp's LINK_LIBRARIES did not name mathlib: nothing was read";
+		bDl |= tok == "-ldl";
+	ASSERT_TRUE( bDl ) << "client_sourcesharp's LINK_LIBRARIES did not name -ldl: nothing was read";
 
 	EXPECT_FALSE( LinksArchive( "bitmap" ) ) << "client.so links bitmap.a again (plan_client_novalve C9)";
 	EXPECT_FALSE( LinksArchive( "vtf" ) ) << "client.so links vtf.a again (plan_client_novalve C9)";

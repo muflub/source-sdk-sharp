@@ -1,6 +1,9 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
-# measured at b931fc909
+# measured at 60de20638
+# 2026-10-18, C9 mathlib: libmathlib.a off client.so's link; mathlib_port.cpp (src/shared/native, the server's port
+#   grown by the client's members) joins client.so: incdir-forbidden-tus 146 -> 147 RAISED (the one new TU, compiled with
+#   the client target's include dirs); logic-lines 8260 -> 8257 (MathLib_Init's call in shell_clientdll.cpp left). --write.
 # 2026-10-12, lane particles-so (plan_particles_so.md), rebased onto client-novalve 8237b7ced and re-measured
 #   there: particles.a and dmxloader.a are libss_particles.so's (the census reads an archive on that library's
 #   link line as moved, bound_home): imports:tier0<-dmxloader 8 -> 0, tier0<-particles 8 -> 0, tier1<-dmxloader
@@ -261,9 +264,9 @@ imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
-incdir-forbidden-tus	146
+incdir-forbidden-tus	147
 link-forbidden	35
-logic-lines	8260
+logic-lines	8257
 native-convar-decls	69
 needed-forbidden	2
 sdk-links	399

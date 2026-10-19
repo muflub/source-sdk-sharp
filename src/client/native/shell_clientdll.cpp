@@ -937,7 +937,8 @@ void CClientVirtualReality::OverlayHUDQuadWithUndistort( const CViewSetup &, boo
 int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )
 {
 	// The CRT memory-debug hook left with crtmemdebug.cpp (C8): empty without MSVC's CRT.
-	MathLib_Init( 2.2f, 2.2f, 0.0f, 2.0f );
+	// No MathLib_Init: mathlib's members are mathlib_port.cpp's, which keep no
+	// tables to fill (C9, as server.so's DLLInit).
 
 
 	// Hook up global variables

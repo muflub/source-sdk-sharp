@@ -94,6 +94,8 @@ set(client_sourcesharp_sources
     # members of the same tier1 objects only the client calls.
     ${PROJECT_SOURCE_DIR}/src/shared/native/convar_port.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp
+    # mathlib, the server's port (C9): libmathlib.a is off the link line.
+    ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/strtools_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/keyvalues_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tier1_client.cpp
@@ -344,4 +346,4 @@ elseif(SS_PLATFORM STREQUAL windows)
 else()
   target_link_libraries(client_sourcesharp PRIVATE z)
 endif()
-ss_link_group(client_sourcesharp sdk::tier0 tier1 sdk::vstdlib mathlib)
+ss_link_group(client_sourcesharp sdk::tier0 tier1 sdk::vstdlib)

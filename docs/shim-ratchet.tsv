@@ -1634,7 +1634,9 @@ shim_cpp_files	src/sourcesharp	223
 #   shared trace body and the public arm, its HITGROUP_GENERIC default and the copy of
 #   trace_t.hitgroup when the line stopped). Native copies; what a hitgroup is worth is the
 #   managed victim's rule. Measured by shim_reason_letters_test's walk.
-shim_lines	src/sourcesharp	145736
+# RAISED 2026-10-18, 144172 -> 145112 (+940, measured by the walk), deliberately: mathlib_port.h and mathlib_port.cpp gain the mathlib members client.so's live sections call (and what a GC_SECTIONS=0 link reaches), so libmathlib.a leaves client.so's link as it left server.so's (plan_client_novalve C9); held to stock bit for bit by mathlib_port_stock_test.
+# RAISED 2026-10-18, 145112 -> 145122 (+10, measured by the walk), deliberately: mathlib_port.cpp's client-only data behind CLIENT_DLL (server.so's object carries none of it, its globals ledger back at 359) and power2_n constant-initialised from mathlib_port.h's compile-time ss_mathlib::kPower2N (no static initialiser object); the fix for 91925f4b3's census leg.
+shim_lines	src/sourcesharp	146686
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

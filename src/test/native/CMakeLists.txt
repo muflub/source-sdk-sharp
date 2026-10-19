@@ -4980,15 +4980,15 @@ ss_cpptest(tier1_port_test
 ss_cpptest(mathlib_port_test
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/server/native
+    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/mathlib_port_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/server/native/mathlib_port.cpp)
+            ${PROJECT_SOURCE_DIR}/src/shared/native/mathlib_port.cpp)
 
 # The port's ss_mathlib:: inlines against the stock libmathlib.a members of the
 # same names, side by side in one binary, every output float compared by its
 # bits.
 ss_cpptest_mathlib(mathlib_port_stock_test
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES sourcesharp/test/mathlib_port_stock_test.cpp)
 
 # ---------------------------------------------------------------------------

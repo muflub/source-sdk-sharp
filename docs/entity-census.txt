@@ -1,3 +1,4 @@
+# 2026-10-18, client.so off libmathlib.a (plan_client_novalve C9): mathlib_port.cpp joins client.so (its mathlib members): client objects 146 -> 147, shim 130 -> 131. Hand-edited.
 # 2026-10-13, server.so off libmathlib.a: mathlib_port.cpp joins server.so (the mathlib members it calls): server objects
 #   122 -> 123, shim 122 -> 123. Hand-applied from make entity-census's diff, so the notes are kept; its client "their
 #   lines" rows moved too on this machine's public patch series ROOT and were left alone (the fork's edits, see entity-ratchet).
@@ -860,11 +861,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 123       146
+objects linked                                                 123       147
   ... stock game/server | game/client                            0        15
   ... stock game/shared                                          0         0
   ... stock public                                               0         1
-  ... SourceSharp shim (sourcesharp/**)                        123       130
+  ... SourceSharp shim (sourcesharp/**)                        123       131
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         4

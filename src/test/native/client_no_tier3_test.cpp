@@ -77,12 +77,13 @@ bool LinesNameTier3()
 TEST( ClientNoTier3, TheArchiveIsNotOnTheLinkLine )
 {
 	const std::vector< std::string > libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
-	// Proof of read: an archive that stays is there (particles.a moved to
-	// libss_particles.so, plan_particles_so.md; mathlib stays on client.so).
-	bool bMathlib = false;
+	// Proof of read: a library that stays is there (particles.a moved to
+	// libss_particles.so, plan_particles_so.md; libmathlib.a left too, C9):
+	// libdl, which every Linux link line names.
+	bool bDl = false;
 	for ( const std::string &tok : libs )
-		bMathlib |= tok.find( "libmathlib.a" ) != std::string::npos;
-	ASSERT_TRUE( bMathlib ) << "client_sourcesharp's LINK_LIBRARIES did not name libmathlib.a: nothing was read";
+		bDl |= tok == "-ldl";
+	ASSERT_TRUE( bDl ) << "client_sourcesharp's LINK_LIBRARIES did not name -ldl: nothing was read";
 
 	EXPECT_FALSE( LinesNameTier3() ) << "client.so links tier3.a again (plan_client_novalve C9)";
 }

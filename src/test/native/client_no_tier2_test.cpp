@@ -91,11 +91,12 @@ TEST( ClientNoTier2, TheArchiveIsNotOnTheLinkLine )
 	for ( const Lib_t &lib : kLibs )
 	{
 		const std::vector< std::string > libs = cmake_graph::LinkLibraries( lib.pszTarget );
-		// Proof of read: an archive that stays is there.
-		bool bMathlib = false;
+		// Proof of read: a library that stays is there: libdl, which every
+		// Linux link line names (libmathlib.a left client.so's, C9).
+		bool bDl = false;
 		for ( const std::string &tok : libs )
-			bMathlib |= tok.find( "libmathlib.a" ) != std::string::npos;
-		ASSERT_TRUE( bMathlib ) << lib.pszTarget << "'s LINK_LIBRARIES did not name libmathlib.a: nothing was read";
+			bDl |= tok == "-ldl";
+		ASSERT_TRUE( bDl ) << lib.pszTarget << "'s LINK_LIBRARIES did not name -ldl: nothing was read";
 
 		EXPECT_FALSE( LinesNameTier2( lib.pszTarget ) )
 			<< lib.pszTarget << " links tier2.a again (plan_client_novalve C9, user ruling 2026-10-12)";

@@ -735,6 +735,9 @@ generic_payload.o	_ZL26cs_cl_dump_payload_command	cs_cl_dump_payload_command	sou
 generic_payload.o	_ZL27cs_cl_schema_status_command	cs_cl_schema_status_command	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 generic_payload.o	_ZL18g_PayloadPropNames	g_PayloadPropNames	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	file-or-global	2560	UNRULED		
 generic_payload.o	_ZL24g_bPayloadPropNamesBuilt	g_bPayloadPropNamesBuilt	sourcesharp/game/shared/generic_payload.cpp	LOCAL	bss	file-or-global	1	UNRULED		
+	power2_n	power2_n	sourcesharp/game/shared/mathlib_port.cpp	GLOBAL	data	file-or-global	1024	CONST	-	reset_today=n/a. color_conversion.cpp's exponent table (mathlib.h's TexLightToLinear reads it), constant-initialised from ss_mathlib::kPower2N by mathlib_port.cpp (C9); non-const as stock declares it, never written.
+	vec3_angle	vec3_angle	sourcesharp/game/shared/mathlib_port.cpp	GLOBAL	bss	file-or-global	12	CONST	-	reset_today=n/a. mathlib.h's extern const QAngle, defined by mathlib_port.cpp now that libmathlib.a is off client.so's link line (plan_client_novalve C9); zero, never written.
+	vec3_origin	vec3_origin	sourcesharp/game/shared/mathlib_port.cpp	GLOBAL	bss	file-or-global	12	CONST	-	reset_today=n/a. mathlib.h's extern const Vector, defined by mathlib_port.cpp now that libmathlib.a is off client.so's link line (plan_client_novalve C9); zero, never written.
 	sv_accelerate	sv_accelerate	sourcesharp/game/shared/movevars_shared.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	sv_airaccelerate	sv_airaccelerate	sourcesharp/game/shared/movevars_shared.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	sv_bounce	sv_bounce	sourcesharp/game/shared/movevars_shared.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
