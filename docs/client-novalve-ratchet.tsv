@@ -1,6 +1,7 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-19, C7 cluster 12 L1 (the leaf system's decisions to managed), measured by tools/shim-scope on 9f2f149d5 (8281: main's fall of 17 the row had not followed) and with the lane: logic-lines 8298 -> 8301 RAISED (+20 LOGIC, leaf_view_gather.h's BlendPass: ComputeTranslucentRenderLeaf's once-per-frame-and-view ComputeFxBlend stamp, which moves with the registry in L2; the gather, its Apply and the executor's crossings are ruled LAYOUT / SLOT-HELP). Hand-edited.
 # 2026-10-18, C7 flashlight (cluster 12), the eviction, measured at main e070a68e7 + this lane: flashlighteffect.cpp left client.so (the flashlight is managed): fork-src 9 -> 8, fork-hdr-not-allowed 314 -> 311, fork-hdr-total 478 -> 475, incdir-forbidden-tus 142 -> 141, sdk-links 525 -> 522 (the .cpp and .h links and c_baseviewmodel.h, which only flashlighteffect.cpp read: make sdk-census). Hand-edited.
 # 2026-10-19, landing the SFM lane onto main 9c0a56319 (re-measured there, --write rows only): logic-lines 8424 -> 8362 (the tool arms gone).
 # 2026-10-19, SFM is dead (user ruling 2026-10-19), measured on eb10dd6fe + the eviction: toolframework_client.cpp and entity_client_tools.cpp left client.so (shell_tools_off_client.cpp's stand-ins took their names): fork-src 11 -> 9, fork-hdr-not-allowed 317 -> 314, fork-hdr-total 481 -> 478, incdir-forbidden-tus 142 -> 141 (two fork TUs out, one of ours in), sdk-links 528 -> 525 (the two .cpp links and toolframework/iclientenginetools.h, which only toolframework_client.cpp read: make sdk-census), logic-lines 8421 -> 8372 (the shells' tool arms, 239bb598e, and main's own fall the row had not followed). Hand-edited.
@@ -318,7 +319,7 @@ link-forbidden	1
 # 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
 #   (three lines: the offset into the block's Client.Skin). The client compiled no skin receive before; this is new reach the
 #   fix needs, not a relabel.
-logic-lines	8298
+logic-lines	8301
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).

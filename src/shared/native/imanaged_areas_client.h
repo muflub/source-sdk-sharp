@@ -831,6 +831,8 @@ struct SSManagedRenderClientTable
 	void ( *ViewScreenshot )( IManagedRenderClient *self, const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut );
 	void ( *ViewFreezeFrame )( IManagedRenderClient *self, float flFreezeTime, float flCurTime );
 	int32_t ( *ViewDemoCamera )( IManagedRenderClient *self, int32_t nStage, const float *pIn, float *pOut );
+	int32_t ( *RenderLeafList )( IManagedRenderClient *self, const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords );
+	int32_t ( *RenderLeafViewModels )( IManagedRenderClient *self, const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords );
 };
 
 class IManagedRenderClient : public IManagedObject
@@ -852,6 +854,8 @@ public:
 	void ViewScreenshot( const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut ) { Table()->ViewScreenshot( this, pEye, nWidth, nHeight, pOut ); }
 	void ViewFreezeFrame( float flFreezeTime, float flCurTime ) { Table()->ViewFreezeFrame( this, flFreezeTime, flCurTime ); }
 	int32_t ViewDemoCamera( int32_t nStage, const float *pIn, float *pOut ) { return Table()->ViewDemoCamera( this, nStage, pIn, pOut ); }
+	int32_t RenderLeafList( const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords ) { return Table()->RenderLeafList( this, pView, pAnswer, nAnswerWords ); }
+	int32_t RenderLeafViewModels( const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords ) { return Table()->RenderLeafViewModels( this, pGroups, pAnswer, nAnswerWords ); }
 
 private:
 	const SSManagedRenderClientTable *Table() const { return static_cast< const SSManagedRenderClientTable * >( m_pTable ); }
@@ -860,9 +864,10 @@ private:
 static const uint32_t kIManagedRenderClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x8ba8bb2d, 0xdec81a24, 0x6fc25d72, 0xfa64b18d, 0x6fc25d72, 0xf95861ef,
 	0xa853d22c, 0x62a4de56, 0xc83e311d, 0x123c2a4a, 0xd70db9bc, 0x6d136a90, 0xbdc8b950, 0xd6707e4a,
+	0x6fc25d72, 0x6fc25d72,
 };
-static const int32_t kIManagedRenderClientSlotCount = 16;
-static_assert( sizeof( SSManagedRenderClientTable ) == 16 * sizeof( void * ), "SSManagedRenderClientTable is one pointer per slot" );
+static const int32_t kIManagedRenderClientSlotCount = 18;
+static_assert( sizeof( SSManagedRenderClientTable ) == 18 * sizeof( void * ), "SSManagedRenderClientTable is one pointer per slot" );
 
 class IManagedInputClient;
 

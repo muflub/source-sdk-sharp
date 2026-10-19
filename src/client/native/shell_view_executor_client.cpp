@@ -69,6 +69,7 @@
 #include "particles/particles.h"
 #include "engine/IStaticPropMgr.h"
 #include "detailobjectsystem.h"
+#include "leaf_view_gather.h"
 #include "particles_ez.h"
 #include "c_rope.h"
 #include "studio_stats.h"
@@ -560,6 +561,15 @@ void CPlanView::Prune()
 	m_pWorldListInfo = pNew;
 }
 
+// The leaf system's list for a view, decided by managed (C7 cluster 12 L1,
+// leaf_view_gather.h): false when there is no managed answer, and the view
+// is built by stock's BuildRenderablesList instead.
+bool ManagedRenderablesList( const SetupRenderInfo_t &info, int nViewID, bool bTranslucentLeafPass );
+
+// CollateViewModelRenderables' split, decided by managed; false when there is
+// no managed answer, and stock's function splits them.
+bool ManagedViewModels( CUtlVector< IClientRenderable * > &opaque, CUtlVector< IClientRenderable * > &translucent );
+
 void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTranslucent, float flRenderDistSq )
 {
 	MDLCACHE_CRITICAL_SECTION();
@@ -569,9 +579,6 @@ void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTr
 
 	ShellViewRender_IncRenderablesListsNumber();
 	WorldListInfo_t &info = *m_pWorldListInfo;
-	if ( bEntities && !bShadowDepth )
-		ClientLeafSystem()->ComputeTranslucentRenderLeaf( info.m_LeafCount, info.m_pLeafList, info.m_pLeafFogVolume,
-		                                                  ShellViewRender_RenderablesListsNumber(), nViewID );
 
 	for ( int i = 0; i < RENDER_GROUP_COUNT; ++i )
 		m_pRenderablesList->m_RenderGroupCounts[i] = 0;
@@ -587,7 +594,13 @@ void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTr
 		setupInfo.m_vecRenderOrigin = origin;
 		setupInfo.m_vecRenderForward = CurrentViewForward();
 		setupInfo.m_flRenderDistSq = flRenderDistSq;
-		ClientLeafSystem()->BuildRenderablesList( setupInfo );
+		if ( !ManagedRenderablesList( setupInfo, nViewID, !bShadowDepth ) )
+		{
+			if ( !bShadowDepth )
+				ClientLeafSystem()->ComputeTranslucentRenderLeaf( info.m_LeafCount, info.m_pLeafList, info.m_pLeafFogVolume,
+				                                                  ShellViewRender_RenderablesListsNumber(), nViewID );
+			ClientLeafSystem()->BuildRenderablesList( setupInfo );
+		}
 	}
 
 	if ( nViewID == VIEW_MAIN )
@@ -668,6 +681,11 @@ struct ExecutorState_t
 	SourceSharpRenderOp_t        m_PostOps[ 512 ];
 
 	SourceSharpRenderOp_t        m_Ops[ kMaxRenderOps ];
+
+	// The leaf system's views for managed (C7 cluster 12 L1): the buffers,
+	// reused view to view, and whether the mirror's refusal has been said.
+	CLeafViewGather              m_LeafGather;
+	bool                         m_bLeafMirrorWarned = false;
 };
 
 ExecutorState_t *g_pExecutor = NULL;
@@ -1177,7 +1195,8 @@ void ViewModels( const CViewSetup &setup, bool bDrawPlayer )
 	{
 		CUtlVector< IClientRenderable * > opaque( 32 );
 		CUtlVector< IClientRenderable * > translucent( 32 );
-		ClientLeafSystem()->CollateViewModelRenderables( opaque, translucent );
+		if ( !ManagedViewModels( opaque, translucent ) )
+			ClientLeafSystem()->CollateViewModelRenderables( opaque, translucent );
 		if ( !UpdateRefractIfNeededByList( opaque ) )
 			UpdateRefractIfNeededByList( translucent );
 		DrawRenderablesInList( opaque, 0 );
@@ -2247,10 +2266,8 @@ bool PlanRenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw )
 
 // The leaf system's list for a view, captured as it is built: its custom-draw
 // entities are drawn from one batch (shell_standalone_client.cpp, C7 item 7).
-void H_BuildRenderablesList( IClientLeafSystem *self, const SetupRenderInfo_t &info )
+void AfterRenderablesList( const SetupRenderInfo_t &info )
 {
-	typedef void ( *BuildRenderablesList_t )( IClientLeafSystem *, const SetupRenderInfo_t & );
-	( (BuildRenderablesList_t)State().m_BuildRenderablesPatch.pOriginal )( self, info );
 	if ( info.m_pRenderList )
 		SourceSharp_StandaloneDrawBatchCapture( *info.m_pRenderList );
 
@@ -2263,6 +2280,85 @@ void H_BuildRenderablesList( IClientLeafSystem *self, const SetupRenderInfo_t &i
 		BuildViewScene( scene, info.m_pWorldListInfo, info.m_pRenderList, info.m_nDetailBuildFrame, NULL, kNoFlags, -1 );
 		NoteBytes( "scene", "scenebytes\t", scene.m_Bytes.Base(), scene.m_Bytes.Count() );
 	}
+}
+
+void H_BuildRenderablesList( IClientLeafSystem *self, const SetupRenderInfo_t &info )
+{
+	typedef void ( *BuildRenderablesList_t )( IClientLeafSystem *, const SetupRenderInfo_t & );
+	( (BuildRenderablesList_t)State().m_BuildRenderablesPatch.pOriginal )( self, info );
+	AfterRenderablesList( info );
+}
+
+// One crossing per view: the gather reads the registry and asks the engine
+// (leaf_view_gather.h), managed decides, and the answer is written into the
+// list and the registry. ComputeTranslucentRenderLeaf's pass is part of the
+// decision when the view has one (every view but a shadow depth view).
+bool ManagedRenderablesList( const SetupRenderInfo_t &info, int nViewID, bool bTranslucentLeafPass )
+{
+	ExecutorState_t &state = State();
+	IManagedRenderClient *pManaged = ManagedRenderClient();
+	if ( !pManaged || !info.m_pRenderList || !info.m_pWorldListInfo )
+		return false;
+
+	ConVarRef portalTestEnts( "r_PortalTestEnts" ), portalsOpenAll( "r_portalsopenall" );
+	LeafViewRequest_t req;
+	req.m_pWorldListInfo = info.m_pWorldListInfo;
+	req.m_nRenderFrame = info.m_nRenderFrame;
+	req.m_nDetailBuildFrame = info.m_nDetailBuildFrame;
+	req.m_nGlobalFrame = gpGlobals->framecount;
+	req.m_nViewID = nViewID;
+	req.m_bTranslucentLeafPass = bTranslucentLeafPass;
+	req.m_bDrawTranslucent = info.m_bDrawTranslucentObjects;
+	req.m_bDrawDetail = info.m_bDrawDetailObjects;
+	req.m_bPortalTestEnts = portalTestEnts.GetBool();
+	req.m_bPortalsOpenAll = portalsOpenAll.GetBool();
+#ifdef _DEBUG
+	ConVarRef drawLeaf( "cl_drawleaf" );
+	req.m_nDrawLeaf = drawLeaf.GetInt();
+#endif
+	req.m_vecOrigin = info.m_vecRenderOrigin;
+	req.m_vecForward = info.m_vecRenderForward;
+
+	CLeafViewGather &gather = state.m_LeafGather;
+	if ( !gather.Gather( ClientLeafSystem(), req ) )
+	{
+		if ( !state.m_bLeafMirrorWarned )
+			Warning( "[SourceSharp] leaf lists: a renderable's handle does not name the slot it was read from; views use stock's BuildRenderablesList\n" );
+		state.m_bLeafMirrorWarned = true;
+		return false;
+	}
+
+	int nOverflow = 0;
+	if ( pManaged->RenderLeafList( gather.m_Words.Base(), gather.m_Answer.Base(), gather.m_Answer.Count() ) < 0
+	     || !gather.Apply( ClientLeafSystem(), *info.m_pRenderList, nOverflow ) )
+		return false;
+	for ( int g = 0; g < RENDER_GROUP_COUNT; ++g )
+	{
+		if ( nOverflow & ( 1 << g ) )
+			engine->Con_NPrintf( 10, "Warning: overflowed CClientRenderablesList group %d", g );
+	}
+	RenderTrace::Note( "leaflist\tmanaged\tview=%d\twords=%d", nViewID, gather.m_Words.Count() );
+	AfterRenderablesList( info );
+	return true;
+}
+
+// The gather computes each view model's blend, as stock's function does
+// before its split. A refusal past that point falls back to stock's function,
+// which computes the blends a second time this frame.
+bool ManagedViewModels( CUtlVector< IClientRenderable * > &opaque, CUtlVector< IClientRenderable * > &translucent )
+{
+	ExecutorState_t &state = State();
+	IManagedRenderClient *pManaged = ManagedRenderClient();
+	if ( !pManaged )
+		return false;
+	CLeafViewGather &gather = state.m_LeafGather;
+	gather.GatherViewModels( ClientLeafSystem() );
+	CUtlVector< int32_t > answer;
+	answer.SetCount( gather.m_ViewModels.Count() );
+	if ( pManaged->RenderLeafViewModels( gather.m_ViewModelWords.Base(), answer.Base(), answer.Count() ) != gather.m_ViewModels.Count() )
+		return false;
+	gather.ApplyViewModels( answer.Base(), opaque, translucent );
+	return true;
 }
 
 // UpdateShadowDepthTexture, asked by the shadow manager inside a plan frame's

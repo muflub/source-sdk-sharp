@@ -1728,7 +1728,16 @@ shim_cpp_files	src/sourcesharp	221
 # RAISED 2026-10-19, 137437 -> 137452 (+15, measured by the walk), deliberately: fwd_physics.cpp
 #   defines the global operator delete (sized and unsized) beside _purecall under SS_NO_CRT, so the
 #   CRT-free forwarder DLLs link IRecipientFilter's base deleting destructor (LNK2019 on CI at 608740e).
-shim_lines	src/sourcesharp	137452
+# RAISED 2026-10-19, 137437 -> 138011 (+574, measured by the walk on 9f2f149d5 plus the lane, whose base walks to the
+#   ceiling exactly), deliberately: C7 cluster 12 L1 (docs/plans/c7_leaf_system.md). leaf_view_gather.h (+473): the
+#   layout mirror of CClientLeafSystem's members (held to the pristine class by leafsystem_oracle_test), the gather
+#   that reads one view's registry and the engine's CullBox / DoesBoxTouchAreaFrustum / IsOccluded answers into one
+#   length-prefixed buffer, and the Apply that writes managed's answer into CClientRenderablesList;
+#   shell_view_executor_client.cpp (+96): the per-view crossing and the view models' one, stock's builder kept as the
+#   fallback; imanaged_areas_client.h (+5): the two generated IManagedRenderClient slots. The decisions are managed's
+#   (RenderableListBuilder, held to stock's golden); the mirror and most of the gather leave with the stock registry
+#   in L2.
+shim_lines	src/sourcesharp	138026
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their

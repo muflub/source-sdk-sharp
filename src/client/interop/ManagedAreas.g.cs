@@ -256,6 +256,8 @@ public unsafe interface IManagedRenderClient
     void ViewScreenshot(void* a0, int a1, int a2, void* a3);
     void ViewFreezeFrame(float a0, float a1);
     int ViewDemoCamera(int a0, void* a1, void* a2);
+    int RenderLeafList(void* a0, void* a1, int a2);
+    int RenderLeafViewModels(void* a0, void* a1, int a2);
 }
 
 [ManagedVtable(typeof(ManagedInputClientTable))]

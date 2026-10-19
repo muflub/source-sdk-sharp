@@ -711,7 +711,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The render plan (C7): View_Render asks which path draws each frame.
         _bindings.Add("IManagedRenderClient",
                       v => ManagedAreaFactory.Create(v, new RenderClientBinding(_engine.Crossings, Log,
-                                                                              _services.Require<IClientRenderPlan>())));
+                                                                              _services.Require<IClientRenderPlan>(),
+                                                                              _services.Require<IClientLeafLists>())));
         _bindings.Add("IManagedWorldTextClient",
                       v => ManagedAreaFactory.Create(v, new WorldTextClientBinding(_engine.Crossings, Log,
                                                                                   new Effects.ClientWorldTexts(_standalones))));
@@ -789,6 +790,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.DemoViewCamera>(locator => new Render.DemoViewCamera(
             button => _inputService?.KeyState(button) ?? 0f, () => locator.Require<Render.ClDemoviewoverrideConVar>().Value));
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
+        // The leaf system's per-view decisions (C7 cluster 12 L1).
+        _services.AddFactory<IClientLeafLists>(locator => new Render.LeafSystem.RenderableListBuilder(
+            () => locator.Require<Render.LeafSystem.CsClLeafListsConVar>().Value != 0));
         _services.AddFactory<IClientRenderPlan>(locator => locator.Require<Render.RenderPlanHost>());
         _services.AddFactory<MaterialProxies.IMaterialProxyReadings>(
             locator => (MaterialProxies.MaterialProxyHost)locator.Require<IClientMaterialProxies>());

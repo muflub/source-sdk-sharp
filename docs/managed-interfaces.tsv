@@ -253,6 +253,8 @@ IManagedRenderClient	ViewSetUp	void	const SourceSharpViewSetUpIn_t *pIn, SourceS
 IManagedRenderClient	ViewScreenshot	void	const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight, SourceSharpViewSetup_t *pOut
 IManagedRenderClient	ViewFreezeFrame	void	float flFreezeTime, float flCurTime
 IManagedRenderClient	ViewDemoCamera	int32_t	int32_t nStage, const float *pIn, float *pOut
+IManagedRenderClient	RenderLeafList	int32_t	const int32_t *pView, int32_t *pAnswer, int32_t nAnswerWords
+IManagedRenderClient	RenderLeafViewModels	int32_t	const int32_t *pGroups, int32_t *pAnswer, int32_t nAnswerWords
 IManagedInputClient	InputInit	void	int32_t bNoMouse
 IManagedInputClient	InputShutdown	void	void
 IManagedInputClient	InputLevelInit	void	void

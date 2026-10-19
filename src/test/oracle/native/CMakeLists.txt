@@ -747,3 +747,50 @@ ss_cpptest_mathlib(flashlight_oracle_test
              public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/flashlight_oracle_test.cpp)
 endif()
+
+# THE LEAF SYSTEM ORACLE (C7 cluster 12, docs/plans/c7_leaf_system.md L0):
+# stock's client leaf system -- the registry, BuildRenderablesList's arms,
+# ComputeTranslucentRenderLeaf and SortEntities, CollateViewModelRenderables'
+# split and the shadows projected into leaves -- run offline from the
+# PRISTINE game/client/clientleafsystem.cpp over a scripted world
+# (leafsystem_stub/leafsystem_harness.h says what is stock and what is
+# stand-in), held to the golden src/test/client/Fixtures/leafsystem-stock.tsv,
+# which the managed RenderableListBuilder's facts replay. It also compiles
+# src/client/native/leaf_view_gather.h over the pristine class, and holds that
+# header's layout mirror to it. mathlib for the bounds, tier0 for CTSList and
+# the thread check, tier1 for the containers and the ConVars; the pristine
+# tier1/mempool.cpp for the list's fixed-size allocator, which client.so
+# carries as its own port (tier1_client.cpp) and the tier1 library does not;
+# libatomic for CTSList's 16-byte compare-exchange. _DEBUG compiles the
+# subject's cl_drawleaf filter, which the debug client has
+# (NO_MALLOC_OVERRIDE, as the client builds). The -Wno- flags are for VALVE'S
+# CODE: the MSVC pragmas, its threaded arms' unused helpers, mempool.cpp's
+# dangling else and sign compares, and the pristine iclientrenderable.h's
+# GetRefEHandle, which binds a null reference.
+set(leafsystem_stock "${SS_VALVE_SRC}/game/client/clientleafsystem.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${leafsystem_stock}")
+  ss_oracle_missing(leafsystem_oracle_test "no ${leafsystem_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+# The subject, its header and the game-system header it derives from are
+# COPIED, byte for byte, into their own directory before they are included:
+# their quoted #includes would otherwise find game/client's real headers
+# beside them ahead of the stand-ins.
+configure_file("${leafsystem_stock}" "${CMAKE_CURRENT_BINARY_DIR}/leafsystem_subject/clientleafsystem.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/clientleafsystem.h" "${CMAKE_CURRENT_BINARY_DIR}/leafsystem_subject/clientleafsystem.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/igamesystem.h" "${CMAKE_CURRENT_BINARY_DIR}/leafsystem_subject/igamesystem.h" COPYONLY)
+# And the renderable interfaces, pristine: the farm's answer GetBaseEntity()
+# with SourceSharp's IGameEntity, and the subject asks it for a C_BaseEntity.
+configure_file("${SS_VALVE_SRC}/public/iclientunknown.h" "${CMAKE_CURRENT_BINARY_DIR}/leafsystem_subject/iclientunknown.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/iclientrenderable.h" "${CMAKE_CURRENT_BINARY_DIR}/leafsystem_subject/iclientrenderable.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(leafsystem_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL _DEBUG NO_MALLOC_OVERRIDE
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+            -Wno-unused-private-field -Wno-null-dereference -Wno-dangling-else -Wno-sign-compare
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/leafsystem_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/leafsystem_subject
+             public public/tier0 public/tier1 sourcesharp/test ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/leafsystem_oracle_test.cpp
+            ${SS_VALVE_SRC}/tier1/mempool.cpp
+    LIBS atomic)
+endif()
