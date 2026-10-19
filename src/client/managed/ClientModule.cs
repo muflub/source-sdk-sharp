@@ -68,6 +68,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private JitWarmup? _jitWarmup;
     private readonly ModuleEngine _engine;
 
+    // Registers the adapters that call this side's shim areas: the real ones
+    // in the game, fakes in a test that composes a module with no areas.
+    private readonly IClientEngineAdapters _adapters;
+
     /// <summary>
     /// This composition's log: its engine's, over the client's console
     /// (statics to zero: it was the static Log).
@@ -75,9 +79,21 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private ILog Log => _engine.Log;
 
     public ClientModule(ModuleEngine engine)
+        : this(engine, new ClientEntityFetches())
+    {
+    }
+
+    /// <summary>
+    /// The same over <paramref name="adapters"/>, the registration of the
+    /// engine adapters (the seams that call shim areas): a test composition
+    /// hands fakes, so composing a module never needs attached areas.
+    /// </summary>
+    internal ClientModule(ModuleEngine engine, IClientEngineAdapters adapters)
     {
         ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(adapters);
         _engine = engine;
+        _adapters = adapters;
 
         // What the module holds from construction, over its engine's log
         // (statics to zero).
@@ -344,9 +360,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The mirror gate's independent oracle, over this side's own slots.
         _services.AddInstance(new StandaloneSlotReference(_engine, _skeletonRoute));
 
-        // The client's three entity fetches, built here and handed to the
-        // IEngineEntities binding the next line builds (P1 run 3).
-        ClientEntityFetches.AddTo(_services, _engine);
+        // The client's three entity fetches and the other engine adapters,
+        // built here and handed to the IEngineEntities binding the next line
+        // builds (P1 run 3).
+        _adapters.AddTo(_services, _engine);
 
         // The skeleton route the engine bindings ask through, registered before
         // they are built and filled when the client's skeletons answer.

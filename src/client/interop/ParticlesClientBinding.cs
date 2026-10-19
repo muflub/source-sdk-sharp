@@ -356,16 +356,14 @@ public sealed unsafe class ParticlesClientBinding(Crossings crossings, ILog log,
 }
 
 /// <summary>The real one, over IShimParticlesClient::ParticlesTraceLine.</summary>
-internal sealed unsafe class ClientPlaneTrace(EngineSide api) : IClientPlaneTrace
+internal sealed unsafe class ClientPlaneTrace(ParticlesClientArea particlesClient) : IClientPlaneTrace
 {
     public (float Fraction, Vector Normal, float PlaneDist) TraceLine(Vector start, Vector end, int mask)
     {
-        if (!api.ClientAttached)
-            return (1f, default, 0f);
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
         float* o = stackalloc float[5];
-        return api.ClientShims.ParticlesTraceLine(s, e, mask, o, 5) < 5
+        return particlesClient.ParticlesTraceLine(s, e, mask, o, 5) < 5
             ? (1f, default, 0f)
             : (o[0], new Vector(o[1], o[2], o[3]), o[4]);
     }
@@ -385,65 +383,54 @@ internal sealed class ClientModelNames(EngineSide side) : IClientModelNames
 }
 
 /// <summary>The real one, over the api.</summary>
-internal sealed unsafe class ClientParticleExecutor(EngineSide api) : INativeParticleExecutor
+internal sealed unsafe class ClientParticleExecutor(ParticlesClientArea particlesClient) : INativeParticleExecutor
 {
     public bool Create(EntityHandle owner, int channel, string material, float cullRadius, bool alwaysSimulate)
     {
-        if (!api.ClientAttached)
-            return false;
         byte[] name = Vtable.Utf8(material);
         fixed (byte* p = name)
-            return api.ClientShims.ParticlesCreate(owner.Value, channel, p, cullRadius, alwaysSimulate ? 1 : 0) != 0;
+            return particlesClient.ParticlesCreate(owner.Value, channel, p, cullRadius, alwaysSimulate ? 1 : 0) != 0;
     }
 
     public bool CreateAt(int id, string material, Vector origin, float cullRadius, bool alwaysSimulate)
     {
-        if (!api.ClientAttached)
-            return false;
         byte[] name = Vtable.Utf8(material);
         float* at = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         fixed (byte* p = name)
-            return api.ClientShims.ParticlesCreateAt(id, p, at, cullRadius, alwaysSimulate ? 1 : 0) != 0;
+            return particlesClient.ParticlesCreateAt(id, p, at, cullRadius, alwaysSimulate ? 1 : 0) != 0;
     }
 
     public void Configure(EntityHandle owner, int channel, float cullRadius)
     {
-        if (api.ClientAttached)
-            api.ClientShims.ParticlesConfigure(owner.Value, channel, cullRadius);
+        particlesClient.ParticlesConfigure(owner.Value, channel, cullRadius);
     }
 
     public void Destroy(EntityHandle owner, int channel)
     {
-        if (api.ClientAttached)
-            api.ClientShims.ParticlesDestroy(owner.Value, channel);
+        particlesClient.ParticlesDestroy(owner.Value, channel);
     }
 
     public ParticleFollow SetSpace(EntityHandle owner, int channel, uint entity, int attachment, ParticleSpace flags)
     {
         ParticleFollow follow = default;
-        if (api.ClientAttached)
-            api.ClientShims.ParticlesSetSpace(owner.Value, channel, entity, attachment, (int)flags, &follow);
+        particlesClient.ParticlesSetSpace(owner.Value, channel, entity, attachment, (int)flags, &follow);
         return follow;
     }
 
     public void SetLights(EntityHandle owner, int channel, ReadOnlySpan<float> lights)
     {
-        if (!api.ClientAttached)
-            return;
         fixed (float* p = lights)
-            api.ClientShims.ParticlesSetLights(owner.Value, channel, p, lights.Length);
+            particlesClient.ParticlesSetLights(owner.Value, channel, p, lights.Length);
     }
 
     public bool MaterialVarInt(EntityHandle owner, int channel, string var, out int value)
     {
         value = 0;
-        if (!api.ClientAttached)
-            return false;
         byte[] name = Vtable.Utf8(var);
         int v = 0;
         bool found;
         fixed (byte* p = name)
-            found = api.ClientShims.ParticlesMaterialVarInt(owner.Value, channel, p, &v) != 0;
+            found = particlesClient.ParticlesMaterialVarInt(owner.Value, channel, p, &v) != 0;
         value = v;
         return found;
     }
@@ -479,39 +466,34 @@ public sealed unsafe class WorldTextClientBinding(Crossings crossings, ILog log,
 }
 
 /// <summary>The real one, over IShimParticlesClient::WorldTextMeshUpdate/Destroy.</summary>
-internal sealed unsafe class ClientWorldTextMeshes(EngineSide api) : IClientWorldTextMeshes
+internal sealed unsafe class ClientWorldTextMeshes(ParticlesClientArea particlesClient) : IClientWorldTextMeshes
 {
     public bool Update(EntityHandle owner, string material, Vector mins, Vector maxs)
     {
-        if (!api.ClientAttached)
-            return false;
         byte[] name = Vtable.Utf8(material);
         float* bounds = stackalloc float[6] { mins.X, mins.Y, mins.Z, maxs.X, maxs.Y, maxs.Z };
         fixed (byte* p = name)
-            return api.ClientShims.WorldTextMeshUpdate(owner.Value, p, bounds, 6) != 0;
+            return particlesClient.WorldTextMeshUpdate(owner.Value, p, bounds, 6) != 0;
     }
 
     public void Destroy(EntityHandle owner)
     {
-        if (api.ClientAttached)
-            api.ClientShims.WorldTextMeshDestroy(owner.Value);
+        particlesClient.WorldTextMeshDestroy(owner.Value);
     }
 }
 
 /// <summary>The real one, over IShimEffectsRenderClient::WindPublish.</summary>
-internal sealed unsafe class ClientWindPublisher(EngineSide api) : IClientWindPublisher
+internal sealed unsafe class ClientWindPublisher(EffectsRenderClientArea effectsRenderClient) : IClientWindPublisher
 {
     public void Publish(Vector wind, Vector? sway, int winds)
     {
-        if (!api.ClientAttached)
-            return;
         float* w = stackalloc float[3] { wind.X, wind.Y, wind.Z };
         if (sway is { } v)
         {
             float* sw = stackalloc float[3] { v.X, v.Y, v.Z };
-            api.ClientShims.WindPublish(w, sw, winds);
+            effectsRenderClient.WindPublish(w, sw, winds);
         }
         else
-            api.ClientShims.WindPublish(w, null, winds);
+            effectsRenderClient.WindPublish(w, null, winds);
     }
 }

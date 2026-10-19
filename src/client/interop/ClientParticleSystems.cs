@@ -5,7 +5,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real one, over the client's shim areas.</summary>
-internal sealed unsafe class ClientParticleSystems(EngineSide api) : IClientParticleSystems
+internal sealed unsafe class ClientParticleSystems(ParticlesClientArea particlesClient) : IClientParticleSystems
 {
     private const int NameBytes = 128;
 
@@ -14,9 +14,7 @@ internal sealed unsafe class ClientParticleSystems(EngineSide api) : IClientPart
 
     public IReadOnlyList<ClientParticleSystemRow> Read()
     {
-        if (!api.ClientAttached)
-            return [];
-        int count = Math.Min(api.ClientShims.ParticleSystemsRead(-1, null, null, 0), MaxRows);
+        int count = Math.Min(particlesClient.ParticleSystemsRead(-1, null, null, 0), MaxRows);
         var rows = new List<ClientParticleSystemRow>(Math.Max(count, 0));
         byte* name = stackalloc byte[NameBytes];
         ParticleSystemInfo info;
@@ -24,21 +22,19 @@ internal sealed unsafe class ClientParticleSystems(EngineSide api) : IClientPart
         {
             name[0] = 0;
             info = default;
-            if (api.ClientShims.ParticleSystemsRead(i, &info, name, NameBytes) <= i)
+            if (particlesClient.ParticleSystemsRead(i, &info, name, NameBytes) <= i)
                 break;
             rows.Add(new ClientParticleSystemRow(Text(name), info));
         }
         return rows;
     }
 
-    public int DefinitionReads() => api.ClientAttached ? api.ClientShims.ParticleDefinitionReads() : -1;
+    public int DefinitionReads() => particlesClient.ParticleDefinitionReads();
 
     public IReadOnlyList<int> QueryUnanswered()
     {
-        if (!api.ClientAttached)
-            return [];
         int* counts = stackalloc int[8];
-        int n = api.ClientShims.ParticleQueryUnanswered(counts, 8);
+        int n = particlesClient.ParticleQueryUnanswered(counts, 8);
         var list = new int[Math.Clamp(n, 0, 8)];
         for (int i = 0; i < list.Length; i++)
             list[i] = counts[i];
@@ -55,24 +51,20 @@ internal sealed unsafe class ClientParticleSystems(EngineSide api) : IClientPart
 }
 
 /// <summary>The real one, over IShimParticlesClient.</summary>
-internal sealed unsafe class ClientParticleOneShots(EngineSide api) : IClientParticleOneShots
+internal sealed unsafe class ClientParticleOneShots(ParticlesClientArea particlesClient) : IClientParticleOneShots
 {
     private const int NameBytes = 256;
 
     public string? NameFromIndex(int index)
     {
-        if (!api.ClientAttached)
-            return null;
         byte* name = stackalloc byte[NameBytes];
-        int n = api.ClientShims.ParticleSystemNameFromIndex(index, name, NameBytes);
+        int n = particlesClient.ParticleSystemNameFromIndex(index, name, NameBytes);
         return n < 0 ? null : Encoding.UTF8.GetString(name, Math.Min(n, NameBytes - 1));
     }
 
     public bool Start(string name, Vector sortOrigin, ReadOnlySpan<ParticleControlPoint> points,
                       Vector forward, Vector right, Vector up)
     {
-        if (!api.ClientAttached)
-            return false;
         byte[] bytes = Vtable.Utf8(name);
         float* sort = stackalloc float[3] { sortOrigin.X, sortOrigin.Y, sortOrigin.Z };
         float* flat = stackalloc float[Math.Max(points.Length, 1) * 4];
@@ -85,33 +77,29 @@ internal sealed unsafe class ClientParticleOneShots(EngineSide api) : IClientPar
         }
         float* orient = stackalloc float[9] { forward.X, forward.Y, forward.Z, right.X, right.Y, right.Z, up.X, up.Y, up.Z };
         fixed (byte* p = bytes)
-            return api.ClientShims.ParticleSystemOneShot(p, sort, flat, points.Length, orient) != 0;
+            return particlesClient.ParticleSystemOneShot(p, sort, flat, points.Length, orient) != 0;
     }
 }
 
 /// <summary>The real one, over IShimParticlesClient::ParticlesWorldTrace and ParticlesTraceMask.</summary>
-internal sealed unsafe class ClientParticleWorldTrace(EngineSide api) : IParticleWorldTrace, IParticleMaskTrace
+internal sealed unsafe class ClientParticleWorldTrace(ParticlesClientArea particlesClient) : IParticleWorldTrace, IParticleMaskTrace
 {
     public MaskTrace Trace(Vector start, Vector end, uint mask)
     {
-        if (!api.ClientAttached)
-            return new MaskTrace(1, end, default, false, 0);
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
         float* o = stackalloc float[9];
-        if (api.ClientShims.ParticlesTraceMask(s, e, mask, o, 9) < 9)
+        if (particlesClient.ParticlesTraceMask(s, e, mask, o, 9) < 9)
             return new MaskTrace(1, end, default, false, 0);
         return new MaskTrace(o[0], new Vector(o[1], o[2], o[3]), new Vector(o[4], o[5], o[6]), o[7] != 0, o[8]);
     }
 
     public ParticleTrace TraceLine(Vector start, Vector end)
     {
-        if (!api.ClientAttached)
-            return new ParticleTrace { Fraction = 1 };
         float* s = stackalloc float[3] { start.X, start.Y, start.Z };
         float* e = stackalloc float[3] { end.X, end.Y, end.Z };
         float* o = stackalloc float[10];
-        if (api.ClientShims.ParticlesWorldTrace(s, e, o, 10) < 10)
+        if (particlesClient.ParticlesWorldTrace(s, e, o, 10) < 10)
             return new ParticleTrace { Fraction = 1 };
         return new ParticleTrace
         {
@@ -207,10 +195,10 @@ public static class ParticleViewReading
 /// The real ones, over IShimParticlesClient's view and visibility slots; the
 /// throttle is the particle library's own answer (plan_particles_so.md).
 /// </summary>
-internal sealed unsafe class ClientParticleViewSlots(EngineSide api, IParticleLibrary library)
+internal sealed unsafe class ClientParticleViewSlots(ParticlesClientArea particlesClient, IParticleLibrary library)
     : IParticleViewSource, IParticlePixelVisibility, IParticleThrottle
 {
-    public float ThrottleScaling() => api.ClientAttached ? library.ThrottleScaling() : 1.0f;
+    public float ThrottleScaling() => library.ThrottleScaling();
 
     public ParticleView Read()
     {
@@ -219,18 +207,15 @@ internal sealed unsafe class ClientParticleViewSlots(EngineSide api, IParticleLi
         float* of = stackalloc float[6];
         new Span<float>(of, 6).Clear();
         int viewId = 0;
-        if (api.ClientAttached)
-            api.ClientShims.ParticlesView(m, &viewId, of);
+        particlesClient.ParticlesView(m, &viewId, of);
         return ParticleViewReading.From(new ReadOnlySpan<float>(m, 12), viewId, new Vector(of[0], of[1], of[2]), new Vector(of[3], of[4], of[5]));
     }
 
     public float FractionVisible(Vector origin, ref int queryHandle)
     {
-        if (!api.ClientAttached)
-            return 0.0f;
         float* o = stackalloc float[3] { origin.X, origin.Y, origin.Z };
         int handle = queryHandle;
-        float visible = api.ClientShims.ParticlesPixelVisible(o, &handle);
+        float visible = particlesClient.ParticlesPixelVisible(o, &handle);
         queryHandle = handle;
         return visible;
     }
@@ -324,13 +309,11 @@ public sealed class ParticleFloatMode
 }
 
 /// <summary>The real one, over the client's shim areas.</summary>
-internal sealed unsafe class ClientBrushContents(EngineSide api) : IClientBrushContents
+internal sealed unsafe class ClientBrushContents(ParticlesClientArea particlesClient) : IClientBrushContents
 {
     public int PointContents(EntityHandle owner, Vector point)
     {
-        if (!api.ClientAttached)
-            return 0;
         float* p = stackalloc float[3] { point.X, point.Y, point.Z };
-        return api.ClientShims.ParticlesBrushPointContents(owner.Value, p);
+        return particlesClient.ParticlesBrushPointContents(owner.Value, p);
     }
 }

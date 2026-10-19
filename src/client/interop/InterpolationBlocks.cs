@@ -13,14 +13,14 @@ namespace SourceSharp.Abi;
 /// </summary>
 internal sealed unsafe class InterpolationBlocks : IInterpolationBlocks
 {
-    /// <summary>
-    /// The side's own slot routing, handed over by the area that holds this
-    /// (plan_abi_hotreload D8): it was <c>Engine.Current.Slots</c>, which
-    /// followed the active side. One field read per call, as before.
-    /// </summary>
-    private readonly EngineSide _api;
+    // The shim area this calls, handed over by the client root once the
+    // side's areas are attached (plan_shim_areas_split phase 5).
+    private readonly StandaloneClientArea _standaloneClient;
 
-    internal InterpolationBlocks(EngineSide api) => _api = api;
+    internal InterpolationBlocks(StandaloneClientArea standaloneClient)
+    {
+        _standaloneClient = standaloneClient;
+    }
 
     private void** _blocks;
     private int _count;
@@ -31,12 +31,9 @@ internal sealed unsafe class InterpolationBlocks : IInterpolationBlocks
         _blocks = null;
         _count = 0;
 
-        if (!_api.ClientAttached)
-            return 0;
-
         int count;
         float amount;
-        void** blocks = _api.ClientShims.ClientInterpBlocks(&count, &amount);
+        void** blocks = _standaloneClient.ClientInterpBlocks(&count, &amount);
 
         if (blocks == null || count <= 0)
             return 0;

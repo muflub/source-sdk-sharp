@@ -28,8 +28,8 @@ public class ClientModelCachesTests
     {
         var engineA = new ModuleEngine(new EngineSide(Side.Client));
         var engineB = new ModuleEngine(new EngineSide(Side.Client));
-        var a = new ClientModule(engineA);
-        var b = new ClientModule(engineB);
+        var a = new ClientModule(engineA, new FakeClientEngineAdapters());
+        var b = new ClientModule(engineB, new FakeClientEngineAdapters());
         a.ComposeEngineAreas();
         b.ComposeEngineAreas();
 

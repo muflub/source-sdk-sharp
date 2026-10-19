@@ -8,64 +8,50 @@ namespace SourceSharp.Client.Interop;
 /// <see cref="ISoundscapeAudio"/> over IShimSoundscapeClient and the console's
 /// two named-convar api. A missing shim plays nothing.
 /// </summary>
-internal sealed unsafe class SoundscapeAudioSlots(EngineSide api) : ISoundscapeAudio
+internal sealed unsafe class SoundscapeAudioSlots(ConsoleArea console, SoundscapeClientArea soundscapeClient) : ISoundscapeAudio
 {
     private static byte[] Utf8(string s) => Encoding.UTF8.GetBytes(s + "\0");
 
     public void EmitAmbient(string wave, float volume, int pitch, int flags)
     {
-        if (!api.ClientAttached)
-            return;
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeEmitAmbient(p, volume, pitch, flags);
+            soundscapeClient.SoundscapeEmitAmbient(p, volume, pitch, flags);
     }
 
     public void EmitWorld(string wave, float volume, int soundLevel, int pitch, int flags, Vector origin)
     {
-        if (!api.ClientAttached)
-            return;
         float* o = stackalloc float[] { origin.X, origin.Y, origin.Z };
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeEmitWorld(p, volume, soundLevel, pitch, flags, o);
+            soundscapeClient.SoundscapeEmitWorld(p, volume, soundLevel, pitch, flags, o);
     }
 
     public void StopWorld(string wave)
     {
-        if (!api.ClientAttached)
-            return;
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeStopWorld(p);
+            soundscapeClient.SoundscapeStopWorld(p);
     }
 
     public void SetRoomType(int roomType)
     {
-        if (api.ClientAttached)
-            api.ClientShims.SoundscapeSetRoomType(roomType);
+        soundscapeClient.SoundscapeSetRoomType(roomType);
     }
 
     public void SetPlayerDsp(int dspType)
     {
-        if (api.ClientAttached)
-            api.ClientShims.SoundscapeSetPlayerDsp(dspType);
+        soundscapeClient.SoundscapeSetPlayerDsp(dspType);
     }
 
     public void SetConVar(string name, string value)
     {
-        if (!(api.ServerAttached || api.ClientAttached))
-            return;
         fixed (byte* n = Utf8(name))
         fixed (byte* v = Utf8(value))
-            if (api.ServerShimsOrNull is { } __att1) __att1.SetNamedConVarValue(n, v);
-            else api.ClientShims.SetNamedConVarValue(n, v);
+            console.SetNamedConVarValue(n, v);
     }
 
     public void RevertConVar(string name)
     {
-        if (!(api.ServerAttached || api.ClientAttached))
-            return;
         fixed (byte* n = Utf8(name))
-            if (api.ServerShimsOrNull is { } __att2) __att2.RevertNamedConVar(n);
-            else api.ClientShims.RevertNamedConVar(n);
+            console.RevertNamedConVar(n);
     }
 
     public void MainView(out Vector origin, out Vector forward, out Vector right)
@@ -73,21 +59,18 @@ internal sealed unsafe class SoundscapeAudioSlots(EngineSide api) : ISoundscapeA
         float* v = stackalloc float[9];
         for (int i = 0; i < 9; i++)
             v[i] = 0;
-        if (api.ClientAttached)
-            api.ClientShims.SoundscapeMainView(v);
+        soundscapeClient.SoundscapeMainView(v);
         origin = new Vector(v[0], v[1], v[2]);
         forward = new Vector(v[3], v[4], v[5]);
         right = new Vector(v[6], v[7], v[8]);
     }
 
-    public bool MakingResLists => api.ClientAttached && api.ClientShims.SoundscapeMakingResLists() != 0;
+    public bool MakingResLists => soundscapeClient.SoundscapeMakingResLists() != 0;
 
     public void TouchSoundFile(string wave)
     {
-        if (!api.ClientAttached)
-            return;
         fixed (byte* p = Utf8(wave))
-            api.ClientShims.SoundscapeTouchSoundFile(p);
+            soundscapeClient.SoundscapeTouchSoundFile(p);
     }
 }
 

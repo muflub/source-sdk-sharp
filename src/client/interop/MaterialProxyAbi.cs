@@ -204,22 +204,25 @@ public interface IClientMaterialProxies
 }
 
 /// <summary>The real one, over IShimMaterialProxyClient.</summary>
-public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExecutor
+internal sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExecutor
 {
-    private readonly EngineSide _api;
+    // The shim area this calls, handed over by the client root once the
+    // side's areas are attached (plan_shim_areas_split phase 5).
+    private readonly MaterialProxyClientArea _materialProxyClient;
 
-    internal ClientMaterialProxyExecutor(EngineSide api) => _api = api;
+    internal ClientMaterialProxyExecutor(MaterialProxyClientArea materialProxyClient)
+    {
+        _materialProxyClient = materialProxyClient;
+    }
 
     public int FindVar(int handle, string name, bool complain, out bool found)
     {
         found = false;
-        if (!_api.ClientAttached)
-            return -1;
         byte[] utf8 = Vtable.Utf8(name);
         int f = 0;
         int slot;
         fixed (byte* p = utf8)
-            slot = _api.ClientShims.ProxyFindVar(handle, p, complain ? 1 : 0, &f);
+            slot = _materialProxyClient.ProxyFindVar(handle, p, complain ? 1 : 0, &f);
         found = f != 0;
         return slot;
     }
@@ -227,15 +230,13 @@ public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExe
     public int FindTexture(int handle, string name, string group, bool complain, out bool isError)
     {
         isError = false;
-        if (!_api.ClientAttached)
-            return -1;
         byte[] n = Vtable.Utf8(name);
         byte[] g = Vtable.Utf8(group);
         int e = 0;
         int slot;
         fixed (byte* pn = n)
         fixed (byte* pg = g)
-            slot = _api.ClientShims.ProxyFindTexture(handle, pn, pg, complain ? 1 : 0, &e);
+            slot = _materialProxyClient.ProxyFindTexture(handle, pn, pg, complain ? 1 : 0, &e);
         isError = e != 0;
         return slot;
     }
@@ -243,10 +244,8 @@ public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExe
     public int VarTexture(int handle, int slot, out string? name)
     {
         name = null;
-        if (!_api.ClientAttached)
-            return -1;
         byte* buffer = stackalloc byte[260];
-        int frames = _api.ClientShims.ProxyVarTexture(handle, slot, buffer, 260);
+        int frames = _materialProxyClient.ProxyVarTexture(handle, slot, buffer, 260);
         if (frames >= 0)
             name = Marshal.PtrToStringUTF8((nint)buffer);
         return frames;
@@ -255,38 +254,31 @@ public sealed unsafe class ClientMaterialProxyExecutor : IClientMaterialProxyExe
     public ProxyEntityRaw BindEntity(int handle)
     {
         var raw = new ProxyEntityRaw { EntIndex = -1, RenderAlpha = -1, IsNpc = -1 };
-        if (_api.ClientAttached)
-            _api.ClientShims.ProxyBindEntity(handle, &raw);
+        _materialProxyClient.ProxyBindEntity(handle, &raw);
         return raw;
     }
 
     public bool ReadView(int kind, Span<float> values)
     {
-        if (!_api.ClientAttached)
-            return false;
         fixed (float* p = values)
-            return _api.ClientShims.ProxyReadView(kind, p, values.Length) != 0;
+            return _materialProxyClient.ProxyReadView(kind, p, values.Length) != 0;
     }
 
     public bool PlayerCustomFile(int player, out uint crc)
     {
         crc = 0;
-        if (!_api.ClientAttached)
-            return false;
         uint c = 0;
-        int ok = _api.ClientShims.ProxyPlayerCustomFile(player, &c);
+        int ok = _materialProxyClient.ProxyPlayerCustomFile(player, &c);
         crc = c;
         return ok != 0;
     }
 
     public void NotShipped(string capability, string reason)
     {
-        if (!_api.ClientAttached)
-            return;
         byte[] c = Vtable.Utf8(capability);
         byte[] r = Vtable.Utf8(reason);
         fixed (byte* pc = c)
         fixed (byte* pr = r)
-            _api.ClientShims.ProxyNotShipped(pc, pr);
+            _materialProxyClient.ProxyNotShipped(pc, pr);
     }
 }

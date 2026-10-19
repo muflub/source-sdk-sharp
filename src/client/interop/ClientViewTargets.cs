@@ -3,18 +3,18 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The real targets, over the slots.</summary>
-internal sealed unsafe class ClientViewTargets(EngineSide api) : IViewTargets
+internal sealed unsafe class ClientViewTargets(ViewClientArea viewClient) : IViewTargets
 {
     public bool Render(int target, in ViewTargetSetup setup)
     {
         var copy = setup;
-        return api.ClientShims.RenderViewToTarget(target, &copy) != 0;
+        return viewClient.RenderViewToTarget(target, &copy) != 0;
     }
 
     public bool Info(int target, out ViewTargetInfo info)
     {
         int* out4 = stackalloc int[4];
-        if (api.ClientShims.ViewTargetInfo(target, out4) == 0)
+        if (viewClient.ViewTargetInfo(target, out4) == 0)
         {
             info = default;
             return false;

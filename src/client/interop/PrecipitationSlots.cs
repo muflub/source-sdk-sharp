@@ -2,19 +2,17 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Interop;
 
-internal sealed unsafe class ClientPrecipitationSlots(EngineSide api) : IClientPrecipitationEngine
+internal sealed unsafe class ClientPrecipitationSlots(PrecipitationClientArea precipitationClient) : IClientPrecipitationEngine
 {
     public bool TraceLine(in Vector start, in Vector end, uint mask, bool ignorePlayer, out float fraction, out Vector endPos, out ushort surfaceFlags)
     {
         fraction = 1.0f;
         endPos = end;
         surfaceFlags = 0;
-        if (!api.ClientAttached)
-            return false;
         float* s = stackalloc float[] { start.X, start.Y, start.Z };
         float* e = stackalloc float[] { end.X, end.Y, end.Z };
         float* o = stackalloc float[5];
-        if (api.ClientShims.PrecipitationTraceLine(s, e, unchecked((int)mask), ignorePlayer ? 1 : 0, o) < 5)
+        if (precipitationClient.PrecipitationTraceLine(s, e, unchecked((int)mask), ignorePlayer ? 1 : 0, o) < 5)
             return false;
         fraction = o[0];
         endPos = new Vector(o[1], o[2], o[3]);
@@ -29,14 +27,12 @@ internal sealed unsafe class ClientPrecipitationSlots(EngineSide api) : IClientP
         fraction = 1.0f;
         startSolid = false;
         endPos = end;
-        if (!api.ClientAttached)
-            return false;
         float* s = stackalloc float[] { start.X, start.Y, start.Z };
         float* e = stackalloc float[] { end.X, end.Y, end.Z };
         float* lo = stackalloc float[] { hullMin.X, hullMin.Y, hullMin.Z };
         float* hi = stackalloc float[] { hullMax.X, hullMax.Y, hullMax.Z };
         float* o = stackalloc float[6];
-        if (api.ClientShims.PrecipitationTraceVolume(owner.Value, s, e, lo, hi, o) < 6)
+        if (precipitationClient.PrecipitationTraceVolume(owner.Value, s, e, lo, hi, o) < 6)
             return false;
         hit = o[0] != 0;
         fraction = o[1];
@@ -47,20 +43,16 @@ internal sealed unsafe class ClientPrecipitationSlots(EngineSide api) : IClientP
 
     public int PointContents(in Vector position)
     {
-        if (!api.ClientAttached)
-            return 0;
         float* p = stackalloc float[] { position.X, position.Y, position.Z };
-        return api.ClientShims.PrecipitationPointContents(p);
+        return precipitationClient.PrecipitationPointContents(p);
     }
 
-    public bool InPvs(EntityHandle owner) => api.ClientAttached && api.ClientShims.PrecipitationInPvs(owner.Value) != 0;
+    public bool InPvs(EntityHandle owner) => precipitationClient.PrecipitationInPvs(owner.Value) != 0;
 
     public PrecipitationPlayerRead? Player()
     {
-        if (!api.ClientAttached)
-            return null;
         float* o = stackalloc float[12];
-        if (api.ClientShims.PrecipitationPlayer(o) == 0)
+        if (precipitationClient.PrecipitationPlayer(o) == 0)
             return null;
         return new PrecipitationPlayerRead(new Vector(o[0], o[1], o[2]), new Vector(o[3], o[4], o[5]), o[6],
                                            new Vector(o[7], o[8], o[9]), o[10], (int)o[11]);
@@ -68,14 +60,12 @@ internal sealed unsafe class ClientPrecipitationSlots(EngineSide api) : IClientP
 
     public (Vector Mins, Vector Maxs) WorldBounds()
     {
-        if (!api.ClientAttached)
-            return default;
         float* o = stackalloc float[6];
-        api.ClientShims.PrecipitationWorldBounds(o);
+        precipitationClient.PrecipitationWorldBounds(o);
         return (new Vector(o[0], o[1], o[2]), new Vector(o[3], o[4], o[5]));
     }
 
-    public int ScreenWidth() => api.ClientAttached ? api.ClientShims.PrecipitationScreenWidth() : 0;
+    public int ScreenWidth() => precipitationClient.PrecipitationScreenWidth();
 }
 
 /// <summary>What the render call lands on.</summary>
