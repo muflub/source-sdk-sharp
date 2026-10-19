@@ -1273,6 +1273,35 @@ next one. It is a full client compile, so not per commit.
   physics 2.3/2.5), the player shadow apply (1.8 vs ~0.2 us, debug, near the
   instrument's resolution), and client ragdolls in game after warm-up (9-12 us
   per ragdoll-frame including JIT; lane B's bench says ~3.9 us per body).
+  Closed 2026-10-19 (lane rel-physics-measure, at 75852d9e7): none of the
+  three is significant in release. Instruments: `cs_sv_physics_cost`
+  (physics.frame / .simulate / .managed = frame less its solves,
+  shadow.step / .apply, timer.empty) and `cs_cl_ragdolls`' clragdoll.step /
+  .write rows, all on CostMeter (two Stopwatch timestamps a call; the
+  timer's floor read 20 ns median, at 1 ns ticks). Load: release, listen
+  server, dm_lockdown with 124 prop_physics (8 crates dropped every 2 s),
+  the player strafing; then a death every 2 s for ~4 client corpses.
+  40 s warm-up, five 10 s windows per phase; figures are the quiet runs
+  (load average under 3.2, one idle peer game), as the median of the
+  windows' medians / p95s, and the overall mean:
+  - physics frame per tick: 132-182 us median (p95 252-295), of which the
+    vphysics solve 96-139 us and managed's own share 36-43 us median (p95
+    51-58, mean 36-43): 0.24-0.29% of the 15 ms tick. Native comparator
+    (pre-switch tree 2f4a07f1d, release, same load, clock_gettime around
+    CPhysicsHook::FrameUpdatePostEntityThink less its Simulate): 31 us
+    median, 33 us mean. Managed adds ~5-10 us a tick (~0.05% of it).
+  - player shadow, per command: step (probe, plan, apply) 0.8-1.0 us
+    median, mean 2.0-2.7 us; apply alone 0.23-0.28 us median, mean
+    0.9-1.0 us. Native-era tree (native probe and apply behind a managed
+    plan): step 0.35-1.2 us median, mean 1.4-1.5; apply 0.08-0.21 us
+    median, mean 0.24-0.59. About 1 us more a command, ~0.01% of a tick.
+  - client ragdolls: 1.28 us per body-frame for the step (4.4 us a frame at
+    4 bodies) and 1.23 us median (mean 1.41) per bone write: ~2.7 us per
+    ragdoll-frame against debug's 9-12; 4 bodies are ~11 us of a 16.7 ms
+    frame (0.07%). No native comparator (the pre-switch tree is the
+    server's; the client bodies' switch is another commit).
+  Under a busy box (load 15-32, runs at 05:29-05:51) both sides inflate
+  alike: managed's frame share up to 84 us median, native's to 68 us.
 
 - **Client sequence transitions are not blended** (found 2026-10-12, when
   fork sequence_Transitioner.cpp was found gc-dropped from client.so): stock

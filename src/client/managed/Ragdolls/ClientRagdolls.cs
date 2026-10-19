@@ -5,7 +5,6 @@
 //
 //=============================================================================//
 
-using System.Diagnostics;
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 using SourceSharp.Shared.Bones;
@@ -371,10 +370,9 @@ public sealed class ClientRagdolls(
         if (!_bodies.TryGetValue(owner, out RagdollBody? body))
             return -1;
 
-        long start = Stopwatch.GetTimestamp();
+        long start = CostMeter.Start();
         int written = WriteBones(body, bones, owned);
-        WriteTicks += Stopwatch.GetTimestamp() - start;
-        Writes++;
+        WriteCost.Stop(start);
         return written;
     }
 
@@ -442,10 +440,9 @@ public sealed class ClientRagdolls(
         if (_bodies.Count == 0)
             return 0;
 
-        long start = Stopwatch.GetTimestamp();
+        long start = CostMeter.Start();
         int stepped = Step();
-        StepTicks += Stopwatch.GetTimestamp() - start;
-        StepBodyFrames += _bodies.Count;
+        StepCost.Stop(start, _bodies.Count);
         return stepped;
     }
 
@@ -455,20 +452,33 @@ public sealed class ClientRagdolls(
     // frame. Two timestamps a frame and two a write; never reset by the game.
     //-------------------------------------------------------------------------
 
+    /// <summary>
+    /// <see cref="StepPoses"/> with at least one body: one call a frame, its
+    /// units the bodies it covered (the per-body-frame divisor).
+    /// </summary>
+    public CostMeter StepCost { get; } = new();
+
+    /// <summary><see cref="WriteBones"/> for a body this table holds, one call a write.</summary>
+    public CostMeter WriteCost { get; } = new();
+
     /// <summary>Stopwatch ticks spent in <see cref="StepPoses"/> with at least one body.</summary>
-    public long StepTicks { get; private set; }
+    public long StepTicks => StepCost.TotalTicks;
 
     /// <summary>Bodies those steps covered, summed: the per-body-frame divisor.</summary>
-    public long StepBodyFrames { get; private set; }
+    public long StepBodyFrames => StepCost.Units;
 
     /// <summary>Stopwatch ticks spent in <see cref="WriteBones"/> for a body this table holds.</summary>
-    public long WriteTicks { get; private set; }
+    public long WriteTicks => WriteCost.TotalTicks;
 
     /// <summary>Those writes.</summary>
-    public long Writes { get; private set; }
+    public long Writes => WriteCost.Calls;
 
     /// <summary>Zeroes the meter (cs_cl_ragdolls reset).</summary>
-    public void ResetCost() => StepTicks = StepBodyFrames = WriteTicks = Writes = 0;
+    public void ResetCost()
+    {
+        StepCost.Reset();
+        WriteCost.Reset();
+    }
 
     /// <summary>The bodies the last <see cref="ScanMoved"/> found moved, in table order.</summary>
     private readonly List<RagdollBody> _moved = [];

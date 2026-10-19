@@ -323,6 +323,21 @@ public sealed unsafe class PlayerShadow
         if (api is null || !api.ServerAttached || Bodies is not { } bodies)
             return false;
 
+        long start = CostMeter.Start();
+        bool applied = Run(api, bodies, player, commandIndex, enabled);
+        StepCost.Stop(start);
+        return applied;
+    }
+
+    /// <summary>
+    /// <see cref="Step"/>'s wall time on a side with shadows, one call a
+    /// command: the probe, the plan, a climb's trace and the apply, every
+    /// crossing included (cs_sv_physics_cost).
+    /// </summary>
+    public CostMeter StepCost { get; } = new();
+
+    private bool Run(EngineSide api, PlayerShadowBodies bodies, EntityHandle player, int commandIndex, bool enabled)
+    {
         // The probe is managed's since plan_physics_bones_native_zero 2.5:
         // native's facts and vphysics' own reads (PlayerShadowBodies.Probe).
         if (bodies.Probe(player, out PlayerShadowFacts facts, afterCommand: true) is not { } state)

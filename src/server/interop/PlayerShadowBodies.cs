@@ -479,6 +479,19 @@ public sealed class PlayerShadowBodies : IPlayerShadows
     /// </summary>
     public void Apply(EntityHandle player, in PlayerShadowFacts facts, in PlayerShadowPlan plan)
     {
+        long start = CostMeter.Start();
+        ApplyPlan(player, in facts, in plan);
+        ApplyCost.Stop(start);
+    }
+
+    /// <summary>
+    /// <see cref="Apply"/>'s wall time, one call a command, every vphysics
+    /// and native crossing it makes included (cs_sv_physics_cost).
+    /// </summary>
+    public CostMeter ApplyCost { get; } = new();
+
+    private void ApplyPlan(EntityHandle player, in PlayerShadowFacts facts, in PlayerShadowPlan plan)
+    {
         if (plan.Valid == 0 || facts.Controller == 0)
             return;
 

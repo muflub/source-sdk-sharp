@@ -536,6 +536,17 @@ public class PlayerShadowBodiesTests
     }
 
     [Fact]
+    public void The_cost_meter_times_each_apply()
+    {
+        GiveBody();
+        Apply(Plan(new Vector(1, 1, 1), new Vector(320, 320, 320)));
+        Apply(default);
+
+        Assert.Equal(2, _bodies.ApplyCost.Calls);
+        Assert.True(_bodies.ApplyCost.TotalTicks > 0, "a timed apply has a duration");
+    }
+
+    [Fact]
     public void An_invalid_plan_does_nothing()
     {
         GiveBody();
