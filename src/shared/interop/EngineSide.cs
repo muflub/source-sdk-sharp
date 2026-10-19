@@ -257,6 +257,13 @@ internal sealed unsafe partial class EngineSide
     /// <summary>The server's areas, or null when they are not attached.</summary>
     internal ShimAreas? ServerShimsOrNull => _shims;
 
+    /// <summary>
+    /// The client's areas, or null when they are not attached: what a client
+    /// composition root hands an adapter, which takes the areas it calls
+    /// (plan_shim_areas_split phase 5).
+    /// </summary>
+    internal ClientShimAreas? ClientShimsOrNull => _clientShims;
+
     /// <summary>Binds every generated area; the server calls this from LoadSideV2.</summary>
     internal bool AttachShims(ShimRoot root, out string why)
     {

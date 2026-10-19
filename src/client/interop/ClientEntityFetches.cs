@@ -44,7 +44,7 @@ public static class ClientEntityFetches
         services.AddInstance<IClientBeamExecutor>(new ClientBeamExecutor(engine.Api));
 
         // The UI's draw primitives (plan_client_ui U2), for VguiBackend.
-        services.AddInstance<IUiSurface>(new ClientUiSurface(engine.Api));
+        services.AddInstance<IUiSurface>(new ClientUiSurface(engine.Api.ClientShimsOrNull?.UiClient));
         services.AddInstance<IClientDebugOverlay>(new ClientDebugOverlay(engine.Api));
 
         // The second cameras' render targets (lane camproto).
