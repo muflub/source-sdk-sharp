@@ -1,133 +1,104 @@
 #!/usr/bin/env python3
-"""tools/vtable-layout -- SourceSharp.Abi's vtable structs, generated from the
-interface headers.
+"""tools/vtable-layout -- the header walk that types every interface's slots
+from its own declaration.
 
-    tools/vtable-layout               regenerate and DIFF against the committed
-                                      VtableLayouts.g.cs
-    tools/vtable-layout --emit        print the generated file
-    tools/vtable-layout --write       write it
+    tools/vtable-layout               walk and type every row, and print one
+                                      line per interface
     tools/vtable-layout --self-test   check this script's own reporting
 
-    exit 0   the committed file is what the headers say
-    exit 1   it is not -- run --write and read the diff
-    exit 2   a header could not be read, or a type could not be mapped
+    exit 0   every row is typed from its header and every policy key names a
+             declaration
+    exit 1   a policy key names a method its class does not declare
+    exit 2   a header could not be read, or a slot could not be typed or
+             accounted for
 
-WHAT THIS REPLACED, AND WHY IT IS SO MUCH SMALLER
-=================================================
+A LIBRARY FIRST, A CHECK SECOND
+===============================
 
-There used to be `tools/vtable-index`, and beside it `tools/vtable-live-diff`,
-`EngineVtableDifferential`, `Rtti`, a conditional-floor measurement against the
-shipped engine, and a ledger per interface pairing every
-slot with a mangled symbol and a refusal. Five derivations of every index,
-compared, plus a live differential that called each bound method and held the
-answer against something outside the engine.
+Two generators load this file as a module and read the rows and the walk
+below. Neither keeps a header walk or a type map of its own, so the three
+cannot disagree about a slot:
 
-All of it is gone, on the owner's ruling, and the ruling is one sentence:
+  * tools/engine-forwarders reads INTERFACES, chain_steps / derive_chain and
+    signature_of. It writes one native forwarder per engine or shim method
+    managed calls -- an ordinary virtual call, which native compiles -- and
+    the C# function-pointer type of each, from the declaration walked here.
+    A row's `struct` names the forwarder table, the last class of its
+    `chain` is the forwarder's self type, its `header` is the include, and
+    its `suppress` lists the methods whose forwarders skip the GC transition.
+  * tools/managed-areas reads signature_of, normalise_signature,
+    normalise_parameter and slot_hash. It writes both sides of every table
+    managed builds from docs/managed-interfaces.tsv, typing each slot with
+    the same map a forwarder is typed with and hashing that type for
+    native's Validate.
+
+So what a row here claims is each declared method's C signature, in
+declaration order, with overrides folded into the slot they override. It is
+NOT a claim about a struct managed indexes: managed reads no vtable by layout.
+That is also why nothing here numbers a table the way MSVC does (one slot for
+a virtual destructor, overloads grouped and reversed): a forwarder is a
+virtual call each compiler numbers for itself.
+
+The check (no flags) walks every row and types every slot, so a header the
+walk cannot follow, a type the map does not name, an untypeable slot with no
+account of itself on an exposed interface, or a `suppress` entry naming no
+slot fails here, by name, rather than as a forwarder that compiles and is
+wrong.
+
+THE CONTRACT THE WALK RESTS ON
+==============================
 
     THE ENGINE FACTORY INTERFACES ARE STABLE AND DO NOT CHANGE UNLESS THE
     INTERFACE VERSION STRING CHANGES.
 
-That is the contract Valve's own convention already states, and it makes the
-elaborate half of the old apparatus an answer to a question nobody was asking.
-`CreateInterface` either answers for "VEngineClient014" or it does not, and if
-it does, the layout is the layout that string names.
+That is the convention Valve's own headers state. `CreateInterface` either
+answers for "VEngineClient014" or it does not, and if it does, the layout is
+the one that string names -- so the walk reads each header once, as the
+engine was compiled against it, rather than deriving every slot several ways
+and comparing the answers.
 
-WHAT IS LEFT, AND IT IS ONE COMPARISON
-======================================
+The assumption is made true rather than trusted. Native is compiled with the
+engine's own defines -- for `cdll_int.h`, `USE_SDL` in and `NO_VOICE` out --
+and DEFINES below evaluates the same conditionals, so a declaration under a
+`#if` that is false in that build occupies no slot here either, and one under
+a condition DEFINES cannot decide is refused rather than guessed.
 
-A generated struct is a CLAIM about how many methods an interface has, and the
-only way that claim can be wrong is if this file goes stale against the header.
-So:
+EVERY SLOT IS TYPED
+===================
 
-  * native holds a precompiled count per version string, taken from the
-    compiler via `VTableHook::MemberOf( &Interface::LastMethod ).slot + 1`
-    (src/sourcesharp/game/shared/shell_vtable_interfaces.cpp);
-  * `SourceSharp_AcquireInterface` hands managed the pointer AND that count;
-  * managed compares it to `sizeof(TVtbl) / sizeof(void *)` and refuses,
-    naming both numbers, when they differ.
+Every slot gets a real `delegate* unmanaged<...>`, derived from the header's
+own parameter list AND its return type. The type describes the ABI; it does
+not decide what may be called.
 
-Nothing per call. Nothing at all once the object is bound.
-
-AND THE ASSUMPTION UNDER IT IS MADE TRUE RATHER THAN TRUSTED. Native is
-compiled with the same defines as the engine -- which for `cdll_int.h` means
-`USE_SDL` in and `NO_VOICE` out, the shipped engine's own settings. That is
-stated at the top of every translation unit that compiles those headers and
-pinned by a static_assert in
-src/sourcesharp/test/vtable_index_agreement_test.cpp.
-
-EVERY SLOT IS TYPED, AND THAT IS A CHANGE
-=========================================
-
-The old file carried `nint NotBound_<Method>` for 259 of its 350 fields --
-"nobody has looked". Nobody was ever going to look, because looking meant
-re-running a five-derivation apparatus that no longer exists. The full C++
-declaration was already printed in the trailing comment of every one of them,
-so the types were present and unused.
-
-They are used now. Every slot gets a real `delegate* unmanaged<...>`, derived
-from the header's own parameter list AND its return type. THE STRUCT DESCRIBES
-THE ABI; it does not decide what may be called.
-
-REFUSAL IS A NARROWER WORD HERE THAN IT WAS
-===========================================
-
-`Refused_` now means exactly one thing: MANAGED CANNOT EXPRESS THE CALL. Seven
-slots of 350 -- five varargs and two returning `Vector` by value.
-
-FOUR of the seven have a C++ proxy taking marshalable parameters, named in the
-field's own comment: IVEngineClient013's two `Con_N*Printf` and its two
-`GetLightForPoint*`. The other three are IVEngineServer's varargs, and they get
-no proxy on purpose -- policy already exposes nothing there, so a proxy would be
-dead code. `ClientCommand` says so itself: "varargs ... and it runs a command on
-a client, so it would be refused twice over".
-
-Everything else the old file called a refusal was POLICY: a side effect, an
-environment-dependent agreement, zero call sites. Policy decides what the IMPL
-CLASS exposes, never what the struct says, and its 73 reasons are carried in
-tools/vtable-policy.json and copied onto the fields they name. A refusal whose
+`Refused_` means exactly one thing: MANAGED CANNOT EXPRESS THE CALL --
+varargs, or a class passed by value that BY_VALUE_RETURNS does not name. On
+an exposed interface such a slot needs an account of itself: a C++ proxy
+taking marshalable parameters (PROXIES), or a policy reason saying nothing
+exposes it anyway, in which case a proxy would be dead code. A refusal whose
 only trace is a deleted method is one somebody re-attempts.
 
-The 73rd was found by this rule rather than carried into it: IVEngineServer's
-`Con_NXPrintf` had no reason of its own, only a mention inside `Con_NPrintf`'s
-prose, where nothing keyed by method could see it.
+POLICY IS NOT VERIFICATION. tools/vtable-policy.json says, per method, why a
+slot this tree CAN type is still not exposed. It never changes a slot's type.
+Here it accounts for a refused slot, and the check requires every key to name
+a declaration of the class it is filed under, so a method renamed in a header
+takes its reason with it instead of leaving a reason about nothing.
 
 THE DESTRUCTOR PAIR
 ===================
 
-An interface with a virtual destructor reserves its FIRST TWO vtable slots, and
-this is emitted uniformly for any such interface rather than as a special case
-for IVModelInfo:
+An interface with a virtual destructor reserves its FIRST TWO slots on the
+Itanium ABI, and the walk counts them uniformly for any such interface rather
+than as a special case for one:
 
   Complete Object Destructor (D1) -- destroys the object's members and
-  subobjects but does not free the memory. Used for objects on the stack, for
-  member variables, and for elements in an array.
+  subobjects but does not free the memory.
 
   Deleting Destructor (D0) -- calls the complete object destructor (D1) and
-  then invokes operator delete to free the dynamic memory. Used when you
-  explicitly call `delete ptr`.
+  then invokes operator delete to free the dynamic memory.
 
-They are commented "destructor 1" and "destructor 2", are never bound, and must
-never be called from managed: slot 1 would free the engine's singleton.
-
-WINDOWS: ONE ORDER OR NONE
-==========================
-
-The engine's Windows binaries are MSVC's, and MSVC numbers some tables
-differently: a virtual destructor takes ONE slot, and each class's overloads
-are grouped by name and laid out in REVERSE declaration order
-(`microsoft_slots`). Managed calls every engine and vphysics table through the
-generated forwarders (tools/engine-forwarders), which native compiles as
-ordinary virtual calls, so those rows are not emitted: they stay here only so
-the forwarder generator can read their signatures.
-
-What IS emitted (`emitted`: a shim row, or a table managed writes) must have
-one order on both ABIs, its field order, and the generator refuses one MSVC
-orders differently rather than describe both. The Steam callback was the one
-such table, and libss_fwd_client now builds it natively. A slot returning a
-class by value is refused too: MSVC passes a member function's return buffer
-after `this` and a free function's before its first argument, which a
-function pointer read by layout cannot say. vtable_index_agreement_test holds
-every emitted length to the compiler, on each platform's build.
+The walk yields the pair as one `~destructor` declaration two slots wide.
+Nothing forwards it, and nothing may call it from managed: slot 1 would free
+the engine's singleton.
 """
 
 import argparse
@@ -138,78 +109,21 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-MANAGED = 'src/sourcesharp/managed/SourceSharp.Abi'
-VTBL_FILE = MANAGED + '/VtableLayouts.g.cs'
 POLICY_FILE = os.path.join(HERE, 'vtable-policy.json')
 
 # The two headers a chain's BASE most often comes from.
 APP = 'src/public/appframework/IAppSystem.h'
 BASE = 'src/public/tier1/interface.h'
-MANAGED_CORE = 'src/sourcesharp/game/shared/imanaged_core.h'   # IManagedObject, every managed-built interface's base (L1b)
-
-POINTER_SIZE = 8
-
-# The column trailing declaration comments are aligned to.
-ALIGN = 62
 
 
 # ---------------------------------------------------------------------------
-# THE CHAIN KINDS -- which side of the boundary WRITES the table.
-#
-# `called-by-managed` is every row below that says nothing: native (the engine,
-# or the shim) owns the object and its vtable, managed is handed the pointer and
-# CALLS through it. That is the only direction this file knew until
-# plan_globals.md G2 item 5.
-#
-# `implemented-by-managed` is the reverse. Native owns only the C++ abstract
-# class; MANAGED builds the object -- `{ void **vtbl; nint gcHandle; }` in
-# NativeMemory, the vtable filled with the addresses of [UnmanagedCallersOnly]
-# thunks -- and hands native the address, which native uses as an ordinary
-# `I<Area> *`. The struct emitted for such a row is the same shape, field N at
-# byte 8N, because it describes the same ABI; what changes is who fills it, so
-# it carries [ImplementedByManaged] and the fifth generator in
-# SourceSharp.Generators (ManagedVtableGenerator) accepts NO OTHER struct.
-#
-# The kind adds refusals, and each is a thing the reverse direction cannot
-# survive rather than a matter of taste:
-#
-#   * NO VIRTUAL DESTRUCTOR. Itanium emits two slots for one (D1 and D0), and
-#     `delete` through the pointer would run a deleting destructor on memory the
-#     C++ heap never allocated. Lifetime is an explicit `Release()`.
-#   * THE LAST SLOT IS `void Release()`. The generator owns it -- it frees the
-#     GCHandle and tombstones the block -- and native's count check is taken
-#     from it (`VTableHook::MemberOf( &I::Release ).slot + 1`), so it has to be
-#     last for the count to mean the whole table.
-#   * EVERY SLOT IS EXPRESSIBLE. A `Refused_` slot is a hole managed cannot fill,
-#     and a hole in a table native calls is a call through garbage. A C++ proxy
-#     does not help either: proxies serve managed calling native, and here
-#     native calls managed.
-#   * NO POLICY. `NOT EXPOSED` decides what managed may CALL; managed implements
-#     every slot of a table it writes, so a policy entry against one is a
-#     sentence about nothing.
+# THE SLOT HASH. tools/managed-areas stamps one on every slot of a table
+# managed builds, and native checks them all in Validate before it calls any
+# slot. It is the hash of the slot's C# function-pointer TYPE and nothing
+# else, so a slot or a parameter renamed still validates and a retyped one
+# does not. It lives beside signature_of so that the type which is hashed and
+# the type which is spelled come out of one map.
 # ---------------------------------------------------------------------------
-CALLED_BY_MANAGED = 'called-by-managed'
-IMPLEMENTED_BY_MANAGED = 'implemented-by-managed'
-
-# VALVE'S LAYOUT, WRITTEN BY MANAGED (plan_physics_managed B0b). A callback
-# interface vphysics or the engine calls -- IPhysicsCollisionEvent,
-# IPhysicsObjectEvent, IMotionEvent -- whose slots are Valve's, so it cannot
-# carry our Release/Validate pair. Managed builds the table in the same
-# NativeMemory block as an implemented-by-managed one (the caller reads word 0
-# only) and frees it itself when the native holder is done with it; nothing
-# native validates it, so the slot hashes serve the reload's compatibility
-# check alone. Refused for a virtual destructor, as above: the caller could
-# `delete` a block the C++ heap never allocated.
-VALVE_BY_MANAGED = 'valve-implemented-by-managed'
-KINDS = (CALLED_BY_MANAGED, IMPLEMENTED_BY_MANAGED, VALVE_BY_MANAGED)
-MANAGED_WRITTEN = (IMPLEMENTED_BY_MANAGED, VALVE_BY_MANAGED)
-
-
-def kind_of(entry):
-    """The row's chain kind; a row that names none is called-by-managed."""
-    return entry.get('kind', CALLED_BY_MANAGED)
-
-
 def slot_hash(declaration):
     """FNV-1a 32 over a field declaration's TYPE, all whitespace removed:
     `delegate* unmanaged<void*, int, int> Add;` hashes `delegate*unmanaged<void*,int,int>`."""
@@ -221,81 +135,11 @@ def slot_hash(declaration):
     return h
 
 
-def reserved_spelling(entry):
-    """The attribute's `, ReservedWords = N` for a row with caller-owned words
-    after the vptr (CCallbackBase's flags and id), else ''."""
-    words = entry.get('reserved_words', 0)
-    return ', ReservedWords = %d' % words if words else ''
-
-
-def managed_implementation_refusals(rows, policy, valve_layout=False):
-    """Every reason a chain cannot be implemented by managed, or [].
-
-    `rows` is derive_chain's [(class, method, parameters, returns, slot)].
-    `valve_layout` is the valve-implemented-by-managed kind, which keeps the
-    caller's own slots and so has no Release/Validate pair to require.
-    """
-    why = []
-
-    if any(name == '~destructor' for _c, name, _p, _r, _s in rows):
-        why.append('declares a virtual destructor, which takes two slots (D1, D0) '
-                   'and would let native `delete` memory the C++ heap never '
-                   'allocated -- lifetime on this kind is an explicit Release()')
-
-    # THE TWO FIXED SLOTS (plan_managed_vtable_reload.md L1). Release is slot 0,
-    # a fixed index like a destructor, and Validate slot 1, with exactly this
-    # shape: native calls it before it knows anything else about the object,
-    # so its own signature can never be what changed.
-    def spelt(row):
-        return '%s %s( %s )' % (row[3], row[1], row[2]) if row else 'nothing'
-
-    def norm(text):
-        return ' '.join(text.replace('*', ' * ').split())
-
-    if valve_layout:
-        pass
-    elif not rows or rows[0][1] != 'Release' or rows[0][2].strip() not in ('', 'void') \
-            or rows[0][3].strip() != 'void':
-        why.append('does not start with `void Release()` (the first slot is %s): the '
-                   'generator owns Release and it is slot 0, a fixed index like a '
-                   'destructor' % spelt(rows[0] if rows else None))
-
-    if valve_layout:
-        pass
-    elif len(rows) < 2 or rows[1][1] != 'Validate' or norm(rows[1][3]) != 'int32_t' \
-            or norm(rows[1][2]) != norm('const uint32_t *, int32_t'):
-        why.append('does not have `int32_t Validate( const uint32_t *pSlotHashes, int32_t '
-                   'nSlots )` at slot 1 (it is %s): native calls it before it knows '
-                   'anything else about the object, so its shape is fixed'
-                   % spelt(rows[1] if len(rows) > 1 else None))
-
-    for cls, name, parameters, returns, _slot in rows:
-        if name == '~destructor':
-            continue
-
-        try:
-            signature_of(returns, parameters)
-        except Inexpressible as error:
-            why.append('%s::%s cannot be typed (%s): managed cannot fill a slot it '
-                       'cannot spell, and a proxy serves the other direction'
-                       % (cls, name, error))
-
-        if (cls, name) in PROXIES:
-            why.append('%s::%s names a C++ proxy, which is meaningless when native '
-                       'calls managed' % (cls, name))
-
-        if name in policy.get(cls, {}):
-            why.append('%s::%s has a policy reason, which decides what managed may '
-                       'CALL; managed implements every slot of this table'
-                       % (cls, name))
-
-    return why
-
-
 # ---------------------------------------------------------------------------
-# THE INTERFACES, and the struct each is emitted as.
+# THE INTERFACES, each walked from its own header.
 #
-# `chain` is a single-inheritance chain, BASE FIRST. A derived class with one
+# `struct` is the row's name, and tools/engine-forwarders names a forwarder
+# table after it, less its `Vtbl`. `chain` is a single-inheritance chain, BASE FIRST. A derived class with one
 # non-virtual base keeps the base's slots where they are and appends, so the
 # numbering is the concatenation of each class's own walk -- which is why a row
 # is named for the class that DECLARES it. IVEngineClient::GetProtocolVersion is
@@ -368,10 +212,10 @@ INTERFACES = [
     # docs/plan-audit.md 3.12 (the client's, re-derived over the 288 files this
     # client actually compiles) with the server's own census beside it.
     #
-    # A LAYOUT COSTS NOTHING TO HAVE and is generated for every interface the
-    # mod resolves, including the two with ZERO compiled call sites. What it
-    # does not do is expose anything: an impl class is written only where there
-    # is demand, and none of these has one yet.
+    # A ROW COSTS NOTHING TO HAVE and is walked for every interface the mod
+    # resolves, including the two with ZERO compiled call sites. What it does
+    # not do is call anything: a forwarder is written only for a method a
+    # FORWARD row in tools/engine-forwarders asks for.
     #
     # EVERY HEADER BELOW IS PINNED RATHER THAN DISCOVERED, and that is not
     # tidiness. Six of these class names are declared in TWO headers apiece --
@@ -379,9 +223,8 @@ INTERFACES = [
     # IVEfx in iefx.h and r_efx.h, and the three physics interfaces in
     # vphysics_interface.h and vphysics_interfaceV30.h. A discovery pass that
     # took the first match found the v21 IVEngineServer, which is an older
-    # declaration with a different numbering: it would have emitted a struct
-    # that compiles, has a plausible length, and is wrong from its first
-    # differing slot down.
+    # declaration with a different numbering: it would have typed every slot
+    # from that, plausibly, and been wrong from its first differing slot down.
     #--------------------------------------------------------------------------
 
     dict(
@@ -634,17 +477,11 @@ INTERFACES = [
     # -----------------------------------------------------------------------
     # THE SHIM LAYER'S OWN INTERFACES, walked exactly like the engine's.
     #
-    # `shim=True` changes NOTHING about the walk, the type map or the emitter,
-    # and saying so is the point: the whole argument for this route is that
-    # there is one acquisition mechanism and one call mechanism whether the
-    # object belongs to the engine or to us. The flag exists so the generated
-    # file can say which factory answers for a struct, and so a reader can tell
-    # a header this tree owns from one it does not.
-    #
-    # What the flag DOES change is the span check on the managed side --
-    # equality for the engine's five, `<=` for these -- and that difference is
-    # argued at Vtable.TryAcquire and in ishim_frame.h, not here. It is a
-    # property of the header's provenance, not of the walk.
+    # `shim=True` changes NOTHING about the walk or the type map, and saying
+    # so is the point: there is one call mechanism, a generated forwarder,
+    # whether the object belongs to the engine or to us. The flag marks a
+    # header this tree owns, and tools/engine-forwarders reads it to find the
+    # shim areas whose every slot it forwards.
     # -----------------------------------------------------------------------
     dict(
         struct='ShimFrameVtbl',
@@ -657,14 +494,12 @@ INTERFACES = [
                 'is made of.',
         note='OURS, NOT THE ENGINE\'S. The header is in this tree, the object '
              'is compiled from it in the same build by the same compiler with '
-             'the same defines, and this struct is generated from that same '
+             'the same defines, and its forwarders are generated from that same '
              'header -- so the provenance argument the engine layouts need does '
              'not arise. NO VIRTUAL DESTRUCTOR, deliberately: one would take '
              'the first two slots and the singleton behind this is never '
              'deleted through a base pointer. APPEND-ONLY BY RULE -- new '
-             'methods at the end, nothing inserted or reordered, because the '
-             'span check is `managed &lt;= native` and that protects against '
-             'appends and nothing else.',
+             'methods at the end, nothing inserted or reordered.',
     ),
     dict(
         struct='ShimLevelVtbl',
@@ -690,14 +525,12 @@ INTERFACES = [
         shim=True,
         header='src/sourcesharp/game/shared/ishim_root.h',
         chain=['IShimRoot'],
-        version='SourceSharpRoot002',
+        version='SourceSharpRoot003',
         summary='<c>IShimRoot</c>, the one native object LoadSideV2 hands the '
                 'server\'s managed side; every other shim interface is acquired '
                 'from it by name (plan_engineapi_vtables step A3).',
         note='OURS, NOT THE ENGINE\'S, and append-only by rule. NO VIRTUAL '
-             'DESTRUCTOR. Release is the LAST slot and the count anchor: native '
-             'reports MemberOf( &amp;IShimRoot::Release ).slot + 1 and managed '
-             'refuses a root whose count differs from this struct\'s.',
+             'DESTRUCTOR.',
     ),
     dict(
         struct='ShimConsoleVtbl',
@@ -711,8 +544,7 @@ INTERFACES = [
                 '(plan_engineapi_vtables step A4).',
         note='OURS, and a SHARED base: both DLLs serve these ten engine slots, '
              'so the client implements it too and serves it in its own wave. '
-             'Append-only; the count is read off ConsoleSnapshotEntry, the last '
-             'member.',
+             'Append-only.',
     ),
     dict(
         struct='ParticleLibVtbl',
@@ -725,8 +557,8 @@ INTERFACES = [
                 'collection, definition and manager members (plan_particles_so.md).',
         note='OURS: the header is in this tree and the object is the library\'s '
              'singleton, served by the CLIENT\'s internal factory. client.so\'s '
-             'forwards call the same object. APPEND-ONLY BY RULE; the count is read '
-             'off MgrUncacheAllParticleSystems. NO VIRTUAL DESTRUCTOR.',
+             'forwards call the same object. APPEND-ONLY BY RULE. NO VIRTUAL '
+             'DESTRUCTOR.',
     ),
     dict(
         struct='NetChannelInfoVtbl',
@@ -748,9 +580,7 @@ INTERFACES = [
         summary='<c>INetworkStringTable</c>, one of the engine\'s string tables, '
                 'as <c>FindTable</c> hands it back.',
         note='REACHED BY POINTER, NOT BY FACTORY NAME: the first row of that '
-             'kind. No factory hands a slot count with the pointer, so the '
-             'guarantee every factory row gets from that count comes from '
-             'vtable_index_agreement_test instead, which holds this layout to the '
+             'kind. vtable_index_agreement_test holds this layout to the '
              'header. The virtual destructor takes slots 0 and 1. The message of '
              'the day is the first caller: AddString with user data on the '
              'InfoPanel table.',
@@ -974,8 +804,7 @@ def shim_area_rows(path='docs/engineapi-areas.tsv'):
             summary='<c>%s</c>, generated by <c>tools/shim-areas</c> from '
                     '<c>docs/engineapi-areas.tsv</c>.' % i,
             note='OURS and GENERATED: the server\'s engine slots of this family, '
-                 'one method per slot, named after the slot. Append-only; the count '
-                 'is read off the last slot of the most-derived class.',
+                 'one method per slot, named after the slot. Append-only.',
         ))
 
     # plan_client_vtables CB: each shared base, which the client implements on
@@ -1475,7 +1304,7 @@ DEFINES = {
 
     # cdll_int.h's two, and the reason the whole file cares: the shipped engine
     # was built with voice IN and SDL IN, native is compiled to match, and
-    # shell_vtable_interfaces.cpp `#error`s if it is not.
+    # the native code that calls those slots `#error`s if it is not.
     'USE_SDL': True,
     'NO_VOICE': False,
 
@@ -1596,8 +1425,9 @@ def walk_body(body):
 
         # A VIRTUAL DESTRUCTOR TAKES TWO SLOTS -- the complete-object destructor
         # (D1) and the deleting destructor (D0) -- with one source line between
-        # them. Yielded as declarations of their own so the emitter can comment
-        # them rather than leaving a hole it has to guess the meaning of.
+        # them. Yielded as one declaration of its own, two slots wide, so a
+        # consumer skips the pair by name rather than meeting a hole it has to
+        # guess the meaning of.
         if '~' in signature:
             yield '~destructor', '', 'void', slot
             slot += 2
@@ -1732,98 +1562,6 @@ def derive_chain(steps, chain=None):
     return rows, overrides
 
 
-def microsoft_slots(steps, chain=None):
-    """({Itanium slot: Microsoft slot}, Microsoft table length) for one chain,
-    or (None, why).
-
-    THE SAME DECLARATIONS, NUMBERED THE WAY MSVC NUMBERS THEM. The engine's
-    Windows binaries are MSVC's, and the Microsoft C++ ABI orders a vftable by
-    two rules the Itanium ABI does not have:
-
-      * A VIRTUAL DESTRUCTOR TAKES ONE SLOT, the scalar deleting destructor,
-        where Itanium takes the D1/D0 pair. Its key is the destructor slot's
-        first Itanium number; the second has no Microsoft counterpart.
-
-      * OVERLOADS ARE GROUPED. Each class's NEW virtuals (an override keeps
-        its base's slot, exactly as in derive_chain) are laid out one group
-        per name, the groups in the order each name is first declared in that
-        class, and within a group IN REVERSE DECLARATION ORDER. So
-        IBaseFileSystem's `Size( FileHandle_t )`, declared first, comes after
-        `Size( const char *, const char * )`, and ICvar's const/non-const pairs
-        swap.
-
-    A class's base comes first and keeps its slots, as under Itanium, so a
-    chain is numbered class by class.
-
-    NOT TRUSTED FROM THIS PROSE. The rules were held against clang-cl's own
-    Microsoft-ABI vftable dumps (-fdump-vtable-layouts) for every interface
-    this file emits, and vtable_index_agreement_test holds the generated
-    numbers against MSVC's `&Interface::Method` on the Windows build.
-    """
-    if chain is not None:
-        steps = [(steps, cls) for cls in chain]
-        read_text = lambda h: h
-    else:
-        read_text = read
-
-    at = {}        # (method, parameters) -> (declaring class, Itanium slot)
-    mapping = {}
-    itanium = 0
-    microsoft = 0
-
-    for header, cls in steps:
-        text = read_text(header)
-
-        if text is None:
-            return None, '%s is missing' % header
-
-        declared, why = derive_from_header(text, cls)
-
-        if declared is None:
-            return None, '%s: %s' % (header, why)
-
-        new, names = [], []
-
-        for name, parameters, _returns, _local in declared:
-            if name not in names:
-                names.append(name)
-
-            key = ('~destructor', '') if name == '~destructor' else (name, parameters)
-            prior = at.get(key)
-
-            if prior is not None and prior[0] != cls:
-                continue
-
-            at[key] = (cls, itanium)
-            new.append((name, itanium))
-            itanium += 2 if name == '~destructor' else 1
-
-        for name in names:
-            for _name, slot in reversed([row for row in new if row[0] == name]):
-                mapping[slot] = microsoft
-                microsoft += 1
-
-    return mapping, microsoft
-
-
-def is_microsoft_identity(mapping, microsoft, itanium):
-    """True when MSVC lays this table out exactly as Itanium does."""
-    return microsoft == itanium and all(k == v for k, v in mapping.items())
-
-
-def microsoft_causes(mapping, microsoft, itanium):
-    """Why MSVC's order differs, in words, for a struct's summary."""
-    causes = []
-
-    if microsoft != itanium:
-        causes.append('one destructor slot, not two')
-
-    if sorted(mapping, key=mapping.get) != sorted(mapping):
-        causes.append('overloads grouped and reversed')
-
-    return ' and '.join(causes)
-
-
 # ---------------------------------------------------------------------------
 # POLICY. Not verification: see the file's own header.
 # ---------------------------------------------------------------------------
@@ -1848,115 +1586,59 @@ def read(relative):
 
 
 # ---------------------------------------------------------------------------
-# THE EMITTER.
+# THE TYPING, row by row: what the check runs and what the self-test probes.
 # ---------------------------------------------------------------------------
-DESTRUCTOR_NOTE = (
-    'destructor %d -- reserved, never bound, and it must never be called from '
-    'managed')
-
-
-def wrap_comment(text, width=88):
-    """The reason, as trailing comment lines of at most `width` characters."""
-    words, lines, current = text.split(), [], ''
-
-    for word in words:
-        candidate = (current + ' ' + word).strip()
-
-        if len(candidate) > width and current:
-            lines.append(current)
-            current = word
-        else:
-            current = candidate
-
-    if current:
-        lines.append(current)
-
-    return lines
-
-
-# The C# return types that are not a class: what a slot returning one of these
-# returns in a register on both ABIs.
-SCALAR_RETURNS = frozenset((
-    'void', 'byte', 'sbyte', 'short', 'ushort', 'int', 'uint', 'long', 'ulong',
-    'nint', 'nuint', 'float', 'double', 'bool', 'char'))
-
-
-def returned_type(kind):
-    """The C# return type a `delegate* unmanaged...<..., R>` names."""
-    inner = kind[kind.index('<') + 1:kind.rindex('>')]
-    return inner.rsplit(',', 1)[-1].strip()
-
-
-def returns_by_value_class(kind):
-    returned = returned_type(kind)
-    return returned not in SCALAR_RETURNS and not returned.endswith('*')
-
-
 def fields_for(entry, policy):
-    """([(slot, declaration, comment lines)], None) for one interface, or (None, why)."""
+    """([(slot, declaration)], None) for one interface, or (None, why).
+
+    Each declaration is `<C# type> <field>;`: a typed slot's is its
+    `delegate* unmanaged<...>` under the method's name, an untypeable one's
+    is `nint Refused_<method>`, and a virtual destructor's pair is
+    `nint Destructor1;` and `nint Destructor2;`. tools/engine-forwarders types
+    its forwarders with the same signature_of, so a row this refuses is a row
+    whose forwarders would not have been what the header says.
+    """
+    # NO ROW NAMES A CHAIN KIND. Every interface here is built by native and
+    # called by managed through its generated forwarders, so the direction is
+    # not a property a row can vary. A table managed builds is not walked from
+    # a C++ class at all: it is a row of docs/managed-interfaces.tsv, and
+    # tools/managed-areas writes both of its sides. A `kind` key is refused
+    # rather than ignored, because a row that says it is something else and is
+    # treated as an ordinary forwarder row is a disagreement nobody would see.
+    if 'kind' in entry:
+        return None, ('%s names a chain kind (%r), and no row may: every interface here '
+                      'is built by native and called by managed through its forwarders '
+                      '(tools/engine-forwarders); a table managed builds is a row of '
+                      'docs/managed-interfaces.tsv (tools/managed-areas)'
+                      % (entry.get('struct', '?'), entry['kind']))
+
     rows, why = derive_chain(chain_steps(entry))
 
     if rows is None:
         return None, why
 
-    if kind_of(entry) not in KINDS:
-        return None, ('%s names chain kind %r; the kinds are %s'
-                      % (entry['struct'], kind_of(entry), ', '.join(KINDS)))
-
-    # RESERVED WORDS are the C++ class's data members after its vptr: only a
-    # Valve layout has them, since our own interfaces declare none.
-    if entry.get('reserved_words', 0) and kind_of(entry) != VALVE_BY_MANAGED:
-        return None, ('%s reserves %d word(s) after its vptr, and only a %s row may: '
-                      'our own interfaces carry no data members'
-                      % (entry['struct'], entry['reserved_words'], VALVE_BY_MANAGED))
-
-    if kind_of(entry) in MANAGED_WRITTEN:
-        refusals = managed_implementation_refusals(
-            rows, policy, valve_layout=kind_of(entry) == VALVE_BY_MANAGED)
-
-        if refusals:
-            return None, ('%s is %s and %s' % (entry['struct'], kind_of(entry),
-                                              '; and '.join(refusals)))
-
-    # How many times each name is declared across the chain. IBaseFileSystem
-    # declares Size twice and IVModelInfo declares GetVCollide and FindModel
-    # twice each, so the field names have to be told apart -- and the trailing
-    # comment carries the parameter list that says which is which.
-    times = {}
-
-    for cls, name, _parameters, _returns, _slot in rows:
-        times[(cls, name)] = times.get((cls, name), 0) + 1
-
     fields = []
+
+    # How many times each field name has been used so far. IBaseFileSystem
+    # declares Size twice and IVModelInfo declares GetVCollide and FindModel
+    # twice each, so the second of each is Name_2 -- the same naming
+    # tools/engine-forwarders gives a FORWARD row's methods.
     used = {}
 
-    # PER-SLOT [SuppressGCTransition] (plan_engineapi_vtables A2). A row's
-    # `suppress=[...]` names the methods whose calls skip the GC-mode switch --
-    # the EngineApi slots that carry the attribute today move into vtables with
-    # it, or every hot read pays a transition it did not pay as a struct field.
-    # A name that is not a typed slot of this chain is refused rather than
-    # ignored: a misspelt entry would otherwise silently drop the attribute.
+    # PER-SLOT [SuppressGCTransition]. A row's `suppress=[...]` names the
+    # methods whose calls skip the GC-mode switch, and tools/engine-forwarders
+    # applies it to each forwarder's type. A name that is not a typed slot of
+    # this chain is refused here rather than ignored there: a misspelt entry
+    # would otherwise silently drop the attribute, and the forwarder generator
+    # does not check the names itself.
     suppress = set(entry.get('suppress', ()))
     suppressed = set()
 
     for cls, name, parameters, returns, slot in rows:
         if name == '~destructor':
-            fields.append((slot, 'nint Destructor1;',
-                           [DESTRUCTOR_NOTE % 1,
-                            'Complete Object Destructor (D1): destroys the object\'s '
-                            'members and subobjects, but does',
-                            'not free the memory. Used for objects on the stack, member '
-                            'variables, or elements in an array.']))
-            fields.append((slot + 1, 'nint Destructor2;',
-                           [DESTRUCTOR_NOTE % 2,
-                            'Deleting Destructor (D0): calls the complete object '
-                            'destructor (D1) and then automatically',
-                            'invokes operator delete to free the dynamic memory. Used '
-                            'when you explicitly call delete ptr.']))
+            fields.append((slot, 'nint Destructor1;'))
+            fields.append((slot + 1, 'nint Destructor2;'))
             continue
-
-        declaration = '%s %s::%s( %s )' % (returns, cls, name, parameters or 'void')
-        comment = [declaration]
 
         proxy = PROXIES.get((cls, name))
         reason = policy.get(cls, {}).get(name)
@@ -1969,19 +1651,19 @@ def fields_for(entry, policy):
             # A SLOT MANAGED CANNOT SPELL NEEDS AN ACCOUNT OF ITSELF, and having
             # none is a hard failure rather than a quiet `nint`.
             #
-            # ON AN INTERFACE WITH AN IMPL CLASS that means one of two things.
-            # Either a C++ proxy taking marshalable parameters -- which is what
-            # makes the call reachable at all -- or a POLICY reason saying the
-            # impl exposes nothing here anyway, in which case a proxy would be
-            # dead code. IVEngineServer::ClientCommand is the second kind and
-            # says so in its own words: "varargs ... and it runs a command on a
-            # client, so it would be refused twice over".
+            # ON AN EXPOSED INTERFACE that means one of two things. Either a
+            # C++ proxy taking marshalable parameters -- which is what makes
+            # the call reachable at all -- or a POLICY reason saying nothing
+            # exposes it anyway, in which case a proxy would be dead code.
+            # IVEngineServer::ClientCommand is the second kind and says so in
+            # its own words: "varargs ... and it runs a command on a client,
+            # so it would be refused twice over".
             #
-            # ON A LAYOUT-ONLY INTERFACE the account is already complete: there
-            # is no impl class, so nothing is exposed, so there is nothing for a
-            # proxy to serve and no per-method decision to record. Demanding one
-            # would mean writing a policy entry for every by-value parameter on
-            # 26 interfaces nobody calls -- 16 sentences saying the same thing,
+            # ON AN INTERFACE THAT IS NOT EXPOSED the account is already
+            # complete: nothing is exposed, so there is nothing for a proxy to
+            # serve and no per-method decision to record. Demanding one would
+            # mean writing a policy entry for every by-value parameter on
+            # interfaces nobody calls -- sentences all saying the same thing,
             # which is how a rule stops being read.
             if entry.get('exposed') and proxy is None and reason is None:
                 return None, ('%s::%s cannot be typed (%s) and has neither a C++ proxy '
@@ -1989,43 +1671,18 @@ def fields_for(entry, policy):
                               'one of the two, never an untyped slot with no account '
                               'of itself' % (cls, name, error))
 
-            comment += ['REFUSED -- MANAGED CANNOT EXPRESS THIS CALL: %s.' % error]
-
-            if proxy is None and not entry.get('exposed'):
-                comment += ['No C++ proxy, because this interface is LAYOUT ONLY: '
-                            'nothing exposes it, so there is nothing for a proxy to '
-                            'serve.']
-            elif proxy is None:
-                comment += ['No C++ proxy is provided, because policy already exposes '
-                            'nothing here -- one would be dead code:']
-
-        if proxy is not None:
-            if kind is not None:
-                return None, ('%s::%s names a C++ proxy in PROXIES but IS expressible '
-                              'as %s -- a proxy for a call managed can make is dead '
-                              'code' % (cls, name, kind))
-
-            comment += wrap_comment(proxy)
-
-        if reason is not None:
-            comment += ['NOT EXPOSED (policy, not verification) --'] + wrap_comment(reason)
+        # A PROXY FOR A CALL MANAGED CAN MAKE is dead code, and an entry that
+        # outlives the varargs it was written for says the opposite of the
+        # header.
+        if proxy is not None and kind is not None:
+            return None, ('%s::%s names a C++ proxy in PROXIES but IS expressible '
+                          'as %s -- a proxy for a call managed can make is dead '
+                          'code' % (cls, name, kind))
 
         if kind is not None and name in suppress:
             kind = kind.replace('delegate* unmanaged<',
                                 'delegate* unmanaged[SuppressGCTransition]<', 1)
             suppressed.add(name)
-
-        # A CLASS RETURNED BY VALUE IS A MEMBER FUNCTION'S RETURN, and on
-        # Windows that is not a free function's: MSVC returns every class type
-        # from a member function through a hidden buffer passed AFTER `this`.
-        # No table managed reads or writes by layout may have one. An engine
-        # method that does (IPhysicsObject::GetInertia) is called through its
-        # forwarder, a free function, whose return is the ordinary one; the
-        # engine rows are walked here only for that forwarder's signature.
-        if kind is not None and returns_by_value_class(kind) and emitted(entry):
-            return None, ('%s::%s returns a class by value, which a table managed '
-                          'reads by layout cannot spell on Windows: call it through '
-                          'a forwarder' % (cls, name))
 
         field = name if kind is not None else 'Refused_' + name
 
@@ -2035,7 +1692,7 @@ def fields_for(entry, policy):
         if seen > 1:
             field = '%s_%d' % (field, seen)
 
-        fields.append((slot, '%s %s;' % (kind or 'nint', field), comment))
+        fields.append((slot, '%s %s;' % (kind or 'nint', field)))
 
     unknown = sorted(suppress - suppressed)
     if unknown:
@@ -2046,211 +1703,32 @@ def fields_for(entry, policy):
     return fields, None
 
 
-def emitted(entry):
-    """Whether a row's C# struct is written: our own tables (the shim areas,
-    the particle library, the managed-built objects) and the Valve layouts
-    managed writes. An engine-built table is called through its forwarders
-    (plan_engine_forwarders.md): tools/engine-forwarders derives each
-    forwarder's signature from its row here, and nothing in managed reads a
-    layout of it, so none is written."""
-    return bool(entry.get('shim')) or kind_of(entry) in MANAGED_WRITTEN
+def check(out=sys.stdout):
+    """0 when every row is typed from its own header, 2 when one is not.
 
-
-def emit():
-    """(the generated C# file as text, None), or (None, why)."""
+    Every row is walked and every failure printed, not only the first: a
+    header edit that breaks one chain usually breaks every chain over the
+    same base, and the list is what says so.
+    """
     policy = load_policy()
-
-    out = __doc__.split('WHAT THIS REPLACED')[0]  # unused; kept out of the file
-    out = [
-        '// GENERATED by `tools/vtable-layout --write`. DO NOT EDIT.',
-        '//',
-        '// One [StructLayout(LayoutKind.Sequential)] struct per table managed reads or',
-        '// writes by layout: the shim areas, the particle library and the managed-built',
-        '// objects -- tables THIS TREE declares and compiles, and the few Valve callback',
-        '// interfaces managed implements. One pointer-sized field per slot IN THE',
-        '// HEADER\'S OWN DECLARATION ORDER, so field N sits at byte 8N and THE FIELD\'S',
-        '// POSITION IS THE SLOT NUMBER: `_vtbl->Frame(_self)`, no index at the call site.',
-        '//',
-        '// The order is not typed here by hand. It comes from the header walk in',
-        '// `tools/vtable-layout`, which regenerates this file and diffs it against what',
-        '// is committed -- so the layout cannot drift from the header silently.',
-        '//',
-        '// EVERY TABLE HERE IS ORDERED ALIKE ON BOTH ABIs: our interfaces declare no',
-        '// virtual destructor and no overload, and the generator refuses any table MSVC',
-        '// orders differently. The ENGINE\'S OWN TABLES, which it does reorder, have no',
-        '// struct here at all: managed calls them through generated native forwarders',
-        '// (tools/engine-forwarders, plan_engine_forwarders.md), and their rows in',
-        '// tools/vtable-layout remain only for the forwarders\' signatures.',
-        '//',
-        '// A shim acquire holds native\'s count against sizeof(TVtbl) / sizeof(void *)',
-        '// (Vtable.TryAcquireShim); a managed-built table carries each slot\'s hash,',
-        '// which native validates.',
-        '',
-        'using System.Runtime.InteropServices;',
-        '',
-        'namespace SourceSharp.Abi;',
-    ]
+    total = 0
+    failed = 0
 
     for entry in INTERFACES:
-        if not emitted(entry):
-            continue
-
-        fields, why = fields_for(entry, load_policy())
+        fields, why = fields_for(entry, policy)
 
         if fields is None:
-            return None, why
+            print('!! %s' % why, file=out)
+            failed += 1
+            continue
 
-        span = max(slot for slot, _d, _c in fields) + 1
-
-        if span != len(fields):
-            return None, ('%s emits %d field(s) for a %d slot table'
-                          % (entry['struct'], len(fields), span))
-
-        mapping, microsoft = microsoft_slots(chain_steps(entry))
-
-        if mapping is None:
-            return None, microsoft
-
-        # EVERY EMITTED TABLE IS ORDERED ALIKE ON BOTH ABIs. Our own interfaces
-        # declare no virtual destructor and no overload, and a Valve layout
-        # managed writes is refused one; so a table MSVC orders differently
-        # cannot be written or read from managed in one order, and is refused
-        # here. The engine's own tables, which MSVC does reorder, are called
-        # through their forwarders and emit nothing (plan_engine_forwarders.md).
-        if not is_microsoft_identity(mapping, microsoft, span):
-            return None, ('%s is laid out differently by MSVC (%s), so no one managed '
-                          'order serves both ABIs: build it natively, as the Steam '
-                          'callback is (libss_fwd_client), or call it through forwarders'
-                          % (entry['struct'], microsoft_causes(mapping, microsoft, span)))
-
-        out += [
-            '',
-            '/// <summary>',
-            '/// %s' % entry['summary'],
-            '///',
-            '/// <para>',
-            '/// %d slot(s), walked from <c>%s</c>. <c>sizeof</c> divided by the pointer'
-            % (span, entry['header']),
-        ] + ([
-            '/// size is that number, and it is what <c>VtableFactory</c> holds against',
-            '/// the count native takes from the compiler for <c>%s</c>.' % entry['version'],
-        ] if 'version' in entry else [
-            '/// size is that number. Reached through %s, so no factory hands a count' % entry['reached_by'],
-            '/// with the pointer: vtable_index_agreement_test holds the header against it.',
-        ]) + [
-            '/// </para>',
-            '///',
-            '/// <para>',
-        ] + ['/// %s' % line for line in wrap_comment(entry['note'], 74)] + [
-            '/// </para>',
-        ]
-
-        if kind_of(entry) == IMPLEMENTED_BY_MANAGED:
-            out += [
-                '///',
-                '/// <para>',
-                '/// IMPLEMENTED BY MANAGED. Native calls this table and managed writes it:',
-                '/// <c>ManagedVtableGenerator</c> fills every field with a generated thunk',
-                '/// and hands native the block and this struct\'s slot count, which native',
-                '/// holds against <c>VTableHook::MemberOf( &amp;%s::Release ).slot + 1</c>.'
-                % entry['chain'][-1],
-                '/// </para>',
-            ]
-
-        if kind_of(entry) == VALVE_BY_MANAGED:
-            out += [
-                '///',
-                '/// <para>',
-                '/// VALVE\'S LAYOUT, WRITTEN BY MANAGED. The caller holds an',
-                '/// <c>%s *</c> and calls these slots in Valve\'s order;' % entry['chain'][-1],
-                '/// <c>ManagedVtableGenerator</c> fills every one. There is no Release or',
-                '/// Validate: managed frees the block when the holder is done with it.',
-                '/// </para>',
-            ]
-
-        out += [
-            '/// </summary>',
-        ]
-
-        if kind_of(entry) == IMPLEMENTED_BY_MANAGED:
-            out.append('[ImplementedByManaged("%s")]' % entry['chain'][-1])
-        elif kind_of(entry) == VALVE_BY_MANAGED:
-            out.append('[ImplementedByManaged("%s", ValveLayout = true%s)]'
-                       % (entry['chain'][-1], reserved_spelling(entry)))
-
-        out += [
-            '[StructLayout(LayoutKind.Sequential)]',
-            # PUBLIC when managed writes the table: the contract that names it
-            # ([ManagedVtable(typeof(...))]) lives in Shared or Server, which do
-            # not see Abi's internals.
-            '%s unsafe struct %s' % ('public' if kind_of(entry) in MANAGED_WRITTEN
-                                     else 'internal', entry['struct']),
-            '{',
-        ]
-
-        # Aligned to the widest SHORT declaration rather than to the widest of
-        # all of them: one 90-character `delegate* unmanaged<...>` would push
-        # every one of 146 trailing comments off the right of the screen.
-        width = max([len(d) for _s, d, _c in fields if len(d) <= ALIGN] or [ALIGN])
-
-        for index, (slot, declaration, comment) in enumerate(fields):
-            if index:
-                out.append('')
-
-            # The prose leads, the declaration trails. A refusal is several
-            # sentences long and a reader scanning for a slot number should not
-            # have to walk past them.
-            for line in comment[1:]:
-                out.append('    // %s' % line)
-
-            # A MANAGED-BUILT SLOT CARRIES ITS HASH (plan_managed_vtable_reload.md
-            # L1): FNV-1a 32 over the field's type with all whitespace removed.
-            # This is the one place it is computed. tools/managed-areas copies it
-            # into the C++ header native checks with, and ManagedVtableGenerator
-            # reads it off the field to answer Validate, so the two sides can only
-            # disagree when they were built from different headers.
-            if kind_of(entry) in MANAGED_WRITTEN:
-                out.append('    [SlotHash(0x%08x)]' % slot_hash(declaration))
-
-            pad = ' ' * max(1, width - len(declaration) + 1)
-            out.append('    public %s%s// %-3d %s' % (declaration, pad, slot, comment[0]))
-
-        out.append('}')
-
-    out.append('')
-
-    return '\n'.join(out), None
-
-
-def check(out=sys.stdout):
-    """0 when the committed file is what the headers say."""
-    generated, why = emit()
-
-    if generated is None:
-        print('!! %s' % why, file=out)
-        return 2
-
-    committed = read(VTBL_FILE)
-
-    if committed is None:
-        print('!! %s is missing -- run `tools/vtable-layout --write`' % VTBL_FILE, file=out)
-        return 1
-
-    if committed != generated:
-        print('!! %s does not match the header walk. Run '
-              '`tools/vtable-layout --write` and read the diff.' % VTBL_FILE, file=out)
-        return 1
-
-    total = 0
-
-    for entry in INTERFACES:
-        fields, _why = fields_for(entry, load_policy())
-        print('  %-24s %3d slot(s)  %s%s'
-              % (entry['struct'], len(fields), entry.get('version', 'by pointer'),
-                 '  [%s]' % IMPLEMENTED_BY_MANAGED
-                 if kind_of(entry) == IMPLEMENTED_BY_MANAGED else ''),
+        print('  %-24s %3d slot(s)  %s'
+              % (entry['struct'], len(fields), entry.get('version', 'by pointer')),
               file=out)
         total += len(fields)
+
+    if failed:
+        return 2
 
     print('\n%d interface(s), %d slot(s), every one typed from its own declaration.'
           % (len(INTERFACES), total), file=out)
@@ -2259,7 +1737,7 @@ def check(out=sys.stdout):
 
 
 # ---------------------------------------------------------------------------
-# THE SELF-TEST. A generator with no arm that bites is decoration.
+# THE SELF-TEST. A walk with no arm that bites is decoration.
 # ---------------------------------------------------------------------------
 def self_test(out=sys.stdout):
     arms = []
@@ -2267,6 +1745,19 @@ def self_test(out=sys.stdout):
     def expect(name, condition):
         arms.append((name, bool(condition)))
         print('  %-4s %s' % ('ok' if condition else 'FAIL', name), file=out)
+
+    def row(struct):
+        return [e for e in INTERFACES if e['struct'] == struct][0]
+
+    def derived(struct, policy=None):
+        """{field: type} as fields_for types one row: the signatures
+        tools/engine-forwarders spells for that row's forwarders."""
+        fields, _why = fields_for(row(struct), load_policy() if policy is None else policy)
+        found = {}
+        for _slot, declaration in fields or []:
+            cut = declaration.rindex(' ')
+            found[declaration[cut + 1:-1]] = declaration[:cut]
+        return found
 
     # -- the walk ------------------------------------------------------------
     body, why = class_body(read('src/public/vstdlib/random.h'), 'IUniformRandomStream')
@@ -2296,21 +1787,34 @@ def self_test(out=sys.stdout):
     expect('cdll_int.h counts both conditional declarations IN, so the chain spans 146',
            max(s for _c, _n, _p, _r, s in chain) + 1 == 146)
 
-    # -- per-slot suppression (plan_engineapi_vtables A2) ----------------------
-    frame = [e for e in INTERFACES if e['struct'] == 'ShimFrameVtbl'][0]
+    # -- per-slot suppression ------------------------------------------------
+    frame = row('ShimFrameVtbl')
     policy = load_policy()
     marked, why = fields_for(dict(frame, suppress=['TickCount']), policy)
-    decl = dict((d.split()[-1].rstrip(';'), d) for _s, d, _c in (marked or []))
-    expect('suppress=[TickCount] emits TickCount as unmanaged[SuppressGCTransition]',
+    decl = dict((d.split()[-1].rstrip(';'), d) for _s, d in (marked or []))
+    expect('suppress=[TickCount] types TickCount as unmanaged[SuppressGCTransition]',
            why is None and 'unmanaged[SuppressGCTransition]<' in decl.get('TickCount', ''))
     expect('a slot NOT on the suppress list keeps the plain unmanaged form',
            why is None and 'SuppressGCTransition' not in decl.get('GetFrameTime', 'x Suppress'))
     plain, _ = fields_for(frame, policy)
-    expect('a row with no suppress list emits no attribute at all',
-           plain is not None and not any('SuppressGCTransition' in d for _s, d, _c in plain))
+    expect('a row with no suppress list carries no attribute at all',
+           plain is not None and not any('SuppressGCTransition' in d for _s, d in plain))
     bad, why = fields_for(dict(frame, suppress=['NoSuchMethod']), policy)
     expect('a suppress name that is not a typed slot is REFUSED, naming it',
            bad is None and why is not None and 'NoSuchMethod' in why)
+
+    # -- no chain kinds ------------------------------------------------------
+    #
+    # The control is the plain ShimFrameVtbl row above, which types; the same
+    # row with a `kind` key, whatever it says, does not.
+    kinded = [fields_for(dict(frame, kind=kind), policy)
+              for kind in ('called-by-managed', 'implemented-by-managed')]
+    expect('a row naming a chain kind is refused, naming the row and the kind -- '
+           'even the kind every row used to be by default',
+           plain is not None
+           and all(fields is None and 'ShimFrameVtbl names a chain kind' in (why or '')
+                   for fields, why in kinded)
+           and "'called-by-managed'" in kinded[0][1])
 
     # -- the type map --------------------------------------------------------
     expect('const char * maps to byte*', csharp_type('const char *') == 'byte*')
@@ -2341,92 +1845,40 @@ def self_test(out=sys.stdout):
     expect('... is refused', refuses('...'))
     expect('an unknown class by value is refused, rather than guessed at',
            refuses('CUtlSomethingNobodyMapped'))
-
-    # -- what the emitter does with all that ---------------------------------
-    generated, why = emit()
-    expect('the file generates at all', generated is not None and why is None)
-
-    body = re.sub(r'(?m)^//.*$', '', generated or '')
-
-    def struct_text(name):
-        """One generated struct's body, or '' for a row the file does not hold."""
-        head = ' unsafe struct %s\n{' % name   # internal, or public when managed writes it
-        at = body.find(head)
-        return body[at:body.index('\n}', at)] if at >= 0 else ''
-
-    def derived(struct):
-        """{field: type} as the header walk derives a row, emitted or not: what
-        tools/engine-forwarders reads for an engine table."""
-        entry = [e for e in INTERFACES if e['struct'] == struct][0]
-        fields, _why = fields_for(entry, load_policy())
-        found = {}
-        for _slot, declaration, _comment in fields or []:
-            cut = declaration.rindex(' ')
-            found[declaration[cut + 1:-1]] = declaration[:cut]
-        return found
-
-    shim = ''.join(struct_text(e['struct']) for e in INTERFACES if e.get('shim'))
-
-    expect('NO field is called NotBound_ anything -- 259 of the old file\'s 350 were',
-           'NotBound_' not in body)
-
-    # -- what the file holds now (plan_engine_forwarders.md phase 6) ----------
-    #
-    # The engine's own tables are called through their forwarders, so the file
-    # holds a struct for every row managed still reads or writes -- the shim
-    # areas, the particle library and the managed-built objects -- and none
-    # for an engine-built row, whose row stays for tools/engine-forwarders.
-    engine_rows = [e for e in INTERFACES if not emitted(e)]
-    expect('an engine-built row emits no struct (%d of them: ModelInfoVtbl, '
-           'EngineClientVtbl, PhysicsObjectVtbl ...)' % len(engine_rows),
-           engine_rows and all(not struct_text(e['struct']) for e in engine_rows)
-           and {'ModelInfoVtbl', 'EngineClientVtbl', 'PhysicsObjectVtbl'}
-               <= set(e['struct'] for e in engine_rows))
-    expect('every row managed reads or writes is emitted, exactly once each (%d)'
-           % (len(INTERFACES) - len(engine_rows)),
-           body.count(' unsafe struct ') == len(INTERFACES) - len(engine_rows)
-           and all(struct_text(e['struct']) for e in INTERFACES if emitted(e)))
-    expect('nothing in the file is ordered per ABI any more: no [VtableSlot], no '
-           'MicrosoftEntries, no VtableAbi, no property form',
-           '[VtableSlot' not in body and 'MicrosoftEntries' not in body
-           and 'VtableAbi' not in body and ' => (' not in body and 'ItaniumOnly' not in body)
+    physics_object = derived('PhysicsObjectVtbl')
+    expect('IPhysicsObject::GetInertia and GetInvInertia, Vectors returned by value, are '
+           'typed with a Vector return rather than refused',
+           physics_object.get('GetInertia', '').endswith('<void*, Vector>')
+           and physics_object.get('GetInvInertia') == 'delegate* unmanaged<void*, Vector>')
 
     # -- the shim layer ------------------------------------------------------
     #
     # EVERY SHIM SLOT IS TYPED. `Refused_` means "managed cannot express this
     # call", and for OUR OWN headers that category cannot arise: every
-    # signature is copied from a flat ABI field, every flat ABI field is
-    # already a C-ABI function pointer, so there is nothing to refuse. A `nint`
-    # appearing in a shim struct means somebody wrote a by-value class or a
+    # signature is a C-ABI one, so there is nothing to refuse. A `nint`
+    # appearing on a shim row means somebody wrote a by-value class or a
     # varargs into a header this tree owns -- which ishim_frame.h's own rule
-    # forbids -- and this arm is where that shows up rather than at a call site.
-    expect('no shim slot is untyped: our own headers cannot produce a refusal',
-           'nint ' not in shim and 'Refused_' not in shim)
-    # THE SHIM LAYER'S SIZE IS DERIVED: a shim struct is exactly as long as its
-    # class and has NO destructor pair in front of it, so the total is the sum
-    # of the per-interface spans and nothing else.
-    shim_spans = [len(fields_for(e, load_policy())[0])
-                  for e in INTERFACES if e.get('shim')]
+    # forbids -- and this arm is where that shows up rather than in a
+    # forwarder.
+    shim_rows = [e for e in INTERFACES if e.get('shim')]
+    shim_fields = [fields_for(e, policy) for e in shim_rows]
+    shim_decls = [d for fields, _why in shim_fields for _s, d in (fields or [])]
+    expect('every one of the %d shim rows types, and none has an untyped slot: our '
+           'own headers cannot produce a refusal' % len(shim_rows),
+           shim_rows and all(fields for fields, _why in shim_fields)
+           and not any(d.startswith('nint ') or 'Refused_' in d for d in shim_decls))
+    # A SHIM TABLE IS EXACTLY AS LONG AS ITS CLASS, with no destructor pair in
+    # front of it: one would take its first two slots, and the singletons
+    # behind these are never deleted through a base pointer.
+    expect('no shim row declares a virtual destructor (%d slot(s) across %d interface(s))'
+           % (len(shim_decls), len(shim_rows)),
+           shim_decls and not any('Destructor' in d for d in shim_decls))
 
-    expect('the shim layer is %d slot(s) across %d interface(s), with no '
-           'destructor pair in front of any of them'
-           % (sum(shim_spans), len(shim_spans)),
-           shim.count('public delegate* unmanaged') == sum(shim_spans)
-           and 'Destructor1' not in shim)
-
-    # -- the whole file --------------------------------------------------------
-    total = sum(len(fields_for(e, load_policy())[0]) for e in INTERFACES if emitted(e))
-    expect('all %d slots in the file are a real delegate*: no refusal and no '
-           'destructor pair, since every emitted table is ours or managed-written'
-           % total,
-           body.count('public delegate* unmanaged') == total and 'public nint ' not in body)
-
-    # -- the derivation, which the forwarders still read -----------------------
+    # -- the derivation, which the forwarders read ---------------------------
     expect('an OVERRIDE takes the base\'s slot rather than appending one -- '
            'IGameEventManager2 re-declares IBaseInterface\'s virtual destructor '
            'and the chain is 14 slots, not 16',
-           len(derive_chain(chain_steps(
-               [e for e in INTERFACES if e['struct'] == 'GameEventManagerVtbl'][0]))[0]) == 13)
+           len(derive_chain(chain_steps(row('GameEventManagerVtbl')))[0]) == 13)
 
     # THE OLD TOOL CARRIED FIFTEEN HAND-CURATED TYPES, written by eye one at a
     # time. Re-derived from the headers, FOURTEEN come out identical -- which
@@ -2460,11 +1912,11 @@ def self_test(out=sys.stdout):
             'GetMapEntitiesString': 'delegate* unmanaged<void*, byte*>',
         },
     }
-    agreed = [name for struct, rows in was_hand_typed.items()
-              for name, kind in rows.items() if derived(struct).get(name) == kind]
+    agreed = [name for struct, types in was_hand_typed.items()
+              for name, kind in types.items() if derived(struct).get(name) == kind]
     expect('all fourteen types the deleted ledger hand-wrote are re-derived '
            'identically from the headers',
-           len(agreed) == sum(len(rows) for rows in was_hand_typed.values()))
+           len(agreed) == sum(len(types) for types in was_hand_typed.values()))
     expect('and the fifteenth is corrected: cdll_int.h says GetProtocolVersion '
            'returns uint, where the hand-typed row said int',
            derived('EngineClientVtbl').get('GetProtocolVersion') == 'delegate* unmanaged<void*, uint>')
@@ -2476,198 +1928,38 @@ def self_test(out=sys.stdout):
            'name-keyed table would hand a filename to the FileHandle_t overload',
            'Size' in derived('BaseFileSystemVtbl') and 'Size_2' in derived('BaseFileSystemVtbl'))
 
-    # -- the Microsoft ABI's numbering ---------------------------------------
+    # -- an untypeable slot's account ----------------------------------------
     #
-    # Read now only to REFUSE an emitted table MSVC orders differently. The
-    # rules microsoft_slots applies, each on a probe class whose answer is
-    # worked out by hand here, then on two real interfaces.
-    probe = """
-        class IMsProbe
-        {
-        public:
-            virtual void Alpha( int a ) = 0;
-            virtual void Beta( void ) = 0;
-            virtual void Alpha( float f ) = 0;
-            virtual void Gamma( void ) = 0;
-            virtual void Alpha( char *p ) = 0;
-        };
-        class IMsDerived : public IMsProbe
-        {
-        public:
-            virtual ~IMsDerived() {}
-            virtual void Beta( void ) = 0;
-            virtual void Delta( int a ) = 0;
-            virtual void Delta( void ) = 0;
-        };
-    """
-    ms, ms_len = microsoft_slots(probe, ['IMsProbe'])
-    expect('MSVC groups a class\'s overloads at the first declaration of the name and '
-           'reverses them: Alpha(char*), Alpha(float), Alpha(int), Beta, Gamma',
-           ms == {4: 0, 2: 1, 0: 2, 1: 3, 3: 4} and ms_len == 5)
+    # IVEngineServer is exposed and its ClientCommand is varargs, accounted for
+    # by a policy reason. The control types with the policy as it is; without
+    # that one reason the row is refused, naming the slot.
+    unaccounted = load_policy()
+    removed = unaccounted.get('IVEngineServer', {}).pop('ClientCommand', None)
+    fields, why = fields_for(row('EngineServerVtbl'), unaccounted)
+    expect('an exposed row\'s untypeable slot with neither a proxy nor a policy reason '
+           'is refused, naming it; with its reason it is Refused_ClientCommand',
+           removed is not None and 'Refused_ClientCommand' in derived('EngineServerVtbl')
+           and fields is None and 'IVEngineServer::ClientCommand cannot be typed' in (why or ''))
+    not_exposed = dict(row('EngineServerVtbl'))
+    not_exposed.pop('exposed')
+    expect('... and the same slot on a row that is NOT exposed needs no account',
+           fields_for(not_exposed, unaccounted)[0] is not None)
 
-    ms, ms_len = microsoft_slots(probe, ['IMsProbe', 'IMsDerived'])
-    expect('a derived class numbers its OWN new virtuals after the base\'s, an '
-           'override keeps the base slot, and its destructor takes ONE slot: '
-           'Itanium 5,6 (the pair) -> 5; Delta(int) 7 -> 7, Delta() 8 -> 6',
-           ms_len == 8 and ms.get(5) == 5 and 6 not in ms
-           and ms.get(7) == 7 and ms.get(8) == 6 and ms.get(1) == 3)
-    expect('a table MSVC orders the Itanium way is recognised as such, and one it '
-           'does not is not',
-           is_microsoft_identity({0: 0, 1: 1}, 2, 2)
-           and not is_microsoft_identity({0: 0, 2: 1}, 2, 3)
-           and not is_microsoft_identity({0: 1, 1: 0}, 2, 2))
-
-    fs, fs_len = microsoft_slots(chain_steps(
-        [e for e in INTERFACES if e['struct'] == 'BaseFileSystemVtbl'][0]))
-    expect('IBaseFileSystem: the two Size overloads swap (6 -> 7, 7 -> 6) and the '
-           'length stays 17', fs.get(6) == 7 and fs.get(7) == 6 and fs_len == 17)
-    mi, mi_len = microsoft_slots(chain_steps(
-        [e for e in INTERFACES if e['struct'] == 'ModelInfoVtbl'][0]))
-    expect('IVModelInfo: the destructor is slot 0, GetModel 1 and the length 58',
-           mi.get(0) == 0 and 1 not in mi and mi.get(2) == 1 and mi_len == 58)
-
-    # An emitted row MSVC reorders is refused, and the refusal says why. Probed
-    # by emitting an engine row as if it were ours: BaseFileSystemVtbl's Size
-    # overloads swap under MSVC.
-    saved_rows = INTERFACES[:]
+    # A proxy for a call managed can make is dead code. RandomInt types, so a
+    # PROXIES entry naming it is refused; the row types without the entry.
     try:
-        reorder = dict([e for e in INTERFACES if e['struct'] == 'BaseFileSystemVtbl'][0], shim=True)
-        INTERFACES[:] = [reorder]
-        refused, refused_why = emit()
+        PROXIES[('IUniformRandomStream', 'RandomInt')] = 'a proxy nobody needs'
+        fields, why = fields_for(row('UniformRandomStreamVtbl'), policy)
     finally:
-        INTERFACES[:] = saved_rows
-    expect('an emitted table MSVC orders differently is refused, naming the struct',
-           refused is None and 'BaseFileSystemVtbl is laid out differently by MSVC' in (refused_why or ''))
+        PROXIES.pop(('IUniformRandomStream', 'RandomInt'), None)
+    expect('a C++ proxy for a slot managed CAN type is refused as dead code, naming it',
+           fields_for(row('UniformRandomStreamVtbl'), policy)[0] is not None
+           and fields is None and 'IUniformRandomStream::RandomInt names a C++ proxy' in (why or ''))
 
-    # The Steam callback, the last layout MSVC reversed (CCallbackBase's two Run
-    # overloads), is built natively by libss_fwd_client (plan_engine_forwarders.md
-    # phase 5), and its managed side is a table tools/managed-areas writes from
-    # docs/managed-interfaces.tsv (plan_forwarders_everywhere.md phase 4): no
-    # struct here describes either, and no managed-built table at all.
-    expect('no Steam callback layout and no managed-built table is written here',
-           not struct_text('SteamCallbackVtbl') and not struct_text('ManagedSteamCallbackVtbl')
-           and not struct_text('ManagedRootVtbl') and not any(
-               kind_of(e) == IMPLEMENTED_BY_MANAGED for e in INTERFACES))
-
-    by_value_row = dict([e for e in INTERFACES if e['struct'] == 'PhysicsObjectVtbl'][0], shim=True)
-    by_value_fields, by_value_why = fields_for(by_value_row, load_policy())
-    expect('a table managed reads by layout may not return a class by value (MSVC '
-           'returns it after `this`): IPhysicsObject::GetInertia, emitted, is refused; '
-           'its engine row, walked for the forwarder, is not',
-           by_value_fields is None and 'GetInertia returns a class by value' in (by_value_why or '')
-           and 'GetInertia' in derived('PhysicsObjectVtbl'))
-    expect('a pointer or a scalar return is not a class by value',
-           not returns_by_value_class('delegate* unmanaged<void*, void*>')
-           and not returns_by_value_class('delegate* unmanaged<void*, uint>')
-           and not returns_by_value_class('delegate* unmanaged<byte*>')
-           and returns_by_value_class('delegate* unmanaged<void*, Vector>'))
-
-    mw_dtor = microsoft_slots("""
-        class IManagedDtorProbe { public: virtual ~IManagedDtorProbe() {} virtual void A() = 0; };
-    """, ['IManagedDtorProbe'])
-    expect('a destructor is a reorder a managed-written table may not have: its '
-           'Windows length is one short of its span', mw_dtor[1] == 2)
-
-    # -- a policy key that names nothing -------------------------------------
-    saved = dict(load_policy.__globals__)
-    policy = load_policy()
-    policy.setdefault('IVModelInfo', {})['NoSuchMethodExists'] = 'x'
-    entry = [e for e in INTERFACES if e['struct'] == 'ModelInfoVtbl'][0]
-    fields, _ = fields_for(entry, policy)
-    text = '\n'.join(str(f) for f in (fields or []))
-    expect('a policy reason for a method the header does not declare lands on NOTHING '
-           '-- reported by --check rather than silently dropped',
-           'NoSuchMethodExists' not in text)
-
-    # -- the implemented-by-managed kind ---------------------------------------
+    # -- slot hashes ----------------------------------------------------------
     #
-    # Each refusal arm is paired with the header that differs from the accepted
-    # one in exactly the property under test, so an arm that passes because the
-    # walk broke -- rather than because the rule fired -- cannot read as green.
-    accepted_header = """
-        class IManagedKindProbe
-        {
-        protected:
-            ~IManagedKindProbe() {}
-        public:
-            virtual void Release() = 0;
-            virtual int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) = 0;
-            virtual bool OnStart() = 0;
-            virtual int OnWrite( char *pOut, int nOutSize ) = 0;
-        };
-    """
-    probe_rows, _ = derive_chain(accepted_header, ['IManagedKindProbe'])
-    expect('implemented-by-managed ACCEPTS Release at slot 0, Validate at slot 1 and '
-           'no virtual destructor (the control: four slots, no refusal)',
-           probe_rows is not None and len(probe_rows) == 4
-           and managed_implementation_refusals(probe_rows, {}) == [])
-
-    with_dtor = accepted_header.replace('~IManagedKindProbe() {}',
-                                        'virtual ~IManagedKindProbe() {}')
-    dtor_rows, _ = derive_chain(with_dtor, ['IManagedKindProbe'])
-    expect('implemented-by-managed REFUSES a virtual destructor',
-           any('virtual destructor' in r
-               for r in managed_implementation_refusals(dtor_rows, {})))
-
-    no_release = accepted_header.replace('virtual void Release() = 0;', '')
-    nr_rows, _ = derive_chain(no_release, ['IManagedKindProbe'])
-    expect('implemented-by-managed REFUSES a table that does not start with Release()',
-           any('Release' in r for r in managed_implementation_refusals(nr_rows, {})))
-
-    release_last = accepted_header.replace(
-        '            virtual void Release() = 0;\n', '').replace(
-        'virtual int OnWrite( char *pOut, int nOutSize ) = 0;',
-        'virtual int OnWrite( char *pOut, int nOutSize ) = 0;\n            virtual void Release() = 0;')
-    rl_rows, _ = derive_chain(release_last, ['IManagedKindProbe'])
-    expect('implemented-by-managed REFUSES Release() anywhere but slot 0 (the old, last-slot '
-           'shape)',
-           rl_rows is not None and rl_rows[-1][1] == 'Release'
-           and any('slot 0' in r for r in managed_implementation_refusals(rl_rows, {})))
-
-    validate_moved = accepted_header.replace(
-        '            virtual int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) = 0;\n', '').replace(
-        'virtual int OnWrite( char *pOut, int nOutSize ) = 0;',
-        'virtual int OnWrite( char *pOut, int nOutSize ) = 0;\n'
-        '            virtual int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) = 0;')
-    vm_rows, _ = derive_chain(validate_moved, ['IManagedKindProbe'])
-    expect('implemented-by-managed REFUSES Validate anywhere but slot 1',
-           any('slot 1' in r for r in managed_implementation_refusals(vm_rows, {})))
-
-    validate_retyped = accepted_header.replace(
-        'virtual int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) = 0;',
-        'virtual int32_t Validate( const uint32_t *pSlotHashes ) = 0;')
-    vr_rows, _ = derive_chain(validate_retyped, ['IManagedKindProbe'])
-    expect('implemented-by-managed REFUSES a Validate whose shape differs',
-           any('slot 1' in r for r in managed_implementation_refusals(vr_rows, {})))
-
-    # -- the valve-implemented-by-managed kind (plan_physics_managed B0b) ------
-    #
-    # Valve's own slots, so no Release/Validate is required; the destructor
-    # refusal still holds. Each arm is paired with the control above.
-    valve_header = """
-        class IValveKindProbe
-        {
-        public:
-            virtual void ObjectWake( void *pObject ) = 0;
-            virtual void ObjectSleep( void *pObject ) = 0;
-        };
-    """
-    valve_rows, _ = derive_chain(valve_header, ['IValveKindProbe'])
-    expect('valve-implemented-by-managed ACCEPTS a table with no Release or Validate '
-           '(two slots, no refusal), which implemented-by-managed refuses',
-           valve_rows is not None and len(valve_rows) == 2
-           and managed_implementation_refusals(valve_rows, {}, valve_layout=True) == []
-           and managed_implementation_refusals(valve_rows, {}) != [])
-
-    valve_dtor = valve_header.replace('public:', 'public:\n            virtual ~IValveKindProbe() {}')
-    vd_rows, _ = derive_chain(valve_dtor, ['IValveKindProbe'])
-    expect('valve-implemented-by-managed still REFUSES a virtual destructor',
-           any('virtual destructor' in r
-               for r in managed_implementation_refusals(vd_rows, {}, valve_layout=True)))
-
-    # plan_managed_vtable_reload.md L1: a slot hash is the field's type and
-    # nothing else, so a rename (of the slot or its parameters) still validates
-    # and a retype does not.
+    # A slot hash is the field's type and nothing else, so a rename (of the
+    # slot or its parameters) still validates and a retype does not.
     shape = 'delegate* unmanaged<void*, byte*, int, void> Name;'
     expect('slot hash: the canonical spelling hashes to its pinned FNV-1a value',
            slot_hash('delegate* unmanaged<void*, void> Release;') == 0x07e0f4c4)
@@ -2680,41 +1972,23 @@ def self_test(out=sys.stdout):
     expect('slot hash: a changed return changes it',
            slot_hash(shape) != slot_hash(shape.replace('int, void>', 'int, int>')))
 
-    by_value = accepted_header.replace('virtual bool OnStart() = 0;',
-                                       'virtual bool OnStart( MapLoadInfo info ) = 0;')
-    bv_rows, _ = derive_chain(by_value, ['IManagedKindProbe'])
-    expect('implemented-by-managed REFUSES a class passed by value -- managed '
-           'cannot fill a slot it cannot spell',
-           any('class type by value' in r
-               for r in managed_implementation_refusals(bv_rows, {})))
+    # -- a policy key that names nothing -------------------------------------
+    #
+    # The control is the policy as committed, which check_policy_keys passes.
+    stale = load_policy()
+    stale.setdefault('IVModelInfo', {})['NoSuchMethodExists'] = 'x'
+    report = []
 
-    expect('implemented-by-managed REFUSES a policy reason against one of its slots',
-           any('policy reason' in r for r in managed_implementation_refusals(
-               probe_rows, {'IManagedKindProbe': {'OnStart': 'x'}})))
+    class Lines:
+        def write(self, text):
+            report.append(text)
 
-    expect('an unknown chain kind is refused rather than read as the default',
-           fields_for(dict(struct='X', header='src/sourcesharp/game/shared/'
-                           'sourcesharp_gamesystem.h', chain=['IManagedRuntimeServer'],
-                           kind='implemented-by-native'), {})[0] is None)
-
-    managed_rows = [e for e in INTERFACES if kind_of(e) == IMPLEMENTED_BY_MANAGED]
-    valve_rows_all = [e for e in INTERFACES if kind_of(e) == VALVE_BY_MANAGED]
-    expect('every managed-written row is emitted with [ImplementedByManaged] naming its '
-           'class -- ValveLayout = true on exactly the valve-layout ones -- and no other '
-           'row is',
-           generated is not None
-           and generated.count('[ImplementedByManaged(') == len(managed_rows) + len(valve_rows_all)
-           and all('[ImplementedByManaged("%s")]' % e['chain'][-1] in generated
-                   for e in managed_rows)
-           and generated.count('ValveLayout = true') == len(valve_rows_all)
-           and all('[ImplementedByManaged("%s", ValveLayout = true%s)]'
-                   % (e['chain'][-1], reserved_spelling(e))
-                   in generated for e in valve_rows_all))
-
-    expect('reserved_words is refused on a row that is not a Valve layout',
-           fields_for(dict(struct='X', header='src/sourcesharp/game/shared/'
-                           'sourcesharp_gamesystem.h', chain=['IManagedRuntimeServer'],
-                           kind=IMPLEMENTED_BY_MANAGED, reserved_words=1), {})[0] is None)
+    clean = check_policy_keys(Lines())
+    flagged = check_policy_keys(Lines(), stale)
+    expect('a policy reason for a method the header does not declare is reported, '
+           'naming it, rather than silently landing on nothing',
+           clean == 0 and flagged == 1
+           and 'IVModelInfo::NoSuchMethodExists' in ''.join(report))
 
     failed = [name for name, ok in arms if not ok]
     print('\n%d arm(s), %d failed.' % (len(arms), len(failed)), file=out)
@@ -2722,9 +1996,9 @@ def self_test(out=sys.stdout):
     return 1 if failed else 0
 
 
-def check_policy_keys(out=sys.stdout):
+def check_policy_keys(out=sys.stdout, policy=None):
     """Every policy key must name a declaration in the class it is filed under."""
-    policy = load_policy()
+    policy = load_policy() if policy is None else policy
     declared = {}
 
     for entry in INTERFACES:
@@ -2751,29 +2025,11 @@ def check_policy_keys(out=sys.stdout):
 
 def main(argv):
     parser = argparse.ArgumentParser(add_help=True)
-    parser.add_argument('--emit', action='store_true')
-    parser.add_argument('--write', action='store_true')
     parser.add_argument('--self-test', action='store_true')
     args = parser.parse_args(argv[1:])
 
     if args.self_test:
         return self_test()
-
-    if args.emit or args.write:
-        generated, why = emit()
-
-        if generated is None:
-            print('!! %s' % why, file=sys.stderr)
-            return 2
-
-        if args.write:
-            with open(os.path.join(ROOT, VTBL_FILE), 'w') as handle:
-                handle.write(generated)
-            print('wrote %s' % VTBL_FILE)
-            return 0
-
-        sys.stdout.write(generated)
-        return 0
 
     return check_policy_keys() or check()
 

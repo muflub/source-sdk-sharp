@@ -54,14 +54,10 @@ ss_cpptest_engine_headers(managed_accept_test
     INCLUDES sourcesharp/game/shared sourcesharp/host
     SOURCES sourcesharp/test/managed_accept_test.cpp)
 
-# The compiler's own answer for the four IUniformRandomStream slots C# indexes
-# directly, held against the numbers written down in the C# ledger. Engine
-# headers, because the whole point is that the SDK's own declaration is what
-# decides -- but it links nothing: a pointer-to-member needs a declaration and
-# no definition, so vstdlib is not on the line below -- and neither is
-# vtable_hook.cpp, which no longer exists.
-# -I for the ABI header: ishim_console.h names SourceSharpConsoleEntry, which
-# sourcesharp.h declares (plan_engineapi_vtables A4).
+# The data structs managed reads and writes in place, held to their managed
+# views' offsets, and the fact that no acquire hands managed a vtable count.
+# Engine headers, because the SDK's own declarations decide the offsets; it
+# links nothing.
 ss_cpptest_engine_headers(vtable_index_agreement_test OPTIMIZED
     INCLUDES sourcesharp/host sourcesharp/game/shared
     SOURCES sourcesharp/test/vtable_index_agreement_test.cpp)

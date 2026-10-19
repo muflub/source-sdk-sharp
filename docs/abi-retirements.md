@@ -260,8 +260,9 @@ that set changes in either direction.
 `SourceSharpManagedApi` fields, and the difference decides which pass removes
 them.** They are virtual methods of `IShimFrame`
 (`src/sourcesharp/game/server/ishim_frame.h`), reached by managed code through
-the vtable that `ShimFrame_Acquire` hands the internal factory, indexed by
-position in `ShimFrameVtbl` (`SourceSharp.Abi/VtableLayouts.g.cs`, generated).
+the forwarder table `SSFwd_ShimFrame` (`ShimFrameFwd` in
+`SourceSharp.Abi/SharedForwarders.g.cs`, generated), whose slots follow the
+header's order.
 
 So the worklist grep this file's preamble prescribes —
 

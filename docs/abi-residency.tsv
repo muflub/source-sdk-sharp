@@ -74,7 +74,6 @@ Transform.cs	plumbing	b: blittable 3x4 matrix: EngineBlockHead.WorldTransform's 
 UserCmd.cs	plumbing	a: named by ShimAreas.g.cs	-
 ViewTargetSetup.cs	plumbing	a: named by ShimAreas.g.cs	-
 Vtable.cs	plumbing	a: named by ShimRoot.cs	-
-VtableLayouts.g.cs	plumbing	a: the generated boundary	-
 WorldQuery.cs	plumbing	a: named by TempEntSpawn.Prepared.cs	-
 WorldQueryBlobs.cs	plumbing	a: named by ShimAreas.g.cs	-
 WorldRenderState.cs	plumbing	b: value contract: SourceSharpWorldRenderState	-

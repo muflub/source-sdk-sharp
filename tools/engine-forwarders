@@ -14,7 +14,7 @@
     exit 2   a header could not be read, or a forwarded method is not in it
 
 plan_engine_forwarders.md. Managed used to call an engine interface by indexing
-the engine object's vtable through a struct in VtableLayouts.g.cs, and so had to
+the engine object's vtable through a generated layout struct, and so had to
 know both C++ ABIs: MSVC gives a virtual destructor one slot rather than two and
 lays each class's overloads out grouped and in reverse declaration order. A
 forwarder takes that away. For every method managed calls this writes one line
@@ -46,8 +46,8 @@ for a deliberate break, after which only a rebuild of both sides is safe.
 
 WHAT IS FORWARDED IS WHAT MANAGED CALLS, not every slot: a method enters
 FORWARD when managed code first calls it. The names are the field names
-VtableLayouts.g.cs gives (an overload's second declaration is `Name_2`), so the
-two files can be read side by side while both exist.
+tools/vtable-layout's header walk gives (an overload's second declaration is
+`Name_2`).
 
 HAND-WRITTEN TABLES (HAND below) are the same tables over functions that are
 not one interface's methods, written in the library's own source: the Steam
@@ -129,8 +129,8 @@ SIDE_ROOTS = {
 }
 
 # ---------------------------------------------------------------------------
-# WHAT IS FORWARDED. Keyed by the VtableLayouts.g.cs struct the interface is
-# described by: its header and chain come from tools/vtable-layout's
+# WHAT IS FORWARDED. Keyed by the struct name the interface is described by in
+# tools/vtable-layout: its header and chain come from that tool's
 # INTERFACES row, so the table's name (the struct's, less `Vtbl`), the C++
 # type its `self` is (the chain's last class) and the header the forwarders
 # include (the row's, under src/public) are derived, and a row names only its
@@ -523,7 +523,7 @@ def resolved(row):
 
 def slots_of(entry):
     """{field name: (class, method, parameters, returns)} for one interface,
-    named as VtableLayouts.g.cs names its fields, in declaration order."""
+    named as tools/vtable-layout's walk names its fields, in declaration order."""
     rows, why = VL.derive_chain(VL.chain_steps(entry))
 
     if rows is None:
@@ -564,7 +564,7 @@ def forwarders_of(row):
     unknown = [m for m in row['methods'] if m not in named]
     if unknown:
         raise Refusal('%s forwards %s, which %s not a method of %s (the names are '
-                      'VtableLayouts.g.cs\'s fields: an overload\'s second is Name_2)'
+                      'the header walk\'s fields: an overload\'s second is Name_2)'
                       % (row['table'], ', '.join(unknown),
                          'is' if len(unknown) == 1 else 'are', ' / '.join(entry['chain'])))
 

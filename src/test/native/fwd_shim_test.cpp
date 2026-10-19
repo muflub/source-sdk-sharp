@@ -16,8 +16,12 @@
 #include "ss_fwd.h"
 
 #include "sourcesharp/game/server/ishim_frame.h"
+#include "sourcesharp/game/server/ishim_level.h"
 #include "sourcesharp/game/shared/ishim_areas.h"
+#include "sourcesharp/game/shared/ishim_areas_client.h"
+#include "sourcesharp/game/shared/ishim_console.h"
 #include "sourcesharp/game/shared/ishim_root.h"
+#include "sourcesharp/game/shared/vtable_hook.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -331,3 +335,62 @@ TEST( FwdShim, TheRootsTableIsAcquireAcquireInterfaceAndRelease )
 	reinterpret_cast< void ( * )( IShimRoot * ) >( pTable->ppSlots[ 2 ] )( &root );
 	EXPECT_EQ( 2, root.nLast );
 }
+
+//-----------------------------------------------------------------------------
+// THE HAND-SHAPED TABLES' COUNTS: the root, the console, the frame and the
+// level, each its forwarder table against the compiler's count for the
+// interface. Read off the LAST member, whichever it is, so an append that the
+// generated table missed shows as the two numbers parting company. None of the
+// four declares a virtual destructor (each header says why), so slot 0 is the
+// first method. These held the old generated vtable layouts until
+// plan_forwarders_everywhere.md phase 6; the table is what managed reads now.
+//-----------------------------------------------------------------------------
+namespace
+{
+
+void ExpectServedCount( const char *pszTable, int nCompiler, int nExpected )
+{
+	EXPECT_EQ( nExpected, nCompiler ) << pszTable;
+	const SSForwarderTable *pTable = SSFwdServer_Table( pszTable );
+	ASSERT_NE( nullptr, pTable ) << pszTable;
+	EXPECT_EQ( nCompiler, pTable->nSlots ) << pszTable;
+}
+
+} // namespace
+
+TEST( FwdShimCounts, TheRootIsThreeSlots )
+{
+	// Acquire, AcquireInterface (plan_engineapi_vtables C5, before Release),
+	// Release last.
+	ExpectServedCount( "SSFwd_ShimRoot", VTableHook::MemberOf( &IShimRoot::Release ).slot + 1, 3 );
+}
+
+TEST( FwdShimCounts, TheConsoleIsElevenSlots )
+{
+	// The ten console slots of the old engine struct, in its order, then
+	// RevertNamedConVar.
+	ExpectServedCount( "SSFwd_ShimConsole",
+	                   VTableHook::MemberOf( &IShimConsole::ConsoleSnapshotEntry ).slot + 1, 11 );
+}
+
+TEST( FwdShimCounts, TheFrameIsNineteenSlots )
+{
+	// Seventeen until StandaloneRunFrame split into StandaloneUpdate and
+	// StandaloneFinish; eighteen until DeliverToSdkEntities was appended.
+	ExpectServedCount( "SSFwd_ShimFrame",
+	                   VTableHook::MemberOf( &IShimFrame::DeliverToSdkEntities ).slot + 1, 19 );
+}
+
+TEST( FwdShimCounts, TheLevelIsTwentySixSlots )
+{
+	// Twenty-two until LoadSaveGameState, twenty-three until FileSizeOnPath and
+	// ReadFileOnPath, twenty-five until SpawnWorld: each appended.
+	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::SpawnWorld ).slot + 1, 26 );
+}
+
+//-----------------------------------------------------------------------------
+// Every generated shim area's forwarder table, its count against the
+// compiler's for the interface (tools/shim-areas; the tables are both sides',
+// so the server's library serves the client's areas too).
+//-----------------------------------------------------------------------------
+#include "shim_areas_forwarders.inc"

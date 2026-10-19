@@ -25,8 +25,9 @@ sourcesharp_gamesystem.cpp:
                                           with, and ShimAreas_Acquire; included at
                                           the end of sourcesharp_gamesystem.cpp,
                                           where the static bodies are visible
-  src/test/native/shim_areas_layout.inc  one length test per bound interface,
-                                          included by vtable_index_agreement_test
+  src/test/native/shim_areas_forwarders.inc  one count test per bound interface,
+                                          its forwarder table against the
+                                          compiler, included by fwd_shim_test
   src/abi/ShimAreas.g.cs                 the managed Slot_X/Has_X routing: class
                                           ShimSlots, held per side by EngineSide and
                                           never a partial of it (plan_abi_hotreload D4)
@@ -57,7 +58,7 @@ OUT_IFACE_CLIENT = 'src/shared/native/ishim_areas_client.h'   # hand-kept, plan_
 OUT_CLASSES = 'src/shared/native/shell_shim_areas.h'
 OUT_IMPL = 'src/shared/native/shell_shim_areas.inc'
 OUT_IMPL_CLIENT = 'src/shared/native/shell_shim_areas_client.inc'
-OUT_TEST = 'src/test/native/shim_areas_layout.inc'
+OUT_TEST = 'src/test/native/shim_areas_forwarders.inc'
 OUT_MANAGED = 'src/abi/ShimAreas.g.cs'
 SWITCHED = 'docs/engineapi-switched.txt'
 # plan_client_vtables CB: the shared bases whose EngineSide calls go through the
@@ -388,31 +389,30 @@ def generate():
                 '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)), '']
     cim += ['\treturn NULL;', '}', '']
 
-    # ---- the layout tests ---------------------------------------------------------
+    # ---- the forwarder tables' counts ----------------------------------------------
+    # Each area is called through its forwarder table (plan_forwarders_everywhere.md),
+    # which tools/engine-forwarders generates from the same header: its count is
+    # held to the compiler's for the interface, so a header walk that dropped or
+    # doubled a slot is caught where the table is built.
     t = ['// ' + GENERATED[3:], '//',
-         '// Included by vtable_index_agreement_test.cpp: the compiler\'s count for each',
-         '// generated shim interface, held to its generated layout.', '']
+         '// Included by fwd_shim_test.cpp: the compiler\'s count for each generated shim',
+         '// interface, held to the forwarder table the server\'s library serves for it.', '']
+    def table_test(name, i, last, n):
+        return ['TEST( FwdShimAreas, %s )' % name, '{',
+                '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, last),
+                '\tEXPECT_EQ( %d, compiler );' % n,
+                '\tconst SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_Shim%s" );' % short(i),
+                '\tASSERT_NE( nullptr, pTable );',
+                '\tEXPECT_EQ( compiler, pTable->nSlots );', '}', '']
     for i in concrete:
-        last = slots[i][-1]
         n = sum(len(slots[ci]) for ci in chain(i, base))
-        t += ['TEST( VtableLayoutLength, Shim%sIs%dSlots )' % (short(i), n), '{',
-              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, last),
-              '\tEXPECT_EQ( %d, compiler );' % n,
-              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Shim%sVtbl" ) );' % short(i), '}', '']
+        t += table_test('Shim%sIs%dSlots' % (short(i), n), i, slots[i][-1], n)
     for i in client_bases:
         n = len(slots[i])
-        t += ['TEST( VtableLayoutLength, Shim%sIs%dSlotsOnTheClient )' % (short(i), n), '{',
-              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, slots[i][-1]),
-              '\tEXPECT_EQ( %d, compiler );' % n,
-              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Shim%sVtbl" ) );' % short(i), '}', '']
+        t += table_test('Shim%sIs%dSlotsOnTheClient' % (short(i), n), i, slots[i][-1], n)
     for i in client_only:
         n = len(client_slots[i])
-        t += ['TEST( VtableLayoutLength, Shim%sIs%dSlots )' % (short(i), n), '{',
-              '\tconst int compiler = VTableHook::MemberOf( &%s::%s ).slot + 1;' % (i, client_slots[i][-1]),
-              '\tEXPECT_EQ( %d, compiler );' % n,
-              '\tEXPECT_EQ( compiler, FieldsIn( ReadLayout(), "Shim%sVtbl" ) );' % short(i), '}', '']
-    t += ['static const char *const kShimAreasCovered[] = {'] + \
-         ['\t"Shim%sVtbl",' % short(i) for i in dict.fromkeys(concrete + client_bases + client_only)] + ['};', '']
+        t += table_test('Shim%sIs%dSlots' % (short(i), n), i, client_slots[i][-1], n)
 
     # ---- the managed side: routing helpers and the bound areas --------------
     types = {}
