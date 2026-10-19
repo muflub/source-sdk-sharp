@@ -1162,8 +1162,8 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	// subclass in this build was C_TEEffectDispatch, which is inside
 	// c_te_effect_dispatch.cpp's SOURCESHARP guard -- so the walk had nothing
 	// in it to walk. Every temp entity in this build is a managed declaration
-	// registered through SourceSharp_TempEntRegisterClient, and what it
-	// precaches it precaches from C#.
+	// planned by ClientTempEntEngine and built through TempEntBuildClient, and
+	// what it precaches it precaches from C#.
 	input->Init_All();
 
 	VGui_CreateGlobalPanels();

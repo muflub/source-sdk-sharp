@@ -77,7 +77,6 @@ src/sourcesharp/game/shared/sourcesharp_gamesystem.h	no	interop interface declar
 src/sourcesharp/game/shared/standalone_nettable.h	yes	reproduces CBaseEntity's SendTable field encodings (m_fEffects et al)
 src/sourcesharp/game/shared/standalone_player_sync.h	yes	rule 3: includes imovementplayer.h which includes mathlib/const.h
 src/sourcesharp/game/shared/tempent_forwards.h	no	own forwarder-id vocabulary
-src/sourcesharp/game/client/tempent_schema.h	yes	ports stock's temp-entity SendTable/RecvTable naming and bit-width rules
 src/sourcesharp/game/shared/trail_lifetime.h	yes	ports C_BaseEntity's zeroing operator new/delete
 src/sourcesharp/game/shared/view_effect_reach.h	yes	ports ComputeShakeAmplitude/view-punch falloff/TransmitShakeEvent gate
 src/sourcesharp/game/shared/vtable_hook.h	no	own compiler-based vtable-slot tooling
@@ -1426,9 +1425,7 @@ src/sourcesharp/test/takedamageinfo_library_test.cpp	no	source-scan verifying TU
 src/sourcesharp/test/te_backend_args_test.cpp	no	tests own argument-unpacking header, original logic
 src/sourcesharp/test/teleport_discontinuity_test.cpp	no	source-scan verifying wire wiring exists in managed code
 src/sourcesharp/test/tempent_evicted_test.cpp	no	source-scan verifying eviction claims per file
-src/sourcesharp/test/tempent_plan_test.cpp	no	tests own PlanProps header, original logic
 src/sourcesharp/test/tempent_pool_test.cpp	no	source-scan verifying pool seam facts
-src/sourcesharp/test/tempent_schema_test.cpp	no	tests own tempent-schema header, original arithmetic
 src/sourcesharp/test/tempent_spawn_seam_test.cpp	no	source-scan verifying spawn-seam facts
 src/sourcesharp/test/tempent_verdict_test.cpp	no	verdict re-take test over dead-caller facts
 src/sourcesharp/test/template_transform_test.cpp	yes	recomputes template placement with real mathlib VMatrix exactly as CPointTemplate::AddTemplateNamed/CreateInstance did

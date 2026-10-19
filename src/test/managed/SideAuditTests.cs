@@ -376,10 +376,10 @@ public class SideAuditTests
         // ServerTempEntEngine ADDS names through the string table forwarders,
         // and this READS them, so which side owns the numbering is still plain.
         "EffectDispatchName",
-        // The client's temp entity registration (plan_server_native_v2 T4b):
-        // RecvProp[] -> RecvTable -> ClientClass from a TeClass. The server's
-        // tables are planned in C# and stored through its own TempEntBuild.
-        "TempEntRegister",
+        // The client's temp entity tables, planned in C# (ClientTempEntEngine)
+        // and stored from one block per table: RecvProp[] -> RecvTable ->
+        // ClientClass. The server's are stored through its own TempEntBuild.
+        "TempEntBuildClient",
         // C-Phase 3 lane CX's four, for the last three client decal halves.
         // Client-only, and only ONE of them is drawing. ClientDecalStaticProp
         // is the engine's static prop renderer, which the server has no arm of.
@@ -519,9 +519,9 @@ public class SideAuditTests
         // plan_server_native_v2 T4b took the server's arm into C#
         // (ServerTempEntEngine plans the table and IShimEffectsServer::
         // TempEntBuild stores it), so the slot is the client's alone (ClientOnly
-        // above). The two tables still cannot drift: both are planned from the
-        // same TeClass, the server by TePropPlanner and the client by
-        // tempent_schema.h, and TePropPlannerTests holds the two plans to the
+        // above), and then the client's went too (TempEntBuildClient). The two
+        // tables still cannot drift: both are planned from the same TeClass by
+        // the same TePropPlanner, and TePropPlannerTests holds that plan to the
         // same answers.
         // WHERE AN ENTITY IS, answered by each side off its own table -- the
         // server through the edict, the client off C_StandaloneEntity's own

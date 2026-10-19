@@ -1794,8 +1794,6 @@ internal sealed unsafe partial class EngineSide
         fixed (byte* p = bytes)
             return ClientShims.SoundscapeClient.SoundPatchCreate(entity.Value, channel, p, soundLevel);
     }
-    // THE CLIENT'S SLOT ALONE (plan_server_native_v2 T4b).
-    private partial int SideTempEntRegister(TeClassDesc* desc) => ClientShims.TempEntBackendsClient.TempEntRegister(desc);
 }
 
 

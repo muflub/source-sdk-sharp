@@ -2125,8 +2125,8 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
     // void IShimTempEntBackendsClient::EffectDispatchName( int32_t, char *, int32_t )
     public delegate* unmanaged<void*, int, byte*, int, void> EffectDispatchName;
 
-    // int32_t IShimTempEntBackendsClient::TempEntRegister( const SourceSharpTeClass_t * )
-    public delegate* unmanaged<void*, void*, int> TempEntRegister;
+    // int32_t IShimTempEntBackendsClient::TempEntBuildClient( const void *, int32_t, int32_t, SourceSharpTeRecvBuilt_t * )
+    public delegate* unmanaged<void*, void*, int, int, void*, int> TempEntBuildClient;
 }
 
 /// <summary>

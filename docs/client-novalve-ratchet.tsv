@@ -322,7 +322,9 @@ incdir-forbidden	6
 #   ClientLeafSystem002 row of libss_fwd_client's leaf system, joins client.so with the target's include dirs:
 #   incdir-forbidden-tus 141 -> 142 RAISED (the new TU; tools/client-novalve-census). Its functions are ruled
 #   SLOT-HELP/HOOK (tools/shim-scope), so logic-lines stays 8301. Hand-edited.
-incdir-forbidden-tus	140
+# RAISED 2026-10-19, incdir-forbidden-tus 140 -> 141 (the client temp entity landing on main 6c0c02d09), deliberately: the new
+#   TU shell_tempents_store_client.cpp, which stores the managed plan as engine-read RecvTables (dt_recv.h).
+incdir-forbidden-tus	141
 link-forbidden	1
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
 # 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
@@ -341,7 +343,10 @@ link-forbidden	1
 # LOWERED 2026-10-19, logic-lines 8939 -> 8696 (-243) and incdir-forbidden-tus 141 -> 140 (tools/client-novalve-census at
 #   the client save codec landing on main 9d7f49fad): shell_savegame.cpp deleted, its save slots ruled SLOT, and the
 #   forwards in shell_clientdll.cpp (the lane measured 9010 -> 8767 on its base). Hand-edited.
-logic-lines	8696
+# LOWERED 2026-10-19, logic-lines 8696 -> 7566 (-1130, tools/shim-scope at the client temp entity landing on main 6c0c02d09):
+#   tempent_schema.h and the native registration path deleted; the store and the receiving shell's husk ruled carrying out
+#   (the lane measured 9514 -> 8384 on its base). Hand-edited.
+logic-lines	7566
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).

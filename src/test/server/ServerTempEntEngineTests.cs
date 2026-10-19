@@ -111,7 +111,7 @@ public sealed class ServerTempEntEngineTests
         Assert.Equal(("CTESparks", "DT_TESparks", 1, 4),
                      (NameAt(_tables.Blocks[1], header.ClassName), NameAt(_tables.Blocks[1], header.TableName),
                       header.RegisterClass, header.Props));
-        Assert.Equal(ServerTempEntEngine.ShapeHash(Sparks()), header.ShapeHash);
+        Assert.Equal(TeSchemaRegistry.ShapeHash(Sparks()), header.ShapeHash);
 
         // The base, nested by the handle native gave it, collapsible at zero.
         Assert.Equal(("baseclass", (int)SendPropType.DataTable, 0, SendPropPlan.Collapsible, (int)SendProxyId.DataTableToDataTable),
@@ -162,7 +162,7 @@ public sealed class ServerTempEntEngineTests
     [Fact]
     public void AReloadGetsItsHandleBackAndAReshapeIsSaid()
     {
-        uint same = ServerTempEntEngine.ShapeHash(ParticleSystem());
+        uint same = TeSchemaRegistry.ShapeHash(ParticleSystem());
 
         ServerTempEntEngine kept = Engine();
         _tables.Answer = h => new TempEntTable(7, true, same, 0x2000, 0);
@@ -179,12 +179,12 @@ public sealed class ServerTempEntEngineTests
     [Fact]
     public void TheShapeHashIsTheTableTheBlobAndTheFieldCount()
     {
-        uint hash = ServerTempEntEngine.ShapeHash(Sparks());
+        uint hash = TeSchemaRegistry.ShapeHash(Sparks());
 
-        Assert.Equal(hash, ServerTempEntEngine.ShapeHash(Sparks() with { ClassName = "CTEOther" }));
-        Assert.NotEqual(hash, ServerTempEntEngine.ShapeHash(Sparks() with { TableName = "DT_TEOther" }));
-        Assert.NotEqual(hash, ServerTempEntEngine.ShapeHash(Sparks() with { BlobBytes = 36 }));
-        Assert.NotEqual(hash, ServerTempEntEngine.ShapeHash(Sparks() with { Fields = Sparks().Fields[..2] }));
+        Assert.Equal(hash, TeSchemaRegistry.ShapeHash(Sparks() with { ClassName = "CTEOther" }));
+        Assert.NotEqual(hash, TeSchemaRegistry.ShapeHash(Sparks() with { TableName = "DT_TEOther" }));
+        Assert.NotEqual(hash, TeSchemaRegistry.ShapeHash(Sparks() with { BlobBytes = 36 }));
+        Assert.NotEqual(hash, TeSchemaRegistry.ShapeHash(Sparks() with { Fields = Sparks().Fields[..2] }));
     }
 
     [Fact]

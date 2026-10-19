@@ -21,33 +21,18 @@
 #endif
 
 #include "sourcesharp.h"
+#include "tempent_table_block.h"
 #include "dt_send.h"
 
-//-----------------------------------------------------------------------------
-// One block, read: the header, the rows (unaligned, so copied out one at a
-// time), and the payload the names are found in.
-//-----------------------------------------------------------------------------
-struct SourceSharpTeTableBlock_t
+// The block, checked (tempent_table_block.h), with the server's rows.
+inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes,
+                                          SourceSharpTeTableBlock_t *pOut )
 {
-	SourceSharpTeTableHeader_t  header;
-	const unsigned char        *pPayload;
-	int                         nPayload;
-	const unsigned char        *pRows;
-	const char                 *pClassName;
-	const char                 *pTableName;
-};
-
-// The block, checked: a whole-byte bit count that fits the bytes given, a
-// header, as many rows as it claims, and both names. False for anything else.
-bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes,
-                                   SourceSharpTeTableBlock_t *pOut );
+	return SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, (int32_t)sizeof( SourceSharpSendPropRow_t ), pOut );
+}
 
 // Row i (0 <= i < header.nProps) of a block read above.
 SourceSharpSendPropRow_t SourceSharpTe_BlockRow( const SourceSharpTeTableBlock_t &block, int i );
-
-// A name at a payload offset: NULL when the offset is outside the payload, the
-// text is empty, or it runs off the end.
-const char *SourceSharpTe_BlockName( const SourceSharpTeTableBlock_t &block, int32_t oName );
 
 // A proxy id as the function the engine compares with g_StandardSendProxies;
 // NULL for one this does not know (and for the datatable and array ids, which

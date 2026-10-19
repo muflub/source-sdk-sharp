@@ -273,6 +273,28 @@ by layout. What is left, each with its exit:
   map's absence; T4b ran it and saw 473/61 dm_lockdown both passes. The sandbox
   map's ss_te_tester fires every temp entity and is the fullest live exercise of
   the managed send; run it from a tree with the map built.
+- **The client half is done (2026-10-19, the client temp entity lane)**: the
+  client's tables are planned by ClientTempEntEngine (TeSchemaRegistry,
+  TePropPlanner, RecvPropPlan) and stored through
+  IShimTempEntBackendsClient::TempEntBuildClient; tempent_schema.h and the
+  native registration path are deleted. What stays native on the client, each
+  for the engine: the receiving shell (CSourceSharpTempEnt, the
+  IClientNetworkable the engine decodes into and calls PostDataUpdate on), its
+  per-handle CreateEventFn table (the function carries no context), the store
+  (shell_tempents_store_client.cpp: RecvProp[] -> RecvTable -> ClientClass),
+  cs_cl_te_dump (prints the engine's view) and the client SourceSharpTe_Forward
+  (a native TE_*() call's arguments to managed). Changed on purpose, none of it
+  stock's: the native registry's stock-table checks are gone (client.so holds no
+  DT_TE*/DT_BaseBeam/DT_BaseTempEntity/DT_EffectData table at ab8f56ef2, so the
+  external base resolver, the "a native RecvTable is still named" shadow
+  refusal, the ClientClass-name refusal and the dump's TESTOCK lines had nothing
+  to answer); the reload's reshape warning names the new shape only (native no
+  longer holds the old description); the close line is the server's ("45
+  table(s), 43 ClientClass(es)"); the dump's TE| line is
+  table|i|name|type|offset|flags|nested (the plan columns went with the native
+  plan). A ClientClass name collision with a non-temp-entity class (CWorld, the
+  game rules, the StdEnt tiers) is not refused; no temp entity name can take
+  one of those today.
 
 ## The client's sound emit path in C#: follow-ups and divergences
 

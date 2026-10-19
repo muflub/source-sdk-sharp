@@ -132,6 +132,7 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_leaf_system_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_legacy_tempents_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell_tempents_store_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_tools_off_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_usermessages_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_view_facts.cpp

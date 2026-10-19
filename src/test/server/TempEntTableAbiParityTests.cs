@@ -13,9 +13,9 @@ namespace SourceSharp.Tests;
 /// The server's temp entity table block (plan_server_native_v2 T4b) against
 /// the headers it crosses into: sourcesharp.h's three structs and its proxy ids
 /// against their managed mirrors, the row's DPT_* and SPROP_* numbers against
-/// dt_common.h, and <see cref="TePropPlanner"/>'s restated widths against
-/// tempent_schema.h's, which tempent_schema_test.cpp holds to the headers that
-/// own them. Each half is read from the file, never retyped: a field inserted
+/// dt_common.h (<see cref="TePropPlanner"/>'s restated widths are held to the
+/// stock headers that own them by TePropPlannerWidthsOracleTests). Each half is
+/// read from the file, never retyped: a field inserted
 /// on one side shifts every field after it, and the symptom is a SendProp
 /// built with somebody else's width.
 /// </summary>
@@ -138,37 +138,6 @@ public class TempEntTableAbiParityTests
         float header = float.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
         Assert.True(header == SendPropPlan.HighDefault, $"dt_common.h says {header}, SendPropPlan {SendPropPlan.HighDefault}");
     }
-
-    [Theory]
-    [InlineData("SOURCESHARP_TE_MAX_EVENT_BYTES", TePropPlanner.MaxEventBytes)]
-    [InlineData("SOURCESHARP_TE_COORD_INTEGER_BITS", TePropPlanner.CoordIntegerBits)]
-    [InlineData("SOURCESHARP_TE_COORD_FRACTIONAL_BITS", TePropPlanner.CoordFractionalBits)]
-    [InlineData("SOURCESHARP_TE_COORD_FRACTIONAL_BITS_MP_LOWPREC", TePropPlanner.CoordFractionalBitsMpLowPrecision)]
-    [InlineData("SOURCESHARP_TE_NORMAL_FRACTIONAL_BITS", TePropPlanner.NormalFractionalBits)]
-    [InlineData("SOURCESHARP_TE_MAX_EDICT_BITS", TePropPlanner.MaxEdictBits)]
-    [InlineData("SOURCESHARP_TE_MODEL_INDEX_BITS", TePropPlanner.ModelIndexBits)]
-    [InlineData("SOURCESHARP_TE_EF_MAX_BITS", TePropPlanner.EfMaxBits)]
-    [InlineData("SOURCESHARP_TE_ANIM_SKIN_BITS", TePropPlanner.AnimationSkinBits)]
-    [InlineData("SOURCESHARP_TE_EFFECT_FLAG_BITS", TePropPlanner.EffectFlagBits)]
-    [InlineData("SOURCESHARP_TE_EFFECT_STRING_BITS", TePropPlanner.EffectStringBits)]
-    [InlineData("SOURCESHARP_TE_MAX_PLAYERS", TePropPlanner.MaxPlayers)]
-    [InlineData("SOURCESHARP_TE_EHANDLE_BITS", TePropPlanner.EHandleBits)]
-    [InlineData("SOURCESHARP_TE_PROP_INDEX_BITS", TePropPlanner.PropIndexBits)]
-    [InlineData("SOURCESHARP_TE_MESSAGE_OVERHEAD_BITS", TePropPlanner.MessageOverheadBits)]
-    [InlineData("SOURCESHARP_TE_MAX_CLASSES", TePropPlanner.MaxClasses)]
-    [InlineData("SOURCESHARP_TE_MAX_FIELDS", TePropPlanner.MaxFields)]
-    [InlineData("SOURCESHARP_TE_PROP_NAME_MAX", TePropPlanner.PropNameMax)]
-    public void ThePlannersWidthsAreTempentSchemasOwn(string name, int value)
-    {
-        string text = Read(TempentSchemaPath());
-        Match m = Regex.Match(text, $@"enum\s*\{{\s*{name}\s*=\s*(\d+)\s*\}};");
-        Assert.True(m.Success, $"tempent_schema.h declares {name}");
-        Assert.Equal(int.Parse(m.Groups[1].Value), value);
-    }
-
-    // The client's planner: the header the client still plans its RecvTables
-    // with, client-only since plan_server_native_v2 T4b.
-    private static string TempentSchemaPath() => RepoLayout.Repo("src", "client", "native", "tempent_schema.h");
 
     [Fact]
     public void ABlockIsTheBitCountTheHeaderTheRowsAndTheNames()

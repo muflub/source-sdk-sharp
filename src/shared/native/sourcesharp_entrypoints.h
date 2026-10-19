@@ -604,6 +604,8 @@ void SourceSharp_StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence,
                                           float flDuration, int32_t bLooping );
 void SourceSharp_SurfaceSetEdges( uint32_t hEntity, const unsigned char *pEdges,
                                   int32_t nCount );
+int32_t SourceSharp_TempEntBuildClient( const void *pBlock, int32_t nBlockBytes,
+                                        int32_t nBlobBytes, SourceSharpTeRecvBuilt_t *pOut );
 int32_t SourceSharp_TempEntPoolAddVisible( int32_t nSlot );
 int32_t SourceSharp_TempEntPoolCapacity( void );
 int32_t SourceSharp_TempEntPoolCreate( int32_t nSlot, const float *pOriginXYZ,
@@ -621,7 +623,6 @@ int32_t SourceSharp_TempEntPoolWriteSpawn( int32_t nSlot,
                                            const SourceSharpTempEntSpawn_t *pSpawn );
 int32_t SourceSharp_TempEntPoolWriteTransform( int32_t nSlot,
                                                const SourceSharpTempEntTransform_t *pTransform );
-int32_t SourceSharp_TempEntRegisterClient( const SourceSharpTeClass_t *pDesc );
 void SourceSharp_UiDebugOverlayClearDead( void );
 int32_t SourceSharp_UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY,
                                         int32_t *pOutLine, uint32_t *pOutRgba, uint8_t *pText,

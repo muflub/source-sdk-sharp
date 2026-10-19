@@ -284,7 +284,7 @@ TEST( FwdShimAreas, ShimTempEntPoolClientIs14Slots )
 
 TEST( FwdShimAreas, ShimTempEntBackendsClientIs18Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimTempEntBackendsClient::TempEntRegister ).slot + 1;
+	const int compiler = VTableHook::MemberOf( &IShimTempEntBackendsClient::TempEntBuildClient ).slot + 1;
 	EXPECT_EQ( 18, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimTempEntBackendsClient" );
 	ASSERT_NE( nullptr, pTable );

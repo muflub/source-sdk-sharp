@@ -147,8 +147,8 @@ void CShimTempEntBackendsClient::ClientSparks( const float * pPositionXYZ, int32
 	{ return ::SourceSharp_ClientSparks( pPositionXYZ, nMagnitude, nTrailLength, pDirectionXYZ ); }
 void CShimTempEntBackendsClient::EffectDispatchName( int32_t nIndex, char * pOut, int32_t nOutBytes )
 	{ return ::SourceSharp_EffectDispatchName( nIndex, pOut, nOutBytes ); }
-int32_t CShimTempEntBackendsClient::TempEntRegister( const SourceSharpTeClass_t * pDesc )
-	{ return ::SourceSharp_TempEntRegisterClient( pDesc ); }
+int32_t CShimTempEntBackendsClient::TempEntBuildClient( const void * pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t * pOut )
+	{ return ::SourceSharp_TempEntBuildClient( pBlock, nBlockBytes, nBlobBytes, pOut ); }
 
 int32_t CShimEffectsRenderClient::DrawSprite( uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize )
 	{ return ::SourceSharp_DrawSprite( hOwner, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize ); }

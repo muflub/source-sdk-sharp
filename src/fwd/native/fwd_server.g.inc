@@ -2210,8 +2210,8 @@ static void SSFwd_ShimTempEntBackendsClient_ClientSmoke( IShimTempEntBackendsCli
 static void SSFwd_ShimTempEntBackendsClient_ClientSparks( IShimTempEntBackendsClient *self, const float * a0, int32_t a1, int32_t a2, const float * a3 ) { self->ClientSparks( a0, a1, a2, a3 ); }
 // void IShimTempEntBackendsClient::EffectDispatchName( int32_t, char *, int32_t )
 static void SSFwd_ShimTempEntBackendsClient_EffectDispatchName( IShimTempEntBackendsClient *self, int32_t a0, char * a1, int32_t a2 ) { self->EffectDispatchName( a0, a1, a2 ); }
-// int32_t IShimTempEntBackendsClient::TempEntRegister( const SourceSharpTeClass_t * )
-static int32_t SSFwd_ShimTempEntBackendsClient_TempEntRegister( IShimTempEntBackendsClient *self, const SourceSharpTeClass_t * a0 ) { return self->TempEntRegister( a0 ); }
+// int32_t IShimTempEntBackendsClient::TempEntBuildClient( const void *, int32_t, int32_t, SourceSharpTeRecvBuilt_t * )
+static int32_t SSFwd_ShimTempEntBackendsClient_TempEntBuildClient( IShimTempEntBackendsClient *self, const void * a0, int32_t a1, int32_t a2, SourceSharpTeRecvBuilt_t * a3 ) { return self->TempEntBuildClient( a0, a1, a2, a3 ); }
 
 static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel ),
@@ -2231,7 +2231,7 @@ static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientSmoke ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientSparks ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_EffectDispatchName ),
-	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_TempEntRegister ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_TempEntBuildClient ),
 };
 
 static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 18 };

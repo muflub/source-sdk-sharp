@@ -100,10 +100,10 @@ public:
 	virtual void ClientSmoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate ) = 0;
 	virtual void ClientSparks( const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float *pDirectionXYZ ) = 0;
 	virtual void EffectDispatchName( int32_t nIndex, char *pOut, int32_t nOutBytes ) = 0;
-	// The client's temp entity registration (plan_server_native_v2 T4b): the
-	// shared IShimEffects slot, the client's alone since the server builds its
-	// tables from a managed plan (IShimEffectsServer::TempEntBuild).
-	virtual int32_t TempEntRegister( const SourceSharpTeClass_t *pDesc ) = 0;
+	// The client's temp entity tables, planned in C# (ClientTempEntEngine) and
+	// stored by native: one length-prefixed block per table, and the size of the
+	// blob its receiving shell decodes into.
+	virtual int32_t TempEntBuildClient( const void * pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t * pOut ) = 0;
 };
 
 abstract_class IShimEffectsRenderClient

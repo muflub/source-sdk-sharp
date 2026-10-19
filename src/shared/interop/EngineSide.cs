@@ -696,88 +696,7 @@ internal sealed unsafe partial class EngineSide
     // TEMP ENTITIES (plan_tmp.md Part 3).
     //-------------------------------------------------------------------------
 
-    // Each side's own (plan_server_native_v2 T4b): the client registers through
-    // IShimTempEntBackendsClient, the server plans in C# and answers -1.
-    private partial int SideTempEntRegister(TeClassDesc* desc);
 
-    /// <summary>
-    /// Hands one temp entity's description to native, which builds the table.
-    /// Answers the handle, or -1.
-    ///
-    /// <para>
-    /// VALID ONLY DURING LoadSide. A ServerClass links itself into
-    /// <c>g_pServerClassHead</c> when it is constructed and the engine walks
-    /// that list exactly once; one built later is not in the list, nothing
-    /// warns, and the first effect that claims it sends the engine into a table
-    /// that was never flattened. Native refuses after the window rather than
-    /// building one, so a late call answers -1 and says why.
-    /// </para>
-    ///
-    /// <para>
-    /// -1 is also what the CLIENT answers today: the slot is server-only until
-    /// C-Phase 1 lands the receiving half. That is the ordinary shape of a slot
-    /// one side implements, and a caller reads it as "this side does not send
-    /// temp entities" rather than as a failure.
-    /// </para>
-    /// </summary>
-    public unsafe int TempEntRegister(TeClass description)
-    {
-        if (!s_Initialized || !OwnShimsAttached)
-            return -1;
-
-        // Every string is pinned for the duration of the call and freed after
-        // it. Native COPIES what it is handed — a SendProp keeps the pointer it
-        // was given for the life of the process and this memory is not that —
-        // so nothing here has to outlive the call.
-        var owned = new List<IntPtr>(description.Fields.Length + 4);
-
-        try
-        {
-            var fields = new TeFieldDesc[description.Fields.Length == 0 ? 1 : description.Fields.Length];
-
-            for (int i = 0; i < description.Fields.Length; i++)
-            {
-                TeField f = description.Fields[i];
-
-                fields[i] = new TeFieldDesc
-                {
-                    Name       = Utf8(f.Name, owned),
-                    Kind       = (int)f.Kind,
-                    Offset     = f.Offset,
-                    SizeBytes  = f.SizeBytes,
-                    Bits       = f.Bits,
-                    BitsFrom   = (int)f.BitsFrom,
-                    Flags      = (int)f.Flags,
-                    Low        = f.Low,
-                    High       = f.High,
-                    SubTable   = Utf8(f.SubTable, owned),
-                    Elems      = f.Elems,
-                    ElemStride = f.ElemStride,
-                };
-            }
-
-            fixed (TeFieldDesc* pFields = fields)
-            {
-                var desc = new TeClassDesc
-                {
-                    ClassName     = Utf8(description.ClassName, owned),
-                    TableName     = Utf8(description.TableName, owned),
-                    BaseTable     = Utf8(description.BaseTable, owned),
-                    BlobBytes     = description.BlobBytes,
-                    RegisterClass = description.RegistersClass ? 1 : 0,
-                    FieldCount    = description.Fields.Length,
-                    Fields        = description.Fields.Length == 0 ? null : pFields,
-                };
-
-                return SideTempEntRegister(&desc);
-            }
-        }
-        finally
-        {
-            foreach (IntPtr p in owned)
-                Marshal.FreeCoTaskMem(p);
-        }
-    }
 
     /// <summary>
     /// <c>GetCurrentGravity()</c>. A slot rather than a constant because
@@ -1284,6 +1203,14 @@ internal sealed unsafe partial class EngineSide
     private partial int SidePatchCreate(EntityHandle entity, int channel, string soundName, int soundLevel);
 
 
+
+    /// <summary>
+    /// No side registers a temp entity through here any more: the server plans
+    /// its tables in C# (plan_server_native_v2 T4b) and so does the client
+    /// (ClientTempEntTables over IShimTempEntBackendsClient's TempEntBuildClient).
+    /// -1, "this side does not register through here".
+    /// </summary>
+    public int TempEntRegister(TeClass description) => -1;
 
     // ---- plan_gamedll.md Part 4, Phase 6: LEVELINIT'S NINE NATIVE STEPS ----
     //
