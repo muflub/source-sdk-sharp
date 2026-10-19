@@ -6,7 +6,7 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// Which engine interface names each side serves to managed code
-/// (shell_vtable_interfaces.cpp's SourceSharpEntriesFor), read from what each
+/// (shell_vtable_interfaces.cpp's SourceSharpServes), read from what each
 /// side actually compiles: the TU preprocessed with that target's own compile
 /// command, so a row inside the wrong #ifdef is seen as absent. Each side its
 /// own string-table container: the client's is what reads the InfoPanel's
@@ -16,7 +16,7 @@ public class ServedInterfaceTests
 {
     private const string Tu = "shell_vtable_interfaces.cpp";
 
-    /// <summary>SourceSharpEntriesFor's body as <paramref name="target"/> compiles it.</summary>
+    /// <summary>SourceSharpServes's body as <paramref name="target"/> compiles it.</summary>
     private static string ServedBy(string target)
     {
         var entry = CMakeGraph.TargetEntries(target).Single(e => e.File.EndsWith("/" + Tu, StringComparison.Ordinal));
@@ -36,10 +36,10 @@ public class ServedInterfaceTests
         p.WaitForExit();
         Assert.True(p.ExitCode == 0, $"{target}'s preprocess of {Tu} failed: {p.StandardError.ReadToEnd()}");
 
-        int at = text.IndexOf("int SourceSharpEntriesFor(", StringComparison.Ordinal);
+        int at = text.IndexOf("bool SourceSharpServes(", StringComparison.Ordinal);
         int open = text.IndexOf('{', at);
         int end = text.IndexOf("\n}\n", open, StringComparison.Ordinal);
-        Assert.True(at >= 0 && open > at && end > open, $"no SourceSharpEntriesFor body in {target}'s {Tu}");
+        Assert.True(at >= 0 && open > at && end > open, $"no SourceSharpServes body in {target}'s {Tu}");
         return text[open..end];
     }
 

@@ -30,13 +30,13 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
     public static bool TryTake(ShimRoot root, string version, out ShimRef<TFwd> area, out string why)
     {
         area = default;
-        void* self = root.Acquire(version, out _);
+        void* self = root.Acquire(version);
         if (self == null)
         {
             why = $"the shim root does not serve {version}";
             return false;
         }
-        var header = (ForwarderTableHeader*)root.Acquire(TFwd.TableName, out _);
+        var header = (ForwarderTableHeader*)root.Acquire(TFwd.TableName);
         if (!Forwarders.TryBind(header, out TFwd* table, out why))
         {
             why = $"{version}: {why}";

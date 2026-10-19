@@ -31,10 +31,9 @@
 // mapped, which is why the exemption is written into the switch rather than
 // hoped for here.
 //
-// THE COUNT COMES BACK WITH THE POINTER, and it is the area's own -- taken from
-// the compiler by VTableHook::MemberOf in the file that owns the singleton, not
-// from a table here. A row that returned a pointer without a count would hand
-// managed something it could not check.
+// NO COUNT COMES BACK WITH THE POINTER (plan_forwarders_everywhere.md):
+// managed calls an area through its forwarder table, whose header carries the
+// table's own slot count, and never through the area's vtable.
 //
 //=============================================================================//
 
@@ -45,7 +44,6 @@
 #include "ishim_root.h"
 #include "shell_shim_console.h"
 #include "shell_shim_areas.h"
-#include "vtable_hook.h"
 #include "ss_fwd.h"                   // SSFwd_Serve (plan_engine_forwarders.md)
 #include "imanaged_root.h"
 #include "managed_accept.h"
@@ -69,8 +67,8 @@
 // it hands back. Declared here rather than given a header whose only reader
 // would be this file -- the shape shell_frame.cpp uses for the stock
 // functions it reaches, and a drifted signature fails to link.
-void *ShimFrame_Acquire( int32_t *pnEntries );
-void *ShimLevel_Acquire( int32_t *pnEntries );
+void *ShimFrame_Acquire();
+void *ShimLevel_Acquire();
 #endif
 
 #ifndef CLIENT_DLL
@@ -84,49 +82,46 @@ CShimAreasClient &ShimClientAreasOfRoot();
 //-----------------------------------------------------------------------------
 // The row set. One line per shim interface this side implements.
 //-----------------------------------------------------------------------------
-void *SourceSharp_InternalFactory( const char *pszName, int32_t *pnEntries )
+void *SourceSharp_InternalFactory( const char *pszName )
 {
-	if ( pnEntries )
-		*pnEntries = 0;
-
 	if ( !pszName )
 		return NULL;
 
 	// plan_engineapi_vtables A4: a SHARED area. Both sides serve it since
 	// plan_client_vtables CA, where the client's LoadSideV2 acquires it.
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
-		return ShimConsole_Acquire( pnEntries );
+		return ShimConsole_Acquire();
 
 	// plan_engine_forwarders.md: the forwarder libraries' tables, by the name
 	// managed asks for (SSFwd_<table>). Both sides serve every table: a
 	// forwarder is handed the object it calls, so it belongs to neither side.
-	// The count is the table's own; managed holds it against its generated
-	// struct (Forwarders.TryBind).
-	if ( void *pTable = SSFwd_Serve( pszName, pnEntries ) )
+	// The count is in the table's own header; managed holds it against its
+	// generated struct (Forwarders.TryBind).
+	if ( void *pTable = SSFwd_Serve( pszName ) )
 		return pTable;
 
 #ifndef CLIENT_DLL
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_FRAME_VERSION ) )
-		return ShimFrame_Acquire( pnEntries );
+		return ShimFrame_Acquire();
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_LEVEL_VERSION ) )
-		return ShimLevel_Acquire( pnEntries );
+		return ShimLevel_Acquire();
 #endif
 
 #ifdef CLIENT_DLL
 	// plan_particles_so.md: libss_particles.so's ISSParticleLib, the object in
 	// the library itself (client.so's forwards call the same one).
 	if ( !ss::StrICmp( pszName, SS_PARTICLE_LIB_INTERFACE_VERSION ) )
-		return ParticleLib_Acquire( pnEntries );
+		return ParticleLib_Acquire();
 #endif
 
 #ifndef CLIENT_DLL
 	// plan_engineapi_vtables Phase C: the generated areas (tools/shim-areas).
-	if ( void *pArea = ShimAreas_Acquire( ShimAreasOfRoot(), pszName, pnEntries ) )
+	if ( void *pArea = ShimAreas_Acquire( ShimAreasOfRoot(), pszName ) )
 		return pArea;
 #else
 	// plan_client_vtables CB: the client's shared bases.
-	if ( void *pArea = ShimAreasClient_Acquire( ShimClientAreasOfRoot(), pszName, pnEntries ) )
+	if ( void *pArea = ShimAreasClient_Acquire( ShimClientAreasOfRoot(), pszName ) )
 		return pArea;
 #endif
 
@@ -142,8 +137,8 @@ void *SourceSharp_InternalFactory( const char *pszName, int32_t *pnEntries )
 //
 // The one native object the managed side is handed at load (LoadSideV2), and
 // the vtable spelling of the factory above: Acquire is
-// SourceSharp_InternalFactory, so every area this side serves is reachable
-// from the root with the count its own file takes from the compiler.
+// SourceSharp_InternalFactory, so every area and forwarder table this side
+// serves is reachable from the root.
 // Stateless, like the areas it hands out -- a singleton for the DLL's life.
 //
 // THE ROOT OWNS THE AREAS (step A4): each area that leaves the struct is a
@@ -157,16 +152,16 @@ namespace
 class CShimRoot : public IShimRoot
 {
 public:
-	void *Acquire( const char *pszName, int32_t *pnEntries ) override
+	void *Acquire( const char *pszName ) override
 	{
-		return SourceSharp_InternalFactory( pszName, pnEntries );
+		return SourceSharp_InternalFactory( pszName );
 	}
 
 	void *AcquireInterface( int32_t nType, const char *pszVersion,
-	                        int32_t *pnEntries, char *pError, int32_t nErrorBytes ) override
+	                        char *pError, int32_t nErrorBytes ) override
 	{
 		return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion,
-		                                     pnEntries, pError, nErrorBytes );
+		                                     pError, nErrorBytes );
 	}
 
 	void Release() override
@@ -192,7 +187,7 @@ static CShimRoot g_ShimRoot;
 IShimRoot *ShimRoot_Get( const void **ppTable )
 {
 	if ( ppTable )
-		*ppTable = SSFwd_Serve( "SSFwd_ShimRoot", nullptr );
+		*ppTable = SSFwd_Serve( "SSFwd_ShimRoot" );
 
 	return &g_ShimRoot;
 }
@@ -350,13 +345,8 @@ void ManagedRoot_Release()
 }
 #endif
 
-// ConsoleSnapshotEntry is the LAST declaration in IShimConsole; the
-// append-only rule is what makes naming it sufficient.
-void *ShimConsole_Acquire( int32_t *pnEntries )
+void *ShimConsole_Acquire()
 {
-	if ( pnEntries )
-		*pnEntries = VTableHook::MemberOf( &IShimConsole::ConsoleSnapshotEntry ).slot + 1;
-
 	return static_cast< IShimConsole * >( &g_ShimRoot.m_Console );
 }
 

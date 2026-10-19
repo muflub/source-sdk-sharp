@@ -182,11 +182,11 @@ internal unsafe struct ShimLevelVtbl
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimRootVtbl
 {
-    public delegate* unmanaged<void*, byte*, void*, void*> Acquire; // 0   void * IShimRoot::Acquire( const char *, int32_t * )
+    public delegate* unmanaged<void*, byte*, void*> Acquire; // 0   void * IShimRoot::Acquire( const char * )
 
-    public delegate* unmanaged<void*, int, byte*, void*, byte*, int, void*> AcquireInterface; // 1   void * IShimRoot::AcquireInterface( int32_t, const char *, int32_t *, char *, int32_t )
+    public delegate* unmanaged<void*, int, byte*, byte*, int, void*> AcquireInterface; // 1   void * IShimRoot::AcquireInterface( int32_t, const char *, char *, int32_t )
 
-    public delegate* unmanaged<void*, void> Release;                // 2   void IShimRoot::Release( void )
+    public delegate* unmanaged<void*, void> Release;         // 2   void IShimRoot::Release( void )
 }
 
 /// <summary>

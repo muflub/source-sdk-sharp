@@ -72,11 +72,8 @@
 // docs/statics-audit/, where the class of entry is described once rather than
 // re-argued per wave. What is NOT sanctioned is one of these growing a member.
 //
-// THE ENTRY COUNT COMES FROM THE COMPILER. `VTableHook::MemberOf(
-// &IShimLevel::LoadSaveGameState ).slot + 1` reads the slot out of a
-// pointer-to-member-function, which under the Itanium ABI carries it directly.
-// Naming the LAST declaration is sufficient exactly because the header is
-// append-only.
+// NO ENTRY COUNT: managed calls IShimLevel through SSFwd_ShimLevel
+// (plan_forwarders_everywhere.md), whose table carries its own.
 //
 // WHAT IS NOT HERE, AND WHY
 //
@@ -120,7 +117,6 @@
 #include "entity_shared_statics.h"
 #include "shell_server.h"
 #include "ishim_level.h"
-#include "vtable_hook.h"
 #include "shell_standalone.h"
 #include "shell_resolve.h"
 #include "ss_world.h"
@@ -884,18 +880,11 @@ public:
 static CShimLevel g_ShimLevel;
 
 //-----------------------------------------------------------------------------
-// The internalFactory's row for this area.
-//
-// SpawnWorld is the LAST declaration in IShimLevel, and the append-only
-// rule is what makes naming the last one sufficient: if a method is ever added
-// after it, this name moves with it, and the committed generated layout is what
-// says so -- a new field at the END of the struct is the only diff shape the
-// rule permits.
+// The internalFactory's row for this area: the pointer alone. Managed calls it
+// through SSFwd_ShimLevel (plan_forwarders_everywhere.md phase 3), whose table
+// carries its own count.
 //-----------------------------------------------------------------------------
-void *ShimLevel_Acquire( int32_t *pnEntries )
+void *ShimLevel_Acquire()
 {
-	if ( pnEntries )
-		*pnEntries = VTableHook::MemberOf( &IShimLevel::SpawnWorld ).slot + 1;
-
 	return static_cast< IShimLevel * >( &g_ShimLevel );
 }

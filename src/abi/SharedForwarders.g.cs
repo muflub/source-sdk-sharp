@@ -945,11 +945,11 @@ internal unsafe struct ShimRootFwd : IForwarderTable
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimRoot";
 
-    // void * IShimRoot::Acquire( const char *, int32_t * )
-    public delegate* unmanaged<void*, byte*, void*, void*> Acquire;
+    // void * IShimRoot::Acquire( const char * )
+    public delegate* unmanaged<void*, byte*, void*> Acquire;
 
-    // void * IShimRoot::AcquireInterface( int32_t, const char *, int32_t *, char *, int32_t )
-    public delegate* unmanaged<void*, int, byte*, void*, byte*, int, void*> AcquireInterface;
+    // void * IShimRoot::AcquireInterface( int32_t, const char *, char *, int32_t )
+    public delegate* unmanaged<void*, int, byte*, byte*, int, void*> AcquireInterface;
 
     // void IShimRoot::Release( void )
     public delegate* unmanaged<void*, void> Release;

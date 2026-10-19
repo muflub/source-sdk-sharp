@@ -253,21 +253,20 @@ TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 	// SS_FWD_SERVES_CLIENT is what linking ss_fwd_client defines, as client.so
 	// does: the serve helper then answers the Steam table as its own slot
 	// array and count.
-	int32_t nEntries = -1;
-	void *pServed = SSFwd_Serve( "SSFwd_SteamCallback", &nEntries );
+	void *pServed = SSFwd_Serve( "SSFwd_SteamCallback" );
 	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( (int32_t)kSteamCallbackSlots, nEntries );
+	EXPECT_EQ( (int32_t)kSteamCallbackSlots, static_cast< const SSForwarderTable * >( pServed )->nSlots );
 	EXPECT_EQ( SteamCallbackTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
 
 	// The client's library also holds the tables both sides call, and its own.
-	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo", nullptr ) );
-	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_PhysicsObject", nullptr ) );
-	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_EngineClient", nullptr ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo" ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_PhysicsObject" ) );
+	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_EngineClient" ) );
 
 	// And none of the server's own: they are libss_fwd_server's alone.
 	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer" } )
 	{
 		EXPECT_EQ( nullptr, SSFwdClient_Table( pszName ) ) << pszName;
-		EXPECT_EQ( nullptr, SSFwd_Serve( pszName, nullptr ) ) << pszName;
+		EXPECT_EQ( nullptr, SSFwd_Serve( pszName ) ) << pszName;
 	}
 }

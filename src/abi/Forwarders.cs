@@ -54,7 +54,7 @@ internal static unsafe class Forwarders
 
         if (!factory.TryCreate(
                 SourceSharpFactoryType.Internal, TFwd.TableName,
-                out nint answer, out _, out string? error))
+                out nint answer, out string? error))
         {
             why = error!;
             return false;
@@ -93,7 +93,7 @@ internal static unsafe class Forwarders
         self = null;
         table = null;
 
-        if (!factory.TryCreate(factoryType, interfaceVersion, out nint answer, out _, out string? error))
+        if (!factory.TryCreate(factoryType, interfaceVersion, out nint answer, out string? error))
         {
             why = error!;
             return false;

@@ -326,11 +326,8 @@ public unsafe class ShimLevelTests
     private sealed class NoFactory
     {
         public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             int* entries, byte* error, int errorBytes)
+                             byte* error, int errorBytes)
         {
-            if (entries != null)
-                *entries = 0;
-
             return null;
         }
     }

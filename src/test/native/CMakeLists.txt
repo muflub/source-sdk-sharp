@@ -87,8 +87,15 @@ ss_cpptest_engine_headers(fwd_engine_test OPTIMIZED
 # payload, answers its size and reads what Steam writes into it. The client's
 # library (fwd_client.cpp, fwd_steam.cpp) is compiled in, as fwd_engine_test
 # compiles the server's, with what client.so's link of it defines.
+# fwd_client.cpp calls IVEngineClient's virtuals, whose numbering depends on
+# USE_SDL: the test compiles it with the define the library has (the
+# platform's, SS_COMMON_DEFS), or fwd_client.cpp's guard refuses it.
+set(_ss_fwd_client_sdl)
+if(NOT SS_PLATFORM STREQUAL windows)
+  set(_ss_fwd_client_sdl USE_SDL)
+endif()
 ss_cpptest_engine_headers(fwd_steam_test
-    DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT
+    DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT ${_ss_fwd_client_sdl}
     INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_steam_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp

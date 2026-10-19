@@ -27,7 +27,6 @@
 #include "particles/particles.h"
 #include "ss_particles/iparticlelib.h"
 #include "particles_lib_client.h"
-#include "vtable_hook.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -56,13 +55,11 @@ void ParticleLib_Disconnect()
 	Lib()->Disconnect();
 }
 
-// MgrUncacheAllParticleSystems is the LAST declaration in ISSParticleLib (the
-// interface is append-only): its slot plus one is the count managed checks
-// its generated layout against.
-void *ParticleLib_Acquire( int32_t *pnEntries )
+// The library's object, for the internal factory. Managed calls it through
+// SSFwd_ParticleLib (plan_forwarders_everywhere.md phase 3), whose table
+// carries its own count.
+void *ParticleLib_Acquire()
 {
-	if ( pnEntries )
-		*pnEntries = VTableHook::MemberOf( &ISSParticleLib::MgrUncacheAllParticleSystems ).slot + 1;
 	return Lib();
 }
 

@@ -91,12 +91,9 @@ public unsafe class NativeInterfaceFactoryTests
         }
 
         public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             int* entries, byte* error, int errorBytes)
+                             byte* error, int errorBytes)
         {
             Calls++;
-
-            if (entries != null)
-                *entries = 0;
 
             string name = NameAt(version);
 
@@ -125,9 +122,6 @@ public unsafe class NativeInterfaceFactoryTests
                 return null;
             }
 
-            if (entries != null)
-                *entries = 7;
-
             return _served;
         }
     }
@@ -146,24 +140,23 @@ public unsafe class NativeInterfaceFactoryTests
     }
 
     private static bool TryCreate(NativeInterfaceFactory factory, SourceSharpFactoryType type,
-                                  string name, out nint self, out int entries, out string? error)
+                                  string name, out nint self, out string? error)
     {
-        object?[] args = { type, name, null, null, null };
+        object?[] args = { type, name, null, null };
 
         bool ok = (bool)typeof(NativeInterfaceFactory)
             .GetMethod("TryCreate", BindingFlags.NonPublic | BindingFlags.Instance)!
             .Invoke(factory, args)!;
 
         self = (nint)args[2]!;
-        entries = (int)args[3]!;
-        error = (string?)args[4];
+        error = (string?)args[3];
         return ok;
     }
 
     private static nint Create(NativeInterfaceFactory factory, SourceSharpFactoryType type,
-                               string name, out int entries)
+                               string name)
     {
-        object?[] args = { type, name, null };
+        object?[] args = { type, name };
 
         try
         {
@@ -171,7 +164,6 @@ public unsafe class NativeInterfaceFactoryTests
                 .GetMethod("Create", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .Invoke(factory, args)!;
 
-            entries = (int)args[2]!;
             return self;
         }
         catch (TargetInvocationException wrapped)
@@ -195,7 +187,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(forcedReason: NotYetAvailable));
 
         Assert.False(TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                               "TestInterface001", out _, out _, out string? error),
+                               "TestInterface001", out _, out string? error),
                      "an acquire before the factories are captured fails");
 
         Assert.Contains(NotYetAvailable, error);
@@ -207,7 +199,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(AnObject()));
 
         Assert.False(TryCreate(factory, SourceSharpFactoryType.Physics,
-                               "TestInterface001", out _, out _, out string? error),
+                               "TestInterface001", out _, out string? error),
                      "a kind this side does not have fails");
 
         Assert.Contains(NoSuchFactory, error);
@@ -219,7 +211,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(AnObject()));
 
         Assert.False(TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                               "NobodyRegisteredThis001", out _, out _, out string? error),
+                               "NobodyRegisteredThis001", out _, out string? error),
                      "a name no factory registered fails");
 
         Assert.Contains(UnknownInterface, error);
@@ -231,7 +223,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(AnObject()));
 
         Assert.False(TryCreate(factory, (SourceSharpFactoryType)99,
-                               "TestInterface001", out _, out _, out string? error),
+                               "TestInterface001", out _, out string? error),
                      "a factory kind native does not know fails");
 
         Assert.Contains(UnknownFactoryType, error);
@@ -247,11 +239,11 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(AnObject()));
 
         TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                  "NobodyRegisteredThis001", out _, out _, out string? error);
+                  "NobodyRegisteredThis001", out _, out string? error);
 
         var thrown = Assert.Throws<InterfaceAcquisitionException>(
             () => Create(factory, SourceSharpFactoryType.AppSystem,
-                         "NobodyRegisteredThis001", out _));
+                         "NobodyRegisteredThis001"));
 
         Assert.True(thrown.Message == error,
                     "Create's message is TryCreate's error, composed once");
@@ -264,7 +256,7 @@ public unsafe class NativeInterfaceFactoryTests
 
         var thrown = Assert.Throws<InterfaceAcquisitionException>(
             () => Create(factory, SourceSharpFactoryType.AppSystem,
-                         "NobodyRegisteredThis001", out _));
+                         "NobodyRegisteredThis001"));
 
         Assert.Equal(SourceSharpFactoryType.AppSystem, thrown.FactoryType);
         Assert.Equal("NobodyRegisteredThis001", thrown.InterfaceVersion);
@@ -292,7 +284,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(AnObject()));
 
         TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                  "NobodyRegisteredThis001", out _, out _, out string? error);
+                  "NobodyRegisteredThis001", out _, out string? error);
 
         Assert.Contains("NobodyRegisteredThis001", error);
         Assert.Contains("AppSystem", error);
@@ -303,17 +295,16 @@ public unsafe class NativeInterfaceFactoryTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void ASuccessfulAcquireCarriesThePointerAndTheEntryCount()
+    public void ASuccessfulAcquireCarriesThePointer()
     {
         void* served = AnObject();
         var factory = Over(Seam(served));
 
         Assert.True(TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                              "TestInterface001", out nint self, out int entries, out _),
+                              "TestInterface001", out nint self, out _),
                     "a served name acquires");
 
         Assert.Equal((nint)served, self);
-        Assert.Equal(7, entries);
     }
 
     [Fact]
@@ -322,12 +313,12 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(AnObject()));
 
         TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                  "NobodyRegisteredThis001", out _, out _, out string? first);
+                  "NobodyRegisteredThis001", out _, out string? first);
 
         Assert.NotNull(first);
 
         TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                  "TestInterface001", out _, out _, out string? second);
+                  "TestInterface001", out _, out string? second);
 
         Assert.True(second is null,
                     "a success reports no reason at all, so a stale one cannot be read");
@@ -339,8 +330,8 @@ public unsafe class NativeInterfaceFactoryTests
         var seam = Seam(AnObject());
         var factory = Over(seam);
 
-        TryCreate(factory, SourceSharpFactoryType.AppSystem, "TestInterface001", out _, out _, out _);
-        TryCreate(factory, SourceSharpFactoryType.AppSystem, "TestInterface001", out _, out _, out _);
+        TryCreate(factory, SourceSharpFactoryType.AppSystem, "TestInterface001", out _, out _);
+        TryCreate(factory, SourceSharpFactoryType.AppSystem, "TestInterface001", out _, out _);
 
         Assert.True(seam.Calls == 1,
                     "the (side, kind, name) cache answers the second acquire without crossing");
@@ -352,8 +343,8 @@ public unsafe class NativeInterfaceFactoryTests
         var seam = Seam(AnObject());
         var factory = Over(seam);
 
-        TryCreate(factory, SourceSharpFactoryType.AppSystem, "NobodyRegisteredThis001", out _, out _, out _);
-        TryCreate(factory, SourceSharpFactoryType.AppSystem, "NobodyRegisteredThis001", out _, out _, out _);
+        TryCreate(factory, SourceSharpFactoryType.AppSystem, "NobodyRegisteredThis001", out _, out _);
+        TryCreate(factory, SourceSharpFactoryType.AppSystem, "NobodyRegisteredThis001", out _, out _);
 
         Assert.True(seam.Calls == 2,
                     "a refusal is asked again -- an interface can arrive later, and a "
@@ -371,7 +362,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(forcedReason: overlong));
 
         TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                  "TestInterface001", out _, out _, out string? error);
+                  "TestInterface001", out _, out string? error);
 
         // The composed message is the reason plus managed's own context, so the
         // REASON's length is what is bounded, not the message's.
@@ -393,7 +384,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over(Seam(forcedReason: overlong));
 
         TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                  "TestInterface001", out _, out _, out string? error);
+                  "TestInterface001", out _, out string? error);
 
         // NOT `IsNullOrEmpty(error)`, AND THAT WAS A CHECK THAT COULD NOT FAIL.
         // The composed message always carries managed's own context -- the
@@ -457,7 +448,7 @@ public unsafe class NativeInterfaceFactoryTests
         var factory = Over2(silent);
 
         Assert.False(TryCreate(factory, SourceSharpFactoryType.AppSystem,
-                               "TestInterface001", out _, out _, out string? error),
+                               "TestInterface001", out _, out string? error),
                      "a null answer is a failure whether or not a reason was written");
 
         Assert.Contains("no reason was reported", error);
@@ -466,11 +457,8 @@ public unsafe class NativeInterfaceFactoryTests
     private sealed class SilentSeam
     {
         public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             int* entries, byte* error, int errorBytes)
+                             byte* error, int errorBytes)
         {
-            if (entries != null)
-                *entries = 0;
-
             if (error != null && errorBytes > 0)
                 error[0] = 0;
 

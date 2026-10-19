@@ -167,7 +167,7 @@ internal sealed unsafe class NativeInterfaceFactory
     /// </summary>
     internal delegate void* AcquireFn(
         SourceSharpFactoryType type, byte* interfaceVersion,
-        int* entries, byte* error, int errorBytes);
+        byte* error, int errorBytes);
 
     private readonly AcquireFn _acquire;
 
@@ -184,7 +184,7 @@ internal sealed unsafe class NativeInterfaceFactory
     // that side's acquire slot, in that side's copy of the Abi
     // (plan_side_isolation P5). The side was in the key while one cache keyed
     // on a thread's side could be asked by either.
-    private readonly ConcurrentDictionary<(SourceSharpFactoryType, string), (nint Self, int Entries)>
+    private readonly ConcurrentDictionary<(SourceSharpFactoryType, string), nint>
         _bound = new();
 
     internal NativeInterfaceFactory(AcquireFn acquire) => _acquire = acquire;
@@ -200,7 +200,6 @@ internal sealed unsafe class NativeInterfaceFactory
     /// <param name="type">Which factory answers.</param>
     /// <param name="interfaceVersion">The factory name, which is the contract.</param>
     /// <param name="self">The interface pointer, on success; zero otherwise.</param>
-    /// <param name="entries">Native's precompiled vtable length; zero on failure.</param>
     /// <param name="error">
     /// The composed reason on failure — native's closed-set literal with the
     /// factory kind and the version string managed itself adds — or null on
@@ -208,9 +207,9 @@ internal sealed unsafe class NativeInterfaceFactory
     /// </param>
     internal bool TryCreate(
         SourceSharpFactoryType type, string interfaceVersion,
-        out nint self, out int entries, out string? error)
+        out nint self, out string? error)
     {
-        bool ok = Ask(type, interfaceVersion, out self, out entries, out string? reason);
+        bool ok = Ask(type, interfaceVersion, out self, out string? reason);
 
         error = ok ? null : Compose(type, interfaceVersion ?? "(null)", reason!);
         return ok;
@@ -219,9 +218,9 @@ internal sealed unsafe class NativeInterfaceFactory
     /// <summary>
     /// Acquire, or throw <see cref="InterfaceAcquisitionException"/>.
     /// </summary>
-    internal nint Create(SourceSharpFactoryType type, string interfaceVersion, out int entries)
+    internal nint Create(SourceSharpFactoryType type, string interfaceVersion)
     {
-        if (Ask(type, interfaceVersion, out nint self, out entries, out string? reason))
+        if (Ask(type, interfaceVersion, out nint self, out string? reason))
             return self;
 
         throw new InterfaceAcquisitionException(
@@ -241,10 +240,9 @@ internal sealed unsafe class NativeInterfaceFactory
     /// </summary>
     private bool Ask(
         SourceSharpFactoryType type, string interfaceVersion,
-        out nint self, out int entries, out string? reason)
+        out nint self, out string? reason)
     {
         self = 0;
-        entries = 0;
         reason = null;
 
         if (interfaceVersion is null)
@@ -255,10 +253,9 @@ internal sealed unsafe class NativeInterfaceFactory
 
         var key = (type, interfaceVersion);
 
-        if (_bound.TryGetValue(key, out var already))
+        if (_bound.TryGetValue(key, out nint already))
         {
-            self = already.Self;
-            entries = already.Entries;
+            self = already;
             return true;
         }
 
@@ -268,11 +265,10 @@ internal sealed unsafe class NativeInterfaceFactory
         byte* buffer = stackalloc byte[Vtable.MaxAcquireError];
         byte[] name = Vtable.Utf8(interfaceVersion);
 
-        int count;
         void* answer;
 
         fixed (byte* p = name)
-            answer = _acquire(type, p, &count, buffer, Vtable.MaxAcquireError);
+            answer = _acquire(type, p, buffer, Vtable.MaxAcquireError);
 
         if (answer == null)
         {
@@ -284,9 +280,8 @@ internal sealed unsafe class NativeInterfaceFactory
         }
 
         self = (nint)answer;
-        entries = count;
 
-        _bound[key] = (self, entries);
+        _bound[key] = self;
         return true;
     }
 

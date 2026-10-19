@@ -454,7 +454,7 @@ struct CShimAreas
 
 // The internal factory's rows for every interface above: the area and the
 // compiler's slot count for it, or NULL and 0. Defined in shell_shim_areas.inc.
-void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName, int32_t *pnEntries );
+void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName );
 
 #else // CLIENT_DLL
 
@@ -931,7 +931,7 @@ struct CShimAreasClient
 };
 
 // The client factory's rows: each shared base by its own version string.
-void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName, int32_t *pnEntries );
+void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );
 
 #endif // CLIENT_DLL
 

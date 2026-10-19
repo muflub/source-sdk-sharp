@@ -116,93 +116,6 @@ std::string ReadLayout()
 }
 
 //-----------------------------------------------------------------------------
-// The NAME of the last field one generated struct declares.
-//
-// The struct's fields are in the header's own declaration order, so the last
-// one names the interface's last member -- which is the name an
-// `Acquire( &nEntries )` has to read its slot out of. Empty for a struct that
-// is not there, so a struct the generator stopped emitting cannot read as
-// agreement.
-//-----------------------------------------------------------------------------
-std::string LastFieldOf( const std::string &text, const char *structName )
-{
-	// " unsafe struct ": internal, or public for an implemented-by-managed layout.
-	std::string needle = std::string( " unsafe struct " ) + structName + "\n{";
-	size_t at = text.find( needle );
-
-	if ( at == std::string::npos )
-		return std::string();
-
-	size_t end = text.find( "\n}", at );
-
-	if ( end == std::string::npos )
-		return std::string();
-
-	std::string name;
-	size_t line = at;
-
-	while ( ( line = text.find( "\n    public ", line ) ) != std::string::npos && line < end )
-	{
-		// `    public delegate* unmanaged<...> Name;` -- the identifier is what
-		// sits between the last space and the semicolon. A layout MSVC orders
-		// differently writes `    public delegate* unmanaged<...> Name => ...;`,
-		// and there it is the word before the arrow.
-		size_t semi = text.find( ';', line );
-
-		if ( semi == std::string::npos || semi > end )
-			break;
-
-		size_t arrow = text.find( " => ", line );
-
-		if ( arrow != std::string::npos && arrow < semi )
-		{
-			size_t space = text.rfind( ' ', arrow - 1 );
-
-			if ( space != std::string::npos && space > line )
-				name = text.substr( space + 1, arrow - space - 1 );
-		}
-		else
-		{
-			size_t space = text.rfind( ' ', semi );
-
-			if ( space != std::string::npos && space > line )
-				name = text.substr( space + 1, semi - space - 1 );
-		}
-
-		line += 2;
-	}
-
-	return name;
-}
-
-//-----------------------------------------------------------------------------
-// The member an `Acquire` reads its entry count out of.
-//
-// Finds `VTableHook::MemberOf( &IShimFoo::` in the file and answers the
-// identifier after it. Empty when the shape is not there at all, which fails
-// the comparison rather than passing it -- an Acquire that stopped reading a
-// slot must not read as agreeing with whatever the layout says.
-//-----------------------------------------------------------------------------
-std::string AcquireMemberIn( const std::string &text, const char *prefix )
-{
-	size_t at = text.rfind( prefix );
-
-	if ( at == std::string::npos )
-		return std::string();
-
-	at += strlen( prefix );
-	size_t end = at;
-
-	while ( end < text.size()
-	     && ( isalnum( (unsigned char)text[ end ] ) || text[ end ] == '_' ) )
-	{
-		end++;
-	}
-
-	return text.substr( at, end - at );
-}
-
-//-----------------------------------------------------------------------------
 // How many fields one generated struct declares.
 //
 // COUNTED FROM `public ` AT THE START OF A LINE INSIDE THE STRUCT BODY, which is
@@ -251,73 +164,41 @@ int FieldsIn( const std::string &text, const char *structName )
 //=============================================================================
 
 //=============================================================================
-// THE COUNT THE FACTORY REPORTS, AGAINST THE MEMBER THE LAYOUT ENDS WITH.
+// NO ACQUIRE COUNTS A VTABLE (plan_forwarders_everywhere.md phase 6).
 //
-// ShimFrame_Acquire and ShimLevel_Acquire each answer their table length as
-// `MemberOf( &IShimFoo::<a member> ).slot + 1`. That reads the slot out of the
-// compiler and is exactly right -- FOR THE MEMBER IT NAMES. Name any member but
-// the LAST one and the count is short, managed refuses the bind, and the whole
-// area is dead.
-//
-// THE SUB-IOQUEUE LANE DID EXACTLY THAT. It appended
-// IShimFrame::DeliverToSdkEntities, updated ishim_frame.h, shell_frame.cpp's
-// class body, VtableLayouts.g.cs and both slot-count facts -- and left
-// ShimFrame_Acquire naming StandaloneFinish. `make check` was green, the two
-// EXPECTs below were green, and every server frame of the shipped game threw
-//
-//     native says "SourceSharpFrame001" has 18 vtable entries and
-//     ShimFrameVtbl declares 19
-//
-// A LIVE RUN IS WHAT FOUND IT. The two tests here are so that the next one is
-// not found that way.
-//
-// NOT CIRCULAR, and that is the whole design of the pair: the tests below
-// already hold the LAYOUT against the COMPILER, so holding the ACQUIRE against
-// the layout's last field name closes the triangle. Each half can fail on its
-// own.
+// The internal factory once answered each area's table length as
+// `VTableHook::MemberOf( &IShimFoo::<last member> ).slot + 1`, which managed
+// held against its generated layout -- and a count that named any member but
+// the last (the sub-ioqueue lane's StandaloneFinish) killed every managed
+// frame with the whole suite green. Managed now calls each area through a
+// generated forwarder table that carries its own count, so no acquire takes
+// one from the compiler at all; these facts hold that, and that ShimRoot_Get
+// hands over the root's table.
 //=============================================================================
 
-TEST( VtableAcquireCount, ShimFrameAcquireNamesTheLastMember )
+TEST( VtableAcquireCount, NoAcquireTakesASlotCountFromTheCompiler )
 {
-	const std::string source =
-		ReadRelative( "sourcesharp/game/server/shell_frame.cpp" );
+	const char *const kAcquires[] = {
+		"sourcesharp/game/server/shell_frame.cpp",
+		"sourcesharp/game/server/shell_level.cpp",
+		"sourcesharp/game/shared/shell_internalfactory.cpp",
+		"sourcesharp/game/shared/shell_vtable_interfaces.cpp",
+		"sourcesharp/game/shared/shell_shim_areas.inc",
+		"sourcesharp/game/shared/shell_shim_areas_client.inc",
+		"sourcesharp/game/client/particles_lib_client.cpp",
+	};
 
-	ASSERT_FALSE( source.empty() )
-		<< "cannot find shell_frame.cpp -- this test is vacuous without it";
-
-	const std::string named =
-		AcquireMemberIn( source, "VTableHook::MemberOf( &IShimFrame::" );
-	const std::string last = LastFieldOf( ReadLayout(), "ShimFrameVtbl" );
-
-	EXPECT_FALSE( last.empty() )
-		<< "ShimFrameVtbl has no fields in the committed layout";
-
-	EXPECT_EQ( last, named )
-		<< "ShimFrame_Acquire reads its entry count out of IShimFrame::" << named
-		<< ", and the last slot of the interface is " << last
-		<< ". A count taken from anything but the last member is SHORT, and a "
-		   "short count makes managed refuse the whole area at run time while "
-		   "every hermetic test stays green.";
-}
-
-TEST( VtableAcquireCount, ShimLevelAcquireNamesTheLastMember )
-{
-	// The same shape on the other shim interface, because the mistake is a
-	// property of the pattern and not of the lane that made it.
-	const std::string source =
-		ReadRelative( "sourcesharp/game/server/shell_level.cpp" );
-
-	ASSERT_FALSE( source.empty() )
-		<< "cannot find shell_level.cpp -- this test is vacuous without it";
-
-	const std::string named =
-		AcquireMemberIn( source, "VTableHook::MemberOf( &IShimLevel::" );
-	const std::string last = LastFieldOf( ReadLayout(), "ShimLevelVtbl" );
-
-	EXPECT_FALSE( last.empty() )
-		<< "ShimLevelVtbl has no fields in the committed layout";
-
-	EXPECT_EQ( last, named );
+	for ( const char *pszFile : kAcquires )
+	{
+		const std::string source = ReadRelative( pszFile );
+		ASSERT_FALSE( source.empty() ) << "cannot find " << pszFile << " -- this test is vacuous without it";
+		EXPECT_NE( std::string::npos, source.find( "_Acquire" ) )
+			<< pszFile << " holds no acquire any more: the scan reads the wrong file";
+		EXPECT_EQ( std::string::npos, source.find( "VTableHook::MemberOf(" ) )
+			<< pszFile << " takes a vtable slot count again";
+		EXPECT_EQ( std::string::npos, source.find( "pnEntries" ) )
+			<< pszFile << " hands a count back beside a pointer again";
+	}
 }
 
 TEST( VtableAcquireCount, ShimRootGetHandsTheRootsForwarderTableRatherThanACount )
@@ -337,45 +218,10 @@ TEST( VtableAcquireCount, ShimRootGetHandsTheRootsForwarderTableRatherThanACount
 	ASSERT_NE( std::string::npos, body ) << "ShimRoot_Get no longer takes the table's out-parameter";
 	const std::string fn = source.substr( body, source.find( "\n}\n", body ) - body );
 
-	EXPECT_NE( std::string::npos, fn.find( "*ppTable = SSFwd_Serve( \"SSFwd_ShimRoot\", nullptr );" ) )
+	EXPECT_NE( std::string::npos, fn.find( "*ppTable = SSFwd_Serve( \"SSFwd_ShimRoot\" );" ) )
 		<< "ShimRoot_Get no longer hands over SSFwd_ShimRoot";
 	EXPECT_EQ( std::string::npos, fn.find( "VTableHook::MemberOf" ) )
 		<< "ShimRoot_Get counts the root's vtable again";
-}
-
-TEST( VtableAcquireCount, ShimConsoleAcquireNamesTheLastMember )
-{
-	const std::string source =
-		ReadRelative( "sourcesharp/game/shared/shell_internalfactory.cpp" );
-
-	ASSERT_FALSE( source.empty() )
-		<< "cannot find shell_internalfactory.cpp -- this test is vacuous without it";
-
-	const std::string named =
-		AcquireMemberIn( source, "VTableHook::MemberOf( &IShimConsole::" );
-	const std::string last = LastFieldOf( ReadLayout(), "ShimConsoleVtbl" );
-
-	EXPECT_FALSE( last.empty() )
-		<< "ShimConsoleVtbl has no fields in the committed layout";
-
-	EXPECT_EQ( last, named );
-}
-
-TEST( VtableAcquireCount, TheMemberReaderAnswersNothingForAShapeThatIsNotThere )
-{
-	// The reader has to be able to FAIL, or both tests above would agree with
-	// an Acquire that had stopped naming a member at all.
-	EXPECT_EQ( std::string(),
-	           AcquireMemberIn( "nothing of the kind", "VTableHook::MemberOf( &IShimFrame::" ) );
-
-	EXPECT_EQ( std::string( "Zeta" ),
-	           AcquireMemberIn( "x VTableHook::MemberOf( &IShimFrame::Zeta ).slot + 1;",
-	                            "VTableHook::MemberOf( &IShimFrame::" ) );
-}
-
-TEST( VtableAcquireCount, TheLastFieldReaderAnswersNothingForAStructThatIsNotThere )
-{
-	EXPECT_EQ( std::string(), LastFieldOf( ReadLayout(), "NoSuchVtblStructExists" ) );
 }
 
 TEST( VtableLayoutLength, TheGeneratedFileIsFound )
