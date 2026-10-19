@@ -1478,7 +1478,16 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<TempEnts.ITempModelSpawner>(_tempEntDecisions);
 
         // BoltImpact (c_stickybolt.cpp's client effect) spawns through the
-        // decisions above, so it joins the effect list here.
+        // decisions above, so it joins the effect list here. Its ragdoll pin
+        // (CRagdollBoltEnumerator) traces the bodies' hitboxes and ties the
+        // element hit to the level's world object, which the physics system
+        // below makes.
+        _services.AddInstance<Ragdolls.IRagdollBoltPin>(
+            _ragdolls is not null && _ragdollPhysics is not null
+                ? new Ragdolls.RagdollBoltPin(_ragdolls, new Ragdolls.ClientRagdollHitboxes(_skeletons), _ragdollPhysics,
+                                              new Ragdolls.ClientWorldPhysObject(() => _physicsSystem?.World ?? 0),
+                                              _services.Require<IFxGameSounds>())
+                : new Ragdolls.NoRagdollBoltPin());
         effectHandlers.Add(_services.Create<Effects.CrossbowBoltEffect>());
         // The mods' effects (stage 0.9): every [SideService(Side.Client)]
         // IClientEffectHandler, after the core's, now the services they may

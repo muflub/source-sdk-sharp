@@ -119,6 +119,10 @@ public interface IRagdollVPhysics
     nint CreateFixedConstraint(nint environment, nint reference, nint attached, nint group,
                                in ConstraintFixedParams p);
 
+    /// <summary><c>CreateBallsocketConstraint( reference, attached, group, ballsocket )</c>: a crossbow bolt's pin (c_stickybolt.cpp).</summary>
+    nint CreateBallsocketConstraint(nint environment, nint reference, nint attached, nint group,
+                                    in ConstraintBallsocketParams p);
+
     void DestroyConstraint(nint environment, nint constraint);
 
     void DestroyObject(nint environment, nint physicsObject);
@@ -142,6 +146,8 @@ public interface IRagdollVPhysics
     // ---- one element (IPhysicsObject) ----------------------------------------
 
     float Mass(nint physicsObject);
+
+    void SetMass(nint physicsObject, float mass);
 
     Vector Position(nint physicsObject);
 
@@ -174,6 +180,9 @@ public interface IRagdollVPhysics
     Vector LocalToWorld(nint physicsObject, Vector local);
 
     Vector LocalToWorldVector(nint physicsObject, Vector local);
+
+    /// <summary><c>WorldToLocal</c>: a world point into the object's space.</summary>
+    Vector WorldToLocal(nint physicsObject, Vector world);
 
     Vector WorldToLocalVector(nint physicsObject, Vector world);
 

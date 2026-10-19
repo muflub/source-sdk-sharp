@@ -529,6 +529,43 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
             return false;
         }
 
+        BoneTrace tr = BoneTraceCodec.ReadTrace(traceFloats, traceInts);
+        bool tested = TestHitboxes(entity, read, BoneTraceCodec.ReadRay(ray), contentsMask, tr, currentTime, frameCount);
+
+        if (tested)
+        {
+            BoneTraceCodec.WriteTrace(tr, traceFloats, traceInts);
+        }
+
+        return tested;
+    }
+
+    /// <summary>
+    /// The same hitbox trace, asked by managed code of an entity by its handle
+    /// (stock's <c>enginetrace-&gt;ClipRayToEntity</c> with a mask that carries
+    /// <c>CONTENTS_HITBOX</c>, which reaches the entity's <c>TestHitboxes</c>):
+    /// a line from <paramref name="start"/> to <paramref name="end"/>, posed
+    /// as the engine's ask poses it, so a body answers from its solver's bones.
+    /// False for a handle that names no standalone entity or a model with no
+    /// hitboxes; otherwise <paramref name="tr"/> holds the answer (a fraction
+    /// under 1 is a hit, with its hitbox and physics bone).
+    /// </summary>
+    public bool TestHitboxes(EntityHandle entity, NVector start, NVector end, int contentsMask, BoneTrace tr)
+    {
+        if (!Read(_blocks.Block(entity), out EngineBlock read))
+        {
+            return false;
+        }
+
+        tr.StartPos = start;
+        tr.EndPos = end;
+        tr.Fraction = 1f;
+        return TestHitboxes(entity, read, BoneRay.FromPoints(start, end), contentsMask, tr, Now, FrameCount);
+    }
+
+    private bool TestHitboxes(EntityHandle entity, in EngineBlock read, in BoneRay ray, int contentsMask, BoneTrace tr,
+                              float currentTime, int frameCount)
+    {
         HitboxTraces++;
         BoneEntityState state = _states.GetOrCreate(entity);
         BoneCacheKey before = state.CacheKey;
@@ -537,18 +574,11 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
         BeginAsk(entity, state);
         _merging = entity;
 
-        BoneTrace tr = BoneTraceCodec.ReadTrace(traceFloats, traceInts);
         NVector collisionOrigin = new(read.Head.Origin.X, read.Head.Origin.Y, read.Head.Origin.Z);
         bool tested = _driver.TestHitboxes(state, PoseOf(read, frameCount), read.Client.HitboxSet,
-                                           BoneTraceCodec.ReadRay(ray), contentsMask, collisionOrigin, tr,
+                                           ray, contentsMask, collisionOrigin, tr,
                                            _surfaceReader, currentTime, ConVars);
         Count(state, started, before);
-
-        if (tested)
-        {
-            BoneTraceCodec.WriteTrace(tr, traceFloats, traceInts);
-        }
-
         return tested;
     }
 

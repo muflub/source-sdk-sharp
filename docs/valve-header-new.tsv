@@ -200,7 +200,7 @@ src/client/managed/TempEnts/TempEntAttachments.cs	ports CTempEnts::AttachTentToP
 src/client/managed/TempEnts/ClientTempEntDecisions.cs	ports CTempEnts::EjectBrass and CTempEnts::LevelInit's model precache (c_te_legacytempents.cpp)
 src/client/native/shell_legacy_tempents_client.cpp	ports the ITempEnts and C_LocalTempEntity members the engine still calls (c_te_legacytempents.cpp): the constructor defaults, Prepare, DrawStudioModel, DrawModel's draw by model type, the breakmodel draw helper and the CTempEnts lifecycle
 src/server/managed/DeathNotice.cs	ports CHL2MPRules::DeathNotice (hl2mp_gamerules.cpp): the player_death fields and weapon-name derivation
-src/client/managed/Effects/CrossbowBoltEffect.cs	ports StickyBoltCallback's sky test and CreateCrossbowBolt (c_stickybolt.cpp)
+src/client/managed/Effects/CrossbowBoltEffect.cs	ports StickyBoltCallback / StickRagdollNow and CreateCrossbowBolt (c_stickybolt.cpp)
 src/client/native/shell_precipitation_client.cpp	the client weather's executor (CClient_Precipitation::Render's render-context setup, Tracer_Draw, FX_WaterRipple) and its engine reads, from game/client/c_effects.cpp, built against SDK headers
 src/shared/managed/Physics/PhysicsFrictionEffect.cs	ports PhysFrictionEffect (game/shared/physics_shared.cpp)
 src/shared/managed/Physics/PhysicsSplashPlan.cs	ports PhysicsSplash and BestAxisMatchingNormal (game/server/physics_fx.cpp) as a planner
@@ -465,3 +465,4 @@ src/client/native/shell_particle_mgr.h	ports the members of CParticleMgr (partic
 src/client/native/shell_particle_mgr_client.cpp	ports CParticleMgr::GetPMaterial, RepairPMaterial, PMaterialToIMaterial, FindOrAddSubTextureGroup, Init, Term, LevelInit and RemoveAllEffects' material release, and CParticleSubTexture's and CParticleSubTextureGroup's constructors (particlemgr.cpp)
 src/client/managed/Effects/ParticleConVars.cs	ports particlemgr.cpp's live ConVar declarations (r_drawparticles, cl_particleeffect_aabb_buffer, cl_particle_show_bbox(_cost), r_particle_timescale, cl_particle_retire_cost, r_particle_sim_spike_threshold_ms, cl_particle_stats_trigger_count)
 src/client/managed/Effects/ParticleCommands.cs	ports particlemgr.cpp's cl_particle_stats_start/stop and cs_cl_particle_report, and particles_new.cpp's cl_dump_particle_stats
+src/client/managed/Ragdolls/RagdollBoltPin.cs	ports CRagdollBoltEnumerator::EnumElement and StickRagdollNow's shot ray (c_stickybolt.cpp)

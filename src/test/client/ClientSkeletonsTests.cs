@@ -174,6 +174,10 @@ public unsafe class ClientSkeletonsTests
 
         public bool ApplyForceCenter(EntityHandle owner, Vector force) => false;
 
+        public IReadOnlyCollection<EntityHandle> Owners => [];
+
+        public nint ElementObject(EntityHandle owner, int physicsBone) => 0;
+
         public int WriteBones(EntityHandle owner, Span<BoneMatrix3x4> bones, Span<int> owned)
         {
             if (owner != Owner)

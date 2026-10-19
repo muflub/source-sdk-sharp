@@ -46,3 +46,43 @@ public sealed class ClientRagdollsCommand(ILog log, IClientRagdolls ragdolls) : 
         }
     }
 }
+
+/// <summary>
+/// <c>cs_cl_boltpins</c>: the crossbow pins (RagdollBoltPin) -- one
+/// <c>SSCLBOLTPIN</c> tab row per remembered pin after a prose line: owner,
+/// physics bone, the bolt point, how far the line's entry into the element was
+/// from it when the pin was made, where the element's end of the ballsocket
+/// is now and how far that is from the bolt (the constraint pulls it to 0 and
+/// holds it there), or "gone" once the body went.
+/// </summary>
+[ConCommand("cs_cl_boltpins", Help = "cs_cl_boltpins: the ragdoll elements crossbow bolts pinned to the world, and how far each is from its bolt now.")]
+public sealed class ClientBoltPinsCommand(ILog log, IRagdollBoltPin pins) : IConCommand
+{
+    public void Execute(string args)
+    {
+        if (pins is not RagdollBoltPin made)
+        {
+            log.Msg("[SourceSharp/Client] cs_cl_boltpins: no pins (no ragdolls on this client)\n");
+            return;
+        }
+
+        log.Msg($"[SourceSharp/Client] cs_cl_boltpins: {made.Pins} pin(s) made, {made.Made.Count} remembered\n");
+
+        foreach (BoltPinRecord pin in made.Made)
+        {
+            Vector b = pin.BoltPoint;
+            Vector e = pin.EntryPoint - b;
+            float entry = MathF.Sqrt(e.X * e.X + e.Y * e.Y + e.Z * e.Z);
+            string now = "gone";
+            if (made.AttachedWorld(pin, out Vector at))
+            {
+                Vector d = at - b;
+                float distance = MathF.Sqrt(d.X * d.X + d.Y * d.Y + d.Z * d.Z);
+                now = string.Create(CultureInfo.InvariantCulture, $"{at.X:F2}\t{at.Y:F2}\t{at.Z:F2}\t{distance:F2}");
+            }
+
+            log.Msg(string.Create(CultureInfo.InvariantCulture,
+                $"SSCLBOLTPIN\t0x{pin.Owner.Value:X8}\t{pin.PhysicsBone}\t{b.X:F2}\t{b.Y:F2}\t{b.Z:F2}\t{entry:F2}\t{now}\n"));
+        }
+    }
+}

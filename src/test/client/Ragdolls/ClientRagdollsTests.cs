@@ -468,6 +468,42 @@ public class ClientRagdollsTests
     public void ABlastOnNoBodyPushesNothing()
         => Assert.False(Make().Ragdolls.ApplyForceCenter(Owner, new Vector(1f, 2f, 3f)));
 
+    // ---- a trace's physics bone (c_stickybolt.cpp's lookup) ------------------------
+
+    [Fact]
+    public void APhysicsBoneNamesTheElementAtThatIndex()
+    {
+        Rig rig = Fallen();
+        RagdollBody body = rig.Ragdolls.Bodies.Single();
+        Assert.True(body.ListCount == 3, $"three elements: {body.ListCount}");
+
+        for (int i = 0; i < body.ListCount; i++)
+        {
+            nint element = rig.Ragdolls.ElementObject(Owner, i);
+            Assert.True(element != 0 && element == body.List[i].Object, $"physicsbone {i} is list[{i}].pObject");
+        }
+    }
+
+    [Fact]
+    public void APhysicsBoneOutsideTheListNamesNoElement()
+    {
+        Rig rig = Fallen();
+        Assert.True(rig.Ragdolls.ElementObject(Owner, 0) != 0, "a bone inside the list names one");
+        Assert.True(rig.Ragdolls.ElementObject(Owner, -1) == 0, "-1 names none");
+        Assert.True(rig.Ragdolls.ElementObject(Owner, 3) == 0, "listCount names none");
+        Assert.True(Make().Ragdolls.ElementObject(Owner, 0) == 0, "nor does an owner with no body");
+    }
+
+    [Fact]
+    public void TheOwnersAreTheBodiesThatStand()
+    {
+        Rig rig = Fallen();
+        Assert.True(rig.Ragdolls.Owners.SequenceEqual([Owner]), "the fallen owner");
+
+        rig.Ragdolls.Destroy(Owner);
+        Assert.True(rig.Ragdolls.Owners.Count == 0, "and none once it is taken apart");
+    }
+
     [Fact]
     public void TheSolversBonesAreWrittenAndListed()
     {

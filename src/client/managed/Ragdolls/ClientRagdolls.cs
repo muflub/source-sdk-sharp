@@ -132,6 +132,16 @@ public interface IClientRagdolls
     /// <summary><c>C_ClientRagdoll::ImpactTrace</c>'s blast arm: element zero pushed, the sleep timer reset.</summary>
     bool ApplyForceCenter(EntityHandle owner, Vector force);
 
+    /// <summary>The owners of every body that stands.</summary>
+    IReadOnlyCollection<EntityHandle> Owners { get; }
+
+    /// <summary>
+    /// <c>ragdoll_t::list[ physicsBone ].pObject</c>, the element a trace's
+    /// <c>physicsbone</c> names (c_stickybolt.cpp's lookup): 0 for an owner
+    /// with no body, or a bone outside <c>0 .. listCount - 1</c>.
+    /// </summary>
+    nint ElementObject(EntityHandle owner, int physicsBone);
+
     /// <summary>
     /// The solver's bones into <paramref name="bones"/> (<c>RagdollGetBoneMatrix</c>
     /// per element) and the model bones written into <paramref name="owned"/>;
@@ -344,6 +354,16 @@ public sealed class ClientRagdolls(
         vphysics.ApplyForceCenter(body.List[0].Object, force);
         RagdollSolver.ResetSleepAfterTime(body, clock.CurTime);
         return true;
+    }
+
+    public IReadOnlyCollection<EntityHandle> Owners => _bodies.Keys;
+
+    public nint ElementObject(EntityHandle owner, int physicsBone)
+    {
+        if (!_bodies.TryGetValue(owner, out RagdollBody? body) || physicsBone < 0 || physicsBone >= body.ListCount)
+            return 0;
+
+        return body.List[physicsBone].Object;
     }
 
     public int WriteBones(EntityHandle owner, Span<BoneMatrix3x4> bones, Span<int> owned)
@@ -693,6 +713,10 @@ public sealed class NoClientRagdolls : IClientRagdolls
     }
 
     public bool ApplyForceCenter(EntityHandle owner, Vector force) => false;
+
+    public IReadOnlyCollection<EntityHandle> Owners => [];
+
+    public nint ElementObject(EntityHandle owner, int physicsBone) => 0;
 
     public int WriteBones(EntityHandle owner, Span<BoneMatrix3x4> bones, Span<int> owned) => -1;
 

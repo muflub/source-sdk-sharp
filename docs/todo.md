@@ -541,7 +541,7 @@ Added 2026-10-05 from the client no-Valve lanes (plan_client_novalve.md), merged
 - **Server browser has no data source.** No master-server or LAN query exists yet; it opens empty (C4: Steam matchmaking over the managed flat API).
 - **MOTD HTML.** HTML/URL MOTDs fall back to `motd_text` as stock does with HTML off; a web view (Steam HTML surface, already probed in C0) is the later option.
 - **Tempent PhysicsProp** stays a refusal under the clientside-prop eviction (ClientTePhysicsProp). — closed 2026-10-18: `ClientPhysicsProps` ports CTempEnts::PhysicsProp and C_PhysPropClientside (the model's last solid, the velocity, the skin, cl_phys_props_max, StartFadeOut's death time, Break through PropBreakableCreateAll's client half), drawn as a FTENT_PERSIST pool slot its vphysics object moves (`ITempEntDriver`), made through the ragdolls' vphysics calls; impact sounds through `ClientImpactSounds.SoundsWithoutGameData`. Live: `cs_te_fire physicsprop` (now Flags 0) then `cs_cl_physprops` showed the skull fall from z 168 to 131 and sleep, and one client impact sound. Not carried (class notes): game data and collision group, TOUCH_STATIC and respawn zones, m_fEffects, scrape sounds, the piece limits, and hot reload (the pool keeps no slots across one either).
-- **Crossbow bolts pinning ragdolls** (stock's CRagdollBoltEnumerator) needs the client ragdoll's physics objects; not reachable from managed yet. — 2026-10-18: deferred until after the publish (integrator). Reachable now: the client ragdolls are managed (ClientRagdolls), and the vphysics calls it needs are already forwarder rows (PhysicsEnvironment's CreateBallsocketConstraint, PhysicsObject's SetMass and WorldToLocal), so no ABI. Still to write: a hitbox trace by handle in ClientSkeletons (TestHitboxes reads the block by handle, `_blocks.Block(entity)`), a ragdoll's element object by physicsbone, the client world's physics object as the reference, and Weapon_Crossbow.BoltSkewer from the world; CrossbowBoltEffect then replaces its once-said refusal.
+- **Crossbow bolts pinning ragdolls** (stock's CRagdollBoltEnumerator) needs the client ragdoll's physics objects; not reachable from managed yet. — 2026-10-18: deferred until after the publish (integrator). Reachable now: the client ragdolls are managed (ClientRagdolls), and the vphysics calls it needs are already forwarder rows (PhysicsEnvironment's CreateBallsocketConstraint, PhysicsObject's SetMass and WorldToLocal), so no ABI. Still to write: a hitbox trace by handle in ClientSkeletons (TestHitboxes reads the block by handle, `_blocks.Block(entity)`), a ragdoll's element object by physicsbone, the client world's physics object as the reference, and Weapon_Crossbow.BoltSkewer from the world; CrossbowBoltEffect then replaces its once-said refusal. — closed 2026-10-18: `RagdollBoltPin` ports CRagdollBoltEnumerator (the line 128 back along the flight, each client body's hitboxes traced by handle through `ClientSkeletons.TestHitboxes`, the element `physicsbone` names by `ClientRagdolls.ElementObject`, its mass doubled, a ballsocket to the physics system's world object, `Weapon_Crossbow.BoltSkewer`), and `CrossbowBoltEffect` calls it before the bolt is made; `RagdollBoltPinTests` and the oracle's `BoltImpactPinsABodyAlongTheFlightBeforeTheBoltIsMade` pin it. Live (dm_lockdown, `cs_cl_boltpins`): a bolt shot into a corpse pinned physicsbone 0, its ballsocket end 3.00 units from the bolt; the body slept (stock wakes nothing either), and a `cs_te_fire explosion` beside it moved the body 4.5 units while the pinned end went to 0.01 and stayed within 0.36. Divergence: of two bodies on one line, the nearer is pinned (stock: the partition's walk order).
 - **ss_bolt never sends BoltImpact** — closed 2026-10-08: `Bolt.Impact` ports `CCrossbowBolt::BoltTouch`'s dispatch (body/world branches, hit sounds, `BoltImpact` tempent with stock's normal/entindex, `UTIL_ImpactTrace` via the managed `ImpactEffect`); `BoltImpactTests` pins it; the reflect/linger/sparks omissions are in `docs/divergences.md`.
 - **Dead tempent pool code** (SourceSharpTePool_Reserve/Bind/Release/EjectBrass and their managed callbacks) cannot be removed without renumbering CrossingOps, which `CrossingsTests.OpValuesAreContiguousFromZero` requires to be dense; do it in a serialised ABI cleanup. — closed 2026-10-09: the four exports (nm'd dead over all 868 link-edge objects, their only caller TU long evicted) and their internals deleted; `ClientTempEntPoolAlloc`/`ClientTempEntEjectBrass` left with them in one commit (CrossingsTests' both-directions equality), one tail renumber 81..108 -> 79..106; the managed half flipped to refusal facts. `IManagedTempEntsClient`'s two callback slots stay (the area table is the ABI) and leave in the serialised pass below.
 - **Snowfall ray-box tolerance** is not exercised by the precipitation oracle. — closed 2026-10-09 at c0ab6a8d: the golden's ray arm activates a box only through the 0.325 flare (hit at 0.325, miss 0.13 further, so the cases bracket the constant), and `ManagedSnowfallUsesStocksRayBoxTolerance` parses the tolerance from both source trees and asserts equality.
@@ -1267,7 +1267,7 @@ hex. To do: make the control allocate something no cache can serve (e.g. a
 fresh `new string('x', 8)` a frame, or numbers past 300).
 
 
-## The prop-hurts-player live-gate flake: measure it
+## The prop-hurts-player live-gate flake: measured, and fixed in the step
 
 Added 2026-10-18. It failed once in a 3-pass gate on the physics 2.6 lane
 ("the player started at 95 health and the reading came back as None").
@@ -1278,3 +1278,28 @@ zero (P(0 fails in 9 | p = 1/3) = 0.026, | p = 1/10 = 0.39), so the target
 is still at least 30 passes at main's tip, each run with its own TMPDIR,
 DEBUG_API_DIR and DEBUG_API_UI_PORT. Deferred until after the publish
 (integrator, 2026-10-18).
+
+Closed 2026-10-18 at 71d2be26d (debug): `tools/live-gate --steps
+join,prop-hurts-player --passes 3`, 11 runs, own TMPDIR, DEBUG_API_DIR and
+DEBUG_API_UI_PORT, each after `tools/box-ready gate --wait`: 33 of 33 passes
+PASS, every one reading health 100 -> 95 (the player table's first step).
+P(0 fails in 33 | p = 1/3) = 1.5e-6, | p = 1/10 = 0.031, so a rate of one in
+ten or more is ruled out at this tip. Not reproduced, so nothing to fix. What
+this subset cannot see: the original failure started at 95 health, a state
+an earlier step of the full gate left, which `join,prop-hurts-player` never
+reaches (join puts the player at 100 each pass). If it recurs, read the
+health the step's own line prints first.
+
+Reproduced the same day in the full 3-pass gate at 72abbb1a2 (steps join,
+shoot, die, respawn, prop-hurts-player, impact-damage, hot-reload,
+map-reload): pass 2 FAILED with the step's own debris check naming prop
+401 at the player's spot and health 100 -> None. The cause is the step's
+precondition, not the game: its clear_debris circle is 160 around the AIM
+POINT, the player stands about 290 from it, and a gib of the previous pass's
+impact-damage crate lay at the player's spot. Fixed in the step:
+`clear_player_spot` clears the whole square the debris check reads (70
+around the spot, the crate itself spared); three self-test rows, red with
+the radius at 48 and with the crate not spared. The subset
+join,prop-hurts-player,impact-damage did not reproduce it in 12 passes
+before the fix or 12 after (the gibs' landing depends on the full gate's
+state), so the evidence is the full-gate log and the self-test.
