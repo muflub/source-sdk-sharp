@@ -58,8 +58,10 @@ public sealed class PhysicsCollisionImpacts(IVPhysicsObjects objects, IEngineEnt
 
             if ((objects.GameFlags(obj) & PlayerHeld) != 0)
             {
-                EntityHandle other = Owner(ev.Object(1 - side));
-                if (other != EntityHandle.None && (entities.EntityGetState(other, out _) & EntityState.Player) == 0)
+                nint otherObject = ev.Object(1 - side);
+                EntityHandle other = Owner(otherObject);
+                if (IsWorldSide(otherObject)
+                    || (other != EntityHandle.None && (entities.EntityGetState(other, out _) & EntityState.Player) == 0))
                 {
                     var (linear, angular) = objects.Velocity(obj);
                     objects.SetVelocity(obj, AtLeast(linear, HeldMinSpeed), AtLeast(angular, HeldMinAngularSpeed));
@@ -138,6 +140,16 @@ public sealed class PhysicsCollisionImpacts(IVPhysicsObjects objects, IEngineEnt
     }
 
     private EntityHandle Owner(nint obj) => obj == 0 ? EntityHandle.None : PhysicsGameData.Owner(objects.GameData(obj));
+
+    /// <summary>
+    /// The world's side: a static object with NULL game data, which is the
+    /// world's own object and every static prop's (PhysicsSolver.OwnerOf's
+    /// rule, plan_physics_bones_perf C8). Stock's static props carry the world
+    /// entity (PhysCreateWorld, physics.cpp:422), so PreCollision's
+    /// <c>pOtherEntity</c> is the world for both: an entity, never a player.
+    /// The record still names the world as no entity, as it names the world.
+    /// </summary>
+    private bool IsWorldSide(nint obj) => obj != 0 && objects.GameData(obj) == 0 && objects.IsStatic(obj);
 
     /// <summary>The owner's MOVETYPE_*, or none for an unowned side.</summary>
     private int MoveTypeOf(EntityHandle owner)

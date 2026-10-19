@@ -16,7 +16,7 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class PhysicsCollisionImpactsTests
 {
-    private const nint CrateObject = 0x51, OtherObject = 0x52, Unowned = 0x53, Data = 0x90;
+    private const nint CrateObject = 0x51, OtherObject = 0x52, Unowned = 0x53, StaticProp = 0x54, Data = 0x90;
     private static readonly EntityHandle Crate = new(0x0001_0011u);
     private static readonly EntityHandle Other = new(0x0002_0022u);
 
@@ -408,6 +408,66 @@ public class PhysicsCollisionImpactsTests
         world.Strike(World.Event(CrateObject, Unowned));
 
         Assert.Empty(world.Objects.Set);
+    }
+
+    // STATIC PROPS ARE THE WORLD'S (docs/todo.md "Lane C leftovers", after
+    // C8's solver rule): stock's PhysCreateWorld hands the world entity to
+    // CreateVPhysicsRepresentations (physics.cpp:422), so PreCollision's
+    // pOtherEntity for a static prop is the world -- an entity, not a player
+    // -- and a carried object striking one is raised (physics.cpp:1836-1851).
+    // Ours are made with NULL game data, so a static object with none is the
+    // world's here, as PhysicsSolver.OwnerOf has it.
+    [Fact]
+    public void A_held_object_striking_a_static_prop_is_raised_as_against_the_world()
+    {
+        var world = new World();
+        world.Objects.Static.Add(StaticProp);
+        world.Objects.Flags[CrateObject] = 0x0004;
+        world.Objects.Velocities[CrateObject] = (new Vector(2f, 0f, 0f), new Vector(0f, 0.5f, 0f));
+
+        world.Strike(World.Event(CrateObject, StaticProp));
+
+        var set = Assert.Single(world.Objects.Set);
+        Assert.Equal(CrateObject, set.Object);
+        Assert.Equal(10f, set.Linear.X, 4);
+        Assert.Equal(1f, set.Angular.Y, 4);
+    }
+
+    // The control for the fact above: an object with NULL game data that is
+    // NOT static is stock's NULL entity (pOtherEntity NULL), and nothing is
+    // raised -- the existing unowned fact, with the staticness the rule reads
+    // shown to be what decides.
+    [Fact]
+    public void A_held_object_striking_a_moveable_object_with_no_owner_is_left_alone()
+    {
+        var world = new World();
+        world.Objects.Moveable.Add(Unowned);
+        world.Objects.Flags[CrateObject] = 0x0004;
+        world.Objects.Velocities[CrateObject] = (new Vector(2f, 0f, 0f), new Vector(0f, 0.5f, 0f));
+
+        world.Strike(World.Event(CrateObject, Unowned));
+
+        Assert.Empty(world.Objects.Set);
+    }
+
+    // PostCollision's record names the world as no entity (the world's own
+    // object has NULL game data too, so its side reads exactly so), and a
+    // static prop's side posts the same: no entity, static, MOVETYPE_NONE
+    // (CWorld::Spawn, world.cpp:467). The consumers' world arm
+    // (ScriptedEntity, PropPhysics, SsPlayer read NoEntity as "the world")
+    // is therefore stock's pEntities[1] == world for both.
+    [Fact]
+    public void A_static_props_side_posts_as_the_worlds()
+    {
+        var world = new World();
+        world.Objects.Static.Add(StaticProp);
+
+        var posted = world.Strike(World.Event(CrateObject, StaticProp));
+
+        Assert.Equal(Crate.Value, posted.Entity0);
+        Assert.Equal(PhysicsEvent.NoEntity, posted.Entity1);
+        Assert.Equal(1, posted.Static1);
+        Assert.Equal(0, posted.MoveType1);
     }
 
     [Fact]

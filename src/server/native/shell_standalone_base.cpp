@@ -2348,9 +2348,9 @@ void CStandaloneEntity::SetVelocity( const Vector &vecVelocity )
 	// which set the entity is in, so the bit had one reader left and then none.
 	m_vecVelocity = vecVelocity;
 
-	// And the velocity a rider's ground reads: managed reaches this setter
-	// only for an entity with no physics object (EntityPhysicsMotion asks the
-	// object itself when there is one), so this IS that entity's velocity.
+	// And the velocity a rider's ground reads: managed calls this for every
+	// velocity set, beside the object's own when there is one, as stock's
+	// Teleport writes both, so the rider sees it this tick.
 	m_vecMoveVelocity = vecVelocity;
 }
 

@@ -204,15 +204,25 @@ public sealed class EntityPhysicsMotion(IEntityPhysicsMotionHost host, IVPhysics
     /// SetVelocity takes both and anything else would stop a spinning crate as
     /// a side effect of pushing it; then woken, since the solver steps only
     /// what is awake.
+    ///
+    /// <para>
+    /// AND THE ENTITY'S OWN, first, as stock's <c>Teleport( NULL, NULL,
+    /// &amp;vel )</c> writes both (TeleportEntity, baseentity.cpp:4947 and
+    /// :4970). The entity's member is the velocity a rider's ground reads
+    /// (CStandaloneEntity::SetVelocity holds it; stock's ground read is the
+    /// member, gamemovement.cpp:3847), so the rider sees the set this tick and
+    /// not at the physics frame's next hand-over, a tick late for an object
+    /// that slept through it. Nothing reads the member back while the object
+    /// lives (<see cref="Velocity"/> asks the solver).
+    /// </para>
     /// </summary>
     public void SetVelocity(EntityHandle entity, Vector velocity)
     {
+        _host.SetEntityVelocity(entity, velocity);
+
         nint o = _host.PhysicsObject(entity);
         if (o == 0)
-        {
-            _host.SetEntityVelocity(entity, velocity);
             return;
-        }
 
         var (_, angular) = _v.Velocity(o);
         _v.SetVelocity(o, velocity, angular);

@@ -752,9 +752,9 @@ public:
 
 	// THE VELOCITY A RIDER'S GROUND RESOLVES TO, held (plan_physics_bones_perf
 	// C2, 2026-10-12). Managed decides it: its physics frame hands each active
-	// own-object owner the solver's velocity (PhysicsUpdateOwners), and an
-	// entity with no object gets its own (SetVelocity, which managed reaches
-	// only then; DestroyPhysics hands the member back when the object goes).
+	// own-object owner the solver's velocity (PhysicsUpdateOwners), and every
+	// set is held at once (SetVelocity, with or without an object, as stock's
+	// Teleport; DestroyPhysics hands the member back when the object goes).
 	// Native stores and answers; StandaloneEntity_Velocity reads it per trace
 	// without asking anything.
 	void HoldMoveVelocity( const Vector &vecVelocity ) { m_vecMoveVelocity = vecVelocity; }

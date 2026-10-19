@@ -4,6 +4,19 @@ Work that has been decided on but has no plan or owner yet. Each item says
 why it's here and what is known, with the commit it was measured at.
 
 
+## NameMatchesTests.AWalkAllocatesNothing failed once under a full managed-server leg
+
+At f8c7e82ff (stage1-c-gameplay rebased onto main 42b718990, 2026-10-18) the
+fact failed once in `make test`'s managed-server leg: expected 0 bytes, read
+152. It passed 5 of 5 run alone (`make managed-test
+FILTER='FullyQualifiedName~NameMatchesTests'`), and the lane does not touch
+it; the fact is unchanged since 0805b2f. It warms the walk once and then reads
+`GC.GetAllocatedBytesForCurrentThread()` around a second walk, so a JIT tier-up
+landing inside the measured walk would charge it. The rate is unmeasured: run
+the leg repeatedly to get one, then warm until two walks in a row allocate
+nothing before measuring.
+
+
 ## The TF2 stage-0 plan's class-script fixture does not exist
 
 Added 2026-10-12 at stage0-core-seams 724e7547e (phase 0.2's gate).
@@ -759,8 +772,29 @@ halves belong on `Respond`).
   own schedule, or is not carried. `join,move,hot-reload --passes 3` (no
   death first) shows no loss. Server-side: check the ragdoll's fade/removal
   across `reload` and the step's own-schedule count.
+  Closed 2026-10-18 (lane oi1): the reload lost nothing. The body's 15 s
+  Lifetime (SsRagdoll) ran out between the step's census read and its think
+  reads, 1.5-2 s of game apart, so it removed itself BEFORE the reload and was
+  in no booking the allowance read. Reproduced at 43171f0c1 1 of 2; with the
+  fix the step reads the think heap with the census
+  (reload_vanish_allowance_over) and logged the corpse due 90 ms and 240 ms
+  after that read in 2 of 3 passes, 3 of 3 green. Self-test rows, mutation-
+  checked (only the last read: 1 failed).
 
-## impact-damage: the dropped crate read no hurt once (open, a flake to measure)
+## impact-damage: the dropped crate read no hurt once: closed
+
+Closed 2026-10-18 (lane oi1). Rate at 6fc08d40e: 3 of 30 passes red
+(`tools/live-gate --steps join,impact-damage --passes 3`, 10 runs). The cause
+is the step: the player is teleported 120 up with no settle and is falling
+when the aim is read, so the crate made over the aim followed it down. The
+crate was made at z 189.0-214.9; the three made under 199 (189.0, 198.72,
+198.72) landed unhurt, every one over 204 was hurt: too slow a landing for
+the damage table's first step, which stock refuses too. The step now puts
+the player's fall back on the crate's height (fall_drop_origin; /player/aim's
+"eye" is the player's origin): 30 of 30 green after, the crate made at z
+216.0 every pass (the player read at 111.8-120 when the aim was taken; a run
+with the field misread as the eye saw it at 93-110). Self-test rows,
+mutation-checked.
 
 Added 2026-10-11 from the integrator's scratch list. The nightly gate at
 main 7b2ec8cd failed `impact-damage` 1 of 2 at night ("the crate dropped
@@ -873,6 +907,22 @@ next one. It is a full client compile, so not per commit.
   the movement fill's ground read at the next physics step (one tick at most)
   where the old native pick read the solver live; impacts and stress still read
   static props as unowned (C8 changed only the solver's owner lookup).
+  (a) closed 2026-10-18 (lane oi1): stock's ground read is the member
+  (`ground->GetAbsVelocity()`, gamemovement.cpp:3847) and its velocity set,
+  Teleport, writes the member and the object together (baseentity.cpp:4947,
+  :4970), so a rider sees it the same tick. EntityPhysicsMotion.SetVelocity
+  now writes the entity's held velocity beside the object's
+  (EntityPhysicsMotionTests.SettingASimulatedVelocityHoldsItForTheGroundReadAtOnce).
+  (b) closed 2026-10-18 (lane oi1), per reader against stock: PreCollision's
+  held-object raise now counts a static object with NULL game data as the
+  world, an entity that is no player (physics.cpp:1836), so a carried object
+  striking a static prop is raised as against the world; PostCollision
+  already names a static prop's side as it names the world's (no entity,
+  static), fact pinned; the stress walk puts every unmoveable contact in the
+  static slot before it reads an owner (physics_impact_damage.cpp:541), so a
+  static prop is the world floor there whoever owns it: no code, fact pinned.
+  Not changed, and not static-prop specific: our world is no entity in the
+  contact-touch pairs and friction, where stock's is CWorld.
 - **Physics paths never measured in release** (user 2026-10-12: noted, not
   queued): the managed physics frame per tick (0.161 vs 0.137 ms, debug, at
   physics 2.3/2.5), the player shadow apply (1.8 vs ~0.2 us, debug, near the

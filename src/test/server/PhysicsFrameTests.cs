@@ -399,6 +399,32 @@ public class PlayerShadowStressTests
         Assert.Equal(PhysicsEvent.StressNonStatic | PhysicsEvent.StressLargeObject, flags);
     }
 
+    // STATIC PROPS ARE THE WORLD'S (docs/todo.md "Lane C leftovers"): stock's
+    // static props carry the world entity (physics.cpp:422), and
+    // CalculateObjectStress (physics_impact_damage.cpp:541) puts any contact
+    // that is not moveable in slot 0, the static slot, BEFORE it reads the
+    // owner; the owner (and the ground and physically-controlled tests) only
+    // ever weigh a moveable pusher. So a static prop under the player is the
+    // world floor exactly, whoever owns it, and the walk needs no owner rule
+    // for it: the crate squeezing the player into one reads the floor's 10 kg.
+    [Fact]
+    public void A_static_prop_under_a_squeezed_player_is_the_world_floor()
+    {
+        const nint StaticProp = 0x600;   // NULL game data, as ours are made
+        _v.Fixed.Add(StaticProp);
+        _v.Static.Add(StaticProp);
+        Contact(StaticProp, 6000f, Up);
+        Contact(0x500, 6000f, Down);
+        (float received, _, uint flags) = _stress.Measure(Env, Shadow, in _facts);
+
+        _v.Snapshots.Clear();
+        Contact(Floor, 6000f, Up);
+        Contact(0x500, 6000f, Down);
+        Assert.Equal(_stress.Measure(Env, Shadow, in _facts), (received, 85f, flags));
+        Assert.Equal(10f, received, 4);
+        Assert.Equal(PhysicsEvent.StressNonStatic | PhysicsEvent.StressLargeObject, flags);
+    }
+
     [Fact]
     public void A_push_from_one_side_only_squeezes_nothing()
     {

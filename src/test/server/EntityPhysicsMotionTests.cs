@@ -112,12 +112,35 @@ public class EntityPhysicsMotionTests
     [Fact]
     public void SettingASimulatedVelocityKeepsTheSpinAndWakesIt()
     {
-        var (m, v, host) = Make();
+        var (m, v, _) = Make();
 
         m.SetVelocity(Crate, new Vector(0f, 0f, 50f));
 
         Assert.Equal(["GetVelocity", $"SetVelocity {new Vector(0f, 0f, 50f)} {v.AngularLocal}", "Wake"], v.Log);
-        Assert.Empty(host.Log);
+    }
+
+    /// <summary>
+    /// Stock's velocity set on a simulated entity is <c>Teleport( NULL, NULL,
+    /// &amp;vel )</c>: TeleportEntity (baseentity.cpp:4947) writes
+    /// <c>SetAbsVelocity</c> AND the object's <c>SetVelocity</c> in the one
+    /// call, and the movement's ground read is the member
+    /// (<c>ground-&gt;GetAbsVelocity()</c>, gamemovement.cpp:3847/3945), so a
+    /// rider sees the new velocity the same tick, asleep or not. The entity's
+    /// member here is also the held value that ground read answers
+    /// (CStandaloneEntity::SetVelocity), so it is written with the object; the
+    /// physics frame's hand-over was the only writer, a tick late for an object
+    /// that slept through the set (docs/todo.md "Lane C leftovers").
+    /// </summary>
+    [Fact]
+    public void SettingASimulatedVelocityHoldsItForTheGroundReadAtOnce()
+    {
+        var (m, v, host) = Make();
+
+        m.SetVelocity(Crate, new Vector(0f, 0f, 50f));
+
+        Assert.Equal(new Vector(0f, 0f, 50f), host.Velocity);
+        Assert.Equal([$"SetEntityVelocity {new Vector(0f, 0f, 50f)}"], host.Log);
+        Assert.Contains($"SetVelocity {new Vector(0f, 0f, 50f)} {v.AngularLocal}", v.Log);
     }
 
     [Fact]

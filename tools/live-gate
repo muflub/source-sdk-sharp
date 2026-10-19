@@ -2913,6 +2913,26 @@ def step_penetration(g):
         kill_prop(g, name)   # answered once each is gone
 
 
+def fall_drop_origin(aim, origin, planned_z):
+    """Where impact-damage makes its crate: PROP_DROP_LIFT over the aim point,
+    at the height the aim WOULD have had from where the step put the player.
+    `origin` is /player/aim's "eye", which is the player's ORIGIN
+    (Entities.GetOrigin, DebugApiGoldenWorldTests' aim row), not the eye:
+    measured, the aim on the level look at the far wall reads it plus 64.
+
+    The player is teleported 120 units up with no settle, so it is falling
+    when the aim is read, and the crate made at the aim followed it down: 30
+    passes at 6fc08d40e made it at z 189.0 to 214.9, and the three made
+    under 199 (189.0, 198.72, 198.72) all landed unhurt, every one over 204
+    was hurt (196.49 once) -- too slow a landing for the damage table's first
+    step, as stock rules (docs/todo.md, impact-damage). The wall the aim found
+    keeps x and y; the fall the player made since the teleport is put back on
+    z."""
+    if not origin:
+        return (aim[0], aim[1], aim[2] + PROP_DROP_LIFT)
+    return (aim[0], aim[1], aim[2] + (planned_z - origin[2]) + PROP_DROP_LIFT)
+
+
 def step_impact_damage(g):
     """A crate dropped from height is hurt by landing.
 
@@ -2956,15 +2976,19 @@ def step_impact_damage(g):
         g.teleport((floor[0], floor[1], floor[2] + drop_lift), (0, 90, 0), settle=0.0)
     since = g.api.events_next()
     # Where ent_create would have made it -- the aim point on the far wall,
-    # lifted -- but at that exact point, read back by the reply.
-    aim = aim_point(g)
+    # lifted -- but at that exact point, read back by the reply, and at the
+    # height the teleport put the player (fall_drop_origin).
+    looked = g.api.get("aim")
+    aim = looked.get("aim") if looked.get("hit") else None
     if aim is None:
         g.skip("the player is looking at nothing to make the crate on")
-    index, _handle, made_at = place_prop(g, FALL_NAME, (aim[0], aim[1], aim[2] + PROP_DROP_LIFT),
+    drop_at = fall_drop_origin(aim, looked.get("eye"), floor[2] + drop_lift)
+    index, _handle, made_at = place_prop(g, FALL_NAME, drop_at,
                                          facing_away(g), keyvalues={"physdamagescale": 0.5})
     if index is None:
         g.skip("/entities/spawn made nothing")
-    g.say("    the crate was made at %s" % (made_at,))
+    g.say("    the crate was made at %s (the player at %s, the aim at %s)"
+          % (made_at, looked.get("eye"), aim))
     g.check(made_at[2] > floor[2] + drop_lift / 2,
             "the crate was made high enough to fall: z %.1f" % made_at[2])
 
@@ -5182,6 +5206,21 @@ def reload_vanish_allowance(before, elapsed):
     return out
 
 
+def reload_vanish_allowance_over(reads, now):
+    """reload_vanish_allowance over several think reads, each (counters,
+    game time it was read at), every one judged from its own time to `now`
+    and kept per class at the largest. The census before the reload is read
+    BEFORE the think reads it is compared with (2.5 s of game earlier), so a
+    booking that came due and ran in that gap -- spectate's ss_ragdoll, whose
+    15 s Lifetime ended in it, 2 of 2 passes (docs/todo.md, 2026-10-12) -- is
+    in no later read, and only the read taken with the census can excuse it."""
+    out = {}
+    for counters, at in reads:
+        for cls, n in reload_vanish_allowance(counters or {}, now - at).items():
+            out[cls] = max(out.get(cls, 0), n)
+    return out
+
+
 def reload_excused(lost_classes, allowance):
     """(excused, unexcused): the lost entities' classes, split by the
     allowance. A class gets no more excuses than it had bookings due."""
@@ -5783,6 +5822,11 @@ and a door's are MovingBrush's.
     # SAMPLED AFTER THE PROBES ARE BUILT, so both sides of every comparison
     # include them and `classes == before` stays an honest equality rather
     # than one that has to know about this step's own two entities.
+    # The think heap and the clock read WITH the census, just before it: what
+    # comes due between here and the reads below and removes itself is in
+    # neither of those (reload_vanish_allowance_over).
+    census_by_think = g.api.counters("think") or {}
+    census_time = g.api.status().get("time", 0.0)
     before_list = g.api.ents("*")
     before_entities = len(before_list)
     before_classes = len({e["classname"] for e in before_list})
@@ -5882,7 +5926,8 @@ and a door's are MovingBrush's.
     # for less those, and the checks below excuse them by class, no more than
     # each class had due.
     def allowance():
-        return reload_vanish_allowance(before_by_think, g.api.status().get("time", before_time) - before_time)
+        return reload_vanish_allowance_over([(census_by_think, census_time), (before_by_think, before_time)],
+                                            g.api.status().get("time", before_time))
     back = g.api.wait_for(lambda: g.api.census()[0] >= before_entities - sum(allowance().values()), 90.0, 0.25)
     if not g.api.alive():
         g.check(False, "the process did not survive cs_sv_reload")
@@ -5914,8 +5959,13 @@ and a door's are MovingBrush's.
             excused.remove(cls)
             gone_by_schedule.append(h)
     if gone_by_schedule:
-        g.say("    --    %d entit(ies) removed themselves on a think due inside the reload, not counted lost: %s"
-              % (len(gone_by_schedule), ["%s %s" % (h, before_by_handle[h]["classname"]) for h in gone_by_schedule]))
+        g.say("    --    %d entit(ies) removed themselves on a think due inside the reload, not counted lost: %s "
+              "(due at the census read, %.2f s of game before the after-read: %s)"
+              % (len(gone_by_schedule), ["%s %s" % (h, before_by_handle[h]["classname"]) for h in gone_by_schedule],
+                 g.api.status().get("time", census_time) - census_time,
+                 {k: v for k, v in census_by_think.items() if k.startswith("dueMs.")
+                  and k[len("dueMs."):].rsplit(".", 1)[0].split(":", 1)[0]
+                  in {before_by_handle[h]["classname"] for h in gone_by_schedule}}))
     vanished_classes = {before_by_handle[h]["classname"] for h in gone_by_schedule} - {e["classname"] for e in after_list}
 
     #-- the census, as an EQUALITY ------------------------------------------
@@ -9860,6 +9910,30 @@ def self_test():
        "a class loses no more than it had due")
     ok(reload_vanish_allowance(before, 1.0) == {"prop_physics": 1},
        "a booking due after the span excuses nothing")
+    # spectate then hot-reload (2026-10-12, 2 of 2): the corpse was due 0.5 s
+    # after the census read and gone by the think reads 1.7 s later.
+    census = ({"booked.ss_ragdoll": 1, "dueMs.ss_ragdoll.0": 500,
+               "booked.item_healthkit": 1, "dueMs.item_healthkit.0": 20000}, 63.3)
+    later = ({"booked.item_healthkit": 1, "dueMs.item_healthkit.0": 18300}, 65.0)
+    ok(reload_vanish_allowance_over([census, later], 67.1) == {"ss_ragdoll": 1},
+       "a removal due between the census read and the think reads is excused (%s)"
+       % reload_vanish_allowance_over([census, later], 67.1))
+    ok(reload_vanish_allowance_over([later], 67.1) == {},
+       "and the think reads alone cannot see it (the control)")
+    ok(reload_vanish_allowance_over([census, ({"booked.ss_ragdoll": 1, "dueMs.ss_ragdoll.0": 100}, 63.7)],
+                                    67.1) == {"ss_ragdoll": 1},
+       "one booking in two reads excuses one entity, not two")
+
+    #-- fall_drop_origin: impact-damage's crate does not follow a falling player --
+    planned = 0.0 + 120.0
+    ok(fall_drop_origin((-3843.0, 3263.97, 184.0), (-3843.0, 2894.0, 120.0), planned)
+       == (-3843.0, 3263.97, 184.0 + PROP_DROP_LIFT),
+       "a player where the teleport put it makes the crate over the aim")
+    ok(fall_drop_origin((-3843.0, 3263.97, 157.0), (-3843.0, 2894.0, 93.0), planned)
+       == (-3843.0, 3263.97, 184.0 + PROP_DROP_LIFT),
+       "a player 27 units into its fall makes it at the same height (the 189.0 red)")
+    ok(fall_drop_origin((1.0, 2.0, 3.0), None, planned) == (1.0, 2.0, 3.0 + PROP_DROP_LIFT),
+       "no origin in the reply falls back to the aim")
 
     #-- blast_side_spot / blast_floor_spot: damage-message's blast and stand --
     # dm_lockdown's openFloor blast and the physics props round it, read live
