@@ -318,17 +318,12 @@ public unsafe class ShimLevelTests
         // assumed: the flat slots this replaced were null function pointers,
         // and Engine.cs tested them and RETURNED -- so a level step quietly did
         // not happen. Here it says so at the site that asked.
-        var refused = new EngineLevel(new NativeInterfaceFactory(new NoFactory().Acquire));
+        // A side whose root serves no level area, reached as the side registers it.
+        using var root = new FakeShimRoot();
+        var side = new EngineSide(Side.Server);
+        Assert.True(side.AttachShims(root.Bind(), out string why), why);
+        var refused = SideBindings.Of<IEngineLevel>(side);
 
         Assert.Throws<InterfaceAcquisitionException>(() => refused.ClearEntityList());
-    }
-
-    private sealed class NoFactory
-    {
-        public void* Acquire(SourceSharpFactoryType type, byte* version,
-                             byte* error, int errorBytes)
-        {
-            return null;
-        }
     }
 }

@@ -78,10 +78,15 @@ public class EngineEnvironmentTests
     [Fact]
     public unsafe void TheEnvironmentsGlobalsAreReadLiveRatherThanCapturedAtLoad()
     {
+        // A block the side accepts as the engine's (EngineSide.RefuseGlobalVars).
         CGlobalVarsRaw live = default;
+        live.nTimestampNetworkingBase = 100;
+        live.nTimestampRandomizeWindow = 32;
         live.curtime = 1.0f;
 
-        IEngineEnvironment env = new EngineEnvironment(null, (nint)(&live));
+        var side = new EngineSide(Side.Server);
+        side.BindGlobalVars(Side.Server, (nint)(&live));
+        IEngineEnvironment env = SideBindings.Of<IEngineEnvironment>(side);
 
         float atLoad = env.Globals.CurTime;
 

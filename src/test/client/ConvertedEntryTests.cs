@@ -347,17 +347,30 @@ public unsafe class ConvertedEntryTests
         // The seam answers 0 from the size slot either way, exactly as the
         // engine's filesystem does. Only the exists question can tell the two
         // apart, and only this member asks it.
-        void* self = FakeFileSystem(out void** table);
-        var files = new EngineFiles(new EngineSide(Side.Server), FilesOver(self, table));
+        // As the side registers it, over a root that serves the filesystem and
+        // its forwarder table with the two slots this member asks.
+        void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
+        try
+        {
+            using var root = new FakeShimRoot()
+                .Interface("VBaseFileSystem011", self)
+                .Forwarders<BaseFileSystemFwd>(out BaseFileSystemFwd* table);
+            table->FileExists = &FileExistsAnswers;
+            table->Size_2 = &SizeByNameAnswers;
+            var side = new EngineSide(Side.Server);
+            Assert.True(side.AttachShims(root.Bind(), out string why), why);
+            var files = SideBindings.Of<IEngineFiles>(side);
 
-        s_Exists = 1;
-        Assert.Equal(0, files.GameFileSize("empty.txt"));
+            s_Exists = 1;
+            Assert.Equal(0, files.GameFileSize("empty.txt"));
 
-        s_Exists = 0;
-        Assert.Equal(-1, files.GameFileSize("absent.txt"));
-
-        NativeMemory.Free(table);
-        NativeMemory.Free(self);
+            s_Exists = 0;
+            Assert.Equal(-1, files.GameFileSize("absent.txt"));
+        }
+        finally
+        {
+            NativeMemory.Free(self);
+        }
     }
 
     //-------------------------------------------------------------------------
