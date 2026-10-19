@@ -1,6 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 
 using Xunit;
 

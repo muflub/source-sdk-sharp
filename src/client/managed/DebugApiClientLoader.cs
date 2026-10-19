@@ -1,6 +1,6 @@
 using System.Reflection;
 using SourceSharp.Abi;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 
 namespace SourceSharp.Client;
 

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The client's hook points for its dev API (plan_devapi_interfaces §2): the
+    same model as Debug.Api.Server.Interfaces. System.* only.
+
+    The UI's data contracts are not the dev API's and stay in
+    SourceSharp.Client.Interface (src/client/interface/Ui), so a screen, which
+    may reference only that assembly and the toolkit (UiAssemblyRulesTests),
+    sees none of the dev API.
+  -->
+</Project>

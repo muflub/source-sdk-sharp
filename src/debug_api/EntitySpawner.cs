@@ -1,7 +1,7 @@
 using System.Collections.Frozen;
 using System.Text;
 using System.Text.Json;
-using SourceSharp.Server.Interface;
+using Debug.Api.Server.Interfaces;
 
 namespace Debug.Api;
 

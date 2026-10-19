@@ -4,7 +4,7 @@ using SourceSharp.Client.Standalone;
 using SourceSharp.Client.TempEnts;
 using SourceSharp.Client.Interop;
 using SourceSharp.Shared.Interop;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 
 namespace SourceSharp.Client;
 

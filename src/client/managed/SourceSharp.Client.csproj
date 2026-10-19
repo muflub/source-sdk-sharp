@@ -16,6 +16,7 @@
     <InternalsVisibleTo Include="SourceSharp.OracleTests" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\debug_api_client\interfaces\Debug.Api.Client.Interfaces.csproj" />
     <!-- plan_side_isolation P7: SourceSharp.Shared is not an assembly. Its
          source folder compiles into each side (stock Source's game/shared), so
          the two sides share no managed type. -->

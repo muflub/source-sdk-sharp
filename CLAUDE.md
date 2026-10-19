@@ -199,8 +199,9 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   tests. After an ABI merge, check
   brace balance, per-parent line counts, `<summary>` balance and
   `AbiParityTests`: a keep-both splice eats lines.
-- **`*.Interface` assemblies hold only interfaces, enums and pure data
-  structs** (`SourceSharp.Server.Interface`, `SourceSharp.Client.Interface`).
+- **`*.Interface` and `*.Interfaces` assemblies hold only interfaces, enums
+  and pure data structs** (`SourceSharp.Client.Interface`, the dev API's
+  `Debug.Api.Server.Interfaces` and `Debug.Api.Client.Interfaces`).
   UI types, implementations and logic go in an assembly of their own: putting
   UI types in the client interface forced a plan to be restructured.
 - **The invalid entity handle is `0xFFFFFFFF`, never 0**, because entry 0 is the

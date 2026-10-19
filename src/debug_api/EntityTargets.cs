@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using SourceSharp.Server.Interface;
+using Debug.Api.Server.Interfaces;
 
 namespace Debug.Api;
 

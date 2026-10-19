@@ -3,7 +3,7 @@ using System.Text.Json;
 
 using SourceSharp.Abi;
 using SourceSharp.Client;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 using SourceSharp.Client.Standalone;
 using SourceSharp.Shared;
 using Debug.Api;

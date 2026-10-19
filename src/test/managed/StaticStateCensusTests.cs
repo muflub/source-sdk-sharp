@@ -63,7 +63,8 @@ public class StaticStateCensusTests
         typeof(SourceSharp.Client.Interop.ClientSideEntry).Assembly,
         // plan_devapi_interfaces: the dev API's hook assemblies hold no state.
         typeof(Debug.Api.DebugChannelClient).Assembly,
-        Assembly.Load("SourceSharp.Server.Interface"),
+        Assembly.Load("Debug.Api.Server.Interfaces"),
+        Assembly.Load("Debug.Api.Client.Interfaces"),
         Assembly.Load("SourceSharp.Client.Interface"),
         Assembly.Load("Debug.Api.Shared"),
         // plan_client_ui: the UI toolkit and screens reload with the UI's own

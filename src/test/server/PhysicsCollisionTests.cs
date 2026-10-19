@@ -776,7 +776,7 @@ public class PhysicsEventsCommandTests
 
     // The dev API's /counters?group=physics (debug-api lane, item 3): the
     // numbers cs_sv_physics_events prints, from the same objects, as data.
-    private static long Counter(IReadOnlyList<SourceSharp.Server.Interface.DebugCounter> counters, string name)
+    private static long Counter(IReadOnlyList<Debug.Api.Server.Interfaces.DebugCounter> counters, string name)
         => counters.Single(c => c.Name == name).Value;
 
     [Fact]

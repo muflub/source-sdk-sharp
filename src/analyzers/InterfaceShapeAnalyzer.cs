@@ -8,7 +8,7 @@ namespace SourceSharp.Analyzers;
 
 /// <summary>
 /// SS0030: AN INTERFACE ASSEMBLY HOLDS ONLY INTERFACES, ENUMS AND PURE DATA
-/// (the user's rule, 2026-10-04). <c>SourceSharp.Server.Interface</c>,
+/// (the user's rule, 2026-10-04). <c>Debug.Api.Server.Interfaces</c>, <c>Debug.Api.Client.Interfaces</c>,
 /// <c>SourceSharp.Client.Interface</c> and <c>Debug.Api.Shared</c> are the
 /// never-reloading contract between the core, the mods, the dev API and the
 /// UI; behaviour there could not be reloaded and would leak types across load

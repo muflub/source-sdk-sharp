@@ -1,7 +1,7 @@
 using Debug.Api;
 using System.Net.WebSockets;
 
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 
 namespace Debug.Api;
 

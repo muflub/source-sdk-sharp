@@ -1,9 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <!-- interfaces/ is the dev API's contract, a project of its own. -->
+    <Compile Remove="interfaces/**" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- The server's dev API links its side's Interface and the dev API's own
          shared code, and nothing else of the game (plan_devapi_interfaces).
          The server loads it by name and hands it its hooks. -->
-    <ProjectReference Include="..\server\interface\SourceSharp.Server.Interface.csproj" />
+    <ProjectReference Include="interfaces\Debug.Api.Server.Interfaces.csproj" />
     <ProjectReference Include="..\debug_api_shared\Debug.Api.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>

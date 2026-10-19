@@ -1,5 +1,5 @@
 using SourceSharp.Abi;
-using SourceSharp.Server.Interface;
+using Debug.Api.Server.Interfaces;
 
 namespace SourceSharp.Server;
 
@@ -17,7 +17,7 @@ public sealed class DebugProcess(IEngineDiagnostics diagnostics) : IDebugProcess
 
     /// <summary>
     /// No recorders: what a server with no engine answers. Here and not on the
-    /// record in SourceSharp.Server.Interface, which holds data only (SS0030).
+    /// record in Debug.Api.Server.Interfaces, which holds data only (SS0030).
     /// </summary>
     public static DebugExitFacts NoFacts => new(false, false, false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 

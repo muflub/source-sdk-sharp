@@ -12,6 +12,7 @@
     <ProjectReference Include="..\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\..\debug_api_client\interfaces\Debug.Api.Client.Interfaces.csproj" />
     <ProjectReference Include="..\..\interop\SourceSharp.Client.Interop.csproj" />
     <ProjectReference Include="..\..\managed\SourceSharp.Client.csproj" />
     <ProjectReference Include="..\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />

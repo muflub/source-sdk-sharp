@@ -8,7 +8,11 @@
     proxies client requests to it (ruling 11).
   -->
   <ItemGroup>
-    <ProjectReference Include="..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <!-- interfaces/ is the dev API's contract, a project of its own. -->
+    <Compile Remove="interfaces/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="interfaces\Debug.Api.Client.Interfaces.csproj" />
     <ProjectReference Include="..\debug_api_shared\Debug.Api.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>

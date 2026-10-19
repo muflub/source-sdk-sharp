@@ -2,7 +2,7 @@ extern alias client;
 using System.Text.Json;
 
 using SourceSharp.Abi;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 using client::SourceSharp.Client;
 using Debug.Api;
 

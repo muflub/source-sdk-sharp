@@ -2,7 +2,7 @@ extern alias client;
 using PredictionErrorRing = client::SourceSharp.Abi.PredictionErrorRing;
 using SourceSharp.Abi;
 using client::SourceSharp.Client;
-using SourceSharp.Client.Interface;
+using Debug.Api.Client.Interfaces;
 
 namespace SourceSharp.Tests;
 
@@ -10,7 +10,7 @@ namespace SourceSharp.Tests;
 internal static partial class TestDebugHooks
 {
     /// <summary>A client log that hands each line to the test's own sinks.</summary>
-    internal sealed class ClientLog(Action<string> msg, Action<string> warn) : SourceSharp.Client.Interface.IDebugClientLog
+    internal sealed class ClientLog(Action<string> msg, Action<string> warn) : Debug.Api.Client.Interfaces.IDebugClientLog
     {
         public void Msg(string message) => msg(message);
 

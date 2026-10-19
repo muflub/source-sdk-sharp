@@ -62,15 +62,16 @@
     test (SS0020, SS0050-SS0051, SS0060-SS0062): the test projects' own rules.
     interface (SS0030): the contract assemblies hold interfaces, enums and pure
       data, never behaviour (the user's rule, 2026-10-04). Client.Interface
-      and Server.Interface (its one body, DebugExitFacts.None, moved to
-      DebugProcess.NoFacts in SourceSharp.Server). Debug.Api.Shared is not an
+      and the dev API's Debug.Api.Server.Interfaces (its one body,
+      DebugExitFacts.None, moved to DebugProcess.NoFacts in SourceSharp.Server)
+      and Debug.Api.Client.Interfaces. Debug.Api.Shared is not an
       interface library (user ruling, 2026-10-05) and is not on this list.
   -->
   <PropertyGroup>
-    <SourceSharpStaticStateGated>;SourceSharp.Abi;SourceSharp.Server;SourceSharp.Client;Debug.Api.Server;SourceSharp.Shared.Interop;SourceSharp.Server.Interop;SourceSharp.Client.Interop;Debug.Api.Client;SourceSharp.Server.Interface;SourceSharp.Client.Interface;Debug.Api.Shared;SourceSharp.Client.Ui.Toolkit;SourceSharp.Client.Ui;</SourceSharpStaticStateGated>
+    <SourceSharpStaticStateGated>;SourceSharp.Abi;SourceSharp.Server;SourceSharp.Client;Debug.Api.Server;SourceSharp.Shared.Interop;SourceSharp.Server.Interop;SourceSharp.Client.Interop;Debug.Api.Client;Debug.Api.Server.Interfaces;Debug.Api.Client.Interfaces;SourceSharp.Client.Interface;Debug.Api.Shared;SourceSharp.Client.Ui.Toolkit;SourceSharp.Client.Ui;</SourceSharpStaticStateGated>
     <SourceSharpModGated>;TF2.Descent.Rules;TF2.Descent.Server;TF2.Descent.Client;TF2.Server;TF2.Client;</SourceSharpModGated>
     <SourceSharpTestGated>;SourceSharp.Shared.Tests;SourceSharp.Server.Tests;SourceSharp.Client.Tests;TF2.Descent.Tests;TF2.Tests;SourceSharp.OracleTests;SourceSharp.TestSupport;</SourceSharpTestGated>
-    <SourceSharpInterfaceGated>;SourceSharp.Client.Interface;SourceSharp.Server.Interface;</SourceSharpInterfaceGated>
+    <SourceSharpInterfaceGated>;SourceSharp.Client.Interface;Debug.Api.Server.Interfaces;Debug.Api.Client.Interfaces;</SourceSharpInterfaceGated>
     <SourceSharpStaticStateWaivers Condition="'$(SourceSharpStaticStateWaivers)' == ''">$(RepoRoot)src/analyzers/static-state-waivers.txt</SourceSharpStaticStateWaivers>
   </PropertyGroup>
   <PropertyGroup>

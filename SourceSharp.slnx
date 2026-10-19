@@ -21,7 +21,6 @@
   <Project Path="src/launcher/SourceSharp.Launcher.csproj" />
   <Project Path="src/mapgen/SourceSharp.MapGen.csproj" />
   <Project Path="src/mods/SourceSharp.Mods.csproj" />
-  <Project Path="src/server/interface/SourceSharp.Server.Interface.csproj" />
   <Project Path="src/server/managed/SourceSharp.Server.csproj" />
   <Project Path="src/test/managed/SourceSharp.Shared.Tests.csproj" />
   <Project Path="src/test/server/SourceSharp.Server.Tests.csproj" />
@@ -33,4 +32,6 @@
   <Project Path="src/tf2/tests/TF2.Tests.csproj" />
   <Project Path="src/test/oracle/managed/SourceSharp.OracleTests.csproj" />
   <Project Path="src/tools/UiPreview/SourceSharp.UiPreview.csproj" />
+  <Project Path="src/debug_api/interfaces/Debug.Api.Server.Interfaces.csproj" />
+  <Project Path="src/debug_api_client/interfaces/Debug.Api.Client.Interfaces.csproj" />
 </Solution>
