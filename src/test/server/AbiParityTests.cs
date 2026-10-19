@@ -40,12 +40,12 @@ public partial class AbiParityTests
     [Fact]
     public void NeitherFunctionPointerStructRemains()
     {
-        var abi = typeof(ShimRootVtbl).Assembly;
+        var abi = typeof(ShimRootFwd).Assembly;
         // And the engine surface that left Abi for Shared.Interop in P1 run 3.
         var names = abi.GetTypes().Concat(typeof(EngineServices).Assembly.GetTypes())
                        .Select(t => t.Name).ToHashSet(StringComparer.Ordinal);
 
-        Assert.Contains("ShimRootVtbl", names);   // the control: the reflection read the ABI assembly
+        Assert.Contains("ShimRootFwd", names);   // the control: the reflection read the ABI assembly
         Assert.DoesNotContain("EngineApi", names);
         Assert.DoesNotContain("ManagedApi", names);
 

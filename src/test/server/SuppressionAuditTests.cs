@@ -259,9 +259,9 @@ public class SuppressionAuditTests
     ///
     /// Read from metadata rather than by parsing source, so what is audited is
     /// what actually compiled: each slot-table row's field in its area's
-    /// generated layout (<c>Shim&lt;X&gt;Vtbl</c>), which is what the call
-    /// goes through since plan_client_vtables CC-last deleted the engine API
-    /// struct. It has to go through GetModifiedFieldType (see
+    /// forwarder struct (<c>Shim&lt;X&gt;Fwd</c>), which is what the call
+    /// goes through since plan_forwarders_everywhere.md (and an area method
+    /// since plan_client_vtables CC-last deleted the engine API struct). It has to go through GetModifiedFieldType (see
     /// <see cref="EngineApiAreasTests.IsSuppressed"/>): the convention is a
     /// custom modifier on the signature, and plain FieldType strips those —
     /// asking the unmodified type reports no conventions at all and the audit

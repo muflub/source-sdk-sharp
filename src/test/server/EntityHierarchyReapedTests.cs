@@ -70,7 +70,6 @@ public class EntityHierarchyReapedTests
 
     private const string AreasRel = "game/shared/ishim_areas.h";
     private const string ClientAreasRel = "game/shared/ishim_areas_client.h";
-    private const string LayoutsRel = "managed/SourceSharp.Abi/VtableLayouts.g.cs";
     // plan_client_vtables CC-last: the client fills no struct; its wiring is
     // the generated forwards from its shim areas to the bodies.
     private const string WiringRel = "game/shared/shell_shim_areas_client.inc";

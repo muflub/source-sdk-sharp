@@ -59,7 +59,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
     public void AServerSideStillDeliversTheMatrixToItsShimRoot()
     {
         // The retention half: the server's route must survive the move.
-        uint* recorder = Serve(ServerCollisionVersion, ServerCollisionVtbl);
+        uint* recorder = Serve(ServerCollisionVersion, ServerCollisionFwd);
         var engine = Attached(Side.Server);
 
         uint[] rows = CollisionRules.BuildMatrix();
@@ -100,7 +100,7 @@ public unsafe class CollisionRulesSideTests : IDisposable
     private static string ServerCollisionVersion
         => "SourceSharp" + ServerCollisionField.Name + "001";
 
-    private static Type ServerCollisionVtbl
+    private static Type ServerCollisionFwd
         => ServerCollisionField.FieldType.GetGenericArguments()[0];
 
     private static System.Reflection.FieldInfo ServerCollisionField
