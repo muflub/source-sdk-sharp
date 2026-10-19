@@ -11,7 +11,7 @@
 //     game/client/c_baseentity_statics.cpp  EntityAbs_ (four, plus Push/Pop)
 //                                           EntityInterp_ (four)
 //                                           EntityRender_AddVisibleEntities
-//                                           EntityTool_RecordEntities
+//                                           EntityTool_RecordEntities (deleted)
 //
 // THEY ARE NOT ALL THE SAME KIND OF THING, AND SEPARATING THEM IS THE LANE.
 // Some are the port's own mechanism wearing a stock name and must MOVE; others
@@ -68,19 +68,17 @@
 // is a paragraph, not a declaration. Those thirteen have nothing left to
 // declare at runtime and are documentation of a completed migration.
 //
-// TWO ROWS COULD STILL FIRE, and §7 -- "a behaviour that is refused is a
+// ONE ROW CAN STILL FIRE, and §7 -- "a behaviour that is refused is a
 // ContractBaseline entry with a reason, never a silent no-op" -- is about
-// exactly those two. They keep their refusal, their reason and their successor
-// VERBATIM; what they lose is the indirection through a row index. The reason
-// and successor strings that used to sit in the table are now at the refusal
-// site itself, in EntityInterp_UpdateFrameGate and EntityTool_RecordEntities
-// in shell_entitystatics.cpp, where the code that refuses is:
+// exactly that one. The reason and successor strings that used to sit in the
+// table are now at the refusal site itself, in EntityInterp_UpdateFrameGate in
+// shell_entitystatics.cpp, where the code that refuses is:
 //
 //   EntityInterp_InterpolateServerEntities -- refused on the CLOSING EDGE of
 //     the interpolation gate, once per close, not per call.
-//   EntityTool_RecordEntities -- refused whenever a tool is actually in
-//     recording mode, which is the one condition under which the missing
-//     capability could ever have mattered.
+//
+// The other, EntityTool_RecordEntities (refused when a tool was recording), is
+// deleted with the tool framework: SFM is dead (user ruling 2026-10-19).
 //
 // SO THE THING §7 ASKS FOR IS STRICTLY CLOSER TO THE CODE than it was: a
 // reader who reaches a refusal message now finds the reason in the function
@@ -124,10 +122,7 @@ void  EntityMem_Free( void *pMem );
 //-----------------------------------------------------------------------------
 void EntityInterp_UpdateFrameGate();
 
-//-----------------------------------------------------------------------------
-// The tool-recording pass, kept so that the SFM path ANSWERS BY NAME rather
-// than going silent. See its definition.
-//-----------------------------------------------------------------------------
-void EntityTool_RecordEntities();
+// EntityTool_RecordEntities, the tool-recording pass, is deleted: SFM is dead
+// (user ruling 2026-10-19).
 
 #endif // SHELL_ENTITYSTATICS_H

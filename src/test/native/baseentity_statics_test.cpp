@@ -1035,11 +1035,10 @@ const FrameLoopLifted kFrameLoopLifted[] =
 {
 	{ "MarkAimEntsDirty",     "EntityInterp_MarkAimEntsDirty",     false },
 
-	// THE ONE SURVIVOR, and it survives for a reason that is not "it still
-	// works": its list has no writer after the flip either. It is kept so that
-	// the SFM record path REFUSES BY NAME when a tool is actually recording,
-	// instead of returning quietly from an empty loop. plan_entity.md §7.
-	{ "ToolRecordEntities",   "EntityTool_RecordEntities",         true  },
+	// THE ONE SURVIVOR UNTIL 2026-10-19, kept so the SFM record path refused
+	// by name. RETIRED now with the tool framework: SFM is dead (user ruling
+	// 2026-10-19), so it is defined in no file.
+	{ "ToolRecordEntities",   "EntityTool_RecordEntities",         false },
 
 	{ "CheckCLInterpChanged", "EntityInterp_CheckCLInterpChanged", false },
 

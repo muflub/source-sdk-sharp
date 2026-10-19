@@ -113,7 +113,8 @@ public class MaterialProxyAbiParityTests
         var native = Regex.Matches(File.ReadAllText(path), @"\bkProxyOp(\w+)\s*=\s*(\d+)\s*,")
                           .ToDictionary(m => m.Groups[1].Value, m => int.Parse(m.Groups[2].Value));
 
-        Assert.True(native.Count == Enum.GetValues<ProxyOpKind>().Length && native.Count == 8,
+        // Seven: kind 8, the tools' record, is deleted (SFM is dead, user ruling 2026-10-19).
+        Assert.True(native.Count == Enum.GetValues<ProxyOpKind>().Length && native.Count == 7,
             $"the trampoline names {native.Count} op kinds, ProxyOpKind {Enum.GetValues<ProxyOpKind>().Length}");
         foreach (ProxyOpKind kind in Enum.GetValues<ProxyOpKind>())
         {

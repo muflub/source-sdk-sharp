@@ -145,6 +145,12 @@ public sealed partial class SourceFileNamesExistTests
         "sixense/sixense_convars.cpp",
         "game_controls/MapOverview.cpp",
 
+        // NotShippedTests.ToolFramework names these two in order to assert that
+        // they are GONE from client.so and the farm: SFM is dead (user ruling
+        // 2026-10-19). Put either back and those facts go red.
+        "entity_client_tools.cpp",
+        "toolframework_client.cpp",
+
         // BloodEffectPortabilityTests names this one in order to assert that it
         // is GONE. plan_shim.md Phase 2c, lane 2-utilshared, deleted
         // game/shared/util_shared.cpp: 1,031 of its 1,242 lines had zero

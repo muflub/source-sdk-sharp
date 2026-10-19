@@ -334,10 +334,6 @@ public class MaterialProxyOracleTests
 
         public void SetTexture(int slot, int textureSlot) => Ops.Add($"{N(slot)} texture #{textureSlot}");
 
-        public void RecordTools()
-        {
-        }
-
         /// <summary>Stock's setter calls in the same spelling.</summary>
         public List<string> StockOps()
         {

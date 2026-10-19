@@ -77,7 +77,6 @@ public abstract class AnimatedTextureProxyBase : MaterialProxy
             intFrame = numFrames - 1;
 
         bind.SetInt(FrameNumVar, intFrame);
-        bind.RecordTools();
     }
 }
 
@@ -227,7 +226,6 @@ public sealed class ToggleTextureProxy : MaterialProxy
         if (!_wrap && f > numFrames)
             intFrame = numFrames;
         bind.SetInt(_frameNum, intFrame);
-        bind.RecordTools();
     }
 }
 
@@ -286,6 +284,5 @@ public sealed class TextureScrollProxy : MaterialProxy
         {
             bind.SetVec3(_scroll, sOffset, tOffset, 0.0f);
         }
-        bind.RecordTools();
     }
 }

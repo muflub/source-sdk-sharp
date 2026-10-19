@@ -186,6 +186,24 @@ public class RenderPlannerTests
     }
 
     [Fact]
+    public void TheRetiredToolsInputChangesNoOpOfThePlan()
+    {
+        // Retired0 was ToolsEnabled, the viewmodel op's second argument. SFM is
+        // dead (user ruling 2026-10-19): the planner reads it no more.
+        List<RenderOp> baseline = Plan(Inputs());
+        List<RenderOp> retired = Plan(With(i => { i.Retired0 = 1; return i; }));
+
+        Assert.Equal(baseline.Count, retired.Count);
+        Assert.Equal(0, retired.Single(o => o.Kind == (int)RenderOpKind.ViewModels).GetI(1));
+        for (int k = 0; k < baseline.Count; k++)
+        {
+            Assert.Equal(baseline[k].Kind, retired[k].Kind);
+            for (int j = 0; j < 7; j++)
+                Assert.Equal(baseline[k].GetI(j), retired[k].GetI(j));
+        }
+    }
+
+    [Fact]
     public void ReflectiveGlassIsHandedBackToStock()
         => Assert.Null(RenderPlanner.Plan(With(i => { i.GlassInView = 1; return i; })));
 

@@ -25,8 +25,8 @@ public class ClientProxiesRouteTests
 
         public IReadOnlyList<MaterialProxyReading> Read() =>
         [
-            new(3, "Sine", "models/props_combine/combine_light001a", true, 120, ["Float 0 0.75", "RecordTools -1"]),
-            new(4, "AnimatedTexture", "effects/tp_eyefx/tpeye3", true, 60, ["Int 1 5", "RecordTools -1"]),
+            new(3, "Sine", "models/props_combine/combine_light001a", true, 120, ["Float 0 0.75"]),
+            new(4, "AnimatedTexture", "effects/tp_eyefx/tpeye3", true, 60, ["Int 1 5"]),
         ];
 
         public IReadOnlyList<MaterialProxyNameReading> ReadNames() =>

@@ -326,7 +326,7 @@ bool DefinesAtFileScope( const std::string &file, const std::string &sym )
 // 1. THE TABLE THE RULING IS ABOUT
 //=============================================================================
 
-TEST( ClientFlipRuling, TheTableHasExactlyTwentyTwoLiveRows )
+TEST( ClientFlipRuling, TheTableHasExactlyTwentyOneLiveRows )
 {
 	// The wave brief's own trap. A raw grep over the initialiser reads more than
 	// this, because the evicted systems are written out inside the comments that
@@ -385,7 +385,27 @@ TEST( ClientFlipRuling, TheTableHasExactlyTwentyTwoLiveRows )
 	//
 	// 23 UNTIL the bone leaf library followed: C_BaseAnimatingGameSystem ran its
 	// level-shutdown sweeps, and none was registered.
-	EXPECT_EQ( TableRowNames().size(), 22u );
+	//
+	// 22 UNTIL the tool framework followed: CToolFrameworkClient left with
+	// toolframework_client.cpp. SFM is dead (user ruling 2026-10-19).
+	EXPECT_EQ( TableRowNames().size(), 21u );
+}
+
+TEST( ClientFlipRuling, TheToolFrameworkIsNamedInACommentAndIsNotARow )
+{
+	// SFM is dead (user ruling 2026-10-19): the tool framework's bridge left
+	// the table with its file. Named, so the deletion reads as one; not a row.
+	const std::string raw = Read( kTableFile );
+	EXPECT_NE( raw.find( "CToolFrameworkClient" ), std::string::npos );
+
+	const std::vector<std::string> rows = TableRowNames();
+	const std::set<std::string> names( rows.begin(), rows.end() );
+	EXPECT_EQ( names.count( "CToolFrameworkClient" ), 0u )
+		<< "CToolFrameworkClient is a live row again; toolframework_client.cpp "
+		   "left client.so (SFM is dead, user ruling 2026-10-19)";
+	EXPECT_EQ( raw.find( "ToolFrameworkClientSystem" ), std::string::npos )
+		<< "the table file names ToolFrameworkClientSystem again, the accessor "
+		   "that left with toolframework_client.cpp";
 }
 
 TEST( ClientFlipRuling, TheThreeEvictedSystemsAreNamedInCommentsAndAreNotRows )
@@ -575,8 +595,10 @@ TEST( ClientFlipRuling, NoStaysRulingsFileIsOnSection6sLeaveList )
 	// 23 since C9: CColorCorrectionMgr's left with colorcorrectionmgr.cpp.
 	// 22 since the client physics leftovers: CDataObjectAccessSystem's left with
 	// shell_physics_shared_client.cpp.
-	EXPECT_GE( nChecked, 22 )
-		<< "fewer than twenty-two rows are ruled STAYS, so the ruling was not parsed";
+	// 21 since the tool framework: CToolFrameworkClient's left with
+	// toolframework_client.cpp (SFM is dead, user ruling 2026-10-19).
+	EXPECT_GE( nChecked, 21 )
+		<< "fewer than twenty-one rows are ruled STAYS, so the ruling was not parsed";
 }
 
 TEST( ClientFlipRuling, NoRowIsRuledLeavesBecauseTheOnlyOneWasRehomed )

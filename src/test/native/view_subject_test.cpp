@@ -669,9 +669,9 @@ TEST( NpcReorder, NoClientClassInTheBuildAnswersIsNPC )
 //
 //  1. viewrender.cpp's viewmodel pass asked SDKEntityFromRenderable "is this a
 //     game entity", which answers NULL for a MANAGED entity (p7-exit recorded
-//     that at viewrender.cpp:4299). It now asks GetIClientEntity(), the face
-//     both hierarchies wear, and the keep/remove decision moved into
-//     ViewSubject::ViewModelIsUnwanted where it can be asserted.
+//     that at viewrender.cpp:4299). The keep/remove decision moved into
+//     ViewSubject::ViewModelIsUnwanted, and then left with the tool framework
+//     it served (SFM is dead, user ruling 2026-10-19).
 //
 //  2. in_joystick.cpp's two local-player asks -- the vehicle response curve and
 //     the autoaim stick dampening -- go through the view_facts.h seam.
@@ -683,59 +683,11 @@ TEST( NpcReorder, NoClientClassInTheBuildAnswersIsNPC )
 //
 //=============================================================================//
 
-//-----------------------------------------------------------------------------
-// The viewmodel keep/remove rule.
-//
-// Four corners, because the bug this replaced was not "the rule is wrong" but
-// "one input was always false", and a rule tested only where bIsGameEntity is
-// true would have passed for it unchanged.
-//-----------------------------------------------------------------------------
-TEST( ViewModelIsUnwanted, ThePlayersOwnViewModelIsKeptWhenPlayerViewModelsAreWanted )
-{
-	EXPECT_FALSE( ViewSubject::ViewModelIsUnwanted( true, true, false ) );
-	EXPECT_FALSE( ViewSubject::ViewModelIsUnwanted( true, true, true ) );
-}
-
-TEST( ViewModelIsUnwanted, ThePlayersOwnViewModelIsDroppedWhenPlayerViewModelsAreNot )
-{
-	EXPECT_TRUE( ViewSubject::ViewModelIsUnwanted( true, false, true ) );
-	EXPECT_TRUE( ViewSubject::ViewModelIsUnwanted( true, false, false ) );
-}
-
-TEST( ViewModelIsUnwanted, AToolsViewModelIsKeptWhenToolViewModelsAreWanted )
-{
-	EXPECT_FALSE( ViewSubject::ViewModelIsUnwanted( false, false, true ) );
-	EXPECT_FALSE( ViewSubject::ViewModelIsUnwanted( false, true, true ) );
-}
-
-TEST( ViewModelIsUnwanted, AToolsViewModelIsDroppedWhenToolViewModelsAreNot )
-{
-	EXPECT_TRUE( ViewSubject::ViewModelIsUnwanted( false, true, false ) );
-	EXPECT_TRUE( ViewSubject::ViewModelIsUnwanted( false, false, false ) );
-}
-
-TEST( ViewModelIsUnwanted, THEBUGITREPLACED_TheTwoKINDSDoNotAnswerTheSame )
-{
-	// THIS is the fact that the old spelling could not satisfy. With
-	// bIsGameEntity stuck at false -- which is what SDKEntityFromRenderable
-	// gave every managed viewmodel -- the player's own viewmodel and a
-	// toolframework renderable got the SAME verdict for every pair of flags,
-	// and bShouldDrawPlayerViewModel stopped being consulted.
-	//
-	// The reachable half of that in this build is one-directional and
-	// view_subject.h says which: bDrawTools is ToolsEnabled() where this runs,
-	// so the old condition folded to a constant false and the player's
-	// viewmodel was KEPT when it should have been dropped. The fact below is
-	// two-directional anyway, because the RULE has to be right in both and the
-	// build that makes the second direction reachable is one -tools flag away.
-	//
-	// So: there must exist a flag pair the two kinds disagree about. A rule
-	// that ignored either flag, or that ignored bIsGameEntity, fails here.
-	EXPECT_NE( ViewSubject::ViewModelIsUnwanted( true,  true, false ),
-	           ViewSubject::ViewModelIsUnwanted( false, true, false ) );
-	EXPECT_NE( ViewSubject::ViewModelIsUnwanted( true,  false, true ),
-	           ViewSubject::ViewModelIsUnwanted( false, false, true ) );
-}
+// The viewmodel keep/remove rule's four corners stood here
+// (ViewSubject::ViewModelIsUnwanted). The rule chose between a game entity's
+// viewmodel and a tool's, and is deleted with the tool framework: SFM is dead
+// (user ruling 2026-10-19). RenderPlannerTests holds that the plan's
+// viewmodel op ignores the retired tools input.
 
 //-----------------------------------------------------------------------------
 // The source scan for step c7-view. Comments stripped for every "is it gone"

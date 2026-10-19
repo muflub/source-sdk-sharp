@@ -2,9 +2,8 @@
 # code_lines	verdict	head   (UNRULED counts as LOGIC)
 9	UNRULED	void SourceSharp_ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ,
 12	UNRULED	void SourceSharp_ClientSparks( const float *pPositionXYZ,
-20	UNRULED	static void RecordSparkImpact( int nTeEnum, const char *pszName,
-10	UNRULED	void SourceSharp_ClientRicochet( const float *pPositionXYZ, const float *pDirectionXYZ )
-10	UNRULED	void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ )
+9	UNRULED	void SourceSharp_ClientRicochet( const float *pPositionXYZ, const float *pDirectionXYZ )
+9	UNRULED	void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ )
 9	UNRULED	void SourceSharp_ClientSmoke( const float *pOriginXYZ, int32_t nModelIndex,
 10	UNRULED	void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR,
 23	UNRULED	void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity,

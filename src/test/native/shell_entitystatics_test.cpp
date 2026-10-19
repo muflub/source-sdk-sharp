@@ -101,18 +101,17 @@ int CountCalls( const std::string &strSource, const std::string &strName )
 
 const char *const kStaticsSource = "sourcesharp/game/client/shell_entitystatics.cpp";
 
-// The two functions in shell_entitystatics.cpp that can still refuse at
-// runtime, and the §7 refusal each one prints. Phase 1c deleted the ruling
-// table these used to be reached through; the strings are at the refusal site
-// now, so the check is over the SITE.
+// The function in shell_entitystatics.cpp that can still refuse at runtime,
+// and the §7 refusal it prints. Phase 1c deleted the ruling table these used
+// to be reached through; the strings are at the refusal site now, so the check
+// is over the SITE. (EntityTool_RecordEntities was the second; it is deleted:
+// SFM is dead, user ruling 2026-10-19.)
 const char *const kRefusalSites[] = {
 	"void EntityInterp_UpdateFrameGate()",
-	"void EntityTool_RecordEntities()",
 };
 
 const char *const kRefusalSubjects[] = {
 	"EntityInterp_InterpolateServerEntities",
-	"EntityTool_RecordEntities",
 };
 
 const size_t kRefusalCount =
@@ -180,17 +179,18 @@ std::string BodyOf( const std::string &strSource, const std::string &strSignatur
 // the only thing that ever read a count, is gone; nothing under tools/, in
 // managed code or in the other DLL ever drove it.
 //
-// WHAT §7 ACTUALLY ASKS FOR IS THE REFUSAL, and TWO rows could still fire. §7
+// WHAT §7 ACTUALLY ASKS FOR IS THE REFUSAL, and ONE row can still fire (a
+// second, EntityTool_RecordEntities, is deleted: SFM is dead, 2026-10-19). §7
 // is "a behaviour that is refused is a ContractBaseline entry with a reason,
-// never a silent no-op" -- so the successor facts below are that those two
-// sites STILL REFUSE, still name the function, and still carry a reason and a
+// never a silent no-op" -- so the successor facts below are that the site
+// STILL REFUSES, still names the function, and still carries a reason and a
 // successor. They are asked of shell_entitystatics.cpp, where the refusal is,
 // rather than of a table indexed by an enum in another file: strictly closer to
 // the code than the retired twelve were.
 //=============================================================================//
 
 //-----------------------------------------------------------------------------
-// §7's whole demand in one fact, asked at the two sites that can still fail it.
+// §7's whole demand in one fact, asked at the site that can still fail it.
 // A refusal that prints nothing, or prints without saying WHY, is the silent
 // no-op the section forbids -- not a lesser version of it.
 //-----------------------------------------------------------------------------
@@ -233,15 +233,14 @@ TEST( ShellEntityStatics, BothSurvivingRefusalsSayWhoRefusedAndWhy )
 }
 
 //-----------------------------------------------------------------------------
-// AND NEITHER REFUSAL IS ON AN UNCONDITIONAL PER-FRAME PATH.
+// AND THE REFUSAL IS NOT ON AN UNCONDITIONAL PER-FRAME PATH.
 //
 // NOT RATE LIMITED, deliberately: the claim a retired capability makes is that
 // nothing can reach it in this build, so the expected number of these lines is
 // zero and a flood is that claim being wrong in the loudest available way. That
-// only holds if neither site can fire every frame -- one is on the CLOSING EDGE
-// of the interpolation gate, the other behind stock's own ToolsEnabled() and
-// IsInRecordingMode() guards. A refusal moved out from behind either would turn
-// a console into scrollback.
+// only holds if the site cannot fire every frame -- it is on the CLOSING EDGE
+// of the interpolation gate. A refusal moved out from behind it would turn a
+// console into scrollback.
 //-----------------------------------------------------------------------------
 TEST( ShellEntityStatics, TheInterpolationRefusalIsOnTheClosingEdgeAndNotEveryFrame )
 {
@@ -265,25 +264,6 @@ TEST( ShellEntityStatics, TheInterpolationRefusalIsOnTheClosingEdgeAndNotEveryFr
 		   "like a transition.";
 }
 
-TEST( ShellEntityStatics, TheToolRecordingRefusalIsBehindStocksOwnTwoGuards )
-{
-	const std::string body =
-		BodyOf( ReadSource( kStaticsSource ), "void EntityTool_RecordEntities()" );
-	ASSERT_FALSE( body.empty() );
-
-	const size_t guard   = body.find( "if ( !ToolsEnabled() || !clienttools->IsInRecordingMode() )" );
-	const size_t refusal = body.find( "REFUSED:" );
-
-	ASSERT_NE( guard, std::string::npos )
-		<< "stock's own guard pair is gone. ToolsEnabled() is false in every "
-		   "build not started with -tools, and it is what keeps the ordinary "
-		   "game paying one bool read per frame for this and nothing else.";
-	ASSERT_NE( refusal, std::string::npos );
-	EXPECT_LT( guard, refusal )
-		<< "the refusal is ahead of the guard, so an ordinary game warns every "
-		   "frame about a tool-recording capability nobody asked for.";
-}
-
 //=============================================================================//
 // THE ARRANGEMENT, SOURCE-READ.
 //=============================================================================//
@@ -302,9 +282,16 @@ TEST( ShellEntityStatics, TheClientDllCallsTheTwoSurvivorsAndNeitherOfTheFour )
 		<< "the live half of InterpolateServerEntities runs in stock's own place "
 		   "in OnRenderStart. Losing this call loses the frame-level "
 		   "interpolation policy silently.";
-	EXPECT_EQ( 1, CountCalls( strDll, "EntityTool_RecordEntities" ) )
-		<< "kept so the SFM path REFUSES BY NAME rather than going silent. A "
-		   "refusal counts; silence does not.";
+	// SFM is dead (user ruling 2026-10-19): the tool-recording pass is
+	// deleted, call and definition both.
+	EXPECT_EQ( 0, CountCalls( strDll, "EntityTool_RecordEntities" ) )
+		<< "shell_clientdll.cpp calls EntityTool_RecordEntities again; the tool "
+		   "framework it posted to is deleted.";
+	EXPECT_EQ( 0, CountCalls( ReadSource( kStaticsSource ), "EntityTool_RecordEntities" ) )
+		<< "shell_entitystatics.cpp defines EntityTool_RecordEntities again.";
+	EXPECT_NE( ReadSource( kStaticsSource ).find( "void EntityInterp_UpdateFrameGate()" ),
+	           std::string::npos )
+		<< "the statics file did not read, so the zero above is not evidence.";
 
 	static const char *const kGone[] =
 	{

@@ -64,11 +64,8 @@ namespace SourceSharp.Client.TempEnts;
 /// </para>
 ///
 /// <para>
-/// WHAT WAS LOST WITH THE FILE: <c>RecordDecal</c>, the tool-recording
-/// KeyValues message, which is <c>ToolsEnabled()</c>-gated and unreachable in
-/// this build — the same loss <c>ClientTeExplosion</c> records for
-/// <c>RecordExplosion</c>. docs/divergences.md has it. Stock's
-/// <c>Precache()</c> was empty.
+/// NOT PORTED: <c>RecordDecal</c>, the tool-recording KeyValues message. SFM is
+/// dead (user ruling 2026-10-19). Stock's <c>Precache()</c> was empty.
 /// </para>
 /// </summary>
 [ClientTempEnt("CTEDecal")]

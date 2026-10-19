@@ -31,7 +31,6 @@
 #include "server_class.h"
 #include "ispatialpartition.h"
 #include "datacache/imdlcache.h"
-#include "toolframework/iserverenginetools.h"
 #include "shell_steporder.h"
 
 // plan_entity.md Phase 0 step 0e -- the engine-boundary probe. Every virtual

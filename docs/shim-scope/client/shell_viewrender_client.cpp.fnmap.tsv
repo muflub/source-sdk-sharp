@@ -42,7 +42,7 @@
 46	SLOT	void CShellViewRender::Render( vrect_t *rect )
 36	SLOT	void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded,
 18	SLOT-HELP	void DemoCamera( Vector &origin, QAngle &angles )
-39	SLOT	void CShellViewRender::SetUpViews()
+35	SLOT	void CShellViewRender::SetUpViews()
 17	SLOT-HELP	void ShellView_ComputeCamera( const Vector &vecOrigin, const QAngle &angles, ShellCamera_t &out )
 6	SLOT-HELP	void ShellView_SetMainView( const Vector &vecOrigin, const QAngle &angles )
 4	SLOT-HELP	const ShellCamera_t &ShellView_Main()

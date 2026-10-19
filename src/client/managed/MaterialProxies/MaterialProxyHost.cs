@@ -490,6 +490,5 @@ public sealed class MaterialProxyHost : IClientMaterialProxies, IMaterialProxyRe
 
         public void SetTexture(int slot, int textureSlot) => F.Add(ProxyOpKind.Texture, slot, textureSlot, []);
 
-        public void RecordTools() => F.Add(ProxyOpKind.RecordTools, -1, 0, []);
     }
 }

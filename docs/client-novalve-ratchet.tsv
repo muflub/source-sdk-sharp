@@ -1,6 +1,8 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-19, landing the SFM lane onto main 9c0a56319 (re-measured there, --write rows only): logic-lines 8424 -> 8362 (the tool arms gone).
+# 2026-10-19, SFM is dead (user ruling 2026-10-19), measured on eb10dd6fe + the eviction: toolframework_client.cpp and entity_client_tools.cpp left client.so (shell_tools_off_client.cpp's stand-ins took their names): fork-src 11 -> 9, fork-hdr-not-allowed 317 -> 314, fork-hdr-total 481 -> 478, incdir-forbidden-tus 142 -> 141 (two fork TUs out, one of ours in), sdk-links 528 -> 525 (the two .cpp links and toolframework/iclientenginetools.h, which only toolframework_client.cpp read: make sdk-census), logic-lines 8421 -> 8372 (the shells' tool arms, 239bb598e, and main's own fall the row had not followed). Hand-edited.
 # 2026-10-18, C9 tier1: libtier1.a off client.so's link line (nothing in client.so took a member after detailobjectsystem.cpp and particlemgr.cpp left): link-forbidden 2 -> 1. Hand-edited.
 # 2026-10-18, C7 particles phase 4 (the eviction), measured on main f4b31392d: particlemgr.cpp and particles_new.cpp
 #   left client.so: fork-src 13 -> 11, fork-hdr-not-allowed 320 -> 317, fork-hdr-total 484 -> 481,
@@ -270,9 +272,9 @@
 #   CUtlSymbolTable) (tools/client-novalve-census).
 # 2026-10-18, C7 detail: the fork links detailobjectsystem.cpp left behind went (make sdk-census named them unused): the file,
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
-fork-hdr-not-allowed	317
-fork-hdr-total	481
-fork-src	11
+fork-hdr-not-allowed	314
+fork-hdr-total	478
+fork-src	9
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -305,14 +307,14 @@ imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 141 -> 142, a relabel: generic_payload_client.cpp, split out of the shared generic_payload.cpp, is a new client TU that reaches a forbidden include dir (a split, not new reach).
-incdir-forbidden-tus	142
+incdir-forbidden-tus	141
 link-forbidden	1
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
 # 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
 #   (three lines: the offset into the block's Client.Skin). The client compiled no skin receive before; this is new reach the
 #   fix needs, not a relabel.
-logic-lines	8424
+logic-lines	8362
 native-convar-decls	69
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-sdk-links	528
+sdk-links	525

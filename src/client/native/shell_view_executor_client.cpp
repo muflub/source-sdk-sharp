@@ -72,7 +72,6 @@
 #include "particles_ez.h"
 #include "c_rope.h"
 #include "studio_stats.h"
-#include "toolframework_client.h"
 #include "c_func_reflective_glass.h"
 #include "vgui_int.h"
 #include "ienginevgui.h"
@@ -89,7 +88,6 @@
 #include "imanaged_areas_client.h"
 #include "shell_clientsystem.h"
 #include "view_facts.h"
-#include "view_subject.h"
 #include "vtable_slot_patch.h"
 #include "shell_render_trace_client.h"
 #include "shell_standalone_client.h"
@@ -904,7 +902,6 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 
 	in.ThirdPersonSeesOwner = SourceSharp_ThirdPersonSeesOwner() ? 1 : 0;
 	in.ViewEntity = render->GetViewEntity();
-	in.ToolsEnabled = ToolsEnabled() ? 1 : 0;
 
 	// The screen fade, managed's (ViewEffects): stock's GetFadeParams.
 	int32_t fade[5] = { 0, 0, 0, 0, 0 };
@@ -1160,9 +1157,11 @@ void DrawRenderablesInList( CUtlVector< IClientRenderable * > &list, int flags )
 	view->SetCurrentlyDrawingEntity( NULL );
 }
 
-// The viewmodels' pass: managed chose the view and whether the player's and
-// the tools' viewmodels draw.
-void ViewModels( const CViewSetup &setup, bool bDrawPlayer, bool bDrawTools )
+// The viewmodels' pass: managed chose the view and whether the player's
+// viewmodel draws. (Stock also drew the tools' viewmodels and filtered one kind
+// out when ToolsEnabled(); that arm is deleted: SFM is dead, user ruling
+// 2026-10-19.)
+void ViewModels( const CViewSetup &setup, bool bDrawPlayer )
 {
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->MatrixMode( MATERIAL_PROJECTION );
@@ -1174,28 +1173,11 @@ void ViewModels( const CViewSetup &setup, bool bDrawPlayer, bool bDrawTools )
 	render->Push3DView( setup, 0, NULL, view->GetFrustum(), NULL );
 	pRenderContext->DepthRange( 0.0f, 0.1f );
 
-	if ( bDrawPlayer || bDrawTools )
+	if ( bDrawPlayer )
 	{
 		CUtlVector< IClientRenderable * > opaque( 32 );
 		CUtlVector< IClientRenderable * > translucent( 32 );
 		ClientLeafSystem()->CollateViewModelRenderables( opaque, translucent );
-		// Stock's `ToolsEnabled() && ( !player || !tools )`, where its tools flag
-		// IS ToolsEnabled(): managed's bDrawTools stands for both.
-		if ( bDrawTools && !bDrawPlayer )
-		{
-			for ( int i = opaque.Count() - 1; i >= 0; --i )
-			{
-				IClientUnknown *pUnknown = opaque[i] ? opaque[i]->GetIClientUnknown() : NULL;
-				if ( ViewSubject::ViewModelIsUnwanted( pUnknown && pUnknown->GetIClientEntity() != NULL, bDrawPlayer, bDrawTools ) )
-					opaque.FastRemove( i );
-			}
-			for ( int i = translucent.Count() - 1; i >= 0; --i )
-			{
-				IClientUnknown *pUnknown = translucent[i] ? translucent[i]->GetIClientUnknown() : NULL;
-				if ( ViewSubject::ViewModelIsUnwanted( pUnknown && pUnknown->GetIClientEntity() != NULL, bDrawPlayer, bDrawTools ) )
-					translucent.FastRemove( i );
-			}
-		}
 		if ( !UpdateRefractIfNeededByList( opaque ) )
 			UpdateRefractIfNeededByList( translucent );
 		DrawRenderablesInList( opaque, 0 );
@@ -1654,7 +1636,7 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 		case RENDER_OP_RenderPlayerSprites: GetClientVoiceMgr()->DrawHeadLabels(); break;
 		case RENDER_OP_MotionBlur: RunPostProgram( 1, setup, setup.x, setup.y, setup.width, setup.height, false, false ); break;
 		case RENDER_OP_PostScreenSpaceEffects: GetClientModeNormal()->DoPostScreenSpaceEffects( &setup ); break;
-		case RENDER_OP_ViewModels: ViewModels( setup, op.I[0] != 0, op.I[1] != 0 ); break;
+		case RENDER_OP_ViewModels: ViewModels( setup, op.I[0] != 0 ); break;
 		case RENDER_OP_UnderwaterOverlay: UnderwaterOverlay(); break;
 		case RENDER_OP_SmokeFogOverlay: DrawSmokeFogOverlay(); break;
 		case RENDER_OP_ViewDrawFade:
@@ -2395,8 +2377,9 @@ void GatherViewSetUp( SourceSharpViewSetUpIn_t &in )
 }
 
 // CViewRender::Render's inputs: the engine's, the client mode's and the
-// convars, with the client mode's and the tools' viewport adjustments made on
-// a copy of the rectangle. Decides nothing.
+// convars, with the client mode's viewport adjustment made on a copy of the
+// rectangle (stock's ToolFramework_AdjustEngineViewport after it is deleted:
+// SFM is dead, user ruling 2026-10-19). Decides nothing.
 void GatherFrame( const vrect_t &rect, const CViewSetup &eye, SourceSharpRenderFrameIn_t &in )
 {
 	FromViewSetup( eye, in.Eye );
@@ -2419,7 +2402,6 @@ void GatherFrame( const vrect_t &rect, const CViewSetup &eye, SourceSharpRenderF
 	in.LevelOverview = CvarFloat( "cl_leveloverview" );
 	int x = rect.x, y = rect.y, w = rect.width, h = rect.height;
 	g_pClientMode->AdjustEngineViewport( x, y, w, h );
-	ToolFramework_AdjustEngineViewport( x, y, w, h );
 	in.ViewportX = x;
 	in.ViewportY = y;
 	in.ViewportWidth = w;

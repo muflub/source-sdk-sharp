@@ -101,7 +101,7 @@
 3	UNRULED	void SimulateEntities()
 3	UNRULED	void UpdateClientRenderableInPVSStatus()
 3	UNRULED	void UpdatePVSNotifiers()
-43	UNRULED	void OnRenderStart()
+39	UNRULED	void OnRenderStart()
 4	UNRULED	void OnRenderEnd()
 4	UNRULED	uint64_t SourceSharp_ClientStageCrossings()
 4	UNRULED	uint64_t CShellClientDLL::ClientStageCrossings() const

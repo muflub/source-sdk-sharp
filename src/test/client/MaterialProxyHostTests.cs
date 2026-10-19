@@ -110,14 +110,16 @@ public unsafe class MaterialProxyHostTests
         var host = Host(new FakeExecutor());
         Assert.True(host.Init(7, "Sine", "m", [Key("resultVar", "$r"), Num("sinePeriod", 2)]));
 
-        // sin( 2 pi * 0.5 / 2 ) * 0.5 + 0.5 = 1: SetFloatValue( 1 ), then the tools record.
+        // sin( 2 pi * 0.5 / 2 ) * 0.5 + 0.5 = 1: SetFloatValue( 1 ), and nothing
+        // after it: stock's tool record (op kind 8) is deleted, SFM is dead
+        // (user ruling 2026-10-19).
         List<ProxyOp> ops = Bind(host, 7, 0.5f, 1, new ProxyVar { Type = (int)MaterialVarType.Float });
 
-        Assert.Equal(2, ops.Count);
+        Assert.Single(ops);
         Assert.Equal((int)ProxyOpKind.Float, ops[0].Kind);
         Assert.Equal(0, ops[0].Slot);
         Assert.Equal(1.0f, ops[0].Value(0));
-        Assert.Equal((int)ProxyOpKind.RecordTools, ops[1].Kind);
+        Assert.DoesNotContain(ops, o => o.Kind == 8);
         Assert.Equal(1, host.ReadNames().Single(n => n.Name == "Sine").Binds);
     }
 
@@ -141,9 +143,12 @@ public unsafe class MaterialProxyHostTests
         var host = Host(new FakeExecutor());
         Assert.True(host.Init(3, "Sine", "m", [Key("resultVar", "$r")]));
 
-        List<ProxyOp> ops = Bind(host, 3, 0.25f, 1, new ProxyVar { Type = (int)MaterialVarType.Float }, maxOps: 1);
+        // Sine asks one setter call; a buffer of none drops it. (It asked two
+        // until the tools' record, the second, was deleted: SFM is dead, user
+        // ruling 2026-10-19.)
+        List<ProxyOp> ops = Bind(host, 3, 0.25f, 1, new ProxyVar { Type = (int)MaterialVarType.Float }, maxOps: 0);
 
-        Assert.Single(ops);
+        Assert.Empty(ops);
         Assert.Equal(1, host.DroppedOps);
     }
 
@@ -247,7 +252,7 @@ public unsafe class MaterialProxyHostTests
             var input = new ProxyBindIn { CurTime = 0.5f, FrameCount = 1, VarCount = 1 };
             var v = new ProxyVar { Type = (int)MaterialVarType.Float };
             ProxyOp* ops = stackalloc ProxyOp[4];
-            Assert.Equal(2, binding.ProxyBind(5, &input, &v, ops, 4));
+            Assert.Equal(1, binding.ProxyBind(5, &input, &v, ops, 4));
             Assert.Equal((int)ProxyOpKind.Float, ops[0].Kind);
             Assert.Equal(0, binding.ProxyBind(5, null, &v, ops, 4));
             Assert.Equal("models/x", host.Read().Single().Material);

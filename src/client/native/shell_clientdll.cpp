@@ -145,7 +145,6 @@
 // the engine's own limit is 255).
 enum { kMaxUserMessageBlockBytes = 512 };
 #include "ihudlcd.h"
-#include "toolframework_client.h"
 #include "vgui/ILocalize.h"
 #include "vgui/IVGui.h"
 #include "ixboxsystem.h"
@@ -232,12 +231,12 @@ AchievementsAndStatsInterface* g_pAchievementsAndStatsInterface = NULL;
 // HPE_END
 //=============================================================================
 
-// plan_cworld_trace.md T4: these two are still declared here, the way stock
-// declared them, and they answer SourceSharp's client base now. Their rows
-// are in sourcesharp/game/client/shell_clientsystems.cpp.
+// plan_cworld_trace.md T4: this one is still declared here, the way stock
+// declared it, and it answers SourceSharp's client base now. Its row is in
+// sourcesharp/game/client/shell_clientsystems.cpp. (ToolFrameworkClientSystem,
+// declared beside it, is deleted: SFM is dead, user ruling 2026-10-19.)
 class CClientSystem;
 CClientSystem *SoundEmitterSystem();
-CClientSystem *ToolFrameworkClientSystem();
 
 // Engine player info, no game related infos here
 BEGIN_BYTESWAP_DATADESC( player_info_s )
@@ -2338,11 +2337,9 @@ void OnRenderStart()
 	// C_BaseEntity member by friendship.
 	// RETIRED and ruled: `cs_cl_entitystatics`.
 
-	// For entities marked for recording, post bone messages to IToolSystems
-	if ( ToolsEnabled() )
-	{
-		EntityTool_RecordEntities();
-	}
+	// SOURCESHARP: stock's `if ( ToolsEnabled() ) EntityTool_RecordEntities();`
+	// stood here, posting bone messages to the tools. Deleted: SFM is dead
+	// (user ruling 2026-10-19).
 
 	// SOURCESHARP: EntityRender_AddVisibleEntities stood here. It updated
 	// visibility for CLIENT-CREATED predictables only, off a list only

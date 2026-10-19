@@ -359,11 +359,10 @@ TEST( CppAliasShardT4, TheResidueWaveTookTheDeadArmsWhole )
 
 	const Cleared_t kCleared[] = {
 		// (client_thinklist.cpp's row left with the file in C8, lane c6-input.)
-
-		// 74b071771:...:351 -- RecordMaterialParams' body, guarded from the
-		// SDKEntityFromUnknown resolve to the closing brace. The function stays
-		// and is still called.
-		{ "game/client/toolframework_client.cpp", "ToolFramework_RecordMaterialParams",
+		// (toolframework_client.cpp's row -- RecordMaterialParams' guarded body --
+		// left with the file: SFM is dead, user ruling 2026-10-19. The name is
+		// shell_tools_off_client.cpp's now, an empty body.)
+		{ "sourcesharp/game/client/shell_tools_off_client.cpp", "ToolFramework_RecordMaterialParams",
 		  { "IsToolRecording", "SDKEntityFromUnknown", NULL } },
 
 		// particles_new.cpp's row: 74b071771:...:171 (whole-body), :295 and

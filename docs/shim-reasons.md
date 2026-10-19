@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 35,320 |
-| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 18,019 |
-| c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,037 |
+| a | a vtable the engine or VPhysics calls through | 21 | 5 | 31 |  |  |  | 60 | 35,239 |
+| b | an interface resolved by name at load | 12 | 3 | 16 |  |  |  | 41 | 17,980 |
+| c | static-init registration | 17 | 6 | 3 |  |  |  | 27 | 4,031 |
 | d | a layout the engine reads at fixed offsets | 5 | 6 | 5 | 1 |  |  | 20 | 9,267 |
 | e | a synchronous mid-step answer | 5 | 3 | 2 |  |  |  | 9 | 4,221 |
 | f | a bit-level wire codec | 5 | 5 | 2 | 1 |  |  | 13 | 3,720 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 7 | 1 |  |  | 15 | 9,418 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 2 |  |  | 1 | 8 | 5,112 |
-| x | NO LETTER FITS | 7 | 2 | 1 |  | 2 |  | 18 | 4,559 |
-|  | **total** | **77** | **35** | **69** | **3** | **2** | **1** | **211** | **93,673** |
+| x | NO LETTER FITS | 7 | 2 | 2 |  | 2 |  | 19 | 4,674 |
+|  | **total** | **77** | **35** | **70** | **3** | **2** | **1** | **212** | **93,662** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -398,13 +398,14 @@ close produces. **This is the number the port exists to drive to zero.**
 | `sourcesharp/game/server/shell_decals.cpp` | 162 | the three decal-name lookups (ss_decals.h), each a forward to SourceSharp.Server's DecalEmitter. It was (a) while `decalsystem` was an IDecalEmitterSystem the tree called through; that pointer left with its last caller (P5 lane SP), so the honest letter is none | `world_adapter.cpp`'s `CWorld::DecalTrace` asking managed code itself |
 | `sourcesharp/game/server/shell_soundent.cpp` | 209 | five entry points native code calls (ss_soundent.h: Init, Shutdown, InsertSound, the client-sound pair), each a forward to SourceSharp.Server's SoundEnt. CSoundEnt's statics left with their last caller (P5 lane SP) | `world_adapter.cpp`, `shell_level.cpp`, `shell_gameclients.cpp` and `shell_absent.cpp` calling managed directly |
 | `sourcesharp/game/shared/shell_movement_audit.cpp` | 108 | arithmetic with no engine in it — a float comparison and a switch. Its one non-test caller is `shell_movement.cpp:201` | that one call site, which can ask managed code instead |
-| `sourcesharp/game/client/shell_viewrender_client.cpp` | 783 | `view`, the client's IViewRender (C7 step 3: view.cpp, viewrender.cpp and viewdebug.cpp left): CShellViewRender carries out managed's view decisions (SetUpViews, Render) and the plan's views, holds the view state the fork's TUs read through MainView*/CurrentView*/SetupCurrentView/R_CullSphere, and the convars and commands native code links or that act on native state | the fork's readers of the view state and of mat_wireframe, r_DrawDetailProps and cl_drawshadowtexture (particlemgr.cpp, clientshadowmgr.cpp, detailobjectsystem.cpp, glow_overlay.cpp, c_pixel_visibility.cpp, the shells) leaving or reading by name, and the engine-facing carry-out moving behind generic ABI calls |
+| `sourcesharp/game/client/shell_viewrender_client.cpp` | 774 | `view`, the client's IViewRender (C7 step 3: view.cpp, viewrender.cpp and viewdebug.cpp left): CShellViewRender carries out managed's view decisions (SetUpViews, Render) and the plan's views, holds the view state the fork's TUs read through MainView*/CurrentView*/SetupCurrentView/R_CullSphere, and the convars and commands native code links or that act on native state | the fork's readers of the view state and of mat_wireframe, r_DrawDetailProps and cl_drawshadowtexture (particlemgr.cpp, clientshadowmgr.cpp, detailobjectsystem.cpp, glow_overlay.cpp, c_pixel_visibility.cpp, the shells) leaving or reading by name, and the engine-facing carry-out moving behind generic ABI calls |
 | `sourcesharp/game/client/strtools_client.cpp` | 206 | strtools.h's names that client.so's objects, particles.a, dmxloader.a and the tier1 members kept for those archives still call, over ss_string.h (user ruling 2026-10-12: client-only what the server does not need) | each name's last caller leaving; for the archives' share, particles.a and dmxloader.a leaving client.so |
 | `sourcesharp/game/client/tier0_thread_client.cpp` | 56 | tier0's `ThreadInMainThread`, which only client objects call (shell_clientdll's load pump, shell_entitystatics' abs-query guards; clientleafsystem and sequence_Transitioner while on the link); beside the shared tier0_thread_port.cpp because the server does not need it (user ruling 2026-10-12). And `Plat_FloatTime` over ss_clock.h, for particlemgr.cpp's one difference of two readings, so client.so links no libtier0 (C9, 2026-10-18) | those call sites leaving or asking another way; for `Plat_FloatTime`, particlemgr.cpp leaving |
 | `sourcesharp/game/client/tier0_vprof_client.cpp` | 93 | client.so's own `g_VProfCurrentProfile`, never enabled, and the three `CVProfNode` members the VPROF macros name (user ruling 2026-10-18: drop vprof from client.so rather than bind to the engine's profile), so client.so links no libtier0 (C9) | clientleafsystem.cpp leaving client.so: its VPROF_BUDGET scopes are the only importers (lld without -ltier0, 2026-10-18) |
 | `sourcesharp/game/client/tier0_spew_client.cpp` | 27 | tier0's `DevWarning( level )`, which only client objects call (bone_setup, shell_clientdll, the temp-entity shells); beside the shared tier0_spew_port.cpp because the server does not need it (user ruling 2026-10-12) | those call sites asking managed logging, or their TUs leaving |
 | `sourcesharp/game/client/tier1_client.cpp` | 174 | tier1's small members client.so still calls, so each object leaves its link: checksum_crc.cpp's CRC32 functions over ss_crc32.h (sentence.cpp, shell_input.cpp, SharedRandom's seed), rangecheckedvar.cpp's g_bDoRangeChecks (sequence_Transitioner.cpp) and mempool.cpp's CUtlMemoryPool (clientleafsystem.cpp, viewrender.cpp, the temp-entity pools, the view executor) | each name's last native caller leaving |
 | `sourcesharp/game/client/particles_lib/particles_tier2_stubs.cpp` | 73 | what particles.a imports from tier2.a (CBeamSegDraw's Start/NextSeg/End and vtable, RenderWireframeBox/Sphere), defined as counted no-ops so tier2.a left client.so (user ruling 2026-10-12); moved into libss_particles.so with particles.a (plan_particles_so.md), its counts read back through ISSParticleLib::Counters. Native because particles.a calls them in-process | real tier2 ports in the library, or particles.a's rope and debug-wireframe draws through managed |
+| `sourcesharp/game/client/shell_tools_off_client.cpp` | 119 | the names the Valve TUs still compiled into client.so link against after toolframework_client.cpp and entity_client_tools.cpp left (SFM is dead, user ruling 2026-10-19): `ToolsEnabled` (false) and `ToolFramework_RecordMaterialParams` for clientshadowmgr.cpp, `clienttools` (never in recording mode) and `ToolFramework_PostToolMessage` for flashlighteffect.cpp | clientshadowmgr.cpp's and flashlighteffect.cpp's evictions |
 
 
 ## Link libraries, re-measured at the close

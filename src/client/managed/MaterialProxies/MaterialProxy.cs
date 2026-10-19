@@ -160,9 +160,6 @@ public interface IProxyBind
     void SetMatrix(int slot, in VMatrix matrix);
 
     void SetTexture(int slot, int textureSlot);
-
-    /// <summary><c>if ( ToolsEnabled() ) ToolFramework_RecordMaterialParams( GetMaterial() )</c>.</summary>
-    void RecordTools();
 }
 
 /// <summary>

@@ -202,13 +202,12 @@ struct File_t
 // (src/client/native/CMakeLists.txt). Until Phase 6b it was server_csharp.vpc
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
-// RE-ANCHORED at plan_entity.md step 7g, which rewrote entity_client_tools.cpp
-// as an IClientTools REFUSAL STUB: the bodies moved inside the class, so the
-// out-of-line spelling `int CClientTools::FindGlobalFlexcontroller(` no longer
-// occurs anywhere. The anchor is the declaration, which the interface requires
-// and the stub therefore still carries.
-const File_t kClientTools = { "game/client/entity_client_tools.cpp",
-	"FindGlobalFlexcontroller( char const *name )" };
+// RE-ANCHORED twice. Step 7g rewrote entity_client_tools.cpp as an
+// IClientTools refusal stub; then it left client.so (SFM is dead, user ruling
+// 2026-10-19), and client.so's IClientTools is shell_tools_off_client.cpp's,
+// whose overrides are unnamed-parameter one-liners.
+const File_t kClientTools = { "sourcesharp/game/client/shell_tools_off_client.cpp",
+	"FindGlobalFlexcontroller( char const * )" };
 
 std::string Load( const File_t &f )
 {
@@ -269,39 +268,25 @@ TEST( ClientFlexEvicted, TheServerStillExcludesBothFlexSendTables )
 
 //-----------------------------------------------------------------------------
 // (S) THE ONE REFERRER THERE WAS. entity_client_tools.cpp was the only object
-// outside c_baseflex.cpp naming a symbol it uniquely defines.
+// outside c_baseflex.cpp naming a symbol it uniquely defines. It left client.so
+// (SFM is dead, 2026-10-19); the IClientTools that replaced it is held here.
 //-----------------------------------------------------------------------------
 TEST( ClientFlexEvicted, TheClientToolsNoLongerReachIntoCBaseFlex )
 {
 	const std::string tools = Load( kClientTools );
 	EXPECT_EQ( tools.find( "C_BaseFlex::" ), std::string::npos )
-		<< "entity_client_tools.cpp names C_BaseFlex again. It is compiled into "
-		   "the client and c_baseflex.cpp is not, so this is an undefined "
-		   "reference — the link will say so — but the fix is to keep the "
-		   "IClientTools bodies inert, not to put the file back.";
+		<< "client.so's IClientTools names C_BaseFlex again. c_baseflex.cpp is "
+		   "not compiled, so this is an undefined reference -- the link will say "
+		   "so -- but the fix is to keep the IClientTools bodies inert.";
 
 	// Both pure virtuals still exist: IClientTools requires them, and a test that
 	// only checked the absence above would pass if somebody deleted the overrides
-	// and broke the interface instead.
-	//
-	// SPELT AS DECLARATIONS SINCE 7g. The file is now an IClientTools refusal
-	// stub with its bodies inside the class, so there is no
-	// `int CClientTools::FindGlobalFlexcontroller(` to find; what has to be
-	// there is the override, and that is what these look for.
-	EXPECT_NE( tools.find( "FindGlobalFlexcontroller( char const *name )" ),
+	// and broke the interface instead. They answer the type's empty value and
+	// ask no entity: the tools are off (SFM is dead, 2026-10-19).
+	EXPECT_NE( tools.find( "int FindGlobalFlexcontroller( char const * ) override { return -1; }" ),
 		std::string::npos );
-	EXPECT_NE( tools.find( "GetGlobalFlexControllerName( int idx )" ),
+	EXPECT_NE( tools.find( "char const *GetGlobalFlexControllerName( int ) override { return \"\"; }" ),
 		std::string::npos );
-
-	// AND THAT BOTH REFUSE. 7g's rule, and the reason the two above are not
-	// enough on their own: a body that silently returned -1 and "" would satisfy
-	// them and would be exactly the no-op §7 forbids.
-	EXPECT_NE( tools.find( "SS_TOOLS_REFUSE( \"FindGlobalFlexcontroller\" )" ),
-		std::string::npos )
-		<< "FindGlobalFlexcontroller no longer refuses by name";
-	EXPECT_NE( tools.find( "SS_TOOLS_REFUSE( \"GetGlobalFlexControllerName\" )" ),
-		std::string::npos )
-		<< "GetGlobalFlexControllerName no longer refuses by name";
 }
 
 //-----------------------------------------------------------------------------

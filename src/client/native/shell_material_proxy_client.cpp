@@ -49,7 +49,6 @@
 #include "tier1/KeyValues.h"
 #include "tier1/interface.h"
 #include "tier1/utlmap.h"
-#include "toolframework_client.h"
 #include "shell_particle_mgr.h"	// the particle draw state (C7 particles phase 4)
 #include "view.h"
 #include "iviewrender.h"
@@ -95,7 +94,8 @@ enum
 	kProxyOpVecComponent = 5,
 	kProxyOpMatrix = 6,
 	kProxyOpTexture = 7,
-	kProxyOpRecordTools = 8,
+	// 8 was kProxyOpRecordTools (ToolFramework_RecordMaterialParams), deleted:
+	// SFM is dead (user ruling 2026-10-19). Never reuse it.
 };
 
 class CManagedMaterialProxy;
@@ -300,12 +300,6 @@ private:
 
 	void Apply( const SourceSharpProxyOp_t &op )
 	{
-		if ( op.Kind == kProxyOpRecordTools )
-		{
-			if ( ToolsEnabled() )
-				ToolFramework_RecordMaterialParams( GetMaterial() );
-			return;
-		}
 		if ( !m_Vars.IsValidIndex( op.Slot ) )
 			return;
 		IMaterialVar *pVar = m_Vars[ op.Slot ];

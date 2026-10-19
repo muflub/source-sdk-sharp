@@ -1540,13 +1540,16 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// and 16 -> 12 once sequence_Transitioner.cpp and vgui_consolepanel.cpp left
 	// (16 compiled under game/). nHere 12 -> 10 in C7 particles phase 4
 	// (2026-10-18, on main 8605b6ea1: 11 compiled under game/ once
-	// particlemgr.cpp and particles_new.cpp left).
+	// particlemgr.cpp and particles_new.cpp left). Files 12 -> 10 and nHere
+	// 10 -> 8 when entity_client_tools.cpp and toolframework_client.cpp left
+	// (SFM is dead, user ruling 2026-10-19: 12 scanned, 9 compiled under game/,
+	// at 2b7da491f plus the SFM commits).
 	const ScanResult_t &client = ClientScan();
-	EXPECT_GT( client.nFiles, 12 )
+	EXPECT_GT( client.nFiles, 10 )
 		<< "scanned " << client.nFiles << " client files -- too few to mean "
 		<< "anything, and low enough that the $File parse is the first thing "
 		<< "to suspect";
-	EXPECT_GT( client.nHere, 10 )
+	EXPECT_GT( client.nHere, 8 )
 		<< "client_sourcesharp compiles " << client.nHere << " entries under "
 		<< "game/ -- too few for the ratio below to mean anything";
 	EXPECT_GT( client.nFiles * 100, client.nHere * 90 )
@@ -1565,8 +1568,11 @@ TEST( SdkPlayerCast, TheScannerFoundTheSourceTree )
 	// 28b4e9d and 13,715 at 4cb81375. particlemgr.cpp and particles_new.cpp
 	// left with C7 particles phase 4: 11,300 scanned after them on the fork
 	// (main 8605b6ea1), about 10,800 on upstream (13,715 less their 2,918
-	// upstream lines). 10,000 holds on both.
-	EXPECT_GT( client.nLines, 10000 )
+	// upstream lines). entity_client_tools.cpp and toolframework_client.cpp
+	// left too (SFM is dead, user ruling 2026-10-19): 10,378 scanned after them
+	// on the fork; upstream's copies are 793 + 356 lines, so about 9,650 there.
+	// 9,000 holds on both.
+	EXPECT_GT( client.nLines, 9000 )
 		<< "scanned " << client.nLines << " client lines -- too few to mean "
 		<< "anything";
 	EXPECT_GT( client.nSkipped, client.nFiles )
@@ -2324,19 +2330,17 @@ TEST( SdkPlayerCast, TheBanCPredicateSeesTheClass )
 	// until C8 (lane c6-input), when the file left client.so with no importer;
 	// the class has no armed spelling left on the client outside the two above.
 
-	// THE EVICTED ROW, ASSERTED AS AN ABSENCE, WITH THE READ PROVED FIRST.
-	// Without the ScannedFileNamed half this EXPECT_FALSE is satisfied by the
-	// scanner silently skipping the file -- which is the same shape of vacuity
-	// that the population floors above were re-keyed away from.
-	EXPECT_TRUE( ScannedFileNamed( client, "client/toolframework_client.cpp" ) )
-		<< "toolframework_client.cpp is not in the client scan at all any more, "
-		<< "so the absence below would pass over a file nobody read.";
-	EXPECT_FALSE( HitsInFileEnding( client.EveryResolverHits, "client/toolframework_client.cpp" ) )
-		<< "toolframework_client.cpp binds an entity from a resolver again. Its "
-		<< "one site was RecordMaterialParams' `SDKEntityFromUnknown( "
-		<< "view->GetCurrentlyDrawingEntity() )`, which only ever existed inside "
-		<< "#ifndef SS_CBASEENTITY_ALIAS; a site here now is a live one."
-		<< Describe( client.EveryResolverHits );
+	// THE EVICTED ROW'S FILE HAS LEFT THE BUILD. toolframework_client.cpp held
+	// it until the residue wave; then the file left client.so (SFM is dead,
+	// user ruling 2026-10-19), so the scan no longer reads it at all. The read
+	// of a sibling that stays is proved first, so the absence is the file
+	// leaving and not the scanner going quiet.
+	EXPECT_TRUE( ScannedFileNamed( client, "client/clientshadowmgr.cpp" ) )
+		<< "clientshadowmgr.cpp is not in the client scan, so the absence below "
+		<< "proves nothing about the scanner.";
+	EXPECT_FALSE( ScannedFileNamed( client, "client/toolframework_client.cpp" ) )
+		<< "toolframework_client.cpp is in the client scan again: the tool "
+		<< "framework is back in client.so.";
 	// game/shared/util_shared.cpp's CLIENT ROW IS RETIRED FOR THE SAME REASON AS
 	// ITS SERVER TWIN, and it is the same single site: the file is compiled into
 	// both sides, so `CTraceFilterEntity`'s `GameEntityFromEntityHandle` ask was

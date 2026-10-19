@@ -138,10 +138,6 @@ public class MaterialProxyFactsTests
         public void SetMatrix(int slot, in VMatrix matrix) => Ops.Add($"{slot} matrix");
 
         public void SetTexture(int slot, int textureSlot) => Ops.Add($"{slot} texture {textureSlot}");
-
-        public void RecordTools()
-        {
-        }
     }
 
     private static ProxyKey Str(string name, string text, int scanCount = 0, float scan = 0, float atof = 0, int atoi = 0)
