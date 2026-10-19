@@ -1,3 +1,6 @@
+# 2026-10-18, C9 sentence (lane t1): public/sentence.cpp left client.so (its arm is SourceSharp.Client.LipSync):
+#   client objects 147 -> 146, stock public 1 -> 0, entity-free stock TUs 12 -> 11 (code lines 8982 -> 7692),
+#   its zero-edge row in section 3 (16 -> 15 stock TUs). Hand-applied from tools/entity-census's diff.
 # 2026-10-18, client.so off libmathlib.a (plan_client_novalve C9): mathlib_port.cpp joins client.so (its mathlib members): client objects 146 -> 147, shim 130 -> 131. Hand-edited.
 # 2026-10-13, server.so off libmathlib.a: mathlib_port.cpp joins server.so (the mathlib members it calls): server objects
 #   122 -> 123, shim 122 -> 123. Hand-applied from make entity-census's diff, so the notes are kept; its client "their
@@ -861,17 +864,17 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                 123       147
+objects linked                                                 123       146
   ... stock game/server | game/client                            0        15
   ... stock game/shared                                          0         0
-  ... stock public                                               0         1
+  ... stock public                                               0         0
   ... SourceSharp shim (sourcesharp/**)                        123       131
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         4
   ... their code lines                                           0      3673
-stock TUs with entity-free text                                  0        12
-  ... their code lines                                           0      8982
+stock TUs with entity-free text                                  0        11
+  ... their code lines                                           0      7692
 CBaseEntity:: / C_BaseEntity:: members in the DLL                0         0
   ... same, with NO symbol-type filter (§1's reading)            0         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0
@@ -908,7 +911,7 @@ ToEngineIface           0 in 0 files          17 in 10 files        1 in 1 files
 -- server: 0 distinct symbols across 0 of 0 stock TUs
   -- zero-edge stock TUs:
 
--- client: 65 distinct symbols across 14 of 16 stock TUs
+-- client: 65 distinct symbols across 14 of 15 stock TUs
      16  game/client/particlemgr.cpp
       8  game/client/glow_overlay.cpp
       7  game/client/particles_new.cpp
@@ -925,7 +928,6 @@ ToEngineIface           0 in 0 files          17 in 10 files        1 in 1 files
       1  game/client/vgui_game_viewport.cpp
   -- zero-edge stock TUs:
       0  game/client/flashlighteffect.cpp
-      0  public/sentence.cpp
 
 == 4. THE EDGES THEMSELVES ==
 # The symbols behind section 3, demangled, grouped by the stock TU that

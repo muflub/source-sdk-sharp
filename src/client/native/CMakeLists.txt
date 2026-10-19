@@ -30,7 +30,6 @@ set(client_sourcesharp_sources
     ${SS_SRC}/game/client/toolframework_client.cpp
     ${SS_SRC}/game/client/vgui_game_viewport.cpp
     ${SS_SRC}/game/client/warp_overlay.cpp
-    ${SS_SRC}/public/sentence.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/client_util_library.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/managed_runtime_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ragdoll_library.cpp

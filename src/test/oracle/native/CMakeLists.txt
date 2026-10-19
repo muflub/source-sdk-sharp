@@ -613,3 +613,68 @@ ss_cpptest_mathlib(image_encode_oracle_test
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/image_encode_oracle_test.cpp
     LIBS ${vtf_stock} ${bitmap_stock})
 endif()
+
+# THE LIP SYNC ORACLE: stock's viseme pass, the arm public/sentence.cpp lost
+# when C_BaseFlex left the client (docs/client-novalve-rulings.tsv: sentence.cpp
+# is ruled `port`). Pristine sentence.cpp is linked whole; c_baseflex.cpp's
+# viseme functions are CUT from the pristine file between the markers below
+# (verbatim, into lipsync_subject/) and compiled inside the harness's stand-in
+# C_BaseFlex, since the whole file needs the whole client. A marker that is
+# not found fails the test rather than the configure. The golden
+# src/test/client/Fixtures/lipsync-stock.tsv is replayed by the managed
+# LipSyncOracleTests. mathlib for Catmull_Rom_Spline (GetIntensity), tier1
+# for CUtlBuffer and the ConVars. The -Wno- flags are for VALVE'S CODE.
+set(sentence_stock "${SS_VALVE_SRC}/public/sentence.cpp")
+set(baseflex_stock "${SS_VALVE_SRC}/game/client/c_baseflex.cpp")
+set(lipsync_cut_ok FALSE)
+if(SS_VALVE_SDK AND EXISTS "${sentence_stock}" AND EXISTS "${baseflex_stock}")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${baseflex_stock}")
+  file(READ "${baseflex_stock}" _bf)
+  set(lipsync_cut "")
+  set(lipsync_cut_ok TRUE)
+  # Each pair: the first text of a region, and the text that ends it (not kept).
+  foreach(_pair
+      "ConVar g_CV_PhonemeDelay(|ConVar g_CV_FlexRules("
+      "void C_BaseFlex::SetupMappings( char const *pchFileRoot )|// Purpose: initialize fast lookups when model changes"
+      "#define STRONG_CROSSFADE_START|// Purpose: fill keyvalues message with flex state"
+      "int C_BaseFlex::g_numflexcontrollers;|char const *C_BaseFlex::GetGlobalFlexControllerName")
+    string(FIND "${_pair}" "|" _bar)
+    string(SUBSTRING "${_pair}" 0 ${_bar} _from)
+    math(EXPR _bar "${_bar} + 1")
+    string(SUBSTRING "${_pair}" ${_bar} -1 _to)
+    string(FIND "${_bf}" "${_from}" _a)
+    if(_a EQUAL -1)
+      set(lipsync_cut_ok FALSE)
+      set(lipsync_missing "${_from}")
+      break()
+    endif()
+    string(SUBSTRING "${_bf}" ${_a} -1 _tail)
+    string(FIND "${_tail}" "${_to}" _b)
+    if(_b EQUAL -1)
+      set(lipsync_cut_ok FALSE)
+      set(lipsync_missing "${_to}")
+      break()
+    endif()
+    string(SUBSTRING "${_tail}" 0 ${_b} _region)
+    string(APPEND lipsync_cut "// ---- pristine c_baseflex.cpp from `${_from}`\n${_region}\n")
+  endforeach()
+endif()
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${sentence_stock}" OR NOT EXISTS "${baseflex_stock}")
+  ss_oracle_missing(lipsync_oracle_test "no ${sentence_stock} or ${baseflex_stock}: is the pristine clone at valve-sdk.lock?")
+elseif(NOT lipsync_cut_ok)
+  ss_oracle_missing(lipsync_oracle_test "pristine c_baseflex.cpp no longer holds the marker `${lipsync_missing}`")
+else()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/lipsync_subject/c_baseflex_visemes.inl" "${lipsync_cut}")
+# The harness reads the subject's own pristine sentence.h (the farm no longer
+# links it: sentence.cpp has left client.so).
+configure_file("${SS_VALVE_SRC}/public/sentence.h" "${CMAKE_CURRENT_BINARY_DIR}/lipsync_subject/sentence.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(lipsync_oracle_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-unused-variable -Wno-sign-compare
+            -Wno-unused-but-set-variable -Wno-nontrivial-memcall -Wno-unused-function
+    INCLUDES public public/tier0 public/tier1 common ${PROJECT_SOURCE_DIR}/src/test/native
+             ${CMAKE_CURRENT_BINARY_DIR}/lipsync_subject
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/lipsync_oracle_test.cpp
+            ${sentence_stock})
+endif()

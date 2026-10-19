@@ -1016,18 +1016,21 @@ the lane stopped here on the user's instruction). Measured with lld
 `--why-extract` on a relink of client.so (debug), `nm -D -u` over
 out/client.so, and `tools/client-novalve-census`.
 
-- **tier1.a** (imports:tier1 15) is down to two members linked into
-  client.so:
-  - `utlbuffer.cpp.o`, pulled first by `public/sentence.cpp` and also by
-    `game/client/detailobjectsystem.cpp`. sentence.cpp is dead as a native
-    file but ruled `port` in docs/client-novalve-rulings.tsv. Its stock arm,
-    CSentence phonemes driving C_BaseFlex lip sync (c_baseflex.cpp
-    AddVisemesForSentence via engine->GetSentence), is unported; port it,
-    then evict sentence.cpp. detailobjectsystem.cpp (C7 cluster 10) reads
-    the detail lump through CUtlBuffer. Both must go before utlbuffer.o
-    leaves.
+- **tier1.a** (imports:tier1 7, 2026-10-18 lane t1; was 15) is down to two members linked into
+  client.so (user ruling 2026-10-18: retire their importers, never port CUtlBuffer/CUtlSymbolTable):
+  - `utlbuffer.cpp.o`, pulled only by `game/client/detailobjectsystem.cpp`
+    (C7 cluster 10), which reads the detail lump through CUtlBuffer
+    (GetInt/GetChar, whose text branch reaches Scanf). public/sentence.cpp left
+    client.so 2026-10-18; its arm is SourceSharp.Client.LipSync.
   - `utlsymbol.cpp.o`, pulled only by `game/client/particlemgr.cpp`
     (CUtlSymbolTable). It leaves when particlemgr.cpp does (C7 particles).
+- **Lip sync wiring** (2026-10-18, lane t1): SourceSharp.Client.LipSync (Visemes, Sentence) is
+  held to stock by LipSyncOracleTests but has no caller: CBaseFlex is in neither build. When a
+  flexed client entity exists, it needs engine GetSentence / GetSentenceLength through the
+  client FORWARD row (plan_engine_forwarders.md), a native reader of the engine's CSentence
+  (runtime phonemes, emphasis samples), the entity's CMouthInfo voice sources, the .vfe files,
+  and the phonemedelay/phonemefilter/phonemesnap ConVars (VisemeSettings.Stock holds their defaults).
+  Then the ruling's live PROOF (a mouth moving) can be run.
 - **tier0** (imports:tier0 7): client.so still imports `CommandLine_Tier0`,
   `Plat_FloatTime`, the VProf trio (`CVProfNode::EnterScope/ExitScope/
   GetSubNode`, `g_VProfCurrentProfile`), `CThreadEvent::Set`,
@@ -1056,3 +1059,14 @@ ViewEffects (shakes, fades) moved to C# and its native stand-in left
 tools/probes/sessions/c7-shake-fade.steps. Add a live-gate step that fires an
 env_shake and an env_fade and checks the drawn fade colour and the view's
 offset and roll, with a control frame before them.
+
+## UiAllocationTests' negative control needs a cold number-string cache (2026-10-18)
+
+`The_measure_sees_an_allocation_in_describe` counts the strings `(n++).ToString()`
+allocates for n from 60 up; .NET caches the decimal strings of small numbers
+(0..299) once formatted, so any earlier test in the same process that formats
+those numbers makes the control see too few bytes and fail. Found by lane t1:
+LipSyncVisemesTests' `"c" + i` (i 0..383) turned it red 3 of 3 in the client
+assembly, green with the LipSync facts filtered out; the facts now format in
+hex. To do: make the control allocate something no cache can serve (e.g. a
+fresh `new string('x', 8)` a frame, or numbers past 300).

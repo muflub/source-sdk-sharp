@@ -233,9 +233,6 @@ toolframework_client.o	_ZL21g_ToolFrameworkClient	g_ToolFrameworkClient	game/cli
 vgui_game_viewport.o	_ZL22g_ViewportClientSystem	g_ViewportClientSystem	game/client/vgui_game_viewport.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 	_ZN18PrecacheEffectWarp20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectWarp::ClientEffectRegister::m_pszMaterials	game/client/warp_overlay.cpp	GLOBAL	data	class-or-namespace	8	UNRULED		
 	_ZN18PrecacheEffectWarp29register_ClientEffectRegisterE	PrecacheEffectWarp::register_ClientEffectRegister	game/client/warp_overlay.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-sentence.o	_ZZN9CSentence16GetBoundedSampleEifE7nullend	CSentence::GetBoundedSample(int, float)::nullend	public/sentence.cpp	LOCAL	bss	function-local	12	DEAD		the linker drops it: nothing in the shipped .so reads it
-sentence.o	_ZZN9CSentence16GetBoundedSampleEifE9nullstart	CSentence::GetBoundedSample(int, float)::nullstart	public/sentence.cpp	LOCAL	bss	function-local	12	DEAD		the linker drops it: nothing in the shipped .so reads it
-sentence.o	_ZL18g_CCLanguageLookup	g_CCLanguageLookup	public/sentence.cpp	LOCAL	data	file-or-global	180	DEAD		the linker drops it: nothing in the shipped .so reads it
 steamid.o	_ZZNK8CSteamID6RenderEvE4nBuf	CSteamID::Render() const::nBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 steamid.o	_ZZNK8CSteamID6RenderEvE7rgchBuf	CSteamID::Render() const::rgchBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	148	DEAD		the linker drops it: nothing in the shipped .so reads it
 client_util_library.o	_ZZ7VarArgsPKczE6string	VarArgs(char const*, ...)::string	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	function-local	1024	UNRULED		

@@ -1,6 +1,6 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
-# measured at 60de20638
+# measured at 98b32c5b2
 # 2026-10-18, C9 mathlib: libmathlib.a off client.so's link; mathlib_port.cpp (src/shared/native, the server's port
 #   grown by the client's members) joins client.so: incdir-forbidden-tus 146 -> 147 RAISED (the one new TU, compiled with
 #   the client target's include dirs); logic-lines 8260 -> 8257 (MathLib_Init's call in shell_clientdll.cpp left). --write.
@@ -230,9 +230,12 @@
 # 2026-10-12, lane c6-input, C9: colorcorrectionmgr.cpp left client.so (shell_worldrender.cpp carries out the lookups): fork-src
 #   17 -> 16, sdk-links 400 -> 399, incdir-forbidden-tus 149 -> 148; logic-lines 8256 -> 8262 (RAISED: SourceSharp_ClientColorCorrection,
 #   unruled before this change, now makes the material-system calls itself).
-fork-hdr-not-allowed	332
-fork-hdr-total	499
-fork-src	16
+# 2026-10-18, lane t1, C9: public/sentence.cpp left client.so (its arm is SourceSharp.Client.LipSync): fork-src 16 -> 15,
+#   fork-hdr-total 499 -> 497, fork-hdr-not-allowed 332 -> 330, sdk-links 399 -> 397, incdir-forbidden-tus 147 -> 146,
+#   imports:tier1 15 -> 7 (its CUtlBuffer reads and writes; the 7 left are detailobjectsystem.cpp's CUtlBuffer and particlemgr.cpp's CUtlSymbolTable).
+fork-hdr-not-allowed	330
+fork-hdr-total	497
+fork-src	15
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
 imports:bitmap<-particles	0
@@ -245,7 +248,7 @@ imports:steam_api<-particles	0
 imports:tier0	7
 imports:tier0<-dmxloader	0
 imports:tier0<-particles	0
-imports:tier1	15
+imports:tier1	7
 imports:tier1<-dmxloader	0
 imports:tier1<-particles	0
 imports:tier2	0
@@ -264,9 +267,9 @@ imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
 incdir-forbidden	6
-incdir-forbidden-tus	147
+incdir-forbidden-tus	146
 link-forbidden	35
 logic-lines	8257
 native-convar-decls	69
 needed-forbidden	2
-sdk-links	399
+sdk-links	397

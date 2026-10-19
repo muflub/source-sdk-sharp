@@ -291,8 +291,6 @@ src/public/renderparm.h
 src/public/rope_physics.h
 src/public/rope_shared.h
 src/public/saverestoretypes.h
-src/public/sentence.cpp
-src/public/sentence.h
 src/public/shattersurfacetypes.h
 src/public/simple_physics.h
 src/public/sourcevr/isourcevirtualreality.h
