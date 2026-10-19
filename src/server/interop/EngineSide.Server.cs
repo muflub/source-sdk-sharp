@@ -103,9 +103,6 @@ internal sealed unsafe partial class EngineSide
     internal ShimAreas ServerShims => _shims ?? throw new InvalidOperationException(
         "a server-only engine slot was called before the shim areas were attached");
 
-    /// <summary>The server's areas, or null when they are not attached.</summary>
-    internal ShimAreas? ServerShimsOrNull => _shims;
-
     /// <summary>Binds every generated area; the server calls this from LoadSideV2.</summary>
     internal bool AttachShims(ShimRoot root, out string why)
     {
