@@ -257,12 +257,19 @@ public sealed class PhysWorldProbes
 /// <summary>
 /// Stock's <c>physics_report_active</c> (physics.cpp's IterateActivePhysicsEntities
 /// and CallbackReport): one <c>classname - name</c> line per active object
-/// whose owner is valid. The name is the entity's, or its classname when it has
-/// none (native's PhysicsOwner_t::GetDebugName; stock fell back to the model
-/// name).
+/// whose owner is valid. The name is the entity's, or its model name when it
+/// has none, as stock's CallbackReport (native's PhysicsOwner_t::GetDebugName
+/// fell back to the classname until 2026-10-18).
 /// </summary>
 public static class PhysicsActiveReport
 {
+    /// <summary>
+    /// The name CallbackReport printed: the entity's name, else its model name
+    /// (stock's <c>STRING(GetModelName())</c>), never its classname.
+    /// </summary>
+    public static string DebugName(string? entityName, string? modelName)
+        => string.IsNullOrEmpty(entityName) ? modelName ?? "" : entityName;
+
     /// <param name="owner">The object's owner's classname and name, or null for no valid owner.</param>
     /// <returns>How many objects were reported.</returns>
     public static int Run(nint[] active, Func<nint, (string ClassName, string DebugName)?> owner, Action<string> msg)
@@ -379,7 +386,8 @@ public sealed class PhysicsHighlightActiveCommand(IEnginePlayers players, IEngin
 /// <summary>Stock's <c>physics_report_active</c>: <see cref="PhysicsActiveReport"/>, for the server admin.</summary>
 [ConCommand("physics_report_active", Help = "Lists all active physics objects")]
 public sealed class PhysicsReportActiveCommand(IVPhysicsInspect inspect, IEngineEntityPhysics physics,
-                                               IEngineEntities entities, IEnginePlayers players, IEngineHost host,
+                                               IEngineEntities entities, IEngineEntityRender render,
+                                               IEnginePlayers players, IEngineHost host,
                                                IEngineConsole console, VPhysicsTables vphysics) : IConCommand
 {
     public void Execute(string args)
@@ -401,9 +409,8 @@ public sealed class PhysicsReportActiveCommand(IVPhysicsInspect inspect, IEngine
             EntityHandle owner = PhysicsGameData.Owner(objects.GameData(o));
             if (owner == EntityHandle.None || !entities.IsValid(owner))
                 return null;
-            string className = entities.GetClassName(owner);
-            string name = entities.GetName(owner);
-            return (className, string.IsNullOrEmpty(name) ? className : name);
+            return (entities.GetClassName(owner),
+                    PhysicsActiveReport.DebugName(entities.GetName(owner), render.GetModelName(owner)));
         }
 
         PhysicsActiveReport.Run(inspect.ActiveObjects(env), Owner, console.Msg);

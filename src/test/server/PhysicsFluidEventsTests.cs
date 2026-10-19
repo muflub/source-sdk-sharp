@@ -27,7 +27,7 @@ public class PhysicsFluidEventsTests
         public void RecheckContactPoints(nint physicsObject) { }
         public nint GameData(nint physicsObject) => physicsObject == CrateObject
             ? unchecked((nint)(PhysicsGameData.Tag | (Crate.Value + PhysicsGameData.Bias))) : 0;
-        public int ContactsWith(nint physicsObject, EntityHandle other) => 0;
+        public int ContactsWith(nint physicsObject, Func<nint, EntityHandle> ownerOf, EntityHandle other) => 0;
         public Vector ContactPoint(nint collisionData) => Vector.Zero;
         public Vector VelocityAtPoint(nint physicsObject, Vector worldPoint) => Vector.Zero;
         public (Vector Linear, Vector Angular) Velocity(nint physicsObject) => (Linear, Angular);

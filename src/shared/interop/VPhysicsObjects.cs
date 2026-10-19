@@ -18,9 +18,11 @@ public interface IVPhysicsObjects
     /// <summary>
     /// Stock's <c>CountPhysicsObjectEntityContacts</c> (physics.cpp): the
     /// object's friction snapshot, counting the contacts whose other object
-    /// <paramref name="other"/> owns.
+    /// <paramref name="other"/> owns, as <paramref name="ownerOf"/> names an
+    /// object's owner (the caller's rule: the server's names the world's side
+    /// the world entity, as stock's game data did).
     /// </summary>
-    int ContactsWith(nint physicsObject, EntityHandle other);
+    int ContactsWith(nint physicsObject, Func<nint, EntityHandle> ownerOf, EntityHandle other);
 
     /// <summary><c>IPhysicsCollisionData::GetContactPoint</c>.</summary>
     Vector ContactPoint(nint collisionData);
@@ -129,8 +131,9 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
         return (nint)vtbl->GetGameData((void*)physicsObject);
     }
 
-    public int ContactsWith(nint physicsObject, EntityHandle other)
+    public int ContactsWith(nint physicsObject, Func<nint, EntityHandle> ownerOf, EntityHandle other)
     {
+        ArgumentNullException.ThrowIfNull(ownerOf);
         if (physicsObject == 0)
             return 0;
 
@@ -144,7 +147,7 @@ public sealed unsafe class VPhysicsObjects : IVPhysicsObjects
         while (snapshotVtbl->IsValid(snapshot) != 0)
         {
             nint touching = (nint)snapshotVtbl->GetObject(snapshot, 1);
-            if (PhysicsGameData.Owner(GameData(touching)) == other)
+            if (ownerOf(touching) == other)
                 count++;
             snapshotVtbl->NextFrictionData(snapshot);
         }

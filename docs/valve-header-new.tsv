@@ -452,3 +452,4 @@ src/shared/native/dt_element_names.cpp	split from dt_utlvector_common.cpp (reloc
 src/client/native/generic_payload_client.cpp	split from generic_payload.cpp (plan_server_native_v2 T2, 2026-10-18): its CLIENT_DLL-only schema refusal path and receive props, native code built against SDK headers (dt_recv.h)
 src/server/managed/Violence.cs	ports UTIL_ShouldShowBlood (util_shared.cpp)
 src/server/managed/BloodDecals.cs	ports UTIL_BloodDecalTrace and CWorld::DecalTrace (util_shared.cpp, world.cpp)
+src/client/managed/TempEnts/ClientPhysicsProps.cs	ports CTempEnts::PhysicsProp (c_te_legacytempents.cpp), C_PhysPropClientside CreateNew/Initialize/StartFadeOut/Break and BreakModelCreateSingle (physpropclientside.cpp), and PropBreakableCreateAll's client half (props_shared.cpp)

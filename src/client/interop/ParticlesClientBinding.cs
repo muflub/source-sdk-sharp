@@ -456,6 +456,9 @@ internal sealed unsafe class ClientPlaneTrace(EngineSide api) : IClientPlaneTrac
 public interface IClientModelNames
 {
     string? NameOf(int modelIndex);
+
+    /// <summary><c>modelinfo-&gt;GetModelIndex( name )</c>: -1 for a model not loaded.</summary>
+    int IndexOf(string name);
 }
 
 /// <summary>The real one, over this side's IVModelInfoClient.</summary>
@@ -467,6 +470,8 @@ internal sealed class ClientModelNames(EngineSide side) : IClientModelNames
         nint model = info.Model(modelIndex);
         return model == 0 ? null : info.ModelName(model);
     }
+
+    public int IndexOf(string name) => EngineBound.ModelInfo(side).ModelIndex(name);
 }
 
 /// <summary>The real one, over the api.</summary>

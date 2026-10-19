@@ -149,7 +149,7 @@ public sealed class PhysicsCollisionImpacts(IVPhysicsObjects objects, IEngineEnt
     /// <c>pOtherEntity</c> is the world for both: an entity, never a player.
     /// The record still names the world as no entity, as it names the world.
     /// </summary>
-    private bool IsWorldSide(nint obj) => obj != 0 && objects.GameData(obj) == 0 && objects.IsStatic(obj);
+    private bool IsWorldSide(nint obj) => PhysicsWorldEntity.IsWorldSide(objects, obj);
 
     /// <summary>The owner's MOVETYPE_*, or none for an unowned side.</summary>
     private int MoveTypeOf(EntityHandle owner)

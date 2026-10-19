@@ -47,6 +47,13 @@ public sealed class ClientImpactSounds(IClientImpactSoundWorld world) : IClientI
     /// <summary>The sounds queued for the frame's end.</summary>
     public int Queued => _list.Count;
 
+    /// <summary>
+    /// An object that sounds although it carries no game data: a clientside
+    /// physics prop (ClientPhysicsProps.Owns), whose stock counterpart carried
+    /// its own entity pointer. Set by the composition.
+    /// </summary>
+    public Func<nint, bool>? SoundsWithoutGameData { get; set; }
+
     /// <summary>Sounds handed to the engine so far.</summary>
     public long Played { get; private set; }
 
@@ -74,7 +81,7 @@ public sealed class ClientImpactSounds(IClientImpactSoundWorld world) : IClientI
         int surfacePropsHit = index == 0 ? ev.SurfaceProps1 : ev.SurfaceProps0;
 
         nint gameData = world.GameData(obj);
-        if (gameData == 0)
+        if (gameData == 0 && SoundsWithoutGameData?.Invoke(obj) != true)
             return;
 
         float volume = speed * (1.0f / (FullVolumeSpeed * FullVolumeSpeed));

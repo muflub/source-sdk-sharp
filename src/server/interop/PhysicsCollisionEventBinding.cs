@@ -7,9 +7,15 @@ namespace SourceSharp.Server.Interop;
 /// </summary>
 public sealed unsafe class PhysicsCollisionEventBinding(Crossings crossings, IVPhysicsObjects objects,
                                                         SolverHeldOverlaps solverHeld, Action<PhysicsEvent> post,
-                                                        IPhysicsFluidSink fluids, IPhysicsCollisionSink impacts)
+                                                        IPhysicsFluidSink fluids, IPhysicsCollisionSink impacts,
+                                                        PhysicsWorldEntity world)
     : IPhysicsCollisionEventSink
 {
+    private Func<nint, EntityHandle>? _ownerOf;
+
+    /// <summary>An object's owner as stock's game data named it (the world's side is the world entity).</summary>
+    private Func<nint, EntityHandle> OwnerOf => _ownerOf ??= o => world.OwnerOf(objects, o);
+
     // TAKEN OVER (B2.2): the impact, answered in the step by the server's
     // PhysicsCollisionImpacts: the held-object rule and the velocities before
     // at Pre, the POST_COLLISION record at Post. The event is read in place;
@@ -64,6 +70,15 @@ public sealed unsafe class PhysicsCollisionEventBinding(Crossings crossings, IVP
     // (physics stock parity E1: native's DispatchStartTouch made each owner
     // StartTouch the other, which appended the pair to g_SolverHeld). Its
     // START/END_TOUCH ring records only fed cs_sv_physics_events' counts.
+    // The world's side (its object, a static prop's) is the world entity, as
+    // stock's CWorld game data made it (2026-10-18). vphysics reports a
+    // contact with a static object only when a side carries
+    // CALLBACK_GLOBAL_TOUCH_STATIC (stock sets it for brickbats, combine mines,
+    // rollermines and the like, none of them ported), so a crate on the floor
+    // touches nothing, here as in stock; a class that sets the flag gets the
+    // world as its toucher. The managed receivers of a world toucher deliver
+    // players only unless they say otherwise (ScriptedEntity.DeliverTouchTo),
+    // and a pickup asks IsAlive, which the world is not.
     public void StartTouch(void* pObject1, void* pObject2, void* pTouchData)
     {
         crossings.Count(CrossingOp.ServerPhysicsCollisionStartTouch);
@@ -79,7 +94,7 @@ public sealed unsafe class PhysicsCollisionEventBinding(Crossings crossings, IVP
         if (Owners(pObject1, pObject2) is not var (first, second))
             return;
 
-        if (objects.ContactsWith((nint)pObject1, second) > 1)
+        if (objects.ContactsWith((nint)pObject1, OwnerOf, second) > 1)
             return;
 
         solverHeld.Remove(first, second);
@@ -130,14 +145,17 @@ public sealed unsafe class PhysicsCollisionEventBinding(Crossings crossings, IVP
             solverHeld.Remove(trigger, entity);
     }
 
-    /// <summary>Both objects' managed owners, or null when either has none (native's IsValid pair).</summary>
+    /// <summary>
+    /// Both objects' owners, or null when either has none (stock's
+    /// <c>!pEntity1 || !pEntity2</c>). The world's side names the world entity.
+    /// </summary>
     private (EntityHandle, EntityHandle)? Owners(void* a, void* b)
     {
         if (a == null || b == null)
             return null;
 
-        EntityHandle first = PhysicsGameData.Owner(objects.GameData((nint)a));
-        EntityHandle second = PhysicsGameData.Owner(objects.GameData((nint)b));
+        EntityHandle first = world.OwnerOf(objects, (nint)a);
+        EntityHandle second = world.OwnerOf(objects, (nint)b);
         return first == EntityHandle.None || second == EntityHandle.None ? null : (first, second);
     }
 

@@ -208,6 +208,56 @@ public class TempEntFrameTests
             $"and nothing pulled it down, because FTENT_GRAVITY is not set: {t.Velocity.Z}");
     }
 
+    private sealed class Driver(int slot, Vector at) : ITempEntDriver
+    {
+        public readonly List<int> Forgot = [];
+
+        public bool Drive(int s, ref TempEntTransform transform)
+        {
+            if (s != slot)
+                return false;
+            transform.Origin = at;
+            return true;
+        }
+
+        public void Forget(int s) => Forgot.Add(s);
+    }
+
+    /// <summary>
+    /// A driven slot (a clientside physics prop) is where its driver puts it:
+    /// the ballistic step, gravity included, does not run on it.
+    /// </summary>
+    [Fact]
+    public void ADrivenSlotIsWhereItsDriverPutsItAndFallsNowhere()
+    {
+        var rig = Rigged(new TempEntTransform
+        {
+            Origin = new Vector(0f, 0f, 100f),
+            Velocity = new Vector(10f, 20f, 30f),
+        }, Prepared());
+        rig.Frame.Driver = new Driver(0, new Vector(7f, 8f, 9f));
+
+        var life = Live(TempEntFlags.Gravity);
+        Assert.True(rig.Frame.Step(0, 0.5f, 0, 1, ref life));
+
+        var t = Written(rig.Engine);
+        Assert.Equal(new Vector(7f, 8f, 9f), t.Origin);
+        Assert.Equal(30f, t.Velocity.Z);
+    }
+
+    /// <summary>A freed slot is told to its driver, which holds the object behind it.</summary>
+    [Fact]
+    public void AFreedSlotIsToldToItsDriver()
+    {
+        var rig = Rigged(new TempEntTransform(), Prepared());
+        var driver = new Driver(0, Vector.Zero);
+        rig.Frame.Driver = driver;
+
+        rig.Frame.Forget(5);
+
+        Assert.Equal([5], driver.Forgot);
+    }
+
     /// <summary>
     /// Acceleration is added to the velocity BEFORE the move, so the frame it
     /// arrives on is already faster. That ordering is stock's first two

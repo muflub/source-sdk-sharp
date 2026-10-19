@@ -30,11 +30,10 @@ namespace SourceSharp.Tests;
 /// </para>
 ///
 /// <para>
-/// <b>AND ONE OF THE TEN DRAWS NOTHING, ON PURPOSE.</b> <c>CTEPhysicsProp</c>
-/// ends at a native no-op that predates this port, and is checked for SAYING SO
-/// — once per level, naming what is missing — because the native arm it
-/// replaces returned in silence, and a row that stops being audible is a row
-/// that has quietly become untracked.
+/// <b>AND ONE OF THE TEN DRAWS NOTHING IN THIS RIG.</b> <c>CTEPhysicsProp</c>
+/// makes a clientside physics prop (ClientPhysicsProps, since 2026-10-18);
+/// the rig has no client vphysics, and the player is checked for SAYING SO,
+/// once per level.
 /// </para>
 ///
 /// <para>
@@ -534,21 +533,13 @@ public class TempEntClientPool2Tests
     }
 
     /// <summary>
-    /// <c>CTEPhysicsProp</c> arrives — which would itself be news — and says
-    /// that there is no clientside physics prop to make, once per level.
-    ///
-    /// <para>
-    /// NOT A LEDGER ROW, and the distinction matters.
-    /// <c>CTempEnts::PhysicsProp</c> has answered NULL with a paragraph
-    /// explaining itself since before this lane arrived
-    /// (<c>physpropclientside.cpp</c> is excluded), and nothing sends one
-    /// because <c>props.cpp</c> is excluded on the server. The capability was
-    /// gone before the port and the native no-op that records it is still
-    /// compiled. What this class adds is that the nothing is now AUDIBLE.
-    /// </para>
+    /// <c>CTEPhysicsProp</c> with no client vphysics to make the prop in (the
+    /// rig has none): nothing is drawn, and that is said once per level, with
+    /// what it carried. With vphysics the prop is ClientPhysicsProps'
+    /// (ClientPhysicsPropsTests).
     /// </summary>
     [Fact]
-    public void ThePhysicsPropSaysThereIsNoneToMakeOncePerLevel()
+    public void ThePhysicsPropWithNoClientVphysicsSaysSoOncePerLevel()
     {
         var rig = Rig();
 
@@ -573,10 +564,8 @@ public class TempEntClientPool2Tests
 
             Assert.True(said.Count(m => m.Contains("CTEPhysicsProp")) == 1, "four arrivals, one line");
 
-            Assert.True(said.Any(m => m.Contains("physpropclientside")),
-                "and it names the file whose absence is the reason");
-            Assert.True(said.Any(m => m.Contains("props.cpp")),
-                "and the file whose absence is why nothing sends one");
+            Assert.True(said.Any(m => m.Contains("no client vphysics")),
+                "and it names what is missing");
             Assert.True(said.Any(m => m.Contains("model 55") && m.Contains("skin 2")),
                 "and what it carried, because if this ever fires that is the first question");
 

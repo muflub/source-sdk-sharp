@@ -22,6 +22,7 @@ public class ClientSmokeStackExecutorTests
     private sealed class Names(string? name) : IClientModelNames
     {
         public string? NameOf(int modelIndex) => modelIndex == 12 ? name : null;
+        public int IndexOf(string model) => -1;
     }
 
     private sealed class Clock : IGameClock

@@ -298,6 +298,19 @@ public class PhysicsActiveCommandsTests
     }
 
     [Fact]
+    public void Report_names_an_unnamed_owner_by_its_model_as_stock_CallbackReport()
+    {
+        Assert.Equal("models/props_junk/wood_crate001a.mdl",
+                     PhysicsActiveReport.DebugName("", "models/props_junk/wood_crate001a.mdl"));
+        Assert.Equal("models/props_junk/wood_crate001a.mdl",
+                     PhysicsActiveReport.DebugName(null, "models/props_junk/wood_crate001a.mdl"));
+    }
+
+    [Fact]
+    public void Report_names_a_named_owner_by_its_name()
+        => Assert.Equal("crate", PhysicsActiveReport.DebugName("crate", "models/props_junk/wood_crate001a.mdl"));
+
+    [Fact]
     public void Select_with_no_argument_is_what_the_player_looks_at()
     {
         Assert.Equal([A], PhysicsSelect.Subjects([], () => A, _ => [], _ => []));

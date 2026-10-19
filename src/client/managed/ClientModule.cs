@@ -1421,6 +1421,21 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var breakGroups = new TempEnts.TempEntBreakGroups();
         _tempEntPool.BreakGroups = breakGroups;
         _services.AddInstance(breakGroups);
+
+        // The clientside physics props (CTEPhysicsProp's C_PhysPropClientside):
+        // a pool slot each, moved by its vphysics object, made through the
+        // ragdolls' vphysics calls. None without them; the player says so.
+        if (_ragdollPhysics is not null)
+        {
+            var propEnvironment = _services.Require<IEngineEnvironment>();
+            var physicsProps = new TempEnts.ClientPhysicsProps(
+                _ragdollPhysics, new TempEnts.PoolPhysicsPropSlots(_tempEntPool), _services.Require<IClientModelNames>(),
+                _services.Require<BreakModels>(), _services.Require<IGameClock>(),
+                () => propEnvironment.Globals.IsAvailable ? propEnvironment.Globals.MaxClients : 1,
+                _services.Require<IRandomSeeds>(), Log);
+            _tempEntFrame.Driver = physicsProps;
+            _services.AddInstance(physicsProps);
+        }
         _services.AddInstance(_services.Create<TempEnts.TempEntRender>());
         _services.AddInstance(_services.Create<TempEnts.TempEntAttachments>());
         _tempEntDecisions = _services.Create<TempEnts.ClientTempEntDecisions>();
@@ -1490,6 +1505,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>()));
         _services.AddInstance(_impactSounds);
         _services.AddInstance(_collisionSolver);
+        if (_services.Resolve(typeof(TempEnts.ClientPhysicsProps)) is TempEnts.ClientPhysicsProps soundingProps)
+            _impactSounds.SoundsWithoutGameData = soundingProps.Owns;
         // The splash draws from the engine's own random stream, as stock's
         // random->RandomFloat does; with none there is no splash.
         IUniformRandom? splashRandom = UniformRandomStream.Acquire(_engine, out string whyNoSplashRandom);

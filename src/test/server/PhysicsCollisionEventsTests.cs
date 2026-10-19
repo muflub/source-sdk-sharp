@@ -14,8 +14,12 @@ public unsafe class PhysicsCollisionEventsTests
 {
     // Physics objects whose game data names a managed owner, and one that names none.
     private const nint TriggerObject = 0x50, CrateObject = 0x51, SdkObject = 0x52;
+    // The world's own object and a static prop's: static, NULL game data.
+    private const nint WorldObject = 0x53, StaticPropObject = 0x54;
     private static readonly EntityHandle Trigger = new(0x0001_0010u);
     private static readonly EntityHandle Crate = new(0x0001_0011u);
+    // worldspawn: entry 0, with a serial, as the engine's list hands it.
+    private static readonly EntityHandle World = new(0x0123_0000u);
 
     private static nint GameData(nint physicsObject) => physicsObject switch
     {
@@ -30,9 +34,12 @@ public unsafe class PhysicsCollisionEventsTests
     private sealed class FakeObjects : IVPhysicsObjects
     {
         public int Contacts = 1;
+        // When set, the friction snapshot's other objects, counted through the caller's owner rule.
+        public nint[]? Snapshot;
         public void RecheckContactPoints(nint physicsObject) { }
         public nint GameData(nint physicsObject) => PhysicsCollisionEventsTests.GameData(physicsObject);
-        public int ContactsWith(nint physicsObject, EntityHandle other) => Contacts;
+        public int ContactsWith(nint physicsObject, Func<nint, EntityHandle> ownerOf, EntityHandle other)
+            => Snapshot is null ? Contacts : Snapshot.Count(o => ownerOf(o) == other);
         public Vector ContactPoint(nint collisionData) => new(1f, 2f, 3f);
         public Vector VelocityAtPoint(nint physicsObject, Vector worldPoint) => new(30f, 40f, 0f);
         public (Vector Linear, Vector Angular) Velocity(nint physicsObject) => default;
@@ -44,7 +51,7 @@ public unsafe class PhysicsCollisionEventsTests
         public int MaterialIndex(nint physicsObject) => 0;
         public (Vector X, Vector Y, Vector Z) Axes(nint physicsObject) => default;
         public void SetVelocity(nint physicsObject, Vector linear, Vector angular) { }
-        public bool IsStatic(nint physicsObject) => false;
+        public bool IsStatic(nint physicsObject) => physicsObject is WorldObject or StaticPropObject;
         public bool IsMoveable(nint physicsObject) => false;
         public ushort CallbackFlags(nint physicsObject) => 0;
         public Vector SurfaceNormal(nint collisionData) => Vector.Zero;
@@ -72,8 +79,104 @@ public unsafe class PhysicsCollisionEventsTests
 
     private readonly FakeObjects _objects = new();
 
+    private EntityHandle _world = World;
+
     private PhysicsCollisionEventBinding Sink(Crossings? crossings = null)
-        => new(crossings ?? new Crossings(), _objects, _held, _posted.Add, _fluids, _impacts);
+        => new(crossings ?? new Crossings(), _objects, _held, _posted.Add, _fluids, _impacts,
+               new PhysicsWorldEntity(() => _world, h => h == _world));
+
+    private List<OverlapPair> Held()
+    {
+        var into = new OverlapPair[8];
+        int n = _held.Merge(into, 0);
+        return into[..n].ToList();
+    }
+
+    [Fact]
+    public void The_world_is_found_again_once_the_old_one_stops_resolving()
+    {
+        // A level change makes the world again under a new serial.
+        var current = World;
+        int finds = 0;
+        var world = new PhysicsWorldEntity(() => { finds++; return current; }, h => h == current);
+
+        Assert.Equal(World, world.Handle);
+        Assert.Equal(World, world.Handle);
+        Assert.Equal(1, finds);
+
+        current = new EntityHandle(0x0456_0000u);
+        Assert.Equal(current, world.Handle);
+        Assert.Equal(2, finds);
+    }
+
+    [Fact]
+    public void A_crate_touching_the_world_holds_the_pair_with_the_world_entity_as_stock_CWorld()
+    {
+        var sink = Sink();
+
+        sink.StartTouch((void*)CrateObject, (void*)WorldObject, (void*)0x99);
+
+        Assert.Equal([new OverlapPair(Crate, World)], Held());
+    }
+
+    [Fact]
+    public void A_static_prop_is_the_world_entity_in_a_contact_touch()
+    {
+        // Stock's static props carry the CWorld too (PhysCreateWorld).
+        var sink = Sink();
+
+        sink.StartTouch((void*)StaticPropObject, (void*)CrateObject, (void*)0x99);
+
+        Assert.Equal([new OverlapPair(World, Crate)], Held());
+    }
+
+    [Fact]
+    public void A_moving_object_with_no_game_data_is_not_the_world()
+    {
+        var sink = Sink();
+
+        sink.StartTouch((void*)CrateObject, (void*)SdkObject, (void*)0x99);
+
+        Assert.Empty(Held());
+    }
+
+    [Fact]
+    public void With_no_world_to_name_a_world_touch_holds_nothing()
+    {
+        _world = EntityHandle.None;
+        var sink = Sink();
+
+        sink.StartTouch((void*)CrateObject, (void*)WorldObject, (void*)0x99);
+
+        Assert.Empty(Held());
+    }
+
+    [Fact]
+    public void An_end_against_the_world_counts_every_world_side_contact_as_the_world()
+    {
+        // The crate rests on the world and a static prop: one contact going
+        // leaves another with the world entity, so the pair stays (stock's
+        // CountPhysicsObjectEntityContacts with pEntity == the CWorld).
+        var sink = Sink();
+        sink.StartTouch((void*)CrateObject, (void*)WorldObject, (void*)0x99);
+        _objects.Snapshot = [WorldObject, StaticPropObject];
+
+        sink.EndTouch((void*)CrateObject, (void*)WorldObject, (void*)0x99);
+
+        Assert.Single(Held());
+    }
+
+    [Fact]
+    public void The_last_world_contact_ending_releases_the_pair()
+    {
+        var sink = Sink();
+        sink.StartTouch((void*)CrateObject, (void*)WorldObject, (void*)0x99);
+        _objects.Snapshot = [WorldObject, TriggerObject];
+
+        sink.EndTouch((void*)CrateObject, (void*)WorldObject, (void*)0x99);
+
+        Assert.Empty(Held());
+    }
 
     [Fact]
     public void Post_simulation_frame_is_counted_once_and_posts_nothing()

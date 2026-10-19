@@ -714,7 +714,12 @@ public static class TeDemos
                 // 3 -- small and positive, which is exactly why an unsigned
                 // m_nSkin would have looked correct here.
                 TeArg.Int("Skin", 3),
-                TeArg.Int("Flags", 1),
+
+                // 0: the prop itself, which the client simulates (and
+                // cs_cl_physprops shows falling). Stock's sender,
+                // CBreakableProp::Break, sends 1 -- the break pieces -- and a
+                // skull gib has none to break into.
+                TeArg.Int("Flags", 0),
                 TeArg.Int("Effects", 0),
             ]),
 

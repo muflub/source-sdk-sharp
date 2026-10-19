@@ -20,7 +20,7 @@ public class ClientFrictionTests
         public Vector ContactPoint(nint collisionData) => collisionData == Data ? new Vector(1, 2, 3) : Vector.Zero;
         public Vector VelocityAtPoint(nint o, Vector worldPoint) => worldPoint.Equals(new Vector(1, 2, 3)) ? new Vector(30, 40, 0) : Vector.Zero;
         public void RecheckContactPoints(nint o) { }
-        public int ContactsWith(nint o, EntityHandle other) => 0;
+        public int ContactsWith(nint o, Func<nint, EntityHandle> ownerOf, EntityHandle other) => 0;
         public (Vector Linear, Vector Angular) Velocity(nint o) => default;
         public void AddVelocity(nint o, Vector linear, Vector angular) { }
         public float LinearDrag(nint o, Vector direction) => 0f;

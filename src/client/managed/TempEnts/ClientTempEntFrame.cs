@@ -183,11 +183,20 @@ public sealed class ClientTempEntFrame : IClientTempEntSimulation
         return ref _slots[slot];
     }
 
+    /// <summary>
+    /// The owner of the slots something other than this step moves (the
+    /// clientside physics props); set by the composition. Asked first each
+    /// step and told when a slot is freed.
+    /// </summary>
+    public ITempEntDriver? Driver { get; set; }
+
     /// <inheritdoc/>
     public void Forget(int slot)
     {
         if (slot >= 0 && slot < _slots.Length)
             _slots[slot] = default;
+
+        Driver?.Forget(slot);
     }
 
     /// <inheritdoc/>
@@ -240,6 +249,14 @@ public sealed class ClientTempEntFrame : IClientTempEntSimulation
                 return false;
 
             state.TakenOver = true;
+        }
+
+        // A driven slot (a clientside physics prop): its object says where it
+        // is, and none of the ballistic step below applies.
+        if (Driver is not null && Driver.Drive(slot, ref state.Transform))
+        {
+            WriteBack(slot, ref state);
+            return true;
         }
 
         float fastFreq = _clock.Now * 5.5f;

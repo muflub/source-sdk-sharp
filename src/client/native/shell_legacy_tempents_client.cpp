@@ -475,8 +475,8 @@ void CTempEnts::AttachTentToPlayer( int client, int modelIndex, float zoffset, f
 //                                    CrossbowBoltEffect
 //   HL1EjectBrass, CSEjectBrass      a no-op in stock hl2mp too (the model is set only
 //                                    under HL1_CLIENT_DLL / CSTRIKE_DLL / SDK_DLL)
-//   PhysicsProp (both)               refused with C_PhysPropClientside
-//                                    (ClientTePhysicsProp; clientside_prop_evicted_test)
+//   PhysicsProp (both)               refused here (clientside_prop_evicted_test); the managed
+//                                    CTEPhysicsProp player makes the prop (ClientPhysicsProps)
 #define SS_TEMPENTS_NO_CALLER( name ) \
 	do { static bool s_bSaid = false; if ( !s_bSaid ) { s_bSaid = true; \
 		DevWarning( "[SourceSharp] CTempEnts::" name " was called; nothing in this mod calls it, and the " \

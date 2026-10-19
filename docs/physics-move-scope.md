@@ -554,10 +554,10 @@ claim:
 | `DEAD` | 0 | 0 | deleted (server gc cull, 2026-10-01; was 25 / 284) |
 | `STOCK-DEBUG` | 0 | 0 | re-registered on the managed side (2.3): `air_density` (AirDensityCommand) and `physics_budget` with its sleep (PhysicsBudget, PhysicsSolver.ForceEntityToSleep); the rest went to `physics_debug.cpp` (2026-10-01; was 14 / 253; 3 / 19 until B2.2 deleted `physics_budget`'s touch buffering; 2 / 15 until 2.1 left PhysForceEntityToSleep its one caller; 3 / 34 until 2.3) |
 | `HOOK` | 7 | 101 | no — `CPhysicsHook`, an engine-driven `IGameSystem` (254 until 2.3 took the report's automatic run out of LevelInitPostEntity; 11 / 252 until 2.3 moved the sound batches and PreClientUpdate to managed's PhysicsSoundBatch; 8 / 179 until 2.3 moved PhysFrame to managed's PhysicsFrame; 7 / 104 until the ring's clears left with the ring) |
-| `LIVE-API` | 3 | 34 | no — a shim object on the link line imports it (3 / 29 until the owner batch held managed's velocity, plan_physics_bones_perf C2; was 4 / 50; 3 / 16 until C3/L's two sound slots; 5 / 38 until B5's stress write; 6 / 42 until B7's penetration answer; 8 / 57 until 2.1 deleted the penetration readouts and PhysIsInCallback; 5 / 36 until 2.3 took the two sound slots out of the ABI; 3 / 14 until 2.3's PhysicsUpdateOwners slot; 4 / 33 until the stress walk's ring write left with PhysFrame) |
+| `LIVE-API` | 2 | 28 | no — a shim object on the link line imports it (3 / 34 until PhysicsWorldOwner was re-ruled BOUNDARY, 2026-10-18; 3 / 29 until the owner batch held managed's velocity, plan_physics_bones_perf C2; was 4 / 50; 3 / 16 until C3/L's two sound slots; 5 / 38 until B5's stress write; 6 / 42 until B7's penetration answer; 8 / 57 until 2.1 deleted the penetration readouts and PhysIsInCallback; 5 / 36 until 2.3 took the two sound slots out of the ABI; 3 / 14 until 2.3's PhysicsUpdateOwners slot; 4 / 33 until the stress walk's ring write left with PhysFrame) |
 | `DEAD-VIA` | 0 | 0 | deleted with the dead functions above (was 6 / 41) |
 | `STALE-KEEP` | 0 | 0 | deleted, its reason having expired (was 4 / 34) |
-| `BOUNDARY` | 0 | 0 | deleted: the world build is managed's (2.6; was 1 / 5, `PhysCreateWorld`); ManagedPhysicsObjectOf re-ruled here at 2.1 and deleted with the sound slots at 2.3; CSkipKeys deleted at 2.2; EntityPhysicsObject and its list deleted with their caller at 2.3 |
+| `BOUNDARY` | 1 | 6 | `PhysicsWorldOwner`, the compare against the world's object managed hands native (re-ruled from LIVE-API 2026-10-18: no other server object imports it since physics_debug.o left); the world build is managed's (2.6; was 1 / 5, `PhysCreateWorld`); ManagedPhysicsObjectOf re-ruled here at 2.1 and deleted with the sound slots at 2.3; CSkipKeys deleted at 2.2; EntityPhysicsObject and its list deleted with their caller at 2.3 |
 | **total** | **10** | **135** | |
 
 `SLOT` + `SLOT-HELP` = **0 lines** since plan_physics_bones_native_zero 2.1
@@ -686,6 +686,14 @@ on the server link line.** Nothing on the client link line imports any of them �
 `physics.cpp` is not a client translation unit.
 
 ### 3.5 `BOUNDARY` (23) — a `this` no managed side can hold
+
+> **One since 2026-10-18: `PhysicsWorldOwner` (6 lines).** It was
+> LIVE-API while physics_debug.o imported it; `nm -C` over server.so's 119
+> link-line objects (farm/debug, at 8605b6ea1) finds it defined in
+> physics.cpp.o and undefined in no other, so its one caller is
+> physicsowner.h's inline PhysicsOwnerOf inside SourceSharp_PhysicsUpdateOwners.
+> It is the pointer compare this section names: managed hands native the
+> world's object, and this answers whether an object is it.
 
 Thin definitions whose whole content is a raw `IPhysicsObject *`:
 `EntityPhysicsObject`, `EntityPhysicsObjectList` and `PhysCreateWorld`.

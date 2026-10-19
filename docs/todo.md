@@ -4,7 +4,7 @@ Work that has been decided on but has no plan or owner yet. Each item says
 why it's here and what is known, with the commit it was measured at.
 
 
-## physics_debug.cpp's commands, managed: two small follow-ups
+## physics_debug.cpp's commands, managed: two small follow-ups (closed)
 
 Added 2026-10-18 when the six commands moved to PhysicsDebugCommands.cs
 (lane rebased onto main f707d5b8c).
@@ -19,6 +19,17 @@ Added 2026-10-18 when the six commands moved to PhysicsDebugCommands.cs
   own SourceSharp_PhysicsUpdateOwners reaches it, through physicsowner.h's
   inline PhysicsOwnerOf. Re-classify it (5a-physics-classify.py) the next
   time the scope's totals are re-taken.
+
+**Closed 2026-10-18:** `physics_report_active` names an unnamed owner by its
+model name, as stock's CallbackReport (PhysicsActiveReport.DebugName over
+IEngineEntityRender.GetModelName; a classname-fallback mutation turned
+Report_names_an_unnamed_owner_by_its_model_as_stock_CallbackReport red).
+`PhysicsWorldOwner` is ruled `BOUNDARY` (nm -C over server.so's 119 link-line
+objects, farm/debug at 8605b6ea1: defined in physics.cpp.o, undefined in none);
+LIVE-API 3/34 -> 2/28, BOUNDARY 0/0 -> 1/6, total 10/135, and
+PhysicsMoveScope.EachVerdictRowIsTheClassifiersCount now holds every row of
+docs/physics-move-scope.md section 2 to the classifier (4 failures with the
+ruling moved and the document not).
 
 
 ## PhysicsMotionControllersTests.EachKindsSimulateAllocatesNothing failed once under a full managed-server leg (closed)
@@ -534,8 +545,8 @@ Added 2026-10-05 from the client no-Valve lanes (plan_client_novalve.md), merged
 - **The kill feed outlines the local player's lines** (lane ui, C3; kept, user 2026-10-05). Stock HL2MP's CHudDeathNotice did not mark them (TF2's feed does); `screens/KillFeed.cs` outlines a line the local player is in with the accent. A deliberate departure from stock, not a port gap.
 - **Server browser has no data source.** No master-server or LAN query exists yet; it opens empty (C4: Steam matchmaking over the managed flat API).
 - **MOTD HTML.** HTML/URL MOTDs fall back to `motd_text` as stock does with HTML off; a web view (Steam HTML surface, already probed in C0) is the later option.
-- **Tempent PhysicsProp** stays a refusal under the clientside-prop eviction (ClientTePhysicsProp).
-- **Crossbow bolts pinning ragdolls** (stock's CRagdollBoltEnumerator) needs the client ragdoll's physics objects; not reachable from managed yet.
+- **Tempent PhysicsProp** stays a refusal under the clientside-prop eviction (ClientTePhysicsProp). — closed 2026-10-18: `ClientPhysicsProps` ports CTempEnts::PhysicsProp and C_PhysPropClientside (the model's last solid, the velocity, the skin, cl_phys_props_max, StartFadeOut's death time, Break through PropBreakableCreateAll's client half), drawn as a FTENT_PERSIST pool slot its vphysics object moves (`ITempEntDriver`), made through the ragdolls' vphysics calls; impact sounds through `ClientImpactSounds.SoundsWithoutGameData`. Live: `cs_te_fire physicsprop` (now Flags 0) then `cs_cl_physprops` showed the skull fall from z 168 to 131 and sleep, and one client impact sound. Not carried (class notes): game data and collision group, TOUCH_STATIC and respawn zones, m_fEffects, scrape sounds, the piece limits, and hot reload (the pool keeps no slots across one either).
+- **Crossbow bolts pinning ragdolls** (stock's CRagdollBoltEnumerator) needs the client ragdoll's physics objects; not reachable from managed yet. — 2026-10-18: deferred until after the publish (integrator). Reachable now: the client ragdolls are managed (ClientRagdolls), and the vphysics calls it needs are already forwarder rows (PhysicsEnvironment's CreateBallsocketConstraint, PhysicsObject's SetMass and WorldToLocal), so no ABI. Still to write: a hitbox trace by handle in ClientSkeletons (TestHitboxes reads the block by handle, `_blocks.Block(entity)`), a ragdoll's element object by physicsbone, the client world's physics object as the reference, and Weapon_Crossbow.BoltSkewer from the world; CrossbowBoltEffect then replaces its once-said refusal.
 - **ss_bolt never sends BoltImpact** — closed 2026-10-08: `Bolt.Impact` ports `CCrossbowBolt::BoltTouch`'s dispatch (body/world branches, hit sounds, `BoltImpact` tempent with stock's normal/entindex, `UTIL_ImpactTrace` via the managed `ImpactEffect`); `BoltImpactTests` pins it; the reflect/linger/sparks omissions are in `docs/divergences.md`.
 - **Dead tempent pool code** (SourceSharpTePool_Reserve/Bind/Release/EjectBrass and their managed callbacks) cannot be removed without renumbering CrossingOps, which `CrossingsTests.OpValuesAreContiguousFromZero` requires to be dense; do it in a serialised ABI cleanup. — closed 2026-10-09: the four exports (nm'd dead over all 868 link-edge objects, their only caller TU long evicted) and their internals deleted; `ClientTempEntPoolAlloc`/`ClientTempEntEjectBrass` left with them in one commit (CrossingsTests' both-directions equality), one tail renumber 81..108 -> 79..106; the managed half flipped to refusal facts. `IManagedTempEntsClient`'s two callback slots stay (the area table is the ABI) and leave in the serialised pass below.
 - **Snowfall ray-box tolerance** is not exercised by the precipitation oracle. — closed 2026-10-09 at c0ab6a8d: the golden's ray arm activates a box only through the 0.325 flare (hit at 0.325, miss 0.13 further, so the cases bracket the constant), and `ManagedSnowfallUsesStocksRayBoxTolerance` parses the tolerance from both source trees and asserts equality.
@@ -1085,7 +1096,16 @@ next one. It is a full client compile, so not per commit.
   static slot before it reads an owner (physics_impact_damage.cpp:541), so a
   static prop is the world floor there whoever owns it: no code, fact pinned.
   Not changed, and not static-prop specific: our world is no entity in the
-  contact-touch pairs and friction, where stock's is CWorld.
+  contact-touch pairs and friction, where stock's is CWorld. Closed 2026-10-18:
+  the contact-touch owners name the world's side (a static object with NULL
+  game data: the world's own object or a static prop's) the world entity,
+  found by classname (PhysicsWorldEntity), and EndTouch's contact count uses
+  the same rule (PhysicsCollisionEventsTests; red 3 under the old rule).
+  Friction needs nothing: vphysics raises it only for an active object, so the
+  world is never its subject and is only the hit surface. Reachable live only
+  by an object with CALLBACK_GLOBAL_TOUCH_STATIC, which nothing in this build
+  sets (stock's crate on the floor touches nothing either; the contact-touch
+  step measured A(395) touching only B(396)).
 - **Physics paths never measured in release** (user 2026-10-12: noted, not
   queued): the managed physics frame per tick (0.161 vs 0.137 ms, debug, at
   physics 2.3/2.5), the player shadow apply (1.8 vs ~0.2 us, debug, near the
@@ -1242,3 +1262,16 @@ LipSyncVisemesTests' `"c" + i` (i 0..383) turned it red 3 of 3 in the client
 assembly, green with the LipSync facts filtered out; the facts now format in
 hex. To do: make the control allocate something no cache can serve (e.g. a
 fresh `new string('x', 8)` a frame, or numbers past 300).
+
+
+## The prop-hurts-player live-gate flake: measure it
+
+Added 2026-10-18. It failed once in a 3-pass gate on the physics 2.6 lane
+("the player started at 95 health and the reading came back as None").
+Measured so far: `tools/live-gate --passes 3 --steps join,prop-hurts-player`,
+3 runs at 63f681f9b (lane po, before the forwarders-everywhere rebase):
+9 of 9 passes PASS, 0 failures. Nine passes cannot tell a 1-in-3 rate from
+zero (P(0 fails in 9 | p = 1/3) = 0.026, | p = 1/10 = 0.39), so the target
+is still at least 30 passes at main's tip, each run with its own TMPDIR,
+DEBUG_API_DIR and DEBUG_API_UI_PORT. Deferred until after the publish
+(integrator, 2026-10-18).

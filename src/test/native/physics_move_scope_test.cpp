@@ -648,10 +648,13 @@ TEST( PhysicsMoveScope, TheFourImportedSymbolsAreStillDefinedHere )
 	// is itself unreached. Asserted absent after the loop.
 	// TWO NOW: PhysIsInCallback went with CCollisionEvent's in-callback count
 	// (plan_physics_bones_native_zero 2.1); asserted absent after the loop.
+	// ONE NOW: PhysicsWorldOwner has had no importer since physics_debug.o
+	// left (nm, 2026-10-18); it is ruled BOUNDARY and still defined here.
 	static const char *kImported[] = {
 		"CServerSystem* PhysicsGameSystem()",
-		"CWorld *PhysicsWorldOwner(",
 	};
+	EXPECT_EQ( 1u, CountOf( code, "CWorld *PhysicsWorldOwner(" ) )
+		<< "PhysicsWorldOwner, ruled BOUNDARY, is no longer defined once in physics.cpp";
 	for ( size_t i = 0; i < sizeof( kImported ) / sizeof( kImported[ 0 ] ); i++ )
 	{
 		EXPECT_LE( 1u, CountOf( code, kImported[ i ] ) )
@@ -804,9 +807,10 @@ TEST( PhysicsMoveScope, TheTotalsTableSumsToItsOwnTotal )
 		// STOCK-DEBUG too since 2.3 moved physics_budget's sleep and air_density
 		// to managed. INSTRUMENT too since 2.3 moved PhysTimescale with
 		// PhysFrame to managed's PhysicsFrame. BOUNDARY too since 2.6 moved
-		// the world build (PhysCreateWorld) to managed's ServerPhysicsWorld.
+		// the world build (PhysCreateWorld) to managed's ServerPhysicsWorld,
+		// until PhysicsWorldOwner was re-ruled BOUNDARY (2026-10-18).
 		if ( v == "DEAD" || v == "DEAD-VIA" || v == "STALE-KEEP" || v == "SLOT" || v == "SLOT-HELP"
-		     || v == "STOCK-DEBUG" || v == "INSTRUMENT" || v == "BOUNDARY" )
+		     || v == "STOCK-DEBUG" || v == "INSTRUMENT" )
 		{
 			EXPECT_EQ( 0, fns ) << v << " has functions again";
 			EXPECT_EQ( 0, lines ) << v << " has lines again";
@@ -1100,4 +1104,52 @@ TEST( PhysicsMoveScope, TheDocumentsTotalsStillFollowFromTheRulings )
 		<< "the document stopped saying 10 functions";
 	EXPECT_NE( std::string::npos, Doc().find( "all 135 lines" ) )
 		<< "the document stopped saying 135 lines";
+}
+
+// Each verdict row of section 2 is the classifier's count for that verdict,
+// not only the total: a function moved between verdicts in rulings.tsv (as
+// PhysicsWorldOwner was, LIVE-API -> BOUNDARY on 2026-10-18) leaves the total
+// alone, so the total fact above cannot see a stale row. Both sides are read:
+// the classifier's "<VERDICT>  <n> functions  <n> lines" lines and the
+// document's "| `<VERDICT>` | <n> | <n> |" row; a verdict the classifier does
+// not print is a row of 0 / 0.
+TEST( PhysicsMoveScope, EachVerdictRowIsTheClassifiersCount )
+{
+	const ClassifyRun_t run = RunClassify();
+	ASSERT_EQ( 0, run.m_nExit ) << run.m_szOut;
+	const std::string doc = Doc();
+
+	static const char *kVerdicts[] = {
+		"INSTRUMENT", "SLOT-HELP", "SLOT", "DEAD", "STOCK-DEBUG",
+		"HOOK", "LIVE-API", "DEAD-VIA", "STALE-KEEP", "BOUNDARY",
+	};
+	int nonEmpty = 0;
+	for ( size_t i = 0; i < sizeof( kVerdicts ) / sizeof( kVerdicts[ 0 ] ); i++ )
+	{
+		const std::string v( kVerdicts[ i ] );
+		int wantFns = 0, wantLines = 0;
+		std::istringstream lines( run.m_szOut );
+		for ( std::string line; std::getline( lines, line ); )
+		{
+			char name[ 32 ] = {};
+			int fns = 0, n = 0;
+			if ( sscanf( line.c_str(), "%31s %d functions %d lines", name, &fns, &n ) == 3 && v == name )
+			{
+				wantFns = fns;
+				wantLines = n;
+			}
+		}
+		if ( wantFns > 0 )
+			nonEmpty++;
+
+		const std::string lead = "| `" + v + "` | ";
+		const size_t at = doc.find( lead );
+		ASSERT_NE( at, std::string::npos ) << "no row for " << v;
+		int fns = -1, n = -1;
+		ASSERT_EQ( 2, sscanf( doc.c_str() + at + lead.size(), "%d | %d", &fns, &n ) ) << v;
+		EXPECT_EQ( wantFns, fns ) << v << ": the document's row and the classifier disagree on functions";
+		EXPECT_EQ( wantLines, n ) << v << ": the document's row and the classifier disagree on lines";
+	}
+	// The stimulus reaches the subject: the classifier printed verdicts.
+	EXPECT_LE( 2, nonEmpty ) << run.m_szOut;
 }

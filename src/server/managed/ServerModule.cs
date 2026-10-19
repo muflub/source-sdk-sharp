@@ -1085,6 +1085,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // vphysics' held trigger pairs (B2.2): the collision-event table writes
         // them, the hierarchy's overlap reader merges them in.
         _services.AddInstance(new SolverHeldOverlaps());
+        {
+            var worldEntities = _services.Require<IEngineEntities>();
+            _services.AddInstance(new PhysicsWorldEntity(
+                () => worldEntities.FindAllByClassname(EntityNames.Worldspawn).FirstOrDefault(EntityHandle.None),
+                worldEntities.IsValid));
+        }
         _standalone = _services.Create<StandaloneHierarchy>();
         _services.AddInstance(_standalone);
 
@@ -2958,7 +2964,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                                              _services.Require<IEngineNetworking>(),
                                                                              _physicsEvents
                                                                                  ?? throw new InvalidOperationException("the impact slots were built before the collision response"),
-                                                                             ev => _physicsRouter?.Post(ev))));
+                                                                             ev => _physicsRouter?.Post(ev)),
+                                                 _services.Require<PhysicsWorldEntity>()));
         }
 
         // IPhysicsCollisionSolver (2.1): every slot answered by managed.
