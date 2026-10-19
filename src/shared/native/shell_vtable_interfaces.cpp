@@ -58,6 +58,9 @@
 #include "engine/ivmodelinfo.h"
 #include "engine/IStaticPropMgr.h"
 #include "engine/IEngineTrace.h"
+#include "engine/ivdebugoverlay.h"
+#include "engine/IEngineSound.h"
+#include "igameevents.h"
 #include "vphysics_interface.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "vstdlib/random.h"
@@ -145,6 +148,11 @@ bool SourceSharpServes( const char *pszVersion )
 	if ( !ss::StrICmp( pszVersion, SOUNDEMITTERSYSTEM_INTERFACE_VERSION ) )
 		return true;
 
+	// One overlay object under one name for both sides: shared interop's
+	// EngineDebugOverlay and the client's flashlight trace visualiser.
+	if ( !ss::StrICmp( pszVersion, VDEBUG_OVERLAY_INTERFACE_VERSION ) )
+		return true;
+
 #ifdef CLIENT_DLL
 	if ( !ss::StrICmp( pszVersion, "VEngineClient014" ) )
 		return true;
@@ -160,6 +168,10 @@ bool SourceSharpServes( const char *pszVersion )
 	// (GameMovement.CheckWater through EngineBound.Trace) in prediction.
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_CLIENT ) )
 		return true;
+
+	// The client's static props, for the client's physics world.
+	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_CLIENT ) )
+		return true;
 #else
 	if ( !ss::StrICmp( pszVersion, "VEngineServer023" ) )
 		return true;
@@ -169,6 +181,17 @@ bool SourceSharpServes( const char *pszVersion )
 
 	// The server's copy of the world, for the movement loop's point contents.
 	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_SERVER ) )
+		return true;
+
+	// The game event manager ServerGameEvents fires through. Unserved, the
+	// server fired no game event at all (bd894daf1 to 01862e849: no
+	// player_death, no player_changename, no round end).
+	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_GAMEEVENTSMANAGER2 ) )
+		return true;
+
+	// The engine's sound interface the managed SoundEmitter emits through
+	// (EngineSoundServer, plan_server_native_v2 T4a).
+	if ( !ss::StrICmp( pszVersion, IENGINESOUND_SERVER_INTERFACE_VERSION ) )
 		return true;
 #endif
 

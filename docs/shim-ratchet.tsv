@@ -1719,7 +1719,16 @@ shim_cpp_files	src/sourcesharp	221
 #   base, the slots, SourceSharp_ClientShellOf), shell_cliententitylist.h -18 and .cpp -9 (the SDK-only arms out, the
 #   trace-hit shell resolver in), handle_cross.h +30 and slot_table.h +4 (the shell crossing), +18 across the callers.
 #   the other 1,191 are the row following main's own falls (T4a's sound emit) it had not followed.
-shim_lines	src/sourcesharp	137414
+# RAISED 2026-10-19, 137414 -> 137424 (+10, measured by the walk on main 01862e849), deliberately:
+#   shell_vtable_interfaces.cpp's SourceSharpServes serves VDebugOverlay003 (both sides: EngineDebugOverlay,
+#   FlashlightSlots) and StaticPropMgrClient004 (the client's static-prop physics), which TryAcquire refused.
+# RAISED 2026-10-19, 137424 -> 137437 (+13, measured by the walk): SourceSharpServes (shell_vtable_interfaces.cpp) serves
+#   GAMEEVENTSMANAGER002 and IEngineSoundServer003 on the server, the two rows the server's game events and the managed
+#   SoundEmitter acquire; unserved, the server fired no game event from bd894daf1 (bisected by b6).
+# RAISED 2026-10-19, 137437 -> 137452 (+15, measured by the walk), deliberately: fwd_physics.cpp
+#   defines the global operator delete (sized and unsized) beside _purecall under SS_NO_CRT, so the
+#   CRT-free forwarder DLLs link IRecipientFilter's base deleting destructor (LNK2019 on CI at 608740e).
+shim_lines	src/sourcesharp	137452
 #
 # ---------------------------------------------------------------------------
 # The files for which NO reason letter fits -- marked `SS_REASON x` in their
