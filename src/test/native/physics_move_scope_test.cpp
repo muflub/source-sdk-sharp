@@ -949,14 +949,16 @@ TEST( PhysicsMoveScope, ThePhysModelCreateFamilyIsStillGoneFromTheHeader )
 	EXPECT_EQ( 0u, CountOf( hdr, "PhysModelCreate" ) )
 		<< "PhysModelCreate is declared again in physics_shared.h";
 
-	// And the tombstone that says all of this is still there to be read. It is
-	// a COMMENT, so it is looked for in the RAW text -- Strip() is exactly what
-	// removes it, and asking the stripped header whether the deletion was
-	// explained would answer "no" for every file and could never pass.
-	EXPECT_NE( ReadRel( "game/shared/physics_shared.h" )
-	               .find( "THE PhysModelCreate* FAMILY IS GONE" ),
-	           std::string::npos )
-		<< "the tombstone is gone from physics_shared.h, so a reader cannot "
+	// And the tombstone that says all of this is still there to be read. The
+	// fork's copy of the header carries it as a comment; the comment-free
+	// patched upstream (make sdk-upstream) does not, so the record of the
+	// deletion is this document's appendix, item 2.
+	const std::string doc = ReadRel( kDoc );
+	const size_t posItem = doc.find( "### Item 2" );
+	ASSERT_NE( posItem, std::string::npos ) << kDoc << " lost its appendix item 2";
+	const std::string item = doc.substr( posItem, doc.find( "\n### ", posItem + 1 ) - posItem );
+	EXPECT_NE( item.find( "THE `PhysModelCreate*` FAMILY IS GONE" ), std::string::npos )
+		<< "the tombstone is gone from the appendix, so a reader cannot "
 		   "tell the family was removed on purpose rather than lost";
 }
 

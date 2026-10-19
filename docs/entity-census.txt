@@ -1,6 +1,7 @@
 # 2026-10-13, server.so off libmathlib.a: mathlib_port.cpp joins server.so (the mathlib members it calls): server objects
 #   122 -> 123, shim 122 -> 123. Hand-applied from make entity-census's diff, so the notes are kept; its client "their
 #   lines" rows moved too on this machine's public patch series ROOT and were left alone (the fork's edits, see entity-ratchet).
+# 2026-10-12, census-code-lines: the three "their lines" rows count CODE lines now (tools/ccomments.py: a line with any character outside a comment; blank and comment-only lines out), so the census reads the same with ROOT the fork or the comment-free patched upstream (make sdk-upstream), where raw wc -l read 5634/13537 and 5082/13037. Client: entity-using 5634 -> 3673, entity-free 13537 -> 8982. Rows spliced from --print, the prose kept.
 # 2026-10-12, C7: shell_viewpostprocess_client.cpp, shell_vieweffects_client.cpp and COM_GetModDirectory went (their importers call managed or the names' writer).
 # C7 particles phase 2.3 (2026-10-12): the old-style binding is managed's (ClientParticleManager); the executor is its own renderable, so shell_managed_particles.cpp stops naming CParticleEffectBinding and AddEffect/RemoveEffect (client cross-edges into particlemgr.cpp 26 -> 16).
 # C7 particles phase 1 (2026-10-12): particle_proxies.cpp left client.so; ParticleSphereProxy is C#'s (MaterialProxies/ParticleProxies.cs), its bind's read of the particle manager carried out by the proxy trampoline (ReadView kind 3).
@@ -865,11 +866,11 @@ objects linked                                                 123       146
   ... stock public                                               0         1
   ... SourceSharp shim (sourcesharp/**)                        123       130
 stock TUs that define an entity class                            0         0
-  ... their lines                                                0         0
+  ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         4
-  ... their lines                                                0      5634
+  ... their code lines                                           0      3673
 stock TUs with entity-free text                                  0        12
-  ... their lines                                                0     13537
+  ... their code lines                                           0      8982
 CBaseEntity:: / C_BaseEntity:: members in the DLL                0         0
   ... same, with NO symbol-type filter (§1's reading)            0         0
 entity-list members (CGlobalEntityList/CClientEntityList/            0         0

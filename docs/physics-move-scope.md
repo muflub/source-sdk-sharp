@@ -961,9 +961,11 @@ hits are comments:
 | `sourcesharp/test/standalone_solidity_order_test.cpp:12` | stock's own comment, quoted as the thing the test pins |
 | `sourcesharp/test/cpp_alias_t1_test.cpp:288` | a note saying this table's anchor was RE-POINTED off the family when it went |
 
-`src/game/shared/physics_shared.h:158` carries the tombstone: "THE
-`PhysModelCreate*` FAMILY IS GONE — plan_shim.md §4a item 2, lane 3a". With
-comments stripped, that header contains **zero** occurrences of any of the nine
+The tombstone of record is this item: THE `PhysModelCreate*` FAMILY IS GONE
+(plan_shim.md §4a item 2, lane 3a). The fork's `src/game/shared/physics_shared.h:158`
+carries the same words as a comment, which the comment-free patched upstream
+(`make sdk-upstream`) does not, so `physics_move_scope_test.cpp` reads them
+here. With comments stripped, that header contains **zero** occurrences of any of the nine
 names, and **two** of `PhysModelParseSolid` — the parse half that was never part
 of the family and deliberately stays. That second number is the control: it is
 what makes "zero" a reading of the right file rather than of an empty string.

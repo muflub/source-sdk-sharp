@@ -309,7 +309,12 @@ struct Side
 	// changing a total.
 	const char *pszDeletedMember[ 5 ];
 	const char *pszSurvivor[ 4 ];   // free names that must be there, unguarded
-	size_t      nMinLines;          // the header is not empty...
+	// The header is not empty: its NON-BLANK lines once comments are stripped
+	// (directives included), so the floor reads the same whether the SDK tree
+	// is the fork, whose copy carries our comments, or the comment-free
+	// patched upstream (make sdk-upstream). A raw line count read 369 against
+	// 230 for the same code and failed the second.
+	int         nMinLines;
 	int         nMinCodeLines;      // ...and its TAIL is what is left of it
 };
 
@@ -325,7 +330,7 @@ const Side kSides[] = {
 	    "CBaseEntity::BoundingRadius",        // run 2, the SERVER spelling
 	    NULL },
 	  { "SDKEntityFromUnknown", "SDKEntityFromRenderable", "FClassnameIs", NULL },
-	  300, 80 },
+	  120, 80 },
 	// The server row ({ "server", "game/server/baseentity.h", ... }) is
 	// RETIRED: game/server/baseentity.h is compiled by nothing since
 	// plan_server_novalve.md P5 and left the farm in P6. See the P6 note at
@@ -395,6 +400,17 @@ std::string FirstConditional( const std::vector< std::string > &lines )
 // Non-blank, non-directive lines. Comments are already stripped by the caller,
 // so this is the header's actual CODE -- the tail the survey stub used to
 // swallow, and now the whole of both files.
+int CountNonBlankLines( const std::vector< std::string > &lines )
+{
+	int n = 0;
+	for ( size_t i = 0; i < lines.size(); i++ )
+	{
+		if ( !Trimmed( lines[ i ] ).empty() )
+			n++;
+	}
+	return n;
+}
+
 int CountCodeLines( const std::vector< std::string > &lines )
 {
 	int n = 0;
@@ -596,9 +612,9 @@ TEST( SurveyStubElision, TheTailTheArmUsedToSwallowIsNowTheWholeHeader )
 
 		// The tail is still substantial, which is the half that catches the
 		// header being gutted rather than merely un-stubbed.
-		EXPECT_GE( lines.size(), side.nMinLines )
-			<< side.pszHeader << " is only " << lines.size()
-			<< " lines. The class was supposed to go; the free funnels, the "
+		EXPECT_GE( CountNonBlankLines( lines ), side.nMinLines )
+			<< side.pszHeader << " is only " << CountNonBlankLines( lines )
+			<< " non-blank lines of code. The class was supposed to go; the free funnels, the "
 			   "classname predicate, the entity macros, the extern tables and "
 			   "the CHandle specialisations were supposed to stay.";
 		EXPECT_GE( CountCodeLines( lines ), side.nMinCodeLines )
@@ -1028,9 +1044,9 @@ TEST( SurveyStubElisionScanner, TheHeadersWereReallyOpened )
 		ASSERT_FALSE( lines.empty() )
 			<< side.pszHeader << " is missing or unreadable";
 
-		EXPECT_GE( lines.size(), side.nMinLines )
-			<< side.pszHeader << " read as only " << lines.size()
-			<< " lines. The entity class is gone from it, but its tail is not: "
+		EXPECT_GE( CountNonBlankLines( lines ), side.nMinLines )
+			<< side.pszHeader << " read as only " << CountNonBlankLines( lines )
+			<< " non-blank lines of code. The entity class is gone from it, but its tail is not: "
 			   "this is not that file.";
 		EXPECT_GE( CountCodeLines( lines ), side.nMinCodeLines )
 			<< side.pszHeader << " read as only " << CountCodeLines( lines )

@@ -266,3 +266,73 @@ as the content intended. It draws `rand()` as 0..0x7fff from a per-system seeded
 stream (`IPrecipitationRandom.CRand`), never the process-global C library
 state. Both oracle phases stay, so the Linux-faithful arm remains measurable.
 The user may overrule.
+
+## 14. Detail shapes are not compiled — `USE_DETAIL_SHAPES` is off, and its sway would be dead
+
+DETAIL SHAPES ARE NOT COMPILED IN THIS BUILD. `detailobjectsystem.cpp`
+defines `USE_DETAIL_SHAPES` only under `#if defined(DOD_DLL) ||
+defined(CSTRIKE_DLL)`, and step 7d measured that neither is defined rather
+than assuming it, because everything under the macro reads as live code:
+
+    grep -c 'DOD_DLL\|CSTRIKE_DLL' <the client's build.ninja>        -> 0
+    nm -C --defined-only <objs>/detailobjectsystem.o
+      | grep -cE 'UpdatePlayerAvoid|CPlayerEnumerator'              -> 0
+
+So the file keeps one `GetLocalPlayer` and one `CPlayerEnumerator` inside the
+guard, and that is allowed only because this row says why.
+
+**WHOEVER TURNS THIS ON INHERITS A DEAD SWAY.** `CDetailModel::UpdatePlayerAvoid`
+finds nobody to avoid on this client, for two independent reasons:
+
+- `playerenumerator.h`'s `CPlayerEnumerator::EnumElement` resolves each
+  partition hit through `ClientEntityList().GetBaseEntityFromHandle`, which
+  walks the partition before it asks `GetBaseEntity()`: NULL for every managed
+  shell, so it collects nothing;
+- the local player it adds at the end is `C_BasePlayer::GetLocalPlayer()`,
+  whose one definition on this link line is `return NULL`.
+
+The fix is a named fact over the slot table, the shape `renderable_facts.h`
+uses for everything else in step 7d. It was written and withdrawn, because a
+seam function with no compiled caller is native code nothing can gate. When
+restoring it, note that the loop's two distance tests are NOT the same test.
+Collection is 3-D (`LengthSqr` against the radius), and the force ramp is 2-D
+(z zeroed, then `Length2D`). So a player on a roof above a clump is collected
+only by the 3-D test, and then pushes the clump at nearly full force.
+
+This row was a comment block at the top of `detailobjectsystem.cpp` in the
+fork. It moved here so the patched-upstream ROOT (`make sdk-upstream`, whose
+series carries no comments) keeps the finding. `renderable_subject_test.cpp`
+checks this row and the guard it describes.
+
+Owner: whoever enables `USE_DETAIL_SHAPES`. Waits for: a reason to.
+
+## 15. The flashlight-target tail in `clientshadowmgr.cpp`: deleted, not ported
+
+Stock lets a projected texture light one specific entity: a flashlight's shadow
+walks the target's move children (`FirstMoveChild` / `NextMovePeer`) and adds
+each one to the receiver. On this client that tail has never run.
+- The only setter of the target is `c_env_projectedtexture.cpp:215`.
+- `client_csharp.vpc` `-$File`s that file out of the project.
+- So the handle stays the invalid one it was default-constructed with,
+  `bLightSpecificEntity` is false, and the tail is never reached.
+
+`FlashlightTargetVacuity` in `cpp_alias_t5_test.cpp` is the guard: it fails if
+that exclusion goes, which would make this row a lie.
+
+The walk was NOT RETYPED, and there are two separate walls rather than one:
+- `FirstMoveChild` / `NextMovePeer` / `GetModel` read the SDK move hierarchy
+  off `C_BaseEntity`. That hierarchy has no raw parent pointer to hand out at
+  all: igameentity.h says so for GetMoveParent by name.
+- `AddShadowToReceiver` takes an `IClientRenderable *`, and an
+  `IGameEntity *` does not convert to one. `IGameEntity` has no base, so the
+  conversion is the same no-route this port records for `IHandleEntity`.
+
+A flashlight aimed at one managed entity would have to go through the
+renderable that draws it, not through the entity.
+
+This was a comment in the fork's copy of `clientshadowmgr.cpp`. It moved here
+so the comment-free patched upstream (`make sdk-upstream`) keeps it.
+`leaf_cycle_test.cpp`'s `ShadowMgrDeEntitied` fact reads this row.
+
+Owner: whoever restores `env_projectedtexture`. Waits for: a managed light
+target.

@@ -356,13 +356,13 @@ TEST( T1Guards, TheTwoPhysicsFilesStillCarryTheirArms )
 	// is why the one spelling is the right one on both sides.
 	EXPECT_EQ( 5, CountOf( client, "PhysicsOwnerOf( pObject ).pBase" ) );
 
-	// ...and the cast it replaced is not reachable in this file any more. Both
-	// remaining mentions of `GetGameData()` are inside comments EXPLAINING the
-	// removal, so they are gone from the stripped text and present in the raw --
-	// which is exactly the shape StrippingIsWhatStopsTheProseFalsePositive
-	// exists to prove is being handled.
+	// ...and the cast it replaced is not reachable in this file any more. The
+	// fork's copy still mentions `GetGameData()` in comments explaining the
+	// removal; the comment-free patched upstream (make sdk-upstream) does not,
+	// so the raw count is no longer asserted here. That the stripper is what
+	// removes such a mention is StrippingIsWhatStopsTheProseFalsePositive's
+	// fact, over a literal it controls.
 	EXPECT_EQ( 0, CountOf( client, "GetGameData()" ) );
-	EXPECT_GT( CountOf( ReadFile( "game/client/physics.cpp" ), "GetGameData()" ), 0 );
 
 	// And nothing in either file mentions the macro at all now — not in an
 	// `#endif` comment, not in a stray `#else`. A guard half-deleted by a merge

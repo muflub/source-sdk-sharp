@@ -134,15 +134,19 @@ dircount() { # <side> <egrep prefix>
     awk -v p="$2" '$2 ~ p {n++} END{print n+0}' "$TMP/map.$1"
 }
 
-# Sums the PER-FILE counts and ignores wc's own "total" rows. Summing the
-# totals instead looks equivalent and is not: xargs splits a long list into
-# several wc invocations, and a batch holding exactly one file gets no total
-# row at all -- so the sum silently loses that file, and only for list lengths
-# that happen to split that way.
-lines_of() { # <file listing source paths>  -> total line count
+# CODE LINES, not lines: a line counts when it holds any character outside a
+# comment (tools/ccomments.py, the lexer the comment-free patch series is
+# made with). The count must not depend on which ROOT the farm links: the fork's
+# copies of these files carry our comments, the patched upstream's (make
+# sdk-upstream) carry none, and a raw `wc -l` read 5634 for one and 5082 for the
+# other on the same code. Blank lines go for the same reason (the series drops
+# a comment's blank neighbours unevenly). Summed per file by the tool itself,
+# so no batch of a split list can lose a row the way wc's "total" did.
+CCOMMENTS="$(dirname "$(readlink -f "$0")")/ccomments.py"
+lines_of() { # <file listing source paths>  -> total code-line count
     if [ -s "$1" ]; then
-        ( cd "$SRC_ABS" && xargs -a "$1" wc -l 2>/dev/null \
-          | awk '$2 != "total" && NF >= 2 { t += $1 } END { print t+0 }' )
+        ( cd "$SRC_ABS" && xargs -a "$1" python3 "$CCOMMENTS" --count-code \
+          | awk -F'\t' '{ t += $1; n++ } END { print t+0 }' )
     else
         echo 0
     fi
@@ -382,11 +386,11 @@ objects linked                                            $(printf '%8s  %8s' "$
   ... stock public                                        $(printf '%8s  %8s' "$(dircount server '^public')" "$(dircount client '^public')")
   ... SourceSharp shim (sourcesharp/**)                   $(printf '%8s  %8s' "$(wc -l < "$TMP/shim_src.server")" "$(wc -l < "$TMP/shim_src.client")")
 stock TUs that define an entity class                     $(printf '%8s  %8s' "$(wc -l < "$TMP/def.server")" "$(wc -l < "$TMP/def.client")")
-  ... their lines                                         $(printf '%8s  %8s' "$(lines_of "$TMP/def.server")" "$(lines_of "$TMP/def.client")")
+  ... their code lines                                    $(printf '%8s  %8s' "$(lines_of "$TMP/def.server")" "$(lines_of "$TMP/def.client")")
 stock TUs that use an entity type but define none         $(printf '%8s  %8s' "$(wc -l < "$TMP/use.server")" "$(wc -l < "$TMP/use.client")")
-  ... their lines                                         $(printf '%8s  %8s' "$(lines_of "$TMP/use.server")" "$(lines_of "$TMP/use.client")")
+  ... their code lines                                    $(printf '%8s  %8s' "$(lines_of "$TMP/use.server")" "$(lines_of "$TMP/use.client")")
 stock TUs with entity-free text                           $(printf '%8s  %8s' "$(wc -l < "$TMP/free.server")" "$(wc -l < "$TMP/free.client")")
-  ... their lines                                         $(printf '%8s  %8s' "$(lines_of "$TMP/free.server")" "$(lines_of "$TMP/free.client")")
+  ... their code lines                                    $(printf '%8s  %8s' "$(lines_of "$TMP/free.server")" "$(lines_of "$TMP/free.client")")
 CBaseEntity:: / C_BaseEntity:: members in the DLL         $(printf '%8s  %8s' "$SRV_ENT" "$CLI_ENT")
   ... same, with NO symbol-type filter (§1's reading)     $(printf '%8s  %8s' "$SRV_ENT_UNTYPED" "$CLI_ENT_UNTYPED")
 entity-list members (CGlobalEntityList/CClientEntityList/     $(printf '%8s  %8s' "$SRV_LIST" "$CLI_LIST")

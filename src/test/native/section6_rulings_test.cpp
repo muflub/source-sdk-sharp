@@ -387,7 +387,13 @@ TEST( Section6Rulings, BothRuledFilesReallyCarryTheirHeaders )
 	// file reads as "the token is not there", which is how an absence check
 	// passes over a path that has moved.
 	EXPECT_NE( std::string::npos, ReadRaw( kEffects ).find( "the client's IEffects, a thunk" ) );
-	EXPECT_NE( std::string::npos, ReadRaw( kToolFw ).find( "SOURCESHARP: THIS FILE STAYS NATIVE" ) );
+	// toolframework_client.cpp is anchored on CODE: the ruling's header comment
+	// is in the fork's copy only, and the comment-free patched upstream (make
+	// sdk-upstream) must read as the same file. The ruling itself is §6 of the
+	// plan, which the facts below read.
+	const std::string toolfw = StripCommentsAndStrings( ReadRaw( kToolFw ) );
+	EXPECT_NE( std::string::npos, toolfw.find( "bool CToolFrameworkClient::Init()" ) );
+	EXPECT_NE( std::string::npos, toolfw.find( "void CToolFrameworkClient::PostToolMessage(" ) );
 }
 
 //-----------------------------------------------------------------------------

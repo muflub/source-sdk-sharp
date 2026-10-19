@@ -336,25 +336,37 @@ TEST( Step7dSourceScan, TheDetailSwayGuardCarriesTheFindingThatItIsNotCompiled )
 	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// detailobjectsystem.cpp keeps one GetLocalPlayer and one CPlayerEnumerator,
 	// both inside `#if defined(DOD_DLL) || defined(CSTRIKE_DLL)`. That is
-	// allowed, and it is allowed only because the next reader is told:
-	//
-	//   grep -c 'DOD_DLL\|CSTRIKE_DLL' src/_vpc_/ninja/sdk_csharp_debug.ninja -> 0
-	//   nm -C --defined-only detailobjectsystem.o
-	//     | grep -cE 'UpdatePlayerAvoid|CPlayerEnumerator'                    -> 0
-	//
-	// Without that note the surviving reach reads as an oversight, and whoever
-	// turns the macro on inherits a sway that avoids nobody with no clue why.
-	// Read RAW, not stripped: the subject IS the comment.
-	const std::string strFile = ReadFile( "game/client/detailobjectsystem.cpp" );
+	// allowed, and it is allowed only because the next reader is told why:
+	// the measurement that the macro is off, and that the sway it guards would
+	// avoid nobody. That note is docs/absence-client.md row 14. It used to be a
+	// comment in the fork's copy of the file, and moved to the ledger so the
+	// patched-upstream ROOT (make sdk-upstream), whose series carries no
+	// comments, keeps the finding. Every reading of the source here is
+	// STRIPPED, so the facts hold with or without comments in the SDK tree.
+	const std::string strDoc = ReadFile( "../docs/absence-client.md" );
+	ASSERT_FALSE( strDoc.empty() )
+		<< "docs/absence-client.md did not open, so the finding is unread";
+	const size_t posRow = strDoc.find( "## 14. Detail shapes are not compiled" );
+	ASSERT_NE( std::string::npos, posRow )
+		<< "the absence ledger lost the detail-shapes row";
+	const std::string strRow = strDoc.substr( posRow, strDoc.find( "\n## ", posRow + 1 ) - posRow );
+	EXPECT_NE( std::string::npos, strRow.find( "DETAIL SHAPES ARE NOT COMPILED IN THIS BUILD" ) );
+	EXPECT_NE( std::string::npos, strRow.find( "USE_DETAIL_SHAPES" ) );
+	EXPECT_NE( std::string::npos, strRow.find( "UpdatePlayerAvoid" ) );
+	EXPECT_NE( std::string::npos, strRow.find( "DEAD SWAY" ) );
+
+	const std::string strFile = StripComments( ReadFile( "game/client/detailobjectsystem.cpp" ) );
 	ASSERT_FALSE( strFile.empty() );
 
-	EXPECT_NE( std::string::npos, strFile.find( "DETAIL SHAPES ARE NOT COMPILED IN THIS BUILD" ) );
+	// The sway the row warns about is still code under the guard...
 	EXPECT_NE( std::string::npos, strFile.find( "UpdatePlayerAvoid" ) );
 
-	// And the guard itself is still what the note describes. If somebody makes
-	// USE_DETAIL_SHAPES unconditional the note becomes a lie and this fails.
+	// ...and the guard is still what the row describes. If somebody makes
+	// USE_DETAIL_SHAPES unconditional the row becomes a lie and this fails.
 	EXPECT_NE( std::string::npos,
 	           strFile.find( "#if defined(DOD_DLL) || defined(CSTRIKE_DLL)\n#define USE_DETAIL_SHAPES" ) );
+	EXPECT_EQ( 1, CountOccurrences( strFile, "#define USE_DETAIL_SHAPES" ) )
+		<< "USE_DETAIL_SHAPES is defined somewhere other than under the guard";
 }
 
 //=============================================================================
@@ -443,29 +455,50 @@ TEST( Step7dNotDeleted, TheFovGapIsRecordedWhereARestorerWillFindIt )
 		   "sites the same way doubles the error instead of cancelling it";
 }
 
-TEST( Step7dNotDeleted, TheThreeUnscaledSitesSayWhySoAReaderAtTheLineFindsIt )
+// The body of FUNCTION in STRIPPED text, from its definition to the next
+// line-initial '}' -- the shape every function in these Valve files closes
+// with. Empty when the definition is not there.
+std::string FunctionBody( const std::string &strCode, const std::string &strSignature )
+{
+	const size_t pos = strCode.find( strSignature );
+	if ( pos == std::string::npos )
+		return std::string();
+	const size_t end = strCode.find( "\n}", pos );
+	return strCode.substr( pos, end == std::string::npos ? std::string::npos : end - pos );
+}
+
+TEST( Step7dNotDeleted, TheThreeUnscaledSitesAreTheBareOnesTheLedgerNames )
 {
 	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
-	// The ledger row is findable by someone looking for it. These three are for
-	// the reader who is ALREADY at the line, wondering why there is a bare
-	// constant there -- which is the reading the original fact called
-	// "indistinguishable from a working factor".
-	const std::string strDetail = ReadFile( "game/client/detailobjectsystem.cpp" );
-	const std::string strPixel = ReadFile( "game/client/c_pixel_visibility.cpp" );
+	// The ledger row (the fact above) names three sites. A reader at the line
+	// sees a bare 1 where stock multiplied by the FOV factor; the row is where
+	// the why lives. These facts pin the CODE of each site, read with comments
+	// stripped, so they hold whether or not the SDK tree carries the fork's
+	// comments: the two detail sites hold an explicit factor of exactly 1, the
+	// glow site multiplies by nothing, and nothing calls the deleted function.
+	const std::string strDetail = StripComments( ReadFile( "game/client/detailobjectsystem.cpp" ) );
+	const std::string strPixel = StripComments( ReadFile( "game/client/c_pixel_visibility.cpp" ) );
 	ASSERT_FALSE( strDetail.empty() );
 	ASSERT_FALSE( strPixel.empty() );
 
-	EXPECT_EQ( 2, CountOccurrences( strDetail, "absence-client.md" ) )
-		<< "detailobjectsystem.cpp's two unscaled fade distances do not both "
-		   "point at the ledger row";
-	EXPECT_EQ( 1, CountOccurrences( strPixel, "absence-client.md" ) )
-		<< "c_pixel_visibility.cpp's unscaled glow distance does not point at "
-		   "the ledger row";
+	const std::string strSort =
+		FunctionBody( strDetail, "int CDetailObjectSystem::SortSpritesBackToFront(" );
+	const std::string strBuild =
+		FunctionBody( strDetail, "void CDetailObjectSystem::BuildDetailObjectRenderLists(" );
+	const std::string strGlow = FunctionBody( strPixel, "float GlowSightDistance(" );
+	ASSERT_FALSE( strSort.empty() ) << "SortSpritesBackToFront is gone or renamed";
+	ASSERT_FALSE( strBuild.empty() ) << "BuildDetailObjectRenderLists is gone or renamed";
+	ASSERT_FALSE( strGlow.empty() ) << "GlowSightDistance is gone or renamed";
 
-	// AND NOTHING CALLS THE DELETED FUNCTION, which is what stops the three
-	// comments above from being decoration on a live call.
-	EXPECT_EQ( std::string::npos, strDetail.find( "SourceSharp_ViewerFovDistanceAdjustFactor" ) );
-	EXPECT_EQ( std::string::npos, strPixel.find( "SourceSharp_ViewerFovDistanceAdjustFactor" ) );
+	EXPECT_EQ( 1, CountOccurrences( strSort, "float flFactor = 1.0f;" ) )
+		<< "SortSpritesBackToFront's factor is no longer the bare 1 row 6 records";
+	EXPECT_EQ( 1, CountOccurrences( strBuild, "float factor = 1.0f;" ) )
+		<< "BuildDetailObjectRenderLists' factor is no longer the bare 1 row 6 records";
+	EXPECT_EQ( std::string::npos, strGlow.find( "actor" ) )
+		<< "GlowSightDistance scales by a factor again; row 6 says it does not";
+
+	EXPECT_EQ( std::string::npos, strDetail.find( "FovDistanceAdjustFactor" ) );
+	EXPECT_EQ( std::string::npos, strPixel.find( "FovDistanceAdjustFactor" ) );
 }
 
 TEST( Step7dNotDeleted, TheLostRenderableCounterIsActuallyRead )

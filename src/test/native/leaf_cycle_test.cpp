@@ -474,11 +474,17 @@ TEST( ShadowMgrDeEntitied, ItNamesCBaseEntityOnlyInTheFlashlightTargetGuards )
 	//   * the file still IS the shadow manager (the four renderable-typed
 	//     FirstShadowChild() walks and the three NextShadowPeer() steps that
 	//     replaced the move hierarchy, and AddShadowToReceiver's definition);
-	//   * the RAW text still carries the paragraph that says WHY the walks were
-	//     never retyped, so a later deletion of the record is caught too. That
-	//     half reads raw on purpose: it is prose, and StripComments removes it.
+	//   * docs/absence-client.md row 15 still carries the paragraph that says
+	//     WHY the walks were never retyped, so a later deletion of the record
+	//     is caught too. It was a comment in the fork's copy of the file; it
+	//     moved to the ledger so the comment-free patched upstream (make
+	//     sdk-upstream) keeps it.
 	const std::string code = StripComments( ReadFile( kShadowMgr ) );
-	const std::string raw = ReadFile( kShadowMgr );
+	const std::string doc = ReadFile( "../docs/absence-client.md" );
+	ASSERT_FALSE( doc.empty() ) << "docs/absence-client.md read as nothing";
+	const size_t posRow = doc.find( "## 15. The flashlight-target tail" );
+	ASSERT_NE( std::string::npos, posRow ) << "the absence ledger lost row 15";
+	const std::string raw = doc.substr( posRow, doc.find( "\n## ", posRow + 1 ) - posRow );
 	ASSERT_FALSE( code.empty() ) << kShadowMgr << " read as nothing";
 
 	// ---- the positive half: this is still the shadow manager -----------------
@@ -507,7 +513,7 @@ TEST( ShadowMgrDeEntitied, ItNamesCBaseEntityOnlyInTheFlashlightTargetGuards )
 
 	// ---- and the record of why the walks were never retyped ------------------
 	EXPECT_TRUE( Contains( raw, "igameentity.h says so for GetMoveParent by name" ) )
-		<< kShadowMgr << " has lost the paragraph that says why the flashlight "
+		<< "docs/absence-client.md row 15 has lost the paragraph that says why the flashlight "
 		<< "walks were deleted rather than ported. Without it the zeroes above "
 		<< "read as a file that was simply tidied";
 }
