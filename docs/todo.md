@@ -942,12 +942,6 @@ nothing would draw. When something needs it: an overlay-view arm in
 RenderPlanner (the view in RenderInputs, a nested RenderView's ops after
 ScreenSpaceEffects), held to viewrender.cpp's order.
 
-- **The client cannot find a sequence that lives in an included model**
-  (found 2026-10-12 by the sequence-transitioner lane, not investigated):
-  `cs_playseq ss_barrel run_all` on male_01 finds nothing, where run_all is
-  male_shared's (an $includemodel). Check the client's sequence-by-name lookup
-  over the folded virtual model (StudioHdr's include fold / LookupSequence).
-
 
 ## Client flashlight: flashlighteffect.cpp ruled `port` (C7 cluster 12)
 
@@ -963,13 +957,6 @@ shadow through clientshadowmgr), and nothing has ported that arm. Ruled
 `port`, kept in the build, owned by C7's cluster 12 (glow / screen-space /
 pixelvis / flashlight). It leaves when the managed flashlight exists, with
 the five ConVars as managed ones.
-
-- **SequenceTransitioner has no stock oracle** (2026-10-12): its 33 facts are
-  hand-derived from stock, and its client rulings row (`ported`) carries the
-  caveat that the ruling asked for a recorded stock fixture. An oracle test
-  (src/test/oracle, the pristine clone at valve-sdk.lock) that runs stock's
-  CSequenceTransitioner and the managed port over the same sequence-change
-  script and compares the queue and weights would let the row drop it.
 
 
 ## Client C9 (tier libraries): what is still open

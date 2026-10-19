@@ -483,6 +483,41 @@ ss_cpptest_tier1(usercmd_encode_oracle_test
             ${bitbuf_stock})
 endif()
 
+# THE SEQUENCE TRANSITIONER ORACLE: pristine game/shared/sequence_Transitioner.cpp
+# (CSequenceTransitioner) on the client's pristine C_AnimationLayer
+# (game/client/animationlayer.h) and pristine public/studio.cpp's CStudioHdr,
+# over a scripted run of sequence changes, held to the golden
+# src/test/oracle/managed/Fixtures/sequence-transitioner-stock.tsv that the
+# managed SequenceTransitioner replays (SequenceTransitionerOracleTests, the
+# oracle-managed leg). seqtransition_stub/ stands in for the game's cbase.h;
+# the subject and its header are COPIED, byte for byte, into their own
+# directory first, so the quoted "cbase.h" finds the stand-in. mathlib because
+# studio.cpp is linked whole. The -Wno- flags are for VALVE'S CODE.
+set(seqtrans_stock "${SS_VALVE_SRC}/game/shared/sequence_Transitioner.cpp")
+set(seqtrans_studio "${SS_VALVE_SRC}/public/studio.cpp")
+if(NOT SS_VALVE_SDK OR NOT EXISTS "${seqtrans_stock}" OR NOT EXISTS "${seqtrans_studio}")
+  ss_oracle_missing(sequence_transitioner_oracle_test "no ${seqtrans_stock}: is the pristine clone at valve-sdk.lock?")
+else()
+configure_file("${seqtrans_stock}" "${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/sequence_Transitioner.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/shared/sequence_Transitioner.h" "${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/sequence_Transitioner.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/animationlayer.h" "${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/animationlayer.h" COPYONLY)
+configure_file("${SS_VALVE_SRC}/game/client/lerp_functions.h" "${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/lerp_functions.h" COPYONLY)
+# studio.cpp beside its own pristine studio.h, which the harness then reads too.
+configure_file("${seqtrans_studio}" "${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/studio.cpp" COPYONLY)
+configure_file("${SS_VALVE_SRC}/public/studio.h" "${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/studio.h" COPYONLY)
+# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
+ss_cpptest_mathlib(sequence_transitioner_oracle_test
+    DEFINES COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-unused-variable -Wno-dangling-else
+            -Wno-unused-but-set-variable -Wno-nontrivial-memcall -Wno-reorder-ctor
+            -Wno-writable-strings -Wno-undefined-bool-conversion
+    INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/seqtransition_stub
+             ${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/sequence_transitioner_oracle_test.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/sequence_Transitioner.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/seqtrans_subject/studio.cpp)
+endif()
+
 # Pristine tier1/KeyValues.cpp's LoadFromBuffer over the corpus
 # src/test/client/Fixtures/keyvalues-load-cases.tsv, held to the golden
 # keyvalues-load-stock.tsv that the managed loader (KeyValuesLoad) replays

@@ -35,6 +35,10 @@
     <Compile Include="..\..\common\RecordingDecals.cs" Link="Shared\RecordingDecals.cs" />
     <Compile Include="..\..\common\TempEntsDouble.cs" Link="Shared\TempEntsDouble.cs" />
     <Compile Include="..\..\common\RecordingEffectDispatch.cs" Link="Shared\RecordingEffectDispatch.cs" />
+    <!-- The mdl image builder SequenceTransitionerOracleTests builds the golden's model with. -->
+    <Compile Include="..\..\common\StudioHdrBuilder.cs" Link="Shared\StudioHdrBuilder.cs" />
+    <Compile Include="..\..\common\StudioHdrBuilder.Procedural.cs" Link="Shared\StudioHdrBuilder.Procedural.cs" />
+    <Compile Include="..\..\common\StudioHdrBuilder.Query.cs" Link="Shared\StudioHdrBuilder.Query.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
