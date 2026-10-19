@@ -237,7 +237,7 @@ public sealed class TrailEmitter(string material, ParticleViews views, IParticle
         if (_particles.Count > quadsOut.Length)
             return _particles.Count;
         ParticleView view = views.Current;
-        if (!view.IsSet)
+        if (!view.IsSet())
             return 0;
         int n = 0;
         foreach (var p in _particles.OrderByDescending(p => p.Id))

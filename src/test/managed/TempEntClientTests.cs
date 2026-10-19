@@ -553,7 +553,7 @@ public class TempEntClientTests
     {
         var (temps, engine, registry) = ServerWriter();
 
-        temps.EnergySplash(TeFilter.Broadcast, 0f, new Vector(64f, -32f, 8f),
+        temps.EnergySplash(TeFilters.Broadcast, 0f, new Vector(64f, -32f, 8f),
                            new Vector(0f, 0f, 1f), explosive: true);
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 1, "one temp entity was sent");
@@ -589,7 +589,7 @@ public class TempEntClientTests
         var registry = Registered(engine);
 
         var (temps, _, _) = ServerWriter();
-        temps.EnergySplash(TeFilter.Broadcast, 0f, new Vector(-2932f, 3218f, 60f),
+        temps.EnergySplash(TeFilters.Broadcast, 0f, new Vector(-2932f, 3218f, 60f),
                            new Vector(0f, 0f, 1f), explosive: true);
 
         // The blob as it was packed. RecordingEngine logs the LENGTH rather than

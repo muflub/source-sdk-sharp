@@ -415,15 +415,6 @@ public sealed record TeClass(
     /// </para>
     /// </summary>
     public int BaseBytes { get; init; }
-
-    private Dictionary<string, TeField>? _byName;
-
-    /// <summary>A field by wire name, from this class only — not its base chain.</summary>
-    public bool TryGetOwnField(string name, out TeField field)
-    {
-        _byName ??= Fields.ToDictionary(f => f.Name, StringComparer.Ordinal);
-        return _byName.TryGetValue(name, out field!);
-    }
 }
 
 /// <summary>Who hears a temp entity (plan 3.4).</summary>
@@ -459,13 +450,28 @@ public readonly record struct TeFilter(
     /// <c>SuppressTE</c> always answers false on both sides. The bit is here so
     /// the shape survives the port.
     /// </summary>
-    bool IgnorePredictionCull)
-{
-    public static TeFilter Broadcast => new(TeFilterKind.Broadcast, Vector.Zero, 0, 0f, false);
+    bool IgnorePredictionCull);
 
+/// <summary>
+/// The <see cref="TeFilter"/> each audience is, by name.
+///
+/// <para>
+/// A class of its own rather than static members of the filter since
+/// plan_shim_areas_split phase 4: the filter is in a seam's signature
+/// (<c>IEngineEffects</c>), so it lives with the seam in an interface assembly,
+/// which holds only data, and a factory has a body.
+/// </para>
+/// </summary>
+public static class TeFilters
+{
+    /// <summary>Every client.</summary>
+    public static readonly TeFilter Broadcast = new(TeFilterKind.Broadcast, Vector.Zero, 0, 0f, false);
+
+    /// <summary>The clients whose PVS holds <paramref name="origin"/>.</summary>
     public static TeFilter Pvs(Vector origin)
         => new(TeFilterKind.Pvs, origin, 0, 0f, false);
 
+    /// <summary>The clients whose PAS holds <paramref name="origin"/>.</summary>
     public static TeFilter Pas(Vector origin)
         => new(TeFilterKind.Pas, origin, 0, 0f, false);
 
@@ -473,6 +479,7 @@ public readonly record struct TeFilter(
     public static TeFilter PasAttenuation(Vector origin, float attenuation = 0f)
         => new(TeFilterKind.PasAttenuation, origin, 0, attenuation, false);
 
+    /// <summary>One client, by player index.</summary>
     public static TeFilter SinglePlayer(int playerIndex)
         => new(TeFilterKind.SinglePlayer, Vector.Zero, playerIndex, 0f, false);
 }

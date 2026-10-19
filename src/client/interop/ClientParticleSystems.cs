@@ -253,40 +253,56 @@ public interface IClientImpactSparks
 /// </summary>
 public readonly struct ParticleView
 {
-    private readonly float[] _m;
+    /// <summary>The model-view matrix's three rows, row major: twelve floats. Null for no view.</summary>
+    public float[]? ModelView { get; init; }
 
-    public ParticleView(ReadOnlySpan<float> modelView12, int viewId, Vector origin = default, Vector forward = default)
-    {
-        _m = modelView12[..12].ToArray();
-        ViewId = viewId;
-        Origin = origin;
-        Forward = forward;
-    }
-
-    public int ViewId { get; }
+    /// <summary><c>CurrentViewID()</c>.</summary>
+    public int ViewId { get; init; }
 
     /// <summary><c>CurrentViewOrigin()</c>.</summary>
-    public Vector Origin { get; }
+    public Vector Origin { get; init; }
 
     /// <summary><c>CurrentViewForward()</c>.</summary>
-    public Vector Forward { get; }
+    public Vector Forward { get; init; }
+}
 
-    public bool IsSet => _m is not null;
+/// <summary>
+/// Building a <see cref="ParticleView"/> and reading points through it.
+///
+/// <para>
+/// Here rather than on the view since plan_shim_areas_split phase 4: the view
+/// is in a seam's signature (<see cref="IParticleViewSource.Read"/>), so it
+/// lives with the seam in an interface assembly, which holds only data.
+/// </para>
+/// </summary>
+public static class ParticleViewReading
+{
+    /// <summary>A view over a copy of the first twelve floats of <paramref name="modelView12"/>.</summary>
+    public static ParticleView From(ReadOnlySpan<float> modelView12, int viewId, Vector origin = default, Vector forward = default)
+        => new() { ModelView = modelView12[..12].ToArray(), ViewId = viewId, Origin = origin, Forward = forward };
 
-    /// <summary>One element of the matrix: row <paramref name="r"/> (0..2), column <paramref name="c"/> (0..3).</summary>
-    public float this[int r, int c] => _m[r * 4 + c];
+    /// <summary>Whether the view holds a matrix: false for <c>default</c>.</summary>
+    public static bool IsSet(this in ParticleView view) => view.ModelView is not null;
 
     /// <summary><c>TransformParticle</c> (particlemgr.h): a point into view space.</summary>
-    public Vector TransformPoint(Vector v) => new(
-        _m[0] * v.X + _m[1] * v.Y + _m[2] * v.Z + _m[3],
-        _m[4] * v.X + _m[5] * v.Y + _m[6] * v.Z + _m[7],
-        _m[8] * v.X + _m[9] * v.Y + _m[10] * v.Z + _m[11]);
+    public static Vector TransformPoint(this in ParticleView view, Vector v)
+    {
+        float[] m = view.ModelView!;
+        return new(
+            m[0] * v.X + m[1] * v.Y + m[2] * v.Z + m[3],
+            m[4] * v.X + m[5] * v.Y + m[6] * v.Z + m[7],
+            m[8] * v.X + m[9] * v.Y + m[10] * v.Z + m[11]);
+    }
 
     /// <summary><c>Vector3DMultiply</c> (vmatrix.cpp): a direction into view space.</summary>
-    public Vector TransformDirection(Vector v) => new(
-        _m[0] * v.X + _m[1] * v.Y + _m[2] * v.Z,
-        _m[4] * v.X + _m[5] * v.Y + _m[6] * v.Z,
-        _m[8] * v.X + _m[9] * v.Y + _m[10] * v.Z);
+    public static Vector TransformDirection(this in ParticleView view, Vector v)
+    {
+        float[] m = view.ModelView!;
+        return new(
+            m[0] * v.X + m[1] * v.Y + m[2] * v.Z,
+            m[4] * v.X + m[5] * v.Y + m[6] * v.Z,
+            m[8] * v.X + m[9] * v.Y + m[10] * v.Z);
+    }
 }
 
 /// <summary>Reads the view the particle manager is drawing (IShimParticlesClient::ParticlesView).</summary>
@@ -325,7 +341,7 @@ internal sealed unsafe class ClientParticleViewSlots(EngineSide api, IParticleLi
         int viewId = 0;
         if (api.ClientAttached)
             api.ClientShims.ParticlesView(m, &viewId, of);
-        return new ParticleView(new ReadOnlySpan<float>(m, 12), viewId, new Vector(of[0], of[1], of[2]), new Vector(of[3], of[4], of[5]));
+        return ParticleViewReading.From(new ReadOnlySpan<float>(m, 12), viewId, new Vector(of[0], of[1], of[2]), new Vector(of[3], of[4], of[5]));
     }
 
     public float FractionVisible(Vector origin, ref int queryHandle)

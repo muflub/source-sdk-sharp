@@ -169,8 +169,8 @@ public static class ClientBoneRecorder
         {
             Row("model", model),
             Row("bones", bones.ToString()),
-            Row("written", cache.WrittenCount.ToString()),
-            Row("posed", cache.PosedCount.ToString()),
+            Row("written", cache.WrittenCount().ToString()),
+            Row("posed", cache.PosedCount().ToString()),
             Row("attachments", attachments.ToString()),
             Row("movedattachments", movedAttachments.ToString()),
         };

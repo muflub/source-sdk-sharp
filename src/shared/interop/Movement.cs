@@ -323,7 +323,7 @@ public struct MoveConstants
     public Vector ObsHullMin, ObsHullMax, DeadViewHeight;
 
     /// <summary>Stock's numbers, so a state with no constants pushed still moves like Half-Life.</summary>
-    public static MoveConstants Stock => new()
+    public static readonly MoveConstants Stock = new()
     {
         Friction = 4f, Accelerate = 10f, AirAccelerate = 10f, StopSpeed = 75f,
         MaxVelocity = 3500f, MaxSpeed = 320f, Bounce = 0f, RollAngle = 0f,

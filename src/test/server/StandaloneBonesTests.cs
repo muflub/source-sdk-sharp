@@ -71,8 +71,8 @@ public class StandaloneBonesTests
     {
         var skeleton = Build(56, Array.Empty<int>(), Enumerable56());
 
-        Assert.Equal(56, skeleton.WrittenCount);
-        Assert.Equal(56, skeleton.PosedCount);
+        Assert.Equal(56, skeleton.WrittenCount());
+        Assert.Equal(56, skeleton.PosedCount());
     }
 
     private static int[] Enumerable56()
@@ -95,8 +95,8 @@ public class StandaloneBonesTests
         var skeleton = Build(56, Array.Empty<int>(), Array.Empty<int>());
 
         Assert.Equal(56, skeleton.Count);
-        Assert.Equal(56, skeleton.WrittenCount);
-        Assert.Equal(0, skeleton.PosedCount);
+        Assert.Equal(56, skeleton.WrittenCount());
+        Assert.Equal(0, skeleton.PosedCount());
     }
 
     /// <summary>
@@ -113,8 +113,8 @@ public class StandaloneBonesTests
 
         var skeleton = Build(56, Array.Empty<int>(), posed);
 
-        Assert.Equal(56, skeleton.WrittenCount);
-        Assert.Equal(31, skeleton.PosedCount);
+        Assert.Equal(56, skeleton.WrittenCount());
+        Assert.Equal(31, skeleton.PosedCount());
     }
 
     /// <summary>
@@ -131,8 +131,8 @@ public class StandaloneBonesTests
 
         Assert.False(skeleton.IsWritten(3));
         Assert.False(skeleton.IsPosed(3));
-        Assert.Equal(6, skeleton.WrittenCount);
-        Assert.Equal(6, skeleton.PosedCount);
+        Assert.Equal(6, skeleton.WrittenCount());
+        Assert.Equal(6, skeleton.PosedCount());
     }
 
     /// <summary>
@@ -184,6 +184,6 @@ public class StandaloneBonesTests
 
         Assert.True(0.0f == -0.0f);          // the trap, spelled out
         Assert.True(skeleton.IsPosed(0));
-        Assert.Equal(1, skeleton.PosedCount);
+        Assert.Equal(1, skeleton.PosedCount());
     }
 }

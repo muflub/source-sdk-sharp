@@ -32,13 +32,25 @@ public readonly record struct NativeConsoleEntry(
     int Flags,
     bool IsCommand,
     float? Min = null,
-    float? Max = null)
+    float? Max = null);
+
+/// <summary>
+/// What a <see cref="NativeConsoleEntry"/> says beyond its fields.
+///
+/// <para>
+/// Extension methods rather than members since plan_shim_areas_split phase 4:
+/// the entry is in a seam's signature (<c>IEngineConsole.SnapshotEntry</c>), so
+/// it lives with the seam in an interface assembly, which holds only data. The
+/// reading of it stays here, beside the walk that fills it.
+/// </para>
+/// </summary>
+public static class NativeConsoleEntryReading
 {
     /// <summary>Whether the value differs from what it was registered with.</summary>
-    public bool IsModified => !IsCommand && Value != DefaultValue;
+    public static bool IsModified(this NativeConsoleEntry entry) => !entry.IsCommand && entry.Value != entry.DefaultValue;
 
     /// <summary>The flag bits spelled out, e.g. "GameDll, Cheat".</summary>
-    public string FlagNames => ConVarFlagNames.Describe(Flags);
+    public static string FlagNames(this NativeConsoleEntry entry) => ConVarFlagNames.Describe(entry.Flags);
 
     /// <summary>
     /// Which DLL registered it, as far as the flags say.
@@ -48,9 +60,9 @@ public readonly record struct NativeConsoleEntry(
     /// no C# class behind it — and it is the answer that matters most, since it
     /// separates the game's own settings from the engine's thousands.
     /// </summary>
-    public string DeclaredBy
-        => (Flags & (int)ConVarFlags.GameDll) != 0 ? "server.dll"
-         : (Flags & (int)ConVarFlags.ClientDll) != 0 ? "client.dll"
+    public static string DeclaredBy(this NativeConsoleEntry entry)
+        => (entry.Flags & (int)ConVarFlags.GameDll) != 0 ? "server.dll"
+         : (entry.Flags & (int)ConVarFlags.ClientDll) != 0 ? "client.dll"
          : "engine";
 }
 

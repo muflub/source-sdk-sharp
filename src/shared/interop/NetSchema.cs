@@ -1153,14 +1153,27 @@ public enum PayloadAgreementState
 public readonly record struct PayloadAgreement(
     PayloadAgreementState State, int Words, int FirstBadWord)
 {
-    public static PayloadAgreement NotSupplied
-        => new(PayloadAgreementState.NotSupplied, 0, -1);
+    /// <summary>The answer for an entity whose side supplied no payload check.</summary>
+    public static readonly PayloadAgreement NotSupplied = new(PayloadAgreementState.NotSupplied, 0, -1);
+}
 
+/// <summary>
+/// What a <see cref="PayloadAgreement"/> says beyond its fields.
+///
+/// <para>
+/// Extension methods rather than members since plan_shim_areas_split phase 4:
+/// the agreement is in a seam's signature
+/// (<c>IEngineNetworking.CheckPayloadAgreement</c>), so it lives with the seam
+/// in an interface assembly, which holds only data.
+/// </para>
+/// </summary>
+public static class PayloadAgreementReading
+{
     /// <summary>True only for <see cref="PayloadAgreementState.Agrees"/>.</summary>
-    public bool Agrees => State == PayloadAgreementState.Agrees;
+    public static bool Agrees(this PayloadAgreement agreement) => agreement.State == PayloadAgreementState.Agrees;
 
     /// <summary>The state as the JSON and the CLI spell it.</summary>
-    public string Name => State switch
+    public static string Name(this PayloadAgreement agreement) => agreement.State switch
     {
         PayloadAgreementState.Agrees      => "agrees",
         PayloadAgreementState.Disagrees   => "disagrees",

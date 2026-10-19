@@ -520,7 +520,7 @@ public class EffectsRewiringTests
         var byHand = new Dictionary<string, Action<EffectsOverTempEnts>>(StringComparer.Ordinal)
         {
             ["TempEntPlayback"] = e => e.TempEntPlayback(0, ReadOnlySpan<byte>.Empty,
-                                                         TeFilter.Broadcast, 0f),
+                                                         TeFilters.Broadcast, 0f),
         };
 
         var silent = new List<string>();
@@ -610,7 +610,7 @@ public class EffectsRewiringTests
 
         var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
 
-        temps.DispatchEffect(TeFilter.Broadcast, 0f, "GlassImpact", new TeEffectData());
+        temps.DispatchEffect(TeFilters.Broadcast, 0f, "GlassImpact", new TeEffectData());
 
         Assert.True(engine.CountOf("Effects.EffectDispatchIndex") == 1,
             "the name went to the engine's own numbering — g_pStringTableEffectDispatch->"

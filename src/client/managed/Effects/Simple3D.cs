@@ -233,7 +233,7 @@ public sealed class Simple3DSheet(Simple3DSystem system, string material) : ICli
         if (_particles.Count > quadsOut.Length)
             return _particles.Count;
         ParticleView view = system.Views.Current;
-        if (!view.IsSet)
+        if (!view.IsSet())
             return 0;
         int n = 0;
         foreach (var p in _particles.OrderByDescending(p => p.Id))

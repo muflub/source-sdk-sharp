@@ -48,7 +48,7 @@ public sealed class DebugNetSchema(
 
         return new DebugNetPayload(
             read.Found, read.Index, read.Handle, read.ClassName, read.Blob,
-            read.Agreement.Name, read.Agreement.Agrees, read.Agreement.Words, read.Agreement.FirstBadWord,
+            read.Agreement.Name(), read.Agreement.Agrees(), read.Agreement.Words, read.Agreement.FirstBadWord,
             read.Agreement.State != PayloadAgreementState.NotSupplied,
             type is null ? null : Type(type, tiers), decoded);
     }

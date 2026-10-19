@@ -141,7 +141,7 @@ public class BoltImpactTests
         Assert.True(line.ArgAs<EntityHandle>(3) == Victim, "ignoring the victim");
         var stuck = Assert.Single(temps.Effects);
         Assert.Equal("BoltImpact", stuck.Name);
-        Assert.Equal(TeFilter.Pvs(StoppedBehind.End), stuck.Filter);
+        Assert.Equal(TeFilters.Pvs(StoppedBehind.End), stuck.Filter);
         Assert.Equal(0f, stuck.Delay);
         Assert.Equal(StoppedBehind.End, stuck.Data.Origin);
         Assert.True(stuck.Data.Normal.Equals(new Vector(1f, 0f, 0f)),
@@ -190,7 +190,7 @@ public class BoltImpactTests
         Assert.Equal("Weapon_Crossbow.BoltHitWorld", sound.ArgAs<string>(1));
         var stuck = Assert.Single(temps.Effects);
         Assert.Equal("BoltImpact", stuck.Name);
-        Assert.Equal(TeFilter.Pvs(Resting), stuck.Filter);
+        Assert.Equal(TeFilters.Pvs(Resting), stuck.Filter);
         Assert.Equal(Resting, stuck.Data.Origin);
         Assert.True(stuck.Data.Normal.Equals(new Vector(1f, 0f, 0f)), $"normal: {stuck.Data.Normal}");
         Assert.Equal(0, stuck.Data.EntIndex);

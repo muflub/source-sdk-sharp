@@ -735,7 +735,7 @@ public class TempEntEffectDataTests
     {
         var (temps, engine) = Server();
 
-        temps.DispatchEffect(TeFilter.Pas(new Vector(64f, -32f, 8f)), 0f, 9, Sample());
+        temps.DispatchEffect(TeFilters.Pas(new Vector(64f, -32f, 8f)), 0f, 9, Sample());
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 1, "one temp entity was sent");
 
@@ -770,7 +770,7 @@ public class TempEntEffectDataTests
         TeEffectData data = Sample();
         data.SurfaceProp = 42;
 
-        temps.DispatchEffect(TeFilter.Broadcast, 0f, 300, data);
+        temps.DispatchEffect(TeFilters.Broadcast, 0f, 300, data);
 
         byte[] blob = Blob(engine.Last("Effects.TempEntPlayback")!.Value);
 
@@ -796,7 +796,7 @@ public class TempEntEffectDataTests
         TeEffectData data = Sample();
         data.SurfaceProp = -1;
 
-        temps.DispatchEffect(TeFilter.Broadcast, 0f, 1, data);
+        temps.DispatchEffect(TeFilters.Broadcast, 0f, 1, data);
 
         byte[] blob = Blob(engine.Last("Effects.TempEntPlayback")!.Value);
 

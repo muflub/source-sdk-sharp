@@ -138,7 +138,7 @@ public sealed class Bolt : FlyingProjectile
                     // above is the same test, so this is stock's 1.
                     EntIndex = 1,
                 };
-                Temps.DispatchEffect(TeFilter.Pvs(tr2.End), 0f, BoltImpact, in data);
+                Temps.DispatchEffect(TeFilters.Pvs(tr2.End), 0f, BoltImpact, in data);
             }
 
             return;
@@ -170,7 +170,7 @@ public sealed class Bolt : FlyingProjectile
             Normal = forward,
             EntIndex = 0,
         };
-        Temps.DispatchEffect(TeFilter.Pvs(face.End), 0f, BoltImpact, in stuck);
+        Temps.DispatchEffect(TeFilters.Pvs(face.End), 0f, BoltImpact, in stuck);
 
         // UTIL_ImpactTrace's terminal dispatch - CBaseEntity::ImpactTrace's
         // "Impact" - through the port the hitscans already use, with its

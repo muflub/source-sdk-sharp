@@ -399,7 +399,7 @@ public class SandboxTeTests
 
         foreach (TeDemo demo in TeDemos.All)
         {
-            bool sent = new TeFire(new RecordingLog(), registry, engine, engine).Send(demo, at, TeFilter.Broadcast, 0f);
+            bool sent = new TeFire(new RecordingLog(), registry, engine, engine).Send(demo, at, TeFilters.Broadcast, 0f);
 
             if (!sent)
             {
@@ -458,7 +458,7 @@ public class SandboxTeTests
         var at = new Vector(64f, -32f, 16f);
         TeDemo spline = TeDemos.ByClass("CTEBeamSpline")!;
 
-        Assert.True(new TeFire(new RecordingLog(), registry, engine, engine).Send(spline, at, TeFilter.Broadcast, 0f),
+        Assert.True(new TeFire(new RecordingLog(), registry, engine, engine).Send(spline, at, TeFilters.Broadcast, 0f),
             "the spline went");
 
         var call = engine.Last("Effects.TempEntPlayback")!.Value;

@@ -26,57 +26,61 @@ namespace SourceSharp.Abi;
 /// posed on a skeleton where none is.
 /// </para>
 /// </summary>
-public sealed class StandaloneBones
+public sealed class StandaloneBones(int count, float[] boneToWorld, uint[] writtenBits,
+                                     float[] entityToWorld)
 {
     /// <summary>A matrix3x4_t is three rows of four floats.</summary>
     public const int FloatsPerMatrix = 12;
 
-    internal StandaloneBones(int count, float[] boneToWorld, uint[] writtenBits,
-                             float[] entityToWorld)
-    {
-        Count         = count;
-        BoneToWorld   = boneToWorld;
-        WrittenBits   = writtenBits;
-        EntityToWorld = entityToWorld;
-    }
-
     /// <summary>How many bones the cache holds.</summary>
-    public int Count { get; }
+    public int Count { get; } = count;
 
     /// <summary>
     /// <see cref="Count"/> matrices, <see cref="FloatsPerMatrix"/> floats each,
     /// in bone order.
     /// </summary>
-    public float[] BoneToWorld { get; }
+    public float[] BoneToWorld { get; } = boneToWorld;
 
     /// <summary>
     /// One bit per bone, LSB of word 0 being bone 0. Read it through
-    /// <see cref="IsWritten"/>.
+    /// <see cref="StandaloneBonesReading.IsWritten"/>.
     /// </summary>
-    public uint[] WrittenBits { get; }
+    public uint[] WrittenBits { get; } = writtenBits;
 
     /// <summary>
     /// The entity's own transform — where it is, how it is turned, and how big
     /// it is worn. <see cref="FloatsPerMatrix"/> floats.
     /// </summary>
-    public float[] EntityToWorld { get; }
+    public float[] EntityToWorld { get; } = entityToWorld;
+}
 
+/// <summary>
+/// What a <see cref="StandaloneBones"/> says beyond its fields.
+///
+/// <para>
+/// Extension methods rather than members since plan_shim_areas_split phase 4:
+/// the bones are in a seam's signature (<c>IEngineEntityRender.BoneMatrices</c>),
+/// so they live with the seam in an interface assembly, which holds only data.
+/// </para>
+/// </summary>
+public static class StandaloneBonesReading
+{
     /// <summary>
     /// Whether the build wrote bone <paramref name="bone"/> under the mask the
     /// entity last asked for. False for an index outside the cache.
     /// </summary>
-    public bool IsWritten(int bone)
+    public static bool IsWritten(this StandaloneBones bones, int bone)
     {
-        if (bone < 0 || bone >= Count) return false;
+        if (bone < 0 || bone >= bones.Count) return false;
 
         int word = bone / 32;
 
-        return word < WrittenBits.Length && (WrittenBits[word] & (1u << (bone % 32))) != 0;
+        return word < bones.WrittenBits.Length && (bones.WrittenBits[word] & (1u << (bone % 32))) != 0;
     }
 
     /// <summary>
     /// Whether bone <paramref name="bone"/> differs from
-    /// <see cref="EntityToWorld"/> — which is what "the pose branch ran for this
+    /// <see cref="StandaloneBones.EntityToWorld"/> — which is what "the pose branch ran for this
     /// bone" means, and the only thing that separates a posed skeleton from an
     /// unposed one.
     ///
@@ -87,24 +91,24 @@ public sealed class StandaloneBones
     /// posing.
     /// </para>
     /// </summary>
-    public bool IsPosed(int bone)
+    public static bool IsPosed(this StandaloneBones bones, int bone)
     {
-        if (!IsWritten(bone)) return false;
+        if (!bones.IsWritten(bone)) return false;
 
-        int at = bone * FloatsPerMatrix;
+        int at = bone * StandaloneBones.FloatsPerMatrix;
 
-        if (at + FloatsPerMatrix > BoneToWorld.Length ||
-            EntityToWorld.Length < FloatsPerMatrix)
+        if (at + StandaloneBones.FloatsPerMatrix > bones.BoneToWorld.Length ||
+            bones.EntityToWorld.Length < StandaloneBones.FloatsPerMatrix)
             return false;
 
-        for (int i = 0; i < FloatsPerMatrix; i++)
+        for (int i = 0; i < StandaloneBones.FloatsPerMatrix; i++)
         {
             // BitwiseEquals, not ==: the native test is a memcmp, and two
             // matrices that differ only in the sign of a zero are the same
             // matrix to == and different bytes to memcmp. Reading the bits is
             // what makes the two sides answer the same number.
-            if (BitConverter.SingleToInt32Bits(BoneToWorld[at + i]) !=
-                BitConverter.SingleToInt32Bits(EntityToWorld[i]))
+            if (BitConverter.SingleToInt32Bits(bones.BoneToWorld[at + i]) !=
+                BitConverter.SingleToInt32Bits(bones.EntityToWorld[i]))
                 return true;
         }
 
@@ -112,17 +116,14 @@ public sealed class StandaloneBones
     }
 
     /// <summary>How many of the cached bones the build wrote.</summary>
-    public int WrittenCount
+    public static int WrittenCount(this StandaloneBones bones)
     {
-        get
-        {
-            int n = 0;
+        int n = 0;
 
-            for (int i = 0; i < Count; i++)
-                if (IsWritten(i)) n++;
+        for (int i = 0; i < bones.Count; i++)
+            if (bones.IsWritten(i)) n++;
 
-            return n;
-        }
+        return n;
     }
 
     /// <summary>
@@ -130,16 +131,13 @@ public sealed class StandaloneBones
     /// Equal to <see cref="WrittenCount"/> on a skeleton every bone of which
     /// the pose branch ran for.
     /// </summary>
-    public int PosedCount
+    public static int PosedCount(this StandaloneBones bones)
     {
-        get
-        {
-            int n = 0;
+        int n = 0;
 
-            for (int i = 0; i < Count; i++)
-                if (IsPosed(i)) n++;
+        for (int i = 0; i < bones.Count; i++)
+            if (bones.IsPosed(i)) n++;
 
-            return n;
-        }
+        return n;
     }
 }

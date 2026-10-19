@@ -340,27 +340,27 @@ public class TempEntDecalSchemaTests
         var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
         var at = new Vector(64f, -32f, 8f);
 
-        temps.BSPDecal(TeFilter.Broadcast, 0f, at, 0, 7);
+        temps.BSPDecal(TeFilters.Broadcast, 0f, at, 0, 7);
         Assert.True(engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<int>(1) == 20,
             "a whole DT_TEBSPDecal blob went");
 
-        temps.Decal(TeFilter.Broadcast, 0f, at, at, 0, 0, 7);
+        temps.Decal(TeFilters.Broadcast, 0f, at, at, 0, 0, 7);
         Assert.True(engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<int>(1) == 36,
             "a whole DT_TEDecal blob went");
 
-        temps.WorldDecal(TeFilter.Broadcast, 0f, at, 7);
+        temps.WorldDecal(TeFilters.Broadcast, 0f, at, 7);
         Assert.True(engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<int>(1) == 16,
             "a whole DT_TEWorldDecal blob went");
 
-        temps.PlayerDecal(TeFilter.Broadcast, 0f, at, 1, 0);
+        temps.PlayerDecal(TeFilters.Broadcast, 0f, at, 1, 0);
         Assert.True(engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<int>(1) == 20,
             "a whole DT_TEPlayerDecal blob went");
 
-        temps.ProjectDecal(TeFilter.Broadcast, 0f, at, new QAngle(90f, 0f, 0f), 64f, 7);
+        temps.ProjectDecal(TeFilters.Broadcast, 0f, at, new QAngle(90f, 0f, 0f), 64f, 7);
         Assert.True(engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<int>(1) == 32,
             "a whole DT_TEProjectedDecal blob went");
 
-        temps.FootprintDecal(TeFilter.Pvs(at), 0f, at, new Vector(0f, 1f, 0f), 0, 7, (byte)'C');
+        temps.FootprintDecal(TeFilters.Pvs(at), 0f, at, new Vector(0f, 1f, 0f), 0, 7, (byte)'C');
 
         var last = engine.Last("Effects.TempEntPlayback")!.Value;
 

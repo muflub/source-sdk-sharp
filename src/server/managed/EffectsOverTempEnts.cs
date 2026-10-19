@@ -174,7 +174,7 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
         // "no particular direction" rather than a direction of zero length that
         // would have to be special-cased downstream (te_sparks.cpp:84) — and
         // substituting in both places would be two opinions about one default.
-        _temps.Sparks(TeFilter.Pvs(origin), 0f, origin, magnitude, trailLength, direction);
+        _temps.Sparks(TeFilters.Pvs(origin), 0f, origin, magnitude, trailLength, direction);
 
         if (!makeSound)
             return;
@@ -212,7 +212,7 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     /// </summary>
     public override void ExplosionEffect(Vector origin, int modelIndex, float scale, int frameRate,
                                 int flags, int radius, int magnitude)
-        => _temps.Explosion(TeFilter.Pas(origin), 0f, origin, modelIndex, scale, frameRate,
+        => _temps.Explosion(TeFilters.Pas(origin), 0f, origin, modelIndex, scale, frameRate,
                             flags, radius, magnitude);
 
     /// <summary>
@@ -238,7 +238,7 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     /// </para>
     /// </summary>
     public override void MuzzleFlashEffect(Vector origin, Vector angles, float scale, int type = 1)
-        => _temps.MuzzleFlash(TeFilter.Pvs(origin), 0f, origin, QAngle.FromVector(angles),
+        => _temps.MuzzleFlash(TeFilters.Pvs(origin), 0f, origin, QAngle.FromVector(angles),
                               scale, type);
 
     /// <summary>
@@ -266,7 +266,7 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
 
         // An int and not a bool, because stock's m_nReversed is an int and the
         // prop is two bits wide rather than one.
-        _temps.LargeFunnel(TeFilter.Broadcast, 0f, origin, spriteIndex, reversed ? 1 : 0);
+        _temps.LargeFunnel(TeFilters.Broadcast, 0f, origin, spriteIndex, reversed ? 1 : 0);
     }
 
     /// <summary>
@@ -290,7 +290,7 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
             ? new Vector(0f, 0f, 1f)
             : direction.Normalized;
 
-        _temps.Dust(TeFilter.Pvs(origin), 0f, origin, unit, size, speed);
+        _temps.Dust(TeFilters.Pvs(origin), 0f, origin, unit, size, speed);
     }
 
     /// <summary>
@@ -457,7 +457,7 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     /// </para>
     /// </summary>
     private void Dispatch(string name, in TeEffectData data)
-        => _temps.DispatchEffect(TeFilter.Pas(data.Origin), 0f, name, in data);
+        => _temps.DispatchEffect(TeFilters.Pas(data.Origin), 0f, name, in data);
 
     /// <summary>
     /// The entity index the client attaches an effect to.

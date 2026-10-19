@@ -339,7 +339,7 @@ public class TempEntSchemaTests
 
         var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
 
-        temps.Sparks(TeFilter.Broadcast, 0f, new Vector(64f, -32f, 8f), 6, 3,
+        temps.Sparks(TeFilters.Broadcast, 0f, new Vector(64f, -32f, 8f), 6, 3,
                      new Vector(0f, 0f, 1f));
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 1, "one temp entity was sent");
@@ -396,7 +396,7 @@ public class TempEntSchemaTests
         Assert.True(accepted == 0, "native refused every one of them");
 
         var temps = new SourceSharp.Server.TempEnts(new RecordingLog(), registry, engine);
-        temps.Sparks(TeFilter.Broadcast, 0f, Vector.Zero, 1, 1, null);
+        temps.Sparks(TeFilters.Broadcast, 0f, Vector.Zero, 1, 1, null);
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 0,
             "and nothing was sent, rather than a blob under handle -1");

@@ -256,7 +256,7 @@ public class TempEntParticleClientTests
         var registry = Registered(engine);
 
         var temps = ServerWriter();
-        temps.Sparks(TeFilter.Broadcast, 0f, new Vector(-2932f, 3218f, 60f),
+        temps.Sparks(TeFilters.Broadcast, 0f, new Vector(-2932f, 3218f, 60f),
                      magnitude: 6, trailLength: 3, direction: new Vector(0f, 0f, 1f));
 
         TempEntType sparks = registry.Find("CTESparks")!;
@@ -291,7 +291,7 @@ public class TempEntParticleClientTests
         var registry = Registered(engine);
 
         var temps = ServerWriter();
-        temps.LargeFunnel(TeFilter.Broadcast, 0f, new Vector(100f, 200f, 300f),
+        temps.LargeFunnel(TeFilters.Broadcast, 0f, new Vector(100f, 200f, 300f),
                           modelIndex: 41, reversed: 1);
 
         TempEntType funnel = registry.Find("CTELargeFunnel")!;
@@ -413,7 +413,7 @@ public class TempEntParticleClientTests
         var registry = Registered(engine);
 
         var temps = ServerWriter();
-        temps.GaussExplosion(TeFilter.Broadcast, 0f, new Vector(9f, 8f, 7f),
+        temps.GaussExplosion(TeFilters.Broadcast, 0f, new Vector(9f, 8f, 7f),
                              new Vector(1f, 0f, 0f), type: 2);
 
         TempEntType gauss = registry.Find("CTEGaussExplosion")!;
@@ -445,7 +445,7 @@ public class TempEntParticleClientTests
         var registry = Registered(engine);
 
         var temps = ServerWriter();
-        temps.Dust(TeFilter.Broadcast, 0f, new Vector(5f, 6f, 7f),
+        temps.Dust(TeFilters.Broadcast, 0f, new Vector(5f, 6f, 7f),
                    new Vector(0f, 0f, 1f), size: 64f, speed: 12f);
 
         TempEntType dust = registry.Find("CTEDust")!;
