@@ -5,6 +5,30 @@ using System.Collections.Generic;
 namespace SourceSharp.Abi;
 
 /// <summary>
+/// The engine's name lookup, as an allocation-free snapshot
+/// (<see cref="NameMatches"/>).
+///
+/// <para>
+/// A seam of its own rather than a member of <see cref="IEngineEntities"/>
+/// (plan_shim_areas_split phase 4): the seams live in interface assemblies,
+/// which hold only interfaces and data, and <see cref="NameMatches"/> is not
+/// data. It is a disposable enumerator over a pooled buffer, and a
+/// <c>using</c> on a ref struct needs its own <c>Dispose</c>, so its behaviour
+/// cannot move out of the type. The call stays in the interop with its type.
+/// </para>
+/// </summary>
+public interface IEngineEntityNames
+{
+    /// <summary>
+    /// Every entity answering to <paramref name="name"/> (which may end in
+    /// '*'), in name-lookup order, as an allocation-free snapshot for
+    /// <c>foreach</c>. An entity removed during the loop is skipped; one spawned
+    /// during it is not visited. See <see cref="NameMatches"/>.
+    /// </summary>
+    NameMatches Named(string name, int limit = 512);
+}
+
+/// <summary>
 /// Every entity answering to a name, for <c>foreach</c>, allocating nothing.
 ///
 /// <para>

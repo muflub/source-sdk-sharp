@@ -169,13 +169,15 @@ public sealed class PropShotCommand : IConCommand
     private readonly ILog _log;
 
     private readonly IEngineEntities _entities;
+    private readonly IEngineEntityNames _names;
     private readonly IEngineEntityRender _render;
 
-    public PropShotCommand(ILog log, IEngineEntities entities, IEngineEntityRender render)
+    public PropShotCommand(ILog log, IEngineEntities entities, IEngineEntityNames names, IEngineEntityRender render)
     {
 
         _log = log;
         _entities = entities;
+        _names = names;
         _render = render;
     }
 
@@ -270,7 +272,7 @@ public sealed class PropShotCommand : IConCommand
     private void Clear()
     {
         // Removing while walking is what NameMatches' snapshot is for.
-        foreach (EntityHandle previous in _entities.Named(PropShot.Name))
+        foreach (EntityHandle previous in _names.Named(PropShot.Name))
             _entities.Remove(previous);
     }
 }

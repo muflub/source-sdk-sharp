@@ -73,6 +73,8 @@ public sealed class RecordingEngine :
     IUserMessageSender,
     IEngineScripted,
     IEngineEntities,
+    IEngineEntityNames,
+    IEngineOverlaps,
     IEngineEntityPhysics,
     IEngineEntityRender,
     IEngineDamage,
@@ -614,7 +616,7 @@ public sealed class RecordingEngine :
     IEnumerable<EntityHandle> IEngineEntities.FindAllByClassname(string className) => Record<IEnumerable<EntityHandle>>("Entities.FindAllByClassname", className);
     List<EntityHandle> IEngineEntities.FindAllByName(string name, int limit) => Record<List<EntityHandle>>("Entities.FindAllByName", name, limit);
     EntityHandle IEngineEntities.FindByName(string name) => Record<EntityHandle>("Entities.FindByName", name);
-    NameMatches IEngineEntities.Named(string name, int limit)
+    NameMatches IEngineEntityNames.Named(string name, int limit)
         => NameMatches.Copy(Record<List<EntityHandle>>("Entities.Named", name, limit));
     bool IEngineEntities.FireInput(EntityHandle target, string input, string? value, EntityHandle activator) => Record<bool>("Entities.FireInput", target, input, value, activator);
     Vector IEngineEntities.GetAngles(EntityHandle h) => Record<Vector>("Entities.GetAngles", h);
@@ -720,7 +722,7 @@ public sealed class RecordingEngine :
     /// caller ASKED, which is what <c>OverlapReader</c> is tested on.
     /// </para>
     /// </summary>
-    int IEngineEntities.OverlapReport(Span<OverlapPair> into)
+    int IEngineOverlaps.OverlapReport(Span<OverlapPair> into)
     {
         RecordVoid("Entities.OverlapReport", into.Length);
         return 0;

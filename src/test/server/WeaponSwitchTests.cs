@@ -99,7 +99,6 @@ public class WeaponSwitchTests
         public void ApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround) => _engine.ApplyVelocityImpulse(h, impulse, clearGround);
         public IEnumerable<EntityHandle> FindAllByClassname(string className) => _engine.FindAllByClassname(className);
         public List<EntityHandle> FindAllByName(string name, int limit = 512) => _engine.FindAllByName(name, limit);
-        public NameMatches Named(string name, int limit = 512) => _engine.Named(name, limit);
         public EntityHandle FindByName(string name) => _engine.FindByName(name);
         public bool FireInput(EntityHandle target, string input, string? value = null, EntityHandle activator = default) => _engine.FireInput(target, input, value, activator);
         public Vector GetAngles(EntityHandle h) => _engine.GetAngles(h);
@@ -142,7 +141,6 @@ public class WeaponSwitchTests
         public EntityHandle FindBaseByName(string name) => _engine.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => _engine.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => _engine.DestroyPhysics(entity);
-        public int OverlapReport(Span<OverlapPair> into) => _engine.OverlapReport(into);
 
         // The native half of a savegame. Forwarded like everything else this
         // double does not decide for itself -- an Arsenal never asks any of

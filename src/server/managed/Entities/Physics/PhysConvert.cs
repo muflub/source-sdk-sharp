@@ -78,7 +78,7 @@ public sealed class PhysConvert : ScriptedEntity
         // (A limit is not the cap: a name-lookup limit bounds the shelled half
         // only, so the first match is taken by stopping, as the old
         // RemoveRange( 1, ... ) did.)
-        using NameMatches targets = Entities.Named(Vars.Target);
+        using NameMatches targets = NameLookup.Named(Vars.Target);
 
         foreach (EntityHandle target in targets)
         {

@@ -92,7 +92,7 @@ public sealed class OverlapReader
     private readonly OverlapSource _report;
     private OverlapPair[] _buffer = new OverlapPair[InitialPairs];
 
-    public OverlapReader(ILog log, IEngineEntities entities) : this(log, entities.OverlapReport) { }
+    public OverlapReader(ILog log, IEngineOverlaps overlaps) : this(log, overlaps.OverlapReport) { }
 
     public OverlapReader(ILog log, OverlapSource report) 
 

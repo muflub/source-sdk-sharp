@@ -99,14 +99,6 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.FindEntitiesByName"/>
     List<EntityHandle> FindAllByName(string name, int limit = 512);
 
-    /// <summary>
-    /// Every entity answering to <paramref name="name"/> (which may end in
-    /// '*'), in name-lookup order, as an allocation-free snapshot for
-    /// <c>foreach</c>. An entity removed during the loop is skipped; one spawned
-    /// during it is not visited. See <see cref="NameMatches"/>.
-    /// </summary>
-    NameMatches Named(string name, int limit = 512);
-
     /// <inheritdoc cref="EngineSide.FindEntityByName"/>
     EntityHandle FindByName(string name);
 
@@ -254,9 +246,6 @@ public interface IEngineEntities
 
     /// <inheritdoc cref="EngineSide.EntityDestroyPhysics"/>
     void DestroyPhysics(EntityHandle entity);
-
-    /// <inheritdoc cref="EngineSide.EntityOverlapReport"/>
-    int OverlapReport(Span<OverlapPair> into);
 
     // ---- plan_gamedll_after.md Phase A2 ------------------------------------
     //

@@ -10,6 +10,24 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
+/// The engine's per-frame overlap report (<see cref="OverlapPair"/>).
+///
+/// <para>
+/// A seam of its own rather than a member of <see cref="IEngineEntities"/>
+/// (plan_shim_areas_split phase 4): the seams live in interface assemblies,
+/// which hold only interfaces and data, and <see cref="OverlapPair"/> is not
+/// data. Its equality is unordered (a pair and its mirror are one overlap),
+/// which <see cref="IEquatable{T}"/> carries and no extension method could, so
+/// the call stays in the interop with its type.
+/// </para>
+/// </summary>
+public interface IEngineOverlaps
+{
+    /// <inheritdoc cref="EngineSide.EntityOverlapReport"/>
+    int OverlapReport(Span<OverlapPair> into);
+}
+
+/// <summary>
 /// ONE OVERLAPPING PAIR — an element of the per-frame report
 /// (<c>plan_entity.md</c> step 2b, the <c>EntityOverlapReport</c> slot).
 ///
