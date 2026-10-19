@@ -352,11 +352,11 @@ public sealed class HandleTestCommand : IConCommand
 /// </summary>
 [ConCommand("cs_vtable", Help = "Acquire the engine interfaces this side serves through "
                               + "their vtables and report what each answered")]
-public sealed class VtableAcquireCommand(ModuleEngine engine, ILog log) : IConCommand
+public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog log) : IConCommand
 {
     public void Execute(string args)
     {
-        Report("IUniformRandomStream", UniformRandomStream.Acquire(engine, out string why), why,
+        Report("IUniformRandomStream", engine.RandomStream(out string why), why,
                stream => $"RandomInt(7,7) = {((IUniformRandom)stream).RandomInt(7, 7)}");
 
         // MODEL INDEX 1 IS THE WORLD, on every BSP -- so the index answers
@@ -364,7 +364,7 @@ public sealed class VtableAcquireCommand(ModuleEngine engine, ILog log) : IConCo
         // about it beside the lookup. A brush model is mod_brush(1), which is
         // the .bsp's own structure and not something the engine chose, and a
         // world model has exactly one frame.
-        Report("IVModelInfo", EngineModelInfo.Acquire(engine, out why), why,
+        Report("IVModelInfo", engine.ModelInfo(out why), why,
                info => $"ModelIndex(\"maps/dm_lockdown.bsp\") = "
                        + $"{((IVtableModelInfo)info).ModelIndex("maps/dm_lockdown.bsp")}, "
                        + $"TypeAt(1) = {((IVtableModelInfo)info).TypeAt(1)}, "
@@ -375,7 +375,7 @@ public sealed class VtableAcquireCommand(ModuleEngine engine, ILog log) : IConCo
         // what Phase 3 converted FilesGameFileSize onto. Size answers 0 for
         // both; exists is the question that separates them, and the second
         // source is `stat`.
-        Report("IBaseFileSystem", EngineBaseFileSystem.Acquire(engine, out why), why,
+        Report("IBaseFileSystem", engine.BaseFileSystem(out why), why,
                files => $"FileSize(\"gameinfo.txt\", \"MOD\") = "
                         + $"{((IVtableBaseFileSystem)files).FileSize("gameinfo.txt", "MOD")}, "
                         + $"FileExists(\"gameinfo.txt\", \"GAME\") = "
@@ -388,7 +388,7 @@ public sealed class VtableAcquireCommand(ModuleEngine engine, ILog log) : IConCo
         // counts managed entities -- they are not the same population and the
         // probe line printing both is what says so out loud. IsDedicatedServer
         // is false on the listen server every gate here runs.
-        Report("IVEngineServer", EngineServer.Acquire(engine, out why), why,
+        Report("IVEngineServer", engine.EngineServer(out why), why,
                server => $"GameDir() = {((IVtableEngineServer)server).GameDir()}, "
                          + $"IsDedicatedServer() = {((IVtableEngineServer)server).IsDedicatedServer()}, "
                          + $"EntityCount() = {((IVtableEngineServer)server).EntityCount()}, "
@@ -398,7 +398,7 @@ public sealed class VtableAcquireCommand(ModuleEngine engine, ILog log) : IConCo
         // refusal that is never printed is indistinguishable from a call nobody
         // made.
         // The acquire is ShimProbes' since EngineClient moved to Client.Interop.
-        log.Msg($"[SourceSharp/Vtable] {ShimProbes.EngineClient(engine)}\n");
+        log.Msg($"[SourceSharp/Vtable] {engine.EngineClientProbe()}\n");
 
         // THE SHIM LAYER, through the SAME acquire and the same dispatch --
         // plan_native_api.md Phase 2. The only difference from the five above
@@ -410,8 +410,8 @@ public sealed class VtableAcquireCommand(ModuleEngine engine, ILog log) : IConCo
         // every line here: the tick through the shim's own vtable, and the
         // engine's CGlobalVars read through the independent data pointer beside
         // it.
-        log.Msg($"[SourceSharp/Vtable] {ShimProbes.Frame(engine)}\n");
-        log.Msg($"[SourceSharp/Vtable] {ShimProbes.Level(engine)}\n");
+        log.Msg($"[SourceSharp/Vtable] {engine.FrameProbe()}\n");
+        log.Msg($"[SourceSharp/Vtable] {engine.LevelProbe()}\n");
     }
 
     private void Report(string name, object? bound, string why, Func<object, string> call)

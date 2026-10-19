@@ -494,3 +494,32 @@ Open: none.
     |---|---|---|---|
     | base 8ea566c | 18.76 | 20.90 | 26.41 |
     | phase 7 94112e2 | 19.42 | 21.59 | 28.08 |
+- **Phase 8** (2026-10-19). Measured at the start (grep over the logic trees,
+  less the roots): seven code references to `ModuleEngine`, not the plan's 11
+  files. The rest were doc comments, or had gone in earlier phases.
+  - The four client `FromEngine(ModuleEngine)` factories went
+    (`ClientWorldLight`, `ParticleQueryEngine`, `EngineReconnect`,
+    `ClientReloadRequester`). The client root hands each the acquire its other
+    engine-client services already took, now one method,
+    `AcquireEngineClient`.
+  - `cs_vtable_client` takes `IVtableEngineClientSource`, a new seam in
+    Client.Interface: the engine client, or the reason it was refused. It
+    cannot be named `IEngine...`, because `EngineServices` enrols every
+    `IEngine*` interface beside a same-named class as an engine area.
+  - `cs_vtable` takes `IServerEngineInterfaces`: the four interfaces it
+    reports and the three shim probe lines. It is declared in the server
+    interop because the interfaces it returns live there.
+  - Each root registers the real seam over its own engine. Facts drive each
+    command over a fake. Two compositions show that only the one whose root
+    serves the interface gets it through the registered seam; a seam that
+    always refuses turns that fact red.
+  - `ScriptedEntityRegistry` takes the `ServerEntityEngine` that its
+    constructor used to build from the engine; the root builds it.
+  - An IL census of the logic assemblies (`SourceSharp.Server`,
+    `SourceSharp.Client`, the UI, the mods, TF2), done with a scratch scanner
+    that phase 10 makes a fact:
+    - Outside the two roots, no method body references `EngineSide`,
+      `ModuleEngine`, an area class or a forwarder struct.
+    - It finds one implementation of a seam interface: the Abi's
+      `StandardErrorLog`, the stderr `ILog` that three logic types fall back
+      to with no engine. Phase 10 rules on it.

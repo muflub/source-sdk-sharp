@@ -2072,8 +2072,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// <param name="io">The side's I/O route: delivery and the service pass.</param>
     /// <param name="removal">The side's removal route.</param>
     /// <param name="side">
-    /// The side itself, for the two engine calls no area carries: freeing a
-    /// frame's shells and the shell-less reach (plan_abi_hotreload D8).
+    /// The side's entity engine, for the engine calls no area carries: freeing
+    /// a frame's shells, the shell-less reach and binding net states
+    /// (plan_abi_hotreload D8). The root builds it over its own engine, so this
+    /// registry never names the engine itself (plan_shim_areas_split phase 8).
     /// </param>
     /// <param name="engine">
     /// The side's container, which holds its engine areas: what this registry
@@ -2091,13 +2093,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// composition's likewise.
     /// </remarks>
     public ScriptedEntityRegistry(LivenessMirror liveness, ShellLessRoutes shellLess, EntityIoRoutes io,
-                                  EntityRemovalRoutes removal, IServiceLocator engine, ModuleEngine side)
-        : this(liveness, shellLess, io, removal, engine, new ServerEntityEngine(side))
-    {
-    }
-
-    private ScriptedEntityRegistry(LivenessMirror liveness, ShellLessRoutes shellLess, EntityIoRoutes io,
-                                   EntityRemovalRoutes removal, IServiceLocator engine, ServerEntityEngine side)
+                                  EntityRemovalRoutes removal, IServiceLocator engine, ServerEntityEngine side)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(side);

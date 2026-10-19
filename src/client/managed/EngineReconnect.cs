@@ -11,9 +11,6 @@ public sealed class EngineReconnect(Func<IVtableEngineClient?> acquire, ILog log
 {
     private IVtableEngineClient? _engine;
 
-    public static EngineReconnect FromEngine(ModuleEngine engine, ILog log)
-        => new(() => EngineClient.Acquire(engine, out _), log);
-
     public void Reconnect()
     {
         _engine ??= acquire();

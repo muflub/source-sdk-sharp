@@ -240,12 +240,12 @@ public sealed class BecomeRagdollCommand : IConCommand
 /// </summary>
 [ConCommand("cs_vtable_client", Help = "Acquire IVEngineClient through its vtable and "
                                      + "exercise the four C++ proxies")]
-public sealed class VtableClientCommand(ModuleEngine engine, ILog log) : IConCommand
+public sealed class VtableClientCommand(IVtableEngineClientSource engine, ILog log) : IConCommand
 {
     public void Execute(string args)
     {
         // Through this composition's own engine (plan_abi_hotreload D8).
-        IVtableEngineClient? client = EngineClient.Acquire(engine, out string why);
+        IVtableEngineClient? client = engine.Acquire(out string why);
 
         if (client is null)
         {

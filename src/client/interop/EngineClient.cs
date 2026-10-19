@@ -199,3 +199,14 @@ internal unsafe struct PlayerInfoT
     [System.Runtime.InteropServices.FieldOffset(36)] public fixed byte GuidBuffer[GuidBytes];
     [System.Runtime.InteropServices.FieldOffset(108)] public byte FakePlayer;
 }
+
+/// <summary>
+/// The real <see cref="IVtableEngineClientSource"/>: <see cref="EngineClient.Acquire"/>
+/// over the composition's own engine, which the client's root registers.
+/// </summary>
+internal sealed class VtableEngineClientSource(ModuleEngine engine) : IVtableEngineClientSource
+{
+    private readonly ModuleEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+
+    public IVtableEngineClient? Acquire(out string why) => EngineClient.Acquire(_engine, out why);
+}

@@ -166,9 +166,6 @@ public sealed class ClientReloadRequester(Func<IVtableEngineClient?> acquire)
     /// <summary>Whether a request was accepted by this build; the reload replaces the build that answers.</summary>
     public bool Pending { get; private set; }
 
-    public static ClientReloadRequester FromEngine(ModuleEngine engine)
-        => new(() => EngineClient.Acquire(engine, out _));
-
     /// <summary>False when there is no engine client to ask.</summary>
     public bool Request()
     {
