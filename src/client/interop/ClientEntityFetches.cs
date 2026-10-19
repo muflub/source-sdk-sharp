@@ -3,6 +3,24 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>
+/// Registers the client's engine adapters: every client-only seam whose real
+/// implementation calls a shim area, built over the side's attached areas.
+///
+/// <para>
+/// The client's composition root (<c>ClientModule</c>) asks this seam rather
+/// than <see cref="ClientEntityFetches"/> directly, so a test that composes a
+/// client module hands it fakes and never reaches a shim area: what such a
+/// test checks is the managed composition, and the adapters' own slot calls
+/// have facts of their own over a fake shim root.
+/// </para>
+/// </summary>
+public interface IClientEngineAdapters
+{
+    /// <summary>Registers the adapters in <paramref name="services"/>, before the engine areas.</summary>
+    void AddTo(ServiceContainer services, ModuleEngine engine);
+}
+
+/// <summary>
 /// The client's three per-frame entity fetches, built by the client
 /// composition and handed to its <c>IEngineEntities</c> binding (P1 run 3).
 ///
@@ -15,10 +33,10 @@ namespace SourceSharp.Client.Interop;
 /// container hold the same three objects.
 /// </para>
 /// </summary>
-public static class ClientEntityFetches
+public sealed class ClientEntityFetches : IClientEngineAdapters
 {
     /// <summary>Registers this side's three, over its own slots. Call before <see cref="ModuleEngine.AddTo"/>.</summary>
-    public static void AddTo(ServiceContainer services, ModuleEngine engine)
+    public void AddTo(ServiceContainer services, ModuleEngine engine)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(engine);

@@ -24,7 +24,7 @@ public unsafe class ClientAdapterRegistrationTests
     private static ServiceContainer Composed(EngineSide side)
     {
         var services = new ServiceContainer();
-        ClientEntityFetches.AddTo(services, new ModuleEngine(side));
+        new ClientEntityFetches().AddTo(services, new ModuleEngine(side));
         return services;
     }
 
