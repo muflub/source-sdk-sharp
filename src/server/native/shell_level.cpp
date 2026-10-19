@@ -835,6 +835,12 @@ public:
 
 		return MapEntity_SpawnWorld( ppKeys, ppValues, nKeys ) ? 1 : 0;
 	}
+
+	// plan_server_native_v2 T4a: the flag SetPrecacheAllowed writes, read back.
+	virtual int32_t IsPrecacheAllowed() OVERRIDE
+	{
+		return EntityPrecache_IsAllowed() ? 1 : 0;
+	}
 };
 
 } // namespace

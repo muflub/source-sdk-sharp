@@ -88,14 +88,27 @@ public interface IVtableBaseFileSystem
     /// </summary>
     bool FileExists(string fileName, string pathId);
 
-    // NOTHING THAT WRITES, AND NO HANDLES.
-    //
-    // Read, Write, Open, Close, Seek, Tell, Flush, Precache,
-    // IsFileWritable, SetFileWritable, ReadFile, WriteFile and UnzipFile are all
-    // typed in the struct and none of them is here. Two grounds: the handle
-    // methods hand out a FileHandle_t whose lifetime managed code would then own
-    // across a GC, and SetFileWritable chmods a file while WriteFile creates
-    // one. The absence IS the decision; there is no table recording it.
+    /// <summary>
+    /// <c>Open( name, options, pathId )</c>: a <c>FileHandle_t</c>, or 0
+    /// (<c>FILESYSTEM_INVALID_HANDLE</c>) when the file could not be opened.
+    /// The caller owns the handle and closes it (<see cref="Close"/>): the
+    /// user's 2026-10-19 ruling exposed the handles to managed code.
+    /// plan_server_native_v2 T4a's precache log is the one that outlives a
+    /// call, opened at a level's start and closed at its end.
+    /// </summary>
+    nint Open(string fileName, string options, string pathId);
+
+    /// <summary><c>Write( bytes, size, handle )</c>: the bytes written.</summary>
+    int Write(ReadOnlySpan<byte> bytes, nint handle);
+
+    /// <summary><c>Close( handle )</c>.</summary>
+    void Close(nint handle);
+
+    // NOTHING ELSE THAT WRITES. Seek, Tell, Flush, Precache, IsFileWritable,
+    // SetFileWritable, ReadFile, WriteFile and UnzipFile are typed in the
+    // struct and none of them is here: SetFileWritable chmods a file while
+    // WriteFile creates one. The absence IS the decision; there is no table
+    // recording it.
 }
 
 /// <summary>
@@ -213,5 +226,31 @@ public sealed unsafe class EngineBaseFileSystem : IVtableBaseFileSystem
         {
             _fwd->Close(_self, handle);
         }
+    }
+
+    /// <inheritdoc/>
+    public nint Open(string fileName, string options, string pathId)
+    {
+        fixed (byte* n = Vtable.Utf8(fileName))
+        fixed (byte* m = Vtable.Utf8(options))
+        fixed (byte* p = Vtable.Utf8(pathId))
+            return (nint)_fwd->Open(_self, n, m, p);
+    }
+
+    /// <inheritdoc/>
+    public int Write(ReadOnlySpan<byte> bytes, nint handle)
+    {
+        if (handle == 0)
+            return 0;
+
+        fixed (byte* b = bytes)
+            return _fwd->Write(_self, b, bytes.Length, (void*)handle);
+    }
+
+    /// <inheritdoc/>
+    public void Close(nint handle)
+    {
+        if (handle != 0)
+            _fwd->Close(_self, (void*)handle);
     }
 }

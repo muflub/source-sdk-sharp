@@ -206,7 +206,7 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 //     still STAYS and the reason letter in its banner is (d, weak) -- a
 //     string_t IS an address, and the pool is what makes two spellings of one
 //     name compare equal by pointer.
-// RULING | CSoundEmitterSystem | STAYS | sourcesharp/game/shared/sound_emitter.cpp | SoundEmitterSystem
+// RULING | CSoundEmitterSystem | STAYS | sourcesharp/game/client/sound_emitter.cpp | SoundEmitterSystem
 // RULING | CClientLeafSystem | STAYS | game/client/clientleafsystem.cpp | g_pClientLeafSystem
 // RULING | CDetailObjectSystem | STAYS | sourcesharp/game/client/shell_detail_props.cpp | DetailObjectSystem
 // RULING | CViewportClientSystem | STAYS | game/client/vgui_game_viewport.cpp | ViewportClientSystem

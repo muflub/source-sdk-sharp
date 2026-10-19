@@ -193,6 +193,13 @@ bool SourceSharpServes( const char *pszVersion )
 	// (EngineSoundServer, plan_server_native_v2 T4a).
 	if ( !ss::StrICmp( pszVersion, IENGINESOUND_SERVER_INTERFACE_VERSION ) )
 		return true;
+
+	// The whole filesystem, for its own CreateDirHierarchy: the managed
+	// SoundEmitterSystem's -makereslists precache log makes its reslists
+	// directory (plan_server_native_v2 T4a). Its IBaseFileSystem half is
+	// VBaseFileSystem011's, above.
+	if ( !ss::StrICmp( pszVersion, FILESYSTEM_INTERFACE_VERSION ) )
+		return true;
 #endif
 
 	// Each side's own container: engine.so registers both names on a listen

@@ -870,6 +870,10 @@ public enum CrossingOp
     ClientRenderLeafList = 345,
     /// <summary>IManagedRenderClient::RenderLeafViewModels: the view models' opaque/translucent split, once per CollateViewModelRenderables (C7 cluster 12 L1). CLIENT ONLY.</summary>
     ClientRenderLeafViewModels = 346,
+    /// <summary>IManagedSoundEmitter::ServerSoundSystemInit: the SourceSharpManaged row's Init runs the managed SoundEmitterSystem's (ModInit) first (plan_server_native_v2 T4a, the precache path).</summary>
+    ServerSoundSystemInit = 347,
+    /// <summary>IManagedSoundEmitter::ServerPrecacheScriptSound: the world's and EffectsPrecache's script precaches, to the managed SoundEmitterSystem (plan_server_native_v2 T4a, the precache path).</summary>
+    ServerPrecacheScriptSound = 348,
 }
 
 /// <summary>

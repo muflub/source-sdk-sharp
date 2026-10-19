@@ -78,7 +78,6 @@ set(server_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_serversystems.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_sharedappsystems.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_sound.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_soundent.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_base.cpp
@@ -115,7 +114,6 @@ set(server_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_savegame.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_shared.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_vtable_interfaces.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/sound_emitter.cpp
     # docs/todo.md's console capture: the IConsoleDisplayFunc that forwards the
     # engine's prints to the load's IManagedConsoleOutput; installed/removed by
     # sourcesharp_gamesystem.cpp, its only includer.
@@ -428,9 +426,6 @@ set(server_novalve_sources
     # entitylist.h, baseanimating.h and physics_shared.h; gpGlobals, modelinfo
     # and mdlcache declared.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_standalone_hierarchy.cpp
-    # P5 lane SP: gamesound.h left the overlay for src/shared/native/; cbase.h
-    # out, UTIL_EmitAmbientSound (sound_emitter.cpp) declared.
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell_sound.cpp
     # P5 lane SP: engine and modelinfo declared in place of cbase.h; seven
     # unused animation/sound includes gone.
     ${CMAKE_CURRENT_SOURCE_DIR}/precache_model.cpp
@@ -494,11 +489,6 @@ set(server_novalve_sources
     # and ss_physics_shared.h in place of cbase.h and six fork headers; our own
     # util helpers declared.
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_worldquery.cpp
-    # P5 lane SP: the server arm on public/ headers and ours (ss_util.h,
-    # ss_usermessages.h); engine globals and two of our helpers declared. The
-    # client arm is unchanged. (closecaption_recipient.h's flag bits went with
-    # the native caption writer, lane HC 2026-10-04.)
-    ${PROJECT_SOURCE_DIR}/src/shared/native/sound_emitter.cpp
     # P5 lane E 36: ss::CPrecacheRegister (ss_precache_register.h), ss_util.h's
     # spellings, ss_gamestringpool.h, ss::CEffectData (lane SP) and the headers
     # out of the overlay (anyentity.h, movement_ground.h) replace cbase.h,

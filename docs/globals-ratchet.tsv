@@ -312,7 +312,10 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-19, 286 -> 281 (plan_server_native_v2 T4a): the server's emit path left for C#: shell_sound.cpp's
 #   s_bSaid, shell_soundenvelope.cpp's s_Controller, sound_emitter.cpp's g_pClosecaption, sv_soundemitter_trace and
 #   WaveTrace's s_WaveTrace (client-only now). `make globals-census` -> link_level 281.
-globals_link_level	src/sourcesharp/game/server	281
+# LOWERED 2026-10-19, 281 -> 278 (plan_server_native_v2 T4a, the precache path): sound_emitter.cpp left the server
+#   link, and with it g_SoundEmitterSystem, g_bPermitDirectSoundPrecache and PrecacheScriptSound's
+#   s_PrecacheScriptSoundFailures (SoundEmitterSystem's fields now). `make globals-census` -> link_level 278.
+globals_link_level	src/sourcesharp/game/server	278
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the

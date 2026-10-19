@@ -18,10 +18,28 @@ public interface IMoveSoundSink
 }
 
 /// <summary>
-/// IManagedSoundEmitter, managed-built (plan_server_native_v2 T4a): the
-/// standalone player's move helper calls it where it called GameSound_Emit.
+/// The sound emitter system's two native edges (plan_server_native_v2 T4a,
+/// the precache path): the SourceSharpManaged row's Init, which runs the
+/// system's first, and the script precache the world's own precache and the
+/// registered EffectsPrecache still ask for.
 /// </summary>
-public sealed unsafe class SoundEmitterBinding(Crossings crossings, IMoveSoundSink sink) : IManagedSoundEmitter
+public interface ISoundSystemSink
+{
+    /// <summary><c>CSoundEmitterSystem::Init</c>: false stops the server coming up.</summary>
+    bool SystemInit();
+
+    /// <summary><c>GameSound_PrecacheScript( name )</c>.</summary>
+    void PrecacheScriptSound(string soundName);
+}
+
+/// <summary>
+/// IManagedSoundEmitter, managed-built (plan_server_native_v2 T4a): the
+/// standalone player's move helper calls it where it called GameSound_Emit,
+/// and native's last sound-system callers where they called the native
+/// CSoundEmitterSystem.
+/// </summary>
+public sealed unsafe class SoundEmitterBinding(Crossings crossings, IMoveSoundSink sink, ISoundSystemSink system)
+    : IManagedSoundEmitter
 {
     private void Enter(CrossingOp op)
     {
@@ -46,5 +64,20 @@ public sealed unsafe class SoundEmitterBinding(Crossings crossings, IMoveSoundSi
 
         float* xyz = (float*)a1;
         sink.MoveSoundScript(a0, new Vector(xyz[0], xyz[1], xyz[2]), Vtable.TextOf(a2, 512) ?? string.Empty);
+    }
+
+    public byte ServerSoundSystemInit()
+    {
+        Enter(CrossingOp.ServerSoundSystemInit);
+        return system.SystemInit() ? (byte)1 : (byte)0;
+    }
+
+    public void ServerPrecacheScriptSound(byte* a0)
+    {
+        Enter(CrossingOp.ServerPrecacheScriptSound);
+        if (a0 == null)
+            return;
+
+        system.PrecacheScriptSound(Vtable.TextOf(a0, 512) ?? string.Empty);
     }
 }

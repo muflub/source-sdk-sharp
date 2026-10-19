@@ -385,11 +385,14 @@ public unsafe class ConvertedEntryTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheFileSystemStillOffersNoHandleAndNothingThatWrites()
+    public void TheFileSystemOffersHandlesButNothingThatMakesOrChmodsAWholeFile()
     {
-        // FileExists is neither: it opens nothing and writes nothing, which is
-        // why it could be exposed where Open, Read and Close could not -- and
-        // why FilesReadGameFile did NOT convert with the size slot beside it.
+        // FileExists opens nothing and writes nothing. The user's 2026-10-19
+        // ruling exposed the handles (Open, Write, Close), which the
+        // -makereslists precache log writes through (plan_server_native_v2
+        // T4a); Read stays inside ReadAll. Still not offered: WriteFile makes a
+        // whole file, SetFileWritable chmods one, and ReadFile / UnzipFile hand
+        // back what the engine allocated.
         string[] offered = typeof(EngineBaseFileSystem)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Where(m => !m.IsSpecialName)
@@ -397,12 +400,14 @@ public unsafe class ConvertedEntryTests
             .ToArray();
 
         foreach (string forbidden in new[]
-                 { "Open", "Close", "Read", "Write", "WriteFile", "ReadFile",
-                   "SetFileWritable", "UnzipFile" })
+                 { "Read", "WriteFile", "ReadFile", "SetFileWritable", "UnzipFile" })
         {
             Assert.DoesNotContain(forbidden, offered);
         }
 
+        Assert.Contains("Open", offered);
+        Assert.Contains("Write", offered);
+        Assert.Contains("Close", offered);
         Assert.Contains("FileExists", offered);
     }
 }

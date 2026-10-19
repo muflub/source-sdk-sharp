@@ -35,25 +35,27 @@ public unsafe class ShimLevelTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimLevelTableHasTwentySixSlots()
+    public void TheShimLevelTableHasTwentySevenSlots()
         //
         // Twenty-two until the save lane's stage 2 appended LoadSaveGameState;
         // twenty-three until plan_server_novalve P2.1 appended FileSizeOnPath
-        // and ReadFileOnPath; twenty-five until P5 appended SpawnWorld.
-        => Assert.Equal(26, Forwarders.SlotCount<ShimLevelFwd>());
+        // and ReadFileOnPath; twenty-five until P5 appended SpawnWorld;
+        // twenty-six until plan_server_native_v2 T4a appended IsPrecacheAllowed.
+        => Assert.Equal(27, Forwarders.SlotCount<ShimLevelFwd>());
 
     [Fact]
     public void EveryShimLevelFieldIsPointerSized()
-        => Assert.Equal(26 * sizeof(void*), sizeof(ShimLevelFwd));
+        => Assert.Equal(27 * sizeof(void*), sizeof(ShimLevelFwd));
 
     [Fact]
-    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotTwentyFive()
+    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotTwentySix()
     {
         Assert.Equal(0, SlotOf("ResetServerTime"));
         Assert.Equal(22, SlotOf("LoadSaveGameState"));
         Assert.Equal(23, SlotOf("FileSizeOnPath"));
         Assert.Equal(24, SlotOf("ReadFileOnPath"));
         Assert.Equal(25, SlotOf("SpawnWorld"));
+        Assert.Equal(26, SlotOf("IsPrecacheAllowed"));
     }
 
     [Fact]
@@ -78,6 +80,7 @@ public unsafe class ShimLevelTests
 
     private static int s_DeleteListAnswer;
     private static int s_PrecacheAllowedSaw;
+    private static int s_PrecacheAllowedAnswer;
     private static int s_TemplateCountSaw;
     private static string? s_MapNameSaw;
     private static int s_ClearEntityListCalls;
@@ -88,6 +91,9 @@ public unsafe class ShimLevelTests
     [UnmanagedCallersOnly]
     private static void SetPrecacheAllowedRecords(void* self, int allowed)
         => s_PrecacheAllowedSaw = allowed;
+
+    [UnmanagedCallersOnly]
+    private static int IsPrecacheAllowedAnswers(void* self) => s_PrecacheAllowedAnswer;
 
     [UnmanagedCallersOnly]
     private static void PrecachePointTemplatesRecords(
@@ -110,6 +116,8 @@ public unsafe class ShimLevelTests
             (delegate* unmanaged<void*, int>)&ResetDeleteListAnswers;
         table[SlotOf("SetPrecacheAllowed")] =
             (delegate* unmanaged<void*, int, void>)&SetPrecacheAllowedRecords;
+        table[SlotOf("IsPrecacheAllowed")] =
+            (delegate* unmanaged<void*, int>)&IsPrecacheAllowedAnswers;
         table[SlotOf("PrecachePointTemplates")] =
             (delegate* unmanaged<void*, byte*, int*, int, void>)&PrecachePointTemplatesRecords;
         table[SlotOf("SetLowViolence")] =
@@ -183,6 +191,21 @@ public unsafe class ShimLevelTests
             NativeMemory.Free(table);
             NativeMemory.Free(self);
         }
+    }
+
+    [Fact]
+    public void IsPrecacheAllowedReadsNonZeroAsTrue()
+    {
+        void* self = FakeShim(out void** table);
+        IEngineLevel level = BoundTo(self, table);
+
+        s_PrecacheAllowedAnswer = 1;
+        Assert.True(level.IsPrecacheAllowed());
+        s_PrecacheAllowedAnswer = 0;
+        Assert.False(level.IsPrecacheAllowed());
+
+        NativeMemory.Free(table);
+        NativeMemory.Free(self);
     }
 
     [Fact]

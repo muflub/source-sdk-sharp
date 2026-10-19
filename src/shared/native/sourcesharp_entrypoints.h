@@ -61,7 +61,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 153 slots.
+// SERVER ONLY -- 152 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -237,7 +237,6 @@ void SourceSharp_PlayerShadowRelease( uint32_t hPlayer );
 void SourceSharp_PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRoll );
 int32_t SourceSharp_PrecacheDecal( const char *pName );
 int32_t SourceSharp_PrecacheModel( const char *pszModel );
-void SourceSharp_PrecacheSound( const char *pSoundName );
 void SourceSharp_RegisterClassOps( const char *pClassName, uint32_t nOpMask );
 void SourceSharp_RegisterDamageRules( const SourceSharpDamageRules *pRules );
 void SourceSharp_RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy );

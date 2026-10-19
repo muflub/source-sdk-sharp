@@ -4,7 +4,7 @@
 // removal_set_middle_test, and for the same reason: the claim is about the TEXT
 // of a file that needs a whole engine to run, so the text is what is read.
 //
-// WHAT THIS COVERS. sourcesharp/game/shared/sound_emitter.cpp is a REMOVAL-SET file
+// WHAT THIS COVERS. sourcesharp/game/client/sound_emitter.cpp is a REMOVAL-SET file
 // that STAYS. Its nine (server) / five (client) out-of-line CBaseEntity members
 // die with the class at Phase 13 step 6, but the rest of the file -- the
 // CSoundEmitterSystem game system and the whole GameSound_* family -- is the
@@ -125,7 +125,7 @@ std::string ReadSrcFile( const char *pszRelative )
 
 const std::string &EmitterSource()
 {
-	static const std::string s = ReadSrcFile( "sourcesharp/game/shared/sound_emitter.cpp" );
+	static const std::string s = ReadSrcFile( "sourcesharp/game/client/sound_emitter.cpp" );
 	return s;
 }
 
@@ -304,7 +304,7 @@ void SplitByGuard( const std::string &strSource, const char *pszNeedle,
 // by requiring the emitter shim this whole file is about to be in the set, so
 // an absence is never the answer of a reader that saw nothing.
 //-----------------------------------------------------------------------------
-const char *const kBuildProofOfRead = "sourcesharp/game/shared/sound_emitter.cpp";
+const char *const kBuildProofOfRead = "sourcesharp/game/client/sound_emitter.cpp";
 
 const std::set< std::string > &BuiltSources()
 {
@@ -404,8 +404,10 @@ size_t CountInCode( const std::string &strSource, const char *pszNeedle )
 TEST( LaneRSoundDeadPaths, TheFileWasReadAndIsTheOneWeThink )
 {
 	ASSERT_NE( (const char *)NULL, SrcRoot() ) << "no src/ tree found";
-	ASSERT_GT( EmitterSource().size(), 40000u )
-		<< "sourcesharp/game/shared/sound_emitter.cpp did not read, or shrank by half.";
+	// 30000, not 40000: plan_server_native_v2 T4a's precache path took its
+	// server arms out (48 KB -> 37 KB); a read that failed is still far below.
+	ASSERT_GT( EmitterSource().size(), 30000u )
+		<< "sourcesharp/game/client/sound_emitter.cpp did not read, or shrank by half.";
 	EXPECT_NE( std::string::npos, EmitterSource().find( "GameSound_Emit" ) );
 	EXPECT_NE( std::string::npos, EmitterSource().find( "CSoundEmitterSystem" ) );
 }
@@ -417,7 +419,7 @@ TEST( LaneRSoundDeadPaths, TheBuildReaderReadsTheBuild )
 	// cmake_graph.h's own now; what is left is the pair of controls.
 	REQUIRE_THE_BUILD_READ();
 	// A file nobody disputes is compiled, and one nobody disputes is not.
-	EXPECT_TRUE( IsBuilt( "sourcesharp/game/shared/sound_emitter.cpp" ) );
+	EXPECT_TRUE( IsBuilt( "sourcesharp/game/client/sound_emitter.cpp" ) );
 	EXPECT_FALSE( IsBuilt( "game/shared/tf/tf_player_shared.cpp" ) );
 }
 
@@ -597,7 +599,7 @@ TEST( LaneRSoundDeadPaths, NothingOnEitherLinkLineOverridesModifyEmitSoundParams
 	// line, a path spelling change. The control is the port's own shim, which
 	// holds the guarded emitter this whole section is about, so it cannot go
 	// away without this test having no subject either way.
-	EXPECT_TRUE( IsBuilt( "sourcesharp/game/shared/sound_emitter.cpp" ) )
+	EXPECT_TRUE( IsBuilt( "sourcesharp/game/client/sound_emitter.cpp" ) )
 		<< "IsBuilt() cannot find the emitter shim itself, so the four absences "
 		   "above are vacuous rather than measured.";
 }

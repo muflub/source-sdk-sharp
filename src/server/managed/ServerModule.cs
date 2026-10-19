@@ -370,6 +370,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// vphysics' are.
     /// </summary>
     private ServerSounds? _serverSounds;
+    private SoundEmitterSystem? _soundSystem;
     private ManagedVtable? _recipientFilter;
 
     private ManagedVtable? _physicsObjectEvents;
@@ -705,7 +706,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // T4a), to the emitter BuildManagedRoot builds.
         _bindings.Add("IManagedSoundEmitter",
                       v => ManagedAreaFactory.Create(v, new SoundEmitterBinding(_engine.Crossings,
-                                                                                new MoveSoundsOf(() => _serverSounds))));
+                                                                                new MoveSoundsOf(() => _serverSounds),
+                                                                                new SoundSystemOf(() => _soundSystem, Log))));
         _bindings.Add("IManagedSoundEnt",
                       v => ManagedAreaFactory.Create(v, new SoundEntBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedHierarchy",
@@ -2349,6 +2351,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // miniature world. Here rather than at level init, because init runs
         // after entities have spawned and would wipe a fresh push.
         _visibility.ClearSkyboxParams();
+
+        // LAST: the sound emitter system's level end (the overrides cleared,
+        // the precache log closed), the CSoundEmitterSystem row's
+        // LevelShutdownPostEntity. That row sat before SourceSharpManaged and
+        // the pass walks backwards, so it ran after everything managed did
+        // (plan_server_native_v2 T4a).
+        _soundSystem?.LevelShutdownPostEntity();
     }
 
     public void ConCommandDispatch(int commandId, string args)
@@ -3104,6 +3113,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     {
         IVtableSoundEmitter? scripts = SoundEmitterBase.Acquire(_engine, out string scriptsWhy);
         IVtableEngineSoundServer? sound = EngineSoundServer.Acquire(_engine, out string soundWhy);
+        BuildSoundSystem(scripts, scriptsWhy, sound, soundWhy);
         IVtableEngineServer? server = EngineServer.Acquire(_engine, out string serverWhy);
         RecipientFilterObject? filters = RecipientFilterObject.Acquire(_engine, out string filtersWhy);
         if (scripts is null || sound is null || server is null || filters is null)
@@ -3139,8 +3149,52 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                        _services.Require<IGameClock>(), SpeakerModel, () => trace?.Value == true,
                                        text => Log.Msg(text), DeveloperMessage);
         _serverSounds = new ServerSounds(emitter, entities, handle => _soundController.Create(handle),
-                                         text => Log.Warning(text));
+                                         text => Log.Warning(text), _soundSystem);
         ServerSoundRouting.Route(_engine, _serverSounds);
+    }
+
+    /// <summary>
+    /// The sound emitter SYSTEM (plan_server_native_v2 T4a, the precache path):
+    /// the script table, the server's engine sound, the filesystem's two
+    /// halves and the level's precache window. Its stages run where the
+    /// CSoundEmitterSystem row's did: Init first in the SourceSharpManaged
+    /// row's (IManagedSoundEmitter), the level start first in
+    /// ServerGameDll.MapLoadPreEntity, the level's end last in LevelShutdown,
+    /// its Shutdown last in the final unload's Shutdown.
+    /// </summary>
+    private void BuildSoundSystem(IVtableSoundEmitter? scripts, string scriptsWhy,
+                                  IVtableEngineSoundServer? sound, string soundWhy)
+    {
+        IVtableBaseFileSystem? files = EngineBaseFileSystem.Acquire(_engine, out string filesWhy);
+        IVtableFileSystem? dirs = EngineFileSystemServer.Acquire(_engine, out string dirsWhy);
+        if (scripts is null || sound is null || files is null || dirs is null)
+        {
+            Log.Warning("[SourceSharp/Server] no sound emitter system, so no sound is precached: "
+                        + (scripts is null ? scriptsWhy : sound is null ? soundWhy : files is null ? filesWhy : dirsWhy)
+                        + "\n");
+            return;
+        }
+
+        _soundSystem = new SoundEmitterSystem(
+            new SoundPrecacheEngine(scripts, sound, files, dirs, _services.Require<IEngineLevel>()),
+            LocalCommandLine.Has(_services.Require<ILocalCommandLine>().Args, "-makereslists"),
+            () => _gameDll.CurrentMap, text => Log.Warning(text), DeveloperMessage);
+        _gameDll.SoundSystem = _soundSystem;
+    }
+
+    /// <summary>The system's two native edges, to whichever system the module has built (none before the root).</summary>
+    private sealed class SoundSystemOf(Func<SoundEmitterSystem?> system, ILog log) : ISoundSystemSink
+    {
+        public bool SystemInit()
+        {
+            if (system() is { } built)
+                return built.Init();
+
+            log.Warning("[SourceSharp/Server] the sound scripts cannot load: no sound emitter system\n");
+            return false;
+        }
+
+        public void PrecacheScriptSound(string soundName) => system()?.PrecacheScriptSound(soundName);
     }
 
     /// <summary>The move helper's sounds, to whichever emitter the module has built (none before the root).</summary>
@@ -3173,6 +3227,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the collectible context from unloading (plan_map_load P5).
         _jitWarmup?.Dispose();
         _jitWarmup = null;
+
+        // The FINAL unload, rather than a reload: native releases the root
+        // before it unloads the side for good, and keeps it across a reload.
+        bool finalUnload = _vtables is null || !_vtables.Holds("IManagedRoot");
 
         Log.Msg("[SourceSharp/Server] managed server module shutting down\n");
         // This load's last engine lines go to this load's listeners; what is
@@ -3247,6 +3305,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _logAttachment?.Dispose();
         _logAttachment = null;
 
+        // LAST: the sound emitter system's Shutdown (its log closed, the
+        // script table's ModShutdown), the CSoundEmitterSystem row's, which
+        // the backward walk ran after SourceSharpManaged's; DLLShutdown unloads
+        // the managed side before that walk, so this is the same place. Only
+        // at the final unload: a reload keeps the table the native Init loaded,
+        // and only closes this load's log.
+        if (finalUnload)
+            _soundSystem?.Shutdown();
+        else
+            _soundSystem?.CloseLog();
+        _soundSystem = null;
     }
 
     //-------------------------------------------------------------------------

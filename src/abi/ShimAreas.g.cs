@@ -265,7 +265,6 @@ internal sealed unsafe class PrecacheArea
     internal PrecacheArea(ShimRef<ShimPrecacheFwd> shim) { _shim = shim; }
 
     public int PrecacheModel(byte* a0) { return _shim.Vt->PrecacheModel(_shim.Self, a0); }
-    public void PrecacheSound(byte* a0) { _shim.Vt->PrecacheSound(_shim.Self, a0); }
     public int PrecacheDecal(byte* a0) { return _shim.Vt->PrecacheDecal(_shim.Self, a0); }
 }
 

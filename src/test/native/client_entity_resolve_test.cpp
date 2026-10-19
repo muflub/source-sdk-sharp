@@ -547,7 +547,7 @@ struct Waiver { const char *pszFile; const char *pszWhy; };
 	// LANE sub-entitylist REMOVED TWO ROWS HERE, and this note is what stops
 	// them being put back as waivers instead of fixed.
 	//
-	// sourcesharp/game/shared/sound_emitter.cpp and
+	// sourcesharp/game/client/sound_emitter.cpp and
 	// sourcesharp/game/shared/util_shared_library.cpp were waived as
 	// "p4-exit's: the shim's shared half". Neither is a shared-file HAZARD:
 	// both rows were CLIENT arms inside `#ifdef CLIENT_DLL`, both were an
@@ -1008,7 +1008,7 @@ TEST( ClientEntityResolve, TheTempEntOwnerHeaderInlineResolvesThroughTheSlotTabl
 TEST( ClientEntityResolve, TheShimsSharedClientArmsResolveThroughTheSlotTable )
 {
 	const std::string emitter =
-	    NoWhitespace( LiveText( "sourcesharp/game/shared/sound_emitter.cpp" ) );
+	    NoWhitespace( LiveText( "sourcesharp/game/client/sound_emitter.cpp" ) );
 	ASSERT_FALSE( emitter.empty() );
 
 	EXPECT_NE( emitter.find( "SourceSharp_ClientEntityFromIndex(entindex)" ),
@@ -1047,7 +1047,7 @@ TEST( ClientEntityResolve, TheShimsSharedFilesAreBuiltOnlyWithSOURCESHARPSoTheyK
 	// fact was the reminder for -- put the !SOURCESHARP arm back, the way
 	// game/client/fx.cpp carries one.
 	const char *kShimShared[] = {
-		"sourcesharp/game/shared/sound_emitter.cpp",
+		"sourcesharp/game/client/sound_emitter.cpp",
 		"sourcesharp/game/shared/util_shared_library.cpp",
 	};
 	const char *kTargets[] = { cmake_graph::kServer, cmake_graph::kClient, cmake_graph::kHost };

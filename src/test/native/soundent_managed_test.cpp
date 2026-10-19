@@ -467,31 +467,13 @@ TEST( SoundEntManaged, TheDisconnectResetIsInsideTheArmThatActuallyRuns )
 
 TEST( SoundEntManaged, TheShellsSoundFileNoLongerWalksTheList )
 {
-	const std::string s = Read( kShellSound );
-	ASSERT_FALSE( s.empty() );
-
-	// The two engine-slot bodies are gone, and with them every CSound member
-	// read. Checked as SOURCE rather than as a symbol count because the whole
-	// question is whether the walk is written down, not whether it linked.
-	EXPECT_EQ( 0, CountOf( s, "SourceSharp_SoundEntQuery" ) );
-	EXPECT_EQ( 0, CountOf( s, "SourceSharp_SoundEntInsert" ) );
-	EXPECT_EQ( 0, CountOf( s, "CSoundEnt::" ) );
-	EXPECT_EQ( 0, CountOf( s, "SOUNDLIST_EMPTY" ) );
-	EXPECT_EQ( 0, CountOf( s, "#include \"soundent.h\"" ) );
-
-	// VACUITY GUARD: the file is still the sound shell and still has a body in
-	// it -- the precache, since its emits went to C# in plan_server_native_v2
-	// T4a -- so the five zeroes above are about what was removed and not about
-	// a file that failed to open or was emptied.
-	EXPECT_LT( 0, CountOf( s, "GameSound_PrecacheScript" ) );
-
-	// And the include's removal is EXPLAINED. Read raw: a stripped read cannot
-	// tell "removed" from "removed and noted", and an unexplained deletion in a
-	// file this size reads as an oversight.
-	const std::string raw = ReadRaw( kShellSound );
-	ASSERT_FALSE( raw.empty() );
-	EXPECT_NE( raw.find( "NO soundent.h" ), std::string::npos )
-		<< "the include is gone with no note saying so";
+	// THE FILE IS GONE: its last body, the precache, went to the managed
+	// SoundEmitterSystem in plan_server_native_v2 T4a's precache path, after
+	// its emits (T4a step 1) and the two SoundEnt walks (Phase A3) had gone.
+	// The existence check is guarded by a sibling that is still there.
+	EXPECT_TRUE( Exists( "sourcesharp/game/server/shell_soundent.cpp" ) )
+		<< "the existence check reads nothing";
+	EXPECT_FALSE( Exists( kShellSound ) ) << "shell_sound.cpp is back";
 }
 
 //=============================================================================//
@@ -568,15 +550,15 @@ TEST( SoundEntManaged, TheTwoEngineSlotsAreGoneFromBothSidesOfTheBoundary )
 	EXPECT_EQ( 0, CountOf( clientAreas, " SoundEntInsert(" ) );
 
 	// VACUITY GUARD on every file, because zeroes over a read is exactly the
-	// shape a failed open answers. PrecacheSound is a server area method
-	// since C6c (EmitAmbientSound was, until IShimSound retired in
-	// plan_server_native_v2 T4a); ConNPrintf a client-only area method; SourceSharpLogFn the
+	// shape a failed open answers. PrecacheModel is a server area method
+	// (PrecacheSound was, until plan_server_native_v2 T4a's precache path
+	// retired it, and EmitAmbientSound until IShimSound retired in T4a); ConNPrintf a client-only area method; SourceSharpLogFn the
 	// one function-pointer declaration the header still has, found by the same
 	// "(*Name)" needle shape (the engine API struct went at plan_client_vtables
 	// CC-last, the ManagedApi struct at CE-last);
 	// EntityGetModelName a shared slot both sides forward, the client to its
 	// own body.
-	EXPECT_EQ( 1, CountOf( areas, " PrecacheSound(" ) );
+	EXPECT_EQ( 1, CountOf( areas, " PrecacheModel(" ) );
 	EXPECT_EQ( 1, CountOf( clientAreas, " ConNPrintf(" ) );
 	EXPECT_EQ( 1, CountOf( abi, "(*SourceSharpLogFn)" ) );
 	EXPECT_EQ( 1, ForwardCount( client, "EntityGetModelName", "SourceSharp_ClientEntityGetModelName" ) );
@@ -657,7 +639,7 @@ TEST( SoundControllerManaged, TheShimAndItsInterfaceAreGone )
 	// The shim's four facts about itself (its interface, its guards, its
 	// statics, the save-restore ops) went with it. What stays is that it is gone,
 	// and the interface its one caller left first.
-	EXPECT_TRUE( Exists( kShellSound ) ) << "the existence check reads nothing";
+	EXPECT_TRUE( Exists( "sourcesharp/game/server/shell_soundent.cpp" ) ) << "the existence check reads nothing";
 	EXPECT_FALSE( Exists( kEnvShim ) ) << "shell_soundenvelope.cpp is back";
 	EXPECT_FALSE( Exists( kEnvSsHeader ) ) << "ss_soundcontroller.h is back";
 }

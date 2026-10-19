@@ -177,6 +177,21 @@ FORWARD = [
             # The user's 2026-10-19 ruling exposed file handles to managed: the
             # game-file reads are Open/Size/Read/Close here, not four shim slots.
             'Open', 'Size', 'Read', 'Close',
+            # plan_server_native_v2 T4a precache path: the -makereslists
+            # precache log's lines (reslists/<map>.snd), which the managed
+            # SoundEmitterSystem writes through a handle it opens and closes.
+            'Write',
+        ],
+    ),
+    dict(
+        # plan_server_native_v2 T4a precache path: the reslists directory the
+        # -makereslists precache log goes in. CreateDirHierarchy is IFileSystem's
+        # own, not IBaseFileSystem's, so it is a table of its own over
+        # VFileSystem022. Server: only the server keeps the log.
+        struct='FileSystemVtbl',
+        side='server',
+        methods=[
+            'CreateDirHierarchy',
         ],
     ),
     dict(
@@ -273,6 +288,11 @@ FORWARD = [
             # a script (CSoundEmitterSystem's emit and stop paths).
             'GetParametersForSoundEx', 'InternalGetParametersForSound', 'GetWaveName',
             'GetWavFileForSound_2', 'LookupSoundLevel',
+            # plan_server_native_v2 T4a precache path: CSoundEmitterSystem's
+            # server half (its Init/Shutdown, the level's overrides and preload
+            # walk, the flush), which the managed SoundEmitterSystem runs.
+            'ModInit', 'ModShutdown', 'AddSoundOverrides', 'ClearSoundOverrides',
+            'Flush', 'First', 'Next', 'InvalidIndex', 'IsValidIndex',
         ],
     ),
     dict(
@@ -283,6 +303,8 @@ FORWARD = [
         # emit path, moved).
         methods=[
             'EmitSound_2', 'StopSound', 'GetSoundDuration',
+            # The precache path (GameSound_Precache / GameSound_Prefetch, moved).
+            'PrecacheSound', 'IsSoundPrecached', 'PrefetchSound',
         ],
     ),
     dict(

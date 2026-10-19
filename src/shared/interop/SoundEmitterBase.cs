@@ -51,6 +51,43 @@ public interface IVtableSoundEmitter
 
     /// <summary><c>GetActorGender( model )</c>: gender_t, 0 for none or a null model.</summary>
     int ActorGender(string? model);
+
+    // plan_server_native_v2 T4a, the precache path: CSoundEmitterSystem's
+    // server half, which the managed SoundEmitterSystem runs.
+
+    /// <summary><c>ModInit()</c>: loads the sound scripts; false when they could not be.</summary>
+    bool ModInit();
+
+    /// <summary><c>ModShutdown()</c>.</summary>
+    void ModShutdown();
+
+    /// <summary><c>AddSoundOverrides( scriptfile, preload )</c>: a level's own script over the table.</summary>
+    void AddSoundOverrides(string scriptFile, bool preload = false);
+
+    /// <summary><c>ClearSoundOverrides()</c>.</summary>
+    void ClearSoundOverrides();
+
+    /// <summary><c>Flush()</c>: ModShutdown and ModInit, which the table does itself.</summary>
+    void Flush();
+
+    /// <summary><c>First()</c>: the first index of the table's walk.</summary>
+    int First();
+
+    /// <summary><c>Next( i )</c>.</summary>
+    int Next(int index);
+
+    /// <summary><c>InvalidIndex()</c>: where the walk ends.</summary>
+    int InvalidIndex();
+
+    /// <summary><c>IsValidIndex( index )</c>.</summary>
+    bool IsValidIndex(int index);
+
+    /// <summary>
+    /// <c>InternalGetParametersForSound( index )-&gt;ShouldPreload()</c>: the
+    /// entry asks to be precached at every level's start. False for an index
+    /// the table has no entry at.
+    /// </summary>
+    bool ShouldPreload(int index);
 }
 
 /// <summary>
@@ -190,6 +227,36 @@ public sealed unsafe class SoundEmitterBase : IVtableSoundEmitter
         fixed (byte* p = bytes)
             return _fwd->GetActorGender(_self, p);
     }
+
+    public bool ModInit() => _fwd->ModInit(_self) != 0;
+
+    public void ModShutdown() => _fwd->ModShutdown(_self);
+
+    public void AddSoundOverrides(string scriptFile, bool preload = false)
+    {
+        byte[] bytes = Vtable.Utf8(scriptFile);
+
+        fixed (byte* p = bytes)
+            _fwd->AddSoundOverrides(_self, p, preload ? (byte)1 : (byte)0);
+    }
+
+    public void ClearSoundOverrides() => _fwd->ClearSoundOverrides(_self);
+
+    public void Flush() => _fwd->Flush(_self);
+
+    public int First() => _fwd->First(_self);
+
+    public int Next(int index) => _fwd->Next(_self, index);
+
+    public int InvalidIndex() => _fwd->InvalidIndex(_self);
+
+    public bool IsValidIndex(int index) => _fwd->IsValidIndex(_self, index) != 0;
+
+    public bool ShouldPreload(int index)
+    {
+        byte* entry = (byte*)_fwd->InternalGetParametersForSound(_self, index);
+        return entry != null && SoundParametersInternalLayout.ShouldPreload(entry);
+    }
 }
 
 /// <summary>
@@ -215,11 +282,23 @@ public static unsafe class SoundParametersInternalLayout
     /// <summary><c>sizeof( SoundFile )</c>: the symbol (uint16), the gender, the flag.</summary>
     public const int SoundFileSize = 4;
 
+    /// <summary>
+    /// The bitfield byte: <c>play_to_owner_only</c>, <c>had_missing_wave_files</c>,
+    /// <c>uses_gender_token</c> and <c>m_bShouldPreload</c>, from bit 0.
+    /// </summary>
+    public const int FlagsOffset = 34;
+
+    /// <summary><c>m_bShouldPreload</c>'s bit in the byte at <see cref="FlagsOffset"/>.</summary>
+    public const byte ShouldPreloadMask = 1 << 3;
+
     /// <summary><c>NumSoundNames()</c>.</summary>
     public static int WaveCount(byte* entry) => *(ushort*)(entry + SoundNameCountOffset);
 
     /// <summary><c>GetChannel()</c>.</summary>
     public static int Channel(byte* entry) => *(ushort*)(entry + ChannelOffset);
+
+    /// <summary><c>ShouldPreload()</c>: the entry asks to be precached at every level's start.</summary>
+    public static bool ShouldPreload(byte* entry) => (entry[FlagsOffset] & ShouldPreloadMask) != 0;
 
     /// <summary>
     /// <c>GetSoundNames()</c>: with ONE wave the SoundFile is stored in the

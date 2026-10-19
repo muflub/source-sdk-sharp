@@ -212,6 +212,158 @@ public sealed unsafe class SoundEmitForwardersTests : IDisposable
     public void AnIndexTheTableHasNoEntryAtIsNull() => Assert.Null(Emitter().Entry(3));
 
     [Fact]
+    public void ShouldPreloadIsBitThreeOfByte34()
+    {
+        s_Entry = Bytes(SoundParametersInternalLayout.SizeInBytes);
+        var emitter = Emitter();
+        Assert.False(emitter.ShouldPreload(42));
+
+        s_Entry[34] = 0x08;
+        Assert.True(emitter.ShouldPreload(42));
+
+        // Every other bit of the byte, and its neighbours: still no.
+        s_Entry[33] = 0xFF;
+        s_Entry[34] = 0xF7;
+        s_Entry[35] = 0xFF;
+        Assert.False(emitter.ShouldPreload(42));
+    }
+
+    [Fact]
+    public void AnIndexWithNoEntryDoesNotPreload()
+    {
+        s_Entry = Bytes(SoundParametersInternalLayout.SizeInBytes);
+        s_Entry[34] = 0x08;
+
+        Assert.False(Emitter().ShouldPreload(3));
+    }
+
+    [Fact]
+    public void ThePreloadFlagIsWhereTheHeaderPutsIt()
+        => Assert.Equal((34, (byte)0x08),
+                        (SoundParametersInternalLayout.FlagsOffset, SoundParametersInternalLayout.ShouldPreloadMask));
+
+    [Fact]
+    public void TheTablesWalkAndLifecycleGoThroughTheirOwnSlots()
+    {
+        SoundEmitterSystemFwd* fwd = Zeroed<SoundEmitterSystemFwd>();
+        fwd->ModInit = &ModInitAnswers;
+        fwd->First = &FirstAnswers;
+        fwd->Next = &NextAnswers;
+        fwd->InvalidIndex = &InvalidAnswers;
+        fwd->IsValidIndex = &IsValidAnswers;
+        fwd->AddSoundOverrides = &AddOverridesRecords;
+        var emitter = new SoundEmitterBase(Bytes(8), fwd);
+
+        Assert.True(emitter.ModInit());
+        Assert.Equal((5, 6, -7), (emitter.First(), emitter.Next(5), emitter.InvalidIndex()));
+        Assert.True(emitter.IsValidIndex(6));
+        Assert.False(emitter.IsValidIndex(-7));
+        emitter.AddSoundOverrides("maps/x_level_sounds.txt");
+        Assert.Equal(("maps/x_level_sounds.txt", (byte)0), (s_Sample, s_UsePas));
+    }
+
+    [UnmanagedCallersOnly] private static byte ModInitAnswers(void* self) => 1;
+    [UnmanagedCallersOnly] private static int FirstAnswers(void* self) => 5;
+    [UnmanagedCallersOnly] private static int NextAnswers(void* self, int i) => i + 1;
+    [UnmanagedCallersOnly] private static int InvalidAnswers(void* self) => -7;
+    [UnmanagedCallersOnly] private static byte IsValidAnswers(void* self, int i) => i >= 0 ? (byte)1 : (byte)0;
+
+    [UnmanagedCallersOnly]
+    private static void AddOverridesRecords(void* self, byte* file, byte preload)
+    {
+        s_Sample = Marshal.PtrToStringUTF8((nint)file);
+        s_UsePas = preload;
+    }
+
+    // ---- IEngineSoundServer003: the precache ----
+
+    [UnmanagedCallersOnly]
+    private static byte PrecacheRecords(void* self, byte* sample, byte preload, byte ui)
+    {
+        s_Sample = Marshal.PtrToStringUTF8((nint)sample);
+        (s_UsePas, s_UpdatePositions) = (preload, ui);
+        return 1;
+    }
+
+    [Fact]
+    public void PrecacheSoundPassesPreloadAndIsNeverAUiSound()
+    {
+        EngineSoundFwd* fwd = Zeroed<EngineSoundFwd>();
+        fwd->PrecacheSound = &PrecacheRecords;
+
+        Assert.True(new EngineSoundServer(Bytes(8), fwd).PrecacheSound("doors/move1.wav", true));
+        Assert.Equal(("doors/move1.wav", (byte)1, (byte)0), (s_Sample, s_UsePas, s_UpdatePositions));
+    }
+
+    // ---- IBaseFileSystem / IFileSystem: the precache log ----
+
+    private static string? s_Written;
+    private static nint s_WrittenTo;
+    private static int s_ClosedCount;
+
+    [UnmanagedCallersOnly]
+    private static int WriteRecords(void* self, void* bytes, int size, void* handle)
+    {
+        s_Written = Marshal.PtrToStringUTF8((nint)bytes, size);
+        s_WrittenTo = (nint)handle;
+        return size;
+    }
+
+    [UnmanagedCallersOnly]
+    private static void CloseCounts(void* self, void* handle) => s_ClosedCount++;
+
+    [UnmanagedCallersOnly]
+    private static void CreateDirRecords(void* self, byte* path, byte* pathId)
+        => s_Sample = Marshal.PtrToStringUTF8((nint)path) + "|" + Marshal.PtrToStringUTF8((nint)pathId);
+
+    private IVtableBaseFileSystem BaseFiles(BaseFileSystemFwd* fwd)
+    {
+        ConstructorInfo ctor = typeof(EngineBaseFileSystem).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).Single();
+        ParameterInfo[] parameters = ctor.GetParameters();
+        return (IVtableBaseFileSystem)ctor.Invoke([Pointer.Box(Bytes(8), parameters[0].ParameterType),
+                                                   Pointer.Box(fwd, parameters[1].ParameterType)]);
+    }
+
+    [Fact]
+    public void WriteHandsTheBytesTheirLengthAndTheHandle()
+    {
+        BaseFileSystemFwd* fwd = Zeroed<BaseFileSystemFwd>();
+        fwd->Write = &WriteRecords;
+
+        int written = BaseFiles(fwd).Write("\"Doors.Move1\"\n"u8, 0x55);
+
+        Assert.Equal((14, "\"Doors.Move1\"\n", (nint)0x55), (written, s_Written, s_WrittenTo));
+    }
+
+    [Fact]
+    public void NothingIsWrittenToOrClosedOnTheInvalidHandle()
+    {
+        BaseFileSystemFwd* fwd = Zeroed<BaseFileSystemFwd>();
+        fwd->Write = &WriteRecords;
+        fwd->Close = &CloseCounts;
+        s_Written = null;
+        s_ClosedCount = 0;
+
+        IVtableBaseFileSystem files = BaseFiles(fwd);
+        Assert.Equal(0, files.Write("x"u8, 0));
+        files.Close(0);
+        files.Close(0x55);
+
+        Assert.Equal((null, 1), (s_Written, s_ClosedCount));
+    }
+
+    [Fact]
+    public void CreateDirHierarchyPassesThePathAndItsPathId()
+    {
+        FileSystemFwd* fwd = Zeroed<FileSystemFwd>();
+        fwd->CreateDirHierarchy = &CreateDirRecords;
+
+        new EngineFileSystemServer(Bytes(8), fwd).CreateDirHierarchy("reslists", "DEFAULT_WRITE_PATH");
+
+        Assert.Equal("reslists|DEFAULT_WRITE_PATH", s_Sample);
+    }
+
+    [Fact]
     public void TheInternalLayoutIsTheHeadersPackedOne()
         => Assert.Equal((36, 0, 16, 30, 4),
                         (SoundParametersInternalLayout.SizeInBytes, SoundParametersInternalLayout.SoundNamesOffset,

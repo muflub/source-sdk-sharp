@@ -134,7 +134,7 @@ const char *kShellSend      = "sourcesharp/game/server/shell_usermessage_send.cp
 const char *kShellGameDll   = "sourcesharp/game/server/shell_gamedll.cpp";
 const char *kShellClientDll = "sourcesharp/game/client/shell_clientdll.cpp";
 const char *kShellClientMsg = "sourcesharp/game/client/shell_usermessages_client.cpp";
-const char *kSoundEmitter   = "sourcesharp/game/shared/sound_emitter.cpp";
+const char *kSoundEmitter   = "sourcesharp/game/client/sound_emitter.cpp";
 
 size_t CountOf( const std::string &hay, const std::string &needle )
 {

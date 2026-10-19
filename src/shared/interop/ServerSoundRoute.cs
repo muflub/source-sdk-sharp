@@ -38,4 +38,11 @@ public interface IServerSoundRoute
 
     /// <summary>The patch forgotten.</summary>
     void SoundPatchFree(int patch);
+
+    /// <summary>
+    /// A sound precached by name: a soundscript entry's waves, or a path to
+    /// a wave directly (plan_server_native_v2 T4a, the precache path; was
+    /// the IShimPrecache::PrecacheSound slot).
+    /// </summary>
+    void PrecacheSound(string soundName);
 }

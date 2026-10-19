@@ -457,6 +457,37 @@ TEST( SoundParametersInternalLayout, TheWaveListAndChannelTheStopReads )
 }
 
 //-----------------------------------------------------------------------------
+// The flag the managed SoundEmitterSystem's level preload reads
+// (plan_server_native_v2 T4a, the precache path): m_bShouldPreload is bit 3 of
+// the bitfield byte at 34, after play_to_owner_only, had_missing_wave_files
+// and uses_gender_token -- SoundParametersInternalLayout.FlagsOffset and
+// ShouldPreloadMask. Read back through the header's own ShouldPreload(), which
+// is what stock's LevelInitPreEntity asked.
+//-----------------------------------------------------------------------------
+TEST( SoundParametersInternalLayout, ShouldPreloadIsBitThreeOfByte34 )
+{
+	alignas( 8 ) unsigned char raw[ 36 ] = {};
+	const CSoundParametersInternal *pEntry = reinterpret_cast< const CSoundParametersInternal * >( raw );
+
+	EXPECT_FALSE( pEntry->ShouldPreload() );
+
+	raw[ 34 ] = 0x08;
+	EXPECT_TRUE( pEntry->ShouldPreload() );
+
+	// Every other bit of the byte, and the bytes either side, set: still no.
+	raw[ 33 ] = 0xFF;
+	raw[ 34 ] = 0xF7;
+	raw[ 35 ] = 0xFF;
+	EXPECT_FALSE( pEntry->ShouldPreload() );
+
+	// And the setter writes the same bit.
+	CSoundParametersInternal *pWritable = reinterpret_cast< CSoundParametersInternal * >( raw );
+	raw[ 34 ] = 0x00;
+	pWritable->SetShouldPreload( true );
+	EXPECT_EQ( 0x08, raw[ 34 ] );
+}
+
+//-----------------------------------------------------------------------------
 // CBitVec< ABSOLUTE_PLAYER_LIMIT >, which Message_DetermineMulticastRecipients
 // fills for the managed SoundEmitter's PAS (plan_server_native_v2 T4a):
 // IVtableEngineServer.PlayerBitWords uint32 words, bit N of the vector in word

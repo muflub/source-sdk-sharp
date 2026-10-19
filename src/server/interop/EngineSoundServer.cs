@@ -24,6 +24,18 @@ public interface IVtableEngineSoundServer
 
     /// <summary><c>GetSoundDuration( sample )</c>, in seconds.</summary>
     float SoundDuration(string sample);
+
+    /// <summary>
+    /// <c>PrecacheSound( sample, preload, false )</c>: the wave into the
+    /// sound precache table (plan_server_native_v2 T4a, the precache path).
+    /// </summary>
+    bool PrecacheSound(string sample, bool preload);
+
+    /// <summary><c>IsSoundPrecached( sample )</c>.</summary>
+    bool IsSoundPrecached(string sample);
+
+    /// <summary><c>PrefetchSound( sample )</c>.</summary>
+    void PrefetchSound(string sample);
 }
 
 /// <summary><see cref="IVtableEngineSoundServer"/> over the engine's object, through its forwarders.</summary>
@@ -78,5 +90,26 @@ public sealed unsafe class EngineSoundServer : IVtableEngineSoundServer
     {
         fixed (byte* p = Vtable.Utf8(sample))
             return _fwd->GetSoundDuration(_self, p);
+    }
+
+    /// <inheritdoc/>
+    public bool PrecacheSound(string sample, bool preload)
+    {
+        fixed (byte* p = Vtable.Utf8(sample))
+            return _fwd->PrecacheSound(_self, p, preload ? (byte)1 : (byte)0, 0) != 0;
+    }
+
+    /// <inheritdoc/>
+    public bool IsSoundPrecached(string sample)
+    {
+        fixed (byte* p = Vtable.Utf8(sample))
+            return _fwd->IsSoundPrecached(_self, p) != 0;
+    }
+
+    /// <inheritdoc/>
+    public void PrefetchSound(string sample)
+    {
+        fixed (byte* p = Vtable.Utf8(sample))
+            _fwd->PrefetchSound(_self, p);
     }
 }

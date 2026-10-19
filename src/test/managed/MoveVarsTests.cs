@@ -282,7 +282,7 @@ public class MoveVarsTests
             data.Add(d.Name, d.Name switch
             {
                 "phys_pushscale" => shared + "takedamageinfo_library.cpp",
-                "sv_soundemitter_trace" => shared + "sound_emitter.cpp",
+                "sv_soundemitter_trace" => "src/sourcesharp/game/client/sound_emitter.cpp",
                 "english" => "src/sourcesharp/game/client/shell_hud_framework.cpp",
                 _ => shared + "movevars_shared.cpp",
             });

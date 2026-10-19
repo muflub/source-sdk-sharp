@@ -48,10 +48,10 @@ TEST( FwdShimAreas, ShimModelsServerIs4Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimPrecacheIs3Slots )
+TEST( FwdShimAreas, ShimPrecacheIs2Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimPrecache::PrecacheDecal ).slot + 1;
-	EXPECT_EQ( 3, compiler );
+	EXPECT_EQ( 2, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimPrecache" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

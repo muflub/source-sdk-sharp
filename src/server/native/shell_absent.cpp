@@ -114,7 +114,6 @@
 #include "ss_soundent.h"
 #include "igamerules.h"
 #include "ss_precache_register.h"
-#include "gamesound.h"
 #include "ss_effect_dispatch.h"
 #include "sourcesharp.h"
 #include "imanaged_areas.h"   // plan_engineapi_vtables E17: the server's IManagedPlayerCommands
@@ -258,19 +257,26 @@ void UTIL_BloodSpray( const Vector &pos, const Vector &dir, int color, int amoun
 // The TF_DLL arm went with the file rather than being carried: it precached
 // three models for tempfx, and this mod is not TF.
 //-----------------------------------------------------------------------------
+//
+// The script precache is the managed SoundEmitterSystem's
+// (plan_server_native_v2 T4a, the precache path), through the load's area.
 void EffectsPrecache( void *pUser )
 {
-	GameSound_PrecacheScript( "Underwater.BulletImpact" );
+	IManagedSoundEmitter *pEmitter = ManagedSoundEmitter();
+	if ( !pEmitter )
+		return;
 
-	GameSound_PrecacheScript( "FX_RicochetSound.Ricochet" );
+	pEmitter->ServerPrecacheScriptSound( "Underwater.BulletImpact" );
 
-	GameSound_PrecacheScript( "Physics.WaterSplash" );
-	GameSound_PrecacheScript( "BaseExplosionEffect.Sound" );
-	GameSound_PrecacheScript( "Splash.SplashSound" );
+	pEmitter->ServerPrecacheScriptSound( "FX_RicochetSound.Ricochet" );
+
+	pEmitter->ServerPrecacheScriptSound( "Physics.WaterSplash" );
+	pEmitter->ServerPrecacheScriptSound( "BaseExplosionEffect.Sound" );
+	pEmitter->ServerPrecacheScriptSound( "Splash.SplashSound" );
 
 	if ( gpGlobals->maxClients > 1 )
 	{
-		GameSound_PrecacheScript( "HudChat.Message" );
+		pEmitter->ServerPrecacheScriptSound( "HudChat.Message" );
 	}
 }
 

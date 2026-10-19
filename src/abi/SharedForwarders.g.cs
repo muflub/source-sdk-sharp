@@ -65,7 +65,7 @@ internal unsafe struct ModelInfoFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IBaseFileSystem</c> through its forwarders (SSFwd_BaseFileSystem): 7 slot(s).
+/// <c>IBaseFileSystem</c> through its forwarders (SSFwd_BaseFileSystem): 8 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct BaseFileSystemFwd : IForwarderTable
@@ -93,6 +93,9 @@ internal unsafe struct BaseFileSystemFwd : IForwarderTable
 
     // void IBaseFileSystem::Close( FileHandle_t )
     public delegate* unmanaged<void*, void*, void> Close;
+
+    // int IBaseFileSystem::Write( void const *, int, FileHandle_t )
+    public delegate* unmanaged<void*, void*, int, void*, int> Write;
 }
 
 /// <summary>
@@ -165,7 +168,7 @@ internal unsafe struct NetworkStringTableFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>ISoundEmitterSystemBase</c> through its forwarders (SSFwd_SoundEmitterSystem): 9 slot(s).
+/// <c>ISoundEmitterSystemBase</c> through its forwarders (SSFwd_SoundEmitterSystem): 18 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct SoundEmitterSystemFwd : IForwarderTable
@@ -199,6 +202,33 @@ internal unsafe struct SoundEmitterSystemFwd : IForwarderTable
 
     // soundlevel_t ISoundEmitterSystemBase::LookupSoundLevel( const char * )
     public delegate* unmanaged<void*, byte*, int> LookupSoundLevel;
+
+    // bool ISoundEmitterSystemBase::ModInit( void )
+    public delegate* unmanaged<void*, byte> ModInit;
+
+    // void ISoundEmitterSystemBase::ModShutdown( void )
+    public delegate* unmanaged<void*, void> ModShutdown;
+
+    // void ISoundEmitterSystemBase::AddSoundOverrides( char const *, bool )
+    public delegate* unmanaged<void*, byte*, byte, void> AddSoundOverrides;
+
+    // void ISoundEmitterSystemBase::ClearSoundOverrides( void )
+    public delegate* unmanaged<void*, void> ClearSoundOverrides;
+
+    // void ISoundEmitterSystemBase::Flush( void )
+    public delegate* unmanaged<void*, void> Flush;
+
+    // int ISoundEmitterSystemBase::First( void )
+    public delegate* unmanaged<void*, int> First;
+
+    // int ISoundEmitterSystemBase::Next( int )
+    public delegate* unmanaged<void*, int, int> Next;
+
+    // int ISoundEmitterSystemBase::InvalidIndex( void )
+    public delegate* unmanaged<void*, int> InvalidIndex;
+
+    // bool ISoundEmitterSystemBase::IsValidIndex( int )
+    public delegate* unmanaged<void*, int, byte> IsValidIndex;
 }
 
 /// <summary>
@@ -884,7 +914,7 @@ internal unsafe struct ShimFrameFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimLevel</c> through its forwarders (SSFwd_ShimLevel): 26 slot(s).
+/// <c>IShimLevel</c> through its forwarders (SSFwd_ShimLevel): 27 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimLevelFwd : IForwarderTable
@@ -969,6 +999,9 @@ internal unsafe struct ShimLevelFwd : IForwarderTable
 
     // int32_t IShimLevel::SpawnWorld( const char * const *, const char * const *, int32_t )
     public delegate* unmanaged<void*, void*, void*, int, int> SpawnWorld;
+
+    // int32_t IShimLevel::IsPrecacheAllowed( void )
+    public delegate* unmanaged<void*, int> IsPrecacheAllowed;
 }
 
 /// <summary>
@@ -1200,7 +1233,7 @@ internal unsafe struct ShimModelsServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimPrecache</c> through its forwarders (SSFwd_ShimPrecache): 3 slot(s).
+/// <c>IShimPrecache</c> through its forwarders (SSFwd_ShimPrecache): 2 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimPrecacheFwd : IForwarderTable
@@ -1210,9 +1243,6 @@ internal unsafe struct ShimPrecacheFwd : IForwarderTable
 
     // int32_t IShimPrecache::PrecacheModel( const char * )
     public delegate* unmanaged<void*, byte*, int> PrecacheModel;
-
-    // void IShimPrecache::PrecacheSound( const char * )
-    public delegate* unmanaged<void*, byte*, void> PrecacheSound;
 
     // int32_t IShimPrecache::PrecacheDecal( const char * )
     public delegate* unmanaged<void*, byte*, int> PrecacheDecal;

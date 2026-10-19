@@ -182,6 +182,17 @@ INTERFACES = [
              'by arithmetic instead of by name.',
     ),
     dict(
+        struct='FileSystemVtbl',
+        header='src/public/filesystem.h',
+        chain=['IAppSystem', 'IFileSystem'],
+        chain_headers={'IAppSystem': APP},
+        version='VFileSystem022',
+        summary='<c>IFileSystem</c>\'s own methods, over <c>IAppSystem</c>\'s five.',
+        note='Only CreateDirHierarchy is forwarded (plan_server_native_v2 T4a, the '
+             '-makereslists precache log\'s directory): what IBaseFileSystem, the '
+             'second base, declares is BaseFileSystemVtbl\'s, under its own name.',
+    ),
+    dict(
         struct='EngineClientVtbl',
         exposed=True,
         header='src/public/cdll_int.h',
@@ -1315,6 +1326,10 @@ DEFINES = {
 
     'DEDICATED': False,
     'SWDS': False,
+
+    # filesystem.h's blocking-i/o tracker (FileSystemVtbl): nothing in the
+    # SDK or this build's compile lines defines it.
+    'TRACK_BLOCKING_IO': False,
     'CLIENT_DLL': None,   # side-dependent: a declaration gated on it is refused
     'GAME_DLL': None,
 }

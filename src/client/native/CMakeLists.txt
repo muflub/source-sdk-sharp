@@ -178,7 +178,7 @@ set(client_sourcesharp_sources
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_savegame.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_shared.cpp
     ${PROJECT_SOURCE_DIR}/src/shared/native/shell_vtable_interfaces.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/sound_emitter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/sound_emitter.cpp
     # docs/todo.md's console capture: the IConsoleDisplayFunc that forwards the
     # engine's prints to the load's IManagedConsoleOutputClient; installed/removed
     # by sourcesharp_gamesystem.cpp, its only includer.

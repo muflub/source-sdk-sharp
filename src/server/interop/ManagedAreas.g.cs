@@ -170,6 +170,8 @@ public unsafe interface IManagedSoundEmitter
 {
     void ServerMoveSound(int a0, void* a1, int a2, byte* a3, float a4, int a5, int a6, int a7);
     void ServerMoveSoundScript(int a0, void* a1, byte* a2);
+    byte ServerSoundSystemInit();
+    void ServerPrecacheScriptSound(byte* a0);
 }
 
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>

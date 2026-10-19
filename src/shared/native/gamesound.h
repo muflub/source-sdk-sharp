@@ -140,6 +140,10 @@ void GameSound_EmitCloseCaption( IRecipientFilter& filter, int entindex, char co
 // Precaching and prefetching. The *Script forms go through the soundscript
 // system and are what map logic should use; the bare forms hand a wave name
 // straight to the engine and warn when they are used outside precaching.
+//
+// The CLIENT's: sound_emitter.cpp, which defines them, is client.so's alone.
+// The server's precache is the managed SoundEmitterSystem's
+// (plan_server_native_v2 T4a), reached through IManagedSoundEmitter.
 //-----------------------------------------------------------------------------
 HSOUNDSCRIPTHANDLE GameSound_PrecacheScript( const char *soundname );
 // GameSound_PrefetchScript went (plan_server_native_min P1): declared and

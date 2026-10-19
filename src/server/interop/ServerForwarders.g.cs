@@ -13,6 +13,19 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
+/// <c>IFileSystem</c> through its forwarders (SSFwd_FileSystem): 1 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FileSystemFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_FileSystem";
+
+    // void IFileSystem::CreateDirHierarchy( const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, void> CreateDirHierarchy;
+}
+
+/// <summary>
 /// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 21 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
@@ -102,7 +115,7 @@ internal unsafe struct NetChannelInfoFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IEngineSound</c> through its forwarders (SSFwd_EngineSound): 3 slot(s).
+/// <c>IEngineSound</c> through its forwarders (SSFwd_EngineSound): 6 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineSoundFwd : IForwarderTable
@@ -118,6 +131,15 @@ internal unsafe struct EngineSoundFwd : IForwarderTable
 
     // float IEngineSound::GetSoundDuration( const char * )
     public delegate* unmanaged<void*, byte*, float> GetSoundDuration;
+
+    // bool IEngineSound::PrecacheSound( const char *, bool, bool )
+    public delegate* unmanaged<void*, byte*, byte, byte, byte> PrecacheSound;
+
+    // bool IEngineSound::IsSoundPrecached( const char * )
+    public delegate* unmanaged<void*, byte*, byte> IsSoundPrecached;
+
+    // void IEngineSound::PrefetchSound( const char * )
+    public delegate* unmanaged<void*, byte*, void> PrefetchSound;
 }
 
 /// <summary>

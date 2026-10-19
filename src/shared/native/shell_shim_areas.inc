@@ -73,8 +73,6 @@ void CShimModelsServer::EntitySetModel( uint32_t hEntity, const char * pModel )
 
 int32_t CShimPrecache::PrecacheModel( const char * pszModel )
 	{ return ::SourceSharp_PrecacheModel( pszModel ); }
-void CShimPrecache::PrecacheSound( const char * pSoundName )
-	{ return ::SourceSharp_PrecacheSound( pSoundName ); }
 int32_t CShimPrecache::PrecacheDecal( const char * pName )
 	{ return ::SourceSharp_PrecacheDecal( pName ); }
 

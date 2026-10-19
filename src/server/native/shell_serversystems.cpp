@@ -95,6 +95,7 @@ extern IMDLCache *mdlcache;
 
 #include "sourcesharp.h"
 #include "managed_runtime_server.h"
+#include "imanaged_areas.h"   // plan_server_native_v2 T4a: the sound emitter system's Init, run first by the managed row
 
 
 //-----------------------------------------------------------------------------
@@ -112,7 +113,6 @@ extern IMDLCache *mdlcache;
 //-----------------------------------------------------------------------------
 CServerSystem *GameStringSystem();
 CServerSystem *PhysicsGameSystem();
-CServerSystem *SoundEmitterSystem();
 CServerSystem *GameLogSystem();
 
 // "Due to dependencies, these are not autogamesystems" -- stock's comment, at
@@ -147,9 +147,28 @@ public:
 	// It bound the physics event ring's sink until plan_physics_bones_native_zero
 	// 2.3: the ring's last producer was PhysFrame, which is managed's now, and
 	// its events are posted to the router there with no crossing.
+	//
+	// WHAT IT DOES RUN IS THE SOUND EMITTER SYSTEM'S INIT, FIRST -- the row
+	// above this one until plan_server_native_v2 T4a's precache path, which
+	// made the system managed (SoundEmitterSystem: the script table's
+	// ModInit). So it runs where its row ran, before anything of this row's,
+	// and its answer is this row's: a table that will not load stops the
+	// server as the native row's false did. Its other stages are managed's
+	// own, at the same edges: the level's overrides and preload first in
+	// IManagedRuntimeServer::OnMapLoadPreEntity, the level's end last in
+	// IManagedFrame::LevelShutdown, and its Shutdown last in the managed
+	// side's final unload, which DLLShutdown runs before this table's walk.
 	virtual bool Init() OVERRIDE
 	{
-		return true;
+		IManagedSoundEmitter *pEmitter = ManagedSoundEmitter();
+		if ( !pEmitter )
+		{
+			Warning( "[SourceSharp] SourceSharpManaged: no IManagedSoundEmitter, so the sound "
+			         "scripts cannot load\n" );
+			return false;
+		}
+
+		return pEmitter->ServerSoundSystemInit();
 	}
 
 	// The teardown is DLLShutdown's -- OnSystemStop, then UnloadManagedRuntime,
@@ -293,7 +312,11 @@ static const ServerSystemRow_t kServerSystems[] =
 	// `{ "CPostFrameNavigationHook", PostFrameNavigationGameSystem }` STOOD
 	// HERE and went with the hook (plan_server_native_min P1): its whole body
 	// was a bool toggle nothing read.
-	{ "CSoundEmitterSystem",              SoundEmitterSystem },
+	// `{ "CSoundEmitterSystem", SoundEmitterSystem }` STOOD HERE and went with
+	// the system (plan_server_native_v2 T4a, the precache path): it is managed
+	// (SoundEmitterSystem), and the SourceSharpManaged row below runs its Init
+	// first and its other stages at the managed edges that row reaches, so
+	// every stage runs where the row's did.
 	// `{ "CCheckClient", CheckClientGameSystem }` STOOD HERE and went with the
 	// system (plan_server_native_min P1): its two PVS bitsets had no reader and
 	// its walk skipped every candidate.

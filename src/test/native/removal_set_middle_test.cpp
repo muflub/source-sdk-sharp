@@ -13,7 +13,7 @@
 //
 //   game/shared/baseentity_shared.cpp     78 definitions  (77 server / 78 client)
 //   game/shared/physics_main_shared.cpp   42 definitions  (42 / 42)
-//   sourcesharp/game/shared/sound_emitter.cpp     9 definitions  ( 9 /  5)
+//   sourcesharp/game/client/sound_emitter.cpp     9 definitions  ( 9 /  5)
 //
 // ONE HUNDRED AND TWENTY-NINE definitions were classified, each of them by
 // asking the COMPILER rather than by reading: every non-virtual member was
